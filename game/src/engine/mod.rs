@@ -79,7 +79,7 @@ impl BishopApp for Engine {
             self.update_async(raw_dt).await;
         }
 
-        // Drain audio commands pushed by scripts this frame.
+        // Drain audio commands pushed by scripts this frame
         self.audio_manager.poll(raw_dt);
 
         if self.is_playtest {

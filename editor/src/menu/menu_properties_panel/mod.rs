@@ -49,6 +49,12 @@ pub struct PropertiesWidgetIds {
     pub(crate) bg_alpha_id: WidgetId,
     pub(crate) mode_id: WidgetId,
     pub(crate) menu_name_id: WidgetId,
+    pub(crate) slider_text_id: WidgetId,
+    pub(crate) slider_key_id: WidgetId,
+    pub(crate) slider_min_id: WidgetId,
+    pub(crate) slider_max_id: WidgetId,
+    pub(crate) slider_step_id: WidgetId,
+    pub(crate) slider_default_id: WidgetId,
 }
 
 /// Widget IDs for nav dropdowns.
@@ -142,7 +148,9 @@ impl MenuEditor {
             MenuElementKind::LayoutGroup(_) => {
                 self.draw_layout_group_properties(ctx, &mut y, content_x, content_w, blocked, &rect);
             }
-            MenuElementKind::Slider(_) => {}
+            MenuElementKind::Slider(_) => {
+                self.draw_slider_properties(ctx, &mut y, content_x, content_w, blocked, &rect);
+            }
         }
 
         self.properties_panel.last_content_height = y - start_y + 16.0;

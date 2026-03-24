@@ -21,7 +21,7 @@ impl ScriptSystem {
         if let Err(e) = Self::register_engine_module(lua) {
             onscreen_error!("Error registering engine module: {e}")
         };
-        
+
         // Run main.lua after registering `engine`
         if let Err(e) = Self::load_main(lua) {
             onscreen_error!("Main failed: {e}");

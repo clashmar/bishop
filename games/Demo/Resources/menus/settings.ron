@@ -1,5 +1,5 @@
 (
-    id: "start",
+    id: "settings",
     background: Dimmed(0.7),
     elements: [
         /*[0]*/ (
@@ -18,29 +18,32 @@
                         horizontal: Center,
                         vertical: Middle,
                     ),
-                    item_width: 200.0,
+                    item_width: 300.0,
                     item_height: 40.0,
                 ),
                 children: [
                     /*[0]*/ (
                         element: (
-                            name: "Pause",
-                            kind: Label((
-                                text_key: "Pause",
-                                font_size: 24.0,
-                                color: (
-                                    r: 1.0,
-                                    g: 1.0,
-                                    b: 1.0,
-                                    a: 1.0,
+                            name: "",
+                            kind: Slider((
+                                text_key: "Master",
+                                key: "master_volume",
+                                min: 0.0,
+                                max: 1.0,
+                                step: 0.05,
+                                default_value: 1.0,
+                                nav_targets: (
+                                    up: None,
+                                    down: None,
+                                    left: None,
+                                    right: None,
                                 ),
-                                alignment: Center,
                             )),
                             rect: (
-                                x: 0.11101067,
-                                y: 0.05969298,
-                                w: 0.1,
-                                h: 0.03,
+                                x: 0.13682282,
+                                y: 0.19312176,
+                                w: 0.2,
+                                h: 0.037,
                             ),
                             enabled: true,
                             visible: true,
@@ -51,10 +54,13 @@
                     /*[1]*/ (
                         element: (
                             name: "",
-                            kind: Button((
-                                text_key: "Settings",
-                                action: OpenMenu("settings"),
-                                font_size: 20.0,
+                            kind: Slider((
+                                text_key: "Music",
+                                key: "music_volume",
+                                min: 0.0,
+                                max: 1.0,
+                                step: 0.05,
+                                default_value: 1.0,
                                 nav_targets: (
                                     up: None,
                                     down: None,
@@ -63,9 +69,9 @@
                                 ),
                             )),
                             rect: (
-                                x: 0.14793742,
-                                y: 0.23101828,
-                                w: 0.1,
+                                x: 0.22458607,
+                                y: 0.13464046,
+                                w: 0.2,
                                 h: 0.037,
                             ),
                             enabled: true,
@@ -76,9 +82,38 @@
                     ),
                     /*[2]*/ (
                         element: (
-                            name: "Resume",
+                            name: "",
+                            kind: Slider((
+                                text_key: "SFX",
+                                key: "sfx_volume",
+                                min: 0.0,
+                                max: 1.0,
+                                step: 0.05,
+                                default_value: 1.0,
+                                nav_targets: (
+                                    up: None,
+                                    down: None,
+                                    left: None,
+                                    right: None,
+                                ),
+                            )),
+                            rect: (
+                                x: 0.20863205,
+                                y: 0.15874991,
+                                w: 0.2,
+                                h: 0.037,
+                            ),
+                            enabled: true,
+                            visible: true,
+                            z_order: 0,
+                        ),
+                        managed: true,
+                    ),
+                    /*[3]*/ (
+                        element: (
+                            name: "",
                             kind: Button((
-                                text_key: "Resume",
+                                text_key: "Back",
                                 action: CloseMenu,
                                 font_size: 20.0,
                                 nav_targets: (
@@ -89,8 +124,8 @@
                                 ),
                             )),
                             rect: (
-                                x: 0.14700973,
-                                y: 0.1310237,
+                                x: 0.110198855,
+                                y: 0.08815569,
                                 w: 0.1,
                                 h: 0.037,
                             ),
@@ -105,14 +140,14 @@
                 nav_targets: (
                     up: None,
                     down: None,
-                    left: Some(1),
+                    left: None,
                     right: None,
                 ),
             )),
             rect: (
-                x: 0.375,
+                x: 0.30694216,
                 y: 0.35,
-                w: 0.25,
+                w: 0.38611567,
                 h: 0.3,
             ),
             enabled: true,

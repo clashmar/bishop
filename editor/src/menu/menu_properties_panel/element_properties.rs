@@ -258,6 +258,100 @@ impl MenuEditor {
         }
     }
 
+    pub(super) fn draw_slider_properties(
+        &mut self,
+        ctx: &mut WgpuContext,
+        y: &mut f32,
+        x: f32,
+        w: f32,
+        blocked: bool,
+        clip: &Rect,
+    ) {
+        let (text_key, key, min, max, step, default_value) = {
+            let Some(element) = self.selected_element() else { return };
+            let MenuElementKind::Slider(slider) = &element.kind else { return };
+            (slider.text_key.clone(), slider.key.clone(), slider.min, slider.max, slider.step, slider.default_value)
+        };
+
+        // Text key
+        if row_visible(*y, ROW_HEIGHT, clip) {
+            ctx.draw_text("Label:", x, *y + 16.0, 12.0, Color::WHITE);
+            let field_rect = Rect::new(x + LABEL_WIDTH, *y, w - LABEL_WIDTH, FIELD_HEIGHT);
+            let (new_val, _) = TextInput::new(self.properties_panel.widget_ids.slider_text_id, field_rect, &text_key).blocked(blocked).show(ctx);
+            if new_val != text_key {
+                self.push_element_update(|el| {
+                    if let MenuElementKind::Slider(s) = &mut el.kind { s.text_key = new_val; }
+                });
+            }
+        }
+        *y += ROW_HEIGHT;
+
+        // Key
+        if row_visible(*y, ROW_HEIGHT, clip) {
+            ctx.draw_text("Key:", x, *y + 16.0, 12.0, Color::WHITE);
+            let field_rect = Rect::new(x + LABEL_WIDTH, *y, w - LABEL_WIDTH, FIELD_HEIGHT);
+            let (new_val, _) = TextInput::new(self.properties_panel.widget_ids.slider_key_id, field_rect, &key).blocked(blocked).show(ctx);
+            if new_val != key {
+                self.push_element_update(|el| {
+                    if let MenuElementKind::Slider(s) = &mut el.kind { s.key = new_val; }
+                });
+            }
+        }
+        *y += ROW_HEIGHT;
+
+        // Min
+        if row_visible(*y, ROW_HEIGHT, clip) {
+            ctx.draw_text("Min:", x, *y + 16.0, 12.0, Color::WHITE);
+            let field_rect = Rect::new(x + LABEL_WIDTH, *y, 80.0, FIELD_HEIGHT);
+            let new_val = NumberInput::new(self.properties_panel.widget_ids.slider_min_id, field_rect, min).blocked(blocked).show(ctx);
+            if (new_val - min).abs() > f32::EPSILON {
+                self.push_element_update(|el| {
+                    if let MenuElementKind::Slider(s) = &mut el.kind { s.min = new_val; }
+                });
+            }
+        }
+        *y += ROW_HEIGHT;
+
+        // Max
+        if row_visible(*y, ROW_HEIGHT, clip) {
+            ctx.draw_text("Max:", x, *y + 16.0, 12.0, Color::WHITE);
+            let field_rect = Rect::new(x + LABEL_WIDTH, *y, 80.0, FIELD_HEIGHT);
+            let new_val = NumberInput::new(self.properties_panel.widget_ids.slider_max_id, field_rect, max).blocked(blocked).show(ctx);
+            if (new_val - max).abs() > f32::EPSILON {
+                self.push_element_update(|el| {
+                    if let MenuElementKind::Slider(s) = &mut el.kind { s.max = new_val; }
+                });
+            }
+        }
+        *y += ROW_HEIGHT;
+
+        // Step
+        if row_visible(*y, ROW_HEIGHT, clip) {
+            ctx.draw_text("Step:", x, *y + 16.0, 12.0, Color::WHITE);
+            let field_rect = Rect::new(x + LABEL_WIDTH, *y, 80.0, FIELD_HEIGHT);
+            let new_val = NumberInput::new(self.properties_panel.widget_ids.slider_step_id, field_rect, step).blocked(blocked).min(0.001).show(ctx);
+            if (new_val - step).abs() > f32::EPSILON {
+                self.push_element_update(|el| {
+                    if let MenuElementKind::Slider(s) = &mut el.kind { s.step = new_val; }
+                });
+            }
+        }
+        *y += ROW_HEIGHT;
+
+        // Default value
+        if row_visible(*y, ROW_HEIGHT, clip) {
+            ctx.draw_text("Default:", x, *y + 16.0, 12.0, Color::WHITE);
+            let field_rect = Rect::new(x + LABEL_WIDTH, *y, 80.0, FIELD_HEIGHT);
+            let new_val = NumberInput::new(self.properties_panel.widget_ids.slider_default_id, field_rect, default_value).blocked(blocked).show(ctx);
+            if (new_val - default_value).abs() > f32::EPSILON {
+                self.push_element_update(|el| {
+                    if let MenuElementKind::Slider(s) = &mut el.kind { s.default_value = new_val; }
+                });
+            }
+        }
+        *y += ROW_HEIGHT;
+    }
+
     pub(super) fn draw_panel_properties(
         &mut self,
         ctx: &mut WgpuContext,

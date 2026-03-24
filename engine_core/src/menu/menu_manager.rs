@@ -357,6 +357,8 @@ impl MenuManager {
         let split = screen_rect.w * 0.4;
         let label_rect = Rect::new(screen_rect.x, screen_rect.y, split, screen_rect.h);
         let slider_rect = Rect::new(screen_rect.x + split, screen_rect.y, screen_rect.w - split, screen_rect.h);
+        let label_bg = if is_focused { HOVER_COLOR } else { FIELD_BACKGROUND_COLOR };
+        ctx.draw_rectangle(label_rect.x, label_rect.y, label_rect.w, label_rect.h, label_bg);
         // SliderElement doesn't embed label styling; defaults are used for now
         let display_text = text_manager.resolve_ui_text(text_id, &slider.text_key);
         let label = LabelElement::default();
@@ -367,9 +369,8 @@ impl MenuManager {
             slider_values.insert(slider.key.clone(), new_value);
             push_slider_event(slider.key.clone(), new_value);
         }
-        if is_focused {
-            ctx.draw_rectangle_lines(screen_rect.x, screen_rect.y, screen_rect.w, screen_rect.h, 2.0, Color::WHITE);
-        }
+        let outline_color = if is_focused { Color::WHITE } else { Color::new(0.5, 0.5, 0.5, 1.0) };
+        ctx.draw_rectangle_lines(screen_rect.x, screen_rect.y, screen_rect.w, screen_rect.h, 2.0, outline_color);
     }
 
     fn handle_action(&mut self, action: MenuAction) {

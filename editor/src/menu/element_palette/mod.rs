@@ -54,6 +54,18 @@ impl ElementPalette {
             }));
         }
 
+        if self.draw_palette_item(ctx, rect, &mut y, "Slider", blocked).is_some() {
+            clicked_kind = Some(MenuElementKind::Slider(SliderElement {
+                text_key: "slider".to_string(),
+                key: "slider_key".to_string(),
+                min: 0.0,
+                max: 1.0,
+                step: 0.05,
+                default_value: 1.0,
+                ..Default::default()
+            }));
+        }
+
         if self.draw_palette_item(ctx, rect, &mut y, "Panel", blocked).is_some() {
             clicked_kind = Some(MenuElementKind::Panel(PanelElement::default()));
         }
@@ -123,7 +135,7 @@ impl ElementPalette {
 
     fn calculate_content_height(&self) -> f32 {
         let header_height = 24.0;
-        let item_count = 4;
+        let item_count = 5;
         let items_height = (PALETTE_ITEM_HEIGHT + PALETTE_SPACING) * item_count as f32;
         header_height + items_height + 16.0
     }

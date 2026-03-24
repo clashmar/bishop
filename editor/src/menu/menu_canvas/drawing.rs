@@ -282,7 +282,29 @@ impl MenuEditor {
                 let text_y = element_rect.y + (element_rect.h - text_dims.height) / 2.0 + text_dims.offset_y;
                 ctx.draw_text(text, text_x, text_y, label.font_size, label.color);
             }
-            MenuElementKind::Slider(_) => {}
+            MenuElementKind::Slider(slider) => {
+                // Draw label area (left 40%) and track area (right 60%)
+                let split = element_rect.w * 0.4;
+                let track_rect = Rect::new(element_rect.x + split, element_rect.y, element_rect.w - split, element_rect.h);
+                let track_h = element_rect.h * 0.2;
+                let track_y = element_rect.y + (element_rect.h - track_h) * 0.5;
+
+                ctx.draw_rectangle(track_rect.x, track_rect.y, track_rect.w, track_rect.h, Color::new(0.15, 0.15, 0.18, 1.0));
+                ctx.draw_rectangle(track_rect.x, track_y, track_rect.w, track_h, Color::new(0.2, 0.2, 0.2, 0.8));
+
+                let text_dims = ctx.measure_text(&slider.text_key, 14.0);
+                let text_y = element_rect.y + (element_rect.h - text_dims.height) * 0.5 + text_dims.offset_y;
+                ctx.draw_text(&slider.text_key, element_rect.x + 4.0, text_y, 14.0, Color::WHITE);
+
+                if !preview {
+                    let outline_color = if is_selected {
+                        Color::new(0.6, 0.8, 1.0, 1.0)
+                    } else {
+                        Color::new(0.5, 0.5, 0.5, 1.0)
+                    };
+                    ctx.draw_rectangle_lines(element_rect.x, element_rect.y, element_rect.w, element_rect.h, if is_selected { 2.0 } else { 1.0 }, outline_color);
+                }
+            }
             MenuElementKind::Panel(panel) => {
                 ctx.draw_rectangle(
                     element_rect.x,

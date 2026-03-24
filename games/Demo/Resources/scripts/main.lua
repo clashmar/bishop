@@ -3,17 +3,14 @@ engine.game_manager = GameManager
 
 local input = require("_engine.input")
 
-engine.on("slider:master_volume", function(value)
-    engine.audio.set_master_volume(value)
-end)
-engine.on("slider:music_volume", function(value)
-    engine.audio.set_music_volume(value)
-end)
-engine.on("slider:sfx_volume", function(value)
-    engine.audio.set_sfx_volume(value)
-end)
+local AudioSettings = require("audio_settings")
+local audio_initialized = false
 
 engine.update = function(dt)
+    if not audio_initialized then
+        AudioSettings.init()
+        audio_initialized = true
+    end
     if engine.input.pressed(input.M) then
         engine.menu.open("start")
     end
