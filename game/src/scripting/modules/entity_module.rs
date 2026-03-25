@@ -100,6 +100,9 @@ pub enum EntityHandleMethod {
     Say(SayMethod),
     ClearSpeech(ClearSpeechMethod),
     IsSpeaking(IsSpeakingMethod),
+    PlaySound(PlaySoundMethod),
+    StopSound(StopSoundMethod),
+    SetSoundVolume(SetSoundVolumeMethod),
 }
 
 /// Returns all entity handle methods.
@@ -122,6 +125,9 @@ fn entity_handle_methods() -> Vec<EntityHandleMethod> {
         EntityHandleMethod::Say(SayMethod),
         EntityHandleMethod::ClearSpeech(ClearSpeechMethod),
         EntityHandleMethod::IsSpeaking(IsSpeakingMethod),
+        EntityHandleMethod::PlaySound(PlaySoundMethod),
+        EntityHandleMethod::StopSound(StopSoundMethod),
+        EntityHandleMethod::SetSoundVolume(SetSoundVolumeMethod),
     ]
 }
 
@@ -145,6 +151,9 @@ impl LuaMethod<EntityHandle> for EntityHandleMethod {
             EntityHandleMethod::Say(m) => m.register(methods),
             EntityHandleMethod::ClearSpeech(m) => m.register(methods),
             EntityHandleMethod::IsSpeaking(m) => m.register(methods),
+            EntityHandleMethod::PlaySound(m) => m.register(methods),
+            EntityHandleMethod::StopSound(m) => m.register(methods),
+            EntityHandleMethod::SetSoundVolume(m) => m.register(methods),
         }
     }
 
@@ -167,6 +176,9 @@ impl LuaMethod<EntityHandle> for EntityHandleMethod {
             EntityHandleMethod::Say(m) => m.emit_api(out),
             EntityHandleMethod::ClearSpeech(m) => m.emit_api(out),
             EntityHandleMethod::IsSpeaking(m) => m.emit_api(out),
+            EntityHandleMethod::PlaySound(m) => m.emit_api(out),
+            EntityHandleMethod::StopSound(m) => m.emit_api(out),
+            EntityHandleMethod::SetSoundVolume(m) => m.emit_api(out),
         }
     }
 }
@@ -714,6 +726,87 @@ impl LuaMethod<EntityHandle> for IsSpeakingMethod {
         out.line("--- Checks if the entity currently has a speech bubble.");
         out.line("---@return boolean");
         out.line(&format!("function Entity:{}() end", IS_SPEAKING));
+        out.line("");
+    }
+}
+
+/// Method: `entity:play_sound()`
+pub struct PlaySoundMethod;
+impl LuaMethod<EntityHandle> for PlaySoundMethod {
+    fn register<M: UserDataMethods<EntityHandle>>(&self, methods: &mut M) {
+        methods.add_method(ENTITY_PLAY_SOUND, |lua, this, ()| {
+            let ctx = LuaGameCtx::borrow_ctx(lua)?;
+            let game_instance = ctx.game_instance.borrow();
+            let ecs = &game_instance.game.ecs;
+            let Some(source) = ecs.get::<AudioSource>(this.entity) else {
+                return Ok(());
+            };
+            if source.looping {
+                push_audio_command(AudioCommand::PlayLoop {
+                    handle: *this.entity as u64,
+                    sounds: source.sounds.clone(),
+                    volume: source.volume,
+                    pitch_variation: source.pitch_variation,
+                    volume_variation: source.volume_variation,
+                });
+            } else {
+                push_audio_command(AudioCommand::PlayVariedSfx {
+                    sounds: source.sounds.clone(),
+                    volume: source.volume,
+                    pitch_variation: source.pitch_variation,
+                    volume_variation: source.volume_variation,
+                });
+            }
+            Ok(())
+        });
+    }
+
+    fn emit_api(&self, out: &mut LuaApiWriter) {
+        out.line("--- Plays the sounds configured on this entity's AudioSource component.");
+        out.line("--- If the AudioSource is looping, starts a loop tracked by the entity ID.");
+        out.line("--- If one-shot, plays with the configured pitch/volume variation.");
+        out.line(&format!("function Entity:{}() end", ENTITY_PLAY_SOUND));
+        out.line("");
+    }
+}
+
+/// Method: `entity:stop_sound()`
+pub struct StopSoundMethod;
+impl LuaMethod<EntityHandle> for StopSoundMethod {
+    fn register<M: UserDataMethods<EntityHandle>>(&self, methods: &mut M) {
+        methods.add_method(ENTITY_STOP_SOUND, |_lua, this, ()| {
+            push_audio_command(AudioCommand::StopLoop(*this.entity as u64));
+            Ok(())
+        });
+    }
+
+    fn emit_api(&self, out: &mut LuaApiWriter) {
+        out.line("--- Stops a looping sound started by this entity's AudioSource.");
+        out.line(&format!("function Entity:{}() end", ENTITY_STOP_SOUND));
+        out.line("");
+    }
+}
+
+/// Method: `entity:set_sound_volume(v)`
+pub struct SetSoundVolumeMethod;
+impl LuaMethod<EntityHandle> for SetSoundVolumeMethod {
+    fn register<M: UserDataMethods<EntityHandle>>(&self, methods: &mut M) {
+        methods.add_method(ENTITY_SET_SOUND_VOLUME, |lua, this, v: f32| {
+            let ctx = LuaGameCtx::borrow_ctx(lua)?;
+            let mut game_instance = ctx.game_instance.borrow_mut();
+            let ecs = &mut game_instance.game.ecs;
+            if let Some(source) = ecs.get_mut::<AudioSource>(this.entity) {
+                source.volume = v.clamp(0.0, 1.0);
+            }
+            Ok(())
+        });
+    }
+
+    fn emit_api(&self, out: &mut LuaApiWriter) {
+        out.line("--- Sets the volume on this entity's AudioSource (0.0–1.0).");
+        out.line("--- Takes effect on the next play_sound() call.");
+        out.line("---@param v number Volume in range 0.0–1.0");
+        out.line(&format!("function Entity:{}(v) end", ENTITY_SET_SOUND_VOLUME));
         out.line("");
     }
 }

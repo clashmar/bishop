@@ -72,6 +72,34 @@ impl LuaModule for AudioModule {
         })?;
         audio_tbl.set(AUDIO_UNLOAD, unload_fn)?;
 
+        let play_random_sfx_fn = lua.create_function(|_, sounds_table: Table| {
+            let sounds: Vec<String> = sounds_table
+                .sequence_values::<String>()
+                .filter_map(|r| r.ok())
+                .collect();
+            push_audio_command(AudioCommand::PlayVariedSfx {
+                sounds,
+                volume: 1.0,
+                pitch_variation: 0.0,
+                volume_variation: 0.0,
+            });
+            Ok(())
+        })?;
+        audio_tbl.set(AUDIO_PLAY_RANDOM_SFX, play_random_sfx_fn)?;
+
+        let play_sfx_varied_fn = lua.create_function(|_, (id, opts): (String, Option<Table>)| {
+            let pitch_variation = opts.as_ref().and_then(|t| t.get::<f32>("pitch").ok()).unwrap_or(0.0);
+            let volume_variation = opts.as_ref().and_then(|t| t.get::<f32>("volume_var").ok()).unwrap_or(0.0);
+            push_audio_command(AudioCommand::PlayVariedSfx {
+                sounds: vec![id],
+                volume: 1.0,
+                pitch_variation,
+                volume_variation,
+            });
+            Ok(())
+        })?;
+        audio_tbl.set(AUDIO_PLAY_SFX_VARIED, play_sfx_varied_fn)?;
+
         engine_tbl.set(LUA_AUDIO, audio_tbl)?;
         Ok(())
     }
@@ -119,6 +147,15 @@ impl LuaApi for AudioModule {
         out.line("--- Unpins a preloaded sound and evicts it from the cache if no components reference it.");
         out.line("---@param id string Path relative to Resources/audio/ without extension");
         out.line("function engine.audio.unload(id) end");
+        out.line("");
+        out.line("--- Picks one sound at random from the list and plays it as a one-shot with no variation.");
+        out.line("---@param sounds string[] Array of sound IDs");
+        out.line("function engine.audio.play_random_sfx(sounds) end");
+        out.line("");
+        out.line("--- Plays a single sound with optional pitch and volume variation.");
+        out.line("---@param id string Sound ID");
+        out.line("---@param opts? {pitch?: number, volume_var?: number}");
+        out.line("function engine.audio.play_sfx_varied(id, opts) end");
         out.line("");
     }
 }

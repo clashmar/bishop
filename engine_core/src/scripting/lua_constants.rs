@@ -85,6 +85,13 @@ pub const AUDIO_SET_MASTER_VOLUME: &str = "set_master_volume";
 pub const AUDIO_SET_MUSIC_VOLUME: &str = "set_music_volume";
 pub const AUDIO_SET_SFX_VOLUME: &str = "set_sfx_volume";
 pub const AUDIO_UNLOAD: &str = "unload";
+pub const AUDIO_PLAY_RANDOM_SFX: &str = "play_random_sfx";
+pub const AUDIO_PLAY_SFX_VARIED: &str = "play_sfx_varied";
+
+// Entity audio methods
+pub const ENTITY_PLAY_SOUND: &str = "play_sound";
+pub const ENTITY_STOP_SOUND: &str = "stop_sound";
+pub const ENTITY_SET_SOUND_VOLUME: &str = "set_sound_volume";
 
 
 
