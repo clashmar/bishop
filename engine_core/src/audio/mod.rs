@@ -165,15 +165,15 @@ impl AudioManager {
     }
 
     /// Increments reference counts for the given IDs, loading each sound if not already cached.
-    pub fn increment_refs(&mut self, ids: &[String]) {
+    pub(crate) fn increment_refs(&mut self, ids: &[String]) {
         for id in ids {
-            *self.ref_counts.entry(id.clone()).or_insert(0) += 1;
+            *self.ref_counts.entry(id.to_owned()).or_insert(0) += 1;
             self.load_or_cached(id);
         }
     }
 
     /// Decrements reference counts for the given IDs. Evicts unpinned sounds whose count reaches zero.
-    pub fn decrement_refs(&mut self, ids: &[String]) {
+    pub(crate) fn decrement_refs(&mut self, ids: &[String]) {
         for id in ids {
             let reached_zero = if let Some(count) = self.ref_counts.get_mut(id.as_str()) {
                 *count = count.saturating_sub(1);
@@ -259,7 +259,7 @@ impl BackgroundService for AudioManager {
                 AudioCommand::Unload(id) => {
                     self.pinned.remove(&id);
                     if !self.ref_counts.contains_key(&id) {
-                        self.sound_cache.remove(&id);
+                        self.evict(&id);
                     }
                 }
             }
