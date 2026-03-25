@@ -77,6 +77,10 @@ impl LuaModule for AudioModule {
                 .sequence_values::<String>()
                 .filter_map(|r| r.ok())
                 .collect();
+            if sounds.is_empty() {
+                log::warn!("play_random_sfx: sounds table is empty or contains no strings");
+                return Ok(());
+            }
             push_audio_command(AudioCommand::PlayVariedSfx {
                 sounds,
                 volume: 1.0,
@@ -88,7 +92,7 @@ impl LuaModule for AudioModule {
         audio_tbl.set(AUDIO_PLAY_RANDOM_SFX, play_random_sfx_fn)?;
 
         let play_sfx_varied_fn = lua.create_function(|_, (id, opts): (String, Option<Table>)| {
-            let pitch_variation = opts.as_ref().and_then(|t| t.get::<f32>("pitch").ok()).unwrap_or(0.0);
+            let pitch_variation = opts.as_ref().and_then(|t| t.get::<f32>("pitch_var").ok()).unwrap_or(0.0);
             let volume_variation = opts.as_ref().and_then(|t| t.get::<f32>("volume_var").ok()).unwrap_or(0.0);
             push_audio_command(AudioCommand::PlayVariedSfx {
                 sounds: vec![id],
@@ -154,7 +158,7 @@ impl LuaApi for AudioModule {
         out.line("");
         out.line("--- Plays a single sound with optional pitch and volume variation.");
         out.line("---@param id string Sound ID");
-        out.line("---@param opts? {pitch?: number, volume_var?: number}");
+        out.line("---@param opts? {pitch_var?: number, volume_var?: number}");
         out.line("function engine.audio.play_sfx_varied(id, opts) end");
         out.line("");
     }
