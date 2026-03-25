@@ -1,13 +1,10 @@
 // game/src/scripting/modules/engine_module.rs
 use crate::scripting::lua_ctx::LuaGameCtx;
-use engine_core::scripting::modules::lua_module::*;
-use engine_core::scripting::lua_constants::*;
-use engine_core::scripting::script::Script;
-use engine_core::ecs::component::*;
-use mlua::prelude::LuaResult;
-use mlua::MultiValue;
+use engine_core::register_lua_module;
 use engine_core::register_lua_api;
-use engine_core::*;
+use mlua::prelude::LuaResult;
+use engine_core::prelude::*;
+use mlua::MultiValue;
 use mlua::Function;
 use mlua::Variadic;
 use mlua::Value;
@@ -273,10 +270,8 @@ impl LuaModule for EngineModule {
 
         // engine.on(event, handler)
         let on_fn = lua.create_function(|lua, (event, handler): (String, Function)| {
-            let ctx = LuaGameCtx::borrow_ctx(lua)?;
-            let game_instance = ctx.game_instance.borrow();
-            let sm = &game_instance.game.script_manager;
-            let bus = sm.event_bus.clone();
+            let ud: mlua::AnyUserData = lua.globals().get(LUA_EVENT_BUS)?;
+            let bus = ud.borrow::<EventBus>()?;
             bus.on(event, handler);
             Ok(())
         })?;
@@ -284,10 +279,8 @@ impl LuaModule for EngineModule {
 
         // engine.emit(event, …)
         let emit_fn = lua.create_function(|lua, (event, args): (String, Variadic<Value>)| {
-            let ctx = LuaGameCtx::borrow_ctx(lua)?;
-            let game_instance = ctx.game_instance.borrow();
-            let sm = &game_instance.game.script_manager;
-            let bus = sm.event_bus.clone();
+            let ud: mlua::AnyUserData = lua.globals().get(LUA_EVENT_BUS)?;
+            let bus = ud.borrow::<EventBus>()?;
             bus.emit(event, args);
             Ok(())
         })?;

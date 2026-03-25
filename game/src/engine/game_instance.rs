@@ -56,7 +56,7 @@ impl GameInstance {
             grid_size
         );
 
-        ScriptSystem::init(lua);
+        ScriptSystem::init(lua, &game.script_manager.event_bus);
 
         Self {
             game,
@@ -93,7 +93,7 @@ impl GameInstance {
             grid_size
         );
 
-        ScriptSystem::init(lua);
+        ScriptSystem::init(lua, &game.script_manager.event_bus);
 
         Self {
             game,

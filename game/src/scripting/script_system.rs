@@ -16,13 +16,26 @@ pub struct ScriptSystem;
 
 impl ScriptSystem {
     /// Initialize the script system.
-    pub fn init(lua: &Lua) {
+    pub fn init(lua: &Lua, event_bus: &EventBus) {
         // Registers the `engine` module that some other modules extend
         if let Err(e) = Self::register_engine_module(lua) {
             onscreen_error!("Error registering engine module: {e}")
         };
 
-        // Run main.lua after registering `engine`
+        // Store the event bus in Lua so engine.on/engine.emit work at require-time
+        if let Err(e) = lua.globals().set(LUA_EVENT_BUS, event_bus.clone()) {
+            onscreen_error!("Failed to store event bus: {e}");
+        }
+
+        // Sub-modules — register before main.lua so all APIs are available at require-time
+        for descriptor in inventory::iter::<LuaModuleRegistry> {
+            let module = (descriptor.ctor)();
+            if let Err(e) = module.register(lua) {
+                onscreen_error!("Lua module registration failed: {e}");
+            }
+        }
+
+        // Run main.lua after all modules are registered
         if let Err(e) = Self::load_main(lua) {
             onscreen_error!("Main failed: {e}");
         }
@@ -33,14 +46,6 @@ impl ScriptSystem {
                 if let Err(e) = lua.set_named_registry_value(GLOBAL_UPDATE_KEY, update_fn) {
                     onscreen_error!("Failed to store global update: {e}");
                 }
-            }
-        }
-
-        // Sub-modules
-        for descriptor in inventory::iter::<LuaModuleRegistry> {
-            let module = (descriptor.ctor)();
-            if let Err(e) = module.register(lua) {
-                onscreen_error!("Lua module registration failed: {e}");
             }
         }
     }

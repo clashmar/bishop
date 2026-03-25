@@ -1,15 +1,9 @@
-local AudioSettings = {}
-
-function AudioSettings.init()
-    engine.on("slider:master_volume", function(value)
-        engine.audio.set_master_volume(value)
-    end)
-    engine.on("slider:music_volume", function(value)
-        engine.audio.set_music_volume(value)
-    end)
-    engine.on("slider:sfx_volume", function(value)
-        engine.audio.set_sfx_volume(value)
-    end)
-end
-
-return AudioSettings
+engine.on("slider:master_volume", function(value)
+    engine.audio.set_master_volume(value)
+end)
+engine.on("slider:music_volume", function(value)
+    engine.audio.set_music_volume(value)
+end)
+engine.on("slider:sfx_volume", function(value)
+    engine.audio.set_sfx_volume(value)
+end)

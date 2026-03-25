@@ -103,9 +103,9 @@ local Player = {
             end
         end
         
-        if engine.input.is_down(input.Enter) then
-            engine.audio.play_music("music/Egobyte_CalmessPersonified")
-        end
+        -- if engine.input.is_down(input.Enter) then
+        --     engine.audio.play_music("music/Egobyte_CalmessPersonified")
+        -- end
 
         -- Test custom Fidget animation - press G while idle
         if horiz == 0 then

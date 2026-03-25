@@ -7,6 +7,7 @@ pub const ENTITY_FILE: &str = "entity.lua";
 
 /// GLOBALS
 pub const LUA_GAME_CTX: &str = "lua_game_ctx";
+pub const LUA_EVENT_BUS: &str = "lua_event_bus";
 pub const ENTITY: &str = "entity";
 
 // Directories
