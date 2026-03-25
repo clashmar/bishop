@@ -84,6 +84,7 @@ pub const AUDIO_PRELOAD: &str = "preload";
 pub const AUDIO_SET_MASTER_VOLUME: &str = "set_master_volume";
 pub const AUDIO_SET_MUSIC_VOLUME: &str = "set_music_volume";
 pub const AUDIO_SET_SFX_VOLUME: &str = "set_sfx_volume";
+pub const AUDIO_UNLOAD: &str = "unload";
 
 
 

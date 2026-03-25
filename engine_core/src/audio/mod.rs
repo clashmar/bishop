@@ -7,7 +7,7 @@ pub use loader::load_wav;
 use crate::task::BackgroundService;
 use bishop::audio::AudioBackend;
 use oddio::{Cycle, Frames, FramesSignal, Gain, Handle, Mixer, Stop};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
 /// Active fade-out state for a music track.
@@ -34,8 +34,12 @@ pub struct AudioManager {
     active_music: Option<Handle<Stop<Cycle<[f32; 2]>>>>,
     /// Active fade-out state.
     active_fade: Option<FadeOut>,
-    /// Decoded audio cache, keyed by sound ID. Entries are never evicted.
+    /// Decoded audio cache, keyed by sound ID.
     sound_cache: HashMap<String, Arc<Frames<[f32; 2]>>>,
+    /// Reference counts tracking how many `AudioSource` components reference each sound ID.
+    ref_counts: HashMap<String, usize>,
+    /// Sound IDs loaded via `preload()` from Lua; pinned sounds are never auto-evicted.
+    pinned: HashSet<String>,
     master_volume: f32,
     music_volume: f32,
     sfx_volume: f32,
@@ -76,6 +80,8 @@ impl AudioManager {
             active_music: None,
             active_fade: None,
             sound_cache: HashMap::new(),
+            ref_counts: HashMap::new(),
+            pinned: HashSet::new(),
             master_volume: 1.0,
             music_volume: 1.0,
             sfx_volume: 1.0,
@@ -145,9 +151,41 @@ impl AudioManager {
             .play(signal);
     }
 
-    /// Preloads a sound into the cache without playing it.
+    /// Preloads a sound into the cache without playing it and pins it against auto-eviction.
     fn preload(&mut self, id: &str) {
         self.load_or_cached(id);
+        self.pinned.insert(id.to_owned());
+    }
+
+    /// Evicts a sound from the cache if it is not pinned.
+    fn evict(&mut self, id: &str) {
+        if !self.pinned.contains(id) {
+            self.sound_cache.remove(id);
+        }
+    }
+
+    /// Increments reference counts for the given IDs, loading each sound if not already cached.
+    pub fn increment_refs(&mut self, ids: &[String]) {
+        for id in ids {
+            *self.ref_counts.entry(id.clone()).or_insert(0) += 1;
+            self.load_or_cached(id);
+        }
+    }
+
+    /// Decrements reference counts for the given IDs. Evicts unpinned sounds whose count reaches zero.
+    pub fn decrement_refs(&mut self, ids: &[String]) {
+        for id in ids {
+            let reached_zero = if let Some(count) = self.ref_counts.get_mut(id.as_str()) {
+                *count = count.saturating_sub(1);
+                *count == 0
+            } else {
+                false
+            };
+            if reached_zero {
+                self.ref_counts.remove(id.as_str());
+                self.evict(id);
+            }
+        }
     }
 
     /// Updates the combined master × music gain on the music group.
@@ -215,6 +253,14 @@ impl BackgroundService for AudioManager {
                 AudioCommand::SetSfxVolume(v) => {
                     self.sfx_volume = v.clamp(0.0, 1.0);
                     self.apply_sfx_gain();
+                }
+                AudioCommand::IncrementRefs(ids) => self.increment_refs(&ids),
+                AudioCommand::DecrementRefs(ids) => self.decrement_refs(&ids),
+                AudioCommand::Unload(id) => {
+                    self.pinned.remove(&id);
+                    if !self.ref_counts.contains_key(&id) {
+                        self.sound_cache.remove(&id);
+                    }
                 }
             }
         }

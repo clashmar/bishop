@@ -66,6 +66,12 @@ impl LuaModule for AudioModule {
         })?;
         audio_tbl.set(AUDIO_SET_SFX_VOLUME, set_sfx_volume_fn)?;
 
+        let unload_fn = lua.create_function(|_, id: String| {
+            push_audio_command(AudioCommand::Unload(id));
+            Ok(())
+        })?;
+        audio_tbl.set(AUDIO_UNLOAD, unload_fn)?;
+
         engine_tbl.set(LUA_AUDIO, audio_tbl)?;
         Ok(())
     }
@@ -109,6 +115,10 @@ impl LuaApi for AudioModule {
         out.line("--- Sets SFX group volume (0.0–1.0).");
         out.line("---@param volume number");
         out.line("function engine.audio.set_sfx_volume(volume) end");
+        out.line("");
+        out.line("--- Unpins a preloaded sound and evicts it from the cache if no components reference it.");
+        out.line("---@param id string Path relative to Resources/audio/ without extension");
+        out.line("function engine.audio.unload(id) end");
         out.line("");
     }
 }
