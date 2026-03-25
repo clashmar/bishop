@@ -31,6 +31,15 @@ impl GameInstance {
 
         game.initialize(ctx, lua).await;
 
+        // Warm the audio cache for all AudioSource components that were loaded from the
+        // save file. Ecs::deserialize bypasses post_create hooks (serde has no GameCtxMut),
+        // so we push IncrementRefs manually here.
+        // TODO(save-load): replace with a proper post-load hook once the Save/Load sprint
+        // adds runtime save files and a generalised post-deserialize callback.
+        for source in AudioSource::store(&game.ecs).data.values() {
+            push_audio_command(AudioCommand::IncrementRefs(source.sounds.clone()));
+        }
+
         // TODO: Get rid of expects
         let start_room_id = game.current_world().starting_room_id
             .or_else(|| game.worlds.first().map(|m| m.starting_room_id.expect("Game has no starting room.")))
