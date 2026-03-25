@@ -9,7 +9,8 @@ pub use loader::load_wav;
 
 use crate::task::BackgroundService;
 use bishop::audio::AudioBackend;
-use oddio::{Cycle, Frames, FramesSignal, Gain, Handle, Mixer, Stop};
+use oddio::{Cycle, Frames, FramesSignal, Gain, Handle, Mixer, Speed, Stop};
+use rand::Rng;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
@@ -43,6 +44,8 @@ pub struct AudioManager {
     ref_counts: HashMap<String, usize>,
     /// Sound IDs loaded via `preload()` from Lua; pinned sounds are never auto-evicted.
     pinned: HashSet<String>,
+    /// Active looping sound handles, keyed by a caller-supplied u64 handle ID.
+    active_loops: HashMap<u64, Handle<Stop<Gain<Speed<Cycle<[f32; 2]>>>>>>,
     master_volume: f32,
     music_volume: f32,
     sfx_volume: f32,
@@ -85,6 +88,7 @@ impl AudioManager {
             sound_cache: HashMap::new(),
             ref_counts: HashMap::new(),
             pinned: HashSet::new(),
+            active_loops: HashMap::new(),
             master_volume: 1.0,
             music_volume: 1.0,
             sfx_volume: 1.0,
@@ -207,6 +211,89 @@ impl AudioManager {
             .set_amplitude_ratio(linear);
     }
 
+    /// Applies a random variation to `base`, clamped to [0.0, 1.0].
+    /// Returns `base` unchanged when `variation` is zero.
+    fn apply_variation(base: f32, variation: f32) -> f32 {
+        if variation == 0.0 {
+            return base;
+        }
+        let delta = rand::thread_rng().gen_range(-variation..=variation);
+        (base + delta).clamp(0.0, 1.0)
+    }
+
+    /// Selects a random element from `sounds`, returning `None` when the slice is empty.
+    fn pick_sound(sounds: &[String]) -> Option<&str> {
+        if sounds.is_empty() {
+            return None;
+        }
+        let idx = rand::thread_rng().gen_range(0..sounds.len());
+        Some(&sounds[idx])
+    }
+
+    /// Plays a one-shot sound chosen randomly from `sounds`, with optional pitch and volume variation.
+    fn play_varied_sfx(
+        &mut self,
+        sounds: &[String],
+        volume: f32,
+        pitch_variation: f32,
+        volume_variation: f32,
+    ) {
+        let Some(id) = Self::pick_sound(sounds) else {
+            return;
+        };
+        let Some(frames) = self.load_or_cached(id) else {
+            return;
+        };
+        let final_volume = Self::apply_variation(volume, volume_variation);
+        let final_pitch = 1.0 + rand::thread_rng().gen_range(-pitch_variation..=pitch_variation);
+        let signal = Gain::new(Speed::new(FramesSignal::from(frames)));
+        let mut handle = self.sfx_group.control::<Mixer<[f32; 2]>, _>().play(signal);
+        handle
+            .control::<Gain<Speed<FramesSignal<[f32; 2]>>>, _>()
+            .set_amplitude_ratio(final_volume);
+        handle
+            .control::<Speed<FramesSignal<[f32; 2]>>, _>()
+            .set_speed(final_pitch);
+    }
+
+    /// Starts a looping sound for the given `handle_key`, replacing any existing loop for that key.
+    fn play_loop(
+        &mut self,
+        handle_key: u64,
+        sounds: &[String],
+        volume: f32,
+        pitch_variation: f32,
+        volume_variation: f32,
+    ) {
+        self.stop_loop(handle_key);
+        let Some(id) = Self::pick_sound(sounds) else {
+            return;
+        };
+        let Some(frames) = self.load_or_cached(id) else {
+            return;
+        };
+        let final_volume = Self::apply_variation(volume, volume_variation);
+        let final_pitch = 1.0 + rand::thread_rng().gen_range(-pitch_variation..=pitch_variation);
+        let signal = Gain::new(Speed::new(Cycle::new(frames)));
+        let mut handle = self.sfx_group.control::<Mixer<[f32; 2]>, _>().play(signal);
+        handle
+            .control::<Gain<Speed<Cycle<[f32; 2]>>>, _>()
+            .set_amplitude_ratio(final_volume);
+        handle
+            .control::<Speed<Cycle<[f32; 2]>>, _>()
+            .set_speed(final_pitch);
+        self.active_loops.insert(handle_key, handle);
+    }
+
+    /// Stops the looping sound associated with `handle_key`, if one exists.
+    fn stop_loop(&mut self, handle_key: u64) {
+        if let Some(mut handle) = self.active_loops.remove(&handle_key) {
+            handle
+                .control::<Stop<Gain<Speed<Cycle<[f32; 2]>>>>, _>()
+                .stop();
+        }
+    }
+
     /// Advances the active fade-out by `dt` seconds.
     fn tick_fade(&mut self, dt: f32) {
         let finished = if let Some(ref mut fade) = self.active_fade {
@@ -265,6 +352,24 @@ impl BackgroundService for AudioManager {
                         self.evict(&id);
                     }
                 }
+                AudioCommand::PlayVariedSfx {
+                    sounds,
+                    volume,
+                    pitch_variation,
+                    volume_variation,
+                } => {
+                    self.play_varied_sfx(&sounds, volume, pitch_variation, volume_variation);
+                }
+                AudioCommand::PlayLoop {
+                    handle,
+                    sounds,
+                    volume,
+                    pitch_variation,
+                    volume_variation,
+                } => {
+                    self.play_loop(handle, &sounds, volume, pitch_variation, volume_variation);
+                }
+                AudioCommand::StopLoop(handle) => self.stop_loop(handle),
             }
         }
         self.tick_fade(dt);

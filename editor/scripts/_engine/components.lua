@@ -34,8 +34,6 @@
 ---@field script_id number
 ---@field data table
 
----@alias FacingDirection table
-
 ---@class SpeechBubble
 ---@field text string
 ---@field timer number
@@ -48,6 +46,13 @@
 
 ---@class Interactable
 ---@field range number
+
+---@class AudioSource
+---@field sounds table
+---@field volume number
+---@field pitch_variation number
+---@field volume_variation number
+---@field looping boolean
 
 ---@alias Name string
 
@@ -118,12 +123,7 @@
 ---@field position vec2
 ---@field pivot table
 
----@class AudioSource
----@field sounds table
----@field volume number
----@field pitch_variation number
----@field volume_variation number
----@field looping boolean
+---@alias FacingDirection table
 
 ---@class ComponentId
 ---@field RoomCamera string
@@ -131,9 +131,9 @@
 ---@field Animation string
 ---@field CurrentFrame string
 ---@field Script string
----@field FacingDirection string
 ---@field SpeechBubble string
 ---@field Interactable string
+---@field AudioSource string
 ---@field Name string
 ---@field PhysicsBody string
 ---@field PlayerProxy string
@@ -154,7 +154,7 @@
 ---@field Children string
 ---@field Parent string
 ---@field Transform string
----@field AudioSource string
+---@field FacingDirection string
 
 local C = {}
 
@@ -163,9 +163,9 @@ C.Sprite = "Sprite"
 C.Animation = "Animation"
 C.CurrentFrame = "CurrentFrame"
 C.Script = "Script"
-C.FacingDirection = "FacingDirection"
 C.SpeechBubble = "SpeechBubble"
 C.Interactable = "Interactable"
+C.AudioSource = "AudioSource"
 C.Name = "Name"
 C.PhysicsBody = "PhysicsBody"
 C.PlayerProxy = "PlayerProxy"
@@ -186,6 +186,6 @@ C.Glow = "Glow"
 C.Children = "Children"
 C.Parent = "Parent"
 C.Transform = "Transform"
-C.AudioSource = "AudioSource"
+C.FacingDirection = "FacingDirection"
 
 return C

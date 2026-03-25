@@ -17,6 +17,23 @@ pub enum AudioCommand {
     DecrementRefs(Vec<String>),
     /// Explicitly unpin and evict a sound from the cache if its reference count is zero.
     Unload(String),
+    /// Play a one-shot sound with random selection from the list and optional pitch/volume variation.
+    PlayVariedSfx {
+        sounds: Vec<String>,
+        volume: f32,
+        pitch_variation: f32,
+        volume_variation: f32,
+    },
+    /// Start a looping sound tracked by a u64 handle key. If a loop already exists for the handle, it is stopped first.
+    PlayLoop {
+        handle: u64,
+        sounds: Vec<String>,
+        volume: f32,
+        pitch_variation: f32,
+        volume_variation: f32,
+    },
+    /// Stop a looping sound by its handle key.
+    StopLoop(u64),
 }
 
 thread_local! {
