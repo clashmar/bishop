@@ -114,8 +114,10 @@ impl InspectorModule for AudioSourceModule {
             FIELD_TEXT_COLOR,
         );
         let slider_rect = Rect::new(x + LABEL_W + SPACING, y, w - LABEL_W - SPACING, ROW_HEIGHT);
-        let (new_vol, _) = gui_slider(ctx, self.volume_id, slider_rect, 0.0, 1.0, source.volume);
-        source.volume = new_vol;
+        let (new_vol, state) = gui_slider(ctx, self.volume_id, slider_rect, 0.0, 1.0, source.volume);
+        if !blocked && !matches!(state, SliderState::Unchanged) {
+            source.volume = new_vol;
+        }
         y += ROW_HEIGHT + SPACING;
 
         // --- Pitch Variation ---
@@ -127,9 +129,11 @@ impl InspectorModule for AudioSourceModule {
             FIELD_TEXT_COLOR,
         );
         let slider_rect = Rect::new(x + LABEL_W + SPACING, y, w - LABEL_W - SPACING, ROW_HEIGHT);
-        let (new_pitch, _) =
+        let (new_pitch, state) =
             gui_slider(ctx, self.pitch_id, slider_rect, 0.0, 1.0, source.pitch_variation);
-        source.pitch_variation = new_pitch;
+        if !blocked && !matches!(state, SliderState::Unchanged) {
+            source.pitch_variation = new_pitch;
+        }
         y += ROW_HEIGHT + SPACING;
 
         // --- Volume Variation ---
@@ -141,7 +145,7 @@ impl InspectorModule for AudioSourceModule {
             FIELD_TEXT_COLOR,
         );
         let slider_rect = Rect::new(x + LABEL_W + SPACING, y, w - LABEL_W - SPACING, ROW_HEIGHT);
-        let (new_vol_var, _) = gui_slider(
+        let (new_vol_var, state) = gui_slider(
             ctx,
             self.volume_var_id,
             slider_rect,
@@ -149,7 +153,9 @@ impl InspectorModule for AudioSourceModule {
             1.0,
             source.volume_variation,
         );
-        source.volume_variation = new_vol_var;
+        if !blocked && !matches!(state, SliderState::Unchanged) {
+            source.volume_variation = new_vol_var;
+        }
         y += ROW_HEIGHT + SPACING;
 
         // --- Looping checkbox ---
