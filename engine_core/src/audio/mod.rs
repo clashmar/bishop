@@ -20,6 +20,9 @@ struct FadeOut {
     duration: f32,
 }
 
+/// Handle type for active looping SFX signals.
+type LoopHandle = Handle<Stop<Gain<Speed<Cycle<[f32; 2]>>>>>;
+
 /// Manages audio playback. Implements [`BackgroundService`]; call `poll(dt)` once
 /// per frame to drain commands and advance fades.
 ///
@@ -45,7 +48,7 @@ pub struct AudioManager {
     /// Sound IDs loaded via `preload()` from Lua; pinned sounds are never auto-evicted.
     pinned: HashSet<String>,
     /// Active looping sound handles, keyed by a caller-supplied u64 handle ID.
-    active_loops: HashMap<u64, Handle<Stop<Gain<Speed<Cycle<[f32; 2]>>>>>>,
+    active_loops: HashMap<u64, LoopHandle>,
     master_volume: f32,
     music_volume: f32,
     sfx_volume: f32,
@@ -245,7 +248,7 @@ impl AudioManager {
             return;
         };
         let final_volume = Self::apply_variation(volume, volume_variation);
-        let final_pitch = 1.0 + rand::thread_rng().gen_range(-pitch_variation..=pitch_variation);
+        let final_pitch = (1.0 + rand::thread_rng().gen_range(-pitch_variation..=pitch_variation)).max(0.1);
         let signal = Gain::new(Speed::new(FramesSignal::from(frames)));
         let mut handle = self.sfx_group.control::<Mixer<[f32; 2]>, _>().play(signal);
         handle
@@ -273,7 +276,7 @@ impl AudioManager {
             return;
         };
         let final_volume = Self::apply_variation(volume, volume_variation);
-        let final_pitch = 1.0 + rand::thread_rng().gen_range(-pitch_variation..=pitch_variation);
+        let final_pitch = (1.0 + rand::thread_rng().gen_range(-pitch_variation..=pitch_variation)).max(0.1);
         let signal = Gain::new(Speed::new(Cycle::new(frames)));
         let mut handle = self.sfx_group.control::<Mixer<[f32; 2]>, _>().play(signal);
         handle
