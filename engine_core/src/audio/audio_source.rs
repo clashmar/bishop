@@ -40,7 +40,8 @@ fn post_create(source: &mut AudioSource, _entity: &Entity, _ctx: &mut GameCtxMut
     push_audio_command(AudioCommand::IncrementRefs(source.sounds.clone()));
 }
 
-fn post_remove(source: &mut AudioSource, _entity: &Entity, _ctx: &mut GameCtxMut) {
+fn post_remove(source: &mut AudioSource, entity: &Entity, _ctx: &mut GameCtxMut) {
+    push_audio_command(AudioCommand::StopLoop(**entity as u64));
     let sounds = std::mem::take(&mut source.sounds);
     push_audio_command(AudioCommand::DecrementRefs(sounds));
 }
