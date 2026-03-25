@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 /// Reference counts are maintained automatically via `post_create` and `post_remove` hooks,
 /// ensuring sounds are loaded when the component is added and evicted when it is removed.
 #[ecs_component(post_create = post_create, post_remove = post_remove)]
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct AudioSource {
     /// Sound file paths relative to `Resources/audio/` (without extension).
     pub sounds: Vec<String>,
@@ -41,5 +41,6 @@ fn post_create(source: &mut AudioSource, _entity: &Entity, _ctx: &mut GameCtxMut
 }
 
 fn post_remove(source: &mut AudioSource, _entity: &Entity, _ctx: &mut GameCtxMut) {
-    push_audio_command(AudioCommand::DecrementRefs(source.sounds.clone()));
+    let sounds = std::mem::take(&mut source.sounds);
+    push_audio_command(AudioCommand::DecrementRefs(sounds));
 }
