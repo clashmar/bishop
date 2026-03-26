@@ -1,9 +1,5 @@
 // game/src/scripting/modules/audio_module.rs
-use engine_core::audio::{push_audio_command, AudioCommand};
-use engine_core::register_lua_api;
-use engine_core::register_lua_module;
-use engine_core::scripting::modules::lua_module::*;
-use engine_core::scripting::lua_constants::*;
+use engine_core::prelude::*;
 use mlua::prelude::LuaResult;
 use mlua::Table;
 use mlua::Lua;
@@ -78,7 +74,7 @@ impl LuaModule for AudioModule {
                 .filter_map(|r| r.ok())
                 .collect();
             if sounds.is_empty() {
-                log::warn!("play_random_sfx: sounds table is empty or contains no strings");
+                onscreen_warn!("play_random_sfx: sounds table is empty or contains no strings");
                 return Ok(());
             }
             push_audio_command(AudioCommand::PlayVariedSfx {

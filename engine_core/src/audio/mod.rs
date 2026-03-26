@@ -249,11 +249,9 @@ impl AudioManager {
         };
         let final_volume = Self::apply_variation(volume, volume_variation);
         let final_pitch = (1.0 + rand::thread_rng().gen_range(-pitch_variation..=pitch_variation)).max(0.1);
-        let signal = Gain::new(Speed::new(FramesSignal::from(frames)));
+        let mut signal = Gain::new(Speed::new(FramesSignal::from(frames)));
+        signal.set_amplitude_ratio(final_volume);
         let mut handle = self.sfx_group.control::<Mixer<[f32; 2]>, _>().play(signal);
-        handle
-            .control::<Gain<Speed<FramesSignal<[f32; 2]>>>, _>()
-            .set_amplitude_ratio(final_volume);
         handle
             .control::<Speed<FramesSignal<[f32; 2]>>, _>()
             .set_speed(final_pitch);
@@ -277,11 +275,9 @@ impl AudioManager {
         };
         let final_volume = Self::apply_variation(volume, volume_variation);
         let final_pitch = (1.0 + rand::thread_rng().gen_range(-pitch_variation..=pitch_variation)).max(0.1);
-        let signal = Gain::new(Speed::new(Cycle::new(frames)));
+        let mut signal = Gain::new(Speed::new(Cycle::new(frames)));
+        signal.set_amplitude_ratio(final_volume);
         let mut handle = self.sfx_group.control::<Mixer<[f32; 2]>, _>().play(signal);
-        handle
-            .control::<Gain<Speed<Cycle<[f32; 2]>>>, _>()
-            .set_amplitude_ratio(final_volume);
         handle
             .control::<Speed<Cycle<[f32; 2]>>, _>()
             .set_speed(final_pitch);

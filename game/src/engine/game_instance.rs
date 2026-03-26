@@ -110,8 +110,14 @@ impl GameInstance {
         }
     }
 
+    /// Drains events generated during UI rendering and forwards them to the event bus.
+    pub fn drain_ui_events(&self) {
+        self.emit_slider_events();
+        self.emit_menu_events();
+    }
+
     /// Drains pending menu action events and emits them to the Lua event bus.
-    pub fn emit_menu_events(&self) {
+    fn emit_menu_events(&self) {
         let events = drain_menu_events();
         for action in events {
             self.game.script_manager.event_bus.emit(
@@ -122,7 +128,7 @@ impl GameInstance {
     }
 
     /// Drains pending slider events and emits them to the Lua event bus.
-    pub fn emit_slider_events(&self) {
+    fn emit_slider_events(&self) {
         let events = drain_slider_events();
         for (key, value) in events {
             self.game.script_manager.event_bus.emit(

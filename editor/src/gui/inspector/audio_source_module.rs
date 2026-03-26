@@ -186,7 +186,7 @@ inventory::submit! {
                 CollapsibleModule::new(
                     crate::gui::inspector::audio_source_module::AudioSourceModule::default()
                 )
-                .with_title(<AudioSource>::TYPE_NAME)
+                .with_title("Audio Source")
             )
         },
     }

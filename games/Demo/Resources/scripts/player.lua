@@ -59,7 +59,8 @@ local Player = {
         -- Jump if grounded and space pressed
         if engine.input.pressed(input.Space) and is_grounded then
             new_vel.y = -self.public.jump_speed
-            engine.audio.play_sfx("sfx/jump")
+            -- engine.audio.play_sfx("sfx/jump")
+            self.entity:play_sound()
         end
 
         self.entity:set_velocity(new_vel)
@@ -103,9 +104,9 @@ local Player = {
             end
         end
         
-        -- if engine.input.is_down(input.Enter) then
-        --     engine.audio.play_music("music/Egobyte_CalmessPersonified")
-        -- end
+        if engine.input.is_down(input.Enter) then
+            engine.audio.play_music("music/Egobyte_CalmessPersonified")
+        end
 
         -- Test custom Fidget animation - press G while idle
         if horiz == 0 then

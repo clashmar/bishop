@@ -92,8 +92,8 @@ impl BishopApp for Engine {
         let alpha = (self.accumulator / FIXED_DT).clamp(0.0, 1.0);
         self.render(&ctx, alpha);
 
-        // Process slider events from menu interaction (works while paused).
-        self.game_instance.borrow().emit_slider_events();
+        // Process ui events and emit to Lua
+        self.game_instance.borrow().drain_ui_events();
     }
 }
 
@@ -125,15 +125,6 @@ impl Engine {
             smoothed_dt: None,
             audio_manager: AudioManager::new::<PlatformAudioBackend>(),
         }
-    }
-
-    /// Resolves the current game state from all active systems.
-    fn update_game_state(&mut self) {
-        self.game_state = if self.menu_manager.is_pausing_game() {
-            GameState::Paused
-        } else {
-            GameState::Running
-        };
     }
 
     pub fn fixed_update<C: BishopContext>(
@@ -201,9 +192,6 @@ impl Engine {
         if let Err(e) = ScriptSystem::run_scripts(dt, self) {
             onscreen_error!("Error running scripts: {}", e);
         }
-
-        // Process menu events and emit to Lua
-        self.game_instance.borrow().emit_menu_events();
     }
 
     pub fn render(&mut self, ctx: &PlatformContext, alpha: f32) {
@@ -237,5 +225,14 @@ impl Engine {
         }
 
         self.render_menus(ctx);
+    }
+
+    /// Resolves the current game state from all active systems.
+    fn update_game_state(&mut self) {
+        self.game_state = if self.menu_manager.is_pausing_game() {
+            GameState::Paused
+        } else {
+            GameState::Running
+        };
     }
 }

@@ -7,7 +7,6 @@ local Entity = {}
 
 -- Component getters
 ---@overload fun(self: Entity, component: "Light"): Light
----@overload fun(self: Entity, component: "FacingDirection"): FacingDirection
 ---@overload fun(self: Entity, component: "SpeechBubble"): SpeechBubble
 ---@overload fun(self: Entity, component: "RoomCamera"): RoomCamera
 ---@overload fun(self: Entity, component: "CurrentFrame"): CurrentFrame
@@ -34,6 +33,8 @@ local Entity = {}
 ---@overload fun(self: Entity, component: "Sprite"): Sprite
 ---@overload fun(self: Entity, component: "Transform"): Transform
 ---@overload fun(self: Entity, component: "Interactable"): Interactable
+---@overload fun(self: Entity, component: "AudioSource"): AudioSource
+---@overload fun(self: Entity, component: "FacingDirection"): FacingDirection
 ---@param component string
 ---@return table|nil
 function Entity:get(component) end
@@ -48,10 +49,6 @@ function Entity:set(component, value) end
 ---@param self Entity
 ---@param v Light
 function Entity:set_light(v) end
-
----@param self Entity
----@param v FacingDirection
-function Entity:set_facing_direction(v) end
 
 ---@param self Entity
 ---@param v SpeechBubble
@@ -157,6 +154,14 @@ function Entity:set_transform(v) end
 ---@param v Interactable
 function Entity:set_interactable(v) end
 
+---@param self Entity
+---@param v AudioSource
+function Entity:set_audio_source(v) end
+
+---@param self Entity
+---@param v FacingDirection
+function Entity:set_facing_direction(v) end
+
 ---@param component string
 ---@see ComponentId
 ---@return boolean
@@ -226,5 +231,18 @@ function Entity:clear_speech() end
 --- Checks if the entity currently has a speech bubble.
 ---@return boolean
 function Entity:is_speaking() end
+
+--- Plays the sounds configured on this entity's AudioSource component.
+--- If the AudioSource is looping, starts a loop tracked by the entity ID.
+--- If one-shot, plays with the configured pitch/volume variation.
+function Entity:play_sound() end
+
+--- Stops a looping sound started by this entity's AudioSource.
+function Entity:stop_sound() end
+
+--- Sets the volume on this entity's AudioSource (0.0–1.0).
+--- Takes effect on the next play_sound() call.
+---@param v number Volume in range 0.0–1.0
+function Entity:set_sound_volume(v) end
 
 return Entity

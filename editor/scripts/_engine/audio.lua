@@ -36,3 +36,16 @@ function engine.audio.set_music_volume(volume) end
 ---@param volume number
 function engine.audio.set_sfx_volume(volume) end
 
+--- Unpins a preloaded sound and evicts it from the cache if no components reference it.
+---@param id string Path relative to Resources/audio/ without extension
+function engine.audio.unload(id) end
+
+--- Picks one sound at random from the list and plays it as a one-shot with no variation.
+---@param sounds string[] Array of sound IDs
+function engine.audio.play_random_sfx(sounds) end
+
+--- Plays a single sound with optional pitch and volume variation.
+---@param id string Sound ID
+---@param opts? {pitch_var?: number, volume_var?: number}
+function engine.audio.play_sfx_varied(id, opts) end
+

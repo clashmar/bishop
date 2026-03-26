@@ -48,5 +48,7 @@ pub mod prelude {
     pub use crate::tiles::*;
     pub use crate::worlds::*;
     pub use crate::ui::*;
-    pub use crate::audio::{AudioCommand, AudioManager, AudioSource, push_audio_command};
+    pub use crate::audio::*;
+    pub use crate::register_lua_api;
+    pub use crate::register_lua_module;
 }

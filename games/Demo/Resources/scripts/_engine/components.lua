@@ -3,6 +3,15 @@
 ---@alias vec2 { x: number, y: number }
 ---@alias vec3 { x: number, y: number, z: number }
 
+---@class AudioSource
+---@field sounds table
+---@field volume number
+---@field pitch_variation number
+---@field volume_variation number
+---@field looping boolean
+
+---@alias FacingDirection table
+
 ---@class Light
 ---@field pos vec2
 ---@field color vec3
@@ -108,8 +117,6 @@
 ---@field flip_x boolean
 ---@field speed_multiplier number
 
----@alias FacingDirection table
-
 ---@class Children
 ---@field entities table
 
@@ -119,6 +126,8 @@
 ---@field range number
 
 ---@class ComponentId
+---@field AudioSource string
+---@field FacingDirection string
 ---@field Light string
 ---@field CurrentFrame string
 ---@field Glow string
@@ -143,13 +152,14 @@
 ---@field Transform string
 ---@field RoomCamera string
 ---@field Animation string
----@field FacingDirection string
 ---@field Children string
 ---@field Parent string
 ---@field Interactable string
 
 local C = {}
 
+C.AudioSource = "AudioSource"
+C.FacingDirection = "FacingDirection"
 C.Light = "Light"
 C.CurrentFrame = "CurrentFrame"
 C.Glow = "Glow"
@@ -174,7 +184,6 @@ C.Sprite = "Sprite"
 C.Transform = "Transform"
 C.RoomCamera = "RoomCamera"
 C.Animation = "Animation"
-C.FacingDirection = "FacingDirection"
 C.Children = "Children"
 C.Parent = "Parent"
 C.Interactable = "Interactable"
