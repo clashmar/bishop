@@ -1,6 +1,7 @@
 // editor/build.rs
 use engine_core::ecs::component_registry::COMPONENTS;
 use engine_core::input::input_table::*;
+use engine_core::scripting::lua_constants::LUA_OWNER_SHARED_ENGINE;
 use std::collections::HashSet;
 use std::path::PathBuf;
 use std::env;
@@ -40,11 +41,12 @@ fn generate_lua_components() {
 
     fs::create_dir_all(&out_dir).expect("cannot create _engine folder");
 
-    let mut lua = String::from(
+    let mut lua = format!(
         "-- Auto-generated. Do not edit.\n\
+        {LUA_OWNER_SHARED_ENGINE}\n\
         ---@meta\n\
-        ---@alias vec2 { x: number, y: number }\n\
-        ---@alias vec3 { x: number, y: number, z: number }\n\n"
+        ---@alias vec2 {{ x: number, y: number }}\n\
+        ---@alias vec3 {{ x: number, y: number, z: number }}\n\n"
     );
     
     // Generate class definitions for each component with their schema
@@ -70,7 +72,7 @@ fn generate_lua_components() {
             }
         }
 
-        lua.push_str("\n");
+        lua.push('\n');
     }
     
     // Generate the ComponentId class with all component names
@@ -78,7 +80,7 @@ fn generate_lua_components() {
     for reg in COMPONENTS.iter() {
         lua.push_str(&format!("---@field {} string\n", reg.type_name));
     }
-    lua.push_str("\n");
+    lua.push('\n');
 
     lua.push_str("local C = {}\n\n");
 
@@ -101,8 +103,9 @@ fn generate_lua_input() {
 
     fs::create_dir_all(&out_dir).expect("cannot create _engine folder");
 
-    let mut lua = String::from(
+    let mut lua = format!(
         "-- Auto-generated. Do not edit.\n\
+        {LUA_OWNER_SHARED_ENGINE}\n\
         ---@meta\n\n"
     );
 
@@ -147,8 +150,9 @@ fn generate_lua_script() {
 
     fs::create_dir_all(&out_dir).expect("cannot create _engine folder");
 
-    let lua = String::from(
+    let lua = format!(
         "-- Auto-generated. Do not edit.\n\
+        {LUA_OWNER_SHARED_ENGINE}\n\
         ---@meta\n\
         ---@class ScriptDef\n\
         ---@field public table\n\
@@ -158,7 +162,7 @@ fn generate_lua_script() {
         ---@field on_exit fun(self: Script)\n\
         ---@class Script : ScriptDef\n\
         ---@field entity Entity\n\
-        local Script = {}\n\
+        local Script = {{}}\n\
         return Script\n"
     );
 

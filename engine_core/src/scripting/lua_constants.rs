@@ -6,6 +6,10 @@ pub const ENGINE_FILE: &str = "engine.lua";
 pub const ENTITY_FILE: &str = "entity.lua";
 pub const ANIMATIONS_FILE: &str = "animations.lua";
 pub const SOUNDS_FILE: &str = "sounds.lua";
+/// Ownership marker for shared `_engine` Lua scripts managed by sync tooling.
+pub const LUA_OWNER_SHARED_ENGINE: &str = "-- bishop-owner: shared-engine";
+/// Ownership marker for per-game generated `_engine` Lua scripts.
+pub const LUA_OWNER_GAME_GENERATED: &str = "-- bishop-owner: game-generated";
 
 /// GLOBALS
 pub const LUA_GAME_CTX: &str = "lua_game_ctx";

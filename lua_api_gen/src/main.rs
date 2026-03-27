@@ -1,4 +1,5 @@
 // lua_api_gen/src/main.rs
+use engine_core::scripting::lua_constants::LUA_OWNER_SHARED_ENGINE;
 use engine_core::scripting::modules::lua_module::*;
 use std::collections::HashMap;
 use std::fs::OpenOptions;
@@ -55,6 +56,7 @@ fn main() {
         // Prepend the header
         if file.metadata().unwrap().len() == 0 {
             writeln!(file, "-- Auto-generated. Do not edit.").unwrap();
+            writeln!(file, "{LUA_OWNER_SHARED_ENGINE}").unwrap();
             writeln!(file, "---@meta").unwrap();
             writeln!(file).unwrap();
         }

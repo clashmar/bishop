@@ -1,4 +1,5 @@
 -- Auto-generated. Do not edit.
+-- bishop-owner: shared-engine
 ---@meta
 
 ---@param msg string

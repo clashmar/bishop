@@ -87,7 +87,7 @@ include!("engine_scripts.rs");
 
 pub use crate::editor_assets::sounds_lua::generate_sounds_lua;
 
-/// Write embedded _engine scripts to the specified scripts folder.
+/// Write embedded shared `_engine` scripts to the specified scripts folder.
 pub fn write_engine_scripts(scripts_folder: &Path) -> io::Result<()> {
     let engine_folder = scripts_folder.join(ENGINE_DIR);
     fs::create_dir_all(&engine_folder)?;
@@ -119,7 +119,7 @@ fn hide_folder(path: &Path) {
     }
 }
 
-/// Writes animations.lua with both built-in and custom clips.
+/// Writes the per-game `animations.lua` file with built-in and custom clips.
 pub fn write_animations_lua(scripts_folder: &Path, custom_clips: &[String]) -> io::Result<()> {
     let engine_folder = scripts_folder.join(ENGINE_DIR);
     fs::create_dir_all(&engine_folder)?;
@@ -129,7 +129,7 @@ pub fn write_animations_lua(scripts_folder: &Path, custom_clips: &[String]) -> i
     )
 }
 
-/// Writes sounds.lua with the supplied group names.
+/// Writes the per-game `sounds.lua` file with the supplied group names.
 pub fn write_sounds_lua(scripts_folder: &Path, group_names: &[String]) -> io::Result<()> {
     let engine_folder = scripts_folder.join(ENGINE_DIR);
     fs::create_dir_all(&engine_folder)?;

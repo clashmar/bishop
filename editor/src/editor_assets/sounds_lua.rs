@@ -1,4 +1,5 @@
 use std::collections::HashSet;
+use engine_core::scripting::lua_constants::LUA_OWNER_GAME_GENERATED;
 
 /// Generates `sounds.lua` with sorted, sanitized sound group identifiers.
 pub fn generate_sounds_lua(group_names: &[String]) -> String {
@@ -7,11 +8,12 @@ pub fn generate_sounds_lua(group_names: &[String]) -> String {
     names.dedup();
     let mut used_keys = HashSet::new();
 
-    let mut lua = String::from(
+    let mut lua = format!(
         "-- Auto-generated. Do not edit.\n\
+        {LUA_OWNER_GAME_GENERATED}\n\
         ---@meta\n\n\
         ---@enum SoundGroupId\n\
-        local SoundGroupId = {\n",
+        local SoundGroupId = {{\n",
     );
 
     for name in names {
@@ -66,6 +68,13 @@ fn unique_lua_identifier(s: &str, prefix: &str, used_keys: &mut HashSet<String>)
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn generate_sounds_lua_marks_file_as_game_generated() {
+        let lua = generate_sounds_lua(&[]);
+
+        assert!(lua.contains("-- bishop-owner: game-generated"));
+    }
 
     #[test]
     fn generate_sounds_lua_sorts_and_sanitizes_names() {

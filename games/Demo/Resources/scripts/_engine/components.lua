@@ -1,9 +1,8 @@
 -- Auto-generated. Do not edit.
+-- bishop-owner: shared-engine
 ---@meta
 ---@alias vec2 { x: number, y: number }
 ---@alias vec3 { x: number, y: number, z: number }
-
----@alias FacingDirection table
 
 ---@class Light
 ---@field pos vec2
@@ -106,6 +105,8 @@
 ---@field zoom_mode table
 ---@field camera_mode table
 
+---@alias FacingDirection table
+
 ---@class Animation
 ---@field clips table
 ---@field variant table
@@ -124,7 +125,6 @@
 ---@field range number
 
 ---@class ComponentId
----@field FacingDirection string
 ---@field Light string
 ---@field CurrentFrame string
 ---@field Glow string
@@ -149,6 +149,7 @@
 ---@field Sprite string
 ---@field Transform string
 ---@field RoomCamera string
+---@field FacingDirection string
 ---@field Animation string
 ---@field Children string
 ---@field Parent string
@@ -156,7 +157,6 @@
 
 local C = {}
 
-C.FacingDirection = "FacingDirection"
 C.Light = "Light"
 C.CurrentFrame = "CurrentFrame"
 C.Glow = "Glow"
@@ -181,6 +181,7 @@ C.SpeechBubble = "SpeechBubble"
 C.Sprite = "Sprite"
 C.Transform = "Transform"
 C.RoomCamera = "RoomCamera"
+C.FacingDirection = "FacingDirection"
 C.Animation = "Animation"
 C.Children = "Children"
 C.Parent = "Parent"

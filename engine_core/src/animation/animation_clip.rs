@@ -4,6 +4,7 @@ use crate::assets::sprite::SpriteId;
 use crate::constants::DEFAULT_GRID_SIZE;
 use crate::ecs::entity::Entity;
 use crate::game::*;
+use crate::scripting::lua_constants::LUA_OWNER_GAME_GENERATED;
 use std::{collections::HashMap, path::{Path, PathBuf}};
 use serde_with::{FromInto, serde_as};
 use serde::{Deserialize, Serialize};
@@ -290,11 +291,12 @@ pub fn generate_animations_lua(custom_clips: &[String]) -> String {
     use std::collections::HashSet;
     use strum::IntoEnumIterator;
 
-    let mut lua = String::from(
+    let mut lua = format!(
         "-- Auto-generated. Do not edit.\n\
+        {LUA_OWNER_GAME_GENERATED}\n\
         ---@meta\n\n\
         ---@enum ClipId\n\
-        local ClipId = {\n"
+        local ClipId = {{\n"
     );
 
     // Built-in clips from ClipId enum
@@ -347,5 +349,17 @@ fn sanitize_lua_identifier(s: &str) -> String {
         format!("Clip_{}", s.replace(|c: char| !c.is_ascii_alphanumeric(), "_"))
     } else {
         out
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::generate_animations_lua;
+
+    #[test]
+    fn generate_animations_lua_marks_file_as_game_generated() {
+        let lua = generate_animations_lua(&[]);
+
+        assert!(lua.contains("-- bishop-owner: game-generated"));
     }
 }
