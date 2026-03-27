@@ -295,11 +295,11 @@ impl InspectorModule for ScriptModule {
         }
     }
 
-    /// Compute the height from the number of fields
-    fn height(&self) -> f32 {
+    /// Compute the body layout from the number of fields.
+    fn body_layout(&self) -> InspectorBodyLayout {
         InspectorBodyLayout::new()
+            .top_padding(10.0)
             .rows(self.fields_len.max(1), SPACING)
-            .height()
     }
 }
 
@@ -314,5 +314,20 @@ inventory::submit! {
                 .with_title(<engine_core::scripting::script::Script>::TYPE_NAME)
             )
         },
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn script_body_layout_keeps_larger_bottom_gutter() {
+        let module = ScriptModule {
+            fields_len: 1,
+            ..Default::default()
+        };
+
+        assert_eq!(module.body_layout().height(), 50.0);
     }
 }

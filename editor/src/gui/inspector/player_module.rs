@@ -31,8 +31,10 @@ impl InspectorModule for PlayerModule {
         }
     }
 
-    fn height(&self) -> f32 {
-        28.0
+    fn body_layout(&self) -> InspectorBodyLayout {
+        InspectorBodyLayout::new()
+            .top_padding(0.0)
+            .block(28.0)
     }
 
     fn title(&self) -> &str {
@@ -40,5 +42,17 @@ impl InspectorModule for PlayerModule {
             .rsplit("::")
             .next()
             .unwrap_or("Player")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn player_body_layout_keeps_shared_bottom_gutter() {
+        let module = PlayerModule::default();
+
+        assert_eq!(module.body_layout().height(), 38.0);
     }
 }

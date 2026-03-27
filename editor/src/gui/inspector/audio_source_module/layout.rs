@@ -1,12 +1,12 @@
 use super::{EDIT_SECTION_SPACING, SECTION_GAP, SPACING};
 use engine_core::prelude::InspectorBodyLayout;
 
-pub(super) fn body_height(
+pub(super) fn body_layout(
     has_groups: bool,
     rename_active: bool,
     preset_actions_visible: bool,
     sounds_len: usize,
-) -> f32 {
+) -> InspectorBodyLayout {
     let mut layout = InspectorBodyLayout::new().rows(1, SPACING);
 
     if rename_active {
@@ -14,7 +14,7 @@ pub(super) fn body_height(
     }
 
     if !has_groups {
-        return layout.height();
+        return layout;
     }
 
     if preset_actions_visible {
@@ -24,5 +24,4 @@ pub(super) fn body_height(
     layout
         .gap(SECTION_GAP)
         .rows(sounds_len + 5, EDIT_SECTION_SPACING)
-        .height()
 }

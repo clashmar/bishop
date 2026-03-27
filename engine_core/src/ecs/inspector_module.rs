@@ -1,6 +1,7 @@
 // engine_core/src/ecs/inspector_module.rs
 use crate::game::GameCtxMut;
 use crate::ecs::entity::Entity;
+use crate::ecs::inspector_layout::InspectorBodyLayout;
 use crate::ui::widgets::*;
 use crate::ecs::ecs::Ecs;
 use bishop::prelude::*;
@@ -21,10 +22,12 @@ pub trait InspectorModule {
         entity: Entity,
     );
 
-    /// Height in screen pixels that the module occupies when it is
-    /// expanded.
+    /// Layout that describes the expanded body height for this module.
+    fn body_layout(&self) -> InspectorBodyLayout;
+
+    /// Height in screen pixels that the module occupies when expanded.
     fn height(&self) -> f32 {
-        80.0
+        self.body_layout().height()
     }
 
     /// Title that appears in the collapsible header. Uses the
@@ -163,10 +166,13 @@ impl<T: InspectorModule> InspectorModule for CollapsibleModule<T> {
         }
     }
 
+    fn body_layout(&self) -> InspectorBodyLayout {
+        self.inner.body_layout()
+    }
+
     fn height(&self) -> f32 {
         if self.expanded {
-            // Full height (header + inner module's height)
-            Self::HEADER_HEIGHT + self.inner.height()
+            Self::HEADER_HEIGHT + self.inner.body_layout().height()
         } else {
             Self::HEADER_HEIGHT
         }

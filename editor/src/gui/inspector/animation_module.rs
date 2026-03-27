@@ -11,6 +11,9 @@ const LABEL_Y_OFFSET: f32 = 20.0;
 const LABEL_FONT_SIZE: f32 = DEFAULT_FONT_SIZE_16;
 const COLON_GAP: f32 = 10.0;
 const FIELD_GAP: f32 = 20.0;
+const SECTION_SPACING: f32 = 10.0;
+const BUTTON_ROW_HEIGHT: f32 = MARGIN;
+const IMPORT_ROW_HEIGHT: f32 = MARGIN;
 
 #[derive(Default)]
 pub struct AnimationModule {
@@ -320,12 +323,19 @@ impl InspectorModule for AnimationModule {
         }
     }
 
-    fn height(&self) -> f32 {
+    fn body_layout(&self) -> InspectorBodyLayout {
         if self.has_clips {
-            340.0
-        } else {
-            50.0
+            return InspectorBodyLayout::new()
+                .top_padding(WIDGET_SPACING)
+                .rows(7, SECTION_SPACING)
+                .gap(SECTION_SPACING)
+                .block(IMPORT_ROW_HEIGHT);
         }
+
+        InspectorBodyLayout::new()
+            .top_padding(WIDGET_SPACING)
+            .bottom_gutter(WIDGET_PADDING)
+            .block(BUTTON_ROW_HEIGHT)
     }
 }
 
@@ -630,5 +640,20 @@ inventory::submit! {
                 .with_title(<engine_core::animation::animation_clip::Animation>::TYPE_NAME)
             )
         },
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn populated_animation_height_matches_drawn_sections() {
+        let module = AnimationModule {
+            has_clips: true,
+            ..Default::default()
+        };
+
+        assert_eq!(module.body_layout().height(), 330.0);
     }
 }

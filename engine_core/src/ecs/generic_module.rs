@@ -240,15 +240,14 @@ where
         }
     }
 
-    /// Compute the height from the number of reflected fields
-    fn height(&self) -> f32 {
+    /// Compute the body layout from the number of reflected fields.
+    fn body_layout(&self) -> InspectorBodyLayout {
         // Create a temporary default instance of `T` only to query its fields
         let mut temp = T::default();
         let field_count = temp.fields().len();
 
         InspectorBodyLayout::new()
             .rows(field_count, SPACING)
-            .height()
     }
 
     fn removable(&self) -> bool {

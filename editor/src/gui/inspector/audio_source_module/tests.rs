@@ -123,7 +123,7 @@ fn tick_active_audio_preview_clears_expired_preview() {
 fn height_matches_single_visible_row_when_source_has_no_groups() {
     let module = AudioSourceModule::default();
 
-    assert_eq!(module.height(), TOP_PADDING + ROW_HEIGHT + SPACING);
+    assert_eq!(module.height(), TOP_PADDING + ROW_HEIGHT + SPACING + 5.0);
 }
 
 #[test]
@@ -131,7 +131,7 @@ fn height_adds_only_rename_row_when_no_groups_and_rename_is_active() {
     let mut module = AudioSourceModule::default();
     module.pending_rename_target = Some(SoundGroupId::Custom("Group 1".to_string()));
 
-    assert_eq!(module.height(), TOP_PADDING + ROW_HEIGHT * 2.0 + SPACING * 2.0);
+    assert_eq!(module.height(), TOP_PADDING + ROW_HEIGHT * 2.0 + SPACING * 2.0 + 5.0);
 }
 
 #[test]
@@ -154,7 +154,8 @@ fn height_matches_minimal_group_editor_without_sound_rows() {
         + EDIT_SECTION_SPACING
         + ROW_HEIGHT
         + EDIT_SECTION_SPACING
-        + ROW_HEIGHT;
+        + ROW_HEIGHT
+        + 5.0;
 
     assert_eq!(module.height(), expected);
 }

@@ -2,15 +2,9 @@ mod groups;
 mod layout;
 mod preview;
 
-use self::groups::{
-    apply_source_edit, draw_group_dropdowns, draw_rename_field, ensure_selected_group,
-    handle_preset_action, preset_actions_for_group, preset_status_text, rename_preset_links_in_ecs,
-    sync_linked_groups_from_preset, PresetAction,
-};
-use self::layout::body_height;
-use self::preview::{
-    apply_preview_request, sync_active_preview, tick_active_audio_preview, PreviewRequest,
-};
+use self::groups::*;
+use self::layout::body_layout;
+use self::preview::*;
 pub use self::preview::clear_active_audio_preview;
 use crate::storage::sound_preset_storage::*;
 use engine_core::prelude::*;
@@ -62,8 +56,8 @@ impl InspectorModule for AudioSourceModule {
         Ecs::remove_component::<AudioSource>(game_ctx, entity);
     }
 
-    fn height(&self) -> f32 {
-        body_height(
+    fn body_layout(&self) -> InspectorBodyLayout {
+        body_layout(
             self.has_groups,
             self.pending_rename_target.is_some(),
             self.has_preset_actions,
