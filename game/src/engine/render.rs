@@ -1,19 +1,20 @@
 // game/src/engine/render.rs
 use crate::engine::*;
-use engine_core::prelude::*;
 use bishop::prelude::*;
+use engine_core::prelude::*;
 
 impl Engine {
     pub(crate) fn render_menus(&mut self, ctx: &PlatformContext) {
-        if !self.menu_manager.has_active_menu() { 
-            return; 
+        if !self.menu_manager.has_active_menu() {
+            return;
         }
 
         ctx.borrow_mut().flush_if_needed();
         let viewport = self.render_system.viewport_rect(&*ctx.borrow());
         self.menu_manager.set_viewport(viewport);
         let game_instance = self.game_instance.borrow();
-        self.menu_manager.render(&mut *ctx.borrow_mut(), &game_instance.game.text_manager);
+        self.menu_manager
+            .render(&mut *ctx.borrow_mut(), &game_instance.game.text_manager);
     }
 }
 
@@ -41,12 +42,12 @@ pub(super) fn render_scene<C: BishopContext>(
     render_system.begin_scene(ctx);
 
     render_room(
-        ctx, 
-        &mut game_ctx, 
-        render_system, 
-        render_cam, 
-        alpha, 
-        Some(prev_positions)
+        ctx,
+        &mut game_ctx,
+        render_system,
+        render_cam,
+        alpha,
+        Some(prev_positions),
     );
 
     render_system.end_scene(ctx);
@@ -71,7 +72,9 @@ fn render_speech<C: BishopContext>(
     alpha: f32,
 ) {
     let game_ctx = game_instance.game.ctx();
-    let Some(current_room) = game_ctx.cur_world.current_room() else { return; };
+    let Some(current_room) = game_ctx.cur_world.current_room() else {
+        return;
+    };
     let grid_size = game_ctx.cur_world.grid_size;
 
     let bubbles = collect_speech_bubbles(

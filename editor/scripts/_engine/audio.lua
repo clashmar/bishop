@@ -5,9 +5,15 @@
 ---@class AudioApi
 engine.audio = {}
 
---- Plays music by ID, looping until stopped. Stops any current track.
+--- Plays music by ID.
+--- `opts.looping` defaults to true and `opts.fade_out` defaults to 0.0 seconds.
 ---@param id string Path relative to Resources/audio/ without extension
-function engine.audio.play_music(id) end
+---@param opts? {looping?: boolean, fade_out?: number}
+function engine.audio.play_music(id, opts) end
+
+--- Returns true while music is considered active.
+---@return boolean
+function engine.audio.is_playing() end
 
 --- Stops music immediately.
 function engine.audio.stop_music() end

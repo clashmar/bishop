@@ -1,23 +1,27 @@
 // game/src/engine/mod.rs
+// Keep `mod.rs` limited to frame orchestration. Feature-specific methods belong in focused 
+// helper modules alongside the subsystem it serves, or in a new engine sub-module.
+mod audio_events;
 pub mod engine_builder;
 pub mod game_instance;
 mod render;
+use audio_events::emit_pending_audio_events;
 use render::*;
 
 pub use engine_builder::EngineBuilder;
 pub use game_instance::GameInstance;
 
-use crate::transitions::transition_manager::TransitionManager;
-use crate::scripting::script_system::ScriptSystem;
 use crate::diagnostics::DiagnosticsOverlay;
 use crate::game_global::set_menu_active;
 use crate::physics::physics_system::*;
-use engine_core::prelude::*;
+use crate::scripting::script_system::ScriptSystem;
+use crate::transitions::transition_manager::TransitionManager;
 use bishop::prelude::*;
 use bishop::BishopApp;
+use engine_core::prelude::*;
+use mlua::Lua;
 use std::cell::RefCell;
 use std::rc::Rc;
-use mlua::Lua;
 
 pub struct Engine {
     /// Currently running instance of the game.
@@ -59,9 +63,10 @@ impl BishopApp for Engine {
         let smoothed = smooth_dt(&mut self.smoothed_dt, raw_dt, 0.9);
         let dt = snap_dt(smoothed);
 
-        // Handle menu input first
-        self.menu_manager.handle_input(&mut *ctx.borrow_mut());
         self.update_game_state();
+
+        self.menu_manager.handle_input(&mut *ctx.borrow_mut());
+        emit_pending_audio_events(self);
 
         if self.is_playtest {
             self.diagnostics.update(raw_dt);
@@ -85,7 +90,7 @@ impl BishopApp for Engine {
         if self.is_playtest {
             self.diagnostics.update_from_game(
                 &self.game_instance.borrow(),
-                self.render_system.render_time_ms
+                self.render_system.render_time_ms,
             );
         }
 
@@ -127,11 +132,7 @@ impl Engine {
         }
     }
 
-    pub fn fixed_update<C: BishopContext>(
-        &mut self,
-        ctx: &mut C,
-        dt: f32
-    ) {
+    pub fn fixed_update<C: BishopContext>(&mut self, ctx: &mut C, dt: f32) {
         let mut game_instance = self.game_instance.borrow_mut();
         game_instance.store_previous_positions(&mut self.camera_manager);
 
@@ -203,22 +204,17 @@ impl Engine {
             let game_instance = &mut *game_borrow;
 
             render_scene(
-                platform_ctx, 
-                game_instance, 
-                &mut self.render_system, 
-                &render_cam, 
-                alpha
+                platform_ctx,
+                game_instance,
+                &mut self.render_system,
+                &render_cam,
+                alpha,
             );
 
-            render_screen_space(
-                platform_ctx, 
-                game_instance, 
-                &render_cam, 
-                alpha
-            );
+            render_screen_space(platform_ctx, game_instance, &render_cam, alpha);
 
-            if self.is_playtest { 
-                self.diagnostics.draw(platform_ctx); 
+            if self.is_playtest {
+                self.diagnostics.draw(platform_ctx);
             }
         } else {
             ctx.borrow_mut().clear_background(Color::BLACK);

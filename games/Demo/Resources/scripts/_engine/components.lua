@@ -3,13 +3,6 @@
 ---@alias vec2 { x: number, y: number }
 ---@alias vec3 { x: number, y: number, z: number }
 
----@class AudioSource
----@field sounds table
----@field volume number
----@field pitch_variation number
----@field volume_variation number
----@field looping boolean
-
 ---@alias FacingDirection table
 
 ---@class Light
@@ -36,6 +29,11 @@
 ---@field brightness number
 ---@field emission number
 ---@field sprite_id number
+
+---@class AudioSource
+---@field groups table
+---@field current table
+---@field runtime_volume number
 
 ---@class Script
 ---@field script_id number
@@ -126,11 +124,11 @@
 ---@field range number
 
 ---@class ComponentId
----@field AudioSource string
 ---@field FacingDirection string
 ---@field Light string
 ---@field CurrentFrame string
 ---@field Glow string
+---@field AudioSource string
 ---@field Script string
 ---@field Name string
 ---@field PhysicsBody string
@@ -158,11 +156,11 @@
 
 local C = {}
 
-C.AudioSource = "AudioSource"
 C.FacingDirection = "FacingDirection"
 C.Light = "Light"
 C.CurrentFrame = "CurrentFrame"
 C.Glow = "Glow"
+C.AudioSource = "AudioSource"
 C.Script = "Script"
 C.Name = "Name"
 C.PhysicsBody = "PhysicsBody"

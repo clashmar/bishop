@@ -39,7 +39,7 @@ pub fn load_wav(id: &str) -> Result<Arc<Frames<[f32; 2]>>, String> {
             return Err(format!(
                 "unsupported channel count {n} in {}",
                 path.display()
-            ))
+            ));
         }
     };
 

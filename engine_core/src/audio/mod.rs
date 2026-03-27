@@ -1,11 +1,14 @@
 pub mod audio_source;
 pub mod command_queue;
 pub mod loader;
+pub mod runtime;
+#[cfg(test)]
+mod tests;
 
 pub use audio_source::{AudioGroup, AudioSource, SoundGroupId};
-
-pub use command_queue::{AudioCommand, push_audio_command};
+pub use command_queue::{AudioCommand, PlayMusicRequest, push_audio_command};
 pub use loader::load_wav;
+pub use runtime::{MusicStopReason, MusicStoppedEvent};
 
 use crate::task::BackgroundService;
 use bishop::audio::AudioBackend;
@@ -18,12 +21,59 @@ use std::sync::Arc;
 struct FadeOut {
     remaining: f32,
     duration: f32,
+    start_ratio: f32,
+    next_music: Option<PlayMusicRequest>,
 }
 
+/// Handle type for active looping music signals.
+type LoopMusicHandle = Handle<Stop<Cycle<[f32; 2]>>>;
+/// Handle type for active one-shot music signals.
+type OneShotMusicHandle = Handle<Stop<FramesSignal<[f32; 2]>>>;
 /// Handle type for active looping SFX signals.
 type LoopHandle = Handle<Stop<Gain<Speed<Cycle<[f32; 2]>>>>>;
 #[cfg(feature = "editor")]
 type PreviewHandle = Handle<Stop<Gain<Speed<FramesSignal<[f32; 2]>>>>>;
+
+enum ActiveMusic {
+    Looping {
+        id: String,
+        handle: LoopMusicHandle,
+    },
+    OneShot {
+        id: String,
+        handle: OneShotMusicHandle,
+        remaining: f32,
+    },
+}
+
+impl ActiveMusic {
+    fn id(&self) -> &str {
+        match self {
+            Self::Looping { id, .. } | Self::OneShot { id, .. } => id,
+        }
+    }
+
+    fn stop(&mut self) {
+        match self {
+            Self::Looping { handle, .. } => {
+                handle.control::<Stop<Cycle<[f32; 2]>>, _>().stop();
+            }
+            Self::OneShot { handle, .. } => {
+                handle.control::<Stop<FramesSignal<[f32; 2]>>, _>().stop();
+            }
+        }
+    }
+}
+
+impl FadeOut {
+    fn ratio(&self) -> f32 {
+        if self.duration <= 0.0 {
+            0.0
+        } else {
+            (self.remaining / self.duration).clamp(0.0, 1.0) * self.start_ratio
+        }
+    }
+}
 
 #[cfg(feature = "editor")]
 struct TrackedPreview {
@@ -62,7 +112,7 @@ pub struct AudioManager {
     /// SFX sub-mixer with gain control.
     sfx_group: Handle<Stop<Gain<Mixer<[f32; 2]>>>>,
     /// Active music track. `None` when nothing is playing.
-    active_music: Option<Handle<Stop<Cycle<[f32; 2]>>>>,
+    active_music: Option<ActiveMusic>,
     /// Active fade-out state.
     active_fade: Option<FadeOut>,
     /// Decoded audio cache, keyed by sound ID.
@@ -106,9 +156,12 @@ impl AudioManager {
         // oddio::run each buffer callback. Sample rate is 44100 Hz — the frames
         // embedded rate handles resampling internally.
         const SAMPLE_RATE: u32 = 44100;
-        let keep_alive: Box<dyn Send + 'static> = Box::new(B::start(move |frames: &mut [[f32; 2]]| {
-            oddio::run(&root_signal, SAMPLE_RATE, frames);
-        }));
+        let keep_alive: Box<dyn Send + 'static> =
+            Box::new(B::start(move |frames: &mut [[f32; 2]]| {
+                oddio::run(&root_signal, SAMPLE_RATE, frames);
+            }));
+
+        runtime::set_music_playing(false);
 
         Self {
             _keep_alive: keep_alive,
@@ -148,38 +201,123 @@ impl AudioManager {
         }
     }
 
-    /// Starts playing a looping music track. Any existing track is stopped immediately.
-    fn play_music(&mut self, id: &str) {
-        self.stop_music();
-        let Some(frames) = self.load_or_cached(id) else {
+    fn current_music_fade_ratio(&self) -> f32 {
+        self.active_fade.as_ref().map(FadeOut::ratio).unwrap_or(1.0)
+    }
+
+    fn begin_fade(&mut self, duration: f32, next_music: Option<PlayMusicRequest>) {
+        if self.active_music.is_none() {
+            if let Some(request) = next_music {
+                self.start_music(request);
+            }
+            return;
+        }
+
+        if duration <= 0.0 {
+            match next_music {
+                Some(request) => self.replace_music_now(request),
+                None => self.finish_music(MusicStopReason::Faded, None),
+            }
+            return;
+        }
+
+        self.active_fade = Some(FadeOut {
+            remaining: duration,
+            duration,
+            start_ratio: self.current_music_fade_ratio(),
+            next_music,
+        });
+    }
+
+    /// Starts playing a music track according to the supplied request.
+    fn start_music(&mut self, request: PlayMusicRequest) {
+        let Some(frames) = self.load_or_cached(&request.id) else {
             return;
         };
-        let cycle = Cycle::new(frames);
-        // Play the looping cycle into the inner Mixer of the music group.
-        // Signal chain: Stop<Gain<Mixer>> — Mixer is accessible via the filter chain.
-        let track_handle = self
-            .music_group
-            .control::<Mixer<[f32; 2]>, _>()
-            .play(cycle);
-        self.active_music = Some(track_handle);
+
+        self.active_fade = None;
+        self.apply_music_gain();
+
+        if request.looping {
+            let track_handle = self
+                .music_group
+                .control::<Mixer<[f32; 2]>, _>()
+                .play(Cycle::new(frames));
+            self.active_music = Some(ActiveMusic::Looping {
+                id: request.id,
+                handle: track_handle,
+            });
+        } else {
+            let runtime = frames.runtime() as f32;
+            let track_handle = self
+                .music_group
+                .control::<Mixer<[f32; 2]>, _>()
+                .play(FramesSignal::from(frames));
+            self.active_music = Some(ActiveMusic::OneShot {
+                id: request.id,
+                handle: track_handle,
+                remaining: runtime,
+            });
+        }
+    }
+
+    fn replace_music_now(&mut self, request: PlayMusicRequest) {
+        if self.active_music.is_some() {
+            self.finish_music(MusicStopReason::Replaced, Some(request.id.clone()));
+        }
+        self.start_music(request);
+    }
+
+    /// Begins playing music, optionally after fading out the current track.
+    fn play_music(&mut self, request: PlayMusicRequest) {
+        if self.active_music.is_none() {
+            self.start_music(request);
+            return;
+        }
+
+        if request.fade_out > 0.0 {
+            self.begin_fade(
+                request.fade_out,
+                Some(PlayMusicRequest {
+                    fade_out: 0.0,
+                    ..request
+                }),
+            );
+            return;
+        }
+
+        self.replace_music_now(request);
+    }
+
+    fn finish_music(&mut self, reason: MusicStopReason, next_id: Option<String>) {
+        let Some(mut music) = self.active_music.take() else {
+            self.active_fade = None;
+            self.apply_music_gain();
+            return;
+        };
+
+        let id = music.id().to_string();
+        music.stop();
+        self.active_fade = None;
+        self.apply_music_gain();
+        runtime::push_music_stopped_event(MusicStoppedEvent {
+            id,
+            reason,
+            next_id,
+        });
     }
 
     /// Stops the active music track immediately.
     fn stop_music(&mut self) {
-        if let Some(ref mut handle) = self.active_music {
-            handle.control::<Stop<Cycle<[f32; 2]>>, _>().stop();
+        if self.active_music.is_some() {
+            self.finish_music(MusicStopReason::Stopped, None);
         }
-        self.active_music = None;
-        self.active_fade = None;
     }
 
     /// Begins a fade-out of the active music over `duration` seconds.
     fn fade_music(&mut self, duration: f32) {
         if self.active_music.is_some() {
-            self.active_fade = Some(FadeOut {
-                remaining: duration,
-                duration,
-            });
+            self.begin_fade(duration, None);
         }
     }
 
@@ -189,9 +327,7 @@ impl AudioManager {
             return;
         };
         let signal = FramesSignal::from(frames);
-        self.sfx_group
-            .control::<Mixer<[f32; 2]>, _>()
-            .play(signal);
+        self.sfx_group.control::<Mixer<[f32; 2]>, _>().play(signal);
     }
 
     /// Preloads a sound into the cache without playing it and pins it against auto-eviction.
@@ -233,7 +369,7 @@ impl AudioManager {
 
     /// Updates the combined master × music gain on the music group.
     fn apply_music_gain(&mut self) {
-        let linear = self.master_volume * self.music_volume;
+        let linear = self.master_volume * self.music_volume * self.current_music_fade_ratio();
         self.music_group
             .control::<Gain<Mixer<[f32; 2]>>, _>()
             .set_amplitude_ratio(linear);
@@ -281,7 +417,8 @@ impl AudioManager {
             return;
         };
         let final_volume = Self::apply_variation(volume, volume_variation);
-        let final_pitch = (1.0 + rand::thread_rng().gen_range(-pitch_variation..=pitch_variation)).max(0.1);
+        let final_pitch =
+            (1.0 + rand::thread_rng().gen_range(-pitch_variation..=pitch_variation)).max(0.1);
         let mut signal = Gain::new(Speed::new(FramesSignal::from(frames)));
         signal.set_amplitude_ratio(final_volume);
         let mut handle = self.sfx_group.control::<Mixer<[f32; 2]>, _>().play(signal);
@@ -307,7 +444,8 @@ impl AudioManager {
             return;
         };
         let final_volume = Self::apply_variation(volume, volume_variation);
-        let final_pitch = (1.0 + rand::thread_rng().gen_range(-pitch_variation..=pitch_variation)).max(0.1);
+        let final_pitch =
+            (1.0 + rand::thread_rng().gen_range(-pitch_variation..=pitch_variation)).max(0.1);
         let mut signal = Gain::new(Speed::new(Cycle::new(frames)));
         signal.set_amplitude_ratio(final_volume);
         let mut handle = self.sfx_group.control::<Mixer<[f32; 2]>, _>().play(signal);
@@ -327,11 +465,7 @@ impl AudioManager {
     }
 
     #[cfg(feature = "editor")]
-    fn play_tracked_preview(
-        &mut self,
-        handle_key: u64,
-        spec: TrackedPreviewSpec<'_>,
-    ) {
+    fn play_tracked_preview(&mut self, handle_key: u64, spec: TrackedPreviewSpec<'_>) {
         self.stop_tracked_preview(handle_key);
         let Some(id) = Self::pick_sound(spec.sounds) else {
             return;
@@ -408,28 +542,70 @@ impl AudioManager {
         }
     }
 
+    fn tick_music_completion(&mut self, dt: f32) {
+        let finished = match self.active_music.as_mut() {
+            Some(ActiveMusic::OneShot { remaining, .. }) => {
+                *remaining -= dt.max(0.0);
+                *remaining <= 0.0
+            }
+            _ => false,
+        };
+
+        if !finished {
+            return;
+        }
+
+        let next_music = self.active_fade.take().and_then(|fade| fade.next_music);
+        match next_music {
+            Some(request) => {
+                self.finish_music(MusicStopReason::Replaced, Some(request.id.clone()));
+                self.start_music(request);
+            }
+            None => self.finish_music(MusicStopReason::Completed, None),
+        }
+    }
+
     /// Advances the active fade-out by `dt` seconds.
     fn tick_fade(&mut self, dt: f32) {
-        let finished = if let Some(ref mut fade) = self.active_fade {
+        let completed_fade = if let Some(ref mut fade) = self.active_fade {
             fade.remaining -= dt;
             if fade.remaining <= 0.0 {
-                true
+                fade.next_music.clone()
             } else {
-                let ratio = (fade.remaining / fade.duration).clamp(0.0, 1.0);
+                let ratio = fade.ratio();
                 let linear = self.master_volume * self.music_volume * ratio;
                 self.music_group
                     .control::<Gain<Mixer<[f32; 2]>>, _>()
                     .set_amplitude_ratio(linear);
-                false
+                None
             }
         } else {
-            false
+            return;
         };
 
-        if finished {
-            self.stop_music();
-            // Restore music volume after stopping.
-            self.apply_music_gain();
+        let Some(next_music) = completed_fade else {
+            if self
+                .active_fade
+                .as_ref()
+                .is_some_and(|fade| fade.remaining <= 0.0)
+            {
+                self.finish_music(MusicStopReason::Faded, None);
+            }
+            return;
+        };
+
+        self.finish_music(MusicStopReason::Replaced, Some(next_music.id.clone()));
+        self.start_music(next_music);
+    }
+
+    fn publish_runtime_state(&self) {
+        runtime::set_music_playing(self.active_music.is_some());
+    }
+
+    fn tick_playback_state(&mut self, dt: f32) {
+        self.tick_music_completion(dt);
+        if self.active_music.is_some() {
+            self.tick_fade(dt);
         }
     }
 }
@@ -443,10 +619,12 @@ impl BackgroundService for AudioManager {
             self.cleanup_tracked_previews();
         }
 
+        self.tick_playback_state(dt);
+
         let commands = command_queue::drain_audio_commands();
         for cmd in commands {
             match cmd {
-                AudioCommand::PlayMusic(id) => self.play_music(&id),
+                AudioCommand::PlayMusic(request) => self.play_music(request),
                 AudioCommand::StopMusic => self.stop_music(),
                 AudioCommand::FadeMusic(duration) => self.fade_music(duration),
                 AudioCommand::PlaySfx(id) => self.play_sfx(&id),
@@ -514,177 +692,6 @@ impl BackgroundService for AudioManager {
                 AudioCommand::StopLoop(handle) => self.stop_loop(handle),
             }
         }
-        self.tick_fade(dt);
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    #[cfg(feature = "editor")]
-    use crate::audio::command_queue::{drain_audio_commands, push_audio_command};
-    #[cfg(feature = "editor")]
-    use bishop::audio::AudioBackend;
-    #[cfg(feature = "editor")]
-    use oddio::Frames;
-
-    #[cfg(feature = "editor")]
-    struct TestBackend;
-
-    #[cfg(feature = "editor")]
-    impl AudioBackend for TestBackend {
-        fn start<F: FnMut(&mut [[f32; 2]]) + Send + 'static>(_render_fn: F) -> Self
-        where
-            Self: Sized,
-        {
-            Self
-        }
-    }
-
-    #[cfg(feature = "editor")]
-    fn seeded_manager() -> AudioManager {
-        let mut manager = AudioManager::new::<TestBackend>();
-        manager.sound_cache.insert(
-            "preview/click".to_string(),
-            Frames::from_slice(44_100, &[[0.0, 0.0]]),
-        );
-        manager
-    }
-
-    #[cfg(feature = "editor")]
-    #[test]
-    fn tracked_preview_replaces_existing_preview_for_same_handle() {
-        let _ = drain_audio_commands();
-        let mut manager = seeded_manager();
-
-        push_audio_command(AudioCommand::PlayTrackedPreview {
-            handle: 11,
-            sounds: vec!["preview/click".to_string()],
-            volume: 0.5,
-            pitch_variation: 0.0,
-            volume_variation: 0.0,
-            looping: true,
-            timeout: 3.0,
-        });
-        manager.poll(0.0);
-        assert_eq!(manager.tracked_previews.len(), 1);
-        let first_expiry = manager
-            .tracked_previews
-            .get(&11)
-            .map(|preview| preview.expires_at)
-            .unwrap();
-
-        push_audio_command(AudioCommand::PlayTrackedPreview {
-            handle: 11,
-            sounds: vec!["preview/click".to_string()],
-            volume: 0.75,
-            pitch_variation: 0.0,
-            volume_variation: 0.0,
-            looping: true,
-            timeout: 5.0,
-        });
-        manager.poll(0.0);
-
-        assert_eq!(manager.tracked_previews.len(), 1);
-        let second_expiry = manager
-            .tracked_previews
-            .get(&11)
-            .map(|preview| preview.expires_at)
-            .unwrap();
-        assert!(second_expiry >= first_expiry + 1.0);
-    }
-
-    #[cfg(feature = "editor")]
-    #[test]
-    fn tracked_preview_expires_when_timeout_elapses() {
-        let _ = drain_audio_commands();
-        let mut manager = seeded_manager();
-
-        push_audio_command(AudioCommand::PlayTrackedPreview {
-            handle: 17,
-            sounds: vec!["preview/click".to_string()],
-            volume: 0.5,
-            pitch_variation: 0.0,
-            volume_variation: 0.0,
-            looping: true,
-            timeout: 1.0,
-        });
-        manager.poll(0.5);
-        assert!(manager.tracked_previews.contains_key(&17));
-
-        manager.poll(0.5);
-        assert!(manager.tracked_previews.contains_key(&17));
-
-        manager.poll(0.5);
-        assert!(!manager.tracked_previews.contains_key(&17));
-    }
-
-    #[cfg(feature = "editor")]
-    #[test]
-    fn tracked_preview_timeout_starts_after_the_preview_is_created() {
-        let _ = drain_audio_commands();
-        let mut manager = seeded_manager();
-
-        push_audio_command(AudioCommand::PlayTrackedPreview {
-            handle: 19,
-            sounds: vec!["preview/click".to_string()],
-            volume: 0.5,
-            pitch_variation: 0.0,
-            volume_variation: 0.0,
-            looping: true,
-            timeout: 0.25,
-        });
-        manager.poll(1.0);
-
-        assert!(manager.tracked_previews.contains_key(&19));
-
-        manager.poll(0.25);
-        assert!(!manager.tracked_previews.contains_key(&19));
-    }
-
-    #[cfg(feature = "editor")]
-    #[test]
-    fn stop_tracked_one_shot_preview_removes_preview_handle() {
-        let _ = drain_audio_commands();
-        let mut manager = seeded_manager();
-
-        push_audio_command(AudioCommand::PlayTrackedPreview {
-            handle: 21,
-            sounds: vec!["preview/click".to_string()],
-            volume: 0.5,
-            pitch_variation: 0.0,
-            volume_variation: 0.0,
-            looping: false,
-            timeout: 5.0,
-        });
-        manager.poll(0.0);
-        assert!(manager.tracked_previews.contains_key(&21));
-
-        push_audio_command(AudioCommand::StopTrackedPreview(21));
-        manager.poll(0.0);
-        assert!(!manager.tracked_previews.contains_key(&21));
-    }
-
-    #[cfg(feature = "editor")]
-    #[test]
-    fn stop_tracked_preview_removes_preview_handle() {
-        let _ = drain_audio_commands();
-        let mut manager = seeded_manager();
-
-        push_audio_command(AudioCommand::PlayTrackedPreview {
-            handle: 23,
-            sounds: vec!["preview/click".to_string()],
-            volume: 0.5,
-            pitch_variation: 0.0,
-            volume_variation: 0.0,
-            looping: true,
-            timeout: 5.0,
-        });
-        manager.poll(0.0);
-        assert!(manager.tracked_previews.contains_key(&23));
-
-        push_audio_command(AudioCommand::StopTrackedPreview(23));
-        manager.poll(0.0);
-        assert!(!manager.tracked_previews.contains_key(&23));
+        self.publish_runtime_state();
     }
 }

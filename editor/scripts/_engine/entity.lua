@@ -7,6 +7,7 @@ local Entity = {}
 
 -- Component getters
 ---@overload fun(self: Entity, component: "Light"): Light
+---@overload fun(self: Entity, component: "AudioSource"): AudioSource
 ---@overload fun(self: Entity, component: "SpeechBubble"): SpeechBubble
 ---@overload fun(self: Entity, component: "RoomCamera"): RoomCamera
 ---@overload fun(self: Entity, component: "CurrentFrame"): CurrentFrame
@@ -32,9 +33,8 @@ local Entity = {}
 ---@overload fun(self: Entity, component: "Glow"): Glow
 ---@overload fun(self: Entity, component: "Sprite"): Sprite
 ---@overload fun(self: Entity, component: "Transform"): Transform
----@overload fun(self: Entity, component: "Interactable"): Interactable
----@overload fun(self: Entity, component: "AudioSource"): AudioSource
 ---@overload fun(self: Entity, component: "FacingDirection"): FacingDirection
+---@overload fun(self: Entity, component: "Interactable"): Interactable
 ---@param component string
 ---@return table|nil
 function Entity:get(component) end
@@ -49,6 +49,10 @@ function Entity:set(component, value) end
 ---@param self Entity
 ---@param v Light
 function Entity:set_light(v) end
+
+---@param self Entity
+---@param v AudioSource
+function Entity:set_audio_source(v) end
 
 ---@param self Entity
 ---@param v SpeechBubble
@@ -151,16 +155,12 @@ function Entity:set_sprite(v) end
 function Entity:set_transform(v) end
 
 ---@param self Entity
----@param v Interactable
-function Entity:set_interactable(v) end
-
----@param self Entity
----@param v AudioSource
-function Entity:set_audio_source(v) end
-
----@param self Entity
 ---@param v FacingDirection
 function Entity:set_facing_direction(v) end
+
+---@param self Entity
+---@param v Interactable
+function Entity:set_interactable(v) end
 
 ---@param component string
 ---@see ComponentId

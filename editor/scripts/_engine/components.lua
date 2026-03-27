@@ -3,6 +3,8 @@
 ---@alias vec2 { x: number, y: number }
 ---@alias vec3 { x: number, y: number, z: number }
 
+---@alias FacingDirection table
+
 ---@class Light
 ---@field pos vec2
 ---@field color vec3
@@ -121,9 +123,8 @@
 ---@class Interactable
 ---@field range number
 
----@alias FacingDirection table
-
 ---@class ComponentId
+---@field FacingDirection string
 ---@field Light string
 ---@field CurrentFrame string
 ---@field Glow string
@@ -152,10 +153,10 @@
 ---@field Children string
 ---@field Parent string
 ---@field Interactable string
----@field FacingDirection string
 
 local C = {}
 
+C.FacingDirection = "FacingDirection"
 C.Light = "Light"
 C.CurrentFrame = "CurrentFrame"
 C.Glow = "Glow"
@@ -184,6 +185,5 @@ C.Animation = "Animation"
 C.Children = "Children"
 C.Parent = "Parent"
 C.Interactable = "Interactable"
-C.FacingDirection = "FacingDirection"
 
 return C

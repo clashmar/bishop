@@ -1,12 +1,12 @@
 // game/src/engine/engine_builder.rs
-use crate::scripting::lua_ctx::register_lua_contexts;
 use super::game_instance::GameInstance;
 use super::Engine;
-use engine_core::prelude::*;
+use crate::scripting::lua_ctx::register_lua_contexts;
 use bishop::prelude::*;
+use engine_core::prelude::*;
+use mlua::Lua;
 use std::cell::RefCell;
 use std::rc::Rc;
-use mlua::Lua;
 
 /// Holds shared resources needed to construct an [`Engine`], allowing the caller
 /// to choose which [`GameInstance`] constructor to use.
@@ -18,7 +18,10 @@ pub struct EngineBuilder {
 impl EngineBuilder {
     /// Creates a new builder with a fresh Lua VM and default camera manager.
     pub fn new() -> Self {
-        Self { lua: Lua::new(), camera_manager: CameraManager::default() }
+        Self {
+            lua: Lua::new(),
+            camera_manager: CameraManager::default(),
+        }
     }
 
     /// Wraps `game_instance`, extracts `grid_size`, registers Lua contexts,

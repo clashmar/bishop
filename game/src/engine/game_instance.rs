@@ -1,10 +1,10 @@
 // game/src/engine/game_instance.rs
 use crate::scripting::script_system::ScriptSystem;
-use std::collections::HashMap;
 use engine_core::prelude::*;
 use mlua::Lua;
 use mlua::Value;
 use mlua::Variadic;
+use std::collections::HashMap;
 
 /// Top level orchestrator of the game and systems.
 pub struct GameInstance {
@@ -17,16 +17,16 @@ pub struct GameInstance {
 impl GameInstance {
     // TODO: Make game creation DRYer
     pub async fn new<C: BishopContext>(
-        ctx: &mut C, 
-        lua: &Lua, 
-        camera_manager: &mut CameraManager
+        ctx: &mut C,
+        lua: &Lua,
+        camera_manager: &mut CameraManager,
     ) -> Self {
         // Allows the shared engine features to make decisions
         set_engine_mode(EngineMode::Game);
 
         let mut game = match load_game_ron().await {
             Ok(game) => game,
-            Err(e) => panic!("{e}")
+            Err(e) => panic!("{e}"),
         };
 
         game.initialize(ctx, lua).await;
@@ -41,29 +41,32 @@ impl GameInstance {
         }
 
         // TODO: Get rid of expects
-        let start_room_id = game.current_world().starting_room_id
-            .or_else(|| game.worlds.first().map(|m| m.starting_room_id.expect("Game has no starting room.")))
+        let start_room_id = game
+            .current_world()
+            .starting_room_id
+            .or_else(|| {
+                game.worlds
+                    .first()
+                    .map(|m| m.starting_room_id.expect("Game has no starting room."))
+            })
             .expect("Game has no starting room nor any rooms");
 
-        let current_room = game.current_world().rooms
+        let current_room = game
+            .current_world()
+            .rooms
             .iter()
             .find(|m| m.id == start_room_id)
             .expect("Missing id for the starting room")
             .clone();
 
         let ecs = &game.ecs;
-        let player_pos = ecs.get_player_transform()
+        let player_pos = ecs
+            .get_player_transform()
             .map(|t| t.position)
             .unwrap_or_default();
         let grid_size = game.current_world().grid_size;
 
-        *camera_manager = CameraManager::new(
-            ctx, 
-            ecs, 
-            current_room.id, 
-            player_pos, 
-            grid_size
-        );
+        *camera_manager = CameraManager::new(ctx, ecs, current_room.id, player_pos, grid_size);
 
         ScriptSystem::init(lua, &game.script_manager.event_bus);
 
@@ -93,18 +96,13 @@ impl GameInstance {
         }
 
         let ecs = &game.ecs;
-        let player_pos = ecs.get_player_transform()
+        let player_pos = ecs
+            .get_player_transform()
             .map(|t| t.position)
             .unwrap_or_default();
         let grid_size = game.current_world().grid_size;
 
-        *camera_manager = CameraManager::new(
-            ctx,
-            ecs,
-            room.id,
-            player_pos,
-            grid_size
-        );
+        *camera_manager = CameraManager::new(ctx, ecs, room.id, player_pos, grid_size);
 
         ScriptSystem::init(lua, &game.script_manager.event_bus);
 
@@ -124,10 +122,10 @@ impl GameInstance {
     fn emit_menu_events(&self) {
         let events = drain_menu_events();
         for action in events {
-            self.game.script_manager.event_bus.emit(
-                format!("menu:{}", action),
-                Variadic::new(),
-            );
+            self.game
+                .script_manager
+                .event_bus
+                .emit(format!("menu:{}", action), Variadic::new());
         }
     }
 
@@ -152,13 +150,12 @@ impl GameInstance {
         camera_manager.previous_position = Some(camera_manager.active.camera.target);
 
         self.prev_positions.clear();
-        self.prev_positions.extend(
-            trans_store.data
-                .iter()
-                .filter_map(|(entity, transform)| {
-                    room_store.get(*entity).filter(|cr| cr.0 == self.game.current_world().current_room_id.unwrap()) // TODO: handle unwrap
-                        .map(|_| (*entity, transform.position))
-                })
-        );
+        self.prev_positions
+            .extend(trans_store.data.iter().filter_map(|(entity, transform)| {
+                room_store
+                    .get(*entity)
+                    .filter(|cr| cr.0 == self.game.current_world().current_room_id.unwrap()) // TODO: handle unwrap
+                    .map(|_| (*entity, transform.position))
+            }));
     }
 }

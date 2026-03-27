@@ -79,6 +79,7 @@ pub const IS_MENU_OPEN: &str = "is_open";
 pub const LUA_AUDIO: &str = "audio";
 pub const AUDIO_FILE: &str = "audio.lua";
 pub const AUDIO_PLAY_MUSIC: &str = "play_music";
+pub const AUDIO_IS_PLAYING: &str = "is_playing";
 pub const AUDIO_STOP_MUSIC: &str = "stop_music";
 pub const AUDIO_FADE_MUSIC: &str = "fade_music";
 pub const AUDIO_PLAY_SFX: &str = "play_sfx";
@@ -94,5 +95,3 @@ pub const AUDIO_PLAY_SFX_VARIED: &str = "play_sfx_varied";
 pub const ENTITY_PLAY_SOUND: &str = "play_sound";
 pub const ENTITY_STOP_SOUND: &str = "stop_sound";
 pub const ENTITY_SET_SOUND_VOLUME: &str = "set_sound_volume";
-
-

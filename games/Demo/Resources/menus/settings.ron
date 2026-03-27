@@ -1,6 +1,6 @@
 (
     id: "settings",
-    background: Dimmed(0.7),
+    background: Dimmed(0.970613),
     elements: [
         /*[0]*/ (
             name: "",

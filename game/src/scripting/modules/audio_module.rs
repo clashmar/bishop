@@ -1,8 +1,9 @@
 // game/src/scripting/modules/audio_module.rs
+use engine_core::audio::runtime;
 use engine_core::prelude::*;
 use mlua::prelude::LuaResult;
-use mlua::Table;
 use mlua::Lua;
+use mlua::Table;
 
 /// Lua module that exposes the audio system API under `engine.audio`.
 #[derive(Default)]
@@ -13,12 +14,27 @@ impl LuaModule for AudioModule {
     fn register(&self, lua: &Lua) -> LuaResult<()> {
         let engine_tbl: Table = lua.globals().get(ENGINE)?;
         let audio_tbl = lua.create_table()?;
+        let play_music_fn = lua.create_function(|_, (id, opts): (String, Option<Table>)| {
+            let looping = opts
+                .as_ref()
+                .and_then(|t| t.get::<bool>("looping").ok())
+                .unwrap_or(true);
+            let fade_out = opts
+                .as_ref()
+                .and_then(|t| t.get::<f32>("fade_out").ok())
+                .unwrap_or(0.0);
 
-        let play_music_fn = lua.create_function(|_, id: String| {
-            push_audio_command(AudioCommand::PlayMusic(id));
+            push_audio_command(AudioCommand::PlayMusic(PlayMusicRequest {
+                id,
+                looping,
+                fade_out,
+            }));
             Ok(())
         })?;
         audio_tbl.set(AUDIO_PLAY_MUSIC, play_music_fn)?;
+
+        let is_playing_fn = lua.create_function(|_, ()| Ok(runtime::is_music_playing()))?;
+        audio_tbl.set(AUDIO_IS_PLAYING, is_playing_fn)?;
 
         let stop_music_fn = lua.create_function(|_, ()| {
             push_audio_command(AudioCommand::StopMusic);
@@ -87,17 +103,24 @@ impl LuaModule for AudioModule {
         })?;
         audio_tbl.set(AUDIO_PLAY_RANDOM_SFX, play_random_sfx_fn)?;
 
-        let play_sfx_varied_fn = lua.create_function(|_, (id, opts): (String, Option<Table>)| {
-            let pitch_variation = opts.as_ref().and_then(|t| t.get::<f32>("pitch_var").ok()).unwrap_or(0.0);
-            let volume_variation = opts.as_ref().and_then(|t| t.get::<f32>("volume_var").ok()).unwrap_or(0.0);
-            push_audio_command(AudioCommand::PlayVariedSfx {
-                sounds: vec![id],
-                volume: 1.0,
-                pitch_variation,
-                volume_variation,
-            });
-            Ok(())
-        })?;
+        let play_sfx_varied_fn =
+            lua.create_function(|_, (id, opts): (String, Option<Table>)| {
+                let pitch_variation = opts
+                    .as_ref()
+                    .and_then(|t| t.get::<f32>("pitch_var").ok())
+                    .unwrap_or(0.0);
+                let volume_variation = opts
+                    .as_ref()
+                    .and_then(|t| t.get::<f32>("volume_var").ok())
+                    .unwrap_or(0.0);
+                push_audio_command(AudioCommand::PlayVariedSfx {
+                    sounds: vec![id],
+                    volume: 1.0,
+                    pitch_variation,
+                    volume_variation,
+                });
+                Ok(())
+            })?;
         audio_tbl.set(AUDIO_PLAY_SFX_VARIED, play_sfx_varied_fn)?;
 
         engine_tbl.set(LUA_AUDIO, audio_tbl)?;
@@ -113,9 +136,17 @@ impl LuaApi for AudioModule {
         out.line("---@class AudioApi");
         out.line("engine.audio = {}");
         out.line("");
-        out.line("--- Plays music by ID, looping until stopped. Stops any current track.");
+        out.line("--- Plays music by ID.");
+        out.line(
+            "--- `opts.looping` defaults to true and `opts.fade_out` defaults to 0.0 seconds.",
+        );
         out.line("---@param id string Path relative to Resources/audio/ without extension");
-        out.line("function engine.audio.play_music(id) end");
+        out.line("---@param opts? {looping?: boolean, fade_out?: number}");
+        out.line("function engine.audio.play_music(id, opts) end");
+        out.line("");
+        out.line("--- Returns true while music is considered active.");
+        out.line("---@return boolean");
+        out.line("function engine.audio.is_playing() end");
         out.line("");
         out.line("--- Stops music immediately.");
         out.line("function engine.audio.stop_music() end");

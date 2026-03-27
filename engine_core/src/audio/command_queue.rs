@@ -1,9 +1,20 @@
 use std::cell::RefCell;
 
+/// Parameters for starting a music track.
+#[derive(Clone, Debug, PartialEq)]
+pub struct PlayMusicRequest {
+    /// Path relative to `Resources/audio/` without extension.
+    pub id: String,
+    /// Whether the track should loop until explicitly stopped.
+    pub looping: bool,
+    /// Fade out the current track over this many seconds before starting.
+    pub fade_out: f32,
+}
+
 /// Commands that Lua scripts can issue to the audio system.
 /// Queued on the main thread, drained by `AudioManager::poll` each frame.
 pub enum AudioCommand {
-    PlayMusic(String),
+    PlayMusic(PlayMusicRequest),
     StopMusic,
     FadeMusic(f32),
     PlaySfx(String),
@@ -65,54 +76,4 @@ pub(crate) fn drain_audio_commands() -> Vec<AudioCommand> {
         let mut v = q.borrow_mut();
         std::mem::take(&mut *v)
     })
-}
-
-#[cfg(test)]
-mod tests {
-    #[cfg(feature = "editor")]
-    use super::*;
-
-    #[cfg(feature = "editor")]
-    #[test]
-    fn tracked_preview_commands_can_be_queued_and_drained() {
-        let _ = drain_audio_commands();
-
-        push_audio_command(AudioCommand::PlayTrackedPreview {
-            handle: 7,
-            sounds: vec!["ui/click".to_string()],
-            volume: 0.75,
-            pitch_variation: 0.1,
-            volume_variation: 0.2,
-            looping: true,
-            timeout: 1.5,
-        });
-        push_audio_command(AudioCommand::StopTrackedPreview(7));
-
-        let commands = drain_audio_commands();
-        assert_eq!(commands.len(), 2);
-        match &commands[0] {
-            AudioCommand::PlayTrackedPreview {
-                handle,
-                sounds,
-                volume,
-                pitch_variation,
-                volume_variation,
-                looping,
-                timeout,
-            } => {
-                assert_eq!(*handle, 7);
-                assert_eq!(sounds, &vec!["ui/click".to_string()]);
-                assert_eq!(*volume, 0.75);
-                assert_eq!(*pitch_variation, 0.1);
-                assert_eq!(*volume_variation, 0.2);
-                assert!(*looping);
-                assert_eq!(*timeout, 1.5);
-            }
-            _ => panic!("expected PlayTrackedPreview"),
-        }
-        match &commands[1] {
-            AudioCommand::StopTrackedPreview(handle) => assert_eq!(*handle, 7),
-            _ => panic!("expected StopTrackedPreview"),
-        }
-    }
 }
