@@ -13,7 +13,7 @@ default = ["wgpu"]
 wgpu = ["bishop/wgpu", "engine_core/wgpu", "game/wgpu"]
 
 [dependencies]
-bishop = { path = "../bishop", default-features = false, features = ["wgpu"] }
+bishop = { path = "../bishop", default-features = false, features = ["wgpu", "audio-cpal"] }
 engine_core = { path = "../engine_core", default-features = false, features = ["wgpu", "editor"] }
 game = { path = "../game", default-features = false, features = ["wgpu"] }
 reflect_derive = { path = "../reflect_derive" }

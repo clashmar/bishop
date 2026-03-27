@@ -22,6 +22,30 @@ struct FadeOut {
 
 /// Handle type for active looping SFX signals.
 type LoopHandle = Handle<Stop<Gain<Speed<Cycle<[f32; 2]>>>>>;
+#[cfg(feature = "editor")]
+type PreviewHandle = Handle<Stop<Gain<Speed<FramesSignal<[f32; 2]>>>>>;
+
+#[cfg(feature = "editor")]
+struct TrackedPreview {
+    handle: PreviewSignal,
+    expires_at: f32,
+}
+
+#[cfg(feature = "editor")]
+enum PreviewSignal {
+    OneShot(PreviewHandle),
+    Loop(LoopHandle),
+}
+
+#[cfg(feature = "editor")]
+struct TrackedPreviewSpec<'a> {
+    sounds: &'a [String],
+    volume: f32,
+    pitch_variation: f32,
+    volume_variation: f32,
+    looping: bool,
+    timeout: f32,
+}
 
 /// Manages audio playback. Implements [`BackgroundService`]; call `poll(dt)` once
 /// per frame to drain commands and advance fades.
@@ -49,6 +73,11 @@ pub struct AudioManager {
     pinned: HashSet<String>,
     /// Active looping sound handles, keyed by a caller-supplied u64 handle ID.
     active_loops: HashMap<u64, LoopHandle>,
+    #[cfg(feature = "editor")]
+    /// Active editor preview handles, keyed by a caller-supplied preview ID.
+    tracked_previews: HashMap<u64, TrackedPreview>,
+    #[cfg(feature = "editor")]
+    preview_time: f32,
     master_volume: f32,
     music_volume: f32,
     sfx_volume: f32,
@@ -92,6 +121,10 @@ impl AudioManager {
             ref_counts: HashMap::new(),
             pinned: HashSet::new(),
             active_loops: HashMap::new(),
+            #[cfg(feature = "editor")]
+            tracked_previews: HashMap::new(),
+            #[cfg(feature = "editor")]
+            preview_time: 0.0,
             master_volume: 1.0,
             music_volume: 1.0,
             sfx_volume: 1.0,
@@ -293,6 +326,88 @@ impl AudioManager {
         }
     }
 
+    #[cfg(feature = "editor")]
+    fn play_tracked_preview(
+        &mut self,
+        handle_key: u64,
+        spec: TrackedPreviewSpec<'_>,
+    ) {
+        self.stop_tracked_preview(handle_key);
+        let Some(id) = Self::pick_sound(spec.sounds) else {
+            return;
+        };
+        let Some(frames) = self.load_or_cached(id) else {
+            return;
+        };
+        let final_volume = Self::apply_variation(spec.volume, spec.volume_variation);
+        let final_pitch = (1.0
+            + rand::thread_rng().gen_range(-spec.pitch_variation..=spec.pitch_variation))
+        .max(0.1);
+
+        let signal = if spec.looping {
+            let mut signal = Gain::new(Speed::new(Cycle::new(frames)));
+            signal.set_amplitude_ratio(final_volume);
+            let mut handle = self.sfx_group.control::<Mixer<[f32; 2]>, _>().play(signal);
+            handle
+                .control::<Speed<Cycle<[f32; 2]>>, _>()
+                .set_speed(final_pitch);
+            PreviewSignal::Loop(handle)
+        } else {
+            let mut signal = Gain::new(Speed::new(FramesSignal::from(frames)));
+            signal.set_amplitude_ratio(final_volume);
+            let mut handle = self.sfx_group.control::<Mixer<[f32; 2]>, _>().play(signal);
+            handle
+                .control::<Speed<FramesSignal<[f32; 2]>>, _>()
+                .set_speed(final_pitch);
+            PreviewSignal::OneShot(handle)
+        };
+
+        self.tracked_previews.insert(
+            handle_key,
+            TrackedPreview {
+                handle: signal,
+                expires_at: self.preview_time + spec.timeout.max(0.0),
+            },
+        );
+    }
+
+    #[cfg(feature = "editor")]
+    fn stop_tracked_preview(&mut self, handle_key: u64) {
+        if let Some(tracked_preview) = self.tracked_previews.remove(&handle_key) {
+            match tracked_preview.handle {
+                PreviewSignal::OneShot(mut handle) => {
+                    handle
+                        .control::<Stop<Gain<Speed<FramesSignal<[f32; 2]>>>>, _>()
+                        .stop();
+                }
+                PreviewSignal::Loop(mut handle) => {
+                    handle
+                        .control::<Stop<Gain<Speed<Cycle<[f32; 2]>>>>, _>()
+                        .stop();
+                }
+            }
+        }
+    }
+
+    #[cfg(feature = "editor")]
+    fn cleanup_tracked_previews(&mut self) {
+        let expired = self
+            .tracked_previews
+            .iter()
+            .filter_map(|(handle, preview)| {
+                if self.preview_time >= preview.expires_at {
+                    Some(*handle)
+                } else {
+                    None
+                }
+            })
+            .collect::<Vec<_>>();
+
+        for handle in expired {
+            self.stop_tracked_preview(handle);
+        }
+    }
+
     /// Advances the active fade-out by `dt` seconds.
     fn tick_fade(&mut self, dt: f32) {
         let finished = if let Some(ref mut fade) = self.active_fade {
@@ -322,6 +437,12 @@ impl AudioManager {
 impl BackgroundService for AudioManager {
     /// Drains the audio command queue and advances any active fade. Must not block.
     fn poll(&mut self, dt: f32) {
+        #[cfg(feature = "editor")]
+        {
+            self.preview_time += dt;
+            self.cleanup_tracked_previews();
+        }
+
         let commands = command_queue::drain_audio_commands();
         for cmd in commands {
             match cmd {
@@ -359,6 +480,26 @@ impl BackgroundService for AudioManager {
                 } => {
                     self.play_varied_sfx(&sounds, volume, pitch_variation, volume_variation);
                 }
+                #[cfg(feature = "editor")]
+                AudioCommand::PlayTrackedPreview {
+                    handle,
+                    sounds,
+                    volume,
+                    pitch_variation,
+                    volume_variation,
+                    looping,
+                    timeout,
+                } => {
+                    let preview = TrackedPreviewSpec {
+                        sounds: &sounds,
+                        volume,
+                        pitch_variation,
+                        volume_variation,
+                        looping,
+                        timeout,
+                    };
+                    self.play_tracked_preview(handle, preview);
+                }
                 AudioCommand::PlayLoop {
                     handle,
                     sounds,
@@ -368,9 +509,182 @@ impl BackgroundService for AudioManager {
                 } => {
                     self.play_loop(handle, &sounds, volume, pitch_variation, volume_variation);
                 }
+                #[cfg(feature = "editor")]
+                AudioCommand::StopTrackedPreview(handle) => self.stop_tracked_preview(handle),
                 AudioCommand::StopLoop(handle) => self.stop_loop(handle),
             }
         }
         self.tick_fade(dt);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[cfg(feature = "editor")]
+    use crate::audio::command_queue::{drain_audio_commands, push_audio_command};
+    #[cfg(feature = "editor")]
+    use bishop::audio::AudioBackend;
+    #[cfg(feature = "editor")]
+    use oddio::Frames;
+
+    #[cfg(feature = "editor")]
+    struct TestBackend;
+
+    #[cfg(feature = "editor")]
+    impl AudioBackend for TestBackend {
+        fn start<F: FnMut(&mut [[f32; 2]]) + Send + 'static>(_render_fn: F) -> Self
+        where
+            Self: Sized,
+        {
+            Self
+        }
+    }
+
+    #[cfg(feature = "editor")]
+    fn seeded_manager() -> AudioManager {
+        let mut manager = AudioManager::new::<TestBackend>();
+        manager.sound_cache.insert(
+            "preview/click".to_string(),
+            Frames::from_slice(44_100, &[[0.0, 0.0]]),
+        );
+        manager
+    }
+
+    #[cfg(feature = "editor")]
+    #[test]
+    fn tracked_preview_replaces_existing_preview_for_same_handle() {
+        let _ = drain_audio_commands();
+        let mut manager = seeded_manager();
+
+        push_audio_command(AudioCommand::PlayTrackedPreview {
+            handle: 11,
+            sounds: vec!["preview/click".to_string()],
+            volume: 0.5,
+            pitch_variation: 0.0,
+            volume_variation: 0.0,
+            looping: true,
+            timeout: 3.0,
+        });
+        manager.poll(0.0);
+        assert_eq!(manager.tracked_previews.len(), 1);
+        let first_expiry = manager
+            .tracked_previews
+            .get(&11)
+            .map(|preview| preview.expires_at)
+            .unwrap();
+
+        push_audio_command(AudioCommand::PlayTrackedPreview {
+            handle: 11,
+            sounds: vec!["preview/click".to_string()],
+            volume: 0.75,
+            pitch_variation: 0.0,
+            volume_variation: 0.0,
+            looping: true,
+            timeout: 5.0,
+        });
+        manager.poll(0.0);
+
+        assert_eq!(manager.tracked_previews.len(), 1);
+        let second_expiry = manager
+            .tracked_previews
+            .get(&11)
+            .map(|preview| preview.expires_at)
+            .unwrap();
+        assert!(second_expiry >= first_expiry + 1.0);
+    }
+
+    #[cfg(feature = "editor")]
+    #[test]
+    fn tracked_preview_expires_when_timeout_elapses() {
+        let _ = drain_audio_commands();
+        let mut manager = seeded_manager();
+
+        push_audio_command(AudioCommand::PlayTrackedPreview {
+            handle: 17,
+            sounds: vec!["preview/click".to_string()],
+            volume: 0.5,
+            pitch_variation: 0.0,
+            volume_variation: 0.0,
+            looping: true,
+            timeout: 1.0,
+        });
+        manager.poll(0.5);
+        assert!(manager.tracked_previews.contains_key(&17));
+
+        manager.poll(0.5);
+        assert!(manager.tracked_previews.contains_key(&17));
+
+        manager.poll(0.5);
+        assert!(!manager.tracked_previews.contains_key(&17));
+    }
+
+    #[cfg(feature = "editor")]
+    #[test]
+    fn tracked_preview_timeout_starts_after_the_preview_is_created() {
+        let _ = drain_audio_commands();
+        let mut manager = seeded_manager();
+
+        push_audio_command(AudioCommand::PlayTrackedPreview {
+            handle: 19,
+            sounds: vec!["preview/click".to_string()],
+            volume: 0.5,
+            pitch_variation: 0.0,
+            volume_variation: 0.0,
+            looping: true,
+            timeout: 0.25,
+        });
+        manager.poll(1.0);
+
+        assert!(manager.tracked_previews.contains_key(&19));
+
+        manager.poll(0.25);
+        assert!(!manager.tracked_previews.contains_key(&19));
+    }
+
+    #[cfg(feature = "editor")]
+    #[test]
+    fn stop_tracked_one_shot_preview_removes_preview_handle() {
+        let _ = drain_audio_commands();
+        let mut manager = seeded_manager();
+
+        push_audio_command(AudioCommand::PlayTrackedPreview {
+            handle: 21,
+            sounds: vec!["preview/click".to_string()],
+            volume: 0.5,
+            pitch_variation: 0.0,
+            volume_variation: 0.0,
+            looping: false,
+            timeout: 5.0,
+        });
+        manager.poll(0.0);
+        assert!(manager.tracked_previews.contains_key(&21));
+
+        push_audio_command(AudioCommand::StopTrackedPreview(21));
+        manager.poll(0.0);
+        assert!(!manager.tracked_previews.contains_key(&21));
+    }
+
+    #[cfg(feature = "editor")]
+    #[test]
+    fn stop_tracked_preview_removes_preview_handle() {
+        let _ = drain_audio_commands();
+        let mut manager = seeded_manager();
+
+        push_audio_command(AudioCommand::PlayTrackedPreview {
+            handle: 23,
+            sounds: vec!["preview/click".to_string()],
+            volume: 0.5,
+            pitch_variation: 0.0,
+            volume_variation: 0.0,
+            looping: true,
+            timeout: 5.0,
+        });
+        manager.poll(0.0);
+        assert!(manager.tracked_previews.contains_key(&23));
+
+        push_audio_command(AudioCommand::StopTrackedPreview(23));
+        manager.poll(0.0);
+        assert!(!manager.tracked_previews.contains_key(&23));
     }
 }

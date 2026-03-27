@@ -401,6 +401,7 @@ impl RoomEditor {
     }
 
     pub fn reset(&mut self) {
+        self.inspector.set_target(None);
         self.tilemap_editor.reset();
         self.mode = RoomEditorMode::Scene;
         self.mode_selector.current = RoomEditorMode::Scene;

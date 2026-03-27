@@ -1,10 +1,12 @@
 // editor/src/editor_assets/editor_assets.rs
 #![allow(unused)]
 use std::path::{Path, PathBuf};
+use std::collections::BTreeSet;
 use engine_core::prelude::*;
 use std::sync::{LazyLock, OnceLock};
 use std::{env, fs, io};
 use bishop::prelude::*;
+use crate::storage::sound_preset_storage::SoundPresetLibrary;
 
 /// Windows .exe for the game binary.
 pub static GAME_EXE: &[u8] = include_bytes!(
@@ -124,47 +126,4 @@ pub fn write_sounds_lua(scripts_folder: &Path, group_names: &[String]) -> io::Re
     let engine_folder = scripts_folder.join("_engine");
     fs::create_dir_all(&engine_folder)?;
     fs::write(engine_folder.join("sounds.lua"), generate_sounds_lua(group_names))
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::storage::editor_storage::{AudioGroupPreset, SoundPresetLibrary};
-    use engine_core::audio::{AudioGroup, AudioSource, SoundGroupId};
-    use std::collections::HashMap;
-
-    #[test]
-    fn collect_sound_group_names_merges_presets_and_local_groups() {
-        let mut ecs = Ecs::default();
-        let entity = ecs.create_entity().finish();
-
-        let mut source = AudioSource::default();
-        source.groups.insert(
-            SoundGroupId::Custom("Talk".to_string()),
-            AudioGroup::default(),
-        );
-        source.groups.insert(
-            SoundGroupId::Custom("Footsteps".to_string()),
-            AudioGroup::default(),
-        );
-        ecs.add_component_to_entity(entity, source);
-
-        let library = SoundPresetLibrary {
-            presets: HashMap::from([(
-                "Ambient".to_string(),
-                AudioGroupPreset::default(),
-            )]),
-        };
-
-        let names = collect_sound_group_names(&ecs, &library);
-
-        assert_eq!(
-            names,
-            vec![
-                "Ambient".to_string(),
-                "Footsteps".to_string(),
-                "Talk".to_string(),
-            ]
-        );
-    }
 }

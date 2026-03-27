@@ -42,12 +42,12 @@ pub struct SoundPresetLink {
 }
 
 /// A single grouped audio definition attached to an entity.
-#[derive(Clone, Debug, Default, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Serialize)]
 #[serde(default)]
 pub struct AudioGroup {
     /// Sound file paths relative to `Resources/audio/` without extension.
     pub sounds: Vec<String>,
-    /// Base volume 0.0–1.0, multiplied with the SFX group volume.
+    /// Base volume 0.0–1.0, defaulting to 1.0 and multiplied with the SFX group volume.
     pub volume: f32,
     /// Random pitch shift range: playback speed = 1.0 ± pitch_variation.
     pub pitch_variation: f32,
@@ -59,12 +59,16 @@ pub struct AudioGroup {
     pub preset_link: Option<SoundPresetLink>,
 }
 
+fn default_audio_group_volume() -> f32 {
+    1.0
+}
+
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct AudioGroupSerde {
     #[serde(default)]
     sounds: Vec<String>,
-    #[serde(default)]
+    #[serde(default = "default_audio_group_volume")]
     volume: f32,
     #[serde(default)]
     pitch_variation: f32,
@@ -104,6 +108,32 @@ impl AudioGroup {
     fn sanitize(&mut self) {
         self.pitch_variation = self.pitch_variation.max(0.0);
         self.volume_variation = self.volume_variation.max(0.0);
+    }
+
+    /// Overwrites the group's local settings from a preset and stores the active link.
+    pub fn apply_preset(&mut self, preset_name: &str, preset: &AudioGroup) {
+        self.sounds = preset.sounds.clone();
+        self.volume = preset.volume;
+        self.pitch_variation = preset.pitch_variation;
+        self.volume_variation = preset.volume_variation;
+        self.looping = preset.looping;
+        self.preset_link = Some(SoundPresetLink {
+            preset_name: preset_name.to_string(),
+        });
+        self.sanitize();
+    }
+}
+
+impl Default for AudioGroup {
+    fn default() -> Self {
+        Self {
+            sounds: Vec::new(),
+            volume: default_audio_group_volume(),
+            pitch_variation: 0.0,
+            volume_variation: 0.0,
+            looping: false,
+            preset_link: None,
+        }
     }
 }
 
@@ -227,6 +257,11 @@ mod tests {
     }
 
     #[test]
+    fn audio_group_defaults_to_full_volume() {
+        assert_eq!(AudioGroup::default().volume, 1.0);
+    }
+
+    #[test]
     fn all_sound_ids_collects_every_group_sound() {
         let mut source = AudioSource::default();
         source.groups.insert(
@@ -275,6 +310,43 @@ mod tests {
         assert_eq!(
             source.all_sound_ids(),
             vec!["shared".to_string(), "unique".to_string()]
+        );
+    }
+
+    #[test]
+    fn apply_preset_to_linked_group_overwrites_local_fields() {
+        let preset = AudioGroup {
+            sounds: vec!["talk_a".to_string()],
+            volume: 0.5,
+            pitch_variation: 0.1,
+            volume_variation: 0.2,
+            looping: false,
+            preset_link: None,
+        };
+
+        let mut group = AudioGroup {
+            sounds: vec!["old".to_string()],
+            volume: 1.0,
+            pitch_variation: 0.0,
+            volume_variation: 0.0,
+            looping: true,
+            preset_link: Some(SoundPresetLink {
+                preset_name: "OldPreset".to_string(),
+            }),
+        };
+
+        group.apply_preset("Talk", &preset);
+
+        assert_eq!(group.sounds, vec!["talk_a".to_string()]);
+        assert_eq!(group.volume, 0.5);
+        assert_eq!(group.pitch_variation, 0.1);
+        assert_eq!(group.volume_variation, 0.2);
+        assert!(!group.looping);
+        assert_eq!(
+            group.preset_link,
+            Some(SoundPresetLink {
+                preset_name: "Talk".to_string(),
+            })
         );
     }
 
@@ -339,6 +411,35 @@ mod tests {
         assert!(!group.looping);
         assert!(group.preset_link.is_none());
         assert!(wrapper.source.current.is_none());
+    }
+
+    #[test]
+    fn deserializing_group_without_volume_uses_full_volume_default() {
+        #[derive(Deserialize)]
+        struct Wrapper {
+            source: AudioSource,
+        }
+
+        let ron = r#"
+            (
+                source: (
+                    groups: {
+                        Custom("Talk"): (
+                            sounds: ["talk_1"],
+                        ),
+                    },
+                ),
+            )
+        "#;
+
+        let wrapper: Wrapper = ron::from_str(ron).unwrap();
+        let group = wrapper
+            .source
+            .groups
+            .get(&SoundGroupId::Custom("Talk".to_string()))
+            .unwrap();
+
+        assert_eq!(group.volume, 1.0);
     }
 
     #[test]

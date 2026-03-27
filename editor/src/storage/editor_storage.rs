@@ -1,6 +1,8 @@
 // editor/src/storage/editor_storage.rs
 #![allow(unused)]
+use crate::editor_assets::assets::write_sounds_lua;
 use crate::tilemap::tile_palette::TilePalette;
+use crate::storage::sound_preset_storage::*;
 use crate::write_engine_scripts;
 use crate::write_animations_lua;
 use crate::with_lua_async;
@@ -10,12 +12,10 @@ use std::time::SystemTime;
 use bishop::prelude::*;
 use std::io::ErrorKind;
 use std::path::PathBuf;
-use std::cell::RefCell;
 use std::sync::Mutex;
 use std::sync::Arc;
 use std::io::Write;
 use std::io::Error;
-use std::rc::Rc;
 use uuid::Uuid;
 use std::io;
 use std::fs;
@@ -28,6 +28,7 @@ pub async fn create_new_game(name: String) -> Game {
 
     // Set game name globally
     set_game_name(&name);
+    set_current_sound_preset_library(SoundPresetLibrary::default());
 
     // Ensure the folder structure exists.
     create_game_folders(&name);
@@ -147,6 +148,11 @@ pub fn save_game(game: &Game) -> io::Result<()> {
         onscreen_error!("Could not write animations.lua: {e}");
     }
 
+    let sound_library = current_sound_preset_library();
+    save_sound_preset_library(&game.name, &sound_library)?;
+    let sound_names = collect_sound_group_names(&game.ecs, &sound_library);
+    write_sounds_lua(&scripts_folder(), &sound_names)?;
+
     onscreen_info!("Game saved to: {}", file_path.display());
     fs::write(file_path, ron_string)
 }
@@ -187,6 +193,8 @@ pub async fn load_game_by_name(name: &str) -> io::Result<Game> {
         Ok(game) => game,
         Err(_) => return Ok(create_new_game(name.to_string()).await),
     };
+
+    set_current_sound_preset_library(load_sound_preset_library(name)?);
 
     Ok(game)
 }

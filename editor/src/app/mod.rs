@@ -48,6 +48,7 @@ pub struct Editor {
     pub toast: Option<Toast>,
     pub playtest_process: Option<PlaytestProcess>,
     pub grid_renderer: Option<GridRenderer>,
+    pub audio_manager: AudioManager,
 }
 
 impl Editor {
@@ -249,6 +250,7 @@ impl Editor {
         }
 
         self.handle_shortcuts(ctx).await;
+        self.audio_manager.poll(ctx.get_frame_time());
     }
 
     pub async fn draw(&mut self, ctx: &mut WgpuContext) {

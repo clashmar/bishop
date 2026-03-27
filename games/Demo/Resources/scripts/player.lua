@@ -2,6 +2,7 @@
 local comp = require("_engine.components")
 local input = require("_engine.input")
 local clip = require("_engine.animations")
+local sound = require("_engine.sounds")
 
 ---@class ScriptDef
 local Player = {
@@ -59,7 +60,8 @@ local Player = {
         -- Jump if grounded and space pressed
         if engine.input.pressed(input.Space) and is_grounded then
             new_vel.y = -self.public.jump_speed
-            engine.audio.play_sfx("sfx/jump")
+            -- engine.audio.play_sfx("sfx/jump")
+            self.entity:play_sound(sound.Jump)
         end
 
         self.entity:set_velocity(new_vel)
@@ -105,6 +107,14 @@ local Player = {
         
         if engine.input.is_down(input.Enter) then
             engine.audio.play_music("music/Egobyte_CalmessPersonified")
+        end
+
+        if engine.input.is_down(input.Q) then
+            engine.audio.fade_music(5)
+        end
+
+        if engine.input.is_down(input.S) then
+            engine.audio.stop_music()
         end
 
         -- Test custom Fidget animation - press G while idle

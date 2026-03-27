@@ -1,4 +1,5 @@
 // editor/src/gui/inspector/inspector_panel.rs
+use crate::gui::inspector::audio_source_module::clear_active_audio_preview;
 use crate::gui::inspector::room_camera_module::ROOM_CAMERA_MODULE_TITLE;
 use crate::gui::panels::panel_manager::is_mouse_over_panel;
 use crate::gui::inspector::player_module::PlayerModule;
@@ -9,6 +10,7 @@ use crate::gui::gui_constants::*;
 use engine_core::prelude::*;
 use bishop::prelude::*;
 use std::collections::HashMap;
+use std::fmt::{Display, Formatter, Result as FmtResult};
 
 const SCROLL_SPEED: f32 = 5.0;
 
@@ -18,15 +20,33 @@ struct ComponentChange {
     type_name: &'static str,
     old_ron: String,
     new_ron: String,
+    old_transient_state: ComponentTransientState,
+    new_transient_state: ComponentTransientState,
 }
 
 struct ComponentEditState {
     /// Snapshot before editing began; never updated after initial capture.
     old_ron: String,
+    /// Snapshot of non-persisted editor state before editing began.
+    old_transient_state: ComponentTransientState,
     /// Most recent serialised state of the component.
     new_ron: String,
+    /// Most recent non-persisted editor state for the component.
+    new_transient_state: ComponentTransientState,
     /// Set to `true` each frame the component changes; cleared at end-of-frame.
     changed_this_frame: bool,
+}
+
+#[derive(Clone, PartialEq)]
+struct AddableComponent {
+    type_name: &'static str,
+    label: String,
+}
+
+impl Display for AddableComponent {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        f.write_str(&self.label)
+    }
 }
 
 /// Returns the entity that should be used for component operations.
@@ -124,6 +144,7 @@ impl InspectorPanel {
     /// Tell the inspector which entity is currently selected.
     pub fn set_target(&mut self, entity: Option<Entity>) {
         if self.target != entity {
+            clear_active_audio_preview();
             self.target = entity;
             self.scroll_state = ScrollState::new();
             self.component_edits.clear();
@@ -217,7 +238,11 @@ impl InspectorPanel {
                             let reg = COMPONENTS.iter().find(|r| r.type_name == type_name)?;
                             if (reg.has)(&game_ctx.ecs, module_entity) {
                                 let boxed = (reg.clone)(&game_ctx.ecs, module_entity);
-                                Some((type_name, (reg.to_ron_component)(boxed.as_ref())))
+                                Some((
+                                    type_name,
+                                    (reg.to_ron_component)(boxed.as_ref()),
+                                    capture_component_transient_state(type_name, boxed.as_ref()),
+                                ))
                             } else {
                                 None
                             }
@@ -226,7 +251,7 @@ impl InspectorPanel {
                         module.draw(ctx, blocked, sub_rect, game_ctx, module_entity);
 
                         if module.take_remove_request() {
-                            if let Some((type_name, ron)) = pre_snapshot {
+                            if let Some((type_name, ron, _)) = pre_snapshot {
                                 self.component_edits.remove(&(module_entity, type_name));
                                 push_command(Box::new(RemoveComponentCmd::new(
                                     module_entity,
@@ -235,13 +260,22 @@ impl InspectorPanel {
                                     ron,
                                 )));
                             }
-                        } else if let Some((type_name, pre_ron)) = pre_snapshot {
+                        } else if let Some((type_name, pre_ron, pre_transient_state)) = pre_snapshot {
                             if let Some(reg) = COMPONENTS.iter().find(|r| r.type_name == type_name) {
                                 if (reg.has)(&game_ctx.ecs, module_entity) {
                                     let boxed = (reg.clone)(&game_ctx.ecs, module_entity);
                                     let post_ron = (reg.to_ron_component)(boxed.as_ref());
+                                    let post_transient_state =
+                                        capture_component_transient_state(type_name, boxed.as_ref());
                                     if pre_ron != post_ron {
-                                        comp_changes.push(ComponentChange { entity: module_entity, type_name, old_ron: pre_ron, new_ron: post_ron });
+                                        comp_changes.push(ComponentChange {
+                                            entity: module_entity,
+                                            type_name,
+                                            old_ron: pre_ron,
+                                            new_ron: post_ron,
+                                            old_transient_state: pre_transient_state,
+                                            new_transient_state: post_transient_state,
+                                        });
                                     }
                                 }
                             }
@@ -258,10 +292,13 @@ impl InspectorPanel {
                     .entry((change.entity, change.type_name))
                     .or_insert_with(|| ComponentEditState {
                         old_ron: change.old_ron,
+                        old_transient_state: change.old_transient_state,
                         new_ron: change.new_ron.clone(),
+                        new_transient_state: change.new_transient_state.clone(),
                         changed_this_frame: true,
                     });
                 state.new_ron = change.new_ron;
+                state.new_transient_state = change.new_transient_state;
                 state.changed_this_frame = true;
             }
 
@@ -275,6 +312,8 @@ impl InspectorPanel {
                             type_name,
                             old_ron: state.old_ron.clone(),
                             new_ron: state.new_ron.clone(),
+                            old_transient_state: state.old_transient_state.clone(),
+                            new_transient_state: state.new_transient_state.clone(),
                         })
                     } else {
                         state.changed_this_frame = false;
@@ -291,6 +330,8 @@ impl InspectorPanel {
                     change.type_name,
                     change.old_ron,
                     change.new_ron,
+                    change.old_transient_state,
+                    change.new_transient_state,
                 )));
             }
 
@@ -301,12 +342,12 @@ impl InspectorPanel {
 
             // Add Component dropdown (filterable, menu style)
             let options = self.build_addable_components(game_ctx.ecs, entity);
-            if let Some(type_name) = Dropdown::new(
+            if let Some(component) = Dropdown::new(
                 self.widget_ids.add_component_dropdown_id,
                 add_rect,
                 add_label,
                 &options,
-                |s| s.to_string(),
+                |component| component.to_string(),
             )
             .filterable()
             .menu_style()
@@ -314,10 +355,17 @@ impl InspectorPanel {
             .show(ctx)
             {
                 let target = component_target(game_ctx.ecs, entity);
-                if COMPONENTS.iter().any(|r| r.type_name == type_name) {
-                    push_command(Box::new(AddComponentCmd::new(target, room_id, type_name)));
+                if COMPONENTS.iter().any(|r| r.type_name == component.type_name) {
+                    push_command(Box::new(AddComponentCmd::new(
+                        target,
+                        room_id,
+                        component.type_name,
+                    )));
                 } else {
-                    onscreen_error!("Component `{}` not found in registry", type_name);
+                    onscreen_error!(
+                        "Component `{}` not found in registry",
+                        component.type_name,
+                    );
                 }
             }
 
@@ -412,7 +460,7 @@ impl InspectorPanel {
 
     /// Returns the list of component type names that can be added to the entity.
     /// Excludes room cameras, proxy-local components for proxies, and already-present components.
-    fn build_addable_components(&self, ecs: &Ecs, entity: Entity) -> Vec<&'static str> {
+    fn build_addable_components(&self, ecs: &Ecs, entity: Entity) -> Vec<AddableComponent> {
         let comp_target = component_target(ecs, entity);
         let is_proxy = ecs.has::<PlayerProxy>(entity);
         let mut result = Vec::new();
@@ -431,7 +479,10 @@ impl InspectorPanel {
             if entity_has_component(ecs, comp_target, reg) {
                 continue;
             }
-            result.push(type_name);
+            result.push(AddableComponent {
+                type_name,
+                label: prettify_component_label(type_name),
+            });
         }
         result
     }
@@ -476,4 +527,11 @@ fn entity_has_component(
     reg: &ComponentRegistry,
 ) -> bool {
     (reg.has)(ecs, entity)
+}
+
+fn prettify_component_label(type_name: &str) -> String {
+    match type_name {
+        "AudioSource" => "Audio Source".to_string(),
+        _ => type_name.to_string(),
+    }
 }

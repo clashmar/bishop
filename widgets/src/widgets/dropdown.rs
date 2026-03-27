@@ -62,6 +62,15 @@ pub enum DropDownStyle {
     Plain,
 }
 
+/// Horizontal alignment for the dropdown list relative to its trigger button.
+#[derive(Clone, Copy)]
+pub enum DropDownAlignment {
+    /// Align the dropdown list's left edge with the trigger button's left edge.
+    Left,
+    /// Align the dropdown list's right edge with the trigger button's right edge.
+    Right,
+}
+
 /// A dropdown widget using the builder pattern.
 pub struct Dropdown<'a, T> {
     id: WidgetId,
@@ -76,6 +85,9 @@ pub struct Dropdown<'a, T> {
     blocked: bool,
     fixed_width: bool,
     filterable: bool,
+    alignment: DropDownAlignment,
+    list_width: Option<f32>,
+    truncate_trigger: bool,
 }
 
 impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
@@ -100,6 +112,9 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
             blocked: false,
             fixed_width: false,
             filterable: false,
+            alignment: DropDownAlignment::Left,
+            list_width: None,
+            truncate_trigger: false,
         }
     }
 
@@ -155,6 +170,24 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
         self
     }
 
+    /// Sets an explicit width for the dropdown list without changing trigger button sizing.
+    pub fn list_width(mut self, width: f32) -> Self {
+        self.list_width = Some(width.max(0.0));
+        self
+    }
+
+    /// Truncates the trigger button label to fit within the trigger width.
+    pub fn truncate_trigger_text(mut self) -> Self {
+        self.truncate_trigger = true;
+        self
+    }
+
+    /// Aligns the dropdown list to the trigger button's right edge.
+    pub fn right_aligned(mut self) -> Self {
+        self.alignment = DropDownAlignment::Right;
+        self
+    }
+
     /// Draws the dropdown and returns the selected option if one was clicked.
     pub fn show<C: BishopContext>(self, ctx: &mut C) -> Option<T> {
         const MAX_VISIBLE_ROWS: usize = 8;
@@ -170,7 +203,7 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
         update_global_dropdown_flag();
 
         let truncated;
-        let display_label = if self.fixed_width {
+        let display_label = if self.fixed_width || self.truncate_trigger {
             truncated = truncate_to_width(ctx, self.label, self.rect.w - WIDGET_PADDING, DEFAULT_FONT_SIZE_16);
             &truncated
         } else {
@@ -221,7 +254,9 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
             }
         }
 
-        let list_width = if self.fixed_width {
+        let list_width = if let Some(list_width) = self.list_width {
+            list_width
+        } else if self.fixed_width {
             self.rect.w
         } else {
             self.rect.w.max(max_opt_width + 2.0 * W_PADDING + SCROLLBAR_WIDTH)
@@ -243,7 +278,8 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
                 } else {
                     drop_down_y
                 };
-                let list_rect = Rect::new(self.rect.x, list_y, list_width, list_h);
+                let list_x = self.list_x(list_width);
+                let list_rect = Rect::new(list_x, list_y, list_width, list_h);
 
                 state.rect = list_rect;
 
@@ -353,7 +389,8 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
         let drops_below = drop_down_y + popup_h > ctx.screen_height();
         let popup_y = if drops_below && drop_up_y >= 0.0 { drop_up_y } else { drop_down_y };
 
-        let popup_rect = Rect::new(self.rect.x, popup_y, list_width, popup_h);
+        let popup_x = self.list_x(list_width);
+        let popup_rect = Rect::new(popup_x, popup_y, list_width, popup_h);
         state.rect = popup_rect;
 
         // Background
@@ -458,6 +495,13 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
         ctx.draw_rectangle_lines(popup_rect.x, popup_rect.y, popup_rect.w, popup_rect.h, 2., OUTLINE_COLOR);
 
         result
+    }
+
+    fn list_x(&self, list_width: f32) -> f32 {
+        match self.alignment {
+            DropDownAlignment::Left => self.rect.x,
+            DropDownAlignment::Right => self.rect.x + self.rect.w - list_width,
+        }
     }
 }
 

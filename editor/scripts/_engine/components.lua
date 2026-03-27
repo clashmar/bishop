@@ -3,8 +3,6 @@
 ---@alias vec2 { x: number, y: number }
 ---@alias vec3 { x: number, y: number, z: number }
 
----@alias FacingDirection table
-
 ---@class Light
 ---@field pos vec2
 ---@field color vec3
@@ -29,6 +27,11 @@
 ---@field brightness number
 ---@field emission number
 ---@field sprite_id number
+
+---@class AudioSource
+---@field groups table
+---@field current table
+---@field runtime_volume number
 
 ---@class Script
 ---@field script_id number
@@ -87,13 +90,6 @@
 ---@field show_background boolean
 ---@field background_color table
 
----@class AudioSource
----@field sounds table
----@field volume number
----@field pitch_variation number
----@field volume_variation number
----@field looping boolean
-
 ---@class Sprite
 ---@field sprite number
 
@@ -125,11 +121,13 @@
 ---@class Interactable
 ---@field range number
 
+---@alias FacingDirection table
+
 ---@class ComponentId
----@field FacingDirection string
 ---@field Light string
 ---@field CurrentFrame string
 ---@field Glow string
+---@field AudioSource string
 ---@field Script string
 ---@field Name string
 ---@field PhysicsBody string
@@ -147,7 +145,6 @@
 ---@field Grounded string
 ---@field Collider string
 ---@field SpeechBubble string
----@field AudioSource string
 ---@field Sprite string
 ---@field Transform string
 ---@field RoomCamera string
@@ -155,13 +152,14 @@
 ---@field Children string
 ---@field Parent string
 ---@field Interactable string
+---@field FacingDirection string
 
 local C = {}
 
-C.FacingDirection = "FacingDirection"
 C.Light = "Light"
 C.CurrentFrame = "CurrentFrame"
 C.Glow = "Glow"
+C.AudioSource = "AudioSource"
 C.Script = "Script"
 C.Name = "Name"
 C.PhysicsBody = "PhysicsBody"
@@ -179,7 +177,6 @@ C.Walkable = "Walkable"
 C.Grounded = "Grounded"
 C.Collider = "Collider"
 C.SpeechBubble = "SpeechBubble"
-C.AudioSource = "AudioSource"
 C.Sprite = "Sprite"
 C.Transform = "Transform"
 C.RoomCamera = "RoomCamera"
@@ -187,5 +184,6 @@ C.Animation = "Animation"
 C.Children = "Children"
 C.Parent = "Parent"
 C.Interactable = "Interactable"
+C.FacingDirection = "FacingDirection"
 
 return C

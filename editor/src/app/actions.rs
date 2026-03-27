@@ -1,19 +1,20 @@
 // editor/src/editor/actions.rs
-use crate::app::EditorCameraController;
+use crate::gui::inspector::audio_source_module::clear_active_audio_preview;
 use crate::world::world_editor::WorldEditor;
 use crate::game::game_editor::GameEditor;
 use crate::room::room_editor::RoomEditor;
-use crate::menu::MenuEditor;
 use crate::storage::export::export_game;
+use crate::app::EditorCameraController;
 use crate::storage::editor_storage::*;
 use crate::commands::world::*;
 use crate::commands::game::*;
+use crate::menu::MenuEditor;
 use crate::gui::menu_bar::*;
 use crate::editor_global::*;
 use crate::gui::prompts::*;
-use crate::app::Editor;
 use crate::gui::panels::*;
 use crate::gui::modal::*;
+use crate::app::Editor;
 use crate::app::*;
 use engine_core::prelude::*;
 use bishop::prelude::*;
@@ -38,6 +39,7 @@ impl Default for Editor {
             toast: None,
             playtest_process: None,
             grid_renderer: None,
+            audio_manager: AudioManager::new::<PlatformAudioBackend>(),
         }
     }
 }
@@ -179,6 +181,7 @@ impl Editor {
                     self.open_world_settings_modal(ctx);
                 }
                 EditorAction::OpenMenuEditor => {
+                    clear_active_audio_preview();
                     self.return_mode = Some(self.mode);
                     self.mode = EditorMode::Menu;
                     self.load_menus();
