@@ -10,7 +10,6 @@ pub struct ScriptModule {
     fields_len: usize,
 }
 
-const TOP_PADDING: f32 = 10.0;
 const SPACING: f32 = 5.0;
 const FONT_SIZE: f32 = DEFAULT_FONT_SIZE_16;
 const MIN_LABEL_WIDTH: f32 = 80.0;
@@ -298,8 +297,9 @@ impl InspectorModule for ScriptModule {
 
     /// Compute the height from the number of fields
     fn height(&self) -> f32 {
-        // Total height = top padding + picker gap + (field height + spacing) * count (including picker)
-        TOP_PADDING + SPACING + self.fields_len as f32 * (DEFAULT_FIELD_HEIGHT + SPACING)
+        InspectorBodyLayout::new()
+            .rows(self.fields_len.max(1), SPACING)
+            .height()
     }
 }
 

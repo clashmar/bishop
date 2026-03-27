@@ -1,5 +1,6 @@
 // engine_core/src/ecs/generic_module.rs
 use crate::ecs::inspector_module::InspectorModule;
+use crate::ecs::inspector_layout::InspectorBodyLayout;
 use crate::ecs::component::{comp_type_name, Component};
 use crate::ecs::transform::Pivot;
 use crate::ecs::reflect_field::*;
@@ -243,10 +244,11 @@ where
     fn height(&self) -> f32 {
         // Create a temporary default instance of `T` only to query its fields
         let mut temp = T::default();
-        let field_count = temp.fields().len() as f32;
+        let field_count = temp.fields().len();
 
-        // Total height = top padding + (field height + spacing) * count
-        TOP_PADDING + field_count * (DEFAULT_FIELD_HEIGHT + SPACING)
+        InspectorBodyLayout::new()
+            .rows(field_count, SPACING)
+            .height()
     }
 
     fn removable(&self) -> bool {
