@@ -24,6 +24,8 @@ pub struct MenuManager {
     viewport: Rect,
     /// Current values for slider elements, keyed by slider key.
     slider_values: HashMap<String, f32>,
+    /// Hold-to-repeat state for the currently focused slider.
+    slider_repeat: SliderRepeatState,
 }
 
 impl Default for MenuManager {
@@ -60,6 +62,7 @@ impl MenuManager {
             action_handler: Box::new(NoOpActionHandler),
             viewport: Rect::new(0.0, 0.0, 1.0, 1.0),
             slider_values: HashMap::new(),
+            slider_repeat: SliderRepeatState::default(),
         };
         manager.register_default_menus();
         manager
@@ -84,6 +87,7 @@ impl MenuManager {
     pub fn open_menu(&mut self, id: &str) {
         if let Some(template) = self.templates.get(id) {
             self.focus.reset(template);
+            self.slider_repeat.reset();
             self.menu_stack.push(id.to_string());
         }
     }
@@ -94,15 +98,18 @@ impl MenuManager {
         if let Some(parent_id) = self.menu_stack.last() 
         && let Some(template) = self.templates.get(parent_id) {
             self.focus.reset(template);
+            self.slider_repeat.reset();
             return;
         }
         self.focus = MenuFocus::new(0);
+        self.slider_repeat.reset();
     }
 
     /// Closes all menus and returns to game.
     pub fn close_all(&mut self) {
         self.menu_stack.clear();
         self.focus = MenuFocus::new(0);
+        self.slider_repeat.reset();
     }
 
     /// Returns the current menu mode based on active menu.
@@ -148,10 +155,27 @@ impl MenuManager {
 
         if let Some(menu_id) = self.menu_stack.last().cloned()
         && let Some(template) = self.templates.get(&menu_id).cloned() {
+            let focus_before_input = self.focus.clone();
+
+            self.update_click_focus(ctx, &template);
+
             let up_pressed = self.navigation.up_pressed(ctx);
             let down_pressed = self.navigation.down_pressed(ctx);
             let left_pressed = self.navigation.left_pressed(ctx);
+            let left_down = self.navigation.left_down(ctx);
             let right_pressed = self.navigation.right_pressed(ctx);
+            let right_down = self.navigation.right_down(ctx);
+
+            if up_pressed {
+                self.focus.navigate(NavDirection::Up, &template);
+            }
+            if down_pressed {
+                self.focus.navigate(NavDirection::Down, &template);
+            }
+
+            if self.focus != focus_before_input {
+                self.slider_repeat.reset();
+            }
 
             let focused_slider = template
                 .get_element_at_focus(&self.focus)
@@ -163,29 +187,32 @@ impl MenuManager {
                     }
                 });
 
-            if up_pressed {
-                self.focus.navigate(NavDirection::Up, &template);
-            }
-            if down_pressed {
-                self.focus.navigate(NavDirection::Down, &template);
-            }
-
             if let Some((key, step, min, max, default_value)) = focused_slider {
-                if left_pressed {
-                    let current = self.slider_values.get(&key).copied().unwrap_or(default_value);
-                    let new_value = (current - step).max(min);
-                    self.slider_values.insert(key.clone(), new_value);
-                    push_slider_event(key, new_value);
-                } else if right_pressed {
-                    let current = self.slider_values.get(&key).copied().unwrap_or(default_value);
-                    let new_value = (current + step).min(max);
-                    self.slider_values.insert(key.clone(), new_value);
-                    push_slider_event(key, new_value);
+                if let Some(direction) = self.slider_repeat.next_adjustment(
+                    ctx.get_time(),
+                    left_pressed,
+                    left_down,
+                    right_pressed,
+                    right_down,
+                ) {
+                    Self::adjust_slider_value(
+                        &mut self.slider_values,
+                        key,
+                        step,
+                        min,
+                        max,
+                        default_value,
+                        direction,
+                    );
                 }
             } else if left_pressed {
+                self.slider_repeat.reset();
                 self.focus.navigate(NavDirection::Left, &template);
             } else if right_pressed {
+                self.slider_repeat.reset();
                 self.focus.navigate(NavDirection::Right, &template);
+            } else {
+                self.slider_repeat.reset();
             }
 
             let cancel_pressed = self.navigation.cancel_pressed(ctx);
@@ -371,6 +398,51 @@ impl MenuManager {
         }
         let outline_color = if is_focused { Color::WHITE } else { Color::new(0.5, 0.5, 0.5, 1.0) };
         ctx.draw_rectangle_lines(screen_rect.x, screen_rect.y, screen_rect.w, screen_rect.h, 2.0, outline_color);
+    }
+
+    fn update_click_focus<C: BishopContext>(&mut self, ctx: &C, template: &MenuTemplate) {
+        if !ctx.is_mouse_button_pressed(MouseButton::Left) {
+            return;
+        }
+
+        let mouse = ctx.mouse_position();
+        let mouse = Vec2::new(mouse.0, mouse.1);
+        let canvas_origin = Vec2::new(self.viewport.x, self.viewport.y);
+        let canvas_size = Vec2::new(self.viewport.w, self.viewport.h);
+
+        for target in collect_focus_targets(template, canvas_origin, canvas_size)
+            .into_iter()
+            .rev()
+        {
+            if target.rect.contains(mouse) {
+                self.focus = target.focus;
+                self.slider_repeat.reset();
+                return;
+            }
+        }
+    }
+
+    fn adjust_slider_value(
+        slider_values: &mut HashMap<String, f32>,
+        key: String,
+        step: f32,
+        min: f32,
+        max: f32,
+        default_value: f32,
+        direction: SliderAdjustmentDirection,
+    ) {
+        let current = slider_values.get(&key).copied().unwrap_or(default_value);
+        let new_value = match direction {
+            SliderAdjustmentDirection::Decrease => (current - step).max(min),
+            SliderAdjustmentDirection::Increase => (current + step).min(max),
+        };
+
+        if (new_value - current).abs() <= f32::EPSILON {
+            return;
+        }
+
+        slider_values.insert(key.clone(), new_value);
+        push_slider_event(key, new_value);
     }
 
     fn handle_action(&mut self, action: MenuAction) {

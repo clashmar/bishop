@@ -63,9 +63,19 @@ impl MenuNavigation {
         self.left.is_pressed(ctx)
     }
 
+    /// Checks if left is currently held down.
+    pub fn left_down<C: BishopContext>(&self, ctx: &C) -> bool {
+        self.left.is_down(ctx)
+    }
+
     /// Checks if right was pressed this frame.
     pub fn right_pressed<C: BishopContext>(&self, ctx: &C) -> bool {
         self.right.is_pressed(ctx)
+    }
+
+    /// Checks if right is currently held down.
+    pub fn right_down<C: BishopContext>(&self, ctx: &C) -> bool {
+        self.right.is_down(ctx)
     }
 
     /// Checks if confirm was pressed this frame.

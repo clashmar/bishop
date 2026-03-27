@@ -13,7 +13,7 @@ pub enum NavDirection {
 ///
 /// Uses a two-level scheme: `node` indexes a top-level element (button, slider, or layout group),
 /// and `child` optionally indexes a focusable child within a layout group.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MenuFocus {
     /// Element index in the template.
     pub node: usize,
