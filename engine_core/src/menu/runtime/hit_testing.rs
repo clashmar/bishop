@@ -1,89 +1,30 @@
 use crate::menu::*;
 use bishop::prelude::*;
-use widgets::{HOLD_INITIAL_DELAY, HOLD_REPEAT_RATE};
-
-/// Direction for adjusting a focused slider.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum SliderAdjustmentDirection {
-    Decrease,
-    Increase,
-}
 
 /// A focusable menu target resolved into screen space.
 #[derive(Debug, Clone, PartialEq)]
-pub struct FocusTarget {
-    /// Focus state to apply when this target is selected.
-    pub focus: MenuFocus,
-    /// Screen-space rectangle that can be hit-tested.
-    pub rect: Rect,
+struct FocusTarget {
+    focus: MenuFocus,
+    rect: Rect,
 }
 
-/// Tracks hold-to-repeat state for focused slider adjustments.
-#[derive(Debug, Clone, Default)]
-pub struct SliderRepeatState {
-    active_direction: Option<SliderAdjustmentDirection>,
-    last_step_time: f64,
-    repeat_started: bool,
+/// Resolves the focus target under the given mouse position.
+pub(crate) fn focus_target_at(
+    template: &MenuTemplate,
+    viewport: Rect,
+    mouse: Vec2,
+) -> Option<MenuFocus> {
+    let canvas_origin = Vec2::new(viewport.x, viewport.y);
+    let canvas_size = Vec2::new(viewport.w, viewport.h);
+
+    collect_focus_targets(template, canvas_origin, canvas_size)
+        .into_iter()
+        .rev()
+        .find(|target| target.rect.contains(mouse))
+        .map(|target| target.focus)
 }
 
-impl SliderRepeatState {
-    /// Clears any active repeat tracking.
-    pub fn reset(&mut self) {
-        self.active_direction = None;
-        self.last_step_time = 0.0;
-        self.repeat_started = false;
-    }
-
-    /// Returns the adjustment to apply this frame, if any.
-    pub fn next_adjustment(
-        &mut self,
-        now: f64,
-        decrease_pressed: bool,
-        decrease_down: bool,
-        increase_pressed: bool,
-        increase_down: bool,
-    ) -> Option<SliderAdjustmentDirection> {
-        if decrease_pressed {
-            self.active_direction = Some(SliderAdjustmentDirection::Decrease);
-            self.last_step_time = now;
-            self.repeat_started = false;
-            return Some(SliderAdjustmentDirection::Decrease);
-        }
-
-        if increase_pressed {
-            self.active_direction = Some(SliderAdjustmentDirection::Increase);
-            self.last_step_time = now;
-            self.repeat_started = false;
-            return Some(SliderAdjustmentDirection::Increase);
-        }
-
-        let direction = self.active_direction?;
-
-        let still_down = match direction {
-            SliderAdjustmentDirection::Decrease => decrease_down,
-            SliderAdjustmentDirection::Increase => increase_down,
-        };
-
-        if !still_down {
-            self.reset();
-            return None;
-        }
-
-        let elapsed = now - self.last_step_time;
-        if (!self.repeat_started && elapsed >= HOLD_INITIAL_DELAY)
-            || (self.repeat_started && elapsed >= HOLD_REPEAT_RATE)
-        {
-            self.last_step_time = now;
-            self.repeat_started = true;
-            Some(direction)
-        } else {
-            None
-        }
-    }
-}
-
-/// Returns all enabled, visible focusable targets in render order.
-pub fn collect_focus_targets(
+fn collect_focus_targets(
     template: &MenuTemplate,
     canvas_origin: Vec2,
     canvas_size: Vec2,
@@ -139,57 +80,6 @@ pub fn collect_focus_targets(
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn slider_repeat_steps_immediately_then_repeats_after_delays() {
-        let mut state = SliderRepeatState::default();
-
-        assert_eq!(
-            state.next_adjustment(1.0, true, true, false, false),
-            Some(SliderAdjustmentDirection::Decrease)
-        );
-        assert_eq!(state.next_adjustment(1.3, false, true, false, false), None);
-        assert_eq!(
-            state.next_adjustment(1.5, false, true, false, false),
-            Some(SliderAdjustmentDirection::Decrease)
-        );
-        assert_eq!(state.next_adjustment(1.54, false, true, false, false), None);
-        assert_eq!(
-            state.next_adjustment(1.55, false, true, false, false),
-            Some(SliderAdjustmentDirection::Decrease)
-        );
-    }
-
-    #[test]
-    fn slider_repeat_resets_when_direction_changes() {
-        let mut state = SliderRepeatState::default();
-
-        assert_eq!(
-            state.next_adjustment(1.0, true, true, false, false),
-            Some(SliderAdjustmentDirection::Decrease)
-        );
-        assert_eq!(
-            state.next_adjustment(1.1, false, false, true, true),
-            Some(SliderAdjustmentDirection::Increase)
-        );
-        assert_eq!(state.next_adjustment(1.5, false, false, false, true), None);
-        assert_eq!(
-            state.next_adjustment(1.6, false, false, false, true),
-            Some(SliderAdjustmentDirection::Increase)
-        );
-    }
-
-    #[test]
-    fn slider_repeat_stops_when_input_is_released() {
-        let mut state = SliderRepeatState::default();
-
-        assert_eq!(
-            state.next_adjustment(1.0, false, false, true, true),
-            Some(SliderAdjustmentDirection::Increase)
-        );
-        assert_eq!(state.next_adjustment(1.1, false, false, false, false), None);
-        assert_eq!(state.next_adjustment(1.7, false, false, false, false), None);
-    }
 
     #[test]
     fn collect_focus_targets_includes_top_level_and_layout_children() {
@@ -260,5 +150,37 @@ mod tests {
                 child: Some(1),
             }
         );
+    }
+
+    #[test]
+    fn focus_target_at_returns_topmost_matching_focus() {
+        let mut back = MenuElement::button(
+            "back".to_string(),
+            MenuAction::CloseMenu,
+            Rect::new(0.1, 0.1, 0.4, 0.2),
+        );
+        back.z_order = 0;
+
+        let mut front = MenuElement::button(
+            "front".to_string(),
+            MenuAction::Resume,
+            Rect::new(0.1, 0.1, 0.4, 0.2),
+        );
+        front.z_order = 1;
+
+        let template = MenuTemplate {
+            id: "overlay".to_string(),
+            background: MenuBackground::None,
+            elements: vec![back, front],
+            mode: MenuMode::Paused,
+        };
+
+        let focus = focus_target_at(
+            &template,
+            Rect::new(0.0, 0.0, 1000.0, 500.0),
+            Vec2::new(200.0, 100.0),
+        );
+
+        assert_eq!(focus, Some(MenuFocus::new(1)));
     }
 }
