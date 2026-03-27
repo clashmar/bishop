@@ -4,6 +4,8 @@
 pub const MAIN_FILE: &str = "main.lua";
 pub const ENGINE_FILE: &str = "engine.lua";
 pub const ENTITY_FILE: &str = "entity.lua";
+pub const ANIMATIONS_FILE: &str = "animations.lua";
+pub const SOUNDS_FILE: &str = "sounds.lua";
 
 /// GLOBALS
 pub const LUA_GAME_CTX: &str = "lua_game_ctx";
@@ -92,6 +94,5 @@ pub const AUDIO_PLAY_SFX_VARIED: &str = "play_sfx_varied";
 pub const ENTITY_PLAY_SOUND: &str = "play_sound";
 pub const ENTITY_STOP_SOUND: &str = "stop_sound";
 pub const ENTITY_SET_SOUND_VOLUME: &str = "set_sound_volume";
-
 
 

@@ -1,9 +1,6 @@
 // editor/build.rs
-use engine_core::animation::animation_clip::generate_animations_lua;
 use engine_core::ecs::component_registry::COMPONENTS;
 use engine_core::input::input_table::*;
-use engine_core::scripting::lua_constants::ENGINE_DIR;
-use engine_core::scripting::lua_constants::SCRIPTS_DIR;
 use std::collections::HashSet;
 use std::path::PathBuf;
 use std::env;
@@ -13,7 +10,6 @@ fn main() -> std::io::Result<()> {
     generate_lua_script();
     generate_lua_components();
     generate_lua_input();
-    generate_lua_animations();
     generate_engine_scripts_rs();
 
     if cfg!(target_os = "windows") {
@@ -141,19 +137,6 @@ fn generate_lua_input() {
     // Write the file
     let target = out_dir.join("input.lua");
     fs::write(&target, lua).expect("Cannot write input.lua");
-    println!("cargo:warning=generated {}", target.display());
-}
-
-fn generate_lua_animations() {
-    let out_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap())
-        .join(SCRIPTS_DIR)
-        .join(ENGINE_DIR);
-
-    fs::create_dir_all(&out_dir).expect("cannot create _engine folder");
-
-    let lua = generate_animations_lua(&[]);
-    let target = out_dir.join("animations.lua");
-    fs::write(&target, lua).expect("Cannot write animations.lua");
     println!("cargo:warning=generated {}", target.display());
 }
 

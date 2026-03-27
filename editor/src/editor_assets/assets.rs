@@ -7,6 +7,11 @@ use std::sync::{LazyLock, OnceLock};
 use std::{env, fs, io};
 use bishop::prelude::*;
 use crate::storage::sound_preset_storage::SoundPresetLibrary;
+use engine_core::scripting::lua_constants::{
+    ANIMATIONS_FILE,
+    ENGINE_DIR,
+    SOUNDS_FILE,
+};
 
 /// Windows .exe for the game binary.
 pub static GAME_EXE: &[u8] = include_bytes!(
@@ -84,7 +89,7 @@ pub use crate::editor_assets::sounds_lua::generate_sounds_lua;
 
 /// Write embedded _engine scripts to the specified scripts folder.
 pub fn write_engine_scripts(scripts_folder: &Path) -> io::Result<()> {
-    let engine_folder = scripts_folder.join("_engine");
+    let engine_folder = scripts_folder.join(ENGINE_DIR);
     fs::create_dir_all(&engine_folder)?;
 
     for (filename, content) in ENGINE_SCRIPTS {
@@ -116,14 +121,20 @@ fn hide_folder(path: &Path) {
 
 /// Writes animations.lua with both built-in and custom clips.
 pub fn write_animations_lua(scripts_folder: &Path, custom_clips: &[String]) -> io::Result<()> {
-    let engine_folder = scripts_folder.join("_engine");
+    let engine_folder = scripts_folder.join(ENGINE_DIR);
     fs::create_dir_all(&engine_folder)?;
-    fs::write(engine_folder.join("animations.lua"), generate_animations_lua(custom_clips))
+    fs::write(
+        engine_folder.join(ANIMATIONS_FILE),
+        generate_animations_lua(custom_clips),
+    )
 }
 
 /// Writes sounds.lua with the supplied group names.
 pub fn write_sounds_lua(scripts_folder: &Path, group_names: &[String]) -> io::Result<()> {
-    let engine_folder = scripts_folder.join("_engine");
+    let engine_folder = scripts_folder.join(ENGINE_DIR);
     fs::create_dir_all(&engine_folder)?;
-    fs::write(engine_folder.join("sounds.lua"), generate_sounds_lua(group_names))
+    fs::write(
+        engine_folder.join(SOUNDS_FILE),
+        generate_sounds_lua(group_names),
+    )
 }

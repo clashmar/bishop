@@ -101,6 +101,7 @@ mod tests {
     use super::*;
     use crate::storage::editor_storage::save_game;
     use engine_core::audio::AudioGroup;
+    use engine_core::scripting::lua_constants::{ENGINE_DIR, SOUNDS_FILE};
     use std::path::PathBuf;
     use std::collections::HashMap;
     use uuid::Uuid;
@@ -177,7 +178,7 @@ mod tests {
         let test_game = TestGameFolder::new("save_game_sounds_lua_error");
         set_game_name(test_game.name());
 
-        let sounds_lua_path = scripts_folder().join("_engine").join("sounds.lua");
+        let sounds_lua_path = scripts_folder().join(ENGINE_DIR).join(SOUNDS_FILE);
         fs::create_dir_all(&sounds_lua_path).unwrap();
 
         let game = Game {
