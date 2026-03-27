@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Replace the flat `AudioSource` sound list with named local groups plus linked editor presets, require `entity:play_sound(sound.GroupName)`, and generate `_engine/sounds.lua` for IDE support.
+**Goal:** Replace `AudioSource` with named local groups plus linked editor presets, require `entity:play_sound(sound.GroupName)`, and generate `_engine/sounds.lua` for IDE support.
 
 **Architecture:** The runtime owns only entity-local audio groups and resolves playback against the target entity. The editor owns a project-wide preset library and generated Lua identifiers, synchronizing linked local copies into components without introducing global runtime playback.
 
@@ -38,13 +38,13 @@ Tests:
 - Add unit tests in `engine_core/src/audio/audio_source.rs`
 - Add unit tests in `editor/src/editor_assets/assets.rs`
 
-### Task 1: Core Audio Group Model And Migration
+### Task 1: Core Audio Group Model
 
 **Files:**
 - Modify: `engine_core/src/audio/audio_source.rs`
 - Test: `engine_core/src/audio/audio_source.rs`
 
-- [ ] **Step 1: Write the failing tests for audio group IDs, sound flattening, and legacy migration**
+- [ ] **Step 1: Write the failing tests for audio group IDs, sound flattening, and grouped deserialization**
 
 ```rust
 #[cfg(test)]
@@ -90,7 +90,7 @@ mod tests {
     }
 
     #[test]
-    fn deserializing_legacy_audio_source_creates_default_group() {
+    fn deserializing_grouped_audio_source_preserves_groups() {
         #[derive(Deserialize)]
         struct Wrapper {
             source: AudioSource,
@@ -99,11 +99,15 @@ mod tests {
         let ron = r#"
             (
                 source: (
-                    sounds: ["jump_1", "jump_2"],
-                    volume: 0.8,
-                    pitch_variation: 0.1,
-                    volume_variation: 0.2,
-                    looping: false,
+                    groups: {
+                        Custom("Talk"): (
+                            sounds: ["talk_1", "talk_2"],
+                            volume: 0.8,
+                            pitch_variation: 0.1,
+                            volume_variation: 0.2,
+                            looping: false,
+                        ),
+                    },
                 ),
             )
         "#;
@@ -112,15 +116,16 @@ mod tests {
         let group = wrapper
             .source
             .groups
-            .get(&SoundGroupId::Custom("Default".to_string()))
+            .get(&SoundGroupId::Custom("Talk".to_string()))
             .unwrap();
 
-        assert_eq!(group.sounds, vec!["jump_1".to_string(), "jump_2".to_string()]);
+        assert_eq!(group.sounds, vec!["talk_1".to_string(), "talk_2".to_string()]);
         assert_eq!(group.volume, 0.8);
         assert_eq!(group.pitch_variation, 0.1);
         assert_eq!(group.volume_variation, 0.2);
         assert!(!group.looping);
         assert!(group.preset_link.is_none());
+        assert!(wrapper.source.current.is_none());
     }
 }
 ```
@@ -130,7 +135,7 @@ mod tests {
 Run: `cargo test -p engine_core audio_source::tests -- --nocapture`
 Expected: FAIL with missing `SoundGroupId`, `AudioGroup`, or `all_sound_ids`.
 
-- [ ] **Step 3: Implement the new `AudioSource` data model and legacy deserialization bridge**
+- [ ] **Step 3: Implement the new `AudioSource` data model**
 
 ```rust
 #[derive(Clone, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -139,6 +144,9 @@ pub enum SoundGroupId {
     New,
     Custom(String),
 }
+
+// `New` is an editor-only creation sentinel and must not persist
+// inside serialized `AudioSource.groups` data.
 
 impl SoundGroupId {
     pub fn ui_label(&self) -> String {
@@ -598,7 +606,7 @@ Spec coverage check:
 - Generated `_engine/sounds.lua`: covered by Tasks 2 and 3.
 - Linked preset library and detach flow: covered by Tasks 3 and 4.
 - Inspector UI for group/preset management: covered by Task 4.
-- Migration from legacy flat sound lists: covered by Task 1.
+- Grouped serialization shape only: covered by Task 1.
 
 Placeholder scan:
 

@@ -43,6 +43,8 @@ pub enum SoundGroupId {
 }
 ```
 
+`New` is editor-only transient state for group creation flows. It is not valid serialized game data and must not be persisted inside `AudioSource.groups`.
+
 `AudioGroup` owns the actual playable data:
 
 ```rust
@@ -239,16 +241,14 @@ Expected failure modes:
 5. Duplicate group names on the same entity: disallow in the inspector.
 6. Duplicate preset names in the library: disallow in the editor.
 
-## Migration
+## Compatibility
 
-Existing `AudioSource` instances need a compatibility path from the flat format.
+This feature does not preserve the old flat `AudioSource` serialization shape.
 
-Migration behavior:
+Requirements:
 
-1. If old serialized fields are present, convert them into a single local group during deserialization or post-load normalization.
-2. Use a conservative default name such as `Default` for migrated data.
-3. Mark migrated groups as detached with no preset link.
-4. Existing scripts using `entity:play_sound()` with no argument will need updating; this is an intentional API break.
+1. `AudioSource` serializes and deserializes only the grouped format.
+2. Existing scripts using `entity:play_sound()` with no argument will need updating; this is an intentional API break.
 
 ## Testing And Verification
 
