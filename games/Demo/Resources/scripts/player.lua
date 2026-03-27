@@ -59,8 +59,7 @@ local Player = {
         -- Jump if grounded and space pressed
         if engine.input.pressed(input.Space) and is_grounded then
             new_vel.y = -self.public.jump_speed
-            -- engine.audio.play_sfx("sfx/jump")
-            self.entity:play_sound()
+            engine.audio.play_sfx("sfx/jump")
         end
 
         self.entity:set_velocity(new_vel)

@@ -37,7 +37,7 @@ impl GameInstance {
         // TODO(save-load): replace with a proper post-load hook once the Save/Load sprint
         // adds runtime save files and a generalised post-deserialize callback.
         for source in AudioSource::store(&game.ecs).data.values() {
-            push_audio_command(AudioCommand::IncrementRefs(source.sounds.clone()));
+            push_audio_command(AudioCommand::IncrementRefs(source.all_sound_ids()));
         }
 
         // TODO: Get rid of expects
@@ -87,6 +87,10 @@ impl GameInstance {
         }
 
         game.initialize(ctx, lua).await;
+
+        for source in AudioSource::store(&game.ecs).data.values() {
+            push_audio_command(AudioCommand::IncrementRefs(source.all_sound_ids()));
+        }
 
         let ecs = &game.ecs;
         let player_pos = ecs.get_player_transform()

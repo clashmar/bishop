@@ -232,15 +232,16 @@ function Entity:clear_speech() end
 ---@return boolean
 function Entity:is_speaking() end
 
---- Plays the sounds configured on this entity's AudioSource component.
---- If the AudioSource is looping, starts a loop tracked by the entity ID.
---- If one-shot, plays with the configured pitch/volume variation.
-function Entity:play_sound() end
+--- Plays the named sound group configured on this entity's AudioSource component.
+--- If the group is looping, starts a loop tracked by the entity ID.
+--- If one-shot, plays with the group's pitch and volume variation.
+---@param group_name SoundGroupId
+function Entity:play_sound(group_name) end
 
 --- Stops a looping sound started by this entity's AudioSource.
 function Entity:stop_sound() end
 
---- Sets the volume on this entity's AudioSource (0.0–1.0).
+--- Sets a runtime gain multiplier on this entity's AudioSource groups (0.0–1.0).
 --- Takes effect on the next play_sound() call.
 ---@param v number Volume in range 0.0–1.0
 function Entity:set_sound_volume(v) end

@@ -9,11 +9,17 @@ use std::path::PathBuf;
 use std::env;
 use std::fs;
 
+#[path = "src/editor_assets/sounds_lua.rs"]
+mod sounds_lua;
+
+use sounds_lua::generate_sounds_lua;
+
 fn main() -> std::io::Result<()> {
     generate_lua_script();
     generate_lua_components();
     generate_lua_input();
     generate_lua_animations();
+    generate_lua_sounds();
     generate_engine_scripts_rs();
 
     if cfg!(target_os = "windows") {
@@ -154,6 +160,19 @@ fn generate_lua_animations() {
     let lua = generate_animations_lua(&[]);
     let target = out_dir.join("animations.lua");
     fs::write(&target, lua).expect("Cannot write animations.lua");
+    println!("cargo:warning=generated {}", target.display());
+}
+
+fn generate_lua_sounds() {
+    let out_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap())
+        .join("scripts")
+        .join("_engine");
+
+    fs::create_dir_all(&out_dir).expect("cannot create _engine folder");
+
+    let lua = generate_sounds_lua(&[]);
+    let target = out_dir.join("sounds.lua");
+    fs::write(&target, lua).expect("Cannot write sounds.lua");
     println!("cargo:warning=generated {}", target.display());
 }
 

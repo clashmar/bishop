@@ -5,6 +5,7 @@ use ecs_component::ecs_component;
 use serde::{Deserialize, Serialize};
 use serde::ser::SerializeStruct;
 use std::collections::{BTreeMap, HashMap, HashSet};
+use std::fmt::{Display, Formatter, Result as FmtResult};
 
 /// Identifies a sound group stored on an [`AudioSource`].
 #[derive(Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
@@ -20,9 +21,15 @@ impl SoundGroupId {
     /// Returns a label suitable for UI display.
     pub fn ui_label(&self) -> String {
         match self {
-            Self::New => "New".to_string(),
+            Self::New => "Add Group".to_string(),
             Self::Custom(name) => name.clone(),
         }
+    }
+}
+
+impl Display for SoundGroupId {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        f.write_str(&self.ui_label())
     }
 }
 
@@ -105,12 +112,14 @@ impl AudioGroup {
 /// Sounds are organized into local groups so gameplay can reference
 /// `entity:play_sound(sound.GroupName)`.
 #[ecs_component(post_create = post_create, post_remove = post_remove)]
-#[derive(Clone, Debug, Default, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct AudioSource {
     /// Grouped sounds keyed by local group name.
     pub groups: HashMap<SoundGroupId, AudioGroup>,
     /// The currently selected group in the editor UI.
     pub current: Option<SoundGroupId>,
+    /// Runtime gain multiplier applied on top of each group's authored volume.
+    pub runtime_volume: f32,
 }
 
 impl AudioSource {
@@ -126,6 +135,16 @@ impl AudioSource {
             .collect::<Vec<_>>();
         ids.sort();
         ids
+    }
+}
+
+impl Default for AudioSource {
+    fn default() -> Self {
+        Self {
+            groups: HashMap::new(),
+            current: None,
+            runtime_volume: 1.0,
+        }
     }
 }
 
@@ -171,6 +190,7 @@ impl<'de> Deserialize<'de> for AudioSource {
         Ok(Self {
             groups,
             current: None,
+            runtime_volume: 1.0,
         })
     }
 }
@@ -203,6 +223,7 @@ mod tests {
             SoundGroupId::Custom("Footsteps".to_string()).ui_label(),
             "Footsteps"
         );
+        assert_eq!(SoundGroupId::New.ui_label(), "Add Group");
     }
 
     #[test]

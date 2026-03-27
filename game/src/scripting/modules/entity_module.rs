@@ -12,7 +12,6 @@ use mlua::UserDataMethods;
 use mlua::Variadic;
 use mlua::UserData;
 use mlua::Table;
-use engine_core::*;
 use mlua::Value;
 use mlua::Lua;
 
@@ -730,31 +729,43 @@ impl LuaMethod<EntityHandle> for IsSpeakingMethod {
     }
 }
 
-/// Method: `entity:play_sound()`
+/// Method: `entity:play_sound(group_name)`
 pub struct PlaySoundMethod;
 impl LuaMethod<EntityHandle> for PlaySoundMethod {
     fn register<M: UserDataMethods<EntityHandle>>(&self, methods: &mut M) {
-        methods.add_method(ENTITY_PLAY_SOUND, |lua, this, ()| {
+        methods.add_method(ENTITY_PLAY_SOUND, |lua, this, group_name: String| {
             let ctx = LuaGameCtx::borrow_ctx(lua)?;
             let game_instance = ctx.game_instance.borrow();
             let ecs = &game_instance.game.ecs;
             let Some(source) = ecs.get::<AudioSource>(this.entity) else {
                 return Ok(());
             };
-            if source.looping {
+
+            let group_id = SoundGroupId::Custom(group_name.clone());
+            let Some(group) = source.groups.get(&group_id) else {
+                log::warn!(
+                    "Entity {:?} tried to play missing sound group '{}'",
+                    this.entity,
+                    group_name
+                );
+                return Ok(());
+            };
+            let volume = (group.volume * source.runtime_volume).clamp(0.0, 1.0);
+
+            if group.looping {
                 push_audio_command(AudioCommand::PlayLoop {
                     handle: *this.entity as u64,
-                    sounds: source.sounds.clone(),
-                    volume: source.volume,
-                    pitch_variation: source.pitch_variation,
-                    volume_variation: source.volume_variation,
+                    sounds: group.sounds.clone(),
+                    volume,
+                    pitch_variation: group.pitch_variation,
+                    volume_variation: group.volume_variation,
                 });
             } else {
                 push_audio_command(AudioCommand::PlayVariedSfx {
-                    sounds: source.sounds.clone(),
-                    volume: source.volume,
-                    pitch_variation: source.pitch_variation,
-                    volume_variation: source.volume_variation,
+                    sounds: group.sounds.clone(),
+                    volume,
+                    pitch_variation: group.pitch_variation,
+                    volume_variation: group.volume_variation,
                 });
             }
             Ok(())
@@ -762,10 +773,11 @@ impl LuaMethod<EntityHandle> for PlaySoundMethod {
     }
 
     fn emit_api(&self, out: &mut LuaApiWriter) {
-        out.line("--- Plays the sounds configured on this entity's AudioSource component.");
-        out.line("--- If the AudioSource is looping, starts a loop tracked by the entity ID.");
-        out.line("--- If one-shot, plays with the configured pitch/volume variation.");
-        out.line(&format!("function Entity:{}() end", ENTITY_PLAY_SOUND));
+        out.line("--- Plays the named sound group configured on this entity's AudioSource component.");
+        out.line("--- If the group is looping, starts a loop tracked by the entity ID.");
+        out.line("--- If one-shot, plays with the group's pitch and volume variation.");
+        out.line("---@param group_name SoundGroupId");
+        out.line(&format!("function Entity:{}(group_name) end", ENTITY_PLAY_SOUND));
         out.line("");
     }
 }
@@ -796,14 +808,14 @@ impl LuaMethod<EntityHandle> for SetSoundVolumeMethod {
             let mut game_instance = ctx.game_instance.borrow_mut();
             let ecs = &mut game_instance.game.ecs;
             if let Some(source) = ecs.get_mut::<AudioSource>(this.entity) {
-                source.volume = v.clamp(0.0, 1.0);
+                source.runtime_volume = v.clamp(0.0, 1.0);
             }
             Ok(())
         });
     }
 
     fn emit_api(&self, out: &mut LuaApiWriter) {
-        out.line("--- Sets the volume on this entity's AudioSource (0.0–1.0).");
+        out.line("--- Sets a runtime gain multiplier on this entity's AudioSource groups (0.0–1.0).");
         out.line("--- Takes effect on the next play_sound() call.");
         out.line("---@param v number Volume in range 0.0–1.0");
         out.line(&format!("function Entity:{}(v) end", ENTITY_SET_SOUND_VOLUME));

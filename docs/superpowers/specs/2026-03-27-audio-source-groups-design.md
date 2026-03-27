@@ -146,6 +146,8 @@ To avoid hidden behavior, linked groups still display and serialize their local 
 
 The UI does not need to be pretty, but it does need to be explicit and workable.
 
+Because the runtime model changes from a flat sound list to grouped audio data, the editor may need a minimal compile-keeping adaptation before the full inspector workflow is implemented. That early adaptation should stay narrow: enough to edit grouped data without introducing preset/link management ahead of the dedicated inspector task.
+
 ### Inspector layout
 
 The audio inspector will gain a group selector area at the top, modeled after the animation inspector:

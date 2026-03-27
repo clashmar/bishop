@@ -227,6 +227,7 @@ git commit -m "feat(audio): add grouped audio source model"
 - Modify: `editor/src/editor_assets/mod.rs`
 - Modify: `editor/build.rs`
 - Create: `editor/scripts/_engine/sounds.lua`
+- Modify: `editor/src/gui/inspector/audio_source_module.rs` only as needed to keep the workspace compiling against the grouped `AudioSource` model; preset/link UX still belongs to Task 4
 - Test: `editor/src/editor_assets/assets.rs`
 
 - [ ] **Step 1: Write the failing tests for `sounds.lua` generation**

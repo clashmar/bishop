@@ -78,6 +78,8 @@ pub fn circle_120px() -> &'static Texture2D { CIRCLE_120PX.get().expect("Editor 
 // Include the auto-generated ENGINE_SCRIPTS array from build.rs
 include!("engine_scripts.rs");
 
+pub use crate::editor_assets::sounds_lua::generate_sounds_lua;
+
 /// Write embedded _engine scripts to the specified scripts folder.
 pub fn write_engine_scripts(scripts_folder: &Path) -> io::Result<()> {
     let engine_folder = scripts_folder.join("_engine");
@@ -115,4 +117,54 @@ pub fn write_animations_lua(scripts_folder: &Path, custom_clips: &[String]) -> i
     let engine_folder = scripts_folder.join("_engine");
     fs::create_dir_all(&engine_folder)?;
     fs::write(engine_folder.join("animations.lua"), generate_animations_lua(custom_clips))
+}
+
+/// Writes sounds.lua with the supplied group names.
+pub fn write_sounds_lua(scripts_folder: &Path, group_names: &[String]) -> io::Result<()> {
+    let engine_folder = scripts_folder.join("_engine");
+    fs::create_dir_all(&engine_folder)?;
+    fs::write(engine_folder.join("sounds.lua"), generate_sounds_lua(group_names))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::storage::editor_storage::{AudioGroupPreset, SoundPresetLibrary};
+    use engine_core::audio::{AudioGroup, AudioSource, SoundGroupId};
+    use std::collections::HashMap;
+
+    #[test]
+    fn collect_sound_group_names_merges_presets_and_local_groups() {
+        let mut ecs = Ecs::default();
+        let entity = ecs.create_entity().finish();
+
+        let mut source = AudioSource::default();
+        source.groups.insert(
+            SoundGroupId::Custom("Talk".to_string()),
+            AudioGroup::default(),
+        );
+        source.groups.insert(
+            SoundGroupId::Custom("Footsteps".to_string()),
+            AudioGroup::default(),
+        );
+        ecs.add_component_to_entity(entity, source);
+
+        let library = SoundPresetLibrary {
+            presets: HashMap::from([(
+                "Ambient".to_string(),
+                AudioGroupPreset::default(),
+            )]),
+        };
+
+        let names = collect_sound_group_names(&ecs, &library);
+
+        assert_eq!(
+            names,
+            vec![
+                "Ambient".to_string(),
+                "Footsteps".to_string(),
+                "Talk".to_string(),
+            ]
+        );
+    }
 }
