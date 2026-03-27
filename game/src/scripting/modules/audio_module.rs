@@ -23,11 +23,21 @@ impl LuaModule for AudioModule {
                 .as_ref()
                 .and_then(|t| t.get::<f32>("fade_out").ok())
                 .unwrap_or(0.0);
+            let gap = opts
+                .as_ref()
+                .and_then(|t| t.get::<f32>("gap").ok())
+                .unwrap_or(0.0);
+            let fade_in = opts
+                .as_ref()
+                .and_then(|t| t.get::<f32>("fade_in").ok())
+                .unwrap_or(0.0);
 
             push_audio_command(AudioCommand::PlayMusic(PlayMusicRequest {
                 id,
                 looping,
                 fade_out,
+                gap,
+                fade_in,
             }));
             Ok(())
         })?;
@@ -138,10 +148,10 @@ impl LuaApi for AudioModule {
         out.line("");
         out.line("--- Plays music by ID.");
         out.line(
-            "--- `opts.looping` defaults to true and `opts.fade_out` defaults to 0.0 seconds.",
+            "--- `opts.looping` defaults to true; `opts.fade_out`, `opts.gap`, and `opts.fade_in` default to 0.0 seconds.",
         );
         out.line("---@param id string Path relative to Resources/audio/ without extension");
-        out.line("---@param opts? {looping?: boolean, fade_out?: number}");
+        out.line("---@param opts? {looping?: boolean, fade_out?: number, gap?: number, fade_in?: number}");
         out.line("function engine.audio.play_music(id, opts) end");
         out.line("");
         out.line("--- Returns true while music is considered active.");

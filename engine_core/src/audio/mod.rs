@@ -17,18 +17,10 @@ use rand::Rng;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
-/// Active fade-out state for a music track.
-struct FadeOut {
-    remaining: f32,
-    duration: f32,
-    start_ratio: f32,
-    next_music: Option<PlayMusicRequest>,
-}
-
 /// Handle type for active looping music signals.
-type LoopMusicHandle = Handle<Stop<Cycle<[f32; 2]>>>;
+type LoopMusicHandle = Handle<Stop<Gain<Cycle<[f32; 2]>>>>;
 /// Handle type for active one-shot music signals.
-type OneShotMusicHandle = Handle<Stop<FramesSignal<[f32; 2]>>>;
+type OneShotMusicHandle = Handle<Stop<Gain<FramesSignal<[f32; 2]>>>>;
 /// Handle type for active looping SFX signals.
 type LoopHandle = Handle<Stop<Gain<Speed<Cycle<[f32; 2]>>>>>;
 #[cfg(feature = "editor")]
@@ -56,23 +48,48 @@ impl ActiveMusic {
     fn stop(&mut self) {
         match self {
             Self::Looping { handle, .. } => {
-                handle.control::<Stop<Cycle<[f32; 2]>>, _>().stop();
+                handle.control::<Stop<Gain<Cycle<[f32; 2]>>>, _>().stop();
             }
             Self::OneShot { handle, .. } => {
-                handle.control::<Stop<FramesSignal<[f32; 2]>>, _>().stop();
+                handle
+                    .control::<Stop<Gain<FramesSignal<[f32; 2]>>>, _>()
+                    .stop();
+            }
+        }
+    }
+
+    fn set_ratio(&mut self, ratio: f32) {
+        let ratio = ratio.clamp(0.0, 1.0);
+        match self {
+            Self::Looping { handle, .. } => {
+                handle
+                    .control::<Gain<Cycle<[f32; 2]>>, _>()
+                    .set_amplitude_ratio(ratio);
+            }
+            Self::OneShot { handle, .. } => {
+                handle
+                    .control::<Gain<FramesSignal<[f32; 2]>>, _>()
+                    .set_amplitude_ratio(ratio);
             }
         }
     }
 }
 
-impl FadeOut {
-    fn ratio(&self) -> f32 {
-        if self.duration <= 0.0 {
-            0.0
-        } else {
-            (self.remaining / self.duration).clamp(0.0, 1.0) * self.start_ratio
-        }
-    }
+enum MusicTransition {
+    FadeOut {
+        remaining: f32,
+        duration: f32,
+        start_ratio: f32,
+        next_music: Option<PlayMusicRequest>,
+    },
+    Gap {
+        remaining: f32,
+        next_music: PlayMusicRequest,
+    },
+    FadeIn {
+        remaining: f32,
+        duration: f32,
+    },
 }
 
 #[cfg(feature = "editor")]
@@ -113,8 +130,10 @@ pub struct AudioManager {
     sfx_group: Handle<Stop<Gain<Mixer<[f32; 2]>>>>,
     /// Active music track. `None` when nothing is playing.
     active_music: Option<ActiveMusic>,
-    /// Active fade-out state.
-    active_fade: Option<FadeOut>,
+    /// Current music transition stage, if any.
+    active_transition: Option<MusicTransition>,
+    /// Current music gain ratio before master/music volume are applied.
+    music_ratio: f32,
     /// Decoded audio cache, keyed by sound ID.
     sound_cache: HashMap<String, Arc<Frames<[f32; 2]>>>,
     /// Reference counts tracking how many `AudioSource` components reference each sound ID.
@@ -169,7 +188,8 @@ impl AudioManager {
             music_group: music_group_handle,
             sfx_group: sfx_group_handle,
             active_music: None,
-            active_fade: None,
+            active_transition: None,
+            music_ratio: 1.0,
             sound_cache: HashMap::new(),
             ref_counts: HashMap::new(),
             pinned: HashSet::new(),
@@ -201,18 +221,14 @@ impl AudioManager {
         }
     }
 
-    fn current_music_fade_ratio(&self) -> f32 {
-        self.active_fade.as_ref().map(FadeOut::ratio).unwrap_or(1.0)
+    fn set_music_ratio(&mut self, ratio: f32) {
+        self.music_ratio = ratio.clamp(0.0, 1.0);
+        if let Some(active_music) = self.active_music.as_mut() {
+            active_music.set_ratio(self.music_ratio);
+        }
     }
 
-    fn begin_fade(&mut self, duration: f32, next_music: Option<PlayMusicRequest>) {
-        if self.active_music.is_none() {
-            if let Some(request) = next_music {
-                self.start_music(request);
-            }
-            return;
-        }
-
+    fn begin_fade_out(&mut self, duration: f32, next_music: Option<PlayMusicRequest>) {
         if duration <= 0.0 {
             match next_music {
                 Some(request) => self.replace_music_now(request),
@@ -221,42 +237,80 @@ impl AudioManager {
             return;
         }
 
-        self.active_fade = Some(FadeOut {
+        self.active_transition = Some(MusicTransition::FadeOut {
             remaining: duration,
             duration,
-            start_ratio: self.current_music_fade_ratio(),
+            start_ratio: self.music_ratio,
             next_music,
         });
+    }
+
+    fn queue_music_start(&mut self, request: PlayMusicRequest) {
+        let request = PlayMusicRequest {
+            fade_out: 0.0,
+            gap: request.gap.max(0.0),
+            fade_in: request.fade_in.max(0.0),
+            ..request
+        };
+
+        if request.gap > 0.0 {
+            self.active_transition = Some(MusicTransition::Gap {
+                remaining: request.gap,
+                next_music: PlayMusicRequest {
+                    gap: 0.0,
+                    ..request
+                },
+            });
+            self.set_music_ratio(1.0);
+            return;
+        }
+
+        self.start_music(request);
     }
 
     /// Starts playing a music track according to the supplied request.
     fn start_music(&mut self, request: PlayMusicRequest) {
         let Some(frames) = self.load_or_cached(&request.id) else {
+            self.active_transition = None;
+            self.set_music_ratio(1.0);
             return;
         };
 
-        self.active_fade = None;
-        self.apply_music_gain();
+        let fade_in = request.fade_in.max(0.0);
+        let initial_ratio = if fade_in > 0.0 { 0.0 } else { 1.0 };
+        self.active_transition = None;
+        self.music_ratio = initial_ratio;
 
         if request.looping {
+            let mut signal = Gain::new(Cycle::new(frames));
+            signal.set_amplitude_ratio(initial_ratio);
             let track_handle = self
                 .music_group
                 .control::<Mixer<[f32; 2]>, _>()
-                .play(Cycle::new(frames));
+                .play(signal);
             self.active_music = Some(ActiveMusic::Looping {
                 id: request.id,
                 handle: track_handle,
             });
         } else {
             let runtime = frames.runtime() as f32;
+            let mut signal = Gain::new(FramesSignal::from(frames));
+            signal.set_amplitude_ratio(initial_ratio);
             let track_handle = self
                 .music_group
                 .control::<Mixer<[f32; 2]>, _>()
-                .play(FramesSignal::from(frames));
+                .play(signal);
             self.active_music = Some(ActiveMusic::OneShot {
                 id: request.id,
                 handle: track_handle,
                 remaining: runtime,
+            });
+        }
+
+        if fade_in > 0.0 {
+            self.active_transition = Some(MusicTransition::FadeIn {
+                remaining: fade_in,
+                duration: fade_in,
             });
         }
     }
@@ -265,18 +319,29 @@ impl AudioManager {
         if self.active_music.is_some() {
             self.finish_music(MusicStopReason::Replaced, Some(request.id.clone()));
         }
-        self.start_music(request);
+        self.queue_music_start(request);
     }
 
     /// Begins playing music, optionally after fading out the current track.
     fn play_music(&mut self, request: PlayMusicRequest) {
+        let request = PlayMusicRequest {
+            fade_out: request.fade_out.max(0.0),
+            gap: request.gap.max(0.0),
+            fade_in: request.fade_in.max(0.0),
+            ..request
+        };
+
         if self.active_music.is_none() {
-            self.start_music(request);
+            self.active_transition = None;
+            self.queue_music_start(PlayMusicRequest {
+                fade_out: 0.0,
+                ..request
+            });
             return;
         }
 
         if request.fade_out > 0.0 {
-            self.begin_fade(
+            self.begin_fade_out(
                 request.fade_out,
                 Some(PlayMusicRequest {
                     fade_out: 0.0,
@@ -291,15 +356,15 @@ impl AudioManager {
 
     fn finish_music(&mut self, reason: MusicStopReason, next_id: Option<String>) {
         let Some(mut music) = self.active_music.take() else {
-            self.active_fade = None;
-            self.apply_music_gain();
+            self.active_transition = None;
+            self.set_music_ratio(1.0);
             return;
         };
 
         let id = music.id().to_string();
         music.stop();
-        self.active_fade = None;
-        self.apply_music_gain();
+        self.active_transition = None;
+        self.set_music_ratio(1.0);
         runtime::push_music_stopped_event(MusicStoppedEvent {
             id,
             reason,
@@ -311,14 +376,22 @@ impl AudioManager {
     fn stop_music(&mut self) {
         if self.active_music.is_some() {
             self.finish_music(MusicStopReason::Stopped, None);
+            return;
         }
+
+        self.active_transition = None;
+        self.set_music_ratio(1.0);
     }
 
     /// Begins a fade-out of the active music over `duration` seconds.
     fn fade_music(&mut self, duration: f32) {
         if self.active_music.is_some() {
-            self.begin_fade(duration, None);
+            self.begin_fade_out(duration.max(0.0), None);
+            return;
         }
+
+        self.active_transition = None;
+        self.set_music_ratio(1.0);
     }
 
     /// Plays a one-shot SFX by ID. Fire and forget.
@@ -369,7 +442,7 @@ impl AudioManager {
 
     /// Updates the combined master × music gain on the music group.
     fn apply_music_gain(&mut self) {
-        let linear = self.master_volume * self.music_volume * self.current_music_fade_ratio();
+        let linear = self.master_volume * self.music_volume;
         self.music_group
             .control::<Gain<Mixer<[f32; 2]>>, _>()
             .set_amplitude_ratio(linear);
@@ -555,57 +628,119 @@ impl AudioManager {
             return;
         }
 
-        let next_music = self.active_fade.take().and_then(|fade| fade.next_music);
-        match next_music {
+        let replacement = match self.active_transition.take() {
+            Some(MusicTransition::FadeOut {
+                next_music: Some(request),
+                ..
+            }) => Some(request),
+            _ => None,
+        };
+
+        match replacement {
             Some(request) => {
                 self.finish_music(MusicStopReason::Replaced, Some(request.id.clone()));
-                self.start_music(request);
+                self.queue_music_start(request);
             }
             None => self.finish_music(MusicStopReason::Completed, None),
         }
     }
 
-    /// Advances the active fade-out by `dt` seconds.
-    fn tick_fade(&mut self, dt: f32) {
-        let completed_fade = if let Some(ref mut fade) = self.active_fade {
-            fade.remaining -= dt;
-            if fade.remaining <= 0.0 {
-                fade.next_music.clone()
-            } else {
-                let ratio = fade.ratio();
-                let linear = self.master_volume * self.music_volume * ratio;
-                self.music_group
-                    .control::<Gain<Mixer<[f32; 2]>>, _>()
-                    .set_amplitude_ratio(linear);
-                None
+    fn tick_transition(&mut self, dt: f32) {
+        enum TransitionAction {
+            FadeOutComplete {
+                next_music: Option<PlayMusicRequest>,
+            },
+            GapComplete {
+                next_music: PlayMusicRequest,
+            },
+            FadeInComplete,
+            UpdateRatio(f32),
+        }
+
+        let action = match self.active_transition.as_mut() {
+            Some(MusicTransition::FadeOut {
+                remaining,
+                duration,
+                start_ratio,
+                next_music,
+            }) => {
+                *remaining -= dt;
+                if *remaining <= 0.0 {
+                    TransitionAction::FadeOutComplete {
+                        next_music: next_music.clone(),
+                    }
+                } else {
+                    let ratio = (*remaining / *duration).clamp(0.0, 1.0) * *start_ratio;
+                    TransitionAction::UpdateRatio(ratio)
+                }
             }
-        } else {
-            return;
+            Some(MusicTransition::Gap {
+                remaining,
+                next_music,
+            }) => {
+                *remaining -= dt;
+                if *remaining <= 0.0 {
+                    TransitionAction::GapComplete {
+                        next_music: next_music.clone(),
+                    }
+                } else {
+                    return;
+                }
+            }
+            Some(MusicTransition::FadeIn {
+                remaining,
+                duration,
+            }) => {
+                *remaining -= dt;
+                if *remaining <= 0.0 {
+                    TransitionAction::FadeInComplete
+                } else {
+                    let ratio = 1.0 - (*remaining / *duration).clamp(0.0, 1.0);
+                    TransitionAction::UpdateRatio(ratio)
+                }
+            }
+            None => {
+                return;
+            }
         };
 
-        let Some(next_music) = completed_fade else {
-            if self
-                .active_fade
-                .as_ref()
-                .is_some_and(|fade| fade.remaining <= 0.0)
-            {
-                self.finish_music(MusicStopReason::Faded, None);
+        match action {
+            TransitionAction::FadeOutComplete { next_music } => match next_music {
+                Some(request) => {
+                    self.finish_music(MusicStopReason::Replaced, Some(request.id.clone()));
+                    self.queue_music_start(request);
+                }
+                None => self.finish_music(MusicStopReason::Faded, None),
+            },
+            TransitionAction::GapComplete { next_music } => {
+                self.active_transition = None;
+                self.start_music(next_music);
             }
-            return;
-        };
+            TransitionAction::FadeInComplete => {
+                self.active_transition = None;
+                self.set_music_ratio(1.0);
+            }
+            TransitionAction::UpdateRatio(ratio) => {
+                self.set_music_ratio(ratio);
+            }
+        }
+    }
 
-        self.finish_music(MusicStopReason::Replaced, Some(next_music.id.clone()));
-        self.start_music(next_music);
+    fn has_pending_music(&self) -> bool {
+        matches!(
+            self.active_transition,
+            Some(MusicTransition::Gap { .. }) | Some(MusicTransition::FadeIn { .. })
+        )
     }
 
     fn publish_runtime_state(&self) {
-        runtime::set_music_playing(self.active_music.is_some());
+        runtime::set_music_playing(self.active_music.is_some() || self.has_pending_music());
     }
 
     fn tick_playback_state(&mut self, dt: f32) {
         self.tick_music_completion(dt);
-        if self.active_music.is_some() {
-            self.tick_fade(dt);
+        if self.active_music.is_some() || self.has_pending_music() {
+            self.tick_transition(dt);
         }
     }
 }

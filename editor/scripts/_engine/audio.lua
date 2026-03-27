@@ -1,4 +1,5 @@
 -- Auto-generated. Do not edit.
+-- bishop-owner: shared-engine
 ---@meta
 
 --- Audio system module
@@ -6,9 +7,9 @@
 engine.audio = {}
 
 --- Plays music by ID.
---- `opts.looping` defaults to true and `opts.fade_out` defaults to 0.0 seconds.
+--- `opts.looping` defaults to true; `opts.fade_out`, `opts.gap`, and `opts.fade_in` default to 0.0 seconds.
 ---@param id string Path relative to Resources/audio/ without extension
----@param opts? {looping?: boolean, fade_out?: number}
+---@param opts? {looping?: boolean, fade_out?: number, gap?: number, fade_in?: number}
 function engine.audio.play_music(id, opts) end
 
 --- Returns true while music is considered active.

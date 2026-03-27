@@ -42,6 +42,13 @@ fn seeded_manager() -> AudioManager {
     manager
 }
 
+fn assert_approx_eq(actual: f32, expected: f32) {
+    assert!(
+        (actual - expected).abs() < 0.001,
+        "expected {expected}, got {actual}"
+    );
+}
+
 #[test]
 fn play_music_request_can_be_queued_and_drained() {
     let _ = drain_audio_commands();
@@ -50,6 +57,8 @@ fn play_music_request_can_be_queued_and_drained() {
         id: "music/intro".to_string(),
         looping: false,
         fade_out: 0.5,
+        gap: 0.25,
+        fade_in: 0.75,
     }));
 
     let commands = drain_audio_commands();
@@ -59,6 +68,8 @@ fn play_music_request_can_be_queued_and_drained() {
             assert_eq!(request.id, "music/intro");
             assert!(!request.looping);
             assert_eq!(request.fade_out, 0.5);
+            assert_eq!(request.gap, 0.25);
+            assert_eq!(request.fade_in, 0.75);
         }
         _ => panic!("expected PlayMusic"),
     }
@@ -566,6 +577,8 @@ fn one_shot_music_completion_updates_runtime_and_emits_event() {
         id: "music/intro".to_string(),
         looping: false,
         fade_out: 0.0,
+        gap: 0.0,
+        fade_in: 0.0,
     }));
     manager.poll(0.0);
 
@@ -590,6 +603,8 @@ fn fade_then_start_replaces_current_track_after_fade() {
         id: "music/intro".to_string(),
         looping: true,
         fade_out: 0.0,
+        gap: 0.0,
+        fade_in: 0.0,
     }));
     manager.poll(0.0);
     let _ = runtime::drain_audio_events();
@@ -598,6 +613,8 @@ fn fade_then_start_replaces_current_track_after_fade() {
         id: "music/next".to_string(),
         looping: true,
         fade_out: 0.5,
+        gap: 0.0,
+        fade_in: 0.0,
     }));
     manager.poll(0.25);
 
@@ -622,6 +639,8 @@ fn stop_music_cancels_pending_replacement_and_emits_stopped_event() {
         id: "music/intro".to_string(),
         looping: true,
         fade_out: 0.0,
+        gap: 0.0,
+        fade_in: 0.0,
     }));
     manager.poll(0.0);
     let _ = runtime::drain_audio_events();
@@ -630,6 +649,8 @@ fn stop_music_cancels_pending_replacement_and_emits_stopped_event() {
         id: "music/next".to_string(),
         looping: true,
         fade_out: 1.0,
+        gap: 0.0,
+        fade_in: 0.0,
     }));
     manager.poll(0.25);
     push_audio_command(AudioCommand::StopMusic);
@@ -641,6 +662,149 @@ fn stop_music_cancels_pending_replacement_and_emits_stopped_event() {
     assert_eq!(events[0].id, "music/intro");
     assert_eq!(events[0].reason, runtime::MusicStopReason::Stopped);
     assert_eq!(events[0].next_id, None);
+}
+
+#[test]
+fn fresh_start_gap_and_fade_in_keep_music_playing_until_full_volume() {
+    let mut manager = seeded_manager();
+
+    push_audio_command(AudioCommand::PlayMusic(PlayMusicRequest {
+        id: "music/intro".to_string(),
+        looping: true,
+        fade_out: 0.0,
+        gap: 0.5,
+        fade_in: 0.5,
+    }));
+    manager.poll(0.0);
+
+    assert!(runtime::is_music_playing());
+    assert!(manager.active_music.is_none());
+    assert!(matches!(
+        manager.active_transition,
+        Some(MusicTransition::Gap { .. })
+    ));
+
+    manager.poll(0.5);
+
+    assert!(runtime::is_music_playing());
+    assert!(manager.active_music.is_some());
+    assert!(matches!(
+        manager.active_transition,
+        Some(MusicTransition::FadeIn { .. })
+    ));
+    assert_approx_eq(manager.music_ratio, 0.0);
+
+    manager.poll(0.25);
+    assert_approx_eq(manager.music_ratio, 0.5);
+
+    manager.poll(0.25);
+    assert_approx_eq(manager.music_ratio, 1.0);
+    assert!(manager.active_transition.is_none());
+}
+
+#[test]
+fn replacement_gap_emits_stop_event_before_next_track_starts() {
+    let mut manager = seeded_manager();
+
+    push_audio_command(AudioCommand::PlayMusic(PlayMusicRequest {
+        id: "music/intro".to_string(),
+        looping: true,
+        fade_out: 0.0,
+        gap: 0.0,
+        fade_in: 0.0,
+    }));
+    manager.poll(0.0);
+    let _ = runtime::drain_audio_events();
+
+    push_audio_command(AudioCommand::PlayMusic(PlayMusicRequest {
+        id: "music/next".to_string(),
+        looping: true,
+        fade_out: 0.5,
+        gap: 0.5,
+        fade_in: 0.5,
+    }));
+    manager.poll(0.0);
+    manager.poll(0.5);
+
+    assert!(runtime::is_music_playing());
+    assert!(manager.active_music.is_none());
+    assert!(matches!(
+        manager.active_transition,
+        Some(MusicTransition::Gap { .. })
+    ));
+
+    let events = runtime::drain_audio_events();
+    assert_eq!(events.len(), 1);
+    assert_eq!(events[0].id, "music/intro");
+    assert_eq!(events[0].reason, runtime::MusicStopReason::Replaced);
+    assert_eq!(events[0].next_id.as_deref(), Some("music/next"));
+
+    manager.poll(0.5);
+    assert!(manager.active_music.is_some());
+    assert!(matches!(
+        manager.active_transition,
+        Some(MusicTransition::FadeIn { .. })
+    ));
+    assert_approx_eq(manager.music_ratio, 0.0);
+}
+
+#[test]
+fn stop_music_cancels_pending_gap_before_next_track_starts() {
+    let mut manager = seeded_manager();
+
+    push_audio_command(AudioCommand::PlayMusic(PlayMusicRequest {
+        id: "music/intro".to_string(),
+        looping: true,
+        fade_out: 0.0,
+        gap: 1.0,
+        fade_in: 0.5,
+    }));
+    manager.poll(0.0);
+
+    assert!(runtime::is_music_playing());
+    assert!(manager.active_music.is_none());
+
+    push_audio_command(AudioCommand::StopMusic);
+    manager.poll(0.0);
+
+    assert!(!runtime::is_music_playing());
+    assert!(manager.active_music.is_none());
+    assert!(manager.active_transition.is_none());
+    assert!(runtime::drain_audio_events().is_empty());
+}
+
+#[test]
+fn replacement_during_fade_in_starts_fade_out_from_current_ratio() {
+    let mut manager = seeded_manager();
+
+    push_audio_command(AudioCommand::PlayMusic(PlayMusicRequest {
+        id: "music/intro".to_string(),
+        looping: true,
+        fade_out: 0.0,
+        gap: 0.0,
+        fade_in: 1.0,
+    }));
+    manager.poll(0.0);
+    manager.poll(0.25);
+    assert_approx_eq(manager.music_ratio, 0.25);
+
+    push_audio_command(AudioCommand::PlayMusic(PlayMusicRequest {
+        id: "music/next".to_string(),
+        looping: true,
+        fade_out: 0.5,
+        gap: 0.0,
+        fade_in: 0.0,
+    }));
+    manager.poll(0.0);
+
+    assert!(matches!(
+        manager.active_transition,
+        Some(MusicTransition::FadeOut { .. })
+    ));
+    assert_approx_eq(manager.music_ratio, 0.25);
+
+    manager.poll(0.25);
+    assert_approx_eq(manager.music_ratio, 0.125);
 }
 
 #[cfg(feature = "editor")]

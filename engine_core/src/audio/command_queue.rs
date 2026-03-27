@@ -9,6 +9,10 @@ pub struct PlayMusicRequest {
     pub looping: bool,
     /// Fade out the current track over this many seconds before starting.
     pub fade_out: f32,
+    /// Wait silently this many seconds before starting the requested track.
+    pub gap: f32,
+    /// Fade the requested track in over this many seconds after it starts.
+    pub fade_in: f32,
 }
 
 /// Commands that Lua scripts can issue to the audio system.
