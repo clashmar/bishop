@@ -8,9 +8,9 @@ thread_local! {
 /// Gets text from the system clipboard, falling back to internal buffer.
 pub fn clipboard_get_text() -> Option<String> {
     Clipboard::new()
-        .ok()                                  
+        .ok()
         .and_then(|mut clipboard| clipboard.get_text().ok())
-        .filter(|text| !text.is_empty())       
+        .filter(|text| !text.is_empty())
         .or_else(|| {
             let internal = INTERNAL_CLIPBOARD.with(|cb| cb.borrow().clone());
             (!internal.is_empty()).then_some(internal)

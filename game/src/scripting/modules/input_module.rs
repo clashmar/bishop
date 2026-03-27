@@ -1,15 +1,15 @@
 // game/src/scripting/modules/input_module.rs
+use crate::game_global::*;
 use crate::input::input_snapshot::InputSnapshot;
 use crate::scripting::lua_ctx::LuaBishopCtx;
-use crate::game_global::*;
-use engine_core::scripting::modules::lua_module::*;
 use engine_core::scripting::lua_constants::*;
-use std::collections::HashMap;
-use mlua::prelude::LuaResult;
+use engine_core::scripting::modules::lua_module::*;
 use engine_core::*;
+use mlua::prelude::LuaResult;
 use mlua::Function;
-use mlua::Table;
 use mlua::Lua;
+use mlua::Table;
+use std::collections::HashMap;
 
 pub const INPUT_IS_DOWN: &str = "is_down";
 pub const INPUT_PRESSED: &str = "pressed";
@@ -39,9 +39,7 @@ impl LuaModule for InputModule {
             Ok(())
         })?;
 
-        let in_control_fn = lua.create_function(|_, name: String| {
-            Ok(in_input_control(&name))
-        })?;
+        let in_control_fn = lua.create_function(|_, name: String| Ok(in_input_control(&name)))?;
 
         // Assemble the `engine.input` table
         let engine_tbl: Table = lua.globals().get(ENGINE)?;
@@ -61,10 +59,7 @@ impl LuaModule for InputModule {
 }
 
 /// Build a Lua function that queries a current `InputSnapshot`.
-pub fn make_snapshot_query_fn<Sel>(
-    lua: &Lua,
-    map_selector: Sel,
-) -> LuaResult<Function>
+pub fn make_snapshot_query_fn<Sel>(lua: &Lua, map_selector: Sel) -> LuaResult<Function>
 where
     Sel: Fn(&InputSnapshot) -> &HashMap<&'static str, bool> + Copy + Send + 'static,
 {
@@ -88,35 +83,52 @@ impl LuaApi for InputModule {
     fn emit_api(&self, out: &mut LuaApiWriter) {
         // input.is_down()
         out.line("---@param input string");
-        out.line(&format!("function {}.{}.{}(input) end", ENGINE, INPUT, INPUT_IS_DOWN));
+        out.line(&format!(
+            "function {}.{}.{}(input) end",
+            ENGINE, INPUT, INPUT_IS_DOWN
+        ));
         out.line("");
 
         // input.is_pressed()
         out.line("---@param input string");
-        out.line(&format!("function {}.{}.{}(input) end", ENGINE, INPUT, INPUT_PRESSED));
+        out.line(&format!(
+            "function {}.{}.{}(input) end",
+            ENGINE, INPUT, INPUT_PRESSED
+        ));
         out.line("");
 
         // input.is_released()
         out.line("---@param input string");
-        out.line(&format!("function {}.{}.{}(input) end", ENGINE, INPUT, INPUT_RELEASED));
+        out.line(&format!(
+            "function {}.{}.{}(input) end",
+            ENGINE, INPUT, INPUT_RELEASED
+        ));
         out.line("");
 
         // input.take_control()
         out.line("---@param name string");
         out.line("---@param priority number");
-        out.line(&format!("function {}.{}.{}(name, priority) end", ENGINE, INPUT, INPUT_TAKE_CONTROL));
+        out.line(&format!(
+            "function {}.{}.{}(name, priority) end",
+            ENGINE, INPUT, INPUT_TAKE_CONTROL
+        ));
         out.line("");
 
         // input.release_control()
         out.line("---@param name string");
-        out.line(&format!("function {}.{}.{}(name) end", ENGINE, INPUT, INPUT_RELEASE_CONTROL));
+        out.line(&format!(
+            "function {}.{}.{}(name) end",
+            ENGINE, INPUT, INPUT_RELEASE_CONTROL
+        ));
         out.line("");
 
         // input.in_control()
         out.line("---@param name string");
         out.line("---@return boolean");
-        out.line(&format!("function {}.{}.{}(name) end", ENGINE, INPUT, INPUT_IN_CONTROL));
+        out.line(&format!(
+            "function {}.{}.{}(name) end",
+            ENGINE, INPUT, INPUT_IN_CONTROL
+        ));
         out.line("");
     }
 }
-

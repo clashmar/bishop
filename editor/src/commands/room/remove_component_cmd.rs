@@ -1,6 +1,6 @@
 // editor/src/commands/room/remove_component_cmd.rs
-use crate::commands::editor_command_manager::EditorCommand;
 use crate::app::EditorMode;
+use crate::commands::editor_command_manager::EditorCommand;
 use crate::with_editor;
 use engine_core::prelude::*;
 
@@ -15,13 +15,13 @@ pub struct RemoveComponentCmd {
 }
 
 impl RemoveComponentCmd {
-    pub fn new(
-        entity: Entity,
-        room_id: RoomId,
-        type_name: &'static str,
-        snapshot: String,
-    ) -> Self {
-        Self { entity, room_id, type_name, snapshot }
+    pub fn new(entity: Entity, room_id: RoomId, type_name: &'static str, snapshot: String) -> Self {
+        Self {
+            entity,
+            room_id,
+            type_name,
+            snapshot,
+        }
     }
 }
 

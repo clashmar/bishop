@@ -142,13 +142,15 @@ pub(super) fn draw_rename_field(
     source: &mut AudioSource,
     pending_link_rename: &mut Option<(String, String)>,
 ) -> Option<String> {
-    let (entered, focused) = TextInput::new(module.rename_field_id, rect, &module.rename_initial_value)
-        .focused(true)
-        .blocked(blocked)
-        .show(ctx);
+    let (entered, focused) =
+        TextInput::new(module.rename_field_id, rect, &module.rename_initial_value)
+            .focused(true)
+            .blocked(blocked)
+            .show(ctx);
 
     if ctx.is_key_pressed(KeyCode::Enter) {
-        let result = rename_target_group(source, module.pending_rename_target.clone(), entered.trim());
+        let result =
+            rename_target_group(source, module.pending_rename_target.clone(), entered.trim());
         module.pending_rename_target = None;
         text_input_reset(module.rename_field_id);
         match result {
@@ -182,7 +184,12 @@ pub(super) fn assignment_options(
     let used_presets = source
         .groups
         .values()
-        .filter_map(|group| group.preset_link.as_ref().map(|link| link.preset_name.clone()))
+        .filter_map(|group| {
+            group
+                .preset_link
+                .as_ref()
+                .map(|link| link.preset_name.clone())
+        })
         .collect::<BTreeSet<_>>();
 
     let mut preset_names = library
@@ -208,7 +215,9 @@ fn handle_assign_option(
             let new_name = next_group_name(source);
             let new_group_id = SoundGroupId::Custom(new_name.clone());
             apply_source_edit(source, |source| {
-                source.groups.insert(new_group_id.clone(), AudioGroup::default());
+                source
+                    .groups
+                    .insert(new_group_id.clone(), AudioGroup::default());
                 source.current = Some(new_group_id.clone());
             });
             module.pending_rename_target = Some(new_group_id);
@@ -592,10 +601,7 @@ fn unique_group_name(source: &AudioSource, base_name: &str) -> String {
     }
 }
 
-fn find_group_linked_to_preset(
-    source: &AudioSource,
-    preset_name: &str,
-) -> Option<SoundGroupId> {
+fn find_group_linked_to_preset(source: &AudioSource, preset_name: &str) -> Option<SoundGroupId> {
     source.groups.iter().find_map(|(group_id, group)| {
         group
             .preset_link

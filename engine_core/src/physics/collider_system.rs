@@ -1,12 +1,12 @@
 // engine_core/src/physics/collider_system.rs
 use crate::animation::animation_system::CurrentFrame;
 use crate::assets::asset_manager::AssetManager;
-use crate::ecs::component::ComponentStore;
-use crate::ecs::component::Collider;
-use crate::assets::sprite::SpriteId;
 use crate::assets::sprite::Sprite;
-use crate::ecs::entity::Entity;
+use crate::assets::sprite::SpriteId;
+use crate::ecs::component::Collider;
+use crate::ecs::component::ComponentStore;
 use crate::ecs::ecs::Ecs;
+use crate::ecs::entity::Entity;
 
 /// Set the collider for every entity that has a sprite and an unset collider
 pub fn update_colliders_from_sprites(ecs: &mut Ecs, assets: &mut AssetManager) {
@@ -25,15 +25,13 @@ pub fn update_colliders_from_sprites(ecs: &mut Ecs, assets: &mut AssetManager) {
             }
 
             // Try animation components first
-            if let Some(col) = collider_from_animation_component(
-                current_frame_store,
-                *entity,
-                assets,
-            ) {
+            if let Some(col) =
+                collider_from_animation_component(current_frame_store, *entity, assets)
+            {
                 pending.push((*entity, col));
                 continue; // Found
             }
-            
+
             // Then try sprite components if not
             for (entity, sprite) in sprite_store.data.iter() {
                 if let Some(col) = collider_from_sprite(assets, sprite.sprite) {
@@ -64,7 +62,10 @@ pub fn collider_from_sprite(
 ) -> Option<Collider> {
     asset_manager
         .texture_size(sprite_id)
-        .map(|(w, h)| Collider { width: w, height: h })
+        .map(|(w, h)| Collider {
+            width: w,
+            height: h,
+        })
 }
 
 /// Try to build a collider from an Animation component.
@@ -75,7 +76,7 @@ fn collider_from_animation_component(
 ) -> Option<Collider> {
     let current_frame = current_frame_store.get(entity)?;
 
-    // Build the collider 
+    // Build the collider
     asset_manager
         .texture_size(current_frame.sprite_id)
         .map(|(_, h)| Collider {

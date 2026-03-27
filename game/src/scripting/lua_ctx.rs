@@ -1,13 +1,13 @@
 // game/src/scripting/lua_ctx.rs
-use engine_core::scripting::lua_constants::*;
 use crate::engine::game_instance::GameInstance;
-use mlua::prelude::LuaResult;
 use bishop::prelude::*;
-use std::cell::RefCell;
-use mlua::UserDataRef;
-use mlua::UserData;
-use std::rc::Rc;
+use engine_core::scripting::lua_constants::*;
+use mlua::prelude::LuaResult;
 use mlua::Lua;
+use mlua::UserData;
+use mlua::UserDataRef;
+use std::cell::RefCell;
+use std::rc::Rc;
 
 /// The Lua constant for the bishop context.
 pub const LUA_BISHOP_CTX: &str = "BISHOP_CTX";
@@ -28,7 +28,7 @@ impl LuaGameCtx {
     }
 
     /// Retrieves a borrowed reference to the stored `LuaGameCtx`.
-    pub fn borrow_ctx(lua: &Lua) ->  LuaResult<UserDataRef<LuaGameCtx>> {
+    pub fn borrow_ctx(lua: &Lua) -> LuaResult<UserDataRef<LuaGameCtx>> {
         let user_data: mlua::AnyUserData = lua.globals().get(LUA_GAME_CTX)?;
         user_data.borrow::<LuaGameCtx>()
     }

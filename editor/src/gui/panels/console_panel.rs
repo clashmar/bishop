@@ -1,8 +1,8 @@
 // editor/src/gui/panels/console_panel.rs
 use crate::gui::panels::generic_panel::PanelDefinition;
 use crate::Editor;
-use engine_core::prelude::*;
 use bishop::prelude::*;
+use engine_core::prelude::*;
 
 const ROW_HEIGHT: f32 = 18.0;
 const TOP_PADDING: f32 = 4.0;
@@ -48,13 +48,8 @@ impl ConsolePanel {
         }
     }
 
-/// Wraps text to fit within the given pixel width.
-    fn wrap_text(
-        ctx: &WgpuContext, 
-        text: &str, 
-        max_width: f32, 
-        font_size: f32
-    ) -> Vec<String> {
+    /// Wraps text to fit within the given pixel width.
+    fn wrap_text(ctx: &WgpuContext, text: &str, max_width: f32, font_size: f32) -> Vec<String> {
         if text.is_empty() {
             return vec![String::new()];
         }
@@ -148,7 +143,9 @@ impl ConsolePanel {
     fn ordered_selection(&self) -> Option<(SelectionPos, SelectionPos)> {
         match (self.selection_anchor, self.selection_end) {
             (Some(anchor), Some(end)) if anchor != end => {
-                if anchor.line < end.line || (anchor.line == end.line && anchor.char_idx < end.char_idx) {
+                if anchor.line < end.line
+                    || (anchor.line == end.line && anchor.char_idx < end.char_idx)
+                {
                     Some((anchor, end))
                 } else {
                     Some((end, anchor))
@@ -195,7 +192,10 @@ impl ConsolePanel {
                 if relative_x < mid {
                     return Some(SelectionPos { line, char_idx });
                 } else {
-                    return Some(SelectionPos { line, char_idx: char_idx + 1 });
+                    return Some(SelectionPos {
+                        line,
+                        char_idx: char_idx + 1,
+                    });
                 }
             }
             prev_width = width;
@@ -215,8 +215,16 @@ impl ConsolePanel {
     ) -> String {
         if start.line == end.line {
             let line = &all_lines[start.line];
-            let start_byte = line.char_indices().nth(start.char_idx).map(|(b, _)| b).unwrap_or(line.len());
-            let end_byte = line.char_indices().nth(end.char_idx).map(|(b, _)| b).unwrap_or(line.len());
+            let start_byte = line
+                .char_indices()
+                .nth(start.char_idx)
+                .map(|(b, _)| b)
+                .unwrap_or(line.len());
+            let end_byte = line
+                .char_indices()
+                .nth(end.char_idx)
+                .map(|(b, _)| b)
+                .unwrap_or(line.len());
             return line[start_byte..end_byte].to_string();
         }
 
@@ -224,7 +232,11 @@ impl ConsolePanel {
 
         // First line from start.char_idx to end
         let first_line = &all_lines[start.line];
-        let start_byte = first_line.char_indices().nth(start.char_idx).map(|(b, _)| b).unwrap_or(first_line.len());
+        let start_byte = first_line
+            .char_indices()
+            .nth(start.char_idx)
+            .map(|(b, _)| b)
+            .unwrap_or(first_line.len());
         result.push_str(&first_line[start_byte..]);
         result.push('\n');
 
@@ -236,7 +248,11 @@ impl ConsolePanel {
 
         // Last line from start to end.char_idx
         let last_line = &all_lines[end.line];
-        let end_byte = last_line.char_indices().nth(end.char_idx).map(|(b, _)| b).unwrap_or(last_line.len());
+        let end_byte = last_line
+            .char_indices()
+            .nth(end.char_idx)
+            .map(|(b, _)| b)
+            .unwrap_or(last_line.len());
         result.push_str(&last_line[..end_byte]);
 
         result
@@ -261,13 +277,7 @@ impl PanelDefinition for ConsolePanel {
         Rect::new(20., 460., 550., 250.)
     }
 
-    fn draw(
-        &mut self,
-        ctx: &mut WgpuContext,
-        rect: Rect,
-        _editor: &mut Editor,
-        blocked: bool
-    ) {
+    fn draw(&mut self, ctx: &mut WgpuContext, rect: Rect, _editor: &mut Editor, blocked: bool) {
         let mouse: Vec2 = ctx.mouse_position().into();
 
         // Clear button centered in header row
@@ -280,7 +290,9 @@ impl PanelDefinition for ConsolePanel {
             CLEAR_BUTTON_HEIGHT,
         );
 
-        let clicked = Button::new(clear_btn_rect, "Clear").blocked(blocked).show(ctx);
+        let clicked = Button::new(clear_btn_rect, "Clear")
+            .blocked(blocked)
+            .show(ctx);
         if !blocked && clicked {
             if let Ok(mut history) = LOG_HISTORY.lock() {
                 history.clear();
@@ -310,8 +322,19 @@ impl PanelDefinition for ConsolePanel {
             let entries: Vec<(log::Level, String, String, &'static str, u32, u32)> = LOG_HISTORY
                 .lock()
                 .map(|history| {
-                    history.entries().iter()
-                        .map(|e| (e.level, e.message.clone(), e.time.clone(), e.file, e.line, e.count))
+                    history
+                        .entries()
+                        .iter()
+                        .map(|e| {
+                            (
+                                e.level,
+                                e.message.clone(),
+                                e.time.clone(),
+                                e.file,
+                                e.line,
+                                e.count,
+                            )
+                        })
                         .collect()
                 })
                 .unwrap_or_default();
@@ -319,16 +342,23 @@ impl PanelDefinition for ConsolePanel {
             // Calculate usable width for wrapping (account for potential scrollbar)
             let usable_w = content_rect.w - 6.0 - 12.0;
 
-            self.cached_wrapped = entries.iter().map(|(level, message, time, file, line, count)| {
-                let count_suffix = if *count > 1 { format!(" ×{}", count) } else { String::new() };
-                let full_message = if *line > 0 {
-                    format!("{} [{}:{}] {}{}", time, file, line, message, count_suffix)
-                } else {
-                    format!("{} [{}] {}{}", time, file, message, count_suffix)
-                };
-                let lines = Self::wrap_text(ctx, &full_message, usable_w, font_size);
-                (*level, lines)
-            }).collect();
+            self.cached_wrapped = entries
+                .iter()
+                .map(|(level, message, time, file, line, count)| {
+                    let count_suffix = if *count > 1 {
+                        format!(" ×{}", count)
+                    } else {
+                        String::new()
+                    };
+                    let full_message = if *line > 0 {
+                        format!("{} [{}:{}] {}{}", time, file, line, message, count_suffix)
+                    } else {
+                        format!("{} [{}] {}{}", time, file, message, count_suffix)
+                    };
+                    let lines = Self::wrap_text(ctx, &full_message, usable_w, font_size);
+                    (*level, lines)
+                })
+                .collect();
 
             self.last_total_pushed = total_pushed;
         }
@@ -361,10 +391,18 @@ impl PanelDefinition for ConsolePanel {
         let all_line_texts: Vec<String> = all_lines.iter().map(|(text, _)| text.clone()).collect();
 
         // Handle mouse selection
-        if !blocked 
-        && content_rect.contains(mouse) 
-        && ctx.is_mouse_button_pressed(MouseButton::Left) {
-            if let Some(pos) = Self::pos_from_mouse(ctx, mouse, content_rect, self.scroll_state.scroll_y, &all_line_texts, font_size) {
+        if !blocked
+            && content_rect.contains(mouse)
+            && ctx.is_mouse_button_pressed(MouseButton::Left)
+        {
+            if let Some(pos) = Self::pos_from_mouse(
+                ctx,
+                mouse,
+                content_rect,
+                self.scroll_state.scroll_y,
+                &all_line_texts,
+                font_size,
+            ) {
                 self.selection_anchor = Some(pos);
                 self.selection_end = Some(pos);
                 self.dragging = true;
@@ -372,7 +410,14 @@ impl PanelDefinition for ConsolePanel {
         }
 
         if self.dragging && ctx.is_mouse_button_down(MouseButton::Left) {
-            if let Some(pos) = Self::pos_from_mouse(ctx, mouse, content_rect, self.scroll_state.scroll_y, &all_line_texts, font_size) {
+            if let Some(pos) = Self::pos_from_mouse(
+                ctx,
+                mouse,
+                content_rect,
+                self.scroll_state.scroll_y,
+                &all_line_texts,
+                font_size,
+            ) {
                 self.selection_end = Some(pos);
             }
         }
@@ -396,7 +441,8 @@ impl PanelDefinition for ConsolePanel {
         let selection = self.ordered_selection();
 
         for (global_line_idx, (line_text, color)) in all_lines.iter().enumerate() {
-            let line_y = content_rect.y + self.scroll_state.scroll_y + global_line_idx as f32 * ROW_HEIGHT;
+            let line_y =
+                content_rect.y + self.scroll_state.scroll_y + global_line_idx as f32 * ROW_HEIGHT;
 
             if !area.is_fully_visible(line_y, ROW_HEIGHT) {
                 continue;
@@ -406,15 +452,35 @@ impl PanelDefinition for ConsolePanel {
             if let Some((start, end)) = selection {
                 if global_line_idx >= start.line && global_line_idx <= end.line {
                     let line_chars = line_text.chars().count();
-                    let sel_start_char = if global_line_idx == start.line { start.char_idx } else { 0 };
-                    let sel_end_char = if global_line_idx == end.line { end.char_idx } else { line_chars };
+                    let sel_start_char = if global_line_idx == start.line {
+                        start.char_idx
+                    } else {
+                        0
+                    };
+                    let sel_end_char = if global_line_idx == end.line {
+                        end.char_idx
+                    } else {
+                        line_chars
+                    };
 
                     if sel_start_char < sel_end_char {
-                        let start_byte = line_text.char_indices().nth(sel_start_char).map(|(b, _)| b).unwrap_or(0);
-                        let end_byte = line_text.char_indices().nth(sel_end_char).map(|(b, _)| b).unwrap_or(line_text.len());
+                        let start_byte = line_text
+                            .char_indices()
+                            .nth(sel_start_char)
+                            .map(|(b, _)| b)
+                            .unwrap_or(0);
+                        let end_byte = line_text
+                            .char_indices()
+                            .nth(sel_end_char)
+                            .map(|(b, _)| b)
+                            .unwrap_or(line_text.len());
 
-                        let sel_start_x = content_rect.x + 6.0 + measure_text(ctx, &line_text[..start_byte], font_size).width;
-                        let sel_end_x = content_rect.x + 6.0 + measure_text(ctx, &line_text[..end_byte], font_size).width;
+                        let sel_start_x = content_rect.x
+                            + 6.0
+                            + measure_text(ctx, &line_text[..start_byte], font_size).width;
+                        let sel_end_x = content_rect.x
+                            + 6.0
+                            + measure_text(ctx, &line_text[..end_byte], font_size).width;
 
                         ctx.draw_rectangle(
                             sel_start_x,

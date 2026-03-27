@@ -266,7 +266,9 @@ impl FontAtlas {
         let chars: Vec<char> = (32u8..=126).map(|c| c as char).collect();
         let extra_chars = ['⌘', '⌥', '⇧', '↓', '→'];
 
-        for size in [12.0, 14.0, 15.0, 16.0, 18.0, 20.0, 24.0, 28.0, 32.0, 36.0, 48.0] {
+        for size in [
+            12.0, 14.0, 15.0, 16.0, 18.0, 20.0, 24.0, 28.0, 32.0, 36.0, 48.0,
+        ] {
             for &ch in &chars {
                 self.get_glyph(ch, size);
             }
@@ -406,8 +408,7 @@ impl TextRenderer {
             mapped_at_creation: false,
         });
 
-        let mut font_atlas =
-            FontAtlas::with_default_font().expect("Failed to create font atlas");
+        let mut font_atlas = FontAtlas::with_default_font().expect("Failed to create font atlas");
         font_atlas.init_gpu(device, queue, &texture_bind_group_layout);
         font_atlas.precache();
         font_atlas.upload(queue);
@@ -580,10 +581,8 @@ impl TextRenderer {
                     let v2_vert = TexturedVertex::new(rotated[2], [u1, v1], c);
                     let v3_vert = TexturedVertex::new(rotated[3], [u0, v1], c);
 
-                    self.vertices.extend_from_slice(&[
-                        v0_vert, v1_vert, v2_vert,
-                        v0_vert, v2_vert, v3_vert,
-                    ]);
+                    self.vertices
+                        .extend_from_slice(&[v0_vert, v1_vert, v2_vert, v0_vert, v2_vert, v3_vert]);
                 }
 
                 cursor_x += info.advance_width;
@@ -627,5 +626,4 @@ impl TextRenderer {
     pub fn draw_range(&self, render_pass: &mut wgpu::RenderPass<'_>, start: u32, count: u32) {
         render_pass.draw(start..start + count, 0..1);
     }
-
 }

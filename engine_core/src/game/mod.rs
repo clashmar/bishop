@@ -4,18 +4,18 @@ pub mod game_map;
 
 pub use game_map::*;
 
-use crate::{storage::text_folder, text::TextManager};
-use crate::scripting::script_manager::ScriptManager;
 use crate::assets::asset_manager::AssetManager;
+use crate::ecs::ecs::Ecs;
 use crate::engine_global::set_game_name;
+use crate::scripting::script_manager::ScriptManager;
 use crate::worlds::room::RoomId;
 use crate::worlds::world::*;
-use crate::ecs::ecs::Ecs;
+use crate::{storage::text_folder, text::TextManager};
+use bishop::prelude::TextureLoader;
+use mlua::Lua;
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
 use uuid::Uuid;
-use mlua::Lua;
-use bishop::prelude::TextureLoader;
 
 #[serde_as]
 #[derive(Serialize, Deserialize, Default)]
@@ -138,7 +138,8 @@ impl Game {
         }
 
         if self.current_world_id == id {
-            self.current_world_id = self.worlds
+            self.current_world_id = self
+                .worlds
                 .first()
                 .map(|w| w.id)
                 .unwrap_or(WorldId(Uuid::nil()));

@@ -33,14 +33,14 @@ pub struct ResizeHandleState {
 /// Returns the screen-space center positions for all 8 handles around `rect`.
 pub fn handle_centers(rect: Rect) -> [(f32, f32); 8] {
     [
-        (rect.x, rect.y), // TopLeft
-        (rect.x + rect.w / 2.0, rect.y), // Top
-        (rect.x + rect.w, rect.y), // TopRight
+        (rect.x, rect.y),                         // TopLeft
+        (rect.x + rect.w / 2.0, rect.y),          // Top
+        (rect.x + rect.w, rect.y),                // TopRight
         (rect.x + rect.w, rect.y + rect.h / 2.0), // Right
-        (rect.x + rect.w, rect.y + rect.h), // BottomRight
+        (rect.x + rect.w, rect.y + rect.h),       // BottomRight
         (rect.x + rect.w / 2.0, rect.y + rect.h), // Bottom
-        (rect.x, rect.y + rect.h), // BottomLeft
-        (rect.x, rect.y + rect.h / 2.0), // Left
+        (rect.x, rect.y + rect.h),                // BottomLeft
+        (rect.x, rect.y + rect.h / 2.0),          // Left
     ]
 }
 
@@ -113,13 +113,19 @@ pub fn apply_resize(original: Rect, handle: HandlePosition, delta: Vec2) -> Rect
 
     // Clamp to minimum size
     if w < MIN_SIZE {
-        if matches!(handle, HandlePosition::TopLeft | HandlePosition::BottomLeft | HandlePosition::Left) {
+        if matches!(
+            handle,
+            HandlePosition::TopLeft | HandlePosition::BottomLeft | HandlePosition::Left
+        ) {
             x = original.x + original.w - MIN_SIZE;
         }
         w = MIN_SIZE;
     }
     if h < MIN_SIZE {
-        if matches!(handle, HandlePosition::TopLeft | HandlePosition::TopRight | HandlePosition::Top) {
+        if matches!(
+            handle,
+            HandlePosition::TopLeft | HandlePosition::TopRight | HandlePosition::Top
+        ) {
             y = original.y + original.h - MIN_SIZE;
         }
         h = MIN_SIZE;
@@ -138,15 +144,9 @@ pub fn apply_resize_centered(original: Rect, handle: HandlePosition, delta: Vec2
     let cy = original.y + original.h / 2.0;
 
     let (x, y) = match handle {
-        HandlePosition::Top | HandlePosition::Bottom => {
-            (resized.x, cy - resized.h / 2.0)
-        }
-        HandlePosition::Left | HandlePosition::Right => {
-            (cx - resized.w / 2.0, resized.y)
-        }
-        _ => {
-            (cx - resized.w / 2.0, cy - resized.h / 2.0)
-        }
+        HandlePosition::Top | HandlePosition::Bottom => (resized.x, cy - resized.h / 2.0),
+        HandlePosition::Left | HandlePosition::Right => (cx - resized.w / 2.0, resized.y),
+        _ => (cx - resized.w / 2.0, cy - resized.h / 2.0),
     };
 
     Rect::new(x, y, resized.w, resized.h)
@@ -157,6 +157,13 @@ pub fn draw_resize_handles(ctx: &mut WgpuContext, rect: Rect) {
     let centers = handle_centers(rect);
     for (cx, cy) in centers {
         ctx.draw_rectangle(cx - HALF, cy - HALF, HANDLE_SIZE, HANDLE_SIZE, Color::WHITE);
-        ctx.draw_rectangle_lines(cx - HALF, cy - HALF, HANDLE_SIZE, HANDLE_SIZE, 1.0, Color::new(0.3, 0.3, 0.3, 1.0));
+        ctx.draw_rectangle_lines(
+            cx - HALF,
+            cy - HALF,
+            HANDLE_SIZE,
+            HANDLE_SIZE,
+            1.0,
+            Color::new(0.3, 0.3, 0.3, 1.0),
+        );
     }
 }

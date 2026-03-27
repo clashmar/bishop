@@ -104,9 +104,10 @@ impl<A: BishopApp + 'static> ApplicationHandler for WgpuAppRunner<A> {
                         if self.init_future.is_none() {
                             let app = self.app.clone();
                             let ctx_clone = ctx.clone();
-                            self.init_future = Some(Box::pin(async move {
-                                app.borrow_mut().init(ctx_clone).await
-                            }));
+                            self.init_future =
+                                Some(Box::pin(
+                                    async move { app.borrow_mut().init(ctx_clone).await },
+                                ));
                         }
 
                         if let Some(ref mut future) = self.init_future {
@@ -120,9 +121,10 @@ impl<A: BishopApp + 'static> ApplicationHandler for WgpuAppRunner<A> {
                         if self.frame_future.is_none() {
                             let app = self.app.clone();
                             let ctx_clone = ctx.clone();
-                            self.frame_future = Some(Box::pin(async move {
-                                app.borrow_mut().frame(ctx_clone).await
-                            }));
+                            self.frame_future =
+                                Some(Box::pin(
+                                    async move { app.borrow_mut().frame(ctx_clone).await },
+                                ));
                         }
 
                         if let Some(ref mut future) = self.frame_future {
@@ -159,7 +161,11 @@ fn convert_window_icon(icon: &WindowIcon) -> Option<winit::window::Icon> {
             let (width, height) = img.dimensions();
             winit::window::Icon::from_rgba(img.into_raw(), width, height).ok()
         }
-        WindowIcon::Rgba { small, medium, large } => {
+        WindowIcon::Rgba {
+            small,
+            medium,
+            large,
+        } => {
             let icon_data = large.as_ref().or(medium.as_ref()).or(small.as_ref())?;
             create_icon_from_data(icon_data)
         }

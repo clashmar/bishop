@@ -1,7 +1,7 @@
 //! Input state tracking for wgpu backend.
 
-use std::collections::HashSet;
 use crate::input::{KeyCode, MouseButton};
+use std::collections::HashSet;
 
 /// Tracks keyboard and mouse input state per-frame.
 pub struct InputState {

@@ -1,7 +1,12 @@
 use crate::*;
 
 /// Truncates text to fit within a given pixel width, appending "…" if needed.
-pub fn truncate_to_width<C: BishopContext>(ctx: &mut C, text: &str, max_width: f32, font_size: f32) -> String {
+pub fn truncate_to_width<C: BishopContext>(
+    ctx: &mut C,
+    text: &str,
+    max_width: f32,
+    font_size: f32,
+) -> String {
     if measure_text_ui(ctx, text, font_size).width <= max_width {
         return text.to_string();
     }
@@ -41,10 +46,17 @@ pub fn draw_input_field_text<C: BishopContext>(ctx: &mut C, text: &str, rect: im
 
 /// Centers text horizontally and returns the x position and width.
 pub fn center_text_field<C: BishopContext>(ctx: &C, x: f32, text: &str) -> (f32, f32) {
-    let text_to_measure = if text.is_empty() { PLACEHOLDER_TEXT } else { text };
+    let text_to_measure = if text.is_empty() {
+        PLACEHOLDER_TEXT
+    } else {
+        text
+    };
     let text_size = measure_text_ui(ctx, text_to_measure, DEFAULT_FONT_SIZE_16);
     let new_x = x - (text_size.width / 2.);
-    (new_x - WIDGET_PADDING / 2., text_size.width + WIDGET_PADDING)
+    (
+        new_x - WIDGET_PADDING / 2.,
+        text_size.width + WIDGET_PADDING,
+    )
 }
 
 /// Returns the rectangle width needed to fit the given text.
@@ -54,13 +66,7 @@ pub fn rect_width_for_text<C: BishopContext>(ctx: &C, text: &str, font_size: f32
 
 /// Returns the selection range as (start, end) where start <= end.
 pub fn selection_range(cursor: usize, anchor: Option<usize>) -> Option<(usize, usize)> {
-    anchor.map(|a| {
-        if cursor < a {
-            (cursor, a)
-        } else {
-            (a, cursor)
-        }
-    })
+    anchor.map(|a| if cursor < a { (cursor, a) } else { (a, cursor) })
 }
 
 /// Gets the selected text from a string given cursor position and optional anchor.
@@ -85,7 +91,12 @@ pub fn delete_selection(text: &mut String, cursor: usize, anchor: Option<usize>)
 }
 
 /// Filters pasted text for numeric input, keeping only valid numeric characters.
-pub fn filter_numeric_paste(input: &str, is_float: bool, allow_negative: bool, has_decimal: bool) -> String {
+pub fn filter_numeric_paste(
+    input: &str,
+    is_float: bool,
+    allow_negative: bool,
+    has_decimal: bool,
+) -> String {
     let mut result = String::new();
     let mut seen_decimal = has_decimal;
 
@@ -104,7 +115,14 @@ pub fn filter_numeric_paste(input: &str, is_float: bool, allow_negative: bool, h
 }
 
 /// Calculates the character index from a mouse x-coordinate within the text field.
-pub fn char_index_from_x<C: BishopContext>(ctx: &C, text: &str, mouse_x: f32, field_x: f32, font_size: f32, scroll_offset: f32) -> usize {
+pub fn char_index_from_x<C: BishopContext>(
+    ctx: &C,
+    text: &str,
+    mouse_x: f32,
+    field_x: f32,
+    font_size: f32,
+    scroll_offset: f32,
+) -> usize {
     let text_start_x = field_x + WIDGET_PADDING / 2.;
     let relative_x = mouse_x - text_start_x + scroll_offset;
 
@@ -212,7 +230,8 @@ fn sort_targets_by_position(targets: &[TabTarget]) -> Vec<TabTarget> {
         ay.partial_cmp(&by)
             .unwrap_or(std::cmp::Ordering::Equal)
             .then_with(|| {
-                a.rect.x
+                a.rect
+                    .x
                     .partial_cmp(&b.rect.x)
                     .unwrap_or(std::cmp::Ordering::Equal)
             })
@@ -221,7 +240,11 @@ fn sort_targets_by_position(targets: &[TabTarget]) -> Vec<TabTarget> {
 }
 
 /// Finds a widget's index by ID, falling back to position matching.
-fn find_widget_index(sorted: &[TabTarget], current_id: WidgetId, current_rect: Rect) -> Option<usize> {
+fn find_widget_index(
+    sorted: &[TabTarget],
+    current_id: WidgetId,
+    current_rect: Rect,
+) -> Option<usize> {
     if let Some(idx) = sorted.iter().position(|t| t.id == current_id) {
         return Some(idx);
     }
@@ -243,7 +266,6 @@ pub fn find_next_tab_target(
     current_id: WidgetId,
     wrap: bool,
 ) -> Option<TabTarget> {
-
     if targets.is_empty() {
         return None;
     }
@@ -261,9 +283,7 @@ pub fn find_next_tab_target(
                 None
             }
         }
-        None => {
-            sorted.first().copied()
-        }
+        None => sorted.first().copied(),
     }
 }
 
@@ -276,7 +296,6 @@ pub fn find_prev_tab_target(
     current_id: WidgetId,
     wrap: bool,
 ) -> Option<TabTarget> {
-
     if targets.is_empty() {
         return None;
     }
@@ -294,8 +313,6 @@ pub fn find_prev_tab_target(
                 None
             }
         }
-        None => {
-            sorted.last().copied()
-        }
+        None => sorted.last().copied(),
     }
 }

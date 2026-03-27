@@ -1,9 +1,9 @@
 // game/src/physics/collision.rs
+use bishop::prelude::*;
 use engine_core::prelude::*;
 use std::collections::HashSet;
-use bishop::prelude::*;
 
-const OVERLAP_EPS: f32 = 0.0001; 
+const OVERLAP_EPS: f32 = 0.0001;
 
 /// Information returned by the sweep test.
 pub struct SweepResult {
@@ -109,7 +109,9 @@ pub fn sweep_move(
     // Tiles
     // Only tiles that carry a Solid component are obstacles
     for ((x, y), tile_def_id) in tilemap.tiles.iter() {
-        let Some(tile_def) = asset_manager.tile_defs.get(tile_def_id) else {continue};
+        let Some(tile_def) = asset_manager.tile_defs.get(tile_def_id) else {
+            continue;
+        };
 
         if tile_def.components.contains(&TileComponent::Solid(true)) {
             let tile_pos = room_origin + vec2(*x as f32 * grid_size, *y as f32 * grid_size);
@@ -125,9 +127,7 @@ pub fn sweep_move(
     // Iterate over every Collider component in the world, skip the moving one
     for (other_entity, other_coll) in ecs.get_store::<Collider>().data.iter() {
         // Do not test against ourselves
-        if let Some(other_pos) =
-            ecs.get::<Transform>(*other_entity)
-        {
+        if let Some(other_pos) = ecs.get::<Transform>(*other_entity) {
             if (other_pos.position - entity_position).length() < 0.001 {
                 // Same entity
                 continue;
@@ -138,7 +138,8 @@ pub fn sweep_move(
         if let Some(solid) = ecs.get::<Solid>(*other_entity) {
             if solid.0 {
                 if let Some(other_transform) = ecs.get::<Transform>(*other_entity) {
-                    let other_aabb = aabb(other_transform.position, *other_coll, other_transform.pivot);
+                    let other_aabb =
+                        aabb(other_transform.position, *other_coll, other_transform.pivot);
                     obstacles.push(other_aabb);
                 }
             }
@@ -150,23 +151,13 @@ pub fn sweep_move(
     let collider_pos = pivot_offset(entity_position, collider_size, pivot);
 
     // Sweep X axis, then Y axis
-    let (allowed_x, blocked_x) = resolve_axis(
-        collider_pos,
-        desired_delta.x,
-        0,
-        collider_size,
-        &obstacles,
-    );
+    let (allowed_x, blocked_x) =
+        resolve_axis(collider_pos, desired_delta.x, 0, collider_size, &obstacles);
 
     // Apply the X movement before testing Y
     let pos_after_x = collider_pos + Vec2::new(allowed_x, 0.0);
-    let (allowed_y, blocked_y) = resolve_axis(
-        pos_after_x,
-        desired_delta.y,
-        1,
-        collider_size,
-        &obstacles,
-    );
+    let (allowed_y, blocked_y) =
+        resolve_axis(pos_after_x, desired_delta.y, 1, collider_size, &obstacles);
 
     SweepResult {
         allowed_delta: Vec2::new(allowed_x, allowed_y),

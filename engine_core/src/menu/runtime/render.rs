@@ -62,13 +62,17 @@ fn render_element<C: BishopContext>(
 ) {
     match &element.kind {
         MenuElementKind::Label(label) => {
-            let display_text = env.text_manager.resolve_ui_text(env.text_id, &label.text_key);
+            let display_text = env
+                .text_manager
+                .resolve_ui_text(env.text_id, &label.text_key);
             let screen_rect =
                 normalized_rect_to_screen(element.rect, env.canvas_origin, env.canvas_size);
             MenuTemplate::render_label(ctx, label, screen_rect, &display_text);
         }
         MenuElementKind::Button(button) => {
-            let display_text = env.text_manager.resolve_ui_text(env.text_id, &button.text_key);
+            let display_text = env
+                .text_manager
+                .resolve_ui_text(env.text_id, &button.text_key);
             let is_focused = env.focus.node == element_index && env.focus.child.is_none();
             let screen_rect =
                 normalized_rect_to_screen(element.rect, env.canvas_origin, env.canvas_size);
@@ -138,15 +142,18 @@ fn render_layout_group<C: BishopContext>(
             continue;
         }
 
-        let screen_rect =
-            normalized_rect_to_screen(*rect, env.canvas_origin, env.canvas_size);
+        let screen_rect = normalized_rect_to_screen(*rect, env.canvas_origin, env.canvas_size);
         match &child.element.kind {
             MenuElementKind::Label(label) => {
-                let display_text = env.text_manager.resolve_ui_text(env.text_id, &label.text_key);
+                let display_text = env
+                    .text_manager
+                    .resolve_ui_text(env.text_id, &label.text_key);
                 MenuTemplate::render_label(ctx, label, screen_rect, &display_text);
             }
             MenuElementKind::Button(button) => {
-                let display_text = env.text_manager.resolve_ui_text(env.text_id, &button.text_key);
+                let display_text = env
+                    .text_manager
+                    .resolve_ui_text(env.text_id, &button.text_key);
                 let is_focused =
                     env.focus.node == element_index && env.focus.child == Some(focusable_idx);
                 let widget = Button::new(screen_rect, &display_text)
@@ -217,8 +224,14 @@ fn render_slider<C: BishopContext>(
     let label = LabelElement::default();
     MenuTemplate::render_label(ctx, &label, label_rect, &display_text);
 
-    let (new_value, state) =
-        gui_slider(ctx, slider.widget_id, slider_rect, slider.min, slider.max, value);
+    let (new_value, state) = gui_slider(
+        ctx,
+        slider.widget_id,
+        slider_rect,
+        slider.min,
+        slider.max,
+        value,
+    );
     if !matches!(state, SliderState::Unchanged) {
         slider_values.insert(slider.key.clone(), new_value);
         push_slider_event(slider.key.clone(), new_value);

@@ -1,6 +1,6 @@
 // engine_core/src/tiles/tile.rs
-use serde::{Deserialize, Serialize};
 use crate::assets::sprite::SpriteId;
+use serde::{Deserialize, Serialize};
 
 /// Identifier used by the editor and by the TileMap.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]

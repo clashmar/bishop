@@ -1,13 +1,13 @@
-use crate::storage::path_utils::menus_folder;
-use crate::{onscreen_error, onscreen_log};
-use crate::text::TextManager;
 use crate::menu::runtime::*;
 use crate::menu::*;
+use crate::storage::path_utils::menus_folder;
+use crate::text::TextManager;
+use crate::{onscreen_error, onscreen_log};
+use bishop::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use widgets::MouseButton;
-use bishop::prelude::*;
 use std::fs;
+use widgets::MouseButton;
 
 /// Manages menu templates, active menu stack, and navigation.
 pub struct MenuManager {
@@ -98,8 +98,9 @@ impl MenuManager {
     /// Closes the current menu and returns to previous menu if any.
     pub fn close_menu(&mut self) {
         self.menu_stack.pop();
-        if let Some(parent_id) = self.menu_stack.last() 
-        && let Some(template) = self.templates.get(parent_id) {
+        if let Some(parent_id) = self.menu_stack.last()
+            && let Some(template) = self.templates.get(parent_id)
+        {
             self.focus.reset(template);
             self.slider_repeat.reset();
             return;
@@ -117,8 +118,9 @@ impl MenuManager {
 
     /// Returns the current menu mode based on active menu.
     pub fn mode(&self) -> Option<MenuMode> {
-        if let Some(menu_id) = self.menu_stack.last() 
-        && let Some(template) = self.templates.get(menu_id) {
+        if let Some(menu_id) = self.menu_stack.last()
+            && let Some(template) = self.templates.get(menu_id)
+        {
             return Some(template.mode);
         }
         None
@@ -131,7 +133,8 @@ impl MenuManager {
 
     /// Returns true if the bottom menu's background fully obscures the game.
     pub fn is_hiding_game(&self) -> bool {
-        self.menu_stack.first()
+        self.menu_stack
+            .first()
             .and_then(|id| self.templates.get(id))
             .is_some_and(|t| t.background.is_opaque())
     }
@@ -157,7 +160,8 @@ impl MenuManager {
         }
 
         if let Some(menu_id) = self.menu_stack.last().cloned()
-        && let Some(template) = self.templates.get(&menu_id).cloned() {
+            && let Some(template) = self.templates.get(&menu_id).cloned()
+        {
             let focus_before_input = self.focus.clone();
 
             if ctx.is_mouse_button_pressed(MouseButton::Left) {
@@ -187,15 +191,19 @@ impl MenuManager {
                 self.slider_repeat.reset();
             }
 
-            let focused_slider = template
-                .get_element_at_focus(&self.focus)
-                .and_then(|el| {
-                    if let MenuElementKind::Slider(slider) = &el.kind {
-                        Some((slider.key.clone(), slider.step, slider.min, slider.max, slider.default_value))
-                    } else {
-                        None
-                    }
-                });
+            let focused_slider = template.get_element_at_focus(&self.focus).and_then(|el| {
+                if let MenuElementKind::Slider(slider) = &el.kind {
+                    Some((
+                        slider.key.clone(),
+                        slider.step,
+                        slider.min,
+                        slider.max,
+                        slider.default_value,
+                    ))
+                } else {
+                    None
+                }
+            });
 
             if let Some((key, step, min, max, default_value)) = focused_slider {
                 if let Some(direction) = self.slider_repeat.next_adjustment(
@@ -210,8 +218,7 @@ impl MenuManager {
                         .get(&key)
                         .copied()
                         .unwrap_or(default_value);
-                    if let Some(new_value) =
-                        adjust_slider_value(current, step, min, max, direction)
+                    if let Some(new_value) = adjust_slider_value(current, step, min, max, direction)
                     {
                         self.slider_values.insert(key.clone(), new_value);
                         push_slider_event(key, new_value);
@@ -230,7 +237,8 @@ impl MenuManager {
             let cancel_pressed = self.navigation.cancel_pressed(ctx);
             let confirm_pressed = self.navigation.confirm_pressed(ctx);
             let action_to_handle = if confirm_pressed {
-                template.get_element_at_focus(&self.focus)
+                template
+                    .get_element_at_focus(&self.focus)
                     .and_then(|element| {
                         if let MenuElementKind::Button(button) = &element.kind {
                             Some(button.action.clone())

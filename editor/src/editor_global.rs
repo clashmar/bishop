@@ -1,14 +1,14 @@
 // editor/src/editor_global.rs
-use crate::gui::panels::panel_manager::PanelManager;
 use crate::commands::editor_command_manager::*;
+use crate::gui::panels::panel_manager::PanelManager;
 use crate::Editor;
 use engine_core::prelude::*;
-use std::future::Future;
-use std::cell::RefCell;
+use mlua::Lua;
 use std::cell::Cell;
+use std::cell::RefCell;
+use std::future::Future;
 use std::pin::Pin;
 use std::rc::Rc;
-use mlua::Lua;
 
 /// Global services that can be reached from anywhere in the editor.
 pub struct EditorServices {
@@ -29,7 +29,7 @@ impl EditorServices {
             command_manager: RefCell::new(EditorCommandManager::new()),
             pending_undo: Cell::new(false),
             pending_redo: Cell::new(false),
-            entity_clipboard: RefCell::new(None), 
+            entity_clipboard: RefCell::new(None),
             panel_manager: RefCell::new(PanelManager::new()),
         })
     }
@@ -64,9 +64,7 @@ where
 {
     EDITOR_SERVICES.with(|services| {
         let mut opt = services.editor.borrow_mut();
-        let editor = opt
-            .as_mut()
-            .expect("Editor not initialised");
+        let editor = opt.as_mut().expect("Editor not initialised");
         f(editor)
     })
 }
@@ -79,9 +77,7 @@ where
     let services = EDITOR_SERVICES.with(|s| s.clone());
 
     let mut opt = services.editor.borrow_mut();
-    let editor = opt
-        .as_mut()
-        .expect("Editor not initialised");
+    let editor = opt.as_mut().expect("Editor not initialised");
 
     let fut = f(editor, ctx);
     fut.await
@@ -105,7 +101,7 @@ where
 {
     let services = EDITOR_SERVICES.with(|s| s.clone());
     let lua_ref = services.lua.borrow();
-    
+
     // Call the closure and await the future
     let future = f(&lua_ref);
     future.await

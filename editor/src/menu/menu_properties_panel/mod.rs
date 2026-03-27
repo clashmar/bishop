@@ -1,13 +1,13 @@
 // editor/src/menu_editor/menu_properties_panel/mod.rs
-mod menu_properties;
+mod common_properties;
 mod element_properties;
 mod layout_properties;
-mod common_properties;
+mod menu_properties;
 mod nav_section;
 
 use crate::menu::MenuEditor;
-use engine_core::prelude::*;
 use bishop::prelude::*;
+use engine_core::prelude::*;
 
 pub(crate) const ROW_HEIGHT: f32 = 28.0;
 pub(crate) const LABEL_WIDTH: f32 = 80.0;
@@ -92,12 +92,7 @@ impl Default for MenuPropertiesPanel {
 
 impl MenuEditor {
     /// Renders the properties panel and handles editing.
-    pub fn draw_properties_panel(
-        &mut self,
-        ctx: &mut WgpuContext,
-        rect: Rect,
-        blocked: bool
-    ) {
+    pub fn draw_properties_panel(&mut self, ctx: &mut WgpuContext, rect: Rect, blocked: bool) {
         let content_height = self.properties_panel.last_content_height;
 
         let area = ScrollableArea::new(rect, content_height)
@@ -122,9 +117,7 @@ impl MenuEditor {
             return;
         }
 
-        let element_kind = self
-            .selected_element()
-            .map(|e| e.kind.clone());
+        let element_kind = self.selected_element().map(|e| e.kind.clone());
 
         let Some(kind) = element_kind else {
             self.properties_panel.last_content_height = y - start_y + 16.0;
@@ -146,7 +139,9 @@ impl MenuEditor {
                 self.draw_panel_properties(ctx, &mut y, content_x, content_w, blocked, &rect);
             }
             MenuElementKind::LayoutGroup(_) => {
-                self.draw_layout_group_properties(ctx, &mut y, content_x, content_w, blocked, &rect);
+                self.draw_layout_group_properties(
+                    ctx, &mut y, content_x, content_w, blocked, &rect,
+                );
             }
             MenuElementKind::Slider(_) => {
                 self.draw_slider_properties(ctx, &mut y, content_x, content_w, blocked, &rect);

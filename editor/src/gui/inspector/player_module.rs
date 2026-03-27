@@ -1,6 +1,6 @@
 // editor/src/gui/inspector/player_module.rs
-use engine_core::prelude::*;
 use bishop::prelude::*;
+use engine_core::prelude::*;
 
 #[derive(Default)]
 pub struct PlayerModule {}
@@ -25,16 +25,26 @@ impl InspectorModule for PlayerModule {
         let ecs = &game_ctx.ecs;
 
         if ecs.has::<Player>(entity) {
-            ctx.draw_text("Player Entity", rect.x, rect.y + 20.0, 18.0, FIELD_TEXT_COLOR);
+            ctx.draw_text(
+                "Player Entity",
+                rect.x,
+                rect.y + 20.0,
+                18.0,
+                FIELD_TEXT_COLOR,
+            );
         } else if ecs.has::<PlayerProxy>(entity) {
-            ctx.draw_text("Player Proxy", rect.x, rect.y + 20.0, 18.0, FIELD_TEXT_COLOR);
+            ctx.draw_text(
+                "Player Proxy",
+                rect.x,
+                rect.y + 20.0,
+                18.0,
+                FIELD_TEXT_COLOR,
+            );
         }
     }
 
     fn body_layout(&self) -> InspectorBodyLayout {
-        InspectorBodyLayout::new()
-            .top_padding(0.0)
-            .block(28.0)
+        InspectorBodyLayout::new().top_padding(0.0).block(28.0)
     }
 
     fn title(&self) -> &str {

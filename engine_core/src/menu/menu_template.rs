@@ -1,6 +1,6 @@
 use crate::menu::*;
-use serde::{Deserialize, Serialize};
 use bishop::prelude::*;
+use serde::{Deserialize, Serialize};
 
 /// Serializable menu definition.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -30,7 +30,13 @@ impl MenuTemplate {
                 ctx.draw_rectangle(viewport.x, viewport.y, viewport.w, viewport.h, color);
             }
             MenuBackground::Dimmed(alpha) => {
-                ctx.draw_rectangle(viewport.x, viewport.y, viewport.w, viewport.h, Color::new(0.0, 0.0, 0.0, alpha));
+                ctx.draw_rectangle(
+                    viewport.x,
+                    viewport.y,
+                    viewport.w,
+                    viewport.h,
+                    Color::new(0.0, 0.0, 0.0, alpha),
+                );
             }
         }
     }
@@ -43,7 +49,12 @@ impl MenuTemplate {
     }
 
     /// Renders menu labels transformed from normalized to screen-space using canvas origin/size.
-    pub(crate) fn render_label<C: BishopContext>(ctx: &mut C, label: &LabelElement, rect: Rect, display_text: &str) {
+    pub(crate) fn render_label<C: BishopContext>(
+        ctx: &mut C,
+        label: &LabelElement,
+        rect: Rect,
+        display_text: &str,
+    ) {
         let txt_dims = ctx.measure_text(display_text, label.font_size);
         let txt_x = match label.alignment {
             HorizontalAlign::Left => rect.x,
@@ -110,7 +121,11 @@ impl MenuTemplate {
     }
 
     /// Gets the nth focusable child (button or slider) in a layout group.
-    pub fn get_focusable_child(&self, element_index: usize, child_index: usize) -> Option<&MenuElement> {
+    pub fn get_focusable_child(
+        &self,
+        element_index: usize,
+        child_index: usize,
+    ) -> Option<&MenuElement> {
         let element = self.elements.get(element_index)?;
         let MenuElementKind::LayoutGroup(group) = &element.kind else {
             return None;

@@ -16,7 +16,8 @@ pub fn gui_stepper<C: BishopContext>(
         .iter()
         .enumerate()
         .min_by(|(_, a), (_, b)| {
-            (*a - current).abs()
+            (*a - current)
+                .abs()
                 .partial_cmp(&(*b - current).abs())
                 .unwrap_or(std::cmp::Ordering::Equal)
         })
@@ -31,7 +32,14 @@ pub fn gui_stepper<C: BishopContext>(
     let btn_w = FIELD_TEXT_SIZE_16 * 1.2;
     let val_w = measure_text_ui(ctx, "3.0", FIELD_TEXT_SIZE_16).width + WIDGET_SPACING + 5.0;
 
-    draw_text_ui(ctx, &label, rect.x, rect.y, FIELD_TEXT_SIZE_16, FIELD_TEXT_COLOR);
+    draw_text_ui(
+        ctx,
+        &label,
+        rect.x,
+        rect.y,
+        FIELD_TEXT_SIZE_16,
+        FIELD_TEXT_COLOR,
+    );
 
     let val_rect = Rect::new(
         rect.x + label_width + WIDGET_SPACING,

@@ -1,20 +1,17 @@
 // editor/src/playtest/room_playtest.rs
 use crate::editor_assets::assets::*;
 use crate::storage::editor_storage::*;
-use std::{env, fs, io::Write, path::PathBuf};
-use ron::ser::to_string_pretty;
 use engine_core::prelude::*;
+use ron::ser::to_string_pretty;
 use ron::ser::PrettyConfig;
-use std::process::Command;
-use std::io::Error;
 use std::io;
+use std::io::Error;
+use std::process::Command;
+use std::{env, fs, io::Write, path::PathBuf};
 
 /// Serialise everything the play‑test binary needs and return the
 /// path to the temporary file.
-pub fn write_playtest_payload(
-    room: &Room,
-    game: &Game,
-) -> io::Result<PathBuf> {
+pub fn write_playtest_payload(room: &Room, game: &Game) -> io::Result<PathBuf> {
     // Clone game via serialization
     let game_ron = ron::to_string(game)
         .map_err(|e| io::Error::other(format!("Could not serialize game: {e}")))?;
@@ -32,7 +29,10 @@ pub fn write_playtest_payload(
         game: &'a Game,
     }
 
-    let payload = Payload { room, game: &game_copy };
+    let payload = Payload {
+        room,
+        game: &game_copy,
+    };
 
     let ron = to_string_pretty(&payload, PrettyConfig::default())
         .map_err(|e| io::Error::other(format!("Could not serialize payload: {e}")))?;
@@ -51,20 +51,22 @@ pub fn write_playtest_payload(
 
 /// Return the absolute path to the game executable.
 /// If in dev mode, builds the binary first.
-pub async fn resolve_playtest_binary() -> io::Result<PathBuf> {    
+pub async fn resolve_playtest_binary() -> io::Result<PathBuf> {
     // Choose the correct binary name for the platform
-    #[cfg(target_os = "windows")] 
+    #[cfg(target_os = "windows")]
     let exe_name = "game-playtest.exe";
     #[cfg(target_os = "macos")]
     let exe_name = "game-playtest";
 
     // Release mode
     if !cfg!(debug_assertions) {
-        #[cfg(target_os = "windows")] {
+        #[cfg(target_os = "windows")]
+        {
             // Write PLAYTEST_EXE to a temp file and return path
             return write_to_app_dir(exe_name, PLAYTEST_EXE);
         }
-        #[cfg(target_os = "macos")] {
+        #[cfg(target_os = "macos")]
+        {
             return write_to_app_dir(exe_name, PLAYTEST_BIN);
         }
     }
@@ -91,8 +93,6 @@ pub async fn resolve_playtest_binary() -> io::Result<PathBuf> {
     if status.success() {
         Ok(exe_path)
     } else {
-        Err(Error::other(
-            "Playtest build failed.",
-        ))
+        Err(Error::other("Playtest build failed."))
     }
 }

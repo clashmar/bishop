@@ -1,6 +1,6 @@
 // editor/src/commands/room/set_parent_cmd.rs
-use crate::commands::editor_command_manager::EditorCommand;
 use crate::app::EditorMode;
+use crate::commands::editor_command_manager::EditorCommand;
 use crate::with_editor;
 use engine_core::ecs::entity::*;
 
@@ -14,7 +14,12 @@ pub struct SetParentCmd {
 }
 
 impl SetParentCmd {
-    pub fn new(child: Entity, new_parent: Entity, old_parent: Option<Entity>, mode: EditorMode) -> Self {
+    pub fn new(
+        child: Entity,
+        new_parent: Entity,
+        old_parent: Option<Entity>,
+        mode: EditorMode,
+    ) -> Self {
         Self {
             child,
             new_parent,

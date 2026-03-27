@@ -1,16 +1,16 @@
 // engine_core/src/logging/mod.rs
 use crate::storage::editor_config::app_dir;
-use once_cell::sync::Lazy;
-use std::sync::Mutex;
 use flexi_logger::*;
 use log::Record;
+use once_cell::sync::Lazy;
 use std::io::*;
+use std::sync::Mutex;
 
-pub use crate::onscreen_log;
 pub use crate::onscreen_debug;
-pub use crate::onscreen_info;
-pub use crate::onscreen_warn;
 pub use crate::onscreen_error;
+pub use crate::onscreen_info;
+pub use crate::onscreen_log;
+pub use crate::onscreen_warn;
 
 const MAX_LOG_ENTRIES: usize = 500;
 
@@ -32,9 +32,20 @@ pub struct LogHistory {
 }
 
 impl LogHistory {
-    pub fn push(&mut self, level: log::Level, message: String, time: String, file: &'static str, line: u32) {
+    pub fn push(
+        &mut self,
+        level: log::Level,
+        message: String,
+        time: String,
+        file: &'static str,
+        line: u32,
+    ) {
         if let Some(last) = self.entries.last_mut() {
-            if last.level == level && last.message == message && last.file == file && last.line == line {
+            if last.level == level
+                && last.message == message
+                && last.file == file
+                && last.line == line
+            {
                 last.count += 1;
                 last.time = time;
                 self.total_pushed += 1;
@@ -44,7 +55,14 @@ impl LogHistory {
         if self.entries.len() >= MAX_LOG_ENTRIES {
             self.entries.remove(0);
         }
-        self.entries.push(LogEntry { level, message, time, file, line, count: 1 });
+        self.entries.push(LogEntry {
+            level,
+            message,
+            time,
+            file,
+            line,
+            count: 1,
+        });
         self.total_pushed += 1;
     }
 
@@ -116,7 +134,7 @@ pub fn init_file_logger() {
     let log_dir = app_dir().join("logs");
 
     let file_spec = FileSpec::default()
-        .directory(&log_dir)         
+        .directory(&log_dir)
         .basename("bishop_engine")
         .suffix("log");
 
@@ -135,11 +153,7 @@ pub fn init_file_logger() {
 
     onscreen_info!("Log dir: {}.", &log_dir.display());
 
-    fn my_formatter(
-        write: &mut dyn Write, 
-        now: &mut DeferredNow, 
-        record: &Record
-    ) -> Result<()> {
+    fn my_formatter(write: &mut dyn Write, now: &mut DeferredNow, record: &Record) -> Result<()> {
         write!(
             write,
             "{} {:5} [{}  {}:{}] {}",

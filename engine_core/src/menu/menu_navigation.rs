@@ -1,6 +1,6 @@
 use crate::menu::*;
-use serde::{Deserialize, Serialize};
 use bishop::prelude::*;
+use serde::{Deserialize, Serialize};
 
 /// Navigation targets for each direction.
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]

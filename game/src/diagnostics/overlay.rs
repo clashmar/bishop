@@ -68,7 +68,10 @@ impl AudioDiagnosticsRow {
     }
 
     fn display_line(&self) -> String {
-        let mut line = format!("Audio {} rc={} ecs={}", self.id, self.ref_count, self.ecs_count);
+        let mut line = format!(
+            "Audio {} rc={} ecs={}",
+            self.id, self.ref_count, self.ecs_count
+        );
         if self.cached {
             line.push_str(" cached");
         }
@@ -165,10 +168,7 @@ impl DiagnosticsOverlay {
     }
 
     /// Handle input for toggling the overlay.
-    pub fn handle_input(
-        &mut self, 
-        ctx: &mut impl BishopContext,
-    ) {
+    pub fn handle_input(&mut self, ctx: &mut impl BishopContext) {
         if ctx.is_key_pressed(KeyCode::F3) {
             self.toggle();
         }
@@ -178,10 +178,7 @@ impl DiagnosticsOverlay {
     }
 
     /// Draw the overlay.
-    pub fn draw<C: BishopContext>(
-        &self,
-        ctx: &mut C,
-    ) {
+    pub fn draw<C: BishopContext>(&self, ctx: &mut C) {
         if self.detail_level == OverlayDetailLevel::Off {
             return;
         }
@@ -204,24 +201,28 @@ impl DiagnosticsOverlay {
             lines.push(format!("Textures: {}", self.cached_texture_count));
             lines.push(format!("Sprite IDs: {}", self.cached_sprite_id_count));
             lines.push(format!("Script IDs: {}", self.cached_script_id_count));
-            lines.push(format!("Script Instances: {}", self.cached_script_instances));
+            lines.push(format!(
+                "Script Instances: {}",
+                self.cached_script_instances
+            ));
             lines.push(format!("Listeners: {}", self.cached_listener_count));
             lines.push(format!(
                 "Audio Working Set: {}/{}",
-                self.cached_audio_working_set_resident,
-                self.cached_audio_working_set_total
+                self.cached_audio_working_set_resident, self.cached_audio_working_set_total
             ));
             lines.push(format!(
                 "Audio Cache: {} cached, {} pinned",
-                self.cached_audio_count,
-                self.cached_audio_pinned_count
+                self.cached_audio_count, self.cached_audio_pinned_count
             ));
             lines.push(format!(
                 "Audio Refs: {}/{} IDs match ECS",
-                self.cached_audio_matching_refs,
-                self.cached_audio_checked_refs
+                self.cached_audio_matching_refs, self.cached_audio_checked_refs
             ));
-            lines.extend(self.cached_audio_rows.iter().map(AudioDiagnosticsRow::display_line));
+            lines.extend(
+                self.cached_audio_rows
+                    .iter()
+                    .map(AudioDiagnosticsRow::display_line),
+            );
         }
 
         // Calculate background size

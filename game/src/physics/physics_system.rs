@@ -1,6 +1,6 @@
 // game/src/physics/physics_system.rs
+use crate::constants::GRAVITY;
 use crate::physics::collision::sweep_move;
-use crate::constants::GRAVITY; 
 use engine_core::prelude::*;
 
 /// Applies physics to all entities with a `PhysicsBody` component.
@@ -12,7 +12,7 @@ pub fn update_physics(
     grid_size: f32,
 ) {
     let tilemap = &room.variants[room.current_variant_index()].tilemap;
-    
+
     let entities: Vec<_> = ecs
         .get_store::<PhysicsBody>()
         .data
@@ -24,17 +24,11 @@ pub fn update_physics(
         let (pos_cur, pivot, mut vel_cur, collider) = {
             let t = ecs.get::<Transform>(entity).unwrap();
             let v = ecs.get::<Velocity>(entity).unwrap();
-            let c = ecs
-                .get::<Collider>(entity)
-                .cloned()
-                .unwrap_or_default();
+            let c = ecs.get::<Collider>(entity).cloned().unwrap_or_default();
             (t.position, t.pivot, *v, c)
         };
 
-        let mut sub_pixel = ecs
-            .get::<SubPixel>(entity)
-            .copied()
-            .unwrap_or_default();
+        let mut sub_pixel = ecs.get::<SubPixel>(entity).copied().unwrap_or_default();
 
         vel_cur.y += GRAVITY * dt;
 

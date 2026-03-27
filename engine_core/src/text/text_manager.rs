@@ -1,7 +1,7 @@
 // engine_core/src/text/text_manager.rs
 use crate::text::*;
-use rand::seq::SliceRandom;
 use rand::Rng;
+use rand::seq::SliceRandom;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fs;
@@ -53,8 +53,9 @@ impl TextManager {
     /// Loads the manifest file to get available languages.
     fn load_manifest(&mut self) {
         let manifest_path = self.text_root.join("_manifest.toml");
-        if let Ok(content) = fs::read_to_string(&manifest_path) 
-        && let Ok(manifest) = toml::from_str::<TextManifest>(&content) {
+        if let Ok(content) = fs::read_to_string(&manifest_path)
+            && let Ok(manifest) = toml::from_str::<TextManifest>(&content)
+        {
             self.current_language = manifest.default_language;
             self.available_languages = manifest.available;
         }
@@ -112,7 +113,9 @@ impl TextManager {
             }
         };
 
-        self.cache.borrow_mut().insert(text_id.to_string(), text_file);
+        self.cache
+            .borrow_mut()
+            .insert(text_id.to_string(), text_file);
         true
     }
 
@@ -184,7 +187,8 @@ impl TextManager {
                 }
 
                 if state.shuffle_order.is_empty()
-                    || (entry.exhausted.is_none() && state.shuffle_index >= state.shuffle_order.len())
+                    || (entry.exhausted.is_none()
+                        && state.shuffle_index >= state.shuffle_order.len())
                 {
                     let mut rng = rand::thread_rng();
                     state.shuffle_order = (0..entry.variants.len()).collect();
@@ -256,12 +260,17 @@ impl TextManager {
         let ui_file: UiTextFile = match toml::from_str(&content) {
             Ok(f) => f,
             Err(e) => {
-                log::warn!("Failed to parse UI text file '{}': {e}", file_path.display());
+                log::warn!(
+                    "Failed to parse UI text file '{}': {e}",
+                    file_path.display()
+                );
                 return false;
             }
         };
 
-        self.ui_cache.borrow_mut().insert(text_id.to_string(), ui_file);
+        self.ui_cache
+            .borrow_mut()
+            .insert(text_id.to_string(), ui_file);
         true
     }
 

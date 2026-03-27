@@ -17,7 +17,12 @@ impl ElementPalette {
     }
 
     /// Renders the palette and returns a clicked element kind if any.
-    pub fn draw(&mut self, ctx: &mut WgpuContext, rect: Rect, blocked: bool) -> Option<MenuElementKind> {
+    pub fn draw(
+        &mut self,
+        ctx: &mut WgpuContext,
+        rect: Rect,
+        blocked: bool,
+    ) -> Option<MenuElementKind> {
         let mouse: Vec2 = ctx.mouse_position().into();
 
         if !blocked && rect.contains(mouse) {
@@ -36,25 +41,37 @@ impl ElementPalette {
 
         let mut clicked_kind = None;
 
-        if self.draw_palette_item(ctx, rect, &mut y, "Layout Group", blocked).is_some() {
+        if self
+            .draw_palette_item(ctx, rect, &mut y, "Layout Group", blocked)
+            .is_some()
+        {
             clicked_kind = Some(MenuElementKind::LayoutGroup(LayoutGroupElement::default()));
         }
 
-        if self.draw_palette_item(ctx, rect, &mut y, "Label", blocked).is_some() {
+        if self
+            .draw_palette_item(ctx, rect, &mut y, "Label", blocked)
+            .is_some()
+        {
             clicked_kind = Some(MenuElementKind::Label(LabelElement {
                 text_key: "label".to_string(),
                 ..Default::default()
             }));
         }
 
-        if self.draw_palette_item(ctx, rect, &mut y, "Button", blocked).is_some() {
+        if self
+            .draw_palette_item(ctx, rect, &mut y, "Button", blocked)
+            .is_some()
+        {
             clicked_kind = Some(MenuElementKind::Button(ButtonElement {
                 text_key: "button".to_string(),
                 ..Default::default()
             }));
         }
 
-        if self.draw_palette_item(ctx, rect, &mut y, "Slider", blocked).is_some() {
+        if self
+            .draw_palette_item(ctx, rect, &mut y, "Slider", blocked)
+            .is_some()
+        {
             clicked_kind = Some(MenuElementKind::Slider(SliderElement {
                 text_key: "slider".to_string(),
                 key: "slider_key".to_string(),
@@ -66,7 +83,10 @@ impl ElementPalette {
             }));
         }
 
-        if self.draw_palette_item(ctx, rect, &mut y, "Panel", blocked).is_some() {
+        if self
+            .draw_palette_item(ctx, rect, &mut y, "Panel", blocked)
+            .is_some()
+        {
             clicked_kind = Some(MenuElementKind::Panel(PanelElement::default()));
         }
 
@@ -86,12 +106,7 @@ impl ElementPalette {
             return None;
         }
 
-        let item_rect = Rect::new(
-            rect.x + 8.0,
-            *y,
-            rect.w - 16.0,
-            PALETTE_ITEM_HEIGHT,
-        );
+        let item_rect = Rect::new(rect.x + 8.0, *y, rect.w - 16.0, PALETTE_ITEM_HEIGHT);
 
         let mouse: Vec2 = ctx.mouse_position().into();
         let hover = item_rect.contains(mouse);
@@ -103,13 +118,7 @@ impl ElementPalette {
             Color::new(0.2, 0.2, 0.25, 1.0)
         };
 
-        ctx.draw_rectangle(
-            item_rect.x,
-            item_rect.y,
-            item_rect.w,
-            item_rect.h,
-            bg_color,
-        );
+        ctx.draw_rectangle(item_rect.x, item_rect.y, item_rect.w, item_rect.h, bg_color);
 
         ctx.draw_rectangle_lines(
             item_rect.x,
@@ -130,7 +139,11 @@ impl ElementPalette {
 
         *y += PALETTE_ITEM_HEIGHT + PALETTE_SPACING;
 
-        if clicked { Some(()) } else { None }
+        if clicked {
+            Some(())
+        } else {
+            None
+        }
     }
 
     fn calculate_content_height(&self) -> f32 {

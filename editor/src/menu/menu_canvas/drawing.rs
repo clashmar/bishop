@@ -1,17 +1,30 @@
 // editor/src/menu/menu_canvas/drawing.rs
-use crate::shared::selection::draw_selection_box;
 use crate::menu::resize_handle::*;
 use crate::menu::MenuEditor;
 use crate::menu::SnapLine;
-use engine_core::prelude::*;
+use crate::shared::selection::draw_selection_box;
 use bishop::prelude::*;
+use engine_core::prelude::*;
 
 impl MenuEditor {
     /// Renders the canvas.
     pub fn draw_canvas(&self, ctx: &mut WgpuContext, camera: &Camera2D, rect: Rect) {
-        ctx.draw_rectangle(rect.x, rect.y, rect.w, rect.h, Color::new(0.15, 0.15, 0.2, 1.0));
+        ctx.draw_rectangle(
+            rect.x,
+            rect.y,
+            rect.w,
+            rect.h,
+            Color::new(0.15, 0.15, 0.2, 1.0),
+        );
 
-        ctx.draw_rectangle_lines(rect.x, rect.y, rect.w, rect.h, 2.0, Color::new(0.4, 0.4, 0.4, 1.0));
+        ctx.draw_rectangle_lines(
+            rect.x,
+            rect.y,
+            rect.w,
+            rect.h,
+            2.0,
+            Color::new(0.4, 0.4, 0.4, 1.0),
+        );
 
         let canvas_origin = Vec2::new(rect.x, rect.y);
         let canvas_size = Vec2::new(rect.w, rect.h);
@@ -38,7 +51,10 @@ impl MenuEditor {
                 }
                 MenuBackground::Dimmed(alpha) => {
                     ctx.draw_rectangle(
-                        rect.x, rect.y, rect.w, rect.h,
+                        rect.x,
+                        rect.y,
+                        rect.w,
+                        rect.h,
                         Color::new(0.0, 0.0, 0.0, alpha),
                     );
                 }
@@ -61,13 +77,25 @@ impl MenuEditor {
             }
 
             let raw_mouse: Vec2 = ctx.mouse_position().into();
-            let world_mouse = camera.screen_to_world(raw_mouse, ctx.screen_width(), ctx.screen_height());
+            let world_mouse =
+                camera.screen_to_world(raw_mouse, ctx.screen_width(), ctx.screen_height());
             let sorted = template.sorted_element_indices();
             for i in sorted {
                 let element = &template.elements[i];
                 let is_selected = self.selected_element_indices.contains(&i);
-                let element_rect = normalized_rect_to_screen(element.rect, canvas_origin, canvas_size);
-                self.draw_element(ctx, element, element_rect, canvas_origin, canvas_size, is_selected, true, world_mouse, false);
+                let element_rect =
+                    normalized_rect_to_screen(element.rect, canvas_origin, canvas_size);
+                self.draw_element(
+                    ctx,
+                    element,
+                    element_rect,
+                    canvas_origin,
+                    canvas_size,
+                    is_selected,
+                    true,
+                    world_mouse,
+                    false,
+                );
             }
 
             // Draw placement cursor if pending
@@ -115,18 +143,35 @@ impl MenuEditor {
                 ctx.draw_rectangle(rect.x, rect.y, rect.w, rect.h, color);
             }
             MenuBackground::Dimmed(alpha) => {
-                ctx.draw_rectangle(rect.x, rect.y, rect.w, rect.h, Color::new(0.0, 0.0, 0.0, alpha));
+                ctx.draw_rectangle(
+                    rect.x,
+                    rect.y,
+                    rect.w,
+                    rect.h,
+                    Color::new(0.0, 0.0, 0.0, alpha),
+                );
             }
             MenuBackground::None => {}
         }
 
         let raw_mouse: Vec2 = ctx.mouse_position().into();
-        let world_mouse = camera.screen_to_world(raw_mouse, ctx.screen_width(), ctx.screen_height());
+        let world_mouse =
+            camera.screen_to_world(raw_mouse, ctx.screen_width(), ctx.screen_height());
 
         for i in template.sorted_element_indices() {
             let element = &template.elements[i];
             let element_rect = normalized_rect_to_screen(element.rect, canvas_origin, canvas_size);
-            self.draw_element(ctx, element, element_rect, canvas_origin, canvas_size, false, false, world_mouse, true);
+            self.draw_element(
+                ctx,
+                element,
+                element_rect,
+                canvas_origin,
+                canvas_size,
+                false,
+                false,
+                world_mouse,
+                true,
+            );
         }
     }
 
@@ -207,32 +252,51 @@ impl MenuEditor {
 
                 // Draw children at resolved positions
                 let resolved = resolve_layout(group, element.rect);
-                let reorder_info = self.reorder_drag.as_ref().filter(|r| {
-                    self.selected_element_indices.contains(&r.group_index)
-                });
+                let reorder_info = self
+                    .reorder_drag
+                    .as_ref()
+                    .filter(|r| self.selected_element_indices.contains(&r.group_index));
                 let dragged_child_idx = reorder_info.map(|r| r.child_index);
                 let drop_target = reorder_info.and_then(|r| r.drop_target);
 
-                for (child_idx, (child, resolved_rect)) in group.children.iter().zip(resolved.iter()).enumerate() {
-                    let child_screen = normalized_rect_to_screen(*resolved_rect, canvas_origin, canvas_size);
-                    let is_child_selected = is_selected && self.selected_child_index == Some(child_idx);
+                for (child_idx, (child, resolved_rect)) in
+                    group.children.iter().zip(resolved.iter()).enumerate()
+                {
+                    let child_screen =
+                        normalized_rect_to_screen(*resolved_rect, canvas_origin, canvas_size);
+                    let is_child_selected =
+                        is_selected && self.selected_child_index == Some(child_idx);
                     let child_allow_resize = !child.managed;
 
                     // Dim the dragged child at its original slot
                     if dragged_child_idx == Some(child_idx) {
                         ctx.draw_rectangle(
-                            child_screen.x, child_screen.y,
-                            child_screen.w, child_screen.h,
+                            child_screen.x,
+                            child_screen.y,
+                            child_screen.w,
+                            child_screen.h,
                             Color::new(0.0, 0.0, 0.0, 0.3),
                         );
                     }
 
-                    self.draw_element(ctx, &child.element, child_screen, canvas_origin, canvas_size, is_child_selected, child_allow_resize, world_mouse, preview);
+                    self.draw_element(
+                        ctx,
+                        &child.element,
+                        child_screen,
+                        canvas_origin,
+                        canvas_size,
+                        is_child_selected,
+                        child_allow_resize,
+                        world_mouse,
+                        preview,
+                    );
                 }
 
                 // Draw drop indicator line
                 if let Some(target) = drop_target {
-                    let managed_rects: Vec<(usize, Rect)> = group.children.iter()
+                    let managed_rects: Vec<(usize, Rect)> = group
+                        .children
+                        .iter()
                         .zip(resolved.iter())
                         .enumerate()
                         .filter(|(_, (child, _))| child.managed)
@@ -242,9 +306,12 @@ impl MenuEditor {
                     let managed_slot = child_index_to_managed_slot(group, target);
 
                     draw_reorder_indicator(
-                        ctx, &managed_rects, managed_slot,
+                        ctx,
+                        &managed_rects,
+                        managed_slot,
                         &group.layout,
-                        canvas_origin, canvas_size,
+                        canvas_origin,
+                        canvas_size,
                     );
                 }
 
@@ -276,25 +343,52 @@ impl MenuEditor {
                 let text_dims = ctx.measure_text(text, label.font_size);
                 let text_x = match label.alignment {
                     HorizontalAlign::Left => element_rect.x,
-                    HorizontalAlign::Center => element_rect.x + (element_rect.w - text_dims.width) / 2.0,
+                    HorizontalAlign::Center => {
+                        element_rect.x + (element_rect.w - text_dims.width) / 2.0
+                    }
                     HorizontalAlign::Right => element_rect.x + element_rect.w - text_dims.width,
                 };
-                let text_y = element_rect.y + (element_rect.h - text_dims.height) / 2.0 + text_dims.offset_y;
+                let text_y =
+                    element_rect.y + (element_rect.h - text_dims.height) / 2.0 + text_dims.offset_y;
                 ctx.draw_text(text, text_x, text_y, label.font_size, label.color);
             }
             MenuElementKind::Slider(slider) => {
                 // Draw label area (left 40%) and track area (right 60%)
                 let split = element_rect.w * 0.4;
-                let track_rect = Rect::new(element_rect.x + split, element_rect.y, element_rect.w - split, element_rect.h);
+                let track_rect = Rect::new(
+                    element_rect.x + split,
+                    element_rect.y,
+                    element_rect.w - split,
+                    element_rect.h,
+                );
                 let track_h = element_rect.h * 0.2;
                 let track_y = element_rect.y + (element_rect.h - track_h) * 0.5;
 
-                ctx.draw_rectangle(track_rect.x, track_rect.y, track_rect.w, track_rect.h, Color::new(0.15, 0.15, 0.18, 1.0));
-                ctx.draw_rectangle(track_rect.x, track_y, track_rect.w, track_h, Color::new(0.2, 0.2, 0.2, 0.8));
+                ctx.draw_rectangle(
+                    track_rect.x,
+                    track_rect.y,
+                    track_rect.w,
+                    track_rect.h,
+                    Color::new(0.15, 0.15, 0.18, 1.0),
+                );
+                ctx.draw_rectangle(
+                    track_rect.x,
+                    track_y,
+                    track_rect.w,
+                    track_h,
+                    Color::new(0.2, 0.2, 0.2, 0.8),
+                );
 
                 let text_dims = ctx.measure_text(&slider.text_key, 14.0);
-                let text_y = element_rect.y + (element_rect.h - text_dims.height) * 0.5 + text_dims.offset_y;
-                ctx.draw_text(&slider.text_key, element_rect.x + 4.0, text_y, 14.0, Color::WHITE);
+                let text_y =
+                    element_rect.y + (element_rect.h - text_dims.height) * 0.5 + text_dims.offset_y;
+                ctx.draw_text(
+                    &slider.text_key,
+                    element_rect.x + 4.0,
+                    text_y,
+                    14.0,
+                    Color::WHITE,
+                );
 
                 if !preview {
                     let outline_color = if is_selected {
@@ -302,7 +396,14 @@ impl MenuEditor {
                     } else {
                         Color::new(0.5, 0.5, 0.5, 1.0)
                     };
-                    ctx.draw_rectangle_lines(element_rect.x, element_rect.y, element_rect.w, element_rect.h, if is_selected { 2.0 } else { 1.0 }, outline_color);
+                    ctx.draw_rectangle_lines(
+                        element_rect.x,
+                        element_rect.y,
+                        element_rect.w,
+                        element_rect.h,
+                        if is_selected { 2.0 } else { 1.0 },
+                        outline_color,
+                    );
                 }
             }
             MenuElementKind::Panel(panel) => {
@@ -388,7 +489,8 @@ pub(crate) fn draw_reorder_indicator(
             };
             let screen = normalized_rect_to_screen(
                 Rect::new(x, y - 0.001, w, 0.002),
-                canvas_origin, canvas_size,
+                canvas_origin,
+                canvas_size,
             );
             ctx.draw_rectangle(screen.x, screen.y, screen.w, thickness, indicator_color);
         }
@@ -407,7 +509,8 @@ pub(crate) fn draw_reorder_indicator(
             };
             let screen = normalized_rect_to_screen(
                 Rect::new(x - 0.001, y, 0.002, h),
-                canvas_origin, canvas_size,
+                canvas_origin,
+                canvas_size,
             );
             ctx.draw_rectangle(screen.x, screen.y, thickness, screen.h, indicator_color);
         }
@@ -426,7 +529,8 @@ pub(crate) fn draw_reorder_indicator(
             };
             let screen = normalized_rect_to_screen(
                 Rect::new(x, y - 0.001, w, 0.002),
-                canvas_origin, canvas_size,
+                canvas_origin,
+                canvas_size,
             );
             ctx.draw_rectangle(screen.x, screen.y, screen.w, thickness, indicator_color);
         }
@@ -435,7 +539,9 @@ pub(crate) fn draw_reorder_indicator(
 
 /// Maps a Vec child index to its managed slot index.
 fn child_index_to_managed_slot(group: &LayoutGroupElement, child_index: usize) -> usize {
-    group.children.iter()
+    group
+        .children
+        .iter()
         .take(child_index)
         .filter(|c| c.managed)
         .count()

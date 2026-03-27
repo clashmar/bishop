@@ -1,10 +1,10 @@
 // editor/src/commands/room/paste_entity_cmd.rs
-use crate::commands::editor_command_manager::EditorCommand;
 use crate::app::EditorMode;
-use crate::EDITOR_SERVICES;
+use crate::commands::editor_command_manager::EditorCommand;
 use crate::with_editor;
-use std::collections::{HashMap, HashSet};
+use crate::EDITOR_SERVICES;
 use engine_core::prelude::*;
+use std::collections::{HashMap, HashSet};
 
 /// Undo-able command for pasting entities from the clipboard.
 #[derive(Debug)]
@@ -71,7 +71,10 @@ impl EditorCommand for PasteEntityCmd {
         self.id_map = Some(map.clone());
 
         // Track the new root entity IDs
-        self.root_entities = root_old_ids.iter().filter_map(|old| map.get(old).copied()).collect();
+        self.root_entities = root_old_ids
+            .iter()
+            .filter_map(|old| map.get(old).copied())
+            .collect();
 
         with_editor(|editor| {
             let ctx = &mut editor.game.ctx_mut();

@@ -1,13 +1,13 @@
 // engine_core/src/scripting/event_bus.rs
 use crate::ecs::entity::Entity;
 use crate::*;
-use std::collections::HashMap;
-use std::sync::Mutex;
-use mlua::Variadic;
-use mlua::UserData;
-use std::sync::Arc;
 use mlua::Function;
+use mlua::UserData;
 use mlua::Value;
+use mlua::Variadic;
+use std::collections::HashMap;
+use std::sync::Arc;
+use std::sync::Mutex;
 
 /// A listener with an optional entity association for cleanup.
 #[derive(Clone)]

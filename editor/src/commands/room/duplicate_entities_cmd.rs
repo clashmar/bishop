@@ -1,9 +1,9 @@
 // editor/src/commands/room/duplicate_entities_cmd.rs
-use crate::commands::editor_command_manager::EditorCommand;
 use crate::app::EditorMode;
+use crate::commands::editor_command_manager::EditorCommand;
 use crate::with_editor;
-use std::collections::{HashMap, HashSet};
 use engine_core::prelude::*;
+use std::collections::{HashMap, HashSet};
 
 /// Undo-able command for duplicating selected entities.
 #[derive(Debug)]
@@ -83,7 +83,10 @@ impl EditorCommand for DuplicateEntitiesCmd {
             map.insert(snapshot.entity, new_id);
         }
         self.id_map = Some(map.clone());
-        self.root_entities = root_old_ids.iter().filter_map(|old| map.get(old).copied()).collect();
+        self.root_entities = root_old_ids
+            .iter()
+            .filter_map(|old| map.get(old).copied())
+            .collect();
 
         with_editor(|editor| {
             let ctx = &mut editor.game.ctx_mut();

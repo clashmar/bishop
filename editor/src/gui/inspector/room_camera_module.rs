@@ -1,7 +1,7 @@
 // editor/src/gui/inspector/camera_module.rs
+use bishop::prelude::*;
 use engine_core::prelude::*;
 use strum::IntoEnumIterator;
-use bishop::prelude::*;
 
 pub const ROOM_CAMERA_MODULE_TITLE: &str = "Room Camera";
 
@@ -66,7 +66,13 @@ impl InspectorModule for RoomCameraModule {
         // Layout dropdown now but draw at the end
         let mode_label = "Zoom Mode: ";
         let label_width = measure_text(ctx, mode_label, FIELD_TEXT_SIZE_16).width;
-        ctx.draw_text(mode_label, rect.x, y + 20.0, FIELD_TEXT_SIZE_16, FIELD_TEXT_COLOR);
+        ctx.draw_text(
+            mode_label,
+            rect.x,
+            y + 20.0,
+            FIELD_TEXT_SIZE_16,
+            FIELD_TEXT_COLOR,
+        );
 
         let mode_rect = Rect::new(
             rect.x + label_width + WIDGET_SPACING,
@@ -76,25 +82,20 @@ impl InspectorModule for RoomCameraModule {
         );
         let current_mode = cam.zoom_mode;
         let current_label = format!("{current_mode}");
-        let zoom_options: Vec<ZoomMode> = ZoomMode::iter()
-            .collect();
+        let zoom_options: Vec<ZoomMode> = ZoomMode::iter().collect();
 
         y = zoom_section_y(y, cam.zoom_mode);
 
         match cam.zoom_mode {
             ZoomMode::Step => {
                 // Fields to change the global virtual screen dimensions
-                let scale_rect = Rect::new(
-                    rect.x,
-                    y,
-                    rect.w,
-                    STEP_SECTION_HEIGHT,
-                );
+                let scale_rect = Rect::new(rect.x, y, rect.w, STEP_SECTION_HEIGHT);
 
                 const STEPS: &[f32; 5] = &[0.5_f32, 1.0, 2.0, 3.0, 4.0];
 
                 let current_scalar = 2.0 / (cam.zoom.x * world_virtual_width(grid_size));
-                let new_scalar = gui_stepper(ctx, scale_rect, "Scale", STEPS, current_scalar, blocked);
+                let new_scalar =
+                    gui_stepper(ctx, scale_rect, "Scale", STEPS, current_scalar, blocked);
 
                 if !blocked && (new_scalar - current_scalar).abs() > f32::EPSILON {
                     let width = world_virtual_width(grid_size) * new_scalar;
@@ -105,20 +106,9 @@ impl InspectorModule for RoomCameraModule {
             }
             ZoomMode::Free => {
                 // Editable numeric field and slider for zoom
-                let zoom_rect = Rect::new(
-                    rect.x,
-                    y,
-                    rect.w,
-                    FREE_SECTION_HEIGHT,
-                );
+                let zoom_rect = Rect::new(rect.x, y, rect.w, FREE_SECTION_HEIGHT);
 
-                self.draw_freeform_mode(
-                    ctx,
-                    zoom_rect,
-                    cam,
-                    blocked,
-                    grid_size,
-                );
+                self.draw_freeform_mode(ctx, zoom_rect, cam, blocked, grid_size);
             }
         }
 
@@ -159,7 +149,10 @@ impl InspectorModule for RoomCameraModule {
             &current_cam_label,
             &cam_mode_options,
             |mode| mode.ui_label(),
-        ).blocked(blocked).show(ctx) {
+        )
+        .blocked(blocked)
+        .show(ctx)
+        {
             if new_cam_mode != current_cam_mode {
                 cam.camera_mode = new_cam_mode;
             }
@@ -171,7 +164,10 @@ impl InspectorModule for RoomCameraModule {
             &current_label,
             &zoom_options,
             |mode| mode.ui_label(),
-        ).blocked(blocked).show(ctx) {
+        )
+        .blocked(blocked)
+        .show(ctx)
+        {
             if new_mode != current_mode {
                 cam.zoom_mode = new_mode;
                 self.current_zoom_mode = new_mode;
@@ -365,7 +361,10 @@ mod tests {
 
         assert_eq!(
             camera_mode_y(zoom_section_y(0.0, ZoomMode::Step), ZoomMode::Step),
-            MODE_ROW_HEIGHT + ROOM_CAMERA_VISUAL_GAP + stepper_visual_height() + ROOM_CAMERA_VISUAL_GAP
+            MODE_ROW_HEIGHT
+                + ROOM_CAMERA_VISUAL_GAP
+                + stepper_visual_height()
+                + ROOM_CAMERA_VISUAL_GAP
         );
     }
 }

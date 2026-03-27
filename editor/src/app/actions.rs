@@ -1,23 +1,23 @@
 // editor/src/editor/actions.rs
-use crate::gui::inspector::audio_source_module::clear_active_audio_preview;
-use crate::world::world_editor::WorldEditor;
-use crate::game::game_editor::GameEditor;
-use crate::room::room_editor::RoomEditor;
-use crate::storage::export::export_game;
-use crate::app::EditorCameraController;
-use crate::storage::editor_storage::*;
-use crate::commands::world::*;
-use crate::commands::game::*;
-use crate::menu::MenuEditor;
-use crate::gui::menu_bar::*;
-use crate::editor_global::*;
-use crate::gui::prompts::*;
-use crate::gui::panels::*;
-use crate::gui::modal::*;
 use crate::app::Editor;
+use crate::app::EditorCameraController;
 use crate::app::*;
-use engine_core::prelude::*;
+use crate::commands::game::*;
+use crate::commands::world::*;
+use crate::editor_global::*;
+use crate::game::game_editor::GameEditor;
+use crate::gui::inspector::audio_source_module::clear_active_audio_preview;
+use crate::gui::menu_bar::*;
+use crate::gui::modal::*;
+use crate::gui::panels::*;
+use crate::gui::prompts::*;
+use crate::menu::MenuEditor;
+use crate::room::room_editor::RoomEditor;
+use crate::storage::editor_storage::*;
+use crate::storage::export::export_game;
+use crate::world::world_editor::WorldEditor;
 use bishop::prelude::*;
+use engine_core::prelude::*;
 use std::cell::RefCell;
 
 impl Default for Editor {
@@ -197,7 +197,8 @@ impl Editor {
 
                     match return_mode {
                         EditorMode::Game => {
-                            self.game_editor.init_camera(ctx, &mut self.camera, &mut self.game);
+                            self.game_editor
+                                .init_camera(ctx, &mut self.camera, &mut self.game);
                         }
                         EditorMode::World(id) => {
                             self.world_editor.init_camera(
@@ -210,10 +211,10 @@ impl Editor {
                             let current_world = self.game.current_world();
                             if let Some(room) = current_world.get_room(id) {
                                 EditorCameraController::reset_room_editor_camera(
-                                    ctx, 
-                                    &mut self.camera, 
-                                    room, 
-                                    current_world.grid_size
+                                    ctx,
+                                    &mut self.camera,
+                                    room,
+                                    current_world.grid_size,
                                 );
                             }
                         }
@@ -349,12 +350,8 @@ impl Editor {
         let world_id = world.id;
         let grid_size = world.grid_size;
 
-        let mut prompt = WorldSettingsPrompt::new(
-            world_id,
-            self.modal.rect,
-            WidgetId::default(),
-            grid_size,
-        );
+        let mut prompt =
+            WorldSettingsPrompt::new(world_id, self.modal.rect, WidgetId::default(), grid_size);
 
         let widgets: Vec<BoxedWidget> = vec![Box::new(move |ctx, _| {
             if let Some(result) = prompt.draw(ctx) {
@@ -522,10 +519,12 @@ impl Editor {
                 ScriptManager::init_manager(&mut game, lua).await;
                 game
             })
-        }).await;
+        })
+        .await;
 
         game.init_text_manager();
-        self.game_editor.init_camera(ctx, &mut self.camera, &mut game);
+        self.game_editor
+            .init_camera(ctx, &mut self.camera, &mut game);
 
         game
     }

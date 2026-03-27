@@ -100,7 +100,6 @@ local Player = {
         if engine.input.pressed(input.Enter) then
             engine.audio.play_music(primary_music_track, {
                 looping = true,
-                fade_out = 0.0,
             })
         end
 
@@ -108,6 +107,8 @@ local Player = {
             engine.audio.play_music(secondary_music_track, {
                 looping = true,
                 fade_out = 6.0,
+                gap = 5.0,
+                fade_in = 5.0,
             })
         end
 

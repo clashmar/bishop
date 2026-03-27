@@ -1,7 +1,7 @@
 // game/src/input/input_snapshot.rs
+use bishop::prelude::*;
 use engine_core::input::input_table::*;
 use std::collections::HashMap;
-use bishop::prelude::*;
 
 #[derive(Clone, Default)]
 pub struct InputSnapshot {
@@ -30,8 +30,10 @@ impl InputSnapshot {
         // Mouse
         for &(name, button) in MOUSE_TABLE {
             self.down.insert(name, ctx.is_mouse_button_down(button));
-            self.pressed.insert(name, ctx.is_mouse_button_pressed(button));
-            self.released.insert(name, ctx.is_mouse_button_released(button));
+            self.pressed
+                .insert(name, ctx.is_mouse_button_pressed(button));
+            self.released
+                .insert(name, ctx.is_mouse_button_released(button));
         }
     }
 }

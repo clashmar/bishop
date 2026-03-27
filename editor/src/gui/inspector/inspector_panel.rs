@@ -1,14 +1,14 @@
 // editor/src/gui/inspector/inspector_panel.rs
-use crate::gui::inspector::audio_source_module::clear_active_audio_preview;
-use crate::gui::inspector::room_camera_module::ROOM_CAMERA_MODULE_TITLE;
-use crate::gui::panels::panel_manager::is_mouse_over_panel;
-use crate::gui::inspector::player_module::PlayerModule;
-use crate::editor_global::push_command;
-use crate::gui::menu_bar::menu_button;
 use crate::commands::room::*;
+use crate::editor_global::push_command;
 use crate::gui::gui_constants::*;
-use engine_core::prelude::*;
+use crate::gui::inspector::audio_source_module::clear_active_audio_preview;
+use crate::gui::inspector::player_module::PlayerModule;
+use crate::gui::inspector::room_camera_module::ROOM_CAMERA_MODULE_TITLE;
+use crate::gui::menu_bar::menu_button;
+use crate::gui::panels::panel_manager::is_mouse_over_panel;
 use bishop::prelude::*;
+use engine_core::prelude::*;
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter, Result as FmtResult};
 
@@ -60,8 +60,7 @@ fn component_target(ecs: &Ecs, entity: Entity) -> Entity {
 
 /// Returns true if this module should use the proxy entity directly.
 fn is_proxy_local_module(module_title: &str) -> bool {
-    module_title == comp_type_name::<Transform>()
-        || module_title == "PlayerModule"
+    module_title == comp_type_name::<Transform>() || module_title == "PlayerModule"
 }
 
 /// The panel that lives on the right‑hand side of the room editor.
@@ -153,11 +152,7 @@ impl InspectorPanel {
 
     /// Render the panel and any visible sub‑modules.
     /// Returns true if 'Create' was pressed.
-    pub fn draw(
-        &mut self,
-        ctx: &mut WgpuContext,
-        game_ctx: &mut GameCtxMut
-    ) -> bool {
+    pub fn draw(&mut self, ctx: &mut WgpuContext, game_ctx: &mut GameCtxMut) -> bool {
         self.active_rects.clear();
 
         const BTN_MARGIN: f32 = 10.0;
@@ -232,7 +227,8 @@ impl InspectorPanel {
                     let h = module.height();
 
                     if area.is_visible(y, h) {
-                        let sub_rect = Rect::new(content_rect.x + INSET, y, content_rect.w - INSET * 2.0, h);
+                        let sub_rect =
+                            Rect::new(content_rect.x + INSET, y, content_rect.w - INSET * 2.0, h);
 
                         let pre_snapshot = module.undo_component_type().and_then(|type_name| {
                             let reg = COMPONENTS.iter().find(|r| r.type_name == type_name)?;
@@ -260,13 +256,17 @@ impl InspectorPanel {
                                     ron,
                                 )));
                             }
-                        } else if let Some((type_name, pre_ron, pre_transient_state)) = pre_snapshot {
-                            if let Some(reg) = COMPONENTS.iter().find(|r| r.type_name == type_name) {
+                        } else if let Some((type_name, pre_ron, pre_transient_state)) = pre_snapshot
+                        {
+                            if let Some(reg) = COMPONENTS.iter().find(|r| r.type_name == type_name)
+                            {
                                 if (reg.has)(&game_ctx.ecs, module_entity) {
                                     let boxed = (reg.clone)(&game_ctx.ecs, module_entity);
                                     let post_ron = (reg.to_ron_component)(boxed.as_ref());
-                                    let post_transient_state =
-                                        capture_component_transient_state(type_name, boxed.as_ref());
+                                    let post_transient_state = capture_component_transient_state(
+                                        type_name,
+                                        boxed.as_ref(),
+                                    );
                                     if pre_ron != post_ron {
                                         comp_changes.push(ComponentChange {
                                             entity: module_entity,
@@ -288,7 +288,8 @@ impl InspectorPanel {
 
             // Merge frame changes into component_edits tracking state.
             for change in comp_changes {
-                let state = self.component_edits
+                let state = self
+                    .component_edits
                     .entry((change.entity, change.type_name))
                     .or_insert_with(|| ComponentEditState {
                         old_ron: change.old_ron,
@@ -303,7 +304,8 @@ impl InspectorPanel {
             }
 
             // Flush completed edits (no change this frame) as undo commands.
-            let completed: Vec<ComponentChange> = self.component_edits
+            let completed: Vec<ComponentChange> = self
+                .component_edits
                 .iter_mut()
                 .filter_map(|(&(entity, type_name), state)| {
                     if !state.changed_this_frame {
@@ -323,7 +325,8 @@ impl InspectorPanel {
                 .collect();
 
             for change in completed {
-                self.component_edits.remove(&(change.entity, change.type_name));
+                self.component_edits
+                    .remove(&(change.entity, change.type_name));
                 push_command(Box::new(UpdateComponentCmd::new(
                     change.entity,
                     room_id,
@@ -355,17 +358,17 @@ impl InspectorPanel {
             .show(ctx)
             {
                 let target = component_target(game_ctx.ecs, entity);
-                if COMPONENTS.iter().any(|r| r.type_name == component.type_name) {
+                if COMPONENTS
+                    .iter()
+                    .any(|r| r.type_name == component.type_name)
+                {
                     push_command(Box::new(AddComponentCmd::new(
                         target,
                         room_id,
                         component.type_name,
                     )));
                 } else {
-                    onscreen_error!(
-                        "Component `{}` not found in registry",
-                        component.type_name,
-                    );
+                    onscreen_error!("Component `{}` not found in registry", component.type_name,);
                 }
             }
 
@@ -378,7 +381,9 @@ impl InspectorPanel {
                     BTN_HEIGHT,
                 ));
 
-                if menu_button(ctx, remove_rect, remove_label, false) || Controls::delete(ctx) && !input_is_focused() {
+                if menu_button(ctx, remove_rect, remove_label, false)
+                    || Controls::delete(ctx) && !input_is_focused()
+                {
                     let room_id = game_ctx.cur_world.current_room_id.unwrap_or_default();
                     let command = DeleteEntityCmd {
                         entity,
@@ -496,7 +501,7 @@ impl InspectorPanel {
     pub fn is_mouse_over(&self, ctx: &WgpuContext) -> bool {
         let mouse_screen: Vec2 = ctx.mouse_position().into();
         self.active_rects.iter().any(|r| r.contains(mouse_screen))
-        || (self.rect.contains(mouse_screen) && self.target.is_some())
+            || (self.rect.contains(mouse_screen) && self.target.is_some())
     }
 
     fn total_content_height(&self, ecs: &Ecs, entity: Entity) -> f32 {
@@ -521,11 +526,7 @@ impl InspectorPanel {
 }
 
 /// Utility function used by both the panel and the menu
-fn entity_has_component(
-    ecs: &Ecs,
-    entity: Entity,
-    reg: &ComponentRegistry,
-) -> bool {
+fn entity_has_component(ecs: &Ecs, entity: Entity, reg: &ComponentRegistry) -> bool {
     (reg.has)(ecs, entity)
 }
 

@@ -45,18 +45,18 @@ impl<'a> FieldInfo<'a> {
 
 impl ReflectField for String {
     fn field_info<'a>(field: &'a mut Self, name: &'static str) -> FieldInfo<'a> {
-        FieldInfo { 
-            name, 
+        FieldInfo {
+            name,
             value: FieldValue::Text(field),
-            widget_hint: None, 
+            widget_hint: None,
         }
     }
 }
 
 impl ReflectField for f32 {
     fn field_info<'a>(field: &'a mut Self, name: &'static str) -> FieldInfo<'a> {
-        FieldInfo { 
-            name, 
+        FieldInfo {
+            name,
             value: FieldValue::Float(field),
             widget_hint: None,
         }
@@ -65,40 +65,40 @@ impl ReflectField for f32 {
 
 impl ReflectField for i32 {
     fn field_info<'a>(field: &'a mut Self, name: &'static str) -> FieldInfo<'a> {
-        FieldInfo { 
-            name, 
+        FieldInfo {
+            name,
             value: FieldValue::Int(field),
-            widget_hint: None, 
+            widget_hint: None,
         }
     }
 }
 
 impl ReflectField for bool {
     fn field_info<'a>(field: &'a mut Self, name: &'static str) -> FieldInfo<'a> {
-        FieldInfo { 
-            name, 
+        FieldInfo {
+            name,
             value: FieldValue::Bool(field),
-            widget_hint: None 
+            widget_hint: None,
         }
     }
 }
 
 impl ReflectField for Vec2 {
     fn field_info<'a>(field: &'a mut Self, name: &'static str) -> FieldInfo<'a> {
-        FieldInfo { 
-            name, 
+        FieldInfo {
+            name,
             value: FieldValue::Vec2(field),
-            widget_hint: None, 
+            widget_hint: None,
         }
     }
 }
 
 impl ReflectField for Vec3 {
     fn field_info<'a>(field: &'a mut Self, name: &'static str) -> FieldInfo<'a> {
-        FieldInfo { 
-            name, 
+        FieldInfo {
+            name,
             value: FieldValue::Vec3(field),
-            widget_hint: None, 
+            widget_hint: None,
         }
     }
 }
@@ -158,8 +158,8 @@ pub fn parse_field_name(name: &str) -> Cow<'_, str> {
         let first_char = chars.next().map(|c| c.to_ascii_uppercase());
         let rest: String = chars.collect();
         if let Some(f) = first_char {
-        acc.push(' ');
-           acc.push_str(&format!("{}{}", f, rest));
+            acc.push(' ');
+            acc.push_str(&format!("{}{}", f, rest));
         }
         acc
     });

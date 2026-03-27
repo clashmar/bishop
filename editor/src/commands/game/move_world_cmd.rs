@@ -1,10 +1,10 @@
 // editor/src/commands/game/move_world_cmd.rs
-use crate::commands::editor_command_manager::EditorCommand;
 use crate::app::EditorMode;
+use crate::commands::editor_command_manager::EditorCommand;
 use crate::with_editor;
-use engine_core::worlds::world::WorldId;
-use engine_core::game::Game;
 use bishop::prelude::*;
+use engine_core::game::Game;
+use engine_core::worlds::world::WorldId;
 
 /// Undo-able command for moving a world's position.
 #[derive(Debug)]

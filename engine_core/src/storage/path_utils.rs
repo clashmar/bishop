@@ -1,17 +1,17 @@
 // engine_core/src/storage/path_utils.rs
-use crate::storage::editor_config::*;
-use crate::engine_global::*;
 use crate::constants::*;
+use crate::engine_global::*;
+use crate::storage::editor_config::*;
 use crate::*;
 use futures::executor::block_on;
-use std::io::ErrorKind;
-use std::path::PathBuf;
-use std::path::Path;
 use rfd::FileDialog;
 use std::ffi::OsStr;
-use std::io::Error;
 use std::fs;
 use std::io;
+use std::io::Error;
+use std::io::ErrorKind;
+use std::path::Path;
+use std::path::PathBuf;
 
 /// Path to the folder that belongs to a particular game (Editor).
 pub fn game_folder(name: &str) -> PathBuf {
@@ -32,7 +32,6 @@ pub fn resources_folder(game_name: &str) -> PathBuf {
                 // Panic is acceptable here as there is no possible fallback
                 resources_dir_from_exe().unwrap()
             }
-
         }
     }
 }
@@ -107,7 +106,10 @@ pub fn absolute_save_root() -> PathBuf {
     if let Some(user_path) = get_save_root() {
         // Ensure the folder still exists or recreate it
         if let Err(e) = fs::create_dir_all(&user_path) {
-            onscreen_error!("Could not create user save root '{}': {e}", user_path.display());
+            onscreen_error!(
+                "Could not create user save root '{}': {e}",
+                user_path.display()
+            );
         } else {
             return user_path;
         }
@@ -119,20 +121,16 @@ pub fn absolute_save_root() -> PathBuf {
                     cfg.save_root = None;
                 }
                 Err(poison_err) => {
-                    onscreen_error!(
-                        "Could not lock editor config for writing: {}",
-                        poison_err
-                    );
+                    onscreen_error!("Could not lock editor config for writing: {}", poison_err);
                 }
             }
         }
-        
+
         // Update the .ron
         if let Err(e) = save_config() {
             onscreen_error!("Error saving config: {e}.");
         }
-    }
-    else {
+    } else {
         // Save root needs to be set
         if let Some(path_buf) = block_on(pick_save_root_async()) {
             return path_buf;
@@ -174,7 +172,8 @@ pub fn resources_dir_from_exe() -> Option<PathBuf> {
     #[cfg(target_os = "macos")]
     {
         // …/Bishop.app/Contents/MacOS/
-        return exe_dir.parent() // Contents/
+        return exe_dir
+            .parent() // Contents/
             .map(|p| p.join(RESOURCES_FOLDER)); // Resources/
     }
     // Linux is yet to be implemented
@@ -201,9 +200,7 @@ pub async fn pick_save_root_async() -> Option<PathBuf> {
         .unwrap_or_else(default_save_root);
 
     // Build the full path
-    let save_root = base_folder
-        .join(SAVE_ROOT)
-        .join(GAME_SAVE_ROOT);
+    let save_root = base_folder.join(SAVE_ROOT).join(GAME_SAVE_ROOT);
 
     // Make sure the directory chain exists
     if let Err(e) = fs::create_dir_all(&save_root) {
@@ -217,7 +214,7 @@ pub async fn pick_save_root_async() -> Option<PathBuf> {
     Some(save_root)
 }
 
-/// Pick a new absolute save root and move the existing games 
+/// Pick a new absolute save root and move the existing games
 /// folder there if possible.
 pub async fn change_save_root_async() -> Option<PathBuf> {
     // Let the user choose a new base folder
@@ -227,9 +224,7 @@ pub async fn change_save_root_async() -> Option<PathBuf> {
         .unwrap_or_else(default_save_root);
 
     // Build the full path
-    let new_root = base_folder
-        .join(SAVE_ROOT)
-        .join(GAME_SAVE_ROOT);
+    let new_root = base_folder.join(SAVE_ROOT).join(GAME_SAVE_ROOT);
 
     // Make sure the new folder can be created
     if let Err(e) = fs::create_dir_all(&new_root) {
@@ -238,8 +233,9 @@ pub async fn change_save_root_async() -> Option<PathBuf> {
     }
 
     // Move the old games folder (if it exists) to the new location
-    if let Some(old_root) = get_save_root() 
-    && old_root != new_root {
+    if let Some(old_root) = get_save_root()
+        && old_root != new_root
+    {
         // Try a rename
         match fs::rename(&old_root, &new_root) {
             Ok(_) => {
@@ -251,14 +247,12 @@ pub async fn change_save_root_async() -> Option<PathBuf> {
                 if let Err(copy_err) = copy_dir_recursive(&old_root, &new_root) {
                     // Continue even if copy fails
                     onscreen_error!("Failed to copy old games: {copy_err}.");
-                }
-                else {
+                } else {
                     delete_save_root();
                 }
             }
         }
     }
-    
 
     update_config_root(&new_root)?;
 
@@ -266,12 +260,13 @@ pub async fn change_save_root_async() -> Option<PathBuf> {
     Some(new_root)
 }
 
-/// Deletes SAVE_ROOT if it is the parent of GAME_SAVE_ROOT after a 
+/// Deletes SAVE_ROOT if it is the parent of GAME_SAVE_ROOT after a
 /// successful copy. DO NOT MAKE PUBLIC.
 fn delete_save_root() {
-    if let Some(root) = get_save_root() 
-    && let Some(parent) = root.parent() 
-    && parent.file_name() == Some(OsStr::new(SAVE_ROOT)) {
+    if let Some(root) = get_save_root()
+        && let Some(parent) = root.parent()
+        && parent.file_name() == Some(OsStr::new(SAVE_ROOT))
+    {
         let _ = fs::remove_dir_all(parent);
     }
 }
@@ -319,7 +314,7 @@ pub fn sanitise_name(name: &str) -> String {
         .map(|c| {
             // keep spaces and TODO: decide other special chars
             if c.is_ascii_alphanumeric() || c == ' ' {
-                c 
+                c
             } else {
                 '_'
             }
@@ -354,7 +349,11 @@ pub fn copy_dir_recursive(src: &PathBuf, dest: &PathBuf) -> io::Result<()> {
 }
 
 /// Recursively copy the directory, skipping files with the given extensions.
-pub fn copy_dir_filtered(src: &PathBuf, dest: &PathBuf, skip_extensions: &[&str]) -> io::Result<()> {
+pub fn copy_dir_filtered(
+    src: &PathBuf,
+    dest: &PathBuf,
+    skip_extensions: &[&str],
+) -> io::Result<()> {
     if !src.is_dir() {
         return Err(Error::new(
             ErrorKind::InvalidInput,
@@ -376,7 +375,11 @@ pub fn copy_dir_filtered(src: &PathBuf, dest: &PathBuf, skip_extensions: &[&str]
             let should_skip = src_path
                 .extension()
                 .and_then(|ext| ext.to_str())
-                .map(|ext| skip_extensions.iter().any(|&skip| skip.eq_ignore_ascii_case(ext)))
+                .map(|ext| {
+                    skip_extensions
+                        .iter()
+                        .any(|&skip| skip.eq_ignore_ascii_case(ext))
+                })
                 .unwrap_or(false);
 
             if !should_skip {

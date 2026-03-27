@@ -2,9 +2,9 @@
 use crate::app::SubEditor;
 use crate::room::room_editor::*;
 use crate::world::coord;
-use std::collections::HashSet;
-use engine_core::prelude::*;
 use bishop::prelude::*;
+use engine_core::prelude::*;
+use std::collections::HashSet;
 
 /// Stores the original drag state before switching to copy mode.
 pub(crate) struct PreCopyDragState {
@@ -75,11 +75,11 @@ impl RoomEditor {
         rect
     }
 
-    pub(crate) fn ui_was_clicked(&self, ctx: &mut WgpuContext,) -> bool {
+    pub(crate) fn ui_was_clicked(&self, ctx: &mut WgpuContext) -> bool {
         ctx.is_mouse_button_pressed(MouseButton::Left) && self.should_block_canvas(ctx)
     }
 
-    pub(crate) fn handle_mouse_cursor(&self, ctx: &mut WgpuContext,) {
+    pub(crate) fn handle_mouse_cursor(&self, ctx: &mut WgpuContext) {
         if self.should_block_canvas(ctx) {
             ctx.set_cursor_icon(CursorIcon::Default);
         } else {
@@ -165,11 +165,7 @@ pub fn entity_world_rect(
 }
 
 /// Returns true if an entity can be selected in a room (is in the room).
-pub fn can_select_entity_in_room(
-    ecs: &Ecs,
-    entity: Entity,
-    room_id: RoomId,
-) -> bool {
+pub fn can_select_entity_in_room(ecs: &Ecs, entity: Entity, room_id: RoomId) -> bool {
     // Make sure the entity is in the requested room
     match ecs.get_store::<CurrentRoom>().get(entity) {
         Some(CurrentRoom(id)) => *id == room_id,

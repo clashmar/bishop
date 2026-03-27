@@ -1,6 +1,6 @@
 // editor/src/commands/room/update_component_cmd.rs
-use crate::commands::editor_command_manager::EditorCommand;
 use crate::app::EditorMode;
+use crate::commands::editor_command_manager::EditorCommand;
 use crate::with_editor;
 use engine_core::prelude::*;
 use std::any::Any;
@@ -139,30 +139,22 @@ mod tests {
     fn audio_source_transient_state_restores_selected_group() {
         let selected_group = SoundGroupId::Custom("Jump".to_string());
         let mut source = AudioSource::default();
-        source.groups.insert(
-            selected_group.clone(),
-            AudioGroup::default(),
-        );
+        source
+            .groups
+            .insert(selected_group.clone(), AudioGroup::default());
         source.groups.insert(
             SoundGroupId::Custom("DoubleJump".to_string()),
             AudioGroup::default(),
         );
         source.current = Some(selected_group.clone());
 
-        let snapshot = capture_component_transient_state(
-            AudioSource::TYPE_NAME,
-            &source,
-        );
+        let snapshot = capture_component_transient_state(AudioSource::TYPE_NAME, &source);
 
         let mut restored = AudioSource::default();
         restored.groups = source.groups.clone();
         restored.current = None;
 
-        restore_component_transient_state(
-            AudioSource::TYPE_NAME,
-            &mut restored,
-            &snapshot,
-        );
+        restore_component_transient_state(AudioSource::TYPE_NAME, &mut restored, &snapshot);
 
         assert_eq!(restored.current, Some(selected_group));
     }
@@ -176,10 +168,7 @@ mod tests {
         );
         source.current = Some(SoundGroupId::Custom("Jump".to_string()));
 
-        let snapshot = capture_component_transient_state(
-            AudioSource::TYPE_NAME,
-            &source,
-        );
+        let snapshot = capture_component_transient_state(AudioSource::TYPE_NAME, &source);
 
         let mut restored = AudioSource::default();
         restored.groups.insert(
@@ -187,11 +176,7 @@ mod tests {
             AudioGroup::default(),
         );
 
-        restore_component_transient_state(
-            AudioSource::TYPE_NAME,
-            &mut restored,
-            &snapshot,
-        );
+        restore_component_transient_state(AudioSource::TYPE_NAME, &mut restored, &snapshot);
 
         assert_eq!(restored.current, None);
     }

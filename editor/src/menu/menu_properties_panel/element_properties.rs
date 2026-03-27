@@ -1,8 +1,8 @@
 // editor/src/menu_editor/menu_properties_panel/element_properties.rs
+use super::{common_properties::row_visible, FIELD_HEIGHT, LABEL_WIDTH, ROW_HEIGHT};
 use crate::menu::MenuEditor;
-use super::{ROW_HEIGHT, LABEL_WIDTH, FIELD_HEIGHT, common_properties::row_visible};
-use engine_core::prelude::*;
 use bishop::prelude::*;
+use engine_core::prelude::*;
 
 impl MenuEditor {
     pub(super) fn draw_label_properties(
@@ -15,8 +15,12 @@ impl MenuEditor {
         clip: &Rect,
     ) {
         let (current_text_key, current_font_size, current_alignment) = {
-            let Some(element) = self.selected_element() else { return };
-            let MenuElementKind::Label(label) = &element.kind else { return };
+            let Some(element) = self.selected_element() else {
+                return;
+            };
+            let MenuElementKind::Label(label) = &element.kind else {
+                return;
+            };
             (label.text_key.clone(), label.font_size, label.alignment)
         };
 
@@ -28,7 +32,7 @@ impl MenuEditor {
             let (new_text_key, _) = TextInput::new(
                 self.properties_panel.widget_ids.text_id,
                 field_rect,
-                &current_text_key
+                &current_text_key,
             )
             .blocked(blocked)
             .show(ctx);
@@ -52,7 +56,7 @@ impl MenuEditor {
             let new_font_size = NumberInput::new(
                 self.properties_panel.widget_ids.font_size_id,
                 field_rect,
-                current_font_size
+                current_font_size,
             )
             .blocked(blocked)
             .min(8.0)
@@ -116,8 +120,12 @@ impl MenuEditor {
         clip: &Rect,
     ) {
         let (current_text_key, current_font_size, current_action) = {
-            let Some(element) = self.selected_element() else { return };
-            let MenuElementKind::Button(button) = &element.kind else { return };
+            let Some(element) = self.selected_element() else {
+                return;
+            };
+            let MenuElementKind::Button(button) = &element.kind else {
+                return;
+            };
             (
                 button.text_key.clone(),
                 button.font_size,
@@ -134,7 +142,7 @@ impl MenuEditor {
             let (new_text_key, _) = TextInput::new(
                 self.properties_panel.widget_ids.text_id,
                 field_rect,
-                &current_text_key
+                &current_text_key,
             )
             .blocked(blocked)
             .show(ctx);
@@ -153,7 +161,11 @@ impl MenuEditor {
         if row_visible(*y, ROW_HEIGHT, clip) {
             ctx.draw_text("Font Size:", x, *y + 16.0, 12.0, Color::WHITE);
             let field_rect = Rect::new(x + LABEL_WIDTH, *y, 60.0, FIELD_HEIGHT);
-            let new_font_size = NumberInput::new(self.properties_panel.widget_ids.font_size_id, field_rect, current_font_size)
+            let new_font_size = NumberInput::new(
+                self.properties_panel.widget_ids.font_size_id,
+                field_rect,
+                current_font_size,
+            )
             .blocked(blocked)
             .min(8.0)
             .max(72.0)
@@ -193,7 +205,8 @@ impl MenuEditor {
             .fixed_width()
             .show(ctx)
             {
-                if let Some(new_action) = action_variants.into_iter()
+                if let Some(new_action) = action_variants
+                    .into_iter()
                     .find(|a| a.ui_label() == selected)
                 {
                     self.push_element_update(|el| {
@@ -207,7 +220,10 @@ impl MenuEditor {
         *y += ROW_HEIGHT;
 
         // Action parameter (for OpenMenu/Custom)
-        let needs_param = matches!(current_action, MenuAction::OpenMenu(_) | MenuAction::Custom(_));
+        let needs_param = matches!(
+            current_action,
+            MenuAction::OpenMenu(_) | MenuAction::Custom(_)
+        );
         if needs_param {
             if row_visible(*y, ROW_HEIGHT, clip) {
                 let param_value = match &current_action {
@@ -217,9 +233,13 @@ impl MenuEditor {
 
                 ctx.draw_text("Param:", x, *y + 16.0, 12.0, Color::WHITE);
                 let field_rect = Rect::new(x + LABEL_WIDTH, *y, w - LABEL_WIDTH, FIELD_HEIGHT);
-                let (new_param, _) = TextInput::new(self.properties_panel.widget_ids.action_param_id, field_rect, &param_value)
-                    .blocked(blocked)
-                    .show(ctx);
+                let (new_param, _) = TextInput::new(
+                    self.properties_panel.widget_ids.action_param_id,
+                    field_rect,
+                    &param_value,
+                )
+                .blocked(blocked)
+                .show(ctx);
 
                 if new_param != param_value {
                     self.push_element_update(|el| {
@@ -246,15 +266,7 @@ impl MenuEditor {
 
             let nav_ids = self.properties_panel.widget_ids.button_nav_ids;
 
-            self.draw_nav_section::<ButtonElement>(
-                ctx,
-                y,
-                x,
-                w,
-                blocked,
-                clip,
-                &nav_ids,
-            );
+            self.draw_nav_section::<ButtonElement>(ctx, y, x, w, blocked, clip, &nav_ids);
         }
     }
 
@@ -268,19 +280,38 @@ impl MenuEditor {
         clip: &Rect,
     ) {
         let (text_key, key, min, max, step, default_value) = {
-            let Some(element) = self.selected_element() else { return };
-            let MenuElementKind::Slider(slider) = &element.kind else { return };
-            (slider.text_key.clone(), slider.key.clone(), slider.min, slider.max, slider.step, slider.default_value)
+            let Some(element) = self.selected_element() else {
+                return;
+            };
+            let MenuElementKind::Slider(slider) = &element.kind else {
+                return;
+            };
+            (
+                slider.text_key.clone(),
+                slider.key.clone(),
+                slider.min,
+                slider.max,
+                slider.step,
+                slider.default_value,
+            )
         };
 
         // Text key
         if row_visible(*y, ROW_HEIGHT, clip) {
             ctx.draw_text("Label:", x, *y + 16.0, 12.0, Color::WHITE);
             let field_rect = Rect::new(x + LABEL_WIDTH, *y, w - LABEL_WIDTH, FIELD_HEIGHT);
-            let (new_val, _) = TextInput::new(self.properties_panel.widget_ids.slider_text_id, field_rect, &text_key).blocked(blocked).show(ctx);
+            let (new_val, _) = TextInput::new(
+                self.properties_panel.widget_ids.slider_text_id,
+                field_rect,
+                &text_key,
+            )
+            .blocked(blocked)
+            .show(ctx);
             if new_val != text_key {
                 self.push_element_update(|el| {
-                    if let MenuElementKind::Slider(s) = &mut el.kind { s.text_key = new_val; }
+                    if let MenuElementKind::Slider(s) = &mut el.kind {
+                        s.text_key = new_val;
+                    }
                 });
             }
         }
@@ -290,10 +321,18 @@ impl MenuEditor {
         if row_visible(*y, ROW_HEIGHT, clip) {
             ctx.draw_text("Key:", x, *y + 16.0, 12.0, Color::WHITE);
             let field_rect = Rect::new(x + LABEL_WIDTH, *y, w - LABEL_WIDTH, FIELD_HEIGHT);
-            let (new_val, _) = TextInput::new(self.properties_panel.widget_ids.slider_key_id, field_rect, &key).blocked(blocked).show(ctx);
+            let (new_val, _) = TextInput::new(
+                self.properties_panel.widget_ids.slider_key_id,
+                field_rect,
+                &key,
+            )
+            .blocked(blocked)
+            .show(ctx);
             if new_val != key {
                 self.push_element_update(|el| {
-                    if let MenuElementKind::Slider(s) = &mut el.kind { s.key = new_val; }
+                    if let MenuElementKind::Slider(s) = &mut el.kind {
+                        s.key = new_val;
+                    }
                 });
             }
         }
@@ -303,10 +342,18 @@ impl MenuEditor {
         if row_visible(*y, ROW_HEIGHT, clip) {
             ctx.draw_text("Min:", x, *y + 16.0, 12.0, Color::WHITE);
             let field_rect = Rect::new(x + LABEL_WIDTH, *y, 80.0, FIELD_HEIGHT);
-            let new_val = NumberInput::new(self.properties_panel.widget_ids.slider_min_id, field_rect, min).blocked(blocked).show(ctx);
+            let new_val = NumberInput::new(
+                self.properties_panel.widget_ids.slider_min_id,
+                field_rect,
+                min,
+            )
+            .blocked(blocked)
+            .show(ctx);
             if (new_val - min).abs() > f32::EPSILON {
                 self.push_element_update(|el| {
-                    if let MenuElementKind::Slider(s) = &mut el.kind { s.min = new_val; }
+                    if let MenuElementKind::Slider(s) = &mut el.kind {
+                        s.min = new_val;
+                    }
                 });
             }
         }
@@ -316,10 +363,18 @@ impl MenuEditor {
         if row_visible(*y, ROW_HEIGHT, clip) {
             ctx.draw_text("Max:", x, *y + 16.0, 12.0, Color::WHITE);
             let field_rect = Rect::new(x + LABEL_WIDTH, *y, 80.0, FIELD_HEIGHT);
-            let new_val = NumberInput::new(self.properties_panel.widget_ids.slider_max_id, field_rect, max).blocked(blocked).show(ctx);
+            let new_val = NumberInput::new(
+                self.properties_panel.widget_ids.slider_max_id,
+                field_rect,
+                max,
+            )
+            .blocked(blocked)
+            .show(ctx);
             if (new_val - max).abs() > f32::EPSILON {
                 self.push_element_update(|el| {
-                    if let MenuElementKind::Slider(s) = &mut el.kind { s.max = new_val; }
+                    if let MenuElementKind::Slider(s) = &mut el.kind {
+                        s.max = new_val;
+                    }
                 });
             }
         }
@@ -329,10 +384,19 @@ impl MenuEditor {
         if row_visible(*y, ROW_HEIGHT, clip) {
             ctx.draw_text("Step:", x, *y + 16.0, 12.0, Color::WHITE);
             let field_rect = Rect::new(x + LABEL_WIDTH, *y, 80.0, FIELD_HEIGHT);
-            let new_val = NumberInput::new(self.properties_panel.widget_ids.slider_step_id, field_rect, step).blocked(blocked).min(0.001).show(ctx);
+            let new_val = NumberInput::new(
+                self.properties_panel.widget_ids.slider_step_id,
+                field_rect,
+                step,
+            )
+            .blocked(blocked)
+            .min(0.001)
+            .show(ctx);
             if (new_val - step).abs() > f32::EPSILON {
                 self.push_element_update(|el| {
-                    if let MenuElementKind::Slider(s) = &mut el.kind { s.step = new_val; }
+                    if let MenuElementKind::Slider(s) = &mut el.kind {
+                        s.step = new_val;
+                    }
                 });
             }
         }
@@ -342,10 +406,18 @@ impl MenuEditor {
         if row_visible(*y, ROW_HEIGHT, clip) {
             ctx.draw_text("Default:", x, *y + 16.0, 12.0, Color::WHITE);
             let field_rect = Rect::new(x + LABEL_WIDTH, *y, 80.0, FIELD_HEIGHT);
-            let new_val = NumberInput::new(self.properties_panel.widget_ids.slider_default_id, field_rect, default_value).blocked(blocked).show(ctx);
+            let new_val = NumberInput::new(
+                self.properties_panel.widget_ids.slider_default_id,
+                field_rect,
+                default_value,
+            )
+            .blocked(blocked)
+            .show(ctx);
             if (new_val - default_value).abs() > f32::EPSILON {
                 self.push_element_update(|el| {
-                    if let MenuElementKind::Slider(s) = &mut el.kind { s.default_value = new_val; }
+                    if let MenuElementKind::Slider(s) = &mut el.kind {
+                        s.default_value = new_val;
+                    }
                 });
             }
         }
@@ -362,8 +434,12 @@ impl MenuEditor {
         clip: &Rect,
     ) {
         let (current_color, current_opacity) = {
-            let Some(element) = self.selected_element() else { return };
-            let MenuElementKind::Panel(panel) = &element.kind else { return };
+            let Some(element) = self.selected_element() else {
+                return;
+            };
+            let MenuElementKind::Panel(panel) = &element.kind else {
+                return;
+            };
             let PanelFill::SolidColor(color) = panel.background.fill;
             (color, panel.background.opacity)
         };

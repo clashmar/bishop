@@ -1,6 +1,6 @@
 // game/src/scripting/commands/text_commands.rs
-use crate::scripting::commands::lua_command::LuaCommand;
 use crate::engine::Engine;
+use crate::scripting::commands::lua_command::LuaCommand;
 use engine_core::prelude::*;
 
 /// Command to show a speech bubble on an entity.
@@ -29,10 +29,15 @@ impl LuaCommand for ShowSpeechCmd {
             font_size: self.font_size,
             max_width: self.max_width,
             show_background: self.show_background.unwrap_or(config.show_background),
-            background_color: self.background_color.unwrap_or(config.default_background_color),
+            background_color: self
+                .background_color
+                .unwrap_or(config.default_background_color),
         };
 
-        game_instance.game.ecs.add_component_to_entity(self.entity, bubble);
+        game_instance
+            .game
+            .ecs
+            .add_component_to_entity(self.entity, bubble);
     }
 }
 

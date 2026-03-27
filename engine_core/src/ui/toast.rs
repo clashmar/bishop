@@ -1,6 +1,6 @@
 // engine_core/src/ui/toast.rs
-use crate::ui::widgets::*;
 use crate::ui::text::*;
+use crate::ui::widgets::*;
 use std::time::Instant;
 
 const PADDING: f32 = 20.0;
@@ -102,18 +102,42 @@ mod tests {
     }
 
     impl Input for TestContext {
-        fn is_key_down(&self, _key: KeyCode) -> bool { false }
-        fn is_key_pressed(&self, _key: KeyCode) -> bool { false }
-        fn is_key_released(&self, _key: KeyCode) -> bool { false }
-        fn any_key_pressed(&self) -> bool { false }
-        fn is_mouse_button_down(&self, _button: MouseButton) -> bool { false }
-        fn is_mouse_button_pressed(&self, _button: MouseButton) -> bool { false }
-        fn is_mouse_button_released(&self, _button: MouseButton) -> bool { false }
-        fn mouse_position(&self) -> (f32, f32) { (0.0, 0.0) }
-        fn mouse_delta_position(&self) -> (f32, f32) { (0.0, 0.0) }
-        fn mouse_wheel(&self) -> (f32, f32) { (0.0, 0.0) }
-        fn chars_pressed(&self) -> Vec<char> { Vec::new() }
-        fn get_time(&self) -> f64 { 0.0 }
+        fn is_key_down(&self, _key: KeyCode) -> bool {
+            false
+        }
+        fn is_key_pressed(&self, _key: KeyCode) -> bool {
+            false
+        }
+        fn is_key_released(&self, _key: KeyCode) -> bool {
+            false
+        }
+        fn any_key_pressed(&self) -> bool {
+            false
+        }
+        fn is_mouse_button_down(&self, _button: MouseButton) -> bool {
+            false
+        }
+        fn is_mouse_button_pressed(&self, _button: MouseButton) -> bool {
+            false
+        }
+        fn is_mouse_button_released(&self, _button: MouseButton) -> bool {
+            false
+        }
+        fn mouse_position(&self) -> (f32, f32) {
+            (0.0, 0.0)
+        }
+        fn mouse_delta_position(&self) -> (f32, f32) {
+            (0.0, 0.0)
+        }
+        fn mouse_wheel(&self) -> (f32, f32) {
+            (0.0, 0.0)
+        }
+        fn chars_pressed(&self) -> Vec<char> {
+            Vec::new()
+        }
+        fn get_time(&self) -> f64 {
+            0.0
+        }
     }
 
     impl Draw for TestContext {
@@ -121,13 +145,39 @@ mod tests {
             self.rect_calls.push(Rect::new(x, y, w, h));
         }
 
-        fn draw_rectangle_lines(&mut self, _x: f32, _y: f32, _w: f32, _h: f32, _thickness: f32, _color: Color) {}
+        fn draw_rectangle_lines(
+            &mut self,
+            _x: f32,
+            _y: f32,
+            _w: f32,
+            _h: f32,
+            _thickness: f32,
+            _color: Color,
+        ) {
+        }
 
-        fn draw_line(&mut self, _x1: f32, _y1: f32, _x2: f32, _y2: f32, _thickness: f32, _color: Color) {}
+        fn draw_line(
+            &mut self,
+            _x1: f32,
+            _y1: f32,
+            _x2: f32,
+            _y2: f32,
+            _thickness: f32,
+            _color: Color,
+        ) {
+        }
 
         fn draw_circle(&mut self, _x: f32, _y: f32, _radius: f32, _color: Color) {}
 
-        fn draw_circle_lines(&mut self, _x: f32, _y: f32, _radius: f32, _thickness: f32, _color: Color) {}
+        fn draw_circle_lines(
+            &mut self,
+            _x: f32,
+            _y: f32,
+            _radius: f32,
+            _thickness: f32,
+            _color: Color,
+        ) {
+        }
 
         fn draw_triangle(&mut self, _v1: Vec2, _v2: Vec2, _v3: Vec2, _color: Color) {}
 
@@ -142,7 +192,8 @@ mod tests {
             _y: f32,
             _color: Color,
             _params: DrawTextureParams,
-        ) {}
+        ) {
+        }
 
         fn push_clip_rect(&mut self, _rect: Rect) {}
 
@@ -150,7 +201,14 @@ mod tests {
     }
 
     impl Text for TestContext {
-        fn draw_text(&mut self, text: &str, x: f32, y: f32, font_size: f32, color: Color) -> TextDimensions {
+        fn draw_text(
+            &mut self,
+            text: &str,
+            x: f32,
+            y: f32,
+            font_size: f32,
+            color: Color,
+        ) -> TextDimensions {
             self.draw_text_calls.push(DrawTextCall {
                 text: text.to_string(),
                 x,
@@ -161,7 +219,13 @@ mod tests {
             self.text_dims
         }
 
-        fn draw_text_ex(&mut self, _text: &str, _x: f32, _y: f32, _params: TextParams) -> TextDimensions {
+        fn draw_text_ex(
+            &mut self,
+            _text: &str,
+            _x: f32,
+            _y: f32,
+            _params: TextParams,
+        ) -> TextDimensions {
             self.text_dims
         }
 
@@ -173,31 +237,55 @@ mod tests {
     impl Camera for TestContext {
         fn set_camera(&mut self, _camera: &Camera2D) {}
         fn set_default_camera(&mut self) {}
-        fn screen_to_world(&self, _camera: &Camera2D, screen_pos: Vec2) -> Vec2 { screen_pos }
+        fn screen_to_world(&self, _camera: &Camera2D, screen_pos: Vec2) -> Vec2 {
+            screen_pos
+        }
         fn create_render_target(&self, _width: u32, _height: u32) -> BishopRenderTarget {
             panic!("not used in toast tests")
         }
     }
 
     impl Window for TestContext {
-        fn screen_width(&self) -> f32 { 800.0 }
-        fn screen_height(&self) -> f32 { self.screen_height }
+        fn screen_width(&self) -> f32 {
+            800.0
+        }
+        fn screen_height(&self) -> f32 {
+            self.screen_height
+        }
         fn set_cursor_icon(&mut self, _icon: CursorIcon) {}
-        fn toggle_fullscreen(&mut self) -> bool { false }
-        fn is_fullscreen(&self) -> bool { false }
-        fn scale_factor(&self) -> f32 { 1.0 }
+        fn toggle_fullscreen(&mut self) -> bool {
+            false
+        }
+        fn is_fullscreen(&self) -> bool {
+            false
+        }
+        fn scale_factor(&self) -> f32 {
+            1.0
+        }
     }
 
     impl Time for TestContext {
-        fn get_frame_time(&self) -> f32 { 0.016 }
-        fn get_frame_spike_ms(&self) -> f32 { 0.0 }
+        fn get_frame_time(&self) -> f32 {
+            0.016
+        }
+        fn get_frame_spike_ms(&self) -> f32 {
+            0.0
+        }
         fn update(&mut self) {}
     }
 
     impl RenderOps for TestContext {
         fn begin_render_to_target(&mut self, _rt: &BishopRenderTarget) {}
         fn end_render_to_target(&mut self) {}
-        fn draw_render_target(&mut self, _rt: &BishopRenderTarget, _x: f32, _y: f32, _w: f32, _h: f32) {}
+        fn draw_render_target(
+            &mut self,
+            _rt: &BishopRenderTarget,
+            _x: f32,
+            _y: f32,
+            _w: f32,
+            _h: f32,
+        ) {
+        }
         fn create_drawable_render_target(&self, _width: u32, _height: u32) -> BishopRenderTarget {
             panic!("not used in toast tests")
         }

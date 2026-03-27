@@ -22,7 +22,7 @@ impl CameraManager {
         ecs: &Ecs,
         room_id: RoomId,
         player_pos: Vec2,
-        grid_size: f32
+        grid_size: f32,
     ) -> Self {
         let room_cameras = get_room_cameras(ecs, room_id);
         let (mut active_camera, _) =
@@ -45,7 +45,7 @@ impl CameraManager {
         ctx: &mut C,
         ecs: &Ecs,
         room: &Room,
-        grid_size: f32
+        grid_size: f32,
     ) {
         // If the player moved to another room get the new cameras
         if self.current_room != Some(room.id) {
@@ -54,15 +54,14 @@ impl CameraManager {
         }
 
         // Pick the best camera
-        let player_pos = ecs.get_player_transform()
+        let player_pos = ecs
+            .get_player_transform()
             .map(|t| t.position)
             .unwrap_or_default();
 
-        if let Some((mut best_cam, mode)) = Self::find_best_camera_for_room(
-            ecs,
-            &self.room_cameras,
-            player_pos,
-        ) {
+        if let Some((mut best_cam, mode)) =
+            Self::find_best_camera_for_room(ecs, &self.room_cameras, player_pos)
+        {
             // Prevent interpolation with the previous camera.
             // Only create a render target when the active camera actually changes.
             if best_cam.id != self.active.id {

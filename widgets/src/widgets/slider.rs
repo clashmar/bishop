@@ -1,6 +1,6 @@
+use crate::*;
 use std::cell::RefCell;
 use std::collections::HashMap;
-use crate::*;
 
 /// Result of a slider interaction this frame.
 #[derive(Debug, Clone, PartialEq)]
@@ -17,12 +17,13 @@ pub enum SliderState {
 ///
 /// Returns the new value and a `SliderState` indicating the interaction phase.
 pub fn gui_slider<C: BishopContext>(
-    ctx: &mut C, 
-    id: WidgetId, 
-    rect: impl Into<Rect>, 
-    min: f32, max: f32, 
-    value: f32) -> (f32, SliderState) 
-{
+    ctx: &mut C,
+    id: WidgetId,
+    rect: impl Into<Rect>,
+    min: f32,
+    max: f32,
+    value: f32,
+) -> (f32, SliderState) {
     let rect = rect.into();
     // (is_dragging, drag_offset, initial_value)
     thread_local! {
@@ -50,7 +51,13 @@ pub fn gui_slider<C: BishopContext>(
     let handle_x = rect.x + norm * (rect.w - handle_sz);
 
     ctx.draw_rectangle(rect.x, rect.y, rect.w, rect.h, FIELD_BACKGROUND_COLOR);
-    ctx.draw_rectangle(rect.x, track_y, rect.w, track_h, Color::new(0.2, 0.2, 0.2, 0.8));
+    ctx.draw_rectangle(
+        rect.x,
+        track_y,
+        rect.w,
+        track_h,
+        Color::new(0.2, 0.2, 0.2, 0.8),
+    );
     ctx.draw_rectangle_lines(rect.x, rect.y, rect.w, rect.h, 2., OUTLINE_COLOR);
 
     let handle_col = if was_dragging && !is_dropdown_open() {
@@ -62,13 +69,12 @@ pub fn gui_slider<C: BishopContext>(
     ctx.draw_rectangle_lines(handle_x, rect.y, handle_sz, rect.h, 2., Color::WHITE);
 
     if is_dropdown_open() {
-        return (value, SliderState::Unchanged)
+        return (value, SliderState::Unchanged);
     }
 
     let mouse = ctx.mouse_position();
     let mouse_vec = Vec2::new(mouse.0, mouse.1);
-    let mouse_over_handle = Rect::new(handle_x, rect.y, handle_sz, rect.h)
-        .contains(mouse_vec);
+    let mouse_over_handle = Rect::new(handle_x, rect.y, handle_sz, rect.h).contains(mouse_vec);
     let mouse_over_track = rect.contains(mouse_vec);
 
     let mut dragging = was_dragging;
@@ -102,15 +108,14 @@ pub fn gui_slider<C: BishopContext>(
     } else if mouse_over_track && ctx.is_mouse_button_pressed(MouseButton::Left) {
         let rel = ((mouse.0 - rect.x) / (rect.w - handle_sz)).clamp(0.0, 1.0);
         new_value = min + rel * range;
-        state = SliderState::Committed { initial_value: value };
+        state = SliderState::Committed {
+            initial_value: value,
+        };
     }
 
     STATE.with(|s| {
         let mut map = s.borrow_mut();
-        map.insert(
-            id,
-            (dragging, drag_offset, initial_value),
-        );
+        map.insert(id, (dragging, drag_offset, initial_value));
     });
 
     (new_value, state)

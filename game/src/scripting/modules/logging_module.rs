@@ -1,12 +1,12 @@
 // game/src/scripting/modules/logging_module.rs
-use engine_core::scripting::modules::lua_module::*;
 use engine_core::scripting::lua_constants::*;
+use engine_core::scripting::modules::lua_module::*;
 use engine_core::*;
-use mlua::Variadic;
 use mlua::Function;
+use mlua::Lua;
 use mlua::Table;
 use mlua::Value;
-use mlua::Lua;
+use mlua::Variadic;
 
 /// Log‑level strings that are exposed to Lua.
 pub const LOG_INFO: &str = "info";
@@ -22,18 +22,15 @@ register_lua_module!(LoggingModule);
 impl LuaModule for LoggingModule {
     fn register(&self, lua: &Lua) -> mlua::Result<()> {
         // Helper that creates a wrapper for a concrete log level
-        fn level_wrapper(
-            lua: &Lua,
-            level_name: &'static str,
-        ) -> mlua::Result<Function> {
+        fn level_wrapper(lua: &Lua, level_name: &'static str) -> mlua::Result<Function> {
             let name = level_name.to_string();
             lua.create_function(move |_lua, args: Variadic<Value>| {
                 let msg = match args.iter().next() {
                     Some(Value::String(s)) => s.to_str()?.to_owned(),
                     _ => {
-                        return Err(mlua::Error::RuntimeError(
-                            format!("{name} expects a string"),
-                        ))
+                        return Err(mlua::Error::RuntimeError(format!(
+                            "{name} expects a string"
+                        )))
                     }
                 };
 

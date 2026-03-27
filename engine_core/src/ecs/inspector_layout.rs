@@ -109,11 +109,7 @@ mod tests {
 
         assert_eq!(
             height,
-            DEFAULT_TOP_PADDING
-                + DEFAULT_FIELD_HEIGHT * 3.0
-                + 7.0
-                + 12.0
-                + DEFAULT_BOTTOM_GUTTER
+            DEFAULT_TOP_PADDING + DEFAULT_FIELD_HEIGHT * 3.0 + 7.0 + 12.0 + DEFAULT_BOTTOM_GUTTER
         );
     }
 

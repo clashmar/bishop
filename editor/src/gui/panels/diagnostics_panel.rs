@@ -1,9 +1,9 @@
 // editor/src/gui/panels/diagnostics_panel.rs
-use crate::gui::panels::generic_panel::PanelDefinition;
 use crate::editor_global::with_command_manager;
+use crate::gui::panels::generic_panel::PanelDefinition;
 use crate::Editor;
-use engine_core::prelude::*;
 use bishop::prelude::*;
+use engine_core::prelude::*;
 
 const ROW_HEIGHT: f32 = 16.0;
 const SECTION_SPACING: f32 = 8.0;
@@ -84,10 +84,16 @@ impl DiagnosticsPanel {
         area: &ActiveScrollArea,
         label: &str,
         y: f32,
-        rect: &Rect
+        rect: &Rect,
     ) -> f32 {
         if area.is_fully_visible(y, ROW_HEIGHT) {
-            ctx.draw_text(label, rect.x + LEFT_PADDING, y + HEADER_FONT_SIZE, HEADER_FONT_SIZE, Color::YELLOW);
+            ctx.draw_text(
+                label,
+                rect.x + LEFT_PADDING,
+                y + HEADER_FONT_SIZE,
+                HEADER_FONT_SIZE,
+                Color::YELLOW,
+            );
         }
         y + ROW_HEIGHT + 4.0
     }
@@ -99,10 +105,16 @@ impl DiagnosticsPanel {
         value: &str,
         y: f32,
         rect: &Rect,
-        color: Color
+        color: Color,
     ) -> f32 {
         if area.is_fully_visible(y, ROW_HEIGHT) {
-            ctx.draw_text(label, rect.x + LEFT_PADDING + 8.0, y + FONT_SIZE, FONT_SIZE, Color::GREY);
+            ctx.draw_text(
+                label,
+                rect.x + LEFT_PADDING + 8.0,
+                y + FONT_SIZE,
+                FONT_SIZE,
+                Color::GREY,
+            );
             let value_x = rect.x + rect.w * 0.55;
             ctx.draw_text(value, value_x, y + FONT_SIZE, FONT_SIZE, color);
         }
@@ -127,17 +139,11 @@ impl PanelDefinition for DiagnosticsPanel {
         DIAGNOSTICS_PANEL
     }
 
-    fn default_rect(&self, ctx: &WgpuContext,) -> Rect {
+    fn default_rect(&self, ctx: &WgpuContext) -> Rect {
         Rect::new(ctx.screen_width() - 280., 60., 260., 360.)
     }
 
-    fn draw(
-        &mut self,
-        ctx: &mut WgpuContext,
-        rect: Rect,
-        editor: &mut Editor,
-        blocked: bool
-    ) {
+    fn draw(&mut self, ctx: &mut WgpuContext, rect: Rect, editor: &mut Editor, blocked: bool) {
         let dt = ctx.get_frame_time();
 
         // Update frame timing continuously
@@ -195,7 +201,15 @@ impl PanelDefinition for DiagnosticsPanel {
             y = Self::draw_row(ctx, &area, "Status", "OK", y, &rect, Color::GREEN);
         } else {
             for warning in &warnings {
-                y = Self::draw_row(ctx, &area, "!", &warning.description(), y, &rect, Color::RED);
+                y = Self::draw_row(
+                    ctx,
+                    &area,
+                    "!",
+                    &warning.description(),
+                    y,
+                    &rect,
+                    Color::RED,
+                );
             }
         }
         y += SECTION_SPACING;
@@ -203,39 +217,175 @@ impl PanelDefinition for DiagnosticsPanel {
         // Performance section
         y = Self::draw_section_header(ctx, &area, "Performance", y, &rect);
         let fps = snapshot.frame.fps;
-        y = Self::draw_row(ctx, &area, "FPS", &format!("{:.1}", fps), y, &rect, Self::fps_color(fps));
-        y = Self::draw_row(ctx, &area, "Avg", &format!("{:.2} ms", snapshot.frame.avg_frame_time_ms), y, &rect, Color::WHITE);
-        y = Self::draw_row(ctx, &area, "Min", &format!("{:.2} ms", snapshot.frame.min_frame_time_ms), y, &rect, Color::WHITE);
-        y = Self::draw_row(ctx, &area, "Max", &format!("{:.2} ms", snapshot.frame.max_frame_time_ms), y, &rect, Color::WHITE);
-        y = Self::draw_row(ctx, &area, "Render", &format!("{:.2} ms", editor.render_system.render_time_ms), y, &rect, Color::WHITE);
+        y = Self::draw_row(
+            ctx,
+            &area,
+            "FPS",
+            &format!("{:.1}", fps),
+            y,
+            &rect,
+            Self::fps_color(fps),
+        );
+        y = Self::draw_row(
+            ctx,
+            &area,
+            "Avg",
+            &format!("{:.2} ms", snapshot.frame.avg_frame_time_ms),
+            y,
+            &rect,
+            Color::WHITE,
+        );
+        y = Self::draw_row(
+            ctx,
+            &area,
+            "Min",
+            &format!("{:.2} ms", snapshot.frame.min_frame_time_ms),
+            y,
+            &rect,
+            Color::WHITE,
+        );
+        y = Self::draw_row(
+            ctx,
+            &area,
+            "Max",
+            &format!("{:.2} ms", snapshot.frame.max_frame_time_ms),
+            y,
+            &rect,
+            Color::WHITE,
+        );
+        y = Self::draw_row(
+            ctx,
+            &area,
+            "Render",
+            &format!("{:.2} ms", editor.render_system.render_time_ms),
+            y,
+            &rect,
+            Color::WHITE,
+        );
         y += SECTION_SPACING;
 
         // Assets section
         y = Self::draw_section_header(ctx, &area, "Assets", y, &rect);
-        y = Self::draw_row(ctx, &area, "Textures", &snapshot.assets.texture_count.to_string(), y, &rect, Color::WHITE);
-        y = Self::draw_row(ctx, &area, "Tile Defs", &snapshot.assets.tile_def_count.to_string(), y, &rect, Color::WHITE);
-        y = Self::draw_row(ctx, &area, "Sprite IDs", &snapshot.assets.sprite_id_count.to_string(), y, &rect, Color::WHITE);
+        y = Self::draw_row(
+            ctx,
+            &area,
+            "Textures",
+            &snapshot.assets.texture_count.to_string(),
+            y,
+            &rect,
+            Color::WHITE,
+        );
+        y = Self::draw_row(
+            ctx,
+            &area,
+            "Tile Defs",
+            &snapshot.assets.tile_def_count.to_string(),
+            y,
+            &rect,
+            Color::WHITE,
+        );
+        y = Self::draw_row(
+            ctx,
+            &area,
+            "Sprite IDs",
+            &snapshot.assets.sprite_id_count.to_string(),
+            y,
+            &rect,
+            Color::WHITE,
+        );
         y += SECTION_SPACING;
 
         // Scripts section
         y = Self::draw_section_header(ctx, &area, "Scripts", y, &rect);
-        y = Self::draw_row(ctx, &area, "Script IDs", &snapshot.assets.script_id_count.to_string(), y, &rect, Color::WHITE);
-        y = Self::draw_row(ctx, &area, "Loaded", &snapshot.scripts.loaded_count.to_string(), y, &rect, Color::WHITE);
-        y = Self::draw_row(ctx, &area, "Instances", &snapshot.scripts.instance_count.to_string(), y, &rect, Color::WHITE);
-        y = Self::draw_row(ctx, &area, "Listeners", &snapshot.scripts.event_listener_count.to_string(), y, &rect, Color::WHITE);
+        y = Self::draw_row(
+            ctx,
+            &area,
+            "Script IDs",
+            &snapshot.assets.script_id_count.to_string(),
+            y,
+            &rect,
+            Color::WHITE,
+        );
+        y = Self::draw_row(
+            ctx,
+            &area,
+            "Loaded",
+            &snapshot.scripts.loaded_count.to_string(),
+            y,
+            &rect,
+            Color::WHITE,
+        );
+        y = Self::draw_row(
+            ctx,
+            &area,
+            "Instances",
+            &snapshot.scripts.instance_count.to_string(),
+            y,
+            &rect,
+            Color::WHITE,
+        );
+        y = Self::draw_row(
+            ctx,
+            &area,
+            "Listeners",
+            &snapshot.scripts.event_listener_count.to_string(),
+            y,
+            &rect,
+            Color::WHITE,
+        );
         y += SECTION_SPACING;
 
         // ECS section
         y = Self::draw_section_header(ctx, &area, "ECS", y, &rect);
-        y = Self::draw_row(ctx, &area, "Entities", &snapshot.ecs.entity_count.to_string(), y, &rect, Color::WHITE);
-        y = Self::draw_row(ctx, &area, "Component Stores", &snapshot.ecs.component_store_count.to_string(), y, &rect, Color::WHITE);
+        y = Self::draw_row(
+            ctx,
+            &area,
+            "Entities",
+            &snapshot.ecs.entity_count.to_string(),
+            y,
+            &rect,
+            Color::WHITE,
+        );
+        y = Self::draw_row(
+            ctx,
+            &area,
+            "Component Stores",
+            &snapshot.ecs.component_store_count.to_string(),
+            y,
+            &rect,
+            Color::WHITE,
+        );
         y += SECTION_SPACING;
 
         // Undo/Redo section
         y = Self::draw_section_header(ctx, &area, "Undo/Redo", y, &rect);
-        y = Self::draw_row(ctx, &area, "Undo Stack", &snapshot.commands.undo_stack_size.to_string(), y, &rect, Color::WHITE);
-        y = Self::draw_row(ctx, &area, "Redo Stack", &snapshot.commands.redo_stack_size.to_string(), y, &rect, Color::WHITE);
-        let _ = Self::draw_row(ctx, &area, "Pending", &snapshot.commands.pending_size.to_string(), y, &rect, Color::WHITE);
+        y = Self::draw_row(
+            ctx,
+            &area,
+            "Undo Stack",
+            &snapshot.commands.undo_stack_size.to_string(),
+            y,
+            &rect,
+            Color::WHITE,
+        );
+        y = Self::draw_row(
+            ctx,
+            &area,
+            "Redo Stack",
+            &snapshot.commands.redo_stack_size.to_string(),
+            y,
+            &rect,
+            Color::WHITE,
+        );
+        let _ = Self::draw_row(
+            ctx,
+            &area,
+            "Pending",
+            &snapshot.commands.pending_size.to_string(),
+            y,
+            &rect,
+            Color::WHITE,
+        );
 
         area.draw_scrollbar(ctx, self.scroll_state.scroll_y);
     }

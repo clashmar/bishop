@@ -1,17 +1,17 @@
 // engine_core/src/animation/animation_system.rs
-use crate::rendering::renderable::{EntityDrawParams, Renderable};
-use crate::rendering::render_room::pivot_adjusted_position;
-use crate::assets::asset_manager::AssetManager;
-use crate::worlds::room::entities_in_room;
 use crate::animation::animation_clip::*;
-use crate::ecs::component::PlayerProxy;
+use crate::assets::asset_manager::AssetManager;
 use crate::assets::sprite::SpriteId;
-use crate::worlds::room::RoomId;
-use crate::ecs::entity::Entity;
+use crate::ecs::component::PlayerProxy;
 use crate::ecs::ecs::Ecs;
-use serde::{Deserialize, Serialize};
-use ecs_component::ecs_component;
+use crate::ecs::entity::Entity;
+use crate::rendering::render_room::pivot_adjusted_position;
+use crate::rendering::renderable::{EntityDrawParams, Renderable};
+use crate::worlds::room::RoomId;
+use crate::worlds::room::entities_in_room;
 use bishop::prelude::*;
+use ecs_component::ecs_component;
+use serde::{Deserialize, Serialize};
 
 /// Current frame data for rendering animated entities.
 #[ecs_component]
@@ -46,8 +46,7 @@ pub async fn update_animation_sytem(
 
     // Process the player entity if there's a player proxy
     let has_spawn_point = entities.iter().any(|e| ecs.has::<PlayerProxy>(*e));
-    if has_spawn_point 
-    && let Some(player) = ecs.get_player_entity() {
+    if has_spawn_point && let Some(player) = ecs.get_player_entity() {
         entities.insert(player);
     }
 
@@ -74,11 +73,17 @@ pub async fn update_animation_sytem(
             animation.update_cache_entry(current_id, sprite_id, asset_manager);
         }
 
-        let Some(clip) = animation.clips.get(current_id) else { continue };
+        let Some(clip) = animation.clips.get(current_id) else {
+            continue;
+        };
         let clip_state = animation.states.get_mut(current_id).unwrap();
 
         // Advance the timer with speed multiplier applied (0.0 means default speed of 1.0)
-        let speed = if animation.speed_multiplier == 0.0 { 1.0 } else { animation.speed_multiplier };
+        let speed = if animation.speed_multiplier == 0.0 {
+            1.0
+        } else {
+            animation.speed_multiplier
+        };
         clip_state.timer += dt * speed;
 
         loop {
@@ -126,8 +131,6 @@ pub async fn update_animation_sytem(
 
         frames.push((*entity, frame));
     }
-
-    
 
     for (entity, frame) in frames {
         ecs.add_component_to_entity(entity, frame)
@@ -190,16 +193,12 @@ fn get_sprite_id(
     asset_manager: &mut AssetManager,
 ) -> (SpriteId, bool) {
     if let Some(&cached) = animation.sprite_cache.get(current_id)
-    && cached.0 != 0 {
+        && cached.0 != 0
+    {
         return (cached, false);
     }
 
-    let resolved = resolve_sprite_id(
-        loader,
-        asset_manager,
-        &animation.variant,
-        current_id,
-    );
+    let resolved = resolve_sprite_id(loader, asset_manager, &animation.variant, current_id);
 
     (resolved, true)
 }

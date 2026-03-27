@@ -1,7 +1,7 @@
 // engine_core/src/scripting/modules/lua_module.rs
+use mlua::Lua;
 use mlua::prelude::LuaResult;
 use std::fmt::Write;
-use mlua::Lua;
 
 /// Every system that wants to expose Lua functions implements this.
 pub trait LuaModule {
@@ -90,10 +90,7 @@ macro_rules! register_lua_module {
 
 pub trait LuaExposedModule: LuaModule + LuaApi {}
 
-impl<T> LuaExposedModule for T
-where
-    T: LuaModule + LuaApi
-{}
+impl<T> LuaExposedModule for T where T: LuaModule + LuaApi {}
 
 /// Writes the module api to a .lua file.
 pub fn generate_lua_api(out_dir: &std::path::Path) {

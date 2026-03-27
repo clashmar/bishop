@@ -105,8 +105,6 @@
 ---@field zoom_mode table
 ---@field camera_mode table
 
----@alias FacingDirection table
-
 ---@class Animation
 ---@field clips table
 ---@field variant table
@@ -120,6 +118,8 @@
 ---@field entities table
 
 ---@alias Parent table
+
+---@alias FacingDirection table
 
 ---@class Interactable
 ---@field range number
@@ -149,10 +149,10 @@
 ---@field Sprite string
 ---@field Transform string
 ---@field RoomCamera string
----@field FacingDirection string
 ---@field Animation string
 ---@field Children string
 ---@field Parent string
+---@field FacingDirection string
 ---@field Interactable string
 
 local C = {}
@@ -181,10 +181,10 @@ C.SpeechBubble = "SpeechBubble"
 C.Sprite = "Sprite"
 C.Transform = "Transform"
 C.RoomCamera = "RoomCamera"
-C.FacingDirection = "FacingDirection"
 C.Animation = "Animation"
 C.Children = "Children"
 C.Parent = "Parent"
+C.FacingDirection = "FacingDirection"
 C.Interactable = "Interactable"
 
 return C

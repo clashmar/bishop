@@ -1,9 +1,9 @@
 // editor/src/tilemap/tile_palette.rs
-use serde::{Deserialize, Serialize};
-use std::collections::VecDeque;
-use engine_core::prelude::*;
-use serde_with::serde_as;
 use bishop::prelude::*;
+use engine_core::prelude::*;
+use serde::{Deserialize, Serialize};
+use serde_with::serde_as;
+use std::collections::VecDeque;
 
 #[serde_as]
 #[derive(Serialize, Deserialize)]
@@ -19,7 +19,11 @@ pub struct TilePalette {
     command_queue: VecDeque<PaletteCmd>,
 }
 
-enum PaletteCmd { Create, Edit, Delete(usize) }
+enum PaletteCmd {
+    Create,
+    Edit,
+    Delete(usize),
+}
 
 #[derive(Clone, Default, PartialEq)]
 pub enum TilePaletteUiMode {
@@ -53,10 +57,7 @@ impl TilePalette {
         }
     }
 
-    pub async fn update(
-        &mut self,
-        asset_manager: &mut AssetManager,
-    ) {
+    pub async fn update(&mut self, asset_manager: &mut AssetManager) {
         while let Some(cmd) = self.command_queue.pop_front() {
             match cmd {
                 PaletteCmd::Create => self.create_tile(asset_manager).await,
@@ -74,10 +75,10 @@ impl TilePalette {
     }
 
     pub async fn draw(
-        &mut self, 
+        &mut self,
         ctx: &mut WgpuContext,
-        rect: Rect, asset_manager: 
-        &mut AssetManager
+        rect: Rect,
+        asset_manager: &mut AssetManager,
     ) {
         // Draw grid
         for i in 0..self.entries.len() {
@@ -123,12 +124,13 @@ impl TilePalette {
     /// consumed (i.e. user selected a tile).
     pub fn handle_click(&mut self, mouse_pos: Vec2, rect: Rect) -> bool {
         if !Rect::new(
-            rect.x, 
+            rect.x,
             rect.y,
             self.columns as f32 * self.tile_size,
-            self.rows as f32 * self.tile_size
+            self.rows as f32 * self.tile_size,
         )
-            .contains(mouse_pos) {
+        .contains(mouse_pos)
+        {
             return false;
         }
 
@@ -144,19 +146,16 @@ impl TilePalette {
         false
     }
 
-    async fn draw_tile_dialog(
-        &mut self, 
-        ctx: &mut WgpuContext,
-        asset_manager: &mut AssetManager
-    ) {
+    async fn draw_tile_dialog(&mut self, ctx: &mut WgpuContext, asset_manager: &mut AssetManager) {
         if !self.ui.open {
             return;
         }
 
         if self.ui.edit_initialized {
             let entry = &self.entries[self.ui.edit_index];
-            
-            let tile_def = asset_manager.tile_defs
+
+            let tile_def = asset_manager
+                .tile_defs
                 .get(entry)
                 .expect("Could not find tile definition.");
 
@@ -175,7 +174,13 @@ impl TilePalette {
 
         // Background panel
         let panel = Rect::new(100., 80., 300., 260.);
-        ctx.draw_rectangle(panel.x, panel.y, panel.w, panel.h, Color::new(0., 0., 0., 0.6));
+        ctx.draw_rectangle(
+            panel.x,
+            panel.y,
+            panel.w,
+            panel.h,
+            Color::new(0., 0., 0., 0.6),
+        );
         ctx.draw_rectangle_lines(panel.x, panel.y, panel.w, panel.h, 2., Color::WHITE);
 
         // Sprite selector
@@ -192,7 +197,7 @@ impl TilePalette {
                     .expect("Could not get id for sprite path.");
             }
         }
-        
+
         // Preview
         if !self.ui.sprite_id.0 != 0 {
             let tex = asset_manager.get_texture_from_id(ctx, self.ui.sprite_id);
@@ -216,17 +221,29 @@ impl TilePalette {
         if gui_checkbox(ctx, cb_walk, &mut walk) {
             self.ui.walkable = walk;
         }
-        ctx.draw_text("Walkable", cb_walk.x + 30., cb_walk.y + 15., 18., Color::WHITE);
+        ctx.draw_text(
+            "Walkable",
+            cb_walk.x + 30.,
+            cb_walk.y + 15.,
+            18.,
+            Color::WHITE,
+        );
 
         let cb_solid = Rect::new(panel.x + 10., panel.y + 140., 20., 20.);
         if gui_checkbox(ctx, cb_solid, &mut solid) {
             self.ui.solid = solid;
         }
-        ctx.draw_text("Solid", cb_solid.x + 30., cb_solid.y + 15., 18., Color::WHITE);
+        ctx.draw_text(
+            "Solid",
+            cb_solid.x + 30.,
+            cb_solid.y + 15.,
+            18.,
+            Color::WHITE,
+        );
 
         let btn_label = match self.ui.mode {
-            TilePaletteUiMode::Create => { "Create" },
-            TilePaletteUiMode::Edit => { "Update" }, 
+            TilePaletteUiMode::Create => "Create",
+            TilePaletteUiMode::Edit => "Update",
         };
 
         // Create/Update
@@ -259,16 +276,13 @@ impl TilePalette {
         }
     }
 
-    pub async fn create_tile(
-        &mut self,
-        asset_manager: &mut AssetManager,
-    ) {
+    pub async fn create_tile(&mut self, asset_manager: &mut AssetManager) {
         // Build TileDef
         let mut comps = vec![
             TileComponent::Walkable(self.ui.walkable),
             TileComponent::Solid(self.ui.solid),
         ];
-        
+
         if self.ui.damage > 0.0 {
             comps.push(TileComponent::Damage(self.ui.damage));
         }
@@ -292,10 +306,7 @@ impl TilePalette {
         self.rows = needed.div_ceil(self.columns)
     }
 
-    pub async fn edit_tile(
-        &mut self,
-        asset_manager: &mut AssetManager,
-    ) {
+    pub async fn edit_tile(&mut self, asset_manager: &mut AssetManager) {
         // Build TileDef components
         let mut comps = vec![
             TileComponent::Walkable(self.ui.walkable),

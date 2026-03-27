@@ -1,16 +1,16 @@
 // engine_core/src/world/room.rs
 use crate::camera::game_camera::RoomCamera;
-use crate::tiles::tilemap::TileMap;
-use crate::ecs::entity::Entity;
-use crate::ecs::component::*;
-use crate::ecs::transform::*;
-use crate::ecs::ecs::Ecs;
 use crate::constants::*;
+use crate::ecs::component::*;
+use crate::ecs::ecs::Ecs;
+use crate::ecs::entity::Entity;
+use crate::ecs::transform::*;
+use crate::tiles::tilemap::TileMap;
+use bishop::prelude::*;
 use serde::{Deserialize, Serialize};
-use std::collections::HashSet;
 use serde_with::FromInto;
 use serde_with::serde_as;
-use bishop::prelude::*;
+use std::collections::HashSet;
 
 /// Identifier for a room, globally unique across all worlds.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
@@ -33,7 +33,7 @@ impl std::ops::DerefMut for RoomId {
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
 #[serde(default)]
 pub struct Room {
-    pub id: RoomId, 
+    pub id: RoomId,
     pub name: String,
     #[serde_as(as = "FromInto<[f32; 2]>")]
     pub position: Vec2, // Top-left origin in pixels
@@ -85,24 +85,24 @@ impl Room {
 
                     let linked = match exit.direction {
                         ExitDirection::Up => {
-                            other_exit.direction == ExitDirection::Down &&
-                            (exit_world_pos.y - (other_world_pos.y - 1.0)).abs() < epsilon &&
-                            (exit_world_pos.x - other_world_pos.x).abs() < epsilon
+                            other_exit.direction == ExitDirection::Down
+                                && (exit_world_pos.y - (other_world_pos.y - 1.0)).abs() < epsilon
+                                && (exit_world_pos.x - other_world_pos.x).abs() < epsilon
                         }
                         ExitDirection::Down => {
-                            other_exit.direction == ExitDirection::Up &&
-                            (exit_world_pos.y - 1.0 - other_world_pos.y).abs() < epsilon &&
-                            (exit_world_pos.x - other_world_pos.x).abs() < epsilon
+                            other_exit.direction == ExitDirection::Up
+                                && (exit_world_pos.y - 1.0 - other_world_pos.y).abs() < epsilon
+                                && (exit_world_pos.x - other_world_pos.x).abs() < epsilon
                         }
                         ExitDirection::Left => {
-                            other_exit.direction == ExitDirection::Right &&
-                            (exit_world_pos.x - other_world_pos.x + 1.0).abs() < epsilon &&
-                            (exit_world_pos.y - other_world_pos.y).abs() < epsilon
+                            other_exit.direction == ExitDirection::Right
+                                && (exit_world_pos.x - other_world_pos.x + 1.0).abs() < epsilon
+                                && (exit_world_pos.y - other_world_pos.y).abs() < epsilon
                         }
                         ExitDirection::Right => {
-                            other_exit.direction == ExitDirection::Left &&
-                            (exit_world_pos.x - other_world_pos.x - 1.0).abs() < epsilon &&
-                            (exit_world_pos.y - other_world_pos.y).abs() < epsilon
+                            other_exit.direction == ExitDirection::Left
+                                && (exit_world_pos.x - other_world_pos.x - 1.0).abs() < epsilon
+                                && (exit_world_pos.y - other_world_pos.y).abs() < epsilon
                         }
                     };
 
@@ -117,9 +117,10 @@ impl Room {
 
     /// Returns the world exit positions for this room.
     pub fn world_exit_positions(&self, grid_size: f32) -> Vec<(Vec2, ExitDirection)> {
-        self.exits.iter().map(|exit| {
-            (self.position / grid_size + exit.position, exit.direction)
-        }).collect()
+        self.exits
+            .iter()
+            .map(|exit| (self.position / grid_size + exit.position, exit.direction))
+            .collect()
     }
 
     /// Returns exits from this room that face toward the target room.
@@ -181,9 +182,10 @@ impl Room {
                 if cur_room.0 != self.id {
                     continue;
                 }
-                if let Some(num_str) = name.strip_prefix(CAMERA_PREFIX) 
-                && let Ok(num) = num_str.parse::<usize>() 
-                && num > 0 {
+                if let Some(num_str) = name.strip_prefix(CAMERA_PREFIX)
+                    && let Ok(num) = num_str.parse::<usize>()
+                    && num > 0
+                {
                     used.insert(num);
                 }
             }
@@ -195,7 +197,11 @@ impl Room {
         }
 
         ecs.create_entity()
-            .with(Transform { position: self.position, pivot: Pivot::CenterLeft, ..Default::default() })
+            .with(Transform {
+                position: self.position,
+                pivot: Pivot::CenterLeft,
+                ..Default::default()
+            })
             .with(RoomCamera::new(room_id, grid_size))
             .with(CurrentRoom(self.id))
             .with(Name(format!("{}{}", CAMERA_PREFIX, next_idx)));
@@ -246,7 +252,7 @@ pub fn entities_in_room(ecs: &mut Ecs, room_id: RoomId) -> HashSet<Entity> {
 #[serde(default)]
 pub struct RoomVariant {
     pub id: String,
-    pub tilemap: TileMap,      
+    pub tilemap: TileMap,
 }
 
 impl Default for RoomVariant {
@@ -264,7 +270,7 @@ pub enum ExitDirection {
     Up,
     Right,
     Down,
-    Left
+    Left,
 }
 
 impl ExitDirection {
@@ -285,7 +291,7 @@ impl ExitDirection {
 pub struct Exit {
     #[serde_as(as = "FromInto<[f32; 2]>")]
     // Local grid coordinate
-    pub position: Vec2,                 
-    pub direction: ExitDirection,      
-    pub target_room_id: Option<RoomId>, 
+    pub position: Vec2,
+    pub direction: ExitDirection,
+    pub target_room_id: Option<RoomId>,
 }

@@ -1,9 +1,9 @@
 // engine_core/src/ecs/inspector_module.rs
-use crate::game::GameCtxMut;
+use crate::ecs::ecs::Ecs;
 use crate::ecs::entity::Entity;
 use crate::ecs::inspector_layout::InspectorBodyLayout;
+use crate::game::GameCtxMut;
 use crate::ui::widgets::*;
-use crate::ecs::ecs::Ecs;
 use bishop::prelude::*;
 
 /// Every inspector sub‑module implements this trait.
@@ -46,11 +46,15 @@ pub trait InspectorModule {
 
     /// Returns `true` and clears the internal flag if a remove was requested this draw.
     /// Default returns `false`. `CollapsibleModule` overrides this.
-    fn take_remove_request(&mut self) -> bool { false }
+    fn take_remove_request(&mut self) -> bool {
+        false
+    }
 
     /// Return true if the module should get a “Remove” button in the header.
     /// Default is false.
-    fn removable(&self) -> bool { false }
+    fn removable(&self) -> bool {
+        false
+    }
 
     /// Called when the user clicks the remove component button.
     /// Default implementation does nothing.
@@ -119,8 +123,14 @@ impl<T: InspectorModule> InspectorModule for CollapsibleModule<T> {
         entity: Entity,
     ) {
         // Background for the header
-        ctx.draw_rectangle(rect.x, rect.y, rect.w, Self::HEADER_HEIGHT, Color::new(0., 0., 0., 0.4));
-        
+        ctx.draw_rectangle(
+            rect.x,
+            rect.y,
+            rect.w,
+            Self::HEADER_HEIGHT,
+            Color::new(0., 0., 0., 0.4),
+        );
+
         ctx.draw_text(
             self.title(),
             rect.x + 28.0,
@@ -132,7 +142,11 @@ impl<T: InspectorModule> InspectorModule for CollapsibleModule<T> {
         // Toggle button (‑ when open, ＋ when closed)
         let btn = Rect::new(rect.x + 4.0, rect.y + 4.0, 16.0, 16.0);
         let symbol = if self.expanded { "-" } else { "+" };
-        if Button::new(btn, symbol).text_offset(Vec2::new(-0.3, 1.5)).blocked(blocked).show(ctx) {
+        if Button::new(btn, symbol)
+            .text_offset(Vec2::new(-0.3, 1.5))
+            .blocked(blocked)
+            .show(ctx)
+        {
             self.expanded = !self.expanded;
         }
 

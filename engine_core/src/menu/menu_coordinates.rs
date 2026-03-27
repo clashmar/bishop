@@ -1,5 +1,5 @@
-use bishop::prelude::*;
 use crate::prelude::*;
+use bishop::prelude::*;
 
 /// Computes the 16:9 canvas rect fitted into the available screen space.
 pub fn compute_canvas_rect(screen_width: f32, screen_height: f32) -> Rect {
@@ -39,12 +39,7 @@ pub fn compute_preview_rect(screen_width: f32, screen_height: f32) -> Rect {
     } else {
         (screen_width, screen_width / aspect)
     };
-    Rect::new(
-        (screen_width - w) / 2.0,
-        (screen_height - h) / 2.0,
-        w,
-        h,
-    )
+    Rect::new((screen_width - w) / 2.0, (screen_height - h) / 2.0, w, h)
 }
 
 /// Converts a normalized rect to a screen-space rect.

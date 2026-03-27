@@ -3,10 +3,10 @@ use crate::assets::asset_manager::AssetManager;
 use crate::assets::sprite::SpriteId;
 use crate::tiles::tilemap::TileMap;
 use crate::worlds::room::*;
+use bishop::prelude::*;
 use serde::{Deserialize, Serialize};
 use serde_with::FromInto;
 use serde_with::serde_as;
-use bishop::prelude::*;
 use uuid::Uuid;
 
 /// Identifier for a world.
@@ -72,16 +72,12 @@ impl World {
 
     /// Returns an immutable reference to a room given its id.
     pub fn get_room(&self, id: RoomId) -> Option<&Room> {
-        self.rooms
-            .iter()
-            .find(|r| r.id == id)
+        self.rooms.iter().find(|r| r.id == id)
     }
 
     /// Returns a mutable reference to a room given its id.
     pub fn get_room_mut(&mut self, id: RoomId) -> Option<&mut Room> {
-        self.rooms
-            .iter_mut()
-            .find(|r| r.id == id)
+        self.rooms.iter_mut().find(|r| r.id == id)
     }
 
     /// Returns an  immutable reference to the current room of the world.
@@ -105,15 +101,16 @@ impl GridPos {
         GridPos(IVec2::new(x, y))
     }
 
-    pub fn x(&self) -> i32 { self.0.x }
-    pub fn y(&self) -> i32 { self.0.y }
+    pub fn x(&self) -> i32 {
+        self.0.x
+    }
+    pub fn y(&self) -> i32 {
+        self.0.y
+    }
 
     /// Check if this position is within map bounds
     pub fn is_in_bounds(&self, width: usize, height: usize) -> bool {
-        self.0.x >= 0
-            && self.0.y >= 0
-            && self.0.x < width as i32
-            && self.0.y < height as i32
+        self.0.x >= 0 && self.0.y >= 0 && self.0.x < width as i32 && self.0.y < height as i32
     }
 
     /// Convert from world coordinates to tile coordinates.
@@ -132,18 +129,24 @@ impl GridPos {
             None
         }
     }
-    
+
     /// Convert from world coordinates to tile coordinates, snapping to map edges.
     pub fn from_world_edge(world_pos: Vec2, map: &TileMap, grid_size: f32) -> Self {
         let mut x = (world_pos.x / grid_size).floor() as i32;
         let mut y = (world_pos.y / grid_size).floor() as i32;
 
         // Snap to map edges
-        if x < 0 { x = -1; }
-        else if x >= map.width as i32 { x = map.width as i32; }
+        if x < 0 {
+            x = -1;
+        } else if x >= map.width as i32 {
+            x = map.width as i32;
+        }
 
-        if y < 0 { y = -1; }
-        else if y >= map.height as i32 { y = map.height as i32; }
+        if y < 0 {
+            y = -1;
+        } else if y >= map.height as i32 {
+            y = map.height as i32;
+        }
 
         GridPos::new(x, y)
     }

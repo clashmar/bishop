@@ -1,10 +1,10 @@
 // engine_core/src/lighting/light.rs
 use crate::inspector_module;
-use serde::{Deserialize, Serialize};
-use serde_with::{serde_as, FromInto};
+use bishop::prelude::*;
 use ecs_component::ecs_component;
 use reflect_derive::Reflect;
-use bishop::prelude::*;
+use serde::{Deserialize, Serialize};
+use serde_with::{FromInto, serde_as};
 
 #[ecs_component]
 #[serde_as]
@@ -28,13 +28,13 @@ inspector_module!(Light);
 
 impl Default for Light {
     fn default() -> Self {
-        Light { 
-            pos: Vec2::new(0., 0.), 
-            color: Vec3::new(1., 1., 1.), 
-            intensity: 0.5, 
+        Light {
+            pos: Vec2::new(0., 0.),
+            color: Vec3::new(1., 1., 1.),
+            intensity: 0.5,
             radius: 50.,
-            spread: 50., 
-            alpha: 0.5, 
+            spread: 50.,
+            alpha: 0.5,
             brightness: 1.,
         }
     }

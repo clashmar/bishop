@@ -1,5 +1,5 @@
-use super::menu_panel::PanelBackground;
 use super::menu_element::MenuElement;
+use super::menu_panel::PanelBackground;
 use crate::menu::*;
 use serde::{Deserialize, Serialize};
 
@@ -15,12 +15,12 @@ pub struct LayoutGroupElement {
 }
 
 impl Navigable for LayoutGroupElement {
-    fn nav_targets(&self) -> &NavTargets { 
-        &self.nav_targets 
+    fn nav_targets(&self) -> &NavTargets {
+        &self.nav_targets
     }
-    
-    fn nav_targets_mut(&mut self) -> &mut NavTargets { 
-        &mut self.nav_targets 
+
+    fn nav_targets_mut(&mut self) -> &mut NavTargets {
+        &mut self.nav_targets
     }
 
     fn from_element(el: &MenuElement) -> Option<&Self> {
@@ -29,7 +29,7 @@ impl Navigable for LayoutGroupElement {
             _ => None,
         }
     }
-    
+
     fn wrap_into_element(self) -> MenuElementKind {
         MenuElementKind::LayoutGroup(self)
     }

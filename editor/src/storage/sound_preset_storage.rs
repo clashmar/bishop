@@ -1,10 +1,10 @@
 use engine_core::prelude::*;
 use serde::{Deserialize, Serialize};
-use std::io::{Error, ErrorKind};
-use std::collections::BTreeSet;
 use std::cell::RefCell;
+use std::collections::BTreeSet;
 use std::fs;
 use std::io;
+use std::io::{Error, ErrorKind};
 
 pub const SOUND_PRESETS_RON: &str = "sound_presets.ron";
 
@@ -34,9 +34,7 @@ pub fn current_sound_preset_library() -> SoundPresetLibrary {
 }
 
 /// Mutably borrows the current in-memory sound preset library.
-pub fn with_sound_preset_library_mut<R>(
-    f: impl FnOnce(&mut SoundPresetLibrary) -> R,
-) -> R {
+pub fn with_sound_preset_library_mut<R>(f: impl FnOnce(&mut SoundPresetLibrary) -> R) -> R {
     CURRENT_SOUND_PRESET_LIBRARY.with(|current| f(&mut current.borrow_mut()))
 }
 
@@ -56,23 +54,18 @@ pub fn load_sound_preset_library(game_name: &str) -> io::Result<SoundPresetLibra
                 format!("Could not parse sound preset library: {error}"),
             )
         }),
-        Err(error) if error.kind() == ErrorKind::NotFound => {
-            Ok(SoundPresetLibrary::default())
-        }
+        Err(error) if error.kind() == ErrorKind::NotFound => Ok(SoundPresetLibrary::default()),
         Err(error) => Err(error),
     }
 }
 
 /// Saves the project's sound preset library to disk.
-pub fn save_sound_preset_library(
-    game_name: &str,
-    library: &SoundPresetLibrary,
-) -> io::Result<()> {
+pub fn save_sound_preset_library(game_name: &str, library: &SoundPresetLibrary) -> io::Result<()> {
     let path = game_folder(game_name).join(SOUND_PRESETS_RON);
     fs::create_dir_all(game_folder(game_name))?;
 
-    let ron = ron::ser::to_string_pretty(library, ron::ser::PrettyConfig::new())
-        .map_err(Error::other)?;
+    let ron =
+        ron::ser::to_string_pretty(library, ron::ser::PrettyConfig::new()).map_err(Error::other)?;
 
     fs::write(path, ron)?;
     set_current_sound_preset_library(library.clone());
@@ -94,7 +87,7 @@ pub fn collect_sound_group_names(ecs: &Ecs, library: &SoundPresetLibrary) -> Vec
     }
 
     names.into_iter().collect()
-}    
+}
 
 #[cfg(test)]
 mod tests {
@@ -102,8 +95,8 @@ mod tests {
     use crate::storage::editor_storage::save_game;
     use engine_core::audio::AudioGroup;
     use engine_core::scripting::lua_constants::{ENGINE_DIR, SOUNDS_FILE};
-    use std::path::PathBuf;
     use std::collections::HashMap;
+    use std::path::PathBuf;
     use uuid::Uuid;
 
     struct TestGameFolder {
@@ -160,10 +153,7 @@ mod tests {
     #[test]
     fn delete_sound_preset_removes_entry_from_current_library() {
         set_current_sound_preset_library(SoundPresetLibrary {
-            presets: HashMap::from([(
-                "Ambient".to_string(),
-                AudioGroup::default(),
-            )]),
+            presets: HashMap::from([("Ambient".to_string(), AudioGroup::default())]),
         });
 
         assert!(delete_sound_preset("Ambient"));
@@ -213,10 +203,7 @@ mod tests {
         ecs.add_component_to_entity(entity, source);
 
         let library = SoundPresetLibrary {
-            presets: HashMap::from([(
-                "Ambient".to_string(),
-                AudioGroup::default(),
-            )]),
+            presets: HashMap::from([("Ambient".to_string(), AudioGroup::default())]),
         };
 
         let names = collect_sound_group_names(&ecs, &library);

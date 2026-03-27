@@ -1,5 +1,5 @@
-use serde::{Deserialize, Serialize};
 use super::{Alignment, LayoutDirection, Padding};
+use serde::{Deserialize, Serialize};
 
 /// Configuration for menu element layout.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]

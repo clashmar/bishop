@@ -53,14 +53,9 @@ impl FrameMetrics {
             self.avg_frame_time_ms = avg * 1000.0;
             self.fps = if avg > 0.0 { 1.0 / avg } else { 0.0 };
 
-            self.min_frame_time_ms = self.frame_times
-                .iter()
-                .copied()
-                .fold(f32::MAX, f32::min) * 1000.0;
-            self.max_frame_time_ms = self.frame_times
-                .iter()
-                .copied()
-                .fold(0.0, f32::max) * 1000.0;
+            self.min_frame_time_ms =
+                self.frame_times.iter().copied().fold(f32::MAX, f32::min) * 1000.0;
+            self.max_frame_time_ms = self.frame_times.iter().copied().fold(0.0, f32::max) * 1000.0;
         }
     }
 }

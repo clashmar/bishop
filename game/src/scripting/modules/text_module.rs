@@ -1,14 +1,14 @@
 // game/src/scripting/modules/text_module.rs
+use crate::game_global::push_command;
 use crate::scripting::commands::text_commands::SetLanguageCmd;
 use crate::scripting::lua_ctx::LuaGameCtx;
-use crate::game_global::push_command;
 use engine_core::register_lua_api;
 use engine_core::register_lua_module;
-use engine_core::scripting::modules::lua_module::*;
 use engine_core::scripting::lua_constants::*;
+use engine_core::scripting::modules::lua_module::*;
 use mlua::prelude::LuaResult;
-use mlua::Table;
 use mlua::Lua;
+use mlua::Table;
 
 /// Lua module for onscreen text display.
 #[derive(Default)]
@@ -37,11 +37,7 @@ impl LuaModule for TextModule {
         let get_languages_fn = lua.create_function(|lua, ()| {
             let ctx = LuaGameCtx::borrow_ctx(lua)?;
             let game_instance = ctx.game_instance.borrow();
-            let langs: Vec<String> = game_instance
-                .game
-                .text_manager
-                .get_languages()
-                .to_vec();
+            let langs: Vec<String> = game_instance.game.text_manager.get_languages().to_vec();
             let table = lua.create_table()?;
             for (i, lang) in langs.iter().enumerate() {
                 table.set(i + 1, lang.clone())?;

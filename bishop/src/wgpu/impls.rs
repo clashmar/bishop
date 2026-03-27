@@ -4,21 +4,20 @@ use std::cell::RefCell;
 
 use super::context::WgpuContext;
 use super::render::FontAtlas;
-use crate::TextureLoader;
+use super::render::WgpuTexture;
 use crate::camera::{Camera, Camera2D};
 use crate::draw::{Draw, DrawTextureParams};
-use super::render::WgpuTexture;
 use crate::input::{Input, KeyCode, MouseButton};
 use crate::material::RenderOps;
 use crate::text::{Text, TextDimensions};
 use crate::time::Time;
 use crate::types::{Color, Texture2D, Vec2};
 use crate::window::Window;
+use crate::TextureLoader;
 
 thread_local! {
     static MEASURE_ATLAS: RefCell<Option<FontAtlas>> = const { RefCell::new(None) };
 }
-
 
 impl Input for WgpuContext {
     fn is_key_down(&self, key: KeyCode) -> bool {
@@ -124,7 +123,8 @@ impl Draw for WgpuContext {
 
     fn draw_texture(&mut self, texture: &Texture2D, x: f32, y: f32, color: Color) {
         let prev = self.texture_renderer.batch_count();
-        self.texture_renderer.draw_texture(texture.inner(), x, y, color);
+        self.texture_renderer
+            .draw_texture(texture.inner(), x, y, color);
         self.record_texture_segment(prev);
     }
 
@@ -183,9 +183,8 @@ impl Text for WgpuContext {
         MEASURE_ATLAS.with(|cell| {
             let mut atlas_opt = cell.borrow_mut();
             if atlas_opt.is_none() {
-                *atlas_opt = Some(
-                    FontAtlas::with_default_font().expect("Failed to create font atlas"),
-                );
+                *atlas_opt =
+                    Some(FontAtlas::with_default_font().expect("Failed to create font atlas"));
             }
             atlas_opt.as_mut().unwrap().measure_text(text, font_size)
         })
@@ -207,11 +206,7 @@ impl Camera for WgpuContext {
         camera.screen_to_world(screen_pos, self.screen_width(), self.screen_height())
     }
 
-    fn create_render_target(
-        &self,
-        width: u32,
-        height: u32,
-    ) -> super::render::BishopRenderTarget {
+    fn create_render_target(&self, width: u32, height: u32) -> super::render::BishopRenderTarget {
         WgpuContext::create_render_target(self, width, height)
     }
 }
@@ -298,8 +293,7 @@ impl TextureLoader for WgpuContext {
     }
 
     fn load_texture_from_path(&self, path: &str) -> Result<Texture2D, String> {
-        let data = std::fs::read(path)
-            .map_err(|e| format!("Failed to read '{}': {}", path, e))?;
+        let data = std::fs::read(path).map_err(|e| format!("Failed to read '{}': {}", path, e))?;
         self.load_texture_from_bytes(&data)
     }
 

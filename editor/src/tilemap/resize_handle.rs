@@ -1,7 +1,7 @@
 // editor/src/gui/resize_handle.rs
 use crate::world::coord::overlaps_existing_rooms;
-use engine_core::prelude::*;
 use bishop::prelude::*;
+use engine_core::prelude::*;
 
 /// Which side of the tilemap the handle controls.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -98,7 +98,7 @@ impl ResizeHandle {
                     thickness,
                     length,
                 ),
-            )
+            ),
         ];
 
         handles
@@ -127,18 +127,10 @@ impl ResizeHandle {
         let mouse_delta = mouse_world - self.drag_state.start_mouse_world;
 
         let delta = match self.side {
-            HandleSide::Top => {
-                (-mouse_delta.y / grid_size).round() as i32
-            }
-            HandleSide::Bottom => {
-                (mouse_delta.y / grid_size).round() as i32
-            }
-            HandleSide::Left => {
-                (-mouse_delta.x / grid_size).round() as i32
-            }
-            HandleSide::Right => {
-                (mouse_delta.x / grid_size).round() as i32
-            }
+            HandleSide::Top => (-mouse_delta.y / grid_size).round() as i32,
+            HandleSide::Bottom => (mouse_delta.y / grid_size).round() as i32,
+            HandleSide::Left => (-mouse_delta.x / grid_size).round() as i32,
+            HandleSide::Right => (mouse_delta.x / grid_size).round() as i32,
         };
 
         self.drag_state.preview_delta = delta;
@@ -168,7 +160,10 @@ impl ResizeHandle {
             HandleSide::Right => (room_position, vec2(room_size.x + delta as f32, room_size.y)),
         };
 
-        PreviewData { position: new_pos, size: new_size * grid_size }
+        PreviewData {
+            position: new_pos,
+            size: new_size * grid_size,
+        }
     }
 
     /// End the drag operation.
@@ -214,12 +209,12 @@ impl ResizeHandle {
 
     /// Draw the handle rectangle.
     pub fn draw(
-        &self, 
+        &self,
         ctx: &mut WgpuContext,
-        camera: &Camera2D, 
-        is_active: bool, 
-        preview_valid: bool, 
-        grid_size: f32
+        camera: &Camera2D,
+        is_active: bool,
+        preview_valid: bool,
+        grid_size: f32,
     ) {
         let draw_rect = self.current_draw_rect(grid_size);
 
@@ -250,12 +245,12 @@ impl ResizeHandle {
 
     /// Draw the preview overlay showing the proposed new bounds.
     pub fn draw_preview(
-        &self, 
+        &self,
         ctx: &mut WgpuContext,
-        room_position: Vec2, 
-        room_size: Vec2, 
-        grid_size: f32, 
-        is_valid: bool
+        room_position: Vec2,
+        room_size: Vec2,
+        grid_size: f32,
+        is_valid: bool,
     ) {
         if !self.drag_state.is_dragging || self.drag_state.preview_delta == 0 {
             return;
@@ -282,19 +277,33 @@ impl ResizeHandle {
             Color::new(1.0, 0.0, 0.0, 0.2)
         };
 
-        ctx.draw_rectangle(preview_pos.x, preview_pos.y, preview_size.x, preview_size.y, color);
+        ctx.draw_rectangle(
+            preview_pos.x,
+            preview_pos.y,
+            preview_size.x,
+            preview_size.y,
+            color,
+        );
 
         let border_color = if is_valid {
             Color::new(0.0, 1.0, 0.0, 0.8)
         } else {
             Color::new(1.0, 0.0, 0.0, 0.8)
         };
-        ctx.draw_rectangle_lines(preview_pos.x, preview_pos.y, preview_size.x, preview_size.y, 1.0, border_color);
+        ctx.draw_rectangle_lines(
+            preview_pos.x,
+            preview_pos.y,
+            preview_size.x,
+            preview_size.y,
+            1.0,
+            border_color,
+        );
 
         // Draw dimension text centered above preview
         let dim_text = format!("{} x {}", new_width, new_height);
         let font_size = grid_size.max(16.0);
-        let text_x = preview_pos.x + preview_size.x / 2.0 - (dim_text.len() as f32 * font_size * 0.3);
+        let text_x =
+            preview_pos.x + preview_size.x / 2.0 - (dim_text.len() as f32 * font_size * 0.3);
         let text_y = preview_pos.y - font_size * 0.5;
         let text_color = if is_valid { Color::GREEN } else { Color::RED };
         ctx.draw_text(&dim_text, text_x, text_y, font_size, text_color);
@@ -319,7 +328,12 @@ pub fn validate_resize(
     if !exits_valid(map, exits, side, delta, new_w, new_h) {
         return ResizeResult::StrandedExit;
     }
-    if !overlap_valid(preview_data.position, preview_data.size, other_bounds, grid_size) {
+    if !overlap_valid(
+        preview_data.position,
+        preview_data.size,
+        other_bounds,
+        grid_size,
+    ) {
         return ResizeResult::Overlap;
     }
     ResizeResult::Success
@@ -353,17 +367,9 @@ fn exits_valid(
     new_w: usize,
     new_h: usize,
 ) -> bool {
-    exits.iter().all(|e| {
-        is_exit_valid_after_resize(
-            e,
-            side,
-            delta,
-            map.width,
-            map.height,
-            new_w,
-            new_h,
-        )
-    })
+    exits
+        .iter()
+        .all(|e| is_exit_valid_after_resize(e, side, delta, map.width, map.height, new_w, new_h))
 }
 
 fn overlap_valid(

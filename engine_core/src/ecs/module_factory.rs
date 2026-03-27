@@ -12,9 +12,8 @@ use once_cell::sync::Lazy;
 
 /// Human‑readable names of all components that have been registered with `inspector_module!`.
 #[cfg(feature = "editor")]
-pub static MODULES: Lazy<Vec<&'static ModuleFactoryEntry>> = Lazy::new(|| {
-    inventory::iter::<ModuleFactoryEntry>.into_iter().collect()
-});
+pub static MODULES: Lazy<Vec<&'static ModuleFactoryEntry>> =
+    Lazy::new(|| inventory::iter::<ModuleFactoryEntry>.into_iter().collect());
 
 #[cfg(feature = "editor")]
 pub trait InspectorModuleFactory {
@@ -39,10 +38,7 @@ pub fn make_module<T>(title: &str, removable: bool) -> Box<dyn InspectorModule>
 where
     T: Component + Reflect + Default + 'static,
 {
-    Box::new(
-        CollapsibleModule::new(GenericModule::<T>::new(removable))
-            .with_title(title),
-    )
+    Box::new(CollapsibleModule::new(GenericModule::<T>::new(removable)).with_title(title))
 }
 
 /// Public macro for each component that appears in the inspector.

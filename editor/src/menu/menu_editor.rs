@@ -1,12 +1,12 @@
 // editor/src/menu_editor/menu_editor.rs
+use crate::app::SubEditor;
+use crate::gui::modal::is_modal_open;
 use crate::gui::panels::panel_manager::is_mouse_over_panel;
 use crate::menu::resize_handle::ResizeHandleState;
-use crate::gui::modal::is_modal_open;
-use crate::app::SubEditor;
 use crate::menu::*;
-use std::collections::HashSet;
-use engine_core::prelude::*;
 use bishop::prelude::*;
+use engine_core::prelude::*;
+use std::collections::HashSet;
 
 /// Tracks an in-progress drag-to-reorder operation for managed layout children.
 pub(crate) struct ReorderDragState {
@@ -84,11 +84,7 @@ impl MenuEditor {
     }
 
     /// Updates the menu editor and handles input.
-    pub fn update(
-        &mut self,
-        ctx: &mut WgpuContext,
-        camera: &Camera2D,
-    ) {
+    pub fn update(&mut self, ctx: &mut WgpuContext, camera: &Camera2D) {
         if self.view_preview {
             if Controls::v(ctx) || Controls::escape(ctx) {
                 self.view_preview = false;
@@ -114,13 +110,9 @@ impl MenuEditor {
         }
     }
 
-    pub fn draw(
-        &mut self,
-        ctx: &mut WgpuContext,
-        camera: &Camera2D,
-    ) {
+    pub fn draw(&mut self, ctx: &mut WgpuContext, camera: &Camera2D) {
         self.active_rects.clear();
-        
+
         ctx.set_camera(camera);
         ctx.clear_background(Color::BLACK);
 
@@ -193,7 +185,9 @@ impl MenuEditor {
         let template_idx = self.current_template_index?;
 
         if let Some(ci) = self.selected_child_index {
-            return self.templates.get_mut(template_idx)
+            return self
+                .templates
+                .get_mut(template_idx)
                 .and_then(|t| t.elements.get_mut(index))
                 .and_then(|e| {
                     if let MenuElementKind::LayoutGroup(g) = &mut e.kind {
@@ -204,7 +198,10 @@ impl MenuEditor {
                 });
         }
 
-        self.templates.get_mut(template_idx)?.elements.get_mut(index)
+        self.templates
+            .get_mut(template_idx)?
+            .elements
+            .get_mut(index)
     }
 
     /// Snapshots the selected element, applies `mutate` to produce the new state,
@@ -213,11 +210,17 @@ impl MenuEditor {
     where
         F: FnOnce(&mut MenuElement),
     {
-        let Some(template_idx) = self.current_template_index else { return };
-        let Some(element_idx) = self.primary_selected_index() else { return };
+        let Some(template_idx) = self.current_template_index else {
+            return;
+        };
+        let Some(element_idx) = self.primary_selected_index() else {
+            return;
+        };
         let child_idx = self.selected_child_index;
 
-        let Some(old_element) = self.selected_element().cloned() else { return };
+        let Some(old_element) = self.selected_element().cloned() else {
+            return;
+        };
         let mut new_element = old_element.clone();
         mutate(&mut new_element);
 
@@ -226,15 +229,13 @@ impl MenuEditor {
             *target = new_element.clone();
         }
 
-        crate::editor_global::push_command(Box::new(
-            crate::commands::menu::UpdateElementCmd::new(
-                template_idx,
-                element_idx,
-                child_idx,
-                old_element,
-                new_element,
-            ),
-        ));
+        crate::editor_global::push_command(Box::new(crate::commands::menu::UpdateElementCmd::new(
+            template_idx,
+            element_idx,
+            child_idx,
+            old_element,
+            new_element,
+        )));
     }
 
     /// Applies a mutation directly to the selected element for real-time preview.
@@ -254,31 +255,51 @@ impl MenuEditor {
     /// Commits the previewed change as a single undo-able command using the
     /// cached original element and the current element state.
     pub fn commit_element_update(&mut self) {
-        let Some(old_element) = self.drag_original_element.take() else { return };
-        let Some(template_idx) = self.current_template_index else { return };
-        let Some(element_idx) = self.primary_selected_index() else { return };
+        let Some(old_element) = self.drag_original_element.take() else {
+            return;
+        };
+        let Some(template_idx) = self.current_template_index else {
+            return;
+        };
+        let Some(element_idx) = self.primary_selected_index() else {
+            return;
+        };
         let child_idx = self.selected_child_index;
-        let Some(new_element) = self.selected_element().cloned() else { return };
+        let Some(new_element) = self.selected_element().cloned() else {
+            return;
+        };
 
-        crate::editor_global::push_command(Box::new(
-            crate::commands::menu::UpdateElementCmd::new(
-                template_idx,
-                element_idx,
-                child_idx,
-                old_element,
-                new_element,
-            ),
-        ));
+        crate::editor_global::push_command(Box::new(crate::commands::menu::UpdateElementCmd::new(
+            template_idx,
+            element_idx,
+            child_idx,
+            old_element,
+            new_element,
+        )));
     }
 
     /// Returns true when a managed child element is currently selected.
     pub fn is_selected_child_managed(&self) -> bool {
-        let Some(child_idx) = self.selected_child_index else { return false };
-        let Some(parent_idx) = self.primary_selected_index() else { return false };
-        let Some(template) = self.current_template() else { return false };
-        let Some(element) = template.elements.get(parent_idx) else { return false };
-        let MenuElementKind::LayoutGroup(group) = &element.kind else { return false };
-        group.children.get(child_idx).map(|c| c.managed).unwrap_or(false)
+        let Some(child_idx) = self.selected_child_index else {
+            return false;
+        };
+        let Some(parent_idx) = self.primary_selected_index() else {
+            return false;
+        };
+        let Some(template) = self.current_template() else {
+            return false;
+        };
+        let Some(element) = template.elements.get(parent_idx) else {
+            return false;
+        };
+        let MenuElementKind::LayoutGroup(group) = &element.kind else {
+            return false;
+        };
+        group
+            .children
+            .get(child_idx)
+            .map(|c| c.managed)
+            .unwrap_or(false)
     }
 
     #[inline]
@@ -296,7 +317,6 @@ impl MenuEditor {
         camera.rotation = 0.0;
         camera.offset = Vec2::ZERO;
     }
-
 }
 
 impl SubEditor for MenuEditor {

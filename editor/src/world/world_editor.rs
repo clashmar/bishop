@@ -1,17 +1,17 @@
 // editor/src/world/world_editor.rs
-use crate::app::SubEditor;
 use crate::app::EditorCameraController;
+use crate::app::SubEditor;
+use crate::canvas::grid;
 use crate::canvas::grid_shader::GridRenderer;
 use crate::editor_assets::assets::*;
-use crate::gui::mode_selector::*;
 use crate::gui::menu_bar::*;
+use crate::gui::mode_selector::*;
 use crate::world::coord::*;
-use crate::canvas::grid;
+use bishop::prelude::*;
 use engine_core::prelude::*;
+use once_cell::sync::Lazy;
 use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
-use once_cell::sync::Lazy;
-use bishop::prelude::*;
 
 pub const LINE_THICKNESS_MULTIPLIER: f32 = 0.005;
 const HIGHLIGHT_COLOR: Color = Color::new(0.0, 1.0, 0.0, 0.5);
@@ -90,14 +90,16 @@ impl WorldEditor {
         self.handle_shortcuts(ctx);
 
         match self.mode {
-            WorldEditorMode::Select => self.update_selecting_mode(ctx, camera, game.current_world_mut()),
+            WorldEditorMode::Select => {
+                self.update_selecting_mode(ctx, camera, game.current_world_mut())
+            }
             WorldEditorMode::New => self.update_placing_mode(ctx, camera, game),
             WorldEditorMode::Delete => self.update_deleting_mode(ctx, camera, game),
         }
     }
 
     fn update_selecting_mode(
-        &mut self, 
+        &mut self,
         ctx: &WgpuContext,
         camera: &Camera2D,
         world: &mut World,
@@ -162,7 +164,8 @@ impl WorldEditor {
             if let (Some(start), Some(end)) = (self.placing_start, self.placing_end) {
                 let (top_left, size) = rect_from_points(start, end);
                 let rooms = &game.current_world().rooms;
-                let should_create = !self.intersects_existing_room(rooms, top_left, size, grid_size);
+                let should_create =
+                    !self.intersects_existing_room(rooms, top_left, size, grid_size);
 
                 if should_create {
                     // Create the room and get its id back.
@@ -185,10 +188,7 @@ impl WorldEditor {
         size: Vec2,
         grid_size: f32,
     ) -> bool {
-        let bounds: Vec<(Vec2, Vec2)> = rooms
-            .iter()
-            .map(|rm| (rm.position, rm.size))
-            .collect();
+        let bounds: Vec<(Vec2, Vec2)> = rooms.iter().map(|rm| (rm.position, rm.size)).collect();
 
         overlaps_existing_rooms(top_left, size, &bounds, grid_size)
     }
@@ -231,20 +231,20 @@ impl WorldEditor {
             }
         }
 
-        self.draw_room_names(ctx, camera, rooms, world.grid_size); 
+        self.draw_room_names(ctx, camera, rooms, world.grid_size);
         self.draw_ui(ctx, camera);
-        
+
         // Static UI camera
         ctx.set_default_camera();
         self.draw_coordinates(ctx, camera, world.grid_size);
     }
 
     pub fn draw_rooms(
-        &self, 
+        &self,
         ctx: &mut WgpuContext,
-        camera: &Camera2D, 
-        rooms: &Vec<Room>, 
-        grid_size: f32
+        camera: &Camera2D,
+        rooms: &Vec<Room>,
+        grid_size: f32,
     ) {
         for room in rooms {
             let rect = scaled_room_rect(room, grid_size);
@@ -262,12 +262,7 @@ impl WorldEditor {
         }
     }
 
-    fn draw_exits(
-        &self, 
-        ctx: &mut WgpuContext,
-        rooms: &Vec<Room>, 
-        grid_size: f32
-    ) {
+    fn draw_exits(&self, ctx: &mut WgpuContext, rooms: &Vec<Room>, grid_size: f32) {
         for room in rooms {
             for exit in &room.exits {
                 let exit_world_coord = (room.position / grid_size) + exit.position;
@@ -277,28 +272,22 @@ impl WorldEditor {
                 } else {
                     Color::RED
                 };
-                self.draw_exit_marker(
-                    ctx, 
-                    exit_world_coord, 
-                    exit.direction, 
-                    color, 
-                    grid_size
-                );
+                self.draw_exit_marker(ctx, exit_world_coord, exit.direction, color, grid_size);
             }
         }
     }
 
     fn draw_exit_marker(
-        &self, 
+        &self,
         ctx: &mut WgpuContext,
-        exit_world_coord: Vec2, 
-        dir: ExitDirection, 
-        color: Color, 
-        grid_size: f32
+        exit_world_coord: Vec2,
+        dir: ExitDirection,
+        color: Color,
+        grid_size: f32,
     ) {
         const THICKNESS: f32 = 2.0;
         let length = grid_size;
-        let offset = 1.0; 
+        let offset = 1.0;
 
         match dir {
             ExitDirection::Up => ctx.draw_rectangle(
@@ -333,11 +322,11 @@ impl WorldEditor {
     }
 
     fn draw_hovered_room(
-        &self, 
+        &self,
         ctx: &mut WgpuContext,
-        camera: &Camera2D, 
-        rooms: &Vec<Room>, 
-        grid_size: f32
+        camera: &Camera2D,
+        rooms: &Vec<Room>,
+        grid_size: f32,
     ) {
         let world_mouse = mouse_world_pos(ctx, camera);
         for room in rooms {
@@ -366,10 +355,10 @@ impl WorldEditor {
 
     fn draw_room_names(
         &self,
-        ctx: &mut WgpuContext, 
-        camera: &Camera2D, 
-        rooms: &Vec<Room>, 
-        grid_size: f32
+        ctx: &mut WgpuContext,
+        camera: &Camera2D,
+        rooms: &Vec<Room>,
+        grid_size: f32,
     ) {
         ctx.set_default_camera(); // draw in screen space
 
@@ -392,7 +381,11 @@ impl WorldEditor {
             let font_size = (base_font_size * room_scale * zoom_factor).clamp(10.0, 200.0);
 
             // Rotation: vertical if tall
-            let rotation = if rect.h > rect.w { std::f32::consts::FRAC_PI_2 } else { 0.0 };
+            let rotation = if rect.h > rect.w {
+                std::f32::consts::FRAC_PI_2
+            } else {
+                0.0
+            };
 
             // Measure text to center it properly
             let dims = ctx.measure_text(&room.name, font_size);
@@ -410,22 +403,27 @@ impl WorldEditor {
                     color: Color::BLACK,
                     rotation,
                     ..Default::default()
-                });
-            }
-            
+                },
+            );
+        }
+
         ctx.set_camera(camera); // back to world camera
     }
 
     fn draw_placing_preview(
-        &self, 
+        &self,
         ctx: &mut WgpuContext,
-        camera: &Camera2D, 
-        rooms: &[Room], 
-        grid_size: f32
+        camera: &Camera2D,
+        rooms: &[Room],
+        grid_size: f32,
     ) {
         if let (Some(start), Some(end)) = (self.placing_start, self.placing_end) {
             let (top_left, size) = rect_from_points(start, end);
-            let color = if self.intersects_existing_room(rooms, top_left, size, grid_size) { HIGHLIGHT_ERROR_COLOR } else { HIGHLIGHT_COLOR };
+            let color = if self.intersects_existing_room(rooms, top_left, size, grid_size) {
+                HIGHLIGHT_ERROR_COLOR
+            } else {
+                HIGHLIGHT_COLOR
+            };
             let inset = ROOM_LINE_INSET * grid_size;
             ctx.draw_rectangle_lines(
                 top_left.x * grid_size + inset / 2.0,
@@ -437,11 +435,12 @@ impl WorldEditor {
             );
         } else {
             let hover_tile = snap_to_grid(mouse_world_grid(ctx, camera, grid_size));
-            let color = if self.intersects_existing_room(rooms, hover_tile, vec2(1.0, 1.0), grid_size) {
-                HIGHLIGHT_ERROR_COLOR
-            } else {
-                HIGHLIGHT_COLOR
-            };
+            let color =
+                if self.intersects_existing_room(rooms, hover_tile, vec2(1.0, 1.0), grid_size) {
+                    HIGHLIGHT_ERROR_COLOR
+                } else {
+                    HIGHLIGHT_COLOR
+                };
             ctx.draw_rectangle(
                 hover_tile.x * grid_size,
                 hover_tile.y * grid_size,
@@ -470,12 +469,7 @@ impl WorldEditor {
         ctx.set_camera(camera); // Back to world camera
     }
 
-    pub fn init_camera(
-        &mut self, 
-        ctx: &WgpuContext, 
-        camera: &mut Camera2D, 
-        world: &World
-    ) {
+    pub fn init_camera(&mut self, ctx: &WgpuContext, camera: &mut Camera2D, world: &World) {
         let target_room = world
             .starting_room_id
             .and_then(|id| world.get_room(id))
@@ -487,18 +481,13 @@ impl WorldEditor {
     }
 
     pub fn center_on_room(
-        &mut self, 
-        ctx: &WgpuContext, 
-        camera: &mut Camera2D, 
-        room: &Room, 
-        grid_size: f32
+        &mut self,
+        ctx: &WgpuContext,
+        camera: &mut Camera2D,
+        room: &Room,
+        grid_size: f32,
     ) {
-        *camera = EditorCameraController::camera_for_room(
-            ctx, 
-            room.size, 
-            room.position, 
-            grid_size
-        );
+        *camera = EditorCameraController::camera_for_room(ctx, room.size, room.position, grid_size);
     }
 
     fn handle_shortcuts(&mut self, ctx: &WgpuContext) {
@@ -579,8 +568,5 @@ fn rect_from_points(p1: Vec2, p2: Vec2) -> (Vec2, Vec2) {
 }
 
 /// A slice of all the modes.
-static ALL_MODES: Lazy<&'static [WorldEditorMode]> = Lazy::new(|| {
-    Box::leak(Box::new(
-        WorldEditorMode::iter().collect::<Vec<_>>()
-    ))
-});
+static ALL_MODES: Lazy<&'static [WorldEditorMode]> =
+    Lazy::new(|| Box::leak(Box::new(WorldEditorMode::iter().collect::<Vec<_>>())));

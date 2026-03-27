@@ -1,5 +1,5 @@
-use std::collections::HashSet;
 use engine_core::scripting::lua_constants::LUA_OWNER_GAME_GENERATED;
+use std::collections::HashSet;
 
 /// Generates `sounds.lua` with sorted, sanitized sound group identifiers.
 pub fn generate_sounds_lua(group_names: &[String]) -> String {
@@ -43,7 +43,11 @@ fn sanitize_lua_identifier_with_prefix(s: &str, prefix: &str) -> String {
     }
 
     if out.is_empty() || out.chars().next().is_some_and(|c| c.is_ascii_digit()) {
-        format!("{}_{}", prefix, s.replace(|c: char| !c.is_ascii_alphanumeric(), "_"))
+        format!(
+            "{}_{}",
+            prefix,
+            s.replace(|c: char| !c.is_ascii_alphanumeric(), "_")
+        )
     } else {
         out
     }
@@ -91,10 +95,7 @@ mod tests {
 
     #[test]
     fn generate_sounds_lua_disambiguates_identifier_collisions() {
-        let lua = generate_sounds_lua(&[
-            "Boss Attack".to_string(),
-            "Boss-Attack".to_string(),
-        ]);
+        let lua = generate_sounds_lua(&["Boss Attack".to_string(), "Boss-Attack".to_string()]);
 
         assert!(lua.contains("BossAttack = \"Boss Attack\""));
         assert!(lua.contains("BossAttack_2 = \"Boss-Attack\""));

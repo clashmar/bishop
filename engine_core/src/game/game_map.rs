@@ -4,6 +4,4 @@ use serde_with::serde_as;
 
 #[serde_as]
 #[derive(Serialize, Deserialize, Default)]
-pub struct GameMap {
-    
-}
+pub struct GameMap {}

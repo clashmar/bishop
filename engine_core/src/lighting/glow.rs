@@ -1,13 +1,13 @@
 // engine_core/src/lighting/glow.rs
 use crate::assets::sprite::SpriteId;
-use crate::game::GameCtxMut;
 use crate::ecs::entity::Entity;
+use crate::game::GameCtxMut;
 use crate::inspector_module;
-use serde_with::{serde_as, FromInto};
-use serde::{Deserialize, Serialize};
+use bishop::prelude::*;
 use ecs_component::ecs_component;
 use reflect_derive::Reflect;
-use bishop::prelude::*;
+use serde::{Deserialize, Serialize};
+use serde_with::{FromInto, serde_as};
 
 /// A single glow source.
 #[ecs_component(post_create = post_create, post_remove = post_remove)]

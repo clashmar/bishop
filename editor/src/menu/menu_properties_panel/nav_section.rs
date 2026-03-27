@@ -1,8 +1,8 @@
 // editor/src/menu_editor/menu_properties_panel/nav_helpers.rs
-use super::{ROW_HEIGHT, LABEL_WIDTH, FIELD_HEIGHT, common_properties::row_visible};
+use super::{common_properties::row_visible, FIELD_HEIGHT, LABEL_WIDTH, ROW_HEIGHT};
 use crate::menu::{MenuEditor, NavWidgetIds};
-use engine_core::prelude::*;
 use bishop::prelude::*;
+use engine_core::prelude::*;
 
 pub struct NavMeta<T> {
     pub(crate) label: &'static str,
@@ -21,11 +21,19 @@ impl MenuEditor {
         blocked: bool,
         clip: &Rect,
         nav_ids: &NavWidgetIds,
-    ) where T: Clone + Navigable {
-        for &dir in &[NavDirection::Up, NavDirection::Down, NavDirection::Left, NavDirection::Right] {
+    ) where
+        T: Clone + Navigable,
+    {
+        for &dir in &[
+            NavDirection::Up,
+            NavDirection::Down,
+            NavDirection::Left,
+            NavDirection::Right,
+        ] {
             let meta = self.nav_meta(dir, nav_ids);
 
-            let current = self.selected_element()
+            let current = self
+                .selected_element()
                 .and_then(T::from_element)
                 .and_then(|e| (meta.get)(e));
 
@@ -76,21 +84,19 @@ impl MenuEditor {
 
             let dropdown_rect = Rect::new(x + LABEL_WIDTH, *y, w - LABEL_WIDTH, FIELD_HEIGHT);
 
-            if let Some(selected) = Dropdown::new(
-                meta.id,
-                dropdown_rect,
-                current_label,
-                &nav_options,
-                |s| s.clone(),
-            )
-            .blocked(blocked)
-            .fixed_width()
-            .show(ctx)
+            if let Some(selected) =
+                Dropdown::new(meta.id, dropdown_rect, current_label, &nav_options, |s| {
+                    s.clone()
+                })
+                .blocked(blocked)
+                .fixed_width()
+                .show(ctx)
             {
                 let new_nav = if selected == "None" {
                     None
                 } else {
-                    options.iter()
+                    options
+                        .iter()
                         .find(|(_, name)| name == &selected)
                         .map(|(idx, _)| *idx)
                 };
@@ -105,11 +111,7 @@ impl MenuEditor {
     }
 
     /// Generic nav meta builder for any element type `T`.
-    fn nav_meta<T: Navigable>(
-        &self,
-        dir: NavDirection,
-        nav_ids: &NavWidgetIds,
-    ) -> NavMeta<T> {
+    fn nav_meta<T: Navigable>(&self, dir: NavDirection, nav_ids: &NavWidgetIds) -> NavMeta<T> {
         match dir {
             NavDirection::Up => NavMeta {
                 label: "Nav Up:",
@@ -156,7 +158,9 @@ impl MenuEditor {
                     match &element.kind {
                         MenuElementKind::Button(button) => button.text_key.clone(),
                         MenuElementKind::LayoutGroup(group) => {
-                            let button_count = group.children.iter()
+                            let button_count = group
+                                .children
+                                .iter()
                                 .filter(|c| matches!(c.element.kind, MenuElementKind::Button(_)))
                                 .count();
                             format!("Layout Group ({} buttons)", button_count)

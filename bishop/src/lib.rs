@@ -61,9 +61,15 @@ pub use wgpu::WgpuContext;
 use material::RenderOps;
 
 /// Combined context trait for widgets that need input, drawing, text, camera, window, time, render operations, and texture loading.
-pub trait BishopContext: Input + Draw + Text + Camera + Window + Time + RenderOps + TextureLoader {}
+pub trait BishopContext:
+    Input + Draw + Text + Camera + Window + Time + RenderOps + TextureLoader
+{
+}
 
-impl<T: Input + Draw + Text + Camera + Window + Time + RenderOps + TextureLoader> BishopContext for T {}
+impl<T: Input + Draw + Text + Camera + Window + Time + RenderOps + TextureLoader> BishopContext
+    for T
+{
+}
 
 /// Trait for applications that can be run by bishop.
 pub trait BishopApp {
@@ -113,8 +119,8 @@ pub fn run_wgpu<A: BishopApp + 'static>(
     config: window::WindowConfig,
     app: A,
 ) -> Result<(), RunError> {
-    use winit::event_loop::EventLoop;
     use wgpu::app_runner::WgpuAppRunner;
+    use winit::event_loop::EventLoop;
 
     let event_loop = EventLoop::new().map_err(|e| RunError::EventLoop(e.to_string()))?;
     let mut runner = WgpuAppRunner::new(config, app);
@@ -166,7 +172,6 @@ pub fn run_backend<A: BishopApp + 'static>(
 #[cfg(feature = "wgpu")]
 pub type PlatformContext = Rc<RefCell<wgpu::WgpuContext>>;
 
-
 /// Prelude module for convenient glob imports.
 ///
 /// # Example
@@ -186,7 +191,7 @@ pub mod prelude {
     pub use crate::window::*;
     pub use crate::BishopApp;
     pub use crate::BishopContext;
-    pub use glam::{Vec2, Vec3, vec4};
+    pub use glam::{vec4, Vec2, Vec3};
 
     #[cfg(feature = "wgpu")]
     pub use crate::wgpu::WgpuContext;

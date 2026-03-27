@@ -11,11 +11,9 @@ pub(crate) fn default_menus() -> Vec<MenuTemplate> {
 
     let pause_menu = MenuBuilder::new("pause")
         .background(MenuBackground::Dimmed(0.7))
-        .layout_group(
-            Rect::new(0.0, 0.0, 1.0, 1.0),
-            layout,
-            |group| group.label("Paused").button("Resume", MenuAction::Resume),
-        )
+        .layout_group(Rect::new(0.0, 0.0, 1.0, 1.0), layout, |group| {
+            group.label("Paused").button("Resume", MenuAction::Resume)
+        })
         .build();
 
     let settings_layout = LayoutConfig::vertical()
@@ -26,18 +24,14 @@ pub(crate) fn default_menus() -> Vec<MenuTemplate> {
 
     let settings_menu = MenuBuilder::new("settings")
         .background(MenuBackground::Dimmed(0.7))
-        .layout_group(
-            Rect::new(0.0, 0.0, 1.0, 1.0),
-            settings_layout,
-            |group| {
-                group
-                    .label("Settings")
-                    .slider("Master Volume", "master_volume", 0.0, 1.0, 0.05, 1.0)
-                    .slider("Music Volume", "music_volume", 0.0, 1.0, 0.05, 1.0)
-                    .slider("SFX Volume", "sfx_volume", 0.0, 1.0, 0.05, 1.0)
-                    .button("Back", MenuAction::CloseMenu)
-            },
-        )
+        .layout_group(Rect::new(0.0, 0.0, 1.0, 1.0), settings_layout, |group| {
+            group
+                .label("Settings")
+                .slider("Master Volume", "master_volume", 0.0, 1.0, 0.05, 1.0)
+                .slider("Music Volume", "music_volume", 0.0, 1.0, 0.05, 1.0)
+                .slider("SFX Volume", "sfx_volume", 0.0, 1.0, 0.05, 1.0)
+                .button("Back", MenuAction::CloseMenu)
+        })
         .build();
 
     vec![pause_menu, settings_menu]

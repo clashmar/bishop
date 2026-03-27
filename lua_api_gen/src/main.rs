@@ -1,13 +1,13 @@
 // lua_api_gen/src/main.rs
 use engine_core::scripting::lua_constants::LUA_OWNER_SHARED_ENGINE;
 use engine_core::scripting::modules::lua_module::*;
+use game_lib as _;
 use std::collections::HashMap;
-use std::fs::OpenOptions;
-use std::path::PathBuf;
-use std::io::Write;
 use std::env;
 use std::fs;
-use game_lib as _;
+use std::fs::OpenOptions;
+use std::io::Write;
+use std::path::PathBuf;
 
 fn main() {
     let out_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap())

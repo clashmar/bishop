@@ -1,11 +1,11 @@
 // editor/src/playtest/playtest_process.rs
-use std::sync::mpsc::{self, Receiver, TryRecvError};
-use engine_core::logging::{LOG_HISTORY, now_str};
-use std::process::{Child, Command, Stdio};
+use engine_core::logging::{now_str, LOG_HISTORY};
+use std::io;
 use std::io::{BufRead, BufReader};
 use std::path::Path;
+use std::process::{Child, Command, Stdio};
+use std::sync::mpsc::{self, Receiver, TryRecvError};
 use std::thread;
-use std::io;
 
 /// Manages a running playtest process, capturing its stdout/stderr output.
 pub struct PlaytestProcess {
@@ -24,9 +24,13 @@ impl PlaytestProcess {
             .stderr(Stdio::piped())
             .spawn()?;
 
-        let stdout = child.stdout.take()
+        let stdout = child
+            .stdout
+            .take()
             .ok_or_else(|| io::Error::other("Failed to capture stdout"))?;
-        let stderr = child.stderr.take()
+        let stderr = child
+            .stderr
+            .take()
             .ok_or_else(|| io::Error::other("Failed to capture stderr"))?;
 
         let (stdout_tx, stdout_rx) = mpsc::channel();

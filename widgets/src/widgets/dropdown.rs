@@ -1,7 +1,7 @@
+use crate::*;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fmt::Display;
-use crate::*;
 
 /// Offset added to a dropdown's WidgetId to derive its filter TextInput's WidgetId.
 const FILTER_ID_OFFSET: usize = usize::MAX / 2 + 1;
@@ -28,11 +28,15 @@ fn get_filter(id: WidgetId) -> String {
 }
 
 fn set_filter(id: WidgetId, filter: String) {
-    DROPDOWN_FILTER_STATE.with(|s| { s.borrow_mut().insert(id, filter); });
+    DROPDOWN_FILTER_STATE.with(|s| {
+        s.borrow_mut().insert(id, filter);
+    });
 }
 
 fn clear_filter(id: WidgetId) {
-    DROPDOWN_FILTER_STATE.with(|s| { s.borrow_mut().remove(&id); });
+    DROPDOWN_FILTER_STATE.with(|s| {
+        s.borrow_mut().remove(&id);
+    });
 }
 
 /// Flushes all deferred dropdown list renders.
@@ -204,7 +208,12 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
 
         let truncated;
         let display_label = if self.fixed_width || self.truncate_trigger {
-            truncated = truncate_to_width(ctx, self.label, self.rect.w - WIDGET_PADDING, DEFAULT_FONT_SIZE_16);
+            truncated = truncate_to_width(
+                ctx,
+                self.label,
+                self.rect.w - WIDGET_PADDING,
+                DEFAULT_FONT_SIZE_16,
+            );
             &truncated
         } else {
             self.label
@@ -214,7 +223,8 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
             DropDownStyle::Default => {
                 Button::new(self.rect, display_label)
                     .blocked(self.blocked)
-                    .show(ctx) && !self.blocked
+                    .show(ctx)
+                    && !self.blocked
             }
             DropDownStyle::Plain => {
                 Button::new(self.rect, display_label)
@@ -222,7 +232,8 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
                     .text_color(self.text_color)
                     .font_size(self.label_font_size)
                     .blocked(self.blocked)
-                    .show(ctx) && !self.blocked
+                    .show(ctx)
+                    && !self.blocked
             }
         };
 
@@ -259,7 +270,9 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
         } else if self.fixed_width {
             self.rect.w
         } else {
-            self.rect.w.max(max_opt_width + 2.0 * W_PADDING + SCROLLBAR_WIDTH)
+            self.rect
+                .w
+                .max(max_opt_width + 2.0 * W_PADDING + SCROLLBAR_WIDTH)
         };
 
         let mut result: Option<T> = None;
@@ -325,7 +338,8 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
 
                 let scroll_offset = state.scroll_offset;
                 let row_height = self.rect.h;
-                let labels: Vec<String> = self.options.iter().map(|o| (self.to_string)(o)).collect();
+                let labels: Vec<String> =
+                    self.options.iter().map(|o| (self.to_string)(o)).collect();
                 let option_count = self.options.len();
 
                 DEFERRED_DROPDOWN_RENDERS.with(|renders| {
@@ -373,9 +387,10 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
         let filtered: Vec<&T> = if filter_lower.is_empty() {
             self.options.iter().collect()
         } else {
-            self.options.iter().filter(|opt| {
-                (self.to_string)(opt).to_lowercase().contains(&filter_lower)
-            }).collect()
+            self.options
+                .iter()
+                .filter(|opt| (self.to_string)(opt).to_lowercase().contains(&filter_lower))
+                .collect()
         };
 
         let visible_rows = MAX_VISIBLE_ROWS.min(filtered.len());
@@ -387,14 +402,24 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
         let drop_down_y = self.rect.y + self.rect.h + self.y_offset;
         let drop_up_y = self.rect.y - popup_h - self.y_offset;
         let drops_below = drop_down_y + popup_h > ctx.screen_height();
-        let popup_y = if drops_below && drop_up_y >= 0.0 { drop_up_y } else { drop_down_y };
+        let popup_y = if drops_below && drop_up_y >= 0.0 {
+            drop_up_y
+        } else {
+            drop_down_y
+        };
 
         let popup_x = self.list_x(list_width);
         let popup_rect = Rect::new(popup_x, popup_y, list_width, popup_h);
         state.rect = popup_rect;
 
         // Background
-        ctx.draw_rectangle(popup_rect.x, popup_rect.y, popup_rect.w, popup_rect.h, FIELD_BACKGROUND_COLOR);
+        ctx.draw_rectangle(
+            popup_rect.x,
+            popup_rect.y,
+            popup_rect.w,
+            popup_rect.h,
+            FIELD_BACKGROUND_COLOR,
+        );
 
         // Filter TextInput
         let filter_rect = Rect::new(popup_rect.x, popup_y, list_width, filter_h);
@@ -421,11 +446,12 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
         if entries_rect.contains(mouse_pos) {
             let (_, wheel_y) = ctx.mouse_wheel();
             if wheel_y != 0.0 {
-                state.scroll_offset = (state.scroll_offset - wheel_y * SCROLL_SPEED).clamp(0.0, max_offset);
+                state.scroll_offset =
+                    (state.scroll_offset - wheel_y * SCROLL_SPEED).clamp(0.0, max_offset);
             }
         }
 
-        // Entries 
+        // Entries
         ctx.push_clip_rect(entries_rect);
         let mut result = None;
 
@@ -441,7 +467,10 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
 
             if hovered {
                 ctx.draw_rectangle(
-                    entry_rect.x, entry_rect.y, entry_rect.w, entry_rect.h,
+                    entry_rect.x,
+                    entry_rect.y,
+                    entry_rect.w,
+                    entry_rect.h,
                     Color::new(0.2, 0.2, 0.2, 0.9),
                 );
             }
@@ -492,7 +521,14 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
             );
         }
 
-        ctx.draw_rectangle_lines(popup_rect.x, popup_rect.y, popup_rect.w, popup_rect.h, 2., OUTLINE_COLOR);
+        ctx.draw_rectangle_lines(
+            popup_rect.x,
+            popup_rect.y,
+            popup_rect.w,
+            popup_rect.h,
+            2.,
+            OUTLINE_COLOR,
+        );
 
         result
     }
@@ -583,14 +619,21 @@ fn render_dropdown_list<C: BishopContext>(
         );
     }
 
-    ctx.draw_rectangle_lines(list_rect.x, list_rect.y, list_rect.w, list_rect.h, 2., OUTLINE_COLOR);
+    ctx.draw_rectangle_lines(
+        list_rect.x,
+        list_rect.y,
+        list_rect.w,
+        list_rect.h,
+        2.,
+        OUTLINE_COLOR,
+    );
 }
 
 /// Internal module for managing dropdown state.
 pub mod dropdown_state {
+    use crate::{Rect, WidgetId};
     use std::cell::RefCell;
     use std::collections::HashMap;
-    use crate::{WidgetId, Rect};
 
     thread_local! {
         pub static STATE: RefCell<HashMap<WidgetId, DropState>> =
@@ -617,11 +660,7 @@ pub mod dropdown_state {
 
     /// Gets the state for a dropdown by id.
     pub fn get(key: WidgetId) -> DropState {
-        STATE.with(|s| {
-            *s.borrow()
-                .get(&key)
-                .unwrap_or(&DropState::default())
-        })
+        STATE.with(|s| *s.borrow().get(&key).unwrap_or(&DropState::default()))
     }
 
     /// Sets the state for a dropdown by id.
@@ -645,6 +684,8 @@ pub fn is_mouse_over_dropdown_list<C: BishopContext>(ctx: &C) -> bool {
     dropdown_state::STATE.with(|s| {
         let mouse_pos = ctx.mouse_position();
         let mouse_vec = Vec2::new(mouse_pos.0, mouse_pos.1);
-        s.borrow().values().any(|st| st.open && st.rect.contains(mouse_vec))
+        s.borrow()
+            .values()
+            .any(|st| st.open && st.rect.contains(mouse_vec))
     })
 }

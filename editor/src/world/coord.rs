@@ -16,21 +16,13 @@ pub fn snap_to_grid(pos: Vec2) -> Vec2 {
 
 /// Return the grid cell (integer coordinates) that the mouse is
 /// hovering over.
-pub fn mouse_world_grid(
-    ctx: &WgpuContext,
-    camera: &Camera2D, 
-    grid_size: f32
-) -> Vec2 {
+pub fn mouse_world_grid(ctx: &WgpuContext, camera: &Camera2D, grid_size: f32) -> Vec2 {
     let world = mouse_world_pos(ctx, camera);
     (world / grid_size).floor()
 }
 
 /// Turn a world‑space `Vec2` into screen coordinates using the current camera.
-pub fn world_to_screen(
-    ctx: &WgpuContext,
-    camera: &Camera2D,
-    world_pos: Vec2,
-) -> Vec2 {
+pub fn world_to_screen(ctx: &WgpuContext, camera: &Camera2D, world_pos: Vec2) -> Vec2 {
     camera.world_to_screen(world_pos, ctx.screen_width(), ctx.screen_height())
 }
 

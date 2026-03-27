@@ -1,10 +1,10 @@
 // editor/src/commands/room/resize_tilemap_cmd.rs
+use crate::app::EditorMode;
 use crate::commands::editor_command_manager::EditorCommand;
 use crate::tilemap::resize_handle::HandleSide;
-use crate::app::EditorMode;
 use crate::with_editor;
-use std::collections::HashMap;
 use engine_core::prelude::*;
+use std::collections::HashMap;
 
 /// Undoable command for resizing a tilemap via drag handles.
 #[derive(Debug)]
@@ -26,12 +26,7 @@ pub struct ResizeTilemapCmd {
 
 impl ResizeTilemapCmd {
     /// Create a new resize command.
-    pub fn new(
-        room_id: RoomId,
-        variant_index: usize,
-        side: HandleSide,
-        delta: i32,
-    ) -> Self {
+    pub fn new(room_id: RoomId, variant_index: usize, side: HandleSide, delta: i32) -> Self {
         Self {
             room_id,
             variant_index,
@@ -102,8 +97,8 @@ impl EditorCommand for ResizeTilemapCmd {
                         shift_tiles(map, 0, self.delta as isize);
                         for exit in exits.iter_mut() {
                             let on_bottom = (exit.position.y - room_size.y).abs() < f32::EPSILON;
-                            let on_left   = (exit.position.x + 1.0).abs() < f32::EPSILON;
-                            let on_right  = (exit.position.x - room_size.x).abs() < f32::EPSILON;
+                            let on_left = (exit.position.x + 1.0).abs() < f32::EPSILON;
+                            let on_right = (exit.position.x - room_size.x).abs() < f32::EPSILON;
                             if on_bottom || on_left || on_right {
                                 exit.position.y += self.delta as f32;
                             }
@@ -123,9 +118,10 @@ impl EditorCommand for ResizeTilemapCmd {
                             map.height -= shrink;
                             shift_tiles(map, 0, -(shrink as isize));
                             for exit in exits.iter_mut() {
-                                let on_bottom = (exit.position.y - room_size.y).abs() < f32::EPSILON;
-                                let on_left   = (exit.position.x + 1.0).abs() < f32::EPSILON;
-                                let on_right  = (exit.position.x - room_size.x).abs() < f32::EPSILON;
+                                let on_bottom =
+                                    (exit.position.y - room_size.y).abs() < f32::EPSILON;
+                                let on_left = (exit.position.x + 1.0).abs() < f32::EPSILON;
+                                let on_right = (exit.position.x - room_size.x).abs() < f32::EPSILON;
                                 if on_bottom || on_left || on_right {
                                     exit.position.y -= shrink as f32;
                                 }
@@ -172,8 +168,8 @@ impl EditorCommand for ResizeTilemapCmd {
                         map.width += self.delta as usize;
                         shift_tiles(map, self.delta as isize, 0);
                         for exit in exits.iter_mut() {
-                            let on_right  = (exit.position.x - room_size.x).abs() < f32::EPSILON;
-                            let on_top    = (exit.position.y + 1.0).abs() < f32::EPSILON;
+                            let on_right = (exit.position.x - room_size.x).abs() < f32::EPSILON;
+                            let on_top = (exit.position.y + 1.0).abs() < f32::EPSILON;
                             let on_bottom = (exit.position.y - room_size.y).abs() < f32::EPSILON;
                             if on_right || on_top || on_bottom {
                                 exit.position.x += self.delta as f32;
@@ -194,9 +190,10 @@ impl EditorCommand for ResizeTilemapCmd {
                             map.width -= shrink;
                             shift_tiles(map, -(shrink as isize), 0);
                             for exit in exits.iter_mut() {
-                                let on_right  = (exit.position.x - room_size.x).abs() < f32::EPSILON;
-                                let on_top    = (exit.position.y + 1.0).abs() < f32::EPSILON;
-                                let on_bottom = (exit.position.y - room_size.y).abs() < f32::EPSILON;
+                                let on_right = (exit.position.x - room_size.x).abs() < f32::EPSILON;
+                                let on_top = (exit.position.y + 1.0).abs() < f32::EPSILON;
+                                let on_bottom =
+                                    (exit.position.y - room_size.y).abs() < f32::EPSILON;
                                 if on_right || on_top || on_bottom {
                                     exit.position.x -= shrink as f32;
                                 }

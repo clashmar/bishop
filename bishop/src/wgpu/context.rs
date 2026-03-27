@@ -5,7 +5,9 @@ use winit::event::{ElementState, KeyEvent, MouseScrollDelta, WindowEvent};
 use winit::keyboard::PhysicalKey;
 use winit::window::{Fullscreen, Window};
 
-use super::conversions::{convert_cursor_icon, convert_keycode, convert_mouse_button, keycode_to_char};
+use super::conversions::{
+    convert_cursor_icon, convert_keycode, convert_mouse_button, keycode_to_char,
+};
 use super::exec::FrameFuture;
 use super::render::{
     create_texture_bind_group_layout, BishopRenderTarget, CameraUniforms, FullscreenQuadRenderer,
@@ -18,9 +20,18 @@ use crate::window::CursorIcon;
 
 /// A recorded draw call, capturing which renderer and which vertex/batch range to replay.
 enum DrawSegment {
-    Primitive { start: u32, count: u32 },
-    Texture { batch_start: usize, batch_count: usize },
-    Text { start: u32, count: u32 },
+    Primitive {
+        start: u32,
+        count: u32,
+    },
+    Texture {
+        batch_start: usize,
+        batch_count: usize,
+    },
+    Text {
+        start: u32,
+        count: u32,
+    },
 }
 
 /// Wgpu backend implementation for bishop.
@@ -53,15 +64,13 @@ impl WgpuContext {
     pub async fn new(window: Arc<Window>) -> Result<Self, GraphicsStateError> {
         let graphics = GraphicsState::new(window.clone()).await?;
 
-        let primitive_renderer =
-            PrimitiveRenderer::new(&graphics.device, graphics.config.format);
+        let primitive_renderer = PrimitiveRenderer::new(&graphics.device, graphics.config.format);
         let texture_renderer = TextureRenderer::new(&graphics.device, graphics.config.format);
         let text_renderer =
             TextRenderer::new(&graphics.device, &graphics.queue, graphics.config.format);
 
-        let render_target_bind_group_layout = std::sync::Arc::new(create_texture_bind_group_layout(
-            &graphics.device,
-        ));
+        let render_target_bind_group_layout =
+            std::sync::Arc::new(create_texture_bind_group_layout(&graphics.device));
         let fullscreen_quad_renderer = FullscreenQuadRenderer::new(&graphics.device);
         let scale_factor = window.scale_factor() as f32;
         let fullscreen = window.fullscreen().is_some();
@@ -213,9 +222,10 @@ impl WgpuContext {
             WindowEvent::MouseWheel { delta, .. } => {
                 let (dx, dy) = match delta {
                     MouseScrollDelta::LineDelta(x, y) => (*x, *y),
-                    MouseScrollDelta::PixelDelta(pos) => {
-                        (pos.x as f32 / self.scale_factor, pos.y as f32 / self.scale_factor)
-                    }
+                    MouseScrollDelta::PixelDelta(pos) => (
+                        pos.x as f32 / self.scale_factor,
+                        pos.y as f32 / self.scale_factor,
+                    ),
                 };
                 self.input.on_mouse_wheel(dx, dy);
             }
@@ -347,7 +357,7 @@ impl WgpuContext {
             self.render_target_bind_group_layout.clone(),
             width,
             height,
-            self.graphics.config.format
+            self.graphics.config.format,
         )
     }
 
@@ -417,7 +427,9 @@ impl WgpuContext {
         self.texture_renderer.seal_batch();
         match self.draw_segments.last_mut() {
             Some(DrawSegment::Primitive { count: c, .. }) => *c += count,
-            _ => self.draw_segments.push(DrawSegment::Primitive { start: prev, count }),
+            _ => self
+                .draw_segments
+                .push(DrawSegment::Primitive { start: prev, count }),
         }
     }
 
@@ -446,7 +458,9 @@ impl WgpuContext {
         self.texture_renderer.seal_batch();
         match self.draw_segments.last_mut() {
             Some(DrawSegment::Text { count: c, .. }) => *c += count,
-            _ => self.draw_segments.push(DrawSegment::Text { start: prev, count }),
+            _ => self
+                .draw_segments
+                .push(DrawSegment::Text { start: prev, count }),
         }
     }
 
@@ -472,7 +486,8 @@ impl WgpuContext {
         self.text_renderer.upload_atlas(&self.graphics.queue);
 
         // Upload all vertex buffers before opening the render pass.
-        self.primitive_renderer.upload_vertices(&self.graphics.queue);
+        self.primitive_renderer
+            .upload_vertices(&self.graphics.queue);
         self.texture_renderer.upload_vertices(&self.graphics.queue);
         self.text_renderer.upload_vertices(&self.graphics.queue);
 
@@ -513,16 +528,24 @@ impl WgpuContext {
                 match segment {
                     DrawSegment::Primitive { start, count } => {
                         self.primitive_renderer.setup_pipeline(&mut render_pass);
-                        self.primitive_renderer.draw_range(&mut render_pass, *start, *count);
+                        self.primitive_renderer
+                            .draw_range(&mut render_pass, *start, *count);
                     }
-                    DrawSegment::Texture { batch_start, batch_count } => {
+                    DrawSegment::Texture {
+                        batch_start,
+                        batch_count,
+                    } => {
                         self.texture_renderer.setup_pipeline(&mut render_pass);
-                        self.texture_renderer
-                            .draw_batches_range(&mut render_pass, *batch_start, *batch_count);
+                        self.texture_renderer.draw_batches_range(
+                            &mut render_pass,
+                            *batch_start,
+                            *batch_count,
+                        );
                     }
                     DrawSegment::Text { start, count } => {
                         if self.text_renderer.setup_pipeline(&mut render_pass) {
-                            self.text_renderer.draw_range(&mut render_pass, *start, *count);
+                            self.text_renderer
+                                .draw_range(&mut render_pass, *start, *count);
                         }
                     }
                 }
@@ -534,7 +557,9 @@ impl WgpuContext {
             }
         }
 
-        self.graphics.queue.submit(std::iter::once(encoder.finish()));
+        self.graphics
+            .queue
+            .submit(std::iter::once(encoder.finish()));
 
         self.primitive_renderer.clear();
         self.texture_renderer.clear();

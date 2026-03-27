@@ -1,6 +1,6 @@
 // editor/src/commands/menu/delete_element_cmd.rs
-use crate::commands::editor_command_manager::EditorCommand;
 use crate::app::EditorMode;
+use crate::commands::editor_command_manager::EditorCommand;
 use crate::with_editor;
 use engine_core::prelude::*;
 use std::collections::HashSet;
@@ -8,8 +8,15 @@ use std::collections::HashSet;
 /// Tracks what was deleted for restoration on undo.
 #[derive(Debug, Clone)]
 enum DeletedEntry {
-    TopLevel { index: usize, element: MenuElement },
-    LayoutChild { parent_index: usize, child_index: usize, child: LayoutChild },
+    TopLevel {
+        index: usize,
+        element: MenuElement,
+    },
+    LayoutChild {
+        parent_index: usize,
+        child_index: usize,
+        child: LayoutChild,
+    },
 }
 
 /// Undo-able command for deleting selected menu element(s).
@@ -109,7 +116,11 @@ impl EditorCommand for DeleteElementCmd {
                         let insert_at = (*index).min(template.elements.len());
                         template.elements.insert(insert_at, element.clone());
                     }
-                    DeletedEntry::LayoutChild { parent_index, child_index, child } => {
+                    DeletedEntry::LayoutChild {
+                        parent_index,
+                        child_index,
+                        child,
+                    } => {
                         if let Some(parent) = template.elements.get_mut(*parent_index) {
                             if let MenuElementKind::LayoutGroup(group) = &mut parent.kind {
                                 let insert_at = (*child_index).min(group.children.len());

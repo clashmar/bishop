@@ -190,8 +190,8 @@ impl TextureRenderer {
             }],
         });
 
-        let texture_bind_group_layout = std::sync::Arc::new(
-            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+        let texture_bind_group_layout = std::sync::Arc::new(device.create_bind_group_layout(
+            &wgpu::BindGroupLayoutDescriptor {
                 label: Some("texture_bind_group_layout"),
                 entries: &[
                     wgpu::BindGroupLayoutEntry {
@@ -211,8 +211,8 @@ impl TextureRenderer {
                         count: None,
                     },
                 ],
-            }),
-        );
+            },
+        ));
 
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("texture_pipeline_layout"),
@@ -442,8 +442,7 @@ impl TextureRenderer {
         let v2 = TexturedVertex::new([x + dest_w, y + dest_h], [1.0, 1.0], c);
         let v3 = TexturedVertex::new([x, y + dest_h], [0.0, 1.0], c);
 
-        self.vertices
-            .extend_from_slice(&[v0, v1, v2, v0, v2, v3]);
+        self.vertices.extend_from_slice(&[v0, v1, v2, v0, v2, v3]);
 
         if let Some(batch) = self.batches.last_mut() {
             batch.vertex_count += 6;
@@ -481,5 +480,4 @@ impl TextureRenderer {
             );
         }
     }
-
 }

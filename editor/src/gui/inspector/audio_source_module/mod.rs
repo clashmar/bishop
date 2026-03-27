@@ -4,11 +4,11 @@ mod preview;
 
 use self::groups::*;
 use self::layout::body_layout;
-use self::preview::*;
 pub use self::preview::clear_active_audio_preview;
+use self::preview::*;
 use crate::storage::sound_preset_storage::*;
-use engine_core::prelude::*;
 use bishop::prelude::*;
+use engine_core::prelude::*;
 
 const TOP_PADDING: f32 = 10.0;
 const SPACING: f32 = 5.0;
@@ -160,11 +160,9 @@ impl InspectorModule for AudioSourceModule {
                 .blocked(blocked)
                 .show(ctx)
                 {
-                    if let Some(message) = handle_preset_action(
-                        source,
-                        action,
-                        &mut pending_sync_all,
-                    ) {
+                    if let Some(message) =
+                        handle_preset_action(source, action, &mut pending_sync_all)
+                    {
                         warning_message = Some(message);
                     }
                 }
@@ -176,7 +174,10 @@ impl InspectorModule for AudioSourceModule {
             let half_w = ((w - SPACING) * 0.5).max(0.0);
             let status_rect = Rect::new(x, y, half_w, ROW_HEIGHT);
             let add_rect = Rect::new(x + half_w + SPACING, y, half_w, ROW_HEIGHT);
-            if Button::new(add_rect, "Add Sound").blocked(blocked).show(ctx) {
+            if Button::new(add_rect, "Add Sound")
+                .blocked(blocked)
+                .show(ctx)
+            {
                 #[cfg(not(target_arch = "wasm32"))]
                 if let Some(path) = rfd::FileDialog::new()
                     .add_filter("Audio", &["wav"])

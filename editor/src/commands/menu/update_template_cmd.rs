@@ -1,15 +1,24 @@
 // editor/src/commands/menu/update_template_cmd.rs
-use crate::commands::editor_command_manager::EditorCommand;
 use crate::app::EditorMode;
+use crate::commands::editor_command_manager::EditorCommand;
 use crate::with_editor;
 use engine_core::prelude::*;
 
 /// Which template property changed.
 #[derive(Debug, Clone)]
 pub enum TemplateProperty {
-    Name { old: String, new: String },
-    Mode { old: MenuMode, new: MenuMode },
-    Background { old: MenuBackground, new: MenuBackground },
+    Name {
+        old: String,
+        new: String,
+    },
+    Mode {
+        old: MenuMode,
+        new: MenuMode,
+    },
+    Background {
+        old: MenuBackground,
+        new: MenuBackground,
+    },
 }
 
 /// Undo-able command for changing a menu template property.

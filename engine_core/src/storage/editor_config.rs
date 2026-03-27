@@ -1,14 +1,14 @@
 // editor/src/storage/editor_config.rs
-use ron::ser::{PrettyConfig, to_string_pretty};
-use serde::{Deserialize, Serialize};
+use crate::*;
 use directories_next::ProjectDirs;
 use once_cell::sync::Lazy;
-use std::path::PathBuf;
-use std::error::Error;
-use std::sync::RwLock;
 use ron::from_str;
+use ron::ser::{PrettyConfig, to_string_pretty};
+use serde::{Deserialize, Serialize};
+use std::error::Error;
 use std::fs;
-use crate::*;
+use std::path::PathBuf;
+use std::sync::RwLock;
 
 pub static EDITOR_CONFIG: Lazy<RwLock<EditorConfig>> = Lazy::new(|| RwLock::new(load_config()));
 
@@ -20,14 +20,14 @@ pub struct EditorConfig {
 /// Saves the editor config .ron file from the in memory config.
 pub fn save_config() -> Result<(), Box<dyn Error>> {
     let path = config_path();
-    
+
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent)?;
     }
 
     let config = EDITOR_CONFIG.read()?;
     let ron = to_string_pretty(&*config, PrettyConfig::default())?;
-    fs::write(path, ron)?;                    
+    fs::write(path, ron)?;
     Ok(())
 }
 
@@ -48,8 +48,7 @@ pub fn app_dir() -> PathBuf {
     // TODO: Insert 'company' name
     if let Some(project_dir) = ProjectDirs::from("com", "bishop", "engine") {
         project_dir.config_dir().to_path_buf()
-    }
-    else {
+    } else {
         onscreen_error!("Could not resolve app directory.");
         panic!("Could not resolve app directory.");
     }
@@ -63,10 +62,10 @@ fn load_config() -> EditorConfig {
     let path = config_path();
 
     match fs::read_to_string(&path) {
-        Ok(txt) =>  {from_str(&txt).unwrap_or_default()},
+        Ok(txt) => from_str(&txt).unwrap_or_default(),
         Err(e) => {
             onscreen_error!("Error loading config: {e}.");
             EditorConfig::default()
-        } 
+        }
     }
 }

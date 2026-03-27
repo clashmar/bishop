@@ -5,13 +5,16 @@ use crate::constants::DEFAULT_GRID_SIZE;
 use crate::ecs::entity::Entity;
 use crate::game::*;
 use crate::scripting::lua_constants::LUA_OWNER_GAME_GENERATED;
-use std::{collections::HashMap, path::{Path, PathBuf}};
-use serde_with::{FromInto, serde_as};
-use serde::{Deserialize, Serialize};
-use ecs_component::ecs_component;
-use strum_macros::EnumIter;
 use bishop::prelude::*;
+use ecs_component::ecs_component;
+use serde::{Deserialize, Serialize};
+use serde_with::{FromInto, serde_as};
 use std::fmt;
+use std::{
+    collections::HashMap,
+    path::{Path, PathBuf},
+};
+use strum_macros::EnumIter;
 
 /// The animation component for an entity.
 #[ecs_component(post_create = post_create, post_remove = post_remove)]
@@ -84,7 +87,11 @@ impl Animation {
 
     /// Populate `sprite_cache` for the current variant without modifying ref counts.
     /// Use during game initialization when ref counts are already tracked by serialized state.
-    pub fn init_sprite_cache(&mut self, loader: &impl TextureLoader, asset_manager: &mut AssetManager) {
+    pub fn init_sprite_cache(
+        &mut self,
+        loader: &impl TextureLoader,
+        asset_manager: &mut AssetManager,
+    ) {
         self.sprite_cache.clear();
         for clip_id in self.clips.keys() {
             let sprite_id = resolve_sprite_id(loader, asset_manager, &self.variant, clip_id);
@@ -94,7 +101,11 @@ impl Animation {
 
     /// Populate `sprite_cache` for the current variant.
     /// Called when the variant folder changes or a new clip is added.
-    pub fn refresh_sprite_cache(&mut self, loader: &impl TextureLoader, asset_manager: &mut AssetManager) {
+    pub fn refresh_sprite_cache(
+        &mut self,
+        loader: &impl TextureLoader,
+        asset_manager: &mut AssetManager,
+    ) {
         // Decrement refs for old cache entries before clearing
         for &sprite_id in self.sprite_cache.values() {
             asset_manager.decrement_ref(sprite_id);
@@ -133,8 +144,7 @@ impl Animation {
 }
 
 /// Logical name of a clip.
-#[derive(EnumIter, Debug, Default,
-    Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(EnumIter, Debug, Default, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum ClipId {
     #[default]
     Idle,
@@ -261,11 +271,7 @@ pub fn resolve_sprite_id(
 }
 
 /// Initializes the component when an entity is instantiated into the world.
-pub fn post_create(
-    anim: &mut Animation,
-    _entity: &Entity,
-    ctx: &mut GameCtxMut,
-) {
+pub fn post_create(anim: &mut Animation, _entity: &Entity, ctx: &mut GameCtxMut) {
     anim.init_runtime();
 
     // Increment refs for any pre-populated sprite_cache entries
@@ -275,11 +281,7 @@ pub fn post_create(
 }
 
 /// Cleans up when the component is removed from an entity.
-pub fn post_remove(
-    anim: &mut Animation,
-    _entity: &Entity,
-    ctx: &mut GameCtxMut,
-) {
+pub fn post_remove(anim: &mut Animation, _entity: &Entity, ctx: &mut GameCtxMut) {
     // Decrement refs for all sprite_cache entries
     for &sprite_id in anim.sprite_cache.values() {
         ctx.asset_manager.decrement_ref(sprite_id);
@@ -345,8 +347,17 @@ fn sanitize_lua_identifier(s: &str) -> String {
             capitalize = true;
         }
     }
-    if out.is_empty() || out.chars().next().map(|c| c.is_ascii_digit()).unwrap_or(false) {
-        format!("Clip_{}", s.replace(|c: char| !c.is_ascii_alphanumeric(), "_"))
+    if out.is_empty()
+        || out
+            .chars()
+            .next()
+            .map(|c| c.is_ascii_digit())
+            .unwrap_or(false)
+    {
+        format!(
+            "Clip_{}",
+            s.replace(|c: char| !c.is_ascii_alphanumeric(), "_")
+        )
     } else {
         out
     }

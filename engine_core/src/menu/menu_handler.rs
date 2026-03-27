@@ -39,9 +39,7 @@ impl MenuActionHandler for GameMenuHandler {
 
 /// Drains all pending menu events and returns them.
 pub fn drain_menu_events() -> Vec<String> {
-    MENU_EVENTS.with(|events| {
-        events.borrow_mut().drain(..).collect()
-    })
+    MENU_EVENTS.with(|events| events.borrow_mut().drain(..).collect())
 }
 
 thread_local! {
@@ -57,8 +55,5 @@ pub fn push_slider_event(key: String, value: f32) {
 
 /// Drains all pending slider events and returns them.
 pub fn drain_slider_events() -> Vec<(String, f32)> {
-    SLIDER_EVENTS.with(|events| {
-        events.borrow_mut().drain(..).collect()
-    })
+    SLIDER_EVENTS.with(|events| events.borrow_mut().drain(..).collect())
 }
-

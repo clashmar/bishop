@@ -10,7 +10,10 @@ pub(super) struct PreviewRequest {
 
 impl PreviewRequest {
     pub(super) fn new(row_index: usize, sound_id: String) -> Self {
-        Self { row_index, sound_id }
+        Self {
+            row_index,
+            sound_id,
+        }
     }
 }
 
@@ -50,11 +53,7 @@ pub(super) fn tick_active_audio_preview(dt: f32) {
     }
 }
 
-pub(super) fn sync_active_preview(
-    entity: Entity,
-    group_id: &SoundGroupId,
-    sounds: &[String],
-) {
+pub(super) fn sync_active_preview(entity: Entity, group_id: &SoundGroupId, sounds: &[String]) {
     let should_clear = ACTIVE_AUDIO_PREVIEW.with(|active| {
         active.borrow().as_ref().is_some_and(|preview| {
             preview.entity == entity

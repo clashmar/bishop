@@ -1,17 +1,16 @@
-// engine_core/src/ecs/component_registry.rs 
-use crate::ecs::{entity::Entity, ecs::Ecs}; 
+// engine_core/src/ecs/component_registry.rs
 use crate::ecs::component::Component;
+use crate::ecs::{ecs::Ecs, entity::Entity};
 use crate::game::GameCtxMut;
+use mlua::Lua;
+use mlua::Value;
+use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use std::any::{Any, TypeId};
-use once_cell::sync::Lazy;
-use mlua::Value;
-use mlua::Lua;
 
 /// Human‑readable names of all components that have been registered with `ecs_component!`.
-pub static COMPONENTS: Lazy<Vec<&'static ComponentRegistry>> = Lazy::new(|| {
-    inventory::iter::<ComponentRegistry>.into_iter().collect()
-});
+pub static COMPONENTS: Lazy<Vec<&'static ComponentRegistry>> =
+    Lazy::new(|| inventory::iter::<ComponentRegistry>.into_iter().collect());
 
 inventory::collect!(ComponentRegistry);
 

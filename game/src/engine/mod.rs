@@ -1,5 +1,5 @@
 // game/src/engine/mod.rs
-// Keep `mod.rs` limited to frame orchestration. Feature-specific methods belong in focused 
+// Keep `mod.rs` limited to frame orchestration. Feature-specific methods belong in focused
 // helper modules alongside the subsystem it serves, or in a new engine sub-module.
 mod audio_events;
 pub mod engine_builder;

@@ -2,8 +2,8 @@
 // NOTE: Multi-pass rendering temporarily disabled while rewiring codebase.
 
 use crate::prelude::*;
-use std::collections::{BTreeMap, HashMap};
 use bishop::prelude::*;
+use std::collections::{BTreeMap, HashMap};
 
 /// Draws everything needed for the given room.
 /// Currently uses simplified single-pass rendering.
@@ -16,8 +16,8 @@ pub fn render_room<C: BishopContext>(
     prev_positions: Option<&HashMap<Entity, Vec2>>,
 ) {
     let render_start = std::time::Instant::now();
-    let Some(current_room) = game_ctx.cur_world.current_room() else { 
-        return; 
+    let Some(current_room) = game_ctx.cur_world.current_room() else {
+        return;
     };
 
     let grid_size = game_ctx.cur_world.grid_size;
@@ -38,18 +38,23 @@ pub fn render_room<C: BishopContext>(
 
     // Draw tilemap first
     let tilemap = &current_room.current_variant().tilemap;
-    tilemap.draw(ctx, game_ctx.asset_manager, current_room.position, grid_size);
+    tilemap.draw(
+        ctx,
+        game_ctx.asset_manager,
+        current_room.position,
+        grid_size,
+    );
 
     // Draw all entities sorted by layer
     for (_z, layer) in layer_map {
         for (entity, pos) in layer.entities {
             draw_entity(
-                ctx, 
-                game_ctx.ecs, 
-                game_ctx.asset_manager, 
-                entity, 
-                pos, 
-                grid_size
+                ctx,
+                game_ctx.ecs,
+                game_ctx.asset_manager,
+                entity,
+                pos,
+                grid_size,
             );
         }
 
@@ -88,7 +93,11 @@ fn draw_entity<C: BishopContext>(
         .map(|t| t.pivot)
         .unwrap_or(Pivot::BottomCenter);
 
-    let params = EntityDrawParams { pos, pivot, grid_size };
+    let params = EntityDrawParams {
+        pos,
+        pivot,
+        grid_size,
+    };
 
     if let Some(cf) = ecs.get_store::<CurrentFrame>().get(visual_entity)
         && cf.draw(ctx, asset_manager, &params)
@@ -101,7 +110,7 @@ fn draw_entity<C: BishopContext>(
     {
         return;
     }
-    
+
     if ecs.has_any::<(Light, Glow)>(visual_entity) {
         return;
     }
@@ -128,15 +137,13 @@ pub fn entity_dimensions(
             .and_then(|s| s.dimensions(asset_manager))
     };
 
-    from_anim.or_else(from_sprite).unwrap_or(Vec2::splat(grid_size))
+    from_anim
+        .or_else(from_sprite)
+        .unwrap_or(Vec2::splat(grid_size))
 }
 
 /// Draw a placeholder for an entity without a sprite.
-pub fn draw_entity_placeholder<C: BishopContext>(
-    ctx: &mut C,
-    pos: Vec2,
-    grid_size: f32
-) {
+pub fn draw_entity_placeholder<C: BishopContext>(ctx: &mut C, pos: Vec2, grid_size: f32) {
     ctx.draw_rectangle(pos.x, pos.y, grid_size, grid_size, Color::GREEN);
 }
 
@@ -184,7 +191,8 @@ fn collect_interpolated_layer_map<'a>(
             continue;
         }
 
-        let draw_pos = interpolate_draw_position(*entity, transform.position, alpha, prev_positions);
+        let draw_pos =
+            interpolate_draw_position(*entity, transform.position, alpha, prev_positions);
 
         // Default layer is 0 if missing
         let z = layer_store.get(*entity).map_or(0, |l| l.z);
@@ -230,8 +238,7 @@ fn interpolate_draw_position(
     if let Some(prev_map) = prev_positions {
         if let Some(prev_pos) = prev_map.get(&entity) {
             lerp_rounded(*prev_pos, current_pos, alpha)
-        }
-        else {
+        } else {
             current_pos
         }
     } else {

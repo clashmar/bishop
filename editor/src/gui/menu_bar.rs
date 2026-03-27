@@ -1,12 +1,12 @@
 // editor/src/gui/menu_bar.rs
-use crate::gui::modal::is_modal_open;
-use crate::gui::gui_constants::*;
 use crate::app::EditorMode;
+use crate::gui::gui_constants::*;
+use crate::gui::modal::is_modal_open;
+use bishop::prelude::*;
 use engine_core::prelude::*;
+use std::cell::RefCell;
 use std::fmt::{self, Display};
 use strum_macros::EnumIter;
-use bishop::prelude::*;
-use std::cell::RefCell;
 
 /// Holds the state of the top‑level menu bar.
 pub struct MenuBar {
@@ -126,7 +126,7 @@ impl MenuBar {
 
     /// Draw the menu options and return any requested action.
     pub fn draw(
-        &mut self, 
+        &mut self,
         ctx: &mut WgpuContext,
         title: &str,
         editor_mode: EditorMode,
@@ -135,7 +135,7 @@ impl MenuBar {
         const HEIGHT: f32 = 30.0;
 
         // The panel is already drawn in each sub editor
-        let panel_rect = menu_panel_rect(ctx); 
+        let panel_rect = menu_panel_rect(ctx);
 
         let mut x = panel_rect.x + PADDING;
         let y = panel_rect.y + PADDING / 2.0;
@@ -150,22 +150,23 @@ impl MenuBar {
         match editor_mode {
             EditorMode::Game | EditorMode::World(_) | EditorMode::Room(_) => {
                 let title_actions = vec![EditorAction::Rename];
-            if let Some(selected) = menu_dropdown(
-                ctx,
-                self.title_id,
-                title_rect,
-                title,
-                &title_actions,
-                |a| a.ui_label(),
-                |a| a.shortcut(),
-            ) {
-                self.pending = Some(selected);
-            }
+                if let Some(selected) = menu_dropdown(
+                    ctx,
+                    self.title_id,
+                    title_rect,
+                    title,
+                    &title_actions,
+                    |a| a.ui_label(),
+                    |a| a.shortcut(),
+                ) {
+                    self.pending = Some(selected);
+                }
             }
             _ => {
                 let txt_dims = ctx.measure_text(title, HEADER_FONT_SIZE_20);
                 let txt_x = title_rect.x + PADDING / 2.0;
-                let txt_y = title_rect.y + (title_rect.h - txt_dims.height) / 2.0 + txt_dims.offset_y;
+                let txt_y =
+                    title_rect.y + (title_rect.h - txt_dims.height) / 2.0 + txt_dims.offset_y;
                 ctx.draw_text(title, txt_x, txt_y, HEADER_FONT_SIZE_20, Color::BLACK);
             }
         }
@@ -176,10 +177,10 @@ impl MenuBar {
         let file_label = "File";
 
         let file_rect = Rect::new(
-            x, 
-            y, 
-            rect_width_for_text(ctx, file_label, HEADER_FONT_SIZE_20), 
-            HEIGHT
+            x,
+            y,
+            rect_width_for_text(ctx, file_label, HEADER_FONT_SIZE_20),
+            HEIGHT,
         );
 
         let file_actions: Vec<EditorAction> = vec![
@@ -209,16 +210,13 @@ impl MenuBar {
         let edit_label = "Edit";
 
         let edit_rect = Rect::new(
-            x, 
-            y, 
-            rect_width_for_text(ctx, edit_label, HEADER_FONT_SIZE_20), 
-            HEIGHT
+            x,
+            y,
+            rect_width_for_text(ctx, edit_label, HEADER_FONT_SIZE_20),
+            HEIGHT,
         );
 
-        let edit_actions: Vec<EditorAction> = vec![
-            EditorAction::Undo,
-            EditorAction::Redo,
-        ];
+        let edit_actions: Vec<EditorAction> = vec![EditorAction::Undo, EditorAction::Redo];
 
         if let Some(selected) = menu_dropdown(
             ctx,
@@ -241,7 +239,7 @@ impl MenuBar {
             x,
             y,
             rect_width_for_text(ctx, view_label, HEADER_FONT_SIZE_20),
-            HEIGHT
+            HEIGHT,
         );
 
         let mut view_actions: Vec<EditorAction> = Vec::new();
@@ -251,9 +249,9 @@ impl MenuBar {
         view_actions.push(EditorAction::ViewDiagnosticsPanel);
 
         match editor_mode {
-            EditorMode::Menu => {},
-            EditorMode::Game => {},
-            EditorMode::World(_) => {},
+            EditorMode::Menu => {}
+            EditorMode::Game => {}
+            EditorMode::World(_) => {}
             EditorMode::Room(_) => {
                 view_actions.push(EditorAction::ViewHierarchyPanel);
             }
@@ -289,7 +287,7 @@ impl MenuBar {
                 x,
                 y,
                 rect_width_for_text(ctx, options_label, HEADER_FONT_SIZE_20),
-                HEIGHT
+                HEIGHT,
             );
 
             if let Some(selected) = menu_dropdown(
@@ -314,7 +312,7 @@ impl MenuBar {
             x,
             y,
             rect_width_for_text(ctx, editors_label, HEADER_FONT_SIZE_20),
-            HEIGHT
+            HEIGHT,
         );
 
         let editors_actions: Vec<EditorAction> = match editor_mode {
@@ -346,11 +344,11 @@ pub fn draw_top_panel_full(ctx: &mut WgpuContext) -> Rect {
     rect
 }
 
-pub fn menu_panel_rect(ctx: &mut WgpuContext,) -> Rect {
+pub fn menu_panel_rect(ctx: &mut WgpuContext) -> Rect {
     Rect::new(0.0, 0.0, ctx.screen_width(), MENU_PANEL_HEIGHT)
 }
 
-/// Button and dropdown for a menu option. 
+/// Button and dropdown for a menu option.
 fn menu_dropdown<T: Clone + PartialEq + Display>(
     ctx: &mut WgpuContext,
     id: WidgetId,
@@ -358,7 +356,7 @@ fn menu_dropdown<T: Clone + PartialEq + Display>(
     label: &str,
     options: &[T],
     to_string: impl Fn(&T) -> String,
-    shortcut: impl Fn(&T) -> Option<&str>
+    shortcut: impl Fn(&T) -> Option<&str>,
 ) -> Option<T> {
     const W_PADDING: f32 = 8.0;
     const DROPDOWN_Y_OFFSET: f32 = 7.5;
@@ -404,7 +402,7 @@ fn menu_dropdown<T: Clone + PartialEq + Display>(
         }
     }
 
-    let list_is_open = state.open; 
+    let list_is_open = state.open;
 
     // Let the editor know a dropdown is open
     let mut any_open = false;
@@ -412,7 +410,7 @@ fn menu_dropdown<T: Clone + PartialEq + Display>(
         let was = *f.borrow();
         *f.borrow_mut() = was || list_is_open;
         any_open = *f.borrow();
-    });     
+    });
 
     // Compute the widest option
     let mut max_opt_width = 0.0_f32;
@@ -428,9 +426,8 @@ fn menu_dropdown<T: Clone + PartialEq + Display>(
             max_opt_width = total_w;
         }
     }
-    
-    let list_width = rect.w
-    .max(max_opt_width + 2.0 * W_PADDING);
+
+    let list_width = rect.w.max(max_opt_width + 2.0 * W_PADDING);
 
     let rows = options.len();
     let total_height = rect.h * rows as f32;
@@ -459,17 +456,12 @@ fn menu_dropdown<T: Clone + PartialEq + Display>(
             list_rect.h,
             PANEL_COLOR,
         );
-        
+
         for (i, opt) in options.iter().enumerate() {
             // The Y position the entry would have without scrolling
             let entry_y = list_rect.y + i as f32 * rect.h;
 
-            let entry_rect = Rect::new(
-                list_rect.x,
-                entry_y,
-                list_rect.w,
-                rect.h,
-            );
+            let entry_rect = Rect::new(list_rect.x, entry_y, list_rect.w, rect.h);
 
             let hovered = entry_rect.contains(mouse_pos);
             if hovered && ctx.is_mouse_button_pressed(MouseButton::Left) {
@@ -489,14 +481,14 @@ fn menu_dropdown<T: Clone + PartialEq + Display>(
                     Color::new(0.2, 0.2, 0.2, 0.9),
                 );
             }
-            
-            // Action 
+
+            // Action
             ctx.draw_text(
                 &to_string(opt),
                 entry_rect.x + 5.,
                 entry_rect.y + entry_rect.h * 0.7,
                 DEFAULT_FONT_SIZE_16,
-                Color::BLACK
+                Color::BLACK,
             );
 
             // Optional shortcut display
@@ -514,12 +506,12 @@ fn menu_dropdown<T: Clone + PartialEq + Display>(
 
             // Draw the outline last
             ctx.draw_rectangle_lines(
-                list_rect.x, 
-                list_rect.y, 
-                list_rect.w, 
-                list_rect.h, 
-                2., 
-                Color::BLACK
+                list_rect.x,
+                list_rect.y,
+                list_rect.w,
+                list_rect.h,
+                2.,
+                Color::BLACK,
             );
         }
     }
@@ -541,12 +533,7 @@ fn menu_dropdown<T: Clone + PartialEq + Display>(
 }
 
 /// Returns true if clicked
-pub fn menu_button(
-    ctx: &mut WgpuContext,
-    rect: Rect, 
-    label: &str,
-    is_dropdown_open: bool,
-) -> bool {
+pub fn menu_button(ctx: &mut WgpuContext, rect: Rect, label: &str, is_dropdown_open: bool) -> bool {
     // Text layout
     let txt_dims = ctx.measure_text(label, HEADER_FONT_SIZE_20);
     let txt_y = rect.y + (rect.h - txt_dims.height) / 2.0 + txt_dims.offset_y;
@@ -555,7 +542,10 @@ pub fn menu_button(
     let mouse = ctx.mouse_position();
     let hovered = rect.contains(vec2(mouse.0, mouse.1));
 
-    if (hovered || is_dropdown_open) && !is_modal_open() && !ctx.is_mouse_button_down(MouseButton::Left) {
+    if (hovered || is_dropdown_open)
+        && !is_modal_open()
+        && !ctx.is_mouse_button_down(MouseButton::Left)
+    {
         ctx.draw_rectangle(
             rect.x,
             rect.y,
@@ -564,18 +554,10 @@ pub fn menu_button(
             Color::new(0.0, 0.0, 0.0, 0.5),
         );
     }
-    
-    ctx.draw_text(
-        label, 
-        txt_x, 
-        txt_y,
-        HEADER_FONT_SIZE_20,
-        Color::BLACK
-    );
 
-    ctx.is_mouse_button_pressed(MouseButton::Left) 
-    && hovered
-    && !is_modal_open()
+    ctx.draw_text(label, txt_x, txt_y, HEADER_FONT_SIZE_20, Color::BLACK);
+
+    ctx.is_mouse_button_pressed(MouseButton::Left) && hovered && !is_modal_open()
 }
 
 thread_local! {

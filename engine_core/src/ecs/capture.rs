@@ -50,11 +50,7 @@ pub fn restore_subtree(ctx: &mut GameCtxMut, saved: &GroupSnapshot) {
 }
 
 /// Restores an entity into the Ecs from its component bag.
-pub fn restore_entity(
-    ctx: &mut GameCtxMut,
-    entity: Entity,
-    components: Vec<ComponentSnapshot>,
-) {
+pub fn restore_entity(ctx: &mut GameCtxMut, entity: Entity, components: Vec<ComponentSnapshot>) {
     for comp in components {
         let component_reg = inventory::iter::<ComponentRegistry>()
             .find(|r| r.type_name == comp.type_name)
@@ -71,9 +67,9 @@ pub fn restore_entity(
 #[macro_export]
 macro_rules! impl_capture_entity {
     () => {
+        use $crate::ecs::component_registry::ComponentRegistry;
         use $crate::ecs::ecs::Ecs;
         use $crate::ecs::entity::Entity;
-        use $crate::ecs::component_registry::ComponentRegistry;
 
         /// Walks the component registry and extracts every component the entity owns.
         pub fn capture_entity(
@@ -86,7 +82,7 @@ macro_rules! impl_capture_entity {
                 if (reg.has)(ecs, entity) {
                     let boxed = (reg.clone)(ecs, entity);
                     let ron = (reg.to_ron_component)(&*boxed);
-                    
+
                     components.push($crate::ecs::capture::ComponentSnapshot {
                         type_name: reg.type_name.to_string(),
                         ron,

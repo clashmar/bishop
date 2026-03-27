@@ -1,8 +1,8 @@
 // game/src/main.rs
-use game_lib::engine::{Engine, EngineBuilder, GameInstance};
-use engine_core::prelude::*;
 use bishop::prelude::*;
 use bishop::BishopApp;
+use engine_core::prelude::*;
+use game_lib::engine::{Engine, EngineBuilder, GameInstance};
 use std::env;
 use std::fs;
 
@@ -30,13 +30,9 @@ impl BishopApp for GameApp {
 
         let game_instance = {
             let mut ctx_ref = ctx.borrow_mut();
-            GameInstance::new(
-                &mut *ctx_ref, 
-                &builder.lua, 
-                &mut builder.camera_manager
-            ).await
+            GameInstance::new(&mut *ctx_ref, &builder.lua, &mut builder.camera_manager).await
         };
-        
+
         self.engine = Some(builder.assemble(game_instance, ctx, false));
     }
 

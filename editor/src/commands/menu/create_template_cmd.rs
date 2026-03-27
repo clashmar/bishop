@@ -1,6 +1,6 @@
 // editor/src/commands/menu/create_template_cmd.rs
-use crate::commands::editor_command_manager::EditorCommand;
 use crate::app::EditorMode;
+use crate::commands::editor_command_manager::EditorCommand;
 use crate::with_editor;
 use engine_core::prelude::*;
 
@@ -27,7 +27,10 @@ impl EditorCommand for CreateTemplateCmd {
         with_editor(|editor| {
             let menu_editor = &mut editor.menu_editor;
 
-            let template = self.saved_template.take().unwrap_or_else(|| MenuTemplate::new(self.id.clone()));
+            let template = self
+                .saved_template
+                .take()
+                .unwrap_or_else(|| MenuTemplate::new(self.id.clone()));
             menu_editor.templates.push(template);
 
             let index = menu_editor.templates.len() - 1;

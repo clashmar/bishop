@@ -1,17 +1,17 @@
 // ecs_component/src/lib.rs
 extern crate proc_macro;
-use syn::punctuated::Punctuated;
 use proc_macro::TokenStream;
-use syn::parse_macro_input;
-use syn::parse::ParseStream;
-use syn::parse::Parse;
-use syn::DeriveInput;
 use quote::quote;
-use syn::Fields;
-use syn::Token;
 use syn::Data;
+use syn::DeriveInput;
+use syn::Fields;
 use syn::Path;
+use syn::Token;
 use syn::Type;
+use syn::parse::Parse;
+use syn::parse::ParseStream;
+use syn::parse_macro_input;
+use syn::punctuated::Punctuated;
 
 struct EcsComponentArgs {
     deps: Vec<Type>,
@@ -51,7 +51,11 @@ impl Parse for EcsComponentArgs {
             }
         }
 
-        Ok(EcsComponentArgs { deps, post_create, post_remove })
+        Ok(EcsComponentArgs {
+            deps,
+            post_create,
+            post_remove,
+        })
     }
 }
 
@@ -333,25 +337,32 @@ fn generate_lua_schema(fields: &Fields) -> proc_macro2::TokenStream {
 
 fn rust_type_to_lua(ty: &Type) -> &'static str {
     match ty {
-        syn::Type::Path(p) if p.path.is_ident("f32")
-            || p.path.is_ident("f64")
-            || p.path.is_ident("i8")
-            || p.path.is_ident("i16")
-            || p.path.is_ident("i32")
-            || p.path.is_ident("i64")
-            || p.path.is_ident("u8")
-            || p.path.is_ident("u16")
-            || p.path.is_ident("u32")
-            || p.path.is_ident("u64")
-            || p.path.is_ident("usize")
-            || p.path.is_ident("isize") => "number",
+        syn::Type::Path(p)
+            if p.path.is_ident("f32")
+                || p.path.is_ident("f64")
+                || p.path.is_ident("i8")
+                || p.path.is_ident("i16")
+                || p.path.is_ident("i32")
+                || p.path.is_ident("i64")
+                || p.path.is_ident("u8")
+                || p.path.is_ident("u16")
+                || p.path.is_ident("u32")
+                || p.path.is_ident("u64")
+                || p.path.is_ident("usize")
+                || p.path.is_ident("isize") =>
+        {
+            "number"
+        }
         // Bools
         syn::Type::Path(p) if p.path.is_ident("bool") => "boolean",
         // Strings
         syn::Type::Path(p) if p.path.is_ident("String") => "string",
         syn::Type::Reference(r)
             if matches!(r.elem.as_ref(),
-                syn::Type::Path(p) if p.path.is_ident("str")) => "string",
+                syn::Type::Path(p) if p.path.is_ident("str")) =>
+        {
+            "string"
+        }
         // Math / engine primitives
         syn::Type::Path(p) if p.path.is_ident("Vec2") => "vec2",
         syn::Type::Path(p) if p.path.is_ident("Vec3") => "vec3",

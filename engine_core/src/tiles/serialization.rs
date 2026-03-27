@@ -25,8 +25,14 @@ pub fn deserialize_tiles<'de, D: Deserializer<'de>>(
         let y = parts.next().and_then(|v| v.parse().ok());
         let id = parts.next().and_then(|v| v.parse().ok());
         match (x, y, id) {
-            (Some(x), Some(y), Some(id)) => { map.insert((x, y), TileDefId(id)); }
-            _ => return Err(serde::de::Error::custom(format!("Invalid tile entry: '{entry}'"))),
+            (Some(x), Some(y), Some(id)) => {
+                map.insert((x, y), TileDefId(id));
+            }
+            _ => {
+                return Err(serde::de::Error::custom(format!(
+                    "Invalid tile entry: '{entry}'"
+                )));
+            }
         }
     }
     Ok(map)

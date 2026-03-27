@@ -3,7 +3,7 @@ use crate::gui::menu_bar::{draw_top_panel_full, menu_panel_rect};
 use crate::menu::MenuEditor;
 use bishop::prelude::*;
 
-impl MenuEditor{
+impl MenuEditor {
     /// Draws the menu editor ui.
     pub fn draw_ui(&mut self, ctx: &mut WgpuContext) {
         const LEFT_COLUMN_WIDTH: f32 = 200.0;

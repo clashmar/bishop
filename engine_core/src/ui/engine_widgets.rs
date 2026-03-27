@@ -1,8 +1,8 @@
-use crate::scripting::script_manager::ScriptManager;
 use crate::assets::asset_manager::AssetManager;
-use crate::scripting::script::ScriptId;
 use crate::assets::sprite::SpriteId;
 use crate::ecs::entity::Entity;
+use crate::scripting::script::ScriptId;
+use crate::scripting::script_manager::ScriptManager;
 use crate::*;
 use bishop::prelude::*;
 use std::borrow::Cow;
@@ -32,16 +32,14 @@ pub fn gui_sprite_picker<C: BishopContext>(
     let picker_w = rect.w - remove_w - WIDGET_SPACING;
 
     let picker_rect = Rect::new(rect.x, rect.y, picker_w, rect.h);
-    let remove_rect = Rect::new(
-        rect.x + rect.w - remove_w,
-        rect.y,
-        remove_w,
-        rect.h,
-    );
+    let remove_rect = Rect::new(rect.x + rect.w - remove_w, rect.y, remove_w, rect.h);
 
     let mut changed = false;
 
-    if Button::new(picker_rect, &btn_label).blocked(blocked).show(ctx) {
+    if Button::new(picker_rect, &btn_label)
+        .blocked(blocked)
+        .show(ctx)
+    {
         #[cfg(not(target_arch = "wasm32"))]
         {
             if let Some(path) = rfd::FileDialog::new()
@@ -96,16 +94,14 @@ pub fn gui_script_picker<C: BishopContext>(
     let picker_w = rect.w - remove_w - WIDGET_SPACING;
 
     let picker_rect = Rect::new(rect.x, rect.y, picker_w, rect.h);
-    let remove_rect = Rect::new(
-        rect.x + rect.w - remove_w,
-        rect.y,
-        remove_w,
-        rect.h,
-    );
+    let remove_rect = Rect::new(rect.x + rect.w - remove_w, rect.y, remove_w, rect.h);
 
     let mut changed = false;
 
-    if Button::new(picker_rect, &btn_label).blocked(blocked).show(ctx) {
+    if Button::new(picker_rect, &btn_label)
+        .blocked(blocked)
+        .show(ctx)
+    {
         #[cfg(not(target_arch = "wasm32"))]
         {
             if let Some(path) = rfd::FileDialog::new()

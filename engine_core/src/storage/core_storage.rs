@@ -1,26 +1,24 @@
 // engine_core/src/storage/core_storage.rs
 use crate::constants::GAME_RON;
-use crate::storage::path_utils::*;
 use crate::game::Game;
+use crate::storage::path_utils::*;
 use std::collections::HashMap;
-use std::path::Path;
-use std::io::Error;
-use uuid::Uuid;
 use std::fs;
 use std::io;
+use std::io::Error;
+use std::path::Path;
+use uuid::Uuid;
 
 pub type WorldIndex = HashMap<Uuid, String>;
 
 /// Finds the game .ron in /Resources and returns an initialized `Game`.
 pub async fn load_game_ron() -> io::Result<Game> {
     match resources_dir_from_exe() {
-        Some(resources_folder) => {
-            match load_game_from_folder(&resources_folder).await {
-                Ok(game) => Ok(game),
-                Err(err) => Err(err),
-            }
+        Some(resources_folder) => match load_game_from_folder(&resources_folder).await {
+            Ok(game) => Ok(game),
+            Err(err) => Err(err),
         },
-        None => Err(Error::other("Could not find resources folder"))
+        None => Err(Error::other("Could not find resources folder")),
     }
 }
 
@@ -33,6 +31,6 @@ pub async fn load_game_from_folder(folder: &Path) -> io::Result<Game> {
     match ron::from_str::<Game>(&ron_string) {
         Ok(game) => Ok(game),
         // Corrupt file
-        Err(e) => Err(Error::other(e))
+        Err(e) => Err(Error::other(e)),
     }
 }

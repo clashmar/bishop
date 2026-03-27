@@ -1,7 +1,7 @@
 //! Uniform buffer types for shaders.
 
-use bytemuck::{Pod, Zeroable};
 use crate::camera::Camera2D;
+use bytemuck::{Pod, Zeroable};
 
 /// Camera uniforms for 2D rendering.
 #[repr(C)]
@@ -34,8 +34,7 @@ impl CameraUniforms {
         let mut projection = glam::Mat4::orthographic_rh(left, right, bottom, top, -1.0, 1.0);
 
         if camera.rotation != 0.0 {
-            let rotation =
-                glam::Mat4::from_rotation_z(-camera.rotation.to_radians());
+            let rotation = glam::Mat4::from_rotation_z(-camera.rotation.to_radians());
             projection *= rotation;
         }
 

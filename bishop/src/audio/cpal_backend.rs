@@ -75,6 +75,8 @@ impl AudioBackend for CpalBackend {
             return Self { _stream: None };
         }
 
-        Self { _stream: Some(stream) }
+        Self {
+            _stream: Some(stream),
+        }
     }
 }

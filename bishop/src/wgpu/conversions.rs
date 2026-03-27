@@ -2,8 +2,8 @@
 
 use crate::input::{KeyCode, MouseButton};
 use crate::window::CursorIcon;
-use winit::keyboard::KeyCode as WinitKeyCode;
 use winit::event::MouseButton as WinitMouseButton;
+use winit::keyboard::KeyCode as WinitKeyCode;
 
 /// Converts a winit KeyCode to a bishop KeyCode.
 pub fn convert_keycode(key: WinitKeyCode) -> KeyCode {
@@ -169,28 +169,154 @@ pub fn keycode_to_char(key: WinitKeyCode, shift: bool) -> Option<char> {
         WinitKeyCode::KeyX => 'x',
         WinitKeyCode::KeyY => 'y',
         WinitKeyCode::KeyZ => 'z',
-        WinitKeyCode::Digit0 => if shift { ')' } else { '0' },
-        WinitKeyCode::Digit1 => if shift { '!' } else { '1' },
-        WinitKeyCode::Digit2 => if shift { '@' } else { '2' },
-        WinitKeyCode::Digit3 => if shift { '#' } else { '3' },
-        WinitKeyCode::Digit4 => if shift { '$' } else { '4' },
-        WinitKeyCode::Digit5 => if shift { '%' } else { '5' },
-        WinitKeyCode::Digit6 => if shift { '^' } else { '6' },
-        WinitKeyCode::Digit7 => if shift { '&' } else { '7' },
-        WinitKeyCode::Digit8 => if shift { '*' } else { '8' },
-        WinitKeyCode::Digit9 => if shift { '(' } else { '9' },
+        WinitKeyCode::Digit0 => {
+            if shift {
+                ')'
+            } else {
+                '0'
+            }
+        }
+        WinitKeyCode::Digit1 => {
+            if shift {
+                '!'
+            } else {
+                '1'
+            }
+        }
+        WinitKeyCode::Digit2 => {
+            if shift {
+                '@'
+            } else {
+                '2'
+            }
+        }
+        WinitKeyCode::Digit3 => {
+            if shift {
+                '#'
+            } else {
+                '3'
+            }
+        }
+        WinitKeyCode::Digit4 => {
+            if shift {
+                '$'
+            } else {
+                '4'
+            }
+        }
+        WinitKeyCode::Digit5 => {
+            if shift {
+                '%'
+            } else {
+                '5'
+            }
+        }
+        WinitKeyCode::Digit6 => {
+            if shift {
+                '^'
+            } else {
+                '6'
+            }
+        }
+        WinitKeyCode::Digit7 => {
+            if shift {
+                '&'
+            } else {
+                '7'
+            }
+        }
+        WinitKeyCode::Digit8 => {
+            if shift {
+                '*'
+            } else {
+                '8'
+            }
+        }
+        WinitKeyCode::Digit9 => {
+            if shift {
+                '('
+            } else {
+                '9'
+            }
+        }
         WinitKeyCode::Space => ' ',
-        WinitKeyCode::Comma => if shift { '<' } else { ',' },
-        WinitKeyCode::Period => if shift { '>' } else { '.' },
-        WinitKeyCode::Slash => if shift { '?' } else { '/' },
-        WinitKeyCode::Semicolon => if shift { ':' } else { ';' },
-        WinitKeyCode::Quote => if shift { '"' } else { '\'' },
-        WinitKeyCode::BracketLeft => if shift { '{' } else { '[' },
-        WinitKeyCode::BracketRight => if shift { '}' } else { ']' },
-        WinitKeyCode::Backslash => if shift { '|' } else { '\\' },
-        WinitKeyCode::Minus => if shift { '_' } else { '-' },
-        WinitKeyCode::Equal => if shift { '+' } else { '=' },
-        WinitKeyCode::Backquote => if shift { '~' } else { '`' },
+        WinitKeyCode::Comma => {
+            if shift {
+                '<'
+            } else {
+                ','
+            }
+        }
+        WinitKeyCode::Period => {
+            if shift {
+                '>'
+            } else {
+                '.'
+            }
+        }
+        WinitKeyCode::Slash => {
+            if shift {
+                '?'
+            } else {
+                '/'
+            }
+        }
+        WinitKeyCode::Semicolon => {
+            if shift {
+                ':'
+            } else {
+                ';'
+            }
+        }
+        WinitKeyCode::Quote => {
+            if shift {
+                '"'
+            } else {
+                '\''
+            }
+        }
+        WinitKeyCode::BracketLeft => {
+            if shift {
+                '{'
+            } else {
+                '['
+            }
+        }
+        WinitKeyCode::BracketRight => {
+            if shift {
+                '}'
+            } else {
+                ']'
+            }
+        }
+        WinitKeyCode::Backslash => {
+            if shift {
+                '|'
+            } else {
+                '\\'
+            }
+        }
+        WinitKeyCode::Minus => {
+            if shift {
+                '_'
+            } else {
+                '-'
+            }
+        }
+        WinitKeyCode::Equal => {
+            if shift {
+                '+'
+            } else {
+                '='
+            }
+        }
+        WinitKeyCode::Backquote => {
+            if shift {
+                '~'
+            } else {
+                '`'
+            }
+        }
         _ => return None,
     };
     if shift && c.is_ascii_lowercase() {

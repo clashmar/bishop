@@ -1,10 +1,10 @@
 // editor/src/menu_editor/menu_properties_panel/menu_properties.rs
-use crate::commands::menu::{UpdateTemplateCmd, TemplateProperty};
+use super::{common_properties::row_visible, FIELD_HEIGHT, LABEL_WIDTH, ROW_HEIGHT};
+use crate::commands::menu::{TemplateProperty, UpdateTemplateCmd};
 use crate::editor_global::push_command;
 use crate::menu::MenuEditor;
-use super::{ROW_HEIGHT, LABEL_WIDTH, FIELD_HEIGHT, common_properties::row_visible};
-use engine_core::prelude::*;
 use bishop::prelude::*;
+use engine_core::prelude::*;
 
 impl MenuEditor {
     pub(super) fn draw_menu_properties(
@@ -16,7 +16,9 @@ impl MenuEditor {
         blocked: bool,
         clip: &Rect,
     ) {
-        let Some(template) = self.current_template() else { return };
+        let Some(template) = self.current_template() else {
+            return;
+        };
         let current_name = template.id.clone();
         let current_mode = template.mode;
         let current_bg = template.background;
@@ -44,7 +46,10 @@ impl MenuEditor {
                     if let Some(idx) = self.current_template_index {
                         push_command(Box::new(UpdateTemplateCmd::new(
                             idx,
-                            TemplateProperty::Name { old: current_name.clone(), new: new_name },
+                            TemplateProperty::Name {
+                                old: current_name.clone(),
+                                new: new_name,
+                            },
                         )));
                     }
                 }
@@ -81,7 +86,10 @@ impl MenuEditor {
                     if let Some(idx) = self.current_template_index {
                         push_command(Box::new(UpdateTemplateCmd::new(
                             idx,
-                            TemplateProperty::Mode { old: current_mode, new: new_mode },
+                            TemplateProperty::Mode {
+                                old: current_mode,
+                                new: new_mode,
+                            },
                         )));
                     }
                 }
@@ -125,7 +133,10 @@ impl MenuEditor {
                 if let Some(idx) = self.current_template_index {
                     push_command(Box::new(UpdateTemplateCmd::new(
                         idx,
-                        TemplateProperty::Background { old: current_bg, new: new_bg },
+                        TemplateProperty::Background {
+                            old: current_bg,
+                            new: new_bg,
+                        },
                     )));
                 }
             }
@@ -204,27 +215,37 @@ impl MenuEditor {
         // Elements list
         *y += 8.0;
         let element_labels: Vec<(usize, String)> = {
-            let Some(template) = self.current_template() else { return };
-            template.elements.iter().enumerate().map(|(i, el)| {
-                let label = if !el.name.is_empty() {
-                    el.name.clone()
-                } else {
-                    match &el.kind {
-                        MenuElementKind::Label(l) => format!("Label: {}", l.text_key),
-                        MenuElementKind::Button(b) => format!("Button: {}", b.text_key),
-                        MenuElementKind::Panel(_) => "Panel".to_string(),
-                        MenuElementKind::LayoutGroup(_) => "Layout Group".to_string(),
-                        MenuElementKind::Slider(s) => format!("Slider: {}", s.text_key),
-                    }
-                };
-                (i, label)
-            }).collect()
+            let Some(template) = self.current_template() else {
+                return;
+            };
+            template
+                .elements
+                .iter()
+                .enumerate()
+                .map(|(i, el)| {
+                    let label = if !el.name.is_empty() {
+                        el.name.clone()
+                    } else {
+                        match &el.kind {
+                            MenuElementKind::Label(l) => format!("Label: {}", l.text_key),
+                            MenuElementKind::Button(b) => format!("Button: {}", b.text_key),
+                            MenuElementKind::Panel(_) => "Panel".to_string(),
+                            MenuElementKind::LayoutGroup(_) => "Layout Group".to_string(),
+                            MenuElementKind::Slider(s) => format!("Slider: {}", s.text_key),
+                        }
+                    };
+                    (i, label)
+                })
+                .collect()
         };
 
         if row_visible(*y, 20.0, clip) {
             ctx.draw_text(
                 &format!("Elements ({})", element_labels.len()),
-                x, *y + 14.0, 12.0, Color::GREY,
+                x,
+                *y + 14.0,
+                12.0,
+                Color::GREY,
             );
         }
         *y += 20.0;
@@ -248,7 +269,13 @@ impl MenuEditor {
             };
 
             ctx.draw_rectangle(item_rect.x, item_rect.y, item_rect.w, item_rect.h, bg_color);
-            ctx.draw_text(label, item_rect.x + 8.0, item_rect.y + 16.0, 11.0, Color::WHITE);
+            ctx.draw_text(
+                label,
+                item_rect.x + 8.0,
+                item_rect.y + 16.0,
+                11.0,
+                Color::WHITE,
+            );
 
             if hover && ctx.is_mouse_button_pressed(MouseButton::Left) {
                 clicked_index = Some(*index);

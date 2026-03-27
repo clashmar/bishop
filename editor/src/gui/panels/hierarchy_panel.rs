@@ -1,12 +1,12 @@
-use crate::commands::room::{SetParentCmd, RemoveParentCmd};
+use crate::app::EditorMode;
+use crate::commands::room::{RemoveParentCmd, SetParentCmd};
+use crate::editor_global::push_command;
 use crate::gui::panels::generic_panel::PanelDefinition;
 use crate::room::room_editor::RoomEditor;
-use crate::editor_global::push_command;
-use crate::app::EditorMode;
 use crate::Editor;
-use std::collections::HashSet;
-use engine_core::prelude::*;
 use bishop::prelude::*;
+use engine_core::prelude::*;
+use std::collections::HashSet;
 
 const ROW_HEIGHT: f32 = 22.0;
 const ROW_SPACING: f32 = 5.0;
@@ -45,19 +45,16 @@ impl PanelDefinition for HierarchyPanel {
         Rect::new(20., 60., 260., 400.)
     }
 
-    fn draw(
-        &mut self,
-        ctx: &mut WgpuContext,
-        rect: Rect,
-        editor: &mut Editor,
-        blocked: bool
-    ) {
+    fn draw(&mut self, ctx: &mut WgpuContext, rect: Rect, editor: &mut Editor, blocked: bool) {
         let cur_room_id = editor.cur_room_id;
 
         // Get room position before borrowing ecs mutably
         let room_pos = cur_room_id.and_then(|room_id| {
-            editor.game.current_world()
-                .rooms.iter()
+            editor
+                .game
+                .current_world()
+                .rooms
+                .iter()
                 .find(|r| r.id == room_id)
                 .map(|r| r.position)
         });
@@ -128,7 +125,9 @@ impl PanelDefinition for HierarchyPanel {
             let clicked = Button::new(
                 Rect::new(rect.x + 6., y, btn_w, ADD_BUTTON_HEIGHT),
                 "+ Global",
-            ).blocked(blocked).show(ctx);
+            )
+            .blocked(blocked)
+            .show(ctx);
             if !blocked && clicked {
                 ecs.create_entity()
                     .with(Global::default())
@@ -140,7 +139,13 @@ impl PanelDefinition for HierarchyPanel {
 
         // Global header
         if area.is_visible(y, HEADER_HEIGHT) {
-            ctx.draw_text("Global", rect.x + 6., y + 14., HEADER_FONT_SIZE, Color::GREY);
+            ctx.draw_text(
+                "Global",
+                rect.x + 6.,
+                y + 14.,
+                HEADER_FONT_SIZE,
+                Color::GREY,
+            );
         }
         y += HEADER_HEIGHT;
 
@@ -180,7 +185,9 @@ impl PanelDefinition for HierarchyPanel {
                     let clicked = Button::new(
                         Rect::new(rect.x + 6., y, btn_w, ADD_BUTTON_HEIGHT),
                         "+ Player Proxy",
-                    ).blocked(blocked).show(ctx);
+                    )
+                    .blocked(blocked)
+                    .show(ctx);
                     if !blocked && clicked {
                         create_spawn_point(ecs, room_id, spawn_pos);
                     }
@@ -190,7 +197,9 @@ impl PanelDefinition for HierarchyPanel {
         }
 
         // Room entities use EditorMode::Room for undo scope
-        let room_mode = cur_room_id.map(EditorMode::Room).unwrap_or(EditorMode::Game);
+        let room_mode = cur_room_id
+            .map(EditorMode::Room)
+            .unwrap_or(EditorMode::Game);
         for entity in room_entities {
             draw_entity_tree(
                 ctx,
@@ -236,12 +245,7 @@ impl PanelDefinition for HierarchyPanel {
     }
 }
 
-fn layout_entity_tree(
-    entity: Entity,
-    y: &mut f32,
-    expanded: &HashSet<Entity>,
-    ecs: &Ecs,
-) {
+fn layout_entity_tree(entity: Entity, y: &mut f32, expanded: &HashSet<Entity>, ecs: &Ecs) {
     *y += ROW_HEIGHT;
     if expanded.contains(&entity) && has_children(ecs, entity) {
         for child in get_children(ecs, entity) {
@@ -315,8 +319,13 @@ fn draw_entity_tree(
         }
 
         // Selection with Shift support for multi-select
-        if !blocked && mouse_over && ctx.is_mouse_button_pressed(MouseButton::Left) && dragging.is_none() {
-            let shift_held = ctx.is_key_down(KeyCode::LeftShift) || ctx.is_key_down(KeyCode::RightShift);
+        if !blocked
+            && mouse_over
+            && ctx.is_mouse_button_pressed(MouseButton::Left)
+            && dragging.is_none()
+        {
+            let shift_held =
+                ctx.is_key_down(KeyCode::LeftShift) || ctx.is_key_down(KeyCode::RightShift);
             if shift_held {
                 // Toggle entity in selection
                 if room_editor.is_selected(entity) {
@@ -337,7 +346,11 @@ fn draw_entity_tree(
         }
 
         // Start drag
-        if !blocked && mouse_over && ctx.is_mouse_button_pressed(MouseButton::Left) && dragging.is_none() {
+        if !blocked
+            && mouse_over
+            && ctx.is_mouse_button_pressed(MouseButton::Left)
+            && dragging.is_none()
+        {
             *dragging = Some(entity);
             *drag_offset = mouse - row_rect.top_left();
         }
@@ -375,7 +388,9 @@ fn draw_entity_tree(
     // Execute pending set_parent action as undoable command
     if let Some((child, new_parent)) = pending_set_parent {
         let old_parent = get_parent(ecs, child);
-        push_command(Box::new(SetParentCmd::new(child, new_parent, old_parent, mode)));
+        push_command(Box::new(SetParentCmd::new(
+            child, new_parent, old_parent, mode,
+        )));
     }
 
     *y += ROW_HEIGHT;
@@ -426,7 +441,10 @@ fn get_entity_name(ecs: &Ecs, entity: Entity) -> String {
 fn create_spawn_point(ecs: &mut Ecs, room_id: RoomId, room_position: Vec2) {
     ecs.create_entity()
         .with(PlayerProxy)
-        .with(Transform { position: room_position, ..Default::default() })
+        .with(Transform {
+            position: room_position,
+            ..Default::default()
+        })
         .with(CurrentRoom(room_id))
         .with(Name("Player Proxy".to_string()));
 }

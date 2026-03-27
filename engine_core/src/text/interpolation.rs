@@ -44,7 +44,10 @@ mod tests {
     #[test]
     fn test_interpolate_no_variables() {
         let vars = HashMap::new();
-        assert_eq!(interpolate("No placeholders here.", &vars), "No placeholders here.");
+        assert_eq!(
+            interpolate("No placeholders here.", &vars),
+            "No placeholders here."
+        );
     }
 
     #[test]

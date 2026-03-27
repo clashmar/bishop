@@ -20,10 +20,7 @@ pub enum HitKind {
 
 impl MenuEditor {
     /// Hit-tests elements at a normalized mouse position.
-    pub(crate) fn hit_test_click(
-        &self,
-        norm_mouse: Vec2,
-    ) -> Option<HitTestResult> {
+    pub(crate) fn hit_test_click(&self, norm_mouse: Vec2) -> Option<HitTestResult> {
         let template = self.current_template()?;
         let sorted = template.sorted_element_indices();
         for &i in sorted.iter().rev() {
@@ -32,7 +29,9 @@ impl MenuEditor {
                 let resolved = resolve_layout(group, element.rect);
                 for (child_idx, resolved_rect) in resolved.iter().enumerate().rev() {
                     if resolved_rect.contains(norm_mouse) {
-                        let is_managed = group.children.get(child_idx)
+                        let is_managed = group
+                            .children
+                            .get(child_idx)
                             .map(|c| c.managed)
                             .unwrap_or(true);
                         return Some(HitTestResult {
@@ -97,15 +96,14 @@ impl MenuEditor {
                     self.drag_offset = norm_mouse - Vec2::new(child_rect.x, child_rect.y);
                     self.drag_start_mouse = norm_mouse;
 
-                    let start = self.current_template()
+                    let start = self
+                        .current_template()
                         .and_then(|t| t.elements.get(idx))
                         .and_then(|e| match &e.kind {
                             MenuElementKind::LayoutGroup(g) => g.children.get(child_index),
                             _ => None,
                         })
-                        .map(|child| {
-                            Vec2::new(child.element.rect.x, child.element.rect.y)
-                        });
+                        .map(|child| Vec2::new(child.element.rect.x, child.element.rect.y));
 
                     if let Some(pos) = start {
                         self.drag_start_rects = vec![(idx, pos)];
@@ -133,15 +131,17 @@ impl MenuEditor {
                     self.dragging_element = Some(idx);
                     self.drag_offset = norm_mouse - Vec2::new(element_rect.x, element_rect.y);
                     self.drag_start_mouse = norm_mouse;
-                    let indices: Vec<usize> = self.selected_element_indices.iter().copied().collect();
-                    let start_rects: Vec<(usize, Vec2)> = self.current_template()
+                    let indices: Vec<usize> =
+                        self.selected_element_indices.iter().copied().collect();
+                    let start_rects: Vec<(usize, Vec2)> = self
+                        .current_template()
                         .map(|t| {
                             indices
                                 .into_iter()
                                 .filter_map(|si| {
-                                    t.elements.get(si).map(|el| {
-                                        (si, Vec2::new(el.rect.x, el.rect.y))
-                                    })
+                                    t.elements
+                                        .get(si)
+                                        .map(|el| (si, Vec2::new(el.rect.x, el.rect.y)))
                                 })
                                 .collect()
                         })

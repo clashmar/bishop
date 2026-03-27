@@ -1,11 +1,11 @@
 use super::layout_group::LayoutGroupElement;
-use super::menu_slider::SliderElement;
-use crate::menu::menu_builder::MenuAction;
-use crate::menu::layout::HorizontalAlign;
 use super::menu_panel::PanelBackground;
+use super::menu_slider::SliderElement;
+use crate::menu::layout::HorizontalAlign;
+use crate::menu::menu_builder::MenuAction;
 use crate::menu::{NavTargets, Navigable};
-use serde::{Deserialize, Serialize};
 use bishop::prelude::*;
+use serde::{Deserialize, Serialize};
 
 /// Different kinds of menu elements.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -61,21 +61,21 @@ impl Default for ButtonElement {
 }
 
 impl Navigable for ButtonElement {
-    fn nav_targets(&self) -> &NavTargets { 
-        &self.nav_targets 
+    fn nav_targets(&self) -> &NavTargets {
+        &self.nav_targets
     }
 
-    fn nav_targets_mut(&mut self) -> &mut NavTargets { 
-        &mut self.nav_targets 
+    fn nav_targets_mut(&mut self) -> &mut NavTargets {
+        &mut self.nav_targets
     }
-    
+
     fn from_element(el: &MenuElement) -> Option<&Self> {
         match &el.kind {
             MenuElementKind::Button(b) => Some(b),
-            _ => None
+            _ => None,
         }
     }
-    
+
     fn wrap_into_element(self) -> MenuElementKind {
         MenuElementKind::Button(self)
     }
@@ -136,10 +136,7 @@ impl MenuElement {
 
     /// Creates a panel element.
     pub fn panel(background: PanelBackground, rect: Rect) -> Self {
-        Self::new(
-            MenuElementKind::Panel(PanelElement { background }),
-            rect,
-        )
+        Self::new(MenuElementKind::Panel(PanelElement { background }), rect)
     }
 
     /// Creates a layout group element.

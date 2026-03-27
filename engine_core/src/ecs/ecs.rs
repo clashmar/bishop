@@ -1,18 +1,18 @@
 // engine_core/src/ecs/ecs.rs
-use crate::ecs::component_registry::*;
-use crate::ecs::transform::Transform;
-use crate::ecs::has_any::HasAny;
 use crate::ecs::component::*;
+use crate::ecs::component_registry::*;
 use crate::ecs::entity::*;
+use crate::ecs::has_any::HasAny;
+use crate::ecs::transform::Transform;
 use crate::game::GameCtxMut;
 use crate::worlds::room::RoomId;
+use once_cell::sync::Lazy;
+use serde::de::Deserializer;
 use serde::ser::{SerializeStruct, Serializer};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-use serde::de::Deserializer;
-use once_cell::sync::Lazy;
-use std::any::TypeId;
 use std::any::Any;
+use std::any::TypeId;
+use std::collections::HashMap;
 
 #[derive(Default, Debug)]
 pub struct Ecs {
@@ -23,7 +23,7 @@ pub struct Ecs {
 impl Ecs {
     /// Allocate a fresh id and return a builder.
     pub fn create_entity(&mut self) -> EntityBuilder<'_> {
-        // This ensures id will always start from 1 
+        // This ensures id will always start from 1
         self.next_entity_id += 1;
         EntityBuilder {
             id: Entity(self.next_entity_id),
@@ -68,8 +68,9 @@ impl Ecs {
     /// Remove an entity and all of its descendants.
     pub fn remove_entity(ctx: &mut GameCtxMut, entity: Entity) {
         // Detach from parent (if any)
-        if let Some(parent) = ctx.ecs.get::<Parent>(entity).map(|p| p.0) 
-        && let Some(children) = ctx.ecs.get_mut::<Children>(parent) {
+        if let Some(parent) = ctx.ecs.get::<Parent>(entity).map(|p| p.0)
+            && let Some(children) = ctx.ecs.get_mut::<Children>(parent)
+        {
             children.remove(entity);
             if children.entities.is_empty() {
                 ctx.ecs.get_store_mut::<Children>().remove(parent);
@@ -99,18 +100,16 @@ impl Ecs {
     where
         T: Component + 'static,
     {
-        let type_name = std::any::type_name::<T>()
-            .rsplit("::")
-            .next()
-            .unwrap_or("");
+        let type_name = std::any::type_name::<T>().rsplit("::").next().unwrap_or("");
 
         // Find the registry entry for this component type
         let reg = inventory::iter::<ComponentRegistry>
             .into_iter()
             .find(|r| r.type_name == type_name);
 
-        if let Some(reg) = reg 
-        && (reg.has)(ctx.ecs, entity) {
+        if let Some(reg) = reg
+            && (reg.has)(ctx.ecs, entity)
+        {
             let mut boxed = (reg.clone)(ctx.ecs, entity);
             (reg.post_remove)(&mut *boxed, &entity, ctx);
             (reg.remove)(ctx.ecs, entity);
@@ -157,12 +156,7 @@ impl Ecs {
 
     pub fn insert_component<T>(&mut self, entity: Entity, component: T)
     where
-        T: Component
-            + Serialize
-            + for<'de> Deserialize<'de>
-            + Clone
-            + Default
-            + 'static,
+        T: Component + Serialize + for<'de> Deserialize<'de> + Clone + Default + 'static,
     {
         // Store in the typed store (engine code can still use it directly)
         self.get_store_mut::<T>().insert(entity, component.clone());
@@ -180,19 +174,14 @@ impl Ecs {
 
     /// Returns the player Entity if one exists.
     pub fn get_player_entity(&self) -> Option<Entity> {
-        self.get_store::<Player>().data
-            .keys()
-            .next()
-            .copied()
+        self.get_store::<Player>().data.keys().next().copied()
     }
 
     /// Returns the player Transform if a player exists.
     pub fn get_player_transform(&self) -> Option<Transform> {
         let player_entity = self.get_player_entity()?;
 
-        self.get_store::<Transform>()
-            .get(player_entity)
-            .cloned()
+        self.get_store::<Transform>().get(player_entity).cloned()
     }
 
     /// Returns the player proxy for a given room, if one exists.
@@ -200,7 +189,9 @@ impl Ecs {
         let proxy_store = self.get_store::<PlayerProxy>();
         let room_store = self.get_store::<CurrentRoom>();
 
-        proxy_store.data.keys()
+        proxy_store
+            .data
+            .keys()
             .find(|e| room_store.get(**e).is_some_and(|r| r.0 == room_id))
             .copied()
     }
@@ -208,19 +199,24 @@ impl Ecs {
     /// Sets the player's spawn position from the proxy in the given room.
     /// Call this before purging proxies to preserve the spawn location.
     pub fn set_player_spawn_from_proxy(&mut self, room_id: RoomId) {
-        let spawn_pos = self.get_player_proxy(room_id)
+        let spawn_pos = self
+            .get_player_proxy(room_id)
             .and_then(|e| self.get::<Transform>(e))
             .map(|t| t.position);
 
-        if let Some(pos) = spawn_pos 
-        && let Some(player_entity) = self.get_player_entity() {
+        if let Some(pos) = spawn_pos
+            && let Some(player_entity) = self.get_player_entity()
+        {
             if let Some(transform) = self.get_mut::<Transform>(player_entity) {
                 transform.position = pos;
             } else {
-                self.add_component_to_entity(player_entity, Transform {
-                    position: pos,
-                    ..Default::default()
-                });
+                self.add_component_to_entity(
+                    player_entity,
+                    Transform {
+                        position: pos,
+                        ..Default::default()
+                    },
+                );
             }
             self.add_component_to_entity(player_entity, CurrentRoom(room_id));
         }
@@ -306,8 +302,8 @@ impl<'de> Deserialize<'de> for Ecs {
         let mut stores = HashMap::new();
         for stored in &helper.components {
             // Try to find a registry entry
-            let reg_opt = inventory::iter::<ComponentRegistry>()
-                .find(|r| r.type_name == stored.type_name);
+            let reg_opt =
+                inventory::iter::<ComponentRegistry>().find(|r| r.type_name == stored.type_name);
 
             let reg = match reg_opt {
                 Some(r) => r,
@@ -333,7 +329,6 @@ impl<'de> Deserialize<'de> for Ecs {
         Ok(ecs)
     }
 }
-
 
 static TYPE_NAME_FOR_ID: Lazy<HashMap<TypeId, &'static str>> = Lazy::new(|| {
     let mut map = HashMap::new();

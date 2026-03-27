@@ -1,11 +1,11 @@
 // game/game_global.rs
-use crate::scripting::commands::lua_command_manager::LuaCommandManager;
-use crate::scripting::commands::lua_command::LuaCommand;
 use crate::input::input_snapshot::InputSnapshot;
-use crate::input::{InputFocusMap, focus_priority};
+use crate::input::{focus_priority, InputFocusMap};
+use crate::scripting::commands::lua_command::LuaCommand;
+use crate::scripting::commands::lua_command_manager::LuaCommandManager;
 use std::cell::{Cell, RefCell};
-use std::vec::IntoIter;
 use std::rc::Rc;
+use std::vec::IntoIter;
 
 /// Global services for the `Engine`.
 #[derive(Default)]
@@ -55,7 +55,10 @@ pub fn set_menu_active(active: bool) {
 /// Registers `name` with `priority` in the input focus map.
 pub fn take_input_control(name: &str, priority: u8) {
     GAME_SERVICES.with(|services| {
-        services.input_focus.borrow_mut().take_control(name, priority);
+        services
+            .input_focus
+            .borrow_mut()
+            .take_control(name, priority);
     });
 }
 
@@ -75,4 +78,3 @@ pub fn in_input_control(name: &str) -> bool {
 pub fn is_menu_active() -> bool {
     GAME_SERVICES.with(|services| services.menu_active.get())
 }
-

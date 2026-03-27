@@ -1,18 +1,18 @@
 // engine_core/src/text/dialogue/speech_renderer.rs
-use crate::rendering::render_room::entity_dimensions;
-use crate::rendering::helpers::lerp_rounded;
 use crate::assets::asset_manager::AssetManager;
-use crate::ecs::component::CurrentRoom;
-use crate::ecs::transform::Transform;
 use crate::camera::game_camera::*;
-use crate::ecs::entity::Entity;
-use crate::worlds::room::RoomId;
+use crate::ecs::Pivot;
+use crate::ecs::component::CurrentRoom;
 use crate::ecs::ecs::Ecs;
+use crate::ecs::entity::Entity;
+use crate::ecs::transform::Transform;
+use crate::rendering::helpers::lerp_rounded;
+use crate::rendering::render_room::entity_dimensions;
 use crate::text::*;
 use crate::ui::text::*;
-use crate::ecs::Pivot;
-use std::collections::HashMap;
+use crate::worlds::room::RoomId;
 use bishop::prelude::*;
+use std::collections::HashMap;
 
 /// Collected data for rendering a speech bubble in screen space.
 pub struct SpeechBubbleRenderData {
@@ -103,15 +103,7 @@ pub fn render_speech_bubbles<C: BishopContext>(
 
     for bubble in bubbles {
         render_bubble_screen_space(
-            ctx,
-            bubble,
-            config,
-            render_cam,
-            virt_w,
-            virt_h,
-            scale,
-            offset_x,
-            offset_y
+            ctx, bubble, config, render_cam, virt_w, virt_h, scale, offset_x, offset_y,
         );
     }
 }
@@ -198,7 +190,7 @@ fn wrap_text<C: BishopContext>(
     ctx: &mut C,
     text: &str,
     max_width: f32,
-    font_size: f32
+    font_size: f32,
 ) -> Vec<String> {
     let mut lines = Vec::new();
     let mut current_line = String::new();
@@ -238,8 +230,9 @@ fn interpolate_position(
     alpha: f32,
     prev_positions: Option<&HashMap<Entity, Vec2>>,
 ) -> Vec2 {
-    if let Some(prev_map) = prev_positions 
-    && let Some(prev_pos) = prev_map.get(&entity) {
+    if let Some(prev_map) = prev_positions
+        && let Some(prev_pos) = prev_map.get(&entity)
+    {
         return lerp_rounded(*prev_pos, current_pos, alpha);
     }
     current_pos

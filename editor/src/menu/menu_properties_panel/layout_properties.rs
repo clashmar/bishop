@@ -1,8 +1,8 @@
 // editor/src/menu_editor/menu_properties_panel/layout_properties.rs
-use super::{ROW_HEIGHT, LABEL_WIDTH, FIELD_HEIGHT, common_properties::row_visible};
+use super::{common_properties::row_visible, FIELD_HEIGHT, LABEL_WIDTH, ROW_HEIGHT};
 use crate::menu::MenuEditor;
-use engine_core::prelude::*;
 use bishop::prelude::*;
+use engine_core::prelude::*;
 
 impl MenuEditor {
     pub(super) fn draw_layout_group_properties(
@@ -14,9 +14,26 @@ impl MenuEditor {
         blocked: bool,
         clip: &Rect,
     ) {
-        let (has_bg, bg_color, bg_opacity, direction, grid_cols, spacing, padding, h_align, v_align, item_w, item_h, child_count) = {
-            let Some(element) = self.selected_element() else { return };
-            let MenuElementKind::LayoutGroup(group) = &element.kind else { return };
+        let (
+            has_bg,
+            bg_color,
+            bg_opacity,
+            direction,
+            grid_cols,
+            spacing,
+            padding,
+            h_align,
+            v_align,
+            item_w,
+            item_h,
+            child_count,
+        ) = {
+            let Some(element) = self.selected_element() else {
+                return;
+            };
+            let MenuElementKind::LayoutGroup(group) = &element.kind else {
+                return;
+            };
             let cols = match group.layout.direction {
                 LayoutDirection::Grid { columns } => columns,
                 _ => 2,
@@ -222,10 +239,26 @@ impl MenuEditor {
         *y += 20.0;
 
         let pad_fields = [
-            ("Top:", self.properties_panel.widget_ids.layout_pad_top_id, padding.top),
-            ("Right:", self.properties_panel.widget_ids.layout_pad_right_id, padding.right),
-            ("Bottom:", self.properties_panel.widget_ids.layout_pad_bottom_id, padding.bottom),
-            ("Left:", self.properties_panel.widget_ids.layout_pad_left_id, padding.left),
+            (
+                "Top:",
+                self.properties_panel.widget_ids.layout_pad_top_id,
+                padding.top,
+            ),
+            (
+                "Right:",
+                self.properties_panel.widget_ids.layout_pad_right_id,
+                padding.right,
+            ),
+            (
+                "Bottom:",
+                self.properties_panel.widget_ids.layout_pad_bottom_id,
+                padding.bottom,
+            ),
+            (
+                "Left:",
+                self.properties_panel.widget_ids.layout_pad_left_id,
+                padding.left,
+            ),
         ];
 
         for (label, id, current_val) in pad_fields {
@@ -398,8 +431,12 @@ impl MenuEditor {
         // Managed toggle
         for i in 0..child_count {
             let (child_label, managed) = {
-                let Some(element) = self.selected_element() else { break };
-                let MenuElementKind::LayoutGroup(group) = &element.kind else { break };
+                let Some(element) = self.selected_element() else {
+                    break;
+                };
+                let MenuElementKind::LayoutGroup(group) = &element.kind else {
+                    break;
+                };
                 let child = &group.children[i];
                 let label = if !child.element.name.is_empty() {
                     child.element.name.clone()
@@ -442,14 +479,6 @@ impl MenuEditor {
 
         let nav_ids = self.properties_panel.widget_ids.layout_nav_ids;
 
-        self.draw_nav_section::<LayoutGroupElement>(
-            ctx,
-            y,
-            x,
-            w,
-            blocked,
-            clip,
-            &nav_ids,
-        );
+        self.draw_nav_section::<LayoutGroupElement>(ctx, y, x, w, blocked, clip, &nav_ids);
     }
 }

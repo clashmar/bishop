@@ -1,6 +1,6 @@
-use bishop::prelude::Rect;
+use super::{HorizontalAlign, LayoutDirection, VerticalAlign};
 use crate::menu::elements::layout_group::LayoutGroupElement;
-use super::{LayoutDirection, HorizontalAlign, VerticalAlign};
+use bishop::prelude::Rect;
 
 /// Computes absolute rects for all children in a layout group.
 ///

@@ -1,17 +1,17 @@
 // engine_core/src/assets/asset_manager.rs
 use crate::animation::animation_clip::Animation;
-use crate::storage::path_utils::assets_folder;
 use crate::assets::sprite::*;
 use crate::game::Game;
+use crate::storage::path_utils::assets_folder;
 use crate::tiles::tile::*;
 use crate::*;
-use serde::{Deserialize, Serialize};
-use std::collections::HashSet;
-use std::collections::HashMap;
 use bishop::prelude::*;
 use log::info;
-use std::path::PathBuf;
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::collections::HashSet;
 use std::path::Path;
+use std::path::PathBuf;
 
 #[derive(Serialize, Deserialize, Default)]
 pub struct AssetManager {
@@ -77,7 +77,10 @@ impl AssetManager {
         // Calculate next available id AFTER inserting
         self.restore_next_sprite_id();
 
-        info!("init_texture: loaded {:?} as {:?}, next_sprite_id now {}", path, id, self.next_sprite_id);
+        info!(
+            "init_texture: loaded {:?} as {:?}, next_sprite_id now {}",
+            path, id, self.next_sprite_id
+        );
 
         Ok(id)
     }
@@ -98,7 +101,9 @@ impl AssetManager {
     /// Returns a texture from a `SpriteId`. Loads lazily if evicted.
     pub fn get_texture_from_id(&mut self, loader: &impl TextureLoader, id: SpriteId) -> &Texture2D {
         if id.0 == 0 {
-            return self.empty_texture.get_or_insert_with(|| loader.empty_texture());
+            return self
+                .empty_texture
+                .get_or_insert_with(|| loader.empty_texture());
         }
 
         if self.textures.contains_key(&id) {
@@ -109,7 +114,9 @@ impl AssetManager {
         let path = match self.sprite_id_to_path.get(&id) {
             Some(p) => p.clone(),
             None => {
-                return self.empty_texture.get_or_insert_with(|| loader.empty_texture());
+                return self
+                    .empty_texture
+                    .get_or_insert_with(|| loader.empty_texture());
             }
         };
 
@@ -118,7 +125,8 @@ impl AssetManager {
         if self.textures.contains_key(&id) {
             self.textures.get(&id).unwrap()
         } else {
-            self.empty_texture.get_or_insert_with(|| loader.empty_texture())
+            self.empty_texture
+                .get_or_insert_with(|| loader.empty_texture())
         }
     }
 
@@ -170,7 +178,8 @@ impl AssetManager {
             game.asset_manager.next_tile_def_id = 1;
         }
 
-        let sprites: Vec<(SpriteId, PathBuf)> = game.asset_manager
+        let sprites: Vec<(SpriteId, PathBuf)> = game
+            .asset_manager
             .sprite_id_to_path
             .iter()
             .map(|(id, path)| (*id, path.clone()))
@@ -204,7 +213,9 @@ impl AssetManager {
     /// Return the pixel width and height of the texture that belongs to `id`
     /// or None if the texture has not been loaded/set.
     pub fn texture_size(&self, id: SpriteId) -> Option<(f32, f32)> {
-        self.textures.get(&id).map(|tex| (tex.width(), tex.height()))
+        self.textures
+            .get(&id)
+            .map(|tex| (tex.width(), tex.height()))
     }
 
     /// Returns the number of loaded textures.
@@ -280,7 +291,11 @@ impl AssetManager {
     }
 
     /// Changes an optional sprite reference, handling decrement of old and increment of new.
-    pub fn change_sprite_option(&mut self, old_id: &mut Option<SpriteId>, new_id: Option<SpriteId>) {
+    pub fn change_sprite_option(
+        &mut self,
+        old_id: &mut Option<SpriteId>,
+        new_id: Option<SpriteId>,
+    ) {
         if *old_id == new_id {
             return;
         }
@@ -302,8 +317,15 @@ impl AssetManager {
         rel_path: P,
     ) -> Result<Texture2D, String> {
         let full_path = assets_folder().join(rel_path.as_ref());
-        loader.load_texture_from_path(full_path.to_string_lossy().as_ref())
-            .map_err(|e| format!("Failed to load texture '{}': {}", rel_path.as_ref().display(), e))
+        loader
+            .load_texture_from_path(full_path.to_string_lossy().as_ref())
+            .map_err(|e| {
+                format!(
+                    "Failed to load texture '{}': {}",
+                    rel_path.as_ref().display(),
+                    e
+                )
+            })
     }
 
     /// Calculates the next sprite id.
@@ -353,7 +375,8 @@ impl AssetManager {
         let old_sprite_id = self.tile_defs.get(&id).map(|def| def.sprite_id);
 
         if let Some(old_id) = old_sprite_id
-        && old_id != new_sprite_id {
+            && old_id != new_sprite_id
+        {
             self.decrement_ref(old_id);
             self.increment_ref(new_sprite_id);
             if let Some(def) = self.tile_defs.get_mut(&id) {

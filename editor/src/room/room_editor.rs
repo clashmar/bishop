@@ -1,26 +1,26 @@
 // editor/src/room/room_editor.rs
-use crate::gui::inspector::inspector_panel::InspectorPanel;
-use crate::gui::panels::panel_manager::is_mouse_over_panel;
-use crate::shared::selection::draw_selection_box;
-use crate::room::selection::PreCopyDragState;
-use crate::canvas::grid_shader::GridRenderer;
 use crate::app::EditorCameraController;
-use crate::tilemap::tilemap_editor::*;
-use crate::gui::modal::is_modal_open;
-use crate::editor_assets::assets::*;
-use crate::gui::mode_selector::*;
-use crate::commands::room::*;
-use crate::room::drawing::*;
-use crate::editor_global::*;
 use crate::app::SubEditor;
 use crate::canvas::grid;
+use crate::canvas::grid_shader::GridRenderer;
+use crate::commands::room::*;
+use crate::editor_assets::assets::*;
+use crate::editor_global::*;
+use crate::gui::inspector::inspector_panel::InspectorPanel;
+use crate::gui::modal::is_modal_open;
+use crate::gui::mode_selector::*;
+use crate::gui::panels::panel_manager::is_mouse_over_panel;
+use crate::room::drawing::*;
+use crate::room::selection::PreCopyDragState;
+use crate::shared::selection::draw_selection_box;
+use crate::tilemap::tilemap_editor::*;
 use crate::world::coord;
-use std::collections::HashSet;
+use bishop::prelude::*;
 use engine_core::prelude::*;
+use once_cell::sync::Lazy;
+use std::collections::HashSet;
 use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
-use once_cell::sync::Lazy;
-use bishop::prelude::*;
 
 #[derive(Clone, Copy, PartialEq, EnumIter)]
 pub enum RoomEditorMode {
@@ -132,19 +132,19 @@ impl RoomEditor {
     ) {
         let grid_size = current_world.grid_size;
 
-        let other_bounds: Vec<(Vec2, Vec2)> = current_world.rooms
+        let other_bounds: Vec<(Vec2, Vec2)> = current_world
+            .rooms
             .iter()
             .filter(|r| r.id != room_id)
             .map(|r| (r.position, r.size))
             .collect();
 
         let adjacent_exits: Vec<(Vec2, ExitDirection)> = {
-            let current_room = current_world.rooms
-                .iter()
-                .find(|r| r.id == room_id);
+            let current_room = current_world.rooms.iter().find(|r| r.id == room_id);
 
             match current_room {
-                Some(target) => current_world.rooms
+                Some(target) => current_world
+                    .rooms
                     .iter()
                     .filter(|r| r.id != room_id)
                     .flat_map(|adj| adj.exits_facing_room(target, grid_size))
@@ -153,7 +153,8 @@ impl RoomEditor {
             }
         };
 
-        let room = current_world.rooms
+        let room = current_world
+            .rooms
             .iter_mut()
             .find(|r| r.id == room_id)
             .expect("Could not find room in world.");
@@ -176,13 +177,7 @@ impl RoomEditor {
 
         let delta_time = ctx.get_frame_time();
 
-        update_animation_sytem(
-            ctx,
-            ecs,
-            asset_manager,
-            delta_time,
-            room.id,
-        ).await;
+        update_animation_sytem(ctx, ecs, asset_manager, delta_time, room.id).await;
 
         match self.mode {
             RoomEditorMode::Tilemap => {
@@ -190,15 +185,17 @@ impl RoomEditor {
                 self.tilemap_editor.mode = self.tilemap_sub_mode;
                 self.tilemap_editor.sub_mode_rect = self.sub_mode_rect;
 
-                self.tilemap_editor.update(
-                    ctx,
-                    asset_manager,
-                    camera,
-                    room,
-                    &other_bounds,
-                    &adjacent_exits,
-                    grid_size,
-                ).await;
+                self.tilemap_editor
+                    .update(
+                        ctx,
+                        asset_manager,
+                        camera,
+                        room,
+                        &other_bounds,
+                        &adjacent_exits,
+                        grid_size,
+                    )
+                    .await;
             }
             RoomEditorMode::Scene => {
                 if self.ui_was_clicked(ctx) {
@@ -221,9 +218,7 @@ impl RoomEditor {
                 }
 
                 // Handle batch delete when multiple entities selected
-                if self.selected_entities.len() > 1
-                    && Controls::delete(ctx)
-                    && !input_is_focused()
+                if self.selected_entities.len() > 1 && Controls::delete(ctx) && !input_is_focused()
                 {
                     let entities: Vec<Entity> = self.selected_entities.iter().copied().collect();
                     push_command(Box::new(BatchDeleteEntitiesCmd::new(entities, room.id)));
@@ -240,7 +235,10 @@ impl RoomEditor {
                     // Build the entity
                     let entity = ecs
                         .create_entity()
-                        .with(Transform { position: room.position, ..Default::default() })
+                        .with(Transform {
+                            position: room.position,
+                            ..Default::default()
+                        })
                         .with(CurrentRoom(room.id))
                         .with(Name("Entity".to_string()))
                         .finish();
@@ -303,14 +301,9 @@ impl RoomEditor {
                 let asset_manager = &mut *game_ctx.asset_manager;
 
                 self.tilemap_editor.tilemap_panel.set_rect(inspector_rect);
-                self.tilemap_editor.draw(
-                    ctx,
-                    camera,
-                    room,
-                    asset_manager,
-                    ecs,
-                    grid_size,
-                ).await;
+                self.tilemap_editor
+                    .draw(ctx, camera, room, asset_manager, ecs, grid_size)
+                    .await;
 
                 ctx.set_camera(camera);
                 if self.show_grid {
@@ -323,7 +316,7 @@ impl RoomEditor {
                     &*game_ctx.ecs,
                     room_id,
                     grid_size,
-                    self.preview_camera_id
+                    self.preview_camera_id,
                 );
 
                 let render_cam = if self.view_preview && room_camera.is_some() {
@@ -359,7 +352,7 @@ impl RoomEditor {
                     if self.show_grid {
                         grid::draw_grid(ctx, grid_renderer, camera, grid_size);
                     }
-                    
+
                     let ecs = &*game_ctx.ecs;
                     let asset_manager = &mut *game_ctx.asset_manager;
 
@@ -372,7 +365,14 @@ impl RoomEditor {
                     // Highlight all selected entities and draw their overlays
                     for &selected_entity in &self.selected_entities {
                         if !is_pure_placeholder(ecs, selected_entity) {
-                            highlight_selected_entity(ctx, ecs, selected_entity, asset_manager, Color::YELLOW, grid_size);
+                            highlight_selected_entity(
+                                ctx,
+                                ecs,
+                                selected_entity,
+                                asset_manager,
+                                Color::YELLOW,
+                                grid_size,
+                            );
                         }
                         self.draw_camera_viewport(ctx, camera, ecs, selected_entity, room_id);
                         draw_pivot_marker(ctx, ecs, selected_entity);
@@ -445,8 +445,5 @@ impl SubEditor for RoomEditor {
 }
 
 /// A slice of all the modes.
-static ALL_MODES: Lazy<&'static [RoomEditorMode]> = Lazy::new(|| {
-    Box::leak(Box::new(
-        RoomEditorMode::iter().collect::<Vec<_>>()
-    ))
-});
+static ALL_MODES: Lazy<&'static [RoomEditorMode]> =
+    Lazy::new(|| Box::leak(Box::new(RoomEditorMode::iter().collect::<Vec<_>>())));

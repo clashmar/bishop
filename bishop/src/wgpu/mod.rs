@@ -12,5 +12,5 @@ mod render;
 mod state;
 pub use context::WgpuContext;
 pub use exec::FrameFuture;
-pub use state::GraphicsStateError;
 pub use render::*;
+pub use state::GraphicsStateError;

@@ -1,19 +1,21 @@
 // editor/src/tilemap/tilemap_editor.rs
-use crate::tilemap::tilemap_panel::TilemapPanel;
-use crate::gui::menu_bar::draw_top_panel_full;
-use crate::gui::gui_constants::MENU_PANEL_HEIGHT;
-use crate::editor_assets::assets::*;
-use crate::gui::panels::panel_manager::*;
-use crate::gui::mode_selector::ModeInfo;
-use crate::editor_global::push_command;
-use crate::tilemap::resize_handle::*;
 use crate::commands::room::*;
-use crate::room::drawing::*;
+use crate::editor_assets::assets::*;
+use crate::editor_global::push_command;
+use crate::gui::gui_constants::MENU_PANEL_HEIGHT;
+use crate::gui::menu_bar::draw_top_panel_full;
 use crate::gui::modal::*;
-use engine_core::prelude::*;
+use crate::gui::mode_selector::ModeInfo;
+use crate::gui::panels::panel_manager::*;
+use crate::room::drawing::*;
+use crate::tilemap::resize_handle::*;
+use crate::tilemap::tilemap_panel::TilemapPanel;
 use bishop::prelude::*;
+use engine_core::prelude::*;
 
-fn thickness(grid_size: f32) -> f32 { (grid_size * 0.1).max(1.0) }
+fn thickness(grid_size: f32) -> f32 {
+    (grid_size * 0.1).max(1.0)
+}
 
 #[derive(Clone, Copy, PartialEq)]
 pub enum TilemapEditorMode {
@@ -22,10 +24,8 @@ pub enum TilemapEditorMode {
 }
 
 /// All tilemap editor sub-modes for the sub-mode selector.
-pub static TILEMAP_SUB_MODES: &[TilemapEditorMode] = &[
-    TilemapEditorMode::Tiles,
-    TilemapEditorMode::Exits,
-];
+pub static TILEMAP_SUB_MODES: &[TilemapEditorMode] =
+    &[TilemapEditorMode::Tiles, TilemapEditorMode::Exits];
 
 impl ModeInfo for TilemapEditorMode {
     fn label(&self) -> &'static str {
@@ -103,11 +103,8 @@ impl TileMapEditor {
         // Only rebuild handles when not dragging (to preserve drag state)
         if self.active_handle_index.is_none() {
             let idx = room.current_variant_index();
-            self.resize_handles = ResizeHandle::build_all(
-                &room.variants[idx].tilemap,
-                room.position,
-                grid_size,
-            );
+            self.resize_handles =
+                ResizeHandle::build_all(&room.variants[idx].tilemap, room.position, grid_size);
         }
 
         let mouse_screen: Vec2 = ctx.mouse_position().into();
@@ -116,14 +113,8 @@ impl TileMapEditor {
         let mouse_world = camera.screen_to_world(mouse_screen, screen_w, screen_h);
 
         // Handle resize drag before tile placement
-        let drag_active = self.handle_resize_drag(
-            ctx,
-            mouse_world,
-            room,
-            other_bounds,
-            grid_size,
-            room.id,
-        );
+        let drag_active =
+            self.handle_resize_drag(ctx, mouse_world, room, other_bounds, grid_size, room.id);
 
         // Consume UI clicks
         self.consume_ui_click(ctx, mouse_screen);
@@ -211,10 +202,10 @@ impl TileMapEditor {
                     let cmd = ResizeTilemapCmd::new(room_id, idx, handle.side, delta);
                     push_command(Box::new(cmd));
                 }
-                
+
                 handle.end_drag();
                 self.active_handle_index = None;
-                
+
                 if !should_apply {
                     self.queue_resize_result_toast(resize_result);
                 }
@@ -226,17 +217,21 @@ impl TileMapEditor {
         false
     }
 
-    fn consume_ui_click(&mut self, ctx: &WgpuContext,  mouse_pos: Vec2) {
-        if (ctx.is_mouse_button_pressed(MouseButton::Left) || ctx.is_mouse_button_pressed(MouseButton::Right))
-        && self.tilemap_panel.handle_click(mouse_pos, self.tilemap_panel.rect) {
+    fn consume_ui_click(&mut self, ctx: &WgpuContext, mouse_pos: Vec2) {
+        if (ctx.is_mouse_button_pressed(MouseButton::Left)
+            || ctx.is_mouse_button_pressed(MouseButton::Right))
+            && self
+                .tilemap_panel
+                .handle_click(mouse_pos, self.tilemap_panel.rect)
+        {
             self.ui_was_clicked = true;
             return;
         }
-        
 
         // Unblock UI
-        if ctx.is_mouse_button_released(MouseButton::Left) || !ctx.is_mouse_button_down(MouseButton::Left) 
-        && self.active_handle_index.is_none() {
+        if ctx.is_mouse_button_released(MouseButton::Left)
+            || !ctx.is_mouse_button_down(MouseButton::Left) && self.active_handle_index.is_none()
+        {
             self.ui_was_clicked = false;
         }
     }
@@ -334,7 +329,16 @@ impl TileMapEditor {
             draw_all_camera_viewports(ctx, camera, ecs, room_id);
         }
 
-        self.draw_ui(ctx, camera, asset_manager, tilemap, room_position, room_size, grid_size).await;
+        self.draw_ui(
+            ctx,
+            camera,
+            asset_manager,
+            tilemap,
+            room_position,
+            room_size,
+            grid_size,
+        )
+        .await;
     }
 
     /// Draws exits from adjacent rooms that face toward this room (only in Exits mode).
@@ -360,10 +364,14 @@ impl TileMapEditor {
         if self.is_mouse_over_ui(ctx, camera) {
             return;
         }
-        
+
         let tile_pos = match self.mode {
-            TilemapEditorMode::Tiles => self.get_hovered_tile(ctx, camera, map, room_position, grid_size),
-            TilemapEditorMode::Exits => self.get_hovered_edge(ctx, camera, map, room_position, grid_size),
+            TilemapEditorMode::Tiles => {
+                self.get_hovered_tile(ctx, camera, map, room_position, grid_size)
+            }
+            TilemapEditorMode::Exits => {
+                self.get_hovered_edge(ctx, camera, map, room_position, grid_size)
+            }
         };
 
         if let Some(tile_pos) = tile_pos {
@@ -424,11 +432,7 @@ impl TileMapEditor {
         grid_size: f32,
     ) -> Option<GridPos> {
         let mouse_pos: Vec2 = ctx.mouse_position().into();
-        let world_pos = camera.screen_to_world(
-            mouse_pos,
-            ctx.screen_width(),
-            ctx.screen_height(),
-        );
+        let world_pos = camera.screen_to_world(mouse_pos, ctx.screen_width(), ctx.screen_height());
         let local_pos = world_pos - room_position;
         let pos = GridPos::from_world(local_pos, grid_size);
 
@@ -448,11 +452,7 @@ impl TileMapEditor {
         grid_size: f32,
     ) -> Option<GridPos> {
         let mouse_pos: Vec2 = ctx.mouse_position().into();
-        let world_pos = camera.screen_to_world(
-            mouse_pos,
-            ctx.screen_width(),
-            ctx.screen_height(),
-        );
+        let world_pos = camera.screen_to_world(mouse_pos, ctx.screen_width(), ctx.screen_height());
         let local_pos = world_pos - room_position;
         let edge_pos = GridPos::from_world_edge(local_pos, map, grid_size);
 
@@ -469,23 +469,22 @@ impl TileMapEditor {
 
     fn is_mouse_over_ui(&self, ctx: &WgpuContext, camera: &Camera2D) -> bool {
         let mouse_screen: Vec2 = ctx.mouse_position().into();
-        let mouse_world = camera.screen_to_world(
-            mouse_screen,
-            ctx.screen_width(),
-            ctx.screen_height(),
-        );
+        let mouse_world =
+            camera.screen_to_world(mouse_screen, ctx.screen_width(), ctx.screen_height());
 
         // Check menu bar area
         let over_menu_bar = mouse_screen.y < MENU_PANEL_HEIGHT;
 
         // Check sub-mode strip
-        let over_sub_mode = self.sub_mode_rect
-            .is_some_and(|r| r.contains(mouse_screen));
+        let over_sub_mode = self.sub_mode_rect.is_some_and(|r| r.contains(mouse_screen));
 
         over_menu_bar
             || over_sub_mode
             || self.tilemap_panel.is_mouse_over(mouse_screen)
-            || self.resize_handles.iter().any(|h| h.is_hovered(mouse_world))
+            || self
+                .resize_handles
+                .iter()
+                .any(|h| h.is_hovered(mouse_world))
             || self.active_handle_index.is_some()
             || is_dropdown_open()
             || is_modal_open()

@@ -1,14 +1,14 @@
 // reflect_derive/src/lib.rs
 extern crate proc_macro;
-use syn::parse_macro_input;
 use proc_macro::TokenStream;
-use syn::DeriveInput;
-use syn::Attribute;
 use quote::quote;
-use syn::LitStr;
-use syn::Fields;
-use syn::Token;
+use syn::Attribute;
 use syn::Data;
+use syn::DeriveInput;
+use syn::Fields;
+use syn::LitStr;
+use syn::Token;
+use syn::parse_macro_input;
 
 /// `#[derive(Reflect)]` – generates an impl of the `Reflect` trait.
 #[proc_macro_derive(Reflect, attributes(widget))]
@@ -48,10 +48,10 @@ pub fn derive_reflect(input: TokenStream) -> TokenStream {
                     // Single field tuple struct (newtype pattern)
                     let field = unnamed.unnamed.first().unwrap();
                     let ty = &field.ty;
-                    
+
                     // Use the struct name as the field name for single-field tuples
                     let field_name = name.to_string();
-                    
+
                     let hint_opt = widget_hint(&field.attrs);
                     let hint_expr = match hint_opt {
                         Some(s) => quote! { Some(#s) },
@@ -73,7 +73,7 @@ pub fn derive_reflect(input: TokenStream) -> TokenStream {
                         let ty = &f.ty;
                         let field_name = format!("field_{}", idx);
                         let index = syn::Index::from(idx);
-                        
+
                         let hint_opt = widget_hint(&f.attrs);
                         let hint_expr = match hint_opt {
                             Some(s) => quote! { Some(#s) },

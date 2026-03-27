@@ -1,6 +1,6 @@
 // editor/src/commands/room/add_component_cmd.rs
-use crate::commands::editor_command_manager::EditorCommand;
 use crate::app::EditorMode;
+use crate::commands::editor_command_manager::EditorCommand;
 use crate::with_editor;
 use engine_core::prelude::*;
 
@@ -14,7 +14,11 @@ pub struct AddComponentCmd {
 
 impl AddComponentCmd {
     pub fn new(entity: Entity, room_id: RoomId, type_name: &'static str) -> Self {
-        Self { entity, room_id, type_name }
+        Self {
+            entity,
+            room_id,
+            type_name,
+        }
     }
 }
 

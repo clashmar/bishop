@@ -25,11 +25,8 @@ impl GridRenderer {
         let format = ctx.surface_format();
 
         let fullscreen_quad = FullscreenQuadRenderer::new(device);
-        let material = GridMaterial::new(
-            device,
-            format,
-            fullscreen_quad.camera_bind_group_layout(),
-        );
+        let material =
+            GridMaterial::new(device, format, fullscreen_quad.camera_bind_group_layout());
 
         Self {
             material,
@@ -60,9 +57,13 @@ impl GridRenderer {
 
         self.material.set_uniforms(queue, &uniforms);
         self.fullscreen_quad.update_camera(queue, width, height);
-        self.fullscreen_quad.update_model(queue, &ModelUniforms {
-            model: glam::Mat4::from_scale(glam::Vec3::new(width, height, 1.0)).to_cols_array_2d(),
-        });
+        self.fullscreen_quad.update_model(
+            queue,
+            &ModelUniforms {
+                model: glam::Mat4::from_scale(glam::Vec3::new(width, height, 1.0))
+                    .to_cols_array_2d(),
+            },
+        );
 
         ctx.flush_if_needed();
 

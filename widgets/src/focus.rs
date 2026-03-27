@@ -1,5 +1,5 @@
-use std::cell::RefCell;
 use crate::*;
+use std::cell::RefCell;
 
 thread_local! {
     pub static INPUT_FOCUSED: RefCell<bool> = const { RefCell::new(false) };
@@ -42,7 +42,9 @@ pub fn consume_pending_focus(id: WidgetId) -> bool {
     let mut consumed = false;
     PENDING_FOCUS.with(|p| {
         let mut opt = p.borrow_mut();
-        if let Some(pending_id) = *opt && pending_id == id {
+        if let Some(pending_id) = *opt
+            && pending_id == id
+        {
             consumed = true;
             *opt = None;
         }

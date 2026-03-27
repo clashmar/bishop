@@ -1,8 +1,8 @@
 // game/src/playtest_main.rs
-use game_lib::engine::{Engine, EngineBuilder, GameInstance};
-use engine_core::prelude::*;
 use bishop::prelude::*;
 use bishop::BishopApp;
+use engine_core::prelude::*;
+use game_lib::engine::{Engine, EngineBuilder, GameInstance};
 use ron::de::from_str;
 use std::{env, fs};
 
@@ -56,14 +56,15 @@ impl BishopApp for PlaytestApp {
         let game_instance = {
             let mut ctx_ref = ctx.borrow_mut();
             GameInstance::for_room(
-                &mut *ctx_ref, 
-                room, 
-                game, 
-                &builder.lua, 
-                &mut builder.camera_manager
-            ).await
+                &mut *ctx_ref,
+                room,
+                game,
+                &builder.lua,
+                &mut builder.camera_manager,
+            )
+            .await
         };
-        
+
         self.engine = Some(builder.assemble(game_instance, ctx, true));
     }
 
@@ -88,10 +89,9 @@ fn main() -> Result<(), RunError> {
     let width = FIXED_WINDOW_WIDTH.clamp(MIN_WINDOW_WIDTH, MAX_WINDOW_WIDTH);
     let height = FIXED_WINDOW_HEIGHT.clamp(MIN_WINDOW_HEIGHT, MAX_WINDOW_HEIGHT);
 
-    let config = WindowConfig::new("Playtest")
-        .with_fullscreen(true);
-        // .with_size(width as u32, height as u32)
-        // .with_resizable(true);
+    let config = WindowConfig::new("Playtest").with_fullscreen(true);
+    // .with_size(width as u32, height as u32)
+    // .with_resizable(true);
 
     let app = PlaytestApp::new(payload_path);
     run_backend(config, app)

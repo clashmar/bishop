@@ -1,11 +1,11 @@
 // engine_core/src/ecs/entity.rs
-use crate::ecs::component_registry::ComponentRegistry;
 use crate::ecs::component::*;
+use crate::ecs::component_registry::ComponentRegistry;
 use crate::ecs::ecs::Ecs;
-use serde::{Deserialize, Serialize};
 use ecs_component::ecs_component;
-use std::any::TypeId;
 use inventory::iter;
+use serde::{Deserialize, Serialize};
+use std::any::TypeId;
 
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug, Serialize, Deserialize, Default)]
 pub struct Entity(pub usize);
@@ -101,7 +101,8 @@ pub fn set_parent(ecs: &mut Ecs, child: Entity, new_parent: Entity) {
     if let Some(parent_comp) = ecs.get_mut::<Parent>(child) {
         parent_comp.0 = new_parent;
     } else {
-        ecs.get_store_mut::<Parent>().insert(child, Parent(new_parent));
+        ecs.get_store_mut::<Parent>()
+            .insert(child, Parent(new_parent));
     }
 
     // Add child to new parent's children list
@@ -118,12 +119,12 @@ pub fn set_parent(ecs: &mut Ecs, child: Entity, new_parent: Entity) {
 pub fn remove_parent(ecs: &mut Ecs, child: Entity) {
     if let Some(parent) = ecs.get::<Parent>(child) {
         let parent_entity = parent.0;
-        
+
         // Remove from parent's children list
         if let Some(children) = ecs.get_mut::<Children>(parent_entity) {
             children.remove(child);
         }
-        
+
         // Remove parent component
         ecs.get_store_mut::<Parent>().remove(child);
     }
@@ -161,12 +162,12 @@ pub fn get_root_entities(ecs: &Ecs, entities: &[Entity]) -> Vec<Entity> {
 pub fn get_all_descendants(ecs: &Ecs, entity: Entity) -> Vec<Entity> {
     let mut descendants = Vec::new();
     let children = get_children(ecs, entity);
-    
+
     for child in children {
         descendants.push(child);
         descendants.extend(get_all_descendants(ecs, child));
     }
-    
+
     descendants
 }
 

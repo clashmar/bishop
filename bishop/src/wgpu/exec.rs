@@ -1,8 +1,8 @@
 //! Frame-based async execution for wgpu backend.
 
-use std::task::{Context, Poll, RawWaker, RawWakerVTable, Waker};
 use std::future::Future;
 use std::pin::Pin;
+use std::task::{Context, Poll, RawWaker, RawWakerVTable, Waker};
 
 /// A future that yields for exactly one frame.
 #[derive(Default)]

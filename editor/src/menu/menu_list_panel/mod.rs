@@ -30,12 +30,7 @@ impl MenuListPanel {
 
 impl MenuEditor {
     /// Renders the menu panel and handles input.
-    pub fn draw_menu_list_panel(
-        &mut self,
-        ctx: &mut WgpuContext,
-        rect: Rect,
-        blocked: bool
-    ) {
+    pub fn draw_menu_list_panel(&mut self, ctx: &mut WgpuContext, rect: Rect, blocked: bool) {
         let mouse: Vec2 = ctx.mouse_position().into();
         let content_height = self.calculate_menu_list_height();
 
@@ -85,10 +80,14 @@ impl MenuEditor {
                 let field_rect = Rect::new(content_x, y, content_w - cancel_w - 4.0, 24.0);
                 let cancel_rect = Rect::new(content_x + content_w - cancel_w, y, cancel_w, 24.0);
 
-                let (new_text, _) = TextInput::new(self.menu_list_panel.new_menu_id, field_rect, &self.menu_list_panel.new_menu_name)
-                    .focused(true)
-                    .blocked(blocked)
-                    .show(ctx);
+                let (new_text, _) = TextInput::new(
+                    self.menu_list_panel.new_menu_id,
+                    field_rect,
+                    &self.menu_list_panel.new_menu_name,
+                )
+                .focused(true)
+                .blocked(blocked)
+                .show(ctx);
                 self.menu_list_panel.new_menu_name = new_text;
 
                 let cancel_clicked = Button::new(cancel_rect, "×").blocked(blocked).show(ctx);
@@ -114,7 +113,12 @@ impl MenuEditor {
         // List of menus sorted alphabetically - collect click info first to avoid borrow issues
         let mut clicked_index = None;
         let mut sorted_indices: Vec<usize> = (0..self.templates.len()).collect();
-        sorted_indices.sort_by(|a, b| self.templates[*a].id.to_lowercase().cmp(&self.templates[*b].id.to_lowercase()));
+        sorted_indices.sort_by(|a, b| {
+            self.templates[*a]
+                .id
+                .to_lowercase()
+                .cmp(&self.templates[*b].id.to_lowercase())
+        });
 
         for index in sorted_indices {
             let template = &self.templates[index];
@@ -142,7 +146,11 @@ impl MenuEditor {
                 item_rect.x + 8.0,
                 item_rect.y + 16.0,
                 12.0,
-                if is_selected { Color::WHITE } else { Color::new(0.8, 0.8, 0.8, 1.0) },
+                if is_selected {
+                    Color::WHITE
+                } else {
+                    Color::new(0.8, 0.8, 0.8, 1.0)
+                },
             );
 
             if hover && !blocked && ctx.is_mouse_button_pressed(MouseButton::Left) {
@@ -163,7 +171,11 @@ impl MenuEditor {
     fn calculate_menu_list_height(&self) -> f32 {
         let header_height = 24.0;
         let buttons_height = BUTTON_HEIGHT + 8.0;
-        let input_height = if self.menu_list_panel.pending_new_menu { 32.0 } else { 0.0 };
+        let input_height = if self.menu_list_panel.pending_new_menu {
+            32.0
+        } else {
+            0.0
+        };
         let items_height = (MENU_ITEM_HEIGHT + 4.0) * self.templates.len() as f32;
 
         header_height + buttons_height + input_height + items_height + 16.0

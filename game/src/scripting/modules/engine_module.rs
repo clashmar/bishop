@@ -1,15 +1,15 @@
 // game/src/scripting/modules/engine_module.rs
 use crate::scripting::lua_ctx::LuaGameCtx;
-use engine_core::register_lua_module;
-use engine_core::register_lua_api;
-use mlua::prelude::LuaResult;
 use engine_core::prelude::*;
-use mlua::MultiValue;
+use engine_core::register_lua_api;
+use engine_core::register_lua_module;
+use mlua::prelude::LuaResult;
 use mlua::Function;
-use mlua::Variadic;
-use mlua::Value;
-use mlua::Table;
 use mlua::Lua;
+use mlua::MultiValue;
+use mlua::Table;
+use mlua::Value;
+use mlua::Variadic;
 
 /// Lua module that exposes the engine's global modules to scripts.
 #[derive(Default)]
@@ -23,12 +23,12 @@ impl LuaModule for EngineModule {
         // TODO: assess if this is needed
         // Create the metatable for global entity proxies
         let proxy_mt = lua.create_table()?;
-        
+
         // __index metamethod - intercepts method/field access
         let index_fn = lua.create_function(|lua, (proxy_table, key): (Table, String)| {
             // Get the entity name stored in the proxy
             let entity_name: String = proxy_table.raw_get("__entity_name")?;
-            
+
             let ctx = LuaGameCtx::borrow_ctx(lua)?;
             let game_instance = ctx.game_instance.borrow();
             let ecs = &game_instance.game.ecs;
@@ -38,10 +38,13 @@ impl LuaModule for EngineModule {
             let global_entity = {
                 let global_store = ecs.get_store::<Global>();
                 let name_store = ecs.get_store::<Name>();
-                
-                global_store.data.keys()
+
+                global_store
+                    .data
+                    .keys()
                     .find(|&&entity| {
-                        name_store.get(entity)
+                        name_store
+                            .get(entity)
                             .map(|n| n.0 == entity_name)
                             .unwrap_or(false)
                     })
@@ -53,22 +56,26 @@ impl LuaModule for EngineModule {
             })?;
 
             // Get the script component
-            let script_id = ecs.get_store::<Script>()
+            let script_id = ecs
+                .get_store::<Script>()
                 .get(entity)
                 .map(|s| s.script_id)
                 .ok_or_else(|| {
-                    mlua::Error::RuntimeError(
-                        format!("Global entity '{}' has no script", entity_name)
-                    )
+                    mlua::Error::RuntimeError(format!(
+                        "Global entity '{}' has no script",
+                        entity_name
+                    ))
                 })?;
 
             // Get the script instance
-            let instance = script_manager.instances
+            let instance = script_manager
+                .instances
                 .get(&(entity, script_id))
                 .ok_or_else(|| {
-                    mlua::Error::RuntimeError(
-                        format!("Script instance not found for global '{}'", entity_name)
-                    )
+                    mlua::Error::RuntimeError(format!(
+                        "Script instance not found for global '{}'",
+                        entity_name
+                    ))
                 })?;
 
             // Try to get the value from the instance
@@ -86,31 +93,45 @@ impl LuaModule for EngineModule {
                         let entity = {
                             let global_store = ecs.get_store::<Global>();
                             let name_store = ecs.get_store::<Name>();
-                            
-                            global_store.data.keys()
+
+                            global_store
+                                .data
+                                .keys()
                                 .find(|&&e| {
-                                    name_store.get(e)
+                                    name_store
+                                        .get(e)
                                         .map(|n| n.0 == entity_name_clone)
                                         .unwrap_or(false)
                                 })
                                 .copied()
-                                .ok_or_else(|| mlua::Error::RuntimeError(
-                                    format!("Global entity '{}' not found", entity_name_clone)
-                                ))?
+                                .ok_or_else(|| {
+                                    mlua::Error::RuntimeError(format!(
+                                        "Global entity '{}' not found",
+                                        entity_name_clone
+                                    ))
+                                })?
                         };
 
-                        let script_id = ecs.get_store::<Script>()
+                        let script_id = ecs
+                            .get_store::<Script>()
                             .get(entity)
                             .map(|s| s.script_id)
-                            .ok_or_else(|| mlua::Error::RuntimeError(
-                                format!("Global entity '{}' has no script", entity_name_clone)
-                            ))?;
+                            .ok_or_else(|| {
+                                mlua::Error::RuntimeError(format!(
+                                    "Global entity '{}' has no script",
+                                    entity_name_clone
+                                ))
+                            })?;
 
-                        let instance = script_manager.instances
+                        let instance = script_manager
+                            .instances
                             .get(&(entity, script_id))
-                            .ok_or_else(|| mlua::Error::RuntimeError(
-                                format!("Script instance not found for global '{}'", entity_name_clone)
-                            ))?;
+                            .ok_or_else(|| {
+                                mlua::Error::RuntimeError(format!(
+                                    "Script instance not found for global '{}'",
+                                    entity_name_clone
+                                ))
+                            })?;
 
                         let func = instance.get::<Function>(key.clone())?;
 
@@ -121,7 +142,7 @@ impl LuaModule for EngineModule {
 
                         func.call::<MultiValue>(MultiValue::from_vec(call_args))
                     })?;
-                    
+
                     Ok(Value::Function(wrapper))
                 }
                 Ok(value) => Ok(value),
@@ -144,11 +165,11 @@ impl LuaModule for EngineModule {
         let global_fn = lua.create_function(|lua, name: String| {
             let proxy = lua.create_table()?;
             proxy.raw_set("__entity_name", name)?;
-            
+
             // Get the metatable from registry
             let mt: Table = lua.named_registry_value("__global_proxy_mt")?;
             let _ = proxy.set_metatable(Some(mt));
-            
+
             Ok(proxy)
         })?;
         engine_tbl.set(GLOBAL, global_fn)?;
@@ -161,8 +182,7 @@ impl LuaModule for EngineModule {
             let script_manager = &game_instance.game.script_manager;
 
             // Find player entity via Player component
-            let player_entity = ecs.get_store::<Player>()
-                .data.keys().next().copied();
+            let player_entity = ecs.get_store::<Player>().data.keys().next().copied();
 
             let entity = match player_entity {
                 Some(e) => e,
@@ -189,19 +209,23 @@ impl LuaModule for EngineModule {
         let call_fn = lua.create_function(|lua, args: Variadic<Value>| {
             // Extract global entity name and method name
             let mut iter = args.into_iter();
-            
+
             let name = match iter.next() {
                 Some(Value::String(s)) => s.to_str()?.to_owned(),
-                _ => return Err(mlua::Error::RuntimeError(
-                    "First argument must be the global entity name (string)".into()
-                )),
+                _ => {
+                    return Err(mlua::Error::RuntimeError(
+                        "First argument must be the global entity name (string)".into(),
+                    ))
+                }
             };
 
             let method = match iter.next() {
                 Some(Value::String(s)) => s.to_str()?.to_owned(),
-                _ => return Err(mlua::Error::RuntimeError(
-                    "Second argument must be the method name (string)".into()
-                )),
+                _ => {
+                    return Err(mlua::Error::RuntimeError(
+                        "Second argument must be the method name (string)".into(),
+                    ))
+                }
             };
 
             // Remaining args go to the method
@@ -216,13 +240,11 @@ impl LuaModule for EngineModule {
             let global_entity = {
                 let global_store = ecs.get_store::<Global>();
                 let name_store = ecs.get_store::<Name>();
-                
-                global_store.data.keys()
-                    .find(|&&entity| {
-                        name_store.get(entity)
-                            .map(|n| n.0 == name)
-                            .unwrap_or(false)
-                    })
+
+                global_store
+                    .data
+                    .keys()
+                    .find(|&&entity| name_store.get(entity).map(|n| n.0 == name).unwrap_or(false))
                     .copied()
             };
 
@@ -231,31 +253,32 @@ impl LuaModule for EngineModule {
             })?;
 
             // Get the script component
-            let script_id = ecs.get_store::<Script>()
+            let script_id = ecs
+                .get_store::<Script>()
                 .get(entity)
                 .map(|s| s.script_id)
                 .ok_or_else(|| {
-                    mlua::Error::RuntimeError(
-                        format!("Global entity '{}' has no script", name)
-                    )
+                    mlua::Error::RuntimeError(format!("Global entity '{}' has no script", name))
                 })?;
 
             // Get the script instance
-            let instance = script_manager.instances
+            let instance = script_manager
+                .instances
                 .get(&(entity, script_id))
                 .ok_or_else(|| {
-                    mlua::Error::RuntimeError(
-                        format!("Script instance not found for global '{}'", name)
-                    )
+                    mlua::Error::RuntimeError(format!(
+                        "Script instance not found for global '{}'",
+                        name
+                    ))
                 })?;
 
             // Get the method function
-            let func = instance.get::<Function>(method.clone())
-                .map_err(|_| {
-                    mlua::Error::RuntimeError(
-                        format!("Method '{}' not found on global '{}'", method, name)
-                    )
-                })?;
+            let func = instance.get::<Function>(method.clone()).map_err(|_| {
+                mlua::Error::RuntimeError(format!(
+                    "Method '{}' not found on global '{}'",
+                    method, name
+                ))
+            })?;
 
             // Build call args with instance as first argument (self)
             let handle = Value::Table(instance.clone());

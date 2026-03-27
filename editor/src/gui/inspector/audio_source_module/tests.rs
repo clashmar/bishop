@@ -1,8 +1,8 @@
-use super::*;
 use super::groups::{assignment_options, rename_target_group, AssignOption};
 use super::preview::{
     active_preview_is_cleared_for_test, set_active_preview_for_test, ActivePreview,
 };
+use super::*;
 use crate::storage::sound_preset_storage::set_current_sound_preset_library;
 use engine_core::audio::audio_source::SoundPresetLink;
 
@@ -12,12 +12,16 @@ fn rename_target_group_renames_requested_group_even_if_selection_changes() {
     let talk = SoundGroupId::Custom("Talk".to_string());
     let footsteps = SoundGroupId::Custom("Footsteps".to_string());
     source.groups.insert(talk.clone(), AudioGroup::default());
-    source.groups.insert(footsteps.clone(), AudioGroup::default());
+    source
+        .groups
+        .insert(footsteps.clone(), AudioGroup::default());
     source.current = Some(footsteps.clone());
 
     rename_target_group(&mut source, Some(talk.clone()), "Dialogue").unwrap();
 
-    assert!(source.groups.contains_key(&SoundGroupId::Custom("Dialogue".to_string())));
+    assert!(source
+        .groups
+        .contains_key(&SoundGroupId::Custom("Dialogue".to_string())));
     assert!(!source.groups.contains_key(&talk));
     assert_eq!(source.current, Some(footsteps));
 }
@@ -131,7 +135,10 @@ fn height_adds_only_rename_row_when_no_groups_and_rename_is_active() {
     let mut module = AudioSourceModule::default();
     module.pending_rename_target = Some(SoundGroupId::Custom("Group 1".to_string()));
 
-    assert_eq!(module.height(), TOP_PADDING + ROW_HEIGHT * 2.0 + SPACING * 2.0 + 5.0);
+    assert_eq!(
+        module.height(),
+        TOP_PADDING + ROW_HEIGHT * 2.0 + SPACING * 2.0 + 5.0
+    );
 }
 
 #[test]
@@ -174,5 +181,8 @@ fn height_includes_preset_actions_row_only_when_cached_as_visible() {
         ..Default::default()
     };
 
-    assert_eq!(with_preset_actions.height() - without_preset_actions.height(), ROW_HEIGHT + SPACING);
+    assert_eq!(
+        with_preset_actions.height() - without_preset_actions.height(),
+        ROW_HEIGHT + SPACING
+    );
 }

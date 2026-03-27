@@ -2,14 +2,14 @@
 mod drawing;
 mod selection;
 
-use crate::editor_global::push_command;
-use crate::menu::resize_handle::*;
-use crate::menu::menu_editor::*;
-use crate::shared::selection::*;
 use crate::commands::menu::*;
+use crate::editor_global::push_command;
+use crate::menu::menu_editor::*;
+use crate::menu::resize_handle::*;
 use crate::menu::MenuEditor;
-use engine_core::prelude::*;
+use crate::shared::selection::*;
 use bishop::prelude::*;
+use engine_core::prelude::*;
 
 const SNAP_FRACTIONS: [f32; 7] = [0.0, 0.25, 1.0 / 3.0, 0.5, 2.0 / 3.0, 0.75, 1.0];
 const SNAP_THRESHOLD: f32 = 0.02;
@@ -30,7 +30,8 @@ impl MenuEditor {
         let norm_mouse = screen_to_normalized(mouse, canvas_origin, canvas_size);
         self.last_norm_mouse = Some(norm_mouse);
 
-        let shift_held = ctx.is_key_down(KeyCode::LeftShift) || ctx.is_key_down(KeyCode::RightShift);
+        let shift_held =
+            ctx.is_key_down(KeyCode::LeftShift) || ctx.is_key_down(KeyCode::RightShift);
 
         // Arrow key movement for selected elements
         if !self.selected_element_indices.is_empty()
@@ -46,7 +47,8 @@ impl MenuEditor {
 
                     if let Some(child_idx) = self.selected_child_index {
                         if let Some(parent_idx) = self.primary_selected_index() {
-                            let from = self.current_template()
+                            let from = self
+                                .current_template()
                                 .and_then(|t| t.elements.get(parent_idx))
                                 .and_then(|e| match &e.kind {
                                     MenuElementKind::LayoutGroup(g) => g.children.get(child_idx),
@@ -63,7 +65,8 @@ impl MenuEditor {
                             }
                         }
                     } else {
-                        let indices: Vec<usize> = self.selected_element_indices.iter().copied().collect();
+                        let indices: Vec<usize> =
+                            self.selected_element_indices.iter().copied().collect();
                         if let Some(template) = self.current_template() {
                             for &i in &indices {
                                 if let Some(element) = template.elements.get(i) {
@@ -87,8 +90,11 @@ impl MenuEditor {
         }
 
         // Handle Delete key to remove selected element(s)
-        if !blocked && ctx.is_key_pressed(KeyCode::Delete) || ctx.is_key_pressed(KeyCode::Backspace) 
-            && !input_is_focused() && !self.selected_element_indices.is_empty() {
+        if !blocked && ctx.is_key_pressed(KeyCode::Delete)
+            || ctx.is_key_pressed(KeyCode::Backspace)
+                && !input_is_focused()
+                && !self.selected_element_indices.is_empty()
+        {
             if let Some(template_idx) = self.current_template_index {
                 push_command(Box::new(DeleteElementCmd::new(
                     template_idx,
@@ -127,7 +133,8 @@ impl MenuEditor {
 
                     let position = if let Some(parent_idx) = parent_index {
                         // Relative to the group origin
-                        let group_origin = self.current_template()
+                        let group_origin = self
+                            .current_template()
                             .and_then(|t| t.elements.get(parent_idx))
                             .map(|e| Vec2::new(e.rect.x, e.rect.y))
                             .unwrap_or(Vec2::ZERO);
@@ -138,7 +145,11 @@ impl MenuEditor {
 
                     let rect = Rect::new(position.x, position.y, default_size.x, default_size.y);
                     let element = MenuElement::new(kind, rect);
-                    push_command(Box::new(AddElementCmd::new(template_idx, element, parent_index)));
+                    push_command(Box::new(AddElementCmd::new(
+                        template_idx,
+                        element,
+                        parent_index,
+                    )));
                 }
                 return;
             } else {
@@ -162,11 +173,13 @@ impl MenuEditor {
                 };
 
                 if let Some(child_idx) = child_index {
-                    let group_origin = self.current_template()
+                    let group_origin = self
+                        .current_template()
                         .and_then(|t| t.elements.get(index))
                         .map(|e| Vec2::new(e.rect.x, e.rect.y));
                     if let Some(origin) = group_origin {
-                        let child = self.current_template_mut()
+                        let child = self
+                            .current_template_mut()
                             .and_then(|t| t.elements.get_mut(index))
                             .and_then(|e| match &mut e.kind {
                                 MenuElementKind::LayoutGroup(g) => g.children.get_mut(child_idx),
@@ -249,11 +262,16 @@ impl MenuEditor {
                 // Mouse released: finalize box select
                 if let Some(start) = self.box_select_start.take() {
                     let sel_rect = rect_from_two_points(start, norm_mouse);
-                    let matched: Vec<usize> = self.current_template()
-                        .map(|t| t.elements.iter().enumerate()
-                            .filter(|(_, el)| rects_intersect(sel_rect, el.rect))
-                            .map(|(i, _)| i)
-                            .collect())
+                    let matched: Vec<usize> = self
+                        .current_template()
+                        .map(|t| {
+                            t.elements
+                                .iter()
+                                .enumerate()
+                                .filter(|(_, el)| rects_intersect(sel_rect, el.rect))
+                                .map(|(i, _)| i)
+                                .collect()
+                        })
                         .unwrap_or_default();
                     for i in matched {
                         self.selected_element_indices.insert(i);
@@ -274,12 +292,7 @@ impl MenuEditor {
                 let drop = self.current_template().and_then(|t| {
                     let element = t.elements.get(group_index)?;
                     if let MenuElementKind::LayoutGroup(group) = &element.kind {
-                        compute_reorder_drop_index(
-                            group, 
-                            element.rect, 
-                            norm_mouse, 
-                            child_index
-                        )
+                        compute_reorder_drop_index(group, element.rect, norm_mouse, child_index)
                     } else {
                         None
                     }
@@ -323,12 +336,14 @@ impl MenuEditor {
                 };
 
                 if let Some(child_idx) = child_idx {
-                    let group_origin = self.current_template()
+                    let group_origin = self
+                        .current_template()
                         .and_then(|t| t.elements.get(anchor_index))
                         .map(|e| Vec2::new(e.rect.x, e.rect.y));
                     if let Some(origin) = group_origin {
                         let new_abs = norm_mouse - drag_offset;
-                        let child = self.current_template_mut()
+                        let child = self
+                            .current_template_mut()
                             .and_then(|t| t.elements.get_mut(anchor_index))
                             .and_then(|e| match &mut e.kind {
                                 MenuElementKind::LayoutGroup(g) => g.children.get_mut(child_idx),
@@ -339,8 +354,12 @@ impl MenuEditor {
                             child.element.rect.y = new_abs.y - origin.y;
                         }
                     }
-                } else if self.selected_element_indices.len() > 1 && !self.drag_start_rects.is_empty() {
-                    let anchor_start = self.drag_start_rects.iter()
+                } else if self.selected_element_indices.len() > 1
+                    && !self.drag_start_rects.is_empty()
+                {
+                    let anchor_start = self
+                        .drag_start_rects
+                        .iter()
                         .find(|(i, _)| *i == anchor_index)
                         .map(|(_, pos)| *pos);
                     if let Some(anchor_start) = anchor_start {
@@ -356,8 +375,12 @@ impl MenuEditor {
                             if let Some(template) = self.templates.get_mut(ti) {
                                 if snapping {
                                     if let Some(anchor_el) = template.elements.get(anchor_index) {
-                                        let anchor_size = Vec2::new(anchor_el.rect.w, anchor_el.rect.h);
-                                        let (snapped, lines) = snap_center_to_fractions(anchor_start + delta, anchor_size);
+                                        let anchor_size =
+                                            Vec2::new(anchor_el.rect.w, anchor_el.rect.h);
+                                        let (snapped, lines) = snap_center_to_fractions(
+                                            anchor_start + delta,
+                                            anchor_size,
+                                        );
                                         snap_delta = snapped - anchor_start;
                                         new_snap_lines = lines;
                                     }
@@ -404,12 +427,16 @@ impl MenuEditor {
                     if let Some(template) = self.current_template() {
                         if let Some(ci) = child_idx {
                             if let Some((_, start_pos)) = self.drag_start_rects.first() {
-                                let to = template.elements.get(anchor_index)
+                                let to = template
+                                    .elements
+                                    .get(anchor_index)
                                     .and_then(|e| match &e.kind {
                                         MenuElementKind::LayoutGroup(g) => g.children.get(ci),
                                         _ => None,
                                     })
-                                    .map(|child| Vec2::new(child.element.rect.x, child.element.rect.y));
+                                    .map(|child| {
+                                        Vec2::new(child.element.rect.x, child.element.rect.y)
+                                    });
                                 if let Some(to) = to {
                                     if to != *start_pos {
                                         moves.push(ElementMove {
@@ -459,19 +486,30 @@ impl MenuEditor {
         canvas_origin: Vec2,
         canvas_size: Vec2,
     ) -> bool {
-        let Some(selected_index) = self.primary_selected_index() else { return false; };
+        let Some(selected_index) = self.primary_selected_index() else {
+            return false;
+        };
 
         if let Some(child_idx) = self.selected_child_index {
             let child_norm_rect = self.current_template().and_then(|t| {
                 let element = t.elements.get(selected_index)?;
-                let MenuElementKind::LayoutGroup(group) = &element.kind else { return None; };
+                let MenuElementKind::LayoutGroup(group) = &element.kind else {
+                    return None;
+                };
                 let child = group.children.get(child_idx)?;
-                if child.managed { return None; }
+                if child.managed {
+                    return None;
+                }
                 resolve_layout(group, element.rect).get(child_idx).copied()
             });
-            let Some(child_norm_rect) = child_norm_rect else { return false; };
-            let child_screen_rect = normalized_rect_to_screen(child_norm_rect, canvas_origin, canvas_size);
-            let Some(handle) = hit_test_handles(mouse, child_screen_rect) else { return false; };
+            let Some(child_norm_rect) = child_norm_rect else {
+                return false;
+            };
+            let child_screen_rect =
+                normalized_rect_to_screen(child_norm_rect, canvas_origin, canvas_size);
+            let Some(handle) = hit_test_handles(mouse, child_screen_rect) else {
+                return false;
+            };
             self.resizing_handle = Some(ResizeHandleState {
                 element_index: selected_index,
                 child_index: Some(child_idx),
@@ -481,11 +519,17 @@ impl MenuEditor {
             });
             true
         } else {
-            let Some(element_rect) = self.current_template()
+            let Some(element_rect) = self
+                .current_template()
                 .and_then(|t| t.elements.get(selected_index))
-                .map(|e| e.rect) else { return false; };
+                .map(|e| e.rect)
+            else {
+                return false;
+            };
             let screen_rect = normalized_rect_to_screen(element_rect, canvas_origin, canvas_size);
-            let Some(handle) = hit_test_handles(mouse, screen_rect) else { return false; };
+            let Some(handle) = hit_test_handles(mouse, screen_rect) else {
+                return false;
+            };
             self.resizing_handle = Some(ResizeHandleState {
                 element_index: selected_index,
                 child_index: None,
@@ -496,9 +540,6 @@ impl MenuEditor {
             true
         }
     }
-
-    
-
 }
 
 /// Computes the drop target index (in the full children Vec) from mouse position.
@@ -514,7 +555,9 @@ fn compute_reorder_drop_index(
     let resolved = resolve_layout(group, group_rect);
 
     // Collect managed children: (vec_index, resolved_rect)
-    let managed: Vec<(usize, Rect)> = group.children.iter()
+    let managed: Vec<(usize, Rect)> = group
+        .children
+        .iter()
         .zip(resolved.iter())
         .enumerate()
         .filter(|(_, (child, _))| child.managed)
@@ -552,12 +595,18 @@ fn compute_reorder_drop_index(
             let cols = columns.max(1) as usize;
             if let Some((_, first_rect)) = managed.first() {
                 let spacing_x = if managed.len() > 1 && cols > 1 {
-                    (managed.get(1).map(|(_, r)| r.x).unwrap_or(first_rect.x) - first_rect.x - first_rect.w).max(0.0)
+                    (managed.get(1).map(|(_, r)| r.x).unwrap_or(first_rect.x)
+                        - first_rect.x
+                        - first_rect.w)
+                        .max(0.0)
                 } else {
                     0.0
                 };
                 let spacing_y = if managed.len() > cols {
-                    (managed.get(cols).map(|(_, r)| r.y).unwrap_or(first_rect.y) - first_rect.y - first_rect.h).max(0.0)
+                    (managed.get(cols).map(|(_, r)| r.y).unwrap_or(first_rect.y)
+                        - first_rect.y
+                        - first_rect.h)
+                        .max(0.0)
                 } else {
                     0.0
                 };
@@ -581,7 +630,8 @@ fn compute_reorder_drop_index(
     };
 
     // Map managed slot back to Vec index
-    let dragged_managed_slot = managed.iter()
+    let dragged_managed_slot = managed
+        .iter()
         .position(|(idx, _)| *idx == dragged_child_index);
 
     // If dropping at the same managed slot or right after, no change needed
