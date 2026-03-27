@@ -91,6 +91,7 @@ impl BishopApp for Engine {
             self.diagnostics.update_from_game(
                 &self.game_instance.borrow(),
                 self.render_system.render_time_ms,
+                &self.audio_manager,
             );
         }
 

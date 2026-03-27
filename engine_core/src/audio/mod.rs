@@ -1,4 +1,5 @@
 pub mod audio_source;
+pub mod diagnostics;
 pub mod command_queue;
 pub mod loader;
 pub mod runtime;
@@ -6,6 +7,7 @@ pub mod runtime;
 mod tests;
 
 pub use audio_source::{AudioGroup, AudioSource, SoundGroupId};
+pub use diagnostics::{AudioDiagnosticsEntry, AudioDiagnosticsSnapshot};
 pub use command_queue::{AudioCommand, PlayMusicRequest, push_audio_command};
 pub use loader::load_wav;
 pub use runtime::{MusicStopReason, MusicStoppedEvent};
@@ -219,6 +221,11 @@ impl AudioManager {
                 None
             }
         }
+    }
+
+    /// Returns a snapshot of cached, pinned, and referenced audio IDs.
+    pub fn diagnostics_snapshot(&self) -> AudioDiagnosticsSnapshot {
+        diagnostics::snapshot_from_state(&self.sound_cache, &self.ref_counts, &self.pinned)
     }
 
     fn set_music_ratio(&mut self, ratio: f32) {

@@ -14,23 +14,30 @@ never fires, so:
 
 ## Workaround (current)
 
-`game/src/engine/game_instance.rs :: GameInstance::new` sweeps all `AudioSource`
-components after `game.initialize()` and manually pushes `IncrementRefs`:
+`game/src/engine/game_instance.rs :: GameInstance::new` and
+`game/src/engine/game_instance.rs :: GameInstance::for_room` both sweep all
+`AudioSource` components after `game.initialize()` and manually push
+`IncrementRefs`:
 
 ```rust
 for source in AudioSource::store(&game.ecs).data.values() {
-    push_audio_command(AudioCommand::IncrementRefs(source.sounds.clone()));
+    push_audio_command(AudioCommand::IncrementRefs(source.all_sound_ids()));
 }
 ```
 
-This is a one-time startup sweep and is not repeated on room transitions.
+This covers both the initial load and the current playtest room-loading path.
+The in-game diagnostics overlay also exposes the audio cache and runtime ref
+counts so the workaround can be inspected during play, but that visibility is
+observability only; it does not replace the missing deserialize hook.
 
 ## Limitations
 
-- Only covers the initial load. If rooms carry their own ECS snapshots in future,
-  each room transition will need the same sweep.
-- The workaround calls `clone()` on each `sounds` vec, which is acceptable at load
-  time but would be wasteful if called repeatedly.
+- Only covers code paths that explicitly perform the sweep. If future room or
+  save-load flows deserialize ECS snapshots elsewhere, each path will need the
+  same sweep until a general post-deserialize hook exists.
+- The workaround now uses `all_sound_ids()`, so it deduplicates per-source sound
+  IDs and ignores the editor-only `New` group placeholder before incrementing
+  refs.
 - `post_create` hooks for other components (e.g. Sprite asset ref-counts) have the
   same latent issue — they are protected today only because sprites are re-resolved
   via `AssetManager` during `game.initialize()`. AudioSource does not have that path.
