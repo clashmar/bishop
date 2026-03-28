@@ -34,7 +34,7 @@ pub struct CurrentFrame {
     pub flip_x: bool,
 }
 
-pub async fn update_animation_sytem(
+pub fn update_animation_sytem(
     loader: &impl TextureLoader,
     ecs: &mut Ecs,
     asset_manager: &mut AssetManager,

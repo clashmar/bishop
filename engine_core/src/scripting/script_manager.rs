@@ -278,7 +278,7 @@ impl ScriptManager {
     }
 
     /// Initialize all scripts for the game.
-    pub async fn init_manager(game: &mut Game, lua: &Lua) {
+    pub fn init_manager(game: &mut Game, lua: &Lua) {
         Self::load_to_package(lua);
 
         // Calculate the next id from the existing map

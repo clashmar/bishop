@@ -52,13 +52,13 @@ pub struct Editor {
 }
 
 impl Editor {
-    pub async fn new(ctx: &mut WgpuContext) -> io::Result<Self> {
+    pub async fn new(ctx: PlatformContext) -> io::Result<Self> {
         let mut editor = Editor::default();
 
         let game = if let Some(name) = most_recent_game_name() {
-            load_game_by_name(&name).await?
-        } else if let Some(name) = editor.prompt_new_game(ctx).await {
-            create_new_game(name).await
+            load_game_by_name(&name)?
+        } else if let Some(name) = editor.prompt_new_game(ctx.clone()).await {
+            create_new_game(name)
         } else {
             // User pressed Cancel
             onscreen_info!("User cancelled new game dialogue.");
@@ -66,11 +66,11 @@ impl Editor {
         };
 
         // Initialize editor icon textures using the graphics context.
-        crate::editor_assets::init_editor_icons(ctx);
+        crate::editor_assets::init_editor_icons(&mut *ctx.borrow_mut());
 
         // Register all panels
         with_panel_manager(|panel_manager| {
-            panel_manager.register_all_panels(ctx);
+            panel_manager.register_all_panels(&mut *ctx.borrow_mut());
         });
 
         let palette = match load_palette(&game.name.clone()) {
@@ -82,13 +82,13 @@ impl Editor {
             }
         };
 
-        editor.game = editor.init_game_for_editor(ctx, game).await;
+        editor.game = editor.init_game_for_editor(&ctx.borrow(), game);
 
         // Give the palette to the tilemap editor
         editor.room_editor.tilemap_editor.tilemap_panel.palette = palette;
 
         // Initialize the grid renderer
-        editor.grid_renderer = Some(GridRenderer::new(ctx));
+        editor.grid_renderer = Some(GridRenderer::new(&ctx.borrow()));
 
         Ok(editor)
     }
@@ -313,7 +313,7 @@ impl Editor {
             self.draw_menu_bar(ctx).await;
 
             // Draws and handles result of modal
-            if self.handle_modal(ctx).await.is_some() {
+            if self.handle_modal(ctx).is_some() {
                 self.modal.close();
             }
 

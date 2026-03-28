@@ -57,7 +57,7 @@ impl BishopApp for EditorApp {
             std::process::exit(1);
         }
 
-        match Editor::new(&mut ctx.borrow_mut()).await {
+        match Editor::new(ctx.clone()).await {
             Ok(editor) => {
                 // This allows global access to services
                 set_editor(editor);
@@ -90,8 +90,10 @@ impl BishopApp for EditorApp {
 
         widgets_frame_start(&mut *ctx_ref);
 
-        with_editor_async(&mut *ctx_ref, |editor, ctx| Box::pin(editor.update(ctx))).await;
-        with_editor_async(&mut *ctx_ref, |editor, ctx| Box::pin(editor.draw(ctx))).await;
+        with_editor(|editor| {
+            futures::executor::block_on(editor.update(&mut *ctx_ref));
+            futures::executor::block_on(editor.draw(&mut *ctx_ref));
+        });
 
         widgets_frame_end(&mut *ctx_ref);
 

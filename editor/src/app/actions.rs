@@ -46,13 +46,13 @@ impl Default for Editor {
 
 impl Editor {
     /// Returns `Some(name)` when the user confirms, `None` on cancel.
-    pub async fn prompt_new_game(&mut self, ctx: &mut WgpuContext) -> Option<String> {
-        self.open_new_game_modal(ctx);
+    pub async fn prompt_new_game(&mut self, ctx: PlatformContext) -> Option<String> {
+        self.open_new_game_modal(&mut *ctx.borrow_mut());
 
         // Wait until the user has responded
         loop {
             // Draws and handles result
-            if let Some(ModalResult::String(name)) = self.handle_modal(ctx).await {
+            if let Some(ModalResult::String(name)) = self.handle_modal(&mut *ctx.borrow_mut()) {
                 // Only close modal if a name is returned
                 self.modal.close();
                 return Some(name);
@@ -64,9 +64,10 @@ impl Editor {
             }
 
             // Toasts can be created by the prompt
-            self.draw_toast(ctx);
+            self.draw_toast(&mut *ctx.borrow_mut());
 
-            ctx.next_frame().await;
+            let next_frame = { ctx.borrow().next_frame() };
+            next_frame.await;
         }
     }
 
@@ -106,9 +107,9 @@ impl Editor {
                                 Ok(_) => {
                                     // Only load if it's in the correct folder
                                     if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
-                                        match load_game_by_name(name).await {
+                                        match load_game_by_name(name) {
                                             Ok(game) => {
-                                                self.reset(ctx, game).await;
+                                                self.reset(ctx, game);
                                                 self.toast = Some(Toast::new(
                                                     format!("Loaded '{}'", name),
                                                     2.5,
@@ -362,7 +363,7 @@ impl Editor {
         self.modal.open(widgets);
     }
 
-    pub async fn handle_modal(&mut self, ctx: &mut WgpuContext) -> Option<ModalResult> {
+    pub fn handle_modal(&mut self, ctx: &mut WgpuContext) -> Option<ModalResult> {
         if self.modal.is_open() {
             // Outside‑click handling
             if self.modal.draw(ctx, &mut self.game.asset_manager) {
@@ -386,8 +387,8 @@ impl Editor {
                                 return None;
                             }
                             // Create the new game
-                            let new_game = create_new_game(name.clone()).await;
-                            self.reset(ctx, new_game).await;
+                            let new_game = create_new_game(name.clone());
+                            self.reset(ctx, new_game);
                             self.modal.close();
                             return Some(ModalResult::String(name));
                         }
@@ -485,14 +486,14 @@ impl Editor {
         }
     }
 
-    pub async fn reset(&mut self, ctx: &WgpuContext, game: Game) {
+    pub fn reset(&mut self, ctx: &WgpuContext, game: Game) {
         // Update global game name for file system
         set_game_name(game.name.clone());
 
         // Resets the global services (command queue, clipboard etc)
         reset_services();
 
-        let game = self.init_game_for_editor(ctx, game).await;
+        let game = self.init_game_for_editor(ctx, game);
 
         *self = Self {
             game,
@@ -506,21 +507,14 @@ impl Editor {
     }
 
     // Returns an initialized game for the editor.
-    pub async fn init_game_for_editor(&mut self, ctx: &WgpuContext, game: Game) -> Game {
+    pub fn init_game_for_editor(&mut self, ctx: &WgpuContext, game: Game) -> Game {
         let mut game = game;
 
         // Initialize assets synchronously (ctx provides texture loading).
         set_game_name(game.name.clone());
         AssetManager::init_manager(ctx, &mut game);
 
-        // Initialize scripts asynchronously (needs Lua VM).
-        let mut game = with_lua_async(|lua| {
-            Box::pin(async move {
-                ScriptManager::init_manager(&mut game, lua).await;
-                game
-            })
-        })
-        .await;
+        with_lua(|lua| ScriptManager::init_manager(&mut game, lua));
 
         game.init_text_manager();
         self.game_editor

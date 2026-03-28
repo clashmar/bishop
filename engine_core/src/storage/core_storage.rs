@@ -12,9 +12,9 @@ use uuid::Uuid;
 pub type WorldIndex = HashMap<Uuid, String>;
 
 /// Finds the game .ron in /Resources and returns an initialized `Game`.
-pub async fn load_game_ron() -> io::Result<Game> {
+pub fn load_game_ron() -> io::Result<Game> {
     match resources_dir_from_exe() {
-        Some(resources_folder) => match load_game_from_folder(&resources_folder).await {
+        Some(resources_folder) => match load_game_from_folder(&resources_folder) {
             Ok(game) => Ok(game),
             Err(err) => Err(err),
         },
@@ -23,7 +23,7 @@ pub async fn load_game_ron() -> io::Result<Game> {
 }
 
 /// Load the game .ron from a specified folder.
-pub async fn load_game_from_folder(folder: &Path) -> io::Result<Game> {
+pub fn load_game_from_folder(folder: &Path) -> io::Result<Game> {
     let path = folder.join(GAME_RON);
     let ron_string = fs::read_to_string(path)?;
 

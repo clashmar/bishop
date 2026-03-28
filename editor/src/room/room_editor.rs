@@ -177,7 +177,7 @@ impl RoomEditor {
 
         let delta_time = ctx.get_frame_time();
 
-        update_animation_sytem(ctx, ecs, asset_manager, delta_time, room.id).await;
+        update_animation_sytem(ctx, ecs, asset_manager, delta_time, room.id);
 
         match self.mode {
             RoomEditorMode::Tilemap => {

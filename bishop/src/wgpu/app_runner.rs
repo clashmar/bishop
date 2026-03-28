@@ -20,12 +20,13 @@ use crate::BishopApp;
 /// Internal application handler for running BishopApp with wgpu/winit.
 pub(crate) struct WgpuAppRunner<A: BishopApp> {
     config: WindowConfig,
-    app: Rc<RefCell<A>>,
+    app: Option<A>,
     ctx: Option<Rc<RefCell<WgpuContext>>>,
     window: Option<Arc<Window>>,
     initialized: bool,
-    init_future: Option<Pin<Box<dyn Future<Output = ()>>>>,
-    frame_future: Option<Pin<Box<dyn Future<Output = ()>>>>,
+    exit_requested: bool,
+    init_future: Option<Pin<Box<dyn Future<Output = A>>>>,
+    frame_future: Option<Pin<Box<dyn Future<Output = A>>>>,
 }
 
 impl<A: BishopApp> WgpuAppRunner<A> {
@@ -33,10 +34,11 @@ impl<A: BishopApp> WgpuAppRunner<A> {
     pub fn new(config: WindowConfig, app: A) -> Self {
         Self {
             config,
-            app: Rc::new(RefCell::new(app)),
+            app: Some(app),
             ctx: None,
             window: None,
             initialized: false,
+            exit_requested: false,
             init_future: None,
             frame_future: None,
         }
@@ -94,7 +96,12 @@ impl<A: BishopApp + 'static> ApplicationHandler for WgpuAppRunner<A> {
         }
 
         match event {
-            WindowEvent::CloseRequested => event_loop.exit(),
+            WindowEvent::CloseRequested => {
+                self.exit_requested = true;
+                if self.init_future.is_none() && self.frame_future.is_none() {
+                    event_loop.exit();
+                }
+            }
             WindowEvent::RedrawRequested => {
                 if let Some(ctx) = &self.ctx {
                     ctx.borrow_mut().begin_frame();
@@ -102,16 +109,18 @@ impl<A: BishopApp + 'static> ApplicationHandler for WgpuAppRunner<A> {
                     // Handle initialization with yielding support
                     if !self.initialized {
                         if self.init_future.is_none() {
-                            let app = self.app.clone();
+                            let mut app = self.app.take().expect("App missing during init");
                             let ctx_clone = ctx.clone();
                             self.init_future =
-                                Some(Box::pin(
-                                    async move { app.borrow_mut().init(ctx_clone).await },
-                                ));
+                                Some(Box::pin(async move {
+                                    app.init(ctx_clone).await;
+                                    app
+                                }));
                         }
 
                         if let Some(ref mut future) = self.init_future {
-                            if poll_once(future).is_some() {
+                            if let Some(app) = poll_once(future) {
+                                self.app = Some(app);
                                 self.initialized = true;
                                 self.init_future = None;
                             }
@@ -119,16 +128,18 @@ impl<A: BishopApp + 'static> ApplicationHandler for WgpuAppRunner<A> {
                     } else {
                         // Normal frame - start new future if none pending
                         if self.frame_future.is_none() {
-                            let app = self.app.clone();
+                            let mut app = self.app.take().expect("App missing during frame");
                             let ctx_clone = ctx.clone();
                             self.frame_future =
-                                Some(Box::pin(
-                                    async move { app.borrow_mut().frame(ctx_clone).await },
-                                ));
+                                Some(Box::pin(async move {
+                                    app.frame(ctx_clone).await;
+                                    app
+                                }));
                         }
 
                         if let Some(ref mut future) = self.frame_future {
-                            if poll_once(future).is_some() {
+                            if let Some(app) = poll_once(future) {
+                                self.app = Some(app);
                                 self.frame_future = None;
                                 // Clear input only when frame completes
                                 ctx.borrow_mut().end_frame_input();
@@ -139,7 +150,10 @@ impl<A: BishopApp + 'static> ApplicationHandler for WgpuAppRunner<A> {
                     if let Err(e) = ctx.borrow_mut().render_frame() {
                         eprintln!("Render error: {e}");
                     }
-                    if let Some(window) = &self.window {
+                    if self.exit_requested && self.init_future.is_none() && self.frame_future.is_none()
+                    {
+                        event_loop.exit();
+                    } else if let Some(window) = &self.window {
                         window.request_redraw();
                     }
                 }
@@ -149,7 +163,9 @@ impl<A: BishopApp + 'static> ApplicationHandler for WgpuAppRunner<A> {
     }
 
     fn exiting(&mut self, _event_loop: &ActiveEventLoop) {
-        self.app.borrow_mut().on_exit();
+        if let Some(app) = self.app.as_mut() {
+            app.on_exit();
+        }
     }
 }
 

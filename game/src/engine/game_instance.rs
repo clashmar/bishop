@@ -16,7 +16,7 @@ pub struct GameInstance {
 
 impl GameInstance {
     // TODO: Make game creation DRYer
-    pub async fn new<C: BishopContext>(
+    pub fn new<C: BishopContext>(
         ctx: &mut C,
         lua: &Lua,
         camera_manager: &mut CameraManager,
@@ -24,12 +24,12 @@ impl GameInstance {
         // Allows the shared engine features to make decisions
         set_engine_mode(EngineMode::Game);
 
-        let mut game = match load_game_ron().await {
+        let mut game = match load_game_ron() {
             Ok(game) => game,
             Err(e) => panic!("{e}"),
         };
 
-        game.initialize(ctx, lua).await;
+        game.initialize(ctx, lua);
 
         // Warm the audio cache for all AudioSource components that were loaded from the
         // save file. Ecs::deserialize bypasses post_create hooks (serde has no GameCtxMut),
@@ -76,7 +76,7 @@ impl GameInstance {
         }
     }
 
-    pub async fn for_room<C: BishopContext>(
+    pub fn for_room<C: BishopContext>(
         ctx: &mut C,
         room: Room,
         mut game: Game,
@@ -89,7 +89,7 @@ impl GameInstance {
             set_engine_mode(EngineMode::Game);
         }
 
-        game.initialize(ctx, lua).await;
+        game.initialize(ctx, lua);
 
         for source in AudioSource::store(&game.ecs).data.values() {
             push_audio_command(AudioCommand::IncrementRefs(source.all_sound_ids()));

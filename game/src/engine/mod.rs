@@ -81,7 +81,7 @@ impl BishopApp for Engine {
                 self.fixed_update(&mut *ctx.borrow_mut(), FIXED_DT);
             }
 
-            self.update_async(raw_dt).await;
+            self.update(raw_dt);
         }
 
         // Drain audio commands pushed by scripts this frame
@@ -165,7 +165,7 @@ impl Engine {
         }
     }
 
-    pub async fn update_async(&mut self, dt: f32) {
+    pub fn update(&mut self, dt: f32) {
         {
             // Keep borrow_mut in this scope
             let mut game_instance = self.game_instance.borrow_mut();
@@ -177,7 +177,7 @@ impl Engine {
 
             if let Some(current_room) = game_ctx.cur_world.current_room() {
                 let loader = self.ctx.borrow();
-                update_animation_sytem(&*loader, ecs, asset_manager, dt, current_room.id).await;
+                update_animation_sytem(&*loader, ecs, asset_manager, dt, current_room.id);
             }
 
             // Load scripts in this scope TODO: make this part of run_scripts when scope is finalized

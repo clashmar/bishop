@@ -6,8 +6,6 @@ use engine_core::prelude::*;
 use mlua::Lua;
 use std::cell::Cell;
 use std::cell::RefCell;
-use std::future::Future;
-use std::pin::Pin;
 use std::rc::Rc;
 
 /// Global services that can be reached from anywhere in the editor.
@@ -69,20 +67,6 @@ where
     })
 }
 
-/// Gets async mutable access to the `Editor`.
-pub async fn with_editor_async<C, R, F>(ctx: &mut C, f: F) -> R
-where
-    for<'a> F: FnOnce(&'a mut Editor, &'a mut C) -> Pin<Box<dyn Future<Output = R> + 'a>>,
-{
-    let services = EDITOR_SERVICES.with(|s| s.clone());
-
-    let mut opt = services.editor.borrow_mut();
-    let editor = opt.as_mut().expect("Editor not initialised");
-
-    let fut = f(editor, ctx);
-    fut.await
-}
-
 /// Gets immutable access to the Lua VM.
 pub fn with_lua<F, R>(f: F) -> R
 where
@@ -92,19 +76,6 @@ where
         let lua = services.lua.borrow();
         f(&lua)
     })
-}
-
-/// Gets async immutable access to the Lua VM.
-pub async fn with_lua_async<R, F>(f: F) -> R
-where
-    F: for<'a> FnOnce(&'a Lua) -> Pin<Box<dyn Future<Output = R> + 'a>>,
-{
-    let services = EDITOR_SERVICES.with(|s| s.clone());
-    let lua_ref = services.lua.borrow();
-
-    // Call the closure and await the future
-    let future = f(&lua_ref);
-    future.await
 }
 
 /// Push an `EditorCommand` to the global command queue.

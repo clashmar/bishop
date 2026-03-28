@@ -30,7 +30,7 @@ impl BishopApp for GameApp {
 
         let game_instance = {
             let mut ctx_ref = ctx.borrow_mut();
-            GameInstance::new(&mut *ctx_ref, &builder.lua, &mut builder.camera_manager).await
+            GameInstance::new(&mut *ctx_ref, &builder.lua, &mut builder.camera_manager)
         };
 
         self.engine = Some(builder.assemble(game_instance, ctx, false));

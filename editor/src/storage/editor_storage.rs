@@ -3,7 +3,6 @@
 use crate::editor_assets::assets::write_sounds_lua;
 use crate::storage::sound_preset_storage::*;
 use crate::tilemap::tile_palette::TilePalette;
-use crate::with_lua_async;
 use crate::write_animations_lua;
 use crate::write_engine_scripts;
 use bishop::prelude::*;
@@ -22,8 +21,8 @@ use std::sync::Mutex;
 use std::time::SystemTime;
 use uuid::Uuid;
 
-/// Create a brand‑new game with a single empty world.
-pub async fn create_new_game(name: String) -> Game {
+/// Create a brand-new game with a single empty world.
+pub fn create_new_game(name: String) -> Game {
     onscreen_debug!("Creating new game.");
 
     // Set game name globally
@@ -173,7 +172,7 @@ pub fn collect_custom_clip_names(ecs: &Ecs) -> Vec<String> {
 }
 
 /// Load a `Game` from the folder that matches the supplied name.
-pub async fn load_game_by_name(name: &str) -> io::Result<Game> {
+pub fn load_game_by_name(name: &str) -> io::Result<Game> {
     let path = resources_folder(name).join(GAME_RON);
     onscreen_debug!("Loading game from .ron: {}.", path.display());
 
@@ -181,9 +180,7 @@ pub async fn load_game_by_name(name: &str) -> io::Result<Game> {
     let ron_string = match fs::read_to_string(&path) {
         Ok(s) => s,
         // File not found
-        Err(ref e) if e.kind() == ErrorKind::NotFound => {
-            return Ok(create_new_game(name.to_string()).await);
-        }
+        Err(ref e) if e.kind() == ErrorKind::NotFound => return Ok(create_new_game(name.to_string())),
         // Other I/O errors
         Err(e) => return Err(e),
     };
@@ -191,7 +188,7 @@ pub async fn load_game_by_name(name: &str) -> io::Result<Game> {
     // Parse the RON
     let mut game = match ron::from_str::<Game>(&ron_string) {
         Ok(game) => game,
-        Err(_) => return Ok(create_new_game(name.to_string()).await),
+        Err(_) => return Ok(create_new_game(name.to_string())),
     };
 
     set_current_sound_preset_library(load_sound_preset_library(name)?);

@@ -147,10 +147,10 @@ impl Game {
     }
 
     /// Syncs all assets/scripts that belong to this game, sets the game name, and inits managers.
-    pub async fn initialize(&mut self, loader: &impl TextureLoader, lua: &Lua) {
+    pub fn initialize(&mut self, loader: &impl TextureLoader, lua: &Lua) {
         set_game_name(self.name.clone());
         AssetManager::init_manager(loader, self);
-        ScriptManager::init_manager(self, lua).await;
+        ScriptManager::init_manager(self, lua);
         self.init_text_manager();
     }
 

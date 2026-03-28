@@ -62,7 +62,6 @@ impl BishopApp for PlaytestApp {
                 &builder.lua,
                 &mut builder.camera_manager,
             )
-            .await
         };
 
         self.engine = Some(builder.assemble(game_instance, ctx, true));
