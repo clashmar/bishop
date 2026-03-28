@@ -13,7 +13,6 @@ use crate::push_command;
 use crate::world::coord;
 use bishop::prelude::*;
 use engine_core::prelude::*;
-use engine_core::ui::widgets::*;
 use once_cell::sync::Lazy;
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -88,7 +87,7 @@ impl GameEditor {
         }
     }
 
-    pub async fn update(
+    pub fn update(
         &mut self,
         ctx: &mut WgpuContext,
         camera: &Camera2D,

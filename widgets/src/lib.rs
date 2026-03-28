@@ -46,19 +46,16 @@ pub(crate) fn measure_text_ui<C: BishopContext>(
 pub(crate) fn draw_text_clipped<C: BishopContext>(
     ctx: &mut C,
     text: &str,
-    rect_x: f32,
-    rect_y: f32,
-    rect_w: f32,
-    rect_h: f32,
+    rect: Rect,
     scroll_offset: f32,
     font_size: f32,
     color: Color,
 ) {
-    let text_x = rect_x + WIDGET_PADDING / 2. - scroll_offset;
-    let text_y = rect_y + rect_h * 0.7;
+    let text_x = rect.x + WIDGET_PADDING / 2. - scroll_offset;
+    let text_y = rect.y + rect.h * 0.7;
 
-    let clip_left = rect_x + WIDGET_PADDING / 2.;
-    let clip_right = rect_x + rect_w - WIDGET_PADDING / 2.;
+    let clip_left = rect.x + WIDGET_PADDING / 2.;
+    let clip_right = rect.x + rect.w - WIDGET_PADDING / 2.;
 
     let mut visible_start_byte = 0;
     let mut visible_end_byte = text.len();

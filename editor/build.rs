@@ -5,6 +5,7 @@ use engine_core::scripting::lua_constants::LUA_OWNER_SHARED_ENGINE;
 use std::collections::HashSet;
 use std::env;
 use std::fs;
+use std::path::Path;
 use std::path::PathBuf;
 
 fn main() -> std::io::Result<()> {
@@ -35,6 +36,16 @@ fn main() -> std::io::Result<()> {
         res.compile()?;
     }
     Ok(())
+}
+
+fn write_if_changed(target: &Path, contents: &str) {
+    let existing = fs::read_to_string(target).ok();
+    if existing.as_deref() == Some(contents) {
+        return;
+    }
+
+    fs::write(target, contents).unwrap_or_else(|_| panic!("Cannot write {}", target.display()));
+    println!("cargo:warning=generated {}", target.display());
 }
 
 fn generate_lua_components() {
@@ -95,8 +106,7 @@ fn generate_lua_components() {
     lua.push_str("\nreturn C\n");
 
     let target = out_dir.join("components.lua");
-    fs::write(&target, lua).expect("Cannot write components.lua");
-    println!("cargo:warning=generated {}", target.display());
+    write_if_changed(&target, &lua);
 }
 
 fn generate_lua_input() {
@@ -142,8 +152,7 @@ fn generate_lua_input() {
 
     // Write the file
     let target = out_dir.join("input.lua");
-    fs::write(&target, lua).expect("Cannot write input.lua");
-    println!("cargo:warning=generated {}", target.display());
+    write_if_changed(&target, &lua);
 }
 
 fn generate_lua_script() {
@@ -170,8 +179,7 @@ fn generate_lua_script() {
     );
 
     let target = out_dir.join("script.lua");
-    fs::write(&target, lua).expect("Cannot write script.lua");
-    println!("cargo:warning=generated {}", target.display());
+    write_if_changed(&target, &lua);
 }
 
 /// Generates Rust code that embeds all .lua files from the _engine directory.
@@ -211,8 +219,7 @@ fn generate_engine_scripts_rs() {
     rust.push_str("];\n");
 
     let target = out_dir.join("engine_scripts.rs");
-    fs::write(&target, rust).expect("Cannot write engine_scripts.rs");
-    println!("cargo:warning=generated {}", target.display());
+    write_if_changed(&target, &rust);
 
     // Rerun if _engine directory changes
     println!("cargo:rerun-if-changed=scripts/_engine");

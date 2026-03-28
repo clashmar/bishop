@@ -18,6 +18,10 @@ pub struct AssetManager {
     #[serde(skip)]
     textures: HashMap<SpriteId, Texture2D>,
     /// Persistent map of all sprite ids to their paths.
+    #[serde(
+        serialize_with = "crate::storage::ordered_map::serialize",
+        deserialize_with = "crate::storage::ordered_map::deserialize"
+    )]
     pub sprite_id_to_path: HashMap<SpriteId, PathBuf>,
     #[serde(skip)]
     pub path_to_sprite_id: HashMap<PathBuf, SpriteId>,
@@ -25,10 +29,18 @@ pub struct AssetManager {
     /// Counter for sprite ids. Starts from 1.
     next_sprite_id: usize,
     /// Maps `TileDefIds` to `TileDef`.
+    #[serde(
+        serialize_with = "crate::storage::ordered_map::serialize",
+        deserialize_with = "crate::storage::ordered_map::deserialize"
+    )]
     pub tile_defs: HashMap<TileDefId, TileDef>,
     /// Counter for tile def ids. Starts from 1.
     next_tile_def_id: usize,
     /// Reference counts for sprite ids.
+    #[serde(
+        serialize_with = "crate::storage::ordered_map::serialize",
+        deserialize_with = "crate::storage::ordered_map::deserialize"
+    )]
     ref_counts: HashMap<SpriteId, usize>,
     /// Sprite ids whose path mappings should be removed on exit.
     #[cfg(feature = "editor")]
@@ -56,9 +68,9 @@ impl AssetManager {
 
         // Path already registered — reuse the same id, but reload the texture if it was evicted.
         if let Some(&id) = self.path_to_sprite_id.get(&path) {
-            if !self.textures.contains_key(&id) {
+            if let std::collections::hash_map::Entry::Vacant(entry) = self.textures.entry(id) {
                 let texture = Self::load_texture_from_game(loader, &path)?;
-                self.textures.insert(id, texture);
+                entry.insert(texture);
             }
             return Ok(id);
         }

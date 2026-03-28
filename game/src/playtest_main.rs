@@ -85,9 +85,6 @@ fn main() -> Result<(), RunError> {
 
     let payload_path = args[1].clone();
 
-    let width = FIXED_WINDOW_WIDTH.clamp(MIN_WINDOW_WIDTH, MAX_WINDOW_WIDTH);
-    let height = FIXED_WINDOW_HEIGHT.clamp(MIN_WINDOW_HEIGHT, MAX_WINDOW_HEIGHT);
-
     let config = WindowConfig::new("Playtest").with_fullscreen(true);
     // .with_size(width as u32, height as u32)
     // .with_resizable(true);

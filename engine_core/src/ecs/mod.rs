@@ -1,6 +1,7 @@
 pub mod capture;
 pub mod component;
 pub mod component_registry;
+#[allow(clippy::module_inception)]
 pub mod ecs;
 pub mod entity;
 pub mod facing_direction;

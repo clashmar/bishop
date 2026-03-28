@@ -24,9 +24,11 @@ pub mod ui;
 pub mod worlds;
 
 /// Prelude module for convenient imports.
+#[allow(ambiguous_glob_reexports)]
 pub mod prelude {
     pub use crate::animation::*;
     pub use crate::assets::*;
+    #[allow(ambiguous_glob_reexports)]
     pub use crate::audio::*;
     pub use crate::camera::*;
     pub use crate::constants::*;
@@ -38,6 +40,7 @@ pub mod prelude {
     pub use crate::input::*;
     pub use crate::lighting::*;
     pub use crate::logging::*;
+    #[allow(ambiguous_glob_reexports)]
     pub use crate::menu::*;
     pub use crate::physics::*;
     pub use crate::register_lua_api;

@@ -3,7 +3,7 @@ use crate::assets::sprite::SpriteId;
 use serde::{Deserialize, Serialize};
 
 /// Identifier used by the editor and by the TileMap.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Ord, PartialOrd, Hash, Serialize, Deserialize)]
 pub struct TileDefId(pub usize);
 
 /// A list of component adding closures.

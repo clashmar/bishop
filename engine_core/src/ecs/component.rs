@@ -6,6 +6,8 @@ use crate::inspector_module;
 use crate::worlds::room::RoomId;
 use ecs_component::ecs_component;
 use reflect_derive::Reflect;
+use serde::de::Deserializer;
+use serde::ser::Serializer;
 use serde::{Deserialize, Serialize};
 use std::any::Any;
 use std::collections::HashMap;
@@ -23,7 +25,6 @@ pub trait Component: Send + Sync {
         Self: Sized;
 }
 
-#[derive(Serialize, Deserialize)]
 pub struct ComponentStore<T> {
     pub data: HashMap<Entity, T>,
 }
@@ -33,6 +34,31 @@ impl<T> Default for ComponentStore<T> {
         ComponentStore {
             data: HashMap::new(),
         }
+    }
+}
+
+impl<T> Serialize for ComponentStore<T>
+where
+    T: Serialize,
+{
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        crate::storage::ordered_map::serialize(&self.data, serializer)
+    }
+}
+
+impl<'de, T> Deserialize<'de> for ComponentStore<T>
+where
+    T: Deserialize<'de>,
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let data = crate::storage::ordered_map::deserialize(deserializer)?;
+        Ok(Self { data })
     }
 }
 

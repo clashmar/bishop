@@ -121,7 +121,7 @@ impl RoomEditor {
         }
     }
 
-    pub async fn update(
+    pub fn update(
         &mut self,
         ctx: &mut WgpuContext,
         camera: &mut Camera2D,
@@ -194,8 +194,7 @@ impl RoomEditor {
                         &other_bounds,
                         &adjacent_exits,
                         grid_size,
-                    )
-                    .await;
+                    );
             }
             RoomEditorMode::Scene => {
                 if self.ui_was_clicked(ctx) {
@@ -267,7 +266,7 @@ impl RoomEditor {
         self.handle_shortcuts(ctx, camera, room, grid_size, ecs);
     }
 
-    pub async fn draw(
+    pub fn draw(
         &mut self,
         ctx: &mut WgpuContext,
         camera: &Camera2D,
@@ -302,8 +301,7 @@ impl RoomEditor {
 
                 self.tilemap_editor.tilemap_panel.set_rect(inspector_rect);
                 self.tilemap_editor
-                    .draw(ctx, camera, room, asset_manager, ecs, grid_size)
-                    .await;
+                    .draw(ctx, camera, room, asset_manager, ecs, grid_size);
 
                 ctx.set_camera(camera);
                 if self.show_grid {

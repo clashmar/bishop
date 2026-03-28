@@ -41,7 +41,7 @@ impl Drop for ExportGuard {
 }
 
 /// Exports the game to the chosen folder on all platforms.
-pub async fn export_game(game: &Game) -> io::Result<PathBuf> {
+pub fn export_game(game: &Game) -> io::Result<PathBuf> {
     let dest_root = rfd::FileDialog::new()
         .set_title("Select destination folder for export:")
         .pick_folder()
@@ -53,16 +53,15 @@ pub async fn export_game(game: &Game) -> io::Result<PathBuf> {
         })?;
 
     // TODO: This overwrites, check for duplicates
-
     #[cfg(target_os = "windows")]
     {
         onscreen_info!("Exporting for windows");
-        let exe_path = export_for_windows(&dest_root, game).await?;
+        let exe_path = export_for_windows(&dest_root, game)?;
         Ok(exe_path)
     }
     #[cfg(target_os = "macos")]
     {
-        let bundle_path = export_for_mac(dest_root, game).await?;
+        let bundle_path = export_for_mac(dest_root, game)?;
         Ok(bundle_path)
     }
 
@@ -70,7 +69,7 @@ pub async fn export_game(game: &Game) -> io::Result<PathBuf> {
 }
 
 #[cfg(windows)]
-async fn export_for_windows(dest_root: &PathBuf, game: &Game) -> io::Result<PathBuf> {
+fn export_for_windows(dest_root: &PathBuf, game: &Game) -> io::Result<PathBuf> {
     let target_package = dest_root.join(format!("{}", &game.name));
 
     // Guard will clear up the package if there is an error
@@ -121,7 +120,7 @@ async fn export_for_windows(dest_root: &PathBuf, game: &Game) -> io::Result<Path
 }
 
 #[cfg(unix)]
-async fn export_for_mac(dest_root: PathBuf, game: &Game) -> io::Result<PathBuf> {
+fn export_for_mac(dest_root: PathBuf, game: &Game) -> io::Result<PathBuf> {
     let bundle_path = dest_root.join(format!("{}.app", game.name));
 
     // Guard will clear up the export if there are errors

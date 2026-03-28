@@ -13,7 +13,7 @@ use serde::Serialize;
 use std::collections::HashMap;
 
 /// Opaque handle that the script manager gives out. Default/Unset is 0.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Ord, PartialOrd, Hash, Serialize, Deserialize, Default)]
 pub struct ScriptId(pub usize);
 
 /// One field that can be edited in the inspector.
@@ -30,6 +30,10 @@ pub enum ScriptField {
 /// The script data that the editor shows.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct ScriptData {
+    #[serde(
+        serialize_with = "crate::storage::ordered_map::serialize",
+        deserialize_with = "crate::storage::ordered_map::deserialize"
+    )]
     pub fields: HashMap<String, ScriptField>,
 }
 

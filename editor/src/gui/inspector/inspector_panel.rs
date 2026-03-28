@@ -232,8 +232,8 @@ impl InspectorPanel {
 
                         let pre_snapshot = module.undo_component_type().and_then(|type_name| {
                             let reg = COMPONENTS.iter().find(|r| r.type_name == type_name)?;
-                            if (reg.has)(&game_ctx.ecs, module_entity) {
-                                let boxed = (reg.clone)(&game_ctx.ecs, module_entity);
+                            if (reg.has)(game_ctx.ecs, module_entity) {
+                                let boxed = (reg.clone)(game_ctx.ecs, module_entity);
                                 Some((
                                     type_name,
                                     (reg.to_ron_component)(boxed.as_ref()),
@@ -260,8 +260,8 @@ impl InspectorPanel {
                         {
                             if let Some(reg) = COMPONENTS.iter().find(|r| r.type_name == type_name)
                             {
-                                if (reg.has)(&game_ctx.ecs, module_entity) {
-                                    let boxed = (reg.clone)(&game_ctx.ecs, module_entity);
+                                if (reg.has)(game_ctx.ecs, module_entity) {
+                                    let boxed = (reg.clone)(game_ctx.ecs, module_entity);
                                     let post_ron = (reg.to_ron_component)(boxed.as_ref());
                                     let post_transient_state = capture_component_transient_state(
                                         type_name,

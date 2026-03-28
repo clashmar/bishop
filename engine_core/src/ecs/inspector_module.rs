@@ -183,15 +183,14 @@ impl<T: InspectorModule> InspectorModule for CollapsibleModule<T> {
         }
 
         // Remove component
-        if self.inner.removable() {
-            if Button::new(Self::remove_button_rect(rect), "x")
+        if self.inner.removable()
+            && Button::new(Self::remove_button_rect(rect), "x")
                 .text_offset(Self::HEADER_BUTTON_TEXT_OFFSET)
                 .blocked(blocked)
                 .show(ctx)
-            {
-                self.remove_requested = true;
-                return; // Don't draw the rest of the module
-            }
+        {
+            self.remove_requested = true;
+            return; // Don't draw the rest of the module
         }
 
         // Body, when expanded

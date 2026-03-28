@@ -43,6 +43,21 @@ impl<A: BishopApp> WgpuAppRunner<A> {
             frame_future: None,
         }
     }
+
+    fn take_app_or_exit(&mut self, event_loop: &ActiveEventLoop, stage: &'static str) -> Option<A> {
+        debug_assert!(
+            self.app.is_some(),
+            "runner invariant: app missing before {stage} future creation"
+        );
+
+        let Some(app) = self.app.take() else {
+            eprintln!("WgpuAppRunner invariant violated: app missing before {stage} future creation");
+            event_loop.exit();
+            return None;
+        };
+
+        Some(app)
+    }
 }
 
 impl<A: BishopApp + 'static> ApplicationHandler for WgpuAppRunner<A> {
@@ -103,13 +118,15 @@ impl<A: BishopApp + 'static> ApplicationHandler for WgpuAppRunner<A> {
                 }
             }
             WindowEvent::RedrawRequested => {
-                if let Some(ctx) = &self.ctx {
+                if let Some(ctx) = self.ctx.clone() {
                     ctx.borrow_mut().begin_frame();
 
                     // Handle initialization with yielding support
                     if !self.initialized {
                         if self.init_future.is_none() {
-                            let mut app = self.app.take().expect("App missing during init");
+                            let Some(mut app) = self.take_app_or_exit(event_loop, "init") else {
+                                return;
+                            };
                             let ctx_clone = ctx.clone();
                             self.init_future =
                                 Some(Box::pin(async move {
@@ -128,7 +145,9 @@ impl<A: BishopApp + 'static> ApplicationHandler for WgpuAppRunner<A> {
                     } else {
                         // Normal frame - start new future if none pending
                         if self.frame_future.is_none() {
-                            let mut app = self.app.take().expect("App missing during frame");
+                            let Some(mut app) = self.take_app_or_exit(event_loop, "frame") else {
+                                return;
+                            };
                             let ctx_clone = ctx.clone();
                             self.frame_future =
                                 Some(Box::pin(async move {

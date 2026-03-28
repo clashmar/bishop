@@ -101,7 +101,7 @@ impl RenderSystem {
     }
 
     /// Re-creates every render target with the supplied size.
-    pub fn resize(&mut self, width: u32, height: u32) {
+    pub fn resize(&mut self, _width: u32, _height: u32) {
         // TODO: Re-implement
         // self.rt_width = width as f32;
         // self.rt_height = height as f32;

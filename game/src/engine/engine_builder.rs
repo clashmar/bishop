@@ -15,6 +15,12 @@ pub struct EngineBuilder {
     pub camera_manager: CameraManager,
 }
 
+impl Default for EngineBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl EngineBuilder {
     /// Creates a new builder with a fresh Lua VM and default camera manager.
     pub fn new() -> Self {

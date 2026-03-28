@@ -22,6 +22,10 @@ use strum_macros::EnumIter;
 #[serde(default)]
 pub struct Animation {
     /// Defines the animations that belong to the entity.
+    #[serde(
+        serialize_with = "crate::storage::ordered_map::serialize",
+        deserialize_with = "crate::storage::ordered_map::deserialize"
+    )]
     pub clips: HashMap<ClipId, ClipDef>,
     /// Which animation variant to show.
     pub variant: VariantFolder,
@@ -144,7 +148,19 @@ impl Animation {
 }
 
 /// Logical name of a clip.
-#[derive(EnumIter, Debug, Default, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(
+    EnumIter,
+    Debug,
+    Default,
+    Clone,
+    PartialEq,
+    Eq,
+    Ord,
+    PartialOrd,
+    Hash,
+    Serialize,
+    Deserialize
+)]
 pub enum ClipId {
     #[default]
     Idle,
@@ -221,6 +237,10 @@ impl Default for ClipDef {
 #[derive(Clone, Serialize, Deserialize, Default)]
 #[serde(default)]
 pub struct AnimationDef {
+    #[serde(
+        serialize_with = "crate::storage::ordered_map::serialize",
+        deserialize_with = "crate::storage::ordered_map::deserialize"
+    )]
     pub clips: HashMap<ClipId, ClipDef>,
 }
 

@@ -47,12 +47,12 @@ impl Default for Editor {
 impl Editor {
     /// Returns `Some(name)` when the user confirms, `None` on cancel.
     pub async fn prompt_new_game(&mut self, ctx: PlatformContext) -> Option<String> {
-        self.open_new_game_modal(&mut *ctx.borrow_mut());
+        self.open_new_game_modal(&mut ctx.borrow_mut());
 
         // Wait until the user has responded
         loop {
             // Draws and handles result
-            if let Some(ModalResult::String(name)) = self.handle_modal(&mut *ctx.borrow_mut()) {
+            if let Some(ModalResult::String(name)) = self.handle_modal(&mut ctx.borrow_mut()) {
                 // Only close modal if a name is returned
                 self.modal.close();
                 return Some(name);
@@ -64,14 +64,14 @@ impl Editor {
             }
 
             // Toasts can be created by the prompt
-            self.draw_toast(&mut *ctx.borrow_mut());
+            self.draw_toast(&mut ctx.borrow_mut());
 
             let next_frame = { ctx.borrow().next_frame() };
             next_frame.await;
         }
     }
 
-    pub async fn draw_menu_bar(&mut self, ctx: &mut WgpuContext) {
+    pub fn draw_menu_bar(&mut self, ctx: &mut WgpuContext) {
         let menu_title = match self.mode {
             EditorMode::Game => self.game.name.clone(),
             EditorMode::World(_) => self.game.current_world().name.clone(),
@@ -143,7 +143,7 @@ impl Editor {
                 EditorAction::SaveAs => self.open_save_as_modal(ctx),
                 EditorAction::Undo => crate::editor_global::request_undo(),
                 EditorAction::Redo => crate::editor_global::request_redo(),
-                EditorAction::Export => match export_game(&self.game).await {
+                EditorAction::Export => match export_game(&self.game) {
                     Ok(path) => {
                         self.toast =
                             Some(Toast::new(format!("Exported to: {}", path.display()), 2.5));
@@ -152,7 +152,7 @@ impl Editor {
                         onscreen_error!("Export failed: {e}");
                     }
                 },
-                EditorAction::ChangeSaveRoot => match change_save_root_async().await {
+                EditorAction::ChangeSaveRoot => match change_save_root() {
                     Some(new_root) => {
                         self.toast = Some(Toast::new(
                             format!("Save root moved to: {}", new_root.display()),
@@ -228,7 +228,7 @@ impl Editor {
         }
     }
 
-    pub async fn handle_shortcuts(&mut self, ctx: &mut WgpuContext) {
+    pub fn handle_shortcuts(&mut self, ctx: &mut WgpuContext) {
         if Controls::save(ctx) {
             self.save();
         }
@@ -256,13 +256,16 @@ impl Editor {
 
     pub fn save(&mut self) {
         let palette = &self.room_editor.tilemap_editor.tilemap_panel.palette;
-        if let Err(e) = save_palette(palette, &self.game.name) {
+        let palette_saved = if let Err(e) = save_palette(palette, &self.game.name) {
             onscreen_error!("Could not save palette: {e}");
-        }
+            false
+        } else {
+            true
+        };
 
         if let Err(e) = save_game(&self.game) {
             onscreen_error!("Could not save game: {}.", e)
-        } else {
+        } else if palette_saved {
             self.save_menus();
             self.toast = Some(Toast::new("Saved", 2.5));
         }
@@ -510,13 +513,7 @@ impl Editor {
     pub fn init_game_for_editor(&mut self, ctx: &WgpuContext, game: Game) -> Game {
         let mut game = game;
 
-        // Initialize assets synchronously (ctx provides texture loading).
-        set_game_name(game.name.clone());
-        AssetManager::init_manager(ctx, &mut game);
-
-        with_lua(|lua| ScriptManager::init_manager(&mut game, lua));
-
-        game.init_text_manager();
+        with_lua(|lua| game.initialize(ctx, lua));
         self.game_editor
             .init_camera(ctx, &mut self.camera, &mut game);
 

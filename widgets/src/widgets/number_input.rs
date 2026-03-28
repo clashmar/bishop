@@ -151,10 +151,7 @@ where
         draw_text_clipped(
             ctx,
             display,
-            self.rect.x,
-            self.rect.y,
-            self.rect.w,
-            self.rect.h,
+            self.rect,
             scroll_offset_x,
             DEFAULT_FONT_SIZE_16,
             FIELD_TEXT_COLOR,

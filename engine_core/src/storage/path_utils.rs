@@ -3,7 +3,6 @@ use crate::constants::*;
 use crate::engine_global::*;
 use crate::storage::editor_config::*;
 use crate::*;
-use futures::executor::block_on;
 use rfd::FileDialog;
 use std::ffi::OsStr;
 use std::fs;
@@ -132,7 +131,7 @@ pub fn absolute_save_root() -> PathBuf {
         }
     } else {
         // Save root needs to be set
-        if let Some(path_buf) = block_on(pick_save_root_async()) {
+        if let Some(path_buf) = pick_save_root() {
             return path_buf;
         }
     }
@@ -172,9 +171,9 @@ pub fn resources_dir_from_exe() -> Option<PathBuf> {
     #[cfg(target_os = "macos")]
     {
         // …/Bishop.app/Contents/MacOS/
-        return exe_dir
+        exe_dir
             .parent() // Contents/
-            .map(|p| p.join(RESOURCES_FOLDER)); // Resources/
+            .map(|p| p.join(RESOURCES_FOLDER)) // Resources/
     }
     // Linux is yet to be implemented
     #[cfg(any(target_os = "windows", target_os = "linux"))]
@@ -192,7 +191,7 @@ pub fn bundle_assets_folder() -> Option<PathBuf> {
 }
 
 /// Pick the folder that will become the absolute save root.
-pub async fn pick_save_root_async() -> Option<PathBuf> {
+pub fn pick_save_root() -> Option<PathBuf> {
     // Let the user choose a base folder
     let base_folder = FileDialog::new()
         .set_title("Select a folder for the editor assets root directory.")
@@ -216,7 +215,7 @@ pub async fn pick_save_root_async() -> Option<PathBuf> {
 
 /// Pick a new absolute save root and move the existing games
 /// folder there if possible.
-pub async fn change_save_root_async() -> Option<PathBuf> {
+pub fn change_save_root() -> Option<PathBuf> {
     // Let the user choose a new base folder
     let base_folder = rfd::FileDialog::new()
         .set_title("Select a new folder for the editor assets root directory.")
@@ -290,15 +289,14 @@ fn update_config_root(root_path: &Path) -> Option<()> {
 }
 
 /// Checks for a valid save root, or prompts the user to choose one.
-/// Note: Caller should yield a frame before calling this to let the event loop start.
-pub async fn ensure_save_root() -> bool {
+pub fn ensure_save_root() -> bool {
     // Fast path
     if get_save_root().is_some() {
         return true;
     }
 
-    // Show the async picker.
-    if let Some(_path) = pick_save_root_async().await {
+    // Show the picker.
+    if let Some(_path) = pick_save_root() {
         return get_save_root().is_some();
     }
 

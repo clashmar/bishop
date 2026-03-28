@@ -276,6 +276,8 @@ impl Serialize for Ecs {
             });
         }
 
+        components.sort_by(|left, right| left.type_name.cmp(&right.type_name));
+
         // Serialize the whole world
         let mut state = serializer.serialize_struct("Ecs", 2)?;
         state.serialize_field("components", &components)?;

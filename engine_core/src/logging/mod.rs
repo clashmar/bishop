@@ -40,17 +40,16 @@ impl LogHistory {
         file: &'static str,
         line: u32,
     ) {
-        if let Some(last) = self.entries.last_mut() {
-            if last.level == level
-                && last.message == message
-                && last.file == file
-                && last.line == line
-            {
-                last.count += 1;
-                last.time = time;
-                self.total_pushed += 1;
-                return;
-            }
+        if let Some(last) = self.entries.last_mut()
+            && last.level == level
+            && last.message == message
+            && last.file == file
+            && last.line == line
+        {
+            last.count += 1;
+            last.time = time;
+            self.total_pushed += 1;
+            return;
         }
         if self.entries.len() >= MAX_LOG_ENTRIES {
             self.entries.remove(0);

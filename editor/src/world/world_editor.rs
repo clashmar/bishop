@@ -78,7 +78,7 @@ impl WorldEditor {
     }
 
     /// Returns `Some(room_id)` if a room is clicked on.
-    pub async fn update(
+    pub fn update(
         &mut self,
         ctx: &mut WgpuContext,
         camera: &mut Camera2D,

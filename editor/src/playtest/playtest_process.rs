@@ -4,7 +4,7 @@ use std::io;
 use std::io::{BufRead, BufReader};
 use std::path::Path;
 use std::process::{Child, Command, Stdio};
-use std::sync::mpsc::{self, Receiver, TryRecvError};
+use std::sync::mpsc::{self, Receiver};
 use std::thread;
 
 /// Manages a running playtest process, capturing its stdout/stderr output.
@@ -96,11 +96,8 @@ impl PlaytestProcess {
     }
 
     fn drain_channel(&self, rx: &Receiver<String>, level: log::Level) {
-        loop {
-            match rx.try_recv() {
-                Ok(line) => Self::push_log(level, &line),
-                Err(TryRecvError::Empty) | Err(TryRecvError::Disconnected) => break,
-            }
+        while let Ok(line) = rx.try_recv() {
+            Self::push_log(level, &line);
         }
     }
 

@@ -262,8 +262,10 @@ fn height_matches_single_visible_row_when_source_has_no_groups() {
 
 #[test]
 fn height_adds_only_rename_row_when_no_groups_and_rename_is_active() {
-    let mut module = AudioSourceModule::default();
-    module.pending_rename_target = Some(SoundGroupId::Custom("Group 1".to_string()));
+    let module = AudioSourceModule {
+        pending_rename_target: Some(SoundGroupId::Custom("Group 1".to_string())),
+        ..Default::default()
+    };
 
     assert_eq!(
         module.height(),

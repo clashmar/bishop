@@ -150,9 +150,10 @@ mod tests {
 
         let snapshot = capture_component_transient_state(AudioSource::TYPE_NAME, &source);
 
-        let mut restored = AudioSource::default();
-        restored.groups = source.groups.clone();
-        restored.current = None;
+        let mut restored = AudioSource {
+            groups: source.groups.clone(),
+            ..Default::default()
+        };
 
         restore_component_transient_state(AudioSource::TYPE_NAME, &mut restored, &snapshot);
 

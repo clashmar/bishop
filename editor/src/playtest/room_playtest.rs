@@ -51,7 +51,7 @@ pub fn write_playtest_payload(room: &Room, game: &Game) -> io::Result<PathBuf> {
 
 /// Return the absolute path to the game executable.
 /// If in dev mode, builds the binary first.
-pub async fn resolve_playtest_binary() -> io::Result<PathBuf> {
+pub fn resolve_playtest_binary() -> io::Result<PathBuf> {
     // Choose the correct binary name for the platform
     #[cfg(target_os = "windows")]
     let exe_name = "game-playtest.exe";

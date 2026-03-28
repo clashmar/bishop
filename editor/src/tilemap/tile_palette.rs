@@ -57,12 +57,12 @@ impl TilePalette {
         }
     }
 
-    pub async fn update(&mut self, asset_manager: &mut AssetManager) {
+    pub fn update(&mut self, asset_manager: &mut AssetManager) {
         while let Some(cmd) = self.command_queue.pop_front() {
             match cmd {
-                PaletteCmd::Create => self.create_tile(asset_manager).await,
-                PaletteCmd::Edit => self.edit_tile(asset_manager).await,
-                PaletteCmd::Delete(i) => self.delete_tile(i, asset_manager).await,
+                PaletteCmd::Create => self.create_tile(asset_manager),
+                PaletteCmd::Edit => self.edit_tile(asset_manager),
+                PaletteCmd::Delete(i) => self.delete_tile(i, asset_manager),
             }
         }
     }
@@ -74,7 +74,7 @@ impl TilePalette {
         self.entries.get(self.selected_index).copied()
     }
 
-    pub async fn draw(
+    pub fn draw(
         &mut self,
         ctx: &mut WgpuContext,
         rect: Rect,
@@ -116,7 +116,7 @@ impl TilePalette {
             }
         }
 
-        self.draw_tile_dialog(ctx, asset_manager).await;
+        self.draw_tile_dialog(ctx, asset_manager);
     }
 
     /// Called from `TileMapEditor::handle_ui_click` when the mouse
@@ -146,7 +146,7 @@ impl TilePalette {
         false
     }
 
-    async fn draw_tile_dialog(&mut self, ctx: &mut WgpuContext, asset_manager: &mut AssetManager) {
+    fn draw_tile_dialog(&mut self, ctx: &mut WgpuContext, asset_manager: &mut AssetManager) {
         if !self.ui.open {
             return;
         }
@@ -276,7 +276,7 @@ impl TilePalette {
         }
     }
 
-    pub async fn create_tile(&mut self, asset_manager: &mut AssetManager) {
+    pub fn create_tile(&mut self, asset_manager: &mut AssetManager) {
         // Build TileDef
         let mut comps = vec![
             TileComponent::Walkable(self.ui.walkable),
@@ -306,7 +306,7 @@ impl TilePalette {
         self.rows = needed.div_ceil(self.columns)
     }
 
-    pub async fn edit_tile(&mut self, asset_manager: &mut AssetManager) {
+    pub fn edit_tile(&mut self, asset_manager: &mut AssetManager) {
         // Build TileDef components
         let mut comps = vec![
             TileComponent::Walkable(self.ui.walkable),
@@ -328,7 +328,7 @@ impl TilePalette {
         }
     }
 
-    pub async fn delete_tile(&mut self, idx: usize, asset_manager: &mut AssetManager) {
+    pub fn delete_tile(&mut self, idx: usize, asset_manager: &mut AssetManager) {
         // Remove the definition and decrement sprite ref
         let def_id = self.entries[idx];
         asset_manager.delete_tile_def(def_id);

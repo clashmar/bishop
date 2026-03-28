@@ -8,7 +8,10 @@ pub fn serialize_tiles<S: Serializer>(
 ) -> Result<S::Ok, S::Error> {
     use std::fmt::Write as _;
     let mut out = String::new();
-    for ((x, y), TileDefId(id)) in tiles {
+    let mut ordered_tiles: Vec<_> = tiles.iter().collect();
+    ordered_tiles.sort_by_key(|((x, y), _)| (*y, *x));
+
+    for ((x, y), TileDefId(id)) in ordered_tiles {
         write!(out, "{x},{y},{id};").map_err(serde::ser::Error::custom)?;
     }
     s.serialize_str(&out)
@@ -36,4 +39,31 @@ pub fn deserialize_tiles<'de, D: Deserializer<'de>>(
         }
     }
     Ok(map)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde::Serialize;
+
+    #[derive(Serialize)]
+    struct TileWrapper {
+        #[serde(serialize_with = "serialize_tiles")]
+        tiles: HashMap<(usize, usize), TileDefId>,
+    }
+
+    #[test]
+    fn serialize_tiles_orders_entries_by_row_then_column() {
+        let tiles = HashMap::from([
+            ((3, 2), TileDefId(9)),
+            ((1, 0), TileDefId(4)),
+            ((0, 0), TileDefId(2)),
+            ((2, 1), TileDefId(7)),
+        ]);
+
+        let wrapper = TileWrapper { tiles };
+        let ron = ron::to_string(&wrapper).expect("serialize tile wrapper");
+
+        assert_eq!(ron, "(tiles:\"0,0,2;1,0,4;2,1,7;3,2,9;\")");
+    }
 }

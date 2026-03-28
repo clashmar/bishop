@@ -80,7 +80,7 @@ impl TileMapEditor {
         }
     }
 
-    pub async fn update(
+    pub fn update(
         &mut self,
         ctx: &WgpuContext,
         asset_manager: &mut AssetManager,
@@ -98,7 +98,7 @@ impl TileMapEditor {
             self.initialized = true;
         }
 
-        self.tilemap_panel.update(asset_manager).await;
+        self.tilemap_panel.update(asset_manager);
 
         // Only rebuild handles when not dragging (to preserve drag state)
         if self.active_handle_index.is_none() {
@@ -303,7 +303,7 @@ impl TileMapEditor {
         }
     }
 
-    pub async fn draw(
+    pub fn draw(
         &mut self,
         ctx: &mut WgpuContext,
         camera: &Camera2D,
@@ -337,8 +337,7 @@ impl TileMapEditor {
             room_position,
             room_size,
             grid_size,
-        )
-        .await;
+        );
     }
 
     /// Draws exits from adjacent rooms that face toward this room (only in Exits mode).
@@ -392,7 +391,7 @@ impl TileMapEditor {
         }
     }
 
-    async fn draw_ui(
+    fn draw_ui(
         &mut self,
         ctx: &mut WgpuContext,
         camera: &Camera2D,
@@ -420,7 +419,7 @@ impl TileMapEditor {
         draw_top_panel_full(ctx);
 
         // Draw inspector panel
-        self.tilemap_panel.draw(ctx, asset_manager, tilemap).await;
+        self.tilemap_panel.draw(ctx, asset_manager, tilemap);
     }
 
     fn get_hovered_tile(

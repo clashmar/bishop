@@ -109,8 +109,6 @@ impl MenuEditor {
                         self.drag_start_rects = vec![(idx, pos)];
                     }
                 }
-
-                return;
             }
 
             HitKind::Element => {

@@ -478,10 +478,7 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
             draw_text_clipped(
                 ctx,
                 &(self.to_string)(opt),
-                entry_rect.x,
-                entry_rect.y,
-                entry_rect.w,
-                entry_rect.h,
+                entry_rect,
                 0.0,
                 DEFAULT_FONT_SIZE_16,
                 FIELD_TEXT_COLOR,
@@ -587,10 +584,7 @@ fn render_dropdown_list<C: BishopContext>(
         draw_text_clipped(
             ctx,
             label,
-            entry_rect.x,
-            entry_rect.y,
-            entry_rect.w,
-            entry_rect.h,
+            entry_rect,
             0.0,
             DEFAULT_FONT_SIZE_16,
             FIELD_TEXT_COLOR,

@@ -39,6 +39,10 @@ pub struct ScriptManager {
     #[serde(skip)]
     pub pending_inits: Vec<(Entity, ScriptId)>,
     /// Persistent map of all script ids to their paths.
+    #[serde(
+        serialize_with = "crate::storage::ordered_map::serialize",
+        deserialize_with = "crate::storage::ordered_map::deserialize"
+    )]
     pub script_id_to_path: HashMap<ScriptId, PathBuf>,
     #[serde(skip)]
     pub path_to_script_id: HashMap<PathBuf, ScriptId>,
@@ -46,6 +50,10 @@ pub struct ScriptManager {
     /// Counter for script ids. Starts from 1.
     pub next_script_id: usize,
     /// How many entities are using a script.
+    #[serde(
+        serialize_with = "crate::storage::ordered_map::serialize",
+        deserialize_with = "crate::storage::ordered_map::deserialize"
+    )]
     ref_counts: HashMap<ScriptId, usize>,
     /// Script ids whose path mappings should be removed on exit.
     #[cfg(feature = "editor")]

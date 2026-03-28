@@ -45,7 +45,7 @@ impl BishopApp for EditorApp {
         // Initialize logging
         init_file_logger();
 
-        if !ensure_save_root().await {
+        if !ensure_save_root() {
             // User cancelled
             onscreen_warn!("No save root selected. Exiting.");
             std::process::exit(0);
@@ -91,8 +91,8 @@ impl BishopApp for EditorApp {
         widgets_frame_start(&mut *ctx_ref);
 
         with_editor(|editor| {
-            futures::executor::block_on(editor.update(&mut *ctx_ref));
-            futures::executor::block_on(editor.draw(&mut *ctx_ref));
+            editor.update(&mut ctx_ref);
+            editor.draw(&mut ctx_ref);
         });
 
         widgets_frame_end(&mut *ctx_ref);

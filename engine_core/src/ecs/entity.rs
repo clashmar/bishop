@@ -7,7 +7,7 @@ use inventory::iter;
 use serde::{Deserialize, Serialize};
 use std::any::TypeId;
 
-#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug, Serialize, Deserialize, Default)]
+#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Serialize, Deserialize, Default)]
 pub struct Entity(pub usize);
 
 impl Entity {
