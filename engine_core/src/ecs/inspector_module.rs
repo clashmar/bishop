@@ -3,6 +3,7 @@ use crate::ecs::ecs::Ecs;
 use crate::ecs::entity::Entity;
 use crate::ecs::inspector_layout::InspectorBodyLayout;
 use crate::game::GameCtxMut;
+use crate::storage::editor_config::{get_inspector_module_expanded, set_inspector_module_expanded};
 use crate::ui::widgets::*;
 use bishop::prelude::*;
 
@@ -76,16 +77,20 @@ pub struct CollapsibleModule<T: InspectorModule> {
 
 impl<T: InspectorModule> CollapsibleModule<T> {
     pub fn new(inner: T) -> Self {
-        Self {
+        let mut module = Self {
             inner,
             expanded: true, // start opened
             custom_title: None,
             remove_requested: false,
-        }
+        };
+
+        module.sync_saved_state();
+        module
     }
 
     pub fn with_title(mut self, title: impl Into<String>) -> Self {
         self.custom_title = Some(title.into());
+        self.sync_saved_state();
         self
     }
 
@@ -95,6 +100,16 @@ impl<T: InspectorModule> CollapsibleModule<T> {
         } else {
             self.inner.title()
         }
+    }
+
+    fn sync_saved_state(&mut self) {
+        if let Some(expanded) = get_inspector_module_expanded(self.title()) {
+            self.expanded = expanded;
+        }
+    }
+
+    fn persist_saved_state(&self) {
+        set_inspector_module_expanded(self.title(), self.expanded);
     }
 
     /// The clickable area that contains the “‑/＋” button, title and remove button.
@@ -148,6 +163,7 @@ impl<T: InspectorModule> InspectorModule for CollapsibleModule<T> {
             .show(ctx)
         {
             self.expanded = !self.expanded;
+            self.persist_saved_state();
         }
 
         // Remove component
