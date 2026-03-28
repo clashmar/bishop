@@ -102,9 +102,10 @@ fn assignment_options_omits_presets_already_linked_on_entity() {
 #[test]
 fn assignment_options_keep_matching_preset_visible_for_detached_group() {
     let mut source = AudioSource::default();
-    source
-        .groups
-        .insert(SoundGroupId::Custom("Jump".to_string()), AudioGroup::default());
+    source.groups.insert(
+        SoundGroupId::Custom("Jump".to_string()),
+        AudioGroup::default(),
+    );
 
     let library = crate::storage::sound_preset_storage::SoundPresetLibrary {
         presets: std::collections::HashMap::from([("Jump".to_string(), AudioGroup::default())]),

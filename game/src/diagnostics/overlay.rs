@@ -47,6 +47,7 @@ pub struct DiagnosticsOverlay {
     cached_audio_working_set_resident: usize,
     cached_audio_working_set_total: usize,
     cached_audio_count: usize,
+    cached_audio_loading_count: usize,
     cached_audio_pinned_count: usize,
     cached_audio_matching_refs: usize,
     cached_audio_checked_refs: usize,
@@ -57,6 +58,7 @@ pub struct DiagnosticsOverlay {
 struct AudioDiagnosticsRow {
     id: String,
     cached: bool,
+    loading: bool,
     pinned: bool,
     ref_count: usize,
     ecs_count: usize,
@@ -64,7 +66,7 @@ struct AudioDiagnosticsRow {
 
 impl AudioDiagnosticsRow {
     fn is_attention(&self) -> bool {
-        self.ecs_count != self.ref_count || (self.ecs_count > 0 && !self.cached)
+        self.ecs_count != self.ref_count || (self.ecs_count > 0 && !self.cached && !self.loading)
     }
 
     fn display_line(&self) -> String {
@@ -74,6 +76,9 @@ impl AudioDiagnosticsRow {
         );
         if self.cached {
             line.push_str(" cached");
+        }
+        if self.loading {
+            line.push_str(" loading");
         }
         if self.pinned {
             line.push_str(" pinned");
@@ -105,6 +110,7 @@ impl DiagnosticsOverlay {
             cached_audio_working_set_resident: 0,
             cached_audio_working_set_total: 0,
             cached_audio_count: 0,
+            cached_audio_loading_count: 0,
             cached_audio_pinned_count: 0,
             cached_audio_matching_refs: 0,
             cached_audio_checked_refs: 0,
@@ -156,10 +162,11 @@ impl DiagnosticsOverlay {
 
         self.cached_audio_working_set_resident = audio_rows
             .iter()
-            .filter(|row| row.ecs_count > 0 && row.cached)
+            .filter(|row| row.ecs_count > 0 && (row.cached || row.loading))
             .count();
         self.cached_audio_working_set_total = expected_audio_refs.len();
         self.cached_audio_count = audio_snapshot.cached_sound_count;
+        self.cached_audio_loading_count = audio_snapshot.loading_sound_count;
         self.cached_audio_pinned_count = audio_snapshot.pinned_sound_count;
         let (matching_refs, checked_refs) = audio_ref_summary(&audio_rows);
         self.cached_audio_matching_refs = matching_refs;
@@ -211,8 +218,10 @@ impl DiagnosticsOverlay {
                 self.cached_audio_working_set_resident, self.cached_audio_working_set_total
             ));
             lines.push(format!(
-                "Audio Cache: {} cached, {} pinned",
-                self.cached_audio_count, self.cached_audio_pinned_count
+                "Audio Cache: {} cached, {} loading, {} pinned",
+                self.cached_audio_count,
+                self.cached_audio_loading_count,
+                self.cached_audio_pinned_count
             ));
             lines.push(format!(
                 "Audio Refs: {}/{} IDs match ECS",
@@ -306,6 +315,7 @@ fn all_audio_diagnostics_rows(
 
             AudioDiagnosticsRow {
                 cached: snapshot_entry.is_some_and(|entry| entry.cached),
+                loading: snapshot_entry.is_some_and(|entry| entry.loading),
                 pinned: snapshot_entry.is_some_and(|entry| entry.pinned),
                 ref_count: snapshot_entry.map(|entry| entry.ref_count).unwrap_or(0),
                 ecs_count: ecs_counts.get(&id).copied().unwrap_or(0),
@@ -380,30 +390,35 @@ mod tests {
         ]);
         let snapshot = AudioDiagnosticsSnapshot {
             cached_sound_count: 3,
+            loading_sound_count: 1,
             pinned_sound_count: 1,
             ref_count_entry_count: 4,
             entries: vec![
                 AudioDiagnosticsEntry {
                     id: "alpha".to_string(),
                     cached: true,
+                    loading: false,
                     pinned: false,
                     ref_count: 2,
                 },
                 AudioDiagnosticsEntry {
                     id: "beta".to_string(),
                     cached: false,
+                    loading: false,
                     pinned: false,
                     ref_count: 1,
                 },
                 AudioDiagnosticsEntry {
                     id: "gamma".to_string(),
                     cached: false,
+                    loading: true,
                     pinned: false,
                     ref_count: 1,
                 },
                 AudioDiagnosticsEntry {
                     id: "zeta".to_string(),
                     cached: true,
+                    loading: false,
                     pinned: false,
                     ref_count: 0,
                 },
@@ -414,11 +429,11 @@ mod tests {
 
         assert_eq!(
             rows.iter().map(|row| row.id.as_str()).collect::<Vec<_>>(),
-            vec!["beta", "gamma", "zeta", "alpha"]
+            vec!["beta", "zeta", "alpha", "gamma"]
         );
         assert!(rows[0].is_attention());
         assert!(rows[1].is_attention());
-        assert!(rows[2].is_attention());
+        assert!(!rows[2].is_attention());
         assert!(!rows[3].is_attention());
     }
 
@@ -427,54 +442,63 @@ mod tests {
         let ecs_counts = HashMap::new();
         let snapshot = AudioDiagnosticsSnapshot {
             cached_sound_count: 8,
+            loading_sound_count: 0,
             pinned_sound_count: 0,
             ref_count_entry_count: 8,
             entries: vec![
                 AudioDiagnosticsEntry {
                     id: "alpha".to_string(),
                     cached: false,
+                    loading: false,
                     pinned: false,
                     ref_count: 0,
                 },
                 AudioDiagnosticsEntry {
                     id: "beta".to_string(),
                     cached: false,
+                    loading: false,
                     pinned: false,
                     ref_count: 0,
                 },
                 AudioDiagnosticsEntry {
                     id: "charlie".to_string(),
                     cached: false,
+                    loading: false,
                     pinned: false,
                     ref_count: 0,
                 },
                 AudioDiagnosticsEntry {
                     id: "delta".to_string(),
                     cached: false,
+                    loading: false,
                     pinned: false,
                     ref_count: 0,
                 },
                 AudioDiagnosticsEntry {
                     id: "echo".to_string(),
                     cached: false,
+                    loading: false,
                     pinned: false,
                     ref_count: 0,
                 },
                 AudioDiagnosticsEntry {
                     id: "foxtrot".to_string(),
                     cached: false,
+                    loading: false,
                     pinned: false,
                     ref_count: 0,
                 },
                 AudioDiagnosticsEntry {
                     id: "golf".to_string(),
                     cached: false,
+                    loading: false,
                     pinned: false,
                     ref_count: 0,
                 },
                 AudioDiagnosticsEntry {
                     id: "hotel".to_string(),
                     cached: false,
+                    loading: false,
                     pinned: false,
                     ref_count: 0,
                 },
@@ -496,6 +520,7 @@ mod tests {
             AudioDiagnosticsRow {
                 id: "cache-only".to_string(),
                 cached: true,
+                loading: false,
                 pinned: false,
                 ref_count: 0,
                 ecs_count: 0,
@@ -503,6 +528,7 @@ mod tests {
             AudioDiagnosticsRow {
                 id: "matching".to_string(),
                 cached: true,
+                loading: false,
                 pinned: false,
                 ref_count: 1,
                 ecs_count: 1,
@@ -510,6 +536,7 @@ mod tests {
             AudioDiagnosticsRow {
                 id: "stale".to_string(),
                 cached: true,
+                loading: false,
                 pinned: false,
                 ref_count: 2,
                 ecs_count: 0,
@@ -517,5 +544,29 @@ mod tests {
         ];
 
         assert_eq!(audio_ref_summary(&rows), (1, 2));
+    }
+
+    #[test]
+    fn audio_diagnostics_rows_treat_loading_working_set_entries_as_non_attention() {
+        let ecs_counts = HashMap::from([("warmup".to_string(), 1)]);
+        let snapshot = AudioDiagnosticsSnapshot {
+            cached_sound_count: 0,
+            loading_sound_count: 1,
+            pinned_sound_count: 0,
+            ref_count_entry_count: 1,
+            entries: vec![AudioDiagnosticsEntry {
+                id: "warmup".to_string(),
+                cached: false,
+                loading: true,
+                pinned: false,
+                ref_count: 1,
+            }],
+        };
+
+        let rows = audio_diagnostics_rows(&ecs_counts, &snapshot);
+
+        assert_eq!(rows.len(), 1);
+        assert!(!rows[0].is_attention());
+        assert_eq!(rows[0].display_line(), "Audio warmup rc=1 ecs=1 loading");
     }
 }

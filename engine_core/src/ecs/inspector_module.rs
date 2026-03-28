@@ -1,10 +1,10 @@
 // engine_core/src/ecs/inspector_module.rs
-use crate::ecs::inspector_layout::InspectorBodyLayout;
-use crate::storage::editor_config::*;
-use crate::ecs::entity::Entity;
-use crate::game::GameCtxMut;
-use crate::ui::widgets::*;
 use crate::ecs::ecs::Ecs;
+use crate::ecs::entity::Entity;
+use crate::ecs::inspector_layout::InspectorBodyLayout;
+use crate::game::GameCtxMut;
+use crate::storage::editor_config::*;
+use crate::ui::widgets::*;
 use bishop::prelude::*;
 
 /// Every inspector sub‑module implements this trait.

@@ -9,7 +9,7 @@ use super::command_queue::{self, AudioCommand, PlayMusicRequest};
 use super::diagnostics::{self, AudioDiagnosticsSnapshot};
 use super::loader::load_wav;
 use super::runtime::{self, MusicStopReason, MusicStoppedEvent};
-use crate::task::BackgroundService;
+use crate::task::{BackgroundService, BackgroundTask};
 use bishop::audio::AudioBackend;
 use oddio::{Cycle, Frames, FramesSignal, Gain, Handle, Mixer, Speed, Stop};
 use std::collections::{HashMap, HashSet};
@@ -21,8 +21,15 @@ type LoopMusicHandle = Handle<Stop<Gain<Cycle<[f32; 2]>>>>;
 type OneShotMusicHandle = Handle<Stop<Gain<FramesSignal<[f32; 2]>>>>;
 /// Handle type for active looping SFX signals.
 type LoopHandle = Handle<Stop<Gain<Speed<Cycle<[f32; 2]>>>>>;
+type AudioLoadTask = BackgroundTask<Result<Arc<Frames<[f32; 2]>>, String>>;
 #[cfg(feature = "editor")]
 type PreviewHandle = Handle<Stop<Gain<Speed<FramesSignal<[f32; 2]>>>>>;
+
+#[derive(Clone)]
+struct PendingMusic {
+    token: u64,
+    request: PlayMusicRequest,
+}
 
 enum ActiveMusic {
     Looping {
@@ -130,10 +137,16 @@ pub struct AudioManager {
     active_music: Option<ActiveMusic>,
     /// Current music transition stage, if any.
     active_transition: Option<MusicTransition>,
+    /// Music request waiting for a background decode to complete.
+    pending_music: Option<PendingMusic>,
+    /// Monotonic token for pending music requests.
+    next_music_token: u64,
     /// Current music gain ratio before master/music volume are applied.
     music_ratio: f32,
     /// Decoded audio cache, keyed by sound ID.
     sound_cache: HashMap<String, Arc<Frames<[f32; 2]>>>,
+    /// In-flight background loads, keyed by sound ID.
+    pending_loads: HashMap<String, AudioLoadTask>,
     /// Reference counts tracking how many `AudioSource` components reference each sound ID.
     ref_counts: HashMap<String, usize>,
     /// Sound IDs loaded via `preload()` from Lua; pinned sounds are never auto-evicted.
@@ -181,8 +194,11 @@ impl AudioManager {
             sfx_group: sfx_group_handle,
             active_music: None,
             active_transition: None,
+            pending_music: None,
+            next_music_token: 1,
             music_ratio: 1.0,
             sound_cache: HashMap::new(),
+            pending_loads: HashMap::new(),
             ref_counts: HashMap::new(),
             pinned: HashSet::new(),
             active_loops: HashMap::new(),
@@ -198,7 +214,13 @@ impl AudioManager {
 
     /// Returns a snapshot of cached, pinned, and referenced audio IDs.
     pub fn diagnostics_snapshot(&self) -> AudioDiagnosticsSnapshot {
-        diagnostics::snapshot_from_state(&self.sound_cache, &self.ref_counts, &self.pinned)
+        let loading = self.pending_loads.keys().cloned().collect::<HashSet<_>>();
+        diagnostics::snapshot_from_state(
+            &self.sound_cache,
+            &self.ref_counts,
+            &self.pinned,
+            &loading,
+        )
     }
 
     fn set_music_ratio(&mut self, ratio: f32) {
@@ -301,12 +323,14 @@ impl BackgroundService for AudioManager {
             self.cleanup_tracked_previews();
         }
 
+        self.poll_pending_loads();
         self.tick_playback_state(dt);
 
         for command in command_queue::drain_audio_commands() {
             self.dispatch_command(command);
         }
 
+        self.resolve_pending_music();
         self.publish_runtime_state();
     }
 }

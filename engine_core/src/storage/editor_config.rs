@@ -5,13 +5,13 @@ use once_cell::sync::Lazy;
 use ron::from_str;
 use ron::ser::{PrettyConfig, to_string_pretty};
 use serde::{Deserialize, Serialize};
+#[cfg(feature = "editor")]
+use std::collections::BTreeMap;
 use std::error::Error;
 use std::fs;
 use std::path::Path;
 use std::path::PathBuf;
 use std::sync::RwLock;
-#[cfg(feature = "editor")]
-use std::collections::BTreeMap;
 
 pub static EDITOR_CONFIG: Lazy<RwLock<EditorConfig>> = Lazy::new(|| RwLock::new(load_config()));
 
@@ -56,7 +56,8 @@ pub fn get_inspector_module_expanded(title: &str) -> Option<bool> {
 pub fn set_inspector_module_expanded(title: &str, expanded: bool) {
     let (snapshot, path) = match EDITOR_CONFIG.write() {
         Ok(mut cfg) => {
-            cfg.inspector_module_expanded.insert(title.to_string(), expanded);
+            cfg.inspector_module_expanded
+                .insert(title.to_string(), expanded);
             (cfg.clone(), config_path())
         }
         Err(poison) => {
@@ -123,8 +124,14 @@ mod tests {
         let ron = r#"(inspector_module_expanded: { "Transform": true, "Audio Source": false })"#;
         let config: EditorConfig = from_str(ron).unwrap();
 
-        assert_eq!(config.inspector_module_expanded.get("Transform"), Some(&true));
-        assert_eq!(config.inspector_module_expanded.get("Audio Source"), Some(&false));
+        assert_eq!(
+            config.inspector_module_expanded.get("Transform"),
+            Some(&true)
+        );
+        assert_eq!(
+            config.inspector_module_expanded.get("Audio Source"),
+            Some(&false)
+        );
     }
 
     #[test]
@@ -134,14 +141,17 @@ mod tests {
             .inspector_module_expanded
             .insert("Transform".to_string(), false);
 
-        let path = std::env::temp_dir()
-            .join(format!("bishop-editor-config-{}.ron", Uuid::new_v4()));
+        let path =
+            std::env::temp_dir().join(format!("bishop-editor-config-{}.ron", Uuid::new_v4()));
 
         save_config_to_path(&config, &path).unwrap();
 
         let saved = fs::read_to_string(&path).unwrap();
         let loaded: EditorConfig = from_str(&saved).unwrap();
-        assert_eq!(loaded.inspector_module_expanded.get("Transform"), Some(&false));
+        assert_eq!(
+            loaded.inspector_module_expanded.get("Transform"),
+            Some(&false)
+        );
 
         let _ = fs::remove_file(path);
     }
