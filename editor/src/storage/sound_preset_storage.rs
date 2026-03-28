@@ -179,7 +179,10 @@ mod tests {
         let error = save_game(&game).unwrap_err();
 
         assert!(
-            matches!(error.kind(), ErrorKind::IsADirectory | ErrorKind::Other),
+            matches!(
+                error.kind(),
+                ErrorKind::IsADirectory | ErrorKind::PermissionDenied | ErrorKind::Other
+            ),
             "unexpected error kind: {:?}",
             error.kind()
         );

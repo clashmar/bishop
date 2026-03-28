@@ -4,14 +4,8 @@
 ---@alias vec2 { x: number, y: number }
 ---@alias vec3 { x: number, y: number, z: number }
 
----@class Light
----@field pos vec2
----@field color vec3
----@field intensity number
----@field radius number
----@field spread number
----@field alpha number
----@field brightness number
+---@class Interactable
+---@field range number
 
 ---@class CurrentFrame
 ---@field clip_id number
@@ -21,22 +15,6 @@
 ---@field sprite_id number
 ---@field frame_size vec2
 ---@field flip_x boolean
-
----@class Glow
----@field color vec3
----@field intensity number
----@field brightness number
----@field emission number
----@field sprite_id number
-
----@class AudioSource
----@field groups table
----@field current table
----@field runtime_volume number
-
----@class Script
----@field script_id number
----@field data table
 
 ---@alias Name string
 
@@ -81,29 +59,26 @@
 ---@field width number
 ---@field height number
 
----@class SpeechBubble
----@field text string
----@field timer number
----@field color table
----@field offset table
----@field font_size table
----@field max_width table
----@field show_background boolean
----@field background_color table
-
 ---@class Sprite
 ---@field sprite number
 
----@class Transform
----@field visible boolean
----@field position vec2
----@field pivot table
+---@class AudioSource
+---@field groups table
+---@field current table
+---@field runtime_volume number
+
+---@alias FacingDirection table
 
 ---@class RoomCamera
 ---@field zoom vec2
 ---@field room_id number
 ---@field zoom_mode table
 ---@field camera_mode table
+
+---@class Transform
+---@field visible boolean
+---@field position vec2
+---@field pivot table
 
 ---@class Animation
 ---@field clips table
@@ -119,17 +94,39 @@
 
 ---@alias Parent table
 
----@alias FacingDirection table
+---@class SpeechBubble
+---@field text string
+---@field timer number
+---@field color table
+---@field offset table
+---@field font_size table
+---@field max_width table
+---@field show_background boolean
+---@field background_color table
 
----@class Interactable
----@field range number
+---@class Script
+---@field script_id number
+---@field data table
+
+---@class Glow
+---@field color vec3
+---@field intensity number
+---@field brightness number
+---@field emission number
+---@field sprite_id number
+
+---@class Light
+---@field pos vec2
+---@field color vec3
+---@field intensity number
+---@field radius number
+---@field spread number
+---@field alpha number
+---@field brightness number
 
 ---@class ComponentId
----@field Light string
+---@field Interactable string
 ---@field CurrentFrame string
----@field Glow string
----@field AudioSource string
----@field Script string
 ---@field Name string
 ---@field PhysicsBody string
 ---@field PlayerProxy string
@@ -145,23 +142,23 @@
 ---@field Walkable string
 ---@field Grounded string
 ---@field Collider string
----@field SpeechBubble string
 ---@field Sprite string
----@field Transform string
+---@field AudioSource string
+---@field FacingDirection string
 ---@field RoomCamera string
+---@field Transform string
 ---@field Animation string
 ---@field Children string
 ---@field Parent string
----@field FacingDirection string
----@field Interactable string
+---@field SpeechBubble string
+---@field Script string
+---@field Glow string
+---@field Light string
 
 local C = {}
 
-C.Light = "Light"
+C.Interactable = "Interactable"
 C.CurrentFrame = "CurrentFrame"
-C.Glow = "Glow"
-C.AudioSource = "AudioSource"
-C.Script = "Script"
 C.Name = "Name"
 C.PhysicsBody = "PhysicsBody"
 C.PlayerProxy = "PlayerProxy"
@@ -177,14 +174,17 @@ C.Velocity = "Velocity"
 C.Walkable = "Walkable"
 C.Grounded = "Grounded"
 C.Collider = "Collider"
-C.SpeechBubble = "SpeechBubble"
 C.Sprite = "Sprite"
-C.Transform = "Transform"
+C.AudioSource = "AudioSource"
+C.FacingDirection = "FacingDirection"
 C.RoomCamera = "RoomCamera"
+C.Transform = "Transform"
 C.Animation = "Animation"
 C.Children = "Children"
 C.Parent = "Parent"
-C.FacingDirection = "FacingDirection"
-C.Interactable = "Interactable"
+C.SpeechBubble = "SpeechBubble"
+C.Script = "Script"
+C.Glow = "Glow"
+C.Light = "Light"
 
 return C

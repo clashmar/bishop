@@ -1,10 +1,10 @@
 // engine_core/src/ecs/inspector_module.rs
-use crate::ecs::ecs::Ecs;
-use crate::ecs::entity::Entity;
 use crate::ecs::inspector_layout::InspectorBodyLayout;
+use crate::storage::editor_config::*;
+use crate::ecs::entity::Entity;
 use crate::game::GameCtxMut;
-use crate::storage::editor_config::{get_inspector_module_expanded, set_inspector_module_expanded};
 use crate::ui::widgets::*;
+use crate::ecs::ecs::Ecs;
 use bishop::prelude::*;
 
 /// Every inspector sub‑module implements this trait.
@@ -76,6 +76,8 @@ pub struct CollapsibleModule<T: InspectorModule> {
 }
 
 impl<T: InspectorModule> CollapsibleModule<T> {
+    const HEADER_BUTTON_TEXT_OFFSET: Vec2 = Vec2::new(0.0, -1.0);
+
     pub fn new(inner: T) -> Self {
         let mut module = Self {
             inner,
@@ -114,6 +116,21 @@ impl<T: InspectorModule> CollapsibleModule<T> {
 
     /// The clickable area that contains the “‑/＋” button, title and remove button.
     const HEADER_HEIGHT: f32 = 24.0;
+
+    fn collapse_button_rect(rect: Rect) -> Rect {
+        Rect::new(rect.x + 4.0, rect.y + 4.0, 16.0, 16.0)
+    }
+
+    fn remove_button_rect(rect: Rect) -> Rect {
+        const BTN_W: f32 = 20.0;
+        const BTN_H: f32 = 20.0;
+        Rect::new(
+            rect.x + rect.w - BTN_W - 4.0,
+            rect.y + (Self::HEADER_HEIGHT - BTN_H) / 2.0,
+            BTN_W,
+            BTN_H,
+        )
+    }
 }
 
 impl<T: InspectorModule> InspectorModule for CollapsibleModule<T> {
@@ -155,10 +172,9 @@ impl<T: InspectorModule> InspectorModule for CollapsibleModule<T> {
         );
 
         // Toggle button (‑ when open, ＋ when closed)
-        let btn = Rect::new(rect.x + 4.0, rect.y + 4.0, 16.0, 16.0);
         let symbol = if self.expanded { "-" } else { "+" };
-        if Button::new(btn, symbol)
-            .text_offset(Vec2::new(-0.3, 1.5))
+        if Button::new(Self::collapse_button_rect(rect), symbol)
+            .text_offset(Self::HEADER_BUTTON_TEXT_OFFSET)
             .blocked(blocked)
             .show(ctx)
         {
@@ -168,16 +184,11 @@ impl<T: InspectorModule> InspectorModule for CollapsibleModule<T> {
 
         // Remove component
         if self.inner.removable() {
-            const BTN_W: f32 = 20.0;
-            const BTN_H: f32 = 20.0;
-            // Right‑aligned, vertically centred in the header
-            let btn_rect = Rect::new(
-                rect.x + rect.w - BTN_W - 4.0,
-                rect.y + (Self::HEADER_HEIGHT - BTN_H) / 2.0,
-                BTN_W,
-                BTN_H,
-            );
-            if Button::new(btn_rect, "x").blocked(blocked).show(ctx) {
+            if Button::new(Self::remove_button_rect(rect), "x")
+                .text_offset(Self::HEADER_BUTTON_TEXT_OFFSET)
+                .blocked(blocked)
+                .show(ctx)
+            {
                 self.remove_requested = true;
                 return; // Don't draw the rest of the module
             }
