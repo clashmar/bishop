@@ -3,7 +3,6 @@
         "Jump": (
             sounds: [
                 "sfx/jump",
-                "sfx/jump",
             ],
             volume: 1.0,
             pitch_variation: 0.0,

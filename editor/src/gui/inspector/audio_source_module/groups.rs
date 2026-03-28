@@ -35,6 +35,7 @@ pub(super) enum PresetAction {
     SyncFrom(String),
     Delete(String),
     Detach,
+    Reattach(String),
 }
 
 impl PresetAction {
@@ -44,6 +45,7 @@ impl PresetAction {
             Self::SyncFrom(name) => format!("Sync From Preset: {name}"),
             Self::Delete(name) => format!("Delete Preset: {name}"),
             Self::Detach => "Detach Preset".to_string(),
+            Self::Reattach(name) => format!("Reattach to Preset: {name}"),
         }
     }
 }
@@ -203,7 +205,7 @@ pub(super) fn assignment_options(
     options
 }
 
-fn handle_assign_option(
+pub(super) fn handle_assign_option(
     source: &mut AudioSource,
     choice: AssignOption,
     module: &mut AudioSourceModule,
@@ -264,6 +266,12 @@ fn handle_assign_option(
                 source.current = Some(existing_group_id);
                 return None;
             }
+            if source
+                .groups
+                .contains_key(&SoundGroupId::Custom(preset_name.clone()))
+            {
+                return Some(existing_group_conflict_warning(&preset_name));
+            }
 
             let Some(preset) = library.presets.get(&preset_name).cloned() else {
                 return Some(format!("Missing preset: {preset_name}"));
@@ -302,7 +310,9 @@ pub(super) fn preset_actions_for_group(
     }
 
     if let Some(group_name) = group_id_name(current_group_id) {
-        if !library.presets.contains_key(group_name) {
+        if library.presets.contains_key(group_name) {
+            actions.push(PresetAction::Reattach(group_name.to_string()));
+        } else {
             actions.push(PresetAction::Save(group_name.to_string()));
         }
     }
@@ -373,6 +383,22 @@ pub(super) fn handle_preset_action(
             apply_source_edit(source, |source| {
                 if let Some(group) = source.groups.get_mut(&current_group_id) {
                     group.preset_link = None;
+                }
+            });
+            None
+        }
+        PresetAction::Reattach(preset_name) => {
+            let Some(preset) = current_sound_preset_library()
+                .presets
+                .get(&preset_name)
+                .cloned()
+            else {
+                return Some(format!("Missing preset: {preset_name}"));
+            };
+
+            apply_source_edit(source, |source| {
+                if let Some(group) = source.groups.get_mut(&current_group_id) {
+                    group.apply_preset(&preset_name, &preset);
                 }
             });
             None
@@ -609,4 +635,10 @@ fn find_group_linked_to_preset(source: &AudioSource, preset_name: &str) -> Optio
             .is_some_and(|link| link.preset_name == preset_name)
             .then(|| group_id.clone())
     })
+}
+
+fn existing_group_conflict_warning(group_name: &str) -> String {
+    format!(
+        "This component already has a sound group named '{group_name}'. Select that group and use Preset Actions to reattach it."
+    )
 }
