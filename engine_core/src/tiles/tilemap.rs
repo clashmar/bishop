@@ -42,8 +42,6 @@ impl TileMap {
         room_position: Vec2,
         grid_size: f32,
     ) {
-        ctx.clear_background(Color::RED);
-
         // Background
         ctx.draw_rectangle(
             room_position.x,

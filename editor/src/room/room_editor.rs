@@ -271,129 +271,126 @@ impl RoomEditor {
         camera: &Camera2D,
         room_id: RoomId,
         game: &mut Game,
+        playtest_skip_to_playing: &mut bool,
         render_system: &mut RenderSystem,
         grid_renderer: &GridRenderer,
     ) {
         self.request_play = false; // This is very important
         self.active_rects.clear();
+        {
+            let mut game_ctx = game.ctx_mut();
+            let grid_size = game_ctx.cur_world.grid_size;
 
-        let mut game_ctx = game.ctx_mut();
-        let grid_size = game_ctx.cur_world.grid_size;
+            // Panel rect for inspector and tilemap editor.
+            const INSPECTOR_W: f32 = 325.0;
+            let inspector_rect = Rect::new(
+                ctx.screen_width() - INSPECTOR_W,
+                0.0,
+                INSPECTOR_W,
+                ctx.screen_height(),
+            );
 
-        // Panel rect for inspector and tilemap editor.
-        const INSPECTOR_W: f32 = 325.0;
-        let inspector_rect = Rect::new(
-            ctx.screen_width() - INSPECTOR_W,
-            0.0,
-            INSPECTOR_W,
-            ctx.screen_height(),
-        );
-
-        match self.mode {
-            RoomEditorMode::Tilemap => {
-                let Some(room) = game_ctx.cur_world.current_room_mut() else {
-                    return;
-                };
-
-                let ecs = &mut *game_ctx.ecs;
-                let asset_manager = &mut *game_ctx.asset_manager;
-
-                self.tilemap_editor.tilemap_panel.set_rect(inspector_rect);
-                self.tilemap_editor
-                    .draw(ctx, camera, room, asset_manager, ecs, grid_size);
-
-                ctx.set_camera(camera);
-                if self.show_grid {
-                    grid::draw_grid(ctx, grid_renderer, camera, grid_size);
-                }
-            }
-            RoomEditorMode::Scene => {
-                let room_camera = get_room_camera_by_id(
-                    ctx,
-                    &*game_ctx.ecs,
-                    room_id,
-                    grid_size,
-                    self.preview_camera_id,
-                );
-
-                let render_cam = if self.view_preview && room_camera.is_some() {
-                    room_camera.as_ref().map(|c| &c.camera).unwrap_or(camera)
-                } else {
-                    camera
-                };
-
-                self.inspector.set_rect(inspector_rect);
-
-                if self.view_preview {
-                    render_system.resize_for_camera(render_cam.zoom);
-                    render_system.begin_scene(ctx);
-                } else {
-                    render_system.resize_to_window(ctx);
-                }
-
-                // Draws everything in the room. Same implementation as the game.
-                render_room(ctx, &mut game_ctx, render_system, render_cam, 0.0, None);
-
-                if self.view_preview {
-                    render_system.end_scene(ctx);
-                    render_system.present_game(ctx);
-                }
-
-                if !self.view_preview {
+            match self.mode {
+                RoomEditorMode::Tilemap => {
                     let Some(room) = game_ctx.cur_world.current_room_mut() else {
                         return;
                     };
 
-                    ctx.set_camera(camera);
+                    let ecs = &mut *game_ctx.ecs;
+                    let asset_manager = &mut *game_ctx.asset_manager;
 
+                    self.tilemap_editor.tilemap_panel.set_rect(inspector_rect);
+                    self.tilemap_editor
+                        .draw(ctx, camera, room, asset_manager, ecs, grid_size);
+
+                    ctx.set_camera(camera);
                     if self.show_grid {
                         grid::draw_grid(ctx, grid_renderer, camera, grid_size);
                     }
+                }
+                RoomEditorMode::Scene => {
+                    let room_camera = get_room_camera_by_id(
+                        ctx,
+                        &*game_ctx.ecs,
+                        room_id,
+                        grid_size,
+                        self.preview_camera_id,
+                    );
 
-                    let ecs = &*game_ctx.ecs;
-                    let asset_manager = &mut *game_ctx.asset_manager;
+                    let render_cam = if self.view_preview && room_camera.is_some() {
+                        room_camera.as_ref().map(|c| &c.camera).unwrap_or(camera)
+                    } else {
+                        camera
+                    };
 
-                    draw_exit_placeholders(ctx, &room.exits, room.position, grid_size);
-                    draw_camera_placeholders(ctx, ecs, room_id, grid_size);
-                    draw_light_placeholders(ctx, ecs, room_id, grid_size);
-                    draw_glow_placeholders(ctx, ecs, asset_manager, room_id, grid_size);
-                    draw_interactable_ranges(ctx, ecs, room_id, grid_size);
+                    self.inspector.set_rect(inspector_rect);
 
-                    // Highlight all selected entities and draw their overlays
-                    for &selected_entity in &self.selected_entities {
-                        if !is_pure_placeholder(ecs, selected_entity) {
-                            highlight_selected_entity(
-                                ctx,
-                                ecs,
-                                selected_entity,
-                                asset_manager,
-                                Color::YELLOW,
-                                grid_size,
-                            );
+                    if self.view_preview {
+                        render_system.resize_for_camera(render_cam.zoom);
+                        render_system.begin_scene(ctx);
+                    } else {
+                        render_system.resize_to_window(ctx);
+                    }
+
+                    render_room(ctx, &mut game_ctx, render_system, render_cam, 0.0, None);
+
+                    if self.view_preview {
+                        render_system.end_scene(ctx);
+                        render_system.present_game(ctx);
+                    }
+
+                    if !self.view_preview {
+                        let Some(room) = game_ctx.cur_world.current_room_mut() else {
+                            return;
+                        };
+
+                        ctx.set_camera(camera);
+
+                        if self.show_grid {
+                            grid::draw_grid(ctx, grid_renderer, camera, grid_size);
                         }
-                        self.draw_camera_viewport(ctx, camera, ecs, selected_entity, room_id);
-                        draw_pivot_marker(ctx, ecs, selected_entity);
-                    }
 
-                    // Draw collider only for single selection
-                    if let Some(selected_entity) = self.single_selected_entity() {
-                        draw_collider(ctx, ecs, selected_entity);
-                    }
+                        let ecs = &*game_ctx.ecs;
+                        let asset_manager = &mut *game_ctx.asset_manager;
 
-                    // Draw box selection rectangle
-                    if self.box_select_active {
-                        if let Some(start) = self.box_select_start {
-                            let mouse_world = coord::mouse_world_pos(ctx, camera);
-                            draw_selection_box(ctx, start, mouse_world);
+                        draw_exit_placeholders(ctx, &room.exits, room.position, grid_size);
+                        draw_camera_placeholders(ctx, ecs, room_id, grid_size);
+                        draw_light_placeholders(ctx, ecs, room_id, grid_size);
+                        draw_glow_placeholders(ctx, ecs, asset_manager, room_id, grid_size);
+                        draw_interactable_ranges(ctx, ecs, room_id, grid_size);
+
+                        for &selected_entity in &self.selected_entities {
+                            if !is_pure_placeholder(ecs, selected_entity) {
+                                highlight_selected_entity(
+                                    ctx,
+                                    ecs,
+                                    selected_entity,
+                                    asset_manager,
+                                    Color::YELLOW,
+                                    grid_size,
+                                );
+                            }
+                            self.draw_camera_viewport(ctx, camera, ecs, selected_entity, room_id);
+                            draw_pivot_marker(ctx, ecs, selected_entity);
+                        }
+
+                        if let Some(selected_entity) = self.single_selected_entity() {
+                            draw_collider(ctx, ecs, selected_entity);
+                        }
+
+                        if self.box_select_active {
+                            if let Some(start) = self.box_select_start {
+                                let mouse_world = coord::mouse_world_pos(ctx, camera);
+                                draw_selection_box(ctx, start, mouse_world);
+                            }
                         }
                     }
                 }
             }
-        }
 
-        // Scene UI
-        if !self.view_preview {
-            self.draw_ui(ctx, &mut game_ctx, camera);
+            if !self.view_preview {
+                self.draw_ui(ctx, &mut game_ctx, camera, playtest_skip_to_playing);
+            }
         }
     }
 

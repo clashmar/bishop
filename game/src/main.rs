@@ -2,21 +2,22 @@
 use bishop::prelude::*;
 use bishop::BishopApp;
 use engine_core::prelude::*;
-use game_lib::engine::{Engine, EngineBuilder, GameInstance};
+use game_lib::engine::Engine;
+use game_lib::startup::{StartupController, StartupSource};
 use std::env;
 use std::fs;
 
 /// Wrapper struct for running the game via BishopApp.
 struct GameApp {
     engine: Option<Engine>,
-    ctx: Option<PlatformContext>,
+    startup: Option<StartupController>,
 }
 
 impl GameApp {
     fn new() -> Self {
         Self {
             engine: None,
-            ctx: None,
+            startup: None,
         }
     }
 }
@@ -24,21 +25,21 @@ impl GameApp {
 impl BishopApp for GameApp {
     async fn init(&mut self, ctx: PlatformContext) {
         onscreen_info!("Initializing game.");
-        self.ctx = Some(ctx.clone());
-
-        let mut builder = EngineBuilder::new();
-
-        let game_instance = {
-            let mut ctx_ref = ctx.borrow_mut();
-            GameInstance::new(&mut *ctx_ref, &builder.lua, &mut builder.camera_manager)
-        };
-
-        self.engine = Some(builder.assemble(game_instance, ctx, false));
+        let _ = ctx;
+        self.startup = Some(StartupController::new(StartupSource::Game));
     }
 
     async fn frame(&mut self, ctx: PlatformContext) {
         if let Some(engine) = &mut self.engine {
             engine.frame(ctx).await;
+            return;
+        }
+
+        if let Some(startup) = &mut self.startup {
+            if let Some(engine) = startup.frame(ctx).await {
+                self.engine = Some(engine);
+                self.startup = None;
+            }
         }
     }
 }

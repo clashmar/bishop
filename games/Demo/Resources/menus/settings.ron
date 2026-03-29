@@ -1,6 +1,11 @@
 (
     id: "settings",
-    background: Dimmed(0.970613),
+    background: SolidColor((
+        r: 0.050980393,
+        g: 0.05882353,
+        b: 0.101960786,
+        a: 1.0,
+    )),
     elements: [
         /*[0]*/ (
             name: "",
@@ -155,5 +160,5 @@
             z_order: 0,
         ),
     ],
-    mode: Paused,
+    mode: FrontEnd,
 )

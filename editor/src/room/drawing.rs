@@ -16,7 +16,13 @@ fn thickness(grid_size: f32) -> f32 {
 
 impl RoomEditor {
     /// Draw static UI for the scene editor
-    pub fn draw_ui(&mut self, ctx: &mut WgpuContext, game_ctx: &mut GameCtxMut, camera: &Camera2D) {
+    pub fn draw_ui(
+        &mut self,
+        ctx: &mut WgpuContext,
+        game_ctx: &mut GameCtxMut,
+        camera: &Camera2D,
+        playtest_skip_to_playing: &mut bool,
+    ) {
         // Reset to static camera
         ctx.set_default_camera();
 
@@ -109,6 +115,33 @@ impl RoomEditor {
                 if menu_button(ctx, play_rect, play_label, false) {
                     self.request_play = true;
                 }
+
+                self.register_rect(play_rect);
+
+                let checkbox_x = play_rect.x + play_rect.w + WIDGET_SPACING;
+                let checkbox_rect =
+                    self.register_rect(Rect::new(checkbox_x, INSET + 6.0, CHECKBOX_SIZE, CHECKBOX_SIZE));
+                let mut startup_mode = !*playtest_skip_to_playing;
+                gui_checkbox(ctx, checkbox_rect, &mut startup_mode);
+                *playtest_skip_to_playing = !startup_mode;
+
+                let startup_label = "Startup";
+                let label_x = checkbox_rect.x + checkbox_rect.w + 6.0;
+                let label_y = checkbox_rect.y + CHECKBOX_SIZE - 2.0;
+                ctx.draw_text(
+                    startup_label,
+                    label_x,
+                    label_y,
+                    DEFAULT_FONT_SIZE_16,
+                    Color::BLACK,
+                );
+                let label_dims = measure_text(ctx, startup_label, DEFAULT_FONT_SIZE_16);
+                self.register_rect(Rect::new(
+                    checkbox_rect.x,
+                    INSET,
+                    checkbox_rect.w + 6.0 + label_dims.width,
+                    BTN_HEIGHT,
+                ));
             }
         }
     }

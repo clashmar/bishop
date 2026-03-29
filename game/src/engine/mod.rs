@@ -51,10 +51,23 @@ pub struct Engine {
 }
 
 /// Represents the current state of the active game.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum GameState {
-    Running,
+    /// A front-end root menu is open and gameplay is frozen.
+    StartMenu,
+    /// Normal gameplay is running.
+    Playing,
+    /// A gameplay pause menu is open and gameplay is frozen.
     Paused,
+}
+
+/// Configures how a loaded session enters the engine.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum EngineEntryMode {
+    /// Open the given root menu and hold gameplay in the start-menu state.
+    StartMenu { menu_id: String },
+    /// Start the session in gameplay.
+    Playing,
 }
 
 impl BishopApp for Engine {
@@ -73,7 +86,7 @@ impl BishopApp for Engine {
             self.diagnostics.handle_input(&mut *ctx.borrow_mut());
         }
 
-        if self.game_state == GameState::Running {
+        if self.game_state == GameState::Playing {
             self.accumulator = (self.accumulator + dt).min(MAX_ACCUM);
 
             while self.accumulator >= FIXED_DT {
@@ -104,7 +117,7 @@ impl BishopApp for Engine {
 }
 
 impl Engine {
-    /// Creates a new Engine with the given configuration.
+    /// Creates a new Engine with the given configuration and session entry mode.
     pub fn new(
         game_instance: Rc<RefCell<GameInstance>>,
         ctx: PlatformContext,
@@ -112,14 +125,17 @@ impl Engine {
         camera_manager: CameraManager,
         grid_size: f32,
         is_playtest: bool,
+        entry_mode: EngineEntryMode,
     ) -> Self {
         let mut menu_manager = MenuManager::new();
         menu_manager.load_templates_from_disk();
         menu_manager.set_action_handler(GameMenuHandler);
 
+        let game_state = apply_entry_mode(&mut menu_manager, entry_mode);
+
         Self {
             game_instance,
-            game_state: GameState::Running,
+            game_state,
             ctx,
             lua,
             camera_manager,
@@ -226,10 +242,83 @@ impl Engine {
 
     /// Resolves the current game state from all active systems.
     fn update_game_state(&mut self) {
-        self.game_state = if self.menu_manager.is_pausing_game() {
+        self.game_state = resolve_game_state(self.game_state.clone(), &self.menu_manager);
+    }
+}
+
+fn apply_entry_mode(menu_manager: &mut MenuManager, entry_mode: EngineEntryMode) -> GameState {
+    match entry_mode {
+        EngineEntryMode::StartMenu { menu_id } => {
+            menu_manager.set_input_policy(MenuInputPolicy::FrontEnd);
+            menu_manager.open_menu(&menu_id);
+            GameState::StartMenu
+        }
+        EngineEntryMode::Playing => GameState::Playing,
+    }
+}
+
+fn resolve_game_state(current_state: GameState, menu_manager: &MenuManager) -> GameState {
+    if matches!(current_state, GameState::StartMenu) && menu_manager.has_active_menu() {
+        return GameState::StartMenu;
+    }
+
+    if menu_manager.is_pausing_game() {
+        GameState::Paused
+    } else {
+        GameState::Playing
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn start_menu_entry_opens_the_root_menu_and_sets_front_end_policy() {
+        let mut menu_manager = MenuManager::new();
+
+        let game_state = apply_entry_mode(
+            &mut menu_manager,
+            EngineEntryMode::StartMenu {
+                menu_id: "settings".to_string(),
+            },
+        );
+
+        assert_eq!(game_state, GameState::StartMenu);
+        assert_eq!(menu_manager.active_menu_id(), Some("settings"));
+        assert_eq!(menu_manager.input_policy(), &MenuInputPolicy::FrontEnd);
+    }
+
+    #[test]
+    fn start_menu_session_stays_frozen_while_the_root_menu_is_open() {
+        let mut menu_manager = MenuManager::new();
+        menu_manager.set_input_policy(MenuInputPolicy::FrontEnd);
+        menu_manager.open_menu("pause");
+
+        assert_eq!(
+            resolve_game_state(GameState::StartMenu, &menu_manager),
+            GameState::StartMenu
+        );
+    }
+
+    #[test]
+    fn start_menu_session_becomes_playing_when_the_root_menu_closes() {
+        let menu_manager = MenuManager::new();
+
+        assert_eq!(
+            resolve_game_state(GameState::StartMenu, &menu_manager),
+            GameState::Playing
+        );
+    }
+
+    #[test]
+    fn gameplay_pause_session_uses_the_paused_state() {
+        let mut menu_manager = MenuManager::new();
+        menu_manager.open_menu("pause");
+
+        assert_eq!(
+            resolve_game_state(GameState::Playing, &menu_manager),
             GameState::Paused
-        } else {
-            GameState::Running
-        };
+        );
     }
 }

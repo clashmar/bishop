@@ -1,6 +1,11 @@
 (
     id: "start",
-    background: Dimmed(0.7),
+    background: SolidColor((
+        r: 0.050980393,
+        g: 0.05882353,
+        b: 0.101960786,
+        a: 1.0,
+    )),
     elements: [
         /*[0]*/ (
             name: "",
@@ -24,9 +29,9 @@
                 children: [
                     /*[0]*/ (
                         element: (
-                            name: "Pause",
+                            name: "Title",
                             kind: Label((
-                                text_key: "Pause",
+                                text_key: "DemoTitle",
                                 font_size: 24.0,
                                 color: (
                                     r: 1.0,
@@ -76,9 +81,9 @@
                     ),
                     /*[2]*/ (
                         element: (
-                            name: "Resume",
+                            name: "StartGame",
                             kind: Button((
-                                text_key: "Resume",
+                                text_key: "StartGame",
                                 action: CloseMenu,
                                 font_size: 20.0,
                                 nav_targets: (
@@ -120,5 +125,5 @@
             z_order: 0,
         ),
     ],
-    mode: Paused,
+    mode: FrontEnd,
 )

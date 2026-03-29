@@ -15,6 +15,8 @@ pub struct MenuManager {
     templates: HashMap<String, MenuTemplate>,
     /// Stack of active menu ids (top = current).
     menu_stack: Vec<String>,
+    /// Policy that determines how global menu shortcuts behave.
+    input_policy: MenuInputPolicy,
     /// Navigation input bindings.
     navigation: MenuNavigation,
     /// Current focus state for keyboard navigation.
@@ -35,6 +37,23 @@ impl Default for MenuManager {
     }
 }
 
+/// Controls how menu shortcuts interact with the active stack.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum MenuInputPolicy {
+    /// Gameplay pause toggles the pause menu with the configured pause shortcut.
+    GameplayPause { pause_menu_id: String },
+    /// Front-end menus ignore the pause shortcut and keep the root menu open until an authored action closes it.
+    FrontEnd,
+}
+
+impl Default for MenuInputPolicy {
+    fn default() -> Self {
+        Self::GameplayPause {
+            pause_menu_id: "pause".to_string(),
+        }
+    }
+}
+
 /// Represents the menu mode for a given menu.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub enum MenuMode {
@@ -43,12 +62,14 @@ pub enum MenuMode {
     Paused,
     /// Overlay menu, game continues (except player movement).
     Overlay,
+    /// Full-screen front-end menu shown before gameplay begins.
+    FrontEnd,
 }
 
 impl MenuMode {
-    /// Returns true if the game logic should be pause.
-    pub fn is_paused(&self) -> bool {
-        matches!(self, MenuMode::Paused)
+    /// Returns true if this mode blocks gameplay updates.
+    pub fn blocks_gameplay(&self) -> bool {
+        matches!(self, MenuMode::Paused | MenuMode::FrontEnd)
     }
 }
 
@@ -58,6 +79,7 @@ impl MenuManager {
         let mut manager = Self {
             templates: HashMap::new(),
             menu_stack: Vec::new(),
+            input_policy: MenuInputPolicy::default(),
             navigation: MenuNavigation::default(),
             focus: MenuFocus::new(0),
             action_handler: Box::new(NoOpActionHandler),
@@ -79,6 +101,16 @@ impl MenuManager {
     /// Sets the custom action handler.
     pub fn set_action_handler<H: MenuActionHandler + 'static>(&mut self, handler: H) {
         self.action_handler = Box::new(handler);
+    }
+
+    /// Sets the policy that governs global menu shortcuts.
+    pub fn set_input_policy(&mut self, input_policy: MenuInputPolicy) {
+        self.input_policy = input_policy;
+    }
+
+    /// Returns the current global menu shortcut policy.
+    pub fn input_policy(&self) -> &MenuInputPolicy {
+        &self.input_policy
     }
 
     /// Registers a menu template.
@@ -128,7 +160,7 @@ impl MenuManager {
 
     /// Returns true if the menu is blocking game updates.
     pub fn is_pausing_game(&self) -> bool {
-        self.mode().is_some_and(|m| m.is_paused())
+        self.mode().is_some_and(|m| m.blocks_gameplay())
     }
 
     /// Returns true if the bottom menu's background fully obscures the game.
@@ -136,7 +168,9 @@ impl MenuManager {
         self.menu_stack
             .first()
             .and_then(|id| self.templates.get(id))
-            .is_some_and(|t| t.background.is_opaque())
+            .is_some_and(|template| {
+                template.mode == MenuMode::FrontEnd || template.background.is_opaque()
+            })
     }
 
     /// Returns true if any menu is active.
@@ -144,14 +178,51 @@ impl MenuManager {
         !self.menu_stack.is_empty()
     }
 
-    /// Handles input for menu toggling and navigation.
-    pub fn handle_input<C: BishopContext>(&mut self, ctx: &mut C) {
-        if self.navigation.pause_pressed(ctx) {
+    /// Returns the id of the active menu, if any.
+    pub fn active_menu_id(&self) -> Option<&str> {
+        self.menu_stack.last().map(String::as_str)
+    }
+
+    fn apply_pause_shortcut(&mut self, pause_pressed: bool) -> bool {
+        if pause_pressed && let MenuInputPolicy::GameplayPause { pause_menu_id } = &self.input_policy {
+            let pause_menu_id = pause_menu_id.clone();
             if self.has_active_menu() {
                 self.close_menu();
             } else {
-                self.open_menu("pause");
+                self.open_menu(&pause_menu_id);
             }
+            return true;
+        }
+        false
+    }
+
+    fn apply_cancel_shortcut(&mut self, cancel_pressed: bool) {
+        if cancel_pressed {
+            match &self.input_policy {
+                MenuInputPolicy::GameplayPause { .. } => self.close_menu(),
+                MenuInputPolicy::FrontEnd => {
+                    if self.menu_stack.len() > 1 {
+                        self.close_menu();
+                    }
+                }
+            }
+        }
+    }
+
+    #[cfg(test)]
+    fn apply_input_shortcuts(&mut self, pause_pressed: bool, cancel_pressed: bool) -> bool {
+        let pause_consumed = self.apply_pause_shortcut(pause_pressed);
+        if !pause_consumed {
+            self.apply_cancel_shortcut(cancel_pressed);
+        }
+        pause_consumed
+    }
+
+    /// Handles input for menu toggling and navigation.
+    pub fn handle_input<C: BishopContext>(&mut self, ctx: &mut C) {
+        let pause_pressed = self.navigation.pause_pressed(ctx);
+        let cancel_pressed = self.navigation.cancel_pressed(ctx);
+        if self.apply_pause_shortcut(pause_pressed) {
             return;
         }
 
@@ -234,7 +305,6 @@ impl MenuManager {
                 self.slider_repeat.reset();
             }
 
-            let cancel_pressed = self.navigation.cancel_pressed(ctx);
             let confirm_pressed = self.navigation.confirm_pressed(ctx);
             let action_to_handle = if confirm_pressed {
                 template
@@ -250,9 +320,7 @@ impl MenuManager {
                 None
             };
 
-            if cancel_pressed {
-                self.close_menu();
-            }
+            self.apply_cancel_shortcut(cancel_pressed);
 
             if let Some(action) = action_to_handle {
                 self.handle_action(action);
@@ -334,5 +402,64 @@ impl MenuManager {
                 Err(e) => onscreen_error!("Failed to parse menu file {:?}: {}", path, e),
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn gameplay_pause_policy_toggles_the_pause_menu_with_pause_key() {
+        let mut manager = MenuManager::new();
+        manager.set_input_policy(MenuInputPolicy::GameplayPause {
+            pause_menu_id: "pause".to_string(),
+        });
+
+        manager.apply_input_shortcuts(true, false);
+        assert_eq!(manager.active_menu_id(), Some("pause"));
+
+        manager.apply_input_shortcuts(true, false);
+        assert_eq!(manager.active_menu_id(), None);
+    }
+
+    #[test]
+    fn front_end_policy_ignores_pause_key_toggle() {
+        let mut manager = MenuManager::new();
+        manager.set_input_policy(MenuInputPolicy::FrontEnd);
+        manager.open_menu("pause");
+
+        manager.apply_input_shortcuts(true, false);
+
+        assert_eq!(manager.active_menu_id(), Some("pause"));
+    }
+
+    #[test]
+    fn front_end_policy_only_closes_submenus_on_cancel() {
+        let mut manager = MenuManager::new();
+        manager.set_input_policy(MenuInputPolicy::FrontEnd);
+        manager.open_menu("pause");
+        manager.open_menu("settings");
+
+        manager.apply_input_shortcuts(false, true);
+        assert_eq!(manager.active_menu_id(), Some("pause"));
+
+        manager.apply_input_shortcuts(false, true);
+        assert_eq!(manager.active_menu_id(), Some("pause"));
+    }
+
+    #[test]
+    fn front_end_mode_hides_game_even_with_non_opaque_background() {
+        let mut manager = MenuManager::new();
+        manager.register_template(MenuTemplate {
+            id: "start".to_string(),
+            background: MenuBackground::None,
+            elements: Vec::new(),
+            mode: MenuMode::FrontEnd,
+        });
+
+        manager.open_menu("start");
+
+        assert!(manager.is_hiding_game());
     }
 }

@@ -12,16 +12,17 @@ use self::preview::{PendingPreview, TrackedPreview, TrackedPreviewSpec};
 #[cfg(test)]
 use self::test_state::{
     AudioManagerTestState, StartedLoopPlayback, StartedOneShotPlayback,
-    StartedTrackedPreviewPlayback,
 };
+#[cfg(all(test, feature = "editor"))]
+use self::test_state::StartedTrackedPreviewPlayback;
 use super::command_queue::{self, AudioCommand, PlayMusicRequest};
 use super::diagnostics::{self, AudioDiagnosticsSnapshot};
-use super::loader::load_wav;
 use super::runtime::{self, MusicStopReason, MusicStoppedEvent};
-use crate::task::{BackgroundService, BackgroundTask};
+use crate::task::{BackgroundService, FileReadPool};
 use bishop::audio::AudioBackend;
 use oddio::{Cycle, Frames, FramesSignal, Gain, Handle, Mixer, Speed, Stop};
 use std::collections::{HashMap, HashSet};
+use std::path::PathBuf;
 use std::sync::Arc;
 
 /// Handle type for active looping music signals.
@@ -30,7 +31,6 @@ type LoopMusicHandle = Handle<Stop<Gain<Cycle<[f32; 2]>>>>;
 type OneShotMusicHandle = Handle<Stop<Gain<FramesSignal<[f32; 2]>>>>;
 /// Handle type for active looping SFX signals.
 type LoopHandle = Handle<Stop<Gain<Speed<Cycle<[f32; 2]>>>>>;
-type AudioLoadTask = BackgroundTask<Result<Arc<Frames<[f32; 2]>>, String>>;
 #[cfg(feature = "editor")]
 type PreviewHandle = Handle<Stop<Gain<Speed<FramesSignal<[f32; 2]>>>>>;
 
@@ -141,8 +141,10 @@ pub struct AudioManager {
     music_ratio: f32,
     /// Decoded audio cache, keyed by sound ID.
     sound_cache: HashMap<String, Arc<Frames<[f32; 2]>>>,
-    /// In-flight background loads, keyed by sound ID.
-    pending_loads: HashMap<String, AudioLoadTask>,
+    /// In-flight file reads, keyed by sound ID.
+    pending_loads: HashMap<String, PathBuf>,
+    /// Shared bounded pool for audio file reads.
+    file_read_pool: FileReadPool,
     /// Pending one-shot playback requests waiting on a cold load.
     pending_one_shots: HashMap<String, Vec<PendingOneShot>>,
     /// Pending loop playback requests waiting on a cold load.
@@ -205,6 +207,7 @@ impl AudioManager {
             music_ratio: 1.0,
             sound_cache: HashMap::new(),
             pending_loads: HashMap::new(),
+            file_read_pool: FileReadPool::new(),
             pending_one_shots: HashMap::new(),
             pending_loops: HashMap::new(),
             #[cfg(test)]

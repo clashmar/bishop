@@ -67,6 +67,10 @@ pub fn create_new_game(name: String) -> Game {
         onscreen_error!("Could not save the new game: {e}");
     }
 
+    if let Err(e) = save_default_front_end_menus() {
+        onscreen_error!("Could not scaffold default menus: {e}");
+    }
+
     game
 }
 
@@ -135,6 +139,77 @@ default_language = "en"
     if let Err(e) = fs::create_dir_all(&en_ui) {
         onscreen_error!("Could not create text/en/ui folder: {e}");
     }
+
+    let start_ui_path = en_ui.join("start.toml");
+    if !start_ui_path.exists() {
+        let content = r#"Title = "NEW GAME"
+Start = "Start"
+Settings = "Settings"
+"#;
+        if let Err(e) = fs::write(&start_ui_path, content) {
+            onscreen_error!("Could not create ui/start.toml: {e}");
+        }
+    }
+
+    let settings_ui_path = en_ui.join("settings.toml");
+    if !settings_ui_path.exists() {
+        let content = r#"Settings = "Settings"
+Master = "Master Volume"
+Music = "Music Volume"
+SFX = "SFX Volume"
+Back = "Back"
+"#;
+        if let Err(e) = fs::write(&settings_ui_path, content) {
+            onscreen_error!("Could not create ui/settings.toml: {e}");
+        }
+    }
+}
+
+fn default_front_end_menus() -> Vec<MenuTemplate> {
+    let start_layout = LayoutConfig::vertical()
+        .with_item_size(240.0, 44.0)
+        .with_spacing(16.0)
+        .with_padding(Padding::uniform(32.0))
+        .with_alignment(Alignment::center());
+
+    let start_menu = MenuBuilder::new("start")
+        .mode(MenuMode::FrontEnd)
+        .background(MenuBackground::SolidColor(Color::new(0.05, 0.06, 0.10, 1.0)))
+        .layout_group(Rect::new(0.0, 0.0, 1.0, 1.0), start_layout, |group| {
+            group
+                .label("Title")
+                .button("Start", MenuAction::CloseMenu)
+                .button("Settings", MenuAction::OpenMenu("settings".to_string()))
+        })
+        .build();
+
+    let settings_layout = LayoutConfig::vertical()
+        .with_item_size(320.0, 44.0)
+        .with_spacing(16.0)
+        .with_padding(Padding::uniform(32.0))
+        .with_alignment(Alignment::center());
+
+    let settings_menu = MenuBuilder::new("settings")
+        .mode(MenuMode::FrontEnd)
+        .background(MenuBackground::SolidColor(Color::new(0.05, 0.06, 0.10, 1.0)))
+        .layout_group(Rect::new(0.0, 0.0, 1.0, 1.0), settings_layout, |group| {
+            group
+                .label("Settings")
+                .slider("Master", "master_volume", 0.0, 1.0, 0.05, 1.0)
+                .slider("Music", "music_volume", 0.0, 1.0, 0.05, 1.0)
+                .slider("SFX", "sfx_volume", 0.0, 1.0, 0.05, 1.0)
+                .button("Back", MenuAction::CloseMenu)
+        })
+        .build();
+
+    vec![start_menu, settings_menu]
+}
+
+fn save_default_front_end_menus() -> io::Result<()> {
+    for template in default_front_end_menus() {
+        save_menu(&template)?;
+    }
+    Ok(())
 }
 
 /// Save a `Game` and all its contents.
@@ -433,4 +508,32 @@ pub fn delete_menu(id: &str) -> io::Result<()> {
         fs::remove_file(path)?;
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn create_new_game_scaffolds_front_end_start_and_settings_menus() {
+        let game_name = format!("MenuScaffold-{}", Uuid::new_v4());
+        let game_dir = game_folder(&game_name);
+
+        create_new_game(game_name.clone());
+
+        let start_path = game_dir.join(RESOURCES_FOLDER).join(MENUS_FOLDER).join("start.ron");
+        let settings_path = game_dir
+            .join(RESOURCES_FOLDER)
+            .join(MENUS_FOLDER)
+            .join("settings.ron");
+
+        let start: MenuTemplate = ron::from_str(&fs::read_to_string(&start_path).unwrap()).unwrap();
+        let settings: MenuTemplate =
+            ron::from_str(&fs::read_to_string(&settings_path).unwrap()).unwrap();
+
+        assert_eq!(start.mode, MenuMode::FrontEnd);
+        assert_eq!(settings.mode, MenuMode::FrontEnd);
+
+        let _ = fs::remove_dir_all(game_dir);
+    }
 }

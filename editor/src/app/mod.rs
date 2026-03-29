@@ -47,6 +47,7 @@ pub struct Editor {
     pub modal: Modal,
     pub toast: Option<Toast>,
     pub playtest_process: Option<PlaytestProcess>,
+    pub playtest_skip_to_playing: bool,
     pub grid_renderer: Option<GridRenderer>,
     pub audio_manager: AudioManager,
 }
@@ -207,7 +208,11 @@ impl Editor {
                 if self.room_editor.request_play {
                     // Write the payload
                     let room = self.get_room_from_id(&room_id);
-                    let payload_path = match write_playtest_payload(room, &self.game) {
+                    let payload_path = match write_playtest_payload(
+                        room,
+                        &self.game,
+                        self.playtest_skip_to_playing,
+                    ) {
                         Ok(p) => p,
                         Err(e) => {
                             onscreen_error!("Could not write playtest payload: {e}");
@@ -279,6 +284,7 @@ impl Editor {
                         &self.camera,
                         room_id,
                         &mut self.game,
+                        &mut self.playtest_skip_to_playing,
                         &mut self.render_system,
                         grid_renderer,
                     );

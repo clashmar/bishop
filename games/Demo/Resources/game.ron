@@ -1,6 +1,6 @@
 (
     version: 1,
-    id: "09f44527-5a15-4fe0-b2b6-10e531a2744c",
+    id: "d8c64687-6039-4647-b9a6-acbb8b916e93",
     name: "Demo",
     ecs: (
         components: [
@@ -10,7 +10,7 @@
             ),
             /*[1]*/ (
                 type_name: "AudioSource",
-                data: "{\n    (3): (\n        groups: {\n            Custom(\"Jump\"): (\n                sounds: [\n                    \"sfx/jump\",\n                ],\n                volume: 1.0,\n                pitch_variation: 0.0,\n                volume_variation: 0.0,\n                looping: false,\n                preset_link: None,\n            ),\n        },\n    ),\n}",
+                data: "{\n    (3): (\n        groups: {\n            Custom(\"Jump\"): (\n                sounds: [\n                    \"sfx/jump\",\n                ],\n                volume: 1.0,\n                pitch_variation: 0.0,\n                volume_variation: 0.0,\n                looping: false,\n                preset_link: Some((\n                    preset_name: \"Jump\",\n                )),\n            ),\n        },\n    ),\n}",
             ),
             /*[2]*/ (
                 type_name: "Children",
@@ -26,106 +26,82 @@
             ),
             /*[5]*/ (
                 type_name: "CurrentRoom",
-                data: "{\n    (1): ((1)),\n    (2): ((1)),\n}",
+                data: "{\n    (1): ((1)),\n    (2): ((1)),\n    (4): ((1)),\n}",
             ),
             /*[6]*/ (
-                type_name: "Damage",
-                data: "{}",
-            ),
-            /*[7]*/ (
-                type_name: "FacingDirection",
-                data: "{}",
-            ),
-            /*[8]*/ (
                 type_name: "Global",
                 data: "{\n    (3): (),\n}",
             ),
-            /*[9]*/ (
+            /*[7]*/ (
                 type_name: "Glow",
                 data: "{}",
             ),
-            /*[10]*/ (
+            /*[8]*/ (
                 type_name: "Grounded",
                 data: "{\n    (3): (false),\n}",
             ),
-            /*[11]*/ (
+            /*[9]*/ (
                 type_name: "Interactable",
                 data: "{}",
             ),
-            /*[12]*/ (
-                type_name: "Kinematic",
-                data: "{}",
-            ),
-            /*[13]*/ (
+            /*[10]*/ (
                 type_name: "Layer",
                 data: "{}",
             ),
-            /*[14]*/ (
+            /*[11]*/ (
                 type_name: "Light",
                 data: "{}",
             ),
-            /*[15]*/ (
+            /*[12]*/ (
                 type_name: "Name",
-                data: "{\n    (1): (\"Camera 1\"),\n    (2): (\"Player Proxy\"),\n    (3): (\"Player\"),\n}",
+                data: "{\n    (1): (\"Camera 1\"),\n    (2): (\"Player Proxy\"),\n    (3): (\"Player\"),\n    (4): (\"Entity\"),\n}",
             ),
-            /*[16]*/ (
-                type_name: "Parent",
-                data: "{}",
-            ),
-            /*[17]*/ (
+            /*[13]*/ (
                 type_name: "PhysicsBody",
                 data: "{\n    (3): (),\n}",
             ),
-            /*[18]*/ (
+            /*[14]*/ (
                 type_name: "Player",
                 data: "{\n    (3): (),\n}",
             ),
-            /*[19]*/ (
+            /*[15]*/ (
                 type_name: "PlayerProxy",
                 data: "{\n    (2): (),\n}",
             ),
-            /*[20]*/ (
+            /*[16]*/ (
                 type_name: "RoomCamera",
-                data: "{\n    (1): (\n        zoom: (0.00390625, 0.0069444445),\n        room_id: (1),\n        zoom_mode: Step,\n        camera_mode: Fixed,\n    ),\n}",
+                data: "{\n    (1): (\n        zoom: (0.015625, 0.027777778),\n        room_id: (1),\n        zoom_mode: Step,\n        camera_mode: Fixed,\n    ),\n}",
             ),
-            /*[21]*/ (
+            /*[17]*/ (
                 type_name: "Script",
                 data: "{\n    (3): (\n        script_id: (1),\n        data: (\n            fields: {\n                \"health\": Int(100),\n                \"jump_speed\": Int(200),\n                \"name\": Text(\"Player\"),\n                \"run_speed\": Int(180),\n                \"speed\": Int(100),\n            },\n        ),\n    ),\n}",
             ),
-            /*[22]*/ (
+            /*[18]*/ (
                 type_name: "Solid",
                 data: "{}",
             ),
-            /*[23]*/ (
-                type_name: "SpeechBubble",
-                data: "{}",
-            ),
-            /*[24]*/ (
+            /*[19]*/ (
                 type_name: "Sprite",
-                data: "{}",
+                data: "{\n    (4): (\n        sprite: (7),\n    ),\n}",
             ),
-            /*[25]*/ (
+            /*[20]*/ (
                 type_name: "SubPixel",
                 data: "{\n    (3): (),\n}",
             ),
-            /*[26]*/ (
+            /*[21]*/ (
                 type_name: "Transform",
-                data: "{\n    (1): (\n        visible: true,\n        position: (64.0, -72.0),\n        pivot: TopLeft,\n    ),\n    (2): (\n        visible: true,\n        position: (28.0, 72.0),\n        pivot: BottomCenter,\n    ),\n}",
+                data: "{\n    (1): (\n        visible: true,\n        position: (64.0, 36.0),\n        pivot: CenterLeft,\n    ),\n    (2): (\n        visible: true,\n        position: (20.0, 72.0),\n        pivot: BottomCenter,\n    ),\n    (4): (\n        visible: true,\n        position: (84.0, 72.0),\n        pivot: BottomCenter,\n    ),\n}",
             ),
-            /*[27]*/ (
+            /*[22]*/ (
                 type_name: "Velocity",
                 data: "{\n    (3): (\n        x: 0.0,\n        y: 0.0,\n    ),\n}",
             ),
-            /*[28]*/ (
-                type_name: "Walkable",
-                data: "{}",
-            ),
         ],
-        next_entity_id: 5,
+        next_entity_id: 4,
     ),
     worlds: [
         /*[0]*/ (
-            id: ("1822dc60-d848-4d74-90d2-9d9748519f3a"),
+            id: ("38f2015c-96c7-4954-862c-a3a8262298b6"),
             name: "new",
             rooms: [
                 /*[0]*/ (
@@ -161,11 +137,12 @@
     asset_manager: (
         sprite_id_to_path: {
             (1): "animations/player/male/Idle.png",
-            (2): "animations/player/male/Jump.png",
-            (3): "animations/player/male/Walk.png",
-            (4): "animations/player/male/Fidget.png",
+            (2): "animations/player/male/Fidget.png",
+            (3): "animations/player/male/Fall.png",
+            (4): "animations/player/male/Jump.png",
             (5): "animations/player/male/Run.png",
-            (6): "animations/player/male/Fall.png",
+            (6): "animations/player/male/Walk.png",
+            (7): "sprites/cat.png",
         },
         tile_defs: {},
         next_tile_def_id: 1,
@@ -176,6 +153,7 @@
             (4): 1,
             (5): 1,
             (6): 1,
+            (7): 1,
         },
     ),
     script_manager: (
@@ -186,7 +164,7 @@
             (1): 1,
         },
     ),
-    current_world_id: ("1822dc60-d848-4d74-90d2-9d9748519f3a"),
+    current_world_id: ("38f2015c-96c7-4954-862c-a3a8262298b6"),
     game_map: (),
     next_room_id: 1,
 )

@@ -18,11 +18,10 @@ impl PlaytestProcess {
     /// Spawns a new playtest process with the given executable and payload paths.
     /// Output from stdout/stderr is captured and can be polled via `poll()`.
     pub fn spawn(exe_path: &Path, payload_path: &Path) -> io::Result<Self> {
-        let mut child = Command::new(exe_path)
-            .arg(payload_path)
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .spawn()?;
+        let mut command = Command::new(exe_path);
+        command.arg(payload_path);
+
+        let mut child = command.stdout(Stdio::piped()).stderr(Stdio::piped()).spawn()?;
 
         let stdout = child
             .stdout

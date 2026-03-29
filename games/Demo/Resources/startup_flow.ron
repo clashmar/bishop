@@ -1,0 +1,25 @@
+(
+    loading: (
+        splash_screens: [
+            (
+                min_duration_secs: 2.0,
+                background_color: (0.04, 0.05, 0.08, 1.0),
+                content: Text(
+                    text: "BISHOP DEMO",
+                    font_size: 56.0,
+                    color: (0.95, 0.96, 1.0, 1.0),
+                ),
+            ),
+        ],
+        fallback_screen: (
+            min_duration_secs: 1.0,
+            background_color: (0.0, 0.0, 0.0, 1.0),
+            content: Text(
+                text: "Loading",
+                font_size: 48.0,
+                color: (1.0, 1.0, 1.0, 1.0),
+            ),
+        ),
+    ),
+    start_menu_id: "start",
+)

@@ -154,6 +154,14 @@ impl Game {
         self.init_text_manager();
     }
 
+    /// Initializes runtime state for the game without eagerly hydrating all textures.
+    pub fn initialize_runtime(&mut self, lua: &Lua) {
+        set_game_name(self.name.clone());
+        AssetManager::init_runtime_manager(self);
+        ScriptManager::init_manager(self, lua);
+        self.init_text_manager();
+    }
+
     /// Initializes the text manager with the correct path.
     pub fn init_text_manager(&mut self) {
         let text_root = text_folder();
