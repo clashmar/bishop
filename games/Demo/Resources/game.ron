@@ -18,11 +18,11 @@
             ),
             /*[3]*/ (
                 type_name: "Collider",
-                data: "{\n    (3): (\n        width: 16.0,\n        height: 16.0,\n    ),\n}",
+                data: "{\n    (3): (\n        width: 6.0,\n        height: 16.0,\n    ),\n}",
             ),
             /*[4]*/ (
                 type_name: "CurrentFrame",
-                data: "{}",
+                data: "{\n    (3): (),\n}",
             ),
             /*[5]*/ (
                 type_name: "CurrentRoom",

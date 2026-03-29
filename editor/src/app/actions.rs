@@ -153,13 +153,14 @@ impl Editor {
                     }
                 },
                 EditorAction::ChangeSaveRoot => match change_save_root() {
-                    Some(new_root) => {
+                    SaveRootResult::Changed(new_root) => {
                         self.toast = Some(Toast::new(
                             format!("Save root moved to: {}", new_root.display()),
                             2.5,
                         ));
                     }
-                    None => {
+                    SaveRootResult::Cancelled => {}
+                    SaveRootResult::Failed => {
                         self.toast = Some(Toast::new("Failed to update save root.", 2.0));
                     }
                 },
