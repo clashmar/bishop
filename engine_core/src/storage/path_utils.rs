@@ -65,6 +65,16 @@ pub fn audio_folder() -> PathBuf {
     resources_folder_current().join(AUDIO_FOLDER)
 }
 
+/// Path to the sound effects subfolder inside the audio folder (Editor/Game).
+pub fn sfx_folder() -> PathBuf {
+    audio_folder().join(SFX_FOLDER)
+}
+
+/// Path to the music subfolder inside the audio folder (Editor/Game).
+pub fn music_folder() -> PathBuf {
+    audio_folder().join(MUSIC_FOLDER)
+}
+
 /// Path to the windows folder inside the game folder (Editor).
 pub fn windows_folder() -> PathBuf {
     game_folder(&game_name()).join(WINDOWS_FOLDER)

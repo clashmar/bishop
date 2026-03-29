@@ -1,16 +1,16 @@
 (
     version: 1,
-    id: "e3e9e51b-5181-4133-b351-c208d6765eb2",
+    id: "09f44527-5a15-4fe0-b2b6-10e531a2744c",
     name: "Demo",
     ecs: (
         components: [
             /*[0]*/ (
                 type_name: "Animation",
-                data: "{\n    (3): (\n        clips: {\n            Idle: (\n                frame_size: (6.0, 16.0),\n                cols: 5,\n                rows: 1,\n                fps: 10.0,\n                frame_durations: [],\n                looping: true,\n                offset: (0.0, 0.0),\n                mirrored: true,\n            ),\n            Walk: (\n                frame_size: (10.0, 16.0),\n                cols: 4,\n                rows: 1,\n                fps: 10.0,\n                frame_durations: [],\n                looping: true,\n                offset: (0.0, 0.0),\n                mirrored: true,\n            ),\n            Run: (\n                frame_size: (12.0, 16.0),\n                cols: 8,\n                rows: 1,\n                fps: 10.0,\n                frame_durations: [],\n                looping: true,\n                offset: (0.0, 0.0),\n                mirrored: true,\n            ),\n            Jump: (\n                frame_size: (10.0, 16.0),\n                cols: 4,\n                rows: 1,\n                fps: 10.0,\n                frame_durations: [],\n                looping: true,\n                offset: (0.0, 0.0),\n                mirrored: true,\n            ),\n            Fall: (\n                frame_size: (6.0, 14.0),\n                cols: 1,\n                rows: 1,\n                fps: 10.0,\n                frame_durations: [],\n                looping: true,\n                offset: (0.0, 0.0),\n                mirrored: true,\n            ),\n            Custom(\"Fidget\"): (\n                frame_size: (6.0, 15.0),\n                cols: 8,\n                rows: 1,\n                fps: 10.0,\n                frame_durations: [],\n                looping: true,\n                offset: (0.0, 0.0),\n                mirrored: true,\n            ),\n        },\n        variant: (\"/Users/lash/Library/Application Support/Bishop Engine/games/Bishop/games/Demo/Resources/assets/animations/player/male\"),\n    ),\n}",
+                data: "{}",
             ),
             /*[1]*/ (
                 type_name: "AudioSource",
-                data: "{\n    (3): (\n        groups: {\n            Custom(\"Jump\"): (\n                sounds: [\n                    \"sfx/jump\",\n                ],\n                volume: 1.0,\n                pitch_variation: 0.0,\n                volume_variation: 0.0,\n                looping: false,\n                preset_link: Some((\n                    preset_name: \"Jump\",\n                )),\n            ),\n        },\n    ),\n    (4): (\n        groups: {\n            Custom(\"Jump\"): (\n                sounds: [\n                    \"sfx/jump\",\n                ],\n                volume: 1.0,\n                pitch_variation: 0.0,\n                volume_variation: 0.0,\n                looping: false,\n                preset_link: Some((\n                    preset_name: \"Jump\",\n                )),\n            ),\n        },\n    ),\n}",
+                data: "{}",
             ),
             /*[2]*/ (
                 type_name: "Children",
@@ -22,11 +22,11 @@
             ),
             /*[4]*/ (
                 type_name: "CurrentFrame",
-                data: "{\n    (3): (),\n}",
+                data: "{}",
             ),
             /*[5]*/ (
                 type_name: "CurrentRoom",
-                data: "{\n    (1): ((1)),\n    (2): ((1)),\n    (4): ((1)),\n}",
+                data: "{\n    (1): ((1)),\n    (2): ((1)),\n}",
             ),
             /*[6]*/ (
                 type_name: "Global",
@@ -54,7 +54,7 @@
             ),
             /*[12]*/ (
                 type_name: "Name",
-                data: "{\n    (1): (\"Camera 1\"),\n    (2): (\"Player Proxy\"),\n    (3): (\"Player\"),\n    (4): (\"Entity\"),\n}",
+                data: "{\n    (1): (\"Camera 1\"),\n    (2): (\"Player Proxy\"),\n    (3): (\"Player\"),\n}",
             ),
             /*[13]*/ (
                 type_name: "PhysicsBody",
@@ -70,11 +70,11 @@
             ),
             /*[16]*/ (
                 type_name: "RoomCamera",
-                data: "{\n    (1): (\n        zoom: (0.0078125, 0.013888889),\n        room_id: (1),\n        zoom_mode: Step,\n        camera_mode: Fixed,\n    ),\n}",
+                data: "{\n    (1): (\n        zoom: (0.015625, 0.027777778),\n        room_id: (1),\n        zoom_mode: Step,\n        camera_mode: Fixed,\n    ),\n}",
             ),
             /*[17]*/ (
                 type_name: "Script",
-                data: "{\n    (3): (\n        script_id: (1),\n        data: (\n            fields: {\n                \"health\": Int(100),\n                \"jump_speed\": Int(200),\n                \"name\": Text(\"Player\"),\n                \"run_speed\": Int(180),\n                \"speed\": Int(100),\n            },\n        ),\n    ),\n}",
+                data: "{}",
             ),
             /*[18]*/ (
                 type_name: "Solid",
@@ -82,7 +82,7 @@
             ),
             /*[19]*/ (
                 type_name: "Sprite",
-                data: "{\n    (4): (\n        sprite: (7),\n    ),\n}",
+                data: "{}",
             ),
             /*[20]*/ (
                 type_name: "SubPixel",
@@ -90,34 +90,33 @@
             ),
             /*[21]*/ (
                 type_name: "Transform",
-                data: "{\n    (1): (\n        visible: true,\n        position: (64.0, 0.0),\n        pivot: TopLeft,\n    ),\n    (2): (\n        visible: true,\n        position: (20.0, 72.0),\n        pivot: BottomCenter,\n    ),\n    (4): (\n        visible: true,\n        position: (92.0, 72.0),\n        pivot: BottomCenter,\n    ),\n}",
+                data: "{\n    (1): (\n        visible: true,\n        position: (64.0, 36.0),\n        pivot: CenterLeft,\n    ),\n    (2): (\n        visible: true,\n        position: (28.0, 72.0),\n        pivot: BottomCenter,\n    ),\n}",
             ),
             /*[22]*/ (
                 type_name: "Velocity",
                 data: "{\n    (3): (\n        x: 0.0,\n        y: 0.0,\n    ),\n}",
             ),
         ],
-        next_entity_id: 4,
+        next_entity_id: 3,
     ),
     worlds: [
         /*[0]*/ (
-            id: ("d1aef41e-2f65-4c7d-a4ff-f9342fdf2da3"),
+            id: ("1822dc60-d848-4d74-90d2-9d9748519f3a"),
             name: "new",
             rooms: [
                 /*[0]*/ (
                     id: (1),
                     name: "untitled",
-                    position: (-64.0, -72.0),
-                    size: (32.0, 18.0),
+                    position: (0.0, 0.0),
+                    size: (16.0, 9.0),
                     exits: [],
                     adjacent_rooms: [],
                     variants: [
                         /*[0]*/ (
                             id: "default",
                             tilemap: (
-                                width: 32,
-                                height: 18,
-                                tiles: "22,17,1;23,17,1;24,17,1;25,17,1;",
+                                width: 16,
+                                height: 9,
                                 background: (0.78, 0.78, 0.78, 1.0),
                             ),
                         ),
@@ -136,41 +135,16 @@
         ),
     ],
     asset_manager: (
-        sprite_id_to_path: {
-            (1): "/Users/lash/Library/Application Support/Bishop Engine/games/Bishop/games/Demo/Resources/assets/animations/player/male/Idle.png",
-            (2): "/Users/lash/Library/Application Support/Bishop Engine/games/Bishop/games/Demo/Resources/assets/animations/player/male/Fall.png",
-            (3): "/Users/lash/Library/Application Support/Bishop Engine/games/Bishop/games/Demo/Resources/assets/animations/player/male/Run.png",
-            (4): "/Users/lash/Library/Application Support/Bishop Engine/games/Bishop/games/Demo/Resources/assets/animations/player/male/Fidget.png",
-            (5): "/Users/lash/Library/Application Support/Bishop Engine/games/Bishop/games/Demo/Resources/assets/animations/player/male/Jump.png",
-            (6): "/Users/lash/Library/Application Support/Bishop Engine/games/Bishop/games/Demo/Resources/assets/animations/player/male/Walk.png",
-            (7): "/Users/lash/Library/Application Support/Bishop Engine/games/Bishop/games/Demo/Resources/assets/sprites/cat.png",
-            (8): "/Users/lash/Library/Application Support/Bishop Engine/games/Bishop/games/Demo/Resources/assets/sprites/tiles/Tile24.png",
-        },
-        tile_defs: {
-            (1): (
-                sprite_id: (8),
-                components: [
-                    /*[0]*/ Walkable(true),
-                    /*[1]*/ Solid(true),
-                ],
-            ),
-        },
-        next_tile_def_id: 2,
-        ref_counts: {
-            (1): 1,
-            (7): 1,
-            (8): 1,
-        },
+        sprite_id_to_path: {},
+        tile_defs: {},
+        next_tile_def_id: 1,
+        ref_counts: {},
     ),
     script_manager: (
-        script_id_to_path: {
-            (1): "player.lua",
-        },
-        ref_counts: {
-            (1): 1,
-        },
+        script_id_to_path: {},
+        ref_counts: {},
     ),
-    current_world_id: ("d1aef41e-2f65-4c7d-a4ff-f9342fdf2da3"),
+    current_world_id: ("1822dc60-d848-4d74-90d2-9d9748519f3a"),
     game_map: (),
     next_room_id: 1,
 )
