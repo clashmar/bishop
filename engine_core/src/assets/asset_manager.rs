@@ -123,16 +123,13 @@ impl AssetManager {
         }
 
         // Look up the original path and load lazily.
-        let path = match self.sprite_id_to_path.get(&id) {
-            Some(p) => p.clone(),
-            None => {
-                return self
-                    .empty_texture
-                    .get_or_insert_with(|| loader.empty_texture());
-            }
-        };
+        if !self.sprite_id_to_path.contains_key(&id) {
+            return self
+                .empty_texture
+                .get_or_insert_with(|| loader.empty_texture());
+        }
 
-        let _ = self.init_texture(loader, &path);
+        let _ = self.ensure_loaded(loader, id);
 
         if self.textures.contains_key(&id) {
             self.textures.get(&id).unwrap()
@@ -151,10 +148,6 @@ impl AssetManager {
         let p = path.as_ref();
         if p.to_string_lossy().trim().is_empty() {
             return None;
-        }
-
-        if let Some(&id) = self.path_to_sprite_id.get(p) {
-            return Some(id);
         }
 
         match self.init_texture(loader, p) {
@@ -395,5 +388,98 @@ impl AssetManager {
                 def.sprite_id = new_sprite_id;
             }
         }
+    }
+
+    /// Ensures the texture for `id` is present in memory.
+    pub fn ensure_loaded(
+        &mut self,
+        loader: &impl TextureLoader,
+        id: SpriteId,
+    ) -> Result<(), String> {
+        if id.0 == 0 || self.textures.contains_key(&id) {
+            return Ok(());
+        }
+
+        let Some(path) = self.sprite_id_to_path.get(&id).cloned() else {
+            return Err(format!("Unknown sprite id: {:?}", id));
+        };
+
+        let texture = Self::load_texture_from_game(loader, &path)?;
+        self.textures.insert(id, texture);
+        self.path_to_sprite_id.insert(path, id);
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::cell::Cell;
+
+    struct CountingFailingLoader {
+        load_calls: Cell<usize>,
+    }
+
+    impl CountingFailingLoader {
+        fn new() -> Self {
+            Self {
+                load_calls: Cell::new(0),
+            }
+        }
+    }
+
+    impl TextureLoader for CountingFailingLoader {
+        fn load_texture_from_bytes(&self, _data: &[u8]) -> Result<Texture2D, String> {
+            panic!("byte loading is not used in asset manager tests")
+        }
+
+        fn load_texture_from_path(&self, _path: &str) -> Result<Texture2D, String> {
+            self.load_calls.set(self.load_calls.get() + 1);
+            Err("expected test load failure".to_string())
+        }
+
+        fn empty_texture(&self) -> Texture2D {
+            panic!("empty_texture is not used in asset manager tests")
+        }
+    }
+
+    #[test]
+    fn get_or_load_retries_loader_for_registered_path_with_missing_texture() {
+        let loader = CountingFailingLoader::new();
+        let mut asset_manager = AssetManager::default();
+        let path = PathBuf::from("sprites/player.png");
+        let sprite_id = SpriteId(7);
+
+        asset_manager
+            .path_to_sprite_id
+            .insert(path.clone(), sprite_id);
+        asset_manager
+            .sprite_id_to_path
+            .insert(sprite_id, path.clone());
+
+        let result = asset_manager.get_or_load(&loader, &path);
+
+        assert!(result.is_none());
+        assert_eq!(loader.load_calls.get(), 1);
+    }
+
+    #[test]
+    fn ensure_loaded_retries_loader_for_registered_sprite_id_with_missing_texture() {
+        let loader = CountingFailingLoader::new();
+        let mut asset_manager = AssetManager::default();
+        let path = PathBuf::from("sprites/player.png");
+        let sprite_id = SpriteId(7);
+
+        asset_manager
+            .path_to_sprite_id
+            .insert(path.clone(), sprite_id);
+        asset_manager
+            .sprite_id_to_path
+            .insert(sprite_id, path.clone());
+
+        let result = asset_manager.ensure_loaded(&loader, sprite_id);
+
+        assert!(result.is_err());
+        assert_eq!(loader.load_calls.get(), 1);
     }
 }
