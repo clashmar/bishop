@@ -86,9 +86,6 @@ impl LogHistory {
 
 pub static LOG_HISTORY: Lazy<Mutex<LogHistory>> = Lazy::new(|| Mutex::new(LogHistory::default()));
 
-// Global mutable buffer that stores the most recent message (kept for backwards compatibility).
-pub static LAST_LOG: Lazy<Mutex<String>> = Lazy::new(|| Mutex::new(String::new()));
-
 /// Returns the current time formatted as `HH:MM:SS.mmm`.
 pub fn now_str() -> String {
     format!("{}", DeferredNow::new().format("%H:%M:%S%.3f"))
@@ -106,9 +103,6 @@ macro_rules! onscreen_log {
         {
             let mut history = $crate::logging::LOG_HISTORY.lock().unwrap();
             history.push($lvl, msg.clone(), time, file!(), line!());
-            let mut buf = $crate::logging::LAST_LOG.lock().unwrap();
-            *buf = msg;
-            drop(buf);
             drop(history);
         }
     }};
