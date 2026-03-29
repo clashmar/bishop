@@ -66,7 +66,10 @@ impl Editor {
         };
 
         // Initialize editor icon textures using the graphics context.
-        crate::editor_assets::init_editor_icons(&ctx.borrow());
+        {
+            let ctx_ref = ctx.borrow();
+            crate::editor_assets::init_editor_icons(&*ctx_ref);
+        }
 
         // Register all panels
         with_panel_manager(|panel_manager| {

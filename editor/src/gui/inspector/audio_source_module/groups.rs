@@ -45,7 +45,7 @@ impl PresetAction {
             Self::SyncFrom(name) => format!("Sync From Preset: {name}"),
             Self::Delete(name) => format!("Delete Preset: {name}"),
             Self::Detach => "Detach Preset".to_string(),
-            Self::Reattach(name) => format!("Reattach to Preset: {name}"),
+            Self::Reattach(name) => format!("Attach to Preset: {name}"),
         }
     }
 }

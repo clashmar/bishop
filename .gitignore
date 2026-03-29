@@ -1,4 +1,5 @@
 /target
+/.worktrees
 /.claude
 .DS_Store
 CLAUDE.md
