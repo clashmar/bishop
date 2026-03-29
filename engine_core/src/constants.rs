@@ -10,7 +10,7 @@ pub const MAX_ACCUM: f32 = 0.05;
 pub const DEFAULT_GRID_SIZE: f32 = 8.0;
 pub const MINIMUM_TILE_SIZE: f32 = 5.0;
 
-/// Base tile size for editor scaling.git 
+/// Base tile size for editor scaling.git
 pub const BASE_GRID_SIZE: f32 = 32.0;
 
 pub const DEFAULT_ROOM_SIZE: Vec2 = Vec2::new(16.0, 9.0);

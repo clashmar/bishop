@@ -21,6 +21,16 @@ pub struct EditorConfig {
     #[cfg(feature = "editor")]
     #[serde(default)]
     pub inspector_module_expanded: BTreeMap<String, bool>,
+    #[cfg(feature = "editor")]
+    #[serde(default)]
+    pub panel_positions: BTreeMap<String, PanelPosition>,
+}
+
+#[cfg(feature = "editor")]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq)]
+pub struct PanelPosition {
+    pub x: f32,
+    pub y: f32,
 }
 
 /// Saves the editor config .ron file from the in memory config.
@@ -71,6 +81,35 @@ pub fn set_inspector_module_expanded(title: &str, expanded: bool) {
     }
 }
 
+#[cfg(feature = "editor")]
+pub fn get_panel_position(id: &str) -> Option<PanelPosition> {
+    match EDITOR_CONFIG.read() {
+        Ok(cfg) => cfg.panel_positions.get(id).copied(),
+        Err(poison) => {
+            onscreen_error!("Editor config lock poisoned: {poison}");
+            None
+        }
+    }
+}
+
+#[cfg(feature = "editor")]
+pub fn set_panel_position(id: &str, position: PanelPosition) {
+    let (snapshot, path) = match EDITOR_CONFIG.write() {
+        Ok(mut cfg) => {
+            cfg.panel_positions.insert(id.to_string(), position);
+            (cfg.clone(), config_path())
+        }
+        Err(poison) => {
+            onscreen_error!("Editor config lock poisoned: {poison}");
+            return;
+        }
+    };
+
+    if let Err(e) = save_config_to_path(&snapshot, &path) {
+        onscreen_error!("Error saving panel position state: {e}");
+    }
+}
+
 /// Returns the app_dir for the program.
 pub fn app_dir() -> PathBuf {
     // TODO: Insert 'company' name
@@ -117,6 +156,7 @@ mod tests {
     fn defaults_have_empty_inspector_map() {
         let config = EditorConfig::default();
         assert!(config.inspector_module_expanded.is_empty());
+        assert!(config.panel_positions.is_empty());
     }
 
     #[test]
@@ -135,11 +175,25 @@ mod tests {
     }
 
     #[test]
+    fn panel_positions_deserialize_if_present() {
+        let ron = r#"(panel_positions: { "Console": (x: 120.5, y: 64.0) })"#;
+        let config: EditorConfig = from_str(ron).unwrap();
+
+        assert_eq!(
+            config.panel_positions.get("Console"),
+            Some(&PanelPosition { x: 120.5, y: 64.0 })
+        );
+    }
+
+    #[test]
     fn save_config_to_path_writes_inspector_map_without_global_lock() {
         let mut config = EditorConfig::default();
         config
             .inspector_module_expanded
             .insert("Transform".to_string(), false);
+        config
+            .panel_positions
+            .insert("Console".to_string(), PanelPosition { x: 42.0, y: 88.0 });
 
         let path =
             std::env::temp_dir().join(format!("bishop-editor-config-{}.ron", Uuid::new_v4()));
@@ -151,6 +205,10 @@ mod tests {
         assert_eq!(
             loaded.inspector_module_expanded.get("Transform"),
             Some(&false)
+        );
+        assert_eq!(
+            loaded.panel_positions.get("Console"),
+            Some(&PanelPosition { x: 42.0, y: 88.0 })
         );
 
         let _ = fs::remove_file(path);

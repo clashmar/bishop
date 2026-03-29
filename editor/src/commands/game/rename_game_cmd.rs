@@ -20,25 +20,29 @@ impl RenameGameCmd {
 
 impl EditorCommand for RenameGameCmd {
     fn execute(&mut self) {
-        with_editor(|editor| match rename_game(&mut editor.game, &self.new_name) {
-            Ok(()) => {
-                editor.save();
-            }
-            Err(err) => {
-                push_toast(format!("Failed to rename game: {err}"), 3.0);
-            }
-        });
+        with_editor(
+            |editor| match rename_game(&mut editor.game, &self.new_name) {
+                Ok(()) => {
+                    editor.save();
+                }
+                Err(err) => {
+                    push_toast(format!("Failed to rename game: {err}"), 3.0);
+                }
+            },
+        );
     }
 
     fn undo(&mut self) {
-        with_editor(|editor| match rename_game(&mut editor.game, &self.old_name) {
-            Ok(()) => {
-                editor.save();
-            }
-            Err(err) => {
-                push_toast(format!("Failed to rename game: {err}"), 3.0);
-            }
-        });
+        with_editor(
+            |editor| match rename_game(&mut editor.game, &self.old_name) {
+                Ok(()) => {
+                    editor.save();
+                }
+                Err(err) => {
+                    push_toast(format!("Failed to rename game: {err}"), 3.0);
+                }
+            },
+        );
     }
 
     fn mode(&self) -> EditorMode {

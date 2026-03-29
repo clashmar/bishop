@@ -513,7 +513,6 @@ impl TileMapEditor {
         self.adjacent_exits.clear();
         self.sub_mode_rect = None;
     }
-
 }
 
 fn resize_result_message(result: ResizeResult) -> Option<&'static str> {

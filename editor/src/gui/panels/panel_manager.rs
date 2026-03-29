@@ -1,12 +1,13 @@
 // editor/src/gui/panels/panel_manager.rs
+use crate::Editor;
 use crate::app::EditorMode;
 use crate::gui::panels::console_panel::ConsolePanel;
 use crate::gui::panels::diagnostics_panel::DiagnosticsPanel;
 use crate::gui::panels::generic_panel::*;
 use crate::gui::panels::hierarchy_panel::HierarchyPanel;
 use crate::with_panel_manager;
-use crate::Editor;
 use bishop::prelude::*;
+use engine_core::storage::editor_config::{PanelPosition, get_panel_position, set_panel_position};
 use std::collections::HashMap;
 
 pub enum PanelMode {
@@ -43,6 +44,12 @@ impl PanelManager {
     }
 
     pub fn register(&mut self, panel: GenericPanel, modes: Vec<PanelMode>) {
+        let mut panel = panel;
+        if let Some(position) = get_panel_position(panel.title) {
+            panel.rect.x = position.x;
+            panel.rect.y = position.y;
+        }
+
         self.panel_modes.insert(panel.title, modes);
         self.panels.push((panel.title, panel));
     }
@@ -111,8 +118,19 @@ impl PanelManager {
 
             // Block this panel if the mouse is over a different (higher-z) panel
             let blocked = topmost_panel_at_mouse.is_some() && topmost_panel_at_mouse != Some(*id);
+            let was_dragging = panel.dragging;
 
             panel.update_and_draw(ctx, editor, blocked);
+
+            if was_dragging && !panel.dragging {
+                set_panel_position(
+                    id,
+                    PanelPosition {
+                        x: panel.rect.x,
+                        y: panel.rect.y,
+                    },
+                );
+            }
         }
     }
 

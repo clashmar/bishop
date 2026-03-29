@@ -26,7 +26,10 @@ pub enum Direction {
 impl Direction {
     /// Returns true if the direction has a leftward horizontal component.
     pub fn has_leftward_component(&self) -> bool {
-        matches!(self, Direction::Left | Direction::UpLeft | Direction::DownLeft)
+        matches!(
+            self,
+            Direction::Left | Direction::UpLeft | Direction::DownLeft
+        )
     }
 
     /// Returns true if the direction has a rightward horizontal component.
@@ -44,7 +47,10 @@ mod tests {
 
     #[test]
     fn direction_deserializes_from_snake_case_values() {
-        assert_eq!(ron::de::from_str::<Direction>("up_left").unwrap(), Direction::UpLeft);
+        assert_eq!(
+            ron::de::from_str::<Direction>("up_left").unwrap(),
+            Direction::UpLeft
+        );
         assert_eq!(
             ron::de::from_str::<Direction>("down_right").unwrap(),
             Direction::DownRight

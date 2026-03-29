@@ -418,7 +418,6 @@ impl RoomEditor {
         self.tilemap_sub_mode = TilemapEditorMode::Tiles;
         self.sub_mode_rect = None;
     }
-
 }
 
 impl SubEditor for RoomEditor {

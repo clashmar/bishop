@@ -507,8 +507,7 @@ pub struct SetFacingMethod;
 impl LuaMethod<EntityHandle> for SetFacingMethod {
     fn register<M: UserDataMethods<EntityHandle>>(&self, methods: &mut M) {
         methods.add_method(SET_FACING, |_lua, this, direction: String| {
-            let direction = parse_direction(&direction)
-                .map_err(mlua::Error::RuntimeError)?;
+            let direction = parse_direction(&direction).map_err(mlua::Error::RuntimeError)?;
             push_command(Box::new(SetFacingCmd {
                 entity: this.entity,
                 direction,

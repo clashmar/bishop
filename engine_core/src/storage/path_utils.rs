@@ -469,10 +469,8 @@ mod tests {
 
     #[test]
     fn happy_path_returns_changed_and_updates_config() {
-        let tmp = std::env::temp_dir().join(format!(
-            "bishop-test-save-root-{}",
-            uuid::Uuid::new_v4()
-        ));
+        let tmp =
+            std::env::temp_dir().join(format!("bishop-test-save-root-{}", uuid::Uuid::new_v4()));
 
         let result = apply_save_root_change(Some(tmp.clone()));
         let expected_root = build_save_root(&tmp);

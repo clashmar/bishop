@@ -64,7 +64,10 @@ impl EditorCommand for ChangeGridSizeCmd {
                 transform.position *= scale_factor;
             }
 
-            push_toast(format!("World grid size changed to {}", self.new_grid_size), 2.5);
+            push_toast(
+                format!("World grid size changed to {}", self.new_grid_size),
+                2.5,
+            );
         });
     }
 
@@ -90,7 +93,10 @@ impl EditorCommand for ChangeGridSizeCmd {
                 }
             }
 
-            push_toast(format!("World grid size restored to {}", self.old_grid_size), 2.5);
+            push_toast(
+                format!("World grid size restored to {}", self.old_grid_size),
+                2.5,
+            );
         });
     }
 
