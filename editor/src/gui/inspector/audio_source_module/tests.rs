@@ -129,7 +129,7 @@ fn preset_actions_offer_reattach_for_detached_group_matching_preset() {
         .map(|action| action.label())
         .collect::<Vec<_>>();
 
-    assert!(labels.contains(&"Reattach to Preset: Jump".to_string()));
+    assert!(labels.contains(&"Attach to Preset: Jump".to_string()));
 }
 
 #[test]
