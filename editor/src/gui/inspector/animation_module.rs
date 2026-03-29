@@ -68,6 +68,7 @@ impl InspectorModule for AnimationModule {
         let asset_manager = &mut game_ctx.asset_manager;
 
         let mut variant_changed = false;
+        let mut clip_removed = false;
         let mut all_ids: Vec<ClipId> = vec![];
         fill_all_clip_ids(ecs, &mut all_ids);
 
@@ -131,7 +132,6 @@ impl InspectorModule for AnimationModule {
             if let Some(current_id) = animation.current.take() {
                 animation.clips.remove(&current_id);
                 animation.states.remove(&current_id);
-                animation.sprite_cache.remove(&current_id);
 
                 // Select next available clip or clear
                 animation.current = if animation.clips.is_empty() {
@@ -143,6 +143,7 @@ impl InspectorModule for AnimationModule {
                 };
 
                 self.has_clips = !animation.clips.is_empty();
+                clip_removed = true;
             }
         }
 
@@ -340,7 +341,8 @@ impl InspectorModule for AnimationModule {
             }
         }
 
-        draw_current_clip_dropdowns(ctx, self, clip_dropdown_rect, animation, all_ids, blocked);
+        let clip_renamed =
+            draw_current_clip_dropdowns(ctx, self, clip_dropdown_rect, animation, all_ids, blocked);
 
         if let Some(toast) = &mut self.warning {
             toast.update(ctx);
@@ -351,8 +353,12 @@ impl InspectorModule for AnimationModule {
 
         // Refresh sprite cache when variant changes or a new clip is added (only if variant is set)
         let has_variant = !animation.variant.0.as_os_str().is_empty();
-        if (variant_changed || clip_added) && has_variant {
-            animation.refresh_sprite_cache(ctx, asset_manager);
+        if variant_changed || clip_added || clip_removed || clip_renamed {
+            if has_variant {
+                animation.refresh_sprite_cache(ctx, asset_manager);
+            } else if clip_removed || clip_renamed {
+                animation.clear_sprite_cache(asset_manager);
+            }
         }
     }
 
@@ -379,7 +385,7 @@ pub fn draw_current_clip_dropdowns(
     animation: &mut Animation,
     all_ids: Vec<ClipId>,
     blocked: bool,
-) {
+) -> bool {
     let current_id = animation.current.as_ref().unwrap();
     let clip_label = format!("{current_id}");
     let width = rect.w / 2.0 - WIDGET_SPACING;
@@ -398,7 +404,7 @@ pub fn draw_current_clip_dropdowns(
     .show(ctx)
     {
         animation.set_clip(&selected);
-        return;
+        return false;
     }
 
     // Edit the ClipId of the current clip
@@ -423,12 +429,12 @@ pub fn draw_current_clip_dropdowns(
             ClipId::New => {
                 module.pending_rename = true;
                 module.rename_initial_value.clear();
-                return;
+                return false;
             }
             ClipId::Custom(name) => {
                 module.pending_rename = true;
                 module.rename_initial_value = name.clone();
-                return;
+                return false;
             }
             // Any other enum variant
             other => {
@@ -440,8 +446,9 @@ pub fn draw_current_clip_dropdowns(
                 } else {
                     reset_current_clip_id(animation, other);
                     module.pending_rename = false;
+                    return true;
                 }
-                return;
+                return false;
             }
         }
     }
@@ -475,11 +482,14 @@ pub fn draw_current_clip_dropdowns(
             reset_current_clip_id(animation, new_id);
             module.pending_rename = false;
             text_input_reset(module.rename_field_id);
+            return true;
         } else if !focused {
             text_input_reset(module.rename_field_id);
             module.pending_rename = false;
         }
     }
+
+    false
 }
 
 pub fn draw_frame_size_fields(

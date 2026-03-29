@@ -10,6 +10,7 @@ local ClipId = {
     Attack = "Attack",
     Jump = "Jump",
     Fall = "Fall",
+    Fidget = "Fidget",
 }
 
 return ClipId

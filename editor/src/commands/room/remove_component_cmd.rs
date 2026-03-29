@@ -38,6 +38,10 @@ impl EditorCommand for RemoveComponentCmd {
                     (reg.remove)(ctx.ecs, entity);
                 }
             }
+
+            if type_name == Animation::TYPE_NAME {
+                Ecs::remove_component::<CurrentFrame>(ctx, entity);
+            }
         });
     }
 
@@ -57,5 +61,54 @@ impl EditorCommand for RemoveComponentCmd {
 
     fn mode(&self) -> EditorMode {
         EditorMode::Room(self.room_id)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::app::Editor;
+    use crate::editor_global::{reset_services, set_editor, with_editor};
+
+    #[test]
+    fn removing_animation_component_also_removes_current_frame() {
+        reset_services();
+
+        let mut editor = Editor::default();
+        editor.game.add_world(Default::default());
+        set_editor(editor);
+
+        let entity = with_editor(|editor| {
+            let entity = editor.game.ecs.create_entity().finish();
+            editor
+                .game
+                .ecs
+                .add_component_to_entity(entity, Animation::default());
+            editor.game.ecs.add_component_to_entity(
+                entity,
+                CurrentFrame {
+                    sprite_id: SpriteId(7),
+                    ..Default::default()
+                },
+            );
+            entity
+        });
+
+        let snapshot = with_editor(|editor| {
+            let reg = COMPONENTS
+                .iter()
+                .find(|r| r.type_name == Animation::TYPE_NAME)
+                .expect("Animation component must be registered");
+            let boxed = (reg.clone)(&mut editor.game.ecs, entity);
+            (reg.to_ron_component)(boxed.as_ref())
+        });
+
+        let mut cmd = RemoveComponentCmd::new(entity, RoomId(1), Animation::TYPE_NAME, snapshot);
+        cmd.execute();
+
+        with_editor(|editor| {
+            assert!(!editor.game.ecs.has::<Animation>(entity));
+            assert!(!editor.game.ecs.has::<CurrentFrame>(entity));
+        });
     }
 }

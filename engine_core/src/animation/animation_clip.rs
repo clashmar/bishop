@@ -103,6 +103,14 @@ impl Animation {
         }
     }
 
+    /// Decrements refs for all cached sprites and clears the cache.
+    pub fn clear_sprite_cache(&mut self, asset_manager: &mut AssetManager) {
+        for &sprite_id in self.sprite_cache.values() {
+            asset_manager.decrement_ref(sprite_id);
+        }
+        self.sprite_cache.clear();
+    }
+
     /// Populate `sprite_cache` for the current variant.
     /// Called when the variant folder changes or a new clip is added.
     pub fn refresh_sprite_cache(
@@ -110,11 +118,7 @@ impl Animation {
         loader: &impl TextureLoader,
         asset_manager: &mut AssetManager,
     ) {
-        // Decrement refs for old cache entries before clearing
-        for &sprite_id in self.sprite_cache.values() {
-            asset_manager.decrement_ref(sprite_id);
-        }
-        self.sprite_cache.clear();
+        self.clear_sprite_cache(asset_manager);
 
         // Resolve and cache new sprite ids, incrementing refs
         for clip_id in self.clips.keys() {
@@ -145,6 +149,29 @@ impl Animation {
             self.sprite_cache.remove(current_id);
         }
     }
+}
+
+fn restore_sprite_cache_from_known_paths(animation: &mut Animation, asset_manager: &AssetManager) {
+    let mut restored = HashMap::with_capacity(animation.clips.len());
+
+    for clip_id in animation.clips.keys() {
+        if let Some(&sprite_id) = animation.sprite_cache.get(clip_id)
+            && sprite_id.0 != 0
+        {
+            restored.insert(clip_id.clone(), sprite_id);
+            continue;
+        }
+
+        let Some(path) = sprite_path(&animation.variant, clip_id) else {
+            continue;
+        };
+
+        if let Some(sprite_id) = asset_manager.get_or_none(path) {
+            restored.insert(clip_id.clone(), sprite_id);
+        }
+    }
+
+    animation.sprite_cache = restored;
 }
 
 /// Logical name of a clip.
@@ -259,20 +286,9 @@ pub fn resolve_sprite_id(
     variant_folder: &VariantFolder,
     clip_id: &ClipId,
 ) -> SpriteId {
-    // Build the filename
-    let filename = match clip_id {
-        ClipId::Idle => "Idle.png",
-        ClipId::Walk => "Walk.png",
-        ClipId::Run => "Run.png",
-        ClipId::Attack => "Attack.png",
-        ClipId::Jump => "Jump.png",
-        ClipId::Fall => "Fall.png",
-        ClipId::Custom(name) => &format!("{}.png", name),
-        ClipId::New => unreachable!(),
+    let Some(path) = sprite_path(variant_folder, clip_id) else {
+        return SpriteId(0);
     };
-
-    // Build the path
-    let path: PathBuf = Path::new(&variant_folder.0).join(filename);
 
     match asset_manager.init_texture(loader, &path) {
         Ok(id) => id,
@@ -280,11 +296,26 @@ pub fn resolve_sprite_id(
     }
 }
 
+fn sprite_path(variant_folder: &VariantFolder, clip_id: &ClipId) -> Option<PathBuf> {
+    let filename = match clip_id {
+        ClipId::Idle => "Idle.png".to_string(),
+        ClipId::Walk => "Walk.png".to_string(),
+        ClipId::Run => "Run.png".to_string(),
+        ClipId::Attack => "Attack.png".to_string(),
+        ClipId::Jump => "Jump.png".to_string(),
+        ClipId::Fall => "Fall.png".to_string(),
+        ClipId::Custom(name) => format!("{name}.png"),
+        ClipId::New => return None,
+    };
+
+    Some(Path::new(&variant_folder.0).join(filename))
+}
+
 /// Initializes the component when an entity is instantiated into the world.
 pub fn post_create(anim: &mut Animation, _entity: &Entity, ctx: &mut GameCtxMut) {
     anim.init_runtime();
+    restore_sprite_cache_from_known_paths(anim, ctx.asset_manager);
 
-    // Increment refs for any pre-populated sprite_cache entries
     for &sprite_id in anim.sprite_cache.values() {
         ctx.asset_manager.increment_ref(sprite_id);
     }
@@ -292,10 +323,7 @@ pub fn post_create(anim: &mut Animation, _entity: &Entity, ctx: &mut GameCtxMut)
 
 /// Cleans up when the component is removed from an entity.
 pub fn post_remove(anim: &mut Animation, _entity: &Entity, ctx: &mut GameCtxMut) {
-    // Decrement refs for all sprite_cache entries
-    for &sprite_id in anim.sprite_cache.values() {
-        ctx.asset_manager.decrement_ref(sprite_id);
-    }
+    anim.clear_sprite_cache(ctx.asset_manager);
 }
 
 /// Generates the content for animations.lua with built-in and optional custom clips.
@@ -375,12 +403,88 @@ fn sanitize_lua_identifier(s: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::generate_animations_lua;
+    use super::*;
+    use crate::game::Game;
+    use std::collections::HashMap;
+    use std::path::Path;
 
     #[test]
     fn generate_animations_lua_marks_file_as_game_generated() {
         let lua = generate_animations_lua(&[]);
 
-        assert!(lua.contains("-- bishop-owner: game-generated"));
+        assert!(lua.contains(LUA_OWNER_GAME_GENERATED));
+    }
+
+    #[test]
+    fn post_create_restores_cached_sprite_ids_for_all_clips() {
+        let mut animation = Animation {
+            clips: HashMap::from([
+                (ClipId::Idle, ClipDef::default()),
+                (ClipId::Run, ClipDef::default()),
+            ]),
+            variant: VariantFolder(Path::new("animations/player/male").to_path_buf()),
+            ..Default::default()
+        };
+        let idle = SpriteId(11);
+        let run = SpriteId(12);
+
+        let mut game = Game::default();
+        game.worlds.push(Default::default());
+        game.asset_manager
+            .sprite_id_to_path
+            .insert(idle, Path::new(&animation.variant.0).join("Idle.png"));
+        game.asset_manager
+            .path_to_sprite_id
+            .insert(Path::new(&animation.variant.0).join("Idle.png"), idle);
+        game.asset_manager
+            .sprite_id_to_path
+            .insert(run, Path::new(&animation.variant.0).join("Run.png"));
+        game.asset_manager
+            .path_to_sprite_id
+            .insert(Path::new(&animation.variant.0).join("Run.png"), run);
+
+        let mut ctx = game.ctx_mut();
+        post_create(&mut animation, &Entity(7), &mut ctx);
+
+        assert_eq!(animation.sprite_cache.get(&ClipId::Idle), Some(&idle));
+        assert_eq!(animation.sprite_cache.get(&ClipId::Run), Some(&run));
+        assert_eq!(ctx.asset_manager.get_ref_count(idle), 1);
+        assert_eq!(ctx.asset_manager.get_ref_count(run), 1);
+    }
+
+    #[test]
+    fn post_create_prunes_stale_cached_clip_entries() {
+        let idle = SpriteId(21);
+        let stale_run = SpriteId(22);
+        let mut animation = Animation {
+            clips: HashMap::from([(ClipId::Idle, ClipDef::default())]),
+            variant: VariantFolder(Path::new("animations/player/male").to_path_buf()),
+            sprite_cache: HashMap::from([(ClipId::Idle, idle), (ClipId::Run, stale_run)]),
+            ..Default::default()
+        };
+
+        let mut game = Game::default();
+        game.worlds.push(Default::default());
+        game.asset_manager
+            .sprite_id_to_path
+            .insert(idle, Path::new(&animation.variant.0).join("Idle.png"));
+        game.asset_manager
+            .path_to_sprite_id
+            .insert(Path::new(&animation.variant.0).join("Idle.png"), idle);
+        game.asset_manager
+            .sprite_id_to_path
+            .insert(stale_run, Path::new(&animation.variant.0).join("Run.png"));
+        game.asset_manager
+            .path_to_sprite_id
+            .insert(Path::new(&animation.variant.0).join("Run.png"), stale_run);
+
+        let mut ctx = game.ctx_mut();
+        post_create(&mut animation, &Entity(9), &mut ctx);
+
+        assert_eq!(animation.sprite_cache.len(), 1);
+        assert_eq!(animation.sprite_cache.get(&ClipId::Idle), Some(&idle));
+        assert!(!animation.sprite_cache.contains_key(&ClipId::Run));
+        assert_eq!(ctx.asset_manager.get_ref_count(idle), 1);
+        assert_eq!(ctx.asset_manager.get_ref_count(stale_run), 0);
     }
 }

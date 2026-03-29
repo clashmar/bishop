@@ -77,7 +77,7 @@ mod tests {
     fn generate_sounds_lua_marks_file_as_game_generated() {
         let lua = generate_sounds_lua(&[]);
 
-        assert!(lua.contains("-- bishop-owner: game-generated"));
+        assert!(lua.contains(LUA_OWNER_GAME_GENERATED));
     }
 
     #[test]
