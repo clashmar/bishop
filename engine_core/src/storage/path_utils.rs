@@ -451,24 +451,67 @@ fn default_save_root() -> PathBuf {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::{Mutex, OnceLock};
+
+    fn test_lock() -> &'static Mutex<()> {
+        static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+        LOCK.get_or_init(|| Mutex::new(()))
+    }
+
+    fn set_test_save_root(path: Option<PathBuf>) {
+        match EDITOR_CONFIG.write() {
+            Ok(mut cfg) => cfg.save_root = path,
+            Err(poison) => poison.into_inner().save_root = path,
+        }
+    }
+
+    struct SaveRootRestoreGuard(Option<PathBuf>);
+
+    impl SaveRootRestoreGuard {
+        fn new() -> Self {
+            Self(get_save_root())
+        }
+    }
+
+    impl Drop for SaveRootRestoreGuard {
+        fn drop(&mut self) {
+            set_test_save_root(self.0.clone());
+        }
+    }
 
     #[test]
     fn cancel_returns_cancelled() {
+        let _lock = test_lock().lock().unwrap();
+        let _restore = SaveRootRestoreGuard::new();
+
         assert_eq!(apply_save_root_change(None), SaveRootResult::Cancelled);
     }
 
     #[test]
     fn cancel_leaves_config_unchanged() {
+        let _lock = test_lock().lock().unwrap();
+        let _restore = SaveRootRestoreGuard::new();
+
+        let known = std::env::temp_dir().join(format!(
+            "bishop-test-known-root-{}",
+            uuid::Uuid::new_v4()
+        ));
+        set_test_save_root(Some(known.clone()));
+
         let before = get_save_root();
         let result = apply_save_root_change(None);
         let after = get_save_root();
 
         assert_eq!(result, SaveRootResult::Cancelled);
-        assert_eq!(before, after);
+        assert_eq!(before, Some(known));
+        assert_eq!(after, before);
     }
 
     #[test]
     fn happy_path_returns_changed_and_updates_config() {
+        let _lock = test_lock().lock().unwrap();
+        let _restore = SaveRootRestoreGuard::new();
+
         let tmp =
             std::env::temp_dir().join(format!("bishop-test-save-root-{}", uuid::Uuid::new_v4()));
 
@@ -484,6 +527,8 @@ mod tests {
 
     #[test]
     fn build_save_root_appends_correct_segments() {
+        let _lock = test_lock().lock().unwrap();
+
         let base = PathBuf::from("/some/folder");
         let result = build_save_root(&base);
         assert_eq!(result, base.join(SAVE_ROOT).join(GAME_SAVE_ROOT));
