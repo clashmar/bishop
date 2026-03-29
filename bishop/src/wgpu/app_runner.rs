@@ -51,7 +51,9 @@ impl<A: BishopApp> WgpuAppRunner<A> {
         );
 
         let Some(app) = self.app.take() else {
-            eprintln!("WgpuAppRunner invariant violated: app missing before {stage} future creation");
+            eprintln!(
+                "WgpuAppRunner invariant violated: app missing before {stage} future creation"
+            );
             event_loop.exit();
             return None;
         };
@@ -128,11 +130,10 @@ impl<A: BishopApp + 'static> ApplicationHandler for WgpuAppRunner<A> {
                                 return;
                             };
                             let ctx_clone = ctx.clone();
-                            self.init_future =
-                                Some(Box::pin(async move {
-                                    app.init(ctx_clone).await;
-                                    app
-                                }));
+                            self.init_future = Some(Box::pin(async move {
+                                app.init(ctx_clone).await;
+                                app
+                            }));
                         }
 
                         if let Some(ref mut future) = self.init_future {
@@ -149,11 +150,10 @@ impl<A: BishopApp + 'static> ApplicationHandler for WgpuAppRunner<A> {
                                 return;
                             };
                             let ctx_clone = ctx.clone();
-                            self.frame_future =
-                                Some(Box::pin(async move {
-                                    app.frame(ctx_clone).await;
-                                    app
-                                }));
+                            self.frame_future = Some(Box::pin(async move {
+                                app.frame(ctx_clone).await;
+                                app
+                            }));
                         }
 
                         if let Some(ref mut future) = self.frame_future {
@@ -169,7 +169,9 @@ impl<A: BishopApp + 'static> ApplicationHandler for WgpuAppRunner<A> {
                     if let Err(e) = ctx.borrow_mut().render_frame() {
                         eprintln!("Render error: {e}");
                     }
-                    if self.exit_requested && self.init_future.is_none() && self.frame_future.is_none()
+                    if self.exit_requested
+                        && self.init_future.is_none()
+                        && self.frame_future.is_none()
                     {
                         event_loop.exit();
                     } else if let Some(window) = &self.window {

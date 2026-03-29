@@ -34,10 +34,7 @@ mod tests {
 
     #[derive(Serialize)]
     struct OrderedMapWrapper {
-        #[serde(
-            serialize_with = "serialize",
-            deserialize_with = "deserialize"
-        )]
+        #[serde(serialize_with = "serialize", deserialize_with = "deserialize")]
         values: HashMap<u8, &'static str>,
     }
 

@@ -185,16 +185,15 @@ impl RoomEditor {
                 self.tilemap_editor.mode = self.tilemap_sub_mode;
                 self.tilemap_editor.sub_mode_rect = self.sub_mode_rect;
 
-                self.tilemap_editor
-                    .update(
-                        ctx,
-                        asset_manager,
-                        camera,
-                        room,
-                        &other_bounds,
-                        &adjacent_exits,
-                        grid_size,
-                    );
+                self.tilemap_editor.update(
+                    ctx,
+                    asset_manager,
+                    camera,
+                    room,
+                    &other_bounds,
+                    &adjacent_exits,
+                    grid_size,
+                );
             }
             RoomEditorMode::Scene => {
                 if self.ui_was_clicked(ctx) {

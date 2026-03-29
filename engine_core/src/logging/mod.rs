@@ -106,27 +106,29 @@ macro_rules! onscreen_log {
         {
             let mut history = $crate::logging::LOG_HISTORY.lock().unwrap();
             history.push($lvl, msg.clone(), time, file!(), line!());
+            let mut buf = $crate::logging::LAST_LOG.lock().unwrap();
+            *buf = msg;
+            drop(buf);
+            drop(history);
         }
-        let mut buf = $crate::logging::LAST_LOG.lock().unwrap();
-        *buf = msg;
     }};
 }
 
 /// Helper macro that allow logs to be displayed by the program.
 #[macro_export]
-macro_rules! onscreen_info  { ($($arg:tt)*) => { onscreen_log!(log::Level::Info,  $($arg)*) }; }
+macro_rules! onscreen_info  { ($($arg:tt)*) => { $crate::onscreen_log!(log::Level::Info,  $($arg)*) }; }
 
 /// Helper macro that allow logs to be displayed by the program.
 #[macro_export]
-macro_rules! onscreen_warn  { ($($arg:tt)*) => { onscreen_log!(log::Level::Warn,  $($arg)*) }; }
+macro_rules! onscreen_warn  { ($($arg:tt)*) => { $crate::onscreen_log!(log::Level::Warn,  $($arg)*) }; }
 
 /// Helper macro that allow logs to be displayed by the program.
 #[macro_export]
-macro_rules! onscreen_error { ($($arg:tt)*) => { onscreen_log!(log::Level::Error, $($arg)*) }; }
+macro_rules! onscreen_error { ($($arg:tt)*) => { $crate::onscreen_log!(log::Level::Error, $($arg)*) }; }
 
 /// Helper macro that allow logs to be displayed by the program.
 #[macro_export]
-macro_rules! onscreen_debug { ($($arg:tt)*) => { onscreen_log!(log::Level::Debug, $($arg)*) }; }
+macro_rules! onscreen_debug { ($($arg:tt)*) => { $crate::onscreen_log!(log::Level::Debug, $($arg)*) }; }
 
 /// Initializes the system logger.
 pub fn init_file_logger() {

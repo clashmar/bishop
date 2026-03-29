@@ -115,8 +115,7 @@ impl Editor {
             }
             EditorMode::Game => {
                 // Returns the id of the world that was clicked on or None
-                if let Some(world_id) = self.game_editor.update(ctx, &self.camera, &mut self.game)
-                {
+                if let Some(world_id) = self.game_editor.update(ctx, &self.camera, &mut self.game) {
                     self.world_editor.init_camera(
                         ctx,
                         &mut self.camera,
@@ -129,7 +128,9 @@ impl Editor {
             }
             EditorMode::World(world_id) => {
                 // Returns the id of the room that was clicked on or None
-                if let Some(room_id) = self.world_editor.update(ctx, &mut self.camera, &mut self.game)
+                if let Some(room_id) =
+                    self.world_editor
+                        .update(ctx, &mut self.camera, &mut self.game)
                 {
                     self.cur_room_id = Some(room_id);
                     self.mode = EditorMode::Room(room_id);

@@ -3,8 +3,17 @@ mod music;
 mod preview;
 mod sfx;
 #[cfg(test)]
+mod test_state;
+#[cfg(test)]
 mod tests;
 
+#[cfg(feature = "editor")]
+use self::preview::{PendingPreview, TrackedPreview, TrackedPreviewSpec};
+#[cfg(test)]
+use self::test_state::{
+    AudioManagerTestState, StartedLoopPlayback, StartedOneShotPlayback,
+    StartedTrackedPreviewPlayback,
+};
 use super::command_queue::{self, AudioCommand, PlayMusicRequest};
 use super::diagnostics::{self, AudioDiagnosticsSnapshot};
 use super::loader::load_wav;
@@ -29,6 +38,17 @@ type PreviewHandle = Handle<Stop<Gain<Speed<FramesSignal<[f32; 2]>>>>>;
 struct PendingMusic {
     token: u64,
     request: PlayMusicRequest,
+}
+
+enum PendingOneShot {
+    Plain,
+    Varied { volume: f32, pitch: f32 },
+}
+
+struct PendingLoop {
+    sound_id: String,
+    volume: f32,
+    pitch: f32,
 }
 
 enum ActiveMusic {
@@ -97,28 +117,6 @@ enum MusicTransition {
     },
 }
 
-#[cfg(feature = "editor")]
-struct TrackedPreview {
-    handle: PreviewSignal,
-    expires_at: f32,
-}
-
-#[cfg(feature = "editor")]
-enum PreviewSignal {
-    OneShot(PreviewHandle),
-    Loop(LoopHandle),
-}
-
-#[cfg(feature = "editor")]
-struct TrackedPreviewSpec<'a> {
-    sounds: &'a [String],
-    volume: f32,
-    pitch_variation: f32,
-    volume_variation: f32,
-    looping: bool,
-    timeout: f32,
-}
-
 /// Manages audio playback. Implements [`BackgroundService`]; call `poll(dt)` once
 /// per frame to drain commands and advance fades.
 ///
@@ -127,8 +125,6 @@ struct TrackedPreviewSpec<'a> {
 pub struct AudioManager {
     /// Keeps the audio backend stream alive. Dropping this stops all audio.
     _keep_alive: Box<dyn Send + 'static>,
-    /// Root stereo mixer handle — retained to keep the signal graph alive.
-    _root: Handle<Mixer<[f32; 2]>>,
     /// Music sub-mixer with gain control.
     music_group: Handle<Stop<Gain<Mixer<[f32; 2]>>>>,
     /// SFX sub-mixer with gain control.
@@ -147,12 +143,21 @@ pub struct AudioManager {
     sound_cache: HashMap<String, Arc<Frames<[f32; 2]>>>,
     /// In-flight background loads, keyed by sound ID.
     pending_loads: HashMap<String, AudioLoadTask>,
+    /// Pending one-shot playback requests waiting on a cold load.
+    pending_one_shots: HashMap<String, Vec<PendingOneShot>>,
+    /// Pending loop playback requests waiting on a cold load.
+    pending_loops: HashMap<u64, PendingLoop>,
+    #[cfg(test)]
+    test_state: AudioManagerTestState,
     /// Reference counts tracking how many `AudioSource` components reference each sound ID.
     ref_counts: HashMap<String, usize>,
     /// Sound IDs loaded via `preload()` from Lua; pinned sounds are never auto-evicted.
     pinned: HashSet<String>,
     /// Active looping sound handles, keyed by a caller-supplied u64 handle ID.
     active_loops: HashMap<u64, LoopHandle>,
+    #[cfg(feature = "editor")]
+    /// Pending editor preview requests waiting on a background load.
+    pending_previews: HashMap<u64, PendingPreview>,
     #[cfg(feature = "editor")]
     /// Active editor preview handles, keyed by a caller-supplied preview ID.
     tracked_previews: HashMap<u64, TrackedPreview>,
@@ -184,12 +189,13 @@ impl AudioManager {
             Box::new(B::start(move |frames: &mut [[f32; 2]]| {
                 oddio::run(&root_signal, SAMPLE_RATE, frames);
             }));
+        // `root_signal` is owned by the backend render closure, so only the subgroup
+        // handles need to be retained after graph construction.
 
         runtime::set_music_playing(false);
 
         Self {
             _keep_alive: keep_alive,
-            _root: root_handle,
             music_group: music_group_handle,
             sfx_group: sfx_group_handle,
             active_music: None,
@@ -199,9 +205,15 @@ impl AudioManager {
             music_ratio: 1.0,
             sound_cache: HashMap::new(),
             pending_loads: HashMap::new(),
+            pending_one_shots: HashMap::new(),
+            pending_loops: HashMap::new(),
+            #[cfg(test)]
+            test_state: AudioManagerTestState::default(),
             ref_counts: HashMap::new(),
             pinned: HashSet::new(),
             active_loops: HashMap::new(),
+            #[cfg(feature = "editor")]
+            pending_previews: HashMap::new(),
             #[cfg(feature = "editor")]
             tracked_previews: HashMap::new(),
             #[cfg(feature = "editor")]
@@ -244,6 +256,15 @@ impl AudioManager {
         self.sfx_group
             .control::<Gain<Mixer<[f32; 2]>>, _>()
             .set_amplitude_ratio(linear);
+    }
+
+    pub(super) fn clear_pending_requests_for_sound(&mut self, id: &str) {
+        let _ = self.pending_one_shots.remove(id);
+        self.pending_loops
+            .retain(|_, pending| pending.sound_id != id);
+        #[cfg(feature = "editor")]
+        self.pending_previews
+            .retain(|_, pending| pending.sound_id != id);
     }
 
     fn dispatch_command(&mut self, cmd: AudioCommand) {
@@ -330,6 +351,9 @@ impl BackgroundService for AudioManager {
             self.dispatch_command(command);
         }
 
+        self.resolve_pending_sfx();
+        #[cfg(feature = "editor")]
+        self.resolve_pending_tracked_previews();
         self.resolve_pending_music();
         self.publish_runtime_state();
     }

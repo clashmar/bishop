@@ -9,12 +9,11 @@ use serde::{Deserialize, Serialize};
 use std::any::{Any, TypeId};
 
 /// Human‑readable names of all components that have been registered with `ecs_component!`.
-pub static COMPONENTS: Lazy<Vec<&'static ComponentRegistry>> =
-    Lazy::new(|| {
-        let mut components: Vec<_> = inventory::iter::<ComponentRegistry>.into_iter().collect();
-        components.sort_by(|left, right| left.type_name.cmp(right.type_name));
-        components
-    });
+pub static COMPONENTS: Lazy<Vec<&'static ComponentRegistry>> = Lazy::new(|| {
+    let mut components: Vec<_> = inventory::iter::<ComponentRegistry>.into_iter().collect();
+    components.sort_by(|left, right| left.type_name.cmp(right.type_name));
+    components
+});
 
 inventory::collect!(ComponentRegistry);
 
@@ -112,6 +111,10 @@ mod tests {
 
     #[test]
     fn components_are_sorted_by_type_name() {
-        assert!(COMPONENTS.windows(2).all(|pair| pair[0].type_name <= pair[1].type_name));
+        assert!(
+            COMPONENTS
+                .windows(2)
+                .all(|pair| pair[0].type_name <= pair[1].type_name)
+        );
     }
 }

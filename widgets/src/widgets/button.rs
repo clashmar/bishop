@@ -153,7 +153,7 @@ impl<'a> Button<'a> {
             self.text_color,
         );
 
-        let clicked = ctx.is_mouse_button_pressed(MouseButton::Left)
+        let clicked = ctx.is_mouse_button_released(MouseButton::Left)
             && hovered
             && !self.blocked
             && !is_dropdown_open()

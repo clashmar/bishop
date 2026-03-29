@@ -1,10 +1,14 @@
 use super::*;
 
 impl AudioManager {
+    pub(super) fn cached_frames(&self, id: &str) -> Option<Arc<Frames<[f32; 2]>>> {
+        self.sound_cache.get(id).cloned()
+    }
+
     /// Loads sound `id` from disk if not cached, returning a shared reference.
     pub(super) fn load_or_cached(&mut self, id: &str) -> Option<Arc<Frames<[f32; 2]>>> {
-        if let Some(frames) = self.sound_cache.get(id) {
-            return Some(frames.clone());
+        if let Some(frames) = self.cached_frames(id) {
+            return Some(frames);
         }
         if self.pending_loads.contains_key(id) {
             return None;
@@ -15,7 +19,10 @@ impl AudioManager {
                 Some(frames)
             }
             Err(e) => {
-                log::error!("AudioManager: failed to load '{id}': {e}");
+                crate::onscreen_log!(
+                    log::Level::Error,
+                    "AudioManager: failed to load '{id}': {e}"
+                );
                 None
             }
         }
@@ -37,7 +44,11 @@ impl AudioManager {
                 self.sound_cache.insert(id, frames);
             }
             Err(e) => {
-                log::error!("AudioManager: failed to load '{id}': {e}");
+                self.clear_pending_requests_for_sound(&id);
+                crate::onscreen_log!(
+                    log::Level::Error,
+                    "AudioManager: failed to load '{id}': {e}"
+                );
             }
         }
     }
@@ -61,6 +72,12 @@ impl AudioManager {
     pub(crate) fn complete_load_for_test(&mut self, id: &str, frames: Arc<Frames<[f32; 2]>>) {
         self.pending_loads.remove(id);
         self.finish_sound_load(id.to_owned(), Ok(frames));
+    }
+
+    #[cfg(test)]
+    pub(crate) fn fail_load_for_test(&mut self, id: &str, error: &str) {
+        self.pending_loads.remove(id);
+        self.finish_sound_load(id.to_owned(), Err(error.to_owned()));
     }
 
     /// Preloads a sound into the cache without playing it and pins it against auto-eviction.

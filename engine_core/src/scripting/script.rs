@@ -13,7 +13,9 @@ use serde::Serialize;
 use std::collections::HashMap;
 
 /// Opaque handle that the script manager gives out. Default/Unset is 0.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Ord, PartialOrd, Hash, Serialize, Deserialize, Default)]
+#[derive(
+    Clone, Copy, Debug, PartialEq, Eq, Ord, PartialOrd, Hash, Serialize, Deserialize, Default,
+)]
 pub struct ScriptId(pub usize);
 
 /// One field that can be edited in the inspector.

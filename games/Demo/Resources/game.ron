@@ -74,7 +74,7 @@
             ),
             /*[17]*/ (
                 type_name: "Script",
-                data: "{}",
+                data: "{\n    (3): (\n        script_id: (1),\n        data: (\n            fields: {\n                \"health\": Int(100),\n                \"jump_speed\": Int(200),\n                \"name\": Text(\"Player\"),\n                \"run_speed\": Int(180),\n                \"speed\": Int(100),\n            },\n        ),\n    ),\n}",
             ),
             /*[18]*/ (
                 type_name: "Solid",
@@ -163,8 +163,12 @@
         },
     ),
     script_manager: (
-        script_id_to_path: {},
-        ref_counts: {},
+        script_id_to_path: {
+            (1): "player.lua",
+        },
+        ref_counts: {
+            (1): 1,
+        },
     ),
     current_world_id: ("d1aef41e-2f65-4c7d-a4ff-f9342fdf2da3"),
     game_map: (),

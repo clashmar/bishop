@@ -1,6 +1,6 @@
 use super::Engine;
 use engine_core::audio::runtime;
-use engine_core::{onscreen_error, onscreen_log};
+use engine_core::onscreen_error;
 use mlua::{Value, Variadic};
 
 pub(super) fn emit_pending_audio_events(engine: &Engine) {

@@ -149,17 +149,7 @@ impl Animation {
 
 /// Logical name of a clip.
 #[derive(
-    EnumIter,
-    Debug,
-    Default,
-    Clone,
-    PartialEq,
-    Eq,
-    Ord,
-    PartialOrd,
-    Hash,
-    Serialize,
-    Deserialize
+    EnumIter, Debug, Default, Clone, PartialEq, Eq, Ord, PartialOrd, Hash, Serialize, Deserialize,
 )]
 pub enum ClipId {
     #[default]

@@ -11,7 +11,9 @@ use reflect_derive::Reflect;
 use serde::{Deserialize, Serialize};
 
 /// Opaque handle that the asset manager gives out. Default/Unset is 0.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Ord, PartialOrd, Hash, Serialize, Deserialize, Default)]
+#[derive(
+    Clone, Copy, Debug, PartialEq, Eq, Ord, PartialOrd, Hash, Serialize, Deserialize, Default,
+)]
 pub struct SpriteId(pub usize);
 
 #[ecs_component(post_create = post_create, post_remove = post_remove)]

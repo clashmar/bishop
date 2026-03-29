@@ -180,7 +180,9 @@ pub fn load_game_by_name(name: &str) -> io::Result<Game> {
     let ron_string = match fs::read_to_string(&path) {
         Ok(s) => s,
         // File not found
-        Err(ref e) if e.kind() == ErrorKind::NotFound => return Ok(create_new_game(name.to_string())),
+        Err(ref e) if e.kind() == ErrorKind::NotFound => {
+            return Ok(create_new_game(name.to_string()))
+        }
         // Other I/O errors
         Err(e) => return Err(e),
     };

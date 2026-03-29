@@ -74,12 +74,7 @@ impl TilePalette {
         self.entries.get(self.selected_index).copied()
     }
 
-    pub fn draw(
-        &mut self,
-        ctx: &mut WgpuContext,
-        rect: Rect,
-        asset_manager: &mut AssetManager,
-    ) {
+    pub fn draw(&mut self, ctx: &mut WgpuContext, rect: Rect, asset_manager: &mut AssetManager) {
         // Draw grid
         for i in 0..self.entries.len() {
             let col = i % self.columns;

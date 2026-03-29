@@ -1,8 +1,8 @@
 use crate::menu::runtime::*;
 use crate::menu::*;
+use crate::onscreen_error;
 use crate::storage::path_utils::menus_folder;
 use crate::text::TextManager;
-use crate::{onscreen_error, onscreen_log};
 use bishop::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
