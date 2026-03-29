@@ -1,4 +1,5 @@
 // editor/src/gui/inspector/animation_module.rs
+use crate::editor_global::push_toast;
 use crate::gui::gui_constants::*;
 use bishop::prelude::*;
 use engine_core::prelude::*;
@@ -23,7 +24,6 @@ const IMPORT_ROW_HEIGHT: f32 = MARGIN;
 pub struct AnimationModule {
     pending_rename: bool,
     rename_initial_value: String,
-    warning: Option<Toast>,
     has_clips: bool,
     select_dropdown_id: WidgetId,
     set_dropdown_id: WidgetId,
@@ -139,7 +139,7 @@ impl InspectorModule for AnimationModule {
                 } else if animation.clips.contains_key(&ClipId::Idle) {
                     Some(ClipId::Idle)
                 } else {
-                    Some(animation.clips.keys().next().unwrap().clone())
+                    animation.clips.keys().next().cloned()
                 };
 
                 self.has_clips = !animation.clips.is_empty();
@@ -203,7 +203,9 @@ impl InspectorModule for AnimationModule {
 
         y += MARGIN + WIDGET_PADDING;
 
-        let current_clip_id = animation.current.clone().unwrap();
+        let Some(current_clip_id) = animation.current.clone() else {
+            return;
+        };
 
         // Edit the currently selected clip
         if let Some(clip) = animation.clips.get_mut(&current_clip_id) {
@@ -266,16 +268,13 @@ impl InspectorModule for AnimationModule {
                         clip.frame_durations = imported.frame_durations;
                         clip.offset = imported.offset;
                         clip.mirrored = imported.mirrored;
-                        self.warning = Some(Toast::new("Import successful".to_string(), 2.0));
+                        push_toast("Import successful", 2.0);
                     }
                     JsonImportResult::NotFound => {
-                        self.warning = Some(Toast::new(
-                            format!("JSON not found: {}", json_path.display()),
-                            3.0,
-                        ));
+                        push_toast(format!("JSON not found: {}", json_path.display()), 3.0);
                     }
                     JsonImportResult::Error(msg) => {
-                        self.warning = Some(Toast::new(format!("Import error: {}", msg), 3.0));
+                        push_toast(format!("Import error: {}", msg), 3.0);
                     }
                 }
             }
@@ -291,15 +290,11 @@ impl InspectorModule for AnimationModule {
                 match export_aseprite_folder(&full_path) {
                     AseExportResult::Success => {}
                     AseExportResult::AsepriteNotFound => {
-                        self.warning =
-                            Some(Toast::new("Aseprite not found in PATH".to_string(), 3.0));
+                        push_toast("Aseprite not found in PATH", 3.0);
                         return;
                     }
                     AseExportResult::ExportFailed { file, error } => {
-                        self.warning = Some(Toast::new(
-                            format!("Export failed: {}: {}", file, error),
-                            3.0,
-                        ));
+                        push_toast(format!("Export failed: {}: {}", file, error), 3.0);
                         return;
                     }
                 }
@@ -325,7 +320,7 @@ impl InspectorModule for AnimationModule {
                                 result.skipped.len()
                             )
                         };
-                        self.warning = Some(Toast::new(msg, 2.0));
+                        push_toast(msg, 2.0);
 
                         // Refresh sprite cache after importing
                         let has_variant_folder = !animation.variant.0.as_os_str().is_empty();
@@ -335,7 +330,7 @@ impl InspectorModule for AnimationModule {
                         }
                     }
                     Err(e) => {
-                        self.warning = Some(Toast::new(format!("Import failed: {}", e), 3.0));
+                        push_toast(format!("Import failed: {}", e), 3.0);
                     }
                 }
             }
@@ -343,13 +338,6 @@ impl InspectorModule for AnimationModule {
 
         let clip_renamed =
             draw_current_clip_dropdowns(ctx, self, clip_dropdown_rect, animation, all_ids, blocked);
-
-        if let Some(toast) = &mut self.warning {
-            toast.update(ctx);
-            if !toast.active {
-                self.warning = None;
-            }
-        }
 
         // Refresh sprite cache when variant changes or a new clip is added (only if variant is set)
         let has_variant = !animation.variant.0.as_os_str().is_empty();
@@ -386,7 +374,9 @@ pub fn draw_current_clip_dropdowns(
     all_ids: Vec<ClipId>,
     blocked: bool,
 ) -> bool {
-    let current_id = animation.current.as_ref().unwrap();
+    let Some(current_id) = animation.current.as_ref() else {
+        return false;
+    };
     let clip_label = format!("{current_id}");
     let width = rect.w / 2.0 - WIDGET_SPACING;
 
@@ -442,7 +432,7 @@ pub fn draw_current_clip_dropdowns(
                 if animation.clips.contains_key(&other)
                     && Some(&other) != animation.current.as_ref()
                 {
-                    module.warning = Some(Toast::new("Enity already has this animation.", 2.0));
+                    push_toast("Entity already has this animation.", 2.0);
                 } else {
                     reset_current_clip_id(animation, other);
                     module.pending_rename = false;
@@ -686,7 +676,9 @@ pub fn fill_all_clip_ids(ecs: &Ecs, out: &mut Vec<ClipId>) {
 
 /// Helper that moves the currently selected clip under a new `ClipId`.
 fn reset_current_clip_id(animation: &mut Animation, new_id: ClipId) {
-    let old_id = animation.current.take().unwrap();
+    let Some(old_id) = animation.current.take() else {
+        return;
+    };
 
     // Take the old clip out of the map
     if let Some(old_clip) = animation.clips.remove(&old_id) {

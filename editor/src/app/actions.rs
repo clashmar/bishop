@@ -480,8 +480,12 @@ impl Editor {
         None
     }
 
-    // Updates and draws the toast to the screen.
+    /// Updates and draws the toast to the screen.
     pub fn draw_toast(&mut self, ctx: &mut WgpuContext) {
+        if let Some(pending) = take_pending_toast() {
+            self.toast = Some(pending);
+        }
+
         if let Some(toast) = &mut self.toast {
             toast.update(ctx);
             if !toast.active {

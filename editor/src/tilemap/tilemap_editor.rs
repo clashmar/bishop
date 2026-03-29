@@ -1,7 +1,7 @@
 // editor/src/tilemap/tilemap_editor.rs
 use crate::commands::room::*;
 use crate::editor_assets::assets::*;
-use crate::editor_global::push_command;
+use crate::editor_global::{push_command, push_toast};
 use crate::gui::gui_constants::MENU_PANEL_HEIGHT;
 use crate::gui::menu_bar::draw_top_panel_full;
 use crate::gui::modal::*;
@@ -55,7 +55,6 @@ pub struct TileMapEditor {
     resize_handles: Vec<ResizeHandle>,
     active_handle_index: Option<usize>,
     preview_valid: bool,
-    toast: Option<&'static str>,
     pub tilemap_panel: TilemapPanel,
     ui_was_clicked: bool,
     initialized: bool,
@@ -71,7 +70,6 @@ impl TileMapEditor {
             resize_handles: Vec::new(),
             active_handle_index: None,
             preview_valid: true,
-            toast: None,
             tilemap_panel: TilemapPanel::new(),
             ui_was_clicked: false,
             initialized: false,
@@ -207,7 +205,9 @@ impl TileMapEditor {
                 self.active_handle_index = None;
 
                 if !should_apply {
-                    self.queue_resize_result_toast(resize_result);
+                    if let Some(msg) = resize_result_message(resize_result) {
+                        push_toast(msg, 2.5);
+                    }
                 }
             }
 
@@ -514,18 +514,13 @@ impl TileMapEditor {
         self.sub_mode_rect = None;
     }
 
-    /// Queues a toast message explaining why the resize failed.
-    fn queue_resize_result_toast(&mut self, failure: ResizeResult) {
-        self.toast = match failure {
-            ResizeResult::InvalidDimensions => Some("Invalid resize dimensions"),
-            ResizeResult::Overlap => Some("Resize can not overlap rooms"),
-            ResizeResult::StrandedExit => Some("Resize can not strand exits"),
-            ResizeResult::Success => None,
-        };
-    }
+}
 
-    /// Takes any pending toast message, clearing it from the editor.
-    pub fn take_pending_toast(&mut self) -> Option<&'static str> {
-        self.toast.take()
+fn resize_result_message(result: ResizeResult) -> Option<&'static str> {
+    match result {
+        ResizeResult::InvalidDimensions => Some("Invalid resize dimensions"),
+        ResizeResult::Overlap => Some("Resize can not overlap rooms"),
+        ResizeResult::StrandedExit => Some("Resize can not strand exits"),
+        ResizeResult::Success => None,
     }
 }

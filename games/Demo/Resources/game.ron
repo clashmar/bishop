@@ -6,11 +6,11 @@
         components: [
             /*[0]*/ (
                 type_name: "Animation",
-                data: "{\n    (3): (\n        clips: {\n            Idle: (\n                frame_size: (6.0, 16.0),\n                cols: 5,\n                rows: 1,\n                fps: 10.0,\n                frame_durations: [],\n                looping: true,\n                offset: (0.0, 0.0),\n                mirrored: true,\n            ),\n            Walk: (\n                frame_size: (10.0, 16.0),\n                cols: 4,\n                rows: 1,\n                fps: 10.0,\n                frame_durations: [],\n                looping: true,\n                offset: (0.0, 0.0),\n                mirrored: true,\n            ),\n            Run: (\n                frame_size: (12.0, 16.0),\n                cols: 8,\n                rows: 1,\n                fps: 10.0,\n                frame_durations: [],\n                looping: true,\n                offset: (0.0, 0.0),\n                mirrored: true,\n            ),\n            Jump: (\n                frame_size: (10.0, 16.0),\n                cols: 4,\n                rows: 1,\n                fps: 10.0,\n                frame_durations: [],\n                looping: true,\n                offset: (0.0, 0.0),\n                mirrored: true,\n            ),\n            Fall: (\n                frame_size: (6.0, 14.0),\n                cols: 1,\n                rows: 1,\n                fps: 10.0,\n                frame_durations: [],\n                looping: true,\n                offset: (0.0, 0.0),\n                mirrored: true,\n            ),\n            Custom(\"Fidget\"): (\n                frame_size: (6.0, 15.0),\n                cols: 8,\n                rows: 1,\n                fps: 10.0,\n                frame_durations: [],\n                looping: true,\n                offset: (0.0, 0.0),\n                mirrored: true,\n            ),\n        },\n        variant: (\"animations/player/male\"),\n    ),\n}",
+                data: "{\n    (3): (\n        clips: {\n            Idle: (\n                frame_size: (6.0, 16.0),\n                cols: 5,\n                rows: 1,\n                fps: 10.0,\n                frame_durations: [],\n                looping: true,\n                offset: (0.0, 0.0),\n                mirrored: true,\n            ),\n            Walk: (\n                frame_size: (10.0, 16.0),\n                cols: 4,\n                rows: 1,\n                fps: 10.0,\n                frame_durations: [],\n                looping: true,\n                offset: (0.0, 0.0),\n                mirrored: true,\n            ),\n            Run: (\n                frame_size: (12.0, 16.0),\n                cols: 8,\n                rows: 1,\n                fps: 10.0,\n                frame_durations: [],\n                looping: true,\n                offset: (0.0, 0.0),\n                mirrored: true,\n            ),\n            Jump: (\n                frame_size: (10.0, 16.0),\n                cols: 4,\n                rows: 1,\n                fps: 10.0,\n                frame_durations: [],\n                looping: true,\n                offset: (0.0, 0.0),\n                mirrored: true,\n            ),\n            Fall: (\n                frame_size: (6.0, 14.0),\n                cols: 1,\n                rows: 1,\n                fps: 10.0,\n                frame_durations: [],\n                looping: true,\n                offset: (0.0, 0.0),\n                mirrored: true,\n            ),\n            Custom(\"Fidget\"): (\n                frame_size: (6.0, 15.0),\n                cols: 8,\n                rows: 1,\n                fps: 10.0,\n                frame_durations: [],\n                looping: true,\n                offset: (0.0, 0.0),\n                mirrored: true,\n            ),\n        },\n        variant: (\"animations/player/male\"),\n    ),\n    (5): (\n        clips: {\n            Idle: (\n                frame_size: (8.0, 8.0),\n                cols: 5,\n                rows: 1,\n                fps: 4.0,\n                frame_durations: [],\n                looping: true,\n                offset: (0.0, 0.0),\n                mirrored: false,\n            ),\n        },\n        variant: (\"/Users/lash/VsCodeProjects/bishop-engine/games/Demo/Resources/audio/sfx\"),\n    ),\n}",
             ),
             /*[1]*/ (
                 type_name: "AudioSource",
-                data: "{}",
+                data: "{\n    (3): (\n        groups: {\n            Custom(\"Jump\"): (\n                sounds: [\n                    \"sfx/jump\",\n                ],\n                volume: 1.0,\n                pitch_variation: 0.0,\n                volume_variation: 0.0,\n                looping: false,\n                preset_link: None,\n            ),\n        },\n    ),\n}",
             ),
             /*[2]*/ (
                 type_name: "Children",
@@ -22,11 +22,11 @@
             ),
             /*[4]*/ (
                 type_name: "CurrentFrame",
-                data: "{\n    (3): (),\n}",
+                data: "{\n    (3): (),\n    (5): (),\n}",
             ),
             /*[5]*/ (
                 type_name: "CurrentRoom",
-                data: "{\n    (1): ((1)),\n    (2): ((1)),\n}",
+                data: "{\n    (1): ((1)),\n    (2): ((1)),\n    (5): ((1)),\n}",
             ),
             /*[6]*/ (
                 type_name: "Damage",
@@ -66,7 +66,7 @@
             ),
             /*[15]*/ (
                 type_name: "Name",
-                data: "{\n    (1): (\"Camera 1\"),\n    (2): (\"Player Proxy\"),\n    (3): (\"Player\"),\n}",
+                data: "{\n    (1): (\"Camera 1\"),\n    (2): (\"Player Proxy\"),\n    (3): (\"Player\"),\n    (5): (\"Entity\"),\n}",
             ),
             /*[16]*/ (
                 type_name: "Parent",
@@ -110,7 +110,7 @@
             ),
             /*[26]*/ (
                 type_name: "Transform",
-                data: "{\n    (1): (\n        visible: true,\n        position: (64.0, 36.0),\n        pivot: CenterLeft,\n    ),\n    (2): (\n        visible: true,\n        position: (28.0, 72.0),\n        pivot: BottomCenter,\n    ),\n}",
+                data: "{\n    (1): (\n        visible: true,\n        position: (64.0, 36.0),\n        pivot: CenterLeft,\n    ),\n    (2): (\n        visible: true,\n        position: (28.0, 72.0),\n        pivot: BottomCenter,\n    ),\n    (5): (\n        visible: true,\n        position: (0.0, 0.0),\n        pivot: BottomCenter,\n    ),\n}",
             ),
             /*[27]*/ (
                 type_name: "Velocity",
@@ -121,7 +121,7 @@
                 data: "{}",
             ),
         ],
-        next_entity_id: 4,
+        next_entity_id: 5,
     ),
     worlds: [
         /*[0]*/ (

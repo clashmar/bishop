@@ -419,10 +419,6 @@ impl RoomEditor {
         self.sub_mode_rect = None;
     }
 
-    /// Takes any pending toast message from the room/tilemap editor.
-    pub fn take_pending_toast(&mut self) -> Option<&'static str> {
-        self.tilemap_editor.take_pending_toast()
-    }
 }
 
 impl SubEditor for RoomEditor {

@@ -171,10 +171,6 @@ impl Editor {
                         &mut self.game.asset_manager,
                     );
 
-                    if let Some(msg) = self.room_editor.take_pending_toast() {
-                        self.toast = Some(Toast::new(msg, 2.5));
-                    }
-
                     collider_system::update_colliders_from_sprites(
                         &mut self.game.ecs,
                         &mut self.game.asset_manager,
