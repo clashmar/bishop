@@ -1,6 +1,6 @@
-use bishop::prelude::Rect;
+use super::{HorizontalAlign, LayoutDirection, VerticalAlign};
 use crate::menu::elements::layout_group::LayoutGroupElement;
-use super::{LayoutDirection, HorizontalAlign, VerticalAlign};
+use bishop::prelude::Rect;
 
 /// Computes absolute rects for all children in a layout group.
 ///
@@ -112,7 +112,7 @@ fn compute_managed_positions(
         }
         LayoutDirection::Grid { columns } => {
             let cols = columns.max(1) as usize;
-            let rows = (count + cols - 1) / cols;
+            let rows = count.div_ceil(cols);
             let total_w = cols as f32 * item_w + (cols as f32 - 1.0) * spacing_x;
             let total_h = rows as f32 * item_h + (rows as f32 - 1.0) * spacing_y;
             let start_x = align_offset_h(h_align, inner_w, total_w);

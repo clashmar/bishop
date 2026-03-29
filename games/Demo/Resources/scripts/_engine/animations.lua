@@ -1,4 +1,5 @@
 -- Auto-generated. Do not edit.
+-- bishop-owner: game-generated
 ---@meta
 
 ---@enum ClipId

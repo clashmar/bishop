@@ -161,12 +161,9 @@ impl PrimitiveRenderer {
         // 8 triangles forming the hollow ring (2 per edge)
         self.vertices.extend_from_slice(&[
             // Top edge
-            o0, o1, i1, o0, i1, i0,
-            // Right edge
-            o1, o2, i2, o1, i2, i1,
-            // Bottom edge
-            o2, o3, i3, o2, i3, i2,
-            // Left edge
+            o0, o1, i1, o0, i1, i0, // Right edge
+            o1, o2, i2, o1, i2, i1, // Bottom edge
+            o2, o3, i3, o2, i3, i2, // Left edge
             o3, o0, i0, o3, i0, i3,
         ]);
     }
@@ -202,8 +199,10 @@ impl PrimitiveRenderer {
             let angle1 = (i as f32) * 2.0 * PI / CIRCLE_SEGMENTS as f32;
             let angle2 = ((i + 1) as f32) * 2.0 * PI / CIRCLE_SEGMENTS as f32;
 
-            let v1 = PrimitiveVertex::new([cx + angle1.cos() * radius, cy + angle1.sin() * radius], c);
-            let v2 = PrimitiveVertex::new([cx + angle2.cos() * radius, cy + angle2.sin() * radius], c);
+            let v1 =
+                PrimitiveVertex::new([cx + angle1.cos() * radius, cy + angle1.sin() * radius], c);
+            let v2 =
+                PrimitiveVertex::new([cx + angle2.cos() * radius, cy + angle2.sin() * radius], c);
 
             self.vertices.extend_from_slice(&[center, v1, v2]);
         }
@@ -242,13 +241,7 @@ impl PrimitiveRenderer {
     }
 
     /// Draws a filled triangle.
-    pub fn draw_triangle(
-        &mut self,
-        v1: glam::Vec2,
-        v2: glam::Vec2,
-        v3: glam::Vec2,
-        color: Color,
-    ) {
+    pub fn draw_triangle(&mut self, v1: glam::Vec2, v2: glam::Vec2, v3: glam::Vec2, color: Color) {
         let c: [f32; 4] = color.into();
         let p1 = PrimitiveVertex::new([v1.x, v1.y], c);
         let p2 = PrimitiveVertex::new([v2.x, v2.y], c);
@@ -258,7 +251,6 @@ impl PrimitiveRenderer {
     }
 
     /// Returns the number of vertices queued.
-    #[allow(dead_code)]
     pub fn vertex_count(&self) -> usize {
         self.vertices.len()
     }
@@ -268,21 +260,23 @@ impl PrimitiveRenderer {
         self.vertices.is_empty()
     }
 
-    /// Uploads vertices and renders to the given render pass.
-    pub fn flush<'a>(&'a self, queue: &wgpu::Queue, render_pass: &mut wgpu::RenderPass<'a>) {
+    /// Uploads the vertex buffer to the GPU.
+    pub fn upload_vertices(&self, queue: &wgpu::Queue) {
         if self.vertices.is_empty() {
             return;
         }
+        queue.write_buffer(&self.vertex_buffer, 0, bytemuck::cast_slice(&self.vertices));
+    }
 
-        queue.write_buffer(
-            &self.vertex_buffer,
-            0,
-            bytemuck::cast_slice(&self.vertices),
-        );
-
+    /// Binds the pipeline, uniform group, and vertex buffer on the render pass.
+    pub fn setup_pipeline<'a>(&'a self, render_pass: &mut wgpu::RenderPass<'a>) {
         render_pass.set_pipeline(&self.pipeline);
         render_pass.set_bind_group(0, &self.bind_group, &[]);
         render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
-        render_pass.draw(0..self.vertices.len() as u32, 0..1);
+    }
+
+    /// Issues a draw call for a sub-range of the uploaded vertex buffer.
+    pub fn draw_range(&self, render_pass: &mut wgpu::RenderPass<'_>, start: u32, count: u32) {
+        render_pass.draw(start..start + count, 0..1);
     }
 }

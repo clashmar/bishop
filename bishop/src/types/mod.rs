@@ -6,7 +6,7 @@ mod rect;
 pub use color::*;
 pub use rect::*;
 
-pub use glam::{IVec2, Mat2, Mat4, Vec2, Vec3, ivec2, vec2, vec3};
+pub use glam::{ivec2, vec2, vec3, IVec2, Mat2, Mat4, Vec2, Vec3};
 
 /// Texture wrapper for wgpu backend.
 #[derive(Clone)]

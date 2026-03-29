@@ -1,25 +1,27 @@
 // engine_core/src/assets/asset_manager.rs
 use crate::animation::animation_clip::Animation;
-use crate::storage::path_utils::assets_folder;
 use crate::assets::sprite::*;
-use crate::game::game::Game;
+use crate::game::Game;
+use crate::storage::path_utils::assets_folder;
 use crate::tiles::tile::*;
 use crate::*;
-use serde::{Deserialize, Serialize};
-use futures::executor::block_on;
-use std::collections::HashSet;
-use std::collections::HashMap;
 use bishop::prelude::*;
 use log::info;
-use std::sync::LazyLock;
-use std::path::PathBuf;
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::collections::HashSet;
 use std::path::Path;
+use std::path::PathBuf;
 
 #[derive(Serialize, Deserialize, Default)]
 pub struct AssetManager {
     #[serde(skip)]
     textures: HashMap<SpriteId, Texture2D>,
     /// Persistent map of all sprite ids to their paths.
+    #[serde(
+        serialize_with = "crate::storage::ordered_map::serialize",
+        deserialize_with = "crate::storage::ordered_map::deserialize"
+    )]
     pub sprite_id_to_path: HashMap<SpriteId, PathBuf>,
     #[serde(skip)]
     pub path_to_sprite_id: HashMap<PathBuf, SpriteId>,
@@ -27,33 +29,36 @@ pub struct AssetManager {
     /// Counter for sprite ids. Starts from 1.
     next_sprite_id: usize,
     /// Maps `TileDefIds` to `TileDef`.
+    #[serde(
+        serialize_with = "crate::storage::ordered_map::serialize",
+        deserialize_with = "crate::storage::ordered_map::deserialize"
+    )]
     pub tile_defs: HashMap<TileDefId, TileDef>,
     /// Counter for tile def ids. Starts from 1.
     next_tile_def_id: usize,
     /// Reference counts for sprite ids.
+    #[serde(
+        serialize_with = "crate::storage::ordered_map::serialize",
+        deserialize_with = "crate::storage::ordered_map::deserialize"
+    )]
     ref_counts: HashMap<SpriteId, usize>,
+    /// Sprite ids whose path mappings should be removed on exit.
+    #[cfg(feature = "editor")]
+    #[serde(skip)]
+    pending_path_removal: HashSet<SpriteId>,
+    /// Placeholder texture returned for unset or missing sprite ids.
+    #[serde(skip)]
+    empty_texture: Option<Texture2D>,
 }
 
-/// Empty guard texture.
-static EMPTY_TEXTURE: LazyLock<Texture2D> = LazyLock::new(empty_texture);
-
 impl AssetManager {
-    /// Initializes a new asset manager.
-    pub async fn new() -> Self {
-        Self {
-            textures: HashMap::new(),
-            path_to_sprite_id: HashMap::new(),
-            sprite_id_to_path: HashMap::new(),
-            next_sprite_id: 1,
-            tile_defs: HashMap::new(),
-            next_tile_def_id: 1,
-            ref_counts: HashMap::new(),
-        }
-    }
-
     /// Load and initialize a texture from the assets folder.
     /// Returns the `SpriteId` for the texture.
-    pub async fn init_texture(&mut self, rel_path: impl AsRef<Path>) -> Result<SpriteId, String> {
+    pub fn init_texture(
+        &mut self,
+        loader: &impl TextureLoader,
+        rel_path: impl AsRef<Path>,
+    ) -> Result<SpriteId, String> {
         let path = rel_path.as_ref().to_path_buf();
 
         if path.to_string_lossy().trim().is_empty() {
@@ -61,19 +66,17 @@ impl AssetManager {
             return Err("Empty texture path".into());
         }
 
-        // Already loaded, reuse the same id
+        // Path already registered — reuse the same id, but reload the texture if it was evicted.
         if let Some(&id) = self.path_to_sprite_id.get(&path) {
-            onscreen_info!("init_texture: {:?} already loaded as {:?}", path, id);
+            if let std::collections::hash_map::Entry::Vacant(entry) = self.textures.entry(id) {
+                let texture = Self::load_texture_from_game(loader, &path)?;
+                entry.insert(texture);
+            }
             return Ok(id);
         }
 
         // Load the texture from the assets folder.
-        let texture = match self.load_texture_from_game(&path).await {
-            Ok(t) => t,
-            Err(e) => {
-                return Err(e);
-            }
-        };
+        let texture = Self::load_texture_from_game(loader, &path)?;
 
         // Assign the next texture id
         let id = SpriteId(self.next_sprite_id);
@@ -86,48 +89,65 @@ impl AssetManager {
         // Calculate next available id AFTER inserting
         self.restore_next_sprite_id();
 
-        info!("init_texture: loaded {:?} as {:?}, next_sprite_id now {}", path, id, self.next_sprite_id);
+        info!(
+            "init_texture: loaded {:?} as {:?}, next_sprite_id now {}",
+            path, id, self.next_sprite_id
+        );
 
         Ok(id)
     }
 
     /// Reloads a texture from its `SpriteId` and updates `path_to_sprite_id`.
-    pub async fn reload_texture(&mut self, id: &SpriteId, path: &Path) -> Result<(), String> {
-        // Load the texture from disk.
-        let texture = self.load_texture_from_game(&path).await?;
-
-        // Store everything and repopulate the reverse map
+    pub fn reload_texture(
+        &mut self,
+        loader: &impl TextureLoader,
+        id: &SpriteId,
+        path: &Path,
+    ) -> Result<(), String> {
+        let texture = Self::load_texture_from_game(loader, path)?;
         self.textures.insert(*id, texture);
         self.path_to_sprite_id.insert(path.to_path_buf(), *id);
-
-        return Ok(());
+        Ok(())
     }
 
-    /// Returns a texture from a `SpriteId`. If the texture has not been loaded yet load it synchronously.
-    pub fn get_texture_from_id(&mut self, id: SpriteId) -> &Texture2D {
-        // If SpriteId = 0 it is unset
+    /// Returns a texture from a `SpriteId`. Loads lazily if evicted.
+    pub fn get_texture_from_id(&mut self, loader: &impl TextureLoader, id: SpriteId) -> &Texture2D {
         if id.0 == 0 {
-            return &*EMPTY_TEXTURE;
+            return self
+                .empty_texture
+                .get_or_insert_with(|| loader.empty_texture());
         }
 
-        // Fast path
-        if self.contains(id) {
+        if self.textures.contains_key(&id) {
             return self.textures.get(&id).unwrap();
         }
 
-        // Look up the original path and load it now.
-        let path = self
-            .sprite_id_to_path
-            .get(&id)
-            .expect("SpriteId out of range and no stored path")
-            .clone();
+        // Look up the original path and load lazily.
+        let path = match self.sprite_id_to_path.get(&id) {
+            Some(p) => p.clone(),
+            None => {
+                return self
+                    .empty_texture
+                    .get_or_insert_with(|| loader.empty_texture());
+            }
+        };
 
-        let _ = block_on(self.init_texture(path));
-        self.textures.get(&id).unwrap()
+        let _ = self.init_texture(loader, &path);
+
+        if self.textures.contains_key(&id) {
+            self.textures.get(&id).unwrap()
+        } else {
+            self.empty_texture
+                .get_or_insert_with(|| loader.empty_texture())
+        }
     }
 
     /// Returns the id for `path`, loading it if necessary.
-    pub fn get_or_load<P: AsRef<Path>>(&mut self, path: P) -> Option<SpriteId> {
+    pub fn get_or_load<P: AsRef<Path>>(
+        &mut self,
+        loader: &impl TextureLoader,
+        path: P,
+    ) -> Option<SpriteId> {
         let p = path.as_ref();
         if p.to_string_lossy().trim().is_empty() {
             return None;
@@ -137,8 +157,7 @@ impl AssetManager {
             return Some(id);
         }
 
-        // Blocking load
-        match block_on(self.init_texture(p)) {
+        match self.init_texture(loader, p) {
             Ok(id) => Some(id),
             Err(err) => {
                 onscreen_error!("{}", err);
@@ -160,7 +179,7 @@ impl AssetManager {
     }
 
     /// Initialize all assets for the game.
-    pub async fn init_manager(game: &mut Game) {
+    pub fn init_manager(loader: &impl TextureLoader, game: &mut Game) {
         // Calculate the next id from the existing map
         game.asset_manager.restore_next_sprite_id();
 
@@ -171,7 +190,8 @@ impl AssetManager {
             game.asset_manager.next_tile_def_id = 1;
         }
 
-        let sprites: Vec<(SpriteId, PathBuf)> = game.asset_manager
+        let sprites: Vec<(SpriteId, PathBuf)> = game
+            .asset_manager
             .sprite_id_to_path
             .iter()
             .map(|(id, path)| (*id, path.clone()))
@@ -179,12 +199,11 @@ impl AssetManager {
 
         // Reload all textures first
         for (id, path) in sprites {
-            let _ = game.asset_manager.reload_texture(&id, &path).await;
+            let _ = game.asset_manager.reload_texture(loader, &id, &path);
         }
 
-        // Load and initialize all animations
         for animation in game.ecs.get_store_mut::<Animation>().data.values_mut() {
-            animation.refresh_sprite_cache(&mut game.asset_manager).await;
+            animation.init_sprite_cache(loader, &mut game.asset_manager);
             animation.init_runtime();
         }
     }
@@ -206,7 +225,9 @@ impl AssetManager {
     /// Return the pixel width and height of the texture that belongs to `id`
     /// or None if the texture has not been loaded/set.
     pub fn texture_size(&self, id: SpriteId) -> Option<(f32, f32)> {
-        self.textures.get(&id).map(|tex| (tex.width(), tex.height()))
+        self.textures
+            .get(&id)
+            .map(|tex| (tex.width(), tex.height()))
     }
 
     /// Returns the number of loaded textures.
@@ -224,7 +245,13 @@ impl AssetManager {
         if sprite_id.0 == 0 {
             return;
         }
+
         *self.ref_counts.entry(sprite_id).or_insert(0) += 1;
+
+        #[cfg(feature = "editor")]
+        {
+            self.pending_path_removal.remove(&sprite_id);
+        }
     }
 
     /// Decrement reference count for a sprite, cleaning up all structures when count reaches zero.
@@ -239,9 +266,22 @@ impl AssetManager {
             if *count == 0 {
                 self.ref_counts.remove(&sprite_id);
                 self.textures.remove(&sprite_id);
-                if let Some(path) = self.sprite_id_to_path.remove(&sprite_id) {
-                    self.path_to_sprite_id.remove(&path);
+
+                #[cfg(feature = "editor")]
+                {
+                    self.pending_path_removal.insert(sprite_id);
                 }
+            }
+        }
+    }
+
+    /// Remove path mappings for all sprites with a zero ref count.
+    /// Call this before serializing game data on exit.
+    #[cfg(feature = "editor")]
+    pub fn flush_pending_removals(&mut self) {
+        for id in self.pending_path_removal.drain() {
+            if let Some(path) = self.sprite_id_to_path.remove(&id) {
+                self.path_to_sprite_id.remove(&path);
             }
         }
     }
@@ -263,7 +303,11 @@ impl AssetManager {
     }
 
     /// Changes an optional sprite reference, handling decrement of old and increment of new.
-    pub fn change_sprite_option(&mut self, old_id: &mut Option<SpriteId>, new_id: Option<SpriteId>) {
+    pub fn change_sprite_option(
+        &mut self,
+        old_id: &mut Option<SpriteId>,
+        new_id: Option<SpriteId>,
+    ) {
         if *old_id == new_id {
             return;
         }
@@ -279,15 +323,14 @@ impl AssetManager {
         *old_id = new_id;
     }
 
-    /// Loads a texture from the assets folder.
-    async fn load_texture_from_game<P: AsRef<Path> + Copy>(
-        &self,
+    /// Loads a texture from the assets folder using the provided loader.
+    fn load_texture_from_game<P: AsRef<Path>>(
+        loader: &impl TextureLoader,
         rel_path: P,
     ) -> Result<Texture2D, String> {
-        let full_path = assets_folder().join(rel_path);
-
-        load_texture(full_path.to_string_lossy().as_ref())
-            .await
+        let full_path = assets_folder().join(rel_path.as_ref());
+        loader
+            .load_texture_from_path(full_path.to_string_lossy().as_ref())
             .map_err(|e| {
                 format!(
                     "Failed to load texture '{}': {}",
@@ -341,16 +384,15 @@ impl AssetManager {
 
     /// Updates a TileDef's sprite, handling ref counting for the change.
     pub fn update_tile_def_sprite(&mut self, id: TileDefId, new_sprite_id: SpriteId) {
-        // Get the old sprite id first to avoid borrow issues
         let old_sprite_id = self.tile_defs.get(&id).map(|def| def.sprite_id);
 
-        if let Some(old_id) = old_sprite_id {
-            if old_id != new_sprite_id {
-                self.decrement_ref(old_id);
-                self.increment_ref(new_sprite_id);
-                if let Some(def) = self.tile_defs.get_mut(&id) {
-                    def.sprite_id = new_sprite_id;
-                }
+        if let Some(old_id) = old_sprite_id
+            && old_id != new_sprite_id
+        {
+            self.decrement_ref(old_id);
+            self.increment_ref(new_sprite_id);
+            if let Some(def) = self.tile_defs.get_mut(&id) {
+                def.sprite_id = new_sprite_id;
             }
         }
     }

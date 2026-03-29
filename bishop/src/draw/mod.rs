@@ -12,7 +12,15 @@ pub trait Draw {
     fn draw_rectangle(&mut self, x: f32, y: f32, w: f32, h: f32, color: Color);
 
     /// Draws a rectangle outline.
-    fn draw_rectangle_lines(&mut self, x: f32, y: f32, w: f32, h: f32, thickness: f32, color: Color);
+    fn draw_rectangle_lines(
+        &mut self,
+        x: f32,
+        y: f32,
+        w: f32,
+        h: f32,
+        thickness: f32,
+        color: Color,
+    );
 
     /// Draws a line between two points.
     fn draw_line(&mut self, x1: f32, y1: f32, x2: f32, y2: f32, thickness: f32, color: Color);
@@ -42,4 +50,11 @@ pub trait Draw {
         params: DrawTextureParams,
     );
 
+    /// Restricts subsequent rendering to the given rectangle.
+    ///
+    /// Must be paired with [`pop_clip_rect`](Self::pop_clip_rect).
+    fn push_clip_rect(&mut self, rect: crate::types::Rect);
+
+    /// Removes the active clip rectangle set by [`push_clip_rect`](Self::push_clip_rect).
+    fn pop_clip_rect(&mut self);
 }

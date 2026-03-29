@@ -1,7 +1,7 @@
 // engine_core/src/text/dialogue/speech_system.rs
-use crate::text::dialogue::SpeechBubble;
 use crate::ecs::ecs::Ecs;
 use crate::ecs::entity::Entity;
+use crate::text::dialogue::SpeechBubble;
 
 /// Updates speech bubble timers and removes expired bubbles.
 pub fn update_speech_timers(ecs: &mut Ecs, dt: f32) {

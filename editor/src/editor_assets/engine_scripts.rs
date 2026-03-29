@@ -2,11 +2,12 @@
 
 /// Embedded _engine Lua scripts for new game projects.
 pub static ENGINE_SCRIPTS: &[(&str, &str)] = &[
-    ("animations.lua", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/scripts/_engine/animations.lua"))),
+    ("audio.lua", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/scripts/_engine/audio.lua"))),
     ("components.lua", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/scripts/_engine/components.lua"))),
-    ("dialogue.lua", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/scripts/_engine/dialogue.lua"))),
     ("engine.lua", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/scripts/_engine/engine.lua"))),
     ("entity.lua", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/scripts/_engine/entity.lua"))),
     ("input.lua", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/scripts/_engine/input.lua"))),
+    ("menu.lua", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/scripts/_engine/menu.lua"))),
     ("script.lua", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/scripts/_engine/script.lua"))),
+    ("text.lua", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/scripts/_engine/text.lua"))),
 ];

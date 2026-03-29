@@ -1,7 +1,7 @@
 // editor/src/gui/inspector/camera_module.rs
+use bishop::prelude::*;
 use engine_core::prelude::*;
 use strum::IntoEnumIterator;
-use bishop::prelude::*;
 
 pub const ROOM_CAMERA_MODULE_TITLE: &str = "Room Camera";
 
@@ -11,11 +11,34 @@ pub struct RoomCameraModule {
     pub zoom_id: WidgetId,
     pub slider_id: WidgetId,
     pub cam_mode_id: WidgetId,
+    current_zoom_mode: ZoomMode,
 }
 
+const BODY_TOP_PADDING: f32 = WIDGET_SPACING;
+const ROOM_CAMERA_BOTTOM_GUTTER: f32 = 10.0;
+const ROOM_CAMERA_VISUAL_GAP: f32 = WIDGET_SPACING;
+const MODE_ROW_HEIGHT: f32 = 30.0;
+const STEP_SECTION_HEIGHT: f32 = 40.0;
+const FREE_SECTION_HEIGHT: f32 = 35.0;
+
 impl InspectorModule for RoomCameraModule {
+    fn undo_component_type(&self) -> Option<&'static str> {
+        None
+    }
+
     fn visible(&self, ecs: &Ecs, entity: Entity) -> bool {
         ecs.get::<RoomCamera>(entity).is_some()
+    }
+
+    fn body_layout(&self) -> InspectorBodyLayout {
+        InspectorBodyLayout::new()
+            .top_padding(BODY_TOP_PADDING)
+            .bottom_gutter(ROOM_CAMERA_BOTTOM_GUTTER)
+            .block(MODE_ROW_HEIGHT)
+            .gap(ROOM_CAMERA_VISUAL_GAP)
+            .block(zoom_visual_height(self.current_zoom_mode))
+            .gap(ROOM_CAMERA_VISUAL_GAP)
+            .block(MODE_ROW_HEIGHT)
     }
 
     fn draw(
@@ -36,36 +59,43 @@ impl InspectorModule for RoomCameraModule {
             .get_mut::<RoomCamera>(entity)
             .expect("Camera must exist");
 
-        let mut y = rect.y + WIDGET_SPACING;
+        self.current_zoom_mode = cam.zoom_mode;
+
+        let mut y = rect.y + BODY_TOP_PADDING;
 
         // Layout dropdown now but draw at the end
         let mode_label = "Zoom Mode: ";
         let label_width = measure_text(ctx, mode_label, FIELD_TEXT_SIZE_16).width;
-        ctx.draw_text(mode_label, rect.x, y + 20.0, FIELD_TEXT_SIZE_16, FIELD_TEXT_COLOR);
+        ctx.draw_text(
+            mode_label,
+            rect.x,
+            y + 20.0,
+            FIELD_TEXT_SIZE_16,
+            FIELD_TEXT_COLOR,
+        );
 
-        let mode_rect = Rect::new(rect.x + label_width + WIDGET_SPACING, y, rect.w - label_width - WIDGET_SPACING, 30.0);
+        let mode_rect = Rect::new(
+            rect.x + label_width + WIDGET_SPACING,
+            y,
+            rect.w - label_width - WIDGET_SPACING,
+            MODE_ROW_HEIGHT,
+        );
         let current_mode = cam.zoom_mode;
         let current_label = format!("{current_mode}");
-        let zoom_options: Vec<ZoomMode> = ZoomMode::iter()
-            .collect();
+        let zoom_options: Vec<ZoomMode> = ZoomMode::iter().collect();
 
-        // Advance y for the next position
-        y += mode_rect.h + mode_rect.h + WIDGET_SPACING;
+        y = zoom_section_y(y, cam.zoom_mode);
 
         match cam.zoom_mode {
             ZoomMode::Step => {
                 // Fields to change the global virtual screen dimensions
-                let scale_rect = Rect::new(
-                    rect.x,
-                    y,
-                    rect.w,
-                    40.0,
-                );
+                let scale_rect = Rect::new(rect.x, y, rect.w, STEP_SECTION_HEIGHT);
 
                 const STEPS: &[f32; 5] = &[0.5_f32, 1.0, 2.0, 3.0, 4.0];
 
                 let current_scalar = 2.0 / (cam.zoom.x * world_virtual_width(grid_size));
-                let new_scalar = gui_stepper(ctx, scale_rect, "Scale", STEPS, current_scalar, blocked);
+                let new_scalar =
+                    gui_stepper(ctx, scale_rect, "Scale", STEPS, current_scalar, blocked);
 
                 if !blocked && (new_scalar - current_scalar).abs() > f32::EPSILON {
                     let width = world_virtual_width(grid_size) * new_scalar;
@@ -76,25 +106,13 @@ impl InspectorModule for RoomCameraModule {
             }
             ZoomMode::Free => {
                 // Editable numeric field and slider for zoom
-                let zoom_rect = Rect::new(
-                    rect.x,
-                    y,
-                    rect.w,
-                    35.0,
-                );
+                let zoom_rect = Rect::new(rect.x, y, rect.w, FREE_SECTION_HEIGHT);
 
-                self.draw_freeform_mode(
-                    ctx,
-                    zoom_rect,
-                    cam,
-                    blocked,
-                    grid_size,
-                );
+                self.draw_freeform_mode(ctx, zoom_rect, cam, blocked, grid_size);
             }
         }
 
-        // Advance y for the next position
-        y += 30.0;
+        y = camera_mode_y(y, cam.zoom_mode);
 
         // Camera mode
         let cam_mode_label = "Camera Mode: ";
@@ -111,7 +129,7 @@ impl InspectorModule for RoomCameraModule {
             rect.x + cam_label_width + WIDGET_SPACING,
             y,
             rect.w - cam_label_width - WIDGET_SPACING,
-            30.0,
+            MODE_ROW_HEIGHT,
         );
 
         // Current value & label
@@ -131,7 +149,10 @@ impl InspectorModule for RoomCameraModule {
             &current_cam_label,
             &cam_mode_options,
             |mode| mode.ui_label(),
-        ).blocked(blocked).show(ctx) {
+        )
+        .blocked(blocked)
+        .show(ctx)
+        {
             if new_cam_mode != current_cam_mode {
                 cam.camera_mode = new_cam_mode;
             }
@@ -143,9 +164,13 @@ impl InspectorModule for RoomCameraModule {
             &current_label,
             &zoom_options,
             |mode| mode.ui_label(),
-        ).blocked(blocked).show(ctx) {
+        )
+        .blocked(blocked)
+        .show(ctx)
+        {
             if new_mode != current_mode {
                 cam.zoom_mode = new_mode;
+                self.current_zoom_mode = new_mode;
             }
         }
 
@@ -156,6 +181,44 @@ impl InspectorModule for RoomCameraModule {
             }
         }
     }
+}
+
+fn stepper_top_bleed() -> f32 {
+    22.5
+}
+
+fn stepper_visual_height() -> f32 {
+    FIELD_TEXT_SIZE_16 * 1.2 + 15.0
+}
+
+fn free_zoom_top_bleed() -> f32 {
+    FIELD_TEXT_SIZE_16
+}
+
+fn free_zoom_visual_height() -> f32 {
+    FREE_SECTION_HEIGHT
+}
+
+fn zoom_top_bleed(mode: ZoomMode) -> f32 {
+    match mode {
+        ZoomMode::Step => stepper_top_bleed(),
+        ZoomMode::Free => free_zoom_top_bleed(),
+    }
+}
+
+fn zoom_visual_height(mode: ZoomMode) -> f32 {
+    match mode {
+        ZoomMode::Step => stepper_visual_height(),
+        ZoomMode::Free => free_zoom_visual_height(),
+    }
+}
+
+fn zoom_section_y(first_row_y: f32, mode: ZoomMode) -> f32 {
+    first_row_y + MODE_ROW_HEIGHT + ROOM_CAMERA_VISUAL_GAP + zoom_top_bleed(mode)
+}
+
+fn camera_mode_y(zoom_row_y: f32, mode: ZoomMode) -> f32 {
+    zoom_row_y - zoom_top_bleed(mode) + zoom_visual_height(mode) + ROOM_CAMERA_VISUAL_GAP
 }
 
 impl RoomCameraModule {
@@ -265,5 +328,43 @@ fn pivot_for_zoom_scalar(scalar: f32) -> Pivot {
         Pivot::TopLeft
     } else {
         Pivot::CenterLeft
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn room_camera_step_height_matches_visible_controls() {
+        let module = RoomCameraModule::default();
+
+        assert_eq!(module.body_layout().height(), 134.2);
+    }
+
+    #[test]
+    fn room_camera_free_height_matches_visible_controls() {
+        let module = RoomCameraModule {
+            current_zoom_mode: ZoomMode::Free,
+            ..Default::default()
+        };
+
+        assert_eq!(module.body_layout().height(), 135.0);
+    }
+
+    #[test]
+    fn zoom_section_layout_uses_even_visual_gaps() {
+        assert_eq!(
+            zoom_section_y(0.0, ZoomMode::Step),
+            MODE_ROW_HEIGHT + ROOM_CAMERA_VISUAL_GAP + stepper_top_bleed()
+        );
+
+        assert_eq!(
+            camera_mode_y(zoom_section_y(0.0, ZoomMode::Step), ZoomMode::Step),
+            MODE_ROW_HEIGHT
+                + ROOM_CAMERA_VISUAL_GAP
+                + stepper_visual_height()
+                + ROOM_CAMERA_VISUAL_GAP
+        );
     }
 }

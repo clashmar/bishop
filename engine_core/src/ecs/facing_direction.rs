@@ -1,6 +1,6 @@
 // engine_core/src/ecs/facing_direction.rs
-use serde::{Deserialize, Serialize};
 use ecs_component::ecs_component;
+use serde::{Deserialize, Serialize};
 
 /// Direction an entity is facing, used for auto-flip logic with mirrored clips.
 #[ecs_component]

@@ -35,7 +35,14 @@ impl ColorInput {
 
         let prefix_x = self.rect.x + swatch_size + gap;
         let prefix_y = self.rect.y + self.rect.h * 0.7;
-        draw_text_ui(ctx, "#", prefix_x, prefix_y, DEFAULT_FONT_SIZE_16, FIELD_TEXT_COLOR);
+        draw_text_ui(
+            ctx,
+            "#",
+            prefix_x,
+            prefix_y,
+            DEFAULT_FONT_SIZE_16,
+            FIELD_TEXT_COLOR,
+        );
 
         let hex = self.current.to_hex();
         let text_rect = Rect::new(text_field_x, self.rect.y, text_field_w, self.rect.h);
@@ -48,8 +55,21 @@ impl ColorInput {
         let resolved = Color::from_hex(&hex_text).unwrap_or(self.current);
 
         let swatch_rect = Rect::new(self.rect.x, self.rect.y, swatch_size, swatch_size);
-        ctx.draw_rectangle(swatch_rect.x, swatch_rect.y, swatch_rect.w, swatch_rect.h, resolved);
-        ctx.draw_rectangle_lines(swatch_rect.x, swatch_rect.y, swatch_rect.w, swatch_rect.h, 2.0, Color::WHITE);
+        ctx.draw_rectangle(
+            swatch_rect.x,
+            swatch_rect.y,
+            swatch_rect.w,
+            swatch_rect.h,
+            resolved,
+        );
+        ctx.draw_rectangle_lines(
+            swatch_rect.x,
+            swatch_rect.y,
+            swatch_rect.w,
+            swatch_rect.h,
+            2.0,
+            Color::WHITE,
+        );
 
         resolved
     }

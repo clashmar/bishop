@@ -1,12 +1,9 @@
-use image::imageops::FilterType;
 use image::ImageReader;
+use image::imageops::FilterType;
 use std::io::Cursor;
 
 /// Helper that decodes a PNG, resizes it and returns the raw RGBA bytes.
-pub fn load_rgba_resized<const N: usize>(
-    data: &[u8],
-    size: u32,
-) -> [u8; N] {
+pub fn load_rgba_resized<const N: usize>(data: &[u8], size: u32) -> [u8; N] {
     let img = ImageReader::with_format(Cursor::new(data), image::ImageFormat::Png)
         .decode()
         .expect("failed to decode PNG");

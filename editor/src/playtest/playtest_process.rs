@@ -1,11 +1,11 @@
 // editor/src/playtest/playtest_process.rs
-use std::sync::mpsc::{self, Receiver, TryRecvError};
-use engine_core::logging::logging::LOG_HISTORY;
-use std::process::{Child, Command, Stdio};
+use engine_core::logging::{now_str, LOG_HISTORY};
+use std::io;
 use std::io::{BufRead, BufReader};
 use std::path::Path;
+use std::process::{Child, Command, Stdio};
+use std::sync::mpsc::{self, Receiver};
 use std::thread;
-use std::io;
 
 /// Manages a running playtest process, capturing its stdout/stderr output.
 pub struct PlaytestProcess {
@@ -24,10 +24,14 @@ impl PlaytestProcess {
             .stderr(Stdio::piped())
             .spawn()?;
 
-        let stdout = child.stdout.take()
-            .ok_or_else(|| io::Error::new(io::ErrorKind::Other, "Failed to capture stdout"))?;
-        let stderr = child.stderr.take()
-            .ok_or_else(|| io::Error::new(io::ErrorKind::Other, "Failed to capture stderr"))?;
+        let stdout = child
+            .stdout
+            .take()
+            .ok_or_else(|| io::Error::other("Failed to capture stdout"))?;
+        let stderr = child
+            .stderr
+            .take()
+            .ok_or_else(|| io::Error::other("Failed to capture stderr"))?;
 
         let (stdout_tx, stdout_rx) = mpsc::channel();
         let (stderr_tx, stderr_rx) = mpsc::channel();
@@ -92,18 +96,15 @@ impl PlaytestProcess {
     }
 
     fn drain_channel(&self, rx: &Receiver<String>, level: log::Level) {
-        loop {
-            match rx.try_recv() {
-                Ok(line) => Self::push_log(level, &line),
-                Err(TryRecvError::Empty) | Err(TryRecvError::Disconnected) => break,
-            }
+        while let Ok(line) = rx.try_recv() {
+            Self::push_log(level, &line);
         }
     }
 
     fn push_log(level: log::Level, message: &str) {
         let prefixed = format!("[PLAYTEST] {}", message);
         if let Ok(mut history) = LOG_HISTORY.lock() {
-            history.push(level, prefixed);
+            history.push(level, prefixed, now_str(), "playtest", 0);
         }
     }
 }

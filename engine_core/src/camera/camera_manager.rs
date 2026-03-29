@@ -19,15 +19,17 @@ impl CameraManager {
     /// Initialise with the player's starting room.
     pub fn new<C: BishopContext>(
         ctx: &mut C,
-        ecs: &Ecs, 
-        room_id: RoomId, 
-        player_pos: Vec2, 
-        grid_size: f32
+        ecs: &Ecs,
+        room_id: RoomId,
+        player_pos: Vec2,
+        grid_size: f32,
     ) -> Self {
-        let room_cameras = get_room_cameras(&ecs, room_id);
-        let (active_camera, _) =
-            Self::find_best_camera_for_room(ctx, &ecs, &room_cameras, player_pos, grid_size)
+        let room_cameras = get_room_cameras(ecs, room_id);
+        let (mut active_camera, _) =
+            Self::find_best_camera_for_room(ecs, &room_cameras, player_pos)
                 .expect("Room must contain at least one camera.");
+
+        active_camera.camera.render_target = Some(game_render_target(ctx, grid_size));
 
         Self {
             active: active_camera,
@@ -39,11 +41,11 @@ impl CameraManager {
 
     /// Picks the best camera and update it if necessary.
     pub fn update_active<C: BishopContext>(
-        &mut self, 
+        &mut self,
         ctx: &mut C,
-        ecs: &Ecs, 
-        room: &Room, 
-        grid_size: f32
+        ecs: &Ecs,
+        room: &Room,
+        grid_size: f32,
     ) {
         // If the player moved to another room get the new cameras
         if self.current_room != Some(room.id) {
@@ -52,19 +54,18 @@ impl CameraManager {
         }
 
         // Pick the best camera
-        let player_pos = ecs.get_player_transform()
+        let player_pos = ecs
+            .get_player_transform()
             .map(|t| t.position)
             .unwrap_or_default();
 
-        if let Some((best_cam, mode)) = Self::find_best_camera_for_room(
-            ctx,
-            ecs,
-            &self.room_cameras,
-            player_pos,
-            grid_size,
-        ) {
-            // Prevent interpolation with the previous camera
+        if let Some((mut best_cam, mode)) =
+            Self::find_best_camera_for_room(ecs, &self.room_cameras, player_pos)
+        {
+            // Prevent interpolation with the previous camera.
+            // Only create a render target when the active camera actually changes.
             if best_cam.id != self.active.id {
+                best_cam.camera.render_target = Some(game_render_target(ctx, grid_size));
                 self.active = best_cam;
                 self.previous_position = Some(self.active.camera.target);
             }
@@ -77,18 +78,16 @@ impl CameraManager {
     }
 
     /// Finds the most suitable camera for a given room and player position.
-    pub fn find_best_camera_for_room<C: BishopContext>(
-        ctx: &mut C,
+    pub fn find_best_camera_for_room(
         ecs: &Ecs,
         room_cameras: &[(Entity, RoomCamera)],
         player_pos: Vec2,
-        grid_size: f32,
     ) -> Option<(GameCamera, CameraMode)> {
         // Keep track of the camera with the smallest distance to the player
         let mut closest: Option<(f32, GameCamera, CameraMode)> = None;
 
         for &(entity, ref cam) in room_cameras.iter() {
-            let game_cam = room_to_game_camera(ctx, ecs, &entity, cam, player_pos, grid_size);
+            let game_cam = room_to_game_camera(ecs, &entity, cam, player_pos);
             match cam.camera_mode {
                 CameraMode::Fixed => {
                     if Self::point_in_camera_view(&game_cam, player_pos) {

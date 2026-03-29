@@ -13,7 +13,7 @@ pub const MINIMUM_TILE_SIZE: f32 = 5.0;
 /// Base tile size for editor scaling.
 pub const BASE_GRID_SIZE: f32 = 32.0;
 
-pub const DEFAULT_ROOM_SIZE: Vec2 = Vec2::new(16.0, 10.0);
+pub const DEFAULT_ROOM_SIZE: Vec2 = Vec2::new(16.0, 9.0);
 pub const DEFAULT_ROOM_POSITION: Vec2 = Vec2::new(0.0, 0.0);
 
 /// Name of the game .ron save file.
@@ -40,6 +40,9 @@ pub const TEXT_FOLDER: &str = "text";
 /// Name of the folder that contains menu templates.
 pub const MENUS_FOLDER: &str = "menus";
 
+/// Name of the audio folder.
+pub const AUDIO_FOLDER: &str = "audio";
+
 /// Name of the folder for windows-specific game assets.
 pub const WINDOWS_FOLDER: &str = "windows";
 
@@ -53,18 +56,20 @@ pub const CONTENTS_FOLDER: &str = "Contents";
 pub const BUNDLE_ASSETS: &str = "bundle_assets";
 
 /// Scale to the base resolution.
-pub fn editor_zoom_factor(grid_size: f32) -> f32 { grid_size / BASE_GRID_SIZE }
+pub fn editor_zoom_factor(grid_size: f32) -> f32 {
+    grid_size / BASE_GRID_SIZE
+}
 
-pub const DEFAULT_CAM_TILES_X: f32 = 16.0;     
+pub const DEFAULT_CAM_TILES_X: f32 = 16.0;
 pub const DEFAULT_CAM_TILES_Y: f32 = 9.0;
 
-pub const FIXED_WINDOW_WIDTH:  i32 = (DEFAULT_CAM_TILES_X * 3. * BASE_GRID_SIZE) as i32;
+pub const FIXED_WINDOW_WIDTH: i32 = (DEFAULT_CAM_TILES_X * 3. * BASE_GRID_SIZE) as i32;
 pub const FIXED_WINDOW_HEIGHT: i32 = (DEFAULT_CAM_TILES_Y * 3. * BASE_GRID_SIZE) as i32;
 
 // Prevents the window from becoming absurdly small/large
-pub const MIN_WINDOW_WIDTH:  i32 = 640;
+pub const MIN_WINDOW_WIDTH: i32 = 640;
 pub const MIN_WINDOW_HEIGHT: i32 = 360;
-pub const MAX_WINDOW_WIDTH:  i32 = 2560;
+pub const MAX_WINDOW_WIDTH: i32 = 2560;
 pub const MAX_WINDOW_HEIGHT: i32 = 1440;
 
 /// Target design resolution width for menus and UI.

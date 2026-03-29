@@ -1,7 +1,7 @@
 // editor/src/gui/prompts/confirm_prompt.rs
 use crate::gui::prompts::helpers::*;
-use engine_core::prelude::*;
 use bishop::prelude::*;
+use engine_core::prelude::*;
 
 /// Result of a confirm prompt.
 pub enum ConfirmPromptResult {

@@ -89,13 +89,8 @@ impl BishopRenderTarget {
             return;
         }
 
-        let (texture, render_view, sample_view, sampler, bind_group) = Self::create_resources(
-            device,
-            &self.bind_group_layout,
-            width,
-            height,
-            self.format        
-        );
+        let (texture, render_view, sample_view, sampler, bind_group) =
+            Self::create_resources(device, &self.bind_group_layout, width, height, self.format);
 
         self.texture = texture;
         self.render_view = render_view;
@@ -111,7 +106,7 @@ impl BishopRenderTarget {
         bind_group_layout: &wgpu::BindGroupLayout,
         width: u32,
         height: u32,
-        format: wgpu::TextureFormat
+        format: wgpu::TextureFormat,
     ) -> (
         wgpu::Texture,
         wgpu::TextureView,

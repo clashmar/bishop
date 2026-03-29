@@ -1,13 +1,13 @@
 // editor/src/gui/panels/panel_manager.rs
-use crate::gui::panels::diagnostics_panel::DiagnosticsPanel;
-use crate::gui::panels::hierarchy_panel::HierarchyPanel;
-use crate::gui::panels::console_panel::ConsolePanel;
-use crate::gui::panels::generic_panel::*;
-use crate::with_panel_manager;
 use crate::app::EditorMode;
+use crate::gui::panels::console_panel::ConsolePanel;
+use crate::gui::panels::diagnostics_panel::DiagnosticsPanel;
+use crate::gui::panels::generic_panel::*;
+use crate::gui::panels::hierarchy_panel::HierarchyPanel;
+use crate::with_panel_manager;
 use crate::Editor;
-use std::collections::HashMap;
 use bishop::prelude::*;
+use std::collections::HashMap;
 
 pub enum PanelMode {
     Room,
@@ -18,13 +18,13 @@ pub enum PanelMode {
 
 impl PanelMode {
     fn matches(&self, mode: &EditorMode) -> bool {
-        match (self, mode) {
-            (PanelMode::Game, EditorMode::Game) => true,
-            (PanelMode::World, EditorMode::World(_)) => true,
-            (PanelMode::Room, EditorMode::Room(_)) => true,
-            (PanelMode::Menu, EditorMode::Menu) => true,
-            _ => false,
-        }
+        matches!(
+            (self, mode),
+            (PanelMode::Game, EditorMode::Game)
+                | (PanelMode::World, EditorMode::World(_))
+                | (PanelMode::Room, EditorMode::Room(_))
+                | (PanelMode::Menu, EditorMode::Menu)
+        )
     }
 }
 
@@ -42,11 +42,7 @@ impl PanelManager {
         }
     }
 
-    pub fn register(
-        &mut self,
-        panel: GenericPanel,
-        modes: Vec<PanelMode>,
-    ) {
+    pub fn register(&mut self, panel: GenericPanel, modes: Vec<PanelMode>) {
         self.panel_modes.insert(panel.title, modes);
         self.panels.push((panel.title, panel));
     }
@@ -60,10 +56,10 @@ impl PanelManager {
     }
 
     pub fn update_and_draw(
-        &mut self, 
-        ctx: &mut WgpuContext, 
-        editor_mode: EditorMode, 
-        editor: &mut Editor
+        &mut self,
+        ctx: &mut WgpuContext,
+        editor_mode: EditorMode,
+        editor: &mut Editor,
     ) {
         let mouse_screen = ctx.mouse_position().into();
         let mouse_pressed = ctx.is_mouse_button_pressed(MouseButton::Left);
@@ -88,7 +84,10 @@ impl PanelManager {
         }
 
         // Find the topmost panel containing the mouse (for blocking lower panels)
-        let topmost_panel_at_mouse: Option<PanelId> = self.panels.iter().rev()
+        let topmost_panel_at_mouse: Option<PanelId> = self
+            .panels
+            .iter()
+            .rev()
             .find(|(id, panel)| {
                 panel.visible
                     && self.panel_modes[id].iter().any(|m| m.matches(&editor_mode))
@@ -127,7 +126,12 @@ impl PanelManager {
     pub fn register_all_panels(&mut self, ctx: &WgpuContext) {
         self.register(
             GenericPanel::new(ConsolePanel::new(), ctx),
-            vec![PanelMode::Game, PanelMode::World, PanelMode::Room, PanelMode::Menu],
+            vec![
+                PanelMode::Game,
+                PanelMode::World,
+                PanelMode::Room,
+                PanelMode::Menu,
+            ],
         );
 
         self.register(
@@ -137,7 +141,12 @@ impl PanelManager {
 
         self.register(
             GenericPanel::new(DiagnosticsPanel::new(), ctx),
-            vec![PanelMode::Game, PanelMode::World, PanelMode::Room, PanelMode::Menu],
+            vec![
+                PanelMode::Game,
+                PanelMode::World,
+                PanelMode::Room,
+                PanelMode::Menu,
+            ],
         );
     }
 }
@@ -146,11 +155,8 @@ impl PanelManager {
 pub fn is_mouse_over_panel(ctx: &WgpuContext) -> bool {
     with_panel_manager(|pm| {
         let mouse_screen = ctx.mouse_position().into();
-        pm.panels.iter()
-            .any(|(_, p)|
-            p.visible
-            && p.in_current_mode
-            && (p.rect.contains(mouse_screen) || p.dragging)
-        )
+        pm.panels.iter().any(|(_, p)| {
+            p.visible && p.in_current_mode && (p.rect.contains(mouse_screen) || p.dragging)
+        })
     })
 }

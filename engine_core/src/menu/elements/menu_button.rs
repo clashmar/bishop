@@ -1,5 +1,5 @@
-use serde::{Deserialize, Serialize};
 use crate::menu::menu_builder::MenuAction;
+use serde::{Deserialize, Serialize};
 
 /// Clickable button component.
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]

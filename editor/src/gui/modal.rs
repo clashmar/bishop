@@ -1,8 +1,8 @@
 // editor/src/gui/inspector/modal.rs
 use crate::gui::prompts::confirm_prompt::*;
+use bishop::prelude::*;
 use engine_core::assets::asset_manager::AssetManager;
 use std::{cell::RefCell, thread::LocalKey};
-use bishop::prelude::*;
 
 #[derive(Default)]
 pub struct Modal {
@@ -14,7 +14,7 @@ pub struct Modal {
 }
 
 thread_local! {
-    pub static MODAL_OPEN: RefCell<bool> = RefCell::new(false);
+    pub static MODAL_OPEN: RefCell<bool> = const { RefCell::new(false) };
 }
 
 /// Global flag that tells the rest of the editor whether a modal
@@ -26,8 +26,8 @@ pub fn is_modal_open() -> bool {
 pub type BoxedWidget = Box<dyn FnMut(&mut WgpuContext, &mut AssetManager) + 'static>;
 type BoxedWidgets = Vec<BoxedWidget>;
 
-/// Used by callers of a a modal to decide what should happen if 
-/// the user clicks outside the modal. 
+/// Used by callers of a a modal to decide what should happen if
+/// the user clicks outside the modal.
 #[derive(Clone, PartialEq)]
 pub enum ModalResult {
     String(String),
@@ -56,12 +56,12 @@ impl Modal {
     pub fn open(&mut self, callbacks: Vec<BoxedWidget>) {
         self.open = true;
         self.widgets = callbacks;
-        self.just_opened = true; 
+        self.just_opened = true;
 
         // Let the editor know a modal is open
         MODAL_OPEN.with(|r| {
             *r.borrow_mut() = true;
-        });    
+        });
     }
 
     /// Close the modal.
@@ -72,7 +72,7 @@ impl Modal {
         // Let the editor know the modal is close
         MODAL_OPEN.with(|r| {
             *r.borrow_mut() = false;
-        });  
+        });
     }
 
     /// Returns `true` if the modal is currently open.
@@ -82,11 +82,7 @@ impl Modal {
 
     /// Render the modal. Returns `true`` when the user clicked outside the window.
     /// Needs asset manager for widgets that need to access assets.
-    pub fn draw(
-        &mut self, 
-        ctx: &mut WgpuContext,
-        asset_manager: &mut AssetManager
-    ) -> bool {
+    pub fn draw(&mut self, ctx: &mut WgpuContext, asset_manager: &mut AssetManager) -> bool {
         if !self.open {
             return false;
         }
@@ -99,29 +95,29 @@ impl Modal {
 
         // Dim the whole screen
         ctx.draw_rectangle(
-            0.0, 
-            0.0, 
-            ctx.screen_width(), 
+            0.0,
+            0.0,
+            ctx.screen_width(),
             ctx.screen_height(),
-            Color::new(0.0, 0.0, 0.0, 0.6)
+            Color::new(0.0, 0.0, 0.0, 0.6),
         );
 
         // Window background & outline
         ctx.draw_rectangle(
-            self.rect.x, 
-            self.rect.y, 
-            self.rect.w, 
+            self.rect.x,
+            self.rect.y,
+            self.rect.w,
             self.rect.h,
-            Color::new(0.08, 0.08, 0.10, 0.95)
+            Color::new(0.08, 0.08, 0.10, 0.95),
         );
 
         ctx.draw_rectangle_lines(
-            self.rect.x, 
-            self.rect.y, 
-            self.rect.w, 
+            self.rect.x,
+            self.rect.y,
+            self.rect.w,
             self.rect.h,
-            2.0, 
-            Color::WHITE
+            2.0,
+            Color::WHITE,
         );
 
         // Run all widgets
@@ -142,25 +138,23 @@ impl Modal {
 
     /// Opens a model with a confirm prompt widget.
     /// The caller must pass in a static reference to the result store.
-    pub fn open_confirm_modal(ctx: &WgpuContext, result_store: &'static LocalKey<RefCell<Option<ConfirmPromptResult>>>) -> Modal {
+    pub fn open_confirm_modal(
+        ctx: &WgpuContext,
+        result_store: &'static LocalKey<RefCell<Option<ConfirmPromptResult>>>,
+    ) -> Modal {
         let prompt_message = "Are You Sure?";
         let mut modal = Modal::new(ctx, 300.0, 120.0);
 
         let mut prompt = ConfirmPrompt::new(modal.rect, prompt_message);
 
-        let widgets: Vec<BoxedWidget> = vec![ 
-            Box::new(move |ctx, _| {
-                if let Some(result) = prompt.draw(ctx) {
-                    // Write the result to the static thread local
-                    result_store.with(|c| *c.borrow_mut() = Some(result));
-                }
-            })
-        ];
+        let widgets: Vec<BoxedWidget> = vec![Box::new(move |ctx, _| {
+            if let Some(result) = prompt.draw(ctx) {
+                // Write the result to the static thread local
+                result_store.with(|c| *c.borrow_mut() = Some(result));
+            }
+        })];
 
         modal.open(widgets);
         modal
     }
 }
-
-
-

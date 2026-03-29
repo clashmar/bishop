@@ -1,8 +1,8 @@
 // editor/src/gui/prompts/world_settings_prompt.rs
 use crate::gui::prompts::constants::*;
 use crate::gui::prompts::helpers::*;
-use engine_core::prelude::*;
 use bishop::prelude::*;
+use engine_core::prelude::*;
 
 /// Result of a world settings prompt.
 pub struct WorldSettingsResult {
@@ -66,10 +66,11 @@ impl WorldSettingsPrompt {
 
         // Grid size field
         let grid_size_rect = Rect::new(self.rect.x, y, self.rect.w, FIELD_H);
-        let new_grid_size = NumberInput::new(self.grid_size_id, grid_size_rect, self.current_grid_size)
-            .min(8.0)
-            .max(64.0)
-            .show(ctx);
+        let new_grid_size =
+            NumberInput::new(self.grid_size_id, grid_size_rect, self.current_grid_size)
+                .min(8.0)
+                .max(64.0)
+                .show(ctx);
         self.current_grid_size = new_grid_size;
 
         y += grid_size_rect.h + FIELD_GAP;
@@ -86,11 +87,17 @@ impl WorldSettingsPrompt {
             } else {
                 None
             };
-            return Some(WorldSettingsResult { id: self.world_id, grid_size });
+            return Some(WorldSettingsResult {
+                id: self.world_id,
+                grid_size,
+            });
         }
 
         if cancel_clicked || Controls::escape(ctx) {
-            return Some(WorldSettingsResult { id: self.world_id, grid_size: None });
+            return Some(WorldSettingsResult {
+                id: self.world_id,
+                grid_size: None,
+            });
         }
 
         None

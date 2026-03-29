@@ -1,11 +1,15 @@
 // editor/src/gui/inspector/player_module.rs
-use engine_core::prelude::*;
 use bishop::prelude::*;
+use engine_core::prelude::*;
 
 #[derive(Default)]
 pub struct PlayerModule {}
 
 impl InspectorModule for PlayerModule {
+    fn undo_component_type(&self) -> Option<&'static str> {
+        None
+    }
+
     fn visible(&self, ecs: &Ecs, entity: Entity) -> bool {
         ecs.has::<Player>(entity) || ecs.has::<PlayerProxy>(entity)
     }
@@ -21,14 +25,26 @@ impl InspectorModule for PlayerModule {
         let ecs = &game_ctx.ecs;
 
         if ecs.has::<Player>(entity) {
-            ctx.draw_text("Player Entity", rect.x, rect.y + 20.0, 18.0, FIELD_TEXT_COLOR);
+            ctx.draw_text(
+                "Player Entity",
+                rect.x,
+                rect.y + 20.0,
+                18.0,
+                FIELD_TEXT_COLOR,
+            );
         } else if ecs.has::<PlayerProxy>(entity) {
-            ctx.draw_text("Player Proxy", rect.x, rect.y + 20.0, 18.0, FIELD_TEXT_COLOR);
+            ctx.draw_text(
+                "Player Proxy",
+                rect.x,
+                rect.y + 20.0,
+                18.0,
+                FIELD_TEXT_COLOR,
+            );
         }
     }
 
-    fn height(&self) -> f32 {
-        28.0
+    fn body_layout(&self) -> InspectorBodyLayout {
+        InspectorBodyLayout::new().top_padding(0.0).block(28.0)
     }
 
     fn title(&self) -> &str {
@@ -36,5 +52,17 @@ impl InspectorModule for PlayerModule {
             .rsplit("::")
             .next()
             .unwrap_or("Player")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn player_body_layout_keeps_shared_bottom_gutter() {
+        let module = PlayerModule::default();
+
+        assert_eq!(module.body_layout().height(), 38.0);
     }
 }

@@ -1,6 +1,6 @@
 // game/src/scripting/commands/menu_commands.rs
-use crate::scripting::commands::lua_command::LuaCommand;
 use crate::engine::Engine;
+use crate::scripting::commands::lua_command::LuaCommand;
 
 /// Command to open a menu by id.
 pub struct OpenMenuCmd {

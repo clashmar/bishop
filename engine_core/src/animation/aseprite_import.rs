@@ -2,13 +2,13 @@
 
 use crate::animation::animation_clip::*;
 use crate::storage::path_utils::assets_folder;
-use std::collections::HashMap;
-use std::process::Command;
 use bishop::prelude::*;
 use serde::Deserialize;
-use std::path::PathBuf;
-use std::path::Path;
+use std::collections::HashMap;
 use std::fs;
+use std::path::Path;
+use std::path::PathBuf;
+use std::process::Command;
 
 /// Result of attempting to import Aseprite JSON metadata.
 pub enum JsonImportResult {
@@ -92,10 +92,7 @@ pub fn import_aseprite_metadata(json_path: &Path) -> JsonImportResult {
     let cols = (sheet_w / frame_w).round() as usize;
     let rows = (sheet_h / frame_h).round() as usize;
 
-    let raw_durations: Vec<i32> = sorted_frames
-        .iter()
-        .map(|(_, f)| f.duration)
-        .collect();
+    let raw_durations: Vec<i32> = sorted_frames.iter().map(|(_, f)| f.duration).collect();
 
     // Check if all frames have the same duration
     let all_same = raw_durations.windows(2).all(|w| w[0] == w[1]);
@@ -106,10 +103,7 @@ pub fn import_aseprite_metadata(json_path: &Path) -> JsonImportResult {
         let fps = (1000.0 / duration_ms).round();
         (Vec::new(), fps)
     } else {
-        let durations: Vec<f32> = raw_durations
-            .iter()
-            .map(|&d| d as f32 / 1000.0)
-            .collect();
+        let durations: Vec<f32> = raw_durations.iter().map(|&d| d as f32 / 1000.0).collect();
         let total: f32 = durations.iter().sum();
         let avg = total / durations.len() as f32;
         let fps = (1.0 / avg).round();
@@ -170,10 +164,12 @@ pub enum AseExportResult {
 pub fn export_aseprite_folder(folder: &Path) -> AseExportResult {
     let entries = match fs::read_dir(folder) {
         Ok(e) => e,
-        Err(e) => return AseExportResult::ExportFailed {
-            file: folder.display().to_string(),
-            error: format!("Failed to read directory: {}", e)
-        },
+        Err(e) => {
+            return AseExportResult::ExportFailed {
+                file: folder.display().to_string(),
+                error: format!("Failed to read directory: {}", e),
+            };
+        }
     };
 
     let aseprite_path = find_aseprite_executable();
@@ -277,8 +273,7 @@ pub struct FolderImportResult {
 /// Import all JSON files in a folder and create clips.
 /// Missing or malformed JSON files are skipped.
 pub fn import_variant_folder(folder: &Path) -> Result<FolderImportResult, String> {
-    let entries = fs::read_dir(folder)
-        .map_err(|e| format!("Failed to read directory: {}", e))?;
+    let entries = fs::read_dir(folder).map_err(|e| format!("Failed to read directory: {}", e))?;
 
     let mut clips = HashMap::new();
     let mut skipped = Vec::new();
@@ -320,4 +315,3 @@ fn filename_to_clip_id(path: &Path) -> ClipId {
         other => ClipId::Custom(other.to_string()),
     }
 }
-

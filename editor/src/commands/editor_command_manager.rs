@@ -1,6 +1,6 @@
 // editor/src/controls/editor_command_manager.rs
+use crate::app::EditorMode;
 use crate::editor_global::with_editor;
-use crate::app::EditorMode; 
 use std::fmt::Debug;
 
 /// Trait for every undoable command.
@@ -121,4 +121,3 @@ impl EditorCommandManager {
         self.pending.len()
     }
 }
-

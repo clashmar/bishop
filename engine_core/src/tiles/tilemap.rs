@@ -1,18 +1,24 @@
 // engine_core/src/tiles/tilemap.rs
 use crate::assets::asset_manager::AssetManager;
+use crate::tiles::serialization::{deserialize_tiles, serialize_tiles};
 use crate::tiles::tile::TileDefId;
-use crate::world::world::GridPos;
-use serde_with::{serde_as, FromInto};
-use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use crate::worlds::world::GridPos;
 use bishop::prelude::*;
+use serde::{Deserialize, Serialize};
+use serde_with::{FromInto, serde_as};
+use std::collections::HashMap;
 
 #[serde_as]
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct TileMap {
     pub width: usize,
     pub height: usize,
-    #[serde(default, skip_serializing_if = "HashMap::is_empty")]
+    #[serde(
+        default,
+        skip_serializing_if = "HashMap::is_empty",
+        serialize_with = "serialize_tiles",
+        deserialize_with = "deserialize_tiles"
+    )]
     pub tiles: HashMap<(usize, usize), TileDefId>,
     #[serde_as(as = "FromInto<[f32; 4]>")]
     pub background: Color,
@@ -44,21 +50,21 @@ impl TileMap {
             room_position.y,
             self.width as f32 * grid_size,
             self.height as f32 * grid_size,
-            self.background.into(),
+            self.background,
         );
 
         for ((x, y), tile_def_id) in &self.tiles {
             let tile_pos = Vec2::new(*x as f32 * grid_size, *y as f32 * grid_size) + room_position;
 
             if let Some(tile_def) = asset_manager.tile_defs.get(tile_def_id) {
-                let tex = asset_manager.get_texture_from_id(tile_def.sprite_id);
+                let tex = asset_manager.get_texture_from_id(ctx, tile_def.sprite_id);
                 ctx.draw_texture_ex(
                     tex,
                     tile_pos.x,
                     tile_pos.y,
                     Color::WHITE,
                     DrawTextureParams {
-                        dest_size: Some(Vec2::new(grid_size, grid_size).into()),
+                        dest_size: Some(Vec2::new(grid_size, grid_size)),
                         ..Default::default()
                     },
                 );
@@ -97,12 +103,11 @@ impl TileMap {
         for x in x_range {
             for y in y_start..=y_end {
                 let pos = GridPos::new(x, y);
-                if pos.is_in_bounds(map.width, map.height) {
-                    if let Some(tile) = map.get_tile(pos) {
-                        if predicate(tile) {
-                            return true;
-                        }
-                    }
+                if pos.is_in_bounds(map.width, map.height)
+                    && let Some(tile) = map.get_tile(pos)
+                    && predicate(tile)
+                {
+                    return true;
                 }
             }
         }
@@ -110,10 +115,7 @@ impl TileMap {
     }
 
     /// Remove a tile from the map.
-    pub fn remove_tile(
-        &mut self,
-        grid_position: (usize, usize),
-    ) {
+    pub fn remove_tile(&mut self, grid_position: (usize, usize)) {
         if let Some(_tile_def_id) = self.tiles.remove(&grid_position) {
             // TODO: Handle sprite and ecs
         }
@@ -129,11 +131,7 @@ pub fn tile_to_world(grid_position: GridPos, grid_size: f32) -> Vec2 {
 }
 
 /// Shift every tile in a tilemap by (dx, dy).
-pub fn shift_tiles(
-    map: &mut TileMap,
-    dx: isize,
-    dy: isize,
-) {
+pub fn shift_tiles(map: &mut TileMap, dx: isize, dy: isize) {
     // Nothing to do if the offset is zero
     if dx == 0 && dy == 0 {
         return;

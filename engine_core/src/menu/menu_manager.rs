@@ -1,12 +1,13 @@
+use crate::menu::runtime::*;
 use crate::menu::*;
+use crate::onscreen_error;
 use crate::storage::path_utils::menus_folder;
 use crate::text::TextManager;
-use crate::{onscreen_error, onscreen_log};
+use bishop::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use bishop::prelude::*;
-use widgets::*;
 use std::fs;
+use widgets::MouseButton;
 
 /// Manages menu templates, active menu stack, and navigation.
 pub struct MenuManager {
@@ -22,6 +23,10 @@ pub struct MenuManager {
     action_handler: Box<dyn MenuActionHandler>,
     /// The game viewport rect used to transform normalized menu coordinates to screen space.
     viewport: Rect,
+    /// Current values for slider elements, keyed by slider key.
+    slider_values: HashMap<String, f32>,
+    /// Hold-to-repeat state for the currently focused slider.
+    slider_repeat: SliderRepeatState,
 }
 
 impl Default for MenuManager {
@@ -57,8 +62,12 @@ impl MenuManager {
             focus: MenuFocus::new(0),
             action_handler: Box::new(NoOpActionHandler),
             viewport: Rect::new(0.0, 0.0, 1.0, 1.0),
+            slider_values: HashMap::new(),
+            slider_repeat: SliderRepeatState::default(),
         };
-        manager.register_default_menus();
+        for template in default_menus() {
+            manager.register_template(template);
+        }
         manager
     }
 
@@ -81,6 +90,7 @@ impl MenuManager {
     pub fn open_menu(&mut self, id: &str) {
         if let Some(template) = self.templates.get(id) {
             self.focus.reset(template);
+            self.slider_repeat.reset();
             self.menu_stack.push(id.to_string());
         }
     }
@@ -88,41 +98,45 @@ impl MenuManager {
     /// Closes the current menu and returns to previous menu if any.
     pub fn close_menu(&mut self) {
         self.menu_stack.pop();
-        if let Some(parent_id) = self.menu_stack.last() {
-            if let Some(template) = self.templates.get(parent_id) {
-                self.focus.reset(template);
-                return;
-            }
+        if let Some(parent_id) = self.menu_stack.last()
+            && let Some(template) = self.templates.get(parent_id)
+        {
+            self.focus.reset(template);
+            self.slider_repeat.reset();
+            return;
         }
         self.focus = MenuFocus::new(0);
+        self.slider_repeat.reset();
     }
 
     /// Closes all menus and returns to game.
     pub fn close_all(&mut self) {
         self.menu_stack.clear();
         self.focus = MenuFocus::new(0);
+        self.slider_repeat.reset();
     }
 
     /// Returns the current menu mode based on active menu.
     pub fn mode(&self) -> Option<MenuMode> {
-        if let Some(menu_id) = self.menu_stack.last() {
-            if let Some(template) = self.templates.get(menu_id) {
-                return Some(template.mode);
-            }
+        if let Some(menu_id) = self.menu_stack.last()
+            && let Some(template) = self.templates.get(menu_id)
+        {
+            return Some(template.mode);
         }
         None
     }
 
     /// Returns true if the menu is blocking game updates.
     pub fn is_pausing_game(&self) -> bool {
-        self.mode().map_or(false, |m| m.is_paused())
+        self.mode().is_some_and(|m| m.is_paused())
     }
 
     /// Returns true if the bottom menu's background fully obscures the game.
     pub fn is_hiding_game(&self) -> bool {
-        self.menu_stack.first()
+        self.menu_stack
+            .first()
             .and_then(|id| self.templates.get(id))
-            .map_or(false, |t| t.background.is_opaque())
+            .is_some_and(|t| t.background.is_opaque())
     }
 
     /// Returns true if any menu is active.
@@ -145,43 +159,103 @@ impl MenuManager {
             return;
         }
 
-        if let Some(menu_id) = self.menu_stack.last().cloned() {
-            if let Some(template) = self.templates.get(&menu_id).cloned() {
-                if self.navigation.up_pressed(ctx) {
-                    self.focus.navigate(NavDirection::Up, &template);
-                }
-                if self.navigation.down_pressed(ctx) {
-                    self.focus.navigate(NavDirection::Down, &template);
-                }
-                if self.navigation.left_pressed(ctx) {
-                    self.focus.navigate(NavDirection::Left, &template);
-                }
-                if self.navigation.right_pressed(ctx) {
-                    self.focus.navigate(NavDirection::Right, &template);
-                }
+        if let Some(menu_id) = self.menu_stack.last().cloned()
+            && let Some(template) = self.templates.get(&menu_id).cloned()
+        {
+            let focus_before_input = self.focus.clone();
 
-                let cancel_pressed = self.navigation.cancel_pressed(ctx);
-                let confirm_pressed = self.navigation.confirm_pressed(ctx);
-                let action_to_handle = if confirm_pressed {
-                    template.get_element_at_focus(&self.focus)
-                        .and_then(|element| {
-                            if let MenuElementKind::Button(button) = &element.kind {
-                                Some(button.action.clone())
-                            } else {
-                                None
-                            }
-                        })
+            if ctx.is_mouse_button_pressed(MouseButton::Left) {
+                let mouse = ctx.mouse_position();
+                let mouse = Vec2::new(mouse.0, mouse.1);
+                if let Some(focus) = focus_target_at(&template, self.viewport, mouse) {
+                    self.focus = focus;
+                    self.slider_repeat.reset();
+                }
+            }
+
+            let up_pressed = self.navigation.up_pressed(ctx);
+            let down_pressed = self.navigation.down_pressed(ctx);
+            let left_pressed = self.navigation.left_pressed(ctx);
+            let left_down = self.navigation.left_down(ctx);
+            let right_pressed = self.navigation.right_pressed(ctx);
+            let right_down = self.navigation.right_down(ctx);
+
+            if up_pressed {
+                self.focus.navigate(NavDirection::Up, &template);
+            }
+            if down_pressed {
+                self.focus.navigate(NavDirection::Down, &template);
+            }
+
+            if self.focus != focus_before_input {
+                self.slider_repeat.reset();
+            }
+
+            let focused_slider = template.get_element_at_focus(&self.focus).and_then(|el| {
+                if let MenuElementKind::Slider(slider) = &el.kind {
+                    Some((
+                        slider.key.clone(),
+                        slider.step,
+                        slider.min,
+                        slider.max,
+                        slider.default_value,
+                    ))
                 } else {
                     None
-                };
-
-                if cancel_pressed {
-                    self.close_menu();
                 }
+            });
 
-                if let Some(action) = action_to_handle {
-                    self.handle_action(action);
+            if let Some((key, step, min, max, default_value)) = focused_slider {
+                if let Some(direction) = self.slider_repeat.next_adjustment(
+                    ctx.get_time(),
+                    left_pressed,
+                    left_down,
+                    right_pressed,
+                    right_down,
+                ) {
+                    let current = self
+                        .slider_values
+                        .get(&key)
+                        .copied()
+                        .unwrap_or(default_value);
+                    if let Some(new_value) = adjust_slider_value(current, step, min, max, direction)
+                    {
+                        self.slider_values.insert(key.clone(), new_value);
+                        push_slider_event(key, new_value);
+                    }
                 }
+            } else if left_pressed {
+                self.slider_repeat.reset();
+                self.focus.navigate(NavDirection::Left, &template);
+            } else if right_pressed {
+                self.slider_repeat.reset();
+                self.focus.navigate(NavDirection::Right, &template);
+            } else {
+                self.slider_repeat.reset();
+            }
+
+            let cancel_pressed = self.navigation.cancel_pressed(ctx);
+            let confirm_pressed = self.navigation.confirm_pressed(ctx);
+            let action_to_handle = if confirm_pressed {
+                template
+                    .get_element_at_focus(&self.focus)
+                    .and_then(|element| {
+                        if let MenuElementKind::Button(button) = &element.kind {
+                            Some(button.action.clone())
+                        } else {
+                            None
+                        }
+                    })
+            } else {
+                None
+            };
+
+            if cancel_pressed {
+                self.close_menu();
+            }
+
+            if let Some(action) = action_to_handle {
+                self.handle_action(action);
             }
         }
     }
@@ -192,88 +266,18 @@ impl MenuManager {
             return;
         }
 
-        widgets_frame_start(ctx);
-
-        let canvas_origin = Vec2::new(self.viewport.x, self.viewport.y);
-        let canvas_size = Vec2::new(self.viewport.w, self.viewport.h);
-        let mut triggered_action = None;
-
-        if let Some(menu_id) = self.menu_stack.last() {
-            let text_id = format!("ui/{}", menu_id);
-            if let Some(template) = self.templates.get(menu_id) {
-                template.render_background(ctx, self.viewport);
-                template.render_labels(ctx, canvas_origin, canvas_size, text_manager, &text_id);
-
-                for i in template.sorted_element_indices() {
-                    let element = &template.elements[i];
-                    if !element.visible {
-                        continue;
-                    }
-                    match &element.kind {
-                        MenuElementKind::Button(button) => {
-                            let display_text = text_manager.resolve_ui_text(&text_id, &button.text_key);
-                            let is_focused = self.focus.node == i && self.focus.child.is_none();
-                            let screen_rect = normalized_rect_to_screen(element.rect, canvas_origin, canvas_size);
-                            let btn = Button::new(screen_rect, &display_text)
-                                .blocked(!element.enabled)
-                                .focused(is_focused);
-                            if btn.show(ctx) {
-                                triggered_action = Some(button.action.clone());
-                            }
-                        }
-                        MenuElementKind::Panel(panel) => {
-                            let screen_rect = normalized_rect_to_screen(element.rect, canvas_origin, canvas_size);
-                            ctx.draw_rectangle(
-                                screen_rect.x,
-                                screen_rect.y,
-                                screen_rect.w,
-                                screen_rect.h,
-                                panel.background.render_color(),
-                            );
-                        }
-                        MenuElementKind::LayoutGroup(group) => {
-                            if let Some(bg) = &group.background {
-                                let screen_rect = normalized_rect_to_screen(element.rect, canvas_origin, canvas_size);
-                                ctx.draw_rectangle(
-                                    screen_rect.x,
-                                    screen_rect.y,
-                                    screen_rect.w,
-                                    screen_rect.h,
-                                    bg.render_color(),
-                                );
-                            }
-                            let resolved = resolve_layout(group, element.rect);
-                            let mut focusable_idx = 0;
-                            for (child, rect) in group.children.iter().zip(resolved.iter()) {
-                                if !child.element.visible {
-                                    continue;
-                                }
-                                if let MenuElementKind::Button(button) = &child.element.kind {
-                                    let display_text = text_manager.resolve_ui_text(&text_id, &button.text_key);
-                                    let is_focused = self.focus.node == i
-                                        && self.focus.child == Some(focusable_idx);
-                                    let screen_rect = normalized_rect_to_screen(*rect, canvas_origin, canvas_size);
-                                    let btn = Button::new(screen_rect, &display_text)
-                                        .blocked(!child.element.enabled)
-                                        .focused(is_focused);
-                                    if btn.show(ctx) {
-                                        triggered_action = Some(button.action.clone());
-                                    }
-                                    if child.element.enabled {
-                                        focusable_idx += 1;
-                                    }
-                                }
-                            }
-                        }
-                        _ => {}
-                    }
-                }
-            }
-        }
-
-        widgets_frame_end(ctx);
-
-        if let Some(action) = triggered_action {
+        if let Some(menu_id) = self.menu_stack.last()
+            && let Some(template) = self.templates.get(menu_id)
+            && let Some(action) = render_active_menu(
+                ctx,
+                template,
+                menu_id,
+                self.viewport,
+                &self.focus,
+                &mut self.slider_values,
+                text_manager,
+            )
+        {
             self.handle_action(action);
         }
     }
@@ -295,29 +299,6 @@ impl MenuManager {
         }
     }
 
-    fn register_default_menus(&mut self) {
-        let layout = LayoutConfig::vertical()
-            .with_item_size(200.0, 40.0)
-            .with_spacing(16.0)
-            .with_padding(Padding::uniform(32.0))
-            .with_alignment(Alignment::center());
-
-        let pause_menu = MenuBuilder::new("pause")
-            .background(MenuBackground::Dimmed(0.7))
-            .layout_group(
-                Rect::new(0.0, 0.0, 1.0, 1.0),
-                layout,
-                |group| {
-                    group
-                        .label("Paused")
-                        .button("Resume", MenuAction::Resume)
-                },
-            )
-            .build();
-
-        self.register_template(pause_menu);
-    }
-
     /// Closes any active menu and resumes the game.
     pub fn close(&mut self) {
         self.close_all();
@@ -336,7 +317,7 @@ impl MenuManager {
 
         for entry in entries.filter_map(|e| e.ok()) {
             let path = entry.path();
-            if path.extension().map_or(true, |ext| ext != "ron") {
+            if path.extension().is_none_or(|ext| ext != "ron") {
                 continue;
             }
 

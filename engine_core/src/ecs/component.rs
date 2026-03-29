@@ -1,32 +1,30 @@
 // engine_core/src/ecs/component.rs
 use crate::assets::asset_manager::AssetManager;
-use crate::ecs::entity::Entity;
-use crate::world::room::RoomId;
 use crate::ecs::ecs::Ecs;
+use crate::ecs::entity::Entity;
 use crate::inspector_module;
-use serde::{Deserialize, Serialize};
+use crate::worlds::room::RoomId;
 use ecs_component::ecs_component;
-use std::collections::HashMap;
 use reflect_derive::Reflect;
-use std::ops::DerefMut;
-use std::ops::Deref;
+use serde::de::Deserializer;
+use serde::ser::Serializer;
+use serde::{Deserialize, Serialize};
 use std::any::Any;
+use std::collections::HashMap;
+use std::ops::Deref;
+use std::ops::DerefMut;
 
 /// Marker trait for components.
 pub trait Component: Send + Sync {
-    fn store_mut(world: &mut Ecs)
-        -> &mut ComponentStore<Self>
-    where
-        Self: Sized;
-        
-    fn store(world: &Ecs)
-        -> &ComponentStore<Self>
+    fn store_mut(world: &mut Ecs) -> &mut ComponentStore<Self>
     where
         Self: Sized;
 
+    fn store(world: &Ecs) -> &ComponentStore<Self>
+    where
+        Self: Sized;
 }
 
-#[derive(Serialize, Deserialize)]
 pub struct ComponentStore<T> {
     pub data: HashMap<Entity, T>,
 }
@@ -36,6 +34,31 @@ impl<T> Default for ComponentStore<T> {
         ComponentStore {
             data: HashMap::new(),
         }
+    }
+}
+
+impl<T> Serialize for ComponentStore<T>
+where
+    T: Serialize,
+{
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        crate::storage::ordered_map::serialize(&self.data, serializer)
+    }
+}
+
+impl<'de, T> Deserialize<'de> for ComponentStore<T>
+where
+    T: Deserialize<'de>,
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let data = crate::storage::ordered_map::deserialize(deserializer)?;
+        Ok(Self { data })
     }
 }
 
@@ -76,12 +99,7 @@ impl Clone for ComponentEntry {
 
 /// Can be alled once a component has been added to an entity to initialize it.
 pub trait PostCreate {
-    fn post_create(
-        &mut self,
-        ecs: &mut Ecs,
-        entity: Entity,
-        asset_manager: &mut AssetManager,
-    );
+    fn post_create(&mut self, ecs: &mut Ecs, entity: Entity, asset_manager: &mut AssetManager);
 }
 
 /// Returns the type name of a component.
@@ -166,7 +184,7 @@ inspector_module!(Collider);
 impl Default for Collider {
     fn default() -> Self {
         Self {
-            width:  16.0,
+            width: 16.0,
             height: 16.0,
         }
     }

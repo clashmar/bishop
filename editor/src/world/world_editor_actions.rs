@@ -1,18 +1,12 @@
 // editor/src/world/world_editor_actions.rs
-use crate::ui::widgets::DEFAULT_FONT_SIZE_16;
-use crate::world::world_editor::WorldEditor;
-use crate::tiles::tilemap::TileMap;
 use crate::world::coord;
-use engine_core::prelude::*;
+use crate::world::world_editor::WorldEditor;
 use bishop::prelude::*;
+use engine_core::prelude::*;
 
 impl WorldEditor {
     /// Delete a room by its RoomId.
-    pub fn delete_room(
-        &mut self, 
-        ctx: &mut GameCtxMut,
-        room_id: RoomId
-    ) {
+    pub fn delete_room(&mut self, ctx: &mut GameCtxMut, room_id: RoomId) {
         // Find the index of the room we want to remove
         let idx = match ctx.cur_world.rooms.iter().position(|m| m.id == room_id) {
             Some(i) => i,
@@ -68,8 +62,7 @@ impl WorldEditor {
         grid_size: f32,
     ) -> RoomId {
         let origin_in_pixels = top_left * grid_size;
-        let new_id = self.create_new_room(game, "untitled", origin_in_pixels, size);
-        new_id
+        self.create_new_room(game, "untitled", origin_in_pixels, size)
     }
 
     /// Create a new room in the current world and return its id.
@@ -98,10 +91,10 @@ impl WorldEditor {
             exits: vec![],
             adjacent_rooms: vec![],
             variants: vec![variant],
-            darkness: 0.
+            darkness: 0.,
         };
 
-        let _camera = room.create_room_camera(&mut game.ecs, id, grid_size);
+        room.create_room_camera(&mut game.ecs, id, grid_size);
 
         let cur_world = game.current_world_mut();
         cur_world.rooms.push(room);
@@ -127,28 +120,22 @@ impl WorldEditor {
         let b_rect = Rect::new(b.position.x, b.position.y, b.size.x, b.size.y);
 
         // Rooms are adjacent if they share an edge
-        let horizontal_touch = a_rect.x < b_rect.x + b_rect.w && a_rect.x + a_rect.w > b_rect.x &&
-                            (a_rect.y + a_rect.h == b_rect.y || b_rect.y + b_rect.h == a_rect.y);
+        let horizontal_touch = a_rect.x < b_rect.x + b_rect.w
+            && a_rect.x + a_rect.w > b_rect.x
+            && (a_rect.y + a_rect.h == b_rect.y || b_rect.y + b_rect.h == a_rect.y);
 
-        let vertical_touch = a_rect.y < b_rect.y + b_rect.h && a_rect.y + a_rect.h > b_rect.y &&
-                            (a_rect.x + a_rect.w == b_rect.x || b_rect.x + b_rect.w == a_rect.x);
+        let vertical_touch = a_rect.y < b_rect.y + b_rect.h
+            && a_rect.y + a_rect.h > b_rect.y
+            && (a_rect.x + a_rect.w == b_rect.x || b_rect.x + b_rect.w == a_rect.x);
 
         horizontal_touch || vertical_touch
     }
 
     /// Draws the coordinates of the grid square the mouse is over.
-    pub fn draw_coordinates(
-        &self, 
-        ctx: &mut WgpuContext,
-        camera: &Camera2D, 
-        grid_size: f32
-    ) {
+    pub fn draw_coordinates(&self, ctx: &mut WgpuContext, camera: &Camera2D, grid_size: f32) {
         let world_grid = coord::mouse_world_grid(ctx, camera, grid_size);
 
-        let txt = format!(
-            "({:.0}, {:.0})",
-            world_grid.x, world_grid.y,
-        );
+        let txt = format!("({:.0}, {:.0})", world_grid.x, world_grid.y,);
 
         let txt_metrics = measure_text(ctx, &txt, DEFAULT_FONT_SIZE_16);
         let margin = 10.0;
@@ -159,4 +146,3 @@ impl WorldEditor {
         ctx.draw_text(&txt, x, y, DEFAULT_FONT_SIZE_16, Color::BLACK);
     }
 }
-

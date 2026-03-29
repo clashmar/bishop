@@ -7,20 +7,20 @@ pub use camera_controller::EditorCameraController;
 pub use sub_editor::SubEditor;
 
 use crate::canvas::grid_shader::GridRenderer;
-use crate::playtest::playtest_process::PlaytestProcess;
-use crate::tilemap::tile_palette::TilePalette;
-use crate::world::world_editor::WorldEditor;
-use crate::room::room_editor::RoomEditor;
 use crate::game::game_editor::GameEditor;
-use crate::menu_editor::MenuEditor;
-use crate::storage::editor_storage::*;
-use crate::playtest::room_playtest::*;
-use crate::storage::editor_storage;
 use crate::gui::menu_bar::MenuBar;
-use crate::with_panel_manager;
 use crate::gui::modal::Modal;
-use engine_core::prelude::*;
+use crate::menu::MenuEditor;
+use crate::playtest::playtest_process::PlaytestProcess;
+use crate::playtest::room_playtest::*;
+use crate::room::room_editor::RoomEditor;
+use crate::storage::editor_storage;
+use crate::storage::editor_storage::*;
+use crate::tilemap::tile_palette::TilePalette;
+use crate::with_panel_manager;
+use crate::world::world_editor::WorldEditor;
 use bishop::prelude::*;
+use engine_core::prelude::*;
 use std::io;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -48,25 +48,32 @@ pub struct Editor {
     pub toast: Option<Toast>,
     pub playtest_process: Option<PlaytestProcess>,
     pub grid_renderer: Option<GridRenderer>,
+    pub audio_manager: AudioManager,
 }
 
 impl Editor {
-    pub async fn new(ctx: &mut WgpuContext) -> io::Result<Self> {
+    pub async fn new(ctx: PlatformContext) -> io::Result<Self> {
         let mut editor = Editor::default();
 
         let game = if let Some(name) = most_recent_game_name() {
-            load_game_by_name(&name).await?
-        } else if let Some(name) = editor.prompt_new_game(ctx).await {
-            create_new_game(name).await
+            load_game_by_name(&name)?
+        } else if let Some(name) = editor.prompt_new_game(ctx.clone()).await {
+            create_new_game(name)
         } else {
             // User pressed Cancel
             onscreen_info!("User cancelled new game dialogue.");
             std::process::exit(0);
         };
 
+        // Initialize editor icon textures using the graphics context.
+        {
+            let ctx_ref = ctx.borrow();
+            crate::editor_assets::init_editor_icons(&*ctx_ref);
+        }
+
         // Register all panels
         with_panel_manager(|panel_manager| {
-            panel_manager.register_all_panels(ctx);
+            panel_manager.register_all_panels(&ctx.borrow());
         });
 
         let palette = match load_palette(&game.name.clone()) {
@@ -78,18 +85,18 @@ impl Editor {
             }
         };
 
-        editor.game = editor.init_game_for_editor(ctx, game).await;
+        editor.game = editor.init_game_for_editor(&ctx.borrow(), game);
 
         // Give the palette to the tilemap editor
         editor.room_editor.tilemap_editor.tilemap_panel.palette = palette;
 
         // Initialize the grid renderer
-        editor.grid_renderer = Some(GridRenderer::new(ctx));
+        editor.grid_renderer = Some(GridRenderer::new(&ctx.borrow()));
 
         Ok(editor)
     }
 
-    pub async fn update(&mut self, ctx: &mut WgpuContext) {
+    pub fn update(&mut self, ctx: &mut WgpuContext) {
         if let Some(ref mut process) = self.playtest_process {
             if !process.poll() {
                 self.playtest_process = None;
@@ -108,11 +115,7 @@ impl Editor {
             }
             EditorMode::Game => {
                 // Returns the id of the world that was clicked on or None
-                if let Some(world_id) = self.game_editor.update(
-                    ctx,
-                    &self.camera,
-                    &mut self.game
-                ).await {
+                if let Some(world_id) = self.game_editor.update(ctx, &self.camera, &mut self.game) {
                     self.world_editor.init_camera(
                         ctx,
                         &mut self.camera,
@@ -125,11 +128,10 @@ impl Editor {
             }
             EditorMode::World(world_id) => {
                 // Returns the id of the room that was clicked on or None
-                if let Some(room_id) = self.world_editor.update(
-                    ctx,
-                    &mut self.camera,
-                    &mut self.game,
-                ).await {
+                if let Some(room_id) =
+                    self.world_editor
+                        .update(ctx, &mut self.camera, &mut self.game)
+                {
                     self.cur_room_id = Some(room_id);
                     self.mode = EditorMode::Room(room_id);
 
@@ -139,11 +141,8 @@ impl Editor {
 
                 // Handle escape
                 if Controls::escape(ctx) && !input_is_focused() {
-                    self.game_editor.init_camera(
-                        ctx,
-                        &mut self.camera,
-                        &mut self.game
-                    );
+                    self.game_editor
+                        .init_camera(ctx, &mut self.camera, &mut self.game);
 
                     // Clean up
                     self.cur_world_id = None;
@@ -156,7 +155,9 @@ impl Editor {
             }
             EditorMode::Room(room_id) => {
                 {
-                    let current_world = &mut self.game.worlds
+                    let current_world = &mut self
+                        .game
+                        .worlds
                         .iter_mut()
                         .find(|w| w.id == self.game.current_world_id)
                         .expect("Current world id not present in game.");
@@ -168,7 +169,7 @@ impl Editor {
                         &mut self.game.ecs,
                         current_world,
                         &mut self.game.asset_manager,
-                    ).await;
+                    );
 
                     if let Some(msg) = self.room_editor.take_pending_toast() {
                         self.toast = Some(Toast::new(msg, 2.5));
@@ -187,13 +188,12 @@ impl Editor {
                         }
 
                         // Find the room we just left for center_on_room
-                        if let Some(room) = current_world.rooms.iter()
-                            .find(|m| m.id == room_id) {
+                        if let Some(room) = current_world.rooms.iter().find(|m| m.id == room_id) {
                             self.world_editor.center_on_room(
                                 ctx,
                                 &mut self.camera,
                                 room,
-                                current_world.grid_size
+                                current_world.grid_size,
                             );
                         }
 
@@ -220,7 +220,7 @@ impl Editor {
                     };
 
                     // If in dev mode the binary will be built first
-                    match resolve_playtest_binary().await {
+                    match resolve_playtest_binary() {
                         Ok(exe_path) => {
                             if let Some(ref mut old_process) = self.playtest_process {
                                 old_process.kill();
@@ -245,24 +245,16 @@ impl Editor {
             }
         }
 
-        self.handle_shortcuts(ctx).await;
+        self.handle_shortcuts(ctx);
+        self.audio_manager.poll(ctx.get_frame_time());
     }
 
-    pub async fn draw(&mut self, ctx: &mut WgpuContext) {
+    pub fn draw(&mut self, ctx: &mut WgpuContext) {
         match self.mode {
-            EditorMode::Menu => {
-                self.menu_editor.draw(
-                    ctx,
-                    &self.camera,
-                )
-            }
+            EditorMode::Menu => self.menu_editor.draw(ctx, &self.camera),
             EditorMode::Game => {
-                self.game_editor.draw(
-                    ctx,
-                    &mut self.camera,
-                    &mut self.game
-                );
-            },
+                self.game_editor.draw(ctx, &mut self.camera, &mut self.game);
+            }
             EditorMode::World(world_id) => {
                 // World id should already be set
                 if self.cur_world_id.is_none() {
@@ -278,7 +270,7 @@ impl Editor {
                         grid_renderer,
                     );
                 }
-            },
+            }
             EditorMode::Room(room_id) => {
                 // Room id should already be set
                 if self.cur_room_id.is_none() {
@@ -286,25 +278,23 @@ impl Editor {
                 }
 
                 if let Some(grid_renderer) = &self.grid_renderer {
-                    self.room_editor
-                        .draw(
-                            ctx,
-                            &self.camera,
-                            room_id,
-                            &mut self.game,
-                            &mut self.render_system,
-                            grid_renderer,
-                        )
-                        .await;
+                    self.room_editor.draw(
+                        ctx,
+                        &self.camera,
+                        room_id,
+                        &mut self.game,
+                        &mut self.render_system,
+                        grid_renderer,
+                    );
                 }
             }
         }
 
         // Draw global UI here
-        self.draw_ui(ctx).await;
+        self.draw_ui(ctx);
     }
 
-    async fn draw_ui(&mut self, ctx: &mut WgpuContext) {
+    fn draw_ui(&mut self, ctx: &mut WgpuContext) {
         if !self.room_editor.view_preview {
             ctx.set_default_camera();
 
@@ -314,10 +304,10 @@ impl Editor {
             });
 
             // Global menu options
-            self.draw_menu_bar(ctx).await;
+            self.draw_menu_bar(ctx);
 
             // Draws and handles result of modal
-            if let Some(_) = self.handle_modal(ctx).await {
+            if self.handle_modal(ctx).is_some() {
                 self.modal.close();
             }
 

@@ -1,16 +1,17 @@
 // engine_core/src/ecs/generic_module.rs
-use crate::ecs::inpsector_module::InspectorModule;
-use crate::ecs::component::Component;
-use crate::ecs::transform::Pivot;
-use crate::ecs::reflect_field::*;
-use crate::ecs::entity::Entity;
-use crate::ui::widgets::*;
-use crate::game::game::*;
+use crate::ecs::component::{Component, comp_type_name};
 use crate::ecs::ecs::Ecs;
+use crate::ecs::entity::Entity;
+use crate::ecs::inspector_layout::InspectorBodyLayout;
+use crate::ecs::inspector_module::InspectorModule;
+use crate::ecs::reflect_field::*;
+use crate::ecs::transform::Pivot;
+use crate::game::*;
 use crate::ui::text::*;
+use crate::ui::widgets::*;
+use bishop::prelude::*;
 use std::collections::HashMap;
 use std::marker::PhantomData;
-use bishop::prelude::*;
 
 const TOP_PADDING: f32 = 10.0;
 const SPACING: f32 = 5.0;
@@ -28,7 +29,7 @@ pub struct GenericModule<T> {
 
 impl<T> Default for GenericModule<T> {
     fn default() -> Self {
-        Self { 
+        Self {
             _phantom: PhantomData,
             field_ids: HashMap::new(),
             removable: true,
@@ -50,6 +51,10 @@ impl<T> InspectorModule for GenericModule<T>
 where
     T: Reflect + Component + Default + 'static,
 {
+    fn undo_component_type(&self) -> Option<&'static str> {
+        Some(comp_type_name::<T>())
+    }
+
     fn visible(&self, ecs: &Ecs, entity: Entity) -> bool {
         // Use the new `get_store` helper
         ecs.get_store::<T>().contains(entity)
@@ -67,10 +72,7 @@ where
 
         // Grab a mutable reference to the component instance
         let component = {
-            match ecs
-                .get_store_mut::<T>()
-                .get_mut(entity)
-            {
+            match ecs.get_store_mut::<T>().get_mut(entity) {
                 Some(c) => c,
                 None => return,
             }
@@ -83,15 +85,14 @@ where
         for field in component.fields() {
             // Create the id for the widget
             let base_key = field.name.to_string();
-            let base_id = *self
-                .field_ids
-                .entry(base_key.clone())
-                .or_insert_with(WidgetId::default);
+            let base_id = *self.field_ids.entry(base_key.clone()).or_default();
 
             // Prepare the field label
             let display_name = parse_field_name(field.name);
             let label = format!("{} :", display_name);
-            let label_w = measure_text(ctx, &label, FONT_SIZE).width.max(MIN_LABEL_WIDTH);
+            let label_w = measure_text(ctx, &label, FONT_SIZE)
+                .width
+                .max(MIN_LABEL_WIDTH);
             let widget_x = rect.x + label_w + LABEL_PADDING;
 
             ctx.draw_text(&label, rect.x, y + 22.0, FONT_SIZE, FIELD_TEXT_COLOR);
@@ -105,7 +106,12 @@ where
             };
 
             let widget_w = (rect.x + rect.w) - widget_x - 10.0;
-            let widget_rect = Rect::new(widget_x, y, widget_w.max(MIN_WIDGET_WIDTH), DEFAULT_FIELD_HEIGHT);
+            let widget_rect = Rect::new(
+                widget_x,
+                y,
+                widget_w.max(MIN_WIDGET_WIDTH),
+                DEFAULT_FIELD_HEIGHT,
+            );
 
             // Dispatch based on the enum variant
             match (field.value, field.widget_hint) {
@@ -113,19 +119,25 @@ where
                     gui_sprite_picker(ctx, widget_rect, id, game_ctx.asset_manager, blocked);
                 }
                 (FieldValue::Text(txt), _) => {
-                    let (new, _) = TextInput::new(base_id, widget_rect, txt.as_str()).blocked(blocked).show(ctx);
+                    let (new, _) = TextInput::new(base_id, widget_rect, txt.as_str())
+                        .blocked(blocked)
+                        .show(ctx);
                     if new != *txt {
                         *txt = new;
                     }
                 }
                 (FieldValue::Float(f), _) => {
-                    let new = NumberInput::new(base_id, widget_rect, *f).blocked(blocked).show(ctx);
+                    let new = NumberInput::new(base_id, widget_rect, *f)
+                        .blocked(blocked)
+                        .show(ctx);
                     if (new - *f).abs() > f32::EPSILON {
                         *f = new;
                     }
                 }
                 (FieldValue::Int(i), _) => {
-                    let new = NumberInput::new(base_id, widget_rect, *i).blocked(blocked).show(ctx);
+                    let new = NumberInput::new(base_id, widget_rect, *i)
+                        .blocked(blocked)
+                        .show(ctx);
                     if new != *i {
                         *i = new;
                     }
@@ -146,18 +158,20 @@ where
                     let id_x = *self
                         .field_ids
                         .entry(format!("{}.x", field.name))
-                        .or_insert_with(WidgetId::default);
+                        .or_default();
 
                     let id_y = *self
                         .field_ids
                         .entry(format!("{}.y", field.name))
-                        .or_insert_with(WidgetId::default);
+                        .or_default();
 
                     let half = widget_rect.w / 2.0;
 
                     // X
                     let rect_x = Rect::new(widget_rect.x, widget_rect.y, half - 2.0, widget_rect.h);
-                    let new_x = NumberInput::new(id_x, rect_x, v.x).blocked(blocked).show(ctx);
+                    let new_x = NumberInput::new(id_x, rect_x, v.x)
+                        .blocked(blocked)
+                        .show(ctx);
                     if (new_x - v.x).abs() > f32::EPSILON {
                         v.x = new_x;
                     }
@@ -168,7 +182,9 @@ where
                         half - 2.0,
                         widget_rect.h,
                     );
-                    let new_y = NumberInput::new(id_y, rect_y, v.y).blocked(blocked).show(ctx);
+                    let new_y = NumberInput::new(id_y, rect_y, v.y)
+                        .blocked(blocked)
+                        .show(ctx);
                     if (new_y - v.y).abs() > f32::EPSILON {
                         v.y = new_y;
                     }
@@ -177,21 +193,23 @@ where
                     let id_x = *self
                         .field_ids
                         .entry(format!("{}.x", field.name))
-                        .or_insert_with(WidgetId::default);
+                        .or_default();
                     let id_y = *self
                         .field_ids
                         .entry(format!("{}.y", field.name))
-                        .or_insert_with(WidgetId::default);
+                        .or_default();
                     let id_z = *self
                         .field_ids
                         .entry(format!("{}.z", field.name))
-                        .or_insert_with(WidgetId::default);
+                        .or_default();
 
                     let third = widget_rect.w / 3.0 - SPACING / 3.0;
 
                     // X
                     let rect_x = Rect::new(widget_rect.x, widget_rect.y, third, widget_rect.h);
-                    let new_x = NumberInput::new(id_x, rect_x, v.x).blocked(blocked).show(ctx);
+                    let new_x = NumberInput::new(id_x, rect_x, v.x)
+                        .blocked(blocked)
+                        .show(ctx);
                     if (new_x - v.x).abs() > f32::EPSILON {
                         v.x = new_x;
                     }
@@ -202,7 +220,9 @@ where
                         third,
                         widget_rect.h,
                     );
-                    let new_y = NumberInput::new(id_y, rect_y, v.y).blocked(blocked).show(ctx);
+                    let new_y = NumberInput::new(id_y, rect_y, v.y)
+                        .blocked(blocked)
+                        .show(ctx);
                     if (new_y - v.y).abs() > f32::EPSILON {
                         v.y = new_y;
                     }
@@ -213,19 +233,21 @@ where
                         third,
                         widget_rect.h,
                     );
-                    let new_z = NumberInput::new(id_z, rect_z, v.z).blocked(blocked).show(ctx);
+                    let new_z = NumberInput::new(id_z, rect_z, v.z)
+                        .blocked(blocked)
+                        .show(ctx);
                     if (new_z - v.z).abs() > f32::EPSILON {
                         v.z = new_z;
                     }
                 }
                 (FieldValue::Pivot(pivot), _) => {
-                    if let Some(selected) = Dropdown::new(
-                        base_id,
-                        widget_rect,
-                        pivot.label(),
-                        Pivot::all(),
-                        |p| p.label().to_string(),
-                    ).blocked(blocked).show(ctx) {
+                    if let Some(selected) =
+                        Dropdown::new(base_id, widget_rect, pivot.label(), Pivot::all(), |p| {
+                            p.label().to_string()
+                        })
+                        .blocked(blocked)
+                        .show(ctx)
+                    {
                         *pivot = selected;
                     }
                 }
@@ -235,14 +257,13 @@ where
         }
     }
 
-    /// Compute the height from the number of reflected fields
-    fn height(&self) -> f32 {
+    /// Compute the body layout from the number of reflected fields.
+    fn body_layout(&self) -> InspectorBodyLayout {
         // Create a temporary default instance of `T` only to query its fields
         let mut temp = T::default();
-        let field_count = temp.fields().len() as f32;
+        let field_count = temp.fields().len();
 
-        // Total height = top padding + (field height + spacing) * count
-        TOP_PADDING + field_count * (DEFAULT_FIELD_HEIGHT + SPACING)
+        InspectorBodyLayout::new().rows(field_count, SPACING)
     }
 
     fn removable(&self) -> bool {

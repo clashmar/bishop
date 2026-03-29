@@ -9,11 +9,11 @@ local npc = {
     interact = function(self)
         engine.log.info("Talking")
         if self.entity:is_speaking() then
-            self.entity:say_dialogue(self.public.dialogue_id, "farewell")
+            self.entity:say(self.public.dialogue_id, "farewell")
         else
             local player = engine.player()
             if player then
-                self.entity:say_dialogue(self.public.dialogue_id, "greeting", {
+                self.entity:say(self.public.dialogue_id, "greeting", {
                     vars = {
                         player_name = player.public.name
                     }

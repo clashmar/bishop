@@ -94,7 +94,9 @@ impl DiagnosticsCollector {
 
         // Large undo stack warning
         if current.commands.undo_stack_size > self.thresholds.large_undo_stack {
-            warnings.push(DiagnosticWarning::LargeUndoStack(current.commands.undo_stack_size));
+            warnings.push(DiagnosticWarning::LargeUndoStack(
+                current.commands.undo_stack_size,
+            ));
         }
 
         // Event listener growth warning

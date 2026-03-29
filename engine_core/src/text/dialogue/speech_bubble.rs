@@ -31,7 +31,7 @@ impl Default for SpeechBubble {
             text: String::new(),
             timer: 3.0,
             color: [1.0, 1.0, 1.0, 1.0],
-            offset: (0.0, 5.0),
+            offset: (0.0, 0.0),
             font_size: Some(2.5),
             max_width: None,
             show_background: false,

@@ -2,9 +2,9 @@
 use crate::app::SubEditor;
 use crate::room::room_editor::*;
 use crate::world::coord;
-use std::collections::HashSet;
-use engine_core::prelude::*;
 use bishop::prelude::*;
+use engine_core::prelude::*;
+use std::collections::HashSet;
 
 /// Stores the original drag state before switching to copy mode.
 pub(crate) struct PreCopyDragState {
@@ -75,11 +75,11 @@ impl RoomEditor {
         rect
     }
 
-    pub(crate) fn ui_was_clicked(&self, ctx: &mut WgpuContext,) -> bool {
+    pub(crate) fn ui_was_clicked(&self, ctx: &mut WgpuContext) -> bool {
         ctx.is_mouse_button_pressed(MouseButton::Left) && self.should_block_canvas(ctx)
     }
 
-    pub(crate) fn handle_mouse_cursor(&self, ctx: &mut WgpuContext,) {
+    pub(crate) fn handle_mouse_cursor(&self, ctx: &mut WgpuContext) {
         if self.should_block_canvas(ctx) {
             ctx.set_cursor_icon(CursorIcon::Default);
         } else {
@@ -106,7 +106,7 @@ pub fn entity_hitbox(
     asset_manager: &mut AssetManager,
     grid_size: f32,
 ) -> Rect {
-    let (width, height) = entity_dimensions(ecs, asset_manager, entity, grid_size);
+    let size = entity_dimensions(ecs, asset_manager, entity, grid_size);
 
     // Only use the center-offset for pure placeholder entities (Camera/Light without sprites)
     let is_pure_placeholder = ecs.has::<RoomCamera>(entity)
@@ -121,12 +121,12 @@ pub fn entity_hitbox(
             .get(entity)
             .map(|t| t.pivot)
             .unwrap_or(Pivot::TopLeft);
-        pivot_adjusted_position(position, vec2(width, height), pivot)
+        pivot_adjusted_position(position, size, pivot)
     };
 
     // Convert the two opposite corners of the entity to screen coords
     let top_left = coord::world_to_screen(ctx, camera, corrected_pos);
-    let bottom_right = coord::world_to_screen(ctx, camera, corrected_pos + vec2(width, height));
+    let bottom_right = coord::world_to_screen(ctx, camera, corrected_pos + size);
 
     // Build the rectangle from those screen‑space points
     let rect_x = top_left.x.min(bottom_right.x);
@@ -145,7 +145,7 @@ pub fn entity_world_rect(
     asset_manager: &mut AssetManager,
     grid_size: f32,
 ) -> Rect {
-    let (width, height) = entity_dimensions(ecs, asset_manager, entity, grid_size);
+    let size = entity_dimensions(ecs, asset_manager, entity, grid_size);
 
     let is_placeholder = ecs.has::<RoomCamera>(entity)
         || (ecs.has::<Light>(entity) && !ecs.has_any::<(Sprite, Animation, CurrentFrame)>(entity));
@@ -158,18 +158,14 @@ pub fn entity_world_rect(
             .get(entity)
             .map(|t| t.pivot)
             .unwrap_or(Pivot::TopLeft);
-        pivot_adjusted_position(position, vec2(width, height), pivot)
+        pivot_adjusted_position(position, size, pivot)
     };
 
-    Rect::new(corrected_pos.x, corrected_pos.y, width, height)
+    Rect::new(corrected_pos.x, corrected_pos.y, size.x, size.y)
 }
 
 /// Returns true if an entity can be selected in a room (is in the room).
-pub fn can_select_entity_in_room(
-    ecs: &Ecs,
-    entity: Entity,
-    room_id: RoomId,
-) -> bool {
+pub fn can_select_entity_in_room(ecs: &Ecs, entity: Entity, room_id: RoomId) -> bool {
     // Make sure the entity is in the requested room
     match ecs.get_store::<CurrentRoom>().get(entity) {
         Some(CurrentRoom(id)) => *id == room_id,

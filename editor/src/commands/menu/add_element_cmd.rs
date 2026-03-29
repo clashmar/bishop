@@ -1,14 +1,19 @@
 // editor/src/commands/menu/add_element_cmd.rs
-use crate::commands::editor_command_manager::EditorCommand;
 use crate::app::EditorMode;
+use crate::commands::editor_command_manager::EditorCommand;
 use crate::with_editor;
 use engine_core::prelude::*;
 
 /// Where the element was added.
 #[derive(Debug, Clone)]
 enum AddTarget {
-    TopLevel { added_index: usize },
-    LayoutChild { parent_index: usize, child_index: usize },
+    TopLevel {
+        added_index: usize,
+    },
+    LayoutChild {
+        parent_index: usize,
+        child_index: usize,
+    },
 }
 
 /// Undo-able command for adding an element to a menu template.
@@ -82,7 +87,10 @@ impl EditorCommand for AddElementCmd {
                     menu_editor.selected_element_indices.clear();
                     menu_editor.selected_child_index = None;
                 }
-                Some(AddTarget::LayoutChild { parent_index, child_index }) => {
+                Some(AddTarget::LayoutChild {
+                    parent_index,
+                    child_index,
+                }) => {
                     if let Some(parent) = template.elements.get_mut(*parent_index) {
                         if let MenuElementKind::LayoutGroup(group) = &mut parent.kind {
                             if *child_index < group.children.len() {

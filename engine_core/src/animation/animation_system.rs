@@ -1,15 +1,17 @@
 // engine_core/src/animation/animation_system.rs
-use crate::assets::asset_manager::AssetManager;
-use crate::world::room::entities_in_room;
 use crate::animation::animation_clip::*;
+use crate::assets::asset_manager::AssetManager;
 use crate::assets::sprite::SpriteId;
 use crate::ecs::component::PlayerProxy;
-use crate::ecs::entity::Entity;
-use crate::world::room::RoomId;
 use crate::ecs::ecs::Ecs;
-use serde::{Deserialize, Serialize};
-use ecs_component::ecs_component;
+use crate::ecs::entity::Entity;
+use crate::rendering::render_room::pivot_adjusted_position;
+use crate::rendering::renderable::{EntityDrawParams, Renderable};
+use crate::worlds::room::RoomId;
+use crate::worlds::room::entities_in_room;
 use bishop::prelude::*;
+use ecs_component::ecs_component;
+use serde::{Deserialize, Serialize};
 
 /// Current frame data for rendering animated entities.
 #[ecs_component]
@@ -32,7 +34,8 @@ pub struct CurrentFrame {
     pub flip_x: bool,
 }
 
-pub async fn update_animation_sytem(
+pub fn update_animation_sytem(
+    loader: &impl TextureLoader,
     ecs: &mut Ecs,
     asset_manager: &mut AssetManager,
     dt: f32,
@@ -43,10 +46,8 @@ pub async fn update_animation_sytem(
 
     // Process the player entity if there's a player proxy
     let has_spawn_point = entities.iter().any(|e| ecs.has::<PlayerProxy>(*e));
-    if has_spawn_point {
-        if let Some(player) = ecs.get_player_entity() {
-            entities.insert(player);
-        }
+    if has_spawn_point && let Some(player) = ecs.get_player_entity() {
+        entities.insert(player);
     }
 
     let anim_store = ecs.get_store_mut::<Animation>();
@@ -66,17 +67,23 @@ pub async fn update_animation_sytem(
         };
 
         // Get the sprite id
-        let (sprite_id, resolved) = get_sprite_id(animation, current_id, asset_manager).await;
+        let (sprite_id, resolved) = get_sprite_id(loader, animation, current_id, asset_manager);
 
         if resolved {
             animation.update_cache_entry(current_id, sprite_id, asset_manager);
         }
 
-        let Some(clip) = animation.clips.get(current_id) else { continue };
+        let Some(clip) = animation.clips.get(current_id) else {
+            continue;
+        };
         let clip_state = animation.states.get_mut(current_id).unwrap();
 
         // Advance the timer with speed multiplier applied (0.0 means default speed of 1.0)
-        let speed = if animation.speed_multiplier == 0.0 { 1.0 } else { animation.speed_multiplier };
+        let speed = if animation.speed_multiplier == 0.0 {
+            1.0
+        } else {
+            animation.speed_multiplier
+        };
         clip_state.timer += dt * speed;
 
         loop {
@@ -125,8 +132,6 @@ pub async fn update_animation_sytem(
         frames.push((*entity, frame));
     }
 
-    
-
     for (entity, frame) in frames {
         ecs.add_component_to_entity(entity, frame)
     }
@@ -138,25 +143,62 @@ pub async fn update_animation_sytem(
     }
 }
 
+impl Renderable for CurrentFrame {
+    fn dimensions(&self, _asset_manager: &AssetManager) -> Option<Vec2> {
+        Some(self.frame_size)
+    }
+
+    fn draw<C: BishopContext>(
+        &self,
+        ctx: &mut C,
+        asset_manager: &mut AssetManager,
+        params: &EntityDrawParams,
+    ) -> bool {
+        if !asset_manager.contains(self.sprite_id) {
+            return false;
+        }
+        let tex = asset_manager.get_texture_from_id(ctx, self.sprite_id);
+        let frame_w = self.frame_size.x;
+        let frame_h = self.frame_size.y;
+        let src = Rect::new(
+            self.col as f32 * frame_w,
+            self.row as f32 * frame_h,
+            frame_w,
+            frame_h,
+        );
+        let draw_base = pivot_adjusted_position(params.pos, self.frame_size, params.pivot);
+        let draw_x = (draw_base.x + self.offset.x).floor();
+        let draw_y = (draw_base.y + self.offset.y).floor();
+        ctx.draw_texture_ex(
+            tex,
+            draw_x,
+            draw_y,
+            Color::WHITE,
+            DrawTextureParams {
+                dest_size: Some(Vec2::new(frame_w, frame_h)),
+                source: Some(src),
+                flip_x: self.flip_x,
+                ..Default::default()
+            },
+        );
+        true
+    }
+}
+
 /// Return the SpriteId for for the current animation clip.
-async fn get_sprite_id(
+fn get_sprite_id(
+    loader: &impl TextureLoader,
     animation: &Animation,
     current_id: &ClipId,
     asset_manager: &mut AssetManager,
 ) -> (SpriteId, bool) {
-    // Try cache first
-    if let Some(&cached) = animation.sprite_cache.get(current_id) {
-        if cached.0 != 0 {
-            return (cached, false);
-        }
+    if let Some(&cached) = animation.sprite_cache.get(current_id)
+        && cached.0 != 0
+    {
+        return (cached, false);
     }
 
-    // Not in cache try to resolve with asset manager
-    let resolved = resolve_sprite_id(
-        asset_manager, 
-        &animation.variant, 
-        current_id
-    ).await;
+    let resolved = resolve_sprite_id(loader, asset_manager, &animation.variant, current_id);
 
     (resolved, true)
 }

@@ -1,6 +1,25 @@
+use crate::menu::*;
 use bishop::prelude::*;
 use serde::{Deserialize, Serialize};
-use crate::menu::input_binding::InputBinding;
+
+/// Navigation targets for each direction.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct NavTargets {
+    pub up: Option<usize>,
+    pub down: Option<usize>,
+    pub left: Option<usize>,
+    pub right: Option<usize>,
+}
+
+/// Trait for navigable menu elements to implement.
+pub trait Navigable {
+    fn nav_targets(&self) -> &NavTargets;
+    fn nav_targets_mut(&mut self) -> &mut NavTargets;
+    // How to get this type from a MenuElement.
+    fn from_element(el: &MenuElement) -> Option<&Self>;
+    // How to wrap this type back into a MenuElementKind.
+    fn wrap_into_element(self) -> MenuElementKind;
+}
 
 /// Configurable navigation bindings for menu interaction.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -12,7 +31,6 @@ pub struct MenuNavigation {
     pub confirm: InputBinding,
     pub cancel: InputBinding,
     pub pause: InputBinding,
-    
 }
 
 impl Default for MenuNavigation {
@@ -45,9 +63,19 @@ impl MenuNavigation {
         self.left.is_pressed(ctx)
     }
 
+    /// Checks if left is currently held down.
+    pub fn left_down<C: BishopContext>(&self, ctx: &C) -> bool {
+        self.left.is_down(ctx)
+    }
+
     /// Checks if right was pressed this frame.
     pub fn right_pressed<C: BishopContext>(&self, ctx: &C) -> bool {
         self.right.is_pressed(ctx)
+    }
+
+    /// Checks if right is currently held down.
+    pub fn right_down<C: BishopContext>(&self, ctx: &C) -> bool {
+        self.right.is_down(ctx)
     }
 
     /// Checks if confirm was pressed this frame.

@@ -1,6 +1,6 @@
 // editor/src/editor/camera_controller.rs
-use engine_core::prelude::*;
 use bishop::prelude::*;
+use engine_core::prelude::*;
 
 pub const ZOOM_STEP_PERCENT: f32 = 0.5;
 pub const MIN_ZOOM: f32 = 0.000001;
@@ -87,7 +87,12 @@ impl EditorCameraController {
     }
 
     /// Returns a camera centered on a room.
-    pub fn camera_for_room(ctx: &WgpuContext, room_size: Vec2, room_position: Vec2, grid_size: f32) -> Camera2D {
+    pub fn camera_for_room(
+        ctx: &WgpuContext,
+        room_size: Vec2,
+        room_position: Vec2,
+        grid_size: f32,
+    ) -> Camera2D {
         let max_dim_px = (room_size * grid_size).max_element() / 1.5;
         let scalar = editor_zoom_factor(grid_size) / max_dim_px;
 
@@ -104,7 +109,7 @@ impl EditorCameraController {
         ctx: &WgpuContext,
         camera: &mut Camera2D,
         room: &Room,
-        grid_size: f32
+        grid_size: f32,
     ) {
         let map_size = vec2(
             room.current_variant().tilemap.width as f32,
@@ -115,17 +120,13 @@ impl EditorCameraController {
 
     /// Returns a zoom vector that makes the whole `size` fit the screen,
     /// respecting the current aspect ratio (higher = more zoom)
-    pub fn zoom_for_size(
-        ctx: &WgpuContext,
-        size: Vec2,
-        zoom_factor: f32,
-        grid_size: f32
-    ) -> Vec2 {
+    pub fn zoom_for_size(ctx: &WgpuContext, size: Vec2, zoom_factor: f32, grid_size: f32) -> Vec2 {
         let max_dim_px = size.max_element() / zoom_factor;
         let scalar = editor_zoom_factor(grid_size) / max_dim_px;
-
-        let mut temp = Camera2D::default();
-        temp.zoom = vec2(scalar, scalar);
+        let mut temp = Camera2D {
+            zoom: vec2(scalar, scalar),
+            ..Default::default()
+        };
         EditorCameraController::apply_aspect(ctx, &mut temp, scalar);
         temp.zoom
     }

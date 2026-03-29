@@ -1,7 +1,6 @@
 // editor/src/commands/world/change_grid_size_cmd.rs
-use crate::commands::editor_command_manager::EditorCommand;
-use crate::ecs::transform::Transform;
 use crate::app::EditorMode;
+use crate::commands::editor_command_manager::EditorCommand;
 use crate::with_editor;
 use engine_core::prelude::*;
 
@@ -37,11 +36,7 @@ impl EditorCommand for ChangeGridSizeCmd {
             }
 
             // Capture room positions before scaling
-            self.old_room_positions = world
-                .rooms
-                .iter()
-                .map(|r| (r.id, r.position))
-                .collect();
+            self.old_room_positions = world.rooms.iter().map(|r| (r.id, r.position)).collect();
 
             // Capture entity positions before scaling
             let trans_store = editor.game.ecs.get_store::<Transform>();
@@ -64,12 +59,12 @@ impl EditorCommand for ChangeGridSizeCmd {
 
             // Scale entity positions
             let pos_store = editor.game.ecs.get_store_mut::<Transform>();
-            for (_entity, transform) in &mut pos_store.data {
+            for transform in pos_store.data.values_mut() {
                 transform.position *= scale_factor;
             }
 
             editor.toast = Some(Toast::new(
-                &format!("World grid size changed to {}", self.new_grid_size),
+                format!("World grid size changed to {}", self.new_grid_size),
                 2.5,
             ));
         });
@@ -98,7 +93,7 @@ impl EditorCommand for ChangeGridSizeCmd {
             }
 
             editor.toast = Some(Toast::new(
-                &format!("World grid size restored to {}", self.old_grid_size),
+                format!("World grid size restored to {}", self.old_grid_size),
                 2.5,
             ));
         });
@@ -111,15 +106,15 @@ impl EditorCommand for ChangeGridSizeCmd {
     fn applies_in_mode(&self, current_mode: EditorMode) -> bool {
         match current_mode {
             EditorMode::World(id) => id == self.world_id,
-            EditorMode::Room(room_id) => {
-                with_editor(|editor| {
-                    editor.game.worlds
-                        .iter()
-                        .find(|w| w.id == self.world_id)
-                        .and_then(|w| w.get_room(room_id))
-                        .is_some()
-                })
-            }
+            EditorMode::Room(room_id) => with_editor(|editor| {
+                editor
+                    .game
+                    .worlds
+                    .iter()
+                    .find(|w| w.id == self.world_id)
+                    .and_then(|w| w.get_room(room_id))
+                    .is_some()
+            }),
             EditorMode::Menu | EditorMode::Game => false,
         }
     }

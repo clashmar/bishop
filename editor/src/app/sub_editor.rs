@@ -1,8 +1,8 @@
 // editor/src/editor/sub_editor.rs
-use crate::gui::panels::panel_manager::is_mouse_over_panel;
 use crate::gui::modal::is_modal_open;
-use engine_core::prelude::*;
+use crate::gui::panels::panel_manager::is_mouse_over_panel;
 use bishop::prelude::*;
+use engine_core::prelude::*;
 
 /// Contract that all sub-editors must implement.
 pub trait SubEditor {

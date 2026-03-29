@@ -1,10 +1,10 @@
 // editor/src/commands/game/move_world_cmd.rs
-use crate::commands::editor_command_manager::EditorCommand;
 use crate::app::EditorMode;
+use crate::commands::editor_command_manager::EditorCommand;
 use crate::with_editor;
-use engine_core::world::world::WorldId;
-use engine_core::game::game::Game;
 use bishop::prelude::*;
+use engine_core::game::Game;
+use engine_core::worlds::world::WorldId;
 
 /// Undo-able command for moving a world's position.
 #[derive(Debug)]
@@ -22,7 +22,7 @@ impl MoveWorldCmd {
     /// Helper that sets the position of the world.
     fn set_position(game: &mut Game, world_id: WorldId, position: Vec2) {
         if let Some(world) = game.worlds.iter_mut().find(|w| w.id == world_id) {
-            world.meta.position = position.into()
+            world.meta.position = position
         }
     }
 }

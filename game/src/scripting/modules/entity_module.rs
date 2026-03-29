@@ -1,20 +1,19 @@
 // game/src/scripting/modules/entity_module.rs
-use crate::scripting::commands::dialogue_commands::*;
-use crate::scripting::commands::lua_command::*;
-use crate::scripting::lua_ctx::LuaGameCtx;
 use crate::game_global::push_command;
+use crate::scripting::commands::lua_command::*;
+use crate::scripting::commands::text_commands::*;
+use crate::scripting::lua_ctx::LuaGameCtx;
 use crate::scripting::lua_helpers::*;
-use std::collections::HashMap;
-use mlua::prelude::LuaResult;
 use engine_core::prelude::*;
-use mlua::UserDataRegistry;
-use mlua::UserDataMethods;
-use mlua::Variadic;
-use mlua::UserData;
-use mlua::Table;
-use engine_core::*;
-use mlua::Value;
+use mlua::prelude::LuaResult;
 use mlua::Lua;
+use mlua::Table;
+use mlua::UserData;
+use mlua::UserDataMethods;
+use mlua::UserDataRegistry;
+use mlua::Value;
+use mlua::Variadic;
+use std::collections::HashMap;
 
 /// Lua module that exposes a constructor for `EntityHandle`.
 #[derive(Default)]
@@ -24,11 +23,8 @@ register_lua_module!(EntityModule);
 impl LuaModule for EntityModule {
     fn register(&self, lua: &Lua) -> LuaResult<()> {
         // Wraps an entity(id) in a lua EntityHandle
-        let factory = lua.create_function(|_, id: usize| {
-            Ok(EntityHandle {
-                entity: Entity(id),
-            })
-        })?;
+        let factory =
+            lua.create_function(|_, id: usize| Ok(EntityHandle { entity: Entity(id) }))?;
         lua.globals().set(ENTITY, factory)?;
         Ok(())
     }
@@ -60,7 +56,7 @@ pub struct EntityHandle {
 }
 
 /// Build a Lua userdata object that wraps `Entity`.
-pub fn lua_entity_handle<'lua>(lua: &'lua Lua, entity: Entity) -> LuaResult<Value> {
+pub fn lua_entity_handle(lua: &Lua, entity: Entity) -> LuaResult<Value> {
     let handle = EntityHandle { entity };
     lua.create_userdata(handle).map(Value::UserData)
 }
@@ -71,11 +67,11 @@ impl UserData for EntityHandle {
             m.register(methods);
         }
     }
-    
+
     fn add_fields<F: mlua::UserDataFields<Self>>(fields: &mut F) {
         fields.add_field_method_get(ID, |_, this| Ok(*this.entity));
     }
-    
+
     fn register(registry: &mut UserDataRegistry<Self>) {
         Self::add_fields(registry);
         Self::add_methods(registry);
@@ -98,9 +94,11 @@ pub enum EntityHandleMethod {
     GetCurrentFrame(GetCurrentFrameMethod),
     IsClipFinished(IsClipFinishedMethod),
     Say(SayMethod),
-    SayDialogue(SayDialogueMethod),
     ClearSpeech(ClearSpeechMethod),
     IsSpeaking(IsSpeakingMethod),
+    PlaySound(PlaySoundMethod),
+    StopSound(StopSoundMethod),
+    SetSoundVolume(SetSoundVolumeMethod),
 }
 
 /// Returns all entity handle methods.
@@ -121,9 +119,11 @@ fn entity_handle_methods() -> Vec<EntityHandleMethod> {
         EntityHandleMethod::GetCurrentFrame(GetCurrentFrameMethod),
         EntityHandleMethod::IsClipFinished(IsClipFinishedMethod),
         EntityHandleMethod::Say(SayMethod),
-        EntityHandleMethod::SayDialogue(SayDialogueMethod),
         EntityHandleMethod::ClearSpeech(ClearSpeechMethod),
         EntityHandleMethod::IsSpeaking(IsSpeakingMethod),
+        EntityHandleMethod::PlaySound(PlaySoundMethod),
+        EntityHandleMethod::StopSound(StopSoundMethod),
+        EntityHandleMethod::SetSoundVolume(SetSoundVolumeMethod),
     ]
 }
 
@@ -145,9 +145,11 @@ impl LuaMethod<EntityHandle> for EntityHandleMethod {
             EntityHandleMethod::GetCurrentFrame(m) => m.register(methods),
             EntityHandleMethod::IsClipFinished(m) => m.register(methods),
             EntityHandleMethod::Say(m) => m.register(methods),
-            EntityHandleMethod::SayDialogue(m) => m.register(methods),
             EntityHandleMethod::ClearSpeech(m) => m.register(methods),
             EntityHandleMethod::IsSpeaking(m) => m.register(methods),
+            EntityHandleMethod::PlaySound(m) => m.register(methods),
+            EntityHandleMethod::StopSound(m) => m.register(methods),
+            EntityHandleMethod::SetSoundVolume(m) => m.register(methods),
         }
     }
 
@@ -168,9 +170,11 @@ impl LuaMethod<EntityHandle> for EntityHandleMethod {
             EntityHandleMethod::GetCurrentFrame(m) => m.emit_api(out),
             EntityHandleMethod::IsClipFinished(m) => m.emit_api(out),
             EntityHandleMethod::Say(m) => m.emit_api(out),
-            EntityHandleMethod::SayDialogue(m) => m.emit_api(out),
             EntityHandleMethod::ClearSpeech(m) => m.emit_api(out),
             EntityHandleMethod::IsSpeaking(m) => m.emit_api(out),
+            EntityHandleMethod::PlaySound(m) => m.emit_api(out),
+            EntityHandleMethod::StopSound(m) => m.emit_api(out),
+            EntityHandleMethod::SetSoundVolume(m) => m.emit_api(out),
         }
     }
 }
@@ -259,7 +263,7 @@ impl LuaMethod<EntityHandle> for SetMethod {
         for reg in COMPONENTS.iter() {
             let type_name = reg.type_name;
             let fn_name = to_snake_case(type_name);
-            out.line(&format!("---@param self Entity"));
+            out.line("---@param self Entity");
             out.line(&format!("---@param v {}", type_name));
             out.line(&format!("function Entity:{}_{}(v) end", SET, fn_name));
             out.line("");
@@ -276,7 +280,10 @@ impl LuaMethod<EntityHandle> for HasMethod {
             let ctx = LuaGameCtx::borrow_ctx(lua)?;
             let game_instance = ctx.game_instance.borrow();
             let ecs = &game_instance.game.ecs;
-            Ok(COMPONENTS.iter().find(|r| r.type_name == comp_name).map_or(false, |r| (r.has)(ecs, this.entity)))
+            Ok(COMPONENTS
+                .iter()
+                .find(|r| r.type_name == comp_name)
+                .is_some_and(|r| (r.has)(ecs, this.entity)))
         });
 
         // entity:has_any
@@ -301,8 +308,12 @@ impl LuaMethod<EntityHandle> for HasMethod {
             let ecs = &game_instance.game.ecs;
             for comp_name in comps.iter() {
                 if let Some(r) = COMPONENTS.iter().find(|r| r.type_name == comp_name) {
-                    if !(r.has)(ecs, this.entity) { return Ok(false); }
-                } else { return Ok(false); }
+                    if !(r.has)(ecs, this.entity) {
+                        return Ok(false);
+                    }
+                } else {
+                    return Ok(false);
+                }
             }
             Ok(true)
         });
@@ -408,7 +419,7 @@ impl LuaMethod<EntityHandle> for GetClipMethod {
 
             if let Some(animation) = ecs.get::<Animation>(this.entity) {
                 if let Some(clip_id) = &animation.current {
-                    Ok(Value::String(lua.create_string(&clip_id.ui_label())?))
+                    Ok(Value::String(lua.create_string(clip_id.ui_label())?))
                 } else {
                     Ok(Value::Nil)
                 }
@@ -589,161 +600,97 @@ impl LuaMethod<EntityHandle> for IsClipFinishedMethod {
     }
 }
 
-/// Method: `entity:say(text, opts)`
+/// Method: `entity:say(dialogue_id, key, opts)`
 pub struct SayMethod;
 impl LuaMethod<EntityHandle> for SayMethod {
     fn register<M: UserDataMethods<EntityHandle>>(&self, methods: &mut M) {
-        methods.add_method(SAY, |lua, this, (text, opts): (String, Option<Table>)| {
-            let ctx = LuaGameCtx::borrow_ctx(lua)?;
-            let game_instance = ctx.game_instance.borrow();
-            let config = &game_instance.game.text_manager.config;
+        methods.add_method(
+            SAY,
+            |lua, this, (dialogue_id, key, opts): (String, String, Option<Table>)| {
+                let ctx = LuaGameCtx::borrow_ctx(lua)?;
+                let game_instance = ctx.game_instance.borrow();
+                let config = game_instance.game.text_manager.config.clone();
 
-            let duration = opts
-                .as_ref()
-                .and_then(|t| t.get::<f32>("duration").ok())
-                .unwrap_or(config.default_duration);
+                let text = match game_instance
+                    .game
+                    .text_manager
+                    .select_text(&dialogue_id, &key)
+                {
+                    Some(t) => t,
+                    None => {
+                        log::warn!("Dialogue not found: {}:{}", dialogue_id, key);
+                        return Ok(());
+                    }
+                };
+                drop(game_instance);
 
-            let color = opts.as_ref().and_then(|t| {
-                t.get::<Table>("color").ok().and_then(|c| {
-                    Some([
-                        c.get::<f32>(1).ok()?,
-                        c.get::<f32>(2).ok()?,
-                        c.get::<f32>(3).ok()?,
-                        c.get::<f32>(4).ok().unwrap_or(1.0),
-                    ])
-                })
-            });
-
-            let offset = opts.as_ref().and_then(|t| {
-                t.get::<Table>("offset").ok().and_then(|o| {
-                    Some((o.get::<f32>(1).ok()?, o.get::<f32>(2).ok()?))
-                })
-            });
-
-            let font_size = opts.as_ref().and_then(|t| t.get::<f32>("font_size").ok());
-            let max_width = opts.as_ref().and_then(|t| t.get::<f32>("max_width").ok());
-            let show_background = opts.as_ref().and_then(|t| t.get::<bool>("show_background").ok());
-
-            let background_color = opts.as_ref().and_then(|t| {
-                t.get::<Table>("background_color").ok().and_then(|c| {
-                    Some([
-                        c.get::<f32>(1).ok()?,
-                        c.get::<f32>(2).ok()?,
-                        c.get::<f32>(3).ok()?,
-                        c.get::<f32>(4).ok().unwrap_or(0.7),
-                    ])
-                })
-            });
-
-            push_command(Box::new(ShowSpeechCmd {
-                entity: this.entity,
-                text,
-                duration,
-                color,
-                offset,
-                font_size,
-                max_width,
-                show_background,
-                background_color,
-            }));
-            Ok(())
-        });
-    }
-
-    fn emit_api(&self, out: &mut LuaApiWriter) {
-        out.line("--- Shows a speech bubble with raw text above the entity.");
-        out.line("---@param text string The text to display");
-        out.line("---@param opts? {duration?: number, color?: number[], offset?: number[], font_size?: number, max_width?: number, show_background?: boolean, background_color?: number[]}");
-        out.line(&format!("function Entity:{}(text, opts) end", SAY));
-        out.line("");
-    }
-}
-
-/// Method: `entity:say_dialogue(dialogue_id, key, opts)`
-pub struct SayDialogueMethod;
-impl LuaMethod<EntityHandle> for SayDialogueMethod {
-    fn register<M: UserDataMethods<EntityHandle>>(&self, methods: &mut M) {
-        methods.add_method(SAY_DIALOGUE, |lua, this, (dialogue_id, key, opts): (String, String, Option<Table>)| {
-            let ctx = LuaGameCtx::borrow_ctx(lua)?;
-            let game_instance = ctx.game_instance.borrow();
-            let config = game_instance.game.text_manager.config.clone();
-
-            let text = match game_instance.game.text_manager.select_text(&dialogue_id, &key) {
-                Some(t) => t,
-                None => {
-                    log::warn!("Dialogue not found: {}:{}", dialogue_id, key);
-                    return Ok(());
-                }
-            };
-            drop(game_instance);
-
-            // Extract vars table and apply interpolation
-            let text = if let Some(ref opts_table) = opts {
-                if let Ok(vars_table) = opts_table.get::<Table>("vars") {
-                    let mut vars = HashMap::new();
-                    for pair in vars_table.pairs::<String, String>() {
-                        if let Ok((k, v)) = pair {
+                let text = if let Some(ref opts_table) = opts {
+                    if let Ok(vars_table) = opts_table.get::<Table>("vars") {
+                        let mut vars = HashMap::new();
+                        for (k, v) in vars_table.pairs::<String, String>().flatten() {
                             vars.insert(k, v);
                         }
+                        interpolate(&text, &vars)
+                    } else {
+                        text
                     }
-                    interpolate(&text, &vars)
                 } else {
                     text
-                }
-            } else {
-                text
-            };
+                };
 
-            let duration = opts
-                .as_ref()
-                .and_then(|t| t.get::<f32>("duration").ok())
-                .unwrap_or(config.default_duration);
+                let duration = opts
+                    .as_ref()
+                    .and_then(|t| t.get::<f32>("duration").ok())
+                    .unwrap_or(config.default_duration);
 
-            let color = opts.as_ref().and_then(|t| {
-                t.get::<Table>("color").ok().and_then(|c| {
-                    Some([
-                        c.get::<f32>(1).ok()?,
-                        c.get::<f32>(2).ok()?,
-                        c.get::<f32>(3).ok()?,
-                        c.get::<f32>(4).ok().unwrap_or(1.0),
-                    ])
-                })
-            });
+                let color = opts.as_ref().and_then(|t| {
+                    t.get::<Table>("color").ok().and_then(|c| {
+                        Some([
+                            c.get::<f32>(1).ok()?,
+                            c.get::<f32>(2).ok()?,
+                            c.get::<f32>(3).ok()?,
+                            c.get::<f32>(4).ok().unwrap_or(1.0),
+                        ])
+                    })
+                });
 
-            let offset = opts.as_ref().and_then(|t| {
-                t.get::<Table>("offset").ok().and_then(|o| {
-                    Some((o.get::<f32>(1).ok()?, o.get::<f32>(2).ok()?))
-                })
-            });
+                let offset = opts.as_ref().and_then(|t| {
+                    t.get::<Table>("offset")
+                        .ok()
+                        .and_then(|o| Some((o.get::<f32>(1).ok()?, o.get::<f32>(2).ok()?)))
+                });
 
-            let font_size = opts.as_ref().and_then(|t| t.get::<f32>("font_size").ok());
-            let max_width = opts.as_ref().and_then(|t| t.get::<f32>("max_width").ok());
-            let show_background = opts.as_ref().and_then(|t| t.get::<bool>("show_background").ok());
+                let font_size = opts.as_ref().and_then(|t| t.get::<f32>("font_size").ok());
+                let max_width = opts.as_ref().and_then(|t| t.get::<f32>("max_width").ok());
+                let show_background = opts
+                    .as_ref()
+                    .and_then(|t| t.get::<bool>("show_background").ok());
 
-            let background_color = opts.as_ref().and_then(|t| {
-                t.get::<Table>("background_color").ok().and_then(|c| {
-                    Some([
-                        c.get::<f32>(1).ok()?,
-                        c.get::<f32>(2).ok()?,
-                        c.get::<f32>(3).ok()?,
-                        c.get::<f32>(4).ok().unwrap_or(0.7),
-                    ])
-                })
-            });
+                let background_color = opts.as_ref().and_then(|t| {
+                    t.get::<Table>("background_color").ok().and_then(|c| {
+                        Some([
+                            c.get::<f32>(1).ok()?,
+                            c.get::<f32>(2).ok()?,
+                            c.get::<f32>(3).ok()?,
+                            c.get::<f32>(4).ok().unwrap_or(0.7),
+                        ])
+                    })
+                });
 
-            push_command(Box::new(ShowSpeechCmd {
-                entity: this.entity,
-                text,
-                duration,
-                color,
-                offset,
-                font_size,
-                max_width,
-                show_background,
-                background_color,
-            }));
-            Ok(())
-        });
+                push_command(Box::new(ShowSpeechCmd {
+                    entity: this.entity,
+                    text,
+                    duration,
+                    color,
+                    offset,
+                    font_size,
+                    max_width,
+                    show_background,
+                    background_color,
+                }));
+                Ok(())
+            },
+        );
     }
 
     fn emit_api(&self, out: &mut LuaApiWriter) {
@@ -751,7 +698,10 @@ impl LuaMethod<EntityHandle> for SayDialogueMethod {
         out.line("---@param dialogue_id string The dialogue file ID (e.g. \"npc_merchant\")");
         out.line("---@param key string The dialogue key (e.g. \"greeting\")");
         out.line("---@param opts? {vars?: table<string, string>, duration?: number, color?: number[], offset?: number[], font_size?: number, max_width?: number, show_background?: boolean, background_color?: number[]}");
-        out.line(&format!("function Entity:{}(dialogue_id, key, opts) end", SAY_DIALOGUE));
+        out.line(&format!(
+            "function Entity:{}(dialogue_id, key, opts) end",
+            SAY
+        ));
         out.line("");
     }
 }
@@ -791,6 +741,110 @@ impl LuaMethod<EntityHandle> for IsSpeakingMethod {
         out.line("--- Checks if the entity currently has a speech bubble.");
         out.line("---@return boolean");
         out.line(&format!("function Entity:{}() end", IS_SPEAKING));
+        out.line("");
+    }
+}
+
+/// Method: `entity:play_sound(group_name)`
+pub struct PlaySoundMethod;
+impl LuaMethod<EntityHandle> for PlaySoundMethod {
+    fn register<M: UserDataMethods<EntityHandle>>(&self, methods: &mut M) {
+        methods.add_method(ENTITY_PLAY_SOUND, |lua, this, group_name: String| {
+            let ctx = LuaGameCtx::borrow_ctx(lua)?;
+            let game_instance = ctx.game_instance.borrow();
+            let ecs = &game_instance.game.ecs;
+            let Some(source) = ecs.get::<AudioSource>(this.entity) else {
+                return Ok(());
+            };
+
+            let group_id = SoundGroupId::Custom(group_name.clone());
+            let Some(group) = source.groups.get(&group_id) else {
+                log::warn!(
+                    "Entity {:?} tried to play missing sound group '{}'",
+                    this.entity,
+                    group_name
+                );
+                return Ok(());
+            };
+            let volume = (group.volume * source.runtime_volume).clamp(0.0, 1.0);
+
+            if group.looping {
+                push_audio_command(AudioCommand::PlayLoop {
+                    handle: *this.entity as u64,
+                    sounds: group.sounds.clone(),
+                    volume,
+                    pitch_variation: group.pitch_variation,
+                    volume_variation: group.volume_variation,
+                });
+            } else {
+                push_audio_command(AudioCommand::PlayVariedSfx {
+                    sounds: group.sounds.clone(),
+                    volume,
+                    pitch_variation: group.pitch_variation,
+                    volume_variation: group.volume_variation,
+                });
+            }
+            Ok(())
+        });
+    }
+
+    fn emit_api(&self, out: &mut LuaApiWriter) {
+        out.line(
+            "--- Plays the named sound group configured on this entity's AudioSource component.",
+        );
+        out.line("--- If the group is looping, starts a loop tracked by the entity ID.");
+        out.line("--- If one-shot, plays with the group's pitch and volume variation.");
+        out.line("---@param group_name SoundGroupId");
+        out.line(&format!(
+            "function Entity:{}(group_name) end",
+            ENTITY_PLAY_SOUND
+        ));
+        out.line("");
+    }
+}
+
+/// Method: `entity:stop_sound()`
+pub struct StopSoundMethod;
+impl LuaMethod<EntityHandle> for StopSoundMethod {
+    fn register<M: UserDataMethods<EntityHandle>>(&self, methods: &mut M) {
+        methods.add_method(ENTITY_STOP_SOUND, |_lua, this, ()| {
+            push_audio_command(AudioCommand::StopLoop(*this.entity as u64));
+            Ok(())
+        });
+    }
+
+    fn emit_api(&self, out: &mut LuaApiWriter) {
+        out.line("--- Stops a looping sound started by this entity's AudioSource.");
+        out.line(&format!("function Entity:{}() end", ENTITY_STOP_SOUND));
+        out.line("");
+    }
+}
+
+/// Method: `entity:set_sound_volume(v)`
+pub struct SetSoundVolumeMethod;
+impl LuaMethod<EntityHandle> for SetSoundVolumeMethod {
+    fn register<M: UserDataMethods<EntityHandle>>(&self, methods: &mut M) {
+        methods.add_method(ENTITY_SET_SOUND_VOLUME, |lua, this, v: f32| {
+            let ctx = LuaGameCtx::borrow_ctx(lua)?;
+            let mut game_instance = ctx.game_instance.borrow_mut();
+            let ecs = &mut game_instance.game.ecs;
+            if let Some(source) = ecs.get_mut::<AudioSource>(this.entity) {
+                source.runtime_volume = v.clamp(0.0, 1.0);
+            }
+            Ok(())
+        });
+    }
+
+    fn emit_api(&self, out: &mut LuaApiWriter) {
+        out.line(
+            "--- Sets a runtime gain multiplier on this entity's AudioSource groups (0.0–1.0).",
+        );
+        out.line("--- Takes effect on the next play_sound() call.");
+        out.line("---@param v number Volume in range 0.0–1.0");
+        out.line(&format!(
+            "function Entity:{}(v) end",
+            ENTITY_SET_SOUND_VOLUME
+        ));
         out.line("");
     }
 }

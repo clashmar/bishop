@@ -1,13 +1,11 @@
 // editor/src/tilemap/tilemap_panel.rs
+use crate::gui::gui_constants::*;
 use crate::gui::panels::panel_manager::is_mouse_over_panel;
 use crate::tilemap::background_module::BackgroundModule;
-use crate::assets::asset_manager::AssetManager;
 use crate::tilemap::tile_palette::TilePalette;
 use crate::tilemap::tile_palette::*;
-use crate::tiles::tilemap::TileMap;
-use crate::gui::gui_constants::*;
-use engine_core::prelude::*;
 use bishop::prelude::*;
+use engine_core::prelude::*;
 
 const INSET: f32 = 10.0;
 const BTN_HEIGHT: f32 = 30.0;
@@ -31,7 +29,7 @@ impl TilemapPanel {
         let background = BackgroundModule::new();
 
         // TODO: Add other modules
-        
+
         Self {
             rect: Rect::new(0., 0., 0., 0.),
             palette,
@@ -40,11 +38,8 @@ impl TilemapPanel {
         }
     }
 
-    pub async fn update(
-        &mut self,
-        asset_manager: &mut AssetManager,
-    ) {
-        self.palette.update(asset_manager).await;
+    pub fn update(&mut self, asset_manager: &mut AssetManager) {
+        self.palette.update(asset_manager);
     }
 
     /// Called by the editor each frame to place the panel
@@ -53,7 +48,7 @@ impl TilemapPanel {
     }
 
     /// Render the panel and any visible sub‑modules
-    pub async fn draw(
+    pub fn draw(
         &mut self,
         ctx: &mut WgpuContext,
         asset_manager: &mut AssetManager,
@@ -67,11 +62,12 @@ impl TilemapPanel {
         let create_label = "Create Tile";
         let create_width = measure_text(ctx, create_label, 20.0).width + PADDING;
         let create_start = ctx.screen_width() - INSET - create_width;
-        let create_rect = self.register_rect(Rect::new(create_start, INSET, create_width, BTN_HEIGHT));
+        let create_rect =
+            self.register_rect(Rect::new(create_start, INSET, create_width, BTN_HEIGHT));
 
         // Compute the top offset for the panel
         let top_offset = create_rect.y + BTN_HEIGHT + INSET;
-        
+
         // Reduce the height so the panel still fits
         // The inner modules don't need to be registered
         let inner = self.register_rect(Rect::new(
@@ -105,7 +101,7 @@ impl TilemapPanel {
         self.palette.set_columns_for_width(inner.w - 20.0);
         let height = self.palette.height();
         let palette_rect = Rect::new(inner.x + 10.0, y, inner.w, height);
-        self.palette.draw(ctx, palette_rect, asset_manager).await;
+        self.palette.draw(ctx, palette_rect, asset_manager);
 
         y += height + 20.0; // Create gap for next module
 
@@ -114,7 +110,10 @@ impl TilemapPanel {
         self.background.draw(ctx, background_rect, tilemap, blocked);
 
         // Draw create button
-        if Button::new(create_rect, create_label).blocked(blocked).show(ctx) {
+        if Button::new(create_rect, create_label)
+            .blocked(blocked)
+            .show(ctx)
+        {
             if self.palette.ui.open && self.palette.ui.mode == TilePaletteUiMode::Create {
                 self.palette.ui.open = false; // Hide dialog
             } else {
@@ -129,9 +128,13 @@ impl TilemapPanel {
             let edit_label = "Edit";
             let edit_width = measure_text(ctx, edit_label, 20.0).width + PADDING;
             let edit_start = ctx.screen_width() - INSET - SPACING - create_width - edit_width;
-            let edit_rect = self.register_rect(Rect::new(edit_start, INSET, edit_width, BTN_HEIGHT));
+            let edit_rect =
+                self.register_rect(Rect::new(edit_start, INSET, edit_width, BTN_HEIGHT));
 
-            if Button::new(edit_rect, edit_label).blocked(blocked).show(ctx) {
+            if Button::new(edit_rect, edit_label)
+                .blocked(blocked)
+                .show(ctx)
+            {
                 self.palette.ui.mode = TilePaletteUiMode::Edit;
                 self.palette.ui.edit_index = self.palette.selected_index;
                 self.palette.ui.edit_initialized = true;
@@ -158,7 +161,7 @@ impl TilemapPanel {
         }
 
         was_clicked
-     }
+    }
 
     #[inline]
     fn register_rect(&mut self, rect: Rect) -> Rect {
@@ -170,7 +173,7 @@ impl TilemapPanel {
         self.active_rects.iter().any(|r| r.contains(mouse_screen))
     }
 
-    /// Draw the four solid‑grey mask rectangles which hide anything 
+    /// Draw the four solid‑grey mask rectangles which hide anything
     /// that scrolls outside the visible inspector area.
     fn draw_overflow_covers(&self, ctx: &mut WgpuContext, inner: Rect) {
         // Top cover
@@ -193,7 +196,7 @@ impl TilemapPanel {
             panel_bottom - inner_bottom,
             PANEL_COLOR,
         );
-        
+
         // Left strip
         ctx.draw_rectangle(
             self.rect.x - INSET,
@@ -202,7 +205,7 @@ impl TilemapPanel {
             self.rect.h,
             PANEL_COLOR,
         );
-        
+
         // Right strip
         let inner_right = inner.x + inner.w;
         let panel_right = self.rect.x + self.rect.w;

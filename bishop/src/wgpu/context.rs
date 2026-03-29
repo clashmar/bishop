@@ -5,17 +5,34 @@ use winit::event::{ElementState, KeyEvent, MouseScrollDelta, WindowEvent};
 use winit::keyboard::PhysicalKey;
 use winit::window::{Fullscreen, Window};
 
-use super::conversions::{convert_cursor_icon, convert_keycode, convert_mouse_button, keycode_to_char};
+use super::conversions::{
+    convert_cursor_icon, convert_keycode, convert_mouse_button, keycode_to_char,
+};
 use super::exec::FrameFuture;
 use super::render::{
     create_texture_bind_group_layout, BishopRenderTarget, CameraUniforms, FullscreenQuadRenderer,
     PrimitiveRenderer, TextRenderer, TextureRenderer,
 };
 use super::state::{GraphicsState, GraphicsStateError, InputState, TimeState};
-use super::texture_loader::init_texture_loader;
 use crate::camera::Camera2D;
 use crate::types::Color;
 use crate::window::CursorIcon;
+
+/// A recorded draw call, capturing which renderer and which vertex/batch range to replay.
+enum DrawSegment {
+    Primitive {
+        start: u32,
+        count: u32,
+    },
+    Texture {
+        batch_start: usize,
+        batch_count: usize,
+    },
+    Text {
+        start: u32,
+        count: u32,
+    },
+}
 
 /// Wgpu backend implementation for bishop.
 pub struct WgpuContext {
@@ -38,6 +55,8 @@ pub struct WgpuContext {
     saved_has_cleared: bool,
     saved_surface_view: Option<wgpu::TextureView>,
     render_target_dims: Option<(f32, f32)>,
+    clip_rect: Option<[u32; 4]>,
+    draw_segments: Vec<DrawSegment>,
 }
 
 impl WgpuContext {
@@ -45,22 +64,13 @@ impl WgpuContext {
     pub async fn new(window: Arc<Window>) -> Result<Self, GraphicsStateError> {
         let graphics = GraphicsState::new(window.clone()).await?;
 
-        let primitive_renderer =
-            PrimitiveRenderer::new(&graphics.device, graphics.config.format);
+        let primitive_renderer = PrimitiveRenderer::new(&graphics.device, graphics.config.format);
         let texture_renderer = TextureRenderer::new(&graphics.device, graphics.config.format);
         let text_renderer =
             TextRenderer::new(&graphics.device, &graphics.queue, graphics.config.format);
 
-        // Initialize the global texture loader for free function texture loading
-        init_texture_loader(
-            graphics.device.clone(),
-            graphics.queue.clone(),
-            texture_renderer.texture_bind_group_layout_arc(),
-        );
-
-        let render_target_bind_group_layout = std::sync::Arc::new(create_texture_bind_group_layout(
-            &graphics.device,
-        ));
+        let render_target_bind_group_layout =
+            std::sync::Arc::new(create_texture_bind_group_layout(&graphics.device));
         let fullscreen_quad_renderer = FullscreenQuadRenderer::new(&graphics.device);
         let scale_factor = window.scale_factor() as f32;
         let fullscreen = window.fullscreen().is_some();
@@ -85,6 +95,8 @@ impl WgpuContext {
             saved_has_cleared: false,
             saved_surface_view: None,
             render_target_dims: None,
+            clip_rect: None,
+            draw_segments: Vec::new(),
         })
     }
 
@@ -145,8 +157,10 @@ impl WgpuContext {
         self.primitive_renderer.clear();
         self.texture_renderer.clear();
         self.text_renderer.clear();
+        self.draw_segments.clear();
         self.current_camera = None;
         self.has_cleared_this_frame = false;
+        self.clip_rect = None;
     }
 
     /// Processes a winit WindowEvent and updates internal state.
@@ -208,9 +222,10 @@ impl WgpuContext {
             WindowEvent::MouseWheel { delta, .. } => {
                 let (dx, dy) = match delta {
                     MouseScrollDelta::LineDelta(x, y) => (*x, *y),
-                    MouseScrollDelta::PixelDelta(pos) => {
-                        (pos.x as f32 / self.scale_factor, pos.y as f32 / self.scale_factor)
-                    }
+                    MouseScrollDelta::PixelDelta(pos) => (
+                        pos.x as f32 / self.scale_factor,
+                        pos.y as f32 / self.scale_factor,
+                    ),
                 };
                 self.input.on_mouse_wheel(dx, dy);
             }
@@ -280,6 +295,26 @@ impl WgpuContext {
         self.scale_factor
     }
 
+    /// Restricts subsequent rendering to the given logical-pixel rectangle.
+    /// Flushes any pending draws first so pre-clip content renders without the scissor.
+    /// Must be paired with [`pop_clip_rect`](Self::pop_clip_rect) to restore full-screen rendering.
+    pub fn push_clip_rect(&mut self, rect: crate::types::Rect) {
+        self.flush_if_needed();
+        let sf = self.scale_factor;
+        self.clip_rect = Some([
+            (rect.x * sf) as u32,
+            (rect.y * sf) as u32,
+            (rect.w * sf).max(0.0) as u32,
+            (rect.h * sf).max(0.0) as u32,
+        ]);
+    }
+
+    /// Flushes pending draws with the active scissor applied, then removes the clip rect.
+    pub fn pop_clip_rect(&mut self) {
+        self.flush_if_needed();
+        self.clip_rect = None;
+    }
+
     /// Returns the texture bind group layout for creating textures.
     pub fn texture_bind_group_layout(&self) -> &wgpu::BindGroupLayout {
         self.texture_renderer.texture_bind_group_layout()
@@ -322,7 +357,7 @@ impl WgpuContext {
             self.render_target_bind_group_layout.clone(),
             width,
             height,
-            self.graphics.config.format
+            self.graphics.config.format,
         )
     }
 
@@ -365,7 +400,7 @@ impl WgpuContext {
     /// Returns a future that completes on the next frame.
     /// Use this to yield from async code and allow the frame to render.
     pub fn next_frame(&self) -> FrameFuture {
-        FrameFuture::new()
+        FrameFuture::default()
     }
 
     /// Clears per-frame input state (pressed/released events).
@@ -381,7 +416,55 @@ impl WgpuContext {
             || !self.text_renderer.is_empty()
     }
 
-    /// Flushes batched draw calls with the current camera state.
+    /// Records a primitive draw segment, merging with the previous if it was also primitive.
+    /// Also seals the texture batch so the next texture draw starts fresh.
+    pub(super) fn record_primitive_segment(&mut self, prev: u32) {
+        let current = self.primitive_renderer.vertex_count() as u32;
+        let count = current - prev;
+        if count == 0 {
+            return;
+        }
+        self.texture_renderer.seal_batch();
+        match self.draw_segments.last_mut() {
+            Some(DrawSegment::Primitive { count: c, .. }) => *c += count,
+            _ => self
+                .draw_segments
+                .push(DrawSegment::Primitive { start: prev, count }),
+        }
+    }
+
+    /// Records a texture draw segment, merging with the previous if it was also texture.
+    pub(super) fn record_texture_segment(&mut self, prev: usize) {
+        let current = self.texture_renderer.batch_count();
+        let added = current - prev;
+        match self.draw_segments.last_mut() {
+            Some(DrawSegment::Texture { batch_count, .. }) => *batch_count += added,
+            _ if added > 0 => self.draw_segments.push(DrawSegment::Texture {
+                batch_start: prev,
+                batch_count: added,
+            }),
+            _ => {}
+        }
+    }
+
+    /// Records a text draw segment, merging with the previous if it was also text.
+    /// Also seals the texture batch so the next texture draw starts fresh.
+    pub(super) fn record_text_segment(&mut self, prev: u32) {
+        let current = self.text_renderer.vertex_count() as u32;
+        let count = current - prev;
+        if count == 0 {
+            return;
+        }
+        self.texture_renderer.seal_batch();
+        match self.draw_segments.last_mut() {
+            Some(DrawSegment::Text { count: c, .. }) => *c += count,
+            _ => self
+                .draw_segments
+                .push(DrawSegment::Text { start: prev, count }),
+        }
+    }
+
+    /// Flushes batched draw calls in recorded order with the current camera state.
     fn flush_batched(&mut self, view: &wgpu::TextureView, load_op: wgpu::LoadOp<wgpu::Color>) {
         let width = self.screen_width();
         let height = self.screen_height();
@@ -398,6 +481,15 @@ impl WgpuContext {
             .update_uniforms(&self.graphics.queue, &uniforms);
         self.text_renderer
             .update_uniforms(&self.graphics.queue, &uniforms);
+
+        // Atlas upload requires &mut and must happen before the render pass.
+        self.text_renderer.upload_atlas(&self.graphics.queue);
+
+        // Upload all vertex buffers before opening the render pass.
+        self.primitive_renderer
+            .upload_vertices(&self.graphics.queue);
+        self.texture_renderer.upload_vertices(&self.graphics.queue);
+        self.text_renderer.upload_vertices(&self.graphics.queue);
 
         let mut encoder =
             self.graphics
@@ -422,19 +514,57 @@ impl WgpuContext {
                 occlusion_query_set: None,
             });
 
-            self.primitive_renderer
-                .flush(&self.graphics.queue, &mut render_pass);
-            self.texture_renderer
-                .flush(&self.graphics.queue, &mut render_pass);
-            self.text_renderer
-                .flush(&self.graphics.queue, &mut render_pass);
+            if let Some([x, y, w, h]) = self.clip_rect {
+                let (pw, ph) = self.graphics.size;
+                render_pass.set_scissor_rect(
+                    x,
+                    y,
+                    w.min(pw.saturating_sub(x)),
+                    h.min(ph.saturating_sub(y)),
+                );
+            }
+
+            for segment in &self.draw_segments {
+                match segment {
+                    DrawSegment::Primitive { start, count } => {
+                        self.primitive_renderer.setup_pipeline(&mut render_pass);
+                        self.primitive_renderer
+                            .draw_range(&mut render_pass, *start, *count);
+                    }
+                    DrawSegment::Texture {
+                        batch_start,
+                        batch_count,
+                    } => {
+                        self.texture_renderer.setup_pipeline(&mut render_pass);
+                        self.texture_renderer.draw_batches_range(
+                            &mut render_pass,
+                            *batch_start,
+                            *batch_count,
+                        );
+                    }
+                    DrawSegment::Text { start, count } => {
+                        if self.text_renderer.setup_pipeline(&mut render_pass) {
+                            self.text_renderer
+                                .draw_range(&mut render_pass, *start, *count);
+                        }
+                    }
+                }
+            }
+
+            if self.clip_rect.is_some() {
+                let (pw, ph) = self.graphics.size;
+                render_pass.set_scissor_rect(0, 0, pw, ph);
+            }
         }
 
-        self.graphics.queue.submit(std::iter::once(encoder.finish()));
+        self.graphics
+            .queue
+            .submit(std::iter::once(encoder.finish()));
 
         self.primitive_renderer.clear();
         self.texture_renderer.clear();
         self.text_renderer.clear();
+        self.draw_segments.clear();
     }
 
     /// Flushes pending draws if there are any batched vertices.
@@ -496,8 +626,10 @@ impl WgpuContext {
         dest_w: f32,
         dest_h: f32,
     ) {
+        let prev = self.texture_renderer.batch_count();
         self.texture_renderer
             .draw_render_target_quad(rt.bind_group(), x, y, dest_w, dest_h);
+        self.record_texture_segment(prev);
     }
 
     /// Creates a render target whose bind group is compatible with the texture renderer pipeline.

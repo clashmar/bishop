@@ -1,9 +1,9 @@
 // editor/src/tilemap/background_module.rs
-use engine_core::prelude::*;
 use bishop::prelude::*;
+use engine_core::prelude::*;
 
 // TODO: Add more complex backgrounds
-/// Responsible for editing the background of a tilemap. 
+/// Responsible for editing the background of a tilemap.
 pub struct BackgroundModule {
     pub r_id: WidgetId,
     pub g_id: WidgetId,
@@ -21,15 +21,15 @@ impl BackgroundModule {
         }
     }
 
-    pub fn draw(
-        &mut self, 
-        ctx: &mut WgpuContext,
-        rect: Rect, 
-        map: &mut TileMap, 
-        blocked: bool
-    ) {
+    pub fn draw(&mut self, ctx: &mut WgpuContext, rect: Rect, map: &mut TileMap, blocked: bool) {
         // Title
-        ctx.draw_text("Background", rect.x, rect.y + 18.0, DEFAULT_FONT_SIZE_16, Color::WHITE);
+        ctx.draw_text(
+            "Background",
+            rect.x,
+            rect.y + 18.0,
+            DEFAULT_FONT_SIZE_16,
+            Color::WHITE,
+        );
 
         let mut r = map.background.r * 255.0;
         let mut g = map.background.g * 255.0;
@@ -50,13 +50,21 @@ impl BackgroundModule {
         let mut x = rect.x + 10.0;
         let y = rect.y + 30.0;
 
-        r = NumberInput::new(self.r_id, Rect::new(x, y, field_w, field_h), r).blocked(blocked).show(ctx);
+        r = NumberInput::new(self.r_id, Rect::new(x, y, field_w, field_h), r)
+            .blocked(blocked)
+            .show(ctx);
         x += field_w + spacing;
-        g = NumberInput::new(self.g_id, Rect::new(x, y, field_w, field_h), g).blocked(blocked).show(ctx);
+        g = NumberInput::new(self.g_id, Rect::new(x, y, field_w, field_h), g)
+            .blocked(blocked)
+            .show(ctx);
         x += field_w + spacing;
-        b = NumberInput::new(self.b_id, Rect::new(x, y, field_w, field_h), b).blocked(blocked).show(ctx);
+        b = NumberInput::new(self.b_id, Rect::new(x, y, field_w, field_h), b)
+            .blocked(blocked)
+            .show(ctx);
         x += field_w + spacing;
-        a = NumberInput::new(self.a_id, Rect::new(x, y, field_w, field_h), a).blocked(blocked).show(ctx);
+        a = NumberInput::new(self.a_id, Rect::new(x, y, field_w, field_h), a)
+            .blocked(blocked)
+            .show(ctx);
         x += field_w + spacing;
 
         // Clamp to a valid range (0‑255) and push the colour back
@@ -65,19 +73,25 @@ impl BackgroundModule {
         b = b.clamp(0.0, 255.0);
         a = a.clamp(0.0, 255.0);
 
-        map.background = Color::new(
-            r / 255.0,
-            g / 255.0,
-            b / 255.0,
-            a / 255.0,
-        ).into();
-
-        map.background = Color::new(r / 255.0, g / 255.0, b / 255.0, a / 255.0).into();
+        map.background = Color::new(r / 255.0, g / 255.0, b / 255.0, a / 255.0);
 
         // Preview square
         let preview_sz = field_h; // same height as the input fields
         let preview_rect = Rect::new(x, y, preview_sz, preview_sz);
-        ctx.draw_rectangle(preview_rect.x, preview_rect.y, preview_rect.w, preview_rect.h, map.background.into());
-        ctx.draw_rectangle_lines(preview_rect.x, preview_rect.y, preview_rect.w, preview_rect.h, 2.0, Color::WHITE);
+        ctx.draw_rectangle(
+            preview_rect.x,
+            preview_rect.y,
+            preview_rect.w,
+            preview_rect.h,
+            map.background,
+        );
+        ctx.draw_rectangle_lines(
+            preview_rect.x,
+            preview_rect.y,
+            preview_rect.w,
+            preview_rect.h,
+            2.0,
+            Color::WHITE,
+        );
     }
 }

@@ -1,7 +1,6 @@
 use crate::menu::*;
-use crate::text::TextManager;
-use serde::{Deserialize, Serialize};
 use bishop::prelude::*;
+use serde::{Deserialize, Serialize};
 
 /// Serializable menu definition.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -31,7 +30,13 @@ impl MenuTemplate {
                 ctx.draw_rectangle(viewport.x, viewport.y, viewport.w, viewport.h, color);
             }
             MenuBackground::Dimmed(alpha) => {
-                ctx.draw_rectangle(viewport.x, viewport.y, viewport.w, viewport.h, Color::new(0.0, 0.0, 0.0, alpha));
+                ctx.draw_rectangle(
+                    viewport.x,
+                    viewport.y,
+                    viewport.w,
+                    viewport.h,
+                    Color::new(0.0, 0.0, 0.0, alpha),
+                );
             }
         }
     }
@@ -44,45 +49,12 @@ impl MenuTemplate {
     }
 
     /// Renders menu labels transformed from normalized to screen-space using canvas origin/size.
-    pub fn render_labels<C: BishopContext>(
-        &self,
+    pub(crate) fn render_label<C: BishopContext>(
         ctx: &mut C,
-        canvas_origin: Vec2,
-        canvas_size: Vec2,
-        text_manager: &TextManager,
-        text_id: &str,
+        label: &LabelElement,
+        rect: Rect,
+        display_text: &str,
     ) {
-        for i in self.sorted_element_indices() {
-            let element = &self.elements[i];
-            if !element.visible {
-                continue;
-            }
-            match &element.kind {
-                MenuElementKind::Label(label) => {
-                    let display_text = text_manager.resolve_ui_text(text_id, &label.text_key);
-                    let screen_rect = normalized_rect_to_screen(element.rect, canvas_origin, canvas_size);
-                    Self::render_label(ctx, label, screen_rect, &display_text);
-                }
-                MenuElementKind::LayoutGroup(group) => {
-                    let resolved = resolve_layout(group, element.rect);
-                    for (child, rect) in group.children.iter().zip(resolved.iter()) {
-                        if !child.element.visible {
-                            continue;
-                        }
-                        if let MenuElementKind::Label(label) = &child.element.kind {
-                            let display_text = text_manager.get_ui_text(text_id, &label.text_key)
-                                .unwrap_or_else(|| format!("{}", label.text_key));
-                            let screen_rect = normalized_rect_to_screen(*rect, canvas_origin, canvas_size);
-                            Self::render_label(ctx, label, screen_rect, &display_text);
-                        }
-                    }
-                }
-                _ => {}
-            }
-        }
-    }
-
-    fn render_label<C: BishopContext>(ctx: &mut C, label: &LabelElement, rect: Rect, display_text: &str) {
         let txt_dims = ctx.measure_text(display_text, label.font_size);
         let txt_x = match label.alignment {
             HorizontalAlign::Left => rect.x,
@@ -127,7 +99,7 @@ impl MenuTemplate {
         }
     }
 
-    /// Counts focusable button children in a layout group at the given element index.
+    /// Counts focusable children (buttons or sliders) in a layout group at the given element index.
     pub fn focusable_child_count(&self, element_index: usize) -> usize {
         let Some(element) = self.elements.get(element_index) else {
             return 0;
@@ -139,15 +111,21 @@ impl MenuTemplate {
             .children
             .iter()
             .filter(|child| {
-                matches!(child.element.kind, MenuElementKind::Button(_))
-                    && child.element.enabled
+                matches!(
+                    child.element.kind,
+                    MenuElementKind::Button(_) | MenuElementKind::Slider(_)
+                ) && child.element.enabled
                     && child.element.visible
             })
             .count()
     }
 
-    /// Gets the nth focusable child button in a layout group.
-    pub fn get_focusable_child(&self, element_index: usize, child_index: usize) -> Option<&MenuElement> {
+    /// Gets the nth focusable child (button or slider) in a layout group.
+    pub fn get_focusable_child(
+        &self,
+        element_index: usize,
+        child_index: usize,
+    ) -> Option<&MenuElement> {
         let element = self.elements.get(element_index)?;
         let MenuElementKind::LayoutGroup(group) = &element.kind else {
             return None;
@@ -156,8 +134,10 @@ impl MenuTemplate {
             .children
             .iter()
             .filter(|child| {
-                matches!(child.element.kind, MenuElementKind::Button(_))
-                    && child.element.enabled
+                matches!(
+                    child.element.kind,
+                    MenuElementKind::Button(_) | MenuElementKind::Slider(_)
+                ) && child.element.enabled
                     && child.element.visible
             })
             .nth(child_index)

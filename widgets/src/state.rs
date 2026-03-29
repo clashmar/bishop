@@ -1,6 +1,6 @@
-use std::collections::HashMap;
-use std::cell::RefCell;
 use crate::*;
+use std::cell::RefCell;
+use std::collections::HashMap;
 
 /// Keys that support hold-to-repeat behavior.
 #[derive(Clone, Copy, PartialEq, Eq)]

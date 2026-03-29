@@ -4,9 +4,16 @@
 pub const MAIN_FILE: &str = "main.lua";
 pub const ENGINE_FILE: &str = "engine.lua";
 pub const ENTITY_FILE: &str = "entity.lua";
+pub const ANIMATIONS_FILE: &str = "animations.lua";
+pub const SOUNDS_FILE: &str = "sounds.lua";
+/// Ownership marker for shared `_engine` Lua scripts managed by sync tooling.
+pub const LUA_OWNER_SHARED_ENGINE: &str = "-- bishop-owner: shared-engine";
+/// Ownership marker for per-game generated `_engine` Lua scripts.
+pub const LUA_OWNER_GAME_GENERATED: &str = "-- bishop-owner: game-generated";
 
 /// GLOBALS
 pub const LUA_GAME_CTX: &str = "lua_game_ctx";
+pub const LUA_EVENT_BUS: &str = "lua_event_bus";
 pub const ENTITY: &str = "entity";
 
 // Directories
@@ -57,9 +64,13 @@ pub const SAY_DIALOGUE: &str = "say_dialogue";
 pub const CLEAR_SPEECH: &str = "clear_speech";
 pub const IS_SPEAKING: &str = "is_speaking";
 
-// Dialogue module
-pub const DIALOGUE: &str = "dialogue";
-pub const DIALOGUE_FILE: &str = "dialogue.lua";
+// Text module
+pub const TEXT: &str = "text";
+pub const TEXT_FILE: &str = "text.lua";
+pub const GET_LANGUAGE: &str = "get_language";
+pub const GET_LANGUAGES: &str = "get_languages";
+pub const SET_LANGUAGE: &str = "set_language";
+pub const GET_CONFIG: &str = "get_config";
 
 // Menu module
 pub const LUA_MENU: &str = "menu";
@@ -67,10 +78,24 @@ pub const MENU_FILE: &str = "menu.lua";
 pub const OPEN_MENU: &str = "open";
 pub const CLOSE_MENU: &str = "close";
 pub const IS_MENU_OPEN: &str = "is_open";
-pub const SET_LANGUAGE: &str = "set_language";
-pub const GET_LANGUAGE: &str = "get_language";
-pub const GET_LANGUAGES: &str = "get_languages";
-pub const GET_CONFIG: &str = "get_config";
 
+// Audio module
+pub const LUA_AUDIO: &str = "audio";
+pub const AUDIO_FILE: &str = "audio.lua";
+pub const AUDIO_PLAY_MUSIC: &str = "play_music";
+pub const AUDIO_IS_PLAYING: &str = "is_playing";
+pub const AUDIO_STOP_MUSIC: &str = "stop_music";
+pub const AUDIO_FADE_MUSIC: &str = "fade_music";
+pub const AUDIO_PLAY_SFX: &str = "play_sfx";
+pub const AUDIO_PRELOAD: &str = "preload";
+pub const AUDIO_SET_MASTER_VOLUME: &str = "set_master_volume";
+pub const AUDIO_SET_MUSIC_VOLUME: &str = "set_music_volume";
+pub const AUDIO_SET_SFX_VOLUME: &str = "set_sfx_volume";
+pub const AUDIO_UNLOAD: &str = "unload";
+pub const AUDIO_PLAY_RANDOM_SFX: &str = "play_random_sfx";
+pub const AUDIO_PLAY_SFX_VARIED: &str = "play_sfx_varied";
 
-
+// Entity audio methods
+pub const ENTITY_PLAY_SOUND: &str = "play_sound";
+pub const ENTITY_STOP_SOUND: &str = "stop_sound";
+pub const ENTITY_SET_SOUND_VOLUME: &str = "set_sound_volume";

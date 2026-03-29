@@ -266,7 +266,9 @@ impl FontAtlas {
         let chars: Vec<char> = (32u8..=126).map(|c| c as char).collect();
         let extra_chars = ['⌘', '⌥', '⇧', '↓', '→'];
 
-        for size in [12.0, 14.0, 15.0, 16.0, 18.0, 20.0, 24.0, 28.0, 32.0, 36.0, 48.0] {
+        for size in [
+            12.0, 14.0, 15.0, 16.0, 18.0, 20.0, 24.0, 28.0, 32.0, 36.0, 48.0,
+        ] {
             for &ch in &chars {
                 self.get_glyph(ch, size);
             }
@@ -406,8 +408,7 @@ impl TextRenderer {
             mapped_at_creation: false,
         });
 
-        let mut font_atlas =
-            FontAtlas::with_default_font().expect("Failed to create font atlas");
+        let mut font_atlas = FontAtlas::with_default_font().expect("Failed to create font atlas");
         font_atlas.init_gpu(device, queue, &texture_bind_group_layout);
         font_atlas.precache();
         font_atlas.upload(queue);
@@ -432,6 +433,11 @@ impl TextRenderer {
     /// Clears all queued text for a new frame.
     pub fn clear(&mut self) {
         self.vertices.clear();
+    }
+
+    /// Returns the number of text vertices queued.
+    pub fn vertex_count(&self) -> usize {
+        self.vertices.len()
     }
 
     /// Returns true if there are no queued text draws.
@@ -575,10 +581,8 @@ impl TextRenderer {
                     let v2_vert = TexturedVertex::new(rotated[2], [u1, v1], c);
                     let v3_vert = TexturedVertex::new(rotated[3], [u0, v1], c);
 
-                    self.vertices.extend_from_slice(&[
-                        v0_vert, v1_vert, v2_vert,
-                        v0_vert, v2_vert, v3_vert,
-                    ]);
+                    self.vertices
+                        .extend_from_slice(&[v0_vert, v1_vert, v2_vert, v0_vert, v2_vert, v3_vert]);
                 }
 
                 cursor_x += info.advance_width;
@@ -592,28 +596,34 @@ impl TextRenderer {
         }
     }
 
-    /// Uploads any dirty atlas data and renders text to the given render pass.
-    pub fn flush<'a>(&'a mut self, queue: &wgpu::Queue, render_pass: &mut wgpu::RenderPass<'a>) {
+    /// Uploads any dirty atlas pixel data to the GPU. Must be called before the render pass.
+    pub fn upload_atlas(&mut self, queue: &wgpu::Queue) {
         self.font_atlas.upload(queue);
+    }
 
+    /// Uploads the vertex buffer to the GPU.
+    pub fn upload_vertices(&self, queue: &wgpu::Queue) {
         if self.vertices.is_empty() {
             return;
         }
+        queue.write_buffer(&self.vertex_buffer, 0, bytemuck::cast_slice(&self.vertices));
+    }
 
+    /// Binds the pipeline, camera group, atlas group, and vertex buffer.
+    /// Returns false if the atlas bind group is not yet ready.
+    pub fn setup_pipeline<'a>(&'a self, render_pass: &mut wgpu::RenderPass<'a>) -> bool {
         let Some(bind_group) = self.font_atlas.bind_group() else {
-            return;
+            return false;
         };
-
-        queue.write_buffer(
-            &self.vertex_buffer,
-            0,
-            bytemuck::cast_slice(&self.vertices),
-        );
-
         render_pass.set_pipeline(&self.pipeline);
         render_pass.set_bind_group(0, &self.camera_bind_group, &[]);
         render_pass.set_bind_group(1, bind_group, &[]);
         render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
-        render_pass.draw(0..self.vertices.len() as u32, 0..1);
+        true
+    }
+
+    /// Issues a draw call for a sub-range of the uploaded vertex buffer.
+    pub fn draw_range(&self, render_pass: &mut wgpu::RenderPass<'_>, start: u32, count: u32) {
+        render_pass.draw(start..start + count, 0..1);
     }
 }

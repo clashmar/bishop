@@ -1,16 +1,16 @@
 // engine_core/src/camera/game_camera.rs
 use crate::ecs::component::CurrentRoom;
-use crate::ecs::transform::Transform;
-use crate::ecs::entity::Entity;
-use crate::world::room::RoomId;
-use crate::engine_global::cam_tile_dims;
 use crate::ecs::ecs::Ecs;
-use serde_with::{serde_as, FromInto};
-use serde::{Deserialize, Serialize};
-use ecs_component::ecs_component;
-use strum_macros::EnumIter;
+use crate::ecs::entity::Entity;
+use crate::ecs::transform::Transform;
+use crate::engine_global::cam_tile_dims;
+use crate::worlds::room::RoomId;
 use bishop::prelude::*;
+use ecs_component::ecs_component;
+use serde::{Deserialize, Serialize};
+use serde_with::{FromInto, serde_as};
 use std::fmt;
+use strum_macros::EnumIter;
 
 #[derive(Debug, Default)]
 pub struct GameCamera {
@@ -38,14 +38,18 @@ impl Clone for GameCamera {
 }
 
 /// Returns the virtual width in pixels for the given grid size.
-pub fn world_virtual_width(grid_size: f32) -> f32 { cam_tile_dims().0 * grid_size }
+pub fn world_virtual_width(grid_size: f32) -> f32 {
+    cam_tile_dims().0 * grid_size
+}
 
 /// Returns the virtual height in pixels for the given grid size.
-pub fn world_virtual_height(grid_size: f32) -> f32 { cam_tile_dims().1 * grid_size }
+pub fn world_virtual_height(grid_size: f32) -> f32 {
+    cam_tile_dims().1 * grid_size
+}
 
 /// Component for a room camera used by the game.
 #[ecs_component]
-#[serde_as] 
+#[serde_as]
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, Default, PartialEq)]
 #[serde(default)]
 pub struct RoomCamera {
@@ -96,9 +100,9 @@ pub enum ZoomMode {
 
 impl ZoomMode {
     pub fn ui_label(&self) -> String {
-        match self {
-            &ZoomMode::Step => "Step".to_string(),
-            &ZoomMode::Free => "Free".to_string(),
+        match *self {
+            ZoomMode::Step => "Step".to_string(),
+            ZoomMode::Free => "Free".to_string(),
         }
     }
 }
@@ -157,10 +161,7 @@ impl fmt::Display for FollowRestriction {
 }
 
 /// Creates a render target sized for the given grid size.
-pub fn game_render_target<C: BishopContext>(
-    ctx: &mut C, 
-    grid_size: f32
-) -> BishopRenderTarget {
+pub fn game_render_target<C: BishopContext>(ctx: &mut C, grid_size: f32) -> BishopRenderTarget {
     let width = world_virtual_width(grid_size) as u32;
     let height = world_virtual_height(grid_size) as u32;
     ctx.create_render_target(width, height)
@@ -185,13 +186,12 @@ pub fn get_room_cameras(ecs: &Ecs, room_id: RoomId) -> Vec<(Entity, RoomCamera)>
 }
 
 /// Converts a `RoomCamera` component into a `GameCamera` from its Entity.
-pub fn room_to_game_camera<C: BishopContext>(
-    ctx: &mut C,
+/// The render target is not set here; callers must assign it after selecting the active camera.
+pub fn room_to_game_camera(
     ecs: &Ecs,
     entity: &Entity,
     room_camera: &RoomCamera,
     player_pos: Vec2,
-    grid_size: f32,
 ) -> GameCamera {
     let pos_store = ecs.get_store::<Transform>();
     let origin = pos_store
@@ -210,11 +210,14 @@ pub fn room_to_game_camera<C: BishopContext>(
     let camera = Camera2D {
         target,
         zoom: room_camera.zoom,
-        render_target: Some(game_render_target(ctx, grid_size)),
         ..Default::default()
     };
 
-    GameCamera { camera, id: entity.0, origin }
+    GameCamera {
+        camera,
+        id: entity.0,
+        origin,
+    }
 }
 
 /// Returns a `GameCamera` for a room by its entity id.
@@ -234,15 +237,15 @@ pub fn get_room_camera_by_id<C: BishopContext>(
     }
 
     let index = match camera_id {
-        Some(id) => room_cameras.iter().position(|(e, _)| e.0 == id).unwrap_or(0),
+        Some(id) => room_cameras
+            .iter()
+            .position(|(e, _)| e.0 == id)
+            .unwrap_or(0),
         None => 0,
     };
 
     let (entity, room_cam) = &room_cameras[index];
-    let origin = trans_store
-        .data
-        .get(entity)?
-        .position;
+    let origin = trans_store.data.get(entity)?.position;
 
     let camera = Camera2D {
         target: origin,
@@ -251,7 +254,11 @@ pub fn get_room_camera_by_id<C: BishopContext>(
         ..Default::default()
     };
 
-    Some(GameCamera { camera, id: entity.0, origin })
+    Some(GameCamera {
+        camera,
+        id: entity.0,
+        origin,
+    })
 }
 
 /// Returns the next `GameCamera` for a room, cycling through all available cameras.
@@ -282,10 +289,7 @@ pub fn get_next_room_camera(
     };
 
     let (entity, room_cam) = &room_cameras[next_index];
-    let origin = trans_store
-        .data
-        .get(entity)?
-        .position;
+    let origin = trans_store.data.get(entity)?.position;
 
     let camera = Camera2D {
         target: origin,
@@ -294,7 +298,11 @@ pub fn get_next_room_camera(
         ..Default::default()
     };
 
-    Some(GameCamera { camera, id: entity.0, origin })
+    Some(GameCamera {
+        camera,
+        id: entity.0,
+        origin,
+    })
 }
 
 /// Compute zoom vector from a scalar value.
@@ -308,4 +316,3 @@ pub fn zoom_from_scalar(scalar: f32, grid_size: f32) -> Vec2 {
         Vec2::new(scalar, scalar * aspect)
     }
 }
-

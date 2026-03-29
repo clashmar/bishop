@@ -22,7 +22,7 @@ impl MenuActionHandler for NoOpActionHandler {
 }
 
 thread_local! {
-    static MENU_EVENTS: RefCell<Vec<String>> = RefCell::new(Vec::new());
+    static MENU_EVENTS: RefCell<Vec<String>> = const { RefCell::new(Vec::new()) };
 }
 
 /// Handles custom menu actions by queuing events to be emitted to Lua.
@@ -39,8 +39,21 @@ impl MenuActionHandler for GameMenuHandler {
 
 /// Drains all pending menu events and returns them.
 pub fn drain_menu_events() -> Vec<String> {
-    MENU_EVENTS.with(|events| {
-        events.borrow_mut().drain(..).collect()
-    })
+    MENU_EVENTS.with(|events| events.borrow_mut().drain(..).collect())
 }
 
+thread_local! {
+    static SLIDER_EVENTS: RefCell<Vec<(String, f32)>> = const { RefCell::new(Vec::new()) };
+}
+
+/// Queues a slider value-change event.
+pub fn push_slider_event(key: String, value: f32) {
+    SLIDER_EVENTS.with(|events| {
+        events.borrow_mut().push((key, value));
+    });
+}
+
+/// Drains all pending slider events and returns them.
+pub fn drain_slider_events() -> Vec<(String, f32)> {
+    SLIDER_EVENTS.with(|events| events.borrow_mut().drain(..).collect())
+}

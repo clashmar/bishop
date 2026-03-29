@@ -1,13 +1,13 @@
 // engine_core/src/script/script_system.rs
-use crate::scripting::modules::entity_module::*;
-use crate::game_global::drain_commands;
 use crate::engine::Engine;
-use mlua::prelude::LuaResult;
-use mlua::{Function, Table};
+use crate::game_global::drain_commands;
+use crate::scripting::modules::entity_module::*;
 use engine_core::prelude::*;
-use std::sync::Arc;
+use mlua::prelude::LuaResult;
 use mlua::Lua;
+use mlua::{Function, Table};
 use std::fs;
+use std::sync::Arc;
 
 /// Registry key for the global update function from main.lua.
 const GLOBAL_UPDATE_KEY: &str = "__global_update";
@@ -16,13 +16,26 @@ pub struct ScriptSystem;
 
 impl ScriptSystem {
     /// Initialize the script system.
-    pub fn init(lua: &Lua) {
+    pub fn init(lua: &Lua, event_bus: &EventBus) {
         // Registers the `engine` module that some other modules extend
         if let Err(e) = Self::register_engine_module(lua) {
             onscreen_error!("Error registering engine module: {e}")
         };
-        
-        // Run main.lua after registering `engine`
+
+        // Store the event bus in Lua so engine.on/engine.emit work at require-time
+        if let Err(e) = lua.globals().set(LUA_EVENT_BUS, event_bus.clone()) {
+            onscreen_error!("Failed to store event bus: {e}");
+        }
+
+        // Sub-modules — register before main.lua so all APIs are available at require-time
+        for descriptor in inventory::iter::<LuaModuleRegistry> {
+            let module = (descriptor.ctor)();
+            if let Err(e) = module.register(lua) {
+                onscreen_error!("Lua module registration failed: {e}");
+            }
+        }
+
+        // Run main.lua after all modules are registered
         if let Err(e) = Self::load_main(lua) {
             onscreen_error!("Main failed: {e}");
         }
@@ -35,21 +48,13 @@ impl ScriptSystem {
                 }
             }
         }
-
-        // Sub-modules
-        for descriptor in inventory::iter::<LuaModuleRegistry> {
-            let module = (descriptor.ctor)();
-            if let Err(e) = module.register(lua) {
-                onscreen_error!("Lua module registration failed: {e}");
-            }
-        }
     }
 
     /// Loads and executes main.lua if present.
     fn load_main(lua: &Lua) -> LuaResult<()> {
         let main_path = scripts_folder().join(MAIN_FILE);
-        let src = fs::read_to_string(main_path)
-            .map_err(|e| mlua::Error::ExternalError(Arc::new(e)))?;
+        let src =
+            fs::read_to_string(main_path).map_err(|e| mlua::Error::ExternalError(Arc::new(e)))?;
         lua.load(&src).exec()
     }
 
@@ -62,10 +67,7 @@ impl ScriptSystem {
     }
 
     /// Runs all lua scripts in the game.
-    pub fn run_scripts(
-        dt: f32,
-        engine: &mut Engine,
-    ) -> LuaResult<()> {
+    pub fn run_scripts(dt: f32, engine: &mut Engine) -> LuaResult<()> {
         // Collect all pending inits and their functions in a single borrow
         let inits_to_run: Vec<(Function, Table)> = {
             let mut game_instance = engine.game_instance.borrow_mut();
@@ -118,7 +120,10 @@ impl ScriptSystem {
         }
 
         // Call the global update function from main.lua if one was defined
-        if let Ok(global_update) = engine.lua.named_registry_value::<Function>(GLOBAL_UPDATE_KEY) {
+        if let Ok(global_update) = engine
+            .lua
+            .named_registry_value::<Function>(GLOBAL_UPDATE_KEY)
+        {
             global_update.call::<()>(dt)?;
             Self::process_commands(engine);
         }
@@ -148,8 +153,8 @@ impl ScriptSystem {
                 continue;
             }
 
-            let (instance, created) = script_manager
-                .get_or_create_instance(lua, *entity, script.script_id)?;
+            let (instance, created) =
+                script_manager.get_or_create_instance(lua, *entity, script.script_id)?;
 
             // Only setup entity handle and queue init for newly created instances
             if created {
@@ -172,6 +177,3 @@ impl ScriptSystem {
         Ok(())
     }
 }
-
-
-

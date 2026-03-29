@@ -1,44 +1,43 @@
 // editor/src/storage/editor_storage.rs
 #![allow(unused)]
-use crate::scripting::script_manager::ScriptManager;
+use crate::editor_assets::assets::write_sounds_lua;
+use crate::storage::sound_preset_storage::*;
 use crate::tilemap::tile_palette::TilePalette;
-use crate::ecs::transform::Transform;
-use crate::with_lua_async;
+use crate::write_animations_lua;
 use crate::write_engine_scripts;
-use std::collections::HashSet;
-use engine_core::prelude::*;
-use std::time::SystemTime;
 use bishop::prelude::*;
-use std::io::ErrorKind;
-use std::path::PathBuf;
-use std::cell::RefCell;
-use std::sync::Mutex;
-use std::sync::Arc;
-use std::io::Write;
-use std::io::Error;
-use std::rc::Rc;
-use uuid::Uuid;
-use std::io;
+use engine_core::prelude::*;
+use std::collections::HashSet;
 use std::fs;
+use std::io;
+use std::io::Error;
+use std::io::ErrorKind;
+use std::io::Write;
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
+use std::path::PathBuf;
+use std::sync::Arc;
+use std::sync::Mutex;
+use std::time::SystemTime;
+use uuid::Uuid;
 
-/// Create a brand‑new game with a single empty world.
-pub async fn create_new_game(name: String) -> Game {
+/// Create a brand-new game with a single empty world.
+pub fn create_new_game(name: String) -> Game {
     onscreen_debug!("Creating new game.");
 
     // Set game name globally
     set_game_name(&name);
+    set_current_sound_preset_library(SoundPresetLibrary::default());
 
     // Ensure the folder structure exists.
     create_game_folders(&name);
 
-    let asset_manager = AssetManager::new().await;
-    let script_manager = ScriptManager::new().await;
+    let asset_manager = AssetManager::default();
+    let script_manager = ScriptManager::default();
 
     // Build the game first so we can allocate room IDs globally
     let mut game = Game {
-        save_version: 1,
+        version: 1,
         id: Uuid::new_v4(),
         name,
         ecs: Ecs::default(),
@@ -56,7 +55,8 @@ pub async fn create_new_game(name: String) -> Game {
     game.worlds.push(world);
 
     // Create the global Player entity
-    game.ecs.create_entity()
+    game.ecs
+        .create_entity()
         .with(Player)
         .with(Global {})
         .with(PhysicsBody)
@@ -70,7 +70,7 @@ pub async fn create_new_game(name: String) -> Game {
     game
 }
 
-fn create_game_folders(name: &String) {
+fn create_game_folders(name: &str) {
     let folders: [(PathBuf, &str); 6] = [
         (resources_folder_current(), RESOURCES_FOLDER),
         (assets_folder(), ASSETS_FOLDER),
@@ -131,11 +131,10 @@ default_language = "en"
 /// Save a `Game` and all its contents.
 pub fn save_game(game: &Game) -> io::Result<()> {
     let pretty = ron::ser::PrettyConfig::new()
-        .separate_tuple_members(true)
+        .separate_tuple_members(false)
         .enumerate_arrays(true);
 
-    let ron_string = ron::ser::to_string_pretty(game, pretty)
-        .map_err(|e| Error::new(ErrorKind::Other, e))?;
+    let ron_string = ron::ser::to_string_pretty(game, pretty).map_err(Error::other)?;
 
     let resources_folder = resources_folder_current();
     let file_path = resources_folder.join(GAME_RON);
@@ -144,9 +143,14 @@ pub fn save_game(game: &Game) -> io::Result<()> {
 
     // Regenerate animations.lua with custom clips
     let custom_clips = collect_custom_clip_names(&game.ecs);
-    if let Err(e) = crate::editor_assets::write_animations_lua(&scripts_folder(), &custom_clips) {
+    if let Err(e) = write_animations_lua(&scripts_folder(), &custom_clips) {
         onscreen_error!("Could not write animations.lua: {e}");
     }
+
+    let sound_library = current_sound_preset_library();
+    save_sound_preset_library(&game.name, &sound_library)?;
+    let sound_names = collect_sound_group_names(&game.ecs, &sound_library);
+    write_sounds_lua(&scripts_folder(), &sound_names)?;
 
     onscreen_info!("Game saved to: {}", file_path.display());
     fs::write(file_path, ron_string)
@@ -168,7 +172,7 @@ pub fn collect_custom_clip_names(ecs: &Ecs) -> Vec<String> {
 }
 
 /// Load a `Game` from the folder that matches the supplied name.
-pub async fn load_game_by_name(name: &str) -> io::Result<Game> {
+pub fn load_game_by_name(name: &str) -> io::Result<Game> {
     let path = resources_folder(name).join(GAME_RON);
     onscreen_debug!("Loading game from .ron: {}.", path.display());
 
@@ -177,7 +181,7 @@ pub async fn load_game_by_name(name: &str) -> io::Result<Game> {
         Ok(s) => s,
         // File not found
         Err(ref e) if e.kind() == ErrorKind::NotFound => {
-            return Ok(create_new_game(name.to_string()).await);
+            return Ok(create_new_game(name.to_string()))
         }
         // Other I/O errors
         Err(e) => return Err(e),
@@ -186,17 +190,19 @@ pub async fn load_game_by_name(name: &str) -> io::Result<Game> {
     // Parse the RON
     let mut game = match ron::from_str::<Game>(&ron_string) {
         Ok(game) => game,
-        Err(_) => return Ok(create_new_game(name.to_string()).await),
+        Err(_) => return Ok(create_new_game(name.to_string())),
     };
+
+    set_current_sound_preset_library(load_sound_preset_library(name)?);
 
     Ok(game)
 }
 
 /// Return the name of the most recently modified game folder.
 pub fn most_recent_game_name() -> Option<String> {
-    let root = absolute_save_root();  
+    let root = absolute_save_root();
     let mut best: Option<(String, SystemTime)> = None;
-    
+
     for entry in fs::read_dir(root).ok()? {
         let entry = entry.ok()?;
         if !entry.path().is_dir() {
@@ -219,8 +225,7 @@ pub fn save_palette(palette: &TilePalette, game_name: &str) -> io::Result<()> {
     let dir = game_folder(game_name);
     fs::create_dir_all(&dir)?;
     let path = dir.join("palette.ron");
-    let ron = ron::ser::to_string(palette)
-        .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+    let ron = ron::ser::to_string(palette).map_err(Error::other)?;
     fs::write(path, ron)
 }
 
@@ -231,7 +236,7 @@ pub fn load_palette(game_name: &str) -> io::Result<TilePalette> {
         return Ok(TilePalette::new());
     }
     let ron = fs::read_to_string(path)?;
-    ron::de::from_str(&ron).map_err(|e| Error::new(ErrorKind::Other, e))
+    ron::de::from_str(&ron).map_err(Error::other)
 }
 
 /// Create a fresh world with a single default room.
@@ -239,7 +244,7 @@ pub fn create_new_world(game: &mut Game) -> World {
     let id = WorldId(Uuid::new_v4());
     let name = "new".to_string();
     let room_id = game.allocate_room_id();
-    let first_room = Room::default(&mut game.ecs, room_id, DEFAULT_GRID_SIZE);
+    let first_room = Room::new(&mut game.ecs, room_id, DEFAULT_GRID_SIZE);
     let room_origin = first_room.position;
 
     let world = World {
@@ -248,15 +253,19 @@ pub fn create_new_world(game: &mut Game) -> World {
         rooms: vec![first_room],
         current_room_id: None,
         starting_room_id: Some(room_id),
-        starting_position: Some(room_origin.into()),
+        starting_position: Some(room_origin),
         meta: WorldMeta::default(),
         grid_size: DEFAULT_GRID_SIZE,
     };
 
-    let _spawn_point = game.ecs
+    let _spawn_point = game
+        .ecs
         .create_entity()
         .with(PlayerProxy)
-        .with(Transform { position: room_origin, ..Default::default() })
+        .with(Transform {
+            position: room_origin,
+            ..Default::default()
+        })
         .with(CurrentRoom(room_id))
         .with(Name("Player Proxy".to_string()))
         .finish();
@@ -264,12 +273,9 @@ pub fn create_new_world(game: &mut Game) -> World {
     world
 }
 
-/// Rename a game folder and assets. 
+/// Rename a game folder and assets.
 /// Returns `Ok(())` on success or an `io::Error` on failure.
-pub fn rename_game(
-    game: &mut Game,
-    new_name: &str,
-) -> io::Result<()> {
+pub fn rename_game(game: &mut Game, new_name: &str) -> io::Result<()> {
     let old_game_dir = game_folder(&game.name);
     let new_game_dir = game_folder(new_name);
     fs::rename(&old_game_dir, &new_game_dir)?;
@@ -278,12 +284,9 @@ pub fn rename_game(
     Ok(())
 }
 
-/// Save a copy of the current game in a newly named folder. 
+/// Save a copy of the current game in a newly named folder.
 /// Returns `Ok(())` on success or an `io::Error` on failure.
-pub fn save_as(
-    game: &mut Game,
-    new_name: &str,
-) -> io::Result<()> {
+pub fn save_as(game: &mut Game, new_name: &str) -> io::Result<()> {
     // Determine paths
     let old_game_dir = game_folder(&game.name);
     let new_game_dir = game_folder(new_name);
@@ -388,8 +391,7 @@ pub fn save_menu(template: &MenuTemplate) -> io::Result<()> {
         .separate_tuple_members(true)
         .enumerate_arrays(true);
 
-    let ron = ron::ser::to_string_pretty(template, pretty)
-        .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+    let ron = ron::ser::to_string_pretty(template, pretty).map_err(Error::other)?;
 
     fs::write(path, ron)
 }
@@ -407,9 +409,7 @@ pub fn load_menus() -> Vec<MenuTemplate> {
 
     entries
         .filter_map(|entry| entry.ok())
-        .filter(|entry| {
-            entry.path().extension().map_or(false, |ext| ext == "ron")
-        })
+        .filter(|entry| entry.path().extension().is_some_and(|ext| ext == "ron"))
         .filter_map(|entry| {
             let ron = fs::read_to_string(entry.path()).ok()?;
             ron::de::from_str(&ron).ok()

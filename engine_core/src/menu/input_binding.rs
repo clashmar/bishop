@@ -1,5 +1,5 @@
-use serde::{Deserialize, Serialize};
 use bishop::prelude::*;
+use serde::{Deserialize, Serialize};
 
 /// Platform-aware input configuration for menu actions.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -30,30 +30,32 @@ impl InputBinding {
 
     /// Checks if this binding is currently pressed.
     pub fn is_pressed<C: BishopContext>(&self, ctx: &C) -> bool {
-        if let Some(key) = self.keyboard {
-            if ctx.is_key_pressed(key) {
-                return true;
-            }
+        if let Some(key) = self.keyboard
+            && ctx.is_key_pressed(key)
+        {
+            return true;
         }
-        if let Some(alt) = self.keyboard_alt {
-            if ctx.is_key_pressed(alt) {
-                return true;
-            }
+
+        if let Some(alt) = self.keyboard_alt
+            && ctx.is_key_pressed(alt)
+        {
+            return true;
         }
         false
     }
 
     /// Checks if this binding is currently down.
     pub fn is_down<C: BishopContext>(&self, ctx: &C) -> bool {
-        if let Some(key) = self.keyboard {
-            if ctx.is_key_down(key) {
-                return true;
-            }
+        if let Some(key) = self.keyboard
+            && ctx.is_key_down(key)
+        {
+            return true;
         }
-        if let Some(alt) = self.keyboard_alt {
-            if ctx.is_key_down(alt) {
-                return true;
-            }
+
+        if let Some(alt) = self.keyboard_alt
+            && ctx.is_key_down(alt)
+        {
+            return true;
         }
         false
     }

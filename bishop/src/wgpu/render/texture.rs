@@ -190,8 +190,8 @@ impl TextureRenderer {
             }],
         });
 
-        let texture_bind_group_layout = std::sync::Arc::new(
-            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+        let texture_bind_group_layout = std::sync::Arc::new(device.create_bind_group_layout(
+            &wgpu::BindGroupLayoutDescriptor {
                 label: Some("texture_bind_group_layout"),
                 entries: &[
                     wgpu::BindGroupLayoutEntry {
@@ -211,8 +211,8 @@ impl TextureRenderer {
                         count: None,
                     },
                 ],
-            }),
-        );
+            },
+        ));
 
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("texture_pipeline_layout"),
@@ -298,6 +298,16 @@ impl TextureRenderer {
     /// Returns true if there are no queued draws.
     pub fn is_empty(&self) -> bool {
         self.vertices.is_empty() && self.batches.is_empty()
+    }
+
+    /// Returns the number of texture batches queued.
+    pub fn batch_count(&self) -> usize {
+        self.batches.len()
+    }
+
+    /// Forces the next texture draw to start a new batch, regardless of bind group.
+    pub fn seal_batch(&mut self) {
+        self.current_texture_bind_group = None;
     }
 
     /// Draws a texture at the specified position.
@@ -432,31 +442,36 @@ impl TextureRenderer {
         let v2 = TexturedVertex::new([x + dest_w, y + dest_h], [1.0, 1.0], c);
         let v3 = TexturedVertex::new([x, y + dest_h], [0.0, 1.0], c);
 
-        self.vertices
-            .extend_from_slice(&[v0, v1, v2, v0, v2, v3]);
+        self.vertices.extend_from_slice(&[v0, v1, v2, v0, v2, v3]);
 
         if let Some(batch) = self.batches.last_mut() {
             batch.vertex_count += 6;
         }
     }
 
-    /// Uploads vertices and renders to the given render pass.
-    pub fn flush<'a>(&'a self, queue: &wgpu::Queue, render_pass: &mut wgpu::RenderPass<'a>) {
+    /// Uploads the vertex buffer to the GPU.
+    pub fn upload_vertices(&self, queue: &wgpu::Queue) {
         if self.vertices.is_empty() {
             return;
         }
+        queue.write_buffer(&self.vertex_buffer, 0, bytemuck::cast_slice(&self.vertices));
+    }
 
-        queue.write_buffer(
-            &self.vertex_buffer,
-            0,
-            bytemuck::cast_slice(&self.vertices),
-        );
-
+    /// Binds the pipeline, camera group, and vertex buffer on the render pass.
+    pub fn setup_pipeline<'a>(&'a self, render_pass: &mut wgpu::RenderPass<'a>) {
         render_pass.set_pipeline(&self.pipeline);
         render_pass.set_bind_group(0, &self.camera_bind_group, &[]);
         render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
+    }
 
-        for batch in &self.batches {
+    /// Issues draw calls for a sub-range of the batch list.
+    pub fn draw_batches_range<'a>(
+        &'a self,
+        render_pass: &mut wgpu::RenderPass<'a>,
+        batch_start: usize,
+        batch_count: usize,
+    ) {
+        for batch in &self.batches[batch_start..batch_start + batch_count] {
             let bind_group = unsafe { &*batch.bind_group_ptr };
             render_pass.set_bind_group(1, bind_group, &[]);
             render_pass.draw(

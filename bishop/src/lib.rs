@@ -32,6 +32,7 @@ pub mod draw;
 pub mod input;
 pub mod material;
 pub mod text;
+pub mod texture;
 pub mod time;
 pub mod types;
 pub mod window;
@@ -39,10 +40,14 @@ pub mod window;
 #[cfg(feature = "wgpu")]
 pub mod wgpu;
 
+#[cfg(feature = "audio")]
+pub mod audio;
+
 pub use camera::*;
 pub use draw::*;
 pub use input::*;
 pub use text::*;
+pub use texture::*;
 pub use time::*;
 pub use types::*;
 pub use window::*;
@@ -55,10 +60,16 @@ pub use wgpu::WgpuContext;
 
 use material::RenderOps;
 
-/// Combined context trait for widgets that need input, drawing, text, camera, window, time, and render operations.
-pub trait BishopContext: Input + Draw + Text + Camera + Window + Time + RenderOps {}
+/// Combined context trait for widgets that need input, drawing, text, camera, window, time, render operations, and texture loading.
+pub trait BishopContext:
+    Input + Draw + Text + Camera + Window + Time + RenderOps + TextureLoader
+{
+}
 
-impl<T: Input + Draw + Text + Camera + Window + Time + RenderOps> BishopContext for T {}
+impl<T: Input + Draw + Text + Camera + Window + Time + RenderOps + TextureLoader> BishopContext
+    for T
+{
+}
 
 /// Trait for applications that can be run by bishop.
 pub trait BishopApp {
@@ -71,6 +82,9 @@ pub trait BishopApp {
 
     /// Called once per frame. The app handles its own update/render logic.
     fn frame(&mut self, ctx: PlatformContext) -> impl std::future::Future<Output = ()>;
+
+    /// Called when the application is about to exit. Default is a no-op.
+    fn on_exit(&mut self) {}
 }
 
 /// Error type for the wgpu run function.
@@ -105,8 +119,8 @@ pub fn run_wgpu<A: BishopApp + 'static>(
     config: window::WindowConfig,
     app: A,
 ) -> Result<(), RunError> {
-    use winit::event_loop::EventLoop;
     use wgpu::app_runner::WgpuAppRunner;
+    use winit::event_loop::EventLoop;
 
     let event_loop = EventLoop::new().map_err(|e| RunError::EventLoop(e.to_string()))?;
     let mut runner = WgpuAppRunner::new(config, app);
@@ -158,7 +172,6 @@ pub fn run_backend<A: BishopApp + 'static>(
 #[cfg(feature = "wgpu")]
 pub type PlatformContext = Rc<RefCell<wgpu::WgpuContext>>;
 
-
 /// Prelude module for convenient glob imports.
 ///
 /// # Example
@@ -172,16 +185,23 @@ pub mod prelude {
     pub use crate::input::*;
     pub use crate::material::*;
     pub use crate::text::*;
+    pub use crate::texture::*;
     pub use crate::time::*;
     pub use crate::types::*;
     pub use crate::window::*;
     pub use crate::BishopApp;
     pub use crate::BishopContext;
-    pub use glam::{Vec2, Vec3, vec4};
+    pub use glam::{vec4, Vec2, Vec3};
 
     #[cfg(feature = "wgpu")]
-    pub use crate::wgpu::{empty_texture, load_texture, WgpuContext};
+    pub use crate::wgpu::WgpuContext;
 
     #[cfg(feature = "wgpu")]
     pub use crate::{run_backend, run_wgpu, PlatformContext, RunError};
+
+    #[cfg(feature = "audio")]
+    pub use crate::audio::AudioBackend;
+
+    #[cfg(feature = "audio-cpal")]
+    pub use crate::audio::PlatformAudioBackend;
 }

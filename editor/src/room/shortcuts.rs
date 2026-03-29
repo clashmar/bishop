@@ -1,14 +1,14 @@
 // editor/src/room/shortcuts.rs
 use crate::app::EditorCameraController;
-use crate::gui::panels::hierarchy_panel::HIERARCHY_PANEL;
+use crate::commands::room::*;
+use crate::editor_global::push_command;
 use crate::editor_global::with_panel_manager;
 use crate::gui::mode_selector::ModeInfo;
-use crate::editor_global::push_command;
+use crate::gui::panels::hierarchy_panel::HIERARCHY_PANEL;
 use crate::room::room_editor::*;
-use crate::commands::room::*;
+use bishop::prelude::*;
 use engine_core::prelude::*;
 use strum::IntoEnumIterator;
-use bishop::prelude::*;
 
 impl RoomEditor {
     pub(crate) fn handle_shortcuts(
@@ -43,22 +43,22 @@ impl RoomEditor {
         }
 
         match self.mode {
-            RoomEditorMode::Tilemap => {
-
-            }
+            RoomEditorMode::Tilemap => {}
             RoomEditorMode::Scene => {
                 if Controls::v(ctx) {
                     self.view_preview = !self.view_preview;
                     if self.view_preview {
                         // If a single camera is selected, use it
-                        let camera_id = self.single_selected_entity()
+                        let camera_id = self
+                            .single_selected_entity()
                             .filter(|e| ecs.has::<RoomCamera>(*e))
                             .map(|e| e.0);
 
                         if camera_id.is_some() {
                             self.preview_camera_id = camera_id;
                         } else {
-                            let first_camera = get_next_room_camera(ctx, ecs, room.id, grid_size, None);
+                            let first_camera =
+                                get_next_room_camera(ctx, ecs, room.id, grid_size, None);
                             self.preview_camera_id = first_camera.map(|c| c.id);
                         }
                     } else {
@@ -67,7 +67,8 @@ impl RoomEditor {
                 }
 
                 if self.view_preview && Controls::tab(ctx) {
-                    let next_camera = get_next_room_camera(ctx, ecs, room.id, grid_size, self.preview_camera_id);
+                    let next_camera =
+                        get_next_room_camera(ctx, ecs, room.id, grid_size, self.preview_camera_id);
                     self.preview_camera_id = next_camera.map(|c| c.id);
                 }
 

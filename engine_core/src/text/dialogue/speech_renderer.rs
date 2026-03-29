@@ -1,25 +1,24 @@
 // engine_core/src/text/dialogue/speech_renderer.rs
-use crate::rendering::render_room::entity_dimensions;
-use crate::rendering::helpers::lerp_rounded;
 use crate::assets::asset_manager::AssetManager;
-use crate::ecs::component::CurrentRoom;
-use crate::ecs::transform::Transform;
 use crate::camera::game_camera::*;
-use crate::ecs::entity::Entity;
-use crate::world::room::RoomId;
+use crate::ecs::Pivot;
+use crate::ecs::component::CurrentRoom;
 use crate::ecs::ecs::Ecs;
+use crate::ecs::entity::Entity;
+use crate::ecs::transform::Transform;
+use crate::rendering::helpers::lerp_rounded;
+use crate::rendering::render_room::entity_dimensions;
 use crate::text::*;
 use crate::ui::text::*;
-use crate::ecs::Pivot;
-use std::collections::HashMap;
+use crate::worlds::room::RoomId;
 use bishop::prelude::*;
+use std::collections::HashMap;
 
 /// Collected data for rendering a speech bubble in screen space.
 pub struct SpeechBubbleRenderData {
     pub text: String,
     pub world_pos: Vec2,
-    pub entity_width: f32,
-    pub entity_height: f32,
+    pub entity_size: Vec2,
     pub pivot: Pivot,
     pub color: [f32; 4],
     pub offset: (f32, f32),
@@ -58,13 +57,12 @@ pub fn collect_speech_bubbles(
         };
 
         let world_pos = interpolate_position(*entity, transform.position, alpha, prev_positions);
-        let (entity_width, entity_height) = entity_dimensions(ecs, asset_manager, *entity, grid_size);
+        let entity_size = entity_dimensions(ecs, asset_manager, *entity, grid_size);
 
         bubbles.push(SpeechBubbleRenderData {
             text: bubble.text.clone(),
             world_pos,
-            entity_width,
-            entity_height,
+            entity_size,
             pivot: transform.pivot,
             color: bubble.color,
             offset: bubble.offset,
@@ -105,15 +103,7 @@ pub fn render_speech_bubbles<C: BishopContext>(
 
     for bubble in bubbles {
         render_bubble_screen_space(
-            ctx,
-            bubble,
-            config,
-            render_cam,
-            virt_w,
-            virt_h,
-            scale,
-            offset_x,
-            offset_y
+            ctx, bubble, config, render_cam, virt_w, virt_h, scale, offset_x, offset_y,
         );
     }
 }
@@ -151,8 +141,8 @@ fn render_bubble_screen_space<C: BishopContext>(
     let bubble_height = total_text_height + padding * 2.0;
 
     let pivot_offset = bubble.pivot.as_normalized();
-    let entity_width_scaled = bubble.entity_width * scale;
-    let entity_height_scaled = bubble.entity_height * scale;
+    let entity_width_scaled = bubble.entity_size.x * scale;
+    let entity_height_scaled = bubble.entity_size.y * scale;
 
     let half_w = 1.0 / render_cam.zoom.x;
     let half_h = 1.0 / render_cam.zoom.y;
@@ -200,7 +190,7 @@ fn wrap_text<C: BishopContext>(
     ctx: &mut C,
     text: &str,
     max_width: f32,
-    font_size: f32
+    font_size: f32,
 ) -> Vec<String> {
     let mut lines = Vec::new();
     let mut current_line = String::new();
@@ -240,10 +230,10 @@ fn interpolate_position(
     alpha: f32,
     prev_positions: Option<&HashMap<Entity, Vec2>>,
 ) -> Vec2 {
-    if let Some(prev_map) = prev_positions {
-        if let Some(prev_pos) = prev_map.get(&entity) {
-            return lerp_rounded(*prev_pos, current_pos, alpha);
-        }
+    if let Some(prev_map) = prev_positions
+        && let Some(prev_pos) = prev_map.get(&entity)
+    {
+        return lerp_rounded(*prev_pos, current_pos, alpha);
     }
     current_pos
 }

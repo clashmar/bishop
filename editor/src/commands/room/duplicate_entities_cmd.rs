@@ -1,13 +1,8 @@
 // editor/src/commands/room/duplicate_entities_cmd.rs
-use crate::commands::editor_command_manager::EditorCommand;
-use crate::ecs::component_registry::ComponentRegistry;
 use crate::app::EditorMode;
-use crate::ecs::entity::*;
-use crate::ecs::ecs::Ecs;
+use crate::commands::editor_command_manager::EditorCommand;
 use crate::with_editor;
-use engine_core::ecs::component::{comp_type_name, Player};
-use engine_core::ecs::capture::capture_subtree;
-use engine_core::world::room::RoomId;
+use engine_core::prelude::*;
 use std::collections::{HashMap, HashSet};
 
 /// Undo-able command for duplicating selected entities.
@@ -19,7 +14,7 @@ pub struct DuplicateEntitiesCmd {
     /// Maps old entity IDs to newly created ones.
     id_map: Option<HashMap<Entity, Entity>>,
     /// The component snapshot captured on first execute.
-    snapshot: Option<Vec<(Entity, Vec<(String, String)>)>>,
+    snapshot: Option<GroupSnapshot>,
     /// Root entities created by duplication for selection/undo.
     root_entities: Vec<Entity>,
 }
@@ -54,19 +49,19 @@ impl EditorCommand for DuplicateEntitiesCmd {
             self.snapshot = Some(all_snapshots);
         }
 
-        let snapshot = match &self.snapshot {
+        let group_snapshots = match &self.snapshot {
             Some(s) if !s.is_empty() => s,
             _ => return,
         };
 
         // Find root entities (no parent in snapshot)
-        let snapshot_ids: HashSet<Entity> = snapshot.iter().map(|(id, _)| *id).collect();
+        let snapshot_ids: HashSet<Entity> = group_snapshots.iter().map(|s| s.entity).collect();
         let mut root_old_ids = Vec::new();
 
-        for (old_id, bag) in snapshot.iter() {
-            let has_parent_in_snapshot = bag.iter().any(|(type_name, ron)| {
-                if type_name == comp_type_name::<Parent>() {
-                    if let Ok(parent) = ron::from_str::<Parent>(ron) {
+        for snapshot in group_snapshots.iter() {
+            let has_parent_in_snapshot = snapshot.components.iter().any(|comp| {
+                if comp.type_name == comp_type_name::<Parent>() {
+                    if let Ok(parent) = ron::from_str::<Parent>(&comp.ron) {
                         return snapshot_ids.contains(&parent.0);
                     }
                 }
@@ -74,36 +69,39 @@ impl EditorCommand for DuplicateEntitiesCmd {
             });
 
             if !has_parent_in_snapshot {
-                root_old_ids.push(*old_id);
+                root_old_ids.push(snapshot.entity);
             }
         }
 
         // Create new entities
         let mut map = HashMap::new();
-        for (old_id, _) in snapshot.iter() {
+        for snapshot in group_snapshots.iter() {
             let new_id = with_editor(|editor| {
                 let ecs = &mut editor.game.ecs;
                 ecs.create_entity().finish()
             });
-            map.insert(*old_id, new_id);
+            map.insert(snapshot.entity, new_id);
         }
         self.id_map = Some(map.clone());
-        self.root_entities = root_old_ids.iter().filter_map(|old| map.get(old).copied()).collect();
+        self.root_entities = root_old_ids
+            .iter()
+            .filter_map(|old| map.get(old).copied())
+            .collect();
 
         with_editor(|editor| {
             let ctx = &mut editor.game.ctx_mut();
 
-            for (old_id, bag) in snapshot.iter() {
-                let new_id = map[old_id];
+            for snapshot in group_snapshots.iter() {
+                let new_id = map[&snapshot.entity];
 
-                for (type_name, ron) in bag.iter() {
+                for comp in snapshot.components.iter() {
                     let component_reg = inventory::iter::<ComponentRegistry>()
-                        .find(|r| r.type_name == type_name)
+                        .find(|r| r.type_name == comp.type_name)
                         .expect("Component not registered");
 
-                    let mut boxed = (component_reg.from_ron_component)(ron.clone());
+                    let mut boxed = (component_reg.from_ron_component)(comp.ron.clone());
 
-                    if type_name == comp_type_name::<Parent>() {
+                    if comp.type_name == comp_type_name::<Parent>() {
                         let parent = boxed
                             .as_mut()
                             .downcast_mut::<Parent>()
@@ -112,7 +110,7 @@ impl EditorCommand for DuplicateEntitiesCmd {
                         if let Some(&new_parent) = map.get(&parent.0) {
                             parent.0 = new_parent;
                         }
-                    } else if type_name == comp_type_name::<Children>() {
+                    } else if comp.type_name == comp_type_name::<Children>() {
                         let children = boxed
                             .as_mut()
                             .downcast_mut::<Children>()

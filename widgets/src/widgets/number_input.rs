@@ -1,7 +1,7 @@
 use crate::clipboard::*;
+use crate::*;
 use std::fmt::Display;
 use std::str::FromStr;
-use crate::*;
 
 /// A numeric input widget using the builder pattern.
 ///
@@ -60,20 +60,43 @@ where
 
         let pending_focus = consume_pending_focus(self.id);
 
-        let (mut text, mut cursor_char, mut focused, mut selection_anchor, mut last_key_time, mut repeat_key, mut repeat_started, mut dragging, mut scroll_offset_x) =
-            INPUT_NUMBER_STATE.with(|s| {
-                let mut map = s.borrow_mut();
-                if let Some(state) = map.get(&self.id) {
-                    let f = if pending_focus { true } else { state.focused };
-                    let cc = if pending_focus && !state.focused { state.text.chars().count() } else { state.cursor_char };
-                    (state.text.clone(), cc, f, state.selection_anchor, state.last_key_time, state.repeat_key, state.repeat_started, state.dragging, state.scroll_offset_x)
+        let (
+            mut text,
+            mut cursor_char,
+            mut focused,
+            mut selection_anchor,
+            mut last_key_time,
+            mut repeat_key,
+            mut repeat_started,
+            mut dragging,
+            mut scroll_offset_x,
+        ) = INPUT_NUMBER_STATE.with(|s| {
+            let mut map = s.borrow_mut();
+            if let Some(state) = map.get(&self.id) {
+                let f = if pending_focus { true } else { state.focused };
+                let cc = if pending_focus && !state.focused {
+                    state.text.chars().count()
                 } else {
-                    let t = self.current.to_string();
-                    let cc = t.chars().count();
-                    map.insert(self.id, NumberInputState::new(t.clone()));
-                    (t, cc, pending_focus, None, 0.0, None, false, false, 0.0)
-                }
-            });
+                    state.cursor_char
+                };
+                (
+                    state.text.clone(),
+                    cc,
+                    f,
+                    state.selection_anchor,
+                    state.last_key_time,
+                    state.repeat_key,
+                    state.repeat_started,
+                    state.dragging,
+                    state.scroll_offset_x,
+                )
+            } else {
+                let t = self.current.to_string();
+                let cc = t.chars().count();
+                map.insert(self.id, NumberInputState::new(t.clone()));
+                (t, cc, pending_focus, None, 0.0, None, false, false, 0.0)
+            }
+        });
 
         if !focused && text.parse::<T>().unwrap_or_default() != self.current {
             text = self.current.to_string();
@@ -81,16 +104,33 @@ where
             scroll_offset_x = 0.0;
         }
 
-        ctx.draw_rectangle(self.rect.x, self.rect.y, self.rect.w, self.rect.h, FIELD_BACKGROUND_COLOR);
-        ctx.draw_rectangle_lines(self.rect.x, self.rect.y, self.rect.w, self.rect.h, 2., Color::WHITE);
+        ctx.draw_rectangle(
+            self.rect.x,
+            self.rect.y,
+            self.rect.w,
+            self.rect.h,
+            FIELD_BACKGROUND_COLOR,
+        );
+        ctx.draw_rectangle_lines(
+            self.rect.x,
+            self.rect.y,
+            self.rect.w,
+            self.rect.h,
+            2.,
+            Color::WHITE,
+        );
 
         let text_area_x = self.rect.x + WIDGET_PADDING / 2.;
 
         if let Some((start, end)) = selection_range(cursor_char, selection_anchor) {
             let start_byte = byte_offset(&text, start);
             let end_byte = byte_offset(&text, end);
-            let sel_start_x = text_area_x + measure_text_ui(ctx, &text[..start_byte], DEFAULT_FONT_SIZE_16).width - scroll_offset_x;
-            let sel_end_x = text_area_x + measure_text_ui(ctx, &text[..end_byte], DEFAULT_FONT_SIZE_16).width - scroll_offset_x;
+            let sel_start_x = text_area_x
+                + measure_text_ui(ctx, &text[..start_byte], DEFAULT_FONT_SIZE_16).width
+                - scroll_offset_x;
+            let sel_end_x = text_area_x
+                + measure_text_ui(ctx, &text[..end_byte], DEFAULT_FONT_SIZE_16).width
+                - scroll_offset_x;
 
             let clipped_start = sel_start_x.max(text_area_x);
             let clipped_end = sel_end_x.min(self.rect.x + self.rect.w - WIDGET_PADDING / 2.);
@@ -108,7 +148,14 @@ where
 
         let placeholder = "<#>";
         let display = if text.is_empty() { placeholder } else { &text };
-        draw_text_clipped(ctx, display, self.rect.x, self.rect.y, self.rect.w, self.rect.h, scroll_offset_x, DEFAULT_FONT_SIZE_16, FIELD_TEXT_COLOR);
+        draw_text_clipped(
+            ctx,
+            display,
+            self.rect,
+            scroll_offset_x,
+            DEFAULT_FONT_SIZE_16,
+            FIELD_TEXT_COLOR,
+        );
 
         if is_dropdown_open() {
             return self.current;
@@ -123,7 +170,14 @@ where
             if !focused {
                 selection_anchor = None;
             } else if mouse_over {
-                let click_pos = char_index_from_x(ctx, &text, mouse.0, self.rect.x, DEFAULT_FONT_SIZE_16, scroll_offset_x);
+                let click_pos = char_index_from_x(
+                    ctx,
+                    &text,
+                    mouse.0,
+                    self.rect.x,
+                    DEFAULT_FONT_SIZE_16,
+                    scroll_offset_x,
+                );
                 cursor_char = click_pos;
                 selection_anchor = Some(click_pos);
                 dragging = true;
@@ -131,38 +185,48 @@ where
         }
 
         if dragging && ctx.is_mouse_button_down(MouseButton::Left) {
-            let drag_pos = char_index_from_x(ctx, &text, mouse.0, self.rect.x, DEFAULT_FONT_SIZE_16, scroll_offset_x);
+            let drag_pos = char_index_from_x(
+                ctx,
+                &text,
+                mouse.0,
+                self.rect.x,
+                DEFAULT_FONT_SIZE_16,
+                scroll_offset_x,
+            );
             cursor_char = drag_pos;
         }
 
-        if ctx.is_mouse_button_released(MouseButton::Left)
-            && dragging {
+        if ctx.is_mouse_button_released(MouseButton::Left) && dragging {
             if selection_anchor == Some(cursor_char) {
                 selection_anchor = None;
             }
             dragging = false;
         }
 
-
         if focused {
             INPUT_FOCUSED.with(|f| *f.borrow_mut() = true);
             let now = ctx.get_time();
-            let shift_held = ctx.is_key_down(KeyCode::LeftShift) || ctx.is_key_down(KeyCode::RightShift);
-            let ctrl_held = ctx.is_key_down(KeyCode::LeftControl) || ctx.is_key_down(KeyCode::RightControl);
+            let shift_held =
+                ctx.is_key_down(KeyCode::LeftShift) || ctx.is_key_down(KeyCode::RightShift);
+            let ctrl_held =
+                ctx.is_key_down(KeyCode::LeftControl) || ctx.is_key_down(KeyCode::RightControl);
 
             if ctrl_held && ctx.is_key_pressed(KeyCode::A) {
                 selection_anchor = Some(0);
                 cursor_char = text.chars().count();
             }
 
-            if ctrl_held && ctx.is_key_pressed(KeyCode::C)
-                && let Some(selected) = get_selected_text(&text, cursor_char, selection_anchor) {
+            if ctrl_held
+                && ctx.is_key_pressed(KeyCode::C)
+                && let Some(selected) = get_selected_text(&text, cursor_char, selection_anchor)
+            {
                 clipboard_set_text(&selected);
             }
 
-
-            if ctrl_held && ctx.is_key_pressed(KeyCode::V)
-                && let Some(clipboard_text) = clipboard_get_text() {
+            if ctrl_held
+                && ctx.is_key_pressed(KeyCode::V)
+                && let Some(clipboard_text) = clipboard_get_text()
+            {
                 let insert_pos = if selection_anchor.is_some() {
                     cursor_char = delete_selection(&mut text, cursor_char, selection_anchor);
                     selection_anchor = None;
@@ -184,8 +248,13 @@ where
                 cursor_char += filtered.chars().count();
             }
 
-
-            let handle_key_action = |key: RepeatableKey, pressed: bool, down: bool, rk: &mut Option<RepeatableKey>, rs: &mut bool, lkt: &mut f64| -> bool {
+            let handle_key_action = |key: RepeatableKey,
+                                     pressed: bool,
+                                     down: bool,
+                                     rk: &mut Option<RepeatableKey>,
+                                     rs: &mut bool,
+                                     lkt: &mut f64|
+             -> bool {
                 if pressed {
                     *rk = Some(key);
                     *lkt = now;
@@ -193,7 +262,9 @@ where
                     true
                 } else if down && *rk == Some(key) {
                     let elapsed = now - *lkt;
-                    if (!*rs && elapsed >= HOLD_INITIAL_DELAY) || (*rs && elapsed >= HOLD_REPEAT_RATE) {
+                    if (!*rs && elapsed >= HOLD_INITIAL_DELAY)
+                        || (*rs && elapsed >= HOLD_REPEAT_RATE)
+                    {
                         *lkt = now;
                         *rs = true;
                         true
@@ -248,7 +319,8 @@ where
                 &mut repeat_key,
                 &mut repeat_started,
                 &mut last_key_time,
-            ) && cursor_char > 0 {
+            ) && cursor_char > 0
+            {
                 if shift_held {
                     if selection_anchor.is_none() {
                         selection_anchor = Some(cursor_char);
@@ -270,7 +342,8 @@ where
                 &mut repeat_key,
                 &mut repeat_started,
                 &mut last_key_time,
-            ) && cursor_char < text.len() {
+            ) && cursor_char < text.len()
+            {
                 if shift_held {
                     if selection_anchor.is_none() {
                         selection_anchor = Some(cursor_char);
@@ -373,7 +446,10 @@ where
         if focused && ((now * 2.0) as i32 % 2 == 0) {
             let byte_pos = byte_offset(&text, cursor_char);
             let prefix = &text[..byte_pos];
-            let caret_x = self.rect.x + WIDGET_PADDING / 2. + measure_text_ui(ctx, prefix, DEFAULT_FONT_SIZE_16).width - scroll_offset_x;
+            let caret_x = self.rect.x
+                + WIDGET_PADDING / 2.
+                + measure_text_ui(ctx, prefix, DEFAULT_FONT_SIZE_16).width
+                - scroll_offset_x;
             if caret_x >= self.rect.x && caret_x <= self.rect.x + self.rect.w {
                 ctx.draw_line(
                     caret_x,
@@ -388,33 +464,38 @@ where
 
         INPUT_NUMBER_STATE.with(|s| {
             let mut map = s.borrow_mut();
-            map.insert(self.id, NumberInputState {
-                text: text.clone(),
-                cursor_char,
-                focused,
-                selection_anchor,
-                last_key_time,
-                repeat_key,
-                repeat_started,
-                dragging,
-                scroll_offset_x,
-            });
+            map.insert(
+                self.id,
+                NumberInputState {
+                    text: text.clone(),
+                    cursor_char,
+                    focused,
+                    selection_anchor,
+                    last_key_time,
+                    repeat_key,
+                    repeat_started,
+                    dragging,
+                    scroll_offset_x,
+                },
+            );
         });
 
         if focused || !confirmed {
             self.current
         } else {
             let mut result = text.parse::<T>().unwrap_or(self.current);
-            if let Some(min) = self.min {
-                if result < min {
-                    result = min;
-                }
+            if let Some(min) = self.min
+                && result < min
+            {
+                result = min;
             }
-            if let Some(max) = self.max {
-                if result > max {
-                    result = max;
-                }
+
+            if let Some(max) = self.max
+                && result > max
+            {
+                result = max;
             }
+
             result
         }
     }

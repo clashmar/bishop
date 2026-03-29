@@ -3,14 +3,18 @@ use crate::assets::asset_manager::AssetManager;
 use crate::assets::sprite::SpriteId;
 use crate::constants::DEFAULT_GRID_SIZE;
 use crate::ecs::entity::Entity;
-use crate::game::game::*;
-use std::{collections::HashMap, path::{Path, PathBuf}};
-use serde_with::{FromInto, serde_as};
-use serde::{Deserialize, Serialize};
-use ecs_component::ecs_component;
-use strum_macros::EnumIter;
+use crate::game::*;
+use crate::scripting::lua_constants::LUA_OWNER_GAME_GENERATED;
 use bishop::prelude::*;
+use ecs_component::ecs_component;
+use serde::{Deserialize, Serialize};
+use serde_with::{FromInto, serde_as};
 use std::fmt;
+use std::{
+    collections::HashMap,
+    path::{Path, PathBuf},
+};
+use strum_macros::EnumIter;
 
 /// The animation component for an entity.
 #[ecs_component(post_create = post_create, post_remove = post_remove)]
@@ -18,6 +22,10 @@ use std::fmt;
 #[serde(default)]
 pub struct Animation {
     /// Defines the animations that belong to the entity.
+    #[serde(
+        serialize_with = "crate::storage::ordered_map::serialize",
+        deserialize_with = "crate::storage::ordered_map::deserialize"
+    )]
     pub clips: HashMap<ClipId, ClipDef>,
     /// Which animation variant to show.
     pub variant: VariantFolder,
@@ -81,9 +89,27 @@ impl Animation {
         self.current = None;
     }
 
+    /// Populate `sprite_cache` for the current variant without modifying ref counts.
+    /// Use during game initialization when ref counts are already tracked by serialized state.
+    pub fn init_sprite_cache(
+        &mut self,
+        loader: &impl TextureLoader,
+        asset_manager: &mut AssetManager,
+    ) {
+        self.sprite_cache.clear();
+        for clip_id in self.clips.keys() {
+            let sprite_id = resolve_sprite_id(loader, asset_manager, &self.variant, clip_id);
+            self.sprite_cache.insert(clip_id.clone(), sprite_id);
+        }
+    }
+
     /// Populate `sprite_cache` for the current variant.
     /// Called when the variant folder changes or a new clip is added.
-    pub async fn refresh_sprite_cache(&mut self, asset_manager: &mut AssetManager) {
+    pub fn refresh_sprite_cache(
+        &mut self,
+        loader: &impl TextureLoader,
+        asset_manager: &mut AssetManager,
+    ) {
         // Decrement refs for old cache entries before clearing
         for &sprite_id in self.sprite_cache.values() {
             asset_manager.decrement_ref(sprite_id);
@@ -91,8 +117,8 @@ impl Animation {
         self.sprite_cache.clear();
 
         // Resolve and cache new sprite ids, incrementing refs
-        for (clip_id, _) in &self.clips {
-            let sprite_id = resolve_sprite_id(asset_manager, &self.variant, clip_id).await;
+        for clip_id in self.clips.keys() {
+            let sprite_id = resolve_sprite_id(loader, asset_manager, &self.variant, clip_id);
             if sprite_id.0 != 0 {
                 asset_manager.increment_ref(sprite_id);
             }
@@ -122,8 +148,9 @@ impl Animation {
 }
 
 /// Logical name of a clip.
-#[derive(EnumIter, Debug, Default,
-    Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(
+    EnumIter, Debug, Default, Clone, PartialEq, Eq, Ord, PartialOrd, Hash, Serialize, Deserialize,
+)]
 pub enum ClipId {
     #[default]
     Idle,
@@ -200,6 +227,10 @@ impl Default for ClipDef {
 #[derive(Clone, Serialize, Deserialize, Default)]
 #[serde(default)]
 pub struct AnimationDef {
+    #[serde(
+        serialize_with = "crate::storage::ordered_map::serialize",
+        deserialize_with = "crate::storage::ordered_map::deserialize"
+    )]
     pub clips: HashMap<ClipId, ClipDef>,
 }
 
@@ -222,7 +253,8 @@ pub struct ClipState {
 }
 
 /// Returns the `SpriteId` for the current variant clip.
-pub async fn resolve_sprite_id(
+pub fn resolve_sprite_id(
+    loader: &impl TextureLoader,
     asset_manager: &mut AssetManager,
     variant_folder: &VariantFolder,
     clip_id: &ClipId,
@@ -242,23 +274,14 @@ pub async fn resolve_sprite_id(
     // Build the path
     let path: PathBuf = Path::new(&variant_folder.0).join(filename);
 
-    // Fast-path if already cached in AssetManager
-    if let Some(&id) = asset_manager.path_to_sprite_id.get(&path) {
-        return id;
-    }
-
-     match asset_manager.init_texture(&path).await {
+    match asset_manager.init_texture(loader, &path) {
         Ok(id) => id,
-        Err(_) => SpriteId(0) // Sentinal
-     }
+        Err(_) => SpriteId(0), // Sentinel
+    }
 }
 
 /// Initializes the component when an entity is instantiated into the world.
-pub fn post_create(
-    anim: &mut Animation,
-    _entity: &Entity,
-    ctx: &mut GameCtxMut,
-) {
+pub fn post_create(anim: &mut Animation, _entity: &Entity, ctx: &mut GameCtxMut) {
     anim.init_runtime();
 
     // Increment refs for any pre-populated sprite_cache entries
@@ -268,11 +291,7 @@ pub fn post_create(
 }
 
 /// Cleans up when the component is removed from an entity.
-pub fn post_remove(
-    anim: &mut Animation,
-    _entity: &Entity,
-    ctx: &mut GameCtxMut,
-) {
+pub fn post_remove(anim: &mut Animation, _entity: &Entity, ctx: &mut GameCtxMut) {
     // Decrement refs for all sprite_cache entries
     for &sprite_id in anim.sprite_cache.values() {
         ctx.asset_manager.decrement_ref(sprite_id);
@@ -284,11 +303,12 @@ pub fn generate_animations_lua(custom_clips: &[String]) -> String {
     use std::collections::HashSet;
     use strum::IntoEnumIterator;
 
-    let mut lua = String::from(
+    let mut lua = format!(
         "-- Auto-generated. Do not edit.\n\
+        {LUA_OWNER_GAME_GENERATED}\n\
         ---@meta\n\n\
         ---@enum ClipId\n\
-        local ClipId = {\n"
+        local ClipId = {{\n"
     );
 
     // Built-in clips from ClipId enum
@@ -337,9 +357,30 @@ fn sanitize_lua_identifier(s: &str) -> String {
             capitalize = true;
         }
     }
-    if out.is_empty() || out.chars().next().map(|c| c.is_ascii_digit()).unwrap_or(false) {
-        format!("Clip_{}", s.replace(|c: char| !c.is_ascii_alphanumeric(), "_"))
+    if out.is_empty()
+        || out
+            .chars()
+            .next()
+            .map(|c| c.is_ascii_digit())
+            .unwrap_or(false)
+    {
+        format!(
+            "Clip_{}",
+            s.replace(|c: char| !c.is_ascii_alphanumeric(), "_")
+        )
     } else {
         out
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::generate_animations_lua;
+
+    #[test]
+    fn generate_animations_lua_marks_file_as_game_generated() {
+        let lua = generate_animations_lua(&[]);
+
+        assert!(lua.contains("-- bishop-owner: game-generated"));
     }
 }

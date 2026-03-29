@@ -1,26 +1,27 @@
 // editor/build.rs
-use engine_core::animation::animation_clip::generate_animations_lua;
 use engine_core::ecs::component_registry::COMPONENTS;
 use engine_core::input::input_table::*;
-use engine_core::scripting::lua_constants::ENGINE_DIR;
-use engine_core::scripting::lua_constants::SCRIPTS_DIR;
+use engine_core::scripting::lua_constants::LUA_OWNER_SHARED_ENGINE;
 use std::collections::HashSet;
-use std::path::PathBuf;
 use std::env;
 use std::fs;
+use std::path::Path;
+use std::path::PathBuf;
 
 fn main() -> std::io::Result<()> {
     generate_lua_script();
     generate_lua_components();
     generate_lua_input();
-    generate_lua_animations();
     generate_engine_scripts_rs();
 
     if cfg!(target_os = "windows") {
         let mut res = winres::WindowsResource::new();
         res.set("FileVersion", "1.0.0.0")
             .set_icon("windows/Icon.ico")
-            .set("FileDescription", "Bishop Engine: a cross platform 2dD editor.")
+            .set(
+                "FileDescription",
+                "Bishop Engine: a cross platform 2dD editor.",
+            )
             .set("ProductVersion", "1.0.0.0")
             .set("ProductName", "Bishop Engine")
             .set("OriginalFilename", "Bishop.exe")
@@ -37,6 +38,16 @@ fn main() -> std::io::Result<()> {
     Ok(())
 }
 
+fn write_if_changed(target: &Path, contents: &str) {
+    let existing = fs::read_to_string(target).ok();
+    if existing.as_deref() == Some(contents) {
+        return;
+    }
+
+    fs::write(target, contents).unwrap_or_else(|_| panic!("Cannot write {}", target.display()));
+    println!("cargo:warning=generated {}", target.display());
+}
+
 fn generate_lua_components() {
     let out_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap())
         .join("scripts")
@@ -44,13 +55,14 @@ fn generate_lua_components() {
 
     fs::create_dir_all(&out_dir).expect("cannot create _engine folder");
 
-    let mut lua = String::from(
+    let mut lua = format!(
         "-- Auto-generated. Do not edit.\n\
+        {LUA_OWNER_SHARED_ENGINE}\n\
         ---@meta\n\
-        ---@alias vec2 { x: number, y: number }\n\
-        ---@alias vec3 { x: number, y: number, z: number }\n\n"
+        ---@alias vec2 {{ x: number, y: number }}\n\
+        ---@alias vec3 {{ x: number, y: number, z: number }}\n\n"
     );
-    
+
     // Generate class definitions for each component with their schema
     for reg in COMPONENTS.iter() {
         let schema = (reg.lua_schema)();
@@ -74,15 +86,15 @@ fn generate_lua_components() {
             }
         }
 
-        lua.push_str("\n");
+        lua.push('\n');
     }
-    
+
     // Generate the ComponentId class with all component names
     lua.push_str("---@class ComponentId\n");
     for reg in COMPONENTS.iter() {
         lua.push_str(&format!("---@field {} string\n", reg.type_name));
     }
-    lua.push_str("\n");
+    lua.push('\n');
 
     lua.push_str("local C = {}\n\n");
 
@@ -94,8 +106,7 @@ fn generate_lua_components() {
     lua.push_str("\nreturn C\n");
 
     let target = out_dir.join("components.lua");
-    fs::write(&target, lua).expect("Cannot write components.lua");
-    println!("cargo:warning=generated {}", target.display());
+    write_if_changed(&target, &lua);
 }
 
 fn generate_lua_input() {
@@ -105,8 +116,9 @@ fn generate_lua_input() {
 
     fs::create_dir_all(&out_dir).expect("cannot create _engine folder");
 
-    let mut lua = String::from(
+    let mut lua = format!(
         "-- Auto-generated. Do not edit.\n\
+        {LUA_OWNER_SHARED_ENGINE}\n\
         ---@meta\n\n"
     );
 
@@ -115,7 +127,7 @@ fn generate_lua_input() {
 
     // Avoids duplicates
     let mut seen = HashSet::new();
-    
+
     // Keyboard
     for &(name, _code) in KEY_TABLE.iter() {
         // Nmae is the literal string that should be used at runtime
@@ -132,29 +144,15 @@ fn generate_lua_input() {
             lua.push_str(&format!("    {} = \"{}\",\n", key, name));
         }
     }
-    
+
     lua.push_str("}\n");
-    
+
     // Return the enum table
     lua.push_str("\nreturn Input\n");
 
     // Write the file
     let target = out_dir.join("input.lua");
-    fs::write(&target, lua).expect("Cannot write input.lua");
-    println!("cargo:warning=generated {}", target.display());
-}
-
-fn generate_lua_animations() {
-    let out_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap())
-        .join(SCRIPTS_DIR)
-        .join(ENGINE_DIR);
-
-    fs::create_dir_all(&out_dir).expect("cannot create _engine folder");
-
-    let lua = generate_animations_lua(&[]);
-    let target = out_dir.join("animations.lua");
-    fs::write(&target, lua).expect("Cannot write animations.lua");
-    println!("cargo:warning=generated {}", target.display());
+    write_if_changed(&target, &lua);
 }
 
 fn generate_lua_script() {
@@ -164,22 +162,24 @@ fn generate_lua_script() {
 
     fs::create_dir_all(&out_dir).expect("cannot create _engine folder");
 
-    let lua = String::from(
+    let lua = format!(
         "-- Auto-generated. Do not edit.\n\
+        {LUA_OWNER_SHARED_ENGINE}\n\
         ---@meta\n\
         ---@class ScriptDef\n\
         ---@field public table\n\
         ---@field update fun(self: Script, dt: number)\n\
         ---@field init fun(self: Script)\n\
+        ---@field interact fun(self: Script)\n\
+        ---@field on_exit fun(self: Script)\n\
         ---@class Script : ScriptDef\n\
         ---@field entity Entity\n\
-        local Script = {}\n\
+        local Script = {{}}\n\
         return Script\n"
     );
 
     let target = out_dir.join("script.lua");
-    fs::write(&target, lua).expect("Cannot write script.lua");
-    println!("cargo:warning=generated {}", target.display());
+    write_if_changed(&target, &lua);
 }
 
 /// Generates Rust code that embeds all .lua files from the _engine directory.
@@ -206,7 +206,7 @@ fn generate_engine_scripts_rs() {
     let mut rust = String::from(
         "// Auto-generated by build.rs. Do not edit.\n\n\
          /// Embedded _engine Lua scripts for new game projects.\n\
-         pub static ENGINE_SCRIPTS: &[(&str, &str)] = &[\n"
+         pub static ENGINE_SCRIPTS: &[(&str, &str)] = &[\n",
     );
 
     for filename in &entries {
@@ -219,8 +219,7 @@ fn generate_engine_scripts_rs() {
     rust.push_str("];\n");
 
     let target = out_dir.join("engine_scripts.rs");
-    fs::write(&target, rust).expect("Cannot write engine_scripts.rs");
-    println!("cargo:warning=generated {}", target.display());
+    write_if_changed(&target, &rust);
 
     // Rerun if _engine directory changes
     println!("cargo:rerun-if-changed=scripts/_engine");

@@ -3,13 +3,11 @@ name = "bishop"
 version = "0.1.0"
 edition = "2021"
 
-[[example]]
-name = "wgpu_test"
-required-features = ["wgpu"]
-
 [features]
-default = ["wgpu"]
+default = ["wgpu", "audio-cpal"]
 wgpu = ["dep:wgpu", "dep:winit", "dep:pollster", "dep:bytemuck", "dep:image", "dep:fontdue"]
+audio = []
+audio-cpal = ["audio", "dep:cpal", "dep:bytemuck", "dep:log"]
 
 [dependencies]
 wgpu = { version = "24.0", optional = true }
@@ -18,5 +16,7 @@ pollster = { version = "0.4", optional = true }
 bytemuck = { version = "1.16", features = ["derive"], optional = true }
 image = { version = "0.25", default-features = false, features = ["png"], optional = true }
 fontdue = { version = "0.9", optional = true }
+cpal = { version = "0.15", optional = true }
+log = { version = "0.4", optional = true }
 glam = "0.32.0"
 serde = { version = "1.0", features = ["derive"] }

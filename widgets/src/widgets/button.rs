@@ -91,7 +91,9 @@ impl<'a> Button<'a> {
 
     /// Draws the button and returns true if clicked.
     pub fn show<C: BishopContext>(self, ctx: &mut C) -> bool {
-        let mouse = self.mouse_position.unwrap_or_else(|| ctx.mouse_position().into());
+        let mouse = self
+            .mouse_position
+            .unwrap_or_else(|| ctx.mouse_position().into());
         let hovered = self.rect.contains(mouse);
 
         let txt_dims = measure_text_ui(ctx, self.label, self.font_size);
@@ -100,17 +102,36 @@ impl<'a> Button<'a> {
 
         match self.style {
             ButtonStyle::Default => {
-                let highlight = (hovered || self.focused) && !is_dropdown_open() && !self.blocked && !(hovered && ctx.is_mouse_button_down(MouseButton::Left));
+                let highlight = (hovered || self.focused)
+                    && !is_dropdown_open()
+                    && !self.blocked
+                    && !(hovered && ctx.is_mouse_button_down(MouseButton::Left));
                 let background = if highlight {
                     self.hover_color
                 } else {
                     FIELD_BACKGROUND_COLOR
                 };
-                ctx.draw_rectangle(self.rect.x, self.rect.y, self.rect.w, self.rect.h, background);
-                ctx.draw_rectangle_lines(self.rect.x, self.rect.y, self.rect.w, self.rect.h, 2., OUTLINE_COLOR);
+                ctx.draw_rectangle(
+                    self.rect.x,
+                    self.rect.y,
+                    self.rect.w,
+                    self.rect.h,
+                    background,
+                );
+                ctx.draw_rectangle_lines(
+                    self.rect.x,
+                    self.rect.y,
+                    self.rect.w,
+                    self.rect.h,
+                    2.,
+                    OUTLINE_COLOR,
+                );
             }
             ButtonStyle::Plain => {
-                let highlight = (hovered || self.focused) && !is_dropdown_open() && !self.blocked && !(hovered && ctx.is_mouse_button_down(MouseButton::Left));
+                let highlight = (hovered || self.focused)
+                    && !is_dropdown_open()
+                    && !self.blocked
+                    && !(hovered && ctx.is_mouse_button_down(MouseButton::Left));
                 if highlight {
                     ctx.draw_rectangle(
                         self.rect.x,
@@ -123,9 +144,16 @@ impl<'a> Button<'a> {
             }
         }
 
-        draw_text_ui(ctx, self.label, txt_x + self.text_offset.x, txt_y + self.text_offset.y, self.font_size, self.text_color);
+        draw_text_ui(
+            ctx,
+            self.label,
+            txt_x + self.text_offset.x,
+            txt_y + self.text_offset.y,
+            self.font_size,
+            self.text_color,
+        );
 
-        let clicked = ctx.is_mouse_button_pressed(MouseButton::Left)
+        let clicked = ctx.is_mouse_button_released(MouseButton::Left)
             && hovered
             && !self.blocked
             && !is_dropdown_open()

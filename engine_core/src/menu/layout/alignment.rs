@@ -1,47 +1,28 @@
 use serde::{Deserialize, Serialize};
 
 /// Horizontal alignment for menu elements.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum HorizontalAlign {
     Left,
+    #[default]
     Center,
     Right,
 }
 
-impl Default for HorizontalAlign {
-    fn default() -> Self {
-        Self::Center
-    }
-}
-
 /// Vertical alignment for menu elements.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum VerticalAlign {
     Top,
+    #[default]
     Middle,
     Bottom,
 }
 
-impl Default for VerticalAlign {
-    fn default() -> Self {
-        Self::Middle
-    }
-}
-
 /// Combined alignment for menu elements.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Alignment {
     pub horizontal: HorizontalAlign,
     pub vertical: VerticalAlign,
-}
-
-impl Default for Alignment {
-    fn default() -> Self {
-        Self {
-            horizontal: HorizontalAlign::Center,
-            vertical: VerticalAlign::Middle,
-        }
-    }
 }
 
 impl Alignment {

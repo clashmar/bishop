@@ -1,5 +1,5 @@
-use serde::{Deserialize, Serialize};
 use reflect_derive::Reflect;
+use serde::{Deserialize, Serialize};
 
 /// Static text label component.
 #[derive(Debug, Clone, Serialize, Deserialize, Default, Reflect)]

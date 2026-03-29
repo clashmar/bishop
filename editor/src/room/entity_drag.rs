@@ -1,14 +1,13 @@
 // editor/src/room/entity_drag.rs
-use crate::ecs::component_registry::ComponentRegistry;
+use crate::commands::room::*;
+use crate::editor_global::*;
 use crate::room::room_editor::*;
 use crate::room::selection::*;
 use crate::shared::selection::*;
-use crate::commands::room::*;
-use crate::editor_global::*;
 use crate::world::coord;
-use std::collections::{HashMap, HashSet};
-use engine_core::prelude::*;
 use bishop::prelude::*;
+use engine_core::prelude::*;
+use std::collections::{HashMap, HashSet};
 
 impl RoomEditor {
     /// Handles mouse selection / movement with multi-select support.
@@ -23,7 +22,8 @@ impl RoomEditor {
         ui_was_clicked: bool,
         grid_size: f32,
     ) -> bool {
-        let shift_held = ctx.is_key_down(KeyCode::LeftShift) || ctx.is_key_down(KeyCode::RightShift);
+        let shift_held =
+            ctx.is_key_down(KeyCode::LeftShift) || ctx.is_key_down(KeyCode::RightShift);
         let mouse_world = coord::mouse_world_pos(ctx, camera);
 
         // Handle mouse button press
@@ -59,12 +59,10 @@ impl RoomEditor {
             }
 
             // Sort: cameras first, then by z descending (highest z = visually on top)
-            candidates.sort_by(|a, b| {
-                match (a.2, b.2) {
-                    (true, false) => std::cmp::Ordering::Less,
-                    (false, true) => std::cmp::Ordering::Greater,
-                    _ => b.1.cmp(&a.1),
-                }
+            candidates.sort_by(|a, b| match (a.2, b.2) {
+                (true, false) => std::cmp::Ordering::Less,
+                (false, true) => std::cmp::Ordering::Greater,
+                _ => b.1.cmp(&a.1),
             });
             let clicked_entity = candidates.first().map(|(e, _, _)| *e);
 
@@ -84,7 +82,7 @@ impl RoomEditor {
                         self.selected_entities.insert(entity);
                     }
 
-                    // Start normal drag 
+                    // Start normal drag
                     self.dragging = true;
                     self.drag_anchor_entity = Some(entity);
                     self.drag_offset = ecs
@@ -105,7 +103,8 @@ impl RoomEditor {
                     self.drag_initial_start_positions = self.drag_start_positions.clone();
 
                     // If alt is already held, immediately enter copy mode
-                    let alt_held = ctx.is_key_down(KeyCode::LeftAlt) || ctx.is_key_down(KeyCode::RightAlt);
+                    let alt_held =
+                        ctx.is_key_down(KeyCode::LeftAlt) || ctx.is_key_down(KeyCode::RightAlt);
                     if alt_held {
                         // Store original drag state for reverting on alt release
                         self.pre_copy_drag_state = Some(PreCopyDragState {
@@ -118,13 +117,16 @@ impl RoomEditor {
                         if !duplicates.is_empty() {
                             // Position duplicates where originals are
                             for (orig, dup) in &duplicates {
-                                if let Some((_, pos)) = self.drag_start_positions.iter().find(|(e, _)| e == orig) {
+                                if let Some((_, pos)) =
+                                    self.drag_start_positions.iter().find(|(e, _)| e == orig)
+                                {
                                     update_entity_position(ecs, *dup, *pos);
                                 }
                             }
 
                             // Find the duplicate corresponding to the anchor
-                            let new_anchor = self.drag_anchor_entity
+                            let new_anchor = self
+                                .drag_anchor_entity
                                 .and_then(|anchor| duplicates.iter().find(|(o, _)| *o == anchor))
                                 .map(|(_, d)| *d)
                                 .unwrap_or(duplicates[0].1);
@@ -179,13 +181,8 @@ impl RoomEditor {
                         if !can_select_entity_in_room(ecs, *entity, room_id) {
                             continue;
                         }
-                        let entity_rect = entity_world_rect(
-                            *entity,
-                            pos.position,
-                            ecs,
-                            asset_manager,
-                            grid_size,
-                        );
+                        let entity_rect =
+                            entity_world_rect(*entity, pos.position, ecs, asset_manager, grid_size);
                         if rects_intersect(box_rect, entity_rect) {
                             self.selected_entities.insert(*entity);
                         }
@@ -199,10 +196,12 @@ impl RoomEditor {
         // Execute the drag while the button is held
         if self.dragging {
             // Check if alt was just pressed mid-drag to switch to copy mode
-            let alt_just_pressed = ctx.is_key_pressed(KeyCode::LeftAlt) || ctx.is_key_pressed(KeyCode::RightAlt);
+            let alt_just_pressed =
+                ctx.is_key_pressed(KeyCode::LeftAlt) || ctx.is_key_pressed(KeyCode::RightAlt);
             if !self.alt_copy_mode && alt_just_pressed {
                 // Get current positions of originals
-                let current_positions: Vec<(Entity, Vec2)> = self.drag_start_positions
+                let current_positions: Vec<(Entity, Vec2)> = self
+                    .drag_start_positions
                     .iter()
                     .filter_map(|(e, _)| {
                         ecs.get_store::<Transform>()
@@ -233,7 +232,8 @@ impl RoomEditor {
                     }
 
                     // Find the duplicate corresponding to the anchor
-                    let new_anchor = self.drag_anchor_entity
+                    let new_anchor = self
+                        .drag_anchor_entity
                         .and_then(|anchor| duplicates.iter().find(|(o, _)| *o == anchor))
                         .map(|(_, d)| *d)
                         .unwrap_or(duplicates[0].1);
@@ -262,11 +262,13 @@ impl RoomEditor {
             }
 
             // Check if alt was just released mid-drag to revert copy mode
-            let alt_just_released = ctx.is_key_released(KeyCode::LeftAlt) || ctx.is_key_released(KeyCode::RightAlt);
+            let alt_just_released =
+                ctx.is_key_released(KeyCode::LeftAlt) || ctx.is_key_released(KeyCode::RightAlt);
             if self.alt_copy_mode && alt_just_released {
                 if let Some(original_state) = self.pre_copy_drag_state.take() {
                     // Get current positions of copies before deleting them
-                    let copy_positions: Vec<(Entity, Vec2)> = self.alt_copied_entities
+                    let copy_positions: Vec<(Entity, Vec2)> = self
+                        .alt_copied_entities
                         .iter()
                         .filter_map(|e| {
                             ecs.get_store::<Transform>()
@@ -276,7 +278,8 @@ impl RoomEditor {
                         .collect();
 
                     // Build mapping from copy to original
-                    let copy_to_orig: Vec<(Entity, Entity)> = self.alt_copied_entities
+                    let copy_to_orig: Vec<(Entity, Entity)> = self
+                        .alt_copied_entities
                         .iter()
                         .zip(original_state.selected_entities.iter())
                         .map(|(c, o)| (*c, *o))
@@ -297,7 +300,8 @@ impl RoomEditor {
                     // Move originals to where copies were (under the mouse)
                     self.drag_start_positions.clear();
                     for (copy, orig) in &copy_to_orig {
-                        if let Some((_, copy_pos)) = copy_positions.iter().find(|(e, _)| e == copy) {
+                        if let Some((_, copy_pos)) = copy_positions.iter().find(|(e, _)| e == copy)
+                        {
                             update_entity_position(ecs, *orig, *copy_pos);
                             self.drag_start_positions.push((*orig, *copy_pos));
                         }
@@ -317,13 +321,12 @@ impl RoomEditor {
             }
 
             // Find the anchor entity's start position and move entities
-            let anchor_start = self.drag_anchor_entity
-                .and_then(|anchor| {
-                    self.drag_start_positions
-                        .iter()
-                        .find(|(e, _)| *e == anchor)
-                        .map(|(_, pos)| *pos)
-                });
+            let anchor_start = self.drag_anchor_entity.and_then(|anchor| {
+                self.drag_start_positions
+                    .iter()
+                    .find(|(e, _)| *e == anchor)
+                    .map(|(_, pos)| *pos)
+            });
 
             if let Some(anchor_start) = anchor_start {
                 let anchor_entity = self.drag_anchor_entity.unwrap();
@@ -366,7 +369,9 @@ impl RoomEditor {
                     // Normal drag: build moves list for undo command
                     let mut moves = Vec::new();
                     for &(entity, initial_pos) in &self.drag_initial_start_positions {
-                        if let Some(final_pos) = ecs.get_store::<Transform>().get(entity).map(|t| t.position) {
+                        if let Some(final_pos) =
+                            ecs.get_store::<Transform>().get(entity).map(|t| t.position)
+                        {
                             if (final_pos - initial_pos).length_squared() > 0.0 {
                                 moves.push((entity, initial_pos, final_pos));
                             }
@@ -402,10 +407,7 @@ impl RoomEditor {
         ecs: &mut Ecs,
         room_id: RoomId,
     ) {
-        if self.dragging
-            || self.selected_entities.is_empty()
-            || input_is_focused()
-        {
+        if self.dragging || self.selected_entities.is_empty() || input_is_focused() {
             return;
         }
 
@@ -454,11 +456,11 @@ impl RoomEditor {
             if ecs.has::<Player>(entity) {
                 continue;
             }
-            let snapshot = capture_subtree(ecs, entity);
-            for (id, _) in &snapshot {
-                entity_order.push(*id);
+            let group_snapshot = capture_subtree(ecs, entity);
+            for snapshot in &group_snapshot {
+                entity_order.push(snapshot.entity);
             }
-            all_snapshots.extend(snapshot);
+            all_snapshots.extend(group_snapshot);
         }
 
         if all_snapshots.is_empty() {
@@ -466,13 +468,13 @@ impl RoomEditor {
         }
 
         // Find root entities (entities without parents in the snapshot)
-        let snapshot_ids: HashSet<Entity> = all_snapshots.iter().map(|(id, _)| *id).collect();
+        let snapshot_ids: HashSet<Entity> = all_snapshots.iter().map(|s| s.entity).collect();
         let mut root_old_ids = Vec::new();
 
-        for (old_id, bag) in all_snapshots.iter() {
-            let has_parent_in_snapshot = bag.iter().any(|(type_name, ron)| {
-                if type_name == comp_type_name::<Parent>() {
-                    if let Ok(parent) = ron::from_str::<Parent>(ron) {
+        for snapshot in all_snapshots.iter() {
+            let has_parent_in_snapshot = snapshot.components.iter().any(|comp| {
+                if comp.type_name == comp_type_name::<Parent>() {
+                    if let Ok(parent) = ron::from_str::<Parent>(&comp.ron) {
                         return snapshot_ids.contains(&parent.0);
                     }
                 }
@@ -480,33 +482,33 @@ impl RoomEditor {
             });
 
             if !has_parent_in_snapshot {
-                root_old_ids.push(*old_id);
+                root_old_ids.push(snapshot.entity);
             }
         }
 
         // Create new entities for each snapshot entry
         let mut id_map = HashMap::new();
-        for (old_id, _) in all_snapshots.iter() {
+        for snapshot in all_snapshots.iter() {
             let new_id = ecs.create_entity().finish();
-            id_map.insert(*old_id, new_id);
+            id_map.insert(snapshot.entity, new_id);
         }
 
         // Restore components to the new entities
-        for (old_id, bag) in all_snapshots.iter() {
-            let new_id = id_map[old_id];
+        for snapshot in all_snapshots.iter() {
+            let new_id = id_map[&snapshot.entity];
 
-            for (type_name, ron) in bag.iter() {
+            for comp in snapshot.components.iter() {
                 let component_reg = match inventory::iter::<ComponentRegistry>()
-                    .find(|r| r.type_name == type_name)
+                    .find(|r| r.type_name == comp.type_name)
                 {
                     Some(reg) => reg,
                     None => continue,
                 };
 
-                let mut boxed = (component_reg.from_ron_component)(ron.clone());
+                let mut boxed = (component_reg.from_ron_component)(comp.ron.clone());
 
                 // Remap parent references
-                if type_name == comp_type_name::<Parent>() {
+                if comp.type_name == comp_type_name::<Parent>() {
                     if let Some(parent) = boxed.as_mut().downcast_mut::<Parent>() {
                         if let Some(&new_parent) = id_map.get(&parent.0) {
                             parent.0 = new_parent;
@@ -515,7 +517,7 @@ impl RoomEditor {
                 }
 
                 // Remap children references
-                if type_name == comp_type_name::<Children>() {
+                if comp.type_name == comp_type_name::<Children>() {
                     if let Some(children) = boxed.as_mut().downcast_mut::<Children>() {
                         for child in &mut children.entities {
                             if let Some(&new_child) = id_map.get(child) {
@@ -526,7 +528,7 @@ impl RoomEditor {
                 }
 
                 // Initialize Animation runtime state so it renders during drag
-                if type_name == comp_type_name::<Animation>() {
+                if comp.type_name == comp_type_name::<Animation>() {
                     if let Some(anim) = boxed.as_mut().downcast_mut::<Animation>() {
                         anim.init_runtime();
                     }
@@ -543,4 +545,3 @@ impl RoomEditor {
             .collect()
     }
 }
-

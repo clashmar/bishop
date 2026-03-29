@@ -3,31 +3,27 @@
 // Tells windows if it's a console app or not (console is useful in debug)
 // #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use crate::editor_assets::editor_assets::*;
-use crate::editor_global::*;
 use crate::app::Editor;
-use engine_core::logging::logging::init_file_logger;
-use engine_core::ui::widgets::*;
-use engine_core::*;
-use engine_core::storage::path_utils::*;
-use engine_core::{constants::*, storage::path_utils::absolute_save_root};
+use crate::editor_assets::assets::*;
+use crate::editor_global::*;
 use bishop::prelude::*;
 use bishop::BishopApp;
+use engine_core::prelude::*;
 
-mod editor_global;
 mod app;
+mod canvas;
+mod commands;
+mod editor_assets;
+mod editor_global;
+mod game;
 mod gui;
+mod menu;
+mod playtest;
 mod room;
+mod shared;
 mod storage;
 mod tilemap;
 mod world;
-mod canvas;
-mod playtest;
-mod commands;
-mod game;
-mod editor_assets;
-mod menu_editor;
-mod shared;
 
 /// Wrapper struct for running the editor via BishopApp.
 struct EditorApp {
@@ -49,7 +45,7 @@ impl BishopApp for EditorApp {
         // Initialize logging
         init_file_logger();
 
-        if !ensure_save_root().await {
+        if !ensure_save_root() {
             // User cancelled
             onscreen_warn!("No save root selected. Exiting.");
             std::process::exit(0);
@@ -61,7 +57,7 @@ impl BishopApp for EditorApp {
             std::process::exit(1);
         }
 
-        match Editor::new(&mut *ctx.borrow_mut()).await {
+        match Editor::new(ctx.clone()).await {
             Ok(editor) => {
                 // This allows global access to services
                 set_editor(editor);
@@ -73,9 +69,20 @@ impl BishopApp for EditorApp {
         }
     }
 
+    fn on_exit(&mut self) {
+        with_editor(|editor| {
+            editor.game.asset_manager.flush_pending_removals();
+            editor.game.script_manager.flush_pending_removals();
+            editor.save();
+        });
+    }
+
     async fn frame(&mut self, ctx: PlatformContext) {
         let mut ctx_ref = ctx.borrow_mut();
-        let cur_screen = (ctx_ref.screen_width() as u32, ctx_ref.screen_height() as u32);
+        let cur_screen = (
+            ctx_ref.screen_width() as u32,
+            ctx_ref.screen_height() as u32,
+        );
         if cur_screen != self.current_window_size {
             with_editor(|editor| editor.render_system.resize(cur_screen.0, cur_screen.1));
             self.current_window_size = cur_screen;
@@ -83,8 +90,10 @@ impl BishopApp for EditorApp {
 
         widgets_frame_start(&mut *ctx_ref);
 
-        with_editor_async(&mut *ctx_ref, |editor, ctx| Box::pin(editor.update(ctx))).await;
-        with_editor_async(&mut *ctx_ref, |editor, ctx| Box::pin(editor.draw(ctx))).await;
+        with_editor(|editor| {
+            editor.update(&mut ctx_ref);
+            editor.draw(&mut ctx_ref);
+        });
 
         widgets_frame_end(&mut *ctx_ref);
 

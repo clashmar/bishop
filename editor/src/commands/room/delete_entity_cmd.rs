@@ -1,18 +1,14 @@
 // editor/src/commands/room/delete_entity_cmd.rs
-use crate::commands::editor_command_manager::EditorCommand;
 use crate::app::EditorMode;
+use crate::commands::editor_command_manager::EditorCommand;
 use crate::with_editor;
-use crate::ecs::ecs::Ecs;
-use engine_core::ecs::entity::Entity;
-use engine_core::world::room::RoomId;
-use engine_core::ecs::capture::*;
-
+use engine_core::prelude::*;
 /// Undo-able command for deleting an entity and its children.
 #[derive(Debug)]
 pub struct DeleteEntityCmd {
     pub entity: Entity,
     pub room_id: RoomId,
-    pub saved: Option<Vec<(Entity, Vec<(String, String)>)>>,
+    pub saved: Option<GroupSnapshot>,
 }
 
 impl EditorCommand for DeleteEntityCmd {

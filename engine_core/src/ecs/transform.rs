@@ -1,13 +1,13 @@
 // engine_core/src/ecs/transform.rs
-use crate::ecs::entity::*;
 use crate::ecs::ecs::Ecs;
+use crate::ecs::entity::*;
 use crate::inspector_module;
-use serde::{Deserialize, Serialize};
+use bishop::prelude::*;
 use ecs_component::ecs_component;
 use reflect_derive::Reflect;
-use serde_with::serde_as;
+use serde::{Deserialize, Serialize};
 use serde_with::FromInto;
-use bishop::prelude::*;
+use serde_with::serde_as;
 
 /// Pivot point for sprite rendering. Defines which point on the sprite
 /// aligns with the entity's Transform position.
@@ -78,7 +78,7 @@ impl std::fmt::Display for Pivot {
     }
 }
 
-/// Calculates the top-left corner position for a rectangle 
+/// Calculates the top-left corner position for a rectangle
 /// given an entity position, the rectangle's size, and a pivot point.
 #[inline]
 pub fn pivot_offset(entity_pos: Vec2, size: Vec2, pivot: Pivot) -> Vec2 {
@@ -134,7 +134,8 @@ pub fn update_entity_position(ecs: &mut Ecs, entity: Entity, new_pos: Vec2) {
     // Propagate the translation to every child recursively
     let children = get_children(ecs, entity);
     for child in children {
-        let child_new_pos = if let Some(child_pos) = ecs.get_store_mut::<Transform>().get_mut(child) {
+        let child_new_pos = if let Some(child_pos) = ecs.get_store_mut::<Transform>().get_mut(child)
+        {
             let new = child_pos.position + delta;
             child_pos.position = new;
             new

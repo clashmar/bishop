@@ -1,8 +1,7 @@
 // editor/src/gui/resize_handle.rs
 use crate::world::coord::overlaps_existing_rooms;
-use crate::tiles::tilemap::TileMap;
-use engine_core::world::room::Exit;
 use bishop::prelude::*;
+use engine_core::prelude::*;
 
 /// Which side of the tilemap the handle controls.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -38,6 +37,12 @@ pub enum ResizeResult {
     Overlap,
 }
 
+/// Data needed for resize preview.
+pub(crate) struct PreviewData {
+    position: Vec2,
+    size: Vec2,
+}
+
 impl ResizeHandle {
     /// Creates a new handle for the given side.
     pub fn new(side: HandleSide, rect: Rect) -> Self {
@@ -57,51 +62,44 @@ impl ResizeHandle {
         let length = grid_size * 2.0;
         let offset = grid_size * 1.5;
 
-        let mut handles = Vec::with_capacity(4);
-
-        // Top handle
-        handles.push(ResizeHandle::new(
-            HandleSide::Top,
-            Rect::new(
-                room_position.x + map_pixel_width / 2.0 - length / 2.0,
-                room_position.y - offset - thickness / 2.0,
-                length,
-                thickness,
+        let handles = vec![
+            ResizeHandle::new(
+                HandleSide::Top,
+                Rect::new(
+                    room_position.x + map_pixel_width / 2.0 - length / 2.0,
+                    room_position.y - offset - thickness / 2.0,
+                    length,
+                    thickness,
+                ),
             ),
-        ));
-
-        // Bottom handle 
-        handles.push(ResizeHandle::new(
-            HandleSide::Bottom,
-            Rect::new(
-                room_position.x + map_pixel_width / 2.0 - length / 2.0,
-                room_position.y + map_pixel_height + offset - thickness / 2.0,
-                length,
-                thickness,
+            ResizeHandle::new(
+                HandleSide::Bottom,
+                Rect::new(
+                    room_position.x + map_pixel_width / 2.0 - length / 2.0,
+                    room_position.y + map_pixel_height + offset - thickness / 2.0,
+                    length,
+                    thickness,
+                ),
             ),
-        ));
-
-        // Left handle 
-        handles.push(ResizeHandle::new(
-            HandleSide::Left,
-            Rect::new(
-                room_position.x - offset - thickness / 2.0,
-                room_position.y + map_pixel_height / 2.0 - length / 2.0,
-                thickness,
-                length,
+            ResizeHandle::new(
+                HandleSide::Left,
+                Rect::new(
+                    room_position.x - offset - thickness / 2.0,
+                    room_position.y + map_pixel_height / 2.0 - length / 2.0,
+                    thickness,
+                    length,
+                ),
             ),
-        ));
-
-        // Right handle 
-        handles.push(ResizeHandle::new(
-            HandleSide::Right,
-            Rect::new(
-                room_position.x + map_pixel_width + offset - thickness / 2.0,
-                room_position.y + map_pixel_height / 2.0 - length / 2.0,
-                thickness,
-                length,
+            ResizeHandle::new(
+                HandleSide::Right,
+                Rect::new(
+                    room_position.x + map_pixel_width + offset - thickness / 2.0,
+                    room_position.y + map_pixel_height / 2.0 - length / 2.0,
+                    thickness,
+                    length,
+                ),
             ),
-        ));
+        ];
 
         handles
     }
@@ -129,18 +127,10 @@ impl ResizeHandle {
         let mouse_delta = mouse_world - self.drag_state.start_mouse_world;
 
         let delta = match self.side {
-            HandleSide::Top => {
-                (-mouse_delta.y / grid_size).round() as i32
-            }
-            HandleSide::Bottom => {
-                (mouse_delta.y / grid_size).round() as i32
-            }
-            HandleSide::Left => {
-                (-mouse_delta.x / grid_size).round() as i32
-            }
-            HandleSide::Right => {
-                (mouse_delta.x / grid_size).round() as i32
-            }
+            HandleSide::Top => (-mouse_delta.y / grid_size).round() as i32,
+            HandleSide::Bottom => (mouse_delta.y / grid_size).round() as i32,
+            HandleSide::Left => (-mouse_delta.x / grid_size).round() as i32,
+            HandleSide::Right => (mouse_delta.x / grid_size).round() as i32,
         };
 
         self.drag_state.preview_delta = delta;
@@ -153,7 +143,7 @@ impl ResizeHandle {
         room_position: Vec2,
         room_size: Vec2,
         grid_size: f32,
-    ) -> (Vec2, Vec2) {
+    ) -> PreviewData {
         let delta = self.drag_state.preview_delta;
         let delta_pixels = delta as f32 * grid_size;
 
@@ -170,7 +160,10 @@ impl ResizeHandle {
             HandleSide::Right => (room_position, vec2(room_size.x + delta as f32, room_size.y)),
         };
 
-        (new_pos, new_size * grid_size)
+        PreviewData {
+            position: new_pos,
+            size: new_size * grid_size,
+        }
     }
 
     /// End the drag operation.
@@ -216,12 +209,12 @@ impl ResizeHandle {
 
     /// Draw the handle rectangle.
     pub fn draw(
-        &self, 
+        &self,
         ctx: &mut WgpuContext,
-        camera: &Camera2D, 
-        is_active: bool, 
-        preview_valid: bool, 
-        grid_size: f32
+        camera: &Camera2D,
+        is_active: bool,
+        preview_valid: bool,
+        grid_size: f32,
     ) {
         let draw_rect = self.current_draw_rect(grid_size);
 
@@ -252,20 +245,21 @@ impl ResizeHandle {
 
     /// Draw the preview overlay showing the proposed new bounds.
     pub fn draw_preview(
-        &self, 
+        &self,
         ctx: &mut WgpuContext,
-        room_position: Vec2, 
-        room_size: Vec2, 
-        grid_size: f32, 
-        is_valid: bool
+        room_position: Vec2,
+        room_size: Vec2,
+        grid_size: f32,
+        is_valid: bool,
     ) {
         if !self.drag_state.is_dragging || self.drag_state.preview_delta == 0 {
             return;
         }
 
         let delta = self.drag_state.preview_delta;
-        let (preview_pos, preview_size) =
-            self.compute_preview_bounds(room_position, room_size, grid_size);
+        let preview_data = self.compute_preview_bounds(room_position, room_size, grid_size);
+        let preview_pos = preview_data.position;
+        let preview_size = preview_data.size;
 
         // Calculate new dimensions in tiles
         let (new_width, new_height) = match self.side {
@@ -283,19 +277,33 @@ impl ResizeHandle {
             Color::new(1.0, 0.0, 0.0, 0.2)
         };
 
-        ctx.draw_rectangle(preview_pos.x, preview_pos.y, preview_size.x, preview_size.y, color);
+        ctx.draw_rectangle(
+            preview_pos.x,
+            preview_pos.y,
+            preview_size.x,
+            preview_size.y,
+            color,
+        );
 
         let border_color = if is_valid {
             Color::new(0.0, 1.0, 0.0, 0.8)
         } else {
             Color::new(1.0, 0.0, 0.0, 0.8)
         };
-        ctx.draw_rectangle_lines(preview_pos.x, preview_pos.y, preview_size.x, preview_size.y, 2.0, border_color);
+        ctx.draw_rectangle_lines(
+            preview_pos.x,
+            preview_pos.y,
+            preview_size.x,
+            preview_size.y,
+            1.0,
+            border_color,
+        );
 
         // Draw dimension text centered above preview
         let dim_text = format!("{} x {}", new_width, new_height);
         let font_size = grid_size.max(16.0);
-        let text_x = preview_pos.x + preview_size.x / 2.0 - (dim_text.len() as f32 * font_size * 0.3);
+        let text_x =
+            preview_pos.x + preview_size.x / 2.0 - (dim_text.len() as f32 * font_size * 0.3);
         let text_y = preview_pos.y - font_size * 0.5;
         let text_color = if is_valid { Color::GREEN } else { Color::RED };
         ctx.draw_text(&dim_text, text_x, text_y, font_size, text_color);
@@ -309,8 +317,7 @@ pub fn validate_resize(
     side: HandleSide,
     delta: i32,
     other_bounds: &[(Vec2, Vec2)],
-    preview_pos: Vec2,
-    preview_size: Vec2,
+    preview_data: PreviewData,
     grid_size: f32,
 ) -> ResizeResult {
     let (new_w, new_h) = compute_new_dims(map, side, delta);
@@ -321,7 +328,12 @@ pub fn validate_resize(
     if !exits_valid(map, exits, side, delta, new_w, new_h) {
         return ResizeResult::StrandedExit;
     }
-    if !overlap_valid(preview_pos, preview_size, other_bounds, grid_size) {
+    if !overlap_valid(
+        preview_data.position,
+        preview_data.size,
+        other_bounds,
+        grid_size,
+    ) {
         return ResizeResult::Overlap;
     }
     ResizeResult::Success
@@ -355,17 +367,9 @@ fn exits_valid(
     new_w: usize,
     new_h: usize,
 ) -> bool {
-    exits.iter().all(|e| {
-        is_exit_valid_after_resize(
-            e,
-            side,
-            delta,
-            map.width,
-            map.height,
-            new_w,
-            new_h,
-        )
-    })
+    exits
+        .iter()
+        .all(|e| is_exit_valid_after_resize(e, side, delta, map.width, map.height, new_w, new_h))
 }
 
 fn overlap_valid(

@@ -1,6 +1,6 @@
 use crate::menu::*;
-use serde::{Deserialize, Serialize};
 use bishop::prelude::*;
+use serde::{Deserialize, Serialize};
 
 /// Actions that can be triggered by menu items.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -133,7 +133,34 @@ impl LayoutGroupBuilder {
 
     /// Adds a managed button child.
     pub fn button(mut self, text_key: &str, action: MenuAction) -> Self {
-        let element = MenuElement::button(text_key.to_string(), action, Rect::new(0.0, 0.0, 0.0, 0.0));
+        let element =
+            MenuElement::button(text_key.to_string(), action, Rect::new(0.0, 0.0, 0.0, 0.0));
+        self.children.push(LayoutChild {
+            element,
+            managed: true,
+        });
+        self
+    }
+
+    /// Adds a managed slider child.
+    pub fn slider(
+        mut self,
+        text_key: &str,
+        key: &str,
+        min: f32,
+        max: f32,
+        step: f32,
+        default: f32,
+    ) -> Self {
+        let element = MenuElement::slider(
+            text_key.to_string(),
+            key.to_string(),
+            min,
+            max,
+            step,
+            default,
+            Rect::new(0.0, 0.0, 0.0, 0.0),
+        );
         self.children.push(LayoutChild {
             element,
             managed: true,
@@ -153,10 +180,7 @@ impl LayoutGroupBuilder {
             layout: self.layout,
             children: self.children,
             background: None,
-            nav_up: None,
-            nav_down: None,
-            nav_left: None,
-            nav_right: None,
+            nav_targets: NavTargets::default(),
         }
     }
 }

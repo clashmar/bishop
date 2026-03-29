@@ -1,13 +1,8 @@
 // game/src/main.rs
-use game_lib::scripting::lua_ctx::register_lua_contexts;
-use game_lib::game_instance::GameInstance;
-use game_lib::engine::Engine;
-use engine_core::prelude::*;
 use bishop::prelude::*;
-use std::cell::RefCell;
 use bishop::BishopApp;
-use std::rc::Rc;
-use mlua::Lua;
+use engine_core::prelude::*;
+use game_lib::engine::{Engine, EngineBuilder, GameInstance};
 use std::env;
 use std::fs;
 
@@ -29,39 +24,16 @@ impl GameApp {
 impl BishopApp for GameApp {
     async fn init(&mut self, ctx: PlatformContext) {
         onscreen_info!("Initializing game.");
-
-        // Store the context for later use
         self.ctx = Some(ctx.clone());
 
-        let lua = Lua::new();
-        let mut camera_manager = CameraManager::default();
+        let mut builder = EngineBuilder::new();
 
         let game_instance = {
             let mut ctx_ref = ctx.borrow_mut();
-            Rc::new(RefCell::new(GameInstance::new(
-                &mut *ctx_ref, 
-                &lua, 
-                &mut camera_manager
-            ).await))
+            GameInstance::new(&mut *ctx_ref, &builder.lua, &mut builder.camera_manager)
         };
-        let grid_size = game_instance.borrow().game.current_world().grid_size;
 
-        if let Err(e) = register_lua_contexts(
-            &lua, 
-            game_instance.clone(), 
-            ctx.clone()
-        ) {
-            onscreen_error!("Could not register lua contexts: {}", e)
-        }
-
-        self.engine = Some(Engine::new(
-            game_instance.clone(),
-            ctx.clone(),
-            lua,
-            camera_manager,
-            grid_size,
-            false,
-        ));
+        self.engine = Some(builder.assemble(game_instance, ctx, false));
     }
 
     async fn frame(&mut self, ctx: PlatformContext) {

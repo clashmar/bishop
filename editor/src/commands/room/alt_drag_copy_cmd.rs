@@ -1,13 +1,8 @@
 // editor/src/commands/room/alt_drag_copy_cmd.rs
-use crate::commands::editor_command_manager::EditorCommand;
-use crate::ecs::component_registry::ComponentRegistry;
 use crate::app::EditorMode;
-use crate::ecs::entity::*;
-use crate::ecs::ecs::Ecs;
+use crate::commands::editor_command_manager::EditorCommand;
 use crate::with_editor;
-use engine_core::ecs::component::comp_type_name;
-use engine_core::ecs::capture::capture_subtree;
-use engine_core::world::room::RoomId;
+use engine_core::prelude::*;
 use std::collections::{HashMap, HashSet};
 
 /// Undo-able command for alt+drag copy operation.
@@ -19,7 +14,7 @@ pub struct AltDragCopyCmd {
     /// The entities that were created during alt+drag.
     created_entities: Vec<Entity>,
     /// Snapshot captured from created entities for redo.
-    snapshot: Option<Vec<(Entity, Vec<(String, String)>)>>,
+    snapshot: Option<GroupSnapshot>,
     /// Whether this is the first execution (entities already exist).
     first_execute: bool,
     /// Maps old entity IDs to newly created ones (for redo).
@@ -59,19 +54,19 @@ impl EditorCommand for AltDragCopyCmd {
             with_editor(|editor| {
                 let ctx = &mut editor.game.ctx_mut();
 
-                for (entity_id, bag) in &all_snapshots {
-                    for (type_name, _) in bag {
+                for snapshot in &all_snapshots {
+                    for comp in &snapshot.components {
                         let component_reg = match inventory::iter::<ComponentRegistry>()
-                            .find(|r| r.type_name == type_name)
+                            .find(|r| r.type_name == comp.type_name)
                         {
                             Some(reg) => reg,
                             None => continue,
                         };
 
                         // Clone the existing component, call post_create, then reinsert
-                        let mut boxed = (component_reg.clone)(ctx.ecs, *entity_id);
-                        (component_reg.post_create)(&mut *boxed, entity_id, ctx);
-                        (component_reg.inserter)(ctx.ecs, *entity_id, boxed);
+                        let mut boxed = (component_reg.clone)(ctx.ecs, snapshot.entity);
+                        (component_reg.post_create)(&mut *boxed, &snapshot.entity, ctx);
+                        (component_reg.inserter)(ctx.ecs, snapshot.entity, boxed);
                     }
                 }
             });
@@ -87,19 +82,19 @@ impl EditorCommand for AltDragCopyCmd {
         }
 
         // Redo: recreate entities from snapshot
-        let snapshot = match &self.snapshot {
+        let snapshots = match &self.snapshot {
             Some(s) if !s.is_empty() => s,
             _ => return,
         };
 
         // Find root entities (no parent in snapshot)
-        let snapshot_ids: HashSet<Entity> = snapshot.iter().map(|(id, _)| *id).collect();
+        let snapshot_ids: HashSet<Entity> = snapshots.iter().map(|s| s.entity).collect();
         let mut root_old_ids = Vec::new();
 
-        for (old_id, bag) in snapshot.iter() {
-            let has_parent_in_snapshot = bag.iter().any(|(type_name, ron)| {
-                if type_name == comp_type_name::<Parent>() {
-                    if let Ok(parent) = ron::from_str::<Parent>(ron) {
+        for snapshot in snapshots.iter() {
+            let has_parent_in_snapshot = snapshot.components.iter().any(|comp| {
+                if comp.type_name == comp_type_name::<Parent>() {
+                    if let Ok(parent) = ron::from_str::<Parent>(&comp.ron) {
                         return snapshot_ids.contains(&parent.0);
                     }
                 }
@@ -107,36 +102,39 @@ impl EditorCommand for AltDragCopyCmd {
             });
 
             if !has_parent_in_snapshot {
-                root_old_ids.push(*old_id);
+                root_old_ids.push(snapshot.entity);
             }
         }
 
         // Create new entities
         let mut map = HashMap::new();
-        for (old_id, _) in snapshot.iter() {
+        for snapshot in snapshots.iter() {
             let new_id = with_editor(|editor| {
                 let ecs = &mut editor.game.ecs;
                 ecs.create_entity().finish()
             });
-            map.insert(*old_id, new_id);
+            map.insert(snapshot.entity, new_id);
         }
         self.id_map = Some(map.clone());
-        self.created_entities = root_old_ids.iter().filter_map(|old| map.get(old).copied()).collect();
+        self.created_entities = root_old_ids
+            .iter()
+            .filter_map(|old| map.get(old).copied())
+            .collect();
 
         with_editor(|editor| {
             let ctx = &mut editor.game.ctx_mut();
 
-            for (old_id, bag) in snapshot.iter() {
-                let new_id = map[old_id];
+            for snapshot in snapshots.iter() {
+                let new_id = map[&snapshot.entity];
 
-                for (type_name, ron) in bag.iter() {
+                for comp in snapshot.components.iter() {
                     let component_reg = inventory::iter::<ComponentRegistry>()
-                        .find(|r| r.type_name == type_name)
+                        .find(|r| r.type_name == comp.type_name)
                         .expect("Component not registered");
 
-                    let mut boxed = (component_reg.from_ron_component)(ron.clone());
+                    let mut boxed = (component_reg.from_ron_component)(comp.ron.clone());
 
-                    if type_name == comp_type_name::<Parent>() {
+                    if comp.type_name == comp_type_name::<Parent>() {
                         let parent = boxed
                             .as_mut()
                             .downcast_mut::<Parent>()
@@ -145,7 +143,7 @@ impl EditorCommand for AltDragCopyCmd {
                         if let Some(&new_parent) = map.get(&parent.0) {
                             parent.0 = new_parent;
                         }
-                    } else if type_name == comp_type_name::<Children>() {
+                    } else if comp.type_name == comp_type_name::<Children>() {
                         let children = boxed
                             .as_mut()
                             .downcast_mut::<Children>()

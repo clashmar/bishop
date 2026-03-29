@@ -1,8 +1,8 @@
 // editor/src/gui/prompts/world_edit_prompt.rs
 use crate::gui::prompts::constants::*;
 use crate::gui::prompts::helpers::*;
-use engine_core::prelude::*;
 use bishop::prelude::*;
+use engine_core::prelude::*;
 
 /// Result an edit world prompt.
 pub struct WorldEditResult {
@@ -46,7 +46,7 @@ impl WorldEditPrompt {
 
         Self {
             world_id,
-            name_id: name_id,
+            name_id,
             rect,
             og_name: name.clone(),
             og_sprite,
@@ -57,12 +57,12 @@ impl WorldEditPrompt {
 
     /// Draws the widget and, return the result if confirmed/cancelled or None.
     pub fn draw(
-        &mut self, 
+        &mut self,
         ctx: &mut WgpuContext,
-        asset_manager: &mut AssetManager
+        asset_manager: &mut AssetManager,
     ) -> Option<WorldEditResult> {
         const GAP: f32 = 5.0;
-        const FIELD_GAP:f32 = 30.0;
+        const FIELD_GAP: f32 = 30.0;
 
         let mut y = self.rect.y;
 
@@ -79,7 +79,9 @@ impl WorldEditPrompt {
 
         // Name field
         let name_rect = Rect::new(self.rect.x, y, self.rect.w, FIELD_H);
-        let (new_name, _) = TextInput::new(self.name_id, name_rect, &self.current_name).max_len(33).show(ctx);
+        let (new_name, _) = TextInput::new(self.name_id, name_rect, &self.current_name)
+            .max_len(33)
+            .show(ctx);
         self.current_name = new_name;
 
         y += name_rect.h + FIELD_GAP;
@@ -96,7 +98,13 @@ impl WorldEditPrompt {
         y += label_dims.height + GAP;
 
         let sprite_rect = Rect::new(self.rect.x, y, self.rect.w, 30.0);
-        if gui_sprite_picker(ctx, sprite_rect.into(), &mut self.current_sprite, asset_manager, false) {
+        if gui_sprite_picker(
+            ctx,
+            sprite_rect,
+            &mut self.current_sprite,
+            asset_manager,
+            false,
+        ) {
             // Widget updates the sprite
         }
 
@@ -108,9 +116,7 @@ impl WorldEditPrompt {
         let cancel_clicked = Button::new(cancel_rect, "Cancel").show(ctx);
 
         // Result
-        if (confirm_clicked || Controls::enter(ctx))
-            && !self.current_name.trim().is_empty()
-        {
+        if (confirm_clicked || Controls::enter(ctx)) && !self.current_name.trim().is_empty() {
             // Build a result that only contains the fields the user actually changed
             let name = if self.current_name != self.og_name {
                 Some(self.current_name.clone())
@@ -122,11 +128,19 @@ impl WorldEditPrompt {
             } else {
                 None
             };
-            return Some(WorldEditResult { id: self.world_id, name, sprite });
+            return Some(WorldEditResult {
+                id: self.world_id,
+                name,
+                sprite,
+            });
         }
 
         if cancel_clicked || Controls::escape(ctx) {
-            return Some(WorldEditResult { id: self.world_id, name: None, sprite: None });
+            return Some(WorldEditResult {
+                id: self.world_id,
+                name: None,
+                sprite: None,
+            });
         }
 
         None

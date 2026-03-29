@@ -1,13 +1,13 @@
 // game/src/scripting/commands/lua_command.rs
 use crate::engine::Engine;
-use engine_core::ecs::component_registry::COMPONENTS;
 use engine_core::animation::animation_clip::*;
+use engine_core::ecs::component_registry::COMPONENTS;
+use engine_core::ecs::entity::Entity;
 use engine_core::ecs::facing_direction::*;
 use engine_core::scripting::script::Script;
-use engine_core::ecs::entity::Entity;
-use mlua::MultiValue;
-use mlua::Function;
 use engine_core::*;
+use mlua::Function;
+use mlua::MultiValue;
 use mlua::Value;
 
 /// All mutating Lua actions implement this.
@@ -28,11 +28,7 @@ impl LuaCommand for SetComponentCmd {
         let mut game_instance = engine.game_instance.borrow_mut();
         if let Some(reg) = COMPONENTS.iter().find(|r| r.type_name == self.comp_name) {
             if let Ok(boxed) = (reg.from_lua)(&engine.lua, self.value.clone()) {
-                (reg.inserter)(
-                    &mut game_instance.game.ecs,
-                    Entity(self.entity),
-                    boxed,
-                );
+                (reg.inserter)(&mut game_instance.game.ecs, Entity(self.entity), boxed);
             } else {
                 onscreen_error!("Failed to convert value for component '{}'", self.comp_name);
             }
@@ -49,7 +45,6 @@ pub struct CallEntityFnCmd {
     pub args: Vec<Value>,
 }
 
-// TODO: use this for updates?
 impl LuaCommand for CallEntityFnCmd {
     fn execute(&mut self, engine: &mut Engine) {
         let game_instance = engine.game_instance.borrow();
@@ -59,16 +54,17 @@ impl LuaCommand for CallEntityFnCmd {
             Some(s) => s,
             None => return,
         };
-        
+
         let instance = match game_instance
-        .game
-        .script_manager
-        .instances
-        .get(&(self.entity, script.script_id)) {
+            .game
+            .script_manager
+            .instances
+            .get(&(self.entity, script.script_id))
+        {
             Some(t) => t,
             None => return,
         };
-        
+
         let Ok(func) = instance.get::<Function>(&*self.fn_name) else {
             return;
         };

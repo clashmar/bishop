@@ -95,6 +95,10 @@ pub struct IconData {
 impl IconData {
     /// Creates new icon data from RGBA pixels.
     pub fn new(rgba: Vec<u8>, width: u32, height: u32) -> Self {
-        Self { rgba, width, height }
+        Self {
+            rgba,
+            width,
+            height,
+        }
     }
 }

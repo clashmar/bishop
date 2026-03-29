@@ -114,7 +114,12 @@ impl ActiveScrollArea {
     /// The rect of the scrollable area, with width reduced to account for the scrollbar when present.
     pub fn content_rect(&self) -> Rect {
         if self.scroll_range > 0.0 {
-            Rect::new(self.rect.x, self.rect.y, self.rect.w - self.scrollbar_w - SCROLLBAR_MARGIN, self.rect.h)
+            Rect::new(
+                self.rect.x,
+                self.rect.y,
+                self.rect.w - self.scrollbar_w - SCROLLBAR_MARGIN,
+                self.rect.h,
+            )
         } else {
             self.rect
         }

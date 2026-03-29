@@ -1,8 +1,8 @@
 // editor/src/gui/generic_panel.rs
 use crate::gui::gui_constants::*;
 use crate::Editor;
-use engine_core::prelude::*;
 use bishop::prelude::*;
+use engine_core::prelude::*;
 
 /// Must be globally unique.
 pub type PanelId = &'static str;
@@ -47,12 +47,7 @@ impl GenericPanel {
         }
     }
 
-    pub fn update_and_draw(
-        &mut self, 
-        ctx: &mut WgpuContext,
-        editor: &mut Editor, 
-        blocked: bool
-    ) {
+    pub fn update_and_draw(&mut self, ctx: &mut WgpuContext, editor: &mut Editor, blocked: bool) {
         if !self.visible {
             return;
         }
@@ -62,7 +57,10 @@ impl GenericPanel {
         // Process drag logic first (before snapshot) so drawing uses current position
         let mouse: Vec2 = ctx.mouse_position().into();
         let title_bar_for_drag = Rect::new(self.rect.x, self.rect.y, self.rect.w, TITLE_BAR_H);
-        if !blocked && ctx.is_mouse_button_pressed(MouseButton::Left) && title_bar_for_drag.contains(mouse) {
+        if !blocked
+            && ctx.is_mouse_button_pressed(MouseButton::Left)
+            && title_bar_for_drag.contains(mouse)
+        {
             self.dragging = true;
             self.drag_offset = mouse - vec2(self.rect.x, self.rect.y);
         }
@@ -98,21 +96,41 @@ impl GenericPanel {
         let title_bar = Rect::new(panel_rect.x, panel_rect.y, panel_rect.w, TITLE_BAR_H);
 
         // Title bar
-        ctx.draw_rectangle(title_bar.x, title_bar.y, title_bar.w, title_bar.h, PANEL_COLOR);
+        ctx.draw_rectangle(
+            title_bar.x,
+            title_bar.y,
+            title_bar.w,
+            title_bar.h,
+            PANEL_COLOR,
+        );
 
         // Collapse button
         let collapse_rect = Rect::new(panel_rect.left() + 5., panel_rect.y + 4., 20., 20.);
-        let collapse_clicked = Button::new(collapse_rect, if self.collapsed { "+" } else { "-" }).plain().text_color(Color::BLACK).blocked(blocked).show(ctx);
+        let collapse_clicked = Button::new(collapse_rect, if self.collapsed { "+" } else { "-" })
+            .plain()
+            .text_color(Color::BLACK)
+            .blocked(blocked)
+            .show(ctx);
         if !blocked && collapse_clicked {
             self.collapsed = !self.collapsed;
         }
 
         // Title
-        ctx.draw_text(self.title, collapse_rect.x + 25., title_bar.y + 20., 16., Color::BLACK);
+        ctx.draw_text(
+            self.title,
+            collapse_rect.x + 25.,
+            title_bar.y + 20.,
+            16.,
+            Color::BLACK,
+        );
 
         // Close button
         let close_rect = Rect::new(panel_rect.right() - 26., panel_rect.y + 4., 20., 20.);
-        let close_clicked = Button::new(close_rect, "x").plain().text_color(Color::BLACK).blocked(blocked).show(ctx);
+        let close_clicked = Button::new(close_rect, "x")
+            .plain()
+            .text_color(Color::BLACK)
+            .blocked(blocked)
+            .show(ctx);
         if !blocked && close_clicked {
             self.visible = false;
         }
@@ -130,8 +148,21 @@ impl GenericPanel {
         );
 
         // Background
-        ctx.draw_rectangle(content_rect.x, content_rect.y, content_rect.w, content_rect.h, FIELD_BACKGROUND_COLOR.into());
-        ctx.draw_rectangle_lines(content_rect.x, content_rect.y, content_rect.w, content_rect.h, 2., Color::WHITE);
+        ctx.draw_rectangle(
+            content_rect.x,
+            content_rect.y,
+            content_rect.w,
+            content_rect.h,
+            FIELD_BACKGROUND_COLOR,
+        );
+        ctx.draw_rectangle_lines(
+            content_rect.x,
+            content_rect.y,
+            content_rect.w,
+            content_rect.h,
+            2.,
+            Color::WHITE,
+        );
 
         if !self.collapsed {
             self.definition.draw(ctx, content_rect, editor, blocked);

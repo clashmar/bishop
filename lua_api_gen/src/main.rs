@@ -1,12 +1,13 @@
 // lua_api_gen/src/main.rs
+use engine_core::scripting::lua_constants::LUA_OWNER_SHARED_ENGINE;
 use engine_core::scripting::modules::lua_module::*;
+use game_lib as _;
 use std::collections::HashMap;
-use std::fs::OpenOptions;
-use std::path::PathBuf;
-use std::io::Write;
 use std::env;
 use std::fs;
-use game_lib as _;
+use std::fs::OpenOptions;
+use std::io::Write;
+use std::path::PathBuf;
 
 fn main() {
     let out_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap())
@@ -23,7 +24,7 @@ fn main() {
 
     for reg in inventory::iter::<LuaApiRegistry> {
         let module = (reg.ctor)();
-        let mut writer = LuaApiWriter::new();
+        let mut writer = LuaApiWriter::default();
         module.emit_api(&mut writer);
 
         // Append the snippet to the buffer for this file
@@ -55,6 +56,7 @@ fn main() {
         // Prepend the header
         if file.metadata().unwrap().len() == 0 {
             writeln!(file, "-- Auto-generated. Do not edit.").unwrap();
+            writeln!(file, "{LUA_OWNER_SHARED_ENGINE}").unwrap();
             writeln!(file, "---@meta").unwrap();
             writeln!(file).unwrap();
         }

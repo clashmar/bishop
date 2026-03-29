@@ -1,7 +1,7 @@
 // editor/src/canvas/grid.rs
 use crate::{
-    canvas::grid_shader::{GridParams, GridRenderer},
     app::camera_controller::{self, EditorCameraController},
+    canvas::grid_shader::{GridParams, GridRenderer},
     world::world_editor::LINE_THICKNESS_MULTIPLIER,
 };
 use bishop::prelude::*;

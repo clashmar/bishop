@@ -1,9 +1,8 @@
 // editor/src/gui/prompts/string_prompt.rs
 use crate::gui::prompts::constants::*;
 use crate::gui::prompts::helpers::*;
-use engine_core::prelude::*;
 use bishop::prelude::*;
-
+use engine_core::prelude::*;
 
 /// Result of a string prompt.
 pub enum StringPromptResult {
@@ -60,14 +59,11 @@ impl StringPrompt {
         );
 
         // Text field
-        let field_rect = Rect::new(
-            self.rect.x,
-            self.rect.y + 20.0,
-            self.rect.w,
-            30.0,
-        );
+        let field_rect = Rect::new(self.rect.x, self.rect.y + 20.0, self.rect.w, 30.0);
 
-        let (new_text, _) = TextInput::new(self.input_id, field_rect, &self.current).focused(true).show(ctx);
+        let (new_text, _) = TextInput::new(self.input_id, field_rect, &self.current)
+            .focused(true)
+            .show(ctx);
         self.current = new_text;
 
         // Buttons
@@ -77,8 +73,7 @@ impl StringPrompt {
         let cancel_clicked = Button::new(cancel_rect, "Cancel").show(ctx);
 
         // Handle result
-        if (confirm_clicked || Controls::enter(ctx))
-        && !self.current.trim().is_empty()  {
+        if (confirm_clicked || Controls::enter(ctx)) && !self.current.trim().is_empty() {
             return Some(StringPromptResult::Confirmed(self.current.clone()));
         }
 

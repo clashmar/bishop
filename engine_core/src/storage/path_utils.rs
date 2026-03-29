@@ -1,17 +1,16 @@
 // engine_core/src/storage/path_utils.rs
-use crate::storage::editor_config::*;
-use crate::engine_global::*;
 use crate::constants::*;
+use crate::engine_global::*;
+use crate::storage::editor_config::*;
 use crate::*;
-use futures::executor::block_on;
-use std::io::ErrorKind;
-use std::path::PathBuf;
-use std::path::Path;
 use rfd::FileDialog;
 use std::ffi::OsStr;
-use std::io::Error;
 use std::fs;
 use std::io;
+use std::io::Error;
+use std::io::ErrorKind;
+use std::path::Path;
+use std::path::PathBuf;
 
 /// Path to the folder that belongs to a particular game (Editor).
 pub fn game_folder(name: &str) -> PathBuf {
@@ -32,7 +31,6 @@ pub fn resources_folder(game_name: &str) -> PathBuf {
                 // Panic is acceptable here as there is no possible fallback
                 resources_dir_from_exe().unwrap()
             }
-
         }
     }
 }
@@ -60,6 +58,11 @@ pub fn text_folder() -> PathBuf {
 /// Returns the path to the menus folder for the current game.
 pub fn menus_folder() -> PathBuf {
     resources_folder_current().join(MENUS_FOLDER)
+}
+
+/// Path to the audio folder inside the resources folder (Editor/Game).
+pub fn audio_folder() -> PathBuf {
+    resources_folder_current().join(AUDIO_FOLDER)
 }
 
 /// Path to the windows folder inside the game folder (Editor).
@@ -102,7 +105,10 @@ pub fn absolute_save_root() -> PathBuf {
     if let Some(user_path) = get_save_root() {
         // Ensure the folder still exists or recreate it
         if let Err(e) = fs::create_dir_all(&user_path) {
-            onscreen_error!("Could not create user save root '{}': {e}", user_path.display());
+            onscreen_error!(
+                "Could not create user save root '{}': {e}",
+                user_path.display()
+            );
         } else {
             return user_path;
         }
@@ -114,22 +120,18 @@ pub fn absolute_save_root() -> PathBuf {
                     cfg.save_root = None;
                 }
                 Err(poison_err) => {
-                    onscreen_error!(
-                        "Could not lock editor config for writing: {}",
-                        poison_err
-                    );
+                    onscreen_error!("Could not lock editor config for writing: {}", poison_err);
                 }
             }
         }
-        
+
         // Update the .ron
         if let Err(e) = save_config() {
             onscreen_error!("Error saving config: {e}.");
         }
-    }
-    else {
+    } else {
         // Save root needs to be set
-        if let Some(path_buf) = block_on(pick_save_root_async()) {
+        if let Some(path_buf) = pick_save_root() {
             return path_buf;
         }
     }
@@ -169,8 +171,9 @@ pub fn resources_dir_from_exe() -> Option<PathBuf> {
     #[cfg(target_os = "macos")]
     {
         // …/Bishop.app/Contents/MacOS/
-        return exe_dir.parent() // Contents/
-            .map(|p| p.join(RESOURCES_FOLDER)); // Resources/
+        exe_dir
+            .parent() // Contents/
+            .map(|p| p.join(RESOURCES_FOLDER)) // Resources/
     }
     // Linux is yet to be implemented
     #[cfg(any(target_os = "windows", target_os = "linux"))]
@@ -188,17 +191,15 @@ pub fn bundle_assets_folder() -> Option<PathBuf> {
 }
 
 /// Pick the folder that will become the absolute save root.
-pub async fn pick_save_root_async() -> Option<PathBuf> {
+pub fn pick_save_root() -> Option<PathBuf> {
     // Let the user choose a base folder
     let base_folder = FileDialog::new()
         .set_title("Select a folder for the editor assets root directory.")
         .pick_folder()
-        .unwrap_or_else(|| default_save_root());
+        .unwrap_or_else(default_save_root);
 
     // Build the full path
-    let save_root = base_folder
-        .join(SAVE_ROOT)
-        .join(GAME_SAVE_ROOT);
+    let save_root = base_folder.join(SAVE_ROOT).join(GAME_SAVE_ROOT);
 
     // Make sure the directory chain exists
     if let Err(e) = fs::create_dir_all(&save_root) {
@@ -212,19 +213,17 @@ pub async fn pick_save_root_async() -> Option<PathBuf> {
     Some(save_root)
 }
 
-/// Pick a new absolute save root and move the existing games 
+/// Pick a new absolute save root and move the existing games
 /// folder there if possible.
-pub async fn change_save_root_async() -> Option<PathBuf> {
+pub fn change_save_root() -> Option<PathBuf> {
     // Let the user choose a new base folder
     let base_folder = rfd::FileDialog::new()
         .set_title("Select a new folder for the editor assets root directory.")
         .pick_folder()
-        .unwrap_or_else(|| default_save_root());
+        .unwrap_or_else(default_save_root);
 
     // Build the full path
-    let new_root = base_folder
-        .join(SAVE_ROOT)
-        .join(GAME_SAVE_ROOT);
+    let new_root = base_folder.join(SAVE_ROOT).join(GAME_SAVE_ROOT);
 
     // Make sure the new folder can be created
     if let Err(e) = fs::create_dir_all(&new_root) {
@@ -233,23 +232,22 @@ pub async fn change_save_root_async() -> Option<PathBuf> {
     }
 
     // Move the old games folder (if it exists) to the new location
-    if let Some(old_root) = get_save_root() {
-        if old_root != new_root {
-            // Try a rename
-            match fs::rename(&old_root, &new_root) {
-                Ok(_) => {
+    if let Some(old_root) = get_save_root()
+        && old_root != new_root
+    {
+        // Try a rename
+        match fs::rename(&old_root, &new_root) {
+            Ok(_) => {
+                delete_save_root();
+            }
+            Err(rename_err) => {
+                // If rename fails fall back to copy
+                onscreen_error!("Rename failed: {rename_err}.");
+                if let Err(copy_err) = copy_dir_recursive(&old_root, &new_root) {
+                    // Continue even if copy fails
+                    onscreen_error!("Failed to copy old games: {copy_err}.");
+                } else {
                     delete_save_root();
-                }
-                Err(rename_err) => {
-                    // If rename fails fall back to copy
-                    onscreen_error!("Rename failed: {rename_err}.");
-                    if let Err(copy_err) = copy_dir_recursive(&old_root, &new_root) {
-                        // Continue even if copy fails
-                        onscreen_error!("Failed to copy old games: {copy_err}.");
-                    }
-                    else {
-                        delete_save_root();
-                    }
                 }
             }
         }
@@ -261,22 +259,21 @@ pub async fn change_save_root_async() -> Option<PathBuf> {
     Some(new_root)
 }
 
-/// Deletes SAVE_ROOT if it is the parent of GAME_SAVE_ROOT after a 
+/// Deletes SAVE_ROOT if it is the parent of GAME_SAVE_ROOT after a
 /// successful copy. DO NOT MAKE PUBLIC.
 fn delete_save_root() {
-    if let Some(root) = get_save_root() {
-        if let Some(parent) = root.parent() {
-            if parent.file_name() == Some(OsStr::new(SAVE_ROOT)) {
-                let _ = fs::remove_dir_all(parent);
-            }
-        }
+    if let Some(root) = get_save_root()
+        && let Some(parent) = root.parent()
+        && parent.file_name() == Some(OsStr::new(SAVE_ROOT))
+    {
+        let _ = fs::remove_dir_all(parent);
     }
 }
 
 /// Update the in‑memory config and persist it.
-fn update_config_root(root_path: &PathBuf) -> Option<()> {
+fn update_config_root(root_path: &Path) -> Option<()> {
     match EDITOR_CONFIG.write() {
-        Ok(mut cfg) => cfg.save_root = Some(root_path.clone()),
+        Ok(mut cfg) => cfg.save_root = Some(root_path.to_path_buf()),
         Err(poison) => {
             onscreen_error!("Editor config lock poisoned: {poison}");
             return None;
@@ -292,15 +289,14 @@ fn update_config_root(root_path: &PathBuf) -> Option<()> {
 }
 
 /// Checks for a valid save root, or prompts the user to choose one.
-/// Note: Caller should yield a frame before calling this to let the event loop start.
-pub async fn ensure_save_root() -> bool {
+pub fn ensure_save_root() -> bool {
     // Fast path
     if get_save_root().is_some() {
         return true;
     }
 
-    // Show the async picker.
-    if let Some(_path) = pick_save_root_async().await {
+    // Show the picker.
+    if let Some(_path) = pick_save_root() {
         return get_save_root().is_some();
     }
 
@@ -316,7 +312,7 @@ pub fn sanitise_name(name: &str) -> String {
         .map(|c| {
             // keep spaces and TODO: decide other special chars
             if c.is_ascii_alphanumeric() || c == ' ' {
-                c 
+                c
             } else {
                 '_'
             }
@@ -351,7 +347,11 @@ pub fn copy_dir_recursive(src: &PathBuf, dest: &PathBuf) -> io::Result<()> {
 }
 
 /// Recursively copy the directory, skipping files with the given extensions.
-pub fn copy_dir_filtered(src: &PathBuf, dest: &PathBuf, skip_extensions: &[&str]) -> io::Result<()> {
+pub fn copy_dir_filtered(
+    src: &PathBuf,
+    dest: &PathBuf,
+    skip_extensions: &[&str],
+) -> io::Result<()> {
     if !src.is_dir() {
         return Err(Error::new(
             ErrorKind::InvalidInput,
@@ -373,7 +373,11 @@ pub fn copy_dir_filtered(src: &PathBuf, dest: &PathBuf, skip_extensions: &[&str]
             let should_skip = src_path
                 .extension()
                 .and_then(|ext| ext.to_str())
-                .map(|ext| skip_extensions.iter().any(|&skip| skip.eq_ignore_ascii_case(ext)))
+                .map(|ext| {
+                    skip_extensions
+                        .iter()
+                        .any(|&skip| skip.eq_ignore_ascii_case(ext))
+                })
                 .unwrap_or(false);
 
             if !should_skip {

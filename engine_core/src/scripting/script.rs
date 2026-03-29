@@ -1,19 +1,21 @@
 // engine_core/src/script/script.rs
-use crate::scripting::script_manager::ScriptManager;
-use crate::scripting::lua_constants::PUBLIC;
-use crate::game::game::GameCtxMut;
 use crate::ecs::entity::Entity;
+use crate::game::GameCtxMut;
+use crate::scripting::lua_constants::PUBLIC;
+use crate::scripting::script_manager::ScriptManager;
 use ecs_component::ecs_component;
-use std::collections::HashMap;
+use mlua::Lua;
+use mlua::Table;
+use mlua::Value;
 use mlua::prelude::LuaResult;
 use serde::Deserialize;
 use serde::Serialize;
-use mlua::Table;
-use mlua::Value;
-use mlua::Lua;
+use std::collections::HashMap;
 
 /// Opaque handle that the script manager gives out. Default/Unset is 0.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
+#[derive(
+    Clone, Copy, Debug, PartialEq, Eq, Ord, PartialOrd, Hash, Serialize, Deserialize, Default,
+)]
 pub struct ScriptId(pub usize);
 
 /// One field that can be edited in the inspector.
@@ -30,6 +32,10 @@ pub enum ScriptField {
 /// The script data that the editor shows.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct ScriptData {
+    #[serde(
+        serialize_with = "crate::storage::ordered_map::serialize",
+        deserialize_with = "crate::storage::ordered_map::deserialize"
+    )]
     pub fields: HashMap<String, ScriptField>,
 }
 
@@ -46,9 +52,10 @@ pub struct Script {
 impl Script {
     /// Loads the table from ScriptManager and updates ScriptData.
     pub fn load(
-        &mut self, lua: &Lua, 
-        script_manager: &mut ScriptManager, 
-        entity: Entity
+        &mut self,
+        lua: &Lua,
+        script_manager: &mut ScriptManager,
+        entity: Entity,
     ) -> LuaResult<()> {
         if self.script_id.0 == 0 {
             // Script hasn't been set yet
@@ -57,7 +64,8 @@ impl Script {
         }
 
         // Get or create the per-entity instance
-        let (instance, _created) = script_manager.get_or_create_instance(lua, entity, self.script_id)?;
+        let (instance, _created) =
+            script_manager.get_or_create_instance(lua, entity, self.script_id)?;
 
         // Determine the public fields table
         let public: Table = match instance.get::<Option<Table>>(PUBLIC)? {
@@ -85,11 +93,11 @@ impl Script {
                             }
                         } else {
                             // Skip unsupported table
-                            continue; 
+                            continue;
                         }
                     } else {
                         // Skip unsupported table
-                        continue; 
+                        continue;
                     }
                 }
                 // Ignore functions
@@ -122,8 +130,8 @@ impl Script {
             return Ok(());
         }
 
-        let (instance, _created) = script_manager
-            .get_or_create_instance(lua, entity, self.script_id)?;
+        let (instance, _created) =
+            script_manager.get_or_create_instance(lua, entity, self.script_id)?;
 
         self.sync_to_lua_with_instance(lua, instance)
     }
@@ -131,7 +139,8 @@ impl Script {
     /// Sync the current ScriptData to an already-retrieved Lua instance.
     /// Use this when you already have the instance to avoid redundant lookups.
     pub fn sync_to_lua_with_instance(&self, lua: &Lua, instance: &Table) -> LuaResult<()> {
-        let public = instance.get::<Option<Table>>(PUBLIC)?
+        let public = instance
+            .get::<Option<Table>>(PUBLIC)?
             .unwrap_or_else(|| instance.clone());
 
         for (name, field) in &self.data.fields {
@@ -166,4 +175,3 @@ fn post_create(script: &mut Script, _entity: &Entity, ctx: &mut GameCtxMut) {
 fn post_remove(script: &mut Script, entity: &Entity, ctx: &mut GameCtxMut) {
     ctx.script_manager.unload(*entity, script.script_id)
 }
-

@@ -1,7 +1,14 @@
 use bishop::prelude::*;
 
 /// Draws text using the provided context.
-pub fn draw_text_ui<C: BishopContext>(ctx: &mut C, text: &str, x: f32, y: f32, font_size: f32, color: impl Into<Color>) -> TextDimensions {
+pub fn draw_text_ui<C: BishopContext>(
+    ctx: &mut C,
+    text: &str,
+    x: f32,
+    y: f32,
+    font_size: f32,
+    color: impl Into<Color>,
+) -> TextDimensions {
     ctx.draw_text(text, x, y, font_size, color.into())
 }
 

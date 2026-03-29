@@ -1,23 +1,23 @@
 // editor/src/editor/actions.rs
-use crate::app::EditorCameraController;
-use crate::world::world_editor::WorldEditor;
-use crate::game::game_editor::GameEditor;
-use crate::room::room_editor::RoomEditor;
-use crate::menu_editor::MenuEditor;
-use crate::ui::widgets::input_is_focused;
-use crate::storage::export::export_game;
-use crate::storage::editor_storage::*;
-use crate::commands::world::*;
-use crate::commands::game::*;
-use crate::gui::menu_bar::*;
-use crate::editor_global::*;
-use crate::gui::prompts::*;
 use crate::app::Editor;
-use crate::gui::panels::*;
-use crate::gui::modal::*;
+use crate::app::EditorCameraController;
 use crate::app::*;
-use engine_core::prelude::*;
+use crate::commands::game::*;
+use crate::commands::world::*;
+use crate::editor_global::*;
+use crate::game::game_editor::GameEditor;
+use crate::gui::inspector::audio_source_module::clear_active_audio_preview;
+use crate::gui::menu_bar::*;
+use crate::gui::modal::*;
+use crate::gui::panels::*;
+use crate::gui::prompts::*;
+use crate::menu::MenuEditor;
+use crate::room::room_editor::RoomEditor;
+use crate::storage::editor_storage::*;
+use crate::storage::export::export_game;
+use crate::world::world_editor::WorldEditor;
 use bishop::prelude::*;
+use engine_core::prelude::*;
 use std::cell::RefCell;
 
 impl Default for Editor {
@@ -39,24 +39,23 @@ impl Default for Editor {
             toast: None,
             playtest_process: None,
             grid_renderer: None,
+            audio_manager: AudioManager::new::<PlatformAudioBackend>(),
         }
     }
 }
 
 impl Editor {
     /// Returns `Some(name)` when the user confirms, `None` on cancel.
-    pub async fn prompt_new_game(&mut self, ctx: &mut WgpuContext) -> Option<String> {
-        self.open_new_game_modal(ctx);
+    pub async fn prompt_new_game(&mut self, ctx: PlatformContext) -> Option<String> {
+        self.open_new_game_modal(&mut ctx.borrow_mut());
 
         // Wait until the user has responded
         loop {
             // Draws and handles result
-            if let Some(modal_result) = self.handle_modal(ctx).await {
-                if let ModalResult::String(name) = modal_result {
-                    // Only close modal if a name is returned
-                    self.modal.close();
-                    return Some(name);
-                }
+            if let Some(ModalResult::String(name)) = self.handle_modal(&mut ctx.borrow_mut()) {
+                // Only close modal if a name is returned
+                self.modal.close();
+                return Some(name);
             }
 
             // Guard against modal not being open for some reason
@@ -65,13 +64,14 @@ impl Editor {
             }
 
             // Toasts can be created by the prompt
-            self.draw_toast(ctx);
+            self.draw_toast(&mut ctx.borrow_mut());
 
-            ctx.next_frame().await;
+            let next_frame = { ctx.borrow().next_frame() };
+            next_frame.await;
         }
     }
 
-    pub async fn draw_menu_bar(&mut self, ctx: &mut WgpuContext) {
+    pub fn draw_menu_bar(&mut self, ctx: &mut WgpuContext) {
         let menu_title = match self.mode {
             EditorMode::Game => self.game.name.clone(),
             EditorMode::World(_) => self.game.current_world().name.clone(),
@@ -107,11 +107,11 @@ impl Editor {
                                 Ok(_) => {
                                     // Only load if it's in the correct folder
                                     if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
-                                        match load_game_by_name(name).await {
+                                        match load_game_by_name(name) {
                                             Ok(game) => {
-                                                self.reset(ctx, game).await;
+                                                self.reset(ctx, game);
                                                 self.toast = Some(Toast::new(
-                                                    &format!("Loaded '{}'", name),
+                                                    format!("Loaded '{}'", name),
                                                     2.5,
                                                 ));
                                             }
@@ -143,7 +143,7 @@ impl Editor {
                 EditorAction::SaveAs => self.open_save_as_modal(ctx),
                 EditorAction::Undo => crate::editor_global::request_undo(),
                 EditorAction::Redo => crate::editor_global::request_redo(),
-                EditorAction::Export => match export_game(&self.game).await {
+                EditorAction::Export => match export_game(&self.game) {
                     Ok(path) => {
                         self.toast =
                             Some(Toast::new(format!("Exported to: {}", path.display()), 2.5));
@@ -152,7 +152,7 @@ impl Editor {
                         onscreen_error!("Export failed: {e}");
                     }
                 },
-                EditorAction::ChangeSaveRoot => match change_save_root_async().await {
+                EditorAction::ChangeSaveRoot => match change_save_root() {
                     Some(new_root) => {
                         self.toast = Some(Toast::new(
                             format!("Save root moved to: {}", new_root.display()),
@@ -182,6 +182,7 @@ impl Editor {
                     self.open_world_settings_modal(ctx);
                 }
                 EditorAction::OpenMenuEditor => {
+                    clear_active_audio_preview();
                     self.return_mode = Some(self.mode);
                     self.mode = EditorMode::Menu;
                     self.load_menus();
@@ -197,7 +198,8 @@ impl Editor {
 
                     match return_mode {
                         EditorMode::Game => {
-                            self.game_editor.init_camera(ctx, &mut self.camera, &mut self.game);
+                            self.game_editor
+                                .init_camera(ctx, &mut self.camera, &mut self.game);
                         }
                         EditorMode::World(id) => {
                             self.world_editor.init_camera(
@@ -210,10 +212,10 @@ impl Editor {
                             let current_world = self.game.current_world();
                             if let Some(room) = current_world.get_room(id) {
                                 EditorCameraController::reset_room_editor_camera(
-                                    ctx, 
-                                    &mut self.camera, 
-                                    room, 
-                                    current_world.grid_size
+                                    ctx,
+                                    &mut self.camera,
+                                    room,
+                                    current_world.grid_size,
                                 );
                             }
                         }
@@ -226,7 +228,7 @@ impl Editor {
         }
     }
 
-    pub async fn handle_shortcuts(&mut self, ctx: &mut WgpuContext) {
+    pub fn handle_shortcuts(&mut self, ctx: &mut WgpuContext) {
         if Controls::save(ctx) {
             self.save();
         }
@@ -253,9 +255,17 @@ impl Editor {
     }
 
     pub fn save(&mut self) {
+        let palette = &self.room_editor.tilemap_editor.tilemap_panel.palette;
+        let palette_saved = if let Err(e) = save_palette(palette, &self.game.name) {
+            onscreen_error!("Could not save palette: {e}");
+            false
+        } else {
+            true
+        };
+
         if let Err(e) = save_game(&self.game) {
             onscreen_error!("Could not save game: {}.", e)
-        } else {
+        } else if palette_saved {
             self.save_menus();
             self.toast = Some(Toast::new("Saved", 2.5));
         }
@@ -344,12 +354,8 @@ impl Editor {
         let world_id = world.id;
         let grid_size = world.grid_size;
 
-        let mut prompt = WorldSettingsPrompt::new(
-            world_id,
-            self.modal.rect,
-            WidgetId::default(),
-            grid_size,
-        );
+        let mut prompt =
+            WorldSettingsPrompt::new(world_id, self.modal.rect, WidgetId::default(), grid_size);
 
         let widgets: Vec<BoxedWidget> = vec![Box::new(move |ctx, _| {
             if let Some(result) = prompt.draw(ctx) {
@@ -360,7 +366,7 @@ impl Editor {
         self.modal.open(widgets);
     }
 
-    pub async fn handle_modal(&mut self, ctx: &mut WgpuContext) -> Option<ModalResult> {
+    pub fn handle_modal(&mut self, ctx: &mut WgpuContext) -> Option<ModalResult> {
         if self.modal.is_open() {
             // Outside‑click handling
             if self.modal.draw(ctx, &mut self.game.asset_manager) {
@@ -384,8 +390,8 @@ impl Editor {
                                 return None;
                             }
                             // Create the new game
-                            let new_game = create_new_game(name.clone()).await;
-                            self.reset(ctx, new_game).await;
+                            let new_game = create_new_game(name.clone());
+                            self.reset(ctx, new_game);
                             self.modal.close();
                             return Some(ModalResult::String(name));
                         }
@@ -443,7 +449,7 @@ impl Editor {
                             Ok(()) => self.save(),
                             Err(err) => {
                                 self.toast =
-                                    Some(Toast::new(&format!("Failed to save game: {err}"), 3.0));
+                                    Some(Toast::new(format!("Failed to save game: {err}"), 3.0));
                             }
                         }
                         self.modal.close();
@@ -483,17 +489,17 @@ impl Editor {
         }
     }
 
-    pub async fn reset(&mut self, ctx: &WgpuContext, game: Game) {
+    pub fn reset(&mut self, ctx: &WgpuContext, game: Game) {
         // Update global game name for file system
         set_game_name(game.name.clone());
 
         // Resets the global services (command queue, clipboard etc)
         reset_services();
 
-        let game = self.init_game_for_editor(ctx, game).await;
+        let game = self.init_game_for_editor(ctx, game);
 
         *self = Self {
-            game: game,
+            game,
             camera: std::mem::take(&mut self.camera),
             ..Self::default()
         };
@@ -504,16 +510,12 @@ impl Editor {
     }
 
     // Returns an initialized game for the editor.
-    pub async fn init_game_for_editor(&mut self, ctx: &WgpuContext, game: Game) -> Game {
-        let mut game = with_lua_async(|lua| {
-            Box::pin(async move {
-                let mut game = game;
-                game.initialize(lua).await;
-                game
-            })
-        }).await;
+    pub fn init_game_for_editor(&mut self, ctx: &WgpuContext, game: Game) -> Game {
+        let mut game = game;
 
-        self.game_editor.init_camera(ctx, &mut self.camera, &mut game);
+        with_lua(|lua| game.initialize(ctx, lua));
+        self.game_editor
+            .init_camera(ctx, &mut self.camera, &mut game);
 
         game
     }
@@ -523,7 +525,7 @@ impl Editor {
         let duplicate_exists = list_game_names().iter().any(|existing| existing == name);
 
         if duplicate_exists {
-            self.toast = Some(Toast::new(&format!("\"{name}\" already exists."), 2.5));
+            self.toast = Some(Toast::new(format!("\"{name}\" already exists."), 2.5));
         };
 
         duplicate_exists
@@ -531,8 +533,8 @@ impl Editor {
 }
 
 thread_local! {
-    pub static NEW_GAME_PROMPT_RESULT: RefCell<Option<StringPromptResult>> = RefCell::new(None);
-    pub static RENAME_PROMPT_RESULT: RefCell<Option<StringPromptResult>> = RefCell::new(None);
-    pub static SAVE_AS_PROMPT_RESULT: RefCell<Option<StringPromptResult>> = RefCell::new(None);
-    pub static WORLD_SETTINGS_RESULT: RefCell<Option<WorldSettingsResult>> = RefCell::new(None);
+    pub static NEW_GAME_PROMPT_RESULT: RefCell<Option<StringPromptResult>> = const { RefCell::new(None) };
+    pub static RENAME_PROMPT_RESULT: RefCell<Option<StringPromptResult>> = const { RefCell::new(None) };
+    pub static SAVE_AS_PROMPT_RESULT: RefCell<Option<StringPromptResult>> = const { RefCell::new(None) };
+    pub static WORLD_SETTINGS_RESULT: RefCell<Option<WorldSettingsResult>> = const { RefCell::new(None) };
 }

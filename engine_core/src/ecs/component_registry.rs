@@ -1,16 +1,18 @@
-// engine_core/src/ecs/component_registry.rs 
-use crate::ecs::{entity::Entity, ecs::Ecs}; 
+// engine_core/src/ecs/component_registry.rs
 use crate::ecs::component::Component;
-use crate::game::game::GameCtxMut;
+use crate::ecs::{ecs::Ecs, entity::Entity};
+use crate::game::GameCtxMut;
+use mlua::Lua;
+use mlua::Value;
+use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use std::any::{Any, TypeId};
-use once_cell::sync::Lazy;
-use mlua::Value;
-use mlua::Lua;
 
 /// Human‑readable names of all components that have been registered with `ecs_component!`.
 pub static COMPONENTS: Lazy<Vec<&'static ComponentRegistry>> = Lazy::new(|| {
-    inventory::iter::<ComponentRegistry>.into_iter().collect()
+    let mut components: Vec<_> = inventory::iter::<ComponentRegistry>.into_iter().collect();
+    components.sort_by(|left, right| left.type_name.cmp(right.type_name));
+    components
 });
 
 inventory::collect!(ComponentRegistry);
@@ -102,3 +104,17 @@ pub fn noop_post_create(_any: &mut dyn Any, _entity: &Entity, _ctx: &mut GameCtx
 
 /// Default implementation used when a component does not need any post-remove work.
 pub fn noop_post_remove(_any: &mut dyn Any, _entity: &Entity, _ctx: &mut GameCtxMut) {}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn components_are_sorted_by_type_name() {
+        assert!(
+            COMPONENTS
+                .windows(2)
+                .all(|pair| pair[0].type_name <= pair[1].type_name)
+        );
+    }
+}

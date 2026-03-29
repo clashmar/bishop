@@ -1,7 +1,7 @@
 // engine_core/src/scripting/modules/lua_module.rs
+use mlua::Lua;
 use mlua::prelude::LuaResult;
 use std::fmt::Write;
-use mlua::Lua;
 
 /// Every system that wants to expose Lua functions implements this.
 pub trait LuaModule {
@@ -29,15 +29,12 @@ pub trait LuaApi {
 }
 
 /// Writes the lua api for a module.
+#[derive(Default)]
 pub struct LuaApiWriter {
     pub buf: String,
 }
 
 impl LuaApiWriter {
-    pub fn new() -> Self {
-        Self { buf: String::new() }
-    }
-
     pub fn line(&mut self, s: &str) {
         self.buf.push_str(s);
         self.buf.push('\n');
@@ -93,10 +90,7 @@ macro_rules! register_lua_module {
 
 pub trait LuaExposedModule: LuaModule + LuaApi {}
 
-impl<T> LuaExposedModule for T
-where
-    T: LuaModule + LuaApi
-{}
+impl<T> LuaExposedModule for T where T: LuaModule + LuaApi {}
 
 /// Writes the module api to a .lua file.
 pub fn generate_lua_api(out_dir: &std::path::Path) {
@@ -104,7 +98,7 @@ pub fn generate_lua_api(out_dir: &std::path::Path) {
 
     for reg in inventory::iter::<LuaApiRegistry> {
         let module = (reg.ctor)();
-        let mut writer = LuaApiWriter::new();
+        let mut writer = LuaApiWriter::default();
         module.emit_api(&mut writer);
 
         let name = std::any::type_name_of_val(&*module)

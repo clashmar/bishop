@@ -26,9 +26,9 @@ impl Default for DialogueConfig {
     fn default() -> Self {
         Self {
             default_duration: 3.0,
-            font_size: 2.5,
+            font_size: 5.0,
             max_width: 50.0,
-            default_offset_y: -20.0,
+            default_offset_y: -5.0,
             padding: 2.0,
             default_color: [1.0, 1.0, 1.0, 1.0],
             default_background_color: [0.0, 0.0, 0.0, 0.7],

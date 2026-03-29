@@ -1,5 +1,5 @@
 // engine_core/src/world/transition_manager.rs
-use crate::game_instance::GameInstance;
+use crate::engine::game_instance::GameInstance;
 use engine_core::prelude::*;
 use uuid::Uuid;
 
@@ -16,6 +16,7 @@ pub enum TransitionState {
     Retreated,
 }
 
+#[derive(Default)]
 pub struct TransitionManager {
     pub state: TransitionState,
     pub from: Option<Uuid>,
@@ -23,14 +24,6 @@ pub struct TransitionManager {
 }
 
 impl TransitionManager {
-    pub fn new() -> Self {
-        Self {
-            state: TransitionState::None,
-            from: None,
-            to: None,
-        }
-    }
-
     /// Called when the physics system reports that the player crossed an exit.
     pub fn set_state(&mut self, new_state: TransitionState, target_room: Uuid) {
         match new_state {
@@ -52,17 +45,20 @@ impl TransitionManager {
 
     /// Helper to query if currently in a transition.
     pub fn in_transition(&self) -> bool {
-        matches!(self.state, TransitionState::Penetrated | TransitionState::Retreated)
+        matches!(
+            self.state,
+            TransitionState::Penetrated | TransitionState::Retreated
+        )
     }
 
     /// Handles entity transitions between rooms.
-    pub fn handle_transitions(
-        game_instance: &mut GameInstance,
-    ) {
+    pub fn handle_transitions(game_instance: &mut GameInstance) {
         let grid_size = game_instance.game.current_world().grid_size;
         let rooms = game_instance.game.current_world().rooms.clone();
 
-        let entities: Vec<_> = game_instance.game.ecs
+        let entities: Vec<_> = game_instance
+            .game
+            .ecs
             .get_store::<Transform>()
             .data
             .keys()
@@ -112,14 +108,9 @@ pub fn room_of_entity(pos: Vec2, rooms: &[Room], grid_size: f32) -> Option<RoomI
         let max = room.position + room.size * grid_size;
 
         // Never use <=/>= here or will overlap with adjacent rooms
-        if pos.x >= min.x
-            && pos.x < max.x
-            && pos.y > min.y
-            && pos.y <= max.y
-        {
+        if pos.x >= min.x && pos.x < max.x && pos.y > min.y && pos.y <= max.y {
             return Some(room.id);
         }
     }
     None
 }
-

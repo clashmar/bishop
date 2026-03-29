@@ -1,8 +1,8 @@
 // editor/src/gui/mode_selector.rs
-use crate::gui::modal::is_modal_open;
 use crate::gui::gui_constants::*;
-use engine_core::ui::text::*;
+use crate::gui::modal::is_modal_open;
 use bishop::prelude::*;
+use engine_core::ui::text::*;
 
 /// A trait that each editor’s mode enum must implement.
 pub trait ModeInfo {
@@ -15,7 +15,7 @@ pub trait ModeInfo {
 }
 
 /// The UI component.
-pub struct ModeSelector <M: ModeInfo + Copy + PartialEq + 'static> {
+pub struct ModeSelector<M: ModeInfo + Copy + PartialEq + 'static> {
     /// Currently active mode.
     pub current: M,
     /// All possible modes (order defines layout).
@@ -41,10 +41,12 @@ impl<M: ModeInfo + Copy + PartialEq> ModeSelector<M> {
             // Highlight the active mode
             if *mode == self.current {
                 ctx.draw_rectangle_lines(
-                    rect.x - 2.0, rect.y - 2.0,
-                    rect.w + 4.0, rect.h + 4.0,
+                    rect.x - 2.0,
+                    rect.y - 2.0,
+                    rect.w + 4.0,
+                    rect.h + 4.0,
                     2.0,
-                    Color::YELLOW
+                    Color::YELLOW,
                 );
             }
 
@@ -52,16 +54,15 @@ impl<M: ModeInfo + Copy + PartialEq> ModeSelector<M> {
             if ctx.is_mouse_button_pressed(MouseButton::Left)
                 && rect.contains(ctx.mouse_position().into())
                 && !is_modal_open()
+                && *mode != self.current
             {
-                if *mode != self.current {
-                    self.current = *mode;
-                    changed = true;
-                }
+                self.current = *mode;
+                changed = true;
             }
 
             // Draw icon
             ctx.draw_texture_ex(
-                &mode.icon(),
+                mode.icon(),
                 rect.x,
                 rect.y,
                 Color::WHITE,
@@ -91,28 +92,17 @@ impl<M: ModeInfo + Copy + PartialEq> ModeSelector<M> {
                 let tip = mode.label();
                 let tip_size = measure_text(ctx, tip, 16.0);
 
-                let tip_rect = Rect::new(
-                    rect.x,
-                    rect.y + rect.h + 4.0,
-                    tip_size.width + 8.0,
-                    20.0,
-                );
+                let tip_rect = Rect::new(rect.x, rect.y + rect.h + 4.0, tip_size.width + 8.0, 20.0);
 
                 ctx.draw_rectangle(
                     tip_rect.x,
                     tip_rect.y,
                     tip_rect.w,
                     tip_rect.h,
-                    Color::new(0.0, 0.0, 0.0, 0.8)
+                    Color::new(0.0, 0.0, 0.0, 0.8),
                 );
 
-                ctx.draw_text(
-                    tip,
-                    tip_rect.x + 4.0,
-                    tip_rect.y + 15.0,
-                    16.0,
-                    Color::WHITE
-                );
+                ctx.draw_text(tip, tip_rect.x + 4.0, tip_rect.y + 15.0, 16.0, Color::WHITE);
             }
         }
     }
@@ -138,10 +128,10 @@ fn sub_mode_strip_layout(anchor_x: f32, anchor_y: f32, option_count: usize) -> (
 /// Draws only the background of the sub-mode strip.
 /// Call this before drawing the mode selector so tooltips appear on top.
 pub fn draw_sub_mode_strip_background(
-    ctx: &mut WgpuContext, 
-    anchor_x: f32, 
-    anchor_y: f32, 
-    option_count: usize
+    ctx: &mut WgpuContext,
+    anchor_x: f32,
+    anchor_y: f32,
+    option_count: usize,
 ) -> Rect {
     let (strip_rect, _, _) = sub_mode_strip_layout(anchor_x, anchor_y, option_count);
 
@@ -190,11 +180,10 @@ pub fn draw_sub_mode_strip<S: ModeInfo + Copy + PartialEq + 'static>(
         if ctx.is_mouse_button_pressed(MouseButton::Left)
             && rect.contains(ctx.mouse_position().into())
             && !is_modal_open()
+            && *mode != *current
         {
-            if *mode != *current {
-                *current = *mode;
-                changed = true;
-            }
+            *current = *mode;
+            changed = true;
         }
 
         // Draw icon
@@ -214,12 +203,7 @@ pub fn draw_sub_mode_strip<S: ModeInfo + Copy + PartialEq + 'static>(
             let tip = mode.label();
             let tip_size = measure_text(ctx, tip, 16.0);
 
-            let tip_rect = Rect::new(
-                rect.x,
-                rect.y + rect.h + 4.0,
-                tip_size.width + 8.0,
-                20.0,
-            );
+            let tip_rect = Rect::new(rect.x, rect.y + rect.h + 4.0, tip_size.width + 8.0, 20.0);
 
             ctx.draw_rectangle(
                 tip_rect.x,

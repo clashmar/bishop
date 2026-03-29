@@ -248,10 +248,10 @@
 //             self.glow_mat.set_texture(&format!("tex_mask{}", i), tex);
 
 //             let screen_pos = world_to_target(
-//                 render_cam, 
-//                 *world_pos, 
-//                 target_w, 
-//                 target_h, 
+//                 render_cam,
+//                 *world_pos,
+//                 target_w,
+//                 target_h,
 //                 preview
 //             );
 
@@ -270,7 +270,7 @@
 //                 );
 //             }
 //         }
-        
+
 //         self.glow_mat.set_uniform("GlowCount", glows.len().min(MAX_LIGHTS) as i32);
 //         self.glow_mat.set_uniform_array("Brightness", &self.glow_bufffers.map(|g| g.brightness));
 //         self.glow_mat.set_uniform_array("Intensity", &self.glow_bufffers.map(|g| g.intensity));
@@ -280,9 +280,9 @@
 //         self.glow_mat.set_uniform_array("maskSize", &self.glow_bufffers.map(|g| g.mask_size));
 //         self.glow_mat.set_uniform("screenWidth", target_w);
 //         self.glow_mat.set_uniform("screenHeight", target_h);
-        
+
 //         self.draw_pass(&self.glow_mat, &self.glow_rt.texture);
-        
+
 //         gl_use_default_material();
 //     }
 
@@ -322,7 +322,7 @@
 //                 (screen_width(), screen_height())
 //             };
 
-//             let light_count = lights.len(); 
+//             let light_count = lights.len();
 
 //             for i in 0..light_count {
 //                 let (pos, l) = &lights[i];
@@ -438,7 +438,6 @@
 //         );
 //     }
 
-
 //     /// Sets and draws the supplied material and resets to default.
 //     pub fn draw_pass(&self, material: &Material, quad: &Texture2D) {
 //         gl_use_material(material);
@@ -473,7 +472,7 @@
 //             render_target: Some(self.scene_rt.clone()),
 //             ..Default::default()
 //         };
-        
+
 //         // Clear the texture every layer
 //         set_camera(&scene_cam); // Set before clearing!
 //         clear_background(Color::TRANSPARENT);
@@ -559,9 +558,9 @@
 // }
 
 // fn world_to_target(
-//     cam: &Camera2D, 
-//     world_pos: Vec2, 
-//     target_w: f32, 
+//     cam: &Camera2D,
+//     world_pos: Vec2,
+//     target_w: f32,
 //     target_h: f32,
 //     preview: bool,
 // ) -> Vec2 {
