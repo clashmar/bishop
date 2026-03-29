@@ -307,7 +307,7 @@ fn generate_lua_schema(fields: &Fields) -> proc_macro2::TokenStream {
             if unnamed.unnamed.len() == 1 {
                 // Mark single-field tuple structs as aliases using the inner type directly
                 let field = unnamed.unnamed.first().unwrap();
-                let lua_type = rust_type_to_lua(&field.ty);
+                let lua_type = rust_alias_type_to_lua(&field.ty);
 
                 quote! {
                     &[("__alias__", #lua_type)]
@@ -376,5 +376,28 @@ fn rust_type_to_lua(ty: &Type) -> &'static str {
             }
         }
         _ => "table",
+    }
+}
+
+fn rust_alias_type_to_lua(ty: &Type) -> String {
+    match ty {
+        syn::Type::Path(p) => {
+            let Some(segment) = p.path.segments.last() else {
+                return rust_type_to_lua(ty).to_string();
+            };
+
+            if !matches!(segment.arguments, syn::PathArguments::None) {
+                return rust_type_to_lua(ty).to_string();
+            }
+
+            let ident = segment.ident.to_string();
+            let primitive = rust_type_to_lua(ty);
+            if primitive != "table" || ident.ends_with("Id") {
+                primitive.to_string()
+            } else {
+                ident
+            }
+        }
+        _ => rust_type_to_lua(ty).to_string(),
     }
 }

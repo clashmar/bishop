@@ -507,6 +507,8 @@ pub struct SetFacingMethod;
 impl LuaMethod<EntityHandle> for SetFacingMethod {
     fn register<M: UserDataMethods<EntityHandle>>(&self, methods: &mut M) {
         methods.add_method(SET_FACING, |_lua, this, direction: String| {
+            let direction = parse_direction(&direction)
+                .map_err(mlua::Error::RuntimeError)?;
             push_command(Box::new(SetFacingCmd {
                 entity: this.entity,
                 direction,
@@ -517,7 +519,7 @@ impl LuaMethod<EntityHandle> for SetFacingMethod {
 
     fn emit_api(&self, out: &mut LuaApiWriter) {
         out.line("--- Sets the facing direction (for auto-flip with mirrored clips).");
-        out.line("---@param direction string \"left\" or \"right\"");
+        out.line("---@param direction Direction|string");
         out.line(&format!("function Entity:{}(direction) end", SET_FACING));
         out.line("");
     }

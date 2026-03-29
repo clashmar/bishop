@@ -95,7 +95,7 @@ impl LuaCommand for SetClipCmd {
         // Get facing direction first (before mutable borrow of Animation)
         let facing_left = ecs
             .get::<FacingDirection>(self.entity)
-            .map(|f| f.0.is_left())
+            .map(|f| flip_x_for_direction(f.0))
             .unwrap_or(false);
 
         if let Some(animation) = ecs.get_mut::<Animation>(self.entity) {
@@ -153,7 +153,7 @@ impl LuaCommand for SetFlipXCmd {
 /// Sets the facing direction on an entity.
 pub struct SetFacingCmd {
     pub entity: Entity,
-    pub direction: String,
+    pub direction: Direction,
 }
 
 impl LuaCommand for SetFacingCmd {
@@ -161,19 +161,14 @@ impl LuaCommand for SetFacingCmd {
         let mut game_instance = engine.game_instance.borrow_mut();
         let ecs = &mut game_instance.game.ecs;
 
-        let direction = match self.direction.to_lowercase().as_str() {
-            "left" => Direction::Left,
-            _ => Direction::Right,
-        };
-
-        ecs.add_component_to_entity(self.entity, FacingDirection(direction));
+        ecs.add_component_to_entity(self.entity, FacingDirection(self.direction));
 
         // Auto-flip if current clip has mirrored enabled
         if let Some(animation) = ecs.get_mut::<Animation>(self.entity) {
             if let Some(current_id) = &animation.current {
                 if let Some(clip) = animation.clips.get(current_id) {
                     if clip.mirrored {
-                        animation.flip_x = direction.is_left();
+                        animation.flip_x = flip_x_for_direction(self.direction);
                     }
                 }
             }
@@ -208,5 +203,50 @@ fn string_to_clip_id(name: &str) -> ClipId {
         "jump" => ClipId::Jump,
         "fall" => ClipId::Fall,
         _ => ClipId::Custom(name.to_string()),
+    }
+}
+
+pub(crate) fn parse_direction(value: &str) -> Result<Direction, String> {
+    match value.trim().to_lowercase().as_str() {
+        "up" => Ok(Direction::Up),
+        "down" => Ok(Direction::Down),
+        "left" => Ok(Direction::Left),
+        "right" => Ok(Direction::Right),
+        "up_left" | "upleft" => Ok(Direction::UpLeft),
+        "up_right" | "upright" => Ok(Direction::UpRight),
+        "down_left" | "downleft" => Ok(Direction::DownLeft),
+        "down_right" | "downright" => Ok(Direction::DownRight),
+        other => Err(format!(
+            "Unsupported direction '{other}'. Expected one of: up, down, left, right, up_left, up_right, down_left, down_right."
+        )),
+    }
+}
+
+pub(crate) fn flip_x_for_direction(direction: Direction) -> bool {
+    direction.has_leftward_component()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parse_direction_accepts_legacy_and_new_direction_strings() {
+        assert_eq!(parse_direction("left").unwrap(), Direction::Left);
+        assert_eq!(parse_direction("up_left").unwrap(), Direction::UpLeft);
+        assert_eq!(parse_direction("DownRight").unwrap(), Direction::DownRight);
+    }
+
+    #[test]
+    fn parse_direction_rejects_unknown_values() {
+        assert!(parse_direction("north").is_err());
+    }
+
+    #[test]
+    fn leftward_flip_helper_only_flips_for_leftward_directions() {
+        assert!(flip_x_for_direction(Direction::Left));
+        assert!(flip_x_for_direction(Direction::DownLeft));
+        assert!(!flip_x_for_direction(Direction::Up));
+        assert!(!flip_x_for_direction(Direction::Right));
     }
 }
