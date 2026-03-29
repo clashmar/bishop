@@ -39,7 +39,7 @@
 ---@class Damage
 ---@field amount number
 
----@alias FacingDirection table
+---@alias FacingDirection Direction
 
 ---@class Global
 --- Marker component
@@ -73,7 +73,7 @@
 
 ---@alias Name string
 
----@alias Parent table
+---@alias Parent Entity
 
 ---@class PhysicsBody
 --- Marker component

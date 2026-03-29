@@ -154,7 +154,7 @@ impl Renderable for CurrentFrame {
         asset_manager: &mut AssetManager,
         params: &EntityDrawParams,
     ) -> bool {
-        if !asset_manager.contains(self.sprite_id) {
+        if self.sprite_id.0 == 0 {
             return false;
         }
         let tex = asset_manager.get_texture_from_id(ctx, self.sprite_id);

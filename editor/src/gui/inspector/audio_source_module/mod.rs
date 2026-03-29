@@ -6,6 +6,7 @@ use self::groups::*;
 use self::layout::body_layout;
 pub use self::preview::clear_active_audio_preview;
 use self::preview::*;
+use crate::editor_global::push_toast;
 use crate::storage::sound_preset_storage::*;
 use bishop::prelude::*;
 use engine_core::prelude::*;
@@ -30,7 +31,6 @@ pub struct AudioSourceModule {
     volume_id: WidgetId,
     pitch_id: WidgetId,
     volume_var_id: WidgetId,
-    warning: Option<Toast>,
     pending_rename_target: Option<SoundGroupId>,
     rename_initial_value: String,
     has_groups: bool,
@@ -132,7 +132,9 @@ impl InspectorModule for AudioSourceModule {
                 clear_active_audio_preview();
                 self.has_preset_actions = false;
                 self.sounds_len = 0;
-                self.update_warning(ctx, warning_message);
+                if let Some(msg) = warning_message {
+                    push_toast(msg, 2.5);
+                }
                 return;
             };
 
@@ -140,7 +142,7 @@ impl InspectorModule for AudioSourceModule {
                 clear_active_audio_preview();
                 self.has_preset_actions = false;
                 self.sounds_len = 0;
-                self.update_warning(ctx, Some("Current sound group is missing".to_string()));
+                push_toast("Current sound group is missing", 2.5);
                 return;
             };
 
@@ -380,21 +382,8 @@ impl InspectorModule for AudioSourceModule {
             rename_preset_links_in_ecs(game_ctx.ecs, &old_preset_name, &new_preset_name);
         }
 
-        self.update_warning(ctx, warning_message);
-    }
-}
-
-impl AudioSourceModule {
-    fn update_warning(&mut self, ctx: &mut WgpuContext, warning_message: Option<String>) {
-        if let Some(message) = warning_message {
-            self.warning = Some(Toast::new(message, 2.5));
-        }
-
-        if let Some(toast) = &mut self.warning {
-            toast.update(ctx);
-            if !toast.active {
-                self.warning = None;
-            }
+        if let Some(msg) = warning_message {
+            push_toast(msg, 2.5);
         }
     }
 }

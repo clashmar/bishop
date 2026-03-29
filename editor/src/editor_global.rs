@@ -38,6 +38,22 @@ thread_local! {
     pub static EDITOR_SERVICES: Rc<EditorServices> = EditorServices::new();
 }
 
+thread_local! {
+    static PENDING_TOAST: RefCell<Option<Toast>> = const { RefCell::new(None) };
+}
+
+/// Queue a toast notification for display by the Editor's centralized toast system.
+pub fn push_toast<S: Into<String>>(msg: S, duration: f32) {
+    PENDING_TOAST.with(|cell| {
+        *cell.borrow_mut() = Some(Toast::new(msg, duration));
+    });
+}
+
+/// Takes the pending toast, if any. Called by `Editor::draw_toast()` each frame.
+pub fn take_pending_toast() -> Option<Toast> {
+    PENDING_TOAST.with(|cell| cell.borrow_mut().take())
+}
+
 /// Reset the global editor services.
 pub fn reset_services() {
     EDITOR_SERVICES.with(|services| {

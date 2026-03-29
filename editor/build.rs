@@ -11,6 +11,7 @@ use std::path::PathBuf;
 fn main() -> std::io::Result<()> {
     generate_lua_script();
     generate_lua_components();
+    generate_lua_direction();
     generate_lua_input();
     generate_engine_scripts_rs();
 
@@ -152,6 +153,35 @@ fn generate_lua_input() {
 
     // Write the file
     let target = out_dir.join("input.lua");
+    write_if_changed(&target, &lua);
+}
+
+fn generate_lua_direction() {
+    let out_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap())
+        .join("scripts")
+        .join("_engine");
+
+    fs::create_dir_all(&out_dir).expect("cannot create _engine folder");
+
+    let lua = format!(
+        "-- Auto-generated. Do not edit.\n\
+        {LUA_OWNER_SHARED_ENGINE}\n\
+        ---@meta\n\n\
+        ---@enum Direction\n\
+        local Direction = {{\n\
+            Up = \"up\",\n\
+            Down = \"down\",\n\
+            Left = \"left\",\n\
+            Right = \"right\",\n\
+            UpLeft = \"up_left\",\n\
+            UpRight = \"up_right\",\n\
+            DownLeft = \"down_left\",\n\
+            DownRight = \"down_right\",\n\
+        }}\n\n\
+        return Direction\n"
+    );
+
+    let target = out_dir.join("direction.lua");
     write_if_changed(&target, &lua);
 }
 

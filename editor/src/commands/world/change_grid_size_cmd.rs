@@ -1,6 +1,7 @@
 // editor/src/commands/world/change_grid_size_cmd.rs
 use crate::app::EditorMode;
 use crate::commands::editor_command_manager::EditorCommand;
+use crate::editor_global::push_toast;
 use crate::with_editor;
 use engine_core::prelude::*;
 
@@ -63,10 +64,10 @@ impl EditorCommand for ChangeGridSizeCmd {
                 transform.position *= scale_factor;
             }
 
-            editor.toast = Some(Toast::new(
+            push_toast(
                 format!("World grid size changed to {}", self.new_grid_size),
                 2.5,
-            ));
+            );
         });
     }
 
@@ -92,10 +93,10 @@ impl EditorCommand for ChangeGridSizeCmd {
                 }
             }
 
-            editor.toast = Some(Toast::new(
+            push_toast(
                 format!("World grid size restored to {}", self.old_grid_size),
                 2.5,
-            ));
+            );
         });
     }
 

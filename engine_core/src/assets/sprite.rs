@@ -54,11 +54,12 @@ impl Renderable for Sprite {
         asset_manager: &mut AssetManager,
         params: &EntityDrawParams,
     ) -> bool {
-        let Some(size) = self.dimensions(asset_manager) else {
+        if self.sprite.0 == 0 {
             return false;
-        };
+        }
 
         let tex = asset_manager.get_texture_from_id(ctx, self.sprite);
+        let size = vec2(tex.width(), tex.height());
         let draw_base = pivot_adjusted_position(params.pos, size, params.pivot);
         ctx.draw_texture_ex(
             tex,

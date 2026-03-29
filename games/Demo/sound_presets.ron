@@ -1,14 +1,3 @@
 (
-    presets: {
-        "Jump": (
-            sounds: [
-                "sfx/jump",
-            ],
-            volume: 1.0,
-            pitch_variation: 0.0,
-            volume_variation: 0.0,
-            looping: false,
-            preset_link: None,
-        ),
-    },
+    presets: {},
 )

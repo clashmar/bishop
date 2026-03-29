@@ -7,10 +7,10 @@ pub const FIXED_DT: f32 = 1.0 / 60.0;
 pub const MAX_ACCUM: f32 = 0.05;
 
 /// Default tile size that the world scales to.
-pub const DEFAULT_GRID_SIZE: f32 = 16.0;
+pub const DEFAULT_GRID_SIZE: f32 = 8.0;
 pub const MINIMUM_TILE_SIZE: f32 = 5.0;
 
-/// Base tile size for editor scaling.
+/// Base tile size for editor scaling.git
 pub const BASE_GRID_SIZE: f32 = 32.0;
 
 pub const DEFAULT_ROOM_SIZE: Vec2 = Vec2::new(16.0, 9.0);
@@ -42,6 +42,12 @@ pub const MENUS_FOLDER: &str = "menus";
 
 /// Name of the audio folder.
 pub const AUDIO_FOLDER: &str = "audio";
+
+/// Name of the sound effects subfolder inside audio.
+pub const SFX_FOLDER: &str = "sfx";
+
+/// Name of the music subfolder inside audio.
+pub const MUSIC_FOLDER: &str = "music";
 
 /// Name of the folder for windows-specific game assets.
 pub const WINDOWS_FOLDER: &str = "windows";

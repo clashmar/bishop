@@ -65,6 +65,16 @@ pub fn audio_folder() -> PathBuf {
     resources_folder_current().join(AUDIO_FOLDER)
 }
 
+/// Path to the sound effects subfolder inside the audio folder (Editor/Game).
+pub fn sfx_folder() -> PathBuf {
+    audio_folder().join(SFX_FOLDER)
+}
+
+/// Path to the music subfolder inside the audio folder (Editor/Game).
+pub fn music_folder() -> PathBuf {
+    audio_folder().join(MUSIC_FOLDER)
+}
+
 /// Path to the windows folder inside the game folder (Editor).
 pub fn windows_folder() -> PathBuf {
     game_folder(&game_name()).join(WINDOWS_FOLDER)
@@ -213,14 +223,35 @@ pub fn pick_save_root() -> Option<PathBuf> {
     Some(save_root)
 }
 
+/// Result of attempting to change the editor save root.
+#[derive(Debug, PartialEq)]
+pub enum SaveRootResult {
+    /// The save root was successfully changed to the given path.
+    Changed(PathBuf),
+    /// The user cancelled the picker — nothing was modified.
+    Cancelled,
+    /// An error occurred while applying the change.
+    Failed,
+}
+
 /// Pick a new absolute save root and move the existing games
 /// folder there if possible.
-pub fn change_save_root() -> Option<PathBuf> {
-    // Let the user choose a new base folder
-    let base_folder = rfd::FileDialog::new()
+pub fn change_save_root() -> SaveRootResult {
+    let picked = rfd::FileDialog::new()
         .set_title("Select a new folder for the editor assets root directory.")
-        .pick_folder()
-        .unwrap_or_else(default_save_root);
+        .pick_folder();
+
+    apply_save_root_change(picked)
+}
+
+/// Applies a save-root change from the picker selection.
+///
+/// Returns `Cancelled` when `picked_folder` is `None` (user dismissed the
+/// dialog) without touching any state.
+pub fn apply_save_root_change(picked_folder: Option<PathBuf>) -> SaveRootResult {
+    let Some(base_folder) = picked_folder else {
+        return SaveRootResult::Cancelled;
+    };
 
     // Build the full path
     let new_root = base_folder.join(SAVE_ROOT).join(GAME_SAVE_ROOT);
@@ -228,7 +259,7 @@ pub fn change_save_root() -> Option<PathBuf> {
     // Make sure the new folder can be created
     if let Err(e) = fs::create_dir_all(&new_root) {
         onscreen_error!("Cannot create the selected folder: {e}");
-        return None;
+        return SaveRootResult::Failed;
     }
 
     // Move the old games folder (if it exists) to the new location
@@ -253,10 +284,12 @@ pub fn change_save_root() -> Option<PathBuf> {
         }
     }
 
-    update_config_root(&new_root)?;
+    if update_config_root(&new_root).is_none() {
+        return SaveRootResult::Failed;
+    }
 
     onscreen_debug!("Save root changed to: {}", new_root.display());
-    Some(new_root)
+    SaveRootResult::Changed(new_root)
 }
 
 /// Deletes SAVE_ROOT if it is the parent of GAME_SAVE_ROOT after a
@@ -388,6 +421,14 @@ pub fn copy_dir_filtered(
     Ok(())
 }
 
+/// Builds the full save-root path from a user-selected base folder.
+///
+/// This is the pure path logic shared by [`pick_save_root`] and
+/// [`apply_save_root_change`], separated for testability.
+pub fn build_save_root(base_folder: &Path) -> PathBuf {
+    base_folder.join(SAVE_ROOT).join(GAME_SAVE_ROOT)
+}
+
 /// Platform-default location used when the user has not chosen a folder.
 fn default_save_root() -> PathBuf {
     #[cfg(target_os = "macos")]
@@ -404,5 +445,92 @@ fn default_save_root() -> PathBuf {
     {
         let home = std::env::var("HOME").expect("HOME not set");
         Path::new(&home).join(".local/share/BishopEngine/games")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::{Mutex, OnceLock};
+
+    fn test_lock() -> &'static Mutex<()> {
+        static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+        LOCK.get_or_init(|| Mutex::new(()))
+    }
+
+    fn set_test_save_root(path: Option<PathBuf>) {
+        match EDITOR_CONFIG.write() {
+            Ok(mut cfg) => cfg.save_root = path,
+            Err(poison) => poison.into_inner().save_root = path,
+        }
+    }
+
+    struct SaveRootRestoreGuard(Option<PathBuf>);
+
+    impl SaveRootRestoreGuard {
+        fn new() -> Self {
+            Self(get_save_root())
+        }
+    }
+
+    impl Drop for SaveRootRestoreGuard {
+        fn drop(&mut self) {
+            set_test_save_root(self.0.clone());
+        }
+    }
+
+    #[test]
+    fn cancel_returns_cancelled() {
+        let _lock = test_lock().lock().unwrap();
+        let _restore = SaveRootRestoreGuard::new();
+
+        assert_eq!(apply_save_root_change(None), SaveRootResult::Cancelled);
+    }
+
+    #[test]
+    fn cancel_leaves_config_unchanged() {
+        let _lock = test_lock().lock().unwrap();
+        let _restore = SaveRootRestoreGuard::new();
+
+        let known = std::env::temp_dir().join(format!(
+            "bishop-test-known-root-{}",
+            uuid::Uuid::new_v4()
+        ));
+        set_test_save_root(Some(known.clone()));
+
+        let before = get_save_root();
+        let result = apply_save_root_change(None);
+        let after = get_save_root();
+
+        assert_eq!(result, SaveRootResult::Cancelled);
+        assert_eq!(before, Some(known));
+        assert_eq!(after, before);
+    }
+
+    #[test]
+    fn happy_path_returns_changed_and_updates_config() {
+        let _lock = test_lock().lock().unwrap();
+        let _restore = SaveRootRestoreGuard::new();
+
+        let tmp =
+            std::env::temp_dir().join(format!("bishop-test-save-root-{}", uuid::Uuid::new_v4()));
+
+        let result = apply_save_root_change(Some(tmp.clone()));
+        let expected_root = build_save_root(&tmp);
+
+        assert_eq!(result, SaveRootResult::Changed(expected_root.clone()));
+        assert_eq!(get_save_root(), Some(expected_root.clone()));
+
+        // Cleanup
+        let _ = fs::remove_dir_all(&tmp);
+    }
+
+    #[test]
+    fn build_save_root_appends_correct_segments() {
+        let _lock = test_lock().lock().unwrap();
+
+        let base = PathBuf::from("/some/folder");
+        let result = build_save_root(&base);
+        assert_eq!(result, base.join(SAVE_ROOT).join(GAME_SAVE_ROOT));
     }
 }

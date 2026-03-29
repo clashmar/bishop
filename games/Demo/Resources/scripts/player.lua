@@ -1,5 +1,6 @@
 -- player.lua
 local comp = require("_engine.components")
+local direction = require("_engine.direction")
 local input = require("_engine.input")
 local clip = require("_engine.animations")
 local sound = require("_engine.sounds")
@@ -36,9 +37,9 @@ local Player = {
 
         -- Update facing direction based on movement
         if horiz > 0 then
-            self.entity:set_facing("right")
+            self.entity:set_facing(direction.Right)
         elseif horiz < 0 then
-            self.entity:set_facing("left")
+            self.entity:set_facing(direction.Left)
         end
 
         -- Check if running

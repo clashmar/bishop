@@ -91,10 +91,19 @@ fn create_game_folders(name: &str) {
         onscreen_error!("Could not write _engine scripts: {e}");
     }
 
-    // Create an empty main.lua for the user
+    // Create an empty main.lua for the user (only if it doesn't already exist)
     let main_lua = scripts_folder().join("main.lua");
-    if let Err(e) = fs::write(&main_lua, "") {
-        onscreen_error!("Could not create main.lua: {e}");
+    if !main_lua.exists() {
+        if let Err(e) = fs::write(&main_lua, "") {
+            onscreen_error!("Could not create main.lua: {e}");
+        }
+    }
+
+    // Create audio subfolders
+    for path in [sfx_folder(), music_folder()] {
+        if let Err(e) = fs::create_dir_all(&path) {
+            onscreen_error!("Could not create audio folder '{}': {e}", path.display());
+        }
     }
 
     // Create default text structure

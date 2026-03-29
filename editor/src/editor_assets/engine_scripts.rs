@@ -4,6 +4,7 @@
 pub static ENGINE_SCRIPTS: &[(&str, &str)] = &[
     ("audio.lua", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/scripts/_engine/audio.lua"))),
     ("components.lua", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/scripts/_engine/components.lua"))),
+    ("direction.lua", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/scripts/_engine/direction.lua"))),
     ("engine.lua", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/scripts/_engine/engine.lua"))),
     ("entity.lua", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/scripts/_engine/entity.lua"))),
     ("input.lua", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/scripts/_engine/input.lua"))),
