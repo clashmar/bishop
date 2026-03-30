@@ -38,6 +38,7 @@ impl Default for Editor {
             modal: Modal::default(),
             toast: None,
             playtest_process: None,
+            pending_playtest_build: None,
             grid_renderer: None,
             audio_manager: AudioManager::new::<PlatformAudioBackend>(),
         }
