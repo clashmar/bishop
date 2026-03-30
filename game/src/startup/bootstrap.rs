@@ -1,5 +1,5 @@
 use super::{
-    load_startup_flow_for_game_name, load_startup_flow_from_resources, StartupFlowAsset,
+    load_startup_for_game_name, load_startup_from_resources, StartupAsset,
     StartupScreenContent, StartupScreenSpec,
 };
 use crate::engine::{Engine, EngineBuilder, EngineEntryMode, GameInstance};
@@ -23,18 +23,18 @@ pub enum StartupSource {
 struct PlaytestPayload {
     room: Room,
     game: Game,
-    startup_flow_ron: Option<String>,
+    startup_ron: Option<String>,
     #[serde(default)]
     startup_mode: StartupMode,
 }
 
 enum LoadedStartupData {
     Game {
-        flow: StartupFlowAsset,
+        startup_asset: StartupAsset,
         game: Game,
     },
     Playtest {
-        flow: StartupFlowAsset,
+        startup_asset: StartupAsset,
         room: Room,
         game: Game,
         startup_mode: StartupMode,
@@ -44,7 +44,7 @@ enum LoadedStartupData {
 enum LoadedStartupFiles {
     Game {
         resources_dir: PathBuf,
-        flow_ron: Option<String>,
+        startup_ron: Option<String>,
         game_ron: String,
     },
     Playtest {
@@ -54,7 +54,7 @@ enum LoadedStartupFiles {
 
 /// Bootstrap controller that renders startup screens until the runtime `Engine` is ready.
 pub struct StartupController {
-    flow: StartupFlowAsset,
+    startup_asset: StartupAsset,
     load_task: BackgroundTask<Result<LoadedStartupFiles, String>>,
     loaded: Option<LoadedStartupData>,
     splash_index: usize,
@@ -66,9 +66,9 @@ pub struct StartupController {
 impl StartupController {
     /// Creates a startup controller for the given source.
     pub fn new(source: StartupSource) -> Self {
-        let flow = load_initial_flow(&source);
+        let startup_asset = load_initial_startup(&source);
         Self {
-            flow,
+            startup_asset,
             load_task: BackgroundTask::spawn(move || load_startup_data(source)),
             loaded: None,
             splash_index: 0,
@@ -90,7 +90,7 @@ impl StartupController {
                 match result {
                     Ok(files) => match parse_startup_data(files) {
                         Ok(loaded) => {
-                            self.flow = loaded.flow().clone();
+                            self.startup_asset = loaded.startup_asset().clone();
                             self.loaded = Some(loaded);
                         }
                         Err(error) => self.error = Some(error),
@@ -107,7 +107,16 @@ impl StartupController {
             return None;
         }
 
-        if let Some(screen) = self.flow.loading.splash_screens.get(self.splash_index) {
+        if self
+            .loaded
+            .as_ref()
+            .is_some_and(LoadedStartupData::skips_startup_presentation)
+        {
+            let loaded = self.loaded.take()?;
+            return Some(build_engine(ctx, loaded));
+        }
+
+        if let Some(screen) = self.startup_asset.loading.splash_screens.get(self.splash_index) {
             render_screen(&ctx, screen);
             let now = ctx.borrow().get_time();
             let started_at = self.splash_started_at_secs.get_or_insert(now);
@@ -118,14 +127,14 @@ impl StartupController {
             return None;
         }
 
-        render_screen(&ctx, &self.flow.loading.fallback_screen);
+        render_screen(&ctx, &self.startup_asset.loading.fallback_screen);
 
         let now = ctx.borrow().get_time();
         let started_at = self.fallback_started_at_secs.get_or_insert(now);
         if !splash_min_duration_elapsed(
             *started_at,
             now,
-            self.flow.loading.fallback_screen.min_duration_secs,
+            self.startup_asset.loading.fallback_screen.min_duration_secs,
         ) {
             return None;
         }
@@ -137,10 +146,20 @@ impl StartupController {
 }
 
 impl LoadedStartupData {
-    fn flow(&self) -> &StartupFlowAsset {
+    fn startup_asset(&self) -> &StartupAsset {
         match self {
-            Self::Game { flow, .. } | Self::Playtest { flow, .. } => flow,
+            Self::Game { startup_asset, .. } | Self::Playtest { startup_asset, .. } => startup_asset,
         }
+    }
+
+    fn skips_startup_presentation(&self) -> bool {
+        matches!(
+            self,
+            Self::Playtest {
+                startup_mode: StartupMode::Skip,
+                ..
+            }
+        )
     }
 }
 
@@ -149,14 +168,14 @@ fn load_startup_data(source: StartupSource) -> Result<LoadedStartupFiles, String
         StartupSource::Game => {
             let resources_dir = resources_dir_from_exe()
                 .ok_or_else(|| "Could not find game resources folder.".to_string())?;
-            let flow_path = resources_dir.join("startup_flow.ron");
-            let flow_ron = fs::read_to_string(&flow_path).ok();
+            let startup_path = resources_dir.join("startup.ron");
+            let startup_ron = fs::read_to_string(&startup_path).ok();
             let game_path = resources_dir.join(GAME_RON);
             let game_ron = fs::read_to_string(&game_path)
                 .map_err(|error| format!("Could not read '{}': {error}", game_path.display()))?;
             Ok(LoadedStartupFiles::Game {
                 resources_dir,
-                flow_ron,
+                startup_ron,
                 game_ron,
             })
         }
@@ -170,22 +189,22 @@ fn load_startup_data(source: StartupSource) -> Result<LoadedStartupFiles, String
     }
 }
 
-fn load_initial_flow(source: &StartupSource) -> StartupFlowAsset {
+fn load_initial_startup(source: &StartupSource) -> StartupAsset {
     match source {
         StartupSource::Game => resources_dir_from_exe()
-            .map(|resources_dir| load_startup_flow_from_resources(&resources_dir))
+            .map(|resources_dir| load_startup_from_resources(&resources_dir))
             .unwrap_or_default(),
         StartupSource::Playtest { payload_path } => {
-            load_playtest_flow_preview(Path::new(payload_path)).unwrap_or_default()
+            load_playtest_startup_preview(Path::new(payload_path)).unwrap_or_default()
         }
     }
 }
 
-fn load_playtest_flow_preview(payload_path: &Path) -> Option<StartupFlowAsset> {
+fn load_playtest_startup_preview(payload_path: &Path) -> Option<StartupAsset> {
     #[derive(serde::Deserialize)]
     struct PayloadGamePreview {
         game: PayloadGameName,
-        startup_flow_ron: Option<String>,
+        startup_ron: Option<String>,
     }
 
     #[derive(serde::Deserialize)]
@@ -195,38 +214,38 @@ fn load_playtest_flow_preview(payload_path: &Path) -> Option<StartupFlowAsset> {
 
     let payload_ron = fs::read_to_string(payload_path).ok()?;
     let preview = from_str::<PayloadGamePreview>(&payload_ron).ok()?;
-    if let Some(flow_ron) = preview.startup_flow_ron.as_deref() {
-        return Some(parse_payload_startup_flow(flow_ron));
+    if let Some(startup_ron) = preview.startup_ron.as_deref() {
+        return Some(parse_payload_startup(startup_ron));
     }
-    Some(load_startup_flow_for_game_name(&preview.game.name))
+    Some(load_startup_for_game_name(&preview.game.name))
 }
 
 fn parse_startup_data(files: LoadedStartupFiles) -> Result<LoadedStartupData, String> {
     match files {
         LoadedStartupFiles::Game {
             resources_dir,
-            flow_ron,
+            startup_ron,
             game_ron,
         } => {
-            let flow = parse_startup_flow(flow_ron.as_deref(), &resources_dir);
+            let startup_asset = parse_startup(startup_ron.as_deref(), &resources_dir);
             let game =
                 from_str::<Game>(&game_ron).map_err(|error| format!("Failed to parse game.ron: {error}"))?;
-            Ok(LoadedStartupData::Game { flow, game })
+            Ok(LoadedStartupData::Game { startup_asset, game })
         }
         LoadedStartupFiles::Playtest { payload_ron } => {
             let PlaytestPayload {
                 room,
                 game,
-                startup_flow_ron,
+                startup_ron,
                 startup_mode,
             } = from_str(&payload_ron)
                 .map_err(|error| format!("Failed to deserialize playtest payload: {error}"))?;
-            let flow = startup_flow_ron
+            let startup_asset = startup_ron
                 .as_deref()
-                .map(parse_payload_startup_flow)
-                .unwrap_or_else(|| load_startup_flow_for_game_name(&game.name));
+                .map(parse_payload_startup)
+                .unwrap_or_else(|| load_startup_for_game_name(&game.name));
             Ok(LoadedStartupData::Playtest {
-                flow,
+                startup_asset,
                 room,
                 game,
                 startup_mode,
@@ -235,35 +254,35 @@ fn parse_startup_data(files: LoadedStartupFiles) -> Result<LoadedStartupData, St
     }
 }
 
-fn parse_startup_flow(flow_ron: Option<&str>, resources_dir: &Path) -> StartupFlowAsset {
-    let Some(flow_ron) = flow_ron else {
-        return StartupFlowAsset::default();
+fn parse_startup(startup_ron: Option<&str>, resources_dir: &Path) -> StartupAsset {
+    let Some(startup_ron) = startup_ron else {
+        return StartupAsset::default();
     };
 
-    ron::from_str(flow_ron).unwrap_or_else(|error| {
+    ron::from_str(startup_ron).unwrap_or_else(|error| {
         onscreen_error!(
-            "Failed to parse startup flow '{}': {}",
-            resources_dir.join("startup_flow.ron").display(),
+            "Failed to parse startup '{}': {}",
+            resources_dir.join("startup.ron").display(),
             error
         );
-        StartupFlowAsset::default()
+        StartupAsset::default()
     })
 }
 
-fn parse_payload_startup_flow(flow_ron: &str) -> StartupFlowAsset {
-    ron::from_str(flow_ron).unwrap_or_else(|error| {
-        onscreen_error!("Failed to parse embedded playtest startup flow: {}", error);
-        StartupFlowAsset::default()
+fn parse_payload_startup(startup_ron: &str) -> StartupAsset {
+    ron::from_str(startup_ron).unwrap_or_else(|error| {
+        onscreen_error!("Failed to parse embedded playtest startup: {}", error);
+        StartupAsset::default()
     })
 }
 
 fn build_engine(ctx: PlatformContext, loaded: LoadedStartupData) -> Engine {
     match loaded {
-        LoadedStartupData::Game { flow, game } => {
+        LoadedStartupData::Game { startup_asset, game } => {
             set_engine_mode(EngineMode::Game);
             set_game_name(game.name.clone());
 
-            let entry_mode = resolve_entry_mode(&flow, &game, StartupMode::Full);
+            let entry_mode = resolve_entry_mode(&startup_asset, &game, StartupMode::Full);
             let mut builder = EngineBuilder::new().entry_mode(entry_mode);
             let game_instance = {
                 let mut ctx_ref = ctx.borrow_mut();
@@ -278,7 +297,7 @@ fn build_engine(ctx: PlatformContext, loaded: LoadedStartupData) -> Engine {
             builder.assemble(game_instance, ctx, false)
         }
         LoadedStartupData::Playtest {
-            flow,
+            startup_asset,
             room,
             game,
             startup_mode,
@@ -286,7 +305,7 @@ fn build_engine(ctx: PlatformContext, loaded: LoadedStartupData) -> Engine {
             set_engine_mode(EngineMode::Playtest);
             set_game_name(game.name.clone());
 
-            let entry_mode = resolve_entry_mode(&flow, &game, startup_mode);
+            let entry_mode = resolve_entry_mode(&startup_asset, &game, startup_mode);
             let mut builder = EngineBuilder::new().entry_mode(entry_mode);
             let game_instance = {
                 let mut ctx_ref = ctx.borrow_mut();
@@ -304,12 +323,12 @@ fn build_engine(ctx: PlatformContext, loaded: LoadedStartupData) -> Engine {
     }
 }
 
-fn resolve_entry_mode(flow: &StartupFlowAsset, game: &Game, startup_mode: StartupMode) -> EngineEntryMode {
+fn resolve_entry_mode(startup_asset: &StartupAsset, game: &Game, startup_mode: StartupMode) -> EngineEntryMode {
     if startup_mode == StartupMode::Skip {
         return EngineEntryMode::Playing;
     }
 
-    let menu_id = flow.start_menu_id.trim();
+    let menu_id = startup_asset.start_menu_id.trim();
     if menu_id.is_empty() {
         return EngineEntryMode::Playing;
     }
@@ -339,7 +358,6 @@ fn menu_template_exists(menu_id: &str) -> bool {
         if path.extension().is_none_or(|ext| ext != "ron") {
             continue;
         }
-
         let Ok(ron_str) = fs::read_to_string(&path) else {
             continue;
         };
@@ -406,13 +424,13 @@ mod tests {
     }
 
     #[test]
-    fn playtest_flow_preview_loads_authored_splash_screens_from_payload_game_name() {
+    fn playtest_startup_preview_loads_authored_splash_screens_from_payload_game_name() {
         let game_name = unique_name("PlaytestPreview");
         let game_dir = game_folder(&game_name);
         let resources_dir = game_dir.join(RESOURCES_FOLDER);
         fs::create_dir_all(&resources_dir).unwrap();
-        let startup_flow = StartupFlowAsset {
-            loading: super::super::LoadingFlow {
+        let startup = StartupAsset {
+            loading: super::super::LoadingConfig {
                 splash_screens: vec![StartupScreenSpec {
                     min_duration_secs: 1.0,
                     background_color: [0.1, 0.2, 0.3, 1.0],
@@ -427,8 +445,8 @@ mod tests {
             start_menu_id: "start".to_string(),
         };
         fs::write(
-            resources_dir.join("startup_flow.ron"),
-            ron::ser::to_string_pretty(&startup_flow, ron::ser::PrettyConfig::new()).unwrap(),
+            resources_dir.join("startup.ron"),
+            ron::ser::to_string_pretty(&startup, ron::ser::PrettyConfig::new()).unwrap(),
         )
         .unwrap();
 
@@ -447,20 +465,20 @@ mod tests {
         )
         .unwrap();
 
-        let flow = load_playtest_flow_preview(&payload_path).unwrap();
+        let startup = load_playtest_startup_preview(&payload_path).unwrap();
 
-        assert_eq!(flow.loading.splash_screens.len(), 1);
+        assert_eq!(startup.loading.splash_screens.len(), 1);
 
         let _ = fs::remove_file(payload_path);
         let _ = fs::remove_dir_all(game_dir);
     }
 
     #[test]
-    fn playtest_flow_preview_prefers_embedded_payload_flow() {
+    fn playtest_startup_preview_prefers_embedded_payload() {
         let game_name = unique_name("EmbeddedPlaytestPreview");
         let payload_path = std::env::temp_dir().join(format!("{}.ron", unique_name("payload")));
-        let embedded_flow = StartupFlowAsset {
-            loading: super::super::LoadingFlow {
+        let embedded_startup = StartupAsset {
+            loading: super::super::LoadingConfig {
                 splash_screens: vec![StartupScreenSpec {
                     min_duration_secs: 3.0,
                     background_color: [0.4, 0.3, 0.2, 1.0],
@@ -478,7 +496,7 @@ mod tests {
         #[derive(serde::Serialize)]
         struct Payload<'a> {
             game: PayloadGame<'a>,
-            startup_flow_ron: String,
+            startup_ron: String,
         }
 
         #[derive(serde::Serialize)]
@@ -491,8 +509,8 @@ mod tests {
             ron::ser::to_string_pretty(
                 &Payload {
                     game: PayloadGame { name: &game_name },
-                    startup_flow_ron: ron::ser::to_string_pretty(
-                        &embedded_flow,
+                    startup_ron: ron::ser::to_string_pretty(
+                        &embedded_startup,
                         ron::ser::PrettyConfig::new(),
                     )
                     .unwrap(),
@@ -503,10 +521,10 @@ mod tests {
         )
         .unwrap();
 
-        let flow = load_playtest_flow_preview(&payload_path).unwrap();
+        let startup = load_playtest_startup_preview(&payload_path).unwrap();
 
-        assert_eq!(flow.loading.splash_screens.len(), 1);
-        match &flow.loading.splash_screens[0].content {
+        assert_eq!(startup.loading.splash_screens.len(), 1);
+        match &startup.loading.splash_screens[0].content {
             StartupScreenContent::Text { text, .. } => assert_eq!(text, "Embedded"),
         }
 
@@ -552,5 +570,17 @@ mod tests {
             } => assert_eq!(startup_mode, StartupMode::Full),
             LoadedStartupData::Game { .. } => panic!("expected playtest startup data"),
         }
+    }
+
+    #[test]
+    fn playtest_skip_mode_bypasses_startup_presentation() {
+        let loaded = LoadedStartupData::Playtest {
+            startup_asset: StartupAsset::default(),
+            room: Room::default(),
+            game: Game::default(),
+            startup_mode: StartupMode::Skip,
+        };
+
+        assert!(loaded.skips_startup_presentation());
     }
 }

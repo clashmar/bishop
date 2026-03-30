@@ -25,21 +25,21 @@ pub fn write_playtest_payload(
     // Set player spawn position from proxy before purging
     game_copy.ecs.set_player_spawn_from_proxy(room.id);
     game_copy.ecs.purge_proxies();
-    let startup_flow_path = resources_folder(&game.name).join("startup_flow.ron");
-    let startup_flow_ron = fs::read_to_string(&startup_flow_path).ok();
+    let startup_path = resources_folder(&game.name).join("startup.ron");
+    let startup_ron = fs::read_to_string(&startup_path).ok();
 
     #[derive(serde::Serialize)]
     struct Payload<'a> {
         room: &'a Room,
         game: &'a Game,
-        startup_flow_ron: Option<String>,
+        startup_ron: Option<String>,
         startup_mode: StartupMode,
     }
 
     let payload = Payload {
         room,
         game: &game_copy,
-        startup_flow_ron,
+        startup_ron,
         startup_mode: get_startup_mode(),
     };
 

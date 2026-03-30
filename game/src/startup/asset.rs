@@ -3,22 +3,22 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::Path;
 
-const STARTUP_FLOW_FILE: &str = "startup_flow.ron";
+const STARTUP_FILE: &str = "startup.ron";
 
 /// Runtime-authored startup flow configuration.
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 #[serde(default)]
-pub struct StartupFlowAsset {
+pub struct StartupAsset {
     /// Loading-phase screens shown before entering the runtime session flow.
-    pub loading: LoadingFlow,
+    pub loading: LoadingConfig,
     /// Menu id to open when entering the front-end start menu.
     pub start_menu_id: String,
 }
 
-impl Default for StartupFlowAsset {
+impl Default for StartupAsset {
     fn default() -> Self {
         Self {
-            loading: LoadingFlow::default(),
+            loading: LoadingConfig::default(),
             start_menu_id: "start".to_string(),
         }
     }
@@ -27,7 +27,7 @@ impl Default for StartupFlowAsset {
 /// Startup screens shown before the runtime session is ready.
 #[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq)]
 #[serde(default)]
-pub struct LoadingFlow {
+pub struct LoadingConfig {
     /// Non-skippable splash cards shown before the loading buffer.
     pub splash_screens: Vec<StartupScreenSpec>,
     /// Screen displayed while finalization finishes.
@@ -81,27 +81,27 @@ impl Default for StartupScreenContent {
     }
 }
 
-/// Loads the startup flow from the given resources folder, falling back to defaults.
-pub fn load_startup_flow_from_resources(resources_dir: &Path) -> StartupFlowAsset {
-    let path = resources_dir.join(STARTUP_FLOW_FILE);
+/// Loads the startup from the given resources folder, falling back to defaults.
+pub fn load_startup_from_resources(resources_dir: &Path) -> StartupAsset {
+    let path = resources_dir.join(STARTUP_FILE);
     let Ok(ron_str) = fs::read_to_string(&path) else {
-        return StartupFlowAsset::default();
+        return StartupAsset::default();
     };
 
     ron::from_str(&ron_str).unwrap_or_else(|err| {
         onscreen_error!(
-            "Failed to parse startup flow '{}': {}",
+            "Failed to parse startup ron '{}': {}",
             path.display(),
             err
         );
-        StartupFlowAsset::default()
+        StartupAsset::default()
     })
 }
 
-/// Loads the startup flow for a game by name using the current engine-mode resource paths.
-pub fn load_startup_flow_for_game_name(game_name: &str) -> StartupFlowAsset {
+/// Loads the startup for a game by name using the current engine-mode resource paths.
+pub fn load_startup_for_game_name(game_name: &str) -> StartupAsset {
     let resources_dir = resources_folder(game_name);
-    load_startup_flow_from_resources(&resources_dir)
+    load_startup_from_resources(&resources_dir)
 }
 
 #[cfg(test)]
@@ -114,12 +114,12 @@ mod tests {
             .duration_since(UNIX_EPOCH)
             .unwrap()
             .as_nanos();
-        std::env::temp_dir().join(format!("startup_flow_test_{unique}"))
+        std::env::temp_dir().join(format!("startup_test_{unique}"))
     }
 
     #[test]
-    fn default_startup_flow_matches_documented_defaults() {
-        let asset = StartupFlowAsset::default();
+    fn default_startup_matches_documented_defaults() {
+        let asset = StartupAsset::default();
 
         assert!(asset.loading.splash_screens.is_empty());
         assert_eq!(asset.start_menu_id, "start");
@@ -134,23 +134,23 @@ mod tests {
     }
 
     #[test]
-    fn missing_startup_flow_file_uses_defaults() {
+    fn missing_startup_file_uses_defaults() {
         let dir = temp_dir();
         fs::create_dir_all(&dir).unwrap();
 
-        let asset = load_startup_flow_from_resources(&dir);
+        let asset = load_startup_from_resources(&dir);
 
-        assert_eq!(asset, StartupFlowAsset::default());
+        assert_eq!(asset, StartupAsset::default());
         fs::remove_dir_all(dir).unwrap();
     }
 
     #[test]
-    fn demo_startup_flow_asset_parses() {
+    fn demo_startup_asset_parses() {
         let path = Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../games/Demo/Resources/startup_flow.ron");
+            .join("../games/Demo/Resources/startup.ron");
         let ron_str = fs::read_to_string(path).unwrap();
 
-        let asset = ron::from_str::<StartupFlowAsset>(&ron_str).unwrap();
+        let asset = ron::from_str::<StartupAsset>(&ron_str).unwrap();
 
         assert_eq!(asset.loading.splash_screens.len(), 1);
     }
