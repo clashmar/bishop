@@ -1,4 +1,10 @@
 {
+    "Lua.workspace.ignoreDir": [
+        "editor/scripts/_engine",
+        "games/*/Resources/scripts/_engine",
+        "!games/Demo/Resources/scripts/_engine"
+    ],
+    "Lua.diagnostics.ignoredFiles": "Disable",
     "Lua.diagnostics.globals": [
         "local",
         "engine",

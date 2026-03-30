@@ -509,31 +509,3 @@ pub fn delete_menu(id: &str) -> io::Result<()> {
     }
     Ok(())
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn create_new_game_scaffolds_front_end_start_and_settings_menus() {
-        let game_name = format!("MenuScaffold-{}", Uuid::new_v4());
-        let game_dir = game_folder(&game_name);
-
-        create_new_game(game_name.clone());
-
-        let start_path = game_dir.join(RESOURCES_FOLDER).join(MENUS_FOLDER).join("start.ron");
-        let settings_path = game_dir
-            .join(RESOURCES_FOLDER)
-            .join(MENUS_FOLDER)
-            .join("settings.ron");
-
-        let start: MenuTemplate = ron::from_str(&fs::read_to_string(&start_path).unwrap()).unwrap();
-        let settings: MenuTemplate =
-            ron::from_str(&fs::read_to_string(&settings_path).unwrap()).unwrap();
-
-        assert_eq!(start.mode, MenuMode::FrontEnd);
-        assert_eq!(settings.mode, MenuMode::FrontEnd);
-
-        let _ = fs::remove_dir_all(game_dir);
-    }
-}

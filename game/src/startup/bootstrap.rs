@@ -496,7 +496,7 @@ mod tests {
         #[derive(serde::Serialize)]
         struct Payload<'a> {
             game: PayloadGame<'a>,
-            startup_ron: String,
+            startup_ron: Option<String>,
         }
 
         #[derive(serde::Serialize)]
@@ -509,11 +509,11 @@ mod tests {
             ron::ser::to_string_pretty(
                 &Payload {
                     game: PayloadGame { name: &game_name },
-                    startup_ron: ron::ser::to_string_pretty(
+                    startup_ron: Some(ron::ser::to_string_pretty(
                         &embedded_startup,
                         ron::ser::PrettyConfig::new(),
                     )
-                    .unwrap(),
+                    .unwrap()),
                 },
                 ron::ser::PrettyConfig::new(),
             )

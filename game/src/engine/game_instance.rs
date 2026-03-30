@@ -15,7 +15,6 @@ pub struct GameInstance {
 }
 
 impl GameInstance {
-    // TODO: Make game creation DRYer
     pub fn new<C: BishopContext>(
         ctx: &mut C,
         lua: &Lua,

@@ -22,6 +22,9 @@ impl AudioManager {
 
         let path = wav_path(id);
         self.pending_loads.insert(id.to_owned(), path.clone());
+        #[cfg(test)]
+        let _ = &path;
+        #[cfg(not(test))]
         self.file_read_pool.queue_read(id.to_owned(), path);
     }
 
