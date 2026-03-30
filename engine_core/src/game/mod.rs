@@ -1,8 +1,10 @@
 // engine_core/src/game/mod.rs
 
 pub mod game_map;
+pub mod startup_mode;
 
 pub use game_map::*;
+pub use startup_mode::*;
 
 use crate::assets::asset_manager::AssetManager;
 use crate::ecs::ecs::Ecs;

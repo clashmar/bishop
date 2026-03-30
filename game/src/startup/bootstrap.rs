@@ -25,7 +25,7 @@ struct PlaytestPayload {
     game: Game,
     startup_flow_ron: Option<String>,
     #[serde(default)]
-    skip_to_playing: bool,
+    startup_mode: StartupMode,
 }
 
 enum LoadedStartupData {
@@ -37,7 +37,7 @@ enum LoadedStartupData {
         flow: StartupFlowAsset,
         room: Room,
         game: Game,
-        skip_to_playing: bool,
+        startup_mode: StartupMode,
     },
 }
 
@@ -218,7 +218,7 @@ fn parse_startup_data(files: LoadedStartupFiles) -> Result<LoadedStartupData, St
                 room,
                 game,
                 startup_flow_ron,
-                skip_to_playing,
+                startup_mode,
             } = from_str(&payload_ron)
                 .map_err(|error| format!("Failed to deserialize playtest payload: {error}"))?;
             let flow = startup_flow_ron
@@ -229,7 +229,7 @@ fn parse_startup_data(files: LoadedStartupFiles) -> Result<LoadedStartupData, St
                 flow,
                 room,
                 game,
-                skip_to_playing,
+                startup_mode,
             })
         }
     }
@@ -263,7 +263,7 @@ fn build_engine(ctx: PlatformContext, loaded: LoadedStartupData) -> Engine {
             set_engine_mode(EngineMode::Game);
             set_game_name(game.name.clone());
 
-            let entry_mode = resolve_entry_mode(&flow, &game, false);
+            let entry_mode = resolve_entry_mode(&flow, &game, StartupMode::Full);
             let mut builder = EngineBuilder::new().entry_mode(entry_mode);
             let game_instance = {
                 let mut ctx_ref = ctx.borrow_mut();
@@ -281,12 +281,12 @@ fn build_engine(ctx: PlatformContext, loaded: LoadedStartupData) -> Engine {
             flow,
             room,
             game,
-            skip_to_playing,
+            startup_mode,
         } => {
             set_engine_mode(EngineMode::Playtest);
             set_game_name(game.name.clone());
 
-            let entry_mode = resolve_entry_mode(&flow, &game, skip_to_playing);
+            let entry_mode = resolve_entry_mode(&flow, &game, startup_mode);
             let mut builder = EngineBuilder::new().entry_mode(entry_mode);
             let game_instance = {
                 let mut ctx_ref = ctx.borrow_mut();
@@ -304,8 +304,8 @@ fn build_engine(ctx: PlatformContext, loaded: LoadedStartupData) -> Engine {
     }
 }
 
-fn resolve_entry_mode(flow: &StartupFlowAsset, game: &Game, skip_to_playing: bool) -> EngineEntryMode {
-    if skip_to_playing {
+fn resolve_entry_mode(flow: &StartupFlowAsset, game: &Game, startup_mode: StartupMode) -> EngineEntryMode {
+    if startup_mode == StartupMode::Skip {
         return EngineEntryMode::Playing;
     }
 
@@ -528,7 +528,7 @@ mod tests {
     }
 
     #[test]
-    fn parse_startup_data_uses_skip_to_playing_from_payload() {
+    fn parse_startup_data_uses_startup_mode_from_payload() {
         let payload = r#"
 (
     room: (
@@ -537,7 +537,7 @@ mod tests {
     game: (
         name: "Demo",
     ),
-    skip_to_playing: true,
+    startup_mode: Full,
 )
 "#;
 
@@ -548,8 +548,8 @@ mod tests {
 
         match loaded {
             LoadedStartupData::Playtest {
-                skip_to_playing, ..
-            } => assert!(skip_to_playing),
+                startup_mode, ..
+            } => assert_eq!(startup_mode, StartupMode::Full),
             LoadedStartupData::Game { .. } => panic!("expected playtest startup data"),
         }
     }

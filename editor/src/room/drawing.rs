@@ -21,7 +21,6 @@ impl RoomEditor {
         ctx: &mut WgpuContext,
         game_ctx: &mut GameCtxMut,
         camera: &Camera2D,
-        playtest_skip_to_playing: &mut bool,
     ) {
         // Reset to static camera
         ctx.set_default_camera();
@@ -118,28 +117,31 @@ impl RoomEditor {
 
                 self.register_rect(play_rect);
 
-                let checkbox_x = play_rect.x + play_rect.w + WIDGET_SPACING;
-                let checkbox_rect =
-                    self.register_rect(Rect::new(checkbox_x, INSET + 6.0, CHECKBOX_SIZE, CHECKBOX_SIZE));
-                let mut startup_mode = !*playtest_skip_to_playing;
-                gui_checkbox(ctx, checkbox_rect, &mut startup_mode);
-                *playtest_skip_to_playing = !startup_mode;
+                let dropdown_x = play_rect.x + play_rect.w + WIDGET_SPACING;
+                let dropdown_width = 60.0;
+                let dropdown_rect = Rect::new(dropdown_x, INSET, dropdown_width, BTN_HEIGHT);
+                let startup_options = [StartupMode::Full, StartupMode::Skip];
+                let current_mode = get_startup_mode();
 
-                let startup_label = "Startup";
-                let label_x = checkbox_rect.x + checkbox_rect.w + 6.0;
-                let label_y = checkbox_rect.y + CHECKBOX_SIZE - 2.0;
-                ctx.draw_text(
-                    startup_label,
-                    label_x,
-                    label_y,
-                    DEFAULT_FONT_SIZE_16,
-                    Color::BLACK,
-                );
-                let label_dims = measure_text(ctx, startup_label, DEFAULT_FONT_SIZE_16);
+                if let Some(selected) = Dropdown::new(
+                    self.startup_mode_dropdown_id,
+                    dropdown_rect,
+                    &current_mode.to_string(),
+                    &startup_options,
+                    |mode| mode.to_string(),
+                )
+                .fixed_width()
+                .show(ctx)
+                {
+                    if selected != current_mode {
+                        set_startup_mode(selected);
+                    }
+                }
+
                 self.register_rect(Rect::new(
-                    checkbox_rect.x,
+                    dropdown_x,
                     INSET,
-                    checkbox_rect.w + 6.0 + label_dims.width,
+                    dropdown_width,
                     BTN_HEIGHT,
                 ));
             }

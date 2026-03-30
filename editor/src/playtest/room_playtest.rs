@@ -14,7 +14,6 @@ use std::{env, fs, io::Write, path::PathBuf};
 pub fn write_playtest_payload(
     room: &Room,
     game: &Game,
-    skip_to_playing: bool,
 ) -> io::Result<PathBuf> {
     // Clone game via serialization
     let game_ron = ron::to_string(game)
@@ -34,14 +33,14 @@ pub fn write_playtest_payload(
         room: &'a Room,
         game: &'a Game,
         startup_flow_ron: Option<String>,
-        skip_to_playing: bool,
+        startup_mode: StartupMode,
     }
 
     let payload = Payload {
         room,
         game: &game_copy,
         startup_flow_ron,
-        skip_to_playing,
+        startup_mode: get_startup_mode(),
     };
 
     let ron = to_string_pretty(&payload, PrettyConfig::default())

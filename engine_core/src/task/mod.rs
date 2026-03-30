@@ -42,7 +42,7 @@ struct FileReadJob {
 /// Completion from a background file read.
 #[derive(Clone, Debug)]
 pub struct FileReadCompleted {
-    /// Sound identifier associated with the file read.
+    /// Caller-supplied identifier associated with the file read.
     pub id: String,
     /// Source file path for the completed read.
     pub path: PathBuf,

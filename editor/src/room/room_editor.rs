@@ -84,6 +84,7 @@ pub struct RoomEditor {
     pub(crate) tilemap_sub_mode: TilemapEditorMode,
     /// Rect of the sub-mode strip for UI tracking.
     pub(crate) sub_mode_rect: Option<Rect>,
+    pub(crate) startup_mode_dropdown_id: WidgetId,
 }
 
 impl RoomEditor {
@@ -118,6 +119,7 @@ impl RoomEditor {
             drag_initial_start_positions: Vec::new(),
             tilemap_sub_mode: TilemapEditorMode::Tiles,
             sub_mode_rect: None,
+            startup_mode_dropdown_id: WidgetId::default(),
         }
     }
 
@@ -271,7 +273,6 @@ impl RoomEditor {
         camera: &Camera2D,
         room_id: RoomId,
         game: &mut Game,
-        playtest_skip_to_playing: &mut bool,
         render_system: &mut RenderSystem,
         grid_renderer: &GridRenderer,
     ) {
@@ -389,7 +390,7 @@ impl RoomEditor {
             }
 
             if !self.view_preview {
-                self.draw_ui(ctx, &mut game_ctx, camera, playtest_skip_to_playing);
+                self.draw_ui(ctx, &mut game_ctx, camera);
             }
         }
     }
