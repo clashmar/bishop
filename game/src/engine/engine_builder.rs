@@ -1,6 +1,6 @@
 // game/src/engine/engine_builder.rs
 use super::game_instance::GameInstance;
-use super::Engine;
+use super::{Engine, EngineEntryMode};
 use crate::scripting::lua_ctx::register_lua_contexts;
 use bishop::prelude::*;
 use engine_core::prelude::*;
@@ -13,6 +13,7 @@ use std::rc::Rc;
 pub struct EngineBuilder {
     pub lua: Lua,
     pub camera_manager: CameraManager,
+    entry_mode: EngineEntryMode,
 }
 
 impl Default for EngineBuilder {
@@ -27,7 +28,14 @@ impl EngineBuilder {
         Self {
             lua: Lua::new(),
             camera_manager: CameraManager::default(),
+            entry_mode: EngineEntryMode::Playing,
         }
+    }
+
+    /// Sets how the engine should enter a loaded session.
+    pub fn entry_mode(mut self, entry_mode: EngineEntryMode) -> Self {
+        self.entry_mode = entry_mode;
+        self
     }
 
     /// Wraps `game_instance`, extracts `grid_size`, registers Lua contexts,
@@ -50,6 +58,7 @@ impl EngineBuilder {
             self.camera_manager,
             grid_size,
             is_playtest,
+            self.entry_mode,
         )
     }
 }

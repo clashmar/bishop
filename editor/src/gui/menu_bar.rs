@@ -183,14 +183,7 @@ impl MenuBar {
             HEIGHT,
         );
 
-        let file_actions: Vec<EditorAction> = vec![
-            EditorAction::NewGame,
-            EditorAction::Open,
-            EditorAction::Save,
-            EditorAction::SaveAs,
-            EditorAction::Export,
-            EditorAction::ChangeSaveRoot,
-        ];
+        let file_actions = file_actions();
 
         if let Some(selected) = menu_dropdown(
             ctx,
@@ -335,6 +328,22 @@ impl MenuBar {
         // Return the action
         self.pending.take()
     }
+}
+
+fn file_actions() -> Vec<EditorAction> {
+    let mut actions = vec![
+        EditorAction::NewGame,
+        EditorAction::Open,
+        EditorAction::Save,
+        EditorAction::SaveAs,
+        EditorAction::Export,
+    ];
+
+    if !cfg!(debug_assertions) {
+        actions.push(EditorAction::ChangeSaveRoot);
+    }
+
+    actions
 }
 
 /// Draws a the panel background for the top menu across the whole width of the screen and returns its `Rect`.
@@ -532,12 +541,31 @@ fn menu_dropdown<T: Clone + PartialEq + Display>(
     None
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn file_menu_hides_change_save_root_in_debug_builds() {
+        let actions = file_actions();
+
+        assert!(!actions.contains(&EditorAction::ChangeSaveRoot));
+    }
+
+    #[cfg(not(debug_assertions))]
+    #[test]
+    fn file_menu_shows_change_save_root_in_release_builds() {
+        let actions = file_actions();
+
+        assert!(actions.contains(&EditorAction::ChangeSaveRoot));
+    }
+}
+
 /// Returns true if clicked
 pub fn menu_button(ctx: &mut WgpuContext, rect: Rect, label: &str, is_dropdown_open: bool) -> bool {
     // Text layout
     let txt_dims = ctx.measure_text(label, HEADER_FONT_SIZE_20);
-    let txt_y = rect.y + (rect.h - txt_dims.height) / 2.0 + txt_dims.offset_y;
-    let txt_x = rect.x + (rect.w - txt_dims.width) / 2.0;
+    let (txt_x, txt_y) = menu_button_text_position(rect, txt_dims);
 
     let mouse = ctx.mouse_position();
     let hovered = rect.contains(vec2(mouse.0, mouse.1));
@@ -558,6 +586,12 @@ pub fn menu_button(ctx: &mut WgpuContext, rect: Rect, label: &str, is_dropdown_o
     ctx.draw_text(label, txt_x, txt_y, HEADER_FONT_SIZE_20, Color::BLACK);
 
     ctx.is_mouse_button_pressed(MouseButton::Left) && hovered && !is_modal_open()
+}
+
+pub(crate) fn menu_button_text_position(rect: Rect, txt_dims: TextDimensions) -> (f32, f32) {
+    let txt_x = rect.x + (rect.w - txt_dims.width) / 2.0;
+    let txt_y = rect.y + (rect.h - txt_dims.height) / 2.0 + txt_dims.offset_y - 1.0;
+    (txt_x, txt_y)
 }
 
 thread_local! {

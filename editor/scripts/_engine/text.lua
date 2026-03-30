@@ -21,4 +21,3 @@ function engine.text.get_languages() end
 --- Gets the current text display configuration.
 ---@return {default_duration: number, font_size: number, max_width: number, default_offset_y: number, padding: number, show_background: boolean, default_color: number[], default_background_color: number[]}
 function engine.text.get_config() end
-

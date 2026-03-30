@@ -5,4 +5,5 @@ pub mod game_global;
 pub mod input;
 pub mod physics;
 pub mod scripting;
+pub mod startup;
 pub mod transitions;

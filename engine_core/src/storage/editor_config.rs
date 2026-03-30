@@ -1,5 +1,7 @@
 // editor/src/storage/editor_config.rs
 use crate::*;
+#[cfg(feature = "editor")]
+use crate::game::StartupMode;
 use directories_next::ProjectDirs;
 use once_cell::sync::Lazy;
 use ron::from_str;
@@ -19,6 +21,9 @@ pub static EDITOR_CONFIG: Lazy<RwLock<EditorConfig>> = Lazy::new(|| RwLock::new(
 pub struct EditorConfig {
     pub save_root: Option<PathBuf>,
     #[cfg(feature = "editor")]
+    #[serde(default = "default_startup_mode")]
+    pub playtest_startup_mode: StartupMode,
+    #[cfg(feature = "editor")]
     #[serde(default)]
     pub inspector_module_expanded: BTreeMap<String, bool>,
     #[cfg(feature = "editor")]
@@ -31,6 +36,11 @@ pub struct EditorConfig {
 pub struct PanelPosition {
     pub x: f32,
     pub y: f32,
+}
+
+#[cfg(feature = "editor")]
+fn default_startup_mode() -> StartupMode {
+    StartupMode::Skip
 }
 
 /// Saves the editor config .ron file from the in memory config.
@@ -48,6 +58,35 @@ pub fn get_save_root() -> Option<PathBuf> {
     } else {
         // Safe unwrap
         EDITOR_CONFIG.read().unwrap().save_root.clone()
+    }
+}
+
+#[cfg(feature = "editor")]
+pub fn get_startup_mode() -> StartupMode {
+    match EDITOR_CONFIG.read() {
+        Ok(cfg) => cfg.playtest_startup_mode,
+        Err(poison) => {
+            onscreen_error!("Editor config lock poisoned: {poison}");
+            default_startup_mode()
+        }
+    }
+}
+
+#[cfg(feature = "editor")]
+pub fn set_startup_mode(startup_mode: StartupMode) {
+    let (snapshot, path) = match EDITOR_CONFIG.write() {
+        Ok(mut cfg) => {
+            cfg.playtest_startup_mode = startup_mode;
+            (cfg.clone(), config_path())
+        }
+        Err(poison) => {
+            onscreen_error!("Editor config lock poisoned: {poison}");
+            return;
+        }
+    };
+
+    if let Err(e) = save_config_to_path(&snapshot, &path) {
+        onscreen_error!("Error saving playtest launch preference: {e}");
     }
 }
 
@@ -155,6 +194,7 @@ mod tests {
     #[test]
     fn defaults_have_empty_inspector_map() {
         let config = EditorConfig::default();
+        assert_eq!(config.playtest_startup_mode, StartupMode::Skip);
         assert!(config.inspector_module_expanded.is_empty());
         assert!(config.panel_positions.is_empty());
     }
@@ -186,8 +226,18 @@ mod tests {
     }
 
     #[test]
+    fn playtest_startup_mode_defaults_to_skip_when_missing() {
+        let config: EditorConfig = from_str(r#"(save_root: None)"#).unwrap();
+
+        assert_eq!(config.playtest_startup_mode, StartupMode::Skip);
+    }
+
+    #[test]
     fn save_config_to_path_writes_inspector_map_without_global_lock() {
-        let mut config = EditorConfig::default();
+        let mut config = EditorConfig {
+            playtest_startup_mode: StartupMode::Full,
+            ..EditorConfig::default()
+        };
         config
             .inspector_module_expanded
             .insert("Transform".to_string(), false);
@@ -202,6 +252,7 @@ mod tests {
 
         let saved = fs::read_to_string(&path).unwrap();
         let loaded: EditorConfig = from_str(&saved).unwrap();
+        assert_eq!(loaded.playtest_startup_mode, StartupMode::Full);
         assert_eq!(
             loaded.inspector_module_expanded.get("Transform"),
             Some(&false)

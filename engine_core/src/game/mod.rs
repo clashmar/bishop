@@ -1,8 +1,10 @@
 // engine_core/src/game/mod.rs
 
 pub mod game_map;
+pub mod startup_mode;
 
 pub use game_map::*;
+pub use startup_mode::*;
 
 use crate::assets::asset_manager::AssetManager;
 use crate::ecs::ecs::Ecs;
@@ -150,6 +152,14 @@ impl Game {
     pub fn initialize(&mut self, loader: &impl TextureLoader, lua: &Lua) {
         set_game_name(self.name.clone());
         AssetManager::init_manager(loader, self);
+        ScriptManager::init_manager(self, lua);
+        self.init_text_manager();
+    }
+
+    /// Initializes runtime state for the game without eagerly hydrating all textures.
+    pub fn initialize_runtime(&mut self, lua: &Lua) {
+        set_game_name(self.name.clone());
+        AssetManager::init_runtime_manager(self);
         ScriptManager::init_manager(self, lua);
         self.init_text_manager();
     }

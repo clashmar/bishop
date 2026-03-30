@@ -60,10 +60,11 @@ impl MenuEditor {
         // Mode dropdown
         if row_visible(*y, ROW_HEIGHT, clip) {
             ctx.draw_text("Mode:", x, *y + 16.0, 12.0, Color::WHITE);
-            let mode_options = ["Paused", "Overlay"];
+            let mode_options = ["Paused", "Overlay", "FrontEnd"];
             let current_mode_str = match current_mode {
                 MenuMode::Paused => "Paused",
                 MenuMode::Overlay => "Overlay",
+                MenuMode::FrontEnd => "FrontEnd",
             };
             let dropdown_rect = Rect::new(x + LABEL_WIDTH, *y, w - LABEL_WIDTH, FIELD_HEIGHT);
             if let Some(selected) = Dropdown::new(
@@ -80,6 +81,7 @@ impl MenuEditor {
                 let new_mode = match selected {
                     "Paused" => MenuMode::Paused,
                     "Overlay" => MenuMode::Overlay,
+                    "FrontEnd" => MenuMode::FrontEnd,
                     _ => current_mode,
                 };
                 if new_mode != current_mode {

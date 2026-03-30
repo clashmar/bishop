@@ -658,11 +658,52 @@ impl WgpuContext {
     pub fn render_frame(&mut self) -> Result<(), wgpu::SurfaceError> {
         self.flush_if_needed();
 
+        if frame_needs_surface_clear(self.has_pending_draws(), self.has_cleared_this_frame) {
+            let Some(view) = self.current_surface_view.take() else {
+                return Ok(());
+            };
+
+            self.has_cleared_this_frame = true;
+            self.flush_batched(
+                &view,
+                wgpu::LoadOp::Clear(clear_wgpu_color(self.clear_color.unwrap_or(Color::BLACK))),
+            );
+            self.current_surface_view = Some(view);
+        }
+
         if let Some(texture) = self.current_surface_texture.take() {
             texture.present();
         }
         self.current_surface_view = None;
 
         Ok(())
+    }
+}
+
+fn frame_needs_surface_clear(has_pending_draws: bool, has_cleared_this_frame: bool) -> bool {
+    !has_pending_draws && !has_cleared_this_frame
+}
+
+fn clear_wgpu_color(color: Color) -> wgpu::Color {
+    wgpu::Color {
+        r: color.r as f64,
+        g: color.g as f64,
+        b: color.b as f64,
+        a: color.a as f64,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn untouched_frame_still_requires_a_surface_clear() {
+        assert!(frame_needs_surface_clear(false, false));
+    }
+
+    #[test]
+    fn already_cleared_frame_does_not_require_another_for_present() {
+        assert!(!frame_needs_surface_clear(false, true));
     }
 }

@@ -56,4 +56,3 @@ function engine.on(event, handler) end
 --- @param ... any Arguments that will be passed to each handler
 --- @return nil
 function engine.emit(event, ...) end
-

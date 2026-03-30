@@ -11,6 +11,7 @@ use crate::game::game_editor::GameEditor;
 use crate::gui::menu_bar::MenuBar;
 use crate::gui::modal::Modal;
 use crate::menu::MenuEditor;
+use crate::editor_global::push_toast;
 use crate::playtest::playtest_process::PlaytestProcess;
 use crate::playtest::room_playtest::*;
 use crate::room::room_editor::RoomEditor;
@@ -21,7 +22,9 @@ use crate::with_panel_manager;
 use crate::world::world_editor::WorldEditor;
 use bishop::prelude::*;
 use engine_core::prelude::*;
+use engine_core::task::BackgroundTask;
 use std::io;
+use std::path::PathBuf;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum EditorMode {
@@ -47,6 +50,7 @@ pub struct Editor {
     pub modal: Modal,
     pub toast: Option<Toast>,
     pub playtest_process: Option<PlaytestProcess>,
+    pub pending_playtest_build: Option<BackgroundTask<Result<(PathBuf, PathBuf), String>>>,
     pub grid_renderer: Option<GridRenderer>,
     pub audio_manager: AudioManager,
 }
@@ -100,6 +104,31 @@ impl Editor {
         if let Some(ref mut process) = self.playtest_process {
             if !process.poll() {
                 self.playtest_process = None;
+            }
+        }
+
+        if let Some(ref mut build_task) = self.pending_playtest_build {
+            if let Some(result) = build_task.poll() {
+                self.pending_playtest_build = None;
+                push_toast("Playtest ready", 2.0);
+                match result {
+                    Ok((exe_path, payload_path)) => {
+                        if let Some(ref mut old_process) = self.playtest_process {
+                            old_process.kill();
+                        }
+                        match PlaytestProcess::spawn(&exe_path, &payload_path) {
+                            Ok(process) => {
+                                self.playtest_process = Some(process);
+                            }
+                            Err(e) => {
+                                onscreen_error!("Failed to launch playtest: {e}");
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        onscreen_error!("Playtest build failed: {e}");
+                    }
+                }
             }
         }
 
@@ -205,37 +234,49 @@ impl Editor {
 
                 // Launch play‑test if the play button was pressed
                 if self.room_editor.request_play {
-                    // Write the payload
-                    let room = self.get_room_from_id(&room_id);
-                    let payload_path = match write_playtest_payload(room, &self.game) {
-                        Ok(p) => p,
-                        Err(e) => {
-                            onscreen_error!("Could not write playtest payload: {e}");
-                            return;
-                        }
-                    };
-
-                    // If in dev mode the binary will be built first
-                    match resolve_playtest_binary() {
-                        Ok(exe_path) => {
-                            if let Some(ref mut old_process) = self.playtest_process {
-                                old_process.kill();
+                    if self.pending_playtest_build.is_none() {
+                        // Serialize payload synchronously (needs &self.game which isn't Send)
+                        let room = self.get_room_from_id(&room_id);
+                        let payload_path = match write_playtest_payload(room, &self.game) {
+                            Ok(p) => p,
+                            Err(e) => {
+                                onscreen_error!("Could not write playtest payload: {e}");
+                                self.room_editor.request_play = false;
+                                return;
                             }
+                        };
 
-                            match PlaytestProcess::spawn(&exe_path, &payload_path) {
-                                Ok(process) => {
-                                    self.playtest_process = Some(process);
+                        // In release mode, binary extraction is instant — launch synchronously
+                        if !cfg!(debug_assertions) {
+                            match resolve_playtest_binary() {
+                                Ok(exe_path) => {
+                                    if let Some(ref mut old_process) = self.playtest_process {
+                                        old_process.kill();
+                                    }
+                                    match PlaytestProcess::spawn(&exe_path, &payload_path) {
+                                        Ok(process) => {
+                                            self.playtest_process = Some(process);
+                                        }
+                                        Err(e) => {
+                                            onscreen_error!("Failed to launch playtest: {e}");
+                                        }
+                                    }
                                 }
                                 Err(e) => {
-                                    onscreen_error!("Failed to launch playtest: {e}");
+                                    onscreen_error!("{e}");
                                 }
                             }
-                        }
-                        Err(e) => {
-                            onscreen_error!("{e}");
+                        } else {
+                            // Dev mode: cargo build runs in the background
+                            push_toast("Building playtest...", 30.0);
+                            self.pending_playtest_build =
+                                Some(BackgroundTask::spawn(move || {
+                                    resolve_playtest_binary()
+                                        .map(|exe_path| (exe_path, payload_path))
+                                        .map_err(|e| e.to_string())
+                                }));
                         }
                     }
-                    // Reset the request flag so multiple processes don't spawn (and really ruin everything)
                     self.room_editor.request_play = false;
                 }
             }

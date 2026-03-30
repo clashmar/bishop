@@ -3,6 +3,7 @@ use crate::animation::animation_clip::Animation;
 use crate::assets::sprite::*;
 use crate::game::Game;
 use crate::storage::path_utils::assets_folder;
+use crate::task::FileReadPool;
 use crate::tiles::tile::*;
 use crate::*;
 use bishop::prelude::*;
@@ -46,6 +47,12 @@ pub struct AssetManager {
     #[cfg(feature = "editor")]
     #[serde(skip)]
     pending_path_removal: HashSet<SpriteId>,
+    #[serde(skip)]
+    runtime_texture_loading: bool,
+    #[serde(skip)]
+    runtime_file_read_pool: Option<FileReadPool>,
+    #[serde(skip)]
+    pending_texture_reads: HashMap<SpriteId, PathBuf>,
     /// Placeholder texture returned for unset or missing sprite ids.
     #[serde(skip)]
     empty_texture: Option<Texture2D>,
@@ -69,6 +76,7 @@ impl AssetManager {
         // Path already registered — reuse the same id, but reload the texture if it was evicted.
         if let Some(&id) = self.path_to_sprite_id.get(&path) {
             if let std::collections::hash_map::Entry::Vacant(entry) = self.textures.entry(id) {
+                self.pending_texture_reads.remove(&id);
                 let texture = Self::load_texture_from_game(loader, &path)?;
                 entry.insert(texture);
             }
@@ -85,6 +93,7 @@ impl AssetManager {
         self.textures.insert(id, texture);
         self.path_to_sprite_id.insert(path.clone(), id);
         self.sprite_id_to_path.insert(id, path.clone());
+        self.pending_texture_reads.remove(&id);
 
         // Calculate next available id AFTER inserting
         self.restore_next_sprite_id();
@@ -107,10 +116,11 @@ impl AssetManager {
         let texture = Self::load_texture_from_game(loader, path)?;
         self.textures.insert(*id, texture);
         self.path_to_sprite_id.insert(path.to_path_buf(), *id);
+        self.pending_texture_reads.remove(id);
         Ok(())
     }
 
-    /// Returns a texture from a `SpriteId`. Loads lazily if evicted.
+    /// Returns a texture from a `SpriteId`.
     pub fn get_texture_from_id(&mut self, loader: &impl TextureLoader, id: SpriteId) -> &Texture2D {
         if id.0 == 0 {
             return self
@@ -129,14 +139,23 @@ impl AssetManager {
                 .get_or_insert_with(|| loader.empty_texture());
         }
 
-        let _ = self.ensure_loaded(loader, id);
+        if self.runtime_texture_loading {
+            self.queue_runtime_texture_read(id);
+            self.poll_pending_texture_reads(loader);
 
-        if self.textures.contains_key(&id) {
-            self.textures.get(&id).unwrap()
+            if self.textures.contains_key(&id) {
+                return self.textures.get(&id).unwrap();
+            }
         } else {
-            self.empty_texture
-                .get_or_insert_with(|| loader.empty_texture())
+            let _ = self.ensure_loaded(loader, id);
+
+            if self.textures.contains_key(&id) {
+                return self.textures.get(&id).unwrap();
+            }
         }
+
+        self.empty_texture
+            .get_or_insert_with(|| loader.empty_texture())
     }
 
     /// Returns the id for `path`, loading it if necessary.
@@ -175,6 +194,9 @@ impl AssetManager {
     pub fn init_manager(loader: &impl TextureLoader, game: &mut Game) {
         // Calculate the next id from the existing map
         game.asset_manager.restore_next_sprite_id();
+        game.asset_manager.runtime_texture_loading = false;
+        game.asset_manager.runtime_file_read_pool = None;
+        game.asset_manager.pending_texture_reads.clear();
 
         // Restore next tile def id
         if let Some(max_id) = game.asset_manager.tile_defs.keys().map(|id| id.0).max() {
@@ -199,6 +221,107 @@ impl AssetManager {
             animation.init_sprite_cache(loader, &mut game.asset_manager);
             animation.init_runtime();
         }
+    }
+
+    /// Initialize game data for runtime startup without hydrating all textures up front.
+    pub fn init_runtime_manager(game: &mut Game) {
+        let file_read_pool = FileReadPool::new();
+        Self::init_runtime_manager_with_pool(&file_read_pool, game);
+    }
+
+    /// Initialize runtime data with an explicit file-read pool handle.
+    pub fn init_runtime_manager_with_pool(file_read_pool: &FileReadPool, game: &mut Game) {
+        game.asset_manager.restore_next_sprite_id();
+        game.asset_manager.runtime_texture_loading = true;
+        game.asset_manager.runtime_file_read_pool = Some(file_read_pool.clone());
+        game.asset_manager.pending_texture_reads.clear();
+
+        if let Some(max_id) = game.asset_manager.tile_defs.keys().map(|id| id.0).max() {
+            game.asset_manager.next_tile_def_id = max_id + 1;
+        } else {
+            game.asset_manager.next_tile_def_id = 1;
+        }
+
+        for animation in game.ecs.get_store_mut::<Animation>().data.values_mut() {
+            animation.init_sprite_cache_runtime(&game.asset_manager);
+            animation.init_runtime();
+        }
+    }
+
+    fn queue_runtime_texture_read(&mut self, id: SpriteId) {
+        if !self.runtime_texture_loading || id.0 == 0 {
+            return;
+        }
+
+        let Some(file_read_pool) = self.runtime_file_read_pool.as_ref() else {
+            return;
+        };
+
+        if self.textures.contains_key(&id) || self.pending_texture_reads.contains_key(&id) {
+            return;
+        }
+
+        let Some(path) = self.sprite_id_to_path.get(&id).cloned() else {
+            return;
+        };
+
+        let full_path = assets_folder().join(&path);
+        file_read_pool.queue_read(id.0.to_string(), full_path);
+        self.pending_texture_reads.insert(id, path);
+    }
+
+    fn poll_pending_texture_reads(&mut self, loader: &impl TextureLoader) {
+        let Some(file_read_pool) = self.runtime_file_read_pool.clone() else {
+            return;
+        };
+
+        while let Some(completed) = file_read_pool.try_recv_completed() {
+            let Ok(sprite_index) = completed.id.parse::<usize>() else {
+                continue;
+            };
+            let sprite_id = SpriteId(sprite_index);
+
+            let Some(path) = self.pending_texture_reads.get(&sprite_id).cloned() else {
+                continue;
+            };
+
+            if completed.path != assets_folder().join(&path) {
+                continue;
+            }
+
+            self.pending_texture_reads.remove(&sprite_id);
+            let path_display = path.display().to_string();
+
+            match completed.result {
+                Ok(bytes) => match loader.load_texture_from_bytes(&bytes) {
+                    Ok(texture) => {
+                        self.textures.insert(sprite_id, texture);
+                        self.path_to_sprite_id.insert(path, sprite_id);
+                    }
+                    Err(error) => {
+                        onscreen_error!("Failed to upload texture '{}': {}", path_display, error);
+                    }
+                },
+                Err(error) => {
+                    onscreen_error!("Failed to read texture '{}': {}", path_display, error);
+                }
+            }
+        }
+    }
+
+    #[cfg(test)]
+    fn enable_runtime_texture_loading_for_test(&mut self) {
+        self.runtime_texture_loading = true;
+    }
+
+    #[cfg(test)]
+    fn attach_runtime_file_read_pool_for_test(&mut self, file_read_pool: &FileReadPool) {
+        self.runtime_file_read_pool = Some(file_read_pool.clone());
+    }
+
+    #[cfg(test)]
+    fn has_pending_texture_read(&self, id: SpriteId) -> bool {
+        self.pending_texture_reads.contains_key(&id)
     }
 
     /// Returns a path normalized relative to the game's assets folder.
@@ -415,14 +538,19 @@ impl AssetManager {
 mod tests {
     use super::*;
     use std::cell::Cell;
+    use std::fs;
+    use std::time::Duration;
+    use std::time::{SystemTime, UNIX_EPOCH};
 
     struct CountingFailingLoader {
+        bytes_load_calls: Cell<usize>,
         load_calls: Cell<usize>,
     }
 
     impl CountingFailingLoader {
         fn new() -> Self {
             Self {
+                bytes_load_calls: Cell::new(0),
                 load_calls: Cell::new(0),
             }
         }
@@ -430,7 +558,9 @@ mod tests {
 
     impl TextureLoader for CountingFailingLoader {
         fn load_texture_from_bytes(&self, _data: &[u8]) -> Result<Texture2D, String> {
-            panic!("byte loading is not used in asset manager tests")
+            self.bytes_load_calls
+                .set(self.bytes_load_calls.get().saturating_add(1));
+            Err("expected test byte load failure".to_string())
         }
 
         fn load_texture_from_path(&self, _path: &str) -> Result<Texture2D, String> {
@@ -481,5 +611,90 @@ mod tests {
 
         assert!(result.is_err());
         assert_eq!(loader.load_calls.get(), 1);
+    }
+
+    #[test]
+    fn queue_runtime_texture_read_tracks_pending_sprite_id() {
+        let mut asset_manager = AssetManager::default();
+        let file_read_pool = FileReadPool::new();
+        let path = PathBuf::from(format!(
+            "textures/runtime-queue-{}.bin",
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .expect("system clock should be after UNIX_EPOCH")
+                .as_nanos()
+        ));
+        let sprite_id = SpriteId(7);
+        let full_path = assets_folder().join(&path);
+
+        fs::create_dir_all(
+            full_path
+                .parent()
+                .expect("runtime queue test path should have a parent"),
+        )
+        .expect("runtime queue test directory should be writable");
+        fs::write(&full_path, [1_u8, 2, 3, 4]).expect("runtime queue test file should be writable");
+
+        asset_manager
+            .path_to_sprite_id
+            .insert(path.clone(), sprite_id);
+        asset_manager
+            .sprite_id_to_path
+            .insert(sprite_id, path.clone());
+        asset_manager.attach_runtime_file_read_pool_for_test(&file_read_pool);
+        asset_manager.enable_runtime_texture_loading_for_test();
+        asset_manager.queue_runtime_texture_read(sprite_id);
+
+        assert!(asset_manager.has_pending_texture_read(sprite_id));
+        assert_eq!(asset_manager.texture_count(), 0);
+        let _ = fs::remove_file(full_path);
+    }
+
+    #[test]
+    fn poll_pending_runtime_texture_reads_uploads_bytes_on_the_main_thread() {
+        let loader = CountingFailingLoader::new();
+        let mut asset_manager = AssetManager::default();
+        let file_read_pool = FileReadPool::new();
+        let path = PathBuf::from(format!(
+            "textures/runtime-upload-{}.bin",
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .expect("system clock should be after UNIX_EPOCH")
+                .as_nanos()
+        ));
+        let sprite_id = SpriteId(7);
+        let full_path = assets_folder().join(&path);
+        let expected_bytes = [1, 2, 3, 4];
+
+        fs::create_dir_all(
+            full_path
+                .parent()
+                .expect("runtime upload test path should have a parent"),
+        )
+        .expect("runtime upload test directory should be writable");
+        fs::write(&full_path, expected_bytes).expect("runtime upload test file should be writable");
+
+        asset_manager
+            .path_to_sprite_id
+            .insert(path.clone(), sprite_id);
+        asset_manager
+            .sprite_id_to_path
+            .insert(sprite_id, path.clone());
+        asset_manager.attach_runtime_file_read_pool_for_test(&file_read_pool);
+        asset_manager.enable_runtime_texture_loading_for_test();
+        asset_manager.queue_runtime_texture_read(sprite_id);
+
+        // Drain until the read completes and the upload path is hit.
+        for _ in 0..100 {
+            asset_manager.poll_pending_texture_reads(&loader);
+            if !asset_manager.has_pending_texture_read(sprite_id) {
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(10));
+        }
+
+        assert_eq!(loader.bytes_load_calls.get(), 1);
+        assert!(!asset_manager.has_pending_texture_read(sprite_id));
+        let _ = fs::remove_file(full_path);
     }
 }

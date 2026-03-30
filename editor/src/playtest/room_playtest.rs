@@ -11,7 +11,10 @@ use std::{env, fs, io::Write, path::PathBuf};
 
 /// Serialise everything the play‑test binary needs and return the
 /// path to the temporary file.
-pub fn write_playtest_payload(room: &Room, game: &Game) -> io::Result<PathBuf> {
+pub fn write_playtest_payload(
+    room: &Room,
+    game: &Game,
+) -> io::Result<PathBuf> {
     // Clone game via serialization
     let game_ron = ron::to_string(game)
         .map_err(|e| io::Error::other(format!("Could not serialize game: {e}")))?;
@@ -22,16 +25,22 @@ pub fn write_playtest_payload(room: &Room, game: &Game) -> io::Result<PathBuf> {
     // Set player spawn position from proxy before purging
     game_copy.ecs.set_player_spawn_from_proxy(room.id);
     game_copy.ecs.purge_proxies();
+    let startup_path = resources_folder(&game.name).join("startup.ron");
+    let startup_ron = fs::read_to_string(&startup_path).ok();
 
     #[derive(serde::Serialize)]
     struct Payload<'a> {
         room: &'a Room,
         game: &'a Game,
+        startup_ron: Option<String>,
+        startup_mode: StartupMode,
     }
 
     let payload = Payload {
         room,
         game: &game_copy,
+        startup_ron,
+        startup_mode: get_startup_mode(),
     };
 
     let ron = to_string_pretty(&payload, PrettyConfig::default())

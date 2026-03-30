@@ -103,6 +103,12 @@ impl Animation {
         }
     }
 
+    /// Populate `sprite_cache` from existing sprite path mappings without loading textures.
+    pub fn init_sprite_cache_runtime(&mut self, asset_manager: &AssetManager) {
+        self.sprite_cache.clear();
+        restore_sprite_cache_from_known_paths(self, asset_manager);
+    }
+
     /// Decrements refs for all cached sprites and clears the cache.
     pub fn clear_sprite_cache(&mut self, asset_manager: &mut AssetManager) {
         for &sprite_id in self.sprite_cache.values() {
@@ -486,5 +492,40 @@ mod tests {
         assert!(!animation.sprite_cache.contains_key(&ClipId::Run));
         assert_eq!(ctx.asset_manager.get_ref_count(idle), 1);
         assert_eq!(ctx.asset_manager.get_ref_count(stale_run), 0);
+    }
+
+    #[test]
+    fn init_sprite_cache_runtime_restores_cached_sprite_ids_without_loading() {
+        let mut animation = Animation {
+            clips: HashMap::from([
+                (ClipId::Idle, ClipDef::default()),
+                (ClipId::Run, ClipDef::default()),
+            ]),
+            variant: VariantFolder(Path::new("animations/player/male").to_path_buf()),
+            ..Default::default()
+        };
+        let idle = SpriteId(31);
+        let run = SpriteId(32);
+
+        let mut asset_manager = crate::assets::asset_manager::AssetManager::default();
+        asset_manager
+            .sprite_id_to_path
+            .insert(idle, Path::new(&animation.variant.0).join("Idle.png"));
+        asset_manager
+            .path_to_sprite_id
+            .insert(Path::new(&animation.variant.0).join("Idle.png"), idle);
+        asset_manager
+            .sprite_id_to_path
+            .insert(run, Path::new(&animation.variant.0).join("Run.png"));
+        asset_manager
+            .path_to_sprite_id
+            .insert(Path::new(&animation.variant.0).join("Run.png"), run);
+
+        animation.init_sprite_cache_runtime(&asset_manager);
+
+        assert_eq!(animation.sprite_cache.get(&ClipId::Idle), Some(&idle));
+        assert_eq!(animation.sprite_cache.get(&ClipId::Run), Some(&run));
+        assert_eq!(asset_manager.get_ref_count(idle), 0);
+        assert_eq!(asset_manager.get_ref_count(run), 0);
     }
 }
