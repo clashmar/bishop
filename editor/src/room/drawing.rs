@@ -10,8 +10,44 @@ use bishop::prelude::*;
 use engine_core::prelude::*;
 
 const PLACEHOLDER_OPACITY: f32 = 0.5;
+
 fn thickness(grid_size: f32) -> f32 {
     (grid_size * 0.1).max(1.0)
+}
+
+#[derive(Clone, Copy)]
+struct MergedPlayButtonLayout {
+    play_x: f32,
+    play_y: f32,
+    mode_x: f32,
+    mode_y: f32,
+    divider_x: f32,
+    divider_y: f32,
+    divider_h: f32,
+    width: f32,
+}
+
+fn merged_play_button_layout(
+    rect: Rect,
+    play_dims: TextDimensions,
+    mode_dims: TextDimensions,
+) -> MergedPlayButtonLayout {
+    let play_x = rect.x + WIDGET_PADDING;
+    let (_, play_y) = menu_button_text_position(rect, play_dims);
+    let divider_x = play_x + play_dims.width + WIDGET_PADDING;
+    let mode_x = divider_x + WIDGET_PADDING;
+    let mode_y = rect.y + (rect.h - mode_dims.height) / 2.0 + mode_dims.offset_y;
+
+    MergedPlayButtonLayout {
+        play_x,
+        play_y,
+        mode_x,
+        mode_y,
+        divider_x,
+        divider_y: rect.y + 6.0,
+        divider_h: rect.h - 12.0,
+        width: play_dims.width + mode_dims.width + WIDGET_PADDING * 4.0,
+    }
 }
 
 impl RoomEditor {
@@ -106,44 +142,30 @@ impl RoomEditor {
 
                 // Play‑test button (menu bar)
                 let play_label = "Play";
+                let startup_mode = get_startup_mode();
+                let play_dims = measure_text(ctx, play_label, HEADER_FONT_SIZE_20);
+                let mode_dims = measure_text(ctx, &startup_mode.to_string(), DEFAULT_FONT_SIZE_16);
                 let play_width =
-                    measure_text(ctx, play_label, HEADER_FONT_SIZE_20).width + WIDGET_PADDING * 2.0;
+                    merged_play_button_layout(Rect::new(0.0, 0.0, 0.0, BTN_HEIGHT), play_dims, mode_dims)
+                        .width;
                 let play_x = mode_rect.x + mode_rect.w + WIDGET_SPACING;
                 let play_rect = Rect::new(play_x, INSET, play_width, BTN_HEIGHT);
 
-                if menu_button(ctx, play_rect, play_label, false) {
+                let clicks = Button::new(play_rect, "")
+                    .plain()
+                    .allow_secondary_click()
+                    .show_clicks(ctx);
+
+                if clicks.primary {
                     self.request_play = true;
                 }
 
-                self.register_rect(play_rect);
-
-                let dropdown_x = play_rect.x + play_rect.w + WIDGET_SPACING;
-                let dropdown_width = 60.0;
-                let dropdown_rect = Rect::new(dropdown_x, INSET, dropdown_width, BTN_HEIGHT);
-                let startup_options = [StartupMode::Full, StartupMode::Skip];
-                let current_mode = get_startup_mode();
-
-                if let Some(selected) = Dropdown::new(
-                    self.startup_mode_dropdown_id,
-                    dropdown_rect,
-                    &current_mode.to_string(),
-                    &startup_options,
-                    |mode| mode.to_string(),
-                )
-                .fixed_width()
-                .show(ctx)
-                {
-                    if selected != current_mode {
-                        set_startup_mode(selected);
-                    }
+                if clicks.secondary {
+                    set_startup_mode(startup_mode.toggled());
                 }
 
-                self.register_rect(Rect::new(
-                    dropdown_x,
-                    INSET,
-                    dropdown_width,
-                    BTN_HEIGHT,
-                ));
+                draw_merged_play_button_label(ctx, play_rect, play_dims, mode_dims, startup_mode);
+                self.register_rect(play_rect);
             }
         }
     }
@@ -231,6 +253,33 @@ impl RoomEditor {
             );
         }
     }
+}
+
+fn draw_merged_play_button_label(
+    ctx: &mut WgpuContext,
+    rect: Rect,
+    play_dims: TextDimensions,
+    mode_dims: TextDimensions,
+    startup_mode: StartupMode,
+) {
+    let layout = merged_play_button_layout(rect, play_dims, mode_dims);
+
+    ctx.draw_text("Play", layout.play_x, layout.play_y, HEADER_FONT_SIZE_20, Color::BLACK);
+    ctx.draw_line(
+        layout.divider_x,
+        layout.divider_y,
+        layout.divider_x,
+        layout.divider_y + layout.divider_h,
+        1.0,
+        Color::BLACK,
+    );
+    ctx.draw_text(
+        &startup_mode.to_string(),
+        layout.mode_x,
+        layout.mode_y,
+        DEFAULT_FONT_SIZE_16,
+        Color::BLACK,
+    );
 }
 
 /// Highlight a selected entity with a colored outline.

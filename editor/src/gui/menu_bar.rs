@@ -536,8 +536,7 @@ fn menu_dropdown<T: Clone + PartialEq + Display>(
 pub fn menu_button(ctx: &mut WgpuContext, rect: Rect, label: &str, is_dropdown_open: bool) -> bool {
     // Text layout
     let txt_dims = ctx.measure_text(label, HEADER_FONT_SIZE_20);
-    let txt_y = rect.y + (rect.h - txt_dims.height) / 2.0 + txt_dims.offset_y;
-    let txt_x = rect.x + (rect.w - txt_dims.width) / 2.0;
+    let (txt_x, txt_y) = menu_button_text_position(rect, txt_dims);
 
     let mouse = ctx.mouse_position();
     let hovered = rect.contains(vec2(mouse.0, mouse.1));
@@ -558,6 +557,12 @@ pub fn menu_button(ctx: &mut WgpuContext, rect: Rect, label: &str, is_dropdown_o
     ctx.draw_text(label, txt_x, txt_y, HEADER_FONT_SIZE_20, Color::BLACK);
 
     ctx.is_mouse_button_pressed(MouseButton::Left) && hovered && !is_modal_open()
+}
+
+pub(crate) fn menu_button_text_position(rect: Rect, txt_dims: TextDimensions) -> (f32, f32) {
+    let txt_x = rect.x + (rect.w - txt_dims.width) / 2.0;
+    let txt_y = rect.y + (rect.h - txt_dims.height) / 2.0 + txt_dims.offset_y - 1.0;
+    (txt_x, txt_y)
 }
 
 thread_local! {

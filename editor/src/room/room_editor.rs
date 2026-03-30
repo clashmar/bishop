@@ -84,7 +84,6 @@ pub struct RoomEditor {
     pub(crate) tilemap_sub_mode: TilemapEditorMode,
     /// Rect of the sub-mode strip for UI tracking.
     pub(crate) sub_mode_rect: Option<Rect>,
-    pub(crate) startup_mode_dropdown_id: WidgetId,
 }
 
 impl RoomEditor {
@@ -119,7 +118,6 @@ impl RoomEditor {
             drag_initial_start_positions: Vec::new(),
             tilemap_sub_mode: TilemapEditorMode::Tiles,
             sub_mode_rect: None,
-            startup_mode_dropdown_id: WidgetId::default(),
         }
     }
 
