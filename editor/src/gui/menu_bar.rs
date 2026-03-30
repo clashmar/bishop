@@ -183,14 +183,7 @@ impl MenuBar {
             HEIGHT,
         );
 
-        let file_actions: Vec<EditorAction> = vec![
-            EditorAction::NewGame,
-            EditorAction::Open,
-            EditorAction::Save,
-            EditorAction::SaveAs,
-            EditorAction::Export,
-            EditorAction::ChangeSaveRoot,
-        ];
+        let file_actions = file_actions();
 
         if let Some(selected) = menu_dropdown(
             ctx,
@@ -335,6 +328,22 @@ impl MenuBar {
         // Return the action
         self.pending.take()
     }
+}
+
+fn file_actions() -> Vec<EditorAction> {
+    let mut actions = vec![
+        EditorAction::NewGame,
+        EditorAction::Open,
+        EditorAction::Save,
+        EditorAction::SaveAs,
+        EditorAction::Export,
+    ];
+
+    if !cfg!(debug_assertions) {
+        actions.push(EditorAction::ChangeSaveRoot);
+    }
+
+    actions
 }
 
 /// Draws a the panel background for the top menu across the whole width of the screen and returns its `Rect`.
@@ -530,6 +539,26 @@ fn menu_dropdown<T: Clone + PartialEq + Display>(
     dropdown_state::set(id, state);
     update_global_dropdown_flag();
     None
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn file_menu_hides_change_save_root_in_debug_builds() {
+        let actions = file_actions();
+
+        assert!(!actions.contains(&EditorAction::ChangeSaveRoot));
+    }
+
+    #[cfg(not(debug_assertions))]
+    #[test]
+    fn file_menu_shows_change_save_root_in_release_builds() {
+        let actions = file_actions();
+
+        assert!(actions.contains(&EditorAction::ChangeSaveRoot));
+    }
 }
 
 /// Returns true if clicked
