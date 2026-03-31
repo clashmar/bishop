@@ -1,7 +1,9 @@
 use crate::*;
+use std::collections::hash_map::DefaultHasher;
+use std::hash::{Hash, Hasher};
 
 /// The visual style of a button.
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub enum ButtonStyle {
     /// Standard button with background and border.
     Default,
@@ -29,6 +31,7 @@ pub struct Button<'a> {
     focused: bool,
     mouse_position: Option<Vec2>,
     allow_secondary_click: bool,
+    interaction_id: Option<ClickTargetId>,
 }
 
 impl<'a> Button<'a> {
@@ -46,6 +49,7 @@ impl<'a> Button<'a> {
             focused: false,
             mouse_position: None,
             allow_secondary_click: false,
+            interaction_id: None,
         }
     }
 
@@ -92,6 +96,12 @@ impl<'a> Button<'a> {
         self
     }
 
+    /// Overrides the interaction id used to match press and release to the same control.
+    pub fn interaction_id(mut self, id: WidgetId) -> Self {
+        self.interaction_id = Some(ClickTargetId(id.0 as u64));
+        self
+    }
+
     /// Sets whether the button is visually focused (shows hover highlight without mouse).
     pub fn focused(mut self, focused: bool) -> Self {
         self.focused = focused;
@@ -111,6 +121,7 @@ impl<'a> Button<'a> {
 
     /// Draws the button and returns primary and secondary click results.
     pub fn show_clicks<C: BishopContext>(self, ctx: &mut C) -> ButtonClicks {
+        let interaction_id = self.interaction_id.unwrap_or_else(|| self.default_interaction_id());
         let mouse = self
             .mouse_position
             .unwrap_or_else(|| ctx.mouse_position().into());
@@ -178,23 +189,37 @@ impl<'a> Button<'a> {
             self.text_color,
         );
 
-        let primary = ctx.is_mouse_button_released(MouseButton::Left)
-            && hovered
-            && !self.blocked
-            && !is_dropdown_open()
-            && !is_click_consumed();
+        let interactive = !self.blocked && !is_dropdown_open();
+        let primary = activate_on_release(
+            MouseButton::Left,
+            interaction_id,
+            hovered,
+            interactive,
+            ctx.is_mouse_button_pressed(MouseButton::Left),
+            ctx.is_mouse_button_released(MouseButton::Left),
+        );
         let secondary = self.allow_secondary_click
-            && ctx.is_mouse_button_released(MouseButton::Right)
-            && hovered
-            && !self.blocked
-            && !is_dropdown_open()
-            && !is_click_consumed();
-
-        if primary || secondary {
-            consume_click();
-        }
+            && activate_on_release(
+                MouseButton::Right,
+                interaction_id,
+                hovered,
+                interactive,
+                ctx.is_mouse_button_pressed(MouseButton::Right),
+                ctx.is_mouse_button_released(MouseButton::Right),
+            );
 
         ButtonClicks { primary, secondary }
+    }
+
+    fn default_interaction_id(&self) -> ClickTargetId {
+        let mut hasher = DefaultHasher::new();
+        self.label.hash(&mut hasher);
+        self.rect.x.to_bits().hash(&mut hasher);
+        self.rect.y.to_bits().hash(&mut hasher);
+        self.rect.w.to_bits().hash(&mut hasher);
+        self.rect.h.to_bits().hash(&mut hasher);
+        self.style.hash(&mut hasher);
+        ClickTargetId(hasher.finish())
     }
 }
 
@@ -206,8 +231,10 @@ mod tests {
 
     struct TestContext {
         mouse_pos: (f32, f32),
+        left_pressed: bool,
         left_down: bool,
         left_released: bool,
+        right_pressed: bool,
         right_down: bool,
         right_released: bool,
     }
@@ -216,8 +243,10 @@ mod tests {
         fn new() -> Self {
             Self {
                 mouse_pos: (0.0, 0.0),
+                left_pressed: false,
                 left_down: false,
                 left_released: false,
+                right_pressed: false,
                 right_down: false,
                 right_released: false,
             }
@@ -249,8 +278,12 @@ mod tests {
             }
         }
 
-        fn is_mouse_button_pressed(&self, _button: MouseButton) -> bool {
-            false
+        fn is_mouse_button_pressed(&self, button: MouseButton) -> bool {
+            match button {
+                MouseButton::Left => self.left_pressed,
+                MouseButton::Right => self.right_pressed,
+                _ => false,
+            }
         }
 
         fn is_mouse_button_released(&self, button: MouseButton) -> bool {
@@ -465,14 +498,69 @@ mod tests {
     }
 
     #[test]
+    fn primary_click_requires_matching_press_and_release() {
+        reset_click_consumed();
+
+        let button = Rect::new(0.0, 0.0, 80.0, 30.0);
+        let mut ctx = TestContext::new();
+        ctx.mouse_pos = (40.0, 20.0);
+        ctx.left_pressed = true;
+        ctx.left_down = true;
+
+        assert!(!Button::new(button, "Play").show(&mut ctx));
+
+        reset_click_consumed();
+        ctx.left_pressed = false;
+        ctx.left_down = false;
+        ctx.left_released = true;
+
+        assert!(Button::new(button, "Play").show(&mut ctx));
+    }
+
+    #[test]
+    fn primary_click_does_not_activate_from_another_controls_press() {
+        reset_click_consumed();
+
+        let button = Rect::new(0.0, 0.0, 80.0, 30.0);
+        let mut ctx = TestContext::new();
+        ctx.mouse_pos = (120.0, 20.0);
+        ctx.left_pressed = true;
+        ctx.left_down = true;
+
+        assert!(!Button::new(button, "Play").show(&mut ctx));
+
+        reset_click_consumed();
+        ctx.left_pressed = false;
+        ctx.left_down = false;
+        ctx.left_released = true;
+        ctx.mouse_pos = (40.0, 20.0);
+
+        assert!(!Button::new(button, "Play").show(&mut ctx));
+    }
+
+    #[test]
     fn secondary_clicks_are_reported_when_opted_in() {
         reset_click_consumed();
 
+        let button = Rect::new(0.0, 0.0, 80.0, 30.0);
         let mut ctx = TestContext::new();
         ctx.mouse_pos = (40.0, 20.0);
+        ctx.right_pressed = true;
+        ctx.right_down = true;
+
+        let clicks = Button::new(button, "Play")
+            .allow_secondary_click()
+            .show_clicks(&mut ctx);
+
+        assert!(!clicks.primary);
+        assert!(!clicks.secondary);
+
+        reset_click_consumed();
+        ctx.right_pressed = false;
+        ctx.right_down = false;
         ctx.right_released = true;
 
-        let clicks = Button::new(Rect::new(0.0, 0.0, 80.0, 30.0), "Play")
+        let clicks = Button::new(button, "Play")
             .allow_secondary_click()
             .show_clicks(&mut ctx);
 
