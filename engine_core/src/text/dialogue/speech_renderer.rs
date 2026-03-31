@@ -7,7 +7,7 @@ use crate::ecs::ecs::Ecs;
 use crate::ecs::entity::Entity;
 use crate::ecs::transform::Transform;
 use crate::rendering::helpers::lerp_rounded;
-use crate::rendering::render_room::entity_dimensions;
+use crate::rendering::helpers::entity_dimensions;
 use crate::text::*;
 use crate::ui::text::*;
 use crate::worlds::room::RoomId;

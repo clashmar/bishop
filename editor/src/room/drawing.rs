@@ -296,14 +296,7 @@ pub fn highlight_selected_entity<C: BishopContext>(
         None => return,
     };
 
-    // If this is a proxy, use Player's visual components for dimensions
-    let visual_entity = if ecs.has::<PlayerProxy>(entity) {
-        ecs.get_player_entity().unwrap_or(entity)
-    } else {
-        entity
-    };
-
-    let size = entity_dimensions(ecs, asset_manager, visual_entity, grid_size);
+    let size = entity_dimensions(ecs, asset_manager, entity, grid_size);
     let draw_pos = pivot_adjusted_position(transform.position, size, transform.pivot);
 
     ctx.draw_rectangle_lines(
