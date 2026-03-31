@@ -26,7 +26,7 @@
             ),
             /*[5]*/ (
                 type_name: "CurrentRoom",
-                data: "{\n    (1): ((1)),\n    (2): ((1)),\n    (5): ((1)),\n    (10): ((1)),\n    (11): ((1)),\n    (12): ((1)),\n}",
+                data: "{\n    (1): ((1)),\n    (2): ((1)),\n    (5): ((1)),\n}",
             ),
             /*[6]*/ (
                 type_name: "Damage",
@@ -66,7 +66,7 @@
             ),
             /*[15]*/ (
                 type_name: "Name",
-                data: "{\n    (1): (\"Camera 1\"),\n    (2): (\"Player Proxy\"),\n    (3): (\"Player\"),\n    (5): (\"Entity\"),\n    (10): (\"Entity\"),\n    (11): (\"Entity\"),\n    (12): (\"Entity\"),\n}",
+                data: "{\n    (1): (\"Camera 1\"),\n    (2): (\"Player Proxy\"),\n    (3): (\"Player\"),\n    (5): (\"Entity\"),\n}",
             ),
             /*[16]*/ (
                 type_name: "Parent",
@@ -102,7 +102,7 @@
             ),
             /*[24]*/ (
                 type_name: "Sprite",
-                data: "{\n    (5): (\n        sprite: (7),\n    ),\n    (10): (\n        sprite: (7),\n    ),\n    (11): (\n        sprite: (7),\n    ),\n    (12): (\n        sprite: (7),\n    ),\n}",
+                data: "{\n    (5): (\n        sprite: (7),\n    ),\n}",
             ),
             /*[25]*/ (
                 type_name: "SubPixel",
@@ -110,7 +110,7 @@
             ),
             /*[26]*/ (
                 type_name: "Transform",
-                data: "{\n    (1): (\n        visible: true,\n        position: (83.079445, -3.7101135),\n        pivot: CenterLeft,\n    ),\n    (2): (\n        visible: true,\n        position: (20.0, 72.0),\n        pivot: BottomCenter,\n    ),\n    (5): (\n        visible: true,\n        position: (98.59416, 33.550545),\n        pivot: BottomCenter,\n    ),\n    (10): (\n        visible: true,\n        position: (123.014786, 1.822567),\n        pivot: BottomCenter,\n    ),\n    (11): (\n        visible: true,\n        position: (97.78869, -16.109592),\n        pivot: BottomCenter,\n    ),\n    (12): (\n        visible: true,\n        position: (60.05683, -6.1315002),\n        pivot: BottomCenter,\n    ),\n}",
+                data: "{\n    (1): (\n        visible: true,\n        position: (64.0, 36.0),\n        pivot: CenterLeft,\n    ),\n    (2): (\n        visible: true,\n        position: (20.0, 72.0),\n        pivot: BottomCenter,\n    ),\n    (5): (\n        visible: true,\n        position: (100.0, 72.0),\n        pivot: BottomCenter,\n    ),\n}",
             ),
             /*[27]*/ (
                 type_name: "Velocity",
@@ -178,7 +178,7 @@
             (4): 1,
             (5): 1,
             (6): 1,
-            (7): 4,
+            (7): 1,
             (8): 4,
         },
     ),

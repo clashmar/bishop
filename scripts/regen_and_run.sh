@@ -68,10 +68,11 @@ for game_dir in games/*/; do
     fi
 done
 
-echo "==> Launching editor and building game-playtest in parallel..."
-cargo build -p game --bin game-playtest --release &
-PLAYTEST_BUILD_PID=$!
+echo "==> Refreshing exported game binaries..."
+(
+    cd editor
+    cargo make copy-game-bins-mac
+)
 
+echo "==> Launching editor..."
 cargo run -p editor
-
-wait $PLAYTEST_BUILD_PID && echo "==> game-playtest build complete." || echo "==> game-playtest build failed."
