@@ -1,6 +1,6 @@
 // game/src/physics/physics_system.rs
 use crate::constants::GRAVITY;
-use crate::physics::collision::sweep_move;
+use crate::physics::collision::SweepContext;
 use engine_core::prelude::*;
 
 /// Applies physics to all entities with a `PhysicsBody` component.
@@ -38,18 +38,15 @@ pub fn update_physics(
         // so collision detection measures distances correctly.
         let true_pos = pos_cur + Vec2::new(sub_pixel.x, sub_pixel.y);
 
-        let sweep = sweep_move(
+        let collision_world = SweepContext::new(
             asset_manager,
             ecs,
             tilemap,
             room.position,
-            true_pos,
-            delta,
-            collider,
-            pivot,
             &room.exits,
             grid_size,
         );
+        let sweep = collision_world.sweep_move(true_pos, delta, collider, pivot);
 
         // Snap to integer positions, storing the fractional part for next frame
         let new_true_pos = true_pos + sweep.allowed_delta;

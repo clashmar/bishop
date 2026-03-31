@@ -1,8 +1,7 @@
 use super::*;
-use engine_core::audio::audio_source::SoundPresetLink;
-use engine_core::audio::command_queue::{push_audio_command, AudioCommand};
-use std::collections::BTreeSet;
 use std::fmt::{Display, Formatter, Result as FmtResult};
+use std::collections::BTreeSet;
+use engine_core::prelude::*;
 
 #[derive(Clone, PartialEq)]
 pub(super) enum AssignOption {
@@ -62,10 +61,9 @@ pub(super) fn draw_group_dropdowns(
     rect: Rect,
     module: &mut AudioSourceModule,
     source: &mut AudioSource,
-    library: &crate::storage::sound_preset_storage::SoundPresetLibrary,
-    warning_message: &mut Option<String>,
+    library: &SoundPresetLibrary,
     pending_sync_all: &mut Option<(String, AudioGroup)>,
-) {
+) -> Option<String> {
     let current_group_label = source
         .current
         .as_ref()
@@ -119,7 +117,7 @@ pub(super) fn draw_group_dropdowns(
         if let Some(message) =
             handle_assign_option(source, choice, module, library, pending_sync_all)
         {
-            *warning_message = Some(message);
+            return Some(message);
         }
     }
 
@@ -134,6 +132,8 @@ pub(super) fn draw_group_dropdowns(
             }
         });
     }
+
+    None
 }
 
 pub(super) fn draw_rename_field(

@@ -150,22 +150,21 @@ impl PanelDefinition for HierarchyPanel {
         y += HEADER_HEIGHT;
 
         // Global entities use EditorMode::Game for undo scope
+        let mut global_draw = EntityTreeDrawContext {
+            ctx,
+            panel_rect: rect,
+            expanded: &mut self.expanded,
+            dragging: &mut self.dragging,
+            drag_offset: &mut self.drag_offset,
+            room_editor,
+            ecs,
+            area: &area,
+            blocked,
+            mode: EditorMode::Game,
+        };
+
         for entity in global_entities {
-            draw_entity_tree(
-                ctx,
-                entity,
-                0,
-                rect,
-                &mut y,
-                &mut self.expanded,
-                &mut self.dragging,
-                &mut self.drag_offset,
-                room_editor,
-                ecs,
-                &area,
-                blocked,
-                EditorMode::Game,
-            );
+            draw_entity_tree(entity, 0, &mut y, &mut global_draw);
         }
 
         y += ROW_SPACING;
@@ -200,22 +199,22 @@ impl PanelDefinition for HierarchyPanel {
         let room_mode = cur_room_id
             .map(EditorMode::Room)
             .unwrap_or(EditorMode::Game);
+
+        let mut room_draw = EntityTreeDrawContext {
+            ctx,
+            panel_rect: rect,
+            expanded: &mut self.expanded,
+            dragging: &mut self.dragging,
+            drag_offset: &mut self.drag_offset,
+            room_editor,
+            ecs,
+            area: &area,
+            blocked,
+            mode: room_mode,
+        };
+        
         for entity in room_entities {
-            draw_entity_tree(
-                ctx,
-                entity,
-                0,
-                rect,
-                &mut y,
-                &mut self.expanded,
-                &mut self.dragging,
-                &mut self.drag_offset,
-                room_editor,
-                ecs,
-                &area,
-                blocked,
-                room_mode,
-            );
+            draw_entity_tree(entity, 0, &mut y, &mut room_draw);
         }
 
         area.draw_scrollbar(ctx, self.scroll_state.scroll_y);
@@ -254,25 +253,33 @@ fn layout_entity_tree(entity: Entity, y: &mut f32, expanded: &HashSet<Entity>, e
     }
 }
 
-fn draw_entity_tree(
-    ctx: &mut WgpuContext,
-    entity: Entity,
-    depth: usize,
+struct EntityTreeDrawContext<'a> {
+    ctx: &'a mut WgpuContext,
     panel_rect: Rect,
-    y: &mut f32,
-    expanded: &mut HashSet<Entity>,
-    dragging: &mut Option<Entity>,
-    drag_offset: &mut Vec2,
-    room_editor: &mut RoomEditor,
-    ecs: &mut Ecs,
-    area: &ActiveScrollArea,
+    expanded: &'a mut HashSet<Entity>,
+    dragging: &'a mut Option<Entity>,
+    drag_offset: &'a mut Vec2,
+    room_editor: &'a mut RoomEditor,
+    ecs: &'a mut Ecs,
+    area: &'a ActiveScrollArea,
     blocked: bool,
     mode: EditorMode,
+}
+
+fn draw_entity_tree(
+    entity: Entity,
+    depth: usize,
+    y: &mut f32,
+    draw: &mut EntityTreeDrawContext<'_>,
 ) {
+    let panel_rect = draw.panel_rect;
+    let area = draw.area;
+    let blocked = draw.blocked;
+    let mode = draw.mode;
     let usable_w = area.usable_width();
     let indent = depth as f32 * 16.0;
     let row_rect = Rect::new(
-        panel_rect.x + 6. + indent,
+        panel_rect.x + 6.0 + indent,
         *y,
         usable_w - indent,
         ROW_HEIGHT,
@@ -283,8 +290,11 @@ fn draw_entity_tree(
 
     // Check visibility before drawing
     if area.is_fully_visible(row_rect.y, row_rect.h) {
+        let ctx = &mut *draw.ctx;
+        let ecs = &mut *draw.ecs;
+        let room_editor = &mut *draw.room_editor;
         let has_children = has_children(ecs, entity);
-        let is_expanded = expanded.contains(&entity);
+        let is_expanded = draw.expanded.contains(&entity);
         let mouse: Vec2 = ctx.mouse_position().into();
         let mouse_over = row_rect.contains(mouse);
 
@@ -311,9 +321,9 @@ fn draw_entity_tree(
                 .show(ctx);
             if !blocked && clicked {
                 if is_expanded {
-                    expanded.remove(&entity);
+                    draw.expanded.remove(&entity);
                 } else {
-                    expanded.insert(entity);
+                    draw.expanded.insert(entity);
                 }
             }
         }
@@ -322,7 +332,7 @@ fn draw_entity_tree(
         if !blocked
             && mouse_over
             && ctx.is_mouse_button_pressed(MouseButton::Left)
-            && dragging.is_none()
+            && draw.dragging.is_none()
         {
             let shift_held =
                 ctx.is_key_down(KeyCode::LeftShift) || ctx.is_key_down(KeyCode::RightShift);
@@ -349,15 +359,15 @@ fn draw_entity_tree(
         if !blocked
             && mouse_over
             && ctx.is_mouse_button_pressed(MouseButton::Left)
-            && dragging.is_none()
+            && draw.dragging.is_none()
         {
-            *dragging = Some(entity);
-            *drag_offset = mouse - row_rect.top_left();
+            *draw.dragging = Some(entity);
+            *draw.drag_offset = mouse - row_rect.top_left();
         }
 
         // Drop target to parent
         if !blocked {
-            if let Some(dragged) = *dragging {
+            if let Some(dragged) = *draw.dragging {
                 if dragged != entity && mouse_over && !is_ancestor(ecs, dragged, entity) {
                     ctx.draw_rectangle(
                         row_rect.x,
@@ -368,8 +378,8 @@ fn draw_entity_tree(
                     );
                     if ctx.is_mouse_button_released(MouseButton::Left) {
                         pending_set_parent = Some((dragged, entity));
-                        expanded.insert(entity);
-                        *dragging = None;
+                        draw.expanded.insert(entity);
+                        *draw.dragging = None;
                     }
                 }
             }
@@ -387,6 +397,7 @@ fn draw_entity_tree(
 
     // Execute pending set_parent action as undoable command
     if let Some((child, new_parent)) = pending_set_parent {
+        let ecs = &mut *draw.ecs;
         let old_parent = get_parent(ecs, child);
         push_command(Box::new(SetParentCmd::new(
             child, new_parent, old_parent, mode,
@@ -396,35 +407,31 @@ fn draw_entity_tree(
     *y += ROW_HEIGHT;
 
     // Recursively draw children
-    if expanded.contains(&entity) && has_children(ecs, entity) {
-        for child in get_children(ecs, entity) {
-            draw_entity_tree(
-                ctx,
-                child,
-                depth + 1,
-                panel_rect,
-                y,
-                expanded,
-                dragging,
-                drag_offset,
-                room_editor,
-                ecs,
-                area,
-                blocked,
-                mode,
-            );
+    let should_draw_children = {
+        let ecs = &*draw.ecs;
+        draw.expanded.contains(&entity) && has_children(ecs, entity)
+    };
+    if should_draw_children {
+        let children = {
+            let ecs = &*draw.ecs;
+            get_children(ecs, entity)
+        };
+        for child in children {
+            draw_entity_tree(child, depth + 1, y, draw);
         }
     }
 
     // Unparent by dragging outside panel
     if !blocked {
-        if let Some(dragged) = *dragging {
+        if let Some(dragged) = *draw.dragging {
             if dragged == entity {
+                let ctx = &mut *draw.ctx;
                 let mouse: Vec2 = ctx.mouse_position().into();
                 if !panel_rect.contains(mouse) && ctx.is_mouse_button_released(MouseButton::Left) {
+                    let ecs = &mut *draw.ecs;
                     let old_parent = get_parent(ecs, dragged);
                     push_command(Box::new(RemoveParentCmd::new(dragged, old_parent, mode)));
-                    *dragging = None;
+                    *draw.dragging = None;
                 }
             }
         }

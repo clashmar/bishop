@@ -7,7 +7,7 @@ pub mod runtime;
 #[cfg(test)]
 mod tests;
 
-pub use audio_source::{AudioGroup, AudioSource, SoundGroupId};
+pub use audio_source::{AudioGroup, AudioSource, SoundGroupId, SoundPresetLink};
 pub use command_queue::{AudioCommand, PlayMusicRequest, push_audio_command};
 pub use diagnostics::{AudioDiagnosticsEntry, AudioDiagnosticsSnapshot};
 pub use loader::load_wav;

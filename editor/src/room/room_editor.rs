@@ -170,11 +170,6 @@ impl RoomEditor {
 
         self.handle_mouse_cursor(ctx);
 
-        // Click-selection
-        let mouse_screen: Vec2 = ctx.mouse_position().into();
-
-        let mut ui_was_clicked = false;
-
         let delta_time = ctx.get_frame_time();
 
         update_animation_sytem(ctx, ecs, asset_manager, delta_time, room.id);
@@ -184,32 +179,13 @@ impl RoomEditor {
                 // Sync sub-mode and UI rect to tilemap editor
                 self.tilemap_editor.mode = self.tilemap_sub_mode;
                 self.tilemap_editor.sub_mode_rect = self.sub_mode_rect;
-
-                self.tilemap_editor.update(
-                    ctx,
-                    asset_manager,
-                    camera,
-                    room,
-                    &other_bounds,
-                    &adjacent_exits,
-                    grid_size,
-                );
+                self.tilemap_editor.sync_adjacent_exits(&adjacent_exits);
+                self.tilemap_editor
+                    .update(ctx, asset_manager, camera, room, &other_bounds, grid_size);
             }
             RoomEditorMode::Scene => {
-                if self.ui_was_clicked(ctx) {
-                    ui_was_clicked = true;
-                }
-
-                let drag_handled = self.handle_selection(
-                    ctx,
-                    room.id,
-                    camera,
-                    ecs,
-                    asset_manager,
-                    mouse_screen,
-                    ui_was_clicked,
-                    grid_size,
-                );
+                let drag_handled =
+                    self.handle_selection(ctx, room.id, camera, ecs, asset_manager, grid_size);
 
                 if !drag_handled {
                     self.handle_keyboard_move(ctx, ecs, room.id);

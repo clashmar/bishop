@@ -1,5 +1,5 @@
 // editor/src/menu_editor/menu_properties_panel/element_properties.rs
-use super::{common_properties::row_visible, FIELD_HEIGHT, LABEL_WIDTH, ROW_HEIGHT};
+use super::{common_properties::row_visible, nav_section::NavSectionStyle, FIELD_HEIGHT, LABEL_WIDTH, ROW_HEIGHT};
 use crate::menu::MenuEditor;
 use bishop::prelude::*;
 use engine_core::prelude::*;
@@ -266,7 +266,17 @@ impl MenuEditor {
 
             let nav_ids = self.properties_panel.widget_ids.button_nav_ids;
 
-            self.draw_nav_section::<ButtonElement>(ctx, y, x, w, blocked, clip, &nav_ids);
+            self.draw_nav_section::<ButtonElement>(
+                ctx,
+                y,
+                NavSectionStyle {
+                    x,
+                    w,
+                    blocked,
+                    clip,
+                },
+                &nav_ids,
+            );
         }
     }
 

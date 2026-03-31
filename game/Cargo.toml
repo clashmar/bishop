@@ -22,9 +22,6 @@ inventory = "0.1"
 [build-dependencies]
 winres = "0.1.12"
 
-[dev-dependencies]
-cargo-bundle = "0.6"
-
 [lib]
 name = "game_lib"
 path = "src/lib.rs"

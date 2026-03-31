@@ -93,19 +93,31 @@ pub fn render_speech_bubbles<C: BishopContext>(
     let scale_w = win_w / virt_w;
     let scaled_h = virt_h * scale_w;
 
-    let (scale, offset_x, offset_y) = if scaled_h <= win_h {
-        (scale_w, 0.0, (win_h - scaled_h) / 2.0)
+    let (scale, offset) = if scaled_h <= win_h {
+        (scale_w, Vec2::new(0.0, (win_h - scaled_h) / 2.0))
     } else {
         let scale_h = win_h / virt_h;
         let scaled_w = virt_w * scale_h;
-        (scale_h, (win_w - scaled_w) / 2.0, 0.0)
+        (scale_h, Vec2::new((win_w - scaled_w) / 2.0, 0.0))
+    };
+    let projection = ScreenSpaceProjection {
+        render_cam,
+        virt_size: Vec2::new(virt_w, virt_h),
+        scale,
+        offset,
     };
 
     for bubble in bubbles {
-        render_bubble_screen_space(
-            ctx, bubble, config, render_cam, virt_w, virt_h, scale, offset_x, offset_y,
-        );
+        render_bubble_screen_space(ctx, bubble, config, &projection);
     }
+}
+
+/// Shared screen-space projection derived from the current render camera and viewport.
+struct ScreenSpaceProjection<'a> {
+    render_cam: &'a Camera2D,
+    virt_size: Vec2,
+    scale: f32,
+    offset: Vec2,
 }
 
 /// Renders a single speech bubble in screen space.
@@ -113,16 +125,11 @@ fn render_bubble_screen_space<C: BishopContext>(
     ctx: &mut C,
     bubble: &SpeechBubbleRenderData,
     config: &DialogueConfig,
-    render_cam: &Camera2D,
-    virt_w: f32,
-    virt_h: f32,
-    scale: f32,
-    offset_x: f32,
-    offset_y: f32,
+    projection: &ScreenSpaceProjection<'_>,
 ) {
-    let font_size = bubble.font_size.unwrap_or(config.font_size) * scale;
-    let max_width = bubble.max_width.unwrap_or(config.max_width) * scale;
-    let padding = config.padding * scale;
+    let font_size = bubble.font_size.unwrap_or(config.font_size) * projection.scale;
+    let max_width = bubble.max_width.unwrap_or(config.max_width) * projection.scale;
+    let padding = config.padding * projection.scale;
 
     let lines = wrap_text(ctx, &bubble.text, max_width, font_size);
     if lines.is_empty() {
@@ -141,23 +148,28 @@ fn render_bubble_screen_space<C: BishopContext>(
     let bubble_height = total_text_height + padding * 2.0;
 
     let pivot_offset = bubble.pivot.as_normalized();
-    let entity_width_scaled = bubble.entity_size.x * scale;
-    let entity_height_scaled = bubble.entity_size.y * scale;
+    let entity_width_scaled = bubble.entity_size.x * projection.scale;
+    let entity_height_scaled = bubble.entity_size.y * projection.scale;
 
-    let half_w = 1.0 / render_cam.zoom.x;
-    let half_h = 1.0 / render_cam.zoom.y;
-    let virt_x = (bubble.world_pos.x - render_cam.target.x + half_w) / (2.0 * half_w) * virt_w;
-    let virt_y = (bubble.world_pos.y - render_cam.target.y + half_h) / (2.0 * half_h) * virt_h;
+    let half_w = 1.0 / projection.render_cam.zoom.x;
+    let half_h = 1.0 / projection.render_cam.zoom.y;
+    let virt_x = (bubble.world_pos.x - projection.render_cam.target.x + half_w)
+        / (2.0 * half_w)
+        * projection.virt_size.x;
+    let virt_y = (bubble.world_pos.y - projection.render_cam.target.y + half_h)
+        / (2.0 * half_h)
+        * projection.virt_size.y;
 
-    let screen_x = virt_x * scale + offset_x;
-    let screen_y = virt_y * scale + offset_y;
+    let screen_x = virt_x * projection.scale + projection.offset.x;
+    let screen_y = virt_y * projection.scale + projection.offset.y;
 
     let entity_top_center_x =
         screen_x - entity_width_scaled * pivot_offset.x + entity_width_scaled / 2.0;
     let entity_top_y = screen_y - entity_height_scaled * pivot_offset.y;
 
-    let bubble_x = entity_top_center_x - bubble_width / 2.0 + bubble.offset.0 * scale;
-    let bubble_y = entity_top_y + bubble.offset.1 * scale - bubble_height;
+    let bubble_x =
+        entity_top_center_x - bubble_width / 2.0 + bubble.offset.0 * projection.scale;
+    let bubble_y = entity_top_y + bubble.offset.1 * projection.scale - bubble_height;
 
     if bubble.show_background {
         let bg_color = Color::new(

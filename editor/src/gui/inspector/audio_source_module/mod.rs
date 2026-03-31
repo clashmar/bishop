@@ -93,16 +93,17 @@ impl InspectorModule for AudioSourceModule {
             let x = rect.x + WIDGET_PADDING;
             let w = rect.w - 2.0 * WIDGET_PADDING;
 
-            draw_group_dropdowns(
+            if let Some(message) = draw_group_dropdowns(
                 ctx,
                 blocked,
                 Rect::new(x, y, w, ROW_HEIGHT),
                 self,
                 source,
                 &library,
-                &mut warning_message,
                 &mut pending_sync_all,
-            );
+            ) {
+                warning_message = Some(message);
+            }
             y += ROW_HEIGHT + SPACING;
 
             if self

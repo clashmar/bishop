@@ -13,15 +13,15 @@ impl RoomEditor {
     /// Handles mouse selection / movement with multi-select support.
     pub(crate) fn handle_selection(
         &mut self,
-        ctx: &WgpuContext,
+        ctx: &mut WgpuContext,
         room_id: RoomId,
         camera: &Camera2D,
         ecs: &mut Ecs,
         asset_manager: &mut AssetManager,
-        mouse_screen: Vec2,
-        ui_was_clicked: bool,
         grid_size: f32,
     ) -> bool {
+        let mouse_screen: Vec2 = ctx.mouse_position().into();
+        let ui_was_clicked = self.ui_was_clicked(ctx);
         let shift_held =
             ctx.is_key_down(KeyCode::LeftShift) || ctx.is_key_down(KeyCode::RightShift);
         let mouse_world = coord::mouse_world_pos(ctx, camera);
