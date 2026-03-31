@@ -12,6 +12,31 @@ pub(crate) struct PreCopyDragState {
     pub selected_entities: HashSet<Entity>,
 }
 
+/// All transient mouse-interaction state for entity dragging and box selection.
+#[derive(Default)]
+pub(crate) struct DragState {
+    /// Whether an entity drag is currently active.
+    pub dragging: bool,
+    /// The entity that was clicked to start the drag.
+    pub drag_anchor_entity: Option<Entity>,
+    /// Offset from the anchor entity's position to the mouse at drag start.
+    pub drag_offset: Vec2,
+    /// Start positions of all dragged entities at the moment dragging began.
+    pub drag_start_positions: Vec<(Entity, Vec2)>,
+    /// The very first start positions when the drag began, used for undo commands.
+    pub drag_initial_start_positions: Vec<(Entity, Vec2)>,
+    /// Start position of a box selection in world coordinates.
+    pub box_select_start: Option<Vec2>,
+    /// Whether a box selection drag is currently active.
+    pub box_select_active: bool,
+    /// Whether the current drag is an alt+drag copy operation.
+    pub alt_copy_mode: bool,
+    /// Entities created during an alt+drag copy, for the undo command.
+    pub alt_copied_entities: Vec<Entity>,
+    /// Original drag state before entering copy mode, used to revert on alt release.
+    pub pre_copy_drag_state: Option<PreCopyDragState>,
+}
+
 impl RoomEditor {
     /// Sets a single selected entity for the room editor, clearing any previous selection.
     pub fn set_selected_entity(&mut self, entity: Option<Entity>) {

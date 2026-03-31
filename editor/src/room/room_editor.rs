@@ -11,7 +11,7 @@ use crate::gui::modal::is_modal_open;
 use crate::gui::mode_selector::*;
 use crate::gui::panels::panel_manager::is_mouse_over_panel;
 use crate::room::drawing::*;
-use crate::room::selection::PreCopyDragState;
+use crate::room::selection::DragState;
 use crate::shared::selection::draw_selection_box;
 use crate::tilemap::tilemap_editor::*;
 use crate::world::coord;
@@ -57,29 +57,12 @@ pub struct RoomEditor {
     pub selected_entities: HashSet<Entity>,
     pub(crate) active_rects: Vec<Rect>,
     pub(crate) show_grid: bool,
-    pub(crate) drag_offset: Vec2,
-    pub(crate) dragging: bool,
-    /// Stores for all dragged entities.
-    pub(crate) drag_start_positions: Vec<(Entity, Vec2)>,
-    /// The entity that was clicked to start the selection drag.
-    pub(crate) drag_anchor_entity: Option<Entity>,
+    pub(crate) drag_state: DragState,
     initialized: bool,
     pub create_entity_requested: bool,
     pub request_play: bool,
     pub view_preview: bool,
     pub(crate) preview_camera_id: Option<usize>,
-    /// Start position of the box selection in world coordinates.
-    pub(crate) box_select_start: Option<Vec2>,
-    /// Whether box selection is currently active.
-    pub(crate) box_select_active: bool,
-    /// Whether current drag is an alt+drag copy operation.
-    pub(crate) alt_copy_mode: bool,
-    /// Entities created during alt+drag copy for undo command.
-    pub(crate) alt_copied_entities: Vec<Entity>,
-    /// Original drag state before entering copy mode (for reverting on alt release).
-    pub(crate) pre_copy_drag_state: Option<PreCopyDragState>,
-    /// The very first start positions when drag began (for undo command).
-    pub(crate) drag_initial_start_positions: Vec<(Entity, Vec2)>,
     /// Current sub-mode for tilemap editing.
     pub(crate) tilemap_sub_mode: TilemapEditorMode,
     /// Rect of the sub-mode strip for UI tracking.
@@ -101,21 +84,12 @@ impl RoomEditor {
             selected_entities: HashSet::new(),
             active_rects: Vec::new(),
             show_grid: true,
-            drag_offset: Vec2::ZERO,
-            dragging: false,
-            drag_start_positions: Vec::new(),
-            drag_anchor_entity: None,
+            drag_state: DragState::default(),
             initialized: false,
             preview_camera_id: None,
             create_entity_requested: false,
             request_play: false,
             view_preview: false,
-            box_select_start: None,
-            box_select_active: false,
-            alt_copy_mode: false,
-            alt_copied_entities: Vec::new(),
-            pre_copy_drag_state: None,
-            drag_initial_start_positions: Vec::new(),
             tilemap_sub_mode: TilemapEditorMode::Tiles,
             sub_mode_rect: None,
         }
@@ -353,8 +327,8 @@ impl RoomEditor {
                             draw_collider(ctx, ecs, selected_entity);
                         }
 
-                        if self.box_select_active {
-                            if let Some(start) = self.box_select_start {
+                        if self.drag_state.box_select_active {
+                            if let Some(start) = self.drag_state.box_select_start {
                                 let mouse_world = coord::mouse_world_pos(ctx, camera);
                                 draw_selection_box(ctx, start, mouse_world);
                             }
@@ -379,14 +353,7 @@ impl RoomEditor {
         self.request_play = false;
         self.view_preview = false;
         self.preview_camera_id = None;
-        self.box_select_start = None;
-        self.box_select_active = false;
-        self.drag_start_positions.clear();
-        self.drag_initial_start_positions.clear();
-        self.drag_anchor_entity = None;
-        self.alt_copy_mode = false;
-        self.alt_copied_entities.clear();
-        self.pre_copy_drag_state = None;
+        self.drag_state = DragState::default();
         self.tilemap_sub_mode = TilemapEditorMode::Tiles;
         self.sub_mode_rect = None;
     }
