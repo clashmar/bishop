@@ -184,10 +184,10 @@ impl InspectorModule for AudioSourceModule {
                 #[cfg(not(target_arch = "wasm32"))]
                 if let Some(path) = rfd::FileDialog::new()
                     .add_filter("Audio", &["wav"])
-                    .set_directory(engine_core::storage::path_utils::audio_folder())
+                    .set_directory(audio_folder())
                     .pick_file()
                 {
-                    let base = engine_core::storage::path_utils::audio_folder();
+                    let base = audio_folder();
                     let relative = path.strip_prefix(&base).unwrap_or(&path);
                     let sound_id = relative
                         .with_extension("")
