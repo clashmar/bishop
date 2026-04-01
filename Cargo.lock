@@ -215,9 +215,14 @@ dependencies = [
  "glam",
  "image",
  "log",
+ "objc2 0.5.2",
+ "objc2-app-kit 0.2.2",
+ "objc2-foundation 0.2.2",
  "pollster",
+ "raw-window-handle 0.6.2",
  "serde",
  "wgpu",
+ "windows-sys 0.59.0",
  "winit",
 ]
 

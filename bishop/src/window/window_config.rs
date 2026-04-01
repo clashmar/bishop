@@ -13,8 +13,10 @@ pub struct WindowConfig {
     pub fullscreen: bool,
     /// Whether the window can be resized.
     pub resizable: bool,
-    /// Optional window icon.
-    pub icon: Option<WindowIcon>,
+    /// Optional icon used for window-level surfaces.
+    pub window_icon: Option<WindowIcon>,
+    /// Optional icon used for application-level surfaces.
+    pub app_icon: Option<WindowIcon>,
 }
 
 impl Default for WindowConfig {
@@ -25,7 +27,8 @@ impl Default for WindowConfig {
             height: 600,
             fullscreen: false,
             resizable: true,
-            icon: None,
+            window_icon: None,
+            app_icon: None,
         }
     }
 }
@@ -58,10 +61,19 @@ impl WindowConfig {
         self
     }
 
-    /// Sets the window icon.
+    /// Sets the icon for both window-level and app-level surfaces.
     pub fn with_icon(mut self, icon: WindowIcon) -> Self {
-        self.icon = Some(icon);
+        self.window_icon = Some(icon.clone());
+        self.app_icon = Some(icon);
         self
+    }
+
+    pub(crate) fn resolve_window_icon(&self) -> Option<&WindowIcon> {
+        self.window_icon.as_ref().or(self.app_icon.as_ref())
+    }
+
+    pub(crate) fn resolve_app_icon(&self) -> Option<&WindowIcon> {
+        self.app_icon.as_ref().or(self.window_icon.as_ref())
     }
 }
 
@@ -100,5 +112,39 @@ impl IconData {
             width,
             height,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn sample_icon(tag: u8) -> WindowIcon {
+        WindowIcon::Rgba {
+            small: Some(IconData::new(vec![tag; 16 * 16 * 4], 16, 16)),
+            medium: None,
+            large: None,
+        }
+    }
+
+    #[test]
+    fn with_icon_sets_window_and_app_icons() {
+        let icon = sample_icon(1);
+
+        let config = WindowConfig::new("Bishop").with_icon(icon.clone());
+
+        assert!(config.window_icon.is_some());
+        assert!(config.app_icon.is_some());
+        assert!(matches!(config.window_icon, Some(WindowIcon::Rgba { .. })));
+        assert!(matches!(config.app_icon, Some(WindowIcon::Rgba { .. })));
+    }
+
+    #[test]
+    fn with_icon_resolves_for_both_surfaces() {
+        let icon = sample_icon(2);
+        let config = WindowConfig::new("Bishop").with_icon(icon);
+
+        assert!(config.resolve_window_icon().is_some());
+        assert!(config.resolve_app_icon().is_some());
     }
 }

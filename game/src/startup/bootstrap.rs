@@ -1,5 +1,6 @@
 use super::{
-    load_startup_for_game_name, load_startup_from_resources, StartupAsset,
+    load_startup_for_game_name, load_startup_from_resources,
+    runtime_icon::playtest_game_name_from_payload as parse_playtest_game_name, StartupAsset,
     StartupScreenContent, StartupScreenSpec,
 };
 use crate::engine::{Engine, EngineBuilder, EngineEntryMode, GameInstance};
@@ -202,22 +203,17 @@ fn load_initial_startup(source: &StartupSource) -> StartupAsset {
 
 fn load_playtest_startup_preview(payload_path: &Path) -> Option<StartupAsset> {
     #[derive(serde::Deserialize)]
-    struct PayloadGamePreview {
-        game: PayloadGameName,
+    struct PayloadStartupPreview {
         startup_ron: Option<String>,
     }
 
-    #[derive(serde::Deserialize)]
-    struct PayloadGameName {
-        name: String,
-    }
-
     let payload_ron = fs::read_to_string(payload_path).ok()?;
-    let preview = from_str::<PayloadGamePreview>(&payload_ron).ok()?;
+    let preview = from_str::<PayloadStartupPreview>(&payload_ron).ok()?;
     if let Some(startup_ron) = preview.startup_ron.as_deref() {
         return Some(parse_payload_startup(startup_ron));
     }
-    Some(load_startup_for_game_name(&preview.game.name))
+    let game_name = parse_playtest_game_name(&payload_ron)?;
+    Some(load_startup_for_game_name(&game_name))
 }
 
 fn parse_startup_data(files: LoadedStartupFiles) -> Result<LoadedStartupData, String> {
@@ -582,5 +578,23 @@ mod tests {
         };
 
         assert!(loaded.skips_startup_presentation());
+    }
+
+    #[test]
+    fn playtest_game_name_reads_name_from_payload() {
+        let payload = r#"
+(
+    room: (
+        name: "Room",
+    ),
+    game: (
+        name: "Demo",
+    ),
+)
+"#;
+
+        let game_name = parse_playtest_game_name(payload).unwrap();
+
+        assert_eq!(game_name, "Demo");
     }
 }

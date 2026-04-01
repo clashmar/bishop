@@ -105,14 +105,16 @@ fn main() -> Result<(), RunError> {
     let window_width = FIXED_WINDOW_WIDTH.clamp(MIN_WINDOW_WIDTH, MAX_WINDOW_WIDTH);
     let window_height = FIXED_WINDOW_HEIGHT.clamp(MIN_WINDOW_HEIGHT, MAX_WINDOW_HEIGHT);
 
+    let icon = WindowIcon::Rgba {
+        small: Some(IconData::new(ICON_SMALL.to_vec(), 16, 16)),
+        medium: Some(IconData::new(ICON_MEDIUM.to_vec(), 32, 32)),
+        large: Some(IconData::new(ICON_BIG.to_vec(), 64, 64)),
+    };
+
     let config = WindowConfig::new("Bishop Engine")
         .with_size(window_width as u32, window_height as u32)
         .with_resizable(true)
-        .with_icon(WindowIcon::Rgba {
-            small: Some(IconData::new(ICON_SMALL.to_vec(), 16, 16)),
-            medium: Some(IconData::new(ICON_MEDIUM.to_vec(), 32, 32)),
-            large: Some(IconData::new(ICON_BIG.to_vec(), 64, 64)),
-        });
+        .with_icon(icon);
 
     let app = EditorApp::new();
     run_backend(config, app)

@@ -3,10 +3,9 @@ use bishop::prelude::*;
 use bishop::BishopApp;
 use engine_core::prelude::*;
 use game_lib::engine::Engine;
-use game_lib::startup::{StartupController, StartupSource};
+use game_lib::startup::{runtime_icon_for_current_exe, StartupController, StartupSource};
 use std::any::Any;
 use std::env;
-use std::fs;
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::path::Path;
 
@@ -47,27 +46,6 @@ impl BishopApp for GameApp {
     }
 }
 
-/// Helper that returns the icon from PNG bytes.
-fn load_icon_from_png(png_bytes: &[u8]) -> WindowIcon {
-    WindowIcon::Rgba {
-        small: Some(IconData::new(
-            load_rgba_resized::<{ 16 * 16 * 4 }>(png_bytes, 16).to_vec(),
-            16,
-            16,
-        )),
-        medium: Some(IconData::new(
-            load_rgba_resized::<{ 32 * 32 * 4 }>(png_bytes, 32).to_vec(),
-            32,
-            32,
-        )),
-        large: Some(IconData::new(
-            load_rgba_resized::<{ 64 * 64 * 4 }>(png_bytes, 64).to_vec(),
-            64,
-            64,
-        )),
-    }
-}
-
 fn main() -> Result<(), RunError> {
     let exe_path = env::current_exe().ok();
     let window_title = exe_path
@@ -83,16 +61,7 @@ fn main() -> Result<(), RunError> {
         onscreen_info!("Executable path: {}", exe_path.display());
     }
 
-    // Load icon from resources directory if available
-    let resources_dir = resources_dir_from_exe();
-
-    let icon = resources_dir
-        .as_ref()
-        .and_then(|resources_dir| {
-            let icon_path = resources_dir.join("Icon.png");
-            fs::read(&icon_path).ok()
-        })
-        .map(|png_bytes| load_icon_from_png(&png_bytes));
+    let icon = runtime_icon_for_current_exe();
 
     let mut config = WindowConfig::new(window_title)
         .with_fullscreen(true)

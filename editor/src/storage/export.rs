@@ -11,6 +11,7 @@ use std::io::ErrorKind;
 use std::io::Write;
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
+use std::path::Path;
 use std::path::PathBuf;
 use winres_edit::resource_type;
 use winres_edit::Id;
@@ -181,19 +182,55 @@ fn export_for_mac(dest_root: PathBuf, game: &Game) -> io::Result<PathBuf> {
         onscreen_debug!("Icon.icns not found, skipping.");
     }
 
-    // Copy Info.plist
-    if let Some(bundle_assets) = bundle_assets_folder() {
-        // TODO: add more to plist
-        onscreen_debug!("Copying Info.plist.");
-        let src_plist = bundle_assets.join("Info.plist");
-        let target_plist = bundle_path.join(CONTENTS_FOLDER).join("Info.plist");
-        let _ = fs::copy(src_plist, target_plist);
-    }
+    let target_plist = bundle_path.join(CONTENTS_FOLDER).join("Info.plist");
+    onscreen_debug!("Writing Info.plist.");
+    fs::write(&target_plist, mac_export_info_plist(game))?;
 
     // Tell the guard to keep the folder
     guard.success();
     onscreen_debug!("Export successful.");
     Ok(bundle_path)
+}
+
+#[cfg(unix)]
+fn mac_export_info_plist(game: &Game) -> String {
+    let identifier = format!(
+        "com.clashmar.{}",
+        game.name
+            .chars()
+            .filter(|ch| ch.is_ascii_alphanumeric())
+            .collect::<String>()
+            .to_lowercase()
+    );
+
+    format!(
+        r#"<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleDevelopmentRegion</key>
+    <string>en</string>
+    <key>CFBundleExecutable</key>
+    <string>{}</string>
+    <key>CFBundleIconFile</key>
+    <string>Icon</string>
+    <key>CFBundleIdentifier</key>
+    <string>{identifier}</string>
+    <key>CFBundleInfoDictionaryVersion</key>
+    <string>6.0</string>
+    <key>CFBundleName</key>
+    <string>{}</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    <key>CFBundleShortVersionString</key>
+    <string>0.1.0</string>
+    <key>CFBundleVersion</key>
+    <string>0.1.0</string>
+</dict>
+</plist>
+"#,
+        game.name, game.name
+    )
 }
 
 /// Updates the game .exe with the game information.
@@ -243,4 +280,41 @@ fn update_exe(exe_path: &PathBuf, game: &Game) -> Result<(), winres_edit::Error>
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[cfg(unix)]
+    #[test]
+    fn mac_export_info_plist_contains_required_bundle_keys() {
+        let plist = mac_export_info_plist(&Game {
+            name: "Demo".to_string(),
+            ..Game::default()
+        });
+
+        assert!(plist.contains("<key>CFBundleExecutable</key>"));
+        assert!(plist.contains("<string>Demo</string>"));
+        assert!(plist.contains("<key>CFBundlePackageType</key>"));
+        assert!(plist.contains("<string>APPL</string>"));
+        assert!(plist.contains("<key>CFBundleIconFile</key>"));
+        assert!(plist.contains("<string>Icon</string>"));
+    }
+
+    #[test]
+    fn export_guard_removes_failed_output_on_drop() {
+        let path = std::env::temp_dir().join(format!(
+            "bishop-export-guard-{}",
+            uuid::Uuid::new_v4()
+        ));
+        fs::create_dir_all(&path).unwrap();
+
+        {
+            let _guard = ExportGuard::new(path.clone());
+            assert!(path.exists());
+        }
+
+        assert!(!path.exists());
+    }
 }
