@@ -18,10 +18,15 @@ pub struct ButtonClicks {
     pub secondary: bool,
 }
 
+enum ButtonContent<'a> {
+    Text(&'a str),
+    Icon { texture: &'a Texture2D, id: &'a str },
+}
+
 /// A clickable button widget using the builder pattern.
 pub struct Button<'a> {
     rect: Rect,
-    label: &'a str,
+    content: ButtonContent<'a>,
     style: ButtonStyle,
     font_size: f32,
     text_color: Color,
@@ -32,6 +37,7 @@ pub struct Button<'a> {
     mouse_position: Option<Vec2>,
     allow_secondary_click: bool,
     interaction_id: Option<ClickTargetId>,
+    icon_padding: f32,
 }
 
 impl<'a> Button<'a> {
@@ -39,7 +45,7 @@ impl<'a> Button<'a> {
     pub fn new(rect: impl Into<Rect>, label: &'a str) -> Self {
         Self {
             rect: rect.into(),
-            label,
+            content: ButtonContent::Text(label),
             style: ButtonStyle::Default,
             font_size: FIELD_TEXT_SIZE_16,
             text_color: FIELD_TEXT_COLOR,
@@ -50,6 +56,29 @@ impl<'a> Button<'a> {
             mouse_position: None,
             allow_secondary_click: false,
             interaction_id: None,
+            icon_padding: 2.0,
+        }
+    }
+
+    /// Creates a new icon button with the given rect and texture.
+    ///
+    /// The `id` string is used for interaction tracking and is not displayed.
+    /// The texture is scaled to fill the button rect minus padding.
+    pub fn icon(rect: impl Into<Rect>, texture: &'a Texture2D, id: &'a str) -> Self {
+        Self {
+            rect: rect.into(),
+            content: ButtonContent::Icon { texture, id },
+            style: ButtonStyle::Default,
+            font_size: FIELD_TEXT_SIZE_16,
+            text_color: FIELD_TEXT_COLOR,
+            hover_color: HOVER_COLOR,
+            text_offset: Vec2::ZERO,
+            blocked: false,
+            focused: false,
+            mouse_position: None,
+            allow_secondary_click: false,
+            interaction_id: None,
+            icon_padding: 2.0,
         }
     }
 
@@ -108,6 +137,12 @@ impl<'a> Button<'a> {
         self
     }
 
+    /// Sets the padding between the button border and the icon texture. Only applies to icon buttons. Default is 2.0.
+    pub fn icon_padding(mut self, padding: f32) -> Self {
+        self.icon_padding = padding;
+        self
+    }
+
     /// Overrides the mouse position used for hover detection (e.g. world-space coords when a camera is active).
     pub fn mouse_position(mut self, pos: Vec2) -> Self {
         self.mouse_position = Some(pos);
@@ -129,10 +164,6 @@ impl<'a> Button<'a> {
         let primary_held = hovered && ctx.is_mouse_button_down(MouseButton::Left);
         let secondary_held =
             self.allow_secondary_click && hovered && ctx.is_mouse_button_down(MouseButton::Right);
-
-        let txt_dims = measure_text_ui(ctx, self.label, self.font_size);
-        let txt_y = self.rect.y + (self.rect.h - txt_dims.height) / 2.0 + txt_dims.offset_y;
-        let txt_x = self.rect.x + (self.rect.w - txt_dims.width) / 2.;
 
         match self.style {
             ButtonStyle::Default => {
@@ -180,14 +211,35 @@ impl<'a> Button<'a> {
             }
         }
 
-        draw_text_ui(
-            ctx,
-            self.label,
-            txt_x + self.text_offset.x,
-            txt_y + self.text_offset.y,
-            self.font_size,
-            self.text_color,
-        );
+        match &self.content {
+            ButtonContent::Text(label) => {
+                let txt_dims = measure_text_ui(ctx, label, self.font_size);
+                let txt_y =
+                    self.rect.y + (self.rect.h - txt_dims.height) / 2.0 + txt_dims.offset_y;
+                let txt_x = self.rect.x + (self.rect.w - txt_dims.width) / 2.0;
+                draw_text_ui(
+                    ctx,
+                    label,
+                    txt_x + self.text_offset.x,
+                    txt_y + self.text_offset.y,
+                    self.font_size,
+                    self.text_color,
+                );
+            }
+            ButtonContent::Icon { texture, .. } => {
+                let p = self.icon_padding;
+                ctx.draw_texture_ex(
+                    texture,
+                    self.rect.x + p,
+                    self.rect.y + p,
+                    self.text_color,
+                    DrawTextureParams {
+                        dest_size: Some(Vec2::new(self.rect.w - 2.0 * p, self.rect.h - 2.0 * p)),
+                        ..Default::default()
+                    },
+                );
+            }
+        }
 
         let interactive = !self.blocked && !is_dropdown_open();
         let primary = activate_on_release(
@@ -213,7 +265,10 @@ impl<'a> Button<'a> {
 
     fn default_interaction_id(&self) -> ClickTargetId {
         let mut hasher = DefaultHasher::new();
-        self.label.hash(&mut hasher);
+        match &self.content {
+            ButtonContent::Text(label) => label.hash(&mut hasher),
+            ButtonContent::Icon { id, .. } => id.hash(&mut hasher),
+        }
         self.rect.x.to_bits().hash(&mut hasher);
         self.rect.y.to_bits().hash(&mut hasher);
         self.rect.w.to_bits().hash(&mut hasher);

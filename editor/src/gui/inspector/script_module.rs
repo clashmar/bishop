@@ -1,4 +1,5 @@
 // editor/src/gui/inspector/script_module.rs
+use crate::editor_assets::assets::refresh_icon;
 use crate::with_lua;
 use bishop::prelude::*;
 use engine_core::prelude::*;
@@ -97,7 +98,11 @@ impl InspectorModule for ScriptModule {
         }
 
         // Refresh button
-        if Button::new(refresh_rect, "R").blocked(blocked).show(ctx) {
+        if Button::icon(refresh_rect, refresh_icon(), "refresh_script")
+            .icon_padding(5.0)
+            .blocked(blocked)
+            .show(ctx)
+        {
             if script_comp.script_id == ScriptId(0) {
                 return;
             }
