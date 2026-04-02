@@ -275,13 +275,13 @@ fn apply_native_icons(window: &Arc<Window>, config: &WindowConfig) {
 
 #[cfg(target_os = "windows")]
 fn apply_windows_icons(window: &Arc<Window>, config: &WindowConfig) {
-    use windows_sys::Win32::Foundation::{HICON, HWND, LPARAM};
+    use windows_sys::Win32::Foundation::{HWND, LPARAM};
     use windows_sys::Win32::Graphics::Gdi::{
         CreateBitmap, CreateDIBSection, DeleteObject, GetDC, ReleaseDC, BI_BITFIELDS,
         BITMAPINFO, BITMAPV5HEADER, DIB_RGB_COLORS,
     };
     use windows_sys::Win32::UI::WindowsAndMessaging::{
-        CreateIconIndirect, GetSystemMetrics, SendMessageW, ICONINFO, ICON_BIG, ICON_SMALL,
+        CreateIconIndirect, GetSystemMetrics, SendMessageW, HICON, ICONINFO, ICON_BIG, ICON_SMALL,
         SM_CXICON, SM_CXSMICON, SM_CYICON, SM_CYSMICON, WM_SETICON,
     };
 
