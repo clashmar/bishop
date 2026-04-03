@@ -17,6 +17,10 @@ use winres_edit::resource_type;
 use winres_edit::Id;
 use winres_edit::Resources;
 
+pub struct PendingExport {
+    pub dest_root: PathBuf,
+}
+
 /// Removes `path` when dropped unless `success()` has been called.
 struct ExportGuard {
     path: PathBuf,
@@ -42,22 +46,11 @@ impl Drop for ExportGuard {
 }
 
 /// Exports the game to the chosen folder on all platforms.
-pub fn export_game(game: &Game) -> io::Result<PathBuf> {
-    let dest_root = rfd::FileDialog::new()
-        .set_title("Select destination folder for export:")
-        .pick_folder()
-        .ok_or_else(|| {
-            Error::new(
-                ErrorKind::InvalidInput,
-                "No destination folder was selected.",
-            )
-        })?;
-
-    // TODO: This overwrites, check for duplicates
+pub fn export_game(dest_root: &Path, game: &Game) -> io::Result<PathBuf> {
     #[cfg(target_os = "windows")]
     {
         onscreen_info!("Exporting for windows");
-        let exe_path = export_for_windows(&dest_root, game)?;
+        let exe_path = export_for_windows(dest_root, game)?;
         Ok(exe_path)
     }
     #[cfg(target_os = "macos")]
@@ -69,9 +62,25 @@ pub fn export_game(game: &Game) -> io::Result<PathBuf> {
     // TODO Handle Linux
 }
 
+/// Returns the package/bundle path that exporting will overwrite.
+pub fn export_target_path(dest_root: &Path, game: &Game) -> PathBuf {
+    #[cfg(target_os = "windows")]
+    {
+        return dest_root.join(&game.name);
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        return dest_root.join(format!("{}.app", game.name));
+    }
+
+    #[allow(unreachable_code)]
+    dest_root.join(&game.name)
+}
+
 #[cfg(windows)]
-fn export_for_windows(dest_root: &PathBuf, game: &Game) -> io::Result<PathBuf> {
-    let target_package = dest_root.join(format!("{}", &game.name));
+fn export_for_windows(dest_root: &Path, game: &Game) -> io::Result<PathBuf> {
+    let target_package = export_target_path(dest_root, game);
 
     // Guard will clear up the package if there is an error
     let mut guard = ExportGuard::new(target_package.clone());
@@ -121,8 +130,8 @@ fn export_for_windows(dest_root: &PathBuf, game: &Game) -> io::Result<PathBuf> {
 }
 
 #[cfg(unix)]
-fn export_for_mac(dest_root: PathBuf, game: &Game) -> io::Result<PathBuf> {
-    let bundle_path = dest_root.join(format!("{}.app", game.name));
+fn export_for_mac(dest_root: &Path, game: &Game) -> io::Result<PathBuf> {
+    let bundle_path = export_target_path(dest_root, game);
 
     // Guard will clear up the export if there are errors
     let mut guard = ExportGuard::new(bundle_path.clone());
@@ -285,6 +294,35 @@ fn update_exe(exe_path: &PathBuf, game: &Game) -> Result<(), winres_edit::Error>
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::path::Path;
+
+    #[cfg(unix)]
+    #[test]
+    fn export_target_path_uses_app_bundle_name_on_macos() {
+        let path = export_target_path(
+            Path::new("/tmp/exports"),
+            &Game {
+                name: "Demo".to_string(),
+                ..Game::default()
+            },
+        );
+
+        assert_eq!(path, PathBuf::from("/tmp/exports/Demo.app"));
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn export_target_path_uses_plain_folder_name_on_windows() {
+        let path = export_target_path(
+            Path::new(r"C:\exports"),
+            &Game {
+                name: "Demo".to_string(),
+                ..Game::default()
+            },
+        );
+
+        assert_eq!(path, PathBuf::from(r"C:\exports\Demo"));
+    }
 
     #[cfg(unix)]
     #[test]

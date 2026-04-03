@@ -142,9 +142,16 @@ impl Modal {
         ctx: &WgpuContext,
         result_store: &'static LocalKey<RefCell<Option<ConfirmPromptResult>>>,
     ) -> Modal {
-        let prompt_message = "Are You Sure?";
-        let mut modal = Modal::new(ctx, 300.0, 120.0);
+        Self::open_confirm_modal_with_message(ctx, result_store, "Are You Sure?")
+    }
 
+    /// Opens a modal with a confirm prompt widget and custom message.
+    pub fn open_confirm_modal_with_message(
+        ctx: &WgpuContext,
+        result_store: &'static LocalKey<RefCell<Option<ConfirmPromptResult>>>,
+        prompt_message: impl Into<String>,
+    ) -> Modal {
+        let mut modal = Modal::new(ctx, 300.0, 120.0);
         let mut prompt = ConfirmPrompt::new(modal.rect, prompt_message);
 
         let widgets: Vec<BoxedWidget> = vec![Box::new(move |ctx, _| {
