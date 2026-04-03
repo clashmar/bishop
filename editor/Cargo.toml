@@ -39,6 +39,9 @@ glam = "0.32.0"
 winres = "0.1.12"
 engine_core = { path = "../engine_core" }
 
+[dev-dependencies]
+engine_core = { path = "../engine_core", default-features = false, features = ["wgpu", "editor", "test-utils"] }
+
 # Bundle for macOS
 [package.metadata.bundle]
 name = "Bishop"

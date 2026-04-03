@@ -9,6 +9,8 @@ pub use startup_mode::*;
 use crate::assets::asset_manager::AssetManager;
 use crate::ecs::ecs::Ecs;
 use crate::engine_global::set_game_name;
+use crate::onscreen_error;
+use crate::prefab::{PrefabLibrary, load_prefab_library};
 use crate::scripting::script_manager::ScriptManager;
 use crate::worlds::room::RoomId;
 use crate::worlds::world::*;
@@ -39,6 +41,9 @@ pub struct Game {
     /// Text manager for the game.
     #[serde(skip)]
     pub text_manager: TextManager,
+    /// In-memory prefab library loaded from disk for the current game.
+    #[serde(skip)]
+    pub prefab_library: PrefabLibrary,
     /// Id of the currently active world.
     pub current_world_id: WorldId, // TODO: Change this to an option
     /// Top level map of the whole game.
@@ -154,6 +159,7 @@ impl Game {
         AssetManager::init_manager(loader, self);
         ScriptManager::init_manager(self, lua);
         self.init_text_manager();
+        self.reload_prefab_library();
     }
 
     /// Initializes runtime state for the game without eagerly hydrating all textures.
@@ -162,12 +168,26 @@ impl Game {
         AssetManager::init_runtime_manager(self);
         ScriptManager::init_manager(self, lua);
         self.init_text_manager();
+        self.reload_prefab_library();
     }
 
     /// Initializes the text manager with the correct path.
     pub fn init_text_manager(&mut self) {
         let text_root = text_folder();
         self.text_manager.set_text_root(text_root);
+    }
+
+    /// Reloads the prefab library for the current game from disk.
+    pub fn reload_prefab_library(&mut self) {
+        match load_prefab_library(&self.name) {
+            Ok(prefab_library) => {
+                self.prefab_library = prefab_library;
+            }
+            Err(error) => {
+                onscreen_error!("Failed to load prefabs: {error}");
+                self.prefab_library = PrefabLibrary::default();
+            }
+        }
     }
 
     /// Allocates a globally unique room ID.

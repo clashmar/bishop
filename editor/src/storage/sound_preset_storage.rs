@@ -95,39 +95,12 @@ mod tests {
     use crate::storage::editor_storage::save_game;
     use engine_core::audio::AudioGroup;
     use engine_core::scripting::lua_constants::{ENGINE_DIR, SOUNDS_FILE};
+    use engine_core::storage::test_utils::{TestGameFolder, game_fs_test_lock};
     use std::collections::HashMap;
-    use std::path::PathBuf;
-    use uuid::Uuid;
-
-    struct TestGameFolder {
-        name: String,
-    }
-
-    impl TestGameFolder {
-        fn new(prefix: &str) -> Self {
-            let name = format!("{prefix}_{}", Uuid::new_v4());
-            let path = game_folder(&name);
-            let _ = fs::remove_dir_all(&path);
-            Self { name }
-        }
-
-        fn name(&self) -> &str {
-            &self.name
-        }
-
-        fn path(&self) -> PathBuf {
-            game_folder(&self.name)
-        }
-    }
-
-    impl Drop for TestGameFolder {
-        fn drop(&mut self) {
-            let _ = fs::remove_dir_all(self.path());
-        }
-    }
 
     #[test]
     fn load_sound_preset_library_defaults_when_file_is_missing() {
+        let _lock = game_fs_test_lock().lock().unwrap();
         let test_game = TestGameFolder::new("sound_presets_missing");
 
         let library = load_sound_preset_library(test_game.name()).unwrap();
@@ -137,6 +110,7 @@ mod tests {
 
     #[test]
     fn load_sound_preset_library_returns_error_for_invalid_data() {
+        let _lock = game_fs_test_lock().lock().unwrap();
         let test_game = TestGameFolder::new("sound_presets_invalid");
         fs::create_dir_all(test_game.path()).unwrap();
         fs::write(
@@ -165,6 +139,7 @@ mod tests {
 
     #[test]
     fn save_game_returns_error_when_sounds_lua_cannot_be_written() {
+        let _lock = game_fs_test_lock().lock().unwrap();
         let test_game = TestGameFolder::new("save_game_sounds_lua_error");
         set_game_name(test_game.name());
 

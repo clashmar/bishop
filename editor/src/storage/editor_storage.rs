@@ -45,6 +45,7 @@ pub fn create_new_game(name: String) -> Game {
         asset_manager,
         script_manager,
         text_manager: TextManager::default(),
+        prefab_library: PrefabLibrary::default(),
         current_world_id: WorldId(Uuid::nil()),
         game_map: GameMap::default(),
         next_room_id: 0,
@@ -74,12 +75,13 @@ pub fn create_new_game(name: String) -> Game {
     game
 }
 
-fn create_game_folders(name: &str) {
-    let folders: [(PathBuf, &str); 6] = [
+pub(super) fn create_game_folders(name: &str) {
+    let folders: [(PathBuf, &str); 7] = [
         (resources_folder_current(), RESOURCES_FOLDER),
         (assets_folder(), ASSETS_FOLDER),
         (scripts_folder(), SCRIPTS_FOLDER),
         (text_folder(), TEXT_FOLDER),
+        (prefabs_folder(), PREFABS_FOLDER),
         (windows_folder(), WINDOWS_FOLDER),
         (mac_os_folder(), MAC_OS_FOLDER),
     ];

@@ -13,6 +13,7 @@ pub mod inspector_layout;
 #[cfg(feature = "editor")]
 pub mod inspector_module;
 pub mod module_factory;
+pub mod prefab;
 pub mod reflect_field;
 pub mod transform;
 
@@ -31,5 +32,6 @@ pub use inspector_layout::*;
 pub use inspector_module::*;
 #[cfg(feature = "editor")]
 pub use module_factory::*;
+pub use prefab::*;
 pub use reflect_field::*;
 pub use transform::*;

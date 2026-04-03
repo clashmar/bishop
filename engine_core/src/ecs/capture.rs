@@ -3,14 +3,14 @@ use crate::{ecs::entity::Children, game::GameCtxMut};
 use serde::{Deserialize, Serialize};
 
 /// A single serialized component.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ComponentSnapshot {
     pub type_name: String,
     pub ron: String,
 }
 
 /// A collection of components belonging to a specific entity.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct EntitySnapshot {
     pub entity: Entity,
     pub components: Vec<ComponentSnapshot>,

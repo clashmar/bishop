@@ -60,6 +60,11 @@ pub fn menus_folder() -> PathBuf {
     resources_folder_current().join(MENUS_FOLDER)
 }
 
+/// Returns the path to the prefabs folder for the current game.
+pub fn prefabs_folder() -> PathBuf {
+    resources_folder_current().join(PREFABS_FOLDER)
+}
+
 /// Path to the audio folder inside the resources folder (Editor/Game).
 pub fn audio_folder() -> PathBuf {
     resources_folder_current().join(AUDIO_FOLDER)
@@ -532,5 +537,19 @@ mod tests {
         let base = PathBuf::from("/some/folder");
         let result = build_save_root(&base);
         assert_eq!(result, base.join(SAVE_ROOT).join(GAME_SAVE_ROOT));
+    }
+
+    #[test]
+    fn prefabs_folder_lives_under_resources() {
+        let _lock = test_lock().lock().unwrap();
+        let _restore = SaveRootRestoreGuard::new();
+
+        let game_name = format!("prefab_paths_{}", uuid::Uuid::new_v4());
+        set_game_name(&game_name);
+
+        assert_eq!(
+            prefabs_folder(),
+            resources_folder_current().join(PREFABS_FOLDER)
+        );
     }
 }
