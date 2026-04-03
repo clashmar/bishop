@@ -78,6 +78,11 @@ impl TileMapEditor {
         }
     }
 
+    pub fn sync_adjacent_exits(&mut self, adjacent_exits: &[(Vec2, ExitDirection)]) {
+        self.adjacent_exits.clear();
+        self.adjacent_exits.extend_from_slice(adjacent_exits);
+    }
+
     pub fn update(
         &mut self,
         ctx: &WgpuContext,
@@ -85,12 +90,8 @@ impl TileMapEditor {
         camera: &mut Camera2D,
         room: &mut Room,
         other_bounds: &[(Vec2, Vec2)],
-        adjacent_exits: &[(Vec2, ExitDirection)],
         grid_size: f32,
     ) {
-        // Store adjacent exits for drawing
-        self.adjacent_exits.clear();
-        self.adjacent_exits.extend_from_slice(adjacent_exits);
         if !self.initialized {
             self.ui_was_clicked = true; // Stop any initial tile placements
             self.initialized = true;
@@ -334,8 +335,7 @@ impl TileMapEditor {
             camera,
             asset_manager,
             tilemap,
-            room_position,
-            room_size,
+            Rect::new(room_position.x, room_position.y, room_size.x, room_size.y),
             grid_size,
         );
     }
@@ -397,8 +397,7 @@ impl TileMapEditor {
         camera: &Camera2D,
         asset_manager: &mut AssetManager,
         tilemap: &mut TileMap,
-        room_position: Vec2,
-        room_size: Vec2,
+        room_rect: Rect,
         grid_size: f32,
     ) {
         // Draw resize handles and preview
@@ -408,7 +407,13 @@ impl TileMapEditor {
 
             // Draw preview if this handle is being dragged
             if is_active {
-                handle.draw_preview(ctx, room_position, room_size, grid_size, self.preview_valid);
+                handle.draw_preview(
+                    ctx,
+                    room_rect.top_left(),
+                    vec2(room_rect.w, room_rect.h),
+                    grid_size,
+                    self.preview_valid,
+                );
             }
         }
 

@@ -1,6 +1,7 @@
 use crate::assets::asset_manager::AssetManager;
 use crate::assets::sprite::SpriteId;
 use crate::ecs::entity::Entity;
+use crate::prelude::{assets_folder, scripts_folder};
 use crate::scripting::script::ScriptId;
 use crate::scripting::script_manager::ScriptManager;
 use crate::*;
@@ -44,6 +45,7 @@ pub fn gui_sprite_picker<C: BishopContext>(
         {
             if let Some(path) = rfd::FileDialog::new()
                 .add_filter("PNG images", &["png"])
+                .set_directory(assets_folder())
                 .pick_file()
             {
                 let normalized = asset_manager.normalize_path(path);
@@ -106,6 +108,7 @@ pub fn gui_script_picker<C: BishopContext>(
         {
             if let Some(path) = rfd::FileDialog::new()
                 .add_filter("Lua Scripts", &["lua"])
+                .set_directory(scripts_folder())
                 .pick_file()
             {
                 let normalized = script_manager.normalize_path(path);

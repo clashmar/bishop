@@ -5,7 +5,9 @@ use crate::gui::modal::is_modal_open;
 use bishop::prelude::*;
 use engine_core::prelude::*;
 use std::cell::RefCell;
+use std::collections::hash_map::DefaultHasher;
 use std::fmt::{self, Display};
+use std::hash::{Hash, Hasher};
 use strum_macros::EnumIter;
 
 /// Holds the state of the top‑level menu bar.
@@ -43,6 +45,9 @@ pub enum EditorAction {
     OpenMenuEditor,
     ReturnToGameEditor,
 }
+
+const MENU_BUTTON_TARGET_SALT: u64 = 0x4D45_4E55_4254_4E31;
+const MENU_ENTRY_TARGET_SALT: u64 = 0x4D45_4E55_454E_5452;
 
 impl EditorAction {
     /// Returns the text that should be shown in dropdowns, lists, etc.
@@ -473,7 +478,14 @@ fn menu_dropdown<T: Clone + PartialEq + Display>(
             let entry_rect = Rect::new(list_rect.x, entry_y, list_rect.w, rect.h);
 
             let hovered = entry_rect.contains(mouse_pos);
-            if hovered && ctx.is_mouse_button_pressed(MouseButton::Left) {
+            if activate_on_release(
+                MouseButton::Left,
+                menu_entry_click_target(id, i),
+                hovered,
+                true,
+                ctx.is_mouse_button_pressed(MouseButton::Left),
+                ctx.is_mouse_button_released(MouseButton::Left),
+            ) {
                 // Close the list and return the chosen value
                 state.open = false;
                 dropdown_state::set(id, state);
@@ -585,7 +597,14 @@ pub fn menu_button(ctx: &mut WgpuContext, rect: Rect, label: &str, is_dropdown_o
 
     ctx.draw_text(label, txt_x, txt_y, HEADER_FONT_SIZE_20, Color::BLACK);
 
-    ctx.is_mouse_button_pressed(MouseButton::Left) && hovered && !is_modal_open()
+    activate_on_release(
+        MouseButton::Left,
+        menu_button_click_target(rect, label),
+        hovered,
+        !is_modal_open(),
+        ctx.is_mouse_button_pressed(MouseButton::Left),
+        ctx.is_mouse_button_released(MouseButton::Left),
+    )
 }
 
 pub(crate) fn menu_button_text_position(rect: Rect, txt_dims: TextDimensions) -> (f32, f32) {
@@ -597,4 +616,19 @@ pub(crate) fn menu_button_text_position(rect: Rect, txt_dims: TextDimensions) ->
 thread_local! {
     /// Holds the `WidgetId` of the dropdown that is currently open, if any.
     static CURRENT_OPEN: RefCell<Option<WidgetId>> = const { RefCell::new(None) };
+}
+
+fn menu_button_click_target(rect: Rect, label: &str) -> ClickTargetId {
+    let mut hasher = DefaultHasher::new();
+    label.hash(&mut hasher);
+    rect.x.to_bits().hash(&mut hasher);
+    rect.y.to_bits().hash(&mut hasher);
+    rect.w.to_bits().hash(&mut hasher);
+    rect.h.to_bits().hash(&mut hasher);
+    MENU_BUTTON_TARGET_SALT.hash(&mut hasher);
+    ClickTargetId(hasher.finish())
+}
+
+fn menu_entry_click_target(id: WidgetId, index: usize) -> ClickTargetId {
+    ClickTargetId(((id.0 as u64) << 32) ^ index as u64 ^ MENU_ENTRY_TARGET_SALT)
 }

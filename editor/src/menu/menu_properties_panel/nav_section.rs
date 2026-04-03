@@ -11,15 +11,20 @@ pub struct NavMeta<T> {
     pub(crate) set: fn(&mut T, Option<usize>),
 }
 
+#[derive(Clone, Copy)]
+pub(crate) struct NavSectionStyle<'a> {
+    pub(crate) x: f32,
+    pub(crate) w: f32,
+    pub(crate) blocked: bool,
+    pub(crate) clip: &'a Rect,
+}
+
 impl MenuEditor {
     pub(crate) fn draw_nav_section<T>(
         &mut self,
         ctx: &mut WgpuContext,
         y: &mut f32,
-        x: f32,
-        w: f32,
-        blocked: bool,
-        clip: &Rect,
+        style: NavSectionStyle<'_>,
         nav_ids: &NavWidgetIds,
     ) where
         T: Clone + Navigable,
@@ -41,12 +46,9 @@ impl MenuEditor {
             self.draw_nav_dropdown(
                 ctx,
                 y,
-                x,
-                w,
+                style,
                 current,
                 meta,
-                blocked,
-                clip,
                 |element, value| {
                     if let Some(mut cloned_t) = T::from_element(element).cloned() {
                         set_fn(&mut cloned_t, value);
@@ -61,14 +63,17 @@ impl MenuEditor {
         &mut self,
         ctx: &mut WgpuContext,
         y: &mut f32,
-        x: f32,
-        w: f32,
+        style: NavSectionStyle<'_>,
         current: Option<usize>,
         meta: NavMeta<T>,
-        blocked: bool,
-        clip: &Rect,
         apply: impl FnOnce(&mut MenuElement, Option<usize>),
     ) {
+        let NavSectionStyle {
+            x,
+            w,
+            blocked,
+            clip,
+        } = style;
         if row_visible(*y, ROW_HEIGHT, clip) {
             ctx.draw_text(meta.label, x, *y + 16.0, 12.0, Color::WHITE);
 

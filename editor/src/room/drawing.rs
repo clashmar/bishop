@@ -1,5 +1,6 @@
 // editor/src/room/drawing.rs
 use crate::app::camera_controller::*;
+use crate::editor_assets::assets::camera_icon;
 use crate::gui::gui_constants::*;
 use crate::gui::menu_bar::*;
 use crate::gui::mode_selector::*;
@@ -296,14 +297,7 @@ pub fn highlight_selected_entity<C: BishopContext>(
         None => return,
     };
 
-    // If this is a proxy, use Player's visual components for dimensions
-    let visual_entity = if ecs.has::<PlayerProxy>(entity) {
-        ecs.get_player_entity().unwrap_or(entity)
-    } else {
-        entity
-    };
-
-    let size = entity_dimensions(ecs, asset_manager, visual_entity, grid_size);
+    let size = entity_dimensions(ecs, asset_manager, entity, grid_size);
     let draw_pos = pivot_adjusted_position(transform.position, size, transform.pivot);
 
     ctx.draw_rectangle_lines(
@@ -356,44 +350,18 @@ pub fn draw_camera_placeholders(ctx: &mut WgpuContext, ecs: &Ecs, room_id: RoomI
         .collect();
 
     for pos in positions {
-        // Offset the camera placeholder
         let half_tile = grid_size * 0.5;
         let body = Rect::new(pos.x - half_tile, pos.y - half_tile, grid_size, grid_size);
 
-        let green = Color::new(0.0, 0.89, 0.19, PLACEHOLDER_OPACITY);
-        let blue = Color::new(0.0, 0.47, 0.95, PLACEHOLDER_OPACITY);
-        let red = Color::new(0.9, 0.16, 0.22, PLACEHOLDER_OPACITY);
-
-        ctx.draw_rectangle_lines(body.x, body.y, body.w, body.h, thickness(grid_size), green);
-
-        let finder_w = grid_size * 0.3;
-        let finder_h = grid_size * 0.6;
-        let finder = Rect::new(
-            body.x + thickness(grid_size),
-            body.y + (body.h - finder_h) / 2.0,
-            finder_w,
-            finder_h,
-        );
-        ctx.draw_rectangle_lines(
-            finder.x,
-            finder.y,
-            finder.w,
-            finder.h,
-            thickness(grid_size) * 0.75,
-            blue,
-        );
-
-        let lens_radius = grid_size * 0.1;
-        let lens_center = vec2(
-            body.x + body.w - lens_radius * 2.0 - thickness(grid_size),
-            body.y + body.h / 2.0,
-        );
-        ctx.draw_circle_lines(
-            lens_center.x,
-            lens_center.y,
-            lens_radius,
-            thickness(grid_size) * 0.75,
-            red,
+        ctx.draw_texture_ex(
+            camera_icon(),
+            body.x,
+            body.y,
+            Color::new(1.0, 1.0, 1.0, PLACEHOLDER_OPACITY),
+            DrawTextureParams {
+                dest_size: Some(vec2(grid_size, grid_size)),
+                ..Default::default()
+            },
         );
     }
 }

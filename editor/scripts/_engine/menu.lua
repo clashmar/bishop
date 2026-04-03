@@ -16,3 +16,4 @@ function engine.menu.close() end
 --- Returns true if any menu is currently active.
 ---@return boolean
 function engine.menu.is_open() end
+

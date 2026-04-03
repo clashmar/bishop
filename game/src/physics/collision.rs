@@ -15,6 +15,111 @@ pub struct SweepResult {
     pub blocked_y: bool,
 }
 
+/// Aggregates all solid geometry visible to a single sweep-move query —
+/// tile solids, room border walls, and solid ECS entities.
+pub(crate) struct SweepContext<'a> {
+    /// Asset lookup used to resolve tile definitions.
+    asset_manager: &'a AssetManager,
+    /// ECS world queried for solid entities and their transforms.
+    ecs: &'a Ecs,
+    /// Tilemap for the active room variant.
+    tilemap: &'a TileMap,
+    /// World-space origin of the room.
+    room_origin: Vec2,
+    /// Exits that should remain open in the room border.
+    exits: &'a [Exit],
+    /// Size of a tile in world units.
+    grid_size: f32,
+}
+
+impl SweepContext<'_> {
+    pub(crate) fn new<'a>(
+        asset_manager: &'a AssetManager,
+        ecs: &'a Ecs,
+        tilemap: &'a TileMap,
+        room_origin: Vec2,
+        exits: &'a [Exit],
+        grid_size: f32,
+    ) -> SweepContext<'a> {
+        SweepContext {
+            asset_manager,
+            ecs,
+            tilemap,
+            room_origin,
+            exits,
+            grid_size,
+        }
+    }
+
+    pub(crate) fn sweep_move(
+        &self,
+        entity_position: Vec2,
+        desired_delta: Vec2,
+        collider: Collider,
+        pivot: Pivot,
+    ) -> SweepResult {
+        let obstacles = self.collect_obstacles(entity_position);
+
+        let collider_size = Vec2::new(collider.width, collider.height);
+        let collider_pos = pivot_offset(entity_position, collider_size, pivot);
+
+        let (allowed_x, blocked_x) =
+            resolve_axis(collider_pos, desired_delta.x, 0, collider_size, &obstacles);
+
+        let pos_after_x = collider_pos + Vec2::new(allowed_x, 0.0);
+        let (allowed_y, blocked_y) =
+            resolve_axis(pos_after_x, desired_delta.y, 1, collider_size, &obstacles);
+
+        SweepResult {
+            allowed_delta: Vec2::new(allowed_x, allowed_y),
+            blocked_x,
+            blocked_y,
+        }
+    }
+
+    fn collect_obstacles(&self, entity_position: Vec2) -> Vec<(Vec2, Vec2)> {
+        let mut obstacles = Vec::new();
+
+        for ((x, y), tile_def_id) in self.tilemap.tiles.iter() {
+            let Some(tile_def) = self.asset_manager.tile_defs.get(tile_def_id) else {
+                continue;
+            };
+
+            if tile_def.components.contains(&TileComponent::Solid(true)) {
+                let tile_pos = self.room_origin
+                    + vec2(*x as f32 * self.grid_size, *y as f32 * self.grid_size);
+                let tile_aabb = (tile_pos, tile_pos + vec2(self.grid_size, self.grid_size));
+                obstacles.push(tile_aabb);
+            }
+        }
+
+        add_border_obstacles(
+            &mut obstacles,
+            self.room_origin,
+            self.tilemap,
+            self.exits,
+            self.grid_size,
+        );
+
+        for (other_entity, other_coll) in self.ecs.get_store::<Collider>().data.iter() {
+            if let Some(other_pos) = self.ecs.get::<Transform>(*other_entity) {
+                if (other_pos.position - entity_position).length() < 0.001 {
+                    continue;
+                }
+            }
+
+            if self.ecs.get::<Solid>(*other_entity).is_some_and(|solid| solid.0) {
+                if let Some(other_transform) = self.ecs.get::<Transform>(*other_entity) {
+                    let other_aabb = aabb(other_transform.position, *other_coll, other_transform.pivot);
+                    obstacles.push(other_aabb);
+                }
+            }
+        }
+
+        obstacles
+    }
+}
+
 /// Build an axis‑aligned bounding box (AABB) from a position + collider + pivot.
 /// The pivot determines which point on the collider aligns with the position.
 #[inline]
@@ -88,82 +193,6 @@ fn resolve_axis(
     }
 
     (allowed, blocked)
-}
-
-/// Sweep the requested movement and return the maximal safe delta.
-pub fn sweep_move(
-    asset_manager: &AssetManager,
-    ecs: &mut Ecs,
-    tilemap: &TileMap,
-    room_origin: Vec2,
-    entity_position: Vec2,
-    desired_delta: Vec2,
-    collider: Collider,
-    pivot: Pivot,
-    exits: &[Exit],
-    grid_size: f32,
-) -> SweepResult {
-    // Gather every solid AABB to test against
-    let mut obstacles: Vec<(Vec2, Vec2)> = Vec::new();
-
-    // Tiles
-    // Only tiles that carry a Solid component are obstacles
-    for ((x, y), tile_def_id) in tilemap.tiles.iter() {
-        let Some(tile_def) = asset_manager.tile_defs.get(tile_def_id) else {
-            continue;
-        };
-
-        if tile_def.components.contains(&TileComponent::Solid(true)) {
-            let tile_pos = room_origin + vec2(*x as f32 * grid_size, *y as f32 * grid_size);
-            let tile_aabb = (tile_pos, tile_pos + vec2(grid_size, grid_size));
-            obstacles.push(tile_aabb);
-        }
-    }
-
-    // Create an invisible border around the edge of the room except where exits are placed
-    add_border_obstacles(&mut obstacles, room_origin, tilemap, exits, grid_size);
-
-    // Other solid entities
-    // Iterate over every Collider component in the world, skip the moving one
-    for (other_entity, other_coll) in ecs.get_store::<Collider>().data.iter() {
-        // Do not test against ourselves
-        if let Some(other_pos) = ecs.get::<Transform>(*other_entity) {
-            if (other_pos.position - entity_position).length() < 0.001 {
-                // Same entity
-                continue;
-            }
-        }
-
-        // Only solid entities block movement
-        if let Some(solid) = ecs.get::<Solid>(*other_entity) {
-            if solid.0 {
-                if let Some(other_transform) = ecs.get::<Transform>(*other_entity) {
-                    let other_aabb =
-                        aabb(other_transform.position, *other_coll, other_transform.pivot);
-                    obstacles.push(other_aabb);
-                }
-            }
-        }
-    }
-
-    // Calculate the collider's top-left position using pivot
-    let collider_size = Vec2::new(collider.width, collider.height);
-    let collider_pos = pivot_offset(entity_position, collider_size, pivot);
-
-    // Sweep X axis, then Y axis
-    let (allowed_x, blocked_x) =
-        resolve_axis(collider_pos, desired_delta.x, 0, collider_size, &obstacles);
-
-    // Apply the X movement before testing Y
-    let pos_after_x = collider_pos + Vec2::new(allowed_x, 0.0);
-    let (allowed_y, blocked_y) =
-        resolve_axis(pos_after_x, desired_delta.y, 1, collider_size, &obstacles);
-
-    SweepResult {
-        allowed_delta: Vec2::new(allowed_x, allowed_y),
-        blocked_x,
-        blocked_y,
-    }
 }
 
 /// Creates solid tiles around the edge of the tilemap to constrain movement.

@@ -1,6 +1,6 @@
-use super::{HorizontalAlign, LayoutDirection, VerticalAlign};
+use super::{HorizontalAlign, LayoutConfig, LayoutDirection, VerticalAlign};
 use crate::menu::elements::layout_group::LayoutGroupElement;
-use bishop::prelude::Rect;
+use bishop::prelude::{Rect, Vec2};
 
 /// Computes absolute rects for all children in a layout group.
 ///
@@ -17,26 +17,14 @@ pub fn resolve_layout(group: &LayoutGroupElement, group_rect: Rect) -> Vec<Rect>
 
     let item_w = layout.item_width / 1920.0;
     let item_h = layout.item_height / 1080.0;
-    let spacing_x = layout.spacing / 1920.0;
-    let spacing_y = layout.spacing / 1080.0;
 
     let inner_w = group_rect.w - pad_left - pad_right;
     let inner_h = group_rect.h - pad_top - pad_bottom;
 
     let managed_count = group.children.iter().filter(|c| c.managed).count();
 
-    let managed_rects = compute_managed_positions(
-        layout.direction,
-        managed_count,
-        item_w,
-        item_h,
-        spacing_x,
-        spacing_y,
-        inner_w,
-        inner_h,
-        layout.alignment.horizontal,
-        layout.alignment.vertical,
-    );
+    let managed_rects =
+        compute_managed_positions(*layout, managed_count, Vec2::new(inner_w, inner_h));
 
     let mut managed_index = 0;
     group
@@ -69,27 +57,21 @@ pub fn resolve_layout(group: &LayoutGroupElement, group_rect: Rect) -> Vec<Rect>
 }
 
 /// Computes positions for managed children relative to inner area origin (0,0).
-fn compute_managed_positions(
-    direction: LayoutDirection,
-    count: usize,
-    item_w: f32,
-    item_h: f32,
-    spacing_x: f32,
-    spacing_y: f32,
-    inner_w: f32,
-    inner_h: f32,
-    h_align: HorizontalAlign,
-    v_align: VerticalAlign,
-) -> Vec<Rect> {
+fn compute_managed_positions(layout: LayoutConfig, count: usize, inner_size: Vec2) -> Vec<Rect> {
     if count == 0 {
         return Vec::new();
     }
 
-    match direction {
+    let item_w = layout.item_width / 1920.0;
+    let item_h = layout.item_height / 1080.0;
+    let spacing_x = layout.spacing / 1920.0;
+    let spacing_y = layout.spacing / 1080.0;
+
+    match layout.direction {
         LayoutDirection::Vertical => {
             let total_h = count as f32 * item_h + (count as f32 - 1.0) * spacing_y;
-            let start_y = align_offset(v_align, inner_h, total_h);
-            let start_x = align_offset_h(h_align, inner_w, item_w);
+            let start_y = align_offset(layout.alignment.vertical, inner_size.y, total_h);
+            let start_x = align_offset_h(layout.alignment.horizontal, inner_size.x, item_w);
 
             (0..count)
                 .map(|i| {
@@ -100,8 +82,8 @@ fn compute_managed_positions(
         }
         LayoutDirection::Horizontal => {
             let total_w = count as f32 * item_w + (count as f32 - 1.0) * spacing_x;
-            let start_x = align_offset_h(h_align, inner_w, total_w);
-            let start_y = align_offset(v_align, inner_h, item_h);
+            let start_x = align_offset_h(layout.alignment.horizontal, inner_size.x, total_w);
+            let start_y = align_offset(layout.alignment.vertical, inner_size.y, item_h);
 
             (0..count)
                 .map(|i| {
@@ -115,8 +97,8 @@ fn compute_managed_positions(
             let rows = count.div_ceil(cols);
             let total_w = cols as f32 * item_w + (cols as f32 - 1.0) * spacing_x;
             let total_h = rows as f32 * item_h + (rows as f32 - 1.0) * spacing_y;
-            let start_x = align_offset_h(h_align, inner_w, total_w);
-            let start_y = align_offset(v_align, inner_h, total_h);
+            let start_x = align_offset_h(layout.alignment.horizontal, inner_size.x, total_w);
+            let start_y = align_offset(layout.alignment.vertical, inner_size.y, total_h);
 
             (0..count)
                 .map(|i| {

@@ -5,6 +5,8 @@ use std::fmt::Display;
 
 /// Offset added to a dropdown's WidgetId to derive its filter TextInput's WidgetId.
 const FILTER_ID_OFFSET: usize = usize::MAX / 2 + 1;
+const ENTRY_ID_SALT: u64 = 0x4452_4F50_444F_574E;
+const FILTERED_ENTRY_ID_SALT: u64 = 0x0046_494C_5445_5244;
 
 /// Data for deferred dropdown rendering.
 struct DeferredDropdownRender {
@@ -37,6 +39,10 @@ fn clear_filter(id: WidgetId) {
     DROPDOWN_FILTER_STATE.with(|s| {
         s.borrow_mut().remove(&id);
     });
+}
+
+fn dropdown_entry_click_target(id: WidgetId, index: usize, salt: u64) -> ClickTargetId {
+    ClickTargetId(((id.0 as u64) << 32) ^ index as u64 ^ salt)
 }
 
 /// Flushes all deferred dropdown list renders.
@@ -303,9 +309,6 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
                 let mouse_vec = Vec2::new(mouse_pos.0, mouse_pos.1);
 
                 if list_rect.contains(mouse_vec) {
-                    if ctx.is_mouse_button_pressed(MouseButton::Left) {
-                        consume_click();
-                    }
                     let (_, wheel_y) = ctx.mouse_wheel();
                     if wheel_y != 0.0 {
                         let delta = wheel_y * SCROLL_SPEED;
@@ -313,6 +316,7 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
                     }
                 }
 
+                let mut hovered_entry = false;
                 for (i, opt) in self.options.iter().enumerate() {
                     let entry_y = list_rect.y + i as f32 * self.rect.h;
                     let draw_y = entry_y - state.scroll_offset;
@@ -326,14 +330,29 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
                     let entry_rect = Rect::new(list_rect.x, draw_y, list_rect.w, self.rect.h);
 
                     let hovered = entry_rect.contains(mouse_vec);
-                    if hovered && ctx.is_mouse_button_pressed(MouseButton::Left) {
-                        consume_click();
+                    hovered_entry |= hovered;
+                    if activate_on_release(
+                        MouseButton::Left,
+                        dropdown_entry_click_target(self.id, i, ENTRY_ID_SALT),
+                        hovered,
+                        true,
+                        ctx.is_mouse_button_pressed(MouseButton::Left),
+                        ctx.is_mouse_button_released(MouseButton::Left),
+                    ) {
                         state.open = false;
                         dropdown_state::set(self.id, state);
                         update_global_dropdown_flag();
                         result = Some(opt.clone());
                         break;
                     }
+                }
+
+                if list_rect.contains(mouse_vec)
+                    && ctx.is_mouse_button_pressed(MouseButton::Left)
+                    && !hovered_entry
+                    && !is_click_consumed()
+                {
+                    consume_click();
                 }
 
                 let scroll_offset = state.scroll_offset;
@@ -484,8 +503,14 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
                 FIELD_TEXT_COLOR,
             );
 
-            if hovered && ctx.is_mouse_button_pressed(MouseButton::Left) {
-                consume_click();
+            if activate_on_release(
+                MouseButton::Left,
+                dropdown_entry_click_target(self.id, i, FILTERED_ENTRY_ID_SALT),
+                hovered,
+                true,
+                ctx.is_mouse_button_pressed(MouseButton::Left),
+                ctx.is_mouse_button_released(MouseButton::Left),
+            ) {
                 state.open = false;
                 clear_filter(self.id);
                 dropdown_state::set(self.id, *state);

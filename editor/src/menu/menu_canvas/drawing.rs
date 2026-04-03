@@ -6,6 +6,14 @@ use crate::shared::selection::draw_selection_box;
 use bishop::prelude::*;
 use engine_core::prelude::*;
 
+pub(crate) struct MenuCanvasFrame<'a> {
+    pub(crate) ctx: &'a mut WgpuContext,
+    pub(crate) canvas_origin: Vec2,
+    pub(crate) canvas_size: Vec2,
+    pub(crate) world_mouse: Vec2,
+    pub(crate) preview: bool,
+}
+
 impl MenuEditor {
     /// Renders the canvas.
     pub fn draw_canvas(&self, ctx: &mut WgpuContext, camera: &Camera2D, rect: Rect) {
@@ -79,23 +87,22 @@ impl MenuEditor {
             let raw_mouse: Vec2 = ctx.mouse_position().into();
             let world_mouse =
                 camera.screen_to_world(raw_mouse, ctx.screen_width(), ctx.screen_height());
+
+            let mut frame = MenuCanvasFrame {
+                ctx,
+                canvas_origin,
+                canvas_size,
+                world_mouse,
+                preview: false,
+            };
+            
             let sorted = template.sorted_element_indices();
             for i in sorted {
                 let element = &template.elements[i];
                 let is_selected = self.selected_element_indices.contains(&i);
                 let element_rect =
                     normalized_rect_to_screen(element.rect, canvas_origin, canvas_size);
-                self.draw_element(
-                    ctx,
-                    element,
-                    element_rect,
-                    canvas_origin,
-                    canvas_size,
-                    is_selected,
-                    true,
-                    world_mouse,
-                    false,
-                );
+                self.draw_element(&mut frame, element, element_rect, is_selected, true);
             }
 
             // Draw placement cursor if pending
@@ -157,46 +164,44 @@ impl MenuEditor {
         let raw_mouse: Vec2 = ctx.mouse_position().into();
         let world_mouse =
             camera.screen_to_world(raw_mouse, ctx.screen_width(), ctx.screen_height());
+            
+        let mut frame = MenuCanvasFrame {
+            ctx,
+            canvas_origin,
+            canvas_size,
+            world_mouse,
+            preview: true,
+        };
 
         for i in template.sorted_element_indices() {
             let element = &template.elements[i];
             let element_rect = normalized_rect_to_screen(element.rect, canvas_origin, canvas_size);
-            self.draw_element(
-                ctx,
-                element,
-                element_rect,
-                canvas_origin,
-                canvas_size,
-                false,
-                false,
-                world_mouse,
-                true,
-            );
+            self.draw_element(&mut frame, element, element_rect, false, false);
         }
     }
 
     pub(crate) fn draw_element(
         &self,
-        ctx: &mut WgpuContext,
+        frame: &mut MenuCanvasFrame<'_>,
         element: &MenuElement,
         element_rect: Rect,
-        canvas_origin: Vec2,
-        canvas_size: Vec2,
         is_selected: bool,
         allow_resize: bool,
-        world_mouse: Vec2,
-        preview: bool,
     ) {
+        let canvas_origin = frame.canvas_origin;
+        let canvas_size = frame.canvas_size;
+        let world_mouse = frame.world_mouse;
+        let preview = frame.preview;
         match &element.kind {
             MenuElementKind::Button(button) => {
                 let display_text = button.text_key.to_string();
                 Button::new(element_rect, &display_text)
                     .font_size(button.font_size)
                     .mouse_position(world_mouse)
-                    .show(ctx);
+                    .show(frame.ctx);
 
                 if is_selected {
-                    ctx.draw_rectangle_lines(
+                    frame.ctx.draw_rectangle_lines(
                         element_rect.x,
                         element_rect.y,
                         element_rect.w,
@@ -210,7 +215,7 @@ impl MenuEditor {
                 let has_child_selected = is_selected && self.selected_child_index.is_some();
 
                 if let Some(bg) = &group.background {
-                    ctx.draw_rectangle(
+                    frame.ctx.draw_rectangle(
                         element_rect.x,
                         element_rect.y,
                         element_rect.w,
@@ -226,7 +231,7 @@ impl MenuEditor {
                         Color::new(0.4, 0.7, 0.4, 0.8)
                     };
 
-                    ctx.draw_rectangle_lines(
+                    frame.ctx.draw_rectangle_lines(
                         element_rect.x,
                         element_rect.y,
                         element_rect.w,
@@ -241,7 +246,7 @@ impl MenuEditor {
                     } else {
                         "[Layout Group]".to_string()
                     };
-                    ctx.draw_text(
+                    frame.ctx.draw_text(
                         &group_label,
                         element_rect.x + 4.0,
                         element_rect.y + 12.0,
@@ -270,7 +275,7 @@ impl MenuEditor {
 
                     // Dim the dragged child at its original slot
                     if dragged_child_idx == Some(child_idx) {
-                        ctx.draw_rectangle(
+                        frame.ctx.draw_rectangle(
                             child_screen.x,
                             child_screen.y,
                             child_screen.w,
@@ -280,15 +285,11 @@ impl MenuEditor {
                     }
 
                     self.draw_element(
-                        ctx,
+                        frame,
                         &child.element,
                         child_screen,
-                        canvas_origin,
-                        canvas_size,
                         is_child_selected,
                         child_allow_resize,
-                        world_mouse,
-                        preview,
                     );
                 }
 
@@ -306,7 +307,7 @@ impl MenuEditor {
                     let managed_slot = child_index_to_managed_slot(group, target);
 
                     draw_reorder_indicator(
-                        ctx,
+                        frame.ctx,
                         &managed_rects,
                         managed_slot,
                         &group.layout,
@@ -317,7 +318,7 @@ impl MenuEditor {
 
                 // Draw resize handles on group only when no child is selected
                 if is_selected && !has_child_selected {
-                    draw_resize_handles(ctx, element_rect);
+                    draw_resize_handles(frame.ctx, element_rect);
                 }
                 return;
             }
@@ -329,7 +330,7 @@ impl MenuEditor {
                         Color::new(0.5, 0.5, 0.5, 1.0)
                     };
 
-                    ctx.draw_rectangle_lines(
+                    frame.ctx.draw_rectangle_lines(
                         element_rect.x,
                         element_rect.y,
                         element_rect.w,
@@ -340,7 +341,7 @@ impl MenuEditor {
                 }
 
                 let text = &label.text_key;
-                let text_dims = ctx.measure_text(text, label.font_size);
+                let text_dims = frame.ctx.measure_text(text, label.font_size);
                 let text_x = match label.alignment {
                     HorizontalAlign::Left => element_rect.x,
                     HorizontalAlign::Center => {
@@ -350,7 +351,9 @@ impl MenuEditor {
                 };
                 let text_y =
                     element_rect.y + (element_rect.h - text_dims.height) / 2.0 + text_dims.offset_y;
-                ctx.draw_text(text, text_x, text_y, label.font_size, label.color);
+                frame
+                    .ctx
+                    .draw_text(text, text_x, text_y, label.font_size, label.color);
             }
             MenuElementKind::Slider(slider) => {
                 // Draw label area (left 40%) and track area (right 60%)
@@ -364,14 +367,14 @@ impl MenuEditor {
                 let track_h = element_rect.h * 0.2;
                 let track_y = element_rect.y + (element_rect.h - track_h) * 0.5;
 
-                ctx.draw_rectangle(
+                frame.ctx.draw_rectangle(
                     track_rect.x,
                     track_rect.y,
                     track_rect.w,
                     track_rect.h,
                     Color::new(0.15, 0.15, 0.18, 1.0),
                 );
-                ctx.draw_rectangle(
+                frame.ctx.draw_rectangle(
                     track_rect.x,
                     track_y,
                     track_rect.w,
@@ -379,10 +382,10 @@ impl MenuEditor {
                     Color::new(0.2, 0.2, 0.2, 0.8),
                 );
 
-                let text_dims = ctx.measure_text(&slider.text_key, 14.0);
+                let text_dims = frame.ctx.measure_text(&slider.text_key, 14.0);
                 let text_y =
                     element_rect.y + (element_rect.h - text_dims.height) * 0.5 + text_dims.offset_y;
-                ctx.draw_text(
+                frame.ctx.draw_text(
                     &slider.text_key,
                     element_rect.x + 4.0,
                     text_y,
@@ -396,7 +399,7 @@ impl MenuEditor {
                     } else {
                         Color::new(0.5, 0.5, 0.5, 1.0)
                     };
-                    ctx.draw_rectangle_lines(
+                    frame.ctx.draw_rectangle_lines(
                         element_rect.x,
                         element_rect.y,
                         element_rect.w,
@@ -407,7 +410,7 @@ impl MenuEditor {
                 }
             }
             MenuElementKind::Panel(panel) => {
-                ctx.draw_rectangle(
+                frame.ctx.draw_rectangle(
                     element_rect.x,
                     element_rect.y,
                     element_rect.w,
@@ -422,7 +425,7 @@ impl MenuEditor {
                         Color::new(0.5, 0.5, 0.5, 1.0)
                     };
 
-                    ctx.draw_rectangle_lines(
+                    frame.ctx.draw_rectangle_lines(
                         element_rect.x,
                         element_rect.y,
                         element_rect.w,
@@ -437,7 +440,7 @@ impl MenuEditor {
                         "[Panel]"
                     };
 
-                    ctx.draw_text(
+                    frame.ctx.draw_text(
                         label,
                         element_rect.x + 4.0,
                         element_rect.y + 12.0,
@@ -449,7 +452,7 @@ impl MenuEditor {
         }
 
         if is_selected && allow_resize {
-            draw_resize_handles(ctx, element_rect);
+            draw_resize_handles(frame.ctx, element_rect);
         }
     }
 }

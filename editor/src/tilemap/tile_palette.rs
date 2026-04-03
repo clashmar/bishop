@@ -183,6 +183,7 @@ impl TilePalette {
         if Button::new(sprite_rect, "Pick sprite").show(ctx) {
             if let Some(path) = rfd::FileDialog::new()
                 .add_filter("PNG images", &["png"])
+                .set_directory(assets_folder())
                 .pick_file()
             {
                 let normalized_path = asset_manager.normalize_path(path);

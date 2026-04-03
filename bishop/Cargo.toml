@@ -20,3 +20,12 @@ cpal = { version = "0.15", optional = true }
 log = { version = "0.4", optional = true }
 glam = "0.32.0"
 serde = { version = "1.0", features = ["derive"] }
+raw-window-handle = { version = "0.6", features = ["std"] }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2 = { version = "0.5.2", features = ["relax-sign-encoding"] }
+objc2-app-kit = { version = "0.2.2", features = ["NSApplication", "NSImage", "NSView", "NSWindow"] }
+objc2-foundation = { version = "0.2.2", features = ["NSData"] }
+
+[target.'cfg(target_os = "windows")'.dependencies]
+windows-sys = { version = "0.59", features = ["Win32_Foundation", "Win32_Graphics_Gdi", "Win32_UI_WindowsAndMessaging"] }

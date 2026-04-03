@@ -170,7 +170,10 @@ impl InspectorModule for AnimationModule {
         .blocked(blocked)
         .show(ctx)
         {
-            if let Some(path) = rfd::FileDialog::new().pick_folder() {
+            if let Some(path) = rfd::FileDialog::new()
+                .set_directory(assets_folder())
+                .pick_folder()
+            {
                 let normalized_path = asset_manager.normalize_path(path);
                 animation.variant = VariantFolder(normalized_path);
                 variant_changed = true;

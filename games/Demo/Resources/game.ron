@@ -26,78 +26,102 @@
             ),
             /*[5]*/ (
                 type_name: "CurrentRoom",
-                data: "{\n    (1): ((1)),\n    (2): ((1)),\n    (4): ((1)),\n}",
+                data: "{\n    (1): ((1)),\n    (2): ((1)),\n    (5): ((1)),\n}",
             ),
             /*[6]*/ (
-                type_name: "Global",
-                data: "{\n    (3): (),\n}",
+                type_name: "Damage",
+                data: "{}",
             ),
             /*[7]*/ (
-                type_name: "Glow",
+                type_name: "FacingDirection",
                 data: "{}",
             ),
             /*[8]*/ (
-                type_name: "Grounded",
-                data: "{\n    (3): (false),\n}",
+                type_name: "Global",
+                data: "{\n    (3): (),\n}",
             ),
             /*[9]*/ (
-                type_name: "Interactable",
+                type_name: "Glow",
                 data: "{}",
             ),
             /*[10]*/ (
-                type_name: "Layer",
-                data: "{}",
+                type_name: "Grounded",
+                data: "{\n    (3): (false),\n}",
             ),
             /*[11]*/ (
-                type_name: "Light",
+                type_name: "Interactable",
                 data: "{}",
             ),
             /*[12]*/ (
-                type_name: "Name",
-                data: "{\n    (1): (\"Camera 1\"),\n    (2): (\"Player Proxy\"),\n    (3): (\"Player\"),\n    (4): (\"Entity\"),\n}",
+                type_name: "Kinematic",
+                data: "{}",
             ),
             /*[13]*/ (
+                type_name: "Layer",
+                data: "{}",
+            ),
+            /*[14]*/ (
+                type_name: "Light",
+                data: "{}",
+            ),
+            /*[15]*/ (
+                type_name: "Name",
+                data: "{\n    (1): (\"Camera 1\"),\n    (2): (\"Player Proxy\"),\n    (3): (\"Player\"),\n    (5): (\"Entity\"),\n}",
+            ),
+            /*[16]*/ (
+                type_name: "Parent",
+                data: "{}",
+            ),
+            /*[17]*/ (
                 type_name: "PhysicsBody",
                 data: "{\n    (3): (),\n}",
             ),
-            /*[14]*/ (
+            /*[18]*/ (
                 type_name: "Player",
                 data: "{\n    (3): (),\n}",
             ),
-            /*[15]*/ (
+            /*[19]*/ (
                 type_name: "PlayerProxy",
                 data: "{\n    (2): (),\n}",
             ),
-            /*[16]*/ (
+            /*[20]*/ (
                 type_name: "RoomCamera",
                 data: "{\n    (1): (\n        zoom: (0.015625, 0.027777778),\n        room_id: (1),\n        zoom_mode: Step,\n        camera_mode: Fixed,\n    ),\n}",
             ),
-            /*[17]*/ (
+            /*[21]*/ (
                 type_name: "Script",
                 data: "{\n    (3): (\n        script_id: (1),\n        data: (\n            fields: {\n                \"health\": Int(100),\n                \"jump_speed\": Int(200),\n                \"name\": Text(\"Player\"),\n                \"run_speed\": Int(180),\n                \"speed\": Int(100),\n            },\n        ),\n    ),\n}",
             ),
-            /*[18]*/ (
+            /*[22]*/ (
                 type_name: "Solid",
                 data: "{}",
             ),
-            /*[19]*/ (
-                type_name: "Sprite",
-                data: "{\n    (4): (\n        sprite: (7),\n    ),\n}",
+            /*[23]*/ (
+                type_name: "SpeechBubble",
+                data: "{}",
             ),
-            /*[20]*/ (
+            /*[24]*/ (
+                type_name: "Sprite",
+                data: "{\n    (5): (\n        sprite: (7),\n    ),\n}",
+            ),
+            /*[25]*/ (
                 type_name: "SubPixel",
                 data: "{\n    (3): (),\n}",
             ),
-            /*[21]*/ (
+            /*[26]*/ (
                 type_name: "Transform",
-                data: "{\n    (1): (\n        visible: true,\n        position: (64.0, 36.0),\n        pivot: CenterLeft,\n    ),\n    (2): (\n        visible: true,\n        position: (20.0, 72.0),\n        pivot: BottomCenter,\n    ),\n    (4): (\n        visible: true,\n        position: (84.0, 72.0),\n        pivot: BottomCenter,\n    ),\n}",
+                data: "{\n    (1): (\n        visible: true,\n        position: (64.0, 35.99995),\n        pivot: CenterLeft,\n    ),\n    (2): (\n        visible: true,\n        position: (20.0, 72.0),\n        pivot: BottomCenter,\n    ),\n    (5): (\n        visible: true,\n        position: (100.0, 72.0),\n        pivot: BottomCenter,\n    ),\n}",
             ),
-            /*[22]*/ (
+            /*[27]*/ (
                 type_name: "Velocity",
                 data: "{\n    (3): (\n        x: 0.0,\n        y: 0.0,\n    ),\n}",
             ),
+            /*[28]*/ (
+                type_name: "Walkable",
+                data: "{}",
+            ),
         ],
-        next_entity_id: 4,
+        next_entity_id: 12,
     ),
     worlds: [
         /*[0]*/ (
@@ -143,6 +167,7 @@
             (5): "animations/player/male/Run.png",
             (6): "animations/player/male/Walk.png",
             (7): "sprites/cat.png",
+            (8): "animations/player/female/Idle.png",
         },
         tile_defs: {},
         next_tile_def_id: 1,
@@ -154,6 +179,7 @@
             (5): 1,
             (6): 1,
             (7): 1,
+            (8): 4,
         },
     ),
     script_manager: (

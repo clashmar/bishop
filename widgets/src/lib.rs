@@ -19,7 +19,7 @@ pub use widgets::*;
 pub use bishop::BishopContext;
 pub use bishop::TextDimensions;
 
-pub use bishop::{Color, KeyCode, MouseButton, Rect, Vec2};
+pub use bishop::{Color, DrawTextureParams, KeyCode, MouseButton, Rect, Texture2D, Vec2};
 
 /// Draws text at the given position using the provided context.
 pub(crate) fn draw_text_ui<C: BishopContext>(

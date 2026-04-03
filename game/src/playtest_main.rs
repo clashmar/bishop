@@ -3,7 +3,9 @@ use bishop::prelude::*;
 use bishop::BishopApp;
 use engine_core::prelude::*;
 use game_lib::engine::Engine;
-use game_lib::startup::{PlaytestLaunchArgs, StartupController, StartupSource};
+use game_lib::startup::{
+    runtime_icon_for_playtest_payload, PlaytestLaunchArgs, StartupController, StartupSource,
+};
 use std::env;
 
 /// Wrapper struct for running playtest via BishopApp.
@@ -48,6 +50,8 @@ impl BishopApp for PlaytestApp {
 }
 
 fn main() -> Result<(), RunError> {
+    set_engine_mode(EngineMode::Playtest);
+
     let args: Vec<String> = env::args().collect();
     let launch_args = match PlaytestLaunchArgs::parse(&args) {
         Ok(args) => args,
@@ -57,7 +61,10 @@ fn main() -> Result<(), RunError> {
         }
     };
 
-    let config = WindowConfig::new("Playtest").with_fullscreen(true);
+    let mut config = WindowConfig::new("Playtest").with_fullscreen(true);
+    if let Some(icon) = runtime_icon_for_playtest_payload(&launch_args.payload_path) {
+        config = config.with_icon(icon);
+    }
     // .with_size(width as u32, height as u32)
     // .with_resizable(true);
 

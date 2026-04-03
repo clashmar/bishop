@@ -14,7 +14,7 @@ use crate::gui::prompts::*;
 use crate::menu::MenuEditor;
 use crate::room::room_editor::RoomEditor;
 use crate::storage::editor_storage::*;
-use crate::storage::export::export_game;
+use crate::storage::export::{export_game, export_target_path, PendingExport};
 use crate::world::world_editor::WorldEditor;
 use bishop::prelude::*;
 use engine_core::prelude::*;
@@ -36,6 +36,7 @@ impl Default for Editor {
             render_system: RenderSystem::with_default_grid_size(),
             menu_bar: MenuBar::new(),
             modal: Modal::default(),
+            pending_export: None,
             toast: None,
             playtest_process: None,
             pending_playtest_build: None,
@@ -144,15 +145,7 @@ impl Editor {
                 EditorAction::SaveAs => self.open_save_as_modal(ctx),
                 EditorAction::Undo => crate::editor_global::request_undo(),
                 EditorAction::Redo => crate::editor_global::request_redo(),
-                EditorAction::Export => match export_game(&self.game) {
-                    Ok(path) => {
-                        self.toast =
-                            Some(Toast::new(format!("Exported to: {}", path.display()), 2.5));
-                    }
-                    Err(e) => {
-                        onscreen_error!("Export failed: {e}");
-                    }
-                },
+                EditorAction::Export => self.begin_export(ctx),
                 EditorAction::ChangeSaveRoot => match change_save_root() {
                     SaveRootResult::Changed(new_root) => {
                         self.toast = Some(Toast::new(
@@ -368,10 +361,65 @@ impl Editor {
         self.modal.open(widgets);
     }
 
+    fn open_export_overwrite_modal(&mut self, ctx: &WgpuContext, target_path: &std::path::Path) {
+        let target_name = target_path
+            .file_name()
+            .and_then(|name| name.to_str())
+            .unwrap_or("export");
+        let message = format!("Overwrite existing export '{target_name}'?");
+        self.modal =
+            Modal::open_confirm_modal_with_message(ctx, &EXPORT_OVERWRITE_RESULT, message);
+    }
+
+    fn begin_export(&mut self, ctx: &mut WgpuContext) {
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            use rfd::FileDialog;
+
+            let Some(dest_root) = FileDialog::new()
+                .set_title("Select destination folder for export:")
+                .pick_folder()
+            else {
+                return;
+            };
+
+            let target_path = export_target_path(&dest_root, &self.game);
+            if target_path.exists() {
+                self.pending_export = Some(PendingExport {
+                    dest_root,
+                });
+                self.open_export_overwrite_modal(ctx, &target_path);
+                return;
+            }
+
+            self.finish_export(&dest_root);
+        }
+
+        #[cfg(target_arch = "wasm32")]
+        {
+            self.toast = Some(Toast::new("Folder picker unavailable in WASM", 2.5));
+        }
+    }
+
+    fn finish_export(&mut self, dest_root: &std::path::Path) {
+        match export_game(dest_root, &self.game) {
+            Ok(path) => {
+                self.toast = Some(Toast::new(format!("Exported to: {}", path.display()), 2.5));
+            }
+            Err(e) => {
+                onscreen_error!("Export failed: {e}");
+            }
+        }
+    }
+
     pub fn handle_modal(&mut self, ctx: &mut WgpuContext) -> Option<ModalResult> {
         if self.modal.is_open() {
             // Outside‑click handling
             if self.modal.draw(ctx, &mut self.game.asset_manager) {
+                if self.pending_export.take().is_some() {
+                    EXPORT_OVERWRITE_RESULT.with(|c| *c.borrow_mut() = None);
+                    self.toast = Some(Toast::new("Export cancelled.", 2.5));
+                }
                 // Clear any pending results
                 NEW_GAME_PROMPT_RESULT.with(|c| *c.borrow_mut() = None);
                 return Some(ModalResult::ClickedOutside);
@@ -477,6 +525,23 @@ impl Editor {
                 }
                 self.modal.close();
             }
+
+            let export_overwrite_opt = EXPORT_OVERWRITE_RESULT.with(|c| c.borrow_mut().take());
+
+            if let Some(result) = export_overwrite_opt {
+                match result {
+                    ConfirmPromptResult::Confirmed => {
+                        if let Some(pending_export) = self.pending_export.take() {
+                            self.finish_export(&pending_export.dest_root);
+                        }
+                    }
+                    ConfirmPromptResult::Cancelled => {
+                        self.pending_export = None;
+                        self.toast = Some(Toast::new("Export cancelled.", 2.5));
+                    }
+                }
+                self.modal.close();
+            }
         }
         None
     }
@@ -543,4 +608,5 @@ thread_local! {
     pub static RENAME_PROMPT_RESULT: RefCell<Option<StringPromptResult>> = const { RefCell::new(None) };
     pub static SAVE_AS_PROMPT_RESULT: RefCell<Option<StringPromptResult>> = const { RefCell::new(None) };
     pub static WORLD_SETTINGS_RESULT: RefCell<Option<WorldSettingsResult>> = const { RefCell::new(None) };
+    pub static EXPORT_OVERWRITE_RESULT: RefCell<Option<ConfirmPromptResult>> = const { RefCell::new(None) };
 }

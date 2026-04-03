@@ -81,11 +81,7 @@ fn draw_entity<C: BishopContext>(
     pos: Vec2,
     grid_size: f32,
 ) {
-    let visual_entity = if ecs.has::<PlayerProxy>(entity) {
-        ecs.get_player_entity().unwrap_or(entity)
-    } else {
-        entity
-    };
+    let visual_entity = resolve_visual_entity(ecs, entity);
 
     let pivot = ecs
         .get_store::<Transform>()
@@ -117,29 +113,6 @@ fn draw_entity<C: BishopContext>(
 
     let base = pivot_adjusted_position(pos, Vec2::splat(grid_size), pivot);
     draw_entity_placeholder(ctx, base, grid_size);
-}
-
-/// Returns the pixel dimensions of an entity for rendering.
-pub fn entity_dimensions(
-    ecs: &Ecs,
-    asset_manager: &AssetManager,
-    entity: Entity,
-    grid_size: f32,
-) -> Vec2 {
-    let from_anim = ecs
-        .get_store::<CurrentFrame>()
-        .get(entity)
-        .and_then(|cf| cf.dimensions(asset_manager));
-
-    let from_sprite = || {
-        ecs.get_store::<Sprite>()
-            .get(entity)
-            .and_then(|s| s.dimensions(asset_manager))
-    };
-
-    from_anim
-        .or_else(from_sprite)
-        .unwrap_or(Vec2::splat(grid_size))
 }
 
 /// Draw a placeholder for an entity without a sprite.

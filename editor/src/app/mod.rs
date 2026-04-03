@@ -17,6 +17,7 @@ use crate::playtest::room_playtest::*;
 use crate::room::room_editor::RoomEditor;
 use crate::storage::editor_storage;
 use crate::storage::editor_storage::*;
+use crate::storage::export::PendingExport;
 use crate::tilemap::tile_palette::TilePalette;
 use crate::with_panel_manager;
 use crate::world::world_editor::WorldEditor;
@@ -48,6 +49,7 @@ pub struct Editor {
     pub render_system: RenderSystem,
     pub menu_bar: MenuBar,
     pub modal: Modal,
+    pub pending_export: Option<PendingExport>,
     pub toast: Option<Toast>,
     pub playtest_process: Option<PlaytestProcess>,
     pub pending_playtest_build: Option<BackgroundTask<Result<(PathBuf, PathBuf), String>>>,

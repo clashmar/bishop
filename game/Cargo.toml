@@ -18,12 +18,10 @@ ron = "0.9"
 uuid = { version = "1.18", features = ["serde", "v4"] }
 log = "0.4"
 inventory = "0.1"
+rfd = "0.13"
 
 [build-dependencies]
 winres = "0.1.12"
-
-[dev-dependencies]
-cargo-bundle = "0.6"
 
 [lib]
 name = "game_lib"
