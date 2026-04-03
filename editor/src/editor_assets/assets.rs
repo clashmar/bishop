@@ -47,6 +47,7 @@ static ENTITY_ICON: OnceLock<Texture2D> = OnceLock::new();
 static GRID_ICON: OnceLock<Texture2D> = OnceLock::new();
 static EXIT_ICON: OnceLock<Texture2D> = OnceLock::new();
 static REFRESH_ICON: OnceLock<Texture2D> = OnceLock::new();
+static CAMERA_ICON: OnceLock<Texture2D> = OnceLock::new();
 static CIRCLE_120PX: OnceLock<Texture2D> = OnceLock::new();
 
 /// Loads all editor icon textures. Must be called once after the graphics context is ready.
@@ -66,6 +67,7 @@ pub fn init_editor_icons(loader: &impl TextureLoader) {
     let _ = GRID_ICON.set(load(include_bytes!("icons/grid.png")));
     let _ = EXIT_ICON.set(load(include_bytes!("icons/exit.png")));
     let _ = REFRESH_ICON.set(load(include_bytes!("icons/refresh.png")));
+    let _ = CAMERA_ICON.set(load(include_bytes!("icons/camera.png")));
     let _ = CIRCLE_120PX.set(load(include_bytes!("textures/circle120px.png")));
 }
 
@@ -98,6 +100,9 @@ pub fn exit_icon() -> &'static Texture2D {
 }
 pub fn refresh_icon() -> &'static Texture2D {
     REFRESH_ICON.get().expect("Editor icons not initialized")
+}
+pub fn camera_icon() -> &'static Texture2D {
+    CAMERA_ICON.get().expect("Editor icons not initialized")
 }
 pub fn circle_120px() -> &'static Texture2D {
     CIRCLE_120PX.get().expect("Editor icons not initialized")
