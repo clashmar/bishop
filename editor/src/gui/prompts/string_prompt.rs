@@ -24,6 +24,8 @@ pub struct StringPrompt {
     message: String,
     /// Current contents of the text field.
     current: String,
+    /// Whether the current text should be selected when the prompt opens.
+    select_all_on_open: bool,
 }
 
 impl StringPrompt {
@@ -43,7 +45,20 @@ impl StringPrompt {
             rect,
             message: message.into(),
             current: String::new(),
+            select_all_on_open: false,
         }
+    }
+
+    /// Sets the initial text shown in the prompt input.
+    pub fn with_initial_value(mut self, value: impl Into<String>) -> Self {
+        self.current = value.into();
+        self
+    }
+
+    /// Selects the initial text when the prompt first opens.
+    pub fn select_all_on_open(mut self) -> Self {
+        self.select_all_on_open = true;
+        self
     }
 
     /// Draws the widget and, return the result if confirmed/cancelled or None.
@@ -73,10 +88,13 @@ impl StringPrompt {
             FIELD_H,
         );
 
-        let (new_text, _) = TextInput::new(self.input_id, field_rect, &self.current)
+        let mut input = TextInput::new(self.input_id, field_rect, &self.current)
             .focused(true)
-            .live()
-            .show(ctx);
+            .live();
+        if self.select_all_on_open {
+            input = input.select_all_on_focus();
+        }
+        let (new_text, _) = input.show(ctx);
         self.current = new_text;
 
         let btn_y = field_rect.y + field_rect.h + PROMPT_SECTION_GAP;
@@ -400,6 +418,91 @@ mod tests {
         assert_eq!(
             prompt.draw_with_ctx(&mut ctx, false, false),
             Some(StringPromptResult::Confirmed("Crate".to_string()))
+        );
+    }
+
+    #[test]
+    fn confirming_prefilled_prompt_without_typing_returns_initial_value() {
+        reset_widget_state();
+
+        let modal_rect = Rect::new(100.0, 60.0, 400.0, 180.0);
+        let mut prompt = StringPrompt::new(modal_rect, "Rename room:")
+            .with_initial_value("Entry Hall");
+
+        let (confirm_rect, _) = {
+            let field_rect = Rect::new(
+                prompt.rect.x,
+                prompt.rect.y + PROMPT_TOP_PADDING + DEFAULT_FONT_SIZE_16 + PROMPT_TEXT_GAP,
+                prompt.rect.w,
+                FIELD_H,
+            );
+            let btn_y = field_rect.y + field_rect.h + PROMPT_SECTION_GAP;
+            confirm_cancel_rects(prompt.rect, btn_y)
+        };
+
+        let mut ctx = TestContext::new();
+        assert!(prompt.draw_with_ctx(&mut ctx, false, false).is_none());
+
+        reset_click_consumed();
+        ctx.mouse_pos = (
+            confirm_rect.x + confirm_rect.w / 2.0,
+            confirm_rect.y + confirm_rect.h / 2.0,
+        );
+        ctx.left_pressed = true;
+        ctx.left_down = true;
+        assert!(prompt.draw_with_ctx(&mut ctx, false, false).is_none());
+
+        reset_click_consumed();
+        ctx.left_pressed = false;
+        ctx.left_down = false;
+        ctx.left_released = true;
+        assert_eq!(
+            prompt.draw_with_ctx(&mut ctx, false, false),
+            Some(StringPromptResult::Confirmed("Entry Hall".to_string()))
+        );
+    }
+
+    #[test]
+    fn select_all_on_open_replaces_prefilled_value_when_typing() {
+        reset_widget_state();
+
+        let modal_rect = Rect::new(100.0, 60.0, 400.0, 180.0);
+        let mut prompt = StringPrompt::new(modal_rect, "Rename prefab:")
+            .with_initial_value("Crate")
+            .select_all_on_open();
+
+        let (confirm_rect, _) = {
+            let field_rect = Rect::new(
+                prompt.rect.x,
+                prompt.rect.y + PROMPT_TOP_PADDING + DEFAULT_FONT_SIZE_16 + PROMPT_TEXT_GAP,
+                prompt.rect.w,
+                FIELD_H,
+            );
+            let btn_y = field_rect.y + field_rect.h + PROMPT_SECTION_GAP;
+            confirm_cancel_rects(prompt.rect, btn_y)
+        };
+
+        let mut ctx = TestContext::new();
+        ctx.chars = vec!['N'];
+        assert!(prompt.draw_with_ctx(&mut ctx, false, false).is_none());
+
+        reset_click_consumed();
+        ctx.chars.clear();
+        ctx.mouse_pos = (
+            confirm_rect.x + confirm_rect.w / 2.0,
+            confirm_rect.y + confirm_rect.h / 2.0,
+        );
+        ctx.left_pressed = true;
+        ctx.left_down = true;
+        assert!(prompt.draw_with_ctx(&mut ctx, false, false).is_none());
+
+        reset_click_consumed();
+        ctx.left_pressed = false;
+        ctx.left_down = false;
+        ctx.left_released = true;
+        assert_eq!(
+            prompt.draw_with_ctx(&mut ctx, false, false),
+            Some(StringPromptResult::Confirmed("N".to_string()))
         );
     }
 }

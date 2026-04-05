@@ -341,7 +341,10 @@ impl Editor {
             EditorMode::Menu => "Rename menu: ",
         };
 
-        let mut prompt = self.set_prompt_modal(ctx, prompt_message);
+        let mut prompt = self
+            .set_prompt_modal(ctx, prompt_message)
+            .with_initial_value(self.current_rename_value())
+            .select_all_on_open();
 
         let widgets: Vec<BoxedWidget> = vec![Box::new(move |ctx, _| {
             if let Some(result) = prompt.draw(ctx) {
@@ -396,6 +399,25 @@ impl Editor {
     fn set_prompt_modal(&mut self, ctx: &mut WgpuContext, prompt_message: &str) -> StringPrompt {
         self.modal = Modal::new(ctx, 400.0, 180.0);
         StringPrompt::new(self.modal.rect, prompt_message)
+    }
+
+    fn current_rename_value(&self) -> String {
+        match self.mode {
+            EditorMode::Game => self.game.name.clone(),
+            EditorMode::World(_) => self.game.current_world().name.clone(),
+            EditorMode::Room(id) => self
+                .game
+                .current_world()
+                .get_room(id)
+                .map(|room| room.name.clone())
+                .unwrap_or_else(|| "Room".to_string()),
+            EditorMode::Prefab(_) => self
+                .prefab_editor
+                .as_ref()
+                .map(|editor| editor.prefab_name.clone())
+                .unwrap_or_else(|| "Prefab".to_string()),
+            EditorMode::Menu => String::new(),
+        }
     }
 
     fn open_world_settings_modal(&mut self, ctx: &mut WgpuContext) {
