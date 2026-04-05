@@ -3,9 +3,7 @@ use crate::app::EditorMode;
 use crate::app::EditorCameraController;
 use crate::commands::room::*;
 use crate::editor_global::push_command;
-use crate::editor_global::with_panel_manager;
 use crate::gui::mode_selector::ModeInfo;
-use crate::gui::panels::hierarchy_panel::HIERARCHY_PANEL;
 use crate::room::room_editor::*;
 use bishop::prelude::*;
 use engine_core::prelude::*;
@@ -75,12 +73,6 @@ impl RoomEditor {
 
                 if Controls::paste(ctx) {
                     push_command(Box::new(PasteEntityCmd::new(EditorMode::Room(room.id))));
-                }
-
-                if Controls::h(ctx) {
-                    with_panel_manager(|panel_manager| {
-                        panel_manager.toggle(HIERARCHY_PANEL);
-                    });
                 }
 
                 // Select all entities in room

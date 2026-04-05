@@ -96,180 +96,172 @@ impl Editor {
         };
 
         if let Some(action) = self.menu_bar.draw(ctx, &menu_title, self.mode) {
-            match action {
-                EditorAction::Rename => {
-                    self.open_rename_modal(ctx);
-                }
-                EditorAction::NewGame => {
-                    // Save current
-                    self.save();
-                    self.open_new_game_modal(ctx);
-                }
-                EditorAction::Open => {
-                    // Open a folder picker rooted at the absolute save folder
-                    #[cfg(not(target_arch = "wasm32"))]
-                    {
-                        use rfd::FileDialog;
-                        if let Some(path) = FileDialog::new()
-                            .set_directory(absolute_save_root())
-                            .pick_folder()
-                        {
-                            match ensure_inside_save_root(&path) {
-                                Ok(_) => {
-                                    // Only load if it's in the correct folder
-                                    if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
-                                        match load_game_by_name(name) {
-                                            Ok(game) => {
-                                                self.reset(ctx, game);
-                                                self.toast = Some(Toast::new(
-                                                    format!("Loaded '{}'", name),
-                                                    2.5,
-                                                ));
-                                            }
-                                            Err(e) => {
-                                                onscreen_error!("Failed to load game: {e}");
-                                                self.toast = Some(Toast::new(
-                                                    "Could not load selected game.",
-                                                    2.5,
-                                                ));
-                                            }
-                                        }
-                                    } else {
-                                        self.toast =
-                                            Some(Toast::new("Folder name could not be read.", 2.5));
-                                    }
-                                }
-                                Err(err_msg) => {
-                                    self.toast = Some(Toast::new(&err_msg, 3.0));
-                                }
-                            }
-                        }
-                    }
-                    #[cfg(target_arch = "wasm32")]
-                    {
-                        self.toast = Some(Toast::new("Folder picker unavailable in WASM", 2.5));
-                    }
-                }
-                EditorAction::Save => self.save(),
-                EditorAction::SaveAs => self.open_save_as_modal(ctx),
-                EditorAction::Undo => crate::editor_global::request_undo(),
-                EditorAction::Redo => crate::editor_global::request_redo(),
-                EditorAction::Export => self.begin_export(ctx),
-                EditorAction::ChangeSaveRoot => match change_save_root() {
-                    SaveRootResult::Changed(new_root) => {
-                        self.toast = Some(Toast::new(
-                            format!("Save root moved to: {}", new_root.display()),
-                            2.5,
-                        ));
-                    }
-                    SaveRootResult::Cancelled => {}
-                    SaveRootResult::Failed => {
-                        self.toast = Some(Toast::new("Failed to update save root.", 2.0));
-                    }
-                },
-                EditorAction::ViewHierarchyPanel => {
-                    with_panel_manager(|panel_manager| {
-                        panel_manager.toggle(HIERARCHY_PANEL);
-                    });
-                }
-                EditorAction::ViewConsolePanel => {
-                    with_panel_manager(|panel_manager| {
-                        panel_manager.toggle(CONSOLE_PANEL);
-                    });
-                }
-                EditorAction::ViewDiagnosticsPanel => {
-                    with_panel_manager(|panel_manager| {
-                        panel_manager.toggle(DIAGNOSTICS_PANEL);
-                    });
-                }
-                EditorAction::WorldSettings => {
-                    self.open_world_settings_modal(ctx);
-                }
-                EditorAction::OpenPrefabEditor => {
-                    self.open_prefab_editor(ctx);
-                }
-                EditorAction::OpenMenuEditor => {
-                    clear_active_audio_preview();
-                    self.return_mode = Some(self.mode);
-                    self.mode = EditorMode::Menu;
-                    self.load_menus();
-                    MenuEditor::init_camera(ctx, &mut self.camera);
-                }
-                EditorAction::ReturnToGameEditor => {
-                    match self.mode {
-                        EditorMode::Menu => {
-                            self.save_menus();
-                        }
-                        EditorMode::Prefab(_) => {
-                            self.save_active_prefab();
-                        }
-                        _ => {}
-                    }
-
-                    let return_mode = self.return_mode.unwrap_or(EditorMode::Game);
-                    self.mode = return_mode;
-                    self.return_mode = None;
-
-                    match return_mode {
-                        EditorMode::Game => {
-                            self.game_editor
-                                .init_camera(ctx, &mut self.camera, &mut self.game);
-                        }
-                        EditorMode::World(id) => {
-                            self.world_editor.init_camera(
-                                ctx,
-                                &mut self.camera,
-                                self.game.get_world_mut(id),
-                            );
-                        }
-                        EditorMode::Room(id) => {
-                            let current_world = self.game.current_world();
-                            if let Some(room) = current_world.get_room(id) {
-                                EditorCameraController::reset_room_editor_camera(
-                                    ctx,
-                                    &mut self.camera,
-                                    room,
-                                    current_world.grid_size,
-                                );
-                            }
-                        }
-                        EditorMode::Prefab(_) => {}
-                        EditorMode::Menu => {
-                            // Should not return to Menu mode
-                        }
-                    }
-                }
-            }
+            self.run_action(ctx, action);
         }
     }
 
     pub fn handle_shortcuts(&mut self, ctx: &mut WgpuContext) {
-        if Controls::save(ctx) {
-            self.save();
+        if let Some(action) = self.shortcut_action(ctx) {
+            self.run_action(ctx, action);
         }
+    }
 
-        if Controls::save_as(ctx) {
-            self.open_save_as_modal(ctx);
-        }
+    fn shortcut_action(&self, ctx: &WgpuContext) -> Option<EditorAction> {
+        let input_focused = input_is_focused();
+        let actions = [
+            EditorAction::Save,
+            EditorAction::SaveAs,
+            EditorAction::Undo,
+            EditorAction::Redo,
+            EditorAction::ViewConsolePanel,
+            EditorAction::ViewDiagnosticsPanel,
+            EditorAction::ViewHierarchyPanel,
+        ];
 
-        if Controls::undo(ctx) {
-            request_undo();
-        }
+        actions.into_iter().find(|action| {
+            action.is_available_in(self.mode)
+                && (!input_focused || !action.blocked_by_focused_input())
+                && action.shortcut_pressed(ctx)
+        })
+    }
 
-        if Controls::redo(ctx) {
-            request_redo();
-        }
+    fn run_action(&mut self, ctx: &mut WgpuContext, action: EditorAction) {
+        match action {
+            EditorAction::Rename => {
+                self.open_rename_modal(ctx);
+            }
+            EditorAction::NewGame => {
+                self.save();
+                self.open_new_game_modal(ctx);
+            }
+            EditorAction::Open => {
+                #[cfg(not(target_arch = "wasm32"))]
+                {
+                    use rfd::FileDialog;
+                    if let Some(path) = FileDialog::new()
+                        .set_directory(absolute_save_root())
+                        .pick_folder()
+                    {
+                        match ensure_inside_save_root(&path) {
+                            Ok(_) => {
+                                if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
+                                    match load_game_by_name(name) {
+                                        Ok(game) => {
+                                            self.reset(ctx, game);
+                                            self.toast =
+                                                Some(Toast::new(format!("Loaded '{}'", name), 2.5));
+                                        }
+                                        Err(e) => {
+                                            onscreen_error!("Failed to load game: {e}");
+                                            self.toast = Some(Toast::new(
+                                                "Could not load selected game.",
+                                                2.5,
+                                            ));
+                                        }
+                                    }
+                                } else {
+                                    self.toast =
+                                        Some(Toast::new("Folder name could not be read.", 2.5));
+                                }
+                            }
+                            Err(err_msg) => {
+                                self.toast = Some(Toast::new(&err_msg, 3.0));
+                            }
+                        }
+                    }
+                }
+                #[cfg(target_arch = "wasm32")]
+                {
+                    self.toast = Some(Toast::new("Folder picker unavailable in WASM", 2.5));
+                }
+            }
+            EditorAction::Save => self.save(),
+            EditorAction::SaveAs => self.open_save_as_modal(ctx),
+            EditorAction::Undo => crate::editor_global::request_undo(),
+            EditorAction::Redo => crate::editor_global::request_redo(),
+            EditorAction::Export => self.begin_export(ctx),
+            EditorAction::ChangeSaveRoot => match change_save_root() {
+                SaveRootResult::Changed(new_root) => {
+                    self.toast = Some(Toast::new(
+                        format!("Save root moved to: {}", new_root.display()),
+                        2.5,
+                    ));
+                }
+                SaveRootResult::Cancelled => {}
+                SaveRootResult::Failed => {
+                    self.toast = Some(Toast::new("Failed to update save root.", 2.0));
+                }
+            },
+            EditorAction::ViewHierarchyPanel => {
+                with_panel_manager(|panel_manager| {
+                    panel_manager.toggle(HIERARCHY_PANEL);
+                });
+            }
+            EditorAction::ViewConsolePanel => {
+                with_panel_manager(|panel_manager| {
+                    panel_manager.toggle(CONSOLE_PANEL);
+                });
+            }
+            EditorAction::ViewDiagnosticsPanel => {
+                with_panel_manager(|panel_manager| {
+                    panel_manager.toggle(DIAGNOSTICS_PANEL);
+                });
+            }
+            EditorAction::WorldSettings => {
+                self.open_world_settings_modal(ctx);
+            }
+            EditorAction::OpenPrefabEditor => {
+                self.open_prefab_editor(ctx);
+            }
+            EditorAction::OpenMenuEditor => {
+                clear_active_audio_preview();
+                self.return_mode = Some(self.mode);
+                self.mode = EditorMode::Menu;
+                self.load_menus();
+                MenuEditor::init_camera(ctx, &mut self.camera);
+            }
+            EditorAction::ReturnToGameEditor => {
+                match self.mode {
+                    EditorMode::Menu => {
+                        self.save_menus();
+                    }
+                    EditorMode::Prefab(_) => {
+                        self.save_active_prefab();
+                    }
+                    _ => {}
+                }
 
-        if Controls::c(ctx) && !input_is_focused() {
-            with_panel_manager(|pm| pm.toggle(CONSOLE_PANEL));
-        }
+                let return_mode = self.return_mode.unwrap_or(EditorMode::Game);
+                self.mode = return_mode;
+                self.return_mode = None;
 
-        if Controls::f3(ctx) && !input_is_focused() {
-            with_panel_manager(|pm| pm.toggle(DIAGNOSTICS_PANEL));
-        }
-
-        if matches!(self.mode, EditorMode::Prefab(_)) && Controls::h(ctx) && !input_is_focused() {
-            with_panel_manager(|pm| pm.toggle(HIERARCHY_PANEL));
+                match return_mode {
+                    EditorMode::Game => {
+                        self.game_editor
+                            .init_camera(ctx, &mut self.camera, &mut self.game);
+                    }
+                    EditorMode::World(id) => {
+                        self.world_editor.init_camera(
+                            ctx,
+                            &mut self.camera,
+                            self.game.get_world_mut(id),
+                        );
+                    }
+                    EditorMode::Room(id) => {
+                        let current_world = self.game.current_world();
+                        if let Some(room) = current_world.get_room(id) {
+                            EditorCameraController::reset_room_editor_camera(
+                                ctx,
+                                &mut self.camera,
+                                room,
+                                current_world.grid_size,
+                            );
+                        }
+                    }
+                    EditorMode::Prefab(_) => {}
+                    EditorMode::Menu => {}
+                }
+            }
         }
     }
 
@@ -705,7 +697,6 @@ impl Editor {
 
         duplicate_exists
     }
-
 }
 
 thread_local! {

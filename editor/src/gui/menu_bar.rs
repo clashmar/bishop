@@ -84,7 +84,7 @@ impl EditorAction {
                 EditorAction::Redo => Some("⇧ ^ Z"),
                 EditorAction::ViewHierarchyPanel => Some("H"),
                 EditorAction::ViewConsolePanel => Some("C"),
-                EditorAction::ViewDiagnosticsPanel => Some("D"),
+                EditorAction::ViewDiagnosticsPanel => Some("F3"),
                 _ => None,
             }
         }
@@ -109,6 +109,62 @@ impl EditorAction {
         {
             None
         }
+    }
+
+    pub(crate) fn is_available_in(self, editor_mode: EditorMode) -> bool {
+        match self {
+            EditorAction::Rename => matches!(
+                editor_mode,
+                EditorMode::Game
+                    | EditorMode::World(_)
+                    | EditorMode::Room(_)
+                    | EditorMode::Prefab(_)
+            ),
+            EditorAction::NewGame
+            | EditorAction::Open
+            | EditorAction::Save
+            | EditorAction::SaveAs
+            | EditorAction::Export
+            | EditorAction::ChangeSaveRoot
+            | EditorAction::Undo
+            | EditorAction::Redo
+            | EditorAction::ViewConsolePanel
+            | EditorAction::ViewDiagnosticsPanel => true,
+            EditorAction::ViewHierarchyPanel => {
+                matches!(editor_mode, EditorMode::Room(_) | EditorMode::Prefab(_))
+            }
+            EditorAction::WorldSettings => {
+                matches!(editor_mode, EditorMode::World(_) | EditorMode::Room(_))
+            }
+            EditorAction::OpenMenuEditor | EditorAction::OpenPrefabEditor => {
+                !matches!(editor_mode, EditorMode::Menu | EditorMode::Prefab(_))
+            }
+            EditorAction::ReturnToGameEditor => {
+                matches!(editor_mode, EditorMode::Menu | EditorMode::Prefab(_))
+            }
+        }
+    }
+
+    pub(crate) fn shortcut_pressed(self, ctx: &WgpuContext) -> bool {
+        match self {
+            EditorAction::Save => Controls::save(ctx),
+            EditorAction::SaveAs => Controls::save_as(ctx),
+            EditorAction::Undo => Controls::undo(ctx),
+            EditorAction::Redo => Controls::redo(ctx),
+            EditorAction::ViewHierarchyPanel => Controls::h(ctx),
+            EditorAction::ViewConsolePanel => Controls::c(ctx),
+            EditorAction::ViewDiagnosticsPanel => Controls::f3(ctx),
+            _ => false,
+        }
+    }
+
+    pub(crate) fn blocked_by_focused_input(self) -> bool {
+        matches!(
+            self,
+            EditorAction::ViewHierarchyPanel
+                | EditorAction::ViewConsolePanel
+                | EditorAction::ViewDiagnosticsPanel
+        )
     }
 }
 
@@ -332,31 +388,32 @@ fn file_actions() -> Vec<EditorAction> {
 }
 
 fn view_actions_for_mode(editor_mode: EditorMode) -> Vec<EditorAction> {
-    let mut actions = vec![
+    [
         EditorAction::ViewConsolePanel,
         EditorAction::ViewDiagnosticsPanel,
-    ];
-
-    if matches!(editor_mode, EditorMode::Room(_) | EditorMode::Prefab(_)) {
-        actions.push(EditorAction::ViewHierarchyPanel);
-    }
-
-    actions
+        EditorAction::ViewHierarchyPanel,
+    ]
+    .into_iter()
+    .filter(|action| action.is_available_in(editor_mode))
+    .collect()
 }
 
 fn options_actions_for_mode(editor_mode: EditorMode) -> Vec<EditorAction> {
-    if matches!(editor_mode, EditorMode::World(_) | EditorMode::Room(_)) {
-        return vec![EditorAction::WorldSettings];
-    }
-
-    Vec::new()
+    [EditorAction::WorldSettings]
+        .into_iter()
+        .filter(|action| action.is_available_in(editor_mode))
+        .collect()
 }
 
 fn editors_actions_for_mode(editor_mode: EditorMode) -> Vec<EditorAction> {
-    match editor_mode {
-        EditorMode::Menu | EditorMode::Prefab(_) => vec![EditorAction::ReturnToGameEditor],
-        _ => vec![EditorAction::OpenPrefabEditor, EditorAction::OpenMenuEditor],
-    }
+    [
+        EditorAction::OpenPrefabEditor,
+        EditorAction::OpenMenuEditor,
+        EditorAction::ReturnToGameEditor,
+    ]
+    .into_iter()
+    .filter(|action| action.is_available_in(editor_mode))
+    .collect()
 }
 
 /// Draws a the panel background for the top menu across the whole width of the screen and returns its `Rect`.
@@ -565,6 +622,24 @@ fn menu_dropdown<T: Clone + PartialEq + Display>(
 mod tests {
     use super::*;
     use engine_core::prelude::PrefabId;
+    use uuid::Uuid;
+
+    #[test]
+    fn hierarchy_panel_action_is_limited_to_room_and_prefab_modes() {
+        assert!(!EditorAction::ViewHierarchyPanel.is_available_in(EditorMode::Game));
+        assert!(
+            !EditorAction::ViewHierarchyPanel
+                .is_available_in(EditorMode::World(WorldId(Uuid::nil()),))
+        );
+        assert!(EditorAction::ViewHierarchyPanel.is_available_in(EditorMode::Room(RoomId(2),)));
+        assert!(EditorAction::ViewHierarchyPanel.is_available_in(EditorMode::Prefab(PrefabId(7),)));
+        assert!(!EditorAction::ViewHierarchyPanel.is_available_in(EditorMode::Menu));
+    }
+
+    #[test]
+    fn diagnostics_action_uses_f3_shortcut_label() {
+        assert_eq!(EditorAction::ViewDiagnosticsPanel.shortcut(), Some("F3"));
+    }
 
     #[test]
     fn file_menu_hides_change_save_root_in_debug_builds() {
