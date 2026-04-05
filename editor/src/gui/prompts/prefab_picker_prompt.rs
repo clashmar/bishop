@@ -49,7 +49,7 @@ impl PrefabPickerPrompt {
                 .into_iter()
                 .map(|prefab| PrefabChoice {
                     prefab_id: prefab.id,
-                    label: format!("{} ({})", prefab.name, prefab.id),
+                    label: prefab.name.clone(),
                 })
                 .collect(),
             selected: None,

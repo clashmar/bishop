@@ -632,8 +632,17 @@ impl Editor {
                                 }
                             }
                             EditorMode::Prefab(_) => {
-                                if let Some(prefab_editor) = self.prefab_editor.as_mut() {
-                                    prefab_editor.set_name(name);
+                                let prefab_id = self
+                                    .prefab_editor
+                                    .as_ref()
+                                    .map(|editor| editor.prefab_id);
+                                let is_duplicate = prefab_id.is_some_and(|id| {
+                                    self.duplicate_prefab_name_exists_excluding(&name, id)
+                                });
+                                if !is_duplicate {
+                                    if let Some(prefab_editor) = self.prefab_editor.as_mut() {
+                                        prefab_editor.set_name(name);
+                                    }
                                 }
                             }
                             EditorMode::Menu => {}
@@ -677,16 +686,21 @@ impl Editor {
             if let Some(result) = prefab_name_prompt_opt {
                 match result {
                     StringPromptResult::Confirmed(name) => {
-                        match self.pending_prefab_request.take() {
-                            Some(PendingPrefabRequest::CaptureSelection(entity)) => {
-                                self.create_prefab_from_selection(ctx, entity, name);
+                        if self.duplicate_prefab_name_exists(&name) {
+                            self.pending_prefab_request = None;
+                            self.modal.close();
+                        } else {
+                            match self.pending_prefab_request.take() {
+                                Some(PendingPrefabRequest::CaptureSelection(entity)) => {
+                                    self.create_prefab_from_selection(ctx, entity, name);
+                                }
+                                Some(PendingPrefabRequest::CreateBlank) => {
+                                    self.create_blank_prefab(ctx, name);
+                                }
+                                None => {}
                             }
-                            Some(PendingPrefabRequest::CreateBlank) => {
-                                self.create_blank_prefab(ctx, name);
-                            }
-                            None => {}
+                            self.modal.close();
                         }
-                        self.modal.close();
                     }
                     StringPromptResult::Cancelled => {
                         self.pending_prefab_request = None;
@@ -839,6 +853,44 @@ impl Editor {
             .init_camera(ctx, &mut self.camera, &mut game);
 
         game
+    }
+
+    /// Returns `true` and creates a toast notification if a prefab with the given name already exists.
+    fn duplicate_prefab_name_exists(&mut self, name: &str) -> bool {
+        let duplicate_exists = self
+            .game
+            .prefab_library
+            .prefabs
+            .values()
+            .any(|prefab| prefab.name == name);
+
+        if duplicate_exists {
+            self.toast = Some(Toast::new(
+                format!("A prefab named \"{name}\" already exists."),
+                2.5,
+            ));
+        }
+
+        duplicate_exists
+    }
+
+    /// Returns `true` and creates a toast notification if another prefab (excluding `exclude_id`) has the given name.
+    fn duplicate_prefab_name_exists_excluding(&mut self, name: &str, exclude_id: PrefabId) -> bool {
+        let duplicate_exists = self
+            .game
+            .prefab_library
+            .prefabs
+            .iter()
+            .any(|(&id, prefab)| id != exclude_id && prefab.name == name);
+
+        if duplicate_exists {
+            self.toast = Some(Toast::new(
+                format!("A prefab named \"{name}\" already exists."),
+                2.5,
+            ));
+        }
+
+        duplicate_exists
     }
 
     /// Returns `true` and creates a toast notification if a duplicate game name exists.
