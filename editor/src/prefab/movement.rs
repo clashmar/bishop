@@ -4,6 +4,8 @@ use crate::editor_global::push_command;
 use crate::prefab::prefab_editor::{PrefabDragState, PrefabEditor, PREFAB_EDITOR_GRID_SIZE};
 use crate::prefab::selection::is_prefab_entity;
 use crate::room::entity_hitbox;
+use crate::room::entity_world_rect;
+use crate::shared::selection::{rect_from_two_points, rects_intersect};
 use crate::world::coord;
 use bishop::prelude::*;
 use engine_core::prelude::*;
@@ -47,6 +49,32 @@ impl PrefabEditor {
             return true;
         }
 
+        if self.drag_state.box_select_active {
+            if ctx.is_mouse_button_released(MouseButton::Left) {
+                if let Some(start) = self.drag_state.box_select_start.take() {
+                    let box_rect = rect_from_two_points(start, mouse_world);
+                    for (entity, transform) in ecs.get_store::<Transform>().data.iter() {
+                        if !is_prefab_entity(ecs, *entity) {
+                            continue;
+                        }
+                        let entity_rect = entity_world_rect(
+                            *entity,
+                            transform.position,
+                            ecs,
+                            asset_manager,
+                            PREFAB_EDITOR_GRID_SIZE,
+                        );
+                        if rects_intersect(box_rect, entity_rect) {
+                            self.selected_entities.insert(*entity);
+                        }
+                    }
+                }
+                self.drag_state.box_select_active = false;
+                self.sync_inspector_to_selection();
+            }
+            return true;
+        }
+
         if !ctx.is_mouse_button_pressed(MouseButton::Left) {
             return false;
         }
@@ -84,11 +112,18 @@ impl PrefabEditor {
                 }
                 self.start_drag(ecs, entity, mouse_world);
             }
-            (false, None) => self.set_selected_entity(None),
-            (true, None) => {}
+            (false, None) => {
+                self.selected_entities.clear();
+                self.drag_state.box_select_start = Some(mouse_world);
+                self.drag_state.box_select_active = true;
+            }
+            (true, None) => {
+                self.drag_state.box_select_start = Some(mouse_world);
+                self.drag_state.box_select_active = true;
+            }
         }
 
-        self.drag_state.dragging
+        self.drag_state.dragging || self.drag_state.box_select_active
     }
 
     pub(crate) fn handle_keyboard_move(&mut self, ctx: &WgpuContext, ecs: &mut Ecs) {

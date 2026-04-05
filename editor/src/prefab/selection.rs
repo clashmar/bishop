@@ -2,7 +2,7 @@ use crate::prefab::prefab_editor::PrefabEditor;
 use engine_core::prelude::*;
 
 impl PrefabEditor {
-    fn sync_inspector_to_selection(&mut self) {
+    pub(crate) fn sync_inspector_to_selection(&mut self) {
         self.inspector.set_target(self.single_selected_entity());
     }
 

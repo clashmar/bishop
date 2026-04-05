@@ -10,4 +10,4 @@ pub use drawing::*;
 #[allow(unused_imports)]
 pub use room_editor::*;
 #[allow(unused_imports)]
-pub use selection::{can_select_entity_in_room, entity_hitbox};
+pub use selection::{can_select_entity_in_room, entity_hitbox, entity_world_rect};

@@ -12,6 +12,8 @@ use crate::room::drawing::{draw_collider, draw_pivot_marker, highlight_selected_
 use crate::shared::scene_ui::inspector::{
     SceneCreateRequest, SceneEmptyInspectorBehavior, SceneInspectorContext,
 };
+use crate::shared::selection::draw_selection_box;
+use crate::world::coord;
 use bishop::prelude::*;
 use engine_core::prelude::*;
 use std::collections::HashSet;
@@ -45,6 +47,8 @@ pub(crate) struct PrefabDragState {
     pub drag_offset: Vec2,
     pub drag_start_positions: Vec<(Entity, Vec2)>,
     pub drag_initial_start_positions: Vec<(Entity, Vec2)>,
+    pub box_select_start: Option<Vec2>,
+    pub box_select_active: bool,
 }
 
 pub struct PrefabEditor {
@@ -164,6 +168,13 @@ impl PrefabEditor {
 
         if let Some(selected_entity) = self.single_selected_entity() {
             draw_collider(ctx, game_ctx.ecs, selected_entity);
+        }
+
+        if self.drag_state.box_select_active {
+            if let Some(start) = self.drag_state.box_select_start {
+                let mouse_world = coord::mouse_world_pos(ctx, camera);
+                draw_selection_box(ctx, start, mouse_world);
+            }
         }
 
         ctx.set_default_camera();
