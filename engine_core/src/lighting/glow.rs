@@ -1,7 +1,7 @@
 // engine_core/src/lighting/glow.rs
 use crate::assets::sprite::SpriteId;
 use crate::ecs::entity::Entity;
-use crate::game::GameCtxMut;
+use crate::game::EngineCtxMut;
 use crate::inspector_module;
 use bishop::prelude::*;
 use ecs_component::ecs_component;
@@ -38,10 +38,10 @@ impl Default for Glow {
     }
 }
 
-fn post_create(glow: &mut Glow, _entity: &Entity, ctx: &mut GameCtxMut) {
-    ctx.asset_manager.increment_ref(glow.sprite_id);
+fn post_create(glow: &mut Glow, _entity: &Entity, ctx: &mut dyn EngineCtxMut) {
+    ctx.asset_manager().increment_ref(glow.sprite_id);
 }
 
-fn post_remove(glow: &mut Glow, _entity: &Entity, ctx: &mut GameCtxMut) {
-    ctx.asset_manager.decrement_ref(glow.sprite_id);
+fn post_remove(glow: &mut Glow, _entity: &Entity, ctx: &mut dyn EngineCtxMut) {
+    ctx.asset_manager().decrement_ref(glow.sprite_id);
 }

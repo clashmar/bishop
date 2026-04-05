@@ -1,7 +1,7 @@
 // editor/src/gui/inspector/modal.rs
 use crate::gui::prompts::confirm_prompt::*;
 use bishop::prelude::*;
-use engine_core::assets::asset_manager::AssetManager;
+use engine_core::prelude::*;
 use std::{cell::RefCell, thread::LocalKey};
 
 #[derive(Default)]
@@ -54,6 +54,7 @@ impl Modal {
 
     /// Open the modal and set draw callbacks.
     pub fn open(&mut self, callbacks: Vec<BoxedWidget>) {
+        close_open_dropdowns();
         self.open = true;
         self.widgets = callbacks;
         self.just_opened = true;
@@ -164,4 +165,13 @@ impl Modal {
         modal.open(widgets);
         modal
     }
+}
+
+fn close_open_dropdowns() {
+    dropdown_state::STATE.with(|state| {
+        for dropdown in state.borrow_mut().values_mut() {
+            dropdown.open = false;
+        }
+    });
+    update_global_dropdown_flag();
 }

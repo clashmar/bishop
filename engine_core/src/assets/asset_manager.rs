@@ -1,6 +1,7 @@
 // engine_core/src/assets/asset_manager.rs
 use crate::animation::animation_clip::Animation;
 use crate::assets::sprite::*;
+use crate::ecs::ecs::Ecs;
 use crate::game::Game;
 use crate::storage::path_utils::assets_folder;
 use crate::task::FileReadPool;
@@ -192,33 +193,48 @@ impl AssetManager {
 
     /// Initialize all assets for the game.
     pub fn init_manager(loader: &impl TextureLoader, game: &mut Game) {
-        // Calculate the next id from the existing map
-        game.asset_manager.restore_next_sprite_id();
-        game.asset_manager.runtime_texture_loading = false;
-        game.asset_manager.runtime_file_read_pool = None;
-        game.asset_manager.pending_texture_reads.clear();
+        Self::init_editor_services(loader, &mut game.ecs, &mut game.asset_manager);
+    }
 
-        // Restore next tile def id
-        if let Some(max_id) = game.asset_manager.tile_defs.keys().map(|id| id.0).max() {
-            game.asset_manager.next_tile_def_id = max_id + 1;
-        } else {
-            game.asset_manager.next_tile_def_id = 1;
+    /// Initialize editor asset metadata without hydrating textures.
+    pub fn init_editor_metadata(asset_manager: &mut AssetManager) {
+        asset_manager.restore_next_sprite_id();
+        asset_manager.runtime_texture_loading = false;
+        asset_manager.runtime_file_read_pool = None;
+        asset_manager.pending_texture_reads.clear();
+
+        asset_manager.path_to_sprite_id.clear();
+        for (&id, path) in &asset_manager.sprite_id_to_path {
+            asset_manager.path_to_sprite_id.insert(path.clone(), id);
         }
 
-        let sprites: Vec<(SpriteId, PathBuf)> = game
-            .asset_manager
+        if let Some(max_id) = asset_manager.tile_defs.keys().map(|id| id.0).max() {
+            asset_manager.next_tile_def_id = max_id + 1;
+        } else {
+            asset_manager.next_tile_def_id = 1;
+        }
+    }
+
+    /// Initialize editor asset services for an ECS/asset-manager pair.
+    pub fn init_editor_services(
+        loader: &impl TextureLoader,
+        ecs: &mut Ecs,
+        asset_manager: &mut AssetManager,
+    ) {
+        Self::init_editor_metadata(asset_manager);
+
+        let sprites: Vec<(SpriteId, PathBuf)> = asset_manager
             .sprite_id_to_path
             .iter()
             .map(|(id, path)| (*id, path.clone()))
             .collect();
 
-        // Reload all textures first
         for (id, path) in sprites {
-            let _ = game.asset_manager.reload_texture(loader, &id, &path);
+            let _ = asset_manager.reload_texture(loader, &id, &path);
         }
 
-        for animation in game.ecs.get_store_mut::<Animation>().data.values_mut() {
-            animation.init_sprite_cache(loader, &mut game.asset_manager);
+        for animation in ecs.get_store_mut::<Animation>().data.values_mut() {
+            animation.init_sprite_cache(loader, asset_manager);
             animation.init_runtime();
         }
     }

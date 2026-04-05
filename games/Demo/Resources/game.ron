@@ -66,7 +66,7 @@
             ),
             /*[15]*/ (
                 type_name: "Name",
-                data: "{\n    (1): (\"Camera 1\"),\n    (2): (\"Player Proxy\"),\n    (3): (\"Player\"),\n    (5): (\"Entity\"),\n}",
+                data: "{\n    (1): (\"Camera 1\"),\n    (2): (\"Player Proxy\"),\n    (3): (\"Player\"),\n    (5): (\"Cat\"),\n}",
             ),
             /*[16]*/ (
                 type_name: "Parent",
@@ -85,43 +85,55 @@
                 data: "{\n    (2): (),\n}",
             ),
             /*[20]*/ (
-                type_name: "RoomCamera",
-                data: "{\n    (1): (\n        zoom: (0.015625, 0.027777778),\n        room_id: (1),\n        zoom_mode: Step,\n        camera_mode: Fixed,\n    ),\n}",
+                type_name: "PrefabInstanceNode",
+                data: "{}",
             ),
             /*[21]*/ (
-                type_name: "Script",
-                data: "{\n    (3): (\n        script_id: (1),\n        data: (\n            fields: {\n                \"health\": Int(100),\n                \"jump_speed\": Int(200),\n                \"name\": Text(\"Player\"),\n                \"run_speed\": Int(180),\n                \"speed\": Int(100),\n            },\n        ),\n    ),\n}",
+                type_name: "PrefabInstanceRoot",
+                data: "{}",
             ),
             /*[22]*/ (
-                type_name: "Solid",
+                type_name: "PrefabOverrides",
                 data: "{}",
             ),
             /*[23]*/ (
+                type_name: "RoomCamera",
+                data: "{\n    (1): (\n        zoom: (0.015625, 0.027777778),\n        room_id: (1),\n        zoom_mode: Step,\n        camera_mode: Fixed,\n    ),\n}",
+            ),
+            /*[24]*/ (
+                type_name: "Script",
+                data: "{\n    (3): (\n        script_id: (1),\n        data: (\n            fields: {\n                \"health\": Int(100),\n                \"jump_speed\": Int(200),\n                \"name\": Text(\"Player\"),\n                \"run_speed\": Int(180),\n                \"speed\": Int(100),\n            },\n        ),\n    ),\n}",
+            ),
+            /*[25]*/ (
+                type_name: "Solid",
+                data: "{}",
+            ),
+            /*[26]*/ (
                 type_name: "SpeechBubble",
                 data: "{}",
             ),
-            /*[24]*/ (
+            /*[27]*/ (
                 type_name: "Sprite",
                 data: "{\n    (5): (\n        sprite: (7),\n    ),\n}",
             ),
-            /*[25]*/ (
+            /*[28]*/ (
                 type_name: "SubPixel",
                 data: "{\n    (3): (),\n}",
             ),
-            /*[26]*/ (
+            /*[29]*/ (
                 type_name: "Transform",
-                data: "{\n    (1): (\n        visible: true,\n        position: (64.0, 35.99995),\n        pivot: CenterLeft,\n    ),\n    (2): (\n        visible: true,\n        position: (20.0, 72.0),\n        pivot: BottomCenter,\n    ),\n    (5): (\n        visible: true,\n        position: (100.0, 72.0),\n        pivot: BottomCenter,\n    ),\n}",
+                data: "{\n    (1): (\n        visible: true,\n        position: (64.0, 35.99995),\n        pivot: CenterLeft,\n    ),\n    (2): (\n        visible: true,\n        position: (28.0, 72.0),\n        pivot: BottomCenter,\n    ),\n    (5): (\n        visible: true,\n        position: (92.0, 72.0),\n        pivot: BottomCenter,\n    ),\n}",
             ),
-            /*[27]*/ (
+            /*[30]*/ (
                 type_name: "Velocity",
                 data: "{\n    (3): (\n        x: 0.0,\n        y: 0.0,\n    ),\n}",
             ),
-            /*[28]*/ (
+            /*[31]*/ (
                 type_name: "Walkable",
                 data: "{}",
             ),
         ],
-        next_entity_id: 12,
+        next_entity_id: 13,
     ),
     worlds: [
         /*[0]*/ (

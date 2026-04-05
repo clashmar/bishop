@@ -118,7 +118,7 @@ pub fn ecs_component(args: TokenStream, input: TokenStream) -> TokenStream {
     // Generate post_create function
     let post_create_fn = if let Some(func) = &args.post_create {
         quote! {
-            |any: &mut dyn std::any::Any, entity: &Entity, ctx: &mut GameCtxMut| {
+            |any: &mut dyn std::any::Any, entity: &Entity, ctx: &mut dyn crate::game::EngineCtxMut| {
                 let comp = any
                     .downcast_mut::<#name>()
                     .expect(concat!(
@@ -138,7 +138,7 @@ pub fn ecs_component(args: TokenStream, input: TokenStream) -> TokenStream {
     let post_remove_fn = if let Some(func) = &args.post_remove {
         // The user‑provided function now expects (comp, entity, ctx)
         quote! {
-            |any: &mut dyn std::any::Any, entity: &Entity, ctx: &mut GameCtxMut| {
+            |any: &mut dyn std::any::Any, entity: &Entity, ctx: &mut dyn crate::game::EngineCtxMut| {
                 let comp = any
                     .downcast_mut::<#name>()
                     .expect(concat!(

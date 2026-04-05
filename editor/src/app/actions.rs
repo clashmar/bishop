@@ -30,6 +30,8 @@ impl Default for Editor {
             game_editor: GameEditor::new(),
             world_editor: WorldEditor::new(),
             room_editor: RoomEditor::new(),
+            prefab_editor: None,
+            prefab_stage: None,
             menu_editor: MenuEditor::new(),
             cur_world_id: None,
             cur_room_id: None,
@@ -37,6 +39,7 @@ impl Default for Editor {
             menu_bar: MenuBar::new(),
             modal: Modal::default(),
             pending_export: None,
+            pending_prefab_request: None,
             toast: None,
             playtest_process: None,
             pending_playtest_build: None,
@@ -83,6 +86,11 @@ impl Editor {
                 .get_room(id)
                 .map(|room| room.name.clone())
                 .unwrap_or_else(|| "Room".to_string()),
+            EditorMode::Prefab(_) => self
+                .prefab_editor
+                .as_ref()
+                .map(|editor| editor.prefab_name.clone())
+                .unwrap_or_else(|| "Prefab".to_string()),
             EditorMode::Menu => "Menu Editor".to_string(),
         };
 
@@ -176,6 +184,9 @@ impl Editor {
                 EditorAction::WorldSettings => {
                     self.open_world_settings_modal(ctx);
                 }
+                EditorAction::OpenPrefabEditor => {
+                    self.open_prefab_editor(ctx);
+                }
                 EditorAction::OpenMenuEditor => {
                     clear_active_audio_preview();
                     self.return_mode = Some(self.mode);
@@ -184,8 +195,15 @@ impl Editor {
                     MenuEditor::init_camera(ctx, &mut self.camera);
                 }
                 EditorAction::ReturnToGameEditor => {
-                    // Save menus before leaving menu mode
-                    self.save_menus();
+                    match self.mode {
+                        EditorMode::Menu => {
+                            self.save_menus();
+                        }
+                        EditorMode::Prefab(_) => {
+                            self.save_active_prefab();
+                        }
+                        _ => {}
+                    }
 
                     let return_mode = self.return_mode.unwrap_or(EditorMode::Game);
                     self.mode = return_mode;
@@ -214,6 +232,7 @@ impl Editor {
                                 );
                             }
                         }
+                        EditorMode::Prefab(_) => {}
                         EditorMode::Menu => {
                             // Should not return to Menu mode
                         }
@@ -247,9 +266,18 @@ impl Editor {
         if Controls::f3(ctx) && !input_is_focused() {
             with_panel_manager(|pm| pm.toggle(DIAGNOSTICS_PANEL));
         }
+
+        if matches!(self.mode, EditorMode::Prefab(_)) && Controls::h(ctx) && !input_is_focused() {
+            with_panel_manager(|pm| pm.toggle(HIERARCHY_PANEL));
+        }
     }
 
     pub fn save(&mut self) {
+        if matches!(self.mode, EditorMode::Prefab(_)) {
+            self.save_active_prefab();
+            return;
+        }
+
         let palette = &self.room_editor.tilemap_editor.tilemap_panel.palette;
         let palette_saved = if let Err(e) = save_palette(palette, &self.game.name) {
             onscreen_error!("Could not save palette: {e}");
@@ -309,6 +337,7 @@ impl Editor {
             EditorMode::Game => "Rename game: ",
             EditorMode::World(_) => "Rename world: ",
             EditorMode::Room(_) => "Rename room: ",
+            EditorMode::Prefab(_) => "Rename prefab: ",
             EditorMode::Menu => "Rename menu: ",
         };
 
@@ -332,6 +361,32 @@ impl Editor {
             if let Some(result) = prompt.draw(ctx) {
                 // Write the result to the static thread local
                 SAVE_AS_PROMPT_RESULT.with(|c| *c.borrow_mut() = Some(result));
+            }
+        })];
+
+        self.modal.open(widgets);
+    }
+
+    pub(crate) fn open_prefab_name_modal(&mut self, ctx: &mut WgpuContext) {
+        let mut prompt = self.set_prompt_modal(ctx, "Enter prefab name:");
+
+        let widgets: Vec<BoxedWidget> = vec![Box::new(move |ctx, _| {
+            if let Some(result) = prompt.draw(ctx) {
+                PREFAB_NAME_PROMPT_RESULT.with(|c| *c.borrow_mut() = Some(result));
+            }
+        })];
+
+        self.modal.open(widgets);
+    }
+
+    pub(crate) fn open_prefab_picker_modal(&mut self, ctx: &mut WgpuContext) {
+        self.modal = Modal::new(ctx, 420.0, 240.0);
+        let prefabs = list_prefabs(&self.game.name).unwrap_or_default();
+        let mut prompt = PrefabPickerPrompt::new(self.modal.rect, prefabs);
+
+        let widgets: Vec<BoxedWidget> = vec![Box::new(move |ctx, _| {
+            if let Some(result) = prompt.draw(ctx) {
+                PREFAB_PICKER_RESULT.with(|c| *c.borrow_mut() = Some(result));
             }
         })];
 
@@ -475,6 +530,11 @@ impl Editor {
                                     room.name = name;
                                 }
                             }
+                            EditorMode::Prefab(_) => {
+                                if let Some(prefab_editor) = self.prefab_editor.as_mut() {
+                                    prefab_editor.set_name(name);
+                                }
+                            }
                             EditorMode::Menu => {}
                         }
                         self.modal.close();
@@ -505,6 +565,49 @@ impl Editor {
                         self.modal.close();
                     }
                     StringPromptResult::Cancelled => {
+                        self.modal.close();
+                        return None;
+                    }
+                }
+            }
+
+            let prefab_name_prompt_opt = PREFAB_NAME_PROMPT_RESULT.with(|c| c.borrow_mut().take());
+
+            if let Some(result) = prefab_name_prompt_opt {
+                match result {
+                    StringPromptResult::Confirmed(name) => {
+                        match self.pending_prefab_request.take() {
+                            Some(PendingPrefabRequest::CaptureSelection(entity)) => {
+                                self.create_prefab_from_selection(ctx, entity, name);
+                            }
+                            Some(PendingPrefabRequest::CreateBlank) => {
+                                self.create_blank_prefab(ctx, name);
+                            }
+                            None => {}
+                        }
+                        self.modal.close();
+                    }
+                    StringPromptResult::Cancelled => {
+                        self.pending_prefab_request = None;
+                        self.modal.close();
+                        return None;
+                    }
+                }
+            }
+
+            let prefab_picker_opt = PREFAB_PICKER_RESULT.with(|c| c.borrow_mut().take());
+
+            if let Some(result) = prefab_picker_opt {
+                match result {
+                    PrefabPickerResult::Existing(prefab_id) => {
+                        self.enter_prefab_mode(ctx, prefab_id);
+                        self.modal.close();
+                    }
+                    PrefabPickerResult::New => {
+                        self.pending_prefab_request = Some(PendingPrefabRequest::CreateBlank);
+                        self.open_prefab_name_modal(ctx);
+                    }
+                    PrefabPickerResult::Cancelled => {
                         self.modal.close();
                         return None;
                     }
@@ -601,12 +704,16 @@ impl Editor {
 
         duplicate_exists
     }
+
 }
 
 thread_local! {
     pub static NEW_GAME_PROMPT_RESULT: RefCell<Option<StringPromptResult>> = const { RefCell::new(None) };
     pub static RENAME_PROMPT_RESULT: RefCell<Option<StringPromptResult>> = const { RefCell::new(None) };
     pub static SAVE_AS_PROMPT_RESULT: RefCell<Option<StringPromptResult>> = const { RefCell::new(None) };
+    pub static PREFAB_NAME_PROMPT_RESULT: RefCell<Option<StringPromptResult>> = const { RefCell::new(None) };
+    pub static PREFAB_PICKER_RESULT: RefCell<Option<PrefabPickerResult>> = const { RefCell::new(None) };
     pub static WORLD_SETTINGS_RESULT: RefCell<Option<WorldSettingsResult>> = const { RefCell::new(None) };
     pub static EXPORT_OVERWRITE_RESULT: RefCell<Option<ConfirmPromptResult>> = const { RefCell::new(None) };
 }
+

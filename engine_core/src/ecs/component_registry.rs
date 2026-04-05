@@ -1,7 +1,7 @@
 // engine_core/src/ecs/component_registry.rs
 use crate::ecs::component::Component;
 use crate::ecs::{ecs::Ecs, entity::Entity};
-use crate::game::GameCtxMut;
+use crate::game::EngineCtxMut;
 use mlua::Lua;
 use mlua::Value;
 use once_cell::sync::Lazy;
@@ -47,9 +47,9 @@ pub struct ComponentRegistry {
     /// Deserialize a single component.
     pub from_ron_component: fn(String) -> Box<dyn Any>,
     /// Called for optional run post‑create logic. If `None` the engine will do nothing.
-    pub post_create: fn(&mut dyn Any, &Entity, &mut GameCtxMut),
+    pub post_create: fn(&mut dyn Any, &Entity, &mut dyn EngineCtxMut),
     /// Called optionally when a component is removed from an entity.
-    pub post_remove: fn(&mut dyn Any, &Entity, &mut GameCtxMut),
+    pub post_remove: fn(&mut dyn Any, &Entity, &mut dyn EngineCtxMut),
     /// Converts the rust component to a lua type.
     pub to_lua: fn(&Lua, &dyn Any) -> mlua::Result<Value>,
     /// Converts the lua value back to the rust component.
@@ -100,10 +100,10 @@ pub struct StoredComponent {
 }
 
 /// Default implementation used when a component does not need any post-create work.
-pub fn noop_post_create(_any: &mut dyn Any, _entity: &Entity, _ctx: &mut GameCtxMut) {}
+pub fn noop_post_create(_any: &mut dyn Any, _entity: &Entity, _ctx: &mut dyn EngineCtxMut) {}
 
 /// Default implementation used when a component does not need any post-remove work.
-pub fn noop_post_remove(_any: &mut dyn Any, _entity: &Entity, _ctx: &mut GameCtxMut) {}
+pub fn noop_post_remove(_any: &mut dyn Any, _entity: &Entity, _ctx: &mut dyn EngineCtxMut) {}
 
 #[cfg(test)]
 mod tests {

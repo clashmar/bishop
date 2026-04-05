@@ -43,7 +43,7 @@ impl EditorCommandManager {
     /// Undo a command on the undo stack and push it onto the redo stack.
     pub fn undo(&mut self) {
         // Get the current editor mode
-        let current_mode = with_editor(|editor| editor.mode);
+        let current_mode = with_editor(|editor| editor.current_mode());
 
         // Temp buffer
         let mut buffer: Vec<Box<dyn EditorCommand>> = Vec::new();
@@ -69,7 +69,7 @@ impl EditorCommandManager {
     /// Redo a command on the redo stack and push it onto the undo stack.
     pub fn redo(&mut self) {
         // Get the current editor mode
-        let current_mode = with_editor(|editor| editor.mode);
+        let current_mode = with_editor(|editor| editor.current_mode());
 
         // Temp buffer
         let mut buffer: Vec<Box<dyn EditorCommand>> = Vec::new();
@@ -119,5 +119,73 @@ impl EditorCommandManager {
     /// Get the number of pending commands.
     pub fn pending_len(&self) -> usize {
         self.pending.len()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::app::Editor;
+    use crate::editor_global::{reset_services, set_editor};
+    use crate::prefab::prefab_editor::PrefabEditor;
+    use engine_core::prelude::*;
+    use std::cell::RefCell;
+    use std::rc::Rc;
+
+    #[derive(Debug)]
+    struct TestCommand {
+        mode: EditorMode,
+        executed: Rc<RefCell<usize>>,
+        undone: Rc<RefCell<usize>>,
+    }
+
+    impl EditorCommand for TestCommand {
+        fn execute(&mut self) {
+            *self.executed.borrow_mut() += 1;
+        }
+
+        fn undo(&mut self) {
+            *self.undone.borrow_mut() += 1;
+        }
+
+        fn mode(&self) -> EditorMode {
+            self.mode
+        }
+    }
+
+    #[test]
+    fn prefab_scoped_commands_undo_in_prefab_mode() {
+        reset_services();
+
+        let editor = Editor {
+            mode: EditorMode::Prefab(PrefabId(7)),
+            prefab_editor: Some(PrefabEditor::new(
+                PrefabId(7),
+                "Prefab".to_string(),
+                None,
+            )),
+            ..Default::default()
+        };
+        set_editor(editor);
+
+        let executed = Rc::new(RefCell::new(0));
+        let undone = Rc::new(RefCell::new(0));
+        let command = TestCommand {
+            mode: EditorMode::Prefab(PrefabId(7)),
+            executed: executed.clone(),
+            undone: undone.clone(),
+        };
+
+        let mut manager = EditorCommandManager::new();
+        manager.push(Box::new(command));
+        manager.apply_all();
+
+        assert_eq!(*executed.borrow(), 1);
+
+        manager.undo();
+
+        assert_eq!(*undone.borrow(), 1);
+        assert_eq!(manager.undo_stack_len(), 0);
+        assert_eq!(manager.redo_stack_len(), 1);
     }
 }

@@ -12,6 +12,7 @@ use std::collections::HashMap;
 
 pub enum PanelMode {
     Room,
+    Prefab,
     World,
     Game,
     Menu,
@@ -24,6 +25,7 @@ impl PanelMode {
             (PanelMode::Game, EditorMode::Game)
                 | (PanelMode::World, EditorMode::World(_))
                 | (PanelMode::Room, EditorMode::Room(_))
+                | (PanelMode::Prefab, EditorMode::Prefab(_))
                 | (PanelMode::Menu, EditorMode::Menu)
         )
     }
@@ -148,13 +150,14 @@ impl PanelManager {
                 PanelMode::Game,
                 PanelMode::World,
                 PanelMode::Room,
+                PanelMode::Prefab,
                 PanelMode::Menu,
             ],
         );
 
         self.register(
             GenericPanel::new(HierarchyPanel::new(), ctx),
-            vec![PanelMode::Room],
+            vec![PanelMode::Room, PanelMode::Prefab],
         );
 
         self.register(
@@ -163,6 +166,7 @@ impl PanelManager {
                 PanelMode::Game,
                 PanelMode::World,
                 PanelMode::Room,
+                PanelMode::Prefab,
                 PanelMode::Menu,
             ],
         );
@@ -177,4 +181,15 @@ pub fn is_mouse_over_panel(ctx: &WgpuContext) -> bool {
             p.visible && p.in_current_mode && (p.rect.contains(mouse_screen) || p.dragging)
         })
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use engine_core::prelude::PrefabId;
+
+    #[test]
+    fn prefab_panels_match_prefab_editor_mode() {
+        assert!(PanelMode::Prefab.matches(&EditorMode::Prefab(PrefabId(3))));
+    }
 }

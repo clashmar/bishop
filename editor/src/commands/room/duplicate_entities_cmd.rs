@@ -8,7 +8,7 @@ use std::collections::{HashMap, HashSet};
 /// Undo-able command for duplicating selected entities.
 #[derive(Debug)]
 pub struct DuplicateEntitiesCmd {
-    room_id: RoomId,
+    mode: EditorMode,
     /// The entities to duplicate.
     source_entities: Vec<Entity>,
     /// Maps old entity IDs to newly created ones.
@@ -20,9 +20,9 @@ pub struct DuplicateEntitiesCmd {
 }
 
 impl DuplicateEntitiesCmd {
-    pub fn new(entities: Vec<Entity>, room_id: RoomId) -> Self {
+    pub fn new(entities: Vec<Entity>, mode: EditorMode) -> Self {
         Self {
-            room_id,
+            mode,
             source_entities: entities,
             id_map: None,
             snapshot: None,
@@ -155,6 +155,6 @@ impl EditorCommand for DuplicateEntitiesCmd {
     }
 
     fn mode(&self) -> EditorMode {
-        EditorMode::Room(self.room_id)
+        self.mode
     }
 }

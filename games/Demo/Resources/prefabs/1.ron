@@ -1,0 +1,22 @@
+(
+    id: (1),
+    name: "Cat 2",
+    next_node_id: 2,
+    root_node_id: 1,
+    nodes: [
+        (
+            node_id: 1,
+            parent_node_id: None,
+            components: [
+                (
+                    type_name: "Transform",
+                    ron: "(visible:true,position:(0.0,0.0),pivot:BottomCenter)",
+                ),
+                (
+                    type_name: "Name",
+                    ron: "(\"Player Proxy\")",
+                ),
+            ],
+        ),
+    ],
+)

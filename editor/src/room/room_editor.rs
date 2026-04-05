@@ -1,4 +1,5 @@
 // editor/src/room/room_editor.rs
+use crate::app::EditorMode;
 use crate::app::EditorCameraController;
 use crate::app::SubEditor;
 use crate::canvas::grid;
@@ -169,7 +170,10 @@ impl RoomEditor {
                 if self.selected_entities.len() > 1 && Controls::delete(ctx) && !input_is_focused()
                 {
                     let entities: Vec<Entity> = self.selected_entities.iter().copied().collect();
-                    push_command(Box::new(BatchDeleteEntitiesCmd::new(entities, room.id)));
+                    push_command(Box::new(BatchDeleteEntitiesCmd::new(
+                        entities,
+                        EditorMode::Room(room.id),
+                    )));
                 }
 
                 // Copy multiple selected entities
@@ -179,7 +183,8 @@ impl RoomEditor {
                 }
 
                 // Create a new entity if create was pressed
-                if self.create_entity_requested && self.inspector.target.is_none() {
+                if self.create_entity_requested {
+                    let parent = self.inspector.take_pending_create_parent();
                     // Build the entity
                     let entity = ecs
                         .create_entity()
@@ -190,6 +195,10 @@ impl RoomEditor {
                         .with(CurrentRoom(room.id))
                         .with(Name("Entity".to_string()))
                         .finish();
+
+                    if let Some(parent) = parent {
+                        set_parent(ecs, entity, parent);
+                    }
 
                     // Immediately select it so the inspector shows the newly-created entity
                     self.selected_entities.clear();
@@ -228,7 +237,9 @@ impl RoomEditor {
         self.active_rects.clear();
         {
             let mut game_ctx = game.ctx_mut();
-            let grid_size = game_ctx.cur_world.grid_size;
+            let Some(grid_size) = game_ctx.cur_world.as_deref().map(|world| world.grid_size) else {
+                return;
+            };
 
             // Panel rect for inspector and tilemap editor.
             const INSPECTOR_W: f32 = 325.0;
@@ -241,7 +252,7 @@ impl RoomEditor {
 
             match self.mode {
                 RoomEditorMode::Tilemap => {
-                    let Some(room) = game_ctx.cur_world.current_room_mut() else {
+                    let Some(room) = game_ctx.cur_world.as_deref_mut().and_then(World::current_room_mut) else {
                         return;
                     };
 
@@ -266,7 +277,8 @@ impl RoomEditor {
                         self.preview_camera_id,
                     );
 
-                    let render_cam = if self.view_preview && room_camera.is_some() {
+                    let view_preview = self.view_preview;
+                    let render_cam = if view_preview && room_camera.is_some() {
                         room_camera.as_ref().map(|c| &c.camera).unwrap_or(camera)
                     } else {
                         camera
@@ -274,7 +286,7 @@ impl RoomEditor {
 
                     self.inspector.set_rect(inspector_rect);
 
-                    if self.view_preview {
+                    if view_preview {
                         render_system.resize_for_camera(render_cam.zoom);
                         render_system.begin_scene(ctx);
                     } else {
@@ -283,13 +295,15 @@ impl RoomEditor {
 
                     render_room(ctx, &mut game_ctx, render_system, render_cam, 0.0, None);
 
-                    if self.view_preview {
+                    if view_preview {
                         render_system.end_scene(ctx);
                         render_system.present_game(ctx);
                     }
 
-                    if !self.view_preview {
-                        let Some(room) = game_ctx.cur_world.current_room_mut() else {
+                    if !view_preview {
+                        let Some(room) =
+                            game_ctx.cur_world.as_deref_mut().and_then(World::current_room_mut)
+                        else {
                             return;
                         };
 
@@ -334,6 +348,7 @@ impl RoomEditor {
                             }
                         }
                     }
+
                 }
             }
 

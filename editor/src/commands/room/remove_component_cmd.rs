@@ -8,17 +8,17 @@ use engine_core::prelude::*;
 #[derive(Debug)]
 pub struct RemoveComponentCmd {
     entity: Entity,
-    room_id: RoomId,
+    mode: EditorMode,
     type_name: &'static str,
     /// RON snapshot of the component captured before removal, used to restore on undo.
     snapshot: String,
 }
 
 impl RemoveComponentCmd {
-    pub fn new(entity: Entity, room_id: RoomId, type_name: &'static str, snapshot: String) -> Self {
+    pub fn new(entity: Entity, mode: EditorMode, type_name: &'static str, snapshot: String) -> Self {
         Self {
             entity,
-            room_id,
+            mode,
             type_name,
             snapshot,
         }
@@ -30,12 +30,27 @@ impl EditorCommand for RemoveComponentCmd {
         let type_name = self.type_name;
         let entity = self.entity;
         with_editor(|editor| {
-            let ctx = &mut editor.game.ctx_mut();
+            let prefab_mode = matches!(editor.mode, EditorMode::Prefab(_));
+            let mut prefab_ctx;
+            let mut room_game_ctx;
+            let mut room_services_ctx;
+            let ctx: &mut dyn EngineCtxMut = if prefab_mode {
+                prefab_ctx = editor
+                    .prefab_stage
+                    .as_mut()
+                    .expect("Prefab stage missing")
+                    .ctx_mut();
+                &mut prefab_ctx
+            } else {
+                room_game_ctx = editor.game.ctx_mut();
+                room_services_ctx = room_game_ctx.services_ctx_mut();
+                &mut room_services_ctx
+            };
             if let Some(reg) = COMPONENTS.iter().find(|r| r.type_name == type_name) {
-                if (reg.has)(ctx.ecs, entity) {
-                    let mut boxed = (reg.clone)(ctx.ecs, entity);
+                if (reg.has)(ctx.ecs(), entity) {
+                    let mut boxed = (reg.clone)(ctx.ecs(), entity);
                     (reg.post_remove)(&mut *boxed, &entity, ctx);
-                    (reg.remove)(ctx.ecs, entity);
+                    (reg.remove)(ctx.ecs(), entity);
                 }
             }
 
@@ -50,17 +65,32 @@ impl EditorCommand for RemoveComponentCmd {
         let snapshot = self.snapshot.clone();
         let entity = self.entity;
         with_editor(|editor| {
-            let ctx = &mut editor.game.ctx_mut();
+            let prefab_mode = matches!(editor.mode, EditorMode::Prefab(_));
+            let mut prefab_ctx;
+            let mut room_game_ctx;
+            let mut room_services_ctx;
+            let ctx: &mut dyn EngineCtxMut = if prefab_mode {
+                prefab_ctx = editor
+                    .prefab_stage
+                    .as_mut()
+                    .expect("Prefab stage missing")
+                    .ctx_mut();
+                &mut prefab_ctx
+            } else {
+                room_game_ctx = editor.game.ctx_mut();
+                room_services_ctx = room_game_ctx.services_ctx_mut();
+                &mut room_services_ctx
+            };
             if let Some(reg) = COMPONENTS.iter().find(|r| r.type_name == type_name) {
                 let mut boxed = (reg.from_ron_component)(snapshot);
                 (reg.post_create)(&mut *boxed, &entity, ctx);
-                (reg.inserter)(ctx.ecs, entity, boxed);
+                (reg.inserter)(ctx.ecs(), entity, boxed);
             }
         });
     }
 
     fn mode(&self) -> EditorMode {
-        EditorMode::Room(self.room_id)
+        self.mode
     }
 }
 
@@ -103,7 +133,12 @@ mod tests {
             (reg.to_ron_component)(boxed.as_ref())
         });
 
-        let mut cmd = RemoveComponentCmd::new(entity, RoomId(1), Animation::TYPE_NAME, snapshot);
+        let mut cmd = RemoveComponentCmd::new(
+            entity,
+            EditorMode::Room(RoomId(1)),
+            Animation::TYPE_NAME,
+            snapshot,
+        );
         cmd.execute();
 
         with_editor(|editor| {

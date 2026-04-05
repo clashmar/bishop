@@ -14,6 +14,7 @@ use crate::menu::MenuEditor;
 use crate::editor_global::push_toast;
 use crate::playtest::playtest_process::PlaytestProcess;
 use crate::playtest::room_playtest::*;
+use crate::prefab::{PrefabEditor, PrefabStage};
 use crate::room::room_editor::RoomEditor;
 use crate::storage::editor_storage;
 use crate::storage::editor_storage::*;
@@ -32,7 +33,14 @@ pub enum EditorMode {
     Game,
     World(WorldId),
     Room(RoomId),
+    Prefab(PrefabId),
     Menu,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(crate) enum PendingPrefabRequest {
+    CaptureSelection(Entity),
+    CreateBlank,
 }
 
 pub struct Editor {
@@ -42,6 +50,8 @@ pub struct Editor {
     pub game_editor: GameEditor,
     pub world_editor: WorldEditor,
     pub room_editor: RoomEditor,
+    pub prefab_editor: Option<PrefabEditor>,
+    pub prefab_stage: Option<PrefabStage>,
     pub menu_editor: MenuEditor,
     pub camera: Camera2D,
     pub cur_world_id: Option<WorldId>,
@@ -50,6 +60,7 @@ pub struct Editor {
     pub menu_bar: MenuBar,
     pub modal: Modal,
     pub pending_export: Option<PendingExport>,
+    pub pending_prefab_request: Option<PendingPrefabRequest>,
     pub toast: Option<Toast>,
     pub playtest_process: Option<PlaytestProcess>,
     pub pending_playtest_build: Option<BackgroundTask<Result<(PathBuf, PathBuf), String>>>,
@@ -136,13 +147,32 @@ impl Editor {
 
         let ui_blocked = self.current_editor().should_block_canvas(ctx);
 
-        if !self.room_editor.view_preview && !ui_blocked {
+        if !self
+            .active_room_editor()
+            .is_some_and(|editor| editor.view_preview)
+            && !ui_blocked
+        {
             EditorCameraController::update(ctx, &mut self.camera);
         }
 
         match self.mode {
             EditorMode::Menu => {
                 self.menu_editor.update(ctx, &self.camera);
+            }
+            EditorMode::Prefab(_) => {
+                if let (Some(prefab_editor), Some(prefab_stage)) =
+                    (self.prefab_editor.as_mut(), self.prefab_stage.as_mut())
+                {
+                    let mut prefab_ctx = prefab_stage.ctx_mut();
+                    prefab_editor.update(ctx, &self.camera, &mut prefab_ctx);
+                    if Controls::escape(ctx) && !input_is_focused() {
+                        self.save_active_prefab();
+                        self.prefab_editor = None;
+                        self.prefab_stage = None;
+                        self.mode = self.return_mode.unwrap_or(EditorMode::Game);
+                        self.return_mode = None;
+                    }
+                }
             }
             EditorMode::Game => {
                 // Returns the id of the world that was clicked on or None
@@ -291,6 +321,23 @@ impl Editor {
     pub fn draw(&mut self, ctx: &mut WgpuContext) {
         match self.mode {
             EditorMode::Menu => self.menu_editor.draw(ctx, &self.camera),
+            EditorMode::Prefab(_) => {
+                if let (Some(prefab_editor), Some(prefab_stage), Some(grid_renderer)) =
+                    (
+                        self.prefab_editor.as_mut(),
+                        self.prefab_stage.as_mut(),
+                        &self.grid_renderer,
+                    )
+                {
+                    let mut prefab_ctx = prefab_stage.ctx_mut();
+                    prefab_editor.draw(
+                        ctx,
+                        &self.camera,
+                        &mut prefab_ctx,
+                        grid_renderer,
+                    );
+                }
+            }
             EditorMode::Game => {
                 self.game_editor.draw(ctx, &mut self.camera, &mut self.game);
             }
@@ -334,7 +381,10 @@ impl Editor {
     }
 
     fn draw_ui(&mut self, ctx: &mut WgpuContext) {
-        if !self.room_editor.view_preview {
+        if !self
+            .active_room_editor()
+            .is_some_and(|editor| editor.view_preview)
+        {
             ctx.set_default_camera();
 
             // Draw all panels
@@ -357,9 +407,25 @@ impl Editor {
     fn current_editor(&self) -> &dyn SubEditor {
         match self.mode {
             EditorMode::Menu => &self.menu_editor,
+            EditorMode::Prefab(_) => self
+                .prefab_editor
+                .as_ref()
+                .map(|editor| editor as &dyn SubEditor)
+                .unwrap_or(&self.room_editor),
             EditorMode::Game => &self.game_editor,
             EditorMode::World(_) => &self.world_editor,
             EditorMode::Room(_) => &self.room_editor,
+        }
+    }
+
+    pub fn current_mode(&self) -> EditorMode {
+        self.mode
+    }
+
+    pub fn active_room_editor(&self) -> Option<&RoomEditor> {
+        match self.mode {
+            EditorMode::Room(_) => Some(&self.room_editor),
+            _ => None,
         }
     }
 }

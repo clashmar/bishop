@@ -318,18 +318,18 @@ fn sprite_path(variant_folder: &VariantFolder, clip_id: &ClipId) -> Option<PathB
 }
 
 /// Initializes the component when an entity is instantiated into the world.
-pub fn post_create(anim: &mut Animation, _entity: &Entity, ctx: &mut GameCtxMut) {
+pub fn post_create(anim: &mut Animation, _entity: &Entity, ctx: &mut dyn EngineCtxMut) {
     anim.init_runtime();
-    restore_sprite_cache_from_known_paths(anim, ctx.asset_manager);
+    restore_sprite_cache_from_known_paths(anim, ctx.asset_manager());
 
     for &sprite_id in anim.sprite_cache.values() {
-        ctx.asset_manager.increment_ref(sprite_id);
+        ctx.asset_manager().increment_ref(sprite_id);
     }
 }
 
 /// Cleans up when the component is removed from an entity.
-pub fn post_remove(anim: &mut Animation, _entity: &Entity, ctx: &mut GameCtxMut) {
-    anim.clear_sprite_cache(ctx.asset_manager);
+pub fn post_remove(anim: &mut Animation, _entity: &Entity, ctx: &mut dyn EngineCtxMut) {
+    anim.clear_sprite_cache(ctx.asset_manager());
 }
 
 /// Generates the content for animations.lua with built-in and optional custom clips.

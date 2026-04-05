@@ -1,5 +1,6 @@
 // editor/src/gui/inspector/inspector_panel.rs
 use crate::commands::room::*;
+use crate::app::EditorMode;
 use crate::editor_global::push_command;
 use crate::gui::gui_constants::*;
 use crate::gui::inspector::audio_source_module::clear_active_audio_preview;
@@ -7,12 +8,14 @@ use crate::gui::inspector::player_module::PlayerModule;
 use crate::gui::inspector::room_camera_module::ROOM_CAMERA_MODULE_TITLE;
 use crate::gui::menu_bar::menu_button;
 use crate::gui::panels::panel_manager::is_mouse_over_panel;
+use crate::prefab::prefab_editor::linked_prefab_display;
 use bishop::prelude::*;
 use engine_core::prelude::*;
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter, Result as FmtResult};
 
 const SCROLL_SPEED: f32 = 5.0;
+const PREFAB_METADATA_HEIGHT: f32 = 24.0;
 
 /// A component change captured during a single inspector draw pass.
 struct ComponentChange {
@@ -79,6 +82,9 @@ pub struct InspectorPanel {
     widget_ids: WidgetIds,
     /// In-progress component edits awaiting undo command generation.
     component_edits: HashMap<(Entity, &'static str), ComponentEditState>,
+    prefab_mode: bool,
+    prefab_root_entity: Option<Entity>,
+    pending_create_parent: Option<Entity>,
 }
 
 pub struct WidgetIds {
@@ -132,6 +138,9 @@ impl InspectorPanel {
             scroll_state: ScrollState::new(),
             widget_ids,
             component_edits: HashMap::new(),
+            prefab_mode: false,
+            prefab_root_entity: None,
+            pending_create_parent: None,
         }
     }
 
@@ -150,18 +159,33 @@ impl InspectorPanel {
         }
     }
 
+    /// Configures prefab-specific inspector behavior for the current frame.
+    pub fn set_prefab_context(&mut self, prefab_mode: bool, prefab_root_entity: Option<Entity>) {
+        self.prefab_mode = prefab_mode;
+        self.prefab_root_entity = prefab_root_entity;
+        if !prefab_mode {
+            self.pending_create_parent = None;
+        }
+    }
+
+    /// Returns the queued parent for the next `+ Entity` creation request.
+    pub fn take_pending_create_parent(&mut self) -> Option<Entity> {
+        self.pending_create_parent.take()
+    }
+
     /// Render the panel and any visible sub‑modules.
     /// Returns true if 'Create' was pressed.
-    pub fn draw(&mut self, ctx: &mut WgpuContext, game_ctx: &mut GameCtxMut) -> bool {
+    pub fn draw(
+        &mut self,
+        ctx: &mut WgpuContext,
+        game_ctx: &mut ServicesCtxMut,
+        command_mode: EditorMode,
+    ) -> bool {
         self.active_rects.clear();
 
         const BTN_MARGIN: f32 = 10.0;
 
         if let Some(entity) = self.target {
-            let Some(room_id) = game_ctx.cur_world.current_room_id else {
-                return false;
-            };
-
             if Controls::copy(ctx) {
                 copy_entity(game_ctx.ecs, entity);
             }
@@ -181,6 +205,9 @@ impl InspectorPanel {
             let remove_label = "Remove";
             let txt_remove = measure_text(ctx, remove_label, HEADER_FONT_SIZE_20);
             let btn_w_remove = txt_remove.width + WIDGET_PADDING;
+            let create_label = "+ Entity";
+            let txt_create = measure_text(ctx, create_label, HEADER_FONT_SIZE_20);
+            let btn_w_create = txt_create.width + WIDGET_PADDING;
 
             // Inspector body
             let top_offset = MENU_PANEL_HEIGHT + INSET;
@@ -199,7 +226,12 @@ impl InspectorPanel {
                 Color::new(0., 0., 0., 0.6),
             );
 
-            let total_content_h = self.total_content_height(game_ctx.ecs, entity);
+            let total_content_h = self.total_content_height(
+                game_ctx.ecs,
+                game_ctx.prefab_library,
+                entity,
+                self.prefab_mode,
+            );
 
             let area = ScrollableArea::new(inner, total_content_h)
                 .scroll_speed(SCROLL_SPEED)
@@ -212,6 +244,48 @@ impl InspectorPanel {
             let mut y = content_rect.y + INSET + self.scroll_state.scroll_y;
             let blocked = self.is_blocked(ctx);
             let comp_target = component_target(game_ctx.ecs, entity);
+            let linked_prefab = should_show_linked_prefab_metadata(
+                self.prefab_mode,
+                game_ctx.ecs,
+                game_ctx.prefab_library,
+                entity,
+            );
+
+            if let Some(prefab_display) = linked_prefab.as_ref() {
+                if area.is_visible(y, PREFAB_METADATA_HEIGHT) {
+                    let metadata_rect = Rect::new(
+                        content_rect.x + INSET,
+                        y,
+                        content_rect.w - INSET * 2.0,
+                        PREFAB_METADATA_HEIGHT,
+                    );
+
+                    ctx.draw_rectangle(
+                        metadata_rect.x,
+                        metadata_rect.y,
+                        metadata_rect.w,
+                        metadata_rect.h,
+                        Color::new(0., 0., 0., 0.28),
+                    );
+                    ctx.draw_rectangle_lines(
+                        metadata_rect.x,
+                        metadata_rect.y,
+                        metadata_rect.w,
+                        metadata_rect.h,
+                        1.0,
+                        Color::new(0.4, 0.4, 0.4, 0.8),
+                    );
+                    ctx.draw_text(
+                        &prefab_display.label,
+                        metadata_rect.x + 8.0,
+                        metadata_rect.y + 16.0,
+                        DEFAULT_FONT_SIZE_16,
+                        Color::WHITE,
+                    );
+                }
+
+                y += PREFAB_METADATA_HEIGHT + WIDGET_SPACING;
+            }
 
             // Collect changes this frame.
             let mut comp_changes: Vec<ComponentChange> = Vec::new();
@@ -251,7 +325,7 @@ impl InspectorPanel {
                                 self.component_edits.remove(&(module_entity, type_name));
                                 push_command(Box::new(RemoveComponentCmd::new(
                                     module_entity,
-                                    room_id,
+                                    command_mode,
                                     type_name,
                                     ron,
                                 )));
@@ -329,7 +403,7 @@ impl InspectorPanel {
                     .remove(&(change.entity, change.type_name));
                 push_command(Box::new(UpdateComponentCmd::new(
                     change.entity,
-                    room_id,
+                    command_mode,
                     change.type_name,
                     change.old_ron,
                     change.new_ron,
@@ -364,11 +438,25 @@ impl InspectorPanel {
                 {
                     push_command(Box::new(AddComponentCmd::new(
                         target,
-                        room_id,
+                        command_mode,
                         component.type_name,
                     )));
                 } else {
                     onscreen_error!("Component `{}` not found in registry", component.type_name,);
+                }
+            }
+
+            if self.prefab_mode {
+                let create_rect = self.register_rect(Rect::new(
+                    add_rect.x - WIDGET_SPACING - btn_w_remove - WIDGET_SPACING - btn_w_create,
+                    self.rect.y + INSET,
+                    btn_w_create,
+                    BTN_HEIGHT,
+                ));
+
+                if menu_button(ctx, create_rect, create_label, false) {
+                    self.pending_create_parent = Some(entity);
+                    return true;
                 }
             }
 
@@ -384,12 +472,7 @@ impl InspectorPanel {
                 if menu_button(ctx, remove_rect, remove_label, false)
                     || Controls::delete(ctx) && !input_is_focused()
                 {
-                    let room_id = game_ctx.cur_world.current_room_id.unwrap_or_default();
-                    let command = DeleteEntityCmd {
-                        entity,
-                        room_id,
-                        saved: None,
-                    };
+                    let command = DeleteEntityCmd::new(entity, command_mode);
                     push_command(Box::new(command));
 
                     self.target = None;
@@ -407,6 +490,15 @@ impl InspectorPanel {
                 BTN_HEIGHT,
             );
 
+            if self.prefab_mode {
+                if menu_button(ctx, create_btn, create_label, false) {
+                    self.pending_create_parent = self.prefab_root_entity;
+                    return true;
+                }
+
+                return false;
+            }
+
             let add_cam_label = "+ Camera";
             let txt_cam = measure_text(ctx, add_cam_label, HEADER_FONT_SIZE_20);
             let cam_btn_w = txt_cam.width + WIDGET_PADDING * 2.0;
@@ -419,11 +511,21 @@ impl InspectorPanel {
 
             if menu_button(ctx, cam_btn, add_cam_label, false) {
                 let ecs = &mut game_ctx.ecs;
-                let cur_room = game_ctx.cur_world.current_room().unwrap();
-                cur_room.create_room_camera(ecs, cur_room.id, game_ctx.cur_world.grid_size);
+                let Some(cur_world) = game_ctx.world.as_deref() else {
+                    return false;
+                };
+                let Some(cur_room) = cur_world.current_room() else {
+                    return false;
+                };
+                cur_room.create_room_camera(ecs, cur_room.id, cur_world.grid_size);
             }
 
-            let cur_room = game_ctx.cur_world.current_room_mut().unwrap();
+            let Some(cur_world) = game_ctx.world.as_deref_mut() else {
+                return false;
+            };
+            let Some(cur_room) = cur_world.current_room_mut() else {
+                return false;
+            };
 
             // Darkness slider
             let slider_width = 150.0;
@@ -474,6 +576,9 @@ impl InspectorPanel {
             if type_name == ROOM_CAMERA_MODULE_TITLE {
                 continue;
             }
+            if self.prefab_mode && is_prefab_blocked_component_type(type_name) {
+                continue;
+            }
             if is_proxy_local_module(type_name) && is_proxy {
                 continue;
             }
@@ -504,9 +609,18 @@ impl InspectorPanel {
             || (self.rect.contains(mouse_screen) && self.target.is_some())
     }
 
-    fn total_content_height(&self, ecs: &Ecs, entity: Entity) -> f32 {
+    fn total_content_height(
+        &self,
+        ecs: &Ecs,
+        prefab_library: &PrefabLibrary,
+        entity: Entity,
+        prefab_mode: bool,
+    ) -> f32 {
         let mut total_content_h = 0.0;
         let comp_target = component_target(ecs, entity);
+        if should_show_linked_prefab_metadata(prefab_mode, ecs, prefab_library, entity).is_some() {
+            total_content_h += PREFAB_METADATA_HEIGHT + WIDGET_SPACING;
+        }
         for module in &self.modules {
             let module_entity = if is_proxy_local_module(module.title()) {
                 entity
@@ -525,6 +639,23 @@ impl InspectorPanel {
     }
 }
 
+fn should_show_linked_prefab_metadata(
+    prefab_mode: bool,
+    ecs: &Ecs,
+    prefab_library: &PrefabLibrary,
+    entity: Entity,
+) -> Option<crate::prefab::prefab_editor::PrefabLinkDisplay> {
+    (!prefab_mode).then(|| linked_prefab_display(ecs, prefab_library, entity))?
+}
+
+fn is_prefab_blocked_component_type(type_name: &'static str) -> bool {
+    type_name == comp_type_name::<CurrentRoom>()
+        || type_name == comp_type_name::<RoomCamera>()
+        || type_name == comp_type_name::<PlayerProxy>()
+        || type_name == comp_type_name::<Player>()
+        || type_name == comp_type_name::<Global>()
+}
+
 /// Utility function used by both the panel and the menu
 fn entity_has_component(ecs: &Ecs, entity: Entity, reg: &ComponentRegistry) -> bool {
     (reg.has)(ecs, entity)
@@ -534,5 +665,34 @@ fn prettify_component_label(type_name: &str) -> String {
     match type_name {
         "AudioSource" => "Audio Source".to_string(),
         _ => type_name.to_string(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn linked_prefab_metadata_is_hidden_in_prefab_mode() {
+        let mut ecs = Ecs::default();
+        let entity = ecs
+            .create_entity()
+            .with(Transform::default())
+            .with(Name("Entity".to_string()))
+            .finish();
+        ecs.add_component_to_entity(
+            entity,
+            PrefabInstanceRoot {
+                prefab_id: PrefabId(9),
+            },
+        );
+
+        let mut prefab_library = PrefabLibrary::default();
+        prefab_library
+            .prefabs
+            .insert(PrefabId(9), create_prefab(PrefabId(9), "Crate".to_string()));
+
+        assert!(should_show_linked_prefab_metadata(false, &ecs, &prefab_library, entity).is_some());
+        assert!(should_show_linked_prefab_metadata(true, &ecs, &prefab_library, entity).is_none());
     }
 }

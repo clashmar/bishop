@@ -1,4 +1,5 @@
 // editor/src/room/shortcuts.rs
+use crate::app::EditorMode;
 use crate::app::EditorCameraController;
 use crate::commands::room::*;
 use crate::editor_global::push_command;
@@ -73,7 +74,7 @@ impl RoomEditor {
                 }
 
                 if Controls::paste(ctx) {
-                    push_command(Box::new(PasteEntityCmd::new(room.id)));
+                    push_command(Box::new(PasteEntityCmd::new(EditorMode::Room(room.id))));
                 }
 
                 if Controls::h(ctx) {
@@ -90,7 +91,10 @@ impl RoomEditor {
                 // Duplicate selected entities
                 if Controls::duplicate(ctx) && !self.selected_entities.is_empty() {
                     let entities: Vec<Entity> = self.selected_entities.iter().copied().collect();
-                    push_command(Box::new(DuplicateEntitiesCmd::new(entities, room.id)));
+                    push_command(Box::new(DuplicateEntitiesCmd::new(
+                        entities,
+                        EditorMode::Room(room.id),
+                    )));
                 }
             }
         }

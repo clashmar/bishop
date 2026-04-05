@@ -16,11 +16,14 @@ pub fn render_room<C: BishopContext>(
     prev_positions: Option<&HashMap<Entity, Vec2>>,
 ) {
     let render_start = std::time::Instant::now();
-    let Some(current_room) = game_ctx.cur_world.current_room() else {
+    let Some(cur_world) = game_ctx.cur_world.as_deref_mut() else {
+        return;
+    };
+    let Some(current_room) = cur_world.current_room() else {
         return;
     };
 
-    let grid_size = game_ctx.cur_world.grid_size;
+    let grid_size = cur_world.grid_size;
 
     // Organize entities by layer
     let layer_map = collect_interpolated_layer_map(

@@ -63,9 +63,36 @@ pub struct GameCtx<'a> {
 /// Bundles together common mutable systems.
 pub struct GameCtxMut<'a> {
     pub ecs: &'a mut Ecs,
-    pub cur_world: &'a mut World,
+    pub cur_world: Option<&'a mut World>,
     pub asset_manager: &'a mut AssetManager,
     pub script_manager: &'a mut ScriptManager,
+    /// Read-only prefab library for UI and editor lookups.
+    pub prefab_library: &'a PrefabLibrary,
+}
+
+/// Bundles together mutable services used by editor and prefab entity workflows.
+pub struct ServicesCtxMut<'a> {
+    pub ecs: &'a mut Ecs,
+    pub world: Option<&'a mut World>,
+    pub asset_manager: &'a mut AssetManager,
+    pub script_manager: &'a mut ScriptManager,
+    /// Read-only prefab library for UI and editor lookups.
+    pub prefab_library: &'a PrefabLibrary,
+}
+
+/// Mutable engine services used by hooks, prefab helpers, and editor entity workflows.
+pub trait EngineCtxMut {
+    /// Mutable ECS access.
+    fn ecs(&mut self) -> &mut Ecs;
+
+    /// Mutable asset-manager access.
+    fn asset_manager(&mut self) -> &mut AssetManager;
+
+    /// Mutable script-manager access.
+    fn script_manager(&mut self) -> &mut ScriptManager;
+
+    /// Mutable world access when this context is world-backed.
+    fn current_world(&mut self) -> Option<&mut World>;
 }
 
 impl Game {
@@ -95,9 +122,10 @@ impl Game {
 
         GameCtxMut {
             ecs: &mut self.ecs,
-            cur_world,
+            cur_world: Some(cur_world),
             asset_manager: &mut self.asset_manager,
             script_manager: &mut self.script_manager,
+            prefab_library: &self.prefab_library,
         }
     }
 
@@ -194,5 +222,76 @@ impl Game {
     pub fn allocate_room_id(&mut self) -> RoomId {
         self.next_room_id += 1;
         RoomId(self.next_room_id)
+    }
+}
+
+impl<'a> GameCtxMut<'a> {
+    /// Returns a mutable services context without requiring room-specific access.
+    pub fn services_ctx_mut(&mut self) -> ServicesCtxMut<'_> {
+        ServicesCtxMut {
+            ecs: self.ecs,
+            world: self.cur_world.as_deref_mut(),
+            asset_manager: self.asset_manager,
+            script_manager: self.script_manager,
+            prefab_library: self.prefab_library,
+        }
+    }
+}
+
+impl EngineCtxMut for GameCtxMut<'_> {
+    fn ecs(&mut self) -> &mut Ecs {
+        self.ecs
+    }
+
+    fn asset_manager(&mut self) -> &mut AssetManager {
+        self.asset_manager
+    }
+
+    fn script_manager(&mut self) -> &mut ScriptManager {
+        self.script_manager
+    }
+
+    fn current_world(&mut self) -> Option<&mut World> {
+        self.cur_world.as_deref_mut()
+    }
+}
+
+impl EngineCtxMut for ServicesCtxMut<'_> {
+    fn ecs(&mut self) -> &mut Ecs {
+        self.ecs
+    }
+
+    fn asset_manager(&mut self) -> &mut AssetManager {
+        self.asset_manager
+    }
+
+    fn script_manager(&mut self) -> &mut ScriptManager {
+        self.script_manager
+    }
+
+    fn current_world(&mut self) -> Option<&mut World> {
+        self.world.as_deref_mut()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn game_ctx_mut_can_exist_without_a_current_world() {
+        let mut ecs = Ecs::default();
+        let mut asset_manager = AssetManager::default();
+        let mut script_manager = ScriptManager::default();
+
+        let ctx = GameCtxMut {
+            ecs: &mut ecs,
+            cur_world: None,
+            asset_manager: &mut asset_manager,
+            script_manager: &mut script_manager,
+            prefab_library: &PrefabLibrary::default(),
+        };
+
+        assert!(ctx.cur_world.is_none());
     }
 }

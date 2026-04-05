@@ -109,7 +109,7 @@ fn should_reapply_component(
 #[derive(Debug)]
 pub struct UpdateComponentCmd {
     entity: Entity,
-    room_id: RoomId,
+    mode: EditorMode,
     type_name: &'static str,
     old_ron: String,
     new_ron: String,
@@ -120,7 +120,7 @@ pub struct UpdateComponentCmd {
 impl UpdateComponentCmd {
     pub fn new(
         entity: Entity,
-        room_id: RoomId,
+        mode: EditorMode,
         type_name: &'static str,
         old_ron: String,
         new_ron: String,
@@ -129,7 +129,7 @@ impl UpdateComponentCmd {
     ) -> Self {
         Self {
             entity,
-            room_id,
+            mode,
             type_name,
             old_ron,
             new_ron,
@@ -145,10 +145,25 @@ impl UpdateComponentCmd {
         transient_state: &ComponentTransientState,
         editor: &mut crate::Editor,
     ) {
-        let ctx = &mut editor.game.ctx_mut();
+        let prefab_mode = matches!(editor.mode, EditorMode::Prefab(_));
+        let mut prefab_ctx;
+        let mut room_game_ctx;
+        let mut room_services_ctx;
+        let ctx: &mut dyn EngineCtxMut = if prefab_mode {
+            prefab_ctx = editor
+                .prefab_stage
+                .as_mut()
+                .expect("Prefab stage missing")
+                .ctx_mut();
+            &mut prefab_ctx
+        } else {
+            room_game_ctx = editor.game.ctx_mut();
+            room_services_ctx = room_game_ctx.services_ctx_mut();
+            &mut room_services_ctx
+        };
         if let Some(reg) = COMPONENTS.iter().find(|r| r.type_name == type_name) {
-            if (reg.has)(ctx.ecs, entity) {
-                let old = (reg.clone)(ctx.ecs, entity);
+            if (reg.has)(ctx.ecs(), entity) {
+                let old = (reg.clone)(ctx.ecs(), entity);
                 let current_ron = (reg.to_ron_component)(old.as_ref());
                 let current_transient_state =
                     capture_component_transient_state(type_name, old.as_ref());
@@ -168,7 +183,7 @@ impl UpdateComponentCmd {
             let mut boxed = (reg.from_ron_component)(ron);
             restore_component_transient_state(type_name, boxed.as_mut(), transient_state);
             (reg.post_create)(&mut *boxed, &entity, ctx);
-            (reg.inserter)(ctx.ecs, entity, boxed);
+            (reg.inserter)(ctx.ecs(), entity, boxed);
         }
     }
 }
@@ -191,7 +206,7 @@ impl EditorCommand for UpdateComponentCmd {
     }
 
     fn mode(&self) -> EditorMode {
-        EditorMode::Room(self.room_id)
+        self.mode
     }
 }
 

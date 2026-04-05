@@ -25,14 +25,28 @@ impl RemoveParentCmd {
 impl EditorCommand for RemoveParentCmd {
     fn execute(&mut self) {
         with_editor(|editor| {
-            let ecs = &mut editor.game.ecs;
+            let ecs = match editor.mode {
+                EditorMode::Prefab(_) => &mut editor
+                    .prefab_stage
+                    .as_mut()
+                    .expect("Prefab stage missing")
+                    .ecs,
+                _ => &mut editor.game.ecs,
+            };
             remove_parent(ecs, self.child);
         });
     }
 
     fn undo(&mut self) {
         with_editor(|editor| {
-            let ecs = &mut editor.game.ecs;
+            let ecs = match editor.mode {
+                EditorMode::Prefab(_) => &mut editor
+                    .prefab_stage
+                    .as_mut()
+                    .expect("Prefab stage missing")
+                    .ecs,
+                _ => &mut editor.game.ecs,
+            };
             if let Some(old_parent) = self.old_parent {
                 set_parent(ecs, self.child, old_parent);
             }

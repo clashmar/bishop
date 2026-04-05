@@ -46,10 +46,13 @@ impl InspectorModule for RoomCameraModule {
         ctx: &mut WgpuContext,
         blocked: bool,
         rect: Rect,
-        game_ctx: &mut GameCtxMut,
+        game_ctx: &mut ServicesCtxMut,
         entity: Entity,
     ) {
-        let grid_size = game_ctx.cur_world.grid_size;
+        let Some(cur_world) = game_ctx.world.as_deref() else {
+            return;
+        };
+        let grid_size = cur_world.grid_size;
         let ecs = &mut game_ctx.ecs;
 
         // Track pivot change to apply after cam borrow ends

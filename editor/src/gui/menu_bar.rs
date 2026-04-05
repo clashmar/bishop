@@ -43,6 +43,7 @@ pub enum EditorAction {
     WorldSettings,
     // Editors actions
     OpenMenuEditor,
+    OpenPrefabEditor,
     ReturnToGameEditor,
 }
 
@@ -65,6 +66,7 @@ impl EditorAction {
             EditorAction::ViewDiagnosticsPanel => "Diagnostics".to_string(),
             EditorAction::WorldSettings => "World Settings".to_string(),
             EditorAction::OpenMenuEditor => "Menu Editor".to_string(),
+            EditorAction::OpenPrefabEditor => "Prefab Editor".to_string(),
             EditorAction::ReturnToGameEditor => "Game Editor".to_string(),
             _ => format!("{self:?}"),
         }
@@ -153,7 +155,7 @@ impl MenuBar {
         );
 
         match editor_mode {
-            EditorMode::Game | EditorMode::World(_) | EditorMode::Room(_) => {
+            EditorMode::Game | EditorMode::World(_) | EditorMode::Room(_) | EditorMode::Prefab(_) => {
                 let title_actions = vec![EditorAction::Rename];
                 if let Some(selected) = menu_dropdown(
                     ctx,
@@ -240,20 +242,7 @@ impl MenuBar {
             HEIGHT,
         );
 
-        let mut view_actions: Vec<EditorAction> = Vec::new();
-
-        // Console and Diagnostics panels available in all modes
-        view_actions.push(EditorAction::ViewConsolePanel);
-        view_actions.push(EditorAction::ViewDiagnosticsPanel);
-
-        match editor_mode {
-            EditorMode::Menu => {}
-            EditorMode::Game => {}
-            EditorMode::World(_) => {}
-            EditorMode::Room(_) => {
-                view_actions.push(EditorAction::ViewHierarchyPanel);
-            }
-        }
+        let view_actions = view_actions_for_mode(editor_mode);
 
         if let Some(selected) = menu_dropdown(
             ctx,
@@ -270,13 +259,7 @@ impl MenuBar {
         x += view_rect.w + SPACING;
 
         // Options dropdown (only visible in World/Room modes)
-        let mut options_actions: Vec<EditorAction> = Vec::new();
-        match editor_mode {
-            EditorMode::World(_) | EditorMode::Room(_) => {
-                options_actions.push(EditorAction::WorldSettings);
-            }
-            EditorMode::Menu | EditorMode::Game => {}
-        }
+        let options_actions = options_actions_for_mode(editor_mode);
 
         if !options_actions.is_empty() {
             let options_label = "Options";
@@ -313,10 +296,7 @@ impl MenuBar {
             HEIGHT,
         );
 
-        let editors_actions: Vec<EditorAction> = match editor_mode {
-            EditorMode::Menu => vec![EditorAction::ReturnToGameEditor],
-            _ => vec![EditorAction::OpenMenuEditor],
-        };
+        let editors_actions = editors_actions_for_mode(editor_mode);
 
         if let Some(selected) = menu_dropdown(
             ctx,
@@ -349,6 +329,34 @@ fn file_actions() -> Vec<EditorAction> {
     }
 
     actions
+}
+
+fn view_actions_for_mode(editor_mode: EditorMode) -> Vec<EditorAction> {
+    let mut actions = vec![
+        EditorAction::ViewConsolePanel,
+        EditorAction::ViewDiagnosticsPanel,
+    ];
+
+    if matches!(editor_mode, EditorMode::Room(_) | EditorMode::Prefab(_)) {
+        actions.push(EditorAction::ViewHierarchyPanel);
+    }
+
+    actions
+}
+
+fn options_actions_for_mode(editor_mode: EditorMode) -> Vec<EditorAction> {
+    if matches!(editor_mode, EditorMode::World(_) | EditorMode::Room(_)) {
+        return vec![EditorAction::WorldSettings];
+    }
+
+    Vec::new()
+}
+
+fn editors_actions_for_mode(editor_mode: EditorMode) -> Vec<EditorAction> {
+    match editor_mode {
+        EditorMode::Menu | EditorMode::Prefab(_) => vec![EditorAction::ReturnToGameEditor],
+        _ => vec![EditorAction::OpenPrefabEditor, EditorAction::OpenMenuEditor],
+    }
 }
 
 /// Draws a the panel background for the top menu across the whole width of the screen and returns its `Rect`.
@@ -556,12 +564,34 @@ fn menu_dropdown<T: Clone + PartialEq + Display>(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use engine_core::prelude::PrefabId;
 
     #[test]
     fn file_menu_hides_change_save_root_in_debug_builds() {
         let actions = file_actions();
 
         assert!(!actions.contains(&EditorAction::ChangeSaveRoot));
+    }
+
+    #[test]
+    fn prefab_mode_shows_hierarchy_in_view_menu() {
+        let actions = view_actions_for_mode(EditorMode::Prefab(PrefabId(7)));
+
+        assert!(actions.contains(&EditorAction::ViewHierarchyPanel));
+    }
+
+    #[test]
+    fn prefab_mode_hides_world_options_menu() {
+        let actions = options_actions_for_mode(EditorMode::Prefab(PrefabId(7)));
+
+        assert!(actions.is_empty());
+    }
+
+    #[test]
+    fn prefab_mode_shows_return_game_editor_in_editors_menu() {
+        let actions = editors_actions_for_mode(EditorMode::Prefab(PrefabId(7)));
+
+        assert_eq!(actions, vec![EditorAction::ReturnToGameEditor]);
     }
 
     #[cfg(not(debug_assertions))]

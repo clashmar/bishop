@@ -19,6 +19,7 @@ mod game;
 mod gui;
 mod menu;
 mod playtest;
+mod prefab;
 mod room;
 mod shared;
 mod storage;

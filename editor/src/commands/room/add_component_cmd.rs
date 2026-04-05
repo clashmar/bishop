@@ -8,15 +8,15 @@ use engine_core::prelude::*;
 #[derive(Debug)]
 pub struct AddComponentCmd {
     entity: Entity,
-    room_id: RoomId,
+    mode: EditorMode,
     type_name: &'static str,
 }
 
 impl AddComponentCmd {
-    pub fn new(entity: Entity, room_id: RoomId, type_name: &'static str) -> Self {
+    pub fn new(entity: Entity, mode: EditorMode, type_name: &'static str) -> Self {
         Self {
             entity,
-            room_id,
+            mode,
             type_name,
         }
     }
@@ -27,8 +27,16 @@ impl EditorCommand for AddComponentCmd {
         let type_name = self.type_name;
         let entity = self.entity;
         with_editor(|editor| {
+            let ecs = match editor.mode {
+                EditorMode::Prefab(_) => &mut editor
+                    .prefab_stage
+                    .as_mut()
+                    .expect("Prefab stage missing")
+                    .ecs,
+                _ => &mut editor.game.ecs,
+            };
             if let Some(reg) = COMPONENTS.iter().find(|r| r.type_name == type_name) {
-                (reg.factory)(&mut editor.game.ecs, entity);
+                (reg.factory)(ecs, entity);
             }
         });
     }
@@ -37,7 +45,22 @@ impl EditorCommand for AddComponentCmd {
         let type_name = self.type_name;
         let entity = self.entity;
         with_editor(|editor| {
-            let ctx = &mut editor.game.ctx_mut();
+            let prefab_mode = matches!(editor.mode, EditorMode::Prefab(_));
+            let mut game_ctx = (!prefab_mode).then(|| editor.game.ctx_mut());
+            let mut prefab_ctx = prefab_mode.then(|| {
+                editor
+                    .prefab_stage
+                    .as_mut()
+                    .expect("Prefab stage missing")
+                    .ctx_mut()
+            });
+            let ctx = if let Some(ctx) = prefab_ctx.as_mut() {
+                ctx
+            } else if let Some(ctx) = game_ctx.as_mut() {
+                &mut ctx.services_ctx_mut()
+            } else {
+                return;
+            };
             if let Some(reg) = COMPONENTS.iter().find(|r| r.type_name == type_name) {
                 if (reg.has)(ctx.ecs, entity) {
                     let mut boxed = (reg.clone)(ctx.ecs, entity);
@@ -49,6 +72,6 @@ impl EditorCommand for AddComponentCmd {
     }
 
     fn mode(&self) -> EditorMode {
-        EditorMode::Room(self.room_id)
+        self.mode
     }
 }

@@ -5,7 +5,7 @@ use crate::ecs::component_registry::ComponentRegistry;
 use crate::ecs::ecs::Ecs;
 use crate::ecs::entity::{Entity, Parent, get_parent, remove_parent, set_parent};
 use crate::ecs::transform::Transform;
-use crate::game::GameCtxMut;
+use crate::game::EngineCtxMut;
 use crate::onscreen_error;
 use crate::prefab::{PrefabAsset, PrefabId, PrefabNode, validate_prefab};
 use crate::worlds::room::RoomId;
@@ -132,7 +132,7 @@ pub fn capture_prefab_with_existing(
 
 /// Instantiates a prefab hierarchy into ECS and returns the root entity.
 pub fn instantiate_prefab(
-    ctx: &mut GameCtxMut,
+    ctx: &mut dyn EngineCtxMut,
     prefab: &PrefabAsset,
     root_position: Vec2,
     room_id: Option<RoomId>,
@@ -147,7 +147,7 @@ pub fn instantiate_prefab(
     nodes.sort_by_key(|node| node.node_id);
 
     for node in &nodes {
-        let entity = ctx.ecs.create_entity().finish();
+        let entity = ctx.ecs().create_entity().finish();
         entities.insert(node.node_id, entity);
     }
 
@@ -172,13 +172,13 @@ pub fn instantiate_prefab(
             && let (Some(&entity), Some(&parent)) =
                 (entities.get(&node.node_id), entities.get(&parent_node_id))
         {
-            set_parent(ctx.ecs, entity, parent);
+            set_parent(ctx.ecs(), entity, parent);
         }
     }
 
     for node in &nodes {
         if let Some(&entity) = entities.get(&node.node_id) {
-            ctx.ecs.add_component_to_entity(
+            ctx.ecs().add_component_to_entity(
                 entity,
                 PrefabInstanceNode {
                     prefab_id: prefab.id,
@@ -189,7 +189,7 @@ pub fn instantiate_prefab(
         }
     }
 
-    ctx.ecs.add_component_to_entity(
+    ctx.ecs().add_component_to_entity(
         root_entity,
         PrefabInstanceRoot {
             prefab_id: prefab.id,
@@ -201,7 +201,7 @@ pub fn instantiate_prefab(
 
 /// Refreshes a linked prefab instance subtree from the source asset.
 pub fn refresh_prefab_instance(
-    ctx: &mut GameCtxMut,
+    ctx: &mut dyn EngineCtxMut,
     root_entity: Entity,
     prefab: &PrefabAsset,
     room_id: Option<RoomId>,
@@ -212,7 +212,7 @@ pub fn refresh_prefab_instance(
     }
 
     let root_position = ctx
-        .ecs
+        .ecs()
         .get::<Transform>(root_entity)
         .map(|transform| transform.position)
         .unwrap_or_default();
@@ -221,7 +221,7 @@ pub fn refresh_prefab_instance(
         .iter()
         .map(|node| (node.node_id, node))
         .collect::<HashMap<_, _>>();
-    let mut instance_entities = prefab_instance_entities(ctx.ecs, root_entity);
+    let mut instance_entities = prefab_instance_entities(ctx.ecs(), root_entity);
     let stale_entities = instance_entities
         .iter()
         .filter(|(node_id, _)| !prefab_nodes.contains_key(node_id))
@@ -232,7 +232,7 @@ pub fn refresh_prefab_instance(
         Ecs::remove_entity(ctx, entity);
     }
 
-    instance_entities = prefab_instance_entities(ctx.ecs, root_entity);
+    instance_entities = prefab_instance_entities(ctx.ecs(), root_entity);
     let mut missing_nodes = prefab_nodes
         .keys()
         .filter(|node_id| !instance_entities.contains_key(node_id))
@@ -241,7 +241,7 @@ pub fn refresh_prefab_instance(
     missing_nodes.sort_unstable();
 
     for node_id in missing_nodes {
-        let entity = ctx.ecs.create_entity().finish();
+        let entity = ctx.ecs().create_entity().finish();
         instance_entities.insert(node_id, entity);
     }
 
@@ -252,7 +252,7 @@ pub fn refresh_prefab_instance(
         let Some(entity) = instance_entities.get(&node.node_id).copied() else {
             continue;
         };
-        let overrides = ctx.ecs.get::<PrefabOverrides>(entity).cloned();
+        let overrides = ctx.ecs().get::<PrefabOverrides>(entity).cloned();
 
         apply_prefab_node(
             ctx,
@@ -272,13 +272,13 @@ pub fn refresh_prefab_instance(
 
         if let Some(parent_node_id) = node.parent_node_id {
             if let Some(&parent_entity) = instance_entities.get(&parent_node_id) {
-                set_parent(ctx.ecs, entity, parent_entity);
+                set_parent(ctx.ecs(), entity, parent_entity);
             }
         } else {
-            remove_parent(ctx.ecs, entity);
+            remove_parent(ctx.ecs(), entity);
         }
 
-        ctx.ecs.add_component_to_entity(
+        ctx.ecs().add_component_to_entity(
             entity,
             PrefabInstanceNode {
                 prefab_id: prefab.id,
@@ -288,7 +288,7 @@ pub fn refresh_prefab_instance(
         );
     }
 
-    ctx.ecs.add_component_to_entity(
+    ctx.ecs().add_component_to_entity(
         root_entity,
         PrefabInstanceRoot {
             prefab_id: prefab.id,
@@ -344,7 +344,7 @@ fn prefab_instance_entities(ecs: &Ecs, root_entity: Entity) -> HashMap<usize, En
 }
 
 fn apply_prefab_node(
-    ctx: &mut GameCtxMut,
+    ctx: &mut dyn EngineCtxMut,
     entity: Entity,
     node: &PrefabNode,
     root_position: Vec2,
@@ -400,7 +400,7 @@ fn apply_prefab_node(
 }
 
 fn apply_component_snapshot(
-    ctx: &mut GameCtxMut,
+    ctx: &mut dyn EngineCtxMut,
     entity: Entity,
     component: ComponentSnapshot,
 ) {
@@ -408,24 +408,24 @@ fn apply_component_snapshot(
     restore_entity(ctx, entity, vec![component]);
 }
 
-fn remove_component_snapshot(ctx: &mut GameCtxMut, entity: Entity, type_name: &str) {
+fn remove_component_snapshot(ctx: &mut dyn EngineCtxMut, entity: Entity, type_name: &str) {
     let Some(component_reg) = inventory::iter::<ComponentRegistry>()
         .find(|registry| registry.type_name == type_name)
     else {
         return;
     };
 
-    if !(component_reg.has)(ctx.ecs, entity) {
+    if !(component_reg.has)(ctx.ecs(), entity) {
         return;
     }
 
-    let mut boxed = (component_reg.clone)(ctx.ecs, entity);
+    let mut boxed = (component_reg.clone)(ctx.ecs(), entity);
     (component_reg.post_remove)(&mut *boxed, &entity, ctx);
-    (component_reg.remove)(ctx.ecs, entity);
+    (component_reg.remove)(ctx.ecs(), entity);
 }
 
 fn apply_root_transform_snapshot(
-    ctx: &mut GameCtxMut,
+    ctx: &mut dyn EngineCtxMut,
     entity: Entity,
     component: &ComponentSnapshot,
 ) {
@@ -433,7 +433,7 @@ fn apply_root_transform_snapshot(
         return;
     };
 
-    if let Some(current_transform) = ctx.ecs.get::<Transform>(entity).copied() {
+    if let Some(current_transform) = ctx.ecs().get::<Transform>(entity).copied() {
         prefab_transform.position = current_transform.position;
     }
 
@@ -452,7 +452,7 @@ fn apply_root_transform_snapshot(
 }
 
 fn remove_stale_prefab_components(
-    ctx: &mut GameCtxMut,
+    ctx: &mut dyn EngineCtxMut,
     entity: Entity,
     prefab_components: &[ComponentSnapshot],
     overrides: Option<&PrefabOverrides>,
@@ -475,7 +475,7 @@ fn remove_stale_prefab_components(
         })
         .unwrap_or_default();
 
-    for component in capture_entity(ctx.ecs, entity) {
+    for component in capture_entity(ctx.ecs(), entity) {
         let is_reserved_type = component.type_name == comp_type_name::<PrefabInstanceRoot>()
             || component.type_name == comp_type_name::<PrefabInstanceNode>()
             || component.type_name == comp_type_name::<PrefabOverrides>()

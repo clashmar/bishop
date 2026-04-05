@@ -287,23 +287,23 @@ impl ScriptManager {
 
     /// Initialize all scripts for the game.
     pub fn init_manager(game: &mut Game, lua: &Lua) {
+        Self::init_editor_services(&mut game.script_manager, lua);
+    }
+
+    /// Initialize editor script services without requiring a world-backed game.
+    pub fn init_editor_services(script_manager: &mut ScriptManager, lua: &Lua) {
         Self::load_to_package(lua);
 
-        // Calculate the next id from the existing map
-        game.script_manager.restore_next_id();
+        script_manager.restore_next_id();
 
-        // Repopulate reverse map
-        let scripts: Vec<(ScriptId, PathBuf)> = game
-            .script_manager
+        let scripts: Vec<(ScriptId, PathBuf)> = script_manager
             .script_id_to_path
             .iter()
             .map(|(id, path)| (*id, path.clone()))
             .collect();
 
         for (id, path) in scripts {
-            game.script_manager
-                .path_to_script_id
-                .insert(path.clone(), id);
+            script_manager.path_to_script_id.insert(path.clone(), id);
         }
     }
 

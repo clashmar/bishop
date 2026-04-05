@@ -1,6 +1,7 @@
 // editor/src/room/entity_drag.rs
 use crate::commands::room::*;
 use crate::editor_global::*;
+use crate::app::EditorMode;
 use crate::room::room_editor::*;
 use crate::room::selection::*;
 use crate::shared::selection::*;
@@ -362,7 +363,10 @@ impl RoomEditor {
                     // Alt+drag copy: push command for the duplicated entities
                     if !self.drag_state.alt_copied_entities.is_empty() {
                         let copied = std::mem::take(&mut self.drag_state.alt_copied_entities);
-                        push_command(Box::new(AltDragCopyCmd::new(copied, room_id)));
+                        push_command(Box::new(AltDragCopyCmd::new(
+                            copied,
+                            EditorMode::Room(room_id),
+                        )));
                     }
                     self.drag_state.alt_copy_mode = false;
                 } else {
@@ -382,9 +386,17 @@ impl RoomEditor {
                     if !moves.is_empty() {
                         if moves.len() == 1 {
                             let (entity, from, to) = moves[0];
-                            push_command(Box::new(MoveEntityCmd::new(entity, room_id, from, to)));
+                            push_command(Box::new(MoveEntityCmd::new(
+                                entity,
+                                EditorMode::Room(room_id),
+                                from,
+                                to,
+                            )));
                         } else {
-                            push_command(Box::new(BatchMoveEntitiesCmd::new(moves, room_id)));
+                            push_command(Box::new(BatchMoveEntitiesCmd::new(
+                                moves,
+                                EditorMode::Room(room_id),
+                            )));
                         }
                     }
                 }
@@ -434,9 +446,17 @@ impl RoomEditor {
         if !moves.is_empty() {
             if moves.len() == 1 {
                 let (entity, from, to) = moves[0];
-                push_command(Box::new(MoveEntityCmd::new(entity, room_id, from, to)));
+                push_command(Box::new(MoveEntityCmd::new(
+                    entity,
+                    EditorMode::Room(room_id),
+                    from,
+                    to,
+                )));
             } else {
-                push_command(Box::new(BatchMoveEntitiesCmd::new(moves, room_id)));
+                push_command(Box::new(BatchMoveEntitiesCmd::new(
+                    moves,
+                    EditorMode::Room(room_id),
+                )));
             }
         }
     }

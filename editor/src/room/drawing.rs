@@ -1,4 +1,5 @@
 // editor/src/room/drawing.rs
+use crate::app::EditorMode;
 use crate::app::camera_controller::*;
 use crate::editor_assets::assets::camera_icon;
 use crate::gui::gui_constants::*;
@@ -62,7 +63,13 @@ impl RoomEditor {
         // Reset to static camera
         ctx.set_default_camera();
 
-        self.draw_coordinates(ctx, camera, game_ctx.cur_world.grid_size);
+        let Some(cur_world) = game_ctx.cur_world.as_deref() else {
+            return;
+        };
+        let grid_size = cur_world.grid_size;
+        let current_room_id = cur_world.current_room_id.unwrap_or_default();
+
+        self.draw_coordinates(ctx, camera, grid_size);
 
         // Clear sub-mode rect at start of frame
         self.sub_mode_rect = None;
@@ -133,7 +140,11 @@ impl RoomEditor {
                 self.register_rect(draw_top_panel_full(ctx));
 
                 // Draw inspector
-                self.create_entity_requested = self.inspector.draw(ctx, game_ctx);
+                let mut services_ctx = game_ctx.services_ctx_mut();
+                self.inspector.set_prefab_context(false, None);
+                self.create_entity_requested = self
+                    .inspector
+                    .draw(ctx, &mut services_ctx, EditorMode::Room(current_room_id));
 
                 // Mode selector (menu bar)
                 let (mode_rect, changed) = self.mode_selector.draw(ctx);
