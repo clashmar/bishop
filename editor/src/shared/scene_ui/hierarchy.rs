@@ -22,8 +22,17 @@ pub trait SceneHierarchyHost: SceneUiHost {
     /// Returns whether the entity is currently selected by the host.
     fn is_selected(&self, entity: Entity) -> bool;
 
-    /// Selects or toggles an entity in the host selection state.
-    fn select_entity(&mut self, entity: Entity, additive: bool);
+    /// Applies a selection action to the given entity.
+    fn apply_selection_action(&mut self, entity: Entity, action: SceneHierarchySelectionAction);
+}
+
+/// Selection actions emitted by the shared hierarchy UI.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SceneHierarchySelectionAction {
+    /// Replaces the current selection with the entity.
+    Replace,
+    /// Toggles membership of the entity in the current selection.
+    Toggle,
 }
 
 /// Mutable per-frame hierarchy row drawing state.
@@ -105,9 +114,14 @@ pub fn draw_scene_entity_tree(
             && frame.ctx.is_mouse_button_pressed(MouseButton::Left)
             && frame.dragging.is_none()
         {
-            let additive = frame.ctx.is_key_down(KeyCode::LeftShift)
-                || frame.ctx.is_key_down(KeyCode::RightShift);
-            host.select_entity(entity, additive);
+            let action = if frame.ctx.is_key_down(KeyCode::LeftShift)
+                || frame.ctx.is_key_down(KeyCode::RightShift)
+            {
+                SceneHierarchySelectionAction::Toggle
+            } else {
+                SceneHierarchySelectionAction::Replace
+            };
+            host.apply_selection_action(entity, action);
         }
 
         if !frame.blocked

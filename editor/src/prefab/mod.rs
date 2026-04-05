@@ -1,7 +1,11 @@
+mod canvas;
+mod document;
 pub mod prefab_actions;
 pub mod prefab_editor;
+mod selection;
 
 pub use prefab_editor::*;
+pub use selection::is_prefab_entity;
 
 #[cfg(test)]
 mod tests;

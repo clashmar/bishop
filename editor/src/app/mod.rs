@@ -1,4 +1,5 @@
 // editor/src/editor/mod.rs
+mod audio;
 mod actions;
 pub mod camera_controller;
 pub mod sub_editor;

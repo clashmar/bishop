@@ -1,9 +1,10 @@
 use crate::app::EditorMode;
 use crate::gui::panels::generic_panel::PanelDefinition;
-use crate::prefab::prefab_editor::is_prefab_entity;
+use crate::prefab::is_prefab_entity;
 use crate::room::room_editor::RoomEditor;
 use crate::shared::scene_ui::hierarchy::{
-    draw_scene_entity_tree, SceneHierarchyFrame, SceneHierarchyHost, SceneUiHost,
+    draw_scene_entity_tree, SceneHierarchyFrame, SceneHierarchyHost,
+    SceneHierarchySelectionAction, SceneUiHost,
 };
 use crate::Editor;
 use bishop::prelude::*;
@@ -48,18 +49,14 @@ impl SceneHierarchyHost for RoomHierarchyHost<'_> {
         self.room_editor.is_selected(entity)
     }
 
-    fn select_entity(&mut self, entity: Entity, additive: bool) {
-        if additive {
-            if self.room_editor.is_selected(entity) {
-                self.room_editor.selected_entities.remove(&entity);
-                self.room_editor
-                    .inspector
-                    .set_target(self.room_editor.single_selected_entity());
-            } else {
-                self.room_editor.add_to_selection(entity);
+    fn apply_selection_action(&mut self, entity: Entity, action: SceneHierarchySelectionAction) {
+        match action {
+            SceneHierarchySelectionAction::Replace => {
+                self.room_editor.set_selected_entity(Some(entity));
             }
-        } else {
-            self.room_editor.set_selected_entity(Some(entity));
+            SceneHierarchySelectionAction::Toggle => {
+                self.room_editor.toggle_entity_selection(entity);
+            }
         }
     }
 }
@@ -84,18 +81,14 @@ impl SceneHierarchyHost for PrefabHierarchyHost<'_> {
         self.prefab_editor.is_selected(entity)
     }
 
-    fn select_entity(&mut self, entity: Entity, additive: bool) {
-        if additive {
-            if self.prefab_editor.is_selected(entity) {
-                self.prefab_editor.selected_entities.remove(&entity);
-                self.prefab_editor
-                    .inspector
-                    .set_target(self.prefab_editor.single_selected_entity());
-            } else {
-                self.prefab_editor.add_to_selection(entity);
+    fn apply_selection_action(&mut self, entity: Entity, action: SceneHierarchySelectionAction) {
+        match action {
+            SceneHierarchySelectionAction::Replace => {
+                self.prefab_editor.set_selected_entity(Some(entity));
             }
-        } else {
-            self.prefab_editor.set_selected_entity(Some(entity));
+            SceneHierarchySelectionAction::Toggle => {
+                self.prefab_editor.toggle_entity_selection(entity);
+            }
         }
     }
 }

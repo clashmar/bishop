@@ -38,30 +38,39 @@ pub(crate) struct DragState {
 }
 
 impl RoomEditor {
+    fn sync_inspector_to_selection(&mut self) {
+        self.inspector.set_target(self.single_selected_entity());
+    }
+
     /// Sets a single selected entity for the room editor, clearing any previous selection.
     pub fn set_selected_entity(&mut self, entity: Option<Entity>) {
         self.selected_entities.clear();
         if let Some(e) = entity {
             self.selected_entities.insert(e);
         }
-        self.inspector.set_target(entity);
+        self.sync_inspector_to_selection();
     }
 
     /// Adds an entity to the current selection.
     pub fn add_to_selection(&mut self, entity: Entity) {
         self.selected_entities.insert(entity);
-        // Update inspector only if this is now the only selection
-        if self.selected_entities.len() == 1 {
-            self.inspector.set_target(Some(entity));
+        self.sync_inspector_to_selection();
+    }
+
+    /// Toggles whether an entity is part of the current selection.
+    pub fn toggle_entity_selection(&mut self, entity: Entity) {
+        if self.selected_entities.contains(&entity) {
+            self.selected_entities.remove(&entity);
         } else {
-            self.inspector.set_target(None);
+            self.selected_entities.insert(entity);
         }
+        self.sync_inspector_to_selection();
     }
 
     /// Clears the entire selection.
     pub fn clear_selection(&mut self) {
         self.selected_entities.clear();
-        self.inspector.set_target(None);
+        self.sync_inspector_to_selection();
     }
 
     /// Returns whether the given entity is currently selected.
@@ -86,12 +95,7 @@ impl RoomEditor {
                 self.selected_entities.insert(*entity);
             }
         }
-        // Clear inspector since we likely have multiple selected
-        if self.selected_entities.len() != 1 {
-            self.inspector.set_target(None);
-        } else if let Some(e) = self.selected_entities.iter().next() {
-            self.inspector.set_target(Some(*e));
-        }
+        self.sync_inspector_to_selection();
     }
 
     #[inline]

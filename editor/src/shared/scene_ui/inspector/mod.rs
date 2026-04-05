@@ -1,5 +1,13 @@
+mod core;
+mod policy;
+
 use crate::app::EditorMode;
 use engine_core::prelude::*;
+
+pub use core::SceneInspector;
+pub use policy::{
+    is_scene_component_hidden_in_prefab, linked_prefab_metadata_for_scene_inspector,
+};
 
 /// Per-frame scene-inspector behavior flags and host state.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -33,6 +41,25 @@ pub enum SceneEmptyInspectorBehavior {
 pub struct SceneInspectorOutput {
     /// Create request triggered by `+ Entity`, if any.
     pub create_request: Option<SceneCreateRequest>,
+}
+
+/// Full draw result emitted by the shared inspector core.
+#[derive(Clone, Debug, Default)]
+pub struct SceneInspectorDrawResult {
+    /// Behavioral output emitted by the inspector draw.
+    pub output: SceneInspectorOutput,
+    /// Interactive rectangles used by the thin host wrapper for hit-testing.
+    pub interactive_rects: Vec<Rect>,
+}
+
+impl SceneInspectorDrawResult {
+    /// Creates a full draw result from inspector output and interactive rectangles.
+    pub fn new(output: SceneInspectorOutput, interactive_rects: Vec<Rect>) -> Self {
+        Self {
+            output,
+            interactive_rects,
+        }
+    }
 }
 
 /// Scene entity creation request emitted by the inspector.

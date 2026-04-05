@@ -2,7 +2,7 @@ use crate::shared::scene_ui::prefab_link::{linked_prefab_display, PrefabLinkDisp
 use engine_core::prelude::*;
 
 /// Returns linked-prefab metadata for scene inspector UI when that metadata is enabled.
-pub(crate) fn linked_prefab_metadata_for_scene_inspector(
+pub fn linked_prefab_metadata_for_scene_inspector(
     show_linked_prefab_metadata: bool,
     ecs: &Ecs,
     prefab_library: &PrefabLibrary,
@@ -12,7 +12,7 @@ pub(crate) fn linked_prefab_metadata_for_scene_inspector(
 }
 
 /// Returns whether a component type should be hidden from prefab scene editing.
-pub(crate) fn is_scene_component_hidden_in_prefab(type_name: &str) -> bool {
+pub fn is_scene_component_hidden_in_prefab(type_name: &str) -> bool {
     type_name == comp_type_name::<CurrentRoom>()
         || type_name == comp_type_name::<RoomCamera>()
         || type_name == comp_type_name::<PlayerProxy>()

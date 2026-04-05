@@ -1,4 +1,5 @@
 // editor/src/editor/actions.rs
+use crate::app::audio::default_audio_manager;
 use crate::app::Editor;
 use crate::app::EditorCameraController;
 use crate::app::*;
@@ -44,7 +45,7 @@ impl Default for Editor {
             playtest_process: None,
             pending_playtest_build: None,
             grid_renderer: None,
-            audio_manager: AudioManager::new::<PlatformAudioBackend>(),
+            audio_manager: default_audio_manager(),
         }
     }
 }
@@ -716,4 +717,3 @@ thread_local! {
     pub static WORLD_SETTINGS_RESULT: RefCell<Option<WorldSettingsResult>> = const { RefCell::new(None) };
     pub static EXPORT_OVERWRITE_RESULT: RefCell<Option<ConfirmPromptResult>> = const { RefCell::new(None) };
 }
-

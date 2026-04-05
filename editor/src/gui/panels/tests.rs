@@ -4,7 +4,7 @@ use crate::gui::panels::hierarchy_panel::{
     clear_drag_on_mouse_release, layout_entity_tree, prune_dead_hierarchy_state,
     room_mode_prefab_library, sync_prefab_root_expansion, PrefabHierarchyHost, RoomHierarchyHost,
 };
-use crate::shared::scene_ui::hierarchy::SceneHierarchyHost;
+use crate::shared::scene_ui::hierarchy::{SceneHierarchyHost, SceneHierarchySelectionAction};
 use crate::room::room_editor::RoomEditor;
 use engine_core::prelude::*;
 use engine_core::storage::test_utils::{game_fs_test_lock, TestGameFolder};
@@ -132,10 +132,10 @@ fn room_hierarchy_host_toggles_selection_additively() {
         prefab_library: None,
     };
 
-    host.select_entity(entity, false);
+    host.apply_selection_action(entity, SceneHierarchySelectionAction::Replace);
     assert!(host.is_selected(entity));
 
-    host.select_entity(entity, true);
+    host.apply_selection_action(entity, SceneHierarchySelectionAction::Toggle);
     assert!(!host.is_selected(entity));
     assert_eq!(host.room_editor.inspector.target, None);
 }
@@ -153,10 +153,10 @@ fn prefab_hierarchy_host_toggles_selection_additively() {
         mode: EditorMode::Prefab(PrefabId(1)),
     };
 
-    host.select_entity(entity, false);
+    host.apply_selection_action(entity, SceneHierarchySelectionAction::Replace);
     assert!(host.is_selected(entity));
 
-    host.select_entity(entity, true);
+    host.apply_selection_action(entity, SceneHierarchySelectionAction::Toggle);
     assert!(!host.is_selected(entity));
     assert_eq!(host.prefab_editor.inspector.target, None);
 }

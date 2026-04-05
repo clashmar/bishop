@@ -1,8 +1,8 @@
 use crate::app::EditorMode;
-use crate::gui::inspector::helpers::{
-    is_scene_component_hidden_in_prefab, linked_prefab_metadata_for_scene_inspector,
+use crate::shared::scene_ui::inspector::{
+    linked_prefab_metadata_for_scene_inspector, is_scene_component_hidden_in_prefab,
+    SceneEmptyInspectorBehavior, SceneInspectorContext,
 };
-use crate::shared::scene_ui::inspector::{SceneEmptyInspectorBehavior, SceneInspectorContext};
 use engine_core::prelude::*;
 
 fn create_prefab(prefab_id: PrefabId, name: String) -> PrefabAsset {
