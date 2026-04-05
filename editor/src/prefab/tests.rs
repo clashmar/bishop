@@ -1,6 +1,6 @@
 use crate::app::{Editor, EditorMode};
 use crate::commands::editor_command_manager::EditorCommand;
-use crate::commands::room::DeleteEntityCmd;
+use crate::commands::scene::DeleteEntityCmd;
 use crate::editor_global::{reset_services, set_editor, with_editor, EDITOR_SERVICES};
 use crate::prefab::prefab_actions::PrefabEditorLaunch;
 use crate::prefab::{PrefabEditor, PrefabStage};

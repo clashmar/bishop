@@ -42,5 +42,10 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-cargo-target-
 
-      - name: Run All Unit Tests
+      - name: Run All Unit Tests (Windows)
+        if: runner.os == 'Windows'
+        run: cargo test --workspace --all-targets --locked -- --no-capture
+
+      - name: Run All Unit Tests (Non-Windows)
+        if: runner.os != 'Windows'
         run: cargo test --workspace --all-targets --locked

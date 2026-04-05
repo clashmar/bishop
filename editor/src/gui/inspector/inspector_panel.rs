@@ -1,5 +1,9 @@
 // editor/src/gui/inspector/inspector_panel.rs
-use crate::commands::room::*;
+use crate::commands::room::copy_entity;
+use crate::commands::scene::{
+    capture_component_transient_state, AddComponentCmd, ComponentTransientState,
+    DeleteEntityCmd, RemoveComponentCmd, UpdateComponentCmd,
+};
 use crate::gui::inspector::helpers::{
     is_scene_component_hidden_in_prefab, linked_prefab_metadata_for_scene_inspector,
 };

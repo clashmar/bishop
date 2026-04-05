@@ -1,5 +1,5 @@
 use crate::app::EditorMode;
-use crate::commands::room::{RemoveParentCmd, SetParentCmd};
+use crate::commands::scene::{RemoveParentCmd, SetParentCmd};
 use crate::editor_global::push_command;
 use crate::shared::scene_ui::prefab_link::linked_prefab_display;
 use bishop::prelude::*;

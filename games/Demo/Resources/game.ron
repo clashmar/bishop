@@ -133,7 +133,7 @@
                 data: "{}",
             ),
         ],
-        next_entity_id: 13,
+        next_entity_id: 14,
     ),
     worlds: [
         /*[0]*/ (

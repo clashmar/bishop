@@ -1,6 +1,6 @@
-// editor/src/commands/room/remove_component_cmd.rs
 use crate::app::EditorMode;
 use crate::commands::editor_command_manager::EditorCommand;
+use crate::commands::scene::context::with_scene_ctx;
 use crate::with_editor;
 use engine_core::prelude::*;
 
@@ -29,34 +29,21 @@ impl EditorCommand for RemoveComponentCmd {
     fn execute(&mut self) {
         let type_name = self.type_name;
         let entity = self.entity;
+        let mode = self.mode;
         with_editor(|editor| {
-            let prefab_mode = matches!(editor.mode, EditorMode::Prefab(_));
-            let mut prefab_ctx;
-            let mut room_game_ctx;
-            let mut room_services_ctx;
-            let ctx: &mut dyn EngineCtxMut = if prefab_mode {
-                prefab_ctx = editor
-                    .prefab_stage
-                    .as_mut()
-                    .expect("Prefab stage missing")
-                    .ctx_mut();
-                &mut prefab_ctx
-            } else {
-                room_game_ctx = editor.game.ctx_mut();
-                room_services_ctx = room_game_ctx.services_ctx_mut();
-                &mut room_services_ctx
-            };
-            if let Some(reg) = COMPONENTS.iter().find(|r| r.type_name == type_name) {
-                if (reg.has)(ctx.ecs(), entity) {
-                    let mut boxed = (reg.clone)(ctx.ecs(), entity);
-                    (reg.post_remove)(&mut *boxed, &entity, ctx);
-                    (reg.remove)(ctx.ecs(), entity);
+            with_scene_ctx(editor, mode, |ctx| {
+                if let Some(reg) = COMPONENTS.iter().find(|r| r.type_name == type_name) {
+                    if (reg.has)(ctx.ecs(), entity) {
+                        let mut boxed = (reg.clone)(ctx.ecs(), entity);
+                        (reg.post_remove)(&mut *boxed, &entity, ctx);
+                        (reg.remove)(ctx.ecs(), entity);
+                    }
                 }
-            }
 
-            if type_name == Animation::TYPE_NAME {
-                Ecs::remove_component::<CurrentFrame>(ctx, entity);
-            }
+                if type_name == Animation::TYPE_NAME {
+                    Ecs::remove_component::<CurrentFrame>(ctx, entity);
+                }
+            });
         });
     }
 
@@ -64,28 +51,15 @@ impl EditorCommand for RemoveComponentCmd {
         let type_name = self.type_name;
         let snapshot = self.snapshot.clone();
         let entity = self.entity;
+        let mode = self.mode;
         with_editor(|editor| {
-            let prefab_mode = matches!(editor.mode, EditorMode::Prefab(_));
-            let mut prefab_ctx;
-            let mut room_game_ctx;
-            let mut room_services_ctx;
-            let ctx: &mut dyn EngineCtxMut = if prefab_mode {
-                prefab_ctx = editor
-                    .prefab_stage
-                    .as_mut()
-                    .expect("Prefab stage missing")
-                    .ctx_mut();
-                &mut prefab_ctx
-            } else {
-                room_game_ctx = editor.game.ctx_mut();
-                room_services_ctx = room_game_ctx.services_ctx_mut();
-                &mut room_services_ctx
-            };
-            if let Some(reg) = COMPONENTS.iter().find(|r| r.type_name == type_name) {
-                let mut boxed = (reg.from_ron_component)(snapshot);
-                (reg.post_create)(&mut *boxed, &entity, ctx);
-                (reg.inserter)(ctx.ecs(), entity, boxed);
-            }
+            with_scene_ctx(editor, mode, |ctx| {
+                if let Some(reg) = COMPONENTS.iter().find(|r| r.type_name == type_name) {
+                    let mut boxed = (reg.from_ron_component)(snapshot);
+                    (reg.post_create)(&mut *boxed, &entity, ctx);
+                    (reg.inserter)(ctx.ecs(), entity, boxed);
+                }
+            });
         });
     }
 
