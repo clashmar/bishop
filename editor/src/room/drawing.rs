@@ -6,6 +6,7 @@ use crate::gui::gui_constants::*;
 use crate::gui::menu_bar::*;
 use crate::gui::mode_selector::*;
 use crate::room::room_editor::*;
+use crate::shared::scene_ui::inspector::{SceneEmptyInspectorBehavior, SceneInspectorContext};
 use crate::tilemap::tilemap_editor::TILEMAP_SUB_MODES;
 use crate::world::coord;
 use bishop::prelude::*;
@@ -141,10 +142,17 @@ impl RoomEditor {
 
                 // Draw inspector
                 let mut services_ctx = game_ctx.services_ctx_mut();
-                self.inspector.set_prefab_context(false, None);
-                self.create_entity_requested = self
+                let inspector_ctx = SceneInspectorContext {
+                    command_mode: EditorMode::Room(current_room_id),
+                    show_linked_prefab_metadata: true,
+                    hide_room_only_components: false,
+                    selected_create_parent: None,
+                    empty_state: SceneEmptyInspectorBehavior::Room,
+                };
+                self.create_request = self
                     .inspector
-                    .draw(ctx, &mut services_ctx, EditorMode::Room(current_room_id));
+                    .draw(ctx, &mut services_ctx, &inspector_ctx)
+                    .create_request;
 
                 // Mode selector (menu bar)
                 let (mode_rect, changed) = self.mode_selector.draw(ctx);

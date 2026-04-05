@@ -8,3 +8,6 @@ pub use console_panel::*;
 pub use diagnostics_panel::*;
 pub use generic_panel::*;
 pub use hierarchy_panel::*;
+
+#[cfg(test)]
+mod tests;

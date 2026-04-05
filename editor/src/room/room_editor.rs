@@ -13,6 +13,7 @@ use crate::gui::mode_selector::*;
 use crate::gui::panels::panel_manager::is_mouse_over_panel;
 use crate::room::drawing::*;
 use crate::room::selection::DragState;
+use crate::shared::scene_ui::inspector::SceneCreateRequest;
 use crate::shared::selection::draw_selection_box;
 use crate::tilemap::tilemap_editor::*;
 use crate::world::coord;
@@ -60,7 +61,7 @@ pub struct RoomEditor {
     pub(crate) show_grid: bool,
     pub(crate) drag_state: DragState,
     initialized: bool,
-    pub create_entity_requested: bool,
+    pub create_request: Option<SceneCreateRequest>,
     pub request_play: bool,
     pub view_preview: bool,
     pub(crate) preview_camera_id: Option<usize>,
@@ -88,7 +89,7 @@ impl RoomEditor {
             drag_state: DragState::default(),
             initialized: false,
             preview_camera_id: None,
-            create_entity_requested: false,
+            create_request: None,
             request_play: false,
             view_preview: false,
             tilemap_sub_mode: TilemapEditorMode::Tiles,
@@ -183,8 +184,8 @@ impl RoomEditor {
                 }
 
                 // Create a new entity if create was pressed
-                if self.create_entity_requested {
-                    let parent = self.inspector.take_pending_create_parent();
+                if let Some(create_request) = self.create_request.take() {
+                    let parent = create_request.parent;
                     // Build the entity
                     let entity = ecs
                         .create_entity()
@@ -203,7 +204,6 @@ impl RoomEditor {
                     // Immediately select it so the inspector shows the newly-created entity
                     self.selected_entities.clear();
                     self.selected_entities.insert(entity);
-                    self.create_entity_requested = false;
                 }
 
                 // If exactly one entity is selected, show the inspector
@@ -365,6 +365,7 @@ impl RoomEditor {
         self.mode_selector.current = RoomEditorMode::Scene;
         self.selected_entities.clear();
         self.initialized = false;
+        self.create_request = None;
         self.request_play = false;
         self.view_preview = false;
         self.preview_camera_id = None;

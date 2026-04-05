@@ -1,8 +1,33 @@
 use crate::app::{Editor, EditorMode};
+use crate::commands::editor_command_manager::EditorCommand;
+use crate::commands::room::DeleteEntityCmd;
+use crate::editor_global::{reset_services, set_editor, with_editor, EDITOR_SERVICES};
 use crate::prefab::prefab_actions::PrefabEditorLaunch;
+use crate::prefab::{PrefabEditor, PrefabStage};
 use crate::storage::editor_storage::create_new_game;
+use crate::storage::editor_storage::save_game;
 use engine_core::prelude::*;
 use engine_core::storage::test_utils::{game_fs_test_lock, TestGameFolder};
+use std::path::PathBuf;
+
+struct EditorServicesGuard;
+
+impl EditorServicesGuard {
+    fn install(editor: Editor) -> Self {
+        reset_services();
+        set_editor(editor);
+        Self
+    }
+}
+
+impl Drop for EditorServicesGuard {
+    fn drop(&mut self) {
+        EDITOR_SERVICES.with(|services| {
+            *services.editor.borrow_mut() = None;
+        });
+        reset_services();
+    }
+}
 
 fn make_editor_with_selected_entity(entity: Entity) -> Editor {
     let mut editor = Editor {
@@ -248,4 +273,121 @@ fn create_prefab_from_selection_preserves_external_parent() {
             .map(|root| root.prefab_id),
         Some(PrefabId(1))
     );
+}
+
+#[test]
+fn prefab_stage_uses_project_sprite_paths_without_room_state() {
+    let _lock = game_fs_test_lock().lock().unwrap_or_else(|poison| poison.into_inner());
+    let test_game = TestGameFolder::new("prefab_stage_game");
+
+    let mut game = create_new_game(test_game.name().to_string());
+    game.asset_manager.sprite_id_to_path.insert(
+        SpriteId(7),
+        PathBuf::from("sprites/cat.png"),
+    );
+    save_game(&game).unwrap();
+
+    let mut stage = PrefabStage::new(test_game.name());
+    let prefab_ctx = stage.ctx_mut();
+
+    assert_eq!(
+        prefab_ctx.asset_manager.sprite_id_to_path.get(&SpriteId(7)).cloned(),
+        Some(PathBuf::from("sprites/cat.png"))
+    );
+    assert!(prefab_ctx.ecs.get_store::<RoomCamera>().data.is_empty());
+    assert!(prefab_ctx.ecs.get_store::<CurrentRoom>().data.is_empty());
+    assert!(prefab_ctx.world.is_none());
+}
+
+#[test]
+fn editor_services_guard_clears_global_editor_on_drop() {
+    {
+        let _guard = EditorServicesGuard::install(Editor::default());
+        EDITOR_SERVICES.with(|services| {
+            assert!(services.editor.borrow().is_some());
+        });
+    }
+
+    EDITOR_SERVICES.with(|services| {
+        assert!(services.editor.borrow().is_none());
+    });
+}
+
+#[test]
+fn creating_entity_replaces_stale_root_with_new_root() {
+    let _lock = game_fs_test_lock().lock().unwrap_or_else(|poison| poison.into_inner());
+    let test_game = TestGameFolder::new("prefab_stale_root");
+    let mut editor = PrefabEditor::new(PrefabId(1), "Prefab".to_string(), None);
+    let mut stage = PrefabStage::new(test_game.name());
+
+    let stale_root = stage
+        .ecs
+        .create_entity()
+        .with(Transform::default())
+        .with(Name("Old Root".to_string()))
+        .finish();
+    editor.root_entity = Some(stale_root);
+    editor.set_selected_entity(Some(stale_root));
+
+    {
+        let mut ctx = stage.ctx_mut();
+        Ecs::remove_entity(&mut ctx, stale_root);
+    }
+
+    let new_entity = editor.create_prefab_entity(&mut stage.ecs, None);
+
+    assert_eq!(editor.root_entity, Some(new_entity));
+    assert_eq!(get_parent(&stage.ecs, new_entity), None);
+}
+
+#[test]
+fn deleting_prefab_root_clears_root_and_selection_state() {
+    let _lock = game_fs_test_lock().lock().unwrap_or_else(|poison| poison.into_inner());
+    let test_game = TestGameFolder::new("prefab_delete_root");
+    let mut editor = Editor {
+        mode: EditorMode::Prefab(PrefabId(9)),
+        prefab_editor: Some(PrefabEditor::new(
+            PrefabId(9),
+            "Prefab".to_string(),
+            None,
+        )),
+        prefab_stage: Some(PrefabStage::new(test_game.name())),
+        ..Default::default()
+    };
+
+    let root = editor
+        .prefab_stage
+        .as_mut()
+        .unwrap()
+        .ecs
+        .create_entity()
+        .with(Transform::default())
+        .with(Name("Root".to_string()))
+        .finish();
+    let child = editor
+        .prefab_stage
+        .as_mut()
+        .unwrap()
+        .ecs
+        .create_entity()
+        .with(Transform::default())
+        .with(Name("Child".to_string()))
+        .finish();
+    set_parent(&mut editor.prefab_stage.as_mut().unwrap().ecs, child, root);
+
+    let prefab_editor = editor.prefab_editor.as_mut().unwrap();
+    prefab_editor.root_entity = Some(root);
+    prefab_editor.selected_entities.insert(root);
+    prefab_editor.selected_entities.insert(child);
+
+    let _guard = EditorServicesGuard::install(editor);
+
+    let mut cmd = DeleteEntityCmd::new(root, EditorMode::Prefab(PrefabId(9)));
+    cmd.execute();
+
+    with_editor(|editor| {
+        let prefab_editor = editor.prefab_editor.as_ref().unwrap();
+        assert_eq!(prefab_editor.root_entity, None);
+        assert!(prefab_editor.selected_entities.is_empty());
+    });
 }

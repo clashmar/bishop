@@ -9,6 +9,9 @@ use crate::gui::modal::is_modal_open;
 use crate::gui::panels::panel_manager::is_mouse_over_panel;
 use crate::room::entity_hitbox;
 use crate::room::drawing::{draw_collider, draw_pivot_marker, highlight_selected_entity};
+use crate::shared::scene_ui::inspector::{
+    SceneCreateRequest, SceneEmptyInspectorBehavior, SceneInspectorContext,
+};
 use crate::storage::editor_storage::load_game_by_name;
 use bishop::prelude::*;
 use engine_core::prelude::*;
@@ -62,7 +65,7 @@ pub struct PrefabEditor {
     pub inspector: InspectorPanel,
     pub active_rects: Vec<Rect>,
     pub show_grid: bool,
-    create_entity_requested: bool,
+    create_request: Option<SceneCreateRequest>,
 }
 
 impl PrefabEditor {
@@ -89,7 +92,7 @@ impl PrefabEditor {
             inspector: InspectorPanel::new(),
             active_rects: Vec::new(),
             show_grid: true,
-            create_entity_requested: false,
+            create_request: None,
         }
     }
 
@@ -100,16 +103,13 @@ impl PrefabEditor {
         game_ctx: &mut ServicesCtxMut,
     ) {
         self.sanitize_live_state(game_ctx.ecs);
-        self.inspector
-            .set_prefab_context(true, self.root_entity.or_else(|| self.single_selected_entity()));
 
         if ctx.is_mouse_button_pressed(MouseButton::Left) && !self.should_block_canvas(ctx) {
             self.handle_selection(ctx, camera, game_ctx.ecs, game_ctx.asset_manager);
         }
 
-        if self.create_entity_requested {
-            self.create_entity_requested = false;
-            let entity = self.create_prefab_entity(game_ctx.ecs);
+        if let Some(create_request) = self.create_request.take() {
+            let entity = self.create_prefab_entity(game_ctx.ecs, create_request.parent);
             self.set_selected_entity(Some(entity));
         }
 
@@ -165,9 +165,16 @@ impl PrefabEditor {
             ctx.screen_height(),
         );
         self.inspector.set_rect(inspector_rect);
-        self.create_entity_requested =
-            self.inspector
-                .draw(ctx, game_ctx, EditorMode::Prefab(self.prefab_id));
+        let inspector_ctx = SceneInspectorContext {
+            command_mode: EditorMode::Prefab(self.prefab_id),
+            show_linked_prefab_metadata: false,
+            hide_room_only_components: true,
+            selected_create_parent: self.single_selected_entity(),
+            empty_state: SceneEmptyInspectorBehavior::Prefab {
+                fallback_parent: self.root_entity,
+            },
+        };
+        self.create_request = self.inspector.draw(ctx, game_ctx, &inspector_ctx).create_request;
     }
 
     pub fn save_to_disk(
@@ -291,18 +298,18 @@ impl PrefabEditor {
         }
     }
 
-    fn create_prefab_entity(&mut self, ecs: &mut Ecs) -> Entity {
+    pub(crate) fn create_prefab_entity(
+        &mut self,
+        ecs: &mut Ecs,
+        requested_parent: Option<Entity>,
+    ) -> Entity {
         let entity = ecs
             .create_entity()
             .with(Transform::default())
             .with(Name("Entity".to_string()))
             .finish();
 
-        if let Some(parent) = self
-            .inspector
-            .take_pending_create_parent()
-            .filter(|parent| is_live_prefab_entity(ecs, *parent))
-        {
+        if let Some(parent) = requested_parent.filter(|parent| is_live_prefab_entity(ecs, *parent)) {
             set_parent(ecs, entity, parent);
         } else if let Some(root) = self.root_entity.filter(|root| is_live_prefab_entity(ecs, *root))
         {
@@ -345,53 +352,6 @@ pub fn is_prefab_entity(ecs: &Ecs, entity: Entity) -> bool {
         && !ecs.has::<PlayerProxy>(entity)
         && !ecs.has::<Player>(entity)
         && !ecs.has::<Global>(entity)
-}
-
-/// Identifies whether a linked prefab reference came from a root or child node component.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum PrefabLinkSource {
-    /// The entity is the linked prefab root.
-    Root,
-    /// The entity is a linked prefab child node.
-    Node,
-}
-
-/// Read-only display data for a linked prefab instance.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct PrefabLinkDisplay {
-    /// The component source that identified the link.
-    pub source: PrefabLinkSource,
-    /// Stable prefab asset id.
-    pub prefab_id: PrefabId,
-    /// Human-readable label for UI display.
-    pub label: String,
-}
-
-/// Returns read-only display data for a linked prefab instance entity.
-pub fn linked_prefab_display(
-    ecs: &Ecs,
-    prefab_library: &PrefabLibrary,
-    entity: Entity,
-) -> Option<PrefabLinkDisplay> {
-    let (source, prefab_id) = if let Some(root) = ecs.get::<PrefabInstanceRoot>(entity) {
-        (PrefabLinkSource::Root, root.prefab_id)
-    } else if let Some(node) = ecs.get::<PrefabInstanceNode>(entity) {
-        (PrefabLinkSource::Node, node.prefab_id)
-    } else {
-        return None;
-    };
-
-    let prefab_label = prefab_library
-        .prefabs
-        .get(&prefab_id)
-        .map(|prefab| prefab.name.clone())
-        .unwrap_or_else(|| prefab_id.to_string());
-
-    Some(PrefabLinkDisplay {
-        source,
-        prefab_id,
-        label: format!("Prefab: {prefab_label}"),
-    })
 }
 
 fn is_live_prefab_entity(ecs: &Ecs, entity: Entity) -> bool {
@@ -470,228 +430,4 @@ fn draw_prefab_entity<C: BishopContext>(
 
     let draw_pos = pivot_adjusted_position(pos, Vec2::splat(grid_size), pivot);
     draw_entity_placeholder(ctx, draw_pos, grid_size);
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::app::Editor;
-    use crate::app::EditorMode;
-    use crate::commands::editor_command_manager::EditorCommand;
-    use crate::commands::room::DeleteEntityCmd;
-    use crate::editor_global::{reset_services, set_editor, with_editor, EDITOR_SERVICES};
-    use crate::storage::editor_storage::{create_new_game, save_game};
-    use engine_core::storage::test_utils::{game_fs_test_lock, TestGameFolder};
-    use std::path::PathBuf;
-
-    struct EditorServicesGuard;
-
-    impl EditorServicesGuard {
-        fn install(editor: Editor) -> Self {
-            reset_services();
-            set_editor(editor);
-            Self
-        }
-    }
-
-    impl Drop for EditorServicesGuard {
-        fn drop(&mut self) {
-            EDITOR_SERVICES.with(|services| {
-                *services.editor.borrow_mut() = None;
-            });
-            reset_services();
-        }
-    }
-
-    #[test]
-    fn prefab_stage_uses_project_sprite_paths_without_room_state() {
-        let _lock = game_fs_test_lock().lock().unwrap_or_else(|poison| poison.into_inner());
-        let test_game = TestGameFolder::new("prefab_stage_game");
-
-        let mut game = create_new_game(test_game.name().to_string());
-        game.asset_manager.sprite_id_to_path.insert(
-            SpriteId(7),
-            PathBuf::from("sprites/cat.png"),
-        );
-        save_game(&game).unwrap();
-
-        let mut stage = PrefabStage::new(test_game.name());
-        let prefab_ctx = stage.ctx_mut();
-
-        assert_eq!(
-            prefab_ctx.asset_manager.sprite_id_to_path.get(&SpriteId(7)).cloned(),
-            Some(PathBuf::from("sprites/cat.png"))
-        );
-        assert!(prefab_ctx.ecs.get_store::<RoomCamera>().data.is_empty());
-        assert!(prefab_ctx.ecs.get_store::<CurrentRoom>().data.is_empty());
-        assert!(prefab_ctx.world.is_none());
-    }
-
-    #[test]
-    fn linked_prefab_display_uses_root_metadata_for_roots_and_node_metadata_for_children() {
-        let mut ecs = Ecs::default();
-        let root = ecs
-            .create_entity()
-            .with(Transform::default())
-            .with(Name("Root".to_string()))
-            .finish();
-        let child = ecs
-            .create_entity()
-            .with(Transform::default())
-            .with(Name("Child".to_string()))
-            .finish();
-        set_parent(&mut ecs, child, root);
-
-        let prefab_id = PrefabId(7);
-        let prefab = create_prefab(prefab_id, "Crate".to_string());
-        let mut prefab_library = PrefabLibrary::default();
-        prefab_library.prefabs.insert(prefab_id, prefab);
-
-        ecs.add_component_to_entity(
-            root,
-            PrefabInstanceRoot {
-                prefab_id,
-            },
-        );
-        ecs.add_component_to_entity(
-            root,
-            PrefabInstanceNode {
-                prefab_id,
-                node_id: 1,
-                root_entity: root,
-            },
-        );
-        ecs.add_component_to_entity(
-            child,
-            PrefabInstanceNode {
-                prefab_id,
-                node_id: 2,
-                root_entity: root,
-            },
-        );
-
-        let root_display = linked_prefab_display(&ecs, &prefab_library, root).unwrap();
-        let child_display = linked_prefab_display(&ecs, &prefab_library, child).unwrap();
-
-        assert_eq!(root_display.source, PrefabLinkSource::Root);
-        assert_eq!(root_display.label, "Prefab: Crate");
-        assert_eq!(child_display.source, PrefabLinkSource::Node);
-        assert_eq!(child_display.label, "Prefab: Crate");
-    }
-
-    #[test]
-    fn linked_prefab_display_falls_back_to_prefab_id_when_asset_is_missing() {
-        let mut ecs = Ecs::default();
-        let entity = ecs
-            .create_entity()
-            .with(Transform::default())
-            .with(Name("Entity".to_string()))
-            .finish();
-
-        ecs.add_component_to_entity(
-            entity,
-            PrefabInstanceRoot {
-                prefab_id: PrefabId(42),
-            },
-        );
-
-        let prefab_library = PrefabLibrary::default();
-        let display = linked_prefab_display(&ecs, &prefab_library, entity).unwrap();
-
-        assert_eq!(display.source, PrefabLinkSource::Root);
-        assert_eq!(display.label, "Prefab: 42");
-    }
-
-    #[test]
-    fn editor_services_guard_clears_global_editor_on_drop() {
-        {
-            let _guard = EditorServicesGuard::install(Editor::default());
-            EDITOR_SERVICES.with(|services| {
-                assert!(services.editor.borrow().is_some());
-            });
-        }
-
-        EDITOR_SERVICES.with(|services| {
-            assert!(services.editor.borrow().is_none());
-        });
-    }
-
-    #[test]
-    fn creating_entity_replaces_stale_root_with_new_root() {
-        let _lock = game_fs_test_lock().lock().unwrap_or_else(|poison| poison.into_inner());
-        let test_game = TestGameFolder::new("prefab_stale_root");
-        let mut editor = PrefabEditor::new(PrefabId(1), "Prefab".to_string(), None);
-        let mut stage = PrefabStage::new(test_game.name());
-
-        let stale_root = stage
-            .ecs
-            .create_entity()
-            .with(Transform::default())
-            .with(Name("Old Root".to_string()))
-            .finish();
-        editor.root_entity = Some(stale_root);
-        editor.set_selected_entity(Some(stale_root));
-
-        {
-            let mut ctx = stage.ctx_mut();
-            Ecs::remove_entity(&mut ctx, stale_root);
-        }
-
-        let new_entity = editor.create_prefab_entity(&mut stage.ecs);
-
-        assert_eq!(editor.root_entity, Some(new_entity));
-        assert_eq!(get_parent(&stage.ecs, new_entity), None);
-    }
-
-    #[test]
-    fn deleting_prefab_root_clears_root_and_selection_state() {
-        let _lock = game_fs_test_lock().lock().unwrap_or_else(|poison| poison.into_inner());
-        let test_game = TestGameFolder::new("prefab_delete_root");
-        let mut editor = Editor {
-            mode: EditorMode::Prefab(PrefabId(9)),
-            prefab_editor: Some(PrefabEditor::new(
-                PrefabId(9),
-                "Prefab".to_string(),
-                None,
-            )),
-            prefab_stage: Some(PrefabStage::new(test_game.name())),
-            ..Default::default()
-        };
-
-        let root = editor
-            .prefab_stage
-            .as_mut()
-            .unwrap()
-            .ecs
-            .create_entity()
-            .with(Transform::default())
-            .with(Name("Root".to_string()))
-            .finish();
-        let child = editor
-            .prefab_stage
-            .as_mut()
-            .unwrap()
-            .ecs
-            .create_entity()
-            .with(Transform::default())
-            .with(Name("Child".to_string()))
-            .finish();
-        set_parent(&mut editor.prefab_stage.as_mut().unwrap().ecs, child, root);
-
-        let prefab_editor = editor.prefab_editor.as_mut().unwrap();
-        prefab_editor.root_entity = Some(root);
-        prefab_editor.selected_entities.insert(root);
-        prefab_editor.selected_entities.insert(child);
-
-        let _guard = EditorServicesGuard::install(editor);
-
-        let mut cmd = DeleteEntityCmd::new(root, EditorMode::Prefab(PrefabId(9)));
-        cmd.execute();
-
-        with_editor(|editor| {
-            let prefab_editor = editor.prefab_editor.as_ref().unwrap();
-            assert_eq!(prefab_editor.root_entity, None);
-            assert!(prefab_editor.selected_entities.is_empty());
-        });
-    }
 }

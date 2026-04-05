@@ -2,10 +2,6 @@ use crate::app::{Editor, EditorMode, PendingPrefabRequest};
 use bishop::prelude::*;
 use engine_core::prelude::*;
 
-#[cfg(test)]
-#[path = "tests.rs"]
-mod tests;
-
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) enum PrefabEditorLaunch {
     OpenExisting(PrefabId),
