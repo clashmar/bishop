@@ -166,12 +166,9 @@ impl Editor {
                 {
                     let mut prefab_ctx = prefab_stage.ctx_mut();
                     prefab_editor.update(ctx, &self.camera, &mut prefab_ctx);
+                    self.reconcile_active_prefab_room_preview();
                     if Controls::escape(ctx) && !input_is_focused() {
-                        self.save_active_prefab();
-                        self.prefab_editor = None;
-                        self.prefab_stage = None;
-                        self.mode = self.return_mode.unwrap_or(EditorMode::Game);
-                        self.return_mode = None;
+                        self.request_exit_prefab_mode(ctx);
                     }
                 }
             }

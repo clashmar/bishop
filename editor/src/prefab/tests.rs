@@ -1,8 +1,12 @@
 use crate::app::{Editor, EditorMode};
 use crate::commands::editor_command_manager::EditorCommand;
 use crate::commands::scene::DeleteEntityCmd;
-use crate::editor_global::{reset_services, set_editor, with_editor, EDITOR_SERVICES};
+use crate::editor_global::{
+    apply_pending_commands, push_command, request_redo, request_undo, reset_services, set_editor,
+    with_editor, EDITOR_SERVICES,
+};
 use crate::prefab::prefab_actions::PrefabEditorLaunch;
+use crate::prefab::prefab_editor::{PrefabRoomSyncState, StagedPrefabState};
 use crate::prefab::{PrefabEditor, PrefabStage};
 use crate::storage::editor_storage::create_new_game;
 use crate::storage::editor_storage::save_game;
@@ -55,6 +59,42 @@ fn make_room_editor(test_game: &TestGameFolder) -> (Editor, RoomId) {
     };
 
     (editor, room_id)
+}
+
+fn linked_root_entities(ecs: &Ecs, prefab_id: PrefabId) -> Vec<Entity> {
+    ecs.get_store::<PrefabInstanceRoot>()
+        .data
+        .iter()
+        .filter_map(|(&entity, root)| (root.prefab_id == prefab_id).then_some(entity))
+        .collect()
+}
+
+fn linked_instance_node_count(ecs: &Ecs, prefab_id: PrefabId) -> usize {
+    ecs.get_store::<PrefabInstanceNode>()
+        .data
+        .values()
+        .filter(|node| node.prefab_id == prefab_id)
+        .count()
+}
+
+fn make_prefab_session_editor(test_game: &TestGameFolder) -> (Editor, RoomId, PrefabId, Entity) {
+    let (mut editor, room_id) = make_room_editor(test_game);
+
+    let root = editor
+        .game
+        .ecs
+        .create_entity()
+        .with(Transform {
+            position: Vec2::new(48.0, 96.0),
+            ..Default::default()
+        })
+        .with(CurrentRoom(room_id))
+        .with(Name("Root".to_string()))
+        .finish();
+    editor.room_editor.set_selected_entity(Some(root));
+    editor.create_prefab_from_selection(&(), root, "Crate".to_string());
+
+    (editor, room_id, PrefabId(1), root)
 }
 
 #[test]
@@ -317,7 +357,15 @@ fn editor_services_guard_clears_global_editor_on_drop() {
 fn creating_entity_replaces_stale_root_with_new_root() {
     let _lock = game_fs_test_lock().lock().unwrap_or_else(|poison| poison.into_inner());
     let test_game = TestGameFolder::new("prefab_stale_root");
-    let mut editor = PrefabEditor::new(PrefabId(1), "Prefab".to_string(), None);
+    let mut editor = PrefabEditor::new(
+        PrefabId(1),
+        "Prefab".to_string(),
+        StagedPrefabState::Empty,
+        PrefabRoomSyncState {
+            staged_prefab: StagedPrefabState::Empty,
+            linked_instance_snapshots: Vec::new(),
+        },
+    );
     let mut stage = PrefabStage::new(test_game.name());
 
     let stale_root = stage
@@ -349,7 +397,11 @@ fn deleting_prefab_root_clears_root_and_selection_state() {
         prefab_editor: Some(PrefabEditor::new(
             PrefabId(9),
             "Prefab".to_string(),
-            None,
+            StagedPrefabState::Empty,
+            PrefabRoomSyncState {
+                staged_prefab: StagedPrefabState::Empty,
+                linked_instance_snapshots: Vec::new(),
+            },
         )),
         prefab_stage: Some(PrefabStage::new(test_game.name())),
         ..Default::default()
@@ -389,5 +441,182 @@ fn deleting_prefab_root_clears_root_and_selection_state() {
         let prefab_editor = editor.prefab_editor.as_ref().unwrap();
         assert_eq!(prefab_editor.root_entity, None);
         assert!(prefab_editor.selected_entities.is_empty());
+    });
+}
+
+#[test]
+fn staged_prefab_edits_preview_sync_to_linked_room_instances() {
+    let _lock = game_fs_test_lock().lock().unwrap_or_else(|poison| poison.into_inner());
+    let test_game = TestGameFolder::new("prefab_preview_sync");
+    let (editor, room_id, prefab_id, _) = make_prefab_session_editor(&test_game);
+    let _guard = EditorServicesGuard::install(editor);
+
+    with_editor(|editor| {
+        let prefab_editor = editor.prefab_editor.as_mut().unwrap();
+        let root = prefab_editor.root_entity.expect("prefab root should exist");
+        let child = prefab_editor.create_prefab_entity(
+            &mut editor.prefab_stage.as_mut().unwrap().ecs,
+            Some(root),
+        );
+        editor
+            .prefab_stage
+            .as_mut()
+            .unwrap()
+            .ecs
+            .add_component_to_entity(child, Name("Preview Child".to_string()));
+        editor.reconcile_active_prefab_room_preview();
+    });
+
+    with_editor(|editor| {
+        let linked_roots = linked_root_entities(&editor.game.ecs, prefab_id);
+        assert_eq!(linked_roots.len(), 1);
+        assert_eq!(linked_instance_node_count(&editor.game.ecs, prefab_id), 2);
+        assert_eq!(
+            editor
+                .game
+                .ecs
+                .get::<CurrentRoom>(linked_roots[0])
+                .map(|room| room.0),
+            Some(room_id)
+        );
+    });
+}
+
+#[test]
+fn empty_prefab_preview_delete_and_undo_restore_room_instances() {
+    let _lock = game_fs_test_lock().lock().unwrap_or_else(|poison| poison.into_inner());
+    let test_game = TestGameFolder::new("prefab_empty_preview_undo");
+    let (editor, _, prefab_id, _) = make_prefab_session_editor(&test_game);
+    let _guard = EditorServicesGuard::install(editor);
+
+    with_editor(|editor| {
+        let root = editor.prefab_editor.as_ref().unwrap().root_entity.unwrap();
+        push_command(Box::new(DeleteEntityCmd::new(
+            root,
+            EditorMode::Prefab(prefab_id),
+        )));
+    });
+    apply_pending_commands();
+
+    with_editor(|editor| {
+        editor.reconcile_active_prefab_room_preview();
+        assert!(linked_root_entities(&editor.game.ecs, prefab_id).is_empty());
+    });
+
+    request_undo();
+    apply_pending_commands();
+
+    with_editor(|editor| {
+        editor.reconcile_active_prefab_room_preview();
+        assert!(editor.prefab_editor.as_ref().unwrap().root_entity.is_some());
+        assert_eq!(linked_root_entities(&editor.game.ecs, prefab_id).len(), 1);
+    });
+}
+
+#[test]
+fn saving_empty_prefab_delete_supports_undo_and_redo_preview_sync() {
+    let _lock = game_fs_test_lock().lock().unwrap_or_else(|poison| poison.into_inner());
+    let test_game = TestGameFolder::new("prefab_empty_save_undo_redo");
+    let (editor, _, prefab_id, _) = make_prefab_session_editor(&test_game);
+    let _guard = EditorServicesGuard::install(editor);
+
+    with_editor(|editor| {
+        let root = editor.prefab_editor.as_ref().unwrap().root_entity.unwrap();
+        push_command(Box::new(DeleteEntityCmd::new(
+            root,
+            EditorMode::Prefab(prefab_id),
+        )));
+    });
+    apply_pending_commands();
+
+    with_editor(|editor| {
+        editor.reconcile_active_prefab_room_preview();
+        editor.confirm_empty_prefab_save_delete();
+        assert!(!editor.game.prefab_library.prefabs.contains_key(&prefab_id));
+        assert!(linked_root_entities(&editor.game.ecs, prefab_id).is_empty());
+    });
+
+    request_undo();
+    apply_pending_commands();
+
+    with_editor(|editor| {
+        editor.reconcile_active_prefab_room_preview();
+        assert!(editor.prefab_editor.as_ref().unwrap().root_entity.is_some());
+        assert_eq!(linked_root_entities(&editor.game.ecs, prefab_id).len(), 1);
+    });
+
+    request_redo();
+    apply_pending_commands();
+
+    with_editor(|editor| {
+        editor.reconcile_active_prefab_room_preview();
+        assert!(editor.prefab_editor.as_ref().unwrap().root_entity.is_none());
+        assert!(linked_root_entities(&editor.game.ecs, prefab_id).is_empty());
+    });
+}
+
+#[test]
+fn discarding_empty_prefab_exit_restores_committed_room_state() {
+    let _lock = game_fs_test_lock().lock().unwrap_or_else(|poison| poison.into_inner());
+    let test_game = TestGameFolder::new("prefab_empty_exit_discard");
+    let (editor, room_id, prefab_id, _) = make_prefab_session_editor(&test_game);
+    let _guard = EditorServicesGuard::install(editor);
+
+    with_editor(|editor| {
+        let root = editor.prefab_editor.as_ref().unwrap().root_entity.unwrap();
+        push_command(Box::new(DeleteEntityCmd::new(
+            root,
+            EditorMode::Prefab(prefab_id),
+        )));
+    });
+    apply_pending_commands();
+
+    with_editor(|editor| {
+        editor.reconcile_active_prefab_room_preview();
+        assert!(linked_root_entities(&editor.game.ecs, prefab_id).is_empty());
+        editor.discard_active_prefab_changes_and_exit();
+        assert_eq!(editor.mode, EditorMode::Room(room_id));
+        assert!(editor.prefab_editor.is_none());
+        assert_eq!(linked_root_entities(&editor.game.ecs, prefab_id).len(), 1);
+    });
+}
+
+#[test]
+fn saving_new_prefab_session_marks_prefab_clean_for_exit() {
+    let _lock = game_fs_test_lock().lock().unwrap_or_else(|poison| poison.into_inner());
+    let test_game = TestGameFolder::new("prefab_new_session_clean_after_save");
+    set_game_name(test_game.name());
+    let prefab = create_prefab(PrefabId(1), "Crate".to_string());
+    let (mut prefab_editor, mut prefab_stage) = PrefabEditor::open_existing(
+        test_game.name(),
+        prefab.clone(),
+        PrefabRoomSyncState {
+            staged_prefab: StagedPrefabState::PrefabAsset(prefab),
+            linked_instance_snapshots: Vec::new(),
+        },
+    );
+
+    let entity = prefab_editor.create_prefab_entity(&mut prefab_stage.ecs, None);
+    prefab_editor.set_selected_entity(Some(entity));
+
+    let editor = Editor {
+        mode: EditorMode::Prefab(PrefabId(1)),
+        prefab_editor: Some(prefab_editor),
+        prefab_stage: Some(prefab_stage),
+        ..Default::default()
+    };
+    let _guard = EditorServicesGuard::install(editor);
+
+    with_editor(|editor| {
+        let staged_state = editor.active_prefab_staged_state();
+        assert!(matches!(
+            staged_state,
+            Some(StagedPrefabState::PrefabAsset(_))
+        ));
+        editor.commit_prefab_asset_save(match staged_state {
+            Some(StagedPrefabState::PrefabAsset(prefab)) => prefab,
+            _ => unreachable!(),
+        });
+        assert!(editor.active_prefab_is_clean());
     });
 }

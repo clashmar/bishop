@@ -1,6 +1,8 @@
 use crate::app::{Editor, EditorMode, PendingPrefabRequest};
+use crate::prefab::prefab_editor::{PrefabRoomSyncState, StagedPrefabState};
 use bishop::prelude::*;
 use engine_core::prelude::*;
+use std::collections::HashSet;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) enum PrefabEditorLaunch {
@@ -53,8 +55,13 @@ impl Editor {
             return;
         };
 
-        let (prefab_editor, prefab_stage) =
-            super::PrefabEditor::open_existing(&self.game.name, prefab.clone());
+        let last_room_synced_state =
+            capture_prefab_room_sync_state(&mut self.game.ecs, prefab_id, prefab.clone());
+        let (prefab_editor, prefab_stage) = super::PrefabEditor::open_existing(
+            &self.game.name,
+            prefab.clone(),
+            last_room_synced_state,
+        );
         self.prefab_editor = Some(prefab_editor);
         self.prefab_stage = Some(prefab_stage);
         self.return_mode = Some(self.mode);
@@ -101,26 +108,160 @@ impl Editor {
         self.open_prefab_editor_for_id(prefab_id);
     }
 
-    /// Saves the currently active prefab to disk and refreshes linked instances.
     pub fn save_active_prefab(&mut self) {
+        let Some(staged_state) = self.active_prefab_staged_state() else {
+            return;
+        };
+
+        match staged_state {
+            StagedPrefabState::PrefabAsset(prefab) => self.commit_prefab_asset_save(prefab),
+            StagedPrefabState::Empty => {
+                self.toast = Some(Toast::new("Prefab is empty", 2.5));
+            }
+        }
+    }
+
+    pub(crate) fn active_prefab_staged_state(&mut self) -> Option<StagedPrefabState> {
         let (Some(prefab_editor), Some(prefab_stage)) =
             (self.prefab_editor.as_mut(), self.prefab_stage.as_mut())
+        else {
+            return None;
+        };
+
+        let mut prefab_ctx = prefab_stage.ctx_mut();
+        Some(prefab_editor.staged_prefab_state(&mut prefab_ctx))
+    }
+
+    pub(crate) fn active_prefab_is_clean(&mut self) -> bool {
+        let Some(staged_state) = self.active_prefab_staged_state() else {
+            return true;
+        };
+
+        self.prefab_editor
+            .as_ref()
+            .is_some_and(|prefab_editor| prefab_editor.is_clean(&staged_state))
+    }
+
+    pub(crate) fn reconcile_active_prefab_room_preview(&mut self) {
+        let Some(staged_state) = self.active_prefab_staged_state() else {
+            return;
+        };
+
+        let needs_sync = self
+            .prefab_editor
+            .as_ref()
+            .is_some_and(|prefab_editor| prefab_editor.last_room_synced_state.staged_prefab != staged_state);
+        if !needs_sync {
+            return;
+        }
+
+        self.reconcile_prefab_room_state(staged_state);
+    }
+
+    pub(crate) fn confirm_empty_prefab_save_delete(&mut self) {
+        self.commit_prefab_delete();
+    }
+
+    pub(crate) fn discard_active_prefab_changes_and_exit(&mut self) {
+        let Some(committed_state) = self
+            .prefab_editor
+            .as_ref()
+            .map(|prefab_editor| prefab_editor.last_committed_prefab.clone())
         else {
             return;
         };
 
-        let mut prefab_ctx = prefab_stage.ctx_mut();
-        match prefab_editor.save_to_disk(&self.game.name, &mut prefab_ctx) {
-            Ok(Some(prefab)) => {
-                self.game.prefab_library.prefabs.insert(prefab.id, prefab.clone());
-                refresh_linked_prefab_instances(&mut self.game, &prefab);
-                self.toast = Some(Toast::new("Prefab saved", 2.5));
+        self.reconcile_prefab_room_state(committed_state);
+        self.close_active_prefab_editor();
+    }
+
+    pub(crate) fn close_active_prefab_editor(&mut self) {
+        self.prefab_editor = None;
+        self.prefab_stage = None;
+        self.mode = self.return_mode.unwrap_or(EditorMode::Game);
+        self.return_mode = None;
+    }
+
+    pub(crate) fn commit_prefab_asset_save(&mut self, prefab: PrefabAsset) {
+        let Some(prefab_editor) = self.prefab_editor.as_mut() else {
+            return;
+        };
+        let root_entity = prefab_editor.root_entity;
+
+        if let Err(error) = prefab_editor.save_prefab_asset(&self.game.name, &prefab) {
+            onscreen_error!("Could not save prefab: {error}");
+            return;
+        }
+
+        if let (Some(root_entity), Some(prefab_stage)) = (root_entity, self.prefab_stage.as_mut()) {
+            sync_prefab_stage_metadata(&mut prefab_stage.ecs, root_entity, &prefab);
+        }
+
+        self.game.prefab_library.prefabs.insert(prefab.id, prefab.clone());
+        if let Some(prefab_stage) = self.prefab_stage.as_mut() {
+            prefab_stage.prefab_library.prefabs.insert(prefab.id, prefab.clone());
+        }
+        self.reconcile_prefab_room_state(StagedPrefabState::PrefabAsset(prefab));
+        self.toast = Some(Toast::new("Prefab saved", 2.5));
+    }
+
+    pub(crate) fn commit_prefab_delete(&mut self) {
+        let Some(prefab_id) = self.prefab_editor.as_ref().map(|prefab_editor| prefab_editor.prefab_id)
+        else {
+            return;
+        };
+
+        if let Err(error) = delete_prefab(&self.game.name, prefab_id) {
+            onscreen_error!("Could not delete prefab: {error}");
+            return;
+        }
+
+        self.game.prefab_library.prefabs.remove(&prefab_id);
+        if let Some(prefab_stage) = self.prefab_stage.as_mut() {
+            prefab_stage.prefab_library.prefabs.remove(&prefab_id);
+        }
+        if let Some(prefab_editor) = self.prefab_editor.as_mut() {
+            prefab_editor.last_committed_prefab = StagedPrefabState::Empty;
+        }
+        self.reconcile_prefab_room_state(StagedPrefabState::Empty);
+        self.toast = Some(Toast::new("Prefab deleted", 2.5));
+    }
+
+    pub(crate) fn reconcile_prefab_room_state(&mut self, target_state: StagedPrefabState) {
+        let Some(prefab_editor) = self.prefab_editor.as_mut() else {
+            return;
+        };
+
+        let preserved_snapshots = prefab_editor
+            .last_room_synced_state
+            .linked_instance_snapshots
+            .clone();
+        let prefab_id = prefab_editor.prefab_id;
+
+        match &target_state {
+            StagedPrefabState::PrefabAsset(prefab) => {
+                restore_prefab_instance_snapshots(&mut self.game, prefab_id, &preserved_snapshots);
+                refresh_linked_prefab_instances(&mut self.game, prefab);
+                prefab_editor.last_room_synced_state = capture_prefab_room_sync_state(
+                    &mut self.game.ecs,
+                    prefab_id,
+                    prefab.clone(),
+                );
             }
-            Ok(None) => {
-                self.toast = Some(Toast::new("Prefab is empty", 2.5));
-            }
-            Err(error) => {
-                onscreen_error!("Could not save prefab: {error}");
+            StagedPrefabState::Empty => {
+                let snapshots = remove_prefab_and_linked_instances(
+                    &mut self.game,
+                    &mut self.room_editor,
+                    prefab_id,
+                );
+                prefab_editor.last_room_synced_state = PrefabRoomSyncState {
+                    staged_prefab: StagedPrefabState::Empty,
+                    linked_instance_snapshots: if snapshots.is_empty() {
+                        preserved_snapshots
+                    } else {
+                        snapshots
+                    },
+                };
             }
         }
     }
@@ -160,13 +301,7 @@ fn relink_room_subtree_to_prefab(
 }
 
 fn refresh_linked_prefab_instances(game: &mut Game, prefab: &PrefabAsset) {
-    let roots = game
-        .ecs
-        .get_store::<PrefabInstanceRoot>()
-        .data
-        .iter()
-        .filter_map(|(&entity, root)| (root.prefab_id == prefab.id).then_some(entity))
-        .collect::<Vec<_>>();
+    let roots = linked_prefab_instance_roots(&game.ecs, prefab.id);
 
     for root_entity in roots {
         let room_id = game.ecs.get::<CurrentRoom>(root_entity).map(|room| room.0);
@@ -174,4 +309,115 @@ fn refresh_linked_prefab_instances(game: &mut Game, prefab: &PrefabAsset) {
         let mut services_ctx = ctx.services_ctx_mut();
         refresh_prefab_instance(&mut services_ctx, root_entity, prefab, room_id);
     }
+}
+
+fn linked_prefab_instance_roots(ecs: &Ecs, prefab_id: PrefabId) -> Vec<Entity> {
+    ecs.get_store::<PrefabInstanceRoot>()
+        .data
+        .iter()
+        .filter_map(|(&entity, root)| (root.prefab_id == prefab_id).then_some(entity))
+        .collect()
+}
+
+fn capture_prefab_room_sync_state(
+    ecs: &mut Ecs,
+    prefab_id: PrefabId,
+    prefab: PrefabAsset,
+) -> PrefabRoomSyncState {
+    PrefabRoomSyncState {
+        staged_prefab: StagedPrefabState::PrefabAsset(prefab),
+        linked_instance_snapshots: capture_linked_prefab_instance_snapshots(ecs, prefab_id),
+    }
+}
+
+fn sync_prefab_stage_metadata(ecs: &mut Ecs, root_entity: Entity, prefab: &PrefabAsset) {
+    let subtree = capture_subtree(ecs, root_entity);
+    if subtree.len() != prefab.nodes.len() {
+        return;
+    }
+
+    for (snapshot, node) in subtree.into_iter().zip(prefab.nodes.iter()) {
+        ecs.add_component_to_entity(
+            snapshot.entity,
+            PrefabInstanceNode {
+                prefab_id: prefab.id,
+                node_id: node.node_id,
+                root_entity,
+            },
+        );
+    }
+
+    ecs.add_component_to_entity(
+        root_entity,
+        PrefabInstanceRoot {
+            prefab_id: prefab.id,
+        },
+    );
+}
+
+fn capture_linked_prefab_instance_snapshots(
+    ecs: &mut Ecs,
+    prefab_id: PrefabId,
+) -> Vec<GroupSnapshot> {
+    linked_prefab_instance_roots(ecs, prefab_id)
+        .into_iter()
+        .map(|root| capture_subtree(ecs, root))
+        .collect()
+}
+
+fn restore_prefab_instance_snapshots(
+    game: &mut Game,
+    prefab_id: PrefabId,
+    snapshots: &[GroupSnapshot],
+) {
+    let existing_roots = linked_prefab_instance_roots(&game.ecs, prefab_id)
+        .into_iter()
+        .collect::<HashSet<_>>();
+
+    for snapshot in snapshots {
+        let Some(root_entity) = snapshot.first().map(|entity| entity.entity) else {
+            continue;
+        };
+        if existing_roots.contains(&root_entity) {
+            continue;
+        }
+
+        let mut ctx = game.ctx_mut();
+        let mut services_ctx = ctx.services_ctx_mut();
+        restore_subtree(&mut services_ctx, snapshot);
+    }
+}
+
+fn remove_prefab_and_linked_instances(
+    game: &mut Game,
+    room_editor: &mut crate::room::room_editor::RoomEditor,
+    prefab_id: PrefabId,
+) -> Vec<GroupSnapshot> {
+    let roots = linked_prefab_instance_roots(&game.ecs, prefab_id);
+    let mut removed_entities = HashSet::new();
+    let mut snapshots = Vec::with_capacity(roots.len());
+
+    for root_entity in roots {
+        let snapshot = capture_subtree(&mut game.ecs, root_entity);
+        removed_entities.extend(snapshot.iter().map(|entity| entity.entity));
+        snapshots.push(snapshot);
+
+        let mut ctx = game.ctx_mut();
+        let mut services_ctx = ctx.services_ctx_mut();
+        Ecs::remove_entity(&mut services_ctx, root_entity);
+    }
+
+    room_editor
+        .selected_entities
+        .retain(|entity| !removed_entities.contains(entity));
+    if !room_editor
+        .inspector
+        .target
+        .is_some_and(|entity| removed_entities.contains(&entity))
+    {
+        return snapshots;
+    }
+
+    room_editor.inspector.set_target(None);
+    snapshots
 }

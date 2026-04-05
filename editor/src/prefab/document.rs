@@ -1,5 +1,7 @@
 use crate::editor_global::with_lua;
-use crate::prefab::prefab_editor::{PrefabEditor, PrefabStage};
+use crate::prefab::prefab_editor::{
+    PrefabEditor, PrefabRoomSyncState, PrefabStage, StagedPrefabState,
+};
 use crate::storage::editor_storage::load_game_by_name;
 use engine_core::prelude::*;
 use std::io;
@@ -33,39 +35,54 @@ impl PrefabStage {
 }
 
 impl PrefabEditor {
-    pub fn open_existing(game_name: &str, prefab: PrefabAsset) -> (Self, PrefabStage) {
+    pub fn open_existing(
+        game_name: &str,
+        prefab: PrefabAsset,
+        last_room_synced_state: PrefabRoomSyncState,
+    ) -> (Self, PrefabStage) {
         let mut stage = PrefabStage::new(game_name);
         let root = {
             let mut game_ctx = stage.ctx_mut();
             instantiate_prefab(&mut game_ctx, &prefab, Vec2::ZERO, None)
         };
 
-        let mut editor = Self::new(prefab.id, prefab.name.clone(), Some(prefab));
+        let mut editor = Self::new(
+            prefab.id,
+            prefab.name.clone(),
+            StagedPrefabState::PrefabAsset(prefab),
+            last_room_synced_state,
+        );
         editor.set_selected_entity(Some(root));
         editor.root_entity = Some(root);
         (editor, stage)
     }
 
-    pub fn save_to_disk(
+    pub(crate) fn staged_prefab_state(
         &mut self,
-        game_name: &str,
         game_ctx: &mut ServicesCtxMut,
-    ) -> io::Result<Option<PrefabAsset>> {
+    ) -> StagedPrefabState {
         let Some(root) = self.root_entity else {
-            return Ok(None);
+            return StagedPrefabState::Empty;
         };
 
-        let prefab = capture_prefab_with_existing(
+        StagedPrefabState::PrefabAsset(capture_prefab_with_existing(
             game_ctx.ecs,
             root,
             self.prefab_id,
             self.prefab_name.clone(),
-            self.loaded_prefab.as_ref(),
-        );
-        save_prefab(game_name, &prefab)?;
+            self.committed_prefab_asset(),
+        ))
+    }
+
+    pub(crate) fn save_prefab_asset(
+        &mut self,
+        game_name: &str,
+        prefab: &PrefabAsset,
+    ) -> io::Result<()> {
+        save_prefab(game_name, prefab)?;
         self.prefab_name = prefab.name.clone();
-        self.loaded_prefab = Some(prefab.clone());
-        Ok(Some(prefab))
+        self.last_committed_prefab = StagedPrefabState::PrefabAsset(prefab.clone());
+        Ok(())
     }
 
     pub fn set_name(&mut self, name: String) {

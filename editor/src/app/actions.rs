@@ -175,7 +175,13 @@ impl Editor {
                     self.toast = Some(Toast::new("Folder picker unavailable in WASM", 2.5));
                 }
             }
-            EditorAction::Save => self.save(),
+            EditorAction::Save => {
+                if matches!(self.mode, EditorMode::Prefab(_)) {
+                    self.request_prefab_save(ctx);
+                } else {
+                    self.save();
+                }
+            }
             EditorAction::SaveAs => self.open_save_as_modal(ctx),
             EditorAction::Undo => crate::editor_global::request_undo(),
             EditorAction::Redo => crate::editor_global::request_redo(),
@@ -226,7 +232,8 @@ impl Editor {
                         self.save_menus();
                     }
                     EditorMode::Prefab(_) => {
-                        self.save_active_prefab();
+                        self.request_exit_prefab_mode(ctx);
+                        return;
                     }
                     _ => {}
                 }
@@ -417,6 +424,85 @@ impl Editor {
         let message = format!("Overwrite existing export '{target_name}'?");
         self.modal =
             Modal::open_confirm_modal_with_message(ctx, &EXPORT_OVERWRITE_RESULT, message);
+    }
+
+    fn open_empty_prefab_save_modal(&mut self, ctx: &WgpuContext) {
+        self.modal = Modal::new(ctx, 420.0, 140.0);
+        let mut prompt = EmptyPrefabSavePrompt::new(
+            self.modal.rect,
+            "Saving will delete this prefab and all linked instances.",
+        );
+        let widgets: Vec<BoxedWidget> = vec![Box::new(move |ctx, _| {
+            if let Some(result) = prompt.draw(ctx) {
+                EMPTY_PREFAB_SAVE_RESULT.with(|cell| *cell.borrow_mut() = Some(result));
+            }
+        })];
+        self.modal.open(widgets);
+    }
+
+    fn open_empty_prefab_exit_modal(&mut self, ctx: &WgpuContext) {
+        self.modal = Modal::new(ctx, 560.0, 140.0);
+        let mut prompt = EmptyPrefabExitPrompt::new(
+            self.modal.rect,
+            "This prefab is empty. What do you want to do?",
+        );
+        let widgets: Vec<BoxedWidget> = vec![Box::new(move |ctx, _| {
+            if let Some(result) = prompt.draw(ctx) {
+                EMPTY_PREFAB_EXIT_RESULT.with(|cell| *cell.borrow_mut() = Some(result));
+            }
+        })];
+        self.modal.open(widgets);
+    }
+
+    fn open_dirty_prefab_exit_modal(&mut self, ctx: &WgpuContext) {
+        self.modal = Modal::new(ctx, 560.0, 140.0);
+        let mut prompt = DirtyPrefabExitPrompt::new(
+            self.modal.rect,
+            "Do you want to save prefab changes?",
+        );
+        let widgets: Vec<BoxedWidget> = vec![Box::new(move |ctx, _| {
+            if let Some(result) = prompt.draw(ctx) {
+                DIRTY_PREFAB_EXIT_RESULT.with(|cell| *cell.borrow_mut() = Some(result));
+            }
+        })];
+        self.modal.open(widgets);
+    }
+
+    pub(crate) fn request_prefab_save(&mut self, ctx: &WgpuContext) {
+        let Some(staged_state) = self.active_prefab_staged_state() else {
+            return;
+        };
+
+        match staged_state {
+            crate::prefab::prefab_editor::StagedPrefabState::PrefabAsset(prefab) => {
+                self.commit_prefab_asset_save(prefab);
+            }
+            crate::prefab::prefab_editor::StagedPrefabState::Empty => {
+                if !self.active_prefab_is_clean() {
+                    self.open_empty_prefab_save_modal(ctx);
+                }
+            }
+        }
+    }
+
+    pub(crate) fn request_exit_prefab_mode(&mut self, ctx: &WgpuContext) {
+        let Some(staged_state) = self.active_prefab_staged_state() else {
+            return;
+        };
+
+        if self.active_prefab_is_clean() {
+            self.close_active_prefab_editor();
+            return;
+        }
+
+        match staged_state {
+            crate::prefab::prefab_editor::StagedPrefabState::PrefabAsset(_) => {
+                self.open_dirty_prefab_exit_modal(ctx);
+            }
+            crate::prefab::prefab_editor::StagedPrefabState::Empty => {
+                self.open_empty_prefab_exit_modal(ctx);
+            }
+        }
     }
 
     fn begin_export(&mut self, ctx: &mut WgpuContext) {
@@ -638,6 +724,52 @@ impl Editor {
                 }
                 self.modal.close();
             }
+
+            let empty_prefab_save_opt = EMPTY_PREFAB_SAVE_RESULT.with(|c| c.borrow_mut().take());
+
+            if let Some(result) = empty_prefab_save_opt {
+                if result == EmptyPrefabSaveConfirmResult::Delete {
+                    self.confirm_empty_prefab_save_delete();
+                }
+                self.modal.close();
+            }
+
+            let empty_prefab_exit_opt = EMPTY_PREFAB_EXIT_RESULT.with(|c| c.borrow_mut().take());
+
+            if let Some(result) = empty_prefab_exit_opt {
+                match result {
+                    EmptyPrefabExitPromptResult::DeletePrefab => {
+                        self.commit_prefab_delete();
+                        self.close_active_prefab_editor();
+                    }
+                    EmptyPrefabExitPromptResult::DiscardChanges => {
+                        self.discard_active_prefab_changes_and_exit();
+                    }
+                    EmptyPrefabExitPromptResult::Cancel => {}
+                }
+                self.modal.close();
+            }
+
+            let dirty_prefab_exit_opt = DIRTY_PREFAB_EXIT_RESULT.with(|c| c.borrow_mut().take());
+
+            if let Some(result) = dirty_prefab_exit_opt {
+                match result {
+                    DirtyPrefabExitPromptResult::SaveAndSync => {
+                        if let Some(crate::prefab::prefab_editor::StagedPrefabState::PrefabAsset(
+                            prefab,
+                        )) = self.active_prefab_staged_state()
+                        {
+                            self.commit_prefab_asset_save(prefab);
+                            self.close_active_prefab_editor();
+                        }
+                    }
+                    DirtyPrefabExitPromptResult::DiscardChanges => {
+                        self.discard_active_prefab_changes_and_exit();
+                    }
+                    DirtyPrefabExitPromptResult::Cancel => {}
+                }
+                self.modal.close();
+            }
         }
         None
     }
@@ -707,4 +839,7 @@ thread_local! {
     pub static PREFAB_PICKER_RESULT: RefCell<Option<PrefabPickerResult>> = const { RefCell::new(None) };
     pub static WORLD_SETTINGS_RESULT: RefCell<Option<WorldSettingsResult>> = const { RefCell::new(None) };
     pub static EXPORT_OVERWRITE_RESULT: RefCell<Option<ConfirmPromptResult>> = const { RefCell::new(None) };
+    pub static EMPTY_PREFAB_SAVE_RESULT: RefCell<Option<EmptyPrefabSaveConfirmResult>> = const { RefCell::new(None) };
+    pub static EMPTY_PREFAB_EXIT_RESULT: RefCell<Option<EmptyPrefabExitPromptResult>> = const { RefCell::new(None) };
+    pub static DIRTY_PREFAB_EXIT_RESULT: RefCell<Option<DirtyPrefabExitPromptResult>> = const { RefCell::new(None) };
 }

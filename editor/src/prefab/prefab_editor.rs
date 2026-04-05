@@ -25,29 +25,48 @@ pub struct PrefabStage {
     pub prefab_library: PrefabLibrary,
 }
 
+#[derive(Clone, Debug, PartialEq)]
+pub(crate) enum StagedPrefabState {
+    PrefabAsset(PrefabAsset),
+    Empty,
+}
+
+#[derive(Clone, Debug)]
+pub(crate) struct PrefabRoomSyncState {
+    pub staged_prefab: StagedPrefabState,
+    pub linked_instance_snapshots: Vec<GroupSnapshot>,
+}
+
 pub struct PrefabEditor {
     pub prefab_id: PrefabId,
     pub prefab_name: String,
-    pub loaded_prefab: Option<PrefabAsset>,
     pub root_entity: Option<Entity>,
     pub selected_entities: HashSet<Entity>,
     pub inspector: InspectorPanel,
     pub active_rects: Vec<Rect>,
     pub show_grid: bool,
+    pub(crate) last_committed_prefab: StagedPrefabState,
+    pub(crate) last_room_synced_state: PrefabRoomSyncState,
     create_request: Option<SceneCreateRequest>,
 }
 
 impl PrefabEditor {
-    pub fn new(prefab_id: PrefabId, prefab_name: String, loaded_prefab: Option<PrefabAsset>) -> Self {
+    pub fn new(
+        prefab_id: PrefabId,
+        prefab_name: String,
+        last_committed_prefab: StagedPrefabState,
+        last_room_synced_state: PrefabRoomSyncState,
+    ) -> Self {
         Self {
             prefab_id,
             prefab_name,
-            loaded_prefab,
             root_entity: None,
             selected_entities: HashSet::new(),
             inspector: InspectorPanel::new(),
             active_rects: Vec::new(),
             show_grid: true,
+            last_committed_prefab,
+            last_room_synced_state,
             create_request: None,
         }
     }
@@ -86,7 +105,7 @@ impl PrefabEditor {
         self.active_rects.clear();
 
         ctx.set_camera(camera);
-        ctx.clear_background(Color::BLACK);
+        ctx.clear_background(Color::BISHOP_BLUE);
 
         if self.show_grid {
             grid::draw_grid(ctx, grid_renderer, camera, PREFAB_EDITOR_GRID_SIZE);
@@ -131,6 +150,17 @@ impl PrefabEditor {
             },
         };
         self.create_request = self.inspector.draw(ctx, game_ctx, &inspector_ctx).create_request;
+    }
+
+    pub(crate) fn committed_prefab_asset(&self) -> Option<&PrefabAsset> {
+        match &self.last_committed_prefab {
+            StagedPrefabState::PrefabAsset(prefab) => Some(prefab),
+            StagedPrefabState::Empty => None,
+        }
+    }
+
+    pub(crate) fn is_clean(&self, staged_state: &StagedPrefabState) -> bool {
+        &self.last_committed_prefab == staged_state
     }
 }
 

@@ -146,7 +146,11 @@ fn prefab_hierarchy_host_toggles_selection_additively() {
     let mut prefab_editor = crate::prefab::PrefabEditor::new(
         PrefabId(1),
         "Prefab".to_string(),
-        None,
+        crate::prefab::prefab_editor::StagedPrefabState::Empty,
+        crate::prefab::prefab_editor::PrefabRoomSyncState {
+            staged_prefab: crate::prefab::prefab_editor::StagedPrefabState::Empty,
+            linked_instance_snapshots: Vec::new(),
+        },
     );
     let mut host = PrefabHierarchyHost {
         prefab_editor: &mut prefab_editor,

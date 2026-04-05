@@ -129,7 +129,7 @@ impl Modal {
         // Detect a click outside the window
         if ctx.is_mouse_button_pressed(MouseButton::Left) {
             let mouse = ctx.mouse_position().into();
-            if !self.rect.contains(mouse) {
+            if !modal_hit_region_contains(self.rect, mouse) {
                 return true;
             }
         }
@@ -167,6 +167,16 @@ impl Modal {
     }
 }
 
+fn modal_hit_region_contains(modal_rect: Rect, point: Vec2) -> bool {
+    modal_rect.contains(point)
+        || dropdown_state::STATE.with(|state| {
+            state
+                .borrow()
+                .values()
+                .any(|dropdown| dropdown.open && dropdown.rect.contains(point))
+        })
+}
+
 fn close_open_dropdowns() {
     dropdown_state::STATE.with(|state| {
         for dropdown in state.borrow_mut().values_mut() {
@@ -174,4 +184,31 @@ fn close_open_dropdowns() {
         }
     });
     update_global_dropdown_flag();
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn modal_hit_region_includes_open_dropdown_lists() {
+        let modal_rect = Rect::new(100.0, 100.0, 200.0, 120.0);
+        let dropdown_rect = Rect::new(120.0, 240.0, 160.0, 100.0);
+        let dropdown_id = WidgetId::default();
+
+        dropdown_state::set(
+            dropdown_id,
+            dropdown_state::DropState {
+                open: true,
+                rect: dropdown_rect,
+                scroll_offset: 0.0,
+            },
+        );
+
+        assert!(modal_hit_region_contains(modal_rect, Vec2::new(140.0, 260.0)));
+        assert!(!modal_hit_region_contains(modal_rect, Vec2::new(40.0, 40.0)));
+
+        dropdown_state::set(dropdown_id, dropdown_state::DropState::default());
+        update_global_dropdown_flag();
+    }
 }

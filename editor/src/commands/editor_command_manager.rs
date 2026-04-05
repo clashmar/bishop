@@ -127,7 +127,7 @@ mod tests {
     use super::*;
     use crate::app::Editor;
     use crate::editor_global::{reset_services, set_editor};
-    use crate::prefab::prefab_editor::PrefabEditor;
+    use crate::prefab::prefab_editor::{PrefabEditor, PrefabRoomSyncState, StagedPrefabState};
     use engine_core::prelude::*;
     use std::cell::RefCell;
     use std::rc::Rc;
@@ -162,7 +162,11 @@ mod tests {
             prefab_editor: Some(PrefabEditor::new(
                 PrefabId(7),
                 "Prefab".to_string(),
-                None,
+                StagedPrefabState::Empty,
+                PrefabRoomSyncState {
+                    staged_prefab: StagedPrefabState::Empty,
+                    linked_instance_snapshots: Vec::new(),
+                },
             )),
             ..Default::default()
         };
