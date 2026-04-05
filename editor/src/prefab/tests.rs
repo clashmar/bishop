@@ -1,4 +1,4 @@
-use crate::app::{Editor, EditorMode};
+use crate::app::{Editor, EditorMode, PendingPrefabTransition, PrefabTransitionPrompt};
 use crate::commands::editor_command_manager::EditorCommand;
 use crate::commands::scene::{
     ApplyInstanceToPrefabCmd, DeleteEntityCmd, RevertPrefabInstanceCmd, UnlinkPrefabInstanceCmd,
@@ -8,6 +8,7 @@ use crate::editor_global::{
     apply_pending_commands, push_command, request_redo, request_undo, reset_services, set_editor,
     with_command_manager, with_editor, EDITOR_SERVICES,
 };
+use crate::gui::prompts::{DirtyPrefabExitPromptResult, EmptyPrefabExitPromptResult};
 use crate::prefab::prefab_actions::PrefabEditorLaunch;
 use crate::prefab::prefab_editor::{PrefabRoomSyncState, StagedPrefabState};
 use crate::prefab::{PrefabEditor, PrefabStage};
@@ -99,6 +100,12 @@ fn make_prefab_session_editor(test_game: &TestGameFolder) -> (Editor, RoomId, Pr
     editor.create_prefab_from_selection(&(), root, "Crate".to_string());
 
     (editor, room_id, PrefabId(1), root)
+}
+
+fn save_test_prefab(test_game: &TestGameFolder, prefab_id: PrefabId, name: &str) -> PrefabAsset {
+    let prefab = create_prefab(prefab_id, name.to_string());
+    save_prefab(test_game.name(), &prefab).unwrap();
+    prefab
 }
 
 fn add_prefab_child_entity(editor: &mut Editor, position: Vec2) -> Entity {
@@ -715,11 +722,189 @@ fn discarding_empty_prefab_exit_restores_committed_room_state() {
     with_editor(|editor| {
         editor.reconcile_active_prefab_room_preview();
         assert!(linked_root_entities(&editor.game.ecs, prefab_id).is_empty());
-        editor.discard_active_prefab_changes_and_exit();
+        assert_eq!(
+            editor.request_prefab_transition(PendingPrefabTransition::Exit),
+            PrefabTransitionPrompt::Empty
+        );
+        editor.confirm_empty_prefab_transition(EmptyPrefabExitPromptResult::DiscardChanges);
         assert_eq!(editor.mode, EditorMode::Room(room_id));
         assert!(editor.prefab_editor.is_none());
         assert_eq!(linked_root_entities(&editor.game.ecs, prefab_id).len(), 1);
     });
+}
+
+#[test]
+fn clean_prefab_transition_opens_requested_prefab_without_changing_return_mode() {
+    let _lock = game_fs_test_lock().lock().unwrap_or_else(|poison| poison.into_inner());
+    let test_game = TestGameFolder::new("prefab_clean_switch");
+    let (mut editor, room_id, _, _) = make_prefab_session_editor(&test_game);
+    let second_prefab = save_test_prefab(&test_game, PrefabId(2), "Barrel");
+    editor
+        .game
+        .prefab_library
+        .prefabs
+        .insert(second_prefab.id, second_prefab.clone());
+
+    assert_eq!(
+        editor.request_prefab_transition(PendingPrefabTransition::OpenExisting(second_prefab.id)),
+        PrefabTransitionPrompt::None
+    );
+    assert_eq!(editor.mode, EditorMode::Prefab(second_prefab.id));
+    assert_eq!(editor.return_mode, Some(EditorMode::Room(room_id)));
+    assert_eq!(
+        editor.prefab_editor.as_ref().map(|prefab| prefab.prefab_name.as_str()),
+        Some("Barrel")
+    );
+}
+
+#[test]
+fn dirty_prefab_transition_save_switches_and_persists_changes() {
+    let _lock = game_fs_test_lock().lock().unwrap_or_else(|poison| poison.into_inner());
+    let test_game = TestGameFolder::new("prefab_dirty_switch_save");
+    let (mut editor, room_id, prefab_id, _) = make_prefab_session_editor(&test_game);
+    let second_prefab = save_test_prefab(&test_game, PrefabId(2), "Barrel");
+    editor
+        .game
+        .prefab_library
+        .prefabs
+        .insert(second_prefab.id, second_prefab.clone());
+
+    let root = editor.prefab_editor.as_ref().unwrap().root_entity.unwrap();
+    editor
+        .prefab_editor
+        .as_mut()
+        .unwrap()
+        .create_prefab_entity(&mut editor.prefab_stage.as_mut().unwrap().ecs, Some(root));
+
+    assert_eq!(
+        editor.request_prefab_transition(PendingPrefabTransition::OpenExisting(second_prefab.id)),
+        PrefabTransitionPrompt::Dirty
+    );
+    assert_eq!(
+        editor.pending_prefab_transition,
+        Some(PendingPrefabTransition::OpenExisting(second_prefab.id))
+    );
+
+    editor.confirm_dirty_prefab_transition(DirtyPrefabExitPromptResult::SaveAndSync);
+
+    assert_eq!(editor.mode, EditorMode::Prefab(second_prefab.id));
+    assert_eq!(editor.return_mode, Some(EditorMode::Room(room_id)));
+    assert_eq!(
+        editor
+            .game
+            .prefab_library
+            .prefabs
+            .get(&prefab_id)
+            .map(|prefab| prefab.nodes.len()),
+        Some(2)
+    );
+    assert_eq!(editor.pending_prefab_transition, None);
+}
+
+#[test]
+fn dirty_prefab_transition_cancel_keeps_current_prefab_open() {
+    let _lock = game_fs_test_lock().lock().unwrap_or_else(|poison| poison.into_inner());
+    let test_game = TestGameFolder::new("prefab_dirty_switch_cancel");
+    let (mut editor, room_id, prefab_id, _) = make_prefab_session_editor(&test_game);
+    let second_prefab = save_test_prefab(&test_game, PrefabId(2), "Barrel");
+    editor
+        .game
+        .prefab_library
+        .prefabs
+        .insert(second_prefab.id, second_prefab);
+
+    let root = editor.prefab_editor.as_ref().unwrap().root_entity.unwrap();
+    editor
+        .prefab_editor
+        .as_mut()
+        .unwrap()
+        .create_prefab_entity(&mut editor.prefab_stage.as_mut().unwrap().ecs, Some(root));
+
+    assert_eq!(
+        editor.request_prefab_transition(PendingPrefabTransition::OpenExisting(PrefabId(2))),
+        PrefabTransitionPrompt::Dirty
+    );
+
+    editor.confirm_dirty_prefab_transition(DirtyPrefabExitPromptResult::Cancel);
+
+    assert_eq!(editor.mode, EditorMode::Prefab(prefab_id));
+    assert_eq!(editor.return_mode, Some(EditorMode::Room(room_id)));
+    assert_eq!(editor.pending_prefab_transition, None);
+    assert!(!editor.active_prefab_is_clean());
+}
+
+#[test]
+fn empty_prefab_transition_delete_switches_to_requested_prefab() {
+    let _lock = game_fs_test_lock().lock().unwrap_or_else(|poison| poison.into_inner());
+    let test_game = TestGameFolder::new("prefab_empty_switch_delete");
+    let (editor, room_id, prefab_id, _) = make_prefab_session_editor(&test_game);
+    let _guard = EditorServicesGuard::install(editor);
+
+    with_editor(|editor| {
+        let second_prefab = save_test_prefab(&test_game, PrefabId(2), "Barrel");
+        editor
+            .game
+            .prefab_library
+            .prefabs
+            .insert(second_prefab.id, second_prefab);
+
+        let root = editor.prefab_editor.as_ref().unwrap().root_entity.unwrap();
+        push_command(Box::new(DeleteEntityCmd::new(
+            root,
+            EditorMode::Prefab(prefab_id),
+        )));
+    });
+    apply_pending_commands();
+
+    with_editor(|editor| {
+        editor.reconcile_active_prefab_room_preview();
+        assert_eq!(
+            editor.request_prefab_transition(PendingPrefabTransition::OpenExisting(PrefabId(2))),
+            PrefabTransitionPrompt::Empty
+        );
+        editor.confirm_empty_prefab_transition(EmptyPrefabExitPromptResult::DeletePrefab);
+
+        assert_eq!(editor.mode, EditorMode::Prefab(PrefabId(2)));
+        assert_eq!(editor.return_mode, Some(EditorMode::Room(room_id)));
+        assert!(!editor.game.prefab_library.prefabs.contains_key(&prefab_id));
+        assert_eq!(editor.pending_prefab_transition, None);
+    });
+}
+
+#[test]
+fn blank_prefab_transition_does_not_create_asset_until_confirmed() {
+    let _lock = game_fs_test_lock().lock().unwrap_or_else(|poison| poison.into_inner());
+    let test_game = TestGameFolder::new("prefab_new_switch_cancel");
+    let (mut editor, _, _, _) = make_prefab_session_editor(&test_game);
+
+    let root = editor.prefab_editor.as_ref().unwrap().root_entity.unwrap();
+    editor
+        .prefab_editor
+        .as_mut()
+        .unwrap()
+        .create_prefab_entity(&mut editor.prefab_stage.as_mut().unwrap().ecs, Some(root));
+
+    assert_eq!(
+        editor.request_prefab_transition(PendingPrefabTransition::CreateBlank(
+            "Fresh".to_string(),
+        )),
+        PrefabTransitionPrompt::Dirty
+    );
+    assert!(editor
+        .game
+        .prefab_library
+        .prefabs
+        .values()
+        .all(|prefab| prefab.name != "Fresh"));
+
+    editor.confirm_dirty_prefab_transition(DirtyPrefabExitPromptResult::Cancel);
+
+    assert!(editor
+        .game
+        .prefab_library
+        .prefabs
+        .values()
+        .all(|prefab| prefab.name != "Fresh"));
 }
 
 #[test]

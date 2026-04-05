@@ -60,6 +60,7 @@ pub struct PrefabEditor {
     pub(crate) last_committed_prefab: StagedPrefabState,
     pub(crate) last_room_synced_state: PrefabRoomSyncState,
     create_request: Option<SceneCreateRequest>,
+    pub(crate) open_prefab_picker_requested: bool,
 }
 
 impl PrefabEditor {
@@ -82,6 +83,7 @@ impl PrefabEditor {
             last_committed_prefab,
             last_room_synced_state,
             create_request: None,
+            open_prefab_picker_requested: false,
         }
     }
 
@@ -184,7 +186,9 @@ impl PrefabEditor {
                 fallback_parent: self.root_entity,
             },
         };
-        self.create_request = self.inspector.draw(ctx, game_ctx, &inspector_ctx).create_request;
+        let inspector_output = self.inspector.draw(ctx, game_ctx, &inspector_ctx);
+        self.create_request = inspector_output.create_request;
+        self.open_prefab_picker_requested = inspector_output.open_prefab_picker;
     }
 
     pub(crate) fn committed_prefab_asset(&self) -> Option<&PrefabAsset> {

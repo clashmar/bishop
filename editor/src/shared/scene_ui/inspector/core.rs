@@ -493,16 +493,36 @@ impl SceneInspector {
             }
         } else {
             let create_label = "+ Entity";
+            let open_label = "Open Prefab...";
+            let txt_open = measure_text(ctx, open_label, HEADER_FONT_SIZE_20);
             let txt_create = measure_text(ctx, create_label, HEADER_FONT_SIZE_20);
+            let create_btn_w = txt_create.width + WIDGET_PADDING * 2.0;
             let create_btn = Rect::new(
-                panel_rect.x + panel_rect.w - txt_create.width - BTN_MARGIN - (WIDGET_PADDING * 2.0),
+                panel_rect.x + panel_rect.w - create_btn_w - BTN_MARGIN,
                 panel_rect.y + BTN_MARGIN,
-                txt_create.width + WIDGET_PADDING * 2.0,
+                create_btn_w,
                 BTN_HEIGHT,
             );
 
             match scene_ctx.empty_state {
                 SceneEmptyInspectorBehavior::Prefab { fallback_parent } => {
+                    let open_btn_w = txt_open.width + WIDGET_PADDING * 2.0;
+                    let open_btn = register_rect(
+                        &mut interactive_rects,
+                        Rect::new(
+                            create_btn.x - WIDGET_SPACING - open_btn_w,
+                            create_btn.y,
+                            open_btn_w,
+                            BTN_HEIGHT,
+                        ),
+                    );
+                    let create_btn = register_rect(&mut interactive_rects, create_btn);
+
+                    if menu_button(ctx, open_btn, open_label, false) {
+                        output.open_prefab_picker = true;
+                        return SceneInspectorDrawResult::new(output, interactive_rects);
+                    }
+
                     if menu_button(ctx, create_btn, create_label, false) {
                         output.create_request = Some(SceneCreateRequest {
                             parent: fallback_parent,

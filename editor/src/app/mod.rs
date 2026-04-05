@@ -44,6 +44,20 @@ pub(crate) enum PendingPrefabRequest {
     CreateBlank,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) enum PendingPrefabTransition {
+    Exit,
+    OpenExisting(PrefabId),
+    CreateBlank(String),
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum PrefabTransitionPrompt {
+    None,
+    Dirty,
+    Empty,
+}
+
 pub struct Editor {
     pub game: Game,
     pub mode: EditorMode,
@@ -62,6 +76,7 @@ pub struct Editor {
     pub modal: Modal,
     pub pending_export: Option<PendingExport>,
     pub pending_prefab_request: Option<PendingPrefabRequest>,
+    pub pending_prefab_transition: Option<PendingPrefabTransition>,
     pub toast: Option<Toast>,
     pub playtest_process: Option<PlaytestProcess>,
     pub pending_playtest_build: Option<BackgroundTask<Result<(PathBuf, PathBuf), String>>>,
@@ -161,17 +176,26 @@ impl Editor {
                 self.menu_editor.update(ctx, &self.camera);
             }
             EditorMode::Prefab(_) => {
-                if let (Some(prefab_editor), Some(prefab_stage)) =
+                let open_prefab_picker_requested = if let (Some(prefab_editor), Some(prefab_stage)) =
                     (self.prefab_editor.as_mut(), self.prefab_stage.as_mut())
                 {
                     let mut prefab_ctx = prefab_stage.ctx_mut();
                     prefab_editor.update(ctx, &mut self.camera, &mut prefab_ctx);
-                    self.reconcile_active_prefab_room_preview();
-                    if Controls::escape(ctx) && !input_is_focused() {
-                        self.request_exit_prefab_mode(ctx);
-                    }
-                }
+                    std::mem::take(&mut prefab_editor.open_prefab_picker_requested)
+                } else {
+                    false
+                };
 
+                self.reconcile_active_prefab_room_preview();
+                if open_prefab_picker_requested {
+                    self.open_prefab_picker_modal(ctx);
+                }
+                if matches!(self.mode, EditorMode::Prefab(_))
+                    && Controls::escape(ctx)
+                    && !input_is_focused()
+                {
+                    self.request_exit_prefab_mode(ctx);
+                }
             }
             EditorMode::Game => {
                 // Returns the id of the world that was clicked on or None

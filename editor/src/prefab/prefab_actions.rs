@@ -1,8 +1,11 @@
-use crate::app::{Editor, EditorMode, PendingPrefabRequest};
+use crate::app::{
+    Editor, EditorMode, PendingPrefabRequest, PendingPrefabTransition, PrefabTransitionPrompt,
+};
 use crate::commands::scene::{
     ApplyInstanceToPrefabCmd, RevertPrefabInstanceCmd, UnlinkPrefabInstanceCmd,
 };
 use crate::editor_global::push_command;
+use crate::gui::prompts::{DirtyPrefabExitPromptResult, EmptyPrefabExitPromptResult};
 use crate::prefab::prefab_editor::{PrefabRoomSyncState, StagedPrefabState};
 use crate::shared::scene_ui::inspector::{ScenePrefabAction, ScenePrefabActionRequest};
 use bishop::prelude::*;
@@ -81,8 +84,12 @@ impl Editor {
         }
     }
 
-    pub(crate) fn enter_prefab_mode(&mut self, _ctx: &WgpuContext, prefab_id: PrefabId) {
-        self.open_prefab_editor_for_id(prefab_id);
+    pub(crate) fn enter_prefab_mode(&mut self, ctx: &WgpuContext, prefab_id: PrefabId) {
+        match self.request_prefab_transition(PendingPrefabTransition::OpenExisting(prefab_id)) {
+            PrefabTransitionPrompt::None => {}
+            PrefabTransitionPrompt::Dirty => self.open_dirty_prefab_exit_modal(ctx),
+            PrefabTransitionPrompt::Empty => self.open_empty_prefab_exit_modal(ctx),
+        }
     }
 
     fn open_prefab_editor_for_id(&mut self, prefab_id: PrefabId) {
@@ -100,7 +107,9 @@ impl Editor {
         );
         self.prefab_editor = Some(prefab_editor);
         self.prefab_stage = Some(prefab_stage);
-        self.return_mode = Some(self.mode);
+        if !matches!(self.mode, EditorMode::Prefab(_)) {
+            self.return_mode = Some(self.mode);
+        }
         self.mode = EditorMode::Prefab(prefab.id);
         self.toast = Some(Toast::new(format!("Opened prefab '{}'", prefab.name), 2.5));
     }
@@ -132,7 +141,7 @@ impl Editor {
         self.open_prefab_editor_for_id(prefab.id);
     }
 
-    pub(crate) fn create_blank_prefab(&mut self, _ctx: &WgpuContext, name: String) {
+    fn create_blank_prefab_impl(&mut self, name: String) {
         let prefab_id = self.game.prefab_library.allocate_prefab_id();
         let prefab = create_prefab(prefab_id, name);
         if let Err(error) = save_prefab(&self.game.name, &prefab) {
@@ -142,6 +151,14 @@ impl Editor {
 
         self.game.prefab_library.prefabs.insert(prefab.id, prefab.clone());
         self.open_prefab_editor_for_id(prefab_id);
+    }
+
+    pub(crate) fn request_blank_prefab_transition(&mut self, ctx: &WgpuContext, name: String) {
+        match self.request_prefab_transition(PendingPrefabTransition::CreateBlank(name)) {
+            PrefabTransitionPrompt::None => {}
+            PrefabTransitionPrompt::Dirty => self.open_dirty_prefab_exit_modal(ctx),
+            PrefabTransitionPrompt::Empty => self.open_empty_prefab_exit_modal(ctx),
+        }
     }
 
     pub fn save_active_prefab(&mut self) {
@@ -198,7 +215,7 @@ impl Editor {
         self.commit_prefab_delete();
     }
 
-    pub(crate) fn discard_active_prefab_changes_and_exit(&mut self) {
+    fn discard_active_prefab_changes(&mut self) {
         let Some(committed_state) = self
             .prefab_editor
             .as_ref()
@@ -208,7 +225,73 @@ impl Editor {
         };
 
         self.reconcile_prefab_room_state(committed_state);
-        self.close_active_prefab_editor();
+    }
+
+    pub(crate) fn request_prefab_transition(
+        &mut self,
+        transition: PendingPrefabTransition,
+    ) -> PrefabTransitionPrompt {
+        if matches!(&transition, PendingPrefabTransition::OpenExisting(prefab_id) if Some(*prefab_id)
+            == self.prefab_editor.as_ref().map(|prefab_editor| prefab_editor.prefab_id))
+        {
+            return PrefabTransitionPrompt::None;
+        }
+
+        let Some(staged_state) = self.active_prefab_staged_state() else {
+            self.execute_prefab_transition(transition);
+            return PrefabTransitionPrompt::None;
+        };
+
+        if self.active_prefab_is_clean() {
+            self.execute_prefab_transition(transition);
+            return PrefabTransitionPrompt::None;
+        }
+
+        self.pending_prefab_transition = Some(transition);
+        match staged_state {
+            StagedPrefabState::PrefabAsset(_) => PrefabTransitionPrompt::Dirty,
+            StagedPrefabState::Empty => PrefabTransitionPrompt::Empty,
+        }
+    }
+
+    pub(crate) fn confirm_dirty_prefab_transition(
+        &mut self,
+        result: DirtyPrefabExitPromptResult,
+    ) {
+        match result {
+            DirtyPrefabExitPromptResult::SaveAndSync => {
+                if let Some(StagedPrefabState::PrefabAsset(prefab)) = self.active_prefab_staged_state() {
+                    self.commit_prefab_asset_save(prefab);
+                    self.finish_pending_prefab_transition();
+                }
+            }
+            DirtyPrefabExitPromptResult::DiscardChanges => {
+                self.discard_active_prefab_changes();
+                self.finish_pending_prefab_transition();
+            }
+            DirtyPrefabExitPromptResult::Cancel => {
+                self.pending_prefab_transition = None;
+            }
+        }
+    }
+
+    pub(crate) fn confirm_empty_prefab_transition(
+        &mut self,
+        result: EmptyPrefabExitPromptResult,
+    ) {
+        match result {
+            EmptyPrefabExitPromptResult::DeletePrefab => {
+                self.commit_prefab_delete();
+                self.finish_pending_prefab_transition();
+            }
+            EmptyPrefabExitPromptResult::DiscardChanges => {
+                self.discard_active_prefab_changes();
+                self.finish_pending_prefab_transition();
+            }
+            EmptyPrefabExitPromptResult::Cancel => {
+                self.pending_prefab_transition = None;
+            }
+        }
     }
 
     pub(crate) fn close_active_prefab_editor(&mut self) {
@@ -216,6 +299,7 @@ impl Editor {
         self.prefab_stage = None;
         self.mode = self.return_mode.unwrap_or(EditorMode::Game);
         self.return_mode = None;
+        self.pending_prefab_transition = None;
     }
 
     pub(crate) fn commit_prefab_asset_save(&mut self, prefab: PrefabAsset) {
@@ -299,6 +383,22 @@ impl Editor {
                     },
                 };
             }
+        }
+    }
+
+    fn finish_pending_prefab_transition(&mut self) {
+        let transition = self
+            .pending_prefab_transition
+            .take()
+            .unwrap_or(PendingPrefabTransition::Exit);
+        self.execute_prefab_transition(transition);
+    }
+
+    fn execute_prefab_transition(&mut self, transition: PendingPrefabTransition) {
+        match transition {
+            PendingPrefabTransition::Exit => self.close_active_prefab_editor(),
+            PendingPrefabTransition::OpenExisting(prefab_id) => self.open_prefab_editor_for_id(prefab_id),
+            PendingPrefabTransition::CreateBlank(name) => self.create_blank_prefab_impl(name),
         }
     }
 }

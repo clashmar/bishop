@@ -41,6 +41,7 @@ impl Default for Editor {
             modal: Modal::default(),
             pending_export: None,
             pending_prefab_request: None,
+            pending_prefab_transition: None,
             toast: None,
             playtest_process: None,
             pending_playtest_build: None,
@@ -384,8 +385,11 @@ impl Editor {
 
     pub(crate) fn open_prefab_picker_modal(&mut self, ctx: &mut WgpuContext) {
         self.modal = Modal::new(ctx, 280.0, 240.0);
+        let excluded_prefab_id = matches!(self.mode, EditorMode::Prefab(_))
+            .then(|| self.prefab_editor.as_ref().map(|editor| editor.prefab_id))
+            .flatten();
         let prefabs = list_prefabs(&self.game.name).unwrap_or_default();
-        let mut prompt = PrefabPickerPrompt::new(self.modal.rect, prefabs);
+        let mut prompt = PrefabPickerPrompt::new(self.modal.rect, prefabs, excluded_prefab_id);
 
         let widgets: Vec<BoxedWidget> = vec![Box::new(move |ctx, _| {
             if let Some(result) = prompt.draw(ctx) {
@@ -462,7 +466,7 @@ impl Editor {
         self.modal.open(widgets);
     }
 
-    fn open_empty_prefab_exit_modal(&mut self, ctx: &WgpuContext) {
+    pub(crate) fn open_empty_prefab_exit_modal(&mut self, ctx: &WgpuContext) {
         self.modal = Modal::new(ctx, 560.0, 140.0);
         let mut prompt = EmptyPrefabExitPrompt::new(
             self.modal.rect,
@@ -476,7 +480,7 @@ impl Editor {
         self.modal.open(widgets);
     }
 
-    fn open_dirty_prefab_exit_modal(&mut self, ctx: &WgpuContext) {
+    pub(crate) fn open_dirty_prefab_exit_modal(&mut self, ctx: &WgpuContext) {
         self.modal = Modal::new(ctx, 560.0, 140.0);
         let mut prompt = DirtyPrefabExitPrompt::new(
             self.modal.rect,
@@ -508,22 +512,10 @@ impl Editor {
     }
 
     pub(crate) fn request_exit_prefab_mode(&mut self, ctx: &WgpuContext) {
-        let Some(staged_state) = self.active_prefab_staged_state() else {
-            return;
-        };
-
-        if self.active_prefab_is_clean() {
-            self.close_active_prefab_editor();
-            return;
-        }
-
-        match staged_state {
-            crate::prefab::prefab_editor::StagedPrefabState::PrefabAsset(_) => {
-                self.open_dirty_prefab_exit_modal(ctx);
-            }
-            crate::prefab::prefab_editor::StagedPrefabState::Empty => {
-                self.open_empty_prefab_exit_modal(ctx);
-            }
+        match self.request_prefab_transition(PendingPrefabTransition::Exit) {
+            PrefabTransitionPrompt::None => {}
+            PrefabTransitionPrompt::Dirty => self.open_dirty_prefab_exit_modal(ctx),
+            PrefabTransitionPrompt::Empty => self.open_empty_prefab_exit_modal(ctx),
         }
     }
 
@@ -695,7 +687,7 @@ impl Editor {
                                     self.create_prefab_from_selection(ctx, entity, name);
                                 }
                                 Some(PendingPrefabRequest::CreateBlank) => {
-                                    self.create_blank_prefab(ctx, name);
+                                    self.request_blank_prefab_transition(ctx, name);
                                 }
                                 None => {}
                             }
@@ -773,37 +765,14 @@ impl Editor {
             let empty_prefab_exit_opt = EMPTY_PREFAB_EXIT_RESULT.with(|c| c.borrow_mut().take());
 
             if let Some(result) = empty_prefab_exit_opt {
-                match result {
-                    EmptyPrefabExitPromptResult::DeletePrefab => {
-                        self.commit_prefab_delete();
-                        self.close_active_prefab_editor();
-                    }
-                    EmptyPrefabExitPromptResult::DiscardChanges => {
-                        self.discard_active_prefab_changes_and_exit();
-                    }
-                    EmptyPrefabExitPromptResult::Cancel => {}
-                }
+                self.confirm_empty_prefab_transition(result);
                 self.modal.close();
             }
 
             let dirty_prefab_exit_opt = DIRTY_PREFAB_EXIT_RESULT.with(|c| c.borrow_mut().take());
 
             if let Some(result) = dirty_prefab_exit_opt {
-                match result {
-                    DirtyPrefabExitPromptResult::SaveAndSync => {
-                        if let Some(crate::prefab::prefab_editor::StagedPrefabState::PrefabAsset(
-                            prefab,
-                        )) = self.active_prefab_staged_state()
-                        {
-                            self.commit_prefab_asset_save(prefab);
-                            self.close_active_prefab_editor();
-                        }
-                    }
-                    DirtyPrefabExitPromptResult::DiscardChanges => {
-                        self.discard_active_prefab_changes_and_exit();
-                    }
-                    DirtyPrefabExitPromptResult::Cancel => {}
-                }
+                self.confirm_dirty_prefab_transition(result);
                 self.modal.close();
             }
         }

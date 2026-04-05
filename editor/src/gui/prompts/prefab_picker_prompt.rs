@@ -31,7 +31,11 @@ pub struct PrefabPickerPrompt {
 }
 
 impl PrefabPickerPrompt {
-    pub fn new(modal_rect: Rect, prefabs: Vec<PrefabAsset>) -> Self {
+    pub fn new(
+        modal_rect: Rect,
+        prefabs: Vec<PrefabAsset>,
+        excluded_prefab_id: Option<PrefabId>,
+    ) -> Self {
         let total_h = PROMPT_TOP_PADDING
             + DEFAULT_FONT_SIZE_16
             + PROMPT_TEXT_GAP
@@ -47,6 +51,7 @@ impl PrefabPickerPrompt {
             rect: prompt_content_rect(modal_rect, total_h),
             prefabs: prefabs
                 .into_iter()
+                .filter(|prefab| Some(prefab.id) != excluded_prefab_id)
                 .map(|prefab| PrefabChoice {
                     prefab_id: prefab.id,
                     label: prefab.name.clone(),

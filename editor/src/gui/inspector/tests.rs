@@ -1,7 +1,7 @@
 use crate::app::EditorMode;
 use crate::shared::scene_ui::inspector::{
     is_scene_component_hidden_in_prefab, linked_prefab_instance_state_for_scene_inspector,
-    SceneEmptyInspectorBehavior, SceneInspectorContext, ScenePrefabAction,
+    SceneEmptyInspectorBehavior, SceneInspectorContext, SceneInspectorOutput, ScenePrefabAction,
 };
 use engine_core::prelude::*;
 
@@ -158,4 +158,11 @@ fn linked_prefab_state_for_scene_inspector_resolves_child_selection_to_root() {
     assert_eq!(state.prefab_name, "Crate");
     assert!(state.has_overrides);
     assert_eq!(state.open_action, ScenePrefabAction::OpenPrefabEditor);
+}
+
+#[test]
+fn scene_inspector_output_defaults_to_no_prefab_picker_request() {
+    let output = SceneInspectorOutput::default();
+
+    assert!(!output.open_prefab_picker);
 }

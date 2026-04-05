@@ -61,6 +61,8 @@ pub struct SceneInspectorOutput {
     pub create_request: Option<SceneCreateRequest>,
     /// Linked-prefab action triggered from the inspector, if any.
     pub prefab_action: Option<ScenePrefabActionRequest>,
+    /// Whether the prefab-mode empty state requested the prefab picker.
+    pub open_prefab_picker: bool,
 }
 
 /// Full draw result emitted by the shared inspector core.
