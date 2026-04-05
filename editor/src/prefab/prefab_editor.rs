@@ -1,3 +1,4 @@
+use crate::app::EditorCameraController;
 use crate::app::EditorMode;
 use crate::app::SubEditor;
 use crate::canvas::grid;
@@ -45,6 +46,7 @@ pub struct PrefabEditor {
     pub inspector: InspectorPanel,
     pub active_rects: Vec<Rect>,
     pub show_grid: bool,
+    pub(crate) needs_camera_reset: bool,
     pub(crate) last_committed_prefab: StagedPrefabState,
     pub(crate) last_room_synced_state: PrefabRoomSyncState,
     create_request: Option<SceneCreateRequest>,
@@ -65,6 +67,7 @@ impl PrefabEditor {
             inspector: InspectorPanel::new(),
             active_rects: Vec::new(),
             show_grid: true,
+            needs_camera_reset: true,
             last_committed_prefab,
             last_room_synced_state,
             create_request: None,
@@ -74,7 +77,7 @@ impl PrefabEditor {
     pub fn update(
         &mut self,
         ctx: &mut WgpuContext,
-        camera: &Camera2D,
+        camera: &mut Camera2D,
         game_ctx: &mut ServicesCtxMut,
     ) {
         self.sanitize_live_state(game_ctx.ecs);
@@ -86,13 +89,30 @@ impl PrefabEditor {
         if let Some(create_request) = self.create_request.take() {
             let entity = self.create_prefab_entity(game_ctx.ecs, create_request.parent);
             self.set_selected_entity(Some(entity));
+            self.needs_camera_reset = true;
         }
+
+        self.handle_shortcuts(ctx);
+        self.handle_camera(ctx, camera, game_ctx.ecs);
 
         if self.selected_entities.len() == 1 {
             self.inspector.set_target(self.single_selected_entity());
         } else {
             self.inspector.set_target(None);
         }
+    }
+
+    fn handle_camera(&mut self, ctx: &WgpuContext, camera: &mut Camera2D, ecs: &Ecs) {
+        if !self.needs_camera_reset {
+            return;
+        }
+        self.needs_camera_reset = false;
+        let root_pos = self
+            .root_entity
+            .and_then(|e| ecs.get::<Transform>(e))
+            .map(|t| t.position)
+            .unwrap_or(Vec2::ZERO);
+        EditorCameraController::reset_prefab_editor_camera(ctx, camera, root_pos, PREFAB_EDITOR_GRID_SIZE);
     }
 
     pub fn draw(

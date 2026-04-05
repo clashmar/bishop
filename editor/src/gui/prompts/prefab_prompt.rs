@@ -73,7 +73,7 @@ impl EmptyPrefabExitPrompt {
         if Button::new(first, "Delete Prefab").show(ctx) {
             return Some(EmptyPrefabExitPromptResult::DeletePrefab);
         }
-        if Button::new(second, "Discard Changes").show(ctx) || Controls::enter(ctx) {
+        if Button::new(second, "Discard").show(ctx) || Controls::enter(ctx) {
             return Some(EmptyPrefabExitPromptResult::DiscardChanges);
         }
         if Button::new(third, "Cancel").show(ctx) || Controls::escape(ctx) {

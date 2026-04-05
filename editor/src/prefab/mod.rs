@@ -4,6 +4,7 @@ pub(crate) mod instance_sync;
 pub mod prefab_actions;
 pub mod prefab_editor;
 mod selection;
+mod shortcuts;
 
 pub use prefab_editor::*;
 pub use selection::is_prefab_entity;

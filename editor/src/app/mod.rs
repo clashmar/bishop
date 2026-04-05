@@ -165,12 +165,13 @@ impl Editor {
                     (self.prefab_editor.as_mut(), self.prefab_stage.as_mut())
                 {
                     let mut prefab_ctx = prefab_stage.ctx_mut();
-                    prefab_editor.update(ctx, &self.camera, &mut prefab_ctx);
+                    prefab_editor.update(ctx, &mut self.camera, &mut prefab_ctx);
                     self.reconcile_active_prefab_room_preview();
                     if Controls::escape(ctx) && !input_is_focused() {
                         self.request_exit_prefab_mode(ctx);
                     }
                 }
+
             }
             EditorMode::Game => {
                 // Returns the id of the world that was clicked on or None

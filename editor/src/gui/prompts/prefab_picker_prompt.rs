@@ -79,7 +79,7 @@ impl PrefabPickerPrompt {
                     .find(|choice| choice.prefab_id == prefab_id)
                     .map(|choice| choice.label.clone())
             })
-            .unwrap_or_else(|| "Select prefab".to_string());
+            .unwrap_or_else(|| "Select Prefab".to_string());
 
         let new_rect = Rect::new(
             self.rect.x,
