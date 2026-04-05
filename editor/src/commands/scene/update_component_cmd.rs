@@ -1,6 +1,7 @@
 use crate::app::EditorMode;
 use crate::commands::editor_command_manager::EditorCommand;
 use crate::commands::scene::context::with_scene_ctx;
+use crate::prefab::instance_sync::sync_prefab_overrides_for_entity;
 use crate::with_editor;
 use engine_core::prelude::*;
 use std::any::Any;
@@ -182,7 +183,16 @@ impl EditorCommand for UpdateComponentCmd {
         let entity = self.entity;
         let mode = self.mode;
         let transient_state = self.new_transient_state.clone();
-        with_editor(|editor| Self::apply(entity, mode, type_name, ron, &transient_state, editor));
+        with_editor(|editor| {
+            Self::apply(entity, mode, type_name, ron, &transient_state, editor);
+            if matches!(mode, EditorMode::Room(_)) {
+                sync_prefab_overrides_for_entity(
+                    &mut editor.game.ecs,
+                    &editor.game.prefab_library,
+                    entity,
+                );
+            }
+        });
     }
 
     fn undo(&mut self) {
@@ -191,7 +201,16 @@ impl EditorCommand for UpdateComponentCmd {
         let entity = self.entity;
         let mode = self.mode;
         let transient_state = self.old_transient_state.clone();
-        with_editor(|editor| Self::apply(entity, mode, type_name, ron, &transient_state, editor));
+        with_editor(|editor| {
+            Self::apply(entity, mode, type_name, ron, &transient_state, editor);
+            if matches!(mode, EditorMode::Room(_)) {
+                sync_prefab_overrides_for_entity(
+                    &mut editor.game.ecs,
+                    &editor.game.prefab_library,
+                    entity,
+                );
+            }
+        });
     }
 
     fn mode(&self) -> EditorMode {

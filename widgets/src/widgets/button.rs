@@ -40,6 +40,10 @@ pub struct Button<'a> {
     icon_padding: f32,
 }
 
+const BLOCKED_BACKGROUND_COLOR: Color = Color::new(0.08, 0.08, 0.08, 0.9);
+const BLOCKED_OUTLINE_COLOR: Color = Color::new(0.45, 0.45, 0.45, 0.7);
+const BLOCKED_TEXT_COLOR: Color = Color::new(0.65, 0.65, 0.65, 0.9);
+
 impl<'a> Button<'a> {
     /// Creates a new button with the given rect and label.
     pub fn new(rect: impl Into<Rect>, label: &'a str) -> Self {
@@ -172,10 +176,17 @@ impl<'a> Button<'a> {
                     && !self.blocked
                     && !primary_held
                     && !secondary_held;
-                let background = if highlight {
+                let background = if self.blocked {
+                    BLOCKED_BACKGROUND_COLOR
+                } else if highlight {
                     self.hover_color
                 } else {
                     FIELD_BACKGROUND_COLOR
+                };
+                let outline_color = if self.blocked {
+                    BLOCKED_OUTLINE_COLOR
+                } else {
+                    OUTLINE_COLOR
                 };
                 ctx.draw_rectangle(
                     self.rect.x,
@@ -190,7 +201,7 @@ impl<'a> Button<'a> {
                     self.rect.w,
                     self.rect.h,
                     2.,
-                    OUTLINE_COLOR,
+                    outline_color,
                 );
             }
             ButtonStyle::Plain => {
@@ -199,7 +210,15 @@ impl<'a> Button<'a> {
                     && !self.blocked
                     && !primary_held
                     && !secondary_held;
-                if highlight {
+                if self.blocked {
+                    ctx.draw_rectangle(
+                        self.rect.x,
+                        self.rect.y,
+                        self.rect.w,
+                        self.rect.h,
+                        Color::new(0.2, 0.2, 0.2, 0.25),
+                    );
+                } else if highlight {
                     ctx.draw_rectangle(
                         self.rect.x,
                         self.rect.y,
@@ -213,6 +232,11 @@ impl<'a> Button<'a> {
 
         match &self.content {
             ButtonContent::Text(label) => {
+                let text_color = if self.blocked {
+                    BLOCKED_TEXT_COLOR
+                } else {
+                    self.text_color
+                };
                 let txt_dims = measure_text_ui(ctx, label, self.font_size);
                 let txt_y =
                     self.rect.y + (self.rect.h - txt_dims.height) / 2.0 + txt_dims.offset_y;
@@ -223,16 +247,21 @@ impl<'a> Button<'a> {
                     txt_x + self.text_offset.x,
                     txt_y + self.text_offset.y,
                     self.font_size,
-                    self.text_color,
+                    text_color,
                 );
             }
             ButtonContent::Icon { texture, .. } => {
+                let icon_color = if self.blocked {
+                    BLOCKED_TEXT_COLOR
+                } else {
+                    self.text_color
+                };
                 let p = self.icon_padding;
                 ctx.draw_texture_ex(
                     texture,
                     self.rect.x + p,
                     self.rect.y + p,
-                    self.text_color,
+                    icon_color,
                     DrawTextureParams {
                         dest_size: Some(Vec2::new(self.rect.w - 2.0 * p, self.rect.h - 2.0 * p)),
                         ..Default::default()
@@ -292,6 +321,9 @@ mod tests {
         right_pressed: bool,
         right_down: bool,
         right_released: bool,
+        rectangle_fills: Vec<Color>,
+        rectangle_lines: Vec<Color>,
+        text_colors: Vec<Color>,
     }
 
     impl TestContext {
@@ -304,6 +336,9 @@ mod tests {
                 right_pressed: false,
                 right_down: false,
                 right_released: false,
+                rectangle_fills: Vec::new(),
+                rectangle_lines: Vec::new(),
+                text_colors: Vec::new(),
             }
         }
     }
@@ -371,7 +406,9 @@ mod tests {
     }
 
     impl Draw for TestContext {
-        fn draw_rectangle(&mut self, _x: f32, _y: f32, _w: f32, _h: f32, _color: Color) {}
+        fn draw_rectangle(&mut self, _x: f32, _y: f32, _w: f32, _h: f32, color: Color) {
+            self.rectangle_fills.push(color);
+        }
 
         fn draw_rectangle_lines(
             &mut self,
@@ -380,8 +417,9 @@ mod tests {
             _w: f32,
             _h: f32,
             _thickness: f32,
-            _color: Color,
+            color: Color,
         ) {
+            self.rectangle_lines.push(color);
         }
 
         fn draw_line(
@@ -456,6 +494,7 @@ mod tests {
             _y: f32,
             params: TextParams,
         ) -> TextDimensions {
+            self.text_colors.push(params.color);
             self.measure_text(text, params.font_size as f32)
         }
 
@@ -621,5 +660,21 @@ mod tests {
 
         assert!(!clicks.primary);
         assert!(clicks.secondary);
+    }
+
+    #[test]
+    fn blocked_buttons_are_dimmed_and_do_not_click() {
+        reset_click_consumed();
+
+        let button = Rect::new(0.0, 0.0, 80.0, 30.0);
+        let mut ctx = TestContext::new();
+        ctx.mouse_pos = (40.0, 20.0);
+        ctx.left_pressed = true;
+        ctx.left_down = true;
+
+        assert!(!Button::new(button, "Play").blocked(true).show(&mut ctx));
+        assert_eq!(ctx.rectangle_fills.last().copied(), Some(BLOCKED_BACKGROUND_COLOR));
+        assert_eq!(ctx.rectangle_lines.last().copied(), Some(BLOCKED_OUTLINE_COLOR));
+        assert_eq!(ctx.text_colors.last().copied(), Some(BLOCKED_TEXT_COLOR));
     }
 }

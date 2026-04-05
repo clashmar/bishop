@@ -1,7 +1,7 @@
 use crate::app::EditorMode;
 use crate::shared::scene_ui::inspector::{
-    linked_prefab_metadata_for_scene_inspector, is_scene_component_hidden_in_prefab,
-    SceneEmptyInspectorBehavior, SceneInspectorContext,
+    is_scene_component_hidden_in_prefab, linked_prefab_instance_state_for_scene_inspector,
+    SceneEmptyInspectorBehavior, SceneInspectorContext, ScenePrefabAction,
 };
 use engine_core::prelude::*;
 
@@ -29,8 +29,20 @@ fn linked_prefab_metadata_is_hidden_in_prefab_mode() {
         .prefabs
         .insert(PrefabId(9), create_prefab(PrefabId(9), "Crate".to_string()));
 
-    assert!(linked_prefab_metadata_for_scene_inspector(true, &ecs, &prefab_library, entity).is_some());
-    assert!(linked_prefab_metadata_for_scene_inspector(false, &ecs, &prefab_library, entity).is_none());
+    assert!(linked_prefab_instance_state_for_scene_inspector(
+        true,
+        &mut ecs,
+        &prefab_library,
+        entity,
+    )
+    .is_some());
+    assert!(linked_prefab_instance_state_for_scene_inspector(
+        false,
+        &mut ecs,
+        &prefab_library,
+        entity,
+    )
+    .is_none());
 }
 
 #[test]
@@ -85,4 +97,65 @@ fn prefab_blocked_component_types_exclude_room_specific_types() {
     assert!(is_scene_component_hidden_in_prefab(player));
     assert!(is_scene_component_hidden_in_prefab(global));
     assert!(!is_scene_component_hidden_in_prefab(transform));
+}
+
+#[test]
+fn linked_prefab_state_for_scene_inspector_resolves_child_selection_to_root() {
+    let mut ecs = Ecs::default();
+    let root = ecs
+        .create_entity()
+        .with(Transform::default())
+        .with(Name("Root".to_string()))
+        .finish();
+    let child = ecs
+        .create_entity()
+        .with(Transform::default())
+        .with(Name("Child".to_string()))
+        .finish();
+    set_parent(&mut ecs, child, root);
+
+    let prefab_id = PrefabId(12);
+    ecs.add_component_to_entity(root, PrefabInstanceRoot { prefab_id });
+    ecs.add_component_to_entity(
+        root,
+        PrefabInstanceNode {
+            prefab_id,
+            node_id: 1,
+            root_entity: root,
+        },
+    );
+    ecs.add_component_to_entity(
+        child,
+        PrefabInstanceNode {
+            prefab_id,
+            node_id: 2,
+            root_entity: root,
+        },
+    );
+    ecs.add_component_to_entity(
+        child,
+        PrefabOverrides {
+            modified_components: vec![Transform::TYPE_NAME.to_string()],
+            ..Default::default()
+        },
+    );
+
+    let mut prefab_library = PrefabLibrary::default();
+    prefab_library
+        .prefabs
+        .insert(prefab_id, create_prefab(prefab_id, "Crate".to_string()));
+
+    let state = linked_prefab_instance_state_for_scene_inspector(
+        true,
+        &mut ecs,
+        &prefab_library,
+        child,
+    )
+    .expect("linked child should expose room inspector prefab state");
+
+    assert_eq!(state.root_entity, root);
+    assert_eq!(state.prefab_id, prefab_id);
+    assert_eq!(state.prefab_name, "Crate");
+    assert!(state.has_overrides);
+    assert_eq!(state.open_action, ScenePrefabAction::OpenPrefabEditor);
 }

@@ -1,14 +1,14 @@
-use crate::shared::scene_ui::prefab_link::{linked_prefab_display, PrefabLinkDisplay};
+use crate::prefab::instance_sync::{linked_prefab_instance_state, LinkedPrefabInstanceState};
 use engine_core::prelude::*;
 
-/// Returns linked-prefab metadata for scene inspector UI when that metadata is enabled.
-pub fn linked_prefab_metadata_for_scene_inspector(
+/// Returns room-inspector state for linked prefab instances when that metadata is enabled.
+pub fn linked_prefab_instance_state_for_scene_inspector(
     show_linked_prefab_metadata: bool,
-    ecs: &Ecs,
+    ecs: &mut Ecs,
     prefab_library: &PrefabLibrary,
     entity: Entity,
-) -> Option<PrefabLinkDisplay> {
-    show_linked_prefab_metadata.then(|| linked_prefab_display(ecs, prefab_library, entity))?
+) -> Option<LinkedPrefabInstanceState> {
+    show_linked_prefab_metadata.then(|| linked_prefab_instance_state(ecs, prefab_library, entity))?
 }
 
 /// Returns whether a component type should be hidden from prefab scene editing.

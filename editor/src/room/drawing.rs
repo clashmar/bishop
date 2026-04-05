@@ -149,10 +149,9 @@ impl RoomEditor {
                     selected_create_parent: None,
                     empty_state: SceneEmptyInspectorBehavior::Room,
                 };
-                self.create_request = self
-                    .inspector
-                    .draw(ctx, &mut services_ctx, &inspector_ctx)
-                    .create_request;
+                let inspector_output = self.inspector.draw(ctx, &mut services_ctx, &inspector_ctx);
+                self.create_request = inspector_output.create_request;
+                self.prefab_action_request = inspector_output.prefab_action;
 
                 // Mode selector (menu bar)
                 let (mode_rect, changed) = self.mode_selector.draw(ctx);

@@ -213,6 +213,7 @@ impl Editor {
                 }
             }
             EditorMode::Room(room_id) => {
+                let room_prefab_action;
                 {
                     let current_world = &mut self
                         .game
@@ -229,6 +230,7 @@ impl Editor {
                         current_world,
                         &mut self.game.asset_manager,
                     );
+                    room_prefab_action = self.room_editor.prefab_action_request.take();
 
                     collider_system::update_colliders_from_sprites(
                         &mut self.game.ecs,
@@ -260,6 +262,10 @@ impl Editor {
                         // Save everything
                         self.save();
                     }
+                }
+
+                if let Some(request) = room_prefab_action {
+                    self.handle_room_prefab_action(ctx, request, room_id);
                 }
 
                 // Launch play‑test if the play button was pressed

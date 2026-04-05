@@ -1,5 +1,10 @@
 use crate::app::{Editor, EditorMode, PendingPrefabRequest};
+use crate::commands::scene::{
+    ApplyInstanceToPrefabCmd, RevertPrefabInstanceCmd, UnlinkPrefabInstanceCmd,
+};
+use crate::editor_global::push_command;
 use crate::prefab::prefab_editor::{PrefabRoomSyncState, StagedPrefabState};
+use crate::shared::scene_ui::inspector::{ScenePrefabAction, ScenePrefabActionRequest};
 use bishop::prelude::*;
 use engine_core::prelude::*;
 use std::collections::HashSet;
@@ -41,6 +46,37 @@ impl Editor {
             }
             PrefabEditorLaunch::OpenPicker => {
                 self.open_prefab_picker_modal(ctx);
+            }
+        }
+    }
+
+    pub(crate) fn handle_room_prefab_action(
+        &mut self,
+        ctx: &WgpuContext,
+        request: ScenePrefabActionRequest,
+        room_id: RoomId,
+    ) {
+        match request.action {
+            ScenePrefabAction::OpenPrefabEditor => {
+                self.enter_prefab_mode(ctx, request.prefab_id);
+            }
+            ScenePrefabAction::UnlinkInstance => {
+                push_command(Box::new(UnlinkPrefabInstanceCmd::new(
+                    request.selected_entity,
+                    EditorMode::Room(room_id),
+                )));
+            }
+            ScenePrefabAction::ApplyInstanceToPrefab => {
+                push_command(Box::new(ApplyInstanceToPrefabCmd::new(
+                    request.selected_entity,
+                    EditorMode::Room(room_id),
+                )));
+            }
+            ScenePrefabAction::RevertInstanceToPrefab => {
+                push_command(Box::new(RevertPrefabInstanceCmd::new(
+                    request.selected_entity,
+                    EditorMode::Room(room_id),
+                )));
             }
         }
     }

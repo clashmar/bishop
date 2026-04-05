@@ -1,7 +1,7 @@
 use super::{
-    is_scene_component_hidden_in_prefab, linked_prefab_metadata_for_scene_inspector,
+    is_scene_component_hidden_in_prefab, linked_prefab_instance_state_for_scene_inspector,
     SceneCreateRequest, SceneEmptyInspectorBehavior, SceneInspectorContext, SceneInspectorDrawResult,
-    SceneInspectorOutput,
+    SceneInspectorOutput, ScenePrefabAction, ScenePrefabActionRequest,
 };
 use crate::commands::room::copy_entity;
 use crate::commands::scene::{
@@ -20,7 +20,19 @@ use std::collections::HashMap;
 use std::fmt::{Display, Formatter, Result as FmtResult};
 
 const SCROLL_SPEED: f32 = 5.0;
-const PREFAB_METADATA_HEIGHT: f32 = 24.0;
+const PREFAB_METADATA_HEIGHT: f32 = 66.0;
+const PREFAB_ACTION_TOP_PADDING: f32 = 4.0;
+const PREFAB_ACTION_ROW_SPACING: f32 = 8.0;
+const PREFAB_ACTION_ROW_BUTTON_SCALE: f32 = 0.9;
+const PREFAB_ACTION_ROW_BUTTON_GAP: f32 = WIDGET_SPACING * 0.5;
+const PREFAB_SECTION_BOTTOM_GAP: f32 = 8.0;
+
+struct PrefabActionStripLayout {
+    open_button_rect: Rect,
+    unlink_rect: Rect,
+    sync_rect: Rect,
+    revert_rect: Rect,
+}
 
 /// Shared, stateful scene-inspector core used by room and prefab hosts.
 pub struct SceneInspector {
@@ -199,14 +211,14 @@ impl SceneInspector {
 
             let mut y = content_rect.y + INSET + self.scroll_state.scroll_y;
             let comp_target = component_target(game_ctx.ecs, entity);
-            let linked_prefab = linked_prefab_metadata_for_scene_inspector(
+            let linked_prefab = linked_prefab_instance_state_for_scene_inspector(
                 scene_ctx.show_linked_prefab_metadata,
                 game_ctx.ecs,
                 game_ctx.prefab_library,
                 entity,
             );
 
-            if let Some(prefab_label) = linked_prefab.as_ref() {
+            if let Some(prefab_state) = linked_prefab.as_ref() {
                 if area.is_visible(y, PREFAB_METADATA_HEIGHT) {
                     let metadata_rect = Rect::new(
                         content_rect.x + INSET,
@@ -222,24 +234,66 @@ impl SceneInspector {
                         metadata_rect.h,
                         Color::new(0., 0., 0., 0.28),
                     );
-                    ctx.draw_rectangle_lines(
-                        metadata_rect.x,
-                        metadata_rect.y,
-                        metadata_rect.w,
-                        metadata_rect.h,
-                        1.0,
-                        Color::new(0.4, 0.4, 0.4, 0.8),
+                    let layout = prefab_action_strip_layout(metadata_rect);
+                    let open_button_label = prefab_open_button_label(
+                        ctx,
+                        &prefab_state.label,
+                        layout.open_button_rect.w,
                     );
-                    ctx.draw_text(
-                        &prefab_label.label,
-                        metadata_rect.x + 8.0,
-                        metadata_rect.y + 16.0,
-                        DEFAULT_FONT_SIZE_16,
-                        Color::WHITE,
-                    );
+                    let open_button_rect =
+                        register_rect(&mut interactive_rects, layout.open_button_rect);
+                    if Button::new(open_button_rect, &open_button_label).show(ctx) {
+                        output.prefab_action = Some(ScenePrefabActionRequest {
+                            action: ScenePrefabAction::OpenPrefabEditor,
+                            selected_entity: prefab_state.selected_entity,
+                            root_entity: prefab_state.root_entity,
+                            prefab_id: prefab_state.prefab_id,
+                        });
+                        return SceneInspectorDrawResult::new(output, interactive_rects);
+                    }
+
+                    let actions_blocked = !prefab_state.has_local_changes;
+                    let unlink_rect = register_rect(&mut interactive_rects, layout.unlink_rect);
+                    if Button::new(unlink_rect, "Unlink").show(ctx) {
+                        output.prefab_action = Some(ScenePrefabActionRequest {
+                            action: ScenePrefabAction::UnlinkInstance,
+                            selected_entity: prefab_state.selected_entity,
+                            root_entity: prefab_state.root_entity,
+                            prefab_id: prefab_state.prefab_id,
+                        });
+                        return SceneInspectorDrawResult::new(output, interactive_rects);
+                    }
+
+                    let sync_rect = register_rect(&mut interactive_rects, layout.sync_rect);
+                    if Button::new(sync_rect, "Sync")
+                        .blocked(actions_blocked)
+                        .show(ctx)
+                    {
+                        output.prefab_action = Some(ScenePrefabActionRequest {
+                            action: ScenePrefabAction::ApplyInstanceToPrefab,
+                            selected_entity: prefab_state.selected_entity,
+                            root_entity: prefab_state.root_entity,
+                            prefab_id: prefab_state.prefab_id,
+                        });
+                        return SceneInspectorDrawResult::new(output, interactive_rects);
+                    }
+
+                    let revert_rect = register_rect(&mut interactive_rects, layout.revert_rect);
+                    if Button::new(revert_rect, "Revert")
+                        .blocked(actions_blocked)
+                        .show(ctx)
+                    {
+                        output.prefab_action = Some(ScenePrefabActionRequest {
+                            action: ScenePrefabAction::RevertInstanceToPrefab,
+                            selected_entity: prefab_state.selected_entity,
+                            root_entity: prefab_state.root_entity,
+                            prefab_id: prefab_state.prefab_id,
+                        });
+                        return SceneInspectorDrawResult::new(output, interactive_rects);
+                    }
                 }
 
-                y += PREFAB_METADATA_HEIGHT + WIDGET_SPACING;
+                y += prefab_metadata_section_spacing();
             }
 
             let mut comp_changes: Vec<ComponentChange> = Vec::new();
@@ -527,7 +581,7 @@ impl SceneInspector {
 
     fn build_addable_components(
         &self,
-        ecs: &Ecs,
+        ecs: &mut Ecs,
         entity: Entity,
         hide_room_only_components: bool,
     ) -> Vec<AddableComponent> {
@@ -562,7 +616,7 @@ impl SceneInspector {
 
     fn total_content_height(
         &self,
-        ecs: &Ecs,
+        ecs: &mut Ecs,
         prefab_library: &PrefabLibrary,
         entity: Entity,
         show_linked_prefab_metadata: bool,
@@ -570,7 +624,7 @@ impl SceneInspector {
     ) -> f32 {
         let mut total_content_h = 0.0;
         let comp_target = component_target(ecs, entity);
-        if linked_prefab_metadata_for_scene_inspector(
+        if linked_prefab_instance_state_for_scene_inspector(
             show_linked_prefab_metadata,
             ecs,
             prefab_library,
@@ -578,7 +632,7 @@ impl SceneInspector {
         )
         .is_some()
         {
-            total_content_h += PREFAB_METADATA_HEIGHT + WIDGET_SPACING;
+            total_content_h += prefab_metadata_section_spacing();
         }
         for module in &self.modules {
             let module_entity = if is_proxy_local_module(module.title()) {
@@ -626,5 +680,63 @@ fn prettify_component_label(type_name: &str) -> String {
     match type_name {
         "AudioSource" => "Audio Source".to_string(),
         _ => type_name.to_string(),
+    }
+}
+
+fn prefab_open_button_label<C: BishopContext>(
+    ctx: &mut C,
+    label: &str,
+    button_width: f32,
+) -> String {
+    truncate_to_width(
+        ctx,
+        label,
+        button_width - WIDGET_PADDING * 2.0,
+        DEFAULT_FONT_SIZE_16,
+    )
+}
+
+fn prefab_metadata_section_spacing() -> f32 {
+    PREFAB_METADATA_HEIGHT + WIDGET_SPACING + PREFAB_SECTION_BOTTOM_GAP
+}
+
+fn prefab_action_strip_layout(metadata_rect: Rect) -> PrefabActionStripLayout {
+    let open_button_y = metadata_rect.y + PREFAB_ACTION_TOP_PADDING;
+    let button_y = open_button_y + BTN_HEIGHT + PREFAB_ACTION_ROW_SPACING;
+    let column_w = (metadata_rect.w - PREFAB_ACTION_ROW_BUTTON_GAP * 2.0) / 3.0;
+    let button_w = column_w * PREFAB_ACTION_ROW_BUTTON_SCALE;
+    let button_h = BTN_HEIGHT * PREFAB_ACTION_ROW_BUTTON_SCALE;
+    let button_x_offset = (column_w - button_w) * 0.5;
+    let button_y_offset = (BTN_HEIGHT - button_h) * 0.5;
+    let unlink_rect = Rect::new(
+        metadata_rect.x + button_x_offset,
+        button_y + button_y_offset,
+        button_w,
+        button_h,
+    );
+    let sync_rect = Rect::new(
+        metadata_rect.x + column_w + PREFAB_ACTION_ROW_BUTTON_GAP + button_x_offset,
+        button_y + button_y_offset,
+        button_w,
+        button_h,
+    );
+    let revert_rect = Rect::new(
+        metadata_rect.x + (column_w + PREFAB_ACTION_ROW_BUTTON_GAP) * 2.0 + button_x_offset,
+        button_y + button_y_offset,
+        button_w,
+        button_h,
+    );
+    let open_button_rect = Rect::new(
+        unlink_rect.x,
+        open_button_y,
+        revert_rect.x + revert_rect.w - unlink_rect.x,
+        BTN_HEIGHT,
+    );
+
+    PrefabActionStripLayout {
+        open_button_rect,
+        unlink_rect,
+        sync_rect,
+        revert_rect,
     }
 }

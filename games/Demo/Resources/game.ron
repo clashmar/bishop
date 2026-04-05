@@ -26,7 +26,7 @@
             ),
             /*[5]*/ (
                 type_name: "CurrentRoom",
-                data: "{\n    (1): ((1)),\n    (2): ((1)),\n    (5): ((1)),\n}",
+                data: "{\n    (1): ((1)),\n    (2): ((1)),\n    (5): ((1)),\n    (20): ((1)),\n}",
             ),
             /*[6]*/ (
                 type_name: "Damage",
@@ -66,7 +66,7 @@
             ),
             /*[15]*/ (
                 type_name: "Name",
-                data: "{\n    (1): (\"Camera 1\"),\n    (2): (\"Player Proxy\"),\n    (3): (\"Player\"),\n    (5): (\"Cat\"),\n}",
+                data: "{\n    (1): (\"Camera 1\"),\n    (2): (\"Player Proxy\"),\n    (3): (\"Player\"),\n    (5): (\"Cat\"),\n    (20): (\"Entityasdf\"),\n}",
             ),
             /*[16]*/ (
                 type_name: "Parent",
@@ -86,15 +86,15 @@
             ),
             /*[20]*/ (
                 type_name: "PrefabInstanceNode",
-                data: "{}",
+                data: "{\n    (20): (\n        prefab_id: (3),\n        node_id: 1,\n        root_entity: (20),\n    ),\n}",
             ),
             /*[21]*/ (
                 type_name: "PrefabInstanceRoot",
-                data: "{}",
+                data: "{\n    (20): (\n        prefab_id: (3),\n    ),\n}",
             ),
             /*[22]*/ (
                 type_name: "PrefabOverrides",
-                data: "{}",
+                data: "{\n    (20): (\n        modified_components: [\n            \"Name\",\n        ],\n        removed_components: [],\n        added_components: [],\n    ),\n}",
             ),
             /*[23]*/ (
                 type_name: "RoomCamera",
@@ -122,7 +122,7 @@
             ),
             /*[29]*/ (
                 type_name: "Transform",
-                data: "{\n    (1): (\n        visible: true,\n        position: (64.0, 35.99995),\n        pivot: CenterLeft,\n    ),\n    (2): (\n        visible: true,\n        position: (28.0, 72.0),\n        pivot: BottomCenter,\n    ),\n    (5): (\n        visible: true,\n        position: (92.0, 72.0),\n        pivot: BottomCenter,\n    ),\n}",
+                data: "{\n    (1): (\n        visible: true,\n        position: (64.0, 35.99995),\n        pivot: CenterLeft,\n    ),\n    (2): (\n        visible: true,\n        position: (28.0, 72.0),\n        pivot: BottomCenter,\n    ),\n    (5): (\n        visible: true,\n        position: (92.0, 72.0),\n        pivot: BottomCenter,\n    ),\n    (20): (\n        visible: true,\n        position: (0.0, 0.0),\n        pivot: BottomCenter,\n    ),\n}",
             ),
             /*[30]*/ (
                 type_name: "Velocity",
@@ -133,7 +133,7 @@
                 data: "{}",
             ),
         ],
-        next_entity_id: 16,
+        next_entity_id: 20,
     ),
     worlds: [
         /*[0]*/ (

@@ -1,6 +1,7 @@
 use crate::app::EditorMode;
 use crate::commands::editor_command_manager::EditorCommand;
 use crate::commands::scene::context::{with_scene_ctx, with_scene_ecs};
+use crate::prefab::instance_sync::sync_prefab_overrides_for_entity;
 use crate::with_editor;
 use engine_core::prelude::*;
 
@@ -33,6 +34,13 @@ impl EditorCommand for AddComponentCmd {
                     (reg.factory)(ecs, entity);
                 }
             });
+            if matches!(mode, EditorMode::Room(_)) {
+                sync_prefab_overrides_for_entity(
+                    &mut editor.game.ecs,
+                    &editor.game.prefab_library,
+                    entity,
+                );
+            }
         });
     }
 
@@ -50,6 +58,13 @@ impl EditorCommand for AddComponentCmd {
                     }
                 }
             });
+            if matches!(mode, EditorMode::Room(_)) {
+                sync_prefab_overrides_for_entity(
+                    &mut editor.game.ecs,
+                    &editor.game.prefab_library,
+                    entity,
+                );
+            }
         });
     }
 

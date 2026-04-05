@@ -1,6 +1,9 @@
 use crate::app::{Editor, EditorMode};
 use crate::commands::editor_command_manager::EditorCommand;
-use crate::commands::scene::DeleteEntityCmd;
+use crate::commands::scene::{
+    ApplyInstanceToPrefabCmd, DeleteEntityCmd, RevertPrefabInstanceCmd, UnlinkPrefabInstanceCmd,
+    UpdateComponentCmd,
+};
 use crate::editor_global::{
     apply_pending_commands, push_command, request_redo, request_undo, reset_services, set_editor,
     with_editor, EDITOR_SERVICES,
@@ -43,6 +46,7 @@ fn make_editor_with_selected_entity(entity: Entity) -> Editor {
 }
 
 fn make_room_editor(test_game: &TestGameFolder) -> (Editor, RoomId) {
+    set_game_name(test_game.name());
     let mut game = create_new_game(test_game.name().to_string());
     let cur_world_id = game.current_world_id;
     let room_id = game
@@ -319,6 +323,7 @@ fn create_prefab_from_selection_preserves_external_parent() {
 fn prefab_stage_uses_project_sprite_paths_without_room_state() {
     let _lock = game_fs_test_lock().lock().unwrap_or_else(|poison| poison.into_inner());
     let test_game = TestGameFolder::new("prefab_stage_game");
+    set_game_name(test_game.name());
 
     let mut game = create_new_game(test_game.name().to_string());
     game.asset_manager.sprite_id_to_path.insert(
@@ -357,6 +362,7 @@ fn editor_services_guard_clears_global_editor_on_drop() {
 fn creating_entity_replaces_stale_root_with_new_root() {
     let _lock = game_fs_test_lock().lock().unwrap_or_else(|poison| poison.into_inner());
     let test_game = TestGameFolder::new("prefab_stale_root");
+    set_game_name(test_game.name());
     let mut editor = PrefabEditor::new(
         PrefabId(1),
         "Prefab".to_string(),
@@ -392,6 +398,7 @@ fn creating_entity_replaces_stale_root_with_new_root() {
 fn deleting_prefab_root_clears_root_and_selection_state() {
     let _lock = game_fs_test_lock().lock().unwrap_or_else(|poison| poison.into_inner());
     let test_game = TestGameFolder::new("prefab_delete_root");
+    set_game_name(test_game.name());
     let mut editor = Editor {
         mode: EditorMode::Prefab(PrefabId(9)),
         prefab_editor: Some(PrefabEditor::new(
@@ -600,6 +607,7 @@ fn saving_new_prefab_session_marks_prefab_clean_for_exit() {
     prefab_editor.set_selected_entity(Some(entity));
 
     let editor = Editor {
+        game: create_new_game(test_game.name().to_string()),
         mode: EditorMode::Prefab(PrefabId(1)),
         prefab_editor: Some(prefab_editor),
         prefab_stage: Some(prefab_stage),
@@ -618,5 +626,270 @@ fn saving_new_prefab_session_marks_prefab_clean_for_exit() {
             _ => unreachable!(),
         });
         assert!(editor.active_prefab_is_clean());
+    });
+}
+
+#[test]
+fn unlink_prefab_instance_command_clears_prefab_components_and_restores_on_undo() {
+    let _lock = game_fs_test_lock().lock().unwrap_or_else(|poison| poison.into_inner());
+    let test_game = TestGameFolder::new("prefab_unlink_instance");
+    set_game_name(test_game.name());
+    let (mut editor, room_id, prefab_id, _) = make_prefab_session_editor(&test_game);
+    editor.close_active_prefab_editor();
+    let linked_root = linked_root_entities(&editor.game.ecs, prefab_id)[0];
+
+    let _services = EditorServicesGuard::install(editor);
+
+    push_command(Box::new(UnlinkPrefabInstanceCmd::new(
+        linked_root,
+        EditorMode::Room(room_id),
+    )));
+    apply_pending_commands();
+
+    with_editor(|editor| {
+        assert!(editor.game.ecs.has::<Transform>(linked_root));
+        assert!(!editor.game.ecs.has::<PrefabInstanceRoot>(linked_root));
+        assert_eq!(linked_root_entities(&editor.game.ecs, prefab_id).len(), 0);
+    });
+
+    request_undo();
+    apply_pending_commands();
+
+    with_editor(|editor| {
+        assert_eq!(linked_root_entities(&editor.game.ecs, prefab_id).len(), 1);
+        assert_eq!(
+            editor
+                .game
+                .ecs
+                .get::<PrefabInstanceRoot>(linked_root)
+                .map(|root| root.prefab_id),
+            Some(prefab_id)
+        );
+    });
+}
+
+#[test]
+fn room_component_edits_write_prefab_overrides_for_linked_instances() {
+    let _lock = game_fs_test_lock().lock().unwrap_or_else(|poison| poison.into_inner());
+    let test_game = TestGameFolder::new("prefab_component_override_tracking");
+    set_game_name(test_game.name());
+    let (mut editor, room_id, prefab_id, _) = make_prefab_session_editor(&test_game);
+    editor.close_active_prefab_editor();
+
+    let linked_root = linked_root_entities(&editor.game.ecs, prefab_id)[0];
+    let old_ron = ron::to_string(
+        &editor
+            .game
+            .ecs
+            .get::<Name>(linked_root)
+            .expect("linked instance should have a name"),
+    )
+    .expect("name should serialize");
+
+    let _services = EditorServicesGuard::install(editor);
+
+    push_command(Box::new(UpdateComponentCmd::new(
+        linked_root,
+        EditorMode::Room(room_id),
+        Name::TYPE_NAME,
+        old_ron,
+        "(\"Edited Root\")".to_string(),
+        Default::default(),
+        Default::default(),
+    )));
+    apply_pending_commands();
+
+    with_editor(|editor| {
+        let overrides = editor
+            .game
+            .ecs
+            .get::<PrefabOverrides>(linked_root)
+            .expect("linked instance edit should create prefab overrides");
+        assert!(overrides
+            .modified_components
+            .iter()
+            .any(|type_name| type_name == Name::TYPE_NAME));
+    });
+}
+
+#[test]
+fn apply_instance_to_prefab_command_updates_other_linked_instances_and_supports_undo() {
+    let _lock = game_fs_test_lock().lock().unwrap_or_else(|poison| poison.into_inner());
+    let test_game = TestGameFolder::new("prefab_apply_instance_to_prefab");
+    set_game_name(test_game.name());
+    let (mut editor, room_id, prefab_id, _) = make_prefab_session_editor(&test_game);
+    editor.close_active_prefab_editor();
+
+    let linked_root = linked_root_entities(&editor.game.ecs, prefab_id)[0];
+    let clean_sibling_root = {
+        let prefab = editor
+            .game
+            .prefab_library
+            .prefabs
+            .get(&prefab_id)
+            .cloned()
+            .expect("prefab should exist");
+        let mut ctx = editor.game.ctx_mut();
+        let mut services = ctx.services_ctx_mut();
+        instantiate_prefab(
+            &mut services,
+            &prefab,
+            Vec2::new(160.0, 96.0),
+            Some(room_id),
+        )
+    };
+    let overridden_sibling_root = {
+        let prefab = editor
+            .game
+            .prefab_library
+            .prefabs
+            .get(&prefab_id)
+            .cloned()
+            .expect("prefab should exist");
+        let mut ctx = editor.game.ctx_mut();
+        let mut services = ctx.services_ctx_mut();
+        instantiate_prefab(
+            &mut services,
+            &prefab,
+            Vec2::new(256.0, 96.0),
+            Some(room_id),
+        )
+    };
+    editor
+        .game
+        .ecs
+        .get_mut::<Name>(linked_root)
+        .expect("linked root should have a name")
+        .0 = "Edited Root".to_string();
+    editor
+        .game
+        .ecs
+        .get_mut::<Name>(overridden_sibling_root)
+        .expect("overridden sibling should have a name")
+        .0 = "Locally Tweaked Child".to_string();
+    editor.game.ecs.add_component_to_entity(
+        overridden_sibling_root,
+        PrefabOverrides {
+            modified_components: vec![Name::TYPE_NAME.to_string()],
+            ..Default::default()
+        },
+    );
+
+    let _services = EditorServicesGuard::install(editor);
+
+    push_command(Box::new(ApplyInstanceToPrefabCmd::new(
+        linked_root,
+        EditorMode::Room(room_id),
+    )));
+    apply_pending_commands();
+
+    with_editor(|editor| {
+        let prefab = editor
+            .game
+            .prefab_library
+            .prefabs
+            .get(&prefab_id)
+            .expect("prefab should be updated");
+        let prefab_root = prefab
+            .nodes
+            .iter()
+            .find(|node| node.node_id == prefab.root_node_id)
+            .expect("prefab root node should exist");
+        assert!(prefab_root
+            .components
+            .iter()
+            .any(|component| component.type_name == Name::TYPE_NAME
+                && component.ron.contains("Edited Root")));
+        assert_eq!(
+            editor
+                .game
+                .ecs
+                .get::<Name>(clean_sibling_root)
+                .map(|name| name.0.as_str()),
+            Some("Edited Root")
+        );
+        assert_eq!(
+            editor
+                .game
+                .ecs
+                .get::<Name>(overridden_sibling_root)
+                .map(|name| name.0.as_str()),
+            Some("Locally Tweaked Child")
+        );
+    });
+
+    request_undo();
+    apply_pending_commands();
+
+    with_editor(|editor| {
+        assert_eq!(
+            editor
+                .game
+                .ecs
+                .get::<Name>(linked_root)
+                .map(|name| name.0.as_str()),
+            Some("Edited Root")
+        );
+    });
+}
+
+#[test]
+fn revert_instance_to_prefab_command_clears_overrides_and_restores_prefab_state() {
+    let _lock = game_fs_test_lock().lock().unwrap_or_else(|poison| poison.into_inner());
+    let test_game = TestGameFolder::new("prefab_revert_instance_to_prefab");
+    set_game_name(test_game.name());
+    let (mut editor, room_id, prefab_id, _) = make_prefab_session_editor(&test_game);
+    editor.close_active_prefab_editor();
+
+    let linked_root = linked_root_entities(&editor.game.ecs, prefab_id)[0];
+    editor
+        .game
+        .ecs
+        .get_mut::<Name>(linked_root)
+        .expect("linked root should have name")
+        .0 = "Edited Root".to_string();
+    editor.game.ecs.add_component_to_entity(
+        linked_root,
+        PrefabOverrides {
+            modified_components: vec![Name::TYPE_NAME.to_string()],
+            ..Default::default()
+        },
+    );
+    editor.room_editor.set_selected_entity(Some(linked_root));
+
+    let _services = EditorServicesGuard::install(editor);
+
+    push_command(Box::new(RevertPrefabInstanceCmd::new(
+        linked_root,
+        EditorMode::Room(room_id),
+    )));
+    apply_pending_commands();
+
+    with_editor(|editor| {
+        assert_eq!(
+            editor
+                .game
+                .ecs
+                .get::<Name>(linked_root)
+                .map(|name| name.0.as_str()),
+            Some("Root")
+        );
+        assert!(!editor.game.ecs.has::<PrefabOverrides>(linked_root));
+        assert_eq!(editor.room_editor.single_selected_entity(), Some(linked_root));
+    });
+
+    request_undo();
+    apply_pending_commands();
+
+    with_editor(|editor| {
+        assert_eq!(
+            editor
+                .game
+                .ecs
+                .get::<Name>(linked_root)
+                .map(|name| name.0.as_str()),
+            Some("Edited Root")
+        );
+        assert!(editor.game.ecs.has::<PrefabOverrides>(linked_root));
     });
 }

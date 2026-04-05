@@ -6,8 +6,26 @@ use engine_core::prelude::*;
 
 pub use core::SceneInspector;
 pub use policy::{
-    is_scene_component_hidden_in_prefab, linked_prefab_metadata_for_scene_inspector,
+    is_scene_component_hidden_in_prefab, linked_prefab_instance_state_for_scene_inspector,
 };
+
+/// Supported linked-prefab actions emitted from the room inspector.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ScenePrefabAction {
+    OpenPrefabEditor,
+    UnlinkInstance,
+    ApplyInstanceToPrefab,
+    RevertInstanceToPrefab,
+}
+
+/// Concrete linked-prefab action request emitted from the inspector UI.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ScenePrefabActionRequest {
+    pub action: ScenePrefabAction,
+    pub selected_entity: Entity,
+    pub root_entity: Entity,
+    pub prefab_id: PrefabId,
+}
 
 /// Per-frame scene-inspector behavior flags and host state.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -41,6 +59,8 @@ pub enum SceneEmptyInspectorBehavior {
 pub struct SceneInspectorOutput {
     /// Create request triggered by `+ Entity`, if any.
     pub create_request: Option<SceneCreateRequest>,
+    /// Linked-prefab action triggered from the inspector, if any.
+    pub prefab_action: Option<ScenePrefabActionRequest>,
 }
 
 /// Full draw result emitted by the shared inspector core.

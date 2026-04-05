@@ -13,7 +13,7 @@ use crate::gui::mode_selector::*;
 use crate::gui::panels::panel_manager::is_mouse_over_panel;
 use crate::room::drawing::*;
 use crate::room::selection::DragState;
-use crate::shared::scene_ui::inspector::SceneCreateRequest;
+use crate::shared::scene_ui::inspector::{SceneCreateRequest, ScenePrefabActionRequest};
 use crate::shared::selection::draw_selection_box;
 use crate::tilemap::tilemap_editor::*;
 use crate::world::coord;
@@ -62,6 +62,7 @@ pub struct RoomEditor {
     pub(crate) drag_state: DragState,
     initialized: bool,
     pub create_request: Option<SceneCreateRequest>,
+    pub prefab_action_request: Option<ScenePrefabActionRequest>,
     pub request_play: bool,
     pub view_preview: bool,
     pub(crate) preview_camera_id: Option<usize>,
@@ -90,6 +91,7 @@ impl RoomEditor {
             initialized: false,
             preview_camera_id: None,
             create_request: None,
+            prefab_action_request: None,
             request_play: false,
             view_preview: false,
             tilemap_sub_mode: TilemapEditorMode::Tiles,
@@ -366,6 +368,7 @@ impl RoomEditor {
         self.selected_entities.clear();
         self.initialized = false;
         self.create_request = None;
+        self.prefab_action_request = None;
         self.request_play = false;
         self.view_preview = false;
         self.preview_camera_id = None;
