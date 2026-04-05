@@ -1,5 +1,5 @@
 use crate::gui::prompts::constants::*;
-use crate::gui::prompts::helpers::confirm_cancel_rects;
+use crate::gui::prompts::helpers::{confirm_cancel_rects, prompt_content_rect};
 use bishop::prelude::*;
 use engine_core::prelude::*;
 use std::fmt::{Display, Formatter, Result as FmtResult};
@@ -32,27 +32,19 @@ pub struct PrefabPickerPrompt {
 
 impl PrefabPickerPrompt {
     pub fn new(modal_rect: Rect, prefabs: Vec<PrefabAsset>) -> Self {
-        const TOP_PADDING: f32 = 12.0;
-        const LABEL_H: f32 = 20.0;
-        const GAP: f32 = 12.0;
-        const ACTION_GAP: f32 = 14.0;
-        const BOTTOM_PADDING: f32 = 16.0;
-        let inner_w = modal_rect.w * 0.82;
-        let inner_x = modal_rect.x + (modal_rect.w - inner_w) / 2.0;
-        let total_h = TOP_PADDING
-            + LABEL_H
-            + GAP
+        let total_h = PROMPT_TOP_PADDING
+            + DEFAULT_FONT_SIZE_16
+            + PROMPT_TEXT_GAP
             + FIELD_H
-            + GAP
+            + PROMPT_SECTION_GAP
             + BUTTON_H
-            + ACTION_GAP
+            + PROMPT_ACTION_GAP
             + BUTTON_H
-            + BOTTOM_PADDING;
-        let inner_y = modal_rect.y + (modal_rect.h - total_h) / 2.0;
+            + PROMPT_BOTTOM_PADDING;
 
         Self {
             dropdown_id: WidgetId::default(),
-            rect: Rect::new(inner_x, inner_y, inner_w, total_h),
+            rect: prompt_content_rect(modal_rect, total_h),
             prefabs: prefabs
                 .into_iter()
                 .map(|prefab| PrefabChoice {
@@ -65,34 +57,44 @@ impl PrefabPickerPrompt {
     }
 
     pub fn draw(&mut self, ctx: &mut WgpuContext) -> Option<PrefabPickerResult> {
-        const TOP_PADDING: f32 = 12.0;
-        const LABEL_H: f32 = 20.0;
-        const GAP: f32 = 12.0;
-        const ACTION_GAP: f32 = 14.0;
-
         ctx.draw_text(
             "Open prefab:",
             self.rect.x,
-            self.rect.y + TOP_PADDING,
+            self.rect.y + PROMPT_TOP_PADDING,
             DEFAULT_FONT_SIZE_16,
             Color::WHITE,
         );
 
         let dropdown_rect = Rect::new(
             self.rect.x,
-            self.rect.y + TOP_PADDING + LABEL_H + GAP,
+            self.rect.y + PROMPT_TOP_PADDING + DEFAULT_FONT_SIZE_16 + PROMPT_TEXT_GAP,
             self.rect.w,
             FIELD_H,
         );
         let selected_label = self
             .selected
             .and_then(|prefab_id| {
-                self.prefabs
+            self.prefabs
                     .iter()
                     .find(|choice| choice.prefab_id == prefab_id)
                     .map(|choice| choice.label.clone())
             })
             .unwrap_or_else(|| "Select prefab".to_string());
+
+        let new_rect = Rect::new(
+            self.rect.x,
+            dropdown_rect.y + dropdown_rect.h + PROMPT_SECTION_GAP,
+            self.rect.w,
+            BUTTON_H,
+        );
+        let btn_y = new_rect.y + new_rect.h + PROMPT_ACTION_GAP;
+        let (open_rect, cancel_rect) = confirm_cancel_rects(self.rect, btn_y);
+
+        let open_clicked = Button::new(open_rect, "Open")
+            .blocked(self.selected.is_none())
+            .show(ctx);
+        let new_clicked = Button::new(new_rect, "New Prefab").show(ctx);
+        let cancel_clicked = Button::new(cancel_rect, "Cancel").show(ctx);
 
         if let Some(choice) = Dropdown::new(
             self.dropdown_id,
@@ -102,26 +104,12 @@ impl PrefabPickerPrompt {
             |choice| choice.to_string(),
         )
         .filterable()
-        .menu_style()
+        .list_width(dropdown_rect.w)
+        .truncate_trigger_text()
         .show(ctx)
         {
             self.selected = Some(choice.prefab_id);
         }
-
-        let new_rect = Rect::new(
-            self.rect.x,
-            dropdown_rect.y + dropdown_rect.h + GAP,
-            self.rect.w,
-            BUTTON_H,
-        );
-        let btn_y = new_rect.y + new_rect.h + ACTION_GAP;
-        let (open_rect, cancel_rect) = confirm_cancel_rects(self.rect, btn_y);
-
-        let open_clicked = Button::new(open_rect, "Open")
-            .blocked(self.selected.is_none())
-            .show(ctx);
-        let new_clicked = Button::new(new_rect, "New Prefab").show(ctx);
-        let cancel_clicked = Button::new(cancel_rect, "Cancel").show(ctx);
 
         if new_clicked {
             return Some(PrefabPickerResult::New);

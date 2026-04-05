@@ -381,7 +381,7 @@ impl Editor {
     }
 
     pub(crate) fn open_prefab_picker_modal(&mut self, ctx: &mut WgpuContext) {
-        self.modal = Modal::new(ctx, 420.0, 240.0);
+        self.modal = Modal::new(ctx, 280.0, 240.0);
         let prefabs = list_prefabs(&self.game.name).unwrap_or_default();
         let mut prompt = PrefabPickerPrompt::new(self.modal.rect, prefabs);
 
