@@ -7,11 +7,11 @@ use crate::gui::inspector::inspector_panel::InspectorPanel;
 use crate::gui::menu_bar::draw_top_panel_full;
 use crate::gui::modal::is_modal_open;
 use crate::gui::panels::panel_manager::is_mouse_over_panel;
+use crate::prefab::canvas::draw_prefab_entities;
 use crate::room::drawing::{draw_collider, draw_pivot_marker, highlight_selected_entity};
 use crate::shared::scene_ui::inspector::{
     SceneCreateRequest, SceneEmptyInspectorBehavior, SceneInspectorContext,
 };
-use crate::prefab::canvas::draw_prefab_entities;
 use bishop::prelude::*;
 use engine_core::prelude::*;
 use std::collections::HashSet;
@@ -38,6 +38,15 @@ pub(crate) struct PrefabRoomSyncState {
     pub linked_instance_snapshots: Vec<GroupSnapshot>,
 }
 
+#[derive(Default)]
+pub(crate) struct PrefabDragState {
+    pub dragging: bool,
+    pub drag_anchor_entity: Option<Entity>,
+    pub drag_offset: Vec2,
+    pub drag_start_positions: Vec<(Entity, Vec2)>,
+    pub drag_initial_start_positions: Vec<(Entity, Vec2)>,
+}
+
 pub struct PrefabEditor {
     pub prefab_id: PrefabId,
     pub prefab_name: String,
@@ -47,6 +56,7 @@ pub struct PrefabEditor {
     pub active_rects: Vec<Rect>,
     pub show_grid: bool,
     pub(crate) needs_camera_reset: bool,
+    pub(crate) drag_state: PrefabDragState,
     pub(crate) last_committed_prefab: StagedPrefabState,
     pub(crate) last_room_synced_state: PrefabRoomSyncState,
     create_request: Option<SceneCreateRequest>,
@@ -68,6 +78,7 @@ impl PrefabEditor {
             active_rects: Vec::new(),
             show_grid: true,
             needs_camera_reset: true,
+            drag_state: PrefabDragState::default(),
             last_committed_prefab,
             last_room_synced_state,
             create_request: None,
@@ -82,8 +93,12 @@ impl PrefabEditor {
     ) {
         self.sanitize_live_state(game_ctx.ecs);
 
-        if ctx.is_mouse_button_pressed(MouseButton::Left) && !self.should_block_canvas(ctx) {
-            self.handle_selection(ctx, camera, game_ctx.ecs, game_ctx.asset_manager);
+        if !self.should_block_canvas(ctx) {
+            let drag_handled =
+                self.handle_canvas_move(ctx, camera, game_ctx.ecs, game_ctx.asset_manager);
+            if !drag_handled {
+                self.handle_keyboard_move(ctx, game_ctx.ecs);
+            }
         }
 
         if let Some(create_request) = self.create_request.take() {

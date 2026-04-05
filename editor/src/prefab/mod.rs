@@ -1,6 +1,7 @@
 mod canvas;
 mod document;
 pub(crate) mod instance_sync;
+mod movement;
 pub mod prefab_actions;
 pub mod prefab_editor;
 mod selection;
