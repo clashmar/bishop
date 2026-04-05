@@ -282,8 +282,8 @@ impl AssetManager {
         };
 
         let full_path = assets_folder().join(&path);
-        file_read_pool.queue_read(id.0.to_string(), full_path);
-        self.pending_texture_reads.insert(id, path);
+        file_read_pool.queue_read(id.0.to_string(), full_path.clone());
+        self.pending_texture_reads.insert(id, full_path);
     }
 
     fn poll_pending_texture_reads(&mut self, loader: &impl TextureLoader) {
@@ -297,22 +297,24 @@ impl AssetManager {
             };
             let sprite_id = SpriteId(sprite_index);
 
-            let Some(path) = self.pending_texture_reads.get(&sprite_id).cloned() else {
+            let Some(abs_path) = self.pending_texture_reads.get(&sprite_id).cloned() else {
                 continue;
             };
 
-            if completed.path != assets_folder().join(&path) {
+            if completed.path != abs_path {
                 continue;
             }
 
             self.pending_texture_reads.remove(&sprite_id);
-            let path_display = path.display().to_string();
+            let path_display = abs_path.display().to_string();
 
             match completed.result {
                 Ok(bytes) => match loader.load_texture_from_bytes(&bytes) {
                     Ok(texture) => {
                         self.textures.insert(sprite_id, texture);
-                        self.path_to_sprite_id.insert(path, sprite_id);
+                        if let Some(rel_path) = self.sprite_id_to_path.get(&sprite_id).cloned() {
+                            self.path_to_sprite_id.insert(rel_path, sprite_id);
+                        }
                     }
                     Err(error) => {
                         onscreen_error!("Failed to upload texture '{}': {}", path_display, error);
@@ -553,10 +555,11 @@ impl AssetManager {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::engine_global::set_game_name;
+    use crate::storage::test_utils::{game_fs_test_lock, TestGameFolder};
     use std::cell::Cell;
     use std::fs;
     use std::time::Duration;
-    use std::time::{SystemTime, UNIX_EPOCH};
 
     struct CountingFailingLoader {
         bytes_load_calls: Cell<usize>,
@@ -631,15 +634,13 @@ mod tests {
 
     #[test]
     fn queue_runtime_texture_read_tracks_pending_sprite_id() {
+        let _lock = game_fs_test_lock().lock().unwrap();
+        let test_folder = TestGameFolder::new("asset_mgr_queue");
+        set_game_name(test_folder.name());
+
         let mut asset_manager = AssetManager::default();
         let file_read_pool = FileReadPool::new();
-        let path = PathBuf::from(format!(
-            "textures/runtime-queue-{}.bin",
-            SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .expect("system clock should be after UNIX_EPOCH")
-                .as_nanos()
-        ));
+        let path = PathBuf::from("textures/runtime-queue.bin");
         let sprite_id = SpriteId(7);
         let full_path = assets_folder().join(&path);
 
@@ -663,24 +664,20 @@ mod tests {
 
         assert!(asset_manager.has_pending_texture_read(sprite_id));
         assert_eq!(asset_manager.texture_count(), 0);
-        let _ = fs::remove_file(full_path);
     }
 
     #[test]
     fn poll_pending_runtime_texture_reads_uploads_bytes_on_the_main_thread() {
+        let _lock = game_fs_test_lock().lock().unwrap();
+        let test_folder = TestGameFolder::new("asset_mgr_upload");
+        set_game_name(test_folder.name());
+
         let loader = CountingFailingLoader::new();
         let mut asset_manager = AssetManager::default();
         let file_read_pool = FileReadPool::new();
-        let path = PathBuf::from(format!(
-            "textures/runtime-upload-{}.bin",
-            SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .expect("system clock should be after UNIX_EPOCH")
-                .as_nanos()
-        ));
+        let path = PathBuf::from("textures/runtime-upload.bin");
         let sprite_id = SpriteId(7);
         let full_path = assets_folder().join(&path);
-        let expected_bytes = [1, 2, 3, 4];
 
         fs::create_dir_all(
             full_path
@@ -688,7 +685,7 @@ mod tests {
                 .expect("runtime upload test path should have a parent"),
         )
         .expect("runtime upload test directory should be writable");
-        fs::write(&full_path, expected_bytes).expect("runtime upload test file should be writable");
+        fs::write(&full_path, [1, 2, 3, 4]).expect("runtime upload test file should be writable");
 
         asset_manager
             .path_to_sprite_id
@@ -711,6 +708,5 @@ mod tests {
 
         assert_eq!(loader.bytes_load_calls.get(), 1);
         assert!(!asset_manager.has_pending_texture_read(sprite_id));
-        let _ = fs::remove_file(full_path);
     }
 }

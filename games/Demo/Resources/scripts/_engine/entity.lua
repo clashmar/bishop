@@ -27,6 +27,9 @@ local Entity = {}
 ---@overload fun(self: Entity, component: "PhysicsBody"): PhysicsBody
 ---@overload fun(self: Entity, component: "Player"): Player
 ---@overload fun(self: Entity, component: "PlayerProxy"): PlayerProxy
+---@overload fun(self: Entity, component: "PrefabInstanceNode"): PrefabInstanceNode
+---@overload fun(self: Entity, component: "PrefabInstanceRoot"): PrefabInstanceRoot
+---@overload fun(self: Entity, component: "PrefabOverrides"): PrefabOverrides
 ---@overload fun(self: Entity, component: "RoomCamera"): RoomCamera
 ---@overload fun(self: Entity, component: "Script"): Script
 ---@overload fun(self: Entity, component: "Solid"): Solid
@@ -126,6 +129,18 @@ function Entity:set_player(v) end
 ---@param self Entity
 ---@param v PlayerProxy
 function Entity:set_player_proxy(v) end
+
+---@param self Entity
+---@param v PrefabInstanceNode
+function Entity:set_prefab_instance_node(v) end
+
+---@param self Entity
+---@param v PrefabInstanceRoot
+function Entity:set_prefab_instance_root(v) end
+
+---@param self Entity
+---@param v PrefabOverrides
+function Entity:set_prefab_overrides(v) end
 
 ---@param self Entity
 ---@param v RoomCamera

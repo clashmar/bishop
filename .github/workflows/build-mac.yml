@@ -2,11 +2,16 @@ name: macOS Build
 
 on:
   pull_request:
-    branches: [staging] 
+    branches: [staging]
 
 jobs:
   build-mac:
+    strategy:
+      matrix:
+        target: [x86_64-apple-darwin, aarch64-apple-darwin]
     runs-on: macos-latest
+    env:
+      MAC_TARGET: ${{ matrix.target }}
 
     steps:
       - name: Checkout Repository
@@ -16,7 +21,7 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
-          target: x86_64-apple-darwin
+          target: ${{ env.MAC_TARGET }}
           override: true
 
       - name: Install cargo-make

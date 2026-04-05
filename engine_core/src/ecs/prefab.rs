@@ -872,24 +872,14 @@ mod tests {
         assert_eq!(get_parent(&game.ecs, child_entity), Some(root_entity));
 
         let updated_prefab = PrefabAsset {
-            nodes: vec![
-                PrefabNode {
-                    node_id: 1,
-                    parent_node_id: None,
-                    components: vec![ComponentSnapshot {
-                        type_name: "Name".to_string(),
-                        ron: "(\"Root\")".to_string(),
-                    }],
-                },
-                PrefabNode {
-                    node_id: 2,
-                    parent_node_id: None,
-                    components: vec![ComponentSnapshot {
-                        type_name: "Name".to_string(),
-                        ron: "(\"Child\")".to_string(),
-                    }],
-                },
-            ],
+            nodes: vec![PrefabNode {
+                node_id: 1,
+                parent_node_id: None,
+                components: vec![ComponentSnapshot {
+                    type_name: "Name".to_string(),
+                    ron: "(\"Root\")".to_string(),
+                }],
+            }],
             ..prefab
         };
 
