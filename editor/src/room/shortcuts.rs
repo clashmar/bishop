@@ -34,8 +34,7 @@ impl RoomEditor {
         for mode in RoomEditorMode::iter() {
             if let Some(shortcut) = mode.shortcut() {
                 if shortcut(ctx) {
-                    self.mode = mode;
-                    self.mode_selector.current = mode;
+                    self.set_mode(mode);
                     break;
                 }
             }
@@ -45,7 +44,8 @@ impl RoomEditor {
             RoomEditorMode::Tilemap => {}
             RoomEditorMode::Scene => {
                 if Controls::v(ctx) {
-                    self.view_preview = !self.view_preview;
+                    let next_preview = !self.view_preview;
+                    self.set_preview_enabled(next_preview);
                     if self.view_preview {
                         // If a single camera is selected, use it
                         let camera_id = self

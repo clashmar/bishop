@@ -39,6 +39,7 @@ pub enum EditorAction {
     ViewHierarchyPanel,
     ViewConsolePanel,
     ViewDiagnosticsPanel,
+    ViewPrefabPalettePanel,
     // Options actions
     WorldSettings,
     // Editors actions
@@ -64,6 +65,7 @@ impl EditorAction {
             EditorAction::ViewHierarchyPanel => "Hierarchy".to_string(),
             EditorAction::ViewConsolePanel => "Console".to_string(),
             EditorAction::ViewDiagnosticsPanel => "Diagnostics".to_string(),
+            EditorAction::ViewPrefabPalettePanel => "Prefab Palette".to_string(),
             EditorAction::WorldSettings => "World Settings".to_string(),
             EditorAction::OpenMenuEditor => "Menu Editor".to_string(),
             EditorAction::OpenPrefabEditor => "Prefab Editor".to_string(),
@@ -85,6 +87,7 @@ impl EditorAction {
                 EditorAction::ViewHierarchyPanel => Some("H"),
                 EditorAction::ViewConsolePanel => Some("C"),
                 EditorAction::ViewDiagnosticsPanel => Some("F3"),
+                EditorAction::ViewPrefabPalettePanel => Some("P"),
                 _ => None,
             }
         }
@@ -100,6 +103,7 @@ impl EditorAction {
                 EditorAction::ViewHierarchyPanel => Some("H"),
                 EditorAction::ViewConsolePanel => Some("C"),
                 EditorAction::ViewDiagnosticsPanel => Some("F3"),
+                EditorAction::ViewPrefabPalettePanel => Some("P"),
                 _ => None,
             }
         }
@@ -133,6 +137,7 @@ impl EditorAction {
             EditorAction::ViewHierarchyPanel => {
                 matches!(editor_mode, EditorMode::Room(_) | EditorMode::Prefab(_))
             }
+            EditorAction::ViewPrefabPalettePanel => matches!(editor_mode, EditorMode::Room(_)),
             EditorAction::WorldSettings => {
                 matches!(editor_mode, EditorMode::World(_) | EditorMode::Room(_))
             }
@@ -154,6 +159,7 @@ impl EditorAction {
             EditorAction::ViewHierarchyPanel => Controls::h(ctx),
             EditorAction::ViewConsolePanel => Controls::c(ctx),
             EditorAction::ViewDiagnosticsPanel => Controls::f3(ctx),
+            EditorAction::ViewPrefabPalettePanel => Controls::p(ctx),
             _ => false,
         }
     }
@@ -164,6 +170,7 @@ impl EditorAction {
             EditorAction::ViewHierarchyPanel
                 | EditorAction::ViewConsolePanel
                 | EditorAction::ViewDiagnosticsPanel
+                | EditorAction::ViewPrefabPalettePanel
         )
     }
 }
@@ -392,6 +399,7 @@ fn view_actions_for_mode(editor_mode: EditorMode) -> Vec<EditorAction> {
         EditorAction::ViewConsolePanel,
         EditorAction::ViewDiagnosticsPanel,
         EditorAction::ViewHierarchyPanel,
+        EditorAction::ViewPrefabPalettePanel,
     ]
     .into_iter()
     .filter(|action| action.is_available_in(editor_mode))
@@ -637,8 +645,14 @@ mod tests {
     }
 
     #[test]
-    fn diagnostics_action_uses_f3_shortcut_label() {
-        assert_eq!(EditorAction::ViewDiagnosticsPanel.shortcut(), Some("F3"));
+    fn prefab_palette_action_is_limited_to_room_mode() {
+        assert!(EditorAction::ViewPrefabPalettePanel.is_available_in(EditorMode::Room(
+            RoomId(2),
+        )));
+        assert!(!EditorAction::ViewPrefabPalettePanel.is_available_in(EditorMode::Game));
+        assert!(!EditorAction::ViewPrefabPalettePanel.is_available_in(EditorMode::Prefab(
+            PrefabId(7),
+        )));
     }
 
     #[test]

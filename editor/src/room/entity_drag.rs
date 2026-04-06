@@ -2,6 +2,7 @@
 use crate::commands::room::*;
 use crate::editor_global::*;
 use crate::app::EditorMode;
+use crate::app::SubEditor;
 use crate::room::room_editor::*;
 use crate::room::selection::*;
 use crate::shared::selection::*;
@@ -11,6 +12,42 @@ use engine_core::prelude::*;
 use std::collections::{HashMap, HashSet};
 
 impl RoomEditor {
+    pub(crate) fn handle_prefab_stamp(
+        &mut self,
+        ctx: &WgpuContext,
+        camera: &Camera2D,
+        room_id: RoomId,
+        grid_size: f32,
+        active_prefab_stamp: ActivePrefabStampState,
+    ) -> bool {
+        let Some(prefab_id) = self.active_prefab_id else {
+            return false;
+        };
+        if self.mode != RoomEditorMode::Scene
+            || self.scene_sub_mode != RoomSceneSubMode::Stamp
+            || self.should_block_canvas(ctx)
+            || !ctx.is_mouse_button_pressed(MouseButton::Left)
+        {
+            return false;
+        }
+        if !active_prefab_stamp.available {
+            self.active_prefab_id = None;
+            self.reset_scene_sub_mode();
+            return false;
+        }
+
+        let mouse_world = coord::mouse_world_pos(ctx, camera);
+        let snapped_position =
+            snap_room_drag_position(mouse_world, grid_size, active_prefab_stamp.pivot);
+        push_command(Box::new(PlacePrefabInstanceCmd::new(
+            prefab_id,
+            room_id,
+            snapped_position,
+            EditorMode::Room(room_id),
+        )));
+        true
+    }
+
     /// Handles mouse selection / movement with multi-select support.
     pub(crate) fn handle_selection(
         &mut self,
@@ -340,12 +377,7 @@ impl RoomEditor {
                         .get(anchor_entity)
                         .map(|t| t.pivot)
                         .unwrap_or(Pivot::BottomCenter);
-                    let pn = pivot.as_normalized();
-                    let tile = (mouse_world / grid_size).floor();
-                    vec2(
-                        tile.x * grid_size + grid_size * pn.x,
-                        tile.y * grid_size + grid_size * pn.y,
-                    )
+                    snap_room_drag_position(mouse_world, grid_size, pivot)
                 } else {
                     target_pos
                 };

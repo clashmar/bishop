@@ -6,7 +6,7 @@
         components: [
             /*[0]*/ (
                 type_name: "Animation",
-                data: "{\n    (3): (\n        clips: {\n            Idle: (\n                frame_size: (6.0, 16.0),\n                cols: 5,\n                rows: 1,\n                fps: 10.0,\n                frame_durations: [],\n                looping: true,\n                offset: (0.0, 0.0),\n                mirrored: true,\n            ),\n            Walk: (\n                frame_size: (10.0, 16.0),\n                cols: 4,\n                rows: 1,\n                fps: 10.0,\n                frame_durations: [],\n                looping: true,\n                offset: (0.0, 0.0),\n                mirrored: true,\n            ),\n            Run: (\n                frame_size: (12.0, 16.0),\n                cols: 8,\n                rows: 1,\n                fps: 10.0,\n                frame_durations: [],\n                looping: true,\n                offset: (0.0, 0.0),\n                mirrored: true,\n            ),\n            Jump: (\n                frame_size: (10.0, 16.0),\n                cols: 4,\n                rows: 1,\n                fps: 10.0,\n                frame_durations: [],\n                looping: true,\n                offset: (0.0, 0.0),\n                mirrored: true,\n            ),\n            Fall: (\n                frame_size: (6.0, 14.0),\n                cols: 1,\n                rows: 1,\n                fps: 10.0,\n                frame_durations: [],\n                looping: true,\n                offset: (0.0, 0.0),\n                mirrored: true,\n            ),\n            Custom(\"Fidget\"): (\n                frame_size: (6.0, 15.0),\n                cols: 8,\n                rows: 1,\n                fps: 10.0,\n                frame_durations: [],\n                looping: true,\n                offset: (0.0, 0.0),\n                mirrored: true,\n            ),\n        },\n        variant: (\"animations/player/male\"),\n    ),\n}",
+                data: "{\n    (3): (\n        clips: {\n            Idle: (\n                frame_size: (6.0, 16.0),\n                cols: 5,\n                rows: 1,\n                fps: 10.0,\n                frame_durations: [],\n                looping: true,\n                offset: (0.0, 0.0),\n                mirrored: true,\n            ),\n            Walk: (\n                frame_size: (10.0, 16.0),\n                cols: 4,\n                rows: 1,\n                fps: 10.0,\n                frame_durations: [],\n                looping: true,\n                offset: (0.0, 0.0),\n                mirrored: true,\n            ),\n            Run: (\n                frame_size: (12.0, 16.0),\n                cols: 8,\n                rows: 1,\n                fps: 10.0,\n                frame_durations: [],\n                looping: true,\n                offset: (0.0, 0.0),\n                mirrored: true,\n            ),\n            Jump: (\n                frame_size: (10.0, 16.0),\n                cols: 4,\n                rows: 1,\n                fps: 10.0,\n                frame_durations: [],\n                looping: true,\n                offset: (0.0, 0.0),\n                mirrored: true,\n            ),\n            Fall: (\n                frame_size: (6.0, 14.0),\n                cols: 1,\n                rows: 1,\n                fps: 10.0,\n                frame_durations: [],\n                looping: true,\n                offset: (0.0, 0.0),\n                mirrored: true,\n            ),\n            Custom(\"Fidget\"): (\n                frame_size: (6.0, 15.0),\n                cols: 8,\n                rows: 1,\n                fps: 10.0,\n                frame_durations: [],\n                looping: true,\n                offset: (0.0, 0.0),\n                mirrored: true,\n            ),\n        },\n        variant: (\"animations/player/male\"),\n    ),\n    (31): (\n        clips: {\n            Idle: (\n                frame_size: (6.0, 16.0),\n                cols: 5,\n                rows: 1,\n                fps: 5.0,\n                frame_durations: [],\n                looping: true,\n                offset: (0.0, 0.0),\n                mirrored: true,\n            ),\n        },\n        variant: (\"animations/player/female\"),\n    ),\n}",
             ),
             /*[1]*/ (
                 type_name: "AudioSource",
@@ -22,11 +22,11 @@
             ),
             /*[4]*/ (
                 type_name: "CurrentFrame",
-                data: "{\n    (3): (),\n}",
+                data: "{\n    (3): (),\n    (31): (),\n}",
             ),
             /*[5]*/ (
                 type_name: "CurrentRoom",
-                data: "{\n    (1): ((1)),\n    (2): ((1)),\n    (5): ((1)),\n}",
+                data: "{\n    (1): ((1)),\n    (2): ((1)),\n    (21): ((1)),\n    (24): ((2)),\n    (31): ((1)),\n}",
             ),
             /*[6]*/ (
                 type_name: "Damage",
@@ -66,7 +66,7 @@
             ),
             /*[15]*/ (
                 type_name: "Name",
-                data: "{\n    (1): (\"Camera 1\"),\n    (2): (\"Player Proxy\"),\n    (3): (\"Player\"),\n    (5): (\"Cat\"),\n}",
+                data: "{\n    (1): (\"Camera 1\"),\n    (2): (\"Player Proxy\"),\n    (3): (\"Player\"),\n    (21): (\"Cat\"),\n    (24): (\"Camera 1\"),\n    (31): (\"Entity\"),\n}",
             ),
             /*[16]*/ (
                 type_name: "Parent",
@@ -86,11 +86,11 @@
             ),
             /*[20]*/ (
                 type_name: "PrefabInstanceNode",
-                data: "{}",
+                data: "{\n    (21): (\n        prefab_id: (1),\n        node_id: 1,\n        root_entity: (21),\n    ),\n    (31): (\n        prefab_id: (2),\n        node_id: 1,\n        root_entity: (31),\n    ),\n}",
             ),
             /*[21]*/ (
                 type_name: "PrefabInstanceRoot",
-                data: "{}",
+                data: "{\n    (21): (\n        prefab_id: (1),\n    ),\n    (31): (\n        prefab_id: (2),\n    ),\n}",
             ),
             /*[22]*/ (
                 type_name: "PrefabOverrides",
@@ -98,7 +98,7 @@
             ),
             /*[23]*/ (
                 type_name: "RoomCamera",
-                data: "{\n    (1): (\n        zoom: (0.015625, 0.027777778),\n        room_id: (1),\n        zoom_mode: Step,\n        camera_mode: Fixed,\n    ),\n}",
+                data: "{\n    (1): (\n        zoom: (0.015625, 0.027777778),\n        room_id: (1),\n        zoom_mode: Step,\n        camera_mode: Fixed,\n    ),\n    (24): (\n        zoom: (0.015625, 0.027777778),\n        room_id: (2),\n        zoom_mode: Step,\n        camera_mode: Fixed,\n    ),\n}",
             ),
             /*[24]*/ (
                 type_name: "Script",
@@ -114,7 +114,7 @@
             ),
             /*[27]*/ (
                 type_name: "Sprite",
-                data: "{\n    (5): (\n        sprite: (7),\n    ),\n}",
+                data: "{\n    (21): (\n        sprite: (7),\n    ),\n}",
             ),
             /*[28]*/ (
                 type_name: "SubPixel",
@@ -122,7 +122,7 @@
             ),
             /*[29]*/ (
                 type_name: "Transform",
-                data: "{\n    (1): (\n        visible: true,\n        position: (64.0, 35.99995),\n        pivot: CenterLeft,\n    ),\n    (2): (\n        visible: true,\n        position: (28.0, 72.0),\n        pivot: BottomCenter,\n    ),\n    (5): (\n        visible: true,\n        position: (92.0, 72.0),\n        pivot: BottomCenter,\n    ),\n}",
+                data: "{\n    (1): (\n        visible: true,\n        position: (64.0, 35.99995),\n        pivot: CenterLeft,\n    ),\n    (2): (\n        visible: true,\n        position: (28.0, 72.0),\n        pivot: BottomCenter,\n    ),\n    (21): (\n        visible: true,\n        position: (92.0, 72.0),\n        pivot: BottomCenter,\n    ),\n    (24): (\n        visible: true,\n        position: (-64.0, 36.0),\n        pivot: CenterLeft,\n    ),\n    (31): (\n        visible: true,\n        position: (60.0, 72.0),\n        pivot: BottomCenter,\n    ),\n}",
             ),
             /*[30]*/ (
                 type_name: "Velocity",
@@ -133,7 +133,7 @@
                 data: "{}",
             ),
         ],
-        next_entity_id: 20,
+        next_entity_id: 36,
     ),
     worlds: [
         /*[0]*/ (
@@ -152,6 +152,25 @@
                             id: "default",
                             tilemap: (
                                 width: 16,
+                                height: 9,
+                                background: (0.78, 0.78, 0.78, 1.0),
+                            ),
+                        ),
+                    ],
+                    darkness: 0.3082906,
+                ),
+                /*[1]*/ (
+                    id: (2),
+                    name: "untitled",
+                    position: (-104.0, 0.0),
+                    size: (13.0, 9.0),
+                    exits: [],
+                    adjacent_rooms: [],
+                    variants: [
+                        /*[0]*/ (
+                            id: "default",
+                            tilemap: (
+                                width: 13,
                                 height: 9,
                                 background: (0.78, 0.78, 0.78, 1.0),
                             ),
@@ -191,7 +210,7 @@
             (5): 1,
             (6): 1,
             (7): 1,
-            (8): 4,
+            (8): 5,
         },
     ),
     script_manager: (
@@ -204,5 +223,5 @@
     ),
     current_world_id: ("38f2015c-96c7-4954-862c-a3a8262298b6"),
     game_map: (),
-    next_room_id: 1,
+    next_room_id: 2,
 )

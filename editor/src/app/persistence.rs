@@ -5,6 +5,40 @@ use bishop::prelude::*;
 use engine_core::prelude::*;
 
 impl Editor {
+    pub(crate) fn load_prefab_palette_state(&mut self) {
+        match load_prefab_palette_state(&self.game.name) {
+            Ok(state) => self
+                .room_editor
+                .load_prefab_palette_state(&self.game.prefab_library, state),
+            Err(error) => {
+                onscreen_error!("Could not load prefab palette state: {error}");
+                self.room_editor.load_prefab_palette_state(
+                    &self.game.prefab_library,
+                    PrefabPaletteState::default(),
+                );
+            }
+        }
+    }
+
+    pub(crate) fn save_prefab_palette_state(&self) -> bool {
+        if let Err(error) =
+            save_prefab_palette_state(&self.game.name, &self.room_editor.prefab_palette_state())
+        {
+            onscreen_error!("Could not save prefab palette state: {error}");
+            return false;
+        }
+        true
+    }
+
+    pub(crate) fn activate_prefab(&mut self, prefab_id: PrefabId) -> bool {
+        if !self.game.prefab_library.prefabs.contains_key(&prefab_id) {
+            return false;
+        }
+
+        self.room_editor.activate_prefab(prefab_id);
+        self.save_prefab_palette_state()
+    }
+
     pub fn save(&mut self) {
         if matches!(self.mode, EditorMode::Prefab(_)) {
             self.save_active_prefab();
@@ -18,10 +52,11 @@ impl Editor {
         } else {
             true
         };
+        let prefab_palette_saved = self.save_prefab_palette_state();
 
         if let Err(e) = save_game(&self.game) {
             onscreen_error!("Could not save game: {}.", e)
-        } else if palette_saved {
+        } else if palette_saved && prefab_palette_saved {
             self.save_menus();
             self.toast = Some(Toast::new("Saved", 2.5));
         }

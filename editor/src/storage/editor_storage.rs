@@ -19,7 +19,22 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::Mutex;
 use std::time::SystemTime;
+use serde::{Deserialize, Serialize};
 use uuid::Uuid;
+
+const PREFAB_PALETTE_RON: &str = "prefab_palette.ron";
+/// Maximum number of recent prefabs persisted for the room palette.
+pub(crate) const PREFAB_PALETTE_RECENT_CAP: usize = 10;
+
+/// Persisted room prefab palette state for the active game.
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct PrefabPaletteState {
+    /// The currently active prefab, if any.
+    pub active_prefab_id: Option<PrefabId>,
+    /// Recently used prefab ids, most recent first.
+    pub recent_prefab_ids: Vec<PrefabId>,
+}
 
 /// Create a brand-new game with a single empty world.
 pub fn create_new_game(name: String) -> Game {
@@ -323,6 +338,35 @@ pub fn load_palette(game_name: &str) -> io::Result<TilePalette> {
     }
     let ron = fs::read_to_string(path)?;
     ron::de::from_str(&ron).map_err(Error::other)
+}
+
+/// Saves the room prefab palette state for the game.
+pub fn save_prefab_palette_state(
+    game_name: &str,
+    state: &PrefabPaletteState,
+) -> io::Result<()> {
+    let dir = game_folder(game_name);
+    fs::create_dir_all(&dir)?;
+    let path = dir.join(PREFAB_PALETTE_RON);
+    let ron = ron::ser::to_string_pretty(state, ron::ser::PrettyConfig::new())
+        .map_err(Error::other)?;
+    fs::write(path, ron)
+}
+
+/// Loads the room prefab palette state for the game.
+pub fn load_prefab_palette_state(game_name: &str) -> io::Result<PrefabPaletteState> {
+    let path = game_folder(game_name).join(PREFAB_PALETTE_RON);
+
+    match fs::read_to_string(&path) {
+        Ok(ron) => ron::from_str(&ron).map_err(|error| {
+            Error::new(
+                ErrorKind::InvalidData,
+                format!("Could not parse prefab palette state: {error}"),
+            )
+        }),
+        Err(error) if error.kind() == ErrorKind::NotFound => Ok(PrefabPaletteState::default()),
+        Err(error) => Err(error),
+    }
 }
 
 /// Create a fresh world with a single default room.

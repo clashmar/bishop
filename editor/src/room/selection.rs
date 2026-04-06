@@ -201,3 +201,12 @@ pub fn can_select_entity_in_room(ecs: &Ecs, entity: Entity, room_id: RoomId) -> 
         None => false,
     }
 }
+
+pub(crate) fn snap_room_drag_position(mouse_world: Vec2, grid_size: f32, pivot: Pivot) -> Vec2 {
+    let pivot_normalized = pivot.as_normalized();
+    let tile = (mouse_world / grid_size).floor();
+    vec2(
+        tile.x * grid_size + grid_size * pivot_normalized.x,
+        tile.y * grid_size + grid_size * pivot_normalized.y,
+    )
+}

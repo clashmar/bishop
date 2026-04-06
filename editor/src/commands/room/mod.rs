@@ -6,6 +6,7 @@ mod copy_entity;
 mod duplicate_entities_cmd;
 mod move_entity_cmd;
 mod paste_entity_cmd;
+mod place_prefab_instance_cmd;
 mod resize_tilemap_cmd;
 
 pub use alt_drag_copy_cmd::*;
@@ -15,4 +16,5 @@ pub use copy_entity::*;
 pub use duplicate_entities_cmd::*;
 pub use move_entity_cmd::*;
 pub use paste_entity_cmd::*;
+pub use place_prefab_instance_cmd::*;
 pub use resize_tilemap_cmd::*;

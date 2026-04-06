@@ -19,7 +19,7 @@ use crate::editor_global::push_toast;
 use crate::playtest::playtest_process::PlaytestProcess;
 use crate::playtest::room_playtest::*;
 use crate::prefab::{PrefabEditor, PrefabStage};
-use crate::room::room_editor::RoomEditor;
+use crate::room::room_editor::{self, RoomEditor};
 use crate::storage::editor_storage;
 use crate::storage::editor_storage::*;
 use crate::storage::export::PendingExport;
@@ -157,6 +157,7 @@ impl Editor {
 
         // Give the palette to the tilemap editor
         editor.room_editor.tilemap_editor.tilemap_panel.palette = palette;
+        editor.load_prefab_palette_state();
 
         // Initialize the grid renderer
         editor.grid_renderer = Some(GridRenderer::new(&ctx.borrow()));
@@ -302,7 +303,16 @@ impl Editor {
                 }
 
                 let room_prefab_action;
+                let mut save_prefab_palette = false;
+                let mut save_after_room_exit = false;
                 {
+                    let active_prefab_stamp = room_editor::ActivePrefabStampState {
+                        available: self
+                            .room_editor
+                            .active_prefab_id
+                            .is_some_and(|prefab_id| self.game.prefab_library.prefabs.contains_key(&prefab_id)),
+                        pivot: self.room_editor.active_prefab_snap_pivot(&self.game.prefab_library),
+                    };
                     let current_world = &mut self
                         .game
                         .worlds
@@ -313,10 +323,13 @@ impl Editor {
                     self.room_editor.update(
                         ctx,
                         &mut self.camera,
-                        room_id,
-                        &mut self.game.ecs,
-                        current_world,
-                        &mut self.game.asset_manager,
+                        room_editor::RoomEditorUpdateState {
+                            room_id,
+                            ecs: &mut self.game.ecs,
+                            current_world,
+                            asset_manager: &mut self.game.asset_manager,
+                            active_prefab_stamp,
+                        },
                     );
                     room_prefab_action = self.room_editor.prefab_action_request.take();
 
@@ -325,7 +338,12 @@ impl Editor {
                         &mut self.game.asset_manager,
                     );
 
-                    if Controls::escape(ctx) && !input_is_focused() {
+                    if Controls::escape(ctx)
+                        && !input_is_focused()
+                        && self.room_editor.reset_scene_sub_mode()
+                    {
+                        save_prefab_palette = true;
+                    } else if Controls::escape(ctx) && !input_is_focused() {
                         let palette = &mut self.room_editor.tilemap_editor.tilemap_panel.palette;
 
                         if let Err(e) = editor_storage::save_palette(palette, &self.game.name) {
@@ -347,9 +365,16 @@ impl Editor {
                         self.room_editor.reset();
                         self.mode = EditorMode::World(current_world.id);
 
-                        // Save everything
-                        self.save();
+                        save_prefab_palette = true;
+                        save_after_room_exit = true;
                     }
+                }
+
+                if save_prefab_palette {
+                    self.save_prefab_palette_state();
+                }
+                if save_after_room_exit {
+                    self.save();
                 }
 
                 if let Some(request) = room_prefab_action {

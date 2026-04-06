@@ -48,6 +48,7 @@ impl Editor {
             EditorAction::ViewConsolePanel,
             EditorAction::ViewDiagnosticsPanel,
             EditorAction::ViewHierarchyPanel,
+            EditorAction::ViewPrefabPalettePanel,
         ];
 
         actions.into_iter().find(|action| {
@@ -145,6 +146,11 @@ impl Editor {
                     panel_manager.toggle(DIAGNOSTICS_PANEL);
                 });
             }
+            EditorAction::ViewPrefabPalettePanel => {
+                with_panel_manager(|panel_manager| {
+                    panel_manager.toggle(PREFAB_PALETTE_PANEL);
+                });
+            }
             EditorAction::WorldSettings => {
                 self.open_world_settings_modal(ctx);
             }
@@ -153,6 +159,7 @@ impl Editor {
             }
             EditorAction::OpenMenuEditor => {
                 clear_active_audio_preview();
+                self.room_editor.reset_scene_sub_mode();
                 self.return_mode = Some(self.mode);
                 self.mode = EditorMode::Menu;
                 self.load_menus();
@@ -266,6 +273,7 @@ impl Editor {
             camera: std::mem::take(&mut self.camera),
             ..Self::default()
         };
+        self.load_prefab_palette_state();
 
         // Render system always needs a resize after switch
         let cur_screen = (ctx.screen_width() as u32, ctx.screen_height() as u32);

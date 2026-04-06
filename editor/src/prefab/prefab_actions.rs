@@ -45,7 +45,7 @@ impl Editor {
     pub(crate) fn open_prefab_editor(&mut self, ctx: &mut WgpuContext) {
         match self.prefab_editor_launch() {
             PrefabEditorLaunch::OpenExisting(prefab_id) => {
-                self.enter_prefab_mode(ctx, prefab_id);
+                self.enter_prefab_transition(ctx, prefab_id);
             }
             PrefabEditorLaunch::CaptureSelection(entity) => {
                 self.pending_prefab_request = Some(PendingPrefabRequest::CaptureSelection(entity));
@@ -65,7 +65,7 @@ impl Editor {
     ) {
         match request.action {
             ScenePrefabAction::OpenPrefabEditor => {
-                self.enter_prefab_mode(ctx, request.prefab_id);
+                self.enter_prefab_transition(ctx, request.prefab_id);
             }
             ScenePrefabAction::UnlinkInstance => {
                 push_command(Box::new(UnlinkPrefabInstanceCmd::new(
@@ -88,13 +88,13 @@ impl Editor {
         }
     }
 
-    pub(crate) fn enter_prefab_mode(&mut self, ctx: &WgpuContext, prefab_id: PrefabId) {
+    pub(crate) fn enter_prefab_transition(&mut self, ctx: &WgpuContext, prefab_id: PrefabId) {
         let prompt =
             self.request_prefab_transition(PendingPrefabTransition::OpenExisting(prefab_id));
         self.present_prefab_transition_prompt(ctx, prompt);
     }
 
-    fn open_prefab_editor_for_id(&mut self, prefab_id: PrefabId) {
+    pub(crate) fn open_prefab_editor_for_id(&mut self, prefab_id: PrefabId) {
         let Some(prefab) = self.game.prefab_library.prefabs.get(&prefab_id).cloned() else {
             self.toast = Some(Toast::new("Prefab not found.", 2.5));
             return;
@@ -107,6 +107,7 @@ impl Editor {
             prefab.clone(),
             last_room_synced_state,
         );
+        self.room_editor.reset();
         self.prefab_editor = Some(prefab_editor);
         self.prefab_stage = Some(prefab_stage);
         if !matches!(self.mode, EditorMode::Prefab(_)) {
@@ -148,8 +149,8 @@ impl Editor {
             return;
         };
 
-        self.room_editor.set_selected_entity(Some(linked_root));
         self.open_prefab_editor_for_id(prefab.id);
+        self.room_editor.set_selected_entity(Some(linked_root));
     }
 
     fn create_blank_prefab_impl(&mut self, name: String) {
