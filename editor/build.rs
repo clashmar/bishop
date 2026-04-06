@@ -93,7 +93,10 @@ fn generate_lua_components() {
     // Generate the ComponentId class with all component names
     lua.push_str("---@class ComponentId\n");
     for reg in COMPONENTS.iter().filter(|reg| is_public_lua_component(reg.type_name)) {
-        lua.push_str(&format!("---@field {} string\n", reg.type_name));
+        lua.push_str(&format!(
+            "---@field {} \"{}\"\n",
+            reg.type_name, reg.type_name
+        ));
     }
     lua.push('\n');
 

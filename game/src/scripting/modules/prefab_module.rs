@@ -3,6 +3,9 @@ use crate::scripting::modules::entity_module::lua_entity_handle;
 use crate::scripting::script_system::ScriptSystem;
 use bishop::prelude::*;
 use engine_core::prelude::*;
+use engine_core::scripting::lua_constants::{
+    ENGINE, ENGINE_FILE, POSITION, PREFAB, SPAWN, X, Y,
+};
 use engine_core::{register_lua_api, register_lua_module};
 use mlua::prelude::LuaResult;
 use mlua::{Lua, MultiValue, Table, Value};
@@ -23,14 +26,17 @@ impl LuaModule for PrefabModule {
         let engine_tbl: Table = lua.globals().get(ENGINE)?;
         let prefab_tbl = lua.create_table()?;
 
-        let spawn_fn = lua.create_function(|lua, (prefab_name, options): (String, Table)| {
-            let (spawn, spawn_args) = parse_spawn_options(lua, options)?;
-            let spawned_entity = spawn_prefab(lua, &prefab_name, spawn.position, spawn_args)?;
-            lua_entity_handle(lua, spawned_entity)
-        })?;
+        let spawn_fn = lua.create_function(
+            |lua, (prefab_name, position, init): (String, Table, Option<Table>)| {
+                let (spawn, spawn_args) = parse_spawn_args(lua, &prefab_name, position, init)?;
+                let spawned_entity =
+                    spawn_prefab(lua, &prefab_name, spawn.position, spawn_args)?;
+                lua_entity_handle(lua, spawned_entity)
+            },
+        )?;
 
-        prefab_tbl.set("spawn", spawn_fn)?;
-        engine_tbl.set("prefab", prefab_tbl)?;
+        prefab_tbl.set(SPAWN, spawn_fn)?;
+        engine_tbl.set(PREFAB, prefab_tbl)?;
         Ok(())
     }
 }
@@ -39,36 +45,44 @@ impl LuaApi for PrefabModule {
     fn emit_api(&self, out: &mut LuaApiWriter) {
         out.line("engine.prefab = {}");
         out.line("");
-        out.line("---@param prefab_name PrefabId|string");
-        out.line("---@param opts { position: { x: number, y: number }, args?: table }");
+        out.line("---@param prefab_name PrefabId");
+        out.line("---@param position vec2");
+        out.line("---@param init? table");
         out.line("---@return Entity");
-        out.line("function engine.prefab.spawn(prefab_name, opts) end");
+        out.line("function engine.prefab.spawn(prefab_name, position, init) end");
         out.line("");
     }
 }
 
-fn parse_spawn_options(_lua: &Lua, options: Table) -> LuaResult<(SpawnOptions, Option<Value>)> {
-    let position: Table = options.get("position").map_err(|_| {
-        mlua::Error::RuntimeError(
-            "engine.prefab.spawn requires opts.position = { x = number, y = number }".into(),
-        )
+fn parse_spawn_args(
+    _lua: &Lua,
+    prefab_name: &str,
+    position: Table,
+    init: Option<Table>,
+) -> LuaResult<(SpawnOptions, Option<Value>)> {
+    let x = position.get::<f32>(X).map_err(|_| {
+        mlua::Error::RuntimeError(format!(
+            "engine.prefab.spawn({prefab_name}) requires {POSITION} = {{ {X} = number, {Y} = number }}"
+        ))
     })?;
-    let x = position.get::<f32>("x").map_err(|_| {
-        mlua::Error::RuntimeError("engine.prefab.spawn opts.position.x must be a number".into())
-    })?;
-    let y = position.get::<f32>("y").map_err(|_| {
-        mlua::Error::RuntimeError("engine.prefab.spawn opts.position.y must be a number".into())
+    let y = position.get::<f32>(Y).map_err(|_| {
+        mlua::Error::RuntimeError(format!(
+            "engine.prefab.spawn({prefab_name}) requires {POSITION} = {{ {X} = number, {Y} = number }}"
+        ))
     })?;
 
-    let spawn_args = match options.get::<Value>("args")? {
-        Value::Nil => None,
-        Value::Table(table) => Some(Value::Table(table)),
-        _ => {
-            return Err(mlua::Error::RuntimeError(
-                "engine.prefab.spawn opts.args must be a table when provided".into(),
-            ))
-        }
-    };
+    if (1..=3).any(|index| {
+        matches!(
+            position.get::<Value>(index).ok(),
+            Some(Value::Number(_) | Value::Integer(_))
+        )
+    }) {
+        return Err(mlua::Error::RuntimeError(format!(
+            "engine.prefab.spawn({prefab_name}) requires {POSITION} = {{ {X} = number, {Y} = number }}"
+        )));
+    }
+
+    let spawn_args = init.map(Value::Table);
 
     Ok((
         SpawnOptions {
@@ -112,7 +126,7 @@ fn spawn_prefab(
             })?;
         if spawn_args.is_some() && !prefab_root_supports_spawn_args(&prefab) {
             return Err(mlua::Error::RuntimeError(
-                "engine.prefab.spawn opts.args requires a Script on the prefab root".into(),
+                "engine.prefab.spawn init requires a Script on the prefab root".into(),
             ));
         }
         let room_id = game_instance
@@ -134,7 +148,7 @@ fn spawn_prefab(
         ));
     }
 
-    let inits_to_run = {
+    let inits_to_run_result = {
         let mut game_instance = ctx.game_instance.borrow_mut();
         let game = &mut game_instance.game;
         ScriptSystem::prepare_spawned_script_inits(
@@ -143,7 +157,17 @@ fn spawn_prefab(
             &mut game.script_manager,
             root_entity,
             spawn_args,
-        )?
+        )
+    };
+
+    let inits_to_run = match inits_to_run_result {
+        Ok(inits) => inits,
+        Err(error) => {
+            let mut game_instance = ctx.game_instance.borrow_mut();
+            let mut game_ctx = game_instance.game.ctx_mut();
+            Ecs::remove_entity(&mut game_ctx, root_entity);
+            return Err(error);
+        }
     };
 
     for (init_fn, instance, args) in inits_to_run {
@@ -167,46 +191,31 @@ mod tests {
     use super::*;
 
     #[test]
-    fn parse_spawn_options_reads_position_and_args_table() {
+    fn parse_spawn_args_reads_named_position_and_init_table() {
         let lua = Lua::new();
-        let options = lua.create_table().unwrap();
         let position = lua.create_table().unwrap();
-        let args = lua.create_table().unwrap();
-        position.set("x", 12.5).unwrap();
-        position.set("y", -3.0).unwrap();
-        args.set("direction", "left").unwrap();
-        options.set("position", position).unwrap();
-        options.set("args", args.clone()).unwrap();
+        position.set(X, 12.5).unwrap();
+        position.set(Y, -3.0).unwrap();
+        let init = lua.create_table().unwrap();
+        init.set("direction", "left").unwrap();
 
-        let (spawn, parsed_args) = parse_spawn_options(&lua, options).unwrap();
+        let (spawn, parsed_init) =
+            parse_spawn_args(&lua, "Bullet", position, Some(init)).unwrap();
 
         assert_eq!(spawn.position, Vec2::new(12.5, -3.0));
-        assert!(matches!(parsed_args, Some(Value::Table(_))));
+        assert!(matches!(parsed_init, Some(Value::Table(_))));
     }
 
     #[test]
-    fn parse_spawn_options_requires_position() {
+    fn parse_spawn_args_rejects_indexed_position_tables() {
         let lua = Lua::new();
-        let options = lua.create_table().unwrap();
+        let position = lua.create_table().unwrap();
+        position.set(1, 12.5).unwrap();
+        position.set(2, -3.0).unwrap();
 
-        let error = parse_spawn_options(&lua, options).unwrap_err();
+        let error = parse_spawn_args(&lua, "Bullet", position, None).unwrap_err();
 
         assert!(error.to_string().contains("position"));
-    }
-
-    #[test]
-    fn parse_spawn_options_rejects_non_table_args() {
-        let lua = Lua::new();
-        let options = lua.create_table().unwrap();
-        let position = lua.create_table().unwrap();
-        position.set("x", 1.0).unwrap();
-        position.set("y", 2.0).unwrap();
-        options.set("position", position).unwrap();
-        options.set("args", 7).unwrap();
-
-        let error = parse_spawn_options(&lua, options).unwrap_err();
-
-        assert!(error.to_string().contains("args"));
     }
 
     #[test]

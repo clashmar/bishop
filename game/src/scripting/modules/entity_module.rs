@@ -265,7 +265,7 @@ impl LuaMethod<EntityHandle> for GetMethod {
                 reg.type_name, reg.type_name
             ));
         }
-        out.line("---@param component string");
+        out.line("---@param component ComponentId");
         out.line("---@return table|nil");
         out.line(&format!("function Entity:{}(component) end", GET));
         out.line("");
@@ -308,9 +308,8 @@ impl LuaMethod<EntityHandle> for SetMethod {
 
     fn emit_api(&self, out: &mut LuaApiWriter) {
         out.line("-- Generic set method");
-        out.line("---@param component string");
-        out.line("---@see ComponentId");
-        out.line("---@param value table");
+        out.line("---@param component ComponentId");
+        out.line("---@param value any");
         out.line(&format!("function Entity:{}(component, value) end", SET));
         out.line("");
 
@@ -379,22 +378,19 @@ impl LuaMethod<EntityHandle> for HasMethod {
 
     fn emit_api(&self, out: &mut LuaApiWriter) {
         // has
-        out.line("---@param component string");
-        out.line("---@see ComponentId");
+        out.line("---@param component ComponentId");
         out.line("---@return boolean");
         out.line(&format!("function Entity:{}(component) end", HAS));
         out.line("");
 
         // has_any
-        out.line("---@param ... string");
-        out.line("---@see ComponentId");
+        out.line("---@param ... ComponentId");
         out.line("---@return boolean");
         out.line(&format!("function Entity:{}(...) end", HAS_ANY));
         out.line("");
 
         // has_all
-        out.line("---@param ... string");
-        out.line("---@see ComponentId");
+        out.line("---@param ... ComponentId");
         out.line("---@return boolean");
         out.line(&format!("function Entity:{}(...) end", HAS_ALL));
         out.line("");

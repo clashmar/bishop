@@ -1,6 +1,7 @@
 use super::editor_storage::*;
 use crate::editor_assets::write_prefabs_lua;
 use engine_core::prelude::*;
+use engine_core::scripting::lua_constants::{ENGINE_DIR, PREFABS_FILE};
 use engine_core::storage::path_utils::sanitise_name;
 use engine_core::storage::test_utils::{TestGameFolder, game_fs_test_lock};
 
@@ -102,7 +103,7 @@ fn save_game_writes_prefabs_lua() {
 
     save_game(&game).unwrap();
 
-    let prefabs_path = scripts_folder().join("_engine").join("prefabs.lua");
+    let prefabs_path = scripts_folder().join(ENGINE_DIR).join(PREFABS_FILE);
     assert!(prefabs_path.is_file());
     let contents = std::fs::read_to_string(prefabs_path).unwrap();
     assert!(contents.contains("BossAttack = \"Boss Attack\""));
@@ -170,7 +171,7 @@ fn write_prefabs_lua_sanitizes_collisions() {
     )
     .unwrap();
 
-    let prefabs_path = scripts_folder().join("_engine").join("prefabs.lua");
+    let prefabs_path = scripts_folder().join(ENGINE_DIR).join(PREFABS_FILE);
     let contents = std::fs::read_to_string(prefabs_path).unwrap();
 
     assert!(contents.contains("BossAttack = \"Boss Attack\""));

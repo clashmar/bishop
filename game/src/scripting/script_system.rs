@@ -195,6 +195,7 @@ impl ScriptSystem {
         let mut entities = Vec::new();
         collect_prefab_subtree(ecs, root_entity, &mut entities);
         let mut root_has_script = false;
+        let mut root_has_init = false;
         let mut inits = Vec::new();
 
         for entity in entities {
@@ -221,6 +222,7 @@ impl ScriptSystem {
 
             if let Ok(init_fn) = instance.get::<Function>(INIT) {
                 let args = if entity == root_entity {
+                    root_has_init = true;
                     root_args.clone()
                 } else {
                     None
@@ -231,7 +233,13 @@ impl ScriptSystem {
 
         if root_args.is_some() && !root_has_script {
             return Err(mlua::Error::RuntimeError(
-                "engine.prefab.spawn opts.args requires a Script on the prefab root".into(),
+                "engine.prefab.spawn init requires a Script on the prefab root".into(),
+            ));
+        }
+
+        if root_args.is_some() && !root_has_init {
+            return Err(mlua::Error::RuntimeError(
+                "engine.prefab.spawn init requires a root script init(self, init)".into(),
             ));
         }
 
@@ -254,6 +262,7 @@ fn script_update_is_still_valid(ecs: &Ecs, entity: Entity, script_id: ScriptId) 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use engine_core::scripting::lua_constants::PUBLIC;
 
     #[test]
     fn script_update_eligibility_rejects_entities_without_the_same_script_component() {
@@ -272,5 +281,39 @@ mod tests {
 
         assert!(!script_update_is_still_valid(&ecs, entity, ScriptId(7)));
         assert!(script_update_is_still_valid(&ecs, entity, ScriptId(3)));
+    }
+
+    #[test]
+    fn prepare_spawned_script_inits_rejects_root_args_without_root_init() {
+        let lua = Lua::new();
+        let mut ecs = Ecs::default();
+        let root = ecs.create_entity().finish();
+        let mut script_manager = ScriptManager::default();
+        let def = lua.create_table().unwrap();
+        let public = lua.create_table().unwrap();
+        let init_args = lua.create_table().unwrap();
+
+        public.set("speed", 120).unwrap();
+        def.set(PUBLIC, public).unwrap();
+        init_args.set("direction", "left").unwrap();
+        script_manager.table_defs.insert(ScriptId(1), def);
+        ecs.add_component_to_entity(
+            root,
+            Script {
+                script_id: ScriptId(1),
+                ..Default::default()
+            },
+        );
+
+        let error = ScriptSystem::prepare_spawned_script_inits(
+            &lua,
+            &mut ecs,
+            &mut script_manager,
+            root,
+            Some(Value::Table(init_args)),
+        )
+        .unwrap_err();
+
+        assert!(error.to_string().contains("root script init"));
     }
 }

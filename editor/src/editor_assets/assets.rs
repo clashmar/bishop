@@ -4,7 +4,9 @@ use crate::storage::sound_preset_storage::SoundPresetLibrary;
 use crate::editor_assets::prefabs_lua::generate_prefabs_lua;
 use bishop::prelude::*;
 use engine_core::prelude::*;
-use engine_core::scripting::lua_constants::{ANIMATIONS_FILE, ENGINE_DIR, SOUNDS_FILE};
+use engine_core::scripting::lua_constants::{
+    ANIMATIONS_FILE, ENGINE_DIR, PREFABS_FILE, SOUNDS_FILE,
+};
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 use std::sync::{LazyLock, OnceLock};
@@ -171,7 +173,7 @@ pub fn write_prefabs_lua(scripts_folder: &Path, prefab_names: &[String]) -> io::
     let engine_folder = scripts_folder.join(ENGINE_DIR);
     fs::create_dir_all(&engine_folder)?;
     fs::write(
-        engine_folder.join("prefabs.lua"),
+        engine_folder.join(PREFABS_FILE),
         generate_prefabs_lua(prefab_names),
     )
 }

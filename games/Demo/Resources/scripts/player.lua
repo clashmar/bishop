@@ -9,20 +9,6 @@ local sound = require("_engine.sounds")
 local primary_music_track = "music/Egobyte_CalmessPersonified"
 local secondary_music_track = "music/Across the Sea"
 
-local function vec2_x(v)
-    if v == nil then
-        return nil
-    end
-    return v.x or v[1]
-end
-
-local function vec2_y(v)
-    if v == nil then
-        return nil
-    end
-    return v.y or v[2]
-end
-
 ---@class ScriptDef
 local Player = {
     public = {
@@ -153,26 +139,19 @@ local Player = {
 
         if engine.input.pressed(input.K) then
             local transform = self.entity:get(comp.Transform)
-            local bullet_prefab = prefabs.Bullet
+            local pos = transform.position
 
-            if transform and engine.prefab and engine.prefab.spawn and bullet_prefab then
-                local pos_x = vec2_x(transform.position)
-                local pos_y = vec2_y(transform.position)
-                if pos_x == nil or pos_y == nil then
-                    return
-                end
-
-                local x_offset = state.facing == direction.Left and -12 or 12
-                engine.prefab.spawn(bullet_prefab, {
-                    position = {
-                        x = pos_x + x_offset,
-                        y = pos_y,
-                    },
-                    args = {
-                        direction = state.facing,
-                    },
-                })
-            end
+            local x_offset = state.facing == direction.Left and -12 or 12
+            engine.prefab.spawn(
+                prefabs.Bullet,
+                {
+                    x = pos.x + x_offset,
+                    y = pos.y,
+                },
+                {
+                    direction = state.facing,
+                }
+            )
         end
     end,
 

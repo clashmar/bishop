@@ -93,14 +93,49 @@ pub fn ecs_component(args: TokenStream, input: TokenStream) -> TokenStream {
 
     // Build the struct definition
     let struct_def = match fields {
-        Fields::Named(_) => {
-            quote! { #(#attrs)* #vis struct #name #generics #fields }
+        Fields::Named(named) => {
+            let fields = named.named.iter().map(|field| {
+                let field_attrs = &field.attrs;
+                let field_vis = &field.vis;
+                let field_ident = &field.ident;
+                let field_ty = &field.ty;
+
+                quote! {
+                    #(#field_attrs)*
+                    #field_vis #field_ident: #field_ty,
+                }
+            });
+
+            quote! {
+                #(#attrs)*
+                #vis struct #name #generics {
+                    #(#fields)*
+                }
+            }
         }
-        Fields::Unnamed(_) => {
-            quote! { #(#attrs)* #vis struct #name #generics #fields; }
+        Fields::Unnamed(unnamed) => {
+            let fields = unnamed.unnamed.iter().map(|field| {
+                let field_attrs = &field.attrs;
+                let field_vis = &field.vis;
+                let field_ty = &field.ty;
+
+                quote! {
+                    #(#field_attrs)*
+                    #field_vis #field_ty,
+                }
+            });
+
+            quote! {
+                #(#attrs)*
+                #vis struct #name #generics(
+                    #(#fields)*
+                );
+            }
         }
         Fields::Unit => {
-            quote! { #(#attrs)* #vis struct #name #generics; }
+            quote! {
+                #(#attrs)* #vis struct #name #generics;
+            }
         }
     };
 
@@ -153,6 +188,9 @@ pub fn ecs_component(args: TokenStream, input: TokenStream) -> TokenStream {
             crate::ecs::component_registry::noop_post_remove
         }
     };
+
+    let to_lua_impl = generate_to_lua_impl(fields, name);
+    let from_lua_impl = generate_from_lua_impl(fields, name);
 
     let expanded = quote! {
         #struct_def
@@ -222,17 +260,11 @@ pub fn ecs_component(args: TokenStream, input: TokenStream) -> TokenStream {
             }
 
             fn __to_lua(lua: &mlua::Lua, any: &dyn std::any::Any) -> mlua::Result<mlua::Value> {
-                use mlua::LuaSerdeExt;
-                let comp = any
-                    .downcast_ref::<#name>()
-                    .expect(concat!("ComponentRegistry: type mismatch for ", stringify!(#name)));
-                lua.to_value(comp)
+                #to_lua_impl
             }
 
             fn __from_lua(lua: &mlua::Lua, value: mlua::Value) -> mlua::Result<Box<dyn std::any::Any>> {
-                use mlua::LuaSerdeExt;
-                let comp: #name = lua.from_value(value)?;
-                Ok(Box::new(comp) as Box<dyn std::any::Any>)
+                #from_lua_impl
             }
         }
 
@@ -400,4 +432,116 @@ fn rust_alias_type_to_lua(ty: &Type) -> String {
         }
         _ => rust_type_to_lua(ty).to_string(),
     }
+}
+
+fn generate_to_lua_impl(fields: &Fields, name: &syn::Ident) -> proc_macro2::TokenStream {
+    match fields {
+        Fields::Named(named) => {
+            let setters = named.named.iter().map(|field| {
+                let field_ident = field.ident.as_ref().expect("named field");
+                let field_name = field_ident.to_string();
+                let field_ty = &field.ty;
+
+                if is_vec2_type(field_ty) {
+                    quote! {
+                        table.set(
+                            #field_name,
+                            crate::scripting::lua_marshalling::write_named_vec2_table(lua, comp.#field_ident)?,
+                        )?;
+                    }
+                } else if is_vec3_type(field_ty) {
+                    quote! {
+                        table.set(
+                            #field_name,
+                            crate::scripting::lua_marshalling::write_named_vec3_table(lua, comp.#field_ident)?,
+                        )?;
+                    }
+                } else {
+                    quote! {
+                        table.set(#field_name, lua.to_value(&comp.#field_ident)?)?;
+                    }
+                }
+            });
+
+            quote! {
+                use mlua::LuaSerdeExt;
+                let comp = any
+                    .downcast_ref::<#name>()
+                    .expect(concat!("ComponentRegistry: type mismatch for ", stringify!(#name)));
+                let table = lua.create_table()?;
+                #(#setters)*
+                Ok(mlua::Value::Table(table))
+            }
+        }
+        _ => quote! {
+            use mlua::LuaSerdeExt;
+            let comp = any
+                .downcast_ref::<#name>()
+                .expect(concat!("ComponentRegistry: type mismatch for ", stringify!(#name)));
+            lua.to_value(comp)
+        },
+    }
+}
+
+fn generate_from_lua_impl(fields: &Fields, name: &syn::Ident) -> proc_macro2::TokenStream {
+    match fields {
+        Fields::Named(named) => {
+            let initializers = named.named.iter().map(|field| {
+                let field_ident = field.ident.as_ref().expect("named field");
+                let field_name = field_ident.to_string();
+                let field_ty = &field.ty;
+
+                if is_vec2_type(field_ty) {
+                    quote! {
+                        #field_ident: {
+                            let value = table.get::<mlua::Table>(#field_name)?;
+                            crate::scripting::lua_marshalling::read_named_vec2_table(&value, #field_name)?
+                        }
+                    }
+                } else if is_vec3_type(field_ty) {
+                    quote! {
+                        #field_ident: {
+                            let value = table.get::<mlua::Table>(#field_name)?;
+                            crate::scripting::lua_marshalling::read_named_vec3_table(&value, #field_name)?
+                        }
+                    }
+                } else {
+                    quote! {
+                        #field_ident: lua.from_value(table.get::<mlua::Value>(#field_name)?)?
+                    }
+                }
+            });
+
+            quote! {
+                use mlua::LuaSerdeExt;
+                let table = match value {
+                    mlua::Value::Table(table) => table,
+                    other => {
+                        return Err(mlua::Error::FromLuaConversionError {
+                            from: other.type_name(),
+                            to: stringify!(#name).to_string(),
+                            message: Some("expected table".into()),
+                        });
+                    }
+                };
+                let comp = #name {
+                    #(#initializers),*
+                };
+                Ok(Box::new(comp) as Box<dyn std::any::Any>)
+            }
+        }
+        _ => quote! {
+            use mlua::LuaSerdeExt;
+            let comp: #name = lua.from_value(value)?;
+            Ok(Box::new(comp) as Box<dyn std::any::Any>)
+        },
+    }
+}
+
+fn is_vec2_type(ty: &Type) -> bool {
+    matches!(ty, syn::Type::Path(p) if p.path.is_ident("Vec2"))
+}
+
+fn is_vec3_type(ty: &Type) -> bool {
+    matches!(ty, syn::Type::Path(p) if p.path.is_ident("Vec3"))
 }

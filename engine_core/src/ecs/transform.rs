@@ -6,7 +6,6 @@ use bishop::prelude::*;
 use ecs_component::ecs_component;
 use reflect_derive::Reflect;
 use serde::{Deserialize, Serialize};
-use serde_with::FromInto;
 use serde_with::serde_as;
 
 /// Pivot point for sprite rendering. Defines which point on the sprite
@@ -97,7 +96,7 @@ pub fn pivot_offset(entity_pos: Vec2, size: Vec2, pivot: Pivot) -> Vec2 {
 pub struct Transform {
     /// Whether the entity is visible when rendering.
     pub visible: bool,
-    #[serde_as(as = "FromInto<[f32; 2]>")]
+    #[serde_as(as = "serde_with::FromInto<[f32; 2]>")]
     pub position: Vec2,
     /// Pivot point for rendering. Defaults to BottomCenter.
     pub pivot: Pivot,

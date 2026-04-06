@@ -7,7 +7,7 @@ use bishop::prelude::*;
 use ecs_component::ecs_component;
 use reflect_derive::Reflect;
 use serde::{Deserialize, Serialize};
-use serde_with::{FromInto, serde_as};
+use serde_with::serde_as;
 
 /// A single glow source.
 #[ecs_component(post_create = post_create, post_remove = post_remove)]
@@ -15,7 +15,7 @@ use serde_with::{FromInto, serde_as};
 #[derive(Clone, Serialize, Deserialize, Debug, Reflect)]
 #[serde(default)]
 pub struct Glow {
-    #[serde_as(as = "FromInto<[f32; 3]>")]
+    #[serde_as(as = "serde_with::FromInto<[f32; 3]>")]
     pub color: Vec3,
     pub intensity: f32,
     pub brightness: f32,

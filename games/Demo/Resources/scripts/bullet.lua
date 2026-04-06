@@ -2,42 +2,6 @@
 local comp = require("_engine.components")
 local direction = require("_engine.direction")
 
-local function vec2_x(v)
-    if v == nil then
-        return nil
-    end
-    return v.x or v[1]
-end
-
-local function vec2_y(v)
-    if v == nil then
-        return nil
-    end
-    return v.y or v[2]
-end
-
-local function set_vec2_x(v, value)
-    if v == nil then
-        return
-    end
-    if v.x ~= nil then
-        v.x = value
-    else
-        v[1] = value
-    end
-end
-
-local function set_vec2_y(v, value)
-    if v == nil then
-        return
-    end
-    if v.y ~= nil then
-        v.y = value
-    else
-        v[2] = value
-    end
-end
-
 ---@class ScriptDef
 local bullet = {
     public = {
@@ -78,23 +42,17 @@ local bullet = {
         end
 
         local position = transform.position
-        local pos_x = vec2_x(position)
-        local pos_y = vec2_y(position)
-        if pos_x == nil or pos_y == nil then
-            return
-        end
-
         local step = self.public.speed * dt
         local launch_direction = self._state.direction
 
         if launch_direction == direction.Left then
-            set_vec2_x(position, pos_x - step)
+            position.x = position.x - step
         elseif launch_direction == direction.Up then
-            set_vec2_y(position, pos_y - step)
+            position.y = position.y - step
         elseif launch_direction == direction.Down then
-            set_vec2_y(position, pos_y + step)
+            position.y = position.y + step
         else
-            set_vec2_x(position, pos_x + step)
+            position.x = position.x + step
         end
 
         self.entity:set_transform(transform)
