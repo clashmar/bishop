@@ -156,7 +156,7 @@ impl Editor {
                 self.return_mode = Some(self.mode);
                 self.mode = EditorMode::Menu;
                 self.load_menus();
-                MenuEditor::init_camera(ctx, &mut self.camera);
+                self.menu_editor.init_camera(ctx, &mut self.camera);
             }
             EditorAction::ReturnToGameEditor => {
                 match self.mode {

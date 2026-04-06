@@ -60,7 +60,6 @@ pub struct RoomEditor {
     pub(crate) active_rects: Vec<Rect>,
     pub(crate) show_grid: bool,
     pub(crate) drag_state: DragState,
-    initialized: bool,
     pub create_request: Option<SceneCreateRequest>,
     pub prefab_action_request: Option<ScenePrefabActionRequest>,
     pub request_play: bool,
@@ -88,7 +87,6 @@ impl RoomEditor {
             active_rects: Vec::new(),
             show_grid: true,
             drag_state: DragState::default(),
-            initialized: false,
             preview_camera_id: None,
             create_request: None,
             prefab_action_request: None,
@@ -139,11 +137,6 @@ impl RoomEditor {
 
         if ctx.is_mouse_button_pressed(MouseButton::Left) && !self.should_block_canvas(ctx) {
             clear_all_input_focus();
-        }
-
-        if !self.initialized {
-            EditorCameraController::reset_room_editor_camera(ctx, camera, room, grid_size);
-            self.initialized = true;
         }
 
         self.handle_mouse_cursor(ctx);
@@ -360,13 +353,17 @@ impl RoomEditor {
         }
     }
 
+    /// Resets the camera to frame the given room.
+    pub fn init_camera(ctx: &WgpuContext, camera: &mut Camera2D, room: &Room, grid_size: f32) {
+        EditorCameraController::reset_room_editor_camera(ctx, camera, room, grid_size);
+    }
+
     pub fn reset(&mut self) {
         self.inspector.set_target(None);
         self.tilemap_editor.reset();
         self.mode = RoomEditorMode::Scene;
         self.mode_selector.current = RoomEditorMode::Scene;
         self.selected_entities.clear();
-        self.initialized = false;
         self.create_request = None;
         self.prefab_action_request = None;
         self.request_play = false;

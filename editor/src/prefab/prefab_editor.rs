@@ -219,6 +219,10 @@ impl SubEditor for PrefabEditor {
         &self.active_rects
     }
 
+    fn init_camera(&mut self, _ctx: &WgpuContext, _camera: &mut Camera2D) {
+        self.needs_camera_reset = true;
+    }
+
     fn should_block_canvas(&self, ctx: &WgpuContext) -> bool {
         let mouse_screen: Vec2 = ctx.mouse_position().into();
         self.active_rects.iter().any(|rect| rect.contains(mouse_screen))

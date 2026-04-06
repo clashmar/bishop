@@ -308,20 +308,20 @@ impl MenuEditor {
         rect
     }
 
-    /// Initializes the camera centered on the canvas with a 1:1 screen-space mapping.
-    pub fn init_camera(ctx: &WgpuContext, camera: &mut Camera2D) {
+}
+
+impl SubEditor for MenuEditor {
+    fn active_rects(&self) -> &[Rect] {
+        &self.active_rects
+    }
+
+    fn init_camera(&mut self, ctx: &WgpuContext, camera: &mut Camera2D) {
         let sw = ctx.screen_width();
         let sh = ctx.screen_height();
         camera.target = Vec2::new(sw / 2.0, sh / 2.0);
         camera.zoom = Vec2::new(2.0 / sw, 2.0 / sh);
         camera.rotation = 0.0;
         camera.offset = Vec2::ZERO;
-    }
-}
-
-impl SubEditor for MenuEditor {
-    fn active_rects(&self) -> &[Rect] {
-        &self.active_rects
     }
 
     fn should_block_canvas(&self, ctx: &WgpuContext) -> bool {

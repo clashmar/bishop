@@ -361,7 +361,7 @@ impl GameEditor {
 
         if menu_button(ctx, create_btn, create_label, false) {
             push_command(Box::new(CreateWorldCmd::new()));
-            self.init_camera(ctx, camera, game);
+            GameEditor::init_camera(self, ctx, camera, game);
         }
     }
 

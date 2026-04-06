@@ -80,6 +80,7 @@ pub struct Editor {
     pub pending_export: Option<PendingExport>,
     pub pending_prefab_request: Option<PendingPrefabRequest>,
     pub pending_prefab_transition: Option<PendingPrefabTransition>,
+    pub(crate) pending_camera_reset: bool,
     pub toast: Option<Toast>,
     pub playtest_process: Option<PlaytestProcess>,
     pub pending_playtest_build: Option<BackgroundTask<Result<(PathBuf, PathBuf), String>>>,
@@ -108,6 +109,7 @@ impl Default for Editor {
             pending_export: None,
             pending_prefab_request: None,
             pending_prefab_transition: None,
+            pending_camera_reset: false,
             toast: None,
             playtest_process: None,
             pending_playtest_build: None,
@@ -231,6 +233,10 @@ impl Editor {
                 }
             }
             EditorMode::Game => {
+                if self.pending_camera_reset {
+                    self.pending_camera_reset = false;
+                    self.game_editor.init_camera(ctx, &mut self.camera, &mut self.game);
+                }
                 // Returns the id of the world that was clicked on or None
                 if let Some(world_id) = self.game_editor.update(ctx, &self.camera, &mut self.game) {
                     self.world_editor.init_camera(
@@ -244,6 +250,11 @@ impl Editor {
                 }
             }
             EditorMode::World(world_id) => {
+                if self.pending_camera_reset {
+                    self.pending_camera_reset = false;
+                    self.world_editor
+                        .init_camera(ctx, &mut self.camera, self.game.get_world_mut(world_id));
+                }
                 // Returns the id of the room that was clicked on or None
                 if let Some(room_id) =
                     self.world_editor
@@ -254,6 +265,12 @@ impl Editor {
 
                     // The world current room must be set
                     self.game.get_world_mut(world_id).current_room_id = Some(room_id);
+
+                    // Init camera immediately, as game_editor/world_editor do on their transitions
+                    let world = self.game.get_world_mut(world_id);
+                    if let Some(room) = world.get_room(room_id) {
+                        RoomEditor::init_camera(ctx, &mut self.camera, room, world.grid_size);
+                    }
                 }
 
                 // Handle escape
@@ -271,6 +288,19 @@ impl Editor {
                 }
             }
             EditorMode::Room(room_id) => {
+                if self.pending_camera_reset {
+                    self.pending_camera_reset = false;
+                    if let Some((grid_size, room)) = self
+                        .game
+                        .worlds
+                        .iter()
+                        .find(|w| w.id == self.game.current_world_id)
+                        .and_then(|world| world.get_room(room_id).map(|r| (world.grid_size, r)))
+                    {
+                        RoomEditor::init_camera(ctx, &mut self.camera, room, grid_size);
+                    }
+                }
+
                 let room_prefab_action;
                 {
                     let current_world = &mut self

@@ -340,6 +340,12 @@ impl Editor {
         self.mode = self.return_mode.unwrap_or(EditorMode::Game);
         self.return_mode = None;
         self.pending_prefab_transition = None;
+        match self.mode {
+            EditorMode::Room(_) | EditorMode::World(_) | EditorMode::Game => {
+                self.pending_camera_reset = true;
+            }
+            _ => {}
+        }
     }
 
     pub(crate) fn commit_prefab_asset_save(&mut self, prefab: PrefabAsset) {
