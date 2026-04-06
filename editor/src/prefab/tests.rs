@@ -15,6 +15,7 @@ use crate::prefab::{PrefabEditor, PrefabStage};
 use crate::storage::editor_storage::create_new_game;
 use crate::storage::editor_storage::save_game;
 use engine_core::prelude::*;
+use engine_core::storage::path_utils::sanitise_name;
 use engine_core::storage::test_utils::{game_fs_test_lock, TestGameFolder};
 use std::path::PathBuf;
 
@@ -106,6 +107,10 @@ fn save_test_prefab(test_game: &TestGameFolder, prefab_id: PrefabId, name: &str)
     let prefab = create_prefab(prefab_id, name.to_string());
     save_prefab(test_game.name(), &prefab).unwrap();
     prefab
+}
+
+fn saved_prefab_path(prefab: &PrefabAsset) -> PathBuf {
+    prefabs_folder().join(format!("{}.ron", sanitise_name(&prefab.name)))
 }
 
 fn write_invalid_prefab(_test_game: &TestGameFolder, file_name: &str) -> PathBuf {
@@ -856,7 +861,7 @@ fn requesting_prefab_transition_from_file_path_marks_dirty_session_pending() {
         .unwrap()
         .create_prefab_entity(&mut editor.prefab_stage.as_mut().unwrap().ecs, Some(root));
 
-    let result = editor.request_prefab_transition_to_path(&prefabs_folder().join("2.ron"));
+    let result = editor.request_prefab_transition_to_path(&saved_prefab_path(&second_prefab));
 
     assert_eq!(result.unwrap(), PrefabTransitionPrompt::Dirty);
     assert_eq!(editor.mode, EditorMode::Prefab(prefab_id));

@@ -5,7 +5,9 @@ use engine_core::storage::test_utils::{TestGameFolder, game_fs_test_lock};
 
 #[test]
 fn create_new_game_creates_prefabs_folder() {
-    let _lock = game_fs_test_lock().lock().unwrap();
+    let _lock = game_fs_test_lock()
+        .lock()
+        .unwrap_or_else(|poison| poison.into_inner());
     let test_game = TestGameFolder::new("prefab_folder");
 
     let _game = create_new_game(test_game.name().to_string());
@@ -15,7 +17,9 @@ fn create_new_game_creates_prefabs_folder() {
 
 #[test]
 fn prefab_storage_round_trips_through_disk_helpers() {
-    let _lock = game_fs_test_lock().lock().unwrap();
+    let _lock = game_fs_test_lock()
+        .lock()
+        .unwrap_or_else(|poison| poison.into_inner());
     let test_game = TestGameFolder::new("prefab_roundtrip");
     set_game_name(test_game.name());
     create_game_folders(test_game.name());

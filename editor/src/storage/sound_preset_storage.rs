@@ -100,7 +100,9 @@ mod tests {
 
     #[test]
     fn load_sound_preset_library_defaults_when_file_is_missing() {
-        let _lock = game_fs_test_lock().lock().unwrap();
+        let _lock = game_fs_test_lock()
+            .lock()
+            .unwrap_or_else(|poison| poison.into_inner());
         let test_game = TestGameFolder::new("sound_presets_missing");
 
         let library = load_sound_preset_library(test_game.name()).unwrap();
@@ -110,7 +112,9 @@ mod tests {
 
     #[test]
     fn load_sound_preset_library_returns_error_for_invalid_data() {
-        let _lock = game_fs_test_lock().lock().unwrap();
+        let _lock = game_fs_test_lock()
+            .lock()
+            .unwrap_or_else(|poison| poison.into_inner());
         let test_game = TestGameFolder::new("sound_presets_invalid");
         fs::create_dir_all(test_game.path()).unwrap();
         fs::write(
@@ -139,7 +143,9 @@ mod tests {
 
     #[test]
     fn save_game_returns_error_when_sounds_lua_cannot_be_written() {
-        let _lock = game_fs_test_lock().lock().unwrap();
+        let _lock = game_fs_test_lock()
+            .lock()
+            .unwrap_or_else(|poison| poison.into_inner());
         let test_game = TestGameFolder::new("save_game_sounds_lua_error");
         set_game_name(test_game.name());
 
