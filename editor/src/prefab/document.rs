@@ -7,6 +7,25 @@ use crate::storage::editor_storage::load_game_by_name;
 use engine_core::prelude::*;
 use std::io;
 
+macro_rules! for_each_prefab_asset_manager {
+    ($callback:ident, $($args:tt)*) => {{
+        $callback!($($args)*, sprite_manager);
+        $callback!($($args)*, script_manager);
+    }};
+}
+
+macro_rules! snapshot_prefab_asset_manager {
+    ($game:expr, $stage:expr, $field:ident) => {
+        $stage.$field = $game.$field.editor_metadata_snapshot();
+    };
+}
+
+macro_rules! merge_prefab_asset_manager {
+    ($game:expr, $stage:expr, $field:ident) => {
+        $game.$field.merge_editor_metadata_from(&$stage.$field)?;
+    };
+}
+
 impl PrefabStage {
     #[cfg(test)]
     /// Loads a prefab stage from the persisted game on disk.
@@ -17,27 +36,25 @@ impl PrefabStage {
 
     /// Builds an isolated prefab stage from the live editor game services.
     pub fn from_editor_services(game: &Game) -> Self {
-        let mut sprite_manager = game.sprite_manager.editor_metadata_snapshot();
-        let mut script_manager = game.script_manager.editor_metadata_snapshot();
+        let mut stage = Self {
+            ecs: Ecs::default(),
+            sprite_manager: SpriteManager::default(),
+            script_manager: ScriptManager::default(),
+            prefab_library: game.prefab_library.clone(),
+        };
+        for_each_prefab_asset_manager!(snapshot_prefab_asset_manager, game, stage);
 
         with_lua(|lua| {
-            SpriteManager::init_editor_metadata(&mut sprite_manager);
-            ScriptManager::init_editor_services(&mut script_manager, lua);
+            SpriteManager::init_editor_metadata(&mut stage.sprite_manager);
+            ScriptManager::init_editor_services(&mut stage.script_manager, lua);
         });
 
-        Self {
-            ecs: Ecs::default(),
-            sprite_manager,
-            script_manager,
-            prefab_library: game.prefab_library.clone(),
-        }
+        stage
     }
 
     /// Merges staged editor metadata back into the live game services.
     pub fn sync_editor_services(&self, game: &mut Game) -> io::Result<()> {
-        game.sprite_manager.merge_editor_metadata_from(&self.sprite_manager)?;
-        game.script_manager
-            .merge_editor_metadata_from(&self.script_manager)?;
+        for_each_prefab_asset_manager!(merge_prefab_asset_manager, game, self);
         Ok(())
     }
 

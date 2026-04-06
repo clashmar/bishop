@@ -1236,6 +1236,69 @@ fn saving_prefab_syncs_stage_script_registry_into_game_and_disk() {
 }
 
 #[test]
+fn opening_prefab_editor_seeds_stage_metadata_from_live_game_services() {
+    let _lock = game_fs_test_lock()
+        .lock()
+        .unwrap_or_else(|poison| poison.into_inner());
+    let test_game = TestGameFolder::new("prefab_stage_live_service_seed");
+    set_game_name(test_game.name());
+
+    let prefab = create_prefab(PrefabId(1), "Building".to_string());
+    let mut editor = Editor {
+        game: create_new_game(test_game.name().to_string()),
+        mode: EditorMode::Game,
+        ..Default::default()
+    };
+    editor
+        .game
+        .prefab_library
+        .prefabs
+        .insert(prefab.id, prefab.clone());
+    editor
+        .game
+        .sprite_manager
+        .sprite_id_to_path
+        .insert(SpriteId(9), PathBuf::from("sprites/building.png"));
+    editor.game.sprite_manager.path_to_sprite_id.insert(
+        PathBuf::from("sprites/building.png"),
+        SpriteId(9),
+    );
+    editor
+        .game
+        .script_manager
+        .script_id_to_path
+        .insert(ScriptId(9), PathBuf::from("building.lua"));
+    editor
+        .game
+        .script_manager
+        .path_to_script_id
+        .insert(PathBuf::from("building.lua"), ScriptId(9));
+
+    editor.open_prefab_editor_for_id(prefab.id);
+
+    let prefab_stage = editor
+        .prefab_stage
+        .as_ref()
+        .expect("prefab stage should open from live game services");
+    assert_eq!(
+        prefab_stage
+            .sprite_manager
+            .sprite_id_to_path
+            .get(&SpriteId(9))
+            .cloned(),
+        Some(PathBuf::from("sprites/building.png"))
+    );
+    assert_eq!(
+        prefab_stage
+            .script_manager
+            .script_id_to_path
+            .get(&ScriptId(9))
+            .cloned(),
+        Some(PathBuf::from("building.lua"))
+    );
+}
+
+#[test]
 fn unlink_prefab_instance_command_clears_prefab_components_and_restores_on_undo() {
     let _lock = game_fs_test_lock()
         .lock()

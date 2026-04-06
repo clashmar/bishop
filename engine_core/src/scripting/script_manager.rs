@@ -1,4 +1,5 @@
 // engine_core/src/script/script_manager.rs
+use crate::assets::asset_manager::{AssetManager, IdPathAssetManager};
 use crate::ecs::entity::Entity;
 use crate::game::Game;
 use crate::scripting::event_bus::EventBus;
@@ -16,11 +17,11 @@ use serde::Serialize;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::fs;
-use std::io;
-use std::io::{Error, ErrorKind};
 use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
+
+const SCRIPT_ASSET_KIND: &str = "Script";
 
 /// Manages access to scripts and holds the Lua VM instance.
 #[derive(Serialize, Deserialize, Default)]
@@ -292,11 +293,10 @@ impl ScriptManager {
         Self::init_editor_services(&mut game.script_manager, lua);
     }
 
-    /// Initialize editor script services without requiring a world-backed game.
-    pub fn init_editor_services(script_manager: &mut ScriptManager, lua: &Lua) {
-        Self::load_to_package(lua);
-
+    /// Initializes editor script metadata without requiring a Lua context.
+    pub fn init_editor_metadata(script_manager: &mut ScriptManager) {
         script_manager.restore_next_script_id();
+        script_manager.path_to_script_id.clear();
 
         let scripts: Vec<(ScriptId, PathBuf)> = script_manager
             .script_id_to_path
@@ -305,8 +305,14 @@ impl ScriptManager {
             .collect();
 
         for (id, path) in scripts {
-            script_manager.path_to_script_id.insert(path.clone(), id);
+            script_manager.path_to_script_id.insert(path, id);
         }
+    }
+
+    /// Initialize editor script services without requiring a world-backed game.
+    pub fn init_editor_services(script_manager: &mut ScriptManager, lua: &Lua) {
+        Self::load_to_package(lua);
+        Self::init_editor_metadata(script_manager);
     }
 
     /// Load all .lua files to the package.path
@@ -375,70 +381,47 @@ impl ScriptManager {
         self.increment_ref(new_id)
     }
 
-    /// Returns a snapshot containing only persistent editor metadata.
-    pub fn editor_metadata_snapshot(&self) -> Self {
+}
+
+impl AssetManager for ScriptManager {
+    fn editor_metadata_snapshot(&self) -> Self {
         let mut snapshot = Self {
             script_id_to_path: self.script_id_to_path.clone(),
             ..Default::default()
         };
-        snapshot.restore_next_script_id();
+        Self::init_editor_metadata(&mut snapshot);
         snapshot
     }
 
-    /// Merges persistent editor metadata from another script manager.
-    pub fn merge_editor_metadata_from(&mut self, source: &ScriptManager) -> io::Result<()> {
-        validate_id_path_registry_merge(
-            "Script",
-            &source.script_id_to_path,
-            &self.script_id_to_path,
-            &self.path_to_script_id,
-        )?;
-
-        for (&script_id, path) in &source.script_id_to_path {
-            self.script_id_to_path.insert(script_id, path.clone());
-            self.path_to_script_id.insert(path.clone(), script_id);
-        }
-
-        self.restore_next_script_id();
-        Ok(())
+    fn merge_editor_metadata_from(&mut self, source: &Self) -> std::io::Result<()> {
+        self.merge_id_path_registry_from(source)
     }
 }
 
-fn validate_id_path_registry_merge<Id>(
-    label: &str,
-    source_id_to_path: &HashMap<Id, PathBuf>,
-    destination_id_to_path: &HashMap<Id, PathBuf>,
-    destination_path_to_id: &HashMap<PathBuf, Id>,
-) -> io::Result<()>
-where
-    Id: Copy + Eq + std::hash::Hash + std::fmt::Debug,
-{
-    for (&id, path) in source_id_to_path {
-        if let Some(existing_path) = destination_id_to_path.get(&id)
-            && existing_path != path
-        {
-            return Err(Error::new(
-                ErrorKind::InvalidData,
-                format!(
-                    "{label} id '{id:?}' maps to both '{}' and '{}'",
-                    existing_path.display(),
-                    path.display()
-                ),
-            ));
-        }
+impl IdPathAssetManager for ScriptManager {
+    type AssetId = ScriptId;
 
-        if let Some(existing_id) = destination_path_to_id.get(path)
-            && *existing_id != id
-        {
-            return Err(Error::new(
-                ErrorKind::InvalidData,
-                format!(
-                    "{label} path '{}' maps to both '{existing_id:?}' and '{id:?}'",
-                    path.display()
-                ),
-            ));
-        }
+    fn asset_kind() -> &'static str {
+        SCRIPT_ASSET_KIND
     }
 
-    Ok(())
+    fn id_to_path(&self) -> &HashMap<Self::AssetId, PathBuf> {
+        &self.script_id_to_path
+    }
+
+    fn id_to_path_mut(&mut self) -> &mut HashMap<Self::AssetId, PathBuf> {
+        &mut self.script_id_to_path
+    }
+
+    fn path_to_id(&self) -> &HashMap<PathBuf, Self::AssetId> {
+        &self.path_to_script_id
+    }
+
+    fn path_to_id_mut(&mut self) -> &mut HashMap<PathBuf, Self::AssetId> {
+        &mut self.path_to_script_id
+    }
+
+    fn rebuild_editor_metadata(&mut self) {
+        Self::init_editor_metadata(self);
+    }
 }

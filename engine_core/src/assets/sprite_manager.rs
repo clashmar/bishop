@@ -1,5 +1,6 @@
 // engine_core/src/assets/sprite_manager.rs
 use crate::animation::animation_clip::Animation;
+use crate::assets::asset_manager::{AssetManager, IdPathAssetManager};
 use crate::assets::sprite::*;
 use crate::ecs::ecs::Ecs;
 use crate::game::Game;
@@ -12,10 +13,10 @@ use log::info;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::collections::HashSet;
-use std::io;
-use std::io::{Error, ErrorKind};
 use std::path::Path;
 use std::path::PathBuf;
+
+const SPRITE_ASSET_KIND: &str = "Sprite";
 
 #[derive(Serialize, Deserialize, Default)]
 pub struct SpriteManager {
@@ -538,35 +539,6 @@ impl SpriteManager {
         Ok(())
     }
 
-    /// Returns a snapshot containing only persistent editor metadata.
-    pub fn editor_metadata_snapshot(&self) -> Self {
-        let mut snapshot = Self {
-            sprite_id_to_path: self.sprite_id_to_path.clone(),
-            tile_defs: self.tile_defs.clone(),
-            ..Default::default()
-        };
-        Self::init_editor_metadata(&mut snapshot);
-        snapshot
-    }
-
-    /// Merges persistent editor metadata from another asset manager.
-    pub fn merge_editor_metadata_from(&mut self, source: &SpriteManager) -> io::Result<()> {
-        validate_id_path_registry_merge(
-            "Sprite",
-            &source.sprite_id_to_path,
-            &self.sprite_id_to_path,
-            &self.path_to_sprite_id,
-        )?;
-
-        for (&sprite_id, path) in &source.sprite_id_to_path {
-            self.sprite_id_to_path.insert(sprite_id, path.clone());
-            self.path_to_sprite_id.insert(path.clone(), sprite_id);
-        }
-
-        self.restore_next_sprite_id();
-        Ok(())
-    }
-
     #[cfg(test)]
     fn enable_runtime_texture_loading_for_test(&mut self) {
         self.runtime_texture_loading = true;
@@ -583,43 +555,48 @@ impl SpriteManager {
     }
 }
 
-fn validate_id_path_registry_merge<Id>(
-    label: &str,
-    source_id_to_path: &HashMap<Id, PathBuf>,
-    destination_id_to_path: &HashMap<Id, PathBuf>,
-    destination_path_to_id: &HashMap<PathBuf, Id>,
-) -> io::Result<()>
-where
-    Id: Copy + Eq + std::hash::Hash + std::fmt::Debug,
-{
-    for (&id, path) in source_id_to_path {
-        if let Some(existing_path) = destination_id_to_path.get(&id)
-            && existing_path != path
-        {
-            return Err(Error::new(
-                ErrorKind::InvalidData,
-                format!(
-                    "{label} id '{id:?}' maps to both '{}' and '{}'",
-                    existing_path.display(),
-                    path.display()
-                ),
-            ));
-        }
-
-        if let Some(existing_id) = destination_path_to_id.get(path)
-            && *existing_id != id
-        {
-            return Err(Error::new(
-                ErrorKind::InvalidData,
-                format!(
-                    "{label} path '{}' maps to both '{existing_id:?}' and '{id:?}'",
-                    path.display(),
-                ),
-            ));
-        }
+impl AssetManager for SpriteManager {
+    fn editor_metadata_snapshot(&self) -> Self {
+        let mut snapshot = Self {
+            sprite_id_to_path: self.sprite_id_to_path.clone(),
+            tile_defs: self.tile_defs.clone(),
+            ..Default::default()
+        };
+        Self::init_editor_metadata(&mut snapshot);
+        snapshot
     }
 
-    Ok(())
+    fn merge_editor_metadata_from(&mut self, source: &Self) -> std::io::Result<()> {
+        self.merge_id_path_registry_from(source)
+    }
+}
+
+impl IdPathAssetManager for SpriteManager {
+    type AssetId = SpriteId;
+
+    fn asset_kind() -> &'static str {
+        SPRITE_ASSET_KIND
+    }
+
+    fn id_to_path(&self) -> &HashMap<Self::AssetId, PathBuf> {
+        &self.sprite_id_to_path
+    }
+
+    fn id_to_path_mut(&mut self) -> &mut HashMap<Self::AssetId, PathBuf> {
+        &mut self.sprite_id_to_path
+    }
+
+    fn path_to_id(&self) -> &HashMap<PathBuf, Self::AssetId> {
+        &self.path_to_sprite_id
+    }
+
+    fn path_to_id_mut(&mut self) -> &mut HashMap<PathBuf, Self::AssetId> {
+        &mut self.path_to_sprite_id
+    }
+
+    fn rebuild_editor_metadata(&mut self) {
+        Self::init_editor_metadata(self);
+    }
 }
 
 #[cfg(test)]
@@ -779,4 +756,5 @@ mod tests {
         assert_eq!(loader.bytes_load_calls.get(), 1);
         assert!(!sprite_manager.has_pending_texture_read(sprite_id));
     }
+
 }
