@@ -162,7 +162,8 @@ impl<'a> Button<'a> {
     ///
     /// Use this specifically for actions that open native OS dialogs, so the
     /// dialog is not launched during the same input-release frame that
-    /// triggered it.
+    /// triggered it. Callers should provide a stable [`Button::interaction_id`]
+    /// so the deferred activation survives the frame boundary reliably.
     pub fn show_native_dialog<C: BishopContext>(self, ctx: &mut C) -> bool {
         let interaction_id = self
             .interaction_id
@@ -719,27 +720,32 @@ mod tests {
         press_ctx.left_pressed = true;
         press_ctx.left_down = true;
 
+        widgets_frame_start(&mut press_ctx);
         assert!(
             !Button::new(button, "Pick")
                 .interaction_id(interaction_id)
                 .show_native_dialog(&mut press_ctx)
         );
+        widgets_frame_end(&mut press_ctx);
 
         reset_click_consumed();
         let mut release_ctx = TestContext::new();
         release_ctx.mouse_pos = (40.0, 20.0);
         release_ctx.left_released = true;
 
+        widgets_frame_start(&mut release_ctx);
         assert!(
             !Button::new(button, "Pick")
                 .interaction_id(interaction_id)
                 .show_native_dialog(&mut release_ctx)
         );
+        widgets_frame_end(&mut release_ctx);
 
         reset_click_consumed();
         let mut idle_ctx = TestContext::new();
         idle_ctx.mouse_pos = (40.0, 20.0);
 
+        widgets_frame_start(&mut idle_ctx);
         assert!(
             Button::new(button, "Pick")
                 .interaction_id(interaction_id)
@@ -750,5 +756,101 @@ mod tests {
                 .interaction_id(interaction_id)
                 .show_native_dialog(&mut idle_ctx)
         );
+        widgets_frame_end(&mut idle_ctx);
+    }
+
+    #[test]
+    fn deferred_button_activation_expires_after_first_idle_frame_when_unclaimed() {
+        reset_click_consumed();
+
+        let button = Rect::new(0.0, 0.0, 80.0, 30.0);
+        let interaction_id = WidgetId(5151);
+
+        let mut press_ctx = TestContext::new();
+        press_ctx.mouse_pos = (40.0, 20.0);
+        press_ctx.left_pressed = true;
+        press_ctx.left_down = true;
+
+        widgets_frame_start(&mut press_ctx);
+        assert!(
+            !Button::new(button, "Pick")
+                .interaction_id(interaction_id)
+                .show_native_dialog(&mut press_ctx)
+        );
+        widgets_frame_end(&mut press_ctx);
+
+        let mut release_ctx = TestContext::new();
+        release_ctx.mouse_pos = (40.0, 20.0);
+        release_ctx.left_released = true;
+
+        widgets_frame_start(&mut release_ctx);
+        assert!(
+            !Button::new(button, "Pick")
+                .interaction_id(interaction_id)
+                .show_native_dialog(&mut release_ctx)
+        );
+        widgets_frame_end(&mut release_ctx);
+
+        let mut other_idle_ctx = TestContext::new();
+        widgets_frame_start(&mut other_idle_ctx);
+        assert!(!Button::new(button, "Other").show_native_dialog(&mut other_idle_ctx));
+        widgets_frame_end(&mut other_idle_ctx);
+
+        let mut later_idle_ctx = TestContext::new();
+        widgets_frame_start(&mut later_idle_ctx);
+        assert!(
+            !Button::new(button, "Pick")
+                .interaction_id(interaction_id)
+                .show_native_dialog(&mut later_idle_ctx)
+        );
+        widgets_frame_end(&mut later_idle_ctx);
+    }
+
+    #[test]
+    fn deferred_button_activation_does_not_leak_between_targets() {
+        reset_click_consumed();
+
+        let button = Rect::new(0.0, 0.0, 80.0, 30.0);
+        let first = WidgetId(6001);
+        let second = WidgetId(6002);
+
+        let mut press_ctx = TestContext::new();
+        press_ctx.mouse_pos = (40.0, 20.0);
+        press_ctx.left_pressed = true;
+        press_ctx.left_down = true;
+
+        widgets_frame_start(&mut press_ctx);
+        assert!(
+            !Button::new(button, "Pick A")
+                .interaction_id(first)
+                .show_native_dialog(&mut press_ctx)
+        );
+        widgets_frame_end(&mut press_ctx);
+
+        let mut release_ctx = TestContext::new();
+        release_ctx.mouse_pos = (40.0, 20.0);
+        release_ctx.left_released = true;
+
+        widgets_frame_start(&mut release_ctx);
+        assert!(
+            !Button::new(button, "Pick A")
+                .interaction_id(first)
+                .show_native_dialog(&mut release_ctx)
+        );
+        widgets_frame_end(&mut release_ctx);
+
+        let mut idle_ctx = TestContext::new();
+        widgets_frame_start(&mut idle_ctx);
+        assert!(
+            !Button::new(button, "Pick B")
+                .interaction_id(second)
+                .show_native_dialog(&mut idle_ctx)
+        );
+        assert!(
+            Button::new(button, "Pick A")
+                .interaction_id(first)
+                .show_native_dialog(&mut idle_ctx)
+        );
+        widgets_frame_end(&mut idle_ctx);
     }
 }

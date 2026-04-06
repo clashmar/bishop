@@ -8,6 +8,7 @@ use std::collections::HashMap;
 #[derive(Default)]
 pub struct ScriptModule {
     field_ids: HashMap<String, WidgetId>,
+    picker_id: WidgetId,
     fields_len: usize,
 }
 
@@ -85,6 +86,7 @@ impl InspectorModule for ScriptModule {
         if gui_script_picker(
             ctx,
             picker_rect,
+            self.picker_id,
             entity,
             &mut script_comp.script_id,
             script_manager,

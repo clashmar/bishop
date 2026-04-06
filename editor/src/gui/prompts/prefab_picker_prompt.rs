@@ -27,6 +27,7 @@ impl Display for PrefabChoice {
 
 pub struct PrefabPickerPrompt {
     dropdown_id: WidgetId,
+    file_button_id: WidgetId,
     rect: Rect,
     prefabs: Vec<PrefabChoice>,
     selected: Option<PrefabId>,
@@ -50,6 +51,7 @@ impl PrefabPickerPrompt {
 
         Self {
             dropdown_id: WidgetId::default(),
+            file_button_id: WidgetId::default(),
             rect: prompt_content_rect(modal_rect, total_h),
             prefabs: prefabs
                 .into_iter()
@@ -100,7 +102,9 @@ impl PrefabPickerPrompt {
         let open_clicked = Button::new(open_rect, "Open")
             .blocked(self.selected.is_none())
             .show(ctx);
-        let file_clicked = Button::new(file_rect, "File").show_native_dialog(ctx);
+        let file_clicked = Button::new(file_rect, "File")
+            .interaction_id(self.file_button_id)
+            .show_native_dialog(ctx);
         let new_clicked = Button::new(new_rect, "New Prefab").show(ctx);
         let cancel_clicked = Button::new(cancel_rect, "Cancel").show(ctx);
 

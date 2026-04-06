@@ -18,6 +18,7 @@ pub struct WorldEditResult {
 pub struct WorldEditPrompt {
     world_id: WorldId,
     name_id: WidgetId,
+    sprite_picker_id: WidgetId,
     rect: Rect,
     og_name: String,
     og_sprite: SpriteId,
@@ -52,6 +53,7 @@ impl WorldEditPrompt {
         Self {
             world_id,
             name_id,
+            sprite_picker_id: WidgetId::default(),
             rect,
             og_name: name.clone(),
             og_sprite,
@@ -103,6 +105,7 @@ impl WorldEditPrompt {
         if gui_sprite_picker(
             ctx,
             sprite_rect,
+            self.sprite_picker_id,
             &mut self.current_sprite,
             asset_manager,
             false,

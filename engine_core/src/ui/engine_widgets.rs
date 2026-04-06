@@ -7,11 +7,12 @@ use crate::scripting::script_manager::ScriptManager;
 use crate::*;
 use bishop::prelude::*;
 use std::borrow::Cow;
-use widgets::{Button, WIDGET_SPACING};
+use widgets::{Button, WIDGET_SPACING, WidgetId};
 
 pub fn gui_sprite_picker<C: BishopContext>(
     ctx: &mut C,
     rect: Rect,
+    interaction_id: WidgetId,
     id: &mut SpriteId,
     asset_manager: &mut AssetManager,
     blocked: bool,
@@ -38,6 +39,7 @@ pub fn gui_sprite_picker<C: BishopContext>(
     let mut changed = false;
 
     if Button::new(picker_rect, &btn_label)
+        .interaction_id(interaction_id)
         .blocked(blocked)
         .show_native_dialog(ctx)
     {
@@ -74,6 +76,7 @@ pub fn gui_sprite_picker<C: BishopContext>(
 pub fn gui_script_picker<C: BishopContext>(
     ctx: &mut C,
     rect: Rect,
+    interaction_id: WidgetId,
     entity: Entity,
     script_id: &mut ScriptId,
     script_manager: &mut ScriptManager,
@@ -101,6 +104,7 @@ pub fn gui_script_picker<C: BishopContext>(
     let mut changed = false;
 
     if Button::new(picker_rect, &btn_label)
+        .interaction_id(interaction_id)
         .blocked(blocked)
         .show_native_dialog(ctx)
     {

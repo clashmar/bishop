@@ -1,6 +1,6 @@
 use crate::*;
 use std::cell::RefCell;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 /// Keys that support hold-to-repeat behavior.
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -105,8 +105,12 @@ thread_local! {
 }
 
 thread_local! {
-    static DEFERRED_CLICK_TARGETS: RefCell<HashSet<ClickTargetId>> =
-        RefCell::new(HashSet::new());
+    static DEFERRED_CLICK_TARGETS: RefCell<HashMap<ClickTargetId, u64>> =
+        RefCell::new(HashMap::new());
+}
+
+thread_local! {
+    static WIDGET_FRAME_GENERATION: RefCell<u64> = const { RefCell::new(0) };
 }
 
 fn armed_click_slot(
@@ -154,8 +158,9 @@ pub fn clear_click_target(button: MouseButton) {
 
 /// Schedules a click target for activation on a later frame.
 pub fn queue_deferred_click_target(target: ClickTargetId) {
+    let frame = current_widget_frame_generation();
     DEFERRED_CLICK_TARGETS.with(|targets| {
-        targets.borrow_mut().insert(target);
+        targets.borrow_mut().insert(target, frame);
     });
 }
 
@@ -165,7 +170,35 @@ pub fn take_deferred_click_target(target: ClickTargetId, ready: bool) -> bool {
         return false;
     }
 
-    DEFERRED_CLICK_TARGETS.with(|targets| targets.borrow_mut().remove(&target))
+    let frame = current_widget_frame_generation();
+    DEFERRED_CLICK_TARGETS.with(|targets| {
+        let queued_frame = targets.borrow().get(&target).copied();
+        if queued_frame.is_some_and(|queued_frame| queued_frame < frame) {
+            targets.borrow_mut().remove(&target);
+            true
+        } else {
+            false
+        }
+    })
+}
+
+fn current_widget_frame_generation() -> u64 {
+    WIDGET_FRAME_GENERATION.with(|generation| *generation.borrow())
+}
+
+fn advance_widget_frame_generation() {
+    WIDGET_FRAME_GENERATION.with(|generation| {
+        *generation.borrow_mut() += 1;
+    });
+}
+
+fn clear_stale_deferred_click_targets() {
+    let frame = current_widget_frame_generation();
+    DEFERRED_CLICK_TARGETS.with(|targets| {
+        targets
+            .borrow_mut()
+            .retain(|_, queued_frame| *queued_frame >= frame);
+    });
 }
 
 /// Handles the common "press arms, release activates" interaction model.
@@ -217,6 +250,7 @@ pub fn reset_click_consumed() {
 
 /// Called at the start of each frame to update widget state.
 pub fn widgets_frame_start<C: BishopContext>(_ctx: &mut C) {
+    advance_widget_frame_generation();
     tab_registry_clear();
     reset_click_consumed();
 }
@@ -229,6 +263,13 @@ pub fn widgets_frame_end<C: BishopContext>(ctx: &mut C) {
 
     if ctx.is_mouse_button_released(MouseButton::Right) {
         clear_click_target(MouseButton::Right);
+    }
+
+    let idle_left_mouse = !ctx.is_mouse_button_down(MouseButton::Left)
+        && !ctx.is_mouse_button_pressed(MouseButton::Left)
+        && !ctx.is_mouse_button_released(MouseButton::Left);
+    if idle_left_mouse {
+        clear_stale_deferred_click_targets();
     }
 
     resolve_pending_tab();

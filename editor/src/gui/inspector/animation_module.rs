@@ -25,6 +25,7 @@ pub struct AnimationModule {
     pending_rename: bool,
     rename_initial_value: String,
     has_clips: bool,
+    variant_picker_id: WidgetId,
     select_dropdown_id: WidgetId,
     set_dropdown_id: WidgetId,
     rename_field_id: WidgetId,
@@ -167,6 +168,7 @@ impl InspectorModule for AnimationModule {
                 "Choose Variant"
             },
         )
+        .interaction_id(self.variant_picker_id)
         .blocked(blocked)
         .show_native_dialog(ctx)
         {

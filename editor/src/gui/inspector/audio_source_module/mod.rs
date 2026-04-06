@@ -28,6 +28,7 @@ pub struct AudioSourceModule {
     assign_dropdown_id: WidgetId,
     rename_field_id: WidgetId,
     preset_action_dropdown_id: WidgetId,
+    add_sound_button_id: WidgetId,
     volume_id: WidgetId,
     pitch_id: WidgetId,
     volume_var_id: WidgetId,
@@ -178,6 +179,7 @@ impl InspectorModule for AudioSourceModule {
             let status_rect = Rect::new(x, y, half_w, ROW_HEIGHT);
             let add_rect = Rect::new(x + half_w + SPACING, y, half_w, ROW_HEIGHT);
             if Button::new(add_rect, "Add Sound")
+                .interaction_id(self.add_sound_button_id)
                 .blocked(blocked)
                 .show_native_dialog(ctx)
             {

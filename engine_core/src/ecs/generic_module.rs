@@ -116,7 +116,14 @@ where
             // Dispatch based on the enum variant
             match (field.value, field.widget_hint) {
                 (FieldValue::SpriteId(id), _) => {
-                    gui_sprite_picker(ctx, widget_rect, id, game_ctx.asset_manager, blocked);
+                    gui_sprite_picker(
+                        ctx,
+                        widget_rect,
+                        base_id,
+                        id,
+                        game_ctx.asset_manager,
+                        blocked,
+                    );
                 }
                 (FieldValue::Text(txt), _) => {
                     let (new, _) = TextInput::new(base_id, widget_rect, txt.as_str())
