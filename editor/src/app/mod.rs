@@ -1,12 +1,15 @@
 // editor/src/editor/mod.rs
 mod audio;
 mod actions;
+mod modals;
+mod persistence;
 pub mod camera_controller;
 pub mod sub_editor;
 
 pub use camera_controller::EditorCameraController;
 pub use sub_editor::SubEditor;
 
+use crate::app::audio::default_audio_manager;
 use crate::canvas::grid_shader::GridRenderer;
 use crate::game::game_editor::GameEditor;
 use crate::gui::menu_bar::MenuBar;
@@ -82,6 +85,36 @@ pub struct Editor {
     pub pending_playtest_build: Option<BackgroundTask<Result<(PathBuf, PathBuf), String>>>,
     pub grid_renderer: Option<GridRenderer>,
     pub audio_manager: AudioManager,
+}
+
+impl Default for Editor {
+    fn default() -> Self {
+        Self {
+            game: Game::default(),
+            camera: Camera2D::default(),
+            mode: EditorMode::Game,
+            return_mode: None,
+            game_editor: GameEditor::new(),
+            world_editor: WorldEditor::new(),
+            room_editor: RoomEditor::new(),
+            prefab_editor: None,
+            prefab_stage: None,
+            menu_editor: MenuEditor::new(),
+            cur_world_id: None,
+            cur_room_id: None,
+            render_system: RenderSystem::with_default_grid_size(),
+            menu_bar: MenuBar::new(),
+            modal: Modal::default(),
+            pending_export: None,
+            pending_prefab_request: None,
+            pending_prefab_transition: None,
+            toast: None,
+            playtest_process: None,
+            pending_playtest_build: None,
+            grid_renderer: None,
+            audio_manager: default_audio_manager(),
+        }
+    }
 }
 
 impl Editor {
