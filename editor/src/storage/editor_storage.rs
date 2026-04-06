@@ -1,6 +1,7 @@
 // editor/src/storage/editor_storage.rs
 #![allow(unused)]
 use crate::editor_assets::assets::write_sounds_lua;
+use crate::editor_assets::write_prefabs_lua;
 use crate::storage::sound_preset_storage::*;
 use crate::tilemap::tile_palette::TilePalette;
 use crate::write_animations_lua;
@@ -248,6 +249,9 @@ pub fn save_game(game: &Game) -> io::Result<()> {
         onscreen_error!("Could not write animations.lua: {e}");
     }
 
+    let prefab_names = collect_prefab_names(&game.prefab_library)?;
+    write_prefabs_lua(&scripts_folder(), &prefab_names)?;
+
     let sound_library = current_sound_preset_library();
     save_sound_preset_library(&game.name, &sound_library)?;
     let sound_names = collect_sound_group_names(&game.ecs, &sound_library);
@@ -270,6 +274,24 @@ pub fn collect_custom_clip_names(ecs: &Ecs) -> Vec<String> {
     }
 
     names.into_iter().collect()
+}
+
+/// Collects all unique prefab names from the prefab library.
+pub fn collect_prefab_names(prefab_library: &PrefabLibrary) -> io::Result<Vec<String>> {
+    let mut names = HashSet::new();
+
+    for prefab in prefab_library.prefabs.values() {
+        if !names.insert(prefab.name.clone()) {
+            return Err(Error::new(
+                ErrorKind::InvalidData,
+                format!("duplicate prefab name: {}", prefab.name),
+            ));
+        }
+    }
+
+    let mut names = names.into_iter().collect::<Vec<_>>();
+    names.sort();
+    Ok(names)
 }
 
 /// Load a `Game` from the folder that matches the supplied name.

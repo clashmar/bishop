@@ -1,6 +1,7 @@
 // editor/src/editor_assets/editor_assets.rs
 #![allow(unused)]
 use crate::storage::sound_preset_storage::SoundPresetLibrary;
+use crate::editor_assets::prefabs_lua::generate_prefabs_lua;
 use bishop::prelude::*;
 use engine_core::prelude::*;
 use engine_core::scripting::lua_constants::{ANIMATIONS_FILE, ENGINE_DIR, SOUNDS_FILE};
@@ -162,5 +163,15 @@ pub fn write_sounds_lua(scripts_folder: &Path, group_names: &[String]) -> io::Re
     fs::write(
         engine_folder.join(SOUNDS_FILE),
         generate_sounds_lua(group_names),
+    )
+}
+
+/// Writes the per-game `prefabs.lua` file with the supplied prefab names.
+pub fn write_prefabs_lua(scripts_folder: &Path, prefab_names: &[String]) -> io::Result<()> {
+    let engine_folder = scripts_folder.join(ENGINE_DIR);
+    fs::create_dir_all(&engine_folder)?;
+    fs::write(
+        engine_folder.join("prefabs.lua"),
+        generate_prefabs_lua(prefab_names),
     )
 }

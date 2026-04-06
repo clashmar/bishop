@@ -18,7 +18,7 @@
                 ),
                 (
                     type_name: "Sprite",
-                    ron: "(\n    sprite: (7),\n)",
+                    ron: "(\n    sprite: (9),\n)",
                 ),
             ],
         ),

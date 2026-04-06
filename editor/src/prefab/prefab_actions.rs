@@ -8,7 +8,8 @@ use crate::editor_global::push_command;
 use crate::gui::prompts::{DirtyPrefabExitPromptResult, EmptyPrefabExitPromptResult};
 use crate::prefab::prefab_editor::{PrefabRoomSyncState, StagedPrefabState};
 use crate::shared::scene_ui::inspector::{ScenePrefabAction, ScenePrefabActionRequest};
-use crate::storage::editor_storage::save_game;
+use crate::editor_assets::write_prefabs_lua;
+use crate::storage::editor_storage::{collect_prefab_names, save_game};
 use bishop::prelude::*;
 use engine_core::prelude::*;
 use std::collections::HashSet;
@@ -144,6 +145,10 @@ impl Editor {
             .prefab_library
             .prefabs
             .insert(prefab.id, prefab.clone());
+        if let Err(error) = sync_prefabs_lua_file(&self.game) {
+            onscreen_error!("Could not write prefabs.lua: {error}");
+            return;
+        }
         let Some(linked_root) = relink_room_subtree_to_prefab(&mut self.game, entity, &prefab)
         else {
             self.toast = Some(Toast::new("Could not link selected entity to prefab.", 2.5));
@@ -166,6 +171,10 @@ impl Editor {
             .prefab_library
             .prefabs
             .insert(prefab.id, prefab.clone());
+        if let Err(error) = sync_prefabs_lua_file(&self.game) {
+            onscreen_error!("Could not write prefabs.lua: {error}");
+            return;
+        }
         self.open_prefab_editor_for_id(prefab_id);
     }
 
@@ -412,6 +421,10 @@ impl Editor {
         }
 
         self.game.prefab_library.prefabs.remove(&prefab_id);
+        if let Err(error) = sync_prefabs_lua_file(&self.game) {
+            onscreen_error!("Could not write prefabs.lua: {error}");
+            return;
+        }
         if let Some(prefab_stage) = self.prefab_stage.as_mut() {
             prefab_stage.prefab_library.prefabs.remove(&prefab_id);
         }
@@ -475,6 +488,11 @@ impl Editor {
             PendingPrefabTransition::CreateBlank(name) => self.create_blank_prefab_impl(name),
         }
     }
+}
+
+fn sync_prefabs_lua_file(game: &Game) -> io::Result<()> {
+    let prefab_names = collect_prefab_names(&game.prefab_library)?;
+    write_prefabs_lua(&scripts_folder(), &prefab_names)
 }
 
 fn load_prefab_asset_from_path(path: &Path) -> io::Result<PrefabAsset> {

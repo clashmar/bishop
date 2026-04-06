@@ -29,6 +29,9 @@ impl Display for PrefabId {
 pub struct PrefabLibrary {
     /// Prefabs keyed by their stable asset id.
     pub prefabs: HashMap<PrefabId, PrefabAsset>,
+    /// Prefabs keyed by their runtime Lua name.
+    #[serde(skip)]
+    pub prefab_ids_by_name: HashMap<String, PrefabId>,
     /// Next available prefab id for this game.
     pub next_prefab_id: usize,
 }
@@ -37,6 +40,7 @@ impl Default for PrefabLibrary {
     fn default() -> Self {
         Self {
             prefabs: HashMap::new(),
+            prefab_ids_by_name: HashMap::new(),
             next_prefab_id: 1,
         }
     }
@@ -58,6 +62,32 @@ impl PrefabLibrary {
             .max()
             .map(|max_id| max_id + 1)
             .unwrap_or(1);
+    }
+
+    fn rebuild_name_lookup(&mut self) -> io::Result<()> {
+        self.prefab_ids_by_name.clear();
+
+        for prefab in self.prefabs.values() {
+            if let Some(existing_id) = self.prefab_ids_by_name.insert(prefab.name.clone(), prefab.id)
+            {
+                return Err(Error::new(
+                    ErrorKind::InvalidData,
+                    format!(
+                        "Duplicate prefab name '{}' for ids '{}' and '{}'",
+                        prefab.name, existing_id, prefab.id
+                    ),
+                ));
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Returns a prefab by its runtime name.
+    pub fn prefab_named(&self, name: &str) -> Option<&PrefabAsset> {
+        self.prefab_ids_by_name
+            .get(name)
+            .and_then(|id| self.prefabs.get(id))
     }
 }
 
@@ -110,12 +140,14 @@ pub fn load_prefab_library(game_name: &str) -> io::Result<PrefabLibrary> {
         match load_prefab_from_path(&path) {
             Ok(prefab) => {
                 if prefabs.contains_key(&prefab.id) {
-                    onscreen_error!(
-                        "Skipping duplicate prefab id '{}' from '{}'",
-                        prefab.id,
-                        path.display()
-                    );
-                    continue;
+                    return Err(Error::new(
+                        ErrorKind::InvalidData,
+                        format!(
+                            "Duplicate prefab id '{}' encountered while loading '{}'",
+                            prefab.id,
+                            path.display()
+                        ),
+                    ));
                 }
 
                 prefabs.insert(prefab.id, prefab);
@@ -131,6 +163,7 @@ pub fn load_prefab_library(game_name: &str) -> io::Result<PrefabLibrary> {
         ..Default::default()
     };
     library.restore_next_prefab_id();
+    library.rebuild_name_lookup()?;
     Ok(library)
 }
 
@@ -162,6 +195,7 @@ pub fn load_prefab(game_name: &str, prefab_id: PrefabId) -> io::Result<PrefabAss
 /// Saves a single prefab asset to disk.
 pub fn save_prefab(game_name: &str, prefab: &PrefabAsset) -> io::Result<()> {
     let existing_path = find_prefab_path(game_name, prefab.id)?;
+    ensure_unique_prefab_name(game_name, prefab)?;
     let path = resolve_prefab_save_path(game_name, prefab, existing_path.as_deref())?;
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent)?;
@@ -170,6 +204,8 @@ pub fn save_prefab(game_name: &str, prefab: &PrefabAsset) -> io::Result<()> {
     let ron =
         ron::ser::to_string_pretty(prefab, ron::ser::PrettyConfig::new()).map_err(Error::other)?;
 
+    fs::write(&path, ron)?;
+
     if let Some(existing_path) = existing_path
         && existing_path != path
         && existing_path.exists()
@@ -177,7 +213,7 @@ pub fn save_prefab(game_name: &str, prefab: &PrefabAsset) -> io::Result<()> {
         fs::remove_file(existing_path)?;
     }
 
-    fs::write(path, ron)
+    Ok(())
 }
 
 /// Deletes a single prefab asset file when it exists.
@@ -369,6 +405,26 @@ fn resolve_prefab_save_path(
     }
 }
 
+fn ensure_unique_prefab_name(game_name: &str, prefab: &PrefabAsset) -> io::Result<()> {
+    for path in prefab_paths_for_game(game_name)? {
+        let Ok(existing_prefab) = load_prefab_from_path(&path) else {
+            continue;
+        };
+
+        if existing_prefab.id != prefab.id && existing_prefab.name == prefab.name {
+            return Err(Error::new(
+                ErrorKind::AlreadyExists,
+                format!(
+                    "Prefab name '{}' is already used by prefab '{}'",
+                    prefab.name, existing_prefab.id
+                ),
+            ));
+        }
+    }
+
+    Ok(())
+}
+
 fn load_prefab_from_path(path: &Path) -> io::Result<PrefabAsset> {
     let ron = fs::read_to_string(path)?;
     let prefab = ron::from_str(&ron).map_err(|error| {
@@ -407,7 +463,7 @@ mod tests {
     }
 
     #[test]
-    fn load_prefab_library_skips_duplicate_prefab_ids_after_first_sorted_file() {
+    fn load_prefab_library_rejects_duplicate_prefab_ids() {
         let _lock = game_fs_test_lock().lock().unwrap();
         let test_folder = TestGameFolder::new("prefab_duplicate_ids");
         let prefab_id = PrefabId(7);
@@ -436,10 +492,9 @@ mod tests {
         )
         .unwrap();
 
-        let library = load_prefab_library(test_folder.name()).unwrap();
+        let error = load_prefab_library(test_folder.name()).unwrap_err();
 
-        assert_eq!(library.prefabs.len(), 1);
-        assert_eq!(library.prefabs.get(&prefab_id), Some(&first));
+        assert_eq!(error.kind(), ErrorKind::InvalidData);
     }
 
     #[test]
@@ -531,6 +586,39 @@ mod tests {
         assert_eq!(library.next_prefab_id, 10);
         assert_eq!(library.allocate_prefab_id(), PrefabId(10));
         assert_eq!(library.allocate_prefab_id(), PrefabId(11));
+    }
+
+    #[test]
+    fn load_prefab_library_rejects_duplicate_prefab_names() {
+        let _lock = game_fs_test_lock().lock().unwrap();
+        let test_folder = TestGameFolder::new("prefab_duplicate_names");
+        let first = create_prefab(PrefabId(3), "Bullet".to_string());
+        let second = create_prefab(PrefabId(9), "Bullet".to_string());
+
+        save_prefab(test_folder.name(), &first).unwrap();
+        fs::write(
+            prefab_folder_for_game(test_folder.name()).join("bullet_copy.ron"),
+            ron::to_string(&second).unwrap(),
+        )
+        .unwrap();
+
+        let error = load_prefab_library(test_folder.name()).unwrap_err();
+
+        assert_eq!(error.kind(), ErrorKind::InvalidData);
+    }
+
+    #[test]
+    fn load_prefab_library_supports_lookup_by_name() {
+        let _lock = game_fs_test_lock().lock().unwrap();
+        let test_folder = TestGameFolder::new("prefab_name_lookup");
+        let prefab = create_prefab(PrefabId(5), "Bullet".to_string());
+
+        save_prefab(test_folder.name(), &prefab).unwrap();
+
+        let library = load_prefab_library(test_folder.name()).unwrap();
+
+        assert_eq!(library.prefab_named("Bullet"), Some(&prefab));
+        assert_eq!(library.prefab_named("Missing"), None);
     }
 
     #[test]

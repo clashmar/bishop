@@ -14,6 +14,13 @@ function engine.log.error(msg) end
 ---@param msg string
 function engine.log.debug(msg) end
 
+engine.prefab = {}
+
+---@param prefab_name PrefabId|string
+---@param opts { position: { x: number, y: number }, args?: table }
+---@return Entity
+function engine.prefab.spawn(prefab_name, opts) end
+
 ---@param input string
 function engine.input.is_down(input) end
 

@@ -84,19 +84,6 @@
 ---@class PlayerProxy
 --- Marker component
 
----@class PrefabInstanceNode
----@field prefab_id number
----@field node_id number
----@field root_entity table
-
----@class PrefabInstanceRoot
----@field prefab_id number
-
----@class PrefabOverrides
----@field modified_components table
----@field removed_components table
----@field added_components table
-
 ---@class RoomCamera
 ---@field zoom vec2
 ---@field room_id number
@@ -158,9 +145,6 @@
 ---@field PhysicsBody string
 ---@field Player string
 ---@field PlayerProxy string
----@field PrefabInstanceNode string
----@field PrefabInstanceRoot string
----@field PrefabOverrides string
 ---@field RoomCamera string
 ---@field Script string
 ---@field Solid string
@@ -193,9 +177,6 @@ C.Parent = "Parent"
 C.PhysicsBody = "PhysicsBody"
 C.Player = "Player"
 C.PlayerProxy = "PlayerProxy"
-C.PrefabInstanceNode = "PrefabInstanceNode"
-C.PrefabInstanceRoot = "PrefabInstanceRoot"
-C.PrefabOverrides = "PrefabOverrides"
 C.RoomCamera = "RoomCamera"
 C.Script = "Script"
 C.Solid = "Solid"
