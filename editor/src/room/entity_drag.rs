@@ -55,7 +55,7 @@ impl RoomEditor {
         room_id: RoomId,
         camera: &Camera2D,
         ecs: &mut Ecs,
-        asset_manager: &mut AssetManager,
+        sprite_manager: &mut SpriteManager,
         grid_size: f32,
     ) -> bool {
         let mouse_screen: Vec2 = ctx.mouse_position().into();
@@ -86,7 +86,7 @@ impl RoomEditor {
                     pos.position,
                     camera,
                     ecs,
-                    asset_manager,
+                    sprite_manager,
                     grid_size,
                 );
                 if hitbox.contains(mouse_screen) {
@@ -220,7 +220,7 @@ impl RoomEditor {
                             continue;
                         }
                         let entity_rect =
-                            entity_world_rect(*entity, pos.position, ecs, asset_manager, grid_size);
+                            entity_world_rect(*entity, pos.position, ecs, sprite_manager, grid_size);
                         if rects_intersect(box_rect, entity_rect) {
                             self.selected_entities.insert(*entity);
                         }

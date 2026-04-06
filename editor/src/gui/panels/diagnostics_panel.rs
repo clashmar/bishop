@@ -35,9 +35,9 @@ impl DiagnosticsPanel {
 
         // Asset metrics
         let asset_metrics = AssetMetrics {
-            texture_count: game.asset_manager.texture_count(),
-            tile_def_count: game.asset_manager.tile_def_count(),
-            sprite_id_count: game.asset_manager.sprite_id_to_path.len(),
+            texture_count: game.sprite_manager.texture_count(),
+            tile_def_count: game.sprite_manager.tile_def_count(),
+            sprite_id_count: game.sprite_manager.sprite_id_to_path.len(),
             script_id_count: game.script_manager.script_id_to_path.len(),
         };
 

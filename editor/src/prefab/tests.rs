@@ -383,7 +383,7 @@ fn prefab_stage_uses_project_sprite_paths_without_room_state() {
     set_game_name(test_game.name());
 
     let mut game = create_new_game(test_game.name().to_string());
-    game.asset_manager
+    game.sprite_manager
         .sprite_id_to_path
         .insert(SpriteId(7), PathBuf::from("sprites/cat.png"));
     save_game(&game).unwrap();
@@ -393,7 +393,7 @@ fn prefab_stage_uses_project_sprite_paths_without_room_state() {
 
     assert_eq!(
         prefab_ctx
-            .asset_manager
+            .sprite_manager
             .sprite_id_to_path
             .get(&SpriteId(7))
             .cloned(),
@@ -1121,10 +1121,10 @@ fn saving_prefab_syncs_stage_sprite_registry_into_game_and_disk() {
         },
     );
     prefab_stage
-        .asset_manager
+        .sprite_manager
         .sprite_id_to_path
         .insert(SpriteId(9), PathBuf::from("sprites/building.png"));
-    prefab_stage.asset_manager.restore_next_sprite_id();
+    prefab_stage.sprite_manager.restore_next_sprite_id();
 
     let editor = Editor {
         game: create_new_game(test_game.name().to_string()),
@@ -1145,7 +1145,7 @@ fn saving_prefab_syncs_stage_sprite_registry_into_game_and_disk() {
         assert_eq!(
             editor
                 .game
-                .asset_manager
+                .sprite_manager
                 .sprite_id_to_path
                 .get(&SpriteId(9))
                 .cloned(),
@@ -1156,7 +1156,7 @@ fn saving_prefab_syncs_stage_sprite_registry_into_game_and_disk() {
     let saved_game = load_game_by_name(test_game.name()).expect("saved game should load");
     assert_eq!(
         saved_game
-            .asset_manager
+            .sprite_manager
             .sprite_id_to_path
             .get(&SpriteId(9))
             .cloned(),

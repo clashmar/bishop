@@ -6,7 +6,7 @@ use std::collections::BTreeMap;
 pub(crate) fn draw_prefab_entities<C: BishopContext>(
     ctx: &mut C,
     ecs: &Ecs,
-    asset_manager: &mut AssetManager,
+    sprite_manager: &mut SpriteManager,
     grid_size: f32,
 ) {
     let mut layer_map: BTreeMap<i32, Vec<(Entity, Vec2)>> = BTreeMap::new();
@@ -25,7 +25,7 @@ pub(crate) fn draw_prefab_entities<C: BishopContext>(
 
     for entities in layer_map.into_values() {
         for (entity, position) in entities {
-            draw_prefab_entity(ctx, ecs, asset_manager, entity, position, grid_size);
+            draw_prefab_entity(ctx, ecs, sprite_manager, entity, position, grid_size);
         }
     }
 }
@@ -33,7 +33,7 @@ pub(crate) fn draw_prefab_entities<C: BishopContext>(
 fn draw_prefab_entity<C: BishopContext>(
     ctx: &mut C,
     ecs: &Ecs,
-    asset_manager: &mut AssetManager,
+    sprite_manager: &mut SpriteManager,
     entity: Entity,
     pos: Vec2,
     grid_size: f32,
@@ -51,13 +51,13 @@ fn draw_prefab_entity<C: BishopContext>(
     };
 
     if let Some(current_frame) = ecs.get_store::<CurrentFrame>().get(visual_entity) {
-        if current_frame.draw(ctx, asset_manager, &params) {
+        if current_frame.draw(ctx, sprite_manager, &params) {
             return;
         }
     }
 
     if let Some(sprite) = ecs.get_store::<Sprite>().get(visual_entity) {
-        if sprite.draw(ctx, asset_manager, &params) {
+        if sprite.draw(ctx, sprite_manager, &params) {
             return;
         }
     }

@@ -22,7 +22,7 @@ pub const PREFAB_EDITOR_GRID_SIZE: f32 = 16.0;
 
 pub struct PrefabStage {
     pub ecs: Ecs,
-    pub asset_manager: AssetManager,
+    pub sprite_manager: SpriteManager,
     pub script_manager: ScriptManager,
     /// Read-only prefab library loaded for linked-prefab labels.
     pub prefab_library: PrefabLibrary,
@@ -101,7 +101,7 @@ impl PrefabEditor {
 
         if !self.should_block_canvas(ctx) {
             let drag_handled =
-                self.handle_canvas_move(ctx, camera, game_ctx.ecs, game_ctx.asset_manager);
+                self.handle_canvas_move(ctx, camera, game_ctx.ecs, game_ctx.sprite_manager);
             if !drag_handled {
                 self.handle_keyboard_move(ctx, game_ctx.ecs);
             }
@@ -152,14 +152,14 @@ impl PrefabEditor {
             grid::draw_grid(ctx, grid_renderer, camera, PREFAB_EDITOR_GRID_SIZE);
         }
 
-        draw_prefab_entities(ctx, game_ctx.ecs, game_ctx.asset_manager, PREFAB_EDITOR_GRID_SIZE);
+        draw_prefab_entities(ctx, game_ctx.ecs, game_ctx.sprite_manager, PREFAB_EDITOR_GRID_SIZE);
 
         for &selected_entity in &self.selected_entities {
             highlight_selected_entity(
                 ctx,
                 game_ctx.ecs,
                 selected_entity,
-                game_ctx.asset_manager,
+                game_ctx.sprite_manager,
                 Color::YELLOW,
                 PREFAB_EDITOR_GRID_SIZE,
             );

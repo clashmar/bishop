@@ -16,7 +16,7 @@ impl PrefabEditor {
         ctx: &WgpuContext,
         camera: &Camera2D,
         ecs: &mut Ecs,
-        asset_manager: &mut AssetManager,
+        sprite_manager: &mut SpriteManager,
     ) -> bool {
         let shift_held =
             ctx.is_key_down(KeyCode::LeftShift) || ctx.is_key_down(KeyCode::RightShift);
@@ -61,7 +61,7 @@ impl PrefabEditor {
                             *entity,
                             transform.position,
                             ecs,
-                            asset_manager,
+                            sprite_manager,
                             PREFAB_EDITOR_GRID_SIZE,
                         );
                         if rects_intersect(box_rect, entity_rect) {
@@ -91,7 +91,7 @@ impl PrefabEditor {
                 transform.position,
                 camera,
                 ecs,
-                asset_manager,
+                sprite_manager,
                 PREFAB_EDITOR_GRID_SIZE,
             );
 

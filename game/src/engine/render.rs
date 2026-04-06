@@ -79,7 +79,7 @@ fn render_speech<C: BishopContext>(
 
     let bubbles = collect_speech_bubbles(
         game_ctx.ecs,
-        game_ctx.asset_manager,
+        game_ctx.sprite_manager,
         current_room.id,
         alpha,
         Some(&game_instance.prev_positions),

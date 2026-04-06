@@ -327,7 +327,7 @@ impl Editor {
                             room_id,
                             ecs: &mut self.game.ecs,
                             current_world,
-                            asset_manager: &mut self.game.asset_manager,
+                            sprite_manager: &mut self.game.sprite_manager,
                             active_prefab_stamp,
                         },
                     );
@@ -335,7 +335,7 @@ impl Editor {
 
                     collider_system::update_colliders_from_sprites(
                         &mut self.game.ecs,
-                        &mut self.game.asset_manager,
+                        &mut self.game.sprite_manager,
                     );
 
                     if Controls::escape(ctx)

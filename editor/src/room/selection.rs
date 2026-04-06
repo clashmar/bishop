@@ -132,10 +132,10 @@ pub fn entity_hitbox(
     position: Vec2,
     camera: &Camera2D,
     ecs: &Ecs,
-    asset_manager: &mut AssetManager,
+    sprite_manager: &mut SpriteManager,
     grid_size: f32,
 ) -> Rect {
-    let size = entity_dimensions(ecs, asset_manager, entity, grid_size);
+    let size = entity_dimensions(ecs, sprite_manager, entity, grid_size);
 
     // Only use the center-offset for pure placeholder entities (Camera/Light without sprites)
     let is_pure_placeholder = ecs.has::<RoomCamera>(entity)
@@ -171,10 +171,10 @@ pub fn entity_world_rect(
     entity: Entity,
     position: Vec2,
     ecs: &Ecs,
-    asset_manager: &mut AssetManager,
+    sprite_manager: &mut SpriteManager,
     grid_size: f32,
 ) -> Rect {
-    let size = entity_dimensions(ecs, asset_manager, entity, grid_size);
+    let size = entity_dimensions(ecs, sprite_manager, entity, grid_size);
 
     let is_placeholder = ecs.has::<RoomCamera>(entity)
         || (ecs.has::<Light>(entity) && !ecs.has_any::<(Sprite, Animation, CurrentFrame)>(entity));

@@ -40,7 +40,7 @@ impl Editor {
         let prompt_message = "Enter game name:";
         let mut prompt = self.set_prompt_modal(ctx, prompt_message);
 
-        let widgets: Vec<BoxedWidget> = vec![Box::new(move |ctx, _asset_manager| {
+        let widgets: Vec<BoxedWidget> = vec![Box::new(move |ctx, _sprite_manager| {
             if let Some(result) = prompt.draw(ctx) {
                 // Write the result to the static thread local
                 NEW_GAME_PROMPT_RESULT.with(|c| *c.borrow_mut() = Some(result));
@@ -214,7 +214,7 @@ impl Editor {
     pub fn handle_modal(&mut self, ctx: &mut WgpuContext) -> Option<ModalResult> {
         if self.modal.is_open() {
             // Outside‑click handling
-            if self.modal.draw(ctx, &mut self.game.asset_manager) {
+            if self.modal.draw(ctx, &mut self.game.sprite_manager) {
                 if self.pending_export.take().is_some() {
                     EXPORT_OVERWRITE_RESULT.with(|c| *c.borrow_mut() = None);
                     self.toast = Some(Toast::new("Export cancelled.", 2.5));

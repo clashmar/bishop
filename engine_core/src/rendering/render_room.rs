@@ -29,7 +29,7 @@ pub fn render_room<C: BishopContext>(
     let layer_map = collect_interpolated_layer_map(
         game_ctx.ecs,
         current_room,
-        game_ctx.asset_manager,
+        game_ctx.sprite_manager,
         alpha,
         prev_positions,
         grid_size,
@@ -43,7 +43,7 @@ pub fn render_room<C: BishopContext>(
     let tilemap = &current_room.current_variant().tilemap;
     tilemap.draw(
         ctx,
-        game_ctx.asset_manager,
+        game_ctx.sprite_manager,
         current_room.position,
         grid_size,
     );
@@ -54,7 +54,7 @@ pub fn render_room<C: BishopContext>(
             draw_entity(
                 ctx,
                 game_ctx.ecs,
-                game_ctx.asset_manager,
+                game_ctx.sprite_manager,
                 entity,
                 pos,
                 grid_size,
@@ -63,7 +63,7 @@ pub fn render_room<C: BishopContext>(
 
         // TODO: Re-enable multi-pass rendering
         // render_system.run_ambient_pass(ctx, room.darkness);
-        // render_system.run_glow_pass(ctx, render_cam, glows, asset_manager);
+        // render_system.run_glow_pass(ctx, render_cam, glows, sprite_manager);
         // render_system.run_undarkened_pass(ctx);
         // render_system.run_scene_pass(ctx);
     }
@@ -79,7 +79,7 @@ pub fn render_room<C: BishopContext>(
 fn draw_entity<C: BishopContext>(
     ctx: &mut C,
     ecs: &Ecs,
-    asset_manager: &mut AssetManager,
+    sprite_manager: &mut SpriteManager,
     entity: Entity,
     pos: Vec2,
     grid_size: f32,
@@ -99,13 +99,13 @@ fn draw_entity<C: BishopContext>(
     };
 
     if let Some(cf) = ecs.get_store::<CurrentFrame>().get(visual_entity)
-        && cf.draw(ctx, asset_manager, &params)
+        && cf.draw(ctx, sprite_manager, &params)
     {
         return;
     }
 
     if let Some(sprite) = ecs.get_store::<Sprite>().get(visual_entity)
-        && sprite.draw(ctx, asset_manager, &params)
+        && sprite.draw(ctx, sprite_manager, &params)
     {
         return;
     }
@@ -134,7 +134,7 @@ pub struct LayerData<'a> {
 fn collect_interpolated_layer_map<'a>(
     ecs: &'a Ecs,
     room: &Room,
-    asset_manager: &AssetManager,
+    sprite_manager: &SpriteManager,
     alpha: f32,
     prev_positions: Option<&HashMap<Entity, Vec2>>,
     grid_size: f32,
@@ -178,7 +178,7 @@ fn collect_interpolated_layer_map<'a>(
 
         // If the entity also has a Glow component, apply pivot to glow position
         if let Some(glow) = glow_store.get(*entity) {
-            let glow_size = asset_manager
+            let glow_size = sprite_manager
                 .texture_size(glow.sprite_id)
                 .map(|(w, h)| Vec2::new(w, h))
                 .unwrap_or(Vec2::new(grid_size, grid_size));

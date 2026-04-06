@@ -343,7 +343,7 @@ pub fn highlight_selected_entity<C: BishopContext>(
     ctx: &mut C,
     ecs: &Ecs,
     entity: Entity,
-    asset_manager: &mut AssetManager,
+    sprite_manager: &mut SpriteManager,
     color: Color,
     grid_size: f32,
 ) {
@@ -352,7 +352,7 @@ pub fn highlight_selected_entity<C: BishopContext>(
         None => return,
     };
 
-    let size = entity_dimensions(ecs, asset_manager, entity, grid_size);
+    let size = entity_dimensions(ecs, sprite_manager, entity, grid_size);
     let draw_pos = pivot_adjusted_position(transform.position, size, transform.pivot);
 
     ctx.draw_rectangle_lines(
@@ -368,20 +368,20 @@ pub fn highlight_selected_entity<C: BishopContext>(
 pub(crate) fn draw_prefab_stamp_ghost(
     ctx: &mut WgpuContext,
     camera: &Camera2D,
-    asset_manager: &mut AssetManager,
+    sprite_manager: &mut SpriteManager,
     prefab: &PrefabAsset,
     grid_size: f32,
     pivot: Pivot,
 ) {
     let mouse_world = coord::mouse_world_pos(ctx, camera);
     let snapped_position = snap_room_drag_position(mouse_world, grid_size, pivot);
-    let preview = build_prefab_preview(ctx, prefab, asset_manager);
+    let preview = build_prefab_preview(ctx, prefab, sprite_manager);
 
     for item in &preview.items {
         let draw_pos = snapped_position + item.stamp_position;
         match item.visual {
             PrefabPreviewVisual::Sprite { sprite_id } => {
-                let texture = asset_manager.get_texture_from_id(ctx, sprite_id);
+                let texture = sprite_manager.get_texture_from_id(ctx, sprite_id);
                 ctx.draw_texture_ex(
                     texture,
                     draw_pos.x,
@@ -398,7 +398,7 @@ pub(crate) fn draw_prefab_stamp_ghost(
                 source,
                 flip_x,
             } => {
-                let texture = asset_manager.get_texture_from_id(ctx, sprite_id);
+                let texture = sprite_manager.get_texture_from_id(ctx, sprite_id);
                 ctx.draw_texture_ex(
                     texture,
                     draw_pos.x,
@@ -545,7 +545,7 @@ pub fn draw_light_placeholders(ctx: &mut WgpuContext, ecs: &Ecs, room_id: RoomId
 pub fn draw_glow_placeholders(
     ctx: &mut WgpuContext,
     ecs: &Ecs,
-    asset_manager: &mut AssetManager,
+    sprite_manager: &mut SpriteManager,
     room_id: RoomId,
     grid_size: f32,
 ) {
@@ -566,7 +566,7 @@ pub fn draw_glow_placeholders(
         if let Some(position) = ecs.get_store::<Transform>().get(*entity) {
             let mut pos = position.position;
 
-            if let Some((w, h)) = asset_manager.texture_size(glow.sprite_id) {
+            if let Some((w, h)) = sprite_manager.texture_size(glow.sprite_id) {
                 pos += vec2((w / 2.) - grid_size / 2., (h / 2.) - grid_size / 2.);
             }
 

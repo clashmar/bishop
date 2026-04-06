@@ -1,5 +1,5 @@
 // engine_core/src/assets/sprite.rs
-use crate::assets::asset_manager::AssetManager;
+use crate::assets::sprite_manager::SpriteManager;
 use crate::ecs::entity::Entity;
 use crate::game::EngineCtxMut;
 use crate::inspector_module;
@@ -32,18 +32,18 @@ impl Default for Sprite {
 }
 
 fn post_create(sprite: &mut Sprite, _entity: &Entity, ctx: &mut dyn EngineCtxMut) {
-    ctx.asset_manager().increment_ref(sprite.sprite);
+    ctx.sprite_manager().increment_ref(sprite.sprite);
 }
 
 fn post_remove(sprite: &mut Sprite, _entity: &Entity, ctx: &mut dyn EngineCtxMut) {
-    ctx.asset_manager().decrement_ref(sprite.sprite);
+    ctx.sprite_manager().decrement_ref(sprite.sprite);
 }
 
 inspector_module!(Sprite);
 
 impl Renderable for Sprite {
-    fn dimensions(&self, asset_manager: &AssetManager) -> Option<Vec2> {
-        asset_manager
+    fn dimensions(&self, sprite_manager: &SpriteManager) -> Option<Vec2> {
+        sprite_manager
             .texture_size(self.sprite)
             .map(|(w, h)| vec2(w, h))
     }
@@ -51,14 +51,14 @@ impl Renderable for Sprite {
     fn draw<C: BishopContext>(
         &self,
         ctx: &mut C,
-        asset_manager: &mut AssetManager,
+        sprite_manager: &mut SpriteManager,
         params: &EntityDrawParams,
     ) -> bool {
         if self.sprite.0 == 0 {
             return false;
         }
 
-        let tex = asset_manager.get_texture_from_id(ctx, self.sprite);
+        let tex = sprite_manager.get_texture_from_id(ctx, self.sprite);
         let size = vec2(tex.width(), tex.height());
         let draw_base = pivot_adjusted_position(params.pos, size, params.pivot);
         ctx.draw_texture_ex(

@@ -305,9 +305,9 @@ fn draw_recent_prefab_card(
         rect.w - PREVIEW_PADDING * 2.0,
         footer_rect.y - rect.y - PREVIEW_PADDING,
     );
-    let preview = build_prefab_preview(ctx, prefab, &mut editor.game.asset_manager);
+    let preview = build_prefab_preview(ctx, prefab, &mut editor.game.sprite_manager);
     if preview.has_drawable_visual {
-        draw_prefab_preview(ctx, &mut editor.game.asset_manager, preview_rect, &preview);
+        draw_prefab_preview(ctx, &mut editor.game.sprite_manager, preview_rect, &preview);
     } else {
         draw_prefab_fallback(ctx, preview_rect);
     }
@@ -366,7 +366,7 @@ fn draw_prefab_fallback(ctx: &mut WgpuContext, rect: Rect) {
 
 fn draw_prefab_preview(
     ctx: &mut WgpuContext,
-    asset_manager: &mut AssetManager,
+    sprite_manager: &mut SpriteManager,
     rect: Rect,
     preview: &PrefabPreview,
 ) {
@@ -387,7 +387,7 @@ fn draw_prefab_preview(
         let draw_pos = origin + (item.palette_position - bounds_origin) * scale;
         match item.visual {
             PrefabPreviewVisual::Sprite { sprite_id } => {
-                let texture = asset_manager.get_texture_from_id(ctx, sprite_id);
+                let texture = sprite_manager.get_texture_from_id(ctx, sprite_id);
                 ctx.draw_texture_ex(
                     texture,
                     draw_pos.x,
@@ -404,7 +404,7 @@ fn draw_prefab_preview(
                 source,
                 flip_x,
             } => {
-                let texture = asset_manager.get_texture_from_id(ctx, sprite_id);
+                let texture = sprite_manager.get_texture_from_id(ctx, sprite_id);
                 ctx.draw_texture_ex(
                     texture,
                     draw_pos.x,

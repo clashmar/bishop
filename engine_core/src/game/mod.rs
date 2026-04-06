@@ -6,7 +6,7 @@ pub mod startup_mode;
 pub use game_map::*;
 pub use startup_mode::*;
 
-use crate::assets::asset_manager::AssetManager;
+use crate::assets::sprite_manager::SpriteManager;
 use crate::ecs::ecs::Ecs;
 use crate::engine_global::set_game_name;
 use crate::onscreen_error;
@@ -35,7 +35,7 @@ pub struct Game {
     /// All worlds belonging to this game instance.
     pub worlds: Vec<World>,
     /// Asset manager for the game.
-    pub asset_manager: AssetManager,
+    pub sprite_manager: SpriteManager,
     /// Script manager for the game.
     pub script_manager: ScriptManager,
     /// Text manager for the game.
@@ -56,7 +56,7 @@ pub struct Game {
 pub struct GameCtx<'a> {
     pub ecs: &'a Ecs,
     pub cur_world: &'a World,
-    pub asset_manager: &'a AssetManager,
+    pub sprite_manager: &'a SpriteManager,
     pub script_manager: &'a ScriptManager,
 }
 
@@ -64,7 +64,7 @@ pub struct GameCtx<'a> {
 pub struct GameCtxMut<'a> {
     pub ecs: &'a mut Ecs,
     pub cur_world: Option<&'a mut World>,
-    pub asset_manager: &'a mut AssetManager,
+    pub sprite_manager: &'a mut SpriteManager,
     pub script_manager: &'a mut ScriptManager,
     /// Read-only prefab library for UI and editor lookups.
     pub prefab_library: &'a PrefabLibrary,
@@ -74,7 +74,7 @@ pub struct GameCtxMut<'a> {
 pub struct ServicesCtxMut<'a> {
     pub ecs: &'a mut Ecs,
     pub world: Option<&'a mut World>,
-    pub asset_manager: &'a mut AssetManager,
+    pub sprite_manager: &'a mut SpriteManager,
     pub script_manager: &'a mut ScriptManager,
     /// Read-only prefab library for UI and editor lookups.
     pub prefab_library: &'a PrefabLibrary,
@@ -86,7 +86,7 @@ pub trait EngineCtxMut {
     fn ecs(&mut self) -> &mut Ecs;
 
     /// Mutable asset-manager access.
-    fn asset_manager(&mut self) -> &mut AssetManager;
+    fn sprite_manager(&mut self) -> &mut SpriteManager;
 
     /// Mutable script-manager access.
     fn script_manager(&mut self) -> &mut ScriptManager;
@@ -107,7 +107,7 @@ impl Game {
         GameCtx {
             ecs: &self.ecs,
             cur_world,
-            asset_manager: &self.asset_manager,
+            sprite_manager: &self.sprite_manager,
             script_manager: &self.script_manager,
         }
     }
@@ -123,7 +123,7 @@ impl Game {
         GameCtxMut {
             ecs: &mut self.ecs,
             cur_world: Some(cur_world),
-            asset_manager: &mut self.asset_manager,
+            sprite_manager: &mut self.sprite_manager,
             script_manager: &mut self.script_manager,
             prefab_library: &self.prefab_library,
         }
@@ -184,7 +184,7 @@ impl Game {
     /// Syncs all assets/scripts that belong to this game, sets the game name, and inits managers.
     pub fn initialize(&mut self, loader: &impl TextureLoader, lua: &Lua) {
         set_game_name(self.name.clone());
-        AssetManager::init_manager(loader, self);
+        SpriteManager::init_manager(loader, self);
         ScriptManager::init_manager(self, lua);
         self.init_text_manager();
         self.reload_prefab_library();
@@ -193,7 +193,7 @@ impl Game {
     /// Initializes runtime state for the game without eagerly hydrating all textures.
     pub fn initialize_runtime(&mut self, lua: &Lua) {
         set_game_name(self.name.clone());
-        AssetManager::init_runtime_manager(self);
+        SpriteManager::init_runtime_manager(self);
         ScriptManager::init_manager(self, lua);
         self.init_text_manager();
         self.reload_prefab_library();
@@ -231,7 +231,7 @@ impl<'a> GameCtxMut<'a> {
         ServicesCtxMut {
             ecs: self.ecs,
             world: self.cur_world.as_deref_mut(),
-            asset_manager: self.asset_manager,
+            sprite_manager: self.sprite_manager,
             script_manager: self.script_manager,
             prefab_library: self.prefab_library,
         }
@@ -243,8 +243,8 @@ impl EngineCtxMut for GameCtxMut<'_> {
         self.ecs
     }
 
-    fn asset_manager(&mut self) -> &mut AssetManager {
-        self.asset_manager
+    fn sprite_manager(&mut self) -> &mut SpriteManager {
+        self.sprite_manager
     }
 
     fn script_manager(&mut self) -> &mut ScriptManager {
@@ -261,8 +261,8 @@ impl EngineCtxMut for ServicesCtxMut<'_> {
         self.ecs
     }
 
-    fn asset_manager(&mut self) -> &mut AssetManager {
-        self.asset_manager
+    fn sprite_manager(&mut self) -> &mut SpriteManager {
+        self.sprite_manager
     }
 
     fn script_manager(&mut self) -> &mut ScriptManager {
@@ -281,13 +281,13 @@ mod tests {
     #[test]
     fn game_ctx_mut_can_exist_without_a_current_world() {
         let mut ecs = Ecs::default();
-        let mut asset_manager = AssetManager::default();
+        let mut sprite_manager = SpriteManager::default();
         let mut script_manager = ScriptManager::default();
 
         let ctx = GameCtxMut {
             ecs: &mut ecs,
             cur_world: None,
-            asset_manager: &mut asset_manager,
+            sprite_manager: &mut sprite_manager,
             script_manager: &mut script_manager,
             prefab_library: &PrefabLibrary::default(),
         };

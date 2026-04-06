@@ -47,7 +47,7 @@ pub fn create_new_game(name: String) -> Game {
     // Ensure the folder structure exists.
     create_game_folders(&name);
 
-    let asset_manager = AssetManager::default();
+    let sprite_manager = SpriteManager::default();
     let script_manager = ScriptManager::default();
 
     // Build the game first so we can allocate room IDs globally
@@ -57,7 +57,7 @@ pub fn create_new_game(name: String) -> Game {
         name,
         ecs: Ecs::default(),
         worlds: vec![],
-        asset_manager,
+        sprite_manager,
         script_manager,
         text_manager: TextManager::default(),
         prefab_library: PrefabLibrary::default(),

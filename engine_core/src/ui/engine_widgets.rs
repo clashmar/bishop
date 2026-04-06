@@ -1,4 +1,4 @@
-use crate::assets::asset_manager::AssetManager;
+use crate::assets::sprite_manager::SpriteManager;
 use crate::assets::sprite::SpriteId;
 use crate::ecs::entity::Entity;
 use crate::prelude::{assets_folder, scripts_folder};
@@ -14,13 +14,13 @@ pub fn gui_sprite_picker<C: BishopContext>(
     rect: Rect,
     interaction_id: WidgetId,
     id: &mut SpriteId,
-    asset_manager: &mut AssetManager,
+    sprite_manager: &mut SpriteManager,
     blocked: bool,
 ) -> bool {
     let btn_label: Cow<str> = if id.0 == 0 {
         Cow::Borrowed("[Pick File]")
     } else {
-        let filename = asset_manager
+        let filename = sprite_manager
             .sprite_id_to_path
             .get(id)
             .and_then(|p| p.file_name())
@@ -50,10 +50,10 @@ pub fn gui_sprite_picker<C: BishopContext>(
                 .set_directory(assets_folder())
                 .pick_file()
             {
-                let normalized = asset_manager.normalize_path(path);
-                match asset_manager.get_or_load(ctx, &normalized) {
+                let normalized = sprite_manager.normalize_path(path);
+                match sprite_manager.get_or_load(ctx, &normalized) {
                     Some(new_id) => {
-                        asset_manager.change_sprite(id, new_id);
+                        sprite_manager.change_sprite(id, new_id);
                         changed = true;
                     }
                     None => {
@@ -65,7 +65,7 @@ pub fn gui_sprite_picker<C: BishopContext>(
     }
 
     if Button::new(remove_rect, "x").blocked(blocked).show(ctx) && id.0 != 0 {
-        asset_manager.decrement_ref(*id);
+        sprite_manager.decrement_ref(*id);
         *id = SpriteId(0);
         changed = true;
     }

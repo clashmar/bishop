@@ -164,7 +164,7 @@ impl Engine {
                 return;
             };
             update_physics(
-                game_ctx.asset_manager,
+                game_ctx.sprite_manager,
                 game_ctx.ecs,
                 current_room,
                 dt,
@@ -195,13 +195,13 @@ impl Engine {
             update_speech_timers(&mut game_instance.game.ecs, dt);
 
             let game_ctx = game_instance.game.ctx_mut();
-            let asset_manager = game_ctx.asset_manager;
+            let sprite_manager = game_ctx.sprite_manager;
             let ecs = game_ctx.ecs;
 
             if let Some(cur_world) = game_ctx.cur_world.as_deref() {
                 if let Some(current_room) = cur_world.current_room() {
                     let loader = self.ctx.borrow();
-                    update_animation_sytem(&*loader, ecs, asset_manager, dt, current_room.id);
+                    update_animation_sytem(&*loader, ecs, sprite_manager, dt, current_room.id);
                 }
             }
 

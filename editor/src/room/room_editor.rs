@@ -50,7 +50,7 @@ pub(crate) struct RoomEditorUpdateState<'a> {
     pub(crate) room_id: RoomId,
     pub(crate) ecs: &'a mut Ecs,
     pub(crate) current_world: &'a mut World,
-    pub(crate) asset_manager: &'a mut AssetManager,
+    pub(crate) sprite_manager: &'a mut SpriteManager,
     pub(crate) active_prefab_stamp: ActivePrefabStampState,
 }
 
@@ -157,7 +157,7 @@ impl RoomEditor {
             room_id,
             ecs,
             current_world,
-            asset_manager,
+            sprite_manager,
             active_prefab_stamp,
         } = state;
         let grid_size = current_world.grid_size;
@@ -197,7 +197,7 @@ impl RoomEditor {
 
         let delta_time = ctx.get_frame_time();
 
-        update_animation_sytem(ctx, ecs, asset_manager, delta_time, room.id);
+        update_animation_sytem(ctx, ecs, sprite_manager, delta_time, room.id);
 
         match self.mode {
             RoomEditorMode::Tilemap => {
@@ -206,7 +206,7 @@ impl RoomEditor {
                 self.tilemap_editor.sub_mode_rect = self.sub_mode_rect;
                 self.tilemap_editor.sync_adjacent_exits(&adjacent_exits);
                 self.tilemap_editor
-                    .update(ctx, asset_manager, camera, room, &other_bounds, grid_size);
+                    .update(ctx, sprite_manager, camera, room, &other_bounds, grid_size);
             }
             RoomEditorMode::Scene => {
                 let stamp_handled =
@@ -218,7 +218,7 @@ impl RoomEditor {
                         active_prefab_stamp,
                     );
                 let drag_handled = stamp_handled
-                    || self.handle_selection(ctx, room.id, camera, ecs, asset_manager, grid_size);
+                    || self.handle_selection(ctx, room.id, camera, ecs, sprite_manager, grid_size);
 
                 if !drag_handled {
                     self.handle_keyboard_move(ctx, ecs, room.id);
@@ -409,11 +409,11 @@ impl RoomEditor {
                     };
 
                     let ecs = &mut *game_ctx.ecs;
-                    let asset_manager = &mut *game_ctx.asset_manager;
+                    let sprite_manager = &mut *game_ctx.sprite_manager;
 
                     self.tilemap_editor.tilemap_panel.set_rect(inspector_rect);
                     self.tilemap_editor
-                        .draw(ctx, camera, room, asset_manager, ecs, grid_size);
+                        .draw(ctx, camera, room, sprite_manager, ecs, grid_size);
 
                     ctx.set_camera(camera);
                     if self.show_grid {
@@ -466,12 +466,12 @@ impl RoomEditor {
                         }
 
                         let ecs = &*game_ctx.ecs;
-                        let asset_manager = &mut *game_ctx.asset_manager;
+                        let sprite_manager = &mut *game_ctx.sprite_manager;
 
                         draw_exit_placeholders(ctx, &room.exits, room.position, grid_size);
                         draw_camera_placeholders(ctx, ecs, room_id, grid_size);
                         draw_light_placeholders(ctx, ecs, room_id, grid_size);
-                        draw_glow_placeholders(ctx, ecs, asset_manager, room_id, grid_size);
+                        draw_glow_placeholders(ctx, ecs, sprite_manager, room_id, grid_size);
                         draw_interactable_ranges(ctx, ecs, room_id, grid_size);
                         if self.scene_sub_mode == RoomSceneSubMode::Stamp
                             && !self.should_block_canvas(ctx)
@@ -480,7 +480,7 @@ impl RoomEditor {
                                 draw_prefab_stamp_ghost(
                                     ctx,
                                     camera,
-                                    asset_manager,
+                                    sprite_manager,
                                     prefab,
                                     grid_size,
                                     active_prefab_snap_pivot,
@@ -494,7 +494,7 @@ impl RoomEditor {
                                     ctx,
                                     ecs,
                                     selected_entity,
-                                    asset_manager,
+                                    sprite_manager,
                                     Color::YELLOW,
                                     grid_size,
                                 );

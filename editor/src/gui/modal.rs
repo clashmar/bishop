@@ -23,7 +23,7 @@ pub fn is_modal_open() -> bool {
     MODAL_OPEN.with(|f| *f.borrow())
 }
 
-pub type BoxedWidget = Box<dyn FnMut(&mut WgpuContext, &mut AssetManager) + 'static>;
+pub type BoxedWidget = Box<dyn FnMut(&mut WgpuContext, &mut SpriteManager) + 'static>;
 type BoxedWidgets = Vec<BoxedWidget>;
 
 /// Used by callers of a a modal to decide what should happen if
@@ -83,7 +83,7 @@ impl Modal {
 
     /// Render the modal. Returns `true`` when the user clicked outside the window.
     /// Needs asset manager for widgets that need to access assets.
-    pub fn draw(&mut self, ctx: &mut WgpuContext, asset_manager: &mut AssetManager) -> bool {
+    pub fn draw(&mut self, ctx: &mut WgpuContext, sprite_manager: &mut SpriteManager) -> bool {
         if !self.open {
             return false;
         }
@@ -123,7 +123,7 @@ impl Modal {
 
         // Run all widgets
         for widget in self.widgets.iter_mut() {
-            widget.as_mut()(ctx, asset_manager);
+            widget.as_mut()(ctx, sprite_manager);
         }
 
         // Detect a click outside the window

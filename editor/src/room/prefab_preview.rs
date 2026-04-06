@@ -34,10 +34,10 @@ pub(crate) struct PrefabPreview {
 pub(crate) fn build_prefab_preview(
     loader: &impl TextureLoader,
     prefab: &PrefabAsset,
-    asset_manager: &mut AssetManager,
+    sprite_manager: &mut SpriteManager,
 ) -> PrefabPreview {
     build_prefab_preview_with(prefab, |sprite_id| {
-        preview_sprite_size(loader, asset_manager, sprite_id)
+        preview_sprite_size(loader, sprite_manager, sprite_id)
     })
 }
 
@@ -247,14 +247,14 @@ fn field_value<'a>(ron: &'a str, key: &str) -> Option<&'a str> {
 
 fn preview_sprite_size(
     loader: &impl TextureLoader,
-    asset_manager: &mut AssetManager,
+    sprite_manager: &mut SpriteManager,
     sprite_id: SpriteId,
 ) -> Option<Vec2> {
-    if asset_manager.texture_size(sprite_id).is_none() {
-        let _ = asset_manager.ensure_loaded(loader, sprite_id);
+    if sprite_manager.texture_size(sprite_id).is_none() {
+        let _ = sprite_manager.ensure_loaded(loader, sprite_id);
     }
 
-    asset_manager
+    sprite_manager
         .texture_size(sprite_id)
         .map(|(width, height)| vec2(width, height))
 }

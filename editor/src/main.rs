@@ -72,7 +72,7 @@ impl BishopApp for EditorApp {
 
     fn on_exit(&mut self) {
         with_editor(|editor| {
-            editor.game.asset_manager.flush_pending_removals();
+            editor.game.sprite_manager.flush_pending_removals();
             editor.game.script_manager.flush_pending_removals();
             editor.save();
         });

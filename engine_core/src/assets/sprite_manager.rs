@@ -1,4 +1,4 @@
-// engine_core/src/assets/asset_manager.rs
+// engine_core/src/assets/sprite_manager.rs
 use crate::animation::animation_clip::Animation;
 use crate::assets::sprite::*;
 use crate::ecs::ecs::Ecs;
@@ -18,7 +18,7 @@ use std::path::Path;
 use std::path::PathBuf;
 
 #[derive(Serialize, Deserialize, Default)]
-pub struct AssetManager {
+pub struct SpriteManager {
     #[serde(skip)]
     textures: HashMap<SpriteId, Texture2D>,
     /// Persistent map of all sprite ids to their paths.
@@ -61,7 +61,7 @@ pub struct AssetManager {
     empty_texture: Option<Texture2D>,
 }
 
-impl AssetManager {
+impl SpriteManager {
     /// Load and initialize a texture from the assets folder.
     /// Returns the `SpriteId` for the texture.
     pub fn init_texture(
@@ -195,25 +195,25 @@ impl AssetManager {
 
     /// Initialize all assets for the game.
     pub fn init_manager(loader: &impl TextureLoader, game: &mut Game) {
-        Self::init_editor_services(loader, &mut game.ecs, &mut game.asset_manager);
+        Self::init_editor_services(loader, &mut game.ecs, &mut game.sprite_manager);
     }
 
     /// Initialize editor asset metadata without hydrating textures.
-    pub fn init_editor_metadata(asset_manager: &mut AssetManager) {
-        asset_manager.restore_next_sprite_id();
-        asset_manager.runtime_texture_loading = false;
-        asset_manager.runtime_file_read_pool = None;
-        asset_manager.pending_texture_reads.clear();
+    pub fn init_editor_metadata(sprite_manager: &mut SpriteManager) {
+        sprite_manager.restore_next_sprite_id();
+        sprite_manager.runtime_texture_loading = false;
+        sprite_manager.runtime_file_read_pool = None;
+        sprite_manager.pending_texture_reads.clear();
 
-        asset_manager.path_to_sprite_id.clear();
-        for (&id, path) in &asset_manager.sprite_id_to_path {
-            asset_manager.path_to_sprite_id.insert(path.clone(), id);
+        sprite_manager.path_to_sprite_id.clear();
+        for (&id, path) in &sprite_manager.sprite_id_to_path {
+            sprite_manager.path_to_sprite_id.insert(path.clone(), id);
         }
 
-        if let Some(max_id) = asset_manager.tile_defs.keys().map(|id| id.0).max() {
-            asset_manager.next_tile_def_id = max_id + 1;
+        if let Some(max_id) = sprite_manager.tile_defs.keys().map(|id| id.0).max() {
+            sprite_manager.next_tile_def_id = max_id + 1;
         } else {
-            asset_manager.next_tile_def_id = 1;
+            sprite_manager.next_tile_def_id = 1;
         }
     }
 
@@ -221,22 +221,22 @@ impl AssetManager {
     pub fn init_editor_services(
         loader: &impl TextureLoader,
         ecs: &mut Ecs,
-        asset_manager: &mut AssetManager,
+        sprite_manager: &mut SpriteManager,
     ) {
-        Self::init_editor_metadata(asset_manager);
+        Self::init_editor_metadata(sprite_manager);
 
-        let sprites: Vec<(SpriteId, PathBuf)> = asset_manager
+        let sprites: Vec<(SpriteId, PathBuf)> = sprite_manager
             .sprite_id_to_path
             .iter()
             .map(|(id, path)| (*id, path.clone()))
             .collect();
 
         for (id, path) in sprites {
-            let _ = asset_manager.reload_texture(loader, &id, &path);
+            let _ = sprite_manager.reload_texture(loader, &id, &path);
         }
 
         for animation in ecs.get_store_mut::<Animation>().data.values_mut() {
-            animation.init_sprite_cache(loader, asset_manager);
+            animation.init_sprite_cache(loader, sprite_manager);
             animation.init_runtime();
         }
     }
@@ -249,19 +249,19 @@ impl AssetManager {
 
     /// Initialize runtime data with an explicit file-read pool handle.
     pub fn init_runtime_manager_with_pool(file_read_pool: &FileReadPool, game: &mut Game) {
-        game.asset_manager.restore_next_sprite_id();
-        game.asset_manager.runtime_texture_loading = true;
-        game.asset_manager.runtime_file_read_pool = Some(file_read_pool.clone());
-        game.asset_manager.pending_texture_reads.clear();
+        game.sprite_manager.restore_next_sprite_id();
+        game.sprite_manager.runtime_texture_loading = true;
+        game.sprite_manager.runtime_file_read_pool = Some(file_read_pool.clone());
+        game.sprite_manager.pending_texture_reads.clear();
 
-        if let Some(max_id) = game.asset_manager.tile_defs.keys().map(|id| id.0).max() {
-            game.asset_manager.next_tile_def_id = max_id + 1;
+        if let Some(max_id) = game.sprite_manager.tile_defs.keys().map(|id| id.0).max() {
+            game.sprite_manager.next_tile_def_id = max_id + 1;
         } else {
-            game.asset_manager.next_tile_def_id = 1;
+            game.sprite_manager.next_tile_def_id = 1;
         }
 
         for animation in game.ecs.get_store_mut::<Animation>().data.values_mut() {
-            animation.init_sprite_cache_runtime(&game.asset_manager);
+            animation.init_sprite_cache_runtime(&game.sprite_manager);
             animation.init_runtime();
         }
     }
@@ -550,7 +550,7 @@ impl AssetManager {
     }
 
     /// Merges persistent editor metadata from another asset manager.
-    pub fn merge_editor_metadata_from(&mut self, source: &AssetManager) -> io::Result<()> {
+    pub fn merge_editor_metadata_from(&mut self, source: &SpriteManager) -> io::Result<()> {
         validate_id_path_registry_merge(
             "Sprite",
             &source.sprite_id_to_path,
@@ -665,18 +665,18 @@ mod tests {
     #[test]
     fn get_or_load_retries_loader_for_registered_path_with_missing_texture() {
         let loader = CountingFailingLoader::new();
-        let mut asset_manager = AssetManager::default();
+        let mut sprite_manager = SpriteManager::default();
         let path = PathBuf::from("sprites/player.png");
         let sprite_id = SpriteId(7);
 
-        asset_manager
+        sprite_manager
             .path_to_sprite_id
             .insert(path.clone(), sprite_id);
-        asset_manager
+        sprite_manager
             .sprite_id_to_path
             .insert(sprite_id, path.clone());
 
-        let result = asset_manager.get_or_load(&loader, &path);
+        let result = sprite_manager.get_or_load(&loader, &path);
 
         assert!(result.is_none());
         assert_eq!(loader.load_calls.get(), 1);
@@ -685,18 +685,18 @@ mod tests {
     #[test]
     fn ensure_loaded_retries_loader_for_registered_sprite_id_with_missing_texture() {
         let loader = CountingFailingLoader::new();
-        let mut asset_manager = AssetManager::default();
+        let mut sprite_manager = SpriteManager::default();
         let path = PathBuf::from("sprites/player.png");
         let sprite_id = SpriteId(7);
 
-        asset_manager
+        sprite_manager
             .path_to_sprite_id
             .insert(path.clone(), sprite_id);
-        asset_manager
+        sprite_manager
             .sprite_id_to_path
             .insert(sprite_id, path.clone());
 
-        let result = asset_manager.ensure_loaded(&loader, sprite_id);
+        let result = sprite_manager.ensure_loaded(&loader, sprite_id);
 
         assert!(result.is_err());
         assert_eq!(loader.load_calls.get(), 1);
@@ -708,7 +708,7 @@ mod tests {
         let test_folder = TestGameFolder::new("asset_mgr_queue");
         set_game_name(test_folder.name());
 
-        let mut asset_manager = AssetManager::default();
+        let mut sprite_manager = SpriteManager::default();
         let file_read_pool = FileReadPool::new();
         let path = PathBuf::from("textures/runtime-queue.bin");
         let sprite_id = SpriteId(7);
@@ -722,18 +722,18 @@ mod tests {
         .expect("runtime queue test directory should be writable");
         fs::write(&full_path, [1_u8, 2, 3, 4]).expect("runtime queue test file should be writable");
 
-        asset_manager
+        sprite_manager
             .path_to_sprite_id
             .insert(path.clone(), sprite_id);
-        asset_manager
+        sprite_manager
             .sprite_id_to_path
             .insert(sprite_id, path.clone());
-        asset_manager.attach_runtime_file_read_pool_for_test(&file_read_pool);
-        asset_manager.enable_runtime_texture_loading_for_test();
-        asset_manager.queue_runtime_texture_read(sprite_id);
+        sprite_manager.attach_runtime_file_read_pool_for_test(&file_read_pool);
+        sprite_manager.enable_runtime_texture_loading_for_test();
+        sprite_manager.queue_runtime_texture_read(sprite_id);
 
-        assert!(asset_manager.has_pending_texture_read(sprite_id));
-        assert_eq!(asset_manager.texture_count(), 0);
+        assert!(sprite_manager.has_pending_texture_read(sprite_id));
+        assert_eq!(sprite_manager.texture_count(), 0);
     }
 
     #[test]
@@ -743,7 +743,7 @@ mod tests {
         set_game_name(test_folder.name());
 
         let loader = CountingFailingLoader::new();
-        let mut asset_manager = AssetManager::default();
+        let mut sprite_manager = SpriteManager::default();
         let file_read_pool = FileReadPool::new();
         let path = PathBuf::from("textures/runtime-upload.bin");
         let sprite_id = SpriteId(7);
@@ -757,26 +757,26 @@ mod tests {
         .expect("runtime upload test directory should be writable");
         fs::write(&full_path, [1, 2, 3, 4]).expect("runtime upload test file should be writable");
 
-        asset_manager
+        sprite_manager
             .path_to_sprite_id
             .insert(path.clone(), sprite_id);
-        asset_manager
+        sprite_manager
             .sprite_id_to_path
             .insert(sprite_id, path.clone());
-        asset_manager.attach_runtime_file_read_pool_for_test(&file_read_pool);
-        asset_manager.enable_runtime_texture_loading_for_test();
-        asset_manager.queue_runtime_texture_read(sprite_id);
+        sprite_manager.attach_runtime_file_read_pool_for_test(&file_read_pool);
+        sprite_manager.enable_runtime_texture_loading_for_test();
+        sprite_manager.queue_runtime_texture_read(sprite_id);
 
         // Drain until the read completes and the upload path is hit.
         for _ in 0..100 {
-            asset_manager.poll_pending_texture_reads(&loader);
-            if !asset_manager.has_pending_texture_read(sprite_id) {
+            sprite_manager.poll_pending_texture_reads(&loader);
+            if !sprite_manager.has_pending_texture_read(sprite_id) {
                 break;
             }
             std::thread::sleep(Duration::from_millis(10));
         }
 
         assert_eq!(loader.bytes_load_calls.get(), 1);
-        assert!(!asset_manager.has_pending_texture_read(sprite_id));
+        assert!(!sprite_manager.has_pending_texture_read(sprite_id));
     }
 }

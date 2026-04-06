@@ -226,7 +226,7 @@
 //         &mut self,
 //         render_cam: &Camera2D,
 //         glows: Vec<(&Glow, Vec2)>,
-//         asset_manager: &mut AssetManager,
+//         sprite_manager: &mut AssetManager,
 //     ) {
 //         self.clear_cam(&self.glow_rt);
 //         self.clear_glow_buffers();
@@ -244,7 +244,7 @@
 //         self.glow_mat.set_texture("scene_tex", self.scene_rt.texture.clone());
 
 //         for (i, (glow, world_pos)) in glows.iter().take(MAX_LIGHTS).enumerate() {
-//             let tex = asset_manager.get_texture_from_id(glow.sprite_id).clone();
+//             let tex = sprite_manager.get_texture_from_id(glow.sprite_id).clone();
 //             self.glow_mat.set_texture(&format!("tex_mask{}", i), tex);
 
 //             let screen_pos = world_to_target(
@@ -263,7 +263,7 @@
 //             buffer.emission = glow.emission;
 
 //             // Texture dimensions
-//             if let Some((w, h)) = asset_manager.texture_size(glow.sprite_id) {
+//             if let Some((w, h)) = sprite_manager.texture_size(glow.sprite_id) {
 //                 buffer.mask_size = Vec2::new(
 //                     world_distance_to_uniform_target(render_cam, w, target_w),
 //                     world_distance_to_uniform_target(render_cam, h, target_w),

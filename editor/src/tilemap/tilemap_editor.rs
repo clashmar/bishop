@@ -86,7 +86,7 @@ impl TileMapEditor {
     pub fn update(
         &mut self,
         ctx: &WgpuContext,
-        asset_manager: &mut AssetManager,
+        sprite_manager: &mut SpriteManager,
         camera: &mut Camera2D,
         room: &mut Room,
         other_bounds: &[(Vec2, Vec2)],
@@ -97,7 +97,7 @@ impl TileMapEditor {
             self.initialized = true;
         }
 
-        self.tilemap_panel.update(asset_manager);
+        self.tilemap_panel.update(sprite_manager);
 
         // Only rebuild handles when not dragging (to preserve drag state)
         if self.active_handle_index.is_none() {
@@ -309,7 +309,7 @@ impl TileMapEditor {
         ctx: &mut WgpuContext,
         camera: &Camera2D,
         room: &mut Room,
-        asset_manager: &mut AssetManager,
+        sprite_manager: &mut SpriteManager,
         ecs: &Ecs,
         grid_size: f32,
     ) {
@@ -321,7 +321,7 @@ impl TileMapEditor {
 
         ctx.clear_background(Color::BLACK);
         ctx.set_camera(camera);
-        tilemap.draw(ctx, asset_manager, room_position, grid_size);
+        tilemap.draw(ctx, sprite_manager, room_position, grid_size);
         draw_exit_placeholders(ctx, &room.exits, room_position, grid_size);
         self.draw_adjacent_exits(ctx, grid_size);
         self.draw_hover_highlight(ctx, camera, tilemap, room_position, grid_size);
@@ -333,7 +333,7 @@ impl TileMapEditor {
         self.draw_ui(
             ctx,
             camera,
-            asset_manager,
+            sprite_manager,
             tilemap,
             Rect::new(room_position.x, room_position.y, room_size.x, room_size.y),
             grid_size,
@@ -395,7 +395,7 @@ impl TileMapEditor {
         &mut self,
         ctx: &mut WgpuContext,
         camera: &Camera2D,
-        asset_manager: &mut AssetManager,
+        sprite_manager: &mut SpriteManager,
         tilemap: &mut TileMap,
         room_rect: Rect,
         grid_size: f32,
@@ -424,7 +424,7 @@ impl TileMapEditor {
         draw_top_panel_full(ctx);
 
         // Draw inspector panel
-        self.tilemap_panel.draw(ctx, asset_manager, tilemap);
+        self.tilemap_panel.draw(ctx, sprite_manager, tilemap);
     }
 
     fn get_hovered_tile(

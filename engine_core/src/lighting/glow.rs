@@ -39,9 +39,9 @@ impl Default for Glow {
 }
 
 fn post_create(glow: &mut Glow, _entity: &Entity, ctx: &mut dyn EngineCtxMut) {
-    ctx.asset_manager().increment_ref(glow.sprite_id);
+    ctx.sprite_manager().increment_ref(glow.sprite_id);
 }
 
 fn post_remove(glow: &mut Glow, _entity: &Entity, ctx: &mut dyn EngineCtxMut) {
-    ctx.asset_manager().decrement_ref(glow.sprite_id);
+    ctx.sprite_manager().decrement_ref(glow.sprite_id);
 }

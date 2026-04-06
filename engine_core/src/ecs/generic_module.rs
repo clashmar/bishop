@@ -121,7 +121,7 @@ where
                         widget_rect,
                         base_id,
                         id,
-                        game_ctx.asset_manager,
+                        game_ctx.sprite_manager,
                         blocked,
                     );
                 }

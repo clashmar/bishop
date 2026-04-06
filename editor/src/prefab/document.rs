@@ -17,17 +17,17 @@ impl PrefabStage {
 
     /// Builds an isolated prefab stage from the live editor game services.
     pub fn from_editor_services(game: &Game) -> Self {
-        let mut asset_manager = game.asset_manager.editor_metadata_snapshot();
+        let mut sprite_manager = game.sprite_manager.editor_metadata_snapshot();
         let mut script_manager = game.script_manager.editor_metadata_snapshot();
 
         with_lua(|lua| {
-            AssetManager::init_editor_metadata(&mut asset_manager);
+            SpriteManager::init_editor_metadata(&mut sprite_manager);
             ScriptManager::init_editor_services(&mut script_manager, lua);
         });
 
         Self {
             ecs: Ecs::default(),
-            asset_manager,
+            sprite_manager,
             script_manager,
             prefab_library: game.prefab_library.clone(),
         }
@@ -35,7 +35,7 @@ impl PrefabStage {
 
     /// Merges staged editor metadata back into the live game services.
     pub fn sync_editor_services(&self, game: &mut Game) -> io::Result<()> {
-        game.asset_manager.merge_editor_metadata_from(&self.asset_manager)?;
+        game.sprite_manager.merge_editor_metadata_from(&self.sprite_manager)?;
         game.script_manager
             .merge_editor_metadata_from(&self.script_manager)?;
         Ok(())
@@ -45,7 +45,7 @@ impl PrefabStage {
         ServicesCtxMut {
             ecs: &mut self.ecs,
             world: None,
-            asset_manager: &mut self.asset_manager,
+            sprite_manager: &mut self.sprite_manager,
             script_manager: &mut self.script_manager,
             prefab_library: &self.prefab_library,
         }
@@ -107,6 +107,17 @@ impl PrefabEditor {
     pub fn set_name(&mut self, name: String) {
         self.prefab_name = name;
     }
+
+    #[cfg(test)]
+    /// Opens a prefab editor using persisted game data loaded from disk.
+    pub fn open_existing(
+        game_name: &str,
+        prefab: PrefabAsset,
+        last_room_synced_state: PrefabRoomSyncState,
+    ) -> (Self, PrefabStage) {
+        let game = load_prefab_game(game_name);
+        Self::open_existing_from_game(&game, prefab, last_room_synced_state)
+    }
 }
 
 #[cfg(test)]
@@ -115,15 +126,4 @@ fn load_prefab_game(game_name: &str) -> Game {
         name: game_name.to_string(),
         ..Default::default()
     })
-}
-
-#[cfg(test)]
-/// Opens a prefab editor using persisted game data loaded from disk.
-pub fn open_existing(
-    game_name: &str,
-    prefab: PrefabAsset,
-    last_room_synced_state: PrefabRoomSyncState,
-) -> (Self, PrefabStage) {
-    let game = load_prefab_game(game_name);
-    Self::open_existing_from_game(&game, prefab, last_room_synced_state)
 }

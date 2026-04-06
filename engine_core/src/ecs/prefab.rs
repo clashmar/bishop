@@ -536,7 +536,7 @@ fn translate_transform_snapshot(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::assets::asset_manager::AssetManager;
+    use crate::assets::sprite_manager::SpriteManager;
     use crate::ecs::component::{CurrentRoom, Name, Velocity};
     use crate::ecs::transform::{Pivot, Transform};
     use crate::game::Game;
@@ -554,7 +554,7 @@ mod tests {
                 ..Default::default()
             }],
             current_world_id: world_id,
-            asset_manager: AssetManager::default(),
+            sprite_manager: SpriteManager::default(),
             script_manager: ScriptManager::default(),
             ..Default::default()
         }

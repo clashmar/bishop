@@ -1,5 +1,5 @@
 // engine_core/src/worlds/world.rs
-use crate::assets::asset_manager::AssetManager;
+use crate::assets::sprite_manager::SpriteManager;
 use crate::assets::sprite::SpriteId;
 use crate::tiles::tilemap::TileMap;
 use crate::worlds::room::*;
@@ -47,8 +47,8 @@ pub struct WorldMeta {
 
 impl WorldMeta {
     /// Sets the sprite, handling ref counting for the change.
-    pub fn set_sprite(&mut self, new_id: Option<SpriteId>, asset_manager: &mut AssetManager) {
-        asset_manager.change_sprite_option(&mut self.sprite_id, new_id);
+    pub fn set_sprite(&mut self, new_id: Option<SpriteId>, sprite_manager: &mut SpriteManager) {
+        sprite_manager.change_sprite_option(&mut self.sprite_id, new_id);
     }
 }
 
