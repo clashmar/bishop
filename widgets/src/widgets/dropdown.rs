@@ -228,6 +228,7 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
         let button_clicked = match self.style {
             DropDownStyle::Default => {
                 Button::new(self.rect, display_label)
+                    .text_offset(Vec2::new(0.0, -1.0))
                     .blocked(self.blocked)
                     .show(ctx)
                     && !self.blocked
@@ -237,6 +238,7 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
                     .plain()
                     .text_color(self.text_color)
                     .font_size(self.label_font_size)
+                    .text_offset(Vec2::new(0.0, -1.0))
                     .blocked(self.blocked)
                     .show(ctx)
                     && !self.blocked
