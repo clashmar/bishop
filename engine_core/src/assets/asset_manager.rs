@@ -12,6 +12,8 @@ use log::info;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::collections::HashSet;
+use std::io;
+use std::io::{Error, ErrorKind};
 use std::path::Path;
 use std::path::PathBuf;
 
@@ -327,21 +329,6 @@ impl AssetManager {
         }
     }
 
-    #[cfg(test)]
-    fn enable_runtime_texture_loading_for_test(&mut self) {
-        self.runtime_texture_loading = true;
-    }
-
-    #[cfg(test)]
-    fn attach_runtime_file_read_pool_for_test(&mut self, file_read_pool: &FileReadPool) {
-        self.runtime_file_read_pool = Some(file_read_pool.clone());
-    }
-
-    #[cfg(test)]
-    fn has_pending_texture_read(&self, id: SpriteId) -> bool {
-        self.pending_texture_reads.contains_key(&id)
-    }
-
     /// Returns a path normalized relative to the game's assets folder.
     pub fn normalize_path(&self, path: PathBuf) -> PathBuf {
         let assets_dir = assets_folder();
@@ -550,6 +537,89 @@ impl AssetManager {
         self.path_to_sprite_id.insert(path, id);
         Ok(())
     }
+
+    /// Returns a snapshot containing only persistent editor metadata.
+    pub fn editor_metadata_snapshot(&self) -> Self {
+        let mut snapshot = Self {
+            sprite_id_to_path: self.sprite_id_to_path.clone(),
+            tile_defs: self.tile_defs.clone(),
+            ..Default::default()
+        };
+        Self::init_editor_metadata(&mut snapshot);
+        snapshot
+    }
+
+    /// Merges persistent editor metadata from another asset manager.
+    pub fn merge_editor_metadata_from(&mut self, source: &AssetManager) -> io::Result<()> {
+        validate_id_path_registry_merge(
+            "Sprite",
+            &source.sprite_id_to_path,
+            &self.sprite_id_to_path,
+            &self.path_to_sprite_id,
+        )?;
+
+        for (&sprite_id, path) in &source.sprite_id_to_path {
+            self.sprite_id_to_path.insert(sprite_id, path.clone());
+            self.path_to_sprite_id.insert(path.clone(), sprite_id);
+        }
+
+        self.restore_next_sprite_id();
+        Ok(())
+    }
+
+    #[cfg(test)]
+    fn enable_runtime_texture_loading_for_test(&mut self) {
+        self.runtime_texture_loading = true;
+    }
+
+    #[cfg(test)]
+    fn attach_runtime_file_read_pool_for_test(&mut self, file_read_pool: &FileReadPool) {
+        self.runtime_file_read_pool = Some(file_read_pool.clone());
+    }
+
+    #[cfg(test)]
+    fn has_pending_texture_read(&self, id: SpriteId) -> bool {
+        self.pending_texture_reads.contains_key(&id)
+    }
+}
+
+fn validate_id_path_registry_merge<Id>(
+    label: &str,
+    source_id_to_path: &HashMap<Id, PathBuf>,
+    destination_id_to_path: &HashMap<Id, PathBuf>,
+    destination_path_to_id: &HashMap<PathBuf, Id>,
+) -> io::Result<()>
+where
+    Id: Copy + Eq + std::hash::Hash + std::fmt::Debug,
+{
+    for (&id, path) in source_id_to_path {
+        if let Some(existing_path) = destination_id_to_path.get(&id)
+            && existing_path != path
+        {
+            return Err(Error::new(
+                ErrorKind::InvalidData,
+                format!(
+                    "{label} id '{id:?}' maps to both '{}' and '{}'",
+                    existing_path.display(),
+                    path.display()
+                ),
+            ));
+        }
+
+        if let Some(existing_id) = destination_path_to_id.get(path)
+            && *existing_id != id
+        {
+            return Err(Error::new(
+                ErrorKind::InvalidData,
+                format!(
+                    "{label} path '{}' maps to both '{existing_id:?}' and '{id:?}'",
+                    path.display(),
+                ),
+            ));
+        }
+    }
+
+    Ok(())
 }
 
 #[cfg(test)]

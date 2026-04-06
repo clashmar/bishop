@@ -16,6 +16,8 @@ use serde::Serialize;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::fs;
+use std::io;
+use std::io::{Error, ErrorKind};
 use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -272,7 +274,7 @@ impl ScriptManager {
         self.script_id_to_path.insert(id, path);
 
         // Restore after inserting
-        self.restore_next_id();
+        self.restore_next_script_id();
 
         Ok(id)
     }
@@ -294,7 +296,7 @@ impl ScriptManager {
     pub fn init_editor_services(script_manager: &mut ScriptManager, lua: &Lua) {
         Self::load_to_package(lua);
 
-        script_manager.restore_next_id();
+        script_manager.restore_next_script_id();
 
         let scripts: Vec<(ScriptId, PathBuf)> = script_manager
             .script_id_to_path
@@ -324,7 +326,7 @@ impl ScriptManager {
     }
 
     /// Calculates the next script id.
-    fn restore_next_id(&mut self) {
+    pub fn restore_next_script_id(&mut self) {
         let used: HashSet<_> = self
             .script_id_to_path
             .keys()
@@ -372,4 +374,71 @@ impl ScriptManager {
         *old_id = new_id;
         self.increment_ref(new_id)
     }
+
+    /// Returns a snapshot containing only persistent editor metadata.
+    pub fn editor_metadata_snapshot(&self) -> Self {
+        let mut snapshot = Self {
+            script_id_to_path: self.script_id_to_path.clone(),
+            ..Default::default()
+        };
+        snapshot.restore_next_script_id();
+        snapshot
+    }
+
+    /// Merges persistent editor metadata from another script manager.
+    pub fn merge_editor_metadata_from(&mut self, source: &ScriptManager) -> io::Result<()> {
+        validate_id_path_registry_merge(
+            "Script",
+            &source.script_id_to_path,
+            &self.script_id_to_path,
+            &self.path_to_script_id,
+        )?;
+
+        for (&script_id, path) in &source.script_id_to_path {
+            self.script_id_to_path.insert(script_id, path.clone());
+            self.path_to_script_id.insert(path.clone(), script_id);
+        }
+
+        self.restore_next_script_id();
+        Ok(())
+    }
+}
+
+fn validate_id_path_registry_merge<Id>(
+    label: &str,
+    source_id_to_path: &HashMap<Id, PathBuf>,
+    destination_id_to_path: &HashMap<Id, PathBuf>,
+    destination_path_to_id: &HashMap<PathBuf, Id>,
+) -> io::Result<()>
+where
+    Id: Copy + Eq + std::hash::Hash + std::fmt::Debug,
+{
+    for (&id, path) in source_id_to_path {
+        if let Some(existing_path) = destination_id_to_path.get(&id)
+            && existing_path != path
+        {
+            return Err(Error::new(
+                ErrorKind::InvalidData,
+                format!(
+                    "{label} id '{id:?}' maps to both '{}' and '{}'",
+                    existing_path.display(),
+                    path.display()
+                ),
+            ));
+        }
+
+        if let Some(existing_id) = destination_path_to_id.get(path)
+            && *existing_id != id
+        {
+            return Err(Error::new(
+                ErrorKind::InvalidData,
+                format!(
+                    "{label} path '{}' maps to both '{existing_id:?}' and '{id:?}'",
+                    path.display()
+                ),
+            ));
+        }
+    }
+
+    Ok(())
 }

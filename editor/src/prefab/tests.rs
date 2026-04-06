@@ -12,8 +12,7 @@ use crate::gui::prompts::{DirtyPrefabExitPromptResult, EmptyPrefabExitPromptResu
 use crate::prefab::prefab_actions::PrefabEditorLaunch;
 use crate::prefab::prefab_editor::{PrefabRoomSyncState, StagedPrefabState};
 use crate::prefab::{PrefabEditor, PrefabStage};
-use crate::storage::editor_storage::create_new_game;
-use crate::storage::editor_storage::save_game;
+use crate::storage::editor_storage::{create_new_game, load_game_by_name, save_game};
 use engine_core::prelude::*;
 use engine_core::storage::path_utils::sanitise_name;
 use engine_core::storage::test_utils::{game_fs_test_lock, TestGameFolder};
@@ -1093,6 +1092,147 @@ fn saving_new_prefab_session_marks_prefab_clean_for_exit() {
         });
         assert!(editor.active_prefab_is_clean());
     });
+}
+
+#[test]
+fn saving_prefab_syncs_stage_sprite_registry_into_game_and_disk() {
+    let _lock = game_fs_test_lock()
+        .lock()
+        .unwrap_or_else(|poison| poison.into_inner());
+    let test_game = TestGameFolder::new("prefab_save_sprite_registry_sync");
+    set_game_name(test_game.name());
+    let prefab = create_prefab(PrefabId(1), "Building".to_string());
+    let base_game = create_new_game(test_game.name().to_string());
+    let (mut prefab_editor, mut prefab_stage) = PrefabEditor::open_existing_from_game(
+        &base_game,
+        prefab.clone(),
+        PrefabRoomSyncState {
+            staged_prefab: StagedPrefabState::PrefabAsset(prefab),
+            linked_instance_snapshots: Vec::new(),
+        },
+    );
+
+    let entity = prefab_editor.create_prefab_entity(&mut prefab_stage.ecs, None);
+    prefab_editor.set_selected_entity(Some(entity));
+    prefab_stage.ecs.add_component_to_entity(
+        entity,
+        Sprite {
+            sprite: SpriteId(9),
+        },
+    );
+    prefab_stage
+        .asset_manager
+        .sprite_id_to_path
+        .insert(SpriteId(9), PathBuf::from("sprites/building.png"));
+    prefab_stage.asset_manager.restore_next_sprite_id();
+
+    let editor = Editor {
+        game: create_new_game(test_game.name().to_string()),
+        mode: EditorMode::Prefab(PrefabId(1)),
+        prefab_editor: Some(prefab_editor),
+        prefab_stage: Some(prefab_stage),
+        ..Default::default()
+    };
+    let _guard = EditorServicesGuard::install(editor);
+
+    with_editor(|editor| {
+        let staged_state = editor.active_prefab_staged_state();
+        editor.commit_prefab_asset_save(match staged_state {
+            Some(StagedPrefabState::PrefabAsset(prefab)) => prefab,
+            _ => unreachable!(),
+        });
+
+        assert_eq!(
+            editor
+                .game
+                .asset_manager
+                .sprite_id_to_path
+                .get(&SpriteId(9))
+                .cloned(),
+            Some(PathBuf::from("sprites/building.png"))
+        );
+    });
+
+    let saved_game = load_game_by_name(test_game.name()).expect("saved game should load");
+    assert_eq!(
+        saved_game
+            .asset_manager
+            .sprite_id_to_path
+            .get(&SpriteId(9))
+            .cloned(),
+        Some(PathBuf::from("sprites/building.png"))
+    );
+}
+
+#[test]
+fn saving_prefab_syncs_stage_script_registry_into_game_and_disk() {
+    let _lock = game_fs_test_lock()
+        .lock()
+        .unwrap_or_else(|poison| poison.into_inner());
+    let test_game = TestGameFolder::new("prefab_save_script_registry_sync");
+    set_game_name(test_game.name());
+    let prefab = create_prefab(PrefabId(1), "Building".to_string());
+    let base_game = create_new_game(test_game.name().to_string());
+    let (mut prefab_editor, mut prefab_stage) = PrefabEditor::open_existing_from_game(
+        &base_game,
+        prefab.clone(),
+        PrefabRoomSyncState {
+            staged_prefab: StagedPrefabState::PrefabAsset(prefab),
+            linked_instance_snapshots: Vec::new(),
+        },
+    );
+
+    let entity = prefab_editor.create_prefab_entity(&mut prefab_stage.ecs, None);
+    prefab_editor.set_selected_entity(Some(entity));
+    prefab_stage.ecs.add_component_to_entity(
+        entity,
+        Script {
+            script_id: ScriptId(9),
+            ..Default::default()
+        },
+    );
+    prefab_stage
+        .script_manager
+        .script_id_to_path
+        .insert(ScriptId(9), PathBuf::from("building.lua"));
+    prefab_stage.script_manager.restore_next_script_id();
+
+    let editor = Editor {
+        game: create_new_game(test_game.name().to_string()),
+        mode: EditorMode::Prefab(PrefabId(1)),
+        prefab_editor: Some(prefab_editor),
+        prefab_stage: Some(prefab_stage),
+        ..Default::default()
+    };
+    let _guard = EditorServicesGuard::install(editor);
+
+    with_editor(|editor| {
+        let staged_state = editor.active_prefab_staged_state();
+        editor.commit_prefab_asset_save(match staged_state {
+            Some(StagedPrefabState::PrefabAsset(prefab)) => prefab,
+            _ => unreachable!(),
+        });
+
+        assert_eq!(
+            editor
+                .game
+                .script_manager
+                .script_id_to_path
+                .get(&ScriptId(9))
+                .cloned(),
+            Some(PathBuf::from("building.lua"))
+        );
+    });
+
+    let saved_game = load_game_by_name(test_game.name()).expect("saved game should load");
+    assert_eq!(
+        saved_game
+            .script_manager
+            .script_id_to_path
+            .get(&ScriptId(9))
+            .cloned(),
+        Some(PathBuf::from("building.lua"))
+    );
 }
 
 #[test]

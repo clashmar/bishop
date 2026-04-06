@@ -8,6 +8,7 @@ use crate::editor_global::push_command;
 use crate::gui::prompts::{DirtyPrefabExitPromptResult, EmptyPrefabExitPromptResult};
 use crate::prefab::prefab_editor::{PrefabRoomSyncState, StagedPrefabState};
 use crate::shared::scene_ui::inspector::{ScenePrefabAction, ScenePrefabActionRequest};
+use crate::storage::editor_storage::save_game;
 use bishop::prelude::*;
 use engine_core::prelude::*;
 use std::collections::HashSet;
@@ -102,8 +103,8 @@ impl Editor {
 
         let last_room_synced_state =
             capture_prefab_room_sync_state(&mut self.game.ecs, prefab_id, prefab.clone());
-        let (prefab_editor, prefab_stage) = super::PrefabEditor::open_existing(
-            &self.game.name,
+        let (prefab_editor, prefab_stage) = super::PrefabEditor::open_existing_from_game(
+            &self.game,
             prefab.clone(),
             last_room_synced_state,
         );
@@ -350,24 +351,42 @@ impl Editor {
     }
 
     pub(crate) fn commit_prefab_asset_save(&mut self, prefab: PrefabAsset) {
-        let Some(prefab_editor) = self.prefab_editor.as_mut() else {
-            return;
-        };
-        let root_entity = prefab_editor.root_entity;
-
-        if let Err(error) = prefab_editor.save_prefab_asset(&self.game.name, &prefab) {
-            onscreen_error!("Could not save prefab: {error}");
+        if self.prefab_editor.is_none() {
             return;
         }
+        let root_entity = self
+            .prefab_editor
+            .as_ref()
+            .and_then(|prefab_editor| prefab_editor.root_entity);
 
         if let (Some(root_entity), Some(prefab_stage)) = (root_entity, self.prefab_stage.as_mut()) {
-            sync_prefab_stage_metadata(&mut prefab_stage.ecs, root_entity, &prefab);
+            sync_prefab_stage_instance_metadata(&mut prefab_stage.ecs, root_entity, &prefab);
+        }
+
+        if let Some(prefab_stage) = self.prefab_stage.as_ref() {
+            if let Err(error) = prefab_stage.sync_editor_services(&mut self.game) {
+                onscreen_error!("Could not save prefab: {error}");
+                return;
+            }
         }
 
         self.game
             .prefab_library
             .prefabs
             .insert(prefab.id, prefab.clone());
+        if let Err(error) = save_game(&self.game) {
+            onscreen_error!("Could not save prefab metadata: {error}");
+            return;
+        }
+
+        let Some(prefab_editor) = self.prefab_editor.as_mut() else {
+            return;
+        };
+        if let Err(error) = prefab_editor.save_prefab_asset(&self.game.name, &prefab) {
+            onscreen_error!("Could not save prefab: {error}");
+            return;
+        }
+
         if let Some(prefab_stage) = self.prefab_stage.as_mut() {
             prefab_stage
                 .prefab_library
@@ -533,7 +552,7 @@ fn capture_prefab_room_sync_state(
     }
 }
 
-fn sync_prefab_stage_metadata(ecs: &mut Ecs, root_entity: Entity, prefab: &PrefabAsset) {
+fn sync_prefab_stage_instance_metadata(ecs: &mut Ecs, root_entity: Entity, prefab: &PrefabAsset) {
     let subtree = capture_subtree(ecs, root_entity);
     if subtree.len() != prefab.nodes.len() {
         return;
