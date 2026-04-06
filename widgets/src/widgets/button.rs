@@ -158,9 +158,33 @@ impl<'a> Button<'a> {
         self.show_clicks(ctx).primary
     }
 
+    /// Draws the button and returns true one idle frame after a primary click.
+    ///
+    /// Use this specifically for actions that open native OS dialogs, so the
+    /// dialog is not launched during the same input-release frame that
+    /// triggered it.
+    pub fn show_native_dialog<C: BishopContext>(self, ctx: &mut C) -> bool {
+        let interaction_id = self
+            .interaction_id
+            .unwrap_or_else(|| self.default_interaction_id());
+        let clicks = self.show_clicks(ctx);
+
+        if clicks.primary {
+            queue_deferred_click_target(interaction_id);
+            return false;
+        }
+
+        let ready = !ctx.is_mouse_button_down(MouseButton::Left)
+            && !ctx.is_mouse_button_pressed(MouseButton::Left)
+            && !ctx.is_mouse_button_released(MouseButton::Left);
+        take_deferred_click_target(interaction_id, ready)
+    }
+
     /// Draws the button and returns primary and secondary click results.
     pub fn show_clicks<C: BishopContext>(self, ctx: &mut C) -> ButtonClicks {
-        let interaction_id = self.interaction_id.unwrap_or_else(|| self.default_interaction_id());
+        let interaction_id = self
+            .interaction_id
+            .unwrap_or_else(|| self.default_interaction_id());
         let mouse = self
             .mouse_position
             .unwrap_or_else(|| ctx.mouse_position().into());
@@ -238,8 +262,7 @@ impl<'a> Button<'a> {
                     self.text_color
                 };
                 let txt_dims = measure_text_ui(ctx, label, self.font_size);
-                let txt_y =
-                    self.rect.y + (self.rect.h - txt_dims.height) / 2.0 + txt_dims.offset_y;
+                let txt_y = self.rect.y + (self.rect.h - txt_dims.height) / 2.0 + txt_dims.offset_y;
                 let txt_x = self.rect.x + (self.rect.w - txt_dims.width) / 2.0;
                 draw_text_ui(
                     ctx,
@@ -673,8 +696,59 @@ mod tests {
         ctx.left_down = true;
 
         assert!(!Button::new(button, "Play").blocked(true).show(&mut ctx));
-        assert_eq!(ctx.rectangle_fills.last().copied(), Some(BLOCKED_BACKGROUND_COLOR));
-        assert_eq!(ctx.rectangle_lines.last().copied(), Some(BLOCKED_OUTLINE_COLOR));
+        assert_eq!(
+            ctx.rectangle_fills.last().copied(),
+            Some(BLOCKED_BACKGROUND_COLOR)
+        );
+        assert_eq!(
+            ctx.rectangle_lines.last().copied(),
+            Some(BLOCKED_OUTLINE_COLOR)
+        );
         assert_eq!(ctx.text_colors.last().copied(), Some(BLOCKED_TEXT_COLOR));
+    }
+
+    #[test]
+    fn deferred_button_activation_waits_until_next_idle_frame() {
+        reset_click_consumed();
+
+        let button = Rect::new(0.0, 0.0, 80.0, 30.0);
+        let interaction_id = WidgetId(4242);
+
+        let mut press_ctx = TestContext::new();
+        press_ctx.mouse_pos = (40.0, 20.0);
+        press_ctx.left_pressed = true;
+        press_ctx.left_down = true;
+
+        assert!(
+            !Button::new(button, "Pick")
+                .interaction_id(interaction_id)
+                .show_native_dialog(&mut press_ctx)
+        );
+
+        reset_click_consumed();
+        let mut release_ctx = TestContext::new();
+        release_ctx.mouse_pos = (40.0, 20.0);
+        release_ctx.left_released = true;
+
+        assert!(
+            !Button::new(button, "Pick")
+                .interaction_id(interaction_id)
+                .show_native_dialog(&mut release_ctx)
+        );
+
+        reset_click_consumed();
+        let mut idle_ctx = TestContext::new();
+        idle_ctx.mouse_pos = (40.0, 20.0);
+
+        assert!(
+            Button::new(button, "Pick")
+                .interaction_id(interaction_id)
+                .show_native_dialog(&mut idle_ctx)
+        );
+        assert!(
+            !Button::new(button, "Pick")
+                .interaction_id(interaction_id)
+                .show_native_dialog(&mut idle_ctx)
+        );
     }
 }

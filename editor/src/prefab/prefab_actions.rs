@@ -11,6 +11,10 @@ use crate::shared::scene_ui::inspector::{ScenePrefabAction, ScenePrefabActionReq
 use bishop::prelude::*;
 use engine_core::prelude::*;
 use std::collections::HashSet;
+use std::fs;
+use std::io;
+use std::io::{Error, ErrorKind};
+use std::path::Path;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) enum PrefabEditorLaunch {
@@ -85,11 +89,9 @@ impl Editor {
     }
 
     pub(crate) fn enter_prefab_mode(&mut self, ctx: &WgpuContext, prefab_id: PrefabId) {
-        match self.request_prefab_transition(PendingPrefabTransition::OpenExisting(prefab_id)) {
-            PrefabTransitionPrompt::None => {}
-            PrefabTransitionPrompt::Dirty => self.open_dirty_prefab_exit_modal(ctx),
-            PrefabTransitionPrompt::Empty => self.open_empty_prefab_exit_modal(ctx),
-        }
+        let prompt =
+            self.request_prefab_transition(PendingPrefabTransition::OpenExisting(prefab_id));
+        self.present_prefab_transition_prompt(ctx, prompt);
     }
 
     fn open_prefab_editor_for_id(&mut self, prefab_id: PrefabId) {
@@ -114,7 +116,12 @@ impl Editor {
         self.toast = Some(Toast::new(format!("Opened prefab '{}'", prefab.name), 2.5));
     }
 
-    pub(crate) fn create_prefab_from_selection<C>(&mut self, _ctx: &C, entity: Entity, name: String) {
+    pub(crate) fn create_prefab_from_selection<C>(
+        &mut self,
+        _ctx: &C,
+        entity: Entity,
+        name: String,
+    ) {
         self.create_prefab_from_selection_impl(entity, name);
     }
 
@@ -131,8 +138,12 @@ impl Editor {
             return;
         }
 
-        self.game.prefab_library.prefabs.insert(prefab.id, prefab.clone());
-        let Some(linked_root) = relink_room_subtree_to_prefab(&mut self.game, entity, &prefab) else {
+        self.game
+            .prefab_library
+            .prefabs
+            .insert(prefab.id, prefab.clone());
+        let Some(linked_root) = relink_room_subtree_to_prefab(&mut self.game, entity, &prefab)
+        else {
             self.toast = Some(Toast::new("Could not link selected entity to prefab.", 2.5));
             return;
         };
@@ -149,7 +160,10 @@ impl Editor {
             return;
         }
 
-        self.game.prefab_library.prefabs.insert(prefab.id, prefab.clone());
+        self.game
+            .prefab_library
+            .prefabs
+            .insert(prefab.id, prefab.clone());
         self.open_prefab_editor_for_id(prefab_id);
     }
 
@@ -200,10 +214,9 @@ impl Editor {
             return;
         };
 
-        let needs_sync = self
-            .prefab_editor
-            .as_ref()
-            .is_some_and(|prefab_editor| prefab_editor.last_room_synced_state.staged_prefab != staged_state);
+        let needs_sync = self.prefab_editor.as_ref().is_some_and(|prefab_editor| {
+            prefab_editor.last_room_synced_state.staged_prefab != staged_state
+        });
         if !needs_sync {
             return;
         }
@@ -254,13 +267,43 @@ impl Editor {
         }
     }
 
-    pub(crate) fn confirm_dirty_prefab_transition(
+    pub(crate) fn request_prefab_transition_to_asset(
         &mut self,
-        result: DirtyPrefabExitPromptResult,
+        prefab: PrefabAsset,
+    ) -> PrefabTransitionPrompt {
+        self.game
+            .prefab_library
+            .prefabs
+            .insert(prefab.id, prefab.clone());
+        self.request_prefab_transition(PendingPrefabTransition::OpenExisting(prefab.id))
+    }
+
+    pub(crate) fn request_prefab_transition_to_path(
+        &mut self,
+        path: &Path,
+    ) -> io::Result<PrefabTransitionPrompt> {
+        let prefab = load_prefab_asset_from_path(path)?;
+        Ok(self.request_prefab_transition_to_asset(prefab))
+    }
+
+    pub(crate) fn present_prefab_transition_prompt(
+        &mut self,
+        ctx: &WgpuContext,
+        prompt: PrefabTransitionPrompt,
     ) {
+        match prompt {
+            PrefabTransitionPrompt::None => {}
+            PrefabTransitionPrompt::Dirty => self.open_dirty_prefab_exit_modal(ctx),
+            PrefabTransitionPrompt::Empty => self.open_empty_prefab_exit_modal(ctx),
+        }
+    }
+
+    pub(crate) fn confirm_dirty_prefab_transition(&mut self, result: DirtyPrefabExitPromptResult) {
         match result {
             DirtyPrefabExitPromptResult::SaveAndSync => {
-                if let Some(StagedPrefabState::PrefabAsset(prefab)) = self.active_prefab_staged_state() {
+                if let Some(StagedPrefabState::PrefabAsset(prefab)) =
+                    self.active_prefab_staged_state()
+                {
                     self.commit_prefab_asset_save(prefab);
                     self.finish_pending_prefab_transition();
                 }
@@ -275,10 +318,7 @@ impl Editor {
         }
     }
 
-    pub(crate) fn confirm_empty_prefab_transition(
-        &mut self,
-        result: EmptyPrefabExitPromptResult,
-    ) {
+    pub(crate) fn confirm_empty_prefab_transition(&mut self, result: EmptyPrefabExitPromptResult) {
         match result {
             EmptyPrefabExitPromptResult::DeletePrefab => {
                 self.commit_prefab_delete();
@@ -317,16 +357,25 @@ impl Editor {
             sync_prefab_stage_metadata(&mut prefab_stage.ecs, root_entity, &prefab);
         }
 
-        self.game.prefab_library.prefabs.insert(prefab.id, prefab.clone());
+        self.game
+            .prefab_library
+            .prefabs
+            .insert(prefab.id, prefab.clone());
         if let Some(prefab_stage) = self.prefab_stage.as_mut() {
-            prefab_stage.prefab_library.prefabs.insert(prefab.id, prefab.clone());
+            prefab_stage
+                .prefab_library
+                .prefabs
+                .insert(prefab.id, prefab.clone());
         }
         self.reconcile_prefab_room_state(StagedPrefabState::PrefabAsset(prefab));
         self.toast = Some(Toast::new("Prefab saved", 2.5));
     }
 
     pub(crate) fn commit_prefab_delete(&mut self) {
-        let Some(prefab_id) = self.prefab_editor.as_ref().map(|prefab_editor| prefab_editor.prefab_id)
+        let Some(prefab_id) = self
+            .prefab_editor
+            .as_ref()
+            .map(|prefab_editor| prefab_editor.prefab_id)
         else {
             return;
         };
@@ -362,11 +411,8 @@ impl Editor {
             StagedPrefabState::PrefabAsset(prefab) => {
                 restore_prefab_instance_snapshots(&mut self.game, prefab_id, &preserved_snapshots);
                 refresh_linked_prefab_instances(&mut self.game, prefab);
-                prefab_editor.last_room_synced_state = capture_prefab_room_sync_state(
-                    &mut self.game.ecs,
-                    prefab_id,
-                    prefab.clone(),
-                );
+                prefab_editor.last_room_synced_state =
+                    capture_prefab_room_sync_state(&mut self.game.ecs, prefab_id, prefab.clone());
             }
             StagedPrefabState::Empty => {
                 let snapshots = remove_prefab_and_linked_instances(
@@ -397,10 +443,24 @@ impl Editor {
     fn execute_prefab_transition(&mut self, transition: PendingPrefabTransition) {
         match transition {
             PendingPrefabTransition::Exit => self.close_active_prefab_editor(),
-            PendingPrefabTransition::OpenExisting(prefab_id) => self.open_prefab_editor_for_id(prefab_id),
+            PendingPrefabTransition::OpenExisting(prefab_id) => {
+                self.open_prefab_editor_for_id(prefab_id)
+            }
             PendingPrefabTransition::CreateBlank(name) => self.create_blank_prefab_impl(name),
         }
     }
+}
+
+fn load_prefab_asset_from_path(path: &Path) -> io::Result<PrefabAsset> {
+    let ron = fs::read_to_string(path)?;
+    let prefab = ron::from_str(&ron).map_err(|error| {
+        Error::new(
+            ErrorKind::InvalidData,
+            format!("Could not parse prefab '{}': {error}", path.display()),
+        )
+    })?;
+    validate_prefab(&prefab)?;
+    Ok(prefab)
 }
 
 fn relink_room_subtree_to_prefab(

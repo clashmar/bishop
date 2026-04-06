@@ -384,7 +384,7 @@ impl Editor {
     }
 
     pub(crate) fn open_prefab_picker_modal(&mut self, ctx: &mut WgpuContext) {
-        self.modal = Modal::new(ctx, 280.0, 240.0);
+        self.modal = Modal::new(ctx, 340.0, 240.0);
         let excluded_prefab_id = matches!(self.mode, EditorMode::Prefab(_))
             .then(|| self.prefab_editor.as_ref().map(|editor| editor.prefab_id))
             .flatten();
@@ -448,8 +448,7 @@ impl Editor {
             .and_then(|name| name.to_str())
             .unwrap_or("export");
         let message = format!("Overwrite existing export '{target_name}'?");
-        self.modal =
-            Modal::open_confirm_modal_with_message(ctx, &EXPORT_OVERWRITE_RESULT, message);
+        self.modal = Modal::open_confirm_modal_with_message(ctx, &EXPORT_OVERWRITE_RESULT, message);
     }
 
     fn open_empty_prefab_save_modal(&mut self, ctx: &WgpuContext) {
@@ -482,10 +481,8 @@ impl Editor {
 
     pub(crate) fn open_dirty_prefab_exit_modal(&mut self, ctx: &WgpuContext) {
         self.modal = Modal::new(ctx, 560.0, 140.0);
-        let mut prompt = DirtyPrefabExitPrompt::new(
-            self.modal.rect,
-            "Do you want to save prefab changes?",
-        );
+        let mut prompt =
+            DirtyPrefabExitPrompt::new(self.modal.rect, "Do you want to save prefab changes?");
         let widgets: Vec<BoxedWidget> = vec![Box::new(move |ctx, _| {
             if let Some(result) = prompt.draw(ctx) {
                 DIRTY_PREFAB_EXIT_RESULT.with(|cell| *cell.borrow_mut() = Some(result));
@@ -533,9 +530,7 @@ impl Editor {
 
             let target_path = export_target_path(&dest_root, &self.game);
             if target_path.exists() {
-                self.pending_export = Some(PendingExport {
-                    dest_root,
-                });
+                self.pending_export = Some(PendingExport { dest_root });
                 self.open_export_overwrite_modal(ctx, &target_path);
                 return;
             }
@@ -624,10 +619,8 @@ impl Editor {
                                 }
                             }
                             EditorMode::Prefab(_) => {
-                                let prefab_id = self
-                                    .prefab_editor
-                                    .as_ref()
-                                    .map(|editor| editor.prefab_id);
+                                let prefab_id =
+                                    self.prefab_editor.as_ref().map(|editor| editor.prefab_id);
                                 let is_duplicate = prefab_id.is_some_and(|id| {
                                     self.duplicate_prefab_name_exists_excluding(&name, id)
                                 });
@@ -706,13 +699,31 @@ impl Editor {
 
             if let Some(result) = prefab_picker_opt {
                 match result {
-                    PrefabPickerResult::Existing(prefab_id) => {
-                        self.enter_prefab_mode(ctx, prefab_id);
-                        self.modal.close();
+                    PrefabPickerResult::Existing(prefab) => {
+                        let prompt = self.request_prefab_transition_to_asset(prefab);
+                        if prompt == PrefabTransitionPrompt::None {
+                            self.modal.close();
+                        }
+                        self.present_prefab_transition_prompt(ctx, prompt);
                     }
                     PrefabPickerResult::New => {
                         self.pending_prefab_request = Some(PendingPrefabRequest::CreateBlank);
                         self.open_prefab_name_modal(ctx);
+                        return None;
+                    }
+                    PrefabPickerResult::File(path) => {
+                        match self.request_prefab_transition_to_path(&path) {
+                            Ok(prompt) => {
+                                if prompt == PrefabTransitionPrompt::None {
+                                    self.modal.close();
+                                }
+                                self.present_prefab_transition_prompt(ctx, prompt);
+                            }
+                            Err(error) => {
+                                onscreen_error!("Could not open prefab: {error}");
+                                return None;
+                            }
+                        }
                     }
                     PrefabPickerResult::Cancelled => {
                         self.modal.close();

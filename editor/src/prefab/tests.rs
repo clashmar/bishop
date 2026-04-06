@@ -108,16 +108,24 @@ fn save_test_prefab(test_game: &TestGameFolder, prefab_id: PrefabId, name: &str)
     prefab
 }
 
+fn write_invalid_prefab(_test_game: &TestGameFolder, file_name: &str) -> PathBuf {
+    let path = prefabs_folder().join(file_name);
+    std::fs::write(&path, "not valid ron").unwrap();
+    path
+}
+
 fn add_prefab_child_entity(editor: &mut Editor, position: Vec2) -> Entity {
     let prefab_editor = editor
         .prefab_editor
         .as_mut()
         .expect("prefab editor should exist");
-    let root = prefab_editor
-        .root_entity
-        .expect("prefab root should exist");
+    let root = prefab_editor.root_entity.expect("prefab root should exist");
     let child = prefab_editor.create_prefab_entity(
-        &mut editor.prefab_stage.as_mut().expect("prefab stage should exist").ecs,
+        &mut editor
+            .prefab_stage
+            .as_mut()
+            .expect("prefab stage should exist")
+            .ecs,
         Some(root),
     );
     editor
@@ -190,7 +198,10 @@ fn prefab_editor_launch_opens_picker_outside_room_mode() {
         ..Default::default()
     };
 
-    assert_eq!(editor.prefab_editor_launch(), PrefabEditorLaunch::OpenPicker);
+    assert_eq!(
+        editor.prefab_editor_launch(),
+        PrefabEditorLaunch::OpenPicker
+    );
 }
 
 #[test]
@@ -200,7 +211,10 @@ fn prefab_editor_launch_opens_picker_when_room_has_no_selection() {
         ..Default::default()
     };
 
-    assert_eq!(editor.prefab_editor_launch(), PrefabEditorLaunch::OpenPicker);
+    assert_eq!(
+        editor.prefab_editor_launch(),
+        PrefabEditorLaunch::OpenPicker
+    );
 }
 
 #[test]
@@ -212,12 +226,17 @@ fn prefab_editor_launch_opens_picker_when_room_has_multiple_selected_entities() 
     editor.room_editor.selected_entities.insert(Entity(1));
     editor.room_editor.selected_entities.insert(Entity(2));
 
-    assert_eq!(editor.prefab_editor_launch(), PrefabEditorLaunch::OpenPicker);
+    assert_eq!(
+        editor.prefab_editor_launch(),
+        PrefabEditorLaunch::OpenPicker
+    );
 }
 
 #[test]
 fn create_prefab_from_selection_relinks_selected_room_subtree() {
-    let _lock = game_fs_test_lock().lock().unwrap_or_else(|poison| poison.into_inner());
+    let _lock = game_fs_test_lock()
+        .lock()
+        .unwrap_or_else(|poison| poison.into_inner());
     let test_game = TestGameFolder::new("prefab_relink_selection");
     let (mut editor, room_id) = make_room_editor(&test_game);
 
@@ -302,7 +321,9 @@ fn create_prefab_from_selection_relinks_selected_room_subtree() {
 
 #[test]
 fn create_prefab_from_selection_preserves_external_parent() {
-    let _lock = game_fs_test_lock().lock().unwrap_or_else(|poison| poison.into_inner());
+    let _lock = game_fs_test_lock()
+        .lock()
+        .unwrap_or_else(|poison| poison.into_inner());
     let test_game = TestGameFolder::new("prefab_relink_parent");
     let (mut editor, room_id) = make_room_editor(&test_game);
 
@@ -351,22 +372,27 @@ fn create_prefab_from_selection_preserves_external_parent() {
 
 #[test]
 fn prefab_stage_uses_project_sprite_paths_without_room_state() {
-    let _lock = game_fs_test_lock().lock().unwrap_or_else(|poison| poison.into_inner());
+    let _lock = game_fs_test_lock()
+        .lock()
+        .unwrap_or_else(|poison| poison.into_inner());
     let test_game = TestGameFolder::new("prefab_stage_game");
     set_game_name(test_game.name());
 
     let mut game = create_new_game(test_game.name().to_string());
-    game.asset_manager.sprite_id_to_path.insert(
-        SpriteId(7),
-        PathBuf::from("sprites/cat.png"),
-    );
+    game.asset_manager
+        .sprite_id_to_path
+        .insert(SpriteId(7), PathBuf::from("sprites/cat.png"));
     save_game(&game).unwrap();
 
     let mut stage = PrefabStage::new(test_game.name());
     let prefab_ctx = stage.ctx_mut();
 
     assert_eq!(
-        prefab_ctx.asset_manager.sprite_id_to_path.get(&SpriteId(7)).cloned(),
+        prefab_ctx
+            .asset_manager
+            .sprite_id_to_path
+            .get(&SpriteId(7))
+            .cloned(),
         Some(PathBuf::from("sprites/cat.png"))
     );
     assert!(prefab_ctx.ecs.get_store::<RoomCamera>().data.is_empty());
@@ -390,7 +416,9 @@ fn editor_services_guard_clears_global_editor_on_drop() {
 
 #[test]
 fn creating_entity_replaces_stale_root_with_new_root() {
-    let _lock = game_fs_test_lock().lock().unwrap_or_else(|poison| poison.into_inner());
+    let _lock = game_fs_test_lock()
+        .lock()
+        .unwrap_or_else(|poison| poison.into_inner());
     let test_game = TestGameFolder::new("prefab_stale_root");
     set_game_name(test_game.name());
     let mut editor = PrefabEditor::new(
@@ -426,7 +454,9 @@ fn creating_entity_replaces_stale_root_with_new_root() {
 
 #[test]
 fn prefab_child_keyboard_move_updates_position_and_supports_undo_redo() {
-    let _lock = game_fs_test_lock().lock().unwrap_or_else(|poison| poison.into_inner());
+    let _lock = game_fs_test_lock()
+        .lock()
+        .unwrap_or_else(|poison| poison.into_inner());
     let test_game = TestGameFolder::new("prefab_child_keyboard_move");
     let (mut editor, _, prefab_id, _) = make_prefab_session_editor(&test_game);
     let child = add_prefab_child_entity(&mut editor, Vec2::new(12.0, 18.0));
@@ -443,7 +473,10 @@ fn prefab_child_keyboard_move_updates_position_and_supports_undo_redo() {
     with_editor(|editor| {
         let stage = editor.prefab_stage.as_mut().unwrap();
         assert_eq!(
-            stage.ecs.get::<Transform>(child).map(|transform| transform.position),
+            stage
+                .ecs
+                .get::<Transform>(child)
+                .map(|transform| transform.position),
             Some(Vec2::new(13.0, 18.0))
         );
 
@@ -474,7 +507,10 @@ fn prefab_child_keyboard_move_updates_position_and_supports_undo_redo() {
     with_editor(|editor| {
         let stage = editor.prefab_stage.as_ref().unwrap();
         assert_eq!(
-            stage.ecs.get::<Transform>(child).map(|transform| transform.position),
+            stage
+                .ecs
+                .get::<Transform>(child)
+                .map(|transform| transform.position),
             Some(Vec2::new(12.0, 18.0))
         );
     });
@@ -485,7 +521,10 @@ fn prefab_child_keyboard_move_updates_position_and_supports_undo_redo() {
     with_editor(|editor| {
         let stage = editor.prefab_stage.as_ref().unwrap();
         assert_eq!(
-            stage.ecs.get::<Transform>(child).map(|transform| transform.position),
+            stage
+                .ecs
+                .get::<Transform>(child)
+                .map(|transform| transform.position),
             Some(Vec2::new(13.0, 18.0))
         );
         assert_eq!(editor.mode, EditorMode::Prefab(prefab_id));
@@ -494,7 +533,9 @@ fn prefab_child_keyboard_move_updates_position_and_supports_undo_redo() {
 
 #[test]
 fn prefab_root_keyboard_move_is_ignored() {
-    let _lock = game_fs_test_lock().lock().unwrap_or_else(|poison| poison.into_inner());
+    let _lock = game_fs_test_lock()
+        .lock()
+        .unwrap_or_else(|poison| poison.into_inner());
     let test_game = TestGameFolder::new("prefab_root_keyboard_move_ignored");
     let (editor, _, _, _) = make_prefab_session_editor(&test_game);
     let _guard = EditorServicesGuard::install(editor);
@@ -524,7 +565,10 @@ fn prefab_root_keyboard_move_is_ignored() {
     with_editor(|editor| {
         let stage = editor.prefab_stage.as_ref().unwrap();
         assert_eq!(
-            stage.ecs.get::<Transform>(root_before.0).map(|transform| transform.position),
+            stage
+                .ecs
+                .get::<Transform>(root_before.0)
+                .map(|transform| transform.position),
             Some(root_before.1)
         );
     });
@@ -537,7 +581,9 @@ fn prefab_root_keyboard_move_is_ignored() {
 
 #[test]
 fn deleting_prefab_root_clears_root_and_selection_state() {
-    let _lock = game_fs_test_lock().lock().unwrap_or_else(|poison| poison.into_inner());
+    let _lock = game_fs_test_lock()
+        .lock()
+        .unwrap_or_else(|poison| poison.into_inner());
     let test_game = TestGameFolder::new("prefab_delete_root");
     set_game_name(test_game.name());
     let mut editor = Editor {
@@ -594,7 +640,9 @@ fn deleting_prefab_root_clears_root_and_selection_state() {
 
 #[test]
 fn staged_prefab_edits_preview_sync_to_linked_room_instances() {
-    let _lock = game_fs_test_lock().lock().unwrap_or_else(|poison| poison.into_inner());
+    let _lock = game_fs_test_lock()
+        .lock()
+        .unwrap_or_else(|poison| poison.into_inner());
     let test_game = TestGameFolder::new("prefab_preview_sync");
     let (editor, room_id, prefab_id, _) = make_prefab_session_editor(&test_game);
     let _guard = EditorServicesGuard::install(editor);
@@ -602,10 +650,8 @@ fn staged_prefab_edits_preview_sync_to_linked_room_instances() {
     with_editor(|editor| {
         let prefab_editor = editor.prefab_editor.as_mut().unwrap();
         let root = prefab_editor.root_entity.expect("prefab root should exist");
-        let child = prefab_editor.create_prefab_entity(
-            &mut editor.prefab_stage.as_mut().unwrap().ecs,
-            Some(root),
-        );
+        let child = prefab_editor
+            .create_prefab_entity(&mut editor.prefab_stage.as_mut().unwrap().ecs, Some(root));
         editor
             .prefab_stage
             .as_mut()
@@ -632,7 +678,9 @@ fn staged_prefab_edits_preview_sync_to_linked_room_instances() {
 
 #[test]
 fn empty_prefab_preview_delete_and_undo_restore_room_instances() {
-    let _lock = game_fs_test_lock().lock().unwrap_or_else(|poison| poison.into_inner());
+    let _lock = game_fs_test_lock()
+        .lock()
+        .unwrap_or_else(|poison| poison.into_inner());
     let test_game = TestGameFolder::new("prefab_empty_preview_undo");
     let (editor, _, prefab_id, _) = make_prefab_session_editor(&test_game);
     let _guard = EditorServicesGuard::install(editor);
@@ -663,7 +711,9 @@ fn empty_prefab_preview_delete_and_undo_restore_room_instances() {
 
 #[test]
 fn saving_empty_prefab_delete_supports_undo_and_redo_preview_sync() {
-    let _lock = game_fs_test_lock().lock().unwrap_or_else(|poison| poison.into_inner());
+    let _lock = game_fs_test_lock()
+        .lock()
+        .unwrap_or_else(|poison| poison.into_inner());
     let test_game = TestGameFolder::new("prefab_empty_save_undo_redo");
     let (editor, _, prefab_id, _) = make_prefab_session_editor(&test_game);
     let _guard = EditorServicesGuard::install(editor);
@@ -705,7 +755,9 @@ fn saving_empty_prefab_delete_supports_undo_and_redo_preview_sync() {
 
 #[test]
 fn discarding_empty_prefab_exit_restores_committed_room_state() {
-    let _lock = game_fs_test_lock().lock().unwrap_or_else(|poison| poison.into_inner());
+    let _lock = game_fs_test_lock()
+        .lock()
+        .unwrap_or_else(|poison| poison.into_inner());
     let test_game = TestGameFolder::new("prefab_empty_exit_discard");
     let (editor, room_id, prefab_id, _) = make_prefab_session_editor(&test_game);
     let _guard = EditorServicesGuard::install(editor);
@@ -735,7 +787,9 @@ fn discarding_empty_prefab_exit_restores_committed_room_state() {
 
 #[test]
 fn clean_prefab_transition_opens_requested_prefab_without_changing_return_mode() {
-    let _lock = game_fs_test_lock().lock().unwrap_or_else(|poison| poison.into_inner());
+    let _lock = game_fs_test_lock()
+        .lock()
+        .unwrap_or_else(|poison| poison.into_inner());
     let test_game = TestGameFolder::new("prefab_clean_switch");
     let (mut editor, room_id, _, _) = make_prefab_session_editor(&test_game);
     let second_prefab = save_test_prefab(&test_game, PrefabId(2), "Barrel");
@@ -752,14 +806,95 @@ fn clean_prefab_transition_opens_requested_prefab_without_changing_return_mode()
     assert_eq!(editor.mode, EditorMode::Prefab(second_prefab.id));
     assert_eq!(editor.return_mode, Some(EditorMode::Room(room_id)));
     assert_eq!(
-        editor.prefab_editor.as_ref().map(|prefab| prefab.prefab_name.as_str()),
+        editor
+            .prefab_editor
+            .as_ref()
+            .map(|prefab| prefab.prefab_name.as_str()),
         Some("Barrel")
     );
 }
 
 #[test]
+fn requesting_prefab_transition_from_asset_loads_prefab_into_library() {
+    let _lock = game_fs_test_lock()
+        .lock()
+        .unwrap_or_else(|poison| poison.into_inner());
+    let test_game = TestGameFolder::new("prefab_transition_asset_load");
+    let (mut editor, room_id, _, _) = make_prefab_session_editor(&test_game);
+    let second_prefab = save_test_prefab(&test_game, PrefabId(2), "Barrel");
+
+    assert!(!editor
+        .game
+        .prefab_library
+        .prefabs
+        .contains_key(&second_prefab.id));
+    assert_eq!(
+        editor.request_prefab_transition_to_asset(second_prefab.clone()),
+        PrefabTransitionPrompt::None
+    );
+    assert_eq!(editor.mode, EditorMode::Prefab(second_prefab.id));
+    assert_eq!(editor.return_mode, Some(EditorMode::Room(room_id)));
+    assert_eq!(
+        editor.game.prefab_library.prefabs.get(&second_prefab.id),
+        Some(&second_prefab)
+    );
+}
+
+#[test]
+fn requesting_prefab_transition_from_file_path_marks_dirty_session_pending() {
+    let _lock = game_fs_test_lock()
+        .lock()
+        .unwrap_or_else(|poison| poison.into_inner());
+    let test_game = TestGameFolder::new("prefab_transition_file_dirty");
+    let (mut editor, room_id, prefab_id, _) = make_prefab_session_editor(&test_game);
+    let second_prefab = save_test_prefab(&test_game, PrefabId(2), "Barrel");
+
+    let root = editor.prefab_editor.as_ref().unwrap().root_entity.unwrap();
+    editor
+        .prefab_editor
+        .as_mut()
+        .unwrap()
+        .create_prefab_entity(&mut editor.prefab_stage.as_mut().unwrap().ecs, Some(root));
+
+    let result = editor.request_prefab_transition_to_path(&prefabs_folder().join("2.ron"));
+
+    assert_eq!(result.unwrap(), PrefabTransitionPrompt::Dirty);
+    assert_eq!(editor.mode, EditorMode::Prefab(prefab_id));
+    assert_eq!(editor.return_mode, Some(EditorMode::Room(room_id)));
+    assert_eq!(
+        editor.pending_prefab_transition,
+        Some(PendingPrefabTransition::OpenExisting(second_prefab.id))
+    );
+    assert_eq!(
+        editor.game.prefab_library.prefabs.get(&second_prefab.id),
+        Some(&second_prefab)
+    );
+}
+
+#[test]
+fn requesting_prefab_transition_from_invalid_file_path_returns_error() {
+    let _lock = game_fs_test_lock()
+        .lock()
+        .unwrap_or_else(|poison| poison.into_inner());
+    let test_game = TestGameFolder::new("prefab_transition_file_invalid");
+    let (mut editor, room_id, prefab_id, _) = make_prefab_session_editor(&test_game);
+    let invalid_path = write_invalid_prefab(&test_game, "broken.ron");
+
+    let error = editor
+        .request_prefab_transition_to_path(&invalid_path)
+        .unwrap_err();
+
+    assert_eq!(editor.mode, EditorMode::Prefab(prefab_id));
+    assert_eq!(editor.return_mode, Some(EditorMode::Room(room_id)));
+    assert_eq!(editor.pending_prefab_transition, None);
+    assert!(error.to_string().contains("Could not parse prefab"));
+}
+
+#[test]
 fn dirty_prefab_transition_save_switches_and_persists_changes() {
-    let _lock = game_fs_test_lock().lock().unwrap_or_else(|poison| poison.into_inner());
+    let _lock = game_fs_test_lock()
+        .lock()
+        .unwrap_or_else(|poison| poison.into_inner());
     let test_game = TestGameFolder::new("prefab_dirty_switch_save");
     let (mut editor, room_id, prefab_id, _) = make_prefab_session_editor(&test_game);
     let second_prefab = save_test_prefab(&test_game, PrefabId(2), "Barrel");
@@ -803,7 +938,9 @@ fn dirty_prefab_transition_save_switches_and_persists_changes() {
 
 #[test]
 fn dirty_prefab_transition_cancel_keeps_current_prefab_open() {
-    let _lock = game_fs_test_lock().lock().unwrap_or_else(|poison| poison.into_inner());
+    let _lock = game_fs_test_lock()
+        .lock()
+        .unwrap_or_else(|poison| poison.into_inner());
     let test_game = TestGameFolder::new("prefab_dirty_switch_cancel");
     let (mut editor, room_id, prefab_id, _) = make_prefab_session_editor(&test_game);
     let second_prefab = save_test_prefab(&test_game, PrefabId(2), "Barrel");
@@ -835,7 +972,9 @@ fn dirty_prefab_transition_cancel_keeps_current_prefab_open() {
 
 #[test]
 fn empty_prefab_transition_delete_switches_to_requested_prefab() {
-    let _lock = game_fs_test_lock().lock().unwrap_or_else(|poison| poison.into_inner());
+    let _lock = game_fs_test_lock()
+        .lock()
+        .unwrap_or_else(|poison| poison.into_inner());
     let test_game = TestGameFolder::new("prefab_empty_switch_delete");
     let (editor, room_id, prefab_id, _) = make_prefab_session_editor(&test_game);
     let _guard = EditorServicesGuard::install(editor);
@@ -873,7 +1012,9 @@ fn empty_prefab_transition_delete_switches_to_requested_prefab() {
 
 #[test]
 fn blank_prefab_transition_does_not_create_asset_until_confirmed() {
-    let _lock = game_fs_test_lock().lock().unwrap_or_else(|poison| poison.into_inner());
+    let _lock = game_fs_test_lock()
+        .lock()
+        .unwrap_or_else(|poison| poison.into_inner());
     let test_game = TestGameFolder::new("prefab_new_switch_cancel");
     let (mut editor, _, _, _) = make_prefab_session_editor(&test_game);
 
@@ -885,9 +1026,8 @@ fn blank_prefab_transition_does_not_create_asset_until_confirmed() {
         .create_prefab_entity(&mut editor.prefab_stage.as_mut().unwrap().ecs, Some(root));
 
     assert_eq!(
-        editor.request_prefab_transition(PendingPrefabTransition::CreateBlank(
-            "Fresh".to_string(),
-        )),
+        editor
+            .request_prefab_transition(PendingPrefabTransition::CreateBlank("Fresh".to_string(),)),
         PrefabTransitionPrompt::Dirty
     );
     assert!(editor
@@ -909,7 +1049,9 @@ fn blank_prefab_transition_does_not_create_asset_until_confirmed() {
 
 #[test]
 fn saving_new_prefab_session_marks_prefab_clean_for_exit() {
-    let _lock = game_fs_test_lock().lock().unwrap_or_else(|poison| poison.into_inner());
+    let _lock = game_fs_test_lock()
+        .lock()
+        .unwrap_or_else(|poison| poison.into_inner());
     let test_game = TestGameFolder::new("prefab_new_session_clean_after_save");
     set_game_name(test_game.name());
     let prefab = create_prefab(PrefabId(1), "Crate".to_string());
@@ -950,7 +1092,9 @@ fn saving_new_prefab_session_marks_prefab_clean_for_exit() {
 
 #[test]
 fn unlink_prefab_instance_command_clears_prefab_components_and_restores_on_undo() {
-    let _lock = game_fs_test_lock().lock().unwrap_or_else(|poison| poison.into_inner());
+    let _lock = game_fs_test_lock()
+        .lock()
+        .unwrap_or_else(|poison| poison.into_inner());
     let test_game = TestGameFolder::new("prefab_unlink_instance");
     set_game_name(test_game.name());
     let (mut editor, room_id, prefab_id, _) = make_prefab_session_editor(&test_game);
@@ -989,7 +1133,9 @@ fn unlink_prefab_instance_command_clears_prefab_components_and_restores_on_undo(
 
 #[test]
 fn room_component_edits_write_prefab_overrides_for_linked_instances() {
-    let _lock = game_fs_test_lock().lock().unwrap_or_else(|poison| poison.into_inner());
+    let _lock = game_fs_test_lock()
+        .lock()
+        .unwrap_or_else(|poison| poison.into_inner());
     let test_game = TestGameFolder::new("prefab_component_override_tracking");
     set_game_name(test_game.name());
     let (mut editor, room_id, prefab_id, _) = make_prefab_session_editor(&test_game);
@@ -1033,7 +1179,9 @@ fn room_component_edits_write_prefab_overrides_for_linked_instances() {
 
 #[test]
 fn apply_instance_to_prefab_command_updates_other_linked_instances_and_supports_undo() {
-    let _lock = game_fs_test_lock().lock().unwrap_or_else(|poison| poison.into_inner());
+    let _lock = game_fs_test_lock()
+        .lock()
+        .unwrap_or_else(|poison| poison.into_inner());
     let test_game = TestGameFolder::new("prefab_apply_instance_to_prefab");
     set_game_name(test_game.name());
     let (mut editor, room_id, prefab_id, _) = make_prefab_session_editor(&test_game);
@@ -1154,7 +1302,9 @@ fn apply_instance_to_prefab_command_updates_other_linked_instances_and_supports_
 
 #[test]
 fn revert_instance_to_prefab_command_clears_overrides_and_restores_prefab_state() {
-    let _lock = game_fs_test_lock().lock().unwrap_or_else(|poison| poison.into_inner());
+    let _lock = game_fs_test_lock()
+        .lock()
+        .unwrap_or_else(|poison| poison.into_inner());
     let test_game = TestGameFolder::new("prefab_revert_instance_to_prefab");
     set_game_name(test_game.name());
     let (mut editor, room_id, prefab_id, _) = make_prefab_session_editor(&test_game);
@@ -1194,7 +1344,10 @@ fn revert_instance_to_prefab_command_clears_overrides_and_restores_prefab_state(
             Some("Root")
         );
         assert!(!editor.game.ecs.has::<PrefabOverrides>(linked_root));
-        assert_eq!(editor.room_editor.single_selected_entity(), Some(linked_root));
+        assert_eq!(
+            editor.room_editor.single_selected_entity(),
+            Some(linked_root)
+        );
     });
 
     request_undo();

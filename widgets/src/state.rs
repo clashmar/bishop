@@ -1,6 +1,6 @@
 use crate::*;
 use std::cell::RefCell;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 /// Keys that support hold-to-repeat behavior.
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -104,7 +104,15 @@ thread_local! {
         const { RefCell::new(ArmedClickState { left: None, right: None }) };
 }
 
-fn armed_click_slot(state: &mut ArmedClickState, button: MouseButton) -> Option<&mut Option<ClickTargetId>> {
+thread_local! {
+    static DEFERRED_CLICK_TARGETS: RefCell<HashSet<ClickTargetId>> =
+        RefCell::new(HashSet::new());
+}
+
+fn armed_click_slot(
+    state: &mut ArmedClickState,
+    button: MouseButton,
+) -> Option<&mut Option<ClickTargetId>> {
     match button {
         MouseButton::Left => Some(&mut state.left),
         MouseButton::Right => Some(&mut state.right),
@@ -142,6 +150,22 @@ pub fn clear_click_target(button: MouseButton) {
             *slot = None;
         }
     });
+}
+
+/// Schedules a click target for activation on a later frame.
+pub fn queue_deferred_click_target(target: ClickTargetId) {
+    DEFERRED_CLICK_TARGETS.with(|targets| {
+        targets.borrow_mut().insert(target);
+    });
+}
+
+/// Consumes a queued deferred click target when it is ready to activate.
+pub fn take_deferred_click_target(target: ClickTargetId, ready: bool) -> bool {
+    if !ready {
+        return false;
+    }
+
+    DEFERRED_CLICK_TARGETS.with(|targets| targets.borrow_mut().remove(&target))
 }
 
 /// Handles the common "press arms, release activates" interaction model.

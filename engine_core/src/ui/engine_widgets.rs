@@ -39,7 +39,7 @@ pub fn gui_sprite_picker<C: BishopContext>(
 
     if Button::new(picker_rect, &btn_label)
         .blocked(blocked)
-        .show(ctx)
+        .show_native_dialog(ctx)
     {
         #[cfg(not(target_arch = "wasm32"))]
         {
@@ -102,7 +102,7 @@ pub fn gui_script_picker<C: BishopContext>(
 
     if Button::new(picker_rect, &btn_label)
         .blocked(blocked)
-        .show(ctx)
+        .show_native_dialog(ctx)
     {
         #[cfg(not(target_arch = "wasm32"))]
         {

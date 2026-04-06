@@ -1,7 +1,7 @@
 use super::*;
-use std::fmt::{Display, Formatter, Result as FmtResult};
-use std::collections::BTreeSet;
 use engine_core::prelude::*;
+use std::collections::BTreeSet;
+use std::fmt::{Display, Formatter, Result as FmtResult};
 
 #[derive(Clone, PartialEq)]
 pub(super) enum AssignOption {

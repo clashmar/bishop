@@ -1,9 +1,9 @@
 use super::groups::{
-    assignment_options, handle_assign_option, handle_preset_action, preset_actions_for_group,
-    rename_target_group, AssignOption, PresetAction,
+    AssignOption, PresetAction, assignment_options, handle_assign_option, handle_preset_action,
+    preset_actions_for_group, rename_target_group,
 };
 use super::preview::{
-    active_preview_is_cleared_for_test, set_active_preview_for_test, ActivePreview,
+    ActivePreview, active_preview_is_cleared_for_test, set_active_preview_for_test,
 };
 use super::*;
 use crate::storage::sound_preset_storage::set_current_sound_preset_library;
@@ -22,9 +22,11 @@ fn rename_target_group_renames_requested_group_even_if_selection_changes() {
 
     rename_target_group(&mut source, Some(talk.clone()), "Dialogue").unwrap();
 
-    assert!(source
-        .groups
-        .contains_key(&SoundGroupId::Custom("Dialogue".to_string())));
+    assert!(
+        source
+            .groups
+            .contains_key(&SoundGroupId::Custom("Dialogue".to_string()))
+    );
     assert!(!source.groups.contains_key(&talk));
     assert_eq!(source.current, Some(footsteps));
 }
@@ -164,9 +166,11 @@ fn assigning_matching_preset_warns_when_component_already_has_group_with_same_na
     assert_eq!(source.current, Some(land));
     assert_eq!(source.groups.len(), 2);
     assert!(source.groups.contains_key(&jump));
-    assert!(!source
-        .groups
-        .contains_key(&SoundGroupId::Custom("Jump 2".to_string())));
+    assert!(
+        !source
+            .groups
+            .contains_key(&SoundGroupId::Custom("Jump 2".to_string()))
+    );
     assert!(pending_sync_all.is_none());
 }
 

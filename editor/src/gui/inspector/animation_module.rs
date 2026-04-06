@@ -168,7 +168,7 @@ impl InspectorModule for AnimationModule {
             },
         )
         .blocked(blocked)
-        .show(ctx)
+        .show_native_dialog(ctx)
         {
             if let Some(path) = rfd::FileDialog::new()
                 .set_directory(assets_folder())

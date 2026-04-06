@@ -179,7 +179,7 @@ impl InspectorModule for AudioSourceModule {
             let add_rect = Rect::new(x + half_w + SPACING, y, half_w, ROW_HEIGHT);
             if Button::new(add_rect, "Add Sound")
                 .blocked(blocked)
-                .show(ctx)
+                .show_native_dialog(ctx)
             {
                 #[cfg(not(target_arch = "wasm32"))]
                 if let Some(path) = rfd::FileDialog::new()

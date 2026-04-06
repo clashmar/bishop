@@ -1,6 +1,6 @@
 use crate::ecs::capture::ComponentSnapshot;
 use crate::onscreen_error;
-use crate::storage::path_utils::resources_folder;
+use crate::storage::path_utils::{resources_folder, sanitise_name};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::fmt::{Display, Formatter, Result as FmtResult};
@@ -104,16 +104,7 @@ pub fn create_prefab(prefab_id: PrefabId, name: String) -> PrefabAsset {
 
 /// Loads every prefab file for the supplied game into a single library.
 pub fn load_prefab_library(game_name: &str) -> io::Result<PrefabLibrary> {
-    let folder = prefab_folder_for_game(game_name);
-    if !folder.exists() {
-        return Ok(PrefabLibrary::default());
-    }
-
-    let mut paths = fs::read_dir(folder)?
-        .filter_map(|entry| entry.ok().map(|value| value.path()))
-        .filter(|path| path.extension().is_some_and(|ext| ext == "ron"))
-        .collect::<Vec<_>>();
-    paths.sort();
+    let paths = prefab_paths_for_game(game_name)?;
     let mut prefabs = HashMap::new();
     for path in paths {
         match load_prefab_from_path(&path) {
@@ -145,7 +136,10 @@ pub fn load_prefab_library(game_name: &str) -> io::Result<PrefabLibrary> {
 
 /// Lists every prefab asset for the supplied game.
 pub fn list_prefabs(game_name: &str) -> io::Result<Vec<PrefabAsset>> {
-    let mut prefabs: Vec<_> = load_prefab_library(game_name)?.prefabs.into_values().collect();
+    let mut prefabs: Vec<_> = load_prefab_library(game_name)?
+        .prefabs
+        .into_values()
+        .collect();
     prefabs.sort_by(|left, right| {
         left.name
             .cmp(&right.name)
@@ -156,12 +150,19 @@ pub fn list_prefabs(game_name: &str) -> io::Result<Vec<PrefabAsset>> {
 
 /// Loads a single prefab asset by id.
 pub fn load_prefab(game_name: &str, prefab_id: PrefabId) -> io::Result<PrefabAsset> {
-    load_prefab_from_path(&prefab_path(game_name, prefab_id))
+    let path = find_prefab_path(game_name, prefab_id)?.ok_or_else(|| {
+        Error::new(
+            ErrorKind::NotFound,
+            format!("Prefab '{prefab_id}' not found"),
+        )
+    })?;
+    load_prefab_from_path(&path)
 }
 
 /// Saves a single prefab asset to disk.
 pub fn save_prefab(game_name: &str, prefab: &PrefabAsset) -> io::Result<()> {
-    let path = prefab_path(game_name, prefab.id);
+    let existing_path = find_prefab_path(game_name, prefab.id)?;
+    let path = resolve_prefab_save_path(game_name, prefab, existing_path.as_deref())?;
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent)?;
     }
@@ -169,15 +170,21 @@ pub fn save_prefab(game_name: &str, prefab: &PrefabAsset) -> io::Result<()> {
     let ron =
         ron::ser::to_string_pretty(prefab, ron::ser::PrettyConfig::new()).map_err(Error::other)?;
 
+    if let Some(existing_path) = existing_path
+        && existing_path != path
+        && existing_path.exists()
+    {
+        fs::remove_file(existing_path)?;
+    }
+
     fs::write(path, ron)
 }
 
 /// Deletes a single prefab asset file when it exists.
 pub fn delete_prefab(game_name: &str, prefab_id: PrefabId) -> io::Result<bool> {
-    let path = prefab_path(game_name, prefab_id);
-    if !path.exists() {
+    let Some(path) = find_prefab_path(game_name, prefab_id)? else {
         return Ok(false);
-    }
+    };
 
     fs::remove_file(path)?;
     Ok(true)
@@ -216,8 +223,7 @@ pub fn validate_prefab(prefab: &PrefabAsset) -> io::Result<()> {
                 ErrorKind::InvalidData,
                 format!(
                     "Prefab '{}' contains duplicate node id {}",
-                    prefab.name,
-                    node.node_id
+                    prefab.name, node.node_id
                 ),
             ));
         }
@@ -229,8 +235,7 @@ pub fn validate_prefab(prefab: &PrefabAsset) -> io::Result<()> {
                 ErrorKind::InvalidData,
                 format!(
                     "Prefab '{}' contains an invalid parent reference for node {}",
-                    prefab.name,
-                    node.node_id
+                    prefab.name, node.node_id
                 ),
             ));
         }
@@ -297,6 +302,73 @@ fn prefab_path(game_name: &str, prefab_id: PrefabId) -> PathBuf {
     prefab_folder_for_game(game_name).join(format!("{}.ron", prefab_id.0))
 }
 
+fn prefab_name_stem(name: &str) -> String {
+    let stem = sanitise_name(name);
+    if stem.is_empty() {
+        "Prefab".to_string()
+    } else {
+        stem
+    }
+}
+
+fn prefab_paths_for_game(game_name: &str) -> io::Result<Vec<PathBuf>> {
+    let folder = prefab_folder_for_game(game_name);
+    if !folder.exists() {
+        return Ok(Vec::new());
+    }
+
+    let mut paths = fs::read_dir(folder)?
+        .filter_map(|entry| entry.ok().map(|value| value.path()))
+        .filter(|path| path.extension().is_some_and(|ext| ext == "ron"))
+        .collect::<Vec<_>>();
+    paths.sort();
+    Ok(paths)
+}
+
+fn find_prefab_path(game_name: &str, prefab_id: PrefabId) -> io::Result<Option<PathBuf>> {
+    let numeric_path = prefab_path(game_name, prefab_id);
+    if numeric_path.exists() {
+        return Ok(Some(numeric_path));
+    }
+
+    for path in prefab_paths_for_game(game_name)? {
+        let Ok(prefab) = load_prefab_from_path(&path) else {
+            continue;
+        };
+        if prefab.id == prefab_id {
+            return Ok(Some(path));
+        }
+    }
+
+    Ok(None)
+}
+
+fn resolve_prefab_save_path(
+    game_name: &str,
+    prefab: &PrefabAsset,
+    existing_path: Option<&Path>,
+) -> io::Result<PathBuf> {
+    let folder = prefab_folder_for_game(game_name);
+    if !folder.exists() {
+        fs::create_dir_all(&folder)?;
+    }
+
+    let stem = prefab_name_stem(&prefab.name);
+    let preferred = folder.join(format!("{stem}.ron"));
+    if !preferred.exists() || existing_path == Some(preferred.as_path()) {
+        return Ok(preferred);
+    }
+
+    let mut index = 2usize;
+    loop {
+        let candidate = folder.join(format!("{stem} {index}.ron"));
+        if !candidate.exists() || existing_path == Some(candidate.as_path()) {
+            return Ok(candidate);
+        }
+        index += 1;
+    }
+}
+
 fn load_prefab_from_path(path: &Path) -> io::Result<PrefabAsset> {
     let ron = fs::read_to_string(path)?;
     let prefab = ron::from_str(&ron).map_err(|error| {
@@ -312,6 +384,7 @@ fn load_prefab_from_path(path: &Path) -> io::Result<PrefabAsset> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::storage::path_utils::sanitise_name;
     use crate::storage::test_utils::{TestGameFolder, game_fs_test_lock};
 
     #[test]
@@ -356,11 +429,7 @@ mod tests {
         let folder = prefab_folder_for_game(test_folder.name());
         fs::create_dir_all(&folder).unwrap();
 
-        fs::write(
-            folder.join("a_first.ron"),
-            ron::to_string(&first).unwrap(),
-        )
-        .unwrap();
+        fs::write(folder.join("a_first.ron"), ron::to_string(&first).unwrap()).unwrap();
         fs::write(
             folder.join("z_second.ron"),
             ron::to_string(&second).unwrap(),
@@ -462,5 +531,57 @@ mod tests {
         assert_eq!(library.next_prefab_id, 10);
         assert_eq!(library.allocate_prefab_id(), PrefabId(10));
         assert_eq!(library.allocate_prefab_id(), PrefabId(11));
+    }
+
+    #[test]
+    fn save_prefab_uses_prefab_name_for_filename() {
+        let _lock = game_fs_test_lock().lock().unwrap();
+        let test_folder = TestGameFolder::new("prefab_name_filename");
+        let prefab = create_prefab(PrefabId(5), "Big Crate".to_string());
+
+        save_prefab(test_folder.name(), &prefab).unwrap();
+
+        let expected_path = prefab_folder_for_game(test_folder.name())
+            .join(format!("{}.ron", sanitise_name(&prefab.name)));
+        assert!(expected_path.is_file());
+        assert!(
+            !prefab_folder_for_game(test_folder.name())
+                .join("5.ron")
+                .exists()
+        );
+    }
+
+    #[test]
+    fn save_prefab_renames_existing_file_when_name_changes() {
+        let _lock = game_fs_test_lock().lock().unwrap();
+        let test_folder = TestGameFolder::new("prefab_rename_filename");
+        let prefab_id = PrefabId(5);
+        let first = create_prefab(prefab_id, "Big Crate".to_string());
+        let second = create_prefab(prefab_id, "Huge Barrel".to_string());
+
+        save_prefab(test_folder.name(), &first).unwrap();
+        save_prefab(test_folder.name(), &second).unwrap();
+
+        let first_path = prefab_folder_for_game(test_folder.name())
+            .join(format!("{}.ron", sanitise_name(&first.name)));
+        let second_path = prefab_folder_for_game(test_folder.name())
+            .join(format!("{}.ron", sanitise_name(&second.name)));
+        assert!(!first_path.exists());
+        assert!(second_path.is_file());
+        assert_eq!(load_prefab(test_folder.name(), prefab_id).unwrap(), second);
+    }
+
+    #[test]
+    fn load_and_delete_prefab_support_legacy_id_filename() {
+        let _lock = game_fs_test_lock().lock().unwrap();
+        let test_folder = TestGameFolder::new("prefab_legacy_filename");
+        let prefab = create_prefab(PrefabId(12), "Legacy".to_string());
+        let folder = prefab_folder_for_game(test_folder.name());
+        fs::create_dir_all(&folder).unwrap();
+        fs::write(folder.join("12.ron"), ron::to_string(&prefab).unwrap()).unwrap();
+
+        assert_eq!(load_prefab(test_folder.name(), prefab.id).unwrap(), prefab);
+        assert!(delete_prefab(test_folder.name(), prefab.id).unwrap());
+        assert!(!folder.join("12.ron").exists());
     }
 }

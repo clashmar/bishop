@@ -1,5 +1,6 @@
 use super::editor_storage::*;
 use engine_core::prelude::*;
+use engine_core::storage::path_utils::sanitise_name;
 use engine_core::storage::test_utils::{TestGameFolder, game_fs_test_lock};
 
 #[test]
@@ -45,6 +46,9 @@ fn prefab_storage_round_trips_through_disk_helpers() {
     };
 
     save_prefab(test_game.name(), &prefab).unwrap();
+
+    let expected_path = prefabs_folder().join(format!("{}.ron", sanitise_name(&prefab.name)));
+    assert!(expected_path.is_file());
 
     let loaded = load_prefab(test_game.name(), prefab.id).unwrap();
     let listed = list_prefabs(test_game.name()).unwrap();

@@ -180,7 +180,7 @@ impl TilePalette {
 
         // Sprite selector
         let sprite_rect = Rect::new(panel.x + 10., panel.y + 60., panel.w - 20., 30.);
-        if Button::new(sprite_rect, "Pick sprite").show(ctx) {
+        if Button::new(sprite_rect, "Pick sprite").show_native_dialog(ctx) {
             if let Some(path) = rfd::FileDialog::new()
                 .add_filter("PNG images", &["png"])
                 .set_directory(assets_folder())

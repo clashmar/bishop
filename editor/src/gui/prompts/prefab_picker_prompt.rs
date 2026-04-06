@@ -1,19 +1,21 @@
 use crate::gui::prompts::constants::*;
-use crate::gui::prompts::helpers::{confirm_cancel_rects, prompt_content_rect};
+use crate::gui::prompts::helpers::{prompt_content_rect, three_button_rects};
 use bishop::prelude::*;
 use engine_core::prelude::*;
 use std::fmt::{Display, Formatter, Result as FmtResult};
+use std::path::PathBuf;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum PrefabPickerResult {
-    Existing(PrefabId),
+    Existing(PrefabAsset),
     New,
+    File(PathBuf),
     Cancelled,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq)]
 struct PrefabChoice {
-    prefab_id: PrefabId,
+    prefab: PrefabAsset,
     label: String,
 }
 
@@ -53,8 +55,8 @@ impl PrefabPickerPrompt {
                 .into_iter()
                 .filter(|prefab| Some(prefab.id) != excluded_prefab_id)
                 .map(|prefab| PrefabChoice {
-                    prefab_id: prefab.id,
                     label: prefab.name.clone(),
+                    prefab,
                 })
                 .collect(),
             selected: None,
@@ -79,9 +81,9 @@ impl PrefabPickerPrompt {
         let selected_label = self
             .selected
             .and_then(|prefab_id| {
-            self.prefabs
+                self.prefabs
                     .iter()
-                    .find(|choice| choice.prefab_id == prefab_id)
+                    .find(|choice| choice.prefab.id == prefab_id)
                     .map(|choice| choice.label.clone())
             })
             .unwrap_or_else(|| "Select Prefab".to_string());
@@ -93,11 +95,12 @@ impl PrefabPickerPrompt {
             BUTTON_H,
         );
         let btn_y = new_rect.y + new_rect.h + PROMPT_ACTION_GAP;
-        let (open_rect, cancel_rect) = confirm_cancel_rects(self.rect, btn_y);
+        let (open_rect, file_rect, cancel_rect) = three_button_rects(self.rect, btn_y);
 
         let open_clicked = Button::new(open_rect, "Open")
             .blocked(self.selected.is_none())
             .show(ctx);
+        let file_clicked = Button::new(file_rect, "File").show_native_dialog(ctx);
         let new_clicked = Button::new(new_rect, "New Prefab").show(ctx);
         let cancel_clicked = Button::new(cancel_rect, "Cancel").show(ctx);
 
@@ -113,7 +116,7 @@ impl PrefabPickerPrompt {
         .truncate_trigger_text()
         .show(ctx)
         {
-            self.selected = Some(choice.prefab_id);
+            self.selected = Some(choice.prefab.id);
         }
 
         if new_clicked {
@@ -121,7 +124,22 @@ impl PrefabPickerPrompt {
         }
 
         if open_clicked {
-            return self.selected.map(PrefabPickerResult::Existing);
+            return self.selected.and_then(|prefab_id| {
+                self.prefabs
+                    .iter()
+                    .find(|choice| choice.prefab.id == prefab_id)
+                    .map(|choice| PrefabPickerResult::Existing(choice.prefab.clone()))
+            });
+        }
+
+        if file_clicked {
+            if let Some(path) = rfd::FileDialog::new()
+                .add_filter("Prefab RON", &["ron"])
+                .set_directory(prefabs_folder())
+                .pick_file()
+            {
+                return Some(PrefabPickerResult::File(path));
+            }
         }
 
         if cancel_clicked || Controls::escape(ctx) {
