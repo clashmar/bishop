@@ -1,4 +1,4 @@
-//! Bishop - Backend abstraction traits for the bishop-engine.
+//! Bishop - Backend abstraction traits for bishop.
 //!
 //! This crate provides trait abstractions for input, drawing, and text rendering
 //! that can be implemented by different backends (winit+wgpu, console, etc.).
