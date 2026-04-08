@@ -1,6 +1,6 @@
 # Getting Started
 
-1. [**Download the latest release**](https://github.com/clashmar/bishop-engine/blob/main/docs/releases.md).
+1. [**Download the latest release**](https://github.com/clashmar/bishop/blob/main/docs/releases.md).
 
 2. **First launch** – the program will ask you where to create the *Bishop* root
    folder. You can move or re‑select this folder later with **File → Change Root Directory**.
@@ -36,8 +36,8 @@ embedded, so the editor can be run directly.
 
 1. **Clone or fork the repository:**
 ```bash
-git clone https://github.com/clashmar/bishop-engine.git
-cd bishop-engine
+git clone https://github.com/clashmar/bishop.git
+cd bishop
 ```
 2. **Install Rust** – follow the official installer at
    <https://www.rust-lang.org/tools/install>. The installer adds `cargo`,

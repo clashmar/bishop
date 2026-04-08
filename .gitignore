@@ -1,8 +1,4 @@
 /target
-/.worktrees
-/.claude
 .DS_Store
-CLAUDE.md
-AGENTS.md
 nul
 *.wav

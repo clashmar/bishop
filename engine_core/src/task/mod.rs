@@ -146,7 +146,7 @@ mod tests {
             .duration_since(UNIX_EPOCH)
             .unwrap()
             .as_nanos();
-        std::env::temp_dir().join(format!("bishop-engine-file-read-pool-{nanos}.bin"))
+        std::env::temp_dir().join(format!("bishop-file-read-pool-{nanos}.bin"))
     }
 
     #[test]
