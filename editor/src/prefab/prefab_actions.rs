@@ -4,11 +4,11 @@ use crate::app::{
 use crate::commands::scene::{
     ApplyInstanceToPrefabCmd, RevertPrefabInstanceCmd, UnlinkPrefabInstanceCmd,
 };
+use crate::editor_assets::write_prefabs_lua;
 use crate::editor_global::push_command;
 use crate::gui::prompts::{DirtyPrefabExitPromptResult, EmptyPrefabExitPromptResult};
 use crate::prefab::prefab_editor::{PrefabRoomSyncState, StagedPrefabState};
 use crate::shared::scene_ui::inspector::{ScenePrefabAction, ScenePrefabActionRequest};
-use crate::editor_assets::write_prefabs_lua;
 use crate::storage::editor_storage::{collect_prefab_names, save_game};
 use bishop::prelude::*;
 use engine_core::prelude::*;
@@ -192,7 +192,9 @@ impl Editor {
         };
 
         match staged_state {
-            StagedPrefabState::PrefabAsset(prefab) => self.commit_prefab_asset_save(prefab),
+            StagedPrefabState::PrefabAsset(prefab) => {
+                self.commit_prefab_asset_save(prefab);
+            }
             StagedPrefabState::Empty => {
                 self.toast = Some(Toast::new("Prefab is empty", 2.5));
             }
@@ -315,8 +317,9 @@ impl Editor {
                 if let Some(StagedPrefabState::PrefabAsset(prefab)) =
                     self.active_prefab_staged_state()
                 {
-                    self.commit_prefab_asset_save(prefab);
-                    self.finish_pending_prefab_transition();
+                    if self.commit_prefab_asset_save(prefab) {
+                        self.finish_pending_prefab_transition();
+                    }
                 }
             }
             DirtyPrefabExitPromptResult::DiscardChanges => {
@@ -359,9 +362,9 @@ impl Editor {
         }
     }
 
-    pub(crate) fn commit_prefab_asset_save(&mut self, prefab: PrefabAsset) {
+    pub(crate) fn commit_prefab_asset_save(&mut self, prefab: PrefabAsset) -> bool {
         if self.prefab_editor.is_none() {
-            return;
+            return false;
         }
         let root_entity = self
             .prefab_editor
@@ -375,7 +378,7 @@ impl Editor {
         if let Some(prefab_stage) = self.prefab_stage.as_ref() {
             if let Err(error) = prefab_stage.sync_editor_services(&mut self.game) {
                 onscreen_error!("Could not save prefab: {error}");
-                return;
+                return false;
             }
         }
 
@@ -385,15 +388,15 @@ impl Editor {
             .insert(prefab.id, prefab.clone());
         if let Err(error) = save_game(&self.game) {
             onscreen_error!("Could not save prefab metadata: {error}");
-            return;
+            return false;
         }
 
         let Some(prefab_editor) = self.prefab_editor.as_mut() else {
-            return;
+            return false;
         };
         if let Err(error) = prefab_editor.save_prefab_asset(&self.game.name, &prefab) {
             onscreen_error!("Could not save prefab: {error}");
-            return;
+            return false;
         }
 
         if let Some(prefab_stage) = self.prefab_stage.as_mut() {
@@ -402,8 +405,20 @@ impl Editor {
                 .prefabs
                 .insert(prefab.id, prefab.clone());
         }
-        self.reconcile_prefab_room_state(StagedPrefabState::PrefabAsset(prefab));
+        self.reconcile_prefab_room_state(StagedPrefabState::PrefabAsset(prefab.clone()));
+
+        let previous_active_prefab_id = self.room_editor.active_prefab_id;
+        let previous_recent_prefab_ids = self.room_editor.recent_prefab_ids.clone();
+        self.room_editor.active_prefab_id = Some(prefab.id);
+        self.room_editor.record_recent_prefab(prefab.id);
+        if !self.save_prefab_palette_state() {
+            self.room_editor.active_prefab_id = previous_active_prefab_id;
+            self.room_editor.recent_prefab_ids = previous_recent_prefab_ids;
+            return false;
+        }
+
         self.toast = Some(Toast::new("Prefab saved", 2.5));
+        true
     }
 
     pub(crate) fn commit_prefab_delete(&mut self) {

@@ -12,9 +12,12 @@ use crate::gui::prompts::{DirtyPrefabExitPromptResult, EmptyPrefabExitPromptResu
 use crate::prefab::prefab_actions::PrefabEditorLaunch;
 use crate::prefab::prefab_editor::{PrefabRoomSyncState, StagedPrefabState};
 use crate::prefab::{PrefabEditor, PrefabStage};
-use crate::storage::editor_storage::{create_new_game, load_game_by_name, save_game};
+use crate::room::room_editor::{RoomEditorMode, RoomSceneSubMode};
+use crate::storage::editor_storage::{
+    create_new_game, load_game_by_name, load_prefab_palette_state, save_game,
+};
 use engine_core::prelude::*;
-use engine_core::storage::path_utils::sanitise_name;
+use engine_core::storage::path_utils::{game_folder, sanitise_name};
 use engine_core::storage::test_utils::{game_fs_test_lock, TestGameFolder};
 use std::path::PathBuf;
 
@@ -907,6 +910,8 @@ fn dirty_prefab_transition_save_switches_and_persists_changes() {
         .prefab_library
         .prefabs
         .insert(second_prefab.id, second_prefab.clone());
+    editor.room_editor.active_prefab_id = Some(second_prefab.id);
+    editor.room_editor.recent_prefab_ids = vec![second_prefab.id, prefab_id];
 
     let root = editor.prefab_editor.as_ref().unwrap().root_entity.unwrap();
     editor
@@ -928,6 +933,11 @@ fn dirty_prefab_transition_save_switches_and_persists_changes() {
 
     assert_eq!(editor.mode, EditorMode::Prefab(second_prefab.id));
     assert_eq!(editor.return_mode, Some(EditorMode::Room(room_id)));
+    assert_eq!(editor.room_editor.active_prefab_id, Some(prefab_id));
+    assert_eq!(
+        editor.room_editor.recent_prefab_ids,
+        vec![prefab_id, second_prefab.id]
+    );
     assert_eq!(
         editor
             .game
@@ -938,6 +948,65 @@ fn dirty_prefab_transition_save_switches_and_persists_changes() {
         Some(2)
     );
     assert_eq!(editor.pending_prefab_transition, None);
+
+    let saved_state =
+        load_prefab_palette_state(test_game.name()).expect("prefab palette state should save");
+    assert_eq!(saved_state.active_prefab_id, Some(prefab_id));
+    assert_eq!(
+        saved_state.recent_prefab_ids,
+        vec![prefab_id, second_prefab.id]
+    );
+}
+
+#[test]
+fn dirty_prefab_transition_save_does_not_switch_when_palette_persist_fails() {
+    let _lock = game_fs_test_lock()
+        .lock()
+        .unwrap_or_else(|poison| poison.into_inner());
+    let test_game = TestGameFolder::new("prefab_dirty_switch_palette_save_failure");
+    let (mut editor, room_id, prefab_id, _) = make_prefab_session_editor(&test_game);
+    let second_prefab = save_test_prefab(&test_game, PrefabId(2), "Barrel");
+    editor
+        .game
+        .prefab_library
+        .prefabs
+        .insert(second_prefab.id, second_prefab.clone());
+    editor.room_editor.active_prefab_id = Some(prefab_id);
+    editor.room_editor.recent_prefab_ids = vec![prefab_id, second_prefab.id];
+
+    let root = editor.prefab_editor.as_ref().unwrap().root_entity.unwrap();
+    editor
+        .prefab_editor
+        .as_mut()
+        .unwrap()
+        .create_prefab_entity(&mut editor.prefab_stage.as_mut().unwrap().ecs, Some(root));
+
+    let palette_path = game_folder(test_game.name()).join("prefab_palette.ron");
+    std::fs::create_dir(&palette_path).expect("palette path should become a directory");
+
+    assert_eq!(
+        editor.request_prefab_transition(PendingPrefabTransition::OpenExisting(second_prefab.id)),
+        PrefabTransitionPrompt::Dirty
+    );
+    assert_eq!(
+        editor.pending_prefab_transition,
+        Some(PendingPrefabTransition::OpenExisting(second_prefab.id))
+    );
+
+    editor.confirm_dirty_prefab_transition(DirtyPrefabExitPromptResult::SaveAndSync);
+
+    assert_eq!(editor.mode, EditorMode::Prefab(prefab_id));
+    assert_eq!(editor.return_mode, Some(EditorMode::Room(room_id)));
+    assert_eq!(
+        editor.pending_prefab_transition,
+        Some(PendingPrefabTransition::OpenExisting(second_prefab.id))
+    );
+    assert!(editor.active_prefab_is_clean());
+    assert_eq!(editor.room_editor.active_prefab_id, Some(prefab_id));
+    assert_eq!(
+        editor.room_editor.recent_prefab_ids,
+        vec![prefab_id, second_prefab.id]
+    );
 }
 
 #[test]
@@ -1165,6 +1234,84 @@ fn saving_prefab_syncs_stage_sprite_registry_into_game_and_disk() {
 }
 
 #[test]
+fn saving_prefab_activates_it_in_room_palette_and_persists_state() {
+    let _lock = game_fs_test_lock()
+        .lock()
+        .unwrap_or_else(|poison| poison.into_inner());
+    let test_game = TestGameFolder::new("prefab_save_updates_palette");
+    set_game_name(test_game.name());
+
+    let prefab = create_prefab(PrefabId(1), "Crate".to_string());
+    let other_prefab = create_prefab(PrefabId(2), "Torch".to_string());
+    let mut base_game = create_new_game(test_game.name().to_string());
+    base_game
+        .prefab_library
+        .prefabs
+        .insert(prefab.id, prefab.clone());
+    let (mut prefab_editor, mut prefab_stage) = PrefabEditor::open_existing_from_game(
+        &base_game,
+        prefab.clone(),
+        PrefabRoomSyncState {
+            staged_prefab: StagedPrefabState::PrefabAsset(prefab.clone()),
+            linked_instance_snapshots: Vec::new(),
+        },
+    );
+
+    let entity = prefab_editor.create_prefab_entity(&mut prefab_stage.ecs, None);
+    prefab_editor.set_selected_entity(Some(entity));
+
+    let mut editor = Editor {
+        game: create_new_game(test_game.name().to_string()),
+        mode: EditorMode::Prefab(prefab.id),
+        prefab_editor: Some(prefab_editor),
+        prefab_stage: Some(prefab_stage),
+        ..Default::default()
+    };
+    editor
+        .game
+        .prefab_library
+        .prefabs
+        .insert(other_prefab.id, other_prefab);
+    editor.room_editor.mode = RoomEditorMode::Tilemap;
+    editor.room_editor.mode_selector.current = RoomEditorMode::Tilemap;
+    editor.room_editor.scene_sub_mode = RoomSceneSubMode::Scene;
+    editor.room_editor.view_preview = true;
+    editor.room_editor.active_prefab_id = Some(PrefabId(2));
+    editor.room_editor.recent_prefab_ids = vec![PrefabId(2), prefab.id];
+
+    let _guard = EditorServicesGuard::install(editor);
+
+    with_editor(|editor| {
+        let staged_state = editor.active_prefab_staged_state();
+        editor.commit_prefab_asset_save(match staged_state {
+            Some(StagedPrefabState::PrefabAsset(prefab)) => prefab,
+            _ => unreachable!(),
+        });
+
+        assert_eq!(editor.room_editor.active_prefab_id, Some(PrefabId(1)));
+        assert_eq!(
+            editor.room_editor.recent_prefab_ids,
+            vec![PrefabId(1), PrefabId(2)]
+        );
+        assert_eq!(editor.room_editor.mode, RoomEditorMode::Tilemap);
+        assert_eq!(
+            editor.room_editor.mode_selector.current,
+            RoomEditorMode::Tilemap
+        );
+        assert_eq!(editor.room_editor.scene_sub_mode, RoomSceneSubMode::Scene);
+        assert!(editor.room_editor.view_preview);
+    });
+
+    let saved_state =
+        load_prefab_palette_state(test_game.name()).expect("prefab palette state should save");
+    assert_eq!(saved_state.active_prefab_id, Some(PrefabId(1)));
+    assert_eq!(
+        saved_state.recent_prefab_ids,
+        vec![PrefabId(1), PrefabId(2)]
+    );
+}
+
+#[test]
 fn saving_prefab_syncs_stage_script_registry_into_game_and_disk() {
     let _lock = game_fs_test_lock()
         .lock()
@@ -1259,10 +1406,11 @@ fn opening_prefab_editor_seeds_stage_metadata_from_live_game_services() {
         .sprite_manager
         .sprite_id_to_path
         .insert(SpriteId(9), PathBuf::from("sprites/building.png"));
-    editor.game.sprite_manager.path_to_sprite_id.insert(
-        PathBuf::from("sprites/building.png"),
-        SpriteId(9),
-    );
+    editor
+        .game
+        .sprite_manager
+        .path_to_sprite_id
+        .insert(PathBuf::from("sprites/building.png"), SpriteId(9));
     editor
         .game
         .script_manager
