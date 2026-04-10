@@ -6,3 +6,7 @@ pub mod logging_module;
 pub mod menu_module;
 pub mod prefab_module;
 pub mod text_module;
+
+#[cfg(test)]
+#[path = "tests/entity_module_tests.rs"]
+mod entity_module_tests;

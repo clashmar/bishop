@@ -25,6 +25,7 @@ local Player = {
         self._state = {
             facing = direction.Right,
             clip = nil,
+            spawned_bullets = {},
         }
     end,
 
@@ -38,6 +39,7 @@ local Player = {
         local state = self._state or {
             facing = direction.Right,
             clip = nil,
+            spawned_bullets = {},
         }
         self._state = state
 
@@ -142,7 +144,7 @@ local Player = {
             local pos = transform.position
 
             local x_offset = state.facing == direction.Left and -12 or 12
-            engine.prefab.spawn(
+            local bullet = engine.prefab.spawn(
                 prefabs.Bullet,
                 {
                     x = pos.x + x_offset,
@@ -152,6 +154,16 @@ local Player = {
                     direction = state.facing,
                 }
             )
+
+            state.spawned_bullets[#state.spawned_bullets + 1] = bullet
+        end
+
+        if engine.input.pressed(input.L) then
+            for index = 1, #state.spawned_bullets do
+                local bullet = state.spawned_bullets[index]
+                bullet:despawn()
+            end
+            state.spawned_bullets = {}
         end
     end,
 
@@ -164,7 +176,6 @@ local Player = {
                 return clip.Fall
             end
         end
-        
         -- Test custom Fidget animation - press G while idle
         if horiz == 0 then
             if engine.input.is_down(input.G) then

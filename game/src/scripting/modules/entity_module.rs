@@ -56,7 +56,9 @@ pub struct EntityHandle {
 }
 
 fn entity_is_alive(ecs: &Ecs, entity: Entity) -> bool {
-    COMPONENTS.iter().any(|registry| (registry.has)(ecs, entity))
+    COMPONENTS
+        .iter()
+        .any(|registry| (registry.has)(ecs, entity))
 }
 
 fn ensure_live_entity(ecs: &Ecs, entity: Entity) -> LuaResult<()> {
@@ -213,7 +215,6 @@ impl LuaMethod<EntityHandle> for DespawnMethod {
         methods.add_method("despawn", |lua, this, ()| {
             let ctx = LuaGameCtx::borrow_ctx(lua)?;
             let mut game_instance = ctx.game_instance.borrow_mut();
-            ensure_live_entity(&game_instance.game.ecs, this.entity)?;
             let mut game_ctx = game_instance.game.ctx_mut();
             Ecs::remove_entity(&mut game_ctx, this.entity);
             Ok(())
@@ -259,7 +260,10 @@ impl LuaMethod<EntityHandle> for GetMethod {
 
     fn emit_api(&self, out: &mut LuaApiWriter) {
         out.line("-- Component getters");
-        for reg in COMPONENTS.iter().filter(|reg| is_public_lua_component(reg.type_name)) {
+        for reg in COMPONENTS
+            .iter()
+            .filter(|reg| is_public_lua_component(reg.type_name))
+        {
             out.line(&format!(
                 "---@overload fun(self: Entity, component: \"{}\"): {}",
                 reg.type_name, reg.type_name
@@ -314,7 +318,10 @@ impl LuaMethod<EntityHandle> for SetMethod {
         out.line("");
 
         out.line("-- Typed component setters");
-        for reg in COMPONENTS.iter().filter(|reg| is_public_lua_component(reg.type_name)) {
+        for reg in COMPONENTS
+            .iter()
+            .filter(|reg| is_public_lua_component(reg.type_name))
+        {
             let type_name = reg.type_name;
             let fn_name = to_snake_case(type_name);
             out.line("---@param self Entity");

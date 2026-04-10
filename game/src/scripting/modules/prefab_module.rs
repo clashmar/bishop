@@ -3,9 +3,7 @@ use crate::scripting::modules::entity_module::lua_entity_handle;
 use crate::scripting::script_system::ScriptSystem;
 use bishop::prelude::*;
 use engine_core::prelude::*;
-use engine_core::scripting::lua_constants::{
-    ENGINE, ENGINE_FILE, POSITION, PREFAB, SPAWN, X, Y,
-};
+use engine_core::scripting::lua_constants::{ENGINE, ENGINE_FILE, POSITION, PREFAB, SPAWN, X, Y};
 use engine_core::{register_lua_api, register_lua_module};
 use mlua::prelude::LuaResult;
 use mlua::{Lua, MultiValue, Table, Value};
@@ -29,8 +27,7 @@ impl LuaModule for PrefabModule {
         let spawn_fn = lua.create_function(
             |lua, (prefab_name, position, init): (String, Table, Option<Table>)| {
                 let (spawn, spawn_args) = parse_spawn_args(lua, &prefab_name, position, init)?;
-                let spawned_entity =
-                    spawn_prefab(lua, &prefab_name, spawn.position, spawn_args)?;
+                let spawned_entity = spawn_prefab(lua, &prefab_name, spawn.position, spawn_args)?;
                 lua_entity_handle(lua, spawned_entity)
             },
         )?;
@@ -121,9 +118,7 @@ fn spawn_prefab(
             .prefab_library
             .prefab_named(prefab_name)
             .cloned()
-            .ok_or_else(|| {
-                mlua::Error::RuntimeError(format!("Unknown prefab '{prefab_name}'"))
-            })?;
+            .ok_or_else(|| mlua::Error::RuntimeError(format!("Unknown prefab '{prefab_name}'")))?;
         if spawn_args.is_some() && !prefab_root_supports_spawn_args(&prefab) {
             return Err(mlua::Error::RuntimeError(
                 "engine.prefab.spawn init requires a Script on the prefab root".into(),
@@ -199,8 +194,7 @@ mod tests {
         let init = lua.create_table().unwrap();
         init.set("direction", "left").unwrap();
 
-        let (spawn, parsed_init) =
-            parse_spawn_args(&lua, "Bullet", position, Some(init)).unwrap();
+        let (spawn, parsed_init) = parse_spawn_args(&lua, "Bullet", position, Some(init)).unwrap();
 
         assert_eq!(spawn.position, Vec2::new(12.5, -3.0));
         assert!(matches!(parsed_init, Some(Value::Table(_))));
