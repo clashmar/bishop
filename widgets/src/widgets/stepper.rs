@@ -74,7 +74,7 @@ pub fn gui_stepper<C: BishopContext>(
         btn_w,
     );
 
-    if Button::new(decrease_rect, "-").blocked(blocked).show(ctx) && idx > 0 {
+    if Button::new(decrease_rect, "-").suppressed(blocked).show(ctx) && idx > 0 {
         idx -= 1;
     }
 
@@ -84,7 +84,7 @@ pub fn gui_stepper<C: BishopContext>(
         btn_w,
         btn_w,
     );
-    if Button::new(increase_rect, "+").blocked(blocked).show(ctx) && idx + 1 < steps.len() {
+    if Button::new(increase_rect, "+").suppressed(blocked).show(ctx) && idx + 1 < steps.len() {
         idx += 1;
     }
 

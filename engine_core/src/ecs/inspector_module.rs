@@ -12,7 +12,6 @@ pub trait InspectorModule {
     /// Return true when the module should be shown for the given entity.
     fn visible(&self, ecs: &Ecs, entity: Entity) -> bool;
 
-    // TODO: Make this async
     /// Draw the UI for the module inside the supplied rectangle.
     fn draw(
         &mut self,
@@ -175,7 +174,7 @@ impl<T: InspectorModule> InspectorModule for CollapsibleModule<T> {
         let symbol = if self.expanded { "-" } else { "+" };
         if Button::new(Self::collapse_button_rect(rect), symbol)
             .text_offset(Self::HEADER_BUTTON_TEXT_OFFSET)
-            .blocked(blocked)
+            .suppressed(blocked)
             .show(ctx)
         {
             self.expanded = !self.expanded;
@@ -186,7 +185,7 @@ impl<T: InspectorModule> InspectorModule for CollapsibleModule<T> {
         if self.inner.removable()
             && Button::new(Self::remove_button_rect(rect), "x")
                 .text_offset(Self::HEADER_BUTTON_TEXT_OFFSET)
-                .blocked(blocked)
+                .suppressed(blocked)
                 .show(ctx)
         {
             self.remove_requested = true;

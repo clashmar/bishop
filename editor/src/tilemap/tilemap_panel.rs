@@ -111,7 +111,7 @@ impl TilemapPanel {
 
         // Draw create button
         if Button::new(create_rect, create_label)
-            .blocked(blocked)
+            .suppressed(blocked)
             .show(ctx)
         {
             if self.palette.ui.open && self.palette.ui.mode == TilePaletteUiMode::Create {
@@ -132,7 +132,7 @@ impl TilemapPanel {
                 self.register_rect(Rect::new(edit_start, INSET, edit_width, BTN_HEIGHT));
 
             if Button::new(edit_rect, edit_label)
-                .blocked(blocked)
+                .suppressed(blocked)
                 .show(ctx)
             {
                 self.palette.ui.mode = TilePaletteUiMode::Edit;

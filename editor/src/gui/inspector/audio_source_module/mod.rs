@@ -161,7 +161,7 @@ impl InspectorModule for AudioSourceModule {
                 )
                 .fixed_width()
                 .right_aligned()
-                .blocked(blocked)
+                .suppressed(blocked)
                 .show(ctx)
                 {
                     if let Some(message) =
@@ -180,7 +180,7 @@ impl InspectorModule for AudioSourceModule {
             let add_rect = Rect::new(x + half_w + SPACING, y, half_w, ROW_HEIGHT);
             if Button::new(add_rect, "Add Sound")
                 .interaction_id(self.add_sound_button_id)
-                .blocked(blocked)
+                .suppressed(blocked)
                 .show_native_dialog(ctx)
             {
                 #[cfg(not(target_arch = "wasm32"))]
@@ -256,13 +256,14 @@ impl InspectorModule for AudioSourceModule {
                 );
 
                 if Button::new(preview_rect, "Test")
-                    .blocked(blocked || preview_group.is_none())
+                    .suppressed(blocked)
+                    .blocked(preview_group.is_none())
                     .show(ctx)
                 {
                     preview_request = Some(PreviewRequest::new(index, sound.clone()));
                 }
 
-                if Button::new(remove_rect, "x").blocked(blocked).show(ctx) {
+                if Button::new(remove_rect, "x").suppressed(blocked).show(ctx) {
                     remove_idx = Some(index);
                 }
                 y += ROW_HEIGHT + EDIT_SECTION_SPACING;

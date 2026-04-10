@@ -291,7 +291,7 @@ impl PanelDefinition for ConsolePanel {
         );
 
         let clicked = Button::new(clear_btn_rect, "Clear")
-            .blocked(blocked)
+            .suppressed(blocked)
             .show(ctx);
         if !blocked && clicked {
             if let Ok(mut history) = LOG_HISTORY.lock() {

@@ -214,7 +214,7 @@ impl PanelDefinition for HierarchyPanel {
                 Rect::new(rect.x + 6., y, btn_w, ADD_BUTTON_HEIGHT),
                 "+ Global",
             )
-            .blocked(blocked)
+            .suppressed(blocked)
             .show(ctx);
             if !blocked && clicked {
                 ecs.create_entity()
@@ -271,7 +271,7 @@ impl PanelDefinition for HierarchyPanel {
                         Rect::new(rect.x + 6., y, btn_w, ADD_BUTTON_HEIGHT),
                         "+ Player Proxy",
                     )
-                    .blocked(blocked)
+                    .suppressed(blocked)
                     .show(ctx);
                     if !blocked && clicked {
                         create_spawn_point(ecs, room_id, spawn_pos);

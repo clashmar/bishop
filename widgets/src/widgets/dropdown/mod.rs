@@ -93,6 +93,7 @@ pub struct Dropdown<'a, T> {
     label_font_size: f32,
     y_offset: f32,
     blocked: bool,
+    suppressed: bool,
     fixed_width: bool,
     filterable: bool,
     alignment: DropDownAlignment,
@@ -120,6 +121,7 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
             label_font_size: FIELD_TEXT_SIZE_16,
             y_offset: 0.0,
             blocked: false,
+            suppressed: false,
             fixed_width: false,
             filterable: false,
             alignment: DropDownAlignment::Left,
@@ -167,6 +169,12 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
         self
     }
 
+    /// Sets whether the dropdown trigger is transiently suppressed without blocked visuals.
+    pub fn suppressed(mut self, suppressed: bool) -> Self {
+        self.suppressed = suppressed;
+        self
+    }
+
     /// Clamps the dropdown list width to match the parent button.
     pub fn fixed_width(mut self) -> Self {
         self.fixed_width = true;
@@ -207,7 +215,7 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
 
         let mut state = dropdown_state::get(self.id);
 
-        let prev_state = state.open;
+        let prev_state = state.open && !self.suppressed;
         state.open = false;
         dropdown_state::set(self.id, state);
         update_global_dropdown_flag();
@@ -230,8 +238,10 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
                 Button::new(self.rect, display_label)
                     .text_offset(Vec2::new(0.0, -1.0))
                     .blocked(self.blocked)
+                    .suppressed(self.suppressed)
                     .show(ctx)
                     && !self.blocked
+                    && !self.suppressed
             }
             DropDownStyle::Plain => {
                 Button::new(self.rect, display_label)
@@ -240,8 +250,10 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
                     .font_size(self.label_font_size)
                     .text_offset(Vec2::new(0.0, -1.0))
                     .blocked(self.blocked)
+                    .suppressed(self.suppressed)
                     .show(ctx)
                     && !self.blocked
+                    && !self.suppressed
             }
         };
 
@@ -710,3 +722,6 @@ pub fn is_mouse_over_dropdown_list<C: BishopContext>(ctx: &C) -> bool {
             .any(|st| st.open && st.rect.contains(mouse_vec))
     })
 }
+
+#[cfg(test)]
+mod tests;

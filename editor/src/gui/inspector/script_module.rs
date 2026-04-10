@@ -102,7 +102,7 @@ impl InspectorModule for ScriptModule {
         // Refresh button
         if Button::icon(refresh_rect, refresh_icon(), "refresh_script")
             .icon_padding(5.0)
-            .blocked(blocked)
+            .suppressed(blocked)
             .show(ctx)
         {
             if script_comp.script_id == ScriptId(0) {

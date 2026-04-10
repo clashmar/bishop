@@ -153,7 +153,7 @@ impl InspectorModule for RoomCameraModule {
             &cam_mode_options,
             |mode| mode.ui_label(),
         )
-        .blocked(blocked)
+        .suppressed(blocked)
         .show(ctx)
         {
             if new_cam_mode != current_cam_mode {
@@ -168,7 +168,7 @@ impl InspectorModule for RoomCameraModule {
             &zoom_options,
             |mode| mode.ui_label(),
         )
-        .blocked(blocked)
+        .suppressed(blocked)
         .show(ctx)
         {
             if new_mode != current_mode {

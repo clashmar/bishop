@@ -1,9 +1,7 @@
 use crate::editor_assets::assets::entity_icon;
 use crate::gui::gui_constants::BTN_HEIGHT;
 use crate::gui::panels::generic_panel::PanelDefinition;
-use crate::room::prefab_preview::{
-    build_prefab_preview, PrefabPreview, PrefabPreviewVisual,
-};
+use crate::room::prefab_preview::{build_prefab_preview, PrefabPreview, PrefabPreviewVisual};
 use crate::room::room_editor::RoomEditorMode;
 use crate::Editor;
 use bishop::prelude::*;
@@ -85,8 +83,10 @@ impl PanelDefinition for PrefabPalettePanel {
         let content_w = rect.w - PANEL_PADDING * 2.0;
         let dropdown_rect = Rect::new(rect.x + PANEL_PADDING, y, content_w, BTN_HEIGHT);
 
-        let active_prefab =
-            active_prefab_choice(&editor.game.prefab_library, editor.room_editor.active_prefab_id);
+        let active_prefab = active_prefab_choice(
+            &editor.game.prefab_library,
+            editor.room_editor.active_prefab_id,
+        );
         let prefab_choices = prefab_choices(&editor.game.prefab_library);
         let selected_label = active_prefab
             .as_ref()
@@ -99,7 +99,7 @@ impl PanelDefinition for PrefabPalettePanel {
         let (file_rect, edit_rect) = prefab_palette_action_row_rects(action_row_rect);
         let pick_file = Button::new(file_rect, "File")
             .interaction_id(self.file_button_id)
-            .blocked(blocked)
+            .suppressed(blocked)
             .show(ctx);
         if pick_file {
             pick_prefab_from_disk(editor);
@@ -107,7 +107,8 @@ impl PanelDefinition for PrefabPalettePanel {
 
         let open_prefab_editor = Button::new(edit_rect, "Edit")
             .interaction_id(self.open_prefab_editor_button_id)
-            .blocked(prefab_editor_open_blocked(blocked, active_prefab.as_ref()))
+            .suppressed(blocked)
+            .blocked(active_prefab.is_none())
             .show(ctx);
         if open_prefab_editor {
             if let Some(active_prefab) = active_prefab.as_ref() {
@@ -132,11 +133,13 @@ impl PanelDefinition for PrefabPalettePanel {
             ))
             .begin(ctx, &mut self.recent_scroll);
         let cards_content = grid_layout.content_rect;
-        let card_mouse = prefab_palette_card_mouse_position(cards_rect, ctx.mouse_position().into());
+        let card_mouse =
+            prefab_palette_card_mouse_position(cards_rect, ctx.mouse_position().into());
 
         ctx.push_clip_rect(cards_rect);
         for (index, prefab_id) in recent_ids.into_iter().enumerate() {
-            let card_rect = recent_prefab_card_rect(cards_content, index, self.recent_scroll.scroll_y);
+            let card_rect =
+                recent_prefab_card_rect(cards_content, index, self.recent_scroll.scroll_y);
             if area.is_visible(card_rect.y, card_rect.h) {
                 if let Some(prefab) = editor.game.prefab_library.prefabs.get(&prefab_id).cloned() {
                     draw_recent_prefab_card(ctx, editor, blocked, card_rect, &prefab, card_mouse);
@@ -166,7 +169,7 @@ impl PanelDefinition for PrefabPalettePanel {
         .filterable()
         .list_width(dropdown_rect.w)
         .truncate_trigger_text()
-        .blocked(blocked)
+        .suppressed(blocked)
         .show(ctx)
         {
             let _ = editor.activate_prefab(choice.prefab_id);
@@ -200,21 +203,25 @@ fn active_prefab_choice(
     active_prefab_id: Option<PrefabId>,
 ) -> Option<PrefabChoice> {
     active_prefab_id.and_then(|prefab_id| {
-        prefab_library.prefabs.get(&prefab_id).map(|prefab| PrefabChoice {
-            prefab_id,
-            label: prefab.name.clone(),
-        })
+        prefab_library
+            .prefabs
+            .get(&prefab_id)
+            .map(|prefab| PrefabChoice {
+                prefab_id,
+                label: prefab.name.clone(),
+            })
     })
-}
-
-fn prefab_editor_open_blocked(blocked: bool, active_prefab: Option<&PrefabChoice>) -> bool {
-    blocked || active_prefab.is_none()
 }
 
 fn prefab_palette_action_row_rects(row_rect: Rect) -> (Rect, Rect) {
     let button_w = ((row_rect.w - CONTROL_GAP).max(0.0)) * 0.5;
     let file_rect = Rect::new(row_rect.x, row_rect.y, button_w, row_rect.h);
-    let edit_rect = Rect::new(row_rect.x + button_w + CONTROL_GAP, row_rect.y, button_w, row_rect.h);
+    let edit_rect = Rect::new(
+        row_rect.x + button_w + CONTROL_GAP,
+        row_rect.y,
+        button_w,
+        row_rect.h,
+    );
     (file_rect, edit_rect)
 }
 
@@ -341,7 +348,7 @@ fn draw_recent_prefab_card(
     let clicked = Button::new(rect, "")
         .mouse_position(mouse_position)
         .plain()
-        .blocked(blocked)
+        .suppressed(blocked)
         .show(ctx);
     if clicked {
         let _ = editor.activate_prefab(prefab.id);
@@ -542,10 +549,9 @@ mod tests {
     fn active_prefab_choice_returns_active_prefab_when_present() {
         let prefab_id = PrefabId(7);
         let mut prefab_library = PrefabLibrary::default();
-        prefab_library.prefabs.insert(
-            prefab_id,
-            create_prefab(prefab_id, "Crate".to_string()),
-        );
+        prefab_library
+            .prefabs
+            .insert(prefab_id, create_prefab(prefab_id, "Crate".to_string()));
 
         let choice = active_prefab_choice(&prefab_library, Some(prefab_id))
             .expect("active prefab should resolve");
@@ -555,26 +561,15 @@ mod tests {
     }
 
     #[test]
-    fn prefab_editor_open_blocks_without_valid_active_prefab() {
+    fn active_prefab_choice_is_none_when_open_prefab_should_be_semantically_blocked() {
         let prefab_id = PrefabId(7);
         let mut prefab_library = PrefabLibrary::default();
-        prefab_library.prefabs.insert(
-            prefab_id,
-            create_prefab(prefab_id, "Crate".to_string()),
-        );
+        prefab_library
+            .prefabs
+            .insert(prefab_id, create_prefab(prefab_id, "Crate".to_string()));
 
-        assert!(prefab_editor_open_blocked(false, None));
-        assert!(prefab_editor_open_blocked(
-            false,
-            active_prefab_choice(&prefab_library, Some(PrefabId(999))).as_ref()
-        ));
-        assert!(!prefab_editor_open_blocked(
-            false,
-            active_prefab_choice(&prefab_library, Some(prefab_id)).as_ref()
-        ));
-        assert!(prefab_editor_open_blocked(
-            true,
-            active_prefab_choice(&prefab_library, Some(prefab_id)).as_ref()
-        ));
+        assert!(active_prefab_choice(&prefab_library, None).is_none());
+        assert!(active_prefab_choice(&prefab_library, Some(PrefabId(999))).is_none());
+        assert!(active_prefab_choice(&prefab_library, Some(prefab_id)).is_some());
     }
 }

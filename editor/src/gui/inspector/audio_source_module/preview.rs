@@ -1,5 +1,5 @@
 use super::*;
-use engine_core::audio::command_queue::{AudioCommand, push_audio_command};
+use engine_core::audio::command_queue::{push_audio_command, AudioCommand};
 use std::cell::RefCell;
 
 #[derive(Clone, Debug, PartialEq, Eq)]

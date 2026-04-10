@@ -102,7 +102,10 @@ impl InspectorModule for AnimationModule {
 
         // Add clip button
         let mut clip_added = false;
-        if Button::new(add_rect, ADD_LABEL).blocked(blocked).show(ctx) {
+        if Button::new(add_rect, ADD_LABEL)
+            .suppressed(blocked)
+            .show(ctx)
+        {
             let new_id = if animation.clips.is_empty() {
                 ClipId::Idle
             } else {
@@ -127,7 +130,8 @@ impl InspectorModule for AnimationModule {
         // Remove clip button
         let can_remove = animation.current.is_some();
         if Button::new(remove_rect, REMOVE_LABEL)
-            .blocked(blocked || !can_remove)
+            .suppressed(blocked)
+            .blocked(!can_remove)
             .show(ctx)
         {
             if let Some(current_id) = animation.current.take() {
@@ -169,7 +173,7 @@ impl InspectorModule for AnimationModule {
             },
         )
         .interaction_id(self.variant_picker_id)
-        .blocked(blocked)
+        .suppressed(blocked)
         .show_native_dialog(ctx)
         {
             if let Some(path) = rfd::FileDialog::new()
@@ -260,7 +264,8 @@ impl InspectorModule for AnimationModule {
 
             // Import JSON button - imports metadata for the current clip only
             if Button::new(import_json_btn, JSON_LABEL)
-                .blocked(blocked || !has_variant)
+                .suppressed(blocked)
+                .blocked(!has_variant)
                 .show(ctx)
             {
                 let json_path = resolve_json_path(&animation.variant, &current_clip_id);
@@ -286,7 +291,8 @@ impl InspectorModule for AnimationModule {
 
             // Import Variant button - one-click full import from Aseprite files
             if Button::new(import_variant_btn, VARIANT_LABEL)
-                .blocked(blocked || !has_variant)
+                .suppressed(blocked)
+                .blocked(!has_variant)
                 .show(ctx)
             {
                 let full_path = assets_folder().join(&animation.variant.0);
@@ -395,7 +401,7 @@ pub fn draw_current_clip_dropdowns(
         &existing_clip_ids(&animation.clips),
         |id| id.ui_label(),
     )
-    .blocked(blocked)
+    .suppressed(blocked)
     .show(ctx)
     {
         animation.set_clip(&selected);
@@ -415,7 +421,7 @@ pub fn draw_current_clip_dropdowns(
         &all_ids,
         |id| id.ui_label(),
     )
-    .blocked(blocked)
+    .suppressed(blocked)
     .show(ctx);
 
     if let Some(chosen) = chosen {

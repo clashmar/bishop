@@ -40,7 +40,7 @@ pub fn gui_sprite_picker<C: BishopContext>(
 
     if Button::new(picker_rect, &btn_label)
         .interaction_id(interaction_id)
-        .blocked(blocked)
+        .suppressed(blocked)
         .show_native_dialog(ctx)
     {
         #[cfg(not(target_arch = "wasm32"))]
@@ -64,7 +64,7 @@ pub fn gui_sprite_picker<C: BishopContext>(
         }
     }
 
-    if Button::new(remove_rect, "x").blocked(blocked).show(ctx) && id.0 != 0 {
+    if Button::new(remove_rect, "x").suppressed(blocked).show(ctx) && id.0 != 0 {
         sprite_manager.decrement_ref(*id);
         *id = SpriteId(0);
         changed = true;

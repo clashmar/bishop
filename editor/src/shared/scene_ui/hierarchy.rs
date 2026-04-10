@@ -97,7 +97,7 @@ pub fn draw_scene_entity_tree(
                 .plain()
                 .text_color(Color::WHITE)
                 .hover_color(Color::GREY)
-                .blocked(frame.blocked)
+                .suppressed(frame.blocked)
                 .show(frame.ctx);
             if !frame.blocked && clicked {
                 if is_expanded {

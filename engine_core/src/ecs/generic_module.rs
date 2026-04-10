@@ -252,7 +252,7 @@ where
                         Dropdown::new(base_id, widget_rect, pivot.label(), Pivot::all(), |p| {
                             p.label().to_string()
                         })
-                        .blocked(blocked)
+                        .suppressed(blocked)
                         .show(ctx)
                     {
                         *pivot = selected;
