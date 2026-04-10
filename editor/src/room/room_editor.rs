@@ -1,6 +1,6 @@
 // editor/src/room/room_editor.rs
-use crate::app::EditorMode;
 use crate::app::EditorCameraController;
+use crate::app::EditorMode;
 use crate::app::SubEditor;
 use crate::canvas::grid;
 use crate::canvas::grid_shader::GridRenderer;
@@ -15,7 +15,7 @@ use crate::room::drawing::*;
 use crate::room::selection::DragState;
 use crate::shared::scene_ui::inspector::{SceneCreateRequest, ScenePrefabActionRequest};
 use crate::shared::selection::draw_selection_box;
-use crate::storage::editor_storage::{PREFAB_PALETTE_RECENT_CAP, PrefabPaletteState};
+use crate::storage::editor_storage::{PrefabPaletteState, PREFAB_PALETTE_RECENT_CAP};
 use crate::tilemap::tilemap_editor::*;
 use crate::world::coord;
 use bishop::prelude::*;
@@ -205,18 +205,18 @@ impl RoomEditor {
                 self.tilemap_editor.mode = self.tilemap_sub_mode;
                 self.tilemap_editor.sub_mode_rect = self.sub_mode_rect;
                 self.tilemap_editor.sync_adjacent_exits(&adjacent_exits);
-                self.tilemap_editor
-                    .update(ctx, sprite_manager, camera, room, &other_bounds, grid_size);
+                self.tilemap_editor.update(
+                    ctx,
+                    sprite_manager,
+                    camera,
+                    room,
+                    &other_bounds,
+                    grid_size,
+                );
             }
             RoomEditorMode::Scene => {
                 let stamp_handled =
-                    self.handle_prefab_stamp(
-                        ctx,
-                        camera,
-                        room.id,
-                        grid_size,
-                        active_prefab_stamp,
-                    );
+                    self.handle_prefab_stamp(ctx, camera, room.id, grid_size, active_prefab_stamp);
                 let drag_handled = stamp_handled
                     || self.handle_selection(ctx, room.id, camera, ecs, sprite_manager, grid_size);
 
@@ -301,6 +301,18 @@ impl RoomEditor {
         self.scene_sub_mode = RoomSceneSubMode::Scene;
     }
 
+    pub(crate) fn reconcile_prefab_palette(&mut self, prefab_library: &PrefabLibrary) {
+        self.recent_prefab_ids =
+            reconcile_recent_prefab_ids(self.recent_prefab_ids.clone(), prefab_library);
+
+        if self
+            .active_prefab_id
+            .is_some_and(|prefab_id| !prefab_library.prefabs.contains_key(&prefab_id))
+        {
+            self.active_prefab_id = self.recent_prefab_ids.first().copied();
+        }
+    }
+
     pub(crate) fn activate_prefab(&mut self, prefab_id: PrefabId) {
         self.active_prefab_id = Some(prefab_id);
         self.record_recent_prefab(prefab_id);
@@ -313,8 +325,7 @@ impl RoomEditor {
     pub(crate) fn record_recent_prefab(&mut self, prefab_id: PrefabId) {
         self.recent_prefab_ids.retain(|id| *id != prefab_id);
         self.recent_prefab_ids.insert(0, prefab_id);
-        self.recent_prefab_ids
-            .truncate(PREFAB_PALETTE_RECENT_CAP);
+        self.recent_prefab_ids.truncate(PREFAB_PALETTE_RECENT_CAP);
     }
 
     pub(crate) fn reset_scene_sub_mode(&mut self) -> bool {
@@ -360,7 +371,11 @@ impl RoomEditor {
         let Some(prefab) = prefab_library.prefabs.get(&prefab_id) else {
             return Pivot::BottomCenter;
         };
-        let Some(root) = prefab.nodes.iter().find(|node| node.node_id == prefab.root_node_id) else {
+        let Some(root) = prefab
+            .nodes
+            .iter()
+            .find(|node| node.node_id == prefab.root_node_id)
+        else {
             return Pivot::BottomCenter;
         };
 
@@ -404,7 +419,11 @@ impl RoomEditor {
 
             match self.mode {
                 RoomEditorMode::Tilemap => {
-                    let Some(room) = game_ctx.cur_world.as_deref_mut().and_then(World::current_room_mut) else {
+                    let Some(room) = game_ctx
+                        .cur_world
+                        .as_deref_mut()
+                        .and_then(World::current_room_mut)
+                    else {
                         return;
                     };
 
@@ -453,8 +472,10 @@ impl RoomEditor {
                     }
 
                     if !view_preview {
-                        let Some(room) =
-                            game_ctx.cur_world.as_deref_mut().and_then(World::current_room_mut)
+                        let Some(room) = game_ctx
+                            .cur_world
+                            .as_deref_mut()
+                            .and_then(World::current_room_mut)
                         else {
                             return;
                         };
@@ -514,7 +535,6 @@ impl RoomEditor {
                             }
                         }
                     }
-
                 }
             }
 
@@ -572,9 +592,7 @@ pub(crate) fn reconcile_recent_prefab_ids(
         .into_iter()
         .filter(|prefab_id| prefab_library.prefabs.contains_key(prefab_id))
         .fold(Vec::new(), |mut ids, prefab_id| {
-            if !ids.contains(&prefab_id)
-                && ids.len() < PREFAB_PALETTE_RECENT_CAP
-            {
+            if !ids.contains(&prefab_id) && ids.len() < PREFAB_PALETTE_RECENT_CAP {
                 ids.push(prefab_id);
             }
             ids
@@ -713,5 +731,26 @@ mod tests {
                 PrefabId(5),
             ]
         );
+    }
+
+    #[test]
+    fn reconcile_prefab_palette_promotes_first_valid_recent_when_active_is_missing() {
+        let library = prefab_library(&[2, 3]);
+        let mut editor = RoomEditor::new();
+        editor.active_prefab_id = Some(PrefabId(999));
+        editor.recent_prefab_ids = vec![PrefabId(999), PrefabId(2), PrefabId(3)];
+        editor.mode = RoomEditorMode::Tilemap;
+        editor.scene_sub_mode = RoomSceneSubMode::Stamp;
+        editor.view_preview = true;
+        editor.preview_camera_id = Some(7);
+
+        editor.reconcile_prefab_palette(&library);
+
+        assert_eq!(editor.active_prefab_id, Some(PrefabId(2)));
+        assert_eq!(editor.recent_prefab_ids, vec![PrefabId(2), PrefabId(3)]);
+        assert_eq!(editor.mode, RoomEditorMode::Tilemap);
+        assert_eq!(editor.scene_sub_mode, RoomSceneSubMode::Stamp);
+        assert!(editor.view_preview);
+        assert_eq!(editor.preview_camera_id, Some(7));
     }
 }

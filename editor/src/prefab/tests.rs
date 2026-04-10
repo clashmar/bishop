@@ -848,6 +848,35 @@ fn requesting_prefab_transition_from_asset_loads_prefab_into_library() {
 }
 
 #[test]
+fn requesting_prefab_transition_to_asset_reconciles_stale_palette_state() {
+    let _lock = game_fs_test_lock()
+        .lock()
+        .unwrap_or_else(|poison| poison.into_inner());
+    let test_game = TestGameFolder::new("prefab_transition_asset_reconciles_palette");
+    let (mut editor, room_id, prefab_id, _) = make_prefab_session_editor(&test_game);
+    let second_prefab = save_test_prefab(&test_game, PrefabId(2), "Barrel");
+
+    editor.room_editor.active_prefab_id = Some(PrefabId(999));
+    editor.room_editor.recent_prefab_ids = vec![PrefabId(999), second_prefab.id, prefab_id];
+
+    assert_eq!(
+        editor.request_prefab_transition_to_asset(second_prefab.clone()),
+        PrefabTransitionPrompt::None
+    );
+    assert_eq!(editor.mode, EditorMode::Prefab(second_prefab.id));
+    assert_eq!(editor.return_mode, Some(EditorMode::Room(room_id)));
+    assert_eq!(
+        editor.game.prefab_library.prefabs.get(&second_prefab.id),
+        Some(&second_prefab)
+    );
+    assert_eq!(editor.room_editor.active_prefab_id, Some(second_prefab.id));
+    assert_eq!(
+        editor.room_editor.recent_prefab_ids,
+        vec![second_prefab.id, prefab_id]
+    );
+}
+
+#[test]
 fn requesting_prefab_transition_from_file_path_marks_dirty_session_pending() {
     let _lock = game_fs_test_lock()
         .lock()
@@ -971,8 +1000,8 @@ fn dirty_prefab_transition_save_does_not_switch_when_palette_persist_fails() {
         .prefab_library
         .prefabs
         .insert(second_prefab.id, second_prefab.clone());
-    editor.room_editor.active_prefab_id = Some(prefab_id);
-    editor.room_editor.recent_prefab_ids = vec![prefab_id, second_prefab.id];
+    editor.room_editor.active_prefab_id = Some(PrefabId(999));
+    editor.room_editor.recent_prefab_ids = vec![PrefabId(999), prefab_id, second_prefab.id];
 
     let root = editor.prefab_editor.as_ref().unwrap().root_entity.unwrap();
     editor
@@ -982,6 +1011,7 @@ fn dirty_prefab_transition_save_does_not_switch_when_palette_persist_fails() {
         .create_prefab_entity(&mut editor.prefab_stage.as_mut().unwrap().ecs, Some(root));
 
     let palette_path = game_folder(test_game.name()).join("prefab_palette.ron");
+    std::fs::remove_file(&palette_path).expect("palette state file should exist");
     std::fs::create_dir(&palette_path).expect("palette path should become a directory");
 
     assert_eq!(
@@ -1002,10 +1032,10 @@ fn dirty_prefab_transition_save_does_not_switch_when_palette_persist_fails() {
         Some(PendingPrefabTransition::OpenExisting(second_prefab.id))
     );
     assert!(editor.active_prefab_is_clean());
-    assert_eq!(editor.room_editor.active_prefab_id, Some(prefab_id));
+    assert_eq!(editor.room_editor.active_prefab_id, Some(PrefabId(999)));
     assert_eq!(
         editor.room_editor.recent_prefab_ids,
-        vec![prefab_id, second_prefab.id]
+        vec![PrefabId(999), prefab_id, second_prefab.id]
     );
 }
 
@@ -1080,6 +1110,150 @@ fn empty_prefab_transition_delete_switches_to_requested_prefab() {
         assert_eq!(editor.return_mode, Some(EditorMode::Room(room_id)));
         assert!(!editor.game.prefab_library.prefabs.contains_key(&prefab_id));
         assert_eq!(editor.pending_prefab_transition, None);
+    });
+}
+
+#[test]
+fn deleting_active_prefab_promotes_next_recent_and_persists_palette_state() {
+    let _lock = game_fs_test_lock()
+        .lock()
+        .unwrap_or_else(|poison| poison.into_inner());
+    let test_game = TestGameFolder::new("prefab_delete_active_promotes_recent");
+    let (editor, room_id, prefab_id, _) = make_prefab_session_editor(&test_game);
+    let _guard = EditorServicesGuard::install(editor);
+
+    with_editor(|editor| {
+        let second_prefab = save_test_prefab(&test_game, PrefabId(2), "Barrel");
+        editor
+            .game
+            .prefab_library
+            .prefabs
+            .insert(second_prefab.id, second_prefab);
+        editor.room_editor.active_prefab_id = Some(prefab_id);
+        editor.room_editor.recent_prefab_ids = vec![prefab_id, PrefabId(2)];
+        assert!(editor.save_prefab_palette_state());
+
+        let root = editor.prefab_editor.as_ref().unwrap().root_entity.unwrap();
+        push_command(Box::new(DeleteEntityCmd::new(
+            root,
+            EditorMode::Prefab(prefab_id),
+        )));
+    });
+    apply_pending_commands();
+
+    with_editor(|editor| {
+        editor.reconcile_active_prefab_room_preview();
+        assert_eq!(
+            editor.request_prefab_transition(PendingPrefabTransition::Exit),
+            PrefabTransitionPrompt::Empty
+        );
+
+        editor.confirm_empty_prefab_transition(EmptyPrefabExitPromptResult::DeletePrefab);
+
+        assert_eq!(editor.mode, EditorMode::Room(room_id));
+        assert_eq!(editor.room_editor.active_prefab_id, Some(PrefabId(2)));
+        assert_eq!(editor.room_editor.recent_prefab_ids, vec![PrefabId(2)]);
+    });
+
+    let saved_state =
+        load_prefab_palette_state(test_game.name()).expect("prefab palette state should save");
+    assert_eq!(saved_state.active_prefab_id, Some(PrefabId(2)));
+    assert_eq!(saved_state.recent_prefab_ids, vec![PrefabId(2)]);
+}
+
+#[test]
+fn deleting_non_active_recent_prefab_compacts_palette_without_changing_active_prefab() {
+    let _lock = game_fs_test_lock()
+        .lock()
+        .unwrap_or_else(|poison| poison.into_inner());
+    let test_game = TestGameFolder::new("prefab_delete_recent_compacts_palette");
+    let (editor, room_id, prefab_id, _) = make_prefab_session_editor(&test_game);
+    let _guard = EditorServicesGuard::install(editor);
+
+    with_editor(|editor| {
+        let second_prefab = save_test_prefab(&test_game, PrefabId(2), "Barrel");
+        editor
+            .game
+            .prefab_library
+            .prefabs
+            .insert(second_prefab.id, second_prefab);
+        editor.room_editor.active_prefab_id = Some(PrefabId(2));
+        editor.room_editor.recent_prefab_ids = vec![PrefabId(2), prefab_id];
+        assert!(editor.save_prefab_palette_state());
+
+        let root = editor.prefab_editor.as_ref().unwrap().root_entity.unwrap();
+        push_command(Box::new(DeleteEntityCmd::new(
+            root,
+            EditorMode::Prefab(prefab_id),
+        )));
+    });
+    apply_pending_commands();
+
+    with_editor(|editor| {
+        editor.reconcile_active_prefab_room_preview();
+        assert_eq!(
+            editor.request_prefab_transition(PendingPrefabTransition::Exit),
+            PrefabTransitionPrompt::Empty
+        );
+
+        editor.confirm_empty_prefab_transition(EmptyPrefabExitPromptResult::DeletePrefab);
+
+        assert_eq!(editor.mode, EditorMode::Room(room_id));
+        assert_eq!(editor.room_editor.active_prefab_id, Some(PrefabId(2)));
+        assert_eq!(editor.room_editor.recent_prefab_ids, vec![PrefabId(2)]);
+    });
+
+    let saved_state =
+        load_prefab_palette_state(test_game.name()).expect("prefab palette state should save");
+    assert_eq!(saved_state.active_prefab_id, Some(PrefabId(2)));
+    assert_eq!(saved_state.recent_prefab_ids, vec![PrefabId(2)]);
+}
+
+#[test]
+fn deleting_active_prefab_keeps_reconciled_palette_state_when_palette_persist_fails() {
+    let _lock = game_fs_test_lock()
+        .lock()
+        .unwrap_or_else(|poison| poison.into_inner());
+    let test_game = TestGameFolder::new("prefab_delete_palette_save_failure_reconciles");
+    let (editor, room_id, prefab_id, _) = make_prefab_session_editor(&test_game);
+    let _guard = EditorServicesGuard::install(editor);
+
+    with_editor(|editor| {
+        let second_prefab = save_test_prefab(&test_game, PrefabId(2), "Barrel");
+        editor
+            .game
+            .prefab_library
+            .prefabs
+            .insert(second_prefab.id, second_prefab);
+        editor.room_editor.active_prefab_id = Some(prefab_id);
+        editor.room_editor.recent_prefab_ids = vec![prefab_id, PrefabId(999), PrefabId(2)];
+        assert!(editor.save_prefab_palette_state());
+
+        let palette_path = game_folder(test_game.name()).join("prefab_palette.ron");
+        std::fs::remove_file(&palette_path).expect("palette state file should exist");
+        std::fs::create_dir(&palette_path).expect("palette path should become a directory");
+
+        let root = editor.prefab_editor.as_ref().unwrap().root_entity.unwrap();
+        push_command(Box::new(DeleteEntityCmd::new(
+            root,
+            EditorMode::Prefab(prefab_id),
+        )));
+    });
+    apply_pending_commands();
+
+    with_editor(|editor| {
+        editor.reconcile_active_prefab_room_preview();
+        assert_eq!(
+            editor.request_prefab_transition(PendingPrefabTransition::Exit),
+            PrefabTransitionPrompt::Empty
+        );
+
+        editor.confirm_empty_prefab_transition(EmptyPrefabExitPromptResult::DeletePrefab);
+
+        assert_eq!(editor.mode, EditorMode::Room(room_id));
+        assert_eq!(editor.room_editor.active_prefab_id, Some(PrefabId(2)));
+        assert_eq!(editor.room_editor.recent_prefab_ids, vec![PrefabId(2)]);
+        assert!(!editor.game.prefab_library.prefabs.contains_key(&prefab_id));
     });
 }
 

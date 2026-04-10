@@ -149,6 +149,7 @@ impl Editor {
             onscreen_error!("Could not write prefabs.lua: {error}");
             return;
         }
+        let _ = self.reconcile_prefab_palette_after_library_change();
         let Some(linked_root) = relink_room_subtree_to_prefab(&mut self.game, entity, &prefab)
         else {
             self.toast = Some(Toast::new("Could not link selected entity to prefab.", 2.5));
@@ -175,6 +176,7 @@ impl Editor {
             onscreen_error!("Could not write prefabs.lua: {error}");
             return;
         }
+        let _ = self.reconcile_prefab_palette_after_library_change();
         self.open_prefab_editor_for_id(prefab_id);
     }
 
@@ -288,6 +290,7 @@ impl Editor {
             .prefab_library
             .prefabs
             .insert(prefab.id, prefab.clone());
+        let _ = self.reconcile_prefab_palette_after_library_change();
         self.request_prefab_transition(PendingPrefabTransition::OpenExisting(prefab.id))
     }
 
@@ -407,13 +410,7 @@ impl Editor {
         }
         self.reconcile_prefab_room_state(StagedPrefabState::PrefabAsset(prefab.clone()));
 
-        let previous_active_prefab_id = self.room_editor.active_prefab_id;
-        let previous_recent_prefab_ids = self.room_editor.recent_prefab_ids.clone();
-        self.room_editor.active_prefab_id = Some(prefab.id);
-        self.room_editor.record_recent_prefab(prefab.id);
-        if !self.save_prefab_palette_state() {
-            self.room_editor.active_prefab_id = previous_active_prefab_id;
-            self.room_editor.recent_prefab_ids = previous_recent_prefab_ids;
+        if !self.promote_prefab_in_palette(prefab.id) {
             return false;
         }
 
@@ -447,6 +444,9 @@ impl Editor {
             prefab_editor.last_committed_prefab = StagedPrefabState::Empty;
         }
         self.reconcile_prefab_room_state(StagedPrefabState::Empty);
+        if !self.remove_prefab_from_palette(prefab_id) {
+            return;
+        }
         self.toast = Some(Toast::new("Prefab deleted", 2.5));
     }
 

@@ -4,7 +4,61 @@ use crate::storage::export::{export_game, export_target_path, PendingExport};
 use bishop::prelude::*;
 use engine_core::prelude::*;
 
+#[derive(Clone, Copy)]
+enum PrefabPaletteRollbackMode {
+    ExactSnapshot,
+    ReconcileCurrentLibrary,
+}
+
 impl Editor {
+    fn reconcile_prefab_palette_state_after_library_change(
+        &self,
+        state: PrefabPaletteState,
+    ) -> PrefabPaletteState {
+        let recent_prefab_ids = crate::room::room_editor::reconcile_recent_prefab_ids(
+            state.recent_prefab_ids,
+            &self.game.prefab_library,
+        );
+        let active_prefab_id = state
+            .active_prefab_id
+            .filter(|prefab_id| self.game.prefab_library.prefabs.contains_key(prefab_id))
+            .or_else(|| recent_prefab_ids.first().copied());
+
+        PrefabPaletteState {
+            active_prefab_id,
+            recent_prefab_ids,
+        }
+    }
+
+    fn commit_prefab_palette_change(
+        &mut self,
+        apply_change: impl FnOnce(&mut PrefabPaletteState),
+        rollback_mode: PrefabPaletteRollbackMode,
+    ) -> bool {
+        let snapshot = self.room_editor.prefab_palette_state();
+        let mut palette_state = snapshot.clone();
+
+        apply_change(&mut palette_state);
+        self.room_editor.active_prefab_id = palette_state.active_prefab_id;
+        self.room_editor.recent_prefab_ids = palette_state.recent_prefab_ids;
+        self.room_editor
+            .reconcile_prefab_palette(&self.game.prefab_library);
+
+        if self.save_prefab_palette_state() {
+            return true;
+        }
+
+        let rollback_state = match rollback_mode {
+            PrefabPaletteRollbackMode::ExactSnapshot => snapshot,
+            PrefabPaletteRollbackMode::ReconcileCurrentLibrary => {
+                self.reconcile_prefab_palette_state_after_library_change(snapshot)
+            }
+        };
+        self.room_editor.active_prefab_id = rollback_state.active_prefab_id;
+        self.room_editor.recent_prefab_ids = rollback_state.recent_prefab_ids;
+        false
+    }
+
     pub(crate) fn load_prefab_palette_state(&mut self) {
         match load_prefab_palette_state(&self.game.name) {
             Ok(state) => self
@@ -28,6 +82,40 @@ impl Editor {
             return false;
         }
         true
+    }
+
+    pub(crate) fn reconcile_prefab_palette_after_library_change(&mut self) -> bool {
+        let palette_state = self.reconcile_prefab_palette_state_after_library_change(
+            self.room_editor.prefab_palette_state(),
+        );
+        self.room_editor.active_prefab_id = palette_state.active_prefab_id;
+        self.room_editor.recent_prefab_ids = palette_state.recent_prefab_ids;
+        self.save_prefab_palette_state()
+    }
+
+    pub(crate) fn promote_prefab_in_palette(&mut self, prefab_id: PrefabId) -> bool {
+        if !self.game.prefab_library.prefabs.contains_key(&prefab_id) {
+            return false;
+        }
+
+        self.commit_prefab_palette_change(
+            |state| {
+                state.active_prefab_id = Some(prefab_id);
+                state.recent_prefab_ids.retain(|id| *id != prefab_id);
+                state.recent_prefab_ids.insert(0, prefab_id);
+                state.recent_prefab_ids.truncate(PREFAB_PALETTE_RECENT_CAP);
+            },
+            PrefabPaletteRollbackMode::ExactSnapshot,
+        )
+    }
+
+    pub(crate) fn remove_prefab_from_palette(&mut self, prefab_id: PrefabId) -> bool {
+        self.commit_prefab_palette_change(
+            |state| {
+                state.recent_prefab_ids.retain(|id| *id != prefab_id);
+            },
+            PrefabPaletteRollbackMode::ReconcileCurrentLibrary,
+        )
     }
 
     pub(crate) fn activate_prefab(&mut self, prefab_id: PrefabId) -> bool {
@@ -91,9 +179,7 @@ impl Editor {
 
             let target_path = export_target_path(&dest_root, &self.game);
             if target_path.exists() {
-                self.pending_export = Some(PendingExport {
-                    dest_root,
-                });
+                self.pending_export = Some(PendingExport { dest_root });
                 self.open_export_overwrite_modal(ctx, &target_path);
                 return;
             }
