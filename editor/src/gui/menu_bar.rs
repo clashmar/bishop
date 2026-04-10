@@ -1,13 +1,11 @@
 // editor/src/gui/menu_bar.rs
 use crate::app::EditorMode;
 use crate::gui::gui_constants::*;
-use crate::gui::modal::is_modal_open;
+use crate::gui::menu_widgets::menu_dropdown;
+pub(crate) use crate::gui::menu_widgets::{menu_button, menu_button_text_position};
 use bishop::prelude::*;
 use engine_core::prelude::*;
-use std::cell::RefCell;
-use std::collections::hash_map::DefaultHasher;
-use std::fmt::{self, Display};
-use std::hash::{Hash, Hasher};
+use std::fmt;
 use strum_macros::EnumIter;
 
 /// Holds the state of the top‑level menu bar.
@@ -47,9 +45,6 @@ pub enum EditorAction {
     OpenPrefabEditor,
     ReturnToGameEditor,
 }
-
-const MENU_BUTTON_TARGET_SALT: u64 = 0x4D45_4E55_4254_4E31;
-const MENU_ENTRY_TARGET_SALT: u64 = 0x4D45_4E55_454E_5452;
 
 impl EditorAction {
     /// Returns the text that should be shown in dropdowns, lists, etc.
@@ -218,7 +213,10 @@ impl MenuBar {
         );
 
         match editor_mode {
-            EditorMode::Game | EditorMode::World(_) | EditorMode::Room(_) | EditorMode::Prefab(_) => {
+            EditorMode::Game
+            | EditorMode::World(_)
+            | EditorMode::Room(_)
+            | EditorMode::Prefab(_) => {
                 let title_actions = vec![EditorAction::Rename];
                 if let Some(selected) = menu_dropdown(
                     ctx,
@@ -435,197 +433,6 @@ pub fn menu_panel_rect(ctx: &mut WgpuContext) -> Rect {
     Rect::new(0.0, 0.0, ctx.screen_width(), MENU_PANEL_HEIGHT)
 }
 
-/// Button and dropdown for a menu option.
-fn menu_dropdown<T: Clone + PartialEq + Display>(
-    ctx: &mut WgpuContext,
-    id: WidgetId,
-    rect: Rect,
-    label: &str,
-    options: &[T],
-    to_string: impl Fn(&T) -> String,
-    shortcut: impl Fn(&T) -> Option<&str>,
-) -> Option<T> {
-    const W_PADDING: f32 = 8.0;
-    const DROPDOWN_Y_OFFSET: f32 = 7.5;
-
-    // Load previous state
-    let mut state = dropdown_state::get(id);
-
-    let mouse_pos: Vec2 = ctx.mouse_position().into();
-    let hovered = rect.contains(mouse_pos);
-
-    // Change dropdown on mouse hover (if a dropdown is open)
-    if hovered {
-        let any_open = DROPDOWN_OPEN.with(|f| *f.borrow());
-        if any_open {
-            CURRENT_OPEN.with(|c| {
-                let current_id = *c.borrow();
-                if current_id != Some(id) {
-                    // Close the previous dropdown
-                    if let Some(prev_id) = current_id {
-                        let mut prev_state = dropdown_state::get(prev_id);
-                        prev_state.open = false;
-                        dropdown_state::set(prev_id, prev_state);
-                    }
-                    // Open the new one
-                    state.open = true;
-                    *c.borrow_mut() = Some(id);
-                }
-            });
-        }
-    }
-
-    // Dropdown header
-    let button_clicked = menu_button(ctx, rect, label, state.open);
-
-    if button_clicked {
-        // Clicking the button toggles open state
-        state.open = !state.open;
-        // Update the global currently open dropdown
-        if state.open {
-            CURRENT_OPEN.with(|c| *c.borrow_mut() = Some(id));
-        } else {
-            CURRENT_OPEN.with(|c| *c.borrow_mut() = None);
-        }
-    }
-
-    let list_is_open = state.open;
-
-    // Let the editor know a dropdown is open
-    let mut any_open = false;
-    DROPDOWN_OPEN.with(|f| {
-        let was = *f.borrow();
-        *f.borrow_mut() = was || list_is_open;
-        any_open = *f.borrow();
-    });
-
-    // Compute the widest option
-    let mut max_opt_width = 0.0_f32;
-    for opt in options.iter() {
-        // label width
-        let label_w = measure_text(ctx, &to_string(opt), DEFAULT_FONT_SIZE_16).width;
-        // optional shortcut width
-        let shortcut_w = shortcut(opt)
-            .map(|s| measure_text(ctx, s, DEFAULT_FONT_SIZE_16).width + SPACING)
-            .unwrap_or(0.0);
-        let total_w = label_w + shortcut_w;
-        if total_w > max_opt_width {
-            max_opt_width = total_w;
-        }
-    }
-
-    let list_width = rect.w.max(max_opt_width + 2.0 * W_PADDING);
-
-    let rows = options.len();
-    let total_height = rect.h * rows as f32;
-
-    // Compute the list rectangle
-    let list_rect = Rect::new(
-        rect.x,
-        rect.y + rect.h + DROPDOWN_Y_OFFSET,
-        list_width,
-        total_height,
-    );
-
-    if list_is_open {
-        state.rect = list_rect;
-    }
-
-    // Draw the list and handle selection
-    if list_is_open {
-        let mouse_pos = ctx.mouse_position().into();
-
-        // Background
-        ctx.draw_rectangle(
-            list_rect.x,
-            list_rect.y,
-            list_rect.w,
-            list_rect.h,
-            PANEL_COLOR,
-        );
-
-        for (i, opt) in options.iter().enumerate() {
-            // The Y position the entry would have without scrolling
-            let entry_y = list_rect.y + i as f32 * rect.h;
-
-            let entry_rect = Rect::new(list_rect.x, entry_y, list_rect.w, rect.h);
-
-            let hovered = entry_rect.contains(mouse_pos);
-            if activate_on_release(
-                MouseButton::Left,
-                menu_entry_click_target(id, i),
-                hovered,
-                true,
-                ctx.is_mouse_button_pressed(MouseButton::Left),
-                ctx.is_mouse_button_released(MouseButton::Left),
-            ) {
-                // Close the list and return the chosen value
-                state.open = false;
-                dropdown_state::set(id, state);
-                update_global_dropdown_flag();
-                return Some(opt.clone());
-            }
-
-            if hovered {
-                ctx.draw_rectangle(
-                    entry_rect.x,
-                    entry_rect.y,
-                    entry_rect.w,
-                    entry_rect.h,
-                    Color::new(0.2, 0.2, 0.2, 0.9),
-                );
-            }
-
-            // Action
-            ctx.draw_text(
-                &to_string(opt),
-                entry_rect.x + 5.,
-                entry_rect.y + entry_rect.h * 0.7,
-                DEFAULT_FONT_SIZE_16,
-                Color::BLACK,
-            );
-
-            // Optional shortcut display
-            if let Some(shortcut) = shortcut(opt) {
-                let sc_width = measure_text(ctx, shortcut, DEFAULT_FONT_SIZE_16).width;
-                let sc_x = entry_rect.x + entry_rect.w - sc_width - 5.0;
-                ctx.draw_text(
-                    shortcut,
-                    sc_x,
-                    entry_rect.y + entry_rect.h * 0.7,
-                    DEFAULT_FONT_SIZE_16,
-                    Color::WHITE,
-                );
-            }
-
-            // Draw the outline last
-            ctx.draw_rectangle_lines(
-                list_rect.x,
-                list_rect.y,
-                list_rect.w,
-                list_rect.h,
-                2.,
-                Color::BLACK,
-            );
-        }
-    }
-
-    // Clicking outside closes the dropdown
-    let mouse_pos = ctx.mouse_position().into();
-    if ctx.is_mouse_button_pressed(MouseButton::Left)
-        && !rect.contains(mouse_pos)
-        && !(state.open && state.rect.contains(mouse_pos))
-    {
-        state.open = false;
-        CURRENT_OPEN.with(|c| *c.borrow_mut() = None);
-    }
-
-    // Persist the state
-    dropdown_state::set(id, state);
-    update_global_dropdown_flag();
-    None
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -635,10 +442,8 @@ mod tests {
     #[test]
     fn hierarchy_panel_action_is_limited_to_room_and_prefab_modes() {
         assert!(!EditorAction::ViewHierarchyPanel.is_available_in(EditorMode::Game));
-        assert!(
-            !EditorAction::ViewHierarchyPanel
-                .is_available_in(EditorMode::World(WorldId(Uuid::nil()),))
-        );
+        assert!(!EditorAction::ViewHierarchyPanel
+            .is_available_in(EditorMode::World(WorldId(Uuid::nil()),)));
         assert!(EditorAction::ViewHierarchyPanel.is_available_in(EditorMode::Room(RoomId(2),)));
         assert!(EditorAction::ViewHierarchyPanel.is_available_in(EditorMode::Prefab(PrefabId(7),)));
         assert!(!EditorAction::ViewHierarchyPanel.is_available_in(EditorMode::Menu));
@@ -646,13 +451,11 @@ mod tests {
 
     #[test]
     fn prefab_palette_action_is_limited_to_room_mode() {
-        assert!(EditorAction::ViewPrefabPalettePanel.is_available_in(EditorMode::Room(
-            RoomId(2),
-        )));
+        assert!(EditorAction::ViewPrefabPalettePanel.is_available_in(EditorMode::Room(RoomId(2),)));
         assert!(!EditorAction::ViewPrefabPalettePanel.is_available_in(EditorMode::Game));
-        assert!(!EditorAction::ViewPrefabPalettePanel.is_available_in(EditorMode::Prefab(
-            PrefabId(7),
-        )));
+        assert!(
+            !EditorAction::ViewPrefabPalettePanel.is_available_in(EditorMode::Prefab(PrefabId(7),))
+        );
     }
 
     #[test]
@@ -690,64 +493,4 @@ mod tests {
 
         assert!(actions.contains(&EditorAction::ChangeSaveRoot));
     }
-}
-
-/// Returns true if clicked
-pub fn menu_button(ctx: &mut WgpuContext, rect: Rect, label: &str, is_dropdown_open: bool) -> bool {
-    // Text layout
-    let txt_dims = ctx.measure_text(label, HEADER_FONT_SIZE_20);
-    let (txt_x, txt_y) = menu_button_text_position(rect, txt_dims);
-
-    let mouse = ctx.mouse_position();
-    let hovered = rect.contains(vec2(mouse.0, mouse.1));
-
-    if (hovered || is_dropdown_open)
-        && !is_modal_open()
-        && !ctx.is_mouse_button_down(MouseButton::Left)
-    {
-        ctx.draw_rectangle(
-            rect.x,
-            rect.y,
-            rect.w,
-            rect.h,
-            Color::new(0.0, 0.0, 0.0, 0.5),
-        );
-    }
-
-    ctx.draw_text(label, txt_x, txt_y, HEADER_FONT_SIZE_20, Color::BLACK);
-
-    activate_on_release(
-        MouseButton::Left,
-        menu_button_click_target(rect, label),
-        hovered,
-        !is_modal_open(),
-        ctx.is_mouse_button_pressed(MouseButton::Left),
-        ctx.is_mouse_button_released(MouseButton::Left),
-    )
-}
-
-pub(crate) fn menu_button_text_position(rect: Rect, txt_dims: TextDimensions) -> (f32, f32) {
-    let txt_x = rect.x + (rect.w - txt_dims.width) / 2.0;
-    let txt_y = rect.y + (rect.h - txt_dims.height) / 2.0 + txt_dims.offset_y - 1.0;
-    (txt_x, txt_y)
-}
-
-thread_local! {
-    /// Holds the `WidgetId` of the dropdown that is currently open, if any.
-    static CURRENT_OPEN: RefCell<Option<WidgetId>> = const { RefCell::new(None) };
-}
-
-fn menu_button_click_target(rect: Rect, label: &str) -> ClickTargetId {
-    let mut hasher = DefaultHasher::new();
-    label.hash(&mut hasher);
-    rect.x.to_bits().hash(&mut hasher);
-    rect.y.to_bits().hash(&mut hasher);
-    rect.w.to_bits().hash(&mut hasher);
-    rect.h.to_bits().hash(&mut hasher);
-    MENU_BUTTON_TARGET_SALT.hash(&mut hasher);
-    ClickTargetId(hasher.finish())
-}
-
-fn menu_entry_click_target(id: WidgetId, index: usize) -> ClickTargetId {
-    ClickTargetId(((id.0 as u64) << 32) ^ index as u64 ^ MENU_ENTRY_TARGET_SALT)
 }

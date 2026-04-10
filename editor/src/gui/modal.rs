@@ -205,8 +205,14 @@ mod tests {
             },
         );
 
-        assert!(modal_hit_region_contains(modal_rect, Vec2::new(140.0, 260.0)));
-        assert!(!modal_hit_region_contains(modal_rect, Vec2::new(40.0, 40.0)));
+        assert!(modal_hit_region_contains(
+            modal_rect,
+            Vec2::new(140.0, 260.0)
+        ));
+        assert!(!modal_hit_region_contains(
+            modal_rect,
+            Vec2::new(40.0, 40.0)
+        ));
 
         dropdown_state::set(dropdown_id, dropdown_state::DropState::default());
         update_global_dropdown_flag();

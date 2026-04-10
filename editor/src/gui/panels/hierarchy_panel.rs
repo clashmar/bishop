@@ -3,8 +3,8 @@ use crate::gui::panels::generic_panel::PanelDefinition;
 use crate::prefab::is_prefab_entity;
 use crate::room::room_editor::RoomEditor;
 use crate::shared::scene_ui::hierarchy::{
-    draw_scene_entity_tree, SceneHierarchyFrame, SceneHierarchyHost,
-    SceneHierarchySelectionAction, SceneUiHost,
+    draw_scene_entity_tree, SceneHierarchyFrame, SceneHierarchyHost, SceneHierarchySelectionAction,
+    SceneUiHost,
 };
 use crate::Editor;
 use bishop::prelude::*;
@@ -140,8 +140,7 @@ impl PanelDefinition for HierarchyPanel {
         });
 
         let game = &mut editor.game;
-        let room_mode_prefab_library =
-            room_mode_prefab_library(cur_room_id, &game.prefab_library);
+        let room_mode_prefab_library = room_mode_prefab_library(cur_room_id, &game.prefab_library);
         let ecs = &mut game.ecs;
         let room_editor = &mut editor.room_editor;
         prune_dead_hierarchy_state(ecs, &mut self.expanded, &mut self.dragging);
@@ -363,7 +362,13 @@ impl HierarchyPanel {
         };
 
         if area.is_visible(y, HEADER_HEIGHT) {
-            ctx.draw_text("Prefab", rect.x + 6., y + 14., HEADER_FONT_SIZE, Color::GREY);
+            ctx.draw_text(
+                "Prefab",
+                rect.x + 6.,
+                y + 14.,
+                HEADER_FONT_SIZE,
+                Color::GREY,
+            );
         }
         y += HEADER_HEIGHT;
 
@@ -388,7 +393,12 @@ impl HierarchyPanel {
     }
 }
 
-pub(crate) fn layout_entity_tree(entity: Entity, y: &mut f32, expanded: &HashSet<Entity>, ecs: &Ecs) {
+pub(crate) fn layout_entity_tree(
+    entity: Entity,
+    y: &mut f32,
+    expanded: &HashSet<Entity>,
+    ecs: &Ecs,
+) {
     *y += ROW_HEIGHT;
     if expanded.contains(&entity) && has_children(ecs, entity) {
         for child in get_children(ecs, entity) {

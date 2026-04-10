@@ -4,15 +4,17 @@ use crate::gui::panels::hierarchy_panel::{
     clear_drag_on_mouse_release, layout_entity_tree, prune_dead_hierarchy_state,
     room_mode_prefab_library, sync_prefab_root_expansion, PrefabHierarchyHost, RoomHierarchyHost,
 };
-use crate::shared::scene_ui::hierarchy::{SceneHierarchyHost, SceneHierarchySelectionAction};
 use crate::room::room_editor::RoomEditor;
+use crate::shared::scene_ui::hierarchy::{SceneHierarchyHost, SceneHierarchySelectionAction};
 use engine_core::prelude::*;
 use engine_core::storage::test_utils::{game_fs_test_lock, TestGameFolder};
 use std::collections::HashSet;
 
 #[test]
 fn prune_dead_hierarchy_state_removes_deleted_entities() {
-    let _lock = game_fs_test_lock().lock().unwrap_or_else(|poison| poison.into_inner());
+    let _lock = game_fs_test_lock()
+        .lock()
+        .unwrap_or_else(|poison| poison.into_inner());
     let test_game = TestGameFolder::new("hierarchy_prune_dead");
     let mut stage = crate::prefab::PrefabStage::new(test_game.name());
     let live = stage
