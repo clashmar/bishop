@@ -1,4 +1,7 @@
-use game_lib::startup::{StartupController, StartupSource};
+use bishop::PlatformContext;
+use engine_core::prelude::*;
+use game_lib::engine::{Engine, EngineBuilder, EngineEntryMode, GameInstance};
+use std::collections::HashMap;
 
 /// Minimal headless playtest session scaffolding.
 pub struct HeadlessPlaytestSession {
@@ -11,25 +14,35 @@ impl HeadlessPlaytestSession {
         Self { session_id }
     }
 
-    /// Returns the session directory name used for headless runs.
-    pub fn session_dir_name(&self) -> String {
-        format!("{}_agent", self.session_id)
-    }
+    /// Builds a minimal headless engine session.
+    pub fn build_engine(&self, ctx: PlatformContext) -> Engine {
+        let _ = ctx;
+        let mut game = Game::default();
+        game.name = self.session_id.clone();
 
-    /// Builds the startup controller for a headless playtest session.
-    pub fn startup_controller(&self) -> StartupController {
-        StartupController::new(StartupSource::Game)
-    }
-}
+        let mut ecs = Ecs::default();
+        let room_id = RoomId::default();
+        let world_id = WorldId::default();
+        let room = Room::new(&mut ecs, room_id, 16.0);
 
-#[cfg(test)]
-mod tests {
-    use super::HeadlessPlaytestSession;
+        game.ecs = ecs;
+        game.worlds = vec![World {
+            id: world_id,
+            name: "HeadlessWorld".to_string(),
+            rooms: vec![room],
+            current_room_id: Some(room_id),
+            starting_room_id: Some(room_id),
+            starting_position: None,
+            meta: WorldMeta::default(),
+            grid_size: 16.0,
+        }];
+        game.current_world_id = world_id;
 
-    #[test]
-    fn headless_session_builds_session_dir_name() {
-        let session = HeadlessPlaytestSession::new("session-1".to_string());
-
-        assert_eq!(session.session_dir_name(), "session-1_agent");
+        let builder = EngineBuilder::new().entry_mode(EngineEntryMode::Playing);
+        let game_instance = GameInstance {
+            game,
+            prev_positions: HashMap::new(),
+        };
+        builder.assemble(game_instance, ctx, true)
     }
 }

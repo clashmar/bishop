@@ -8,9 +8,7 @@ use engine_core::agent_visibility::{
 use engine_core::prelude::*;
 use engine_core::logging::LOG_HISTORY;
 use game_lib::engine::Engine;
-use game_lib::startup::{
-    runtime_icon_for_playtest_payload, PlaytestLaunchArgs, StartupController, StartupSource,
-};
+use game_lib::startup::{runtime_icon_for_playtest_payload, PlaytestLaunchArgs, StartupController, StartupSource};
 use std::env;
 use std::path::PathBuf;
 use uuid::Uuid;
@@ -28,6 +26,7 @@ struct PlaytestApp {
     agent_manifest: Option<AgentSessionManifest>,
     engine: Option<Engine>,
     startup: Option<StartupController>,
+    headless_session: Option<HeadlessPlaytestSession>,
 }
 
 impl PlaytestApp {
@@ -39,6 +38,7 @@ impl PlaytestApp {
             agent_manifest: None,
             engine: None,
             startup: None,
+            headless_session: None,
         }
     }
 }
@@ -64,9 +64,7 @@ impl BishopApp for PlaytestApp {
         self.agent_manifest = Some(manifest);
         self.agent_transport = Some(transport);
         if self.launch_args.headless {
-            let headless_session = HeadlessPlaytestSession::new(self.session_id.clone());
-            let _session_dir_name = headless_session.session_dir_name();
-            self.startup = Some(headless_session.startup_controller());
+            self.headless_session = Some(HeadlessPlaytestSession::new(self.session_id.clone()));
         } else {
             let payload_path = self
                 .launch_args
@@ -82,6 +80,14 @@ impl BishopApp for PlaytestApp {
             engine.frame(ctx.clone()).await;
             let snapshot = Self::make_snapshot(&ctx, engine);
             self.publish_snapshot(snapshot);
+            return;
+        }
+
+        if let Some(headless_session) = &self.headless_session {
+            let engine = headless_session.build_engine(ctx.clone());
+            self.update_manifest_state(AgentSessionState::Running);
+            self.engine = Some(engine);
+            self.headless_session = None;
             return;
         }
 

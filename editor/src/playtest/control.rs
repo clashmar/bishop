@@ -78,7 +78,9 @@ mod tests {
     use super::AgentPlaytestControl;
     use crate::app::Editor;
     use engine_core::engine_global::set_game_name;
+    use engine_core::prelude::BackgroundTask;
     use engine_core::storage::test_utils::{game_fs_test_lock, TestGameFolder};
+    use std::path::PathBuf;
 
     #[test]
     fn agent_playtest_command_closes_cleanly_when_idle() {
@@ -90,5 +92,21 @@ mod tests {
 
         assert!(editor.request_close_playtest().is_ok());
         assert!(editor.request_open_playtest().is_err());
+    }
+
+    #[test]
+    fn close_playtest_clears_pending_build_state() {
+        let _lock = game_fs_test_lock().lock().unwrap();
+        let test_game = TestGameFolder::new("agent_playtest_control_pending");
+        set_game_name(test_game.name());
+
+        let mut editor = Editor::default();
+        editor.pending_playtest_build = Some(BackgroundTask::spawn(|| {
+            Ok((PathBuf::new(), PathBuf::new()))
+        }));
+
+        editor.request_close_playtest().unwrap();
+
+        assert!(editor.pending_playtest_build.is_none());
     }
 }
