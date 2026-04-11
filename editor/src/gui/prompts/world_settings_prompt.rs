@@ -1,4 +1,5 @@
 // editor/src/gui/prompts/world_settings_prompt.rs
+use crate::app::escape::modal_escape_requested;
 use crate::gui::prompts::constants::*;
 use crate::gui::prompts::helpers::*;
 use bishop::prelude::*;
@@ -91,7 +92,7 @@ impl WorldSettingsPrompt {
             });
         }
 
-        if cancel_clicked || Controls::escape(ctx) {
+        if cancel_clicked || modal_escape_requested() {
             return Some(WorldSettingsResult {
                 id: self.world_id,
                 grid_size: None,

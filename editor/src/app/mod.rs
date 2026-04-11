@@ -1,6 +1,7 @@
 // editor/src/editor/mod.rs
 mod audio;
 mod actions;
+pub(crate) mod escape;
 mod modals;
 mod persistence;
 pub mod camera_controller;
@@ -197,6 +198,8 @@ impl Editor {
             }
         }
 
+        escape::resolve_escape(Controls::escape(ctx));
+
         let ui_blocked = self.current_editor().should_block_canvas(ctx);
 
         if !self
@@ -227,7 +230,7 @@ impl Editor {
                     self.open_prefab_picker_modal(ctx);
                 }
                 if matches!(self.mode, EditorMode::Prefab(_))
-                    && Controls::escape(ctx)
+                    && escape::escape_available_for_editor()
                     && !input_is_focused()
                 {
                     self.request_exit_prefab_mode(ctx);
@@ -275,7 +278,7 @@ impl Editor {
                 }
 
                 // Handle escape
-                if Controls::escape(ctx) && !input_is_focused() {
+                if escape::escape_available_for_editor() && !input_is_focused() {
                     self.game_editor
                         .init_camera(ctx, &mut self.camera, &mut self.game);
 
@@ -338,12 +341,12 @@ impl Editor {
                         &mut self.game.sprite_manager,
                     );
 
-                    if Controls::escape(ctx)
+                    if escape::escape_available_for_editor()
                         && !input_is_focused()
                         && self.room_editor.reset_scene_sub_mode()
                     {
                         save_prefab_palette = true;
-                    } else if Controls::escape(ctx) && !input_is_focused() {
+                    } else if escape::escape_available_for_editor() && !input_is_focused() {
                         let palette = &mut self.room_editor.tilemap_editor.tilemap_panel.palette;
 
                         if let Err(e) = editor_storage::save_palette(palette, &self.game.name) {

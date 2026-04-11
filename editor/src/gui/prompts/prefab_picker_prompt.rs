@@ -1,3 +1,4 @@
+use crate::app::escape::modal_escape_requested;
 use crate::gui::prompts::constants::*;
 use crate::gui::prompts::helpers::{prompt_content_rect, three_button_rects};
 use bishop::prelude::*;
@@ -146,7 +147,7 @@ impl PrefabPickerPrompt {
             }
         }
 
-        if cancel_clicked || Controls::escape(ctx) {
+        if cancel_clicked || modal_escape_requested() {
             return Some(PrefabPickerResult::Cancelled);
         }
 

@@ -65,3 +65,50 @@ fn suppressed_dropdown_closes_existing_open_list() {
     );
     assert!(!dropdown_state::get(id).open);
 }
+
+#[test]
+fn close_open_dropdowns_clears_filterable_state() {
+    reset_click_consumed();
+
+    let id = WidgetId(90);
+    let rect = Rect::new(0.0, 0.0, 120.0, 30.0);
+    let list_rect = Rect::new(0.0, 30.0, 120.0, 90.0);
+    let filter_id = WidgetId(id.0.wrapping_add(FILTER_ID_OFFSET));
+    let options = ["Alpha", "Beta"];
+
+    let mut ctx = WidgetTestContext::new();
+    assert_eq!(
+        Dropdown::new(id, rect, "Pick", &options, |opt| opt.to_string())
+            .filterable()
+            .show(&mut ctx),
+        None
+    );
+
+    dropdown_state::set(
+        id,
+        dropdown_state::DropState {
+            open: true,
+            rect: list_rect,
+            scroll_offset: 0.0,
+        },
+    );
+    set_filter(id, "alp".to_string());
+    INPUT_TEXT_STATE.with(|state| {
+        let mut input_state = TextInputState::new("alp".to_string());
+        input_state.focused = true;
+        state.borrow_mut().insert(filter_id, input_state);
+    });
+    request_focus(filter_id, true);
+    update_global_dropdown_flag();
+
+    close_open_dropdowns();
+
+    assert!(!dropdown_state::get(id).open);
+    assert!(!is_dropdown_open());
+    assert_eq!(get_filter(id), "");
+    assert!(!input_is_focused());
+
+    INPUT_TEXT_STATE.with(|state| {
+        assert!(!state.borrow().contains_key(&filter_id));
+    });
+}

@@ -23,6 +23,11 @@ pub fn is_modal_open() -> bool {
     MODAL_OPEN.with(|f| *f.borrow())
 }
 
+#[cfg(test)]
+pub fn set_modal_open_for_test(open: bool) {
+    MODAL_OPEN.with(|f| *f.borrow_mut() = open);
+}
+
 pub type BoxedWidget = Box<dyn FnMut(&mut WgpuContext, &mut SpriteManager) + 'static>;
 type BoxedWidgets = Vec<BoxedWidget>;
 
@@ -67,6 +72,7 @@ impl Modal {
 
     /// Close the modal.
     pub fn close(&mut self) {
+        close_open_dropdowns();
         self.open = false;
         self.widgets = Vec::new();
 
@@ -189,6 +195,33 @@ fn close_open_dropdowns() {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn closing_modal_clears_open_dropdown_state() {
+        let dropdown_id = WidgetId::default();
+        dropdown_state::set(
+            dropdown_id,
+            dropdown_state::DropState {
+                open: true,
+                rect: Rect::new(120.0, 240.0, 160.0, 100.0),
+                scroll_offset: 0.0,
+            },
+        );
+        update_global_dropdown_flag();
+
+        assert!(is_dropdown_open());
+
+        let mut modal = Modal {
+            open: true,
+            ..Default::default()
+        };
+        modal.close();
+
+        assert!(!is_dropdown_open());
+
+        dropdown_state::set(dropdown_id, dropdown_state::DropState::default());
+        update_global_dropdown_flag();
+    }
 
     #[test]
     fn modal_hit_region_includes_open_dropdown_lists() {

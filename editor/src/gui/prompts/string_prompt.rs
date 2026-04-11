@@ -1,4 +1,5 @@
 // editor/src/gui/prompts/string_prompt.rs
+use crate::app::escape::modal_escape_requested;
 use crate::gui::prompts::constants::*;
 use crate::gui::prompts::helpers::*;
 use bishop::prelude::*;
@@ -63,7 +64,7 @@ impl StringPrompt {
 
     /// Draws the widget and, return the result if confirmed/cancelled or None.
     pub fn draw(&mut self, ctx: &mut WgpuContext) -> Option<StringPromptResult> {
-        self.draw_with_ctx(ctx, Controls::enter(ctx), Controls::escape(ctx))
+        self.draw_with_ctx(ctx, Controls::enter(ctx), modal_escape_requested())
     }
 
     fn draw_with_ctx<C: BishopContext>(
@@ -426,8 +427,8 @@ mod tests {
         reset_widget_state();
 
         let modal_rect = Rect::new(100.0, 60.0, 400.0, 180.0);
-        let mut prompt = StringPrompt::new(modal_rect, "Rename room:")
-            .with_initial_value("Entry Hall");
+        let mut prompt =
+            StringPrompt::new(modal_rect, "Rename room:").with_initial_value("Entry Hall");
 
         let (confirm_rect, _) = {
             let field_rect = Rect::new(

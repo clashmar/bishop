@@ -1,3 +1,4 @@
+use crate::app::escape::modal_escape_requested;
 use crate::gui::prompts::constants::*;
 use crate::gui::prompts::helpers::prompt_content_rect;
 use bishop::prelude::*;
@@ -52,7 +53,7 @@ impl EmptyPrefabSavePrompt {
         if Button::new(left, "Delete Prefab").show(ctx) || Controls::enter(ctx) {
             return Some(EmptyPrefabSaveConfirmResult::Delete);
         }
-        if Button::new(right, "Cancel").show(ctx) || Controls::escape(ctx) {
+        if Button::new(right, "Cancel").show(ctx) || modal_escape_requested() {
             return Some(EmptyPrefabSaveConfirmResult::Cancel);
         }
         None
@@ -76,7 +77,7 @@ impl EmptyPrefabExitPrompt {
         if Button::new(second, "Discard").show(ctx) || Controls::enter(ctx) {
             return Some(EmptyPrefabExitPromptResult::DiscardChanges);
         }
-        if Button::new(third, "Cancel").show(ctx) || Controls::escape(ctx) {
+        if Button::new(third, "Cancel").show(ctx) || modal_escape_requested() {
             return Some(EmptyPrefabExitPromptResult::Cancel);
         }
         None
@@ -100,7 +101,7 @@ impl DirtyPrefabExitPrompt {
         if Button::new(second, "Discard").show(ctx) {
             return Some(DirtyPrefabExitPromptResult::DiscardChanges);
         }
-        if Button::new(third, "Cancel").show(ctx) || Controls::escape(ctx) {
+        if Button::new(third, "Cancel").show(ctx) || modal_escape_requested() {
             return Some(DirtyPrefabExitPromptResult::Cancel);
         }
         None
