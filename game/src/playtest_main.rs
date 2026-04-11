@@ -18,10 +18,11 @@ use uuid::Uuid;
 mod playtest;
 
 use playtest::agent_visibility::FileAgentSessionTransport;
+use playtest::headless::HeadlessPlaytestSession;
 
 /// Wrapper struct for running playtest via BishopApp.
 struct PlaytestApp {
-    payload_path: String,
+    launch_args: PlaytestLaunchArgs,
     session_id: String,
     agent_transport: Option<FileAgentSessionTransport>,
     agent_manifest: Option<AgentSessionManifest>,
@@ -30,9 +31,9 @@ struct PlaytestApp {
 }
 
 impl PlaytestApp {
-    fn new(payload_path: String) -> Self {
+    fn new(launch_args: PlaytestLaunchArgs) -> Self {
         Self {
-            payload_path,
+            launch_args,
             session_id: Uuid::new_v4().to_string(),
             agent_transport: None,
             agent_manifest: None,
@@ -46,12 +47,15 @@ impl BishopApp for PlaytestApp {
     async fn init(&mut self, ctx: PlatformContext) {
         set_engine_mode(EngineMode::Playtest);
         let _ = ctx;
-        let transport = FileAgentSessionTransport::new(session_dir_for_payload(&self.payload_path));
+        let transport = FileAgentSessionTransport::new(session_dir_for_launch(
+            &self.launch_args,
+            &self.session_id,
+        ));
         let manifest = AgentSessionManifest {
             session_id: self.session_id.clone(),
             role: AgentSessionRole::Playtest,
             state: AgentSessionState::Starting,
-            payload_path: Some(self.payload_path.clone()),
+            payload_path: self.launch_args.payload_path.clone(),
             log_path: None,
         };
         if let Err(e) = transport.write_manifest(&manifest) {
@@ -59,9 +63,18 @@ impl BishopApp for PlaytestApp {
         }
         self.agent_manifest = Some(manifest);
         self.agent_transport = Some(transport);
-        self.startup = Some(StartupController::new(StartupSource::Playtest {
-            payload_path: self.payload_path.clone(),
-        }));
+        if self.launch_args.headless {
+            let headless_session = HeadlessPlaytestSession::new(self.session_id.clone());
+            let _session_dir_name = headless_session.session_dir_name();
+            self.startup = Some(headless_session.startup_controller());
+        } else {
+            let payload_path = self
+                .launch_args
+                .payload_path
+                .clone()
+                .expect("payload path required for editor-attached playtest");
+            self.startup = Some(StartupController::new(StartupSource::Playtest { payload_path }));
+        }
     }
 
     async fn frame(&mut self, ctx: PlatformContext) {
@@ -95,18 +108,24 @@ fn main() -> Result<(), RunError> {
     };
 
     let mut config = WindowConfig::new("Playtest").with_fullscreen(true);
-    if let Some(icon) = runtime_icon_for_playtest_payload(&launch_args.payload_path) {
-        config = config.with_icon(icon);
+    if let Some(payload_path) = &launch_args.payload_path {
+        if let Some(icon) = runtime_icon_for_playtest_payload(payload_path) {
+            config = config.with_icon(icon);
+        }
     }
     // .with_size(width as u32, height as u32)
     // .with_resizable(true);
 
-    let app = PlaytestApp::new(launch_args.payload_path);
+    let app = PlaytestApp::new(launch_args);
     run_backend(config, app)
 }
 
-fn session_dir_for_payload(payload_path: &str) -> PathBuf {
-    let payload_path = PathBuf::from(payload_path);
+fn session_dir_for_launch(launch_args: &PlaytestLaunchArgs, session_id: &str) -> PathBuf {
+    let payload_path = launch_args
+        .payload_path
+        .as_deref()
+        .map(PathBuf::from)
+        .unwrap_or_else(|| PathBuf::from(session_id));
     let session_dir_name = payload_path
         .file_stem()
         .and_then(|stem| stem.to_str())
