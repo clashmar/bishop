@@ -44,7 +44,9 @@ impl BishopApp for EditorApp {
         onscreen_info!("Starting editor.");
 
         // Initialize logging
-        init_file_logger();
+        if let Err(e) = init_file_logger() {
+            onscreen_warn!("Failed to initialize editor logger: {}", e);
+        }
 
         if !ensure_save_root() {
             // User cancelled
