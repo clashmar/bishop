@@ -12,12 +12,12 @@ pub use sub_editor::SubEditor;
 use crate::app::audio::default_audio_manager;
 use crate::canvas::grid_shader::GridRenderer;
 use crate::game::game_editor::GameEditor;
+use crate::editor_global::push_toast;
 use crate::gui::menu_bar::MenuBar;
 use crate::gui::modal::Modal;
 use crate::menu::MenuEditor;
-use crate::editor_global::push_toast;
+use crate::playtest::control::AgentPlaytestControl;
 use crate::playtest::playtest_process::PlaytestProcess;
-use crate::playtest::room_playtest::*;
 use crate::prefab::{PrefabEditor, PrefabStage};
 use crate::room::room_editor::{self, RoomEditor};
 use crate::storage::editor_storage;
@@ -383,48 +383,8 @@ impl Editor {
 
                 // Launch play‑test if the play button was pressed
                 if self.room_editor.request_play {
-                    if self.pending_playtest_build.is_none() {
-                        // Serialize payload synchronously (needs &self.game which isn't Send)
-                        let room = self.get_room_from_id(&room_id);
-                        let payload_path = match write_playtest_payload(room, &self.game) {
-                            Ok(p) => p,
-                            Err(e) => {
-                                onscreen_error!("Could not write playtest payload: {e}");
-                                self.room_editor.request_play = false;
-                                return;
-                            }
-                        };
-
-                        // In release mode, binary extraction is instant — launch synchronously
-                        if !cfg!(debug_assertions) {
-                            match resolve_playtest_binary() {
-                                Ok(exe_path) => {
-                                    if let Some(ref mut old_process) = self.playtest_process {
-                                        old_process.kill();
-                                    }
-                                    match PlaytestProcess::spawn(&exe_path, &payload_path) {
-                                        Ok(process) => {
-                                            self.playtest_process = Some(process);
-                                        }
-                                        Err(e) => {
-                                            onscreen_error!("Failed to launch playtest: {e}");
-                                        }
-                                    }
-                                }
-                                Err(e) => {
-                                    onscreen_error!("{e}");
-                                }
-                            }
-                        } else {
-                            // Dev mode: cargo build runs in the background
-                            push_toast("Building playtest...", 30.0);
-                            self.pending_playtest_build =
-                                Some(BackgroundTask::spawn(move || {
-                                    resolve_playtest_binary()
-                                        .map(|exe_path| (exe_path, payload_path))
-                                        .map_err(|e| e.to_string())
-                                }));
-                        }
+                    if let Err(error) = self.request_open_playtest() {
+                        onscreen_error!("{error}");
                     }
                     self.room_editor.request_play = false;
                 }
