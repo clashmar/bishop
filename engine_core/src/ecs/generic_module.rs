@@ -1,5 +1,5 @@
 // engine_core/src/ecs/generic_module.rs
-use crate::ecs::component::{Component, comp_type_name};
+use crate::ecs::component::{comp_type_name, Component};
 use crate::ecs::ecs::Ecs;
 use crate::ecs::entity::Entity;
 use crate::ecs::inspector_layout::InspectorBodyLayout;
@@ -156,10 +156,7 @@ where
                         DEFAULT_CHECKBOX_DIMS,
                         DEFAULT_CHECKBOX_DIMS,
                     );
-                    let mut v = *b;
-                    if gui_checkbox(ctx, cb_rect, &mut v) && !blocked {
-                        *b = v;
-                    }
+                    gui_checkbox(ctx, cb_rect, b, blocked);
                 }
                 (FieldValue::Vec2(v), _) => {
                     let id_x = *self

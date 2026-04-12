@@ -180,7 +180,7 @@ impl InspectorModule for ScriptModule {
                         DEFAULT_CHECKBOX_DIMS,
                         DEFAULT_CHECKBOX_DIMS,
                     );
-                    if gui_checkbox(ctx, cb_rect, v) && !blocked {
+                    if gui_checkbox(ctx, cb_rect, v, blocked) {
                         changed = true;
                     }
                 }

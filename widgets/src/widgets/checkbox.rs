@@ -1,12 +1,13 @@
 use crate::*;
 
-/// Draws a checkbox widget and toggles the value on click.
+/// Draws a checkbox widget and toggles the value on click when not blocked.
 ///
 /// Returns true if the value was changed this frame.
 pub fn gui_checkbox<C: BishopContext>(
     ctx: &mut C,
     rect: impl Into<Rect>,
     value: &mut bool,
+    blocked: bool,
 ) -> bool {
     let rect = rect.into();
     ctx.draw_rectangle(rect.x, rect.y, rect.w, rect.h, FIELD_BACKGROUND_COLOR);
@@ -31,7 +32,7 @@ pub fn gui_checkbox<C: BishopContext>(
         );
     }
 
-    if is_dropdown_open() {
+    if blocked || is_dropdown_open() {
         return false;
     }
 
@@ -42,5 +43,39 @@ pub fn gui_checkbox<C: BishopContext>(
         true
     } else {
         false
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::widgets::test_support::WidgetTestContext;
+
+    fn checkbox_rect() -> Rect {
+        Rect::new(0.0, 0.0, DEFAULT_CHECKBOX_DIMS, DEFAULT_CHECKBOX_DIMS)
+    }
+
+    #[test]
+    fn suppressed_checkbox_draws_but_does_not_toggle() {
+        let mut value = true;
+        let mut ctx = WidgetTestContext::new();
+        ctx.mouse_pos = (8.0, 8.0);
+        ctx.left_pressed = true;
+
+        assert!(!gui_checkbox(&mut ctx, checkbox_rect(), &mut value, true));
+        assert!(value);
+        assert_eq!(ctx.rectangle_fills.len(), 1);
+        assert_eq!(ctx.rectangle_lines.len(), 1);
+    }
+
+    #[test]
+    fn unsuppressed_checkbox_toggles_on_click() {
+        let mut value = false;
+        let mut ctx = WidgetTestContext::new();
+        ctx.mouse_pos = (8.0, 8.0);
+        ctx.left_pressed = true;
+
+        assert!(gui_checkbox(&mut ctx, checkbox_rect(), &mut value, false));
+        assert!(value);
     }
 }

@@ -373,9 +373,7 @@ impl InspectorModule for AudioSourceModule {
                     DEFAULT_CHECKBOX_DIMS,
                     DEFAULT_CHECKBOX_DIMS,
                 );
-                if !blocked {
-                    gui_checkbox(ctx, cb_rect, &mut group.looping);
-                }
+                gui_checkbox(ctx, cb_rect, &mut group.looping, blocked);
             }
         }
 

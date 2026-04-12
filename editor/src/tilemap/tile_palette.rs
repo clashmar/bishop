@@ -218,7 +218,7 @@ impl TilePalette {
         let mut solid = self.ui.solid;
 
         let cb_walk = Rect::new(panel.x + 10., panel.y + 110., 20., 20.);
-        if gui_checkbox(ctx, cb_walk, &mut walk) {
+        if gui_checkbox(ctx, cb_walk, &mut walk, false) {
             self.ui.walkable = walk;
         }
         ctx.draw_text(
@@ -230,7 +230,7 @@ impl TilePalette {
         );
 
         let cb_solid = Rect::new(panel.x + 10., panel.y + 140., 20., 20.);
-        if gui_checkbox(ctx, cb_solid, &mut solid) {
+        if gui_checkbox(ctx, cb_solid, &mut solid, false) {
             self.ui.solid = solid;
         }
         ctx.draw_text(

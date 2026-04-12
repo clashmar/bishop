@@ -74,7 +74,7 @@ impl MenuEditor {
             ctx.draw_text("Enabled:", x, *y + 16.0, 12.0, Color::WHITE);
             let checkbox_rect = Rect::new(x + LABEL_WIDTH, *y + 4.0, 16.0, 16.0);
             let mut enabled = has_bg;
-            if gui_checkbox(ctx, checkbox_rect, &mut enabled) {
+            if gui_checkbox(ctx, checkbox_rect, &mut enabled, false) {
                 self.push_element_update(|el| {
                     if let MenuElementKind::LayoutGroup(group) = &mut el.kind {
                         group.background = if enabled {
@@ -460,7 +460,7 @@ impl MenuEditor {
 
                 let checkbox_rect = Rect::new(x, *y + 4.0, 16.0, 16.0);
                 let mut managed_val = managed;
-                if gui_checkbox(ctx, checkbox_rect, &mut managed_val) {
+                if gui_checkbox(ctx, checkbox_rect, &mut managed_val, false) {
                     self.push_element_update(|el| {
                         if let MenuElementKind::LayoutGroup(group) = &mut el.kind {
                             if let Some(child) = group.children.get_mut(i) {
