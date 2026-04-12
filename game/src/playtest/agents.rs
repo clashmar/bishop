@@ -1,6 +1,4 @@
-use engine_core::agent_visibility::{
-    AgentSessionManifest, AgentSessionTransport, AgentVisibilitySnapshot,
-};
+use engine_core::agents::{AgentSessionManifest, AgentSessionTransport, AgentVisibilitySnapshot};
 use std::fs::{self, File};
 use std::io;
 use std::io::Write;
@@ -55,7 +53,7 @@ fn write_ron_file<T: serde::Serialize>(path: &Path, value: &T) -> io::Result<()>
 #[cfg(test)]
 mod tests {
     use super::FileAgentSessionTransport;
-    use engine_core::agent_visibility::{
+    use engine_core::agents::{
         AgentSessionManifest, AgentSessionRole, AgentSessionState, AgentSessionTransport,
         AgentVisibilitySnapshot,
     };

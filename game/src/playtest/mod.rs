@@ -1,2 +1,2 @@
-pub mod agent_visibility;
+pub mod agents;
 pub mod headless;

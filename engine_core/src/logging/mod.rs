@@ -1,5 +1,5 @@
 // engine_core/src/logging/mod.rs
-use crate::agent_visibility::AgentVisibilitySink;
+use crate::agents::AgentVisibilitySink;
 use crate::storage::editor_config::app_dir;
 use std::backtrace::Backtrace;
 use std::fs::{self, OpenOptions};

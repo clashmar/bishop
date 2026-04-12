@@ -1,7 +1,7 @@
 // game/src/playtest_main.rs
 use bishop::prelude::*;
 use bishop::BishopApp;
-use engine_core::agent_visibility::{
+use engine_core::agents::{
     AgentSessionManifest, AgentSessionRole, AgentSessionState, AgentSessionTransport,
     AgentVisibilitySnapshot,
 };
@@ -15,7 +15,7 @@ use uuid::Uuid;
 
 mod playtest;
 
-use playtest::agent_visibility::FileAgentSessionTransport;
+use playtest::agents::FileAgentSessionTransport;
 use playtest::headless::HeadlessPlaytestSession;
 
 /// Wrapper struct for running playtest via BishopApp.

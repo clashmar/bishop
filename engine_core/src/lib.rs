@@ -1,5 +1,5 @@
 pub mod animation;
-pub mod agent_visibility;
+pub mod agents;
 pub mod assets;
 pub mod audio;
 pub mod camera;
@@ -29,7 +29,7 @@ pub mod worlds;
 #[allow(ambiguous_glob_reexports)]
 pub mod prelude {
     pub use crate::animation::*;
-    pub use crate::agent_visibility::*;
+    pub use crate::agents::*;
     pub use crate::assets::*;
     #[allow(ambiguous_glob_reexports)]
     pub use crate::audio::*;
