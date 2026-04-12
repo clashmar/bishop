@@ -3,6 +3,7 @@
 /// Generated filenames
 pub const MAIN_FILE: &str = "main.lua";
 pub const ENGINE_FILE: &str = "engine.lua";
+pub const COMPONENTS_FILE: &str = "components.lua";
 pub const ENTITY_FILE: &str = "entity.lua";
 pub const ANIMATIONS_FILE: &str = "animations.lua";
 pub const SOUNDS_FILE: &str = "sounds.lua";

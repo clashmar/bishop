@@ -72,14 +72,6 @@ fn ensure_live_entity(ecs: &Ecs, entity: Entity) -> LuaResult<()> {
     }
 }
 
-/// TODO: this is doubly duplicated
-fn is_public_lua_component(type_name: &str) -> bool {
-    !matches!(
-        type_name,
-        "PrefabInstanceNode" | "PrefabInstanceRoot" | "PrefabOverrides"
-    )
-}
-
 /// Build a Lua userdata object that wraps `Entity`.
 pub fn lua_entity_handle(lua: &Lua, entity: Entity) -> LuaResult<Value> {
     let handle = EntityHandle { entity };
@@ -239,20 +231,14 @@ impl LuaMethod<EntityHandle> for GetMethod {
             let entity = this.entity;
             ensure_live_entity(ecs, entity)?;
 
-            if let Some(reg) = COMPONENTS.iter().find(|r| r.type_name == comp_name) {
-                if (reg.has)(ecs, entity) {
-                    let boxed = (reg.clone)(ecs, entity);
-                    (reg.to_lua)(lua, &*boxed)
-                } else {
-                    Err(mlua::Error::RuntimeError(format!(
-                        "Entity {:?} has no {} component",
-                        entity, comp_name
-                    )))
-                }
+            let reg = public_lua_component(&comp_name).map_err(mlua::Error::RuntimeError)?;
+            if (reg.has)(ecs, entity) {
+                let boxed = (reg.clone)(ecs, entity);
+                (reg.to_lua)(lua, &*boxed)
             } else {
                 Err(mlua::Error::RuntimeError(format!(
-                    "Component '{}' not known",
-                    comp_name
+                    "Entity {:?} has no {} component",
+                    entity, comp_name
                 )))
             }
         });
@@ -260,10 +246,7 @@ impl LuaMethod<EntityHandle> for GetMethod {
 
     fn emit_api(&self, out: &mut LuaApiWriter) {
         out.line("-- Component getters");
-        for reg in COMPONENTS
-            .iter()
-            .filter(|reg| is_public_lua_component(reg.type_name))
-        {
+        for reg in public_lua_components() {
             out.line(&format!(
                 "---@overload fun(self: Entity, component: \"{}\"): {}",
                 reg.type_name, reg.type_name
@@ -284,6 +267,7 @@ impl LuaMethod<EntityHandle> for SetMethod {
             let ctx = LuaGameCtx::borrow_ctx(lua)?;
             let game_instance = ctx.game_instance.borrow();
             ensure_live_entity(&game_instance.game.ecs, this.entity)?;
+            public_lua_component(&comp_name).map_err(mlua::Error::RuntimeError)?;
             push_command(Box::new(SetComponentCmd {
                 entity: *this.entity,
                 comp_name,
@@ -293,7 +277,7 @@ impl LuaMethod<EntityHandle> for SetMethod {
         });
 
         // Typed setters
-        for reg in COMPONENTS.iter() {
+        for reg in public_lua_components() {
             let comp_name = reg.type_name.to_string();
             let fn_name = format!("{}_{}", SET, to_snake_case(reg.type_name));
             methods.add_method(fn_name.as_str(), move |lua, this, value: Value| {
@@ -318,10 +302,7 @@ impl LuaMethod<EntityHandle> for SetMethod {
         out.line("");
 
         out.line("-- Typed component setters");
-        for reg in COMPONENTS
-            .iter()
-            .filter(|reg| is_public_lua_component(reg.type_name))
-        {
+        for reg in public_lua_components() {
             let type_name = reg.type_name;
             let fn_name = to_snake_case(type_name);
             out.line("---@param self Entity");
@@ -342,10 +323,8 @@ impl LuaMethod<EntityHandle> for HasMethod {
             let game_instance = ctx.game_instance.borrow();
             let ecs = &game_instance.game.ecs;
             ensure_live_entity(ecs, this.entity)?;
-            Ok(COMPONENTS
-                .iter()
-                .find(|r| r.type_name == comp_name)
-                .is_some_and(|r| (r.has)(ecs, this.entity)))
+            let reg = public_lua_component(&comp_name).map_err(mlua::Error::RuntimeError)?;
+            Ok((reg.has)(ecs, this.entity))
         });
 
         // entity:has_any
@@ -354,11 +333,13 @@ impl LuaMethod<EntityHandle> for HasMethod {
             let game_instance = ctx.game_instance.borrow();
             let ecs = &game_instance.game.ecs;
             ensure_live_entity(ecs, this.entity)?;
-            for comp_name in comps.iter() {
-                if let Some(r) = COMPONENTS.iter().find(|r| r.type_name == comp_name) {
-                    if (r.has)(ecs, this.entity) {
-                        return Ok(true);
-                    }
+            let regs = comps
+                .iter()
+                .map(|comp_name| public_lua_component(comp_name).map_err(mlua::Error::RuntimeError))
+                .collect::<LuaResult<Vec<_>>>()?;
+            for reg in regs {
+                if (reg.has)(ecs, this.entity) {
+                    return Ok(true);
                 }
             }
             Ok(false)
@@ -370,12 +351,12 @@ impl LuaMethod<EntityHandle> for HasMethod {
             let game_instance = ctx.game_instance.borrow();
             let ecs = &game_instance.game.ecs;
             ensure_live_entity(ecs, this.entity)?;
-            for comp_name in comps.iter() {
-                if let Some(r) = COMPONENTS.iter().find(|r| r.type_name == comp_name) {
-                    if !(r.has)(ecs, this.entity) {
-                        return Ok(false);
-                    }
-                } else {
+            let regs = comps
+                .iter()
+                .map(|comp_name| public_lua_component(comp_name).map_err(mlua::Error::RuntimeError))
+                .collect::<LuaResult<Vec<_>>>()?;
+            for reg in regs {
+                if !(reg.has)(ecs, this.entity) {
                     return Ok(false);
                 }
             }

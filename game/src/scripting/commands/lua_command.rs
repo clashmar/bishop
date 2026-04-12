@@ -1,7 +1,7 @@
 // game/src/scripting/commands/lua_command.rs
 use crate::engine::Engine;
 use engine_core::animation::animation_clip::*;
-use engine_core::ecs::component_registry::COMPONENTS;
+use engine_core::ecs::component_registry::public_lua_component;
 use engine_core::ecs::entity::Entity;
 use engine_core::ecs::facing_direction::*;
 use engine_core::scripting::script::Script;
@@ -26,14 +26,15 @@ pub struct SetComponentCmd {
 impl LuaCommand for SetComponentCmd {
     fn execute(&mut self, engine: &mut Engine) {
         let mut game_instance = engine.game_instance.borrow_mut();
-        if let Some(reg) = COMPONENTS.iter().find(|r| r.type_name == self.comp_name) {
-            if let Ok(boxed) = (reg.from_lua)(&engine.lua, self.value.clone()) {
-                (reg.inserter)(&mut game_instance.game.ecs, Entity(self.entity), boxed);
-            } else {
-                onscreen_error!("Failed to convert value for component '{}'", self.comp_name);
+        match public_lua_component(&self.comp_name) {
+            Ok(reg) => {
+                if let Ok(boxed) = (reg.from_lua)(&engine.lua, self.value.clone()) {
+                    (reg.inserter)(&mut game_instance.game.ecs, Entity(self.entity), boxed);
+                } else {
+                    onscreen_error!("Failed to convert value for component '{}'", self.comp_name);
+                }
             }
-        } else {
-            onscreen_error!("Unknown component '{}'", self.comp_name);
+            Err(err) => onscreen_error!("{}", err),
         }
     }
 }
@@ -229,6 +230,8 @@ pub(crate) fn flip_x_for_direction(direction: Direction) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use engine_core::ecs::component::comp_type_name;
+    use engine_core::prelude::PrefabInstanceRoot;
 
     #[test]
     fn parse_direction_accepts_legacy_and_new_direction_strings() {
@@ -248,5 +251,18 @@ mod tests {
         assert!(flip_x_for_direction(Direction::DownLeft));
         assert!(!flip_x_for_direction(Direction::Up));
         assert!(!flip_x_for_direction(Direction::Right));
+    }
+
+    #[test]
+    fn set_component_command_rejects_private_components() {
+        let type_name = comp_type_name::<PrefabInstanceRoot>();
+        let err = match public_lua_component(type_name) {
+            Ok(_) => panic!("private component should not be settable from Lua"),
+            Err(err) => err,
+        };
+        assert_eq!(
+            err,
+            format!("Component '{type_name}' is not available to Lua")
+        );
     }
 }

@@ -105,7 +105,7 @@ pub fn gui_script_picker<C: BishopContext>(
 
     if Button::new(picker_rect, &btn_label)
         .interaction_id(interaction_id)
-        .blocked(blocked)
+        .suppressed(blocked)
         .show_native_dialog(ctx)
     {
         #[cfg(not(target_arch = "wasm32"))]
@@ -129,7 +129,7 @@ pub fn gui_script_picker<C: BishopContext>(
         }
     }
 
-    if Button::new(remove_rect, "x").blocked(blocked).show(ctx) && script_id.0 != 0 {
+    if Button::new(remove_rect, "x").suppressed(blocked).show(ctx) && script_id.0 != 0 {
         script_manager.unload(entity, *script_id);
         *script_id = ScriptId(0);
         changed = true;

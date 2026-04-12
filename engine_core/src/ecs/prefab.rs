@@ -15,7 +15,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 
 /// Marks the root entity for a linked prefab instance.
-#[ecs_component]
+#[ecs_component(lua_api = false)]
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct PrefabInstanceRoot {
     /// Stable prefab asset id for this linked instance.
@@ -23,7 +23,7 @@ pub struct PrefabInstanceRoot {
 }
 
 /// Marks an entity as belonging to a linked prefab node.
-#[ecs_component]
+#[ecs_component(lua_api = false)]
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, Default)]
 pub struct PrefabInstanceNode {
     /// Stable prefab asset id for this linked instance.
@@ -35,7 +35,7 @@ pub struct PrefabInstanceNode {
 }
 
 /// Stores local divergence from the source prefab definition.
-#[ecs_component]
+#[ecs_component(lua_api = false)]
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct PrefabOverrides {
     /// Component type names modified locally on this instance entity.

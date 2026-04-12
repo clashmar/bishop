@@ -1,9 +1,11 @@
 use super::editor_storage::*;
 use crate::editor_assets::write_prefabs_lua;
 use engine_core::prelude::*;
-use engine_core::scripting::lua_constants::{ENGINE_DIR, PREFABS_FILE};
+use engine_core::scripting::lua_constants::{
+    COMPONENTS_FILE, ENGINE_DIR, ENTITY_FILE, PREFABS_FILE, SCRIPTS_DIR,
+};
 use engine_core::storage::path_utils::sanitise_name;
-use engine_core::storage::test_utils::{TestGameFolder, game_fs_test_lock};
+use engine_core::storage::test_utils::{game_fs_test_lock, TestGameFolder};
 
 #[test]
 fn create_new_game_creates_prefabs_folder() {
@@ -182,15 +184,22 @@ fn write_prefabs_lua_sanitizes_collisions() {
 #[test]
 fn generated_lua_typings_hide_prefab_internal_components() {
     let root = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    let components = std::fs::read_to_string(root.join("scripts/_engine/components.lua")).unwrap();
-    let entity = std::fs::read_to_string(root.join("scripts/_engine/entity.lua")).unwrap();
+    let engine_dir = root.join(SCRIPTS_DIR).join(ENGINE_DIR);
+    let components = std::fs::read_to_string(engine_dir.join(COMPONENTS_FILE)).unwrap();
+    let entity = std::fs::read_to_string(engine_dir.join(ENTITY_FILE)).unwrap();
+    let public_type = comp_type_name::<Transform>();
+    let hidden = [
+        comp_type_name::<PrefabInstanceNode>(),
+        comp_type_name::<PrefabInstanceRoot>(),
+        comp_type_name::<PrefabOverrides>(),
+    ];
 
-    assert!(!components.contains("PrefabInstanceNode"));
-    assert!(!components.contains("PrefabInstanceRoot"));
-    assert!(!components.contains("PrefabOverrides"));
-    assert!(!entity.contains("PrefabInstanceNode"));
-    assert!(!entity.contains("PrefabInstanceRoot"));
-    assert!(!entity.contains("PrefabOverrides"));
+    assert!(components.contains(public_type));
+    assert!(entity.contains(public_type));
+    for type_name in hidden {
+        assert!(!components.contains(type_name));
+        assert!(!entity.contains(type_name));
+    }
 }
 
 #[test]

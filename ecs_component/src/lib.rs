@@ -2,21 +2,22 @@
 extern crate proc_macro;
 use proc_macro::TokenStream;
 use quote::quote;
+use syn::parse::Parse;
+use syn::parse::ParseStream;
+use syn::parse_macro_input;
+use syn::punctuated::Punctuated;
 use syn::Data;
 use syn::DeriveInput;
 use syn::Fields;
 use syn::Path;
 use syn::Token;
 use syn::Type;
-use syn::parse::Parse;
-use syn::parse::ParseStream;
-use syn::parse_macro_input;
-use syn::punctuated::Punctuated;
 
 struct EcsComponentArgs {
     deps: Vec<Type>,
     post_create: Option<Path>,
     post_remove: Option<Path>,
+    lua_api: bool,
 }
 
 impl Parse for EcsComponentArgs {
@@ -24,6 +25,7 @@ impl Parse for EcsComponentArgs {
         let mut deps = Vec::new();
         let mut post_create = None;
         let mut post_remove = None;
+        let mut lua_api = true;
 
         while !input.is_empty() {
             let ident: syn::Ident = input.parse()?;
@@ -39,10 +41,13 @@ impl Parse for EcsComponentArgs {
                 post_create = Some(input.parse()?);
             } else if ident == "post_remove" {
                 post_remove = Some(input.parse()?);
+            } else if ident == "lua_api" {
+                let value: syn::LitBool = input.parse()?;
+                lua_api = value.value;
             } else {
                 return Err(syn::Error::new_spanned(
                     ident,
-                    "Expected 'deps', 'post_create' or 'post_remove'",
+                    "Expected 'deps', 'post_create', 'post_remove' or 'lua_api'",
                 ));
             }
 
@@ -55,6 +60,7 @@ impl Parse for EcsComponentArgs {
             deps,
             post_create,
             post_remove,
+            lua_api,
         })
     }
 }
@@ -67,6 +73,7 @@ pub fn ecs_component(args: TokenStream, input: TokenStream) -> TokenStream {
             deps: Vec::new(),
             post_create: None,
             post_remove: None,
+            lua_api: true,
         }
     } else {
         parse_macro_input!(args as EcsComponentArgs)
@@ -90,6 +97,7 @@ pub fn ecs_component(args: TokenStream, input: TokenStream) -> TokenStream {
 
     let fields = &struct_data.fields;
     let deps = &args.deps;
+    let lua_api = args.lua_api;
 
     // Build the struct definition
     let struct_def = match fields {
@@ -307,6 +315,7 @@ pub fn ecs_component(args: TokenStream, input: TokenStream) -> TokenStream {
                 to_lua: <#name>::__to_lua,
                 from_lua: <#name>::__from_lua,
                 lua_schema: <#name as crate::ecs::component_registry::LuaSchema>::lua_schema,
+                is_public_lua_api: #lua_api,
                 post_create: #post_create_fn,
                 post_remove: #post_remove_fn,
             }
