@@ -7,6 +7,7 @@ pub use asset::{
     load_startup_for_game_name, load_startup_from_resources, LoadingConfig,
     StartupAsset, StartupScreenContent, StartupScreenSpec,
 };
+pub use crate::agents::load_agent_payload;
 pub use bootstrap::{StartupController, StartupSource};
 pub use playtest_args::PlaytestLaunchArgs;
 pub use runtime_icon::{

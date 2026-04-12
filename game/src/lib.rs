@@ -1,3 +1,4 @@
+pub mod agents;
 pub mod constants;
 pub mod diagnostics;
 pub mod engine;

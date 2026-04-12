@@ -1,8 +1,13 @@
+use engine_core::constants::{agents, PLAYTEST_PAYLOAD_RON};
+
 /// Parsed launch arguments for the playtest binary.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct PlaytestLaunchArgs {
     /// Path to the serialized playtest payload.
     pub payload_path: Option<String>,
+
+    /// Path to the agent-assembled payload.
+    pub agent_payload_path: Option<String>,
 
     /// Whether the playtest should start without an editor payload.
     pub headless: bool,
@@ -12,19 +17,35 @@ impl PlaytestLaunchArgs {
     /// Parses `game-playtest` arguments.
     pub fn parse(args: &[String]) -> Result<Self, String> {
         let usage = format!(
-            "Usage: {} [--headless] [playtest_payload.ron]",
-            args.first().map(String::as_str).unwrap_or("game-playtest")
+            "Usage: {} [{}] [{} {}] [{}]",
+            args.first().map(String::as_str).unwrap_or("game-playtest"),
+            agents::HEADLESS_FLAG,
+            agents::PAYLOAD_FLAG,
+            agents::PAYLOAD_FILENAME,
+            PLAYTEST_PAYLOAD_RON
         );
         let mut payload_path = None;
+        let mut agent_payload_path = None;
         let mut headless = false;
+        let mut iter = args[1..].iter().peekable();
 
-        for arg in &args[1..] {
+        while let Some(arg) = iter.next() {
             match arg.as_str() {
-                "--headless" => {
+                agents::HEADLESS_FLAG => {
                     if headless {
                         return Err(usage);
                     }
                     headless = true;
+                }
+                agents::PAYLOAD_FLAG => {
+                    if agent_payload_path.is_some() {
+                        return Err(usage);
+                    }
+
+                    let Some(path) = iter.next() else {
+                        return Err(usage);
+                    };
+                    agent_payload_path = Some(path.clone());
                 }
                 _ => {
                     if payload_path.replace(arg.clone()).is_some() {
@@ -34,7 +55,11 @@ impl PlaytestLaunchArgs {
             }
         }
 
-        if headless && payload_path.is_some() {
+        if headless && payload_path.is_some() && agent_payload_path.is_none() {
+            return Err(usage);
+        }
+
+        if agent_payload_path.is_some() && !headless {
             return Err(usage);
         }
 
@@ -44,6 +69,7 @@ impl PlaytestLaunchArgs {
 
         Ok(Self {
             payload_path,
+            agent_payload_path,
             headless,
         })
     }
@@ -63,6 +89,7 @@ mod tests {
             parsed,
             PlaytestLaunchArgs {
                 payload_path: Some("payload.ron".to_string()),
+                agent_payload_path: None,
                 headless: false,
             }
         );
@@ -70,7 +97,10 @@ mod tests {
 
     #[test]
     fn parse_accepts_headless_only() {
-        let args = vec!["game-playtest".to_string(), "--headless".to_string()];
+        let args = vec![
+            "game-playtest".to_string(),
+            agents::HEADLESS_FLAG.to_string(),
+        ];
 
         let parsed = PlaytestLaunchArgs::parse(&args).unwrap();
 
@@ -78,6 +108,28 @@ mod tests {
             parsed,
             PlaytestLaunchArgs {
                 payload_path: None,
+                agent_payload_path: None,
+                headless: true,
+            }
+        );
+    }
+
+    #[test]
+    fn parse_accepts_headless_agent_payload_only() {
+        let args = vec![
+            "game-playtest".to_string(),
+            agents::HEADLESS_FLAG.to_string(),
+            agents::PAYLOAD_FLAG.to_string(),
+            agents::PAYLOAD_FILENAME.to_string(),
+        ];
+
+        let parsed = PlaytestLaunchArgs::parse(&args).unwrap();
+
+        assert_eq!(
+            parsed,
+            PlaytestLaunchArgs {
+                payload_path: None,
+                agent_payload_path: Some(agents::PAYLOAD_FILENAME.to_string()),
                 headless: true,
             }
         );
@@ -95,7 +147,13 @@ mod tests {
 
         assert_eq!(
             error,
-            "Usage: game-playtest [--headless] [playtest_payload.ron]"
+            format!(
+                "Usage: game-playtest [{}] [{} {}] [{}]",
+                agents::HEADLESS_FLAG,
+                agents::PAYLOAD_FLAG,
+                agents::PAYLOAD_FILENAME,
+                PLAYTEST_PAYLOAD_RON
+            )
         );
     }
 
@@ -107,7 +165,13 @@ mod tests {
 
         assert_eq!(
             error,
-            "Usage: game-playtest [--headless] [playtest_payload.ron]"
+            format!(
+                "Usage: game-playtest [{}] [{} {}] [{}]",
+                agents::HEADLESS_FLAG,
+                agents::PAYLOAD_FLAG,
+                agents::PAYLOAD_FILENAME,
+                PLAYTEST_PAYLOAD_RON
+            )
         );
     }
 }

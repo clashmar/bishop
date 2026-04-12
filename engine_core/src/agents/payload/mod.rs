@@ -1,9 +1,15 @@
+use crate::ecs::capture::ComponentSnapshot;
+use crate::ecs::component::{comp_type_name, CurrentRoom, Name};
 use crate::ecs::component_registry::ComponentRegistry;
+use crate::ecs::entity::Entity;
+use crate::ecs::transform::Transform;
 use crate::game::startup_mode::StartupMode;
 use crate::game::Game;
 use crate::prefab::PrefabLibrary;
+use crate::scripting::script::Script;
 use crate::worlds::room::{Room, RoomId};
 use crate::worlds::world::{World, WorldId, WorldMeta};
+use mlua::Lua;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use uuid::Uuid;
@@ -58,11 +64,23 @@ pub enum AgentPayloadError {
 }
 
 /// Final payload produced by the builder.
+#[derive(Serialize, Deserialize)]
 pub struct AgentBuiltPayload {
     pub game: Game,
     pub room: Room,
     pub startup_mode: StartupMode,
     pub spec: AgentPayloadSpec,
+    pub entities: Vec<AgentEntityExport>,
+}
+
+/// A concrete exported entity used when materializing a payload.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct AgentEntityExport {
+    pub entity: Entity,
+    pub name: String,
+    pub room_id: RoomId,
+    pub components: Vec<ComponentSnapshot>,
+    pub scripts: Vec<String>,
 }
 
 impl AgentPayloadSpec {
@@ -113,7 +131,15 @@ impl AgentPayloadSpec {
         self
     }
 
-    /// Materializes the payload.
+    /// Materializes the payload into an initialized game state.
+    pub fn materialize(self, lua: &Lua) -> Result<AgentBuiltPayload, AgentPayloadError> {
+        let mut built = self.build()?;
+        built.game.initialize_runtime(lua);
+        built.apply_entities(lua)?;
+        Ok(built)
+    }
+
+    /// Builds a typed payload ready for runtime materialization.
     pub fn build(self) -> Result<AgentBuiltPayload, AgentPayloadError> {
         let world = self.worlds.first().ok_or(AgentPayloadError::MissingRoom)?;
         let room = world.rooms.first().ok_or(AgentPayloadError::MissingRoom)?;
@@ -153,11 +179,34 @@ impl AgentPayloadSpec {
         game.current_world_id = world_id;
         game.prefab_library = PrefabLibrary::default();
 
+        let mut entity_specs: Vec<_> = room.entities.iter().collect();
+        entity_specs.sort_by(|left, right| left.0.cmp(right.0));
+
+        let entities = entity_specs
+            .into_iter()
+            .enumerate()
+            .map(|(index, (name, entity))| AgentEntityExport {
+                entity: Entity(index + 1),
+                name: name.clone(),
+                room_id,
+                components: entity
+                    .components
+                    .iter()
+                    .map(|component| ComponentSnapshot {
+                        type_name: component.type_name.clone(),
+                        ron: component.ron.clone(),
+                    })
+                    .collect(),
+                scripts: entity.scripts.clone(),
+            })
+            .collect();
+
         Ok(AgentBuiltPayload {
             game,
             room: built_room,
             startup_mode: StartupMode::Skip,
             spec: self,
+            entities,
         })
     }
 
@@ -190,8 +239,70 @@ impl AgentPayloadSpec {
     }
 }
 
+impl AgentBuiltPayload {
+    fn apply_entities(&mut self, lua: &Lua) -> Result<(), AgentPayloadError> {
+        let room_id = self.room.id;
+        let _ = lua;
+
+        let entities = self.entities.clone();
+
+        for export in entities {
+            let entity = self.game.ecs.create_entity().finish();
+            self.game
+                .ecs
+                .add_component_to_entity(entity, Name(export.name.clone()));
+            self.game
+                .ecs
+                .add_component_to_entity(entity, CurrentRoom(room_id));
+
+            for component in &export.components {
+                self.apply_component_snapshot(entity, component)?;
+            }
+
+            for script_path in &export.scripts {
+                let script_id = self
+                    .game
+                    .script_manager
+                    .get_or_load(script_path)
+                    .ok_or_else(|| AgentPayloadError::UnknownScriptType(script_path.clone()))?;
+                self.game.ecs.add_component_to_entity(
+                    entity,
+                    Script {
+                        script_id,
+                        ..Default::default()
+                    },
+                );
+            }
+        }
+
+        Ok(())
+    }
+
+    fn apply_component_snapshot(
+        &mut self,
+        entity: Entity,
+        snapshot: &ComponentSnapshot,
+    ) -> Result<(), AgentPayloadError> {
+        if snapshot.type_name == comp_type_name::<Transform>() {
+            let transform = ron::from_str::<Transform>(&snapshot.ron)
+                .map_err(|_| AgentPayloadError::UnknownComponentType(snapshot.type_name.clone()))?;
+            self.game.ecs.add_component_to_entity(entity, transform);
+            return Ok(());
+        }
+
+        let component_reg = inventory::iter::<ComponentRegistry>()
+            .find(|registry| registry.type_name == snapshot.type_name)
+            .ok_or_else(|| AgentPayloadError::UnknownComponentType(snapshot.type_name.clone()))?;
+        let mut boxed = (component_reg.from_ron_component)(snapshot.ron.clone());
+        let mut ctx = self.game.ctx_mut();
+        (component_reg.post_create)(&mut *boxed, &entity, &mut ctx);
+        (component_reg.inserter)(ctx.ecs, entity, boxed);
+        Ok(())
+    }
+}
+
 fn component_type_is_registered(type_name: &str) -> bool {
-    inventory::iter::<ComponentRegistry>
+    inventory::iter::<ComponentRegistry>()
         .into_iter()
         .any(|registry| registry.type_name == type_name)
 }

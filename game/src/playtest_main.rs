@@ -1,6 +1,7 @@
 // game/src/playtest_main.rs
 use bishop::prelude::*;
 use bishop::BishopApp;
+use game_lib::agents::FileAgentSessionTransport;
 use engine_core::agents::{
     AgentSessionManifest, AgentSessionRole, AgentSessionState, AgentSessionTransport,
     AgentVisibilitySnapshot,
@@ -8,14 +9,15 @@ use engine_core::agents::{
 use engine_core::prelude::*;
 use engine_core::logging::LOG_HISTORY;
 use game_lib::engine::Engine;
-use game_lib::startup::{runtime_icon_for_playtest_payload, PlaytestLaunchArgs, StartupController, StartupSource};
+use game_lib::startup::{
+    runtime_icon_for_playtest_payload, PlaytestLaunchArgs, StartupController, StartupSource,
+};
 use std::env;
 use std::path::PathBuf;
 use uuid::Uuid;
 
 mod playtest;
 
-use playtest::agents::FileAgentSessionTransport;
 use playtest::headless::HeadlessPlaytestSession;
 
 /// Wrapper struct for running playtest via BishopApp.
@@ -55,7 +57,11 @@ impl BishopApp for PlaytestApp {
             session_id: self.session_id.clone(),
             role: AgentSessionRole::Playtest,
             state: AgentSessionState::Starting,
-            payload_path: self.launch_args.payload_path.clone(),
+            payload_path: self
+                .launch_args
+                .agent_payload_path
+                .clone()
+                .or(self.launch_args.payload_path.clone()),
             log_path: None,
         };
         if let Err(e) = transport.write_manifest(&manifest) {
@@ -63,7 +69,11 @@ impl BishopApp for PlaytestApp {
         }
         self.agent_manifest = Some(manifest);
         self.agent_transport = Some(transport);
-        if self.launch_args.headless {
+        if let Some(payload_path) = self.launch_args.agent_payload_path.clone() {
+            self.startup = Some(StartupController::new(StartupSource::AgentPayload {
+                payload_path,
+            }));
+        } else if self.launch_args.headless {
             self.headless_session = Some(HeadlessPlaytestSession::new(self.session_id.clone()));
         } else {
             let payload_path = self
@@ -114,7 +124,11 @@ fn main() -> Result<(), RunError> {
     };
 
     let mut config = WindowConfig::new("Playtest").with_fullscreen(true);
-    if let Some(payload_path) = &launch_args.payload_path {
+    if let Some(payload_path) = launch_args
+        .agent_payload_path
+        .as_ref()
+        .or(launch_args.payload_path.as_ref())
+    {
         if let Some(icon) = runtime_icon_for_playtest_payload(payload_path) {
             config = config.with_icon(icon);
         }
@@ -128,8 +142,9 @@ fn main() -> Result<(), RunError> {
 
 fn session_dir_for_launch(launch_args: &PlaytestLaunchArgs, session_id: &str) -> PathBuf {
     let payload_path = launch_args
-        .payload_path
+        .agent_payload_path
         .as_deref()
+        .or(launch_args.payload_path.as_deref())
         .map(PathBuf::from)
         .unwrap_or_else(|| PathBuf::from(session_id));
     let session_dir_name = payload_path

@@ -85,3 +85,16 @@ pub const MAX_WINDOW_HEIGHT: i32 = 1440;
 pub const DESIGN_RESOLUTION_WIDTH: f32 = 1920.0;
 /// Target design resolution height for menus and UI.
 pub const DESIGN_RESOLUTION_HEIGHT: f32 = 1080.0;
+
+/// Name of the serialized playtest payload file.
+pub const PLAYTEST_PAYLOAD_RON: &str = "playtest_payload.ron";
+
+/// Constants for agent-driven playtest flows.
+pub mod agents {
+    /// CLI flag that starts playtest without an editor payload.
+    pub const HEADLESS_FLAG: &str = "--headless";
+    /// CLI flag that points at an agent-assembled payload.
+    pub const PAYLOAD_FLAG: &str = "--agent-payload";
+    /// Default file name for agent payloads.
+    pub const PAYLOAD_FILENAME: &str = "agent-payload.ron";
+}

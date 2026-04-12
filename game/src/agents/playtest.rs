@@ -57,6 +57,7 @@ mod tests {
         AgentSessionManifest, AgentSessionRole, AgentSessionState, AgentSessionTransport,
         AgentVisibilitySnapshot,
     };
+    use engine_core::constants::agents;
     use std::fs;
     use std::path::PathBuf;
     use std::time::{SystemTime, UNIX_EPOCH};
@@ -75,7 +76,7 @@ mod tests {
             session_id: "session-1".to_string(),
             role: AgentSessionRole::Playtest,
             state: AgentSessionState::Starting,
-            payload_path: Some("/tmp/payload.ron".to_string()),
+            payload_path: Some(format!("/tmp/{}", agents::PAYLOAD_FILENAME)),
             log_path: Some("/tmp/logs/playtest.log".to_string()),
         };
         let snapshot = AgentVisibilitySnapshot {
