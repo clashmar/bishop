@@ -377,8 +377,8 @@ fn draw_prefab_preview(
     rect: Rect,
     preview: &PrefabPreview,
 ) {
-    let width = preview.palette_bounds.w.max(1.0);
-    let height = preview.palette_bounds.h.max(1.0);
+    let width = preview.stamp_bounds.w.max(1.0);
+    let height = preview.stamp_bounds.h.max(1.0);
     let scale = ((rect.w - PREVIEW_PADDING * 2.0) / width)
         .min((rect.h - PREVIEW_PADDING * 2.0) / height)
         .max(0.01);
@@ -388,10 +388,10 @@ fn draw_prefab_preview(
         rect.x + (rect.w - draw_w) * 0.5,
         rect.y + (rect.h - draw_h) * 0.5,
     );
-    let bounds_origin = Vec2::new(preview.palette_bounds.x, preview.palette_bounds.y);
+    let bounds_origin = Vec2::new(preview.stamp_bounds.x, preview.stamp_bounds.y);
 
     for item in &preview.items {
-        let draw_pos = origin + (item.palette_position - bounds_origin) * scale;
+        let draw_pos = origin + (item.stamp_position - bounds_origin) * scale;
         match item.visual {
             PrefabPreviewVisual::Sprite { sprite_id } => {
                 let texture = sprite_manager.get_texture_from_id(ctx, sprite_id);

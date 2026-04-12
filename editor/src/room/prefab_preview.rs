@@ -74,12 +74,26 @@ pub(crate) fn build_prefab_preview_with(
 
     let palette_bounds = items
         .iter()
-        .map(|item| Rect::new(item.palette_position.x, item.palette_position.y, item.size.x, item.size.y))
+        .map(|item| {
+            Rect::new(
+                item.palette_position.x,
+                item.palette_position.y,
+                item.size.x,
+                item.size.y,
+            )
+        })
         .reduce(union_rect)
         .unwrap_or_default();
     let stamp_bounds = items
         .iter()
-        .map(|item| Rect::new(item.stamp_position.x, item.stamp_position.y, item.size.x, item.size.y))
+        .map(|item| {
+            Rect::new(
+                item.stamp_position.x,
+                item.stamp_position.y,
+                item.size.x,
+                item.size.y,
+            )
+        })
         .reduce(union_rect)
         .unwrap_or_default();
 
@@ -156,7 +170,11 @@ fn preview_item_from_node(
                 return Some(PrefabPreviewItem {
                     z,
                     palette_position: transform.position,
-                    stamp_position: pivot_adjusted_position(transform.position, size, transform.pivot),
+                    stamp_position: pivot_adjusted_position(
+                        transform.position,
+                        size,
+                        transform.pivot,
+                    ),
                     size,
                     visual: PrefabPreviewVisual::Sprite {
                         sprite_id: sprite.sprite,
@@ -257,4 +275,170 @@ fn preview_sprite_size(
     sprite_manager
         .texture_size(sprite_id)
         .map(|(width, height)| vec2(width, height))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use engine_core::ecs::transform::Pivot;
+
+    fn sprite_ron(sprite_id: usize) -> String {
+        format!("Sprite(sprite: SpriteId({sprite_id}))")
+    }
+
+    fn transform_ron(position: (f32, f32), pivot: Pivot) -> String {
+        format!(
+            "Transform(visible: true, position: ({:.1}, {:.1}), pivot: {:?})",
+            position.0, position.1, pivot
+        )
+    }
+
+    fn node(node_id: usize, transform_ron: String, sprite_ron: String) -> PrefabNode {
+        PrefabNode {
+            node_id,
+            parent_node_id: None,
+            components: vec![
+                ComponentSnapshot {
+                    type_name: comp_type_name::<Transform>().to_string(),
+                    ron: transform_ron,
+                },
+                ComponentSnapshot {
+                    type_name: comp_type_name::<Sprite>().to_string(),
+                    ron: sprite_ron,
+                },
+            ],
+        }
+    }
+
+    fn make_prefab(nodes: Vec<PrefabNode>) -> PrefabAsset {
+        PrefabAsset {
+            id: PrefabId(1),
+            name: "Test".to_string(),
+            next_node_id: nodes.len() + 1,
+            root_node_id: 1,
+            nodes,
+        }
+    }
+
+    const SPRITE_SIZE: Vec2 = Vec2::new(64.0, 48.0);
+
+    fn sprite_size(_: SpriteId) -> Option<Vec2> {
+        Some(SPRITE_SIZE)
+    }
+
+    #[test]
+    fn stamp_position_applies_pivot_offset() {
+        let prefab = make_prefab(vec![node(
+            1,
+            transform_ron((0.0, 0.0), Pivot::BottomCenter),
+            sprite_ron(1),
+        )]);
+        let preview = build_prefab_preview_with(&prefab, sprite_size);
+
+        let item = preview.items.first().unwrap();
+        let expected_stamp = pivot_adjusted_position(Vec2::ZERO, SPRITE_SIZE, Pivot::BottomCenter);
+        assert_eq!(item.stamp_position, expected_stamp);
+        assert_ne!(item.stamp_position, item.palette_position);
+    }
+
+    #[test]
+    fn stamp_bounds_union_covers_all_pivot_adjusted_rects() {
+        let prefab = make_prefab(vec![
+            node(1, transform_ron((0.0, 0.0), Pivot::TopLeft), sprite_ron(1)),
+            node(
+                2,
+                transform_ron((64.0, 0.0), Pivot::BottomCenter),
+                sprite_ron(2),
+            ),
+        ]);
+        let preview = build_prefab_preview_with(&prefab, sprite_size);
+
+        let r = preview.stamp_bounds;
+        assert!(
+            r.x <= 0.0,
+            "stamp bounds should extend to leftmost visual edge"
+        );
+        assert!(
+            r.y <= 0.0,
+            "stamp bounds should extend to topmost visual edge"
+        );
+
+        let rightmost_item_bottom = {
+            let bottom_center =
+                pivot_adjusted_position(Vec2::new(64.0, 0.0), SPRITE_SIZE, Pivot::BottomCenter);
+            bottom_center.y + SPRITE_SIZE.y
+        };
+        let first_item_bottom =
+            pivot_adjusted_position(Vec2::ZERO, SPRITE_SIZE, Pivot::TopLeft).y + SPRITE_SIZE.y;
+        assert!(
+            r.y + r.h >= first_item_bottom.max(rightmost_item_bottom),
+            "stamp bounds should span both items"
+        );
+    }
+
+    #[test]
+    fn items_sorted_by_z_ascending() {
+        let node_a = PrefabNode {
+            node_id: 1,
+            parent_node_id: None,
+            components: vec![
+                ComponentSnapshot {
+                    type_name: comp_type_name::<Transform>().to_string(),
+                    ron: transform_ron((0.0, 0.0), Pivot::TopLeft),
+                },
+                ComponentSnapshot {
+                    type_name: comp_type_name::<Sprite>().to_string(),
+                    ron: sprite_ron(1),
+                },
+                ComponentSnapshot {
+                    type_name: comp_type_name::<Layer>().to_string(),
+                    ron: "Layer(z: 5)".to_string(),
+                },
+            ],
+        };
+        let node_b = PrefabNode {
+            node_id: 2,
+            parent_node_id: None,
+            components: vec![
+                ComponentSnapshot {
+                    type_name: comp_type_name::<Transform>().to_string(),
+                    ron: transform_ron((0.0, 0.0), Pivot::TopLeft),
+                },
+                ComponentSnapshot {
+                    type_name: comp_type_name::<Sprite>().to_string(),
+                    ron: sprite_ron(2),
+                },
+                ComponentSnapshot {
+                    type_name: comp_type_name::<Layer>().to_string(),
+                    ron: "Layer(z: -2)".to_string(),
+                },
+            ],
+        };
+        let prefab = make_prefab(vec![node_a, node_b]);
+        let preview = build_prefab_preview_with(&prefab, sprite_size);
+
+        assert_eq!(preview.items.len(), 2);
+        assert_eq!(preview.items[0].z, -2);
+        assert_eq!(preview.items[1].z, 5);
+    }
+
+    #[test]
+    fn palette_bounds_differ_from_stamp_bounds_when_pivot_requires_it() {
+        let prefab = make_prefab(vec![node(
+            1,
+            transform_ron((0.0, 0.0), Pivot::BottomCenter),
+            sprite_ron(1),
+        )]);
+        let preview = build_prefab_preview_with(&prefab, sprite_size);
+
+        assert_ne!(preview.palette_bounds, preview.stamp_bounds);
+        assert_eq!(
+            preview.palette_bounds.x, 0.0,
+            "palette_bounds uses raw transform position x"
+        );
+        assert!(
+            preview.stamp_bounds.y < 0.0,
+            "stamp_bounds.y should be negative for BottomCenter pivot"
+        );
+    }
 }
