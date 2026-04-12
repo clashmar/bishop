@@ -1,3 +1,4 @@
+mod animation;
 mod canvas;
 mod document;
 pub(crate) mod instance_sync;

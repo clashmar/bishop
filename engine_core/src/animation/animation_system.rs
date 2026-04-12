@@ -12,6 +12,7 @@ use crate::worlds::room::entities_in_room;
 use bishop::prelude::*;
 use ecs_component::ecs_component;
 use serde::{Deserialize, Serialize};
+use std::collections::HashSet;
 
 /// Current frame data for rendering animated entities.
 #[ecs_component]
@@ -50,6 +51,17 @@ pub fn update_animation_sytem(
         entities.insert(player);
     }
 
+    update_entity_animations(loader, ecs, sprite_manager, dt, &entities);
+}
+
+/// Updates animation state for the supplied entities.
+pub fn update_entity_animations(
+    loader: &impl TextureLoader,
+    ecs: &mut Ecs,
+    sprite_manager: &mut SpriteManager,
+    dt: f32,
+    entities: &HashSet<Entity>,
+) {
     let anim_store = ecs.get_store_mut::<Animation>();
 
     let mut frames: Vec<(Entity, CurrentFrame)> = vec![];

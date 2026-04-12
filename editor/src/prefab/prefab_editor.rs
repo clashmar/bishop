@@ -98,6 +98,12 @@ impl PrefabEditor {
         game_ctx: &mut ServicesCtxMut,
     ) {
         self.sanitize_live_state(game_ctx.ecs);
+        self.tick_prefab_animations(
+            ctx,
+            game_ctx.ecs,
+            game_ctx.sprite_manager,
+            ctx.get_frame_time(),
+        );
 
         if !self.should_block_canvas(ctx) {
             let drag_handled =
@@ -133,7 +139,12 @@ impl PrefabEditor {
             .and_then(|e| ecs.get::<Transform>(e))
             .map(|t| t.position)
             .unwrap_or(Vec2::ZERO);
-        EditorCameraController::reset_prefab_editor_camera(ctx, camera, root_pos, PREFAB_EDITOR_GRID_SIZE);
+        EditorCameraController::reset_prefab_editor_camera(
+            ctx,
+            camera,
+            root_pos,
+            PREFAB_EDITOR_GRID_SIZE,
+        );
     }
 
     pub fn draw(
@@ -152,7 +163,12 @@ impl PrefabEditor {
             grid::draw_grid(ctx, grid_renderer, camera, PREFAB_EDITOR_GRID_SIZE);
         }
 
-        draw_prefab_entities(ctx, game_ctx.ecs, game_ctx.sprite_manager, PREFAB_EDITOR_GRID_SIZE);
+        draw_prefab_entities(
+            ctx,
+            game_ctx.ecs,
+            game_ctx.sprite_manager,
+            PREFAB_EDITOR_GRID_SIZE,
+        );
 
         for &selected_entity in &self.selected_entities {
             highlight_selected_entity(
@@ -225,7 +241,9 @@ impl SubEditor for PrefabEditor {
 
     fn should_block_canvas(&self, ctx: &WgpuContext) -> bool {
         let mouse_screen: Vec2 = ctx.mouse_position().into();
-        self.active_rects.iter().any(|rect| rect.contains(mouse_screen))
+        self.active_rects
+            .iter()
+            .any(|rect| rect.contains(mouse_screen))
             || self.inspector.is_mouse_over(ctx)
             || is_dropdown_open()
             || is_modal_open()

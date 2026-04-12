@@ -1,6 +1,8 @@
 pub mod animation_clip;
 pub mod animation_system;
 pub mod aseprite_import;
+#[cfg(test)]
+mod tests;
 
 pub use animation_clip::*;
 pub use animation_system::*;

@@ -1,3 +1,4 @@
+use crate::animation::CurrentFrame;
 use crate::camera::game_camera::RoomCamera;
 use crate::ecs::capture::{ComponentSnapshot, capture_entity, capture_subtree, restore_entity};
 use crate::ecs::component::{CurrentRoom, Global, Player, PlayerProxy, comp_type_name};
@@ -502,6 +503,7 @@ fn excluded_from_prefab_asset(type_name: &str) -> bool {
     type_name == comp_type_name::<crate::ecs::entity::Children>()
         || type_name == comp_type_name::<Parent>()
         || type_name == comp_type_name::<CurrentRoom>()
+        || type_name == comp_type_name::<CurrentFrame>()
         || type_name == comp_type_name::<RoomCamera>()
         || type_name == comp_type_name::<PlayerProxy>()
         || type_name == comp_type_name::<Player>()
@@ -536,6 +538,8 @@ fn translate_transform_snapshot(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::animation::CurrentFrame;
+    use crate::prelude::{ClipId, SpriteId};
     use crate::assets::sprite_manager::SpriteManager;
     use crate::ecs::component::{CurrentRoom, Name, Velocity};
     use crate::ecs::transform::{Pivot, Transform};
@@ -648,6 +652,39 @@ mod tests {
             game.ecs.get::<CurrentRoom>(child_entity).map(|room| room.0),
             Some(room_id)
         );
+    }
+
+    #[test]
+    fn capture_prefab_excludes_runtime_current_frame_components() {
+        let mut game = test_game();
+
+        let root = game
+            .ecs
+            .create_entity()
+            .with(Name("Animated Root".to_string()))
+            .with(Transform::default())
+            .with(CurrentFrame {
+                clip_id: ClipId::Idle,
+                col: 2,
+                row: 1,
+                offset: Vec2::new(3.0, 4.0),
+                sprite_id: SpriteId(7),
+                frame_size: Vec2::new(16.0, 16.0),
+                flip_x: false,
+            })
+            .finish();
+
+        let prefab = capture_prefab(&mut game.ecs, root, PrefabId(1), "crate".to_string());
+        let saved_root = prefab
+            .nodes
+            .iter()
+            .find(|node| node.node_id == prefab.root_node_id)
+            .unwrap();
+
+        assert!(!saved_root
+            .components
+            .iter()
+            .any(|component| component.type_name == comp_type_name::<CurrentFrame>()));
     }
 
     #[test]
