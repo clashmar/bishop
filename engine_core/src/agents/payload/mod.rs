@@ -61,6 +61,9 @@ pub enum AgentPayloadError {
     UnknownScriptType(String),
     MissingRoom,
     MissingEntity(String),
+    DuplicateEntityName(String),
+    SerializePayload(String),
+    WritePayload(String),
 }
 
 /// Final payload produced by the builder.

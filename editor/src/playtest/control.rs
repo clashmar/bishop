@@ -1,7 +1,9 @@
+use crate::agents::write_seeded_agent_payload;
 use crate::app::Editor;
 use crate::editor_global::push_toast;
 use crate::playtest::playtest_process::PlaytestProcess;
 use crate::playtest::room_playtest::{resolve_playtest_binary, write_playtest_payload};
+use engine_core::constants::agents;
 use engine_core::task::BackgroundTask;
 
 /// Agent-facing control surface for playtest lifecycle actions.
@@ -62,6 +64,37 @@ impl Editor {
         Ok(())
     }
 
+    /// Opens a headless agent playtest for the current room selection.
+    pub fn open_agent_playtest_for_current_room(&mut self) -> Result<(), String> {
+        if self.pending_playtest_build.is_some() {
+            return Err("Playtest build already in progress.".to_string());
+        }
+
+        let room_id = self
+            .cur_room_id
+            .ok_or_else(|| "No room is currently selected.".to_string())?;
+
+        let payload_path = write_seeded_agent_payload(self, room_id)
+            .map_err(|error| format!("Could not write agent payload: {error:?}"))?;
+
+        let exe_path = resolve_playtest_binary().map_err(|error| error.to_string())?;
+        if let Some(ref mut old_process) = self.playtest_process {
+            old_process.kill();
+        }
+
+        let args = [
+            std::ffi::OsStr::new(agents::HEADLESS_FLAG),
+            std::ffi::OsStr::new(agents::PAYLOAD_FLAG),
+            payload_path.as_os_str(),
+        ];
+
+        self.playtest_process = Some(
+            PlaytestProcess::spawn_with_args(&exe_path, &args)
+                .map_err(|error| format!("Failed to launch playtest: {error}"))?,
+        );
+        Ok(())
+    }
+
     /// Stops any running playtest process and clears pending build state.
     #[allow(dead_code)]
     pub fn close_playtest(&mut self) {
@@ -108,5 +141,18 @@ mod tests {
         editor.request_close_playtest().unwrap();
 
         assert!(editor.pending_playtest_build.is_none());
+    }
+
+    #[test]
+    fn headless_agent_playtest_command_requires_room_selection() {
+        let _lock = game_fs_test_lock().lock().unwrap();
+        let test_game = TestGameFolder::new("agent_headless_playtest_control");
+        set_game_name(test_game.name());
+
+        let mut editor = Editor::default();
+
+        assert!(editor
+            .open_agent_playtest_for_current_room()
+            .is_err());
     }
 }

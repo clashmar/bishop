@@ -18,6 +18,7 @@ mod editor_global;
 mod game;
 mod gui;
 mod menu;
+pub mod agents;
 mod playtest;
 mod prefab;
 mod room;
