@@ -1,4 +1,5 @@
 use super::{AgentSessionState, AgentVisibilitySink, AgentVisibilitySnapshot, RecordingAgentSink};
+use crate::constants::agents;
 use crate::logging::{clear_agent_visibility_sink, set_agent_visibility_sink};
 use std::sync::{Arc, Mutex};
 
@@ -8,8 +9,15 @@ fn agent_visibility_snapshot_includes_frame_timing_and_session_state() {
         session_state: AgentSessionState::Running,
         frame_time_ms: Some(16.7),
         smoothed_frame_time_ms: Some(14.2),
-        mode: Some("playtest".to_string()),
+        mode: Some(agents::PLAYTEST_MODE.to_string()),
         recent_log_count: 3,
+        frame_index: Some(0),
+        topic: Some(agents::PLAYTEST_RUNTIME_TOPIC.to_string()),
+        label: Some(agents::PLAYTEST_FRAME_LABEL.to_string()),
+        payload: Some(ron::Value::Map(vec![(
+            ron::Value::String("frame_time_ms".to_string()),
+            ron::Value::Float(16.7),
+        )])),
     };
 
     let ron = match ron::to_string(&snapshot) {
@@ -20,6 +28,7 @@ fn agent_visibility_snapshot_includes_frame_timing_and_session_state() {
     assert!(ron.contains("Running"));
     assert!(ron.contains("16.7"));
     assert!(ron.contains("14.2"));
+    assert!(ron.contains("runtime"));
 }
 
 #[test]
@@ -32,6 +41,10 @@ fn recording_agent_sink_captures_logs_and_snapshots() {
         smoothed_frame_time_ms: None,
         mode: None,
         recent_log_count: 0,
+        frame_index: None,
+        topic: None,
+        label: None,
+        payload: None,
     });
 
     assert_eq!(sink.logs().len(), 1);

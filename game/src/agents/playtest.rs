@@ -77,14 +77,25 @@ mod tests {
             role: AgentSessionRole::Playtest,
             state: AgentSessionState::Starting,
             payload_path: Some(format!("/tmp/{}", agents::PAYLOAD_FILENAME)),
-            log_path: Some("/tmp/logs/playtest.log".to_string()),
+            log_path: Some(agents::PLAYTEST_LOG_PATH.to_string()),
         };
         let snapshot = AgentVisibilitySnapshot {
             session_state: AgentSessionState::Running,
             frame_time_ms: Some(16.7),
             smoothed_frame_time_ms: Some(15.2),
-            mode: Some("playtest".to_string()),
+            mode: Some(agents::PLAYTEST_MODE.to_string()),
             recent_log_count: 2,
+            frame_index: Some(0),
+            topic: Some(agents::PLAYTEST_RUNTIME_TOPIC.to_string()),
+            label: Some(agents::PLAYTEST_FRAME_LABEL.to_string()),
+            payload: Some(
+                [
+                    ("accumulator_ms", ron::Value::from(16.7)),
+                    ("player_velocity_x", ron::Value::from(0.0)),
+                ]
+                .into_iter()
+                .collect(),
+            ),
         };
 
         assert!(transport.write_manifest(&manifest).is_ok());

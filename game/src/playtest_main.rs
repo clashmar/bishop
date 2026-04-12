@@ -1,6 +1,7 @@
 // game/src/playtest_main.rs
 use bishop::prelude::*;
 use bishop::BishopApp;
+use engine_core::constants::agents;
 use game_lib::agents::FileAgentSessionTransport;
 use engine_core::agents::{
     AgentSessionManifest, AgentSessionRole, AgentSessionState, AgentSessionTransport,
@@ -26,9 +27,26 @@ struct PlaytestApp {
     session_id: String,
     agent_transport: Option<FileAgentSessionTransport>,
     agent_manifest: Option<AgentSessionManifest>,
+    frame_index: u64,
     engine: Option<Engine>,
     startup: Option<StartupController>,
     headless_session: Option<HeadlessPlaytestSession>,
+}
+
+struct PlaytestRuntimePayload {
+    accumulator_ms: f32,
+    player_velocity_x: f32,
+}
+
+impl PlaytestRuntimePayload {
+    fn into_ron_value(self) -> ron::Value {
+        [
+            ("accumulator_ms", ron::Value::from(self.accumulator_ms)),
+            ("player_velocity_x", ron::Value::from(self.player_velocity_x)),
+        ]
+        .into_iter()
+        .collect()
+    }
 }
 
 impl PlaytestApp {
@@ -38,6 +56,7 @@ impl PlaytestApp {
             session_id: Uuid::new_v4().to_string(),
             agent_transport: None,
             agent_manifest: None,
+            frame_index: 0,
             engine: None,
             startup: None,
             headless_session: None,
@@ -62,7 +81,7 @@ impl BishopApp for PlaytestApp {
                 .agent_payload_path
                 .clone()
                 .or(self.launch_args.payload_path.clone()),
-            log_path: None,
+            log_path: Some(agents::PLAYTEST_LOG_PATH.to_string()),
         };
         if let Err(e) = transport.write_manifest(&manifest) {
             onscreen_error!("Failed to write agent session manifest: {e}");
@@ -88,8 +107,10 @@ impl BishopApp for PlaytestApp {
     async fn frame(&mut self, ctx: PlatformContext) {
         if let Some(engine) = &mut self.engine {
             engine.frame(ctx.clone()).await;
-            let snapshot = Self::make_snapshot(&ctx, engine);
+            let frame_index = self.frame_index;
+            let snapshot = Self::make_snapshot(&ctx, engine, frame_index);
             self.publish_snapshot(snapshot);
+            self.frame_index += 1;
             return;
         }
 
@@ -176,9 +197,20 @@ impl PlaytestApp {
         self.agent_manifest = Some(manifest);
     }
 
-    fn make_snapshot(ctx: &PlatformContext, engine: &Engine) -> AgentVisibilitySnapshot {
+    fn make_snapshot(
+        ctx: &PlatformContext,
+        engine: &Engine,
+        frame_index: u64,
+    ) -> AgentVisibilitySnapshot {
         let frame_time_ms = ctx.borrow().get_frame_time() * 1000.0;
         let smoothed_frame_time_ms = engine.smoothed_dt.map(|dt| dt * 1000.0);
+        let game_instance = engine.game_instance.borrow();
+        let ecs = &game_instance.game.ecs;
+        let player_entity = ecs.get_player_entity();
+        let player_velocity_x = player_entity
+            .and_then(|entity| ecs.get::<Velocity>(entity).copied())
+            .map(|velocity| velocity.x)
+            .unwrap_or_default();
         let recent_log_count = match LOG_HISTORY.lock() {
             Ok(history) => history.total_pushed(),
             Err(_) => 0,
@@ -188,8 +220,18 @@ impl PlaytestApp {
             session_state: AgentSessionState::Running,
             frame_time_ms: Some(frame_time_ms),
             smoothed_frame_time_ms,
-            mode: Some("playtest".to_string()),
+            mode: Some(agents::PLAYTEST_MODE.to_string()),
             recent_log_count,
+            frame_index: Some(frame_index),
+            topic: Some(agents::PLAYTEST_RUNTIME_TOPIC.to_string()),
+            label: Some(agents::PLAYTEST_FRAME_LABEL.to_string()),
+            payload: Some(
+                PlaytestRuntimePayload {
+                    accumulator_ms: engine.accumulator * 1000.0,
+                    player_velocity_x,
+                }
+                .into_ron_value(),
+            ),
         }
     }
 
@@ -202,4 +244,5 @@ impl PlaytestApp {
             onscreen_error!("Failed to write agent snapshot: {e}");
         }
     }
+
 }

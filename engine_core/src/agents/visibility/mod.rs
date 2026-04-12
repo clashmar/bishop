@@ -1,3 +1,4 @@
+use ron::Value;
 use serde::{Deserialize, Serialize};
 
 /// High-level state of an agent-visible session.
@@ -16,7 +17,7 @@ pub enum AgentSessionRole {
     Playtest,
 }
 
-/// Minimal read-only snapshot used by agents for diagnosis.
+/// Generic runtime evidence used by agents for diagnosis.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct AgentVisibilitySnapshot {
     pub session_state: AgentSessionState,
@@ -24,6 +25,10 @@ pub struct AgentVisibilitySnapshot {
     pub smoothed_frame_time_ms: Option<f32>,
     pub mode: Option<String>,
     pub recent_log_count: usize,
+    pub frame_index: Option<u64>,
+    pub topic: Option<String>,
+    pub label: Option<String>,
+    pub payload: Option<Value>,
 }
 
 /// Session metadata written alongside snapshots for discovery.
