@@ -4,8 +4,8 @@ use bishop::BishopApp;
 use engine_core::constants::agents;
 use game_lib::agents::FileAgentSessionTransport;
 use engine_core::agents::{
-    AgentSessionManifest, AgentSessionRole, AgentSessionState, AgentSessionTransport,
-    AgentVisibilitySnapshot,
+    payload_value, AgentSessionManifest, AgentSessionRole, AgentSessionState,
+    AgentSessionTransport, AgentVisibilitySnapshot,
 };
 use engine_core::prelude::*;
 use engine_core::logging::{
@@ -16,6 +16,7 @@ use game_lib::engine::Engine;
 use game_lib::startup::{
     runtime_icon_for_playtest_payload, PlaytestLaunchArgs, StartupController, StartupSource,
 };
+use serde::Serialize;
 use std::env;
 use std::path::PathBuf;
 use uuid::Uuid;
@@ -36,20 +37,10 @@ struct PlaytestApp {
     headless_session: Option<HeadlessPlaytestSession>,
 }
 
+#[derive(Serialize)]
 struct PlaytestRuntimePayload {
     accumulator_ms: f32,
     player_velocity_x: f32,
-}
-
-impl PlaytestRuntimePayload {
-    fn into_ron_value(self) -> ron::Value {
-        [
-            ("accumulator_ms", ron::Value::from(self.accumulator_ms)),
-            ("player_velocity_x", ron::Value::from(self.player_velocity_x)),
-        ]
-        .into_iter()
-        .collect()
-    }
 }
 
 impl PlaytestApp {
@@ -225,6 +216,16 @@ impl PlaytestApp {
             Ok(history) => history.total_pushed(),
             Err(_) => 0,
         };
+        let payload = match payload_value(PlaytestRuntimePayload {
+            accumulator_ms: engine.accumulator * 1000.0,
+            player_velocity_x,
+        }) {
+            Ok(payload) => Some(payload),
+            Err(error) => {
+                onscreen_error!("Failed to serialize playtest runtime payload: {error:?}");
+                None
+            }
+        };
 
         AgentVisibilitySnapshot {
             session_state: AgentSessionState::Running,
@@ -235,13 +236,7 @@ impl PlaytestApp {
             frame_index: Some(frame_index),
             topic: Some(agents::PLAYTEST_RUNTIME_TOPIC.to_string()),
             label: Some(agents::PLAYTEST_FRAME_LABEL.to_string()),
-            payload: Some(
-                PlaytestRuntimePayload {
-                    accumulator_ms: engine.accumulator * 1000.0,
-                    player_velocity_x,
-                }
-                .into_ron_value(),
-            ),
+            payload,
         }
     }
 

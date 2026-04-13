@@ -158,22 +158,18 @@ impl AgentPayloadSpec {
             }
         }
 
-        let mut game = Game::default();
-        game.name = self.game_name.clone();
+        let mut game = Game {
+            name: self.game_name.clone(),
+            ..Game::default()
+        };
 
         let world_id = WorldId(Uuid::new_v4());
         let room_id = RoomId(1);
-        let mut built_room = Room {
+        let built_room = Room {
             id: room_id,
             name: room.name.clone(),
             ..Room::default()
         };
-        if self.mode == AgentPayloadMode::Seeded {
-            built_room = Room {
-                id: room_id,
-                ..built_room
-            };
-        }
         let built_world = World {
             id: world_id,
             name: world.name.clone(),

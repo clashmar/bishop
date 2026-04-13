@@ -1,11 +1,16 @@
-use super::{build_seeded_agent_payload, write_seeded_agent_payload};
+use super::{
+    build_seeded_agent_payload, build_seeded_agent_playtest_launch, write_seeded_agent_payload,
+};
 use crate::app::{Editor, EditorMode};
+use crate::playtest::room_playtest::resolve_playtest_binary;
 use crate::storage::editor_storage::create_new_game;
 use engine_core::agents::payload::AgentPayloadError;
+use engine_core::constants::agents;
 use engine_core::ecs::component::ComponentStore;
 use engine_core::prelude::*;
 use engine_core::storage::test_utils::{game_fs_test_lock, TestGameFolder};
 use std::any::TypeId;
+use std::ffi::OsString;
 use std::fs;
 
 #[derive(Default)]
@@ -16,28 +21,35 @@ fn seeded_editor(test_game: &TestGameFolder, _room_id: RoomId) -> Editor {
 
     let mut game = create_new_game(test_game.name().to_string());
     let world_id = game.current_world_id;
-    let world = game.get_world_mut(world_id);
-    let room = world
-        .rooms
-        .first_mut()
-        .expect("new game should create an initial room");
+    let (original_room_id, grid_size) = {
+        let world = game.get_world_mut(world_id);
+        (world.starting_room_id.unwrap(), world.grid_size)
+    };
+    let mut room = Room::new(&mut game.ecs, _room_id, grid_size);
     room.name = "Seeded Room".to_string();
-    let room_id = room.id;
-    world.current_room_id = Some(room_id);
-    world.starting_room_id = Some(room_id);
+    let world = game.get_world_mut(world_id);
+    world.rooms.clear();
+    world.rooms.push(room);
+    world.current_room_id = Some(_room_id);
+    world.starting_room_id = Some(_room_id);
+    game.next_room_id = game.next_room_id.max(_room_id.0);
+    if let Some(proxy) = game.ecs.get_player_proxy(original_room_id) {
+        game.ecs
+            .add_component_to_entity(proxy, CurrentRoom(_room_id));
+    }
 
     game.ecs
         .create_entity()
         .with(Transform::default())
-        .with(CurrentRoom(room_id))
+        .with(CurrentRoom(_room_id))
         .with(Name("Seeded Entity".to_string()))
         .finish();
 
     Editor {
         game,
-        mode: EditorMode::Room(room_id),
+        mode: EditorMode::Room(_room_id),
         cur_world_id: Some(world_id),
-        cur_room_id: Some(room_id),
+        cur_room_id: Some(_room_id),
         ..Default::default()
     }
 }
@@ -158,4 +170,24 @@ fn seeded_agent_payload_can_round_trip_through_file_export() {
     assert_eq!(loaded.room.id, room_id);
 
     fs::remove_file(path).unwrap();
+}
+
+#[test]
+fn seeded_agent_playtest_launch_builder_returns_canonical_binary_payload_and_args() {
+    let _lock = game_fs_test_lock().lock().unwrap();
+    let test_game = TestGameFolder::new("agent_playtest_launch_builder");
+    let editor = seeded_editor(&test_game, RoomId(51));
+    let room_id = editor.cur_room_id.unwrap();
+
+    let payload_path = write_seeded_agent_payload(&editor, room_id).unwrap();
+    let launch = build_seeded_agent_playtest_launch(payload_path).unwrap();
+    let arg_refs = launch.arg_refs();
+
+    assert_eq!(launch.exe_path, resolve_playtest_binary().unwrap());
+    assert!(launch.payload_path.exists());
+    assert_eq!(arg_refs[0], OsString::from(agents::HEADLESS_FLAG));
+    assert_eq!(arg_refs[1], OsString::from(agents::PAYLOAD_FLAG));
+    assert_eq!(arg_refs[2], launch.payload_path.as_os_str());
+
+    let _ = fs::remove_file(launch.payload_path);
 }

@@ -1,6 +1,13 @@
 use ron::Value;
 use serde::{Deserialize, Serialize};
 
+/// Errors returned while converting typed payload data into `ron::Value`.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum AgentVisibilityPayloadError {
+    Serialize(String),
+    Parse(String),
+}
+
 /// High-level state of an agent-visible session.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum AgentSessionState {
@@ -29,6 +36,13 @@ pub struct AgentVisibilitySnapshot {
     pub topic: Option<String>,
     pub label: Option<String>,
     pub payload: Option<Value>,
+}
+
+/// Converts typed payload data into `ron::Value` for agent-visible snapshots.
+pub fn payload_value<T: Serialize>(payload: T) -> Result<Value, AgentVisibilityPayloadError> {
+    let value = serde_value::to_value(payload)
+        .map_err(|error| AgentVisibilityPayloadError::Serialize(error.to_string()))?;
+    Value::deserialize(value).map_err(|error| AgentVisibilityPayloadError::Parse(error.to_string()))
 }
 
 /// Session metadata written alongside snapshots for discovery.

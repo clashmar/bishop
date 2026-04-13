@@ -1,9 +1,8 @@
-use crate::agents::write_seeded_agent_payload;
+use crate::agents::{build_seeded_agent_playtest_launch, write_seeded_agent_payload};
 use crate::app::Editor;
 use crate::editor_global::push_toast;
 use crate::playtest::playtest_process::PlaytestProcess;
 use crate::playtest::room_playtest::{resolve_playtest_binary, write_playtest_payload};
-use engine_core::constants::agents;
 use engine_core::task::BackgroundTask;
 
 /// Agent-facing control surface for playtest lifecycle actions.
@@ -76,20 +75,13 @@ impl Editor {
 
         let payload_path = write_seeded_agent_payload(self, room_id)
             .map_err(|error| format!("Could not write agent payload: {error:?}"))?;
-
-        let exe_path = resolve_playtest_binary().map_err(|error| error.to_string())?;
+        let launch = build_seeded_agent_playtest_launch(payload_path)?;
         if let Some(ref mut old_process) = self.playtest_process {
             old_process.kill();
         }
 
-        let args = [
-            std::ffi::OsStr::new(agents::HEADLESS_FLAG),
-            std::ffi::OsStr::new(agents::PAYLOAD_FLAG),
-            payload_path.as_os_str(),
-        ];
-
         self.playtest_process = Some(
-            PlaytestProcess::spawn_with_args(&exe_path, &args)
+            PlaytestProcess::spawn_with_args(&launch.exe_path, &launch.arg_refs())
                 .map_err(|error| format!("Failed to launch playtest: {error}"))?,
         );
         Ok(())
@@ -109,35 +101,48 @@ impl Editor {
 #[cfg(test)]
 mod tests {
     use super::AgentPlaytestControl;
-    use crate::agents::write_seeded_agent_payload;
+    use crate::agents::{build_seeded_agent_playtest_launch, write_seeded_agent_payload};
     use crate::app::{Editor, EditorMode};
-    use crate::playtest::room_playtest::resolve_playtest_binary;
     use crate::storage::editor_storage::create_new_game;
     use engine_core::constants::agents;
     use engine_core::engine_global::set_game_name;
-    use engine_core::prelude::{BackgroundTask, CurrentRoom, Name, RoomId, Transform};
+    use engine_core::prelude::{BackgroundTask, CurrentRoom, Game, Name, Room, RoomId, Transform};
     use engine_core::storage::test_utils::{game_fs_test_lock, TestGameFolder};
-    use std::ffi::OsStr;
     use std::fs;
     use std::path::PathBuf;
     use std::process::{Command, Stdio};
     use std::thread;
     use std::time::{Duration, Instant};
 
-    fn seeded_editor(test_game: &TestGameFolder, _room_id: RoomId) -> Editor {
+    fn replace_seeded_room(game: &mut Game, room_id: RoomId) {
+        let world_id = game.current_world_id;
+        let (original_room_id, grid_size) = {
+            let world = game.get_world_mut(world_id);
+            (world.starting_room_id.unwrap(), world.grid_size)
+        };
+
+        let mut room = Room::new(&mut game.ecs, room_id, grid_size);
+        room.name = "Seeded Room".to_string();
+
+        let world = game.get_world_mut(world_id);
+        world.rooms.clear();
+        world.rooms.push(room);
+        world.current_room_id = Some(room_id);
+        world.starting_room_id = Some(room_id);
+        game.next_room_id = game.next_room_id.max(room_id.0);
+
+        if let Some(proxy) = game.ecs.get_player_proxy(original_room_id) {
+            game.ecs
+                .add_component_to_entity(proxy, CurrentRoom(room_id));
+        }
+    }
+
+    fn seeded_editor(test_game: &TestGameFolder, room_id: RoomId) -> Editor {
         set_game_name(test_game.name());
 
         let mut game = create_new_game(test_game.name().to_string());
         let world_id = game.current_world_id;
-        let world = game.get_world_mut(world_id);
-        let room = world
-            .rooms
-            .first_mut()
-            .expect("new game should create an initial room");
-        room.name = "Seeded Room".to_string();
-        let room_id = room.id;
-        world.current_room_id = Some(room_id);
-        world.starting_room_id = Some(room_id);
+        replace_seeded_room(&mut game, room_id);
 
         game.ecs
             .create_entity()
@@ -201,26 +206,21 @@ mod tests {
         let editor = seeded_editor(&test_game, RoomId(51));
         let room_id = editor.cur_room_id.unwrap();
         let payload_path = write_seeded_agent_payload(&editor, room_id).unwrap();
-        let session_dir = payload_path.parent().unwrap().join(format!(
+        let launch = build_seeded_agent_playtest_launch(payload_path).unwrap();
+        let session_dir = launch.payload_path.parent().unwrap().join(format!(
             "{}_agent",
-            payload_path.file_stem().unwrap().to_string_lossy()
+            launch.payload_path.file_stem().unwrap().to_string_lossy()
         ));
         let manifest_path = session_dir.join("agent-session.ron");
         let snapshot_path = session_dir.join("agent-snapshot.ron");
         let log_path = PathBuf::from(agents::PLAYTEST_LOG_PATH);
-        let exe_path = resolve_playtest_binary().unwrap();
 
         let _ = fs::remove_dir_all(&session_dir);
         let _ = fs::remove_file(&log_path);
+        let launched_at = std::time::SystemTime::now();
 
-        let args = [
-            OsStr::new(agents::HEADLESS_FLAG),
-            OsStr::new(agents::PAYLOAD_FLAG),
-            payload_path.as_os_str(),
-        ];
-
-        let mut child = Command::new(&exe_path)
-            .args(args)
+        let mut child = Command::new(&launch.exe_path)
+            .args(launch.arg_refs())
             .stdout(Stdio::null())
             .stderr(Stdio::null())
             .spawn()
@@ -252,12 +252,23 @@ mod tests {
         let snapshot = fs::read_to_string(&snapshot_path).unwrap();
         let log = fs::read_to_string(&log_path).unwrap();
 
-        assert!(manifest.contains(payload_path.to_string_lossy().as_ref()));
+        assert!(manifest.contains(launch.payload_path.to_string_lossy().as_ref()));
+        assert!(manifest.contains(agents::PLAYTEST_LOG_PATH));
         assert!(snapshot.contains(agents::PLAYTEST_RUNTIME_TOPIC));
         assert!(snapshot.contains(agents::PLAYTEST_FRAME_LABEL));
-        assert!(log.contains("package.path loaded from"));
+        assert!(!log.trim().is_empty());
+        assert!(
+            fs::metadata(&log_path)
+                .unwrap()
+                .modified()
+                .unwrap()
+                .duration_since(launched_at)
+                .is_ok(),
+            "log was not refreshed by launched run: {}",
+            log_path.display()
+        );
 
-        let _ = fs::remove_file(payload_path);
+        let _ = fs::remove_file(&launch.payload_path);
         let _ = fs::remove_dir_all(session_dir);
         let _ = fs::remove_file(log_path);
     }

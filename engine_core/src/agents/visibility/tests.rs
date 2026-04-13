@@ -1,7 +1,51 @@
-use super::{AgentSessionState, AgentVisibilitySink, AgentVisibilitySnapshot, RecordingAgentSink};
+use super::{
+    payload_value, AgentSessionState, AgentVisibilitySink, AgentVisibilitySnapshot,
+    RecordingAgentSink,
+};
 use crate::constants::agents;
 use crate::logging::{clear_agent_visibility_sink, set_agent_visibility_sink};
+use serde::Serialize;
 use std::sync::{Arc, Mutex};
+
+#[derive(Serialize)]
+struct SamplePayload {
+    accumulator_ms: f32,
+    player_velocity_x: f32,
+}
+
+#[derive(Serialize)]
+enum SampleState {
+    Running,
+}
+
+#[derive(Serialize)]
+struct EnumPayload {
+    state: SampleState,
+}
+
+#[test]
+fn agent_visibility_payload_helper_serializes_typed_data() {
+    let value = payload_value(SamplePayload {
+        accumulator_ms: 16.7,
+        player_velocity_x: 0.0,
+    })
+    .unwrap();
+
+    let ron = ron::to_string(&value).unwrap();
+    assert!(ron.contains("accumulator_ms"));
+    assert!(ron.contains("player_velocity_x"));
+}
+
+#[test]
+fn agent_visibility_payload_helper_supports_enum_fields() {
+    let value = payload_value(EnumPayload {
+        state: SampleState::Running,
+    })
+    .unwrap();
+
+    let ron = ron::to_string(&value).unwrap();
+    assert!(ron.contains("Running"));
+}
 
 #[test]
 fn agent_visibility_snapshot_includes_frame_timing_and_session_state() {

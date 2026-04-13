@@ -128,6 +128,9 @@ pub fn build_seeded_agent_payload(
         return Ok(built);
     };
     *built_room = room;
+    for entity in &mut built.entities {
+        entity.room_id = built_room.id;
+    }
     world.current_room_id = Some(built_room.id);
     world.starting_room_id = Some(built_room.id);
     Ok(built)

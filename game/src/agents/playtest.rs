@@ -91,13 +91,20 @@ fn write_ron_file<T: serde::Serialize>(path: &Path, value: &T) -> io::Result<()>
 mod tests {
     use super::FileAgentSessionTransport;
     use engine_core::agents::{
-        AgentSessionManifest, AgentSessionRole, AgentSessionState, AgentSessionTransport,
-        AgentVisibilitySnapshot,
+        payload_value, AgentSessionManifest, AgentSessionRole, AgentSessionState,
+        AgentSessionTransport, AgentVisibilitySnapshot,
     };
     use engine_core::constants::agents;
+    use serde::Serialize;
     use std::fs;
     use std::path::PathBuf;
     use std::time::{SystemTime, UNIX_EPOCH};
+
+    #[derive(Serialize)]
+    struct TestRuntimePayload {
+        accumulator_ms: f32,
+        player_velocity_x: f32,
+    }
 
     #[test]
     fn file_agent_transport_writes_manifest_and_snapshot() {
@@ -125,14 +132,11 @@ mod tests {
             frame_index: Some(0),
             topic: Some(agents::PLAYTEST_RUNTIME_TOPIC.to_string()),
             label: Some(agents::PLAYTEST_FRAME_LABEL.to_string()),
-            payload: Some(
-                [
-                    ("accumulator_ms", ron::Value::from(16.7)),
-                    ("player_velocity_x", ron::Value::from(0.0)),
-                ]
-                .into_iter()
-                .collect(),
-            ),
+            payload: payload_value(TestRuntimePayload {
+                accumulator_ms: 16.7,
+                player_velocity_x: 0.0,
+            })
+            .ok(),
         };
 
         assert!(transport.write_manifest(&manifest).is_ok());
@@ -140,6 +144,10 @@ mod tests {
 
         assert!(transport.manifest_path().exists());
         assert!(transport.snapshot_path().exists());
+
+        let snapshot_ron = fs::read_to_string(transport.snapshot_path()).unwrap();
+        assert!(snapshot_ron.contains("accumulator_ms"));
+        assert!(snapshot_ron.contains("player_velocity_x"));
 
         let _ = fs::remove_dir_all(session_dir);
     }
