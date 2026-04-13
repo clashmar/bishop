@@ -14,10 +14,11 @@ fn agent_visibility_snapshot_includes_frame_timing_and_session_state() {
         frame_index: Some(0),
         topic: Some(agents::PLAYTEST_RUNTIME_TOPIC.to_string()),
         label: Some(agents::PLAYTEST_FRAME_LABEL.to_string()),
-        payload: Some(ron::Value::Map(vec![(
-            ron::Value::String("frame_time_ms".to_string()),
-            ron::Value::Float(16.7),
-        )])),
+        payload: Some(
+            [("frame_time_ms", ron::Value::from(16.7))]
+                .into_iter()
+                .collect(),
+        ),
     };
 
     let ron = match ron::to_string(&snapshot) {

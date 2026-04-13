@@ -120,7 +120,16 @@ pub fn build_seeded_agent_payload(
     }
 
     let mut built = spec.build()?;
-    built.room = room;
+    built.room = room.clone();
+    let Some(world) = built.game.worlds.first_mut() else {
+        return Ok(built);
+    };
+    let Some(built_room) = world.rooms.first_mut() else {
+        return Ok(built);
+    };
+    *built_room = room;
+    world.current_room_id = Some(built_room.id);
+    world.starting_room_id = Some(built_room.id);
     Ok(built)
 }
 

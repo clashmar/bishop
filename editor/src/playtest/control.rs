@@ -109,11 +109,51 @@ impl Editor {
 #[cfg(test)]
 mod tests {
     use super::AgentPlaytestControl;
-    use crate::app::Editor;
+    use crate::agents::write_seeded_agent_payload;
+    use crate::app::{Editor, EditorMode};
+    use crate::playtest::room_playtest::resolve_playtest_binary;
+    use crate::storage::editor_storage::create_new_game;
+    use engine_core::constants::agents;
     use engine_core::engine_global::set_game_name;
-    use engine_core::prelude::BackgroundTask;
+    use engine_core::prelude::{BackgroundTask, CurrentRoom, Name, RoomId, Transform};
     use engine_core::storage::test_utils::{game_fs_test_lock, TestGameFolder};
+    use std::ffi::OsStr;
+    use std::fs;
     use std::path::PathBuf;
+    use std::process::{Command, Stdio};
+    use std::thread;
+    use std::time::{Duration, Instant};
+
+    fn seeded_editor(test_game: &TestGameFolder, _room_id: RoomId) -> Editor {
+        set_game_name(test_game.name());
+
+        let mut game = create_new_game(test_game.name().to_string());
+        let world_id = game.current_world_id;
+        let world = game.get_world_mut(world_id);
+        let room = world
+            .rooms
+            .first_mut()
+            .expect("new game should create an initial room");
+        room.name = "Seeded Room".to_string();
+        let room_id = room.id;
+        world.current_room_id = Some(room_id);
+        world.starting_room_id = Some(room_id);
+
+        game.ecs
+            .create_entity()
+            .with(Transform::default())
+            .with(CurrentRoom(room_id))
+            .with(Name("Seeded Entity".to_string()))
+            .finish();
+
+        Editor {
+            game,
+            mode: EditorMode::Room(room_id),
+            cur_world_id: Some(world_id),
+            cur_room_id: Some(room_id),
+            ..Default::default()
+        }
+    }
 
     #[test]
     fn agent_playtest_command_closes_cleanly_when_idle() {
@@ -151,8 +191,74 @@ mod tests {
 
         let mut editor = Editor::default();
 
-        assert!(editor
-            .open_agent_playtest_for_current_room()
-            .is_err());
+        assert!(editor.open_agent_playtest_for_current_room().is_err());
+    }
+
+    #[test]
+    fn seeded_agent_playtest_writes_manifest_log_and_snapshot_from_same_run() {
+        let _lock = game_fs_test_lock().lock().unwrap();
+        let test_game = TestGameFolder::new("agent_playtest_end_to_end");
+        let editor = seeded_editor(&test_game, RoomId(51));
+        let room_id = editor.cur_room_id.unwrap();
+        let payload_path = write_seeded_agent_payload(&editor, room_id).unwrap();
+        let session_dir = payload_path.parent().unwrap().join(format!(
+            "{}_agent",
+            payload_path.file_stem().unwrap().to_string_lossy()
+        ));
+        let manifest_path = session_dir.join("agent-session.ron");
+        let snapshot_path = session_dir.join("agent-snapshot.ron");
+        let log_path = PathBuf::from(agents::PLAYTEST_LOG_PATH);
+        let exe_path = resolve_playtest_binary().unwrap();
+
+        let _ = fs::remove_dir_all(&session_dir);
+        let _ = fs::remove_file(&log_path);
+
+        let args = [
+            OsStr::new(agents::HEADLESS_FLAG),
+            OsStr::new(agents::PAYLOAD_FLAG),
+            payload_path.as_os_str(),
+        ];
+
+        let mut child = Command::new(&exe_path)
+            .args(args)
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()
+            .unwrap();
+
+        let started = Instant::now();
+        while started.elapsed() < Duration::from_secs(20)
+            && (!manifest_path.exists() || !snapshot_path.exists() || !log_path.exists())
+        {
+            thread::sleep(Duration::from_millis(200));
+        }
+
+        let _ = child.kill();
+        let _ = child.wait();
+
+        assert!(
+            manifest_path.exists(),
+            "manifest missing: {}",
+            manifest_path.display()
+        );
+        assert!(
+            snapshot_path.exists(),
+            "snapshot missing: {}",
+            snapshot_path.display()
+        );
+        assert!(log_path.exists(), "log missing: {}", log_path.display());
+
+        let manifest = fs::read_to_string(&manifest_path).unwrap();
+        let snapshot = fs::read_to_string(&snapshot_path).unwrap();
+        let log = fs::read_to_string(&log_path).unwrap();
+
+        assert!(manifest.contains(payload_path.to_string_lossy().as_ref()));
+        assert!(snapshot.contains(agents::PLAYTEST_RUNTIME_TOPIC));
+        assert!(snapshot.contains(agents::PLAYTEST_FRAME_LABEL));
+        assert!(log.contains("package.path loaded from"));
+
+        let _ = fs::remove_file(payload_path);
+        let _ = fs::remove_dir_all(session_dir);
+        let _ = fs::remove_file(log_path);
     }
 }

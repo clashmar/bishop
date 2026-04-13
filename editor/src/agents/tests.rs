@@ -11,17 +11,18 @@ use std::fs;
 #[derive(Default)]
 struct UnknownComponent;
 
-fn seeded_editor(test_game: &TestGameFolder, room_id: RoomId) -> Editor {
+fn seeded_editor(test_game: &TestGameFolder, _room_id: RoomId) -> Editor {
     set_game_name(test_game.name());
 
     let mut game = create_new_game(test_game.name().to_string());
     let world_id = game.current_world_id;
     let world = game.get_world_mut(world_id);
-    world.rooms.push(Room {
-        id: room_id,
-        name: "Seeded Room".to_string(),
-        ..Room::default()
-    });
+    let room = world
+        .rooms
+        .first_mut()
+        .expect("new game should create an initial room");
+    room.name = "Seeded Room".to_string();
+    let room_id = room.id;
     world.current_room_id = Some(room_id);
     world.starting_room_id = Some(room_id);
 
@@ -80,8 +81,8 @@ fn seeded_agent_payload_preserves_current_game_and_room_identity() {
     let test_game = TestGameFolder::new("editor_seeded_agent_payload_identity");
     set_game_name(test_game.name());
 
-    let room_id = RoomId(7);
-    let editor = seeded_editor(&test_game, room_id);
+    let editor = seeded_editor(&test_game, RoomId(7));
+    let room_id = editor.cur_room_id.unwrap();
 
     let payload = build_seeded_agent_payload(&editor, room_id).unwrap();
 
@@ -95,12 +96,13 @@ fn seeded_agent_payload_rejects_missing_component_types() {
     let test_game = TestGameFolder::new("editor_seeded_agent_payload_unknown_component");
     set_game_name(test_game.name());
 
-    let room_id = RoomId(11);
-    let mut editor = seeded_editor(&test_game, room_id);
+    let mut editor = seeded_editor(&test_game, RoomId(11));
     editor.game.ecs.stores.insert(
         TypeId::of::<ComponentStore<UnknownComponent>>(),
         Box::new(ComponentStore::<UnknownComponent>::default()),
     );
+
+    let room_id = editor.cur_room_id.unwrap();
 
     let result = build_seeded_agent_payload(&editor, room_id);
 
@@ -129,8 +131,8 @@ fn seeded_agent_payload_rejects_duplicate_entity_names() {
     let test_game = TestGameFolder::new("editor_seeded_agent_payload_duplicate_names");
     set_game_name(test_game.name());
 
-    let room_id = RoomId(31);
-    let editor = seeded_editor_with_duplicate_names(&test_game, room_id);
+    let editor = seeded_editor_with_duplicate_names(&test_game, RoomId(31));
+    let room_id = editor.cur_room_id.unwrap();
 
     let result = build_seeded_agent_payload(&editor, room_id);
 
@@ -146,8 +148,8 @@ fn seeded_agent_payload_can_round_trip_through_file_export() {
     let test_game = TestGameFolder::new("editor_seeded_agent_payload_file_round_trip");
     set_game_name(test_game.name());
 
-    let room_id = RoomId(41);
-    let editor = seeded_editor(&test_game, room_id);
+    let editor = seeded_editor(&test_game, RoomId(41));
+    let room_id = editor.cur_room_id.unwrap();
 
     let path = write_seeded_agent_payload(&editor, room_id).unwrap();
     let loaded = game_lib::agents::load_agent_payload(path.to_str().unwrap()).unwrap();

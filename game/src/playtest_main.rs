@@ -8,7 +8,10 @@ use engine_core::agents::{
     AgentVisibilitySnapshot,
 };
 use engine_core::prelude::*;
-use engine_core::logging::LOG_HISTORY;
+use engine_core::logging::{
+    clear_agent_visibility_sink, publish_agent_visibility_snapshot, set_agent_visibility_sink,
+    LOG_HISTORY,
+};
 use game_lib::engine::Engine;
 use game_lib::startup::{
     runtime_icon_for_playtest_payload, PlaytestLaunchArgs, StartupController, StartupSource,
@@ -72,6 +75,7 @@ impl BishopApp for PlaytestApp {
             &self.launch_args,
             &self.session_id,
         ));
+        set_agent_visibility_sink(Box::new(transport.clone()));
         let manifest = AgentSessionManifest {
             session_id: self.session_id.clone(),
             role: AgentSessionRole::Playtest,
@@ -109,7 +113,7 @@ impl BishopApp for PlaytestApp {
             engine.frame(ctx.clone()).await;
             let frame_index = self.frame_index;
             let snapshot = Self::make_snapshot(&ctx, engine, frame_index);
-            self.publish_snapshot(snapshot);
+            publish_agent_visibility_snapshot(snapshot);
             self.frame_index += 1;
             return;
         }
@@ -129,6 +133,12 @@ impl BishopApp for PlaytestApp {
                 self.startup = None;
             }
         }
+    }
+}
+
+impl Drop for PlaytestApp {
+    fn drop(&mut self) {
+        clear_agent_visibility_sink();
     }
 }
 
@@ -232,16 +242,6 @@ impl PlaytestApp {
                 }
                 .into_ron_value(),
             ),
-        }
-    }
-
-    fn publish_snapshot(&self, snapshot: AgentVisibilitySnapshot) {
-        let Some(transport) = self.agent_transport.as_ref() else {
-            return;
-        };
-
-        if let Err(e) = transport.write_snapshot(&snapshot) {
-            onscreen_error!("Failed to write agent snapshot: {e}");
         }
     }
 

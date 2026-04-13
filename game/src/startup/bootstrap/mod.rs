@@ -274,7 +274,10 @@ fn parse_startup_data(files: LoadedStartupFiles) -> Result<LoadedStartupData, St
             })
         }
         LoadedStartupFiles::AgentPayload { payload_path } => {
-            let payload = load_agent_payload(&payload_path)?;
+            let lua = mlua::Lua::new();
+            let payload = load_agent_payload(&payload_path)?
+                .materialize(&lua)
+                .map_err(|error| format!("Failed to materialize agent payload: {error:?}"))?;
             let startup_asset = load_startup_for_game_name(&payload.game.name);
             Ok(LoadedStartupData::AgentPayload {
                 startup_asset,

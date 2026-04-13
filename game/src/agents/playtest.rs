@@ -1,10 +1,14 @@
-use engine_core::agents::{AgentSessionManifest, AgentSessionTransport, AgentVisibilitySnapshot};
-use std::fs::{self, File};
+use engine_core::agents::{
+    AgentSessionManifest, AgentSessionTransport, AgentVisibilitySink, AgentVisibilitySnapshot,
+};
+use engine_core::constants::agents;
+use std::fs::{self, File, OpenOptions};
 use std::io;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 
 /// File-backed transport for playtest-only agent session data.
+#[derive(Clone)]
 pub struct FileAgentSessionTransport {
     session_dir: PathBuf,
 }
@@ -40,6 +44,39 @@ impl AgentSessionTransport for FileAgentSessionTransport {
     fn write_snapshot(&self, snapshot: &AgentVisibilitySnapshot) -> io::Result<()> {
         self.ensure_ready()?;
         write_ron_file(&self.snapshot_path(), snapshot)
+    }
+}
+
+impl AgentVisibilitySink for FileAgentSessionTransport {
+    fn publish_snapshot(&mut self, snapshot: AgentVisibilitySnapshot) {
+        if let Err(error) = self.ensure_ready() {
+            eprintln!("Failed to prepare agent snapshot directory: {error}");
+            return;
+        }
+
+        if let Err(error) = self.write_snapshot(&snapshot) {
+            eprintln!("Failed to write agent snapshot: {error}");
+        }
+    }
+
+    fn publish_log(&mut self, level: log::Level, message: &str) {
+        let log_path = PathBuf::from(agents::PLAYTEST_LOG_PATH);
+        if let Some(parent) = log_path.parent() {
+            if let Err(error) = fs::create_dir_all(parent) {
+                eprintln!("Failed to prepare agent log directory: {error}");
+                return;
+            }
+        }
+
+        let entry = format!("[{level}] {message}\n");
+        match OpenOptions::new().create(true).append(true).open(&log_path) {
+            Ok(mut file) => {
+                if let Err(error) = file.write_all(entry.as_bytes()) {
+                    eprintln!("Failed to write agent log: {error}");
+                }
+            }
+            Err(error) => eprintln!("Failed to open agent log: {error}"),
+        }
     }
 }
 

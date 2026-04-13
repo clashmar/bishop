@@ -1,5 +1,5 @@
 // engine_core/src/logging/mod.rs
-use crate::agents::AgentVisibilitySink;
+use crate::agents::{AgentVisibilitySink, AgentVisibilitySnapshot};
 use crate::storage::editor_config::app_dir;
 use std::backtrace::Backtrace;
 use std::fs::{self, OpenOptions};
@@ -114,6 +114,15 @@ pub fn publish_agent_visibility_log(level: log::Level, message: &str) {
         && let Some(sink) = slot.as_mut()
     {
         sink.publish_log(level, message);
+    }
+}
+
+/// Forwards a snapshot to the installed agent sink, if any.
+pub fn publish_agent_visibility_snapshot(snapshot: AgentVisibilitySnapshot) {
+    if let Ok(mut slot) = AGENT_VISIBILITY_SINK.lock()
+        && let Some(sink) = slot.as_mut()
+    {
+        sink.publish_snapshot(snapshot);
     }
 }
 

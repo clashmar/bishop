@@ -58,6 +58,7 @@ struct AgentComponentSpec {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum AgentPayloadError {
     UnknownComponentType(String),
+    InvalidComponentData(String),
     UnknownScriptType(String),
     MissingRoom,
     MissingEntity(String),
@@ -162,11 +163,17 @@ impl AgentPayloadSpec {
 
         let world_id = WorldId(Uuid::new_v4());
         let room_id = RoomId(1);
-        let built_room = Room {
+        let mut built_room = Room {
             id: room_id,
             name: room.name.clone(),
             ..Room::default()
         };
+        if self.mode == AgentPayloadMode::Seeded {
+            built_room = Room {
+                id: room_id,
+                ..built_room
+            };
+        }
         let built_world = World {
             id: world_id,
             name: world.name.clone(),
@@ -243,6 +250,13 @@ impl AgentPayloadSpec {
 }
 
 impl AgentBuiltPayload {
+    /// Applies exported entities into the loaded game and initializes runtime state.
+    pub fn materialize(mut self, lua: &Lua) -> Result<Self, AgentPayloadError> {
+        self.game.initialize_runtime(lua);
+        self.apply_entities(lua)?;
+        Ok(self)
+    }
+
     fn apply_entities(&mut self, lua: &Lua) -> Result<(), AgentPayloadError> {
         let room_id = self.room.id;
         let _ = lua;
@@ -288,7 +302,7 @@ impl AgentBuiltPayload {
     ) -> Result<(), AgentPayloadError> {
         if snapshot.type_name == comp_type_name::<Transform>() {
             let transform = ron::from_str::<Transform>(&snapshot.ron)
-                .map_err(|_| AgentPayloadError::UnknownComponentType(snapshot.type_name.clone()))?;
+                .map_err(|_| AgentPayloadError::InvalidComponentData(snapshot.type_name.clone()))?;
             self.game.ecs.add_component_to_entity(entity, transform);
             return Ok(());
         }
