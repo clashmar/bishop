@@ -1,7 +1,6 @@
 use super::{
     build_snapshot_payload, merged_snapshot_payload, payload_value, AgentSessionState,
     AgentSnapshotRequest, AgentVisibilitySink, AgentVisibilitySnapshot, RecordingAgentSink,
-    SnapshotProfile,
 };
 use crate::constants::agents;
 use crate::logging::{clear_agent_visibility_sink, set_agent_visibility_sink};
@@ -73,34 +72,20 @@ fn payload_macro_builds_inline_map_without_named_payload_type() {
 }
 
 #[test]
-fn snapshot_request_round_trips_through_ron() {
+fn snapshot_request_round_trips_with_extras_only() {
     let request = AgentSnapshotRequest {
-        profile: SnapshotProfile::RuntimeDebug,
         extras: payload!(player_velocity_x: 4.0),
     };
 
     let ron = ron::to_string(&request).unwrap();
     let round_trip: AgentSnapshotRequest = ron::from_str(&ron).unwrap();
 
-    assert_eq!(round_trip.profile, SnapshotProfile::RuntimeDebug);
     assert_eq!(round_trip.extras, payload!(player_velocity_x: 4.0));
-}
-
-#[test]
-fn snapshot_profile_only_exposes_generic_presets() {
-    let label = |profile: SnapshotProfile| match profile {
-        SnapshotProfile::Minimal => "minimal",
-        SnapshotProfile::RuntimeDebug => "runtime_debug",
-    };
-
-    assert_eq!(label(SnapshotProfile::Minimal), "minimal");
-    assert_eq!(label(SnapshotProfile::RuntimeDebug), "runtime_debug");
 }
 
 #[test]
 fn extras_override_profile_fields_on_collision() {
     let request = AgentSnapshotRequest {
-        profile: SnapshotProfile::RuntimeDebug,
         extras: payload!(
             accumulator_ms: 99.0,
             custom_flag: true,
@@ -142,7 +127,6 @@ fn extras_override_profile_fields_on_collision() {
 #[test]
 fn non_map_extras_do_not_replace_profile_payload() {
     let request = AgentSnapshotRequest {
-        profile: SnapshotProfile::RuntimeDebug,
         extras: ron::Value::Bool(true),
     };
 
@@ -163,6 +147,17 @@ fn non_map_extras_do_not_replace_profile_payload() {
     );
 
     assert_eq!(build_snapshot_payload(&request, None), None);
+}
+
+#[test]
+fn build_snapshot_payload_keeps_runtime_payload_when_request_extras_empty() {
+    let request = AgentSnapshotRequest { extras: payload!() };
+    let runtime_payload = Some(payload!(accumulator_ms: 16.7));
+
+    assert_eq!(
+        build_snapshot_payload(&request, runtime_payload.clone()),
+        runtime_payload
+    );
 }
 
 #[test]

@@ -4,6 +4,9 @@ use serde::{Deserialize, Serialize};
 /// Builds an inline RON payload map from serializable key-value pairs.
 #[macro_export]
 macro_rules! payload {
+    () => {{
+        $crate::agents::payload_map_finish($crate::agents::payload_map_new())
+    }};
     ($($key:ident : $value:expr),* $(,)?) => {{
         let mut map = $crate::agents::payload_map_new();
         $(
@@ -49,20 +52,9 @@ pub enum AgentSessionRole {
     Playtest,
 }
 
-/// Shared snapshot profile presets for agent-visible requests.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub enum SnapshotProfile {
-    /// Smallest shared snapshot shape for broad compatibility.
-    Minimal,
-    /// Snapshot preset with additional runtime-oriented diagnostics.
-    RuntimeDebug,
-}
-
-/// Agent request for a snapshot profile and extra payload fields.
+/// Agent request for extra payload fields.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct AgentSnapshotRequest {
-    /// Shared snapshot preset to collect.
-    pub profile: SnapshotProfile,
     /// Additional ad-hoc fields serialized into the request payload.
     pub extras: Value,
 }
@@ -119,15 +111,6 @@ pub fn payload_map_finish(map: ron::Map) -> Value {
     Value::Map(map)
 }
 
-fn resolve_snapshot_profile_payload(
-    profile: &SnapshotProfile,
-    runtime_payload: Option<Value>,
-) -> Option<Value> {
-    match profile {
-        SnapshotProfile::Minimal | SnapshotProfile::RuntimeDebug => runtime_payload,
-    }
-}
-
 fn merge_payload_values(profile_payload: Value, extras: Value) -> Value {
     match (profile_payload, extras) {
         (Value::Map(mut profile_map), Value::Map(extras_map)) => {
@@ -152,15 +135,10 @@ pub fn build_snapshot_payload(
     request: &AgentSnapshotRequest,
     runtime_payload: Option<Value>,
 ) -> Option<Value> {
-    let profile_payload = resolve_snapshot_profile_payload(&request.profile, runtime_payload);
-
-    match (profile_payload, request.extras.clone()) {
+    match (runtime_payload, request.extras.clone()) {
         (Some(profile_payload), Value::Map(extras)) if extras.is_empty() => Some(profile_payload),
         (Some(profile_payload), extras) => Some(merged_snapshot_payload(
-            &AgentSnapshotRequest {
-                profile: request.profile.clone(),
-                extras,
-            },
+            &AgentSnapshotRequest { extras },
             profile_payload,
         )),
         (None, Value::Map(extras)) if extras.is_empty() => None,

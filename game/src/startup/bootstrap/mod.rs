@@ -34,23 +34,19 @@ struct PlaytestPayload {
     startup_mode: StartupMode,
 }
 
+struct LoadedPlaytestData {
+    startup_asset: StartupAsset,
+    room: Room,
+    game: Game,
+    startup_mode: StartupMode,
+}
+
 enum LoadedStartupData {
     Game {
         startup_asset: StartupAsset,
         game: Game,
     },
-    Playtest {
-        startup_asset: StartupAsset,
-        room: Room,
-        game: Game,
-        startup_mode: StartupMode,
-    },
-    AgentPayload {
-        startup_asset: StartupAsset,
-        room: Room,
-        game: Game,
-        startup_mode: StartupMode,
-    },
+    Playtest(LoadedPlaytestData),
 }
 
 enum LoadedStartupFiles {
@@ -163,23 +159,18 @@ impl StartupController {
 impl LoadedStartupData {
     fn startup_asset(&self) -> &StartupAsset {
         match self {
-            Self::Game { startup_asset, .. }
-            | Self::Playtest { startup_asset, .. }
-            | Self::AgentPayload { startup_asset, .. } => startup_asset,
+            Self::Game { startup_asset, .. } => startup_asset,
+            Self::Playtest(playtest) => &playtest.startup_asset,
         }
     }
 
     fn skips_startup_presentation(&self) -> bool {
         matches!(
             self,
-            Self::Playtest {
+            Self::Playtest(LoadedPlaytestData {
                 startup_mode: StartupMode::Skip,
                 ..
-            }
-                | Self::AgentPayload {
-                    startup_mode: StartupMode::Skip,
-                    ..
-                }
+            })
         )
     }
 }
@@ -266,12 +257,12 @@ fn parse_startup_data(files: LoadedStartupFiles) -> Result<LoadedStartupData, St
                 .as_deref()
                 .map(parse_payload_startup)
                 .unwrap_or_else(|| load_startup_for_game_name(&game.name));
-            Ok(LoadedStartupData::Playtest {
+            Ok(LoadedStartupData::Playtest(LoadedPlaytestData {
                 startup_asset,
                 room,
                 game,
                 startup_mode,
-            })
+            }))
         }
         LoadedStartupFiles::AgentPayload { payload_path } => {
             let lua = mlua::Lua::new();
@@ -279,12 +270,12 @@ fn parse_startup_data(files: LoadedStartupFiles) -> Result<LoadedStartupData, St
                 .materialize(&lua)
                 .map_err(|error| format!("Failed to materialize agent payload: {error:?}"))?;
             let startup_asset = load_startup_for_game_name(&payload.game.name);
-            Ok(LoadedStartupData::AgentPayload {
+            Ok(LoadedStartupData::Playtest(LoadedPlaytestData {
                 startup_asset,
                 room: payload.room,
                 game: payload.game,
                 startup_mode: payload.startup_mode,
-            })
+            }))
         }
     }
 }
@@ -331,36 +322,12 @@ fn build_engine(ctx: PlatformContext, loaded: LoadedStartupData) -> Engine {
 
             builder.assemble(game_instance, ctx, false)
         }
-        LoadedStartupData::Playtest {
+        LoadedStartupData::Playtest(LoadedPlaytestData {
             startup_asset,
             room,
             game,
             startup_mode,
-        } => {
-            set_engine_mode(EngineMode::Playtest);
-            set_game_name(game.name.clone());
-
-            let entry_mode = resolve_entry_mode(&startup_asset, &game, startup_mode);
-            let mut builder = EngineBuilder::new().entry_mode(entry_mode);
-            let game_instance = {
-                let mut ctx_ref = ctx.borrow_mut();
-                GameInstance::from_loaded_room(
-                    &mut *ctx_ref,
-                    room,
-                    game,
-                    &builder.lua,
-                    &mut builder.camera_manager,
-                )
-            };
-
-            builder.assemble(game_instance, ctx, true)
-        }
-        LoadedStartupData::AgentPayload {
-            startup_asset,
-            room,
-            game,
-            startup_mode,
-        } => {
+        }) => {
             set_engine_mode(EngineMode::Playtest);
             set_game_name(game.name.clone());
 

@@ -1,4 +1,6 @@
 use super::*;
+use engine_core::agents::payload::AgentPayloadSpec;
+use engine_core::storage::test_utils::{game_fs_test_lock, TestGameFolder};
 use std::fs;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -10,11 +12,55 @@ fn unique_name(prefix: &str) -> String {
     format!("{prefix}-{nanos}")
 }
 
+fn payload_startup_ron() -> String {
+    ron::ser::to_string_pretty(&StartupAsset::default(), ron::ser::PrettyConfig::new()).unwrap()
+}
+
+fn editor_payload_ron(game_name: &str, room: &Room, startup_mode: StartupMode) -> String {
+    #[derive(serde::Serialize)]
+    struct Payload<'a> {
+        room: &'a Room,
+        game: &'a Game,
+        startup_ron: Option<String>,
+        startup_mode: StartupMode,
+    }
+
+    let game = Game {
+        name: game_name.to_string(),
+        ..Game::default()
+    };
+
+    ron::ser::to_string_pretty(
+        &Payload {
+            room,
+            game: &game,
+            startup_ron: Some(payload_startup_ron()),
+            startup_mode,
+        },
+        ron::ser::PrettyConfig::new(),
+    )
+    .unwrap()
+}
+
+fn seeded_payload_path(game_name: &str) -> std::path::PathBuf {
+    let payload = AgentPayloadSpec::synthetic(game_name)
+        .add_room("Seeded Room")
+        .build()
+        .unwrap();
+    let path = std::env::temp_dir().join(format!("{}.ron", unique_name("seeded-payload")));
+    fs::write(
+        &path,
+        ron::ser::to_string_pretty(&payload, ron::ser::PrettyConfig::new()).unwrap(),
+    )
+    .unwrap();
+    path
+}
+
 #[test]
 fn playtest_startup_preview_loads_authored_splash_screens_from_payload_game_name() {
-    let game_name = unique_name("PlaytestPreview");
-    let game_dir = game_folder(&game_name);
-    let resources_dir = game_dir.join(RESOURCES_FOLDER);
+    let _lock = game_fs_test_lock().lock().unwrap();
+    let test_game = TestGameFolder::new("PlaytestPreview");
+    let resources_dir = test_game.path().join(RESOURCES_FOLDER);
     fs::create_dir_all(&resources_dir).unwrap();
     let startup = StartupAsset {
         loading: super::super::LoadingConfig {
@@ -44,10 +90,11 @@ fn playtest_startup_preview_loads_authored_splash_screens_from_payload_game_name
             r#"
 (
     game: (
-        name: "{game_name}",
+        name: "{}",
     ),
 )
-"#
+"#,
+            test_game.name(),
         ),
     )
     .unwrap();
@@ -57,7 +104,6 @@ fn playtest_startup_preview_loads_authored_splash_screens_from_payload_game_name
     assert_eq!(startup.loading.splash_screens.len(), 1);
 
     let _ = fs::remove_file(payload_path);
-    let _ = fs::remove_dir_all(game_dir);
 }
 
 #[test]
@@ -151,10 +197,7 @@ fn parse_startup_data_uses_startup_mode_from_payload() {
     .unwrap();
 
     match loaded {
-        LoadedStartupData::Playtest { startup_mode, .. } => {
-            assert_eq!(startup_mode, StartupMode::Full)
-        }
-        LoadedStartupData::AgentPayload { startup_mode, .. } => {
+        LoadedStartupData::Playtest(LoadedPlaytestData { startup_mode, .. }) => {
             assert_eq!(startup_mode, StartupMode::Full)
         }
         LoadedStartupData::Game { .. } => panic!("expected playtest startup data"),
@@ -162,25 +205,60 @@ fn parse_startup_data_uses_startup_mode_from_payload() {
 }
 
 #[test]
-fn playtest_skip_mode_bypasses_startup_presentation() {
-    let loaded = LoadedStartupData::Playtest {
-        startup_asset: StartupAsset::default(),
-        room: Room::default(),
-        game: Game::default(),
-        startup_mode: StartupMode::Skip,
+fn payload_backed_startup_data_builds_same_room_game_shape_for_editor_and_seeded_sources() {
+    let _lock = game_fs_test_lock().lock().unwrap();
+    let test_game = TestGameFolder::new("PayloadBackedStartupData");
+    let room = Room {
+        id: RoomId(1),
+        name: "Seeded Room".to_string(),
+        ..Room::default()
+    };
+    let resources_dir = test_game.path().join(RESOURCES_FOLDER);
+    fs::create_dir_all(&resources_dir).unwrap();
+    fs::write(resources_dir.join("startup.ron"), payload_startup_ron()).unwrap();
+
+    let editor_loaded = parse_startup_data(LoadedStartupFiles::Playtest {
+        payload_ron: editor_payload_ron(test_game.name(), &room, StartupMode::Skip),
+    })
+    .unwrap();
+    let seeded_path = seeded_payload_path(test_game.name());
+    let seeded_loaded = parse_startup_data(LoadedStartupFiles::AgentPayload {
+        payload_path: seeded_path.display().to_string(),
+    })
+    .unwrap();
+
+    let editor_playtest = match editor_loaded {
+        LoadedStartupData::Playtest(LoadedPlaytestData {
+            room,
+            game,
+            startup_mode,
+            ..
+        }) => Some((room.id, game.name, startup_mode)),
+        LoadedStartupData::Game { .. } => None,
+    };
+    let seeded_playtest = match seeded_loaded {
+        LoadedStartupData::Playtest(LoadedPlaytestData {
+            room,
+            game,
+            startup_mode,
+            ..
+        }) => Some((room.id, game.name, startup_mode)),
+        LoadedStartupData::Game { .. } => None,
     };
 
-    assert!(loaded.skips_startup_presentation());
+    assert_eq!(editor_playtest, seeded_playtest);
+
+    let _ = fs::remove_file(seeded_path);
 }
 
 #[test]
-fn agent_payload_skip_mode_bypasses_startup_presentation() {
-    let loaded = LoadedStartupData::AgentPayload {
+fn playtest_skip_mode_bypasses_startup_presentation() {
+    let loaded = LoadedStartupData::Playtest(LoadedPlaytestData {
         startup_asset: StartupAsset::default(),
         room: Room::default(),
         game: Game::default(),
         startup_mode: StartupMode::Skip,
-    };
+    });
 
     assert!(loaded.skips_startup_presentation());
 }

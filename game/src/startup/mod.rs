@@ -9,7 +9,7 @@ pub use asset::{
 };
 pub use crate::agents::load_agent_payload;
 pub use bootstrap::{StartupController, StartupSource};
-pub use playtest_args::PlaytestLaunchArgs;
+pub use playtest_args::{PlaytestLaunchArgs, PlaytestLaunchMode};
 pub use runtime_icon::{
     playtest_game_name_from_payload, runtime_icon_for_current_exe,
     runtime_icon_for_playtest_payload,

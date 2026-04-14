@@ -6,8 +6,7 @@ use engine_core::constants::agents;
 use game_lib::agents::FileAgentSessionTransport;
 use engine_core::agents::{
     build_snapshot_payload, payload_value, AgentSessionManifest, AgentSessionRole,
-    AgentSessionState, AgentSnapshotRequest, SnapshotProfile, AgentSessionTransport,
-    AgentVisibilitySnapshot,
+    AgentSessionState, AgentSnapshotRequest, AgentSessionTransport, AgentVisibilitySnapshot,
 };
 use engine_core::prelude::*;
 use engine_core::logging::{
@@ -16,7 +15,8 @@ use engine_core::logging::{
 };
 use game_lib::engine::Engine;
 use game_lib::startup::{
-    runtime_icon_for_playtest_payload, PlaytestLaunchArgs, StartupController, StartupSource,
+    runtime_icon_for_playtest_payload, PlaytestLaunchArgs, PlaytestLaunchMode,
+    StartupController, StartupSource,
 };
 use serde::Serialize;
 use std::env;
@@ -75,11 +75,7 @@ impl BishopApp for PlaytestApp {
             session_id: self.session_id.clone(),
             role: AgentSessionRole::Playtest,
             state: AgentSessionState::Starting,
-            payload_path: self
-                .launch_args
-                .agent_payload_path
-                .clone()
-                .or(self.launch_args.payload_path.clone()),
+            payload_path: Self::payload_path_for_launch(&self.launch_args),
             log_path: Some(agents::PLAYTEST_LOG_PATH.to_string()),
             snapshot_request: Some(self.active_snapshot_request.clone()),
         };
@@ -88,19 +84,20 @@ impl BishopApp for PlaytestApp {
         }
         self.agent_manifest = Some(manifest);
         self.agent_transport = Some(transport);
-        if let Some(payload_path) = self.launch_args.agent_payload_path.clone() {
-            self.startup = Some(StartupController::new(StartupSource::AgentPayload {
-                payload_path,
-            }));
-        } else if self.launch_args.headless {
-            self.headless_session = Some(HeadlessPlaytestSession::new(self.session_id.clone()));
-        } else {
-            let payload_path = self
-                .launch_args
-                .payload_path
-                .clone()
-                .expect("payload path required for editor-attached playtest");
-            self.startup = Some(StartupController::new(StartupSource::Playtest { payload_path }));
+        match self.launch_args.mode.clone() {
+            PlaytestLaunchMode::SeededAgentPayload { payload_path } => {
+                self.startup = Some(StartupController::new(StartupSource::AgentPayload {
+                    payload_path,
+                }));
+            }
+            PlaytestLaunchMode::Headless => {
+                self.headless_session = Some(HeadlessPlaytestSession::new(self.session_id.clone()));
+            }
+            PlaytestLaunchMode::EditorPayload { payload_path } => {
+                self.startup = Some(StartupController::new(StartupSource::Playtest {
+                    payload_path,
+                }));
+            }
         }
     }
 
@@ -160,12 +157,8 @@ fn main() -> Result<(), RunError> {
     };
 
     let mut config = WindowConfig::new("Playtest").with_fullscreen(true);
-    if let Some(payload_path) = launch_args
-        .agent_payload_path
-        .as_ref()
-        .or(launch_args.payload_path.as_ref())
-    {
-        if let Some(icon) = runtime_icon_for_playtest_payload(payload_path) {
+    if let Some(payload_path) = PlaytestApp::payload_path_for_launch(&launch_args) {
+        if let Some(icon) = runtime_icon_for_playtest_payload(&payload_path) {
             config = config.with_icon(icon);
         }
     }
@@ -177,10 +170,7 @@ fn main() -> Result<(), RunError> {
 }
 
 fn session_dir_for_launch(launch_args: &PlaytestLaunchArgs, session_id: &str) -> PathBuf {
-    let payload_path = launch_args
-        .agent_payload_path
-        .as_deref()
-        .or(launch_args.payload_path.as_deref())
+    let payload_path = PlaytestApp::payload_path_for_launch(launch_args)
         .map(PathBuf::from)
         .unwrap_or_else(|| PathBuf::from(session_id));
     let session_dir_name = payload_path
@@ -257,18 +247,30 @@ impl PlaytestApp {
     }
 
     fn launch_snapshot_request(launch_args: &PlaytestLaunchArgs) -> AgentSnapshotRequest {
-        launch_args
-            .agent_payload_path
-            .as_deref()
+        Self::seeded_agent_payload_path(launch_args)
             .and_then(Self::load_snapshot_request_from_payload)
             .unwrap_or_else(Self::default_snapshot_request)
     }
 
-    fn default_snapshot_request() -> AgentSnapshotRequest {
-        AgentSnapshotRequest {
-            profile: SnapshotProfile::Minimal,
-            extras: payload!(),
+    fn payload_path_for_launch(launch_args: &PlaytestLaunchArgs) -> Option<String> {
+        match &launch_args.mode {
+            PlaytestLaunchMode::EditorPayload { payload_path }
+            | PlaytestLaunchMode::SeededAgentPayload { payload_path } => {
+                Some(payload_path.clone())
+            }
+            PlaytestLaunchMode::Headless => None,
         }
+    }
+
+    fn seeded_agent_payload_path(launch_args: &PlaytestLaunchArgs) -> Option<&str> {
+        match &launch_args.mode {
+            PlaytestLaunchMode::SeededAgentPayload { payload_path } => Some(payload_path.as_str()),
+            PlaytestLaunchMode::EditorPayload { .. } | PlaytestLaunchMode::Headless => None,
+        }
+    }
+
+    fn default_snapshot_request() -> AgentSnapshotRequest {
+        AgentSnapshotRequest { extras: payload!() }
     }
 
     fn load_snapshot_request_from_payload(payload_path: &str) -> Option<AgentSnapshotRequest> {
@@ -319,10 +321,10 @@ impl PlaytestApp {
 #[cfg(test)]
 mod tests {
     use super::PlaytestApp;
-    use engine_core::agents::visibility::{AgentSnapshotRequest, SnapshotProfile};
+    use engine_core::agents::visibility::AgentSnapshotRequest;
     use engine_core::payload;
     use game_lib::agents::FileAgentSessionTransport;
-    use game_lib::startup::PlaytestLaunchArgs;
+    use game_lib::startup::{PlaytestLaunchArgs, PlaytestLaunchMode};
     use std::fs;
     use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -335,17 +337,14 @@ mod tests {
         let session_dir = std::env::temp_dir().join(format!("playtest_runtime_request_{unique}"));
         let transport = FileAgentSessionTransport::new(session_dir.clone());
         let request = AgentSnapshotRequest {
-            profile: SnapshotProfile::RuntimeDebug,
             extras: payload!(player_velocity_x: 2.5),
         };
         let mut app = PlaytestApp::new(PlaytestLaunchArgs {
-            payload_path: None,
-            agent_payload_path: None,
-            headless: true,
+            mode: PlaytestLaunchMode::Headless,
         });
         app.agent_transport = Some(transport.clone());
 
-        assert_eq!(app.active_snapshot_request.profile, SnapshotProfile::Minimal);
+        assert_eq!(app.active_snapshot_request, AgentSnapshotRequest { extras: payload!() });
         fs::create_dir_all(&session_dir).unwrap();
         fs::write(
             transport.request_path(),
@@ -369,14 +368,9 @@ mod tests {
             .unwrap_or(0);
         let session_dir = std::env::temp_dir().join(format!("playtest_manifest_request_{unique}"));
         let transport = FileAgentSessionTransport::new(session_dir.clone());
-        let initial_request = AgentSnapshotRequest {
-            profile: SnapshotProfile::Minimal,
-            extras: payload!(),
-        };
+        let initial_request = AgentSnapshotRequest { extras: payload!() };
         let mut app = PlaytestApp::new(PlaytestLaunchArgs {
-            payload_path: None,
-            agent_payload_path: None,
-            headless: true,
+            mode: PlaytestLaunchMode::Headless,
         });
         app.agent_transport = Some(transport.clone());
         app.agent_manifest = Some(engine_core::agents::AgentSessionManifest {
@@ -389,7 +383,6 @@ mod tests {
         });
 
         let request = AgentSnapshotRequest {
-            profile: SnapshotProfile::RuntimeDebug,
             extras: payload!(player_velocity_x: 2.5),
         };
 

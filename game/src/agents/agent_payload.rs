@@ -1,13 +1,20 @@
 use engine_core::agents::payload::AgentBuiltPayload;
 use ron::de::from_str;
 use std::fs;
+use std::path::Path;
 
 /// Loads an agent-assembled payload from disk.
-pub fn load_agent_payload(path: &str) -> Result<AgentBuiltPayload, String> {
+pub fn load_agent_payload(path: impl AsRef<Path>) -> Result<AgentBuiltPayload, String> {
+    let path = path.as_ref();
     let payload_ron = fs::read_to_string(path)
-        .map_err(|error| format!("Could not read agent payload: {error}"))?;
+        .map_err(|error| format!("Could not read agent payload '{}': {error}", path.display()))?;
 
-    from_str(&payload_ron).map_err(|error| format!("Failed to deserialize agent payload: {error}"))
+    from_str(&payload_ron).map_err(|error| {
+        format!(
+            "Failed to deserialize agent payload '{}': {error}",
+            path.display()
+        )
+    })
 }
 
 #[cfg(test)]
@@ -42,7 +49,7 @@ mod tests {
         )
         .unwrap();
 
-        let loaded = load_agent_payload(path.to_str().unwrap()).unwrap();
+        let loaded = load_agent_payload(&path).unwrap();
         assert_eq!(loaded.game.name, "TestGame");
         assert_eq!(loaded.room.name, "HeadlessRoom");
 

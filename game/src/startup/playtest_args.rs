@@ -1,16 +1,18 @@
 use engine_core::constants::{agents, PLAYTEST_PAYLOAD_RON};
 
+/// Typed launch mode for the playtest binary.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum PlaytestLaunchMode {
+    EditorPayload { payload_path: String },
+    SeededAgentPayload { payload_path: String },
+    Headless,
+}
+
 /// Parsed launch arguments for the playtest binary.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct PlaytestLaunchArgs {
-    /// Path to the serialized playtest payload.
-    pub payload_path: Option<String>,
-
-    /// Path to the agent-assembled payload.
-    pub agent_payload_path: Option<String>,
-
-    /// Whether the playtest should start without an editor payload.
-    pub headless: bool,
+    /// Selected playtest launch mode.
+    pub mode: PlaytestLaunchMode,
 }
 
 impl PlaytestLaunchArgs {
@@ -27,6 +29,7 @@ impl PlaytestLaunchArgs {
         let mut payload_path = None;
         let mut agent_payload_path = None;
         let mut headless = false;
+        let mut saw_payload_flag_before_headless = false;
         let mut iter = args[1..].iter().peekable();
 
         while let Some(arg) = iter.next() {
@@ -40,6 +43,9 @@ impl PlaytestLaunchArgs {
                 agents::PAYLOAD_FLAG => {
                     if agent_payload_path.is_some() {
                         return Err(usage);
+                    }
+                    if !headless {
+                        saw_payload_flag_before_headless = true;
                     }
 
                     let Some(path) = iter.next() else {
@@ -63,15 +69,24 @@ impl PlaytestLaunchArgs {
             return Err(usage);
         }
 
+        if saw_payload_flag_before_headless {
+            return Err(usage);
+        }
+
         if !headless && payload_path.is_none() {
             return Err(usage);
         }
 
-        Ok(Self {
-            payload_path,
-            agent_payload_path,
-            headless,
-        })
+        let mode = match (headless, payload_path, agent_payload_path) {
+            (false, Some(payload_path), None) => PlaytestLaunchMode::EditorPayload { payload_path },
+            (true, None, None) => PlaytestLaunchMode::Headless,
+            (true, None, Some(payload_path)) => {
+                PlaytestLaunchMode::SeededAgentPayload { payload_path }
+            }
+            _ => return Err(usage),
+        };
+
+        Ok(Self { mode })
     }
 }
 
@@ -80,17 +95,15 @@ mod tests {
     use super::*;
 
     #[test]
-    fn parse_accepts_payload_only() {
+    fn parse_accepts_editor_payload_mode() {
         let args = vec!["game-playtest".to_string(), "payload.ron".to_string()];
 
         let parsed = PlaytestLaunchArgs::parse(&args).unwrap();
 
         assert_eq!(
-            parsed,
-            PlaytestLaunchArgs {
-                payload_path: Some("payload.ron".to_string()),
-                agent_payload_path: None,
-                headless: false,
+            parsed.mode,
+            PlaytestLaunchMode::EditorPayload {
+                payload_path: "payload.ron".to_string(),
             }
         );
     }
@@ -104,18 +117,11 @@ mod tests {
 
         let parsed = PlaytestLaunchArgs::parse(&args).unwrap();
 
-        assert_eq!(
-            parsed,
-            PlaytestLaunchArgs {
-                payload_path: None,
-                agent_payload_path: None,
-                headless: true,
-            }
-        );
+        assert_eq!(parsed.mode, PlaytestLaunchMode::Headless);
     }
 
     #[test]
-    fn parse_accepts_headless_agent_payload_only() {
+    fn parse_accepts_seeded_agent_payload_mode() {
         let args = vec![
             "game-playtest".to_string(),
             agents::HEADLESS_FLAG.to_string(),
@@ -126,12 +132,33 @@ mod tests {
         let parsed = PlaytestLaunchArgs::parse(&args).unwrap();
 
         assert_eq!(
-            parsed,
-            PlaytestLaunchArgs {
-                payload_path: None,
-                agent_payload_path: Some(agents::PAYLOAD_FILENAME.to_string()),
-                headless: true,
+            parsed.mode,
+            PlaytestLaunchMode::SeededAgentPayload {
+                payload_path: agents::PAYLOAD_FILENAME.to_string(),
             }
+        );
+    }
+
+    #[test]
+    fn parse_rejects_reversed_seeded_agent_flag_order() {
+        let args = vec![
+            "game-playtest".to_string(),
+            agents::PAYLOAD_FLAG.to_string(),
+            agents::PAYLOAD_FILENAME.to_string(),
+            agents::HEADLESS_FLAG.to_string(),
+        ];
+
+        let error = PlaytestLaunchArgs::parse(&args).unwrap_err();
+
+        assert_eq!(
+            error,
+            format!(
+                "Usage: game-playtest [{}] [{} {}] [{}]",
+                agents::HEADLESS_FLAG,
+                agents::PAYLOAD_FLAG,
+                agents::PAYLOAD_FILENAME,
+                PLAYTEST_PAYLOAD_RON
+            )
         );
     }
 

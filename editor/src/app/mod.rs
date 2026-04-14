@@ -16,7 +16,7 @@ use crate::editor_global::push_toast;
 use crate::gui::menu_bar::MenuBar;
 use crate::gui::modal::Modal;
 use crate::menu::MenuEditor;
-use crate::playtest::control::AgentPlaytestControl;
+use crate::playtest::control::{AgentPlaytestControl, AgentPlaytestMode};
 use crate::playtest::playtest_process::PlaytestProcess;
 use crate::prefab::{PrefabEditor, PrefabStage};
 use crate::room::room_editor::{self, RoomEditor};
@@ -174,25 +174,9 @@ impl Editor {
 
         if let Some(ref mut build_task) = self.pending_playtest_build {
             if let Some(result) = build_task.poll() {
-                self.pending_playtest_build = None;
                 push_toast("Playtest ready", 2.0);
-                match result {
-                    Ok((exe_path, payload_path)) => {
-                        if let Some(ref mut old_process) = self.playtest_process {
-                            old_process.kill();
-                        }
-                        match PlaytestProcess::spawn(&exe_path, &payload_path) {
-                            Ok(process) => {
-                                self.playtest_process = Some(process);
-                            }
-                            Err(e) => {
-                                onscreen_error!("Failed to launch playtest: {e}");
-                            }
-                        }
-                    }
-                    Err(e) => {
-                        onscreen_error!("Playtest build failed: {e}");
-                    }
+                if let Err(error) = self.complete_pending_playtest_build(result) {
+                    onscreen_error!("{error}");
                 }
             }
         }
@@ -383,7 +367,9 @@ impl Editor {
 
                 // Launch play‑test if the play button was pressed
                 if self.room_editor.request_play {
-                    if let Err(error) = self.request_open_playtest() {
+                    if let Err(error) =
+                        self.request_open_playtest(AgentPlaytestMode::EditorAttachedCurrentRoom)
+                    {
                         onscreen_error!("{error}");
                     }
                     self.room_editor.request_play = false;
