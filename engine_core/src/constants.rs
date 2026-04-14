@@ -97,6 +97,8 @@ pub mod agents {
     pub const PAYLOAD_FLAG: &str = "--agent-payload";
     /// Default file name for agent payloads.
     pub const PAYLOAD_FILENAME: &str = "agent-payload.ron";
+    /// Default file name for runtime snapshot request inboxes.
+    pub const REQUEST_FILENAME: &str = "agent-request.ron";
     /// Default playtest log file used by agent-visible sessions.
     pub const PLAYTEST_LOG_PATH: &str = "/tmp/logs/playtest.log";
     /// Mode label used by playtest visibility snapshots.

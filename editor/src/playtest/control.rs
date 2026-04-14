@@ -3,6 +3,8 @@ use crate::app::Editor;
 use crate::editor_global::push_toast;
 use crate::playtest::playtest_process::PlaytestProcess;
 use crate::playtest::room_playtest::{resolve_playtest_binary, write_playtest_payload};
+use engine_core::agents::visibility::{AgentSnapshotRequest, SnapshotProfile};
+use engine_core::payload;
 use engine_core::task::BackgroundTask;
 
 /// Agent-facing control surface for playtest lifecycle actions.
@@ -68,13 +70,7 @@ impl Editor {
         if self.pending_playtest_build.is_some() {
             return Err("Playtest build already in progress.".to_string());
         }
-
-        let room_id = self
-            .cur_room_id
-            .ok_or_else(|| "No room is currently selected.".to_string())?;
-
-        let payload_path = write_seeded_agent_payload(self, room_id)
-            .map_err(|error| format!("Could not write agent payload: {error:?}"))?;
+        let payload_path = self.write_seeded_agent_playtest_payload_for_current_room()?;
         let launch = build_seeded_agent_playtest_launch(payload_path)?;
         if let Some(ref mut old_process) = self.playtest_process {
             old_process.kill();
@@ -85,6 +81,29 @@ impl Editor {
                 .map_err(|error| format!("Failed to launch playtest: {error}"))?,
         );
         Ok(())
+    }
+
+    fn write_seeded_agent_playtest_payload_for_current_room(
+        &self,
+    ) -> Result<std::path::PathBuf, String> {
+        let room_id = self
+            .cur_room_id
+            .ok_or_else(|| "No room is currently selected.".to_string())?;
+
+        write_seeded_agent_payload(
+            self,
+            room_id,
+            Some(self.default_seeded_agent_snapshot_request()),
+        )
+        .map_err(|error| format!("Could not write agent payload: {error:?}"))
+    }
+
+    /// Builds the default snapshot request used for seeded agent playtest launches.
+    fn default_seeded_agent_snapshot_request(&self) -> AgentSnapshotRequest {
+        AgentSnapshotRequest {
+            profile: SnapshotProfile::RuntimeDebug,
+            extras: payload!(),
+        }
     }
 
     /// Stops any running playtest process and clears pending build state.
@@ -104,8 +123,11 @@ mod tests {
     use crate::agents::{build_seeded_agent_playtest_launch, write_seeded_agent_payload};
     use crate::app::{Editor, EditorMode};
     use crate::storage::editor_storage::create_new_game;
+    use engine_core::agents::visibility::{AgentSnapshotRequest, SnapshotProfile};
+    use engine_core::agents::{AgentSessionManifest, AgentVisibilitySnapshot};
     use engine_core::constants::agents;
     use engine_core::engine_global::set_game_name;
+    use engine_core::payload;
     use engine_core::prelude::{BackgroundTask, CurrentRoom, Game, Name, Room, RoomId, Transform};
     use engine_core::storage::test_utils::{game_fs_test_lock, TestGameFolder};
     use std::fs;
@@ -160,6 +182,33 @@ mod tests {
         }
     }
 
+    fn session_dir_for_payload_path(payload_path: &std::path::Path) -> PathBuf {
+        payload_path.parent().unwrap().join(format!(
+            "{}_agent",
+            payload_path.file_stem().unwrap().to_string_lossy()
+        ))
+    }
+
+    fn read_manifest(path: &std::path::Path) -> Option<AgentSessionManifest> {
+        let ron = fs::read_to_string(path).ok()?;
+        ron::from_str(&ron).ok()
+    }
+
+    fn read_snapshot(path: &std::path::Path) -> Option<AgentVisibilitySnapshot> {
+        let ron = fs::read_to_string(path).ok()?;
+        ron::from_str(&ron).ok()
+    }
+
+    fn snapshot_number(snapshot: &AgentVisibilitySnapshot, key: &str) -> Option<f64> {
+        let ron::Value::Map(map) = snapshot.payload.as_ref()? else {
+            return None;
+        };
+        let ron::Value::Number(number) = map.get(&ron::Value::String(key.to_string()))? else {
+            return None;
+        };
+        Some(number.into_f64())
+    }
+
     #[test]
     fn agent_playtest_command_closes_cleanly_when_idle() {
         let _lock = game_fs_test_lock().lock().unwrap();
@@ -178,10 +227,12 @@ mod tests {
         let test_game = TestGameFolder::new("agent_playtest_control_pending");
         set_game_name(test_game.name());
 
-        let mut editor = Editor::default();
-        editor.pending_playtest_build = Some(BackgroundTask::spawn(|| {
-            Ok((PathBuf::new(), PathBuf::new()))
-        }));
+        let mut editor = Editor {
+            pending_playtest_build: Some(BackgroundTask::spawn(|| {
+                Ok((PathBuf::new(), PathBuf::new()))
+            })),
+            ..Default::default()
+        };
 
         editor.request_close_playtest().unwrap();
 
@@ -200,17 +251,138 @@ mod tests {
     }
 
     #[test]
+    fn seeded_agent_playtest_payload_writer_uses_default_snapshot_request() {
+        let _lock = game_fs_test_lock().lock().unwrap();
+        let test_game = TestGameFolder::new("agent_headless_playtest_default_snapshot_request");
+        let editor = seeded_editor(&test_game, RoomId(52));
+
+        let payload_path = editor
+            .write_seeded_agent_playtest_payload_for_current_room()
+            .unwrap();
+        let loaded = game_lib::agents::load_agent_payload(payload_path.to_str().unwrap()).unwrap();
+        let expected_request = AgentSnapshotRequest {
+            profile: SnapshotProfile::RuntimeDebug,
+            extras: payload!(),
+        };
+
+        assert_eq!(loaded.snapshot_request, Some(expected_request));
+
+        let _ = fs::remove_file(payload_path);
+    }
+
+    #[test]
+    fn seeded_agent_playtest_accepts_runtime_snapshot_request_from_session_dir() {
+        let _lock = game_fs_test_lock().lock().unwrap();
+        let test_game = TestGameFolder::new("agent_playtest_runtime_snapshot_request");
+        let editor = seeded_editor(&test_game, RoomId(53));
+        let default_request = AgentSnapshotRequest {
+            profile: SnapshotProfile::RuntimeDebug,
+            extras: payload!(),
+        };
+        let override_request = AgentSnapshotRequest {
+            profile: SnapshotProfile::RuntimeDebug,
+            extras: payload!(accumulator_ms: 123.0),
+        };
+
+        let payload_path = editor
+            .write_seeded_agent_playtest_payload_for_current_room()
+            .unwrap();
+        let launch = build_seeded_agent_playtest_launch(payload_path).unwrap();
+        let session_dir = session_dir_for_payload_path(&launch.payload_path);
+        let manifest_path = session_dir.join("agent-session.ron");
+        let snapshot_path = session_dir.join("agent-snapshot.ron");
+        let request_path = session_dir.join(agents::REQUEST_FILENAME);
+        let log_path = PathBuf::from(agents::PLAYTEST_LOG_PATH);
+
+        let _ = fs::remove_dir_all(&session_dir);
+        let _ = fs::remove_file(&log_path);
+
+        let mut child = Command::new(&launch.exe_path)
+            .args(launch.arg_refs())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()
+            .unwrap();
+
+        let started = Instant::now();
+        while started.elapsed() < Duration::from_secs(20) {
+            let manifest = read_manifest(&manifest_path);
+            let snapshot = read_snapshot(&snapshot_path);
+            if manifest
+                .as_ref()
+                .is_some_and(|manifest| manifest.snapshot_request == Some(default_request.clone()))
+                && snapshot.is_some()
+            {
+                break;
+            }
+            thread::sleep(Duration::from_millis(200));
+        }
+
+        assert!(
+            manifest_path.exists(),
+            "manifest missing: {}",
+            manifest_path.display()
+        );
+        assert!(
+            snapshot_path.exists(),
+            "snapshot missing: {}",
+            snapshot_path.display()
+        );
+
+        let initial_snapshot = read_snapshot(&snapshot_path).unwrap();
+        assert_ne!(
+            snapshot_number(&initial_snapshot, "accumulator_ms"),
+            Some(123.0)
+        );
+
+        fs::write(
+            &request_path,
+            ron::ser::to_string_pretty(&override_request, ron::ser::PrettyConfig::default())
+                .unwrap(),
+        )
+        .unwrap();
+
+        let started = Instant::now();
+        while started.elapsed() < Duration::from_secs(20) {
+            let manifest = read_manifest(&manifest_path);
+            let snapshot = read_snapshot(&snapshot_path);
+            if manifest
+                .as_ref()
+                .is_some_and(|manifest| manifest.snapshot_request == Some(override_request.clone()))
+                && snapshot
+                    .as_ref()
+                    .and_then(|snapshot| snapshot_number(snapshot, "accumulator_ms"))
+                    .is_some_and(|value| (value - 123.0).abs() < f64::EPSILON)
+            {
+                break;
+            }
+            thread::sleep(Duration::from_millis(200));
+        }
+
+        let _ = child.kill();
+        let _ = child.wait();
+
+        let manifest = read_manifest(&manifest_path).unwrap();
+        let snapshot = read_snapshot(&snapshot_path).unwrap();
+        assert_eq!(manifest.snapshot_request, Some(override_request));
+        assert!(snapshot_number(&snapshot, "accumulator_ms")
+            .is_some_and(|value| (value - 123.0).abs() < f64::EPSILON));
+        assert!(!request_path.exists(), "request file was not consumed");
+
+        let _ = fs::remove_file(&launch.payload_path);
+        let _ = fs::remove_dir_all(session_dir);
+        let _ = fs::remove_file(log_path);
+    }
+
+    #[test]
     fn seeded_agent_playtest_writes_manifest_log_and_snapshot_from_same_run() {
         let _lock = game_fs_test_lock().lock().unwrap();
         let test_game = TestGameFolder::new("agent_playtest_end_to_end");
         let editor = seeded_editor(&test_game, RoomId(51));
         let room_id = editor.cur_room_id.unwrap();
-        let payload_path = write_seeded_agent_payload(&editor, room_id).unwrap();
+        let payload_path = write_seeded_agent_payload(&editor, room_id, None).unwrap();
         let launch = build_seeded_agent_playtest_launch(payload_path).unwrap();
-        let session_dir = launch.payload_path.parent().unwrap().join(format!(
-            "{}_agent",
-            launch.payload_path.file_stem().unwrap().to_string_lossy()
-        ));
+        let session_dir = session_dir_for_payload_path(&launch.payload_path);
         let manifest_path = session_dir.join("agent-session.ron");
         let snapshot_path = session_dir.join("agent-snapshot.ron");
         let log_path = PathBuf::from(agents::PLAYTEST_LOG_PATH);

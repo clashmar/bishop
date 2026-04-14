@@ -29,6 +29,11 @@ impl FileAgentSessionTransport {
         self.session_dir.join("agent-snapshot.ron")
     }
 
+    /// Returns the runtime request inbox path.
+    pub fn request_path(&self) -> PathBuf {
+        self.session_dir.join(agents::REQUEST_FILENAME)
+    }
+
     /// Ensures the transport directory exists.
     pub fn ensure_ready(&self) -> io::Result<()> {
         fs::create_dir_all(&self.session_dir)
@@ -122,6 +127,7 @@ mod tests {
             state: AgentSessionState::Starting,
             payload_path: Some(format!("/tmp/{}", agents::PAYLOAD_FILENAME)),
             log_path: Some(agents::PLAYTEST_LOG_PATH.to_string()),
+            snapshot_request: None,
         };
         let snapshot = AgentVisibilitySnapshot {
             session_state: AgentSessionState::Running,
@@ -150,5 +156,16 @@ mod tests {
         assert!(snapshot_ron.contains("player_velocity_x"));
 
         let _ = fs::remove_dir_all(session_dir);
+    }
+
+    #[test]
+    fn file_agent_transport_exposes_request_inbox_path() {
+        let session_dir = PathBuf::from("/tmp/agent_transport_request_path");
+        let transport = FileAgentSessionTransport::new(session_dir.clone());
+
+        assert_eq!(
+            transport.request_path(),
+            session_dir.join(agents::REQUEST_FILENAME)
+        );
     }
 }

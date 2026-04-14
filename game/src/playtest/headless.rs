@@ -17,8 +17,10 @@ impl HeadlessPlaytestSession {
     /// Builds a minimal headless engine session.
     pub fn build_engine(&self, ctx: PlatformContext) -> Engine {
         let _ = ctx;
-        let mut game = Game::default();
-        game.name = self.session_id.clone();
+        let mut game = Game {
+            name: self.session_id.clone(),
+            ..Game::default()
+        };
 
         let mut ecs = Ecs::default();
         let room_id = RoomId::default();

@@ -1,3 +1,4 @@
+use crate::agents::visibility::AgentSnapshotRequest;
 use crate::ecs::capture::ComponentSnapshot;
 use crate::ecs::component::{comp_type_name, CurrentRoom, Name};
 use crate::ecs::component_registry::ComponentRegistry;
@@ -73,6 +74,8 @@ pub struct AgentBuiltPayload {
     pub game: Game,
     pub room: Room,
     pub startup_mode: StartupMode,
+    /// Optional default snapshot request forwarded into seeded agent sessions.
+    pub snapshot_request: Option<AgentSnapshotRequest>,
     pub spec: AgentPayloadSpec,
     pub entities: Vec<AgentEntityExport>,
 }
@@ -211,6 +214,7 @@ impl AgentPayloadSpec {
             game,
             room: built_room,
             startup_mode: StartupMode::Skip,
+            snapshot_request: None,
             spec: self,
             entities,
         })

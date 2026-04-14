@@ -1,5 +1,6 @@
 use crate::app::Editor;
 use engine_core::agents::payload::{AgentBuiltPayload, AgentPayloadError, AgentPayloadSpec};
+use engine_core::agents::visibility::AgentSnapshotRequest;
 use engine_core::ecs::component::CurrentRoom;
 use engine_core::ecs::component_registry::ComponentRegistry;
 use engine_core::ecs::entity::Entity;
@@ -11,9 +12,11 @@ use std::fs;
 use std::path::PathBuf;
 use uuid::Uuid;
 
+/// Builds a seeded agent payload for the selected room.
 pub fn build_seeded_agent_payload(
     editor: &Editor,
     room_id: RoomId,
+    snapshot_request: Option<AgentSnapshotRequest>,
 ) -> Result<AgentBuiltPayload, AgentPayloadError> {
     let room = editor
         .game
@@ -120,6 +123,7 @@ pub fn build_seeded_agent_payload(
     }
 
     let mut built = spec.build()?;
+    built.snapshot_request = snapshot_request;
     built.room = room.clone();
     let Some(world) = built.game.worlds.first_mut() else {
         return Ok(built);
@@ -136,11 +140,13 @@ pub fn build_seeded_agent_payload(
     Ok(built)
 }
 
+/// Writes a seeded agent payload with an optional default snapshot request.
 pub fn write_seeded_agent_payload(
     editor: &Editor,
     room_id: RoomId,
+    snapshot_request: Option<AgentSnapshotRequest>,
 ) -> Result<PathBuf, AgentPayloadError> {
-    let payload = build_seeded_agent_payload(editor, room_id)?;
+    let payload = build_seeded_agent_payload(editor, room_id, snapshot_request)?;
     let ron = ron::ser::to_string_pretty(&payload, PrettyConfig::default())
         .map_err(|error| AgentPayloadError::SerializePayload(error.to_string()))?;
 

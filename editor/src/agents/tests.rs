@@ -5,8 +5,10 @@ use crate::app::{Editor, EditorMode};
 use crate::playtest::room_playtest::resolve_playtest_binary;
 use crate::storage::editor_storage::create_new_game;
 use engine_core::agents::payload::AgentPayloadError;
+use engine_core::agents::visibility::{AgentSnapshotRequest, SnapshotProfile};
 use engine_core::constants::agents;
 use engine_core::ecs::component::ComponentStore;
+use engine_core::payload;
 use engine_core::prelude::*;
 use engine_core::storage::test_utils::{game_fs_test_lock, TestGameFolder};
 use std::any::TypeId;
@@ -96,10 +98,28 @@ fn seeded_agent_payload_preserves_current_game_and_room_identity() {
     let editor = seeded_editor(&test_game, RoomId(7));
     let room_id = editor.cur_room_id.unwrap();
 
-    let payload = build_seeded_agent_payload(&editor, room_id).unwrap();
+    let payload = build_seeded_agent_payload(&editor, room_id, None).unwrap();
 
     assert_eq!(payload.game.name, editor.game.name);
     assert_eq!(payload.room.id, room_id);
+}
+
+#[test]
+fn seeded_agent_payload_preserves_default_snapshot_request() {
+    let _lock = game_fs_test_lock().lock().unwrap();
+    let test_game = TestGameFolder::new("editor_seeded_agent_payload_snapshot_request");
+    set_game_name(test_game.name());
+
+    let editor = seeded_editor(&test_game, RoomId(8));
+    let room_id = editor.cur_room_id.unwrap();
+    let request = AgentSnapshotRequest {
+        profile: SnapshotProfile::RuntimeDebug,
+        extras: payload!(player_velocity_x: 2.5),
+    };
+
+    let payload = build_seeded_agent_payload(&editor, room_id, Some(request.clone())).unwrap();
+
+    assert_eq!(payload.snapshot_request, Some(request));
 }
 
 #[test]
@@ -116,7 +136,7 @@ fn seeded_agent_payload_rejects_missing_component_types() {
 
     let room_id = editor.cur_room_id.unwrap();
 
-    let result = build_seeded_agent_payload(&editor, room_id);
+    let result = build_seeded_agent_payload(&editor, room_id, None);
 
     assert!(matches!(
         result,
@@ -132,7 +152,7 @@ fn seeded_agent_payload_rejects_missing_room_id() {
 
     let editor = seeded_editor(&test_game, RoomId(21));
 
-    let result = build_seeded_agent_payload(&editor, RoomId(9999));
+    let result = build_seeded_agent_payload(&editor, RoomId(9999), None);
 
     assert!(matches!(result, Err(AgentPayloadError::MissingRoom)));
 }
@@ -146,7 +166,7 @@ fn seeded_agent_payload_rejects_duplicate_entity_names() {
     let editor = seeded_editor_with_duplicate_names(&test_game, RoomId(31));
     let room_id = editor.cur_room_id.unwrap();
 
-    let result = build_seeded_agent_payload(&editor, room_id);
+    let result = build_seeded_agent_payload(&editor, room_id, None);
 
     assert!(matches!(
         result,
@@ -163,11 +183,32 @@ fn seeded_agent_payload_can_round_trip_through_file_export() {
     let editor = seeded_editor(&test_game, RoomId(41));
     let room_id = editor.cur_room_id.unwrap();
 
-    let path = write_seeded_agent_payload(&editor, room_id).unwrap();
+    let path = write_seeded_agent_payload(&editor, room_id, None).unwrap();
     let loaded = game_lib::agents::load_agent_payload(path.to_str().unwrap()).unwrap();
 
     assert_eq!(loaded.game.name, editor.game.name);
     assert_eq!(loaded.room.id, room_id);
+
+    fs::remove_file(path).unwrap();
+}
+
+#[test]
+fn seeded_agent_payload_round_trips_snapshot_request_through_file_export() {
+    let _lock = game_fs_test_lock().lock().unwrap();
+    let test_game = TestGameFolder::new("editor_seeded_agent_payload_snapshot_file_round_trip");
+    set_game_name(test_game.name());
+
+    let editor = seeded_editor(&test_game, RoomId(42));
+    let room_id = editor.cur_room_id.unwrap();
+    let request = AgentSnapshotRequest {
+        profile: SnapshotProfile::RuntimeDebug,
+        extras: payload!(player_velocity_x: 2.5),
+    };
+
+    let path = write_seeded_agent_payload(&editor, room_id, Some(request.clone())).unwrap();
+    let loaded = game_lib::agents::load_agent_payload(path.to_str().unwrap()).unwrap();
+
+    assert_eq!(loaded.snapshot_request, Some(request));
 
     fs::remove_file(path).unwrap();
 }
@@ -179,7 +220,7 @@ fn seeded_agent_playtest_launch_builder_returns_canonical_binary_payload_and_arg
     let editor = seeded_editor(&test_game, RoomId(51));
     let room_id = editor.cur_room_id.unwrap();
 
-    let payload_path = write_seeded_agent_payload(&editor, room_id).unwrap();
+    let payload_path = write_seeded_agent_payload(&editor, room_id, None).unwrap();
     let launch = build_seeded_agent_playtest_launch(payload_path).unwrap();
     let arg_refs = launch.arg_refs();
 
