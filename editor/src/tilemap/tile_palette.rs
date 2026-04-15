@@ -38,6 +38,7 @@ pub struct TilePaletteUi {
     pub mode: TilePaletteUiMode,
     pub edit_initialized: bool,
     pub edit_index: usize,
+    pub sprite_picker_id: WidgetId,
     pub sprite_id: SpriteId,
     pub walkable: bool,
     pub solid: bool,
@@ -57,12 +58,12 @@ impl TilePalette {
         }
     }
 
-    pub fn update(&mut self, asset_manager: &mut AssetManager) {
+    pub fn update(&mut self, sprite_manager: &mut SpriteManager) {
         while let Some(cmd) = self.command_queue.pop_front() {
             match cmd {
-                PaletteCmd::Create => self.create_tile(asset_manager),
-                PaletteCmd::Edit => self.edit_tile(asset_manager),
-                PaletteCmd::Delete(i) => self.delete_tile(i, asset_manager),
+                PaletteCmd::Create => self.create_tile(sprite_manager),
+                PaletteCmd::Edit => self.edit_tile(sprite_manager),
+                PaletteCmd::Delete(i) => self.delete_tile(i, sprite_manager),
             }
         }
     }
@@ -74,7 +75,7 @@ impl TilePalette {
         self.entries.get(self.selected_index).copied()
     }
 
-    pub fn draw(&mut self, ctx: &mut WgpuContext, rect: Rect, asset_manager: &mut AssetManager) {
+    pub fn draw(&mut self, ctx: &mut WgpuContext, rect: Rect, sprite_manager: &mut SpriteManager) {
         // Draw grid
         for i in 0..self.entries.len() {
             let col = i % self.columns;
@@ -88,13 +89,13 @@ impl TilePalette {
 
             let x = rect.x + col as f32 * self.tile_size;
 
-            let sprite_id = asset_manager
+            let sprite_id = sprite_manager
                 .tile_defs
                 .get(&self.entries[i])
                 .expect("Could not find tile definition.")
                 .sprite_id;
 
-            let tex = asset_manager.get_texture_from_id(ctx, sprite_id);
+            let tex = sprite_manager.get_texture_from_id(ctx, sprite_id);
 
             ctx.draw_texture_ex(
                 tex,
@@ -111,7 +112,7 @@ impl TilePalette {
             }
         }
 
-        self.draw_tile_dialog(ctx, asset_manager);
+        self.draw_tile_dialog(ctx, sprite_manager);
     }
 
     /// Called from `TileMapEditor::handle_ui_click` when the mouse
@@ -141,7 +142,7 @@ impl TilePalette {
         false
     }
 
-    fn draw_tile_dialog(&mut self, ctx: &mut WgpuContext, asset_manager: &mut AssetManager) {
+    fn draw_tile_dialog(&mut self, ctx: &mut WgpuContext, sprite_manager: &mut SpriteManager) {
         if !self.ui.open {
             return;
         }
@@ -149,7 +150,7 @@ impl TilePalette {
         if self.ui.edit_initialized {
             let entry = &self.entries[self.ui.edit_index];
 
-            let tile_def = asset_manager
+            let tile_def = sprite_manager
                 .tile_defs
                 .get(entry)
                 .expect("Could not find tile definition.");
@@ -180,15 +181,18 @@ impl TilePalette {
 
         // Sprite selector
         let sprite_rect = Rect::new(panel.x + 10., panel.y + 60., panel.w - 20., 30.);
-        if Button::new(sprite_rect, "Pick sprite").show(ctx) {
+        if Button::new(sprite_rect, "Pick sprite")
+            .interaction_id(self.ui.sprite_picker_id)
+            .show_native_dialog(ctx)
+        {
             if let Some(path) = rfd::FileDialog::new()
                 .add_filter("PNG images", &["png"])
                 .set_directory(assets_folder())
                 .pick_file()
             {
-                let normalized_path = asset_manager.normalize_path(path);
+                let normalized_path = sprite_manager.normalize_path(path);
 
-                self.ui.sprite_id = asset_manager
+                self.ui.sprite_id = sprite_manager
                     .get_or_load(ctx, &normalized_path)
                     .expect("Could not get id for sprite path.");
             }
@@ -196,7 +200,7 @@ impl TilePalette {
 
         // Preview
         if !self.ui.sprite_id.0 != 0 {
-            let tex = asset_manager.get_texture_from_id(ctx, self.ui.sprite_id);
+            let tex = sprite_manager.get_texture_from_id(ctx, self.ui.sprite_id);
             ctx.draw_texture_ex(
                 tex,
                 panel.x + panel.w - 50.,
@@ -272,7 +276,7 @@ impl TilePalette {
         }
     }
 
-    pub fn create_tile(&mut self, asset_manager: &mut AssetManager) {
+    pub fn create_tile(&mut self, sprite_manager: &mut SpriteManager) {
         // Build TileDef
         let mut comps = vec![
             TileComponent::Walkable(self.ui.walkable),
@@ -289,7 +293,7 @@ impl TilePalette {
         };
 
         // Insert the definition into the world ecs tile_def map
-        let def_id = asset_manager.insert_tile_def(tile_def);
+        let def_id = sprite_manager.insert_tile_def(tile_def);
 
         // Persist the palette entry
         self.entries.push(def_id);
@@ -302,7 +306,7 @@ impl TilePalette {
         self.rows = needed.div_ceil(self.columns)
     }
 
-    pub fn edit_tile(&mut self, asset_manager: &mut AssetManager) {
+    pub fn edit_tile(&mut self, sprite_manager: &mut SpriteManager) {
         // Build TileDef components
         let mut comps = vec![
             TileComponent::Walkable(self.ui.walkable),
@@ -316,18 +320,18 @@ impl TilePalette {
         let entry = self.entries[self.ui.edit_index];
 
         // Update sprite ref if it changed
-        asset_manager.update_tile_def_sprite(entry, self.ui.sprite_id);
+        sprite_manager.update_tile_def_sprite(entry, self.ui.sprite_id);
 
         // Update non-sprite fields
-        if let Some(def) = asset_manager.tile_defs.get_mut(&entry) {
+        if let Some(def) = sprite_manager.tile_defs.get_mut(&entry) {
             def.components = comps;
         }
     }
 
-    pub fn delete_tile(&mut self, idx: usize, asset_manager: &mut AssetManager) {
+    pub fn delete_tile(&mut self, idx: usize, sprite_manager: &mut SpriteManager) {
         // Remove the definition and decrement sprite ref
         let def_id = self.entries[idx];
-        asset_manager.delete_tile_def(def_id);
+        sprite_manager.delete_tile_def(def_id);
 
         // Remove palette entry
         self.entries.remove(idx);

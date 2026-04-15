@@ -10,7 +10,7 @@ use std::collections::{HashMap, HashSet};
 /// (they were created during the drag operation).
 #[derive(Debug)]
 pub struct AltDragCopyCmd {
-    room_id: RoomId,
+    mode: EditorMode,
     /// The entities that were created during alt+drag.
     created_entities: Vec<Entity>,
     /// Snapshot captured from created entities for redo.
@@ -23,9 +23,9 @@ pub struct AltDragCopyCmd {
 
 impl AltDragCopyCmd {
     /// Create a new AltDragCopyCmd with the entities that were created during drag.
-    pub fn new(created_entities: Vec<Entity>, room_id: RoomId) -> Self {
+    pub fn new(created_entities: Vec<Entity>, mode: EditorMode) -> Self {
         Self {
-            room_id,
+            mode,
             created_entities,
             snapshot: None,
             first_execute: true,
@@ -182,6 +182,6 @@ impl EditorCommand for AltDragCopyCmd {
     }
 
     fn mode(&self) -> EditorMode {
-        EditorMode::Room(self.room_id)
+        self.mode
     }
 }

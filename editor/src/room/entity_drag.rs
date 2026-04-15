@@ -1,6 +1,8 @@
 // editor/src/room/entity_drag.rs
 use crate::commands::room::*;
 use crate::editor_global::*;
+use crate::app::EditorMode;
+use crate::app::SubEditor;
 use crate::room::room_editor::*;
 use crate::room::selection::*;
 use crate::shared::selection::*;
@@ -10,6 +12,42 @@ use engine_core::prelude::*;
 use std::collections::{HashMap, HashSet};
 
 impl RoomEditor {
+    pub(crate) fn handle_prefab_stamp(
+        &mut self,
+        ctx: &WgpuContext,
+        camera: &Camera2D,
+        room_id: RoomId,
+        grid_size: f32,
+        active_prefab_stamp: ActivePrefabStampState,
+    ) -> bool {
+        let Some(prefab_id) = self.active_prefab_id else {
+            return false;
+        };
+        if self.mode != RoomEditorMode::Scene
+            || self.scene_sub_mode != RoomSceneSubMode::Stamp
+            || self.should_block_canvas(ctx)
+            || !ctx.is_mouse_button_pressed(MouseButton::Left)
+        {
+            return false;
+        }
+        if !active_prefab_stamp.available {
+            self.active_prefab_id = None;
+            self.reset_scene_sub_mode();
+            return false;
+        }
+
+        let mouse_world = coord::mouse_world_pos(ctx, camera);
+        let snapped_position =
+            snap_room_drag_position(mouse_world, grid_size, active_prefab_stamp.pivot);
+        push_command(Box::new(PlacePrefabInstanceCmd::new(
+            prefab_id,
+            room_id,
+            snapped_position,
+            EditorMode::Room(room_id),
+        )));
+        true
+    }
+
     /// Handles mouse selection / movement with multi-select support.
     pub(crate) fn handle_selection(
         &mut self,
@@ -17,7 +55,7 @@ impl RoomEditor {
         room_id: RoomId,
         camera: &Camera2D,
         ecs: &mut Ecs,
-        asset_manager: &mut AssetManager,
+        sprite_manager: &mut SpriteManager,
         grid_size: f32,
     ) -> bool {
         let mouse_screen: Vec2 = ctx.mouse_position().into();
@@ -48,7 +86,7 @@ impl RoomEditor {
                     pos.position,
                     camera,
                     ecs,
-                    asset_manager,
+                    sprite_manager,
                     grid_size,
                 );
                 if hitbox.contains(mouse_screen) {
@@ -182,7 +220,7 @@ impl RoomEditor {
                             continue;
                         }
                         let entity_rect =
-                            entity_world_rect(*entity, pos.position, ecs, asset_manager, grid_size);
+                            entity_world_rect(*entity, pos.position, ecs, sprite_manager, grid_size);
                         if rects_intersect(box_rect, entity_rect) {
                             self.selected_entities.insert(*entity);
                         }
@@ -339,12 +377,7 @@ impl RoomEditor {
                         .get(anchor_entity)
                         .map(|t| t.pivot)
                         .unwrap_or(Pivot::BottomCenter);
-                    let pn = pivot.as_normalized();
-                    let tile = (mouse_world / grid_size).floor();
-                    vec2(
-                        tile.x * grid_size + grid_size * pn.x,
-                        tile.y * grid_size + grid_size * pn.y,
-                    )
+                    snap_room_drag_position(mouse_world, grid_size, pivot)
                 } else {
                     target_pos
                 };
@@ -362,7 +395,10 @@ impl RoomEditor {
                     // Alt+drag copy: push command for the duplicated entities
                     if !self.drag_state.alt_copied_entities.is_empty() {
                         let copied = std::mem::take(&mut self.drag_state.alt_copied_entities);
-                        push_command(Box::new(AltDragCopyCmd::new(copied, room_id)));
+                        push_command(Box::new(AltDragCopyCmd::new(
+                            copied,
+                            EditorMode::Room(room_id),
+                        )));
                     }
                     self.drag_state.alt_copy_mode = false;
                 } else {
@@ -382,9 +418,17 @@ impl RoomEditor {
                     if !moves.is_empty() {
                         if moves.len() == 1 {
                             let (entity, from, to) = moves[0];
-                            push_command(Box::new(MoveEntityCmd::new(entity, room_id, from, to)));
+                            push_command(Box::new(MoveEntityCmd::new(
+                                entity,
+                                EditorMode::Room(room_id),
+                                from,
+                                to,
+                            )));
                         } else {
-                            push_command(Box::new(BatchMoveEntitiesCmd::new(moves, room_id)));
+                            push_command(Box::new(BatchMoveEntitiesCmd::new(
+                                moves,
+                                EditorMode::Room(room_id),
+                            )));
                         }
                     }
                 }
@@ -434,9 +478,17 @@ impl RoomEditor {
         if !moves.is_empty() {
             if moves.len() == 1 {
                 let (entity, from, to) = moves[0];
-                push_command(Box::new(MoveEntityCmd::new(entity, room_id, from, to)));
+                push_command(Box::new(MoveEntityCmd::new(
+                    entity,
+                    EditorMode::Room(room_id),
+                    from,
+                    to,
+                )));
             } else {
-                push_command(Box::new(BatchMoveEntitiesCmd::new(moves, room_id)));
+                push_command(Box::new(BatchMoveEntitiesCmd::new(
+                    moves,
+                    EditorMode::Room(room_id),
+                )));
             }
         }
     }

@@ -42,6 +42,13 @@ pub fn drain_menu_events() -> Vec<String> {
     MENU_EVENTS.with(|events| events.borrow_mut().drain(..).collect())
 }
 
+/// Clears all pending menu events without returning them.
+pub fn clear_menu_events() {
+    MENU_EVENTS.with(|events| {
+        events.borrow_mut().clear();
+    });
+}
+
 thread_local! {
     static SLIDER_EVENTS: RefCell<Vec<(String, f32)>> = const { RefCell::new(Vec::new()) };
 }
@@ -56,4 +63,11 @@ pub fn push_slider_event(key: String, value: f32) {
 /// Drains all pending slider events and returns them.
 pub fn drain_slider_events() -> Vec<(String, f32)> {
     SLIDER_EVENTS.with(|events| events.borrow_mut().drain(..).collect())
+}
+
+/// Clears all pending slider events without returning them.
+pub fn clear_slider_events() {
+    SLIDER_EVENTS.with(|events| {
+        events.borrow_mut().clear();
+    });
 }

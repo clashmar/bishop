@@ -19,7 +19,7 @@ pub struct SweepResult {
 /// tile solids, room border walls, and solid ECS entities.
 pub(crate) struct SweepContext<'a> {
     /// Asset lookup used to resolve tile definitions.
-    asset_manager: &'a AssetManager,
+    sprite_manager: &'a SpriteManager,
     /// ECS world queried for solid entities and their transforms.
     ecs: &'a Ecs,
     /// Tilemap for the active room variant.
@@ -34,7 +34,7 @@ pub(crate) struct SweepContext<'a> {
 
 impl SweepContext<'_> {
     pub(crate) fn new<'a>(
-        asset_manager: &'a AssetManager,
+        sprite_manager: &'a SpriteManager,
         ecs: &'a Ecs,
         tilemap: &'a TileMap,
         room_origin: Vec2,
@@ -42,7 +42,7 @@ impl SweepContext<'_> {
         grid_size: f32,
     ) -> SweepContext<'a> {
         SweepContext {
-            asset_manager,
+            sprite_manager,
             ecs,
             tilemap,
             room_origin,
@@ -81,7 +81,7 @@ impl SweepContext<'_> {
         let mut obstacles = Vec::new();
 
         for ((x, y), tile_def_id) in self.tilemap.tiles.iter() {
-            let Some(tile_def) = self.asset_manager.tile_defs.get(tile_def_id) else {
+            let Some(tile_def) = self.sprite_manager.tile_defs.get(tile_def_id) else {
                 continue;
             };
 

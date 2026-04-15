@@ -9,19 +9,26 @@ use engine_core::prelude::*;
 pub struct BatchMoveEntitiesCmd {
     /// Vector of (entity, from_position, to_position)
     pub moves: Vec<(Entity, Vec2, Vec2)>,
-    pub room_id: RoomId,
+    pub mode: EditorMode,
 }
 
 impl BatchMoveEntitiesCmd {
-    pub fn new(moves: Vec<(Entity, Vec2, Vec2)>, room_id: RoomId) -> Self {
-        Self { moves, room_id }
+    pub fn new(moves: Vec<(Entity, Vec2, Vec2)>, mode: EditorMode) -> Self {
+        Self { moves, mode }
     }
 }
 
 impl EditorCommand for BatchMoveEntitiesCmd {
     fn execute(&mut self) {
         with_editor(|editor| {
-            let ecs = &mut editor.game.ecs;
+            let ecs = match editor.mode {
+                EditorMode::Prefab(_) => &mut editor
+                    .prefab_stage
+                    .as_mut()
+                    .expect("Prefab stage missing")
+                    .ecs,
+                _ => &mut editor.game.ecs,
+            };
             for &(entity, _, to) in &self.moves {
                 update_entity_position(ecs, entity, to);
             }
@@ -30,7 +37,14 @@ impl EditorCommand for BatchMoveEntitiesCmd {
 
     fn undo(&mut self) {
         with_editor(|editor| {
-            let ecs = &mut editor.game.ecs;
+            let ecs = match editor.mode {
+                EditorMode::Prefab(_) => &mut editor
+                    .prefab_stage
+                    .as_mut()
+                    .expect("Prefab stage missing")
+                    .ecs,
+                _ => &mut editor.game.ecs,
+            };
             for &(entity, from, _) in &self.moves {
                 update_entity_position(ecs, entity, from);
             }
@@ -38,6 +52,6 @@ impl EditorCommand for BatchMoveEntitiesCmd {
     }
 
     fn mode(&self) -> EditorMode {
-        EditorMode::Room(self.room_id)
+        self.mode
     }
 }

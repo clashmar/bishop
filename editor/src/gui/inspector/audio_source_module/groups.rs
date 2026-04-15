@@ -1,7 +1,7 @@
 use super::*;
-use std::fmt::{Display, Formatter, Result as FmtResult};
-use std::collections::BTreeSet;
 use engine_core::prelude::*;
+use std::collections::BTreeSet;
+use std::fmt::{Display, Formatter, Result as FmtResult};
 
 #[derive(Clone, PartialEq)]
 pub(super) enum AssignOption {
@@ -97,7 +97,7 @@ pub(super) fn draw_group_dropdowns(
     )
     .list_width(rect.w)
     .truncate_trigger_text()
-    .blocked(blocked)
+    .suppressed(blocked)
     .show(ctx)
     {
         source.current = Some(selected);
@@ -111,7 +111,7 @@ pub(super) fn draw_group_dropdowns(
         AssignOption::label,
     )
     .right_aligned()
-    .blocked(blocked)
+    .suppressed(blocked)
     .show(ctx)
     {
         if let Some(message) =
@@ -122,7 +122,8 @@ pub(super) fn draw_group_dropdowns(
     }
 
     if Button::new(remove_rect, "x")
-        .blocked(blocked || source.current.is_none())
+        .suppressed(blocked)
+        .blocked(source.current.is_none())
         .show(ctx)
     {
         apply_source_edit(source, |source| {

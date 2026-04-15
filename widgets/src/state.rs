@@ -104,7 +104,19 @@ thread_local! {
         const { RefCell::new(ArmedClickState { left: None, right: None }) };
 }
 
-fn armed_click_slot(state: &mut ArmedClickState, button: MouseButton) -> Option<&mut Option<ClickTargetId>> {
+thread_local! {
+    static DEFERRED_CLICK_TARGETS: RefCell<HashMap<ClickTargetId, u64>> =
+        RefCell::new(HashMap::new());
+}
+
+thread_local! {
+    static WIDGET_FRAME_GENERATION: RefCell<u64> = const { RefCell::new(0) };
+}
+
+fn armed_click_slot(
+    state: &mut ArmedClickState,
+    button: MouseButton,
+) -> Option<&mut Option<ClickTargetId>> {
     match button {
         MouseButton::Left => Some(&mut state.left),
         MouseButton::Right => Some(&mut state.right),
@@ -141,6 +153,51 @@ pub fn clear_click_target(button: MouseButton) {
         if let Some(slot) = armed_click_slot(&mut state, button) {
             *slot = None;
         }
+    });
+}
+
+/// Schedules a click target for activation on a later frame.
+pub fn queue_deferred_click_target(target: ClickTargetId) {
+    let frame = current_widget_frame_generation();
+    DEFERRED_CLICK_TARGETS.with(|targets| {
+        targets.borrow_mut().insert(target, frame);
+    });
+}
+
+/// Consumes a queued deferred click target when it is ready to activate.
+pub fn take_deferred_click_target(target: ClickTargetId, ready: bool) -> bool {
+    if !ready {
+        return false;
+    }
+
+    let frame = current_widget_frame_generation();
+    DEFERRED_CLICK_TARGETS.with(|targets| {
+        let queued_frame = targets.borrow().get(&target).copied();
+        if queued_frame.is_some_and(|queued_frame| queued_frame < frame) {
+            targets.borrow_mut().remove(&target);
+            true
+        } else {
+            false
+        }
+    })
+}
+
+fn current_widget_frame_generation() -> u64 {
+    WIDGET_FRAME_GENERATION.with(|generation| *generation.borrow())
+}
+
+fn advance_widget_frame_generation() {
+    WIDGET_FRAME_GENERATION.with(|generation| {
+        *generation.borrow_mut() += 1;
+    });
+}
+
+fn clear_stale_deferred_click_targets() {
+    let frame = current_widget_frame_generation();
+    DEFERRED_CLICK_TARGETS.with(|targets| {
+        targets
+            .borrow_mut()
+            .retain(|_, queued_frame| *queued_frame >= frame);
     });
 }
 
@@ -193,6 +250,7 @@ pub fn reset_click_consumed() {
 
 /// Called at the start of each frame to update widget state.
 pub fn widgets_frame_start<C: BishopContext>(_ctx: &mut C) {
+    advance_widget_frame_generation();
     tab_registry_clear();
     reset_click_consumed();
 }
@@ -205,6 +263,13 @@ pub fn widgets_frame_end<C: BishopContext>(ctx: &mut C) {
 
     if ctx.is_mouse_button_released(MouseButton::Right) {
         clear_click_target(MouseButton::Right);
+    }
+
+    let idle_left_mouse = !ctx.is_mouse_button_down(MouseButton::Left)
+        && !ctx.is_mouse_button_pressed(MouseButton::Left)
+        && !ctx.is_mouse_button_released(MouseButton::Left);
+    if idle_left_mouse {
+        clear_stale_deferred_click_targets();
     }
 
     resolve_pending_tab();

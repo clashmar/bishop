@@ -109,7 +109,7 @@ impl GenericPanel {
         let collapse_clicked = Button::new(collapse_rect, if self.collapsed { "+" } else { "-" })
             .plain()
             .text_color(Color::BLACK)
-            .blocked(blocked)
+            .suppressed(blocked)
             .show(ctx);
         if !blocked && collapse_clicked {
             self.collapsed = !self.collapsed;
@@ -129,7 +129,7 @@ impl GenericPanel {
         let close_clicked = Button::new(close_rect, "x")
             .plain()
             .text_color(Color::BLACK)
-            .blocked(blocked)
+            .suppressed(blocked)
             .show(ctx);
         if !blocked && close_clicked {
             self.visible = false;

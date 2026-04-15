@@ -4,4 +4,9 @@ pub mod entity_module;
 pub mod input_module;
 pub mod logging_module;
 pub mod menu_module;
+pub mod prefab_module;
 pub mod text_module;
+
+#[cfg(test)]
+#[path = "tests/entity_module_tests.rs"]
+mod entity_module_tests;

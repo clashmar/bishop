@@ -342,10 +342,8 @@ mod tests {
 
     #[test]
     fn export_guard_removes_failed_output_on_drop() {
-        let path = std::env::temp_dir().join(format!(
-            "bishop-export-guard-{}",
-            uuid::Uuid::new_v4()
-        ));
+        let path =
+            std::env::temp_dir().join(format!("bishop-export-guard-{}", uuid::Uuid::new_v4()));
         fs::create_dir_all(&path).unwrap();
 
         {

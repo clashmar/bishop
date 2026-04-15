@@ -1,5 +1,5 @@
 // engine_core/src/ecs/component.rs
-use crate::assets::asset_manager::AssetManager;
+use crate::assets::sprite_manager::SpriteManager;
 use crate::ecs::ecs::Ecs;
 use crate::ecs::entity::Entity;
 use crate::inspector_module;
@@ -99,7 +99,7 @@ impl Clone for ComponentEntry {
 
 /// Can be alled once a component has been added to an entity to initialize it.
 pub trait PostCreate {
-    fn post_create(&mut self, ecs: &mut Ecs, entity: Entity, asset_manager: &mut AssetManager);
+    fn post_create(&mut self, ecs: &mut Ecs, entity: Entity, sprite_manager: &mut SpriteManager);
 }
 
 /// Returns the type name of a component.

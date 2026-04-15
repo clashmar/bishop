@@ -65,7 +65,7 @@ where
         ctx: &mut WgpuContext,
         blocked: bool,
         rect: Rect,
-        game_ctx: &mut GameCtxMut,
+        game_ctx: &mut ServicesCtxMut,
         entity: Entity,
     ) {
         let ecs = &mut game_ctx.ecs;
@@ -116,7 +116,14 @@ where
             // Dispatch based on the enum variant
             match (field.value, field.widget_hint) {
                 (FieldValue::SpriteId(id), _) => {
-                    gui_sprite_picker(ctx, widget_rect, id, game_ctx.asset_manager, blocked);
+                    gui_sprite_picker(
+                        ctx,
+                        widget_rect,
+                        base_id,
+                        id,
+                        game_ctx.sprite_manager,
+                        blocked,
+                    );
                 }
                 (FieldValue::Text(txt), _) => {
                     let (new, _) = TextInput::new(base_id, widget_rect, txt.as_str())
@@ -245,7 +252,7 @@ where
                         Dropdown::new(base_id, widget_rect, pivot.label(), Pivot::all(), |p| {
                             p.label().to_string()
                         })
-                        .blocked(blocked)
+                        .suppressed(blocked)
                         .show(ctx)
                     {
                         *pivot = selected;
@@ -270,7 +277,7 @@ where
         self.removable
     }
 
-    fn remove(&mut self, game_ctx: &mut GameCtxMut, entity: Entity) {
+    fn remove(&mut self, game_ctx: &mut ServicesCtxMut, entity: Entity) {
         Ecs::remove_component::<T>(game_ctx, entity);
     }
 }

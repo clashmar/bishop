@@ -7,19 +7,23 @@ use engine_core::prelude::*;
 impl WorldEditor {
     /// Delete a room by its RoomId.
     pub fn delete_room(&mut self, ctx: &mut GameCtxMut, room_id: RoomId) {
+        let Some(cur_world) = ctx.cur_world.as_deref_mut() else {
+            return;
+        };
+
         // Find the index of the room we want to remove
-        let idx = match ctx.cur_world.rooms.iter().position(|m| m.id == room_id) {
+        let idx = match cur_world.rooms.iter().position(|m| m.id == room_id) {
             Some(i) => i,
             None => return, // nothing to delete
         };
 
         // Remove the room from the world
-        ctx.cur_world.rooms.remove(idx);
+        cur_world.rooms.remove(idx);
 
         // Re‑compute adjacency for the remaining rooms
-        let len = ctx.cur_world.rooms.len();
+        let len = cur_world.rooms.len();
         for i in 0..len {
-            let (before, rest) = ctx.cur_world.rooms.split_at_mut(i);
+            let (before, rest) = cur_world.rooms.split_at_mut(i);
             let (room_i, after) = rest.split_first_mut().unwrap();
             room_i.adjacent_rooms.clear();
 

@@ -81,3 +81,10 @@ pub(crate) fn drain_audio_commands() -> Vec<AudioCommand> {
         std::mem::take(&mut *v)
     })
 }
+
+/// Clears any queued audio commands without returning them.
+pub fn clear_audio_commands() {
+    AUDIO_COMMANDS.with(|q| {
+        q.borrow_mut().clear();
+    });
+}

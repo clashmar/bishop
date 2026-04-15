@@ -38,8 +38,8 @@ impl TilemapPanel {
         }
     }
 
-    pub fn update(&mut self, asset_manager: &mut AssetManager) {
-        self.palette.update(asset_manager);
+    pub fn update(&mut self, sprite_manager: &mut SpriteManager) {
+        self.palette.update(sprite_manager);
     }
 
     /// Called by the editor each frame to place the panel
@@ -51,7 +51,7 @@ impl TilemapPanel {
     pub fn draw(
         &mut self,
         ctx: &mut WgpuContext,
-        asset_manager: &mut AssetManager,
+        sprite_manager: &mut SpriteManager,
         tilemap: &mut TileMap,
     ) {
         self.active_rects.clear();
@@ -101,7 +101,7 @@ impl TilemapPanel {
         self.palette.set_columns_for_width(inner.w - 20.0);
         let height = self.palette.height();
         let palette_rect = Rect::new(inner.x + 10.0, y, inner.w, height);
-        self.palette.draw(ctx, palette_rect, asset_manager);
+        self.palette.draw(ctx, palette_rect, sprite_manager);
 
         y += height + 20.0; // Create gap for next module
 
@@ -111,7 +111,7 @@ impl TilemapPanel {
 
         // Draw create button
         if Button::new(create_rect, create_label)
-            .blocked(blocked)
+            .suppressed(blocked)
             .show(ctx)
         {
             if self.palette.ui.open && self.palette.ui.mode == TilePaletteUiMode::Create {
@@ -132,7 +132,7 @@ impl TilemapPanel {
                 self.register_rect(Rect::new(edit_start, INSET, edit_width, BTN_HEIGHT));
 
             if Button::new(edit_rect, edit_label)
-                .blocked(blocked)
+                .suppressed(blocked)
                 .show(ctx)
             {
                 self.palette.ui.mode = TilePaletteUiMode::Edit;

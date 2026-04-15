@@ -4,3 +4,6 @@ pub mod inspector_panel;
 pub mod player_module;
 pub mod room_camera_module;
 pub mod script_module;
+
+#[cfg(test)]
+mod tests;

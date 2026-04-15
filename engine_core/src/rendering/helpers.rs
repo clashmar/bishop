@@ -14,7 +14,7 @@ pub fn resolve_visual_entity(ecs: &Ecs, entity: Entity) -> Entity {
 /// Returns the pixel dimensions of an entity for rendering.
 pub fn entity_dimensions(
     ecs: &Ecs,
-    asset_manager: &AssetManager,
+    sprite_manager: &SpriteManager,
     entity: Entity,
     grid_size: f32,
 ) -> Vec2 {
@@ -22,12 +22,12 @@ pub fn entity_dimensions(
     let from_anim = ecs
         .get_store::<CurrentFrame>()
         .get(visual_entity)
-        .and_then(|cf| cf.dimensions(asset_manager));
+        .and_then(|cf| cf.dimensions(sprite_manager));
 
     let from_sprite = || {
         ecs.get_store::<Sprite>()
             .get(visual_entity)
-            .and_then(|s| s.dimensions(asset_manager))
+            .and_then(|s| s.dimensions(sprite_manager))
     };
 
     from_anim
@@ -91,11 +91,11 @@ mod tests {
             })
             .finish();
         let proxy = ecs.create_entity().with(PlayerProxy).finish();
-        let asset_manager = AssetManager::default();
+        let sprite_manager = SpriteManager::default();
 
         assert_eq!(resolve_visual_entity(&ecs, proxy), player);
         assert_eq!(
-            entity_dimensions(&ecs, &asset_manager, proxy, 8.0),
+            entity_dimensions(&ecs, &sprite_manager, proxy, 8.0),
             vec2(6.0, 16.0),
         );
     }

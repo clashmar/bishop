@@ -2,7 +2,7 @@
 use crate::constants::*;
 use crate::engine_global::*;
 use crate::storage::editor_config::*;
-use crate::*;
+use crate::logging::*;
 use rfd::FileDialog;
 use std::ffi::OsStr;
 use std::fs;
@@ -55,9 +55,19 @@ pub fn text_folder() -> PathBuf {
     resources_folder_current().join(TEXT_FOLDER)
 }
 
+/// Path to the file-defined playtest control profiles folder for the current game.
+pub fn playtest_control_profiles_folder() -> PathBuf {
+    resources_folder_current().join(playtest_artifacts::PLAYTEST_CONTROL_PROFILES_FOLDER)
+}
+
 /// Returns the path to the menus folder for the current game.
 pub fn menus_folder() -> PathBuf {
     resources_folder_current().join(MENUS_FOLDER)
+}
+
+/// Returns the path to the prefabs folder for the current game.
+pub fn prefabs_folder() -> PathBuf {
+    resources_folder_current().join(PREFABS_FOLDER)
 }
 
 /// Path to the audio folder inside the resources folder (Editor/Game).
@@ -451,6 +461,7 @@ fn default_save_root() -> PathBuf {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::storage::test_utils::{game_fs_test_lock, TestGameFolder};
     use std::sync::{Mutex, OnceLock};
 
     fn test_lock() -> &'static Mutex<()> {
@@ -532,5 +543,35 @@ mod tests {
         let base = PathBuf::from("/some/folder");
         let result = build_save_root(&base);
         assert_eq!(result, base.join(SAVE_ROOT).join(GAME_SAVE_ROOT));
+    }
+
+    #[test]
+    fn prefabs_folder_lives_under_resources() {
+        let _lock = test_lock().lock().unwrap();
+        let _restore = SaveRootRestoreGuard::new();
+
+        let game_name = format!("prefab_paths_{}", uuid::Uuid::new_v4());
+        set_game_name(&game_name);
+
+        assert_eq!(
+            prefabs_folder(),
+            resources_folder_current().join(PREFABS_FOLDER)
+        );
+    }
+
+    #[test]
+    fn playtest_control_profiles_folder_lives_under_resources() {
+        let _lock = game_fs_test_lock().lock().unwrap();
+        let folder = TestGameFolder::new("playtest_control_profiles_folder");
+        set_game_name(folder.name());
+        let profiles_folder = playtest_control_profiles_folder();
+
+        assert_eq!(profiles_folder.parent(), Some(resources_folder_current().as_path()));
+        assert_eq!(
+            profiles_folder.file_name(),
+            Some(std::ffi::OsStr::new(
+                crate::constants::playtest_artifacts::PLAYTEST_CONTROL_PROFILES_FOLDER,
+            ))
+        );
     }
 }

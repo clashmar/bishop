@@ -43,7 +43,7 @@ impl EditWorldCmd {
                 world.name = name.to_owned();
             }
             if let Some(sprite_opt) = sprite {
-                world.meta.set_sprite(sprite_opt, &mut game.asset_manager);
+                world.meta.set_sprite(sprite_opt, &mut game.sprite_manager);
             }
         }
     }

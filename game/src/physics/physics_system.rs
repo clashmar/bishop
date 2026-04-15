@@ -5,7 +5,7 @@ use engine_core::prelude::*;
 
 /// Applies physics to all entities with a `PhysicsBody` component.
 pub fn update_physics(
-    asset_manager: &AssetManager,
+    sprite_manager: &SpriteManager,
     ecs: &mut Ecs,
     room: &Room,
     dt: f32,
@@ -39,7 +39,7 @@ pub fn update_physics(
         let true_pos = pos_cur + Vec2::new(sub_pixel.x, sub_pixel.y);
 
         let collision_world = SweepContext::new(
-            asset_manager,
+            sprite_manager,
             ecs,
             tilemap,
             room.position,

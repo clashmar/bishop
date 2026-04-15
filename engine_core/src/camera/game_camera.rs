@@ -8,7 +8,7 @@ use crate::worlds::room::RoomId;
 use bishop::prelude::*;
 use ecs_component::ecs_component;
 use serde::{Deserialize, Serialize};
-use serde_with::{FromInto, serde_as};
+use serde_with::serde_as;
 use std::fmt;
 use strum_macros::EnumIter;
 
@@ -53,7 +53,7 @@ pub fn world_virtual_height(grid_size: f32) -> f32 {
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, Default, PartialEq)]
 #[serde(default)]
 pub struct RoomCamera {
-    #[serde_as(as = "FromInto<[f32; 2]>")]
+    #[serde_as(as = "serde_with::FromInto<[f32; 2]>")]
     pub zoom: Vec2,
     pub room_id: RoomId,
     pub zoom_mode: ZoomMode,

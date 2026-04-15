@@ -1,12 +1,15 @@
 // editor/src/storage/editor_storage.rs
 #![allow(unused)]
 use crate::editor_assets::assets::write_sounds_lua;
+use crate::editor_assets::write_prefabs_lua;
+use crate::storage::shared::{most_recent_game_name, write_to_app_dir};
 use crate::storage::sound_preset_storage::*;
 use crate::tilemap::tile_palette::TilePalette;
 use crate::write_animations_lua;
 use crate::write_engine_scripts;
 use bishop::prelude::*;
 use engine_core::prelude::*;
+use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::fs;
 use std::io;
@@ -21,6 +24,20 @@ use std::sync::Mutex;
 use std::time::SystemTime;
 use uuid::Uuid;
 
+const PREFAB_PALETTE_RON: &str = "prefab_palette.ron";
+/// Maximum number of recent prefabs persisted for the room palette.
+pub(crate) const PREFAB_PALETTE_RECENT_CAP: usize = 10;
+
+/// Persisted room prefab palette state for the active game.
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct PrefabPaletteState {
+    /// The currently active prefab, if any.
+    pub active_prefab_id: Option<PrefabId>,
+    /// Recently used prefab ids, most recent first.
+    pub recent_prefab_ids: Vec<PrefabId>,
+}
+
 /// Create a brand-new game with a single empty world.
 pub fn create_new_game(name: String) -> Game {
     onscreen_debug!("Creating new game.");
@@ -32,7 +49,7 @@ pub fn create_new_game(name: String) -> Game {
     // Ensure the folder structure exists.
     create_game_folders(&name);
 
-    let asset_manager = AssetManager::default();
+    let sprite_manager = SpriteManager::default();
     let script_manager = ScriptManager::default();
 
     // Build the game first so we can allocate room IDs globally
@@ -42,9 +59,10 @@ pub fn create_new_game(name: String) -> Game {
         name,
         ecs: Ecs::default(),
         worlds: vec![],
-        asset_manager,
+        sprite_manager,
         script_manager,
         text_manager: TextManager::default(),
+        prefab_library: PrefabLibrary::default(),
         current_world_id: WorldId(Uuid::nil()),
         game_map: GameMap::default(),
         next_room_id: 0,
@@ -74,12 +92,13 @@ pub fn create_new_game(name: String) -> Game {
     game
 }
 
-fn create_game_folders(name: &str) {
-    let folders: [(PathBuf, &str); 6] = [
+pub(super) fn create_game_folders(name: &str) {
+    let folders: [(PathBuf, &str); 7] = [
         (resources_folder_current(), RESOURCES_FOLDER),
         (assets_folder(), ASSETS_FOLDER),
         (scripts_folder(), SCRIPTS_FOLDER),
         (text_folder(), TEXT_FOLDER),
+        (prefabs_folder(), PREFABS_FOLDER),
         (windows_folder(), WINDOWS_FOLDER),
         (mac_os_folder(), MAC_OS_FOLDER),
     ];
@@ -174,7 +193,9 @@ fn default_front_end_menus() -> Vec<MenuTemplate> {
 
     let start_menu = MenuBuilder::new("start")
         .mode(MenuMode::FrontEnd)
-        .background(MenuBackground::SolidColor(Color::new(0.05, 0.06, 0.10, 1.0)))
+        .background(MenuBackground::SolidColor(Color::new(
+            0.05, 0.06, 0.10, 1.0,
+        )))
         .layout_group(Rect::new(0.0, 0.0, 1.0, 1.0), start_layout, |group| {
             group
                 .label("Title")
@@ -191,7 +212,9 @@ fn default_front_end_menus() -> Vec<MenuTemplate> {
 
     let settings_menu = MenuBuilder::new("settings")
         .mode(MenuMode::FrontEnd)
-        .background(MenuBackground::SolidColor(Color::new(0.05, 0.06, 0.10, 1.0)))
+        .background(MenuBackground::SolidColor(Color::new(
+            0.05, 0.06, 0.10, 1.0,
+        )))
         .layout_group(Rect::new(0.0, 0.0, 1.0, 1.0), settings_layout, |group| {
             group
                 .label("Settings")
@@ -231,6 +254,9 @@ pub fn save_game(game: &Game) -> io::Result<()> {
         onscreen_error!("Could not write animations.lua: {e}");
     }
 
+    let prefab_names = collect_prefab_names(&game.prefab_library)?;
+    write_prefabs_lua(&scripts_folder(), &prefab_names)?;
+
     let sound_library = current_sound_preset_library();
     save_sound_preset_library(&game.name, &sound_library)?;
     let sound_names = collect_sound_group_names(&game.ecs, &sound_library);
@@ -253,6 +279,24 @@ pub fn collect_custom_clip_names(ecs: &Ecs) -> Vec<String> {
     }
 
     names.into_iter().collect()
+}
+
+/// Collects all unique prefab names from the prefab library.
+pub fn collect_prefab_names(prefab_library: &PrefabLibrary) -> io::Result<Vec<String>> {
+    let mut names = HashSet::new();
+
+    for prefab in prefab_library.prefabs.values() {
+        if !names.insert(prefab.name.clone()) {
+            return Err(Error::new(
+                ErrorKind::InvalidData,
+                format!("duplicate prefab name: {}", prefab.name),
+            ));
+        }
+    }
+
+    let mut names = names.into_iter().collect::<Vec<_>>();
+    names.sort();
+    Ok(names)
 }
 
 /// Load a `Game` from the folder that matches the supplied name.
@@ -282,28 +326,6 @@ pub fn load_game_by_name(name: &str) -> io::Result<Game> {
     Ok(game)
 }
 
-/// Return the name of the most recently modified game folder.
-pub fn most_recent_game_name() -> Option<String> {
-    let root = absolute_save_root();
-    let mut best: Option<(String, SystemTime)> = None;
-
-    for entry in fs::read_dir(root).ok()? {
-        let entry = entry.ok()?;
-        if !entry.path().is_dir() {
-            continue;
-        }
-        let name = entry.file_name().to_string_lossy().into_owned();
-        if let Ok(mod_time) = entry.metadata().ok()?.modified() {
-            match best {
-                None => best = Some((name, mod_time)),
-                Some((_, t)) if mod_time > t => best = Some((name, mod_time)),
-                _ => {}
-            }
-        }
-    }
-    best.map(|(name, _)| name)
-}
-
 /// Save the palette for the game.
 pub fn save_palette(palette: &TilePalette, game_name: &str) -> io::Result<()> {
     let dir = game_folder(game_name);
@@ -321,6 +343,35 @@ pub fn load_palette(game_name: &str) -> io::Result<TilePalette> {
     }
     let ron = fs::read_to_string(path)?;
     ron::de::from_str(&ron).map_err(Error::other)
+}
+
+/// Saves the room prefab palette state for the game.
+pub fn save_prefab_palette_state(
+    game_name: &str,
+    state: &PrefabPaletteState,
+) -> io::Result<()> {
+    let dir = game_folder(game_name);
+    fs::create_dir_all(&dir)?;
+    let path = dir.join(PREFAB_PALETTE_RON);
+    let ron = ron::ser::to_string_pretty(state, ron::ser::PrettyConfig::new())
+        .map_err(Error::other)?;
+    fs::write(path, ron)
+}
+
+/// Loads the room prefab palette state for the game.
+pub fn load_prefab_palette_state(game_name: &str) -> io::Result<PrefabPaletteState> {
+    let path = game_folder(game_name).join(PREFAB_PALETTE_RON);
+
+    match fs::read_to_string(&path) {
+        Ok(ron) => ron::from_str(&ron).map_err(|error| {
+            Error::new(
+                ErrorKind::InvalidData,
+                format!("Could not parse prefab palette state: {error}"),
+            )
+        }),
+        Err(error) if error.kind() == ErrorKind::NotFound => Ok(PrefabPaletteState::default()),
+        Err(error) => Err(error),
+    }
 }
 
 /// Create a fresh world with a single default room.
@@ -391,28 +442,6 @@ pub fn save_as(game: &mut Game, new_name: &str) -> io::Result<()> {
     set_game_name(new_name);
 
     Ok(())
-}
-
-/// Writes an embedded slice of bytes to the system app directory and returns the path or error.
-pub fn write_to_app_dir(filename: &str, embedded: &[u8]) -> io::Result<PathBuf> {
-    let mut path = app_dir();
-    fs::create_dir_all(&path)?;
-
-    path.push(filename);
-
-    let mut file = fs::File::create(&path)?;
-    file.write_all(embedded)?;
-
-    #[cfg(target_os = "macos")]
-    {
-        // Set executable permissions
-        onscreen_debug!("Writing binary permissions.");
-        let mut permissions = fs::metadata(&path)?.permissions();
-        permissions.set_mode(0o755);
-        fs::set_permissions(&path, permissions)?;
-    }
-
-    Ok(path)
 }
 
 /// Find all game folders in `games/`.

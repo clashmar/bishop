@@ -74,7 +74,7 @@ impl MenuEditor {
                 &mode_options,
                 |s| s.to_string(),
             )
-            .blocked(blocked)
+            .suppressed(blocked)
             .fixed_width()
             .show(ctx)
             {
@@ -122,7 +122,7 @@ impl MenuEditor {
                 &bg_options,
                 |s| s.to_string(),
             )
-            .blocked(blocked)
+            .suppressed(blocked)
             .fixed_width()
             .show(ctx)
             {

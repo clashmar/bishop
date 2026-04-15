@@ -20,6 +20,9 @@ log = "0.4"
 inventory = "0.1"
 rfd = "0.13"
 
+[dev-dependencies]
+engine_core = { path = "../engine_core", default-features = false, features = ["test-utils"] }
+
 [build-dependencies]
 winres = "0.1.12"
 

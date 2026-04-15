@@ -6,6 +6,9 @@
 ---@field id integer
 local Entity = {}
 
+---@return nil
+function Entity:despawn() end
+
 -- Component getters
 ---@overload fun(self: Entity, component: "Animation"): Animation
 ---@overload fun(self: Entity, component: "AudioSource"): AudioSource
@@ -36,14 +39,13 @@ local Entity = {}
 ---@overload fun(self: Entity, component: "Transform"): Transform
 ---@overload fun(self: Entity, component: "Velocity"): Velocity
 ---@overload fun(self: Entity, component: "Walkable"): Walkable
----@param component string
+---@param component ComponentId
 ---@return table|nil
 function Entity:get(component) end
 
 -- Generic set method
----@param component string
----@see ComponentId
----@param value table
+---@param component ComponentId
+---@param value any
 function Entity:set(component, value) end
 
 -- Typed component setters
@@ -163,18 +165,15 @@ function Entity:set_velocity(v) end
 ---@param v Walkable
 function Entity:set_walkable(v) end
 
----@param component string
----@see ComponentId
+---@param component ComponentId
 ---@return boolean
 function Entity:has(component) end
 
----@param ... string
----@see ComponentId
+---@param ... ComponentId
 ---@return boolean
 function Entity:has_any(...) end
 
----@param ... string
----@see ComponentId
+---@param ... ComponentId
 ---@return boolean
 function Entity:has_all(...) end
 

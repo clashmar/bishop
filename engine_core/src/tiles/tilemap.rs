@@ -1,5 +1,5 @@
 // engine_core/src/tiles/tilemap.rs
-use crate::assets::asset_manager::AssetManager;
+use crate::assets::sprite_manager::SpriteManager;
 use crate::tiles::serialization::{deserialize_tiles, serialize_tiles};
 use crate::tiles::tile::TileDefId;
 use crate::worlds::world::GridPos;
@@ -38,7 +38,7 @@ impl TileMap {
     pub fn draw<C: BishopContext>(
         &self,
         ctx: &mut C,
-        asset_manager: &mut AssetManager,
+        sprite_manager: &mut SpriteManager,
         room_position: Vec2,
         grid_size: f32,
     ) {
@@ -54,8 +54,8 @@ impl TileMap {
         for ((x, y), tile_def_id) in &self.tiles {
             let tile_pos = Vec2::new(*x as f32 * grid_size, *y as f32 * grid_size) + room_position;
 
-            if let Some(tile_def) = asset_manager.tile_defs.get(tile_def_id) {
-                let tex = asset_manager.get_texture_from_id(ctx, tile_def.sprite_id);
+            if let Some(tile_def) = sprite_manager.tile_defs.get(tile_def_id) {
+                let tex = sprite_manager.get_texture_from_id(ctx, tile_def.sprite_id);
                 ctx.draw_texture_ex(
                     tex,
                     tile_pos.x,

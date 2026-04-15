@@ -102,7 +102,7 @@ impl GameEditor {
                 {
                     for world in &game.worlds {
                         let texture =
-                            self.resolve_world_texture(ctx, world, &mut game.asset_manager);
+                            self.resolve_world_texture(ctx, world, &mut game.sprite_manager);
                         if self.is_mouse_over_world(ctx, camera, world, texture) {
                             return Some(world.id);
                         }
@@ -118,7 +118,7 @@ impl GameEditor {
                 {
                     for world in &mut game.worlds {
                         let texture =
-                            self.resolve_world_texture(ctx, world, &mut game.asset_manager);
+                            self.resolve_world_texture(ctx, world, &mut game.sprite_manager);
                         if self.is_mouse_over_world(ctx, camera, world, texture) {
                             // Capture the world data
                             let world_id = world.id;
@@ -137,8 +137,8 @@ impl GameEditor {
                             );
 
                             let widgets: Vec<BoxedWidget> =
-                                vec![Box::new(move |ctx, asset_manager| {
-                                    if let Some(result) = prompt.draw(ctx, asset_manager) {
+                                vec![Box::new(move |ctx, sprite_manager| {
+                                    if let Some(result) = prompt.draw(ctx, sprite_manager) {
                                         EDIT_WORLD_RESULT.with(|c| *c.borrow_mut() = Some(result));
                                     }
                                 })];
@@ -161,7 +161,7 @@ impl GameEditor {
                 {
                     for world in &game.worlds {
                         let texture =
-                            self.resolve_world_texture(ctx, world, &mut game.asset_manager);
+                            self.resolve_world_texture(ctx, world, &mut game.sprite_manager);
                         if self.is_mouse_over_world(ctx, camera, world, texture) {
                             self.selected_world_id = Some(world.id);
                             self.modal = Modal::open_confirm_modal(ctx, &DELETE_WORLD_RESULT);
@@ -191,7 +191,7 @@ impl GameEditor {
     fn draw_worlds(&mut self, ctx: &mut WgpuContext, camera: &Camera2D, game: &mut Game) {
         // Draw world
         for world in &game.worlds {
-            let texture = self.resolve_world_texture(ctx, world, &mut game.asset_manager);
+            let texture = self.resolve_world_texture(ctx, world, &mut game.sprite_manager);
 
             // Hover tint
             let tint = if self.is_mouse_over_world(ctx, camera, world, texture)
@@ -229,7 +229,7 @@ impl GameEditor {
         // Start dragging
         if !self.dragging && ctx.is_mouse_button_pressed(MouseButton::Left) {
             for world in &game.worlds {
-                let texture = self.resolve_world_texture(ctx, world, &mut game.asset_manager);
+                let texture = self.resolve_world_texture(ctx, world, &mut game.sprite_manager);
                 if self.is_mouse_over_world(ctx, camera, world, texture) {
                     self.dragging = true;
                     self.dragged_world = Some(world.id);
@@ -291,7 +291,7 @@ impl GameEditor {
         // Draw modal last
         if self.modal.is_open() {
             // Pass the asset manager so any widget that needs assets can use it
-            let clicked_outside = self.modal.draw(ctx, &mut game.asset_manager);
+            let clicked_outside = self.modal.draw(ctx, &mut game.sprite_manager);
             if clicked_outside {
                 self.modal.close();
             }
@@ -361,7 +361,7 @@ impl GameEditor {
 
         if menu_button(ctx, create_btn, create_label, false) {
             push_command(Box::new(CreateWorldCmd::new()));
-            self.init_camera(ctx, camera, game);
+            GameEditor::init_camera(self, ctx, camera, game);
         }
     }
 
@@ -433,10 +433,10 @@ impl GameEditor {
         &self,
         loader: &impl TextureLoader,
         world: &World,
-        asset_manager: &'a mut AssetManager,
+        sprite_manager: &'a mut SpriteManager,
     ) -> &'a Texture2D {
         if let Some(id) = world.meta.sprite_id {
-            asset_manager.get_texture_from_id(loader, id)
+            sprite_manager.get_texture_from_id(loader, id)
         } else {
             circle_120px()
         }
@@ -464,7 +464,7 @@ impl GameEditor {
         let mut max = vec2(f32::NEG_INFINITY, f32::NEG_INFINITY);
 
         for world in &game.worlds {
-            let tex = self.resolve_world_texture(loader, world, &mut game.asset_manager);
+            let tex = self.resolve_world_texture(loader, world, &mut game.sprite_manager);
             let w = tex.width();
             let h = tex.height();
 

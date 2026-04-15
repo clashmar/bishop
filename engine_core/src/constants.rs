@@ -49,6 +49,9 @@ pub const SFX_FOLDER: &str = "sfx";
 /// Name of the music subfolder inside audio.
 pub const MUSIC_FOLDER: &str = "music";
 
+/// Name of the prefabs folder.
+pub const PREFABS_FOLDER: &str = "prefabs";
+
 /// Name of the folder for windows-specific game assets.
 pub const WINDOWS_FOLDER: &str = "windows";
 
@@ -82,3 +85,30 @@ pub const MAX_WINDOW_HEIGHT: i32 = 1440;
 pub const DESIGN_RESOLUTION_WIDTH: f32 = 1920.0;
 /// Target design resolution height for menus and UI.
 pub const DESIGN_RESOLUTION_HEIGHT: f32 = 1080.0;
+
+/// Name of the serialized playtest payload file.
+pub const PLAYTEST_PAYLOAD_RON: &str = "playtest_payload.ron";
+
+/// Constants for persisted playtest artifact contracts.
+pub mod playtest_artifacts {
+    /// Default file name for session manifests.
+    pub const SESSION_FILENAME: &str = "session.ron";
+    /// Default file name for session snapshots.
+    pub const SNAPSHOT_FILENAME: &str = "snapshot.ron";
+    /// Default file name for runtime snapshot request inboxes.
+    pub const REQUEST_FILENAME: &str = "request.ron";
+    /// Default file name for runtime control request inboxes.
+    pub const CONTROL_REQUEST_FILENAME: &str = "control-request.ron";
+    /// Default file name for persisted expanded control timelines.
+    pub const EXPANDED_CONTROL_FILENAME: &str = "expanded-control.ron";
+    /// Suffix used for a persisted playtest session directory.
+    pub const SESSION_DIR_SUFFIX: &str = "_session";
+    /// Default resources subfolder for file-defined playtest control profiles.
+    pub const PLAYTEST_CONTROL_PROFILES_FOLDER: &str = "playtest_control_profiles";
+    /// Mode label used by playtest visibility snapshots.
+    pub const PLAYTEST_MODE: &str = "playtest";
+    /// Topic label used by playtest runtime observations.
+    pub const PLAYTEST_RUNTIME_TOPIC: &str = "playtest.runtime";
+    /// Frame label used by playtest runtime observations.
+    pub const PLAYTEST_FRAME_LABEL: &str = "frame";
+}

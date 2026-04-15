@@ -5,7 +5,7 @@ use crate::scripting::modules::entity_module::*;
 use engine_core::prelude::*;
 use mlua::prelude::LuaResult;
 use mlua::Lua;
-use mlua::{Function, Table};
+use mlua::{Function, Table, Value};
 use std::fs;
 use std::sync::Arc;
 
@@ -91,7 +91,7 @@ impl ScriptSystem {
         }
 
         // Collect all scripts to run in a single borrow
-        let scripts_to_run: Vec<(Function, Table)> = {
+        let scripts_to_run: Vec<(Entity, ScriptId, Function, Table)> = {
             let game_instance = engine.game_instance.borrow();
             let ctx = game_instance.game.ctx();
             let script_manager = &game_instance.game.script_manager;
@@ -108,13 +108,20 @@ impl ScriptSystem {
                     let update_fn = script_manager.update_fns.get(&script.script_id)?;
                     let instance = script_manager.instances.get(&(*entity, script.script_id))?;
 
-                    Some((update_fn.clone(), instance.clone()))
+                    Some((*entity, script.script_id, update_fn.clone(), instance.clone()))
                 })
                 .collect()
         };
 
         // Execute without holding any borrows
-        for (update_fn, instance) in scripts_to_run {
+        for (entity, script_id, update_fn, instance) in scripts_to_run {
+            {
+                let game_instance = engine.game_instance.borrow();
+                if !script_update_is_still_valid(&game_instance.game.ecs, entity, script_id) {
+                    continue;
+                }
+            }
+
             update_fn.call::<()>((instance, dt))?;
             Self::process_commands(engine);
         }
@@ -175,5 +182,138 @@ impl ScriptSystem {
         }
 
         Ok(())
+    }
+
+    /// Prepares immediate init calls for a freshly spawned prefab subtree.
+    pub fn prepare_spawned_script_inits(
+        lua: &Lua,
+        ecs: &mut Ecs,
+        script_manager: &mut ScriptManager,
+        root_entity: Entity,
+        root_args: Option<Value>,
+    ) -> LuaResult<Vec<(Function, Table, Option<Value>)>> {
+        let mut entities = Vec::new();
+        collect_prefab_subtree(ecs, root_entity, &mut entities);
+        let mut root_has_script = false;
+        let mut root_has_init = false;
+        let mut inits = Vec::new();
+
+        for entity in entities {
+            let Some(script) = ecs.get::<Script>(entity).cloned() else {
+                continue;
+            };
+            if script.script_id == ScriptId(0) {
+                continue;
+            }
+
+            if entity == root_entity {
+                root_has_script = true;
+            }
+
+            let (instance, created) =
+                script_manager.get_or_create_instance(lua, entity, script.script_id)?;
+            if !created {
+                continue;
+            }
+
+            let handle = lua_entity_handle(lua, entity)?;
+            instance.set(ENTITY, handle)?;
+            script.sync_to_lua_with_instance(lua, instance)?;
+
+            if let Ok(init_fn) = instance.get::<Function>(INIT) {
+                let args = if entity == root_entity {
+                    root_has_init = true;
+                    root_args.clone()
+                } else {
+                    None
+                };
+                inits.push((init_fn.clone(), instance.clone(), args));
+            }
+        }
+
+        if root_args.is_some() && !root_has_script {
+            return Err(mlua::Error::RuntimeError(
+                "engine.prefab.spawn init requires a Script on the prefab root".into(),
+            ));
+        }
+
+        if root_args.is_some() && !root_has_init {
+            return Err(mlua::Error::RuntimeError(
+                "engine.prefab.spawn init requires a root script init(self, init)".into(),
+            ));
+        }
+
+        Ok(inits)
+    }
+}
+
+fn collect_prefab_subtree(ecs: &Ecs, root_entity: Entity, entities: &mut Vec<Entity>) {
+    entities.push(root_entity);
+    for child in get_children(ecs, root_entity) {
+        collect_prefab_subtree(ecs, child, entities);
+    }
+}
+
+fn script_update_is_still_valid(ecs: &Ecs, entity: Entity, script_id: ScriptId) -> bool {
+    ecs.get::<Script>(entity)
+        .is_some_and(|script| script.script_id == script_id)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use engine_core::scripting::lua_constants::PUBLIC;
+
+    #[test]
+    fn script_update_eligibility_rejects_entities_without_the_same_script_component() {
+        let mut ecs = Ecs::default();
+        let entity = ecs.create_entity().finish();
+
+        assert!(!script_update_is_still_valid(&ecs, entity, ScriptId(7)));
+
+        ecs.add_component_to_entity(
+            entity,
+            Script {
+                script_id: ScriptId(3),
+                ..Default::default()
+            },
+        );
+
+        assert!(!script_update_is_still_valid(&ecs, entity, ScriptId(7)));
+        assert!(script_update_is_still_valid(&ecs, entity, ScriptId(3)));
+    }
+
+    #[test]
+    fn prepare_spawned_script_inits_rejects_root_args_without_root_init() {
+        let lua = Lua::new();
+        let mut ecs = Ecs::default();
+        let root = ecs.create_entity().finish();
+        let mut script_manager = ScriptManager::default();
+        let def = lua.create_table().unwrap();
+        let public = lua.create_table().unwrap();
+        let init_args = lua.create_table().unwrap();
+
+        public.set("speed", 120).unwrap();
+        def.set(PUBLIC, public).unwrap();
+        init_args.set("direction", "left").unwrap();
+        script_manager.table_defs.insert(ScriptId(1), def);
+        ecs.add_component_to_entity(
+            root,
+            Script {
+                script_id: ScriptId(1),
+                ..Default::default()
+            },
+        );
+
+        let error = ScriptSystem::prepare_spawned_script_inits(
+            &lua,
+            &mut ecs,
+            &mut script_manager,
+            root,
+            Some(Value::Table(init_args)),
+        )
+        .unwrap_err();
+
+        assert!(error.to_string().contains("root script init"));
     }
 }

@@ -1,9 +1,12 @@
 // editor/src/editor_assets/editor_assets.rs
 #![allow(unused)]
+use crate::editor_assets::prefabs_lua::generate_prefabs_lua;
 use crate::storage::sound_preset_storage::SoundPresetLibrary;
 use bishop::prelude::*;
 use engine_core::prelude::*;
-use engine_core::scripting::lua_constants::{ANIMATIONS_FILE, ENGINE_DIR, SOUNDS_FILE};
+use engine_core::scripting::lua_constants::{
+    ANIMATIONS_FILE, ENGINE_DIR, PREFABS_FILE, SOUNDS_FILE,
+};
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 use std::sync::{LazyLock, OnceLock};
@@ -13,20 +16,9 @@ use std::{env, fs, io};
 pub static GAME_EXE: &[u8] =
     include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/binaries/game.exe"));
 
-/// Windows .exe for the game playtest binary.
-pub static PLAYTEST_EXE: &[u8] = include_bytes!(concat!(
-    env!("CARGO_MANIFEST_DIR"),
-    "/binaries/game-playtest.exe"
-));
-
 /// Mac binary for the game.
-pub static GAME_BIN: &[u8] = include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/binaries/game"));
-
-/// Mac binary for the game. playtest
-pub static PLAYTEST_BIN: &[u8] = include_bytes!(concat!(
-    env!("CARGO_MANIFEST_DIR"),
-    "/binaries/game-playtest"
-));
+pub static GAME_BIN: &[u8] = 
+    include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/binaries/game"));
 
 pub static ICON_SMALL: LazyLock<[u8; 16 * 16 * 4]> =
     LazyLock::new(|| load_rgba_resized::<{ 16 * 16 * 4 }>(include_bytes!("icon.png"), 16));
@@ -162,5 +154,15 @@ pub fn write_sounds_lua(scripts_folder: &Path, group_names: &[String]) -> io::Re
     fs::write(
         engine_folder.join(SOUNDS_FILE),
         generate_sounds_lua(group_names),
+    )
+}
+
+/// Writes the per-game `prefabs.lua` file with the supplied prefab names.
+pub fn write_prefabs_lua(scripts_folder: &Path, prefab_names: &[String]) -> io::Result<()> {
+    let engine_folder = scripts_folder.join(ENGINE_DIR);
+    fs::create_dir_all(&engine_folder)?;
+    fs::write(
+        engine_folder.join(PREFABS_FILE),
+        generate_prefabs_lua(prefab_names),
     )
 }

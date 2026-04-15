@@ -1,5 +1,8 @@
 // editor/src/menu_editor/menu_properties_panel/layout_properties.rs
-use super::{common_properties::row_visible, nav_section::NavSectionStyle, FIELD_HEIGHT, LABEL_WIDTH, ROW_HEIGHT};
+use super::{
+    common_properties::row_visible, nav_section::NavSectionStyle, FIELD_HEIGHT, LABEL_WIDTH,
+    ROW_HEIGHT,
+};
 use crate::menu::MenuEditor;
 use bishop::prelude::*;
 use engine_core::prelude::*;
@@ -164,7 +167,7 @@ impl MenuEditor {
                 &dir_options,
                 |s| s.to_string(),
             )
-            .blocked(blocked)
+            .suppressed(blocked)
             .fixed_width()
             .show(ctx)
             {
@@ -311,7 +314,7 @@ impl MenuEditor {
                 &h_options,
                 |s| s.to_string(),
             )
-            .blocked(blocked)
+            .suppressed(blocked)
             .fixed_width()
             .show(ctx)
             {
@@ -347,7 +350,7 @@ impl MenuEditor {
                 &v_options,
                 |s| s.to_string(),
             )
-            .blocked(blocked)
+            .suppressed(blocked)
             .fixed_width()
             .show(ctx)
             {

@@ -65,7 +65,7 @@ fn generate_lua_components() {
     );
 
     // Generate class definitions for each component with their schema
-    for reg in COMPONENTS.iter() {
+    for reg in COMPONENTS.iter().filter(|reg| is_public_lua_component(reg.type_name)) {
         let schema = (reg.lua_schema)();
 
         // Check if this is an alias type (single-value tuple struct)
@@ -92,15 +92,18 @@ fn generate_lua_components() {
 
     // Generate the ComponentId class with all component names
     lua.push_str("---@class ComponentId\n");
-    for reg in COMPONENTS.iter() {
-        lua.push_str(&format!("---@field {} string\n", reg.type_name));
+    for reg in COMPONENTS.iter().filter(|reg| is_public_lua_component(reg.type_name)) {
+        lua.push_str(&format!(
+            "---@field {} \"{}\"\n",
+            reg.type_name, reg.type_name
+        ));
     }
     lua.push('\n');
 
     lua.push_str("local C = {}\n\n");
 
     // Fill table assignments
-    for reg in COMPONENTS.iter() {
+    for reg in COMPONENTS.iter().filter(|reg| is_public_lua_component(reg.type_name)) {
         lua.push_str(&format!("C.{} = \"{}\"\n", reg.type_name, reg.type_name));
     }
 
@@ -108,6 +111,14 @@ fn generate_lua_components() {
 
     let target = out_dir.join("components.lua");
     write_if_changed(&target, &lua);
+}
+
+/// TODO: This should be decided on the component
+fn is_public_lua_component(type_name: &str) -> bool {
+    !matches!(
+        type_name,
+        "PrefabInstanceNode" | "PrefabInstanceRoot" | "PrefabOverrides"
+    )
 }
 
 fn generate_lua_input() {

@@ -9,7 +9,7 @@ use std::collections::{HashMap, HashSet};
 /// Undo-able command for pasting entities from the clipboard.
 #[derive(Debug)]
 pub struct PasteEntityCmd {
-    room_id: RoomId,
+    mode: EditorMode,
     /// Maps old entity IDs to newly created ones.
     id_map: Option<HashMap<Entity, Entity>>,
     /// The component snapshot taken the first time the command ran.
@@ -19,9 +19,9 @@ pub struct PasteEntityCmd {
 }
 
 impl PasteEntityCmd {
-    pub fn new(room_id: RoomId) -> Self {
+    pub fn new(mode: EditorMode) -> Self {
         Self {
-            room_id,
+            mode,
             id_map: None,
             snapshot: None,
             root_entities: Vec::new(),
@@ -140,6 +140,6 @@ impl EditorCommand for PasteEntityCmd {
     }
 
     fn mode(&self) -> EditorMode {
-        EditorMode::Room(self.room_id)
+        self.mode
     }
 }

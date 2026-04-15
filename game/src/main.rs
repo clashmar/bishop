@@ -52,7 +52,14 @@ fn main() -> Result<(), RunError> {
         .as_ref()
         .and_then(|p| p.file_stem().map(|s| s.to_string_lossy().into_owned()))
         .unwrap_or_else(|| "Game".to_string());
-    let telemetry = init_runtime_telemetry(&window_title);
+    
+    let telemetry = match init_runtime_telemetry(&window_title) {
+        Ok(paths) => paths,
+        Err(e) => {
+            onscreen_error!("Failed to initialize runtime telemetry: {e}");
+            return Err(RunError::Window(e.to_string()));
+        }
+    };
 
     onscreen_info!("Launching game '{}'.", window_title);
     onscreen_info!("Runtime logs: {}", telemetry.log_dir.display());
@@ -98,7 +105,7 @@ fn run_with_global_error_handler(
 }
 
 fn show_fatal_error_dialog(title: &str, message: &str) {
-    eprintln!("{message}");
+    onscreen_error!("{message}");
     let _ = rfd::MessageDialog::new()
         .set_title(title)
         .set_description(message)

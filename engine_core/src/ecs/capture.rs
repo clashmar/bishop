@@ -1,16 +1,16 @@
 // engine_core/src/ecs/capture.rs
-use crate::{ecs::entity::Children, game::GameCtxMut};
+use crate::{ecs::entity::Children, game::EngineCtxMut};
 use serde::{Deserialize, Serialize};
 
 /// A single serialized component.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ComponentSnapshot {
     pub type_name: String,
     pub ron: String,
 }
 
 /// A collection of components belonging to a specific entity.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct EntitySnapshot {
     pub entity: Entity,
     pub components: Vec<ComponentSnapshot>,
@@ -43,14 +43,18 @@ pub fn capture_subtree(ecs: &mut Ecs, root: Entity) -> GroupSnapshot {
 }
 
 /// Restore a previously captured subtree.  
-pub fn restore_subtree(ctx: &mut GameCtxMut, saved: &GroupSnapshot) {
+pub fn restore_subtree(ctx: &mut dyn EngineCtxMut, saved: &GroupSnapshot) {
     for snapshot in saved {
         restore_entity(ctx, snapshot.entity, snapshot.components.clone());
     }
 }
 
 /// Restores an entity into the Ecs from its component bag.
-pub fn restore_entity(ctx: &mut GameCtxMut, entity: Entity, components: Vec<ComponentSnapshot>) {
+pub fn restore_entity(
+    ctx: &mut dyn EngineCtxMut,
+    entity: Entity,
+    components: Vec<ComponentSnapshot>,
+) {
     for comp in components {
         let component_reg = inventory::iter::<ComponentRegistry>()
             .find(|r| r.type_name == comp.type_name)
@@ -58,7 +62,7 @@ pub fn restore_entity(ctx: &mut GameCtxMut, entity: Entity, components: Vec<Comp
 
         let mut boxed = (component_reg.from_ron_component)(comp.ron);
         (component_reg.post_create)(&mut *boxed, &entity, ctx);
-        (component_reg.inserter)(ctx.ecs, entity, boxed);
+        (component_reg.inserter)(ctx.ecs(), entity, boxed);
     }
 }
 

@@ -12,12 +12,12 @@ pub struct EntityDrawParams {
 /// Trait for visual components that can draw themselves.
 pub trait Renderable {
     /// Returns the pixel dimensions, or `None` if the asset is unavailable.
-    fn dimensions(&self, asset_manager: &AssetManager) -> Option<Vec2>;
+    fn dimensions(&self, sprite_manager: &SpriteManager) -> Option<Vec2>;
     /// Draws this component. Returns `true` if drawn, `false` if the asset is missing.
     fn draw<C: BishopContext>(
         &self,
         ctx: &mut C,
-        asset_manager: &mut AssetManager,
+        sprite_manager: &mut SpriteManager,
         params: &EntityDrawParams,
     ) -> bool;
 }

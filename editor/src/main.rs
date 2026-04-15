@@ -19,11 +19,15 @@ mod game;
 mod gui;
 mod menu;
 mod playtest;
+mod prefab;
 mod room;
 mod shared;
 mod storage;
 mod tilemap;
 mod world;
+
+pub use editor::playtest_binaries;
+pub use editor::storage_shared;
 
 /// Wrapper struct for running the editor via BishopApp.
 struct EditorApp {
@@ -43,7 +47,9 @@ impl BishopApp for EditorApp {
         onscreen_info!("Starting editor.");
 
         // Initialize logging
-        init_file_logger();
+        if let Err(e) = init_file_logger() {
+            onscreen_warn!("Failed to initialize editor logger: {}", e);
+        }
 
         if !ensure_save_root() {
             // User cancelled
@@ -71,7 +77,7 @@ impl BishopApp for EditorApp {
 
     fn on_exit(&mut self) {
         with_editor(|editor| {
-            editor.game.asset_manager.flush_pending_removals();
+            editor.game.sprite_manager.flush_pending_removals();
             editor.game.script_manager.flush_pending_removals();
             editor.save();
         });

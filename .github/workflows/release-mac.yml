@@ -3,24 +3,28 @@ name: macOS Release
 on:
   pull_request:
     types: [closed]
-    branches: [main] 
+    branches: [main]
 
 permissions:
   contents: write
-  packages: write 
+  packages: write
 
 jobs:
   build-mac:
     if: github.event.pull_request.merged == true
+    strategy:
+      matrix:
+        target: [x86_64-apple-darwin, aarch64-apple-darwin]
     runs-on: macos-latest
     env:
-      RELEASE_ZIP: Bishop-macOS.zip 
+      MAC_TARGET: ${{ matrix.target }}
+      RELEASE_ZIP: Bishop-macOS-${{ matrix.target }}.zip
 
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Install TinyTOML 
+      - name: Install TinyTOML
         run: cargo install toml-cli --locked
 
       - name: Get RELEASE_TAG from Cargo.toml
@@ -37,7 +41,7 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
-          target: x86_64-apple-darwin
+          target: ${{ env.MAC_TARGET }}
           override: true
 
       - name: Install cargo-make
@@ -49,13 +53,13 @@ jobs:
 
       - name: Sign the Bundle
         run: |
-          APP_PATH="target/x86_64-apple-darwin/release/bundle/osx/Bishop.app"
+          APP_PATH="target/${MAC_TARGET}/release/bundle/osx/Bishop.app"
           codesign --force --deep --sign - "$APP_PATH"
 
       - name: Zip Artefact
         id: zip_artifact
         run: |
-          APP_DIR="target/x86_64-apple-darwin/release/bundle/osx"
+          APP_DIR="target/${MAC_TARGET}/release/bundle/osx"
           APP_NAME="Bishop.app"
           ZIP_NAME="${{ env.RELEASE_ZIP }}"
           ditto -c -k --sequesterRsrc --keepParent \
@@ -67,13 +71,13 @@ jobs:
         id: create_release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ env.RELEASE_TAG }}       
-          name: "${{ env.RELEASE_TAG }}"  
+          tag_name: ${{ env.RELEASE_TAG }}
+          name: "${{ env.RELEASE_TAG }}"
           draft: false
-          prerelease: true                        
+          prerelease: true
           generate_release_notes: true
           files: ${{ env.RELEASE_ZIP }}
-          overwrite_files: true    
-          make_latest: true                           
+          overwrite_files: true
+          make_latest: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -125,35 +125,35 @@
 ---@alias Walkable boolean
 
 ---@class ComponentId
----@field Animation string
----@field AudioSource string
----@field Children string
----@field Collider string
----@field CurrentFrame string
----@field CurrentRoom string
----@field Damage string
----@field FacingDirection string
----@field Global string
----@field Glow string
----@field Grounded string
----@field Interactable string
----@field Kinematic string
----@field Layer string
----@field Light string
----@field Name string
----@field Parent string
----@field PhysicsBody string
----@field Player string
----@field PlayerProxy string
----@field RoomCamera string
----@field Script string
----@field Solid string
----@field SpeechBubble string
----@field Sprite string
----@field SubPixel string
----@field Transform string
----@field Velocity string
----@field Walkable string
+---@field Animation "Animation"
+---@field AudioSource "AudioSource"
+---@field Children "Children"
+---@field Collider "Collider"
+---@field CurrentFrame "CurrentFrame"
+---@field CurrentRoom "CurrentRoom"
+---@field Damage "Damage"
+---@field FacingDirection "FacingDirection"
+---@field Global "Global"
+---@field Glow "Glow"
+---@field Grounded "Grounded"
+---@field Interactable "Interactable"
+---@field Kinematic "Kinematic"
+---@field Layer "Layer"
+---@field Light "Light"
+---@field Name "Name"
+---@field Parent "Parent"
+---@field PhysicsBody "PhysicsBody"
+---@field Player "Player"
+---@field PlayerProxy "PlayerProxy"
+---@field RoomCamera "RoomCamera"
+---@field Script "Script"
+---@field Solid "Solid"
+---@field SpeechBubble "SpeechBubble"
+---@field Sprite "Sprite"
+---@field SubPixel "SubPixel"
+---@field Transform "Transform"
+---@field Velocity "Velocity"
+---@field Walkable "Walkable"
 
 local C = {}
 

@@ -26,7 +26,7 @@
             ),
             /*[5]*/ (
                 type_name: "CurrentRoom",
-                data: "{\n    (1): ((1)),\n    (2): ((1)),\n    (5): ((1)),\n}",
+                data: "{\n    (1): ((1)),\n    (2): ((1)),\n    (24): ((2)),\n    (37): ((1)),\n}",
             ),
             /*[6]*/ (
                 type_name: "Damage",
@@ -66,7 +66,7 @@
             ),
             /*[15]*/ (
                 type_name: "Name",
-                data: "{\n    (1): (\"Camera 1\"),\n    (2): (\"Player Proxy\"),\n    (3): (\"Player\"),\n    (5): (\"Entity\"),\n}",
+                data: "{\n    (1): (\"Camera 1\"),\n    (2): (\"Player Proxy\"),\n    (3): (\"Player\"),\n    (24): (\"Camera 1\"),\n    (37): (\"Cat\"),\n}",
             ),
             /*[16]*/ (
                 type_name: "Parent",
@@ -85,43 +85,55 @@
                 data: "{\n    (2): (),\n}",
             ),
             /*[20]*/ (
-                type_name: "RoomCamera",
-                data: "{\n    (1): (\n        zoom: (0.015625, 0.027777778),\n        room_id: (1),\n        zoom_mode: Step,\n        camera_mode: Fixed,\n    ),\n}",
+                type_name: "PrefabInstanceNode",
+                data: "{\n    (37): (\n        prefab_id: (1),\n        node_id: 1,\n        root_entity: (37),\n    ),\n}",
             ),
             /*[21]*/ (
-                type_name: "Script",
-                data: "{\n    (3): (\n        script_id: (1),\n        data: (\n            fields: {\n                \"health\": Int(100),\n                \"jump_speed\": Int(200),\n                \"name\": Text(\"Player\"),\n                \"run_speed\": Int(180),\n                \"speed\": Int(100),\n            },\n        ),\n    ),\n}",
+                type_name: "PrefabInstanceRoot",
+                data: "{\n    (37): (\n        prefab_id: (1),\n    ),\n}",
             ),
             /*[22]*/ (
-                type_name: "Solid",
+                type_name: "PrefabOverrides",
                 data: "{}",
             ),
             /*[23]*/ (
+                type_name: "RoomCamera",
+                data: "{\n    (1): (\n        zoom: (0.015625, 0.027777778),\n        room_id: (1),\n        zoom_mode: Step,\n        camera_mode: Fixed,\n    ),\n    (24): (\n        zoom: (0.015625, 0.027777778),\n        room_id: (2),\n        zoom_mode: Step,\n        camera_mode: Fixed,\n    ),\n}",
+            ),
+            /*[24]*/ (
+                type_name: "Script",
+                data: "{\n    (3): (\n        script_id: (1),\n        data: (\n            fields: {\n                \"health\": Int(100),\n                \"jump_speed\": Int(200),\n                \"name\": Text(\"Player\"),\n                \"run_speed\": Int(180),\n                \"speed\": Int(100),\n            },\n        ),\n    ),\n}",
+            ),
+            /*[25]*/ (
+                type_name: "Solid",
+                data: "{}",
+            ),
+            /*[26]*/ (
                 type_name: "SpeechBubble",
                 data: "{}",
             ),
-            /*[24]*/ (
+            /*[27]*/ (
                 type_name: "Sprite",
-                data: "{\n    (5): (\n        sprite: (7),\n    ),\n}",
+                data: "{\n    (37): (\n        sprite: (9),\n    ),\n}",
             ),
-            /*[25]*/ (
+            /*[28]*/ (
                 type_name: "SubPixel",
                 data: "{\n    (3): (),\n}",
             ),
-            /*[26]*/ (
+            /*[29]*/ (
                 type_name: "Transform",
-                data: "{\n    (1): (\n        visible: true,\n        position: (64.0, 35.99995),\n        pivot: CenterLeft,\n    ),\n    (2): (\n        visible: true,\n        position: (20.0, 72.0),\n        pivot: BottomCenter,\n    ),\n    (5): (\n        visible: true,\n        position: (100.0, 72.0),\n        pivot: BottomCenter,\n    ),\n}",
+                data: "{\n    (1): (\n        visible: true,\n        position: (64.0, 35.99995),\n        pivot: CenterLeft,\n    ),\n    (2): (\n        visible: true,\n        position: (28.0, 72.0),\n        pivot: BottomCenter,\n    ),\n    (24): (\n        visible: true,\n        position: (-64.0, 36.0),\n        pivot: CenterLeft,\n    ),\n    (37): (\n        visible: true,\n        position: (108.0, 72.0),\n        pivot: BottomCenter,\n    ),\n}",
             ),
-            /*[27]*/ (
+            /*[30]*/ (
                 type_name: "Velocity",
                 data: "{\n    (3): (\n        x: 0.0,\n        y: 0.0,\n    ),\n}",
             ),
-            /*[28]*/ (
+            /*[31]*/ (
                 type_name: "Walkable",
                 data: "{}",
             ),
         ],
-        next_entity_id: 12,
+        next_entity_id: 38,
     ),
     worlds: [
         /*[0]*/ (
@@ -130,7 +142,7 @@
             rooms: [
                 /*[0]*/ (
                     id: (1),
-                    name: "untitled",
+                    name: "First",
                     position: (0.0, 0.0),
                     size: (16.0, 9.0),
                     exits: [],
@@ -140,6 +152,25 @@
                             id: "default",
                             tilemap: (
                                 width: 16,
+                                height: 9,
+                                background: (0.78, 0.78, 0.78, 1.0),
+                            ),
+                        ),
+                    ],
+                    darkness: 0.3082906,
+                ),
+                /*[1]*/ (
+                    id: (2),
+                    name: "Second",
+                    position: (-104.0, 0.0),
+                    size: (13.0, 9.0),
+                    exits: [],
+                    adjacent_rooms: [],
+                    variants: [
+                        /*[0]*/ (
+                            id: "default",
+                            tilemap: (
+                                width: 13,
                                 height: 9,
                                 background: (0.78, 0.78, 0.78, 1.0),
                             ),
@@ -158,33 +189,28 @@
             grid_size: 8.0,
         ),
     ],
-    asset_manager: (
+    sprite_manager: (
         sprite_id_to_path: {
-            (1): "animations/player/male/Idle.png",
-            (2): "animations/player/male/Fidget.png",
+            (1): "animations/player/female/Idle.png",
+            (2): "animations/player/male/Jump.png",
             (3): "animations/player/male/Fall.png",
-            (4): "animations/player/male/Jump.png",
+            (4): "animations/player/male/Fidget.png",
             (5): "animations/player/male/Run.png",
-            (6): "animations/player/male/Walk.png",
-            (7): "sprites/cat.png",
-            (8): "animations/player/female/Idle.png",
+            (6): "animations/player/male/Idle.png",
+            (7): "animations/player/male/Walk.png",
+            (8): "sprites/Bullet.png",
+            (9): "sprites/cat.png",
         },
         tile_defs: {},
         next_tile_def_id: 1,
         ref_counts: {
-            (1): 1,
-            (2): 1,
-            (3): 1,
-            (4): 1,
-            (5): 1,
-            (6): 1,
-            (7): 1,
-            (8): 4,
+            (9): 1,
         },
     ),
     script_manager: (
         script_id_to_path: {
             (1): "player.lua",
+            (2): "bullet.lua",
         },
         ref_counts: {
             (1): 1,
@@ -192,5 +218,5 @@
     ),
     current_world_id: ("38f2015c-96c7-4954-862c-a3a8262298b6"),
     game_map: (),
-    next_room_id: 1,
+    next_room_id: 2,
 )

@@ -8,15 +8,15 @@ use engine_core::prelude::*;
 #[derive(Debug)]
 pub struct BatchDeleteEntitiesCmd {
     pub entities: Vec<Entity>,
-    pub room_id: RoomId,
+    pub mode: EditorMode,
     pub saved: Option<GroupSnapshot>,
 }
 
 impl BatchDeleteEntitiesCmd {
-    pub fn new(entities: Vec<Entity>, room_id: RoomId) -> Self {
+    pub fn new(entities: Vec<Entity>, mode: EditorMode) -> Self {
         Self {
             entities,
-            room_id,
+            mode,
             saved: None,
         }
     }
@@ -59,6 +59,6 @@ impl EditorCommand for BatchDeleteEntitiesCmd {
     }
 
     fn mode(&self) -> EditorMode {
-        EditorMode::Room(self.room_id)
+        self.mode
     }
 }
