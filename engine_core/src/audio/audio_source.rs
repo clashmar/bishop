@@ -1,4 +1,4 @@
-use crate::audio::command_queue::{AudioCommand, push_audio_command};
+use crate::audio::command_queue::{push_audio_command, AudioCommand};
 use crate::ecs::entity::Entity;
 use crate::game::EngineCtxMut;
 use ecs_component::ecs_component;

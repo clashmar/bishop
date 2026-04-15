@@ -16,12 +16,12 @@ use crate::editor_global::push_toast;
 use crate::gui::menu_bar::MenuBar;
 use crate::gui::modal::Modal;
 use crate::menu::MenuEditor;
-use crate::playtest::control::{AgentPlaytestControl, AgentPlaytestMode};
 use crate::playtest::playtest_process::PlaytestProcess;
 use crate::prefab::{PrefabEditor, PrefabStage};
 use crate::room::room_editor::{self, RoomEditor};
 use crate::storage::editor_storage;
 use crate::storage::editor_storage::*;
+use crate::storage::shared::most_recent_game_name;
 use crate::storage::export::PendingExport;
 use crate::tilemap::tile_palette::TilePalette;
 use crate::with_panel_manager;
@@ -42,13 +42,13 @@ pub enum EditorMode {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub(crate) enum PendingPrefabRequest {
+pub enum PendingPrefabRequest {
     CaptureSelection(Entity),
     CreateBlank,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub(crate) enum PendingPrefabTransition {
+pub enum PendingPrefabTransition {
     Exit,
     OpenExisting(PrefabId),
     CreateBlank(String),
@@ -367,9 +367,7 @@ impl Editor {
 
                 // Launch play‑test if the play button was pressed
                 if self.room_editor.request_play {
-                    if let Err(error) =
-                        self.request_open_playtest(AgentPlaytestMode::EditorAttachedCurrentRoom)
-                    {
+                    if let Err(error) = self.launch_playtest_for_current_room() {
                         onscreen_error!("{error}");
                     }
                     self.room_editor.request_play = false;

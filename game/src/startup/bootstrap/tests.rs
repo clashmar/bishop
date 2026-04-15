@@ -1,5 +1,4 @@
 use super::*;
-use engine_core::agents::payload::AgentPayloadSpec;
 use engine_core::storage::test_utils::{game_fs_test_lock, TestGameFolder};
 use std::fs;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -10,50 +9,6 @@ fn unique_name(prefix: &str) -> String {
         .unwrap()
         .as_nanos();
     format!("{prefix}-{nanos}")
-}
-
-fn payload_startup_ron() -> String {
-    ron::ser::to_string_pretty(&StartupAsset::default(), ron::ser::PrettyConfig::new()).unwrap()
-}
-
-fn editor_payload_ron(game_name: &str, room: &Room, startup_mode: StartupMode) -> String {
-    #[derive(serde::Serialize)]
-    struct Payload<'a> {
-        room: &'a Room,
-        game: &'a Game,
-        startup_ron: Option<String>,
-        startup_mode: StartupMode,
-    }
-
-    let game = Game {
-        name: game_name.to_string(),
-        ..Game::default()
-    };
-
-    ron::ser::to_string_pretty(
-        &Payload {
-            room,
-            game: &game,
-            startup_ron: Some(payload_startup_ron()),
-            startup_mode,
-        },
-        ron::ser::PrettyConfig::new(),
-    )
-    .unwrap()
-}
-
-fn seeded_payload_path(game_name: &str) -> std::path::PathBuf {
-    let payload = AgentPayloadSpec::synthetic(game_name)
-        .add_room("Seeded Room")
-        .build()
-        .unwrap();
-    let path = std::env::temp_dir().join(format!("{}.ron", unique_name("seeded-payload")));
-    fs::write(
-        &path,
-        ron::ser::to_string_pretty(&payload, ron::ser::PrettyConfig::new()).unwrap(),
-    )
-    .unwrap();
-    path
 }
 
 #[test]
@@ -202,53 +157,6 @@ fn parse_startup_data_uses_startup_mode_from_payload() {
         }
         LoadedStartupData::Game { .. } => panic!("expected playtest startup data"),
     }
-}
-
-#[test]
-fn payload_backed_startup_data_builds_same_room_game_shape_for_editor_and_seeded_sources() {
-    let _lock = game_fs_test_lock().lock().unwrap();
-    let test_game = TestGameFolder::new("PayloadBackedStartupData");
-    let room = Room {
-        id: RoomId(1),
-        name: "Seeded Room".to_string(),
-        ..Room::default()
-    };
-    let resources_dir = test_game.path().join(RESOURCES_FOLDER);
-    fs::create_dir_all(&resources_dir).unwrap();
-    fs::write(resources_dir.join("startup.ron"), payload_startup_ron()).unwrap();
-
-    let editor_loaded = parse_startup_data(LoadedStartupFiles::Playtest {
-        payload_ron: editor_payload_ron(test_game.name(), &room, StartupMode::Skip),
-    })
-    .unwrap();
-    let seeded_path = seeded_payload_path(test_game.name());
-    let seeded_loaded = parse_startup_data(LoadedStartupFiles::AgentPayload {
-        payload_path: seeded_path.display().to_string(),
-    })
-    .unwrap();
-
-    let editor_playtest = match editor_loaded {
-        LoadedStartupData::Playtest(LoadedPlaytestData {
-            room,
-            game,
-            startup_mode,
-            ..
-        }) => Some((room.id, game.name, startup_mode)),
-        LoadedStartupData::Game { .. } => None,
-    };
-    let seeded_playtest = match seeded_loaded {
-        LoadedStartupData::Playtest(LoadedPlaytestData {
-            room,
-            game,
-            startup_mode,
-            ..
-        }) => Some((room.id, game.name, startup_mode)),
-        LoadedStartupData::Game { .. } => None,
-    };
-
-    assert_eq!(editor_playtest, seeded_playtest);
-
-    let _ = fs::remove_file(seeded_path);
 }
 
 #[test]

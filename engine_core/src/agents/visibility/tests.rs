@@ -1,11 +1,11 @@
-use super::{
-    build_snapshot_payload, merged_snapshot_payload, payload_value, AgentSessionState,
-    AgentSnapshotRequest, AgentVisibilitySink, AgentVisibilitySnapshot, RecordingAgentSink,
-};
+use crate::agents::AgentPlaytestControlRequest;
 use crate::constants::agents;
-use crate::logging::{clear_agent_visibility_sink, set_agent_visibility_sink};
+use crate::playtest::{
+    build_snapshot_payload, merged_snapshot_payload, payload_value, PlaytestActiveControl,
+    PlaytestSessionManifest, PlaytestSessionRole, PlaytestSessionState, PlaytestSnapshot,
+    PlaytestSnapshotRequest,
+};
 use serde::Serialize;
-use std::sync::{Arc, Mutex};
 
 #[derive(Serialize)]
 struct SamplePayload {
@@ -73,19 +73,19 @@ fn payload_macro_builds_inline_map_without_named_payload_type() {
 
 #[test]
 fn snapshot_request_round_trips_with_extras_only() {
-    let request = AgentSnapshotRequest {
+    let request = PlaytestSnapshotRequest {
         extras: payload!(player_velocity_x: 4.0),
     };
 
     let ron = ron::to_string(&request).unwrap();
-    let round_trip: AgentSnapshotRequest = ron::from_str(&ron).unwrap();
+    let round_trip: PlaytestSnapshotRequest = ron::from_str(&ron).unwrap();
 
     assert_eq!(round_trip.extras, payload!(player_velocity_x: 4.0));
 }
 
 #[test]
 fn extras_override_profile_fields_on_collision() {
-    let request = AgentSnapshotRequest {
+    let request = PlaytestSnapshotRequest {
         extras: payload!(
             accumulator_ms: 99.0,
             custom_flag: true,
@@ -126,7 +126,7 @@ fn extras_override_profile_fields_on_collision() {
 
 #[test]
 fn non_map_extras_do_not_replace_profile_payload() {
-    let request = AgentSnapshotRequest {
+    let request = PlaytestSnapshotRequest {
         extras: ron::Value::Bool(true),
     };
 
@@ -151,7 +151,7 @@ fn non_map_extras_do_not_replace_profile_payload() {
 
 #[test]
 fn build_snapshot_payload_keeps_runtime_payload_when_request_extras_empty() {
-    let request = AgentSnapshotRequest { extras: payload!() };
+    let request = PlaytestSnapshotRequest::default();
     let runtime_payload = Some(payload!(accumulator_ms: 16.7));
 
     assert_eq!(
@@ -186,8 +186,8 @@ fn agent_visibility_payload_helper_supports_enum_fields() {
 
 #[test]
 fn agent_visibility_snapshot_includes_frame_timing_and_session_state() {
-    let snapshot = AgentVisibilitySnapshot {
-        session_state: AgentSessionState::Running,
+    let snapshot = PlaytestSnapshot {
+        session_state: PlaytestSessionState::Running,
         frame_time_ms: Some(16.7),
         smoothed_frame_time_ms: Some(14.2),
         mode: Some(agents::PLAYTEST_MODE.to_string()),
@@ -214,54 +214,20 @@ fn agent_visibility_snapshot_includes_frame_timing_and_session_state() {
 }
 
 #[test]
-fn recording_agent_sink_captures_logs_and_snapshots() {
-    let mut sink = RecordingAgentSink::default();
-    sink.publish_log(log::Level::Info, "hello agent");
-    sink.publish_snapshot(AgentVisibilitySnapshot {
-        session_state: AgentSessionState::Starting,
-        frame_time_ms: None,
-        smoothed_frame_time_ms: None,
-        mode: None,
-        recent_log_count: 0,
-        frame_index: None,
-        topic: None,
-        label: None,
-        payload: None,
-    });
-
-    assert_eq!(sink.logs().len(), 1);
-    assert_eq!(sink.snapshots().len(), 1);
-}
-
-#[test]
-fn onscreen_log_forwards_to_agent_sink_when_installed() {
-    let captured = Arc::new(Mutex::new(Vec::new()));
-    set_agent_visibility_sink(Box::new(RecordingForwardingSink {
-        captured: Arc::clone(&captured),
-    }));
-
-    crate::onscreen_info!("hello agent");
-
-    let logs = match captured.lock() {
-        Ok(logs) => logs.clone(),
-        Err(_) => Vec::new(),
+fn session_manifest_round_trips_active_control_metadata() {
+    let manifest = PlaytestSessionManifest {
+        session_id: "session-1".to_string(),
+        role: PlaytestSessionRole::Playtest,
+        state: PlaytestSessionState::Running,
+        payload_path: Some("/tmp/payload.ron".to_string()),
+        snapshot_request: Some(PlaytestSnapshotRequest { extras: payload!() }),
+        active_control: Some(PlaytestActiveControl {
+            request: AgentPlaytestControlRequest::named("grounded_walk_right"),
+        }),
     };
-    assert!(logs.iter().any(|line| line.contains("hello agent")));
-    clear_agent_visibility_sink();
-}
 
-struct RecordingForwardingSink {
-    captured: Arc<Mutex<Vec<String>>>,
-}
+    let ron = ron::to_string(&manifest).unwrap();
+    let round_trip: PlaytestSessionManifest = ron::from_str(&ron).unwrap();
 
-impl super::AgentVisibilitySink for RecordingForwardingSink {
-    fn publish_snapshot(&mut self, snapshot: AgentVisibilitySnapshot) {
-        let _ = snapshot;
-    }
-
-    fn publish_log(&mut self, level: log::Level, message: &str) {
-        if let Ok(mut captured) = self.captured.lock() {
-            captured.push(format!("[{level}] {message}"));
-        }
-    }
+    assert_eq!(round_trip, manifest);
 }

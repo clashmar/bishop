@@ -1,7 +1,7 @@
 // editor/src/editor_assets/editor_assets.rs
 #![allow(unused)]
-use crate::storage::sound_preset_storage::SoundPresetLibrary;
 use crate::editor_assets::prefabs_lua::generate_prefabs_lua;
+use crate::storage::sound_preset_storage::SoundPresetLibrary;
 use bishop::prelude::*;
 use engine_core::prelude::*;
 use engine_core::scripting::lua_constants::{
@@ -16,20 +16,9 @@ use std::{env, fs, io};
 pub static GAME_EXE: &[u8] =
     include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/binaries/game.exe"));
 
-/// Windows .exe for the game playtest binary.
-pub static PLAYTEST_EXE: &[u8] = include_bytes!(concat!(
-    env!("CARGO_MANIFEST_DIR"),
-    "/binaries/game-playtest.exe"
-));
-
 /// Mac binary for the game.
-pub static GAME_BIN: &[u8] = include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/binaries/game"));
-
-/// Mac binary for the game. playtest
-pub static PLAYTEST_BIN: &[u8] = include_bytes!(concat!(
-    env!("CARGO_MANIFEST_DIR"),
-    "/binaries/game-playtest"
-));
+pub static GAME_BIN: &[u8] = 
+    include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/binaries/game"));
 
 pub static ICON_SMALL: LazyLock<[u8; 16 * 16 * 4]> =
     LazyLock::new(|| load_rgba_resized::<{ 16 * 16 * 4 }>(include_bytes!("icon.png"), 16));

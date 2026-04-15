@@ -91,16 +91,18 @@ pub const PLAYTEST_PAYLOAD_RON: &str = "playtest_payload.ron";
 
 /// Constants for agent-driven playtest flows.
 pub mod agents {
-    /// CLI flag that starts playtest without an editor payload.
-    pub const HEADLESS_FLAG: &str = "--headless";
-    /// CLI flag that points at an agent-assembled payload.
-    pub const PAYLOAD_FLAG: &str = "--agent-payload";
-    /// Default file name for agent payloads.
-    pub const PAYLOAD_FILENAME: &str = "agent-payload.ron";
+    /// Default file name for session manifests.
+    pub const MANIFEST_FILENAME: &str = "agent-session.ron";
+    /// Default file name for session snapshots.
+    pub const SNAPSHOT_FILENAME: &str = "agent-snapshot.ron";
     /// Default file name for runtime snapshot request inboxes.
     pub const REQUEST_FILENAME: &str = "agent-request.ron";
-    /// Default playtest log file used by agent-visible sessions.
-    pub const PLAYTEST_LOG_PATH: &str = "/tmp/logs/playtest.log";
+    /// Default file name for runtime control request inboxes.
+    pub const CONTROL_REQUEST_FILENAME: &str = "agent-control-request.ron";
+    /// Default file name for persisted expanded control timelines.
+    pub const EXPANDED_CONTROL_FILENAME: &str = "agent-expanded-control.ron";
+    /// Default resources subfolder for file-defined playtest control profiles.
+    pub const PLAYTEST_CONTROL_PROFILES_FOLDER: &str = "agent_playtest";
     /// Mode label used by playtest visibility snapshots.
     pub const PLAYTEST_MODE: &str = "playtest";
     /// Topic label used by playtest runtime observations.

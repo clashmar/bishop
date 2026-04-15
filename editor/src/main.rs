@@ -18,7 +18,6 @@ mod editor_global;
 mod game;
 mod gui;
 mod menu;
-pub mod agents;
 mod playtest;
 mod prefab;
 mod room;
@@ -26,6 +25,9 @@ mod shared;
 mod storage;
 mod tilemap;
 mod world;
+
+pub use editor::playtest_binaries;
+pub use editor::storage_shared;
 
 /// Wrapper struct for running the editor via BishopApp.
 struct EditorApp {

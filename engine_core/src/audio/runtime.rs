@@ -73,11 +73,16 @@ pub fn drain_audio_events() -> Vec<MusicStoppedEvent> {
     })
 }
 
-#[cfg(test)]
-pub(crate) fn reset_for_tests() {
+/// Resets queued audio runtime events and active-state tracking.
+pub fn reset_audio_runtime_state() {
     AUDIO_RUNTIME_STATE.with(|state| {
         let mut state = state.borrow_mut();
         state.music_playing = false;
         state.events.clear();
     });
+}
+
+#[cfg(test)]
+pub(crate) fn reset_for_tests() {
+    reset_audio_runtime_state();
 }

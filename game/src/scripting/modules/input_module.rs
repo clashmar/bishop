@@ -18,7 +18,7 @@ pub const INPUT_TAKE_CONTROL: &str = "take_control";
 pub const INPUT_RELEASE_CONTROL: &str = "release_control";
 pub const INPUT_IN_CONTROL: &str = "in_control";
 
-/// Lua module that exposes the current input snapshot.
+/// Lua module that exposes effective input state from platform capture plus virtual overlay.
 #[derive(Default, Clone)]
 pub struct InputModule;
 register_lua_module!(InputModule);
@@ -58,7 +58,7 @@ impl LuaModule for InputModule {
     }
 }
 
-/// Build a Lua function that queries a current `InputSnapshot`.
+/// Build a Lua function that queries the effective `InputSnapshot` for this frame.
 pub fn make_snapshot_query_fn<Sel>(lua: &Lua, map_selector: Sel) -> LuaResult<Function>
 where
     Sel: Fn(&InputSnapshot) -> &HashMap<&'static str, bool> + Copy + Send + 'static,
@@ -66,7 +66,8 @@ where
     lua.create_function(move |lua, key: String| {
         let bishop_ctx = LuaBishopCtx::borrow_ctx(lua)?;
         let mut snapshot = get_input_snapshot();
-        snapshot.capture_input_state(&bishop_ctx.ctx);
+        let virtual_input = get_virtual_input_state();
+        snapshot.capture_effective_input_state(&bishop_ctx.ctx, &virtual_input);
 
         let value = map_selector(&snapshot)
             .get(key.as_str())

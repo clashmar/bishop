@@ -11,8 +11,8 @@ use std::sync::Arc;
 /// e.g. `"sfx/jump"` resolves to `Resources/audio/sfx/jump.wav`.
 pub fn load_wav(id: &str) -> Result<Arc<Frames<[f32; 2]>>, String> {
     let path = wav_path(id);
-    let bytes = std::fs::read(&path)
-        .map_err(|e| format!("failed to read {}: {e}", path.display()))?;
+    let bytes =
+        std::fs::read(&path).map_err(|e| format!("failed to read {}: {e}", path.display()))?;
     decode_wav_bytes(&path, &bytes)
 }
 

@@ -4,17 +4,19 @@
 mod audio_events;
 pub mod engine_builder;
 pub mod game_instance;
+mod playtest;
 mod render;
 #[cfg(test)]
 mod tests;
 use audio_events::emit_pending_audio_events;
+pub(crate) use playtest::advance_playtest_control_for_game_state;
 use render::*;
 
 pub use engine_builder::EngineBuilder;
 pub use game_instance::GameInstance;
 
 use crate::diagnostics::DiagnosticsOverlay;
-use crate::game_global::set_menu_active;
+use crate::game_global::{clear_virtual_input_edges, set_menu_active};
 use crate::physics::physics_system::*;
 use crate::scripting::script_system::ScriptSystem;
 use crate::transitions::transition_manager::TransitionManager;
@@ -81,6 +83,8 @@ impl BishopApp for Engine {
         self.update_game_state();
 
         self.menu_manager.handle_input(&mut *ctx.borrow_mut());
+        sync_global_menu_state(&self.menu_manager);
+        self.update_game_state();
         emit_pending_audio_events(self);
 
         if self.is_playtest {
@@ -94,6 +98,10 @@ impl BishopApp for Engine {
             while self.accumulator >= FIXED_DT {
                 self.accumulator -= FIXED_DT;
                 self.fixed_update(&mut *ctx.borrow_mut(), FIXED_DT);
+            }
+
+            if let Some(frame) = advance_playtest_control_for_game_state(&self.game_state) {
+                self.apply_playtest_camera_control(frame);
             }
 
             self.update(raw_dt);
@@ -115,6 +123,8 @@ impl BishopApp for Engine {
 
         // Process ui events and emit to Lua
         self.game_instance.borrow().drain_ui_events();
+
+        clear_virtual_input_edges();
     }
 }
 
@@ -134,6 +144,7 @@ impl Engine {
         menu_manager.set_action_handler(GameMenuHandler);
 
         let game_state = apply_entry_mode(&mut menu_manager, entry_mode);
+        sync_global_menu_state(&menu_manager);
 
         Self {
             game_instance,
@@ -212,13 +223,15 @@ impl Engine {
             }
         }
 
-        // Sync menu state for Lua scripts
-        set_menu_active(self.menu_manager.has_active_menu());
+        sync_global_menu_state(&self.menu_manager);
 
         // Run scripts outside borrow_mut scope
         if let Err(e) = ScriptSystem::run_scripts(dt, self) {
             onscreen_error!("Error running scripts: {}", e);
         }
+
+        sync_global_menu_state(&self.menu_manager);
+        self.update_game_state();
     }
 
     pub fn render(&mut self, ctx: &PlatformContext, alpha: f32) {
@@ -253,6 +266,10 @@ impl Engine {
     fn update_game_state(&mut self) {
         self.game_state = resolve_game_state(self.game_state.clone(), &self.menu_manager);
     }
+}
+
+fn sync_global_menu_state(menu_manager: &MenuManager) {
+    set_menu_active(menu_manager.has_active_menu());
 }
 
 fn apply_entry_mode(menu_manager: &mut MenuManager, entry_mode: EngineEntryMode) -> GameState {

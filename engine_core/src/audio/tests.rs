@@ -1,8 +1,8 @@
 use super::*;
 use crate::audio::audio_source::{
-    AudioGroup, AudioSource, SoundGroupId, SoundPresetLink, test_post_create, test_post_remove,
+    test_post_create, test_post_remove, AudioGroup, AudioSource, SoundGroupId, SoundPresetLink,
 };
-use crate::audio::command_queue::{PlayMusicRequest, drain_audio_commands, push_audio_command};
+use crate::audio::command_queue::{drain_audio_commands, push_audio_command, PlayMusicRequest};
 use crate::ecs::entity::Entity;
 use crate::game::Game;
 use serde::Deserialize;
@@ -425,12 +425,10 @@ fn deserializing_audio_source_drops_new_group_key() {
     let wrapper: Wrapper = ron::from_str(ron).unwrap();
 
     assert!(!wrapper.source.groups.contains_key(&SoundGroupId::New));
-    assert!(
-        wrapper
-            .source
-            .groups
-            .contains_key(&SoundGroupId::Custom("Talk".to_string()))
-    );
+    assert!(wrapper
+        .source
+        .groups
+        .contains_key(&SoundGroupId::Custom("Talk".to_string())));
 }
 
 #[test]
