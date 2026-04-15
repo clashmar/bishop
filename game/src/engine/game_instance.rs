@@ -1,4 +1,5 @@
 // game/src/engine/game_instance.rs
+use crate::game_global::reset_engine_session_state;
 use crate::scripting::script_system::ScriptSystem;
 use engine_core::prelude::*;
 use mlua::Lua;
@@ -113,6 +114,8 @@ impl GameInstance {
         camera_manager: &mut CameraManager,
         runtime_loading: bool,
     ) -> Self {
+        reset_engine_session_state();
+
         if runtime_loading {
             game.initialize_runtime(lua);
         } else {

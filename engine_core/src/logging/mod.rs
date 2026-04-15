@@ -113,10 +113,10 @@ macro_rules! onscreen_log {
         let time = $crate::logging::now_str();
         println!("{} {:5} [{}:{}] {}", time, $lvl, file!(), line!(), &msg);
         log::log!($lvl, $($arg)*);
-        {
-            let mut history = $crate::logging::LOG_HISTORY.lock().unwrap();
+        if let Ok(mut history) = $crate::logging::LOG_HISTORY.lock() {
             history.push($lvl, msg.clone(), time, file!(), line!());
-            drop(history);
+        } else {
+        println!("{} {:5} [{}:{}] {}", time, $lvl, file!(), line!(), &msg);
         }
     }};
 }
@@ -138,10 +138,11 @@ macro_rules! onscreen_error { ($($arg:tt)*) => { $crate::onscreen_log!(log::Leve
 macro_rules! onscreen_debug { ($($arg:tt)*) => { $crate::onscreen_log!(log::Level::Debug, $($arg)*) }; }
 
 /// Initializes the system logger.
-pub fn init_file_logger() {
+pub fn init_file_logger() -> std::io::Result<()> {
     let log_dir = runtime_log_dir();
-    init_logger_with_basename(&log_dir, "bishop_engine");
+    init_logger_with_basename(&log_dir, "bishop_engine")?;
     onscreen_info!("Log dir: {}.", log_dir.display());
+    Ok(())
 }
 
 /// Returns the directory used for runtime log files.
@@ -161,17 +162,17 @@ pub fn runtime_telemetry_paths(log_dir: PathBuf, process_name: &str) -> RuntimeT
 }
 
 /// Initializes file logging and panic reporting for a shipped runtime.
-pub fn init_runtime_telemetry(process_name: &str) -> RuntimeTelemetryPaths {
+pub fn init_runtime_telemetry(process_name: &str) -> std::io::Result<RuntimeTelemetryPaths> {
     let paths = runtime_telemetry_paths(runtime_log_dir(), process_name);
-    init_logger_with_basename(&paths.log_dir, &paths.log_basename);
+    init_logger_with_basename(&paths.log_dir, &paths.log_basename)?;
     install_panic_hook(paths.clone());
     onscreen_info!("Log dir: {}.", paths.log_dir.display());
     onscreen_info!("Crash report: {}.", paths.crash_report_path.display());
-    paths
+    Ok(paths)
 }
 
-fn init_logger_with_basename(log_dir: &Path, basename: &str) {
-    fs::create_dir_all(log_dir).expect("Unable to create log directory.");
+fn init_logger_with_basename(log_dir: &Path, basename: &str) -> std::io::Result<()> {
+    fs::create_dir_all(log_dir)?;
 
     let file_spec = FileSpec::default()
         .directory(log_dir)
@@ -179,7 +180,7 @@ fn init_logger_with_basename(log_dir: &Path, basename: &str) {
         .suffix("log");
 
     Logger::try_with_str("info")
-        .unwrap()
+        .map_err(|err| std::io::Error::other(err.to_string()))?
         .log_to_file(file_spec)
         .format(format_log_record)
         .rotate(
@@ -189,7 +190,9 @@ fn init_logger_with_basename(log_dir: &Path, basename: &str) {
         )
         .write_mode(WriteMode::BufferAndFlush)
         .start()
-        .expect("Unable to init logger.");
+        .map_err(|err| std::io::Error::other(err.to_string()))?;
+
+    Ok(())
 }
 
 fn install_panic_hook(paths: RuntimeTelemetryPaths) {
@@ -223,7 +226,7 @@ fn install_panic_hook(paths: RuntimeTelemetryPaths) {
             let _ = file.write_all(report.as_bytes());
         }
 
-        eprintln!("{report}");
+        onscreen_error!("{report}");
     }));
 }
 

@@ -142,7 +142,7 @@
             rooms: [
                 /*[0]*/ (
                     id: (1),
-                    name: "untitled",
+                    name: "First",
                     position: (0.0, 0.0),
                     size: (16.0, 9.0),
                     exits: [],
@@ -161,7 +161,7 @@
                 ),
                 /*[1]*/ (
                     id: (2),
-                    name: "untitled",
+                    name: "Second",
                     position: (-104.0, 0.0),
                     size: (13.0, 9.0),
                     exits: [],

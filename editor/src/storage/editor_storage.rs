@@ -2,12 +2,14 @@
 #![allow(unused)]
 use crate::editor_assets::assets::write_sounds_lua;
 use crate::editor_assets::write_prefabs_lua;
+use crate::storage::shared::{most_recent_game_name, write_to_app_dir};
 use crate::storage::sound_preset_storage::*;
 use crate::tilemap::tile_palette::TilePalette;
 use crate::write_animations_lua;
 use crate::write_engine_scripts;
 use bishop::prelude::*;
 use engine_core::prelude::*;
+use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::fs;
 use std::io;
@@ -20,7 +22,6 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::Mutex;
 use std::time::SystemTime;
-use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 const PREFAB_PALETTE_RON: &str = "prefab_palette.ron";
@@ -192,7 +193,9 @@ fn default_front_end_menus() -> Vec<MenuTemplate> {
 
     let start_menu = MenuBuilder::new("start")
         .mode(MenuMode::FrontEnd)
-        .background(MenuBackground::SolidColor(Color::new(0.05, 0.06, 0.10, 1.0)))
+        .background(MenuBackground::SolidColor(Color::new(
+            0.05, 0.06, 0.10, 1.0,
+        )))
         .layout_group(Rect::new(0.0, 0.0, 1.0, 1.0), start_layout, |group| {
             group
                 .label("Title")
@@ -209,7 +212,9 @@ fn default_front_end_menus() -> Vec<MenuTemplate> {
 
     let settings_menu = MenuBuilder::new("settings")
         .mode(MenuMode::FrontEnd)
-        .background(MenuBackground::SolidColor(Color::new(0.05, 0.06, 0.10, 1.0)))
+        .background(MenuBackground::SolidColor(Color::new(
+            0.05, 0.06, 0.10, 1.0,
+        )))
         .layout_group(Rect::new(0.0, 0.0, 1.0, 1.0), settings_layout, |group| {
             group
                 .label("Settings")
@@ -319,28 +324,6 @@ pub fn load_game_by_name(name: &str) -> io::Result<Game> {
     set_current_sound_preset_library(load_sound_preset_library(name)?);
 
     Ok(game)
-}
-
-/// Return the name of the most recently modified game folder.
-pub fn most_recent_game_name() -> Option<String> {
-    let root = absolute_save_root();
-    let mut best: Option<(String, SystemTime)> = None;
-
-    for entry in fs::read_dir(root).ok()? {
-        let entry = entry.ok()?;
-        if !entry.path().is_dir() {
-            continue;
-        }
-        let name = entry.file_name().to_string_lossy().into_owned();
-        if let Ok(mod_time) = entry.metadata().ok()?.modified() {
-            match best {
-                None => best = Some((name, mod_time)),
-                Some((_, t)) if mod_time > t => best = Some((name, mod_time)),
-                _ => {}
-            }
-        }
-    }
-    best.map(|(name, _)| name)
 }
 
 /// Save the palette for the game.
@@ -459,28 +442,6 @@ pub fn save_as(game: &mut Game, new_name: &str) -> io::Result<()> {
     set_game_name(new_name);
 
     Ok(())
-}
-
-/// Writes an embedded slice of bytes to the system app directory and returns the path or error.
-pub fn write_to_app_dir(filename: &str, embedded: &[u8]) -> io::Result<PathBuf> {
-    let mut path = app_dir();
-    fs::create_dir_all(&path)?;
-
-    path.push(filename);
-
-    let mut file = fs::File::create(&path)?;
-    file.write_all(embedded)?;
-
-    #[cfg(target_os = "macos")]
-    {
-        // Set executable permissions
-        onscreen_debug!("Writing binary permissions.");
-        let mut permissions = fs::metadata(&path)?.permissions();
-        permissions.set_mode(0o755);
-        fs::set_permissions(&path, permissions)?;
-    }
-
-    Ok(path)
 }
 
 /// Find all game folders in `games/`.

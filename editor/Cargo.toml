@@ -8,6 +8,10 @@ build = "build.rs"
 name = "Bishop"
 path = "src/main.rs"
 
+[[bin]]
+name = "playtest-flight"
+path = "src/bin/playtest_flight.rs"
+
 [features]
 default = ["wgpu"]
 wgpu = ["bishop/wgpu", "engine_core/wgpu", "game/wgpu"]

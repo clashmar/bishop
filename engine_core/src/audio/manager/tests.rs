@@ -1017,12 +1017,10 @@ fn failed_load_clears_pending_preview_requests() {
     assert!(!manager.pending_previews.contains_key(&63));
     assert!(!manager.tracked_previews.contains_key(&63));
     assert!(!manager.pending_loads.contains_key("preview/missing"));
-    assert!(
-        manager
-            .test_state
-            .started_tracked_preview_playbacks
-            .is_empty()
-    );
+    assert!(manager
+        .test_state
+        .started_tracked_preview_playbacks
+        .is_empty());
 }
 
 #[cfg(feature = "editor")]
@@ -1202,12 +1200,10 @@ fn latest_cold_tracked_preview_wins_for_same_handle_before_loads_finish() {
 
     assert!(manager.pending_previews.contains_key(&35));
     assert!(!manager.tracked_previews.contains_key(&35));
-    assert!(
-        !manager
-            .test_state
-            .started_tracked_preview_playbacks
-            .contains_key(&35)
-    );
+    assert!(!manager
+        .test_state
+        .started_tracked_preview_playbacks
+        .contains_key(&35));
 
     manager.complete_load_for_test("preview/second", Frames::from_slice(44_100, &[[0.0, 0.0]]));
     manager.poll(0.0);

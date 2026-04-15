@@ -2,7 +2,7 @@
 use crate::constants::*;
 use crate::engine_global::*;
 use crate::storage::editor_config::*;
-use crate::*;
+use crate::logging::*;
 use rfd::FileDialog;
 use std::ffi::OsStr;
 use std::fs;
@@ -53,6 +53,11 @@ pub fn scripts_folder() -> PathBuf {
 /// Path to the text folder inside the resources folder (Editor/Game).
 pub fn text_folder() -> PathBuf {
     resources_folder_current().join(TEXT_FOLDER)
+}
+
+/// Path to the file-defined playtest control profiles folder for the current game.
+pub fn playtest_control_profiles_folder() -> PathBuf {
+    resources_folder_current().join(playtest_artifacts::PLAYTEST_CONTROL_PROFILES_FOLDER)
 }
 
 /// Returns the path to the menus folder for the current game.
@@ -456,6 +461,7 @@ fn default_save_root() -> PathBuf {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::storage::test_utils::{game_fs_test_lock, TestGameFolder};
     use std::sync::{Mutex, OnceLock};
 
     fn test_lock() -> &'static Mutex<()> {
@@ -550,6 +556,22 @@ mod tests {
         assert_eq!(
             prefabs_folder(),
             resources_folder_current().join(PREFABS_FOLDER)
+        );
+    }
+
+    #[test]
+    fn playtest_control_profiles_folder_lives_under_resources() {
+        let _lock = game_fs_test_lock().lock().unwrap();
+        let folder = TestGameFolder::new("playtest_control_profiles_folder");
+        set_game_name(folder.name());
+        let profiles_folder = playtest_control_profiles_folder();
+
+        assert_eq!(profiles_folder.parent(), Some(resources_folder_current().as_path()));
+        assert_eq!(
+            profiles_folder.file_name(),
+            Some(std::ffi::OsStr::new(
+                crate::constants::playtest_artifacts::PLAYTEST_CONTROL_PROFILES_FOLDER,
+            ))
         );
     }
 }

@@ -26,6 +26,9 @@ mod storage;
 mod tilemap;
 mod world;
 
+pub use editor::playtest_binaries;
+pub use editor::storage_shared;
+
 /// Wrapper struct for running the editor via BishopApp.
 struct EditorApp {
     current_window_size: (u32, u32),
@@ -44,7 +47,9 @@ impl BishopApp for EditorApp {
         onscreen_info!("Starting editor.");
 
         // Initialize logging
-        init_file_logger();
+        if let Err(e) = init_file_logger() {
+            onscreen_warn!("Failed to initialize editor logger: {}", e);
+        }
 
         if !ensure_save_root() {
             // User cancelled

@@ -8,8 +8,8 @@ pub mod runtime;
 mod tests;
 
 pub use audio_source::{AudioGroup, AudioSource, SoundGroupId, SoundPresetLink};
-pub use command_queue::{AudioCommand, PlayMusicRequest, push_audio_command};
+pub use command_queue::{clear_audio_commands, push_audio_command, AudioCommand, PlayMusicRequest};
 pub use diagnostics::{AudioDiagnosticsEntry, AudioDiagnosticsSnapshot};
 pub use loader::load_wav;
 pub use manager::AudioManager;
-pub use runtime::{MusicStopReason, MusicStoppedEvent};
+pub use runtime::{reset_audio_runtime_state, MusicStopReason, MusicStoppedEvent};
