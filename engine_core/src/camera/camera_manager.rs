@@ -13,6 +13,8 @@ pub struct CameraManager {
     current_room: Option<RoomId>,
     /// The stored previous position of the active game camera.
     pub previous_position: Option<Vec2>,
+    runtime_follow_enabled: bool,
+    runtime_override_active: bool,
 }
 
 impl CameraManager {
@@ -36,6 +38,8 @@ impl CameraManager {
             room_cameras,
             current_room: Some(room_id),
             previous_position: None,
+            runtime_follow_enabled: true,
+            runtime_override_active: false,
         }
     }
 
@@ -71,10 +75,45 @@ impl CameraManager {
             }
 
             // Apply follow if needed
-            if let CameraMode::Follow(restriction) = mode {
+            if self.runtime_follow_enabled && let CameraMode::Follow(restriction) = mode {
                 self.apply_follow(&restriction, player_pos);
             }
         }
+    }
+
+    /// Returns whether runtime follow updates are currently enabled.
+    pub fn follow_is_enabled(&self) -> bool {
+        self.runtime_follow_enabled
+    }
+
+    /// Returns whether runtime camera override is currently active.
+    pub fn runtime_override_is_active(&self) -> bool {
+        self.runtime_override_active
+    }
+
+    /// Enables or suppresses runtime follow updates for the active camera.
+    pub fn set_follow_enabled(&mut self, enabled: bool) {
+        self.runtime_follow_enabled = enabled;
+        self.runtime_override_active = true;
+    }
+
+    /// Applies a runtime pan delta to the active camera target.
+    pub fn apply_runtime_pan_delta(&mut self, delta: Vec2) {
+        self.active.camera.target += delta;
+        self.runtime_override_active = true;
+    }
+
+    /// Applies a runtime zoom delta to the active camera.
+    pub fn apply_runtime_zoom_delta(&mut self, delta: f32) {
+        let next = self.active.camera.zoom + Vec2::splat(delta);
+        self.active.camera.zoom = Vec2::new(next.x.max(f32::MIN_POSITIVE), next.y.max(f32::MIN_POSITIVE));
+        self.runtime_override_active = true;
+    }
+
+    /// Clears transient runtime camera overrides after a control run ends.
+    pub fn clear_runtime_overrides(&mut self) {
+        self.runtime_follow_enabled = true;
+        self.runtime_override_active = false;
     }
 
     /// Finds the most suitable camera for a given room and player position.

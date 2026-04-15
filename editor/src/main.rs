@@ -26,6 +26,9 @@ mod storage;
 mod tilemap;
 mod world;
 
+pub use editor::playtest_binaries;
+pub use editor::storage_shared;
+
 /// Wrapper struct for running the editor via BishopApp.
 struct EditorApp {
     current_window_size: (u32, u32),

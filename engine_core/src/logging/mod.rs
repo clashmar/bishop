@@ -1,5 +1,4 @@
 // engine_core/src/logging/mod.rs
-use crate::agent_visibility::AgentVisibilitySink;
 use crate::storage::editor_config::app_dir;
 use std::backtrace::Backtrace;
 use std::fs::{self, OpenOptions};
@@ -91,31 +90,6 @@ impl LogHistory {
 }
 
 pub static LOG_HISTORY: Lazy<Mutex<LogHistory>> = Lazy::new(|| Mutex::new(LogHistory::default()));
-static AGENT_VISIBILITY_SINK: Lazy<Mutex<Option<Box<dyn AgentVisibilitySink>>>> =
-    Lazy::new(|| Mutex::new(None));
-
-/// Installs an optional sink for agent-visible logs and snapshots.
-pub fn set_agent_visibility_sink(sink: Box<dyn AgentVisibilitySink>) {
-    if let Ok(mut slot) = AGENT_VISIBILITY_SINK.lock() {
-        *slot = Some(sink);
-    }
-}
-
-/// Clears the installed agent-visible sink.
-pub fn clear_agent_visibility_sink() {
-    if let Ok(mut slot) = AGENT_VISIBILITY_SINK.lock() {
-        *slot = None;
-    }
-}
-
-/// Forwards a log message to the installed agent sink, if any.
-pub fn publish_agent_visibility_log(level: log::Level, message: &str) {
-    if let Ok(mut slot) = AGENT_VISIBILITY_SINK.lock()
-        && let Some(sink) = slot.as_mut()
-    {
-        sink.publish_log(level, message);
-    }
-}
 
 /// File locations used by runtime telemetry.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -144,7 +118,6 @@ macro_rules! onscreen_log {
         } else {
         println!("{} {:5} [{}:{}] {}", time, $lvl, file!(), line!(), &msg);
         }
-        $crate::logging::publish_agent_visibility_log($lvl, &msg);
     }};
 }
 

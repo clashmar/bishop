@@ -9,12 +9,10 @@ mod tests;
 
 #[cfg(feature = "editor")]
 use self::preview::{PendingPreview, TrackedPreview, TrackedPreviewSpec};
-#[cfg(test)]
-use self::test_state::{
-    AudioManagerTestState, StartedLoopPlayback, StartedOneShotPlayback,
-};
 #[cfg(all(test, feature = "editor"))]
 use self::test_state::StartedTrackedPreviewPlayback;
+#[cfg(test)]
+use self::test_state::{AudioManagerTestState, StartedLoopPlayback, StartedOneShotPlayback};
 use super::command_queue::{self, AudioCommand, PlayMusicRequest};
 use super::diagnostics::{self, AudioDiagnosticsSnapshot};
 use super::runtime::{self, MusicStopReason, MusicStoppedEvent};

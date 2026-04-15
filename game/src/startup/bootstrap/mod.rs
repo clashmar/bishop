@@ -29,17 +29,20 @@ struct PlaytestPayload {
     startup_mode: StartupMode,
 }
 
+struct LoadedPlaytestData {
+    startup_asset: StartupAsset,
+    room: Room,
+    game: Game,
+    startup_mode: StartupMode,
+}
+
+#[allow(clippy::large_enum_variant)]
 enum LoadedStartupData {
     Game {
         startup_asset: StartupAsset,
         game: Game,
     },
-    Playtest {
-        startup_asset: StartupAsset,
-        room: Room,
-        game: Game,
-        startup_mode: StartupMode,
-    },
+    Playtest(LoadedPlaytestData),
 }
 
 enum LoadedStartupFiles {
@@ -149,17 +152,18 @@ impl StartupController {
 impl LoadedStartupData {
     fn startup_asset(&self) -> &StartupAsset {
         match self {
-            Self::Game { startup_asset, .. } | Self::Playtest { startup_asset, .. } => startup_asset,
+            Self::Game { startup_asset, .. } => startup_asset,
+            Self::Playtest(playtest) => &playtest.startup_asset,
         }
     }
 
     fn skips_startup_presentation(&self) -> bool {
         matches!(
             self,
-            Self::Playtest {
+            Self::Playtest(LoadedPlaytestData {
                 startup_mode: StartupMode::Skip,
                 ..
-            }
+            })
         )
     }
 }
@@ -240,12 +244,12 @@ fn parse_startup_data(files: LoadedStartupFiles) -> Result<LoadedStartupData, St
                 .as_deref()
                 .map(parse_payload_startup)
                 .unwrap_or_else(|| load_startup_for_game_name(&game.name));
-            Ok(LoadedStartupData::Playtest {
+            Ok(LoadedStartupData::Playtest(LoadedPlaytestData {
                 startup_asset,
                 room,
                 game,
                 startup_mode,
-            })
+            }))
         }
     }
 }
@@ -292,17 +296,16 @@ fn build_engine(ctx: PlatformContext, loaded: LoadedStartupData) -> Engine {
 
             builder.assemble(game_instance, ctx, false)
         }
-        LoadedStartupData::Playtest {
+        LoadedStartupData::Playtest(LoadedPlaytestData {
             startup_asset,
             room,
             game,
             startup_mode,
-        } => {
+        }) => {
             set_engine_mode(EngineMode::Playtest);
             set_game_name(game.name.clone());
 
-            let entry_mode = resolve_entry_mode(&startup_asset, &game, startup_mode);
-            let mut builder = EngineBuilder::new().entry_mode(entry_mode);
+            let mut builder = prepare_playtest_engine_builder(&startup_asset, &game, startup_mode);
             let game_instance = {
                 let mut ctx_ref = ctx.borrow_mut();
                 GameInstance::from_loaded_room(
@@ -317,6 +320,15 @@ fn build_engine(ctx: PlatformContext, loaded: LoadedStartupData) -> Engine {
             builder.assemble(game_instance, ctx, true)
         }
     }
+}
+
+fn prepare_playtest_engine_builder(
+    startup_asset: &StartupAsset,
+    game: &Game,
+    startup_mode: StartupMode,
+) -> EngineBuilder {
+    let entry_mode = resolve_entry_mode(startup_asset, game, startup_mode);
+    EngineBuilder::new().entry_mode(entry_mode)
 }
 
 fn resolve_entry_mode(startup_asset: &StartupAsset, game: &Game, startup_mode: StartupMode) -> EngineEntryMode {
@@ -407,194 +419,4 @@ fn splash_min_duration_elapsed(started_at_secs: f64, now_secs: f64, min_duration
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use std::time::{SystemTime, UNIX_EPOCH};
-
-    fn unique_name(prefix: &str) -> String {
-        let nanos = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_nanos();
-        format!("{prefix}-{nanos}")
-    }
-
-    #[test]
-    fn playtest_startup_preview_loads_authored_splash_screens_from_payload_game_name() {
-        let game_name = unique_name("PlaytestPreview");
-        let game_dir = game_folder(&game_name);
-        let resources_dir = game_dir.join(RESOURCES_FOLDER);
-        fs::create_dir_all(&resources_dir).unwrap();
-        let startup = StartupAsset {
-            loading: super::super::LoadingConfig {
-                splash_screens: vec![StartupScreenSpec {
-                    min_duration_secs: 1.0,
-                    background_color: [0.1, 0.2, 0.3, 1.0],
-                    content: StartupScreenContent::Text {
-                        text: "Splash".to_string(),
-                        font_size: 42.0,
-                        color: [1.0, 1.0, 1.0, 1.0],
-                    },
-                }],
-                fallback_screen: StartupScreenSpec::default(),
-            },
-            start_menu_id: "start".to_string(),
-        };
-        fs::write(
-            resources_dir.join("startup.ron"),
-            ron::ser::to_string_pretty(&startup, ron::ser::PrettyConfig::new()).unwrap(),
-        )
-        .unwrap();
-
-        let payload_path = std::env::temp_dir().join(format!("{}.ron", unique_name("payload")));
-        fs::write(
-            &payload_path,
-            format!(
-                r#"
-(
-    game: (
-        name: "{game_name}",
-    ),
-)
-"#
-            ),
-        )
-        .unwrap();
-
-        let startup = load_playtest_startup_preview(&payload_path).unwrap();
-
-        assert_eq!(startup.loading.splash_screens.len(), 1);
-
-        let _ = fs::remove_file(payload_path);
-        let _ = fs::remove_dir_all(game_dir);
-    }
-
-    #[test]
-    fn playtest_startup_preview_prefers_embedded_payload() {
-        let game_name = unique_name("EmbeddedPlaytestPreview");
-        let payload_path = std::env::temp_dir().join(format!("{}.ron", unique_name("payload")));
-        let embedded_startup = StartupAsset {
-            loading: super::super::LoadingConfig {
-                splash_screens: vec![StartupScreenSpec {
-                    min_duration_secs: 3.0,
-                    background_color: [0.4, 0.3, 0.2, 1.0],
-                    content: StartupScreenContent::Text {
-                        text: "Embedded".to_string(),
-                        font_size: 30.0,
-                        color: [1.0, 1.0, 1.0, 1.0],
-                    },
-                }],
-                fallback_screen: StartupScreenSpec::default(),
-            },
-            start_menu_id: "start".to_string(),
-        };
-
-        #[derive(serde::Serialize)]
-        struct Payload<'a> {
-            game: PayloadGame<'a>,
-            startup_ron: Option<String>,
-        }
-
-        #[derive(serde::Serialize)]
-        struct PayloadGame<'a> {
-            name: &'a str,
-        }
-
-        fs::write(
-            &payload_path,
-            ron::ser::to_string_pretty(
-                &Payload {
-                    game: PayloadGame { name: &game_name },
-                    startup_ron: Some(ron::ser::to_string_pretty(
-                        &embedded_startup,
-                        ron::ser::PrettyConfig::new(),
-                    )
-                    .unwrap()),
-                },
-                ron::ser::PrettyConfig::new(),
-            )
-            .unwrap(),
-        )
-        .unwrap();
-
-        let startup = load_playtest_startup_preview(&payload_path).unwrap();
-
-        assert_eq!(startup.loading.splash_screens.len(), 1);
-        match &startup.loading.splash_screens[0].content {
-            StartupScreenContent::Text { text, .. } => assert_eq!(text, "Embedded"),
-        }
-
-        let _ = fs::remove_file(payload_path);
-    }
-
-    #[test]
-    fn splash_duration_starts_from_first_visible_frame() {
-        assert!(!splash_min_duration_elapsed(10.0, 10.0, 1.5));
-        assert!(!splash_min_duration_elapsed(10.0, 11.49, 1.5));
-        assert!(splash_min_duration_elapsed(10.0, 11.5, 1.5));
-    }
-
-    #[test]
-    fn fallback_min_duration_starts_from_first_visible_frame() {
-        assert!(!splash_min_duration_elapsed(20.0, 20.0, 5.0));
-        assert!(!splash_min_duration_elapsed(20.0, 24.99, 5.0));
-        assert!(splash_min_duration_elapsed(20.0, 25.0, 5.0));
-    }
-
-    #[test]
-    fn parse_startup_data_uses_startup_mode_from_payload() {
-        let payload = r#"
-(
-    room: (
-        name: "Room",
-    ),
-    game: (
-        name: "Demo",
-    ),
-    startup_mode: Full,
-)
-"#;
-
-        let loaded = parse_startup_data(LoadedStartupFiles::Playtest {
-            payload_ron: payload.to_string(),
-        })
-        .unwrap();
-
-        match loaded {
-            LoadedStartupData::Playtest {
-                startup_mode, ..
-            } => assert_eq!(startup_mode, StartupMode::Full),
-            LoadedStartupData::Game { .. } => panic!("expected playtest startup data"),
-        }
-    }
-
-    #[test]
-    fn playtest_skip_mode_bypasses_startup_presentation() {
-        let loaded = LoadedStartupData::Playtest {
-            startup_asset: StartupAsset::default(),
-            room: Room::default(),
-            game: Game::default(),
-            startup_mode: StartupMode::Skip,
-        };
-
-        assert!(loaded.skips_startup_presentation());
-    }
-
-    #[test]
-    fn playtest_game_name_reads_name_from_payload() {
-        let payload = r#"
-(
-    room: (
-        name: "Room",
-    ),
-    game: (
-        name: "Demo",
-    ),
-)
-"#;
-
-        let game_name = parse_playtest_game_name(payload).unwrap();
-
-        assert_eq!(game_name, "Demo");
-    }
-}
+mod tests;

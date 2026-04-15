@@ -783,6 +783,7 @@ dependencies = [
  "rfd",
  "ron",
  "serde",
+ "serde-value",
  "serde_json",
  "serde_with",
  "strum",

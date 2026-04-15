@@ -1,5 +1,4 @@
 pub mod animation;
-pub mod agent_visibility;
 pub mod assets;
 pub mod audio;
 pub mod camera;
@@ -14,6 +13,7 @@ pub mod lighting;
 pub mod logging;
 pub mod menu;
 pub mod physics;
+pub mod playtest;
 pub mod prefab;
 pub mod rendering;
 pub mod scripting;
@@ -29,7 +29,6 @@ pub mod worlds;
 #[allow(ambiguous_glob_reexports)]
 pub mod prelude {
     pub use crate::animation::*;
-    pub use crate::agent_visibility::*;
     pub use crate::assets::*;
     #[allow(ambiguous_glob_reexports)]
     pub use crate::audio::*;
@@ -46,6 +45,7 @@ pub mod prelude {
     #[allow(ambiguous_glob_reexports)]
     pub use crate::menu::*;
     pub use crate::physics::*;
+    pub use crate::playtest::*;
     pub use crate::prefab::*;
     pub use crate::register_lua_api;
     pub use crate::register_lua_module;

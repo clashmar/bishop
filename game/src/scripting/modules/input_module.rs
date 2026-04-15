@@ -1,7 +1,9 @@
 // game/src/scripting/modules/input_module.rs
 use crate::game_global::*;
 use crate::input::input_snapshot::InputSnapshot;
+use crate::input::VirtualInputState;
 use crate::scripting::lua_ctx::LuaBishopCtx;
+use engine_core::prelude::{get_engine_mode, EngineMode};
 use engine_core::scripting::lua_constants::*;
 use engine_core::scripting::modules::lua_module::*;
 use engine_core::*;
@@ -18,7 +20,7 @@ pub const INPUT_TAKE_CONTROL: &str = "take_control";
 pub const INPUT_RELEASE_CONTROL: &str = "release_control";
 pub const INPUT_IN_CONTROL: &str = "in_control";
 
-/// Lua module that exposes the current input snapshot.
+/// Lua module that exposes effective input state from platform capture plus virtual overlay.
 #[derive(Default, Clone)]
 pub struct InputModule;
 register_lua_module!(InputModule);
@@ -58,7 +60,7 @@ impl LuaModule for InputModule {
     }
 }
 
-/// Build a Lua function that queries a current `InputSnapshot`.
+/// Build a Lua function that queries the effective `InputSnapshot` for this frame.
 pub fn make_snapshot_query_fn<Sel>(lua: &Lua, map_selector: Sel) -> LuaResult<Function>
 where
     Sel: Fn(&InputSnapshot) -> &HashMap<&'static str, bool> + Copy + Send + 'static,
@@ -66,7 +68,9 @@ where
     lua.create_function(move |lua, key: String| {
         let bishop_ctx = LuaBishopCtx::borrow_ctx(lua)?;
         let mut snapshot = get_input_snapshot();
-        snapshot.capture_input_state(&bishop_ctx.ctx);
+        let engine_mode = get_engine_mode();
+        snapshot.capture_platform_input_state(&bishop_ctx.ctx);
+        apply_playtest_virtual_input_overlay(&mut snapshot, engine_mode);
 
         let value = map_selector(&snapshot)
             .get(key.as_str())
@@ -75,6 +79,96 @@ where
 
         Ok(value)
     })
+}
+
+fn apply_playtest_virtual_input_overlay(snapshot: &mut InputSnapshot, engine_mode: EngineMode) {
+    let Some(virtual_input) = virtual_input_for_mode(engine_mode) else {
+        return;
+    };
+
+    snapshot.apply_virtual_input(&virtual_input);
+}
+
+fn virtual_input_for_mode(engine_mode: EngineMode) -> Option<VirtualInputState> {
+    if engine_mode != EngineMode::Playtest {
+        return None;
+    }
+
+    Some(get_virtual_input_state())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::game_global::{clear_virtual_input_state, set_virtual_input_state};
+    use engine_core::input::input_constants;
+    use engine_core::prelude::EngineMode;
+
+    struct VirtualInputGuard;
+
+    impl VirtualInputGuard {
+        fn new() -> Self {
+            clear_virtual_input_state();
+            Self
+        }
+    }
+
+    impl Drop for VirtualInputGuard {
+        fn drop(&mut self) {
+            clear_virtual_input_state();
+        }
+    }
+
+    #[test]
+    fn playtest_mode_includes_virtual_input_in_effective_snapshot() {
+        let _guard = VirtualInputGuard::new();
+        let mut snapshot = InputSnapshot::default();
+        set_virtual_input_state(VirtualInputState::from_down_inputs([
+            input_constants::RIGHT,
+        ]));
+
+        apply_playtest_virtual_input_overlay(&mut snapshot, EngineMode::Playtest);
+
+        assert_eq!(snapshot.down.get(input_constants::RIGHT), Some(&true));
+    }
+
+    #[test]
+    fn non_playtest_mode_ignores_virtual_input_in_effective_snapshot() {
+        let _guard = VirtualInputGuard::new();
+        let mut snapshot = InputSnapshot::default();
+        set_virtual_input_state(VirtualInputState::from_down_inputs([
+            input_constants::RIGHT,
+        ]));
+
+        apply_playtest_virtual_input_overlay(&mut snapshot, EngineMode::Game);
+
+        assert!(!snapshot.down.contains_key(input_constants::RIGHT));
+    }
+
+    #[test]
+    fn non_playtest_mode_does_not_expose_virtual_input_state() {
+        let _guard = VirtualInputGuard::new();
+        set_virtual_input_state(VirtualInputState::from_down_inputs([
+            input_constants::RIGHT,
+        ]));
+
+        assert!(virtual_input_for_mode(EngineMode::Game).is_none());
+    }
+
+    #[test]
+    fn playtest_mode_reads_virtual_input_state() {
+        let _guard = VirtualInputGuard::new();
+        set_virtual_input_state(VirtualInputState::from_down_inputs([
+            input_constants::RIGHT,
+        ]));
+
+        let virtual_input = virtual_input_for_mode(EngineMode::Playtest).unwrap();
+
+        assert_eq!(
+            virtual_input.down().get(input_constants::RIGHT),
+            Some(&true)
+        );
+    }
 }
 
 register_lua_api!(InputModule, ENGINE_FILE);
