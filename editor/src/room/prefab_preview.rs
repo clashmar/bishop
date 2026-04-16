@@ -36,21 +36,36 @@ pub(crate) fn build_prefab_preview(
     prefab: &PrefabAsset,
     sprite_manager: &mut SpriteManager,
 ) -> PrefabPreview {
-    build_prefab_preview_with(prefab, |sprite_id| {
-        preview_sprite_size(loader, sprite_manager, sprite_id)
-    })
+    let sprite_manager = std::cell::RefCell::new(sprite_manager);
+    build_prefab_preview_with(
+        prefab,
+        |sprite_id| {
+            let mut sprite_manager = sprite_manager.borrow_mut();
+            preview_sprite_size(loader, &mut sprite_manager, sprite_id)
+        },
+        |variant, clip_id| {
+            let mut sprite_manager = sprite_manager.borrow_mut();
+            let sprite_id = resolve_sprite_id(loader, &mut sprite_manager, variant, clip_id);
+            (sprite_id.0 != 0).then_some(sprite_id)
+        },
+    )
 }
 
 pub(crate) fn build_prefab_preview_with(
     prefab: &PrefabAsset,
     mut resolve_sprite_size: impl FnMut(SpriteId) -> Option<Vec2>,
+    mut resolve_animation_sprite: impl FnMut(&VariantFolder, &ClipId) -> Option<SpriteId>,
 ) -> PrefabPreview {
     let mut has_drawable_visual = false;
     let mut items = prefab
         .nodes
         .iter()
         .filter_map(|node| {
-            let item = preview_item_from_node(node, &mut resolve_sprite_size)?;
+            let item = preview_item_from_node(
+                node,
+                &mut resolve_sprite_size,
+                &mut resolve_animation_sprite,
+            )?;
             has_drawable_visual |= !matches!(item.visual, PrefabPreviewVisual::Placeholder);
             Some(item)
         })
@@ -108,6 +123,7 @@ pub(crate) fn build_prefab_preview_with(
 fn preview_item_from_node(
     node: &PrefabNode,
     resolve_sprite_size: &mut impl FnMut(SpriteId) -> Option<Vec2>,
+    resolve_animation_sprite: &mut impl FnMut(&VariantFolder, &ClipId) -> Option<SpriteId>,
 ) -> Option<PrefabPreviewItem> {
     let transform = node
         .components
@@ -184,6 +200,37 @@ fn preview_item_from_node(
         }
     }
 
+    if let Some(animation) = node
+        .components
+        .iter()
+        .find(|component| component.type_name == comp_type_name::<Animation>())
+        .and_then(|component| ron::from_str::<Animation>(&component.ron).ok())
+    {
+        if let Some((clip_id, clip)) = preferred_animation_preview_clip(&animation) {
+            if let Some(sprite_id) = resolve_animation_sprite(&animation.variant, clip_id) {
+                let frame_size = clip.frame_size;
+                let offset = clip.offset;
+                let source = Rect::new(0.0, 0.0, frame_size.x, frame_size.y);
+
+                return Some(PrefabPreviewItem {
+                    z,
+                    palette_position: transform.position + offset,
+                    stamp_position: pivot_adjusted_position(
+                        transform.position,
+                        frame_size,
+                        transform.pivot,
+                    ) + offset,
+                    size: frame_size,
+                    visual: PrefabPreviewVisual::CurrentFrame {
+                        sprite_id,
+                        source,
+                        flip_x: false,
+                    },
+                });
+            }
+        }
+    }
+
     let size = Vec2::splat(DEFAULT_GRID_SIZE);
     Some(PrefabPreviewItem {
         z,
@@ -191,6 +238,16 @@ fn preview_item_from_node(
         stamp_position: pivot_adjusted_position(transform.position, size, transform.pivot),
         size,
         visual: PrefabPreviewVisual::Placeholder,
+    })
+}
+
+fn preferred_animation_preview_clip(animation: &Animation) -> Option<(&ClipId, &ClipDef)> {
+    animation.clips.get_key_value(&ClipId::Idle).or_else(|| {
+        animation
+            .clips
+            .iter()
+            .filter(|(clip_id, _)| **clip_id != ClipId::New)
+            .min_by(|(left, _), (right, _)| left.cmp(right))
     })
 }
 
@@ -278,167 +335,5 @@ fn preview_sprite_size(
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use engine_core::ecs::transform::Pivot;
-
-    fn sprite_ron(sprite_id: usize) -> String {
-        format!("Sprite(sprite: SpriteId({sprite_id}))")
-    }
-
-    fn transform_ron(position: (f32, f32), pivot: Pivot) -> String {
-        format!(
-            "Transform(visible: true, position: ({:.1}, {:.1}), pivot: {:?})",
-            position.0, position.1, pivot
-        )
-    }
-
-    fn node(node_id: usize, transform_ron: String, sprite_ron: String) -> PrefabNode {
-        PrefabNode {
-            node_id,
-            parent_node_id: None,
-            components: vec![
-                ComponentSnapshot {
-                    type_name: comp_type_name::<Transform>().to_string(),
-                    ron: transform_ron,
-                },
-                ComponentSnapshot {
-                    type_name: comp_type_name::<Sprite>().to_string(),
-                    ron: sprite_ron,
-                },
-            ],
-        }
-    }
-
-    fn make_prefab(nodes: Vec<PrefabNode>) -> PrefabAsset {
-        PrefabAsset {
-            id: PrefabId(1),
-            name: "Test".to_string(),
-            next_node_id: nodes.len() + 1,
-            root_node_id: 1,
-            nodes,
-        }
-    }
-
-    const SPRITE_SIZE: Vec2 = Vec2::new(64.0, 48.0);
-
-    fn sprite_size(_: SpriteId) -> Option<Vec2> {
-        Some(SPRITE_SIZE)
-    }
-
-    #[test]
-    fn stamp_position_applies_pivot_offset() {
-        let prefab = make_prefab(vec![node(
-            1,
-            transform_ron((0.0, 0.0), Pivot::BottomCenter),
-            sprite_ron(1),
-        )]);
-        let preview = build_prefab_preview_with(&prefab, sprite_size);
-
-        let item = preview.items.first().unwrap();
-        let expected_stamp = pivot_adjusted_position(Vec2::ZERO, SPRITE_SIZE, Pivot::BottomCenter);
-        assert_eq!(item.stamp_position, expected_stamp);
-        assert_ne!(item.stamp_position, item.palette_position);
-    }
-
-    #[test]
-    fn stamp_bounds_union_covers_all_pivot_adjusted_rects() {
-        let prefab = make_prefab(vec![
-            node(1, transform_ron((0.0, 0.0), Pivot::TopLeft), sprite_ron(1)),
-            node(
-                2,
-                transform_ron((64.0, 0.0), Pivot::BottomCenter),
-                sprite_ron(2),
-            ),
-        ]);
-        let preview = build_prefab_preview_with(&prefab, sprite_size);
-
-        let r = preview.stamp_bounds;
-        assert!(
-            r.x <= 0.0,
-            "stamp bounds should extend to leftmost visual edge"
-        );
-        assert!(
-            r.y <= 0.0,
-            "stamp bounds should extend to topmost visual edge"
-        );
-
-        let rightmost_item_bottom = {
-            let bottom_center =
-                pivot_adjusted_position(Vec2::new(64.0, 0.0), SPRITE_SIZE, Pivot::BottomCenter);
-            bottom_center.y + SPRITE_SIZE.y
-        };
-        let first_item_bottom =
-            pivot_adjusted_position(Vec2::ZERO, SPRITE_SIZE, Pivot::TopLeft).y + SPRITE_SIZE.y;
-        assert!(
-            r.y + r.h >= first_item_bottom.max(rightmost_item_bottom),
-            "stamp bounds should span both items"
-        );
-    }
-
-    #[test]
-    fn items_sorted_by_z_ascending() {
-        let node_a = PrefabNode {
-            node_id: 1,
-            parent_node_id: None,
-            components: vec![
-                ComponentSnapshot {
-                    type_name: comp_type_name::<Transform>().to_string(),
-                    ron: transform_ron((0.0, 0.0), Pivot::TopLeft),
-                },
-                ComponentSnapshot {
-                    type_name: comp_type_name::<Sprite>().to_string(),
-                    ron: sprite_ron(1),
-                },
-                ComponentSnapshot {
-                    type_name: comp_type_name::<Layer>().to_string(),
-                    ron: "Layer(z: 5)".to_string(),
-                },
-            ],
-        };
-        let node_b = PrefabNode {
-            node_id: 2,
-            parent_node_id: None,
-            components: vec![
-                ComponentSnapshot {
-                    type_name: comp_type_name::<Transform>().to_string(),
-                    ron: transform_ron((0.0, 0.0), Pivot::TopLeft),
-                },
-                ComponentSnapshot {
-                    type_name: comp_type_name::<Sprite>().to_string(),
-                    ron: sprite_ron(2),
-                },
-                ComponentSnapshot {
-                    type_name: comp_type_name::<Layer>().to_string(),
-                    ron: "Layer(z: -2)".to_string(),
-                },
-            ],
-        };
-        let prefab = make_prefab(vec![node_a, node_b]);
-        let preview = build_prefab_preview_with(&prefab, sprite_size);
-
-        assert_eq!(preview.items.len(), 2);
-        assert_eq!(preview.items[0].z, -2);
-        assert_eq!(preview.items[1].z, 5);
-    }
-
-    #[test]
-    fn palette_bounds_differ_from_stamp_bounds_when_pivot_requires_it() {
-        let prefab = make_prefab(vec![node(
-            1,
-            transform_ron((0.0, 0.0), Pivot::BottomCenter),
-            sprite_ron(1),
-        )]);
-        let preview = build_prefab_preview_with(&prefab, sprite_size);
-
-        assert_ne!(preview.palette_bounds, preview.stamp_bounds);
-        assert_eq!(
-            preview.palette_bounds.x, 0.0,
-            "palette_bounds uses raw transform position x"
-        );
-        assert!(
-            preview.stamp_bounds.y < 0.0,
-            "stamp_bounds.y should be negative for BottomCenter pivot"
-        );
-    }
-}
+#[path = "tests/prefab_preview_tests.rs"]
+mod tests;
