@@ -1,5 +1,5 @@
-use crate::prefab::prefab_editor::PrefabEditor;
-use crate::prefab::selection::is_prefab_entity;
+use super::selection::is_prefab_entity;
+use super::PrefabEditor;
 use bishop::prelude::*;
 use engine_core::prelude::*;
 

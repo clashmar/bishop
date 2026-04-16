@@ -1,8 +1,9 @@
 use crate::app::EditorMode;
 use crate::commands::editor_command_manager::EditorCommand;
 use crate::prefab::instance_sync::{
-    capture_linked_prefab_instance_snapshots, instance_prefab_differs, linked_prefab_instance_roots,
-    linked_prefab_reference, replace_linked_instances_with_snapshots, sync_prefab_overrides_for_root,
+    capture_linked_prefab_instance_snapshots, instance_prefab_differs,
+    linked_prefab_instance_roots, linked_prefab_reference, replace_linked_instances_with_snapshots,
+    sync_prefab_overrides_for_root,
 };
 use crate::with_editor;
 use engine_core::prelude::*;
@@ -81,7 +82,11 @@ impl EditorCommand for ApplyInstanceToPrefabCmd {
 
             let roots = linked_prefab_instance_roots(&editor.game.ecs, updated_prefab.id);
             for root_entity in roots {
-                let room_id = editor.game.ecs.get::<CurrentRoom>(root_entity).map(|room| room.0);
+                let room_id = editor
+                    .game
+                    .ecs
+                    .get::<CurrentRoom>(root_entity)
+                    .map(|room| room.0);
                 let mut ctx = editor.game.ctx_mut();
                 let mut services_ctx = ctx.services_ctx_mut();
                 refresh_prefab_instance(&mut services_ctx, root_entity, &updated_prefab, room_id);

@@ -159,14 +159,17 @@ impl Editor {
         self.modal.open(widgets);
     }
 
-    pub(super) fn open_export_overwrite_modal(&mut self, ctx: &WgpuContext, target_path: &std::path::Path) {
+    pub(super) fn open_export_overwrite_modal(
+        &mut self,
+        ctx: &WgpuContext,
+        target_path: &std::path::Path,
+    ) {
         let target_name = target_path
             .file_name()
             .and_then(|name| name.to_str())
             .unwrap_or("export");
         let message = format!("Overwrite existing export '{target_name}'?");
-        self.modal =
-            Modal::open_confirm_modal_with_message(ctx, &EXPORT_OVERWRITE_RESULT, message);
+        self.modal = Modal::open_confirm_modal_with_message(ctx, &EXPORT_OVERWRITE_RESULT, message);
     }
 
     pub(super) fn open_empty_prefab_save_modal(&mut self, ctx: &WgpuContext) {
@@ -199,10 +202,8 @@ impl Editor {
 
     pub(crate) fn open_dirty_prefab_exit_modal(&mut self, ctx: &WgpuContext) {
         self.modal = Modal::new(ctx, 560.0, 140.0);
-        let mut prompt = DirtyPrefabExitPrompt::new(
-            self.modal.rect,
-            "Do you want to save prefab changes?",
-        );
+        let mut prompt =
+            DirtyPrefabExitPrompt::new(self.modal.rect, "Do you want to save prefab changes?");
         let widgets: Vec<BoxedWidget> = vec![Box::new(move |ctx, _| {
             if let Some(result) = prompt.draw(ctx) {
                 DIRTY_PREFAB_EXIT_RESULT.with(|cell| *cell.borrow_mut() = Some(result));
@@ -275,10 +276,8 @@ impl Editor {
                                 }
                             }
                             EditorMode::Prefab(_) => {
-                                let prefab_id = self
-                                    .prefab_editor
-                                    .as_ref()
-                                    .map(|editor| editor.prefab_id);
+                                let prefab_id =
+                                    self.prefab_editor.as_ref().map(|editor| editor.prefab_id);
                                 let is_duplicate = prefab_id.is_some_and(|id| {
                                     self.duplicate_prefab_name_exists_excluding(&name, id)
                                 });

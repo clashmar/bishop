@@ -1,8 +1,6 @@
 use crate::app::EditorMode;
 use crate::commands::editor_command_manager::EditorCommand;
-use crate::prefab::instance_sync::{
-    clear_prefab_metadata_from_root, linked_prefab_reference,
-};
+use crate::prefab::instance_sync::{clear_prefab_metadata_from_root, linked_prefab_reference};
 use crate::with_editor;
 use engine_core::prelude::*;
 
@@ -36,7 +34,8 @@ impl EditorCommand for UnlinkPrefabInstanceCmd {
             };
 
             self.root_entity = Some(reference.root_entity);
-            self.saved_snapshot = Some(capture_subtree(&mut editor.game.ecs, reference.root_entity));
+            self.saved_snapshot =
+                Some(capture_subtree(&mut editor.game.ecs, reference.root_entity));
             clear_prefab_metadata_from_root(&mut editor.game.ecs, reference.root_entity);
             restore_room_selection(editor, self.preferred_selection, reference.root_entity);
         });

@@ -18,3 +18,7 @@ pub use revert_prefab_instance_cmd::*;
 pub use set_parent_cmd::*;
 pub use unlink_prefab_instance_cmd::*;
 pub use update_component_cmd::*;
+
+#[cfg(test)]
+#[path = "tests/mod.rs"]
+mod tests;

@@ -1,4 +1,4 @@
-use crate::prefab::prefab_editor::PrefabEditor;
+use super::PrefabEditor;
 use engine_core::prelude::*;
 
 impl PrefabEditor {
@@ -67,9 +67,12 @@ impl PrefabEditor {
             .with(Name("Entity".to_string()))
             .finish();
 
-        if let Some(parent) = requested_parent.filter(|parent| is_live_prefab_entity(ecs, *parent)) {
+        if let Some(parent) = requested_parent.filter(|parent| is_live_prefab_entity(ecs, *parent))
+        {
             set_parent(ecs, entity, parent);
-        } else if let Some(root) = self.root_entity.filter(|root| is_live_prefab_entity(ecs, *root))
+        } else if let Some(root) = self
+            .root_entity
+            .filter(|root| is_live_prefab_entity(ecs, *root))
         {
             set_parent(ecs, entity, root);
         } else {
@@ -80,7 +83,10 @@ impl PrefabEditor {
     }
 
     pub(crate) fn sanitize_live_state(&mut self, ecs: &Ecs) {
-        if self.root_entity.is_some_and(|entity| !is_live_prefab_entity(ecs, entity)) {
+        if self
+            .root_entity
+            .is_some_and(|entity| !is_live_prefab_entity(ecs, entity))
+        {
             self.root_entity = None;
         }
 

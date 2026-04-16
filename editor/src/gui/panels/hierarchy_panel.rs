@@ -1,6 +1,6 @@
 use crate::app::EditorMode;
 use crate::gui::panels::generic_panel::PanelDefinition;
-use crate::prefab::is_prefab_entity;
+use crate::prefab::prefab_editor::selection::is_prefab_entity;
 use crate::room::room_editor::RoomEditor;
 use crate::shared::scene_ui::hierarchy::{
     draw_scene_entity_tree, SceneHierarchyFrame, SceneHierarchyHost, SceneHierarchySelectionAction,
@@ -62,7 +62,7 @@ impl SceneHierarchyHost for RoomHierarchyHost<'_> {
 }
 
 pub(crate) struct PrefabHierarchyHost<'a> {
-    pub(crate) prefab_editor: &'a mut crate::prefab::PrefabEditor,
+    pub(crate) prefab_editor: &'a mut crate::prefab::prefab_editor::PrefabEditor,
     pub(crate) mode: EditorMode,
 }
 

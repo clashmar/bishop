@@ -21,7 +21,6 @@ impl DeleteEntityCmd {
             cleared_prefab_root: false,
         }
     }
-
 }
 
 impl EditorCommand for DeleteEntityCmd {
@@ -39,7 +38,10 @@ impl EditorCommand for DeleteEntityCmd {
                 Ecs::remove_entity(ctx, self.entity);
             });
             if prefab_mode {
-                let prefab_editor = editor.prefab_editor.as_mut().expect("Prefab editor missing");
+                let prefab_editor = editor
+                    .prefab_editor
+                    .as_mut()
+                    .expect("Prefab editor missing");
                 self.cleared_prefab_root = prefab_editor.root_entity == Some(self.entity);
                 prefab_editor.clear_deleted_entities(&deleted_entities);
             } else {
@@ -54,7 +56,10 @@ impl EditorCommand for DeleteEntityCmd {
             with_editor(|editor| {
                 with_scene_ctx(editor, self.mode, |ctx| restore_subtree(ctx, &saved));
                 if prefab_mode {
-                    let prefab_editor = editor.prefab_editor.as_mut().expect("Prefab editor missing");
+                    let prefab_editor = editor
+                        .prefab_editor
+                        .as_mut()
+                        .expect("Prefab editor missing");
                     if self.cleared_prefab_root {
                         prefab_editor.restore_deleted_root(self.entity);
                     } else {

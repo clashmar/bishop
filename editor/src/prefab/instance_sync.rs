@@ -32,11 +32,12 @@ pub(crate) fn linked_prefab_reference(ecs: &Ecs, entity: Entity) -> Option<Linke
         });
     }
 
-    ecs.get::<PrefabInstanceNode>(entity).map(|node| LinkedPrefabReference {
-        source: PrefabLinkSource::Node,
-        root_entity: node.root_entity,
-        prefab_id: node.prefab_id,
-    })
+    ecs.get::<PrefabInstanceNode>(entity)
+        .map(|node| LinkedPrefabReference {
+            source: PrefabLinkSource::Node,
+            root_entity: node.root_entity,
+            prefab_id: node.prefab_id,
+        })
 }
 
 pub(crate) fn linked_prefab_instance_state(
@@ -198,7 +199,8 @@ pub(crate) fn clear_prefab_metadata_from_root(ecs: &mut Ecs, root_entity: Entity
         ecs.get_store_mut::<PrefabOverrides>().remove(entity);
         ecs.get_store_mut::<PrefabInstanceNode>().remove(entity);
     }
-    ecs.get_store_mut::<PrefabInstanceRoot>().remove(root_entity);
+    ecs.get_store_mut::<PrefabInstanceRoot>()
+        .remove(root_entity);
 }
 
 pub(crate) fn replace_linked_instances_with_snapshots(

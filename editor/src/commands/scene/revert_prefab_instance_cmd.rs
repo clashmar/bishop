@@ -1,8 +1,6 @@
 use crate::app::EditorMode;
 use crate::commands::editor_command_manager::EditorCommand;
-use crate::prefab::instance_sync::{
-    linked_prefab_reference, sync_prefab_overrides_for_root,
-};
+use crate::prefab::instance_sync::{linked_prefab_reference, sync_prefab_overrides_for_root};
 use crate::with_editor;
 use engine_core::prelude::*;
 
@@ -45,7 +43,8 @@ impl EditorCommand for RevertPrefabInstanceCmd {
             };
 
             self.root_entity = Some(reference.root_entity);
-            self.saved_snapshot = Some(capture_subtree(&mut editor.game.ecs, reference.root_entity));
+            self.saved_snapshot =
+                Some(capture_subtree(&mut editor.game.ecs, reference.root_entity));
 
             for entity in self
                 .saved_snapshot
@@ -54,7 +53,11 @@ impl EditorCommand for RevertPrefabInstanceCmd {
                 .flatten()
                 .map(|snapshot| snapshot.entity)
             {
-                editor.game.ecs.get_store_mut::<PrefabOverrides>().remove(entity);
+                editor
+                    .game
+                    .ecs
+                    .get_store_mut::<PrefabOverrides>()
+                    .remove(entity);
             }
 
             {

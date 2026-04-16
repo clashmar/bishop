@@ -204,7 +204,7 @@ fn generate_lua_script() {
         ---@class ScriptDef\n\
         ---@field public table\n\
         ---@field update fun(self: Script, dt: number)\n\
-        ---@field init fun(self: Script)\n\
+        ---@field init fun(self: Script, init?: table)\n\
         ---@field interact fun(self: Script)\n\
         ---@field on_exit fun(self: Script)\n\
         ---@class Script : ScriptDef\n\

@@ -1,8 +1,8 @@
+use super::selection::is_prefab_entity;
+use super::{PrefabDragState, PrefabEditor, PREFAB_EDITOR_GRID_SIZE};
 use crate::app::EditorMode;
 use crate::commands::room::{BatchMoveEntitiesCmd, MoveEntityCmd};
 use crate::editor_global::push_command;
-use crate::prefab::prefab_editor::{PrefabDragState, PrefabEditor, PREFAB_EDITOR_GRID_SIZE};
-use crate::prefab::selection::is_prefab_entity;
 use crate::room::entity_hitbox;
 use crate::room::entity_world_rect;
 use crate::shared::selection::{rect_from_two_points, rects_intersect};
@@ -96,7 +96,10 @@ impl PrefabEditor {
             );
 
             if hitbox.contains(mouse_screen) {
-                let z = ecs.get_store::<Layer>().get(*entity).map_or(0, |layer| layer.z);
+                let z = ecs
+                    .get_store::<Layer>()
+                    .get(*entity)
+                    .map_or(0, |layer| layer.z);
                 candidates.push((*entity, z));
             }
         }

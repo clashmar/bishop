@@ -1,4 +1,4 @@
-use crate::prefab::selection::is_prefab_entity;
+use super::selection::is_prefab_entity;
 use bishop::prelude::*;
 use engine_core::prelude::*;
 use std::collections::BTreeMap;
@@ -16,7 +16,10 @@ pub(crate) fn draw_prefab_entities<C: BishopContext>(
             continue;
         }
 
-        let z = ecs.get_store::<Layer>().get(*entity).map_or(0, |layer| layer.z);
+        let z = ecs
+            .get_store::<Layer>()
+            .get(*entity)
+            .map_or(0, |layer| layer.z);
         layer_map
             .entry(z)
             .or_default()

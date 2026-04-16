@@ -1,10 +1,10 @@
 // editor/src/editor/mod.rs
-mod audio;
 mod actions;
+mod audio;
+pub mod camera_controller;
 pub(crate) mod escape;
 mod modals;
 mod persistence;
-pub mod camera_controller;
 pub mod sub_editor;
 
 pub use camera_controller::EditorCameraController;
@@ -12,14 +12,14 @@ pub use sub_editor::SubEditor;
 
 use crate::app::audio::default_audio_manager;
 use crate::canvas::grid_shader::GridRenderer;
+use crate::editor_global::push_toast;
 use crate::game::game_editor::GameEditor;
 use crate::gui::menu_bar::MenuBar;
 use crate::gui::modal::Modal;
 use crate::menu::MenuEditor;
-use crate::editor_global::push_toast;
 use crate::playtest::playtest_process::PlaytestProcess;
 use crate::playtest::room_playtest::*;
-use crate::prefab::{PrefabEditor, PrefabStage};
+use crate::prefab::prefab_editor::{PrefabEditor, PrefabStage};
 use crate::room::room_editor::{self, RoomEditor};
 use crate::storage::editor_storage;
 use crate::storage::editor_storage::*;
@@ -215,15 +215,16 @@ impl Editor {
                 self.menu_editor.update(ctx, &self.camera);
             }
             EditorMode::Prefab(_) => {
-                let open_prefab_picker_requested = if let (Some(prefab_editor), Some(prefab_stage)) =
-                    (self.prefab_editor.as_mut(), self.prefab_stage.as_mut())
-                {
-                    let mut prefab_ctx = prefab_stage.ctx_mut();
-                    prefab_editor.update(ctx, &mut self.camera, &mut prefab_ctx);
-                    std::mem::take(&mut prefab_editor.open_prefab_picker_requested)
-                } else {
-                    false
-                };
+                let open_prefab_picker_requested =
+                    if let (Some(prefab_editor), Some(prefab_stage)) =
+                        (self.prefab_editor.as_mut(), self.prefab_stage.as_mut())
+                    {
+                        let mut prefab_ctx = prefab_stage.ctx_mut();
+                        prefab_editor.update(ctx, &mut self.camera, &mut prefab_ctx);
+                        std::mem::take(&mut prefab_editor.open_prefab_picker_requested)
+                    } else {
+                        false
+                    };
 
                 self.reconcile_active_prefab_room_preview();
                 if open_prefab_picker_requested {
@@ -239,7 +240,8 @@ impl Editor {
             EditorMode::Game => {
                 if self.pending_camera_reset {
                     self.pending_camera_reset = false;
-                    self.game_editor.init_camera(ctx, &mut self.camera, &mut self.game);
+                    self.game_editor
+                        .init_camera(ctx, &mut self.camera, &mut self.game);
                 }
                 // Returns the id of the world that was clicked on or None
                 if let Some(world_id) = self.game_editor.update(ctx, &self.camera, &mut self.game) {
@@ -256,8 +258,11 @@ impl Editor {
             EditorMode::World(world_id) => {
                 if self.pending_camera_reset {
                     self.pending_camera_reset = false;
-                    self.world_editor
-                        .init_camera(ctx, &mut self.camera, self.game.get_world_mut(world_id));
+                    self.world_editor.init_camera(
+                        ctx,
+                        &mut self.camera,
+                        self.game.get_world_mut(world_id),
+                    );
                 }
                 // Returns the id of the room that was clicked on or None
                 if let Some(room_id) =
@@ -310,11 +315,12 @@ impl Editor {
                 let mut save_after_room_exit = false;
                 {
                     let active_prefab_stamp = room_editor::ActivePrefabStampState {
-                        available: self
+                        available: self.room_editor.active_prefab_id.is_some_and(|prefab_id| {
+                            self.game.prefab_library.prefabs.contains_key(&prefab_id)
+                        }),
+                        pivot: self
                             .room_editor
-                            .active_prefab_id
-                            .is_some_and(|prefab_id| self.game.prefab_library.prefabs.contains_key(&prefab_id)),
-                        pivot: self.room_editor.active_prefab_snap_pivot(&self.game.prefab_library),
+                            .active_prefab_snap_pivot(&self.game.prefab_library),
                     };
                     let current_world = &mut self
                         .game
@@ -421,12 +427,11 @@ impl Editor {
                         } else {
                             // Dev mode: cargo build runs in the background
                             push_toast("Building playtest...", 30.0);
-                            self.pending_playtest_build =
-                                Some(BackgroundTask::spawn(move || {
-                                    resolve_playtest_binary()
-                                        .map(|exe_path| (exe_path, payload_path))
-                                        .map_err(|e| e.to_string())
-                                }));
+                            self.pending_playtest_build = Some(BackgroundTask::spawn(move || {
+                                resolve_playtest_binary()
+                                    .map(|exe_path| (exe_path, payload_path))
+                                    .map_err(|e| e.to_string())
+                            }));
                         }
                     }
                     self.room_editor.request_play = false;
@@ -442,20 +447,13 @@ impl Editor {
         match self.mode {
             EditorMode::Menu => self.menu_editor.draw(ctx, &self.camera),
             EditorMode::Prefab(_) => {
-                if let (Some(prefab_editor), Some(prefab_stage), Some(grid_renderer)) =
-                    (
-                        self.prefab_editor.as_mut(),
-                        self.prefab_stage.as_mut(),
-                        &self.grid_renderer,
-                    )
-                {
+                if let (Some(prefab_editor), Some(prefab_stage), Some(grid_renderer)) = (
+                    self.prefab_editor.as_mut(),
+                    self.prefab_stage.as_mut(),
+                    &self.grid_renderer,
+                ) {
                     let mut prefab_ctx = prefab_stage.ctx_mut();
-                    prefab_editor.draw(
-                        ctx,
-                        &self.camera,
-                        &mut prefab_ctx,
-                        grid_renderer,
-                    );
+                    prefab_editor.draw(ctx, &self.camera, &mut prefab_ctx, grid_renderer);
                 }
             }
             EditorMode::Game => {

@@ -16,7 +16,12 @@ pub struct RemoveComponentCmd {
 }
 
 impl RemoveComponentCmd {
-    pub fn new(entity: Entity, mode: EditorMode, type_name: &'static str, snapshot: String) -> Self {
+    pub fn new(
+        entity: Entity,
+        mode: EditorMode,
+        type_name: &'static str,
+        snapshot: String,
+    ) -> Self {
         Self {
             entity,
             mode,

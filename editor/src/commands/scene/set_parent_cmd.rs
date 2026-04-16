@@ -32,7 +32,11 @@ impl SetParentCmd {
 impl EditorCommand for SetParentCmd {
     fn execute(&mut self) {
         let mode = self.mode;
-        with_editor(|editor| with_scene_ecs(editor, mode, |ecs| set_parent(ecs, self.child, self.new_parent)));
+        with_editor(|editor| {
+            with_scene_ecs(editor, mode, |ecs| {
+                set_parent(ecs, self.child, self.new_parent)
+            })
+        });
     }
 
     fn undo(&mut self) {

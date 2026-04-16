@@ -1,4 +1,4 @@
-use crate::prefab::prefab_editor::PrefabEditor;
+use super::PrefabEditor;
 use bishop::prelude::*;
 use engine_core::prelude::*;
 

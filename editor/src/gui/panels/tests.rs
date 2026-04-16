@@ -16,7 +16,7 @@ fn prune_dead_hierarchy_state_removes_deleted_entities() {
         .lock()
         .unwrap_or_else(|poison| poison.into_inner());
     let test_game = TestGameFolder::new("hierarchy_prune_dead");
-    let mut stage = crate::prefab::PrefabStage::new(test_game.name());
+    let mut stage = crate::prefab::prefab_editor::PrefabStage::new(test_game.name());
     let live = stage
         .ecs
         .create_entity()
@@ -145,7 +145,7 @@ fn room_hierarchy_host_toggles_selection_additively() {
 #[test]
 fn prefab_hierarchy_host_toggles_selection_additively() {
     let entity = Entity(9);
-    let mut prefab_editor = crate::prefab::PrefabEditor::new(
+    let mut prefab_editor = crate::prefab::prefab_editor::PrefabEditor::new(
         PrefabId(1),
         "Prefab".to_string(),
         crate::prefab::prefab_editor::StagedPrefabState::Empty,
