@@ -74,13 +74,15 @@ fn generate_lua_components() {
             continue;
         }
 
+        if schema.is_empty() {
+            // For marker/unit structs, emit a description above the class annotation.
+            lua.push_str("--- Marker component\n");
+        }
+
         // Generate a class definition
         lua.push_str(&format!("---@class {}\n", reg.type_name));
 
-        if schema.is_empty() {
-            // For marker/unit structs, add a comment
-            lua.push_str("--- Marker component\n");
-        } else {
+        if !schema.is_empty() {
             // Add field annotations from the schema
             for (field_name, field_type) in schema {
                 lua.push_str(&format!("---@field {} {}\n", field_name, field_type));
