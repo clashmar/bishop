@@ -41,8 +41,8 @@
 
 ---@alias FacingDirection Direction
 
----@class Global
 --- Marker component
+---@class Global
 
 ---@class Glow
 ---@field color vec3
@@ -56,8 +56,8 @@
 ---@class Interactable
 ---@field range number
 
----@class Kinematic
 --- Marker component
+---@class Kinematic
 
 ---@class Layer
 ---@field z number
@@ -75,14 +75,14 @@
 
 ---@alias Parent Entity
 
+--- Marker component
 ---@class PhysicsBody
---- Marker component
 
+--- Marker component
 ---@class Player
---- Marker component
 
----@class PlayerProxy
 --- Marker component
+---@class PlayerProxy
 
 ---@class RoomCamera
 ---@field zoom vec2

@@ -236,8 +236,38 @@ impl PrefabEditor {
     }
 
     pub(crate) fn is_clean(&self, staged_state: &StagedPrefabState) -> bool {
-        &self.last_committed_prefab == staged_state
+        match (&self.last_committed_prefab, staged_state) {
+            (StagedPrefabState::Empty, StagedPrefabState::Empty) => true,
+            (
+                StagedPrefabState::PrefabAsset(committed_prefab),
+                StagedPrefabState::PrefabAsset(staged_prefab),
+            ) => prefab_assets_semantically_equal(committed_prefab, staged_prefab),
+            _ => false,
+        }
     }
+}
+
+fn prefab_assets_semantically_equal(left: &PrefabAsset, right: &PrefabAsset) -> bool {
+    left.id == right.id
+        && left.name == right.name
+        && left.next_node_id == right.next_node_id
+        && left.root_node_id == right.root_node_id
+        && sorted_prefab_nodes(left) == sorted_prefab_nodes(right)
+}
+
+fn sorted_prefab_nodes(prefab: &PrefabAsset) -> Vec<PrefabNode> {
+    let mut nodes = prefab.nodes.clone();
+    for node in &mut nodes {
+        node.components = sorted_component_snapshots(&node.components);
+    }
+    nodes.sort_by_key(|node| node.node_id);
+    nodes
+}
+
+fn sorted_component_snapshots(components: &[ComponentSnapshot]) -> Vec<ComponentSnapshot> {
+    let mut sorted = components.to_vec();
+    sorted.sort_by(|left, right| left.type_name.cmp(&right.type_name));
+    sorted
 }
 
 impl SubEditor for PrefabEditor {

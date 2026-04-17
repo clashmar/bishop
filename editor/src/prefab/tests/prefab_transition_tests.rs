@@ -30,6 +30,89 @@ fn clean_prefab_transition_opens_requested_prefab_without_changing_return_mode()
 }
 
 #[test]
+fn clean_prefab_exit_ignores_component_snapshot_order() {
+    let _lock = game_fs_test_lock()
+        .lock()
+        .unwrap_or_else(|poison| poison.into_inner());
+    let test_game = TestGameFolder::new("prefab_clean_exit_component_order");
+    let (mut editor, room_id, prefab_id, _) = make_prefab_session_editor(&test_game);
+
+    let staged_state = editor
+        .active_prefab_staged_state()
+        .expect("staged prefab should exist");
+    assert!(matches!(staged_state, StagedPrefabState::PrefabAsset(_)));
+
+    let prefab_editor = editor
+        .prefab_editor
+        .as_mut()
+        .expect("prefab editor should exist");
+    let StagedPrefabState::PrefabAsset(committed_prefab) = &mut prefab_editor.last_committed_prefab
+    else {
+        unreachable!();
+    };
+
+    let root_node = committed_prefab
+        .nodes
+        .iter_mut()
+        .find(|node| node.node_id == committed_prefab.root_node_id)
+        .expect("root node should exist");
+    assert!(root_node.components.len() >= 2);
+    root_node.components.reverse();
+
+    assert_eq!(
+        editor.request_prefab_transition(PendingPrefabTransition::Exit),
+        PrefabTransitionPrompt::None
+    );
+    assert_eq!(editor.mode, EditorMode::Room(room_id));
+    assert_eq!(editor.return_mode, None);
+    assert_eq!(editor.pending_prefab_transition, None);
+    assert_eq!(editor.active_persisted_prefab_id(), None);
+    assert_eq!(prefab_id, PrefabId(1));
+}
+
+#[test]
+fn clean_prefab_switch_ignores_component_snapshot_order() {
+    let _lock = game_fs_test_lock()
+        .lock()
+        .unwrap_or_else(|poison| poison.into_inner());
+    let test_game = TestGameFolder::new("prefab_clean_switch_component_order");
+    let (mut editor, room_id, prefab_id, _) = make_prefab_session_editor(&test_game);
+    let second_prefab = save_test_prefab(&test_game, PrefabId(2), "Barrel");
+    editor
+        .game
+        .prefab_library
+        .prefabs
+        .insert(second_prefab.id, second_prefab.clone());
+
+    let prefab_editor = editor
+        .prefab_editor
+        .as_mut()
+        .expect("prefab editor should exist");
+    let StagedPrefabState::PrefabAsset(committed_prefab) = &mut prefab_editor.last_committed_prefab
+    else {
+        unreachable!();
+    };
+
+    let root_node = committed_prefab
+        .nodes
+        .iter_mut()
+        .find(|node| node.node_id == committed_prefab.root_node_id)
+        .expect("root node should exist");
+    assert!(root_node.components.len() >= 2);
+    root_node.components.reverse();
+
+    assert_eq!(
+        editor.request_prefab_transition(PendingPrefabTransition::OpenExisting(second_prefab.id)),
+        PrefabTransitionPrompt::None
+    );
+    assert_eq!(editor.mode, EditorMode::Prefab(second_prefab.id));
+    assert_eq!(editor.return_mode, Some(EditorMode::Room(room_id)));
+    assert_eq!(editor.pending_prefab_transition, None);
+    assert_eq!(editor.active_persisted_prefab_id(), Some(second_prefab.id));
+    assert_ne!(prefab_id, second_prefab.id);
+}
+
+#[test]
 fn requesting_prefab_transition_from_asset_loads_prefab_into_library() {
     let _lock = game_fs_test_lock()
         .lock()
