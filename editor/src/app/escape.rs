@@ -26,7 +26,6 @@ pub(crate) fn escape_available_for_editor() -> bool {
     matches!(escape_owner(), Some(EscapeOwner::Editor))
 }
 
-#[allow(dead_code)]
 pub(crate) fn modal_escape_requested() -> bool {
     matches!(escape_owner(), Some(EscapeOwner::Modal))
 }

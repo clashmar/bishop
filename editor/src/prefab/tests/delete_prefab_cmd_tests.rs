@@ -43,6 +43,7 @@ fn delete_prefab_command_restores_asset_instances_palette_and_session_on_undo_re
     with_editor(|editor| {
         assert!(editor.is_blank_prefab_mode());
         assert_eq!(editor.mode, EditorMode::Prefab(BLANK_PREFAB_ID));
+        assert!(editor.prefab_picker_is_forced());
         assert!(!editor.game.prefab_library.prefabs.contains_key(&prefab_id));
         assert!(linked_root_entities(&editor.game.ecs, prefab_id).is_empty());
         assert_eq!(editor.room_editor.active_prefab_id, Some(other_prefab.id));
@@ -54,6 +55,7 @@ fn delete_prefab_command_restores_asset_instances_palette_and_session_on_undo_re
 
     with_editor(|editor| {
         assert_eq!(editor.mode, EditorMode::Prefab(prefab_id));
+        assert!(!editor.prefab_picker_is_forced());
         assert_eq!(
             editor.prefab_editor.as_ref().map(|prefab| prefab.prefab_id),
             Some(prefab_id)
@@ -83,6 +85,7 @@ fn delete_prefab_command_restores_asset_instances_palette_and_session_on_undo_re
     with_editor(|editor| {
         assert!(editor.is_blank_prefab_mode());
         assert_eq!(editor.mode, EditorMode::Prefab(BLANK_PREFAB_ID));
+        assert!(editor.prefab_picker_is_forced());
         assert!(!editor.game.prefab_library.prefabs.contains_key(&prefab_id));
         let prefabs_lua =
             std::fs::read_to_string(scripts_folder().join(ENGINE_DIR).join(PREFABS_FILE)).unwrap();

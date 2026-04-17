@@ -19,11 +19,11 @@ pub(super) use engine_core::storage::path_utils::{game_folder, sanitise_name};
 pub(super) use engine_core::storage::test_utils::{game_fs_test_lock, TestGameFolder};
 pub(super) use std::path::PathBuf;
 
-mod movement_tests;
 mod blank_prefab_session_tests;
+mod delete_prefab_cmd_tests;
+mod movement_tests;
 mod prefab_actions_tests;
 mod prefab_editor_tests;
-mod delete_prefab_cmd_tests;
 mod prefab_room_sync_tests;
 mod prefab_save_tests;
 mod prefab_transition_tests;
@@ -121,6 +121,29 @@ fn save_test_prefab(test_game: &TestGameFolder, prefab_id: PrefabId, name: &str)
 
 fn saved_prefab_path(prefab: &PrefabAsset) -> PathBuf {
     prefabs_folder().join(format!("{}.ron", sanitise_name(&prefab.name)))
+}
+
+fn blank_prefab_session_editor(test_game: &TestGameFolder) -> Editor {
+    set_game_name(test_game.name());
+    let game = create_new_game(test_game.name().to_string());
+    let prefab_stage = PrefabStage::from_editor_services(&game);
+
+    Editor {
+        game,
+        mode: EditorMode::Prefab(BLANK_PREFAB_ID),
+        return_mode: Some(EditorMode::Room(RoomId(1))),
+        prefab_editor: Some(PrefabEditor::new(
+            BLANK_PREFAB_ID,
+            "Prefab".to_string(),
+            StagedPrefabState::Empty,
+            PrefabRoomSyncState {
+                staged_prefab: StagedPrefabState::Empty,
+                linked_instance_snapshots: Vec::new(),
+            },
+        )),
+        prefab_stage: Some(prefab_stage),
+        ..Default::default()
+    }
 }
 
 fn write_invalid_prefab(_test_game: &TestGameFolder, file_name: &str) -> PathBuf {

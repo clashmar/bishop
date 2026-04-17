@@ -608,3 +608,60 @@ fn request_blank_prefab_transition_returns_dirty_prompt_without_opening_a_modal(
     assert!(editor.pending_prefab_transition.is_some());
     assert!(!editor.modal.is_open());
 }
+
+#[test]
+fn opening_real_prefab_from_forced_blank_session_clears_picker_requirement() {
+    let _lock = game_fs_test_lock()
+        .lock()
+        .unwrap_or_else(|poison| poison.into_inner());
+    let test_game = TestGameFolder::new("forced_blank_prefab_open_existing");
+    let mut editor = blank_prefab_session_editor(&test_game);
+    let prefab = save_test_prefab(&test_game, PrefabId(2), "Barrel");
+    editor
+        .game
+        .prefab_library
+        .prefabs
+        .insert(prefab.id, prefab.clone());
+    editor.set_prefab_picker_required(true);
+
+    assert_eq!(
+        editor.request_prefab_transition(PendingPrefabTransition::OpenExisting(prefab.id)),
+        PrefabTransitionPrompt::None
+    );
+    assert_eq!(editor.mode, EditorMode::Prefab(prefab.id));
+    assert!(!editor.prefab_picker_is_forced());
+}
+
+#[test]
+fn forced_blank_prefab_picker_escape_exits_prefab_mode() {
+    let _lock = game_fs_test_lock()
+        .lock()
+        .unwrap_or_else(|poison| poison.into_inner());
+    let test_game = TestGameFolder::new("forced_blank_prefab_escape_exit");
+    let mut editor = blank_prefab_session_editor(&test_game);
+    editor.set_prefab_picker_required(true);
+
+    editor.exit_forced_prefab_picker();
+
+    assert_eq!(editor.mode, EditorMode::Room(RoomId(1)));
+    assert_eq!(editor.return_mode, None);
+    assert!(editor.prefab_editor.is_none());
+    assert!(editor.prefab_stage.is_none());
+    assert!(!editor.prefab_picker_is_forced());
+}
+
+#[test]
+fn forced_blank_prefab_picker_ignores_modal_outside_click() {
+    let _lock = game_fs_test_lock()
+        .lock()
+        .unwrap_or_else(|poison| poison.into_inner());
+    let test_game = TestGameFolder::new("forced_blank_prefab_ignore_outside_click");
+    let mut editor = blank_prefab_session_editor(&test_game);
+    editor.set_prefab_picker_required(true);
+
+    assert!(editor.should_ignore_modal_clicked_outside());
+
+    editor.set_prefab_picker_required(false);
+
+    assert!(!editor.should_ignore_modal_clicked_outside());
+}

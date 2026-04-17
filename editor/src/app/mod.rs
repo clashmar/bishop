@@ -81,6 +81,7 @@ pub struct Editor {
     pub pending_export: Option<PendingExport>,
     pub pending_prefab_request: Option<PendingPrefabRequest>,
     pub pending_prefab_transition: Option<PendingPrefabTransition>,
+    pub(crate) require_prefab_picker: bool,
     pub(crate) pending_camera_reset: bool,
     pub toast: Option<Toast>,
     pub playtest_process: Option<PlaytestProcess>,
@@ -110,6 +111,7 @@ impl Default for Editor {
             pending_export: None,
             pending_prefab_request: None,
             pending_prefab_transition: None,
+            require_prefab_picker: false,
             pending_camera_reset: false,
             toast: None,
             playtest_process: None,
@@ -235,7 +237,7 @@ impl Editor {
                 if delete_prefab_requested {
                     self.open_delete_prefab_modal(ctx);
                 }
-                if open_prefab_picker_requested {
+                if open_prefab_picker_requested || (self.prefab_picker_is_forced() && !self.modal.is_open()) {
                     self.open_prefab_picker_modal(ctx);
                 }
                 if matches!(self.mode, EditorMode::Prefab(_))

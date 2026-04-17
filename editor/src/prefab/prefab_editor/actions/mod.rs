@@ -26,6 +26,15 @@ impl Editor {
         matches!(self.mode, EditorMode::Prefab(BLANK_PREFAB_ID))
     }
 
+    pub(crate) fn prefab_picker_is_forced(&self) -> bool {
+        self.require_prefab_picker
+    }
+
+    #[cfg(test)]
+    pub(crate) fn set_prefab_picker_required(&mut self, required: bool) {
+        self.require_prefab_picker = required;
+    }
+
     pub(crate) fn active_persisted_prefab_id(&self) -> Option<PrefabId> {
         self.prefab_editor
             .as_ref()
@@ -127,6 +136,7 @@ impl Editor {
             self.return_mode = Some(self.mode);
         }
         self.mode = EditorMode::Prefab(prefab.id);
+        self.require_prefab_picker = false;
         self.toast = Some(Toast::new(format!("Opened prefab '{}'", prefab.name), 2.5));
     }
 

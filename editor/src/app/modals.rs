@@ -1,4 +1,5 @@
 use crate::app::*;
+use crate::app::escape::modal_escape_requested;
 use crate::commands::game::*;
 use crate::commands::world::*;
 use crate::editor_global::*;
@@ -109,7 +110,12 @@ impl Editor {
         self.modal = Modal::new(ctx, 340.0, 240.0);
         let excluded_prefab_id = self.active_persisted_prefab_id();
         let prefabs = list_prefabs(&self.game.name).unwrap_or_default();
-        let mut prompt = PrefabPickerPrompt::new(self.modal.rect, prefabs, excluded_prefab_id);
+        let mut prompt = PrefabPickerPrompt::new(
+            self.modal.rect,
+            prefabs,
+            excluded_prefab_id,
+            self.prefab_picker_is_forced(),
+        );
 
         let widgets: Vec<BoxedWidget> = vec![Box::new(move |ctx, _| {
             if let Some(result) = prompt.draw(ctx) {
@@ -225,8 +231,17 @@ impl Editor {
 
     pub fn handle_modal(&mut self, ctx: &mut WgpuContext) -> Option<ModalResult> {
         if self.modal.is_open() {
+            if self.prefab_picker_is_forced() && modal_escape_requested() {
+                self.modal.close();
+                self.exit_forced_prefab_picker();
+                return None;
+            }
+
             // Outside‑click handling
             if self.modal.draw(ctx, &mut self.game.sprite_manager) {
+                if self.should_ignore_modal_clicked_outside() {
+                    return None;
+                }
                 if self.pending_export.take().is_some() {
                     EXPORT_OVERWRITE_RESULT.with(|c| *c.borrow_mut() = None);
                     self.toast = Some(Toast::new("Export cancelled.", 2.5));
@@ -414,6 +429,11 @@ impl Editor {
                         }
                     }
                     PrefabPickerResult::Cancelled => {
+                        if self.prefab_picker_is_forced() {
+                            self.modal.close();
+                            self.exit_forced_prefab_picker();
+                            return None;
+                        }
                         self.modal.close();
                         return None;
                     }
@@ -534,6 +554,10 @@ impl Editor {
         };
 
         duplicate_exists
+    }
+
+    pub(crate) fn should_ignore_modal_clicked_outside(&self) -> bool {
+        self.prefab_picker_is_forced()
     }
 }
 

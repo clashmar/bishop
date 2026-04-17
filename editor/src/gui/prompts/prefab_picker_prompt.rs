@@ -32,6 +32,7 @@ pub struct PrefabPickerPrompt {
     rect: Rect,
     prefabs: Vec<PrefabChoice>,
     selected: Option<PrefabId>,
+    exit_instead_of_cancel: bool,
 }
 
 impl PrefabPickerPrompt {
@@ -39,6 +40,7 @@ impl PrefabPickerPrompt {
         modal_rect: Rect,
         prefabs: Vec<PrefabAsset>,
         excluded_prefab_id: Option<PrefabId>,
+        exit_instead_of_cancel: bool,
     ) -> Self {
         let total_h = PROMPT_TOP_PADDING
             + DEFAULT_FONT_SIZE_16
@@ -63,6 +65,15 @@ impl PrefabPickerPrompt {
                 })
                 .collect(),
             selected: None,
+            exit_instead_of_cancel,
+        }
+    }
+
+    fn secondary_action_label(&self) -> &'static str {
+        if self.exit_instead_of_cancel {
+            "Exit"
+        } else {
+            "Cancel"
         }
     }
 
@@ -107,7 +118,7 @@ impl PrefabPickerPrompt {
             .interaction_id(self.file_button_id)
             .show_native_dialog(ctx);
         let new_clicked = Button::new(new_rect, "New Prefab").show(ctx);
-        let cancel_clicked = Button::new(cancel_rect, "Cancel").show(ctx);
+        let cancel_clicked = Button::new(cancel_rect, self.secondary_action_label()).show(ctx);
 
         if let Some(choice) = Dropdown::new(
             self.dropdown_id,
@@ -147,7 +158,7 @@ impl PrefabPickerPrompt {
             }
         }
 
-        if cancel_clicked || modal_escape_requested() {
+        if cancel_clicked || (!self.exit_instead_of_cancel && modal_escape_requested()) {
             return Some(PrefabPickerResult::Cancelled);
         }
 

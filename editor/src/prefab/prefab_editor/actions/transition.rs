@@ -150,6 +150,7 @@ impl Editor {
         self.mode = self.return_mode.unwrap_or(EditorMode::Game);
         self.return_mode = None;
         self.pending_prefab_transition = None;
+        self.require_prefab_picker = false;
         match self.mode {
             EditorMode::Room(_) | EditorMode::World(_) | EditorMode::Game => {
                 self.pending_camera_reset = true;
@@ -172,6 +173,16 @@ impl Editor {
         ));
         self.mode = EditorMode::Prefab(BLANK_PREFAB_ID);
         self.pending_prefab_transition = None;
+        self.require_prefab_picker = false;
+    }
+
+    pub(crate) fn enter_forced_blank_prefab_mode(&mut self) {
+        self.open_blank_prefab_editor();
+        self.require_prefab_picker = true;
+    }
+
+    pub(crate) fn exit_forced_prefab_picker(&mut self) {
+        self.close_active_prefab_editor();
     }
 
     fn finish_pending_prefab_transition(&mut self) {
