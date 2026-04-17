@@ -1,9 +1,11 @@
 // game/src/diagnostics/overlay.rs
 //! In-game diagnostics overlay toggled with F3/F4.
 
+use crate::diagnostics::timing_trace::{TimingTraceLogger, TimingTraceSample};
 use crate::engine::game_instance::GameInstance;
 use engine_core::prelude::*;
 use std::collections::{HashMap, HashSet};
+use std::path::Path;
 
 /// Detail level for the diagnostics overlay.
 #[derive(Clone, Copy, PartialEq, Eq, Default)]
@@ -37,6 +39,11 @@ pub struct DiagnosticsOverlay {
     /// Cached metrics for display.
     cached_fps: f32,
     cached_frame_time: f32,
+    cached_raw_dt_ms: f32,
+    cached_sim_dt_ms: f32,
+    cached_redraw_interval_ms: f32,
+    cached_acquire_wait_ms: f32,
+    cached_present_wait_ms: f32,
     cached_render_time: f32,
     cached_entity_count: usize,
     cached_texture_count: usize,
@@ -52,6 +59,7 @@ pub struct DiagnosticsOverlay {
     cached_audio_matching_refs: usize,
     cached_audio_checked_refs: usize,
     cached_audio_rows: Vec<AudioDiagnosticsRow>,
+    timing_trace: TimingTraceLogger,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -100,6 +108,11 @@ impl DiagnosticsOverlay {
             collector: DiagnosticsCollector::new(),
             cached_fps: 0.0,
             cached_frame_time: 0.0,
+            cached_raw_dt_ms: 0.0,
+            cached_sim_dt_ms: 0.0,
+            cached_redraw_interval_ms: 0.0,
+            cached_acquire_wait_ms: 0.0,
+            cached_present_wait_ms: 0.0,
             cached_render_time: 0.0,
             cached_entity_count: 0,
             cached_texture_count: 0,
@@ -115,6 +128,7 @@ impl DiagnosticsOverlay {
             cached_audio_matching_refs: 0,
             cached_audio_checked_refs: 0,
             cached_audio_rows: Vec::new(),
+            timing_trace: TimingTraceLogger::new(),
         }
     }
 
@@ -133,10 +147,24 @@ impl DiagnosticsOverlay {
     }
 
     /// Update frame timing metrics.
-    pub fn update(&mut self, dt: f32) {
+    pub fn update(&mut self, sample: TimingTraceSample) {
+        let dt = sample.raw_dt;
         self.collector.record_frame(dt);
         self.cached_fps = self.collector.frame_metrics.fps;
         self.cached_frame_time = self.collector.frame_metrics.avg_frame_time_ms;
+        self.cached_raw_dt_ms = dt * 1000.0;
+        self.cached_sim_dt_ms = sample.sim_dt * 1000.0;
+        self.cached_redraw_interval_ms = sample.redraw_interval * 1000.0;
+        self.cached_acquire_wait_ms = sample.acquire_wait * 1000.0;
+        self.cached_present_wait_ms = sample.present_wait * 1000.0;
+    }
+
+    pub fn record_timing_trace(&mut self, sample: TimingTraceSample) {
+        self.timing_trace.record(sample);
+    }
+
+    pub fn timing_trace_path(&self) -> &Path {
+        self.timing_trace.path()
     }
 
     /// Pulls current metrics from the game instance and render system.
@@ -203,6 +231,12 @@ impl DiagnosticsOverlay {
 
         if self.detail_level == OverlayDetailLevel::Detailed {
             lines.push(format!("Frame: {:.2} ms", self.cached_frame_time));
+            lines.push(format!("Raw dt: {:.2} ms", self.cached_raw_dt_ms));
+            lines.push(format!("Sim dt: {:.2} ms", self.cached_sim_dt_ms));
+            lines.push(format!("Redraw: {:.2} ms", self.cached_redraw_interval_ms));
+            lines.push(format!("Acquire: {:.2} ms", self.cached_acquire_wait_ms));
+            lines.push(format!("Present: {:.2} ms", self.cached_present_wait_ms));
+            lines.push(format!("DT trace: {}", self.timing_trace_path().display()));
             lines.push(format!("Render: {:.2} ms", self.cached_render_time));
             lines.push(format!("Entities: {}", self.cached_entity_count));
             lines.push(format!("Textures: {}", self.cached_texture_count));

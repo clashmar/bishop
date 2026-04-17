@@ -275,6 +275,18 @@ impl Time for WgpuContext {
         self.time.frame_spike_ms()
     }
 
+    fn get_redraw_interval(&self) -> f32 {
+        self.time.redraw_interval()
+    }
+
+    fn get_acquire_wait(&self) -> f32 {
+        self.time.acquire_wait()
+    }
+
+    fn get_present_wait(&self) -> f32 {
+        self.time.present_wait()
+    }
+
     fn update(&mut self) {
         self.input.end_frame();
     }

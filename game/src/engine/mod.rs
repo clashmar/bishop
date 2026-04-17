@@ -13,7 +13,7 @@ use render::*;
 pub use engine_builder::EngineBuilder;
 pub use game_instance::GameInstance;
 
-use crate::diagnostics::DiagnosticsOverlay;
+use crate::diagnostics::{DiagnosticsOverlay, TimingTraceSample};
 use crate::game_global::set_menu_active;
 use crate::physics::physics_system::*;
 use crate::scripting::script_system::ScriptSystem;
@@ -77,14 +77,19 @@ impl BishopApp for Engine {
         let raw_dt = ctx.borrow().get_frame_time();
         let smoothed = smooth_dt(&mut self.smoothed_dt, raw_dt, 0.9);
         let dt = snap_dt(smoothed);
+        let mut fixed_steps = 0_u8;
+        let timing_sample = self.is_playtest.then(|| {
+            let ctx = ctx.borrow();
+            TimingTraceSample::new(raw_dt, dt, &*ctx)
+        });
 
         self.update_game_state();
 
         self.menu_manager.handle_input(&mut *ctx.borrow_mut());
         emit_pending_audio_events(self);
 
-        if self.is_playtest {
-            self.diagnostics.update(raw_dt);
+        if let Some(sample) = timing_sample {
+            self.diagnostics.update(sample);
             self.diagnostics.handle_input(&mut *ctx.borrow_mut());
         }
 
@@ -93,6 +98,7 @@ impl BishopApp for Engine {
 
             while self.accumulator >= FIXED_DT {
                 self.accumulator -= FIXED_DT;
+                fixed_steps = fixed_steps.saturating_add(1);
                 self.fixed_update(&mut *ctx.borrow_mut(), FIXED_DT);
             }
 
@@ -111,6 +117,11 @@ impl BishopApp for Engine {
         }
 
         let alpha = (self.accumulator / FIXED_DT).clamp(0.0, 1.0);
+        if let Some(sample) = timing_sample {
+            self.diagnostics.record_timing_trace(
+                sample.with_frame_state(fixed_steps, self.accumulator, alpha),
+            );
+        }
         self.render(&ctx, alpha);
 
         // Process ui events and emit to Lua
