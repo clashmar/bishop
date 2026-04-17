@@ -1,4 +1,4 @@
-pub(super) use crate::app::{Editor, EditorMode, PendingPrefabTransition, PrefabTransitionPrompt};
+pub(super) use crate::app::{Editor, EditorMode};
 pub(super) use crate::commands::scene::DeleteEntityCmd;
 pub(super) use crate::editor_global::{
     apply_pending_commands, push_command, request_redo, request_undo, reset_services, set_editor,
@@ -10,6 +10,7 @@ pub(super) use crate::prefab::prefab_editor::{
     PrefabEditor, PrefabRoomSyncState, PrefabStage, StagedPrefabState,
 };
 pub(super) use crate::prefab::BLANK_PREFAB_ID;
+pub(super) use crate::prefab::{PendingPrefabTransition, PrefabTransitionPrompt};
 pub(super) use crate::room::room_editor::{RoomEditorMode, RoomSceneSubMode};
 pub(super) use crate::storage::editor_storage::{
     create_new_game, load_game_by_name, load_prefab_palette_state, save_game,

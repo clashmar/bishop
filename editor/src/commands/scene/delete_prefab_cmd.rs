@@ -58,7 +58,7 @@ impl EditorCommand for DeletePrefabCmd {
             if !editor.reconcile_prefab_palette_after_library_change() {
                 return;
             }
-            editor.enter_forced_blank_prefab_mode();
+            editor.enter_required_blank_prefab_mode();
         });
     }
 

@@ -5,6 +5,7 @@ use crate::editor_global::*;
 use crate::gui::inspector::audio_source_module::clear_active_audio_preview;
 use crate::gui::menu_bar::*;
 use crate::gui::panels::*;
+use crate::prefab::{PendingPrefabTransition, PrefabTransitionPrompt};
 use crate::storage::editor_storage::*;
 use bishop::prelude::*;
 use engine_core::prelude::*;
