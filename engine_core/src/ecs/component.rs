@@ -151,7 +151,7 @@ inspector_module!(Layer);
 pub struct CurrentRoom(pub RoomId);
 
 /// Marker component for the player entity.
-#[ecs_component(deps = [Collider, Velocity])]
+#[ecs_component(deps = [Collider, Velocity, MotionBody])]
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, Default)]
 pub struct Player;
 
@@ -200,8 +200,13 @@ pub struct SubPixel {
     pub y: f32,
 }
 
+/// Marker for entities that participate in fixed-step movement.
+#[ecs_component(lua_api = false, deps = [SubPixel])]
+#[derive(Clone, Copy, Serialize, Deserialize, Default)]
+pub struct MotionBody;
+
 /// Marker for participation in the physics system.
-#[ecs_component(deps = [Grounded, SubPixel])]
+#[ecs_component(deps = [Grounded, MotionBody])]
 #[derive(Default, Clone, Copy, Serialize, Deserialize)]
 pub struct PhysicsBody;
 

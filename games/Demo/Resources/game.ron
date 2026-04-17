@@ -18,7 +18,7 @@
             ),
             /*[3]*/ (
                 type_name: "Collider",
-                data: "{\n    (3): (\n        width: 6.0,\n        height: 16.0,\n    ),\n}",
+                data: "{\n    (3): (\n        width: 6.0,\n        height: 16.0,\n    ),\n    (37): (\n        width: 18.0,\n        height: 19.0,\n    ),\n}",
             ),
             /*[4]*/ (
                 type_name: "CurrentFrame",
@@ -65,70 +65,74 @@
                 data: "{}",
             ),
             /*[15]*/ (
+                type_name: "MotionBody",
+                data: "{}",
+            ),
+            /*[16]*/ (
                 type_name: "Name",
                 data: "{\n    (1): (\"Camera 1\"),\n    (2): (\"Player Proxy\"),\n    (3): (\"Player\"),\n    (24): (\"Camera 1\"),\n    (37): (\"Cat\"),\n}",
             ),
-            /*[16]*/ (
+            /*[17]*/ (
                 type_name: "Parent",
                 data: "{}",
             ),
-            /*[17]*/ (
+            /*[18]*/ (
                 type_name: "PhysicsBody",
                 data: "{\n    (3): (),\n}",
             ),
-            /*[18]*/ (
+            /*[19]*/ (
                 type_name: "Player",
                 data: "{\n    (3): (),\n}",
             ),
-            /*[19]*/ (
+            /*[20]*/ (
                 type_name: "PlayerProxy",
                 data: "{\n    (2): (),\n}",
             ),
-            /*[20]*/ (
+            /*[21]*/ (
                 type_name: "PrefabInstanceNode",
                 data: "{\n    (37): (\n        prefab_id: (1),\n        node_id: 1,\n        root_entity: (37),\n    ),\n}",
             ),
-            /*[21]*/ (
+            /*[22]*/ (
                 type_name: "PrefabInstanceRoot",
                 data: "{\n    (37): (\n        prefab_id: (1),\n    ),\n}",
             ),
-            /*[22]*/ (
-                type_name: "PrefabOverrides",
-                data: "{}",
-            ),
             /*[23]*/ (
-                type_name: "RoomCamera",
-                data: "{\n    (1): (\n        zoom: (0.015625, 0.027777778),\n        room_id: (1),\n        zoom_mode: Step,\n        camera_mode: Fixed,\n    ),\n    (24): (\n        zoom: (0.015625, 0.027777778),\n        room_id: (2),\n        zoom_mode: Step,\n        camera_mode: Fixed,\n    ),\n}",
+                type_name: "PrefabOverrides",
+                data: "{\n    (37): (\n        modified_components: [],\n        removed_components: [],\n        added_components: [\n            (\n                type_name: \"Collider\",\n                ron: \"(\\n    width: 18.0,\\n    height: 19.0,\\n)\",\n            ),\n            (\n                type_name: \"Solid\",\n                ron: \"(true)\",\n            ),\n        ],\n    ),\n}",
             ),
             /*[24]*/ (
+                type_name: "RoomCamera",
+                data: "{\n    (1): (\n        zoom: (0.0078125, 0.013888889),\n        room_id: (1),\n        zoom_mode: Step,\n        camera_mode: Fixed,\n    ),\n    (24): (\n        zoom: (0.015625, 0.027777778),\n        room_id: (2),\n        zoom_mode: Step,\n        camera_mode: Fixed,\n    ),\n}",
+            ),
+            /*[25]*/ (
                 type_name: "Script",
                 data: "{\n    (3): (\n        script_id: (1),\n        data: (\n            fields: {\n                \"health\": Int(100),\n                \"jump_speed\": Int(200),\n                \"name\": Text(\"Player\"),\n                \"run_speed\": Int(180),\n                \"speed\": Int(100),\n            },\n        ),\n    ),\n}",
             ),
-            /*[25]*/ (
-                type_name: "Solid",
-                data: "{}",
-            ),
             /*[26]*/ (
+                type_name: "Solid",
+                data: "{\n    (37): (true),\n}",
+            ),
+            /*[27]*/ (
                 type_name: "SpeechBubble",
                 data: "{}",
             ),
-            /*[27]*/ (
+            /*[28]*/ (
                 type_name: "Sprite",
                 data: "{\n    (37): (\n        sprite: (9),\n    ),\n}",
             ),
-            /*[28]*/ (
+            /*[29]*/ (
                 type_name: "SubPixel",
                 data: "{\n    (3): (),\n}",
             ),
-            /*[29]*/ (
-                type_name: "Transform",
-                data: "{\n    (1): (\n        visible: true,\n        position: (64.0, 35.99995),\n        pivot: CenterLeft,\n    ),\n    (2): (\n        visible: true,\n        position: (28.0, 72.0),\n        pivot: BottomCenter,\n    ),\n    (24): (\n        visible: true,\n        position: (-64.0, 36.0),\n        pivot: CenterLeft,\n    ),\n    (37): (\n        visible: true,\n        position: (108.0, 72.0),\n        pivot: BottomCenter,\n    ),\n}",
-            ),
             /*[30]*/ (
+                type_name: "Transform",
+                data: "{\n    (1): (\n        visible: true,\n        position: (128.0, 0.0),\n        pivot: TopLeft,\n    ),\n    (2): (\n        visible: true,\n        position: (28.0, 72.0),\n        pivot: BottomCenter,\n    ),\n    (24): (\n        visible: true,\n        position: (-64.0, 36.0),\n        pivot: CenterLeft,\n    ),\n    (37): (\n        visible: true,\n        position: (108.0, 72.0),\n        pivot: BottomCenter,\n    ),\n}",
+            ),
+            /*[31]*/ (
                 type_name: "Velocity",
                 data: "{\n    (3): (\n        x: 0.0,\n        y: 0.0,\n    ),\n}",
             ),
-            /*[31]*/ (
+            /*[32]*/ (
                 type_name: "Walkable",
                 data: "{}",
             ),
@@ -144,14 +148,14 @@
                     id: (1),
                     name: "untitled",
                     position: (0.0, 0.0),
-                    size: (16.0, 9.0),
+                    size: (32.0, 9.0),
                     exits: [],
                     adjacent_rooms: [],
                     variants: [
                         /*[0]*/ (
                             id: "default",
                             tilemap: (
-                                width: 16,
+                                width: 32,
                                 height: 9,
                                 background: (0.78, 0.78, 0.78, 1.0),
                             ),

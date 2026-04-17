@@ -39,6 +39,11 @@ fn post_remove(sprite: &mut Sprite, _entity: &Entity, ctx: &mut dyn EngineCtxMut
     ctx.sprite_manager().decrement_ref(sprite.sprite);
 }
 
+#[inline]
+fn snap_draw_position(draw_base: Vec2) -> Vec2 {
+    Vec2::new(draw_base.x.floor(), draw_base.y.floor())
+}
+
 inspector_module!(Sprite);
 
 impl Renderable for Sprite {
@@ -61,10 +66,11 @@ impl Renderable for Sprite {
         let tex = sprite_manager.get_texture_from_id(ctx, self.sprite);
         let size = vec2(tex.width(), tex.height());
         let draw_base = pivot_adjusted_position(params.pos, size, params.pivot);
+        let snapped = snap_draw_position(draw_base);
         ctx.draw_texture_ex(
             tex,
-            draw_base.x,
-            draw_base.y,
+            snapped.x,
+            snapped.y,
             Color::WHITE,
             DrawTextureParams {
                 dest_size: Some(size),
@@ -72,5 +78,19 @@ impl Renderable for Sprite {
             },
         );
         true
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn static_sprite_draw_positions_snap_to_integer_pixels() {
+        assert_eq!(snap_draw_position(Vec2::new(5.5, 7.9)), Vec2::new(5.0, 7.0));
+        assert_eq!(
+            snap_draw_position(Vec2::new(-2.5, -3.1)),
+            Vec2::new(-3.0, -4.0)
+        );
     }
 }

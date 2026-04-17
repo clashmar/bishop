@@ -134,7 +134,7 @@ pub fn public_lua_component(type_name: &str) -> Result<&'static ComponentRegistr
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ecs::component::comp_type_name;
+    use crate::ecs::component::{comp_type_name, MotionBody};
     use crate::ecs::prefab::{PrefabInstanceNode, PrefabInstanceRoot, PrefabOverrides};
 
     #[test]
@@ -160,5 +160,16 @@ mod tests {
 
             assert!(!reg.is_public_lua_api, "{type_name} should be private");
         }
+    }
+
+    #[test]
+    fn motion_body_is_not_public_lua_api() {
+        let type_name = comp_type_name::<MotionBody>();
+        let reg = COMPONENTS
+            .iter()
+            .find(|reg| reg.type_name == type_name)
+            .unwrap_or_else(|| panic!("missing registry entry for {type_name}"));
+
+        assert!(!reg.is_public_lua_api, "{type_name} should be private");
     }
 }
