@@ -1,78 +1,15 @@
 // editor/src/editor/actions.rs
-use crate::app::Editor;
-use crate::app::EditorCameraController;
 use crate::app::*;
-use crate::commands::game::*;
-use crate::commands::world::*;
+use crate::commands::scene::DeletePrefabCmd;
 use crate::editor_global::*;
-use crate::game::game_editor::GameEditor;
 use crate::gui::inspector::audio_source_module::clear_active_audio_preview;
 use crate::gui::menu_bar::*;
-use crate::gui::modal::*;
 use crate::gui::panels::*;
-use crate::gui::prompts::*;
-use crate::menu::MenuEditor;
-use crate::room::room_editor::RoomEditor;
 use crate::storage::editor_storage::*;
-use crate::storage::export::{export_game, export_target_path, PendingExport};
-use crate::world::world_editor::WorldEditor;
 use bishop::prelude::*;
 use engine_core::prelude::*;
-use std::cell::RefCell;
-
-impl Default for Editor {
-    fn default() -> Self {
-        Self {
-            game: Game::default(),
-            camera: Camera2D::default(),
-            mode: EditorMode::Game,
-            return_mode: None,
-            game_editor: GameEditor::new(),
-            world_editor: WorldEditor::new(),
-            room_editor: RoomEditor::new(),
-            menu_editor: MenuEditor::new(),
-            cur_world_id: None,
-            cur_room_id: None,
-            render_system: RenderSystem::with_default_grid_size(),
-            menu_bar: MenuBar::new(),
-            modal: Modal::default(),
-            pending_export: None,
-            toast: None,
-            playtest_process: None,
-            pending_playtest_build: None,
-            grid_renderer: None,
-            audio_manager: AudioManager::new::<PlatformAudioBackend>(),
-        }
-    }
-}
 
 impl Editor {
-    /// Returns `Some(name)` when the user confirms, `None` on cancel.
-    pub async fn prompt_new_game(&mut self, ctx: PlatformContext) -> Option<String> {
-        self.open_new_game_modal(&mut ctx.borrow_mut());
-
-        // Wait until the user has responded
-        loop {
-            // Draws and handles result
-            if let Some(ModalResult::String(name)) = self.handle_modal(&mut ctx.borrow_mut()) {
-                // Only close modal if a name is returned
-                self.modal.close();
-                return Some(name);
-            }
-
-            // Guard against modal not being open for some reason
-            if !self.modal.is_open() {
-                return None;
-            }
-
-            // Toasts can be created by the prompt
-            self.draw_toast(&mut ctx.borrow_mut());
-
-            let next_frame = { ctx.borrow().next_frame() };
-            next_frame.await;
-        }
-    }
-
     pub fn draw_menu_bar(&mut self, ctx: &mut WgpuContext) {
         let menu_title = match self.mode {
             EditorMode::Game => self.game.name.clone(),
@@ -83,202 +20,202 @@ impl Editor {
                 .get_room(id)
                 .map(|room| room.name.clone())
                 .unwrap_or_else(|| "Room".to_string()),
+            EditorMode::Prefab(_) => self
+                .prefab_editor
+                .as_ref()
+                .map(|editor| editor.prefab_name.clone())
+                .unwrap_or_else(|| "Prefab".to_string()),
             EditorMode::Menu => "Menu Editor".to_string(),
         };
 
         if let Some(action) = self.menu_bar.draw(ctx, &menu_title, self.mode) {
-            match action {
-                EditorAction::Rename => {
-                    self.open_rename_modal(ctx);
-                }
-                EditorAction::NewGame => {
-                    // Save current
-                    self.save();
-                    self.open_new_game_modal(ctx);
-                }
-                EditorAction::Open => {
-                    // Open a folder picker rooted at the absolute save folder
-                    #[cfg(not(target_arch = "wasm32"))]
-                    {
-                        use rfd::FileDialog;
-                        if let Some(path) = FileDialog::new()
-                            .set_directory(absolute_save_root())
-                            .pick_folder()
-                        {
-                            match ensure_inside_save_root(&path) {
-                                Ok(_) => {
-                                    // Only load if it's in the correct folder
-                                    if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
-                                        match load_game_by_name(name) {
-                                            Ok(game) => {
-                                                self.reset(ctx, game);
-                                                self.toast = Some(Toast::new(
-                                                    format!("Loaded '{}'", name),
-                                                    2.5,
-                                                ));
-                                            }
-                                            Err(e) => {
-                                                onscreen_error!("Failed to load game: {e}");
-                                                self.toast = Some(Toast::new(
-                                                    "Could not load selected game.",
-                                                    2.5,
-                                                ));
-                                            }
-                                        }
-                                    } else {
-                                        self.toast =
-                                            Some(Toast::new("Folder name could not be read.", 2.5));
-                                    }
-                                }
-                                Err(err_msg) => {
-                                    self.toast = Some(Toast::new(&err_msg, 3.0));
-                                }
-                            }
-                        }
-                    }
-                    #[cfg(target_arch = "wasm32")]
-                    {
-                        self.toast = Some(Toast::new("Folder picker unavailable in WASM", 2.5));
-                    }
-                }
-                EditorAction::Save => self.save(),
-                EditorAction::SaveAs => self.open_save_as_modal(ctx),
-                EditorAction::Undo => crate::editor_global::request_undo(),
-                EditorAction::Redo => crate::editor_global::request_redo(),
-                EditorAction::Export => self.begin_export(ctx),
-                EditorAction::ChangeSaveRoot => match change_save_root() {
-                    SaveRootResult::Changed(new_root) => {
-                        self.toast = Some(Toast::new(
-                            format!("Save root moved to: {}", new_root.display()),
-                            2.5,
-                        ));
-                    }
-                    SaveRootResult::Cancelled => {}
-                    SaveRootResult::Failed => {
-                        self.toast = Some(Toast::new("Failed to update save root.", 2.0));
-                    }
-                },
-                EditorAction::ViewHierarchyPanel => {
-                    with_panel_manager(|panel_manager| {
-                        panel_manager.toggle(HIERARCHY_PANEL);
-                    });
-                }
-                EditorAction::ViewConsolePanel => {
-                    with_panel_manager(|panel_manager| {
-                        panel_manager.toggle(CONSOLE_PANEL);
-                    });
-                }
-                EditorAction::ViewDiagnosticsPanel => {
-                    with_panel_manager(|panel_manager| {
-                        panel_manager.toggle(DIAGNOSTICS_PANEL);
-                    });
-                }
-                EditorAction::WorldSettings => {
-                    self.open_world_settings_modal(ctx);
-                }
-                EditorAction::OpenMenuEditor => {
-                    clear_active_audio_preview();
-                    self.return_mode = Some(self.mode);
-                    self.mode = EditorMode::Menu;
-                    self.load_menus();
-                    MenuEditor::init_camera(ctx, &mut self.camera);
-                }
-                EditorAction::ReturnToGameEditor => {
-                    // Save menus before leaving menu mode
-                    self.save_menus();
-
-                    let return_mode = self.return_mode.unwrap_or(EditorMode::Game);
-                    self.mode = return_mode;
-                    self.return_mode = None;
-
-                    match return_mode {
-                        EditorMode::Game => {
-                            self.game_editor
-                                .init_camera(ctx, &mut self.camera, &mut self.game);
-                        }
-                        EditorMode::World(id) => {
-                            self.world_editor.init_camera(
-                                ctx,
-                                &mut self.camera,
-                                self.game.get_world_mut(id),
-                            );
-                        }
-                        EditorMode::Room(id) => {
-                            let current_world = self.game.current_world();
-                            if let Some(room) = current_world.get_room(id) {
-                                EditorCameraController::reset_room_editor_camera(
-                                    ctx,
-                                    &mut self.camera,
-                                    room,
-                                    current_world.grid_size,
-                                );
-                            }
-                        }
-                        EditorMode::Menu => {
-                            // Should not return to Menu mode
-                        }
-                    }
-                }
-            }
+            self.run_action(ctx, action);
         }
     }
 
     pub fn handle_shortcuts(&mut self, ctx: &mut WgpuContext) {
-        if Controls::save(ctx) {
-            self.save();
-        }
-
-        if Controls::save_as(ctx) {
-            self.open_save_as_modal(ctx);
-        }
-
-        if Controls::undo(ctx) {
-            request_undo();
-        }
-
-        if Controls::redo(ctx) {
-            request_redo();
-        }
-
-        if Controls::c(ctx) && !input_is_focused() {
-            with_panel_manager(|pm| pm.toggle(CONSOLE_PANEL));
-        }
-
-        if Controls::f3(ctx) && !input_is_focused() {
-            with_panel_manager(|pm| pm.toggle(DIAGNOSTICS_PANEL));
+        if let Some(action) = self.shortcut_action(ctx) {
+            self.run_action(ctx, action);
         }
     }
 
-    pub fn save(&mut self) {
-        let palette = &self.room_editor.tilemap_editor.tilemap_panel.palette;
-        let palette_saved = if let Err(e) = save_palette(palette, &self.game.name) {
-            onscreen_error!("Could not save palette: {e}");
-            false
-        } else {
-            true
-        };
+    fn shortcut_action(&self, ctx: &WgpuContext) -> Option<EditorAction> {
+        let input_focused = input_is_focused();
+        let actions = [
+            EditorAction::Save,
+            EditorAction::SaveAs,
+            EditorAction::Undo,
+            EditorAction::Redo,
+            EditorAction::ViewConsolePanel,
+            EditorAction::ViewDiagnosticsPanel,
+            EditorAction::ViewHierarchyPanel,
+            EditorAction::ViewPrefabBrowserPanel,
+            EditorAction::ViewPrefabPalettePanel,
+        ];
 
-        if let Err(e) = save_game(&self.game) {
-            onscreen_error!("Could not save game: {}.", e)
-        } else if palette_saved {
-            self.save_menus();
-            self.toast = Some(Toast::new("Saved", 2.5));
-        }
+        actions.into_iter().find(|action| {
+            action.is_available_in(self.mode)
+                && (!input_focused || !action.blocked_by_focused_input())
+                && action.shortcut_pressed(ctx)
+        })
     }
 
-    /// Saves all menu templates to disk.
-    pub fn save_menus(&self) {
-        for template in &self.menu_editor.templates {
-            if let Err(e) = save_menu(template) {
-                onscreen_error!("Could not save menu '{}': {}", template.id, e);
+    fn run_action(&mut self, ctx: &mut WgpuContext, action: EditorAction) {
+        match action {
+            EditorAction::Rename => {
+                self.open_rename_modal(ctx);
+            }
+            EditorAction::NewGame => {
+                self.save();
+                self.open_new_game_modal(ctx);
+            }
+            EditorAction::Open => {
+                #[cfg(not(target_arch = "wasm32"))]
+                {
+                    use rfd::FileDialog;
+                    if let Some(path) = FileDialog::new()
+                        .set_directory(absolute_save_root())
+                        .pick_folder()
+                    {
+                        match ensure_inside_save_root(&path) {
+                            Ok(_) => {
+                                if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
+                                    match load_game_by_name(name) {
+                                        Ok(game) => {
+                                            self.reset(ctx, game);
+                                            self.toast =
+                                                Some(Toast::new(format!("Loaded '{}'", name), 2.5));
+                                        }
+                                        Err(e) => {
+                                            onscreen_error!("Failed to load game: {e}");
+                                            self.toast = Some(Toast::new(
+                                                "Could not load selected game.",
+                                                2.5,
+                                            ));
+                                        }
+                                    }
+                                } else {
+                                    self.toast =
+                                        Some(Toast::new("Folder name could not be read.", 2.5));
+                                }
+                            }
+                            Err(err_msg) => {
+                                self.toast = Some(Toast::new(&err_msg, 3.0));
+                            }
+                        }
+                    }
+                }
+                #[cfg(target_arch = "wasm32")]
+                {
+                    self.toast = Some(Toast::new("Folder picker unavailable in WASM", 2.5));
+                }
+            }
+            EditorAction::Save => {
+                if matches!(self.mode, EditorMode::Prefab(_)) {
+                    self.request_prefab_save(ctx);
+                } else {
+                    self.save();
+                }
+            }
+            EditorAction::SaveAs => self.open_save_as_modal(ctx),
+            EditorAction::Undo => crate::editor_global::request_undo(),
+            EditorAction::Redo => crate::editor_global::request_redo(),
+            EditorAction::Export => self.begin_export(ctx),
+            EditorAction::ChangeSaveRoot => match change_save_root() {
+                SaveRootResult::Changed(new_root) => {
+                    self.toast = Some(Toast::new(
+                        format!("Save root moved to: {}", new_root.display()),
+                        2.5,
+                    ));
+                }
+                SaveRootResult::Cancelled => {}
+                SaveRootResult::Failed => {
+                    self.toast = Some(Toast::new("Failed to update save root.", 2.0));
+                }
+            },
+            EditorAction::ViewHierarchyPanel => {
+                with_panel_manager(|panel_manager| {
+                    panel_manager.toggle(HIERARCHY_PANEL);
+                });
+            }
+            EditorAction::ViewConsolePanel => {
+                with_panel_manager(|panel_manager| {
+                    panel_manager.toggle(CONSOLE_PANEL);
+                });
+            }
+            EditorAction::ViewDiagnosticsPanel => {
+                with_panel_manager(|panel_manager| {
+                    panel_manager.toggle(DIAGNOSTICS_PANEL);
+                });
+            }
+            EditorAction::ViewPrefabBrowserPanel => {
+                with_panel_manager(|panel_manager| {
+                    panel_manager.toggle(PREFAB_BROWSER_PANEL);
+                });
+            }
+            EditorAction::ViewPrefabPalettePanel => {
+                with_panel_manager(|panel_manager| {
+                    panel_manager.toggle(PREFAB_PALETTE_PANEL);
+                });
+            }
+            EditorAction::WorldSettings => {
+                self.open_world_settings_modal(ctx);
+            }
+            EditorAction::OpenPrefabEditor => {
+                self.open_prefab_editor(ctx);
+            }
+            EditorAction::OpenMenuEditor => {
+                clear_active_audio_preview();
+                self.room_editor.reset_scene_sub_mode();
+                self.return_mode = Some(self.mode);
+                self.mode = EditorMode::Menu;
+                self.load_menus();
+                self.menu_editor.init_camera(ctx, &mut self.camera);
+            }
+            EditorAction::ReturnToGameEditor => {
+                match self.mode {
+                    EditorMode::Menu => {
+                        self.save_menus();
+                    }
+                    EditorMode::Prefab(_) => {
+                        self.request_exit_prefab_mode(ctx);
+                        return;
+                    }
+                    _ => {}
+                }
+
+                let return_mode = self.return_mode.unwrap_or(EditorMode::Game);
+                self.mode = return_mode;
+                self.return_mode = None;
+
+                match return_mode {
+                    EditorMode::Game => {
+                        self.game_editor
+                            .init_camera(ctx, &mut self.camera, &mut self.game);
+                    }
+                    EditorMode::World(id) => {
+                        self.world_editor.init_camera(
+                            ctx,
+                            &mut self.camera,
+                            self.game.get_world_mut(id),
+                        );
+                    }
+                    EditorMode::Room(id) => {
+                        let current_world = self.game.current_world();
+                        if let Some(room) = current_world.get_room(id) {
+                            EditorCameraController::reset_room_editor_camera(
+                                ctx,
+                                &mut self.camera,
+                                room,
+                                current_world.grid_size,
+                            );
+                        }
+                    }
+                    EditorMode::Prefab(_) => {}
+                    EditorMode::Menu => {}
+                }
             }
         }
-    }
-
-    /// Loads all menu templates from disk.
-    pub fn load_menus(&mut self) {
-        let templates = load_menus();
-        self.menu_editor.set_templates(templates);
     }
 
     pub fn get_room_from_id(&self, room_id: &RoomId) -> &Room {
@@ -290,260 +227,45 @@ impl Editor {
             .expect("Could not find room from id.")
     }
 
-    fn open_new_game_modal(&mut self, ctx: &mut WgpuContext) {
-        let prompt_message = "Enter game name:";
-        let mut prompt = self.set_prompt_modal(ctx, prompt_message);
+    pub(crate) fn request_prefab_save(&mut self, ctx: &WgpuContext) {
+        if self.is_blank_prefab_mode() {
+            self.toast = Some(Toast::new("Blank prefab sessions cannot be saved.", 2.5));
+            return;
+        }
 
-        let widgets: Vec<BoxedWidget> = vec![Box::new(move |ctx, _asset_manager| {
-            if let Some(result) = prompt.draw(ctx) {
-                // Write the result to the static thread local
-                NEW_GAME_PROMPT_RESULT.with(|c| *c.borrow_mut() = Some(result));
-            }
-        })];
-
-        self.modal.open(widgets);
-    }
-
-    fn open_rename_modal(&mut self, ctx: &mut WgpuContext) {
-        let prompt_message = match self.mode {
-            EditorMode::Game => "Rename game: ",
-            EditorMode::World(_) => "Rename world: ",
-            EditorMode::Room(_) => "Rename room: ",
-            EditorMode::Menu => "Rename menu: ",
+        let Some(staged_state) = self.active_prefab_staged_state() else {
+            return;
         };
 
-        let mut prompt = self.set_prompt_modal(ctx, prompt_message);
-
-        let widgets: Vec<BoxedWidget> = vec![Box::new(move |ctx, _| {
-            if let Some(result) = prompt.draw(ctx) {
-                // Write the result to the static thread local
-                RENAME_PROMPT_RESULT.with(|c| *c.borrow_mut() = Some(result));
+        match staged_state {
+            crate::prefab::prefab_editor::StagedPrefabState::PrefabAsset(prefab) => {
+                self.commit_prefab_asset_save(prefab);
             }
-        })];
-
-        self.modal.open(widgets);
-    }
-
-    fn open_save_as_modal(&mut self, ctx: &mut WgpuContext) {
-        let prompt_message = "Save as:";
-        let mut prompt = self.set_prompt_modal(ctx, prompt_message);
-
-        let widgets: Vec<BoxedWidget> = vec![Box::new(move |ctx, _| {
-            if let Some(result) = prompt.draw(ctx) {
-                // Write the result to the static thread local
-                SAVE_AS_PROMPT_RESULT.with(|c| *c.borrow_mut() = Some(result));
-            }
-        })];
-
-        self.modal.open(widgets);
-    }
-
-    fn set_prompt_modal(&mut self, ctx: &mut WgpuContext, prompt_message: &str) -> StringPrompt {
-        self.modal = Modal::new(ctx, 400.0, 180.0);
-        StringPrompt::new(self.modal.rect, prompt_message)
-    }
-
-    fn open_world_settings_modal(&mut self, ctx: &mut WgpuContext) {
-        self.modal = Modal::new(ctx, 300.0, 150.0);
-        let world = self.game.current_world();
-        let world_id = world.id;
-        let grid_size = world.grid_size;
-
-        let mut prompt =
-            WorldSettingsPrompt::new(world_id, self.modal.rect, WidgetId::default(), grid_size);
-
-        let widgets: Vec<BoxedWidget> = vec![Box::new(move |ctx, _| {
-            if let Some(result) = prompt.draw(ctx) {
-                WORLD_SETTINGS_RESULT.with(|c| *c.borrow_mut() = Some(result));
-            }
-        })];
-
-        self.modal.open(widgets);
-    }
-
-    fn open_export_overwrite_modal(&mut self, ctx: &WgpuContext, target_path: &std::path::Path) {
-        let target_name = target_path
-            .file_name()
-            .and_then(|name| name.to_str())
-            .unwrap_or("export");
-        let message = format!("Overwrite existing export '{target_name}'?");
-        self.modal =
-            Modal::open_confirm_modal_with_message(ctx, &EXPORT_OVERWRITE_RESULT, message);
-    }
-
-    fn begin_export(&mut self, ctx: &mut WgpuContext) {
-        #[cfg(not(target_arch = "wasm32"))]
-        {
-            use rfd::FileDialog;
-
-            let Some(dest_root) = FileDialog::new()
-                .set_title("Select destination folder for export:")
-                .pick_folder()
-            else {
-                return;
-            };
-
-            let target_path = export_target_path(&dest_root, &self.game);
-            if target_path.exists() {
-                self.pending_export = Some(PendingExport {
-                    dest_root,
-                });
-                self.open_export_overwrite_modal(ctx, &target_path);
-                return;
-            }
-
-            self.finish_export(&dest_root);
-        }
-
-        #[cfg(target_arch = "wasm32")]
-        {
-            self.toast = Some(Toast::new("Folder picker unavailable in WASM", 2.5));
-        }
-    }
-
-    fn finish_export(&mut self, dest_root: &std::path::Path) {
-        match export_game(dest_root, &self.game) {
-            Ok(path) => {
-                self.toast = Some(Toast::new(format!("Exported to: {}", path.display()), 2.5));
-            }
-            Err(e) => {
-                onscreen_error!("Export failed: {e}");
+            crate::prefab::prefab_editor::StagedPrefabState::Empty => {
+                if !self.active_prefab_is_clean() {
+                    self.open_empty_prefab_save_modal(ctx);
+                }
             }
         }
     }
 
-    pub fn handle_modal(&mut self, ctx: &mut WgpuContext) -> Option<ModalResult> {
-        if self.modal.is_open() {
-            // Outside‑click handling
-            if self.modal.draw(ctx, &mut self.game.asset_manager) {
-                if self.pending_export.take().is_some() {
-                    EXPORT_OVERWRITE_RESULT.with(|c| *c.borrow_mut() = None);
-                    self.toast = Some(Toast::new("Export cancelled.", 2.5));
-                }
-                // Clear any pending results
-                NEW_GAME_PROMPT_RESULT.with(|c| *c.borrow_mut() = None);
-                return Some(ModalResult::ClickedOutside);
-            }
-
-            // New game name prompt
-            let new_game_prompt_opt = NEW_GAME_PROMPT_RESULT.with(|c| c.borrow_mut().take());
-
-            if let Some(result) = new_game_prompt_opt {
-                match result {
-                    StringPromptResult::Confirmed(name) => {
-                        // Validation
-                        if name.trim().is_empty() {
-                            self.toast = Some(Toast::new("Name cannot be empty", 2.0));
-                            return None;
-                        } else {
-                            if self.duplicate_game_exists(&name) {
-                                return None;
-                            }
-                            // Create the new game
-                            let new_game = create_new_game(name.clone());
-                            self.reset(ctx, new_game);
-                            self.modal.close();
-                            return Some(ModalResult::String(name));
-                        }
-                    }
-                    StringPromptResult::Cancelled => {
-                        self.modal.close();
-                        return None;
-                    }
-                }
-            }
-
-            // Rename game name prompt
-            let rename_prompt_opt = RENAME_PROMPT_RESULT.with(|c| c.borrow_mut().take());
-
-            if let Some(result) = rename_prompt_opt {
-                match result {
-                    StringPromptResult::Confirmed(name) => {
-                        match self.mode {
-                            EditorMode::Game => {
-                                if self.duplicate_game_exists(&name) {
-                                    return None;
-                                }
-                                push_command(Box::new(RenameGameCmd::new(
-                                    name,
-                                    self.game.name.clone(),
-                                )))
-                            }
-                            EditorMode::World(_) => self.game.current_world_mut().name = name,
-                            EditorMode::Room(id) => {
-                                if let Some(room) = self.game.current_world_mut().get_room_mut(id) {
-                                    room.name = name;
-                                }
-                            }
-                            EditorMode::Menu => {}
-                        }
-                        self.modal.close();
-                    }
-                    StringPromptResult::Cancelled => {
-                        self.modal.close();
-                        return None;
-                    }
-                }
-            }
-
-            // Save as prompt
-            let save_as_prompt_opt = SAVE_AS_PROMPT_RESULT.with(|c| c.borrow_mut().take());
-
-            if let Some(result) = save_as_prompt_opt {
-                match result {
-                    StringPromptResult::Confirmed(name) => {
-                        if self.duplicate_game_exists(&name) {
-                            return None;
-                        }
-                        match save_as(&mut self.game, &name) {
-                            Ok(()) => self.save(),
-                            Err(err) => {
-                                self.toast =
-                                    Some(Toast::new(format!("Failed to save game: {err}"), 3.0));
-                            }
-                        }
-                        self.modal.close();
-                    }
-                    StringPromptResult::Cancelled => {
-                        self.modal.close();
-                        return None;
-                    }
-                }
-            }
-
-            // World settings prompt
-            let world_settings_opt = WORLD_SETTINGS_RESULT.with(|c| c.borrow_mut().take());
-
-            if let Some(result) = world_settings_opt {
-                if let Some(new_grid_size) = result.grid_size {
-                    let old_grid_size = self.game.get_world_mut(result.id).grid_size;
-                    push_command(Box::new(ChangeGridSizeCmd::new(
-                        result.id,
-                        old_grid_size,
-                        new_grid_size,
-                    )));
-                }
-                self.modal.close();
-            }
-
-            let export_overwrite_opt = EXPORT_OVERWRITE_RESULT.with(|c| c.borrow_mut().take());
-
-            if let Some(result) = export_overwrite_opt {
-                match result {
-                    ConfirmPromptResult::Confirmed => {
-                        if let Some(pending_export) = self.pending_export.take() {
-                            self.finish_export(&pending_export.dest_root);
-                        }
-                    }
-                    ConfirmPromptResult::Cancelled => {
-                        self.pending_export = None;
-                        self.toast = Some(Toast::new("Export cancelled.", 2.5));
-                    }
-                }
-                self.modal.close();
-            }
+    pub(crate) fn request_exit_prefab_mode(&mut self, ctx: &WgpuContext) {
+        match self.request_prefab_transition(PendingPrefabTransition::Exit) {
+            PrefabTransitionPrompt::None => {}
+            PrefabTransitionPrompt::Dirty => self.open_dirty_prefab_exit_modal(ctx),
+            PrefabTransitionPrompt::Empty => self.open_empty_prefab_exit_modal(ctx),
         }
-        None
+    }
+
+    pub(crate) fn confirm_delete_prefab(&mut self) {
+        let Some(prefab_id) = self.active_persisted_prefab_id() else {
+            return;
+        };
+
+        push_command(Box::new(DeletePrefabCmd::new(
+            prefab_id,
+            EditorMode::Prefab(prefab_id),
+        )));
     }
 
     /// Updates and draws the toast to the screen.
@@ -574,6 +296,7 @@ impl Editor {
             camera: std::mem::take(&mut self.camera),
             ..Self::default()
         };
+        self.load_prefab_palette_state();
 
         // Render system always needs a resize after switch
         let cur_screen = (ctx.screen_width() as u32, ctx.screen_height() as u32);
@@ -590,23 +313,4 @@ impl Editor {
 
         game
     }
-
-    /// Returns `true` and creates a toast notification if a duplicate game name exists.
-    fn duplicate_game_exists(&mut self, name: &String) -> bool {
-        let duplicate_exists = list_game_names().iter().any(|existing| existing == name);
-
-        if duplicate_exists {
-            self.toast = Some(Toast::new(format!("\"{name}\" already exists."), 2.5));
-        };
-
-        duplicate_exists
-    }
-}
-
-thread_local! {
-    pub static NEW_GAME_PROMPT_RESULT: RefCell<Option<StringPromptResult>> = const { RefCell::new(None) };
-    pub static RENAME_PROMPT_RESULT: RefCell<Option<StringPromptResult>> = const { RefCell::new(None) };
-    pub static SAVE_AS_PROMPT_RESULT: RefCell<Option<StringPromptResult>> = const { RefCell::new(None) };
-    pub static WORLD_SETTINGS_RESULT: RefCell<Option<WorldSettingsResult>> = const { RefCell::new(None) };
-    pub static EXPORT_OVERWRITE_RESULT: RefCell<Option<ConfirmPromptResult>> = const { RefCell::new(None) };
 }

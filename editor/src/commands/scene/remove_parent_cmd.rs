@@ -1,6 +1,6 @@
-// editor/src/commands/room/remove_parent_cmd.rs
 use crate::app::EditorMode;
 use crate::commands::editor_command_manager::EditorCommand;
+use crate::commands::scene::context::with_scene_ecs;
 use crate::with_editor;
 use engine_core::ecs::entity::*;
 
@@ -24,18 +24,18 @@ impl RemoveParentCmd {
 
 impl EditorCommand for RemoveParentCmd {
     fn execute(&mut self) {
-        with_editor(|editor| {
-            let ecs = &mut editor.game.ecs;
-            remove_parent(ecs, self.child);
-        });
+        let mode = self.mode;
+        with_editor(|editor| with_scene_ecs(editor, mode, |ecs| remove_parent(ecs, self.child)));
     }
 
     fn undo(&mut self) {
+        let mode = self.mode;
         with_editor(|editor| {
-            let ecs = &mut editor.game.ecs;
-            if let Some(old_parent) = self.old_parent {
-                set_parent(ecs, self.child, old_parent);
-            }
+            with_scene_ecs(editor, mode, |ecs| {
+                if let Some(old_parent) = self.old_parent {
+                    set_parent(ecs, self.child, old_parent);
+                }
+            });
         });
     }
 

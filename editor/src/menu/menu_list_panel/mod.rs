@@ -54,9 +54,12 @@ impl MenuEditor {
             let new_btn_rect = Rect::new(content_x, y, btn_w, BUTTON_HEIGHT);
             let delete_btn_rect = Rect::new(content_x + btn_w + 8.0, y, btn_w, BUTTON_HEIGHT);
 
-            let new_clicked = Button::new(new_btn_rect, "New").blocked(blocked).show(ctx);
+            let new_clicked = Button::new(new_btn_rect, "New")
+                .suppressed(blocked)
+                .show(ctx);
             let delete_clicked = Button::new(delete_btn_rect, "Delete")
-                .blocked(blocked || self.current_template_index.is_none())
+                .suppressed(blocked)
+                .blocked(self.current_template_index.is_none())
                 .show(ctx);
 
             if new_clicked {
@@ -90,7 +93,7 @@ impl MenuEditor {
                 .show(ctx);
                 self.menu_list_panel.new_menu_name = new_text;
 
-                let cancel_clicked = Button::new(cancel_rect, "×").blocked(blocked).show(ctx);
+                let cancel_clicked = Button::new(cancel_rect, "×").suppressed(blocked).show(ctx);
 
                 let name_trimmed = self.menu_list_panel.new_menu_name.trim();
                 let duplicate = self.templates.iter().any(|t| t.id == name_trimmed);

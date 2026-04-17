@@ -1,6 +1,6 @@
 use crate::audio::command_queue::{AudioCommand, push_audio_command};
 use crate::ecs::entity::Entity;
-use crate::game::GameCtxMut;
+use crate::game::EngineCtxMut;
 use ecs_component::ecs_component;
 use serde::ser::SerializeStruct;
 use serde::{Deserialize, Serialize};
@@ -232,21 +232,29 @@ struct AudioSourceSerde {
     groups: HashMap<SoundGroupId, AudioGroup>,
 }
 
-fn post_create(source: &mut AudioSource, _entity: &Entity, _ctx: &mut GameCtxMut) {
+fn post_create(source: &mut AudioSource, _entity: &Entity, _ctx: &mut dyn EngineCtxMut) {
     push_audio_command(AudioCommand::IncrementRefs(source.all_sound_ids()));
 }
 
-fn post_remove(source: &mut AudioSource, entity: &Entity, _ctx: &mut GameCtxMut) {
+fn post_remove(source: &mut AudioSource, entity: &Entity, _ctx: &mut dyn EngineCtxMut) {
     push_audio_command(AudioCommand::StopLoop(**entity as u64));
     push_audio_command(AudioCommand::DecrementRefs(source.all_sound_ids()));
 }
 
 #[cfg(test)]
-pub(crate) fn test_post_create(source: &mut AudioSource, entity: &Entity, ctx: &mut GameCtxMut) {
+pub(crate) fn test_post_create(
+    source: &mut AudioSource,
+    entity: &Entity,
+    ctx: &mut dyn EngineCtxMut,
+) {
     post_create(source, entity, ctx);
 }
 
 #[cfg(test)]
-pub(crate) fn test_post_remove(source: &mut AudioSource, entity: &Entity, ctx: &mut GameCtxMut) {
+pub(crate) fn test_post_remove(
+    source: &mut AudioSource,
+    entity: &Entity,
+    ctx: &mut dyn EngineCtxMut,
+) {
     post_remove(source, entity, ctx);
 }

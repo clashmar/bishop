@@ -41,6 +41,38 @@ fn clear_filter(id: WidgetId) {
     });
 }
 
+fn has_filter_state(id: WidgetId) -> bool {
+    DROPDOWN_FILTER_STATE.with(|s| s.borrow().contains_key(&id))
+}
+
+fn filter_input_id(id: WidgetId) -> WidgetId {
+    WidgetId(id.0.wrapping_add(FILTER_ID_OFFSET))
+}
+
+fn clear_filter_state(id: WidgetId) {
+    set_filter(id, String::new());
+    text_input_reset(filter_input_id(id));
+}
+
+pub fn close_open_dropdowns() {
+    dropdown_state::STATE.with(|state| {
+        DROPDOWN_FILTER_STATE.with(|filters| {
+            let live_ids: Vec<_> = state.borrow().keys().copied().collect();
+            filters.borrow_mut().retain(|id, _| live_ids.contains(id));
+        });
+    });
+
+    dropdown_state::STATE.with(|state| {
+        for (id, dropdown) in state.borrow_mut().iter_mut() {
+            if dropdown.open && has_filter_state(*id) {
+                clear_filter_state(*id);
+            }
+            dropdown.open = false;
+        }
+    });
+    update_global_dropdown_flag();
+}
+
 fn dropdown_entry_click_target(id: WidgetId, index: usize, salt: u64) -> ClickTargetId {
     ClickTargetId(((id.0 as u64) << 32) ^ index as u64 ^ salt)
 }
@@ -93,6 +125,7 @@ pub struct Dropdown<'a, T> {
     label_font_size: f32,
     y_offset: f32,
     blocked: bool,
+    suppressed: bool,
     fixed_width: bool,
     filterable: bool,
     alignment: DropDownAlignment,
@@ -120,6 +153,7 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
             label_font_size: FIELD_TEXT_SIZE_16,
             y_offset: 0.0,
             blocked: false,
+            suppressed: false,
             fixed_width: false,
             filterable: false,
             alignment: DropDownAlignment::Left,
@@ -167,6 +201,12 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
         self
     }
 
+    /// Sets whether the dropdown trigger is transiently suppressed without blocked visuals.
+    pub fn suppressed(mut self, suppressed: bool) -> Self {
+        self.suppressed = suppressed;
+        self
+    }
+
     /// Clamps the dropdown list width to match the parent button.
     pub fn fixed_width(mut self) -> Self {
         self.fixed_width = true;
@@ -205,9 +245,15 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
         const W_PADDING: f32 = 8.0;
         const SCROLLBAR_WIDTH: f32 = 6.0;
 
+        if self.filterable {
+            set_filter(self.id, get_filter(self.id));
+        } else {
+            clear_filter(self.id);
+        }
+
         let mut state = dropdown_state::get(self.id);
 
-        let prev_state = state.open;
+        let prev_state = state.open && !self.suppressed;
         state.open = false;
         dropdown_state::set(self.id, state);
         update_global_dropdown_flag();
@@ -228,18 +274,24 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
         let button_clicked = match self.style {
             DropDownStyle::Default => {
                 Button::new(self.rect, display_label)
+                    .text_offset(Vec2::new(0.0, -1.0))
                     .blocked(self.blocked)
+                    .suppressed(self.suppressed)
                     .show(ctx)
                     && !self.blocked
+                    && !self.suppressed
             }
             DropDownStyle::Plain => {
                 Button::new(self.rect, display_label)
                     .plain()
                     .text_color(self.text_color)
                     .font_size(self.label_font_size)
+                    .text_offset(Vec2::new(0.0, -1.0))
                     .blocked(self.blocked)
+                    .suppressed(self.suppressed)
                     .show(ctx)
                     && !self.blocked
+                    && !self.suppressed
             }
         };
 
@@ -251,7 +303,7 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
             consume_click();
             state.open = !state.open;
             if self.filterable && !state.open {
-                clear_filter(self.id);
+                clear_filter_state(self.id);
             }
         }
 
@@ -381,7 +433,7 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
         {
             state.open = false;
             if self.filterable {
-                clear_filter(self.id);
+                clear_filter_state(self.id);
             }
         }
 
@@ -512,7 +564,7 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
                 ctx.is_mouse_button_released(MouseButton::Left),
             ) {
                 state.open = false;
-                clear_filter(self.id);
+                clear_filter_state(self.id);
                 dropdown_state::set(self.id, *state);
                 update_global_dropdown_flag();
                 result = Some((*opt).clone());
@@ -660,21 +712,11 @@ pub mod dropdown_state {
     }
 
     /// The state of a dropdown widget.
-    #[derive(Clone, Copy)]
+    #[derive(Clone, Copy, Default)]
     pub struct DropState {
         pub open: bool,
         pub rect: Rect,
         pub scroll_offset: f32,
-    }
-
-    impl Default for DropState {
-        fn default() -> Self {
-            Self {
-                open: false,
-                rect: Rect::default(),
-                scroll_offset: 0.,
-            }
-        }
     }
 
     /// Gets the state for a dropdown by id.
@@ -708,3 +750,6 @@ pub fn is_mouse_over_dropdown_list<C: BishopContext>(ctx: &C) -> bool {
             .any(|st| st.open && st.rect.contains(mouse_vec))
     })
 }
+
+#[cfg(test)]
+mod tests;

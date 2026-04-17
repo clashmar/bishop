@@ -2,3 +2,9 @@
 pub const BUTTON_W: f32 = 80.0;
 pub const BUTTON_H: f32 = 30.0;
 pub const FIELD_H: f32 = 30.0;
+pub const PROMPT_CONTENT_WIDTH_RATIO: f32 = 0.8;
+pub const PROMPT_TOP_PADDING: f32 = 12.0;
+pub const PROMPT_TEXT_GAP: f32 = 12.0;
+pub const PROMPT_SECTION_GAP: f32 = 16.0;
+pub const PROMPT_ACTION_GAP: f32 = 14.0;
+pub const PROMPT_BOTTOM_PADDING: f32 = 16.0;

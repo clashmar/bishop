@@ -8,6 +8,7 @@ use std::collections::HashMap;
 #[derive(Default)]
 pub struct ScriptModule {
     field_ids: HashMap<String, WidgetId>,
+    picker_id: WidgetId,
     fields_len: usize,
 }
 
@@ -30,7 +31,7 @@ impl InspectorModule for ScriptModule {
         true
     }
 
-    fn remove(&mut self, game_ctx: &mut GameCtxMut, entity: Entity) {
+    fn remove(&mut self, game_ctx: &mut ServicesCtxMut, entity: Entity) {
         Ecs::remove_component::<Script>(game_ctx, entity);
     }
 
@@ -39,7 +40,7 @@ impl InspectorModule for ScriptModule {
         ctx: &mut WgpuContext,
         blocked: bool,
         rect: Rect,
-        game_ctx: &mut GameCtxMut,
+        game_ctx: &mut ServicesCtxMut,
         entity: Entity,
     ) {
         let ecs = &mut game_ctx.ecs;
@@ -85,6 +86,7 @@ impl InspectorModule for ScriptModule {
         if gui_script_picker(
             ctx,
             picker_rect,
+            self.picker_id,
             entity,
             &mut script_comp.script_id,
             script_manager,
@@ -100,7 +102,7 @@ impl InspectorModule for ScriptModule {
         // Refresh button
         if Button::icon(refresh_rect, refresh_icon(), "refresh_script")
             .icon_padding(5.0)
-            .blocked(blocked)
+            .suppressed(blocked)
             .show(ctx)
         {
             if script_comp.script_id == ScriptId(0) {
@@ -178,7 +180,7 @@ impl InspectorModule for ScriptModule {
                         DEFAULT_CHECKBOX_DIMS,
                         DEFAULT_CHECKBOX_DIMS,
                     );
-                    if gui_checkbox(ctx, cb_rect, v) && !blocked {
+                    if gui_checkbox(ctx, cb_rect, v, blocked) {
                         changed = true;
                     }
                 }

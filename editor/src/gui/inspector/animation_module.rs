@@ -25,6 +25,7 @@ pub struct AnimationModule {
     pending_rename: bool,
     rename_initial_value: String,
     has_clips: bool,
+    variant_picker_id: WidgetId,
     select_dropdown_id: WidgetId,
     set_dropdown_id: WidgetId,
     rename_field_id: WidgetId,
@@ -50,7 +51,7 @@ impl InspectorModule for AnimationModule {
         true
     }
 
-    fn remove(&mut self, game_ctx: &mut GameCtxMut, entity: Entity) {
+    fn remove(&mut self, game_ctx: &mut ServicesCtxMut, entity: Entity) {
         Ecs::remove_component::<Animation>(game_ctx, entity);
         Ecs::remove_component::<CurrentFrame>(game_ctx, entity);
     }
@@ -60,12 +61,12 @@ impl InspectorModule for AnimationModule {
         ctx: &mut WgpuContext,
         blocked: bool,
         rect: Rect,
-        game_ctx: &mut GameCtxMut,
+        game_ctx: &mut ServicesCtxMut,
         entity: Entity,
     ) {
         let ecs = &mut game_ctx.ecs;
 
-        let asset_manager = &mut game_ctx.asset_manager;
+        let sprite_manager = &mut game_ctx.sprite_manager;
 
         let mut variant_changed = false;
         let mut clip_removed = false;
@@ -101,7 +102,10 @@ impl InspectorModule for AnimationModule {
 
         // Add clip button
         let mut clip_added = false;
-        if Button::new(add_rect, ADD_LABEL).blocked(blocked).show(ctx) {
+        if Button::new(add_rect, ADD_LABEL)
+            .suppressed(blocked)
+            .show(ctx)
+        {
             let new_id = if animation.clips.is_empty() {
                 ClipId::Idle
             } else {
@@ -126,7 +130,8 @@ impl InspectorModule for AnimationModule {
         // Remove clip button
         let can_remove = animation.current.is_some();
         if Button::new(remove_rect, REMOVE_LABEL)
-            .blocked(blocked || !can_remove)
+            .suppressed(blocked)
+            .blocked(!can_remove)
             .show(ctx)
         {
             if let Some(current_id) = animation.current.take() {
@@ -167,14 +172,15 @@ impl InspectorModule for AnimationModule {
                 "Choose Variant"
             },
         )
-        .blocked(blocked)
-        .show(ctx)
+        .interaction_id(self.variant_picker_id)
+        .suppressed(blocked)
+        .show_native_dialog(ctx)
         {
             if let Some(path) = rfd::FileDialog::new()
                 .set_directory(assets_folder())
                 .pick_folder()
             {
-                let normalized_path = asset_manager.normalize_path(path);
+                let normalized_path = sprite_manager.normalize_path(path);
                 animation.variant = VariantFolder(normalized_path);
                 variant_changed = true;
             }
@@ -258,7 +264,8 @@ impl InspectorModule for AnimationModule {
 
             // Import JSON button - imports metadata for the current clip only
             if Button::new(import_json_btn, JSON_LABEL)
-                .blocked(blocked || !has_variant)
+                .suppressed(blocked)
+                .blocked(!has_variant)
                 .show(ctx)
             {
                 let json_path = resolve_json_path(&animation.variant, &current_clip_id);
@@ -284,7 +291,8 @@ impl InspectorModule for AnimationModule {
 
             // Import Variant button - one-click full import from Aseprite files
             if Button::new(import_variant_btn, VARIANT_LABEL)
-                .blocked(blocked || !has_variant)
+                .suppressed(blocked)
+                .blocked(!has_variant)
                 .show(ctx)
             {
                 let full_path = assets_folder().join(&animation.variant.0);
@@ -328,7 +336,7 @@ impl InspectorModule for AnimationModule {
                         // Refresh sprite cache after importing
                         let has_variant_folder = !animation.variant.0.as_os_str().is_empty();
                         if has_variant_folder {
-                            animation.refresh_sprite_cache(ctx, asset_manager);
+                            animation.refresh_sprite_cache(ctx, sprite_manager);
                             animation.init_runtime();
                         }
                     }
@@ -346,9 +354,9 @@ impl InspectorModule for AnimationModule {
         let has_variant = !animation.variant.0.as_os_str().is_empty();
         if variant_changed || clip_added || clip_removed || clip_renamed {
             if has_variant {
-                animation.refresh_sprite_cache(ctx, asset_manager);
+                animation.refresh_sprite_cache(ctx, sprite_manager);
             } else if clip_removed || clip_renamed {
-                animation.clear_sprite_cache(asset_manager);
+                animation.clear_sprite_cache(sprite_manager);
             }
         }
     }
@@ -393,7 +401,7 @@ pub fn draw_current_clip_dropdowns(
         &existing_clip_ids(&animation.clips),
         |id| id.ui_label(),
     )
-    .blocked(blocked)
+    .suppressed(blocked)
     .show(ctx)
     {
         animation.set_clip(&selected);
@@ -413,7 +421,7 @@ pub fn draw_current_clip_dropdowns(
         &all_ids,
         |id| id.ui_label(),
     )
-    .blocked(blocked)
+    .suppressed(blocked)
     .show(ctx);
 
     if let Some(chosen) = chosen {
@@ -587,7 +595,7 @@ pub fn draw_fps_loop_and_mirrored(
     clip.fps = NumberInput::new(module.fps_id, inp_fps, clip.fps)
         .blocked(blocked)
         .show(ctx);
-    gui_checkbox(ctx, inp_loop, &mut clip.looping);
+    gui_checkbox(ctx, inp_loop, &mut clip.looping, blocked);
 
     // Mirrored checkbox
     let mirrored_label = "Mirror:";
@@ -607,7 +615,7 @@ pub fn draw_fps_loop_and_mirrored(
         CHECKBOX_SIZE,
         CHECKBOX_SIZE,
     );
-    gui_checkbox(ctx, inp_mirrored, &mut clip.mirrored);
+    gui_checkbox(ctx, inp_mirrored, &mut clip.mirrored, blocked);
 }
 
 pub fn draw_offset_fields(

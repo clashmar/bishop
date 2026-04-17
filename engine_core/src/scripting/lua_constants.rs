@@ -3,9 +3,11 @@
 /// Generated filenames
 pub const MAIN_FILE: &str = "main.lua";
 pub const ENGINE_FILE: &str = "engine.lua";
+pub const COMPONENTS_FILE: &str = "components.lua";
 pub const ENTITY_FILE: &str = "entity.lua";
 pub const ANIMATIONS_FILE: &str = "animations.lua";
 pub const SOUNDS_FILE: &str = "sounds.lua";
+pub const PREFABS_FILE: &str = "prefabs.lua";
 /// Ownership marker for shared `_engine` Lua scripts managed by sync tooling.
 pub const LUA_OWNER_SHARED_ENGINE: &str = "-- bishop-owner: shared-engine";
 /// Ownership marker for per-game generated `_engine` Lua scripts.
@@ -22,6 +24,10 @@ pub const SCRIPTS_DIR: &str = "scripts";
 
 /// Field name for script public fields.
 pub const PUBLIC: &str = "public";
+pub const POSITION: &str = "position";
+pub const X: &str = "x";
+pub const Y: &str = "y";
+pub const Z: &str = "z";
 
 // _engine APIS
 pub const ENGINE: &str = "engine";
@@ -31,6 +37,8 @@ pub const ENGINE_ON: &str = "on";
 pub const ENGINE_EMIT: &str = "emit";
 pub const INPUT: &str = "input";
 pub const LOG: &str = "log";
+pub const PREFAB: &str = "prefab";
+pub const SPAWN: &str = "spawn";
 
 // Entity methods
 pub const UPDATE: &str = "update";

@@ -1,7 +1,8 @@
 // editor/src/gui/inspector/modal.rs
 use crate::gui::prompts::confirm_prompt::*;
+use crate::gui::prompts::constants::*;
 use bishop::prelude::*;
-use engine_core::assets::asset_manager::AssetManager;
+use engine_core::prelude::*;
 use std::{cell::RefCell, thread::LocalKey};
 
 #[derive(Default)]
@@ -23,7 +24,12 @@ pub fn is_modal_open() -> bool {
     MODAL_OPEN.with(|f| *f.borrow())
 }
 
-pub type BoxedWidget = Box<dyn FnMut(&mut WgpuContext, &mut AssetManager) + 'static>;
+#[cfg(test)]
+pub fn set_modal_open_for_test(open: bool) {
+    MODAL_OPEN.with(|f| *f.borrow_mut() = open);
+}
+
+pub type BoxedWidget = Box<dyn FnMut(&mut WgpuContext, &mut SpriteManager) + 'static>;
 type BoxedWidgets = Vec<BoxedWidget>;
 
 /// Used by callers of a a modal to decide what should happen if
@@ -54,6 +60,7 @@ impl Modal {
 
     /// Open the modal and set draw callbacks.
     pub fn open(&mut self, callbacks: Vec<BoxedWidget>) {
+        close_open_dropdowns();
         self.open = true;
         self.widgets = callbacks;
         self.just_opened = true;
@@ -66,6 +73,7 @@ impl Modal {
 
     /// Close the modal.
     pub fn close(&mut self) {
+        close_open_dropdowns();
         self.open = false;
         self.widgets = Vec::new();
 
@@ -82,7 +90,7 @@ impl Modal {
 
     /// Render the modal. Returns `true`` when the user clicked outside the window.
     /// Needs asset manager for widgets that need to access assets.
-    pub fn draw(&mut self, ctx: &mut WgpuContext, asset_manager: &mut AssetManager) -> bool {
+    pub fn draw(&mut self, ctx: &mut WgpuContext, sprite_manager: &mut SpriteManager) -> bool {
         if !self.open {
             return false;
         }
@@ -122,13 +130,13 @@ impl Modal {
 
         // Run all widgets
         for widget in self.widgets.iter_mut() {
-            widget.as_mut()(ctx, asset_manager);
+            widget.as_mut()(ctx, sprite_manager);
         }
 
         // Detect a click outside the window
         if ctx.is_mouse_button_pressed(MouseButton::Left) {
             let mouse = ctx.mouse_position().into();
-            if !self.rect.contains(mouse) {
+            if !modal_hit_region_contains(self.rect, mouse) {
                 return true;
             }
         }
@@ -151,7 +159,8 @@ impl Modal {
         result_store: &'static LocalKey<RefCell<Option<ConfirmPromptResult>>>,
         prompt_message: impl Into<String>,
     ) -> Modal {
-        let mut modal = Modal::new(ctx, 300.0, 120.0);
+        let prompt_message = prompt_message.into();
+        let mut modal = Modal::new(ctx, confirm_modal_width(ctx, &prompt_message), 120.0);
         let mut prompt = ConfirmPrompt::new(modal.rect, prompt_message);
 
         let widgets: Vec<BoxedWidget> = vec![Box::new(move |ctx, _| {
@@ -163,5 +172,101 @@ impl Modal {
 
         modal.open(widgets);
         modal
+    }
+}
+
+fn confirm_modal_width(ctx: &WgpuContext, message: &str) -> f32 {
+    const MIN_MODAL_WIDTH: f32 = 300.0;
+    const SCREEN_MARGIN: f32 = 40.0;
+    const MESSAGE_WIDTH_BUFFER: f32 = 48.0;
+
+    let minimum_button_layout_width =
+        (BUTTON_W * 2.0 + PROMPT_ACTION_GAP * 3.0) / PROMPT_CONTENT_WIDTH_RATIO;
+    let minimum_modal_width = MIN_MODAL_WIDTH.max(minimum_button_layout_width);
+
+    let message_width = measure_text(ctx, message, DEFAULT_FONT_SIZE_16).width;
+    let content_width = message_width + MESSAGE_WIDTH_BUFFER;
+    let modal_width = content_width / PROMPT_CONTENT_WIDTH_RATIO;
+    let max_modal_width = (ctx.screen_width() - SCREEN_MARGIN).max(minimum_modal_width);
+
+    modal_width.clamp(minimum_modal_width, max_modal_width)
+}
+
+fn modal_hit_region_contains(modal_rect: Rect, point: Vec2) -> bool {
+    modal_rect.contains(point)
+        || dropdown_state::STATE.with(|state| {
+            state
+                .borrow()
+                .values()
+                .any(|dropdown| dropdown.open && dropdown.rect.contains(point))
+        })
+}
+
+fn close_open_dropdowns() {
+    dropdown_state::STATE.with(|state| {
+        for dropdown in state.borrow_mut().values_mut() {
+            dropdown.open = false;
+        }
+    });
+    update_global_dropdown_flag();
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn closing_modal_clears_open_dropdown_state() {
+        let dropdown_id = WidgetId::default();
+        dropdown_state::set(
+            dropdown_id,
+            dropdown_state::DropState {
+                open: true,
+                rect: Rect::new(120.0, 240.0, 160.0, 100.0),
+                scroll_offset: 0.0,
+            },
+        );
+        update_global_dropdown_flag();
+
+        assert!(is_dropdown_open());
+
+        let mut modal = Modal {
+            open: true,
+            ..Default::default()
+        };
+        modal.close();
+
+        assert!(!is_dropdown_open());
+
+        dropdown_state::set(dropdown_id, dropdown_state::DropState::default());
+        update_global_dropdown_flag();
+    }
+
+    #[test]
+    fn modal_hit_region_includes_open_dropdown_lists() {
+        let modal_rect = Rect::new(100.0, 100.0, 200.0, 120.0);
+        let dropdown_rect = Rect::new(120.0, 240.0, 160.0, 100.0);
+        let dropdown_id = WidgetId::default();
+
+        dropdown_state::set(
+            dropdown_id,
+            dropdown_state::DropState {
+                open: true,
+                rect: dropdown_rect,
+                scroll_offset: 0.0,
+            },
+        );
+
+        assert!(modal_hit_region_contains(
+            modal_rect,
+            Vec2::new(140.0, 260.0)
+        ));
+        assert!(!modal_hit_region_contains(
+            modal_rect,
+            Vec2::new(40.0, 40.0)
+        ));
+
+        dropdown_state::set(dropdown_id, dropdown_state::DropState::default());
+        update_global_dropdown_flag();
     }
 }

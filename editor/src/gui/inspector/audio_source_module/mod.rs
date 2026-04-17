@@ -28,6 +28,7 @@ pub struct AudioSourceModule {
     assign_dropdown_id: WidgetId,
     rename_field_id: WidgetId,
     preset_action_dropdown_id: WidgetId,
+    add_sound_button_id: WidgetId,
     volume_id: WidgetId,
     pitch_id: WidgetId,
     volume_var_id: WidgetId,
@@ -51,7 +52,7 @@ impl InspectorModule for AudioSourceModule {
         true
     }
 
-    fn remove(&mut self, game_ctx: &mut GameCtxMut, entity: Entity) {
+    fn remove(&mut self, game_ctx: &mut ServicesCtxMut, entity: Entity) {
         clear_active_audio_preview();
         Ecs::remove_component::<AudioSource>(game_ctx, entity);
     }
@@ -70,7 +71,7 @@ impl InspectorModule for AudioSourceModule {
         ctx: &mut WgpuContext,
         blocked: bool,
         rect: Rect,
-        game_ctx: &mut GameCtxMut,
+        game_ctx: &mut ServicesCtxMut,
         entity: Entity,
     ) {
         tick_active_audio_preview(ctx.get_frame_time());
@@ -160,7 +161,7 @@ impl InspectorModule for AudioSourceModule {
                 )
                 .fixed_width()
                 .right_aligned()
-                .blocked(blocked)
+                .suppressed(blocked)
                 .show(ctx)
                 {
                     if let Some(message) =
@@ -178,8 +179,9 @@ impl InspectorModule for AudioSourceModule {
             let status_rect = Rect::new(x, y, half_w, ROW_HEIGHT);
             let add_rect = Rect::new(x + half_w + SPACING, y, half_w, ROW_HEIGHT);
             if Button::new(add_rect, "Add Sound")
-                .blocked(blocked)
-                .show(ctx)
+                .interaction_id(self.add_sound_button_id)
+                .suppressed(blocked)
+                .show_native_dialog(ctx)
             {
                 #[cfg(not(target_arch = "wasm32"))]
                 if let Some(path) = rfd::FileDialog::new()
@@ -254,13 +256,14 @@ impl InspectorModule for AudioSourceModule {
                 );
 
                 if Button::new(preview_rect, "Test")
-                    .blocked(blocked || preview_group.is_none())
+                    .suppressed(blocked)
+                    .blocked(preview_group.is_none())
                     .show(ctx)
                 {
                     preview_request = Some(PreviewRequest::new(index, sound.clone()));
                 }
 
-                if Button::new(remove_rect, "x").blocked(blocked).show(ctx) {
+                if Button::new(remove_rect, "x").suppressed(blocked).show(ctx) {
                     remove_idx = Some(index);
                 }
                 y += ROW_HEIGHT + EDIT_SECTION_SPACING;
@@ -370,9 +373,7 @@ impl InspectorModule for AudioSourceModule {
                     DEFAULT_CHECKBOX_DIMS,
                     DEFAULT_CHECKBOX_DIMS,
                 );
-                if !blocked {
-                    gui_checkbox(ctx, cb_rect, &mut group.looping);
-                }
+                gui_checkbox(ctx, cb_rect, &mut group.looping, blocked);
             }
         }
 

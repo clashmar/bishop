@@ -1,4 +1,5 @@
 // editor/src/gui/prompts/world_settings_prompt.rs
+use crate::app::escape::modal_escape_requested;
 use crate::gui::prompts::constants::*;
 use crate::gui::prompts::helpers::*;
 use bishop::prelude::*;
@@ -29,13 +30,14 @@ impl WorldSettingsPrompt {
         grid_size_id: WidgetId,
         og_grid_size: f32,
     ) -> Self {
-        let inner_w = modal_rect.w * 0.8;
-        let inner_x = modal_rect.x + (modal_rect.w - inner_w) / 2.0;
-
-        let total_h = modal_rect.h * 1.225;
-        let inner_y = modal_rect.y + (total_h - modal_rect.h);
-
-        let rect = Rect::new(inner_x, inner_y, inner_w, total_h);
+        let total_h = PROMPT_TOP_PADDING
+            + DEFAULT_FONT_SIZE_16
+            + PROMPT_TEXT_GAP
+            + FIELD_H
+            + PROMPT_SECTION_GAP
+            + BUTTON_H
+            + PROMPT_BOTTOM_PADDING;
+        let rect = prompt_content_rect(modal_rect, total_h);
 
         Self {
             world_id,
@@ -48,21 +50,12 @@ impl WorldSettingsPrompt {
 
     /// Draws the widget and, return the result if confirmed/cancelled or None.
     pub fn draw(&mut self, ctx: &mut WgpuContext) -> Option<WorldSettingsResult> {
-        const GAP: f32 = 5.0;
-        const FIELD_GAP: f32 = 30.0;
-
-        let mut y = self.rect.y;
+        let mut y = self.rect.y + PROMPT_TOP_PADDING;
 
         // Grid size label
-        let label_dims = ctx.draw_text(
-            "Grid Size:",
-            self.rect.x,
-            y,
-            DEFAULT_FONT_SIZE_16,
-            Color::WHITE,
-        );
+        let label_dims = draw_prompt_label(ctx, "Grid Size:", self.rect.x, y);
 
-        y += label_dims.height + GAP;
+        y += label_dims.height + PROMPT_TEXT_GAP;
 
         // Grid size field
         let grid_size_rect = Rect::new(self.rect.x, y, self.rect.w, FIELD_H);
@@ -73,7 +66,7 @@ impl WorldSettingsPrompt {
                 .show(ctx);
         self.current_grid_size = new_grid_size;
 
-        y += grid_size_rect.h + FIELD_GAP;
+        y += grid_size_rect.h + PROMPT_SECTION_GAP;
 
         // Buttons
         let (confirm_rect, cancel_rect) = confirm_cancel_rects(self.rect, y);
@@ -93,7 +86,7 @@ impl WorldSettingsPrompt {
             });
         }
 
-        if cancel_clicked || Controls::escape(ctx) {
+        if cancel_clicked || modal_escape_requested() {
             return Some(WorldSettingsResult {
                 id: self.world_id,
                 grid_size: None,

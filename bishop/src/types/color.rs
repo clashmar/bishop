@@ -37,6 +37,7 @@ impl Color {
     pub const SKYBLUE: Color = Color::new(0.40, 0.75, 1.00, 1.00);
     pub const BLUE: Color = Color::new(0.00, 0.47, 0.95, 1.00);
     pub const DARKBLUE: Color = Color::new(0.00, 0.32, 0.67, 1.00);
+    pub const BISHOP_BLUE: Color = Color::new(0.13, 0.13, 0.20, 1.00);
     pub const PURPLE: Color = Color::new(0.78, 0.48, 1.00, 1.00);
     pub const VIOLET: Color = Color::new(0.53, 0.24, 0.75, 1.00);
     pub const DARKPURPLE: Color = Color::new(0.44, 0.12, 0.49, 1.00);

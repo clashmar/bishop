@@ -1,16 +1,22 @@
 // editor/src/room/drawing.rs
+use crate::app::EditorMode;
 use crate::app::camera_controller::*;
 use crate::editor_assets::assets::camera_icon;
 use crate::gui::gui_constants::*;
 use crate::gui::menu_bar::*;
 use crate::gui::mode_selector::*;
+use crate::room::prefab_preview::{build_prefab_preview, PrefabPreviewVisual};
 use crate::room::room_editor::*;
+use crate::room::selection::snap_room_drag_position;
+use crate::shared::scene_ui::inspector::{SceneEmptyInspectorBehavior, SceneInspectorContext};
 use crate::tilemap::tilemap_editor::TILEMAP_SUB_MODES;
 use crate::world::coord;
 use bishop::prelude::*;
 use engine_core::prelude::*;
 
 const PLACEHOLDER_OPACITY: f32 = 0.5;
+const MODE_SELECTOR_PADDING: f32 = 8.0;
+const PREFAB_GHOST_OPACITY: f32 = 0.55;
 
 fn thickness(grid_size: f32) -> f32 {
     (grid_size * 0.1).max(1.0)
@@ -51,6 +57,24 @@ fn merged_play_button_layout(
     }
 }
 
+fn parent_mode_icon_x(
+    ctx: &WgpuContext,
+    selector: &ModeSelector<RoomEditorMode>,
+    mode: RoomEditorMode,
+) -> f32 {
+    let icon_size = MENU_PANEL_HEIGHT - 2.0 * MODE_SELECTOR_PADDING;
+    let total_width =
+        selector.options.len() as f32 * (icon_size + MODE_SELECTOR_PADDING) - MODE_SELECTOR_PADDING;
+    let start_x = (ctx.screen_width() - total_width) / 2.0;
+    let mode_index = selector
+        .options
+        .iter()
+        .position(|candidate| *candidate == mode)
+        .unwrap_or(0);
+
+    start_x + mode_index as f32 * (icon_size + MODE_SELECTOR_PADDING)
+}
+
 impl RoomEditor {
     /// Draw static UI for the scene editor
     pub fn draw_ui(
@@ -62,28 +86,23 @@ impl RoomEditor {
         // Reset to static camera
         ctx.set_default_camera();
 
-        self.draw_coordinates(ctx, camera, game_ctx.cur_world.grid_size);
+        let Some(cur_world) = game_ctx.cur_world.as_deref() else {
+            return;
+        };
+        let grid_size = cur_world.grid_size;
+        let current_room_id = cur_world.current_room_id.unwrap_or_default();
+
+        self.draw_coordinates(ctx, camera, grid_size);
 
         // Clear sub-mode rect at start of frame
         self.sub_mode_rect = None;
 
         match self.mode {
             RoomEditorMode::Tilemap => {
-                // Calculate sub-mode strip position
-                let tilemap_icon_index = self
-                    .mode_selector
-                    .options
-                    .iter()
-                    .position(|m| *m == RoomEditorMode::Tilemap)
-                    .unwrap_or(0);
-
-                const PADDING: f32 = 8.0;
-                let icon_size = MENU_PANEL_HEIGHT - 2.0 * PADDING;
-                let total_width =
-                    self.mode_selector.options.len() as f32 * (icon_size + PADDING) - PADDING;
-                let start_x = (ctx.screen_width() - total_width) / 2.0;
-                let tilemap_icon_x = start_x + tilemap_icon_index as f32 * (icon_size + PADDING);
-                let sub_strip_y = PADDING + icon_size + 4.0;
+                let tilemap_icon_x =
+                    parent_mode_icon_x(ctx, &self.mode_selector, RoomEditorMode::Tilemap);
+                let icon_size = MENU_PANEL_HEIGHT - 2.0 * MODE_SELECTOR_PADDING;
+                let sub_strip_y = MODE_SELECTOR_PADDING + icon_size + 4.0;
 
                 // Draw sub-mode strip background first so tooltips appear on top
                 let bg_rect = draw_sub_mode_strip_background(
@@ -97,7 +116,7 @@ impl RoomEditor {
                 // Mode selector
                 let (_mode_rect, changed) = self.mode_selector.draw(ctx);
                 if changed {
-                    self.mode = self.mode_selector.current;
+                    self.set_mode(self.mode_selector.current);
                 }
 
                 // Draw sub-mode strip icons
@@ -115,15 +134,14 @@ impl RoomEditor {
                 self.mode_selector.draw_tooltips(ctx);
 
                 if sub_changed {
-                    self.tilemap_editor.mode = self.tilemap_sub_mode;
+                    self.set_tilemap_sub_mode(self.tilemap_sub_mode);
                 }
 
                 // Handle sub-mode keyboard shortcuts
                 for sub_mode in TILEMAP_SUB_MODES.iter() {
                     if let Some(shortcut_fn) = sub_mode.shortcut() {
                         if shortcut_fn(ctx) && *sub_mode != self.tilemap_sub_mode {
-                            self.tilemap_sub_mode = *sub_mode;
-                            self.tilemap_editor.mode = self.tilemap_sub_mode;
+                            self.set_tilemap_sub_mode(*sub_mode);
                         }
                     }
                 }
@@ -133,13 +151,44 @@ impl RoomEditor {
                 self.register_rect(draw_top_panel_full(ctx));
 
                 // Draw inspector
-                self.create_entity_requested = self.inspector.draw(ctx, game_ctx);
+                let mut services_ctx = game_ctx.services_ctx_mut();
+                let inspector_ctx = SceneInspectorContext {
+                    command_mode: EditorMode::Room(current_room_id),
+                    show_linked_prefab_metadata: true,
+                    hide_room_only_components: false,
+                    selected_create_parent: None,
+                    empty_state: SceneEmptyInspectorBehavior::Room,
+                };
+                let inspector_output = self.inspector.draw(ctx, &mut services_ctx, &inspector_ctx);
+                self.create_request = inspector_output.create_request;
+                self.prefab_action_request = inspector_output.prefab_action;
 
                 // Mode selector (menu bar)
                 let (mode_rect, changed) = self.mode_selector.draw(ctx);
                 if changed {
-                    self.mode = self.mode_selector.current;
+                    self.set_mode(self.mode_selector.current);
                 }
+
+                let scene_icon_x =
+                    parent_mode_icon_x(ctx, &self.mode_selector, RoomEditorMode::Scene);
+                let icon_size = MENU_PANEL_HEIGHT - 2.0 * MODE_SELECTOR_PADDING;
+                let sub_strip_y = MODE_SELECTOR_PADDING + icon_size + 4.0;
+                let bg_rect = draw_sub_mode_strip_background(
+                    ctx,
+                    scene_icon_x,
+                    sub_strip_y,
+                    ROOM_SCENE_SUB_MODES.len(),
+                );
+                self.sub_mode_rect = Some(bg_rect);
+
+                let (sub_rect, sub_changed) = draw_sub_mode_strip(
+                    ctx,
+                    scene_icon_x,
+                    sub_strip_y,
+                    ROOM_SCENE_SUB_MODES,
+                    &mut self.scene_sub_mode,
+                );
+                self.sub_mode_rect = Some(sub_rect);
 
                 // Play‑test button (menu bar)
                 let play_label = "Play";
@@ -167,6 +216,12 @@ impl RoomEditor {
 
                 draw_merged_play_button_label(ctx, play_rect, play_dims, mode_dims, startup_mode);
                 self.register_rect(play_rect);
+
+                self.mode_selector.draw_tooltips(ctx);
+
+                if sub_changed {
+                    self.set_scene_sub_mode(self.scene_sub_mode);
+                }
             }
         }
     }
@@ -288,7 +343,7 @@ pub fn highlight_selected_entity<C: BishopContext>(
     ctx: &mut C,
     ecs: &Ecs,
     entity: Entity,
-    asset_manager: &mut AssetManager,
+    sprite_manager: &mut SpriteManager,
     color: Color,
     grid_size: f32,
 ) {
@@ -297,7 +352,7 @@ pub fn highlight_selected_entity<C: BishopContext>(
         None => return,
     };
 
-    let size = entity_dimensions(ecs, asset_manager, entity, grid_size);
+    let size = entity_dimensions(ecs, sprite_manager, entity, grid_size);
     let draw_pos = pivot_adjusted_position(transform.position, size, transform.pivot);
 
     ctx.draw_rectangle_lines(
@@ -307,6 +362,83 @@ pub fn highlight_selected_entity<C: BishopContext>(
         size.y,
         thickness(grid_size) * 0.25,
         color,
+    );
+}
+
+pub(crate) fn draw_prefab_stamp_ghost(
+    ctx: &mut WgpuContext,
+    camera: &Camera2D,
+    sprite_manager: &mut SpriteManager,
+    prefab: &PrefabAsset,
+    grid_size: f32,
+    pivot: Pivot,
+) {
+    let mouse_world = coord::mouse_world_pos(ctx, camera);
+    let snapped_position = snap_room_drag_position(mouse_world, grid_size, pivot);
+    let preview = build_prefab_preview(ctx, prefab, sprite_manager);
+
+    for item in &preview.items {
+        let draw_pos = snapped_position + item.stamp_position;
+        match item.visual {
+            PrefabPreviewVisual::Sprite { sprite_id } => {
+                let texture = sprite_manager.get_texture_from_id(ctx, sprite_id);
+                ctx.draw_texture_ex(
+                    texture,
+                    draw_pos.x,
+                    draw_pos.y,
+                    Color::new(1.0, 1.0, 1.0, PREFAB_GHOST_OPACITY),
+                    DrawTextureParams {
+                        dest_size: Some(item.size),
+                        ..Default::default()
+                    },
+                );
+            }
+            PrefabPreviewVisual::CurrentFrame {
+                sprite_id,
+                source,
+                flip_x,
+            } => {
+                let texture = sprite_manager.get_texture_from_id(ctx, sprite_id);
+                ctx.draw_texture_ex(
+                    texture,
+                    draw_pos.x,
+                    draw_pos.y,
+                    Color::new(1.0, 1.0, 1.0, PREFAB_GHOST_OPACITY),
+                    DrawTextureParams {
+                        dest_size: Some(item.size),
+                        source: Some(source),
+                        flip_x,
+                        ..Default::default()
+                    },
+                );
+            }
+            PrefabPreviewVisual::Placeholder => {
+                draw_prefab_stamp_placeholder(ctx, draw_pos, item.size);
+            }
+        }
+    }
+}
+
+fn draw_prefab_stamp_placeholder(ctx: &mut WgpuContext, draw_pos: Vec2, size: Vec2) {
+    let fill = Color::new(0.2, 0.85, 0.35, 0.22);
+    let outline = Color::new(0.2, 0.95, 0.45, PREFAB_GHOST_OPACITY);
+    ctx.draw_rectangle(draw_pos.x, draw_pos.y, size.x, size.y, fill);
+    ctx.draw_rectangle_lines(draw_pos.x, draw_pos.y, size.x, size.y, 1.0, outline);
+    ctx.draw_line(
+        draw_pos.x,
+        draw_pos.y,
+        draw_pos.x + size.x,
+        draw_pos.y + size.y,
+        1.0,
+        outline,
+    );
+    ctx.draw_line(
+        draw_pos.x + size.x,
+        draw_pos.y,
+        draw_pos.x,
+        draw_pos.y + size.y,
+        1.0,
+        outline,
     );
 }
 
@@ -413,7 +545,7 @@ pub fn draw_light_placeholders(ctx: &mut WgpuContext, ecs: &Ecs, room_id: RoomId
 pub fn draw_glow_placeholders(
     ctx: &mut WgpuContext,
     ecs: &Ecs,
-    asset_manager: &mut AssetManager,
+    sprite_manager: &mut SpriteManager,
     room_id: RoomId,
     grid_size: f32,
 ) {
@@ -434,7 +566,7 @@ pub fn draw_glow_placeholders(
         if let Some(position) = ecs.get_store::<Transform>().get(*entity) {
             let mut pos = position.position;
 
-            if let Some((w, h)) = asset_manager.texture_size(glow.sprite_id) {
+            if let Some((w, h)) = sprite_manager.texture_size(glow.sprite_id) {
                 pos += vec2((w / 2.) - grid_size / 2., (h / 2.) - grid_size / 2.);
             }
 

@@ -8,6 +8,7 @@ pub struct TextInput<'a> {
     current: &'a str,
     blocked: bool,
     start_focused: bool,
+    select_all_on_focus: bool,
     max_len: Option<usize>,
     char_filter: Option<fn(char) -> Option<char>>,
     live: bool,
@@ -23,6 +24,7 @@ impl<'a> TextInput<'a> {
             current,
             blocked: false,
             start_focused: false,
+            select_all_on_focus: false,
             max_len: None,
             char_filter: None,
             live: false,
@@ -39,6 +41,12 @@ impl<'a> TextInput<'a> {
     /// Sets whether the input should start focused.
     pub fn focused(mut self, focused: bool) -> Self {
         self.start_focused = focused;
+        self
+    }
+
+    /// Selects the full text when the input gains focus.
+    pub fn select_all_on_focus(mut self) -> Self {
+        self.select_all_on_focus = true;
         self
     }
 
@@ -246,6 +254,11 @@ impl<'a> TextInput<'a> {
         if just_gained_focus {
             // Clear any pending character input
             let _ = ctx.chars_pressed();
+
+            if self.select_all_on_focus && !text.is_empty() {
+                selection_anchor = Some(0);
+                cursor_char = text.chars().count();
+            }
         }
 
         if is_dropdown_open() && !self.bypass_dropdown {

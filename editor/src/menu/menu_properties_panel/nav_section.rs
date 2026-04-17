@@ -43,19 +43,12 @@ impl MenuEditor {
                 .and_then(|e| (meta.get)(e));
 
             let set_fn = meta.set;
-            self.draw_nav_dropdown(
-                ctx,
-                y,
-                style,
-                current,
-                meta,
-                |element, value| {
-                    if let Some(mut cloned_t) = T::from_element(element).cloned() {
-                        set_fn(&mut cloned_t, value);
-                        element.kind = cloned_t.wrap_into_element();
-                    }
-                },
-            );
+            self.draw_nav_dropdown(ctx, y, style, current, meta, |element, value| {
+                if let Some(mut cloned_t) = T::from_element(element).cloned() {
+                    set_fn(&mut cloned_t, value);
+                    element.kind = cloned_t.wrap_into_element();
+                }
+            });
         }
     }
 
@@ -93,7 +86,7 @@ impl MenuEditor {
                 Dropdown::new(meta.id, dropdown_rect, current_label, &nav_options, |s| {
                     s.clone()
                 })
-                .blocked(blocked)
+                .suppressed(blocked)
                 .fixed_width()
                 .show(ctx)
             {

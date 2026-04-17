@@ -1,5 +1,5 @@
 // engine_core/src/text/dialogue/speech_renderer.rs
-use crate::assets::asset_manager::AssetManager;
+use crate::assets::sprite_manager::SpriteManager;
 use crate::camera::game_camera::*;
 use crate::ecs::Pivot;
 use crate::ecs::component::CurrentRoom;
@@ -32,7 +32,7 @@ pub struct SpeechBubbleRenderData {
 /// Returns data needed for screen-space rendering.
 pub fn collect_speech_bubbles(
     ecs: &Ecs,
-    asset_manager: &AssetManager,
+    sprite_manager: &SpriteManager,
     current_room: RoomId,
     alpha: f32,
     prev_positions: Option<&HashMap<Entity, Vec2>>,
@@ -57,7 +57,7 @@ pub fn collect_speech_bubbles(
         };
 
         let world_pos = interpolate_position(*entity, transform.position, alpha, prev_positions);
-        let entity_size = entity_dimensions(ecs, asset_manager, *entity, grid_size);
+        let entity_size = entity_dimensions(ecs, sprite_manager, *entity, grid_size);
 
         bubbles.push(SpeechBubbleRenderData {
             text: bubble.text.clone(),

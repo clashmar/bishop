@@ -1,10 +1,9 @@
 // editor/src/room/shortcuts.rs
+use crate::app::EditorMode;
 use crate::app::EditorCameraController;
 use crate::commands::room::*;
 use crate::editor_global::push_command;
-use crate::editor_global::with_panel_manager;
 use crate::gui::mode_selector::ModeInfo;
-use crate::gui::panels::hierarchy_panel::HIERARCHY_PANEL;
 use crate::room::room_editor::*;
 use bishop::prelude::*;
 use engine_core::prelude::*;
@@ -35,8 +34,7 @@ impl RoomEditor {
         for mode in RoomEditorMode::iter() {
             if let Some(shortcut) = mode.shortcut() {
                 if shortcut(ctx) {
-                    self.mode = mode;
-                    self.mode_selector.current = mode;
+                    self.set_mode(mode);
                     break;
                 }
             }
@@ -46,7 +44,8 @@ impl RoomEditor {
             RoomEditorMode::Tilemap => {}
             RoomEditorMode::Scene => {
                 if Controls::v(ctx) {
-                    self.view_preview = !self.view_preview;
+                    let next_preview = !self.view_preview;
+                    self.set_preview_enabled(next_preview);
                     if self.view_preview {
                         // If a single camera is selected, use it
                         let camera_id = self
@@ -73,13 +72,7 @@ impl RoomEditor {
                 }
 
                 if Controls::paste(ctx) {
-                    push_command(Box::new(PasteEntityCmd::new(room.id)));
-                }
-
-                if Controls::h(ctx) {
-                    with_panel_manager(|panel_manager| {
-                        panel_manager.toggle(HIERARCHY_PANEL);
-                    });
+                    push_command(Box::new(PasteEntityCmd::new(EditorMode::Room(room.id))));
                 }
 
                 // Select all entities in room
@@ -90,7 +83,10 @@ impl RoomEditor {
                 // Duplicate selected entities
                 if Controls::duplicate(ctx) && !self.selected_entities.is_empty() {
                     let entities: Vec<Entity> = self.selected_entities.iter().copied().collect();
-                    push_command(Box::new(DuplicateEntitiesCmd::new(entities, room.id)));
+                    push_command(Box::new(DuplicateEntitiesCmd::new(
+                        entities,
+                        EditorMode::Room(room.id),
+                    )));
                 }
             }
         }

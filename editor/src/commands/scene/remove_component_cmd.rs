@@ -1,6 +1,7 @@
-// editor/src/commands/room/remove_component_cmd.rs
 use crate::app::EditorMode;
 use crate::commands::editor_command_manager::EditorCommand;
+use crate::commands::scene::context::with_scene_ctx;
+use crate::prefab::instance_sync::sync_prefab_overrides_for_entity;
 use crate::with_editor;
 use engine_core::prelude::*;
 
@@ -8,17 +9,22 @@ use engine_core::prelude::*;
 #[derive(Debug)]
 pub struct RemoveComponentCmd {
     entity: Entity,
-    room_id: RoomId,
+    mode: EditorMode,
     type_name: &'static str,
     /// RON snapshot of the component captured before removal, used to restore on undo.
     snapshot: String,
 }
 
 impl RemoveComponentCmd {
-    pub fn new(entity: Entity, room_id: RoomId, type_name: &'static str, snapshot: String) -> Self {
+    pub fn new(
+        entity: Entity,
+        mode: EditorMode,
+        type_name: &'static str,
+        snapshot: String,
+    ) -> Self {
         Self {
             entity,
-            room_id,
+            mode,
             type_name,
             snapshot,
         }
@@ -29,18 +35,27 @@ impl EditorCommand for RemoveComponentCmd {
     fn execute(&mut self) {
         let type_name = self.type_name;
         let entity = self.entity;
+        let mode = self.mode;
         with_editor(|editor| {
-            let ctx = &mut editor.game.ctx_mut();
-            if let Some(reg) = COMPONENTS.iter().find(|r| r.type_name == type_name) {
-                if (reg.has)(ctx.ecs, entity) {
-                    let mut boxed = (reg.clone)(ctx.ecs, entity);
-                    (reg.post_remove)(&mut *boxed, &entity, ctx);
-                    (reg.remove)(ctx.ecs, entity);
+            with_scene_ctx(editor, mode, |ctx| {
+                if let Some(reg) = COMPONENTS.iter().find(|r| r.type_name == type_name) {
+                    if (reg.has)(ctx.ecs(), entity) {
+                        let mut boxed = (reg.clone)(ctx.ecs(), entity);
+                        (reg.post_remove)(&mut *boxed, &entity, ctx);
+                        (reg.remove)(ctx.ecs(), entity);
+                    }
                 }
-            }
 
-            if type_name == Animation::TYPE_NAME {
-                Ecs::remove_component::<CurrentFrame>(ctx, entity);
+                if type_name == Animation::TYPE_NAME {
+                    Ecs::remove_component::<CurrentFrame>(ctx, entity);
+                }
+            });
+            if matches!(mode, EditorMode::Room(_)) {
+                sync_prefab_overrides_for_entity(
+                    &mut editor.game.ecs,
+                    &editor.game.prefab_library,
+                    entity,
+                );
             }
         });
     }
@@ -49,18 +64,27 @@ impl EditorCommand for RemoveComponentCmd {
         let type_name = self.type_name;
         let snapshot = self.snapshot.clone();
         let entity = self.entity;
+        let mode = self.mode;
         with_editor(|editor| {
-            let ctx = &mut editor.game.ctx_mut();
-            if let Some(reg) = COMPONENTS.iter().find(|r| r.type_name == type_name) {
-                let mut boxed = (reg.from_ron_component)(snapshot);
-                (reg.post_create)(&mut *boxed, &entity, ctx);
-                (reg.inserter)(ctx.ecs, entity, boxed);
+            with_scene_ctx(editor, mode, |ctx| {
+                if let Some(reg) = COMPONENTS.iter().find(|r| r.type_name == type_name) {
+                    let mut boxed = (reg.from_ron_component)(snapshot);
+                    (reg.post_create)(&mut *boxed, &entity, ctx);
+                    (reg.inserter)(ctx.ecs(), entity, boxed);
+                }
+            });
+            if matches!(mode, EditorMode::Room(_)) {
+                sync_prefab_overrides_for_entity(
+                    &mut editor.game.ecs,
+                    &editor.game.prefab_library,
+                    entity,
+                );
             }
         });
     }
 
     fn mode(&self) -> EditorMode {
-        EditorMode::Room(self.room_id)
+        self.mode
     }
 }
 
@@ -103,7 +127,12 @@ mod tests {
             (reg.to_ron_component)(boxed.as_ref())
         });
 
-        let mut cmd = RemoveComponentCmd::new(entity, RoomId(1), Animation::TYPE_NAME, snapshot);
+        let mut cmd = RemoveComponentCmd::new(
+            entity,
+            EditorMode::Room(RoomId(1)),
+            Animation::TYPE_NAME,
+            snapshot,
+        );
         cmd.execute();
 
         with_editor(|editor| {

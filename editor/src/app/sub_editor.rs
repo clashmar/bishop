@@ -9,6 +9,11 @@ pub trait SubEditor {
     /// Returns the UI rects tracked by this editor for mouse hit-testing.
     fn active_rects(&self) -> &[Rect];
 
+    /// Resets the camera when entering this editor. Override for editors where
+    /// the standard `ctx` + `camera` pair is sufficient; leave as a no-op for
+    /// editors that require extra context (room, grid size, etc.).
+    fn init_camera(&mut self, _ctx: &WgpuContext, _camera: &mut Camera2D) {}
+
     /// Returns whether canvas interaction should be blocked (mouse is over UI).
     /// Editors with additional UI regions should override this.
     fn should_block_canvas(&self, ctx: &WgpuContext) -> bool {

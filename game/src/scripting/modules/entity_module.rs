@@ -55,6 +55,23 @@ pub struct EntityHandle {
     pub entity: Entity,
 }
 
+fn entity_is_alive(ecs: &Ecs, entity: Entity) -> bool {
+    COMPONENTS
+        .iter()
+        .any(|registry| (registry.has)(ecs, entity))
+}
+
+fn ensure_live_entity(ecs: &Ecs, entity: Entity) -> LuaResult<()> {
+    if entity_is_alive(ecs, entity) {
+        Ok(())
+    } else {
+        Err(mlua::Error::RuntimeError(format!(
+            "Entity {} is no longer alive",
+            *entity
+        )))
+    }
+}
+
 /// Build a Lua userdata object that wraps `Entity`.
 pub fn lua_entity_handle(lua: &Lua, entity: Entity) -> LuaResult<Value> {
     let handle = EntityHandle { entity };
@@ -79,6 +96,7 @@ impl UserData for EntityHandle {
 }
 
 pub enum EntityHandleMethod {
+    Despawn(DespawnMethod),
     Get(GetMethod),
     Set(SetMethod),
     Has(HasMethod),
@@ -104,6 +122,7 @@ pub enum EntityHandleMethod {
 /// Returns all entity handle methods.
 fn entity_handle_methods() -> Vec<EntityHandleMethod> {
     vec![
+        EntityHandleMethod::Despawn(DespawnMethod),
         EntityHandleMethod::Get(GetMethod),
         EntityHandleMethod::Set(SetMethod),
         EntityHandleMethod::Has(HasMethod),
@@ -131,6 +150,7 @@ impl LuaMethod<EntityHandle> for EntityHandleMethod {
     fn register<M: UserDataMethods<EntityHandle>>(&self, methods: &mut M) {
         match self {
             EntityHandleMethod::Get(m) => m.register(methods),
+            EntityHandleMethod::Despawn(m) => m.register(methods),
             EntityHandleMethod::Set(m) => m.register(methods),
             EntityHandleMethod::Has(m) => m.register(methods),
             EntityHandleMethod::Interact(m) => m.register(methods),
@@ -156,6 +176,7 @@ impl LuaMethod<EntityHandle> for EntityHandleMethod {
     fn emit_api(&self, out: &mut LuaApiWriter) {
         match self {
             EntityHandleMethod::Get(m) => m.emit_api(out),
+            EntityHandleMethod::Despawn(m) => m.emit_api(out),
             EntityHandleMethod::Set(m) => m.emit_api(out),
             EntityHandleMethod::Has(m) => m.emit_api(out),
             EntityHandleMethod::Interact(m) => m.emit_api(out),
@@ -179,6 +200,26 @@ impl LuaMethod<EntityHandle> for EntityHandleMethod {
     }
 }
 
+/// Method: `entity:despawn()`
+pub struct DespawnMethod;
+impl LuaMethod<EntityHandle> for DespawnMethod {
+    fn register<M: UserDataMethods<EntityHandle>>(&self, methods: &mut M) {
+        methods.add_method("despawn", |lua, this, ()| {
+            let ctx = LuaGameCtx::borrow_ctx(lua)?;
+            let mut game_instance = ctx.game_instance.borrow_mut();
+            let mut game_ctx = game_instance.game.ctx_mut();
+            Ecs::remove_entity(&mut game_ctx, this.entity);
+            Ok(())
+        });
+    }
+
+    fn emit_api(&self, out: &mut LuaApiWriter) {
+        out.line("---@return nil");
+        out.line("function Entity:despawn() end");
+        out.line("");
+    }
+}
+
 /// Method: `entity:get("Component")`
 pub struct GetMethod;
 impl LuaMethod<EntityHandle> for GetMethod {
@@ -188,21 +229,16 @@ impl LuaMethod<EntityHandle> for GetMethod {
             let game_instance = ctx.game_instance.borrow();
             let ecs = &game_instance.game.ecs;
             let entity = this.entity;
+            ensure_live_entity(ecs, entity)?;
 
-            if let Some(reg) = COMPONENTS.iter().find(|r| r.type_name == comp_name) {
-                if (reg.has)(ecs, entity) {
-                    let boxed = (reg.clone)(ecs, entity);
-                    (reg.to_lua)(lua, &*boxed)
-                } else {
-                    Err(mlua::Error::RuntimeError(format!(
-                        "Entity {:?} has no {} component",
-                        entity, comp_name
-                    )))
-                }
+            let reg = public_lua_component(&comp_name).map_err(mlua::Error::RuntimeError)?;
+            if (reg.has)(ecs, entity) {
+                let boxed = (reg.clone)(ecs, entity);
+                (reg.to_lua)(lua, &*boxed)
             } else {
                 Err(mlua::Error::RuntimeError(format!(
-                    "Component '{}' not known",
-                    comp_name
+                    "Entity {:?} has no {} component",
+                    entity, comp_name
                 )))
             }
         });
@@ -210,13 +246,13 @@ impl LuaMethod<EntityHandle> for GetMethod {
 
     fn emit_api(&self, out: &mut LuaApiWriter) {
         out.line("-- Component getters");
-        for reg in COMPONENTS.iter() {
+        for reg in public_lua_components() {
             out.line(&format!(
                 "---@overload fun(self: Entity, component: \"{}\"): {}",
                 reg.type_name, reg.type_name
             ));
         }
-        out.line("---@param component string");
+        out.line("---@param component ComponentId");
         out.line("---@return table|nil");
         out.line(&format!("function Entity:{}(component) end", GET));
         out.line("");
@@ -227,7 +263,11 @@ impl LuaMethod<EntityHandle> for GetMethod {
 pub struct SetMethod;
 impl LuaMethod<EntityHandle> for SetMethod {
     fn register<M: UserDataMethods<EntityHandle>>(&self, methods: &mut M) {
-        methods.add_method(SET, |_lua, this, (comp_name, value): (String, Value)| {
+        methods.add_method(SET, |lua, this, (comp_name, value): (String, Value)| {
+            let ctx = LuaGameCtx::borrow_ctx(lua)?;
+            let game_instance = ctx.game_instance.borrow();
+            ensure_live_entity(&game_instance.game.ecs, this.entity)?;
+            public_lua_component(&comp_name).map_err(mlua::Error::RuntimeError)?;
             push_command(Box::new(SetComponentCmd {
                 entity: *this.entity,
                 comp_name,
@@ -237,10 +277,13 @@ impl LuaMethod<EntityHandle> for SetMethod {
         });
 
         // Typed setters
-        for reg in COMPONENTS.iter() {
+        for reg in public_lua_components() {
             let comp_name = reg.type_name.to_string();
             let fn_name = format!("{}_{}", SET, to_snake_case(reg.type_name));
-            methods.add_method(fn_name.as_str(), move |_lua, this, value: Value| {
+            methods.add_method(fn_name.as_str(), move |lua, this, value: Value| {
+                let ctx = LuaGameCtx::borrow_ctx(lua)?;
+                let game_instance = ctx.game_instance.borrow();
+                ensure_live_entity(&game_instance.game.ecs, this.entity)?;
                 push_command(Box::new(SetComponentCmd {
                     entity: *this.entity,
                     comp_name: comp_name.clone(),
@@ -253,14 +296,13 @@ impl LuaMethod<EntityHandle> for SetMethod {
 
     fn emit_api(&self, out: &mut LuaApiWriter) {
         out.line("-- Generic set method");
-        out.line("---@param component string");
-        out.line("---@see ComponentId");
-        out.line("---@param value table");
+        out.line("---@param component ComponentId");
+        out.line("---@param value any");
         out.line(&format!("function Entity:{}(component, value) end", SET));
         out.line("");
 
         out.line("-- Typed component setters");
-        for reg in COMPONENTS.iter() {
+        for reg in public_lua_components() {
             let type_name = reg.type_name;
             let fn_name = to_snake_case(type_name);
             out.line("---@param self Entity");
@@ -280,10 +322,9 @@ impl LuaMethod<EntityHandle> for HasMethod {
             let ctx = LuaGameCtx::borrow_ctx(lua)?;
             let game_instance = ctx.game_instance.borrow();
             let ecs = &game_instance.game.ecs;
-            Ok(COMPONENTS
-                .iter()
-                .find(|r| r.type_name == comp_name)
-                .is_some_and(|r| (r.has)(ecs, this.entity)))
+            ensure_live_entity(ecs, this.entity)?;
+            let reg = public_lua_component(&comp_name).map_err(mlua::Error::RuntimeError)?;
+            Ok((reg.has)(ecs, this.entity))
         });
 
         // entity:has_any
@@ -291,11 +332,14 @@ impl LuaMethod<EntityHandle> for HasMethod {
             let ctx = LuaGameCtx::borrow_ctx(lua)?;
             let game_instance = ctx.game_instance.borrow();
             let ecs = &game_instance.game.ecs;
-            for comp_name in comps.iter() {
-                if let Some(r) = COMPONENTS.iter().find(|r| r.type_name == comp_name) {
-                    if (r.has)(ecs, this.entity) {
-                        return Ok(true);
-                    }
+            ensure_live_entity(ecs, this.entity)?;
+            let regs = comps
+                .iter()
+                .map(|comp_name| public_lua_component(comp_name).map_err(mlua::Error::RuntimeError))
+                .collect::<LuaResult<Vec<_>>>()?;
+            for reg in regs {
+                if (reg.has)(ecs, this.entity) {
+                    return Ok(true);
                 }
             }
             Ok(false)
@@ -306,12 +350,13 @@ impl LuaMethod<EntityHandle> for HasMethod {
             let ctx = LuaGameCtx::borrow_ctx(lua)?;
             let game_instance = ctx.game_instance.borrow();
             let ecs = &game_instance.game.ecs;
-            for comp_name in comps.iter() {
-                if let Some(r) = COMPONENTS.iter().find(|r| r.type_name == comp_name) {
-                    if !(r.has)(ecs, this.entity) {
-                        return Ok(false);
-                    }
-                } else {
+            ensure_live_entity(ecs, this.entity)?;
+            let regs = comps
+                .iter()
+                .map(|comp_name| public_lua_component(comp_name).map_err(mlua::Error::RuntimeError))
+                .collect::<LuaResult<Vec<_>>>()?;
+            for reg in regs {
+                if !(reg.has)(ecs, this.entity) {
                     return Ok(false);
                 }
             }
@@ -321,22 +366,19 @@ impl LuaMethod<EntityHandle> for HasMethod {
 
     fn emit_api(&self, out: &mut LuaApiWriter) {
         // has
-        out.line("---@param component string");
-        out.line("---@see ComponentId");
+        out.line("---@param component ComponentId");
         out.line("---@return boolean");
         out.line(&format!("function Entity:{}(component) end", HAS));
         out.line("");
 
         // has_any
-        out.line("---@param ... string");
-        out.line("---@see ComponentId");
+        out.line("---@param ... ComponentId");
         out.line("---@return boolean");
         out.line(&format!("function Entity:{}(...) end", HAS_ANY));
         out.line("");
 
         // has_all
-        out.line("---@param ... string");
-        out.line("---@see ComponentId");
+        out.line("---@param ... ComponentId");
         out.line("---@return boolean");
         out.line(&format!("function Entity:{}(...) end", HAS_ALL));
         out.line("");
@@ -347,7 +389,10 @@ impl LuaMethod<EntityHandle> for HasMethod {
 pub struct InteractMethod;
 impl LuaMethod<EntityHandle> for InteractMethod {
     fn register<M: UserDataMethods<EntityHandle>>(&self, methods: &mut M) {
-        methods.add_method(INTERACT, |_lua, this, args: Variadic<Value>| {
+        methods.add_method(INTERACT, |lua, this, args: Variadic<Value>| {
+            let ctx = LuaGameCtx::borrow_ctx(lua)?;
+            let game_instance = ctx.game_instance.borrow();
+            ensure_live_entity(&game_instance.game.ecs, this.entity)?;
             push_command(Box::new(CallEntityFnCmd {
                 entity: this.entity,
                 fn_name: INTERACT.to_string(),
@@ -392,6 +437,9 @@ pub struct SetClipMethod;
 impl LuaMethod<EntityHandle> for SetClipMethod {
     fn register<M: UserDataMethods<EntityHandle>>(&self, methods: &mut M) {
         methods.add_method(SET_CLIP, |_lua, this, clip_name: String| {
+            let ctx = LuaGameCtx::borrow_ctx(_lua)?;
+            let game_instance = ctx.game_instance.borrow();
+            ensure_live_entity(&game_instance.game.ecs, this.entity)?;
             push_command(Box::new(SetClipCmd {
                 entity: this.entity,
                 clip_name,
@@ -416,6 +464,7 @@ impl LuaMethod<EntityHandle> for GetClipMethod {
             let ctx = LuaGameCtx::borrow_ctx(lua)?;
             let game_instance = ctx.game_instance.borrow();
             let ecs = &game_instance.game.ecs;
+            ensure_live_entity(ecs, this.entity)?;
 
             if let Some(animation) = ecs.get::<Animation>(this.entity) {
                 if let Some(clip_id) = &animation.current {
@@ -442,6 +491,9 @@ pub struct ResetClipMethod;
 impl LuaMethod<EntityHandle> for ResetClipMethod {
     fn register<M: UserDataMethods<EntityHandle>>(&self, methods: &mut M) {
         methods.add_method(RESET_CLIP, |_lua, this, ()| {
+            let ctx = LuaGameCtx::borrow_ctx(_lua)?;
+            let game_instance = ctx.game_instance.borrow();
+            ensure_live_entity(&game_instance.game.ecs, this.entity)?;
             push_command(Box::new(ResetClipCmd {
                 entity: this.entity,
             }));
@@ -461,6 +513,9 @@ pub struct SetFlipXMethod;
 impl LuaMethod<EntityHandle> for SetFlipXMethod {
     fn register<M: UserDataMethods<EntityHandle>>(&self, methods: &mut M) {
         methods.add_method(SET_FLIP_X, |_lua, this, flip_x: bool| {
+            let ctx = LuaGameCtx::borrow_ctx(_lua)?;
+            let game_instance = ctx.game_instance.borrow();
+            ensure_live_entity(&game_instance.game.ecs, this.entity)?;
             push_command(Box::new(SetFlipXCmd {
                 entity: this.entity,
                 flip_x,
@@ -485,6 +540,7 @@ impl LuaMethod<EntityHandle> for GetFlipXMethod {
             let ctx = LuaGameCtx::borrow_ctx(lua)?;
             let game_instance = ctx.game_instance.borrow();
             let ecs = &game_instance.game.ecs;
+            ensure_live_entity(ecs, this.entity)?;
 
             if let Some(animation) = ecs.get::<Animation>(this.entity) {
                 Ok(animation.flip_x)
@@ -507,6 +563,9 @@ pub struct SetFacingMethod;
 impl LuaMethod<EntityHandle> for SetFacingMethod {
     fn register<M: UserDataMethods<EntityHandle>>(&self, methods: &mut M) {
         methods.add_method(SET_FACING, |_lua, this, direction: String| {
+            let ctx = LuaGameCtx::borrow_ctx(_lua)?;
+            let game_instance = ctx.game_instance.borrow();
+            ensure_live_entity(&game_instance.game.ecs, this.entity)?;
             let direction = parse_direction(&direction).map_err(mlua::Error::RuntimeError)?;
             push_command(Box::new(SetFacingCmd {
                 entity: this.entity,
@@ -529,6 +588,9 @@ pub struct SetAnimSpeedMethod;
 impl LuaMethod<EntityHandle> for SetAnimSpeedMethod {
     fn register<M: UserDataMethods<EntityHandle>>(&self, methods: &mut M) {
         methods.add_method(SET_ANIM_SPEED, |_lua, this, speed: f32| {
+            let ctx = LuaGameCtx::borrow_ctx(_lua)?;
+            let game_instance = ctx.game_instance.borrow();
+            ensure_live_entity(&game_instance.game.ecs, this.entity)?;
             push_command(Box::new(SetAnimSpeedCmd {
                 entity: this.entity,
                 speed,
@@ -553,6 +615,7 @@ impl LuaMethod<EntityHandle> for GetCurrentFrameMethod {
             let ctx = LuaGameCtx::borrow_ctx(lua)?;
             let game_instance = ctx.game_instance.borrow();
             let ecs = &game_instance.game.ecs;
+            ensure_live_entity(ecs, this.entity)?;
 
             if let Some(frame) = ecs.get::<CurrentFrame>(this.entity) {
                 let table = lua.create_table()?;
@@ -581,6 +644,7 @@ impl LuaMethod<EntityHandle> for IsClipFinishedMethod {
             let ctx = LuaGameCtx::borrow_ctx(lua)?;
             let game_instance = ctx.game_instance.borrow();
             let ecs = &game_instance.game.ecs;
+            ensure_live_entity(ecs, this.entity)?;
 
             if let Some(animation) = ecs.get::<Animation>(this.entity) {
                 if let Some(current_id) = &animation.current {
@@ -610,6 +674,7 @@ impl LuaMethod<EntityHandle> for SayMethod {
             |lua, this, (dialogue_id, key, opts): (String, String, Option<Table>)| {
                 let ctx = LuaGameCtx::borrow_ctx(lua)?;
                 let game_instance = ctx.game_instance.borrow();
+                ensure_live_entity(&game_instance.game.ecs, this.entity)?;
                 let config = game_instance.game.text_manager.config.clone();
 
                 let text = match game_instance
@@ -712,6 +777,9 @@ pub struct ClearSpeechMethod;
 impl LuaMethod<EntityHandle> for ClearSpeechMethod {
     fn register<M: UserDataMethods<EntityHandle>>(&self, methods: &mut M) {
         methods.add_method(CLEAR_SPEECH, |_lua, this, ()| {
+            let ctx = LuaGameCtx::borrow_ctx(_lua)?;
+            let game_instance = ctx.game_instance.borrow();
+            ensure_live_entity(&game_instance.game.ecs, this.entity)?;
             push_command(Box::new(ClearSpeechCmd {
                 entity: this.entity,
             }));
@@ -734,6 +802,7 @@ impl LuaMethod<EntityHandle> for IsSpeakingMethod {
             let ctx = LuaGameCtx::borrow_ctx(lua)?;
             let game_instance = ctx.game_instance.borrow();
             let ecs = &game_instance.game.ecs;
+            ensure_live_entity(ecs, this.entity)?;
             Ok(ecs.has::<SpeechBubble>(this.entity))
         });
     }
@@ -754,6 +823,7 @@ impl LuaMethod<EntityHandle> for PlaySoundMethod {
             let ctx = LuaGameCtx::borrow_ctx(lua)?;
             let game_instance = ctx.game_instance.borrow();
             let ecs = &game_instance.game.ecs;
+            ensure_live_entity(ecs, this.entity)?;
             let Some(source) = ecs.get::<AudioSource>(this.entity) else {
                 return Ok(());
             };
@@ -809,6 +879,9 @@ pub struct StopSoundMethod;
 impl LuaMethod<EntityHandle> for StopSoundMethod {
     fn register<M: UserDataMethods<EntityHandle>>(&self, methods: &mut M) {
         methods.add_method(ENTITY_STOP_SOUND, |_lua, this, ()| {
+            let ctx = LuaGameCtx::borrow_ctx(_lua)?;
+            let game_instance = ctx.game_instance.borrow();
+            ensure_live_entity(&game_instance.game.ecs, this.entity)?;
             push_audio_command(AudioCommand::StopLoop(*this.entity as u64));
             Ok(())
         });
@@ -829,6 +902,7 @@ impl LuaMethod<EntityHandle> for SetSoundVolumeMethod {
             let ctx = LuaGameCtx::borrow_ctx(lua)?;
             let mut game_instance = ctx.game_instance.borrow_mut();
             let ecs = &mut game_instance.game.ecs;
+            ensure_live_entity(ecs, this.entity)?;
             if let Some(source) = ecs.get_mut::<AudioSource>(this.entity) {
                 source.runtime_volume = v.clamp(0.0, 1.0);
             }

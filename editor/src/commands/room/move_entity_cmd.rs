@@ -8,17 +8,17 @@ use engine_core::prelude::*;
 #[derive(Debug)]
 pub struct MoveEntityCmd {
     entity: Entity,
-    room_id: RoomId,
+    mode: EditorMode,
     from: Vec2,
     to: Vec2,
     executed: bool,
 }
 
 impl MoveEntityCmd {
-    pub fn new(entity: Entity, room_id: RoomId, from: Vec2, to: Vec2) -> Self {
+    pub fn new(entity: Entity, mode: EditorMode, from: Vec2, to: Vec2) -> Self {
         Self {
             entity,
-            room_id,
+            mode,
             from,
             to,
             executed: false,
@@ -29,7 +29,14 @@ impl MoveEntityCmd {
 impl EditorCommand for MoveEntityCmd {
     fn execute(&mut self) {
         with_editor(|editor| {
-            let ecs = &mut editor.game.ecs;
+            let ecs = match editor.mode {
+                EditorMode::Prefab(_) => &mut editor
+                    .prefab_stage
+                    .as_mut()
+                    .expect("Prefab stage missing")
+                    .ecs,
+                _ => &mut editor.game.ecs,
+            };
             update_entity_position(ecs, self.entity, self.to);
         });
         self.executed = true;
@@ -37,13 +44,20 @@ impl EditorCommand for MoveEntityCmd {
 
     fn undo(&mut self) {
         with_editor(|editor| {
-            let ecs = &mut editor.game.ecs;
+            let ecs = match editor.mode {
+                EditorMode::Prefab(_) => &mut editor
+                    .prefab_stage
+                    .as_mut()
+                    .expect("Prefab stage missing")
+                    .ecs,
+                _ => &mut editor.game.ecs,
+            };
             update_entity_position(ecs, self.entity, self.from);
         });
         self.executed = false;
     }
 
     fn mode(&self) -> EditorMode {
-        EditorMode::Room(self.room_id)
+        self.mode
     }
 }

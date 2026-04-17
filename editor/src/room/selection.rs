@@ -38,30 +38,39 @@ pub(crate) struct DragState {
 }
 
 impl RoomEditor {
+    fn sync_inspector_to_selection(&mut self) {
+        self.inspector.set_target(self.single_selected_entity());
+    }
+
     /// Sets a single selected entity for the room editor, clearing any previous selection.
     pub fn set_selected_entity(&mut self, entity: Option<Entity>) {
         self.selected_entities.clear();
         if let Some(e) = entity {
             self.selected_entities.insert(e);
         }
-        self.inspector.set_target(entity);
+        self.sync_inspector_to_selection();
     }
 
     /// Adds an entity to the current selection.
     pub fn add_to_selection(&mut self, entity: Entity) {
         self.selected_entities.insert(entity);
-        // Update inspector only if this is now the only selection
-        if self.selected_entities.len() == 1 {
-            self.inspector.set_target(Some(entity));
+        self.sync_inspector_to_selection();
+    }
+
+    /// Toggles whether an entity is part of the current selection.
+    pub fn toggle_entity_selection(&mut self, entity: Entity) {
+        if self.selected_entities.contains(&entity) {
+            self.selected_entities.remove(&entity);
         } else {
-            self.inspector.set_target(None);
+            self.selected_entities.insert(entity);
         }
+        self.sync_inspector_to_selection();
     }
 
     /// Clears the entire selection.
     pub fn clear_selection(&mut self) {
         self.selected_entities.clear();
-        self.inspector.set_target(None);
+        self.sync_inspector_to_selection();
     }
 
     /// Returns whether the given entity is currently selected.
@@ -86,12 +95,7 @@ impl RoomEditor {
                 self.selected_entities.insert(*entity);
             }
         }
-        // Clear inspector since we likely have multiple selected
-        if self.selected_entities.len() != 1 {
-            self.inspector.set_target(None);
-        } else if let Some(e) = self.selected_entities.iter().next() {
-            self.inspector.set_target(Some(*e));
-        }
+        self.sync_inspector_to_selection();
     }
 
     #[inline]
@@ -128,10 +132,10 @@ pub fn entity_hitbox(
     position: Vec2,
     camera: &Camera2D,
     ecs: &Ecs,
-    asset_manager: &mut AssetManager,
+    sprite_manager: &mut SpriteManager,
     grid_size: f32,
 ) -> Rect {
-    let size = entity_dimensions(ecs, asset_manager, entity, grid_size);
+    let size = entity_dimensions(ecs, sprite_manager, entity, grid_size);
 
     // Only use the center-offset for pure placeholder entities (Camera/Light without sprites)
     let is_pure_placeholder = ecs.has::<RoomCamera>(entity)
@@ -167,10 +171,10 @@ pub fn entity_world_rect(
     entity: Entity,
     position: Vec2,
     ecs: &Ecs,
-    asset_manager: &mut AssetManager,
+    sprite_manager: &mut SpriteManager,
     grid_size: f32,
 ) -> Rect {
-    let size = entity_dimensions(ecs, asset_manager, entity, grid_size);
+    let size = entity_dimensions(ecs, sprite_manager, entity, grid_size);
 
     let is_placeholder = ecs.has::<RoomCamera>(entity)
         || (ecs.has::<Light>(entity) && !ecs.has_any::<(Sprite, Animation, CurrentFrame)>(entity));
@@ -196,4 +200,13 @@ pub fn can_select_entity_in_room(ecs: &Ecs, entity: Entity, room_id: RoomId) -> 
         Some(CurrentRoom(id)) => *id == room_id,
         None => false,
     }
+}
+
+pub(crate) fn snap_room_drag_position(mouse_world: Vec2, grid_size: f32, pivot: Pivot) -> Vec2 {
+    let pivot_normalized = pivot.as_normalized();
+    let tile = (mouse_world / grid_size).floor();
+    vec2(
+        tile.x * grid_size + grid_size * pivot_normalized.x,
+        tile.y * grid_size + grid_size * pivot_normalized.y,
+    )
 }

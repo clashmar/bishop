@@ -1,7 +1,8 @@
 // engine_core/src/script/script.rs
 use crate::ecs::entity::Entity;
-use crate::game::GameCtxMut;
+use crate::game::EngineCtxMut;
 use crate::scripting::lua_constants::PUBLIC;
+use crate::scripting::lua_marshalling::{read_script_field, write_script_field};
 use crate::scripting::script_manager::ScriptManager;
 use ecs_component::ecs_component;
 use mlua::Lua;
@@ -77,33 +78,9 @@ impl Script {
 
         for pair in public.pairs::<String, Value>() {
             let (name, value) = pair?;
-            let field = match value {
-                Value::Boolean(b) => ScriptField::Bool(b),
-                Value::Integer(i) => ScriptField::Int(i),
-                Value::Number(n) => ScriptField::Float(n),
-                Value::String(s) => ScriptField::Text(s.to_str()?.to_string()),
-                Value::Table(t) => {
-                    // Try Vec2
-                    if let Ok(x) = t.get::<f64>(1) {
-                        if let Ok(y) = t.get::<f64>(2) {
-                            if let Ok(z) = t.get::<f64>(3) {
-                                ScriptField::Vec3([x as f32, y as f32, z as f32])
-                            } else {
-                                ScriptField::Vec2([x as f32, y as f32])
-                            }
-                        } else {
-                            // Skip unsupported table
-                            continue;
-                        }
-                    } else {
-                        // Skip unsupported table
-                        continue;
-                    }
-                }
-                // Ignore functions
-                _ => continue,
-            };
-            fields.insert(name, field);
+            if let Some(field) = read_script_field(&name, value)? {
+                fields.insert(name, field);
+            }
         }
 
         // Remove any stale fields
@@ -144,34 +121,98 @@ impl Script {
             .unwrap_or_else(|| instance.clone());
 
         for (name, field) in &self.data.fields {
-            match field {
-                ScriptField::Bool(b) => public.set(name.clone(), *b)?,
-                ScriptField::Int(i) => public.set(name.clone(), *i)?,
-                ScriptField::Float(f) => public.set(name.clone(), *f)?,
-                ScriptField::Text(s) => public.set(name.clone(), s.clone())?,
-                ScriptField::Vec2(v) => {
-                    let t = lua.create_table()?;
-                    t.set(1, v[0])?;
-                    t.set(2, v[1])?;
-                    public.set(name.clone(), t)?;
-                }
-                ScriptField::Vec3(v) => {
-                    let t = lua.create_table()?;
-                    t.set(1, v[0])?;
-                    t.set(2, v[1])?;
-                    t.set(3, v[2])?;
-                    public.set(name.clone(), t)?;
-                }
-            }
+            write_script_field(lua, &public, name, field)?;
         }
         Ok(())
     }
 }
 
-fn post_create(script: &mut Script, _entity: &Entity, ctx: &mut GameCtxMut) {
-    ctx.script_manager.increment_ref(script.script_id)
+fn post_create(script: &mut Script, _entity: &Entity, ctx: &mut dyn EngineCtxMut) {
+    ctx.script_manager().increment_ref(script.script_id)
 }
 
-fn post_remove(script: &mut Script, entity: &Entity, ctx: &mut GameCtxMut) {
-    ctx.script_manager.unload(*entity, script.script_id)
+fn post_remove(script: &mut Script, entity: &Entity, ctx: &mut dyn EngineCtxMut) {
+    ctx.script_manager().unload(*entity, script.script_id)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::scripting::lua_constants::{POSITION, PUBLIC};
+
+    #[test]
+    fn load_reads_named_vec_tables_and_syncs_named_vec_tables() {
+        let lua = Lua::new();
+        let mut script_manager = ScriptManager::default();
+        let def = lua.create_table().unwrap();
+        let public = lua.create_table().unwrap();
+        let position = lua.create_table().unwrap();
+        let color = lua.create_table().unwrap();
+
+        position.set("x", 12.5).unwrap();
+        position.set("y", -3.0).unwrap();
+        color.set("x", 0.25).unwrap();
+        color.set("y", 0.5).unwrap();
+        color.set("z", 0.75).unwrap();
+        public.set(POSITION, position).unwrap();
+        public.set("color", color).unwrap();
+        def.set(PUBLIC, public).unwrap();
+        script_manager.table_defs.insert(ScriptId(1), def);
+
+        let mut script = Script {
+            script_id: ScriptId(1),
+            data: ScriptData::default(),
+        };
+
+        script
+            .load(&lua, &mut script_manager, Entity(7))
+            .unwrap();
+
+        assert!(matches!(
+            script.data.fields.get(POSITION),
+            Some(ScriptField::Vec2(v)) if *v == [12.5, -3.0]
+        ));
+        assert!(matches!(
+            script.data.fields.get("color"),
+            Some(ScriptField::Vec3(v)) if *v == [0.25, 0.5, 0.75]
+        ));
+
+        let (_, instance) = script_manager
+            .instances
+            .iter()
+            .find(|((entity, _), _)| *entity == Entity(7))
+            .expect("missing script instance");
+        let public: Table = instance.get(PUBLIC).unwrap();
+        let position: Table = public.get(POSITION).unwrap();
+        let color: Table = public.get("color").unwrap();
+        assert_eq!(position.get::<f32>("x").unwrap(), 12.5);
+        assert_eq!(position.get::<f32>("y").unwrap(), -3.0);
+        assert_eq!(color.get::<f32>("x").unwrap(), 0.25);
+        assert_eq!(color.get::<f32>("y").unwrap(), 0.5);
+        assert_eq!(color.get::<f32>("z").unwrap(), 0.75);
+    }
+
+    #[test]
+    fn load_rejects_indexed_vec_tables() {
+        let lua = Lua::new();
+        let mut script_manager = ScriptManager::default();
+        let def = lua.create_table().unwrap();
+        let public = lua.create_table().unwrap();
+        let position = lua.create_table().unwrap();
+
+        position.set(1, 12.5).unwrap();
+        position.set(2, -3.0).unwrap();
+        public.set(POSITION, position).unwrap();
+        def.set(PUBLIC, public).unwrap();
+        script_manager.table_defs.insert(ScriptId(1), def);
+
+        let mut script = Script {
+            script_id: ScriptId(1),
+            data: ScriptData::default(),
+        };
+
+        let error = script.load(&lua, &mut script_manager, Entity(7)).unwrap_err();
+
+        assert!(error.to_string().contains(POSITION));
+    }
 }

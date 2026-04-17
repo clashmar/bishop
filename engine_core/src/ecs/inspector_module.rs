@@ -2,7 +2,7 @@
 use crate::ecs::ecs::Ecs;
 use crate::ecs::entity::Entity;
 use crate::ecs::inspector_layout::InspectorBodyLayout;
-use crate::game::GameCtxMut;
+use crate::game::ServicesCtxMut;
 use crate::storage::editor_config::*;
 use crate::ui::widgets::*;
 use bishop::prelude::*;
@@ -12,14 +12,13 @@ pub trait InspectorModule {
     /// Return true when the module should be shown for the given entity.
     fn visible(&self, ecs: &Ecs, entity: Entity) -> bool;
 
-    // TODO: Make this async
     /// Draw the UI for the module inside the supplied rectangle.
     fn draw(
         &mut self,
         ctx: &mut WgpuContext,
         blocked: bool,
         rect: Rect,
-        game_ctx: &mut GameCtxMut,
+        game_ctx: &mut ServicesCtxMut,
         entity: Entity,
     );
 
@@ -59,7 +58,7 @@ pub trait InspectorModule {
 
     /// Called when the user clicks the remove component button.
     /// Default implementation does nothing.
-    fn remove(&mut self, _game_ctx: &mut GameCtxMut, _entity: Entity) {}
+    fn remove(&mut self, _game_ctx: &mut ServicesCtxMut, _entity: Entity) {}
 }
 
 /// Generic wrapper that adds a collapsible header around any concrete
@@ -151,7 +150,7 @@ impl<T: InspectorModule> InspectorModule for CollapsibleModule<T> {
         ctx: &mut WgpuContext,
         blocked: bool,
         rect: Rect,
-        game_ctx: &mut GameCtxMut,
+        game_ctx: &mut ServicesCtxMut,
         entity: Entity,
     ) {
         // Background for the header
@@ -175,7 +174,7 @@ impl<T: InspectorModule> InspectorModule for CollapsibleModule<T> {
         let symbol = if self.expanded { "-" } else { "+" };
         if Button::new(Self::collapse_button_rect(rect), symbol)
             .text_offset(Self::HEADER_BUTTON_TEXT_OFFSET)
-            .blocked(blocked)
+            .suppressed(blocked)
             .show(ctx)
         {
             self.expanded = !self.expanded;
@@ -186,7 +185,7 @@ impl<T: InspectorModule> InspectorModule for CollapsibleModule<T> {
         if self.inner.removable()
             && Button::new(Self::remove_button_rect(rect), "x")
                 .text_offset(Self::HEADER_BUTTON_TEXT_OFFSET)
-                .blocked(blocked)
+                .suppressed(blocked)
                 .show(ctx)
         {
             self.remove_requested = true;

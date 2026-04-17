@@ -93,7 +93,7 @@ impl EditorCameraController {
         room_position: Vec2,
         grid_size: f32,
     ) -> Camera2D {
-        let max_dim_px = (room_size * grid_size).max_element() / 1.5;
+        let max_dim_px = (room_size * grid_size).max_element() / 2.0;
         let scalar = editor_zoom_factor(grid_size) / max_dim_px;
 
         let mut camera = Camera2D {
@@ -102,6 +102,20 @@ impl EditorCameraController {
         };
         Self::apply_aspect(ctx, &mut camera, scalar);
         camera
+    }
+
+    /// Centers a `Camera2D` on a world position with a default zoom for the prefab editor.
+    pub fn reset_prefab_editor_camera(
+        ctx: &WgpuContext,
+        camera: &mut Camera2D,
+        entity_position: Vec2,
+        grid_size: f32,
+    ) {
+        let view_tiles = 4.0_f32;
+        let max_dim_px = view_tiles * grid_size / 1.5;
+        let scalar = editor_zoom_factor(grid_size) / max_dim_px;
+        camera.target = entity_position;
+        Self::apply_aspect(ctx, camera, scalar);
     }
 
     /// Reset a `Camera2D` so that the whole room fits the screen.

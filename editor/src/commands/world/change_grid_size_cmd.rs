@@ -116,7 +116,7 @@ impl EditorCommand for ChangeGridSizeCmd {
                     .and_then(|w| w.get_room(room_id))
                     .is_some()
             }),
-            EditorMode::Menu | EditorMode::Game => false,
+            _ => false,
         }
     }
 }

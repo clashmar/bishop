@@ -1,6 +1,6 @@
 // engine_core/src/animation/animation_system.rs
 use crate::animation::animation_clip::*;
-use crate::assets::asset_manager::AssetManager;
+use crate::assets::sprite_manager::SpriteManager;
 use crate::assets::sprite::SpriteId;
 use crate::ecs::component::PlayerProxy;
 use crate::ecs::ecs::Ecs;
@@ -12,6 +12,7 @@ use crate::worlds::room::entities_in_room;
 use bishop::prelude::*;
 use ecs_component::ecs_component;
 use serde::{Deserialize, Serialize};
+use std::collections::HashSet;
 
 /// Current frame data for rendering animated entities.
 #[ecs_component]
@@ -37,7 +38,7 @@ pub struct CurrentFrame {
 pub fn update_animation_sytem(
     loader: &impl TextureLoader,
     ecs: &mut Ecs,
-    asset_manager: &mut AssetManager,
+    sprite_manager: &mut SpriteManager,
     dt: f32,
     room_id: RoomId,
 ) {
@@ -50,6 +51,17 @@ pub fn update_animation_sytem(
         entities.insert(player);
     }
 
+    update_entity_animations(loader, ecs, sprite_manager, dt, &entities);
+}
+
+/// Updates animation state for the supplied entities.
+pub fn update_entity_animations(
+    loader: &impl TextureLoader,
+    ecs: &mut Ecs,
+    sprite_manager: &mut SpriteManager,
+    dt: f32,
+    entities: &HashSet<Entity>,
+) {
     let anim_store = ecs.get_store_mut::<Animation>();
 
     let mut frames: Vec<(Entity, CurrentFrame)> = vec![];
@@ -67,10 +79,10 @@ pub fn update_animation_sytem(
         };
 
         // Get the sprite id
-        let (sprite_id, resolved) = get_sprite_id(loader, animation, current_id, asset_manager);
+        let (sprite_id, resolved) = get_sprite_id(loader, animation, current_id, sprite_manager);
 
         if resolved {
-            animation.update_cache_entry(current_id, sprite_id, asset_manager);
+            animation.update_cache_entry(current_id, sprite_id, sprite_manager);
         }
 
         let Some(clip) = animation.clips.get(current_id) else {
@@ -144,20 +156,20 @@ pub fn update_animation_sytem(
 }
 
 impl Renderable for CurrentFrame {
-    fn dimensions(&self, _asset_manager: &AssetManager) -> Option<Vec2> {
+    fn dimensions(&self, _sprite_manager: &SpriteManager) -> Option<Vec2> {
         Some(self.frame_size)
     }
 
     fn draw<C: BishopContext>(
         &self,
         ctx: &mut C,
-        asset_manager: &mut AssetManager,
+        sprite_manager: &mut SpriteManager,
         params: &EntityDrawParams,
     ) -> bool {
         if self.sprite_id.0 == 0 {
             return false;
         }
-        let tex = asset_manager.get_texture_from_id(ctx, self.sprite_id);
+        let tex = sprite_manager.get_texture_from_id(ctx, self.sprite_id);
         let frame_w = self.frame_size.x;
         let frame_h = self.frame_size.y;
         let src = Rect::new(
@@ -190,7 +202,7 @@ fn get_sprite_id(
     loader: &impl TextureLoader,
     animation: &Animation,
     current_id: &ClipId,
-    asset_manager: &mut AssetManager,
+    sprite_manager: &mut SpriteManager,
 ) -> (SpriteId, bool) {
     if let Some(&cached) = animation.sprite_cache.get(current_id)
         && cached.0 != 0
@@ -198,7 +210,7 @@ fn get_sprite_id(
         return (cached, false);
     }
 
-    let resolved = resolve_sprite_id(loader, asset_manager, &animation.variant, current_id);
+    let resolved = resolve_sprite_id(loader, sprite_manager, &animation.variant, current_id);
 
     (resolved, true)
 }

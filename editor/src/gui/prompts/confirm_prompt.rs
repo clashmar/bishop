@@ -1,4 +1,6 @@
 // editor/src/gui/prompts/confirm_prompt.rs
+use crate::app::escape::modal_escape_requested;
+use crate::gui::prompts::constants::*;
 use crate::gui::prompts::helpers::*;
 use bishop::prelude::*;
 use engine_core::prelude::*;
@@ -22,13 +24,12 @@ pub struct ConfirmPrompt {
 impl ConfirmPrompt {
     /// Create a new prompt centred inside the supplied rect.
     pub fn new(modal_rect: Rect, message: impl Into<String>) -> Self {
-        let inner_w = modal_rect.w * 0.8;
-        let inner_x = modal_rect.x + (modal_rect.w - inner_w) / 2.0;
-
-        let total_h = modal_rect.h * 1.3;
-        let inner_y = modal_rect.y + (total_h - modal_rect.h);
-
-        let rect = Rect::new(inner_x, inner_y, inner_w, total_h);
+        let total_h = PROMPT_TOP_PADDING
+            + DEFAULT_FONT_SIZE_16
+            + PROMPT_SECTION_GAP
+            + BUTTON_H
+            + PROMPT_BOTTOM_PADDING;
+        let rect = prompt_content_rect(modal_rect, total_h);
 
         Self {
             rect,
@@ -43,16 +44,15 @@ impl ConfirmPrompt {
         let message_x = center_text(ctx, center_x, &self.message, DEFAULT_FONT_SIZE_16).0;
         let message_height = measure_text(ctx, &self.message, DEFAULT_FONT_SIZE_16).height;
 
-        ctx.draw_text(
+        draw_prompt_label(
+            ctx,
             &self.message,
             message_x,
-            self.rect.y,
-            DEFAULT_FONT_SIZE_16,
-            Color::WHITE,
+            self.rect.y + PROMPT_TOP_PADDING,
         );
 
         // Buttons
-        let btn_y = self.rect.y + message_height + WIDGET_SPACING;
+        let btn_y = self.rect.y + PROMPT_TOP_PADDING + message_height + PROMPT_SECTION_GAP;
         let (confirm_rect, cancel_rect) = confirm_cancel_rects(self.rect, btn_y);
         let confirm_clicked = Button::new(confirm_rect, "Confirm").show(ctx);
         let cancel_clicked = Button::new(cancel_rect, "Cancel").show(ctx);
@@ -62,7 +62,7 @@ impl ConfirmPrompt {
             return Some(ConfirmPromptResult::Confirmed);
         }
 
-        if cancel_clicked || Controls::escape(ctx) {
+        if cancel_clicked || modal_escape_requested() {
             return Some(ConfirmPromptResult::Cancelled);
         }
 

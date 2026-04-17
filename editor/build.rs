@@ -1,7 +1,7 @@
 // editor/build.rs
-use engine_core::ecs::component_registry::COMPONENTS;
+use engine_core::ecs::component_registry::public_lua_components;
 use engine_core::input::input_table::*;
-use engine_core::scripting::lua_constants::LUA_OWNER_SHARED_ENGINE;
+use engine_core::scripting::lua_constants::{COMPONENTS_FILE, LUA_OWNER_SHARED_ENGINE};
 use std::collections::HashSet;
 use std::env;
 use std::fs;
@@ -65,7 +65,7 @@ fn generate_lua_components() {
     );
 
     // Generate class definitions for each component with their schema
-    for reg in COMPONENTS.iter() {
+    for reg in public_lua_components() {
         let schema = (reg.lua_schema)();
 
         // Check if this is an alias type (single-value tuple struct)
@@ -74,13 +74,15 @@ fn generate_lua_components() {
             continue;
         }
 
+        if schema.is_empty() {
+            // For marker/unit structs, emit a description above the class annotation.
+            lua.push_str("--- Marker component\n");
+        }
+
         // Generate a class definition
         lua.push_str(&format!("---@class {}\n", reg.type_name));
 
-        if schema.is_empty() {
-            // For marker/unit structs, add a comment
-            lua.push_str("--- Marker component\n");
-        } else {
+        if !schema.is_empty() {
             // Add field annotations from the schema
             for (field_name, field_type) in schema {
                 lua.push_str(&format!("---@field {} {}\n", field_name, field_type));
@@ -92,21 +94,24 @@ fn generate_lua_components() {
 
     // Generate the ComponentId class with all component names
     lua.push_str("---@class ComponentId\n");
-    for reg in COMPONENTS.iter() {
-        lua.push_str(&format!("---@field {} string\n", reg.type_name));
+    for reg in public_lua_components() {
+        lua.push_str(&format!(
+            "---@field {} \"{}\"\n",
+            reg.type_name, reg.type_name
+        ));
     }
     lua.push('\n');
 
     lua.push_str("local C = {}\n\n");
 
     // Fill table assignments
-    for reg in COMPONENTS.iter() {
+    for reg in public_lua_components() {
         lua.push_str(&format!("C.{} = \"{}\"\n", reg.type_name, reg.type_name));
     }
 
     lua.push_str("\nreturn C\n");
 
-    let target = out_dir.join("components.lua");
+    let target = out_dir.join(COMPONENTS_FILE);
     write_if_changed(&target, &lua);
 }
 
@@ -199,7 +204,7 @@ fn generate_lua_script() {
         ---@class ScriptDef\n\
         ---@field public table\n\
         ---@field update fun(self: Script, dt: number)\n\
-        ---@field init fun(self: Script)\n\
+        ---@field init fun(self: Script, init?: table)\n\
         ---@field interact fun(self: Script)\n\
         ---@field on_exit fun(self: Script)\n\
         ---@class Script : ScriptDef\n\

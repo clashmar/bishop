@@ -1,4 +1,5 @@
 // editor/src/gui/prompts/world_edit_prompt.rs
+use crate::app::escape::modal_escape_requested;
 use crate::gui::prompts::constants::*;
 use crate::gui::prompts::helpers::*;
 use bishop::prelude::*;
@@ -18,6 +19,7 @@ pub struct WorldEditResult {
 pub struct WorldEditPrompt {
     world_id: WorldId,
     name_id: WidgetId,
+    sprite_picker_id: WidgetId,
     rect: Rect,
     og_name: String,
     og_sprite: SpriteId,
@@ -34,19 +36,25 @@ impl WorldEditPrompt {
         og_name: impl Into<String>,
         og_sprite: SpriteId,
     ) -> Self {
-        let inner_w = modal_rect.w * 0.8;
-        let inner_x = modal_rect.x + (modal_rect.w - inner_w) / 2.0;
-
-        let total_h = modal_rect.h * 1.225;
-        let inner_y = modal_rect.y + (total_h - modal_rect.h);
-
-        let rect = Rect::new(inner_x, inner_y, inner_w, total_h);
+        let total_h = PROMPT_TOP_PADDING
+            + DEFAULT_FONT_SIZE_16
+            + PROMPT_TEXT_GAP
+            + FIELD_H
+            + PROMPT_SECTION_GAP
+            + DEFAULT_FONT_SIZE_16
+            + PROMPT_TEXT_GAP
+            + FIELD_H
+            + PROMPT_SECTION_GAP
+            + BUTTON_H
+            + PROMPT_BOTTOM_PADDING;
+        let rect = prompt_content_rect(modal_rect, total_h);
 
         let name = og_name.into();
 
         Self {
             world_id,
             name_id,
+            sprite_picker_id: WidgetId::default(),
             rect,
             og_name: name.clone(),
             og_sprite,
@@ -59,23 +67,14 @@ impl WorldEditPrompt {
     pub fn draw(
         &mut self,
         ctx: &mut WgpuContext,
-        asset_manager: &mut AssetManager,
+        sprite_manager: &mut SpriteManager,
     ) -> Option<WorldEditResult> {
-        const GAP: f32 = 5.0;
-        const FIELD_GAP: f32 = 30.0;
-
-        let mut y = self.rect.y;
+        let mut y = self.rect.y + PROMPT_TOP_PADDING;
 
         // Name label
-        let mut label_dims = ctx.draw_text(
-            "Edit name:",
-            self.rect.x,
-            y,
-            DEFAULT_FONT_SIZE_16,
-            Color::WHITE,
-        );
+        let mut label_dims = draw_prompt_label(ctx, "Edit name:", self.rect.x, y);
 
-        y += label_dims.height + GAP;
+        y += label_dims.height + PROMPT_TEXT_GAP;
 
         // Name field
         let name_rect = Rect::new(self.rect.x, y, self.rect.w, FIELD_H);
@@ -84,31 +83,26 @@ impl WorldEditPrompt {
             .show(ctx);
         self.current_name = new_name;
 
-        y += name_rect.h + FIELD_GAP;
+        y += name_rect.h + PROMPT_SECTION_GAP;
 
         // Sprite label
-        label_dims = ctx.draw_text(
-            "Change sprite:",
-            self.rect.x,
-            y,
-            DEFAULT_FONT_SIZE_16,
-            Color::WHITE,
-        );
+        label_dims = draw_prompt_label(ctx, "Change sprite:", self.rect.x, y);
 
-        y += label_dims.height + GAP;
+        y += label_dims.height + PROMPT_TEXT_GAP;
 
         let sprite_rect = Rect::new(self.rect.x, y, self.rect.w, 30.0);
         if gui_sprite_picker(
             ctx,
             sprite_rect,
+            self.sprite_picker_id,
             &mut self.current_sprite,
-            asset_manager,
+            sprite_manager,
             false,
         ) {
             // Widget updates the sprite
         }
 
-        y += sprite_rect.h + FIELD_GAP;
+        y += sprite_rect.h + PROMPT_SECTION_GAP;
 
         // Buttons
         let (confirm_rect, cancel_rect) = confirm_cancel_rects(self.rect, y);
@@ -135,7 +129,7 @@ impl WorldEditPrompt {
             });
         }
 
-        if cancel_clicked || Controls::escape(ctx) {
+        if cancel_clicked || modal_escape_requested() {
             return Some(WorldEditResult {
                 id: self.world_id,
                 name: None,

@@ -4,7 +4,7 @@ use bishop::prelude::*;
 use ecs_component::ecs_component;
 use reflect_derive::Reflect;
 use serde::{Deserialize, Serialize};
-use serde_with::{FromInto, serde_as};
+use serde_with::serde_as;
 
 #[ecs_component]
 #[serde_as]
@@ -12,9 +12,9 @@ use serde_with::{FromInto, serde_as};
 #[serde(default)]
 pub struct Light {
     /// Relative to the entity the light is attached to.
-    #[serde_as(as = "FromInto<[f32; 2]>")]
+    #[serde_as(as = "serde_with::FromInto<[f32; 2]>")]
     pub pos: Vec2,
-    #[serde_as(as = "FromInto<[f32; 3]>")]
+    #[serde_as(as = "serde_with::FromInto<[f32; 3]>")]
     pub color: Vec3,
     /// Intensity of the color tint.
     pub intensity: f32,

@@ -49,6 +49,9 @@ pub const SFX_FOLDER: &str = "sfx";
 /// Name of the music subfolder inside audio.
 pub const MUSIC_FOLDER: &str = "music";
 
+/// Name of the prefabs folder.
+pub const PREFABS_FOLDER: &str = "prefabs";
+
 /// Name of the folder for windows-specific game assets.
 pub const WINDOWS_FOLDER: &str = "windows";
 

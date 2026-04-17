@@ -1,8 +1,11 @@
 use crate::app::EditorMode;
-use crate::commands::room::{RemoveParentCmd, SetParentCmd};
-use crate::editor_global::push_command;
 use crate::gui::panels::generic_panel::PanelDefinition;
+use crate::prefab::prefab_editor::selection::is_prefab_entity;
 use crate::room::room_editor::RoomEditor;
+use crate::shared::scene_ui::hierarchy::{
+    draw_scene_entity_tree, SceneHierarchyFrame, SceneHierarchyHost, SceneHierarchySelectionAction,
+    SceneUiHost,
+};
 use crate::Editor;
 use bishop::prelude::*;
 use engine_core::prelude::*;
@@ -18,15 +21,84 @@ const HEADER_FONT_SIZE: f32 = 15.0;
 
 pub struct HierarchyPanel {
     expanded: HashSet<Entity>,
+    prefab_seen_roots: HashSet<Entity>,
+    prefab_expansion_session: Option<PrefabId>,
     dragging: Option<Entity>,
     drag_offset: Vec2,
     scroll_state: ScrollState,
+}
+
+pub(crate) struct RoomHierarchyHost<'a> {
+    pub(crate) room_editor: &'a mut RoomEditor,
+    pub(crate) mode: EditorMode,
+    pub(crate) prefab_library: Option<&'a PrefabLibrary>,
+}
+
+impl SceneUiHost for RoomHierarchyHost<'_> {
+    fn command_mode(&self) -> EditorMode {
+        self.mode
+    }
+
+    fn prefab_library(&self) -> Option<&PrefabLibrary> {
+        self.prefab_library
+    }
+}
+
+impl SceneHierarchyHost for RoomHierarchyHost<'_> {
+    fn is_selected(&self, entity: Entity) -> bool {
+        self.room_editor.is_selected(entity)
+    }
+
+    fn apply_selection_action(&mut self, entity: Entity, action: SceneHierarchySelectionAction) {
+        match action {
+            SceneHierarchySelectionAction::Replace => {
+                self.room_editor.set_selected_entity(Some(entity));
+            }
+            SceneHierarchySelectionAction::Toggle => {
+                self.room_editor.toggle_entity_selection(entity);
+            }
+        }
+    }
+}
+
+pub(crate) struct PrefabHierarchyHost<'a> {
+    pub(crate) prefab_editor: &'a mut crate::prefab::prefab_editor::PrefabEditor,
+    pub(crate) mode: EditorMode,
+}
+
+impl SceneUiHost for PrefabHierarchyHost<'_> {
+    fn command_mode(&self) -> EditorMode {
+        self.mode
+    }
+
+    fn prefab_library(&self) -> Option<&PrefabLibrary> {
+        None
+    }
+}
+
+impl SceneHierarchyHost for PrefabHierarchyHost<'_> {
+    fn is_selected(&self, entity: Entity) -> bool {
+        self.prefab_editor.is_selected(entity)
+    }
+
+    fn apply_selection_action(&mut self, entity: Entity, action: SceneHierarchySelectionAction) {
+        match action {
+            SceneHierarchySelectionAction::Replace => {
+                self.prefab_editor.set_selected_entity(Some(entity));
+            }
+            SceneHierarchySelectionAction::Toggle => {
+                self.prefab_editor.toggle_entity_selection(entity);
+            }
+        }
+    }
 }
 
 impl HierarchyPanel {
     pub fn new() -> Self {
         Self {
             expanded: HashSet::new(),
+            prefab_seen_roots: HashSet::new(),
+            prefab_expansion_session: None,
             dragging: None,
             drag_offset: Vec2::ZERO,
             scroll_state: ScrollState::new(),
@@ -46,6 +118,14 @@ impl PanelDefinition for HierarchyPanel {
     }
 
     fn draw(&mut self, ctx: &mut WgpuContext, rect: Rect, editor: &mut Editor, blocked: bool) {
+        if matches!(editor.mode, EditorMode::Prefab(_)) {
+            self.draw_prefab(ctx, rect, editor, blocked);
+            return;
+        }
+
+        self.prefab_expansion_session = None;
+        self.prefab_seen_roots.clear();
+
         let cur_room_id = editor.cur_room_id;
 
         // Get room position before borrowing ecs mutably
@@ -59,8 +139,11 @@ impl PanelDefinition for HierarchyPanel {
                 .map(|r| r.position)
         });
 
-        let ecs = &mut editor.game.ecs;
+        let game = &mut editor.game;
+        let room_mode_prefab_library = room_mode_prefab_library(cur_room_id, &game.prefab_library);
+        let ecs = &mut game.ecs;
         let room_editor = &mut editor.room_editor;
+        prune_dead_hierarchy_state(ecs, &mut self.expanded, &mut self.dragging);
 
         let global_entities = {
             let store = ecs.get_store::<Global>();
@@ -118,6 +201,11 @@ impl PanelDefinition for HierarchyPanel {
 
         // Draw pass
         let mut y = rect.y + self.scroll_state.scroll_y + TOP_PADDING;
+        let mut room_host = RoomHierarchyHost {
+            room_editor,
+            mode: EditorMode::Game,
+            prefab_library: room_mode_prefab_library,
+        };
 
         // Add global button
         let btn_w = area.usable_width();
@@ -126,7 +214,7 @@ impl PanelDefinition for HierarchyPanel {
                 Rect::new(rect.x + 6., y, btn_w, ADD_BUTTON_HEIGHT),
                 "+ Global",
             )
-            .blocked(blocked)
+            .suppressed(blocked)
             .show(ctx);
             if !blocked && clicked {
                 ecs.create_entity()
@@ -149,22 +237,20 @@ impl PanelDefinition for HierarchyPanel {
         }
         y += HEADER_HEIGHT;
 
-        // Global entities use EditorMode::Game for undo scope
-        let mut global_draw = EntityTreeDrawContext {
-            ctx,
-            panel_rect: rect,
-            expanded: &mut self.expanded,
-            dragging: &mut self.dragging,
-            drag_offset: &mut self.drag_offset,
-            room_editor,
-            ecs,
-            area: &area,
-            blocked,
-            mode: EditorMode::Game,
-        };
+        {
+            let mut global_draw = SceneHierarchyFrame {
+                ctx,
+                panel_rect: rect,
+                area: &area,
+                blocked,
+                expanded: &mut self.expanded,
+                dragging: &mut self.dragging,
+                drag_offset: &mut self.drag_offset,
+            };
 
-        for entity in global_entities {
-            draw_entity_tree(entity, 0, &mut y, &mut global_draw);
+            for entity in global_entities {
+                draw_scene_entity_tree(entity, 0, &mut y, &mut global_draw, &mut room_host, ecs);
+            }
         }
 
         y += ROW_SPACING;
@@ -185,7 +271,7 @@ impl PanelDefinition for HierarchyPanel {
                         Rect::new(rect.x + 6., y, btn_w, ADD_BUTTON_HEIGHT),
                         "+ Player Proxy",
                     )
-                    .blocked(blocked)
+                    .suppressed(blocked)
                     .show(ctx);
                     if !blocked && clicked {
                         create_spawn_point(ecs, room_id, spawn_pos);
@@ -199,52 +285,120 @@ impl PanelDefinition for HierarchyPanel {
         let room_mode = cur_room_id
             .map(EditorMode::Room)
             .unwrap_or(EditorMode::Game);
+        room_host.mode = room_mode;
 
-        let mut room_draw = EntityTreeDrawContext {
-            ctx,
-            panel_rect: rect,
-            expanded: &mut self.expanded,
-            dragging: &mut self.dragging,
-            drag_offset: &mut self.drag_offset,
-            room_editor,
-            ecs,
-            area: &area,
-            blocked,
-            mode: room_mode,
-        };
-        
-        for entity in room_entities {
-            draw_entity_tree(entity, 0, &mut y, &mut room_draw);
+        {
+            let mut room_draw = SceneHierarchyFrame {
+                ctx,
+                panel_rect: rect,
+                area: &area,
+                blocked,
+                expanded: &mut self.expanded,
+                dragging: &mut self.dragging,
+                drag_offset: &mut self.drag_offset,
+            };
+
+            for entity in room_entities {
+                draw_scene_entity_tree(entity, 0, &mut y, &mut room_draw, &mut room_host, ecs);
+            }
         }
 
         area.draw_scrollbar(ctx, self.scroll_state.scroll_y);
-
-        // Drag ghost
-        if let Some(dragged) = self.dragging {
-            let (mx, my) = ctx.mouse_position();
-            let name = get_entity_name(ecs, dragged);
-            ctx.draw_rectangle(
-                mx - self.drag_offset.x,
-                my - self.drag_offset.y,
-                150.0,
-                ROW_HEIGHT,
-                Color::new(0.3, 0.5, 0.7, 0.5),
-            );
-            ctx.draw_text(
-                &name,
-                mx - self.drag_offset.x + 4.0,
-                my - self.drag_offset.y + 16.0,
-                14.0,
-                Color::WHITE,
-            );
-            if ctx.is_mouse_button_released(MouseButton::Left) {
-                self.dragging = None;
-            }
-        }
+        draw_drag_ghost(ctx, ecs, &mut self.dragging, self.drag_offset);
     }
 }
 
-fn layout_entity_tree(entity: Entity, y: &mut f32, expanded: &HashSet<Entity>, ecs: &Ecs) {
+impl HierarchyPanel {
+    fn draw_prefab(
+        &mut self,
+        ctx: &mut WgpuContext,
+        rect: Rect,
+        editor: &mut Editor,
+        blocked: bool,
+    ) {
+        let (Some(prefab_editor), Some(prefab_stage)) =
+            (editor.prefab_editor.as_mut(), editor.prefab_stage.as_mut())
+        else {
+            return;
+        };
+        let EditorMode::Prefab(prefab_id) = editor.mode else {
+            return;
+        };
+        if self.prefab_expansion_session != Some(prefab_id) {
+            self.prefab_expansion_session = Some(prefab_id);
+            self.prefab_seen_roots.clear();
+        }
+        let ecs = &mut prefab_stage.ecs;
+        prune_dead_hierarchy_state(ecs, &mut self.expanded, &mut self.dragging);
+
+        let prefab_entities = {
+            let entities = ecs
+                .get_store::<Transform>()
+                .data
+                .iter()
+                .filter_map(|(&entity, _)| is_prefab_entity(ecs, entity).then_some(entity))
+                .collect::<Vec<_>>();
+            get_root_entities(ecs, &entities)
+        };
+        sync_prefab_root_expansion(
+            &prefab_entities,
+            &mut self.expanded,
+            &mut self.prefab_seen_roots,
+        );
+
+        let mut layout_y = TOP_PADDING + HEADER_HEIGHT;
+        for entity in &prefab_entities {
+            layout_entity_tree(*entity, &mut layout_y, &self.expanded, ecs);
+        }
+        layout_y += BOTTOM_PADDING;
+
+        let area = ScrollableArea::new(rect, layout_y)
+            .blocked(blocked)
+            .begin(ctx, &mut self.scroll_state);
+        let mut y = rect.y + self.scroll_state.scroll_y + TOP_PADDING;
+        let mut prefab_host = PrefabHierarchyHost {
+            prefab_editor,
+            mode: editor.mode,
+        };
+
+        if area.is_visible(y, HEADER_HEIGHT) {
+            ctx.draw_text(
+                "Prefab",
+                rect.x + 6.,
+                y + 14.,
+                HEADER_FONT_SIZE,
+                Color::GREY,
+            );
+        }
+        y += HEADER_HEIGHT;
+
+        {
+            let mut prefab_draw = SceneHierarchyFrame {
+                ctx,
+                panel_rect: rect,
+                area: &area,
+                blocked,
+                expanded: &mut self.expanded,
+                dragging: &mut self.dragging,
+                drag_offset: &mut self.drag_offset,
+            };
+
+            for entity in prefab_entities {
+                draw_scene_entity_tree(entity, 0, &mut y, &mut prefab_draw, &mut prefab_host, ecs);
+            }
+        }
+
+        area.draw_scrollbar(ctx, self.scroll_state.scroll_y);
+        draw_drag_ghost(ctx, ecs, &mut self.dragging, self.drag_offset);
+    }
+}
+
+pub(crate) fn layout_entity_tree(
+    entity: Entity,
+    y: &mut f32,
+    expanded: &HashSet<Entity>,
+    ecs: &Ecs,
+) {
     *y += ROW_HEIGHT;
     if expanded.contains(&entity) && has_children(ecs, entity) {
         for child in get_children(ecs, entity) {
@@ -253,195 +407,89 @@ fn layout_entity_tree(entity: Entity, y: &mut f32, expanded: &HashSet<Entity>, e
     }
 }
 
-struct EntityTreeDrawContext<'a> {
-    ctx: &'a mut WgpuContext,
-    panel_rect: Rect,
-    expanded: &'a mut HashSet<Entity>,
-    dragging: &'a mut Option<Entity>,
-    drag_offset: &'a mut Vec2,
-    room_editor: &'a mut RoomEditor,
-    ecs: &'a mut Ecs,
-    area: &'a ActiveScrollArea,
-    blocked: bool,
-    mode: EditorMode,
-}
-
-fn draw_entity_tree(
-    entity: Entity,
-    depth: usize,
-    y: &mut f32,
-    draw: &mut EntityTreeDrawContext<'_>,
-) {
-    let panel_rect = draw.panel_rect;
-    let area = draw.area;
-    let blocked = draw.blocked;
-    let mode = draw.mode;
-    let usable_w = area.usable_width();
-    let indent = depth as f32 * 16.0;
-    let row_rect = Rect::new(
-        panel_rect.x + 6.0 + indent,
-        *y,
-        usable_w - indent,
-        ROW_HEIGHT,
-    );
-
-    // Track pending parent action to execute after drawing
-    let mut pending_set_parent: Option<(Entity, Entity)> = None;
-
-    // Check visibility before drawing
-    if area.is_fully_visible(row_rect.y, row_rect.h) {
-        let ctx = &mut *draw.ctx;
-        let ecs = &mut *draw.ecs;
-        let room_editor = &mut *draw.room_editor;
-        let has_children = has_children(ecs, entity);
-        let is_expanded = draw.expanded.contains(&entity);
-        let mouse: Vec2 = ctx.mouse_position().into();
-        let mouse_over = row_rect.contains(mouse);
-
-        // Selection highlight
-        if room_editor.is_selected(entity) {
-            ctx.draw_rectangle(
-                row_rect.x,
-                row_rect.y,
-                row_rect.w,
-                row_rect.h,
-                Color::new(0.25, 0.45, 0.85, 0.35),
-            );
-        }
-
-        // Expand/collapse buttons
-        if has_children {
-            let btn = Rect::new(row_rect.x, row_rect.y, 14.0, ROW_HEIGHT);
-            let symbol = if is_expanded { "-" } else { "+" };
-            let clicked = Button::new(btn, symbol)
-                .plain()
-                .text_color(Color::WHITE)
-                .hover_color(Color::GREY)
-                .blocked(blocked)
-                .show(ctx);
-            if !blocked && clicked {
-                if is_expanded {
-                    draw.expanded.remove(&entity);
-                } else {
-                    draw.expanded.insert(entity);
-                }
-            }
-        }
-
-        // Selection with Shift support for multi-select
-        if !blocked
-            && mouse_over
-            && ctx.is_mouse_button_pressed(MouseButton::Left)
-            && draw.dragging.is_none()
-        {
-            let shift_held =
-                ctx.is_key_down(KeyCode::LeftShift) || ctx.is_key_down(KeyCode::RightShift);
-            if shift_held {
-                // Toggle entity in selection
-                if room_editor.is_selected(entity) {
-                    room_editor.selected_entities.remove(&entity);
-                    // Update inspector if we now have single or no selection
-                    if room_editor.selected_entities.len() == 1 {
-                        let remaining = *room_editor.selected_entities.iter().next().unwrap();
-                        room_editor.inspector.set_target(Some(remaining));
-                    } else {
-                        room_editor.inspector.set_target(None);
-                    }
-                } else {
-                    room_editor.add_to_selection(entity);
-                }
-            } else {
-                room_editor.set_selected_entity(Some(entity));
-            }
-        }
-
-        // Start drag
-        if !blocked
-            && mouse_over
-            && ctx.is_mouse_button_pressed(MouseButton::Left)
-            && draw.dragging.is_none()
-        {
-            *draw.dragging = Some(entity);
-            *draw.drag_offset = mouse - row_rect.top_left();
-        }
-
-        // Drop target to parent
-        if !blocked {
-            if let Some(dragged) = *draw.dragging {
-                if dragged != entity && mouse_over && !is_ancestor(ecs, dragged, entity) {
-                    ctx.draw_rectangle(
-                        row_rect.x,
-                        row_rect.y,
-                        row_rect.w,
-                        row_rect.h,
-                        Color::new(0.3, 0.7, 0.3, 0.3),
-                    );
-                    if ctx.is_mouse_button_released(MouseButton::Left) {
-                        pending_set_parent = Some((dragged, entity));
-                        draw.expanded.insert(entity);
-                        *draw.dragging = None;
-                    }
-                }
-            }
-        }
-
-        // Entity name
-        ctx.draw_text(
-            &get_entity_name(ecs, entity),
-            row_rect.x + 18.0,
-            row_rect.y + 16.0,
-            14.0,
-            Color::WHITE,
-        );
-    }
-
-    // Execute pending set_parent action as undoable command
-    if let Some((child, new_parent)) = pending_set_parent {
-        let ecs = &mut *draw.ecs;
-        let old_parent = get_parent(ecs, child);
-        push_command(Box::new(SetParentCmd::new(
-            child, new_parent, old_parent, mode,
-        )));
-    }
-
-    *y += ROW_HEIGHT;
-
-    // Recursively draw children
-    let should_draw_children = {
-        let ecs = &*draw.ecs;
-        draw.expanded.contains(&entity) && has_children(ecs, entity)
-    };
-    if should_draw_children {
-        let children = {
-            let ecs = &*draw.ecs;
-            get_children(ecs, entity)
-        };
-        for child in children {
-            draw_entity_tree(child, depth + 1, y, draw);
-        }
-    }
-
-    // Unparent by dragging outside panel
-    if !blocked {
-        if let Some(dragged) = *draw.dragging {
-            if dragged == entity {
-                let ctx = &mut *draw.ctx;
-                let mouse: Vec2 = ctx.mouse_position().into();
-                if !panel_rect.contains(mouse) && ctx.is_mouse_button_released(MouseButton::Left) {
-                    let ecs = &mut *draw.ecs;
-                    let old_parent = get_parent(ecs, dragged);
-                    push_command(Box::new(RemoveParentCmd::new(dragged, old_parent, mode)));
-                    *draw.dragging = None;
-                }
-            }
-        }
-    }
-}
-
 fn get_entity_name(ecs: &Ecs, entity: Entity) -> String {
     ecs.get::<Name>(entity)
         .map(|n| n.to_string())
         .unwrap_or_else(|| format!("{:?}", entity))
+}
+
+pub(crate) fn prune_dead_hierarchy_state(
+    ecs: &Ecs,
+    expanded: &mut HashSet<Entity>,
+    dragging: &mut Option<Entity>,
+) {
+    expanded.retain(|entity| entity_exists_in_hierarchy(ecs, *entity));
+
+    if dragging.is_some_and(|entity| !entity_exists_in_hierarchy(ecs, entity)) {
+        *dragging = None;
+    }
+}
+
+pub(crate) fn sync_prefab_root_expansion(
+    prefab_roots: &[Entity],
+    expanded: &mut HashSet<Entity>,
+    seen_roots: &mut HashSet<Entity>,
+) {
+    let live_roots = prefab_roots.iter().copied().collect::<HashSet<_>>();
+    seen_roots.retain(|entity| live_roots.contains(entity));
+
+    for &root in prefab_roots {
+        if seen_roots.insert(root) {
+            expanded.insert(root);
+        }
+    }
+}
+
+pub(crate) fn clear_drag_on_mouse_release(dragging: &mut Option<Entity>, mouse_released: bool) {
+    if mouse_released {
+        *dragging = None;
+    }
+}
+
+pub(crate) fn room_mode_prefab_library(
+    cur_room_id: Option<RoomId>,
+    prefab_library: &PrefabLibrary,
+) -> Option<&PrefabLibrary> {
+    cur_room_id.map(|_| prefab_library)
+}
+
+fn draw_drag_ghost(
+    ctx: &mut WgpuContext,
+    ecs: &Ecs,
+    dragging: &mut Option<Entity>,
+    drag_offset: Vec2,
+) {
+    if let Some(dragged) = *dragging {
+        let (mx, my) = ctx.mouse_position();
+        let name = get_entity_name(ecs, dragged);
+        ctx.draw_rectangle(
+            mx - drag_offset.x,
+            my - drag_offset.y,
+            150.0,
+            ROW_HEIGHT,
+            Color::new(0.3, 0.5, 0.7, 0.5),
+        );
+        ctx.draw_text(
+            &name,
+            mx - drag_offset.x + 4.0,
+            my - drag_offset.y + 16.0,
+            14.0,
+            Color::WHITE,
+        );
+        clear_drag_on_mouse_release(dragging, ctx.is_mouse_button_released(MouseButton::Left));
+    }
+}
+
+fn entity_exists_in_hierarchy(ecs: &Ecs, entity: Entity) -> bool {
+    ecs.get_store::<Transform>().contains(entity)
+        || ecs.get_store::<Name>().contains(entity)
+        || ecs.get_store::<Parent>().contains(entity)
+        || ecs.get_store::<Children>().contains(entity)
+        || ecs.get_store::<Global>().contains(entity)
+        || ecs.get_store::<CurrentRoom>().contains(entity)
+        || ecs.get_store::<RoomCamera>().contains(entity)
+        || ecs.get_store::<PlayerProxy>().contains(entity)
+        || ecs.get_store::<Player>().contains(entity)
 }
 
 /// Creates a player proxy entity at the room's origin.

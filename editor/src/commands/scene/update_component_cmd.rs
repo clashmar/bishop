@@ -1,6 +1,7 @@
-// editor/src/commands/room/update_component_cmd.rs
 use crate::app::EditorMode;
 use crate::commands::editor_command_manager::EditorCommand;
+use crate::commands::scene::context::with_scene_ctx;
+use crate::prefab::instance_sync::sync_prefab_overrides_for_entity;
 use crate::with_editor;
 use engine_core::prelude::*;
 use std::any::Any;
@@ -109,7 +110,7 @@ fn should_reapply_component(
 #[derive(Debug)]
 pub struct UpdateComponentCmd {
     entity: Entity,
-    room_id: RoomId,
+    mode: EditorMode,
     type_name: &'static str,
     old_ron: String,
     new_ron: String,
@@ -120,7 +121,7 @@ pub struct UpdateComponentCmd {
 impl UpdateComponentCmd {
     pub fn new(
         entity: Entity,
-        room_id: RoomId,
+        mode: EditorMode,
         type_name: &'static str,
         old_ron: String,
         new_ron: String,
@@ -129,7 +130,7 @@ impl UpdateComponentCmd {
     ) -> Self {
         Self {
             entity,
-            room_id,
+            mode,
             type_name,
             old_ron,
             new_ron,
@@ -140,36 +141,38 @@ impl UpdateComponentCmd {
 
     fn apply(
         entity: Entity,
+        mode: EditorMode,
         type_name: &'static str,
         ron: String,
         transient_state: &ComponentTransientState,
         editor: &mut crate::Editor,
     ) {
-        let ctx = &mut editor.game.ctx_mut();
-        if let Some(reg) = COMPONENTS.iter().find(|r| r.type_name == type_name) {
-            if (reg.has)(ctx.ecs, entity) {
-                let old = (reg.clone)(ctx.ecs, entity);
-                let current_ron = (reg.to_ron_component)(old.as_ref());
-                let current_transient_state =
-                    capture_component_transient_state(type_name, old.as_ref());
+        with_scene_ctx(editor, mode, |ctx| {
+            if let Some(reg) = COMPONENTS.iter().find(|r| r.type_name == type_name) {
+                if (reg.has)(ctx.ecs(), entity) {
+                    let old = (reg.clone)(ctx.ecs(), entity);
+                    let current_ron = (reg.to_ron_component)(old.as_ref());
+                    let current_transient_state =
+                        capture_component_transient_state(type_name, old.as_ref());
 
-                if !should_reapply_component(
-                    &current_ron,
-                    &ron,
-                    &current_transient_state,
-                    transient_state,
-                ) {
-                    return;
+                    if !should_reapply_component(
+                        &current_ron,
+                        &ron,
+                        &current_transient_state,
+                        transient_state,
+                    ) {
+                        return;
+                    }
+
+                    let mut old = old;
+                    (reg.post_remove)(&mut *old, &entity, ctx);
                 }
-
-                let mut old = old;
-                (reg.post_remove)(&mut *old, &entity, ctx);
+                let mut boxed = (reg.from_ron_component)(ron);
+                restore_component_transient_state(type_name, boxed.as_mut(), transient_state);
+                (reg.post_create)(&mut *boxed, &entity, ctx);
+                (reg.inserter)(ctx.ecs(), entity, boxed);
             }
-            let mut boxed = (reg.from_ron_component)(ron);
-            restore_component_transient_state(type_name, boxed.as_mut(), transient_state);
-            (reg.post_create)(&mut *boxed, &entity, ctx);
-            (reg.inserter)(ctx.ecs, entity, boxed);
-        }
+        });
     }
 }
 
@@ -178,20 +181,40 @@ impl EditorCommand for UpdateComponentCmd {
         let type_name = self.type_name;
         let ron = self.new_ron.clone();
         let entity = self.entity;
+        let mode = self.mode;
         let transient_state = self.new_transient_state.clone();
-        with_editor(|editor| Self::apply(entity, type_name, ron, &transient_state, editor));
+        with_editor(|editor| {
+            Self::apply(entity, mode, type_name, ron, &transient_state, editor);
+            if matches!(mode, EditorMode::Room(_)) {
+                sync_prefab_overrides_for_entity(
+                    &mut editor.game.ecs,
+                    &editor.game.prefab_library,
+                    entity,
+                );
+            }
+        });
     }
 
     fn undo(&mut self) {
         let type_name = self.type_name;
         let ron = self.old_ron.clone();
         let entity = self.entity;
+        let mode = self.mode;
         let transient_state = self.old_transient_state.clone();
-        with_editor(|editor| Self::apply(entity, type_name, ron, &transient_state, editor));
+        with_editor(|editor| {
+            Self::apply(entity, mode, type_name, ron, &transient_state, editor);
+            if matches!(mode, EditorMode::Room(_)) {
+                sync_prefab_overrides_for_entity(
+                    &mut editor.game.ecs,
+                    &editor.game.prefab_library,
+                    entity,
+                );
+            }
+        });
     }
 
     fn mode(&self) -> EditorMode {
-        EditorMode::Room(self.room_id)
+        self.mode
     }
 }
 

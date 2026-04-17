@@ -4,7 +4,7 @@ use crate::ecs::component_registry::*;
 use crate::ecs::entity::*;
 use crate::ecs::has_any::HasAny;
 use crate::ecs::transform::Transform;
-use crate::game::GameCtxMut;
+use crate::game::EngineCtxMut;
 use crate::worlds::room::RoomId;
 use once_cell::sync::Lazy;
 use serde::de::Deserializer;
@@ -66,19 +66,20 @@ impl Ecs {
     }
 
     /// Remove an entity and all of its descendants.
-    pub fn remove_entity(ctx: &mut GameCtxMut, entity: Entity) {
+    pub fn remove_entity(ctx: &mut dyn EngineCtxMut, entity: Entity) {
         // Detach from parent (if any)
-        if let Some(parent) = ctx.ecs.get::<Parent>(entity).map(|p| p.0)
-            && let Some(children) = ctx.ecs.get_mut::<Children>(parent)
+        let parent = ctx.ecs().get::<Parent>(entity).map(|p| p.0);
+        if let Some(parent) = parent
+            && let Some(children) = ctx.ecs().get_mut::<Children>(parent)
         {
             children.remove(entity);
             if children.entities.is_empty() {
-                ctx.ecs.get_store_mut::<Children>().remove(parent);
+                ctx.ecs().get_store_mut::<Children>().remove(parent);
             }
         }
 
         // Remove children recursively
-        let children = get_children(ctx.ecs, entity);
+        let children = get_children(ctx.ecs(), entity);
         for child in children {
             Ecs::remove_entity(ctx, child);
         }
@@ -86,17 +87,17 @@ impl Ecs {
         // Remove all its components
         for reg in inventory::iter::<ComponentRegistry> {
             // Run post_remove for all components before removing them
-            if (reg.has)(ctx.ecs, entity) {
-                let mut boxed = (reg.clone)(ctx.ecs, entity);
+            if (reg.has)(ctx.ecs(), entity) {
+                let mut boxed = (reg.clone)(ctx.ecs(), entity);
                 (reg.post_remove)(&mut *boxed, &entity, ctx);
             }
 
-            (reg.remove)(ctx.ecs, entity);
+            (reg.remove)(ctx.ecs(), entity);
         }
     }
 
     /// Remove a single component from an entity, calling its post_remove hook.
-    pub fn remove_component<T>(ctx: &mut GameCtxMut, entity: Entity)
+    pub fn remove_component<T>(ctx: &mut dyn EngineCtxMut, entity: Entity)
     where
         T: Component + 'static,
     {
@@ -108,11 +109,11 @@ impl Ecs {
             .find(|r| r.type_name == type_name);
 
         if let Some(reg) = reg
-            && (reg.has)(ctx.ecs, entity)
+            && (reg.has)(ctx.ecs(), entity)
         {
-            let mut boxed = (reg.clone)(ctx.ecs, entity);
+            let mut boxed = (reg.clone)(ctx.ecs(), entity);
             (reg.post_remove)(&mut *boxed, &entity, ctx);
-            (reg.remove)(ctx.ecs, entity);
+            (reg.remove)(ctx.ecs(), entity);
         }
     }
 

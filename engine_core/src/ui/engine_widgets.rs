@@ -1,4 +1,4 @@
-use crate::assets::asset_manager::AssetManager;
+use crate::assets::sprite_manager::SpriteManager;
 use crate::assets::sprite::SpriteId;
 use crate::ecs::entity::Entity;
 use crate::prelude::{assets_folder, scripts_folder};
@@ -7,19 +7,20 @@ use crate::scripting::script_manager::ScriptManager;
 use crate::*;
 use bishop::prelude::*;
 use std::borrow::Cow;
-use widgets::{Button, WIDGET_SPACING};
+use widgets::{Button, WIDGET_SPACING, WidgetId};
 
 pub fn gui_sprite_picker<C: BishopContext>(
     ctx: &mut C,
     rect: Rect,
+    interaction_id: WidgetId,
     id: &mut SpriteId,
-    asset_manager: &mut AssetManager,
+    sprite_manager: &mut SpriteManager,
     blocked: bool,
 ) -> bool {
     let btn_label: Cow<str> = if id.0 == 0 {
         Cow::Borrowed("[Pick File]")
     } else {
-        let filename = asset_manager
+        let filename = sprite_manager
             .sprite_id_to_path
             .get(id)
             .and_then(|p| p.file_name())
@@ -38,8 +39,9 @@ pub fn gui_sprite_picker<C: BishopContext>(
     let mut changed = false;
 
     if Button::new(picker_rect, &btn_label)
-        .blocked(blocked)
-        .show(ctx)
+        .interaction_id(interaction_id)
+        .suppressed(blocked)
+        .show_native_dialog(ctx)
     {
         #[cfg(not(target_arch = "wasm32"))]
         {
@@ -48,10 +50,10 @@ pub fn gui_sprite_picker<C: BishopContext>(
                 .set_directory(assets_folder())
                 .pick_file()
             {
-                let normalized = asset_manager.normalize_path(path);
-                match asset_manager.get_or_load(ctx, &normalized) {
+                let normalized = sprite_manager.normalize_path(path);
+                match sprite_manager.get_or_load(ctx, &normalized) {
                     Some(new_id) => {
-                        asset_manager.change_sprite(id, new_id);
+                        sprite_manager.change_sprite(id, new_id);
                         changed = true;
                     }
                     None => {
@@ -62,8 +64,8 @@ pub fn gui_sprite_picker<C: BishopContext>(
         }
     }
 
-    if Button::new(remove_rect, "x").blocked(blocked).show(ctx) && id.0 != 0 {
-        asset_manager.decrement_ref(*id);
+    if Button::new(remove_rect, "x").suppressed(blocked).show(ctx) && id.0 != 0 {
+        sprite_manager.decrement_ref(*id);
         *id = SpriteId(0);
         changed = true;
     }
@@ -74,6 +76,7 @@ pub fn gui_sprite_picker<C: BishopContext>(
 pub fn gui_script_picker<C: BishopContext>(
     ctx: &mut C,
     rect: Rect,
+    interaction_id: WidgetId,
     entity: Entity,
     script_id: &mut ScriptId,
     script_manager: &mut ScriptManager,
@@ -101,8 +104,9 @@ pub fn gui_script_picker<C: BishopContext>(
     let mut changed = false;
 
     if Button::new(picker_rect, &btn_label)
-        .blocked(blocked)
-        .show(ctx)
+        .interaction_id(interaction_id)
+        .suppressed(blocked)
+        .show_native_dialog(ctx)
     {
         #[cfg(not(target_arch = "wasm32"))]
         {
@@ -125,7 +129,7 @@ pub fn gui_script_picker<C: BishopContext>(
         }
     }
 
-    if Button::new(remove_rect, "x").blocked(blocked).show(ctx) && script_id.0 != 0 {
+    if Button::new(remove_rect, "x").suppressed(blocked).show(ctx) && script_id.0 != 0 {
         script_manager.unload(entity, *script_id);
         *script_id = ScriptId(0);
         changed = true;

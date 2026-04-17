@@ -1,6 +1,6 @@
 // engine_core/src/physics/collider_system.rs
 use crate::animation::animation_system::CurrentFrame;
-use crate::assets::asset_manager::AssetManager;
+use crate::assets::sprite_manager::SpriteManager;
 use crate::assets::sprite::Sprite;
 use crate::assets::sprite::SpriteId;
 use crate::ecs::component::Collider;
@@ -9,7 +9,7 @@ use crate::ecs::ecs::Ecs;
 use crate::ecs::entity::Entity;
 
 /// Set the collider for every entity that has a sprite and an unset collider
-pub fn update_colliders_from_sprites(ecs: &mut Ecs, assets: &mut AssetManager) {
+pub fn update_colliders_from_sprites(ecs: &mut Ecs, assets: &mut SpriteManager) {
     let mut pending: Vec<(Entity, Collider)> = Vec::new();
 
     {
@@ -57,10 +57,10 @@ pub fn update_colliders_from_sprites(ecs: &mut Ecs, assets: &mut AssetManager) {
 
 /// Returns a Collider whose dimensions match the sprite size.
 pub fn collider_from_sprite(
-    asset_manager: &mut AssetManager,
+    sprite_manager: &mut SpriteManager,
     sprite_id: SpriteId,
 ) -> Option<Collider> {
-    asset_manager
+    sprite_manager
         .texture_size(sprite_id)
         .map(|(w, h)| Collider {
             width: w,
@@ -72,12 +72,12 @@ pub fn collider_from_sprite(
 fn collider_from_animation_component(
     current_frame_store: &ComponentStore<CurrentFrame>,
     entity: Entity,
-    asset_manager: &mut AssetManager,
+    sprite_manager: &mut SpriteManager,
 ) -> Option<Collider> {
     let current_frame = current_frame_store.get(entity)?;
 
     // Build the collider
-    asset_manager
+    sprite_manager
         .texture_size(current_frame.sprite_id)
         .map(|(_, h)| Collider {
             width: current_frame.frame_size.x,

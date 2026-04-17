@@ -1,5 +1,8 @@
 // editor/src/menu_editor/menu_properties_panel/layout_properties.rs
-use super::{common_properties::row_visible, nav_section::NavSectionStyle, FIELD_HEIGHT, LABEL_WIDTH, ROW_HEIGHT};
+use super::{
+    common_properties::row_visible, nav_section::NavSectionStyle, FIELD_HEIGHT, LABEL_WIDTH,
+    ROW_HEIGHT,
+};
 use crate::menu::MenuEditor;
 use bishop::prelude::*;
 use engine_core::prelude::*;
@@ -71,7 +74,7 @@ impl MenuEditor {
             ctx.draw_text("Enabled:", x, *y + 16.0, 12.0, Color::WHITE);
             let checkbox_rect = Rect::new(x + LABEL_WIDTH, *y + 4.0, 16.0, 16.0);
             let mut enabled = has_bg;
-            if gui_checkbox(ctx, checkbox_rect, &mut enabled) {
+            if gui_checkbox(ctx, checkbox_rect, &mut enabled, false) {
                 self.push_element_update(|el| {
                     if let MenuElementKind::LayoutGroup(group) = &mut el.kind {
                         group.background = if enabled {
@@ -164,7 +167,7 @@ impl MenuEditor {
                 &dir_options,
                 |s| s.to_string(),
             )
-            .blocked(blocked)
+            .suppressed(blocked)
             .fixed_width()
             .show(ctx)
             {
@@ -311,7 +314,7 @@ impl MenuEditor {
                 &h_options,
                 |s| s.to_string(),
             )
-            .blocked(blocked)
+            .suppressed(blocked)
             .fixed_width()
             .show(ctx)
             {
@@ -347,7 +350,7 @@ impl MenuEditor {
                 &v_options,
                 |s| s.to_string(),
             )
-            .blocked(blocked)
+            .suppressed(blocked)
             .fixed_width()
             .show(ctx)
             {
@@ -457,7 +460,7 @@ impl MenuEditor {
 
                 let checkbox_rect = Rect::new(x, *y + 4.0, 16.0, 16.0);
                 let mut managed_val = managed;
-                if gui_checkbox(ctx, checkbox_rect, &mut managed_val) {
+                if gui_checkbox(ctx, checkbox_rect, &mut managed_val, false) {
                     self.push_element_update(|el| {
                         if let MenuElementKind::LayoutGroup(group) = &mut el.kind {
                             if let Some(child) = group.children.get_mut(i) {

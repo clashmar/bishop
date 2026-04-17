@@ -2,6 +2,14 @@
 -- bishop-owner: shared-engine
 ---@meta
 
+engine.prefab = {}
+
+---@param prefab_name PrefabId
+---@param position vec2
+---@param init? table
+---@return Entity
+function engine.prefab.spawn(prefab_name, position, init) end
+
 ---@param msg string
 function engine.log.info(msg) end
 
