@@ -37,6 +37,7 @@ impl Editor {
         if self.prefab_editor.is_none() {
             return false;
         }
+        let prefab = canonical_prefab_asset(&prefab);
         let root_entity = self
             .prefab_editor
             .as_ref()

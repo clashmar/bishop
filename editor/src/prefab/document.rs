@@ -115,9 +115,10 @@ impl PrefabEditor {
         game_name: &str,
         prefab: &PrefabAsset,
     ) -> io::Result<()> {
-        save_prefab(game_name, prefab)?;
+        let prefab = canonical_prefab_asset(prefab);
+        save_prefab(game_name, &prefab)?;
         self.prefab_name = prefab.name.clone();
-        self.last_committed_prefab = StagedPrefabState::PrefabAsset(prefab.clone());
+        self.last_committed_prefab = StagedPrefabState::PrefabAsset(prefab);
         Ok(())
     }
 

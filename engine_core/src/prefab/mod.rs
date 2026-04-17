@@ -194,16 +194,17 @@ pub fn load_prefab(game_name: &str, prefab_id: PrefabId) -> io::Result<PrefabAss
 
 /// Saves a single prefab asset to disk.
 pub fn save_prefab(game_name: &str, prefab: &PrefabAsset) -> io::Result<()> {
-    validate_prefab(prefab)?;
+    let prefab = canonical_prefab_asset(prefab);
+    validate_prefab(&prefab)?;
     let existing_path = find_prefab_path(game_name, prefab.id)?;
-    ensure_unique_prefab_name(game_name, prefab)?;
-    let path = resolve_prefab_save_path(game_name, prefab, existing_path.as_deref())?;
+    ensure_unique_prefab_name(game_name, &prefab)?;
+    let path = resolve_prefab_save_path(game_name, &prefab, existing_path.as_deref())?;
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent)?;
     }
 
     let ron =
-        ron::ser::to_string_pretty(prefab, ron::ser::PrettyConfig::new()).map_err(Error::other)?;
+        ron::ser::to_string_pretty(&prefab, ron::ser::PrettyConfig::new()).map_err(Error::other)?;
 
     fs::write(&path, ron)?;
 
@@ -215,6 +216,22 @@ pub fn save_prefab(game_name: &str, prefab: &PrefabAsset) -> io::Result<()> {
     }
 
     Ok(())
+}
+
+/// Returns the prefab asset in canonical save order.
+pub fn canonical_prefab_asset(prefab: &PrefabAsset) -> PrefabAsset {
+    let mut canonical = prefab.clone();
+    for node in &mut canonical.nodes {
+        node.components = canonical_component_snapshots(&node.components);
+    }
+    canonical.nodes.sort_by_key(|node| node.node_id);
+    canonical
+}
+
+fn canonical_component_snapshots(components: &[ComponentSnapshot]) -> Vec<ComponentSnapshot> {
+    let mut sorted = components.to_vec();
+    sorted.sort_by(|left, right| left.type_name.cmp(&right.type_name));
+    sorted
 }
 
 /// Deletes a single prefab asset file when it exists.
