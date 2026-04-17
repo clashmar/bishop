@@ -1,14 +1,15 @@
 // editor/src/gui/panels/panel_manager.rs
-use crate::Editor;
 use crate::app::EditorMode;
 use crate::gui::panels::console_panel::ConsolePanel;
 use crate::gui::panels::diagnostics_panel::DiagnosticsPanel;
 use crate::gui::panels::generic_panel::*;
 use crate::gui::panels::hierarchy_panel::HierarchyPanel;
+use crate::gui::panels::prefab_browser_panel::PrefabBrowserPanel;
 use crate::gui::panels::prefab_palette_panel::PrefabPalettePanel;
 use crate::with_panel_manager;
+use crate::Editor;
 use bishop::prelude::*;
-use engine_core::storage::editor_config::{PanelPosition, get_panel_position, set_panel_position};
+use engine_core::storage::editor_config::{get_panel_position, set_panel_position, PanelPosition};
 use std::collections::HashMap;
 
 pub enum PanelMode {
@@ -176,6 +177,15 @@ impl PanelManager {
             GenericPanel::new(PrefabPalettePanel::new(), ctx),
             vec![PanelMode::Room],
         );
+
+        self.register_prefab_browser_panel(ctx);
+    }
+
+    fn register_prefab_browser_panel(&mut self, ctx: &WgpuContext) {
+        self.register(
+            GenericPanel::new(PrefabBrowserPanel::new(), ctx),
+            vec![PanelMode::Prefab],
+        );
     }
 }
 
@@ -192,11 +202,13 @@ pub fn is_mouse_over_panel(ctx: &WgpuContext) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::prefab::BLANK_PREFAB_ID;
     use engine_core::prelude::{PrefabId, RoomId};
 
     #[test]
     fn prefab_panels_match_prefab_editor_mode() {
         assert!(PanelMode::Prefab.matches(&EditorMode::Prefab(PrefabId(3))));
+        assert!(PanelMode::Prefab.matches(&EditorMode::Prefab(BLANK_PREFAB_ID)));
     }
 
     #[test]

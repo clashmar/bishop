@@ -51,6 +51,11 @@ impl Editor {
     }
 
     pub(super) fn open_rename_modal(&mut self, ctx: &mut WgpuContext) {
+        if self.is_blank_prefab_mode() {
+            self.toast = Some(Toast::new("Blank prefab sessions cannot be renamed.", 2.5));
+            return;
+        }
+
         let prompt_message = match self.mode {
             EditorMode::Game => "Rename game: ",
             EditorMode::World(_) => "Rename world: ",
@@ -102,9 +107,7 @@ impl Editor {
 
     pub(crate) fn open_prefab_picker_modal(&mut self, ctx: &mut WgpuContext) {
         self.modal = Modal::new(ctx, 340.0, 240.0);
-        let excluded_prefab_id = matches!(self.mode, EditorMode::Prefab(_))
-            .then(|| self.prefab_editor.as_ref().map(|editor| editor.prefab_id))
-            .flatten();
+        let excluded_prefab_id = self.active_persisted_prefab_id();
         let prefabs = list_prefabs(&self.game.name).unwrap_or_default();
         let mut prompt = PrefabPickerPrompt::new(self.modal.rect, prefabs, excluded_prefab_id);
 
@@ -200,6 +203,14 @@ impl Editor {
         self.modal.open(widgets);
     }
 
+    pub(crate) fn open_delete_prefab_modal(&mut self, ctx: &WgpuContext) {
+        self.modal = Modal::open_confirm_modal_with_message(
+            ctx,
+            &DELETE_PREFAB_RESULT,
+            "Delete this prefab and all linked room instances?",
+        );
+    }
+
     pub(crate) fn open_dirty_prefab_exit_modal(&mut self, ctx: &WgpuContext) {
         self.modal = Modal::new(ctx, 560.0, 140.0);
         let mut prompt =
@@ -276,14 +287,13 @@ impl Editor {
                                 }
                             }
                             EditorMode::Prefab(_) => {
-                                let prefab_id =
-                                    self.prefab_editor.as_ref().map(|editor| editor.prefab_id);
-                                let is_duplicate = prefab_id.is_some_and(|id| {
-                                    self.duplicate_prefab_name_exists_excluding(&name, id)
-                                });
-                                if !is_duplicate {
-                                    if let Some(prefab_editor) = self.prefab_editor.as_mut() {
-                                        prefab_editor.set_name(name);
+                                if let Some(prefab_id) = self.active_persisted_prefab_id() {
+                                    let is_duplicate = self
+                                        .duplicate_prefab_name_exists_excluding(&name, prefab_id);
+                                    if !is_duplicate {
+                                        if let Some(prefab_editor) = self.prefab_editor.as_mut() {
+                                            prefab_editor.set_name(name);
+                                        }
                                     }
                                 }
                             }
@@ -326,22 +336,43 @@ impl Editor {
             let prefab_name_prompt_opt = PREFAB_NAME_PROMPT_RESULT.with(|c| c.borrow_mut().take());
 
             if let Some(result) = prefab_name_prompt_opt {
+                enum PrefabNameConfirmOutcome {
+                    Close,
+                    PresentTransition(PrefabTransitionPrompt),
+                }
+
                 match result {
                     StringPromptResult::Confirmed(name) => {
                         if self.duplicate_prefab_name_exists(&name) {
                             self.pending_prefab_request = None;
                             self.modal.close();
                         } else {
-                            match self.pending_prefab_request.take() {
+                            let outcome = match self.pending_prefab_request.take() {
                                 Some(PendingPrefabRequest::CaptureSelection(entity)) => {
                                     self.create_prefab_from_selection(ctx, entity, name);
+                                    PrefabNameConfirmOutcome::Close
                                 }
                                 Some(PendingPrefabRequest::CreateBlank) => {
-                                    self.request_blank_prefab_transition(ctx, name);
+                                    PrefabNameConfirmOutcome::PresentTransition(
+                                        self.request_blank_prefab_transition(name),
+                                    )
                                 }
-                                None => {}
+                                None => {
+                                    PrefabNameConfirmOutcome::Close
+                                }
+                            };
+
+                            match outcome {
+                                PrefabNameConfirmOutcome::Close
+                                | PrefabNameConfirmOutcome::PresentTransition(
+                                    PrefabTransitionPrompt::None,
+                                ) => {
+                                    self.modal.close();
+                                }
+                                PrefabNameConfirmOutcome::PresentTransition(prompt) => {
+                                    self.present_prefab_transition_prompt(ctx, prompt);
+                                }
                             }
-                            self.modal.close();
                         }
                     }
                     StringPromptResult::Cancelled => {
@@ -437,6 +468,15 @@ impl Editor {
                 self.modal.close();
             }
 
+            let delete_prefab_opt = DELETE_PREFAB_RESULT.with(|c| c.borrow_mut().take());
+
+            if let Some(result) = delete_prefab_opt {
+                if matches!(result, ConfirmPromptResult::Confirmed) {
+                    self.confirm_delete_prefab();
+                }
+                self.modal.close();
+            }
+
             let dirty_prefab_exit_opt = DIRTY_PREFAB_EXIT_RESULT.with(|c| c.borrow_mut().take());
 
             if let Some(result) = dirty_prefab_exit_opt {
@@ -508,4 +548,5 @@ thread_local! {
     pub static EMPTY_PREFAB_SAVE_RESULT: RefCell<Option<EmptyPrefabSaveConfirmResult>> = const { RefCell::new(None) };
     pub static EMPTY_PREFAB_EXIT_RESULT: RefCell<Option<EmptyPrefabExitPromptResult>> = const { RefCell::new(None) };
     pub static DIRTY_PREFAB_EXIT_RESULT: RefCell<Option<DirtyPrefabExitPromptResult>> = const { RefCell::new(None) };
+    pub static DELETE_PREFAB_RESULT: RefCell<Option<ConfirmPromptResult>> = const { RefCell::new(None) };
 }

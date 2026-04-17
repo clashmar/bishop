@@ -5,6 +5,7 @@ use crate::commands::scene::{
     ApplyInstanceToPrefabCmd, RevertPrefabInstanceCmd, UnlinkPrefabInstanceCmd,
 };
 use crate::editor_global::push_command;
+use crate::prefab::BLANK_PREFAB_ID;
 use crate::shared::scene_ui::inspector::{ScenePrefabAction, ScenePrefabActionRequest};
 use bishop::prelude::*;
 use engine_core::prelude::*;
@@ -21,6 +22,17 @@ pub(crate) enum PrefabEditorLaunch {
 }
 
 impl Editor {
+    pub(crate) fn is_blank_prefab_mode(&self) -> bool {
+        matches!(self.mode, EditorMode::Prefab(BLANK_PREFAB_ID))
+    }
+
+    pub(crate) fn active_persisted_prefab_id(&self) -> Option<PrefabId> {
+        self.prefab_editor
+            .as_ref()
+            .map(|prefab_editor| prefab_editor.prefab_id)
+            .filter(|prefab_id| *prefab_id != BLANK_PREFAB_ID)
+    }
+
     pub(in crate::prefab) fn prefab_editor_launch(&self) -> PrefabEditorLaunch {
         if let EditorMode::Room(_) = self.mode {
             if let Some(entity) = self.room_editor.single_selected_entity() {
@@ -180,11 +192,10 @@ impl Editor {
         self.open_prefab_editor_for_id(prefab_id);
     }
 
-    pub(crate) fn request_blank_prefab_transition(&mut self, ctx: &WgpuContext, name: String) {
-        match self.request_prefab_transition(PendingPrefabTransition::CreateBlank(name)) {
-            PrefabTransitionPrompt::None => {}
-            PrefabTransitionPrompt::Dirty => self.open_dirty_prefab_exit_modal(ctx),
-            PrefabTransitionPrompt::Empty => self.open_empty_prefab_exit_modal(ctx),
-        }
+    pub(crate) fn request_blank_prefab_transition(
+        &mut self,
+        name: String,
+    ) -> PrefabTransitionPrompt {
+        self.request_prefab_transition(PendingPrefabTransition::CreateBlank(name))
     }
 }

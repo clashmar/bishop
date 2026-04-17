@@ -165,4 +165,5 @@ fn scene_inspector_output_defaults_to_no_prefab_picker_request() {
     let output = SceneInspectorOutput::default();
 
     assert!(!output.open_prefab_picker);
+    assert!(!output.delete_prefab);
 }

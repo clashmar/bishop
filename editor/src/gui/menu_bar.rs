@@ -3,6 +3,7 @@ use crate::app::EditorMode;
 use crate::gui::gui_constants::*;
 use crate::gui::menu_widgets::menu_dropdown;
 pub(crate) use crate::gui::menu_widgets::{menu_button, menu_button_text_position};
+use crate::prefab::BLANK_PREFAB_ID;
 use bishop::prelude::*;
 use engine_core::prelude::*;
 use std::fmt;
@@ -37,6 +38,7 @@ pub enum EditorAction {
     ViewHierarchyPanel,
     ViewConsolePanel,
     ViewDiagnosticsPanel,
+    ViewPrefabBrowserPanel,
     ViewPrefabPalettePanel,
     // Options actions
     WorldSettings,
@@ -60,6 +62,7 @@ impl EditorAction {
             EditorAction::ViewHierarchyPanel => "Hierarchy".to_string(),
             EditorAction::ViewConsolePanel => "Console".to_string(),
             EditorAction::ViewDiagnosticsPanel => "Diagnostics".to_string(),
+            EditorAction::ViewPrefabBrowserPanel => "Prefab Browser".to_string(),
             EditorAction::ViewPrefabPalettePanel => "Prefab Palette".to_string(),
             EditorAction::WorldSettings => "World Settings".to_string(),
             EditorAction::OpenMenuEditor => "Menu Editor".to_string(),
@@ -82,6 +85,7 @@ impl EditorAction {
                 EditorAction::ViewHierarchyPanel => Some("H"),
                 EditorAction::ViewConsolePanel => Some("C"),
                 EditorAction::ViewDiagnosticsPanel => Some("F3"),
+                EditorAction::ViewPrefabBrowserPanel => Some("P"),
                 EditorAction::ViewPrefabPalettePanel => Some("P"),
                 _ => None,
             }
@@ -98,6 +102,7 @@ impl EditorAction {
                 EditorAction::ViewHierarchyPanel => Some("H"),
                 EditorAction::ViewConsolePanel => Some("C"),
                 EditorAction::ViewDiagnosticsPanel => Some("F3"),
+                EditorAction::ViewPrefabBrowserPanel => Some("P"),
                 EditorAction::ViewPrefabPalettePanel => Some("P"),
                 _ => None,
             }
@@ -112,26 +117,26 @@ impl EditorAction {
 
     pub(crate) fn is_available_in(self, editor_mode: EditorMode) -> bool {
         match self {
-            EditorAction::Rename => matches!(
-                editor_mode,
-                EditorMode::Game
-                    | EditorMode::World(_)
-                    | EditorMode::Room(_)
-                    | EditorMode::Prefab(_)
-            ),
+            EditorAction::Rename => {
+                matches!(
+                    editor_mode,
+                    EditorMode::Game | EditorMode::World(_) | EditorMode::Room(_)
+                ) || matches!(editor_mode, EditorMode::Prefab(prefab_id) if prefab_id != BLANK_PREFAB_ID)
+            }
             EditorAction::NewGame
             | EditorAction::Open
-            | EditorAction::Save
-            | EditorAction::SaveAs
             | EditorAction::Export
             | EditorAction::ChangeSaveRoot
             | EditorAction::Undo
             | EditorAction::Redo
             | EditorAction::ViewConsolePanel
             | EditorAction::ViewDiagnosticsPanel => true,
+            EditorAction::Save => !matches!(editor_mode, EditorMode::Prefab(BLANK_PREFAB_ID)),
+            EditorAction::SaveAs => !matches!(editor_mode, EditorMode::Prefab(BLANK_PREFAB_ID)),
             EditorAction::ViewHierarchyPanel => {
                 matches!(editor_mode, EditorMode::Room(_) | EditorMode::Prefab(_))
             }
+            EditorAction::ViewPrefabBrowserPanel => matches!(editor_mode, EditorMode::Prefab(_)),
             EditorAction::ViewPrefabPalettePanel => matches!(editor_mode, EditorMode::Room(_)),
             EditorAction::WorldSettings => {
                 matches!(editor_mode, EditorMode::World(_) | EditorMode::Room(_))
@@ -154,6 +159,7 @@ impl EditorAction {
             EditorAction::ViewHierarchyPanel => Controls::h(ctx),
             EditorAction::ViewConsolePanel => Controls::c(ctx),
             EditorAction::ViewDiagnosticsPanel => Controls::f3(ctx),
+            EditorAction::ViewPrefabBrowserPanel => Controls::p(ctx),
             EditorAction::ViewPrefabPalettePanel => Controls::p(ctx),
             _ => false,
         }
@@ -165,6 +171,7 @@ impl EditorAction {
             EditorAction::ViewHierarchyPanel
                 | EditorAction::ViewConsolePanel
                 | EditorAction::ViewDiagnosticsPanel
+                | EditorAction::ViewPrefabBrowserPanel
                 | EditorAction::ViewPrefabPalettePanel
         )
     }
@@ -217,17 +224,24 @@ impl MenuBar {
             | EditorMode::World(_)
             | EditorMode::Room(_)
             | EditorMode::Prefab(_) => {
-                let title_actions = vec![EditorAction::Rename];
-                if let Some(selected) = menu_dropdown(
-                    ctx,
-                    self.title_id,
-                    title_rect,
-                    title,
-                    &title_actions,
-                    |a| a.ui_label(),
-                    |a| a.shortcut(),
-                ) {
-                    self.pending = Some(selected);
+                if let Some(title_actions) = title_actions_for_mode(editor_mode) {
+                    if let Some(selected) = menu_dropdown(
+                        ctx,
+                        self.title_id,
+                        title_rect,
+                        title,
+                        &title_actions,
+                        |a| a.ui_label(),
+                        |a| a.shortcut(),
+                    ) {
+                        self.pending = Some(selected);
+                    }
+                } else {
+                    let txt_dims = ctx.measure_text(title, HEADER_FONT_SIZE_20);
+                    let txt_x = title_rect.x + PADDING / 2.0;
+                    let txt_y =
+                        title_rect.y + (title_rect.h - txt_dims.height) / 2.0 + txt_dims.offset_y;
+                    ctx.draw_text(title, txt_x, txt_y, HEADER_FONT_SIZE_20, Color::BLACK);
                 }
             }
             _ => {
@@ -251,7 +265,7 @@ impl MenuBar {
             HEIGHT,
         );
 
-        let file_actions = file_actions();
+        let file_actions = file_actions_for_mode(editor_mode);
 
         if let Some(selected) = menu_dropdown(
             ctx,
@@ -376,14 +390,25 @@ impl MenuBar {
     }
 }
 
-fn file_actions() -> Vec<EditorAction> {
+fn title_actions_for_mode(editor_mode: EditorMode) -> Option<Vec<EditorAction>> {
+    if matches!(editor_mode, EditorMode::Prefab(BLANK_PREFAB_ID)) {
+        None
+    } else {
+        Some(vec![EditorAction::Rename])
+    }
+}
+
+fn file_actions_for_mode(editor_mode: EditorMode) -> Vec<EditorAction> {
     let mut actions = vec![
         EditorAction::NewGame,
         EditorAction::Open,
-        EditorAction::Save,
-        EditorAction::SaveAs,
         EditorAction::Export,
     ];
+
+    if !matches!(editor_mode, EditorMode::Prefab(BLANK_PREFAB_ID)) {
+        actions.insert(2, EditorAction::Save);
+        actions.insert(3, EditorAction::SaveAs);
+    }
 
     if !cfg!(debug_assertions) {
         actions.push(EditorAction::ChangeSaveRoot);
@@ -397,6 +422,7 @@ fn view_actions_for_mode(editor_mode: EditorMode) -> Vec<EditorAction> {
         EditorAction::ViewConsolePanel,
         EditorAction::ViewDiagnosticsPanel,
         EditorAction::ViewHierarchyPanel,
+        EditorAction::ViewPrefabBrowserPanel,
         EditorAction::ViewPrefabPalettePanel,
     ]
     .into_iter()
@@ -436,6 +462,7 @@ pub fn menu_panel_rect(ctx: &mut WgpuContext) -> Rect {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::prefab::BLANK_PREFAB_ID;
     use engine_core::prelude::PrefabId;
     use uuid::Uuid;
 
@@ -459,10 +486,38 @@ mod tests {
     }
 
     #[test]
+    fn prefab_browser_action_is_limited_to_prefab_modes() {
+        assert!(EditorAction::ViewPrefabBrowserPanel
+            .is_available_in(EditorMode::Prefab(BLANK_PREFAB_ID,)));
+        assert!(
+            EditorAction::ViewPrefabBrowserPanel.is_available_in(EditorMode::Prefab(PrefabId(7),))
+        );
+        assert!(!EditorAction::ViewPrefabBrowserPanel.is_available_in(EditorMode::Room(RoomId(2),)));
+        assert_eq!(EditorAction::ViewPrefabBrowserPanel.shortcut(), Some("P"));
+    }
+
+    #[test]
+    fn blank_prefab_mode_uses_plain_title_text() {
+        assert!(title_actions_for_mode(EditorMode::Prefab(BLANK_PREFAB_ID)).is_none());
+    }
+
+    #[cfg(debug_assertions)]
+    #[test]
     fn file_menu_hides_change_save_root_in_debug_builds() {
-        let actions = file_actions();
+        let actions = file_actions_for_mode(EditorMode::Game);
 
         assert!(!actions.contains(&EditorAction::ChangeSaveRoot));
+    }
+
+    #[test]
+    fn blank_prefab_mode_hides_save_and_rename_actions() {
+        assert!(!EditorAction::Save.is_available_in(EditorMode::Prefab(BLANK_PREFAB_ID)));
+        let file_actions = file_actions_for_mode(EditorMode::Prefab(BLANK_PREFAB_ID));
+        let title_actions = title_actions_for_mode(EditorMode::Prefab(BLANK_PREFAB_ID));
+
+        assert!(!file_actions.contains(&EditorAction::Save));
+        assert!(!file_actions.contains(&EditorAction::SaveAs));
+        assert!(title_actions.is_none());
     }
 
     #[test]
@@ -489,7 +544,7 @@ mod tests {
     #[cfg(not(debug_assertions))]
     #[test]
     fn file_menu_shows_change_save_root_in_release_builds() {
-        let actions = file_actions();
+        let actions = file_actions_for_mode(EditorMode::Game);
 
         assert!(actions.contains(&EditorAction::ChangeSaveRoot));
     }

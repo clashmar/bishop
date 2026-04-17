@@ -4,6 +4,7 @@ use crate::gui::panels::hierarchy_panel::{
     clear_drag_on_mouse_release, layout_entity_tree, prune_dead_hierarchy_state,
     room_mode_prefab_library, sync_prefab_root_expansion, PrefabHierarchyHost, RoomHierarchyHost,
 };
+use crate::gui::panels::prefab_browser_panel::prefab_browser_entries;
 use crate::room::room_editor::RoomEditor;
 use crate::shared::scene_ui::hierarchy::{SceneHierarchyHost, SceneHierarchySelectionAction};
 use engine_core::prelude::*;
@@ -165,4 +166,34 @@ fn prefab_hierarchy_host_toggles_selection_additively() {
     host.apply_selection_action(entity, SceneHierarchySelectionAction::Toggle);
     assert!(!host.is_selected(entity));
     assert_eq!(host.prefab_editor.inspector.target, None);
+}
+
+#[test]
+fn prefab_browser_entries_sort_by_name_then_id() {
+    let mut prefab_library = PrefabLibrary::default();
+    let beta_low = create_prefab(PrefabId(2), "Beta".to_string());
+    let alpha_high = create_prefab(PrefabId(8), "Alpha".to_string());
+    let alpha_low = create_prefab(PrefabId(3), "Alpha".to_string());
+    let gamma = create_prefab(PrefabId(1), "Gamma".to_string());
+
+    prefab_library.prefabs.insert(beta_low.id, beta_low.clone());
+    prefab_library
+        .prefabs
+        .insert(alpha_high.id, alpha_high.clone());
+    prefab_library
+        .prefabs
+        .insert(alpha_low.id, alpha_low.clone());
+    prefab_library.prefabs.insert(gamma.id, gamma.clone());
+
+    let entries = prefab_browser_entries(&prefab_library);
+
+    assert_eq!(
+        entries,
+        vec![
+            (alpha_low.id, alpha_low.name),
+            (alpha_high.id, alpha_high.name),
+            (beta_low.id, beta_low.name),
+            (gamma.id, gamma.name),
+        ]
+    );
 }

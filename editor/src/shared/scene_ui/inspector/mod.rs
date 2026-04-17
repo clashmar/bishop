@@ -63,6 +63,8 @@ pub struct SceneInspectorOutput {
     pub prefab_action: Option<ScenePrefabActionRequest>,
     /// Whether the prefab-mode empty state requested the prefab picker.
     pub open_prefab_picker: bool,
+    /// Whether the prefab-mode empty state requested prefab deletion.
+    pub delete_prefab: bool,
 }
 
 /// Full draw result emitted by the shared inspector core.

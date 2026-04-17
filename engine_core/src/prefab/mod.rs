@@ -194,6 +194,7 @@ pub fn load_prefab(game_name: &str, prefab_id: PrefabId) -> io::Result<PrefabAss
 
 /// Saves a single prefab asset to disk.
 pub fn save_prefab(game_name: &str, prefab: &PrefabAsset) -> io::Result<()> {
+    validate_prefab(prefab)?;
     let existing_path = find_prefab_path(game_name, prefab.id)?;
     ensure_unique_prefab_name(game_name, prefab)?;
     let path = resolve_prefab_save_path(game_name, prefab, existing_path.as_deref())?;
@@ -228,6 +229,13 @@ pub fn delete_prefab(game_name: &str, prefab_id: PrefabId) -> io::Result<bool> {
 
 /// Validates prefab graph integrity before runtime/editor use.
 pub fn validate_prefab(prefab: &PrefabAsset) -> io::Result<()> {
+    if prefab.id.0 == 0 {
+        return Err(Error::new(
+            ErrorKind::InvalidData,
+            format!("Prefab '{}' cannot use id 0", prefab.name),
+        ));
+    }
+
     let mut node_ids = HashSet::new();
     let all_node_ids = prefab
         .nodes
@@ -569,6 +577,24 @@ mod tests {
 
         assert!(validate_prefab(&disconnected).is_err());
         assert!(validate_prefab(&cyclic).is_err());
+    }
+
+    #[test]
+    fn validate_prefab_rejects_id_zero() {
+        let prefab = create_prefab(PrefabId::default(), "Zero".to_string());
+
+        assert!(validate_prefab(&prefab).is_err());
+    }
+
+    #[test]
+    fn save_prefab_rejects_id_zero() {
+        let _lock = game_fs_test_lock().lock().unwrap();
+        let test_folder = TestGameFolder::new("prefab_zero_id_save");
+        let prefab = create_prefab(PrefabId::default(), "Zero".to_string());
+
+        let error = save_prefab(test_folder.name(), &prefab).unwrap_err();
+
+        assert_eq!(error.kind(), ErrorKind::InvalidData);
     }
 
     #[test]

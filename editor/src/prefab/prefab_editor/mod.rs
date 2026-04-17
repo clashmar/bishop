@@ -72,6 +72,7 @@ pub struct PrefabEditor {
     pub(crate) last_room_synced_state: PrefabRoomSyncState,
     create_request: Option<SceneCreateRequest>,
     pub(crate) open_prefab_picker_requested: bool,
+    pub(crate) delete_prefab_requested: bool,
 }
 
 impl PrefabEditor {
@@ -95,6 +96,7 @@ impl PrefabEditor {
             last_room_synced_state,
             create_request: None,
             open_prefab_picker_requested: false,
+            delete_prefab_requested: false,
         }
     }
 
@@ -223,6 +225,7 @@ impl PrefabEditor {
         let inspector_output = self.inspector.draw(ctx, game_ctx, &inspector_ctx);
         self.create_request = inspector_output.create_request;
         self.open_prefab_picker_requested = inspector_output.open_prefab_picker;
+        self.delete_prefab_requested = inspector_output.delete_prefab;
     }
 
     pub(crate) fn committed_prefab_asset(&self) -> Option<&PrefabAsset> {

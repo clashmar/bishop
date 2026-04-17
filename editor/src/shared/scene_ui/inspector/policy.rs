@@ -8,7 +8,8 @@ pub fn linked_prefab_instance_state_for_scene_inspector(
     prefab_library: &PrefabLibrary,
     entity: Entity,
 ) -> Option<LinkedPrefabInstanceState> {
-    show_linked_prefab_metadata.then(|| linked_prefab_instance_state(ecs, prefab_library, entity))?
+    show_linked_prefab_metadata
+        .then(|| linked_prefab_instance_state(ecs, prefab_library, entity))?
 }
 
 /// Returns whether a component type should be hidden from prefab scene editing.

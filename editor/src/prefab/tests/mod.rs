@@ -9,6 +9,7 @@ pub(super) use crate::prefab::prefab_editor::actions::PrefabEditorLaunch;
 pub(super) use crate::prefab::prefab_editor::{
     PrefabEditor, PrefabRoomSyncState, PrefabStage, StagedPrefabState,
 };
+pub(super) use crate::prefab::BLANK_PREFAB_ID;
 pub(super) use crate::room::room_editor::{RoomEditorMode, RoomSceneSubMode};
 pub(super) use crate::storage::editor_storage::{
     create_new_game, load_game_by_name, load_prefab_palette_state, save_game,
@@ -19,8 +20,10 @@ pub(super) use engine_core::storage::test_utils::{game_fs_test_lock, TestGameFol
 pub(super) use std::path::PathBuf;
 
 mod movement_tests;
+mod blank_prefab_session_tests;
 mod prefab_actions_tests;
 mod prefab_editor_tests;
+mod delete_prefab_cmd_tests;
 mod prefab_room_sync_tests;
 mod prefab_save_tests;
 mod prefab_transition_tests;

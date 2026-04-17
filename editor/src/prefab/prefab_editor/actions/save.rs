@@ -10,6 +10,11 @@ use std::path::Path;
 
 impl Editor {
     pub fn save_active_prefab(&mut self) {
+        if self.is_blank_prefab_mode() {
+            self.toast = Some(Toast::new("Blank prefab sessions cannot be saved.", 2.5));
+            return;
+        }
+
         let Some(staged_state) = self.active_prefab_staged_state() else {
             return;
         };
@@ -86,11 +91,7 @@ impl Editor {
     }
 
     pub(crate) fn commit_prefab_delete(&mut self) {
-        let Some(prefab_id) = self
-            .prefab_editor
-            .as_ref()
-            .map(|prefab_editor| prefab_editor.prefab_id)
-        else {
+        let Some(prefab_id) = self.active_persisted_prefab_id() else {
             return;
         };
 

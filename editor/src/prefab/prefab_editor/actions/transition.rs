@@ -1,6 +1,9 @@
 use crate::app::{Editor, EditorMode, PendingPrefabTransition, PrefabTransitionPrompt};
 use crate::gui::prompts::{DirtyPrefabExitPromptResult, EmptyPrefabExitPromptResult};
-use crate::prefab::prefab_editor::StagedPrefabState;
+use crate::prefab::prefab_editor::{
+    PrefabEditor, PrefabRoomSyncState, PrefabStage, StagedPrefabState,
+};
+use crate::prefab::BLANK_PREFAB_ID;
 use bishop::prelude::*;
 use engine_core::prelude::*;
 use std::io;
@@ -47,6 +50,11 @@ impl Editor {
         if matches!(&transition, PendingPrefabTransition::OpenExisting(prefab_id) if Some(*prefab_id)
             == self.prefab_editor.as_ref().map(|prefab_editor| prefab_editor.prefab_id))
         {
+            return PrefabTransitionPrompt::None;
+        }
+
+        if self.is_blank_prefab_mode() {
+            self.execute_prefab_transition(transition);
             return PrefabTransitionPrompt::None;
         }
 
@@ -148,6 +156,22 @@ impl Editor {
             }
             _ => {}
         }
+    }
+
+    pub(crate) fn open_blank_prefab_editor(&mut self) {
+        self.room_editor.reset();
+        self.prefab_stage = Some(PrefabStage::from_editor_services(&self.game));
+        self.prefab_editor = Some(PrefabEditor::new(
+            BLANK_PREFAB_ID,
+            "Prefab".to_string(),
+            StagedPrefabState::Empty,
+            PrefabRoomSyncState {
+                staged_prefab: StagedPrefabState::Empty,
+                linked_instance_snapshots: Vec::new(),
+            },
+        ));
+        self.mode = EditorMode::Prefab(BLANK_PREFAB_ID);
+        self.pending_prefab_transition = None;
     }
 
     fn finish_pending_prefab_transition(&mut self) {

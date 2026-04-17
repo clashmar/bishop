@@ -1,5 +1,6 @@
 // editor/src/editor/actions.rs
 use crate::app::*;
+use crate::commands::scene::DeletePrefabCmd;
 use crate::editor_global::*;
 use crate::gui::inspector::audio_source_module::clear_active_audio_preview;
 use crate::gui::menu_bar::*;
@@ -48,6 +49,7 @@ impl Editor {
             EditorAction::ViewConsolePanel,
             EditorAction::ViewDiagnosticsPanel,
             EditorAction::ViewHierarchyPanel,
+            EditorAction::ViewPrefabBrowserPanel,
             EditorAction::ViewPrefabPalettePanel,
         ];
 
@@ -146,6 +148,11 @@ impl Editor {
                     panel_manager.toggle(DIAGNOSTICS_PANEL);
                 });
             }
+            EditorAction::ViewPrefabBrowserPanel => {
+                with_panel_manager(|panel_manager| {
+                    panel_manager.toggle(PREFAB_BROWSER_PANEL);
+                });
+            }
             EditorAction::ViewPrefabPalettePanel => {
                 with_panel_manager(|panel_manager| {
                     panel_manager.toggle(PREFAB_PALETTE_PANEL);
@@ -221,6 +228,11 @@ impl Editor {
     }
 
     pub(crate) fn request_prefab_save(&mut self, ctx: &WgpuContext) {
+        if self.is_blank_prefab_mode() {
+            self.toast = Some(Toast::new("Blank prefab sessions cannot be saved.", 2.5));
+            return;
+        }
+
         let Some(staged_state) = self.active_prefab_staged_state() else {
             return;
         };
@@ -243,6 +255,17 @@ impl Editor {
             PrefabTransitionPrompt::Dirty => self.open_dirty_prefab_exit_modal(ctx),
             PrefabTransitionPrompt::Empty => self.open_empty_prefab_exit_modal(ctx),
         }
+    }
+
+    pub(crate) fn confirm_delete_prefab(&mut self) {
+        let Some(prefab_id) = self.active_persisted_prefab_id() else {
+            return;
+        };
+
+        push_command(Box::new(DeletePrefabCmd::new(
+            prefab_id,
+            EditorMode::Prefab(prefab_id),
+        )));
     }
 
     /// Updates and draws the toast to the screen.

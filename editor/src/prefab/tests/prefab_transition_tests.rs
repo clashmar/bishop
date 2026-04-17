@@ -501,3 +501,27 @@ fn blank_prefab_transition_does_not_create_asset_until_confirmed() {
         .values()
         .all(|prefab| prefab.name != "Fresh"));
 }
+
+#[test]
+fn request_blank_prefab_transition_returns_dirty_prompt_without_opening_a_modal() {
+    let _lock = game_fs_test_lock()
+        .lock()
+        .unwrap_or_else(|poison| poison.into_inner());
+    let test_game = TestGameFolder::new("prefab_new_prompt_dirty");
+    let (mut editor, _, _, _) = make_prefab_session_editor(&test_game);
+
+    let root = editor.prefab_editor.as_ref().unwrap().root_entity.unwrap();
+    editor
+        .prefab_editor
+        .as_mut()
+        .unwrap()
+        .create_prefab_entity(&mut editor.prefab_stage.as_mut().unwrap().ecs, Some(root));
+
+    assert!(!editor.modal.is_open());
+    assert_eq!(
+        editor.request_blank_prefab_transition("Fresh".to_string()),
+        PrefabTransitionPrompt::Dirty
+    );
+    assert!(editor.pending_prefab_transition.is_some());
+    assert!(!editor.modal.is_open());
+}

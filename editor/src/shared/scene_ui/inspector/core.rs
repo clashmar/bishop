@@ -1,12 +1,13 @@
 use super::{
     is_scene_component_hidden_in_prefab, linked_prefab_instance_state_for_scene_inspector,
-    SceneCreateRequest, SceneEmptyInspectorBehavior, SceneInspectorContext, SceneInspectorDrawResult,
-    SceneInspectorOutput, ScenePrefabAction, ScenePrefabActionRequest,
+    SceneCreateRequest, SceneEmptyInspectorBehavior, SceneInspectorContext,
+    SceneInspectorDrawResult, SceneInspectorOutput, ScenePrefabAction, ScenePrefabActionRequest,
 };
+use crate::app::EditorMode;
 use crate::commands::room::copy_entity;
 use crate::commands::scene::{
-    capture_component_transient_state, AddComponentCmd, ComponentTransientState,
-    DeleteEntityCmd, RemoveComponentCmd, UpdateComponentCmd,
+    capture_component_transient_state, AddComponentCmd, ComponentTransientState, DeleteEntityCmd,
+    RemoveComponentCmd, UpdateComponentCmd,
 };
 use crate::editor_global::push_command;
 use crate::gui::gui_constants::*;
@@ -441,7 +442,10 @@ impl SceneInspector {
             .show(ctx)
             {
                 let target = component_target(game_ctx.ecs, entity);
-                if COMPONENTS.iter().any(|r| r.type_name == component.type_name) {
+                if COMPONENTS
+                    .iter()
+                    .any(|r| r.type_name == component.type_name)
+                {
                     push_command(Box::new(AddComponentCmd::new(
                         target,
                         scene_ctx.command_mode,
@@ -507,6 +511,13 @@ impl SceneInspector {
             match scene_ctx.empty_state {
                 SceneEmptyInspectorBehavior::Prefab { fallback_parent } => {
                     let open_btn_w = txt_open.width + WIDGET_PADDING * 2.0;
+                    let delete_label = "Delete Prefab...";
+                    let txt_delete = measure_text(ctx, delete_label, HEADER_FONT_SIZE_20);
+                    let delete_btn_w = txt_delete.width + WIDGET_PADDING * 2.0;
+                    let show_delete_button = matches!(
+                        scene_ctx.command_mode,
+                        EditorMode::Prefab(prefab_id) if prefab_id != crate::prefab::BLANK_PREFAB_ID
+                    );
                     let open_btn = register_rect(
                         &mut interactive_rects,
                         Rect::new(
@@ -521,6 +532,23 @@ impl SceneInspector {
                     if menu_button(ctx, open_btn, open_label, false) {
                         output.open_prefab_picker = true;
                         return SceneInspectorDrawResult::new(output, interactive_rects);
+                    }
+
+                    if show_delete_button {
+                        let delete_btn = register_rect(
+                            &mut interactive_rects,
+                            Rect::new(
+                                open_btn.x - WIDGET_SPACING - delete_btn_w,
+                                create_btn.y,
+                                delete_btn_w,
+                                BTN_HEIGHT,
+                            ),
+                        );
+
+                        if menu_button(ctx, delete_btn, delete_label, false) {
+                            output.delete_prefab = true;
+                            return SceneInspectorDrawResult::new(output, interactive_rects);
+                        }
                     }
 
                     if menu_button(ctx, create_btn, create_label, false) {

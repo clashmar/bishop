@@ -225,8 +225,16 @@ impl Editor {
                     } else {
                         false
                     };
+                let delete_prefab_requested = self
+                    .prefab_editor
+                    .as_mut()
+                    .map(|prefab_editor| std::mem::take(&mut prefab_editor.delete_prefab_requested))
+                    .unwrap_or(false);
 
                 self.reconcile_active_prefab_room_preview();
+                if delete_prefab_requested {
+                    self.open_delete_prefab_modal(ctx);
+                }
                 if open_prefab_picker_requested {
                     self.open_prefab_picker_modal(ctx);
                 }
