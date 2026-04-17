@@ -44,12 +44,11 @@ impl ConfirmPrompt {
         let message_x = center_text(ctx, center_x, &self.message, DEFAULT_FONT_SIZE_16).0;
         let message_height = measure_text(ctx, &self.message, DEFAULT_FONT_SIZE_16).height;
 
-        ctx.draw_text(
+        draw_prompt_label(
+            ctx,
             &self.message,
             message_x,
             self.rect.y + PROMPT_TOP_PADDING,
-            DEFAULT_FONT_SIZE_16,
-            Color::WHITE,
         );
 
         // Buttons

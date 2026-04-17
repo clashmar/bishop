@@ -1,6 +1,6 @@
 use crate::app::escape::modal_escape_requested;
 use crate::gui::prompts::constants::*;
-use crate::gui::prompts::helpers::{prompt_content_rect, three_button_rects};
+use crate::gui::prompts::helpers::{draw_prompt_label, prompt_content_rect, three_button_rects};
 use bishop::prelude::*;
 use engine_core::prelude::*;
 use std::fmt::{Display, Formatter, Result as FmtResult};
@@ -78,12 +78,11 @@ impl PrefabPickerPrompt {
     }
 
     pub fn draw(&mut self, ctx: &mut WgpuContext) -> Option<PrefabPickerResult> {
-        ctx.draw_text(
+        draw_prompt_label(
+            ctx,
             "Open prefab:",
             self.rect.x,
             self.rect.y + PROMPT_TOP_PADDING,
-            DEFAULT_FONT_SIZE_16,
-            Color::WHITE,
         );
 
         let dropdown_rect = Rect::new(

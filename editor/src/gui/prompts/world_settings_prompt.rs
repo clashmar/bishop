@@ -53,13 +53,7 @@ impl WorldSettingsPrompt {
         let mut y = self.rect.y + PROMPT_TOP_PADDING;
 
         // Grid size label
-        let label_dims = ctx.draw_text(
-            "Grid Size:",
-            self.rect.x,
-            y,
-            DEFAULT_FONT_SIZE_16,
-            Color::WHITE,
-        );
+        let label_dims = draw_prompt_label(ctx, "Grid Size:", self.rect.x, y);
 
         y += label_dims.height + PROMPT_TEXT_GAP;
 

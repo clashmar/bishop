@@ -73,13 +73,11 @@ impl StringPrompt {
         enter_pressed: bool,
         escape_pressed: bool,
     ) -> Option<StringPromptResult> {
-        let message_pos = vec2(self.rect.x, self.rect.y + PROMPT_TOP_PADDING);
-        ctx.draw_text(
+        draw_prompt_label(
+            ctx,
             &self.message,
-            message_pos.x,
-            message_pos.y,
-            DEFAULT_FONT_SIZE_16,
-            Color::WHITE,
+            self.rect.x,
+            self.rect.y + PROMPT_TOP_PADDING,
         );
 
         let field_rect = Rect::new(

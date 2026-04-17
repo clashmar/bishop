@@ -1,6 +1,6 @@
 use crate::app::escape::modal_escape_requested;
 use crate::gui::prompts::constants::*;
-use crate::gui::prompts::helpers::prompt_content_rect;
+use crate::gui::prompts::helpers::{draw_prompt_label, prompt_content_rect};
 use bishop::prelude::*;
 use engine_core::prelude::*;
 
@@ -120,13 +120,7 @@ fn prefab_prompt_rect(modal_rect: Rect) -> Rect {
 fn draw_prefab_prompt_message(ctx: &mut WgpuContext, rect: Rect, message: &str) {
     let text_dims = measure_text(ctx, message, DEFAULT_FONT_SIZE_16);
     let x = rect.x + (rect.w - text_dims.width) * 0.5;
-    ctx.draw_text(
-        message,
-        x,
-        rect.y + PROMPT_TOP_PADDING,
-        DEFAULT_FONT_SIZE_16,
-        Color::WHITE,
-    );
+    draw_prompt_label(ctx, message, x, rect.y + PROMPT_TOP_PADDING);
 }
 
 fn prefab_two_button_rects(rect: Rect) -> (Rect, Rect) {

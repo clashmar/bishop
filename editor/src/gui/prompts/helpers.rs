@@ -1,6 +1,7 @@
 // editor/src/gui/prompts/helpers.rs
 use crate::gui::prompts::constants::*;
 use bishop::prelude::*;
+use engine_core::prelude::*;
 
 /// Returns a centered content rect inside a modal for prompt widgets.
 pub fn prompt_content_rect(modal_rect: Rect, content_h: f32) -> Rect {
@@ -8,6 +9,24 @@ pub fn prompt_content_rect(modal_rect: Rect, content_h: f32) -> Rect {
     let inner_x = modal_rect.x + (modal_rect.w - inner_w) / 2.0;
     let inner_y = modal_rect.y + (modal_rect.h - content_h) / 2.0;
     Rect::new(inner_x, inner_y, inner_w, content_h)
+}
+
+/// Draws prompt label text using top-aligned layout coordinates.
+pub fn draw_prompt_label<C: BishopContext>(
+    ctx: &mut C,
+    text: &str,
+    x: f32,
+    top_y: f32,
+) -> TextDimensions {
+    let dims = measure_text(ctx, text, DEFAULT_FONT_SIZE_16);
+    ctx.draw_text(
+        text,
+        x,
+        top_y + dims.offset_y,
+        DEFAULT_FONT_SIZE_16,
+        Color::WHITE,
+    );
+    dims
 }
 
 /// Supplies centered rects for confirm/cancel buttons.

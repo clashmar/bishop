@@ -72,13 +72,7 @@ impl WorldEditPrompt {
         let mut y = self.rect.y + PROMPT_TOP_PADDING;
 
         // Name label
-        let mut label_dims = ctx.draw_text(
-            "Edit name:",
-            self.rect.x,
-            y,
-            DEFAULT_FONT_SIZE_16,
-            Color::WHITE,
-        );
+        let mut label_dims = draw_prompt_label(ctx, "Edit name:", self.rect.x, y);
 
         y += label_dims.height + PROMPT_TEXT_GAP;
 
@@ -92,13 +86,7 @@ impl WorldEditPrompt {
         y += name_rect.h + PROMPT_SECTION_GAP;
 
         // Sprite label
-        label_dims = ctx.draw_text(
-            "Change sprite:",
-            self.rect.x,
-            y,
-            DEFAULT_FONT_SIZE_16,
-            Color::WHITE,
-        );
+        label_dims = draw_prompt_label(ctx, "Change sprite:", self.rect.x, y);
 
         y += label_dims.height + PROMPT_TEXT_GAP;
 
