@@ -1,8 +1,8 @@
-[env.MAC_TARGET]
-script = [
+[env]
+MAC_TARGET = { script = [
     "ARCH=$(uname -m)",
     "if [ \"$ARCH\" = \"arm64\" ]; then echo \"aarch64-apple-darwin\"; else echo \"x86_64-apple-darwin\"; fi"
-]
+], condition = { platforms = ["mac"], env_not_set = ["MAC_TARGET"] } }
 
 # Lua api generation for both platforms
 [tasks.generate-lua-api]
