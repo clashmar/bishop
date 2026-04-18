@@ -43,6 +43,7 @@ pub const SPAWN: &str = "spawn";
 // Entity methods
 pub const UPDATE: &str = "update";
 pub const INIT: &str = "init";
+pub const DESPAWN: &str = "despawn";
 pub const GET: &str = "get";
 pub const SET: &str = "set";
 pub const HAS: &str = "has";

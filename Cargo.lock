@@ -1042,6 +1042,8 @@ dependencies = [
  "rfd",
  "ron",
  "serde",
+ "strum",
+ "strum_macros",
  "uuid",
  "widgets",
  "winres",

@@ -19,6 +19,8 @@ uuid = { version = "1.18", features = ["serde", "v4"] }
 log = "0.4"
 inventory = "0.1"
 rfd = "0.13"
+strum = "0.26"
+strum_macros = "0.26"
 
 [build-dependencies]
 winres = "0.1.12"
