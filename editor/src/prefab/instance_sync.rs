@@ -211,14 +211,12 @@ pub(crate) fn replace_linked_instances_with_snapshots(
     let roots = linked_prefab_instance_roots(&game.ecs, prefab_id);
     for root_entity in roots {
         let mut ctx = game.ctx_mut();
-        let mut services_ctx = ctx.services_ctx_mut();
-        Ecs::remove_entity(&mut services_ctx, root_entity);
+        Ecs::remove_entity(&mut ctx, root_entity);
     }
 
     for snapshot in snapshots {
         let mut ctx = game.ctx_mut();
-        let mut services_ctx = ctx.services_ctx_mut();
-        restore_subtree(&mut services_ctx, snapshot);
+        restore_subtree(&mut ctx, snapshot);
     }
 }
 

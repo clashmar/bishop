@@ -52,7 +52,7 @@ impl InspectorModule for AudioSourceModule {
         true
     }
 
-    fn remove(&mut self, game_ctx: &mut ServicesCtxMut, entity: Entity) {
+    fn remove(&mut self, game_ctx: &mut GameCtxMut, entity: Entity) {
         clear_active_audio_preview();
         Ecs::remove_component::<AudioSource>(game_ctx, entity);
     }
@@ -71,7 +71,7 @@ impl InspectorModule for AudioSourceModule {
         ctx: &mut WgpuContext,
         blocked: bool,
         rect: Rect,
-        game_ctx: &mut ServicesCtxMut,
+        game_ctx: &mut GameCtxMut,
         entity: Entity,
     ) {
         tick_active_audio_preview(ctx.get_frame_time());

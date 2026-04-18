@@ -1,7 +1,7 @@
 use super::*;
 use crate::commands::editor_command_manager::EditorCommand;
 use crate::editor_assets::generate_prefabs_lua;
-use engine_core::scripting::lua_constants::{ENGINE_DIR, PREFABS_FILE};
+use engine_core::scripting::lua_constants::{lua_dirs, lua_files};
 
 #[test]
 fn delete_prefab_command_applies_in_deleted_blank_prefab_mode() {
@@ -43,7 +43,7 @@ fn delete_prefab_command_restores_asset_instances_palette_and_session_on_undo_re
     with_editor(|editor| {
         assert!(editor.is_blank_prefab_mode());
         assert_eq!(editor.mode, EditorMode::Prefab(BLANK_PREFAB_ID));
-        assert!(editor.prefab_picker_is_forced());
+        assert!(editor.prefab_state.require_picker());
         assert!(!editor.game.prefab_library.prefabs.contains_key(&prefab_id));
         assert!(linked_root_entities(&editor.game.ecs, prefab_id).is_empty());
         assert_eq!(editor.room_editor.active_prefab_id, Some(other_prefab.id));
@@ -55,14 +55,18 @@ fn delete_prefab_command_restores_asset_instances_palette_and_session_on_undo_re
 
     with_editor(|editor| {
         assert_eq!(editor.mode, EditorMode::Prefab(prefab_id));
-        assert!(!editor.prefab_picker_is_forced());
+        assert!(!editor.prefab_state.require_picker());
         assert_eq!(
             editor.prefab_editor.as_ref().map(|prefab| prefab.prefab_id),
             Some(prefab_id)
         );
         assert!(editor.game.prefab_library.prefabs.contains_key(&prefab_id));
-        let prefabs_lua =
-            std::fs::read_to_string(scripts_folder().join(ENGINE_DIR).join(PREFABS_FILE)).unwrap();
+        let prefabs_lua = std::fs::read_to_string(
+            scripts_folder()
+                .join(lua_dirs::ENGINE)
+                .join(lua_files::PREFABS),
+        )
+        .unwrap();
         let prefab_names = editor
             .game
             .prefab_library
@@ -85,10 +89,14 @@ fn delete_prefab_command_restores_asset_instances_palette_and_session_on_undo_re
     with_editor(|editor| {
         assert!(editor.is_blank_prefab_mode());
         assert_eq!(editor.mode, EditorMode::Prefab(BLANK_PREFAB_ID));
-        assert!(editor.prefab_picker_is_forced());
+        assert!(editor.prefab_state.require_picker());
         assert!(!editor.game.prefab_library.prefabs.contains_key(&prefab_id));
-        let prefabs_lua =
-            std::fs::read_to_string(scripts_folder().join(ENGINE_DIR).join(PREFABS_FILE)).unwrap();
+        let prefabs_lua = std::fs::read_to_string(
+            scripts_folder()
+                .join(lua_dirs::ENGINE)
+                .join(lua_files::PREFABS),
+        )
+        .unwrap();
         let prefab_names = editor
             .game
             .prefab_library

@@ -1,6 +1,6 @@
 //! Input state tracking for wgpu backend.
 
-use crate::input::{KeyCode, MouseButton};
+use crate::input::{KeyCode, MouseButton, MouseWheelKind};
 use std::collections::HashSet;
 
 /// Tracks keyboard and mouse input state per-frame.
@@ -14,6 +14,7 @@ pub struct InputState {
     mouse_position: (f32, f32),
     mouse_position_prev: (f32, f32),
     mouse_wheel: (f32, f32),
+    mouse_wheel_kind: Option<MouseWheelKind>,
     char_buffer: Vec<char>,
 }
 
@@ -30,6 +31,7 @@ impl InputState {
             mouse_position: (0.0, 0.0),
             mouse_position_prev: (0.0, 0.0),
             mouse_wheel: (0.0, 0.0),
+            mouse_wheel_kind: None,
             char_buffer: Vec::new(),
         }
     }
@@ -73,9 +75,10 @@ impl InputState {
     }
 
     /// Handles a mouse wheel event, accumulating delta for the frame.
-    pub fn on_mouse_wheel(&mut self, delta_x: f32, delta_y: f32) {
+    pub fn on_mouse_wheel(&mut self, delta_x: f32, delta_y: f32, kind: MouseWheelKind) {
         self.mouse_wheel.0 += delta_x;
         self.mouse_wheel.1 += delta_y;
+        self.mouse_wheel_kind = Some(kind);
     }
 
     /// Handles a character input event.
@@ -136,6 +139,11 @@ impl InputState {
         self.mouse_wheel
     }
 
+    /// Returns the source kind for the most recent mouse wheel event this frame.
+    pub fn mouse_wheel_kind(&self) -> Option<MouseWheelKind> {
+        self.mouse_wheel_kind
+    }
+
     /// Returns characters typed this frame.
     pub fn chars_pressed(&self) -> Vec<char> {
         self.char_buffer.clone()
@@ -148,6 +156,7 @@ impl InputState {
         self.mouse_pressed.clear();
         self.mouse_released.clear();
         self.mouse_wheel = (0.0, 0.0);
+        self.mouse_wheel_kind = None;
         self.char_buffer.clear();
         self.mouse_position_prev = self.mouse_position;
     }

@@ -65,7 +65,7 @@ fn clean_prefab_exit_ignores_component_snapshot_order() {
     );
     assert_eq!(editor.mode, EditorMode::Room(room_id));
     assert_eq!(editor.return_mode, None);
-    assert_eq!(editor.pending_prefab_transition, None);
+    assert_eq!(editor.prefab_state.pending_transition(), None);
     assert_eq!(editor.active_persisted_prefab_id(), None);
     assert_eq!(prefab_id, PrefabId(1));
 }
@@ -107,7 +107,7 @@ fn clean_prefab_switch_ignores_component_snapshot_order() {
     );
     assert_eq!(editor.mode, EditorMode::Prefab(second_prefab.id));
     assert_eq!(editor.return_mode, Some(EditorMode::Room(room_id)));
-    assert_eq!(editor.pending_prefab_transition, None);
+    assert_eq!(editor.prefab_state.pending_transition(), None);
     assert_eq!(editor.active_persisted_prefab_id(), Some(second_prefab.id));
     assert_ne!(prefab_id, second_prefab.id);
 }
@@ -189,8 +189,8 @@ fn requesting_prefab_transition_from_file_path_marks_dirty_session_pending() {
     assert_eq!(editor.mode, EditorMode::Prefab(prefab_id));
     assert_eq!(editor.return_mode, Some(EditorMode::Room(room_id)));
     assert_eq!(
-        editor.pending_prefab_transition,
-        Some(PendingPrefabTransition::OpenExisting(second_prefab.id))
+        editor.prefab_state.pending_transition(),
+        Some(&PendingPrefabTransition::OpenExisting(second_prefab.id))
     );
     assert_eq!(
         editor.game.prefab_library.prefabs.get(&second_prefab.id),
@@ -213,7 +213,7 @@ fn requesting_prefab_transition_from_invalid_file_path_returns_error() {
 
     assert_eq!(editor.mode, EditorMode::Prefab(prefab_id));
     assert_eq!(editor.return_mode, Some(EditorMode::Room(room_id)));
-    assert_eq!(editor.pending_prefab_transition, None);
+    assert_eq!(editor.prefab_state.pending_transition(), None);
     assert!(error.to_string().contains("Could not parse prefab"));
 }
 
@@ -245,8 +245,8 @@ fn dirty_prefab_transition_save_switches_and_persists_changes() {
         PrefabTransitionPrompt::Dirty
     );
     assert_eq!(
-        editor.pending_prefab_transition,
-        Some(PendingPrefabTransition::OpenExisting(second_prefab.id))
+        editor.prefab_state.pending_transition(),
+        Some(&PendingPrefabTransition::OpenExisting(second_prefab.id))
     );
 
     editor.confirm_dirty_prefab_transition(DirtyPrefabExitPromptResult::SaveAndSync);
@@ -267,7 +267,7 @@ fn dirty_prefab_transition_save_switches_and_persists_changes() {
             .map(|prefab| prefab.nodes.len()),
         Some(2)
     );
-    assert_eq!(editor.pending_prefab_transition, None);
+    assert_eq!(editor.prefab_state.pending_transition(), None);
 
     let saved_state =
         load_prefab_palette_state(test_game.name()).expect("prefab palette state should save");
@@ -310,8 +310,8 @@ fn dirty_prefab_transition_save_does_not_switch_when_palette_persist_fails() {
         PrefabTransitionPrompt::Dirty
     );
     assert_eq!(
-        editor.pending_prefab_transition,
-        Some(PendingPrefabTransition::OpenExisting(second_prefab.id))
+        editor.prefab_state.pending_transition(),
+        Some(&PendingPrefabTransition::OpenExisting(second_prefab.id))
     );
 
     editor.confirm_dirty_prefab_transition(DirtyPrefabExitPromptResult::SaveAndSync);
@@ -319,8 +319,8 @@ fn dirty_prefab_transition_save_does_not_switch_when_palette_persist_fails() {
     assert_eq!(editor.mode, EditorMode::Prefab(prefab_id));
     assert_eq!(editor.return_mode, Some(EditorMode::Room(room_id)));
     assert_eq!(
-        editor.pending_prefab_transition,
-        Some(PendingPrefabTransition::OpenExisting(second_prefab.id))
+        editor.prefab_state.pending_transition(),
+        Some(&PendingPrefabTransition::OpenExisting(second_prefab.id))
     );
     assert!(editor.active_prefab_is_clean());
     assert_eq!(editor.room_editor.active_prefab_id, Some(PrefabId(999)));
@@ -360,7 +360,7 @@ fn dirty_prefab_transition_cancel_keeps_current_prefab_open() {
 
     assert_eq!(editor.mode, EditorMode::Prefab(prefab_id));
     assert_eq!(editor.return_mode, Some(EditorMode::Room(room_id)));
-    assert_eq!(editor.pending_prefab_transition, None);
+    assert_eq!(editor.prefab_state.pending_transition(), None);
     assert!(!editor.active_prefab_is_clean());
 }
 
@@ -400,7 +400,7 @@ fn empty_prefab_transition_delete_switches_to_requested_prefab() {
         assert_eq!(editor.mode, EditorMode::Prefab(PrefabId(2)));
         assert_eq!(editor.return_mode, Some(EditorMode::Room(room_id)));
         assert!(!editor.game.prefab_library.prefabs.contains_key(&prefab_id));
-        assert_eq!(editor.pending_prefab_transition, None);
+        assert_eq!(editor.prefab_state.pending_transition(), None);
     });
 }
 
@@ -605,7 +605,7 @@ fn request_blank_prefab_transition_returns_dirty_prompt_without_opening_a_modal(
         editor.request_blank_prefab_transition("Fresh".to_string()),
         PrefabTransitionPrompt::Dirty
     );
-    assert!(editor.pending_prefab_transition.is_some());
+    assert!(editor.prefab_state.pending_transition().is_some());
     assert!(!editor.modal.is_open());
 }
 
@@ -622,14 +622,14 @@ fn opening_real_prefab_from_forced_blank_session_clears_picker_requirement() {
         .prefab_library
         .prefabs
         .insert(prefab.id, prefab.clone());
-    editor.set_prefab_picker_required(true);
+    editor.prefab_state.set_require_picker(true);
 
     assert_eq!(
         editor.request_prefab_transition(PendingPrefabTransition::OpenExisting(prefab.id)),
         PrefabTransitionPrompt::None
     );
     assert_eq!(editor.mode, EditorMode::Prefab(prefab.id));
-    assert!(!editor.prefab_picker_is_forced());
+    assert!(!editor.prefab_state.require_picker());
 }
 
 #[test]
@@ -639,15 +639,15 @@ fn forced_blank_prefab_picker_escape_exits_prefab_mode() {
         .unwrap_or_else(|poison| poison.into_inner());
     let test_game = TestGameFolder::new("forced_blank_prefab_escape_exit");
     let mut editor = blank_prefab_session_editor(&test_game);
-    editor.set_prefab_picker_required(true);
+    editor.prefab_state.set_require_picker(true);
 
-    editor.exit_forced_prefab_picker();
+    editor.close_active_prefab_editor();
 
     assert_eq!(editor.mode, EditorMode::Room(RoomId(1)));
     assert_eq!(editor.return_mode, None);
     assert!(editor.prefab_editor.is_none());
     assert!(editor.prefab_stage.is_none());
-    assert!(!editor.prefab_picker_is_forced());
+    assert!(!editor.prefab_state.require_picker());
 }
 
 #[test]
@@ -657,11 +657,11 @@ fn forced_blank_prefab_picker_ignores_modal_outside_click() {
         .unwrap_or_else(|poison| poison.into_inner());
     let test_game = TestGameFolder::new("forced_blank_prefab_ignore_outside_click");
     let mut editor = blank_prefab_session_editor(&test_game);
-    editor.set_prefab_picker_required(true);
+    editor.prefab_state.set_require_picker(true);
 
     assert!(editor.should_ignore_modal_clicked_outside());
 
-    editor.set_prefab_picker_required(false);
+    editor.prefab_state.set_require_picker(false);
 
     assert!(!editor.should_ignore_modal_clicked_outside());
 }

@@ -1,5 +1,5 @@
 // engine_core/src/ecs/capture.rs
-use crate::{ecs::entity::Children, game::EngineCtxMut};
+use crate::{ecs::entity::Children, game::GameCtxMut};
 use serde::{Deserialize, Serialize};
 
 /// A single serialized component.
@@ -43,7 +43,7 @@ pub fn capture_subtree(ecs: &mut Ecs, root: Entity) -> GroupSnapshot {
 }
 
 /// Restore a previously captured subtree.  
-pub fn restore_subtree(ctx: &mut dyn EngineCtxMut, saved: &GroupSnapshot) {
+pub fn restore_subtree(ctx: &mut GameCtxMut<'_>, saved: &GroupSnapshot) {
     for snapshot in saved {
         restore_entity(ctx, snapshot.entity, snapshot.components.clone());
     }
@@ -51,7 +51,7 @@ pub fn restore_subtree(ctx: &mut dyn EngineCtxMut, saved: &GroupSnapshot) {
 
 /// Restores an entity into the Ecs from its component bag.
 pub fn restore_entity(
-    ctx: &mut dyn EngineCtxMut,
+    ctx: &mut GameCtxMut<'_>,
     entity: Entity,
     components: Vec<ComponentSnapshot>,
 ) {

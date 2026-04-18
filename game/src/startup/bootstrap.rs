@@ -171,7 +171,7 @@ fn load_startup_data(source: StartupSource) -> Result<LoadedStartupFiles, String
                 .ok_or_else(|| "Could not find game resources folder.".to_string())?;
             let startup_path = resources_dir.join("startup.ron");
             let startup_ron = fs::read_to_string(&startup_path).ok();
-            let game_path = resources_dir.join(GAME_RON);
+            let game_path = resources_dir.join(paths::GAME_RON);
             let game_ron = fs::read_to_string(&game_path)
                 .map_err(|error| format!("Could not read '{}': {error}", game_path.display()))?;
             Ok(LoadedStartupFiles::Game {
@@ -423,7 +423,7 @@ mod tests {
     fn playtest_startup_preview_loads_authored_splash_screens_from_payload_game_name() {
         let game_name = unique_name("PlaytestPreview");
         let game_dir = game_folder(&game_name);
-        let resources_dir = game_dir.join(RESOURCES_FOLDER);
+        let resources_dir = game_dir.join(paths::RESOURCES_FOLDER);
         fs::create_dir_all(&resources_dir).unwrap();
         let startup = StartupAsset {
             loading: super::super::LoadingConfig {

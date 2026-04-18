@@ -67,8 +67,7 @@ impl EditorCommand for RevertPrefabInstanceCmd {
                     .get::<CurrentRoom>(reference.root_entity)
                     .map(|room| room.0);
                 let mut ctx = editor.game.ctx_mut();
-                let mut services_ctx = ctx.services_ctx_mut();
-                refresh_prefab_instance(&mut services_ctx, reference.root_entity, &prefab, room_id);
+                refresh_prefab_instance(&mut ctx, reference.root_entity, &prefab, room_id);
             }
 
             sync_prefab_overrides_for_root(&mut editor.game.ecs, &prefab, reference.root_entity);
@@ -87,14 +86,12 @@ impl EditorCommand for RevertPrefabInstanceCmd {
         with_editor(|editor| {
             if editor.game.ecs.has::<Transform>(root_entity) {
                 let mut ctx = editor.game.ctx_mut();
-                let mut services_ctx = ctx.services_ctx_mut();
-                Ecs::remove_entity(&mut services_ctx, root_entity);
+                Ecs::remove_entity(&mut ctx, root_entity);
             }
 
             {
                 let mut ctx = editor.game.ctx_mut();
-                let mut services_ctx = ctx.services_ctx_mut();
-                restore_subtree(&mut services_ctx, saved_snapshot);
+                restore_subtree(&mut ctx, saved_snapshot);
             }
 
             restore_room_selection(editor, self.preferred_selection, root_entity);

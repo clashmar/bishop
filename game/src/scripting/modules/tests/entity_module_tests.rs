@@ -1,8 +1,10 @@
 use crate::engine::game_instance::GameInstance;
+use crate::game_global::drain_commands;
+use crate::scripting::commands::lua_command::LuaCommand;
 use crate::scripting::lua_ctx::LuaGameCtx;
-use crate::scripting::lua_helpers::to_snake_case;
 use crate::scripting::modules::entity_module::EntityHandle;
 use engine_core::prelude::*;
+use engine_core::scripting::to_snake_case;
 use mlua::Lua;
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -152,4 +154,24 @@ fn typed_setter_is_not_registered_for_private_components() {
         .eval::<bool>()
         .unwrap();
     assert!(!has_private_typed_setter);
+}
+
+#[test]
+fn teleport_and_move_by_queue_commands() {
+    let (lua, _game_instance, _entity) = setup_entity_lua();
+
+    lua.load("entity:teleport({ x = 10, y = 20 }); entity:move_by({ x = 3, y = -2 })")
+        .exec()
+        .unwrap();
+
+    let commands: Vec<Box<dyn LuaCommand>> = drain_commands().collect();
+    assert_eq!(commands.len(), 2);
+}
+
+#[test]
+fn teleport_and_move_by_reject_indexed_vec_tables() {
+    let (lua, _game_instance, _entity) = setup_entity_lua();
+
+    assert!(lua.load("entity:teleport({ 10, 20 })").exec().is_err());
+    assert!(lua.load("entity:move_by({ 3, -2 })").exec().is_err());
 }

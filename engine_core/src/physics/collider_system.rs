@@ -1,12 +1,9 @@
 // engine_core/src/physics/collider_system.rs
-use crate::animation::animation_system::CurrentFrame;
 use crate::assets::sprite_manager::SpriteManager;
-use crate::assets::sprite::Sprite;
-use crate::assets::sprite::SpriteId;
-use crate::ecs::component::Collider;
 use crate::ecs::component::ComponentStore;
 use crate::ecs::ecs::Ecs;
 use crate::ecs::entity::Entity;
+use crate::ecs::{Collider, CurrentFrame, Sprite, SpriteId};
 
 /// Set the collider for every entity that has a sprite and an unset collider
 pub fn update_colliders_from_sprites(ecs: &mut Ecs, assets: &mut SpriteManager) {

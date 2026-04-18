@@ -7,7 +7,7 @@ use super::preview::{
 };
 use super::*;
 use crate::storage::sound_preset_storage::set_current_sound_preset_library;
-use engine_core::audio::audio_source::SoundPresetLink;
+use engine_core::ecs::SoundPresetLink;
 
 #[test]
 fn rename_target_group_renames_requested_group_even_if_selection_changes() {

@@ -1,109 +1,126 @@
-// engine_core/src/scripting/lua_constants.rs
+/// Generated Lua filenames.
+pub mod lua_files {
+    pub const MAIN: &str = "main.lua";
+    pub const ENGINE: &str = "engine.lua";
+    pub const COMPONENTS: &str = "components.lua";
+    pub const ENTITY: &str = "entity.lua";
+    pub const ANIMATIONS: &str = "animations.lua";
+    pub const SOUNDS: &str = "sounds.lua";
+    pub const PREFABS: &str = "prefabs.lua";
+    pub const TEXT: &str = "text.lua";
+    pub const MENU: &str = "menu.lua";
+    pub const AUDIO: &str = "audio.lua";
+}
 
-/// Generated filenames
-pub const MAIN_FILE: &str = "main.lua";
-pub const ENGINE_FILE: &str = "engine.lua";
-pub const COMPONENTS_FILE: &str = "components.lua";
-pub const ENTITY_FILE: &str = "entity.lua";
-pub const ANIMATIONS_FILE: &str = "animations.lua";
-pub const SOUNDS_FILE: &str = "sounds.lua";
-pub const PREFABS_FILE: &str = "prefabs.lua";
-/// Ownership marker for shared `_engine` Lua scripts managed by sync tooling.
-pub const LUA_OWNER_SHARED_ENGINE: &str = "-- bishop-owner: shared-engine";
-/// Ownership marker for per-game generated `_engine` Lua scripts.
-pub const LUA_OWNER_GAME_GENERATED: &str = "-- bishop-owner: game-generated";
+/// Ownership markers for generated Lua files.
+pub mod lua_ownership {
+    pub const LUA_OWNER_SHARED_ENGINE: &str = "-- bishop-owner: shared-engine";
+    pub const LUA_OWNER_GAME_GENERATED: &str = "-- bishop-owner: game-generated";
+}
 
-/// GLOBALS
-pub const LUA_GAME_CTX: &str = "lua_game_ctx";
-pub const LUA_EVENT_BUS: &str = "lua_event_bus";
-pub const ENTITY: &str = "entity";
+/// Global Lua names.
+pub mod lua_globals {
+    pub const LUA_GAME_CTX: &str = "lua_game_ctx";
+    pub const LUA_EVENT_BUS: &str = "lua_event_bus";
+    pub const ENTITY: &str = "entity";
+}
 
-// Directories
-pub const ENGINE_DIR: &str = "_engine";
-pub const SCRIPTS_DIR: &str = "scripts";
+/// Lua script directories.
+pub mod lua_dirs {
+    pub const ENGINE: &str = "_engine";
+    pub const SCRIPTS: &str = "scripts";
+}
 
-/// Field name for script public fields.
-pub const PUBLIC: &str = "public";
-pub const POSITION: &str = "position";
-pub const X: &str = "x";
-pub const Y: &str = "y";
-pub const Z: &str = "z";
+/// Shared Lua field names.
+pub mod lua_fields {
+    pub const ID: &str = "id";
+    pub const PUBLIC: &str = "public";
+    pub const POSITION: &str = "position";
+    pub const X: &str = "x";
+    pub const Y: &str = "y";
+    pub const Z: &str = "z";
+}
 
-// _engine APIS
-pub const ENGINE: &str = "engine";
-pub const GLOBAL: &str = "global";
-pub const ENGINE_CALL: &str = "call";
-pub const ENGINE_ON: &str = "on";
-pub const ENGINE_EMIT: &str = "emit";
-pub const INPUT: &str = "input";
-pub const LOG: &str = "log";
-pub const PREFAB: &str = "prefab";
-pub const SPAWN: &str = "spawn";
+/// Root engine Lua table names.
+pub mod lua_engine {
+    pub const ENGINE: &str = "engine";
+    pub const GLOBAL: &str = "global";
+    pub const CALL: &str = "call";
+    pub const ON: &str = "on";
+    pub const EMIT: &str = "emit";
+    pub const INPUT: &str = "input";
+    pub const LOG: &str = "log";
+    pub const PREFAB: &str = "prefab";
+    pub const SPAWN: &str = "spawn";
+}
 
-// Entity methods
-pub const UPDATE: &str = "update";
-pub const INIT: &str = "init";
-pub const GET: &str = "get";
-pub const SET: &str = "set";
-pub const HAS: &str = "has";
-pub const HAS_ANY: &str = "has_any";
-pub const HAS_ALL: &str = "has_all";
-pub const INTERACT: &str = "interact";
-pub const FIND_BEST_INTERACTABLE: &str = "find_best_interactable";
+/// Entity Lua method names.
+pub mod lua_entity {
+    pub const UPDATE: &str = "update";
+    pub const INIT: &str = "init";
+    pub const DESPAWN: &str = "despawn";
+    pub const GET: &str = "get";
+    pub const SET: &str = "set";
+    pub const HAS: &str = "has";
+    pub const HAS_ANY: &str = "has_any";
+    pub const HAS_ALL: &str = "has_all";
+    pub const INTERACT: &str = "interact";
+    pub const FIND_BEST_INTERACTABLE: &str = "find_best_interactable";
+    pub const TELEPORT: &str = "teleport";
+    pub const MOVE_BY: &str = "move_by";
+}
 
-// Animation methods
-pub const SET_CLIP: &str = "set_clip";
-pub const GET_CLIP: &str = "get_clip";
-pub const RESET_CLIP: &str = "reset_clip";
-pub const SET_FLIP_X: &str = "set_flip_x";
-pub const GET_FLIP_X: &str = "get_flip_x";
-pub const SET_FACING: &str = "set_facing";
-pub const SET_ANIM_SPEED: &str = "set_anim_speed";
-pub const GET_CURRENT_FRAME: &str = "get_current_frame";
-pub const IS_CLIP_FINISHED: &str = "is_clip_finished";
-pub const ON_CLIP_FINISHED: &str = "on_clip_finished";
+/// Animation Lua method names.
+pub mod lua_animation {
+    pub const SET_CLIP: &str = "set_clip";
+    pub const GET_CLIP: &str = "get_clip";
+    pub const RESET_CLIP: &str = "reset_clip";
+    pub const SET_FLIP_X: &str = "set_flip_x";
+    pub const GET_FLIP_X: &str = "get_flip_x";
+    pub const SET_FACING: &str = "set_facing";
+    pub const SET_ANIM_SPEED: &str = "set_anim_speed";
+    pub const GET_CURRENT_FRAME: &str = "get_current_frame";
+    pub const IS_CLIP_FINISHED: &str = "is_clip_finished";
+    pub const ON_CLIP_FINISHED: &str = "on_clip_finished";
+}
 
-// Entity fields
-pub const ID: &str = "id";
+/// Text Lua names.
+pub mod lua_text {
+    pub const SAY: &str = "say";
+    pub const SAY_DIALOGUE: &str = "say_dialogue";
+    pub const CLEAR_SPEECH: &str = "clear_speech";
+    pub const IS_SPEAKING: &str = "is_speaking";
+    pub const TEXT: &str = "text";
+    pub const GET_LANGUAGE: &str = "get_language";
+    pub const GET_LANGUAGES: &str = "get_languages";
+    pub const SET_LANGUAGE: &str = "set_language";
+    pub const GET_CONFIG: &str = "get_config";
+}
 
-// Dialogue methods
-pub const SAY: &str = "say";
-pub const SAY_DIALOGUE: &str = "say_dialogue";
-pub const CLEAR_SPEECH: &str = "clear_speech";
-pub const IS_SPEAKING: &str = "is_speaking";
+/// Menu Lua names.
+pub mod lua_menu {
+    pub const MENU: &str = "menu";
+    pub const OPEN: &str = "open";
+    pub const CLOSE: &str = "close";
+    pub const IS_OPEN: &str = "is_open";
+}
 
-// Text module
-pub const TEXT: &str = "text";
-pub const TEXT_FILE: &str = "text.lua";
-pub const GET_LANGUAGE: &str = "get_language";
-pub const GET_LANGUAGES: &str = "get_languages";
-pub const SET_LANGUAGE: &str = "set_language";
-pub const GET_CONFIG: &str = "get_config";
-
-// Menu module
-pub const LUA_MENU: &str = "menu";
-pub const MENU_FILE: &str = "menu.lua";
-pub const OPEN_MENU: &str = "open";
-pub const CLOSE_MENU: &str = "close";
-pub const IS_MENU_OPEN: &str = "is_open";
-
-// Audio module
-pub const LUA_AUDIO: &str = "audio";
-pub const AUDIO_FILE: &str = "audio.lua";
-pub const AUDIO_PLAY_MUSIC: &str = "play_music";
-pub const AUDIO_IS_PLAYING: &str = "is_playing";
-pub const AUDIO_STOP_MUSIC: &str = "stop_music";
-pub const AUDIO_FADE_MUSIC: &str = "fade_music";
-pub const AUDIO_PLAY_SFX: &str = "play_sfx";
-pub const AUDIO_PRELOAD: &str = "preload";
-pub const AUDIO_SET_MASTER_VOLUME: &str = "set_master_volume";
-pub const AUDIO_SET_MUSIC_VOLUME: &str = "set_music_volume";
-pub const AUDIO_SET_SFX_VOLUME: &str = "set_sfx_volume";
-pub const AUDIO_UNLOAD: &str = "unload";
-pub const AUDIO_PLAY_RANDOM_SFX: &str = "play_random_sfx";
-pub const AUDIO_PLAY_SFX_VARIED: &str = "play_sfx_varied";
-
-// Entity audio methods
-pub const ENTITY_PLAY_SOUND: &str = "play_sound";
-pub const ENTITY_STOP_SOUND: &str = "stop_sound";
-pub const ENTITY_SET_SOUND_VOLUME: &str = "set_sound_volume";
+/// Audio Lua names.
+pub mod lua_audio {
+    pub const AUDIO: &str = "audio";
+    pub const PLAY_MUSIC: &str = "play_music";
+    pub const IS_PLAYING: &str = "is_playing";
+    pub const STOP_MUSIC: &str = "stop_music";
+    pub const FADE_MUSIC: &str = "fade_music";
+    pub const PLAY_SFX: &str = "play_sfx";
+    pub const PRELOAD: &str = "preload";
+    pub const SET_MASTER_VOLUME: &str = "set_master_volume";
+    pub const SET_MUSIC_VOLUME: &str = "set_music_volume";
+    pub const SET_SFX_VOLUME: &str = "set_sfx_volume";
+    pub const UNLOAD: &str = "unload";
+    pub const PLAY_RANDOM_SFX: &str = "play_random_sfx";
+    pub const PLAY_SFX_VARIED: &str = "play_sfx_varied";
+    pub const ENTITY_PLAY_SOUND: &str = "play_sound";
+    pub const ENTITY_STOP_SOUND: &str = "stop_sound";
+    pub const ENTITY_SET_SOUND_VOLUME: &str = "set_sound_volume";
+}

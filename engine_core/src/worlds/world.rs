@@ -1,12 +1,12 @@
 // engine_core/src/worlds/world.rs
 use crate::assets::sprite_manager::SpriteManager;
-use crate::assets::sprite::SpriteId;
+use crate::ecs::SpriteId;
 use crate::tiles::tilemap::TileMap;
 use crate::worlds::room::*;
 use bishop::prelude::*;
 use serde::{Deserialize, Serialize};
-use serde_with::FromInto;
 use serde_with::serde_as;
+use serde_with::FromInto;
 use uuid::Uuid;
 
 /// Identifier for a world.

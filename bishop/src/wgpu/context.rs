@@ -15,6 +15,7 @@ use super::render::{
 };
 use super::state::{GraphicsState, GraphicsStateError, InputState, TimeState};
 use crate::camera::Camera2D;
+use crate::input::MouseWheelKind;
 use crate::types::Color;
 use crate::window::CursorIcon;
 
@@ -107,8 +108,7 @@ impl WgpuContext {
 
     /// Prepares for a new frame by clearing per-frame state.
     pub fn begin_frame(&mut self) {
-        // Measure timing before surface acquire to avoid double-buffer jitter
-        self.time.begin_frame();
+        let frame_started_at = self.time.begin_redraw();
 
         // Proactively resize if the window size changed (e.g. fullscreen transition)
         // before the Resized event arrives, avoiding stale-size reconfigures.
@@ -120,6 +120,7 @@ impl WgpuContext {
 
         match self.graphics.surface.get_current_texture() {
             Ok(texture) => {
+                self.time.set_acquire_wait(frame_started_at);
                 let view = texture
                     .texture
                     .create_view(&wgpu::TextureViewDescriptor::default());
@@ -130,6 +131,7 @@ impl WgpuContext {
                 self.graphics.reconfigure();
                 match self.graphics.surface.get_current_texture() {
                     Ok(texture) => {
+                        self.time.set_acquire_wait(frame_started_at);
                         let view = texture
                             .texture
                             .create_view(&wgpu::TextureViewDescriptor::default());
@@ -137,6 +139,7 @@ impl WgpuContext {
                         self.current_surface_view = Some(view);
                     }
                     Err(e) => {
+                        self.time.set_acquire_wait(frame_started_at);
                         eprintln!("Failed to acquire surface texture after reconfigure: {e}");
                         self.current_surface_texture = None;
                         self.current_surface_view = None;
@@ -144,11 +147,14 @@ impl WgpuContext {
                 }
             }
             Err(e) => {
+                self.time.set_acquire_wait(frame_started_at);
                 eprintln!("Failed to acquire surface texture: {e}");
                 self.current_surface_texture = None;
                 self.current_surface_view = None;
             }
         }
+
+        self.time.begin_frame();
 
         self.input.begin_frame();
 
@@ -220,17 +226,23 @@ impl WgpuContext {
                 self.input.on_mouse_move(x, y);
             }
             WindowEvent::MouseWheel { delta, .. } => {
-                let (dx, dy) = match delta {
-                    MouseScrollDelta::LineDelta(x, y) => (*x, *y),
+                let (dx, dy, kind) = match delta {
+                    MouseScrollDelta::LineDelta(x, y) => (*x, *y, MouseWheelKind::Line),
                     MouseScrollDelta::PixelDelta(pos) => (
                         pos.x as f32 / self.scale_factor,
                         pos.y as f32 / self.scale_factor,
+                        MouseWheelKind::Pixel,
                     ),
                 };
-                self.input.on_mouse_wheel(dx, dy);
+                self.input.on_mouse_wheel(dx, dy, kind);
             }
             _ => {}
         }
+    }
+
+    /// Returns the source kind for the most recent mouse wheel event this frame.
+    pub fn mouse_wheel_kind(&self) -> Option<MouseWheelKind> {
+        self.input.mouse_wheel_kind()
     }
 
     /// Returns a reference to the underlying window.
@@ -672,7 +684,11 @@ impl WgpuContext {
         }
 
         if let Some(texture) = self.current_surface_texture.take() {
+            let present_started_at = std::time::Instant::now();
             texture.present();
+            self.time.set_present_wait(present_started_at);
+        } else {
+            self.time.set_present_wait(std::time::Instant::now());
         }
         self.current_surface_view = None;
 

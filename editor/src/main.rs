@@ -103,8 +103,10 @@ impl BishopApp for EditorApp {
 }
 
 fn main() -> Result<(), RunError> {
-    let window_width = FIXED_WINDOW_WIDTH.clamp(MIN_WINDOW_WIDTH, MAX_WINDOW_WIDTH);
-    let window_height = FIXED_WINDOW_HEIGHT.clamp(MIN_WINDOW_HEIGHT, MAX_WINDOW_HEIGHT);
+    let window_width =
+        window::FIXED_WINDOW_WIDTH.clamp(window::MIN_WINDOW_WIDTH, window::MAX_WINDOW_WIDTH);
+    let window_height =
+        window::FIXED_WINDOW_HEIGHT.clamp(window::MIN_WINDOW_HEIGHT, window::MAX_WINDOW_HEIGHT);
 
     let icon = WindowIcon::Rgba {
         small: Some(IconData::new(ICON_SMALL.to_vec(), 16, 16)),

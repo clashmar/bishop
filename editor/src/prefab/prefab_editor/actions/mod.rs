@@ -1,11 +1,11 @@
-use crate::app::{
-    Editor, EditorMode, PendingPrefabRequest, PendingPrefabTransition, PrefabTransitionPrompt,
-};
+use crate::app::{Editor, EditorMode};
 use crate::commands::scene::{
     ApplyInstanceToPrefabCmd, RevertPrefabInstanceCmd, UnlinkPrefabInstanceCmd,
 };
 use crate::editor_global::push_command;
-use crate::prefab::BLANK_PREFAB_ID;
+use crate::prefab::{
+    PendingPrefabRequest, PendingPrefabTransition, PrefabTransitionPrompt, BLANK_PREFAB_ID,
+};
 use crate::shared::scene_ui::inspector::{ScenePrefabAction, ScenePrefabActionRequest};
 use bishop::prelude::*;
 use engine_core::prelude::*;
@@ -24,15 +24,6 @@ pub(crate) enum PrefabEditorLaunch {
 impl Editor {
     pub(crate) fn is_blank_prefab_mode(&self) -> bool {
         matches!(self.mode, EditorMode::Prefab(BLANK_PREFAB_ID))
-    }
-
-    pub(crate) fn prefab_picker_is_forced(&self) -> bool {
-        self.require_prefab_picker
-    }
-
-    #[cfg(test)]
-    pub(crate) fn set_prefab_picker_required(&mut self, required: bool) {
-        self.require_prefab_picker = required;
     }
 
     pub(crate) fn active_persisted_prefab_id(&self) -> Option<PrefabId> {
@@ -66,7 +57,8 @@ impl Editor {
                 self.enter_prefab_transition(ctx, prefab_id);
             }
             PrefabEditorLaunch::CaptureSelection(entity) => {
-                self.pending_prefab_request = Some(PendingPrefabRequest::CaptureSelection(entity));
+                self.prefab_state
+                    .set_pending_request(PendingPrefabRequest::CaptureSelection(entity));
                 self.open_prefab_name_modal(ctx);
             }
             PrefabEditorLaunch::OpenPicker => {
@@ -136,7 +128,7 @@ impl Editor {
             self.return_mode = Some(self.mode);
         }
         self.mode = EditorMode::Prefab(prefab.id);
-        self.require_prefab_picker = false;
+        self.prefab_state.set_require_picker(false);
         self.toast = Some(Toast::new(format!("Opened prefab '{}'", prefab.name), 2.5));
     }
 

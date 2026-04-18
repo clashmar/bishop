@@ -20,13 +20,7 @@ fn apply_instance_to_prefab_command_updates_other_linked_instances_and_supports_
             .cloned()
             .expect("prefab should exist");
         let mut ctx = editor.game.ctx_mut();
-        let mut services = ctx.services_ctx_mut();
-        instantiate_prefab(
-            &mut services,
-            &prefab,
-            Vec2::new(160.0, 96.0),
-            Some(room_id),
-        )
+        instantiate_prefab(&mut ctx, &prefab, Vec2::new(160.0, 96.0), Some(room_id))
     };
     let overridden_sibling_root = {
         let prefab = editor
@@ -37,13 +31,7 @@ fn apply_instance_to_prefab_command_updates_other_linked_instances_and_supports_
             .cloned()
             .expect("prefab should exist");
         let mut ctx = editor.game.ctx_mut();
-        let mut services = ctx.services_ctx_mut();
-        instantiate_prefab(
-            &mut services,
-            &prefab,
-            Vec2::new(256.0, 96.0),
-            Some(room_id),
-        )
+        instantiate_prefab(&mut ctx, &prefab, Vec2::new(256.0, 96.0), Some(room_id))
     };
     editor
         .game

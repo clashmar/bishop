@@ -1,6 +1,7 @@
 // engine_core/src/animation/aseprite_import.rs
 
-use crate::animation::animation_clip::*;
+use crate::animation::clip_id_helpers::{clip_id_from_name, json_filename};
+use crate::animation::*;
 use crate::storage::path_utils::assets_folder;
 use bishop::prelude::*;
 use serde::Deserialize;
@@ -137,17 +138,9 @@ pub fn import_aseprite_metadata(json_path: &Path) -> JsonImportResult {
 
 /// Resolves the path to the Aseprite JSON file for a given clip.
 pub fn resolve_json_path(variant_folder: &VariantFolder, clip_id: &ClipId) -> PathBuf {
-    let filename = match clip_id {
-        ClipId::Idle => "Idle.json",
-        ClipId::Walk => "Walk.json",
-        ClipId::Run => "Run.json",
-        ClipId::Attack => "Attack.json",
-        ClipId::Jump => "Jump.json",
-        ClipId::Fall => "Fall.json",
-        ClipId::Custom(name) => &format!("{}.json", name),
-        ClipId::New => "New.json",
-    };
-    assets_folder().join(&variant_folder.0).join(filename)
+    assets_folder()
+        .join(&variant_folder.0)
+        .join(json_filename(clip_id))
 }
 
 /// Result of exporting Aseprite files in a folder.
@@ -305,13 +298,5 @@ pub fn import_variant_folder(folder: &Path) -> Result<FolderImportResult, String
 /// Map a JSON filename to the appropriate ClipId.
 fn filename_to_clip_id(path: &Path) -> ClipId {
     let stem = path.file_stem().and_then(|s| s.to_str()).unwrap_or("");
-    match stem {
-        "Idle" => ClipId::Idle,
-        "Walk" => ClipId::Walk,
-        "Run" => ClipId::Run,
-        "Attack" => ClipId::Attack,
-        "Jump" => ClipId::Jump,
-        "Fall" => ClipId::Fall,
-        other => ClipId::Custom(other.to_string()),
-    }
+    clip_id_from_name(stem)
 }

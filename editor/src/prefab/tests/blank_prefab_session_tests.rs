@@ -71,7 +71,7 @@ fn blank_prefab_session_opens_real_prefab_without_prompt() {
     );
     assert_eq!(editor.mode, EditorMode::Prefab(prefab.id));
     assert_eq!(editor.return_mode, Some(EditorMode::Room(RoomId(1))));
-    assert_eq!(editor.pending_prefab_transition, None);
+    assert_eq!(editor.prefab_state.pending_transition(), None);
     assert_eq!(editor.active_persisted_prefab_id(), Some(prefab.id));
 }
 
@@ -113,5 +113,5 @@ fn dirty_blank_prefab_session_still_opens_real_prefab_without_prompt() {
     );
     assert_eq!(editor.mode, EditorMode::Prefab(prefab.id));
     assert_eq!(editor.return_mode, Some(EditorMode::Room(RoomId(1))));
-    assert_eq!(editor.pending_prefab_transition, None);
+    assert_eq!(editor.prefab_state.pending_transition(), None);
 }

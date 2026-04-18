@@ -32,22 +32,21 @@ impl EditorCommand for PlacePrefabInstanceCmd {
         with_editor(|editor| {
             if let Some(snapshot) = &self.snapshot {
                 let mut game_ctx = editor.game.ctx_mut();
-                let mut services_ctx = game_ctx.services_ctx_mut();
-                restore_subtree(&mut services_ctx, snapshot);
+                restore_subtree(&mut game_ctx, snapshot);
                 self.placed_root = snapshot.first().map(|entity| entity.entity);
             } else {
-                let Some(prefab) = editor.game.prefab_library.prefabs.get(&self.prefab_id).cloned() else {
+                let Some(prefab) = editor
+                    .game
+                    .prefab_library
+                    .prefabs
+                    .get(&self.prefab_id)
+                    .cloned()
+                else {
                     return;
                 };
                 let root = {
                     let mut game_ctx = editor.game.ctx_mut();
-                    let mut services_ctx = game_ctx.services_ctx_mut();
-                    instantiate_prefab(
-                        &mut services_ctx,
-                        &prefab,
-                        self.position,
-                        Some(self.room_id),
-                    )
+                    instantiate_prefab(&mut game_ctx, &prefab, self.position, Some(self.room_id))
                 };
                 if root == Entity::null() {
                     return;
@@ -68,8 +67,7 @@ impl EditorCommand for PlacePrefabInstanceCmd {
 
         with_editor(|editor| {
             let mut game_ctx = editor.game.ctx_mut();
-            let mut services_ctx = game_ctx.services_ctx_mut();
-            Ecs::remove_entity(&mut services_ctx, root);
+            Ecs::remove_entity(&mut game_ctx, root);
             editor.room_editor.set_selected_entity(None);
         });
     }
@@ -85,7 +83,7 @@ mod tests {
     use crate::app::Editor;
     use crate::editor_global::{reset_services, set_editor};
     use crate::storage::editor_storage::create_new_game;
-    use engine_core::storage::test_utils::{TestGameFolder, game_fs_test_lock};
+    use engine_core::storage::test_utils::{game_fs_test_lock, TestGameFolder};
 
     fn test_prefab(prefab_id: PrefabId) -> PrefabAsset {
         PrefabAsset {
@@ -118,10 +116,7 @@ mod tests {
         let test_game = TestGameFolder::new("place_prefab_instance_cmd");
         let mut game = create_new_game(test_game.name().to_string());
         let world_id = game.current_world_id;
-        let room_id = game
-            .current_world()
-            .starting_room_id
-            .unwrap_or_default();
+        let room_id = game.current_world().starting_room_id.unwrap_or_default();
         game.get_world_mut(world_id).current_room_id = Some(room_id);
         let prefab_id = PrefabId(1);
         game.prefab_library
@@ -179,7 +174,10 @@ mod tests {
             assert!(editor.game.ecs.has::<PrefabInstanceRoot>(first_root));
             let root = editor.game.ecs.get::<PrefabInstanceRoot>(first_root);
             assert!(root.is_some_and(|root| root.prefab_id == prefab_id));
-            assert_eq!(editor.room_editor.single_selected_entity(), Some(first_root));
+            assert_eq!(
+                editor.room_editor.single_selected_entity(),
+                Some(first_root)
+            );
         });
     }
 }

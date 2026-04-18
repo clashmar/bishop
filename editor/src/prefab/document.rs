@@ -58,8 +58,8 @@ impl PrefabStage {
         Ok(())
     }
 
-    pub fn ctx_mut(&mut self) -> ServicesCtxMut<'_> {
-        ServicesCtxMut {
+    pub fn ctx_mut(&mut self) -> GameCtxMut<'_> {
+        GameCtxMut {
             ecs: &mut self.ecs,
             world: None,
             sprite_manager: &mut self.sprite_manager,
@@ -93,10 +93,7 @@ impl PrefabEditor {
         (editor, stage)
     }
 
-    pub(crate) fn staged_prefab_state(
-        &mut self,
-        game_ctx: &mut ServicesCtxMut,
-    ) -> StagedPrefabState {
+    pub(crate) fn staged_prefab_state(&mut self, game_ctx: &mut GameCtxMut) -> StagedPrefabState {
         let Some(root) = self.root_entity else {
             return StagedPrefabState::Empty;
         };

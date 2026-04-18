@@ -3,6 +3,7 @@ use crate::scripting::lua_ctx::LuaGameCtx;
 use engine_core::prelude::*;
 use engine_core::register_lua_api;
 use engine_core::register_lua_module;
+use engine_core::scripting::lua_constants::{lua_engine, lua_fields, lua_files, lua_globals};
 use mlua::prelude::LuaResult;
 use mlua::Function;
 use mlua::Lua;
@@ -18,7 +19,7 @@ register_lua_module!(EngineModule);
 
 impl LuaModule for EngineModule {
     fn register(&self, lua: &Lua) -> LuaResult<()> {
-        let engine_tbl: Table = lua.globals().get(ENGINE)?;
+        let engine_tbl: Table = lua.globals().get(lua_engine::ENGINE)?;
 
         // TODO: assess if this is needed
         // Create the metatable for global entity proxies
@@ -148,7 +149,7 @@ impl LuaModule for EngineModule {
                 Ok(value) => Ok(value),
                 Err(_) => {
                     // Try public table
-                    if let Ok(public_tbl) = instance.get::<Table>(PUBLIC) {
+                    if let Ok(public_tbl) = instance.get::<Table>(lua_fields::PUBLIC) {
                         public_tbl.get::<Value>(key)
                     } else {
                         Ok(Value::Nil)
@@ -172,7 +173,7 @@ impl LuaModule for EngineModule {
 
             Ok(proxy)
         })?;
-        engine_tbl.set(GLOBAL, global_fn)?;
+        engine_tbl.set(lua_engine::GLOBAL, global_fn)?;
 
         // engine.player() - returns the player entity's script instance table
         let player_fn = lua.create_function(|lua, ()| {
@@ -289,30 +290,30 @@ impl LuaModule for EngineModule {
             // Execute the call synchronously and return the result
             func.call::<MultiValue>(MultiValue::from_vec(call_args))
         })?;
-        engine_tbl.set(ENGINE_CALL, call_fn)?;
+        engine_tbl.set(lua_engine::CALL, call_fn)?;
 
         // engine.on(event, handler)
         let on_fn = lua.create_function(|lua, (event, handler): (String, Function)| {
-            let ud: mlua::AnyUserData = lua.globals().get(LUA_EVENT_BUS)?;
+            let ud: mlua::AnyUserData = lua.globals().get(lua_globals::LUA_EVENT_BUS)?;
             let bus = ud.borrow::<EventBus>()?;
             bus.on(event, handler);
             Ok(())
         })?;
-        engine_tbl.set(ENGINE_ON, on_fn)?;
+        engine_tbl.set(lua_engine::ON, on_fn)?;
 
         // engine.emit(event, …)
         let emit_fn = lua.create_function(|lua, (event, args): (String, Variadic<Value>)| {
-            let ud: mlua::AnyUserData = lua.globals().get(LUA_EVENT_BUS)?;
+            let ud: mlua::AnyUserData = lua.globals().get(lua_globals::LUA_EVENT_BUS)?;
             let bus = ud.borrow::<EventBus>()?;
             bus.emit(event, args);
             Ok(())
         })?;
-        engine_tbl.set(ENGINE_EMIT, emit_fn)?;
+        engine_tbl.set(lua_engine::EMIT, emit_fn)?;
         Ok(())
     }
 }
 
-register_lua_api!(EngineModule, ENGINE_FILE);
+register_lua_api!(EngineModule, lua_files::ENGINE);
 
 impl LuaApi for EngineModule {
     fn emit_api(&self, out: &mut LuaApiWriter) {

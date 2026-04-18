@@ -20,6 +20,7 @@ use crate::menu::MenuEditor;
 use crate::playtest::playtest_process::PlaytestProcess;
 use crate::playtest::room_playtest::*;
 use crate::prefab::prefab_editor::{PrefabEditor, PrefabStage};
+use crate::prefab::PrefabSessionState;
 use crate::room::room_editor::{self, RoomEditor};
 use crate::storage::editor_storage;
 use crate::storage::editor_storage::*;
@@ -42,26 +43,6 @@ pub enum EditorMode {
     Menu,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub(crate) enum PendingPrefabRequest {
-    CaptureSelection(Entity),
-    CreateBlank,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub(crate) enum PendingPrefabTransition {
-    Exit,
-    OpenExisting(PrefabId),
-    CreateBlank(String),
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) enum PrefabTransitionPrompt {
-    None,
-    Dirty,
-    Empty,
-}
-
 pub struct Editor {
     pub game: Game,
     pub mode: EditorMode,
@@ -79,9 +60,7 @@ pub struct Editor {
     pub menu_bar: MenuBar,
     pub modal: Modal,
     pub pending_export: Option<PendingExport>,
-    pub pending_prefab_request: Option<PendingPrefabRequest>,
-    pub pending_prefab_transition: Option<PendingPrefabTransition>,
-    pub(crate) require_prefab_picker: bool,
+    pub(crate) prefab_state: PrefabSessionState,
     pub(crate) pending_camera_reset: bool,
     pub toast: Option<Toast>,
     pub playtest_process: Option<PlaytestProcess>,
@@ -109,9 +88,7 @@ impl Default for Editor {
             menu_bar: MenuBar::new(),
             modal: Modal::default(),
             pending_export: None,
-            pending_prefab_request: None,
-            pending_prefab_transition: None,
-            require_prefab_picker: false,
+            prefab_state: PrefabSessionState::default(),
             pending_camera_reset: false,
             toast: None,
             playtest_process: None,
@@ -237,7 +214,9 @@ impl Editor {
                 if delete_prefab_requested {
                     self.open_delete_prefab_modal(ctx);
                 }
-                if open_prefab_picker_requested || (self.prefab_picker_is_forced() && !self.modal.is_open()) {
+                if open_prefab_picker_requested
+                    || (self.prefab_state.require_picker() && !self.modal.is_open())
+                {
                     self.open_prefab_picker_modal(ctx);
                 }
                 if matches!(self.mode, EditorMode::Prefab(_))

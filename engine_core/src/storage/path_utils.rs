@@ -1,5 +1,5 @@
 // engine_core/src/storage/path_utils.rs
-use crate::constants::*;
+use crate::constants::paths;
 use crate::engine_global::*;
 use crate::storage::editor_config::*;
 use crate::*;
@@ -22,11 +22,11 @@ pub fn resources_folder(game_name: &str) -> PathBuf {
     match get_engine_mode() {
         EngineMode::Editor | EngineMode::Playtest => {
             // Both use the editor's save root
-            game_folder(game_name).join(RESOURCES_FOLDER)
+            game_folder(game_name).join(paths::RESOURCES_FOLDER)
         }
         EngineMode::Game => {
             if cfg!(debug_assertions) {
-                game_folder(game_name).join(RESOURCES_FOLDER)
+                game_folder(game_name).join(paths::RESOURCES_FOLDER)
             } else {
                 // Panic is acceptable here as there is no possible fallback
                 resources_dir_from_exe().unwrap()
@@ -42,52 +42,52 @@ pub fn resources_folder_current() -> PathBuf {
 
 /// Path to the assets folder inside the resources folder (Editor/Game).
 pub fn assets_folder() -> PathBuf {
-    resources_folder_current().join(ASSETS_FOLDER)
+    resources_folder_current().join(paths::ASSETS_FOLDER)
 }
 
 /// Path to the scripts folder inside the resources folder (Editor/Game).
 pub fn scripts_folder() -> PathBuf {
-    resources_folder_current().join(SCRIPTS_FOLDER)
+    resources_folder_current().join(paths::SCRIPTS_FOLDER)
 }
 
 /// Path to the text folder inside the resources folder (Editor/Game).
 pub fn text_folder() -> PathBuf {
-    resources_folder_current().join(TEXT_FOLDER)
+    resources_folder_current().join(paths::TEXT_FOLDER)
 }
 
 /// Returns the path to the menus folder for the current game.
 pub fn menus_folder() -> PathBuf {
-    resources_folder_current().join(MENUS_FOLDER)
+    resources_folder_current().join(paths::MENUS_FOLDER)
 }
 
 /// Returns the path to the prefabs folder for the current game.
 pub fn prefabs_folder() -> PathBuf {
-    resources_folder_current().join(PREFABS_FOLDER)
+    resources_folder_current().join(paths::PREFABS_FOLDER)
 }
 
 /// Path to the audio folder inside the resources folder (Editor/Game).
 pub fn audio_folder() -> PathBuf {
-    resources_folder_current().join(AUDIO_FOLDER)
+    resources_folder_current().join(paths::AUDIO_FOLDER)
 }
 
 /// Path to the sound effects subfolder inside the audio folder (Editor/Game).
 pub fn sfx_folder() -> PathBuf {
-    audio_folder().join(SFX_FOLDER)
+    audio_folder().join(paths::SFX_FOLDER)
 }
 
 /// Path to the music subfolder inside the audio folder (Editor/Game).
 pub fn music_folder() -> PathBuf {
-    audio_folder().join(MUSIC_FOLDER)
+    audio_folder().join(paths::MUSIC_FOLDER)
 }
 
 /// Path to the windows folder inside the game folder (Editor).
 pub fn windows_folder() -> PathBuf {
-    game_folder(&game_name()).join(WINDOWS_FOLDER)
+    game_folder(&game_name()).join(paths::WINDOWS_FOLDER)
 }
 
 /// Path to the mac_os folder inside the game folder (Editor).
 pub fn mac_os_folder() -> PathBuf {
-    game_folder(&game_name()).join(MAC_OS_FOLDER)
+    game_folder(&game_name()).join(paths::MAC_OS_FOLDER)
 }
 
 /// Returns the absolute path to the folder that stores all games for the editor,
@@ -112,7 +112,7 @@ pub fn absolute_save_root() -> PathBuf {
             // TODO: Choose/Create a new one
             .expect("Cannot locate workspace root.");
 
-        let path_buf = workspace_root.join(GAME_SAVE_ROOT);
+        let path_buf = workspace_root.join(paths::GAME_SAVE_ROOT);
         return path_buf;
     }
 
@@ -188,13 +188,13 @@ pub fn resources_dir_from_exe() -> Option<PathBuf> {
         // …/Bishop.app/Contents/MacOS/
         exe_dir
             .parent() // Contents/
-            .map(|p| p.join(RESOURCES_FOLDER)) // Resources/
+            .map(|p| p.join(paths::RESOURCES_FOLDER)) // Resources/
     }
     // Linux is yet to be implemented
     #[cfg(any(target_os = "windows", target_os = "linux"))]
     {
         // …/Bishop.exe  or  …/bishop
-        Some(exe_dir.join(RESOURCES_FOLDER))
+        Some(exe_dir.join(paths::RESOURCES_FOLDER))
     }
 }
 
@@ -202,7 +202,7 @@ pub fn resources_dir_from_exe() -> Option<PathBuf> {
 #[cfg(unix)]
 pub fn bundle_assets_folder() -> Option<PathBuf> {
     let resources_dir = resources_dir_from_exe()?;
-    Some(resources_dir.join(BUNDLE_ASSETS))
+    Some(resources_dir.join(paths::BUNDLE_ASSETS))
 }
 
 /// Pick the folder that will become the absolute save root.
@@ -214,7 +214,7 @@ pub fn pick_save_root() -> Option<PathBuf> {
         .unwrap_or_else(default_save_root);
 
     // Build the full path
-    let save_root = base_folder.join(SAVE_ROOT).join(GAME_SAVE_ROOT);
+    let save_root = base_folder.join(paths::SAVE_ROOT).join(paths::GAME_SAVE_ROOT);
 
     // Make sure the directory chain exists
     if let Err(e) = fs::create_dir_all(&save_root) {
@@ -259,7 +259,7 @@ pub fn apply_save_root_change(picked_folder: Option<PathBuf>) -> SaveRootResult 
     };
 
     // Build the full path
-    let new_root = base_folder.join(SAVE_ROOT).join(GAME_SAVE_ROOT);
+    let new_root = base_folder.join(paths::SAVE_ROOT).join(paths::GAME_SAVE_ROOT);
 
     // Make sure the new folder can be created
     if let Err(e) = fs::create_dir_all(&new_root) {
@@ -302,7 +302,7 @@ pub fn apply_save_root_change(picked_folder: Option<PathBuf>) -> SaveRootResult 
 fn delete_save_root() {
     if let Some(root) = get_save_root()
         && let Some(parent) = root.parent()
-        && parent.file_name() == Some(OsStr::new(SAVE_ROOT))
+        && parent.file_name() == Some(OsStr::new(paths::SAVE_ROOT))
     {
         let _ = fs::remove_dir_all(parent);
     }
@@ -431,7 +431,7 @@ pub fn copy_dir_filtered(
 /// This is the pure path logic shared by [`pick_save_root`] and
 /// [`apply_save_root_change`], separated for testability.
 pub fn build_save_root(base_folder: &Path) -> PathBuf {
-    base_folder.join(SAVE_ROOT).join(GAME_SAVE_ROOT)
+    base_folder.join(paths::SAVE_ROOT).join(paths::GAME_SAVE_ROOT)
 }
 
 /// Platform-default location used when the user has not chosen a folder.
@@ -536,7 +536,7 @@ mod tests {
 
         let base = PathBuf::from("/some/folder");
         let result = build_save_root(&base);
-        assert_eq!(result, base.join(SAVE_ROOT).join(GAME_SAVE_ROOT));
+        assert_eq!(result, base.join(paths::SAVE_ROOT).join(paths::GAME_SAVE_ROOT));
     }
 
     #[test]
@@ -549,7 +549,7 @@ mod tests {
 
         assert_eq!(
             prefabs_folder(),
-            resources_folder_current().join(PREFABS_FOLDER)
+            resources_folder_current().join(paths::PREFABS_FOLDER)
         );
     }
 }

@@ -51,7 +51,7 @@ impl InspectorModule for AnimationModule {
         true
     }
 
-    fn remove(&mut self, game_ctx: &mut ServicesCtxMut, entity: Entity) {
+    fn remove(&mut self, game_ctx: &mut GameCtxMut, entity: Entity) {
         Ecs::remove_component::<Animation>(game_ctx, entity);
         Ecs::remove_component::<CurrentFrame>(game_ctx, entity);
     }
@@ -61,7 +61,7 @@ impl InspectorModule for AnimationModule {
         ctx: &mut WgpuContext,
         blocked: bool,
         rect: Rect,
-        game_ctx: &mut ServicesCtxMut,
+        game_ctx: &mut GameCtxMut,
         entity: Entity,
     ) {
         let ecs = &mut game_ctx.ecs;
@@ -399,7 +399,7 @@ pub fn draw_current_clip_dropdowns(
         select_rect,
         &clip_label,
         &existing_clip_ids(&animation.clips),
-        |id| id.ui_label(),
+        |id| id.canonical_name(),
     )
     .suppressed(blocked)
     .show(ctx)
@@ -419,7 +419,7 @@ pub fn draw_current_clip_dropdowns(
         right_rect,
         type_label,
         &all_ids,
-        |id| id.ui_label(),
+        |id| id.canonical_name(),
     )
     .suppressed(blocked)
     .show(ctx);
@@ -677,7 +677,7 @@ pub fn fill_all_clip_ids(ecs: &Ecs, out: &mut Vec<ClipId>) {
     // Sort the custom values
     let mut custom_ids: Vec<ClipId> = custom_names.into_iter().map(ClipId::Custom).collect();
 
-    custom_ids.sort_by_key(|id| id.ui_label());
+    custom_ids.sort_by_key(|id| id.canonical_name());
 
     // Assemble the final list with New at the end
     ids.extend(custom_ids);
@@ -744,13 +744,13 @@ fn layout_pair(
 
 inventory::submit! {
     ModuleFactoryEntry {
-        title: <engine_core::animation::animation_clip::Animation>::TYPE_NAME,
+        title: <Animation>::TYPE_NAME,
         factory: || {
             Box::new(
                 CollapsibleModule::new(
                     crate::gui::inspector::animation_module::AnimationModule::default()
                 )
-                .with_title(<engine_core::animation::animation_clip::Animation>::TYPE_NAME)
+                .with_title(<Animation>::TYPE_NAME)
             )
         },
     }

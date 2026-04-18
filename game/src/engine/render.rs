@@ -72,10 +72,10 @@ fn render_speech<C: BishopContext>(
     alpha: f32,
 ) {
     let game_ctx = game_instance.game.ctx();
-    let Some(current_room) = game_ctx.cur_world.current_room() else {
+    let Some(current_room) = game_ctx.world.current_room() else {
         return;
     };
-    let grid_size = game_ctx.cur_world.grid_size;
+    let grid_size = game_ctx.world.grid_size;
 
     let bubbles = collect_speech_bubbles(
         game_ctx.ecs,

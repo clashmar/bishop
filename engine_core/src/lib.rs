@@ -9,7 +9,6 @@ pub mod ecs;
 pub mod engine_global;
 pub mod game;
 pub mod input;
-pub mod lighting;
 pub mod logging;
 pub mod menu;
 pub mod physics;
@@ -39,7 +38,6 @@ pub mod prelude {
     pub use crate::engine_global::*;
     pub use crate::game::*;
     pub use crate::input::*;
-    pub use crate::lighting::*;
     pub use crate::logging::*;
     #[allow(ambiguous_glob_reexports)]
     pub use crate::menu::*;

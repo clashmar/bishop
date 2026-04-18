@@ -1,5 +1,5 @@
 use super::{EDIT_SECTION_SPACING, SECTION_GAP, SPACING};
-use engine_core::prelude::InspectorBodyLayout;
+use engine_core::ecs::inspector::InspectorBodyLayout;
 
 pub(super) fn body_layout(
     has_groups: bool,

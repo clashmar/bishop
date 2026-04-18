@@ -1,4 +1,5 @@
 use bishop::prelude::*;
+use engine_core::constants::world as world_constants;
 use engine_core::prelude::*;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -77,10 +78,10 @@ pub(crate) fn build_prefab_preview_with(
             palette_position: Vec2::ZERO,
             stamp_position: pivot_adjusted_position(
                 Vec2::ZERO,
-                Vec2::splat(DEFAULT_GRID_SIZE),
+                Vec2::splat(world_constants::DEFAULT_GRID_SIZE),
                 Pivot::default(),
             ),
-            size: Vec2::splat(DEFAULT_GRID_SIZE),
+            size: Vec2::splat(world_constants::DEFAULT_GRID_SIZE),
             visual: PrefabPreviewVisual::Placeholder,
         });
     }
@@ -231,7 +232,7 @@ fn preview_item_from_node(
         }
     }
 
-    let size = Vec2::splat(DEFAULT_GRID_SIZE);
+    let size = Vec2::splat(world_constants::DEFAULT_GRID_SIZE);
     Some(PrefabPreviewItem {
         z,
         palette_position: transform.position,

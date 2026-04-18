@@ -20,10 +20,22 @@ local bullet = {
     ---@param spawn_args BulletSpawnArgs?
     init = function(self, spawn_args)
         local launch_direction = (spawn_args and spawn_args.direction) or direction.Right
+        local velocity = { x = 0, y = 0 }
+
+        if launch_direction == direction.Left then
+            velocity.x = -self.public.speed
+        elseif launch_direction == direction.Up then
+            velocity.y = -self.public.speed
+        elseif launch_direction == direction.Down then
+            velocity.y = self.public.speed
+        else
+            velocity.x = self.public.speed
+        end
 
         self.age = 0
         self.direction = launch_direction
         self.dead = false
+        self.entity:set_velocity(velocity)
     end,
 
     ---@param self BulletInstance
@@ -47,25 +59,6 @@ local bullet = {
             return
         end
 
-        local transform = self.entity:get(comp.Transform)
-        if transform == nil then
-            return
-        end
-
-        local position = transform.position
-        local step = self.public.speed * dt
-
-        if launch_direction == direction.Left then
-            position.x = position.x - step
-        elseif launch_direction == direction.Up then
-            position.y = position.y - step
-        elseif launch_direction == direction.Down then
-            position.y = position.y + step
-        else
-            position.x = position.x + step
-        end
-
-        self.entity:set_transform(transform)
     end,
 }
 

@@ -1,10 +1,8 @@
 // engine_core/src/world/room.rs
-use crate::camera::game_camera::RoomCamera;
-use crate::constants::*;
-use crate::ecs::component::*;
+use crate::constants::world;
+use crate::ecs::{CurrentRoom, Name, Pivot, RoomCamera, Transform};
 use crate::ecs::ecs::Ecs;
 use crate::ecs::entity::Entity;
-use crate::ecs::transform::*;
 use crate::tiles::tilemap::TileMap;
 use bishop::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -50,14 +48,17 @@ impl Room {
     pub fn new(ecs: &mut Ecs, room_id: RoomId, grid_size: f32) -> Self {
         let first_variant = RoomVariant {
             id: "default".to_string(),
-            tilemap: TileMap::new(DEFAULT_ROOM_SIZE.x as usize, DEFAULT_ROOM_SIZE.y as usize),
+            tilemap: TileMap::new(
+                world::DEFAULT_ROOM_SIZE.x as usize,
+                world::DEFAULT_ROOM_SIZE.y as usize,
+            ),
         };
 
         let room = Room {
             id: room_id,
             name: "untitled".to_string(),
-            position: DEFAULT_ROOM_POSITION,
-            size: DEFAULT_ROOM_SIZE,
+            position: world::DEFAULT_ROOM_POSITION,
+            size: world::DEFAULT_ROOM_SIZE,
             exits: vec![],
             adjacent_rooms: vec![],
             variants: vec![first_variant],

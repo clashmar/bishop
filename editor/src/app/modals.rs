@@ -5,6 +5,7 @@ use crate::commands::world::*;
 use crate::editor_global::*;
 use crate::gui::modal::*;
 use crate::gui::prompts::*;
+use crate::prefab::{PendingPrefabRequest, PrefabTransitionPrompt};
 use crate::storage::editor_storage::*;
 use bishop::prelude::*;
 use engine_core::prelude::*;
@@ -114,7 +115,7 @@ impl Editor {
             self.modal.rect,
             prefabs,
             excluded_prefab_id,
-            self.prefab_picker_is_forced(),
+            self.prefab_state.require_picker(),
         );
 
         let widgets: Vec<BoxedWidget> = vec![Box::new(move |ctx, _| {
@@ -231,9 +232,9 @@ impl Editor {
 
     pub fn handle_modal(&mut self, ctx: &mut WgpuContext) -> Option<ModalResult> {
         if self.modal.is_open() {
-            if self.prefab_picker_is_forced() && modal_escape_requested() {
+            if self.prefab_state.require_picker() && modal_escape_requested() {
                 self.modal.close();
-                self.exit_forced_prefab_picker();
+                self.close_active_prefab_editor();
                 return None;
             }
 
@@ -359,10 +360,10 @@ impl Editor {
                 match result {
                     StringPromptResult::Confirmed(name) => {
                         if self.duplicate_prefab_name_exists(&name) {
-                            self.pending_prefab_request = None;
+                            self.prefab_state.clear_pending_request();
                             self.modal.close();
                         } else {
-                            let outcome = match self.pending_prefab_request.take() {
+                            let outcome = match self.prefab_state.take_pending_request() {
                                 Some(PendingPrefabRequest::CaptureSelection(entity)) => {
                                     self.create_prefab_from_selection(ctx, entity, name);
                                     PrefabNameConfirmOutcome::Close
@@ -391,7 +392,7 @@ impl Editor {
                         }
                     }
                     StringPromptResult::Cancelled => {
-                        self.pending_prefab_request = None;
+                        self.prefab_state.clear_pending_request();
                         self.modal.close();
                         return None;
                     }
@@ -410,7 +411,8 @@ impl Editor {
                         self.present_prefab_transition_prompt(ctx, prompt);
                     }
                     PrefabPickerResult::New => {
-                        self.pending_prefab_request = Some(PendingPrefabRequest::CreateBlank);
+                        self.prefab_state
+                            .set_pending_request(PendingPrefabRequest::CreateBlank);
                         self.open_prefab_name_modal(ctx);
                         return None;
                     }
@@ -429,9 +431,9 @@ impl Editor {
                         }
                     }
                     PrefabPickerResult::Cancelled => {
-                        if self.prefab_picker_is_forced() {
+                        if self.prefab_state.require_picker() {
                             self.modal.close();
-                            self.exit_forced_prefab_picker();
+                            self.close_active_prefab_editor();
                             return None;
                         }
                         self.modal.close();
@@ -557,7 +559,7 @@ impl Editor {
     }
 
     pub(crate) fn should_ignore_modal_clicked_outside(&self) -> bool {
-        self.prefab_picker_is_forced()
+        self.prefab_state.require_picker()
     }
 }
 

@@ -1,5 +1,5 @@
 // engine_core/src/storage/core_storage.rs
-use crate::constants::GAME_RON;
+use crate::constants::paths;
 use crate::game::Game;
 use crate::storage::path_utils::*;
 use std::collections::HashMap;
@@ -24,7 +24,7 @@ pub fn load_game_ron() -> io::Result<Game> {
 
 /// Load the game .ron from a specified folder.
 pub fn load_game_from_folder(folder: &Path) -> io::Result<Game> {
-    let path = folder.join(GAME_RON);
+    let path = folder.join(paths::GAME_RON);
     let ron_string = fs::read_to_string(path)?;
 
     // Parse the RON

@@ -1,5 +1,5 @@
 // lua_api_gen/src/main.rs
-use engine_core::scripting::lua_constants::LUA_OWNER_SHARED_ENGINE;
+use engine_core::scripting::lua_constants::lua_ownership;
 use engine_core::scripting::modules::lua_module::*;
 use game_lib as _;
 use std::collections::HashMap;
@@ -56,7 +56,7 @@ fn main() {
         // Prepend the header
         if file.metadata().unwrap().len() == 0 {
             writeln!(file, "-- Auto-generated. Do not edit.").unwrap();
-            writeln!(file, "{LUA_OWNER_SHARED_ENGINE}").unwrap();
+            writeln!(file, "{}", lua_ownership::LUA_OWNER_SHARED_ENGINE).unwrap();
             writeln!(file, "---@meta").unwrap();
             writeln!(file).unwrap();
         }

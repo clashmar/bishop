@@ -7,3 +7,10 @@ pub enum MouseButton {
     Right,
     Middle,
 }
+
+/// Distinguishes coarse wheel ticks from high-resolution pixel scrolling.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum MouseWheelKind {
+    Line,
+    Pixel,
+}

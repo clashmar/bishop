@@ -1,9 +1,9 @@
-use crate::app::{Editor, EditorMode, PendingPrefabTransition, PrefabTransitionPrompt};
+use crate::app::{Editor, EditorMode};
 use crate::gui::prompts::{DirtyPrefabExitPromptResult, EmptyPrefabExitPromptResult};
 use crate::prefab::prefab_editor::{
     PrefabEditor, PrefabRoomSyncState, PrefabStage, StagedPrefabState,
 };
-use crate::prefab::BLANK_PREFAB_ID;
+use crate::prefab::{PendingPrefabTransition, PrefabTransitionPrompt, BLANK_PREFAB_ID};
 use bishop::prelude::*;
 use engine_core::prelude::*;
 use std::io;
@@ -68,7 +68,7 @@ impl Editor {
             return PrefabTransitionPrompt::None;
         }
 
-        self.pending_prefab_transition = Some(transition);
+        self.prefab_state.set_pending_transition(transition);
         match staged_state {
             StagedPrefabState::PrefabAsset(_) => PrefabTransitionPrompt::Dirty,
             StagedPrefabState::Empty => PrefabTransitionPrompt::Empty,
@@ -123,7 +123,7 @@ impl Editor {
                 self.finish_pending_prefab_transition();
             }
             DirtyPrefabExitPromptResult::Cancel => {
-                self.pending_prefab_transition = None;
+                self.prefab_state.clear_pending_transition();
             }
         }
     }
@@ -139,7 +139,7 @@ impl Editor {
                 self.finish_pending_prefab_transition();
             }
             EmptyPrefabExitPromptResult::Cancel => {
-                self.pending_prefab_transition = None;
+                self.prefab_state.clear_pending_transition();
             }
         }
     }
@@ -149,8 +149,8 @@ impl Editor {
         self.prefab_stage = None;
         self.mode = self.return_mode.unwrap_or(EditorMode::Game);
         self.return_mode = None;
-        self.pending_prefab_transition = None;
-        self.require_prefab_picker = false;
+        self.prefab_state.clear_pending_transition();
+        self.prefab_state.set_require_picker(false);
         match self.mode {
             EditorMode::Room(_) | EditorMode::World(_) | EditorMode::Game => {
                 self.pending_camera_reset = true;
@@ -172,23 +172,19 @@ impl Editor {
             },
         ));
         self.mode = EditorMode::Prefab(BLANK_PREFAB_ID);
-        self.pending_prefab_transition = None;
-        self.require_prefab_picker = false;
+        self.prefab_state.clear_pending_transition();
+        self.prefab_state.set_require_picker(false);
     }
 
-    pub(crate) fn enter_forced_blank_prefab_mode(&mut self) {
+    pub(crate) fn enter_required_blank_prefab_mode(&mut self) {
         self.open_blank_prefab_editor();
-        self.require_prefab_picker = true;
-    }
-
-    pub(crate) fn exit_forced_prefab_picker(&mut self) {
-        self.close_active_prefab_editor();
+        self.prefab_state.set_require_picker(true);
     }
 
     fn finish_pending_prefab_transition(&mut self) {
         let transition = self
-            .pending_prefab_transition
-            .take()
+            .prefab_state
+            .take_pending_transition()
             .unwrap_or(PendingPrefabTransition::Exit);
         self.execute_prefab_transition(transition);
     }

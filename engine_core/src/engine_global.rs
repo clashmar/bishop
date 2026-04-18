@@ -1,5 +1,5 @@
 // engine_core/src/engine_global.rs
-use crate::constants::*;
+use crate::constants::window;
 use once_cell::sync::Lazy;
 use std::sync::Mutex;
 
@@ -35,7 +35,8 @@ pub fn get_engine_mode() -> EngineMode {
     *ENGINE_MODE.lock().unwrap()
 }
 
-static CAM_TILE_DIMS: Mutex<(f32, f32)> = Mutex::new((DEFAULT_CAM_TILES_X, DEFAULT_CAM_TILES_Y));
+static CAM_TILE_DIMS: Mutex<(f32, f32)> =
+    Mutex::new((window::DEFAULT_CAM_TILES_X, window::DEFAULT_CAM_TILES_Y));
 
 /// Returns the width and height of the game virtual screen in terms of grid tiles,
 /// or the default if not initialized.

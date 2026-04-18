@@ -2,7 +2,7 @@
 use crate::game_global::*;
 use crate::input::input_snapshot::InputSnapshot;
 use crate::scripting::lua_ctx::LuaBishopCtx;
-use engine_core::scripting::lua_constants::*;
+use engine_core::scripting::lua_constants::{lua_engine, lua_files};
 use engine_core::scripting::modules::lua_module::*;
 use engine_core::*;
 use mlua::prelude::LuaResult;
@@ -42,7 +42,7 @@ impl LuaModule for InputModule {
         let in_control_fn = lua.create_function(|_, name: String| Ok(in_input_control(&name)))?;
 
         // Assemble the `engine.input` table
-        let engine_tbl: Table = lua.globals().get(ENGINE)?;
+        let engine_tbl: Table = lua.globals().get(lua_engine::ENGINE)?;
         let input_tbl = lua.create_table()?;
         input_tbl.set(INPUT_IS_DOWN, is_down_fn)?;
         input_tbl.set(INPUT_PRESSED, pressed_fn)?;
@@ -52,7 +52,7 @@ impl LuaModule for InputModule {
         input_tbl.set(INPUT_IN_CONTROL, in_control_fn)?;
 
         // Attach the sub‑module to the already existing global `engine` table
-        engine_tbl.set(INPUT, input_tbl)?;
+        engine_tbl.set(lua_engine::INPUT, input_tbl)?;
 
         Ok(())
     }
@@ -77,7 +77,7 @@ where
     })
 }
 
-register_lua_api!(InputModule, ENGINE_FILE);
+register_lua_api!(InputModule, lua_files::ENGINE);
 
 impl LuaApi for InputModule {
     fn emit_api(&self, out: &mut LuaApiWriter) {
@@ -85,7 +85,9 @@ impl LuaApi for InputModule {
         out.line("---@param input string");
         out.line(&format!(
             "function {}.{}.{}(input) end",
-            ENGINE, INPUT, INPUT_IS_DOWN
+            lua_engine::ENGINE,
+            lua_engine::INPUT,
+            INPUT_IS_DOWN
         ));
         out.line("");
 
@@ -93,7 +95,9 @@ impl LuaApi for InputModule {
         out.line("---@param input string");
         out.line(&format!(
             "function {}.{}.{}(input) end",
-            ENGINE, INPUT, INPUT_PRESSED
+            lua_engine::ENGINE,
+            lua_engine::INPUT,
+            INPUT_PRESSED
         ));
         out.line("");
 
@@ -101,7 +105,9 @@ impl LuaApi for InputModule {
         out.line("---@param input string");
         out.line(&format!(
             "function {}.{}.{}(input) end",
-            ENGINE, INPUT, INPUT_RELEASED
+            lua_engine::ENGINE,
+            lua_engine::INPUT,
+            INPUT_RELEASED
         ));
         out.line("");
 
@@ -110,7 +116,9 @@ impl LuaApi for InputModule {
         out.line("---@param priority number");
         out.line(&format!(
             "function {}.{}.{}(name, priority) end",
-            ENGINE, INPUT, INPUT_TAKE_CONTROL
+            lua_engine::ENGINE,
+            lua_engine::INPUT,
+            INPUT_TAKE_CONTROL
         ));
         out.line("");
 
@@ -118,7 +126,9 @@ impl LuaApi for InputModule {
         out.line("---@param name string");
         out.line(&format!(
             "function {}.{}.{}(name) end",
-            ENGINE, INPUT, INPUT_RELEASE_CONTROL
+            lua_engine::ENGINE,
+            lua_engine::INPUT,
+            INPUT_RELEASE_CONTROL
         ));
         out.line("");
 
@@ -127,7 +137,9 @@ impl LuaApi for InputModule {
         out.line("---@return boolean");
         out.line(&format!(
             "function {}.{}.{}(name) end",
-            ENGINE, INPUT, INPUT_IN_CONTROL
+            lua_engine::ENGINE,
+            lua_engine::INPUT,
+            INPUT_IN_CONTROL
         ));
         out.line("");
     }

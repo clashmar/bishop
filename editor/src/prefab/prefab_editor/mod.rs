@@ -104,7 +104,7 @@ impl PrefabEditor {
         &mut self,
         ctx: &mut WgpuContext,
         camera: &mut Camera2D,
-        game_ctx: &mut ServicesCtxMut,
+        game_ctx: &mut GameCtxMut,
     ) {
         self.sanitize_live_state(game_ctx.ecs);
         self.tick_prefab_animations(
@@ -160,7 +160,7 @@ impl PrefabEditor {
         &mut self,
         ctx: &mut WgpuContext,
         camera: &Camera2D,
-        game_ctx: &mut ServicesCtxMut,
+        game_ctx: &mut GameCtxMut,
         grid_renderer: &GridRenderer,
     ) {
         self.active_rects.clear();

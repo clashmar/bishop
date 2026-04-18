@@ -3,6 +3,8 @@ use bishop::prelude::*;
 use engine_core::prelude::*;
 
 pub const ZOOM_STEP_PERCENT: f32 = 0.5;
+pub const PIXEL_ZOOM_PERCENT_PER_DELTA: f32 = 0.01;
+pub const MAX_PIXEL_ZOOM_PERCENT: f32 = 0.2;
 pub const MIN_ZOOM: f32 = 0.000001;
 pub const MAX_ZOOM: f32 = 0.1;
 
@@ -21,7 +23,10 @@ impl EditorCameraController {
 
         // Zoom (mouse wheel) - zoom towards mouse cursor
         let scroll = ctx.mouse_wheel().1;
-        if scroll != 0.0 {
+        if let Some(zoom_multiplier) =
+            Self::zoom_multiplier_for_scroll(scroll, ctx.mouse_wheel_kind())
+        {
+            let wheel_kind = ctx.mouse_wheel_kind().unwrap_or(MouseWheelKind::Line);
             let mouse_screen = ctx.mouse_position();
             let mouse_screen = vec2(mouse_screen.0, mouse_screen.1);
 
@@ -32,10 +37,9 @@ impl EditorCameraController {
 
             // Apply zoom
             let mut scalar = Self::current_scalar(ctx, camera);
-            let direction = scroll.signum();
-            scalar *= 1.0 + direction * ZOOM_STEP_PERCENT;
+            scalar *= zoom_multiplier;
             scalar = scalar.clamp(MIN_ZOOM, MAX_ZOOM);
-            Self::apply_aspect(ctx, camera, scalar);
+            Self::apply_aspect_with_snap(ctx, camera, scalar, wheel_kind == MouseWheelKind::Line);
 
             // Get world position under mouse after zoom
             let world_after = camera.screen_to_world(mouse_screen, screen_w, screen_h);
@@ -44,8 +48,28 @@ impl EditorCameraController {
             camera.target += world_before - world_after;
         } else {
             let scalar = Self::current_scalar(ctx, camera);
-            Self::apply_aspect(ctx, camera, scalar);
+            Self::apply_aspect_with_snap(
+                ctx,
+                camera,
+                scalar,
+                Self::should_snap_current_scalar(ctx.screen_height(), scalar),
+            );
         }
+    }
+
+    fn zoom_multiplier_for_scroll(scroll: f32, wheel_kind: Option<MouseWheelKind>) -> Option<f32> {
+        if scroll.abs() <= f32::EPSILON {
+            return None;
+        }
+
+        let zoom_percent = match wheel_kind.unwrap_or(MouseWheelKind::Line) {
+            MouseWheelKind::Line => ZOOM_STEP_PERCENT,
+            MouseWheelKind::Pixel => {
+                (scroll.abs() * PIXEL_ZOOM_PERCENT_PER_DELTA).min(MAX_PIXEL_ZOOM_PERCENT)
+            }
+        };
+
+        Some(1.0 + scroll.signum() * zoom_percent)
     }
 
     /// Returns the scalar zoom that would be used for a square window.
@@ -69,21 +93,48 @@ impl EditorCameraController {
     // Turn a scalar zoom into a non‑uniform pair that keeps world
     // units square for the current aspect ratio, snapped to integer pixel ratios.
     pub fn apply_aspect(ctx: &WgpuContext, camera: &mut Camera2D, scalar_zoom: f32) {
+        Self::apply_aspect_with_snap(ctx, camera, scalar_zoom, true);
+    }
+
+    fn apply_aspect_with_snap(
+        ctx: &WgpuContext,
+        camera: &mut Camera2D,
+        scalar_zoom: f32,
+        snap_to_integer_scale: bool,
+    ) {
         let win_w = ctx.screen_width();
         let win_h = ctx.screen_height();
 
-        // Snap to integer pixel scale based on the smaller dimension
-        // scale = screen_size * zoom / 2.0, so zoom = 2.0 * scale / screen_size
-        let current_scale = (win_h * scalar_zoom / 2.0).round().max(1.0);
-        let snapped_scalar = 2.0 * current_scale / win_h;
+        camera.zoom = Self::zoom_for_scalar(win_w, win_h, scalar_zoom, snap_to_integer_scale);
+    }
+
+    fn zoom_for_scalar(
+        win_w: f32,
+        win_h: f32,
+        scalar_zoom: f32,
+        snap_to_integer_scale: bool,
+    ) -> Vec2 {
+        let resolved_scalar = if snap_to_integer_scale {
+            // Snap to integer pixel scale based on the smaller dimension
+            // scale = screen_size * zoom / 2.0, so zoom = 2.0 * scale / screen_size
+            let current_scale = (win_h * scalar_zoom / 2.0).round().max(1.0);
+            2.0 * current_scale / win_h
+        } else {
+            scalar_zoom
+        };
 
         let aspect = win_w / win_h;
         let (zoom_x, zoom_y) = if aspect > 1.0 {
-            (snapped_scalar / aspect, snapped_scalar)
+            (resolved_scalar / aspect, resolved_scalar)
         } else {
-            (snapped_scalar, snapped_scalar * aspect)
+            (resolved_scalar, resolved_scalar * aspect)
         };
-        camera.zoom = vec2(zoom_x, zoom_y);
+        vec2(zoom_x, zoom_y)
+    }
+
+    fn should_snap_current_scalar(win_h: f32, scalar_zoom: f32) -> bool {
+        let current_scale = win_h * scalar_zoom / 2.0;
+        (current_scale - current_scale.round()).abs() <= 0.001
     }
 
     /// Returns a camera centered on a room.

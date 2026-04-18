@@ -1,6 +1,6 @@
 // editor/src/room/drawing.rs
-use crate::app::EditorMode;
 use crate::app::camera_controller::*;
+use crate::app::EditorMode;
 use crate::editor_assets::assets::camera_icon;
 use crate::gui::gui_constants::*;
 use crate::gui::menu_bar::*;
@@ -77,20 +77,15 @@ fn parent_mode_icon_x(
 
 impl RoomEditor {
     /// Draw static UI for the scene editor
-    pub fn draw_ui(
-        &mut self,
-        ctx: &mut WgpuContext,
-        game_ctx: &mut GameCtxMut,
-        camera: &Camera2D,
-    ) {
+    pub fn draw_ui(&mut self, ctx: &mut WgpuContext, game_ctx: &mut GameCtxMut, camera: &Camera2D) {
         // Reset to static camera
         ctx.set_default_camera();
 
-        let Some(cur_world) = game_ctx.cur_world.as_deref() else {
+        let Some(world) = game_ctx.world.as_deref() else {
             return;
         };
-        let grid_size = cur_world.grid_size;
-        let current_room_id = cur_world.current_room_id.unwrap_or_default();
+        let grid_size = world.grid_size;
+        let current_room_id = world.current_room_id.unwrap_or_default();
 
         self.draw_coordinates(ctx, camera, grid_size);
 
@@ -151,7 +146,6 @@ impl RoomEditor {
                 self.register_rect(draw_top_panel_full(ctx));
 
                 // Draw inspector
-                let mut services_ctx = game_ctx.services_ctx_mut();
                 let inspector_ctx = SceneInspectorContext {
                     command_mode: EditorMode::Room(current_room_id),
                     show_linked_prefab_metadata: true,
@@ -159,7 +153,7 @@ impl RoomEditor {
                     selected_create_parent: None,
                     empty_state: SceneEmptyInspectorBehavior::Room,
                 };
-                let inspector_output = self.inspector.draw(ctx, &mut services_ctx, &inspector_ctx);
+                let inspector_output = self.inspector.draw(ctx, game_ctx, &inspector_ctx);
                 self.create_request = inspector_output.create_request;
                 self.prefab_action_request = inspector_output.prefab_action;
 
@@ -195,9 +189,12 @@ impl RoomEditor {
                 let startup_mode = get_startup_mode();
                 let play_dims = measure_text(ctx, play_label, HEADER_FONT_SIZE_20);
                 let mode_dims = measure_text(ctx, &startup_mode.to_string(), DEFAULT_FONT_SIZE_16);
-                let play_width =
-                    merged_play_button_layout(Rect::new(0.0, 0.0, 0.0, BTN_HEIGHT), play_dims, mode_dims)
-                        .width;
+                let play_width = merged_play_button_layout(
+                    Rect::new(0.0, 0.0, 0.0, BTN_HEIGHT),
+                    play_dims,
+                    mode_dims,
+                )
+                .width;
                 let play_x = mode_rect.x + mode_rect.w + WIDGET_SPACING;
                 let play_rect = Rect::new(play_x, INSET, play_width, BTN_HEIGHT);
 
@@ -320,7 +317,13 @@ fn draw_merged_play_button_label(
 ) {
     let layout = merged_play_button_layout(rect, play_dims, mode_dims);
 
-    ctx.draw_text("Play", layout.play_x, layout.play_y, HEADER_FONT_SIZE_20, Color::BLACK);
+    ctx.draw_text(
+        "Play",
+        layout.play_x,
+        layout.play_y,
+        HEADER_FONT_SIZE_20,
+        Color::BLACK,
+    );
     ctx.draw_line(
         layout.divider_x,
         layout.divider_y,
