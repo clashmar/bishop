@@ -7,7 +7,7 @@ use std::path::{Path, PathBuf};
 const TIMING_TRACE_FILE_NAME: &str = "bishop-dt-trace.csv";
 const TIMING_TRACE_FLUSH_INTERVAL: u16 = 120;
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Default, Clone, Copy, Debug)]
 pub struct TimingTraceSample {
     pub raw_dt: f32,
     pub sim_dt: f32,

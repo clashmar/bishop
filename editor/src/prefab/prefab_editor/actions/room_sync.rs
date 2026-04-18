@@ -71,8 +71,7 @@ pub(super) fn relink_room_subtree_to_prefab(
 
     let replacement_root = {
         let mut ctx = game.ctx_mut();
-        let mut services_ctx = ctx.services_ctx_mut();
-        instantiate_prefab(&mut services_ctx, prefab, root_position, room_id)
+        instantiate_prefab(&mut ctx, prefab, root_position, room_id)
     };
 
     if replacement_root == Entity::null() {
@@ -84,8 +83,7 @@ pub(super) fn relink_room_subtree_to_prefab(
     }
 
     let mut ctx = game.ctx_mut();
-    let mut services_ctx = ctx.services_ctx_mut();
-    Ecs::remove_entity(&mut services_ctx, root_entity);
+    Ecs::remove_entity(&mut ctx, root_entity);
     Some(replacement_root)
 }
 
@@ -95,8 +93,7 @@ fn refresh_linked_prefab_instances(game: &mut Game, prefab: &PrefabAsset) {
     for root_entity in roots {
         let room_id = game.ecs.get::<CurrentRoom>(root_entity).map(|room| room.0);
         let mut ctx = game.ctx_mut();
-        let mut services_ctx = ctx.services_ctx_mut();
-        refresh_prefab_instance(&mut services_ctx, root_entity, prefab, room_id);
+        refresh_prefab_instance(&mut ctx, root_entity, prefab, room_id);
     }
 }
 
@@ -176,8 +173,7 @@ fn restore_prefab_instance_snapshots(
         }
 
         let mut ctx = game.ctx_mut();
-        let mut services_ctx = ctx.services_ctx_mut();
-        restore_subtree(&mut services_ctx, snapshot);
+        restore_subtree(&mut ctx, snapshot);
     }
 }
 
@@ -196,8 +192,7 @@ fn remove_prefab_and_linked_instances(
         snapshots.push(snapshot);
 
         let mut ctx = game.ctx_mut();
-        let mut services_ctx = ctx.services_ctx_mut();
-        Ecs::remove_entity(&mut services_ctx, root_entity);
+        Ecs::remove_entity(&mut ctx, root_entity);
     }
 
     room_editor

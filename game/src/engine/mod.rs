@@ -168,10 +168,10 @@ impl Engine {
 
         {
             let game_ctx = game_instance.game.ctx_mut();
-            let Some(cur_world) = game_ctx.cur_world.as_deref() else {
+            let Some(world) = game_ctx.world.as_deref() else {
                 return;
             };
-            let Some(current_room) = cur_world.current_room() else {
+            let Some(current_room) = world.current_room() else {
                 return;
             };
             update_physics(
@@ -179,7 +179,7 @@ impl Engine {
                 game_ctx.ecs,
                 current_room,
                 dt,
-                cur_world.grid_size,
+                world.grid_size,
             );
         }
 
@@ -187,13 +187,13 @@ impl Engine {
         TransitionManager::handle_transitions(&mut game_instance);
 
         let game_ctx = game_instance.game.ctx_mut();
-        if let Some(cur_world) = game_ctx.cur_world.as_deref() {
-            if let Some(current_room) = cur_world.current_room() {
+        if let Some(world) = game_ctx.world.as_deref() {
+            if let Some(current_room) = world.current_room() {
                 self.camera_manager.update_active(
                     ctx,
                     game_ctx.ecs,
                     current_room,
-                    cur_world.grid_size,
+                    world.grid_size,
                 );
             }
         }
@@ -209,8 +209,8 @@ impl Engine {
             let sprite_manager = game_ctx.sprite_manager;
             let ecs = game_ctx.ecs;
 
-            if let Some(cur_world) = game_ctx.cur_world.as_deref() {
-                if let Some(current_room) = cur_world.current_room() {
+            if let Some(world) = game_ctx.world.as_deref() {
+                if let Some(current_room) = world.current_room() {
                     let loader = self.ctx.borrow();
                     update_animation_sytem(&*loader, ecs, sprite_manager, dt, current_room.id);
                 }

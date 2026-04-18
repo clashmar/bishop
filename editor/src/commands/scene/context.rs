@@ -9,7 +9,7 @@ pub(super) fn uses_prefab_context(mode: EditorMode) -> bool {
 pub(super) fn with_scene_ctx<T>(
     editor: &mut Editor,
     mode: EditorMode,
-    f: impl FnOnce(&mut dyn EngineCtxMut) -> T,
+    f: impl for<'a> FnOnce(&mut GameCtxMut<'a>) -> T,
 ) -> T {
     if uses_prefab_context(mode) {
         let mut prefab_ctx = editor
@@ -20,8 +20,7 @@ pub(super) fn with_scene_ctx<T>(
         f(&mut prefab_ctx)
     } else {
         let mut game_ctx = editor.game.ctx_mut();
-        let mut services_ctx = game_ctx.services_ctx_mut();
-        f(&mut services_ctx)
+        f(&mut game_ctx)
     }
 }
 

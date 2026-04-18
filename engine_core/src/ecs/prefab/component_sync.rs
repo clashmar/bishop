@@ -5,7 +5,7 @@ use crate::ecs::component_registry::ComponentRegistry;
 use crate::ecs::components::hierarchy::{Children, Parent};
 use crate::ecs::entity::Entity;
 use crate::ecs::{CurrentFrame, CurrentRoom, Global, Player, PlayerProxy, RoomCamera, Transform};
-use crate::game::EngineCtxMut;
+use crate::game::GameCtxMut;
 use crate::prefab::PrefabNode;
 use crate::worlds::room::RoomId;
 use bishop::prelude::*;
@@ -38,7 +38,7 @@ pub(super) fn instantiate_prefab_components(
 }
 
 pub(super) fn apply_prefab_node(
-    ctx: &mut dyn EngineCtxMut,
+    ctx: &mut GameCtxMut<'_>,
     entity: Entity,
     node: &PrefabNode,
     root_position: Vec2,
@@ -127,16 +127,12 @@ pub(super) fn translate_transform_snapshot(
     }
 }
 
-fn apply_component_snapshot(
-    ctx: &mut dyn EngineCtxMut,
-    entity: Entity,
-    component: ComponentSnapshot,
-) {
+fn apply_component_snapshot(ctx: &mut GameCtxMut<'_>, entity: Entity, component: ComponentSnapshot) {
     remove_component_snapshot(ctx, entity, &component.type_name);
     restore_entity(ctx, entity, vec![component]);
 }
 
-fn remove_component_snapshot(ctx: &mut dyn EngineCtxMut, entity: Entity, type_name: &str) {
+fn remove_component_snapshot(ctx: &mut GameCtxMut<'_>, entity: Entity, type_name: &str) {
     let Some(component_reg) = inventory::iter::<ComponentRegistry>()
         .find(|registry| registry.type_name == type_name)
     else {
@@ -152,11 +148,7 @@ fn remove_component_snapshot(ctx: &mut dyn EngineCtxMut, entity: Entity, type_na
     (component_reg.remove)(ctx.ecs(), entity);
 }
 
-fn apply_root_transform_snapshot(
-    ctx: &mut dyn EngineCtxMut,
-    entity: Entity,
-    component: &ComponentSnapshot,
-) {
+fn apply_root_transform_snapshot(ctx: &mut GameCtxMut<'_>, entity: Entity, component: &ComponentSnapshot) {
     let Ok(mut prefab_transform) = ron::from_str::<Transform>(&component.ron) else {
         return;
     };
@@ -180,7 +172,7 @@ fn apply_root_transform_snapshot(
 }
 
 fn remove_stale_prefab_components(
-    ctx: &mut dyn EngineCtxMut,
+    ctx: &mut GameCtxMut<'_>,
     entity: Entity,
     prefab_components: &[ComponentSnapshot],
     overrides: Option<&PrefabOverrides>,

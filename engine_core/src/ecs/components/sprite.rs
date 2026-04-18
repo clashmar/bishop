@@ -1,6 +1,6 @@
 use crate::assets::sprite_manager::SpriteManager;
 use crate::ecs::entity::Entity;
-use crate::game::EngineCtxMut;
+use crate::game::GameCtxMut;
 use crate::inspector_module;
 use crate::rendering::render_room::pivot_adjusted_position;
 use crate::rendering::renderable::{EntityDrawParams, Renderable};
@@ -30,12 +30,12 @@ impl Default for Sprite {
     }
 }
 
-fn post_create(sprite: &mut Sprite, _entity: &Entity, ctx: &mut dyn EngineCtxMut) {
-    ctx.sprite_manager().increment_ref(sprite.sprite);
+fn post_create(sprite: &mut Sprite, _entity: &Entity, ctx: &mut GameCtxMut<'_>) {
+    ctx.sprite_manager.increment_ref(sprite.sprite);
 }
 
-fn post_remove(sprite: &mut Sprite, _entity: &Entity, ctx: &mut dyn EngineCtxMut) {
-    ctx.sprite_manager().decrement_ref(sprite.sprite);
+fn post_remove(sprite: &mut Sprite, _entity: &Entity, ctx: &mut GameCtxMut<'_>) {
+    ctx.sprite_manager.decrement_ref(sprite.sprite);
 }
 
 #[inline]

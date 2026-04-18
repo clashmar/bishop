@@ -115,13 +115,11 @@ fn restore_linked_prefab_instances(editor: &mut crate::Editor, snapshots: &[Grou
 
         if editor.game.ecs.has::<Transform>(root_entity) {
             let mut ctx = editor.game.ctx_mut();
-            let mut services_ctx = ctx.services_ctx_mut();
-            Ecs::remove_entity(&mut services_ctx, root_entity);
+            Ecs::remove_entity(&mut ctx, root_entity);
         }
 
         let mut ctx = editor.game.ctx_mut();
-        let mut services_ctx = ctx.services_ctx_mut();
-        restore_subtree(&mut services_ctx, snapshot);
+        restore_subtree(&mut ctx, snapshot);
     }
 }
 
@@ -137,8 +135,7 @@ fn remove_linked_prefab_instances(editor: &mut crate::Editor, snapshots: &[Group
         };
 
         let mut ctx = editor.game.ctx_mut();
-        let mut services_ctx = ctx.services_ctx_mut();
-        Ecs::remove_entity(&mut services_ctx, root_entity);
+        Ecs::remove_entity(&mut ctx, root_entity);
     }
 
     editor

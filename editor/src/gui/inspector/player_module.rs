@@ -19,7 +19,7 @@ impl InspectorModule for PlayerModule {
         ctx: &mut WgpuContext,
         _blocked: bool,
         rect: Rect,
-        game_ctx: &mut ServicesCtxMut,
+        game_ctx: &mut GameCtxMut,
         entity: Entity,
     ) {
         let ecs = &game_ctx.ecs;

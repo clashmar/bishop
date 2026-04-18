@@ -3,7 +3,7 @@ use super::{PrefabInstanceNode, PrefabInstanceRoot, PrefabOverrides};
 use crate::ecs::capture::restore_entity;
 use crate::ecs::entity::{Entity, remove_parent, set_parent};
 use crate::ecs::{Ecs, Transform};
-use crate::game::EngineCtxMut;
+use crate::game::GameCtxMut;
 use crate::onscreen_error;
 use crate::prefab::{PrefabAsset, validate_prefab};
 use crate::worlds::room::RoomId;
@@ -12,7 +12,7 @@ use std::collections::HashMap;
 
 /// Instantiates a prefab hierarchy into ECS and returns the root entity.
 pub fn instantiate_prefab(
-    ctx: &mut dyn EngineCtxMut,
+    ctx: &mut GameCtxMut<'_>,
     prefab: &PrefabAsset,
     root_position: Vec2,
     room_id: Option<RoomId>,
@@ -81,7 +81,7 @@ pub fn instantiate_prefab(
 
 /// Refreshes a linked prefab instance subtree from the source asset.
 pub fn refresh_prefab_instance(
-    ctx: &mut dyn EngineCtxMut,
+    ctx: &mut GameCtxMut<'_>,
     root_entity: Entity,
     prefab: &PrefabAsset,
     room_id: Option<RoomId>,

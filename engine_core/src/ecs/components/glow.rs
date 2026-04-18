@@ -1,6 +1,6 @@
 use crate::ecs::entity::Entity;
 use crate::ecs::SpriteId;
-use crate::game::EngineCtxMut;
+use crate::game::GameCtxMut;
 use crate::inspector_module;
 use bishop::prelude::*;
 use ecs_component::ecs_component;
@@ -37,10 +37,10 @@ impl Default for Glow {
     }
 }
 
-fn post_create(glow: &mut Glow, _entity: &Entity, ctx: &mut dyn EngineCtxMut) {
-    ctx.sprite_manager().increment_ref(glow.sprite_id);
+fn post_create(glow: &mut Glow, _entity: &Entity, ctx: &mut GameCtxMut<'_>) {
+    ctx.sprite_manager.increment_ref(glow.sprite_id);
 }
 
-fn post_remove(glow: &mut Glow, _entity: &Entity, ctx: &mut dyn EngineCtxMut) {
-    ctx.sprite_manager().decrement_ref(glow.sprite_id);
+fn post_remove(glow: &mut Glow, _entity: &Entity, ctx: &mut GameCtxMut<'_>) {
+    ctx.sprite_manager.decrement_ref(glow.sprite_id);
 }

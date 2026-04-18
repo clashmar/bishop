@@ -88,8 +88,7 @@ impl EditorCommand for ApplyInstanceToPrefabCmd {
                     .get::<CurrentRoom>(root_entity)
                     .map(|room| room.0);
                 let mut ctx = editor.game.ctx_mut();
-                let mut services_ctx = ctx.services_ctx_mut();
-                refresh_prefab_instance(&mut services_ctx, root_entity, &updated_prefab, room_id);
+                refresh_prefab_instance(&mut ctx, root_entity, &updated_prefab, room_id);
             }
 
             let roots = linked_prefab_instance_roots(&editor.game.ecs, updated_prefab.id);

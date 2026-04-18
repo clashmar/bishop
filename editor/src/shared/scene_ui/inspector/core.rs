@@ -145,7 +145,7 @@ impl SceneInspector {
         ctx: &mut WgpuContext,
         panel_rect: Rect,
         blocked: bool,
-        game_ctx: &mut ServicesCtxMut,
+        game_ctx: &mut GameCtxMut,
         scene_ctx: &SceneInspectorContext,
     ) -> SceneInspectorDrawResult {
         let mut interactive_rects = Vec::new();

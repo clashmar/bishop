@@ -1,5 +1,5 @@
 use crate::ecs::entity::Entity;
-use crate::game::EngineCtxMut;
+use crate::game::GameCtxMut;
 use crate::scripting::helpers::{read_script_field, write_script_field};
 use crate::scripting::lua_constants::PUBLIC;
 use crate::scripting::script_manager::ScriptManager;
@@ -126,12 +126,12 @@ impl Script {
     }
 }
 
-fn post_create(script: &mut Script, _entity: &Entity, ctx: &mut dyn EngineCtxMut) {
-    ctx.script_manager().increment_ref(script.script_id)
+fn post_create(script: &mut Script, _entity: &Entity, ctx: &mut GameCtxMut<'_>) {
+    ctx.script_manager.increment_ref(script.script_id)
 }
 
-fn post_remove(script: &mut Script, entity: &Entity, ctx: &mut dyn EngineCtxMut) {
-    ctx.script_manager().unload(*entity, script.script_id)
+fn post_remove(script: &mut Script, entity: &Entity, ctx: &mut GameCtxMut<'_>) {
+    ctx.script_manager.unload(*entity, script.script_id)
 }
 
 #[cfg(test)]

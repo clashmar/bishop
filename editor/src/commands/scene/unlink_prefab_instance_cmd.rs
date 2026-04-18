@@ -52,14 +52,12 @@ impl EditorCommand for UnlinkPrefabInstanceCmd {
         with_editor(|editor| {
             if editor.game.ecs.has::<Transform>(root_entity) {
                 let mut ctx = editor.game.ctx_mut();
-                let mut services_ctx = ctx.services_ctx_mut();
-                Ecs::remove_entity(&mut services_ctx, root_entity);
+                Ecs::remove_entity(&mut ctx, root_entity);
             }
 
             {
                 let mut ctx = editor.game.ctx_mut();
-                let mut services_ctx = ctx.services_ctx_mut();
-                restore_subtree(&mut services_ctx, saved_snapshot);
+                restore_subtree(&mut ctx, saved_snapshot);
             }
 
             restore_room_selection(editor, self.preferred_selection, root_entity);

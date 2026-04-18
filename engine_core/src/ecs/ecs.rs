@@ -4,7 +4,7 @@ use crate::ecs::component_registry::*;
 use crate::ecs::entity::*;
 use crate::ecs::has_any::HasAny;
 use crate::ecs::{CurrentRoom, Player, PlayerProxy, Transform};
-use crate::game::EngineCtxMut;
+use crate::game::GameCtxMut;
 use crate::worlds::room::RoomId;
 use once_cell::sync::Lazy;
 use serde::de::Deserializer;
@@ -66,7 +66,7 @@ impl Ecs {
     }
 
     /// Remove an entity and all of its descendants.
-    pub fn remove_entity(ctx: &mut dyn EngineCtxMut, entity: Entity) {
+    pub fn remove_entity(ctx: &mut GameCtxMut<'_>, entity: Entity) {
         // Detach from parent (if any)
         let parent = ctx.ecs().get::<Parent>(entity).map(|p| p.0);
         if let Some(parent) = parent
@@ -97,7 +97,7 @@ impl Ecs {
     }
 
     /// Remove a single component from an entity, calling its post_remove hook.
-    pub fn remove_component<T>(ctx: &mut dyn EngineCtxMut, entity: Entity)
+    pub fn remove_component<T>(ctx: &mut GameCtxMut<'_>, entity: Entity)
     where
         T: Component + 'static,
     {

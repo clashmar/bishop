@@ -2,7 +2,7 @@
 use crate::ecs::ecs::Ecs;
 use crate::ecs::entity::Entity;
 use crate::ecs::inspector::layout::InspectorBodyLayout;
-use crate::game::ServicesCtxMut;
+use crate::game::GameCtxMut;
 use crate::storage::editor_config::*;
 use crate::ui::widgets::*;
 use bishop::prelude::*;
@@ -18,7 +18,7 @@ pub trait InspectorModule {
         ctx: &mut WgpuContext,
         blocked: bool,
         rect: Rect,
-        game_ctx: &mut ServicesCtxMut,
+        game_ctx: &mut GameCtxMut,
         entity: Entity,
     );
 
@@ -58,7 +58,7 @@ pub trait InspectorModule {
 
     /// Called when the user clicks the remove component button.
     /// Default implementation does nothing.
-    fn remove(&mut self, _game_ctx: &mut ServicesCtxMut, _entity: Entity) {}
+    fn remove(&mut self, _game_ctx: &mut GameCtxMut, _entity: Entity) {}
 }
 
 /// Generic wrapper that adds a collapsible header around any concrete
@@ -150,7 +150,7 @@ impl<T: InspectorModule> InspectorModule for CollapsibleModule<T> {
         ctx: &mut WgpuContext,
         blocked: bool,
         rect: Rect,
-        game_ctx: &mut ServicesCtxMut,
+        game_ctx: &mut GameCtxMut,
         entity: Entity,
     ) {
         // Background for the header

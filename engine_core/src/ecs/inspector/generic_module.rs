@@ -65,7 +65,7 @@ where
         ctx: &mut WgpuContext,
         blocked: bool,
         rect: Rect,
-        game_ctx: &mut ServicesCtxMut,
+        game_ctx: &mut GameCtxMut,
         entity: Entity,
     ) {
         let ecs = &mut game_ctx.ecs;
@@ -274,7 +274,7 @@ where
         self.removable
     }
 
-    fn remove(&mut self, game_ctx: &mut ServicesCtxMut, entity: Entity) {
+    fn remove(&mut self, game_ctx: &mut GameCtxMut, entity: Entity) {
         Ecs::remove_component::<T>(game_ctx, entity);
     }
 }

@@ -51,7 +51,7 @@ impl InspectorModule for AnimationModule {
         true
     }
 
-    fn remove(&mut self, game_ctx: &mut ServicesCtxMut, entity: Entity) {
+    fn remove(&mut self, game_ctx: &mut GameCtxMut, entity: Entity) {
         Ecs::remove_component::<Animation>(game_ctx, entity);
         Ecs::remove_component::<CurrentFrame>(game_ctx, entity);
     }
@@ -61,7 +61,7 @@ impl InspectorModule for AnimationModule {
         ctx: &mut WgpuContext,
         blocked: bool,
         rect: Rect,
-        game_ctx: &mut ServicesCtxMut,
+        game_ctx: &mut GameCtxMut,
         entity: Entity,
     ) {
         let ecs = &mut game_ctx.ecs;

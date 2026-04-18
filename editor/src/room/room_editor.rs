@@ -404,7 +404,7 @@ impl RoomEditor {
         let active_prefab_snap_pivot = self.active_prefab_snap_pivot(&game.prefab_library);
         {
             let mut game_ctx = game.ctx_mut();
-            let Some(grid_size) = game_ctx.cur_world.as_deref().map(|world| world.grid_size) else {
+            let Some(grid_size) = game_ctx.world.as_deref().map(|world| world.grid_size) else {
                 return;
             };
 
@@ -420,7 +420,7 @@ impl RoomEditor {
             match self.mode {
                 RoomEditorMode::Tilemap => {
                     let Some(room) = game_ctx
-                        .cur_world
+                        .world
                         .as_deref_mut()
                         .and_then(World::current_room_mut)
                     else {
@@ -473,7 +473,7 @@ impl RoomEditor {
 
                     if !view_preview {
                         let Some(room) = game_ctx
-                            .cur_world
+                            .world
                             .as_deref_mut()
                             .and_then(World::current_room_mut)
                         else {

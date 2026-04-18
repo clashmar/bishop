@@ -1,8 +1,8 @@
 // editor/src/gui/inspector/inspector_panel.rs
+use crate::gui::panels::panel_manager::is_mouse_over_panel;
 use crate::shared::scene_ui::inspector::{
     SceneInspector, SceneInspectorContext, SceneInspectorOutput,
 };
-use crate::gui::panels::panel_manager::is_mouse_over_panel;
 use bishop::prelude::*;
 use engine_core::prelude::*;
 
@@ -44,7 +44,7 @@ impl InspectorPanel {
     pub fn draw(
         &mut self,
         ctx: &mut WgpuContext,
-        game_ctx: &mut ServicesCtxMut,
+        game_ctx: &mut GameCtxMut,
         scene_ctx: &SceneInspectorContext,
     ) -> SceneInspectorOutput {
         let draw = self.core.draw(

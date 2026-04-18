@@ -46,7 +46,7 @@ impl InspectorModule for RoomCameraModule {
         ctx: &mut WgpuContext,
         blocked: bool,
         rect: Rect,
-        game_ctx: &mut ServicesCtxMut,
+        game_ctx: &mut GameCtxMut,
         entity: Entity,
     ) {
         let Some(cur_world) = game_ctx.world.as_deref() else {
