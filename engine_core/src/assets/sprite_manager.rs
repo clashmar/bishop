@@ -1,6 +1,6 @@
 // engine_core/src/assets/sprite_manager.rs
 use crate::assets::asset_manager::{AssetManager, IdPathAssetManager};
-use crate::ecs::ecs::Ecs;
+use crate::assets::AssetRegistry;
 use crate::ecs::{Animation, SpriteId};
 use crate::game::Game;
 use crate::storage::path_utils::assets_folder;
@@ -21,11 +21,8 @@ const SPRITE_ASSET_KIND: &str = "Sprite";
 pub struct SpriteManager {
     #[serde(skip)]
     textures: HashMap<SpriteId, Texture2D>,
-    /// Persistent map of all sprite ids to their paths.
-    #[serde(
-        serialize_with = "crate::storage::ordered_map::serialize",
-        deserialize_with = "crate::storage::ordered_map::deserialize"
-    )]
+    /// Derived cache of all sprite ids to their paths.
+    #[serde(skip)]
     pub sprite_id_to_path: HashMap<SpriteId, PathBuf>,
     #[serde(skip)]
     pub path_to_sprite_id: HashMap<PathBuf, SpriteId>,
@@ -195,49 +192,37 @@ impl SpriteManager {
 
     /// Initialize all assets for the game.
     pub fn init_manager(loader: &impl TextureLoader, game: &mut Game) {
-        Self::init_editor_services(loader, &mut game.ecs, &mut game.sprite_manager);
-    }
+        Self::init_editor_metadata(&game.asset_registry, &mut game.sprite_manager);
 
-    /// Initialize editor asset metadata without hydrating textures.
-    pub fn init_editor_metadata(sprite_manager: &mut SpriteManager) {
-        sprite_manager.restore_next_sprite_id();
-        sprite_manager.runtime_texture_loading = false;
-        sprite_manager.runtime_file_read_pool = None;
-        sprite_manager.pending_texture_reads.clear();
-
-        sprite_manager.path_to_sprite_id.clear();
-        for (&id, path) in &sprite_manager.sprite_id_to_path {
-            sprite_manager.path_to_sprite_id.insert(path.clone(), id);
-        }
-
-        if let Some(max_id) = sprite_manager.tile_defs.keys().map(|id| id.0).max() {
-            sprite_manager.next_tile_def_id = max_id + 1;
-        } else {
-            sprite_manager.next_tile_def_id = 1;
-        }
-    }
-
-    /// Initialize editor asset services for an ECS/asset-manager pair.
-    pub fn init_editor_services(
-        loader: &impl TextureLoader,
-        ecs: &mut Ecs,
-        sprite_manager: &mut SpriteManager,
-    ) {
-        Self::init_editor_metadata(sprite_manager);
-
-        let sprites: Vec<(SpriteId, PathBuf)> = sprite_manager
+        let sprites: Vec<(SpriteId, PathBuf)> = game
+            .sprite_manager
             .sprite_id_to_path
             .iter()
             .map(|(id, path)| (*id, path.clone()))
             .collect();
 
         for (id, path) in sprites {
-            let _ = sprite_manager.reload_texture(loader, &id, &path);
+            let _ = game.sprite_manager.reload_texture(loader, &id, &path);
         }
 
-        for animation in ecs.get_store_mut::<Animation>().data.values_mut() {
-            animation.init_sprite_cache(loader, sprite_manager);
+        for animation in game.ecs.get_store_mut::<Animation>().data.values_mut() {
+            animation.init_sprite_cache(loader, &mut game.sprite_manager);
             animation.init_runtime();
+        }
+    }
+
+    /// Initialize editor asset metadata without hydrating textures.
+    pub fn init_editor_metadata(asset_registry: &AssetRegistry, sprite_manager: &mut SpriteManager) {
+        sprite_manager.rebuild_path_cache_from_registry(asset_registry);
+        sprite_manager.restore_next_sprite_id();
+        sprite_manager.runtime_texture_loading = false;
+        sprite_manager.runtime_file_read_pool = None;
+        sprite_manager.pending_texture_reads.clear();
+
+        if let Some(max_id) = sprite_manager.tile_defs.keys().map(|id| id.0).max() {
+            sprite_manager.next_tile_def_id = max_id + 1;
+        } else {
+            sprite_manager.next_tile_def_id = 1;
         }
     }
 
@@ -249,6 +234,7 @@ impl SpriteManager {
 
     /// Initialize runtime data with an explicit file-read pool handle.
     pub fn init_runtime_manager_with_pool(file_read_pool: &FileReadPool, game: &mut Game) {
+        game.sprite_manager.rebuild_path_cache_from_registry(&game.asset_registry);
         game.sprite_manager.restore_next_sprite_id();
         game.sprite_manager.runtime_texture_loading = true;
         game.sprite_manager.runtime_file_read_pool = Some(file_read_pool.clone());
@@ -412,6 +398,11 @@ impl SpriteManager {
         self.ref_counts.get(&sprite_id).copied().unwrap_or(0)
     }
 
+    /// Returns the registered relative path for a sprite id.
+    pub fn path_for_id(&self, sprite_id: SpriteId) -> Option<&Path> {
+        self.sprite_id_to_path.get(&sprite_id).map(PathBuf::as_path)
+    }
+
     /// Changes a sprite reference, handling decrement of old and increment of new.
     pub fn change_sprite(&mut self, old_id: &mut SpriteId, new_id: SpriteId) {
         if *old_id == new_id {
@@ -552,21 +543,36 @@ impl SpriteManager {
     fn has_pending_texture_read(&self, id: SpriteId) -> bool {
         self.pending_texture_reads.contains_key(&id)
     }
+
+    fn rebuild_path_cache_from_registry(&mut self, asset_registry: &AssetRegistry) {
+        self.sprite_id_to_path.clear();
+        self.path_to_sprite_id.clear();
+
+        for record_key in asset_registry.records().keys().copied() {
+            let crate::assets::AssetKey::Sprite(sprite_id) = record_key else {
+                continue;
+            };
+            let Some(relative_path) = asset_registry.relative_path(sprite_id) else {
+                continue;
+            };
+
+            self.path_to_sprite_id.insert(relative_path.clone(), sprite_id);
+            self.sprite_id_to_path.insert(sprite_id, relative_path);
+        }
+    }
 }
 
 impl AssetManager for SpriteManager {
     fn editor_metadata_snapshot(&self) -> Self {
-        let mut snapshot = Self {
-            sprite_id_to_path: self.sprite_id_to_path.clone(),
+        Self {
             tile_defs: self.tile_defs.clone(),
             ..Default::default()
-        };
-        Self::init_editor_metadata(&mut snapshot);
-        snapshot
+        }
     }
 
     fn merge_editor_metadata_from(&mut self, source: &Self) -> std::io::Result<()> {
-        self.merge_id_path_registry_from(source)
+        self.tile_defs = source.tile_defs.clone();
+        Ok(())
     }
 }
 
@@ -594,13 +600,14 @@ impl IdPathAssetManager for SpriteManager {
     }
 
     fn rebuild_editor_metadata(&mut self) {
-        Self::init_editor_metadata(self);
+        self.restore_next_sprite_id();
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::assets::AssetRegistry;
     use crate::engine_global::set_game_name;
     use crate::storage::test_utils::{game_fs_test_lock, TestGameFolder};
     use std::cell::Cell;
@@ -656,6 +663,28 @@ mod tests {
 
         assert!(result.is_none());
         assert_eq!(loader.load_calls.get(), 1);
+    }
+
+    #[test]
+    fn init_editor_metadata_rebuilds_sprite_cache_from_asset_registry() {
+        let mut registry = AssetRegistry::default();
+        registry
+            .register_asset_relative_path(SpriteId(1), "sprites/player.png")
+            .expect("sprite path should register");
+
+        let mut sprite_manager = SpriteManager::default();
+        SpriteManager::init_editor_metadata(&registry, &mut sprite_manager);
+
+        assert_eq!(
+            sprite_manager
+                .path_for_id(SpriteId(1))
+                .map(|path| path.to_path_buf()),
+            Some(PathBuf::from("sprites/player.png"))
+        );
+        assert_eq!(
+            sprite_manager.get_or_none("sprites/player.png"),
+            Some(SpriteId(1))
+        );
     }
 
     #[test]

@@ -1,8 +1,8 @@
 // engine_core/src/script/script_manager.rs
 use crate::assets::asset_manager::{AssetManager, IdPathAssetManager};
+use crate::assets::AssetRegistry;
 use crate::ecs::ScriptId;
 use crate::ecs::entity::Entity;
-use crate::game::Game;
 use crate::scripting::event_bus::EventBus;
 use crate::scripting::lua_constants::{lua_entity, lua_fields};
 use crate::storage::path_utils::scripts_folder;
@@ -41,11 +41,8 @@ pub struct ScriptManager {
     /// Init functions that need to be executed.
     #[serde(skip)]
     pub pending_inits: Vec<(Entity, ScriptId)>,
-    /// Persistent map of all script ids to their paths.
-    #[serde(
-        serialize_with = "crate::storage::ordered_map::serialize",
-        deserialize_with = "crate::storage::ordered_map::deserialize"
-    )]
+    /// Derived cache of all script ids to their paths.
+    #[serde(skip)]
     pub script_id_to_path: HashMap<ScriptId, PathBuf>,
     #[serde(skip)]
     pub path_to_script_id: HashMap<PathBuf, ScriptId>,
@@ -288,31 +285,20 @@ impl ScriptManager {
             .to_path_buf()
     }
 
-    /// Initialize all scripts for the game.
-    pub fn init_manager(game: &mut Game, lua: &Lua) {
-        Self::init_editor_services(&mut game.script_manager, lua);
+    /// Initialize script manager state from the asset registry and Lua runtime.
+    pub fn init_manager(
+        asset_registry: &AssetRegistry,
+        script_manager: &mut ScriptManager,
+        lua: &Lua,
+    ) {
+        Self::init_editor_metadata(asset_registry, script_manager);
+        Self::load_to_package(lua);
     }
 
     /// Initializes editor script metadata without requiring a Lua context.
-    pub fn init_editor_metadata(script_manager: &mut ScriptManager) {
+    pub fn init_editor_metadata(asset_registry: &AssetRegistry, script_manager: &mut ScriptManager) {
+        script_manager.rebuild_path_cache_from_registry(asset_registry);
         script_manager.restore_next_script_id();
-        script_manager.path_to_script_id.clear();
-
-        let scripts: Vec<(ScriptId, PathBuf)> = script_manager
-            .script_id_to_path
-            .iter()
-            .map(|(id, path)| (*id, path.clone()))
-            .collect();
-
-        for (id, path) in scripts {
-            script_manager.path_to_script_id.insert(path, id);
-        }
-    }
-
-    /// Initialize editor script services without requiring a world-backed game.
-    pub fn init_editor_services(script_manager: &mut ScriptManager, lua: &Lua) {
-        Self::load_to_package(lua);
-        Self::init_editor_metadata(script_manager);
     }
 
     /// Load all .lua files to the package.path
@@ -381,20 +367,33 @@ impl ScriptManager {
         self.increment_ref(new_id)
     }
 
+    fn rebuild_path_cache_from_registry(&mut self, asset_registry: &AssetRegistry) {
+        self.script_id_to_path.clear();
+        self.path_to_script_id.clear();
+
+        for record_key in asset_registry.records().keys().copied() {
+            let crate::assets::AssetKey::Script(script_id) = record_key else {
+                continue;
+            };
+            let Some(relative_path) = asset_registry.relative_path(script_id) else {
+                continue;
+            };
+
+            self.path_to_script_id.insert(relative_path.clone(), script_id);
+            self.script_id_to_path.insert(script_id, relative_path);
+        }
+    }
+
 }
 
 impl AssetManager for ScriptManager {
     fn editor_metadata_snapshot(&self) -> Self {
-        let mut snapshot = Self {
-            script_id_to_path: self.script_id_to_path.clone(),
-            ..Default::default()
-        };
-        Self::init_editor_metadata(&mut snapshot);
-        snapshot
+        Self::default()
     }
 
     fn merge_editor_metadata_from(&mut self, source: &Self) -> std::io::Result<()> {
-        self.merge_id_path_registry_from(source)
+        let _ = source;
+        Ok(())
     }
 }
 
@@ -422,6 +421,6 @@ impl IdPathAssetManager for ScriptManager {
     }
 
     fn rebuild_editor_metadata(&mut self) {
-        Self::init_editor_metadata(self);
+        self.restore_next_script_id();
     }
 }

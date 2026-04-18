@@ -78,6 +78,36 @@ fn save_game_round_trips_asset_registry_records() {
 }
 
 #[test]
+fn save_game_persists_asset_identities_in_asset_registry() {
+    let _lock = game_fs_test_lock()
+        .lock()
+        .unwrap_or_else(|poison| poison.into_inner());
+    let test_game = TestGameFolder::new("asset_registry_manager_cache_schema");
+    set_game_name(test_game.name());
+
+    let mut game = create_new_game(test_game.name().to_string());
+    game.asset_registry
+        .register_asset_relative_path(SpriteId(1), "sprites/player.png")
+        .expect("sprite path should register");
+    game.asset_registry
+        .register_asset_relative_path(ScriptId(1), "player.lua")
+        .expect("script path should register");
+
+    save_game(&game).expect("game should save");
+
+    let ron = std::fs::read_to_string(resources_folder(test_game.name()).join(paths::GAME_RON))
+        .expect("saved game.ron should be readable");
+    let loaded = load_game_by_name(test_game.name()).expect("saved game should load");
+
+    assert_eq!(
+        loaded.asset_registry.records(),
+        game.asset_registry.records()
+    );
+
+    assert!(ron.contains("asset_registry"));
+}
+
+#[test]
 fn load_game_by_name_returns_invalid_data_for_corrupt_asset_registry() {
     let _lock = game_fs_test_lock()
         .lock()

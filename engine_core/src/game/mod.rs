@@ -58,6 +58,7 @@ pub struct Game {
 pub struct GameCtx<'a> {
     pub ecs: &'a Ecs,
     pub world: &'a World,
+    pub asset_registry: &'a AssetRegistry,
     pub sprite_manager: &'a SpriteManager,
     pub script_manager: &'a ScriptManager,
     /// Read-only prefab library for UI and editor lookups.
@@ -68,6 +69,7 @@ pub struct GameCtx<'a> {
 pub struct GameCtxMut<'a> {
     pub ecs: &'a mut Ecs,
     pub world: Option<&'a mut World>,
+    pub asset_registry: &'a mut AssetRegistry,
     pub sprite_manager: &'a mut SpriteManager,
     pub script_manager: &'a mut ScriptManager,
     /// Read-only prefab library for UI and editor lookups.
@@ -86,6 +88,7 @@ impl Game {
         GameCtx {
             ecs: &self.ecs,
             world,
+            asset_registry: &self.asset_registry,
             sprite_manager: &self.sprite_manager,
             script_manager: &self.script_manager,
             prefab_library: &self.prefab_library,
@@ -103,6 +106,7 @@ impl Game {
         GameCtxMut {
             ecs: &mut self.ecs,
             world: Some(world),
+            asset_registry: &mut self.asset_registry,
             sprite_manager: &mut self.sprite_manager,
             script_manager: &mut self.script_manager,
             prefab_library: &self.prefab_library,
@@ -166,7 +170,7 @@ impl Game {
         set_game_name(self.name.clone());
         self.asset_registry.init_editor_metadata();
         SpriteManager::init_manager(loader, self);
-        ScriptManager::init_manager(self, lua);
+        ScriptManager::init_manager(&self.asset_registry, &mut self.script_manager, lua);
         self.init_text_manager();
         self.reload_prefab_library();
     }
@@ -176,7 +180,7 @@ impl Game {
         set_game_name(self.name.clone());
         self.asset_registry.init_editor_metadata();
         SpriteManager::init_runtime_manager(self);
-        ScriptManager::init_manager(self, lua);
+        ScriptManager::init_manager(&self.asset_registry, &mut self.script_manager, lua);
         self.init_text_manager();
         self.reload_prefab_library();
     }
@@ -218,6 +222,11 @@ impl GameCtxMut<'_> {
         self.sprite_manager
     }
 
+    /// Mutable asset-registry access.
+    pub fn asset_registry(&mut self) -> &mut AssetRegistry {
+        self.asset_registry
+    }
+
     /// Mutable script-manager access.
     pub fn script_manager(&mut self) -> &mut ScriptManager {
         self.script_manager
@@ -236,15 +245,18 @@ mod tests {
     #[test]
     fn game_ctx_mut_can_exist_without_a_current_world() {
         let mut ecs = Ecs::default();
+        let mut asset_registry = AssetRegistry::default();
         let mut sprite_manager = SpriteManager::default();
         let mut script_manager = ScriptManager::default();
+        let prefab_library = PrefabLibrary::default();
 
         let ctx = GameCtxMut {
             ecs: &mut ecs,
             world: None,
+            asset_registry: &mut asset_registry,
             sprite_manager: &mut sprite_manager,
             script_manager: &mut script_manager,
-            prefab_library: &PrefabLibrary::default(),
+            prefab_library: &prefab_library,
         };
 
         assert!(ctx.world.is_none());
