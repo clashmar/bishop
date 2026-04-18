@@ -1,9 +1,9 @@
-// engine_core/src/ecs/generic_module.rs
+// engine_core/src/ecs/inspector/generic_module.rs
 use crate::ecs::component::{comp_type_name, Component};
 use crate::ecs::ecs::Ecs;
 use crate::ecs::entity::Entity;
-use crate::ecs::inspector_layout::InspectorBodyLayout;
-use crate::ecs::inspector_module::InspectorModule;
+use crate::ecs::inspector::layout::InspectorBodyLayout;
+use crate::ecs::inspector::module::InspectorModule;
 use crate::ecs::reflect_field::*;
 use crate::ecs::Pivot;
 use crate::game::*;

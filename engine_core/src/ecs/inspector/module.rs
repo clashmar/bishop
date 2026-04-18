@@ -1,7 +1,7 @@
-// engine_core/src/ecs/inspector_module.rs
+// engine_core/src/ecs/inspector/module.rs
 use crate::ecs::ecs::Ecs;
 use crate::ecs::entity::Entity;
-use crate::ecs::inspector_layout::InspectorBodyLayout;
+use crate::ecs::inspector::layout::InspectorBodyLayout;
 use crate::game::ServicesCtxMut;
 use crate::storage::editor_config::*;
 use crate::ui::widgets::*;

@@ -5,14 +5,8 @@ pub mod component_registry;
 #[allow(clippy::module_inception)]
 pub mod ecs;
 pub mod entity;
-#[cfg(feature = "editor")]
-pub mod generic_module;
 pub mod has_any;
-#[cfg(feature = "editor")]
-pub mod inspector_layout;
-#[cfg(feature = "editor")]
-pub mod inspector_module;
-pub mod module_factory;
+pub mod inspector;
 pub mod prefab;
 pub mod reflect_field;
 
@@ -22,14 +16,8 @@ pub use component::*;
 pub use component_registry::*;
 pub use ecs::*;
 pub use entity::*;
-#[cfg(feature = "editor")]
-pub use generic_module::*;
 pub use has_any::*;
 #[cfg(feature = "editor")]
-pub use inspector_layout::*;
-#[cfg(feature = "editor")]
-pub use inspector_module::*;
-#[cfg(feature = "editor")]
-pub use module_factory::*;
+pub use inspector::*;
 pub use prefab::*;
 pub use reflect_field::*;

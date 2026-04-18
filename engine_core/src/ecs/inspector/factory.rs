@@ -1,10 +1,10 @@
-// engine_core/src/ecs/module_factory.rs
+// engine_core/src/ecs/inspector/factory.rs
 #[cfg(feature = "editor")]
 use crate::ecs::component::Component;
 #[cfg(feature = "editor")]
-use crate::ecs::generic_module::GenericModule;
+use crate::ecs::inspector::generic_module::GenericModule;
 #[cfg(feature = "editor")]
-use crate::ecs::inspector_module::*;
+use crate::ecs::inspector::module::*;
 #[cfg(feature = "editor")]
 use crate::ecs::reflect_field::Reflect;
 #[cfg(feature = "editor")]
@@ -51,9 +51,9 @@ macro_rules! inspector_module {
 
     ($ty:ty, removable = $removable:expr) => {
         inventory::submit! {
-            $crate::ecs::module_factory::ModuleFactoryEntry {
+            $crate::ecs::inspector::factory::ModuleFactoryEntry {
                 title: <$ty>::TYPE_NAME,
-                factory: || $crate::ecs::module_factory::make_module::<$ty>(<$ty>::TYPE_NAME, $removable),
+                factory: || $crate::ecs::inspector::factory::make_module::<$ty>(<$ty>::TYPE_NAME, $removable),
             }
         }
     };
