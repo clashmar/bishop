@@ -10,7 +10,6 @@ use crate::worlds::room::RoomId;
 use bishop::prelude::*;
 use std::collections::HashMap;
 
-/// Instantiates a prefab hierarchy into ECS and returns the root entity.
 pub fn instantiate_prefab(
     ctx: &mut GameCtxMut<'_>,
     prefab: &PrefabAsset,
@@ -79,7 +78,6 @@ pub fn instantiate_prefab(
     root_entity
 }
 
-/// Refreshes a linked prefab instance subtree from the source asset.
 pub fn refresh_prefab_instance(
     ctx: &mut GameCtxMut<'_>,
     root_entity: Entity,

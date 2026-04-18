@@ -36,7 +36,7 @@ pub fn get_engine_mode() -> EngineMode {
 }
 
 static CAM_TILE_DIMS: Mutex<(f32, f32)> =
-    Mutex::new((window::DEFAULT_CAM_TILES_X, window::DEFAULT_CAM_TILES_Y));
+    Mutex::new((window::DEFAULT_CAM_GRID_X, window::DEFAULT_CAM_GRID_Y));
 
 /// Returns the width and height of the game virtual screen in terms of grid tiles,
 /// or the default if not initialized.

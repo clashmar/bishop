@@ -1,3 +1,7 @@
+mod capture;
+mod component_sync;
+mod instance;
+
 use crate::ecs::capture::ComponentSnapshot;
 use crate::onscreen_error;
 use crate::storage::path_utils::{resources_folder, sanitise_name};
@@ -8,6 +12,12 @@ use std::fs;
 use std::io;
 use std::io::{Error, ErrorKind};
 use std::path::{Path, PathBuf};
+
+pub use crate::ecs::components::prefab_instance::{
+    PrefabInstanceNode, PrefabInstanceRoot, PrefabOverrides,
+};
+pub use capture::{capture_prefab, capture_prefab_with_existing};
+pub use instance::{instantiate_prefab, refresh_prefab_instance};
 
 const PREFABS_FOLDER_NAME: &str = "prefabs";
 
@@ -465,3 +475,7 @@ fn load_prefab_from_path(path: &Path) -> io::Result<PrefabAsset> {
 #[cfg(test)]
 #[path = "tests/prefab_module_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "tests/mod.rs"]
+mod runtime_tests;

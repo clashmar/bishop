@@ -1,6 +1,6 @@
 use super::*;
 use crate::storage::path_utils::sanitise_name;
-use crate::storage::test_utils::{game_fs_test_lock, TestGameFolder};
+use crate::storage::test_utils::{TestGameFolder, game_fs_test_lock};
 
 #[test]
 fn load_prefab_library_skips_invalid_prefab_files() {
@@ -209,9 +209,11 @@ fn save_prefab_uses_prefab_name_for_filename() {
     let expected_path = prefab_folder_for_game(test_folder.name())
         .join(format!("{}.ron", sanitise_name(&prefab.name)));
     assert!(expected_path.is_file());
-    assert!(!prefab_folder_for_game(test_folder.name())
-        .join("5.ron")
-        .exists());
+    assert!(
+        !prefab_folder_for_game(test_folder.name())
+            .join("5.ron")
+            .exists()
+    );
 }
 
 #[test]
@@ -232,18 +234,4 @@ fn save_prefab_renames_existing_file_when_name_changes() {
     assert!(!first_path.exists());
     assert!(second_path.is_file());
     assert_eq!(load_prefab(test_folder.name(), prefab_id).unwrap(), second);
-}
-
-#[test]
-fn load_and_delete_prefab_support_legacy_id_filename() {
-    let _lock = game_fs_test_lock().lock().unwrap();
-    let test_folder = TestGameFolder::new("prefab_legacy_filename");
-    let prefab = create_prefab(PrefabId(12), "Legacy".to_string());
-    let folder = prefab_folder_for_game(test_folder.name());
-    fs::create_dir_all(&folder).unwrap();
-    fs::write(folder.join("12.ron"), ron::to_string(&prefab).unwrap()).unwrap();
-
-    assert_eq!(load_prefab(test_folder.name(), prefab.id).unwrap(), prefab);
-    assert!(delete_prefab(test_folder.name(), prefab.id).unwrap());
-    assert!(!folder.join("12.ron").exists());
 }

@@ -7,7 +7,6 @@ use crate::prefab::{PrefabAsset, PrefabId, PrefabNode};
 use bishop::prelude::*;
 use std::collections::{HashMap, HashSet};
 
-/// Captures a room subtree as a room-agnostic prefab asset.
 pub fn capture_prefab(
     ecs: &mut Ecs,
     root: Entity,
@@ -17,7 +16,6 @@ pub fn capture_prefab(
     capture_prefab_with_existing(ecs, root, prefab_id, name, None)
 }
 
-/// Captures a room subtree while preserving stable node ids from an existing prefab when possible.
 pub fn capture_prefab_with_existing(
     ecs: &mut Ecs,
     root: Entity,

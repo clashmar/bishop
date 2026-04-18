@@ -1,5 +1,5 @@
 use super::{PrefabInstanceNode, PrefabInstanceRoot, PrefabOverrides};
-use crate::ecs::capture::{ComponentSnapshot, capture_entity, restore_entity};
+use crate::ecs::capture::{capture_entity, restore_entity, ComponentSnapshot};
 use crate::ecs::component::comp_type_name;
 use crate::ecs::component_registry::ComponentRegistry;
 use crate::ecs::components::hierarchy::{Children, Parent};

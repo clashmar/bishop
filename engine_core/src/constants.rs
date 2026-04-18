@@ -10,9 +10,9 @@ pub mod timing {
 pub mod world {
     use bishop::prelude::*;
 
-    /// Default tile size that the world scales to.
+    /// Default grid size that the world scales to.
     pub const DEFAULT_GRID_SIZE: f32 = 8.0;
-    pub const MINIMUM_TILE_SIZE: f32 = 5.0;
+    pub const MINIMUM_GRID_SIZE: f32 = 5.0;
 
     /// Base tile size for editor scaling.
     pub const BASE_GRID_SIZE: f32 = 32.0;
@@ -81,11 +81,11 @@ pub fn editor_zoom_factor(grid_size: f32) -> f32 {
 pub mod window {
     use super::world::BASE_GRID_SIZE;
 
-    pub const DEFAULT_CAM_TILES_X: f32 = 16.0;
-    pub const DEFAULT_CAM_TILES_Y: f32 = 9.0;
+    pub const DEFAULT_CAM_GRID_X: f32 = 16.0;
+    pub const DEFAULT_CAM_GRID_Y: f32 = 9.0;
 
-    pub const FIXED_WINDOW_WIDTH: i32 = (DEFAULT_CAM_TILES_X * 3.0 * BASE_GRID_SIZE) as i32;
-    pub const FIXED_WINDOW_HEIGHT: i32 = (DEFAULT_CAM_TILES_Y * 3.0 * BASE_GRID_SIZE) as i32;
+    pub const FIXED_WINDOW_WIDTH: i32 = (DEFAULT_CAM_GRID_X * 3.0 * BASE_GRID_SIZE) as i32;
+    pub const FIXED_WINDOW_HEIGHT: i32 = (DEFAULT_CAM_GRID_Y * 3.0 * BASE_GRID_SIZE) as i32;
 
     // Prevents the window from becoming absurdly small/large
     pub const MIN_WINDOW_WIDTH: i32 = 640;

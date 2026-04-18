@@ -1,7 +1,8 @@
-use super::super::*;
+use super::*;
 use crate::assets::sprite_manager::SpriteManager;
 use crate::ecs::capture::ComponentSnapshot;
 use crate::ecs::component::comp_type_name;
+use crate::ecs::entity::get_parent;
 use crate::ecs::{CurrentFrame, CurrentRoom, Ecs, Entity, Name, Pivot, Transform, Velocity};
 use crate::game::Game;
 use crate::prefab::{PrefabAsset, PrefabId, PrefabNode};

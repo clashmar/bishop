@@ -193,6 +193,9 @@
             grid_size: 8.0,
         ),
     ],
+    asset_registry: (
+        records: {},
+    ),
     sprite_manager: (
         sprite_id_to_path: {
             (1): "animations/player/female/Idle.png",
