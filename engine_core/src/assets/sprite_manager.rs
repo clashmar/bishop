@@ -413,6 +413,11 @@ impl SpriteManager {
         self.sprite_id_to_path.get(&sprite_id).map(PathBuf::as_path)
     }
 
+    /// Returns the number of registered sprite ids.
+    pub fn registered_id_count(&self) -> usize {
+        self.sprite_id_to_path.len()
+    }
+
     /// Changes a sprite reference, handling decrement of old and increment of new.
     pub fn change_sprite(&mut self, old_id: &mut SpriteId, new_id: SpriteId) {
         if *old_id == new_id {

@@ -37,20 +37,23 @@ impl DiagnosticsPanel {
         let asset_metrics = AssetMetrics {
             texture_count: game.sprite_manager.texture_count(),
             tile_def_count: game.sprite_manager.tile_def_count(),
-            sprite_id_count: game.sprite_manager.sprite_id_to_path.len(),
-            script_id_count: game.script_manager.script_id_to_path.len(),
+            sprite_id_count: game.sprite_manager.registered_id_count(),
+            script_id_count: game.script_manager.registered_id_count(),
         };
 
         // Script metrics
         let script_metrics = ScriptMetrics {
-            loaded_count: game.script_manager.table_defs.len(),
-            instance_count: game.script_manager.instances.len(),
-            event_listener_count: game.script_manager.event_bus.listener_count(),
+            loaded_count: game.script_manager.loaded_script_count(),
+            instance_count: game.script_manager.instance_count(),
+            event_listener_count: game.script_manager.event_listener_count(),
             ref_counts: game
-                .script_manager
-                .script_id_to_path
+                .asset_registry
+                .records()
                 .keys()
-                .map(|id| (id.0, game.script_manager.get_ref_count(*id)))
+                .filter_map(|key| match key {
+                    AssetKey::Script(id) => Some((id.0, game.script_manager.get_ref_count(*id))),
+                    _ => None,
+                })
                 .collect(),
         };
 

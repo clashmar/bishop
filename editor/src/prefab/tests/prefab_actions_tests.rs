@@ -1,4 +1,5 @@
 use super::*;
+use std::path::Path;
 
 #[test]
 fn prefab_editor_launch_prefers_root_component() {
@@ -252,24 +253,14 @@ fn opening_prefab_editor_seeds_stage_metadata_from_live_game_services() {
         .insert(prefab.id, prefab.clone());
     editor
         .game
-        .sprite_manager
-        .sprite_id_to_path
-        .insert(SpriteId(9), PathBuf::from("sprites/building.png"));
+        .asset_registry
+        .register_asset_relative_path(SpriteId(9), "sprites/building.png")
+        .expect("sprite path should register");
     editor
         .game
-        .sprite_manager
-        .path_to_sprite_id
-        .insert(PathBuf::from("sprites/building.png"), SpriteId(9));
-    editor
-        .game
-        .script_manager
-        .script_id_to_path
-        .insert(ScriptId(9), PathBuf::from("building.lua"));
-    editor
-        .game
-        .script_manager
-        .path_to_script_id
-        .insert(PathBuf::from("building.lua"), ScriptId(9));
+        .asset_registry
+        .register_asset_relative_path(ScriptId(9), "building.lua")
+        .expect("script path should register");
 
     editor.open_prefab_editor_for_id(prefab.id);
 
@@ -278,19 +269,11 @@ fn opening_prefab_editor_seeds_stage_metadata_from_live_game_services() {
         .as_ref()
         .expect("prefab stage should open from live game services");
     assert_eq!(
-        prefab_stage
-            .sprite_manager
-            .sprite_id_to_path
-            .get(&SpriteId(9))
-            .cloned(),
-        Some(PathBuf::from("sprites/building.png"))
+        prefab_stage.sprite_manager.path_for_id(SpriteId(9)),
+        Some(Path::new("sprites/building.png"))
     );
     assert_eq!(
-        prefab_stage
-            .script_manager
-            .script_id_to_path
-            .get(&ScriptId(9))
-            .cloned(),
-        Some(PathBuf::from("building.lua"))
+        prefab_stage.script_manager.path_for_id(ScriptId(9)),
+        Some(Path::new("building.lua"))
     );
 }

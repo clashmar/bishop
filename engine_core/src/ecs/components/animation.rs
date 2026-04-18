@@ -220,18 +220,13 @@ mod tests {
 
         let mut game = Game::default();
         game.worlds.push(Default::default());
-        game.sprite_manager
-            .sprite_id_to_path
-            .insert(idle, Path::new(&animation.variant.0).join("Idle.png"));
-        game.sprite_manager
-            .path_to_sprite_id
-            .insert(Path::new(&animation.variant.0).join("Idle.png"), idle);
-        game.sprite_manager
-            .sprite_id_to_path
-            .insert(run, Path::new(&animation.variant.0).join("Run.png"));
-        game.sprite_manager
-            .path_to_sprite_id
-            .insert(Path::new(&animation.variant.0).join("Run.png"), run);
+        game.asset_registry
+            .register_asset_relative_path(idle, Path::new(&animation.variant.0).join("Idle.png"))
+            .expect("idle sprite should register");
+        game.asset_registry
+            .register_asset_relative_path(run, Path::new(&animation.variant.0).join("Run.png"))
+            .expect("run sprite should register");
+        SpriteManager::init_editor_metadata(&game.asset_registry, &mut game.sprite_manager);
 
         let mut ctx = game.ctx_mut();
         post_create(&mut animation, &Entity(7), &mut ctx);
@@ -255,18 +250,16 @@ mod tests {
 
         let mut game = Game::default();
         game.worlds.push(Default::default());
-        game.sprite_manager
-            .sprite_id_to_path
-            .insert(idle, Path::new(&animation.variant.0).join("Idle.png"));
-        game.sprite_manager
-            .path_to_sprite_id
-            .insert(Path::new(&animation.variant.0).join("Idle.png"), idle);
-        game.sprite_manager
-            .sprite_id_to_path
-            .insert(stale_run, Path::new(&animation.variant.0).join("Run.png"));
-        game.sprite_manager
-            .path_to_sprite_id
-            .insert(Path::new(&animation.variant.0).join("Run.png"), stale_run);
+        game.asset_registry
+            .register_asset_relative_path(idle, Path::new(&animation.variant.0).join("Idle.png"))
+            .expect("idle sprite should register");
+        game.asset_registry
+            .register_asset_relative_path(
+                stale_run,
+                Path::new(&animation.variant.0).join("Run.png"),
+            )
+            .expect("run sprite should register");
+        SpriteManager::init_editor_metadata(&game.asset_registry, &mut game.sprite_manager);
 
         let mut ctx = game.ctx_mut();
         post_create(&mut animation, &Entity(9), &mut ctx);
@@ -291,19 +284,15 @@ mod tests {
         let idle = SpriteId(31);
         let run = SpriteId(32);
 
+        let mut asset_registry = AssetRegistry::default();
+        asset_registry
+            .register_asset_relative_path(idle, Path::new(&animation.variant.0).join("Idle.png"))
+            .expect("idle sprite should register");
+        asset_registry
+            .register_asset_relative_path(run, Path::new(&animation.variant.0).join("Run.png"))
+            .expect("run sprite should register");
         let mut sprite_manager = crate::assets::sprite_manager::SpriteManager::default();
-        sprite_manager
-            .sprite_id_to_path
-            .insert(idle, Path::new(&animation.variant.0).join("Idle.png"));
-        sprite_manager
-            .path_to_sprite_id
-            .insert(Path::new(&animation.variant.0).join("Idle.png"), idle);
-        sprite_manager
-            .sprite_id_to_path
-            .insert(run, Path::new(&animation.variant.0).join("Run.png"));
-        sprite_manager
-            .path_to_sprite_id
-            .insert(Path::new(&animation.variant.0).join("Run.png"), run);
+        SpriteManager::init_editor_metadata(&asset_registry, &mut sprite_manager);
 
         animation.init_sprite_cache_runtime(&sprite_manager);
 

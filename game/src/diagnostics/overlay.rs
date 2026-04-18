@@ -178,10 +178,10 @@ impl DiagnosticsOverlay {
         let audio_snapshot = audio_manager.diagnostics_snapshot();
         self.cached_entity_count = game.ecs.get_store::<Transform>().data.len();
         self.cached_texture_count = game.sprite_manager.texture_count();
-        self.cached_script_instances = game.script_manager.instances.len();
-        self.cached_listener_count = game.script_manager.event_bus.listener_count();
-        self.cached_script_id_count = game.script_manager.script_id_to_path.len();
-        self.cached_sprite_id_count = game.sprite_manager.sprite_id_to_path.len();
+        self.cached_script_instances = game.script_manager.instance_count();
+        self.cached_listener_count = game.script_manager.event_listener_count();
+        self.cached_script_id_count = game.script_manager.registered_id_count();
+        self.cached_sprite_id_count = game.sprite_manager.registered_id_count();
         self.cached_render_time = render_time_ms;
 
         let audio_sources = AudioSource::store(&game.ecs);

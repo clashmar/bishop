@@ -132,6 +132,21 @@ impl ScriptManager {
         self.ref_counts.get(&script_id).copied().unwrap_or(0)
     }
 
+    /// Returns the number of loaded script definitions.
+    pub fn loaded_script_count(&self) -> usize {
+        self.table_defs.len()
+    }
+
+    /// Returns the number of live script instances.
+    pub fn instance_count(&self) -> usize {
+        self.instances.len()
+    }
+
+    /// Returns the number of registered script event listeners.
+    pub fn event_listener_count(&self) -> usize {
+        self.event_bus.listener_count()
+    }
+
     /// Load the Lua table by id and return a reference to it.
     pub fn load_script_table(&mut self, lua: &Lua, id: ScriptId) -> LuaResult<&Table> {
         if self.table_defs.contains_key(&id) {
@@ -350,6 +365,16 @@ impl ScriptManager {
             candidate += 1;
         }
         self.next_script_id = candidate;
+    }
+
+    /// Returns the number of registered script ids.
+    pub fn registered_id_count(&self) -> usize {
+        self.script_id_to_path.len()
+    }
+
+    /// Returns the registered relative path for a script id.
+    pub fn path_for_id(&self, script_id: ScriptId) -> Option<&Path> {
+        self.script_id_to_path.get(&script_id).map(PathBuf::as_path)
     }
 
     pub fn reload(&mut self, lua: &Lua, entity: Entity, id: ScriptId) -> LuaResult<&Table> {

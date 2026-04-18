@@ -1,7 +1,10 @@
 use super::*;
+use std::path::Path;
 
 #[test]
 fn prefab_stage_uses_project_sprite_paths_without_room_state() {
+    const CAT_SPRITE_PATH: &str = "sprites/cat.png";
+
     let _lock = game_fs_test_lock()
         .lock()
         .unwrap_or_else(|poison| poison.into_inner());
@@ -9,21 +12,17 @@ fn prefab_stage_uses_project_sprite_paths_without_room_state() {
     set_game_name(test_game.name());
 
     let mut game = create_new_game(test_game.name().to_string());
-    game.sprite_manager
-        .sprite_id_to_path
-        .insert(SpriteId(7), PathBuf::from("sprites/cat.png"));
+    game.asset_registry
+        .register_asset_relative_path(SpriteId(7), CAT_SPRITE_PATH)
+        .expect("sprite path should register");
     save_game(&game).unwrap();
 
     let mut stage = PrefabStage::new(test_game.name());
     let prefab_ctx = stage.ctx_mut();
 
     assert_eq!(
-        prefab_ctx
-            .sprite_manager
-            .sprite_id_to_path
-            .get(&SpriteId(7))
-            .cloned(),
-        Some(PathBuf::from("sprites/cat.png"))
+        prefab_ctx.sprite_manager.path_for_id(SpriteId(7)),
+        Some(Path::new(CAT_SPRITE_PATH))
     );
     assert!(prefab_ctx.ecs.get_store::<RoomCamera>().data.is_empty());
     assert!(prefab_ctx.ecs.get_store::<CurrentRoom>().data.is_empty());

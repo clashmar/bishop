@@ -6,6 +6,7 @@ use engine_core::storage::path_utils::sanitise_name;
 use engine_core::storage::test_utils::{game_fs_test_lock, TestGameFolder};
 use std::fs;
 use std::io::ErrorKind;
+use std::path::Path;
 use std::path::PathBuf;
 
 #[test]
@@ -97,11 +98,21 @@ fn save_game_persists_asset_identities_in_asset_registry() {
 
     let ron = std::fs::read_to_string(resources_folder(test_game.name()).join(paths::GAME_RON))
         .expect("saved game.ron should be readable");
-    let loaded = load_game_by_name(test_game.name()).expect("saved game should load");
+    let mut loaded = load_game_by_name(test_game.name()).expect("saved game should load");
+    SpriteManager::init_editor_metadata(&loaded.asset_registry, &mut loaded.sprite_manager);
+    ScriptManager::init_editor_metadata(&loaded.asset_registry, &mut loaded.script_manager);
 
     assert_eq!(
         loaded.asset_registry.records(),
         game.asset_registry.records()
+    );
+    assert_eq!(
+        loaded.sprite_manager.path_for_id(SpriteId(1)),
+        Some(Path::new("sprites/player.png"))
+    );
+    assert_eq!(
+        loaded.script_manager.path_for_id(ScriptId(1)),
+        Some(Path::new("player.lua"))
     );
 
     assert!(ron.contains("asset_registry"));

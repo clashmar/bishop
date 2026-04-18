@@ -1,4 +1,5 @@
 use super::*;
+use std::path::Path;
 
 #[test]
 fn saving_empty_prefab_delete_supports_undo_and_redo_preview_sync() {
@@ -312,6 +313,8 @@ fn saving_new_prefab_session_marks_prefab_clean_for_exit() {
 
 #[test]
 fn saving_prefab_syncs_stage_sprite_registry_into_game_and_disk() {
+    const BUILDING_SPRITE_PATH: &str = "sprites/building.png";
+
     let _lock = game_fs_test_lock()
         .lock()
         .unwrap_or_else(|poison| poison.into_inner());
@@ -337,10 +340,13 @@ fn saving_prefab_syncs_stage_sprite_registry_into_game_and_disk() {
         },
     );
     prefab_stage
-        .sprite_manager
-        .sprite_id_to_path
-        .insert(SpriteId(9), PathBuf::from("sprites/building.png"));
-    prefab_stage.sprite_manager.restore_next_sprite_id();
+        .asset_registry
+        .register_asset_relative_path(SpriteId(9), BUILDING_SPRITE_PATH)
+        .expect("sprite path should register");
+    SpriteManager::init_editor_metadata(
+        &prefab_stage.asset_registry,
+        &mut prefab_stage.sprite_manager,
+    );
 
     let editor = Editor {
         game: create_new_game(test_game.name().to_string()),
@@ -361,22 +367,29 @@ fn saving_prefab_syncs_stage_sprite_registry_into_game_and_disk() {
         assert_eq!(
             editor
                 .game
-                .sprite_manager
-                .sprite_id_to_path
-                .get(&SpriteId(9))
-                .cloned(),
-            Some(PathBuf::from("sprites/building.png"))
+                .asset_registry
+                .relative_path(SpriteId(9))
+                .as_deref(),
+            Some(Path::new(BUILDING_SPRITE_PATH))
+        );
+        assert_eq!(
+            editor.game.sprite_manager.path_for_id(SpriteId(9)),
+            Some(Path::new(BUILDING_SPRITE_PATH))
         );
     });
 
-    let saved_game = load_game_by_name(test_game.name()).expect("saved game should load");
+    let mut saved_game = load_game_by_name(test_game.name()).expect("saved game should load");
+    SpriteManager::init_editor_metadata(&saved_game.asset_registry, &mut saved_game.sprite_manager);
     assert_eq!(
         saved_game
-            .sprite_manager
-            .sprite_id_to_path
-            .get(&SpriteId(9))
-            .cloned(),
-        Some(PathBuf::from("sprites/building.png"))
+            .asset_registry
+            .relative_path(SpriteId(9))
+            .as_deref(),
+        Some(Path::new(BUILDING_SPRITE_PATH))
+    );
+    assert_eq!(
+        saved_game.sprite_manager.path_for_id(SpriteId(9)),
+        Some(Path::new(BUILDING_SPRITE_PATH))
     );
 }
 
@@ -460,6 +473,8 @@ fn saving_prefab_activates_it_in_room_palette_and_persists_state() {
 
 #[test]
 fn saving_prefab_syncs_stage_script_registry_into_game_and_disk() {
+    const BUILDING_SCRIPT_PATH: &str = "building.lua";
+
     let _lock = game_fs_test_lock()
         .lock()
         .unwrap_or_else(|poison| poison.into_inner());
@@ -486,10 +501,13 @@ fn saving_prefab_syncs_stage_script_registry_into_game_and_disk() {
         },
     );
     prefab_stage
-        .script_manager
-        .script_id_to_path
-        .insert(ScriptId(9), PathBuf::from("building.lua"));
-    prefab_stage.script_manager.restore_next_script_id();
+        .asset_registry
+        .register_asset_relative_path(ScriptId(9), BUILDING_SCRIPT_PATH)
+        .expect("script path should register");
+    ScriptManager::init_editor_metadata(
+        &prefab_stage.asset_registry,
+        &mut prefab_stage.script_manager,
+    );
 
     let editor = Editor {
         game: create_new_game(test_game.name().to_string()),
@@ -510,21 +528,28 @@ fn saving_prefab_syncs_stage_script_registry_into_game_and_disk() {
         assert_eq!(
             editor
                 .game
-                .script_manager
-                .script_id_to_path
-                .get(&ScriptId(9))
-                .cloned(),
-            Some(PathBuf::from("building.lua"))
+                .asset_registry
+                .relative_path(ScriptId(9))
+                .as_deref(),
+            Some(Path::new(BUILDING_SCRIPT_PATH))
+        );
+        assert_eq!(
+            editor.game.script_manager.path_for_id(ScriptId(9)),
+            Some(Path::new(BUILDING_SCRIPT_PATH))
         );
     });
 
-    let saved_game = load_game_by_name(test_game.name()).expect("saved game should load");
+    let mut saved_game = load_game_by_name(test_game.name()).expect("saved game should load");
+    ScriptManager::init_editor_metadata(&saved_game.asset_registry, &mut saved_game.script_manager);
     assert_eq!(
         saved_game
-            .script_manager
-            .script_id_to_path
-            .get(&ScriptId(9))
-            .cloned(),
-        Some(PathBuf::from("building.lua"))
+            .asset_registry
+            .relative_path(ScriptId(9))
+            .as_deref(),
+        Some(Path::new(BUILDING_SCRIPT_PATH))
+    );
+    assert_eq!(
+        saved_game.script_manager.path_for_id(ScriptId(9)),
+        Some(Path::new(BUILDING_SCRIPT_PATH))
     );
 }
