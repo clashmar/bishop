@@ -3,8 +3,9 @@ use crate::game_global::push_command;
 use crate::scripting::commands::lua_command::*;
 use crate::scripting::commands::text_commands::*;
 use crate::scripting::lua_ctx::LuaGameCtx;
-use crate::scripting::lua_helpers::*;
+use crate::scripting::lua_helpers::{parse_named_vec2, to_snake_case};
 use engine_core::prelude::*;
+use engine_core::scripting::lua_constants::{MOVE_BY, TELEPORT};
 use mlua::prelude::LuaResult;
 use mlua::Lua;
 use mlua::Table;
@@ -109,6 +110,8 @@ pub enum EntityHandleMethod {
     GetFlipX(GetFlipXMethod),
     SetFacing(SetFacingMethod),
     SetAnimSpeed(SetAnimSpeedMethod),
+    Teleport(TeleportMethod),
+    MoveBy(MoveByMethod),
     GetCurrentFrame(GetCurrentFrameMethod),
     IsClipFinished(IsClipFinishedMethod),
     Say(SayMethod),
@@ -135,6 +138,8 @@ fn entity_handle_methods() -> Vec<EntityHandleMethod> {
         EntityHandleMethod::GetFlipX(GetFlipXMethod),
         EntityHandleMethod::SetFacing(SetFacingMethod),
         EntityHandleMethod::SetAnimSpeed(SetAnimSpeedMethod),
+        EntityHandleMethod::Teleport(TeleportMethod),
+        EntityHandleMethod::MoveBy(MoveByMethod),
         EntityHandleMethod::GetCurrentFrame(GetCurrentFrameMethod),
         EntityHandleMethod::IsClipFinished(IsClipFinishedMethod),
         EntityHandleMethod::Say(SayMethod),
@@ -162,6 +167,8 @@ impl LuaMethod<EntityHandle> for EntityHandleMethod {
             EntityHandleMethod::GetFlipX(m) => m.register(methods),
             EntityHandleMethod::SetFacing(m) => m.register(methods),
             EntityHandleMethod::SetAnimSpeed(m) => m.register(methods),
+            EntityHandleMethod::Teleport(m) => m.register(methods),
+            EntityHandleMethod::MoveBy(m) => m.register(methods),
             EntityHandleMethod::GetCurrentFrame(m) => m.register(methods),
             EntityHandleMethod::IsClipFinished(m) => m.register(methods),
             EntityHandleMethod::Say(m) => m.register(methods),
@@ -188,6 +195,8 @@ impl LuaMethod<EntityHandle> for EntityHandleMethod {
             EntityHandleMethod::GetFlipX(m) => m.emit_api(out),
             EntityHandleMethod::SetFacing(m) => m.emit_api(out),
             EntityHandleMethod::SetAnimSpeed(m) => m.emit_api(out),
+            EntityHandleMethod::Teleport(m) => m.emit_api(out),
+            EntityHandleMethod::MoveBy(m) => m.emit_api(out),
             EntityHandleMethod::GetCurrentFrame(m) => m.emit_api(out),
             EntityHandleMethod::IsClipFinished(m) => m.emit_api(out),
             EntityHandleMethod::Say(m) => m.emit_api(out),
@@ -603,6 +612,56 @@ impl LuaMethod<EntityHandle> for SetAnimSpeedMethod {
         out.line("--- Sets the animation playback speed multiplier.");
         out.line("---@param speed number Speed multiplier (1.0 = normal)");
         out.line(&format!("function Entity:{}(speed) end", SET_ANIM_SPEED));
+        out.line("");
+    }
+}
+
+/// Method: `entity:teleport({ x = 10, y = 20 })`
+pub struct TeleportMethod;
+impl LuaMethod<EntityHandle> for TeleportMethod {
+    fn register<M: UserDataMethods<EntityHandle>>(&self, methods: &mut M) {
+        methods.add_method(TELEPORT, |lua, this, position: Table| {
+            let ctx = LuaGameCtx::borrow_ctx(lua)?;
+            let game_instance = ctx.game_instance.borrow();
+            ensure_live_entity(&game_instance.game.ecs, this.entity)?;
+            let target_position = parse_named_vec2(&format!("Entity:{TELEPORT}"), &position)?;
+            push_command(Box::new(RepositionEntityCmd {
+                entity: this.entity,
+                target_position,
+            }));
+            Ok(())
+        });
+    }
+
+    fn emit_api(&self, out: &mut LuaApiWriter) {
+        out.line("--- Instantly moves the entity to an absolute world position.");
+        out.line("---@param position vec2");
+        out.line(&format!("function Entity:{}(position) end", TELEPORT));
+        out.line("");
+    }
+}
+
+/// Method: `entity:move_by({ x = 4, y = -2 })`
+pub struct MoveByMethod;
+impl LuaMethod<EntityHandle> for MoveByMethod {
+    fn register<M: UserDataMethods<EntityHandle>>(&self, methods: &mut M) {
+        methods.add_method(MOVE_BY, |lua, this, delta: Table| {
+            let ctx = LuaGameCtx::borrow_ctx(lua)?;
+            let game_instance = ctx.game_instance.borrow();
+            ensure_live_entity(&game_instance.game.ecs, this.entity)?;
+            let delta = parse_named_vec2(&format!("Entity:{MOVE_BY}"), &delta)?;
+            push_command(Box::new(MoveEntityByCmd {
+                entity: this.entity,
+                delta,
+            }));
+            Ok(())
+        });
+    }
+
+    fn emit_api(&self, out: &mut LuaApiWriter) {
+        out.line("--- Instantly offsets the entity by a world-space delta.");
+        out.line("---@param delta vec2");
+        out.line(&format!("function Entity:{}(delta) end", MOVE_BY));
         out.line("");
     }
 }

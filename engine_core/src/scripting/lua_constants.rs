@@ -50,6 +50,8 @@ pub const HAS_ANY: &str = "has_any";
 pub const HAS_ALL: &str = "has_all";
 pub const INTERACT: &str = "interact";
 pub const FIND_BEST_INTERACTABLE: &str = "find_best_interactable";
+pub const TELEPORT: &str = "teleport";
+pub const MOVE_BY: &str = "move_by";
 
 // Animation methods
 pub const SET_CLIP: &str = "set_clip";

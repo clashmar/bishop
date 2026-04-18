@@ -1,9 +1,10 @@
 use crate::scripting::lua_ctx::LuaGameCtx;
+use crate::scripting::lua_helpers::parse_named_vec2;
 use crate::scripting::modules::entity_module::lua_entity_handle;
 use crate::scripting::script_system::ScriptSystem;
 use bishop::prelude::*;
 use engine_core::prelude::*;
-use engine_core::scripting::lua_constants::{ENGINE, ENGINE_FILE, POSITION, PREFAB, SPAWN, X, Y};
+use engine_core::scripting::lua_constants::{ENGINE, ENGINE_FILE, POSITION, PREFAB, SPAWN};
 use engine_core::{register_lua_api, register_lua_module};
 use mlua::prelude::LuaResult;
 use mlua::{Lua, MultiValue, Table, Value};
@@ -57,36 +58,14 @@ fn parse_spawn_args(
     position: Table,
     init: Option<Table>,
 ) -> LuaResult<(SpawnOptions, Option<Value>)> {
-    let x = position.get::<f32>(X).map_err(|_| {
-        mlua::Error::RuntimeError(format!(
-            "engine.prefab.spawn({prefab_name}) requires {POSITION} = {{ {X} = number, {Y} = number }}"
-        ))
-    })?;
-    let y = position.get::<f32>(Y).map_err(|_| {
-        mlua::Error::RuntimeError(format!(
-            "engine.prefab.spawn({prefab_name}) requires {POSITION} = {{ {X} = number, {Y} = number }}"
-        ))
-    })?;
-
-    if (1..=3).any(|index| {
-        matches!(
-            position.get::<Value>(index).ok(),
-            Some(Value::Number(_) | Value::Integer(_))
-        )
-    }) {
-        return Err(mlua::Error::RuntimeError(format!(
-            "engine.prefab.spawn({prefab_name}) requires {POSITION} = {{ {X} = number, {Y} = number }}"
-        )));
-    }
+    let position = parse_named_vec2(
+        &format!("{ENGINE}.{PREFAB}.{SPAWN}({prefab_name}) {POSITION}"),
+        &position,
+    )?;
 
     let spawn_args = init.map(Value::Table);
 
-    Ok((
-        SpawnOptions {
-            position: Vec2::new(x, y),
-        },
-        spawn_args,
-    ))
+    Ok((SpawnOptions { position }, spawn_args))
 }
 
 fn prefab_root_supports_spawn_args(prefab: &PrefabAsset) -> bool {
@@ -187,10 +166,12 @@ mod tests {
 
     #[test]
     fn parse_spawn_args_reads_named_position_and_init_table() {
+        use engine_core::scripting::lua_constants::{X as LUA_X, Y as LUA_Y};
+
         let lua = Lua::new();
         let position = lua.create_table().unwrap();
-        position.set(X, 12.5).unwrap();
-        position.set(Y, -3.0).unwrap();
+        position.set(LUA_X, 12.5).unwrap();
+        position.set(LUA_Y, -3.0).unwrap();
         let init = lua.create_table().unwrap();
         init.set("direction", "left").unwrap();
 

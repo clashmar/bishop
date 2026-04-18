@@ -211,6 +211,14 @@ function Entity:set_facing(direction) end
 ---@param speed number Speed multiplier (1.0 = normal)
 function Entity:set_anim_speed(speed) end
 
+--- Instantly moves the entity to an absolute world position.
+---@param position vec2
+function Entity:teleport(position) end
+
+--- Instantly offsets the entity by a world-space delta.
+---@param delta vec2
+function Entity:move_by(delta) end
+
 --- Gets the current animation frame indices.
 ---@return {col: integer, row: integer}|nil
 function Entity:get_current_frame() end

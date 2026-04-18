@@ -165,6 +165,19 @@ local Player = {
             end
             state.spawned_bullets = {}
         end
+
+        if engine.input.pressed(input.T) then
+            local transform = self.entity:get(comp.Transform)
+            local x_offset = state.facing == direction.Left and -32 or 32
+            self.entity:teleport({
+                x = transform.position.x + x_offset,
+                y = transform.position.y,
+            })
+        end
+
+        if engine.input.pressed(input.Y) then
+            self.entity:move_by({ x = 0, y = -16 })
+        end
     end,
 
     determine_state = function(self, horiz, is_grounded, vel, is_running)
