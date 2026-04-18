@@ -1,7 +1,6 @@
 use crate::engine::Engine;
 use crate::scripting::commands::lua_command::LuaCommand;
-use engine_core::ecs::entity::Entity;
-use engine_core::scripting::script::Script;
+use engine_core::ecs::{Entity, Script};
 use engine_core::*;
 use mlua::{Function, MultiValue, Value};
 

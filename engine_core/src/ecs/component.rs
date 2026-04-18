@@ -1,18 +1,11 @@
-// engine_core/src/ecs/component.rs
 use crate::assets::sprite_manager::SpriteManager;
 use crate::ecs::ecs::Ecs;
 use crate::ecs::entity::Entity;
-use crate::inspector_module;
-use crate::worlds::room::RoomId;
-use ecs_component::ecs_component;
-use reflect_derive::Reflect;
 use serde::de::Deserializer;
 use serde::ser::Serializer;
 use serde::{Deserialize, Serialize};
 use std::any::Any;
 use std::collections::HashMap;
-use std::ops::Deref;
-use std::ops::DerefMut;
 
 /// Marker trait for components.
 pub trait Component: Send + Sync {
@@ -109,123 +102,4 @@ pub fn comp_type_name<T>() -> &'static str {
         .rsplit("::")
         .next()
         .unwrap_or_else(|| std::any::type_name::<T>())
-}
-
-/// The human readable name of the entity.
-#[ecs_component]
-#[derive(Debug, Clone, Serialize, Deserialize, Default, Reflect)]
-pub struct Name(pub String);
-inspector_module!(Name, removable = false);
-
-impl Deref for Name {
-    type Target = String;
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl DerefMut for Name {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
-    }
-}
-
-/// Marker trait for global components.
-#[ecs_component]
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, Default)]
-pub struct Global {}
-
-/// Z layer of an entity.
-#[ecs_component]
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, Default, Reflect)]
-#[serde(default)]
-pub struct Layer {
-    pub z: i32,
-}
-inspector_module!(Layer);
-
-/// Component that stores the room identifier an entity belongs to.
-#[ecs_component]
-#[derive(Clone, Copy, Serialize, Deserialize, Default)]
-#[serde(default)]
-pub struct CurrentRoom(pub RoomId);
-
-/// Marker component for the player entity.
-#[ecs_component(deps = [Collider, Velocity, MotionBody])]
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, Default)]
-pub struct Player;
-
-/// Marker component for player proxies in rooms.
-#[ecs_component]
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, Default)]
-pub struct PlayerProxy;
-
-#[ecs_component]
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, Default, Reflect)]
-#[serde(default)]
-pub struct Velocity {
-    pub x: f32,
-    pub y: f32,
-}
-
-#[ecs_component]
-#[derive(Clone, Copy, Debug, Default, Serialize, Deserialize)]
-pub struct Grounded(#[serde(skip)] pub bool);
-
-#[ecs_component]
-#[derive(Clone, Copy, Serialize, Deserialize, Reflect)]
-#[serde(default)]
-pub struct Collider {
-    pub width: f32,
-    pub height: f32,
-}
-inspector_module!(Collider);
-
-impl Default for Collider {
-    fn default() -> Self {
-        Self {
-            width: 16.0,
-            height: 16.0,
-        }
-    }
-}
-
-/// Accumulated sub-pixel remainder for pixel-perfect physics.
-#[ecs_component]
-#[derive(Clone, Copy, Serialize, Deserialize, Default)]
-pub struct SubPixel {
-    #[serde(skip)]
-    pub x: f32,
-    #[serde(skip)]
-    pub y: f32,
-}
-
-/// Marker for entities that participate in fixed-step movement.
-#[ecs_component(lua_api = false, deps = [SubPixel])]
-#[derive(Clone, Copy, Serialize, Deserialize, Default)]
-pub struct MotionBody;
-
-/// Marker for participation in the physics system.
-#[ecs_component(deps = [Grounded, MotionBody])]
-#[derive(Default, Clone, Copy, Serialize, Deserialize)]
-pub struct PhysicsBody;
-
-/// Marker for entities that move by code.
-#[ecs_component]
-#[derive(Clone, Copy, Serialize, Deserialize, Default)]
-pub struct Kinematic {}
-
-#[ecs_component]
-#[derive(Clone, Copy, Serialize, Deserialize, Default)]
-pub struct Walkable(pub bool);
-
-#[ecs_component]
-#[derive(Clone, Copy, Serialize, Deserialize, Default, Reflect)]
-pub struct Solid(pub bool);
-inspector_module!(Solid);
-
-#[ecs_component]
-#[derive(Clone, Copy, Serialize, Deserialize, Default, Reflect)]
-pub struct Damage {
-    pub amount: f32,
 }

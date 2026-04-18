@@ -1,10 +1,8 @@
 use crate::engine::Engine;
 use crate::scripting::commands::entity::flip_x_for_direction;
 use crate::scripting::commands::lua_command::LuaCommand;
-use engine_core::animation::animation_clip::ClipId;
-use engine_core::ecs::entity::Entity;
-use engine_core::ecs::facing_direction::FacingDirection;
-use engine_core::prelude::Animation;
+use engine_core::animation::ClipId;
+use engine_core::ecs::{Animation, Entity, FacingDirection};
 use strum::IntoEnumIterator;
 
 /// Sets the active animation clip on an entity.

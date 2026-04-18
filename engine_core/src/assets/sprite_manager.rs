@@ -1,8 +1,7 @@
 // engine_core/src/assets/sprite_manager.rs
-use crate::animation::animation_clip::Animation;
 use crate::assets::asset_manager::{AssetManager, IdPathAssetManager};
-use crate::assets::sprite::*;
 use crate::ecs::ecs::Ecs;
+use crate::ecs::{Animation, SpriteId};
 use crate::game::Game;
 use crate::storage::path_utils::assets_folder;
 use crate::task::FileReadPool;

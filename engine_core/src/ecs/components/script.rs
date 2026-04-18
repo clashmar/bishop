@@ -1,14 +1,13 @@
-// engine_core/src/script/script.rs
 use crate::ecs::entity::Entity;
 use crate::game::EngineCtxMut;
 use crate::scripting::lua_constants::PUBLIC;
 use crate::scripting::lua_marshalling::{read_script_field, write_script_field};
 use crate::scripting::script_manager::ScriptManager;
 use ecs_component::ecs_component;
+use mlua::prelude::LuaResult;
 use mlua::Lua;
 use mlua::Table;
 use mlua::Value;
-use mlua::prelude::LuaResult;
 use serde::Deserialize;
 use serde::Serialize;
 use std::collections::HashMap;
@@ -164,9 +163,7 @@ mod tests {
             data: ScriptData::default(),
         };
 
-        script
-            .load(&lua, &mut script_manager, Entity(7))
-            .unwrap();
+        script.load(&lua, &mut script_manager, Entity(7)).unwrap();
 
         assert!(matches!(
             script.data.fields.get(POSITION),
@@ -211,7 +208,9 @@ mod tests {
             data: ScriptData::default(),
         };
 
-        let error = script.load(&lua, &mut script_manager, Entity(7)).unwrap_err();
+        let error = script
+            .load(&lua, &mut script_manager, Entity(7))
+            .unwrap_err();
 
         assert!(error.to_string().contains(POSITION));
     }

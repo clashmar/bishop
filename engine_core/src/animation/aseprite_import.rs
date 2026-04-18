@@ -1,7 +1,7 @@
 // engine_core/src/animation/aseprite_import.rs
 
-use crate::animation::animation_clip::*;
 use crate::animation::clip_id_helpers::{clip_id_from_name, json_filename};
+use crate::animation::*;
 use crate::storage::path_utils::assets_folder;
 use bishop::prelude::*;
 use serde::Deserialize;

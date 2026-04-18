@@ -2,8 +2,7 @@ use crate::engine::Engine;
 use crate::scripting::commands::entity::reposition_entity;
 use crate::scripting::commands::lua_command::LuaCommand;
 use bishop::prelude::Vec2;
-use engine_core::ecs::entity::Entity;
-use engine_core::ecs::transform::Transform;
+use engine_core::ecs::{Entity, Transform};
 
 /// Offsets an entity by an immediate world-space delta.
 pub struct MoveEntityByCmd {

@@ -1,7 +1,7 @@
 use crate::engine::Engine;
 use crate::scripting::commands::lua_command::LuaCommand;
 use engine_core::ecs::entity::Entity;
-use engine_core::prelude::Animation;
+use engine_core::ecs::Animation;
 
 /// Sets the horizontal flip state on an entity's animation.
 pub struct SetFlipXCmd {

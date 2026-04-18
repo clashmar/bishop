@@ -1,13 +1,12 @@
 use crate::assets::sprite_manager::SpriteManager;
-use crate::assets::sprite::SpriteId;
 use crate::ecs::entity::Entity;
+use crate::ecs::{ScriptId, SpriteId};
 use crate::prelude::{assets_folder, scripts_folder};
-use crate::scripting::script::ScriptId;
 use crate::scripting::script_manager::ScriptManager;
 use crate::*;
 use bishop::prelude::*;
 use std::borrow::Cow;
-use widgets::{Button, WIDGET_SPACING, WidgetId};
+use widgets::{Button, WidgetId, WIDGET_SPACING};
 
 pub fn gui_sprite_picker<C: BishopContext>(
     ctx: &mut C,

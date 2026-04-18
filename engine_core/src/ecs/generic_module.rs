@@ -5,7 +5,7 @@ use crate::ecs::entity::Entity;
 use crate::ecs::inspector_layout::InspectorBodyLayout;
 use crate::ecs::inspector_module::InspectorModule;
 use crate::ecs::reflect_field::*;
-use crate::ecs::transform::Pivot;
+use crate::ecs::Pivot;
 use crate::game::*;
 use crate::ui::text::*;
 use crate::ui::widgets::*;

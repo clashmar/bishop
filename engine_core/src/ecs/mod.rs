@@ -1,10 +1,10 @@
+pub mod components;
 pub mod capture;
 pub mod component;
 pub mod component_registry;
 #[allow(clippy::module_inception)]
 pub mod ecs;
 pub mod entity;
-pub mod facing_direction;
 #[cfg(feature = "editor")]
 pub mod generic_module;
 pub mod has_any;
@@ -15,14 +15,13 @@ pub mod inspector_module;
 pub mod module_factory;
 pub mod prefab;
 pub mod reflect_field;
-pub mod transform;
 
+pub use components::*;
 pub use capture::*;
 pub use component::*;
 pub use component_registry::*;
 pub use ecs::*;
 pub use entity::*;
-pub use facing_direction::*;
 #[cfg(feature = "editor")]
 pub use generic_module::*;
 pub use has_any::*;
@@ -34,4 +33,3 @@ pub use inspector_module::*;
 pub use module_factory::*;
 pub use prefab::*;
 pub use reflect_field::*;
-pub use transform::*;

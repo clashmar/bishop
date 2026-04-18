@@ -1,51 +1,21 @@
-use crate::animation::CurrentFrame;
-use crate::camera::game_camera::RoomCamera;
+use crate::ecs::{CurrentFrame, CurrentRoom, Global, Player, PlayerProxy};
 use crate::ecs::capture::{ComponentSnapshot, capture_entity, capture_subtree, restore_entity};
-use crate::ecs::component::{CurrentRoom, Global, Player, PlayerProxy, comp_type_name};
+use crate::ecs::component::comp_type_name;
 use crate::ecs::component_registry::ComponentRegistry;
+use crate::ecs::RoomCamera;
+use crate::ecs::components::prefab_instance::{
+    PrefabInstanceNode, PrefabInstanceRoot, PrefabOverrides,
+};
+use crate::ecs::components::hierarchy::{Children, Parent};
 use crate::ecs::ecs::Ecs;
-use crate::ecs::entity::{Entity, Parent, get_parent, remove_parent, set_parent};
-use crate::ecs::transform::Transform;
+use crate::ecs::entity::{Entity, get_parent, remove_parent, set_parent};
+use crate::ecs::Transform;
 use crate::game::EngineCtxMut;
 use crate::onscreen_error;
 use crate::prefab::{PrefabAsset, PrefabId, PrefabNode, validate_prefab};
 use crate::worlds::room::RoomId;
 use bishop::prelude::*;
-use ecs_component::ecs_component;
-use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
-
-/// Marks the root entity for a linked prefab instance.
-#[ecs_component(lua_api = false)]
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
-pub struct PrefabInstanceRoot {
-    /// Stable prefab asset id for this linked instance.
-    pub prefab_id: PrefabId,
-}
-
-/// Marks an entity as belonging to a linked prefab node.
-#[ecs_component(lua_api = false)]
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, Default)]
-pub struct PrefabInstanceNode {
-    /// Stable prefab asset id for this linked instance.
-    pub prefab_id: PrefabId,
-    /// Stable prefab node id within the asset.
-    pub node_id: usize,
-    /// Root entity for the linked instance subtree.
-    pub root_entity: Entity,
-}
-
-/// Stores local divergence from the source prefab definition.
-#[ecs_component(lua_api = false)]
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
-pub struct PrefabOverrides {
-    /// Component type names modified locally on this instance entity.
-    pub modified_components: Vec<String>,
-    /// Component type names removed locally on this instance entity.
-    pub removed_components: Vec<String>,
-    /// Components added locally on this instance entity.
-    pub added_components: Vec<ComponentSnapshot>,
-}
 
 /// Captures a room subtree as a room-agnostic prefab asset.
 pub fn capture_prefab(
@@ -482,7 +452,7 @@ fn remove_stale_prefab_components(
             || component.type_name == comp_type_name::<PrefabOverrides>()
             || component.type_name == comp_type_name::<CurrentRoom>()
             || component.type_name == comp_type_name::<Parent>()
-            || component.type_name == comp_type_name::<crate::ecs::entity::Children>()
+            || component.type_name == comp_type_name::<Children>()
             || (is_instance_root
                 && component.type_name == comp_type_name::<Transform>()
                 && prefab_types.contains(comp_type_name::<Transform>()));
@@ -500,7 +470,7 @@ fn remove_stale_prefab_components(
 }
 
 fn excluded_from_prefab_asset(type_name: &str) -> bool {
-    type_name == comp_type_name::<crate::ecs::entity::Children>()
+    type_name == comp_type_name::<Children>()
         || type_name == comp_type_name::<Parent>()
         || type_name == comp_type_name::<CurrentRoom>()
         || type_name == comp_type_name::<CurrentFrame>()
@@ -538,11 +508,10 @@ fn translate_transform_snapshot(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::animation::CurrentFrame;
     use crate::prelude::{ClipId, SpriteId};
     use crate::assets::sprite_manager::SpriteManager;
-    use crate::ecs::component::{CurrentRoom, Name, Velocity};
-    use crate::ecs::transform::{Pivot, Transform};
+    use crate::ecs::{CurrentRoom, Name, Velocity};
+    use crate::ecs::{Pivot, Transform};
     use crate::game::Game;
     use crate::scripting::script_manager::ScriptManager;
     use crate::worlds::world::{World, WorldId};

@@ -1,8 +1,8 @@
 // engine_core/src/ecs/entity.rs
-use crate::ecs::component::*;
+use crate::ecs::component::{Component, ComponentStore};
 use crate::ecs::component_registry::ComponentRegistry;
+pub use crate::ecs::components::hierarchy::{Children, Parent};
 use crate::ecs::ecs::Ecs;
-use ecs_component::ecs_component;
 use inventory::iter;
 use serde::{Deserialize, Serialize};
 use std::any::TypeId;
@@ -58,34 +58,6 @@ impl<'a> EntityBuilder<'a> {
     /// Finish the builder and get the public `Entity` back.
     pub fn finish(self) -> Entity {
         self.id
-    }
-}
-
-/// Parent entity reference for hierarchical relationships.
-#[ecs_component]
-#[derive(Clone, Copy, Serialize, Deserialize, Default)]
-pub struct Parent(pub Entity);
-
-/// Children entities for hierarchical relationships.
-#[ecs_component]
-#[derive(Clone, Serialize, Deserialize, Default)]
-pub struct Children {
-    pub entities: Vec<Entity>,
-}
-
-impl Children {
-    pub fn add(&mut self, child: Entity) {
-        if !self.entities.contains(&child) {
-            self.entities.push(child);
-        }
-    }
-
-    pub fn remove(&mut self, child: Entity) {
-        self.entities.retain(|&e| e != child);
-    }
-
-    pub fn contains(&self, child: Entity) -> bool {
-        self.entities.contains(&child)
     }
 }
 

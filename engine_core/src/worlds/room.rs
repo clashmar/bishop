@@ -1,10 +1,8 @@
 // engine_core/src/world/room.rs
-use crate::camera::game_camera::RoomCamera;
 use crate::constants::*;
-use crate::ecs::component::*;
+use crate::ecs::{CurrentRoom, Name, Pivot, RoomCamera, Transform};
 use crate::ecs::ecs::Ecs;
 use crate::ecs::entity::Entity;
-use crate::ecs::transform::*;
 use crate::tiles::tilemap::TileMap;
 use bishop::prelude::*;
 use serde::{Deserialize, Serialize};

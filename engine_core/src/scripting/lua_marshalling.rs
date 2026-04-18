@@ -1,5 +1,5 @@
+use crate::ecs::ScriptField;
 use crate::scripting::lua_constants::{X, Y, Z};
-use crate::scripting::script::ScriptField;
 use bishop::prelude::{Vec2, Vec3};
 use mlua::prelude::LuaResult;
 use mlua::{Lua, Table, Value};
@@ -26,9 +26,10 @@ pub fn write_script_field(
         ScriptField::Int(value) => public.set(name, *value)?,
         ScriptField::Float(value) => public.set(name, *value)?,
         ScriptField::Text(value) => public.set(name, value.clone())?,
-        ScriptField::Vec2(value) => {
-            public.set(name, write_named_vec2_table(lua, Vec2::new(value[0], value[1]))?)?
-        }
+        ScriptField::Vec2(value) => public.set(
+            name,
+            write_named_vec2_table(lua, Vec2::new(value[0], value[1]))?,
+        )?,
         ScriptField::Vec3(value) => public.set(
             name,
             write_named_vec3_table(lua, Vec3::new(value[0], value[1], value[2]))?,
@@ -102,7 +103,10 @@ fn read_script_vector_field(name: &str, table: &Table) -> LuaResult<Option<Scrip
 
 fn reject_indexed_vector_keys(table: &Table, field_name: &str) -> LuaResult<()> {
     if (1..=3).any(|index| {
-        matches!(table.get::<Value>(index).ok(), Some(Value::Number(_) | Value::Integer(_)))
+        matches!(
+            table.get::<Value>(index).ok(),
+            Some(Value::Number(_) | Value::Integer(_))
+        )
     }) {
         return Err(named_vector_error(field_name));
     }
@@ -141,13 +145,7 @@ mod tests {
         let lua = Lua::new();
         let public = lua.create_table().unwrap();
 
-        write_script_field(
-            &lua,
-            &public,
-            POSITION,
-            &ScriptField::Vec2([12.5, -3.0]),
-        )
-        .unwrap();
+        write_script_field(&lua, &public, POSITION, &ScriptField::Vec2([12.5, -3.0])).unwrap();
         write_script_field(
             &lua,
             &public,

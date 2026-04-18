@@ -744,13 +744,13 @@ fn layout_pair(
 
 inventory::submit! {
     ModuleFactoryEntry {
-        title: <engine_core::animation::animation_clip::Animation>::TYPE_NAME,
+        title: <Animation>::TYPE_NAME,
         factory: || {
             Box::new(
                 CollapsibleModule::new(
                     crate::gui::inspector::animation_module::AnimationModule::default()
                 )
-                .with_title(<engine_core::animation::animation_clip::Animation>::TYPE_NAME)
+                .with_title(<Animation>::TYPE_NAME)
             )
         },
     }

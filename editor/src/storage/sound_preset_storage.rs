@@ -93,9 +93,9 @@ pub fn collect_sound_group_names(ecs: &Ecs, library: &SoundPresetLibrary) -> Vec
 mod tests {
     use super::*;
     use crate::storage::editor_storage::save_game;
-    use engine_core::audio::AudioGroup;
+    use engine_core::ecs::AudioGroup;
     use engine_core::scripting::lua_constants::{ENGINE_DIR, SOUNDS_FILE};
-    use engine_core::storage::test_utils::{TestGameFolder, game_fs_test_lock};
+    use engine_core::storage::test_utils::{game_fs_test_lock, TestGameFolder};
     use std::collections::HashMap;
 
     #[test]

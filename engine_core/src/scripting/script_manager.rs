@@ -1,10 +1,10 @@
 // engine_core/src/script/script_manager.rs
 use crate::assets::asset_manager::{AssetManager, IdPathAssetManager};
+use crate::ecs::ScriptId;
 use crate::ecs::entity::Entity;
 use crate::game::Game;
 use crate::scripting::event_bus::EventBus;
 use crate::scripting::lua_constants::*;
-use crate::scripting::script::*;
 use crate::storage::path_utils::scripts_folder;
 use crate::*;
 use mlua::Function;

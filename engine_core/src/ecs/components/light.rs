@@ -1,4 +1,3 @@
-// engine_core/src/lighting/light.rs
 use crate::inspector_module;
 use bishop::prelude::*;
 use ecs_component::ecs_component;

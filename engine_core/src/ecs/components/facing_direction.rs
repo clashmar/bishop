@@ -1,4 +1,3 @@
-// engine_core/src/ecs/facing_direction.rs
 use ecs_component::ecs_component;
 use serde::{Deserialize, Serialize};
 
@@ -41,6 +40,18 @@ impl Direction {
     }
 }
 
+pub fn parse_direction(value: &str) -> Result<Direction, String> {
+    ron::de::from_str::<Direction>(value).map_err(|_| {
+        format!(
+            "Unsupported direction '{value}'. Expected one of: down, up, down_left, down_right, right, left, up_left, up_right."
+        )
+    })
+}
+
+pub fn flip_x_for_direction(direction: Direction) -> bool {
+    direction.has_leftward_component()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -71,5 +82,38 @@ mod tests {
         assert!(!Direction::Up.has_leftward_component());
         assert!(!Direction::Right.has_leftward_component());
         assert!(!Direction::DownRight.has_leftward_component());
+    }
+
+    #[test]
+    fn parse_direction_accepts_canonical_direction_strings() {
+        let directions = [
+            Direction::Down,
+            Direction::Up,
+            Direction::DownLeft,
+            Direction::DownRight,
+            Direction::Right,
+            Direction::Left,
+            Direction::UpLeft,
+            Direction::UpRight,
+        ];
+
+        for direction in directions {
+            let canonical = ron::to_string(&direction).unwrap();
+            assert_eq!(parse_direction(&canonical).unwrap(), direction);
+        }
+    }
+
+    #[test]
+    fn parse_direction_rejects_unknown_values() {
+        assert!(parse_direction("north").is_err());
+        assert!(parse_direction("upleft").is_err());
+    }
+
+    #[test]
+    fn flip_x_helper_only_flips_for_leftward_directions() {
+        assert!(flip_x_for_direction(Direction::Left));
+        assert!(flip_x_for_direction(Direction::DownLeft));
+        assert!(!flip_x_for_direction(Direction::Up));
+        assert!(!flip_x_for_direction(Direction::Right));
     }
 }

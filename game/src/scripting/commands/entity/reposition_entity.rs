@@ -2,8 +2,7 @@ use crate::engine::game_instance::GameInstance;
 use bishop::prelude::Vec2;
 use engine_core::ecs::ecs::Ecs;
 use engine_core::ecs::entity::{get_children, Entity};
-use engine_core::ecs::transform::{update_entity_position, Transform};
-use engine_core::prelude::SubPixel;
+use engine_core::ecs::{update_entity_position, SubPixel, Transform};
 
 pub(crate) fn reposition_entity(
     game_instance: &mut GameInstance,

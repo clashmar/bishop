@@ -1,11 +1,9 @@
 // engine_core/src/text/dialogue/speech_renderer.rs
 use crate::assets::sprite_manager::SpriteManager;
-use crate::camera::game_camera::*;
 use crate::ecs::Pivot;
-use crate::ecs::component::CurrentRoom;
 use crate::ecs::ecs::Ecs;
 use crate::ecs::entity::Entity;
-use crate::ecs::transform::Transform;
+use crate::ecs::{CurrentRoom, SpeechBubble, Transform, world_virtual_height, world_virtual_width};
 use crate::rendering::helpers::lerp_rounded;
 use crate::rendering::helpers::entity_dimensions;
 use crate::text::*;

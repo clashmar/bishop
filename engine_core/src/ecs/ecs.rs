@@ -1,9 +1,9 @@
 // engine_core/src/ecs/ecs.rs
-use crate::ecs::component::*;
+use crate::ecs::component::{Component, ComponentStore};
 use crate::ecs::component_registry::*;
 use crate::ecs::entity::*;
 use crate::ecs::has_any::HasAny;
-use crate::ecs::transform::Transform;
+use crate::ecs::{CurrentRoom, Player, PlayerProxy, Transform};
 use crate::game::EngineCtxMut;
 use crate::worlds::room::RoomId;
 use once_cell::sync::Lazy;

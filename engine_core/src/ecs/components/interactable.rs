@@ -1,8 +1,6 @@
-// engine_core/src/scripting/interactable.rs
-use crate::ecs::component::*;
 use crate::ecs::ecs::Ecs;
 use crate::ecs::entity::Entity;
-use crate::ecs::transform::Transform;
+use crate::ecs::{CurrentRoom, Transform};
 use crate::inspector_module;
 use ecs_component::ecs_component;
 use reflect_derive::Reflect;
@@ -28,7 +26,7 @@ impl Default for Interactable {
     }
 }
 
-/// Returns the best interactable entity candidate for the player in the `CurrentRoom` or `None`.
+/// Returns the best interactable entity candidate for the player in the current room.
 pub fn find_best_interactable(ecs: &Ecs) -> Option<Entity> {
     let player = ecs.get_player_entity()?;
     let player_pos = ecs.get_player_transform()?.position;
@@ -42,7 +40,6 @@ pub fn find_best_interactable(ecs: &Ecs) -> Option<Entity> {
     let mut best: Option<(Entity, f32)> = None;
 
     for (entity, interactable) in &interactables.data {
-        // Must have position and room
         let pos = match positions.get(*entity) {
             Some(p) => p.position,
             None => continue,
@@ -57,9 +54,7 @@ pub fn find_best_interactable(ecs: &Ecs) -> Option<Entity> {
             continue;
         }
 
-        // TODO: rethink how position is set for this purpose
         let dist = player_pos.distance(pos);
-
         if dist > interactable.range {
             continue;
         }

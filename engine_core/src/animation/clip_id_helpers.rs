@@ -1,4 +1,4 @@
-use super::animation_clip::ClipId;
+use super::animation::ClipId;
 use strum::IntoEnumIterator;
 
 pub(crate) fn builtin_clip_ids() -> impl Iterator<Item = ClipId> {

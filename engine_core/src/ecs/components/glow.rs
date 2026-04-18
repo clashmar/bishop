@@ -1,6 +1,5 @@
-// engine_core/src/lighting/glow.rs
-use crate::assets::sprite::SpriteId;
 use crate::ecs::entity::Entity;
+use crate::ecs::SpriteId;
 use crate::game::EngineCtxMut;
 use crate::inspector_module;
 use bishop::prelude::*;

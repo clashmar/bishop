@@ -1,12 +1,36 @@
-// engine_core/src/ecs/transform.rs
 use crate::ecs::ecs::Ecs;
-use crate::ecs::entity::*;
+use crate::ecs::entity::{get_children, Entity};
 use crate::inspector_module;
 use bishop::prelude::*;
 use ecs_component::ecs_component;
 use reflect_derive::Reflect;
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
+
+/// Transform component for entities.
+#[ecs_component]
+#[serde_as]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Reflect)]
+#[serde(default)]
+pub struct Transform {
+    /// Whether the entity is visible when rendering.
+    pub visible: bool,
+    #[serde_as(as = "serde_with::FromInto<[f32; 2]>")]
+    pub position: Vec2,
+    /// Pivot point for rendering. Defaults to BottomCenter.
+    pub pivot: Pivot,
+}
+
+impl Default for Transform {
+    fn default() -> Self {
+        Self {
+            visible: true,
+            position: Vec2::ZERO,
+            pivot: Pivot::default(),
+        }
+    }
+}
+inspector_module!(Transform, removable = false);
 
 /// Pivot point for sprite rendering. Defines which point on the sprite
 /// aligns with the entity's Transform position.
@@ -88,34 +112,8 @@ pub fn pivot_offset(entity_pos: Vec2, size: Vec2, pivot: Pivot) -> Vec2 {
     )
 }
 
-/// Transform component for entities.
-#[ecs_component]
-#[serde_as]
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, Reflect)]
-#[serde(default)]
-pub struct Transform {
-    /// Whether the entity is visible when rendering.
-    pub visible: bool,
-    #[serde_as(as = "serde_with::FromInto<[f32; 2]>")]
-    pub position: Vec2,
-    /// Pivot point for rendering. Defaults to BottomCenter.
-    pub pivot: Pivot,
-}
-
-impl Default for Transform {
-    fn default() -> Self {
-        Self {
-            visible: true,
-            position: Vec2::ZERO,
-            pivot: Pivot::default(),
-        }
-    }
-}
-inspector_module!(Transform, removable = false);
-
 /// Update the position of an entity and any children it may have.
 pub fn update_entity_position(ecs: &mut Ecs, entity: Entity, new_pos: Vec2) {
-    // Determine the old position
     let old_pos = if let Some(pos) = ecs.get_store_mut::<Transform>().get_mut(entity) {
         let old = pos.position;
         pos.position = new_pos;
@@ -124,15 +122,12 @@ pub fn update_entity_position(ecs: &mut Ecs, entity: Entity, new_pos: Vec2) {
         return;
     };
 
-    // Compute the translation that has to be applied to the children
     let delta = new_pos - old_pos;
     if delta == Vec2::ZERO {
         return;
     }
 
-    // Propagate the translation to every child recursively
-    let children = get_children(ecs, entity);
-    for child in children {
+    for child in get_children(ecs, entity) {
         let child_new_pos = if let Some(child_pos) = ecs.get_store_mut::<Transform>().get_mut(child)
         {
             let new = child_pos.position + delta;

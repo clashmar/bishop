@@ -321,13 +321,13 @@ impl InspectorModule for ScriptModule {
 
 inventory::submit! {
     ModuleFactoryEntry {
-        title: <engine_core::scripting::script::Script>::TYPE_NAME,
+        title: <engine_core::ecs::Script>::TYPE_NAME,
         factory: || {
             Box::new(
                 CollapsibleModule::new(
                     crate::gui::inspector::script_module::ScriptModule::default()
                 )
-                .with_title(<engine_core::scripting::script::Script>::TYPE_NAME)
+                .with_title(<engine_core::ecs::Script>::TYPE_NAME)
             )
         },
     }

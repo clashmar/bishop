@@ -1,5 +1,5 @@
 use super::*;
-use engine_core::ecs::transform::Pivot;
+use engine_core::ecs::Pivot;
 use std::path::Path;
 
 fn sprite_ron(sprite_id: usize) -> String {

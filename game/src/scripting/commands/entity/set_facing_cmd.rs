@@ -1,9 +1,7 @@
 use crate::engine::Engine;
 use crate::scripting::commands::entity::flip_x_for_direction;
 use crate::scripting::commands::lua_command::LuaCommand;
-use engine_core::ecs::entity::Entity;
-use engine_core::ecs::facing_direction::{Direction, FacingDirection};
-use engine_core::prelude::Animation;
+use engine_core::ecs::{Animation, Direction, Entity, FacingDirection};
 
 /// Sets the facing direction on an entity.
 pub struct SetFacingCmd {

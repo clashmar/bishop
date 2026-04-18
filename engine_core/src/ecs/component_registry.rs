@@ -134,8 +134,11 @@ pub fn public_lua_component(type_name: &str) -> Result<&'static ComponentRegistr
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ecs::component::{comp_type_name, MotionBody};
-    use crate::ecs::prefab::{PrefabInstanceNode, PrefabInstanceRoot, PrefabOverrides};
+    use crate::ecs::component::comp_type_name;
+    use crate::ecs::components::prefab_instance::{
+        PrefabInstanceNode, PrefabInstanceRoot, PrefabOverrides,
+    };
+    use crate::ecs::MotionBody;
 
     #[test]
     fn components_are_sorted_by_type_name() {

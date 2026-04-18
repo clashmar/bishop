@@ -1,39 +1,16 @@
 // engine_core/src/animation/animation_system.rs
-use crate::animation::animation_clip::*;
+use crate::animation::{ClipId, resolve_sprite_id};
 use crate::assets::sprite_manager::SpriteManager;
-use crate::assets::sprite::SpriteId;
-use crate::ecs::component::PlayerProxy;
+use crate::ecs::{Animation, CurrentFrame, SpriteId};
 use crate::ecs::ecs::Ecs;
 use crate::ecs::entity::Entity;
+use crate::ecs::PlayerProxy;
 use crate::rendering::render_room::pivot_adjusted_position;
 use crate::rendering::renderable::{EntityDrawParams, Renderable};
 use crate::worlds::room::RoomId;
 use crate::worlds::room::entities_in_room;
 use bishop::prelude::*;
-use ecs_component::ecs_component;
-use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
-
-/// Current frame data for rendering animated entities.
-#[ecs_component]
-#[derive(Clone, Default, Deserialize, Serialize)]
-pub struct CurrentFrame {
-    #[serde(skip)]
-    pub clip_id: ClipId,
-    #[serde(skip)]
-    pub col: usize,
-    #[serde(skip)]
-    pub row: usize,
-    #[serde(skip)]
-    pub offset: Vec2,
-    #[serde(skip)]
-    pub sprite_id: SpriteId,
-    #[serde(skip)]
-    pub frame_size: Vec2,
-    /// Whether to flip the sprite horizontally when rendering.
-    #[serde(skip)]
-    pub flip_x: bool,
-}
 
 pub fn update_animation_sytem(
     loader: &impl TextureLoader,

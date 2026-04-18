@@ -1,4 +1,3 @@
-// engine_core/src/assets/sprite.rs
 use crate::assets::sprite_manager::SpriteManager;
 use crate::ecs::entity::Entity;
 use crate::game::EngineCtxMut;
