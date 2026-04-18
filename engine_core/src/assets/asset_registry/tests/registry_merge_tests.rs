@@ -13,10 +13,12 @@ fn asset_path(folder: &str, file: &str) -> PathBuf {
 #[test]
 fn editor_metadata_snapshot_rebuilds_path_lookup_from_records() {
     let mut registry = AssetRegistry::default();
-    registry.records.insert(
-        AssetKey::Prefab(PrefabId(4)),
-        AssetRecord::new(AssetKind::Prefab, asset_path(PREFABS_FOLDER, "crate.ron")),
-    );
+    registry
+        .insert(
+            AssetKey::Prefab(PrefabId(4)),
+            AssetRecord::new(AssetKind::Prefab, asset_path(PREFABS_FOLDER, "crate.ron")),
+        )
+        .unwrap();
 
     let snapshot = registry.editor_metadata_snapshot();
 

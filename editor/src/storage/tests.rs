@@ -4,6 +4,8 @@ use engine_core::prelude::*;
 use engine_core::scripting::lua_constants::{lua_dirs, lua_files};
 use engine_core::storage::path_utils::sanitise_name;
 use engine_core::storage::test_utils::{game_fs_test_lock, TestGameFolder};
+use std::fs;
+use std::io::ErrorKind;
 use std::path::PathBuf;
 
 #[test]
@@ -28,7 +30,7 @@ fn create_new_game_initializes_empty_asset_registry() {
 
     let game = create_new_game(test_game.name().to_string());
 
-    assert!(game.asset_registry.records.is_empty());
+    assert!(game.asset_registry.records().is_empty());
 }
 
 #[test]
@@ -63,7 +65,61 @@ fn save_game_round_trips_asset_registry_records() {
 
     let loaded = load_game_by_name(test_game.name()).unwrap();
 
-    assert_eq!(loaded.asset_registry.records, game.asset_registry.records);
+    assert_eq!(
+        loaded.asset_registry.records(),
+        game.asset_registry.records()
+    );
+    assert_eq!(
+        loaded
+            .asset_registry
+            .key_for_path(PathBuf::from(paths::ASSETS_FOLDER).join("hero.png")),
+        Some(AssetKey::Sprite(SpriteId(7)))
+    );
+}
+
+#[test]
+fn load_game_by_name_returns_invalid_data_for_corrupt_asset_registry() {
+    let _lock = game_fs_test_lock()
+        .lock()
+        .unwrap_or_else(|poison| poison.into_inner());
+    let test_game = TestGameFolder::new("asset_registry_corrupt_load");
+    set_game_name(test_game.name());
+
+    let mut game = create_new_game(test_game.name().to_string());
+    game.asset_registry
+        .insert(
+            AssetKey::Sprite(SpriteId(7)),
+            AssetRecord::new(
+                AssetKind::Sprite,
+                PathBuf::from(paths::ASSETS_FOLDER).join("hero.png"),
+            ),
+        )
+        .unwrap();
+    game.asset_registry
+        .insert(
+            AssetKey::Sprite(SpriteId(8)),
+            AssetRecord::new(
+                AssetKind::Sprite,
+                PathBuf::from(paths::ASSETS_FOLDER).join("villain.png"),
+            ),
+        )
+        .unwrap();
+
+    save_game(&game).unwrap();
+
+    let game_ron_path = resources_folder(test_game.name()).join(paths::GAME_RON);
+    let corrupt_ron =
+        fs::read_to_string(&game_ron_path)
+            .unwrap()
+            .replacen("villain.png", "hero.png", 1);
+    fs::write(&game_ron_path, corrupt_ron).unwrap();
+
+    let error = match load_game_by_name(test_game.name()) {
+        Ok(_) => panic!("corrupt asset registry should fail"),
+        Err(error) => error,
+    };
+
+    assert_eq!(error.kind(), ErrorKind::InvalidData);
 }
 
 #[test]

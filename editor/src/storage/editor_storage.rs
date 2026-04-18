@@ -321,6 +321,7 @@ pub fn load_game_by_name(name: &str) -> io::Result<Game> {
         Ok(game) => game,
         Err(_) => return Ok(create_new_game(name.to_string())),
     };
+    game.asset_registry.try_init_editor_metadata()?;
 
     set_current_sound_preset_library(load_sound_preset_library(name)?);
 
