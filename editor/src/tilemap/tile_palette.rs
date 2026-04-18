@@ -1,5 +1,6 @@
 // editor/src/tilemap/tile_palette.rs
 use bishop::prelude::*;
+use engine_core::constants::world as world_constants;
 use engine_core::prelude::*;
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
@@ -49,7 +50,7 @@ impl TilePalette {
     pub fn new() -> Self {
         Self {
             ui: TilePaletteUi::default(),
-            tile_size: DEFAULT_GRID_SIZE,
+            tile_size: world_constants::DEFAULT_GRID_SIZE,
             columns: 1,
             rows: 0,
             selected_index: 0,

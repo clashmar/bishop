@@ -1,9 +1,9 @@
-use crate::prelude::*;
+use crate::constants::ui;
 use bishop::prelude::*;
 
 /// Computes the 16:9 canvas rect fitted into the available screen space.
 pub fn compute_canvas_rect(screen_width: f32, screen_height: f32) -> Rect {
-    let aspect = DESIGN_RESOLUTION_WIDTH / DESIGN_RESOLUTION_HEIGHT;
+    let aspect = ui::DESIGN_RESOLUTION_WIDTH / ui::DESIGN_RESOLUTION_HEIGHT;
     let available_w = screen_width / 1.5;
     let available_h = screen_height - 40.0;
 
@@ -33,7 +33,7 @@ pub fn normalized_to_screen(norm_pos: Vec2, canvas_origin: Vec2, canvas_size: Ve
 
 /// Computes a letterboxed 16:9 rect that fills the entire window for preview mode.
 pub fn compute_preview_rect(screen_width: f32, screen_height: f32) -> Rect {
-    let aspect = DESIGN_RESOLUTION_WIDTH / DESIGN_RESOLUTION_HEIGHT;
+    let aspect = ui::DESIGN_RESOLUTION_WIDTH / ui::DESIGN_RESOLUTION_HEIGHT;
     let (w, h) = if screen_width / screen_height > aspect {
         (screen_height * aspect, screen_height)
     } else {

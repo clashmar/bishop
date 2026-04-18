@@ -103,7 +103,7 @@ fn export_for_windows(dest_root: &Path, game: &Game) -> io::Result<PathBuf> {
     // Everything else goes in /Resources to mirror macOS structure
     // Skip source files that aren't needed for the final game
     let src_resources = resources_folder_current();
-    let target_resources = target_package.join(RESOURCES_FOLDER);
+    let target_resources = target_package.join(paths::RESOURCES_FOLDER);
     let skip_extensions = &["json", "aseprite", "ase"];
     copy_dir_filtered(&src_resources, &target_resources, skip_extensions)?;
     let _ = fs::remove_file(target_resources.join(SOUND_PRESETS_RON));
@@ -120,7 +120,7 @@ fn export_for_windows(dest_root: &Path, game: &Game) -> io::Result<PathBuf> {
     game_copy.ecs.purge_proxies();
 
     let ron_string = ron::to_string(&game_copy).map_err(|e| io::Error::other(e.to_string()))?;
-    fs::write(target_resources.join(GAME_RON), ron_string)?;
+    fs::write(target_resources.join(paths::GAME_RON), ron_string)?;
 
     // TODO: Write manifest for game
 
@@ -137,7 +137,7 @@ fn export_for_mac(dest_root: &Path, game: &Game) -> io::Result<PathBuf> {
     let mut guard = ExportGuard::new(bundle_path.clone());
 
     // Write the game binary to the bundle
-    let macos_dir = bundle_path.join(CONTENTS_FOLDER).join("MacOS");
+    let macos_dir = bundle_path.join(paths::CONTENTS_FOLDER).join("MacOS");
 
     // Make sure this file exists
     fs::create_dir_all(&macos_dir)?;
@@ -160,7 +160,9 @@ fn export_for_mac(dest_root: &Path, game: &Game) -> io::Result<PathBuf> {
     // Copy /Resources, skipping source files not needed for the final game
     onscreen_debug!("Copying /Resources.");
     let src_resources = resources_folder_current();
-    let target_resources = bundle_path.join(CONTENTS_FOLDER).join(RESOURCES_FOLDER);
+    let target_resources = bundle_path
+        .join(paths::CONTENTS_FOLDER)
+        .join(paths::RESOURCES_FOLDER);
 
     let skip_extensions = &["json", "aseprite", "ase"];
     copy_dir_filtered(&src_resources, &target_resources, skip_extensions)?;
@@ -178,7 +180,7 @@ fn export_for_mac(dest_root: &Path, game: &Game) -> io::Result<PathBuf> {
     game_copy.ecs.purge_proxies();
 
     let ron_string = ron::to_string(&game_copy).map_err(|e| io::Error::other(e.to_string()))?;
-    fs::write(target_resources.join(GAME_RON), ron_string)?;
+    fs::write(target_resources.join(paths::GAME_RON), ron_string)?;
 
     // Copy Icon.icns
     onscreen_debug!("Copying Icon.icns.");
@@ -191,7 +193,7 @@ fn export_for_mac(dest_root: &Path, game: &Game) -> io::Result<PathBuf> {
         onscreen_debug!("Icon.icns not found, skipping.");
     }
 
-    let target_plist = bundle_path.join(CONTENTS_FOLDER).join("Info.plist");
+    let target_plist = bundle_path.join(paths::CONTENTS_FOLDER).join("Info.plist");
     onscreen_debug!("Writing Info.plist.");
     fs::write(&target_plist, mac_export_info_plist(game))?;
 
@@ -342,10 +344,8 @@ mod tests {
 
     #[test]
     fn export_guard_removes_failed_output_on_drop() {
-        let path = std::env::temp_dir().join(format!(
-            "bishop-export-guard-{}",
-            uuid::Uuid::new_v4()
-        ));
+        let path =
+            std::env::temp_dir().join(format!("bishop-export-guard-{}", uuid::Uuid::new_v4()));
         fs::create_dir_all(&path).unwrap();
 
         {

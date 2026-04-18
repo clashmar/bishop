@@ -1,6 +1,6 @@
 use crate::animation::clip_id_helpers::{builtin_clip_ids, sprite_filename};
 use crate::assets::sprite_manager::SpriteManager;
-use crate::constants::DEFAULT_GRID_SIZE;
+use crate::constants::world;
 use crate::ecs::SpriteId;
 use crate::scripting::lua_constants::lua_ownership;
 use bishop::prelude::*;
@@ -71,7 +71,7 @@ pub struct ClipDef {
 impl Default for ClipDef {
     fn default() -> ClipDef {
         ClipDef {
-            frame_size: Vec2::new(DEFAULT_GRID_SIZE, DEFAULT_GRID_SIZE),
+            frame_size: Vec2::new(world::DEFAULT_GRID_SIZE, world::DEFAULT_GRID_SIZE),
             cols: 5,
             rows: 1,
             fps: 4.0,

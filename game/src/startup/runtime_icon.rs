@@ -59,6 +59,6 @@ pub fn playtest_game_name_from_payload(payload_ron: &str) -> Option<String> {
 pub fn runtime_icon_for_playtest_payload(payload_path: &str) -> Option<WindowIcon> {
     let payload_ron = fs::read_to_string(payload_path).ok()?;
     let game_name = playtest_game_name_from_payload(&payload_ron)?;
-    let resources_dir = game_folder(&game_name).join(RESOURCES_FOLDER);
+    let resources_dir = game_folder(&game_name).join(paths::RESOURCES_FOLDER);
     runtime_icon_from_resources_dir(&resources_dir)
 }

@@ -7,7 +7,9 @@ use crate::tilemap::tile_palette::TilePalette;
 use crate::write_animations_lua;
 use crate::write_engine_scripts;
 use bishop::prelude::*;
+use engine_core::constants::world as world_constants;
 use engine_core::prelude::*;
+use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::fs;
 use std::io;
@@ -20,7 +22,6 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::Mutex;
 use std::time::SystemTime;
-use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 const PREFAB_PALETTE_RON: &str = "prefab_palette.ron";
@@ -93,13 +94,13 @@ pub fn create_new_game(name: String) -> Game {
 
 pub(super) fn create_game_folders(name: &str) {
     let folders: [(PathBuf, &str); 7] = [
-        (resources_folder_current(), RESOURCES_FOLDER),
-        (assets_folder(), ASSETS_FOLDER),
-        (scripts_folder(), SCRIPTS_FOLDER),
-        (text_folder(), TEXT_FOLDER),
-        (prefabs_folder(), PREFABS_FOLDER),
-        (windows_folder(), WINDOWS_FOLDER),
-        (mac_os_folder(), MAC_OS_FOLDER),
+        (resources_folder_current(), paths::RESOURCES_FOLDER),
+        (assets_folder(), paths::ASSETS_FOLDER),
+        (scripts_folder(), paths::SCRIPTS_FOLDER),
+        (text_folder(), paths::TEXT_FOLDER),
+        (prefabs_folder(), paths::PREFABS_FOLDER),
+        (windows_folder(), paths::WINDOWS_FOLDER),
+        (mac_os_folder(), paths::MAC_OS_FOLDER),
     ];
 
     for (path, folder) in folders {
@@ -192,7 +193,9 @@ fn default_front_end_menus() -> Vec<MenuTemplate> {
 
     let start_menu = MenuBuilder::new("start")
         .mode(MenuMode::FrontEnd)
-        .background(MenuBackground::SolidColor(Color::new(0.05, 0.06, 0.10, 1.0)))
+        .background(MenuBackground::SolidColor(Color::new(
+            0.05, 0.06, 0.10, 1.0,
+        )))
         .layout_group(Rect::new(0.0, 0.0, 1.0, 1.0), start_layout, |group| {
             group
                 .label("Title")
@@ -209,7 +212,9 @@ fn default_front_end_menus() -> Vec<MenuTemplate> {
 
     let settings_menu = MenuBuilder::new("settings")
         .mode(MenuMode::FrontEnd)
-        .background(MenuBackground::SolidColor(Color::new(0.05, 0.06, 0.10, 1.0)))
+        .background(MenuBackground::SolidColor(Color::new(
+            0.05, 0.06, 0.10, 1.0,
+        )))
         .layout_group(Rect::new(0.0, 0.0, 1.0, 1.0), settings_layout, |group| {
             group
                 .label("Settings")
@@ -239,7 +244,7 @@ pub fn save_game(game: &Game) -> io::Result<()> {
     let ron_string = ron::ser::to_string_pretty(game, pretty).map_err(Error::other)?;
 
     let resources_folder = resources_folder_current();
-    let file_path = resources_folder.join(GAME_RON);
+    let file_path = resources_folder.join(paths::GAME_RON);
 
     fs::create_dir_all(&resources_folder)?;
 
@@ -296,7 +301,7 @@ pub fn collect_prefab_names(prefab_library: &PrefabLibrary) -> io::Result<Vec<St
 
 /// Load a `Game` from the folder that matches the supplied name.
 pub fn load_game_by_name(name: &str) -> io::Result<Game> {
-    let path = resources_folder(name).join(GAME_RON);
+    let path = resources_folder(name).join(paths::GAME_RON);
     onscreen_debug!("Loading game from .ron: {}.", path.display());
 
     // Try to read the file
@@ -363,15 +368,12 @@ pub fn load_palette(game_name: &str) -> io::Result<TilePalette> {
 }
 
 /// Saves the room prefab palette state for the game.
-pub fn save_prefab_palette_state(
-    game_name: &str,
-    state: &PrefabPaletteState,
-) -> io::Result<()> {
+pub fn save_prefab_palette_state(game_name: &str, state: &PrefabPaletteState) -> io::Result<()> {
     let dir = game_folder(game_name);
     fs::create_dir_all(&dir)?;
     let path = dir.join(PREFAB_PALETTE_RON);
-    let ron = ron::ser::to_string_pretty(state, ron::ser::PrettyConfig::new())
-        .map_err(Error::other)?;
+    let ron =
+        ron::ser::to_string_pretty(state, ron::ser::PrettyConfig::new()).map_err(Error::other)?;
     fs::write(path, ron)
 }
 
@@ -396,7 +398,7 @@ pub fn create_new_world(game: &mut Game) -> World {
     let id = WorldId(Uuid::new_v4());
     let name = "new".to_string();
     let room_id = game.allocate_room_id();
-    let first_room = Room::new(&mut game.ecs, room_id, DEFAULT_GRID_SIZE);
+    let first_room = Room::new(&mut game.ecs, room_id, world_constants::DEFAULT_GRID_SIZE);
     let room_origin = first_room.position;
 
     let world = World {
@@ -407,7 +409,7 @@ pub fn create_new_world(game: &mut Game) -> World {
         starting_room_id: Some(room_id),
         starting_position: Some(room_origin),
         meta: WorldMeta::default(),
-        grid_size: DEFAULT_GRID_SIZE,
+        grid_size: world_constants::DEFAULT_GRID_SIZE,
     };
 
     let _spawn_point = game
@@ -487,7 +489,7 @@ pub fn write_to_app_dir(filename: &str, embedded: &[u8]) -> io::Result<PathBuf> 
 pub fn list_game_folders() -> io::Result<Vec<PathBuf>> {
     let root = match cfg!(debug_assertions) {
         true => absolute_save_root(),
-        false => absolute_save_root().join(GAME_SAVE_ROOT),
+        false => absolute_save_root().join(paths::GAME_SAVE_ROOT),
     };
 
     let mut folders = Vec::new();
@@ -495,7 +497,7 @@ pub fn list_game_folders() -> io::Result<Vec<PathBuf>> {
     for entry in fs::read_dir(root)? {
         let entry = entry?;
         let path = entry.path();
-        if path.is_dir() && path.join(GAME_RON).exists() {
+        if path.is_dir() && path.join(paths::GAME_RON).exists() {
             folders.push(path);
         }
     }

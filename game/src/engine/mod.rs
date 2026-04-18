@@ -94,12 +94,12 @@ impl BishopApp for Engine {
         }
 
         if self.game_state == GameState::Playing {
-            self.accumulator = (self.accumulator + dt).min(MAX_ACCUM);
+            self.accumulator = (self.accumulator + dt).min(timing::MAX_ACCUM);
 
-            while self.accumulator >= FIXED_DT {
-                self.accumulator -= FIXED_DT;
+            while self.accumulator >= timing::FIXED_DT {
+                self.accumulator -= timing::FIXED_DT;
                 fixed_steps = fixed_steps.saturating_add(1);
-                self.fixed_update(&mut *ctx.borrow_mut(), FIXED_DT);
+                self.fixed_update(&mut *ctx.borrow_mut(), timing::FIXED_DT);
             }
 
             self.update(raw_dt);
@@ -116,7 +116,7 @@ impl BishopApp for Engine {
             );
         }
 
-        let alpha = (self.accumulator / FIXED_DT).clamp(0.0, 1.0);
+        let alpha = (self.accumulator / timing::FIXED_DT).clamp(0.0, 1.0);
         if let Some(sample) = timing_sample {
             self.diagnostics.record_timing_trace(
                 sample.with_frame_state(fixed_steps, self.accumulator, alpha),

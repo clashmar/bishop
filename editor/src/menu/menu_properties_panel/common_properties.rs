@@ -101,7 +101,7 @@ impl MenuEditor {
                 )
                 .blocked(blocked)
                 .show(ctx);
-                let px_x = format!("{}px", (new_x * DESIGN_RESOLUTION_WIDTH) as i32);
+                let px_x = format!("{}px", (new_x * ui::DESIGN_RESOLUTION_WIDTH) as i32);
                 ctx.draw_text(&px_x, x + 88.0, *y + 16.0, 10.0, Color::GREY);
 
                 // Position Y
@@ -136,7 +136,7 @@ impl MenuEditor {
                 .blocked(blocked)
                 .min(0.005)
                 .show(ctx);
-                let px_w = format!("{}px", (new_w * DESIGN_RESOLUTION_WIDTH) as i32);
+                let px_w = format!("{}px", (new_w * ui::DESIGN_RESOLUTION_WIDTH) as i32);
                 ctx.draw_text(&px_w, x + 88.0, *y + 16.0, 10.0, Color::GREY);
 
                 // Size H

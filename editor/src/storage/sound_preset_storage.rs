@@ -169,7 +169,7 @@ mod tests {
             "unexpected error kind: {:?}",
             error.kind()
         );
-        assert!(!resources_folder_current().join(GAME_RON).exists());
+        assert!(!resources_folder_current().join(paths::GAME_RON).exists());
     }
 
     #[test]
