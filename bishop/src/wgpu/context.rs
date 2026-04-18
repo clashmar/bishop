@@ -15,6 +15,7 @@ use super::render::{
 };
 use super::state::{GraphicsState, GraphicsStateError, InputState, TimeState};
 use crate::camera::Camera2D;
+use crate::input::MouseWheelKind;
 use crate::types::Color;
 use crate::window::CursorIcon;
 
@@ -225,17 +226,23 @@ impl WgpuContext {
                 self.input.on_mouse_move(x, y);
             }
             WindowEvent::MouseWheel { delta, .. } => {
-                let (dx, dy) = match delta {
-                    MouseScrollDelta::LineDelta(x, y) => (*x, *y),
+                let (dx, dy, kind) = match delta {
+                    MouseScrollDelta::LineDelta(x, y) => (*x, *y, MouseWheelKind::Line),
                     MouseScrollDelta::PixelDelta(pos) => (
                         pos.x as f32 / self.scale_factor,
                         pos.y as f32 / self.scale_factor,
+                        MouseWheelKind::Pixel,
                     ),
                 };
-                self.input.on_mouse_wheel(dx, dy);
+                self.input.on_mouse_wheel(dx, dy, kind);
             }
             _ => {}
         }
+    }
+
+    /// Returns the source kind for the most recent mouse wheel event this frame.
+    pub fn mouse_wheel_kind(&self) -> Option<MouseWheelKind> {
+        self.input.mouse_wheel_kind()
     }
 
     /// Returns a reference to the underlying window.
