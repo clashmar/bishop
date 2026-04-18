@@ -3,6 +3,7 @@ use crate::scripting::commands::text_commands::ShowSpeechCmd;
 use crate::scripting::lua_ctx::LuaGameCtx;
 use crate::scripting::modules::entity_module::handle::{ensure_live_entity, EntityHandle};
 use engine_core::prelude::*;
+use engine_core::scripting::lua_constants::lua_text;
 use mlua::{Table, UserDataMethods};
 use std::collections::HashMap;
 
@@ -11,7 +12,7 @@ pub struct SayMethod;
 impl LuaMethod<EntityHandle> for SayMethod {
     fn register<M: UserDataMethods<EntityHandle>>(&self, methods: &mut M) {
         methods.add_method(
-            SAY,
+            lua_text::SAY,
             |lua, this, (dialogue_id, key, opts): (String, String, Option<Table>)| {
                 let ctx = LuaGameCtx::borrow_ctx(lua)?;
                 let game_instance = ctx.game_instance.borrow();
@@ -107,7 +108,7 @@ impl LuaMethod<EntityHandle> for SayMethod {
         out.line("---@param opts? {vars?: table<string, string>, duration?: number, color?: number[], offset?: number[], font_size?: number, max_width?: number, show_background?: boolean, background_color?: number[]}");
         out.line(&format!(
             "function Entity:{}(dialogue_id, key, opts) end",
-            SAY
+            lua_text::SAY
         ));
         out.line("");
     }

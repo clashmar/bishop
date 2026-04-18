@@ -1,12 +1,10 @@
 // editor/src/editor_assets/editor_assets.rs
 #![allow(unused)]
-use crate::storage::sound_preset_storage::SoundPresetLibrary;
 use crate::editor_assets::prefabs_lua::generate_prefabs_lua;
+use crate::storage::sound_preset_storage::SoundPresetLibrary;
 use bishop::prelude::*;
 use engine_core::prelude::*;
-use engine_core::scripting::lua_constants::{
-    ANIMATIONS_FILE, ENGINE_DIR, PREFABS_FILE, SOUNDS_FILE,
-};
+use engine_core::scripting::lua_constants::{lua_dirs, lua_files};
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 use std::sync::{LazyLock, OnceLock};
@@ -118,7 +116,7 @@ pub use crate::editor_assets::sounds_lua::generate_sounds_lua;
 
 /// Write embedded shared `_engine` scripts to the specified scripts folder.
 pub fn write_engine_scripts(scripts_folder: &Path) -> io::Result<()> {
-    let engine_folder = scripts_folder.join(ENGINE_DIR);
+    let engine_folder = scripts_folder.join(lua_dirs::ENGINE);
     fs::create_dir_all(&engine_folder)?;
 
     for (filename, content) in ENGINE_SCRIPTS {
@@ -150,30 +148,30 @@ fn hide_folder(path: &Path) {
 
 /// Writes the per-game `animations.lua` file with built-in and custom clips.
 pub fn write_animations_lua(scripts_folder: &Path, custom_clips: &[String]) -> io::Result<()> {
-    let engine_folder = scripts_folder.join(ENGINE_DIR);
+    let engine_folder = scripts_folder.join(lua_dirs::ENGINE);
     fs::create_dir_all(&engine_folder)?;
     fs::write(
-        engine_folder.join(ANIMATIONS_FILE),
+        engine_folder.join(lua_files::ANIMATIONS),
         generate_animations_lua(custom_clips),
     )
 }
 
 /// Writes the per-game `sounds.lua` file with the supplied group names.
 pub fn write_sounds_lua(scripts_folder: &Path, group_names: &[String]) -> io::Result<()> {
-    let engine_folder = scripts_folder.join(ENGINE_DIR);
+    let engine_folder = scripts_folder.join(lua_dirs::ENGINE);
     fs::create_dir_all(&engine_folder)?;
     fs::write(
-        engine_folder.join(SOUNDS_FILE),
+        engine_folder.join(lua_files::SOUNDS),
         generate_sounds_lua(group_names),
     )
 }
 
 /// Writes the per-game `prefabs.lua` file with the supplied prefab names.
 pub fn write_prefabs_lua(scripts_folder: &Path, prefab_names: &[String]) -> io::Result<()> {
-    let engine_folder = scripts_folder.join(ENGINE_DIR);
+    let engine_folder = scripts_folder.join(lua_dirs::ENGINE);
     fs::create_dir_all(&engine_folder)?;
     fs::write(
-        engine_folder.join(PREFABS_FILE),
+        engine_folder.join(lua_files::PREFABS),
         generate_prefabs_lua(prefab_names),
     )
 }

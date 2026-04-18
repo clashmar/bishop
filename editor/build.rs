@@ -1,7 +1,7 @@
 // editor/build.rs
 use engine_core::ecs::component_registry::public_lua_components;
 use engine_core::input::input_table::*;
-use engine_core::scripting::lua_constants::{COMPONENTS_FILE, LUA_OWNER_SHARED_ENGINE};
+use engine_core::scripting::lua_constants::{lua_files, lua_ownership};
 use std::collections::HashSet;
 use std::env;
 use std::fs;
@@ -58,10 +58,11 @@ fn generate_lua_components() {
 
     let mut lua = format!(
         "-- Auto-generated. Do not edit.\n\
-        {LUA_OWNER_SHARED_ENGINE}\n\
+        {}\n\
         ---@meta\n\
         ---@alias vec2 {{ x: number, y: number }}\n\
-        ---@alias vec3 {{ x: number, y: number, z: number }}\n\n"
+        ---@alias vec3 {{ x: number, y: number, z: number }}\n\n",
+        lua_ownership::LUA_OWNER_SHARED_ENGINE,
     );
 
     // Generate class definitions for each component with their schema
@@ -111,7 +112,7 @@ fn generate_lua_components() {
 
     lua.push_str("\nreturn C\n");
 
-    let target = out_dir.join(COMPONENTS_FILE);
+    let target = out_dir.join(lua_files::COMPONENTS);
     write_if_changed(&target, &lua);
 }
 
@@ -124,8 +125,9 @@ fn generate_lua_input() {
 
     let mut lua = format!(
         "-- Auto-generated. Do not edit.\n\
-        {LUA_OWNER_SHARED_ENGINE}\n\
-        ---@meta\n\n"
+        {}\n\
+        ---@meta\n\n",
+        lua_ownership::LUA_OWNER_SHARED_ENGINE,
     );
 
     // Enum definition
@@ -170,7 +172,7 @@ fn generate_lua_direction() {
 
     let lua = format!(
         "-- Auto-generated. Do not edit.\n\
-        {LUA_OWNER_SHARED_ENGINE}\n\
+        {}\n\
         ---@meta\n\n\
         ---@enum Direction\n\
         local Direction = {{\n\
@@ -183,7 +185,8 @@ fn generate_lua_direction() {
             DownLeft = \"down_left\",\n\
             DownRight = \"down_right\",\n\
         }}\n\n\
-        return Direction\n"
+        return Direction\n",
+        lua_ownership::LUA_OWNER_SHARED_ENGINE,
     );
 
     let target = out_dir.join("direction.lua");
@@ -199,7 +202,7 @@ fn generate_lua_script() {
 
     let lua = format!(
         "-- Auto-generated. Do not edit.\n\
-        {LUA_OWNER_SHARED_ENGINE}\n\
+        {}\n\
         ---@meta\n\
         ---@class ScriptDef\n\
         ---@field public table\n\
@@ -210,7 +213,8 @@ fn generate_lua_script() {
         ---@class Script : ScriptDef\n\
         ---@field entity Entity\n\
         local Script = {{}}\n\
-        return Script\n"
+        return Script\n",
+        lua_ownership::LUA_OWNER_SHARED_ENGINE,
     );
 
     let target = out_dir.join("script.lua");

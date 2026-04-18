@@ -1,6 +1,7 @@
 use crate::scripting::lua_ctx::LuaGameCtx;
 use crate::scripting::modules::entity_module::handle::{ensure_live_entity, EntityHandle};
 use engine_core::prelude::*;
+use engine_core::scripting::lua_constants::lua_entity;
 use mlua::prelude::LuaResult;
 use mlua::{UserDataMethods, Variadic};
 
@@ -8,7 +9,7 @@ pub struct HasMethod;
 
 impl LuaMethod<EntityHandle> for HasMethod {
     fn register<M: UserDataMethods<EntityHandle>>(&self, methods: &mut M) {
-        methods.add_method(HAS, |lua, this, comp_name: String| {
+        methods.add_method(lua_entity::HAS, |lua, this, comp_name: String| {
             let ctx = LuaGameCtx::borrow_ctx(lua)?;
             let game_instance = ctx.game_instance.borrow();
             let ecs = &game_instance.game.ecs;
@@ -17,7 +18,7 @@ impl LuaMethod<EntityHandle> for HasMethod {
             Ok((reg.has)(ecs, this.entity))
         });
 
-        methods.add_method(HAS_ANY, |lua, this, comps: Variadic<String>| {
+        methods.add_method(lua_entity::HAS_ANY, |lua, this, comps: Variadic<String>| {
             let ctx = LuaGameCtx::borrow_ctx(lua)?;
             let game_instance = ctx.game_instance.borrow();
             let ecs = &game_instance.game.ecs;
@@ -34,7 +35,7 @@ impl LuaMethod<EntityHandle> for HasMethod {
             Ok(false)
         });
 
-        methods.add_method(HAS_ALL, |lua, this, comps: Variadic<String>| {
+        methods.add_method(lua_entity::HAS_ALL, |lua, this, comps: Variadic<String>| {
             let ctx = LuaGameCtx::borrow_ctx(lua)?;
             let game_instance = ctx.game_instance.borrow();
             let ecs = &game_instance.game.ecs;
@@ -55,17 +56,20 @@ impl LuaMethod<EntityHandle> for HasMethod {
     fn emit_api(&self, out: &mut LuaApiWriter) {
         out.line("---@param component ComponentId");
         out.line("---@return boolean");
-        out.line(&format!("function Entity:{}(component) end", HAS));
+        out.line(&format!(
+            "function Entity:{}(component) end",
+            lua_entity::HAS
+        ));
         out.line("");
 
         out.line("---@param ... ComponentId");
         out.line("---@return boolean");
-        out.line(&format!("function Entity:{}(...) end", HAS_ANY));
+        out.line(&format!("function Entity:{}(...) end", lua_entity::HAS_ANY));
         out.line("");
 
         out.line("---@param ... ComponentId");
         out.line("---@return boolean");
-        out.line(&format!("function Entity:{}(...) end", HAS_ALL));
+        out.line(&format!("function Entity:{}(...) end", lua_entity::HAS_ALL));
         out.line("");
     }
 }

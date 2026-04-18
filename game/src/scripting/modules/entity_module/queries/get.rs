@@ -1,13 +1,14 @@
 use crate::scripting::lua_ctx::LuaGameCtx;
 use crate::scripting::modules::entity_module::handle::{ensure_live_entity, EntityHandle};
 use engine_core::prelude::*;
+use engine_core::scripting::lua_constants::lua_entity;
 use mlua::UserDataMethods;
 
 pub struct GetMethod;
 
 impl LuaMethod<EntityHandle> for GetMethod {
     fn register<M: UserDataMethods<EntityHandle>>(&self, methods: &mut M) {
-        methods.add_method(GET, |lua, this, comp_name: String| {
+        methods.add_method(lua_entity::GET, |lua, this, comp_name: String| {
             let ctx = LuaGameCtx::borrow_ctx(lua)?;
             let game_instance = ctx.game_instance.borrow();
             let ecs = &game_instance.game.ecs;
@@ -37,7 +38,10 @@ impl LuaMethod<EntityHandle> for GetMethod {
         }
         out.line("---@param component ComponentId");
         out.line("---@return table|nil");
-        out.line(&format!("function Entity:{}(component) end", GET));
+        out.line(&format!(
+            "function Entity:{}(component) end",
+            lua_entity::GET
+        ));
         out.line("");
     }
 }

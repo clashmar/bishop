@@ -1,7 +1,7 @@
 use crate::ecs::entity::Entity;
 use crate::game::GameCtxMut;
 use crate::scripting::helpers::{read_script_field, write_script_field};
-use crate::scripting::lua_constants::PUBLIC;
+use crate::scripting::lua_constants::lua_fields;
 use crate::scripting::script_manager::ScriptManager;
 use ecs_component::ecs_component;
 use mlua::prelude::LuaResult;
@@ -68,7 +68,7 @@ impl Script {
             script_manager.get_or_create_instance(lua, entity, self.script_id)?;
 
         // Determine the public fields table
-        let public: Table = match instance.get::<Option<Table>>(PUBLIC)? {
+        let public: Table = match instance.get::<Option<Table>>(lua_fields::PUBLIC)? {
             Some(t) => t,
             None => instance.clone(),
         };
@@ -116,7 +116,7 @@ impl Script {
     /// Use this when you already have the instance to avoid redundant lookups.
     pub fn sync_to_lua_with_instance(&self, lua: &Lua, instance: &Table) -> LuaResult<()> {
         let public = instance
-            .get::<Option<Table>>(PUBLIC)?
+            .get::<Option<Table>>(lua_fields::PUBLIC)?
             .unwrap_or_else(|| instance.clone());
 
         for (name, field) in &self.data.fields {
@@ -137,7 +137,7 @@ fn post_remove(script: &mut Script, entity: &Entity, ctx: &mut GameCtxMut<'_>) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::scripting::lua_constants::{POSITION, PUBLIC};
+    use crate::scripting::lua_constants::lua_fields;
 
     #[test]
     fn load_reads_named_vec_tables_and_syncs_named_vec_tables() {
@@ -153,9 +153,9 @@ mod tests {
         color.set("x", 0.25).unwrap();
         color.set("y", 0.5).unwrap();
         color.set("z", 0.75).unwrap();
-        public.set(POSITION, position).unwrap();
+        public.set(lua_fields::POSITION, position).unwrap();
         public.set("color", color).unwrap();
-        def.set(PUBLIC, public).unwrap();
+        def.set(lua_fields::PUBLIC, public).unwrap();
         script_manager.table_defs.insert(ScriptId(1), def);
 
         let mut script = Script {
@@ -166,7 +166,7 @@ mod tests {
         script.load(&lua, &mut script_manager, Entity(7)).unwrap();
 
         assert!(matches!(
-            script.data.fields.get(POSITION),
+            script.data.fields.get(lua_fields::POSITION),
             Some(ScriptField::Vec2(v)) if *v == [12.5, -3.0]
         ));
         assert!(matches!(
@@ -179,8 +179,8 @@ mod tests {
             .iter()
             .find(|((entity, _), _)| *entity == Entity(7))
             .expect("missing script instance");
-        let public: Table = instance.get(PUBLIC).unwrap();
-        let position: Table = public.get(POSITION).unwrap();
+        let public: Table = instance.get(lua_fields::PUBLIC).unwrap();
+        let position: Table = public.get(lua_fields::POSITION).unwrap();
         let color: Table = public.get("color").unwrap();
         assert_eq!(position.get::<f32>("x").unwrap(), 12.5);
         assert_eq!(position.get::<f32>("y").unwrap(), -3.0);
@@ -199,8 +199,8 @@ mod tests {
 
         position.set(1, 12.5).unwrap();
         position.set(2, -3.0).unwrap();
-        public.set(POSITION, position).unwrap();
-        def.set(PUBLIC, public).unwrap();
+        public.set(lua_fields::POSITION, position).unwrap();
+        def.set(lua_fields::PUBLIC, public).unwrap();
         script_manager.table_defs.insert(ScriptId(1), def);
 
         let mut script = Script {
@@ -212,6 +212,6 @@ mod tests {
             .load(&lua, &mut script_manager, Entity(7))
             .unwrap_err();
 
-        assert!(error.to_string().contains(POSITION));
+        assert!(error.to_string().contains(lua_fields::POSITION));
     }
 }

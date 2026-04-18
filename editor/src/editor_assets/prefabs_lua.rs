@@ -1,4 +1,4 @@
-use engine_core::scripting::lua_constants::LUA_OWNER_GAME_GENERATED;
+use engine_core::scripting::lua_constants::lua_ownership;
 use std::collections::HashSet;
 
 /// Generates `prefabs.lua` with sorted, sanitized prefab identifiers.
@@ -10,10 +10,11 @@ pub fn generate_prefabs_lua(prefab_names: &[String]) -> String {
 
     let mut lua = format!(
         "-- Auto-generated. Do not edit.\n\
-        {LUA_OWNER_GAME_GENERATED}\n\
+        {}\n\
         ---@meta\n\n\
         ---@enum PrefabId\n\
         local PrefabId = {{\n",
+        lua_ownership::LUA_OWNER_GAME_GENERATED,
     );
 
     for name in names {
@@ -87,7 +88,7 @@ mod tests {
     fn generate_prefabs_lua_marks_file_as_game_generated() {
         let lua = generate_prefabs_lua(&[]);
 
-        assert!(lua.contains(LUA_OWNER_GAME_GENERATED));
+        assert!(lua.contains(lua_ownership::LUA_OWNER_GAME_GENERATED));
     }
 
     #[test]

@@ -3,7 +3,7 @@ use crate::scripting::modules::entity_module::lua_entity_handle;
 use crate::scripting::script_system::ScriptSystem;
 use bishop::prelude::*;
 use engine_core::prelude::*;
-use engine_core::scripting::lua_constants::{ENGINE, ENGINE_FILE, POSITION, PREFAB, SPAWN};
+use engine_core::scripting::lua_constants::{lua_engine, lua_fields, lua_files};
 use engine_core::scripting::parse_named_vec2;
 use engine_core::{register_lua_api, register_lua_module};
 use mlua::prelude::LuaResult;
@@ -18,11 +18,11 @@ struct SpawnOptions {
 #[derive(Default)]
 pub struct PrefabModule;
 register_lua_module!(PrefabModule);
-register_lua_api!(PrefabModule, ENGINE_FILE);
+register_lua_api!(PrefabModule, lua_files::ENGINE);
 
 impl LuaModule for PrefabModule {
     fn register(&self, lua: &Lua) -> LuaResult<()> {
-        let engine_tbl: Table = lua.globals().get(ENGINE)?;
+        let engine_tbl: Table = lua.globals().get(lua_engine::ENGINE)?;
         let prefab_tbl = lua.create_table()?;
 
         let spawn_fn = lua.create_function(
@@ -33,8 +33,8 @@ impl LuaModule for PrefabModule {
             },
         )?;
 
-        prefab_tbl.set(SPAWN, spawn_fn)?;
-        engine_tbl.set(PREFAB, prefab_tbl)?;
+        prefab_tbl.set(lua_engine::SPAWN, spawn_fn)?;
+        engine_tbl.set(lua_engine::PREFAB, prefab_tbl)?;
         Ok(())
     }
 }
@@ -56,7 +56,16 @@ fn parse_spawn_args(
     position: Table,
     init: Option<Table>,
 ) -> LuaResult<(SpawnOptions, Option<Value>)> {
-    let position = parse_named_vec2(&position, &format!("{ENGINE}.{PREFAB}.{SPAWN} {POSITION}"))?;
+    let position = parse_named_vec2(
+        &position,
+        &format!(
+            "{}.{}.{} {}",
+            lua_engine::ENGINE,
+            lua_engine::PREFAB,
+            lua_engine::SPAWN,
+            lua_fields::POSITION,
+        ),
+    )?;
 
     let spawn_args = init.map(Value::Table);
 
@@ -161,12 +170,12 @@ mod tests {
 
     #[test]
     fn parse_spawn_args_reads_named_position_and_init_table() {
-        use engine_core::scripting::lua_constants::{X as LUA_X, Y as LUA_Y};
+        use engine_core::scripting::lua_constants::lua_fields;
 
         let lua = Lua::new();
         let position = lua.create_table().unwrap();
-        position.set(LUA_X, 12.5).unwrap();
-        position.set(LUA_Y, -3.0).unwrap();
+        position.set(lua_fields::X, 12.5).unwrap();
+        position.set(lua_fields::Y, -3.0).unwrap();
         let init = lua.create_table().unwrap();
         init.set("direction", "left").unwrap();
 

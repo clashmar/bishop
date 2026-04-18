@@ -1,5 +1,5 @@
 use crate::ecs::ScriptField;
-use crate::scripting::lua_constants::{X, Y, Z};
+use crate::scripting::lua_constants::lua_fields;
 use bishop::prelude::{Vec2, Vec3};
 use mlua::prelude::LuaResult;
 use mlua::{Lua, Table, Value};
@@ -60,17 +60,17 @@ pub fn write_script_field(
 /// Writes a `Vec2` into a named Lua table.
 pub fn write_named_vec2_table(lua: &Lua, value: Vec2) -> LuaResult<Table> {
     let table = lua.create_table()?;
-    table.set(X, value.x)?;
-    table.set(Y, value.y)?;
+    table.set(lua_fields::X, value.x)?;
+    table.set(lua_fields::Y, value.y)?;
     Ok(table)
 }
 
 /// Writes a `Vec3` into a named Lua table.
 pub fn write_named_vec3_table(lua: &Lua, value: Vec3) -> LuaResult<Table> {
     let table = lua.create_table()?;
-    table.set(X, value.x)?;
-    table.set(Y, value.y)?;
-    table.set(Z, value.z)?;
+    table.set(lua_fields::X, value.x)?;
+    table.set(lua_fields::Y, value.y)?;
+    table.set(lua_fields::Z, value.z)?;
     Ok(table)
 }
 
@@ -78,10 +78,10 @@ pub fn write_named_vec3_table(lua: &Lua, value: Vec3) -> LuaResult<Table> {
 pub fn parse_named_vec2(table: &Table, context: &str) -> LuaResult<Vec2> {
     reject_indexed_vector_keys(table, context)?;
     let x = table
-        .get::<Option<f32>>(X)?
+        .get::<Option<f32>>(lua_fields::X)?
         .ok_or_else(|| named_vector_error(context))?;
     let y = table
-        .get::<Option<f32>>(Y)?
+        .get::<Option<f32>>(lua_fields::Y)?
         .ok_or_else(|| named_vector_error(context))?;
 
     Ok(Vec2::new(x, y))
@@ -92,13 +92,13 @@ pub fn read_named_vec3_table(table: &Table, field_name: &str) -> LuaResult<Vec3>
     let context = format!("Script field '{field_name}'");
     reject_indexed_vector_keys(table, &context)?;
     let x = table
-        .get::<Option<f32>>(X)?
+        .get::<Option<f32>>(lua_fields::X)?
         .ok_or_else(|| named_vector_error(&context))?;
     let y = table
-        .get::<Option<f32>>(Y)?
+        .get::<Option<f32>>(lua_fields::Y)?
         .ok_or_else(|| named_vector_error(&context))?;
     let z = table
-        .get::<Option<f32>>(Z)?
+        .get::<Option<f32>>(lua_fields::Z)?
         .ok_or_else(|| named_vector_error(&context))?;
 
     Ok(Vec3::new(x, y, z))
@@ -107,9 +107,9 @@ pub fn read_named_vec3_table(table: &Table, field_name: &str) -> LuaResult<Vec3>
 fn read_script_vector_field(name: &str, table: &Table) -> LuaResult<Option<ScriptField>> {
     let context = format!("Script field '{name}'");
     reject_indexed_vector_keys(table, &context)?;
-    let x = table.get::<Option<f32>>(X)?;
-    let y = table.get::<Option<f32>>(Y)?;
-    let z = table.get::<Option<f32>>(Z)?;
+    let x = table.get::<Option<f32>>(lua_fields::X)?;
+    let y = table.get::<Option<f32>>(lua_fields::Y)?;
+    let z = table.get::<Option<f32>>(lua_fields::Z)?;
 
     match (x, y, z) {
         (Some(_), Some(_), Some(_)) => {
@@ -139,26 +139,28 @@ fn reject_indexed_vector_keys(table: &Table, context: &str) -> LuaResult<()> {
 
 fn named_vector_error(context: &str) -> mlua::Error {
     mlua::Error::RuntimeError(format!(
-        "{context} must use named vector table {{ {X} = number, {Y} = number }}"
+        "{context} must use named vector table {{ {} = number, {} = number }}",
+        lua_fields::X,
+        lua_fields::Y,
     ))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::scripting::lua_constants::POSITION;
+    use crate::scripting::lua_constants::lua_fields;
 
     fn assert_named_vec2_table(table: &Table, expected_x: f32, expected_y: f32) {
-        assert_eq!(table.get::<f32>(X).unwrap(), expected_x);
-        assert_eq!(table.get::<f32>(Y).unwrap(), expected_y);
+        assert_eq!(table.get::<f32>(lua_fields::X).unwrap(), expected_x);
+        assert_eq!(table.get::<f32>(lua_fields::Y).unwrap(), expected_y);
         assert!(matches!(table.get::<Value>(1).unwrap(), Value::Nil));
         assert!(matches!(table.get::<Value>(2).unwrap(), Value::Nil));
     }
 
     fn assert_named_vec3_table(table: &Table, expected_x: f32, expected_y: f32, expected_z: f32) {
-        assert_eq!(table.get::<f32>(X).unwrap(), expected_x);
-        assert_eq!(table.get::<f32>(Y).unwrap(), expected_y);
-        assert_eq!(table.get::<f32>(Z).unwrap(), expected_z);
+        assert_eq!(table.get::<f32>(lua_fields::X).unwrap(), expected_x);
+        assert_eq!(table.get::<f32>(lua_fields::Y).unwrap(), expected_y);
+        assert_eq!(table.get::<f32>(lua_fields::Z).unwrap(), expected_z);
         assert!(matches!(table.get::<Value>(1).unwrap(), Value::Nil));
         assert!(matches!(table.get::<Value>(2).unwrap(), Value::Nil));
         assert!(matches!(table.get::<Value>(3).unwrap(), Value::Nil));
@@ -174,7 +176,13 @@ mod tests {
         let lua = Lua::new();
         let public = lua.create_table().unwrap();
 
-        write_script_field(&lua, &public, POSITION, &ScriptField::Vec2([12.5, -3.0])).unwrap();
+        write_script_field(
+            &lua,
+            &public,
+            lua_fields::POSITION,
+            &ScriptField::Vec2([12.5, -3.0]),
+        )
+        .unwrap();
         write_script_field(
             &lua,
             &public,
@@ -183,7 +191,7 @@ mod tests {
         )
         .unwrap();
 
-        let position: Table = public.get(POSITION).unwrap();
+        let position: Table = public.get(lua_fields::POSITION).unwrap();
         let color: Table = public.get("color").unwrap();
         assert_named_vec2_table(&position, 12.5, -3.0);
         assert_named_vec3_table(&color, 0.25, 0.5, 0.75);
@@ -195,13 +203,14 @@ mod tests {
         let position = lua.create_table().unwrap();
         let color = lua.create_table().unwrap();
 
-        position.set(X, 12.5).unwrap();
-        position.set(Y, -3.0).unwrap();
-        color.set(X, 0.25).unwrap();
-        color.set(Y, 0.5).unwrap();
-        color.set(Z, 0.75).unwrap();
+        position.set(lua_fields::X, 12.5).unwrap();
+        position.set(lua_fields::Y, -3.0).unwrap();
+        color.set(lua_fields::X, 0.25).unwrap();
+        color.set(lua_fields::Y, 0.5).unwrap();
+        color.set(lua_fields::Z, 0.75).unwrap();
 
-        let position_field = read_script_field(POSITION, Value::Table(position)).unwrap();
+        let position_field =
+            read_script_field(lua_fields::POSITION, Value::Table(position)).unwrap();
         let color_field = read_script_field("color", Value::Table(color)).unwrap();
 
         assert!(matches!(
@@ -221,17 +230,17 @@ mod tests {
         position.set(1, 12.5).unwrap();
         position.set(2, -3.0).unwrap();
 
-        let error = read_script_field(POSITION, Value::Table(position)).unwrap_err();
+        let error = read_script_field(lua_fields::POSITION, Value::Table(position)).unwrap_err();
 
-        assert!(error.to_string().contains(POSITION));
+        assert!(error.to_string().contains(lua_fields::POSITION));
     }
 
     #[test]
     fn read_named_vec2_reads_named_fields() {
         let lua = Lua::new();
         let position = lua.create_table().unwrap();
-        position.set(X, 12.5).unwrap();
-        position.set(Y, -3.0).unwrap();
+        position.set(lua_fields::X, 12.5).unwrap();
+        position.set(lua_fields::Y, -3.0).unwrap();
 
         let position = parse_named_vec2(&position, "position").unwrap();
 

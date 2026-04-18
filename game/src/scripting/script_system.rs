@@ -3,6 +3,7 @@ use crate::engine::Engine;
 use crate::game_global::drain_commands;
 use crate::scripting::modules::entity_module::*;
 use engine_core::prelude::*;
+use engine_core::scripting::lua_constants::{lua_engine, lua_entity, lua_files, lua_globals};
 use mlua::prelude::LuaResult;
 use mlua::Lua;
 use mlua::{Function, Table, Value};
@@ -23,7 +24,10 @@ impl ScriptSystem {
         };
 
         // Store the event bus in Lua so engine.on/engine.emit work at require-time
-        if let Err(e) = lua.globals().set(LUA_EVENT_BUS, event_bus.clone()) {
+        if let Err(e) = lua
+            .globals()
+            .set(lua_globals::LUA_EVENT_BUS, event_bus.clone())
+        {
             onscreen_error!("Failed to store event bus: {e}");
         }
 
@@ -41,8 +45,8 @@ impl ScriptSystem {
         }
 
         // Store the global update function if main.lua set engine.update
-        if let Ok(engine_tbl) = lua.globals().get::<Table>(ENGINE) {
-            if let Ok(update_fn) = engine_tbl.get::<Function>(UPDATE) {
+        if let Ok(engine_tbl) = lua.globals().get::<Table>(lua_engine::ENGINE) {
+            if let Ok(update_fn) = engine_tbl.get::<Function>(lua_entity::UPDATE) {
                 if let Err(e) = lua.set_named_registry_value(GLOBAL_UPDATE_KEY, update_fn) {
                     onscreen_error!("Failed to store global update: {e}");
                 }
@@ -52,7 +56,7 @@ impl ScriptSystem {
 
     /// Loads and executes main.lua if present.
     fn load_main(lua: &Lua) -> LuaResult<()> {
-        let main_path = scripts_folder().join(MAIN_FILE);
+        let main_path = scripts_folder().join(lua_files::MAIN);
         let src =
             fs::read_to_string(main_path).map_err(|e| mlua::Error::ExternalError(Arc::new(e)))?;
         lua.load(&src).exec()
@@ -61,8 +65,8 @@ impl ScriptSystem {
     /// Called during init.
     fn register_engine_module(lua: &Lua) -> LuaResult<()> {
         let engine_mod = lua.create_table()?;
-        lua.globals().set(ENGINE, engine_mod.clone())?;
-        lua.register_module(ENGINE, &engine_mod)?;
+        lua.globals().set(lua_engine::ENGINE, engine_mod.clone())?;
+        lua.register_module(lua_engine::ENGINE, &engine_mod)?;
         Ok(())
     }
 
@@ -79,7 +83,7 @@ impl ScriptSystem {
                 .into_iter()
                 .filter_map(|(entity, script_id)| {
                     let instance = script_manager.instances.get(&(entity, script_id))?;
-                    let init_fn = instance.get::<Function>(INIT).ok()?;
+                    let init_fn = instance.get::<Function>(lua_entity::INIT).ok()?;
                     Some((init_fn.clone(), instance.clone()))
                 })
                 .collect()
@@ -171,9 +175,9 @@ impl ScriptSystem {
             // Only setup entity handle and queue init for newly created instances
             if created {
                 let handle = lua_entity_handle(lua, *entity)?;
-                instance.set(ENTITY, handle)?;
+                instance.set(lua_globals::ENTITY, handle)?;
 
-                let has_init = instance.get::<Function>(INIT).is_ok();
+                let has_init = instance.get::<Function>(lua_entity::INIT).is_ok();
 
                 // Use sync_to_lua_with_instance to avoid redundant lookup
                 script.sync_to_lua_with_instance(lua, instance)?;
@@ -222,10 +226,10 @@ impl ScriptSystem {
             }
 
             let handle = lua_entity_handle(lua, entity)?;
-            instance.set(ENTITY, handle)?;
+            instance.set(lua_globals::ENTITY, handle)?;
             script.sync_to_lua_with_instance(lua, instance)?;
 
-            if let Ok(init_fn) = instance.get::<Function>(INIT) {
+            if let Ok(init_fn) = instance.get::<Function>(lua_entity::INIT) {
                 let args = if entity == root_entity {
                     root_has_init = true;
                     root_args.clone()
@@ -267,7 +271,7 @@ fn script_update_is_still_valid(ecs: &Ecs, entity: Entity, script_id: ScriptId) 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use engine_core::scripting::lua_constants::PUBLIC;
+    use engine_core::scripting::lua_constants::lua_fields;
 
     #[test]
     fn script_update_eligibility_rejects_entities_without_the_same_script_component() {
@@ -299,7 +303,7 @@ mod tests {
         let init_args = lua.create_table().unwrap();
 
         public.set("speed", 120).unwrap();
-        def.set(PUBLIC, public).unwrap();
+        def.set(lua_fields::PUBLIC, public).unwrap();
         init_args.set("direction", "left").unwrap();
         script_manager.table_defs.insert(ScriptId(1), def);
         ecs.add_component_to_entity(

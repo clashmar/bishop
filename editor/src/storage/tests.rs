@@ -1,9 +1,7 @@
 use super::editor_storage::*;
 use crate::editor_assets::write_prefabs_lua;
 use engine_core::prelude::*;
-use engine_core::scripting::lua_constants::{
-    COMPONENTS_FILE, ENGINE_DIR, ENTITY_FILE, PREFABS_FILE, SCRIPTS_DIR,
-};
+use engine_core::scripting::lua_constants::{lua_dirs, lua_files};
 use engine_core::storage::path_utils::sanitise_name;
 use engine_core::storage::test_utils::{game_fs_test_lock, TestGameFolder};
 
@@ -105,7 +103,9 @@ fn save_game_writes_prefabs_lua() {
 
     save_game(&game).unwrap();
 
-    let prefabs_path = scripts_folder().join(ENGINE_DIR).join(PREFABS_FILE);
+    let prefabs_path = scripts_folder()
+        .join(lua_dirs::ENGINE)
+        .join(lua_files::PREFABS);
     assert!(prefabs_path.is_file());
     let contents = std::fs::read_to_string(prefabs_path).unwrap();
     assert!(contents.contains("BossAttack = \"Boss Attack\""));
@@ -173,7 +173,9 @@ fn write_prefabs_lua_sanitizes_collisions() {
     )
     .unwrap();
 
-    let prefabs_path = scripts_folder().join(ENGINE_DIR).join(PREFABS_FILE);
+    let prefabs_path = scripts_folder()
+        .join(lua_dirs::ENGINE)
+        .join(lua_files::PREFABS);
     let contents = std::fs::read_to_string(prefabs_path).unwrap();
 
     assert!(contents.contains("BossAttack = \"Boss Attack\""));
@@ -184,9 +186,9 @@ fn write_prefabs_lua_sanitizes_collisions() {
 #[test]
 fn generated_lua_typings_hide_prefab_internal_components() {
     let root = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    let engine_dir = root.join(SCRIPTS_DIR).join(ENGINE_DIR);
-    let components = std::fs::read_to_string(engine_dir.join(COMPONENTS_FILE)).unwrap();
-    let entity = std::fs::read_to_string(engine_dir.join(ENTITY_FILE)).unwrap();
+    let engine_dir = root.join(lua_dirs::SCRIPTS).join(lua_dirs::ENGINE);
+    let components = std::fs::read_to_string(engine_dir.join(lua_files::COMPONENTS)).unwrap();
+    let entity = std::fs::read_to_string(engine_dir.join(lua_files::ENTITY)).unwrap();
     let public_type = comp_type_name::<Transform>();
     let hidden = [
         comp_type_name::<PrefabInstanceNode>(),

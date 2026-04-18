@@ -51,8 +51,8 @@ pub struct TimingTraceLogger {
     disabled: bool,
 }
 
-impl TimingTraceLogger {
-    pub fn new() -> Self {
+impl Default for TimingTraceLogger {
+    fn default() -> Self {
         Self {
             path: env::temp_dir().join(TIMING_TRACE_FILE_NAME),
             writer: None,
@@ -61,7 +61,9 @@ impl TimingTraceLogger {
             disabled: false,
         }
     }
+}
 
+impl TimingTraceLogger {
     pub fn path(&self) -> &Path {
         &self.path
     }

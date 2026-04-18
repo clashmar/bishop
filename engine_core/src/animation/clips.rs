@@ -2,7 +2,7 @@ use crate::animation::clip_id_helpers::{builtin_clip_ids, sprite_filename};
 use crate::assets::sprite_manager::SpriteManager;
 use crate::constants::DEFAULT_GRID_SIZE;
 use crate::ecs::SpriteId;
-use crate::scripting::lua_constants::LUA_OWNER_GAME_GENERATED;
+use crate::scripting::lua_constants::lua_ownership;
 use bishop::prelude::*;
 use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, FromInto};
@@ -139,10 +139,11 @@ pub fn generate_animations_lua(custom_clips: &[String]) -> String {
 
     let mut lua = format!(
         "-- Auto-generated. Do not edit.\n\
-        {LUA_OWNER_GAME_GENERATED}\n\
+        {}\n\
         ---@meta\n\n\
         ---@enum ClipId\n\
-        local ClipId = {{\n"
+        local ClipId = {{\n",
+        lua_ownership::LUA_OWNER_GAME_GENERATED,
     );
 
     let mut builtin_names = HashSet::new();
@@ -208,6 +209,6 @@ mod tests {
     fn generate_animations_lua_marks_file_as_game_generated() {
         let lua = generate_animations_lua(&[]);
 
-        assert!(lua.contains(LUA_OWNER_GAME_GENERATED));
+        assert!(lua.contains(lua_ownership::LUA_OWNER_GAME_GENERATED));
     }
 }

@@ -1,4 +1,5 @@
 use engine_core::prelude::*;
+use engine_core::scripting::lua_constants::{lua_fields, lua_files, lua_globals};
 use mlua::prelude::LuaResult;
 use mlua::{Lua, UserData, UserDataMethods, UserDataRegistry};
 use strum::IntoEnumIterator;
@@ -64,13 +65,13 @@ entity_handle_methods! {
 #[derive(Default)]
 pub struct EntityModule;
 register_lua_module!(EntityModule);
-register_lua_api!(EntityModule, ENTITY_FILE);
+register_lua_api!(EntityModule, lua_files::ENTITY);
 
 impl LuaModule for EntityModule {
     fn register(&self, lua: &Lua) -> LuaResult<()> {
         let factory =
             lua.create_function(|_, id: usize| Ok(EntityHandle { entity: Entity(id) }))?;
-        lua.globals().set(ENTITY, factory)?;
+        lua.globals().set(lua_globals::ENTITY, factory)?;
         Ok(())
     }
 }
@@ -98,7 +99,7 @@ impl UserData for EntityHandle {
     }
 
     fn add_fields<F: mlua::UserDataFields<Self>>(fields: &mut F) {
-        fields.add_field_method_get(ID, |_, this| Ok(*this.entity));
+        fields.add_field_method_get(lua_fields::ID, |_, this| Ok(*this.entity));
     }
 
     fn register(registry: &mut UserDataRegistry<Self>) {

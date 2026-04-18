@@ -1,6 +1,7 @@
 // game/src/scripting/modules/audio_module.rs
 use engine_core::audio::runtime;
 use engine_core::prelude::*;
+use engine_core::scripting::lua_constants::{lua_audio, lua_engine, lua_files};
 use mlua::prelude::LuaResult;
 use mlua::Lua;
 use mlua::Table;
@@ -12,7 +13,7 @@ register_lua_module!(AudioModule);
 
 impl LuaModule for AudioModule {
     fn register(&self, lua: &Lua) -> LuaResult<()> {
-        let engine_tbl: Table = lua.globals().get(ENGINE)?;
+        let engine_tbl: Table = lua.globals().get(lua_engine::ENGINE)?;
         let audio_tbl = lua.create_table()?;
         let play_music_fn = lua.create_function(|_, (id, opts): (String, Option<Table>)| {
             let looping = opts
@@ -41,58 +42,58 @@ impl LuaModule for AudioModule {
             }));
             Ok(())
         })?;
-        audio_tbl.set(AUDIO_PLAY_MUSIC, play_music_fn)?;
+        audio_tbl.set(lua_audio::PLAY_MUSIC, play_music_fn)?;
 
         let is_playing_fn = lua.create_function(|_, ()| Ok(runtime::is_music_playing()))?;
-        audio_tbl.set(AUDIO_IS_PLAYING, is_playing_fn)?;
+        audio_tbl.set(lua_audio::IS_PLAYING, is_playing_fn)?;
 
         let stop_music_fn = lua.create_function(|_, ()| {
             push_audio_command(AudioCommand::StopMusic);
             Ok(())
         })?;
-        audio_tbl.set(AUDIO_STOP_MUSIC, stop_music_fn)?;
+        audio_tbl.set(lua_audio::STOP_MUSIC, stop_music_fn)?;
 
         let fade_music_fn = lua.create_function(|_, duration: f32| {
             push_audio_command(AudioCommand::FadeMusic(duration));
             Ok(())
         })?;
-        audio_tbl.set(AUDIO_FADE_MUSIC, fade_music_fn)?;
+        audio_tbl.set(lua_audio::FADE_MUSIC, fade_music_fn)?;
 
         let play_sfx_fn = lua.create_function(|_, id: String| {
             push_audio_command(AudioCommand::PlaySfx(id));
             Ok(())
         })?;
-        audio_tbl.set(AUDIO_PLAY_SFX, play_sfx_fn)?;
+        audio_tbl.set(lua_audio::PLAY_SFX, play_sfx_fn)?;
 
         let preload_fn = lua.create_function(|_, id: String| {
             push_audio_command(AudioCommand::Preload(id));
             Ok(())
         })?;
-        audio_tbl.set(AUDIO_PRELOAD, preload_fn)?;
+        audio_tbl.set(lua_audio::PRELOAD, preload_fn)?;
 
         let set_master_volume_fn = lua.create_function(|_, v: f32| {
             push_audio_command(AudioCommand::SetMasterVolume(v));
             Ok(())
         })?;
-        audio_tbl.set(AUDIO_SET_MASTER_VOLUME, set_master_volume_fn)?;
+        audio_tbl.set(lua_audio::SET_MASTER_VOLUME, set_master_volume_fn)?;
 
         let set_music_volume_fn = lua.create_function(|_, v: f32| {
             push_audio_command(AudioCommand::SetMusicVolume(v));
             Ok(())
         })?;
-        audio_tbl.set(AUDIO_SET_MUSIC_VOLUME, set_music_volume_fn)?;
+        audio_tbl.set(lua_audio::SET_MUSIC_VOLUME, set_music_volume_fn)?;
 
         let set_sfx_volume_fn = lua.create_function(|_, v: f32| {
             push_audio_command(AudioCommand::SetSfxVolume(v));
             Ok(())
         })?;
-        audio_tbl.set(AUDIO_SET_SFX_VOLUME, set_sfx_volume_fn)?;
+        audio_tbl.set(lua_audio::SET_SFX_VOLUME, set_sfx_volume_fn)?;
 
         let unload_fn = lua.create_function(|_, id: String| {
             push_audio_command(AudioCommand::Unload(id));
             Ok(())
         })?;
-        audio_tbl.set(AUDIO_UNLOAD, unload_fn)?;
+        audio_tbl.set(lua_audio::UNLOAD, unload_fn)?;
 
         let play_random_sfx_fn = lua.create_function(|_, sounds_table: Table| {
             let sounds: Vec<String> = sounds_table
@@ -111,7 +112,7 @@ impl LuaModule for AudioModule {
             });
             Ok(())
         })?;
-        audio_tbl.set(AUDIO_PLAY_RANDOM_SFX, play_random_sfx_fn)?;
+        audio_tbl.set(lua_audio::PLAY_RANDOM_SFX, play_random_sfx_fn)?;
 
         let play_sfx_varied_fn =
             lua.create_function(|_, (id, opts): (String, Option<Table>)| {
@@ -131,14 +132,14 @@ impl LuaModule for AudioModule {
                 });
                 Ok(())
             })?;
-        audio_tbl.set(AUDIO_PLAY_SFX_VARIED, play_sfx_varied_fn)?;
+        audio_tbl.set(lua_audio::PLAY_SFX_VARIED, play_sfx_varied_fn)?;
 
-        engine_tbl.set(LUA_AUDIO, audio_tbl)?;
+        engine_tbl.set(lua_audio::AUDIO, audio_tbl)?;
         Ok(())
     }
 }
 
-register_lua_api!(AudioModule, AUDIO_FILE);
+register_lua_api!(AudioModule, lua_files::AUDIO);
 
 impl LuaApi for AudioModule {
     fn emit_api(&self, out: &mut LuaApiWriter) {

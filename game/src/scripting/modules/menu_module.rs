@@ -3,7 +3,7 @@ use crate::game_global::{is_menu_active, push_command};
 use crate::scripting::commands::menu_commands::{CloseMenuCmd, OpenMenuCmd};
 use engine_core::register_lua_api;
 use engine_core::register_lua_module;
-use engine_core::scripting::lua_constants::*;
+use engine_core::scripting::lua_constants::{lua_engine, lua_files, lua_menu};
 use engine_core::scripting::modules::lua_module::*;
 use mlua::prelude::LuaResult;
 use mlua::Lua;
@@ -16,30 +16,30 @@ register_lua_module!(MenuModule);
 
 impl LuaModule for MenuModule {
     fn register(&self, lua: &Lua) -> LuaResult<()> {
-        let engine_tbl: Table = lua.globals().get(ENGINE)?;
+        let engine_tbl: Table = lua.globals().get(lua_engine::ENGINE)?;
         let menu_tbl = lua.create_table()?;
 
         let open_fn = lua.create_function(|_lua, menu_id: String| {
             push_command(Box::new(OpenMenuCmd { menu_id }));
             Ok(())
         })?;
-        menu_tbl.set(OPEN_MENU, open_fn)?;
+        menu_tbl.set(lua_menu::OPEN, open_fn)?;
 
         let close_fn = lua.create_function(|_lua, ()| {
             push_command(Box::new(CloseMenuCmd));
             Ok(())
         })?;
-        menu_tbl.set(CLOSE_MENU, close_fn)?;
+        menu_tbl.set(lua_menu::CLOSE, close_fn)?;
 
         let is_open_fn = lua.create_function(|_lua, ()| Ok(is_menu_active()))?;
-        menu_tbl.set(IS_MENU_OPEN, is_open_fn)?;
+        menu_tbl.set(lua_menu::IS_OPEN, is_open_fn)?;
 
-        engine_tbl.set(LUA_MENU, menu_tbl)?;
+        engine_tbl.set(lua_menu::MENU, menu_tbl)?;
         Ok(())
     }
 }
 
-register_lua_api!(MenuModule, MENU_FILE);
+register_lua_api!(MenuModule, lua_files::MENU);
 
 impl LuaApi for MenuModule {
     fn emit_api(&self, out: &mut LuaApiWriter) {

@@ -4,7 +4,7 @@ use crate::ecs::ScriptId;
 use crate::ecs::entity::Entity;
 use crate::game::Game;
 use crate::scripting::event_bus::EventBus;
-use crate::scripting::lua_constants::*;
+use crate::scripting::lua_constants::{lua_entity, lua_fields};
 use crate::storage::path_utils::scripts_folder;
 use crate::*;
 use mlua::Function;
@@ -145,7 +145,7 @@ impl ScriptManager {
 
         let table = self.get_table_from_id(lua, id)?;
 
-        if let Ok(update) = table.get::<_>(UPDATE) {
+        if let Ok(update) = table.get::<_>(lua_entity::UPDATE) {
             self.update_fns.insert(id, update);
         }
 
@@ -186,13 +186,13 @@ impl ScriptManager {
         let instance = lua.create_table()?;
 
         // Clone `public` values that can vary per instance
-        if let Ok(public) = def.get::<Table>(PUBLIC) {
+        if let Ok(public) = def.get::<Table>(lua_fields::PUBLIC) {
             let public_copy = lua.create_table()?;
             for pair in public.pairs::<Value, Value>() {
                 let (k, v) = pair?;
                 public_copy.set(k, v)?;
             }
-            instance.set(PUBLIC, public_copy)?;
+            instance.set(lua_fields::PUBLIC, public_copy)?;
         }
 
         // Setup instance metatable, this makes sure that scripts

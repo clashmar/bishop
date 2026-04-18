@@ -1,13 +1,14 @@
 use crate::scripting::lua_ctx::LuaGameCtx;
 use crate::scripting::modules::entity_module::handle::{ensure_live_entity, EntityHandle};
 use engine_core::prelude::*;
+use engine_core::scripting::lua_constants::lua_animation;
 use mlua::UserDataMethods;
 
 pub struct IsClipFinishedMethod;
 
 impl LuaMethod<EntityHandle> for IsClipFinishedMethod {
     fn register<M: UserDataMethods<EntityHandle>>(&self, methods: &mut M) {
-        methods.add_method(IS_CLIP_FINISHED, |lua, this, ()| {
+        methods.add_method(lua_animation::IS_CLIP_FINISHED, |lua, this, ()| {
             let ctx = LuaGameCtx::borrow_ctx(lua)?;
             let game_instance = ctx.game_instance.borrow();
             let ecs = &game_instance.game.ecs;
@@ -27,7 +28,10 @@ impl LuaMethod<EntityHandle> for IsClipFinishedMethod {
     fn emit_api(&self, out: &mut LuaApiWriter) {
         out.line("--- Checks if the current non-looping clip has finished.");
         out.line("---@return boolean");
-        out.line(&format!("function Entity:{}() end", IS_CLIP_FINISHED));
+        out.line(&format!(
+            "function Entity:{}() end",
+            lua_animation::IS_CLIP_FINISHED,
+        ));
         out.line("");
     }
 }

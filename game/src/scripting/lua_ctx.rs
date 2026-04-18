@@ -1,7 +1,7 @@
 // game/src/scripting/lua_ctx.rs
 use crate::engine::game_instance::GameInstance;
 use bishop::prelude::*;
-use engine_core::scripting::lua_constants::*;
+use engine_core::scripting::lua_constants::lua_globals;
 use mlua::prelude::LuaResult;
 use mlua::Lua;
 use mlua::UserData;
@@ -23,13 +23,13 @@ impl UserData for LuaGameCtx {}
 impl LuaGameCtx {
     /// Registers this `LuaGameCtx` instance in the Lua global table.
     pub fn set_lua_ctx(self, lua: &Lua) -> LuaResult<()> {
-        lua.globals().set(LUA_GAME_CTX, self)?;
+        lua.globals().set(lua_globals::LUA_GAME_CTX, self)?;
         Ok(())
     }
 
     /// Retrieves a borrowed reference to the stored `LuaGameCtx`.
     pub fn borrow_ctx(lua: &Lua) -> LuaResult<UserDataRef<LuaGameCtx>> {
-        let user_data: mlua::AnyUserData = lua.globals().get(LUA_GAME_CTX)?;
+        let user_data: mlua::AnyUserData = lua.globals().get(lua_globals::LUA_GAME_CTX)?;
         user_data.borrow::<LuaGameCtx>()
     }
 }

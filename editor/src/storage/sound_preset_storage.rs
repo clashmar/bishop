@@ -94,7 +94,7 @@ mod tests {
     use super::*;
     use crate::storage::editor_storage::save_game;
     use engine_core::ecs::AudioGroup;
-    use engine_core::scripting::lua_constants::{ENGINE_DIR, SOUNDS_FILE};
+    use engine_core::scripting::lua_constants::{lua_dirs, lua_files};
     use engine_core::storage::test_utils::{game_fs_test_lock, TestGameFolder};
     use std::collections::HashMap;
 
@@ -149,7 +149,9 @@ mod tests {
         let test_game = TestGameFolder::new("save_game_sounds_lua_error");
         set_game_name(test_game.name());
 
-        let sounds_lua_path = scripts_folder().join(ENGINE_DIR).join(SOUNDS_FILE);
+        let sounds_lua_path = scripts_folder()
+            .join(lua_dirs::ENGINE)
+            .join(lua_files::SOUNDS);
         fs::create_dir_all(&sounds_lua_path).unwrap();
 
         let game = Game {

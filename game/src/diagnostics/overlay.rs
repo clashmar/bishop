@@ -128,7 +128,7 @@ impl DiagnosticsOverlay {
             cached_audio_matching_refs: 0,
             cached_audio_checked_refs: 0,
             cached_audio_rows: Vec::new(),
-            timing_trace: TimingTraceLogger::new(),
+            timing_trace: TimingTraceLogger::default(),
         }
     }
 

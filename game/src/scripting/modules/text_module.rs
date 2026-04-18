@@ -4,7 +4,7 @@ use crate::scripting::commands::text_commands::SetLanguageCmd;
 use crate::scripting::lua_ctx::LuaGameCtx;
 use engine_core::register_lua_api;
 use engine_core::register_lua_module;
-use engine_core::scripting::lua_constants::*;
+use engine_core::scripting::lua_constants::{lua_engine, lua_files, lua_text};
 use engine_core::scripting::modules::lua_module::*;
 use mlua::prelude::LuaResult;
 use mlua::Lua;
@@ -17,14 +17,14 @@ register_lua_module!(TextModule);
 
 impl LuaModule for TextModule {
     fn register(&self, lua: &Lua) -> LuaResult<()> {
-        let engine_tbl: Table = lua.globals().get(ENGINE)?;
+        let engine_tbl: Table = lua.globals().get(lua_engine::ENGINE)?;
         let text_tbl = lua.create_table()?;
 
         let set_language_fn = lua.create_function(|_lua, lang: String| {
             push_command(Box::new(SetLanguageCmd { language: lang }));
             Ok(())
         })?;
-        text_tbl.set(SET_LANGUAGE, set_language_fn)?;
+        text_tbl.set(lua_text::SET_LANGUAGE, set_language_fn)?;
 
         let get_language_fn = lua.create_function(|lua, ()| {
             let ctx = LuaGameCtx::borrow_ctx(lua)?;
@@ -32,7 +32,7 @@ impl LuaModule for TextModule {
             let lang = game_instance.game.text_manager.get_language().to_string();
             Ok(lang)
         })?;
-        text_tbl.set(GET_LANGUAGE, get_language_fn)?;
+        text_tbl.set(lua_text::GET_LANGUAGE, get_language_fn)?;
 
         let get_languages_fn = lua.create_function(|lua, ()| {
             let ctx = LuaGameCtx::borrow_ctx(lua)?;
@@ -44,7 +44,7 @@ impl LuaModule for TextModule {
             }
             Ok(table)
         })?;
-        text_tbl.set(GET_LANGUAGES, get_languages_fn)?;
+        text_tbl.set(lua_text::GET_LANGUAGES, get_languages_fn)?;
 
         let get_config_fn = lua.create_function(|lua, ()| {
             let ctx = LuaGameCtx::borrow_ctx(lua)?;
@@ -75,14 +75,14 @@ impl LuaModule for TextModule {
 
             Ok(table)
         })?;
-        text_tbl.set(GET_CONFIG, get_config_fn)?;
+        text_tbl.set(lua_text::GET_CONFIG, get_config_fn)?;
 
-        engine_tbl.set(TEXT, text_tbl)?;
+        engine_tbl.set(lua_text::TEXT, text_tbl)?;
         Ok(())
     }
 }
 
-register_lua_api!(TextModule, TEXT_FILE);
+register_lua_api!(TextModule, lua_files::TEXT);
 
 impl LuaApi for TextModule {
     fn emit_api(&self, out: &mut LuaApiWriter) {

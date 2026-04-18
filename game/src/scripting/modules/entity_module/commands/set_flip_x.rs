@@ -3,13 +3,14 @@ use crate::scripting::commands::entity::SetFlipXCmd;
 use crate::scripting::lua_ctx::LuaGameCtx;
 use crate::scripting::modules::entity_module::handle::{ensure_live_entity, EntityHandle};
 use engine_core::prelude::*;
+use engine_core::scripting::lua_constants::lua_animation;
 use mlua::UserDataMethods;
 
 pub struct SetFlipXMethod;
 
 impl LuaMethod<EntityHandle> for SetFlipXMethod {
     fn register<M: UserDataMethods<EntityHandle>>(&self, methods: &mut M) {
-        methods.add_method(SET_FLIP_X, |lua, this, flip_x: bool| {
+        methods.add_method(lua_animation::SET_FLIP_X, |lua, this, flip_x: bool| {
             let ctx = LuaGameCtx::borrow_ctx(lua)?;
             let game_instance = ctx.game_instance.borrow();
             ensure_live_entity(&game_instance.game.ecs, this.entity)?;
@@ -24,7 +25,10 @@ impl LuaMethod<EntityHandle> for SetFlipXMethod {
     fn emit_api(&self, out: &mut LuaApiWriter) {
         out.line("--- Sets horizontal flip for the sprite.");
         out.line("---@param flip_x boolean Whether to flip horizontally");
-        out.line(&format!("function Entity:{}(flip_x) end", SET_FLIP_X));
+        out.line(&format!(
+            "function Entity:{}(flip_x) end",
+            lua_animation::SET_FLIP_X
+        ));
         out.line("");
     }
 }
