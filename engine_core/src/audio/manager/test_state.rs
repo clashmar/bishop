@@ -14,6 +14,7 @@ pub(super) struct StartedLoopPlayback {
     pub(super) pitch: f32,
 }
 
+#[cfg(feature = "editor")]
 #[derive(Clone, Debug, PartialEq)]
 pub(super) struct StartedTrackedPreviewPlayback {
     pub(super) id: String,
@@ -27,5 +28,6 @@ pub(super) struct AudioManagerTestState {
     pub(super) started_one_shot_playbacks: Vec<StartedOneShotPlayback>,
     pub(super) active_loop_sound_ids: HashMap<u64, String>,
     pub(super) started_loop_playbacks: HashMap<u64, StartedLoopPlayback>,
+    #[cfg(feature = "editor")]
     pub(super) started_tracked_preview_playbacks: HashMap<u64, StartedTrackedPreviewPlayback>,
 }
