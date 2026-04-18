@@ -1,0 +1,13 @@
+{
+  "$schema": "https://raw.githubusercontent.com/LuaLS/vscode-lua/master/setting/schema.json",
+  "workspace": {
+    "ignoreDir": [
+      "editor/scripts/_engine",
+      "games/*/Resources/scripts/_engine",
+      "!games/Demo/Resources/scripts/_engine"
+    ]
+  },
+  "diagnostics": {
+    "globals": ["local", "engine", "private"]
+  }
+}
