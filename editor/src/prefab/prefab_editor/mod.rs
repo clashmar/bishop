@@ -29,6 +29,7 @@ pub const PREFAB_EDITOR_GRID_SIZE: f32 = 16.0;
 
 pub struct PrefabStage {
     pub ecs: Ecs,
+    pub asset_registry: AssetRegistry,
     pub sprite_manager: SpriteManager,
     pub script_manager: ScriptManager,
     /// Read-only prefab library loaded for linked-prefab labels.

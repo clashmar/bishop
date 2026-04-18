@@ -4,6 +4,7 @@ use engine_core::prelude::*;
 use engine_core::scripting::lua_constants::{lua_dirs, lua_files};
 use engine_core::storage::path_utils::sanitise_name;
 use engine_core::storage::test_utils::{game_fs_test_lock, TestGameFolder};
+use std::path::PathBuf;
 
 #[test]
 fn create_new_game_creates_prefabs_folder() {
@@ -15,6 +16,54 @@ fn create_new_game_creates_prefabs_folder() {
     let _game = create_new_game(test_game.name().to_string());
 
     assert!(prefabs_folder().is_dir());
+}
+
+#[test]
+fn create_new_game_initializes_empty_asset_registry() {
+    let _lock = game_fs_test_lock()
+        .lock()
+        .unwrap_or_else(|poison| poison.into_inner());
+    let test_game = TestGameFolder::new("asset_registry_default");
+    set_game_name(test_game.name());
+
+    let game = create_new_game(test_game.name().to_string());
+
+    assert!(game.asset_registry.records.is_empty());
+}
+
+#[test]
+fn save_game_round_trips_asset_registry_records() {
+    let _lock = game_fs_test_lock()
+        .lock()
+        .unwrap_or_else(|poison| poison.into_inner());
+    let test_game = TestGameFolder::new("asset_registry_roundtrip");
+    set_game_name(test_game.name());
+
+    let mut game = create_new_game(test_game.name().to_string());
+    game.asset_registry
+        .insert(
+            AssetKey::Sprite(SpriteId(7)),
+            AssetRecord::new(
+                AssetKind::Sprite,
+                PathBuf::from(paths::ASSETS_FOLDER).join("hero.png"),
+            ),
+        )
+        .unwrap();
+    game.asset_registry
+        .insert(
+            AssetKey::Prefab(PrefabId(9)),
+            AssetRecord::new(
+                AssetKind::Prefab,
+                PathBuf::from(paths::PREFABS_FOLDER).join("crate.ron"),
+            ),
+        )
+        .unwrap();
+
+    save_game(&game).unwrap();
+
+    let loaded = load_game_by_name(test_game.name()).unwrap();
+
+    assert_eq!(loaded.asset_registry.records, game.asset_registry.records);
 }
 
 #[test]

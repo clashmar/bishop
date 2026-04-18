@@ -9,6 +9,7 @@ use std::io;
 
 macro_rules! for_each_prefab_asset_manager {
     ($callback:ident, $($args:tt)*) => {{
+        $callback!($($args)*, asset_registry);
         $callback!($($args)*, sprite_manager);
         $callback!($($args)*, script_manager);
     }};
@@ -38,6 +39,7 @@ impl PrefabStage {
     pub fn from_editor_services(game: &Game) -> Self {
         let mut stage = Self {
             ecs: Ecs::default(),
+            asset_registry: AssetRegistry::default(),
             sprite_manager: SpriteManager::default(),
             script_manager: ScriptManager::default(),
             prefab_library: game.prefab_library.clone(),
@@ -45,6 +47,7 @@ impl PrefabStage {
         for_each_prefab_asset_manager!(snapshot_prefab_asset_manager, game, stage);
 
         with_lua(|lua| {
+            stage.asset_registry.init_editor_metadata();
             SpriteManager::init_editor_metadata(&mut stage.sprite_manager);
             ScriptManager::init_editor_services(&mut stage.script_manager, lua);
         });

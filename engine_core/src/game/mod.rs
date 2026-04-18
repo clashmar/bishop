@@ -6,7 +6,7 @@ pub mod startup_mode;
 pub use game_map::*;
 pub use startup_mode::*;
 
-use crate::assets::sprite_manager::SpriteManager;
+use crate::assets::{sprite_manager::SpriteManager, AssetRegistry};
 use crate::ecs::ecs::Ecs;
 use crate::engine_global::set_game_name;
 use crate::onscreen_error;
@@ -34,6 +34,8 @@ pub struct Game {
     pub ecs: Ecs,
     /// All worlds belonging to this game instance.
     pub worlds: Vec<World>,
+    /// Project-scoped authored asset registry.
+    pub asset_registry: AssetRegistry,
     /// Asset manager for the game.
     pub sprite_manager: SpriteManager,
     /// Script manager for the game.
@@ -162,6 +164,7 @@ impl Game {
     /// Syncs all assets/scripts that belong to this game, sets the game name, and inits managers.
     pub fn initialize(&mut self, loader: &impl TextureLoader, lua: &Lua) {
         set_game_name(self.name.clone());
+        self.asset_registry.init_editor_metadata();
         SpriteManager::init_manager(loader, self);
         ScriptManager::init_manager(self, lua);
         self.init_text_manager();
@@ -171,6 +174,7 @@ impl Game {
     /// Initializes runtime state for the game without eagerly hydrating all textures.
     pub fn initialize_runtime(&mut self, lua: &Lua) {
         set_game_name(self.name.clone());
+        self.asset_registry.init_editor_metadata();
         SpriteManager::init_runtime_manager(self);
         ScriptManager::init_manager(self, lua);
         self.init_text_manager();

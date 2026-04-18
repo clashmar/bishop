@@ -59,6 +59,7 @@ pub fn create_new_game(name: String) -> Game {
         name,
         ecs: Ecs::default(),
         worlds: vec![],
+        asset_registry: AssetRegistry::default(),
         sprite_manager,
         script_manager,
         text_manager: TextManager::default(),

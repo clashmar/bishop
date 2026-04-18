@@ -20,6 +20,7 @@ pub(super) use engine_core::storage::path_utils::{game_folder, sanitise_name};
 pub(super) use engine_core::storage::test_utils::{game_fs_test_lock, TestGameFolder};
 pub(super) use std::path::PathBuf;
 
+mod asset_registry_stage_tests;
 mod blank_prefab_session_tests;
 mod delete_prefab_cmd_tests;
 mod movement_tests;
