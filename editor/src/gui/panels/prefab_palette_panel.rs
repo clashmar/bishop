@@ -312,7 +312,12 @@ fn draw_recent_prefab_card(
         rect.w - PREVIEW_PADDING * 2.0,
         footer_rect.y - rect.y - PREVIEW_PADDING,
     );
-    let preview = build_prefab_preview(ctx, prefab, &mut editor.game.sprite_manager);
+    let preview = build_prefab_preview(
+        ctx,
+        prefab,
+        &mut editor.game.asset_registry,
+        &mut editor.game.sprite_manager,
+    );
     if preview.has_drawable_visual {
         draw_prefab_preview(ctx, &mut editor.game.sprite_manager, preview_rect, &preview);
     } else {

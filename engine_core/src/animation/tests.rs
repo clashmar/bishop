@@ -24,6 +24,7 @@ impl TextureLoader for PanicLoader {
 fn updates_explicit_entities_without_current_room() {
     let loader = PanicLoader;
     let mut ecs = Ecs::default();
+    let mut asset_registry = AssetRegistry::default();
     let mut sprite_manager = SpriteManager::default();
     let entity = ecs.create_entity().with(Transform::default()).finish();
     let mut animation = Animation {
@@ -38,6 +39,7 @@ fn updates_explicit_entities_without_current_room() {
     update_entity_animations(
         &loader,
         &mut ecs,
+        &mut asset_registry,
         &mut sprite_manager,
         0.3,
         &HashSet::from([entity]),

@@ -206,13 +206,21 @@ impl Engine {
             update_speech_timers(&mut game_instance.game.ecs, dt);
 
             let game_ctx = game_instance.game.ctx_mut();
+            let asset_registry = game_ctx.asset_registry;
             let sprite_manager = game_ctx.sprite_manager;
             let ecs = game_ctx.ecs;
 
             if let Some(world) = game_ctx.world.as_deref() {
                 if let Some(current_room) = world.current_room() {
                     let loader = self.ctx.borrow();
-                    update_animation_sytem(&*loader, ecs, sprite_manager, dt, current_room.id);
+                    update_animation_sytem(
+                        &*loader,
+                        ecs,
+                        asset_registry,
+                        sprite_manager,
+                        dt,
+                        current_room.id,
+                    );
                 }
             }
 

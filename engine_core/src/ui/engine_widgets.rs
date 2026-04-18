@@ -1,4 +1,4 @@
-use crate::assets::sprite_manager::SpriteManager;
+use crate::assets::{sprite_manager::SpriteManager, AssetRegistry};
 use crate::ecs::entity::Entity;
 use crate::ecs::{ScriptId, SpriteId};
 use crate::prelude::{assets_folder, scripts_folder};
@@ -13,6 +13,7 @@ pub fn gui_sprite_picker<C: BishopContext>(
     rect: Rect,
     interaction_id: WidgetId,
     id: &mut SpriteId,
+    asset_registry: &mut AssetRegistry,
     sprite_manager: &mut SpriteManager,
     blocked: bool,
 ) -> bool {
@@ -50,7 +51,7 @@ pub fn gui_sprite_picker<C: BishopContext>(
                 .pick_file()
             {
                 let normalized = sprite_manager.normalize_path(path);
-                match sprite_manager.get_or_load(ctx, &normalized) {
+                match sprite_manager.get_or_load(asset_registry, ctx, &normalized) {
                     Some(new_id) => {
                         sprite_manager.change_sprite(id, new_id);
                         changed = true;
@@ -76,11 +77,12 @@ pub fn gui_script_picker<C: BishopContext>(
     ctx: &mut C,
     rect: Rect,
     interaction_id: WidgetId,
-    entity: Entity,
-    script_id: &mut ScriptId,
+    selection: (Entity, &mut ScriptId),
+    asset_registry: &mut AssetRegistry,
     script_manager: &mut ScriptManager,
     blocked: bool,
 ) -> bool {
+    let (entity, script_id) = selection;
     let btn_label: Cow<str> = if script_id.0 == 0 {
         Cow::Borrowed("[Pick File]")
     } else {
@@ -115,7 +117,7 @@ pub fn gui_script_picker<C: BishopContext>(
                 .pick_file()
             {
                 let normalized = script_manager.normalize_path(path);
-                match script_manager.get_or_load(&normalized) {
+                match script_manager.get_or_load(asset_registry, &normalized) {
                     Some(new_id) => {
                         script_manager.change_script(entity, script_id, new_id);
                         changed = true;

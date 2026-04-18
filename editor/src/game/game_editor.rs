@@ -137,8 +137,10 @@ impl GameEditor {
                             );
 
                             let widgets: Vec<BoxedWidget> =
-                                vec![Box::new(move |ctx, sprite_manager| {
-                                    if let Some(result) = prompt.draw(ctx, sprite_manager) {
+                                vec![Box::new(move |ctx, asset_registry, sprite_manager| {
+                                    if let Some(result) =
+                                        prompt.draw(ctx, asset_registry, sprite_manager)
+                                    {
                                         EDIT_WORLD_RESULT.with(|c| *c.borrow_mut() = Some(result));
                                     }
                                 })];
@@ -291,7 +293,9 @@ impl GameEditor {
         // Draw modal last
         if self.modal.is_open() {
             // Pass the asset manager so any widget that needs assets can use it
-            let clicked_outside = self.modal.draw(ctx, &mut game.sprite_manager);
+            let clicked_outside =
+                self.modal
+                    .draw(ctx, &mut game.asset_registry, &mut game.sprite_manager);
             if clicked_outside {
                 self.modal.close();
             }

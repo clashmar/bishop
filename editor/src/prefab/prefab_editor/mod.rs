@@ -111,6 +111,7 @@ impl PrefabEditor {
         self.tick_prefab_animations(
             ctx,
             game_ctx.ecs,
+            game_ctx.asset_registry,
             game_ctx.sprite_manager,
             ctx.get_frame_time(),
         );

@@ -42,7 +42,7 @@ impl Editor {
         let prompt_message = "Enter game name:";
         let mut prompt = self.set_prompt_modal(ctx, prompt_message);
 
-        let widgets: Vec<BoxedWidget> = vec![Box::new(move |ctx, _sprite_manager| {
+        let widgets: Vec<BoxedWidget> = vec![Box::new(move |ctx, _, _sprite_manager| {
             if let Some(result) = prompt.draw(ctx) {
                 // Write the result to the static thread local
                 NEW_GAME_PROMPT_RESULT.with(|c| *c.borrow_mut() = Some(result));
@@ -71,7 +71,7 @@ impl Editor {
             .with_initial_value(self.current_rename_value())
             .select_all_on_open();
 
-        let widgets: Vec<BoxedWidget> = vec![Box::new(move |ctx, _| {
+        let widgets: Vec<BoxedWidget> = vec![Box::new(move |ctx, _, _| {
             if let Some(result) = prompt.draw(ctx) {
                 // Write the result to the static thread local
                 RENAME_PROMPT_RESULT.with(|c| *c.borrow_mut() = Some(result));
@@ -85,7 +85,7 @@ impl Editor {
         let prompt_message = "Save as:";
         let mut prompt = self.set_prompt_modal(ctx, prompt_message);
 
-        let widgets: Vec<BoxedWidget> = vec![Box::new(move |ctx, _| {
+        let widgets: Vec<BoxedWidget> = vec![Box::new(move |ctx, _, _| {
             if let Some(result) = prompt.draw(ctx) {
                 // Write the result to the static thread local
                 SAVE_AS_PROMPT_RESULT.with(|c| *c.borrow_mut() = Some(result));
@@ -98,7 +98,7 @@ impl Editor {
     pub(crate) fn open_prefab_name_modal(&mut self, ctx: &mut WgpuContext) {
         let mut prompt = self.set_prompt_modal(ctx, "Enter prefab name:");
 
-        let widgets: Vec<BoxedWidget> = vec![Box::new(move |ctx, _| {
+        let widgets: Vec<BoxedWidget> = vec![Box::new(move |ctx, _, _| {
             if let Some(result) = prompt.draw(ctx) {
                 PREFAB_NAME_PROMPT_RESULT.with(|c| *c.borrow_mut() = Some(result));
             }
@@ -118,7 +118,7 @@ impl Editor {
             self.prefab_state.require_picker(),
         );
 
-        let widgets: Vec<BoxedWidget> = vec![Box::new(move |ctx, _| {
+        let widgets: Vec<BoxedWidget> = vec![Box::new(move |ctx, _, _| {
             if let Some(result) = prompt.draw(ctx) {
                 PREFAB_PICKER_RESULT.with(|c| *c.borrow_mut() = Some(result));
             }
@@ -160,7 +160,7 @@ impl Editor {
         let mut prompt =
             WorldSettingsPrompt::new(world_id, self.modal.rect, WidgetId::default(), grid_size);
 
-        let widgets: Vec<BoxedWidget> = vec![Box::new(move |ctx, _| {
+        let widgets: Vec<BoxedWidget> = vec![Box::new(move |ctx, _, _| {
             if let Some(result) = prompt.draw(ctx) {
                 WORLD_SETTINGS_RESULT.with(|c| *c.borrow_mut() = Some(result));
             }
@@ -188,7 +188,7 @@ impl Editor {
             self.modal.rect,
             "Saving will delete this prefab and all linked instances.",
         );
-        let widgets: Vec<BoxedWidget> = vec![Box::new(move |ctx, _| {
+        let widgets: Vec<BoxedWidget> = vec![Box::new(move |ctx, _, _| {
             if let Some(result) = prompt.draw(ctx) {
                 EMPTY_PREFAB_SAVE_RESULT.with(|cell| *cell.borrow_mut() = Some(result));
             }
@@ -202,7 +202,7 @@ impl Editor {
             self.modal.rect,
             "This prefab is empty. What do you want to do?",
         );
-        let widgets: Vec<BoxedWidget> = vec![Box::new(move |ctx, _| {
+        let widgets: Vec<BoxedWidget> = vec![Box::new(move |ctx, _, _| {
             if let Some(result) = prompt.draw(ctx) {
                 EMPTY_PREFAB_EXIT_RESULT.with(|cell| *cell.borrow_mut() = Some(result));
             }
@@ -222,7 +222,7 @@ impl Editor {
         self.modal = Modal::new(ctx, 560.0, 140.0);
         let mut prompt =
             DirtyPrefabExitPrompt::new(self.modal.rect, "Do you want to save prefab changes?");
-        let widgets: Vec<BoxedWidget> = vec![Box::new(move |ctx, _| {
+        let widgets: Vec<BoxedWidget> = vec![Box::new(move |ctx, _, _| {
             if let Some(result) = prompt.draw(ctx) {
                 DIRTY_PREFAB_EXIT_RESULT.with(|cell| *cell.borrow_mut() = Some(result));
             }
@@ -239,7 +239,10 @@ impl Editor {
             }
 
             // Outside‑click handling
-            if self.modal.draw(ctx, &mut self.game.sprite_manager) {
+            if self
+                .modal
+                .draw(ctx, &mut self.game.asset_registry, &mut self.game.sprite_manager)
+            {
                 if self.should_ignore_modal_clicked_outside() {
                     return None;
                 }

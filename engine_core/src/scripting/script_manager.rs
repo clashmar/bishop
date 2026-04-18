@@ -1,5 +1,6 @@
 // engine_core/src/script/script_manager.rs
 use crate::assets::asset_manager::{AssetManager, IdPathAssetManager};
+use crate::assets::asset_registry::AssetKey;
 use crate::assets::AssetRegistry;
 use crate::ecs::ScriptId;
 use crate::ecs::entity::Entity;
@@ -231,7 +232,11 @@ impl ScriptManager {
     }
 
     /// Returns the id for `path`, loading it if necessary.
-    pub fn get_or_load<P: AsRef<Path>>(&mut self, path: P) -> Option<ScriptId> {
+    pub fn get_or_load<P: AsRef<Path>>(
+        &mut self,
+        asset_registry: &mut AssetRegistry,
+        path: P,
+    ) -> Option<ScriptId> {
         let p = path.as_ref();
         if p.to_string_lossy().trim().is_empty() {
             return None;
@@ -241,7 +246,7 @@ impl ScriptManager {
             return Some(id);
         }
 
-        match self.init_script(p) {
+        match self.init_script(asset_registry, p) {
             Ok(id) => Some(id),
             Err(err) => {
                 onscreen_error!("{}", err);
@@ -252,7 +257,11 @@ impl ScriptManager {
 
     /// Load and initialize a script from the scripts folder.
     /// Returns the `ScriptId` for the script.
-    pub fn init_script(&mut self, rel_path: impl AsRef<Path>) -> Result<ScriptId, String> {
+    pub fn init_script(
+        &mut self,
+        asset_registry: &mut AssetRegistry,
+        rel_path: impl AsRef<Path>,
+    ) -> Result<ScriptId, String> {
         let path = rel_path.as_ref().to_path_buf();
 
         if path.to_string_lossy().trim().is_empty() {
@@ -264,14 +273,22 @@ impl ScriptManager {
             return Ok(id);
         }
 
-        // Set and calculate the next script id
-        let id = ScriptId(self.next_script_id);
+        if self.next_script_id == 0 {
+            self.restore_next_script_id();
+        }
 
-        // Store everything
+        let id = match asset_registry.key_for_path(scripts_folder().join(&path)) {
+            Some(AssetKey::Script(id)) => id,
+            _ => ScriptId(self.next_script_id),
+        };
+
+        asset_registry
+            .register_asset_relative_path(id, &path)
+            .map_err(|error| error.to_string())?;
+
         self.path_to_script_id.insert(path.clone(), id);
         self.script_id_to_path.insert(id, path);
 
-        // Restore after inserting
         self.restore_next_script_id();
 
         Ok(id)
@@ -422,5 +439,28 @@ impl IdPathAssetManager for ScriptManager {
 
     fn rebuild_editor_metadata(&mut self) {
         self.restore_next_script_id();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::assets::asset_registry::AssetKey;
+    use crate::constants::paths;
+
+    #[test]
+    fn get_or_load_registers_new_script_path_in_asset_registry() {
+        let mut registry = AssetRegistry::default();
+        let mut script_manager = ScriptManager::default();
+        let path = PathBuf::from("player.lua");
+
+        let result = script_manager.get_or_load(&mut registry, &path);
+
+        assert_eq!(result, Some(ScriptId(1)));
+        assert_eq!(
+            registry.key_for_path(PathBuf::from(paths::SCRIPTS_FOLDER).join(&path)),
+            Some(AssetKey::Script(ScriptId(1)))
+        );
+        assert_eq!(script_manager.path_to_script_id.get(&path), Some(&ScriptId(1)));
     }
 }

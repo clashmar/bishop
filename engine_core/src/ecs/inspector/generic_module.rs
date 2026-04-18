@@ -121,6 +121,7 @@ where
                         widget_rect,
                         base_id,
                         id,
+                        game_ctx.asset_registry,
                         game_ctx.sprite_manager,
                         blocked,
                     );

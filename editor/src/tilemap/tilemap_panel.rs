@@ -51,6 +51,7 @@ impl TilemapPanel {
     pub fn draw(
         &mut self,
         ctx: &mut WgpuContext,
+        asset_registry: &mut AssetRegistry,
         sprite_manager: &mut SpriteManager,
         tilemap: &mut TileMap,
     ) {
@@ -101,7 +102,8 @@ impl TilemapPanel {
         self.palette.set_columns_for_width(inner.w - 20.0);
         let height = self.palette.height();
         let palette_rect = Rect::new(inner.x + 10.0, y, inner.w, height);
-        self.palette.draw(ctx, palette_rect, sprite_manager);
+        self.palette
+            .draw(ctx, palette_rect, asset_registry, sprite_manager);
 
         y += height + 20.0; // Create gap for next module
 

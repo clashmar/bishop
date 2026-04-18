@@ -325,6 +325,7 @@ impl Editor {
                             room_id,
                             ecs: &mut self.game.ecs,
                             current_world,
+                            asset_registry: &mut self.game.asset_registry,
                             sprite_manager: &mut self.game.sprite_manager,
                             active_prefab_stamp,
                         },

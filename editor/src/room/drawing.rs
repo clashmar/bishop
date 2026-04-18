@@ -371,6 +371,7 @@ pub fn highlight_selected_entity<C: BishopContext>(
 pub(crate) fn draw_prefab_stamp_ghost(
     ctx: &mut WgpuContext,
     camera: &Camera2D,
+    asset_registry: &mut AssetRegistry,
     sprite_manager: &mut SpriteManager,
     prefab: &PrefabAsset,
     grid_size: f32,
@@ -378,7 +379,7 @@ pub(crate) fn draw_prefab_stamp_ghost(
 ) {
     let mouse_world = coord::mouse_world_pos(ctx, camera);
     let snapped_position = snap_room_drag_position(mouse_world, grid_size, pivot);
-    let preview = build_prefab_preview(ctx, prefab, sprite_manager);
+    let preview = build_prefab_preview(ctx, prefab, asset_registry, sprite_manager);
 
     for item in &preview.items {
         let draw_pos = snapped_position + item.stamp_position;

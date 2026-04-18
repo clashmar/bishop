@@ -43,8 +43,12 @@ impl InspectorModule for ScriptModule {
         game_ctx: &mut GameCtxMut,
         entity: Entity,
     ) {
-        let ecs = &mut game_ctx.ecs;
-        let script_manager = &mut game_ctx.script_manager;
+        let GameCtxMut {
+            ecs,
+            asset_registry,
+            script_manager,
+            ..
+        } = game_ctx;
 
         let script_comp = if let Some(comp) = ecs.get_mut::<Script>(entity) {
             comp
@@ -87,8 +91,8 @@ impl InspectorModule for ScriptModule {
             ctx,
             picker_rect,
             self.picker_id,
-            entity,
-            &mut script_comp.script_id,
+            (entity, &mut script_comp.script_id),
+            asset_registry,
             script_manager,
             blocked,
         ) {

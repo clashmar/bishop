@@ -1,5 +1,6 @@
 // engine_core/src/assets/sprite_manager.rs
 use crate::assets::asset_manager::{AssetManager, IdPathAssetManager};
+use crate::assets::asset_registry::AssetKey;
 use crate::assets::AssetRegistry;
 use crate::ecs::{Animation, SpriteId};
 use crate::game::Game;
@@ -63,6 +64,7 @@ impl SpriteManager {
     /// Returns the `SpriteId` for the texture.
     pub fn init_texture(
         &mut self,
+        asset_registry: &mut AssetRegistry,
         loader: &impl TextureLoader,
         rel_path: impl AsRef<Path>,
     ) -> Result<SpriteId, String> {
@@ -83,20 +85,27 @@ impl SpriteManager {
             return Ok(id);
         }
 
-        // Load the texture from the assets folder.
-        let texture = Self::load_texture_from_game(loader, &path)?;
+        if self.next_sprite_id == 0 {
+            self.restore_next_sprite_id();
+        }
 
-        // Assign the next texture id
-        let id = SpriteId(self.next_sprite_id);
+        let id = match asset_registry.key_for_path(assets_folder().join(&path)) {
+            Some(AssetKey::Sprite(id)) => id,
+            _ => SpriteId(self.next_sprite_id),
+        };
 
-        // Store everything
-        self.textures.insert(id, texture);
+        asset_registry
+            .register_asset_relative_path(id, &path)
+            .map_err(|error| error.to_string())?;
+
         self.path_to_sprite_id.insert(path.clone(), id);
         self.sprite_id_to_path.insert(id, path.clone());
         self.pending_texture_reads.remove(&id);
 
-        // Calculate next available id AFTER inserting
         self.restore_next_sprite_id();
+
+        let texture = Self::load_texture_from_game(loader, &path)?;
+        self.textures.insert(id, texture);
 
         info!(
             "init_texture: loaded {:?} as {:?}, next_sprite_id now {}",
@@ -161,6 +170,7 @@ impl SpriteManager {
     /// Returns the id for `path`, loading it if necessary.
     pub fn get_or_load<P: AsRef<Path>>(
         &mut self,
+        asset_registry: &mut AssetRegistry,
         loader: &impl TextureLoader,
         path: P,
     ) -> Option<SpriteId> {
@@ -169,7 +179,7 @@ impl SpriteManager {
             return None;
         }
 
-        match self.init_texture(loader, p) {
+        match self.init_texture(asset_registry, loader, p) {
             Ok(id) => Some(id),
             Err(err) => {
                 onscreen_error!("{}", err);
@@ -206,7 +216,7 @@ impl SpriteManager {
         }
 
         for animation in game.ecs.get_store_mut::<Animation>().data.values_mut() {
-            animation.init_sprite_cache(loader, &mut game.sprite_manager);
+            animation.init_sprite_cache(loader, &mut game.asset_registry, &mut game.sprite_manager);
             animation.init_runtime();
         }
     }
@@ -607,7 +617,9 @@ impl IdPathAssetManager for SpriteManager {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::assets::asset_registry::AssetKey;
     use crate::assets::AssetRegistry;
+    use crate::constants::paths;
     use crate::engine_global::set_game_name;
     use crate::storage::test_utils::{game_fs_test_lock, TestGameFolder};
     use std::cell::Cell;
@@ -646,8 +658,26 @@ mod tests {
     }
 
     #[test]
+    fn get_or_load_registers_new_sprite_path_in_asset_registry() {
+        let loader = CountingFailingLoader::new();
+        let mut registry = AssetRegistry::default();
+        let mut sprite_manager = SpriteManager::default();
+        let path = PathBuf::from("sprites/player.png");
+
+        let result = sprite_manager.get_or_load(&mut registry, &loader, &path);
+
+        assert!(result.is_none());
+        assert_eq!(
+            registry.key_for_path(PathBuf::from(paths::ASSETS_FOLDER).join(&path)),
+            Some(AssetKey::Sprite(SpriteId(1)))
+        );
+        assert_eq!(sprite_manager.get_or_none(&path), Some(SpriteId(1)));
+    }
+
+    #[test]
     fn get_or_load_retries_loader_for_registered_path_with_missing_texture() {
         let loader = CountingFailingLoader::new();
+        let mut registry = AssetRegistry::default();
         let mut sprite_manager = SpriteManager::default();
         let path = PathBuf::from("sprites/player.png");
         let sprite_id = SpriteId(7);
@@ -659,7 +689,7 @@ mod tests {
             .sprite_id_to_path
             .insert(sprite_id, path.clone());
 
-        let result = sprite_manager.get_or_load(&loader, &path);
+        let result = sprite_manager.get_or_load(&mut registry, &loader, &path);
 
         assert!(result.is_none());
         assert_eq!(loader.load_calls.get(), 1);

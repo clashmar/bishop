@@ -309,10 +309,11 @@ impl TileMapEditor {
         ctx: &mut WgpuContext,
         camera: &Camera2D,
         room: &mut Room,
-        sprite_manager: &mut SpriteManager,
+        assets: (&mut AssetRegistry, &mut SpriteManager),
         ecs: &Ecs,
         grid_size: f32,
     ) {
+        let (registry, sprite_manager) = assets;
         let variant_index = room.current_variant_index();
         let tilemap = &mut room.variants[variant_index].tilemap;
         let room_position = room.position;
@@ -333,7 +334,7 @@ impl TileMapEditor {
         self.draw_ui(
             ctx,
             camera,
-            sprite_manager,
+            (registry, sprite_manager),
             tilemap,
             Rect::new(room_position.x, room_position.y, room_size.x, room_size.y),
             grid_size,
@@ -395,11 +396,12 @@ impl TileMapEditor {
         &mut self,
         ctx: &mut WgpuContext,
         camera: &Camera2D,
-        sprite_manager: &mut SpriteManager,
+        assets: (&mut AssetRegistry, &mut SpriteManager),
         tilemap: &mut TileMap,
         room_rect: Rect,
         grid_size: f32,
     ) {
+        let (registry, sprite_manager) = assets;
         // Draw resize handles and preview
         for (i, handle) in self.resize_handles.iter().enumerate() {
             let is_active = self.active_handle_index == Some(i);
@@ -424,7 +426,8 @@ impl TileMapEditor {
         draw_top_panel_full(ctx);
 
         // Draw inspector panel
-        self.tilemap_panel.draw(ctx, sprite_manager, tilemap);
+        self.tilemap_panel
+            .draw(ctx, registry, sprite_manager, tilemap);
     }
 
     fn get_hovered_tile(

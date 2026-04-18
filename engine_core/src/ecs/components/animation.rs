@@ -1,4 +1,5 @@
 use crate::animation::{ClipDef, ClipId, ClipState, VariantFolder, resolve_sprite_id, sprite_path};
+use crate::assets::AssetRegistry;
 use crate::assets::sprite_manager::SpriteManager;
 use crate::ecs::entity::Entity;
 use crate::ecs::SpriteId;
@@ -84,11 +85,18 @@ impl Animation {
     pub fn init_sprite_cache(
         &mut self,
         loader: &impl TextureLoader,
+        asset_registry: &mut AssetRegistry,
         sprite_manager: &mut SpriteManager,
     ) {
         self.sprite_cache.clear();
         for clip_id in self.clips.keys() {
-            let sprite_id = resolve_sprite_id(loader, sprite_manager, &self.variant, clip_id);
+            let sprite_id = resolve_sprite_id(
+                loader,
+                asset_registry,
+                sprite_manager,
+                &self.variant,
+                clip_id,
+            );
             self.sprite_cache.insert(clip_id.clone(), sprite_id);
         }
     }
@@ -112,12 +120,19 @@ impl Animation {
     pub fn refresh_sprite_cache(
         &mut self,
         loader: &impl TextureLoader,
+        asset_registry: &mut AssetRegistry,
         sprite_manager: &mut SpriteManager,
     ) {
         self.clear_sprite_cache(sprite_manager);
 
         for clip_id in self.clips.keys() {
-            let sprite_id = resolve_sprite_id(loader, sprite_manager, &self.variant, clip_id);
+            let sprite_id = resolve_sprite_id(
+                loader,
+                asset_registry,
+                sprite_manager,
+                &self.variant,
+                clip_id,
+            );
             if sprite_id.0 != 0 {
                 sprite_manager.increment_ref(sprite_id);
             }

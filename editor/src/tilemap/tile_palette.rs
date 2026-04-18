@@ -76,7 +76,13 @@ impl TilePalette {
         self.entries.get(self.selected_index).copied()
     }
 
-    pub fn draw(&mut self, ctx: &mut WgpuContext, rect: Rect, sprite_manager: &mut SpriteManager) {
+    pub fn draw(
+        &mut self,
+        ctx: &mut WgpuContext,
+        rect: Rect,
+        asset_registry: &mut AssetRegistry,
+        sprite_manager: &mut SpriteManager,
+    ) {
         // Draw grid
         for i in 0..self.entries.len() {
             let col = i % self.columns;
@@ -113,7 +119,7 @@ impl TilePalette {
             }
         }
 
-        self.draw_tile_dialog(ctx, sprite_manager);
+        self.draw_tile_dialog(ctx, asset_registry, sprite_manager);
     }
 
     /// Called from `TileMapEditor::handle_ui_click` when the mouse
@@ -143,7 +149,12 @@ impl TilePalette {
         false
     }
 
-    fn draw_tile_dialog(&mut self, ctx: &mut WgpuContext, sprite_manager: &mut SpriteManager) {
+    fn draw_tile_dialog(
+        &mut self,
+        ctx: &mut WgpuContext,
+        asset_registry: &mut AssetRegistry,
+        sprite_manager: &mut SpriteManager,
+    ) {
         if !self.ui.open {
             return;
         }
@@ -194,7 +205,7 @@ impl TilePalette {
                 let normalized_path = sprite_manager.normalize_path(path);
 
                 self.ui.sprite_id = sprite_manager
-                    .get_or_load(ctx, &normalized_path)
+                    .get_or_load(asset_registry, ctx, &normalized_path)
                     .expect("Could not get id for sprite path.");
             }
         }

@@ -50,6 +50,7 @@ pub(crate) struct RoomEditorUpdateState<'a> {
     pub(crate) room_id: RoomId,
     pub(crate) ecs: &'a mut Ecs,
     pub(crate) current_world: &'a mut World,
+    pub(crate) asset_registry: &'a mut AssetRegistry,
     pub(crate) sprite_manager: &'a mut SpriteManager,
     pub(crate) active_prefab_stamp: ActivePrefabStampState,
 }
@@ -157,6 +158,7 @@ impl RoomEditor {
             room_id,
             ecs,
             current_world,
+            asset_registry,
             sprite_manager,
             active_prefab_stamp,
         } = state;
@@ -197,7 +199,14 @@ impl RoomEditor {
 
         let delta_time = ctx.get_frame_time();
 
-        update_animation_sytem(ctx, ecs, sprite_manager, delta_time, room.id);
+        update_animation_sytem(
+            ctx,
+            ecs,
+            asset_registry,
+            sprite_manager,
+            delta_time,
+            room.id,
+        );
 
         match self.mode {
             RoomEditorMode::Tilemap => {
@@ -428,11 +437,18 @@ impl RoomEditor {
                     };
 
                     let ecs = &mut *game_ctx.ecs;
+                    let asset_registry = &mut *game_ctx.asset_registry;
                     let sprite_manager = &mut *game_ctx.sprite_manager;
 
                     self.tilemap_editor.tilemap_panel.set_rect(inspector_rect);
-                    self.tilemap_editor
-                        .draw(ctx, camera, room, sprite_manager, ecs, grid_size);
+                    self.tilemap_editor.draw(
+                        ctx,
+                        camera,
+                        room,
+                        (asset_registry, sprite_manager),
+                        ecs,
+                        grid_size,
+                    );
 
                     ctx.set_camera(camera);
                     if self.show_grid {
@@ -487,6 +503,7 @@ impl RoomEditor {
                         }
 
                         let ecs = &*game_ctx.ecs;
+                        let asset_registry = &mut *game_ctx.asset_registry;
                         let sprite_manager = &mut *game_ctx.sprite_manager;
 
                         draw_exit_placeholders(ctx, &room.exits, room.position, grid_size);
@@ -501,6 +518,7 @@ impl RoomEditor {
                                 draw_prefab_stamp_ghost(
                                     ctx,
                                     camera,
+                                    asset_registry,
                                     sprite_manager,
                                     prefab,
                                     grid_size,

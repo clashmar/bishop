@@ -35,6 +35,7 @@ pub(crate) struct PrefabPreview {
 pub(crate) fn build_prefab_preview(
     loader: &impl TextureLoader,
     prefab: &PrefabAsset,
+    asset_registry: &mut AssetRegistry,
     sprite_manager: &mut SpriteManager,
 ) -> PrefabPreview {
     let sprite_manager = std::cell::RefCell::new(sprite_manager);
@@ -46,7 +47,13 @@ pub(crate) fn build_prefab_preview(
         },
         |variant, clip_id| {
             let mut sprite_manager = sprite_manager.borrow_mut();
-            let sprite_id = resolve_sprite_id(loader, &mut sprite_manager, variant, clip_id);
+            let sprite_id = resolve_sprite_id(
+                loader,
+                asset_registry,
+                &mut sprite_manager,
+                variant,
+                clip_id,
+            );
             (sprite_id.0 != 0).then_some(sprite_id)
         },
     )

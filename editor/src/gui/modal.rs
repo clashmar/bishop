@@ -29,7 +29,8 @@ pub fn set_modal_open_for_test(open: bool) {
     MODAL_OPEN.with(|f| *f.borrow_mut() = open);
 }
 
-pub type BoxedWidget = Box<dyn FnMut(&mut WgpuContext, &mut SpriteManager) + 'static>;
+pub type BoxedWidget =
+    Box<dyn FnMut(&mut WgpuContext, &mut AssetRegistry, &mut SpriteManager) + 'static>;
 type BoxedWidgets = Vec<BoxedWidget>;
 
 /// Used by callers of a a modal to decide what should happen if
@@ -90,7 +91,12 @@ impl Modal {
 
     /// Render the modal. Returns `true`` when the user clicked outside the window.
     /// Needs asset manager for widgets that need to access assets.
-    pub fn draw(&mut self, ctx: &mut WgpuContext, sprite_manager: &mut SpriteManager) -> bool {
+    pub fn draw(
+        &mut self,
+        ctx: &mut WgpuContext,
+        asset_registry: &mut AssetRegistry,
+        sprite_manager: &mut SpriteManager,
+    ) -> bool {
         if !self.open {
             return false;
         }
@@ -130,7 +136,7 @@ impl Modal {
 
         // Run all widgets
         for widget in self.widgets.iter_mut() {
-            widget.as_mut()(ctx, sprite_manager);
+            widget.as_mut()(ctx, asset_registry, sprite_manager);
         }
 
         // Detect a click outside the window
@@ -163,7 +169,7 @@ impl Modal {
         let mut modal = Modal::new(ctx, confirm_modal_width(ctx, &prompt_message), 120.0);
         let mut prompt = ConfirmPrompt::new(modal.rect, prompt_message);
 
-        let widgets: Vec<BoxedWidget> = vec![Box::new(move |ctx, _| {
+        let widgets: Vec<BoxedWidget> = vec![Box::new(move |ctx, _, _| {
             if let Some(result) = prompt.draw(ctx) {
                 // Write the result to the static thread local
                 result_store.with(|c| *c.borrow_mut() = Some(result));

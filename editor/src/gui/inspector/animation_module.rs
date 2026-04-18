@@ -66,6 +66,7 @@ impl InspectorModule for AnimationModule {
     ) {
         let ecs = &mut game_ctx.ecs;
 
+        let asset_registry = &mut game_ctx.asset_registry;
         let sprite_manager = &mut game_ctx.sprite_manager;
 
         let mut variant_changed = false;
@@ -336,7 +337,7 @@ impl InspectorModule for AnimationModule {
                         // Refresh sprite cache after importing
                         let has_variant_folder = !animation.variant.0.as_os_str().is_empty();
                         if has_variant_folder {
-                            animation.refresh_sprite_cache(ctx, sprite_manager);
+                            animation.refresh_sprite_cache(ctx, asset_registry, sprite_manager);
                             animation.init_runtime();
                         }
                     }
@@ -354,7 +355,7 @@ impl InspectorModule for AnimationModule {
         let has_variant = !animation.variant.0.as_os_str().is_empty();
         if variant_changed || clip_added || clip_removed || clip_renamed {
             if has_variant {
-                animation.refresh_sprite_cache(ctx, sprite_manager);
+                animation.refresh_sprite_cache(ctx, asset_registry, sprite_manager);
             } else if clip_removed || clip_renamed {
                 animation.clear_sprite_cache(sprite_manager);
             }
