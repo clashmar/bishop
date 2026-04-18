@@ -1,5 +1,5 @@
 use crate::game_global::push_command;
-use crate::scripting::commands::lua_command::RepositionEntityCmd;
+use crate::scripting::commands::entity::RepositionEntityCmd;
 use crate::scripting::lua_ctx::LuaGameCtx;
 use crate::scripting::lua_helpers::parse_named_vec2;
 use crate::scripting::modules::entity_module::handle::{ensure_live_entity, EntityHandle};

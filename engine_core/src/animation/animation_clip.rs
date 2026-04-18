@@ -1,6 +1,7 @@
 // engine_core/src/animation/animation_clip.rs
 use crate::assets::sprite_manager::SpriteManager;
 use crate::assets::sprite::SpriteId;
+use crate::animation::clip_id_helpers::{builtin_clip_ids, sprite_filename};
 use crate::constants::DEFAULT_GRID_SIZE;
 use crate::ecs::entity::Entity;
 use crate::game::*;
@@ -12,7 +13,7 @@ use serde_with::{FromInto, serde_as};
 use std::fmt;
 use std::{
     collections::HashMap,
-    path::{Path, PathBuf},
+    path::PathBuf,
 };
 use strum_macros::EnumIter;
 
@@ -197,8 +198,8 @@ pub enum ClipId {
 }
 
 impl ClipId {
-    /// Returns the text that should be shown in dropdowns, lists, etc.
-    pub fn ui_label(&self) -> String {
+    /// Returns the canonical name for this clip.
+    pub fn canonical_name(&self) -> String {
         match self {
             // Empty
             ClipId::New => "New".to_string(),
@@ -212,7 +213,7 @@ impl ClipId {
 
 impl fmt::Display for ClipId {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.ui_label())
+        write!(f, "{}", self.canonical_name())
     }
 }
 
@@ -303,18 +304,7 @@ pub fn resolve_sprite_id(
 }
 
 fn sprite_path(variant_folder: &VariantFolder, clip_id: &ClipId) -> Option<PathBuf> {
-    let filename = match clip_id {
-        ClipId::Idle => "Idle.png".to_string(),
-        ClipId::Walk => "Walk.png".to_string(),
-        ClipId::Run => "Run.png".to_string(),
-        ClipId::Attack => "Attack.png".to_string(),
-        ClipId::Jump => "Jump.png".to_string(),
-        ClipId::Fall => "Fall.png".to_string(),
-        ClipId::Custom(name) => format!("{name}.png"),
-        ClipId::New => return None,
-    };
-
-    Some(Path::new(&variant_folder.0).join(filename))
+    sprite_filename(clip_id).map(|filename| variant_folder.0.join(filename))
 }
 
 /// Initializes the component when an entity is instantiated into the world.
@@ -335,7 +325,6 @@ pub fn post_remove(anim: &mut Animation, _entity: &Entity, ctx: &mut dyn EngineC
 /// Generates the content for animations.lua with built-in and optional custom clips.
 pub fn generate_animations_lua(custom_clips: &[String]) -> String {
     use std::collections::HashSet;
-    use strum::IntoEnumIterator;
 
     let mut lua = format!(
         "-- Auto-generated. Do not edit.\n\
@@ -347,15 +336,10 @@ pub fn generate_animations_lua(custom_clips: &[String]) -> String {
 
     // Built-in clips from ClipId enum
     let mut builtin_names = HashSet::new();
-    for clip_id in ClipId::iter() {
-        match clip_id {
-            ClipId::Custom(_) | ClipId::New => continue,
-            _ => {
-                let name = format!("{:?}", clip_id);
-                builtin_names.insert(name.clone());
-                lua.push_str(&format!("    {} = \"{}\",\n", name, name));
-            }
-        }
+    for clip_id in builtin_clip_ids() {
+        let name = clip_id.canonical_name();
+        builtin_names.insert(name.clone());
+        lua.push_str(&format!("    {} = \"{}\",\n", name, name));
     }
 
     // Custom clips (deduplicated, sorted, excluding built-in names)

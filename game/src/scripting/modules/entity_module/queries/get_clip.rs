@@ -15,7 +15,7 @@ impl LuaMethod<EntityHandle> for GetClipMethod {
 
             if let Some(animation) = ecs.get::<Animation>(this.entity) {
                 if let Some(clip_id) = &animation.current {
-                    Ok(Value::String(lua.create_string(clip_id.ui_label())?))
+                    Ok(Value::String(lua.create_string(clip_id.canonical_name())?))
                 } else {
                     Ok(Value::Nil)
                 }

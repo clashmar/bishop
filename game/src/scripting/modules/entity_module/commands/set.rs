@@ -1,5 +1,5 @@
 use crate::game_global::push_command;
-use crate::scripting::commands::lua_command::SetComponentCmd;
+use crate::scripting::commands::entity::SetComponentCmd;
 use crate::scripting::lua_ctx::LuaGameCtx;
 use crate::scripting::lua_helpers::to_snake_case;
 use crate::scripting::modules::entity_module::handle::{ensure_live_entity, EntityHandle};
