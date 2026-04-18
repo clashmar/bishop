@@ -4,6 +4,23 @@ use bishop::prelude::{Vec2, Vec3};
 use mlua::prelude::LuaResult;
 use mlua::{Lua, Table, Value};
 
+/// Converts a Rust-style type name into the snake_case Lua API form.
+pub fn to_snake_case(name: &str) -> String {
+    let mut out = String::new();
+    for (i, ch) in name.chars().enumerate() {
+        if ch.is_uppercase() {
+            if i != 0 {
+                out.push('_');
+            }
+            out.extend(ch.to_lowercase());
+        } else {
+            out.push(ch);
+        }
+    }
+    out
+}
+
+/// Reads a public script field value from a Lua value.
 pub fn read_script_field(name: &str, value: Value) -> LuaResult<Option<ScriptField>> {
     match value {
         Value::Boolean(b) => Ok(Some(ScriptField::Bool(b))),
@@ -15,6 +32,7 @@ pub fn read_script_field(name: &str, value: Value) -> LuaResult<Option<ScriptFie
     }
 }
 
+/// Writes a public script field into a Lua table.
 pub fn write_script_field(
     lua: &Lua,
     public: &Table,
@@ -39,6 +57,7 @@ pub fn write_script_field(
     Ok(())
 }
 
+/// Writes a `Vec2` into a named Lua table.
 pub fn write_named_vec2_table(lua: &Lua, value: Vec2) -> LuaResult<Table> {
     let table = lua.create_table()?;
     table.set(X, value.x)?;
@@ -46,6 +65,7 @@ pub fn write_named_vec2_table(lua: &Lua, value: Vec2) -> LuaResult<Table> {
     Ok(table)
 }
 
+/// Writes a `Vec3` into a named Lua table.
 pub fn write_named_vec3_table(lua: &Lua, value: Vec3) -> LuaResult<Table> {
     let table = lua.create_table()?;
     table.set(X, value.x)?;
@@ -54,35 +74,39 @@ pub fn write_named_vec3_table(lua: &Lua, value: Vec3) -> LuaResult<Table> {
     Ok(table)
 }
 
-pub fn read_named_vec2_table(table: &Table, field_name: &str) -> LuaResult<Vec2> {
-    reject_indexed_vector_keys(table, field_name)?;
+/// Reads a named `Vec2` table from Lua for the provided validation context.
+pub fn parse_named_vec2(table: &Table, context: &str) -> LuaResult<Vec2> {
+    reject_indexed_vector_keys(table, context)?;
     let x = table
         .get::<Option<f32>>(X)?
-        .ok_or_else(|| named_vector_error(field_name))?;
+        .ok_or_else(|| named_vector_error(context))?;
     let y = table
         .get::<Option<f32>>(Y)?
-        .ok_or_else(|| named_vector_error(field_name))?;
+        .ok_or_else(|| named_vector_error(context))?;
 
     Ok(Vec2::new(x, y))
 }
 
+/// Reads a named `Vec3` table from Lua.
 pub fn read_named_vec3_table(table: &Table, field_name: &str) -> LuaResult<Vec3> {
-    reject_indexed_vector_keys(table, field_name)?;
+    let context = format!("Script field '{field_name}'");
+    reject_indexed_vector_keys(table, &context)?;
     let x = table
         .get::<Option<f32>>(X)?
-        .ok_or_else(|| named_vector_error(field_name))?;
+        .ok_or_else(|| named_vector_error(&context))?;
     let y = table
         .get::<Option<f32>>(Y)?
-        .ok_or_else(|| named_vector_error(field_name))?;
+        .ok_or_else(|| named_vector_error(&context))?;
     let z = table
         .get::<Option<f32>>(Z)?
-        .ok_or_else(|| named_vector_error(field_name))?;
+        .ok_or_else(|| named_vector_error(&context))?;
 
     Ok(Vec3::new(x, y, z))
 }
 
 fn read_script_vector_field(name: &str, table: &Table) -> LuaResult<Option<ScriptField>> {
-    reject_indexed_vector_keys(table, name)?;
+    let context = format!("Script field '{name}'");
+    reject_indexed_vector_keys(table, &context)?;
     let x = table.get::<Option<f32>>(X)?;
     let y = table.get::<Option<f32>>(Y)?;
     let z = table.get::<Option<f32>>(Z)?;
@@ -93,29 +117,29 @@ fn read_script_vector_field(name: &str, table: &Table) -> LuaResult<Option<Scrip
             Ok(Some(ScriptField::Vec3([vec.x, vec.y, vec.z])))
         }
         (Some(_), Some(_), None) => {
-            let vec = read_named_vec2_table(table, name)?;
+            let vec = parse_named_vec2(table, &format!("Script field '{name}'"))?;
             Ok(Some(ScriptField::Vec2([vec.x, vec.y])))
         }
         (None, None, None) => Ok(None),
-        _ => Err(named_vector_error(name)),
+        _ => Err(named_vector_error(&context)),
     }
 }
 
-fn reject_indexed_vector_keys(table: &Table, field_name: &str) -> LuaResult<()> {
+fn reject_indexed_vector_keys(table: &Table, context: &str) -> LuaResult<()> {
     if (1..=3).any(|index| {
         matches!(
             table.get::<Value>(index).ok(),
             Some(Value::Number(_) | Value::Integer(_))
         )
     }) {
-        return Err(named_vector_error(field_name));
+        return Err(named_vector_error(context));
     }
     Ok(())
 }
 
-fn named_vector_error(field_name: &str) -> mlua::Error {
+fn named_vector_error(context: &str) -> mlua::Error {
     mlua::Error::RuntimeError(format!(
-        "Script field '{field_name}' must use named vector tables"
+        "{context} must use named vector table {{ {X} = number, {Y} = number }}"
     ))
 }
 
@@ -138,6 +162,11 @@ mod tests {
         assert!(matches!(table.get::<Value>(1).unwrap(), Value::Nil));
         assert!(matches!(table.get::<Value>(2).unwrap(), Value::Nil));
         assert!(matches!(table.get::<Value>(3).unwrap(), Value::Nil));
+    }
+
+    #[test]
+    fn to_snake_case_inserts_underscores_before_uppercase_letters() {
+        assert_eq!(to_snake_case("PrefabInstanceRoot"), "prefab_instance_root");
     }
 
     #[test]
@@ -195,5 +224,27 @@ mod tests {
         let error = read_script_field(POSITION, Value::Table(position)).unwrap_err();
 
         assert!(error.to_string().contains(POSITION));
+    }
+
+    #[test]
+    fn read_named_vec2_reads_named_fields() {
+        let lua = Lua::new();
+        let position = lua.create_table().unwrap();
+        position.set(X, 12.5).unwrap();
+        position.set(Y, -3.0).unwrap();
+
+        let position = parse_named_vec2(&position, "position").unwrap();
+
+        assert_eq!(position, Vec2::new(12.5, -3.0));
+    }
+
+    #[test]
+    fn read_named_vec2_rejects_indexed_tables() {
+        let lua = Lua::new();
+        let position = lua.create_table().unwrap();
+        position.set(1, 12.5).unwrap();
+        position.set(2, -3.0).unwrap();
+
+        assert!(parse_named_vec2(&position, "Entity:teleport position").is_err());
     }
 }

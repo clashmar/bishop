@@ -1,7 +1,7 @@
 use crate::ecs::entity::Entity;
 use crate::game::EngineCtxMut;
+use crate::scripting::helpers::{read_script_field, write_script_field};
 use crate::scripting::lua_constants::PUBLIC;
-use crate::scripting::lua_marshalling::{read_script_field, write_script_field};
 use crate::scripting::script_manager::ScriptManager;
 use ecs_component::ecs_component;
 use mlua::prelude::LuaResult;

@@ -455,14 +455,14 @@ fn generate_to_lua_impl(fields: &Fields, name: &syn::Ident) -> proc_macro2::Toke
                     quote! {
                         table.set(
                             #field_name,
-                            crate::scripting::lua_marshalling::write_named_vec2_table(lua, comp.#field_ident)?,
+                            crate::scripting::helpers::write_named_vec2_table(lua, comp.#field_ident)?,
                         )?;
                     }
                 } else if is_vec3_type(field_ty) {
                     quote! {
                         table.set(
                             #field_name,
-                            crate::scripting::lua_marshalling::write_named_vec3_table(lua, comp.#field_ident)?,
+                            crate::scripting::helpers::write_named_vec3_table(lua, comp.#field_ident)?,
                         )?;
                     }
                 } else {
@@ -504,14 +504,17 @@ fn generate_from_lua_impl(fields: &Fields, name: &syn::Ident) -> proc_macro2::To
                     quote! {
                         #field_ident: {
                             let value = table.get::<mlua::Table>(#field_name)?;
-                            crate::scripting::lua_marshalling::read_named_vec2_table(&value, #field_name)?
+                            crate::scripting::helpers::parse_named_vec2(
+                                &value,
+                                &format!("Script field '{}'", #field_name),
+                            )?
                         }
                     }
                 } else if is_vec3_type(field_ty) {
                     quote! {
                         #field_ident: {
                             let value = table.get::<mlua::Table>(#field_name)?;
-                            crate::scripting::lua_marshalling::read_named_vec3_table(&value, #field_name)?
+                            crate::scripting::helpers::read_named_vec3_table(&value, #field_name)?
                         }
                     }
                 } else {

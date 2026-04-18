@@ -108,7 +108,12 @@ impl ScriptSystem {
                     let update_fn = script_manager.update_fns.get(&script.script_id)?;
                     let instance = script_manager.instances.get(&(*entity, script.script_id))?;
 
-                    Some((*entity, script.script_id, update_fn.clone(), instance.clone()))
+                    Some((
+                        *entity,
+                        script.script_id,
+                        update_fn.clone(),
+                        instance.clone(),
+                    ))
                 })
                 .collect()
         };

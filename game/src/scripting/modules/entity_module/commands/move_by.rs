@@ -1,10 +1,10 @@
 use crate::game_global::push_command;
 use crate::scripting::commands::entity::MoveEntityByCmd;
 use crate::scripting::lua_ctx::LuaGameCtx;
-use crate::scripting::lua_helpers::parse_named_vec2;
 use crate::scripting::modules::entity_module::handle::{ensure_live_entity, EntityHandle};
 use engine_core::prelude::*;
 use engine_core::scripting::lua_constants::MOVE_BY;
+use engine_core::scripting::parse_named_vec2;
 use mlua::{Table, UserDataMethods};
 
 pub struct MoveByMethod;
@@ -15,7 +15,7 @@ impl LuaMethod<EntityHandle> for MoveByMethod {
             let ctx = LuaGameCtx::borrow_ctx(lua)?;
             let game_instance = ctx.game_instance.borrow();
             ensure_live_entity(&game_instance.game.ecs, this.entity)?;
-            let delta = parse_named_vec2(&format!("Entity:{MOVE_BY}"), &delta)?;
+            let delta = parse_named_vec2(&delta, &format!("Entity:{MOVE_BY} delta"))?;
             push_command(Box::new(MoveEntityByCmd {
                 entity: this.entity,
                 delta,

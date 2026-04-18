@@ -1,10 +1,10 @@
 use crate::scripting::lua_ctx::LuaGameCtx;
-use crate::scripting::lua_helpers::parse_named_vec2;
 use crate::scripting::modules::entity_module::lua_entity_handle;
 use crate::scripting::script_system::ScriptSystem;
 use bishop::prelude::*;
 use engine_core::prelude::*;
 use engine_core::scripting::lua_constants::{ENGINE, ENGINE_FILE, POSITION, PREFAB, SPAWN};
+use engine_core::scripting::parse_named_vec2;
 use engine_core::{register_lua_api, register_lua_module};
 use mlua::prelude::LuaResult;
 use mlua::{Lua, MultiValue, Table, Value};
@@ -27,7 +27,7 @@ impl LuaModule for PrefabModule {
 
         let spawn_fn = lua.create_function(
             |lua, (prefab_name, position, init): (String, Table, Option<Table>)| {
-                let (spawn, spawn_args) = parse_spawn_args(lua, &prefab_name, position, init)?;
+                let (spawn, spawn_args) = parse_spawn_args(position, init)?;
                 let spawned_entity = spawn_prefab(lua, &prefab_name, spawn.position, spawn_args)?;
                 lua_entity_handle(lua, spawned_entity)
             },
@@ -53,15 +53,10 @@ impl LuaApi for PrefabModule {
 }
 
 fn parse_spawn_args(
-    _lua: &Lua,
-    prefab_name: &str,
     position: Table,
     init: Option<Table>,
 ) -> LuaResult<(SpawnOptions, Option<Value>)> {
-    let position = parse_named_vec2(
-        &format!("{ENGINE}.{PREFAB}.{SPAWN}({prefab_name}) {POSITION}"),
-        &position,
-    )?;
+    let position = parse_named_vec2(&position, &format!("{ENGINE}.{PREFAB}.{SPAWN} {POSITION}"))?;
 
     let spawn_args = init.map(Value::Table);
 
@@ -175,7 +170,7 @@ mod tests {
         let init = lua.create_table().unwrap();
         init.set("direction", "left").unwrap();
 
-        let (spawn, parsed_init) = parse_spawn_args(&lua, "Bullet", position, Some(init)).unwrap();
+        let (spawn, parsed_init) = parse_spawn_args(position, Some(init)).unwrap();
 
         assert_eq!(spawn.position, Vec2::new(12.5, -3.0));
         assert!(matches!(parsed_init, Some(Value::Table(_))));
@@ -188,9 +183,7 @@ mod tests {
         position.set(1, 12.5).unwrap();
         position.set(2, -3.0).unwrap();
 
-        let error = parse_spawn_args(&lua, "Bullet", position, None).unwrap_err();
-
-        assert!(error.to_string().contains("position"));
+        assert!(parse_spawn_args(position, None).is_err());
     }
 
     #[test]
