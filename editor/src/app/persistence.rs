@@ -1,4 +1,5 @@
 use crate::app::*;
+use crate::prefab::reconcile_recent_prefab_ids;
 use crate::storage::editor_storage::*;
 use crate::storage::export::{export_game, export_target_path, PendingExport};
 use bishop::prelude::*;
@@ -15,7 +16,7 @@ impl Editor {
         &self,
         state: PrefabPaletteState,
     ) -> PrefabPaletteState {
-        let recent_prefab_ids = crate::room::room_editor::reconcile_recent_prefab_ids(
+        let recent_prefab_ids = reconcile_recent_prefab_ids(
             state.recent_prefab_ids,
             &self.game.prefab_library,
         );
