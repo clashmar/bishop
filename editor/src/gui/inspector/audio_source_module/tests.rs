@@ -7,6 +7,7 @@ use super::preview::{
 };
 use super::*;
 use crate::storage::sound_preset_storage::set_current_sound_preset_library;
+use engine_core::assets::AssetRegistry;
 use engine_core::ecs::SoundPresetLink;
 
 #[test]
@@ -146,6 +147,7 @@ fn assigning_matching_preset_warns_when_component_already_has_group_with_same_na
     };
     let mut module = AudioSourceModule::default();
     let mut pending_sync_all = None;
+    let asset_registry = AssetRegistry::default();
 
     let warning = handle_assign_option(
         &mut source,
@@ -153,6 +155,7 @@ fn assigning_matching_preset_warns_when_component_already_has_group_with_same_na
         &mut module,
         &library,
         &mut pending_sync_all,
+        &asset_registry,
     );
 
     assert_eq!(
@@ -176,7 +179,7 @@ fn reattach_action_applies_preset_and_restores_link() {
         presets: std::collections::HashMap::from([(
             "Jump".to_string(),
             AudioGroup {
-                sounds: vec!["sfx/jump".to_string()],
+                sounds: vec![SoundId(1)],
                 volume: 0.35,
                 pitch_variation: 0.2,
                 volume_variation: 0.1,
@@ -191,7 +194,7 @@ fn reattach_action_applies_preset_and_restores_link() {
     source.groups.insert(
         jump.clone(),
         AudioGroup {
-            sounds: vec!["sfx/local_jump".to_string()],
+            sounds: vec![SoundId(2)],
             volume: 0.9,
             pitch_variation: 0.0,
             volume_variation: 0.0,
@@ -202,17 +205,19 @@ fn reattach_action_applies_preset_and_restores_link() {
     source.current = Some(jump.clone());
 
     let mut pending_sync_all = None;
+    let asset_registry = AssetRegistry::default();
     let warning = handle_preset_action(
         &mut source,
         PresetAction::Reattach("Jump".to_string()),
         &mut pending_sync_all,
+        &asset_registry,
     );
 
     assert_eq!(warning, None);
     assert!(pending_sync_all.is_none());
 
     let group = source.groups.get(&jump).unwrap();
-    assert_eq!(group.sounds, vec!["sfx/jump".to_string()]);
+    assert_eq!(group.sounds, vec![SoundId(1)]);
     assert_eq!(group.volume, 0.35);
     assert_eq!(group.pitch_variation, 0.2);
     assert_eq!(group.volume_variation, 0.1);
@@ -234,9 +239,9 @@ fn format_volume_label_uses_two_decimal_place_multiplier() {
 
 #[test]
 fn preview_request_keeps_requested_sound_and_row() {
-    let next = PreviewRequest::new(7, "sfx/land".to_string());
+    let next = PreviewRequest::new(7, SoundId(7));
 
-    assert_eq!(next, PreviewRequest::new(7, "sfx/land".to_string()));
+    assert_eq!(next, PreviewRequest::new(7, SoundId(7)));
 }
 
 #[test]
@@ -244,7 +249,7 @@ fn tick_active_audio_preview_clears_expired_preview() {
     set_active_preview_for_test(Some(ActivePreview {
         entity: Entity(3),
         group_id: SoundGroupId::Custom("Jump".to_string()),
-        request: PreviewRequest::new(0, "sfx/jump".to_string()),
+        request: PreviewRequest::new(0, SoundId(1)),
         remaining_seconds: 0.25,
     }));
 

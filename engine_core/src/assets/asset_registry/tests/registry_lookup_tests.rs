@@ -1,6 +1,8 @@
 use crate::assets::asset_registry::{AssetKey, AssetKind, AssetRecord, AssetRegistry};
-use crate::constants::paths::{ASSETS_FOLDER, PREFABS_FOLDER, SCRIPTS_FOLDER};
-use crate::ecs::{ScriptId, SpriteId};
+use crate::constants::paths::{
+    ASSETS_FOLDER, AUDIO_FOLDER, PREFABS_FOLDER, SCRIPTS_FOLDER, SFX_FOLDER,
+};
+use crate::ecs::{ScriptId, SoundId, SpriteId};
 use crate::prefab::PrefabId;
 use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
@@ -170,6 +172,76 @@ fn register_asset_relative_path_stores_canonical_prefabs_path_for_prefab_key() {
         registry.key_for_path(asset_path(PREFABS_FOLDER, "crate.ron")),
         Some(AssetKey::Prefab(prefab_id))
     );
+}
+
+#[test]
+fn register_asset_relative_path_stores_canonical_audio_path_for_sound_key() {
+    let mut registry = AssetRegistry::default();
+    let sound_id = SoundId(5);
+    let relative_path = PathBuf::from(SFX_FOLDER).join("jump.wav");
+
+    registry
+        .register_asset_relative_path(sound_id, &relative_path)
+        .unwrap();
+
+    assert_eq!(
+        registry.relative_path(sound_id),
+        Some(relative_path.clone())
+    );
+    assert_eq!(
+        registry.record(AssetKey::Sound(sound_id)),
+        Some(&AssetRecord::new(
+            AssetKind::Sound,
+            asset_path(AUDIO_FOLDER, &relative_path),
+        ))
+    );
+    assert_eq!(
+        registry.key_for_path(asset_path(AUDIO_FOLDER, &relative_path)),
+        Some(AssetKey::Sound(sound_id))
+    );
+}
+
+#[test]
+fn register_asset_relative_path_rejects_absolute_audio_path() {
+    let mut registry = AssetRegistry::default();
+    let absolute_path = std::env::current_dir()
+        .expect("current directory should be available")
+        .join(PathBuf::from(SFX_FOLDER).join("jump.wav"));
+
+    let error = registry
+        .register_asset_relative_path(SoundId(8), absolute_path)
+        .expect_err("absolute audio paths should be rejected");
+
+    assert_eq!(error.kind(), ErrorKind::InvalidInput);
+    assert!(registry.records().is_empty());
+}
+
+#[test]
+fn register_asset_relative_path_rejects_non_wav_audio_path() {
+    let mut registry = AssetRegistry::default();
+
+    let error = registry
+        .register_asset_relative_path(SoundId(9), PathBuf::from(SFX_FOLDER).join("jump.ogg"))
+        .expect_err("managed sounds must use wav files");
+
+    assert_eq!(error.kind(), ErrorKind::InvalidInput);
+    assert!(registry.records().is_empty());
+}
+
+#[test]
+fn insert_rejects_non_wav_sound_path() {
+    let mut registry = AssetRegistry::default();
+    let invalid_path = asset_path(AUDIO_FOLDER, PathBuf::from(SFX_FOLDER).join("jump.ogg"));
+
+    let error = registry
+        .insert(
+            AssetKey::Sound(SoundId(10)),
+            AssetRecord::new(AssetKind::Sound, invalid_path),
+        )
+        .expect_err("managed sound records must point to wav files");
+
+    assert_eq!(error.kind(), ErrorKind::InvalidInput);
+    assert!(registry.records().is_empty());
 }
 
 #[test]

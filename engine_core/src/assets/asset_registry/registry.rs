@@ -1,6 +1,6 @@
 use super::{AssetKey, AssetKind, AssetRecord};
 use crate::assets::AssetManager;
-use crate::constants::paths::{ASSETS_FOLDER, PREFABS_FOLDER, SCRIPTS_FOLDER};
+use crate::constants::paths::{ASSETS_FOLDER, AUDIO_FOLDER, PREFABS_FOLDER, SCRIPTS_FOLDER};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::io::{self, Error, ErrorKind};
@@ -204,11 +204,13 @@ impl AssetRegistry {
             AssetKind::Sprite => ASSETS_FOLDER,
             AssetKind::Script => SCRIPTS_FOLDER,
             AssetKind::Prefab => PREFABS_FOLDER,
+            AssetKind::Sound => AUDIO_FOLDER,
         })
     }
 
     fn canonical_asset_path(kind: AssetKind, relative_path: &Path) -> io::Result<PathBuf> {
         let normalized = Self::normalize_relative_path(kind, relative_path)?;
+        Self::validate_kind_specific_relative_path(kind, &normalized)?;
         if normalized != relative_path {
             let folder = Self::asset_folder(kind);
             return Err(Error::new(
@@ -238,6 +240,7 @@ impl AssetRegistry {
         })?;
 
         let normalized = Self::normalize_relative_path(kind, relative)?;
+        Self::validate_kind_specific_relative_path(kind, &normalized)?;
         if normalized != relative {
             return Err(Error::new(
                 ErrorKind::InvalidInput,
@@ -285,11 +288,33 @@ impl AssetRegistry {
         Ok(normalized)
     }
 
+    fn validate_kind_specific_relative_path(kind: AssetKind, path: &Path) -> io::Result<()> {
+        if kind != AssetKind::Sound {
+            return Ok(());
+        }
+
+        if path.extension().is_some_and(|extension| extension == "wav")
+            && path.file_stem().is_some()
+        {
+            return Ok(());
+        }
+
+        Err(Error::new(
+            ErrorKind::InvalidInput,
+            format!(
+                "{kind:?} paths must point to '.wav' files under '{}': '{}'",
+                Self::asset_folder(kind).display(),
+                path.display()
+            ),
+        ))
+    }
+
     fn kind_for_key(key: AssetKey) -> AssetKind {
         match key {
             AssetKey::Sprite(_) => AssetKind::Sprite,
             AssetKey::Script(_) => AssetKind::Script,
             AssetKey::Prefab(_) => AssetKind::Prefab,
+            AssetKey::Sound(_) => AssetKind::Sound,
         }
     }
 }

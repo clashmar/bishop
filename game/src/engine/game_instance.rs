@@ -61,7 +61,10 @@ impl GameInstance {
         // TODO(save-load): replace with a proper post-load hook once the Save/Load sprint
         // adds runtime save files and a generalised post-deserialize callback.
         for source in AudioSource::store(&game.ecs).data.values() {
-            push_audio_command(AudioCommand::IncrementRefs(source.all_sound_ids()));
+            push_audio_command(AudioCommand::IncrementRefs(sound_command_ids(
+                &game.asset_registry,
+                source.all_sound_ids(),
+            )));
         }
 
         let ecs = &game.ecs;

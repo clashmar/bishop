@@ -29,18 +29,22 @@ impl LuaMethod<EntityHandle> for PlaySoundMethod {
                     return Ok(());
                 };
                 let volume = (group.volume * source.runtime_volume).clamp(0.0, 1.0);
+                let sounds = sound_command_ids(
+                    &game_instance.game.asset_registry,
+                    group.sounds.iter().copied(),
+                );
 
                 if group.looping {
                     push_audio_command(AudioCommand::PlayLoop {
                         handle: *this.entity as u64,
-                        sounds: group.sounds.clone(),
+                        sounds,
                         volume,
                         pitch_variation: group.pitch_variation,
                         volume_variation: group.volume_variation,
                     });
                 } else {
                     push_audio_command(AudioCommand::PlayVariedSfx {
-                        sounds: group.sounds.clone(),
+                        sounds,
                         volume,
                         pitch_variation: group.pitch_variation,
                         volume_variation: group.volume_variation,

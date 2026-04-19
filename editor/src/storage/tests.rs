@@ -160,6 +160,54 @@ fn save_game_persists_asset_identities_in_asset_registry() {
 }
 
 #[test]
+fn save_game_round_trips_sound_asset_registry_records() {
+    let _lock = game_fs_test_lock()
+        .lock()
+        .unwrap_or_else(|poison| poison.into_inner());
+    let test_game = TestGameFolder::new("sound_asset_registry_roundtrip");
+    set_game_name(test_game.name());
+
+    let mut game = create_new_game(test_game.name().to_string());
+    let sound_id = SoundId(4);
+    let relative_path = PathBuf::from(paths::SFX_FOLDER).join("jump.wav");
+    game.asset_registry
+        .register_asset_relative_path(sound_id, &relative_path)
+        .unwrap();
+
+    let entity = game.ecs.create_entity().finish();
+    let mut source = AudioSource::default();
+    source.groups.insert(
+        SoundGroupId::Custom("Jump".to_string()),
+        AudioGroup {
+            sounds: vec![sound_id],
+            ..Default::default()
+        },
+    );
+    game.ecs.add_component_to_entity(entity, source);
+
+    save_game(&game).unwrap();
+    let loaded = load_game_by_name(test_game.name()).unwrap();
+    let loaded_source = AudioSource::store(&loaded.ecs)
+        .data
+        .values()
+        .next()
+        .unwrap();
+
+    assert_eq!(
+        loaded.asset_registry.relative_path(sound_id),
+        Some(relative_path)
+    );
+    assert_eq!(
+        loaded_source
+            .groups
+            .get(&SoundGroupId::Custom("Jump".to_string()))
+            .unwrap()
+            .sounds,
+        vec![sound_id]
+    );
+}
+
+#[test]
 fn load_game_by_name_returns_invalid_data_for_corrupt_asset_registry() {
     let _lock = game_fs_test_lock()
         .lock()

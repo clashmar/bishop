@@ -10,7 +10,7 @@
             ),
             /*[1]*/ (
                 type_name: "AudioSource",
-                data: "{\n    (3): (\n        groups: {\n            Custom(\"Jump\"): (\n                sounds: [\n                    \"sfx/jump\",\n                ],\n                volume: 1.0,\n                pitch_variation: 0.0,\n                volume_variation: 0.0,\n                looping: false,\n                preset_link: Some((\n                    preset_name: \"Jump\",\n                )),\n            ),\n        },\n    ),\n}",
+                data: "{\n    (3): (\n        groups: {\n            Custom(\"Jump\"): (\n                sounds: [\n                    (1),\n                ],\n                volume: 1.0,\n                pitch_variation: 0.0,\n                volume_variation: 0.0,\n                looping: false,\n                preset_link: Some((\n                    preset_name: \"Jump\",\n                )),\n            ),\n        },\n    ),\n}",
             ),
             /*[2]*/ (
                 type_name: "Children",
@@ -250,6 +250,10 @@
             Prefab((3)): (
                 kind: Prefab,
                 path: "prefabs/Bullet.ron",
+            ),
+            Sound((1)): (
+                kind: Sound,
+                path: "audio/sfx/jump.wav",
             ),
         },
     ),

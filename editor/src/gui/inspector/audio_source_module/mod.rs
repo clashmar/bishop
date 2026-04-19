@@ -100,7 +100,7 @@ impl InspectorModule for AudioSourceModule {
                 Rect::new(x, y, w, ROW_HEIGHT),
                 self,
                 source,
-                &library,
+                game_ctx.asset_registry,
                 &mut pending_sync_all,
             ) {
                 warning_message = Some(message);
@@ -164,9 +164,12 @@ impl InspectorModule for AudioSourceModule {
                 .suppressed(blocked)
                 .show(ctx)
                 {
-                    if let Some(message) =
-                        handle_preset_action(source, action, &mut pending_sync_all)
-                    {
+                    if let Some(message) = handle_preset_action(
+                        source,
+                        action,
+                        &mut pending_sync_all,
+                        game_ctx.asset_registry,
+                    ) {
                         warning_message = Some(message);
                     }
                 }
@@ -191,16 +194,16 @@ impl InspectorModule for AudioSourceModule {
                 {
                     let base = audio_folder();
                     let relative = path.strip_prefix(&base).unwrap_or(&path);
-                    let sound_id = relative
-                        .with_extension("")
-                        .to_string_lossy()
-                        .replace('\\', "/");
-
-                    apply_source_edit(source, |source| {
-                        if let Some(group) = source.groups.get_mut(&current_group_id) {
-                            group.sounds.push(sound_id);
+                    match register_sound_id(game_ctx.asset_registry, relative) {
+                        Ok(sound_id) => {
+                            apply_source_edit(source, game_ctx.asset_registry, |source| {
+                                if let Some(group) = source.groups.get_mut(&current_group_id) {
+                                    group.sounds.push(sound_id);
+                                }
+                            });
                         }
-                    });
+                        Err(message) => warning_message = Some(message),
+                    }
                 }
             }
 
@@ -248,7 +251,7 @@ impl InspectorModule for AudioSourceModule {
                 let remove_rect = Rect::new(x + w - remove_btn_w, y, remove_btn_w, ROW_HEIGHT);
 
                 ctx.draw_text(
-                    sound,
+                    &sound_label(game_ctx.asset_registry, *sound),
                     label_rect.x,
                     label_rect.y + 20.0,
                     DEFAULT_FONT_SIZE_16,
@@ -260,7 +263,7 @@ impl InspectorModule for AudioSourceModule {
                     .blocked(preview_group.is_none())
                     .show(ctx)
                 {
-                    preview_request = Some(PreviewRequest::new(index, sound.clone()));
+                    preview_request = Some(PreviewRequest::new(index, *sound));
                 }
 
                 if Button::new(remove_rect, "x").suppressed(blocked).show(ctx) {
@@ -271,14 +274,20 @@ impl InspectorModule for AudioSourceModule {
 
             if let Some(next_preview) = preview_request {
                 if let Some(group) = preview_group.as_ref() {
-                    apply_preview_request(entity, &current_group_id, Some(next_preview), group);
+                    apply_preview_request(
+                        entity,
+                        &current_group_id,
+                        Some(next_preview),
+                        group,
+                        game_ctx.asset_registry,
+                    );
                 } else {
                     clear_active_audio_preview();
                 }
             }
 
             if let Some(index) = remove_idx {
-                apply_source_edit(source, |source| {
+                apply_source_edit(source, game_ctx.asset_registry, |source| {
                     if let Some(group) = source.groups.get_mut(&current_group_id) {
                         group.sounds.remove(index);
                     }
@@ -378,7 +387,12 @@ impl InspectorModule for AudioSourceModule {
         }
 
         if let Some((preset_name, preset)) = pending_sync_all {
-            sync_linked_groups_from_preset(game_ctx.ecs, &preset_name, &preset);
+            sync_linked_groups_from_preset(
+                game_ctx.ecs,
+                game_ctx.asset_registry,
+                &preset_name,
+                &preset,
+            );
         }
         if let Some((old_preset_name, new_preset_name)) = pending_link_rename {
             rename_preset_links_in_ecs(game_ctx.ecs, &old_preset_name, &new_preset_name);
@@ -388,6 +402,46 @@ impl InspectorModule for AudioSourceModule {
             push_toast(msg, 2.5);
         }
     }
+}
+
+fn next_sound_id(asset_registry: &AssetRegistry) -> SoundId {
+    let used = asset_registry
+        .records()
+        .keys()
+        .filter_map(|key| match key {
+            AssetKey::Sound(sound_id) if sound_id.0 != 0 => Some(sound_id.0),
+            _ => None,
+        })
+        .collect::<std::collections::HashSet<_>>();
+
+    let mut candidate = 1usize;
+    while used.contains(&candidate) {
+        candidate += 1;
+    }
+    SoundId(candidate)
+}
+
+fn register_sound_id(
+    asset_registry: &mut AssetRegistry,
+    relative_wav_path: &std::path::Path,
+) -> Result<SoundId, String> {
+    let registry_path = std::path::PathBuf::from(paths::AUDIO_FOLDER).join(relative_wav_path);
+    let sound_id = match asset_registry.key_for_path(&registry_path) {
+        Some(AssetKey::Sound(sound_id)) => sound_id,
+        _ => next_sound_id(asset_registry),
+    };
+
+    asset_registry
+        .register_asset_relative_path(sound_id, relative_wav_path)
+        .map_err(|error| error.to_string())?;
+    Ok(sound_id)
+}
+
+fn sound_label(asset_registry: &AssetRegistry, sound_id: SoundId) -> String {
+    asset_registry
+        .relative_path(sound_id)
+        .map(|path| path.to_string_lossy().into_owned())
+        .unwrap_or_else(|| format!("SoundId({})", sound_id.0))
 }
 
 fn format_volume_label(volume: f32) -> String {

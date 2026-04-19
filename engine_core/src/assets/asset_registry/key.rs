@@ -1,4 +1,4 @@
-use crate::ecs::{ScriptId, SpriteId};
+use crate::ecs::{ScriptId, SoundId, SpriteId};
 use crate::prefab::PrefabId;
 use serde::{Deserialize, Serialize};
 
@@ -8,6 +8,7 @@ pub enum AssetKey {
     Sprite(SpriteId),
     Script(ScriptId),
     Prefab(PrefabId),
+    Sound(SoundId),
 }
 
 impl From<SpriteId> for AssetKey {
@@ -28,10 +29,17 @@ impl From<PrefabId> for AssetKey {
     }
 }
 
+impl From<SoundId> for AssetKey {
+    fn from(value: SoundId) -> Self {
+        Self::Sound(value)
+    }
+}
+
 /// Asset kind metadata stored alongside the canonical project-relative path.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum AssetKind {
     Sprite,
     Script,
     Prefab,
+    Sound,
 }

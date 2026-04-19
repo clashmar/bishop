@@ -1,3 +1,4 @@
+use crate::assets::AssetRegistry;
 use crate::audio::command_queue::{push_audio_command, AudioCommand};
 use crate::ecs::entity::Entity;
 use crate::game::GameCtxMut;
@@ -6,6 +7,12 @@ use serde::ser::SerializeStruct;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fmt::{Display, Formatter, Result as FmtResult};
+
+/// Opaque handle that identifies a managed WAV asset. Default/Unset is 0.
+#[derive(
+    Clone, Copy, Debug, PartialEq, Eq, Ord, PartialOrd, Hash, Serialize, Deserialize, Default,
+)]
+pub struct SoundId(pub usize);
 
 /// Identifies a sound group stored on an [`AudioSource`].
 #[derive(Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
@@ -45,8 +52,8 @@ pub struct SoundPresetLink {
 #[derive(Clone, Debug, PartialEq, Serialize)]
 #[serde(default)]
 pub struct AudioGroup {
-    /// Sound file paths relative to `Resources/audio/` without extension.
-    pub sounds: Vec<String>,
+    /// Managed sound assets authored on this group.
+    pub sounds: Vec<SoundId>,
     /// Base volume 0.0–1.0, defaulting to 1.0 and multiplied with the SFX group volume.
     pub volume: f32,
     /// Random pitch shift range: playback speed = 1.0 ± pitch_variation.
@@ -67,7 +74,7 @@ fn default_audio_group_volume() -> f32 {
 #[serde(deny_unknown_fields)]
 struct AudioGroupSerde {
     #[serde(default)]
-    sounds: Vec<String>,
+    sounds: Vec<SoundId>,
     #[serde(default = "default_audio_group_volume")]
     volume: f32,
     #[serde(default)]
@@ -154,18 +161,35 @@ pub struct AudioSource {
 
 impl AudioSource {
     /// Returns every sound ID referenced by every group.
-    pub fn all_sound_ids(&self) -> Vec<String> {
+    pub fn all_sound_ids(&self) -> Vec<SoundId> {
         let mut ids = self
             .groups
             .iter()
             .filter(|(group_id, _)| !matches!(group_id, SoundGroupId::New))
-            .flat_map(|(_, group)| group.sounds.iter().cloned())
+            .flat_map(|(_, group)| group.sounds.iter().copied())
             .collect::<HashSet<_>>()
             .into_iter()
             .collect::<Vec<_>>();
         ids.sort();
         ids
     }
+}
+
+/// Resolves managed sound ids into the extensionless audio command ids.
+pub fn sound_command_ids(
+    asset_registry: &AssetRegistry,
+    sound_ids: impl IntoIterator<Item = SoundId>,
+) -> Vec<String> {
+    sound_ids
+        .into_iter()
+        .filter_map(|sound_id| {
+            asset_registry.relative_path(sound_id).map(|path| {
+                let mut path_without_extension = path;
+                path_without_extension.set_extension("");
+                path_without_extension.to_string_lossy().into_owned()
+            })
+        })
+        .collect()
 }
 
 impl Default for AudioSource {
@@ -233,12 +257,18 @@ struct AudioSourceSerde {
 }
 
 fn post_create(source: &mut AudioSource, _entity: &Entity, _ctx: &mut GameCtxMut<'_>) {
-    push_audio_command(AudioCommand::IncrementRefs(source.all_sound_ids()));
+    push_audio_command(AudioCommand::IncrementRefs(sound_command_ids(
+        _ctx.asset_registry,
+        source.all_sound_ids(),
+    )));
 }
 
 fn post_remove(source: &mut AudioSource, entity: &Entity, _ctx: &mut GameCtxMut<'_>) {
     push_audio_command(AudioCommand::StopLoop(**entity as u64));
-    push_audio_command(AudioCommand::DecrementRefs(source.all_sound_ids()));
+    push_audio_command(AudioCommand::DecrementRefs(sound_command_ids(
+        _ctx.asset_registry,
+        source.all_sound_ids(),
+    )));
 }
 
 #[cfg(test)]
