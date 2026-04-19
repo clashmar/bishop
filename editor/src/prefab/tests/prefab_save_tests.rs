@@ -2,6 +2,96 @@ use super::*;
 use std::path::Path;
 
 #[test]
+fn saving_prefab_registers_prefab_record_in_asset_registry() {
+    let _lock = game_fs_test_lock()
+        .lock()
+        .unwrap_or_else(|poison| poison.into_inner());
+    let test_game = TestGameFolder::new("prefab_save_registers_asset_record");
+    let (editor, _, prefab_id, _) = make_prefab_session_editor(&test_game);
+    let _guard = EditorServicesGuard::install(editor);
+
+    with_editor(|editor| {
+        let staged_state = editor.active_prefab_staged_state();
+        let prefab = match staged_state {
+            Some(StagedPrefabState::PrefabAsset(prefab)) => prefab,
+            _ => unreachable!(),
+        };
+        let expected_path = saved_prefab_path(&prefab);
+        let expected_relative_path = Path::new(
+            expected_path
+                .file_name()
+                .expect("saved prefab path should have file name"),
+        );
+
+        assert!(editor.commit_prefab_asset_save(prefab));
+        assert_eq!(
+            editor
+                .game
+                .asset_registry
+                .relative_path(prefab_id)
+                .as_deref(),
+            Some(expected_relative_path)
+        );
+        assert_eq!(
+            editor
+                .game
+                .asset_registry
+                .key_for_path(PathBuf::from(paths::PREFABS_FOLDER).join(expected_relative_path)),
+            Some(AssetKey::Prefab(prefab_id))
+        );
+    });
+}
+
+#[test]
+fn saving_prefab_rename_updates_prefab_record_path_and_removes_old_file() {
+    let _lock = game_fs_test_lock()
+        .lock()
+        .unwrap_or_else(|poison| poison.into_inner());
+    let test_game = TestGameFolder::new("prefab_save_rename_updates_asset_record");
+    let (editor, _, prefab_id, _) = make_prefab_session_editor(&test_game);
+    let _guard = EditorServicesGuard::install(editor);
+
+    with_editor(|editor| {
+        let original_prefab = match editor.active_prefab_staged_state() {
+            Some(StagedPrefabState::PrefabAsset(prefab)) => prefab,
+            _ => unreachable!(),
+        };
+        assert!(editor.commit_prefab_asset_save(original_prefab.clone()));
+
+        let original_path = saved_prefab_path(&original_prefab);
+        let renamed_prefab = PrefabAsset {
+            name: "Barrel".to_string(),
+            ..original_prefab
+        };
+        let renamed_path = saved_prefab_path(&renamed_prefab);
+        let renamed_relative_path = Path::new(
+            renamed_path
+                .file_name()
+                .expect("renamed prefab path should have file name"),
+        );
+
+        assert!(editor.commit_prefab_asset_save(renamed_prefab));
+        assert_eq!(
+            editor
+                .game
+                .asset_registry
+                .relative_path(prefab_id)
+                .as_deref(),
+            Some(renamed_relative_path)
+        );
+        assert_eq!(
+            editor
+                .game
+                .asset_registry
+                .key_for_path(PathBuf::from(paths::PREFABS_FOLDER).join(renamed_relative_path)),
+            Some(AssetKey::Prefab(prefab_id))
+        );
+        assert!(!original_path.exists());
+        assert!(renamed_path.is_file());
+    });
+}
+
+#[test]
 fn saving_empty_prefab_delete_supports_undo_and_redo_preview_sync() {
     let _lock = game_fs_test_lock()
         .lock()
@@ -22,7 +112,7 @@ fn saving_empty_prefab_delete_supports_undo_and_redo_preview_sync() {
     with_editor(|editor| {
         editor.reconcile_active_prefab_room_preview();
         editor.confirm_empty_prefab_save_delete();
-        assert!(!editor.game.prefab_library.prefabs.contains_key(&prefab_id));
+        assert!(!editor.game.prefab_manager.prefabs.contains_key(&prefab_id));
         assert!(linked_root_entities(&editor.game.ecs, prefab_id).is_empty());
     });
 
@@ -405,7 +495,7 @@ fn saving_prefab_activates_it_in_room_palette_and_persists_state() {
     let other_prefab = create_prefab(PrefabId(2), "Torch".to_string());
     let mut base_game = create_new_game(test_game.name().to_string());
     base_game
-        .prefab_library
+        .prefab_manager
         .prefabs
         .insert(prefab.id, prefab.clone());
     let (mut prefab_editor, mut prefab_stage) = PrefabEditor::open_existing_from_game(
@@ -429,7 +519,7 @@ fn saving_prefab_activates_it_in_room_palette_and_persists_state() {
     };
     editor
         .game
-        .prefab_library
+        .prefab_manager
         .prefabs
         .insert(other_prefab.id, other_prefab);
     editor.room_editor.mode = RoomEditorMode::Tilemap;

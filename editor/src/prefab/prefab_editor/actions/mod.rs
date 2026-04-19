@@ -105,7 +105,7 @@ impl Editor {
     }
 
     pub(crate) fn open_prefab_editor_for_id(&mut self, prefab_id: PrefabId) {
-        let Some(prefab) = self.game.prefab_library.prefabs.get(&prefab_id).cloned() else {
+        let Some(prefab) = self.game.prefab_manager.prefabs.get(&prefab_id).cloned() else {
             self.toast = Some(Toast::new("Prefab not found.", 2.5));
             return;
         };
@@ -147,17 +147,20 @@ impl Editor {
             return;
         }
 
-        let prefab_id = self.game.prefab_library.allocate_prefab_id();
+        let prefab_id = self.game.prefab_manager.allocate_prefab_id();
         let prefab = capture_prefab(&mut self.game.ecs, entity, prefab_id, name);
-        if let Err(error) = save_prefab(&self.game.name, &prefab) {
-            onscreen_error!("Could not save prefab: {error}");
-            return;
-        }
+        let prefab = match self.game.prefab_manager.save_prefab(
+            &self.game.name,
+            &mut self.game.asset_registry,
+            &prefab,
+        ) {
+            Ok(prefab) => prefab,
+            Err(error) => {
+                onscreen_error!("Could not save prefab: {error}");
+                return;
+            }
+        };
 
-        self.game
-            .prefab_library
-            .prefabs
-            .insert(prefab.id, prefab.clone());
         if let Err(error) = save::sync_prefabs_lua_file(&self.game) {
             onscreen_error!("Could not write prefabs.lua: {error}");
             return;
@@ -175,17 +178,17 @@ impl Editor {
     }
 
     pub(super) fn create_blank_prefab_impl(&mut self, name: String) {
-        let prefab_id = self.game.prefab_library.allocate_prefab_id();
+        let prefab_id = self.game.prefab_manager.allocate_prefab_id();
         let prefab = create_prefab(prefab_id, name);
-        if let Err(error) = save_prefab(&self.game.name, &prefab) {
+        if let Err(error) = self.game.prefab_manager.save_prefab(
+            &self.game.name,
+            &mut self.game.asset_registry,
+            &prefab,
+        ) {
             onscreen_error!("Could not save prefab: {error}");
             return;
         }
 
-        self.game
-            .prefab_library
-            .prefabs
-            .insert(prefab.id, prefab.clone());
         if let Err(error) = save::sync_prefabs_lua_file(&self.game) {
             onscreen_error!("Could not write prefabs.lua: {error}");
             return;

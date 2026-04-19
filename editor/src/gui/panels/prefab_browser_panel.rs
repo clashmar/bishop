@@ -38,7 +38,7 @@ impl PanelDefinition for PrefabBrowserPanel {
             return;
         }
 
-        let entries = prefab_browser_entries(&editor.game.prefab_library);
+        let entries = prefab_browser_entries(&editor.game.prefab_manager);
         let content_height = if entries.is_empty() {
             CONTENT_PADDING * 2.0 + ROW_HEIGHT
         } else {
@@ -88,8 +88,8 @@ impl PanelDefinition for PrefabBrowserPanel {
 }
 
 /// Returns prefabs sorted alphabetically by name, tie-breaking by prefab id.
-pub(crate) fn prefab_browser_entries(prefab_library: &PrefabLibrary) -> Vec<(PrefabId, String)> {
-    let mut entries = prefab_library
+pub(crate) fn prefab_browser_entries(prefab_manager: &PrefabManager) -> Vec<(PrefabId, String)> {
+    let mut entries = prefab_manager
         .prefabs
         .values()
         .map(|prefab| (prefab.id, prefab.name.clone()))

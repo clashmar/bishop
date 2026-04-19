@@ -32,8 +32,7 @@ pub struct PrefabStage {
     pub asset_registry: AssetRegistry,
     pub sprite_manager: SpriteManager,
     pub script_manager: ScriptManager,
-    /// Read-only prefab library loaded for linked-prefab labels.
-    pub prefab_library: PrefabLibrary,
+    pub prefab_manager: PrefabManager,
 }
 
 #[derive(Clone, Debug, PartialEq)]

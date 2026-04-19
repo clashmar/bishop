@@ -37,7 +37,7 @@ impl EditorCommand for AddComponentCmd {
             if matches!(mode, EditorMode::Room(_)) {
                 sync_prefab_overrides_for_entity(
                     &mut editor.game.ecs,
-                    &editor.game.prefab_library,
+                    &editor.game.prefab_manager,
                     entity,
                 );
             }
@@ -61,7 +61,7 @@ impl EditorCommand for AddComponentCmd {
             if matches!(mode, EditorMode::Room(_)) {
                 sync_prefab_overrides_for_entity(
                     &mut editor.game.ecs,
-                    &editor.game.prefab_library,
+                    &editor.game.prefab_manager,
                     entity,
                 );
             }

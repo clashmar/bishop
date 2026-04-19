@@ -37,7 +37,7 @@ impl EditorCommand for PlacePrefabInstanceCmd {
             } else {
                 let Some(prefab) = editor
                     .game
-                    .prefab_library
+                    .prefab_manager
                     .prefabs
                     .get(&self.prefab_id)
                     .cloned()
@@ -119,7 +119,7 @@ mod tests {
         let room_id = game.current_world().starting_room_id.unwrap_or_default();
         game.get_world_mut(world_id).current_room_id = Some(room_id);
         let prefab_id = PrefabId(1);
-        game.prefab_library
+        game.prefab_manager
             .prefabs
             .insert(prefab_id, test_prefab(prefab_id));
 
@@ -160,7 +160,7 @@ mod tests {
         });
 
         with_editor(|editor| {
-            editor.game.prefab_library.prefabs.insert(
+            editor.game.prefab_manager.prefabs.insert(
                 prefab_id,
                 PrefabAsset {
                     name: "Updated".to_string(),

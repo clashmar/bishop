@@ -10,7 +10,7 @@ use crate::assets::{sprite_manager::SpriteManager, AssetRegistry};
 use crate::ecs::ecs::Ecs;
 use crate::engine_global::set_game_name;
 use crate::onscreen_error;
-use crate::prefab::{load_prefab_library, PrefabLibrary};
+use crate::prefab::{load_prefab_manager, PrefabManager};
 use crate::scripting::script_manager::ScriptManager;
 use crate::worlds::room::RoomId;
 use crate::worlds::world::*;
@@ -43,9 +43,9 @@ pub struct Game {
     /// Text manager for the game.
     #[serde(skip)]
     pub text_manager: TextManager,
-    /// In-memory prefab library loaded from disk for the current game.
+    /// Prefab manager for the game.
     #[serde(skip)]
-    pub prefab_library: PrefabLibrary,
+    pub prefab_manager: PrefabManager,
     /// Id of the currently active world.
     pub current_world_id: WorldId, // TODO: Change this to an option
     /// Top level map of the whole game.
@@ -61,8 +61,7 @@ pub struct GameCtx<'a> {
     pub asset_registry: &'a AssetRegistry,
     pub sprite_manager: &'a SpriteManager,
     pub script_manager: &'a ScriptManager,
-    /// Read-only prefab library for UI and editor lookups.
-    pub prefab_library: &'a PrefabLibrary,
+    pub prefab_manager: &'a PrefabManager,
 }
 
 /// Bundles together mutable game services used by editor and prefab workflows.
@@ -72,8 +71,7 @@ pub struct GameCtxMut<'a> {
     pub asset_registry: &'a mut AssetRegistry,
     pub sprite_manager: &'a mut SpriteManager,
     pub script_manager: &'a mut ScriptManager,
-    /// Read-only prefab library for UI and editor lookups.
-    pub prefab_library: &'a PrefabLibrary,
+    pub prefab_manager: &'a PrefabManager,
 }
 
 impl Game {
@@ -91,7 +89,7 @@ impl Game {
             asset_registry: &self.asset_registry,
             sprite_manager: &self.sprite_manager,
             script_manager: &self.script_manager,
-            prefab_library: &self.prefab_library,
+            prefab_manager: &self.prefab_manager,
         }
     }
 
@@ -109,7 +107,7 @@ impl Game {
             asset_registry: &mut self.asset_registry,
             sprite_manager: &mut self.sprite_manager,
             script_manager: &mut self.script_manager,
-            prefab_library: &self.prefab_library,
+            prefab_manager: &self.prefab_manager,
         }
     }
 
@@ -172,7 +170,7 @@ impl Game {
         SpriteManager::init_manager(loader, self);
         ScriptManager::init_manager(&self.asset_registry, &mut self.script_manager, lua);
         self.init_text_manager();
-        self.reload_prefab_library();
+        self.reload_prefab_manager();
     }
 
     /// Initializes runtime state for the game without eagerly hydrating all textures.
@@ -182,7 +180,7 @@ impl Game {
         SpriteManager::init_runtime_manager(self);
         ScriptManager::init_manager(&self.asset_registry, &mut self.script_manager, lua);
         self.init_text_manager();
-        self.reload_prefab_library();
+        self.reload_prefab_manager();
     }
 
     /// Initializes the text manager with the correct path.
@@ -191,15 +189,16 @@ impl Game {
         self.text_manager.set_text_root(text_root);
     }
 
-    /// Reloads the prefab library for the current game from disk.
-    pub fn reload_prefab_library(&mut self) {
-        match load_prefab_library(&self.name) {
-            Ok(prefab_library) => {
-                self.prefab_library = prefab_library;
+    /// Reloads the prefab manager for the current game from disk.
+    pub fn reload_prefab_manager(&mut self) {
+        let game_name = self.name.clone();
+
+        match load_prefab_manager(&game_name, &mut self.asset_registry) {
+            Ok(prefab_manager) => {
+                self.prefab_manager = prefab_manager;
             }
             Err(error) => {
                 onscreen_error!("Failed to load prefabs: {error}");
-                self.prefab_library = PrefabLibrary::default();
             }
         }
     }
@@ -248,7 +247,7 @@ mod tests {
         let mut asset_registry = AssetRegistry::default();
         let mut sprite_manager = SpriteManager::default();
         let mut script_manager = ScriptManager::default();
-        let prefab_library = PrefabLibrary::default();
+        let prefab_manager = PrefabManager::default();
 
         let ctx = GameCtxMut {
             ecs: &mut ecs,
@@ -256,7 +255,7 @@ mod tests {
             asset_registry: &mut asset_registry,
             sprite_manager: &mut sprite_manager,
             script_manager: &mut script_manager,
-            prefab_library: &prefab_library,
+            prefab_manager: &prefab_manager,
         };
 
         assert!(ctx.world.is_none());

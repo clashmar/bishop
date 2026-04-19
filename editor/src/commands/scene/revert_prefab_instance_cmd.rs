@@ -34,7 +34,7 @@ impl EditorCommand for RevertPrefabInstanceCmd {
             };
             let Some(prefab) = editor
                 .game
-                .prefab_library
+                .prefab_manager
                 .prefabs
                 .get(&reference.prefab_id)
                 .cloned()

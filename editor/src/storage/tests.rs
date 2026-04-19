@@ -79,6 +79,47 @@ fn save_game_round_trips_asset_registry_records() {
 }
 
 #[test]
+fn reload_prefab_manager_reconciles_prefab_registry_records() {
+    let _lock = game_fs_test_lock()
+        .lock()
+        .unwrap_or_else(|poison| poison.into_inner());
+    let test_game = TestGameFolder::new("prefab_registry_reload");
+    set_game_name(test_game.name());
+    create_game_folders(test_game.name());
+
+    let prefab = create_prefab(PrefabId(9), "Crate".to_string());
+    let prefab_file_name = "disk_prefab.ron";
+    let prefab_path = prefabs_folder().join(prefab_file_name);
+    let expected_path = PathBuf::from(paths::PREFABS_FOLDER).join(prefab_file_name);
+    let stale_prefab_id = PrefabId(21);
+    let stale_path = PathBuf::from(paths::PREFABS_FOLDER).join("stale_prefab.ron");
+    let mut game = create_new_game(test_game.name().to_string());
+
+    fs::write(&prefab_path, ron::to_string(&prefab).unwrap()).unwrap();
+    game.asset_registry
+        .register_asset_relative_path(stale_prefab_id, "stale_prefab.ron")
+        .unwrap();
+
+    game.reload_prefab_manager();
+
+    assert_eq!(game.prefab_manager.prefabs.get(&prefab.id), Some(&prefab));
+    assert_eq!(
+        game.asset_registry.key_for_path(&expected_path),
+        Some(AssetKey::Prefab(prefab.id))
+    );
+    assert_eq!(
+        game.asset_registry.relative_path(prefab.id),
+        Some(PathBuf::from(prefab_file_name))
+    );
+    assert_eq!(
+        game.asset_registry
+            .record(AssetKey::Prefab(stale_prefab_id)),
+        None
+    );
+    assert_eq!(game.asset_registry.key_for_path(&stale_path), None);
+}
+
+#[test]
 fn save_game_persists_asset_identities_in_asset_registry() {
     let _lock = game_fs_test_lock()
         .lock()
@@ -208,7 +249,7 @@ fn prefab_storage_round_trips_through_disk_helpers() {
     assert_eq!(loaded, prefab);
     assert_eq!(listed, vec![prefab.clone()]);
     assert_eq!(
-        load_prefab_library(test_game.name())
+        load_prefab_manager(test_game.name(), &mut AssetRegistry::default())
             .unwrap()
             .prefabs
             .get(&prefab.id),
@@ -232,7 +273,7 @@ fn save_game_writes_prefabs_lua() {
         name: test_game.name().to_string(),
         ..Default::default()
     };
-    game.prefab_library.prefabs.insert(
+    game.prefab_manager.prefabs.insert(
         PrefabId(1),
         PrefabAsset {
             id: PrefabId(1),
@@ -292,8 +333,8 @@ fn save_game_rejects_duplicate_prefab_names() {
             components: vec![],
         }],
     };
-    game.prefab_library.prefabs.insert(prefab_a.id, prefab_a);
-    game.prefab_library.prefabs.insert(prefab_b.id, prefab_b);
+    game.prefab_manager.prefabs.insert(prefab_a.id, prefab_a);
+    game.prefab_manager.prefabs.insert(prefab_b.id, prefab_b);
 
     let error = save_game(&game).unwrap_err();
 

@@ -2,7 +2,7 @@ use crate::app::Editor;
 use crate::app::EditorMode;
 use crate::gui::panels::hierarchy_panel::{
     clear_drag_on_mouse_release, layout_entity_tree, prune_dead_hierarchy_state,
-    room_mode_prefab_library, sync_prefab_root_expansion, PrefabHierarchyHost, RoomHierarchyHost,
+    room_mode_prefab_manager, sync_prefab_root_expansion, PrefabHierarchyHost, RoomHierarchyHost,
 };
 use crate::gui::panels::prefab_browser_panel::prefab_browser_entries;
 use crate::room::room_editor::RoomEditor;
@@ -111,18 +111,18 @@ fn clear_drag_on_mouse_release_clears_prefab_drag_on_blank_space_release() {
 }
 
 #[test]
-fn room_mode_prefab_library_is_available_for_global_and_room_rows() {
+fn room_mode_prefab_manager_is_available_for_global_and_room_rows() {
     let mut editor = Editor {
         cur_room_id: Some(RoomId(1)),
         ..Default::default()
     };
 
-    let prefab_library =
-        room_mode_prefab_library(editor.cur_room_id, &editor.game.prefab_library).unwrap();
-    assert!(std::ptr::eq(prefab_library, &editor.game.prefab_library));
+    let prefab_manager =
+        room_mode_prefab_manager(editor.cur_room_id, &editor.game.prefab_manager).unwrap();
+    assert!(std::ptr::eq(prefab_manager, &editor.game.prefab_manager));
 
     editor.cur_room_id = None;
-    assert!(room_mode_prefab_library(editor.cur_room_id, &editor.game.prefab_library).is_none());
+    assert!(room_mode_prefab_manager(editor.cur_room_id, &editor.game.prefab_manager).is_none());
 }
 
 #[test]
@@ -132,7 +132,7 @@ fn room_hierarchy_host_toggles_selection_additively() {
     let mut host = RoomHierarchyHost {
         room_editor: &mut room_editor,
         mode: EditorMode::Room(RoomId(1)),
-        prefab_library: None,
+        prefab_manager: None,
     };
 
     host.apply_selection_action(entity, SceneHierarchySelectionAction::Replace);
@@ -170,22 +170,22 @@ fn prefab_hierarchy_host_toggles_selection_additively() {
 
 #[test]
 fn prefab_browser_entries_sort_by_name_then_id() {
-    let mut prefab_library = PrefabLibrary::default();
+    let mut prefab_manager = PrefabManager::default();
     let beta_low = create_prefab(PrefabId(2), "Beta".to_string());
     let alpha_high = create_prefab(PrefabId(8), "Alpha".to_string());
     let alpha_low = create_prefab(PrefabId(3), "Alpha".to_string());
     let gamma = create_prefab(PrefabId(1), "Gamma".to_string());
 
-    prefab_library.prefabs.insert(beta_low.id, beta_low.clone());
-    prefab_library
+    prefab_manager.prefabs.insert(beta_low.id, beta_low.clone());
+    prefab_manager
         .prefabs
         .insert(alpha_high.id, alpha_high.clone());
-    prefab_library
+    prefab_manager
         .prefabs
         .insert(alpha_low.id, alpha_low.clone());
-    prefab_library.prefabs.insert(gamma.id, gamma.clone());
+    prefab_manager.prefabs.insert(gamma.id, gamma.clone());
 
-    let entries = prefab_browser_entries(&prefab_library);
+    let entries = prefab_browser_entries(&prefab_manager);
 
     assert_eq!(
         entries,

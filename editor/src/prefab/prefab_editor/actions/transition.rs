@@ -80,7 +80,7 @@ impl Editor {
         prefab: PrefabAsset,
     ) -> PrefabTransitionPrompt {
         self.game
-            .prefab_library
+            .prefab_manager
             .prefabs
             .insert(prefab.id, prefab.clone());
         let _ = self.reconcile_prefab_palette_after_library_change();

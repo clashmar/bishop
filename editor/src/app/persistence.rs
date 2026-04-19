@@ -16,13 +16,11 @@ impl Editor {
         &self,
         state: PrefabPaletteState,
     ) -> PrefabPaletteState {
-        let recent_prefab_ids = reconcile_recent_prefab_ids(
-            state.recent_prefab_ids,
-            &self.game.prefab_library,
-        );
+        let recent_prefab_ids =
+            reconcile_recent_prefab_ids(state.recent_prefab_ids, &self.game.prefab_manager);
         let active_prefab_id = state
             .active_prefab_id
-            .filter(|prefab_id| self.game.prefab_library.prefabs.contains_key(prefab_id))
+            .filter(|prefab_id| self.game.prefab_manager.prefabs.contains_key(prefab_id))
             .or_else(|| recent_prefab_ids.first().copied());
 
         PrefabPaletteState {
@@ -43,7 +41,7 @@ impl Editor {
         self.room_editor.active_prefab_id = palette_state.active_prefab_id;
         self.room_editor.recent_prefab_ids = palette_state.recent_prefab_ids;
         self.room_editor
-            .reconcile_prefab_palette(&self.game.prefab_library);
+            .reconcile_prefab_palette(&self.game.prefab_manager);
 
         if self.save_prefab_palette_state() {
             return true;
@@ -64,11 +62,11 @@ impl Editor {
         match load_prefab_palette_state(&self.game.name) {
             Ok(state) => self
                 .room_editor
-                .load_prefab_palette_state(&self.game.prefab_library, state),
+                .load_prefab_palette_state(&self.game.prefab_manager, state),
             Err(error) => {
                 onscreen_error!("Could not load prefab palette state: {error}");
                 self.room_editor.load_prefab_palette_state(
-                    &self.game.prefab_library,
+                    &self.game.prefab_manager,
                     PrefabPaletteState::default(),
                 );
             }
@@ -95,7 +93,7 @@ impl Editor {
     }
 
     pub(crate) fn promote_prefab_in_palette(&mut self, prefab_id: PrefabId) -> bool {
-        if !self.game.prefab_library.prefabs.contains_key(&prefab_id) {
+        if !self.game.prefab_manager.prefabs.contains_key(&prefab_id) {
             return false;
         }
 
@@ -120,7 +118,7 @@ impl Editor {
     }
 
     pub(crate) fn activate_prefab(&mut self, prefab_id: PrefabId) -> bool {
-        if !self.game.prefab_library.prefabs.contains_key(&prefab_id) {
+        if !self.game.prefab_manager.prefabs.contains_key(&prefab_id) {
             return false;
         }
 

@@ -137,7 +137,7 @@
                 data: "{}",
             ),
         ],
-        next_entity_id: 40,
+        next_entity_id: 41,
     ),
     worlds: [
         /*[0]*/ (
@@ -238,6 +238,18 @@
             Script((2)): (
                 kind: Script,
                 path: "scripts/player.lua",
+            ),
+            Prefab((1)): (
+                kind: Prefab,
+                path: "prefabs/Cat.ron",
+            ),
+            Prefab((2)): (
+                kind: Prefab,
+                path: "prefabs/Female.ron",
+            ),
+            Prefab((3)): (
+                kind: Prefab,
+                path: "prefabs/Bullet.ron",
             ),
         },
     ),

@@ -42,7 +42,7 @@ impl EditorCommand for ApplyInstanceToPrefabCmd {
             };
             let Some(prefab) = editor
                 .game
-                .prefab_library
+                .prefab_manager
                 .prefabs
                 .get(&reference.prefab_id)
                 .cloned()
@@ -76,7 +76,7 @@ impl EditorCommand for ApplyInstanceToPrefabCmd {
 
             editor
                 .game
-                .prefab_library
+                .prefab_manager
                 .prefabs
                 .insert(updated_prefab.id, updated_prefab.clone());
 
@@ -119,7 +119,7 @@ impl EditorCommand for ApplyInstanceToPrefabCmd {
 
             editor
                 .game
-                .prefab_library
+                .prefab_manager
                 .prefabs
                 .insert(prefab_id, previous_prefab.clone());
             replace_linked_instances_with_snapshots(

@@ -5,11 +5,11 @@ use engine_core::prelude::*;
 pub fn linked_prefab_instance_state_for_scene_inspector(
     show_linked_prefab_metadata: bool,
     ecs: &mut Ecs,
-    prefab_library: &PrefabLibrary,
+    prefab_manager: &PrefabManager,
     entity: Entity,
 ) -> Option<LinkedPrefabInstanceState> {
     show_linked_prefab_metadata
-        .then(|| linked_prefab_instance_state(ecs, prefab_library, entity))?
+        .then(|| linked_prefab_instance_state(ecs, prefab_manager, entity))?
 }
 
 /// Returns whether a component type should be hidden from prefab scene editing.

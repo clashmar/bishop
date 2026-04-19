@@ -52,7 +52,7 @@ pub fn create_new_game(name: String) -> Game {
     let sprite_manager = SpriteManager::default();
     let script_manager = ScriptManager::default();
 
-    // Build the game first so we can allocate room IDs globally
+    // Build the game first so we can allocate room IDs globally.
     let mut game = Game {
         version: 1,
         id: Uuid::new_v4(),
@@ -63,7 +63,7 @@ pub fn create_new_game(name: String) -> Game {
         sprite_manager,
         script_manager,
         text_manager: TextManager::default(),
-        prefab_library: PrefabLibrary::default(),
+        prefab_manager: PrefabManager::default(),
         current_world_id: WorldId(Uuid::nil()),
         game_map: GameMap::default(),
         next_room_id: 0,
@@ -255,7 +255,7 @@ pub fn save_game(game: &Game) -> io::Result<()> {
         onscreen_error!("Could not write animations.lua: {e}");
     }
 
-    let prefab_names = collect_prefab_names(&game.prefab_library)?;
+    let prefab_names = collect_prefab_names(&game.prefab_manager)?;
     write_prefabs_lua(&scripts_folder(), &prefab_names)?;
 
     let sound_library = current_sound_preset_library();
@@ -282,11 +282,11 @@ pub fn collect_custom_clip_names(ecs: &Ecs) -> Vec<String> {
     names.into_iter().collect()
 }
 
-/// Collects all unique prefab names from the prefab library.
-pub fn collect_prefab_names(prefab_library: &PrefabLibrary) -> io::Result<Vec<String>> {
+/// Collects all unique prefab names from the prefab manager.
+pub fn collect_prefab_names(prefab_manager: &PrefabManager) -> io::Result<Vec<String>> {
     let mut names = HashSet::new();
 
-    for prefab in prefab_library.prefabs.values() {
+    for prefab in prefab_manager.prefabs.values() {
         if !names.insert(prefab.name.clone()) {
             return Err(Error::new(
                 ErrorKind::InvalidData,

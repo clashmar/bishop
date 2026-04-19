@@ -42,7 +42,7 @@ impl PrefabStage {
             asset_registry: AssetRegistry::default(),
             sprite_manager: SpriteManager::default(),
             script_manager: ScriptManager::default(),
-            prefab_library: game.prefab_library.clone(),
+            prefab_manager: game.prefab_manager.clone(),
         };
         for_each_prefab_asset_manager!(snapshot_prefab_asset_manager, game, stage);
 
@@ -72,7 +72,7 @@ impl PrefabStage {
             asset_registry: &mut self.asset_registry,
             sprite_manager: &mut self.sprite_manager,
             script_manager: &mut self.script_manager,
-            prefab_library: &self.prefab_library,
+            prefab_manager: &self.prefab_manager,
         }
     }
 }
@@ -115,16 +115,10 @@ impl PrefabEditor {
         ))
     }
 
-    pub(crate) fn save_prefab_asset(
-        &mut self,
-        game_name: &str,
-        prefab: &PrefabAsset,
-    ) -> io::Result<()> {
-        let prefab = canonical_prefab_asset(prefab);
-        save_prefab(game_name, &prefab)?;
+    pub(crate) fn record_saved_prefab_asset(&mut self, prefab: PrefabAsset) {
+        let prefab = canonical_prefab_asset(&prefab);
         self.prefab_name = prefab.name.clone();
         self.last_committed_prefab = StagedPrefabState::PrefabAsset(prefab);
-        Ok(())
     }
 
     pub fn set_name(&mut self, name: String) {

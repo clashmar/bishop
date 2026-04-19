@@ -2,6 +2,7 @@ mod capture;
 mod component_sync;
 mod instance;
 
+use crate::assets::{AssetKey, AssetKind, AssetRecord, AssetRegistry};
 use crate::ecs::capture::ComponentSnapshot;
 use crate::onscreen_error;
 use crate::storage::path_utils::{resources_folder, sanitise_name};
@@ -33,10 +34,10 @@ impl Display for PrefabId {
     }
 }
 
-/// Project-wide prefab library persisted as individual prefab files.
+/// Project-wide prefab manager persisted as individual prefab files.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
-pub struct PrefabLibrary {
+pub struct PrefabManager {
     /// Prefabs keyed by their stable asset id.
     pub prefabs: HashMap<PrefabId, PrefabAsset>,
     /// Prefabs keyed by their runtime Lua name.
@@ -46,7 +47,7 @@ pub struct PrefabLibrary {
     pub next_prefab_id: usize,
 }
 
-impl Default for PrefabLibrary {
+impl Default for PrefabManager {
     fn default() -> Self {
         Self {
             prefabs: HashMap::new(),
@@ -56,7 +57,7 @@ impl Default for PrefabLibrary {
     }
 }
 
-impl PrefabLibrary {
+impl PrefabManager {
     /// Allocates the next project-scoped prefab id.
     pub fn allocate_prefab_id(&mut self) -> PrefabId {
         let id = PrefabId(self.next_prefab_id.max(1));
@@ -98,6 +99,36 @@ impl PrefabLibrary {
         self.prefab_ids_by_name
             .get(name)
             .and_then(|id| self.prefabs.get(id))
+    }
+
+    /// Saves a prefab asset and reconciles its asset-registry record to the saved path.
+    pub fn save_prefab(
+        &mut self,
+        game_name: &str,
+        asset_registry: &mut AssetRegistry,
+        prefab: &PrefabAsset,
+    ) -> io::Result<PrefabAsset> {
+        let (saved_prefab, saved_path) = persist_prefab_asset(game_name, prefab)?;
+        sync_prefab_record(game_name, asset_registry, saved_prefab.id, &saved_path)?;
+        self.prefabs.insert(saved_prefab.id, saved_prefab.clone());
+        self.rebuild_name_lookup()?;
+        self.restore_next_prefab_id();
+        Ok(saved_prefab)
+    }
+
+    /// Deletes a prefab asset and removes its asset-registry record.
+    pub fn delete_prefab(
+        &mut self,
+        game_name: &str,
+        asset_registry: &mut AssetRegistry,
+        prefab_id: PrefabId,
+    ) -> io::Result<bool> {
+        let deleted = delete_prefab(game_name, prefab_id)?;
+        self.prefabs.remove(&prefab_id);
+        asset_registry.remove_record(AssetKey::Prefab(prefab_id));
+        self.rebuild_name_lookup()?;
+        self.restore_next_prefab_id();
+        Ok(deleted)
     }
 }
 
@@ -142,44 +173,33 @@ pub fn create_prefab(prefab_id: PrefabId, name: String) -> PrefabAsset {
     }
 }
 
-/// Loads every prefab file for the supplied game into a single library.
-pub fn load_prefab_library(game_name: &str) -> io::Result<PrefabLibrary> {
-    let paths = prefab_paths_for_game(game_name)?;
-    let mut prefabs = HashMap::new();
-    for path in paths {
-        match load_prefab_from_path(&path) {
-            Ok(prefab) => {
-                if prefabs.contains_key(&prefab.id) {
-                    return Err(Error::new(
-                        ErrorKind::InvalidData,
-                        format!(
-                            "Duplicate prefab id '{}' encountered while loading '{}'",
-                            prefab.id,
-                            path.display()
-                        ),
-                    ));
-                }
-
-                prefabs.insert(prefab.id, prefab);
-            }
-            Err(error) => {
-                onscreen_error!("Failed to load prefab '{}': {error}", path.display());
-            }
-        }
-    }
-
-    let mut library = PrefabLibrary {
+/// Loads every prefab file for the supplied game into a single manager.
+pub fn load_prefab_manager(
+    game_name: &str,
+    asset_registry: &mut AssetRegistry,
+) -> io::Result<PrefabManager> {
+    let loaded_prefabs = load_prefabs_for_game(game_name)?;
+    let prefabs = loaded_prefabs
+        .iter()
+        .map(|(_, prefab)| (prefab.id, prefab.clone()))
+        .collect();
+    let mut manager = PrefabManager {
         prefabs,
         ..Default::default()
     };
-    library.restore_next_prefab_id();
-    library.rebuild_name_lookup()?;
-    Ok(library)
+    manager.restore_next_prefab_id();
+    manager.rebuild_name_lookup()?;
+
+    let mut staged_registry = asset_registry.clone();
+    reconcile_prefab_registry(game_name, &mut staged_registry, &loaded_prefabs)?;
+    *asset_registry = staged_registry;
+
+    Ok(manager)
 }
 
 /// Lists every prefab asset for the supplied game.
 pub fn list_prefabs(game_name: &str) -> io::Result<Vec<PrefabAsset>> {
-    let mut prefabs: Vec<_> = load_prefab_library(game_name)?
+    let mut prefabs: Vec<_> = load_prefab_manager(game_name, &mut AssetRegistry::default())?
         .prefabs
         .into_values()
         .collect();
@@ -204,27 +224,7 @@ pub fn load_prefab(game_name: &str, prefab_id: PrefabId) -> io::Result<PrefabAss
 
 /// Saves a single prefab asset to disk.
 pub fn save_prefab(game_name: &str, prefab: &PrefabAsset) -> io::Result<()> {
-    let prefab = canonical_prefab_asset(prefab);
-    validate_prefab(&prefab)?;
-    let existing_path = find_prefab_path(game_name, prefab.id)?;
-    ensure_unique_prefab_name(game_name, &prefab)?;
-    let path = resolve_prefab_save_path(game_name, &prefab, existing_path.as_deref())?;
-    if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent)?;
-    }
-
-    let ron =
-        ron::ser::to_string_pretty(&prefab, ron::ser::PrettyConfig::new()).map_err(Error::other)?;
-
-    fs::write(&path, ron)?;
-
-    if let Some(existing_path) = existing_path
-        && existing_path != path
-        && existing_path.exists()
-    {
-        fs::remove_file(existing_path)?;
-    }
-
+    persist_prefab_asset(game_name, prefab)?;
     Ok(())
 }
 
@@ -394,6 +394,127 @@ fn prefab_paths_for_game(game_name: &str) -> io::Result<Vec<PathBuf>> {
         .collect::<Vec<_>>();
     paths.sort();
     Ok(paths)
+}
+
+fn load_prefabs_for_game(game_name: &str) -> io::Result<Vec<(PathBuf, PrefabAsset)>> {
+    let mut loaded_prefabs = Vec::new();
+    let mut seen_prefab_ids = HashSet::new();
+
+    for path in prefab_paths_for_game(game_name)? {
+        match load_prefab_from_path(&path) {
+            Ok(prefab) => {
+                if !seen_prefab_ids.insert(prefab.id) {
+                    return Err(Error::new(
+                        ErrorKind::InvalidData,
+                        format!(
+                            "Duplicate prefab id '{}' encountered while loading '{}'",
+                            prefab.id,
+                            path.display()
+                        ),
+                    ));
+                }
+
+                loaded_prefabs.push((path, prefab));
+            }
+            Err(error) => {
+                onscreen_error!("Failed to load prefab '{}': {error}", path.display());
+            }
+        }
+    }
+
+    Ok(loaded_prefabs)
+}
+
+fn reconcile_prefab_registry(
+    game_name: &str,
+    asset_registry: &mut AssetRegistry,
+    loaded_prefabs: &[(PathBuf, PrefabAsset)],
+) -> io::Result<()> {
+    let prefab_folder = prefab_folder_for_game(game_name);
+    let loaded_prefab_keys = loaded_prefabs
+        .iter()
+        .map(|(_, prefab)| AssetKey::Prefab(prefab.id))
+        .collect::<HashSet<_>>();
+
+    let stale_prefab_keys = asset_registry
+        .records()
+        .keys()
+        .copied()
+        .filter(|key| matches!(key, AssetKey::Prefab(_)) && !loaded_prefab_keys.contains(key))
+        .collect::<Vec<_>>();
+
+    for key in stale_prefab_keys {
+        asset_registry.remove_record(key);
+    }
+
+    for (path, prefab) in loaded_prefabs {
+        let key = AssetKey::Prefab(prefab.id);
+        let relative_path = prefab_relative_path(&prefab_folder, path)?;
+        let record = AssetRecord::new(
+            AssetKind::Prefab,
+            PathBuf::from(PREFABS_FOLDER_NAME).join(relative_path),
+        );
+
+        asset_registry.replace_record(key, record)?;
+    }
+
+    Ok(())
+}
+
+fn sync_prefab_record(
+    game_name: &str,
+    asset_registry: &mut AssetRegistry,
+    prefab_id: PrefabId,
+    saved_path: &Path,
+) -> io::Result<()> {
+    let prefab_folder = prefab_folder_for_game(game_name);
+    let relative_path = prefab_relative_path(&prefab_folder, saved_path)?;
+    let record = AssetRecord::new(
+        AssetKind::Prefab,
+        PathBuf::from(PREFABS_FOLDER_NAME).join(relative_path),
+    );
+    asset_registry.replace_record(AssetKey::Prefab(prefab_id), record)
+}
+
+fn persist_prefab_asset(game_name: &str, prefab: &PrefabAsset) -> io::Result<(PrefabAsset, PathBuf)> {
+    let prefab = canonical_prefab_asset(prefab);
+    validate_prefab(&prefab)?;
+    let existing_path = find_prefab_path(game_name, prefab.id)?;
+    ensure_unique_prefab_name(game_name, &prefab)?;
+    let path = resolve_prefab_save_path(game_name, &prefab, existing_path.as_deref())?;
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)?;
+    }
+
+    let ron =
+        ron::ser::to_string_pretty(&prefab, ron::ser::PrettyConfig::new()).map_err(Error::other)?;
+
+    fs::write(&path, ron)?;
+
+    if let Some(existing_path) = existing_path
+        && existing_path != path
+        && existing_path.exists()
+    {
+        fs::remove_file(existing_path)?;
+    }
+
+    Ok((prefab, path))
+}
+
+fn prefab_relative_path(prefab_folder: &Path, prefab_path: &Path) -> io::Result<PathBuf> {
+    prefab_path
+        .strip_prefix(prefab_folder)
+        .map(Path::to_path_buf)
+        .map_err(|_| {
+            Error::new(
+                ErrorKind::InvalidData,
+                format!(
+                    "Prefab path '{}' is outside '{}'",
+                    prefab_path.display(),
+                    prefab_folder.display()
+                ),
+            )
+        })
 }
 
 fn find_prefab_path(game_name: &str, prefab_id: PrefabId) -> io::Result<Option<PathBuf>> {

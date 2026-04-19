@@ -98,7 +98,7 @@ fn spawn_prefab(
         let mut game_instance = ctx.game_instance.borrow_mut();
         let prefab = game_instance
             .game
-            .prefab_library
+            .prefab_manager
             .prefab_named(prefab_name)
             .cloned()
             .ok_or_else(|| mlua::Error::RuntimeError(format!("Unknown prefab '{prefab_name}'")))?;

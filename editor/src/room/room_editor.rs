@@ -300,24 +300,24 @@ impl RoomEditor {
 
     pub(crate) fn load_prefab_palette_state(
         &mut self,
-        prefab_library: &PrefabLibrary,
+        prefab_manager: &PrefabManager,
         state: PrefabPaletteState,
     ) {
         self.active_prefab_id = state
             .active_prefab_id
-            .filter(|prefab_id| prefab_library.prefabs.contains_key(prefab_id));
+            .filter(|prefab_id| prefab_manager.prefabs.contains_key(prefab_id));
         self.recent_prefab_ids =
-            reconcile_recent_prefab_ids(state.recent_prefab_ids, prefab_library);
+            reconcile_recent_prefab_ids(state.recent_prefab_ids, prefab_manager);
         self.scene_sub_mode = RoomSceneSubMode::Scene;
     }
 
-    pub(crate) fn reconcile_prefab_palette(&mut self, prefab_library: &PrefabLibrary) {
+    pub(crate) fn reconcile_prefab_palette(&mut self, prefab_manager: &PrefabManager) {
         self.recent_prefab_ids =
-            reconcile_recent_prefab_ids(self.recent_prefab_ids.clone(), prefab_library);
+            reconcile_recent_prefab_ids(self.recent_prefab_ids.clone(), prefab_manager);
 
         if self
             .active_prefab_id
-            .is_some_and(|prefab_id| !prefab_library.prefabs.contains_key(&prefab_id))
+            .is_some_and(|prefab_id| !prefab_manager.prefabs.contains_key(&prefab_id))
         {
             self.active_prefab_id = self.recent_prefab_ids.first().copied();
         }
@@ -374,11 +374,11 @@ impl RoomEditor {
         self.scene_sub_mode = mode;
     }
 
-    pub(crate) fn active_prefab_snap_pivot(&self, prefab_library: &PrefabLibrary) -> Pivot {
+    pub(crate) fn active_prefab_snap_pivot(&self, prefab_manager: &PrefabManager) -> Pivot {
         let Some(prefab_id) = self.active_prefab_id else {
             return Pivot::BottomCenter;
         };
-        let Some(prefab) = prefab_library.prefabs.get(&prefab_id) else {
+        let Some(prefab) = prefab_manager.prefabs.get(&prefab_id) else {
             return Pivot::BottomCenter;
         };
         let Some(root) = prefab
@@ -410,8 +410,8 @@ impl RoomEditor {
         self.active_rects.clear();
         let active_prefab = self
             .active_prefab_id
-            .and_then(|prefab_id| game.prefab_library.prefabs.get(&prefab_id).cloned());
-        let active_prefab_snap_pivot = self.active_prefab_snap_pivot(&game.prefab_library);
+            .and_then(|prefab_id| game.prefab_manager.prefabs.get(&prefab_id).cloned());
+        let active_prefab_snap_pivot = self.active_prefab_snap_pivot(&game.prefab_manager);
         {
             let mut game_ctx = game.ctx_mut();
             let Some(grid_size) = game_ctx.world.as_deref().map(|world| world.grid_size) else {

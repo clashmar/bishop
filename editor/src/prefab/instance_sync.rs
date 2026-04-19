@@ -42,11 +42,11 @@ pub(crate) fn linked_prefab_reference(ecs: &Ecs, entity: Entity) -> Option<Linke
 
 pub(crate) fn linked_prefab_instance_state(
     ecs: &mut Ecs,
-    prefab_library: &PrefabLibrary,
+    prefab_manager: &PrefabManager,
     entity: Entity,
 ) -> Option<LinkedPrefabInstanceState> {
     let reference = linked_prefab_reference(ecs, entity)?;
-    let prefab = prefab_library.prefabs.get(&reference.prefab_id)?;
+    let prefab = prefab_manager.prefabs.get(&reference.prefab_id)?;
     let has_local_changes = instance_prefab_differs(ecs, prefab, reference.root_entity);
 
     Some(LinkedPrefabInstanceState {
@@ -102,13 +102,13 @@ pub(crate) fn instance_prefab_differs(
 
 pub(crate) fn sync_prefab_overrides_for_entity(
     ecs: &mut Ecs,
-    prefab_library: &PrefabLibrary,
+    prefab_manager: &PrefabManager,
     entity: Entity,
 ) {
     let Some(reference) = linked_prefab_reference(ecs, entity) else {
         return;
     };
-    let Some(prefab) = prefab_library.prefabs.get(&reference.prefab_id) else {
+    let Some(prefab) = prefab_manager.prefabs.get(&reference.prefab_id) else {
         return;
     };
 

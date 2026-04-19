@@ -305,11 +305,11 @@ impl Editor {
                 {
                     let active_prefab_stamp = room_editor::ActivePrefabStampState {
                         available: self.room_editor.active_prefab_id.is_some_and(|prefab_id| {
-                            self.game.prefab_library.prefabs.contains_key(&prefab_id)
+                            self.game.prefab_manager.prefabs.contains_key(&prefab_id)
                         }),
                         pivot: self
                             .room_editor
-                            .active_prefab_snap_pivot(&self.game.prefab_library),
+                            .active_prefab_snap_pivot(&self.game.prefab_manager),
                     };
                     let current_world = &mut self
                         .game

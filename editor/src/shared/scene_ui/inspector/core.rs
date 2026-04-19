@@ -196,7 +196,7 @@ impl SceneInspector {
 
             let total_content_h = self.total_content_height(
                 game_ctx.ecs,
-                game_ctx.prefab_library,
+                game_ctx.prefab_manager,
                 entity,
                 scene_ctx.show_linked_prefab_metadata,
                 scene_ctx.hide_room_only_components,
@@ -215,7 +215,7 @@ impl SceneInspector {
             let linked_prefab = linked_prefab_instance_state_for_scene_inspector(
                 scene_ctx.show_linked_prefab_metadata,
                 game_ctx.ecs,
-                game_ctx.prefab_library,
+                game_ctx.prefab_manager,
                 entity,
             );
 
@@ -665,7 +665,7 @@ impl SceneInspector {
     fn total_content_height(
         &self,
         ecs: &mut Ecs,
-        prefab_library: &PrefabLibrary,
+        prefab_manager: &PrefabManager,
         entity: Entity,
         show_linked_prefab_metadata: bool,
         hide_room_only_components: bool,
@@ -675,7 +675,7 @@ impl SceneInspector {
         if linked_prefab_instance_state_for_scene_inspector(
             show_linked_prefab_metadata,
             ecs,
-            prefab_library,
+            prefab_manager,
             entity,
         )
         .is_some()

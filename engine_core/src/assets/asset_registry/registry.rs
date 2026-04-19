@@ -119,6 +119,42 @@ impl AssetRegistry {
 
     /// Inserts one record, rejecting conflicting keys and conflicting paths.
     pub fn insert(&mut self, key: AssetKey, record: AssetRecord) -> io::Result<()> {
+        self.validate_record_for_key(key, &record)?;
+
+        if let Some(existing) = self.records.get(&key)
+            && existing != &record
+        {
+            return Err(Error::new(
+                ErrorKind::InvalidData,
+                format!("Asset key '{key:?}' maps to multiple records"),
+            ));
+        }
+
+        self.path_to_key.insert(record.path.clone(), key);
+        self.records.insert(key, record);
+        Ok(())
+    }
+
+    /// Replaces the record for a key, keeping path lookup metadata in sync.
+    pub fn replace_record(&mut self, key: AssetKey, record: AssetRecord) -> io::Result<()> {
+        self.validate_record_for_key(key, &record)?;
+
+        if let Some(previous) = self.records.insert(key, record.clone()) {
+            self.path_to_key.remove(&previous.path);
+        }
+
+        self.path_to_key.insert(record.path.clone(), key);
+        Ok(())
+    }
+
+    /// Removes the record for a key and its derived path lookup entry.
+    pub fn remove_record(&mut self, key: AssetKey) -> Option<AssetRecord> {
+        let record = self.records.remove(&key)?;
+        self.path_to_key.remove(&record.path);
+        Some(record)
+    }
+
+    fn validate_record_for_key(&self, key: AssetKey, record: &AssetRecord) -> io::Result<()> {
         let expected_kind = Self::kind_for_key(key);
         if record.kind != expected_kind {
             return Err(Error::new(
@@ -132,29 +168,12 @@ impl AssetRegistry {
 
         Self::validate_asset_path(expected_kind, &record.path)?;
 
-        if let Some(existing) = self.records.get(&key)
-            && existing != &record
-        {
-            return Err(Error::new(
-                ErrorKind::InvalidData,
-                format!("Asset key '{key:?}' maps to multiple records"),
-            ));
-        }
-
         if let Some(existing_key) = self.existing_key_for_path(&record.path)
             && existing_key != key
         {
-            return Err(Error::new(
-                ErrorKind::InvalidData,
-                format!(
-                    "Asset path '{}' maps to both '{existing_key:?}' and '{key:?}'",
-                    record.path.display()
-                ),
-            ));
+            return Err(Self::path_conflict_error(&record.path, existing_key, key));
         }
 
-        self.path_to_key.insert(record.path.clone(), key);
-        self.records.insert(key, record);
         Ok(())
     }
 

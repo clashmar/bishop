@@ -58,10 +58,18 @@ impl Editor {
             }
         }
 
-        self.game
-            .prefab_library
-            .prefabs
-            .insert(prefab.id, prefab.clone());
+        let saved_prefab = match self.game.prefab_manager.save_prefab(
+            &self.game.name,
+            &mut self.game.asset_registry,
+            &prefab,
+        ) {
+            Ok(prefab) => prefab,
+            Err(error) => {
+                onscreen_error!("Could not save prefab: {error}");
+                return false;
+            }
+        };
+
         if let Err(error) = save_game(&self.game) {
             onscreen_error!("Could not save prefab metadata: {error}");
             return false;
@@ -70,20 +78,18 @@ impl Editor {
         let Some(prefab_editor) = self.prefab_editor.as_mut() else {
             return false;
         };
-        if let Err(error) = prefab_editor.save_prefab_asset(&self.game.name, &prefab) {
-            onscreen_error!("Could not save prefab: {error}");
-            return false;
-        }
+        prefab_editor.record_saved_prefab_asset(saved_prefab.clone());
 
         if let Some(prefab_stage) = self.prefab_stage.as_mut() {
             prefab_stage
-                .prefab_library
+                .prefab_manager
                 .prefabs
-                .insert(prefab.id, prefab.clone());
+                .insert(saved_prefab.id, saved_prefab.clone());
         }
-        self.reconcile_prefab_room_state(StagedPrefabState::PrefabAsset(prefab.clone()));
 
-        if !self.promote_prefab_in_palette(prefab.id) {
+        self.reconcile_prefab_room_state(StagedPrefabState::PrefabAsset(saved_prefab.clone()));
+
+        if !self.promote_prefab_in_palette(saved_prefab.id) {
             return false;
         }
 
@@ -96,32 +102,44 @@ impl Editor {
             return;
         };
 
-        if let Err(error) = delete_prefab(&self.game.name, prefab_id) {
+        if let Err(error) = self.game.prefab_manager.delete_prefab(
+            &self.game.name,
+            &mut self.game.asset_registry,
+            prefab_id,
+        ) {
             onscreen_error!("Could not delete prefab: {error}");
             return;
         }
 
-        self.game.prefab_library.prefabs.remove(&prefab_id);
         if let Err(error) = sync_prefabs_lua_file(&self.game) {
             onscreen_error!("Could not write prefabs.lua: {error}");
             return;
         }
-        if let Some(prefab_stage) = self.prefab_stage.as_mut() {
-            prefab_stage.prefab_library.prefabs.remove(&prefab_id);
+
+        if let Err(error) = save_game(&self.game) {
+            onscreen_error!("Could not save prefab metadata: {error}");
+            return;
         }
+
+        if let Some(prefab_stage) = self.prefab_stage.as_mut() {
+            prefab_stage.prefab_manager.prefabs.remove(&prefab_id);
+        }
+
         if let Some(prefab_editor) = self.prefab_editor.as_mut() {
             prefab_editor.last_committed_prefab = StagedPrefabState::Empty;
         }
+
         self.reconcile_prefab_room_state(StagedPrefabState::Empty);
         if !self.remove_prefab_from_palette(prefab_id) {
             return;
         }
+        
         self.toast = Some(Toast::new("Prefab deleted", 2.5));
     }
 }
 
 pub(super) fn sync_prefabs_lua_file(game: &Game) -> io::Result<()> {
-    let prefab_names = collect_prefab_names(&game.prefab_library)?;
+    let prefab_names = collect_prefab_names(&game.prefab_manager)?;
     write_prefabs_lua(&scripts_folder(), &prefab_names)
 }
 

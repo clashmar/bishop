@@ -84,10 +84,10 @@ impl PanelDefinition for PrefabPalettePanel {
         let dropdown_rect = Rect::new(rect.x + PANEL_PADDING, y, content_w, BTN_HEIGHT);
 
         let active_prefab = active_prefab_choice(
-            &editor.game.prefab_library,
+            &editor.game.prefab_manager,
             editor.room_editor.active_prefab_id,
         );
-        let prefab_choices = prefab_choices(&editor.game.prefab_library);
+        let prefab_choices = prefab_choices(&editor.game.prefab_manager);
         let selected_label = active_prefab
             .as_ref()
             .map(|choice| choice.label.clone())
@@ -141,7 +141,7 @@ impl PanelDefinition for PrefabPalettePanel {
             let card_rect =
                 recent_prefab_card_rect(cards_content, index, self.recent_scroll.scroll_y);
             if area.is_visible(card_rect.y, card_rect.h) {
-                if let Some(prefab) = editor.game.prefab_library.prefabs.get(&prefab_id).cloned() {
+                if let Some(prefab) = editor.game.prefab_manager.prefabs.get(&prefab_id).cloned() {
                     draw_recent_prefab_card(ctx, editor, blocked, card_rect, &prefab, card_mouse);
                 }
             }
@@ -177,8 +177,8 @@ impl PanelDefinition for PrefabPalettePanel {
     }
 }
 
-fn prefab_choices(prefab_library: &PrefabLibrary) -> Vec<PrefabChoice> {
-    let mut choices = prefab_library
+fn prefab_choices(prefab_manager: &PrefabManager) -> Vec<PrefabChoice> {
+    let mut choices = prefab_manager
         .prefabs
         .values()
         .map(|prefab| PrefabChoice {
@@ -199,11 +199,11 @@ fn prefab_choices(prefab_library: &PrefabLibrary) -> Vec<PrefabChoice> {
 }
 
 fn active_prefab_choice(
-    prefab_library: &PrefabLibrary,
+    prefab_manager: &PrefabManager,
     active_prefab_id: Option<PrefabId>,
 ) -> Option<PrefabChoice> {
     active_prefab_id.and_then(|prefab_id| {
-        prefab_library
+        prefab_manager
             .prefabs
             .get(&prefab_id)
             .map(|prefab| PrefabChoice {
@@ -258,7 +258,7 @@ fn pick_prefab_from_disk(editor: &mut Editor) {
         Ok(prefab) => {
             editor
                 .game
-                .prefab_library
+                .prefab_manager
                 .prefabs
                 .insert(prefab.id, prefab.clone());
             let _ = editor.activate_prefab(prefab.id);
@@ -553,12 +553,12 @@ mod tests {
     #[test]
     fn active_prefab_choice_returns_active_prefab_when_present() {
         let prefab_id = PrefabId(7);
-        let mut prefab_library = PrefabLibrary::default();
-        prefab_library
+        let mut prefab_manager = PrefabManager::default();
+        prefab_manager
             .prefabs
             .insert(prefab_id, create_prefab(prefab_id, "Crate".to_string()));
 
-        let choice = active_prefab_choice(&prefab_library, Some(prefab_id))
+        let choice = active_prefab_choice(&prefab_manager, Some(prefab_id))
             .expect("active prefab should resolve");
 
         assert_eq!(choice.prefab_id, prefab_id);
@@ -568,13 +568,13 @@ mod tests {
     #[test]
     fn active_prefab_choice_is_none_when_open_prefab_should_be_semantically_blocked() {
         let prefab_id = PrefabId(7);
-        let mut prefab_library = PrefabLibrary::default();
-        prefab_library
+        let mut prefab_manager = PrefabManager::default();
+        prefab_manager
             .prefabs
             .insert(prefab_id, create_prefab(prefab_id, "Crate".to_string()));
 
-        assert!(active_prefab_choice(&prefab_library, None).is_none());
-        assert!(active_prefab_choice(&prefab_library, Some(PrefabId(999))).is_none());
-        assert!(active_prefab_choice(&prefab_library, Some(prefab_id)).is_some());
+        assert!(active_prefab_choice(&prefab_manager, None).is_none());
+        assert!(active_prefab_choice(&prefab_manager, Some(PrefabId(999))).is_none());
+        assert!(active_prefab_choice(&prefab_manager, Some(prefab_id)).is_some());
     }
 }

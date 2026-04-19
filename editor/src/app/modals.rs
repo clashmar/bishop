@@ -516,7 +516,7 @@ impl Editor {
     fn duplicate_prefab_name_exists(&mut self, name: &str) -> bool {
         let duplicate_exists = self
             .game
-            .prefab_library
+            .prefab_manager
             .prefabs
             .values()
             .any(|prefab| prefab.name == name);
@@ -535,7 +535,7 @@ impl Editor {
     fn duplicate_prefab_name_exists_excluding(&mut self, name: &str, exclude_id: PrefabId) -> bool {
         let duplicate_exists = self
             .game
-            .prefab_library
+            .prefab_manager
             .prefabs
             .iter()
             .any(|(&id, prefab)| id != exclude_id && prefab.name == name);

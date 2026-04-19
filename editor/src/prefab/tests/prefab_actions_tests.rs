@@ -248,7 +248,7 @@ fn opening_prefab_editor_seeds_stage_metadata_from_live_game_services() {
     };
     editor
         .game
-        .prefab_library
+        .prefab_manager
         .prefabs
         .insert(prefab.id, prefab.clone());
     editor

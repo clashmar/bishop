@@ -14,7 +14,7 @@ fn apply_instance_to_prefab_command_updates_other_linked_instances_and_supports_
     let clean_sibling_root = {
         let prefab = editor
             .game
-            .prefab_library
+            .prefab_manager
             .prefabs
             .get(&prefab_id)
             .cloned()
@@ -25,7 +25,7 @@ fn apply_instance_to_prefab_command_updates_other_linked_instances_and_supports_
     let overridden_sibling_root = {
         let prefab = editor
             .game
-            .prefab_library
+            .prefab_manager
             .prefabs
             .get(&prefab_id)
             .cloned()
@@ -64,7 +64,7 @@ fn apply_instance_to_prefab_command_updates_other_linked_instances_and_supports_
     with_editor(|editor| {
         let prefab = editor
             .game
-            .prefab_library
+            .prefab_manager
             .prefabs
             .get(&prefab_id)
             .expect("prefab should be updated");

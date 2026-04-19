@@ -70,6 +70,97 @@ fn merge_editor_metadata_from_rejects_conflicting_paths_for_same_key() {
 }
 
 #[test]
+fn replace_record_allows_same_prefab_key_to_move_to_a_new_path() {
+    let mut registry = AssetRegistry::default();
+    let key = AssetKey::Prefab(PrefabId(4));
+    let old_path = asset_path(PREFABS_FOLDER, "crate.ron");
+    let new_path = asset_path(PREFABS_FOLDER, "barrel.ron");
+
+    registry
+        .insert(key, AssetRecord::new(AssetKind::Prefab, old_path.clone()))
+        .unwrap();
+
+    registry
+        .replace_record(key, AssetRecord::new(AssetKind::Prefab, new_path.clone()))
+        .unwrap();
+
+    assert_eq!(registry.key_for_path(&old_path), None);
+    assert_eq!(registry.key_for_path(&new_path), Some(key));
+    assert_eq!(
+        registry.record(key).map(|record| &record.path),
+        Some(&new_path)
+    );
+}
+
+#[test]
+fn replace_record_rejects_path_owned_by_different_key() {
+    let mut registry = AssetRegistry::default();
+    let first_key = AssetKey::Prefab(PrefabId(4));
+    let second_key = AssetKey::Prefab(PrefabId(8));
+    let first_path = asset_path(PREFABS_FOLDER, "crate.ron");
+    let second_path = asset_path(PREFABS_FOLDER, "barrel.ron");
+
+    registry
+        .insert(
+            first_key,
+            AssetRecord::new(AssetKind::Prefab, first_path.clone()),
+        )
+        .unwrap();
+    registry
+        .insert(
+            second_key,
+            AssetRecord::new(AssetKind::Prefab, second_path.clone()),
+        )
+        .unwrap();
+
+    let before = registry.clone();
+    let error = registry
+        .replace_record(
+            first_key,
+            AssetRecord::new(AssetKind::Prefab, second_path.clone()),
+        )
+        .expect_err("replace_record should fail");
+
+    assert_eq!(error.kind(), ErrorKind::InvalidData);
+    assert_eq!(registry, before);
+}
+
+#[test]
+fn remove_record_clears_record_and_path_lookup() {
+    let mut registry = AssetRegistry::default();
+    let key = AssetKey::Prefab(PrefabId(4));
+    let path = asset_path(PREFABS_FOLDER, "crate.ron");
+    let record = AssetRecord::new(AssetKind::Prefab, path.clone());
+
+    registry.insert(key, record.clone()).unwrap();
+
+    assert_eq!(registry.remove_record(key), Some(record));
+    assert_eq!(registry.record(key), None);
+    assert_eq!(registry.key_for_path(&path), None);
+}
+
+#[test]
+fn remove_record_missing_key_returns_none_and_preserves_lookup() {
+    let mut registry = AssetRegistry::default();
+    let present_key = AssetKey::Prefab(PrefabId(4));
+    let missing_key = AssetKey::Prefab(PrefabId(8));
+    let path = asset_path(PREFABS_FOLDER, "crate.ron");
+
+    registry
+        .insert(
+            present_key,
+            AssetRecord::new(AssetKind::Prefab, path.clone()),
+        )
+        .unwrap();
+
+    let before = registry.clone();
+
+    assert_eq!(registry.remove_record(missing_key), None);
+    assert_eq!(registry, before);
+    assert_eq!(registry.key_for_path(&path), Some(present_key));
+}
+
+#[test]
 fn merge_editor_metadata_from_rejects_conflicting_keys_for_same_path() {
     let mut destination = AssetRegistry::default();
     destination

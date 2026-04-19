@@ -1,11 +1,11 @@
 use super::*;
 use crate::room::selection::selection_render_rect;
 
-fn prefab_library(ids: &[usize]) -> PrefabLibrary {
-    let mut library = PrefabLibrary::default();
+fn prefab_manager(ids: &[usize]) -> PrefabManager {
+    let mut manager = PrefabManager::default();
     for id in ids {
         let prefab_id = PrefabId(*id);
-        library.prefabs.insert(
+        manager.prefabs.insert(
             prefab_id,
             PrefabAsset {
                 id: prefab_id,
@@ -20,7 +20,7 @@ fn prefab_library(ids: &[usize]) -> PrefabLibrary {
             },
         );
     }
-    library
+    manager
 }
 
 #[test]
@@ -54,7 +54,7 @@ fn loading_palette_state_restores_active_prefab_without_restoring_stamp_mode() {
     editor.scene_sub_mode = RoomSceneSubMode::Stamp;
 
     editor.load_prefab_palette_state(
-        &prefab_library(&[2, 4, 6, 8, 10, 12]),
+        &prefab_manager(&[2, 4, 6, 8, 10, 12]),
         crate::storage::editor_storage::PrefabPaletteState {
             active_prefab_id: Some(PrefabId(4)),
             recent_prefab_ids: vec![
@@ -88,7 +88,7 @@ fn loading_palette_state_filters_missing_prefabs_and_caps_recent_entries() {
     let mut editor = RoomEditor::new();
 
     editor.load_prefab_palette_state(
-        &prefab_library(&[1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23]),
+        &prefab_manager(&[1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23]),
         crate::storage::editor_storage::PrefabPaletteState {
             active_prefab_id: Some(PrefabId(999)),
             recent_prefab_ids: vec![
@@ -129,7 +129,7 @@ fn loading_palette_state_filters_missing_prefabs_and_caps_recent_entries() {
 
 #[test]
 fn reconcile_prefab_palette_promotes_first_valid_recent_when_active_is_missing() {
-    let library = prefab_library(&[2, 3]);
+    let manager = prefab_manager(&[2, 3]);
     let mut editor = RoomEditor::new();
     editor.active_prefab_id = Some(PrefabId(999));
     editor.recent_prefab_ids = vec![PrefabId(999), PrefabId(2), PrefabId(3)];
@@ -138,7 +138,7 @@ fn reconcile_prefab_palette_promotes_first_valid_recent_when_active_is_missing()
     editor.view_preview = true;
     editor.preview_camera_id = Some(7);
 
-    editor.reconcile_prefab_palette(&library);
+    editor.reconcile_prefab_palette(&manager);
 
     assert_eq!(editor.active_prefab_id, Some(PrefabId(2)));
     assert_eq!(editor.recent_prefab_ids, vec![PrefabId(2), PrefabId(3)]);
