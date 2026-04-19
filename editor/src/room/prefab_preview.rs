@@ -267,65 +267,8 @@ fn union_rect(a: Rect, b: Rect) -> Rect {
     Rect::new(min_x, min_y, max_x - min_x, max_y - min_y)
 }
 
-struct PreviewCurrentFrame {
-    sprite_id: SpriteId,
-    col: usize,
-    row: usize,
-    offset: [f32; 2],
-    frame_size: [f32; 2],
-    flip_x: bool,
-}
-
-fn parse_preview_current_frame(ron: &str) -> Option<PreviewCurrentFrame> {
-    Some(PreviewCurrentFrame {
-        sprite_id: SpriteId(parse_usize_field(ron, "sprite_id")?),
-        col: parse_usize_field(ron, "col")?,
-        row: parse_usize_field(ron, "row")?,
-        offset: parse_vec2_field(ron, "offset")?,
-        frame_size: parse_vec2_field(ron, "frame_size")?,
-        flip_x: parse_bool_field(ron, "flip_x")?,
-    })
-}
-
-fn parse_usize_field(ron: &str, key: &str) -> Option<usize> {
-    let value = field_value(ron, key)?;
-    let trimmed = value.trim().trim_start_matches('(').trim_end_matches(')');
-    trimmed.parse().ok()
-}
-
-fn parse_bool_field(ron: &str, key: &str) -> Option<bool> {
-    match field_value(ron, key)?.trim() {
-        "true" => Some(true),
-        "false" => Some(false),
-        _ => None,
-    }
-}
-
-fn parse_vec2_field(ron: &str, key: &str) -> Option<[f32; 2]> {
-    let value = field_value(ron, key)?.trim();
-    let inner = value.strip_prefix('[')?.strip_suffix(']')?;
-    let mut parts = inner.split(',').map(str::trim);
-    let x = parts.next()?.parse().ok()?;
-    let y = parts.next()?.parse().ok()?;
-    Some([x, y])
-}
-
-fn field_value<'a>(ron: &'a str, key: &str) -> Option<&'a str> {
-    let start = ron.find(&format!("{key}:"))? + key.len() + 1;
-    let rest = &ron[start..];
-    let mut depth_paren = 0usize;
-    let mut depth_bracket = 0usize;
-    for (index, ch) in rest.char_indices() {
-        match ch {
-            '(' => depth_paren += 1,
-            ')' => depth_paren = depth_paren.saturating_sub(1),
-            '[' => depth_bracket += 1,
-            ']' => depth_bracket = depth_bracket.saturating_sub(1),
-            ',' if depth_paren == 0 && depth_bracket == 0 => return Some(&rest[..index]),
-            _ => {}
-        }
-    }
-    Some(rest.trim_end_matches(')'))
+fn parse_preview_current_frame(ron: &str) -> Option<CurrentFrameSnapshot> {
+    ron::from_str(ron).ok()
 }
 
 fn preview_sprite_size(

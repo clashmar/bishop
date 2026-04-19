@@ -72,6 +72,49 @@ fn animation_node(
     }
 }
 
+fn current_frame_component(
+    sprite_id: SpriteId,
+    col: usize,
+    row: usize,
+    offset: Vec2,
+    frame_size: Vec2,
+    flip_x: bool,
+) -> ComponentSnapshot {
+    let snapshot = CurrentFrameSnapshot {
+        clip_id: ClipId::Idle,
+        col,
+        row,
+        offset,
+        sprite_id,
+        frame_size,
+        flip_x,
+    };
+
+    ComponentSnapshot {
+        type_name: comp_type_name::<CurrentFrame>().to_string(),
+        ron: ron::to_string(&snapshot).unwrap(),
+    }
+}
+
+fn current_frame_node(
+    node_id: usize,
+    position: (f32, f32),
+    pivot: Pivot,
+    current_frame: ComponentSnapshot,
+) -> PrefabNode {
+    PrefabNode {
+        node_id,
+        parent_node_id: None,
+        components: vec![
+            ComponentSnapshot {
+                type_name: comp_type_name::<Transform>().to_string(),
+                ron: transform_ron(position, pivot),
+            },
+            current_frame,
+        ],
+    }
+}
+
 fn animation_sprite_id(variant: &VariantFolder, clip_id: &ClipId) -> Option<SpriteId> {
     if variant.0 != Path::new("animations/player/male") {
         return None;
@@ -288,4 +331,34 @@ fn animation_preview_falls_back_when_animation_has_no_clips() {
 
     assert_eq!(preview.items[0].visual, PrefabPreviewVisual::Placeholder);
     assert!(!preview.has_drawable_visual);
+}
+
+#[test]
+fn current_frame_preview_uses_typed_snapshot_ron() {
+    let prefab = make_prefab(vec![current_frame_node(
+        1,
+        (8.0, 12.0),
+        Pivot::TopLeft,
+        current_frame_component(
+            SpriteId(17),
+            2,
+            1,
+            Vec2::new(3.0, 5.0),
+            Vec2::new(16.0, 12.0),
+            true,
+        ),
+    )]);
+
+    let preview = build_prefab_preview_with(&prefab, sprite_size, |_, _| None);
+
+    assert_eq!(
+        preview.items[0].visual,
+        PrefabPreviewVisual::CurrentFrame {
+            sprite_id: SpriteId(17),
+            source: Rect::new(32.0, 12.0, 16.0, 12.0),
+            flip_x: true,
+        }
+    );
+    assert_eq!(preview.items[0].palette_position, Vec2::new(11.0, 17.0));
+    assert_eq!(preview.items[0].size, Vec2::new(16.0, 12.0));
 }

@@ -106,7 +106,7 @@
             ),
             /*[25]*/ (
                 type_name: "Script",
-                data: "{\n    (3): (\n        script_id: (1),\n        data: (\n            fields: {\n                \"health\": Int(100),\n                \"jump_speed\": Int(200),\n                \"name\": Text(\"Player\"),\n                \"run_speed\": Int(180),\n                \"speed\": Int(100),\n            },\n        ),\n    ),\n}",
+                data: "{\n    (3): (\n        script_id: (2),\n        data: (\n            fields: {\n                \"health\": Int(100),\n                \"jump_speed\": Int(200),\n                \"name\": Text(\"Player\"),\n                \"run_speed\": Int(180),\n                \"speed\": Int(100),\n            },\n        ),\n    ),\n}",
             ),
             /*[26]*/ (
                 type_name: "Solid",
@@ -235,6 +235,10 @@
                 kind: Script,
                 path: "scripts/bullet.lua",
             ),
+            Script((2)): (
+                kind: Script,
+                path: "scripts/player.lua",
+            ),
         },
     ),
     sprite_manager: (
@@ -246,7 +250,7 @@
     ),
     script_manager: (
         ref_counts: {
-            (1): 1,
+            (2): 1,
         },
     ),
     current_world_id: ("38f2015c-96c7-4954-862c-a3a8262298b6"),
