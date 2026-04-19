@@ -135,23 +135,8 @@ pub fn entity_hitbox(
     sprite_manager: &mut SpriteManager,
     grid_size: f32,
 ) -> Rect {
-    let size = entity_dimensions(ecs, sprite_manager, entity, grid_size);
-
-    // Only use the center-offset for pure placeholder entities (Camera/Light without sprites)
-    let is_pure_placeholder = ecs.has::<RoomCamera>(entity)
-        || (ecs.has::<Light>(entity) && !ecs.has_any::<(Sprite, Animation, CurrentFrame)>(entity));
-
-    let corrected_pos = if is_pure_placeholder {
-        position - vec2(grid_size * 0.5, grid_size * 0.5)
-    } else {
-        // Apply pivot offset for regular entities
-        let pivot = ecs
-            .get_store::<Transform>()
-            .get(entity)
-            .map(|t| t.pivot)
-            .unwrap_or(Pivot::TopLeft);
-        pivot_adjusted_position(position, size, pivot)
-    };
+    let (corrected_pos, size) =
+        entity_selection_rect(entity, position, ecs, sprite_manager, grid_size);
 
     // Convert the two opposite corners of the entity to screen coords
     let top_left = coord::world_to_screen(ctx, camera, corrected_pos);
@@ -174,21 +159,8 @@ pub fn entity_world_rect(
     sprite_manager: &mut SpriteManager,
     grid_size: f32,
 ) -> Rect {
-    let size = entity_dimensions(ecs, sprite_manager, entity, grid_size);
-
-    let is_placeholder = ecs.has::<RoomCamera>(entity)
-        || (ecs.has::<Light>(entity) && !ecs.has_any::<(Sprite, Animation, CurrentFrame)>(entity));
-
-    let corrected_pos = if is_placeholder {
-        position - vec2(grid_size * 0.5, grid_size * 0.5)
-    } else {
-        let pivot = ecs
-            .get_store::<Transform>()
-            .get(entity)
-            .map(|t| t.pivot)
-            .unwrap_or(Pivot::TopLeft);
-        pivot_adjusted_position(position, size, pivot)
-    };
+    let (corrected_pos, size) =
+        entity_selection_rect(entity, position, ecs, sprite_manager, grid_size);
 
     Rect::new(corrected_pos.x, corrected_pos.y, size.x, size.y)
 }
@@ -208,5 +180,77 @@ pub(crate) fn snap_room_drag_position(mouse_world: Vec2, grid_size: f32, pivot: 
     vec2(
         tile.x * grid_size + grid_size * pivot_normalized.x,
         tile.y * grid_size + grid_size * pivot_normalized.y,
+    )
+}
+
+pub(crate) fn selection_render_rect(
+    position: Vec2,
+    grid_size: f32,
+    pivot: Pivot,
+    is_placeholder: bool,
+    static_sprite_size: Option<Vec2>,
+    current_frame: Option<&CurrentFrame>,
+) -> (Vec2, Vec2) {
+    let fallback_size = Vec2::splat(grid_size);
+
+    if is_placeholder {
+        return (
+            position - vec2(grid_size * 0.5, grid_size * 0.5),
+            fallback_size,
+        );
+    }
+
+    if let Some(current_frame) = current_frame {
+        if current_frame.sprite_id.0 != 0 {
+            let top_left = pivot_adjusted_position(position, current_frame.frame_size, pivot)
+                + current_frame.offset;
+            return (top_left.floor(), current_frame.frame_size);
+        }
+    }
+
+    if let Some(static_sprite_size) = static_sprite_size {
+        let top_left = pivot_adjusted_position(position, static_sprite_size, pivot);
+        return (top_left.floor(), static_sprite_size);
+    }
+
+    (
+        pivot_adjusted_position(position, fallback_size, pivot),
+        fallback_size,
+    )
+}
+
+pub(crate) fn entity_selection_rect(
+    entity: Entity,
+    position: Vec2,
+    ecs: &Ecs,
+    sprite_manager: &SpriteManager,
+    grid_size: f32,
+) -> (Vec2, Vec2) {
+    let is_placeholder = ecs.has::<RoomCamera>(entity)
+        || (ecs.has::<Light>(entity) && !ecs.has_any::<(Sprite, Animation, CurrentFrame)>(entity));
+    let pivot = ecs
+        .get_store::<Transform>()
+        .get(entity)
+        .map(|t| t.pivot)
+        .unwrap_or(Pivot::TopLeft);
+    let visual_entity = resolve_visual_entity(ecs, entity);
+    let static_sprite_size = ecs
+        .get_store::<Sprite>()
+        .get(visual_entity)
+        .and_then(|sprite| {
+            if sprite.sprite.0 == 0 {
+                None
+            } else {
+                sprite.dimensions(sprite_manager)
+            }
+        });
+
+    selection_render_rect(
+        position,
+        grid_size,
+        pivot,
+        is_placeholder,
+        static_sprite_size,
+        ecs.get_store::<CurrentFrame>().get(visual_entity),
     )
 }

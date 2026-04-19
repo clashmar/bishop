@@ -7,7 +7,7 @@ use crate::gui::menu_bar::*;
 use crate::gui::mode_selector::*;
 use crate::room::prefab_preview::{build_prefab_preview, PrefabPreviewVisual};
 use crate::room::room_editor::*;
-use crate::room::selection::snap_room_drag_position;
+use crate::room::selection::{entity_selection_rect, snap_room_drag_position};
 use crate::shared::scene_ui::inspector::{SceneEmptyInspectorBehavior, SceneInspectorContext};
 use crate::tilemap::tilemap_editor::TILEMAP_SUB_MODES;
 use crate::world::coord;
@@ -355,8 +355,8 @@ pub fn highlight_selected_entity<C: BishopContext>(
         None => return,
     };
 
-    let size = entity_dimensions(ecs, sprite_manager, entity, grid_size);
-    let draw_pos = pivot_adjusted_position(transform.position, size, transform.pivot);
+    let (draw_pos, size) =
+        entity_selection_rect(entity, transform.position, ecs, sprite_manager, grid_size);
 
     ctx.draw_rectangle_lines(
         draw_pos.x,

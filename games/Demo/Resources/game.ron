@@ -98,7 +98,7 @@
             ),
             /*[23]*/ (
                 type_name: "PrefabOverrides",
-                data: "{\n    (37): (\n        modified_components: [],\n        removed_components: [],\n        added_components: [\n            (\n                type_name: \"Collider\",\n                ron: \"(\\n    width: 18.0,\\n    height: 19.0,\\n)\",\n            ),\n            (\n                type_name: \"Solid\",\n                ron: \"(true)\",\n            ),\n        ],\n    ),\n}",
+                data: "{}",
             ),
             /*[24]*/ (
                 type_name: "RoomCamera",
@@ -194,20 +194,50 @@
         ),
     ],
     asset_registry: (
-        records: {},
+        records: {
+            Sprite((1)): (
+                kind: Sprite,
+                path: "assets/animations/player/male/Jump.png",
+            ),
+            Sprite((2)): (
+                kind: Sprite,
+                path: "assets/animations/player/male/Fall.png",
+            ),
+            Sprite((3)): (
+                kind: Sprite,
+                path: "assets/animations/player/male/Idle.png",
+            ),
+            Sprite((4)): (
+                kind: Sprite,
+                path: "assets/animations/player/male/Walk.png",
+            ),
+            Sprite((5)): (
+                kind: Sprite,
+                path: "assets/animations/player/male/Fidget.png",
+            ),
+            Sprite((6)): (
+                kind: Sprite,
+                path: "assets/animations/player/male/Run.png",
+            ),
+            Sprite((7)): (
+                kind: Sprite,
+                path: "assets/animations/player/female/Idle.png",
+            ),
+            Sprite((8)): (
+                kind: Sprite,
+                path: "assets/sprites/Bullet.png",
+            ),
+            Sprite((9)): (
+                kind: Sprite,
+                path: "assets/sprites/cat.png",
+            ),
+            Script((1)): (
+                kind: Script,
+                path: "scripts/bullet.lua",
+            ),
+        },
     ),
     sprite_manager: (
-        sprite_id_to_path: {
-            (1): "animations/player/female/Idle.png",
-            (2): "animations/player/male/Jump.png",
-            (3): "animations/player/male/Fall.png",
-            (4): "animations/player/male/Fidget.png",
-            (5): "animations/player/male/Run.png",
-            (6): "animations/player/male/Idle.png",
-            (7): "animations/player/male/Walk.png",
-            (8): "sprites/Bullet.png",
-            (9): "sprites/cat.png",
-        },
         tile_defs: {},
         next_tile_def_id: 1,
         ref_counts: {
@@ -215,10 +245,6 @@
         },
     ),
     script_manager: (
-        script_id_to_path: {
-            (1): "player.lua",
-            (2): "bullet.lua",
-        },
         ref_counts: {
             (1): 1,
         },

@@ -9,16 +9,24 @@
             parent_node_id: None,
             components: [
                 (
-                    type_name: "Transform",
-                    ron: "(visible:true,position:(0.0,0.0),pivot:BottomCenter)",
+                    type_name: "Collider",
+                    ron: "(\n    width: 18.0,\n    height: 19.0,\n)",
                 ),
                 (
                     type_name: "Name",
                     ron: "(\"Cat\")",
                 ),
                 (
+                    type_name: "Solid",
+                    ron: "(true)",
+                ),
+                (
                     type_name: "Sprite",
                     ron: "(\n    sprite: (9),\n)",
+                ),
+                (
+                    type_name: "Transform",
+                    ron: "(visible:true,position:(0.0,0.0),pivot:BottomCenter)",
                 ),
             ],
         ),
