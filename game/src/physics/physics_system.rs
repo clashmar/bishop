@@ -141,7 +141,7 @@ mod tests {
     }
 
     #[test]
-    fn velocity_only_entities_do_not_move_without_motion_body() {
+    fn velocity_entities_move_with_fixed_step_subpixel_accumulation() {
         let mut ecs = Ecs::default();
         let entity = ecs
             .create_entity()
@@ -164,7 +164,7 @@ mod tests {
         assert_eq!(
             ecs.get::<Transform>(entity)
                 .map(|transform| transform.position),
-            Some(Vec2::new(10.0, 12.0))
+            Some(Vec2::new(12.0, 12.0))
         );
         assert_eq!(
             ecs.get::<SubPixel>(entity)

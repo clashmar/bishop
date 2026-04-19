@@ -46,7 +46,7 @@ pub struct WorldMeta {
 }
 
 impl WorldMeta {
-    /// Sets the sprite, handling ref counting for the change.
+    /// Sets the sprite.
     pub fn set_sprite(&mut self, new_id: Option<SpriteId>, sprite_manager: &mut SpriteManager) {
         sprite_manager.change_sprite_option(&mut self.sprite_id, new_id);
     }

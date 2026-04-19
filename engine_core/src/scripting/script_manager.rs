@@ -50,16 +50,6 @@ pub struct ScriptManager {
     #[serde(skip)]
     /// Counter for script ids. Starts from 1.
     pub next_script_id: usize,
-    /// How many entities are using a script.
-    #[serde(
-        serialize_with = "crate::storage::ordered_map::serialize",
-        deserialize_with = "crate::storage::ordered_map::deserialize"
-    )]
-    ref_counts: HashMap<ScriptId, usize>,
-    /// Script ids whose path mappings should be removed on exit.
-    #[cfg(feature = "editor")]
-    #[serde(skip)]
-    pending_path_removal: HashSet<ScriptId>,
 }
 
 impl ScriptManager {
@@ -74,62 +64,7 @@ impl ScriptManager {
             script_id_to_path: HashMap::new(),
             path_to_script_id: HashMap::new(),
             next_script_id: 1,
-            ref_counts: HashMap::new(),
-            #[cfg(feature = "editor")]
-            pending_path_removal: HashSet::new(),
         }
-    }
-
-    /// Increment reference count for a script.
-    pub fn increment_ref(&mut self, script_id: ScriptId) {
-        if script_id.0 == 0 {
-            return;
-        }
-
-        *self.ref_counts.entry(script_id).or_insert(0) += 1;
-
-        #[cfg(feature = "editor")]
-        {
-            self.pending_path_removal.remove(&script_id);
-        }
-    }
-
-    /// Decrement reference count for a script, and clean up if it reaches zero.
-    fn decrement_ref(&mut self, script_id: ScriptId) {
-        if script_id.0 == 0 {
-            return;
-        }
-
-        if let Some(count) = self.ref_counts.get_mut(&script_id) {
-            *count = count.saturating_sub(1);
-
-            if *count == 0 {
-                self.ref_counts.remove(&script_id);
-                self.table_defs.remove(&script_id);
-                self.update_fns.remove(&script_id);
-
-                #[cfg(feature = "editor")]
-                {
-                    self.pending_path_removal.insert(script_id);
-                }
-            }
-        }
-    }
-
-    /// Remove path mappings for all scripts with a zero ref count.
-    /// Call this before serializing game data on exit.
-    #[cfg(feature = "editor")]
-    pub fn flush_pending_removals(&mut self) {
-        for id in self.pending_path_removal.drain() {
-            if let Some(path) = self.script_id_to_path.remove(&id) {
-                self.path_to_script_id.remove(&path);
-            }
-        }
-    }
-
-    /// Get the reference count for a script.
-    pub fn get_ref_count(&self, script_id: ScriptId) -> usize {
-        self.ref_counts.get(&script_id).copied().unwrap_or(0)
     }
 
     /// Returns the number of loaded script definitions.
@@ -390,7 +325,11 @@ impl ScriptManager {
 
         self.instances
             .retain(|(ent, _script_id), _table| *ent != entity);
-        self.decrement_ref(script_id)
+        
+        if script_id.0 != 0 && !self.instances.keys().any(|(_, id)| *id == script_id) {
+            self.table_defs.remove(&script_id);
+            self.update_fns.remove(&script_id);
+        }
     }
 
     /// Change the script for an entity.
@@ -402,11 +341,13 @@ impl ScriptManager {
         // Update old script counter
         if old_id.0 != 0 {
             self.instances.remove(&(entity, *old_id));
-            self.decrement_ref(*old_id);
+            if !self.instances.keys().any(|(_, id)| *id == *old_id) {
+                self.table_defs.remove(old_id);
+                self.update_fns.remove(old_id);
+            }
         }
 
         *old_id = new_id;
-        self.increment_ref(new_id)
     }
 
     fn rebuild_path_cache_from_registry(&mut self, asset_registry: &AssetRegistry) {

@@ -40,7 +40,7 @@ pub struct ScriptData {
 }
 
 /// The script component that lives on an entity.
-#[ecs_component(post_create = post_create, post_remove = post_remove)]
+#[ecs_component(post_remove = post_remove)]
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct Script {
     /// Id stored by the script manager.
@@ -124,10 +124,6 @@ impl Script {
         }
         Ok(())
     }
-}
-
-fn post_create(script: &mut Script, _entity: &Entity, ctx: &mut GameCtxMut<'_>) {
-    ctx.script_manager.increment_ref(script.script_id)
 }
 
 fn post_remove(script: &mut Script, entity: &Entity, ctx: &mut GameCtxMut<'_>) {

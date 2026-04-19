@@ -357,7 +357,7 @@ impl InspectorModule for AnimationModule {
             if has_variant {
                 animation.refresh_sprite_cache(ctx, asset_registry, sprite_manager);
             } else if clip_removed || clip_renamed {
-                animation.clear_sprite_cache(sprite_manager);
+                animation.clear_sprite_cache();
             }
         }
     }

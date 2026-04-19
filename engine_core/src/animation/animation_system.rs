@@ -63,7 +63,7 @@ pub fn update_entity_animations(
             get_sprite_id(loader, animation, current_id, asset_registry, sprite_manager);
 
         if resolved {
-            animation.update_cache_entry(current_id, sprite_id, sprite_manager);
+            animation.update_cache_entry(current_id, sprite_id);
         }
 
         let Some(clip) = animation.clips.get(current_id) else {

@@ -9,10 +9,6 @@
             parent_node_id: None,
             components: [
                 (
-                    type_name: "MotionBody",
-                    ron: "()",
-                ),
-                (
                     type_name: "Name",
                     ron: "(\"Entity\")",
                 ),

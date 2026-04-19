@@ -137,7 +137,7 @@
                 data: "{}",
             ),
         ],
-        next_entity_id: 38,
+        next_entity_id: 40,
     ),
     worlds: [
         /*[0]*/ (
@@ -161,7 +161,7 @@
                             ),
                         ),
                     ],
-                    darkness: 0.3082906,
+                    darkness: 0.71627605,
                 ),
                 /*[1]*/ (
                     id: (2),
@@ -244,15 +244,8 @@
     sprite_manager: (
         tile_defs: {},
         next_tile_def_id: 1,
-        ref_counts: {
-            (9): 1,
-        },
     ),
-    script_manager: (
-        ref_counts: {
-            (2): 1,
-        },
-    ),
+    script_manager: (),
     current_world_id: ("38f2015c-96c7-4954-862c-a3a8262298b6"),
     game_map: (),
     next_room_id: 2,

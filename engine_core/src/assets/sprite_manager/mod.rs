@@ -42,16 +42,6 @@ pub struct SpriteManager {
     pub tile_defs: HashMap<TileDefId, TileDef>,
     /// Counter for tile def ids. Starts from 1.
     next_tile_def_id: usize,
-    /// Reference counts for sprite ids.
-    #[serde(
-        serialize_with = "crate::storage::ordered_map::serialize",
-        deserialize_with = "crate::storage::ordered_map::deserialize"
-    )]
-    ref_counts: HashMap<SpriteId, usize>,
-    /// Sprite ids whose path mappings should be removed on exit.
-    #[cfg(feature = "editor")]
-    #[serde(skip)]
-    pending_path_removal: HashSet<SpriteId>,
     #[serde(skip)]
     runtime_texture_loading: bool,
     #[serde(skip)]

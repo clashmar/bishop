@@ -65,7 +65,6 @@ pub fn gui_sprite_picker<C: BishopContext>(
     }
 
     if Button::new(remove_rect, "x").suppressed(blocked).show(ctx) && id.0 != 0 {
-        sprite_manager.decrement_ref(*id);
         *id = SpriteId(0);
         changed = true;
     }

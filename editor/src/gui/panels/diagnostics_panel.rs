@@ -46,15 +46,6 @@ impl DiagnosticsPanel {
             loaded_count: game.script_manager.loaded_script_count(),
             instance_count: game.script_manager.instance_count(),
             event_listener_count: game.script_manager.event_listener_count(),
-            ref_counts: game
-                .asset_registry
-                .records()
-                .keys()
-                .filter_map(|key| match key {
-                    AssetKey::Script(id) => Some((id.0, game.script_manager.get_ref_count(*id))),
-                    _ => None,
-                })
-                .collect(),
         };
 
         // ECS metrics

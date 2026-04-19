@@ -151,12 +151,14 @@ pub fn ecs_component(args: TokenStream, input: TokenStream) -> TokenStream {
     let lua_schema = generate_lua_schema(fields);
 
     // Generate factory with dependencies
-    let factory_deps = deps.iter().map(|dep| {
-        quote! {
-            world.get_store_mut::<#dep>()
-                .insert(entity, <#dep>::default());
-        }
-    });
+    let factory_deps: Vec<_> = deps
+        .iter()
+        .map(|dep| {
+            quote! {
+                <#dep>::__ensure(world, entity);
+            }
+        })
+        .collect();
 
     // Generate post_create function
     let post_create_fn = if let Some(func) = &args.post_create {
@@ -234,8 +236,15 @@ pub fn ecs_component(args: TokenStream, input: TokenStream) -> TokenStream {
                 world: &mut crate::ecs::ecs::Ecs,
                 entity: crate::ecs::entity::Entity,
             ) {
-                world.get_store_mut::<#name>()
-                    .insert(entity, <#name>::default());
+                <#name>::__ensure(world, entity);
+                #(#factory_deps)*
+            }
+
+            pub(crate) fn __ensure(
+                world: &mut crate::ecs::ecs::Ecs,
+                entity: crate::ecs::entity::Entity,
+            ) {
+                crate::ecs::component_registry::generic_ensure::<#name>(world, entity);
                 #(#factory_deps)*
             }
 
@@ -286,6 +295,7 @@ pub fn ecs_component(args: TokenStream, input: TokenStream) -> TokenStream {
                 to_ron: <#name>::__to_ron,
                 from_ron: <#name>::__from_ron,
                 factory: <#name>::__factory,
+                ensure: <#name>::__ensure,
                 has: crate::ecs::component_registry::has_component::<#name>,
                 remove: crate::ecs::component_registry::erase_from_store::<#name>,
                 inserter: crate::ecs::component_registry::generic_inserter::<#name>,
