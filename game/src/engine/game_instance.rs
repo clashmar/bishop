@@ -15,110 +15,46 @@ pub struct GameInstance {
 }
 
 impl GameInstance {
-    pub fn new<C: BishopContext>(
-        ctx: &mut C,
-        lua: &Lua,
-        camera_manager: &mut CameraManager,
-    ) -> Self {
-        // Allows the shared engine features to make decisions
-        set_engine_mode(EngineMode::Game);
-
-        let game = match load_game_ron() {
-            Ok(game) => game,
-            Err(e) => panic!("{e}"),
-        };
-
-        Self::from_loaded_game_blocking(ctx, game, lua, camera_manager)
-    }
-
-    pub fn for_room<C: BishopContext>(
-        ctx: &mut C,
-        room: Room,
-        game: Game,
-        lua: &Lua,
-        camera_manager: &mut CameraManager,
-    ) -> Self {
-        // Playtest mode is set in playtest_main.rs before this is called,
-        // so we only set Game mode if not already in Playtest mode
-        if get_engine_mode() != EngineMode::Playtest {
-            set_engine_mode(EngineMode::Game);
-        }
-
-        Self::from_loaded_room_blocking(ctx, room, game, lua, camera_manager)
-    }
-
     pub fn from_loaded_game<C: BishopContext>(
         ctx: &mut C,
-        game: Game,
+        mut game: Game,
         lua: &Lua,
         camera_manager: &mut CameraManager,
     ) -> Self {
-        let start_room_id = game
-            .current_world()
-            .starting_room_id
-            .or_else(|| {
-                game.worlds
-                    .first()
-                    .map(|world| world.starting_room_id.expect("Game has no starting room."))
-            })
-            .expect("Game has no starting room nor any rooms");
-
-        Self::from_loaded_room_id(ctx, start_room_id, game, lua, camera_manager, true)
-    }
-
-    fn from_loaded_game_blocking<C: BishopContext>(
-        ctx: &mut C,
-        game: Game,
-        lua: &Lua,
-        camera_manager: &mut CameraManager,
-    ) -> Self {
-        let start_room_id = game
-            .current_world()
-            .starting_room_id
-            .or_else(|| {
-                game.worlds
-                    .first()
-                    .map(|world| world.starting_room_id.expect("Game has no starting room."))
-            })
-            .expect("Game has no starting room nor any rooms");
-
-        Self::from_loaded_room_id(ctx, start_room_id, game, lua, camera_manager, false)
+        let room_id = Self::start_room_id(&game);
+        game.initialize_runtime(lua);
+        Self::finish_loading(ctx, room_id, game, lua, camera_manager)
     }
 
     pub fn from_loaded_room<C: BishopContext>(
         ctx: &mut C,
         room: Room,
-        game: Game,
-        lua: &Lua,
-        camera_manager: &mut CameraManager,
-    ) -> Self {
-        Self::from_loaded_room_id(ctx, room.id, game, lua, camera_manager, true)
-    }
-
-    fn from_loaded_room_blocking<C: BishopContext>(
-        ctx: &mut C,
-        room: Room,
-        game: Game,
-        lua: &Lua,
-        camera_manager: &mut CameraManager,
-    ) -> Self {
-        Self::from_loaded_room_id(ctx, room.id, game, lua, camera_manager, false)
-    }
-
-    fn from_loaded_room_id<C: BishopContext>(
-        ctx: &mut C,
-        room_id: RoomId,
         mut game: Game,
         lua: &Lua,
         camera_manager: &mut CameraManager,
-        runtime_loading: bool,
     ) -> Self {
-        if runtime_loading {
-            game.initialize_runtime(lua);
-        } else {
-            game.initialize(ctx, lua);
-        }
+        game.initialize_runtime(lua);
+        Self::finish_loading(ctx, room.id, game, lua, camera_manager)
+    }
 
+    fn start_room_id(game: &Game) -> RoomId {
+        game.current_world()
+            .starting_room_id
+            .or_else(|| {
+                game.worlds
+                    .first()
+                    .map(|world| world.starting_room_id.expect("Game has no starting room."))
+            })
+            .expect("Game has no starting room nor any rooms")
+    }
+
+    fn finish_loading<C: BishopContext>(
+        ctx: &mut C,
+        room_id: RoomId,
+        game: Game,
+        lua: &Lua,
+        camera_manager: &mut CameraManager,
+    ) -> Self {
         // Warm the audio cache for all AudioSource components that were loaded from the
         // save file. Ecs::deserialize bypasses post_create hooks (serde has no GameCtxMut),
         // so we push IncrementRefs manually here.
