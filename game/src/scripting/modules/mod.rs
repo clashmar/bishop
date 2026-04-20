@@ -10,3 +10,7 @@ pub mod text_module;
 #[cfg(test)]
 #[path = "tests/entity_module_tests.rs"]
 mod entity_module_tests;
+
+#[cfg(test)]
+#[path = "tests/toml_asset_tests.rs"]
+mod toml_asset_tests;

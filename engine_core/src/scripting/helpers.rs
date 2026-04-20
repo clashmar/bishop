@@ -1,4 +1,4 @@
-use crate::ecs::ScriptField;
+use crate::ecs::{ScriptField, TomlId};
 use crate::scripting::lua_constants::lua_fields;
 use bishop::prelude::{Vec2, Vec3};
 use mlua::prelude::LuaResult;
@@ -23,6 +23,9 @@ pub fn to_snake_case(name: &str) -> String {
 /// Reads a public script field value from a Lua value.
 pub fn read_script_field(name: &str, value: Value) -> LuaResult<Option<ScriptField>> {
     match value {
+        Value::UserData(ud) if ud.is::<TomlId>() => {
+            Ok(Some(ScriptField::Toml(*ud.borrow::<TomlId>()?)))
+        }
         Value::Boolean(b) => Ok(Some(ScriptField::Bool(b))),
         Value::Integer(i) => Ok(Some(ScriptField::Int(i))),
         Value::Number(n) => Ok(Some(ScriptField::Float(n))),
@@ -52,6 +55,7 @@ pub fn write_script_field(
             name,
             write_named_vec3_table(lua, Vec3::new(value[0], value[1], value[2]))?,
         )?,
+        ScriptField::Toml(value) => public.set(name, *value)?,
     }
 
     Ok(())

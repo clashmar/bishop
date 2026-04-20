@@ -13,20 +13,20 @@ impl LuaMethod<EntityHandle> for SayMethod {
     fn register<M: UserDataMethods<EntityHandle>>(&self, methods: &mut M) {
         methods.add_method(
             lua_text::SAY,
-            |lua, this, (dialogue_id, key, opts): (String, String, Option<Table>)| {
+            |lua, this, (dialogue_id, key, opts): (TomlId, String, Option<Table>)| {
                 let ctx = LuaGameCtx::borrow_ctx(lua)?;
                 let game_instance = ctx.game_instance.borrow();
                 ensure_live_entity(&game_instance.game.ecs, this.entity)?;
                 let config = game_instance.game.text_manager.config.clone();
 
-                let text = match game_instance
-                    .game
-                    .text_manager
-                    .select_text(&dialogue_id, &key)
-                {
+                let text = match game_instance.game.text_manager.select_text(
+                    &game_instance.game.asset_registry,
+                    dialogue_id,
+                    &key,
+                ) {
                     Some(t) => t,
                     None => {
-                        log::warn!("Dialogue not found: {}:{}", dialogue_id, key);
+                        log::warn!("Dialogue not found: {:?}:{}", dialogue_id, key);
                         return Ok(());
                     }
                 };
@@ -103,7 +103,7 @@ impl LuaMethod<EntityHandle> for SayMethod {
 
     fn emit_api(&self, out: &mut LuaApiWriter) {
         out.line("--- Shows a speech bubble with text from a dialogue file.");
-        out.line("---@param dialogue_id string The dialogue file ID (e.g. \"npc_merchant\")");
+        out.line("---@param dialogue_id TomlId");
         out.line("---@param key string The dialogue key (e.g. \"greeting\")");
         out.line("---@param opts? {vars?: table<string, string>, duration?: number, color?: number[], offset?: number[], font_size?: number, max_width?: number, show_background?: boolean, background_color?: number[]}");
         out.line(&format!(

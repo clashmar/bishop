@@ -236,7 +236,7 @@ impl AssetRegistry {
 
         Ok(normalized)
     }
-
+    
     fn kind_for_key(key: AssetKey) -> AssetKind {
         match key {
             AssetKey::Sprite(_) => AssetKind::Sprite,

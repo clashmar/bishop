@@ -59,7 +59,7 @@ impl InspectorModule for ScriptModule {
         // Ensure ScriptData is loaded if it exists
         if script_comp.script_id != ScriptId(0) {
             with_lua(|lua| {
-                if let Err(e) = script_comp.load(lua, script_manager, entity) {
+                if let Err(e) = script_comp.load(lua, asset_registry, script_manager, entity) {
                     onscreen_error!("Failed to load script: {}", e);
                 }
             });
@@ -97,7 +97,7 @@ impl InspectorModule for ScriptModule {
             blocked,
         ) {
             with_lua(|lua| {
-                if let Err(e) = script_comp.load(lua, script_manager, entity) {
+                if let Err(e) = script_comp.load(lua, asset_registry, script_manager, entity) {
                     onscreen_error!("Failed to load script: {}", e);
                 }
             })
@@ -116,7 +116,8 @@ impl InspectorModule for ScriptModule {
             with_lua(|lua| {
                 if let Err(e) = script_manager.reload(lua, entity, script_comp.script_id) {
                     onscreen_error!("Failed to reload script: {}", e);
-                } else if let Err(e) = script_comp.load(lua, script_manager, entity) {
+                } else if let Err(e) = script_comp.load(lua, asset_registry, script_manager, entity)
+                {
                     onscreen_error!("Failed to reload script data: {}", e);
                 }
             });
@@ -215,6 +216,7 @@ impl InspectorModule for ScriptModule {
                         changed = true;
                     }
                 }
+                ScriptField::Toml(_toml_id) => {}
                 ScriptField::Vec2(ref mut v) => {
                     let id_x = *self.field_ids.entry(format!("{}.x", name)).or_default();
 
