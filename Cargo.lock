@@ -737,7 +737,6 @@ dependencies = [
  "engine_core",
  "flexi_logger",
  "futures",
- "game",
  "glam",
  "inventory",
  "log",
