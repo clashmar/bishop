@@ -1,4 +1,6 @@
 // engine_core/src/text/text_manager.rs
+use crate::assets::AssetRegistry;
+use crate::ecs::TomlId;
 use crate::text::*;
 use rand::Rng;
 use rand::seq::SliceRandom;
@@ -16,11 +18,11 @@ pub struct TextManager {
     /// Available languages from manifest.
     available_languages: Vec<String>,
     /// Cached text files by text_id.
-    cache: RefCell<HashMap<String, TextFile>>,
+    cache: RefCell<HashMap<TomlId, TextFile>>,
     /// Cached UI text files by text_id.
     ui_cache: RefCell<HashMap<String, UiTextFile>>,
     /// State tracking for each (text_id, key) pair.
-    state: RefCell<HashMap<(String, String), TextState>>,
+    state: RefCell<HashMap<(TomlId, String), TextState>>,
     /// Global dialogue configuration.
     pub config: DialogueConfig,
 }
@@ -64,9 +66,15 @@ impl TextManager {
     /// Sets the current language. Returns false if language is not available.
     pub fn set_language(&mut self, lang: &str) -> bool {
         if self.available_languages.contains(&lang.to_string()) {
-            self.current_language = lang.to_string();
+            let language_changed = self.current_language != lang;
+            if language_changed {
+                self.current_language = lang.to_string();
+            }
             self.cache.borrow_mut().clear();
             self.ui_cache.borrow_mut().clear();
+            if language_changed {
+                self.state.borrow_mut().clear();
+            }
             true
         } else {
             false
@@ -83,19 +91,27 @@ impl TextManager {
         &self.available_languages
     }
 
-    /// Loads a text file by ID, supporting subfolders (e.g., "dialogue/npcs/npc" -> "dialogue/npcs/npc.toml").
-    fn load_text_file(&self, text_id: &str) -> bool {
-        if self.cache.borrow().contains_key(text_id) {
+    fn text_path_for_id(&self, asset_registry: &AssetRegistry, text_id: TomlId) -> Option<PathBuf> {
+        let mut relative = asset_registry.relative_path(text_id)?;
+        if let Some(language) = self
+            .available_languages
+            .iter()
+            .find(|language| relative.starts_with(language.as_str()))
+        {
+            relative = relative.strip_prefix(language.as_str()).ok()?.to_path_buf();
+        }
+        Some(self.text_root.join(&self.current_language).join(relative))
+    }
+
+    /// Loads a text file by managed asset id.
+    fn load_text_file(&self, asset_registry: &AssetRegistry, text_id: TomlId) -> bool {
+        if self.cache.borrow().contains_key(&text_id) {
             return true;
         }
 
-        // Build path from text_id, supporting subfolders (e.g., "dialogue/npcs/npc")
-        let normalized_id = text_id.replace('\\', "/");
-        let mut file_path = self.text_root.join(&self.current_language);
-        for component in normalized_id.split('/') {
-            file_path = file_path.join(component);
-        }
-        file_path.set_extension("toml");
+        let Some(file_path) = self.text_path_for_id(asset_registry, text_id) else {
+            return false;
+        };
 
         let content = match fs::read_to_string(&file_path) {
             Ok(c) => c,
@@ -113,20 +129,23 @@ impl TextManager {
             }
         };
 
-        self.cache
-            .borrow_mut()
-            .insert(text_id.to_string(), text_file);
+        self.cache.borrow_mut().insert(text_id, text_file);
         true
     }
 
     /// Selects and returns text for the given text_id and key.
-    pub fn select_text(&self, text_id: &str, key: &str) -> Option<String> {
-        if !self.load_text_file(text_id) {
+    pub fn select_text(
+        &self,
+        asset_registry: &AssetRegistry,
+        text_id: TomlId,
+        key: &str,
+    ) -> Option<String> {
+        if !self.load_text_file(asset_registry, text_id) {
             return None;
         }
 
         let cache = self.cache.borrow();
-        let file = cache.get(text_id)?;
+        let file = cache.get(&text_id)?;
         let entry = file.entries.get(key)?.clone();
         drop(cache);
 
@@ -134,7 +153,7 @@ impl TextManager {
             return entry.exhausted.clone();
         }
 
-        let state_key = (text_id.to_string(), key.to_string());
+        let state_key = (text_id, key.to_string());
         let mut state_map = self.state.borrow_mut();
         let state = state_map.entry(state_key).or_default();
 
@@ -214,8 +233,8 @@ impl TextManager {
     }
 
     /// Resets state for a specific text entry.
-    pub fn reset_state(&self, text_id: &str, key: &str) {
-        let state_key = (text_id.to_string(), key.to_string());
+    pub fn reset_state(&self, text_id: TomlId, key: &str) {
+        let state_key = (text_id, key.to_string());
         if let Some(state) = self.state.borrow_mut().get_mut(&state_key) {
             state.reset();
         }
