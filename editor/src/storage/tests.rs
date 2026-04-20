@@ -9,6 +9,8 @@ use std::io::ErrorKind;
 use std::path::Path;
 use std::path::PathBuf;
 
+mod toml_asset_registry_tests;
+
 #[test]
 fn create_new_game_creates_prefabs_folder() {
     let _lock = game_fs_test_lock()

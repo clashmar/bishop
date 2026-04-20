@@ -1,9 +1,9 @@
-use super::{AssetKey, AssetKind, AssetRecord};
+use super::{registry_errors, AssetKey, AssetKind, AssetRecord};
 use crate::assets::AssetManager;
-use crate::constants::paths::{ASSETS_FOLDER, AUDIO_FOLDER, PREFABS_FOLDER, SCRIPTS_FOLDER};
+use crate::constants::paths::{ASSETS_FOLDER, AUDIO_FOLDER, PREFABS_FOLDER, SCRIPTS_FOLDER, TEXT_FOLDER};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::io::{self, Error, ErrorKind};
+use std::io::{self};
 use std::path::{Component, Path, PathBuf};
 
 /// Project-scoped registry of authored assets keyed by stable typed ids.
@@ -38,29 +38,21 @@ impl AssetRegistry {
         for (&key, record) in &self.records {
             let expected_kind = Self::kind_for_key(key);
             if record.kind != expected_kind {
-                return Err(Error::new(
-                    ErrorKind::InvalidData,
-                    format!(
-                        "Asset registry record '{key:?}' requires kind '{expected_kind:?}', got '{:?}'",
-                        record.kind
-                    ),
+                return Err(registry_errors::record_kind_mismatch(
+                    key,
+                    expected_kind,
+                    record.kind,
                 ));
             }
 
-            Self::validate_asset_path(expected_kind, &record.path).map_err(|error| {
-                Error::new(
-                    error.kind(),
-                    format!("Invalid asset registry record '{key:?}': {error}"),
-                )
-            })?;
+            Self::validate_asset_path(expected_kind, &record.path)
+                .map_err(|error| registry_errors::invalid_record(key, error))?;
 
             if let Some(existing_key) = path_to_key.insert(record.path.clone(), key) {
-                return Err(Error::new(
-                    ErrorKind::InvalidData,
-                    format!(
-                        "Asset registry path '{}' maps to both '{existing_key:?}' and '{key:?}'",
-                        record.path.display()
-                    ),
+                return Err(registry_errors::conflicting_registry_path(
+                    &record.path,
+                    existing_key,
+                    key,
                 ));
             }
         }
@@ -101,7 +93,7 @@ impl AssetRegistry {
         if let Some(existing_key) = self.existing_key_for_path(&path) {
             return match existing_key {
                 existing if existing == key => Ok(()),
-                _ => Err(Self::path_conflict_error(&path, existing_key, key)),
+                _ => Err(registry_errors::conflicting_path(&path, existing_key, key)),
             };
         }
 
@@ -124,10 +116,7 @@ impl AssetRegistry {
         if let Some(existing) = self.records.get(&key)
             && existing != &record
         {
-            return Err(Error::new(
-                ErrorKind::InvalidData,
-                format!("Asset key '{key:?}' maps to multiple records"),
-            ));
+            return Err(registry_errors::key_maps_to_multiple_records(key));
         }
 
         self.path_to_key.insert(record.path.clone(), key);
@@ -157,12 +146,10 @@ impl AssetRegistry {
     fn validate_record_for_key(&self, key: AssetKey, record: &AssetRecord) -> io::Result<()> {
         let expected_kind = Self::kind_for_key(key);
         if record.kind != expected_kind {
-            return Err(Error::new(
-                ErrorKind::InvalidData,
-                format!(
-                    "Asset key '{key:?}' requires kind '{expected_kind:?}', got '{:?}'",
-                    record.kind
-                ),
+            return Err(registry_errors::key_kind_mismatch(
+                key,
+                expected_kind,
+                record.kind,
             ));
         }
 
@@ -171,7 +158,11 @@ impl AssetRegistry {
         if let Some(existing_key) = self.existing_key_for_path(&record.path)
             && existing_key != key
         {
-            return Err(Self::path_conflict_error(&record.path, existing_key, key));
+            return Err(registry_errors::conflicting_path(
+                &record.path,
+                existing_key,
+                key,
+            ));
         }
 
         Ok(())
@@ -189,97 +180,55 @@ impl AssetRegistry {
         })
     }
 
-    fn path_conflict_error(path: &Path, existing_key: AssetKey, key: AssetKey) -> Error {
-        Error::new(
-            ErrorKind::InvalidData,
-            format!(
-                "Asset path '{}' maps to both '{existing_key:?}' and '{key:?}'",
-                path.display()
-            ),
-        )
-    }
-
     fn asset_folder(kind: AssetKind) -> PathBuf {
         PathBuf::from(match kind {
             AssetKind::Sprite => ASSETS_FOLDER,
             AssetKind::Script => SCRIPTS_FOLDER,
             AssetKind::Prefab => PREFABS_FOLDER,
             AssetKind::Sound => AUDIO_FOLDER,
+            AssetKind::Toml => TEXT_FOLDER,
         })
     }
 
     fn canonical_asset_path(kind: AssetKind, relative_path: &Path) -> io::Result<PathBuf> {
-        let normalized = Self::normalize_relative_path(kind, relative_path)?;
-        Self::validate_kind_specific_relative_path(kind, &normalized)?;
+        let folder = Self::asset_folder(kind);
+        let normalized = Self::normalize_relative_path(kind, &folder, relative_path)?;
+        kind.validate_extension(&normalized, &folder)?;
         if normalized != relative_path {
-            let folder = Self::asset_folder(kind);
-            return Err(Error::new(
-                ErrorKind::InvalidInput,
-                format!(
-                    "{kind:?} paths must use canonical spelling under '{}': '{}'",
-                    folder.display(),
-                    relative_path.display()
-                ),
+            return Err(registry_errors::canonical_spelling(
+                kind,
+                &folder,
+                relative_path,
             ));
         }
 
-        Ok(Self::asset_folder(kind).join(normalized))
+        Ok(folder.join(normalized))
     }
 
     fn validate_asset_path(kind: AssetKind, path: &Path) -> io::Result<()> {
         let folder = Self::asset_folder(kind);
-        let relative = path.strip_prefix(&folder).map_err(|_| {
-            Error::new(
-                ErrorKind::InvalidInput,
-                format!(
-                    "{kind:?} paths must live under '{}': '{}'",
-                    folder.display(),
-                    path.display()
-                ),
-            )
-        })?;
+        let relative = path
+            .strip_prefix(&folder)
+            .map_err(|_| registry_errors::rooted_path(kind, &folder, path))?;
 
-        let normalized = Self::normalize_relative_path(kind, relative)?;
-        Self::validate_kind_specific_relative_path(kind, &normalized)?;
+        let normalized = Self::normalize_relative_path(kind, &folder, relative)?;
+        kind.validate_extension(&normalized, &folder)?;
         if normalized != relative {
-            return Err(Error::new(
-                ErrorKind::InvalidInput,
-                format!(
-                    "{kind:?} paths must use canonical spelling under '{}': '{}'",
-                    folder.display(),
-                    path.display()
-                ),
-            ));
+            return Err(registry_errors::canonical_spelling(kind, &folder, path));
         }
 
         Ok(())
     }
 
-    fn normalize_relative_path(kind: AssetKind, path: &Path) -> io::Result<PathBuf> {
+    fn normalize_relative_path(kind: AssetKind, folder: &Path, path: &Path) -> io::Result<PathBuf> {
         if path.as_os_str().is_empty() || path.is_absolute() {
-            let folder = Self::asset_folder(kind);
-            return Err(Error::new(
-                ErrorKind::InvalidInput,
-                format!(
-                    "{kind:?} paths must be clean relative paths under '{}': '{}'",
-                    folder.display(),
-                    path.display()
-                ),
-            ));
+            return Err(registry_errors::clean_relative_path(kind, folder, path));
         }
 
         let mut normalized = PathBuf::new();
         for component in path.components() {
             let Component::Normal(segment) = component else {
-                let folder = Self::asset_folder(kind);
-                return Err(Error::new(
-                    ErrorKind::InvalidInput,
-                    format!(
-                        "{kind:?} paths must be clean relative paths under '{}': '{}'",
-                        folder.display(),
-                        path.display()
-                    ),
-                ));
+                return Err(registry_errors::clean_relative_path(kind, folder, path));
             };
 
             normalized.push(segment);
@@ -288,33 +237,13 @@ impl AssetRegistry {
         Ok(normalized)
     }
 
-    fn validate_kind_specific_relative_path(kind: AssetKind, path: &Path) -> io::Result<()> {
-        if kind != AssetKind::Sound {
-            return Ok(());
-        }
-
-        if path.extension().is_some_and(|extension| extension == "wav")
-            && path.file_stem().is_some()
-        {
-            return Ok(());
-        }
-
-        Err(Error::new(
-            ErrorKind::InvalidInput,
-            format!(
-                "{kind:?} paths must point to '.wav' files under '{}': '{}'",
-                Self::asset_folder(kind).display(),
-                path.display()
-            ),
-        ))
-    }
-
     fn kind_for_key(key: AssetKey) -> AssetKind {
         match key {
             AssetKey::Sprite(_) => AssetKind::Sprite,
             AssetKey::Script(_) => AssetKind::Script,
             AssetKey::Prefab(_) => AssetKind::Prefab,
             AssetKey::Sound(_) => AssetKind::Sound,
+            AssetKey::Toml(_) => AssetKind::Toml,
         }
     }
 }

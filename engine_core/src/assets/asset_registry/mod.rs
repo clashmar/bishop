@@ -1,6 +1,7 @@
 mod key;
 mod record;
 mod registry;
+mod registry_errors;
 
 pub use key::*;
 pub use record::*;
