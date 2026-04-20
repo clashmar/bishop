@@ -22,6 +22,17 @@ function engine.log.error(msg) end
 ---@param msg string
 function engine.log.debug(msg) end
 
+--- Constructors for asset-backed script values.
+engine.asset = {}
+
+--- A TOML dialogue asset value.
+---@class TomlId
+local TomlId = {}
+
+--- Returns a toml asset field.
+---@return TomlId
+function engine.asset.toml() end
+
 --- Get the player entity's script instance table
 --- @return table|nil The player's script instance, or nil if not found
 function engine.player() end

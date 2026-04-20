@@ -50,7 +50,7 @@
             ),
             /*[11]*/ (
                 type_name: "Interactable",
-                data: "{}",
+                data: "{\n    (37): (\n        range: 20.0,\n    ),\n}",
             ),
             /*[12]*/ (
                 type_name: "Kinematic",
@@ -98,7 +98,7 @@
             ),
             /*[23]*/ (
                 type_name: "PrefabOverrides",
-                data: "{}",
+                data: "{\n    (37): (\n        modified_components: [],\n        removed_components: [],\n        added_components: [\n            (\n                type_name: \"Interactable\",\n                ron: \"(\\n    range: 20.0,\\n)\",\n            ),\n            (\n                type_name: \"Script\",\n                ron: \"(\\n    script_id: (3),\\n    data: (\\n        fields: {\\n            \\\"dialogue\\\": Toml((1)),\\n            \\\"name\\\": Text(\\\"NPC\\\"),\\n        },\\n    ),\\n)\",\n            ),\n        ],\n    ),\n}",
             ),
             /*[24]*/ (
                 type_name: "RoomCamera",
@@ -106,7 +106,7 @@
             ),
             /*[25]*/ (
                 type_name: "Script",
-                data: "{\n    (3): (\n        script_id: (2),\n        data: (\n            fields: {\n                \"health\": Int(100),\n                \"jump_speed\": Int(200),\n                \"name\": Text(\"Player\"),\n                \"run_speed\": Int(180),\n                \"speed\": Int(100),\n            },\n        ),\n    ),\n}",
+                data: "{\n    (3): (\n        script_id: (2),\n        data: (\n            fields: {\n                \"health\": Int(100),\n                \"jump_speed\": Int(200),\n                \"name\": Text(\"Player\"),\n                \"run_speed\": Int(180),\n                \"speed\": Int(100),\n            },\n        ),\n    ),\n    (37): (\n        script_id: (3),\n        data: (\n            fields: {\n                \"dialogue\": Toml((1)),\n                \"name\": Text(\"NPC\"),\n            },\n        ),\n    ),\n}",
             ),
             /*[26]*/ (
                 type_name: "Solid",
@@ -126,7 +126,7 @@
             ),
             /*[30]*/ (
                 type_name: "Transform",
-                data: "{\n    (1): (\n        visible: true,\n        position: (128.0, 0.0),\n        pivot: TopLeft,\n    ),\n    (2): (\n        visible: true,\n        position: (28.0, 72.0),\n        pivot: BottomCenter,\n    ),\n    (24): (\n        visible: true,\n        position: (-64.0, 36.0),\n        pivot: CenterLeft,\n    ),\n    (37): (\n        visible: true,\n        position: (244.0, 72.0),\n        pivot: BottomCenter,\n    ),\n}",
+                data: "{\n    (1): (\n        visible: true,\n        position: (128.0, 0.0),\n        pivot: TopLeft,\n    ),\n    (2): (\n        visible: true,\n        position: (28.0, 72.0),\n        pivot: BottomCenter,\n    ),\n    (24): (\n        visible: true,\n        position: (-64.0, 36.0),\n        pivot: CenterLeft,\n    ),\n    (37): (\n        visible: true,\n        position: (164.0, 72.0),\n        pivot: BottomCenter,\n    ),\n}",
             ),
             /*[31]*/ (
                 type_name: "Velocity",
@@ -239,6 +239,10 @@
                 kind: Script,
                 path: "scripts/player.lua",
             ),
+            Script((3)): (
+                kind: Script,
+                path: "scripts/npc.lua",
+            ),
             Prefab((1)): (
                 kind: Prefab,
                 path: "prefabs/Cat.ron",
@@ -254,6 +258,10 @@
             Sound((1)): (
                 kind: Sound,
                 path: "audio/sfx/jump.wav",
+            ),
+            Toml((1)): (
+                kind: Toml,
+                path: "text/dialogue/npcs/npc.toml",
             ),
         },
     ),

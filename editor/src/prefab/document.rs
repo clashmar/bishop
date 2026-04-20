@@ -5,6 +5,7 @@ use crate::prefab::prefab_editor::{
 #[cfg(test)]
 use crate::storage::editor_storage::load_game_by_name;
 use engine_core::prelude::*;
+use game_lib::scripting::script_system::ScriptSystem;
 use std::io;
 
 macro_rules! for_each_prefab_asset_manager {
@@ -50,6 +51,11 @@ impl PrefabStage {
             stage.asset_registry.init_editor_metadata();
             SpriteManager::init_editor_metadata(&stage.asset_registry, &mut stage.sprite_manager);
             ScriptManager::init_manager(&stage.asset_registry, &mut stage.script_manager, lua);
+            if let Err(error) =
+                ScriptSystem::register_runtime_modules(lua, &stage.script_manager.event_bus)
+            {
+                onscreen_error!("Lua module registration failed: {error}");
+            }
         });
 
         stage
@@ -61,6 +67,11 @@ impl PrefabStage {
         SpriteManager::init_editor_metadata(&game.asset_registry, &mut game.sprite_manager);
         with_lua(|lua| {
             ScriptManager::init_manager(&game.asset_registry, &mut game.script_manager, lua);
+            if let Err(error) =
+                ScriptSystem::register_runtime_modules(lua, &game.script_manager.event_bus)
+            {
+                onscreen_error!("Lua module registration failed: {error}");
+            }
         });
         Ok(())
     }

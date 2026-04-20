@@ -18,25 +18,8 @@ pub struct ScriptSystem;
 impl ScriptSystem {
     /// Initialize the script system.
     pub fn init(lua: &Lua, event_bus: &EventBus) {
-        // Registers the `engine` module that some other modules extend
-        if let Err(e) = Self::register_engine_module(lua) {
-            onscreen_error!("Error registering engine module: {e}")
-        };
-
-        // Store the event bus in Lua so engine.on/engine.emit work at require-time
-        if let Err(e) = lua
-            .globals()
-            .set(lua_globals::LUA_EVENT_BUS, event_bus.clone())
-        {
-            onscreen_error!("Failed to store event bus: {e}");
-        }
-
-        // Sub-modules — register before main.lua so all APIs are available at require-time
-        for descriptor in inventory::iter::<LuaModuleRegistry> {
-            let module = (descriptor.ctor)();
-            if let Err(e) = module.register(lua) {
-                onscreen_error!("Lua module registration failed: {e}");
-            }
+        if let Err(e) = Self::register_runtime_modules(lua, event_bus) {
+            onscreen_error!("Lua module registration failed: {e}");
         }
 
         // Run main.lua after all modules are registered
@@ -52,6 +35,20 @@ impl ScriptSystem {
                 }
             }
         }
+    }
+
+    /// Registers game runtime engine globals and submodules without loading `main.lua`.
+    pub fn register_runtime_modules(lua: &Lua, event_bus: &EventBus) -> LuaResult<()> {
+        Self::register_engine_module(lua)?;
+        lua.globals()
+            .set(lua_globals::LUA_EVENT_BUS, event_bus.clone())?;
+
+        for descriptor in inventory::iter::<LuaModuleRegistry> {
+            let module = (descriptor.ctor)();
+            module.register(lua)?;
+        }
+
+        Ok(())
     }
 
     /// Loads and executes main.lua if present.

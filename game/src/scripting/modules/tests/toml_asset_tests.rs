@@ -3,12 +3,19 @@ use crate::game_global::drain_commands;
 use crate::scripting::lua_ctx::LuaGameCtx;
 use crate::scripting::modules::engine_module::EngineModule;
 use crate::scripting::modules::entity_module::EntityHandle;
+use crate::scripting::modules::entity_module::EntityModule;
+use crate::scripting::script_system::ScriptSystem;
 use engine_core::prelude::*;
 use engine_core::scripting::lua_constants::lua_engine;
+use engine_core::scripting::lua_constants::lua_fields;
+use engine_core::scripting::lua_constants::{lua_dirs, lua_files};
 use engine_core::scripting::modules::lua_module::LuaModule;
+use engine_core::scripting::modules::lua_module::{LuaApi, LuaApiWriter};
 use mlua::{Lua, Table};
 use std::cell::RefCell;
 use std::collections::HashMap;
+use std::fs;
+use std::path::PathBuf;
 use std::rc::Rc;
 use std::sync::{Mutex, OnceLock};
 
@@ -115,7 +122,6 @@ fn script_load_reads_toml_constructor_output_into_typed_field() {
     ));
 }
 
-
 #[test]
 fn script_sync_to_lua_writes_toml_field_as_typed_userdata() {
     let _lock = game_name_test_lock()
@@ -140,7 +146,6 @@ fn script_sync_to_lua_writes_toml_field_as_typed_userdata() {
     let written = public.get::<TomlId>(DIALOGUE_FIELD).unwrap();
     assert_eq!(written, TomlId(3));
 }
-
 
 #[test]
 fn entity_say_accepts_toml_id_dialogue_fields() {

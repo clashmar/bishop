@@ -183,7 +183,7 @@ impl LuaModule for EngineModule {
                 table
             }
         };
-        
+
         let toml_fn = lua.create_function(|_lua, args: Variadic<Value>| {
             if !args.is_empty() {
                 return Err(mlua::Error::RuntimeError(format!(
@@ -337,11 +337,16 @@ register_lua_api!(EngineModule, lua_files::ENGINE);
 
 impl LuaApi for EngineModule {
     fn emit_api(&self, out: &mut LuaApiWriter) {
+        out.line("--- Constructors for asset-backed script values.");
         out.line("engine.asset = {}");
         out.line("");
+        out.line("--- A TOML dialogue asset value.");
         out.line("---@class TomlId");
         out.line("local TomlId = {}");
         out.line("");
+        out.line(
+            "--- Returns a toml asset field.",
+        );
         out.line("---@return TomlId");
         out.line("function engine.asset.toml() end");
         out.line("");

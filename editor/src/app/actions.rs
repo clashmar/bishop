@@ -9,6 +9,7 @@ use crate::prefab::{PendingPrefabTransition, PrefabTransitionPrompt};
 use crate::storage::editor_storage::*;
 use bishop::prelude::*;
 use engine_core::prelude::*;
+use game_lib::scripting::script_system::ScriptSystem;
 
 impl Editor {
     pub fn draw_menu_bar(&mut self, ctx: &mut WgpuContext) {
@@ -308,7 +309,14 @@ impl Editor {
     pub fn init_game_for_editor(&mut self, ctx: &WgpuContext, game: Game) -> Game {
         let mut game = game;
 
-        with_lua(|lua| game.initialize(ctx, lua));
+        with_lua(|lua| {
+            game.initialize(ctx, lua);
+            if let Err(error) =
+                ScriptSystem::register_runtime_modules(lua, &game.script_manager.event_bus)
+            {
+                onscreen_error!("Lua module registration failed: {error}");
+            }
+        });
         self.game_editor
             .init_camera(ctx, &mut self.camera, &mut game);
 

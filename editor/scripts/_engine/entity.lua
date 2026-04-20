@@ -228,7 +228,7 @@ function Entity:get_current_frame() end
 function Entity:is_clip_finished() end
 
 --- Shows a speech bubble with text from a dialogue file.
----@param dialogue_id string The dialogue file ID (e.g. "npc_merchant")
+---@param dialogue_id TomlId
 ---@param key string The dialogue key (e.g. "greeting")
 ---@param opts? {vars?: table<string, string>, duration?: number, color?: number[], offset?: number[], font_size?: number, max_width?: number, show_background?: boolean, background_color?: number[]}
 function Entity:say(dialogue_id, key, opts) end

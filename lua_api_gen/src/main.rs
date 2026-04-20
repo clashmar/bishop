@@ -7,17 +7,30 @@ use std::env;
 use std::fs;
 use std::fs::OpenOptions;
 use std::io::Write;
+use std::path::Path;
 use std::path::PathBuf;
 
 fn main() {
-    let out_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap())
+    let workspace_root = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap())
         .parent()
         .expect("CARGO_MANIFEST_DIR should have a parent")
-        .join("editor")
-        .join("scripts")
-        .join("_engine");
+        .to_path_buf();
+    let out_dirs = [
+        workspace_root
+            .join("editor")
+            .join("scripts")
+            .join("_engine"),
+        workspace_root
+            .join("games")
+            .join("Demo")
+            .join("Resources")
+            .join("scripts")
+            .join("_engine"),
+    ];
 
-    fs::create_dir_all(&out_dir).unwrap();
+    for out_dir in &out_dirs {
+        fs::create_dir_all(out_dir).unwrap();
+    }
 
     // Collect all generated snippets per target file
     let mut per_file: HashMap<&'static str, String> = HashMap::new();
@@ -34,6 +47,12 @@ fn main() {
             .or_insert_with(|| writer.buf);
     }
 
+    for out_dir in out_dirs {
+        write_generated_files(&out_dir, &per_file);
+    }
+}
+
+fn write_generated_files(out_dir: &Path, per_file: &HashMap<&'static str, String>) {
     // Delete previous versions
     for filename in per_file.keys() {
         let path = out_dir.join(filename);

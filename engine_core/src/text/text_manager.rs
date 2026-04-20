@@ -92,6 +92,22 @@ impl TextManager {
         &self.available_languages
     }
 
+    fn existing_language_prefixed_toml_id(
+        &self,
+        asset_registry: &AssetRegistry,
+        relative_toml_path: &Path,
+    ) -> Option<TomlId> {
+        self.available_languages.iter().find_map(|language| {
+            let prefixed = PathBuf::from(paths::TEXT_FOLDER)
+                .join(language)
+                .join(relative_toml_path);
+            match asset_registry.key_for_path(prefixed) {
+                Some(AssetKey::Toml(toml_id)) => Some(toml_id),
+                _ => None,
+            }
+        })
+    }
+
     /// Registers a canonical TOML asset path and returns its stable id.
     pub fn register_toml_path(
         &self,
@@ -344,22 +360,6 @@ impl TextManager {
     /// Returns the current text root path.
     pub fn get_text_root(&self) -> &Path {
         &self.text_root
-    }
-
-    fn canonicalize_existing_prefixed_toml_id(
-        &self,
-        asset_registry: &AssetRegistry,
-        relative_toml_path: &Path,
-    ) -> Option<TomlId> {
-        self.available_languages.iter().find_map(|language| {
-            let prefixed = PathBuf::from(paths::TEXT_FOLDER)
-                .join(language)
-                .join(relative_toml_path);
-            match asset_registry.key_for_path(prefixed) {
-                Some(AssetKey::Toml(toml_id)) => Some(toml_id),
-                _ => None,
-            }
-        })
     }
 
     fn next_toml_id(&self, asset_registry: &AssetRegistry) -> TomlId {
