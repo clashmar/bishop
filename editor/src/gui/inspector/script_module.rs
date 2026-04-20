@@ -216,7 +216,12 @@ impl InspectorModule for ScriptModule {
                         changed = true;
                     }
                 }
-                ScriptField::Toml(_toml_id) => {}
+                ScriptField::Toml(ref mut toml_id) => {
+                    if gui_toml_picker(ctx, widget_rect, base_id, toml_id, asset_registry, blocked)
+                    {
+                        changed = true;
+                    }
+                }
                 ScriptField::Vec2(ref mut v) => {
                     let id_x = *self.field_ids.entry(format!("{}.x", name)).or_default();
 

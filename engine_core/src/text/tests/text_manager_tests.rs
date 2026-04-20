@@ -335,3 +335,81 @@ fn text_manager_toml_id_resolves_language_prefixed_registry_paths() {
         Some(SPANISH_TEXT.to_string())
     );
 }
+
+#[test]
+fn text_manager_register_toml_path_fills_first_unused_id_gap() {
+    let _lock = game_fs_test_lock()
+        .lock()
+        .unwrap_or_else(|poison| poison.into_inner());
+    let folder = TestGameFolder::new("text_manager_toml_id_gap_fill");
+    set_game_name(folder.name());
+
+    let text_root = text_folder();
+    fs::create_dir_all(&text_root).expect("text root should be creatable");
+    fs::write(
+        text_root.join(MANIFEST_FILE),
+        format!(
+            "default_language = \"{ENGLISH_LANGUAGE}\"\navailable = [\"{ENGLISH_LANGUAGE}\"]\n"
+        ),
+    )
+    .expect("manifest should be writable");
+
+    let mut registry = AssetRegistry::default();
+    registry
+        .register_asset_relative_path(TomlId(1), PathBuf::from(DIALOGUE_RELATIVE_PATH))
+        .expect("dialogue asset should register");
+    registry
+        .register_asset_relative_path(TomlId(3), PathBuf::from("dialogue/npcs/other.toml"))
+        .expect("dialogue asset should register");
+
+    let manager = TextManager::new(text_root);
+    let toml_id = manager
+        .register_toml_path(
+            &mut registry,
+            PathBuf::from("dialogue/npcs/new.toml").as_path(),
+        )
+        .expect("new toml asset should register");
+
+    assert_eq!(toml_id, TomlId(2));
+}
+
+#[test]
+fn text_manager_register_toml_path_reuses_language_prefixed_registry_entry() {
+    let _lock = game_fs_test_lock()
+        .lock()
+        .unwrap_or_else(|poison| poison.into_inner());
+    let folder = TestGameFolder::new("text_manager_toml_id_prefixed_reuse");
+    set_game_name(folder.name());
+
+    let text_root = text_folder();
+    fs::create_dir_all(&text_root).expect("text root should be creatable");
+    fs::write(
+        text_root.join(MANIFEST_FILE),
+        format!(
+            "default_language = \"{ENGLISH_LANGUAGE}\"\navailable = [\"{ENGLISH_LANGUAGE}\"]\n"
+        ),
+    )
+    .expect("manifest should be writable");
+
+    let mut registry = AssetRegistry::default();
+    registry
+        .register_asset_relative_path(
+            TomlId(6),
+            PathBuf::from(ENGLISH_LANGUAGE).join(DIALOGUE_RELATIVE_PATH),
+        )
+        .expect("dialogue asset should register");
+
+    let manager = TextManager::new(text_root);
+    let toml_id = manager
+        .register_toml_path(
+            &mut registry,
+            PathBuf::from(DIALOGUE_RELATIVE_PATH).as_path(),
+        )
+        .expect("existing toml asset should reuse id");
+
+    assert_eq!(toml_id, TomlId(6));
+    assert_eq!(
+        registry.relative_path(toml_id),
+        Some(PathBuf::from(DIALOGUE_RELATIVE_PATH))
+    );
+}

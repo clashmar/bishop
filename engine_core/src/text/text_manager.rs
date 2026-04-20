@@ -1,5 +1,6 @@
 // engine_core/src/text/text_manager.rs
-use crate::assets::AssetRegistry;
+use crate::assets::{AssetKey, AssetKind, AssetRecord, AssetRegistry};
+use crate::constants::paths;
 use crate::ecs::TomlId;
 use crate::text::*;
 use rand::Rng;
@@ -89,6 +90,37 @@ impl TextManager {
     /// Returns a list of available languages.
     pub fn get_languages(&self) -> &[String] {
         &self.available_languages
+    }
+
+    /// Registers a canonical TOML asset path and returns its stable id.
+    pub fn register_toml_path(
+        &self,
+        asset_registry: &mut AssetRegistry,
+        relative_toml_path: &Path,
+    ) -> Result<TomlId, String> {
+        let registry_path = PathBuf::from(paths::TEXT_FOLDER).join(relative_toml_path);
+
+        match asset_registry.key_for_path(&registry_path) {
+            Some(AssetKey::Toml(toml_id)) => Ok(toml_id),
+            _ => match self.existing_language_prefixed_toml_id(asset_registry, relative_toml_path) {
+                Some(toml_id) => {
+                    asset_registry
+                        .replace_record(
+                            AssetKey::Toml(toml_id),
+                            AssetRecord::new(AssetKind::Toml, registry_path),
+                        )
+                        .map_err(|error| error.to_string())?;
+                    Ok(toml_id)
+                }
+                None => {
+                    let toml_id = self.next_toml_id(asset_registry);
+                    asset_registry
+                        .register_asset_relative_path(toml_id, relative_toml_path)
+                        .map_err(|error| error.to_string())?;
+                    Ok(toml_id)
+                }
+            },
+        }
     }
 
     fn text_path_for_id(&self, asset_registry: &AssetRegistry, text_id: TomlId) -> Option<PathBuf> {
@@ -312,5 +344,29 @@ impl TextManager {
     /// Returns the current text root path.
     pub fn get_text_root(&self) -> &Path {
         &self.text_root
+    }
+
+    fn canonicalize_existing_prefixed_toml_id(
+        &self,
+        asset_registry: &AssetRegistry,
+        relative_toml_path: &Path,
+    ) -> Option<TomlId> {
+        self.available_languages.iter().find_map(|language| {
+            let prefixed = PathBuf::from(paths::TEXT_FOLDER)
+                .join(language)
+                .join(relative_toml_path);
+            match asset_registry.key_for_path(prefixed) {
+                Some(AssetKey::Toml(toml_id)) => Some(toml_id),
+                _ => None,
+            }
+        })
+    }
+
+    fn next_toml_id(&self, asset_registry: &AssetRegistry) -> TomlId {
+        let mut candidate = 1;
+        while asset_registry.record(AssetKey::Toml(TomlId(candidate))).is_some() {
+            candidate += 1;
+        }
+        TomlId(candidate)
     }
 }
