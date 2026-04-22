@@ -1,11 +1,13 @@
 use bishop::time::Time;
 use std::env;
+use std::ffi::OsString;
 use std::fs::File;
 use std::io::{BufWriter, Write};
 use std::path::{Path, PathBuf};
 
 const TIMING_TRACE_FILE_NAME: &str = "bishop-dt-trace.csv";
 const TIMING_TRACE_FLUSH_INTERVAL: u16 = 120;
+const TIMING_TRACE_ENV_VAR: &str = "BISHOP_ENABLE_TIMING_TRACE";
 
 #[derive(Default, Clone, Copy, Debug)]
 pub struct TimingTraceSample {
@@ -53,17 +55,38 @@ pub struct TimingTraceLogger {
 
 impl Default for TimingTraceLogger {
     fn default() -> Self {
-        Self {
-            path: env::temp_dir().join(TIMING_TRACE_FILE_NAME),
-            writer: None,
-            frame_index: 0,
-            frames_since_flush: 0,
-            disabled: false,
-        }
+        Self::new(false)
     }
 }
 
+fn timing_trace_enabled() -> bool {
+    timing_trace_enabled_value(env::var_os(TIMING_TRACE_ENV_VAR))
+}
+
+fn timing_trace_enabled_value(value: Option<OsString>) -> bool {
+    value.is_some_and(|value| !value.is_empty())
+}
+
 impl TimingTraceLogger {
+    fn new(enabled: bool) -> Self {
+        Self::new_with_path(enabled, env::temp_dir().join(TIMING_TRACE_FILE_NAME))
+    }
+
+    fn new_with_path(enabled: bool, path: PathBuf) -> Self {
+        Self {
+            path,
+            writer: None,
+            frame_index: 0,
+            frames_since_flush: 0,
+            disabled: !enabled,
+        }
+    }
+
+    /// Creates a logger using the process opt-in environment variable.
+    pub(crate) fn from_env() -> Self {
+        Self::new(timing_trace_enabled())
+    }
+
     pub fn path(&self) -> &Path {
         &self.path
     }
@@ -142,5 +165,61 @@ impl Drop for TimingTraceLogger {
         if let Some(writer) = self.writer.as_mut() {
             let _ = writer.flush();
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+
+    fn trace_path(name: &str) -> PathBuf {
+        env::temp_dir().join(name)
+    }
+
+    fn cleanup_trace_file(path: &Path) {
+        let _ = fs::remove_file(path);
+    }
+
+    fn sample() -> TimingTraceSample {
+        TimingTraceSample {
+            raw_dt: 1.0 / 60.0,
+            sim_dt: 1.0 / 60.0,
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn default_logger_does_not_create_trace_file() {
+        let path = trace_path("bishop-dt-trace-disabled-test.csv");
+        cleanup_trace_file(&path);
+
+        let mut logger = TimingTraceLogger::new_with_path(false, path.clone());
+        logger.record(sample());
+        drop(logger);
+
+        assert!(!path.exists());
+    }
+
+    #[test]
+    fn enabled_logger_creates_trace_file() {
+        let path = trace_path("bishop-dt-trace-enabled-test.csv");
+        cleanup_trace_file(&path);
+
+        let mut logger = TimingTraceLogger::new_with_path(true, path.clone());
+        logger.record(sample());
+        drop(logger);
+
+        assert!(path.exists());
+
+        cleanup_trace_file(&path);
+    }
+
+    #[test]
+    fn timing_trace_enablement_requires_non_empty_value() {
+        assert!(!timing_trace_enabled_value(None));
+        assert!(!timing_trace_enabled_value(Some(OsString::new())));
+        assert!(timing_trace_enabled_value(Some(OsString::from("1"))));
+        assert!(timing_trace_enabled_value(Some(OsString::from("false"))));
     }
 }
