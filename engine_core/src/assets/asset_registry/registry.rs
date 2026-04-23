@@ -180,7 +180,7 @@ impl AssetRegistry {
         })
     }
 
-    fn asset_folder(kind: AssetKind) -> PathBuf {
+    pub fn asset_folder(kind: AssetKind) -> PathBuf {
         PathBuf::from(match kind {
             AssetKind::Sprite => ASSETS_FOLDER,
             AssetKind::Script => SCRIPTS_FOLDER,
@@ -236,8 +236,8 @@ impl AssetRegistry {
 
         Ok(normalized)
     }
-    
-    fn kind_for_key(key: AssetKey) -> AssetKind {
+
+    pub fn kind_for_key(key: AssetKey) -> AssetKind {
         match key {
             AssetKey::Sprite(_) => AssetKind::Sprite,
             AssetKey::Script(_) => AssetKind::Script,
