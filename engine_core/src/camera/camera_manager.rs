@@ -2,9 +2,9 @@
 use crate::camera::game_camera::{
     game_render_target, get_room_cameras, room_to_game_camera, GameCamera,
 };
-use crate::ecs::{CameraMode, FollowRestriction, RoomCamera};
+use crate::ecs::{CameraMode, FollowRestriction, RoomCamera, SubPixel, Transform};
 use crate::prelude::{Ecs, Entity, Room, RoomId};
-use crate::rendering::helpers::lerp_rounded;
+use crate::rendering::helpers::{lerp_position, visual_position};
 use bishop::prelude::*;
 
 #[derive(Default)]
@@ -62,6 +62,7 @@ impl CameraManager {
             .get_player_transform()
             .map(|t| t.position)
             .unwrap_or_default();
+        let visual_player_pos = player_visual_position(ecs);
 
         if let Some((mut best_cam, mode)) =
             Self::find_best_camera_for_room(ecs, &self.room_cameras, player_pos)
@@ -76,7 +77,7 @@ impl CameraManager {
 
             // Apply follow if needed
             if let CameraMode::Follow(restriction) = mode {
-                self.apply_follow(&restriction, player_pos);
+                self.apply_follow(&restriction, visual_player_pos);
             }
         }
     }
@@ -146,6 +147,52 @@ impl CameraManager {
     /// Returns the interpolated camera target for rendering.
     pub fn interpolated_target(&self, alpha: f32) -> Vec2 {
         let prev = self.previous_position.unwrap_or(self.active.camera.target);
-        lerp_rounded(prev, self.active.camera.target, alpha)
+        lerp_position(prev, self.active.camera.target, alpha)
+    }
+}
+
+fn player_visual_position(ecs: &Ecs) -> Vec2 {
+    let Some(player_entity) = ecs.get_player_entity() else {
+        return Vec2::ZERO;
+    };
+    let Some(transform) = ecs.get_store::<Transform>().get(player_entity) else {
+        return Vec2::ZERO;
+    };
+
+    visual_position(
+        transform.position,
+        ecs.get_store::<SubPixel>().get(player_entity),
+    )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::ecs::Player;
+
+    #[test]
+    fn interpolated_target_uses_smooth_positions_for_gameplay() {
+        let mut manager = CameraManager {
+            previous_position: Some(Vec2::new(10.25, 12.0)),
+            ..Default::default()
+        };
+        manager.active.camera.target = Vec2::new(10.75, 12.0);
+
+        assert_eq!(manager.interpolated_target(0.5), Vec2::new(10.5, 12.0));
+    }
+
+    #[test]
+    fn player_visual_position_uses_subpixel_remainder_for_follow_camera() {
+        let mut ecs = Ecs::default();
+        ecs.create_entity()
+            .with(Player)
+            .with(Transform {
+                position: Vec2::new(10.0, 12.0),
+                ..Default::default()
+            })
+            .with(SubPixel { x: 0.25, y: -0.5 })
+            .finish();
+
+        assert_eq!(player_visual_position(&ecs), Vec2::new(10.25, 11.5));
     }
 }

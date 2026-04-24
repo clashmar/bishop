@@ -117,6 +117,7 @@ impl GameInstance {
         let ecs = &self.game.ecs;
         let trans_store = ecs.get_store::<Transform>();
         let room_store = ecs.get_store::<CurrentRoom>();
+        let sub_pixel_store = ecs.get_store::<SubPixel>();
 
         // Store the camera target
         camera_manager.previous_position = Some(camera_manager.active.camera.target);
@@ -127,7 +128,58 @@ impl GameInstance {
                 room_store
                     .get(*entity)
                     .filter(|cr| cr.0 == self.game.current_world().current_room_id.unwrap()) // TODO: handle unwrap
-                    .map(|_| (*entity, transform.position))
+                    .map(|_| {
+                        (
+                            *entity,
+                            visual_position(transform.position, sub_pixel_store.get(*entity)),
+                        )
+                    })
             }));
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn store_previous_positions_uses_visual_position_with_subpixel_remainder() {
+        let room_id = RoomId(1);
+        let room = Room {
+            id: room_id,
+            ..Default::default()
+        };
+
+        let mut world = World {
+            current_room_id: Some(room_id),
+            ..Default::default()
+        };
+        world.rooms.push(room);
+
+        let mut game = Game::default();
+        game.add_world(world);
+
+        let entity = game
+            .ecs
+            .create_entity()
+            .with(Transform {
+                position: Vec2::new(10.0, 12.0),
+                ..Default::default()
+            })
+            .with(CurrentRoom(room_id))
+            .with(SubPixel { x: 0.25, y: -0.5 })
+            .finish();
+
+        let mut game_instance = GameInstance {
+            game,
+            prev_positions: HashMap::new(),
+        };
+
+        game_instance.store_previous_positions(&mut CameraManager::default());
+
+        assert_eq!(
+            game_instance.prev_positions.get(&entity).copied(),
+            Some(Vec2::new(10.25, 11.5))
+        );
     }
 }

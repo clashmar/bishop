@@ -35,10 +35,23 @@ pub fn entity_dimensions(
         .unwrap_or(Vec2::splat(grid_size))
 }
 
+/// Returns the true visual position for rendering, including any sub-pixel remainder.
+#[inline]
+pub fn visual_position(position: Vec2, sub_pixel: Option<&SubPixel>) -> Vec2 {
+    let sub_pixel = sub_pixel.copied().unwrap_or_default();
+    position + Vec2::new(sub_pixel.x, sub_pixel.y)
+}
+
 /// Linearly interpolates between two positions and rounds to the nearest pixel.
 #[inline]
 pub fn lerp_rounded(prev_pos: Vec2, current_pos: Vec2, alpha: f32) -> Vec2 {
-    (prev_pos * (1.0 - alpha) + current_pos * alpha).round()
+    lerp_position(prev_pos, current_pos, alpha).round()
+}
+
+/// Linearly interpolates between two positions without pixel snapping.
+#[inline]
+pub fn lerp_position(prev_pos: Vec2, current_pos: Vec2, alpha: f32) -> Vec2 {
+    prev_pos * (1.0 - alpha) + current_pos * alpha
 }
 
 /// Mitigates erratic dt by smoothing `raw_dt`, initializing from the first sample.
@@ -69,6 +82,35 @@ pub fn snap_dt(raw_dt: f32) -> f32 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn visual_position_returns_transform_position_without_subpixel() {
+        let position = Vec2::new(10.0, 12.0);
+
+        assert_eq!(visual_position(position, None), position);
+    }
+
+    #[test]
+    fn visual_position_adds_positive_subpixel_remainder() {
+        let position = Vec2::new(10.0, 12.0);
+        let sub_pixel = SubPixel { x: 0.25, y: 0.5 };
+
+        assert_eq!(
+            visual_position(position, Some(&sub_pixel)),
+            Vec2::new(10.25, 12.5)
+        );
+    }
+
+    #[test]
+    fn visual_position_adds_negative_subpixel_remainder() {
+        let position = Vec2::new(10.0, 12.0);
+        let sub_pixel = SubPixel { x: -0.5, y: -0.25 };
+
+        assert_eq!(
+            visual_position(position, Some(&sub_pixel)),
+            Vec2::new(9.5, 11.75)
+        );
+    }
 
     #[test]
     fn resolve_visual_entity_returns_player_for_proxy() {

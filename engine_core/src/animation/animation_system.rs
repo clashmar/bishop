@@ -160,8 +160,8 @@ impl Renderable for CurrentFrame {
             frame_h,
         );
         let draw_base = pivot_adjusted_position(params.pos, self.frame_size, params.pivot);
-        let draw_x = (draw_base.x + self.offset.x).floor();
-        let draw_y = (draw_base.y + self.offset.y).floor();
+        let draw_x = draw_base.x + self.offset.x;
+        let draw_y = draw_base.y + self.offset.y;
         ctx.draw_texture_ex(
             tex,
             draw_x,

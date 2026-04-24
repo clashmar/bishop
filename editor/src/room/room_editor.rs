@@ -481,7 +481,7 @@ impl RoomEditor {
                         render_system.resize_to_window(ctx);
                     }
 
-                    render_room(ctx, &mut game_ctx, render_system, render_cam, 0.0, None);
+                    render_room(ctx, &mut game_ctx, render_cam, 0.0, None);
 
                     if view_preview {
                         render_system.end_scene(ctx);

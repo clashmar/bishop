@@ -536,6 +536,20 @@ impl WgpuContext {
                 );
             }
 
+            if let Some(camera) = &self.current_camera {
+                if let Some((x, y, w, h)) = camera.viewport {
+                    let scale = self.scale_factor.max(1.0);
+                    render_pass.set_viewport(
+                        x as f32 * scale,
+                        y as f32 * scale,
+                        w as f32 * scale,
+                        h as f32 * scale,
+                        0.0,
+                        1.0,
+                    );
+                }
+            }
+
             for segment in &self.draw_segments {
                 match segment {
                     DrawSegment::Primitive { start, count } => {
