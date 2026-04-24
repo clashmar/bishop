@@ -13,6 +13,8 @@ pub use generic_panel::*;
 pub use hierarchy_panel::*;
 pub use prefab_browser_panel::*;
 pub use prefab_palette_panel::*;
+pub use prefab_palette_panel::*;
+pub use resources_panel::*;
 
 #[cfg(test)]
 mod tests;
