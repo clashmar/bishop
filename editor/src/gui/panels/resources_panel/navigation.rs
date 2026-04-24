@@ -1,42 +1,48 @@
-use std::path::{Path, PathBuf};
+use engine_core::storage::path_utils::resources_folder_current;
+use std::path::PathBuf;
 
-/// Tracks the current directory path and supports navigating in/out of directories.
+/// Tracks relative directory navigation within Resources/.
+/// Stores path segments relative to the Resources root, resolved
+/// fresh at scan time via `resources_folder_current()` so the panel
+/// works correctly even when constructed before a game is loaded.
 pub struct Navigation {
-    stack: Vec<PathBuf>,
+    segments: Vec<String>,
 }
 
 impl Navigation {
-    /// Creates a new navigation starting at the given root path.
-    pub fn new(root: PathBuf) -> Self {
-        Self { stack: vec![root] }
+    /// Creates a new navigation starting at the Resources root.
+    pub fn new() -> Self {
+        Self {
+            segments: Vec::new(),
+        }
     }
 
-    /// Returns the current directory path.
-    pub fn current(&self) -> &Path {
-        self.stack
-            .last()
-            .expect("navigation stack is empty")
-            .as_path()
+    /// Returns the current absolute directory path.
+    pub fn current(&self) -> PathBuf {
+        let mut path = resources_folder_current();
+        for seg in &self.segments {
+            path = path.join(seg);
+        }
+        path
     }
 
-    /// Navigates into the given subdirectory. Pushes it onto the stack.
+    /// Navigates into the given subdirectory.
     pub fn push(&mut self, dir_name: &str) {
-        let next = self.current().join(dir_name);
-        self.stack.push(next);
+        self.segments.push(dir_name.to_string());
     }
 
     /// Navigates back to the parent directory. Returns true if we went back,
     /// false if we're already at root.
     pub fn pop(&mut self) -> bool {
-        if self.stack.len() <= 1 {
+        if self.segments.is_empty() {
             return false;
         }
-        self.stack.pop();
+        self.segments.pop();
         true
     }
 
     /// Returns true if we are at the root directory (can't go back further).
     pub fn is_at_root(&self) -> bool {
-        self.stack.len() == 1
+        self.segments.is_empty()
     }
 }

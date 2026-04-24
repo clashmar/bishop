@@ -3,7 +3,7 @@ pub mod navigation;
 pub mod path_filter;
 
 use crate::editor_assets::assets::{
-    audio_icon, file_icon, folder_icon, image_icon, lua_icon, text_icon,
+    audio_icon, entity_icon, file_icon, folder_icon, image_icon, lua_icon, text_icon
 };
 use crate::gui::gui_constants::HIGHLIGHT_GREEN;
 use crate::gui::panels::generic_panel::PanelDefinition;
@@ -17,9 +17,10 @@ use std::path::{Path, PathBuf};
 
 pub const RESOURCES_PANEL: &str = "Resources";
 
-const CELL_SIZE: f32 = 80.0;
-const GRID_PADDING: f32 = 8.0;
-const ICON_SIZE: f32 = 48.0;
+const CELL_SIZE: f32 = 72.0;
+const GRID_PADDING: f32 = 12.0;
+const ICON_SIZE: f32 = 42.0;
+const LABEL_FONT_SIZE: f32 = 12.0;
 const REGISTRATION_BADGE_SIZE: f32 = 8.0;
 const BACK_BUTTON_HEIGHT: f32 = 28.0;
 const BREADCRUMB_HEIGHT: f32 = 20.0;
@@ -43,23 +44,20 @@ pub struct ResourcesPanel {
 
 impl ResourcesPanel {
     pub fn new() -> Self {
-        let root = resources_folder_current();
         Self {
-            navigation: Navigation::new(root),
+            navigation: Navigation::new(),
             scroll_state: ScrollState::new(),
             entries: Vec::new(),
         }
     }
 
     fn scan_current_dir(&mut self, registry: &AssetRegistry) {
-        let current = self.navigation.current().to_path_buf();
         let root = resources_folder_current();
-
+        let current = self.navigation.current();
         let Ok(entries) = std::fs::read_dir(&current) else {
             self.entries.clear();
             return;
         };
-
         let mut visible: Vec<Entry> = entries
             .filter_map(|e| e.ok())
             .filter_map(|e| {
@@ -125,7 +123,7 @@ impl ResourcesPanel {
             IconType::Image => image_icon(),
             IconType::Audio => audio_icon(),
             IconType::Text => text_icon(),
-            IconType::Prefab => file_icon(),
+            IconType::Prefab => entity_icon(),
             IconType::File => file_icon(),
         }
     }
@@ -137,7 +135,12 @@ impl PanelDefinition for ResourcesPanel {
     }
 
     fn default_rect(&self, ctx: &WgpuContext) -> Rect {
-        Rect::new(0.0, ctx.screen_height() - 300.0, ctx.screen_width(), 300.0)
+        Rect::new(
+            0.0,
+            ctx.screen_height() - 300.0,
+            ctx.screen_width() * 0.5,
+            300.0,
+        )
     }
 
     fn draw(&mut self, ctx: &mut WgpuContext, rect: Rect, editor: &mut Editor, blocked: bool) {
@@ -162,7 +165,7 @@ impl PanelDefinition for ResourcesPanel {
         let current = self.navigation.current();
         let breadcrumb = current
             .strip_prefix(resources_folder_current())
-            .unwrap_or(current)
+            .unwrap_or(&current)
             .to_string_lossy()
             .to_string();
         let breadcrumb_text = if breadcrumb.is_empty() {
@@ -190,7 +193,7 @@ impl PanelDefinition for ResourcesPanel {
         let content_height = if self.entries.is_empty() {
             CELL_SIZE
         } else {
-            let rows = (self.entries.len() + cols - 1) / cols;
+            let rows = self.entries.len().div_ceil(cols);
             rows as f32 * (CELL_SIZE + GRID_PADDING) + GRID_PADDING
         };
 
@@ -239,12 +242,15 @@ impl PanelDefinition for ResourcesPanel {
                 );
             }
 
-            let text_y = cell_y + ICON_SIZE + 2.0;
+            let text_y = cell_y + ICON_SIZE + 4.0;
+            let label = truncate_label(ctx, &entry.display_name, CELL_SIZE, LABEL_FONT_SIZE);
+            let label_width = measure_text(ctx, &label, LABEL_FONT_SIZE).width;
+            let text_x = x + (CELL_SIZE - label_width) / 2.0;
             ctx.draw_text(
-                &entry.display_name,
-                x,
-                text_y + DEFAULT_FONT_SIZE_16 * 0.7,
-                DEFAULT_FONT_SIZE_16,
+                &label,
+                text_x,
+                text_y + LABEL_FONT_SIZE,
+                LABEL_FONT_SIZE,
                 Color::WHITE,
             );
 
@@ -264,6 +270,24 @@ impl PanelDefinition for ResourcesPanel {
 
         ctx.draw_rectangle_lines(rect.x, rect.y, rect.w, rect.h, 2.0, Color::WHITE);
     }
+}
+
+fn truncate_label(ctx: &WgpuContext, text: &str, max_width: f32, font_size: f32) -> String {
+    if measure_text(ctx, text, font_size).width <= max_width {
+        return text.to_string();
+    }
+    let ellipsis = "…";
+    let ellipsis_w = measure_text(ctx, ellipsis, font_size).width;
+    let target = max_width - ellipsis_w;
+    let mut end_byte = 0;
+    for (byte_idx, ch) in text.char_indices() {
+        let w = measure_text(ctx, &text[..byte_idx + ch.len_utf8()], font_size).width;
+        if w > target {
+            break;
+        }
+        end_byte = byte_idx + ch.len_utf8();
+    }
+    format!("{}{}", &text[..end_byte], ellipsis)
 }
 
 #[cfg(test)]

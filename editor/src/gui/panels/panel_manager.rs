@@ -6,6 +6,7 @@ use crate::gui::panels::generic_panel::*;
 use crate::gui::panels::hierarchy_panel::HierarchyPanel;
 use crate::gui::panels::prefab_browser_panel::PrefabBrowserPanel;
 use crate::gui::panels::prefab_palette_panel::PrefabPalettePanel;
+use crate::gui::panels::resources_panel::ResourcesPanel;
 use crate::with_panel_manager;
 use crate::Editor;
 use bishop::prelude::*;
@@ -176,6 +177,17 @@ impl PanelManager {
         self.register(
             GenericPanel::new(PrefabPalettePanel::new(), ctx),
             vec![PanelMode::Room],
+        );
+
+        self.register(
+            GenericPanel::new(ResourcesPanel::new(), ctx),
+            vec![
+                PanelMode::Game,
+                PanelMode::World,
+                PanelMode::Room,
+                PanelMode::Prefab,
+                PanelMode::Menu,
+            ],
         );
 
         self.register_prefab_browser_panel(ctx);

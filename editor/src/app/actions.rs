@@ -52,6 +52,7 @@ impl Editor {
             EditorAction::ViewHierarchyPanel,
             EditorAction::ViewPrefabBrowserPanel,
             EditorAction::ViewPrefabPalettePanel,
+            EditorAction::ViewResourcesPanel,
         ];
 
         actions.into_iter().find(|action| {
@@ -157,6 +158,11 @@ impl Editor {
             EditorAction::ViewPrefabPalettePanel => {
                 with_panel_manager(|panel_manager| {
                     panel_manager.toggle(PREFAB_PALETTE_PANEL);
+                });
+            }
+            EditorAction::ViewResourcesPanel => {
+                with_panel_manager(|panel_manager| {
+                    panel_manager.toggle(RESOURCES_PANEL);
                 });
             }
             EditorAction::WorldSettings => {
