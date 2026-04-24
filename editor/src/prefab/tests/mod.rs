@@ -15,6 +15,7 @@ pub(super) use crate::room::room_editor::{RoomEditorMode, RoomSceneSubMode};
 pub(super) use crate::storage::editor_storage::{
     create_new_game, load_game_by_name, load_prefab_palette_state, save_game,
 };
+pub(super) use engine_core::constants::extensions;
 pub(super) use engine_core::prelude::*;
 pub(super) use engine_core::storage::path_utils::{game_folder, sanitise_name};
 pub(super) use engine_core::storage::test_utils::{game_fs_test_lock, TestGameFolder};
@@ -122,7 +123,11 @@ fn save_test_prefab(test_game: &TestGameFolder, prefab_id: PrefabId, name: &str)
 }
 
 fn saved_prefab_path(prefab: &PrefabAsset) -> PathBuf {
-    prefabs_folder().join(format!("{}.ron", sanitise_name(&prefab.name)))
+    prefabs_folder().join(format!(
+        "{}.{}",
+        sanitise_name(&prefab.name),
+        extensions::PREFAB
+    ))
 }
 
 fn blank_prefab_session_editor(test_game: &TestGameFolder) -> Editor {

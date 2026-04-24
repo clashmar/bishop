@@ -3,6 +3,7 @@ mod component_sync;
 mod instance;
 
 use crate::assets::{AssetKey, AssetKind, AssetRecord, AssetRegistry};
+use crate::constants::extensions;
 use crate::ecs::capture::ComponentSnapshot;
 use crate::onscreen_error;
 use crate::storage::path_utils::{resources_folder, sanitise_name};
@@ -370,7 +371,7 @@ fn prefab_folder_for_game(game_name: &str) -> PathBuf {
 }
 
 fn prefab_path(game_name: &str, prefab_id: PrefabId) -> PathBuf {
-    prefab_folder_for_game(game_name).join(format!("{}.ron", prefab_id.0))
+    prefab_folder_for_game(game_name).join(format!("{}.{}", prefab_id.0, extensions::PREFAB))
 }
 
 fn prefab_name_stem(name: &str) -> String {
@@ -390,7 +391,7 @@ fn prefab_paths_for_game(game_name: &str) -> io::Result<Vec<PathBuf>> {
 
     let mut paths = fs::read_dir(folder)?
         .filter_map(|entry| entry.ok().map(|value| value.path()))
-        .filter(|path| path.extension().is_some_and(|ext| ext == "ron"))
+        .filter(|path| path.extension().is_some_and(|ext| ext == extensions::PREFAB))
         .collect::<Vec<_>>();
     paths.sort();
     Ok(paths)
@@ -546,14 +547,14 @@ fn resolve_prefab_save_path(
     }
 
     let stem = prefab_name_stem(&prefab.name);
-    let preferred = folder.join(format!("{stem}.ron"));
+    let preferred = folder.join(format!("{stem}.{}", extensions::PREFAB));
     if !preferred.exists() || existing_path == Some(preferred.as_path()) {
         return Ok(preferred);
     }
 
     let mut index = 2usize;
     loop {
-        let candidate = folder.join(format!("{stem} {index}.ron"));
+        let candidate = folder.join(format!("{stem} {index}.{}", extensions::PREFAB));
         if !candidate.exists() || existing_path == Some(candidate.as_path()) {
             return Ok(candidate);
         }

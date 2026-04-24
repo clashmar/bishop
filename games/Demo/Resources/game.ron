@@ -245,15 +245,15 @@
             ),
             Prefab((1)): (
                 kind: Prefab,
-                path: "prefabs/Cat.ron",
+                path: "prefabs/Cat.prefab",
             ),
             Prefab((2)): (
                 kind: Prefab,
-                path: "prefabs/Female.ron",
+                path: "prefabs/Female.prefab",
             ),
             Prefab((3)): (
                 kind: Prefab,
-                path: "prefabs/Bullet.ron",
+                path: "prefabs/Bullet.prefab",
             ),
             Sound((1)): (
                 kind: Sound,

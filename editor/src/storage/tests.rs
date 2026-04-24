@@ -1,5 +1,6 @@
 use super::editor_storage::*;
 use crate::editor_assets::write_prefabs_lua;
+use engine_core::constants::{extensions, paths};
 use engine_core::prelude::*;
 use engine_core::scripting::lua_constants::{lua_dirs, lua_files};
 use engine_core::storage::path_utils::sanitise_name;
@@ -59,7 +60,7 @@ fn save_game_round_trips_asset_registry_records() {
             AssetKey::Prefab(PrefabId(9)),
             AssetRecord::new(
                 AssetKind::Prefab,
-                PathBuf::from(paths::PREFABS_FOLDER).join("crate.ron"),
+                PathBuf::from(paths::PREFABS_FOLDER).join(format!("crate.{}", extensions::PREFAB)),
             ),
         )
         .unwrap();
@@ -90,16 +91,20 @@ fn reload_prefab_manager_reconciles_prefab_registry_records() {
     create_game_folders(test_game.name());
 
     let prefab = create_prefab(PrefabId(9), "Crate".to_string());
-    let prefab_file_name = "disk_prefab.ron";
-    let prefab_path = prefabs_folder().join(prefab_file_name);
-    let expected_path = PathBuf::from(paths::PREFABS_FOLDER).join(prefab_file_name);
+    let prefab_file_name = format!("disk_prefab.{}", extensions::PREFAB);
+    let prefab_path = prefabs_folder().join(&prefab_file_name);
+    let expected_path = PathBuf::from(paths::PREFABS_FOLDER).join(&prefab_file_name);
     let stale_prefab_id = PrefabId(21);
-    let stale_path = PathBuf::from(paths::PREFABS_FOLDER).join("stale_prefab.ron");
+    let stale_path =
+        PathBuf::from(paths::PREFABS_FOLDER).join(format!("stale_prefab.{}", extensions::PREFAB));
     let mut game = create_new_game(test_game.name().to_string());
 
     fs::write(&prefab_path, ron::to_string(&prefab).unwrap()).unwrap();
     game.asset_registry
-        .register_asset_relative_path(stale_prefab_id, "stale_prefab.ron")
+        .register_asset_relative_path(
+            stale_prefab_id,
+            format!("stale_prefab.{}", extensions::PREFAB),
+        )
         .unwrap();
 
     game.reload_prefab_manager();
@@ -111,7 +116,7 @@ fn reload_prefab_manager_reconciles_prefab_registry_records() {
     );
     assert_eq!(
         game.asset_registry.relative_path(prefab.id),
-        Some(PathBuf::from(prefab_file_name))
+        Some(PathBuf::from(&prefab_file_name))
     );
     assert_eq!(
         game.asset_registry
@@ -290,7 +295,11 @@ fn prefab_storage_round_trips_through_disk_helpers() {
 
     save_prefab(test_game.name(), &prefab).unwrap();
 
-    let expected_path = prefabs_folder().join(format!("{}.ron", sanitise_name(&prefab.name)));
+    let expected_path = prefabs_folder().join(format!(
+        "{}.{}",
+        sanitise_name(&prefab.name),
+        extensions::PREFAB
+    ));
     assert!(expected_path.is_file());
 
     let loaded = load_prefab(test_game.name(), prefab.id).unwrap();

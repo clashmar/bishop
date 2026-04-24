@@ -18,7 +18,7 @@ pub const FILE_ICON_MAP: &[(&str, IconType)] = &[
     (extensions::LUA, IconType::LuaScript),
     (extensions::WAV, IconType::Audio),
     (extensions::TOML, IconType::Text),
-    (extensions::RON, IconType::Prefab),
+    (extensions::PREFAB, IconType::Prefab),
 ];
 
 /// Maps file extensions and directory names to icon types.

@@ -1,3 +1,4 @@
+use engine_core::constants::extensions;
 use engine_core::scripting::lua_constants::lua_dirs;
 
 use super::icon_mapper::{IconMapper, IconType, FILE_ICON_MAP};
@@ -69,6 +70,20 @@ fn file_icon_unknown_extension_gets_file() {
 #[test]
 fn file_icon_no_extension_gets_file() {
     assert_eq!(IconMapper::file_icon("Makefile"), IconType::File);
+}
+
+#[test]
+fn file_icon_maps_prefab_extension_to_prefab() {
+    let filename = format!("test_file.{}", extensions::PREFAB);
+
+    assert_eq!(IconMapper::file_icon(&filename), IconType::Prefab);
+}
+
+#[test]
+fn file_icon_maps_ron_extension_to_file() {
+    let filename = format!("test_file.{}", extensions::RON);
+
+    assert_eq!(IconMapper::file_icon(&filename), IconType::File);
 }
 
 #[test]

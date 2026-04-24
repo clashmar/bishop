@@ -31,8 +31,10 @@ pub mod extensions {
     pub const WAV: &str = "wav";
     /// TOML data files (text, manifests).
     pub const TOML: &str = "toml";
-    /// RON data files (prefabs, menus, game state).
+    /// RON data files (menus, game state, editor config).
     pub const RON: &str = "ron";
+    /// Prefab asset files backed by RON text.
+    pub const PREFAB: &str = "prefab";
     /// Aseprite source files (stripped on export, not assets).
     pub const ASEPRITE: &str = "aseprite";
     /// Aseprite source files (short extension).

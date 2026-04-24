@@ -205,7 +205,7 @@ fn requesting_prefab_transition_from_invalid_file_path_returns_error() {
         .unwrap_or_else(|poison| poison.into_inner());
     let test_game = TestGameFolder::new("prefab_transition_file_invalid");
     let (mut editor, room_id, prefab_id, _) = make_prefab_session_editor(&test_game);
-    let invalid_path = write_invalid_prefab(&test_game, "broken.ron");
+    let invalid_path = write_invalid_prefab(&test_game, &format!("broken.{}", extensions::PREFAB));
 
     let error = editor
         .request_prefab_transition_to_path(&invalid_path)

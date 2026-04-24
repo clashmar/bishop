@@ -1,5 +1,6 @@
 use crate::assets::asset_registry::{AssetKey, AssetKind, AssetRecord, AssetRegistry};
 use crate::assets::AssetManager;
+use crate::constants::extensions;
 use crate::constants::paths::{ASSETS_FOLDER, PREFABS_FOLDER};
 use crate::ecs::SpriteId;
 use crate::prefab::PrefabId;
@@ -16,14 +17,20 @@ fn editor_metadata_snapshot_rebuilds_path_lookup_from_records() {
     registry
         .insert(
             AssetKey::Prefab(PrefabId(4)),
-            AssetRecord::new(AssetKind::Prefab, asset_path(PREFABS_FOLDER, "crate.ron")),
+            AssetRecord::new(
+                AssetKind::Prefab,
+                asset_path(PREFABS_FOLDER, &format!("crate.{}", extensions::PREFAB)),
+            ),
         )
         .unwrap();
 
     let snapshot = registry.editor_metadata_snapshot();
 
     assert_eq!(
-        snapshot.key_for_path(asset_path(PREFABS_FOLDER, "crate.ron")),
+        snapshot.key_for_path(asset_path(
+            PREFABS_FOLDER,
+            &format!("crate.{}", extensions::PREFAB),
+        )),
         Some(AssetKey::Prefab(PrefabId(4)))
     );
 }
@@ -48,7 +55,10 @@ fn merge_editor_metadata_from_rejects_conflicting_paths_for_same_key() {
     destination
         .insert(
             AssetKey::Prefab(PrefabId(4)),
-            AssetRecord::new(AssetKind::Prefab, asset_path(PREFABS_FOLDER, "crate.ron")),
+            AssetRecord::new(
+                AssetKind::Prefab,
+                asset_path(PREFABS_FOLDER, &format!("crate.{}", extensions::PREFAB)),
+            ),
         )
         .unwrap();
 
@@ -56,7 +66,10 @@ fn merge_editor_metadata_from_rejects_conflicting_paths_for_same_key() {
     source
         .insert(
             AssetKey::Prefab(PrefabId(4)),
-            AssetRecord::new(AssetKind::Prefab, asset_path(PREFABS_FOLDER, "barrel.ron")),
+            AssetRecord::new(
+                AssetKind::Prefab,
+                asset_path(PREFABS_FOLDER, &format!("barrel.{}", extensions::PREFAB)),
+            ),
         )
         .unwrap();
 
@@ -73,8 +86,8 @@ fn merge_editor_metadata_from_rejects_conflicting_paths_for_same_key() {
 fn replace_record_allows_same_prefab_key_to_move_to_a_new_path() {
     let mut registry = AssetRegistry::default();
     let key = AssetKey::Prefab(PrefabId(4));
-    let old_path = asset_path(PREFABS_FOLDER, "crate.ron");
-    let new_path = asset_path(PREFABS_FOLDER, "barrel.ron");
+    let old_path = asset_path(PREFABS_FOLDER, &format!("crate.{}", extensions::PREFAB));
+    let new_path = asset_path(PREFABS_FOLDER, &format!("barrel.{}", extensions::PREFAB));
 
     registry
         .insert(key, AssetRecord::new(AssetKind::Prefab, old_path.clone()))
@@ -97,8 +110,8 @@ fn replace_record_rejects_path_owned_by_different_key() {
     let mut registry = AssetRegistry::default();
     let first_key = AssetKey::Prefab(PrefabId(4));
     let second_key = AssetKey::Prefab(PrefabId(8));
-    let first_path = asset_path(PREFABS_FOLDER, "crate.ron");
-    let second_path = asset_path(PREFABS_FOLDER, "barrel.ron");
+    let first_path = asset_path(PREFABS_FOLDER, &format!("crate.{}", extensions::PREFAB));
+    let second_path = asset_path(PREFABS_FOLDER, &format!("barrel.{}", extensions::PREFAB));
 
     registry
         .insert(
@@ -129,7 +142,7 @@ fn replace_record_rejects_path_owned_by_different_key() {
 fn remove_record_clears_record_and_path_lookup() {
     let mut registry = AssetRegistry::default();
     let key = AssetKey::Prefab(PrefabId(4));
-    let path = asset_path(PREFABS_FOLDER, "crate.ron");
+    let path = asset_path(PREFABS_FOLDER, &format!("crate.{}", extensions::PREFAB));
     let record = AssetRecord::new(AssetKind::Prefab, path.clone());
 
     registry.insert(key, record.clone()).unwrap();
@@ -144,7 +157,7 @@ fn remove_record_missing_key_returns_none_and_preserves_lookup() {
     let mut registry = AssetRegistry::default();
     let present_key = AssetKey::Prefab(PrefabId(4));
     let missing_key = AssetKey::Prefab(PrefabId(8));
-    let path = asset_path(PREFABS_FOLDER, "crate.ron");
+    let path = asset_path(PREFABS_FOLDER, &format!("crate.{}", extensions::PREFAB));
 
     registry
         .insert(

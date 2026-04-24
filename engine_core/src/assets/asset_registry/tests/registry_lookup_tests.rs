@@ -1,4 +1,5 @@
 use crate::assets::asset_registry::{AssetKey, AssetKind, AssetRecord, AssetRegistry};
+use crate::constants::extensions;
 use crate::constants::paths::{
     ASSETS_FOLDER, AUDIO_FOLDER, PREFABS_FOLDER, SCRIPTS_FOLDER, SFX_FOLDER,
 };
@@ -151,7 +152,7 @@ fn register_asset_relative_path_stores_canonical_scripts_path_for_script_key() {
 fn register_asset_relative_path_stores_canonical_prefabs_path_for_prefab_key() {
     let mut registry = AssetRegistry::default();
     let prefab_id = PrefabId(3);
-    let relative_path = PathBuf::from("crate.ron");
+    let relative_path = PathBuf::from(format!("crate.{}", extensions::PREFAB));
 
     registry
         .register_asset_relative_path(prefab_id, &relative_path)
@@ -165,11 +166,14 @@ fn register_asset_relative_path_stores_canonical_prefabs_path_for_prefab_key() {
         registry.record(AssetKey::Prefab(prefab_id)),
         Some(&AssetRecord::new(
             AssetKind::Prefab,
-            asset_path(PREFABS_FOLDER, "crate.ron"),
+            asset_path(PREFABS_FOLDER, format!("crate.{}", extensions::PREFAB)),
         ))
     );
     assert_eq!(
-        registry.key_for_path(asset_path(PREFABS_FOLDER, "crate.ron")),
+        registry.key_for_path(asset_path(
+            PREFABS_FOLDER,
+            format!("crate.{}", extensions::PREFAB),
+        )),
         Some(AssetKey::Prefab(prefab_id))
     );
 }
@@ -303,7 +307,7 @@ fn register_asset_relative_path_rejects_absolute_prefab_path() {
     let mut registry = AssetRegistry::default();
     let absolute_path = std::env::current_dir()
         .expect("current directory should be available")
-        .join("prefabs/crate.ron");
+        .join(format!("prefabs/crate.{}", extensions::PREFAB));
 
     let error = registry
         .register_asset_relative_path(PrefabId(4), absolute_path)

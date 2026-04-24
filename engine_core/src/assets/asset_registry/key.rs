@@ -1,4 +1,5 @@
 use super::registry_errors;
+use crate::constants::extensions;
 use crate::ecs::{ScriptId, SoundId, SpriteId, TomlId};
 use crate::prefab::PrefabId;
 use serde::{Deserialize, Serialize};
@@ -76,8 +77,9 @@ impl AssetKind {
 
     fn required_extension(self) -> Option<&'static str> {
         match self {
-            Self::Sound => Some("wav"),
-            Self::Toml => Some("toml"),
+            Self::Prefab => Some(extensions::PREFAB),
+            Self::Sound => Some(extensions::WAV),
+            Self::Toml => Some(extensions::TOML),
             _ => None,
         }
     }
