@@ -169,7 +169,7 @@ fn load_startup_data(source: StartupSource) -> Result<LoadedStartupFiles, String
         StartupSource::Game => {
             let resources_dir = resources_dir_from_exe()
                 .ok_or_else(|| "Could not find game resources folder.".to_string())?;
-            let startup_path = resources_dir.join("startup.ron");
+            let startup_path = resources_dir.join(paths::STARTUP_RON);
             let startup_ron = fs::read_to_string(&startup_path).ok();
             let game_path = resources_dir.join(paths::GAME_RON);
             let game_ron = fs::read_to_string(&game_path)
@@ -258,7 +258,7 @@ fn parse_startup(startup_ron: Option<&str>, resources_dir: &Path) -> StartupAsse
     ron::from_str(startup_ron).unwrap_or_else(|error| {
         onscreen_error!(
             "Failed to parse startup '{}': {}",
-            resources_dir.join("startup.ron").display(),
+            resources_dir.join(paths::STARTUP_RON).display(),
             error
         );
         StartupAsset::default()
@@ -441,7 +441,7 @@ mod tests {
             start_menu_id: "start".to_string(),
         };
         fs::write(
-            resources_dir.join("startup.ron"),
+            resources_dir.join(paths::STARTUP_RON),
             ron::ser::to_string_pretty(&startup, ron::ser::PrettyConfig::new()).unwrap(),
         )
         .unwrap();

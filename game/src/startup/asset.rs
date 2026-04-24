@@ -3,8 +3,6 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::Path;
 
-const STARTUP_FILE: &str = "startup.ron";
-
 /// Runtime-authored startup flow configuration.
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 #[serde(default)]
@@ -83,17 +81,13 @@ impl Default for StartupScreenContent {
 
 /// Loads the startup from the given resources folder, falling back to defaults.
 pub fn load_startup_from_resources(resources_dir: &Path) -> StartupAsset {
-    let path = resources_dir.join(STARTUP_FILE);
+    let path = resources_dir.join(paths::STARTUP_RON);
     let Ok(ron_str) = fs::read_to_string(&path) else {
         return StartupAsset::default();
     };
 
     ron::from_str(&ron_str).unwrap_or_else(|err| {
-        onscreen_error!(
-            "Failed to parse startup ron '{}': {}",
-            path.display(),
-            err
-        );
+        onscreen_error!("Failed to parse startup ron '{}': {}", path.display(), err);
         StartupAsset::default()
     })
 }
@@ -147,12 +141,12 @@ mod tests {
     #[test]
     fn demo_startup_asset_parses() {
         let path = Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../games/Demo/Resources/startup.ron");
+            .join("../games/Demo/Resources")
+            .join(paths::STARTUP_RON);
         let ron_str = fs::read_to_string(path).unwrap();
 
         let asset = ron::from_str::<StartupAsset>(&ron_str).unwrap();
 
         assert_eq!(asset.loading.splash_screens.len(), 1);
     }
-
 }

@@ -21,10 +21,33 @@ pub mod world {
     pub const DEFAULT_ROOM_POSITION: Vec2 = Vec2::new(0.0, 0.0);
 }
 
+/// File extension constants for known asset types.
+pub mod extensions {
+    /// Asset images (sprites, animations).
+    pub const PNG: &str = "png";
+    /// Lua script source.
+    pub const LUA: &str = "lua";
+    /// WAVE audio.
+    pub const WAV: &str = "wav";
+    /// TOML data files (text, manifests).
+    pub const TOML: &str = "toml";
+    /// RON data files (prefabs, menus, game state).
+    pub const RON: &str = "ron";
+    /// Aseprite source files (stripped on export, not assets).
+    pub const ASEPRITE: &str = "aseprite";
+    /// Aseprite source files (short extension).
+    pub const ASE: &str = "ase";
+    /// Aseprite-exported frame data (stripped on export, not assets).
+    pub const JSON: &str = "json";
+}
+
 /// Shared save and bundle paths.
 pub mod paths {
     /// Name of the game .ron save file.
     pub const GAME_RON: &str = "game.ron";
+
+    /// Name of the startup .ron file (hidden from Resources browser).
+    pub const STARTUP_RON: &str = "startup.ron";
 
     /// Name of the root user-facing save folder for the editor.
     pub const SAVE_ROOT: &str = "Bishop";
