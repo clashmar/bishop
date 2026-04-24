@@ -50,6 +50,12 @@ static EXIT_ICON: OnceLock<Texture2D> = OnceLock::new();
 static REFRESH_ICON: OnceLock<Texture2D> = OnceLock::new();
 static CAMERA_ICON: OnceLock<Texture2D> = OnceLock::new();
 static CIRCLE_120PX: OnceLock<Texture2D> = OnceLock::new();
+static FOLDER_ICON: OnceLock<Texture2D> = OnceLock::new();
+static LUA_ICON: OnceLock<Texture2D> = OnceLock::new();
+static IMAGE_ICON: OnceLock<Texture2D> = OnceLock::new();
+static AUDIO_ICON: OnceLock<Texture2D> = OnceLock::new();
+static TEXT_ICON: OnceLock<Texture2D> = OnceLock::new();
+static FILE_ICON: OnceLock<Texture2D> = OnceLock::new();
 
 /// Loads all editor icon textures. Must be called once after the graphics context is ready.
 pub fn init_editor_icons(loader: &impl TextureLoader) {
@@ -70,6 +76,12 @@ pub fn init_editor_icons(loader: &impl TextureLoader) {
     let _ = REFRESH_ICON.set(load(include_bytes!("icons/refresh.png")));
     let _ = CAMERA_ICON.set(load(include_bytes!("icons/camera.png")));
     let _ = CIRCLE_120PX.set(load(include_bytes!("textures/circle120px.png")));
+    let _ = FOLDER_ICON.set(load(include_bytes!("icons/folder.png")));
+    let _ = LUA_ICON.set(load(include_bytes!("icons/lua.png")));
+    let _ = IMAGE_ICON.set(load(include_bytes!("icons/image.png")));
+    let _ = AUDIO_ICON.set(load(include_bytes!("icons/audio.png")));
+    let _ = TEXT_ICON.set(load(include_bytes!("icons/text.png")));
+    let _ = FILE_ICON.set(load(include_bytes!("icons/file.png")));
 }
 
 pub fn select_icon() -> &'static Texture2D {
@@ -107,6 +119,24 @@ pub fn camera_icon() -> &'static Texture2D {
 }
 pub fn circle_120px() -> &'static Texture2D {
     CIRCLE_120PX.get().expect("Editor icons not initialized")
+}
+pub fn folder_icon() -> &'static Texture2D {
+    FOLDER_ICON.get().expect("Editor icons not initialized")
+}
+pub fn lua_icon() -> &'static Texture2D {
+    LUA_ICON.get().expect("Editor icons not initialized")
+}
+pub fn image_icon() -> &'static Texture2D {
+    IMAGE_ICON.get().expect("Editor icons not initialized")
+}
+pub fn audio_icon() -> &'static Texture2D {
+    AUDIO_ICON.get().expect("Editor icons not initialized")
+}
+pub fn text_icon() -> &'static Texture2D {
+    TEXT_ICON.get().expect("Editor icons not initialized")
+}
+pub fn file_icon() -> &'static Texture2D {
+    FILE_ICON.get().expect("Editor icons not initialized")
 }
 
 // Include the auto-generated ENGINE_SCRIPTS array from build.rs
