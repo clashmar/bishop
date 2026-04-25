@@ -26,6 +26,7 @@ pub(super) const PREVIEW_TIMEOUT_SECONDS: f32 = 5.0;
 pub struct AudioSourceModule {
     select_dropdown_id: WidgetId,
     assign_dropdown_id: WidgetId,
+    load_preset_dropdown_id: WidgetId,
     rename_field_id: WidgetId,
     preset_action_dropdown_id: WidgetId,
     add_sound_button_id: WidgetId,
@@ -34,6 +35,8 @@ pub struct AudioSourceModule {
     volume_var_id: WidgetId,
     pending_rename_target: Option<SoundGroupId>,
     rename_initial_value: String,
+    show_preset_picker: bool,
+    preset_picker_rect: Option<Rect>,
     has_groups: bool,
     has_preset_actions: bool,
     sounds_len: usize,
@@ -87,6 +90,7 @@ impl InspectorModule for AudioSourceModule {
             };
 
             ensure_selected_group(source);
+            self.preset_picker_rect = None;
             self.has_groups = !source.groups.is_empty();
             self.has_preset_actions = false;
 
@@ -101,7 +105,6 @@ impl InspectorModule for AudioSourceModule {
                 self,
                 source,
                 game_ctx.asset_registry,
-                &mut pending_sync_all,
             ) {
                 warning_message = Some(message);
             }
@@ -134,6 +137,17 @@ impl InspectorModule for AudioSourceModule {
                 clear_active_audio_preview();
                 self.has_preset_actions = false;
                 self.sounds_len = 0;
+                if let Some(message) = render_preset_picker(
+                    ctx,
+                    blocked,
+                    self,
+                    source,
+                    &library,
+                    game_ctx.asset_registry,
+                    &mut pending_sync_all,
+                ) {
+                    warning_message = Some(message);
+                }
                 if let Some(msg) = warning_message {
                     push_toast(msg, 2.5);
                 }
@@ -383,6 +397,18 @@ impl InspectorModule for AudioSourceModule {
                     DEFAULT_CHECKBOX_DIMS,
                 );
                 gui_checkbox(ctx, cb_rect, &mut group.looping, blocked);
+            }
+
+            if let Some(message) = render_preset_picker(
+                ctx,
+                blocked,
+                self,
+                source,
+                &library,
+                game_ctx.asset_registry,
+                &mut pending_sync_all,
+            ) {
+                warning_message = Some(message);
             }
         }
 

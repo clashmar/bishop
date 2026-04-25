@@ -344,9 +344,7 @@ impl LuaApi for EngineModule {
         out.line("---@class TomlId");
         out.line("local TomlId = {}");
         out.line("");
-        out.line(
-            "--- Returns a toml asset field.",
-        );
+        out.line("--- Returns a toml asset field.");
         out.line("---@return TomlId");
         out.line("function engine.asset.toml() end");
         out.line("");

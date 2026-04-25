@@ -112,3 +112,33 @@ fn close_open_dropdowns_clears_filterable_state() {
         assert!(!state.borrow().contains_key(&filter_id));
     });
 }
+
+#[test]
+fn empty_non_filterable_dropdown_does_not_open() {
+    reset_click_consumed();
+
+    let id = WidgetId(91);
+    let rect = Rect::new(0.0, 0.0, 120.0, 30.0);
+    let options: [&str; 0] = [];
+
+    let mut press_ctx = WidgetTestContext::new();
+    press_ctx.mouse_pos = (60.0, 15.0);
+    press_ctx.left_pressed = true;
+    press_ctx.left_down = true;
+
+    assert_eq!(
+        Dropdown::new(id, rect, "Pick", &options, |opt| opt.to_string()).show(&mut press_ctx),
+        None
+    );
+
+    reset_click_consumed();
+    let mut release_ctx = WidgetTestContext::new();
+    release_ctx.mouse_pos = (60.0, 15.0);
+    release_ctx.left_released = true;
+
+    assert_eq!(
+        Dropdown::new(id, rect, "Pick", &options, |opt| opt.to_string()).show(&mut release_ctx),
+        None
+    );
+    assert!(!dropdown_state::get(id).open);
+}
