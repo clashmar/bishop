@@ -120,7 +120,7 @@ fn make_prefab_session_editor(test_game: &TestGameFolder) -> (Editor, RoomId, Pr
 
 fn save_test_prefab(test_game: &TestGameFolder, prefab_id: PrefabId, name: &str) -> PrefabAsset {
     let prefab = create_prefab(prefab_id, name.to_string());
-    persist_prefab(test_game.name(), &prefab)
+    persist_prefab(test_game.name(), &prefab, &AssetRegistry::default())
         .expect("test prefab should persist")
         .0
 }

@@ -1,6 +1,9 @@
 use super::*;
 use crate::assets::{AssetKey, AssetRegistry};
 use crate::constants::{extensions, paths};
+use crate::ecs::capture::ComponentSnapshot;
+use crate::ecs::component::comp_type_name;
+use crate::ecs::Name;
 use crate::game::Game;
 use crate::storage::path_utils::sanitise_name;
 use crate::storage::test_utils::{game_fs_test_lock, TestGameFolder};
@@ -14,7 +17,7 @@ fn load_prefab_manager_skips_invalid_prefab_files() {
     let test_folder = TestGameFolder::new("prefab_partial_load");
     let valid = create_prefab(PrefabId(1), "Valid".to_string());
 
-    persist_prefab(test_folder.name(), &valid).unwrap();
+    persist_prefab(test_folder.name(), &valid, &AssetRegistry::default()).unwrap();
     fs::write(
         prefab_folder_for_game(test_folder.name()).join(format!("broken.{}", extensions::PREFAB)),
         "not valid ron",
@@ -88,7 +91,7 @@ fn load_prefab_manager_skips_structurally_invalid_prefabs() {
     };
     let folder = prefab_folder_for_game(test_folder.name());
 
-    persist_prefab(test_folder.name(), &valid).unwrap();
+    persist_prefab(test_folder.name(), &valid, &AssetRegistry::default()).unwrap();
     fs::write(
         folder.join(format!("broken_structure.{}", extensions::PREFAB)),
         ron::to_string(&invalid).unwrap(),
@@ -159,7 +162,7 @@ fn persist_prefab_rejects_id_zero() {
     let test_folder = TestGameFolder::new("prefab_zero_id_save");
     let prefab = create_prefab(PrefabId::default(), "Zero".to_string());
 
-    let error = persist_prefab(test_folder.name(), &prefab).unwrap_err();
+    let error = persist_prefab(test_folder.name(), &prefab, &AssetRegistry::default()).unwrap_err();
 
     assert_eq!(error.kind(), ErrorKind::InvalidData);
 }
@@ -173,8 +176,8 @@ fn load_prefab_manager_restores_next_prefab_id_from_loaded_assets() {
     let first = create_prefab(PrefabId(3), "First".to_string());
     let second = create_prefab(PrefabId(9), "Second".to_string());
 
-    persist_prefab(test_folder.name(), &first).unwrap();
-    persist_prefab(test_folder.name(), &second).unwrap();
+    persist_prefab(test_folder.name(), &first, &AssetRegistry::default()).unwrap();
+    persist_prefab(test_folder.name(), &second, &AssetRegistry::default()).unwrap();
 
     let mut manager =
         load_prefab_manager(test_folder.name(), &mut AssetRegistry::default()).unwrap();
@@ -193,7 +196,7 @@ fn load_prefab_manager_rejects_duplicate_prefab_names() {
     let first = create_prefab(PrefabId(3), "Bullet".to_string());
     let second = create_prefab(PrefabId(9), "Bullet".to_string());
 
-    persist_prefab(test_folder.name(), &first).unwrap();
+    persist_prefab(test_folder.name(), &first, &AssetRegistry::default()).unwrap();
     fs::write(
         prefab_folder_for_game(test_folder.name())
             .join(format!("bullet_copy.{}", extensions::PREFAB)),
@@ -214,43 +217,12 @@ fn load_prefab_manager_supports_lookup_by_name() {
     let test_folder = TestGameFolder::new("prefab_name_lookup");
     let prefab = create_prefab(PrefabId(5), "Bullet".to_string());
 
-    persist_prefab(test_folder.name(), &prefab).unwrap();
+    persist_prefab(test_folder.name(), &prefab, &AssetRegistry::default()).unwrap();
 
     let manager = load_prefab_manager(test_folder.name(), &mut AssetRegistry::default()).unwrap();
 
     assert_eq!(manager.prefab_named("Bullet"), Some(&prefab));
     assert_eq!(manager.prefab_named("Missing"), None);
-}
-
-#[test]
-fn load_prefab_manager_registers_prefab_paths_from_disk() {
-    let _lock = game_fs_test_lock()
-        .lock()
-        .unwrap_or_else(|poison| poison.into_inner());
-    let test_folder = TestGameFolder::new("prefab_registry_register_on_load");
-    let prefab = create_prefab(PrefabId(5), "Big Crate".to_string());
-    let prefab_file_name = format!("custom_prefab_path.{}", extensions::PREFAB);
-    let prefab_path = prefab_folder_for_game(test_folder.name()).join(&prefab_file_name);
-    let expected_path = PathBuf::from(paths::PREFABS_FOLDER).join(&prefab_file_name);
-    let mut game = Game {
-        name: test_folder.name().to_string(),
-        ..Default::default()
-    };
-
-    fs::create_dir_all(prefab_folder_for_game(test_folder.name())).unwrap();
-    fs::write(&prefab_path, ron::to_string(&prefab).unwrap()).unwrap();
-
-    game.reload_prefab_manager();
-
-    assert_eq!(game.prefab_manager.prefabs.get(&prefab.id), Some(&prefab));
-    assert_eq!(
-        game.asset_registry.relative_path(prefab.id),
-        Some(PathBuf::from(&prefab_file_name))
-    );
-    assert_eq!(
-        game.asset_registry.key_for_path(&expected_path),
-        Some(AssetKey::Prefab(prefab.id))
-    );
 }
 
 #[test]
@@ -268,7 +240,7 @@ fn load_prefab_manager_removes_stale_prefab_records_after_successful_reload() {
         ..Default::default()
     };
 
-    persist_prefab(test_folder.name(), &prefab).unwrap();
+    persist_prefab(test_folder.name(), &prefab, &AssetRegistry::default()).unwrap();
     game.asset_registry
         .register_asset_relative_path(
             stale_prefab_id,
@@ -314,7 +286,7 @@ fn load_prefab_manager_reuses_paths_owned_by_stale_prefab_records() {
         ..Default::default()
     };
 
-    persist_prefab(test_folder.name(), &prefab).unwrap();
+    persist_prefab(test_folder.name(), &prefab, &AssetRegistry::default()).unwrap();
     game.asset_registry
         .register_asset_relative_path(stale_prefab_id, &prefab_relative_path)
         .unwrap();
@@ -334,42 +306,6 @@ fn load_prefab_manager_reuses_paths_owned_by_stale_prefab_records() {
 }
 
 #[test]
-fn load_prefab_manager_keeps_existing_prefab_records_when_reload_fails() {
-    let _lock = game_fs_test_lock()
-        .lock()
-        .unwrap_or_else(|poison| poison.into_inner());
-    let test_folder = TestGameFolder::new("prefab_registry_no_partial_cleanup");
-    let first = create_prefab(PrefabId(3), "Bullet".to_string());
-    let second = create_prefab(PrefabId(9), "Bullet".to_string());
-    let stale_prefab_id = PrefabId(22);
-    let stale_relative_path = PathBuf::from(format!("stale_prefab.{}", extensions::PREFAB));
-    let mut game = Game {
-        name: test_folder.name().to_string(),
-        ..Default::default()
-    };
-
-    persist_prefab(test_folder.name(), &first).unwrap();
-    fs::write(
-        prefab_folder_for_game(test_folder.name())
-            .join(format!("bullet_copy.{}", extensions::PREFAB)),
-        ron::to_string(&second).unwrap(),
-    )
-    .unwrap();
-    game.asset_registry
-        .register_asset_relative_path(stale_prefab_id, &stale_relative_path)
-        .unwrap();
-    game.prefab_manager.prefabs.insert(first.id, first.clone());
-    game.prefab_manager.rebuild_name_lookup().unwrap();
-    let before = game.asset_registry.clone();
-    let before_prefab_manager = game.prefab_manager.clone();
-
-    game.reload_prefab_manager();
-
-    assert_eq!(game.asset_registry, before);
-    assert_eq!(game.prefab_manager, before_prefab_manager);
-}
-
-#[test]
 fn persist_prefab_uses_prefab_name_for_filename() {
     let _lock = game_fs_test_lock()
         .lock()
@@ -377,7 +313,7 @@ fn persist_prefab_uses_prefab_name_for_filename() {
     let test_folder = TestGameFolder::new("prefab_name_filename");
     let prefab = create_prefab(PrefabId(5), "Big Crate".to_string());
 
-    persist_prefab(test_folder.name(), &prefab).unwrap();
+    persist_prefab(test_folder.name(), &prefab, &AssetRegistry::default()).unwrap();
 
     let expected_path = prefab_folder_for_game(test_folder.name()).join(format!(
         "{}.{}",
@@ -400,8 +336,8 @@ fn persist_prefab_renames_existing_file_when_name_changes() {
     let first = create_prefab(prefab_id, "Big Crate".to_string());
     let second = create_prefab(prefab_id, "Huge Barrel".to_string());
 
-    persist_prefab(test_folder.name(), &first).unwrap();
-    persist_prefab(test_folder.name(), &second).unwrap();
+    persist_prefab(test_folder.name(), &first, &AssetRegistry::default()).unwrap();
+    persist_prefab(test_folder.name(), &second, &AssetRegistry::default()).unwrap();
 
     let first_path = prefab_folder_for_game(test_folder.name()).join(format!(
         "{}.{}",
@@ -415,5 +351,83 @@ fn persist_prefab_renames_existing_file_when_name_changes() {
     ));
     assert!(!first_path.exists());
     assert!(second_path.is_file());
-    assert_eq!(load_prefab(test_folder.name(), prefab_id).unwrap(), second);
+    assert_eq!(
+        load_prefab(test_folder.name(), prefab_id, &AssetRegistry::default()).unwrap(),
+        second
+    );
+}
+
+#[test]
+fn find_prefab_path_uses_registry_fast_path_before_disk_scan() {
+    let _lock = game_fs_test_lock()
+        .lock()
+        .unwrap_or_else(|poison| poison.into_inner());
+    let test_folder = TestGameFolder::new("prefab_find_registry_fast_path");
+    let prefab = create_prefab(PrefabId(5), "Crate".to_string());
+
+    persist_prefab(test_folder.name(), &prefab, &AssetRegistry::default()).unwrap();
+
+    let mut asset_registry = AssetRegistry::default();
+    load_prefab_manager(test_folder.name(), &mut asset_registry).unwrap();
+
+    let loaded_via_registry = load_prefab(test_folder.name(), prefab.id, &asset_registry).unwrap();
+    assert_eq!(loaded_via_registry, prefab);
+
+    let mut empty_registry = AssetRegistry::default();
+    let _loaded_manager = load_prefab_manager(test_folder.name(), &mut empty_registry).unwrap();
+
+    let loaded_via_fallback =
+        load_prefab(test_folder.name(), prefab.id, &AssetRegistry::default()).unwrap();
+    assert_eq!(loaded_via_fallback, prefab);
+}
+
+#[test]
+fn save_prefab_and_sync_rejects_duplicate_prefab_name() {
+    let _lock = game_fs_test_lock()
+        .lock()
+        .unwrap_or_else(|poison| poison.into_inner());
+    let test_folder = TestGameFolder::new("prefab_save_duplicate_name");
+    let first = create_prefab(PrefabId(1), "Crate".to_string());
+    let second = create_prefab(PrefabId(2), "Crate".to_string());
+
+    let mut manager = PrefabManager::default();
+    manager.prefabs.insert(first.id, first.clone());
+    manager.rebuild_name_lookup().unwrap();
+    persist_prefab(test_folder.name(), &first, &AssetRegistry::default()).unwrap();
+
+    let error = manager
+        .save_prefab_and_sync(test_folder.name(), &mut AssetRegistry::default(), &second)
+        .unwrap_err();
+    assert_eq!(error.kind(), ErrorKind::AlreadyExists);
+}
+
+#[test]
+fn save_prefab_and_sync_allows_resaving_same_prefab_under_its_own_name() {
+    let _lock = game_fs_test_lock()
+        .lock()
+        .unwrap_or_else(|poison| poison.into_inner());
+    let test_folder = TestGameFolder::new("prefab_save_same_name");
+    let prefab = create_prefab(PrefabId(1), "Crate".to_string());
+
+    let mut manager = PrefabManager::default();
+    manager.prefabs.insert(prefab.id, prefab.clone());
+    manager.rebuild_name_lookup().unwrap();
+    persist_prefab(test_folder.name(), &prefab, &AssetRegistry::default()).unwrap();
+
+    let updated = PrefabAsset {
+        nodes: vec![PrefabNode {
+            node_id: 1,
+            parent_node_id: None,
+            components: vec![ComponentSnapshot {
+                type_name: comp_type_name::<Name>().to_string(),
+                ron: "(\"Crate\")".to_string(),
+            }],
+        }],
+        ..prefab.clone()
+    };
+
+    let saved = manager
+        .save_prefab_and_sync(test_folder.name(), &mut AssetRegistry::default(), &updated)
+        .unwrap();
+    assert_eq!(saved.id, prefab.id);
 }

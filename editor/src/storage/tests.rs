@@ -328,7 +328,7 @@ fn prefab_storage_round_trips_through_disk_helpers() {
         ],
     };
 
-    persist_prefab(test_game.name(), &prefab).unwrap();
+    persist_prefab(test_game.name(), &prefab, &AssetRegistry::default()).unwrap();
 
     let expected_path = prefabs_folder().join(format!(
         "{}.{}",
@@ -337,8 +337,15 @@ fn prefab_storage_round_trips_through_disk_helpers() {
     ));
     assert!(expected_path.is_file());
 
-    let loaded = load_prefab(test_game.name(), prefab.id).unwrap();
-    let listed = list_prefabs(test_game.name()).unwrap();
+    let mut loaded_manager =
+        load_prefab_manager(test_game.name(), &mut AssetRegistry::default()).unwrap();
+    let loaded = loaded_manager.prefabs.get(&prefab.id).cloned().unwrap();
+    let mut listed: Vec<_> = loaded_manager.prefabs.into_values().collect();
+    listed.sort_by(|left, right| {
+        left.name
+            .cmp(&right.name)
+            .then_with(|| left.id.cmp(&right.id))
+    });
 
     assert_eq!(loaded, prefab);
     assert_eq!(listed, vec![prefab.clone()]);
@@ -350,8 +357,10 @@ fn prefab_storage_round_trips_through_disk_helpers() {
         Some(&prefab)
     );
 
-    assert!(delete_prefab(test_game.name(), prefab.id).unwrap());
-    assert!(list_prefabs(test_game.name()).unwrap().is_empty());
+    assert!(delete_prefab(test_game.name(), prefab.id, &AssetRegistry::default()).unwrap());
+    let after_manager =
+        load_prefab_manager(test_game.name(), &mut AssetRegistry::default()).unwrap();
+    assert!(after_manager.prefabs.is_empty());
 }
 
 #[test]

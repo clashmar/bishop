@@ -163,9 +163,15 @@ fn saving_prefab_canonicalizes_root_component_order_on_disk() {
         .components
         .sort_by(|left, right| right.type_name.cmp(&left.type_name));
 
-    persist_prefab(test_game.name(), &prefab).expect("prefab should save");
+    persist_prefab(test_game.name(), &prefab, &AssetRegistry::default())
+        .expect("prefab should save");
 
-    let saved_prefab = load_prefab(test_game.name(), prefab.id).expect("prefab should load");
+    let saved_prefab = load_prefab_manager(test_game.name(), &mut AssetRegistry::default())
+        .expect("prefab should load")
+        .prefabs
+        .get(&prefab.id)
+        .cloned()
+        .expect("saved prefab should exist in manager");
     let saved_root = saved_prefab
         .nodes
         .iter()
@@ -211,9 +217,15 @@ fn saving_prefab_canonicalizes_node_order_on_disk() {
     prefab.next_node_id = 4;
     prefab.nodes.swap(0, 2);
 
-    persist_prefab(test_game.name(), &prefab).expect("prefab should save");
+    persist_prefab(test_game.name(), &prefab, &AssetRegistry::default())
+        .expect("prefab should save");
 
-    let saved_prefab = load_prefab(test_game.name(), prefab.id).expect("prefab should load");
+    let saved_prefab = load_prefab_manager(test_game.name(), &mut AssetRegistry::default())
+        .expect("prefab should load")
+        .prefabs
+        .get(&prefab.id)
+        .cloned()
+        .expect("saved prefab should exist in manager");
     let node_ids = saved_prefab
         .nodes
         .iter()

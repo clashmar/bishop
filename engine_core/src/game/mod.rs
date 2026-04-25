@@ -336,4 +336,48 @@ mod tests {
         let next_room = game.id_allocator.allocate_room_id();
         assert!(next_room.0 > r1.0);
     }
+
+    #[cfg(feature = "editor")]
+    #[test]
+    fn reload_prefab_manager_keeps_existing_records_when_reload_fails() {
+        use crate::constants::extensions;
+        use crate::engine_global::set_game_name;
+        use crate::prefab::{create_prefab, persist_prefab, PrefabId};
+        use crate::storage::path_utils::prefabs_folder;
+        use crate::storage::test_utils::{game_fs_test_lock, TestGameFolder};
+        use std::path::PathBuf;
+
+        let _lock = game_fs_test_lock()
+            .lock()
+            .unwrap_or_else(|poison| poison.into_inner());
+        let test_folder = TestGameFolder::new("prefab_registry_no_partial_cleanup");
+        set_game_name(test_folder.name());
+        let first = create_prefab(PrefabId(3), "Bullet".to_string());
+        let second = create_prefab(PrefabId(9), "Bullet".to_string());
+        let stale_prefab_id = PrefabId(22);
+        let stale_relative_path = PathBuf::from(format!("stale_prefab.{}", extensions::PREFAB));
+        let mut game = Game {
+            name: test_folder.name().to_string(),
+            ..Default::default()
+        };
+
+        persist_prefab(test_folder.name(), &first, &AssetRegistry::default()).unwrap();
+        game.reload_prefab_manager();
+        std::fs::write(
+            prefabs_folder().join(format!("bullet_copy.{}", extensions::PREFAB)),
+            ron::to_string(&second).unwrap(),
+        )
+        .unwrap();
+        game.asset_registry
+            .register_asset_relative_path(stale_prefab_id, &stale_relative_path)
+            .unwrap();
+
+        let before = game.asset_registry.clone();
+        let before_prefab_manager = game.prefab_manager.clone();
+
+        game.reload_prefab_manager();
+
+        assert_eq!(game.asset_registry, before);
+        assert_eq!(game.prefab_manager, before_prefab_manager);
+    }
 }
