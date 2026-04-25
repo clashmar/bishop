@@ -1,8 +1,8 @@
 (
-    active_prefab_id: Some((2)),
+    active_prefab_id: Some((1)),
     recent_prefab_ids: [
+        (1),
         (2),
         (3),
-        (1),
     ],
 )

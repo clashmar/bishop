@@ -1,14 +1,24 @@
+#[cfg(feature = "editor")]
 use super::{PrefabInstanceNode, PrefabInstanceRoot, PrefabOverrides};
-use crate::ecs::capture::{capture_entity, restore_entity, ComponentSnapshot};
+use crate::ecs::capture::ComponentSnapshot;
 use crate::ecs::component::comp_type_name;
+#[cfg(feature = "editor")]
+use crate::ecs::capture::{capture_entity, restore_entity};
+#[cfg(feature = "editor")]
 use crate::ecs::component_registry::ComponentRegistry;
+#[cfg(feature = "editor")]
 use crate::ecs::components::hierarchy::{Children, Parent};
+#[cfg(feature = "editor")]
 use crate::ecs::entity::Entity;
-use crate::ecs::{CurrentFrame, CurrentRoom, Global, Player, PlayerProxy, RoomCamera, Transform};
+#[cfg(feature = "editor")]
+use crate::ecs::{CurrentFrame, Global, Player, PlayerProxy, RoomCamera};
+use crate::ecs::{CurrentRoom, Transform};
+#[cfg(feature = "editor")]
 use crate::game::GameCtxMut;
 use crate::prefab::PrefabNode;
 use crate::worlds::room::RoomId;
 use bishop::prelude::*;
+#[cfg(feature = "editor")]
 use std::collections::HashSet;
 
 pub(super) fn instantiate_prefab_components(
@@ -37,6 +47,7 @@ pub(super) fn instantiate_prefab_components(
     components
 }
 
+#[cfg(feature = "editor")]
 pub(super) fn apply_prefab_node(
     ctx: &mut GameCtxMut<'_>,
     entity: Entity,
@@ -91,6 +102,7 @@ pub(super) fn apply_prefab_node(
     );
 }
 
+#[cfg(feature = "editor")]
 pub(super) fn excluded_from_prefab_asset(type_name: &str) -> bool {
     type_name == comp_type_name::<Children>()
         || type_name == comp_type_name::<Parent>()
@@ -127,11 +139,13 @@ pub(super) fn translate_transform_snapshot(
     }
 }
 
+#[cfg(feature = "editor")]
 fn apply_component_snapshot(ctx: &mut GameCtxMut<'_>, entity: Entity, component: ComponentSnapshot) {
     remove_component_snapshot(ctx, entity, &component.type_name);
     restore_entity(ctx, entity, vec![component]);
 }
 
+#[cfg(feature = "editor")]
 fn remove_component_snapshot(ctx: &mut GameCtxMut<'_>, entity: Entity, type_name: &str) {
     let Some(component_reg) = inventory::iter::<ComponentRegistry>()
         .find(|registry| registry.type_name == type_name)
@@ -148,6 +162,7 @@ fn remove_component_snapshot(ctx: &mut GameCtxMut<'_>, entity: Entity, type_name
     (component_reg.remove)(ctx.ecs(), entity);
 }
 
+#[cfg(feature = "editor")]
 fn apply_root_transform_snapshot(ctx: &mut GameCtxMut<'_>, entity: Entity, component: &ComponentSnapshot) {
     let Ok(mut prefab_transform) = ron::from_str::<Transform>(&component.ron) else {
         return;
@@ -171,6 +186,7 @@ fn apply_root_transform_snapshot(ctx: &mut GameCtxMut<'_>, entity: Entity, compo
     );
 }
 
+#[cfg(feature = "editor")]
 fn remove_stale_prefab_components(
     ctx: &mut GameCtxMut<'_>,
     entity: Entity,

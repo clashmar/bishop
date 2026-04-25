@@ -1,3 +1,4 @@
+#[cfg(feature = "editor")]
 mod capture;
 mod component_sync;
 mod instance;
@@ -6,7 +7,9 @@ use crate::assets::{AssetKey, AssetKind, AssetRecord, AssetRegistry};
 use crate::constants::extensions;
 use crate::ecs::capture::ComponentSnapshot;
 use crate::onscreen_error;
-use crate::storage::path_utils::{resources_folder, sanitise_name};
+use crate::storage::path_utils::resources_folder;
+#[cfg(feature = "editor")]
+use crate::storage::path_utils::sanitise_name;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::fmt::{Display, Formatter, Result as FmtResult};
@@ -18,8 +21,11 @@ use std::path::{Path, PathBuf};
 pub use crate::ecs::components::prefab_instance::{
     PrefabInstanceNode, PrefabInstanceRoot, PrefabOverrides,
 };
+#[cfg(feature = "editor")]
 pub use capture::{capture_prefab, capture_prefab_with_existing};
-pub use instance::{instantiate_prefab, refresh_prefab_instance};
+pub use instance::instantiate_prefab;
+#[cfg(feature = "editor")]
+pub use instance::refresh_prefab_instance;
 
 const PREFABS_FOLDER_NAME: &str = "prefabs";
 
@@ -59,42 +65,6 @@ impl Default for PrefabManager {
 }
 
 impl PrefabManager {
-    /// Allocates the next project-scoped prefab id.
-    pub fn allocate_prefab_id(&mut self) -> PrefabId {
-        let id = PrefabId(self.next_prefab_id.max(1));
-        self.next_prefab_id = id.0 + 1;
-        id
-    }
-
-    fn restore_next_prefab_id(&mut self) {
-        self.next_prefab_id = self
-            .prefabs
-            .keys()
-            .map(|id| id.0)
-            .max()
-            .map(|max_id| max_id + 1)
-            .unwrap_or(1);
-    }
-
-    fn rebuild_name_lookup(&mut self) -> io::Result<()> {
-        self.prefab_ids_by_name.clear();
-
-        for prefab in self.prefabs.values() {
-            if let Some(existing_id) = self.prefab_ids_by_name.insert(prefab.name.clone(), prefab.id)
-            {
-                return Err(Error::new(
-                    ErrorKind::InvalidData,
-                    format!(
-                        "Duplicate prefab name '{}' for ids '{}' and '{}'",
-                        prefab.name, existing_id, prefab.id
-                    ),
-                ));
-            }
-        }
-
-        Ok(())
-    }
-
     /// Returns a prefab by its runtime name.
     pub fn prefab_named(&self, name: &str) -> Option<&PrefabAsset> {
         self.prefab_ids_by_name
@@ -102,14 +72,23 @@ impl PrefabManager {
             .and_then(|id| self.prefabs.get(id))
     }
 
+    /// Allocates the next project-scoped prefab id.
+    #[cfg(feature = "editor")]
+    pub fn allocate_prefab_id(&mut self) -> PrefabId {
+        let id = PrefabId(self.next_prefab_id.max(1));
+        self.next_prefab_id = id.0 + 1;
+        id
+    }
+
     /// Saves a prefab asset and reconciles its asset-registry record to the saved path.
-    pub fn save_prefab(
+    #[cfg(feature = "editor")]
+    pub fn save_prefab_and_sync(
         &mut self,
         game_name: &str,
         asset_registry: &mut AssetRegistry,
         prefab: &PrefabAsset,
     ) -> io::Result<PrefabAsset> {
-        let (saved_prefab, saved_path) = persist_prefab_asset(game_name, prefab)?;
+        let (saved_prefab, saved_path) = persist_prefab(game_name, prefab)?;
         sync_prefab_record(game_name, asset_registry, saved_prefab.id, &saved_path)?;
         self.prefabs.insert(saved_prefab.id, saved_prefab.clone());
         self.rebuild_name_lookup()?;
@@ -118,6 +97,7 @@ impl PrefabManager {
     }
 
     /// Deletes a prefab asset and removes its asset-registry record.
+    #[cfg(feature = "editor")]
     pub fn delete_prefab(
         &mut self,
         game_name: &str,
@@ -160,6 +140,7 @@ pub struct PrefabNode {
 }
 
 /// Creates a new empty prefab asset with a stable root node.
+#[cfg(feature = "editor")]
 pub fn create_prefab(prefab_id: PrefabId, name: String) -> PrefabAsset {
     PrefabAsset {
         id: prefab_id,
@@ -199,6 +180,7 @@ pub fn load_prefab_manager(
 }
 
 /// Lists every prefab asset for the supplied game.
+#[cfg(feature = "editor")]
 pub fn list_prefabs(game_name: &str) -> io::Result<Vec<PrefabAsset>> {
     let mut prefabs: Vec<_> = load_prefab_manager(game_name, &mut AssetRegistry::default())?
         .prefabs
@@ -213,6 +195,7 @@ pub fn list_prefabs(game_name: &str) -> io::Result<Vec<PrefabAsset>> {
 }
 
 /// Loads a single prefab asset by id.
+#[cfg(feature = "editor")]
 pub fn load_prefab(game_name: &str, prefab_id: PrefabId) -> io::Result<PrefabAsset> {
     let path = find_prefab_path(game_name, prefab_id)?.ok_or_else(|| {
         Error::new(
@@ -223,13 +206,35 @@ pub fn load_prefab(game_name: &str, prefab_id: PrefabId) -> io::Result<PrefabAss
     load_prefab_from_path(&path)
 }
 
-/// Saves a single prefab asset to disk.
-pub fn save_prefab(game_name: &str, prefab: &PrefabAsset) -> io::Result<()> {
-    persist_prefab_asset(game_name, prefab)?;
-    Ok(())
+/// Persists a prefab asset to disk, canonicalizing component and node order.
+#[cfg(feature = "editor")]
+pub fn persist_prefab(game_name: &str, prefab: &PrefabAsset) -> io::Result<(PrefabAsset, PathBuf)> {
+    let prefab = canonical_prefab_asset(prefab);
+    validate_prefab(&prefab)?;
+    let existing_path = find_prefab_path(game_name, prefab.id)?;
+    ensure_unique_prefab_name(game_name, &prefab)?;
+    let path = resolve_prefab_save_path(game_name, &prefab, existing_path.as_deref())?;
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)?;
+    }
+
+    let ron =
+        ron::ser::to_string_pretty(&prefab, ron::ser::PrettyConfig::new()).map_err(Error::other)?;
+
+    fs::write(&path, ron)?;
+
+    if let Some(existing_path) = existing_path
+        && existing_path != path
+        && existing_path.exists()
+    {
+        fs::remove_file(existing_path)?;
+    }
+
+    Ok((prefab, path))
 }
 
 /// Returns the prefab asset in canonical save order.
+#[cfg(feature = "editor")]
 pub fn canonical_prefab_asset(prefab: &PrefabAsset) -> PrefabAsset {
     let mut canonical = prefab.clone();
     for node in &mut canonical.nodes {
@@ -239,13 +244,8 @@ pub fn canonical_prefab_asset(prefab: &PrefabAsset) -> PrefabAsset {
     canonical
 }
 
-fn canonical_component_snapshots(components: &[ComponentSnapshot]) -> Vec<ComponentSnapshot> {
-    let mut sorted = components.to_vec();
-    sorted.sort_by(|left, right| left.type_name.cmp(&right.type_name));
-    sorted
-}
-
 /// Deletes a single prefab asset file when it exists.
+#[cfg(feature = "editor")]
 pub fn delete_prefab(game_name: &str, prefab_id: PrefabId) -> io::Result<bool> {
     let Some(path) = find_prefab_path(game_name, prefab_id)? else {
         return Ok(false);
@@ -370,19 +370,6 @@ fn prefab_folder_for_game(game_name: &str) -> PathBuf {
     resources_folder(game_name).join(PREFABS_FOLDER_NAME)
 }
 
-fn prefab_path(game_name: &str, prefab_id: PrefabId) -> PathBuf {
-    prefab_folder_for_game(game_name).join(format!("{}.{}", prefab_id.0, extensions::PREFAB))
-}
-
-fn prefab_name_stem(name: &str) -> String {
-    let stem = sanitise_name(name);
-    if stem.is_empty() {
-        "Prefab".to_string()
-    } else {
-        stem
-    }
-}
-
 fn prefab_paths_for_game(game_name: &str) -> io::Result<Vec<PathBuf>> {
     let folder = prefab_folder_for_game(game_name);
     if !folder.exists() {
@@ -462,46 +449,6 @@ fn reconcile_prefab_registry(
     Ok(())
 }
 
-fn sync_prefab_record(
-    game_name: &str,
-    asset_registry: &mut AssetRegistry,
-    prefab_id: PrefabId,
-    saved_path: &Path,
-) -> io::Result<()> {
-    let prefab_folder = prefab_folder_for_game(game_name);
-    let relative_path = prefab_relative_path(&prefab_folder, saved_path)?;
-    let record = AssetRecord::new(
-        AssetKind::Prefab,
-        PathBuf::from(PREFABS_FOLDER_NAME).join(relative_path),
-    );
-    asset_registry.replace_record(AssetKey::Prefab(prefab_id), record)
-}
-
-fn persist_prefab_asset(game_name: &str, prefab: &PrefabAsset) -> io::Result<(PrefabAsset, PathBuf)> {
-    let prefab = canonical_prefab_asset(prefab);
-    validate_prefab(&prefab)?;
-    let existing_path = find_prefab_path(game_name, prefab.id)?;
-    ensure_unique_prefab_name(game_name, &prefab)?;
-    let path = resolve_prefab_save_path(game_name, &prefab, existing_path.as_deref())?;
-    if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent)?;
-    }
-
-    let ron =
-        ron::ser::to_string_pretty(&prefab, ron::ser::PrettyConfig::new()).map_err(Error::other)?;
-
-    fs::write(&path, ron)?;
-
-    if let Some(existing_path) = existing_path
-        && existing_path != path
-        && existing_path.exists()
-    {
-        fs::remove_file(existing_path)?;
-    }
-
-    Ok((prefab, path))
-}
-
 fn prefab_relative_path(prefab_folder: &Path, prefab_path: &Path) -> io::Result<PathBuf> {
     prefab_path
         .strip_prefix(prefab_folder)
@@ -518,6 +465,57 @@ fn prefab_relative_path(prefab_folder: &Path, prefab_path: &Path) -> io::Result<
         })
 }
 
+fn load_prefab_from_path(path: &Path) -> io::Result<PrefabAsset> {
+    let ron = fs::read_to_string(path)?;
+    let prefab = ron::from_str(&ron).map_err(|error| {
+        Error::new(
+            ErrorKind::InvalidData,
+            format!("Could not parse prefab '{}': {error}", path.display()),
+        )
+    })?;
+    validate_prefab(&prefab)?;
+    Ok(prefab)
+}
+
+#[cfg(feature = "editor")]
+fn sync_prefab_record(
+    game_name: &str,
+    asset_registry: &mut AssetRegistry,
+    prefab_id: PrefabId,
+    saved_path: &Path,
+) -> io::Result<()> {
+    let prefab_folder = prefab_folder_for_game(game_name);
+    let relative_path = prefab_relative_path(&prefab_folder, saved_path)?;
+    let record = AssetRecord::new(
+        AssetKind::Prefab,
+        PathBuf::from(PREFABS_FOLDER_NAME).join(relative_path),
+    );
+    asset_registry.replace_record(AssetKey::Prefab(prefab_id), record)
+}
+
+#[cfg(feature = "editor")]
+fn canonical_component_snapshots(components: &[ComponentSnapshot]) -> Vec<ComponentSnapshot> {
+    let mut sorted = components.to_vec();
+    sorted.sort_by(|left, right| left.type_name.cmp(&right.type_name));
+    sorted
+}
+
+#[cfg(feature = "editor")]
+fn prefab_path(game_name: &str, prefab_id: PrefabId) -> PathBuf {
+    prefab_folder_for_game(game_name).join(format!("{}.{}", prefab_id.0, extensions::PREFAB))
+}
+
+#[cfg(feature = "editor")]
+fn prefab_name_stem(name: &str) -> String {
+    let stem = sanitise_name(name);
+    if stem.is_empty() {
+        "Prefab".to_string()
+    } else {
+        stem
+    }
+}
+
+#[cfg(feature = "editor")]
 fn find_prefab_path(game_name: &str, prefab_id: PrefabId) -> io::Result<Option<PathBuf>> {
     let numeric_path = prefab_path(game_name, prefab_id);
     if numeric_path.exists() {
@@ -536,6 +534,7 @@ fn find_prefab_path(game_name: &str, prefab_id: PrefabId) -> io::Result<Option<P
     Ok(None)
 }
 
+#[cfg(feature = "editor")]
 fn resolve_prefab_save_path(
     game_name: &str,
     prefab: &PrefabAsset,
@@ -562,6 +561,7 @@ fn resolve_prefab_save_path(
     }
 }
 
+#[cfg(feature = "editor")]
 fn ensure_unique_prefab_name(game_name: &str, prefab: &PrefabAsset) -> io::Result<()> {
     for path in prefab_paths_for_game(game_name)? {
         let Ok(existing_prefab) = load_prefab_from_path(&path) else {
@@ -582,22 +582,41 @@ fn ensure_unique_prefab_name(game_name: &str, prefab: &PrefabAsset) -> io::Resul
     Ok(())
 }
 
-fn load_prefab_from_path(path: &Path) -> io::Result<PrefabAsset> {
-    let ron = fs::read_to_string(path)?;
-    let prefab = ron::from_str(&ron).map_err(|error| {
-        Error::new(
-            ErrorKind::InvalidData,
-            format!("Could not parse prefab '{}': {error}", path.display()),
-        )
-    })?;
-    validate_prefab(&prefab)?;
-    Ok(prefab)
+impl PrefabManager {
+    fn restore_next_prefab_id(&mut self) {
+        self.next_prefab_id = self
+            .prefabs
+            .keys()
+            .map(|id| id.0)
+            .max()
+            .map(|max_id| max_id + 1)
+            .unwrap_or(1);
+    }
+
+    fn rebuild_name_lookup(&mut self) -> io::Result<()> {
+        self.prefab_ids_by_name.clear();
+
+        for prefab in self.prefabs.values() {
+            if let Some(existing_id) = self.prefab_ids_by_name.insert(prefab.name.clone(), prefab.id)
+            {
+                return Err(Error::new(
+                    ErrorKind::InvalidData,
+                    format!(
+                        "Duplicate prefab name '{}' for ids '{}' and '{}'",
+                        prefab.name, existing_id, prefab.id
+                    ),
+                ));
+            }
+        }
+
+        Ok(())
+    }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "editor"))]
 #[path = "tests/prefab_module_tests.rs"]
 mod tests;
 
-#[cfg(test)]
+#[cfg(all(test, feature = "editor"))]
 #[path = "tests/mod.rs"]
 mod runtime_tests;

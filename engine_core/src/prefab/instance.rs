@@ -1,14 +1,23 @@
-use super::component_sync::{apply_prefab_node, instantiate_prefab_components};
-use super::{PrefabInstanceNode, PrefabInstanceRoot, PrefabOverrides};
+use super::component_sync::instantiate_prefab_components;
+#[cfg(feature = "editor")]
+use super::component_sync::apply_prefab_node;
+use super::{PrefabInstanceNode, PrefabInstanceRoot};
+#[cfg(feature = "editor")]
+use super::PrefabOverrides;
 use crate::ecs::capture::restore_entity;
-use crate::ecs::entity::{Entity, remove_parent, set_parent};
-use crate::ecs::{Ecs, Transform};
+use crate::ecs::entity::{Entity, set_parent};
+#[cfg(feature = "editor")]
+use crate::ecs::entity::remove_parent;
+#[cfg(feature = "editor")]
+use crate::ecs::Transform;
 use crate::game::GameCtxMut;
 use crate::onscreen_error;
 use crate::prefab::{PrefabAsset, validate_prefab};
 use crate::worlds::room::RoomId;
 use bishop::prelude::*;
 use std::collections::HashMap;
+#[cfg(feature = "editor")]
+use crate::ecs::Ecs;
 
 pub fn instantiate_prefab(
     ctx: &mut GameCtxMut<'_>,
@@ -78,6 +87,7 @@ pub fn instantiate_prefab(
     root_entity
 }
 
+#[cfg(feature = "editor")]
 pub fn refresh_prefab_instance(
     ctx: &mut GameCtxMut<'_>,
     root_entity: Entity,
@@ -174,6 +184,7 @@ pub fn refresh_prefab_instance(
     );
 }
 
+#[cfg(feature = "editor")]
 pub(super) fn prefab_instance_entities(ecs: &Ecs, root_entity: Entity) -> HashMap<usize, Entity> {
     ecs.get_store::<PrefabInstanceNode>()
         .data

@@ -92,7 +92,11 @@ impl EditorCommand for DeleteAssetCmd {
 
             if let AssetKey::Prefab(prefab_id) = key {
                 if let Some(prefab) = editor.game.prefab_manager.prefabs.get(&prefab_id).cloned() {
-                    if let Err(e) = engine_core::prefab::save_prefab(&editor.game.name, &prefab) {
+                    if let Err(e) = editor.game.prefab_manager.save_prefab_and_sync(
+                        &editor.game.name,
+                        &mut editor.game.asset_registry,
+                        &prefab,
+                    ) {
                         push_toast(format!("Could not restore prefab file: {e}"), 3.0);
                     }
                 }

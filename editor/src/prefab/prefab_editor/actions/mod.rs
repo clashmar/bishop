@@ -149,7 +149,7 @@ impl Editor {
 
         let prefab_id = self.game.prefab_manager.allocate_prefab_id();
         let prefab = capture_prefab(&mut self.game.ecs, entity, prefab_id, name);
-        let prefab = match self.game.prefab_manager.save_prefab(
+        let prefab = match self.game.prefab_manager.save_prefab_and_sync(
             &self.game.name,
             &mut self.game.asset_registry,
             &prefab,
@@ -180,7 +180,7 @@ impl Editor {
     pub(super) fn create_blank_prefab_impl(&mut self, name: String) {
         let prefab_id = self.game.prefab_manager.allocate_prefab_id();
         let prefab = create_prefab(prefab_id, name);
-        if let Err(error) = self.game.prefab_manager.save_prefab(
+        if let Err(error) = self.game.prefab_manager.save_prefab_and_sync(
             &self.game.name,
             &mut self.game.asset_registry,
             &prefab,

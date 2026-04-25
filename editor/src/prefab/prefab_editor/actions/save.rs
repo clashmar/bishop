@@ -58,7 +58,7 @@ impl Editor {
             }
         }
 
-        let saved_prefab = match self.game.prefab_manager.save_prefab(
+        let saved_prefab = match self.game.prefab_manager.save_prefab_and_sync(
             &self.game.name,
             &mut self.game.asset_registry,
             &prefab,
@@ -133,7 +133,7 @@ impl Editor {
         if !self.remove_prefab_from_palette(prefab_id) {
             return;
         }
-        
+
         self.toast = Some(Toast::new("Prefab deleted", 2.5));
     }
 }

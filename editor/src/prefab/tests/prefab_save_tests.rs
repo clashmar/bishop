@@ -163,7 +163,7 @@ fn saving_prefab_canonicalizes_root_component_order_on_disk() {
         .components
         .sort_by(|left, right| right.type_name.cmp(&left.type_name));
 
-    save_prefab(test_game.name(), &prefab).expect("prefab should save");
+    persist_prefab(test_game.name(), &prefab).expect("prefab should save");
 
     let saved_prefab = load_prefab(test_game.name(), prefab.id).expect("prefab should load");
     let saved_root = saved_prefab
@@ -211,7 +211,7 @@ fn saving_prefab_canonicalizes_node_order_on_disk() {
     prefab.next_node_id = 4;
     prefab.nodes.swap(0, 2);
 
-    save_prefab(test_game.name(), &prefab).expect("prefab should save");
+    persist_prefab(test_game.name(), &prefab).expect("prefab should save");
 
     let saved_prefab = load_prefab(test_game.name(), prefab.id).expect("prefab should load");
     let node_ids = saved_prefab

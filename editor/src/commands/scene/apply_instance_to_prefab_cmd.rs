@@ -69,16 +69,14 @@ impl EditorCommand for ApplyInstanceToPrefabCmd {
                 Some(&prefab),
             );
 
-            if let Err(error) = save_prefab(&editor.game.name, &updated_prefab) {
+            if let Err(error) = editor.game.prefab_manager.save_prefab_and_sync(
+                &editor.game.name,
+                &mut editor.game.asset_registry,
+                &updated_prefab,
+            ) {
                 onscreen_error!("Could not save prefab: {error}");
                 return;
             }
-
-            editor
-                .game
-                .prefab_manager
-                .prefabs
-                .insert(updated_prefab.id, updated_prefab.clone());
 
             let roots = linked_prefab_instance_roots(&editor.game.ecs, updated_prefab.id);
             for root_entity in roots {
@@ -112,16 +110,15 @@ impl EditorCommand for ApplyInstanceToPrefabCmd {
         };
 
         with_editor(|editor| {
-            if let Err(error) = save_prefab(&editor.game.name, previous_prefab) {
+            if let Err(error) = editor.game.prefab_manager.save_prefab_and_sync(
+                &editor.game.name,
+                &mut editor.game.asset_registry,
+                previous_prefab,
+            ) {
                 onscreen_error!("Could not restore prefab: {error}");
                 return;
             }
 
-            editor
-                .game
-                .prefab_manager
-                .prefabs
-                .insert(prefab_id, previous_prefab.clone());
             replace_linked_instances_with_snapshots(
                 &mut editor.game,
                 prefab_id,

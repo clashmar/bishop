@@ -115,14 +115,13 @@ impl RenameAssetCmd {
         if let Some(name) = new_stem {
             let mut updated = prefab;
             updated.name = name;
-            if let Err(e) = engine_core::prefab::save_prefab(&editor.game.name, &updated) {
+            if let Err(e) = editor.game.prefab_manager.save_prefab_and_sync(
+                &editor.game.name,
+                &mut editor.game.asset_registry,
+                &updated,
+            ) {
                 push_toast(format!("Prefab save failed: {e}"), 3.0);
             }
-            editor
-                .game
-                .prefab_manager
-                .prefabs
-                .insert(prefab_id, updated);
         }
     }
 }

@@ -78,7 +78,7 @@ impl EditorCommand for DeletePrefabCmd {
         };
 
         with_editor(|editor| {
-            if let Err(error) = editor.game.prefab_manager.save_prefab(
+            if let Err(error) = editor.game.prefab_manager.save_prefab_and_sync(
                 &editor.game.name,
                 &mut editor.game.asset_registry,
                 prefab,

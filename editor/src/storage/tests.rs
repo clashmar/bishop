@@ -293,7 +293,7 @@ fn prefab_storage_round_trips_through_disk_helpers() {
         ],
     };
 
-    save_prefab(test_game.name(), &prefab).unwrap();
+    persist_prefab(test_game.name(), &prefab).unwrap();
 
     let expected_path = prefabs_folder().join(format!(
         "{}.{}",
