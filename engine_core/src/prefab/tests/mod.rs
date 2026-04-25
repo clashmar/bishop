@@ -4,32 +4,32 @@ use crate::ecs::capture::ComponentSnapshot;
 use crate::ecs::component::comp_type_name;
 use crate::ecs::entity::get_parent;
 use crate::ecs::{CurrentFrame, CurrentRoom, Ecs, Entity, Name, Pivot, Transform, Velocity};
-use crate::game::Game;
+use crate::game::{Game, IdAllocator};
 use crate::prefab::{PrefabAsset, PrefabId, PrefabNode};
 use crate::prelude::Vec2;
 use crate::scripting::script_manager::ScriptManager;
+use crate::worlds::room::Room;
 use crate::worlds::room::RoomId;
 use crate::worlds::world::{World, WorldId};
 use std::collections::HashSet;
-use uuid::Uuid;
 
 mod capture_tests;
 mod instance_tests;
 
 fn test_game() -> Game {
-    let world_id = WorldId(Uuid::new_v4());
-    Game {
-        id: Uuid::new_v4(),
-        name: "prefab_tests".to_string(),
-        worlds: vec![World {
-            id: world_id,
+    let mut game = Game::default();
+    let world_id = game.id_allocator.allocate_world_id();
+    let room_id = game.id_allocator.allocate_room_id();
+    let world = World {
+        id: world_id,
+        rooms: vec![Room {
+            id: room_id,
             ..Default::default()
         }],
-        current_world_id: world_id,
-        sprite_manager: SpriteManager::default(),
-        script_manager: ScriptManager::default(),
         ..Default::default()
-    }
+    };
+    game.add_world(world);
+    game
 }
 
 fn find_entity_for_node(ecs: &Ecs, root_entity: Entity, node_id: usize) -> Option<Entity> {

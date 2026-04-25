@@ -1,14 +1,11 @@
 use super::*;
 use crate::prefab::BLANK_PREFAB_ID;
 use engine_core::prelude::PrefabId;
-use uuid::Uuid;
 
 #[test]
 fn hierarchy_panel_action_is_limited_to_room_and_prefab_modes() {
     assert!(!EditorAction::ViewHierarchyPanel.is_available_in(EditorMode::Game));
-    assert!(
-        !EditorAction::ViewHierarchyPanel.is_available_in(EditorMode::World(WorldId(Uuid::nil())))
-    );
+    assert!(!EditorAction::ViewHierarchyPanel.is_available_in(EditorMode::World(WorldId(0))));
     assert!(EditorAction::ViewHierarchyPanel.is_available_in(EditorMode::Room(RoomId(2))));
     assert!(EditorAction::ViewHierarchyPanel.is_available_in(EditorMode::Prefab(PrefabId(7))));
     assert!(!EditorAction::ViewHierarchyPanel.is_available_in(EditorMode::Menu));

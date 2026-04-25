@@ -65,6 +65,7 @@ pub struct GameEditor {
     world_widget_ids: HashMap<WorldId, WidgetId>,
     selected_world_id: Option<WorldId>,
     modal: Modal,
+    pending_camera_init: bool,
 }
 
 impl GameEditor {
@@ -84,6 +85,7 @@ impl GameEditor {
             world_widget_ids: HashMap::new(),
             selected_world_id: None,
             modal: Modal::default(),
+            pending_camera_init: false,
         }
     }
 
@@ -179,6 +181,11 @@ impl GameEditor {
     }
 
     pub fn draw(&mut self, ctx: &mut WgpuContext, camera: &mut Camera2D, game: &mut Game) {
+        if self.pending_camera_init && !game.worlds.is_empty() {
+            GameEditor::init_camera(self, ctx, camera, game);
+            self.pending_camera_init = false;
+        }
+
         ctx.set_camera(camera);
         ctx.clear_background(Color::BLACK);
 
@@ -365,7 +372,7 @@ impl GameEditor {
 
         if menu_button(ctx, create_btn, create_label, false) {
             push_command(Box::new(CreateWorldCmd::new()));
-            GameEditor::init_camera(self, ctx, camera, game);
+            self.pending_camera_init = true;
         }
     }
 
@@ -463,7 +470,10 @@ impl GameEditor {
 
     /// Returns the (min, max) world‑space corners that contain all worlds.
     fn world_bounds(&self, loader: &impl TextureLoader, game: &mut Game) -> (Vec2, Vec2) {
-        // Start with max possible values
+        if game.worlds.is_empty() {
+            return (vec2(0.0, 0.0), vec2(1.0, 1.0));
+        }
+
         let mut min = vec2(f32::INFINITY, f32::INFINITY);
         let mut max = vec2(f32::NEG_INFINITY, f32::NEG_INFINITY);
 

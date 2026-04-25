@@ -84,7 +84,7 @@ impl WorldEditor {
             tilemap,
         };
 
-        let id = game.allocate_room_id();
+        let id = game.id_allocator.allocate_room_id();
         let grid_size = game.current_world().grid_size;
 
         let room = Room {

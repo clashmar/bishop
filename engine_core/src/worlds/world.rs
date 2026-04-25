@@ -7,11 +7,23 @@ use bishop::prelude::*;
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
 use serde_with::FromInto;
-use uuid::Uuid;
 
 /// Identifier for a world.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
-pub struct WorldId(pub Uuid);
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct WorldId(pub usize);
+
+impl Default for WorldId {
+    fn default() -> Self {
+        WorldId(0)
+    }
+}
+
+impl WorldId {
+    /// Returns the dummy id used as a placeholder when no real worlds exist.
+    pub fn dummy() -> Self {
+        WorldId(0)
+    }
+}
 
 /// Default grid size in pixels.
 fn default_grid_size() -> f32 {
@@ -28,11 +40,17 @@ pub struct World {
     pub starting_room_id: Option<RoomId>,
     #[serde_as(as = "Option<FromInto<[f32; 2]>>")]
     pub starting_position: Option<Vec2>,
-    /// Meta information about the world to display the world in the editor/game.
     pub meta: WorldMeta,
-    /// Grid size in pixels for this world.
     #[serde(default = "default_grid_size")]
     pub grid_size: f32,
+}
+
+impl World {
+    /// Returns a static dummy world used as a fallback when no real worlds exist.
+    pub fn dummy() -> &'static Self {
+        static DUMMY: std::sync::OnceLock<World> = std::sync::OnceLock::new();
+        DUMMY.get_or_init(Self::default)
+    }
 }
 
 #[serde_as]

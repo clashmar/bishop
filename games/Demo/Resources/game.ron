@@ -140,7 +140,7 @@
     ),
     worlds: [
         /*[0]*/ (
-            id: ("38f2015c-96c7-4954-862c-a3a8262298b6"),
+            id: (1),
             name: "new",
             rooms: [
                 /*[0]*/ (
@@ -252,7 +252,6 @@
         next_tile_def_id: 1,
     ),
     script_manager: (),
-    current_world_id: ("38f2015c-96c7-4954-862c-a3a8262298b6"),
+    current_world_id: Some((1)),
     game_map: (),
-    next_room_id: 2,
 )

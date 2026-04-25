@@ -246,7 +246,7 @@ impl Editor {
                         &mut self.camera,
                         self.game.get_world_mut(world_id),
                     );
-                    self.game.current_world_id = world_id;
+                    self.game.current_world_id = Some(world_id);
                     self.cur_world_id = Some(world_id);
                     self.mode = EditorMode::World(world_id);
                 }
@@ -299,7 +299,7 @@ impl Editor {
                         .game
                         .worlds
                         .iter()
-                        .find(|w| w.id == self.game.current_world_id)
+                        .find(|w| Some(w.id) == self.game.current_world_id)
                         .and_then(|world| world.get_room(room_id).map(|r| (world.grid_size, r)))
                     {
                         RoomEditor::init_camera(ctx, &mut self.camera, room, grid_size);
@@ -322,7 +322,7 @@ impl Editor {
                         .game
                         .worlds
                         .iter_mut()
-                        .find(|w| w.id == self.game.current_world_id)
+                        .find(|w| Some(w.id) == self.game.current_world_id)
                         .expect("Current world id not present in game.");
 
                     self.room_editor.update(

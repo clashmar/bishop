@@ -115,7 +115,9 @@ mod tests {
             .unwrap_or_else(|poison| poison.into_inner());
         let test_game = TestGameFolder::new("place_prefab_instance_cmd");
         let mut game = create_new_game(test_game.name().to_string());
-        let world_id = game.current_world_id;
+        let world_id = game
+            .current_world_id
+            .expect("test game should have a current world");
         let room_id = game.current_world().starting_room_id.unwrap_or_default();
         game.get_world_mut(world_id).current_room_id = Some(room_id);
         let prefab_id = PrefabId(1);

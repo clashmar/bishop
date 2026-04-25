@@ -9,7 +9,7 @@ use engine_core::prelude::*;
 pub struct DeleteWorldCmd {
     world_id: WorldId,
     deleted_world: Option<World>,
-    prev_current_world: WorldId,
+    prev_current_world: Option<WorldId>,
 }
 
 impl DeleteWorldCmd {

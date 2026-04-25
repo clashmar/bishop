@@ -49,28 +49,10 @@ pub fn create_new_game(name: String) -> Game {
     // Ensure the folder structure exists.
     create_game_folders(&name);
 
-    let sprite_manager = SpriteManager::default();
-    let script_manager = ScriptManager::default();
-
-    // Build the game first so we can allocate room IDs globally.
-    let mut game = Game {
-        version: 1,
-        id: Uuid::new_v4(),
-        name,
-        ecs: Ecs::default(),
-        worlds: vec![],
-        asset_registry: AssetRegistry::default(),
-        sprite_manager,
-        script_manager,
-        text_manager: TextManager::default(),
-        prefab_manager: PrefabManager::default(),
-        current_world_id: WorldId(Uuid::nil()),
-        game_map: GameMap::default(),
-        next_room_id: 0,
-    };
+    let mut game = Game::default();
+    game.name = name;
 
     let world = create_new_world(&mut game);
-    game.current_world_id = world.id;
     game.worlds.push(world);
 
     // Create the global Player entity
@@ -321,6 +303,7 @@ pub fn load_game_by_name(name: &str) -> io::Result<Game> {
         Ok(game) => game,
         Err(_) => return Ok(create_new_game(name.to_string())),
     };
+    game.id_allocator = IdAllocator::from_game(&game);
     game.asset_registry.try_init_editor_metadata()?;
 
     set_current_sound_preset_library(load_sound_preset_library(name)?);
@@ -397,9 +380,9 @@ pub fn load_prefab_palette_state(game_name: &str) -> io::Result<PrefabPaletteSta
 
 /// Create a fresh world with a single default room.
 pub fn create_new_world(game: &mut Game) -> World {
-    let id = WorldId(Uuid::new_v4());
+    let id = game.id_allocator.allocate_world_id();
     let name = "new".to_string();
-    let room_id = game.allocate_room_id();
+    let room_id = game.id_allocator.allocate_room_id();
     let first_room = Room::new(&mut game.ecs, room_id, world_constants::DEFAULT_GRID_SIZE);
     let room_origin = first_room.position;
 

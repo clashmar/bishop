@@ -2,14 +2,10 @@
 use crate::constants::paths;
 use crate::game::Game;
 use crate::storage::path_utils::*;
-use std::collections::HashMap;
 use std::fs;
 use std::io;
 use std::io::Error;
 use std::path::Path;
-use uuid::Uuid;
-
-pub type WorldIndex = HashMap<Uuid, String>;
 
 /// Finds the game .ron in /Resources and returns an initialized `Game`.
 pub fn load_game_ron() -> io::Result<Game> {

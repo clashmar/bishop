@@ -63,7 +63,9 @@ fn make_editor_with_selected_entity(entity: Entity) -> Editor {
 fn make_room_editor(test_game: &TestGameFolder) -> (Editor, RoomId) {
     set_game_name(test_game.name());
     let mut game = create_new_game(test_game.name().to_string());
-    let cur_world_id = game.current_world_id;
+    let cur_world_id = game
+        .current_world_id
+        .expect("new game should have a current world");
     let room_id = game
         .current_world()
         .starting_room_id

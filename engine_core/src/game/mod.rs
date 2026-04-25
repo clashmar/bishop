@@ -1,9 +1,11 @@
 // engine_core/src/game/mod.rs
 
 pub mod game_map;
+pub mod id_allocator;
 pub mod startup_mode;
 
 pub use game_map::*;
+pub use id_allocator::*;
 pub use startup_mode::*;
 
 use crate::assets::{sprite_manager::SpriteManager, AssetRegistry};
@@ -12,7 +14,6 @@ use crate::engine_global::set_game_name;
 use crate::onscreen_error;
 use crate::prefab::{load_prefab_manager, PrefabManager};
 use crate::scripting::script_manager::ScriptManager;
-use crate::worlds::room::RoomId;
 use crate::worlds::world::*;
 use crate::{storage::text_folder, text::TextManager};
 use bishop::prelude::TextureLoader;
@@ -22,7 +23,7 @@ use serde_with::serde_as;
 use uuid::Uuid;
 
 #[serde_as]
-#[derive(Serialize, Deserialize, Default)]
+#[derive(Serialize, Deserialize)]
 #[serde(default)]
 pub struct Game {
     pub version: u32,
@@ -46,12 +47,33 @@ pub struct Game {
     /// Prefab manager for the game.
     #[serde(skip)]
     pub prefab_manager: PrefabManager,
-    /// Id of the currently active world.
-    pub current_world_id: WorldId, // TODO: Change this to an option
+    /// Id of the currently active world. `None` means no world is active.
+    /// `WorldId(0)` is used as a dummy when no worlds exist.
+    pub current_world_id: Option<WorldId>,
     /// Top level map of the whole game.
     pub game_map: GameMap,
-    /// Counter for allocating globally unique room Ids.
-    pub next_room_id: usize,
+    #[serde(skip)]
+    pub id_allocator: IdAllocator,
+}
+
+impl Default for Game {
+    fn default() -> Self {
+        Self {
+            version: 1,
+            id: Uuid::new_v4(),
+            name: String::new(),
+            ecs: Ecs::default(),
+            worlds: Vec::new(),
+            asset_registry: AssetRegistry::default(),
+            sprite_manager: SpriteManager::default(),
+            script_manager: ScriptManager::default(),
+            text_manager: TextManager::default(),
+            prefab_manager: PrefabManager::default(),
+            current_world_id: Some(WorldId(1)),
+            game_map: GameMap::default(),
+            id_allocator: IdAllocator::default(),
+        }
+    }
 }
 
 /// Bundles together common immutable game services.
@@ -77,11 +99,12 @@ pub struct GameCtxMut<'a> {
 impl Game {
     /// Returns an immutable game context.
     pub fn ctx<'a>(&'a self) -> GameCtx<'a> {
+        let current_id = self.current_world_id.unwrap_or(WorldId::dummy());
         let world = self
             .worlds
             .iter()
-            .find(|w| w.id == self.current_world_id)
-            .expect("There must be a current world.");
+            .find(|w| w.id == current_id)
+            .unwrap_or_else(|| World::dummy());
 
         GameCtx {
             ecs: &self.ecs,
@@ -95,15 +118,17 @@ impl Game {
 
     /// Returns a mutable game context.
     pub fn ctx_mut<'a>(&'a mut self) -> GameCtxMut<'a> {
-        let world = self
+        let current_id = self.current_world_id.unwrap_or(WorldId::dummy());
+        let idx = self
             .worlds
-            .iter_mut()
-            .find(|w| w.id == self.current_world_id)
-            .expect("There must be a current world.");
+            .iter()
+            .position(|w| w.id == current_id)
+            .unwrap_or(0);
+        let world = self.worlds.get_mut(idx);
 
         GameCtxMut {
             ecs: &mut self.ecs,
-            world: Some(world),
+            world,
             asset_registry: &mut self.asset_registry,
             sprite_manager: &mut self.sprite_manager,
             script_manager: &mut self.script_manager,
@@ -113,18 +138,21 @@ impl Game {
 
     /// Mutable reference to the current world.
     pub fn current_world_mut(&mut self) -> &mut World {
-        self.worlds
-            .iter_mut()
-            .find(|w| w.id == self.current_world_id)
-            .expect("Current world id not present in game.")
+        let current_id = self.current_world_id.unwrap_or(WorldId::dummy());
+        let idx = self.worlds.iter().position(|w| w.id == current_id);
+        match idx {
+            Some(i) => &mut self.worlds[i],
+            None => self.worlds.iter_mut().next().expect("No worlds in game."),
+        }
     }
 
     /// Immutable reference to the current world.
     pub fn current_world(&self) -> &World {
+        let current_id = self.current_world_id.unwrap_or(WorldId::dummy());
         self.worlds
             .iter()
-            .find(|w| w.id == self.current_world_id)
-            .expect("Current world id not present in game.")
+            .find(|w| w.id == current_id)
+            .unwrap_or_else(|| World::dummy())
     }
 
     /// Gets a mutable reference to a world from its id.
@@ -137,14 +165,14 @@ impl Game {
 
     /// Add a new world and make it the active one.
     pub fn add_world(&mut self, world: World) {
-        self.current_world_id = world.id;
+        self.current_world_id = Some(world.id);
         self.worlds.push(world);
     }
 
     /// Switch the editor to a different world by its id.
     pub fn select_world(&mut self, id: WorldId) {
         if self.worlds.iter().any(|w| w.id == id) {
-            self.current_world_id = id;
+            self.current_world_id = Some(id);
         }
     }
 
@@ -154,17 +182,18 @@ impl Game {
             self.worlds.swap_remove(pos);
         }
 
-        if self.current_world_id == id {
+        if self.current_world_id == Some(id) {
             self.current_world_id = self
                 .worlds
                 .first()
                 .map(|w| w.id)
-                .unwrap_or(WorldId(Uuid::nil()));
+                .or_else(|| Some(WorldId::dummy()));
         }
     }
 
     /// Syncs all assets/scripts that belong to this game, sets the game name, and inits managers.
     pub fn initialize(&mut self, loader: &impl TextureLoader, lua: &Lua) {
+        self.id_allocator = IdAllocator::from_game(self);
         set_game_name(self.name.clone());
         self.asset_registry.init_editor_metadata();
         SpriteManager::init_manager(loader, self);
@@ -175,6 +204,7 @@ impl Game {
 
     /// Initializes runtime state for the game without eagerly hydrating all textures.
     pub fn initialize_runtime(&mut self, lua: &Lua) {
+        self.id_allocator = IdAllocator::from_game(self);
         set_game_name(self.name.clone());
         self.asset_registry.init_editor_metadata();
         SpriteManager::init_runtime_manager(self);
@@ -201,12 +231,6 @@ impl Game {
                 onscreen_error!("Failed to load prefabs: {error}");
             }
         }
-    }
-
-    /// Allocates a globally unique room ID.
-    pub fn allocate_room_id(&mut self) -> RoomId {
-        self.next_room_id += 1;
-        RoomId(self.next_room_id)
     }
 }
 
@@ -240,6 +264,7 @@ impl GameCtxMut<'_> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::worlds::room::Room;
 
     #[test]
     fn game_ctx_mut_can_exist_without_a_current_world() {
@@ -259,5 +284,56 @@ mod tests {
         };
 
         assert!(ctx.world.is_none());
+    }
+
+    #[test]
+    fn delete_world_sets_current_to_dummy_when_empty() {
+        let mut game = Game::default();
+        let world_id = game.id_allocator.allocate_world_id();
+        game.add_world(World {
+            id: world_id,
+            ..Default::default()
+        });
+        game.delete_world(world_id);
+        assert_eq!(game.current_world_id, Some(WorldId::dummy()));
+    }
+
+    #[test]
+    fn delete_world_sets_current_to_remaining_world() {
+        let mut game = Game::default();
+        let w1 = game.id_allocator.allocate_world_id();
+        let w2 = game.id_allocator.allocate_world_id();
+        game.add_world(World {
+            id: w1,
+            name: "a".into(),
+            ..Default::default()
+        });
+        game.add_world(World {
+            id: w2,
+            name: "b".into(),
+            ..Default::default()
+        });
+        game.delete_world(w2);
+        assert_eq!(game.current_world_id, Some(w1));
+    }
+
+    #[test]
+    fn initialize_rebuilds_id_allocator() {
+        let mut game = Game::default();
+        let w1 = game.id_allocator.allocate_world_id();
+        let r1 = game.id_allocator.allocate_room_id();
+        game.add_world(World {
+            id: w1,
+            rooms: vec![Room {
+                id: r1,
+                ..Default::default()
+            }],
+            ..Default::default()
+        });
+        game.id_allocator = IdAllocator::default();
+        game.id_allocator = IdAllocator::from_game(&game);
+        assert!(game.id_allocator.allocate_world_id().0 > w1.0);
+        let next_room = game.id_allocator.allocate_room_id();
+        assert!(next_room.0 > r1.0);
     }
 }
