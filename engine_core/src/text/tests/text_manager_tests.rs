@@ -1,4 +1,5 @@
 use crate::assets::AssetRegistry;
+use crate::constants::paths;
 use crate::prelude::*;
 use crate::storage::test_utils::{game_fs_test_lock, TestGameFolder};
 use crate::text::{SelectionMode, TextEntry, TextFile};
@@ -11,7 +12,6 @@ const ENGLISH_TEXT: &str = "Hello";
 const SPANISH_TEXT: &str = "Hola";
 const SPANISH_EXHAUSTED_TEXT: &str = "Se acabaron";
 const DIALOGUE_RELATIVE_PATH: &str = "dialogue/npcs/npc.toml";
-const MANIFEST_FILE: &str = "_manifest.toml";
 const ENGLISH_LANGUAGE: &str = "en";
 const SPANISH_LANGUAGE: &str = "es";
 
@@ -55,7 +55,7 @@ fn text_manager_toml_id_loads_current_language_file() {
     let text_root = text_folder();
     fs::create_dir_all(&text_root).expect("text root should be creatable");
     fs::write(
-        text_root.join(MANIFEST_FILE),
+        text_root.join(paths::LANGUAGE_MANIFEST),
         format!(
             "default_language = \"{ENGLISH_LANGUAGE}\"\navailable = [\"{ENGLISH_LANGUAGE}\"]\n"
         ),
@@ -93,7 +93,7 @@ fn text_manager_toml_id_switches_languages_without_changing_id() {
     let text_root = text_folder();
     fs::create_dir_all(&text_root).expect("text root should be creatable");
     fs::write(
-        text_root.join(MANIFEST_FILE),
+        text_root.join(paths::LANGUAGE_MANIFEST),
         format!(
             "default_language = \"{ENGLISH_LANGUAGE}\"\navailable = [\"{ENGLISH_LANGUAGE}\", \"{SPANISH_LANGUAGE}\"]\n"
         ),
@@ -142,7 +142,7 @@ fn text_manager_toml_id_resets_selection_state_when_language_changes() {
     let text_root = text_folder();
     fs::create_dir_all(&text_root).expect("text root should be creatable");
     fs::write(
-        text_root.join(MANIFEST_FILE),
+        text_root.join(paths::LANGUAGE_MANIFEST),
         format!(
             "default_language = \"{ENGLISH_LANGUAGE}\"\navailable = [\"{ENGLISH_LANGUAGE}\", \"{SPANISH_LANGUAGE}\"]\n"
         ),
@@ -199,7 +199,7 @@ fn text_manager_toml_id_preserves_state_when_reapplying_same_language() {
     let text_root = text_folder();
     fs::create_dir_all(&text_root).expect("text root should be creatable");
     fs::write(
-        text_root.join(MANIFEST_FILE),
+        text_root.join(paths::LANGUAGE_MANIFEST),
         format!(
             "default_language = \"{ENGLISH_LANGUAGE}\"\navailable = [\"{ENGLISH_LANGUAGE}\"]\n"
         ),
@@ -246,7 +246,7 @@ fn text_manager_toml_id_reapplies_same_language_and_refreshes_cached_files() {
     let text_root = text_folder();
     fs::create_dir_all(&text_root).expect("text root should be creatable");
     fs::write(
-        text_root.join(MANIFEST_FILE),
+        text_root.join(paths::LANGUAGE_MANIFEST),
         format!(
             "default_language = \"{ENGLISH_LANGUAGE}\"\navailable = [\"{ENGLISH_LANGUAGE}\"]\n"
         ),
@@ -295,7 +295,7 @@ fn text_manager_toml_id_resolves_language_prefixed_registry_paths() {
     let text_root = text_folder();
     fs::create_dir_all(&text_root).expect("text root should be creatable");
     fs::write(
-        text_root.join(MANIFEST_FILE),
+        text_root.join(paths::LANGUAGE_MANIFEST),
         format!(
             "default_language = \"{ENGLISH_LANGUAGE}\"\navailable = [\"{ENGLISH_LANGUAGE}\", \"{SPANISH_LANGUAGE}\"]\n"
         ),
@@ -347,7 +347,7 @@ fn text_manager_register_toml_path_fills_first_unused_id_gap() {
     let text_root = text_folder();
     fs::create_dir_all(&text_root).expect("text root should be creatable");
     fs::write(
-        text_root.join(MANIFEST_FILE),
+        text_root.join(paths::LANGUAGE_MANIFEST),
         format!(
             "default_language = \"{ENGLISH_LANGUAGE}\"\navailable = [\"{ENGLISH_LANGUAGE}\"]\n"
         ),
@@ -384,7 +384,7 @@ fn text_manager_register_toml_path_reuses_language_prefixed_registry_entry() {
     let text_root = text_folder();
     fs::create_dir_all(&text_root).expect("text root should be creatable");
     fs::write(
-        text_root.join(MANIFEST_FILE),
+        text_root.join(paths::LANGUAGE_MANIFEST),
         format!(
             "default_language = \"{ENGLISH_LANGUAGE}\"\navailable = [\"{ENGLISH_LANGUAGE}\"]\n"
         ),

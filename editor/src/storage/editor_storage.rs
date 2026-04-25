@@ -138,8 +138,8 @@ pub(super) fn create_game_folders(name: &str) {
 fn create_default_text_files() {
     let text_root = text_folder();
 
-    // Create _manifest.toml with default config
-    let manifest_path = text_root.join("_manifest.toml");
+    // Create language manifest with default config
+    let manifest_path = text_root.join(paths::LANGUAGE_MANIFEST);
     if !manifest_path.exists() {
         let manifest_content = r#"# Text manifest configuration
 default_language = "en"

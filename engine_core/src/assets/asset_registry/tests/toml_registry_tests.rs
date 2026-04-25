@@ -1,5 +1,5 @@
 use crate::assets::asset_registry::{AssetKey, AssetRecord, AssetRegistry};
-use crate::constants::paths::TEXT_FOLDER;
+use crate::constants::paths::{self, TEXT_FOLDER};
 use crate::ecs::TomlId;
 use std::io::ErrorKind;
 use std::path::PathBuf;
@@ -64,7 +64,7 @@ fn register_asset_relative_path_accepts_language_prefixed_toml_path() {
 fn register_asset_relative_path_accepts_root_level_toml_path() {
     let mut registry = AssetRegistry::default();
     let toml_id = TomlId(8);
-    let relative_path = PathBuf::from("_manifest.toml");
+    let relative_path = PathBuf::from(paths::LANGUAGE_MANIFEST);
 
     registry
         .register_asset_relative_path(toml_id, &relative_path)

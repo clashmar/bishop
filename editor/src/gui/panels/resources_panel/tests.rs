@@ -1,4 +1,4 @@
-use engine_core::constants::extensions;
+use engine_core::constants::{extensions, paths};
 use engine_core::scripting::lua_constants::lua_dirs;
 
 use super::icon_mapper::{IconMapper, IconType, FILE_ICON_MAP};
@@ -10,6 +10,11 @@ fn dir_visible_hides_hidden_dirs() {
     for &name in HIDDEN_DIRS {
         assert!(!PathFilter::dir_visible(name), "should hide dir: {name}");
     }
+}
+
+#[test]
+fn file_visible_hides_language_manifest() {
+    assert!(!PathFilter::file_visible(paths::LANGUAGE_MANIFEST));
 }
 
 #[test]

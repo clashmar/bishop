@@ -1,4 +1,5 @@
 use crate::assets::{sprite_manager::SpriteManager, AssetRegistry};
+use crate::constants::paths;
 use crate::ecs::entity::Entity;
 use crate::ecs::{ScriptId, SpriteId, TomlId};
 use crate::prelude::{assets_folder, scripts_folder, text_folder};
@@ -224,7 +225,7 @@ fn picked_toml_relative_path(text_root: &Path, picked_path: &Path) -> Result<Pat
 }
 
 fn canonicalize_toml_relative_path(relative_path: &Path) -> PathBuf {
-    let manifest_path = text_folder().join("_manifest.toml");
+    let manifest_path = text_folder().join(paths::LANGUAGE_MANIFEST);
     let Some(content) = fs::read_to_string(manifest_path).ok() else {
         return relative_path.to_path_buf();
     };
@@ -256,7 +257,7 @@ mod tests {
         set_game_name(folder.name());
         fs::create_dir_all(text_folder()).unwrap();
         fs::write(
-            text_folder().join("_manifest.toml"),
+            text_folder().join(paths::LANGUAGE_MANIFEST),
             "default_language = \"en\"\navailable = [\"en\", \"es\"]\n",
         )
         .unwrap();

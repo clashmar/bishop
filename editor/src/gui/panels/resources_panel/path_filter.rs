@@ -9,7 +9,11 @@ pub const HIDDEN_DIRS: &[&str] = &[
     lua_dirs::ENGINE,
 ];
 
-pub const HIDDEN_FILENAMES: &[&str] = &[paths::GAME_RON, paths::STARTUP_RON];
+pub const HIDDEN_FILENAMES: &[&str] = &[
+    paths::GAME_RON,
+    paths::STARTUP_RON,
+    paths::LANGUAGE_MANIFEST,
+];
 
 pub const HIDDEN_EXTENSIONS: &[&str] = &[extensions::ASEPRITE, extensions::ASE, extensions::JSON];
 

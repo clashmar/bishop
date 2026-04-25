@@ -48,8 +48,11 @@ pub mod paths {
     /// Name of the game .ron save file.
     pub const GAME_RON: &str = "game.ron";
 
-    /// Name of the startup .ron file (hidden from Resources browser).
+    /// Name of the startup .ron file.
     pub const STARTUP_RON: &str = "startup.ron";
+
+    /// Name of the language manifest file.
+    pub const LANGUAGE_MANIFEST: &str = "_manifest.toml";
 
     /// Name of the root user-facing save folder for the editor.
     pub const SAVE_ROOT: &str = "Bishop";
