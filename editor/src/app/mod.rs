@@ -239,11 +239,6 @@ impl Editor {
                 }
             }
             EditorMode::Game => {
-                if self.pending_camera_reset {
-                    self.pending_camera_reset = false;
-                    self.game_editor
-                        .init_camera(ctx, &mut self.camera, &mut self.game);
-                }
                 // Returns the id of the world that was clicked on or None
                 if let Some(world_id) = self.game_editor.update(ctx, &self.camera, &mut self.game) {
                     self.world_editor.init_camera(
@@ -446,6 +441,12 @@ impl Editor {
     }
 
     pub fn draw(&mut self, ctx: &mut WgpuContext) {
+        if self.pending_camera_reset {
+            self.pending_camera_reset = false;
+            self.game_editor
+                .init_camera(ctx, &mut self.camera, &mut self.game);
+        }
+
         match self.mode {
             EditorMode::Menu => self.menu_editor.draw(ctx, &self.camera),
             EditorMode::Prefab(_) => {
