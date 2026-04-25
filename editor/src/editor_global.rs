@@ -49,6 +49,13 @@ pub fn push_toast<S: Into<String>>(msg: S, duration: f32) {
     });
 }
 
+/// Queue a persistent, throb-animating toast. Stays active until replaced by another toast.
+pub fn push_throbbing_toast<S: Into<String>>(msg: S) {
+    PENDING_TOAST.with(|cell| {
+        *cell.borrow_mut() = Some(Toast::new_throbbing(msg));
+    });
+}
+
 /// Takes the pending toast, if any. Called by `Editor::draw_toast()` each frame.
 pub fn take_pending_toast() -> Option<Toast> {
     PENDING_TOAST.with(|cell| cell.borrow_mut().take())

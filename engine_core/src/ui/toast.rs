@@ -15,6 +15,10 @@ pub struct Toast {
     pub duration: f32,
     /// Whether the toast is currently visible.
     pub active: bool,
+    /// If true, the toast never auto-expires from the timer.
+    persistent: bool,
+    /// When set, cycles `.`/`..`/`...` after the base text.
+    throb_base_msg: Option<String>,
 }
 
 impl Toast {
@@ -25,7 +29,25 @@ impl Toast {
             start: Instant::now(),
             duration,
             active: true,
+            persistent: false,
+            throb_base_msg: None,
         }
+    }
+
+    /// Create a persistent toast that throb-animates with cycling dots and never auto-expires.
+    pub fn new_throbbing<S: Into<String>>(msg: S) -> Self {
+        let msg_string = msg.into();
+        Self {
+            persistent: true,
+            throb_base_msg: Some(msg_string.clone()),
+            duration: f32::MAX,
+            ..Self::new(msg_string, 0.0)
+        }
+    }
+
+    /// Reset the internal timer. Useful with a non-zero `duration` as a safety-net expiry.
+    pub fn refresh(&mut self) {
+        self.start = Instant::now();
     }
 
     /// Call each frame. Draws the toast if it is still alive.
@@ -33,13 +55,14 @@ impl Toast {
         if !self.active {
             return;
         }
-        // Hide after the elapsed time.
-        if self.start.elapsed().as_secs_f32() >= self.duration {
+        if !self.persistent && self.start.elapsed().as_secs_f32() >= self.duration {
             self.active = false;
             return;
         }
 
-        let txt = measure_text(ctx, &self.msg, DEFAULT_FONT_SIZE_16);
+        let display_msg = self.throb_display_msg();
+        let measure_msg = self.throb_measure_msg();
+        let txt = measure_text(ctx, &measure_msg, DEFAULT_FONT_SIZE_16);
 
         // Bottom left
         let bg_rect = Rect::new(
@@ -61,12 +84,31 @@ impl Toast {
         // Text
         draw_text_ui(
             ctx,
-            &self.msg,
+            &display_msg,
             bg_rect.x + PADDING,
             bg_rect.y + (bg_rect.h - txt.height) / 2.0 + txt.offset_y,
             DEFAULT_FONT_SIZE_16,
             Color::WHITE,
         );
+    }
+
+    /// Returns the text to draw, including the throb dot suffix if applicable.
+    fn throb_display_msg(&self) -> String {
+        if let Some(ref base) = self.throb_base_msg {
+            let dot_count = (self.start.elapsed().as_secs_f32() * 2.0) as usize % 3 + 1;
+            format!("{}{}", base, ".".repeat(dot_count))
+        } else {
+            self.msg.clone()
+        }
+    }
+
+    /// Returns the widest possible text (for rect measurement) to avoid jitter.
+    fn throb_measure_msg(&self) -> String {
+        if let Some(ref base) = self.throb_base_msg {
+            format!("{}...", base)
+        } else {
+            self.msg.clone()
+        }
     }
 }
 
@@ -326,5 +368,67 @@ mod tests {
         assert_eq!(text_call.color, Color::WHITE);
         assert!((text_call.x - (bg.x + PADDING)).abs() < f32::EPSILON);
         assert!((text_call.y - expected_baseline_y).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn new_throbbing_sets_persistent_and_throb_base() {
+        let toast = Toast::new_throbbing("Building playtest");
+        assert!(toast.persistent);
+        assert_eq!(toast.throb_base_msg.as_deref(), Some("Building playtest"));
+        assert!(toast.active);
+    }
+
+    #[test]
+    fn persistent_toast_does_not_expire() {
+        let text_dims = TextDimensions {
+            width: 80.0,
+            height: 16.0,
+            offset_y: 12.0,
+        };
+        let mut ctx = TestContext::new(200.0, text_dims);
+        let mut toast = Toast::new_throbbing("Working");
+        std::thread::sleep(std::time::Duration::from_millis(10));
+        toast.update(&mut ctx);
+        assert!(
+            toast.active,
+            "persistent toast should still be active after duration expires"
+        );
+    }
+
+    #[test]
+    fn throb_display_msg_cycles_dots() {
+        let toast = Toast::new_throbbing("Build");
+        let msg = toast.throb_display_msg();
+        assert!(
+            msg == "Build." || msg == "Build.." || msg == "Build...",
+            "throb display should end with 1-3 dots, got: {msg}"
+        );
+    }
+
+    #[test]
+    fn throb_measure_msg_is_widest_variant() {
+        let toast = Toast::new_throbbing("Build");
+        assert_eq!(toast.throb_measure_msg(), "Build...");
+    }
+
+    #[test]
+    fn throb_measure_msg_falls_back_to_msg_when_no_throb() {
+        let toast = Toast::new("Saved", 5.0);
+        assert_eq!(toast.throb_measure_msg(), "Saved");
+    }
+
+    #[test]
+    fn refresh_resets_start_time() {
+        let mut toast = Toast::new_throbbing("Working");
+        std::thread::sleep(std::time::Duration::from_millis(10));
+        toast.refresh();
+        let text_dims = TextDimensions {
+            width: 80.0,
+            height: 16.0,
+            offset_y: 12.0,
+        };
+        let mut ctx = TestContext::new(200.0, text_dims);
+        toast.update(&mut ctx);
+        assert!(toast.active, "refreshed toast should still be active");
     }
 }

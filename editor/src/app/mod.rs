@@ -12,7 +12,7 @@ pub use sub_editor::SubEditor;
 
 use crate::app::audio::default_audio_manager;
 use crate::canvas::grid_shader::GridRenderer;
-use crate::editor_global::push_toast;
+use crate::editor_global::{push_throbbing_toast, push_toast};
 use crate::game::game_editor::GameEditor;
 use crate::gui::menu_bar::MenuBar;
 use crate::gui::modal::Modal;
@@ -416,7 +416,7 @@ impl Editor {
                             }
                         } else {
                             // Dev mode: cargo build runs in the background
-                            push_toast("Building playtest...", 30.0);
+                            push_throbbing_toast("Building playtest");
                             self.pending_playtest_build = Some(BackgroundTask::spawn(move || {
                                 resolve_playtest_binary()
                                     .map(|exe_path| (exe_path, payload_path))
