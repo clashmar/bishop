@@ -49,8 +49,10 @@ pub fn create_new_game(name: String) -> Game {
     // Ensure the folder structure exists.
     create_game_folders(&name);
 
-    let mut game = Game::default();
-    game.name = name;
+    let mut game = Game {
+        name,
+        ..Default::default()
+    };
 
     let world = create_new_world(&mut game);
     game.worlds.push(world);

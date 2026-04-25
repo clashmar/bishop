@@ -1,5 +1,3 @@
-// engine_core/src/game/mod.rs
-
 pub mod game_map;
 pub mod id_allocator;
 pub mod startup_mode;
@@ -10,16 +8,22 @@ pub use startup_mode::*;
 
 use crate::assets::{sprite_manager::SpriteManager, AssetRegistry};
 use crate::ecs::ecs::Ecs;
+#[cfg(feature = "editor")]
+use crate::ecs::{get_root_entities_in_set, CurrentRoom, Entity};
 use crate::engine_global::set_game_name;
 use crate::onscreen_error;
 use crate::prefab::{load_prefab_manager, PrefabManager};
 use crate::scripting::script_manager::ScriptManager;
+#[cfg(feature = "editor")]
+use crate::worlds::room::RoomId;
 use crate::worlds::world::*;
 use crate::{storage::text_folder, text::TextManager};
 use bishop::prelude::TextureLoader;
 use mlua::Lua;
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
+#[cfg(feature = "editor")]
+use std::collections::HashSet;
 use uuid::Uuid;
 
 #[serde_as]
@@ -99,7 +103,7 @@ pub struct GameCtxMut<'a> {
 impl Game {
     /// Returns an immutable game context.
     pub fn ctx<'a>(&'a self) -> GameCtx<'a> {
-        let current_id = self.current_world_id.unwrap_or(WorldId::dummy());
+        let current_id = self.current_world_id.unwrap_or(WorldId::default());
         let world = self
             .worlds
             .iter()
@@ -118,7 +122,7 @@ impl Game {
 
     /// Returns a mutable game context.
     pub fn ctx_mut<'a>(&'a mut self) -> GameCtxMut<'a> {
-        let current_id = self.current_world_id.unwrap_or(WorldId::dummy());
+        let current_id = self.current_world_id.unwrap_or(WorldId::default());
         let idx = self
             .worlds
             .iter()
@@ -138,7 +142,7 @@ impl Game {
 
     /// Mutable reference to the current world.
     pub fn current_world_mut(&mut self) -> &mut World {
-        let current_id = self.current_world_id.unwrap_or(WorldId::dummy());
+        let current_id = self.current_world_id.unwrap_or(WorldId::default());
         let idx = self.worlds.iter().position(|w| w.id == current_id);
         match idx {
             Some(i) => &mut self.worlds[i],
@@ -148,7 +152,7 @@ impl Game {
 
     /// Immutable reference to the current world.
     pub fn current_world(&self) -> &World {
-        let current_id = self.current_world_id.unwrap_or(WorldId::dummy());
+        let current_id = self.current_world_id.unwrap_or(WorldId::default());
         self.worlds
             .iter()
             .find(|w| w.id == current_id)
@@ -177,9 +181,29 @@ impl Game {
     }
 
     /// Deletes the world from the game.
+    #[cfg(feature = "editor")]
     pub fn delete_world(&mut self, id: WorldId) {
+        let room_ids: HashSet<RoomId> = self
+            .worlds
+            .iter()
+            .find(|w| w.id == id)
+            .map(|w| w.rooms.iter().map(|r| r.id).collect())
+            .unwrap_or_default();
+
+        let entity_ids: HashSet<Entity> = {
+            let store = self.ecs.get_store::<CurrentRoom>();
+            store
+                .data
+                .iter()
+                .filter(|(_, CurrentRoom(room))| room_ids.contains(room))
+                .map(|(&entity, _)| entity)
+                .collect()
+        };
+
+        let root_entities = get_root_entities_in_set(&self.ecs, &entity_ids);
+
         if let Some(pos) = self.worlds.iter().position(|w| w.id == id) {
-            self.worlds.swap_remove(pos);
+            self.worlds.remove(pos);
         }
 
         if self.current_world_id == Some(id) {
@@ -187,7 +211,12 @@ impl Game {
                 .worlds
                 .first()
                 .map(|w| w.id)
-                .or_else(|| Some(WorldId::dummy()));
+                .or_else(|| Some(WorldId::default()));
+        }
+
+        let mut ctx = self.ctx_mut();
+        for entity in root_entities {
+            Ecs::remove_entity(&mut ctx, entity);
         }
     }
 
@@ -264,6 +293,7 @@ impl GameCtxMut<'_> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::ecs::{CurrentRoom, Ecs, Name};
     use crate::worlds::room::Room;
 
     #[test]
@@ -295,7 +325,7 @@ mod tests {
             ..Default::default()
         });
         game.delete_world(world_id);
-        assert_eq!(game.current_world_id, Some(WorldId::dummy()));
+        assert_eq!(game.current_world_id, Some(WorldId::default()));
     }
 
     #[test]
@@ -315,6 +345,79 @@ mod tests {
         });
         game.delete_world(w2);
         assert_eq!(game.current_world_id, Some(w1));
+    }
+
+    #[test]
+    fn delete_world_removes_all_room_entities() {
+        let mut game = Game::default();
+        let world_id = game.id_allocator.allocate_world_id();
+        let room_id = game.id_allocator.allocate_room_id();
+        game.add_world(World {
+            id: world_id,
+            rooms: vec![Room {
+                id: room_id,
+                ..Default::default()
+            }],
+            ..Default::default()
+        });
+
+        let entity = game
+            .ecs
+            .create_entity()
+            .with(CurrentRoom(room_id))
+            .with(Name("test_entity".into()))
+            .finish();
+
+        game.delete_world(world_id);
+
+        assert!(
+            !game.ecs.has::<CurrentRoom>(entity),
+            "CurrentRoom should be gone after world deletion"
+        );
+        assert!(
+            !game.ecs.has::<Name>(entity),
+            "Name should be gone after world deletion"
+        );
+    }
+
+    #[test]
+    fn delete_world_preserves_other_world_entities() {
+        let mut game = Game::default();
+        let world_a = game.id_allocator.allocate_world_id();
+        let world_b = game.id_allocator.allocate_world_id();
+        let room_a = game.id_allocator.allocate_room_id();
+        let room_b = game.id_allocator.allocate_room_id();
+
+        game.add_world(World {
+            id: world_a,
+            rooms: vec![Room {
+                id: room_a,
+                ..Default::default()
+            }],
+            ..Default::default()
+        });
+        game.add_world(World {
+            id: world_b,
+            rooms: vec![Room {
+                id: room_b,
+                ..Default::default()
+            }],
+            ..Default::default()
+        });
+
+        let entity_a = game.ecs.create_entity().with(CurrentRoom(room_a)).finish();
+        let entity_b = game.ecs.create_entity().with(CurrentRoom(room_b)).finish();
+
+        game.delete_world(world_a);
+
+        assert!(
+            !game.ecs.has::<CurrentRoom>(entity_a),
+            "entity_a should be gone after its world is deleted"
+        );
+        assert!(
+            game.ecs.has::<CurrentRoom>(entity_b),
+            "entity_b should still exist after the other world is deleted"
+        );
     }
 
     #[test]

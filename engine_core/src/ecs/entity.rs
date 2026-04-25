@@ -1,4 +1,3 @@
-// engine_core/src/ecs/entity.rs
 use crate::ecs::component::{Component, ComponentStore};
 use crate::ecs::component_registry::ComponentRegistry;
 pub use crate::ecs::components::hierarchy::{Children, Parent};
@@ -6,6 +5,7 @@ use crate::ecs::ecs::Ecs;
 use inventory::iter;
 use serde::{Deserialize, Serialize};
 use std::any::TypeId;
+use std::collections::HashSet;
 
 #[derive(
     Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Serialize, Deserialize, Default,
@@ -130,6 +130,23 @@ pub fn get_root_entities(ecs: &Ecs, entities: &[Entity]) -> Vec<Entity> {
         .copied()
         .filter(|&e| !ecs.has::<Parent>(e))
         .collect()
+}
+
+/// Returns entities in `entities` that are not descendants of any other entity in the same set.
+pub fn get_root_entities_in_set(ecs: &Ecs, entities: &HashSet<Entity>) -> Vec<Entity> {
+    let mut roots: Vec<Entity> = entities
+        .iter()
+        .copied()
+        .filter(|entity| {
+            !entities
+                .iter()
+                .copied()
+                .any(|candidate| candidate != *entity && is_ancestor(ecs, candidate, *entity))
+        })
+        .collect();
+
+    roots.sort_unstable();
+    roots
 }
 
 /// Recursively get all descendants of an entity.

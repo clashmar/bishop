@@ -1,6 +1,6 @@
-// engine_core/src/worlds/world.rs
 use crate::assets::sprite_manager::SpriteManager;
 use crate::ecs::SpriteId;
+use crate::constants::world;
 use crate::tiles::tilemap::TileMap;
 use crate::worlds::room::*;
 use bishop::prelude::*;
@@ -9,29 +9,11 @@ use serde_with::serde_as;
 use serde_with::FromInto;
 
 /// Identifier for a world.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Default, Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct WorldId(pub usize);
 
-impl Default for WorldId {
-    fn default() -> Self {
-        WorldId(0)
-    }
-}
-
-impl WorldId {
-    /// Returns the dummy id used as a placeholder when no real worlds exist.
-    pub fn dummy() -> Self {
-        WorldId(0)
-    }
-}
-
-/// Default grid size in pixels.
-fn default_grid_size() -> f32 {
-    16.0
-}
-
 #[serde_as]
-#[derive(Serialize, Deserialize, Default, Debug)]
+#[derive(Clone, Serialize, Deserialize, Default, Debug)]
 pub struct World {
     pub id: WorldId,
     pub name: String,
@@ -45,6 +27,10 @@ pub struct World {
     pub grid_size: f32,
 }
 
+fn default_grid_size() -> f32 {
+    world::DEFAULT_GRID_SIZE
+}
+
 impl World {
     /// Returns a static dummy world used as a fallback when no real worlds exist.
     pub fn dummy() -> &'static Self {
@@ -54,7 +40,7 @@ impl World {
 }
 
 #[serde_as]
-#[derive(Serialize, Deserialize, Default, Debug)]
+#[derive(Clone, Serialize, Deserialize, Default, Debug)]
 pub struct WorldMeta {
     /// Position on the game map.
     #[serde_as(as = "FromInto<[f32; 2]>")]
