@@ -20,6 +20,7 @@ pub(super) use engine_core::prelude::*;
 pub(super) use engine_core::storage::path_utils::{game_folder, sanitise_name};
 pub(super) use engine_core::storage::test_utils::{game_fs_test_lock, TestGameFolder};
 pub(super) use std::path::PathBuf;
+use std::sync::Mutex;
 
 mod asset_registry_stage_tests;
 mod blank_prefab_session_tests;
@@ -33,6 +34,8 @@ mod prefab_transition_tests;
 mod selection_tests;
 
 struct EditorServicesGuard;
+
+static TEST_PREFAB_SAVE_PICKER_RESULT: Mutex<Option<Option<PathBuf>>> = Mutex::new(None);
 
 impl EditorServicesGuard {
     fn install(editor: Editor) -> Self {
@@ -49,6 +52,32 @@ impl Drop for EditorServicesGuard {
         });
         reset_services();
     }
+}
+
+pub(crate) struct TestPrefabSavePickerGuard;
+
+impl Drop for TestPrefabSavePickerGuard {
+    fn drop(&mut self) {
+        *TEST_PREFAB_SAVE_PICKER_RESULT
+            .lock()
+            .unwrap_or_else(|poison| poison.into_inner()) = None;
+    }
+}
+
+pub(crate) fn install_prefab_save_picker_result(
+    result: Option<PathBuf>,
+) -> TestPrefabSavePickerGuard {
+    *TEST_PREFAB_SAVE_PICKER_RESULT
+        .lock()
+        .unwrap_or_else(|poison| poison.into_inner()) = Some(result);
+    TestPrefabSavePickerGuard
+}
+
+pub(crate) fn take_test_prefab_save_picker_result() -> Option<Option<PathBuf>> {
+    TEST_PREFAB_SAVE_PICKER_RESULT
+        .lock()
+        .unwrap_or_else(|poison| poison.into_inner())
+        .take()
 }
 
 fn make_editor_with_selected_entity(entity: Entity) -> Editor {
@@ -113,14 +142,17 @@ fn make_prefab_session_editor(test_game: &TestGameFolder) -> (Editor, RoomId, Pr
         .with(Name("Root".to_string()))
         .finish();
     editor.room_editor.set_selected_entity(Some(root));
-    editor.create_prefab_from_selection(&(), root, "Crate".to_string());
+    let _picker = install_prefab_save_picker_result(Some(
+        prefabs_folder().join(format!("Crate.{}", extensions::PREFAB)),
+    ));
+    editor.create_prefab_from_selection(root);
 
     (editor, room_id, PrefabId(1), root)
 }
 
 fn save_test_prefab(test_game: &TestGameFolder, prefab_id: PrefabId, name: &str) -> PrefabAsset {
     let prefab = create_prefab(prefab_id, name.to_string());
-    persist_prefab(test_game.name(), &prefab, &AssetRegistry::default())
+    persist_prefab(test_game.name(), &prefab, &AssetRegistry::default(), None)
         .expect("test prefab should persist")
         .0
 }

@@ -195,7 +195,9 @@ impl Editor {
             PendingPrefabTransition::OpenExisting(prefab_id) => {
                 self.open_prefab_editor_for_id(prefab_id)
             }
-            PendingPrefabTransition::CreateBlank(name) => self.create_blank_prefab_impl(name),
+            PendingPrefabTransition::CreateBlank { name, initial_path } => {
+                self.create_blank_prefab_impl(name, initial_path)
+            }
         }
     }
 }

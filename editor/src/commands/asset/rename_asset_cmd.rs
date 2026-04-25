@@ -119,6 +119,7 @@ impl RenameAssetCmd {
                 &editor.game.name,
                 &mut editor.game.asset_registry,
                 &updated,
+                None,
             ) {
                 push_toast(format!("Prefab save failed: {e}"), 3.0);
             }

@@ -98,9 +98,11 @@ impl PrefabManager {
         game_name: &str,
         asset_registry: &mut AssetRegistry,
         prefab: &PrefabAsset,
+        explicit_target_path: Option<&Path>,
     ) -> io::Result<PrefabAsset> {
         ensure_unique_prefab_name(prefab, self)?;
-        let (saved_prefab, saved_path) = persist_prefab(game_name, prefab, asset_registry)?;
+        let (saved_prefab, saved_path) =
+            persist_prefab(game_name, prefab, asset_registry, explicit_target_path)?;
         let prefab_folder = prefab_folder_for_game(game_name);
         let relative_path = prefab_relative_path(&prefab_folder, &saved_path)?;
         let record = AssetRecord::new(PathBuf::from(paths::PREFABS_FOLDER).join(relative_path));
@@ -208,11 +210,24 @@ pub fn load_prefab(game_name: &str, prefab_id: PrefabId, asset_registry: &AssetR
 
 /// Persists a prefab asset to disk, canonicalizing component and node order.
 #[cfg(feature = "editor")]
-pub fn persist_prefab(game_name: &str, prefab: &PrefabAsset, asset_registry: &AssetRegistry) -> io::Result<(PrefabAsset, PathBuf)> {
+pub fn persist_prefab(
+    game_name: &str,
+    prefab: &PrefabAsset,
+    asset_registry: &AssetRegistry,
+    explicit_target_path: Option<&Path>,
+) -> io::Result<(PrefabAsset, PathBuf)> {
     let prefab = canonical_prefab_asset(prefab);
     validate_prefab(&prefab)?;
+    let prefab_folder = prefab_folder_for_game(game_name);
     let existing_path = find_prefab_path(game_name, prefab.id, asset_registry)?;
-    let path = resolve_prefab_save_path(game_name, &prefab, existing_path.as_deref())?;
+    let path =
+        resolve_prefab_save_path(game_name, &prefab, existing_path.as_deref(), explicit_target_path)?;
+
+    if explicit_target_path.is_some() {
+        reject_explicit_prefab_path_collision(&prefab_folder, &path, prefab.id, asset_registry)?;
+        reject_explicit_prefab_file_collision(&path, prefab.id)?;
+    }
+
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent)?;
     }
@@ -230,6 +245,51 @@ pub fn persist_prefab(game_name: &str, prefab: &PrefabAsset, asset_registry: &As
     }
 
     Ok((prefab, path))
+}
+
+#[cfg(feature = "editor")]
+fn reject_explicit_prefab_path_collision(
+    prefab_folder: &Path,
+    prefab_path: &Path,
+    prefab_id: PrefabId,
+    asset_registry: &AssetRegistry,
+) -> io::Result<()> {
+    let relative_path = prefab_relative_path(prefab_folder, prefab_path)?;
+    let registry_path = PathBuf::from(paths::PREFABS_FOLDER).join(relative_path);
+    if let Some(existing_key) = asset_registry.key_for_path(&registry_path)
+        && existing_key != AssetKey::Prefab(prefab_id)
+    {
+        return Err(Error::new(
+            ErrorKind::AlreadyExists,
+            format!(
+                "Prefab path '{}' is already used by '{existing_key:?}'",
+                registry_path.display(),
+            ),
+        ));
+    }
+
+    Ok(())
+}
+
+#[cfg(feature = "editor")]
+fn reject_explicit_prefab_file_collision(prefab_path: &Path, prefab_id: PrefabId) -> io::Result<()> {
+    if !prefab_path.exists() {
+        return Ok(());
+    }
+
+    let existing_prefab = load_prefab_from_path(prefab_path)?;
+    if existing_prefab.id == prefab_id {
+        return Ok(());
+    }
+
+    Err(Error::new(
+        ErrorKind::AlreadyExists,
+        format!(
+            "Prefab path '{}' is already owned by prefab '{}'",
+            prefab_path.display(),
+            existing_prefab.id
+        ),
+    ))
 }
 
 /// Returns the prefab asset in canonical save order.
@@ -375,12 +435,23 @@ fn prefab_paths_for_game(game_name: &str) -> io::Result<Vec<PathBuf>> {
         return Ok(Vec::new());
     }
 
-    let mut paths = fs::read_dir(folder)?
-        .filter_map(|entry| entry.ok().map(|value| value.path()))
-        .filter(|path| path.extension().is_some_and(|ext| ext == extensions::PREFAB))
-        .collect::<Vec<_>>();
+    let mut paths = Vec::new();
+    collect_prefab_paths(&folder, &mut paths)?;
     paths.sort();
     Ok(paths)
+}
+
+fn collect_prefab_paths(folder: &Path, paths: &mut Vec<PathBuf>) -> io::Result<()> {
+    for entry in fs::read_dir(folder)? {
+        let path = entry?.path();
+        if path.is_dir() {
+            collect_prefab_paths(&path, paths)?;
+        } else if path.extension().is_some_and(|ext| ext == extensions::PREFAB) {
+            paths.push(path);
+        }
+    }
+
+    Ok(())
 }
 
 fn load_prefabs_for_game(game_name: &str) -> io::Result<Vec<(PathBuf, PrefabAsset)>> {
@@ -521,26 +592,62 @@ fn resolve_prefab_save_path(
     game_name: &str,
     prefab: &PrefabAsset,
     existing_path: Option<&Path>,
+    explicit_target_path: Option<&Path>,
 ) -> io::Result<PathBuf> {
     let folder = prefab_folder_for_game(game_name);
-    if !folder.exists() {
-        fs::create_dir_all(&folder)?;
+
+    if let Some(path) = explicit_target_path {
+        return validate_explicit_prefab_target_path(&folder, path);
+    }
+
+    if let Some(path) = existing_path {
+        return Ok(path.to_path_buf());
     }
 
     let stem = prefab_name_stem(&prefab.name);
     let preferred = folder.join(format!("{stem}.{}", extensions::PREFAB));
-    if !preferred.exists() || existing_path == Some(preferred.as_path()) {
+    if !preferred.exists() {
         return Ok(preferred);
     }
 
     let mut index = 2usize;
     loop {
         let candidate = folder.join(format!("{stem} {index}.{}", extensions::PREFAB));
-        if !candidate.exists() || existing_path == Some(candidate.as_path()) {
+        if !candidate.exists() {
             return Ok(candidate);
         }
         index += 1;
     }
+}
+
+#[cfg(feature = "editor")]
+fn validate_explicit_prefab_target_path(prefab_folder: &Path, explicit_target_path: &Path) -> io::Result<PathBuf> {
+    if explicit_target_path
+        .extension()
+        .is_none_or(|ext| ext != extensions::PREFAB)
+    {
+        return Err(Error::new(
+            ErrorKind::InvalidInput,
+            format!(
+                "Prefab path '{}' must use the '.{}' extension",
+                explicit_target_path.display(),
+                extensions::PREFAB
+            ),
+        ));
+    }
+
+    if explicit_target_path.starts_with(prefab_folder) {
+        return Ok(explicit_target_path.to_path_buf());
+    }
+
+    Err(Error::new(
+        ErrorKind::InvalidInput,
+        format!(
+            "Prefab path '{}' is outside '{}'",
+            explicit_target_path.display(),
+            prefab_folder.display()
+        ),
+    ))
 }
 
 #[cfg(feature = "editor")]
@@ -592,7 +699,7 @@ impl PrefabManager {
 
 #[cfg(all(test, feature = "editor"))]
 #[path = "tests/prefab_module_tests.rs"]
-mod tests;
+mod prefab_module_tests;
 
 #[cfg(all(test, feature = "editor"))]
 #[path = "tests/mod.rs"]

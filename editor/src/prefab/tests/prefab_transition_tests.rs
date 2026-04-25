@@ -564,8 +564,10 @@ fn blank_prefab_transition_does_not_create_asset_until_confirmed() {
         .create_prefab_entity(&mut editor.prefab_stage.as_mut().unwrap().ecs, Some(root));
 
     assert_eq!(
-        editor
-            .request_prefab_transition(PendingPrefabTransition::CreateBlank("Fresh".to_string(),)),
+        editor.request_prefab_transition(PendingPrefabTransition::CreateBlank {
+            name: "Fresh".to_string(),
+            initial_path: prefabs_folder().join(format!("Fresh.{}", extensions::PREFAB)),
+        }),
         PrefabTransitionPrompt::Dirty
     );
     assert!(editor
@@ -602,7 +604,10 @@ fn request_blank_prefab_transition_returns_dirty_prompt_without_opening_a_modal(
 
     assert!(!editor.modal.is_open());
     assert_eq!(
-        editor.request_blank_prefab_transition("Fresh".to_string()),
+        editor.request_blank_prefab_transition(
+            "Fresh".to_string(),
+            prefabs_folder().join(format!("Fresh.{}", extensions::PREFAB)),
+        ),
         PrefabTransitionPrompt::Dirty
     );
     assert!(editor.prefab_state.pending_transition().is_some());

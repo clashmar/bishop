@@ -96,6 +96,7 @@ impl EditorCommand for DeleteAssetCmd {
                         &editor.game.name,
                         &mut editor.game.asset_registry,
                         &prefab,
+                        None,
                     ) {
                         push_toast(format!("Could not restore prefab file: {e}"), 3.0);
                     }

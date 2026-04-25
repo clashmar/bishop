@@ -328,7 +328,7 @@ fn prefab_storage_round_trips_through_disk_helpers() {
         ],
     };
 
-    persist_prefab(test_game.name(), &prefab, &AssetRegistry::default()).unwrap();
+    persist_prefab(test_game.name(), &prefab, &AssetRegistry::default(), None).unwrap();
 
     let expected_path = prefabs_folder().join(format!(
         "{}.{}",

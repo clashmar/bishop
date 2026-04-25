@@ -126,8 +126,10 @@ fn create_prefab_from_selection_relinks_selected_room_subtree() {
         .finish();
     set_parent(&mut editor.game.ecs, child, root);
     editor.room_editor.set_selected_entity(Some(root));
-
-    editor.create_prefab_from_selection(&(), root, "Crate".to_string());
+    let _picker = install_prefab_save_picker_result(Some(
+        prefabs_folder().join(format!("Crate.{}", extensions::PREFAB)),
+    ));
+    editor.create_prefab_from_selection(root);
 
     let linked_root = editor
         .room_editor
@@ -182,6 +184,69 @@ fn create_prefab_from_selection_relinks_selected_room_subtree() {
 }
 
 #[test]
+fn create_prefab_from_selection_uses_picked_path_and_filename_stem() {
+    let _lock = game_fs_test_lock()
+        .lock()
+        .unwrap_or_else(|poison| poison.into_inner());
+    let test_game = TestGameFolder::new("prefab_selection_initial_save_target");
+    let (mut editor, room_id) = make_room_editor(&test_game);
+    let root = editor
+        .game
+        .ecs
+        .create_entity()
+        .with(Transform::default())
+        .with(CurrentRoom(room_id))
+        .with(Name("Root".to_string()))
+        .finish();
+    let picked_path = prefabs_folder()
+        .join("characters")
+        .join("bosses")
+        .join(format!("Boss Ogre.{}", extensions::PREFAB));
+    let _picker = install_prefab_save_picker_result(Some(picked_path));
+
+    editor.create_prefab_from_selection(root);
+
+    assert_eq!(editor.mode, EditorMode::Prefab(PrefabId(1)));
+    assert_eq!(
+        editor
+            .prefab_editor
+            .as_ref()
+            .map(|prefab| prefab.prefab_name.as_str()),
+        Some("Boss Ogre")
+    );
+    assert_eq!(
+        editor.game.asset_registry.relative_path(PrefabId(1)),
+        Some(
+            PathBuf::from("characters")
+                .join("bosses")
+                .join(format!("Boss Ogre.{}", extensions::PREFAB))
+        )
+    );
+}
+
+#[test]
+fn create_prefab_from_selection_cancels_when_picker_returns_none() {
+    let _lock = game_fs_test_lock()
+        .lock()
+        .unwrap_or_else(|poison| poison.into_inner());
+    let test_game = TestGameFolder::new("prefab_selection_initial_save_cancelled");
+    let (mut editor, room_id) = make_room_editor(&test_game);
+    let root = editor
+        .game
+        .ecs
+        .create_entity()
+        .with(Transform::default())
+        .with(CurrentRoom(room_id))
+        .finish();
+    let _picker = install_prefab_save_picker_result(None);
+
+    editor.create_prefab_from_selection(root);
+
+    assert_eq!(editor.mode, EditorMode::Room(room_id));
+    assert!(editor.game.prefab_manager.prefabs.is_empty());
+}
+
+#[test]
 fn create_prefab_from_selection_preserves_external_parent() {
     let _lock = game_fs_test_lock()
         .lock()
@@ -213,8 +278,10 @@ fn create_prefab_from_selection_preserves_external_parent() {
         .finish();
     set_parent(&mut editor.game.ecs, root, container);
     editor.room_editor.set_selected_entity(Some(root));
-
-    editor.create_prefab_from_selection(&(), root, "Crate".to_string());
+    let _picker = install_prefab_save_picker_result(Some(
+        prefabs_folder().join(format!("Crate.{}", extensions::PREFAB)),
+    ));
+    editor.create_prefab_from_selection(root);
 
     let linked_root = editor
         .room_editor

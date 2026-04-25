@@ -9,8 +9,8 @@ use engine_core::prelude::*;
 pub(crate) const BLANK_PREFAB_ID: PrefabId = PrefabId(0);
 pub(crate) use palette::reconcile_recent_prefab_ids;
 pub(crate) use session_state::{
-    PendingPrefabRequest, PendingPrefabTransition, PrefabSessionState, PrefabTransitionPrompt,
+    PendingPrefabTransition, PrefabSessionState, PrefabTransitionPrompt,
 };
 
 #[cfg(test)]
-mod tests;
+pub(crate) mod tests;

@@ -464,7 +464,7 @@ mod tests {
             ..Default::default()
         };
 
-        persist_prefab(test_folder.name(), &first, &AssetRegistry::default()).unwrap();
+        persist_prefab(test_folder.name(), &first, &AssetRegistry::default(), None).unwrap();
         game.reload_prefab_manager();
         std::fs::write(
             prefabs_folder().join(format!("bullet_copy.{}", extensions::PREFAB)),

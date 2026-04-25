@@ -3,16 +3,17 @@ use crate::commands::scene::{
     ApplyInstanceToPrefabCmd, RevertPrefabInstanceCmd, UnlinkPrefabInstanceCmd,
 };
 use crate::editor_global::push_command;
-use crate::prefab::{
-    PendingPrefabRequest, PendingPrefabTransition, PrefabTransitionPrompt, BLANK_PREFAB_ID,
-};
+use crate::prefab::{PendingPrefabTransition, PrefabTransitionPrompt, BLANK_PREFAB_ID};
 use crate::shared::scene_ui::inspector::{ScenePrefabAction, ScenePrefabActionRequest};
 use bishop::prelude::*;
 use engine_core::prelude::*;
+use std::path::PathBuf;
 
 mod room_sync;
 mod save;
 mod transition;
+
+pub(crate) use save::pick_initial_prefab_save_path;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum PrefabEditorLaunch {
@@ -57,9 +58,7 @@ impl Editor {
                 self.enter_prefab_transition(ctx, prefab_id);
             }
             PrefabEditorLaunch::CaptureSelection(entity) => {
-                self.prefab_state
-                    .set_pending_request(PendingPrefabRequest::CaptureSelection(entity));
-                self.open_prefab_name_modal(ctx);
+                self.create_prefab_from_selection(entity);
             }
             PrefabEditorLaunch::OpenPicker => {
                 self.open_prefab_picker_modal(ctx);
@@ -132,27 +131,31 @@ impl Editor {
         self.toast = Some(Toast::new(format!("Opened prefab '{}'", prefab.name), 2.5));
     }
 
-    pub(crate) fn create_prefab_from_selection<C>(
-        &mut self,
-        _ctx: &C,
-        entity: Entity,
-        name: String,
-    ) {
-        self.create_prefab_from_selection_impl(entity, name);
-    }
+    pub(crate) fn create_prefab_from_selection(&mut self, entity: Entity) {
+        let suggested_name = self
+            .game
+            .ecs
+            .get::<Name>(entity)
+            .map(|name| name.0.trim())
+            .filter(|name| !name.is_empty())
+            .unwrap_or("Prefab")
+            .to_string();
+        let Some(target) = self.pick_initial_prefab_save_target(&suggested_name) else {
+            return;
+        };
 
-    pub(super) fn create_prefab_from_selection_impl(&mut self, entity: Entity, name: String) {
         if !self.game.ecs.has::<Transform>(entity) {
             self.toast = Some(Toast::new("Selected entity no longer exists.", 2.5));
             return;
         }
 
         let prefab_id = self.game.prefab_manager.allocate_prefab_id();
-        let prefab = capture_prefab(&mut self.game.ecs, entity, prefab_id, name);
+        let prefab = capture_prefab(&mut self.game.ecs, entity, prefab_id, target.name);
         let prefab = match self.game.prefab_manager.save_prefab_and_sync(
             &self.game.name,
             &mut self.game.asset_registry,
             &prefab,
+            Some(target.path.as_path()),
         ) {
             Ok(prefab) => prefab,
             Err(error) => {
@@ -177,13 +180,14 @@ impl Editor {
         self.room_editor.set_selected_entity(Some(linked_root));
     }
 
-    pub(super) fn create_blank_prefab_impl(&mut self, name: String) {
+    pub(super) fn create_blank_prefab_impl(&mut self, name: String, initial_path: PathBuf) {
         let prefab_id = self.game.prefab_manager.allocate_prefab_id();
         let prefab = create_prefab(prefab_id, name);
         if let Err(error) = self.game.prefab_manager.save_prefab_and_sync(
             &self.game.name,
             &mut self.game.asset_registry,
             &prefab,
+            Some(initial_path.as_path()),
         ) {
             onscreen_error!("Could not save prefab: {error}");
             return;
@@ -200,7 +204,8 @@ impl Editor {
     pub(crate) fn request_blank_prefab_transition(
         &mut self,
         name: String,
+        initial_path: PathBuf,
     ) -> PrefabTransitionPrompt {
-        self.request_prefab_transition(PendingPrefabTransition::CreateBlank(name))
+        self.request_prefab_transition(PendingPrefabTransition::CreateBlank { name, initial_path })
     }
 }

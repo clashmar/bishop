@@ -5,7 +5,7 @@ use crate::commands::world::*;
 use crate::editor_global::*;
 use crate::gui::modal::*;
 use crate::gui::prompts::*;
-use crate::prefab::{PendingPrefabRequest, PrefabTransitionPrompt};
+use crate::prefab::PrefabTransitionPrompt;
 use crate::storage::editor_storage::*;
 use bishop::prelude::*;
 use engine_core::prelude::*;
@@ -89,18 +89,6 @@ impl Editor {
             if let Some(result) = prompt.draw(ctx) {
                 // Write the result to the static thread local
                 SAVE_AS_PROMPT_RESULT.with(|c| *c.borrow_mut() = Some(result));
-            }
-        })];
-
-        self.modal.open(widgets);
-    }
-
-    pub(crate) fn open_prefab_name_modal(&mut self, ctx: &mut WgpuContext) {
-        let mut prompt = self.set_prompt_modal(ctx, "Enter prefab name:");
-
-        let widgets: Vec<BoxedWidget> = vec![Box::new(move |ctx, _, _| {
-            if let Some(result) = prompt.draw(ctx) {
-                PREFAB_NAME_PROMPT_RESULT.with(|c| *c.borrow_mut() = Some(result));
             }
         })];
 
@@ -364,56 +352,6 @@ impl Editor {
                 }
             }
 
-            let prefab_name_prompt_opt = PREFAB_NAME_PROMPT_RESULT.with(|c| c.borrow_mut().take());
-
-            if let Some(result) = prefab_name_prompt_opt {
-                enum PrefabNameConfirmOutcome {
-                    Close,
-                    PresentTransition(PrefabTransitionPrompt),
-                }
-
-                match result {
-                    StringPromptResult::Confirmed(name) => {
-                        if self.duplicate_prefab_name_exists(&name) {
-                            self.prefab_state.clear_pending_request();
-                            self.modal.close();
-                        } else {
-                            let outcome = match self.prefab_state.take_pending_request() {
-                                Some(PendingPrefabRequest::CaptureSelection(entity)) => {
-                                    self.create_prefab_from_selection(ctx, entity, name);
-                                    PrefabNameConfirmOutcome::Close
-                                }
-                                Some(PendingPrefabRequest::CreateBlank) => {
-                                    PrefabNameConfirmOutcome::PresentTransition(
-                                        self.request_blank_prefab_transition(name),
-                                    )
-                                }
-                                None => {
-                                    PrefabNameConfirmOutcome::Close
-                                }
-                            };
-
-                            match outcome {
-                                PrefabNameConfirmOutcome::Close
-                                | PrefabNameConfirmOutcome::PresentTransition(
-                                    PrefabTransitionPrompt::None,
-                                ) => {
-                                    self.modal.close();
-                                }
-                                PrefabNameConfirmOutcome::PresentTransition(prompt) => {
-                                    self.present_prefab_transition_prompt(ctx, prompt);
-                                }
-                            }
-                        }
-                    }
-                    StringPromptResult::Cancelled => {
-                        self.prefab_state.clear_pending_request();
-                        self.modal.close();
-                        return None;
-                    }
-                }
-            }
-
             let prefab_picker_opt = PREFAB_PICKER_RESULT.with(|c| c.borrow_mut().take());
 
             if let Some(result) = prefab_picker_opt {
@@ -425,11 +363,13 @@ impl Editor {
                         }
                         self.present_prefab_transition_prompt(ctx, prompt);
                     }
-                    PrefabPickerResult::New => {
-                        self.prefab_state
-                            .set_pending_request(PendingPrefabRequest::CreateBlank);
-                        self.open_prefab_name_modal(ctx);
-                        return None;
+                    PrefabPickerResult::New(path) => {
+                        let target = self.resolve_initial_prefab_save_target(path)?;
+                        let prompt = self.request_blank_prefab_transition(target.name, target.path);
+                        if prompt == PrefabTransitionPrompt::None {
+                            self.modal.close();
+                        }
+                        self.present_prefab_transition_prompt(ctx, prompt);
                     }
                     PrefabPickerResult::File(path) => {
                         match self.request_prefab_transition_to_path(&path) {
@@ -543,25 +483,6 @@ impl Editor {
         None
     }
 
-    /// Returns `true` and creates a toast notification if a prefab with the given name already exists.
-    fn duplicate_prefab_name_exists(&mut self, name: &str) -> bool {
-        let duplicate_exists = self
-            .game
-            .prefab_manager
-            .prefabs
-            .values()
-            .any(|prefab| prefab.name == name);
-
-        if duplicate_exists {
-            self.toast = Some(Toast::new(
-                format!("A prefab named \"{name}\" already exists."),
-                2.5,
-            ));
-        }
-
-        duplicate_exists
-    }
-
     /// Returns `true` and creates a toast notification if another prefab (excluding `exclude_id`) has the given name.
     fn duplicate_prefab_name_exists_excluding(&mut self, name: &str, exclude_id: PrefabId) -> bool {
         let duplicate_exists = self
@@ -601,7 +522,6 @@ thread_local! {
     pub static NEW_GAME_PROMPT_RESULT: RefCell<Option<StringPromptResult>> = const { RefCell::new(None) };
     pub static RENAME_PROMPT_RESULT: RefCell<Option<StringPromptResult>> = const { RefCell::new(None) };
     pub static SAVE_AS_PROMPT_RESULT: RefCell<Option<StringPromptResult>> = const { RefCell::new(None) };
-    pub static PREFAB_NAME_PROMPT_RESULT: RefCell<Option<StringPromptResult>> = const { RefCell::new(None) };
     pub static PREFAB_PICKER_RESULT: RefCell<Option<PrefabPickerResult>> = const { RefCell::new(None) };
     pub static WORLD_SETTINGS_RESULT: RefCell<Option<WorldSettingsResult>> = const { RefCell::new(None) };
     pub static EXPORT_OVERWRITE_RESULT: RefCell<Option<ConfirmPromptResult>> = const { RefCell::new(None) };

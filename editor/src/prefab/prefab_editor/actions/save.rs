@@ -6,9 +6,83 @@ use engine_core::prelude::*;
 use std::fs;
 use std::io;
 use std::io::{Error, ErrorKind};
-use std::path::Path;
+use std::path::{Path, PathBuf};
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct InitialPrefabSaveTarget {
+    pub(crate) name: String,
+    pub(crate) path: PathBuf,
+}
+
+pub(crate) fn derive_initial_prefab_save_target(
+    path: PathBuf,
+) -> Result<InitialPrefabSaveTarget, String> {
+    if !path.starts_with(prefabs_folder()) {
+        return Err("Selected prefab must be inside this project's prefabs folder.".to_string());
+    }
+
+    let name = path
+        .file_stem()
+        .and_then(|stem| stem.to_str())
+        .map(str::trim)
+        .filter(|stem| !stem.is_empty())
+        .ok_or_else(|| "Prefab name cannot be empty.".to_string())?
+        .to_string();
+
+    Ok(InitialPrefabSaveTarget { name, path })
+}
+
+pub(crate) fn pick_initial_prefab_save_path(suggested_name: &str) -> Option<PathBuf> {
+    #[cfg(test)]
+    if let Some(result) = crate::prefab::tests::take_test_prefab_save_picker_result() {
+        return result;
+    }
+
+    rfd::FileDialog::new()
+        .add_filter("Prefab", &[extensions::PREFAB])
+        .set_directory(prefabs_folder())
+        .set_file_name(format!("{suggested_name}.{}", extensions::PREFAB))
+        .save_file()
+}
 
 impl Editor {
+    pub(crate) fn resolve_initial_prefab_save_target(
+        &mut self,
+        path: PathBuf,
+    ) -> Option<InitialPrefabSaveTarget> {
+        let target = match derive_initial_prefab_save_target(path) {
+            Ok(target) => target,
+            Err(message) => {
+                self.toast = Some(Toast::new(message, 2.5));
+                return None;
+            }
+        };
+
+        let duplicate_exists = self
+            .game
+            .prefab_manager
+            .prefabs
+            .values()
+            .any(|prefab| prefab.name == target.name);
+        if duplicate_exists {
+            self.toast = Some(Toast::new(
+                format!("A prefab named \"{}\" already exists.", target.name),
+                2.5,
+            ));
+            return None;
+        }
+
+        Some(target)
+    }
+
+    pub(crate) fn pick_initial_prefab_save_target(
+        &mut self,
+        suggested_name: &str,
+    ) -> Option<InitialPrefabSaveTarget> {
+        let path = pick_initial_prefab_save_path(suggested_name)?;
+        self.resolve_initial_prefab_save_target(path)
+    }
+
     pub fn save_active_prefab(&mut self) {
         if self.is_blank_prefab_mode() {
             self.toast = Some(Toast::new("Blank prefab sessions cannot be saved.", 2.5));
@@ -62,6 +136,7 @@ impl Editor {
             &self.game.name,
             &mut self.game.asset_registry,
             &prefab,
+            None,
         ) {
             Ok(prefab) => prefab,
             Err(error) => {

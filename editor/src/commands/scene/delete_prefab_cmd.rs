@@ -82,6 +82,7 @@ impl EditorCommand for DeletePrefabCmd {
                 &editor.game.name,
                 &mut editor.game.asset_registry,
                 prefab,
+                None,
             ) {
                 onscreen_error!("Could not restore prefab: {error}");
                 return;

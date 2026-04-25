@@ -1,6 +1,7 @@
 use crate::app::escape::modal_escape_requested;
 use crate::gui::prompts::constants::*;
 use crate::gui::prompts::helpers::{draw_prompt_label, prompt_content_rect, three_button_rects};
+use crate::prefab::prefab_editor::actions::pick_initial_prefab_save_path;
 use bishop::prelude::*;
 use engine_core::prelude::*;
 use std::fmt::{Display, Formatter, Result as FmtResult};
@@ -9,7 +10,7 @@ use std::path::PathBuf;
 #[derive(Clone, Debug, PartialEq)]
 pub enum PrefabPickerResult {
     Existing(PrefabAsset),
-    New,
+    New(PathBuf),
     File(PathBuf),
     Cancelled,
 }
@@ -29,6 +30,7 @@ impl Display for PrefabChoice {
 pub struct PrefabPickerPrompt {
     dropdown_id: WidgetId,
     file_button_id: WidgetId,
+    new_button_id: WidgetId,
     rect: Rect,
     prefabs: Vec<PrefabChoice>,
     selected: Option<PrefabId>,
@@ -55,6 +57,7 @@ impl PrefabPickerPrompt {
         Self {
             dropdown_id: WidgetId::default(),
             file_button_id: WidgetId::default(),
+            new_button_id: WidgetId::default(),
             rect: prompt_content_rect(modal_rect, total_h),
             prefabs: prefabs
                 .into_iter()
@@ -116,7 +119,9 @@ impl PrefabPickerPrompt {
         let file_clicked = Button::new(file_rect, "File")
             .interaction_id(self.file_button_id)
             .show_native_dialog(ctx);
-        let new_clicked = Button::new(new_rect, "New Prefab").show(ctx);
+        let new_clicked = Button::new(new_rect, "New Prefab")
+            .interaction_id(self.new_button_id)
+            .show_native_dialog(ctx);
         let cancel_clicked = Button::new(cancel_rect, self.secondary_action_label()).show(ctx);
 
         if let Some(choice) = Dropdown::new(
@@ -135,7 +140,9 @@ impl PrefabPickerPrompt {
         }
 
         if new_clicked {
-            return Some(PrefabPickerResult::New);
+            if let Some(path) = pick_initial_prefab_save_path("Prefab") {
+                return Some(PrefabPickerResult::New(path));
+            }
         }
 
         if open_clicked {

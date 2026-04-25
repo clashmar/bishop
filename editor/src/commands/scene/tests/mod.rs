@@ -11,7 +11,9 @@ pub(super) use crate::editor_global::{
 pub(super) use crate::prefab::prefab_editor::{
     PrefabEditor, PrefabRoomSyncState, PrefabStage, StagedPrefabState,
 };
+pub(super) use crate::prefab::tests::install_prefab_save_picker_result;
 pub(super) use crate::storage::editor_storage::create_new_game;
+pub(super) use engine_core::constants::extensions;
 pub(super) use engine_core::prelude::*;
 pub(super) use engine_core::storage::test_utils::{game_fs_test_lock, TestGameFolder};
 
@@ -85,7 +87,10 @@ fn make_prefab_session_editor(test_game: &TestGameFolder) -> (Editor, RoomId, Pr
         .with(Name("Root".to_string()))
         .finish();
     editor.room_editor.set_selected_entity(Some(root));
-    editor.create_prefab_from_selection(&(), root, "Crate".to_string());
+    let _picker = install_prefab_save_picker_result(Some(
+        prefabs_folder().join(format!("Crate.{}", extensions::PREFAB)),
+    ));
+    editor.create_prefab_from_selection(root);
 
     (editor, room_id, PrefabId(1), root)
 }

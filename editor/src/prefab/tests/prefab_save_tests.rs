@@ -43,11 +43,11 @@ fn saving_prefab_registers_prefab_record_in_asset_registry() {
 }
 
 #[test]
-fn saving_prefab_rename_updates_prefab_record_path_and_removes_old_file() {
+fn saving_prefab_rename_keeps_prefab_record_path_and_file() {
     let _lock = game_fs_test_lock()
         .lock()
         .unwrap_or_else(|poison| poison.into_inner());
-    let test_game = TestGameFolder::new("prefab_save_rename_updates_asset_record");
+    let test_game = TestGameFolder::new("prefab_save_rename_keeps_existing_path");
     let (editor, _, prefab_id, _) = make_prefab_session_editor(&test_game);
     let _guard = EditorServicesGuard::install(editor);
 
@@ -58,36 +58,19 @@ fn saving_prefab_rename_updates_prefab_record_path_and_removes_old_file() {
         };
         assert!(editor.commit_prefab_asset_save(original_prefab.clone()));
 
-        let original_path = saved_prefab_path(&original_prefab);
+        let original_relative_path = editor.game.asset_registry.relative_path(prefab_id).unwrap();
+        let original_full_path = prefabs_folder().join(&original_relative_path);
         let renamed_prefab = PrefabAsset {
             name: "Barrel".to_string(),
             ..original_prefab
         };
-        let renamed_path = saved_prefab_path(&renamed_prefab);
-        let renamed_relative_path = Path::new(
-            renamed_path
-                .file_name()
-                .expect("renamed prefab path should have file name"),
-        );
 
         assert!(editor.commit_prefab_asset_save(renamed_prefab));
         assert_eq!(
-            editor
-                .game
-                .asset_registry
-                .relative_path(prefab_id)
-                .as_deref(),
-            Some(renamed_relative_path)
+            editor.game.asset_registry.relative_path(prefab_id),
+            Some(original_relative_path)
         );
-        assert_eq!(
-            editor
-                .game
-                .asset_registry
-                .key_for_path(PathBuf::from(paths::PREFABS_FOLDER).join(renamed_relative_path)),
-            Some(AssetKey::Prefab(prefab_id))
-        );
-        assert!(!original_path.exists());
-        assert!(renamed_path.is_file());
+        assert!(original_full_path.is_file());
     });
 }
 
@@ -163,7 +146,7 @@ fn saving_prefab_canonicalizes_root_component_order_on_disk() {
         .components
         .sort_by(|left, right| right.type_name.cmp(&left.type_name));
 
-    persist_prefab(test_game.name(), &prefab, &AssetRegistry::default())
+    persist_prefab(test_game.name(), &prefab, &AssetRegistry::default(), None)
         .expect("prefab should save");
 
     let saved_prefab = load_prefab_manager(test_game.name(), &mut AssetRegistry::default())
@@ -217,7 +200,7 @@ fn saving_prefab_canonicalizes_node_order_on_disk() {
     prefab.next_node_id = 4;
     prefab.nodes.swap(0, 2);
 
-    persist_prefab(test_game.name(), &prefab, &AssetRegistry::default())
+    persist_prefab(test_game.name(), &prefab, &AssetRegistry::default(), None)
         .expect("prefab should save");
 
     let saved_prefab = load_prefab_manager(test_game.name(), &mut AssetRegistry::default())
@@ -654,4 +637,34 @@ fn saving_prefab_syncs_stage_script_registry_into_game_and_disk() {
         saved_game.script_manager.path_for_id(ScriptId(9)),
         Some(Path::new(BUILDING_SCRIPT_PATH))
     );
+}
+
+#[test]
+fn create_blank_prefab_uses_selected_save_target() {
+    let _lock = game_fs_test_lock()
+        .lock()
+        .unwrap_or_else(|poison| poison.into_inner());
+    let test_game = TestGameFolder::new("prefab_blank_initial_save_target");
+    let mut editor = blank_prefab_session_editor(&test_game);
+    let picked_path = prefabs_folder()
+        .join("props")
+        .join(format!("Barrel.{}", extensions::PREFAB));
+
+    let prompt = editor.request_blank_prefab_transition("Barrel".to_string(), picked_path.clone());
+    assert_eq!(prompt, PrefabTransitionPrompt::None);
+
+    assert_eq!(editor.mode, EditorMode::Prefab(PrefabId(1)));
+    assert_eq!(
+        editor
+            .game
+            .asset_registry
+            .relative_path(PrefabId(1))
+            .as_deref(),
+        Some(
+            Path::new("props")
+                .join(format!("Barrel.{}", extensions::PREFAB))
+                .as_path()
+        )
+    );
+    assert!(picked_path.is_file());
 }

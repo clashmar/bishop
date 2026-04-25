@@ -1,16 +1,11 @@
 use engine_core::prelude::*;
-
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub(crate) enum PendingPrefabRequest {
-    CaptureSelection(Entity),
-    CreateBlank,
-}
+use std::path::PathBuf;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) enum PendingPrefabTransition {
     Exit,
     OpenExisting(PrefabId),
-    CreateBlank(String),
+    CreateBlank { name: String, initial_path: PathBuf },
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -22,29 +17,11 @@ pub(crate) enum PrefabTransitionPrompt {
 
 #[derive(Default)]
 pub(crate) struct PrefabSessionState {
-    pending_request: Option<PendingPrefabRequest>,
     pending_transition: Option<PendingPrefabTransition>,
     require_picker: bool,
 }
 
 impl PrefabSessionState {
-    #[cfg(test)]
-    pub(crate) fn pending_request(&self) -> Option<PendingPrefabRequest> {
-        self.pending_request
-    }
-
-    pub(crate) fn set_pending_request(&mut self, request: PendingPrefabRequest) {
-        self.pending_request = Some(request);
-    }
-
-    pub(crate) fn take_pending_request(&mut self) -> Option<PendingPrefabRequest> {
-        self.pending_request.take()
-    }
-
-    pub(crate) fn clear_pending_request(&mut self) {
-        self.pending_request = None;
-    }
-
     #[cfg(test)]
     pub(crate) fn pending_transition(&self) -> Option<&PendingPrefabTransition> {
         self.pending_transition.as_ref()
@@ -76,27 +53,12 @@ mod tests {
     use super::*;
 
     #[test]
-    fn pending_request_round_trips_through_state_api() {
-        let mut state = PrefabSessionState::default();
-        let entity = Entity::null();
-
-        state.set_pending_request(PendingPrefabRequest::CaptureSelection(entity));
-
-        assert_eq!(
-            state.pending_request(),
-            Some(PendingPrefabRequest::CaptureSelection(entity))
-        );
-        assert_eq!(
-            state.take_pending_request(),
-            Some(PendingPrefabRequest::CaptureSelection(entity))
-        );
-        assert_eq!(state.pending_request(), None);
-    }
-
-    #[test]
     fn pending_transition_round_trips_through_state_api() {
         let mut state = PrefabSessionState::default();
-        let transition = PendingPrefabTransition::CreateBlank("Fresh".to_string());
+        let transition = PendingPrefabTransition::CreateBlank {
+            name: "Fresh".to_string(),
+            initial_path: PathBuf::from("test.prefab"),
+        };
 
         state.set_pending_transition(transition.clone());
 

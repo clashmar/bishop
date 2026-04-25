@@ -73,6 +73,7 @@ impl EditorCommand for ApplyInstanceToPrefabCmd {
                 &editor.game.name,
                 &mut editor.game.asset_registry,
                 &updated_prefab,
+                None,
             ) {
                 onscreen_error!("Could not save prefab: {error}");
                 return;
@@ -114,6 +115,7 @@ impl EditorCommand for ApplyInstanceToPrefabCmd {
                 &editor.game.name,
                 &mut editor.game.asset_registry,
                 previous_prefab,
+                None,
             ) {
                 onscreen_error!("Could not restore prefab: {error}");
                 return;
