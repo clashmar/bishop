@@ -149,7 +149,7 @@ fn reconcile_prefab_palette_promotes_first_valid_recent_when_active_is_missing()
 }
 
 #[test]
-fn odd_width_bottom_center_sprite_world_rect_snaps_like_static_sprite_draw() {
+fn odd_width_bottom_center_sprite_world_rect_matches_static_sprite_draw() {
     let (top_left, size) = selection_render_rect(
         Vec2::ZERO,
         8.0,
@@ -159,7 +159,7 @@ fn odd_width_bottom_center_sprite_world_rect_snaps_like_static_sprite_draw() {
         None,
     );
 
-    assert_eq!(top_left, vec2(-3.0, -5.0));
+    assert_eq!(top_left, vec2(-2.5, -5.0));
     assert_eq!(size, vec2(5.0, 5.0));
 }
 
@@ -179,7 +179,7 @@ fn even_width_bottom_center_sprite_world_rect_keeps_existing_alignment() {
 }
 
 #[test]
-fn static_sprite_branch_snaps_using_sprite_size() {
+fn static_sprite_branch_matches_sprite_size() {
     let (top_left, size) = selection_render_rect(
         Vec2::ZERO,
         8.0,
@@ -189,12 +189,12 @@ fn static_sprite_branch_snaps_using_sprite_size() {
         None,
     );
 
-    assert_eq!(top_left, vec2(-3.0, -5.0));
+    assert_eq!(top_left, vec2(-2.5, -5.0));
     assert_eq!(size, vec2(5.0, 5.0));
 }
 
 #[test]
-fn current_frame_selection_uses_offset_then_snaps() {
+fn current_frame_selection_uses_offset_without_snapping() {
     let (top_left, size) = selection_render_rect(
         Vec2::ZERO,
         8.0,
@@ -209,7 +209,7 @@ fn current_frame_selection_uses_offset_then_snaps() {
         }),
     );
 
-    assert_eq!(top_left, vec2(-3.0, -6.0));
+    assert_eq!(top_left, vec2(-2.25, -5.75));
     assert_eq!(size, vec2(5.0, 5.0));
 }
 
@@ -229,7 +229,7 @@ fn stale_current_frame_uses_static_sprite_fallback_size_and_position() {
         }),
     );
 
-    assert_eq!(top_left, vec2(-3.0, -5.0));
+    assert_eq!(top_left, vec2(-2.5, -5.0));
     assert_eq!(size, vec2(5.0, 5.0));
 }
 

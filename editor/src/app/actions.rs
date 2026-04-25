@@ -44,11 +44,10 @@ impl Editor {
     fn shortcut_action(&self, ctx: &WgpuContext) -> Option<EditorAction> {
         let input_focused = input_is_focused();
         let modal_open = is_modal_open();
-        let actions = [
+        let always_available = [EditorAction::Undo, EditorAction::Redo];
+        let modal_blocked = [
             EditorAction::Save,
             EditorAction::SaveAs,
-            EditorAction::Undo,
-            EditorAction::Redo,
             EditorAction::ViewConsolePanel,
             EditorAction::ViewDiagnosticsPanel,
             EditorAction::ViewHierarchyPanel,
@@ -57,12 +56,15 @@ impl Editor {
             EditorAction::ViewResourcesPanel,
         ];
 
-        actions.into_iter().find(|action| {
-            action.is_available_in(self.mode)
-                && (!input_focused || !action.blocked_by_focused_input())
-                && !modal_open
-                && action.shortcut_pressed(ctx)
-        })
+        always_available
+            .into_iter()
+            .chain(modal_blocked.into_iter())
+            .find(|action| {
+                action.is_available_in(self.mode)
+                    && (!input_focused || !action.blocked_by_focused_input())
+                    && (!modal_open || !action.blocked_by_modal())
+                    && action.shortcut_pressed(ctx)
+            })
     }
 
     fn run_action(&mut self, ctx: &mut WgpuContext, action: EditorAction) {

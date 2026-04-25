@@ -204,13 +204,13 @@ pub(crate) fn selection_render_rect(
         if current_frame.sprite_id.0 != 0 {
             let top_left = pivot_adjusted_position(position, current_frame.frame_size, pivot)
                 + current_frame.offset;
-            return (top_left.floor(), current_frame.frame_size);
+            return (top_left, current_frame.frame_size);
         }
     }
 
     if let Some(static_sprite_size) = static_sprite_size {
         let top_left = pivot_adjusted_position(position, static_sprite_size, pivot);
-        return (top_left.floor(), static_sprite_size);
+        return (top_left, static_sprite_size);
     }
 
     (

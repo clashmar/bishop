@@ -182,6 +182,10 @@ impl EditorAction {
                 | EditorAction::ViewPrefabPalettePanel
         )
     }
+
+    pub(crate) fn blocked_by_modal(self) -> bool {
+        !matches!(self, EditorAction::Undo | EditorAction::Redo)
+    }
 }
 
 impl fmt::Display for EditorAction {
