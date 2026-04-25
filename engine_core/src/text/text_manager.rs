@@ -1,5 +1,5 @@
 // engine_core/src/text/text_manager.rs
-use crate::assets::{AssetKey, AssetKind, AssetRecord, AssetRegistry};
+use crate::assets::{AssetKey, AssetRecord, AssetRegistry};
 use crate::constants::paths;
 use crate::ecs::TomlId;
 use crate::text::*;
@@ -123,7 +123,7 @@ impl TextManager {
                     asset_registry
                         .replace_record(
                             AssetKey::Toml(toml_id),
-                            AssetRecord::new(AssetKind::Toml, registry_path),
+                            AssetRecord::new(registry_path),
                         )
                         .map_err(|error| error.to_string())?;
                     Ok(toml_id)

@@ -37,14 +37,6 @@ impl AssetRegistry {
         let mut path_to_key = HashMap::with_capacity(self.records.len());
         for (&key, record) in &self.records {
             let expected_kind = Self::kind_for_key(key);
-            if record.kind != expected_kind {
-                return Err(registry_errors::record_kind_mismatch(
-                    key,
-                    expected_kind,
-                    record.kind,
-                ));
-            }
-
             Self::validate_asset_path(expected_kind, &record.path)
                 .map_err(|error| registry_errors::invalid_record(key, error))?;
 
@@ -97,7 +89,7 @@ impl AssetRegistry {
             };
         }
 
-        self.insert(key, AssetRecord::new(kind, path))
+        self.insert(key, AssetRecord::new(path))
     }
 
     /// Returns the asset path relative to the folder for `key`.
@@ -145,14 +137,6 @@ impl AssetRegistry {
 
     fn validate_record_for_key(&self, key: AssetKey, record: &AssetRecord) -> io::Result<()> {
         let expected_kind = Self::kind_for_key(key);
-        if record.kind != expected_kind {
-            return Err(registry_errors::key_kind_mismatch(
-                key,
-                expected_kind,
-                record.kind,
-            ));
-        }
-
         Self::validate_asset_path(expected_kind, &record.path)?;
 
         if let Some(existing_key) = self.existing_key_for_path(&record.path)

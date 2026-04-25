@@ -1,4 +1,4 @@
-use crate::assets::asset_registry::{AssetKey, AssetKind, AssetRecord, AssetRegistry};
+use crate::assets::asset_registry::{AssetKey, AssetRecord, AssetRegistry};
 use crate::constants::extensions;
 use crate::constants::paths::{
     ASSETS_FOLDER, AUDIO_FOLDER, PREFABS_FOLDER, SCRIPTS_FOLDER, SFX_FOLDER,
@@ -30,19 +30,13 @@ fn init_editor_metadata_rebuilds_path_lookup_from_records() {
     registry
         .insert(
             AssetKey::Sprite(SpriteId(1)),
-            AssetRecord::new(
-                AssetKind::Sprite,
-                asset_path(ASSETS_FOLDER, PLAYER_SPRITE_FILE),
-            ),
+            AssetRecord::new(asset_path(ASSETS_FOLDER, PLAYER_SPRITE_FILE)),
         )
         .unwrap();
     registry
         .insert(
             AssetKey::Script(ScriptId(2)),
-            AssetRecord::new(
-                AssetKind::Script,
-                asset_path(SCRIPTS_FOLDER, PLAYER_SCRIPT_FILE),
-            ),
+            AssetRecord::new(asset_path(SCRIPTS_FOLDER, PLAYER_SCRIPT_FILE)),
         )
         .unwrap();
 
@@ -74,10 +68,7 @@ fn register_asset_relative_path_stores_canonical_assets_path_for_sprite_key() {
     );
     assert_eq!(
         registry.record(AssetKey::Sprite(sprite_id)),
-        Some(&AssetRecord::new(
-            AssetKind::Sprite,
-            asset_path(ASSETS_FOLDER, &relative_path),
-        ))
+        Some(&AssetRecord::new(asset_path(ASSETS_FOLDER, &relative_path)))
     );
     assert_eq!(
         registry.key_for_path(asset_path(ASSETS_FOLDER, &relative_path)),
@@ -111,7 +102,7 @@ fn insert_rejects_parent_dir_sprite_path() {
     let error = registry
         .insert(
             AssetKey::Sprite(SpriteId(1)),
-            AssetRecord::new(AssetKind::Sprite, invalid_path),
+            AssetRecord::new(invalid_path),
         )
         .expect_err("traversal sprite paths should be rejected");
 
@@ -134,10 +125,7 @@ fn register_asset_relative_path_stores_canonical_scripts_path_for_script_key() {
     );
     assert_eq!(
         registry.record(AssetKey::Script(script_id)),
-        Some(&AssetRecord::new(
-            AssetKind::Script,
-            asset_path(SCRIPTS_FOLDER, "bullet.lua"),
-        ))
+        Some(&AssetRecord::new(asset_path(SCRIPTS_FOLDER, "bullet.lua")))
     );
     assert_eq!(
         registry.key_for_path(asset_path(SCRIPTS_FOLDER, "bullet.lua")),
@@ -164,10 +152,10 @@ fn register_asset_relative_path_stores_canonical_prefabs_path_for_prefab_key() {
     );
     assert_eq!(
         registry.record(AssetKey::Prefab(prefab_id)),
-        Some(&AssetRecord::new(
-            AssetKind::Prefab,
-            asset_path(PREFABS_FOLDER, format!("crate.{}", extensions::PREFAB)),
-        ))
+        Some(&AssetRecord::new(asset_path(
+            PREFABS_FOLDER,
+            format!("crate.{}", extensions::PREFAB),
+        )))
     );
     assert_eq!(
         registry.key_for_path(asset_path(
@@ -194,10 +182,7 @@ fn register_asset_relative_path_stores_canonical_audio_path_for_sound_key() {
     );
     assert_eq!(
         registry.record(AssetKey::Sound(sound_id)),
-        Some(&AssetRecord::new(
-            AssetKind::Sound,
-            asset_path(AUDIO_FOLDER, &relative_path),
-        ))
+        Some(&AssetRecord::new(asset_path(AUDIO_FOLDER, &relative_path)))
     );
     assert_eq!(
         registry.key_for_path(asset_path(AUDIO_FOLDER, &relative_path)),
@@ -238,10 +223,7 @@ fn insert_rejects_non_wav_sound_path() {
     let invalid_path = asset_path(AUDIO_FOLDER, PathBuf::from(SFX_FOLDER).join("jump.ogg"));
 
     let error = registry
-        .insert(
-            AssetKey::Sound(SoundId(10)),
-            AssetRecord::new(AssetKind::Sound, invalid_path),
-        )
+        .insert(AssetKey::Sound(SoundId(10)), AssetRecord::new(invalid_path))
         .expect_err("managed sound records must point to wav files");
 
     assert_eq!(error.kind(), ErrorKind::InvalidInput);
@@ -277,10 +259,10 @@ fn register_asset_relative_path_normalizes_redundant_sprite_separators() {
     );
     assert_eq!(
         registry.record(AssetKey::Sprite(sprite_id)),
-        Some(&AssetRecord::new(
-            AssetKind::Sprite,
-            asset_path(ASSETS_FOLDER, &canonical_path),
-        ))
+        Some(&AssetRecord::new(asset_path(
+            ASSETS_FOLDER,
+            &canonical_path
+        )))
     );
 }
 
@@ -294,7 +276,7 @@ fn insert_rejects_absolute_script_path() {
     let error = registry
         .insert(
             AssetKey::Script(ScriptId(1)),
-            AssetRecord::new(AssetKind::Script, invalid_path),
+            AssetRecord::new(invalid_path),
         )
         .expect_err("absolute script paths should be rejected");
 
@@ -325,11 +307,11 @@ fn init_editor_metadata_panics_for_duplicate_paths() {
 
     registry.records_mut_for_test().insert(
         AssetKey::Sprite(SpriteId(1)),
-        AssetRecord::new(AssetKind::Sprite, duplicate_path.clone()),
+        AssetRecord::new(duplicate_path.clone()),
     );
     registry.records_mut_for_test().insert(
         AssetKey::Sprite(SpriteId(2)),
-        AssetRecord::new(AssetKind::Sprite, duplicate_path),
+        AssetRecord::new(duplicate_path),
     );
 
     registry.init_editor_metadata();
@@ -342,11 +324,11 @@ fn try_init_editor_metadata_rejects_duplicate_paths() {
 
     registry.records_mut_for_test().insert(
         AssetKey::Sprite(SpriteId(1)),
-        AssetRecord::new(AssetKind::Sprite, duplicate_path.clone()),
+        AssetRecord::new(duplicate_path.clone()),
     );
     registry.records_mut_for_test().insert(
         AssetKey::Sprite(SpriteId(2)),
-        AssetRecord::new(AssetKind::Sprite, duplicate_path),
+        AssetRecord::new(duplicate_path),
     );
 
     let error = registry

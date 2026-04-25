@@ -34,7 +34,7 @@ impl EditorCommand for RemapAssetPathCmd {
             if let Err(e) = editor
                 .game
                 .asset_registry
-                .replace_record(self.key, AssetRecord::new(kind, new_canonical))
+                .replace_record(self.key, AssetRecord::new(new_canonical))
             {
                 push_toast(format!("Remap failed: {e}"), 3.0);
                 return;
@@ -59,7 +59,7 @@ impl EditorCommand for RemapAssetPathCmd {
             if let Err(e) = editor
                 .game
                 .asset_registry
-                .replace_record(key, AssetRecord::new(kind, canonical))
+                .replace_record(key, AssetRecord::new(canonical))
             {
                 push_toast(format!("Undo remap failed: {e}"), 3.0);
                 return;

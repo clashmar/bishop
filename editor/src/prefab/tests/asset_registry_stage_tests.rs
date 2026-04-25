@@ -16,10 +16,7 @@ fn prefab_stage_sync_editor_services_merges_asset_registry_metadata() {
     game.asset_registry
         .insert(
             AssetKey::Sprite(SpriteId(3)),
-            AssetRecord::new(
-                AssetKind::Sprite,
-                PathBuf::from(paths::ASSETS_FOLDER).join(TREE_FILE),
-            ),
+            AssetRecord::new(PathBuf::from(paths::ASSETS_FOLDER).join(TREE_FILE)),
         )
         .unwrap();
 
@@ -32,10 +29,7 @@ fn prefab_stage_sync_editor_services_merges_asset_registry_metadata() {
         .asset_registry
         .insert(
             AssetKey::Script(ScriptId(5)),
-            AssetRecord::new(
-                AssetKind::Script,
-                PathBuf::from(paths::SCRIPTS_FOLDER).join(ENEMY_SCRIPT_FILE),
-            ),
+            AssetRecord::new(PathBuf::from(paths::SCRIPTS_FOLDER).join(ENEMY_SCRIPT_FILE)),
         )
         .unwrap();
 

@@ -1,4 +1,4 @@
-use crate::assets::asset_registry::{AssetKey, AssetKind, AssetRecord, AssetRegistry};
+use crate::assets::asset_registry::{AssetKey, AssetRecord, AssetRegistry};
 use crate::assets::AssetManager;
 use crate::constants::extensions;
 use crate::constants::paths::{ASSETS_FOLDER, PREFABS_FOLDER};
@@ -17,10 +17,10 @@ fn editor_metadata_snapshot_rebuilds_path_lookup_from_records() {
     registry
         .insert(
             AssetKey::Prefab(PrefabId(4)),
-            AssetRecord::new(
-                AssetKind::Prefab,
-                asset_path(PREFABS_FOLDER, &format!("crate.{}", extensions::PREFAB)),
-            ),
+            AssetRecord::new(asset_path(
+                PREFABS_FOLDER,
+                &format!("crate.{}", extensions::PREFAB),
+            )),
         )
         .unwrap();
 
@@ -36,17 +36,20 @@ fn editor_metadata_snapshot_rebuilds_path_lookup_from_records() {
 }
 
 #[test]
-fn insert_rejects_mismatched_key_and_kind() {
+fn insert_rejects_prefab_path_for_sprite_key() {
     let mut registry = AssetRegistry::default();
 
     let error = registry
         .insert(
             AssetKey::Sprite(SpriteId(1)),
-            AssetRecord::new(AssetKind::Prefab, asset_path(ASSETS_FOLDER, "shared.png")),
+            AssetRecord::new(asset_path(
+                PREFABS_FOLDER,
+                &format!("shared.{}", extensions::PREFAB),
+            )),
         )
         .expect_err("insert should fail");
 
-    assert_eq!(error.kind(), ErrorKind::InvalidData);
+    assert_eq!(error.kind(), ErrorKind::InvalidInput);
 }
 
 #[test]
@@ -55,10 +58,10 @@ fn merge_editor_metadata_from_rejects_conflicting_paths_for_same_key() {
     destination
         .insert(
             AssetKey::Prefab(PrefabId(4)),
-            AssetRecord::new(
-                AssetKind::Prefab,
-                asset_path(PREFABS_FOLDER, &format!("crate.{}", extensions::PREFAB)),
-            ),
+            AssetRecord::new(asset_path(
+                PREFABS_FOLDER,
+                &format!("crate.{}", extensions::PREFAB),
+            )),
         )
         .unwrap();
 
@@ -66,10 +69,10 @@ fn merge_editor_metadata_from_rejects_conflicting_paths_for_same_key() {
     source
         .insert(
             AssetKey::Prefab(PrefabId(4)),
-            AssetRecord::new(
-                AssetKind::Prefab,
-                asset_path(PREFABS_FOLDER, &format!("barrel.{}", extensions::PREFAB)),
-            ),
+            AssetRecord::new(asset_path(
+                PREFABS_FOLDER,
+                &format!("barrel.{}", extensions::PREFAB),
+            )),
         )
         .unwrap();
 
@@ -90,11 +93,11 @@ fn replace_record_allows_same_prefab_key_to_move_to_a_new_path() {
     let new_path = asset_path(PREFABS_FOLDER, &format!("barrel.{}", extensions::PREFAB));
 
     registry
-        .insert(key, AssetRecord::new(AssetKind::Prefab, old_path.clone()))
+        .insert(key, AssetRecord::new(old_path.clone()))
         .unwrap();
 
     registry
-        .replace_record(key, AssetRecord::new(AssetKind::Prefab, new_path.clone()))
+        .replace_record(key, AssetRecord::new(new_path.clone()))
         .unwrap();
 
     assert_eq!(registry.key_for_path(&old_path), None);
@@ -114,24 +117,15 @@ fn replace_record_rejects_path_owned_by_different_key() {
     let second_path = asset_path(PREFABS_FOLDER, &format!("barrel.{}", extensions::PREFAB));
 
     registry
-        .insert(
-            first_key,
-            AssetRecord::new(AssetKind::Prefab, first_path.clone()),
-        )
+        .insert(first_key, AssetRecord::new(first_path.clone()))
         .unwrap();
     registry
-        .insert(
-            second_key,
-            AssetRecord::new(AssetKind::Prefab, second_path.clone()),
-        )
+        .insert(second_key, AssetRecord::new(second_path.clone()))
         .unwrap();
 
     let before = registry.clone();
     let error = registry
-        .replace_record(
-            first_key,
-            AssetRecord::new(AssetKind::Prefab, second_path.clone()),
-        )
+        .replace_record(first_key, AssetRecord::new(second_path.clone()))
         .expect_err("replace_record should fail");
 
     assert_eq!(error.kind(), ErrorKind::InvalidData);
@@ -143,7 +137,7 @@ fn remove_record_clears_record_and_path_lookup() {
     let mut registry = AssetRegistry::default();
     let key = AssetKey::Prefab(PrefabId(4));
     let path = asset_path(PREFABS_FOLDER, &format!("crate.{}", extensions::PREFAB));
-    let record = AssetRecord::new(AssetKind::Prefab, path.clone());
+    let record = AssetRecord::new(path.clone());
 
     registry.insert(key, record.clone()).unwrap();
 
@@ -160,10 +154,7 @@ fn remove_record_missing_key_returns_none_and_preserves_lookup() {
     let path = asset_path(PREFABS_FOLDER, &format!("crate.{}", extensions::PREFAB));
 
     registry
-        .insert(
-            present_key,
-            AssetRecord::new(AssetKind::Prefab, path.clone()),
-        )
+        .insert(present_key, AssetRecord::new(path.clone()))
         .unwrap();
 
     let before = registry.clone();
@@ -179,7 +170,7 @@ fn merge_editor_metadata_from_rejects_conflicting_keys_for_same_path() {
     destination
         .insert(
             AssetKey::Sprite(SpriteId(1)),
-            AssetRecord::new(AssetKind::Sprite, asset_path(ASSETS_FOLDER, "shared.png")),
+            AssetRecord::new(asset_path(ASSETS_FOLDER, "shared.png")),
         )
         .unwrap();
 
@@ -187,7 +178,7 @@ fn merge_editor_metadata_from_rejects_conflicting_keys_for_same_path() {
     source
         .insert(
             AssetKey::Sprite(SpriteId(2)),
-            AssetRecord::new(AssetKind::Sprite, asset_path(ASSETS_FOLDER, "shared.png")),
+            AssetRecord::new(asset_path(ASSETS_FOLDER, "shared.png")),
         )
         .unwrap();
 

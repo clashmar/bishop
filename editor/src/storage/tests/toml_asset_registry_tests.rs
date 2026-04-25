@@ -26,7 +26,6 @@ fn save_game_round_trips_toml_asset_registry_records() {
     assert_eq!(
         loaded.asset_registry.record(AssetKey::Toml(toml_id)),
         Some(&AssetRecord::new(
-            AssetKind::Toml,
             PathBuf::from(paths::TEXT_FOLDER)
                 .join("dialogue")
                 .join("npcs")

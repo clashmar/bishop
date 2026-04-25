@@ -3,7 +3,7 @@ mod capture;
 mod component_sync;
 mod instance;
 
-use crate::assets::{AssetKey, AssetKind, AssetRecord, AssetRegistry};
+use crate::assets::{AssetKey, AssetRecord, AssetRegistry};
 use crate::constants::extensions;
 use crate::ecs::capture::ComponentSnapshot;
 use crate::onscreen_error;
@@ -438,10 +438,7 @@ fn reconcile_prefab_registry(
     for (path, prefab) in loaded_prefabs {
         let key = AssetKey::Prefab(prefab.id);
         let relative_path = prefab_relative_path(&prefab_folder, path)?;
-        let record = AssetRecord::new(
-            AssetKind::Prefab,
-            PathBuf::from(PREFABS_FOLDER_NAME).join(relative_path),
-        );
+        let record = AssetRecord::new(PathBuf::from(PREFABS_FOLDER_NAME).join(relative_path));
 
         asset_registry.replace_record(key, record)?;
     }
@@ -486,10 +483,7 @@ fn sync_prefab_record(
 ) -> io::Result<()> {
     let prefab_folder = prefab_folder_for_game(game_name);
     let relative_path = prefab_relative_path(&prefab_folder, saved_path)?;
-    let record = AssetRecord::new(
-        AssetKind::Prefab,
-        PathBuf::from(PREFABS_FOLDER_NAME).join(relative_path),
-    );
+    let record = AssetRecord::new(PathBuf::from(PREFABS_FOLDER_NAME).join(relative_path));
     asset_registry.replace_record(AssetKey::Prefab(prefab_id), record)
 }
 

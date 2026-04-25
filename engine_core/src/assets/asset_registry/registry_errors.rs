@@ -2,19 +2,6 @@ use super::{AssetKey, AssetKind};
 use std::io::{Error, ErrorKind};
 use std::path::Path;
 
-pub(super) fn record_kind_mismatch(
-    key: AssetKey,
-    expected_kind: AssetKind,
-    actual_kind: AssetKind,
-) -> Error {
-    Error::new(
-        ErrorKind::InvalidData,
-        format!(
-            "Asset registry record '{key:?}' requires kind '{expected_kind:?}', got '{actual_kind:?}'"
-        ),
-    )
-}
-
 pub(super) fn invalid_record(key: AssetKey, error: Error) -> Error {
     Error::new(
         error.kind(),
@@ -50,17 +37,6 @@ pub(super) fn key_maps_to_multiple_records(key: AssetKey) -> Error {
     Error::new(
         ErrorKind::InvalidData,
         format!("Asset key '{key:?}' maps to multiple records"),
-    )
-}
-
-pub(super) fn key_kind_mismatch(
-    key: AssetKey,
-    expected_kind: AssetKind,
-    actual_kind: AssetKind,
-) -> Error {
-    Error::new(
-        ErrorKind::InvalidData,
-        format!("Asset key '{key:?}' requires kind '{expected_kind:?}', got '{actual_kind:?}'"),
     )
 }
 

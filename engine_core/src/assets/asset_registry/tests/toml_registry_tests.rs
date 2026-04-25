@@ -1,4 +1,4 @@
-use crate::assets::asset_registry::{AssetKey, AssetKind, AssetRecord, AssetRegistry};
+use crate::assets::asset_registry::{AssetKey, AssetRecord, AssetRegistry};
 use crate::constants::paths::TEXT_FOLDER;
 use crate::ecs::TomlId;
 use std::io::ErrorKind;
@@ -18,8 +18,7 @@ fn register_asset_relative_path_stores_canonical_text_path_for_toml_key() {
     assert_eq!(
         registry.record(AssetKey::Toml(toml_id)),
         Some(&AssetRecord::new(
-            AssetKind::Toml,
-            PathBuf::from(TEXT_FOLDER).join(&relative_path),
+            PathBuf::from(TEXT_FOLDER).join(&relative_path)
         ))
     );
 }
@@ -56,8 +55,7 @@ fn register_asset_relative_path_accepts_language_prefixed_toml_path() {
     assert_eq!(
         registry.record(AssetKey::Toml(toml_id)),
         Some(&AssetRecord::new(
-            AssetKind::Toml,
-            PathBuf::from(TEXT_FOLDER).join(&relative_path),
+            PathBuf::from(TEXT_FOLDER).join(&relative_path)
         ))
     );
 }
@@ -76,8 +74,7 @@ fn register_asset_relative_path_accepts_root_level_toml_path() {
     assert_eq!(
         registry.record(AssetKey::Toml(toml_id)),
         Some(&AssetRecord::new(
-            AssetKind::Toml,
-            PathBuf::from(TEXT_FOLDER).join(&relative_path),
+            PathBuf::from(TEXT_FOLDER).join(&relative_path)
         ))
     );
 }

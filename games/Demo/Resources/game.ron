@@ -196,71 +196,54 @@
     asset_registry: (
         records: {
             Sprite((1)): (
-                kind: Sprite,
                 path: "assets/animations/player/male/Jump.png",
             ),
             Sprite((2)): (
-                kind: Sprite,
                 path: "assets/animations/player/male/Fall.png",
             ),
             Sprite((3)): (
-                kind: Sprite,
                 path: "assets/animations/player/male/Idle.png",
             ),
             Sprite((4)): (
-                kind: Sprite,
                 path: "assets/animations/player/male/Walk.png",
             ),
             Sprite((5)): (
-                kind: Sprite,
                 path: "assets/animations/player/male/Fidget.png",
             ),
             Sprite((6)): (
-                kind: Sprite,
                 path: "assets/animations/player/male/Run.png",
             ),
             Sprite((7)): (
-                kind: Sprite,
                 path: "assets/animations/player/female/Idle.png",
             ),
             Sprite((8)): (
-                kind: Sprite,
                 path: "assets/sprites/Bullet.png",
             ),
             Sprite((9)): (
-                kind: Sprite,
                 path: "assets/sprites/cat.png",
             ),
             Script((1)): (
-                kind: Script,
                 path: "scripts/bullet.lua",
             ),
             Script((2)): (
-                kind: Script,
                 path: "scripts/player.lua",
             ),
             Script((3)): (
-                kind: Script,
                 path: "scripts/npc.lua",
             ),
             Prefab((1)): (
-                kind: Prefab,
                 path: "prefabs/Cat.prefab",
             ),
             Prefab((2)): (
-                kind: Prefab,
                 path: "prefabs/Female.prefab",
             ),
             Prefab((3)): (
-                kind: Prefab,
                 path: "prefabs/Bullet.prefab",
             ),
             Sound((1)): (
-                kind: Sound,
                 path: "audio/sfx/jump.wav",
             ),
             Toml((1)): (
-                kind: Toml,
                 path: "text/dialogue/npcs/npc.toml",
             ),
         },

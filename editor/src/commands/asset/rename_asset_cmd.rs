@@ -88,7 +88,7 @@ impl RenameAssetCmd {
             editor
                 .game
                 .asset_registry
-                .replace_record(key, AssetRecord::new(kind, new_canonical))?;
+                .replace_record(key, AssetRecord::new(new_canonical))?;
 
             if let AssetKey::Prefab(_) = key {
                 Self::sync_prefab_rename(editor, key);
@@ -164,7 +164,7 @@ impl EditorCommand for RenameAssetCmd {
             if let Err(e) = editor
                 .game
                 .asset_registry
-                .replace_record(key, AssetRecord::new(kind, canonical))
+                .replace_record(key, AssetRecord::new(canonical))
             {
                 push_toast(format!("Undo registry update failed: {e}"), 3.0);
                 return;
