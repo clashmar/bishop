@@ -98,6 +98,7 @@ impl EditorCommand for DeletePrefabCmd {
             restore_linked_prefab_instances(editor, &self.deleted_snapshots);
             editor.open_prefab_editor_for_id(self.prefab_id);
             restore_prefab_palette(editor, self.previous_palette_state.as_ref());
+            editor.modal.close();
         });
     }
 

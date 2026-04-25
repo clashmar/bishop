@@ -178,6 +178,7 @@ fn delete_prefab_command_restores_asset_instances_palette_and_session_on_undo_re
     with_editor(|editor| {
         assert_eq!(editor.mode, EditorMode::Prefab(prefab_id));
         assert!(!editor.prefab_state.require_picker());
+        assert!(!editor.modal.is_open());
         assert_eq!(
             editor.prefab_editor.as_ref().map(|prefab| prefab.prefab_id),
             Some(prefab_id)
