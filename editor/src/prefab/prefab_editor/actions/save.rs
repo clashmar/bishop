@@ -94,6 +94,7 @@ impl Editor {
         }
 
         self.toast = Some(Toast::new("Prefab saved", 2.5));
+        self.update_save_state_hash();
         true
     }
 
@@ -134,6 +135,7 @@ impl Editor {
             return;
         }
 
+        self.update_save_state_hash();
         self.toast = Some(Toast::new("Prefab deleted", 2.5));
     }
 }

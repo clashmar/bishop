@@ -67,6 +67,8 @@ pub struct Editor {
     pub pending_playtest_build: Option<BackgroundTask<Result<(PathBuf, PathBuf), String>>>,
     pub grid_renderer: Option<GridRenderer>,
     pub audio_manager: AudioManager,
+    pub(crate) last_save_hash: u64,
+    pub(crate) handling_close: bool,
 }
 
 impl Default for Editor {
@@ -95,6 +97,8 @@ impl Default for Editor {
             pending_playtest_build: None,
             grid_renderer: None,
             audio_manager: default_audio_manager(),
+            last_save_hash: 0,
+            handling_close: false,
         }
     }
 }
@@ -142,10 +146,16 @@ impl Editor {
         // Initialize the grid renderer
         editor.grid_renderer = Some(GridRenderer::new(&ctx.borrow()));
 
+        editor.update_save_state_hash();
         Ok(editor)
     }
 
     pub fn update(&mut self, ctx: &mut WgpuContext) {
+        self.update_handle_close_request(ctx);
+        if ctx.is_close_requested() && ctx.is_exit_confirmed() {
+            return;
+        }
+
         if let Some(ref mut process) = self.playtest_process {
             if !process.poll() {
                 self.playtest_process = None;

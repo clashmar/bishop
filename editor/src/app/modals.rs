@@ -230,6 +230,18 @@ impl Editor {
         self.modal.open(widgets);
     }
 
+    pub(crate) fn open_unsaved_exit_modal(&mut self, ctx: &WgpuContext) {
+        self.modal = Modal::new(ctx, 448.0, 140.0);
+        let mut prompt =
+            UnsavedChangesExitPrompt::new(self.modal.rect, "Do you want to save changes before exiting?");
+        let widgets: Vec<BoxedWidget> = vec![Box::new(move |ctx, _, _| {
+            if let Some(result) = prompt.draw(ctx) {
+                UNSAVED_EXIT_RESULT.with(|cell| *cell.borrow_mut() = Some(result));
+            }
+        })];
+        self.modal.open(widgets);
+    }
+
     pub fn handle_modal(&mut self, ctx: &mut WgpuContext) -> Option<ModalResult> {
         if self.modal.is_open() {
             if self.prefab_state.require_picker() && modal_escape_requested() {
@@ -508,6 +520,25 @@ impl Editor {
                 self.confirm_dirty_prefab_transition(result);
                 self.modal.close();
             }
+
+            let unsaved_exit_opt = UNSAVED_EXIT_RESULT.with(|c| c.borrow_mut().take());
+
+            if let Some(result) = unsaved_exit_opt {
+                match result {
+                    UnsavedExitResult::Save => {
+                        self.save();
+                        ctx.set_exit_confirmed(true);
+                    }
+                    UnsavedExitResult::DontSave => {
+                        ctx.set_exit_confirmed(true);
+                    }
+                    UnsavedExitResult::Cancel => {
+                        ctx.set_close_requested(false);
+                    }
+                }
+                self.handling_close = false;
+                self.modal.close();
+            }
         }
         None
     }
@@ -562,7 +593,7 @@ impl Editor {
     }
 
     pub(crate) fn should_ignore_modal_clicked_outside(&self) -> bool {
-        self.prefab_state.require_picker()
+        self.prefab_state.require_picker() || self.handling_close
     }
 }
 
@@ -578,4 +609,5 @@ thread_local! {
     pub static EMPTY_PREFAB_EXIT_RESULT: RefCell<Option<EmptyPrefabExitPromptResult>> = const { RefCell::new(None) };
     pub static DIRTY_PREFAB_EXIT_RESULT: RefCell<Option<DirtyPrefabExitPromptResult>> = const { RefCell::new(None) };
     pub static DELETE_PREFAB_RESULT: RefCell<Option<ConfirmPromptResult>> = const { RefCell::new(None) };
+    pub static UNSAVED_EXIT_RESULT: RefCell<Option<UnsavedExitResult>> = const { RefCell::new(None) };
 }

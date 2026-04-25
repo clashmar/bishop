@@ -58,6 +58,8 @@ pub struct WgpuContext {
     render_target_dims: Option<(f32, f32)>,
     clip_rect: Option<[u32; 4]>,
     draw_segments: Vec<DrawSegment>,
+    pub(crate) close_requested: bool,
+    pub(crate) exit_confirmed: bool,
 }
 
 impl WgpuContext {
@@ -98,6 +100,8 @@ impl WgpuContext {
             render_target_dims: None,
             clip_rect: None,
             draw_segments: Vec::new(),
+            close_requested: false,
+            exit_confirmed: false,
         })
     }
 
@@ -248,6 +252,22 @@ impl WgpuContext {
     /// Returns a reference to the underlying window.
     pub fn window(&self) -> &Window {
         &self.window
+    }
+
+    pub fn is_close_requested(&self) -> bool {
+        self.close_requested
+    }
+
+    pub fn set_close_requested(&mut self, requested: bool) {
+        self.close_requested = requested;
+    }
+
+    pub fn is_exit_confirmed(&self) -> bool {
+        self.exit_confirmed
+    }
+
+    pub fn set_exit_confirmed(&mut self, confirmed: bool) {
+        self.exit_confirmed = confirmed;
     }
 
     /// Returns the current screen width in logical pixels.

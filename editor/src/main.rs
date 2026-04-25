@@ -70,11 +70,7 @@ impl BishopApp for EditorApp {
         }
     }
 
-    fn on_exit(&mut self) {
-        with_editor(|editor| {
-            editor.save();
-        });
-    }
+
 
     async fn frame(&mut self, ctx: PlatformContext) {
         let mut ctx_ref = ctx.borrow_mut();
