@@ -328,6 +328,11 @@ pub fn ecs_component(args: TokenStream, input: TokenStream) -> TokenStream {
                 is_public_lua_api: #lua_api,
                 post_create: #post_create_fn,
                 post_remove: #post_remove_fn,
+                max_entity_id: |store: &dyn std::any::Any| -> Option<usize> {
+                    store
+                        .downcast_ref::<crate::ecs::component::ComponentStore<#name>>()
+                        .and_then(|s| s.data.keys().map(|e| e.0).max())
+                },
             }
         }
     };

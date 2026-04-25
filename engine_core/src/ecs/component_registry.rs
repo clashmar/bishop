@@ -1,5 +1,5 @@
-use crate::ecs::ComponentStore;
 use crate::ecs::component::Component;
+use crate::ecs::ComponentStore;
 use crate::ecs::{ecs::Ecs, entity::Entity};
 use crate::game::GameCtxMut;
 use mlua::Lua;
@@ -60,6 +60,8 @@ pub struct ComponentRegistry {
     pub lua_schema: fn() -> &'static [(&'static str, &'static str)],
     /// Whether this component should be visible through the public Lua API.
     pub is_public_lua_api: bool,
+    /// Returns the highest entity id present in the store, or `None` if empty.
+    pub max_entity_id: fn(&dyn Any) -> Option<usize>,
 }
 
 /// Factory that works for any component that implements `Component + Default`.

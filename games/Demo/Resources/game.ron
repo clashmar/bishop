@@ -137,7 +137,6 @@
                 data: "{}",
             ),
         ],
-        next_entity_id: 41,
     ),
     worlds: [
         /*[0]*/ (

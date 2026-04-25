@@ -14,19 +14,28 @@ use std::any::Any;
 use std::any::TypeId;
 use std::collections::HashMap;
 
-#[derive(Default, Debug)]
+#[derive(Debug)]
 pub struct Ecs {
     pub stores: HashMap<TypeId, Box<dyn Any + Send + Sync>>,
     next_entity_id: usize,
 }
 
+impl Default for Ecs {
+    fn default() -> Self {
+        Self {
+            stores: HashMap::new(),
+            next_entity_id: 1,
+        }
+    }
+}
+
 impl Ecs {
     /// Allocate a fresh id and return a builder.
     pub fn create_entity(&mut self) -> EntityBuilder<'_> {
-        // This ensures id will always start from 1
+        let id = Entity(self.next_entity_id);
         self.next_entity_id += 1;
         EntityBuilder {
-            id: Entity(self.next_entity_id),
+            id,
             ecs: self,
         }
     }
@@ -239,6 +248,20 @@ impl Ecs {
             }
         }
     }
+
+    /// Recalculate next_entity_id from the highest entity id across all component stores.
+    fn restore_next_entity_id(&mut self) {
+        self.next_entity_id = inventory::iter::<ComponentRegistry>
+            .into_iter()
+            .filter_map(|reg| {
+                self.stores
+                    .get(&reg.type_id)
+                    .and_then(|any_box| (reg.max_entity_id)(&**any_box))
+            })
+            .max()
+            .map(|max_id| max_id + 1)
+            .unwrap_or(1);
+    }
 }
 
 impl Serialize for Ecs {
@@ -279,10 +302,9 @@ impl Serialize for Ecs {
 
         components.sort_by(|left, right| left.type_name.cmp(&right.type_name));
 
-        // Serialize the whole world
-        let mut state = serializer.serialize_struct("Ecs", 2)?;
+        // Serialize just the components; next_entity_id is derived on load
+        let mut state = serializer.serialize_struct("Ecs", 1)?;
         state.serialize_field("components", &components)?;
-        state.serialize_field("next_entity_id", &self.next_entity_id)?;
         state.end()
     }
 }
@@ -292,11 +314,9 @@ impl<'de> Deserialize<'de> for Ecs {
     where
         D: Deserializer<'de>,
     {
-        // Helper struct that mirrors the data that actually writes
         #[derive(Deserialize)]
         struct Helper {
             pub components: Vec<StoredComponent>,
-            pub next_entity_id: usize,
         }
 
         let helper = Helper::deserialize(deserializer)?;
@@ -324,11 +344,11 @@ impl<'de> Deserialize<'de> for Ecs {
             stores.insert(type_id, any_box);
         }
 
-        let ecs = Ecs {
+        let mut ecs = Ecs {
             stores,
-            next_entity_id: helper.next_entity_id,
+            next_entity_id: 1,
         };
-
+        ecs.restore_next_entity_id();
         Ok(ecs)
     }
 }
@@ -340,3 +360,59 @@ static TYPE_NAME_FOR_ID: Lazy<HashMap<TypeId, &'static str>> = Lazy::new(|| {
     }
     map
 });
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::ecs::Transform;
+
+    #[test]
+    fn restore_next_entity_id_finds_max() {
+        let mut ecs = Ecs::default();
+        let _e1 = ecs.create_entity().with(Transform::default()).finish();
+        let _e2 = ecs.create_entity().with(Transform::default()).finish();
+        let e3 = ecs.create_entity().with(Transform::default()).finish();
+
+        assert_eq!(ecs.next_entity_id, 4);
+
+        ecs.get_store_mut::<Transform>().remove(e3);
+        ecs.restore_next_entity_id();
+        assert_eq!(
+            ecs.next_entity_id, 3,
+            "after removing the highest entity, next_entity_id should be max(existing) + 1"
+        );
+
+        let e_new = ecs.create_entity().finish();
+        assert_eq!(e_new.0, 3);
+    }
+
+    #[test]
+    fn restore_next_entity_id_empty_ecs_defaults_to_1() {
+        let mut ecs = Ecs {
+            stores: HashMap::new(),
+            next_entity_id: 42,
+        };
+        ecs.restore_next_entity_id();
+        assert_eq!(ecs.next_entity_id, 1);
+    }
+
+    #[test]
+    fn roundtrip_serde_derives_next_entity_id() {
+        let mut ecs = Ecs::default();
+        ecs.create_entity().with(Transform::default()).finish();
+        ecs.create_entity().with(Transform::default()).finish();
+        assert_eq!(ecs.next_entity_id, 3);
+
+        let ron = ron::ser::to_string(&ecs).unwrap();
+        let deserialized: Ecs = ron::de::from_str(&ron).unwrap();
+        assert_eq!(deserialized.next_entity_id, 3);
+    }
+
+    #[test]
+    fn roundtrip_serde_empty_ecs() {
+        let ecs = Ecs::default();
+        let ron = ron::ser::to_string(&ecs).unwrap();
+        let deserialized: Ecs = ron::de::from_str(&ron).unwrap();
+        assert_eq!(deserialized.next_entity_id, 1);
+    }
+}
