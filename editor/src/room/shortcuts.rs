@@ -1,8 +1,9 @@
 // editor/src/room/shortcuts.rs
-use crate::app::EditorMode;
 use crate::app::EditorCameraController;
+use crate::app::EditorMode;
 use crate::commands::room::*;
 use crate::editor_global::push_command;
+use crate::gui::modal::is_modal_open;
 use crate::gui::mode_selector::ModeInfo;
 use crate::room::room_editor::*;
 use bishop::prelude::*;
@@ -18,7 +19,7 @@ impl RoomEditor {
         grid_size: f32,
         ecs: &Ecs,
     ) {
-        if input_is_focused() {
+        if input_is_focused() || is_modal_open() {
             return;
         }
 

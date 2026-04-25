@@ -4,6 +4,7 @@ use crate::commands::scene::DeletePrefabCmd;
 use crate::editor_global::*;
 use crate::gui::inspector::audio_source_module::clear_active_audio_preview;
 use crate::gui::menu_bar::*;
+use crate::gui::modal::is_modal_open;
 use crate::gui::panels::*;
 use crate::prefab::{PendingPrefabTransition, PrefabTransitionPrompt};
 use crate::storage::editor_storage::*;
@@ -42,6 +43,7 @@ impl Editor {
 
     fn shortcut_action(&self, ctx: &WgpuContext) -> Option<EditorAction> {
         let input_focused = input_is_focused();
+        let modal_open = is_modal_open();
         let actions = [
             EditorAction::Save,
             EditorAction::SaveAs,
@@ -58,6 +60,7 @@ impl Editor {
         actions.into_iter().find(|action| {
             action.is_available_in(self.mode)
                 && (!input_focused || !action.blocked_by_focused_input())
+                && !modal_open
                 && action.shortcut_pressed(ctx)
         })
     }

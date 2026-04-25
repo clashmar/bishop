@@ -3,6 +3,7 @@ use super::{PrefabDragState, PrefabEditor, PREFAB_EDITOR_GRID_SIZE};
 use crate::app::EditorMode;
 use crate::commands::room::{BatchMoveEntitiesCmd, MoveEntityCmd};
 use crate::editor_global::push_command;
+use crate::gui::modal::is_modal_open;
 use crate::room::entity_hitbox;
 use crate::room::entity_world_rect;
 use crate::shared::selection::{rect_from_two_points, rects_intersect};
@@ -130,7 +131,11 @@ impl PrefabEditor {
     }
 
     pub(crate) fn handle_keyboard_move(&mut self, ctx: &WgpuContext, ecs: &mut Ecs) {
-        if self.drag_state.dragging || self.selected_entities.is_empty() || input_is_focused() {
+        if self.drag_state.dragging
+            || self.selected_entities.is_empty()
+            || input_is_focused()
+            || is_modal_open()
+        {
             return;
         }
 

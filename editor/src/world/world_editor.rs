@@ -5,6 +5,7 @@ use crate::canvas::grid;
 use crate::canvas::grid_shader::GridRenderer;
 use crate::editor_assets::assets::*;
 use crate::gui::menu_bar::*;
+use crate::gui::modal::is_modal_open;
 use crate::gui::mode_selector::*;
 use crate::world::coord::*;
 use bishop::prelude::*;
@@ -497,7 +498,7 @@ impl WorldEditor {
 
         for mode in WorldEditorMode::iter() {
             if let Some(shortcut) = mode.shortcut() {
-                if shortcut(ctx) && !input_is_focused() {
+                if shortcut(ctx) && !input_is_focused() && !is_modal_open() {
                     self.mode = mode;
                     self.mode_selector.current = mode;
                     break;

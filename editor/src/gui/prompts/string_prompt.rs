@@ -4,6 +4,7 @@ use crate::gui::prompts::constants::*;
 use crate::gui::prompts::helpers::*;
 use bishop::prelude::*;
 use engine_core::prelude::*;
+use widgets::{input_is_focused, request_focus};
 
 /// Result of a string prompt.
 #[derive(Debug, PartialEq, Eq)]
@@ -108,6 +109,10 @@ impl StringPrompt {
 
         if cancel_clicked || escape_pressed {
             return Some(StringPromptResult::Cancelled);
+        }
+
+        if !input_is_focused() {
+            request_focus(self.input_id, true);
         }
 
         None

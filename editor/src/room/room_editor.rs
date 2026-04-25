@@ -235,17 +235,24 @@ impl RoomEditor {
                 }
 
                 // Handle batch delete when multiple entities selected
-                if self.selected_entities.len() > 1 && Controls::delete(ctx) && !input_is_focused()
+                if self.selected_entities.len() > 1
+                    && Controls::delete(ctx)
+                    && !input_is_focused()
+                    && !is_modal_open()
                 {
                     let entities: Vec<Entity> = self.selected_entities.iter().copied().collect();
                     push_command(Box::new(BatchDeleteEntitiesCmd::new(
                         entities,
-                        EditorMode::Room(room.id),
+                        EditorMode::Room(room_id),
                     )));
                 }
 
                 // Copy multiple selected entities
-                if Controls::copy(ctx) && self.selected_entities.len() > 1 && !input_is_focused() {
+                if Controls::copy(ctx)
+                    && self.selected_entities.len() > 1
+                    && !input_is_focused()
+                    && !is_modal_open()
+                {
                     let entities: Vec<Entity> = self.selected_entities.iter().copied().collect();
                     copy_entities(ecs, &entities);
                 }

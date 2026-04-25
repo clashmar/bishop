@@ -98,7 +98,11 @@ impl MenuEditor {
 
         self.update_canvas(ctx, camera, canvas_rect, blocked);
 
-        if !input_is_focused() && Controls::v(ctx) && self.current_template_index.is_some() {
+        if !input_is_focused()
+            && !is_modal_open()
+            && Controls::v(ctx)
+            && self.current_template_index.is_some()
+        {
             self.view_preview = true;
             self.dragging_element = None;
             self.resizing_handle = None;
@@ -307,7 +311,6 @@ impl MenuEditor {
         self.active_rects.push(rect);
         rect
     }
-
 }
 
 impl SubEditor for MenuEditor {

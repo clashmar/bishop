@@ -1,8 +1,9 @@
 // editor/src/room/entity_drag.rs
-use crate::commands::room::*;
-use crate::editor_global::*;
 use crate::app::EditorMode;
 use crate::app::SubEditor;
+use crate::commands::room::*;
+use crate::editor_global::*;
+use crate::gui::modal::is_modal_open;
 use crate::room::room_editor::*;
 use crate::room::selection::*;
 use crate::shared::selection::*;
@@ -138,7 +139,8 @@ impl RoomEditor {
                     }
 
                     // Store initial positions for undo command
-                    self.drag_state.drag_initial_start_positions = self.drag_state.drag_start_positions.clone();
+                    self.drag_state.drag_initial_start_positions =
+                        self.drag_state.drag_start_positions.clone();
 
                     // If alt is already held, immediately enter copy mode
                     let alt_held =
@@ -155,8 +157,11 @@ impl RoomEditor {
                         if !duplicates.is_empty() {
                             // Position duplicates where originals are
                             for (orig, dup) in &duplicates {
-                                if let Some((_, pos)) =
-                                    self.drag_state.drag_start_positions.iter().find(|(e, _)| e == orig)
+                                if let Some((_, pos)) = self
+                                    .drag_state
+                                    .drag_start_positions
+                                    .iter()
+                                    .find(|(e, _)| e == orig)
                                 {
                                     update_entity_position(ecs, *dup, *pos);
                                 }
@@ -164,7 +169,8 @@ impl RoomEditor {
 
                             // Find the duplicate corresponding to the anchor
                             let new_anchor = self
-                                .drag_state.drag_anchor_entity
+                                .drag_state
+                                .drag_anchor_entity
                                 .and_then(|anchor| duplicates.iter().find(|(o, _)| *o == anchor))
                                 .map(|(_, d)| *d)
                                 .unwrap_or(duplicates[0].1);
@@ -179,7 +185,8 @@ impl RoomEditor {
                             self.drag_state.drag_start_positions = duplicates
                                 .iter()
                                 .filter_map(|(orig, dup)| {
-                                    self.drag_state.drag_initial_start_positions
+                                    self.drag_state
+                                        .drag_initial_start_positions
                                         .iter()
                                         .find(|(e, _)| e == orig)
                                         .map(|(_, pos)| (*dup, *pos))
@@ -187,7 +194,8 @@ impl RoomEditor {
                                 .collect();
 
                             self.drag_state.drag_anchor_entity = Some(new_anchor);
-                            self.drag_state.alt_copied_entities = duplicates.iter().map(|(_, d)| *d).collect();
+                            self.drag_state.alt_copied_entities =
+                                duplicates.iter().map(|(_, d)| *d).collect();
                             self.drag_state.alt_copy_mode = true;
                         }
                     }
@@ -219,8 +227,13 @@ impl RoomEditor {
                         if !can_select_entity_in_room(ecs, *entity, room_id) {
                             continue;
                         }
-                        let entity_rect =
-                            entity_world_rect(*entity, pos.position, ecs, sprite_manager, grid_size);
+                        let entity_rect = entity_world_rect(
+                            *entity,
+                            pos.position,
+                            ecs,
+                            sprite_manager,
+                            grid_size,
+                        );
                         if rects_intersect(box_rect, entity_rect) {
                             self.selected_entities.insert(*entity);
                         }
@@ -239,7 +252,8 @@ impl RoomEditor {
             if !self.drag_state.alt_copy_mode && alt_just_pressed {
                 // Get current positions of originals
                 let current_positions: Vec<(Entity, Vec2)> = self
-                    .drag_state.drag_start_positions
+                    .drag_state
+                    .drag_start_positions
                     .iter()
                     .filter_map(|(e, _)| {
                         ecs.get_store::<Transform>()
@@ -271,7 +285,8 @@ impl RoomEditor {
 
                     // Find the duplicate corresponding to the anchor
                     let new_anchor = self
-                        .drag_state.drag_anchor_entity
+                        .drag_state
+                        .drag_anchor_entity
                         .and_then(|anchor| duplicates.iter().find(|(o, _)| *o == anchor))
                         .map(|(_, d)| *d)
                         .unwrap_or(duplicates[0].1);
@@ -294,7 +309,8 @@ impl RoomEditor {
                         .collect();
 
                     self.drag_state.drag_anchor_entity = Some(new_anchor);
-                    self.drag_state.alt_copied_entities = duplicates.iter().map(|(_, d)| *d).collect();
+                    self.drag_state.alt_copied_entities =
+                        duplicates.iter().map(|(_, d)| *d).collect();
                     self.drag_state.alt_copy_mode = true;
                 }
             }
@@ -306,7 +322,8 @@ impl RoomEditor {
                 if let Some(original_state) = self.drag_state.pre_copy_drag_state.take() {
                     // Get current positions of copies before deleting them
                     let copy_positions: Vec<(Entity, Vec2)> = self
-                        .drag_state.alt_copied_entities
+                        .drag_state
+                        .alt_copied_entities
                         .iter()
                         .filter_map(|e| {
                             ecs.get_store::<Transform>()
@@ -317,7 +334,8 @@ impl RoomEditor {
 
                     // Build mapping from copy to original
                     let copy_to_orig: Vec<(Entity, Entity)> = self
-                        .drag_state.alt_copied_entities
+                        .drag_state
+                        .alt_copied_entities
                         .iter()
                         .zip(original_state.selected_entities.iter())
                         .map(|(c, o)| (*c, *o))
@@ -341,7 +359,9 @@ impl RoomEditor {
                         if let Some((_, copy_pos)) = copy_positions.iter().find(|(e, _)| e == copy)
                         {
                             update_entity_position(ecs, *orig, *copy_pos);
-                            self.drag_state.drag_start_positions.push((*orig, *copy_pos));
+                            self.drag_state
+                                .drag_start_positions
+                                .push((*orig, *copy_pos));
                         }
                     }
 
@@ -360,7 +380,8 @@ impl RoomEditor {
 
             // Find the anchor entity's start position and move entities
             let anchor_start = self.drag_state.drag_anchor_entity.and_then(|anchor| {
-                self.drag_state.drag_start_positions
+                self.drag_state
+                    .drag_start_positions
                     .iter()
                     .find(|(e, _)| *e == anchor)
                     .map(|(_, pos)| *pos)
@@ -451,7 +472,11 @@ impl RoomEditor {
         ecs: &mut Ecs,
         room_id: RoomId,
     ) {
-        if self.drag_state.dragging || self.selected_entities.is_empty() || input_is_focused() {
+        if self.drag_state.dragging
+            || self.selected_entities.is_empty()
+            || input_is_focused()
+            || is_modal_open()
+        {
             return;
         }
 
