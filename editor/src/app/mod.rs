@@ -3,6 +3,8 @@ mod actions;
 mod audio;
 pub mod camera_controller;
 pub(crate) mod escape;
+#[cfg(target_os = "macos")]
+pub(crate) mod macos_quit;
 mod modals;
 mod persistence;
 pub mod sub_editor;

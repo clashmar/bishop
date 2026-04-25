@@ -19,6 +19,21 @@ use super::exec::poll_once;
 use crate::window::{IconData, WindowConfig, WindowIcon};
 use crate::BishopApp;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct CloseRequestState {
+    close_requested: bool,
+    exit_confirmed: bool,
+}
+
+impl Default for CloseRequestState {
+    fn default() -> Self {
+        Self {
+            close_requested: true,
+            exit_confirmed: true,
+        }
+    }
+}
+
 /// Internal application handler for running BishopApp with wgpu/winit.
 pub(crate) struct WgpuAppRunner<A: BishopApp> {
     config: WindowConfig,
@@ -119,7 +134,10 @@ impl<A: BishopApp + 'static> ApplicationHandler for WgpuAppRunner<A> {
         match event {
             WindowEvent::CloseRequested => {
                 if let Some(ctx) = &self.ctx {
-                    ctx.borrow_mut().set_close_requested(true);
+                    let close_state = CloseRequestState::default();
+                    let mut ctx = ctx.borrow_mut();
+                    ctx.set_close_requested(close_state.close_requested);
+                    ctx.set_exit_confirmed(close_state.exit_confirmed);
                 }
             }
             WindowEvent::RedrawRequested => {

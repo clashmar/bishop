@@ -254,6 +254,7 @@ impl Editor {
             ctx.set_exit_confirmed(true);
             return;
         }
+        ctx.set_exit_confirmed(false);
         self.open_unsaved_exit_modal(ctx);
         self.handling_close = true;
     }
