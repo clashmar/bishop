@@ -1,6 +1,5 @@
-use crate::commands::asset::{DeleteAssetCmd, DeleteDirectoryCmd, DeleteUnregisteredFileCmd};
-use crate::editor_global::push_command;
 use crate::gui::modals::{
+    delete_resource::{DeleteResourceModal, DELETE_RESOURCE_TARGET},
     new_resource_folder::{NewResourceFolderModal, NEW_FOLDER_TARGET},
     rename_resource::{ResourceRenameModal, RENAME_RESOURCE_TARGET},
     rename_resource_folder::{ResourceFolderRenameModal, RENAME_FOLDER_TARGET},
@@ -98,7 +97,7 @@ pub(super) fn pending_action_for_background(
     PendingResourceAction::CreateDirectory(current_dir.to_path_buf())
 }
 
-pub(super) enum PendingResourceAction {
+pub enum PendingResourceAction {
     RenameFile(AssetKey),
     RenameDirectory(UserPath),
     DeleteRegisteredFile(AssetKey),
@@ -155,16 +154,11 @@ pub(super) fn handle_pending_action(
     ctx: &mut WgpuContext,
 ) -> Option<PendingResourceAction> {
     match pending {
-        Some(PendingResourceAction::DeleteRegisteredFile(key)) => {
-            push_command(Box::new(DeleteAssetCmd::new(key)));
-            None
-        }
-        Some(PendingResourceAction::DeleteUnregisteredFile(path)) => {
-            push_command(Box::new(DeleteUnregisteredFileCmd::new(path)));
-            None
-        }
-        Some(PendingResourceAction::DeleteDirectory(user_path)) => {
-            push_command(Box::new(DeleteDirectoryCmd::new(user_path)));
+        Some(action @ PendingResourceAction::DeleteRegisteredFile(_))
+        | Some(action @ PendingResourceAction::DeleteUnregisteredFile(_))
+        | Some(action @ PendingResourceAction::DeleteDirectory(_)) => {
+            DELETE_RESOURCE_TARGET.with(|t| *t.borrow_mut() = Some(action));
+            DeleteResourceModal.open(editor, ctx);
             None
         }
         Some(PendingResourceAction::Open(path)) => {

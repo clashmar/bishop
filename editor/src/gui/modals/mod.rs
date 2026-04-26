@@ -6,6 +6,7 @@ use std::thread::LocalKey;
 
 pub mod confirm;
 pub mod delete_prefab;
+pub mod delete_resource;
 pub mod delete_world;
 pub mod dirty_prefab_exit;
 pub mod edit_world;
