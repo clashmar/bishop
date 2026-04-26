@@ -16,7 +16,7 @@ use context_menu::ResourceMenuAction;
 use context_menu::{
     context_target_for_background, context_target_for_entry, draw_context_menu,
     handle_pending_action, open_resource, pending_action_for, pending_action_for_background,
-    ActiveMenu, EntryKind, PendingResourceAction,
+    ActiveMenu, EntryKind, PendingResourceAction, ResourceOpenResult,
 };
 use engine_core::prelude::*;
 use icon_mapper::{IconMapper, IconType};
@@ -313,7 +313,11 @@ impl PanelDefinition for ResourcesPanel {
                     && cell_rect.contains(mouse)
                     && ctx.is_mouse_button_double_clicked(MouseButton::Left)
                 {
-                    open_resource(&entry.path, editor);
+                    if let ResourceOpenResult::PrefabTransition(prefab_id) =
+                        open_resource(&entry.path, editor)
+                    {
+                        editor.enter_prefab_transition(ctx, prefab_id);
+                    }
                     break;
                 }
 

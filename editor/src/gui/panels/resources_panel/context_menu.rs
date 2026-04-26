@@ -164,7 +164,9 @@ pub(super) fn handle_pending_action(
             None
         }
         Some(PendingResourceAction::Open(path)) => {
-            open_resource(&path, editor);
+            if let ResourceOpenResult::PrefabTransition(prefab_id) = open_resource(&path, editor) {
+                editor.enter_prefab_transition(ctx, prefab_id);
+            }
             None
         }
         Some(PendingResourceAction::Reveal(path)) => {
@@ -199,7 +201,13 @@ fn asset_key_for_entry(entry: &Entry) -> Option<AssetKey> {
     with_editor(|editor| editor.game.asset_registry.key_for_full_path(&entry.path))
 }
 
-pub(crate) fn open_resource(path: &std::path::Path, editor: &mut Editor) {
+#[derive(Debug, PartialEq)]
+pub(crate) enum ResourceOpenResult {
+    Handled,
+    PrefabTransition(PrefabId),
+}
+
+pub(crate) fn open_resource(path: &std::path::Path, editor: &mut Editor) -> ResourceOpenResult {
     if path
         .extension()
         .is_some_and(|ext| ext == extensions::PREFAB)
@@ -207,20 +215,14 @@ pub(crate) fn open_resource(path: &std::path::Path, editor: &mut Editor) {
         if let Some(AssetKey::Prefab(prefab_id)) =
             editor.game.asset_registry.key_for_full_path(path)
         {
-            let already_open = editor
-                .prefab_editor
-                .as_ref()
-                .is_some_and(|pe| pe.prefab_id == prefab_id);
-            if !already_open {
-                editor.open_prefab_editor_for_id(prefab_id);
-            }
-            return;
+            return ResourceOpenResult::PrefabTransition(prefab_id);
         }
         editor.toast = Some(Toast::new("Unregistered prefab file", 3.0));
-        return;
+        return ResourceOpenResult::Handled;
     }
 
     open_file_with_default(path, editor);
+    ResourceOpenResult::Handled
 }
 
 fn open_file_with_default(path: &std::path::Path, editor: &mut Editor) {

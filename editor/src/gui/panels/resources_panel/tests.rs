@@ -9,7 +9,7 @@ use engine_core::storage::path_utils::resources_folder_current;
 
 use super::context_menu::{
     self, context_target_for_entry, open_resource, ActiveMenu, EntryKind, PendingResourceAction,
-    ResourceMenuAction,
+    ResourceMenuAction, ResourceOpenResult,
 };
 use super::icon_mapper::{IconMapper, IconType, FILE_ICON_MAP};
 use super::navigation::Navigation;
@@ -401,7 +401,7 @@ fn pending_action_for_background_returns_create_directory() {
 }
 
 #[test]
-fn open_resource_registered_prefab_opens_prefab_editor() {
+fn open_resource_registered_prefab_returns_transition() {
     let _lock = game_fs_test_lock()
         .lock()
         .unwrap_or_else(|poison| poison.into_inner());
@@ -410,7 +410,6 @@ fn open_resource_registered_prefab_opens_prefab_editor() {
 
     editor.prefab_editor = None;
     editor.mode = EditorMode::Room(room_id);
-    editor.toast = None;
 
     let prefab_path = editor
         .game
@@ -419,14 +418,13 @@ fn open_resource_registered_prefab_opens_prefab_editor() {
         .map(|r| resources_folder_current().join(&r.path))
         .expect("prefab should be registered");
 
-    open_resource(&prefab_path, &mut editor);
+    let result = open_resource(&prefab_path, &mut editor);
 
-    assert!(editor.prefab_editor.is_some());
-    assert_eq!(editor.prefab_editor.as_ref().unwrap().prefab_id, prefab_id);
+    assert_eq!(result, ResourceOpenResult::PrefabTransition(prefab_id));
 }
 
 #[test]
-fn open_resource_already_open_prefab_is_noop() {
+fn open_resource_already_open_prefab_returns_transition() {
     let _lock = game_fs_test_lock()
         .lock()
         .unwrap_or_else(|poison| poison.into_inner());
@@ -442,10 +440,9 @@ fn open_resource_already_open_prefab_is_noop() {
 
     editor.toast = None;
 
-    open_resource(&prefab_path, &mut editor);
+    let result = open_resource(&prefab_path, &mut editor);
 
-    assert!(editor.prefab_editor.is_some());
-    assert_eq!(editor.prefab_editor.as_ref().unwrap().prefab_id, prefab_id);
+    assert_eq!(result, ResourceOpenResult::PrefabTransition(prefab_id));
     assert!(editor.toast.is_none());
 }
 
@@ -467,8 +464,9 @@ fn open_resource_unregistered_prefab_shows_toast() {
     std::fs::create_dir_all(unregistered_path.parent().unwrap()).unwrap();
     std::fs::write(&unregistered_path, "").unwrap();
 
-    open_resource(&unregistered_path, &mut editor);
+    let result = open_resource(&unregistered_path, &mut editor);
 
+    assert_eq!(result, ResourceOpenResult::Handled);
     assert!(
         editor
             .toast
