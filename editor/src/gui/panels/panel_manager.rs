@@ -13,7 +13,7 @@ use bishop::prelude::*;
 use engine_core::prelude::*;
 use engine_core::storage::editor_config::{get_panel_position, set_panel_position, PanelPosition};
 use std::collections::HashMap;
-use widgets::is_context_menu_open;
+use widgets::{is_context_menu_open, is_modal_open};
 
 pub enum PanelMode {
     Room,
@@ -77,10 +77,11 @@ impl PanelManager {
     ) {
         let mouse_screen = ctx.mouse_position().into();
         let mouse_pressed = ctx.is_mouse_button_pressed(MouseButton::Left);
+        let modal_open = is_modal_open();
 
         // Find which panel was clicked (iterate back-to-front for z-order).
         let mut clicked_panel_id: Option<PanelId> = None;
-        let can_raise_panel = mouse_pressed && !is_context_menu_open();
+        let can_raise_panel = mouse_pressed && !is_context_menu_open() && !modal_open;
         if can_raise_panel {
             for (id, panel) in self.panels.iter().rev() {
                 if panel.visible
@@ -124,8 +125,9 @@ impl PanelManager {
                 continue;
             }
 
-            // Block this panel if the mouse is over a different (higher-z) panel
-            let blocked = topmost_panel_at_mouse.is_some() && topmost_panel_at_mouse != Some(*id);
+            // Block this panel if a modal is open or the mouse is over a different (higher-z) panel
+            let blocked = modal_open
+                || (topmost_panel_at_mouse.is_some() && topmost_panel_at_mouse != Some(*id));
             let was_dragging = panel.dragging;
 
             panel.update_and_draw(ctx, editor, blocked);
