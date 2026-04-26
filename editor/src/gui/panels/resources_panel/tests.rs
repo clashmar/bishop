@@ -5,7 +5,10 @@ use engine_core::scripting::lua_constants::lua_dirs;
 use engine_core::storage::path_utils::resources_folder_current;
 use engine_core::storage::test_utils::{game_fs_test_lock, TestGameFolder};
 
-use super::context_menu::{context_target_for_entry, ContextTarget, EntryKind, ResourceMenuAction};
+use super::context_menu::{
+    self, context_target_for_entry, ActiveMenu, EntryKind, PendingResourceAction,
+    ResourceMenuAction,
+};
 use super::icon_mapper::{IconMapper, IconType, FILE_ICON_MAP};
 use super::navigation::Navigation;
 use super::path_filter::{PathFilter, HIDDEN_DIRS, HIDDEN_EXTENSIONS, HIDDEN_FILENAMES};
@@ -311,16 +314,20 @@ fn unregistered_file_has_delete_and_reveal_actions() {
 }
 
 #[test]
-fn directory_has_new_folder_rename_and_delete_actions() {
+fn directory_has_rename_and_delete_actions() {
     let entry = test_entry("folder", EntryKind::Directory);
 
     assert_eq!(
         entry.context_menu_actions(),
-        &[
-            ResourceMenuAction::NewFolder,
-            ResourceMenuAction::Rename,
-            ResourceMenuAction::Delete,
-        ]
+        &[ResourceMenuAction::Rename, ResourceMenuAction::Delete,]
+    );
+}
+
+#[test]
+fn background_menu_has_only_new_folder_action() {
+    assert_eq!(
+        context_menu::BACKGROUND_MENU_ACTIONS,
+        &[ResourceMenuAction::NewFolder]
     );
 }
 
@@ -352,4 +359,25 @@ fn regular_entry_context_target_keeps_index_position_and_actions() {
             ResourceMenuAction::Reveal,
         ]
     );
+}
+
+#[test]
+fn active_menu_entry_stores_position() {
+    let entry = test_entry("player.lua", EntryKind::RegisteredFile);
+    let target = context_target_for_entry(2, &entry, Vec2::new(50.0, 75.0)).unwrap();
+    let menu = ActiveMenu::Entry(target);
+    assert_eq!(menu.position(), Vec2::new(50.0, 75.0));
+}
+
+#[test]
+fn active_menu_background_stores_position() {
+    let menu = ActiveMenu::Background(Vec2::new(150.0, 200.0));
+    assert_eq!(menu.position(), Vec2::new(150.0, 200.0));
+}
+
+#[test]
+fn pending_action_for_background_returns_create_directory() {
+    let current_dir = PathBuf::from("/games/Demo/Resources/subdir");
+    let action = context_menu::pending_action_for_background(&current_dir);
+    assert!(matches!(action, PendingResourceAction::CreateDirectory(ref p) if p == &current_dir));
 }

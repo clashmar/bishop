@@ -36,11 +36,8 @@ impl ResourceMenuAction {
     }
 }
 
-const DIRECTORY_MENU_ACTIONS: &[ResourceMenuAction] = &[
-    ResourceMenuAction::NewFolder,
-    ResourceMenuAction::Rename,
-    ResourceMenuAction::Delete,
-];
+const DIRECTORY_MENU_ACTIONS: &[ResourceMenuAction] =
+    &[ResourceMenuAction::Rename, ResourceMenuAction::Delete];
 const REGISTERED_FILE_MENU_ACTIONS: &[ResourceMenuAction] = &[
     ResourceMenuAction::Rename,
     ResourceMenuAction::Delete,
@@ -49,6 +46,7 @@ const REGISTERED_FILE_MENU_ACTIONS: &[ResourceMenuAction] = &[
 const UNREGISTERED_FILE_MENU_ACTIONS: &[ResourceMenuAction] =
     &[ResourceMenuAction::Delete, ResourceMenuAction::Reveal];
 const PARENT_MENU_ACTIONS: &[ResourceMenuAction] = &[];
+pub(super) const BACKGROUND_MENU_ACTIONS: &[ResourceMenuAction] = &[ResourceMenuAction::NewFolder];
 
 pub(super) fn context_menu_actions_for(kind: EntryKind) -> &'static [ResourceMenuAction] {
     match kind {
@@ -59,10 +57,36 @@ pub(super) fn context_menu_actions_for(kind: EntryKind) -> &'static [ResourceMen
     }
 }
 
+#[derive(Clone)]
 pub(super) struct ContextTarget {
     pub(super) entry_index: usize,
     pub(super) position: Vec2,
     pub(super) actions: Vec<ResourceMenuAction>,
+}
+
+#[derive(Clone)]
+pub(super) enum ActiveMenu {
+    Entry(ContextTarget),
+    Background(Vec2),
+}
+
+impl ActiveMenu {
+    pub(super) fn position(&self) -> Vec2 {
+        match self {
+            Self::Entry(target) => target.position,
+            Self::Background(pos) => *pos,
+        }
+    }
+}
+
+pub(super) fn context_target_for_background(position: Vec2) -> ActiveMenu {
+    ActiveMenu::Background(position)
+}
+
+pub(super) fn pending_action_for_background(
+    current_dir: &std::path::Path,
+) -> PendingResourceAction {
+    PendingResourceAction::CreateDirectory(current_dir.to_path_buf())
 }
 
 pub(super) enum PendingResourceAction {
@@ -108,9 +132,6 @@ pub(super) fn pending_action_for(
         (ResourceMenuAction::Delete, EntryKind::UnregisteredFile) => Some(
             PendingResourceAction::DeleteUnregisteredFile(entry.path.clone()),
         ),
-        (ResourceMenuAction::NewFolder, EntryKind::Directory) => {
-            Some(PendingResourceAction::CreateDirectory(entry.path.clone()))
-        }
         (ResourceMenuAction::Reveal, _) => Some(PendingResourceAction::Reveal(entry.path.clone())),
         _ => None,
     }
@@ -190,12 +211,16 @@ fn reveal_in_system_browser(path: &std::path::Path, editor: &mut Editor) {
 
 pub(super) fn draw_context_menu(
     context_menu_id: WidgetId,
-    context_target: &ContextTarget,
+    active_menu: &ActiveMenu,
     ctx: &mut WgpuContext,
     blocked: bool,
 ) -> Option<ResourceMenuAction> {
-    let items: Vec<ContextMenuItem<ResourceMenuAction>> = context_target
-        .actions
+    let (position, actions): (Vec2, &[ResourceMenuAction]) = match active_menu {
+        ActiveMenu::Entry(target) => (target.position, &target.actions),
+        ActiveMenu::Background(pos) => (*pos, BACKGROUND_MENU_ACTIONS),
+    };
+
+    let items: Vec<ContextMenuItem<ResourceMenuAction>> = actions
         .iter()
         .copied()
         .map(|action| ContextMenuItem {
@@ -204,7 +229,7 @@ pub(super) fn draw_context_menu(
         })
         .collect();
 
-    ContextMenu::new(context_menu_id, context_target.position, &items)
+    ContextMenu::new(context_menu_id, position, &items)
         .blocked(blocked)
         .show(ctx)
 }

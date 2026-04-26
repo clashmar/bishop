@@ -12,8 +12,9 @@ use crate::gui::panels::generic_panel::PanelDefinition;
 use crate::Editor;
 use bishop::prelude::*;
 use context_menu::{
-    context_target_for_entry, draw_context_menu, handle_pending_action, pending_action_for,
-    ContextTarget, EntryKind, PendingResourceAction, ResourceMenuAction,
+    context_target_for_background, context_target_for_entry, draw_context_menu,
+    handle_pending_action, pending_action_for, pending_action_for_background, ActiveMenu,
+    EntryKind, PendingResourceAction, ResourceMenuAction,
 };
 use engine_core::prelude::*;
 use icon_mapper::{IconMapper, IconType};
@@ -63,7 +64,7 @@ pub struct ResourcesPanel {
     navigation: Navigation,
     scroll_state: ScrollState,
     entries: Vec<Entry>,
-    context_target: Option<ContextTarget>,
+    active_menu: Option<ActiveMenu>,
     pending_action: Option<PendingResourceAction>,
     context_menu_id: WidgetId,
 }
@@ -74,7 +75,7 @@ impl ResourcesPanel {
             navigation: Navigation::new(),
             scroll_state: ScrollState::new(),
             entries: Vec::new(),
-            context_target: None,
+            active_menu: None,
             pending_action: None,
             context_menu_id: WidgetId(0xC07E_0001),
         }
@@ -191,8 +192,15 @@ impl PanelDefinition for ResourcesPanel {
     fn draw(&mut self, ctx: &mut WgpuContext, rect: Rect, editor: &mut Editor, blocked: bool) {
         self.scan_current_dir(&editor.game.asset_registry);
 
+        let right_clicked = ctx.is_mouse_button_pressed(MouseButton::Right);
+        if right_clicked && !blocked && widgets::is_context_menu_open() {
+            widgets::close_open_context_menus();
+            self.active_menu = None;
+        }
+
         let interaction_blocked = blocked || widgets::is_context_menu_open();
 
+        let mouse: Vec2 = ctx.mouse_position().into();
         let mut top_y = rect.y + TOP_BAR_PADDING;
 
         let breadcrumb_y = top_y;
@@ -281,9 +289,8 @@ impl PanelDefinition for ResourcesPanel {
             );
 
             let cell_rect = Rect::new(x, cell_y, CELL_SIZE, CELL_SIZE);
-            let mouse: Vec2 = ctx.mouse_position().into();
 
-            if !interaction_blocked {
+            if !interaction_blocked && !blocked {
                 if entry.is_dir_like()
                     && cell_rect.contains(mouse)
                     && ctx.is_mouse_button_pressed(MouseButton::Left)
@@ -297,9 +304,9 @@ impl PanelDefinition for ResourcesPanel {
                     break;
                 }
 
-                if cell_rect.contains(mouse) && ctx.is_mouse_button_pressed(MouseButton::Right) {
+                if cell_rect.contains(mouse) && right_clicked {
                     if let Some(target) = context_target_for_entry(i, entry, mouse) {
-                        self.context_target = Some(target);
+                        self.active_menu = Some(ActiveMenu::Entry(target));
                     }
                 }
             }
@@ -308,13 +315,35 @@ impl PanelDefinition for ResourcesPanel {
         ctx.pop_clip_rect();
         area.draw_scrollbar(ctx, self.scroll_state.scroll_y);
 
-        if let Some(ref target) = self.context_target {
-            if let Some(selected) =
-                draw_context_menu(self.context_menu_id, target, ctx, interaction_blocked)
-            {
-                let entry = &self.entries[target.entry_index];
-                self.pending_action = pending_action_for(entry, selected);
-                self.context_target = None;
+        if !interaction_blocked && !blocked && right_clicked && content_rect.contains(mouse) {
+            let entry_clicked = self
+                .active_menu
+                .as_ref()
+                .is_some_and(|m| matches!(m, ActiveMenu::Entry(_)));
+            if !entry_clicked {
+                self.active_menu = Some(context_target_for_background(mouse));
+            }
+        }
+
+        if let Some(ref menu) = self.active_menu {
+            if let Some(selected) = draw_context_menu(self.context_menu_id, menu, ctx, blocked) {
+                match menu {
+                    ActiveMenu::Entry(ref target) => {
+                        if let Some(entry) = self.entries.get(target.entry_index) {
+                            self.pending_action = pending_action_for(entry, selected);
+                        }
+                    }
+                    ActiveMenu::Background(_) => {
+                        let current_dir = self.navigation.current();
+                        self.pending_action = Some(pending_action_for_background(&current_dir));
+                    }
+                }
+                self.active_menu = None;
+            } else {
+                let state = widgets::context_menu_state::get(self.context_menu_id);
+                if !state.open {
+                    self.active_menu = None;
+                }
             }
         }
 

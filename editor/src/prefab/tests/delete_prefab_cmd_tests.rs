@@ -79,7 +79,6 @@ fn delete_prefab_command_persists_registry_changes_across_reload_and_undo() {
 
     push_command(Box::new(crate::commands::scene::DeletePrefabCmd::new(
         prefab_id,
-        EditorMode::Prefab(prefab_id),
     )));
     apply_pending_commands();
 
@@ -155,7 +154,6 @@ fn delete_prefab_command_restores_asset_instances_palette_and_session_on_undo_re
 
         push_command(Box::new(crate::commands::scene::DeletePrefabCmd::new(
             prefab_id,
-            EditorMode::Prefab(prefab_id),
         )));
     });
     apply_pending_commands();
