@@ -1,5 +1,11 @@
 use crate::commands::asset::{DeleteAssetCmd, DeleteDirectoryCmd, DeleteUnregisteredFileCmd};
-use crate::editor_global::{push_command, push_toast, with_editor};
+use crate::editor_global::{push_command, with_editor};
+use crate::gui::modals::{
+    new_resource_folder::{NewResourceFolderModal, NEW_FOLDER_TARGET},
+    rename_resource::{ResourceRenameModal, RENAME_RESOURCE_TARGET},
+    rename_resource_folder::{ResourceFolderRenameModal, RENAME_FOLDER_TARGET},
+    ModalHandler,
+};
 use crate::Editor;
 use bishop::prelude::*;
 use engine_core::prelude::*;
@@ -165,16 +171,24 @@ pub(super) fn handle_pending_action(
             reveal_in_system_browser(&path, editor);
             None
         }
-        Some(PendingResourceAction::RenameFile(_key)) => {
-            open_resource_rename_modal(editor, ctx);
+        Some(PendingResourceAction::RenameFile(key)) => {
+            let old_relative = editor
+                .game
+                .asset_registry
+                .relative_path(key)
+                .unwrap_or_default();
+            RENAME_RESOURCE_TARGET.with(|t| *t.borrow_mut() = Some((key, old_relative)));
+            ResourceRenameModal.open(editor, ctx);
             None
         }
-        Some(PendingResourceAction::RenameDirectory(_path)) => {
-            open_directory_rename_modal(editor, ctx);
+        Some(PendingResourceAction::RenameDirectory(path)) => {
+            RENAME_FOLDER_TARGET.with(|t| *t.borrow_mut() = Some(path));
+            ResourceFolderRenameModal.open(editor, ctx);
             None
         }
-        Some(PendingResourceAction::CreateDirectory(_path)) => {
-            open_new_folder_modal(editor, ctx);
+        Some(PendingResourceAction::CreateDirectory(path)) => {
+            NEW_FOLDER_TARGET.with(|t| *t.borrow_mut() = Some(path));
+            NewResourceFolderModal.open(editor, ctx);
             None
         }
         other => other,
@@ -183,18 +197,6 @@ pub(super) fn handle_pending_action(
 
 fn asset_key_for_entry(entry: &Entry) -> Option<AssetKey> {
     with_editor(|editor| editor.game.asset_registry.key_for_full_path(&entry.path))
-}
-
-fn open_resource_rename_modal(_editor: &mut Editor, _ctx: &mut WgpuContext) {
-    push_toast("Resource rename coming soon.", 3.0);
-}
-
-fn open_directory_rename_modal(_editor: &mut Editor, _ctx: &mut WgpuContext) {
-    push_toast("Directory rename coming soon.", 3.0);
-}
-
-fn open_new_folder_modal(_editor: &mut Editor, _ctx: &mut WgpuContext) {
-    push_toast("New folder coming soon.", 3.0);
 }
 
 fn open_file_with_default(path: &std::path::Path, editor: &mut Editor) {

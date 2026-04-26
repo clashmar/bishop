@@ -15,6 +15,9 @@ pub mod export_overwrite;
 pub mod new_game;
 pub mod prefab_picker;
 pub mod rename;
+pub mod rename_resource;
+pub mod rename_resource_folder;
+pub mod new_resource_folder;
 pub mod save_as;
 pub mod unsaved_exit;
 pub mod world_settings;
@@ -237,11 +240,6 @@ impl ModalRegistry {
         Self {
             handlers: Vec::new(),
         }
-    }
-
-    pub fn register<H: ModalHandler + 'static>(&mut self, handler: H) {
-        self.handlers
-            .push(Box::new(HandlerWrapper { inner: handler }));
     }
 
     pub fn try_handle_all(

@@ -14,8 +14,10 @@ use bishop::prelude::*;
 use context_menu::{
     context_target_for_background, context_target_for_entry, draw_context_menu,
     handle_pending_action, pending_action_for, pending_action_for_background, ActiveMenu,
-    EntryKind, PendingResourceAction, ResourceMenuAction,
+    EntryKind, PendingResourceAction,
 };
+#[cfg(test)]
+use context_menu::ResourceMenuAction;
 use engine_core::prelude::*;
 use icon_mapper::{IconMapper, IconType};
 use navigation::Navigation;
@@ -55,6 +57,7 @@ impl Entry {
         self.kind == EntryKind::RegisteredFile
     }
 
+    #[cfg(test)]
     fn context_menu_actions(&self) -> &'static [ResourceMenuAction] {
         context_menu::context_menu_actions_for(self.kind)
     }
