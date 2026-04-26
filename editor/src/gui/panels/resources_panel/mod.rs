@@ -1,3 +1,4 @@
+pub mod breadcrumb;
 pub mod icon_mapper;
 pub mod navigation;
 pub mod path_filter;
@@ -170,24 +171,16 @@ impl PanelDefinition for ResourcesPanel {
         let mut top_y = rect.y + TOP_BAR_PADDING;
 
         let breadcrumb_y = top_y;
-        let current = self.navigation.current();
-        let breadcrumb = current
-            .strip_prefix(resources_folder_current())
-            .unwrap_or(&current)
-            .to_string_lossy()
-            .to_string();
-        let breadcrumb_text = if breadcrumb.is_empty() {
-            "/".to_string()
-        } else {
-            format!("/{}", breadcrumb.replace(std::path::MAIN_SEPARATOR, "/"))
-        };
-        ctx.draw_text(
-            &breadcrumb_text,
+        if let Some(target_depth) = breadcrumb::draw_breadcrumb(
+            ctx,
             rect.x + GRID_PADDING,
-            breadcrumb_y + BREADCRUMB_HEIGHT * 0.7,
-            DEFAULT_FONT_SIZE_16,
-            Color::WHITE,
-        );
+            breadcrumb_y,
+            &self.navigation,
+            blocked,
+        ) {
+            self.navigation.truncate_to(target_depth);
+            self.scan_current_dir(&editor.game.asset_registry);
+        }
         top_y += BREADCRUMB_HEIGHT + GRID_PADDING;
 
         let content_rect = Rect::new(rect.x, top_y, rect.w, rect.y + rect.h - top_y);

@@ -45,4 +45,19 @@ impl Navigation {
     pub fn is_at_root(&self) -> bool {
         self.segments.is_empty()
     }
+
+    /// Returns the current navigation depth (0 at root).
+    pub fn depth(&self) -> usize {
+        self.segments.len()
+    }
+
+    /// Truncates navigation to the given depth (0 = root).
+    pub fn truncate_to(&mut self, depth: usize) {
+        self.segments.truncate(depth);
+    }
+
+    /// Returns the segment at the given depth index, if it exists.
+    pub fn segment(&self, index: usize) -> Option<&str> {
+        self.segments.get(index).map(|s| s.as_str())
+    }
 }
