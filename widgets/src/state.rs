@@ -90,6 +90,10 @@ thread_local! {
 }
 
 thread_local! {
+    pub static MODAL_OPEN: RefCell<bool> = const { RefCell::new(false) };
+}
+
+thread_local! {
     pub static CLICK_CONSUMED: RefCell<bool> = const { RefCell::new(false) };
 }
 
@@ -245,6 +249,14 @@ pub fn set_context_menu_open(open: bool) {
     CONTEXT_MENU_OPEN.with(|f| *f.borrow_mut() = open);
 }
 
+pub fn is_modal_open() -> bool {
+    MODAL_OPEN.with(|f| *f.borrow())
+}
+
+pub fn set_modal_open(open: bool) {
+    MODAL_OPEN.with(|f| *f.borrow_mut() = open);
+}
+
 /// Marks the current click as consumed, preventing other widgets from processing it.
 pub fn consume_click() {
     CLICK_CONSUMED.with(|f| *f.borrow_mut() = true);
@@ -358,5 +370,13 @@ mod tests {
         assert!(is_context_menu_open());
         set_context_menu_open(false);
         assert!(!is_context_menu_open());
+    }
+
+    #[test]
+    fn modal_open_flag_roundtrips() {
+        set_modal_open(true);
+        assert!(is_modal_open());
+        set_modal_open(false);
+        assert!(!is_modal_open());
     }
 }

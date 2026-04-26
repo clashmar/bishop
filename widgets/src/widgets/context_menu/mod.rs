@@ -80,7 +80,7 @@ impl<'a, T: Clone + PartialEq + 'static> ContextMenu<'a, T> {
         }
 
         let mut state = context_menu_state::get(self.id);
-        let interactive = !self.blocked && !self.suppressed;
+        let interactive = !self.blocked && !self.suppressed && !is_modal_open();
         let mouse_pos: Vec2 = ctx.mouse_position().into();
 
         if ctx.is_mouse_button_pressed(MouseButton::Right) && interactive {

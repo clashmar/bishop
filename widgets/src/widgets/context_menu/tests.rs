@@ -1,4 +1,5 @@
 use super::*;
+use crate::set_modal_open;
 use crate::widgets::test_support::WidgetTestContext;
 
 fn make_items() -> Vec<ContextMenuItem<String>> {
@@ -319,4 +320,74 @@ fn is_context_menu_open_reflects_state() {
     assert!(!is_context_menu_open());
 
     context_menu_state::STATE.with(|s| s.borrow_mut().remove(&id));
+}
+
+#[test]
+fn modal_open_prevents_context_menu_open() {
+    reset_click_consumed();
+    clear_click_target(MouseButton::Right);
+    clear_click_target(MouseButton::Left);
+    set_modal_open(true);
+
+    let id = WidgetId(411);
+    let items = make_items();
+
+    let mut ctx = WidgetTestContext::new();
+    ctx.mouse_pos = (50.0, 50.0);
+    ctx.right_pressed = true;
+    ctx.right_down = true;
+
+    let result = ContextMenu::new(id, Vec2::new(50.0, 50.0), &items).show(&mut ctx);
+    assert_eq!(result, None);
+    assert!(!context_menu_state::get(id).open);
+    assert!(!is_context_menu_open());
+
+    context_menu_state::STATE.with(|s| s.borrow_mut().remove(&id));
+    set_context_menu_open(false);
+    set_modal_open(false);
+}
+
+#[test]
+fn modal_open_prevents_item_selection() {
+    let id = WidgetId(412);
+    let items = make_items();
+    let rect = Rect::new(50.0, 50.0, 100.0, 90.0);
+
+    context_menu_state::set(
+        id,
+        context_menu_state::ContextMenuState {
+            open: true,
+            rect,
+            just_opened: false,
+        },
+    );
+    set_context_menu_open(true);
+    set_modal_open(true);
+
+    reset_click_consumed();
+    clear_click_target(MouseButton::Left);
+    clear_click_target(MouseButton::Right);
+
+    let mut press_ctx = WidgetTestContext::new();
+    press_ctx.mouse_pos = (55.0, 65.0);
+    press_ctx.left_pressed = true;
+    press_ctx.left_down = true;
+
+    let result = ContextMenu::new(id, Vec2::new(50.0, 50.0), &items).show(&mut press_ctx);
+    assert_eq!(result, None);
+
+    reset_click_consumed();
+
+    let mut release_ctx = WidgetTestContext::new();
+    release_ctx.mouse_pos = (55.0, 65.0);
+    release_ctx.left_released = true;
+
+    let result = ContextMenu::new(id, Vec2::new(50.0, 50.0), &items).show(&mut release_ctx);
+    assert_eq!(result, None);
+    assert!(context_menu_state::get(id).open);
+    assert!(is_context_menu_open());
+
+    context_menu_state::STATE.with(|s| s.borrow_mut().remove(&id));
+    set_context_menu_open(false);
+    set_modal_open(false);
 }

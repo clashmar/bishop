@@ -13,11 +13,11 @@ pub mod empty_prefab_exit;
 pub mod empty_prefab_save;
 pub mod export_overwrite;
 pub mod new_game;
+pub mod new_resource_folder;
 pub mod prefab_picker;
 pub mod rename;
 pub mod rename_resource;
 pub mod rename_resource_folder;
-pub mod new_resource_folder;
 pub mod save_as;
 pub mod unsaved_exit;
 pub mod world_settings;
@@ -30,18 +30,7 @@ pub struct Modal {
     just_opened: bool,
 }
 
-thread_local! {
-    pub static MODAL_OPEN: RefCell<bool> = const { RefCell::new(false) };
-}
-
-pub fn is_modal_open() -> bool {
-    MODAL_OPEN.with(|f| *f.borrow())
-}
-
-#[cfg(test)]
-pub fn set_modal_open_for_test(open: bool) {
-    MODAL_OPEN.with(|f| *f.borrow_mut() = open);
-}
+pub use widgets::is_modal_open;
 
 pub type BoxedWidget =
     Box<dyn FnMut(&mut WgpuContext, &mut AssetRegistry, &mut SpriteManager) + 'static>;
@@ -76,7 +65,7 @@ impl Modal {
         self.open = true;
         self.widgets = callbacks;
         self.just_opened = true;
-        MODAL_OPEN.with(|r| *r.borrow_mut() = true);
+        widgets::set_modal_open(true);
     }
 
     pub fn close(&mut self) {
@@ -84,7 +73,7 @@ impl Modal {
         close_open_context_menus();
         self.open = false;
         self.widgets = Vec::new();
-        MODAL_OPEN.with(|r| *r.borrow_mut() = false);
+        widgets::set_modal_open(false);
     }
 
     pub fn is_open(&self) -> bool {

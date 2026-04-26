@@ -64,18 +64,17 @@ pub(crate) fn resolve_escape(escape_pressed: bool) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::gui::modals::set_modal_open_for_test;
-    use widgets::{context_menu_state, set_context_menu_open};
+    use widgets::{context_menu_state, set_context_menu_open, set_modal_open};
 
     #[test]
     fn resolve_escape_prioritizes_modal_context_menu_dropdown_input_then_editor() {
         reset_escape_resolution();
-        set_modal_open_for_test(true);
+        set_modal_open(true);
         resolve_escape(true);
         assert_eq!(escape_owner(), Some(EscapeOwner::Modal));
 
         reset_escape_resolution();
-        set_modal_open_for_test(false);
+        set_modal_open(false);
         context_menu_state::set(
             WidgetId(99),
             context_menu_state::ContextMenuState {
@@ -136,7 +135,7 @@ mod tests {
     #[test]
     fn modal_escape_is_visible_to_prompt_code_but_not_editor_code() {
         reset_escape_resolution();
-        set_modal_open_for_test(true);
+        set_modal_open(true);
 
         resolve_escape(true);
 
