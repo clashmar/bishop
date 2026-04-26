@@ -10,14 +10,14 @@ use std::path::{Path, PathBuf};
 /// Undoable command that renames a directory tree and remaps affected registry paths.
 #[derive(Debug)]
 pub struct RenameDirectoryCmd {
-    old_full_path: PathBuf,
+    old_full_path: UserPath,
     new_full_path: PathBuf,
     saved_rewrites: Option<Vec<(AssetKey, PathBuf)>>,
 }
 
 impl RenameDirectoryCmd {
     /// Creates a rename-directory command from `old_full_path` to `new_full_path`.
-    pub fn new(old_full_path: impl Into<PathBuf>, new_full_path: impl Into<PathBuf>) -> Self {
+    pub fn new(old_full_path: impl Into<UserPath>, new_full_path: impl Into<PathBuf>) -> Self {
         Self {
             old_full_path: old_full_path.into(),
             new_full_path: new_full_path.into(),
@@ -46,6 +46,11 @@ impl RenameDirectoryCmd {
 
 impl EditorCommand for RenameDirectoryCmd {
     fn execute(&mut self) {
+        if is_protected_path(&self.old_full_path, &resources_folder_current()) {
+            push_toast("Cannot rename engine-managed folders.", 3.0);
+            return;
+        }
+
         if let Err(e) = fs::rename(&self.old_full_path, &self.new_full_path) {
             push_toast(format!("Rename directory failed: {e}"), 3.0);
             return;

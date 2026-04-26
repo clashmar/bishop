@@ -47,7 +47,7 @@ fn delete_directory_cmd_removes_tree_and_registry_entries() {
     let _ctx = setup_editor_with_registered_tree("delete_dir_cmd_execute");
 
     let target = assets_folder().join(PROPS_DIR);
-    let mut cmd = DeleteDirectoryCmd::new(target.clone());
+    let mut cmd = DeleteDirectoryCmd::new(UserPath::from(target.clone()));
     cmd.execute();
 
     assert!(!target.exists(), "directory should be removed after delete");
@@ -74,7 +74,7 @@ fn delete_directory_cmd_undo_restores_tree_bytes_and_registry_entries() {
     let _ctx = setup_editor_with_registered_tree("delete_dir_cmd_undo");
 
     let target = assets_folder().join(PROPS_DIR);
-    let mut cmd = DeleteDirectoryCmd::new(target.clone());
+    let mut cmd = DeleteDirectoryCmd::new(UserPath::from(target.clone()));
     cmd.execute();
     cmd.undo();
 
@@ -122,7 +122,7 @@ fn delete_directory_cmd_undo_restores_nested_files() {
     fs::create_dir_all(&nested_dir).unwrap();
     fs::write(nested_dir.join(EXTRA_FILENAME), EXTRA_BYTES).unwrap();
 
-    let mut cmd = DeleteDirectoryCmd::new(target.clone());
+    let mut cmd = DeleteDirectoryCmd::new(UserPath::from(target.clone()));
     cmd.execute();
     cmd.undo();
 
@@ -136,9 +136,7 @@ fn delete_directory_cmd_undo_restores_nested_files() {
 
 #[test]
 fn applies_in_all_modes() {
-    use std::path::Path;
-
-    let cmd = DeleteDirectoryCmd::new(Path::new("/tmp/does_not_exist"));
+    let cmd = DeleteDirectoryCmd::new(UserPath::from(PathBuf::from("/tmp/does_not_exist")));
     assert!(cmd.applies_in_mode(EditorMode::Game));
     assert!(cmd.applies_in_mode(EditorMode::Room(RoomId(1))));
     assert!(cmd.applies_in_mode(EditorMode::Prefab(PrefabId(5))));

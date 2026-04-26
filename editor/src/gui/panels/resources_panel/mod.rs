@@ -52,7 +52,10 @@ impl Entry {
     }
 
     fn is_dir_like(&self) -> bool {
-        matches!(self.kind, EntryKind::Parent | EntryKind::Directory)
+        matches!(
+            self.kind,
+            EntryKind::Parent | EntryKind::Directory | EntryKind::SystemDirectory
+        )
     }
 
     fn is_registered(&self) -> bool {
@@ -127,7 +130,11 @@ impl ResourcesPanel {
 
                 let full_path = e.path();
                 let kind = if is_dir {
-                    EntryKind::Directory
+                    if is_protected_path(&full_path, &resources_folder_current()) {
+                        EntryKind::SystemDirectory
+                    } else {
+                        EntryKind::Directory
+                    }
                 } else if registry.key_for_full_path(&full_path).is_some() {
                     EntryKind::RegisteredFile
                 } else {

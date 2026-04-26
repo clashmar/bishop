@@ -59,7 +59,7 @@ fn rename_directory_cmd_moves_tree_and_rewrites_registry_prefixes() {
     let old_dir = assets_folder().join(ASSETS_DIR);
     let new_dir = assets_folder().join(RENAMED_DIR);
 
-    let mut cmd = RenameDirectoryCmd::new(old_dir.clone(), new_dir.clone());
+    let mut cmd = RenameDirectoryCmd::new(UserPath::from(old_dir.clone()), new_dir.clone());
     cmd.execute();
 
     assert!(
@@ -94,7 +94,7 @@ fn rename_directory_cmd_undo_restores_original_tree_and_registry_paths() {
     let old_dir = assets_folder().join(ASSETS_DIR);
     let new_dir = assets_folder().join(RENAMED_DIR);
 
-    let mut cmd = RenameDirectoryCmd::new(old_dir.clone(), new_dir.clone());
+    let mut cmd = RenameDirectoryCmd::new(UserPath::from(old_dir.clone()), new_dir.clone());
     cmd.execute();
     cmd.undo();
 
@@ -122,9 +122,10 @@ fn rename_directory_cmd_undo_restores_original_tree_and_registry_paths() {
 
 #[test]
 fn applies_in_all_modes() {
-    use std::path::Path;
-
-    let cmd = RenameDirectoryCmd::new(Path::new("/tmp/old"), Path::new("/tmp/new"));
+    let cmd = RenameDirectoryCmd::new(
+        UserPath::from(PathBuf::from("/tmp/old")),
+        PathBuf::from("/tmp/new"),
+    );
     assert!(cmd.applies_in_mode(EditorMode::Game));
     assert!(cmd.applies_in_mode(EditorMode::Room(RoomId(1))));
     assert!(cmd.applies_in_mode(EditorMode::Prefab(PrefabId(5))));

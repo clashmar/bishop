@@ -134,14 +134,28 @@ default_language = "en"
     }
 
     // Create default language folders
-    let en_dialogue = text_root.join("en").join("dialogue");
+    let en_dialogue = text_root
+        .join(paths::TEXT_LANGUAGE_FOLDER)
+        .join(paths::DIALOGUE_FOLDER);
     if let Err(e) = fs::create_dir_all(&en_dialogue) {
-        onscreen_error!("Could not create text/en/dialogue folder: {e}");
+        onscreen_error!(
+            "Could not create {}/{}/{} folder: {e}",
+            paths::TEXT_FOLDER,
+            paths::TEXT_LANGUAGE_FOLDER,
+            paths::DIALOGUE_FOLDER
+        );
     }
 
-    let en_ui = text_root.join("en").join("ui");
+    let en_ui = text_root
+        .join(paths::TEXT_LANGUAGE_FOLDER)
+        .join(paths::UI_TEXT_FOLDER);
     if let Err(e) = fs::create_dir_all(&en_ui) {
-        onscreen_error!("Could not create text/en/ui folder: {e}");
+        onscreen_error!(
+            "Could not create {}/{}/{} folder: {e}",
+            paths::TEXT_FOLDER,
+            paths::TEXT_LANGUAGE_FOLDER,
+            paths::UI_TEXT_FOLDER
+        );
     }
 
     let start_ui_path = en_ui.join("start.toml");
@@ -151,7 +165,11 @@ Start = "Start"
 Settings = "Settings"
 "#;
         if let Err(e) = fs::write(&start_ui_path, content) {
-            onscreen_error!("Could not create ui/start.toml: {e}");
+            onscreen_error!(
+                "Could not create {}/{}/start.toml: {e}",
+                paths::TEXT_LANGUAGE_FOLDER,
+                paths::UI_TEXT_FOLDER
+            );
         }
     }
 
@@ -164,7 +182,11 @@ SFX = "SFX Volume"
 Back = "Back"
 "#;
         if let Err(e) = fs::write(&settings_ui_path, content) {
-            onscreen_error!("Could not create ui/settings.toml: {e}");
+            onscreen_error!(
+                "Could not create {}/{}/settings.toml: {e}",
+                paths::TEXT_LANGUAGE_FOLDER,
+                paths::UI_TEXT_FOLDER
+            );
         }
     }
 }

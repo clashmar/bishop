@@ -84,6 +84,15 @@ pub mod paths {
     /// Name of the music subfolder inside audio.
     pub const MUSIC_FOLDER: &str = "music";
 
+    /// Name of the default language subfolder inside text.
+    pub const TEXT_LANGUAGE_FOLDER: &str = "en";
+
+    /// Name of the dialogue subfolder inside a language folder.
+    pub const DIALOGUE_FOLDER: &str = "dialogue";
+
+    /// Name of the UI text subfolder inside a language folder.
+    pub const UI_TEXT_FOLDER: &str = "ui";
+
     /// Name of the prefabs folder.
     pub const PREFABS_FOLDER: &str = "prefabs";
 

@@ -19,6 +19,7 @@ use super::Entry;
 pub(super) enum EntryKind {
     Parent,
     Directory,
+    SystemDirectory,
     RegisteredFile,
     UnregisteredFile,
 }
@@ -49,6 +50,7 @@ const DIRECTORY_MENU_ACTIONS: &[ResourceMenuAction] = &[
     ResourceMenuAction::Delete,
     ResourceMenuAction::Reveal,
 ];
+const SYSTEM_DIRECTORY_MENU_ACTIONS: &[ResourceMenuAction] = &[ResourceMenuAction::Reveal];
 const REGISTERED_FILE_MENU_ACTIONS: &[ResourceMenuAction] = &[
     ResourceMenuAction::Rename,
     ResourceMenuAction::Delete,
@@ -67,6 +69,7 @@ pub(super) fn context_menu_actions_for(kind: EntryKind) -> &'static [ResourceMen
     match kind {
         EntryKind::Parent => PARENT_MENU_ACTIONS,
         EntryKind::Directory => DIRECTORY_MENU_ACTIONS,
+        EntryKind::SystemDirectory => SYSTEM_DIRECTORY_MENU_ACTIONS,
         EntryKind::RegisteredFile => REGISTERED_FILE_MENU_ACTIONS,
         EntryKind::UnregisteredFile => UNREGISTERED_FILE_MENU_ACTIONS,
     }
@@ -97,10 +100,10 @@ pub(super) fn pending_action_for_background(
 
 pub(super) enum PendingResourceAction {
     RenameFile(AssetKey),
-    RenameDirectory(PathBuf),
+    RenameDirectory(UserPath),
     DeleteRegisteredFile(AssetKey),
     DeleteUnregisteredFile(PathBuf),
-    DeleteDirectory(PathBuf),
+    DeleteDirectory(UserPath),
     CreateDirectory(PathBuf),
     Open(PathBuf),
     Reveal(PathBuf),
@@ -125,15 +128,15 @@ pub(super) fn pending_action_for(
     registry: &AssetRegistry,
 ) -> Option<PendingResourceAction> {
     match (action, entry.kind) {
-        (ResourceMenuAction::Rename, EntryKind::Directory) => {
-            Some(PendingResourceAction::RenameDirectory(entry.path.clone()))
-        }
+        (ResourceMenuAction::Rename, EntryKind::Directory) => Some(
+            PendingResourceAction::RenameDirectory(UserPath::from(entry.path.clone())),
+        ),
         (ResourceMenuAction::Rename, EntryKind::RegisteredFile) => Some(
             PendingResourceAction::RenameFile(asset_key_for_entry(entry, registry)?),
         ),
-        (ResourceMenuAction::Delete, EntryKind::Directory) => {
-            Some(PendingResourceAction::DeleteDirectory(entry.path.clone()))
-        }
+        (ResourceMenuAction::Delete, EntryKind::Directory) => Some(
+            PendingResourceAction::DeleteDirectory(UserPath::from(entry.path.clone())),
+        ),
         (ResourceMenuAction::Delete, EntryKind::RegisteredFile) => Some(
             PendingResourceAction::DeleteRegisteredFile(asset_key_for_entry(entry, registry)?),
         ),
@@ -160,8 +163,8 @@ pub(super) fn handle_pending_action(
             push_command(Box::new(DeleteUnregisteredFileCmd::new(path)));
             None
         }
-        Some(PendingResourceAction::DeleteDirectory(path)) => {
-            push_command(Box::new(DeleteDirectoryCmd::new(path)));
+        Some(PendingResourceAction::DeleteDirectory(user_path)) => {
+            push_command(Box::new(DeleteDirectoryCmd::new(user_path)));
             None
         }
         Some(PendingResourceAction::Open(path)) => {
@@ -184,8 +187,8 @@ pub(super) fn handle_pending_action(
             ResourceRenameModal.open(editor, ctx);
             None
         }
-        Some(PendingResourceAction::RenameDirectory(path)) => {
-            RENAME_FOLDER_TARGET.with(|t| *t.borrow_mut() = Some(path));
+        Some(PendingResourceAction::RenameDirectory(user_path)) => {
+            RENAME_FOLDER_TARGET.with(|t| *t.borrow_mut() = Some(user_path));
             ResourceFolderRenameModal.open(editor, ctx);
             None
         }

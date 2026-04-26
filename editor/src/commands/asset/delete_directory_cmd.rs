@@ -17,14 +17,14 @@ struct SavedFile {
 /// Undoable command that deletes a directory tree and removes affected registry records.
 #[derive(Debug)]
 pub struct DeleteDirectoryCmd {
-    full_path: PathBuf,
+    full_path: UserPath,
     saved_files: Option<Vec<SavedFile>>,
     saved_records: Option<Vec<(AssetKey, AssetRecord)>>,
 }
 
 impl DeleteDirectoryCmd {
-    /// Creates a delete-directory command for the given full path.
-    pub fn new(full_path: impl Into<PathBuf>) -> Self {
+    /// Creates a delete-directory command for the given user path.
+    pub fn new(full_path: impl Into<UserPath>) -> Self {
         Self {
             full_path: full_path.into(),
             saved_files: None,
@@ -62,6 +62,11 @@ impl DeleteDirectoryCmd {
 
 impl EditorCommand for DeleteDirectoryCmd {
     fn execute(&mut self) {
+        if is_protected_path(&self.full_path, &resources_folder_current()) {
+            push_toast("Cannot delete engine-managed folders.", 3.0);
+            return;
+        }
+
         let files = Self::collect_files(&self.full_path);
 
         with_editor(|editor| {
