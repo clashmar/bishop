@@ -494,6 +494,7 @@ impl TileMapEditor {
                 .any(|h| h.is_hovered(mouse_world))
             || self.active_handle_index.is_some()
             || is_dropdown_open()
+            || is_context_menu_open()
             || is_modal_open()
             || is_mouse_over_panel(ctx)
     }

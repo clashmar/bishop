@@ -301,6 +301,7 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
 
         if button_clicked {
             consume_click();
+            close_open_context_menus();
             if self.options.is_empty() && !self.filterable {
                 state.open = false;
             } else {

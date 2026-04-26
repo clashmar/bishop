@@ -498,7 +498,11 @@ impl WorldEditor {
 
         for mode in WorldEditorMode::iter() {
             if let Some(shortcut) = mode.shortcut() {
-                if shortcut(ctx) && !input_is_focused() && !is_modal_open() {
+                if shortcut(ctx)
+                    && !input_is_focused()
+                    && !is_modal_open()
+                    && !is_context_menu_open()
+                {
                     self.mode = mode;
                     self.mode_selector.current = mode;
                     break;

@@ -488,7 +488,10 @@ impl SceneInspector {
                 );
 
                 if menu_button(ctx, remove_rect, remove_label, false)
-                    || Controls::delete(ctx) && !input_is_focused() && !is_modal_open()
+                    || Controls::delete(ctx)
+                        && !input_is_focused()
+                        && !is_modal_open()
+                        && !is_context_menu_open()
                 {
                     let command = DeleteEntityCmd::new(entity, scene_ctx.command_mode);
                     push_command(Box::new(command));

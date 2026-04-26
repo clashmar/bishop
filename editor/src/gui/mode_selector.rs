@@ -3,6 +3,7 @@ use crate::gui::gui_constants::*;
 use crate::gui::modal::is_modal_open;
 use bishop::prelude::*;
 use engine_core::ui::text::*;
+use engine_core::ui::widgets::is_context_menu_open;
 
 /// A trait that each editor’s mode enum must implement.
 pub trait ModeInfo {
@@ -54,6 +55,7 @@ impl<M: ModeInfo + Copy + PartialEq> ModeSelector<M> {
             if ctx.is_mouse_button_pressed(MouseButton::Left)
                 && rect.contains(ctx.mouse_position().into())
                 && !is_modal_open()
+                && !is_context_menu_open()
                 && *mode != self.current
             {
                 self.current = *mode;
@@ -88,7 +90,10 @@ impl<M: ModeInfo + Copy + PartialEq> ModeSelector<M> {
             let x = start_x + i as f32 * (icon_size + PADDING);
             let rect = Rect::new(x, PADDING, icon_size, icon_size);
 
-            if rect.contains(ctx.mouse_position().into()) && !is_modal_open() {
+            if rect.contains(ctx.mouse_position().into())
+                && !is_modal_open()
+                && !is_context_menu_open()
+            {
                 let tip = mode.label();
                 let tip_size = measure_text(ctx, tip, 16.0);
 

@@ -4,6 +4,7 @@ use crate::gui::prompts::constants::*;
 use bishop::prelude::*;
 use engine_core::prelude::*;
 use std::{cell::RefCell, thread::LocalKey};
+use widgets::{close_open_context_menus, context_menu_state};
 
 #[derive(Default)]
 pub struct Modal {
@@ -62,6 +63,7 @@ impl Modal {
     /// Open the modal and set draw callbacks.
     pub fn open(&mut self, callbacks: Vec<BoxedWidget>) {
         close_open_dropdowns();
+        close_open_context_menus();
         self.open = true;
         self.widgets = callbacks;
         self.just_opened = true;
@@ -75,6 +77,7 @@ impl Modal {
     /// Close the modal.
     pub fn close(&mut self) {
         close_open_dropdowns();
+        close_open_context_menus();
         self.open = false;
         self.widgets = Vec::new();
 
@@ -205,6 +208,12 @@ fn modal_hit_region_contains(modal_rect: Rect, point: Vec2) -> bool {
                 .borrow()
                 .values()
                 .any(|dropdown| dropdown.open && dropdown.rect.contains(point))
+        })
+        || context_menu_state::STATE.with(|state| {
+            state
+                .borrow()
+                .values()
+                .any(|cm| cm.open && cm.rect.contains(point))
         })
 }
 

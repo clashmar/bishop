@@ -335,6 +335,7 @@ impl SubEditor for MenuEditor {
         self.active_rects.iter().any(|r| r.contains(mouse_screen))
             || is_dropdown_open()
             || is_modal_open()
+            || is_context_menu_open()
             || is_mouse_over_panel(ctx)
     }
 }

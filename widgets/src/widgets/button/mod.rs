@@ -205,13 +205,15 @@ impl<'a> Button<'a> {
         let visually_blocked = self.blocked;
         let interactive_blocked = self.blocked || self.suppressed;
 
+        let highlight = (hovered || self.focused)
+            && !is_dropdown_open()
+            && !is_context_menu_open()
+            && !interactive_blocked
+            && !primary_held
+            && !secondary_held;
+
         match self.style {
             ButtonStyle::Default => {
-                let highlight = (hovered || self.focused)
-                    && !is_dropdown_open()
-                    && !interactive_blocked
-                    && !primary_held
-                    && !secondary_held;
                 let background = if visually_blocked {
                     BLOCKED_BACKGROUND_COLOR
                 } else if highlight {
@@ -241,11 +243,6 @@ impl<'a> Button<'a> {
                 );
             }
             ButtonStyle::Plain => {
-                let highlight = (hovered || self.focused)
-                    && !is_dropdown_open()
-                    && !interactive_blocked
-                    && !primary_held
-                    && !secondary_held;
                 if visually_blocked {
                     ctx.draw_rectangle(
                         self.rect.x,
@@ -305,7 +302,7 @@ impl<'a> Button<'a> {
             }
         }
 
-        let interactive = !interactive_blocked && !is_dropdown_open();
+        let interactive = !interactive_blocked && !is_dropdown_open() && !is_context_menu_open();
         let primary = activate_on_release(
             MouseButton::Left,
             interaction_id,

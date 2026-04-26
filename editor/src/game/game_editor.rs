@@ -379,7 +379,11 @@ impl GameEditor {
     fn handle_shortcuts(&mut self, ctx: &WgpuContext) {
         for mode in GameEditorMode::iter() {
             if let Some(shortcut) = mode.shortcut() {
-                if shortcut(ctx) && !input_is_focused() && !is_modal_open() {
+                if shortcut(ctx)
+                    && !input_is_focused()
+                    && !is_modal_open()
+                    && !is_context_menu_open()
+                {
                     self.mode = mode;
                     self.mode_selector.current = mode;
                     break;

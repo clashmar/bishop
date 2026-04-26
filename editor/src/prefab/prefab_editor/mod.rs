@@ -288,6 +288,7 @@ impl SubEditor for PrefabEditor {
             || self.inspector.is_mouse_over(ctx)
             || is_dropdown_open()
             || is_modal_open()
+            || is_context_menu_open()
             || is_mouse_over_panel(ctx)
     }
 }

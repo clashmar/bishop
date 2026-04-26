@@ -604,6 +604,7 @@ impl SubEditor for RoomEditor {
             || self.sub_mode_rect.is_some_and(|r| r.contains(mouse_screen))
             || self.inspector.is_mouse_over(ctx)
             || is_dropdown_open()
+            || is_context_menu_open()
             || is_modal_open()
             || is_mouse_over_panel(ctx)
     }

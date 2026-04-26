@@ -60,7 +60,7 @@ pub fn gui_slider<C: BishopContext>(
     );
     ctx.draw_rectangle_lines(rect.x, rect.y, rect.w, rect.h, 2., OUTLINE_COLOR);
 
-    let handle_col = if was_dragging && !is_dropdown_open() {
+    let handle_col = if was_dragging && !is_dropdown_open() && !is_context_menu_open() {
         Color::new(0.6, 0.6, 0.9, 1.0)
     } else {
         Color::new(0.4, 0.4, 0.8, 1.0)
@@ -68,7 +68,7 @@ pub fn gui_slider<C: BishopContext>(
     ctx.draw_rectangle(handle_x, rect.y, handle_sz, rect.h, handle_col);
     ctx.draw_rectangle_lines(handle_x, rect.y, handle_sz, rect.h, 2., Color::WHITE);
 
-    if is_dropdown_open() {
+    if is_dropdown_open() || is_context_menu_open() {
         return (value, SliderState::Unchanged);
     }
 

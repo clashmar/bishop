@@ -86,6 +86,10 @@ thread_local! {
 }
 
 thread_local! {
+    pub static CONTEXT_MENU_OPEN: RefCell<bool> = const { RefCell::new(false) };
+}
+
+thread_local! {
     pub static CLICK_CONSUMED: RefCell<bool> = const { RefCell::new(false) };
 }
 
@@ -233,6 +237,14 @@ pub fn is_dropdown_open() -> bool {
     DROPDOWN_OPEN.with(|f| *f.borrow())
 }
 
+pub fn is_context_menu_open() -> bool {
+    CONTEXT_MENU_OPEN.with(|f| *f.borrow())
+}
+
+pub fn set_context_menu_open(open: bool) {
+    CONTEXT_MENU_OPEN.with(|f| *f.borrow_mut() = open);
+}
+
 /// Marks the current click as consumed, preventing other widgets from processing it.
 pub fn consume_click() {
     CLICK_CONSUMED.with(|f| *f.borrow_mut() = true);
@@ -274,6 +286,7 @@ pub fn widgets_frame_end<C: BishopContext>(ctx: &mut C) {
 
     resolve_pending_tab();
     flush_dropdown_lists(ctx);
+    flush_context_menu(ctx);
 }
 
 #[cfg(test)]
@@ -337,5 +350,13 @@ mod tests {
             true,
         ));
         assert!(!is_click_target_armed(MouseButton::Left, target));
+    }
+
+    #[test]
+    fn context_menu_open_flag_roundtrips() {
+        set_context_menu_open(true);
+        assert!(is_context_menu_open());
+        set_context_menu_open(false);
+        assert!(!is_context_menu_open());
     }
 }

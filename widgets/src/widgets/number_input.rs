@@ -157,7 +157,7 @@ where
             FIELD_TEXT_COLOR,
         );
 
-        if is_dropdown_open() {
+        if is_dropdown_open() || is_context_menu_open() {
             return self.current;
         }
 
