@@ -63,7 +63,7 @@ impl EditorCommand for ResizeElementCmd {
         self.apply_rect(self.old_rect);
     }
 
-    fn mode(&self) -> EditorMode {
-        EditorMode::Menu
+    fn applies_in_mode(&self, current_mode: EditorMode) -> bool {
+        current_mode == EditorMode::Menu
     }
 }

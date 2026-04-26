@@ -45,7 +45,7 @@ impl EditorCommand for RenameGameCmd {
         );
     }
 
-    fn mode(&self) -> EditorMode {
-        EditorMode::Game
+    fn applies_in_mode(&self, current_mode: EditorMode) -> bool {
+        current_mode == EditorMode::Game
     }
 }

@@ -100,10 +100,6 @@ impl EditorCommand for ChangeGridSizeCmd {
         });
     }
 
-    fn mode(&self) -> EditorMode {
-        EditorMode::World(self.world_id)
-    }
-
     fn applies_in_mode(&self, current_mode: EditorMode) -> bool {
         match current_mode {
             EditorMode::World(id) => id == self.world_id,

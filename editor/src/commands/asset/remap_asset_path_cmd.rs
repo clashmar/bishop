@@ -69,10 +69,6 @@ impl EditorCommand for RemapAssetPathCmd {
         });
     }
 
-    fn mode(&self) -> EditorMode {
-        EditorMode::Game
-    }
-
     fn applies_in_mode(&self, _current_mode: EditorMode) -> bool {
         true
     }

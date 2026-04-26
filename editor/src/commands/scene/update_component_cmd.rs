@@ -213,8 +213,8 @@ impl EditorCommand for UpdateComponentCmd {
         });
     }
 
-    fn mode(&self) -> EditorMode {
-        self.mode
+    fn applies_in_mode(&self, current_mode: EditorMode) -> bool {
+        self.mode == current_mode
     }
 }
 

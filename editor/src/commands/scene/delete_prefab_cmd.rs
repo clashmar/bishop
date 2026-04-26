@@ -10,17 +10,15 @@ use engine_core::prelude::*;
 #[derive(Debug)]
 pub struct DeletePrefabCmd {
     prefab_id: PrefabId,
-    mode: EditorMode,
     deleted_prefab: Option<PrefabAsset>,
     deleted_snapshots: Vec<GroupSnapshot>,
     previous_palette_state: Option<PrefabPaletteState>,
 }
 
 impl DeletePrefabCmd {
-    pub fn new(prefab_id: PrefabId, mode: EditorMode) -> Self {
+    pub fn new(prefab_id: PrefabId) -> Self {
         Self {
             prefab_id,
-            mode,
             deleted_prefab: None,
             deleted_snapshots: Vec::new(),
             previous_palette_state: None,
@@ -101,10 +99,6 @@ impl EditorCommand for DeletePrefabCmd {
             restore_prefab_palette(editor, self.previous_palette_state.as_ref());
             editor.modal.close();
         });
-    }
-
-    fn mode(&self) -> EditorMode {
-        self.mode
     }
 
     fn applies_in_mode(&self, current_mode: EditorMode) -> bool {

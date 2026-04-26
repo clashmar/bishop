@@ -32,7 +32,6 @@ fn delete_prefab_command_removes_prefab_record_from_asset_registry() {
 
     push_command(Box::new(crate::commands::scene::DeletePrefabCmd::new(
         prefab_id,
-        EditorMode::Prefab(prefab_id),
     )));
     apply_pending_commands();
 
@@ -128,8 +127,7 @@ fn delete_prefab_command_persists_registry_changes_across_reload_and_undo() {
 #[test]
 fn delete_prefab_command_applies_in_deleted_blank_prefab_mode() {
     let prefab_id = PrefabId(7);
-    let command =
-        crate::commands::scene::DeletePrefabCmd::new(prefab_id, EditorMode::Prefab(prefab_id));
+    let command = crate::commands::scene::DeletePrefabCmd::new(prefab_id);
 
     assert!(command.applies_in_mode(EditorMode::Prefab(prefab_id)));
     assert!(command.applies_in_mode(EditorMode::Prefab(BLANK_PREFAB_ID)));

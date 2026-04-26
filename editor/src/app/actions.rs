@@ -254,10 +254,7 @@ impl Editor {
             return;
         };
 
-        push_command(Box::new(DeletePrefabCmd::new(
-            prefab_id,
-            EditorMode::Prefab(prefab_id),
-        )));
+        push_command(Box::new(DeletePrefabCmd::new(prefab_id)));
     }
 
     /// Updates and draws the toast to the screen.

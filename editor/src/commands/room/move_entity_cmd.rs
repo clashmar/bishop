@@ -30,11 +30,13 @@ impl EditorCommand for MoveEntityCmd {
     fn execute(&mut self) {
         with_editor(|editor| {
             let ecs = match editor.mode {
-                EditorMode::Prefab(_) => &mut editor
-                    .prefab_stage
-                    .as_mut()
-                    .expect("Prefab stage missing")
-                    .ecs,
+                EditorMode::Prefab(_) => {
+                    &mut editor
+                        .prefab_stage
+                        .as_mut()
+                        .expect("Prefab stage missing")
+                        .ecs
+                }
                 _ => &mut editor.game.ecs,
             };
             update_entity_position(ecs, self.entity, self.to);
@@ -45,11 +47,13 @@ impl EditorCommand for MoveEntityCmd {
     fn undo(&mut self) {
         with_editor(|editor| {
             let ecs = match editor.mode {
-                EditorMode::Prefab(_) => &mut editor
-                    .prefab_stage
-                    .as_mut()
-                    .expect("Prefab stage missing")
-                    .ecs,
+                EditorMode::Prefab(_) => {
+                    &mut editor
+                        .prefab_stage
+                        .as_mut()
+                        .expect("Prefab stage missing")
+                        .ecs
+                }
                 _ => &mut editor.game.ecs,
             };
             update_entity_position(ecs, self.entity, self.from);
@@ -57,7 +61,7 @@ impl EditorCommand for MoveEntityCmd {
         self.executed = false;
     }
 
-    fn mode(&self) -> EditorMode {
-        self.mode
+    fn applies_in_mode(&self, current_mode: EditorMode) -> bool {
+        self.mode == current_mode
     }
 }
