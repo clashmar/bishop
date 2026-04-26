@@ -35,6 +35,8 @@ const REGISTRATION_BADGE_SIZE: f32 = 8.0;
 const BREADCRUMB_HEIGHT: f32 = 20.0;
 const TOP_BAR_PADDING: f32 = 8.0;
 
+const SELECTION_BG: Color = Color::new(0.706, 0.824, 1.0, 0.25);
+
 /// An entry in the Resources browser.
 pub struct Entry {
     pub name: String,
@@ -70,6 +72,7 @@ pub struct ResourcesPanel {
     active_menu: Option<ActiveMenu>,
     pending_action: Option<PendingResourceAction>,
     context_menu_id: WidgetId,
+    selected_index: Option<usize>,
 }
 
 impl ResourcesPanel {
@@ -81,6 +84,7 @@ impl ResourcesPanel {
             active_menu: None,
             pending_action: None,
             context_menu_id: WidgetId(0xC07E_0001),
+            selected_index: None,
         }
     }
 
@@ -199,6 +203,7 @@ impl PanelDefinition for ResourcesPanel {
         if right_clicked && !blocked && widgets::is_context_menu_open() {
             widgets::close_open_context_menus();
             self.active_menu = None;
+            self.selected_index = None;
         }
 
         let interaction_blocked = blocked || widgets::is_context_menu_open();
@@ -214,6 +219,7 @@ impl PanelDefinition for ResourcesPanel {
             &self.navigation,
             interaction_blocked,
         ) {
+            self.selected_index = None;
             self.navigation.truncate_to(target_depth);
             widgets::consume_click();
             self.scan_current_dir(&editor.game.asset_registry);
@@ -252,6 +258,12 @@ impl PanelDefinition for ResourcesPanel {
 
             if !area.is_visible(cell_y, CELL_SIZE) {
                 continue;
+            }
+
+            if self.selected_index == Some(i) {
+                let size = CELL_SIZE * 0.9 + 4.0;
+                let offset = (CELL_SIZE - size) / 2.0;
+                ctx.draw_rectangle(x + offset, cell_y, size, size, SELECTION_BG);
             }
 
             let icon_x = x + (CELL_SIZE - ICON_SIZE) / 2.0;
@@ -299,6 +311,7 @@ impl PanelDefinition for ResourcesPanel {
                     && cell_rect.contains(mouse)
                     && ctx.is_mouse_button_pressed(MouseButton::Left)
                 {
+                    self.selected_index = None;
                     if entry.is_parent() {
                         self.navigation.pop();
                     } else {
@@ -323,6 +336,7 @@ impl PanelDefinition for ResourcesPanel {
 
                 if cell_rect.contains(mouse) && right_clicked {
                     if let Some(target) = context_target_for_entry(i, entry, mouse) {
+                        self.selected_index = Some(i);
                         self.active_menu = Some(ActiveMenu::Entry(target));
                     }
                 }
@@ -338,6 +352,7 @@ impl PanelDefinition for ResourcesPanel {
                 .as_ref()
                 .is_some_and(|m| matches!(m, ActiveMenu::Entry(_)));
             if !entry_clicked {
+                self.selected_index = None;
                 self.active_menu = Some(context_target_for_background(mouse));
             }
         }
@@ -356,10 +371,12 @@ impl PanelDefinition for ResourcesPanel {
                     }
                 }
                 self.active_menu = None;
+                self.selected_index = None;
             } else {
                 let state = widgets::context_menu_state::get(self.context_menu_id);
                 if !state.open {
                     self.active_menu = None;
+                    self.selected_index = None;
                 }
             }
         }
