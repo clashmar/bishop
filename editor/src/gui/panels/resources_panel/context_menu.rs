@@ -164,7 +164,7 @@ pub(super) fn handle_pending_action(
             None
         }
         Some(PendingResourceAction::Open(path)) => {
-            open_file_with_default(&path, editor);
+            open_resource(&path, editor);
             None
         }
         Some(PendingResourceAction::Reveal(path)) => {
@@ -197,6 +197,30 @@ pub(super) fn handle_pending_action(
 
 fn asset_key_for_entry(entry: &Entry) -> Option<AssetKey> {
     with_editor(|editor| editor.game.asset_registry.key_for_full_path(&entry.path))
+}
+
+pub(crate) fn open_resource(path: &std::path::Path, editor: &mut Editor) {
+    if path
+        .extension()
+        .is_some_and(|ext| ext == extensions::PREFAB)
+    {
+        if let Some(AssetKey::Prefab(prefab_id)) =
+            editor.game.asset_registry.key_for_full_path(path)
+        {
+            let already_open = editor
+                .prefab_editor
+                .as_ref()
+                .is_some_and(|pe| pe.prefab_id == prefab_id);
+            if !already_open {
+                editor.open_prefab_editor_for_id(prefab_id);
+            }
+            return;
+        }
+        editor.toast = Some(Toast::new("Unregistered prefab file", 3.0));
+        return;
+    }
+
+    open_file_with_default(path, editor);
 }
 
 fn open_file_with_default(path: &std::path::Path, editor: &mut Editor) {

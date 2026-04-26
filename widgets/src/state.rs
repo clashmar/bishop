@@ -260,6 +260,7 @@ pub fn set_modal_open(open: bool) {
 /// Marks the current click as consumed, preventing other widgets from processing it.
 pub fn consume_click() {
     CLICK_CONSUMED.with(|f| *f.borrow_mut() = true);
+    bishop::input::request_double_click_reset();
 }
 
 /// Returns true if the current click has been consumed by another widget.

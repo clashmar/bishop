@@ -72,6 +72,10 @@ impl Input for WidgetTestContext {
         }
     }
 
+    fn is_mouse_button_double_clicked(&self, _button: MouseButton) -> bool {
+        false
+    }
+
     fn mouse_position(&self) -> (f32, f32) {
         self.mouse_pos
     }

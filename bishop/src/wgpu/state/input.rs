@@ -11,11 +11,25 @@ pub struct InputState {
     mouse_down: HashSet<MouseButton>,
     mouse_pressed: HashSet<MouseButton>,
     mouse_released: HashSet<MouseButton>,
+    mouse_double_clicked: HashSet<MouseButton>,
     mouse_position: (f32, f32),
     mouse_position_prev: (f32, f32),
     mouse_wheel: (f32, f32),
     mouse_wheel_kind: Option<MouseWheelKind>,
     char_buffer: Vec<char>,
+    last_click_times: [Option<f64>; 3],
+    last_click_positions: [Option<(f32, f32)>; 3],
+}
+
+const DOUBLE_CLICK_THRESHOLD: f64 = 0.3;
+const DOUBLE_CLICK_POSITION_TOLERANCE: f32 = 5.0;
+
+fn mouse_button_index(button: MouseButton) -> usize {
+    match button {
+        MouseButton::Left => 0,
+        MouseButton::Right => 1,
+        MouseButton::Middle => 2,
+    }
 }
 
 impl InputState {
@@ -28,11 +42,14 @@ impl InputState {
             mouse_down: HashSet::new(),
             mouse_pressed: HashSet::new(),
             mouse_released: HashSet::new(),
+            mouse_double_clicked: HashSet::new(),
             mouse_position: (0.0, 0.0),
             mouse_position_prev: (0.0, 0.0),
             mouse_wheel: (0.0, 0.0),
             mouse_wheel_kind: None,
             char_buffer: Vec::new(),
+            last_click_times: [None; 3],
+            last_click_positions: [None; 3],
         }
     }
 
@@ -56,9 +73,28 @@ impl InputState {
     }
 
     /// Handles a mouse button press event.
-    pub fn on_mouse_down(&mut self, button: MouseButton) {
+    pub fn on_mouse_down(&mut self, button: MouseButton, time: f64, pos: (f32, f32)) {
         if self.mouse_down.insert(button) {
             self.mouse_pressed.insert(button);
+
+            let idx = mouse_button_index(button);
+            if !crate::input::take_double_click_reset_requested() {
+                if let Some((last_time, last_pos)) =
+                    self.last_click_times[idx].zip(self.last_click_positions[idx])
+                {
+                    let dt = time - last_time;
+                    let dx = pos.0 - last_pos.0;
+                    let dy = pos.1 - last_pos.1;
+                    if dt <= DOUBLE_CLICK_THRESHOLD
+                        && dx.abs() <= DOUBLE_CLICK_POSITION_TOLERANCE
+                        && dy.abs() <= DOUBLE_CLICK_POSITION_TOLERANCE
+                    {
+                        self.mouse_double_clicked.insert(button);
+                    }
+                }
+            }
+            self.last_click_times[idx] = Some(time);
+            self.last_click_positions[idx] = Some(pos);
         }
     }
 
@@ -121,6 +157,11 @@ impl InputState {
         self.mouse_released.contains(&button)
     }
 
+    /// Returns true if the mouse button was double-clicked this frame.
+    pub fn is_mouse_button_double_clicked(&self, button: MouseButton) -> bool {
+        self.mouse_double_clicked.contains(&button)
+    }
+
     /// Returns the current mouse position.
     pub fn mouse_position(&self) -> (f32, f32) {
         self.mouse_position
@@ -155,6 +196,7 @@ impl InputState {
         self.keys_released.clear();
         self.mouse_pressed.clear();
         self.mouse_released.clear();
+        self.mouse_double_clicked.clear();
         self.mouse_wheel = (0.0, 0.0);
         self.mouse_wheel_kind = None;
         self.char_buffer.clear();
@@ -165,5 +207,74 @@ impl InputState {
 impl Default for InputState {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn single_click_is_not_double_click() {
+        let mut input = InputState::new();
+        input.on_mouse_down(MouseButton::Left, 0.0, (0.0, 0.0));
+        assert!(!input.is_mouse_button_double_clicked(MouseButton::Left));
+    }
+
+    #[test]
+    fn two_clicks_within_threshold_is_double_click() {
+        let mut input = InputState::new();
+        input.on_mouse_down(MouseButton::Left, 0.0, (0.0, 0.0));
+        input.on_mouse_up(MouseButton::Left);
+        input.on_mouse_down(MouseButton::Left, 0.1, (0.0, 0.0));
+        assert!(input.is_mouse_button_double_clicked(MouseButton::Left));
+    }
+
+    #[test]
+    fn two_clicks_beyond_threshold_is_not_double_click() {
+        let mut input = InputState::new();
+        input.on_mouse_down(MouseButton::Left, 0.0, (0.0, 0.0));
+        input.on_mouse_up(MouseButton::Left);
+        input.on_mouse_down(MouseButton::Left, 1.0, (0.0, 0.0));
+        assert!(!input.is_mouse_button_double_clicked(MouseButton::Left));
+    }
+
+    #[test]
+    fn two_clicks_at_different_positions_is_not_double_click() {
+        let mut input = InputState::new();
+        input.on_mouse_down(MouseButton::Left, 0.0, (0.0, 0.0));
+        input.on_mouse_up(MouseButton::Left);
+        input.on_mouse_down(MouseButton::Left, 0.1, (100.0, 100.0));
+        assert!(!input.is_mouse_button_double_clicked(MouseButton::Left));
+    }
+
+    #[test]
+    fn double_click_within_tolerance_is_detected() {
+        let mut input = InputState::new();
+        input.on_mouse_down(MouseButton::Left, 0.0, (0.0, 0.0));
+        input.on_mouse_up(MouseButton::Left);
+        input.on_mouse_down(MouseButton::Left, 0.1, (3.0, 4.0));
+        assert!(input.is_mouse_button_double_clicked(MouseButton::Left));
+    }
+
+    #[test]
+    fn double_click_is_per_button() {
+        let mut input = InputState::new();
+        input.on_mouse_down(MouseButton::Left, 0.0, (0.0, 0.0));
+        input.on_mouse_up(MouseButton::Left);
+        input.on_mouse_down(MouseButton::Right, 0.1, (0.0, 0.0));
+        assert!(!input.is_mouse_button_double_clicked(MouseButton::Left));
+        assert!(!input.is_mouse_button_double_clicked(MouseButton::Right));
+    }
+
+    #[test]
+    fn double_click_cleared_after_end_frame() {
+        let mut input = InputState::new();
+        input.on_mouse_down(MouseButton::Left, 0.0, (0.0, 0.0));
+        input.on_mouse_up(MouseButton::Left);
+        input.on_mouse_down(MouseButton::Left, 0.1, (0.0, 0.0));
+        assert!(input.is_mouse_button_double_clicked(MouseButton::Left));
+        input.end_frame();
+        assert!(!input.is_mouse_button_double_clicked(MouseButton::Left));
     }
 }

@@ -165,6 +165,9 @@ mod tests {
         fn is_mouse_button_released(&self, _button: MouseButton) -> bool {
             false
         }
+        fn is_mouse_button_double_clicked(&self, _button: MouseButton) -> bool {
+            false
+        }
         fn mouse_position(&self) -> (f32, f32) {
             (0.0, 0.0)
         }

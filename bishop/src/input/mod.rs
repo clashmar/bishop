@@ -4,9 +4,31 @@ mod gamepad;
 mod keycode;
 mod mouse;
 
+use std::cell::RefCell;
+
 pub use gamepad::*;
 pub use keycode::*;
 pub use mouse::*;
+
+thread_local! {
+    static DOUBLE_CLICK_RESET_REQUESTED: RefCell<bool> = const { RefCell::new(false) };
+}
+
+/// Requests that double-click tracking be reset for the next mouse press.
+/// Call this when a click has been consumed and should not count toward a
+/// future double-click.
+pub fn request_double_click_reset() {
+    DOUBLE_CLICK_RESET_REQUESTED.with(|f| *f.borrow_mut() = true);
+}
+
+/// Returns true if a double-click reset was requested and clears the flag.
+pub(crate) fn take_double_click_reset_requested() -> bool {
+    DOUBLE_CLICK_RESET_REQUESTED.with(|f| {
+        let was = *f.borrow();
+        *f.borrow_mut() = false;
+        was
+    })
+}
 
 /// Input state abstraction for keyboard and mouse.
 pub trait Input {
@@ -30,6 +52,9 @@ pub trait Input {
 
     /// Returns true if the mouse button was released this frame.
     fn is_mouse_button_released(&self, button: MouseButton) -> bool;
+
+    /// Returns true if the mouse button was double-clicked this frame.
+    fn is_mouse_button_double_clicked(&self, button: MouseButton) -> bool;
 
     /// Returns the current mouse position in screen coordinates.
     fn mouse_position(&self) -> (f32, f32);

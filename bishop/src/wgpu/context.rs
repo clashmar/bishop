@@ -219,7 +219,11 @@ impl WgpuContext {
             WindowEvent::MouseInput { button, state, .. } => {
                 if let Some(btn) = convert_mouse_button(*button) {
                     match state {
-                        ElementState::Pressed => self.input.on_mouse_down(btn),
+                        ElementState::Pressed => {
+                            let time = self.time.elapsed();
+                            let pos = self.input.mouse_position();
+                            self.input.on_mouse_down(btn, time, pos);
+                        }
                         ElementState::Released => self.input.on_mouse_up(btn),
                     }
                 }

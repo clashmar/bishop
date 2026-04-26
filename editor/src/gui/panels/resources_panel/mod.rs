@@ -11,13 +11,13 @@ use crate::gui::gui_constants::HIGHLIGHT_GREEN;
 use crate::gui::panels::generic_panel::PanelDefinition;
 use crate::Editor;
 use bishop::prelude::*;
-use context_menu::{
-    context_target_for_background, context_target_for_entry, draw_context_menu,
-    handle_pending_action, pending_action_for, pending_action_for_background, ActiveMenu,
-    EntryKind, PendingResourceAction,
-};
 #[cfg(test)]
 use context_menu::ResourceMenuAction;
+use context_menu::{
+    context_target_for_background, context_target_for_entry, draw_context_menu,
+    handle_pending_action, open_resource, pending_action_for, pending_action_for_background,
+    ActiveMenu, EntryKind, PendingResourceAction,
+};
 use engine_core::prelude::*;
 use icon_mapper::{IconMapper, IconType};
 use navigation::Navigation;
@@ -215,6 +215,7 @@ impl PanelDefinition for ResourcesPanel {
             interaction_blocked,
         ) {
             self.navigation.truncate_to(target_depth);
+            widgets::consume_click();
             self.scan_current_dir(&editor.game.asset_registry);
         }
         top_y += BREADCRUMB_HEIGHT + GRID_PADDING;
@@ -303,7 +304,16 @@ impl PanelDefinition for ResourcesPanel {
                     } else {
                         self.navigation.push(&entry.name);
                     }
+                    widgets::consume_click();
                     self.scan_current_dir(&editor.game.asset_registry);
+                    break;
+                }
+
+                if !entry.is_dir_like()
+                    && cell_rect.contains(mouse)
+                    && ctx.is_mouse_button_double_clicked(MouseButton::Left)
+                {
+                    open_resource(&entry.path, editor);
                     break;
                 }
 

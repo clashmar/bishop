@@ -48,6 +48,10 @@ impl Input for WgpuContext {
         self.input.is_mouse_button_released(button)
     }
 
+    fn is_mouse_button_double_clicked(&self, button: MouseButton) -> bool {
+        self.input.is_mouse_button_double_clicked(button)
+    }
+
     fn mouse_position(&self) -> (f32, f32) {
         self.input.mouse_position()
     }

@@ -1,12 +1,14 @@
-use engine_core::assets::AssetRegistry;
+use crate::app::{Editor, EditorMode};
+use crate::storage::editor_storage::create_new_game;
+use crate::test_utils::{game_fs_test_lock, make_prefab_session_editor, TestGameFolder};
+use engine_core::assets::{AssetKey, AssetRegistry};
 use engine_core::constants::{extensions, paths};
 use engine_core::engine_global::set_game_name;
 use engine_core::scripting::lua_constants::lua_dirs;
 use engine_core::storage::path_utils::resources_folder_current;
-use engine_core::storage::test_utils::{game_fs_test_lock, TestGameFolder};
 
 use super::context_menu::{
-    self, context_target_for_entry, ActiveMenu, EntryKind, PendingResourceAction,
+    self, context_target_for_entry, open_resource, ActiveMenu, EntryKind, PendingResourceAction,
     ResourceMenuAction,
 };
 use super::icon_mapper::{IconMapper, IconType, FILE_ICON_MAP};
@@ -396,4 +398,86 @@ fn pending_action_for_background_returns_create_directory() {
     let current_dir = PathBuf::from("/games/Demo/Resources/subdir");
     let action = context_menu::pending_action_for_background(&current_dir);
     assert!(matches!(action, PendingResourceAction::CreateDirectory(ref p) if p == &current_dir));
+}
+
+#[test]
+fn open_resource_registered_prefab_opens_prefab_editor() {
+    let _lock = game_fs_test_lock()
+        .lock()
+        .unwrap_or_else(|poison| poison.into_inner());
+    let test_game = TestGameFolder::new("open_resource_registered_prefab");
+    let (mut editor, room_id, prefab_id, _root) = make_prefab_session_editor(&test_game);
+
+    editor.prefab_editor = None;
+    editor.mode = EditorMode::Room(room_id);
+    editor.toast = None;
+
+    let prefab_path = editor
+        .game
+        .asset_registry
+        .record(AssetKey::Prefab(prefab_id))
+        .map(|r| resources_folder_current().join(&r.path))
+        .expect("prefab should be registered");
+
+    open_resource(&prefab_path, &mut editor);
+
+    assert!(editor.prefab_editor.is_some());
+    assert_eq!(editor.prefab_editor.as_ref().unwrap().prefab_id, prefab_id);
+}
+
+#[test]
+fn open_resource_already_open_prefab_is_noop() {
+    let _lock = game_fs_test_lock()
+        .lock()
+        .unwrap_or_else(|poison| poison.into_inner());
+    let test_game = TestGameFolder::new("open_resource_already_open");
+    let (mut editor, _room_id, prefab_id, _root) = make_prefab_session_editor(&test_game);
+
+    let prefab_path = editor
+        .game
+        .asset_registry
+        .record(AssetKey::Prefab(prefab_id))
+        .map(|r| resources_folder_current().join(&r.path))
+        .expect("prefab should be registered");
+
+    editor.toast = None;
+
+    open_resource(&prefab_path, &mut editor);
+
+    assert!(editor.prefab_editor.is_some());
+    assert_eq!(editor.prefab_editor.as_ref().unwrap().prefab_id, prefab_id);
+    assert!(editor.toast.is_none());
+}
+
+#[test]
+fn open_resource_unregistered_prefab_shows_toast() {
+    let _lock = game_fs_test_lock()
+        .lock()
+        .unwrap_or_else(|poison| poison.into_inner());
+    let test_game = TestGameFolder::new("open_resource_unregistered_prefab");
+    set_game_name(test_game.name());
+    let mut editor = Editor {
+        game: create_new_game(test_game.name().to_string()),
+        ..Default::default()
+    };
+
+    let unregistered_path = resources_folder_current()
+        .join(paths::PREFABS_FOLDER)
+        .join(format!("ghost.{}", extensions::PREFAB));
+    std::fs::create_dir_all(unregistered_path.parent().unwrap()).unwrap();
+    std::fs::write(&unregistered_path, "").unwrap();
+
+    open_resource(&unregistered_path, &mut editor);
+
+    assert!(
+        editor
+            .toast
+            .as_ref()
+            .is_some_and(|t| t.msg == "Unregistered prefab file"),
+        "expected toast for unregistered prefab, got: {}",
+        editor
+            .toast
+            .as_ref()
+            .map_or("None".to_string(), |t| t.msg.clone())
+    );
 }
