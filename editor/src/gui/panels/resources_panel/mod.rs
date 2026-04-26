@@ -3,7 +3,7 @@ pub mod navigation;
 pub mod path_filter;
 
 use crate::editor_assets::assets::{
-    audio_icon, entity_icon, file_icon, folder_icon, image_icon, lua_icon, text_icon
+    audio_icon, entity_icon, file_icon, folder_icon, image_icon, lua_icon, text_icon,
 };
 use crate::gui::gui_constants::HIGHLIGHT_GREEN;
 use crate::gui::panels::generic_panel::PanelDefinition;
@@ -22,7 +22,6 @@ const GRID_PADDING: f32 = 12.0;
 const ICON_SIZE: f32 = 42.0;
 const LABEL_FONT_SIZE: f32 = 12.0;
 const REGISTRATION_BADGE_SIZE: f32 = 8.0;
-const BACK_BUTTON_HEIGHT: f32 = 28.0;
 const BREADCRUMB_HEIGHT: f32 = 20.0;
 const TOP_BAR_PADDING: f32 = 8.0;
 
@@ -31,6 +30,7 @@ pub struct Entry {
     pub name: String,
     pub display_name: String,
     pub is_dir: bool,
+    pub is_parent: bool,
     pub path: PathBuf,
     pub icon_type: IconType,
     pub is_registered: bool,
@@ -100,6 +100,7 @@ impl ResourcesPanel {
                     name,
                     display_name,
                     is_dir,
+                    is_parent: false,
                     path: full_path,
                     icon_type,
                     is_registered,
@@ -112,6 +113,26 @@ impl ResourcesPanel {
             (false, true) => std::cmp::Ordering::Greater,
             _ => a.name.to_lowercase().cmp(&b.name.to_lowercase()),
         });
+
+        if !self.navigation.is_at_root() {
+            let parent_path = {
+                let mut p = self.navigation.current();
+                p.pop();
+                p
+            };
+            visible.insert(
+                0,
+                Entry {
+                    name: "..".to_string(),
+                    display_name: "..".to_string(),
+                    is_dir: true,
+                    is_parent: true,
+                    path: parent_path,
+                    icon_type: IconMapper::dir_icon(),
+                    is_registered: false,
+                },
+            );
+        }
 
         self.entries = visible;
     }
@@ -147,19 +168,6 @@ impl PanelDefinition for ResourcesPanel {
         self.scan_current_dir(&editor.game.asset_registry);
 
         let mut top_y = rect.y + TOP_BAR_PADDING;
-
-        if !self.navigation.is_at_root() {
-            let back_rect = Rect::new(rect.x + GRID_PADDING, top_y, 60.0, BACK_BUTTON_HEIGHT);
-            if Button::new(back_rect, "< Back")
-                .suppressed(blocked)
-                .show(ctx)
-                && !blocked
-            {
-                self.navigation.pop();
-                self.scan_current_dir(&editor.game.asset_registry);
-            }
-            top_y += BACK_BUTTON_HEIGHT + GRID_PADDING;
-        }
 
         let breadcrumb_y = top_y;
         let current = self.navigation.current();
@@ -258,7 +266,11 @@ impl PanelDefinition for ResourcesPanel {
                 let cell_rect = Rect::new(x, cell_y, CELL_SIZE, CELL_SIZE);
                 let mouse: Vec2 = ctx.mouse_position().into();
                 if cell_rect.contains(mouse) && ctx.is_mouse_button_pressed(MouseButton::Left) {
-                    self.navigation.push(&entry.name);
+                    if entry.is_parent {
+                        self.navigation.pop();
+                    } else {
+                        self.navigation.push(&entry.name);
+                    }
                     self.scan_current_dir(&editor.game.asset_registry);
                     break;
                 }
