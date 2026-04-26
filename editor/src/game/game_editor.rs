@@ -5,16 +5,16 @@ use crate::commands::game::*;
 use crate::editor_assets::assets::*;
 use crate::gui::gui_constants::*;
 use crate::gui::menu_bar::*;
-use crate::gui::modal::*;
+use crate::gui::modals::edit_world::EditWorldData;
+use crate::gui::modals::*;
 use crate::gui::mode_selector::ModeInfo;
 use crate::gui::mode_selector::ModeSelector;
-use crate::gui::prompts::*;
 use crate::push_command;
 use crate::world::coord;
 use bishop::prelude::*;
 use engine_core::prelude::*;
 use once_cell::sync::Lazy;
-use std::cell::RefCell;
+
 use std::collections::HashMap;
 use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
@@ -63,8 +63,8 @@ pub struct GameEditor {
     drag_offset: Vec2,
     drag_start_position: Option<Vec2>,
     world_widget_ids: HashMap<WorldId, WidgetId>,
-    selected_world_id: Option<WorldId>,
-    modal: Modal,
+    pub(crate) pending_edit_world: Option<EditWorldData>,
+    pub(crate) pending_delete_world: Option<WorldId>,
     pending_camera_init: bool,
 }
 
@@ -83,8 +83,8 @@ impl GameEditor {
             drag_offset: Vec2::ZERO,
             drag_start_position: None,
             world_widget_ids: HashMap::new(),
-            selected_world_id: None,
-            modal: Modal::default(),
+            pending_edit_world: None,
+            pending_delete_world: None,
             pending_camera_init: false,
         }
     }
@@ -112,42 +112,25 @@ impl GameEditor {
                 }
             }
             GameEditorMode::Edit => {
-                // Edit modal, handles its own UI and closing
-                if self.modal.is_open() {
-                    // Do nothing
-                } else if ctx.is_mouse_button_pressed(MouseButton::Left)
+                if ctx.is_mouse_button_pressed(MouseButton::Left)
                     && !self.should_block_canvas(ctx)
+                    && !is_modal_open()
                 {
-                    for world in &mut game.worlds {
+                    for world in &game.worlds {
                         let texture =
                             self.resolve_world_texture(ctx, world, &mut game.sprite_manager);
                         if self.is_mouse_over_world(ctx, camera, world, texture) {
-                            // Capture the world data
                             let world_id = world.id;
                             let current_name = world.name.clone();
                             let current_sprite = world.meta.sprite_id.unwrap_or(SpriteId(0));
                             let widget_id = self.widget_id_for_world(world_id);
 
-                            self.modal = Modal::new(ctx, 400.0, 300.0);
-
-                            let mut prompt = WorldEditPrompt::new(
+                            self.pending_edit_world = Some(EditWorldData {
                                 world_id,
-                                self.modal.rect,
-                                widget_id,
                                 current_name,
                                 current_sprite,
-                            );
-
-                            let widgets: Vec<BoxedWidget> =
-                                vec![Box::new(move |ctx, asset_registry, sprite_manager| {
-                                    if let Some(result) =
-                                        prompt.draw(ctx, asset_registry, sprite_manager)
-                                    {
-                                        EDIT_WORLD_RESULT.with(|c| *c.borrow_mut() = Some(result));
-                                    }
-                                })];
-
-                            self.modal.open(widgets);
+                                widget_id,
+                            });
                             break;
                         }
                     }
@@ -160,15 +143,14 @@ impl GameEditor {
                 }
             }
             GameEditorMode::Delete => {
-                // Delete world
                 if ctx.is_mouse_button_pressed(MouseButton::Left) && !self.should_block_canvas(ctx)
                 {
                     for world in &game.worlds {
                         let texture =
                             self.resolve_world_texture(ctx, world, &mut game.sprite_manager);
                         if self.is_mouse_over_world(ctx, camera, world, texture) {
-                            self.selected_world_id = Some(world.id);
-                            self.modal = Modal::open_confirm_modal(ctx, &DELETE_WORLD_RESULT);
+                            self.pending_delete_world = Some(world.id);
+                            break;
                         }
                     }
                 }
@@ -188,10 +170,6 @@ impl GameEditor {
 
         ctx.set_camera(camera);
         ctx.clear_background(Color::BLACK);
-
-        if self.modal.is_open() {
-            self.active_rects.push(self.modal.rect)
-        }
 
         self.draw_worlds(ctx, camera, game);
         self.draw_ui(ctx, camera, game);
@@ -295,70 +273,10 @@ impl GameEditor {
         }
         self.mode_selector.draw_tooltips(ctx);
 
-        self.draw_menu_buttons(ctx, camera, game);
-
-        // Draw modal last
-        if self.modal.is_open() {
-            // Pass the asset manager so any widget that needs assets can use it
-            let clicked_outside =
-                self.modal
-                    .draw(ctx, &mut game.asset_registry, &mut game.sprite_manager);
-            if clicked_outside {
-                self.modal.close();
-            }
-
-            // Handle results
-            EDIT_WORLD_RESULT.with(|c| {
-                if let Some(result) = c.borrow_mut().take() {
-                    let mut new_name = None;
-                    let mut new_sprite = None;
-
-                    // Name change
-                    if let Some(ref name) = result.name {
-                        // Compare with the current name
-                        if let Some(world) = game.worlds.iter().find(|w| w.id == result.id) {
-                            if world.name != *name {
-                                new_name = Some(name.clone());
-                            }
-                        }
-                    }
-
-                    // Sprite change
-                    if let Some(sprite) = result.sprite {
-                        let sprite_opt = if sprite.0 == 0 { None } else { Some(sprite) };
-                        if let Some(world) = game.worlds.iter().find(|w| w.id == result.id) {
-                            if world.meta.sprite_id != sprite_opt {
-                                new_sprite = Some(sprite_opt);
-                            }
-                        }
-                    }
-
-                    // Push the command if something changed
-                    if new_name.is_some() || new_sprite.is_some() {
-                        push_command(Box::new(EditWorldCmd::new(result.id, new_name, new_sprite)));
-                    }
-                    self.modal.close();
-                }
-            });
-
-            DELETE_WORLD_RESULT.with(|c| {
-                if let Some(result) = c.borrow_mut().take() {
-                    match result {
-                        ConfirmPromptResult::Confirmed => {
-                            if let Some(id) = self.selected_world_id {
-                                push_command(Box::new(DeleteWorldCmd::new(game, id)));
-                            }
-                        }
-                        ConfirmPromptResult::Cancelled => {}
-                    }
-                    self.selected_world_id = None;
-                    self.modal.close();
-                }
-            });
-        }
+        self.draw_menu_buttons(ctx);
     }
 
-    fn draw_menu_buttons(&mut self, ctx: &mut WgpuContext, camera: &mut Camera2D, game: &mut Game) {
+    fn draw_menu_buttons(&mut self, ctx: &mut WgpuContext) {
         const BTN_MARGIN: f32 = 10.0;
 
         let create_label = "New World";
@@ -517,8 +435,3 @@ impl SubEditor for GameEditor {
 /// A slice of all the modes.
 static ALL_MODES: Lazy<&'static [GameEditorMode]> =
     Lazy::new(|| Box::leak(Box::new(GameEditorMode::iter().collect::<Vec<_>>())));
-
-thread_local! {
-    pub static EDIT_WORLD_RESULT: RefCell<Option<WorldEditResult>> = const { RefCell::new(None) };
-    pub static DELETE_WORLD_RESULT: RefCell<Option<ConfirmPromptResult>> = const { RefCell::new(None) };
-}

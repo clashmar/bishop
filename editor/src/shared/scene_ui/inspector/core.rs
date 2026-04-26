@@ -15,7 +15,7 @@ use crate::gui::inspector::audio_source_module::clear_active_audio_preview;
 use crate::gui::inspector::player_module::PlayerModule;
 use crate::gui::inspector::room_camera_module::ROOM_CAMERA_MODULE_TITLE;
 use crate::gui::menu_bar::menu_button;
-use crate::gui::modal::is_modal_open;
+use crate::gui::modals::is_modal_open;
 use bishop::prelude::*;
 use engine_core::prelude::*;
 use std::collections::HashMap;

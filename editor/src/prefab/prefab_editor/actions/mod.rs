@@ -3,6 +3,8 @@ use crate::commands::scene::{
     ApplyInstanceToPrefabCmd, RevertPrefabInstanceCmd, UnlinkPrefabInstanceCmd,
 };
 use crate::editor_global::push_command;
+use crate::gui::modals::prefab_picker::PrefabPickerModal;
+use crate::gui::modals::ModalHandler;
 use crate::prefab::{PendingPrefabTransition, PrefabTransitionPrompt, BLANK_PREFAB_ID};
 use crate::shared::scene_ui::inspector::{ScenePrefabAction, ScenePrefabActionRequest};
 use bishop::prelude::*;
@@ -61,7 +63,7 @@ impl Editor {
                 self.create_prefab_from_selection(entity);
             }
             PrefabEditorLaunch::OpenPicker => {
-                self.open_prefab_picker_modal(ctx);
+                PrefabPickerModal.open(self, ctx);
             }
         }
     }

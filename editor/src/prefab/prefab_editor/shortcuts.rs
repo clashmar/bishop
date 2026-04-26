@@ -1,5 +1,5 @@
 use super::PrefabEditor;
-use crate::gui::modal::is_modal_open;
+use crate::gui::modals::is_modal_open;
 use bishop::prelude::*;
 use engine_core::prelude::*;
 

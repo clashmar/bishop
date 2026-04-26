@@ -5,7 +5,7 @@ use crate::canvas::grid;
 use crate::canvas::grid_shader::GridRenderer;
 use crate::editor_assets::assets::*;
 use crate::gui::menu_bar::*;
-use crate::gui::modal::is_modal_open;
+use crate::gui::modals::is_modal_open;
 use crate::gui::mode_selector::*;
 use crate::world::coord::*;
 use bishop::prelude::*;

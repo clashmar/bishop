@@ -1,6 +1,6 @@
 // editor/src/menu_editor/menu_editor.rs
 use crate::app::SubEditor;
-use crate::gui::modal::is_modal_open;
+use crate::gui::modals::is_modal_open;
 use crate::gui::panels::panel_manager::is_mouse_over_panel;
 use crate::menu::resize_handle::ResizeHandleState;
 use crate::menu::*;

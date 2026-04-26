@@ -4,7 +4,11 @@ use crate::commands::scene::DeletePrefabCmd;
 use crate::editor_global::*;
 use crate::gui::inspector::audio_source_module::clear_active_audio_preview;
 use crate::gui::menu_bar::*;
-use crate::gui::modal::is_modal_open;
+use crate::gui::modals::{
+    dirty_prefab_exit::DirtyPrefabExitModal, empty_prefab_exit::EmptyPrefabExitModal,
+    empty_prefab_save::EmptyPrefabSaveModal, is_modal_open, new_game::NewGameModal,
+    rename::RenameModal, save_as::SaveAsModal, world_settings::WorldSettingsModal, ModalHandler,
+};
 use crate::gui::panels::*;
 use crate::prefab::{PendingPrefabTransition, PrefabTransitionPrompt};
 use crate::storage::editor_storage::*;
@@ -70,11 +74,11 @@ impl Editor {
     fn run_action(&mut self, ctx: &mut WgpuContext, action: EditorAction) {
         match action {
             EditorAction::Rename => {
-                self.open_rename_modal(ctx);
+                RenameModal.open(self, ctx);
             }
             EditorAction::NewGame => {
                 self.save();
-                self.open_new_game_modal(ctx);
+                NewGameModal.open(self, ctx);
             }
             EditorAction::Open => {
                 #[cfg(not(target_arch = "wasm32"))]
@@ -124,7 +128,7 @@ impl Editor {
                     self.save();
                 }
             }
-            EditorAction::SaveAs => self.open_save_as_modal(ctx),
+            EditorAction::SaveAs => SaveAsModal.open(self, ctx),
             EditorAction::Undo => crate::editor_global::request_undo(),
             EditorAction::Redo => crate::editor_global::request_redo(),
             EditorAction::Export => self.begin_export(ctx),
@@ -171,7 +175,7 @@ impl Editor {
                 });
             }
             EditorAction::WorldSettings => {
-                self.open_world_settings_modal(ctx);
+                WorldSettingsModal.open(self, ctx);
             }
             EditorAction::OpenPrefabEditor => {
                 self.open_prefab_editor(ctx);
@@ -255,7 +259,7 @@ impl Editor {
             }
             crate::prefab::prefab_editor::StagedPrefabState::Empty => {
                 if !self.active_prefab_is_clean() {
-                    self.open_empty_prefab_save_modal(ctx);
+                    EmptyPrefabSaveModal.open(self, ctx);
                 }
             }
         }
@@ -264,8 +268,8 @@ impl Editor {
     pub(crate) fn request_exit_prefab_mode(&mut self, ctx: &WgpuContext) {
         match self.request_prefab_transition(PendingPrefabTransition::Exit) {
             PrefabTransitionPrompt::None => {}
-            PrefabTransitionPrompt::Dirty => self.open_dirty_prefab_exit_modal(ctx),
-            PrefabTransitionPrompt::Empty => self.open_empty_prefab_exit_modal(ctx),
+            PrefabTransitionPrompt::Dirty => DirtyPrefabExitModal.open(self, ctx),
+            PrefabTransitionPrompt::Empty => EmptyPrefabExitModal.open(self, ctx),
         }
     }
 

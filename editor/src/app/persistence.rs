@@ -1,4 +1,7 @@
 use crate::app::*;
+use crate::gui::modals::export_overwrite::{stage_export_overwrite_message, ExportOverwriteModal};
+use crate::gui::modals::unsaved_exit::UnsavedExitModal;
+use crate::gui::modals::ModalHandler;
 use crate::prefab::reconcile_recent_prefab_ids;
 use crate::storage::editor_storage::*;
 use crate::storage::export::{export_game, export_target_path, PendingExport};
@@ -181,7 +184,13 @@ impl Editor {
             let target_path = export_target_path(&dest_root, &self.game);
             if target_path.exists() {
                 self.pending_export = Some(PendingExport { dest_root });
-                self.open_export_overwrite_modal(ctx, &target_path);
+                let target_name = target_path
+                    .file_name()
+                    .and_then(|n| n.to_str())
+                    .unwrap_or("export");
+                let message = format!("Overwrite existing export '{target_name}'?");
+                stage_export_overwrite_message(message);
+                ExportOverwriteModal.open(self, ctx);
                 return;
             }
 
@@ -255,7 +264,7 @@ impl Editor {
             return;
         }
         ctx.set_exit_confirmed(false);
-        self.open_unsaved_exit_modal(ctx);
+        UnsavedExitModal.open(self, ctx);
         self.handling_close = true;
     }
 }

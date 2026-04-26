@@ -17,7 +17,11 @@ use crate::canvas::grid_shader::GridRenderer;
 use crate::editor_global::{push_throbbing_toast, push_toast};
 use crate::game::game_editor::GameEditor;
 use crate::gui::menu_bar::MenuBar;
-use crate::gui::modal::Modal;
+use crate::gui::modals::delete_world::DeleteWorldModal;
+use crate::gui::modals::edit_world::EditWorldModal;
+use crate::gui::modals::{Modal, ModalHandler, ModalRegistry};
+use crate::gui::modals::delete_prefab::DeletePrefabModal;
+use crate::gui::modals::prefab_picker::PrefabPickerModal;
 use crate::menu::MenuEditor;
 use crate::playtest::playtest_process::PlaytestProcess;
 use crate::playtest::room_playtest::*;
@@ -61,6 +65,7 @@ pub struct Editor {
     pub render_system: RenderSystem,
     pub menu_bar: MenuBar,
     pub modal: Modal,
+    pub modal_handlers: ModalRegistry,
     pub pending_export: Option<PendingExport>,
     pub(crate) prefab_state: PrefabSessionState,
     pub(crate) pending_camera_reset: bool,
@@ -91,6 +96,7 @@ impl Default for Editor {
             render_system: RenderSystem::with_default_grid_size(),
             menu_bar: MenuBar::new(),
             modal: Modal::default(),
+            modal_handlers: ModalRegistry::new(),
             pending_export: None,
             prefab_state: PrefabSessionState::default(),
             pending_camera_reset: false,
@@ -149,6 +155,7 @@ impl Editor {
         editor.grid_renderer = Some(GridRenderer::new(&ctx.borrow()));
 
         editor.update_save_state_hash();
+        editor.register_modal_handlers();
         Ok(editor)
     }
 
@@ -224,12 +231,12 @@ impl Editor {
 
                 self.reconcile_active_prefab_room_preview();
                 if delete_prefab_requested {
-                    self.open_delete_prefab_modal(ctx);
+                    DeletePrefabModal.open(self, ctx);
                 }
                 if open_prefab_picker_requested
                     || (self.prefab_state.require_picker() && !self.modal.is_open())
                 {
-                    self.open_prefab_picker_modal(ctx);
+                    PrefabPickerModal.open(self, ctx);
                 }
                 if matches!(self.mode, EditorMode::Prefab(_))
                     && escape::escape_available_for_editor()
@@ -249,6 +256,13 @@ impl Editor {
                     self.game.current_world_id = Some(world_id);
                     self.cur_world_id = Some(world_id);
                     self.mode = EditorMode::World(world_id);
+                }
+
+                if self.game_editor.pending_edit_world.is_some() {
+                    EditWorldModal.open(self, ctx);
+                }
+                if self.game_editor.pending_delete_world.is_some() {
+                    DeleteWorldModal.open(self, ctx);
                 }
             }
             EditorMode::World(world_id) => {

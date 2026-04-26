@@ -3,7 +3,7 @@ use crate::app::EditorMode;
 use crate::app::SubEditor;
 use crate::commands::room::*;
 use crate::editor_global::*;
-use crate::gui::modal::is_modal_open;
+use crate::gui::modals::is_modal_open;
 use crate::room::room_editor::*;
 use crate::room::selection::*;
 use crate::shared::selection::*;

@@ -4,7 +4,7 @@ use crate::editor_assets::assets::*;
 use crate::editor_global::{push_command, push_toast};
 use crate::gui::gui_constants::MENU_PANEL_HEIGHT;
 use crate::gui::menu_bar::draw_top_panel_full;
-use crate::gui::modal::*;
+use crate::gui::modals::*;
 use crate::gui::mode_selector::ModeInfo;
 use crate::gui::panels::panel_manager::*;
 use crate::room::drawing::*;

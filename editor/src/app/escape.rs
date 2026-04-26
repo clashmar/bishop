@@ -1,4 +1,4 @@
-use crate::gui::modal::is_modal_open;
+use crate::gui::modals::is_modal_open;
 use engine_core::prelude::*;
 use std::cell::RefCell;
 use widgets::{close_open_context_menus, is_context_menu_open};
@@ -64,7 +64,7 @@ pub(crate) fn resolve_escape(escape_pressed: bool) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::gui::modal::set_modal_open_for_test;
+    use crate::gui::modals::set_modal_open_for_test;
     use widgets::{context_menu_state, set_context_menu_open};
 
     #[test]

@@ -3,7 +3,7 @@ use crate::app::EditorCameraController;
 use crate::app::EditorMode;
 use crate::commands::room::*;
 use crate::editor_global::push_command;
-use crate::gui::modal::is_modal_open;
+use crate::gui::modals::is_modal_open;
 use crate::gui::mode_selector::ModeInfo;
 use crate::room::room_editor::*;
 use bishop::prelude::*;

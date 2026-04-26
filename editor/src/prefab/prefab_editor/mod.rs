@@ -13,7 +13,7 @@ use crate::canvas::grid;
 use crate::canvas::grid_shader::GridRenderer;
 use crate::gui::inspector::inspector_panel::InspectorPanel;
 use crate::gui::menu_bar::draw_top_panel_full;
-use crate::gui::modal::is_modal_open;
+use crate::gui::modals::is_modal_open;
 use crate::gui::panels::panel_manager::is_mouse_over_panel;
 use crate::room::drawing::{draw_collider, draw_pivot_marker, highlight_selected_entity};
 use crate::shared::scene_ui::inspector::{

@@ -3,7 +3,7 @@ use super::{PrefabDragState, PrefabEditor, PREFAB_EDITOR_GRID_SIZE};
 use crate::app::EditorMode;
 use crate::commands::room::{BatchMoveEntitiesCmd, MoveEntityCmd};
 use crate::editor_global::push_command;
-use crate::gui::modal::is_modal_open;
+use crate::gui::modals::is_modal_open;
 use crate::room::entity_hitbox;
 use crate::room::entity_world_rect;
 use crate::shared::selection::{rect_from_two_points, rects_intersect};

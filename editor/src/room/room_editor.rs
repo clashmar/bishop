@@ -8,7 +8,7 @@ use crate::commands::room::*;
 use crate::editor_assets::assets::*;
 use crate::editor_global::*;
 use crate::gui::inspector::inspector_panel::InspectorPanel;
-use crate::gui::modal::is_modal_open;
+use crate::gui::modals::is_modal_open;
 use crate::gui::mode_selector::*;
 use crate::gui::panels::panel_manager::is_mouse_over_panel;
 use crate::prefab::reconcile_recent_prefab_ids;

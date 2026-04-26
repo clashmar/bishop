@@ -1,14 +1,26 @@
-// editor/src/gui/inspector/modal.rs
-use crate::gui::prompts::confirm_prompt::*;
-use crate::gui::prompts::constants::*;
+use crate::app::Editor;
 use bishop::prelude::*;
 use engine_core::prelude::*;
-use std::{cell::RefCell, thread::LocalKey};
-use widgets::{close_open_context_menus, context_menu_state};
+use std::cell::RefCell;
+use std::thread::LocalKey;
+
+pub mod confirm;
+pub mod delete_prefab;
+pub mod delete_world;
+pub mod dirty_prefab_exit;
+pub mod edit_world;
+pub mod empty_prefab_exit;
+pub mod empty_prefab_save;
+pub mod export_overwrite;
+pub mod new_game;
+pub mod prefab_picker;
+pub mod rename;
+pub mod save_as;
+pub mod unsaved_exit;
+pub mod world_settings;
 
 #[derive(Default)]
 pub struct Modal {
-    /// Position & size of the modal window.
     pub rect: Rect,
     pub open: bool,
     widgets: BoxedWidgets,
@@ -19,8 +31,6 @@ thread_local! {
     pub static MODAL_OPEN: RefCell<bool> = const { RefCell::new(false) };
 }
 
-/// Global flag that tells the rest of the editor whether a modal
-/// is currently open.
 pub fn is_modal_open() -> bool {
     MODAL_OPEN.with(|f| *f.borrow())
 }
@@ -34,8 +44,6 @@ pub type BoxedWidget =
     Box<dyn FnMut(&mut WgpuContext, &mut AssetRegistry, &mut SpriteManager) + 'static>;
 type BoxedWidgets = Vec<BoxedWidget>;
 
-/// Used by callers of a a modal to decide what should happen if
-/// the user clicks outside the modal.
 #[derive(Clone, PartialEq)]
 pub enum ModalResult {
     String(String),
@@ -43,7 +51,6 @@ pub enum ModalResult {
 }
 
 impl Modal {
-    /// Creates a new modal of the given size. It is automatically centered.
     pub fn new(ctx: &WgpuContext, width: f32, height: f32) -> Self {
         let rect = Rect::new(
             (ctx.screen_width() - width) / 2.0,
@@ -60,40 +67,27 @@ impl Modal {
         }
     }
 
-    /// Open the modal and set draw callbacks.
     pub fn open(&mut self, callbacks: Vec<BoxedWidget>) {
         close_open_dropdowns();
         close_open_context_menus();
         self.open = true;
         self.widgets = callbacks;
         self.just_opened = true;
-
-        // Let the editor know a modal is open
-        MODAL_OPEN.with(|r| {
-            *r.borrow_mut() = true;
-        });
+        MODAL_OPEN.with(|r| *r.borrow_mut() = true);
     }
 
-    /// Close the modal.
     pub fn close(&mut self) {
         close_open_dropdowns();
         close_open_context_menus();
         self.open = false;
         self.widgets = Vec::new();
-
-        // Let the editor know the modal is close
-        MODAL_OPEN.with(|r| {
-            *r.borrow_mut() = false;
-        });
+        MODAL_OPEN.with(|r| *r.borrow_mut() = false);
     }
 
-    /// Returns `true` if the modal is currently open.
     pub fn is_open(&self) -> bool {
         self.open
     }
 
-    /// Render the modal. Returns `true`` when the user clicked outside the window.
-    /// Needs asset manager for widgets that need to access assets.
     pub fn draw(
         &mut self,
         ctx: &mut WgpuContext,
@@ -104,13 +98,11 @@ impl Modal {
             return false;
         }
 
-        // Prevent any interaction on first click
         if self.just_opened {
             self.just_opened = false;
             return false;
         }
 
-        // Dim the whole screen
         ctx.draw_rectangle(
             0.0,
             0.0,
@@ -119,7 +111,6 @@ impl Modal {
             Color::new(0.0, 0.0, 0.0, 0.6),
         );
 
-        // Window background & outline
         ctx.draw_rectangle(
             self.rect.x,
             self.rect.y,
@@ -137,12 +128,10 @@ impl Modal {
             Color::WHITE,
         );
 
-        // Run all widgets
         for widget in self.widgets.iter_mut() {
             widget.as_mut()(ctx, asset_registry, sprite_manager);
         }
 
-        // Detect a click outside the window
         if ctx.is_mouse_button_pressed(MouseButton::Left) {
             let mouse = ctx.mouse_position().into();
             if !modal_hit_region_contains(self.rect, mouse) {
@@ -152,53 +141,6 @@ impl Modal {
 
         false
     }
-
-    /// Opens a model with a confirm prompt widget.
-    /// The caller must pass in a static reference to the result store.
-    pub fn open_confirm_modal(
-        ctx: &WgpuContext,
-        result_store: &'static LocalKey<RefCell<Option<ConfirmPromptResult>>>,
-    ) -> Modal {
-        Self::open_confirm_modal_with_message(ctx, result_store, "Are You Sure?")
-    }
-
-    /// Opens a modal with a confirm prompt widget and custom message.
-    pub fn open_confirm_modal_with_message(
-        ctx: &WgpuContext,
-        result_store: &'static LocalKey<RefCell<Option<ConfirmPromptResult>>>,
-        prompt_message: impl Into<String>,
-    ) -> Modal {
-        let prompt_message = prompt_message.into();
-        let mut modal = Modal::new(ctx, confirm_modal_width(ctx, &prompt_message), 120.0);
-        let mut prompt = ConfirmPrompt::new(modal.rect, prompt_message);
-
-        let widgets: Vec<BoxedWidget> = vec![Box::new(move |ctx, _, _| {
-            if let Some(result) = prompt.draw(ctx) {
-                // Write the result to the static thread local
-                result_store.with(|c| *c.borrow_mut() = Some(result));
-            }
-        })];
-
-        modal.open(widgets);
-        modal
-    }
-}
-
-fn confirm_modal_width(ctx: &WgpuContext, message: &str) -> f32 {
-    const MIN_MODAL_WIDTH: f32 = 300.0;
-    const SCREEN_MARGIN: f32 = 40.0;
-    const MESSAGE_WIDTH_BUFFER: f32 = 48.0;
-
-    let minimum_button_layout_width =
-        (BUTTON_W * 2.0 + PROMPT_ACTION_GAP * 3.0) / PROMPT_CONTENT_WIDTH_RATIO;
-    let minimum_modal_width = MIN_MODAL_WIDTH.max(minimum_button_layout_width);
-
-    let message_width = measure_text(ctx, message, DEFAULT_FONT_SIZE_16).width;
-    let content_width = message_width + MESSAGE_WIDTH_BUFFER;
-    let modal_width = content_width / PROMPT_CONTENT_WIDTH_RATIO;
-    let max_modal_width = (ctx.screen_width() - SCREEN_MARGIN).max(minimum_modal_width);
-
-    modal_width.clamp(minimum_modal_width, max_modal_width)
 }
 
 fn modal_hit_region_contains(modal_rect: Rect, point: Vec2) -> bool {
@@ -224,6 +166,124 @@ fn close_open_dropdowns() {
         }
     });
     update_global_dropdown_flag();
+}
+
+pub fn open_modal_with_prompt<T: 'static>(
+    modal: &mut Modal,
+    mut prompt: impl FnMut(&mut WgpuContext) -> Option<T> + 'static,
+    result_store: &'static LocalKey<RefCell<Option<T>>>,
+) {
+    let widgets: Vec<BoxedWidget> = vec![Box::new(move |ctx, _, _| {
+        if let Some(result) = prompt(ctx) {
+            result_store.with(|c| *c.borrow_mut() = Some(result));
+        }
+    })];
+    modal.open(widgets);
+}
+
+pub fn take_modal_result<T>(store: &'static LocalKey<RefCell<Option<T>>>) -> Option<T> {
+    store.with(|c| c.borrow_mut().take())
+}
+
+pub trait ModalHandler {
+    type Result: 'static;
+
+    fn result_store(&self) -> &'static LocalKey<RefCell<Option<Self::Result>>>;
+
+    /// Open the modal, configuring editor.modal with prompt widgets.
+    fn open(&mut self, editor: &mut Editor, ctx: &WgpuContext);
+
+    /// Process a result from the thread-local store.
+    /// Return Some(ModalResult) if the orchestrator should propagate it.
+    fn handle(
+        &mut self,
+        editor: &mut Editor,
+        ctx: &mut WgpuContext,
+        result: Self::Result,
+    ) -> Option<ModalResult>;
+
+    /// Called when the user clicks outside the modal.
+    fn on_outside_click(&mut self, _editor: &mut Editor) {
+        take_modal_result(self.result_store());
+    }
+}
+
+pub(crate) trait ErasedHandler {
+    fn try_handle(&mut self, editor: &mut Editor, ctx: &mut WgpuContext) -> Option<ModalResult>;
+    fn on_outside_click(&mut self, editor: &mut Editor);
+}
+
+pub(crate) struct HandlerWrapper<H: ModalHandler> {
+    inner: H,
+}
+
+impl<H: ModalHandler> ErasedHandler for HandlerWrapper<H> {
+    fn try_handle(&mut self, editor: &mut Editor, ctx: &mut WgpuContext) -> Option<ModalResult> {
+        let result = take_modal_result(self.inner.result_store())?;
+        self.inner.handle(editor, ctx, result)
+    }
+
+    fn on_outside_click(&mut self, editor: &mut Editor) {
+        self.inner.on_outside_click(editor);
+    }
+}
+
+pub struct ModalRegistry {
+    handlers: Vec<Box<dyn ErasedHandler>>,
+}
+
+impl ModalRegistry {
+    pub fn new() -> Self {
+        Self {
+            handlers: Vec::new(),
+        }
+    }
+
+    pub fn register<H: ModalHandler + 'static>(&mut self, handler: H) {
+        self.handlers
+            .push(Box::new(HandlerWrapper { inner: handler }));
+    }
+
+    pub fn try_handle_all(
+        &mut self,
+        editor: &mut Editor,
+        ctx: &mut WgpuContext,
+    ) -> Option<ModalResult> {
+        for handler in self.handlers.iter_mut() {
+            if let Some(result) = handler.try_handle(editor, ctx) {
+                return Some(result);
+            }
+        }
+        None
+    }
+
+    pub fn handle_outside_click(&mut self, editor: &mut Editor) {
+        for handler in self.handlers.iter_mut() {
+            handler.on_outside_click(editor);
+        }
+    }
+
+    pub fn init_from_inventory(&mut self) {
+        for entry in inventory::iter::<ModalEntry> {
+            self.handlers.push((entry.construct)());
+        }
+    }
+}
+
+pub struct ModalEntry {
+    pub construct: fn() -> Box<dyn ErasedHandler>,
+}
+inventory::collect!(ModalEntry);
+
+#[macro_export]
+macro_rules! register_modal {
+    ($modal:ident) => {
+        inventory::submit! {
+            $crate::gui::modals::ModalEntry {
+                construct: || Box::new($crate::gui::modals::HandlerWrapper { inner: $modal }),
+            }
+        }
+    };
 }
 
 #[cfg(test)]
