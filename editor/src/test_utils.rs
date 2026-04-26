@@ -5,7 +5,7 @@ use engine_core::constants::extensions;
 use engine_core::prelude::*;
 pub use engine_core::storage::test_utils::{game_fs_test_lock, TestGameFolder};
 use std::path::PathBuf;
-use std::sync::Mutex;
+use std::sync::{Mutex, MutexGuard};
 
 static TEST_PREFAB_SAVE_PICKER_RESULT: Mutex<Option<Option<PathBuf>>> = Mutex::new(None);
 
@@ -51,6 +51,35 @@ impl Drop for EditorServicesGuard {
             *services.editor.borrow_mut() = None;
         });
         reset_services();
+    }
+}
+
+/// Holds the game-fs lock, test game folder, and editor services guard together
+/// so that drop order guarantees the lock outlives the test game folder teardown.
+pub struct TestEditorContext {
+    pub _lock: MutexGuard<'static, ()>,
+    pub _test_game: TestGameFolder,
+    pub _guard: EditorServicesGuard,
+}
+
+/// Creates a fresh editor with an isolated test game folder and acquires the
+/// global game-fs lock. Returns a `TestEditorContext` whose drop order ensures
+/// the lock outlives the `TestGameFolder` cleanup.
+pub fn setup_editor(test_prefix: &str) -> TestEditorContext {
+    let lock = game_fs_test_lock()
+        .lock()
+        .unwrap_or_else(|poison| poison.into_inner());
+    let test_game = TestGameFolder::new(test_prefix);
+    set_game_name(test_game.name());
+    let editor = Editor {
+        game: create_new_game(test_game.name().to_string()),
+        ..Default::default()
+    };
+    let guard = EditorServicesGuard::install(editor);
+    TestEditorContext {
+        _lock: lock,
+        _test_game: test_game,
+        _guard: guard,
     }
 }
 

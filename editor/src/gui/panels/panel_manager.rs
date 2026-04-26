@@ -10,8 +10,10 @@ use crate::gui::panels::resources_panel::ResourcesPanel;
 use crate::with_panel_manager;
 use crate::Editor;
 use bishop::prelude::*;
+use engine_core::prelude::*;
 use engine_core::storage::editor_config::{get_panel_position, set_panel_position, PanelPosition};
 use std::collections::HashMap;
+use widgets::is_context_menu_open;
 
 pub enum PanelMode {
     Room,
@@ -78,7 +80,8 @@ impl PanelManager {
 
         // Find which panel was clicked (iterate back-to-front for z-order).
         let mut clicked_panel_id: Option<PanelId> = None;
-        if mouse_pressed {
+        let can_raise_panel = mouse_pressed && !is_context_menu_open();
+        if can_raise_panel {
             for (id, panel) in self.panels.iter().rev() {
                 if panel.visible
                     && self.panel_modes[id].iter().any(|m| m.matches(&editor_mode))

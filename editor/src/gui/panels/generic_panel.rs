@@ -3,6 +3,7 @@ use crate::gui::gui_constants::*;
 use crate::Editor;
 use bishop::prelude::*;
 use engine_core::prelude::*;
+use widgets::is_context_menu_open;
 
 /// Must be globally unique.
 pub type PanelId = &'static str;
@@ -58,6 +59,7 @@ impl GenericPanel {
         let mouse: Vec2 = ctx.mouse_position().into();
         let title_bar_for_drag = Rect::new(self.rect.x, self.rect.y, self.rect.w, TITLE_BAR_H);
         if !blocked
+            && !is_context_menu_open()
             && ctx.is_mouse_button_pressed(MouseButton::Left)
             && title_bar_for_drag.contains(mouse)
         {

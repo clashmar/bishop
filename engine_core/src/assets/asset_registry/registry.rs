@@ -72,6 +72,30 @@ impl AssetRegistry {
         self.path_to_key.get(path.as_ref()).copied()
     }
 
+    /// Returns the asset key for a full filesystem path by stripping the
+    /// current game's resources root, then looking up the relative remainder.
+    pub fn key_for_full_path<P: AsRef<Path>>(&self, full_path: P) -> Option<AssetKey> {
+        let relative = full_path
+            .as_ref()
+            .strip_prefix(crate::storage::path_utils::resources_folder_current())
+            .ok()?;
+        self.key_for_path(relative)
+    }
+
+    /// Returns all records whose project-relative path starts with `prefix`,
+    /// where `prefix` is relative to the current game's resources root.
+    pub fn records_under_prefix<P: AsRef<Path>>(
+        &self,
+        prefix: P,
+    ) -> Vec<(AssetKey, AssetRecord)> {
+        let prefix = prefix.as_ref();
+        self.records
+            .iter()
+            .filter(|(_, record)| record.path.starts_with(prefix))
+            .map(|(&key, record)| (key, record.clone()))
+            .collect()
+    }
+
     /// Registers an asset path relative to the folder for `key`.
     pub fn register_asset_relative_path<K: Into<AssetKey>, P: AsRef<Path>>(
         &mut self,

@@ -5,10 +5,28 @@ use engine_core::scripting::lua_constants::lua_dirs;
 use engine_core::storage::path_utils::resources_folder_current;
 use engine_core::storage::test_utils::{game_fs_test_lock, TestGameFolder};
 
+use super::context_menu::{context_target_for_entry, ContextTarget, EntryKind, ResourceMenuAction};
 use super::icon_mapper::{IconMapper, IconType, FILE_ICON_MAP};
 use super::navigation::Navigation;
 use super::path_filter::{PathFilter, HIDDEN_DIRS, HIDDEN_EXTENSIONS, HIDDEN_FILENAMES};
+use super::Entry;
 use super::ResourcesPanel;
+use bishop::prelude::*;
+use std::path::PathBuf;
+
+fn test_entry(name: &str, kind: EntryKind) -> Entry {
+    Entry {
+        name: name.to_string(),
+        display_name: name.to_string(),
+        kind,
+        path: PathBuf::from(name),
+        icon_type: if matches!(kind, EntryKind::Parent | EntryKind::Directory) {
+            IconType::Folder
+        } else {
+            IconType::File
+        },
+    }
+}
 
 #[test]
 fn dir_visible_hides_hidden_dirs() {
@@ -213,7 +231,7 @@ fn scan_at_root_has_no_parent_entry() {
     let mut panel = ResourcesPanel::new();
     panel.scan_current_dir(&AssetRegistry::default());
     assert!(panel.navigation.is_at_root());
-    assert!(panel.entries.first().is_none_or(|e| !e.is_parent));
+    assert!(panel.entries.first().is_none_or(|e| !e.is_parent()));
 }
 
 #[test]
@@ -224,10 +242,10 @@ fn scan_in_subdir_has_parent_as_first_entry() {
     panel.scan_current_dir(&AssetRegistry::default());
 
     let first = panel.entries.first().expect("should have a parent entry");
-    assert!(first.is_parent);
+    assert!(first.is_parent());
     assert_eq!(first.display_name, "..");
-    assert!(first.is_dir);
-    assert!(!first.is_registered);
+    assert!(first.is_dir_like());
+    assert!(!first.is_registered());
 }
 
 #[test]
@@ -241,7 +259,7 @@ fn clicking_parent_entry_navigates_to_root() {
     panel.navigation.pop();
     panel.scan_current_dir(&AssetRegistry::default());
     assert!(panel.navigation.is_at_root());
-    assert!(panel.entries.first().is_none_or(|e| !e.is_parent));
+    assert!(panel.entries.first().is_none_or(|e| !e.is_parent()));
 }
 
 #[test]
@@ -253,10 +271,78 @@ fn parent_entry_appears_at_each_depth() {
     panel.scan_current_dir(&AssetRegistry::default());
 
     let first = panel.entries.first().expect("should have parent entry");
-    assert!(first.is_parent);
+    assert!(first.is_parent());
 
     panel.navigation.pop();
     panel.scan_current_dir(&AssetRegistry::default());
     let first = panel.entries.first().expect("should have parent entry");
-    assert!(first.is_parent);
+    assert!(first.is_parent());
+}
+
+#[test]
+fn registered_file_has_rename_delete_and_reveal_actions() {
+    let entry = test_entry("registered.asset", EntryKind::RegisteredFile);
+
+    assert_eq!(
+        entry.context_menu_actions(),
+        &[
+            ResourceMenuAction::Rename,
+            ResourceMenuAction::Delete,
+            ResourceMenuAction::Reveal,
+        ]
+    );
+}
+
+#[test]
+fn unregistered_file_has_delete_and_reveal_actions() {
+    let entry = test_entry("loose.asset", EntryKind::UnregisteredFile);
+
+    assert_eq!(
+        entry.context_menu_actions(),
+        &[ResourceMenuAction::Delete, ResourceMenuAction::Reveal]
+    );
+}
+
+#[test]
+fn directory_has_new_folder_rename_and_delete_actions() {
+    let entry = test_entry("folder", EntryKind::Directory);
+
+    assert_eq!(
+        entry.context_menu_actions(),
+        &[
+            ResourceMenuAction::NewFolder,
+            ResourceMenuAction::Rename,
+            ResourceMenuAction::Delete,
+        ]
+    );
+}
+
+#[test]
+fn parent_entry_has_no_context_menu_actions() {
+    let entry = test_entry("..", EntryKind::Parent);
+
+    assert!(entry.context_menu_actions().is_empty());
+}
+
+#[test]
+fn parent_entry_never_produces_a_context_target() {
+    let entry = test_entry("..", EntryKind::Parent);
+    assert!(context_target_for_entry(3, &entry, Vec2::new(10.0, 20.0)).is_none());
+}
+
+#[test]
+fn regular_entry_context_target_keeps_index_position_and_actions() {
+    let entry = test_entry("player.lua", EntryKind::RegisteredFile);
+    let target = context_target_for_entry(7, &entry, Vec2::new(32.0, 48.0)).unwrap();
+
+    assert_eq!(target.entry_index, 7);
+    assert_eq!(target.position, Vec2::new(32.0, 48.0));
+    assert_eq!(
+        target.actions,
+        vec![
+            ResourceMenuAction::Rename,
+            ResourceMenuAction::Delete,
+            ResourceMenuAction::Reveal,
+        ]
+    );
 }

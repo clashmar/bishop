@@ -1,4 +1,5 @@
 pub mod breadcrumb;
+pub mod context_menu;
 pub mod icon_mapper;
 pub mod navigation;
 pub mod path_filter;
@@ -10,11 +11,16 @@ use crate::gui::gui_constants::HIGHLIGHT_GREEN;
 use crate::gui::panels::generic_panel::PanelDefinition;
 use crate::Editor;
 use bishop::prelude::*;
+use context_menu::{
+    context_target_for_entry, draw_context_menu, handle_pending_action, pending_action_for,
+    ContextTarget, EntryKind, PendingResourceAction, ResourceMenuAction,
+};
 use engine_core::prelude::*;
 use icon_mapper::{IconMapper, IconType};
 use navigation::Navigation;
 use path_filter::PathFilter;
 use std::path::{Path, PathBuf};
+use widgets::WidgetId;
 
 pub const RESOURCES_PANEL: &str = "Resources";
 
@@ -30,17 +36,36 @@ const TOP_BAR_PADDING: f32 = 8.0;
 pub struct Entry {
     pub name: String,
     pub display_name: String,
-    pub is_dir: bool,
-    pub is_parent: bool,
+    kind: EntryKind,
     pub path: PathBuf,
     pub icon_type: IconType,
-    pub is_registered: bool,
+}
+
+impl Entry {
+    fn is_parent(&self) -> bool {
+        self.kind == EntryKind::Parent
+    }
+
+    fn is_dir_like(&self) -> bool {
+        matches!(self.kind, EntryKind::Parent | EntryKind::Directory)
+    }
+
+    fn is_registered(&self) -> bool {
+        self.kind == EntryKind::RegisteredFile
+    }
+
+    fn context_menu_actions(&self) -> &'static [ResourceMenuAction] {
+        context_menu::context_menu_actions_for(self.kind)
+    }
 }
 
 pub struct ResourcesPanel {
     navigation: Navigation,
     scroll_state: ScrollState,
     entries: Vec<Entry>,
+    context_target: Option<ContextTarget>,
+    pending_action: Option<PendingResourceAction>,
+    context_menu_id: WidgetId,
 }
 
 impl ResourcesPanel {
@@ -49,11 +74,13 @@ impl ResourcesPanel {
             navigation: Navigation::new(),
             scroll_state: ScrollState::new(),
             entries: Vec::new(),
+            context_target: None,
+            pending_action: None,
+            context_menu_id: WidgetId(0xC07E_0001),
         }
     }
 
     fn scan_current_dir(&mut self, registry: &AssetRegistry) {
-        let root = resources_folder_current();
         let current = self.navigation.current();
         let Ok(entries) = std::fs::read_dir(&current) else {
             self.entries.clear();
@@ -91,25 +118,25 @@ impl ResourcesPanel {
                 };
 
                 let full_path = e.path();
-                let relative_path = full_path
-                    .strip_prefix(&root)
-                    .unwrap_or(&full_path)
-                    .to_path_buf();
-                let is_registered = registry.key_for_path(&relative_path).is_some();
+                let kind = if is_dir {
+                    EntryKind::Directory
+                } else if registry.key_for_full_path(&full_path).is_some() {
+                    EntryKind::RegisteredFile
+                } else {
+                    EntryKind::UnregisteredFile
+                };
 
                 Some(Entry {
                     name,
                     display_name,
-                    is_dir,
-                    is_parent: false,
+                    kind,
                     path: full_path,
                     icon_type,
-                    is_registered,
                 })
             })
             .collect();
 
-        visible.sort_by(|a, b| match (a.is_dir, b.is_dir) {
+        visible.sort_by(|a, b| match (a.is_dir_like(), b.is_dir_like()) {
             (true, false) => std::cmp::Ordering::Less,
             (false, true) => std::cmp::Ordering::Greater,
             _ => a.name.to_lowercase().cmp(&b.name.to_lowercase()),
@@ -121,18 +148,14 @@ impl ResourcesPanel {
                 p.pop();
                 p
             };
-            visible.insert(
-                0,
-                Entry {
-                    name: "..".to_string(),
-                    display_name: "..".to_string(),
-                    is_dir: true,
-                    is_parent: true,
-                    path: parent_path,
-                    icon_type: IconMapper::dir_icon(),
-                    is_registered: false,
-                },
-            );
+            let parent_entry = Entry {
+                name: "..".to_string(),
+                display_name: "..".to_string(),
+                kind: EntryKind::Parent,
+                path: parent_path,
+                icon_type: IconMapper::dir_icon(),
+            };
+            visible.insert(0, parent_entry);
         }
 
         self.entries = visible;
@@ -168,6 +191,8 @@ impl PanelDefinition for ResourcesPanel {
     fn draw(&mut self, ctx: &mut WgpuContext, rect: Rect, editor: &mut Editor, blocked: bool) {
         self.scan_current_dir(&editor.game.asset_registry);
 
+        let interaction_blocked = blocked || widgets::is_context_menu_open();
+
         let mut top_y = rect.y + TOP_BAR_PADDING;
 
         let breadcrumb_y = top_y;
@@ -176,7 +201,7 @@ impl PanelDefinition for ResourcesPanel {
             rect.x + GRID_PADDING,
             breadcrumb_y,
             &self.navigation,
-            blocked,
+            interaction_blocked,
         ) {
             self.navigation.truncate_to(target_depth);
             self.scan_current_dir(&editor.game.asset_registry);
@@ -199,7 +224,7 @@ impl PanelDefinition for ResourcesPanel {
         };
 
         let area = ScrollableArea::new(content_rect, content_height)
-            .blocked(blocked)
+            .blocked(interaction_blocked)
             .begin(ctx, &mut self.scroll_state);
 
         ctx.push_clip_rect(content_rect);
@@ -232,7 +257,7 @@ impl PanelDefinition for ResourcesPanel {
                 },
             );
 
-            if entry.is_registered {
+            if entry.is_registered() {
                 let badge_x = icon_x + ICON_SIZE - REGISTRATION_BADGE_SIZE;
                 let badge_y = icon_y + ICON_SIZE - REGISTRATION_BADGE_SIZE;
                 ctx.draw_circle(
@@ -255,11 +280,15 @@ impl PanelDefinition for ResourcesPanel {
                 Color::WHITE,
             );
 
-            if entry.is_dir && !blocked {
-                let cell_rect = Rect::new(x, cell_y, CELL_SIZE, CELL_SIZE);
-                let mouse: Vec2 = ctx.mouse_position().into();
-                if cell_rect.contains(mouse) && ctx.is_mouse_button_pressed(MouseButton::Left) {
-                    if entry.is_parent {
+            let cell_rect = Rect::new(x, cell_y, CELL_SIZE, CELL_SIZE);
+            let mouse: Vec2 = ctx.mouse_position().into();
+
+            if !interaction_blocked {
+                if entry.is_dir_like()
+                    && cell_rect.contains(mouse)
+                    && ctx.is_mouse_button_pressed(MouseButton::Left)
+                {
+                    if entry.is_parent() {
                         self.navigation.pop();
                     } else {
                         self.navigation.push(&entry.name);
@@ -267,11 +296,29 @@ impl PanelDefinition for ResourcesPanel {
                     self.scan_current_dir(&editor.game.asset_registry);
                     break;
                 }
+
+                if cell_rect.contains(mouse) && ctx.is_mouse_button_pressed(MouseButton::Right) {
+                    if let Some(target) = context_target_for_entry(i, entry, mouse) {
+                        self.context_target = Some(target);
+                    }
+                }
             }
         }
 
         ctx.pop_clip_rect();
         area.draw_scrollbar(ctx, self.scroll_state.scroll_y);
+
+        if let Some(ref target) = self.context_target {
+            if let Some(selected) =
+                draw_context_menu(self.context_menu_id, target, ctx, interaction_blocked)
+            {
+                let entry = &self.entries[target.entry_index];
+                self.pending_action = pending_action_for(entry, selected);
+                self.context_target = None;
+            }
+        }
+
+        self.pending_action = handle_pending_action(self.pending_action.take(), editor, ctx);
 
         ctx.draw_rectangle_lines(rect.x, rect.y, rect.w, rect.h, 2.0, Color::WHITE);
     }
