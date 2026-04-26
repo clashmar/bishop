@@ -28,8 +28,11 @@ impl PathFilter {
     }
 
     /// Returns true if a file name (with extension) should be shown.
-    /// Hides: `game.ron`, `startup.ron`, any `.aseprite`/`.ase`/`.json` file.
+    /// Hides: dotfiles, `game.ron`, `startup.ron`, any `.aseprite`/`.ase`/`.json` file.
     pub fn file_visible(name: &str) -> bool {
+        if name.starts_with('.') {
+            return false;
+        }
         if HIDDEN_FILENAMES.contains(&name) {
             return false;
         }

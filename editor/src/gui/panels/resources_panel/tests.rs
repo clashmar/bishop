@@ -74,6 +74,13 @@ fn file_visible_allows_unknown_extension() {
 }
 
 #[test]
+fn file_visible_hides_dotfiles() {
+    assert!(!PathFilter::file_visible(".DS_Store"));
+    assert!(!PathFilter::file_visible(".gitkeep"));
+    assert!(!PathFilter::file_visible(".hidden"));
+}
+
+#[test]
 fn dir_icon_returns_folder() {
     assert_eq!(IconMapper::dir_icon(), IconType::Folder);
 }
