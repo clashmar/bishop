@@ -26,6 +26,9 @@ mod storage;
 mod tilemap;
 mod world;
 
+#[cfg(test)]
+mod test_utils;
+
 /// Wrapper struct for running the editor via BishopApp.
 struct EditorApp {
     current_window_size: (u32, u32),

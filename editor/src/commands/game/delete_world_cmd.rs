@@ -97,28 +97,9 @@ impl EditorCommand for DeleteWorldCmd {
 mod tests {
     use super::*;
     use crate::app::Editor;
-    use crate::editor_global::{reset_services, set_editor, with_editor, EDITOR_SERVICES};
+    use crate::editor_global::with_editor;
     use crate::storage::editor_storage::{create_new_game, create_new_world};
-    use engine_core::storage::test_utils::{game_fs_test_lock, TestGameFolder};
-
-    struct EditorServicesGuard;
-
-    impl EditorServicesGuard {
-        fn install(editor: Editor) -> Self {
-            reset_services();
-            set_editor(editor);
-            Self
-        }
-    }
-
-    impl Drop for EditorServicesGuard {
-        fn drop(&mut self) {
-            EDITOR_SERVICES.with(|services| {
-                *services.editor.borrow_mut() = None;
-            });
-            reset_services();
-        }
-    }
+    use crate::test_utils::{game_fs_test_lock, EditorServicesGuard, TestGameFolder};
 
     #[test]
     fn delete_world_cmd_deletes_and_restores_world_entities() {

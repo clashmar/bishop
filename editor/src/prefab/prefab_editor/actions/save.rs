@@ -34,7 +34,7 @@ pub(crate) fn derive_initial_prefab_save_target(
 
 pub(crate) fn pick_initial_prefab_save_path(suggested_name: &str) -> Option<PathBuf> {
     #[cfg(test)]
-    if let Some(result) = crate::prefab::tests::take_test_prefab_save_picker_result() {
+    if let Some(result) = crate::test_utils::take_test_prefab_save_picker_result() {
         return result;
     }
 

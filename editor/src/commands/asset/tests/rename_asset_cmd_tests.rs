@@ -2,32 +2,13 @@
 use crate::app::EditorMode;
 use crate::commands::asset::RenameAssetCmd;
 use crate::commands::editor_command_manager::EditorCommand;
-use crate::editor_global::{reset_services, set_editor, with_editor, EDITOR_SERVICES};
+use crate::editor_global::with_editor;
 use crate::storage::editor_storage::create_new_game;
+use crate::test_utils::{game_fs_test_lock, EditorServicesGuard, TestGameFolder};
 use crate::Editor;
 use engine_core::prelude::*;
-use engine_core::storage::test_utils::{game_fs_test_lock, TestGameFolder};
 use std::fs;
 use std::path::PathBuf;
-
-struct EditorServicesGuard;
-
-impl EditorServicesGuard {
-    fn install(editor: Editor) -> Self {
-        reset_services();
-        set_editor(editor);
-        Self
-    }
-}
-
-impl Drop for EditorServicesGuard {
-    fn drop(&mut self) {
-        EDITOR_SERVICES.with(|services| {
-            *services.editor.borrow_mut() = None;
-        });
-        reset_services();
-    }
-}
 
 fn setup_editor_with_sprite(
     test_prefix: &str,
