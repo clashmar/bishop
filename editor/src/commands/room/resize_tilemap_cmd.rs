@@ -72,9 +72,11 @@ impl EditorCommand for ResizeTilemapCmd {
 
         with_editor(|editor| {
             let grid_size = editor.game.current_world().grid_size;
-            let room = editor
-                .game
-                .current_world_mut()
+            let Some(current_world) = editor.game.current_world_mut() else {
+                return;
+            };
+            
+            let room = current_world
                 .rooms
                 .iter_mut()
                 .find(|r| r.id == self.room_id);
@@ -240,9 +242,10 @@ impl EditorCommand for ResizeTilemapCmd {
 
     fn undo(&mut self) {
         with_editor(|editor| {
-            let room = editor
-                .game
-                .current_world_mut()
+            let Some(current_world) = editor.game.current_world_mut() else {
+                return;
+            };
+            let room = current_world
                 .rooms
                 .iter_mut()
                 .find(|r| r.id == self.room_id);

@@ -195,11 +195,9 @@ impl Editor {
                             .init_camera(ctx, &mut self.camera, &mut self.game);
                     }
                     EditorMode::World(id) => {
-                        self.world_editor.init_camera(
-                            ctx,
-                            &mut self.camera,
-                            self.game.get_world_mut(id),
-                        );
+                        if let Some(world) = self.game.get_world_mut(id) {
+                            self.world_editor.init_camera(ctx, &mut self.camera, world);
+                        }
                     }
                     EditorMode::Room(id) => {
                         let current_world = self.game.current_world();

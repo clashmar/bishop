@@ -94,7 +94,9 @@ impl TransitionManager {
 
             if game_instance.game.ecs.get_player_entity() == Some(entity) {
                 if let Some(new_room) = rooms.iter().find(|r| r.id == target_id) {
-                    game_instance.game.current_world_mut().current_room_id = Some(new_room.id);
+                    if let Some(world) = game_instance.game.current_world_mut() {
+                        world.current_room_id = Some(new_room.id);
+                    }
                 }
             }
         }

@@ -44,12 +44,14 @@ impl ModalHandler for WorldSettingsModal {
         result: Self::Result,
     ) -> Option<ModalResult> {
         if let Some(new_grid_size) = result.grid_size {
-            let old_grid_size = editor.game.get_world_mut(result.id).grid_size;
-            push_command(Box::new(ChangeGridSizeCmd::new(
-                result.id,
-                old_grid_size,
-                new_grid_size,
-            )));
+            if let Some(world) = editor.game.get_world_mut(result.id) {
+                let old_grid_size = world.grid_size;
+                push_command(Box::new(ChangeGridSizeCmd::new(
+                    result.id,
+                    old_grid_size,
+                    new_grid_size,
+                )));
+            }
         }
         editor.modal.close();
         None

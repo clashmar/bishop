@@ -119,7 +119,9 @@ mod tests {
             .current_world_id
             .expect("test game should have a current world");
         let room_id = game.current_world().starting_room_id.unwrap_or_default();
-        game.get_world_mut(world_id).current_room_id = Some(room_id);
+        game.get_world_mut(world_id)
+            .expect("test game should have world")
+            .current_room_id = Some(room_id);
         let prefab_id = PrefabId(1);
         game.prefab_manager
             .prefabs

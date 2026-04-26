@@ -250,11 +250,13 @@ impl Editor {
             EditorMode::Game => {
                 // Returns the id of the world that was clicked on or None
                 if let Some(world_id) = self.game_editor.update(ctx, &self.camera, &mut self.game) {
-                    self.world_editor.init_camera(
-                        ctx,
-                        &mut self.camera,
-                        self.game.get_world_mut(world_id),
-                    );
+                    if let Some(world) = self.game.get_world_mut(world_id) {
+                        self.world_editor.init_camera(
+                            ctx,
+                            &mut self.camera,
+                            world,
+                        );
+                    }
                     self.game.current_world_id = Some(world_id);
                     self.cur_world_id = Some(world_id);
                     self.mode = EditorMode::World(world_id);
@@ -270,11 +272,13 @@ impl Editor {
             EditorMode::World(world_id) => {
                 if self.pending_camera_reset {
                     self.pending_camera_reset = false;
-                    self.world_editor.init_camera(
-                        ctx,
-                        &mut self.camera,
-                        self.game.get_world_mut(world_id),
-                    );
+                    if let Some(world) = self.game.get_world_mut(world_id) {
+                        self.world_editor.init_camera(
+                            ctx,
+                            &mut self.camera,
+                            world,
+                        );
+                    }
                 }
                 // Returns the id of the room that was clicked on or None
                 if let Some(room_id) =
@@ -285,12 +289,15 @@ impl Editor {
                     self.mode = EditorMode::Room(room_id);
 
                     // The world current room must be set
-                    self.game.get_world_mut(world_id).current_room_id = Some(room_id);
+                    if let Some(world) = self.game.get_world_mut(world_id) {
+                        world.current_room_id = Some(room_id);
+                    }
 
                     // Init camera immediately, as game_editor/world_editor do on their transitions
-                    let world = self.game.get_world_mut(world_id);
-                    if let Some(room) = world.get_room(room_id) {
-                        RoomEditor::init_camera(ctx, &mut self.camera, room, world.grid_size);
+                    if let Some(world) = self.game.get_world_mut(world_id) {
+                        if let Some(room) = world.get_room(room_id) {
+                            RoomEditor::init_camera(ctx, &mut self.camera, room, world.grid_size);
+                        }
                     }
                 }
 
@@ -334,12 +341,12 @@ impl Editor {
                             .room_editor
                             .active_prefab_snap_pivot(&self.game.prefab_manager),
                     };
-                    let current_world = &mut self
+                    let current_world = self
                         .game
                         .worlds
                         .iter_mut()
                         .find(|w| Some(w.id) == self.game.current_world_id)
-                        .expect("Current world id not present in game.");
+                        .expect("Current world id not present in game while in Room mode.");
 
                     self.room_editor.update(
                         ctx,

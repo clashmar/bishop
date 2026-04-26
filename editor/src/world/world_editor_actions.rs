@@ -100,7 +100,10 @@ impl WorldEditor {
 
         room.create_room_camera(&mut game.ecs, id, grid_size);
 
-        let cur_world = game.current_world_mut();
+        let cur_world = game
+            .current_world_mut()
+            .expect("add_room requires a current world");
+        
         cur_world.rooms.push(room);
 
         let len = cur_world.rooms.len();

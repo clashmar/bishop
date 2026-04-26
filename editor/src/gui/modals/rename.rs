@@ -61,10 +61,16 @@ impl ModalHandler for RenameModal {
                         push_command(Box::new(RenameGameCmd::new(name, editor.game.name.clone())));
                     }
                 }
-                EditorMode::World(_) => editor.game.current_world_mut().name = name,
+                EditorMode::World(_) => {
+                    if let Some(world) = editor.game.current_world_mut() {
+                        world.name = name;
+                    }
+                }
                 EditorMode::Room(id) => {
-                    if let Some(room) = editor.game.current_world_mut().get_room_mut(id) {
-                        room.name = name;
+                    if let Some(world) = editor.game.current_world_mut() {
+                        if let Some(room) = world.get_room_mut(id) {
+                            room.name = name;
+                        }
                     }
                 }
                 EditorMode::Prefab(_) => {

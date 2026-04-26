@@ -22,6 +22,18 @@ fn game_ctx_mut_can_exist_without_a_current_world() {
     assert!(ctx.world.is_none());
 }
 
+#[test]
+fn current_world_mut_returns_none_when_no_worlds() {
+    let mut game = Game::default();
+    assert!(game.current_world_mut().is_none());
+}
+
+#[test]
+fn get_world_mut_returns_none_for_missing_id() {
+    let mut game = Game::default();
+    assert!(game.get_world_mut(WorldId(99)).is_none());
+}
+
 #[cfg(feature = "editor")]
 #[test]
 fn delete_world_sets_current_to_dummy_when_empty() {

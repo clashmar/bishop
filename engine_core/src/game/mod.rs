@@ -103,7 +103,7 @@ pub struct GameCtxMut<'a> {
 impl Game {
     /// Returns an immutable game context.
     pub fn ctx<'a>(&'a self) -> GameCtx<'a> {
-        let current_id = self.current_world_id.unwrap_or(WorldId::default());
+        let current_id = self.current_world_id.unwrap_or_default();
         let world = self
             .worlds
             .iter()
@@ -122,7 +122,7 @@ impl Game {
 
     /// Returns a mutable game context.
     pub fn ctx_mut<'a>(&'a mut self) -> GameCtxMut<'a> {
-        let current_id = self.current_world_id.unwrap_or(WorldId::default());
+        let current_id = self.current_world_id.unwrap_or_default();
         let idx = self
             .worlds
             .iter()
@@ -140,31 +140,28 @@ impl Game {
         }
     }
 
-    /// Mutable reference to the current world.
-    pub fn current_world_mut(&mut self) -> &mut World {
-        let current_id = self.current_world_id.unwrap_or(WorldId::default());
+    /// Mutable reference to the current world, or `None` if no worlds exist.
+    pub fn current_world_mut(&mut self) -> Option<&mut World> {
+        let current_id = self.current_world_id.unwrap_or_default();
         let idx = self.worlds.iter().position(|w| w.id == current_id);
         match idx {
-            Some(i) => &mut self.worlds[i],
-            None => self.worlds.iter_mut().next().expect("No worlds in game."),
+            Some(i) => Some(&mut self.worlds[i]),
+            None => self.worlds.iter_mut().next(),
         }
     }
 
     /// Immutable reference to the current world.
     pub fn current_world(&self) -> &World {
-        let current_id = self.current_world_id.unwrap_or(WorldId::default());
+        let current_id = self.current_world_id.unwrap_or_default();
         self.worlds
             .iter()
             .find(|w| w.id == current_id)
             .unwrap_or_else(|| World::dummy())
     }
 
-    /// Gets a mutable reference to a world from its id.
-    pub fn get_world_mut(&mut self, world_id: WorldId) -> &mut World {
-        self.worlds
-            .iter_mut()
-            .find(|w| w.id == world_id)
-            .expect("World id not present in game.")
+    /// Gets a mutable reference to a world from its id, or `None` if not found.
+    pub fn get_world_mut(&mut self, world_id: WorldId) -> Option<&mut World> {
+        self.worlds.iter_mut().find(|w| w.id == world_id)
     }
 
     /// Add a new world and make it the active one.
