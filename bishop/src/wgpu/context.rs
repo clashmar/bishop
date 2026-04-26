@@ -548,6 +548,8 @@ impl WgpuContext {
 
             if let Some([x, y, w, h]) = self.clip_rect {
                 let (pw, ph) = self.graphics.size;
+                let x = x.min(pw);
+                let y = y.min(ph);
                 render_pass.set_scissor_rect(
                     x,
                     y,
