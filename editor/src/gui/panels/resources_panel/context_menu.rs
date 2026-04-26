@@ -22,6 +22,7 @@ pub(super) enum ResourceMenuAction {
     NewFolder,
     Rename,
     Delete,
+    Open,
     Reveal,
 }
 
@@ -31,20 +32,28 @@ impl ResourceMenuAction {
             Self::NewFolder => "New Folder",
             Self::Rename => "Rename",
             Self::Delete => "Delete",
+            Self::Open => "Open",
             Self::Reveal => "Reveal",
         }
     }
 }
 
-const DIRECTORY_MENU_ACTIONS: &[ResourceMenuAction] =
-    &[ResourceMenuAction::Rename, ResourceMenuAction::Delete];
-const REGISTERED_FILE_MENU_ACTIONS: &[ResourceMenuAction] = &[
+const DIRECTORY_MENU_ACTIONS: &[ResourceMenuAction] = &[
     ResourceMenuAction::Rename,
     ResourceMenuAction::Delete,
     ResourceMenuAction::Reveal,
 ];
-const UNREGISTERED_FILE_MENU_ACTIONS: &[ResourceMenuAction] =
-    &[ResourceMenuAction::Delete, ResourceMenuAction::Reveal];
+const REGISTERED_FILE_MENU_ACTIONS: &[ResourceMenuAction] = &[
+    ResourceMenuAction::Rename,
+    ResourceMenuAction::Delete,
+    ResourceMenuAction::Open,
+    ResourceMenuAction::Reveal,
+];
+const UNREGISTERED_FILE_MENU_ACTIONS: &[ResourceMenuAction] = &[
+    ResourceMenuAction::Delete,
+    ResourceMenuAction::Open,
+    ResourceMenuAction::Reveal,
+];
 const PARENT_MENU_ACTIONS: &[ResourceMenuAction] = &[];
 pub(super) const BACKGROUND_MENU_ACTIONS: &[ResourceMenuAction] = &[ResourceMenuAction::NewFolder];
 
@@ -70,15 +79,6 @@ pub(super) enum ActiveMenu {
     Background(Vec2),
 }
 
-impl ActiveMenu {
-    pub(super) fn position(&self) -> Vec2 {
-        match self {
-            Self::Entry(target) => target.position,
-            Self::Background(pos) => *pos,
-        }
-    }
-}
-
 pub(super) fn context_target_for_background(position: Vec2) -> ActiveMenu {
     ActiveMenu::Background(position)
 }
@@ -96,6 +96,7 @@ pub(super) enum PendingResourceAction {
     DeleteUnregisteredFile(PathBuf),
     DeleteDirectory(PathBuf),
     CreateDirectory(PathBuf),
+    Open(PathBuf),
     Reveal(PathBuf),
 }
 
@@ -132,6 +133,7 @@ pub(super) fn pending_action_for(
         (ResourceMenuAction::Delete, EntryKind::UnregisteredFile) => Some(
             PendingResourceAction::DeleteUnregisteredFile(entry.path.clone()),
         ),
+        (ResourceMenuAction::Open, _) => Some(PendingResourceAction::Open(entry.path.clone())),
         (ResourceMenuAction::Reveal, _) => Some(PendingResourceAction::Reveal(entry.path.clone())),
         _ => None,
     }
@@ -153,6 +155,10 @@ pub(super) fn handle_pending_action(
         }
         Some(PendingResourceAction::DeleteDirectory(path)) => {
             push_command(Box::new(DeleteDirectoryCmd::new(path)));
+            None
+        }
+        Some(PendingResourceAction::Open(path)) => {
+            open_file_with_default(&path, editor);
             None
         }
         Some(PendingResourceAction::Reveal(path)) => {
@@ -191,14 +197,41 @@ fn open_new_folder_modal(_editor: &mut Editor, _ctx: &mut WgpuContext) {
     push_toast("New folder coming soon.", 3.0);
 }
 
-fn reveal_in_system_browser(path: &std::path::Path, editor: &mut Editor) {
+fn open_file_with_default(path: &std::path::Path, editor: &mut Editor) {
     let result = if cfg!(target_os = "macos") {
         std::process::Command::new("open").arg(path).status()
     } else if cfg!(target_os = "windows") {
         std::process::Command::new("explorer").arg(path).status()
     } else {
-        push_toast("Reveal is unsupported on this platform.", 3.0);
-        return;
+        std::process::Command::new("xdg-open").arg(path).status()
+    };
+
+    if result.is_err() {
+        editor.toast = Some(Toast::new("Could not open resource.", 3.0));
+    }
+}
+
+fn reveal_in_system_browser(path: &std::path::Path, editor: &mut Editor) {
+    let is_dir = path.is_dir();
+
+    let result = if cfg!(target_os = "macos") {
+        std::process::Command::new("open")
+            .arg("-R")
+            .arg(path)
+            .status()
+    } else if cfg!(target_os = "windows") {
+        if is_dir {
+            std::process::Command::new("explorer").arg(path).status()
+        } else {
+            std::process::Command::new("explorer")
+                .arg(format!("/select,\"{}\"", path.display()))
+                .status()
+        }
+    } else if is_dir {
+        std::process::Command::new("xdg-open").arg(path).status()
+    } else {
+        let parent = path.parent().unwrap_or(path);
+        std::process::Command::new("xdg-open").arg(parent).status()
     };
 
     if result.is_err() {

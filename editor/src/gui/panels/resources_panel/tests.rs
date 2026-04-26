@@ -290,8 +290,37 @@ fn parent_entry_appears_at_each_depth() {
 }
 
 #[test]
-fn registered_file_has_rename_delete_and_reveal_actions() {
+fn registered_file_has_rename_delete_open_and_reveal_actions() {
     let entry = test_entry("registered.asset", EntryKind::RegisteredFile);
+
+    assert_eq!(
+        entry.context_menu_actions(),
+        &[
+            ResourceMenuAction::Rename,
+            ResourceMenuAction::Delete,
+            ResourceMenuAction::Open,
+            ResourceMenuAction::Reveal,
+        ]
+    );
+}
+
+#[test]
+fn unregistered_file_has_delete_open_and_reveal_actions() {
+    let entry = test_entry("loose.asset", EntryKind::UnregisteredFile);
+
+    assert_eq!(
+        entry.context_menu_actions(),
+        &[
+            ResourceMenuAction::Delete,
+            ResourceMenuAction::Open,
+            ResourceMenuAction::Reveal,
+        ]
+    );
+}
+
+#[test]
+fn directory_has_rename_delete_and_reveal_actions() {
+    let entry = test_entry("folder", EntryKind::Directory);
 
     assert_eq!(
         entry.context_menu_actions(),
@@ -300,26 +329,6 @@ fn registered_file_has_rename_delete_and_reveal_actions() {
             ResourceMenuAction::Delete,
             ResourceMenuAction::Reveal,
         ]
-    );
-}
-
-#[test]
-fn unregistered_file_has_delete_and_reveal_actions() {
-    let entry = test_entry("loose.asset", EntryKind::UnregisteredFile);
-
-    assert_eq!(
-        entry.context_menu_actions(),
-        &[ResourceMenuAction::Delete, ResourceMenuAction::Reveal]
-    );
-}
-
-#[test]
-fn directory_has_rename_and_delete_actions() {
-    let entry = test_entry("folder", EntryKind::Directory);
-
-    assert_eq!(
-        entry.context_menu_actions(),
-        &[ResourceMenuAction::Rename, ResourceMenuAction::Delete,]
     );
 }
 
@@ -356,6 +365,7 @@ fn regular_entry_context_target_keeps_index_position_and_actions() {
         vec![
             ResourceMenuAction::Rename,
             ResourceMenuAction::Delete,
+            ResourceMenuAction::Open,
             ResourceMenuAction::Reveal,
         ]
     );
@@ -366,13 +376,19 @@ fn active_menu_entry_stores_position() {
     let entry = test_entry("player.lua", EntryKind::RegisteredFile);
     let target = context_target_for_entry(2, &entry, Vec2::new(50.0, 75.0)).unwrap();
     let menu = ActiveMenu::Entry(target);
-    assert_eq!(menu.position(), Vec2::new(50.0, 75.0));
+    match menu {
+        ActiveMenu::Entry(t) => assert_eq!(t.position, Vec2::new(50.0, 75.0)),
+        _ => panic!("expected Entry variant"),
+    }
 }
 
 #[test]
 fn active_menu_background_stores_position() {
     let menu = ActiveMenu::Background(Vec2::new(150.0, 200.0));
-    assert_eq!(menu.position(), Vec2::new(150.0, 200.0));
+    match menu {
+        ActiveMenu::Background(pos) => assert_eq!(pos, Vec2::new(150.0, 200.0)),
+        _ => panic!("expected Background variant"),
+    }
 }
 
 #[test]
