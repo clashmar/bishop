@@ -7,7 +7,9 @@ pub(crate) mod escape;
 pub(crate) mod macos_quit;
 mod modals;
 mod persistence;
+mod queries;
 pub mod sub_editor;
+mod validation;
 
 pub use camera_controller::EditorCameraController;
 pub use sub_editor::SubEditor;

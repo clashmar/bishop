@@ -17,22 +17,7 @@ use engine_core::prelude::*;
 
 impl Editor {
     pub fn draw_menu_bar(&mut self, ctx: &mut WgpuContext) {
-        let menu_title = match self.mode {
-            EditorMode::Game => self.game.name.clone(),
-            EditorMode::World(_) => self.game.current_world().name.clone(),
-            EditorMode::Room(id) => self
-                .game
-                .current_world()
-                .get_room(id)
-                .map(|room| room.name.clone())
-                .unwrap_or_else(|| "Room".to_string()),
-            EditorMode::Prefab(_) => self
-                .prefab_editor
-                .as_ref()
-                .map(|editor| editor.prefab_name.clone())
-                .unwrap_or_else(|| "Prefab".to_string()),
-            EditorMode::Menu => "Menu Editor".to_string(),
-        };
+        let menu_title = self.active_entity_name();
 
         if let Some(action) = self.menu_bar.draw(ctx, &menu_title, self.mode) {
             self.run_action(ctx, action);
@@ -232,15 +217,6 @@ impl Editor {
                 }
             }
         }
-    }
-
-    pub fn get_room_from_id(&self, room_id: &RoomId) -> &Room {
-        self.game
-            .current_world()
-            .rooms
-            .iter()
-            .find(|m| m.id == *room_id)
-            .expect("Could not find room from id.")
     }
 
     pub(crate) fn request_prefab_save(&mut self, ctx: &WgpuContext) {

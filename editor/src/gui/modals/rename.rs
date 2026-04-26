@@ -39,7 +39,7 @@ impl ModalHandler for RenameModal {
 
         editor.modal = Modal::new(ctx, 400.0, 180.0);
         let mut prompt = StringPrompt::new(editor.modal.rect, prompt_message)
-            .with_initial_value(editor.current_rename_value())
+            .with_initial_value(editor.active_entity_name())
             .select_all_on_open();
         open_modal_with_prompt(
             &mut editor.modal,
