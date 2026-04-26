@@ -1,5 +1,5 @@
 use crate::commands::asset::{DeleteAssetCmd, DeleteDirectoryCmd, DeleteUnregisteredFileCmd};
-use crate::editor_global::{push_command, with_editor};
+use crate::editor_global::push_command;
 use crate::gui::modals::{
     new_resource_folder::{NewResourceFolderModal, NEW_FOLDER_TARGET},
     rename_resource::{ResourceRenameModal, RENAME_RESOURCE_TARGET},
@@ -122,19 +122,20 @@ pub(super) fn context_target_for_entry(
 pub(super) fn pending_action_for(
     entry: &Entry,
     action: ResourceMenuAction,
+    registry: &AssetRegistry,
 ) -> Option<PendingResourceAction> {
     match (action, entry.kind) {
         (ResourceMenuAction::Rename, EntryKind::Directory) => {
             Some(PendingResourceAction::RenameDirectory(entry.path.clone()))
         }
         (ResourceMenuAction::Rename, EntryKind::RegisteredFile) => Some(
-            PendingResourceAction::RenameFile(asset_key_for_entry(entry)?),
+            PendingResourceAction::RenameFile(asset_key_for_entry(entry, registry)?),
         ),
         (ResourceMenuAction::Delete, EntryKind::Directory) => {
             Some(PendingResourceAction::DeleteDirectory(entry.path.clone()))
         }
         (ResourceMenuAction::Delete, EntryKind::RegisteredFile) => Some(
-            PendingResourceAction::DeleteRegisteredFile(asset_key_for_entry(entry)?),
+            PendingResourceAction::DeleteRegisteredFile(asset_key_for_entry(entry, registry)?),
         ),
         (ResourceMenuAction::Delete, EntryKind::UnregisteredFile) => Some(
             PendingResourceAction::DeleteUnregisteredFile(entry.path.clone()),
@@ -197,8 +198,8 @@ pub(super) fn handle_pending_action(
     }
 }
 
-fn asset_key_for_entry(entry: &Entry) -> Option<AssetKey> {
-    with_editor(|editor| editor.game.asset_registry.key_for_full_path(&entry.path))
+fn asset_key_for_entry(entry: &Entry, registry: &AssetRegistry) -> Option<AssetKey> {
+    registry.key_for_full_path(&entry.path)
 }
 
 #[derive(Debug, PartialEq)]

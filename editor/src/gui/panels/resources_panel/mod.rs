@@ -362,7 +362,8 @@ impl PanelDefinition for ResourcesPanel {
                 match menu {
                     ActiveMenu::Entry(ref target) => {
                         if let Some(entry) = self.entries.get(target.entry_index) {
-                            self.pending_action = pending_action_for(entry, selected);
+                            self.pending_action =
+                                pending_action_for(entry, selected, &editor.game.asset_registry);
                         }
                     }
                     ActiveMenu::Background(_) => {
