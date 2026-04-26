@@ -6,7 +6,6 @@ use crate::editor_assets::assets::*;
 use crate::gui::gui_constants::*;
 use crate::gui::menu_bar::*;
 use crate::gui::modals::edit_world::EditWorldData;
-use crate::gui::modals::*;
 use crate::gui::mode_selector::ModeInfo;
 use crate::gui::mode_selector::ModeSelector;
 use crate::push_command;
@@ -172,14 +171,13 @@ impl GameEditor {
         ctx.clear_background(Color::BLACK);
 
         self.draw_worlds(ctx, camera, game);
-        self.draw_ui(ctx, camera, game);
+        self.draw_ui(ctx);
     }
 
     fn draw_worlds(&mut self, ctx: &mut WgpuContext, camera: &Camera2D, game: &mut Game) {
         // Draw world
         for world in &game.worlds {
             let texture = self.resolve_world_texture(ctx, world, &mut game.sprite_manager);
-
             // Hover tint
             let tint = if self.is_mouse_over_world(ctx, camera, world, texture)
                 && !self.should_block_canvas(ctx)
@@ -262,7 +260,7 @@ impl GameEditor {
         }
     }
 
-    fn draw_ui(&mut self, ctx: &mut WgpuContext, camera: &mut Camera2D, game: &mut Game) {
+    fn draw_ui(&mut self, ctx: &mut WgpuContext) {
         ctx.set_default_camera();
 
         self.active_rects.clear();
