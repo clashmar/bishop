@@ -3,6 +3,7 @@ pub mod context_menu;
 pub mod icon_mapper;
 pub mod navigation;
 pub mod path_filter;
+mod selection;
 
 use crate::editor_assets::assets::{
     audio_icon, entity_icon, file_icon, folder_icon, image_icon, lua_icon, text_icon,
@@ -14,9 +15,9 @@ use bishop::prelude::*;
 #[cfg(test)]
 use context_menu::ResourceMenuAction;
 use context_menu::{
-    context_target_for_background, context_target_for_entry, draw_context_menu,
-    handle_pending_action, open_resource, pending_action_for, pending_action_for_background,
-    ActiveMenu, EntryKind, PendingResourceAction, ResourceOpenResult,
+    draw_context_menu, handle_pending_action, open_resource, pending_action_for,
+    pending_action_for_background, ActiveMenu, EntryKind, PendingResourceAction,
+    ResourceOpenResult,
 };
 use engine_core::prelude::*;
 use icon_mapper::{IconMapper, IconType};
@@ -206,11 +207,12 @@ impl PanelDefinition for ResourcesPanel {
     fn draw(&mut self, ctx: &mut WgpuContext, rect: Rect, editor: &mut Editor, blocked: bool) {
         self.scan_current_dir(&editor.game.asset_registry);
 
+        let left_clicked = ctx.is_mouse_button_pressed(MouseButton::Left);
         let right_clicked = ctx.is_mouse_button_pressed(MouseButton::Right);
         if right_clicked && !blocked && widgets::is_context_menu_open() {
             widgets::close_open_context_menus();
             self.active_menu = None;
-            self.selected_index = None;
+            self.clear_selection();
         }
 
         let interaction_blocked = blocked || widgets::is_context_menu_open();
@@ -226,7 +228,7 @@ impl PanelDefinition for ResourcesPanel {
             &self.navigation,
             interaction_blocked,
         ) {
-            self.selected_index = None;
+            self.clear_selection();
             self.navigation.truncate_to(target_depth);
             widgets::consume_click();
             self.scan_current_dir(&editor.game.asset_registry);
@@ -254,7 +256,23 @@ impl PanelDefinition for ResourcesPanel {
 
         ctx.push_clip_rect(content_rect);
 
-        for (i, entry) in self.entries.iter().enumerate() {
+        let mut clicked_empty_space = left_clicked
+            && !interaction_blocked
+            && !blocked
+            && content_rect.contains(mouse)
+            && !widgets::is_click_consumed();
+        let mut right_clicked_entry = false;
+
+        for i in 0..self.entries.len() {
+            let (display_name, icon_type, is_registered, is_dir_like) = {
+                let entry = &self.entries[i];
+                (
+                    entry.display_name.clone(),
+                    entry.icon_type,
+                    entry.is_registered(),
+                    entry.is_dir_like(),
+                )
+            };
             let col = i % cols;
             let row = i / cols;
             let x = content_rect.x + GRID_PADDING + col as f32 * (CELL_SIZE + GRID_PADDING);
@@ -276,7 +294,7 @@ impl PanelDefinition for ResourcesPanel {
             let icon_x = x + (CELL_SIZE - ICON_SIZE) / 2.0;
             let icon_y = cell_y;
 
-            let texture = self.icon_texture(entry.icon_type);
+            let texture = self.icon_texture(icon_type);
             ctx.draw_texture_ex(
                 texture,
                 icon_x,
@@ -288,7 +306,7 @@ impl PanelDefinition for ResourcesPanel {
                 },
             );
 
-            if entry.is_registered() {
+            if is_registered {
                 let badge_x = icon_x + ICON_SIZE - REGISTRATION_BADGE_SIZE;
                 let badge_y = icon_y + ICON_SIZE - REGISTRATION_BADGE_SIZE;
                 ctx.draw_circle(
@@ -300,7 +318,7 @@ impl PanelDefinition for ResourcesPanel {
             }
 
             let text_y = cell_y + ICON_SIZE + 4.0;
-            let label = truncate_label(ctx, &entry.display_name, CELL_SIZE, LABEL_FONT_SIZE);
+            let label = truncate_label(ctx, &display_name, CELL_SIZE, LABEL_FONT_SIZE);
             let label_width = measure_text(ctx, &label, LABEL_FONT_SIZE).width;
             let text_x = x + (CELL_SIZE - label_width) / 2.0;
             ctx.draw_text(
@@ -313,39 +331,30 @@ impl PanelDefinition for ResourcesPanel {
 
             let cell_rect = Rect::new(x, cell_y, CELL_SIZE, CELL_SIZE);
 
-            if !interaction_blocked && !blocked {
-                if entry.is_dir_like()
-                    && cell_rect.contains(mouse)
-                    && ctx.is_mouse_button_pressed(MouseButton::Left)
-                {
-                    self.selected_index = None;
-                    if entry.is_parent() {
-                        self.navigation.pop();
-                    } else {
-                        self.navigation.push(&entry.name);
-                    }
-                    widgets::consume_click();
-                    self.scan_current_dir(&editor.game.asset_registry);
-                    break;
-                }
+            if !interaction_blocked && !blocked && cell_rect.contains(mouse) {
+                clicked_empty_space = false;
 
-                if !entry.is_dir_like()
-                    && cell_rect.contains(mouse)
-                    && ctx.is_mouse_button_double_clicked(MouseButton::Left)
-                {
-                    if let ResourceOpenResult::PrefabTransition(prefab_id) =
-                        open_resource(&entry.path, editor)
-                    {
-                        editor.enter_prefab_transition(ctx, prefab_id);
+                if ctx.is_mouse_button_double_clicked(MouseButton::Left) {
+                    if let Some(path) = self.handle_primary_click_on_entry(i, true) {
+                        if let ResourceOpenResult::PrefabTransition(prefab_id) =
+                            open_resource(&path, editor)
+                        {
+                            editor.enter_prefab_transition(ctx, prefab_id);
+                        }
+                    } else if is_dir_like {
+                        widgets::consume_click();
+                        self.scan_current_dir(&editor.game.asset_registry);
                     }
                     break;
                 }
 
-                if cell_rect.contains(mouse) && right_clicked {
-                    if let Some(target) = context_target_for_entry(i, entry, mouse) {
-                        self.selected_index = Some(i);
-                        self.active_menu = Some(ActiveMenu::Entry(target));
-                    }
+                if left_clicked {
+                    self.handle_primary_click_on_entry(i, false);
+                }
+
+                if right_clicked {
+                    right_clicked_entry = true;
+                    self.handle_secondary_click_on_entry(i, mouse);
                 }
             }
         }
@@ -353,15 +362,17 @@ impl PanelDefinition for ResourcesPanel {
         ctx.pop_clip_rect();
         area.draw_scrollbar(ctx, self.scroll_state.scroll_y);
 
-        if !interaction_blocked && !blocked && right_clicked && content_rect.contains(mouse) {
-            let entry_clicked = self
-                .active_menu
-                .as_ref()
-                .is_some_and(|m| matches!(m, ActiveMenu::Entry(_)));
-            if !entry_clicked {
-                self.selected_index = None;
-                self.active_menu = Some(context_target_for_background(mouse));
-            }
+        if clicked_empty_space {
+            self.clear_selection();
+        }
+
+        if !interaction_blocked
+            && !blocked
+            && right_clicked
+            && content_rect.contains(mouse)
+            && !right_clicked_entry
+        {
+            self.handle_secondary_click_on_background(mouse);
         }
 
         if let Some(ref menu) = self.active_menu {
@@ -379,12 +390,12 @@ impl PanelDefinition for ResourcesPanel {
                     }
                 }
                 self.active_menu = None;
-                self.selected_index = None;
+                self.clear_selection();
             } else {
                 let state = widgets::context_menu_state::get(self.context_menu_id);
                 if !state.open {
                     self.active_menu = None;
-                    self.selected_index = None;
+                    self.clear_selection();
                 }
             }
         }

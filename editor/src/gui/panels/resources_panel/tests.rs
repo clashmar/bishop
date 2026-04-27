@@ -278,6 +278,136 @@ fn clicking_parent_entry_navigates_to_root() {
 }
 
 #[test]
+fn single_click_directory_selects_without_navigation() {
+    let mut panel = ResourcesPanel::new();
+    panel.entries = vec![test_entry("subdir", EntryKind::Directory)];
+
+    let opened_path = panel.handle_primary_click_on_entry(0, false);
+
+    assert!(opened_path.is_none());
+    assert_eq!(panel.selected_index, Some(0));
+    assert!(panel.navigation.is_at_root());
+}
+
+#[test]
+fn single_click_parent_selects_without_navigation() {
+    let mut panel = ResourcesPanel::new();
+    panel.navigation.push("subdir");
+    panel.entries = vec![test_entry("..", EntryKind::Parent)];
+
+    let opened_path = panel.handle_primary_click_on_entry(0, false);
+
+    assert!(opened_path.is_none());
+    assert_eq!(panel.selected_index, Some(0));
+    assert_eq!(panel.navigation.depth(), 1);
+}
+
+#[test]
+fn single_click_file_selects_without_navigation() {
+    let mut panel = ResourcesPanel::new();
+    panel.entries = vec![test_entry("player.lua", EntryKind::RegisteredFile)];
+
+    let opened_path = panel.handle_primary_click_on_entry(0, false);
+
+    assert!(opened_path.is_none());
+    assert_eq!(panel.selected_index, Some(0));
+    assert!(panel.navigation.is_at_root());
+}
+
+#[test]
+fn double_click_directory_navigates_and_clears_selection() {
+    let mut panel = ResourcesPanel::new();
+    panel.entries = vec![test_entry("subdir", EntryKind::Directory)];
+    panel.selected_index = Some(0);
+
+    let opened_path = panel.handle_primary_click_on_entry(0, true);
+
+    assert!(opened_path.is_none());
+    assert_eq!(panel.navigation.depth(), 1);
+    assert_eq!(panel.navigation.segment(0), Some("subdir"));
+    assert!(panel.selected_index.is_none());
+}
+
+#[test]
+fn double_click_parent_navigates_up_and_clears_selection() {
+    let mut panel = ResourcesPanel::new();
+    panel.navigation.push("subdir");
+    panel.entries = vec![test_entry("..", EntryKind::Parent)];
+    panel.selected_index = Some(0);
+
+    let opened_path = panel.handle_primary_click_on_entry(0, true);
+
+    assert!(opened_path.is_none());
+    assert!(panel.navigation.is_at_root());
+    assert!(panel.selected_index.is_none());
+}
+
+#[test]
+fn left_click_background_clears_selection() {
+    let mut panel = ResourcesPanel::new();
+    panel.selected_index = Some(2);
+
+    panel.clear_selection();
+
+    assert!(panel.selected_index.is_none());
+}
+
+#[test]
+fn right_click_entry_selects_and_opens_context_menu() {
+    let mut panel = ResourcesPanel::new();
+    panel.entries = vec![test_entry("player.lua", EntryKind::RegisteredFile)];
+    let click_pos = Vec2::new(32.0, 48.0);
+
+    panel.handle_secondary_click_on_entry(0, click_pos);
+
+    assert_eq!(panel.selected_index, Some(0));
+    match panel.active_menu.as_ref() {
+        Some(ActiveMenu::Entry(target)) => {
+            assert_eq!(target.entry_index, 0);
+            assert_eq!(target.position, click_pos);
+            assert_eq!(
+                target.actions,
+                vec![
+                    ResourceMenuAction::Rename,
+                    ResourceMenuAction::Delete,
+                    ResourceMenuAction::Open,
+                    ResourceMenuAction::Reveal,
+                ]
+            );
+        }
+        _ => panic!("expected entry menu"),
+    }
+}
+
+#[test]
+fn right_click_parent_selects_without_opening_background_menu() {
+    let mut panel = ResourcesPanel::new();
+    panel.navigation.push("subdir");
+    panel.entries = vec![test_entry("..", EntryKind::Parent)];
+    let click_pos = Vec2::new(32.0, 48.0);
+
+    panel.handle_secondary_click_on_entry(0, click_pos);
+
+    assert_eq!(panel.selected_index, Some(0));
+    assert!(panel.active_menu.is_none());
+}
+
+#[test]
+fn right_click_background_clears_selection_and_opens_context_menu() {
+    let mut panel = ResourcesPanel::new();
+    panel.selected_index = Some(1);
+    let click_pos = Vec2::new(96.0, 128.0);
+
+    panel.handle_secondary_click_on_background(click_pos);
+
+    assert!(panel.selected_index.is_none());
+    match panel.active_menu.as_ref() {
+        Some(ActiveMenu::Background(pos)) => assert_eq!(*pos, click_pos),
+        _ => panic!("expected background menu"),
+    }
+}
+
+#[test]
 fn parent_entry_appears_at_each_depth() {
     let (_test_game, _lock) = setup_test_game("resources_panel_parent_each_depth");
     let mut panel = ResourcesPanel::new();
