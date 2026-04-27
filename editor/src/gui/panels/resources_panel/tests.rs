@@ -7,6 +7,7 @@ use engine_core::engine_global::set_game_name;
 use engine_core::scripting::lua_constants::lua_dirs;
 use engine_core::storage::path_utils::resources_folder_current;
 
+use super::content_space_mouse_position;
 use super::context_menu::{
     self, context_target_for_entry, open_resource, ActiveMenu, EntryKind, PendingResourceAction,
     ResourceMenuAction, ResourceOpenResult,
@@ -722,6 +723,69 @@ fn resources_panel_multi_select_shift_click_toggles_selected_entry_off() {
 }
 
 #[test]
+fn resources_panel_multi_select_plain_marquee_replaces_selection() {
+    let mut panel = ResourcesPanel::new();
+    panel.selected_indices = [4_usize].into_iter().collect();
+
+    panel.begin_marquee_selection(Vec2::new(10.0, 20.0), false);
+    panel.commit_marquee_selection([1_usize, 3_usize].into_iter().collect());
+
+    assert_eq!(
+        panel.selected_indices,
+        [1_usize, 3_usize].into_iter().collect::<BTreeSet<_>>()
+    );
+    assert!(!panel.marquee_selection.active);
+    assert!(panel.marquee_selection.start_content_pos.is_none());
+}
+
+#[test]
+fn resources_panel_multi_select_shift_marquee_toggles_matched_entries_off() {
+    let mut panel = ResourcesPanel::new();
+    panel.selected_indices = [0_usize, 4_usize].into_iter().collect();
+
+    panel.begin_marquee_selection(Vec2::new(10.0, 20.0), true);
+    panel.selected_indices.clear();
+    panel.commit_marquee_selection([0_usize, 1_usize, 4_usize].into_iter().collect());
+
+    assert_eq!(
+        panel.selected_indices,
+        [1_usize].into_iter().collect::<BTreeSet<_>>()
+    );
+}
+
+#[test]
+fn resources_panel_multi_select_shift_marquee_adds_new_entries() {
+    let mut panel = ResourcesPanel::new();
+    panel.selected_indices = [0_usize, 4_usize].into_iter().collect();
+
+    panel.begin_marquee_selection(Vec2::new(10.0, 20.0), true);
+    panel.selected_indices.clear();
+    panel.commit_marquee_selection([1_usize, 3_usize].into_iter().collect());
+
+    assert_eq!(
+        panel.selected_indices,
+        [0_usize, 1_usize, 3_usize, 4_usize]
+            .into_iter()
+            .collect::<BTreeSet<_>>()
+    );
+}
+
+#[test]
+fn resources_panel_multi_select_clear_selection_does_not_drop_marquee_snapshot() {
+    let mut panel = ResourcesPanel::new();
+    panel.selected_indices = [2_usize].into_iter().collect();
+
+    panel.begin_marquee_selection(Vec2::new(5.0, 6.0), true);
+    panel.clear_selection();
+    panel.commit_marquee_selection(BTreeSet::new());
+
+    assert_eq!(
+        panel.selected_indices,
+        [2_usize].into_iter().collect::<BTreeSet<_>>()
+    );
+}
+
+#[test]
 fn open_resource_unregistered_prefab_shows_toast() {
     let _lock = game_fs_test_lock()
         .lock()
@@ -753,4 +817,49 @@ fn open_resource_unregistered_prefab_shows_toast() {
             .as_ref()
             .map_or("None".to_string(), |t| t.msg.clone())
     );
+}
+
+#[test]
+fn resources_panel_multi_select_content_space_position_accounts_for_scroll() {
+    let content_rect = Rect::new(100.0, 200.0, 300.0, 400.0);
+    let mouse = Vec2::new(160.0, 260.0);
+
+    let pos = content_space_mouse_position(mouse, content_rect, -72.0);
+
+    assert_eq!(pos, Vec2::new(60.0, 132.0));
+}
+
+#[test]
+fn resources_panel_multi_select_right_click_collapses_to_clicked_entry() {
+    let mut panel = ResourcesPanel::new();
+    panel.entries = vec![
+        test_entry("scripts", EntryKind::Directory),
+        test_entry("player.lua", EntryKind::RegisteredFile),
+        test_entry("enemy.lua", EntryKind::RegisteredFile),
+    ];
+    panel.selected_indices = [0_usize, 2_usize].into_iter().collect();
+
+    panel.handle_secondary_click_on_entry(1, Vec2::new(32.0, 48.0));
+
+    assert_eq!(
+        panel.selected_indices,
+        [1_usize].into_iter().collect::<BTreeSet<_>>()
+    );
+    match panel.active_menu.as_ref() {
+        Some(ActiveMenu::Entry(target)) => assert_eq!(target.entry_index, 1),
+        _ => panic!("expected entry menu"),
+    }
+}
+
+#[test]
+fn resources_panel_multi_select_double_click_directory_clears_selection() {
+    let mut panel = ResourcesPanel::new();
+    panel.entries = vec![test_entry("subdir", EntryKind::Directory)];
+    panel.selected_indices = [0_usize, 3_usize].into_iter().collect();
+
+    let opened_path = panel.handle_primary_click_on_entry(0, false, true);
+
+    assert!(opened_path.is_none());
+    assert!(panel.selected_indices.is_empty());
+    assert_eq!(panel.navigation.segment(0), Some("subdir"));
 }

@@ -64,6 +64,37 @@ impl ResourcesPanel {
         Some(path)
     }
 
+    /// Begins a marquee drag-selection, snapshotting the current selection.
+    pub(crate) fn begin_marquee_selection(&mut self, start_content_pos: Vec2, additive: bool) {
+        self.marquee_selection.active = true;
+        self.marquee_selection.additive = additive;
+        self.marquee_selection.start_content_pos = Some(start_content_pos);
+        self.marquee_selection.selection_snapshot = self.selected_indices.clone();
+        if !additive {
+            self.selected_indices.clear();
+        }
+    }
+
+    /// Commits marquee selection. For additive drags, entries in the
+    /// snapshot that are also matched get deselected, while matched entries not
+    /// in the snapshot get selected.
+    pub(crate) fn commit_marquee_selection(&mut self, matched_indices: BTreeSet<usize>) {
+        if self.marquee_selection.additive {
+            let snapshot = std::mem::take(&mut self.marquee_selection.selection_snapshot);
+            self.selected_indices = snapshot.clone();
+            for index in &matched_indices {
+                if snapshot.contains(index) {
+                    self.selected_indices.remove(index);
+                } else {
+                    self.selected_indices.insert(*index);
+                }
+            }
+        } else {
+            self.selected_indices = matched_indices;
+        }
+        self.reset_marquee_selection();
+    }
+
     /// Resets marquee drag-selection state.
     pub(crate) fn reset_marquee_selection(&mut self) {
         self.marquee_selection = MarqueeSelectionState::default();

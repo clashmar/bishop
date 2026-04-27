@@ -10,6 +10,7 @@ use crate::editor_assets::assets::{
 };
 use crate::gui::gui_constants::HIGHLIGHT_GREEN;
 use crate::gui::panels::generic_panel::PanelDefinition;
+use crate::shared::selection::{draw_selection_box, rect_from_two_points, rects_intersect};
 use crate::Editor;
 use bishop::prelude::*;
 #[cfg(test)]
@@ -39,8 +40,7 @@ const TOP_BAR_PADDING: f32 = 8.0;
 
 const SELECTION_BG: Color = Color::new(0.706, 0.824, 1.0, 0.25);
 
-#[derive(Clone, Default)]
-#[allow(dead_code)]
+#[derive(Default)]
 struct MarqueeSelectionState {
     active: bool,
     additive: bool,
@@ -202,6 +202,28 @@ impl ResourcesPanel {
     }
 }
 
+fn content_space_mouse_position(mouse: Vec2, content_rect: Rect, scroll_y: f32) -> Vec2 {
+    Vec2::new(
+        mouse.x - content_rect.x,
+        mouse.y - content_rect.y - scroll_y,
+    )
+}
+
+fn content_space_to_screen(content_pos: Vec2, content_rect: Rect, scroll_y: f32) -> Vec2 {
+    Vec2::new(
+        content_rect.x + content_pos.x,
+        content_rect.y + content_pos.y + scroll_y,
+    )
+}
+
+fn cell_content_rect(index: usize, cols: usize) -> Rect {
+    let col = index % cols;
+    let row = index / cols;
+    let x = GRID_PADDING + col as f32 * (CELL_SIZE + GRID_PADDING);
+    let y = GRID_PADDING + row as f32 * (CELL_SIZE + GRID_PADDING);
+    Rect::new(x, y, CELL_SIZE, CELL_SIZE)
+}
+
 impl PanelDefinition for ResourcesPanel {
     fn title(&self) -> &'static str {
         RESOURCES_PANEL
@@ -276,6 +298,16 @@ impl PanelDefinition for ResourcesPanel {
         let mut right_clicked_entry = false;
         let shift_held =
             ctx.is_key_down(KeyCode::LeftShift) || ctx.is_key_down(KeyCode::RightShift);
+        let content_mouse =
+            content_space_mouse_position(mouse, content_rect, self.scroll_state.scroll_y);
+
+        let live_marquee_rect = if self.marquee_selection.active {
+            self.marquee_selection
+                .start_content_pos
+                .map(|start| rect_from_two_points(start, content_mouse))
+        } else {
+            None
+        };
 
         for i in 0..self.entries.len() {
             let (display_name, icon_type, is_registered, is_dir_like) = {
@@ -287,19 +319,26 @@ impl PanelDefinition for ResourcesPanel {
                     entry.is_dir_like(),
                 )
             };
-            let col = i % cols;
-            let row = i / cols;
-            let x = content_rect.x + GRID_PADDING + col as f32 * (CELL_SIZE + GRID_PADDING);
-            let cell_y = content_rect.y
-                + GRID_PADDING
-                + row as f32 * (CELL_SIZE + GRID_PADDING)
-                + self.scroll_state.scroll_y;
+            let cell_content = cell_content_rect(i, cols);
+            let x = content_rect.x + cell_content.x;
+            let cell_y = content_rect.y + cell_content.y + self.scroll_state.scroll_y;
 
             if !area.is_visible(cell_y, CELL_SIZE) {
                 continue;
             }
 
-            if self.selected_indices.contains(&i) {
+            let in_marquee = live_marquee_rect
+                .as_ref()
+                .is_some_and(|rect| rects_intersect(*rect, cell_content_rect(i, cols)));
+            let is_selected =
+                if in_marquee && self.marquee_selection.active && self.marquee_selection.additive {
+                    !self.marquee_selection.selection_snapshot.contains(&i)
+                } else if in_marquee && self.marquee_selection.active {
+                    true
+                } else {
+                    self.selected_indices.contains(&i)
+                };
+            if is_selected {
                 let size = CELL_SIZE * 0.9 + 4.0;
                 let offset = (CELL_SIZE - size) / 2.0;
                 ctx.draw_rectangle(x + offset, cell_y, size, size, SELECTION_BG);
@@ -345,7 +384,11 @@ impl PanelDefinition for ResourcesPanel {
 
             let cell_rect = Rect::new(x, cell_y, CELL_SIZE, CELL_SIZE);
 
-            if !interaction_blocked && !blocked && cell_rect.contains(mouse) {
+            if !interaction_blocked
+                && !blocked
+                && cell_rect.contains(mouse)
+                && !self.marquee_selection.active
+            {
                 clicked_empty_space = false;
 
                 if ctx.is_mouse_button_double_clicked(MouseButton::Left) {
@@ -373,11 +416,42 @@ impl PanelDefinition for ResourcesPanel {
             }
         }
 
+        if self.marquee_selection.active {
+            if let Some(start) = self.marquee_selection.start_content_pos {
+                let start_screen =
+                    content_space_to_screen(start, content_rect, self.scroll_state.scroll_y);
+                let current_screen = content_space_to_screen(
+                    content_mouse,
+                    content_rect,
+                    self.scroll_state.scroll_y,
+                );
+                draw_selection_box(ctx, start_screen, current_screen);
+            }
+        }
+
         ctx.pop_clip_rect();
         area.draw_scrollbar(ctx, self.scroll_state.scroll_y);
 
         if clicked_empty_space {
-            self.clear_selection();
+            self.begin_marquee_selection(content_mouse, shift_held);
+        }
+
+        if self.marquee_selection.active && ctx.is_mouse_button_released(MouseButton::Left) {
+            if let Some(start) = self.marquee_selection.start_content_pos {
+                let marquee_rect = rect_from_two_points(start, content_mouse);
+                let matched: BTreeSet<usize> = self
+                    .entries
+                    .iter()
+                    .enumerate()
+                    .filter_map(|(index, _)| {
+                        rects_intersect(marquee_rect, cell_content_rect(index, cols))
+                            .then_some(index)
+                    })
+                    .collect();
+                self.commit_marquee_selection(matched);
+            } else {
+                self.reset_marquee_selection();
+            }
         }
 
         if !interaction_blocked
