@@ -23,6 +23,7 @@ use engine_core::prelude::*;
 use icon_mapper::{IconMapper, IconType};
 use navigation::Navigation;
 use path_filter::PathFilter;
+use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 use widgets::WidgetId;
 
@@ -37,6 +38,15 @@ const BREADCRUMB_HEIGHT: f32 = 20.0;
 const TOP_BAR_PADDING: f32 = 8.0;
 
 const SELECTION_BG: Color = Color::new(0.706, 0.824, 1.0, 0.25);
+
+#[derive(Clone, Default)]
+#[allow(dead_code)]
+struct MarqueeSelectionState {
+    active: bool,
+    additive: bool,
+    start_content_pos: Option<Vec2>,
+    selection_snapshot: BTreeSet<usize>,
+}
 
 /// An entry in the Resources browser.
 pub struct Entry {
@@ -76,7 +86,8 @@ pub struct ResourcesPanel {
     active_menu: Option<ActiveMenu>,
     pending_action: Option<PendingResourceAction>,
     context_menu_id: WidgetId,
-    selected_index: Option<usize>,
+    selected_indices: BTreeSet<usize>,
+    marquee_selection: MarqueeSelectionState,
 }
 
 impl ResourcesPanel {
@@ -88,7 +99,8 @@ impl ResourcesPanel {
             active_menu: None,
             pending_action: None,
             context_menu_id: WidgetId(0xC07E_0001),
-            selected_index: None,
+            selected_indices: BTreeSet::new(),
+            marquee_selection: MarqueeSelectionState::default(),
         }
     }
 
@@ -262,6 +274,8 @@ impl PanelDefinition for ResourcesPanel {
             && content_rect.contains(mouse)
             && !widgets::is_click_consumed();
         let mut right_clicked_entry = false;
+        let shift_held =
+            ctx.is_key_down(KeyCode::LeftShift) || ctx.is_key_down(KeyCode::RightShift);
 
         for i in 0..self.entries.len() {
             let (display_name, icon_type, is_registered, is_dir_like) = {
@@ -285,7 +299,7 @@ impl PanelDefinition for ResourcesPanel {
                 continue;
             }
 
-            if self.selected_index == Some(i) {
+            if self.selected_indices.contains(&i) {
                 let size = CELL_SIZE * 0.9 + 4.0;
                 let offset = (CELL_SIZE - size) / 2.0;
                 ctx.draw_rectangle(x + offset, cell_y, size, size, SELECTION_BG);
@@ -335,7 +349,7 @@ impl PanelDefinition for ResourcesPanel {
                 clicked_empty_space = false;
 
                 if ctx.is_mouse_button_double_clicked(MouseButton::Left) {
-                    if let Some(path) = self.handle_primary_click_on_entry(i, true) {
+                    if let Some(path) = self.handle_primary_click_on_entry(i, false, true) {
                         if let ResourceOpenResult::PrefabTransition(prefab_id) =
                             open_resource(&path, editor)
                         {
@@ -349,7 +363,7 @@ impl PanelDefinition for ResourcesPanel {
                 }
 
                 if left_clicked {
-                    self.handle_primary_click_on_entry(i, false);
+                    self.handle_primary_click_on_entry(i, shift_held, false);
                 }
 
                 if right_clicked {

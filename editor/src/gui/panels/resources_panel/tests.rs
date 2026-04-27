@@ -17,6 +17,7 @@ use super::path_filter::{PathFilter, HIDDEN_DIRS, HIDDEN_EXTENSIONS, HIDDEN_FILE
 use super::Entry;
 use super::ResourcesPanel;
 use bishop::prelude::*;
+use std::collections::BTreeSet;
 use std::path::PathBuf;
 
 fn test_entry(name: &str, kind: EntryKind) -> Entry {
@@ -282,10 +283,10 @@ fn single_click_directory_selects_without_navigation() {
     let mut panel = ResourcesPanel::new();
     panel.entries = vec![test_entry("subdir", EntryKind::Directory)];
 
-    let opened_path = panel.handle_primary_click_on_entry(0, false);
+    let opened_path = panel.handle_primary_click_on_entry(0, false, false);
 
     assert!(opened_path.is_none());
-    assert_eq!(panel.selected_index, Some(0));
+    assert!(panel.selected_indices.contains(&0));
     assert!(panel.navigation.is_at_root());
 }
 
@@ -295,10 +296,10 @@ fn single_click_parent_selects_without_navigation() {
     panel.navigation.push("subdir");
     panel.entries = vec![test_entry("..", EntryKind::Parent)];
 
-    let opened_path = panel.handle_primary_click_on_entry(0, false);
+    let opened_path = panel.handle_primary_click_on_entry(0, false, false);
 
     assert!(opened_path.is_none());
-    assert_eq!(panel.selected_index, Some(0));
+    assert!(panel.selected_indices.contains(&0));
     assert_eq!(panel.navigation.depth(), 1);
 }
 
@@ -307,10 +308,10 @@ fn single_click_file_selects_without_navigation() {
     let mut panel = ResourcesPanel::new();
     panel.entries = vec![test_entry("player.lua", EntryKind::RegisteredFile)];
 
-    let opened_path = panel.handle_primary_click_on_entry(0, false);
+    let opened_path = panel.handle_primary_click_on_entry(0, false, false);
 
     assert!(opened_path.is_none());
-    assert_eq!(panel.selected_index, Some(0));
+    assert!(panel.selected_indices.contains(&0));
     assert!(panel.navigation.is_at_root());
 }
 
@@ -318,14 +319,14 @@ fn single_click_file_selects_without_navigation() {
 fn double_click_directory_navigates_and_clears_selection() {
     let mut panel = ResourcesPanel::new();
     panel.entries = vec![test_entry("subdir", EntryKind::Directory)];
-    panel.selected_index = Some(0);
+    panel.selected_indices = [0_usize].into_iter().collect();
 
-    let opened_path = panel.handle_primary_click_on_entry(0, true);
+    let opened_path = panel.handle_primary_click_on_entry(0, false, true);
 
     assert!(opened_path.is_none());
     assert_eq!(panel.navigation.depth(), 1);
     assert_eq!(panel.navigation.segment(0), Some("subdir"));
-    assert!(panel.selected_index.is_none());
+    assert!(panel.selected_indices.is_empty());
 }
 
 #[test]
@@ -333,23 +334,23 @@ fn double_click_parent_navigates_up_and_clears_selection() {
     let mut panel = ResourcesPanel::new();
     panel.navigation.push("subdir");
     panel.entries = vec![test_entry("..", EntryKind::Parent)];
-    panel.selected_index = Some(0);
+    panel.selected_indices = [0_usize].into_iter().collect();
 
-    let opened_path = panel.handle_primary_click_on_entry(0, true);
+    let opened_path = panel.handle_primary_click_on_entry(0, false, true);
 
     assert!(opened_path.is_none());
     assert!(panel.navigation.is_at_root());
-    assert!(panel.selected_index.is_none());
+    assert!(panel.selected_indices.is_empty());
 }
 
 #[test]
 fn left_click_background_clears_selection() {
     let mut panel = ResourcesPanel::new();
-    panel.selected_index = Some(2);
+    panel.selected_indices = [2_usize].into_iter().collect();
 
     panel.clear_selection();
 
-    assert!(panel.selected_index.is_none());
+    assert!(panel.selected_indices.is_empty());
 }
 
 #[test]
@@ -360,7 +361,7 @@ fn right_click_entry_selects_and_opens_context_menu() {
 
     panel.handle_secondary_click_on_entry(0, click_pos);
 
-    assert_eq!(panel.selected_index, Some(0));
+    assert!(panel.selected_indices.contains(&0));
     match panel.active_menu.as_ref() {
         Some(ActiveMenu::Entry(target)) => {
             assert_eq!(target.entry_index, 0);
@@ -388,19 +389,19 @@ fn right_click_parent_selects_without_opening_background_menu() {
 
     panel.handle_secondary_click_on_entry(0, click_pos);
 
-    assert_eq!(panel.selected_index, Some(0));
+    assert!(panel.selected_indices.contains(&0));
     assert!(panel.active_menu.is_none());
 }
 
 #[test]
 fn right_click_background_clears_selection_and_opens_context_menu() {
     let mut panel = ResourcesPanel::new();
-    panel.selected_index = Some(1);
+    panel.selected_indices = [1_usize].into_iter().collect();
     let click_pos = Vec2::new(96.0, 128.0);
 
     panel.handle_secondary_click_on_background(click_pos);
 
-    assert!(panel.selected_index.is_none());
+    assert!(panel.selected_indices.is_empty());
     match panel.active_menu.as_ref() {
         Some(ActiveMenu::Background(pos)) => assert_eq!(*pos, click_pos),
         _ => panic!("expected background menu"),
@@ -670,6 +671,54 @@ fn open_resource_already_open_prefab_returns_transition() {
 
     assert_eq!(result, ResourceOpenResult::PrefabTransition(prefab_id));
     assert!(editor.toast.is_none());
+}
+
+#[test]
+fn resources_panel_multi_select_plain_click_replaces_previous_selection() {
+    let mut panel = ResourcesPanel::new();
+    panel.entries = vec![
+        test_entry("scripts", EntryKind::Directory),
+        test_entry("player.lua", EntryKind::RegisteredFile),
+    ];
+    panel.selected_indices = [0_usize].into_iter().collect();
+
+    let opened_path = panel.handle_primary_click_on_entry(1, false, false);
+
+    assert!(opened_path.is_none());
+    assert_eq!(
+        panel.selected_indices,
+        [1_usize].into_iter().collect::<BTreeSet<_>>()
+    );
+}
+
+#[test]
+fn resources_panel_multi_select_shift_click_adds_unselected_entry() {
+    let mut panel = ResourcesPanel::new();
+    panel.entries = vec![
+        test_entry("scripts", EntryKind::Directory),
+        test_entry("player.lua", EntryKind::RegisteredFile),
+    ];
+    panel.selected_indices = [0_usize].into_iter().collect();
+
+    let opened_path = panel.handle_primary_click_on_entry(1, true, false);
+
+    assert!(opened_path.is_none());
+    assert_eq!(
+        panel.selected_indices,
+        [0_usize, 1_usize].into_iter().collect::<BTreeSet<_>>()
+    );
+}
+
+#[test]
+fn resources_panel_multi_select_shift_click_toggles_selected_entry_off() {
+    let mut panel = ResourcesPanel::new();
+    panel.entries = vec![test_entry("player.lua", EntryKind::RegisteredFile)];
+    panel.selected_indices = [0_usize].into_iter().collect();
+
+    let opened_path = panel.handle_primary_click_on_entry(0, true, false);
+
+    assert!(opened_path.is_none());
+    assert!(panel.selected_indices.is_empty());
 }
 
 #[test]
