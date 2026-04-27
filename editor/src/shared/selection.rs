@@ -29,3 +29,44 @@ pub fn draw_selection_box(ctx: &mut WgpuContext, start: Vec2, end: Vec2) {
     // Yellow outline
     ctx.draw_rectangle_lines(min_x, min_y, width, height, 1.0, Color::YELLOW);
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn rects_intersect_detects_overlap() {
+        let a = Rect::new(0.0, 0.0, 10.0, 10.0);
+        let b = Rect::new(5.0, 5.0, 10.0, 10.0);
+        assert!(rects_intersect(a, b));
+    }
+
+    #[test]
+    fn rects_intersect_detects_non_overlap() {
+        let a = Rect::new(0.0, 0.0, 10.0, 10.0);
+        let b = Rect::new(20.0, 20.0, 10.0, 10.0);
+        assert!(!rects_intersect(a, b));
+    }
+
+    #[test]
+    fn rect_from_two_points_creates_correct_rect() {
+        let a = Vec2::new(100.0, 50.0);
+        let b = Vec2::new(200.0, 150.0);
+        let r = rect_from_two_points(a, b);
+        assert_eq!(r.x, 100.0);
+        assert_eq!(r.y, 50.0);
+        assert_eq!(r.w, 100.0);
+        assert_eq!(r.h, 100.0);
+    }
+
+    #[test]
+    fn rect_from_two_points_handles_reversed_input() {
+        let a = Vec2::new(200.0, 150.0);
+        let b = Vec2::new(100.0, 50.0);
+        let r = rect_from_two_points(a, b);
+        assert_eq!(r.x, 100.0);
+        assert_eq!(r.y, 50.0);
+        assert_eq!(r.w, 100.0);
+        assert_eq!(r.h, 100.0);
+    }
+}

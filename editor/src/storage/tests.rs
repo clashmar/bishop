@@ -337,7 +337,7 @@ fn prefab_storage_round_trips_through_disk_helpers() {
     ));
     assert!(expected_path.is_file());
 
-    let mut loaded_manager =
+    let loaded_manager =
         load_prefab_manager(test_game.name(), &mut AssetRegistry::default()).unwrap();
     let loaded = loaded_manager.prefabs.get(&prefab.id).cloned().unwrap();
     let mut listed: Vec<_> = loaded_manager.prefabs.into_values().collect();

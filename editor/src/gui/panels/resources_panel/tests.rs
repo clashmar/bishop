@@ -354,7 +354,6 @@ fn system_directory_is_dir_like() {
 
 #[test]
 fn is_protected_path_detects_system_roots() {
-    use engine_core::constants::paths;
     use engine_core::storage::system_folder::{is_protected_path, SYSTEM_FOLDER_ROOTS};
 
     let root = std::path::Path::new("/games/Demo/Resources");

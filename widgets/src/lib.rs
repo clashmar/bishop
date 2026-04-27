@@ -2,7 +2,7 @@ pub mod clipboard;
 mod constants;
 mod focus;
 mod helpers;
-mod state;
+pub mod state;
 mod tab_registry;
 pub mod widget_id;
 mod widgets;

@@ -5,7 +5,6 @@ use crate::gui::modals::confirm;
 use crate::gui::modals::{take_modal_result, ModalHandler, ModalResult};
 use crate::gui::prompts::*;
 use bishop::prelude::*;
-use engine_core::prelude::*;
 use engine_core::worlds::world::WorldId;
 use std::cell::RefCell;
 use std::thread::LocalKey;
