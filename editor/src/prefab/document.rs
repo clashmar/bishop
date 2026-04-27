@@ -49,7 +49,7 @@ impl PrefabStage {
         with_lua(|lua| {
             stage.asset_registry.init_editor_metadata();
             SpriteManager::init_editor_metadata(&stage.asset_registry, &mut stage.sprite_manager);
-            ScriptManager::init_manager(&stage.asset_registry, &mut stage.script_manager, lua);
+            ScriptManager::init_editor_metadata(&stage.asset_registry, &mut stage.script_manager);
             if let Err(error) = register_runtime_modules(lua, &stage.script_manager.event_bus) {
                 onscreen_error!("Lua module registration failed: {error}");
             }
@@ -63,7 +63,7 @@ impl PrefabStage {
         for_each_prefab_asset_manager!(merge_prefab_asset_manager, game, self);
         SpriteManager::init_editor_metadata(&game.asset_registry, &mut game.sprite_manager);
         with_lua(|lua| {
-            ScriptManager::init_manager(&game.asset_registry, &mut game.script_manager, lua);
+            ScriptManager::init_editor_metadata(&game.asset_registry, &mut game.script_manager);
             if let Err(error) = register_runtime_modules(lua, &game.script_manager.event_bus) {
                 onscreen_error!("Lua module registration failed: {error}");
             }
