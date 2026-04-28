@@ -3,9 +3,9 @@ use crate::app::EditorMode;
 use crate::app::SubEditor;
 use crate::commands::room::*;
 use crate::editor_global::*;
-use crate::gui::modals::is_modal_open;
 use crate::room::room_editor::*;
 use crate::room::selection::*;
+use crate::shared::input::shortcuts_blocked;
 use crate::shared::selection::*;
 use crate::world::coord;
 use bishop::prelude::*;
@@ -472,11 +472,7 @@ impl RoomEditor {
         ecs: &mut Ecs,
         room_id: RoomId,
     ) {
-        if self.drag_state.dragging
-            || self.selected_entities.is_empty()
-            || input_is_focused()
-            || is_modal_open()
-        {
+        if self.drag_state.dragging || self.selected_entities.is_empty() || shortcuts_blocked() {
             return;
         }
 

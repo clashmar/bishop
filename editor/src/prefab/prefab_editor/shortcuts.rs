@@ -1,11 +1,11 @@
 use super::PrefabEditor;
-use crate::gui::modals::is_modal_open;
+use crate::shared::input::shortcuts_blocked;
 use bishop::prelude::*;
 use engine_core::prelude::*;
 
 impl PrefabEditor {
     pub(crate) fn handle_shortcuts(&mut self, ctx: &WgpuContext) {
-        if input_is_focused() || is_modal_open() {
+        if shortcuts_blocked() {
             return;
         }
 

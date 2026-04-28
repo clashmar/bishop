@@ -1,9 +1,9 @@
 // editor/src/menu_editor/menu_editor.rs
 use crate::app::SubEditor;
 use crate::gui::modals::is_modal_open;
-use crate::gui::panels::panel_manager::is_mouse_over_panel;
 use crate::menu::resize_handle::ResizeHandleState;
 use crate::menu::*;
+use crate::shared::input::canvas_blocked_by_global_ui;
 use bishop::prelude::*;
 use engine_core::prelude::*;
 use std::collections::HashSet;
@@ -333,10 +333,7 @@ impl SubEditor for MenuEditor {
         }
         let mouse_screen: Vec2 = ctx.mouse_position().into();
         self.active_rects.iter().any(|r| r.contains(mouse_screen))
-            || is_dropdown_open()
-            || is_modal_open()
-            || is_context_menu_open()
-            || is_mouse_over_panel(ctx)
+            || canvas_blocked_by_global_ui(ctx)
     }
 }
 

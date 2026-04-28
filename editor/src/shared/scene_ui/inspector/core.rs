@@ -15,7 +15,7 @@ use crate::gui::inspector::audio_source_module::clear_active_audio_preview;
 use crate::gui::inspector::player_module::PlayerModule;
 use crate::gui::inspector::room_camera_module::ROOM_CAMERA_MODULE_TITLE;
 use crate::gui::menu_bar::menu_button;
-use crate::gui::modals::is_modal_open;
+use crate::shared::input::shortcuts_blocked;
 use bishop::prelude::*;
 use engine_core::prelude::*;
 use std::collections::HashMap;
@@ -488,10 +488,7 @@ impl SceneInspector {
                 );
 
                 if menu_button(ctx, remove_rect, remove_label, false)
-                    || Controls::delete(ctx)
-                        && !input_is_focused()
-                        && !is_modal_open()
-                        && !is_context_menu_open()
+                    || Controls::delete(ctx) && !shortcuts_blocked()
                 {
                     let command = DeleteEntityCmd::new(entity, scene_ctx.command_mode);
                     push_command(Box::new(command));

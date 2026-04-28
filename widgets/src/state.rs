@@ -276,6 +276,11 @@ pub fn set_focused_panel(id: Option<&'static str>) {
     FOCUSED_PANEL.with(|f| *f.borrow_mut() = id);
 }
 
+/// Returns true when a panel has keyboard focus (i.e. not the editor canvas).
+pub fn is_panel_focused() -> bool {
+    focused_panel().is_some()
+}
+
 /// Marks the current click as consumed, preventing other widgets from processing it.
 pub fn consume_click() {
     CLICK_CONSUMED.with(|f| *f.borrow_mut() = true);

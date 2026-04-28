@@ -4,10 +4,9 @@ use crate::editor_assets::assets::*;
 use crate::editor_global::{push_command, push_toast};
 use crate::gui::gui_constants::MENU_PANEL_HEIGHT;
 use crate::gui::menu_bar::draw_top_panel_full;
-use crate::gui::modals::*;
 use crate::gui::mode_selector::ModeInfo;
-use crate::gui::panels::panel_manager::*;
 use crate::room::drawing::*;
+use crate::shared::input::canvas_blocked_by_global_ui;
 use crate::tilemap::resize_handle::*;
 use crate::tilemap::tilemap_panel::TilemapPanel;
 use bishop::prelude::*;
@@ -493,10 +492,7 @@ impl TileMapEditor {
                 .iter()
                 .any(|h| h.is_hovered(mouse_world))
             || self.active_handle_index.is_some()
-            || is_dropdown_open()
-            || is_context_menu_open()
-            || is_modal_open()
-            || is_mouse_over_panel(ctx)
+            || canvas_blocked_by_global_ui(ctx)
     }
 
     fn exit_direction_from_position(&self, tile_pos: GridPos, map: &TileMap) -> ExitDirection {

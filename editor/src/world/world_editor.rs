@@ -5,8 +5,8 @@ use crate::canvas::grid;
 use crate::canvas::grid_shader::GridRenderer;
 use crate::editor_assets::assets::*;
 use crate::gui::menu_bar::*;
-use crate::gui::modals::is_modal_open;
 use crate::gui::mode_selector::*;
+use crate::shared::input::shortcuts_blocked;
 use crate::world::coord::*;
 use bishop::prelude::*;
 use engine_core::prelude::*;
@@ -218,7 +218,7 @@ impl WorldEditor {
         let world = game
             .get_world_mut(world_id)
             .expect("World editor requires a world");
-        
+
         let rooms = &world.rooms;
 
         grid::draw_grid(ctx, grid_renderer, camera, world.grid_size);
@@ -506,11 +506,7 @@ impl WorldEditor {
 
         for mode in WorldEditorMode::iter() {
             if let Some(shortcut) = mode.shortcut() {
-                if shortcut(ctx)
-                    && !input_is_focused()
-                    && !is_modal_open()
-                    && !is_context_menu_open()
-                {
+                if shortcut(ctx) && !shortcuts_blocked() {
                     self.mode = mode;
                     self.mode_selector.current = mode;
                     break;

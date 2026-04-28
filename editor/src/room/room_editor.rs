@@ -8,12 +8,11 @@ use crate::commands::room::*;
 use crate::editor_assets::assets::*;
 use crate::editor_global::*;
 use crate::gui::inspector::inspector_panel::InspectorPanel;
-use crate::gui::modals::is_modal_open;
 use crate::gui::mode_selector::*;
-use crate::gui::panels::panel_manager::is_mouse_over_panel;
 use crate::prefab::reconcile_recent_prefab_ids;
 use crate::room::drawing::*;
 use crate::room::selection::DragState;
+use crate::shared::input::{canvas_blocked_by_global_ui, shortcuts_blocked};
 use crate::shared::scene_ui::inspector::{SceneCreateRequest, ScenePrefabActionRequest};
 use crate::shared::selection::draw_selection_box;
 use crate::storage::editor_storage::{PrefabPaletteState, PREFAB_PALETTE_RECENT_CAP};
@@ -235,10 +234,7 @@ impl RoomEditor {
                 }
 
                 // Handle batch delete when multiple entities selected
-                if self.selected_entities.len() > 1
-                    && Controls::delete(ctx)
-                    && !input_is_focused()
-                    && !is_modal_open()
+                if self.selected_entities.len() > 1 && Controls::delete(ctx) && !shortcuts_blocked()
                 {
                     let entities: Vec<Entity> = self.selected_entities.iter().copied().collect();
                     push_command(Box::new(BatchDeleteEntitiesCmd::new(
@@ -248,11 +244,7 @@ impl RoomEditor {
                 }
 
                 // Copy multiple selected entities
-                if Controls::copy(ctx)
-                    && self.selected_entities.len() > 1
-                    && !input_is_focused()
-                    && !is_modal_open()
-                {
+                if Controls::copy(ctx) && self.selected_entities.len() > 1 && !shortcuts_blocked() {
                     let entities: Vec<Entity> = self.selected_entities.iter().copied().collect();
                     copy_entities(ecs, &entities);
                 }
@@ -603,10 +595,7 @@ impl SubEditor for RoomEditor {
         self.active_rects.iter().any(|r| r.contains(mouse_screen))
             || self.sub_mode_rect.is_some_and(|r| r.contains(mouse_screen))
             || self.inspector.is_mouse_over(ctx)
-            || is_dropdown_open()
-            || is_context_menu_open()
-            || is_modal_open()
-            || is_mouse_over_panel(ctx)
+            || canvas_blocked_by_global_ui(ctx)
     }
 }
 

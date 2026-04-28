@@ -3,9 +3,9 @@ use crate::app::EditorCameraController;
 use crate::app::EditorMode;
 use crate::commands::room::*;
 use crate::editor_global::push_command;
-use crate::gui::modals::is_modal_open;
 use crate::gui::mode_selector::ModeInfo;
 use crate::room::room_editor::*;
+use crate::shared::input::shortcuts_blocked;
 use bishop::prelude::*;
 use engine_core::prelude::*;
 use strum::IntoEnumIterator;
@@ -19,7 +19,7 @@ impl RoomEditor {
         grid_size: f32,
         ecs: &Ecs,
     ) {
-        if input_is_focused() || is_modal_open() {
+        if shortcuts_blocked() {
             return;
         }
 
