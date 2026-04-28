@@ -265,7 +265,6 @@ impl PanelDefinition for ResourcesPanel {
             self.clear_selection();
             self.navigation.truncate_to(target_depth);
             widgets::consume_click();
-            self.scan_current_dir(&editor.game.asset_registry);
         }
         top_y += BREADCRUMB_HEIGHT + GRID_PADDING;
 
@@ -336,7 +335,8 @@ impl PanelDefinition for ResourcesPanel {
 
             let in_marquee = live_marquee_rect
                 .as_ref()
-                .is_some_and(|rect| rects_intersect(*rect, cell_content_rect(i, cols)));
+                .is_some_and(|rect| rects_intersect(*rect, cell_content_rect(i, cols)))
+                && !self.entries[i].is_parent();
             let is_selected =
                 if in_marquee && self.marquee_selection.active && self.marquee_selection.additive {
                     !self.marquee_selection.selection_snapshot.contains(&i)
@@ -407,7 +407,6 @@ impl PanelDefinition for ResourcesPanel {
                         }
                     } else if is_dir_like {
                         widgets::consume_click();
-                        self.scan_current_dir(&editor.game.asset_registry);
                     }
                     break;
                 }
@@ -450,7 +449,10 @@ impl PanelDefinition for ResourcesPanel {
                     .entries
                     .iter()
                     .enumerate()
-                    .filter_map(|(index, _)| {
+                    .filter_map(|(index, entry)| {
+                        if entry.is_parent() {
+                            return None;
+                        }
                         rects_intersect(marquee_rect, cell_content_rect(index, cols))
                             .then_some(index)
                     })

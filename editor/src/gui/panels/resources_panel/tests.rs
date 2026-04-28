@@ -292,7 +292,7 @@ fn single_click_directory_selects_without_navigation() {
 }
 
 #[test]
-fn single_click_parent_selects_without_navigation() {
+fn single_click_parent_is_ignored() {
     let mut panel = ResourcesPanel::new();
     panel.navigation.push("subdir");
     panel.entries = vec![test_entry("..", EntryKind::Parent)];
@@ -300,7 +300,7 @@ fn single_click_parent_selects_without_navigation() {
     let opened_path = panel.handle_primary_click_on_entry(0, false, false);
 
     assert!(opened_path.is_none());
-    assert!(panel.selected_indices.contains(&0));
+    assert!(panel.selected_indices.is_empty());
     assert_eq!(panel.navigation.depth(), 1);
 }
 
@@ -382,7 +382,7 @@ fn right_click_entry_selects_and_opens_context_menu() {
 }
 
 #[test]
-fn right_click_parent_selects_without_opening_background_menu() {
+fn right_click_parent_does_not_select() {
     let mut panel = ResourcesPanel::new();
     panel.navigation.push("subdir");
     panel.entries = vec![test_entry("..", EntryKind::Parent)];
@@ -390,8 +390,50 @@ fn right_click_parent_selects_without_opening_background_menu() {
 
     panel.handle_secondary_click_on_entry(0, click_pos);
 
-    assert!(panel.selected_indices.contains(&0));
+    assert!(panel.selected_indices.is_empty());
     assert!(panel.active_menu.is_none());
+}
+
+#[test]
+fn shift_click_parent_does_not_select() {
+    let mut panel = ResourcesPanel::new();
+    panel.navigation.push("subdir");
+    panel.entries = vec![test_entry("..", EntryKind::Parent)];
+
+    let opened_path = panel.handle_primary_click_on_entry(0, true, false);
+
+    assert!(opened_path.is_none());
+    assert!(panel.selected_indices.is_empty());
+}
+
+#[test]
+fn marquee_selection_excludes_parent_entry() {
+    let mut panel = ResourcesPanel::new();
+    panel.entries = vec![
+        test_entry("..", EntryKind::Parent),
+        test_entry("player.lua", EntryKind::RegisteredFile),
+        test_entry("enemy.lua", EntryKind::RegisteredFile),
+    ];
+
+    panel.begin_marquee_selection(Vec2::new(0.0, 0.0), false);
+    let filtered: BTreeSet<usize> = panel
+        .entries
+        .iter()
+        .enumerate()
+        .filter_map(|(index, entry)| {
+            if entry.is_parent() {
+                return None;
+            }
+            [0_usize, 1_usize, 2_usize]
+                .contains(&index)
+                .then_some(index)
+        })
+        .collect();
+    panel.commit_marquee_selection(filtered);
+
+    assert!(!panel.selected_indices.contains(&0));
+    assert!(panel.selected_indices.contains(&1));
+    assert!(panel.selected_indices.contains(&2));
 }
 
 #[test]

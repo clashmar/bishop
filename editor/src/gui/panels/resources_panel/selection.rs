@@ -41,6 +41,9 @@ impl ResourcesPanel {
         };
 
         if !double_clicked {
+            if is_parent {
+                return None;
+            }
             if shift_held {
                 self.toggle_selection(entry_index);
             } else {
@@ -105,9 +108,11 @@ impl ResourcesPanel {
             context_target_for_entry(entry_index, entry, position).map(ActiveMenu::Entry)
         });
 
-        self.set_single_selection(entry_index);
-        self.reset_marquee_selection();
-        self.active_menu = menu;
+        if let Some(menu) = menu {
+            self.set_single_selection(entry_index);
+            self.reset_marquee_selection();
+            self.active_menu = Some(menu);
+        }
     }
 
     pub(crate) fn handle_secondary_click_on_background(&mut self, position: Vec2) {
