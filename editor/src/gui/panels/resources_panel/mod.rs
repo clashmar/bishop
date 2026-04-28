@@ -35,8 +35,6 @@ const GRID_PADDING: f32 = 12.0;
 const ICON_SIZE: f32 = 42.0;
 const LABEL_FONT_SIZE: f32 = 12.0;
 const REGISTRATION_BADGE_SIZE: f32 = 8.0;
-const BREADCRUMB_HEIGHT: f32 = 20.0;
-const TOP_BAR_PADDING: f32 = 8.0;
 
 const SELECTION_BG: Color = Color::new(0.706, 0.824, 1.0, 0.25);
 
@@ -238,6 +236,26 @@ impl PanelDefinition for ResourcesPanel {
         )
     }
 
+    fn draw_custom_title(&mut self, ctx: &mut WgpuContext, title_bar: Rect, blocked: bool) -> bool {
+        let start_x = title_bar.x + 30.0;
+        let max_width = title_bar.right() - 30.0 - start_x;
+        let style = breadcrumb::BreadcrumbStyle {
+            x: start_x,
+            y: title_bar.y,
+            max_width,
+            height: title_bar.h,
+            root_label: RESOURCES_PANEL,
+        };
+        if let Some(target_depth) =
+            breadcrumb::draw_breadcrumb(ctx, &style, &self.navigation, blocked)
+        {
+            self.clear_selection();
+            self.navigation.truncate_to(target_depth);
+            widgets::consume_click();
+        }
+        true
+    }
+
     fn draw(&mut self, ctx: &mut WgpuContext, rect: Rect, editor: &mut Editor, blocked: bool) {
         self.scan_current_dir(&editor.game.asset_registry);
 
@@ -252,23 +270,7 @@ impl PanelDefinition for ResourcesPanel {
         let interaction_blocked = blocked || widgets::is_context_menu_open();
 
         let mouse: Vec2 = ctx.mouse_position().into();
-        let mut top_y = rect.y + TOP_BAR_PADDING;
-
-        let breadcrumb_y = top_y;
-        if let Some(target_depth) = breadcrumb::draw_breadcrumb(
-            ctx,
-            rect.x + GRID_PADDING,
-            breadcrumb_y,
-            &self.navigation,
-            interaction_blocked,
-        ) {
-            self.clear_selection();
-            self.navigation.truncate_to(target_depth);
-            widgets::consume_click();
-        }
-        top_y += BREADCRUMB_HEIGHT + GRID_PADDING;
-
-        let content_rect = Rect::new(rect.x, top_y, rect.w, rect.y + rect.h - top_y);
+        let content_rect = rect;
 
         let cols = if content_rect.w > CELL_SIZE + GRID_PADDING {
             ((content_rect.w - GRID_PADDING) / (CELL_SIZE + GRID_PADDING)) as usize

@@ -16,6 +16,15 @@ pub trait PanelDefinition {
     fn default_rect(&self, ctx: &WgpuContext) -> Rect;
     /// Draws panel contents. When `blocked` is true, the panel should not respond to mouse input.
     fn draw(&mut self, ctx: &mut WgpuContext, rect: Rect, editor: &mut Editor, blocked: bool);
+    /// Return `true` if the panel rendered its own title content, skipping the default text.
+    fn draw_custom_title(
+        &mut self,
+        _ctx: &mut WgpuContext,
+        _title_bar: Rect,
+        _blocked: bool,
+    ) -> bool {
+        false
+    }
 }
 
 /// Movable and collabsible panel to be composed with the supplied `PanelDefinition`.
@@ -55,18 +64,8 @@ impl GenericPanel {
 
         const TITLE_BAR_H: f32 = 28.0;
 
-        // Process drag logic first (before snapshot) so drawing uses current position
+        // Process ongoing drag (before snapshot) so drawing uses current position
         let mouse: Vec2 = ctx.mouse_position().into();
-        let title_bar_for_drag = Rect::new(self.rect.x, self.rect.y, self.rect.w, TITLE_BAR_H);
-        if !blocked
-            && !is_context_menu_open()
-            && ctx.is_mouse_button_pressed(MouseButton::Left)
-            && title_bar_for_drag.contains(mouse)
-        {
-            self.dragging = true;
-            self.drag_offset = mouse - vec2(self.rect.x, self.rect.y);
-        }
-
         if self.dragging {
             if ctx.is_mouse_button_down(MouseButton::Left) {
                 let new_pos = mouse - self.drag_offset;
@@ -97,7 +96,7 @@ impl GenericPanel {
         let panel_rect = self.rect;
         let title_bar = Rect::new(panel_rect.x, panel_rect.y, panel_rect.w, TITLE_BAR_H);
 
-        // Title bar
+        // Title bar background
         ctx.draw_rectangle(
             title_bar.x,
             title_bar.y,
@@ -117,14 +116,17 @@ impl GenericPanel {
             self.collapsed = !self.collapsed;
         }
 
-        // Title
-        ctx.draw_text(
-            self.title,
-            collapse_rect.x + 25.,
-            title_bar.y + 20.,
-            16.,
-            Color::BLACK,
-        );
+        // Custom title or default title
+        let custom_drawn = self.definition.draw_custom_title(ctx, title_bar, blocked);
+        if !custom_drawn {
+            ctx.draw_text(
+                self.title,
+                collapse_rect.x + 25.,
+                title_bar.y + 20.,
+                16.,
+                Color::BLACK,
+            );
+        }
 
         // Close button
         let close_rect = Rect::new(panel_rect.right() - 26., panel_rect.y + 4., 20., 20.);
@@ -135,6 +137,18 @@ impl GenericPanel {
             .show(ctx);
         if !blocked && close_clicked {
             self.visible = false;
+        }
+
+        // Start drag only after all title-bar interactions are processed
+        if !blocked
+            && !is_context_menu_open()
+            && !self.dragging
+            && ctx.is_mouse_button_pressed(MouseButton::Left)
+            && title_bar.contains(mouse)
+            && !widgets::is_click_consumed()
+        {
+            self.dragging = true;
+            self.drag_offset = mouse - vec2(self.rect.x, self.rect.y);
         }
 
         if self.collapsed {
@@ -166,8 +180,6 @@ impl GenericPanel {
             Color::WHITE,
         );
 
-        if !self.collapsed {
-            self.definition.draw(ctx, content_rect, editor, blocked);
-        }
+        self.definition.draw(ctx, content_rect, editor, blocked);
     }
 }
