@@ -295,3 +295,154 @@ fn drag_edge_autoscroll_clamps_at_top_and_bottom() {
     assert!(!changed_bottom);
     assert_eq!(state.scroll_y, -200.0);
 }
+
+#[test]
+fn thumb_drag_starts_on_press_over_thumb() {
+    let rect = Rect::new(0.0, 0.0, 120.0, 100.0);
+    let mut ctx = WidgetTestContext::new();
+    let mut state = ScrollState::new();
+    state.scroll_y = -50.0;
+    // Thumb is at ~y=25 for scroll_y=-50 with content_height=300, rect.h=100
+    ctx.mouse_pos = (117.0, 30.0);
+    ctx.left_pressed = true;
+
+    let _ = ScrollableArea::new(rect, 300.0).begin(&mut ctx, &mut state);
+
+    assert!(state.dragging_thumb);
+    assert!(!state.auto_scroll);
+}
+
+#[test]
+fn thumb_drag_updates_scroll_y() {
+    let rect = Rect::new(0.0, 0.0, 120.0, 100.0);
+    let mut ctx = WidgetTestContext::new();
+    let mut state = ScrollState::new();
+    state.scroll_y = -50.0;
+    state.dragging_thumb = true;
+    state.thumb_drag_offset = 5.0;
+    // Move mouse down by ~20 pixels from thumb top (~25)
+    ctx.mouse_pos = (117.0, 50.0);
+    ctx.left_down = true;
+
+    let _ = ScrollableArea::new(rect, 300.0).begin(&mut ctx, &mut state);
+
+    assert!(state.scroll_y < -50.0);
+    assert!(state.scroll_y >= -200.0);
+}
+
+#[test]
+fn thumb_drag_ends_on_release() {
+    let rect = Rect::new(0.0, 0.0, 120.0, 100.0);
+    let mut ctx = WidgetTestContext::new();
+    let mut state = ScrollState::new();
+    state.dragging_thumb = true;
+    state.thumb_drag_offset = 5.0;
+    ctx.left_released = true;
+
+    let _ = ScrollableArea::new(rect, 300.0).begin(&mut ctx, &mut state);
+
+    assert!(!state.dragging_thumb);
+    assert_eq!(state.thumb_drag_offset, 0.0);
+}
+
+#[test]
+fn track_click_jumps_scroll_y() {
+    let rect = Rect::new(0.0, 0.0, 120.0, 100.0);
+    let mut ctx = WidgetTestContext::new();
+    let mut state = ScrollState::new();
+    ctx.mouse_pos = (117.0, 75.0);
+    ctx.left_pressed = true;
+
+    let _ = ScrollableArea::new(rect, 300.0).begin(&mut ctx, &mut state);
+
+    // Clicking at 75% down the track should scroll roughly 75% down
+    assert!(state.scroll_y < 0.0);
+    assert!(state.scroll_y > -200.0);
+}
+
+#[test]
+fn track_click_disables_auto_scroll() {
+    let rect = Rect::new(0.0, 0.0, 120.0, 100.0);
+    let mut ctx = WidgetTestContext::new();
+    let mut state = ScrollState::with_auto_scroll();
+    ctx.mouse_pos = (117.0, 50.0);
+    ctx.left_pressed = true;
+
+    let _ = ScrollableArea::new(rect, 300.0).begin(&mut ctx, &mut state);
+
+    assert!(!state.auto_scroll);
+}
+
+#[test]
+fn no_thumb_interaction_when_content_fits() {
+    let rect = Rect::new(0.0, 0.0, 120.0, 100.0);
+    let mut ctx = WidgetTestContext::new();
+    let mut state = ScrollState::new();
+    ctx.mouse_pos = (117.0, 50.0);
+    ctx.left_pressed = true;
+
+    let _ = ScrollableArea::new(rect, 100.0).begin(&mut ctx, &mut state);
+
+    assert!(!state.dragging_thumb);
+    assert_eq!(state.scroll_y, 0.0);
+}
+
+#[test]
+fn no_thumb_interaction_when_blocked() {
+    let rect = Rect::new(0.0, 0.0, 120.0, 100.0);
+    let mut ctx = WidgetTestContext::new();
+    let mut state = ScrollState::new();
+    ctx.mouse_pos = (117.0, 50.0);
+    ctx.left_pressed = true;
+
+    let _ = ScrollableArea::new(rect, 300.0)
+        .blocked(true)
+        .begin(&mut ctx, &mut state);
+
+    assert!(!state.dragging_thumb);
+    assert_eq!(state.scroll_y, 0.0);
+}
+
+#[test]
+fn drag_clamps_scroll_y() {
+    let rect = Rect::new(0.0, 0.0, 120.0, 100.0);
+    let mut ctx = WidgetTestContext::new();
+    let mut state = ScrollState::new();
+    state.dragging_thumb = true;
+    state.thumb_drag_offset = 0.0;
+    // Drag mouse way above the area
+    ctx.mouse_pos = (117.0, -100.0);
+    ctx.left_down = true;
+
+    let _ = ScrollableArea::new(rect, 300.0).begin(&mut ctx, &mut state);
+
+    assert_eq!(state.scroll_y, 0.0);
+}
+
+#[test]
+fn thumb_drag_from_bottom_does_not_get_overridden_by_auto_scroll() {
+    let rect = Rect::new(0.0, 0.0, 120.0, 100.0);
+
+    // Frame 1: press thumb at the bottom to start drag
+    let mut ctx = WidgetTestContext::new();
+    let mut state = ScrollState::with_auto_scroll();
+    state.scroll_y = -200.0;
+    ctx.mouse_pos = (117.0, 75.0);
+    ctx.left_pressed = true;
+
+    let _ = ScrollableArea::new(rect, 300.0).begin(&mut ctx, &mut state);
+
+    assert!(state.dragging_thumb);
+    assert!(!state.auto_scroll);
+
+    // Frame 2: drag up while still holding the button
+    ctx.left_pressed = false;
+    ctx.left_down = true;
+    ctx.mouse_pos = (117.0, 50.0);
+
+    let _ = ScrollableArea::new(rect, 300.0).begin(&mut ctx, &mut state);
+
+    // Dragging up from the bottom should move scroll_y away from the bottom
+    assert!(state.scroll_y > -200.0);
+    assert!(!state.auto_scroll);
+}

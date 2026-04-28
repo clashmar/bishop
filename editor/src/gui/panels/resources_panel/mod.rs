@@ -436,7 +436,7 @@ impl PanelDefinition for ResourcesPanel {
         }
 
         ctx.pop_clip_rect();
-        area.draw_scrollbar(ctx, self.scroll_state.scroll_y);
+        area.draw_scrollbar(ctx, &self.scroll_state);
 
         if clicked_empty_space {
             self.begin_marquee_selection(content_mouse, shift_held);

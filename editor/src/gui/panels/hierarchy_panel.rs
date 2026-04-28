@@ -303,7 +303,7 @@ impl PanelDefinition for HierarchyPanel {
             }
         }
 
-        area.draw_scrollbar(ctx, self.scroll_state.scroll_y);
+        area.draw_scrollbar(ctx, &self.scroll_state);
         draw_drag_ghost(ctx, ecs, &mut self.dragging, self.drag_offset);
     }
 }
@@ -388,7 +388,7 @@ impl HierarchyPanel {
             }
         }
 
-        area.draw_scrollbar(ctx, self.scroll_state.scroll_y);
+        area.draw_scrollbar(ctx, &self.scroll_state);
         draw_drag_ghost(ctx, ecs, &mut self.dragging, self.drag_offset);
     }
 }

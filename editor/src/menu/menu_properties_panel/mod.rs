@@ -113,7 +113,7 @@ impl MenuEditor {
         if self.primary_selected_index().is_none() {
             self.draw_menu_properties(ctx, &mut y, content_x, content_w, blocked, &rect);
             self.properties_panel.last_content_height = y - start_y + 16.0;
-            area.draw_scrollbar(ctx, self.properties_panel.scroll_state.scroll_y);
+            area.draw_scrollbar(ctx, &self.properties_panel.scroll_state);
             return;
         }
 
@@ -121,7 +121,7 @@ impl MenuEditor {
 
         let Some(kind) = element_kind else {
             self.properties_panel.last_content_height = y - start_y + 16.0;
-            area.draw_scrollbar(ctx, self.properties_panel.scroll_state.scroll_y);
+            area.draw_scrollbar(ctx, &self.properties_panel.scroll_state);
             return;
         };
 
@@ -149,6 +149,6 @@ impl MenuEditor {
         }
 
         self.properties_panel.last_content_height = y - start_y + 16.0;
-        area.draw_scrollbar(ctx, self.properties_panel.scroll_state.scroll_y);
+        area.draw_scrollbar(ctx, &self.properties_panel.scroll_state);
     }
 }

@@ -156,7 +156,7 @@ impl PanelDefinition for PrefabPalettePanel {
             );
         }
 
-        area.draw_scrollbar(ctx, self.recent_scroll.scroll_y);
+        area.draw_scrollbar(ctx, &self.recent_scroll);
         ctx.pop_clip_rect();
 
         if let Some(choice) = Dropdown::new(

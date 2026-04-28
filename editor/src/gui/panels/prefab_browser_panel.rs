@@ -83,7 +83,7 @@ impl PanelDefinition for PrefabBrowserPanel {
         }
 
         ctx.pop_clip_rect();
-        area.draw_scrollbar(ctx, self.scroll_state.scroll_y);
+        area.draw_scrollbar(ctx, &self.scroll_state);
     }
 }
 

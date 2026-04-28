@@ -9,6 +9,8 @@ const CONTENT_MARGIN: f32 = 12.0;
 pub struct ScrollState {
     pub scroll_y: f32,
     pub auto_scroll: bool,
+    pub dragging_thumb: bool,
+    pub thumb_drag_offset: f32,
 }
 
 impl ScrollState {
@@ -17,6 +19,8 @@ impl ScrollState {
         Self {
             scroll_y: 0.0,
             auto_scroll: false,
+            dragging_thumb: false,
+            thumb_drag_offset: 0.0,
         }
     }
 
@@ -25,6 +29,8 @@ impl ScrollState {
         Self {
             scroll_y: 0.0,
             auto_scroll: true,
+            dragging_thumb: false,
+            thumb_drag_offset: 0.0,
         }
     }
 }
@@ -73,23 +79,69 @@ impl ScrollableArea {
         let mouse: Vec2 = ctx.mouse_position().into();
         let scroll_range = (self.content_height - self.rect.h).max(0.0);
 
-        if !self.blocked && self.rect.contains(mouse) {
-            let (_, wheel_y) = ctx.mouse_wheel();
-            if wheel_y.abs() > 0.0 {
-                state.scroll_y += wheel_y * self.scroll_speed;
+        let ratio = self.rect.h / self.content_height;
+        let bar_h = self.rect.h * ratio;
+        let bar_x = self.rect.x + self.rect.w - self.scrollbar_w - SCROLLBAR_MARGIN;
+        let thumb_y = if scroll_range > 0.0 {
+            let t = (-state.scroll_y) / scroll_range;
+            self.rect.y + t * (self.rect.h - bar_h)
+        } else {
+            self.rect.y
+        };
+        let thumb_rect = Rect::new(bar_x, thumb_y, self.scrollbar_w, bar_h);
+        let track_rect = Rect::new(bar_x, self.rect.y, self.scrollbar_w, self.rect.h);
+
+        if !self.blocked && scroll_range > 0.0 {
+            // Wheel scroll
+            if self.rect.contains(mouse) {
+                let (_, wheel_y) = ctx.mouse_wheel();
+                if wheel_y.abs() > 0.0 {
+                    state.scroll_y += wheel_y * self.scroll_speed;
+                    state.auto_scroll = false;
+                }
+            }
+
+            // Thumb press
+            if ctx.is_mouse_button_pressed(MouseButton::Left) && thumb_rect.contains(mouse) {
+                state.dragging_thumb = true;
+                state.thumb_drag_offset = mouse.y - thumb_y;
                 state.auto_scroll = false;
+            }
+
+            // Track press (outside thumb)
+            if ctx.is_mouse_button_pressed(MouseButton::Left)
+                && track_rect.contains(mouse)
+                && !thumb_rect.contains(mouse)
+            {
+                let t =
+                    ((mouse.y - self.rect.y - bar_h / 2.0) / (self.rect.h - bar_h)).clamp(0.0, 1.0);
+                state.scroll_y = -t * scroll_range;
+                state.auto_scroll = false;
+            }
+
+            // Active drag
+            if state.dragging_thumb && ctx.is_mouse_button_down(MouseButton::Left) {
+                let new_thumb_y = mouse.y - state.thumb_drag_offset;
+                let t = ((new_thumb_y - self.rect.y) / (self.rect.h - bar_h)).clamp(0.0, 1.0);
+                state.scroll_y = -t * scroll_range;
+            }
+
+            // End drag
+            if ctx.is_mouse_button_released(MouseButton::Left) {
+                state.dragging_thumb = false;
+                state.thumb_drag_offset = 0.0;
             }
         }
 
         // Auto-scroll to bottom
-        if state.auto_scroll {
+        if state.auto_scroll && !state.dragging_thumb {
             state.scroll_y = -scroll_range;
         }
 
         state.scroll_y = state.scroll_y.clamp(-scroll_range, 0.0);
 
         // Re-enable auto-scroll if scrolled near bottom
-        if scroll_range > 0.0 && state.scroll_y <= -scroll_range + 1.0 {
+        if scroll_range > 0.0 && state.scroll_y <= -scroll_range + 1.0 && !state.dragging_thumb {
             state.auto_scroll = true;
         }
 
@@ -150,16 +202,20 @@ impl ActiveScrollArea {
     }
 
     /// Draws the scrollbar. Call after all content is drawn.
-    pub fn draw_scrollbar<C: BishopContext>(&self, ctx: &mut C, scroll_y: f32) {
+    pub fn draw_scrollbar<C: BishopContext>(&self, ctx: &mut C, state: &ScrollState) {
         if self.scroll_range <= 0.0 {
             return;
         }
 
         let ratio = self.rect.h / self.content_height;
         let bar_h = self.rect.h * ratio;
-        let t = (-scroll_y) / self.scroll_range;
+        let t = (-state.scroll_y) / self.scroll_range;
         let bar_x = self.rect.x + self.rect.w - self.scrollbar_w - SCROLLBAR_MARGIN;
         let bar_y = self.rect.y + t * (self.rect.h - bar_h);
+
+        let mouse: Vec2 = ctx.mouse_position().into();
+        let thumb_rect = Rect::new(bar_x, bar_y, self.scrollbar_w, bar_h);
+        let mouse_over_thumb = thumb_rect.contains(mouse);
 
         // Track
         ctx.draw_rectangle(
@@ -171,13 +227,14 @@ impl ActiveScrollArea {
         );
 
         // Thumb
-        ctx.draw_rectangle(
-            bar_x,
-            bar_y,
-            self.scrollbar_w,
-            bar_h,
-            Color::new(0.7, 0.7, 0.7, 0.9),
-        );
+        let thumb_col = if state.dragging_thumb {
+            Color::new(0.9, 0.9, 0.9, 1.0)
+        } else if mouse_over_thumb {
+            Color::new(0.85, 0.85, 0.85, 0.9)
+        } else {
+            Color::new(0.7, 0.7, 0.7, 0.9)
+        };
+        ctx.draw_rectangle(bar_x, bar_y, self.scrollbar_w, bar_h, thumb_col);
     }
 }
 

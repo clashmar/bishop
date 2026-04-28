@@ -381,6 +381,6 @@ impl PanelDefinition for DiagnosticsPanel {
             Color::WHITE,
         );
 
-        area.draw_scrollbar(ctx, self.scroll_state.scroll_y);
+        area.draw_scrollbar(ctx, &self.scroll_state);
     }
 }

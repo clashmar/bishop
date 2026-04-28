@@ -420,7 +420,7 @@ impl SceneInspector {
                 )));
             }
 
-            area.draw_scrollbar(ctx, self.scroll_state.scroll_y);
+            area.draw_scrollbar(ctx, &self.scroll_state);
             ctx.pop_clip_rect();
             flush_dropdown_lists(ctx);
             ctx.draw_rectangle_lines(inner.x, inner.y, inner.w, inner.h, 2., Color::WHITE);

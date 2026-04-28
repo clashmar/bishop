@@ -13,8 +13,16 @@
                     ron: "(\n    width: 18.0,\n    height: 19.0,\n)",
                 ),
                 (
+                    type_name: "Interactable",
+                    ron: "(\n    range: 20.0,\n)",
+                ),
+                (
                     type_name: "Name",
                     ron: "(\"Cat\")",
+                ),
+                (
+                    type_name: "Script",
+                    ron: "(\n    script_id: (3),\n    data: (\n        fields: {\n            \"dialogue\": Toml((1)),\n            \"name\": Text(\"NPC\"),\n        },\n    ),\n)",
                 ),
                 (
                     type_name: "Solid",
