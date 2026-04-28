@@ -94,6 +94,10 @@ thread_local! {
 }
 
 thread_local! {
+    pub static FOCUSED_PANEL: RefCell<Option<&'static str>> = const { RefCell::new(None) };
+}
+
+thread_local! {
     pub static CLICK_CONSUMED: RefCell<bool> = const { RefCell::new(false) };
 }
 
@@ -257,6 +261,16 @@ pub fn set_modal_open(open: bool) {
     MODAL_OPEN.with(|f| *f.borrow_mut() = open);
 }
 
+/// Returns the id of the currently focused panel, or None if the editor canvas has focus.
+pub fn focused_panel() -> Option<&'static str> {
+    FOCUSED_PANEL.with(|f| *f.borrow())
+}
+
+/// Sets the currently focused panel. Pass None when the editor canvas should hold focus.
+pub fn set_focused_panel(id: Option<&'static str>) {
+    FOCUSED_PANEL.with(|f| *f.borrow_mut() = id);
+}
+
 /// Marks the current click as consumed, preventing other widgets from processing it.
 pub fn consume_click() {
     CLICK_CONSUMED.with(|f| *f.borrow_mut() = true);
@@ -379,5 +393,13 @@ mod tests {
         assert!(is_modal_open());
         set_modal_open(false);
         assert!(!is_modal_open());
+    }
+
+    #[test]
+    fn focused_panel_roundtrips() {
+        set_focused_panel(Some("test_panel"));
+        assert_eq!(focused_panel(), Some("test_panel"));
+        set_focused_panel(None);
+        assert_eq!(focused_panel(), None);
     }
 }

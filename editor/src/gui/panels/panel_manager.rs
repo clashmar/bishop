@@ -13,7 +13,7 @@ use bishop::prelude::*;
 use engine_core::prelude::*;
 use engine_core::storage::editor_config::{get_panel_position, set_panel_position, PanelPosition};
 use std::collections::HashMap;
-use widgets::{is_context_menu_open, is_modal_open};
+use widgets::{focused_panel, is_context_menu_open, is_modal_open, set_focused_panel};
 
 pub enum PanelMode {
     Room,
@@ -94,9 +94,12 @@ impl PanelManager {
             }
         }
 
-        // Bring clicked panel to front.
+        // Bring clicked panel to front and update focus.
         if let Some(id) = clicked_panel_id {
             self.bring_to_front(id);
+            set_focused_panel(Some(id));
+        } else if can_raise_panel {
+            set_focused_panel(None);
         }
 
         // Find the topmost panel containing the mouse (for blocking lower panels)
@@ -119,6 +122,10 @@ impl PanelManager {
             }
 
             panel.in_current_mode = true;
+
+            if focused_panel() == Some(*id) && (!panel.visible || !panel.in_current_mode) {
+                panel.defocus();
+            }
 
             // Skip hidden panels
             if !panel.visible {

@@ -3,7 +3,7 @@ use crate::gui::gui_constants::*;
 use crate::Editor;
 use bishop::prelude::*;
 use engine_core::prelude::*;
-use widgets::is_context_menu_open;
+use widgets::{focused_panel, is_context_menu_open, set_focused_panel};
 
 /// Must be globally unique.
 pub type PanelId = &'static str;
@@ -25,6 +25,8 @@ pub trait PanelDefinition {
     ) -> bool {
         false
     }
+    /// Called when this panel loses focus. Override to clear selection, stop drag operations, etc.
+    fn on_defocus(&mut self) {}
 }
 
 /// Movable and collabsible panel to be composed with the supplied `PanelDefinition`.
@@ -38,6 +40,7 @@ pub struct GenericPanel {
     pub dragging: bool,
     drag_offset: Vec2,
     definition: Box<dyn PanelDefinition>,
+    had_focus_last_frame: bool,
 }
 
 impl GenericPanel {
@@ -54,10 +57,25 @@ impl GenericPanel {
             dragging: false,
             drag_offset: Vec2::ZERO,
             definition: Box::new(definition),
+            had_focus_last_frame: false,
+        }
+    }
+
+    /// Explicitly defocus this panel, notifying its definition and clearing global focus.
+    pub fn defocus(&mut self) {
+        if focused_panel() == Some(self.title) {
+            self.definition.on_defocus();
+            set_focused_panel(None);
         }
     }
 
     pub fn update_and_draw(&mut self, ctx: &mut WgpuContext, editor: &mut Editor, blocked: bool) {
+        let has_focus = focused_panel() == Some(self.title);
+        if self.had_focus_last_frame && !has_focus {
+            self.definition.on_defocus();
+        }
+        self.had_focus_last_frame = has_focus;
+
         if !self.visible {
             return;
         }
@@ -97,12 +115,23 @@ impl GenericPanel {
         let title_bar = Rect::new(panel_rect.x, panel_rect.y, panel_rect.w, TITLE_BAR_H);
 
         // Title bar background
+        let has_focus = focused_panel() == Some(self.title);
+        let title_color = if has_focus {
+            PANEL_COLOR
+        } else {
+            Color::new(
+                PANEL_COLOR.r * 0.7,
+                PANEL_COLOR.g * 0.7,
+                PANEL_COLOR.b * 0.7,
+                PANEL_COLOR.a,
+            )
+        };
         ctx.draw_rectangle(
             title_bar.x,
             title_bar.y,
             title_bar.w,
             title_bar.h,
-            PANEL_COLOR,
+            title_color,
         );
 
         // Collapse button
@@ -114,6 +143,9 @@ impl GenericPanel {
             .show(ctx);
         if !blocked && collapse_clicked {
             self.collapsed = !self.collapsed;
+            if self.collapsed {
+                self.defocus();
+            }
         }
 
         // Custom title or default title
@@ -137,6 +169,7 @@ impl GenericPanel {
             .show(ctx);
         if !blocked && close_clicked {
             self.visible = false;
+            self.defocus();
         }
 
         // Start drag only after all title-bar interactions are processed

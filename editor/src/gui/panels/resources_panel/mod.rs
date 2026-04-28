@@ -256,6 +256,12 @@ impl PanelDefinition for ResourcesPanel {
         true
     }
 
+    fn on_defocus(&mut self) {
+        self.clear_selection();
+        self.reset_marquee_selection();
+        self.active_menu = None;
+    }
+
     fn draw(&mut self, ctx: &mut WgpuContext, rect: Rect, editor: &mut Editor, blocked: bool) {
         self.scan_current_dir(&editor.game.asset_registry);
 
