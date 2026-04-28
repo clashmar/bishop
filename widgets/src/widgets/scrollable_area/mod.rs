@@ -180,3 +180,56 @@ impl ActiveScrollArea {
         );
     }
 }
+
+const DRAG_EDGE_AUTOSCROLL_BAND: f32 = 24.0;
+const DRAG_EDGE_AUTOSCROLL_MAX_STEP: f32 = DEFAULT_SCROLL_SPEED;
+
+impl ActiveScrollArea {
+    /// Applies edge-band autoscroll when a drag is active and the pointer is
+    /// within the top or bottom edge band of the scroll area. Returns `true`
+    /// when `state.scroll_y` changed.
+    pub fn apply_drag_edge_autoscroll<C: BishopContext>(
+        &self,
+        ctx: &C,
+        state: &mut ScrollState,
+        drag_active: bool,
+    ) -> bool {
+        if !drag_active || self.scroll_range <= 0.0 {
+            return false;
+        }
+
+        let mouse: Vec2 = ctx.mouse_position().into();
+        if !self.rect.contains(mouse) {
+            return false;
+        }
+
+        let top_band_end = self.rect.y + DRAG_EDGE_AUTOSCROLL_BAND;
+        let bottom_band_start = self.rect.y + self.rect.h - DRAG_EDGE_AUTOSCROLL_BAND;
+
+        let delta = if mouse.y < top_band_end {
+            let t = ((top_band_end - mouse.y) / DRAG_EDGE_AUTOSCROLL_BAND).clamp(0.0, 1.0);
+            DRAG_EDGE_AUTOSCROLL_MAX_STEP * t
+        } else if mouse.y > bottom_band_start {
+            let t = ((mouse.y - bottom_band_start) / DRAG_EDGE_AUTOSCROLL_BAND).clamp(0.0, 1.0);
+            -DRAG_EDGE_AUTOSCROLL_MAX_STEP * t
+        } else {
+            0.0
+        };
+
+        if delta == 0.0 {
+            return false;
+        }
+
+        let previous = state.scroll_y;
+        state.scroll_y = (state.scroll_y + delta).clamp(-self.scroll_range, 0.0);
+        if state.scroll_y != previous {
+            state.auto_scroll = false;
+            return true;
+        }
+
+        false
+    }
+}
+
+#[cfg(test)]
+mod tests;

@@ -298,8 +298,15 @@ impl PanelDefinition for ResourcesPanel {
         let mut right_clicked_entry = false;
         let shift_held =
             ctx.is_key_down(KeyCode::LeftShift) || ctx.is_key_down(KeyCode::RightShift);
-        let content_mouse =
+        let mut content_mouse =
             content_space_mouse_position(mouse, content_rect, self.scroll_state.scroll_y);
+
+        if self.marquee_selection.active && !interaction_blocked && !blocked {
+            if area.apply_drag_edge_autoscroll(ctx, &mut self.scroll_state, true) {
+                content_mouse =
+                    content_space_mouse_position(mouse, content_rect, self.scroll_state.scroll_y);
+            }
+        }
 
         let live_marquee_rect = if self.marquee_selection.active {
             self.marquee_selection
