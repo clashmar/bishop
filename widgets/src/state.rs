@@ -241,22 +241,27 @@ pub fn activate_on_release(
     activated
 }
 
+/// Returns true if a dropdown is currently open.
 pub fn is_dropdown_open() -> bool {
     DROPDOWN_OPEN.with(|f| *f.borrow())
 }
 
+/// Returns true if a context menu is currently open.
 pub fn is_context_menu_open() -> bool {
     CONTEXT_MENU_OPEN.with(|f| *f.borrow())
 }
 
+/// Sets whether a context menu is open.
 pub fn set_context_menu_open(open: bool) {
     CONTEXT_MENU_OPEN.with(|f| *f.borrow_mut() = open);
 }
 
+/// Returns true if a modal is currently open.
 pub fn is_modal_open() -> bool {
     MODAL_OPEN.with(|f| *f.borrow())
 }
 
+/// Sets whether a modal is open.
 pub fn set_modal_open(open: bool) {
     MODAL_OPEN.with(|f| *f.borrow_mut() = open);
 }
