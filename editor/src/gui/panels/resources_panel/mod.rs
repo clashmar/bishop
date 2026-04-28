@@ -505,6 +505,18 @@ impl PanelDefinition for ResourcesPanel {
             }
         }
 
+        if !interaction_blocked
+            && !blocked
+            && widgets::focused_panel() == Some(RESOURCES_PANEL)
+            && !widgets::input_is_focused()
+            && (ctx.is_key_pressed(KeyCode::Delete) || ctx.is_key_pressed(KeyCode::Backspace))
+        {
+            if let Some(action) = self.pending_delete_for_selection(&editor.game.asset_registry) {
+                self.pending_action = Some(action);
+                self.clear_selection();
+            }
+        }
+
         self.pending_action = handle_pending_action(self.pending_action.take(), editor, ctx);
 
         ctx.draw_rectangle_lines(rect.x, rect.y, rect.w, rect.h, 2.0, Color::WHITE);

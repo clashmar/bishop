@@ -2,6 +2,7 @@ use std::collections::BTreeSet;
 
 use super::{context_menu::*, MarqueeSelectionState, ResourcesPanel};
 use bishop::prelude::*;
+use engine_core::prelude::*;
 use std::path::PathBuf;
 
 impl ResourcesPanel {
@@ -118,5 +119,18 @@ impl ResourcesPanel {
     pub(crate) fn handle_secondary_click_on_background(&mut self, position: Vec2) {
         self.clear_selection();
         self.active_menu = Some(context_target_for_background(position));
+    }
+
+    /// Returns a pending delete action for the single selected entry, if any.
+    pub(crate) fn pending_delete_for_selection(
+        &self,
+        registry: &AssetRegistry,
+    ) -> Option<PendingResourceAction> {
+        if self.selected_indices.len() != 1 {
+            return None;
+        }
+        let &index = self.selected_indices.iter().next()?;
+        let entry = self.entries.get(index)?;
+        pending_action_for(entry, ResourceMenuAction::Delete, registry)
     }
 }
