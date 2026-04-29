@@ -6,7 +6,7 @@ pub mod path_filter;
 mod selection;
 
 use crate::editor_assets::assets::{
-    audio_icon, entity_icon, file_icon, folder_icon, image_icon, lua_icon, text_icon,
+    audio_icon, entity_icon, file_icon, folder_icon, image_icon, lua_icon, system_folder_icon, text_icon,
 };
 use crate::gui::gui_constants::HIGHLIGHT_GREEN;
 use crate::gui::panels::generic_panel::PanelDefinition;
@@ -188,6 +188,7 @@ impl ResourcesPanel {
     fn icon_texture(&self, icon_type: IconType) -> &'static Texture2D {
         match icon_type {
             IconType::Folder => folder_icon(),
+            IconType::SystemFolder => system_folder_icon(),
             IconType::LuaScript => lua_icon(),
             IconType::Image => image_icon(),
             IconType::Audio => audio_icon(),
