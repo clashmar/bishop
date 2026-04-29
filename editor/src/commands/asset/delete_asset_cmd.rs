@@ -88,16 +88,29 @@ impl DeleteAssetCmd {
             return false;
         }
 
-        if let AssetKey::Prefab(prefab_id) = key {
-            if let Some(prefab) = editor.game.prefab_manager.prefabs.get(&prefab_id).cloned() {
-                if let Err(e) = editor.game.prefab_manager.save_prefab_and_sync(
-                    &editor.game.name,
-                    &mut editor.game.asset_registry,
-                    &prefab,
-                    None,
-                ) {
-                    push_toast(format!("Could not restore prefab file: {e}"), 3.0);
+        if let AssetKey::Prefab(_prefab_id) = key {
+            let prefab_text = match std::str::from_utf8(&bytes) {
+                Ok(text) => text,
+                Err(_) => {
+                    push_toast("Restored prefab bytes are not valid UTF-8".to_string(), 3.0);
+                    return false;
                 }
+            };
+            let prefab = match ron::from_str::<PrefabAsset>(prefab_text) {
+                Ok(p) => p,
+                Err(e) => {
+                    push_toast(format!("Could not parse restored prefab: {e}"), 3.0);
+                    return false;
+                }
+            };
+            if let Err(e) = editor.game.prefab_manager.save_prefab_and_sync(
+                &editor.game.name,
+                &mut editor.game.asset_registry,
+                &prefab,
+                None,
+            ) {
+                push_toast(format!("Could not restore prefab file: {e}"), 3.0);
+                return false;
             }
         }
 

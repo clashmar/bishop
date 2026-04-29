@@ -7,7 +7,42 @@ use crate::storage::editor_storage::create_new_game;
 use crate::test_utils::{game_fs_test_lock, EditorServicesGuard, TestGameFolder};
 use crate::Editor;
 use engine_core::prelude::*;
+use engine_core::scripting::lua_constants::{lua_dirs, lua_files};
 use std::fs;
+
+fn setup_editor_with_prefab(
+    test_prefix: &str,
+    prefab_id: PrefabId,
+    relative_path: &str,
+) -> (TestGameFolder, EditorServicesGuard) {
+    let _lock = game_fs_test_lock()
+        .lock()
+        .unwrap_or_else(|poison| poison.into_inner());
+    let test_game = TestGameFolder::new(test_prefix);
+
+    let mut game = create_new_game(test_game.name().to_string());
+
+    let full_path = prefabs_folder().join(relative_path);
+    if let Some(parent) = full_path.parent() {
+        let _ = fs::create_dir_all(parent);
+    }
+    let prefab = create_prefab(prefab_id, "Crate".to_string());
+    let ron = ron::ser::to_string_pretty(&prefab, ron::ser::PrettyConfig::new()).unwrap();
+    fs::write(&full_path, ron).unwrap();
+
+    game.asset_registry
+        .register_asset_relative_path(prefab_id, relative_path)
+        .unwrap();
+    game.prefab_manager.prefabs.insert(prefab_id, prefab);
+
+    let editor = Editor {
+        game,
+        ..Default::default()
+    };
+    let guard = EditorServicesGuard::install(editor);
+
+    (test_game, guard)
+}
 
 fn setup_editor_with_sprite(
     test_prefix: &str,
@@ -108,4 +143,41 @@ fn applies_in_all_modes() {
     assert!(cmd.applies_in_mode(EditorMode::Room(RoomId(1))));
     assert!(cmd.applies_in_mode(EditorMode::Prefab(PrefabId(5))));
     assert!(cmd.applies_in_mode(EditorMode::Menu));
+}
+
+#[test]
+fn delete_prefab_asset_undo_restores_prefabs_lua() {
+    let (_test_game, _guard) =
+        setup_editor_with_prefab("prefab_delete_undo_lua", PrefabId(1), "Crate.prefab");
+    let _lock = game_fs_test_lock()
+        .lock()
+        .unwrap_or_else(|poison| poison.into_inner());
+    set_game_name(_test_game.name());
+
+    let mut cmd = DeleteAssetCmd::new(AssetKey::Prefab(PrefabId(1)));
+    cmd.execute();
+
+    with_editor(|e| {
+        assert!(!e.game.prefab_manager.prefabs.contains_key(&PrefabId(1)));
+        let prefabs_lua = fs::read_to_string(
+            scripts_folder()
+                .join(lua_dirs::ENGINE)
+                .join(lua_files::PREFABS),
+        )
+        .unwrap();
+        assert!(!prefabs_lua.contains("Crate"));
+    });
+
+    cmd.undo();
+
+    with_editor(|e| {
+        assert!(e.game.prefab_manager.prefabs.contains_key(&PrefabId(1)));
+        let prefabs_lua = fs::read_to_string(
+            scripts_folder()
+                .join(lua_dirs::ENGINE)
+                .join(lua_files::PREFABS),
+        )
+        .unwrap();
+        assert!(prefabs_lua.contains("Crate"));
+    });
 }
