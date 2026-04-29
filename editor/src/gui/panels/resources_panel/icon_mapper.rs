@@ -1,10 +1,12 @@
 use engine_core::constants::extensions;
+use engine_core::storage::is_protected_path;
 use std::path::Path;
 
 /// Icon types used in the Resources browser.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum IconType {
     Folder,
+    SystemFolder,
     LuaScript,
     Image,
     Audio,
@@ -25,9 +27,24 @@ pub const FILE_ICON_MAP: &[(&str, IconType)] = &[
 pub struct IconMapper;
 
 impl IconMapper {
-    /// Returns Folder for all directories.
+    /// Returns Folder for all non-system directories.
     pub fn dir_icon() -> IconType {
         IconType::Folder
+    }
+
+    /// Returns Folder for all non-system directories.
+    pub fn sys_dir_icon() -> IconType {
+        IconType::SystemFolder
+    }
+
+    /// Returns the correct icon for a directory based on whether it is
+    /// engine-managed (system) or user-created.
+    pub fn dir_icon_for(path: &Path, resources_root: &Path) -> IconType {
+        if is_protected_path(path, resources_root) {
+            IconType::SystemFolder
+        } else {
+            IconType::Folder
+        }
     }
 
     /// Returns the icon type for a file based on its extension.

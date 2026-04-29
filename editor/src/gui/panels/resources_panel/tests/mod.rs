@@ -24,13 +24,10 @@ pub fn test_entry(name: &str, kind: EntryKind) -> Entry {
         display_name: name.to_string(),
         kind,
         path: PathBuf::from(name),
-        icon_type: if matches!(
-            kind,
-            EntryKind::Parent | EntryKind::Directory | EntryKind::SystemDirectory
-        ) {
-            IconType::Folder
-        } else {
-            IconType::File
+        icon_type: match kind {
+            EntryKind::Parent | EntryKind::Directory => IconType::Folder,
+            EntryKind::SystemDirectory => IconType::SystemFolder,
+            _ => IconType::File,
         },
     }
 }

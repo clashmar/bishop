@@ -6,7 +6,8 @@ pub mod path_filter;
 mod selection;
 
 use crate::editor_assets::assets::{
-    audio_icon, entity_icon, file_icon, folder_icon, image_icon, lua_icon, system_folder_icon, text_icon,
+    audio_icon, entity_icon, file_icon, folder_icon, image_icon, lua_icon, system_folder_icon,
+    text_icon,
 };
 use crate::gui::gui_constants::HIGHLIGHT_GREEN;
 use crate::gui::panels::generic_panel::PanelDefinition;
@@ -121,12 +122,6 @@ impl ResourcesPanel {
                     return None;
                 }
 
-                let icon_type = if is_dir {
-                    IconMapper::dir_icon()
-                } else {
-                    IconMapper::file_icon(&name)
-                };
-
                 let display_name = if is_dir {
                     name.clone()
                 } else {
@@ -148,6 +143,12 @@ impl ResourcesPanel {
                     EntryKind::RegisteredFile
                 } else {
                     EntryKind::UnregisteredFile
+                };
+
+                let icon_type = if is_dir {
+                    IconMapper::dir_icon_for(&full_path, &resources_folder_current())
+                } else {
+                    IconMapper::file_icon(&name)
                 };
 
                 Some(Entry {
