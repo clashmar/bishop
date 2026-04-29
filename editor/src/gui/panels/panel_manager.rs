@@ -154,6 +154,10 @@ impl PanelManager {
     pub fn toggle(&mut self, id: PanelId) {
         if let Some((_, panel)) = self.panels.iter_mut().find(|(pid, _)| *pid == id) {
             panel.visible = !panel.visible;
+            if panel.visible {
+                self.bring_to_front(id);
+                set_focused_panel(Some(id));
+            }
         }
     }
 
