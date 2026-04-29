@@ -1,3 +1,4 @@
+use crate::commands::asset::DeleteTarget;
 use crate::gui::modals::{
     delete_resource::{DeleteResourceModal, DELETE_RESOURCE_TARGET},
     new_resource_folder::{NewResourceFolderModal, NEW_FOLDER_TARGET},
@@ -63,6 +64,7 @@ const UNREGISTERED_FILE_MENU_ACTIONS: &[ResourceMenuAction] = &[
 ];
 const PARENT_MENU_ACTIONS: &[ResourceMenuAction] = &[];
 pub(super) const BACKGROUND_MENU_ACTIONS: &[ResourceMenuAction] = &[ResourceMenuAction::NewFolder];
+const MULTI_SELECTION_ACTIONS: &[ResourceMenuAction] = &[ResourceMenuAction::Delete];
 
 pub(super) fn context_menu_actions_for(kind: EntryKind) -> &'static [ResourceMenuAction] {
     match kind {
@@ -84,6 +86,7 @@ pub(super) struct ContextTarget {
 #[derive(Clone)]
 pub(super) enum ActiveMenu {
     Entry(ContextTarget),
+    MultiSelection(Vec2),
     Background(Vec2),
 }
 
@@ -97,12 +100,14 @@ pub(super) fn pending_action_for_background(
     PendingResourceAction::CreateDirectory(current_dir.to_path_buf())
 }
 
+#[derive(Clone)]
 pub enum PendingResourceAction {
     RenameFile(AssetKey),
     RenameDirectory(UserPath),
     DeleteRegisteredFile(AssetKey),
     DeleteUnregisteredFile(PathBuf),
     DeleteDirectory(UserPath),
+    BatchDelete(Vec<DeleteTarget>),
     CreateDirectory(PathBuf),
     Open(PathBuf),
     Reveal(PathBuf),
@@ -148,6 +153,21 @@ pub(super) fn pending_action_for(
     }
 }
 
+pub(super) fn delete_target_for(entry: &Entry, registry: &AssetRegistry) -> Option<DeleteTarget> {
+    match entry.kind {
+        EntryKind::Directory => Some(DeleteTarget::Directory(UserPath::from(entry.path.clone()))),
+        EntryKind::RegisteredFile => {
+            let key = asset_key_for_entry(entry, registry)?;
+            Some(DeleteTarget::RegisteredFile {
+                key,
+                full_path: entry.path.clone(),
+            })
+        }
+        EntryKind::UnregisteredFile => Some(DeleteTarget::UnregisteredFile(entry.path.clone())),
+        _ => None,
+    }
+}
+
 pub(super) fn handle_pending_action(
     pending: Option<PendingResourceAction>,
     editor: &mut Editor,
@@ -156,7 +176,8 @@ pub(super) fn handle_pending_action(
     match pending {
         Some(action @ PendingResourceAction::DeleteRegisteredFile(_))
         | Some(action @ PendingResourceAction::DeleteUnregisteredFile(_))
-        | Some(action @ PendingResourceAction::DeleteDirectory(_)) => {
+        | Some(action @ PendingResourceAction::DeleteDirectory(_))
+        | Some(action @ PendingResourceAction::BatchDelete(_)) => {
             DELETE_RESOURCE_TARGET.with(|t| *t.borrow_mut() = Some(action));
             DeleteResourceModal.open(editor, ctx);
             None
@@ -276,6 +297,7 @@ pub(super) fn draw_context_menu(
 ) -> Option<ResourceMenuAction> {
     let (position, actions): (Vec2, &[ResourceMenuAction]) = match active_menu {
         ActiveMenu::Entry(target) => (target.position, &target.actions),
+        ActiveMenu::MultiSelection(pos) => (*pos, MULTI_SELECTION_ACTIONS),
         ActiveMenu::Background(pos) => (*pos, BACKGROUND_MENU_ACTIONS),
     };
 

@@ -1,4 +1,5 @@
 // editor/src/commands/asset/tests/mod.rs
+mod batch_delete_cmd_tests;
 mod create_directory_cmd_tests;
 mod delete_asset_cmd_tests;
 mod delete_directory_cmd_tests;

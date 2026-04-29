@@ -20,33 +20,46 @@ impl DeleteUnregisteredFileCmd {
             saved_bytes: None,
         }
     }
-}
 
-impl EditorCommand for DeleteUnregisteredFileCmd {
-    fn execute(&mut self) {
+    /// Performs the deletion and captures undo state without saving.
+    pub(crate) fn perform(&mut self) -> bool {
         let Ok(saved_bytes) = fs::read(&self.full_path) else {
             self.saved_bytes = None;
-            return;
+            return false;
         };
 
         if fs::remove_file(&self.full_path).is_ok() {
             self.saved_bytes = Some(saved_bytes);
-            with_editor(|editor| editor.save());
+            true
         } else {
             self.saved_bytes = None;
+            false
         }
     }
 
-    fn undo(&mut self) {
+    /// Restores the file bytes without saving.
+    pub(crate) fn restore(&mut self) -> bool {
         let Some(bytes) = self.saved_bytes.take() else {
-            return;
+            return false;
         };
 
         if let Some(parent) = self.full_path.parent() {
             let _ = fs::create_dir_all(parent);
         }
 
-        if fs::write(&self.full_path, bytes).is_ok() {
+        fs::write(&self.full_path, bytes).is_ok()
+    }
+}
+
+impl EditorCommand for DeleteUnregisteredFileCmd {
+    fn execute(&mut self) {
+        if self.perform() {
+            with_editor(|editor| editor.save());
+        }
+    }
+
+    fn undo(&mut self) {
+        if self.restore() {
             with_editor(|editor| editor.save());
         }
     }

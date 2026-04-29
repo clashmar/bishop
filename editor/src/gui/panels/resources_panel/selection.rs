@@ -105,6 +105,19 @@ impl ResourcesPanel {
     }
 
     pub(crate) fn handle_secondary_click_on_entry(&mut self, entry_index: usize, position: Vec2) {
+        if self.selected_indices.len() > 1 && self.selected_indices.contains(&entry_index) {
+            let all_deletable = self.selected_indices.iter().all(|&i| {
+                self.entries.get(i).is_some_and(|e| {
+                    !matches!(e.kind, EntryKind::Parent | EntryKind::SystemDirectory)
+                })
+            });
+            if all_deletable {
+                self.reset_marquee_selection();
+                self.active_menu = Some(ActiveMenu::MultiSelection(position));
+                return;
+            }
+        }
+
         let menu = self.entries.get(entry_index).and_then(|entry| {
             context_target_for_entry(entry_index, entry, position).map(ActiveMenu::Entry)
         });
@@ -121,16 +134,29 @@ impl ResourcesPanel {
         self.active_menu = Some(context_target_for_background(position));
     }
 
-    /// Returns a pending delete action for the single selected entry, if any.
+    /// Returns a pending delete action for the current selection.
     pub(crate) fn pending_delete_for_selection(
         &self,
         registry: &AssetRegistry,
     ) -> Option<PendingResourceAction> {
-        if self.selected_indices.len() != 1 {
+        if self.selected_indices.is_empty() {
             return None;
         }
-        let &index = self.selected_indices.iter().next()?;
-        let entry = self.entries.get(index)?;
-        pending_action_for(entry, ResourceMenuAction::Delete, registry)
+        if self.selected_indices.len() == 1 {
+            let &index = self.selected_indices.iter().next()?;
+            let entry = self.entries.get(index)?;
+            return pending_action_for(entry, ResourceMenuAction::Delete, registry);
+        }
+
+        let mut targets = Vec::new();
+        for &index in &self.selected_indices {
+            let entry = self.entries.get(index)?;
+            if matches!(entry.kind, EntryKind::Parent | EntryKind::SystemDirectory) {
+                return None;
+            }
+            let target = delete_target_for(entry, registry)?;
+            targets.push(target);
+        }
+        Some(PendingResourceAction::BatchDelete(targets))
     }
 }

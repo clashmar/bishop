@@ -13,12 +13,10 @@ use crate::gui::panels::generic_panel::PanelDefinition;
 use crate::shared::selection::{draw_selection_box, rect_from_two_points, rects_intersect};
 use crate::Editor;
 use bishop::prelude::*;
-#[cfg(test)]
-use context_menu::ResourceMenuAction;
 use context_menu::{
     draw_context_menu, handle_pending_action, open_resource, pending_action_for,
     pending_action_for_background, ActiveMenu, EntryKind, PendingResourceAction,
-    ResourceOpenResult,
+    ResourceMenuAction, ResourceOpenResult,
 };
 use engine_core::prelude::*;
 use icon_mapper::{IconMapper, IconType};
@@ -487,6 +485,12 @@ impl PanelDefinition for ResourcesPanel {
                         if let Some(entry) = self.entries.get(target.entry_index) {
                             self.pending_action =
                                 pending_action_for(entry, selected, &editor.game.asset_registry);
+                        }
+                    }
+                    ActiveMenu::MultiSelection(_) => {
+                        if selected == ResourceMenuAction::Delete {
+                            self.pending_action =
+                                self.pending_delete_for_selection(&editor.game.asset_registry);
                         }
                     }
                     ActiveMenu::Background(_) => {

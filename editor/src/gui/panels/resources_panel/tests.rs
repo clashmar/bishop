@@ -1025,3 +1025,62 @@ fn resources_panel_multi_select_double_click_directory_clears_selection() {
     assert!(panel.selected_indices.is_empty());
     assert_eq!(panel.navigation.segment(0), Some("subdir"));
 }
+
+#[test]
+fn pending_delete_for_valid_multi_selection_returns_batch_delete() {
+    let mut panel = ResourcesPanel::new();
+    let registry = AssetRegistry::default();
+
+    panel.entries = vec![
+        test_entry("a.lua", EntryKind::UnregisteredFile),
+        test_entry("b.lua", EntryKind::UnregisteredFile),
+    ];
+    panel.selected_indices = [0_usize, 1_usize].into_iter().collect();
+
+    let action = panel.pending_delete_for_selection(&registry);
+    assert!(
+        matches!(action, Some(PendingResourceAction::BatchDelete(ref targets)) if targets.len() == 2)
+    );
+}
+
+#[test]
+fn right_click_on_multi_selection_opens_multi_selection_menu() {
+    let mut panel = ResourcesPanel::new();
+    panel.entries = vec![
+        test_entry("a.lua", EntryKind::UnregisteredFile),
+        test_entry("b.lua", EntryKind::UnregisteredFile),
+    ];
+    panel.selected_indices = [0_usize, 1_usize].into_iter().collect();
+
+    panel.handle_secondary_click_on_entry(0, Vec2::new(32.0, 48.0));
+
+    assert_eq!(
+        panel.selected_indices,
+        [0_usize, 1_usize].into_iter().collect::<BTreeSet<_>>()
+    );
+    match panel.active_menu.as_ref() {
+        Some(ActiveMenu::MultiSelection(pos)) => assert_eq!(*pos, Vec2::new(32.0, 48.0)),
+        _ => panic!("expected multi-selection menu"),
+    }
+}
+
+#[test]
+fn right_click_on_multi_selection_with_system_dir_collapses_to_single() {
+    let mut panel = ResourcesPanel::new();
+    panel.entries = vec![
+        test_entry("a.lua", EntryKind::UnregisteredFile),
+        test_entry("assets", EntryKind::SystemDirectory),
+    ];
+    panel.selected_indices = [0_usize, 1_usize].into_iter().collect();
+
+    panel.handle_secondary_click_on_entry(0, Vec2::new(32.0, 48.0));
+
+    assert_eq!(
+        panel.selected_indices,
+        [0_usize].into_iter().collect::<BTreeSet<_>>()
+    );
+    match panel.active_menu.as_ref() {
+        Some(ActiveMenu::Entry(target)) => assert_eq!(target.entry_index, 0),
+        _ => panic!("expected single-entry menu after collapse"),
+    }
+}

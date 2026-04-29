@@ -3,6 +3,7 @@ use crate::app::EditorMode;
 use crate::commands::editor_command_manager::EditorCommand;
 use crate::editor_global::push_toast;
 use crate::with_editor;
+use crate::Editor;
 use engine_core::prelude::*;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -58,47 +59,45 @@ impl DeleteDirectoryCmd {
             }
         }
     }
-}
 
-impl EditorCommand for DeleteDirectoryCmd {
-    fn execute(&mut self) {
+    /// Performs the deletion and captures undo state without saving.
+    pub(crate) fn perform(&mut self, editor: &mut Editor) -> bool {
         if is_protected_path(&self.full_path, &resources_folder_current()) {
             push_toast("Cannot delete engine-managed folders.", 3.0);
-            return;
+            return false;
         }
 
         let files = Self::collect_files(&self.full_path);
 
-        with_editor(|editor| {
-            let Some(prefix) = self.full_path.strip_prefix(resources_folder_current()).ok() else {
-                push_toast("Delete directory: could not compute registry prefix", 3.0);
-                return;
-            };
+        let Some(prefix) = self.full_path.strip_prefix(resources_folder_current()).ok() else {
+            push_toast("Delete directory: could not compute registry prefix", 3.0);
+            return false;
+        };
 
-            let affected = editor.game.asset_registry.records_under_prefix(prefix);
+        let affected = editor.game.asset_registry.records_under_prefix(prefix);
 
-            if let Err(e) = fs::remove_dir_all(&self.full_path) {
-                push_toast(format!("Delete directory failed: {e}"), 3.0);
-                return;
-            }
+        if let Err(e) = fs::remove_dir_all(&self.full_path) {
+            push_toast(format!("Delete directory failed: {e}"), 3.0);
+            return false;
+        }
 
-            for (key, _) in &affected {
-                editor.game.asset_registry.remove_record(*key);
-            }
+        for (key, _) in &affected {
+            editor.game.asset_registry.remove_record(*key);
+        }
 
-            self.saved_files = Some(files);
-            self.saved_records = Some(affected);
-            editor.save();
-        });
+        self.saved_files = Some(files);
+        self.saved_records = Some(affected);
+        true
     }
 
-    fn undo(&mut self) {
+    /// Restores the directory tree and registry records without saving.
+    pub(crate) fn restore(&mut self, editor: &mut Editor) -> bool {
         let Some(files) = self.saved_files.take() else {
-            return;
+            return false;
         };
         let Some(records) = self.saved_records.take() else {
             self.saved_files = Some(files);
-            return;
+            return false;
         };
 
         if let Some(parent) = self.full_path.parent() {
@@ -114,13 +113,35 @@ impl EditorCommand for DeleteDirectoryCmd {
             let _ = fs::write(&file_path, &saved.bytes);
         }
 
-        with_editor(|editor| {
-            for (key, record) in &records {
-                if let Err(e) = editor.game.asset_registry.insert(*key, record.clone()) {
-                    push_toast(format!("Undo delete directory: could not restore registry record for {key:?}: {e}"), 3.0);
-                }
+        for (key, record) in &records {
+            if let Err(e) = editor.game.asset_registry.insert(*key, record.clone()) {
+                push_toast(
+                    format!(
+                        "Undo delete directory: could not restore registry record for {key:?}: {e}"
+                    ),
+                    3.0,
+                );
             }
-            editor.save();
+        }
+
+        true
+    }
+}
+
+impl EditorCommand for DeleteDirectoryCmd {
+    fn execute(&mut self) {
+        with_editor(|editor| {
+            if self.perform(editor) {
+                editor.save();
+            }
+        });
+    }
+
+    fn undo(&mut self) {
+        with_editor(|editor| {
+            if self.restore(editor) {
+                editor.save();
+            }
         });
     }
 

@@ -1,5 +1,7 @@
 use crate::app::Editor;
-use crate::commands::asset::{DeleteAssetCmd, DeleteDirectoryCmd, DeleteUnregisteredFileCmd};
+use crate::commands::asset::{
+    BatchDeleteCmd, DeleteAssetCmd, DeleteDirectoryCmd, DeleteUnregisteredFileCmd,
+};
 use crate::editor_global::push_command;
 use crate::gui::modals::confirm;
 use crate::gui::modals::{take_modal_result, ModalHandler, ModalResult};
@@ -26,10 +28,23 @@ impl ModalHandler for DeleteResourceModal {
     }
 
     fn open(&mut self, editor: &mut Editor, ctx: &WgpuContext) {
-        if DELETE_RESOURCE_TARGET.with(|c| c.borrow().is_none()) {
+        let target = DELETE_RESOURCE_TARGET.with(|c| c.borrow().clone());
+        let Some(target) = target else {
             return;
-        }
-        editor.modal = confirm::open_confirm_modal(ctx, &DELETE_RESOURCE_RESULT);
+        };
+
+        let modal = match target {
+            PendingResourceAction::BatchDelete(ref targets) => {
+                let count = targets.len();
+                let message = format!(
+                    "Delete {count} selected item{}?",
+                    if count == 1 { "" } else { "s" }
+                );
+                confirm::open_confirm_modal_with_message(ctx, &DELETE_RESOURCE_RESULT, message)
+            }
+            _ => confirm::open_confirm_modal(ctx, &DELETE_RESOURCE_RESULT),
+        };
+        editor.modal = modal;
     }
 
     fn handle(
@@ -50,6 +65,9 @@ impl ModalHandler for DeleteResourceModal {
                         }
                         PendingResourceAction::DeleteDirectory(user_path) => {
                             push_command(Box::new(DeleteDirectoryCmd::new(user_path)));
+                        }
+                        PendingResourceAction::BatchDelete(targets) => {
+                            push_command(Box::new(BatchDeleteCmd::new(targets)));
                         }
                         _ => {}
                     }
