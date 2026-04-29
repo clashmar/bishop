@@ -5,10 +5,12 @@ pub mod navigation;
 pub mod path_filter;
 mod selection;
 
+use crate::commands::asset::{BatchMoveCmd, MoveTarget};
 use crate::editor_assets::assets::{
     audio_icon, entity_icon, file_icon, folder_icon, image_icon, lua_icon, system_folder_icon,
     text_icon,
 };
+use crate::editor_global::push_command;
 use crate::gui::gui_constants::HIGHLIGHT_GREEN;
 use crate::gui::panels::generic_panel::PanelDefinition;
 use crate::shared::selection::{draw_selection_box, rect_from_two_points, rects_intersect};
@@ -36,6 +38,9 @@ const LABEL_FONT_SIZE: f32 = 12.0;
 const REGISTRATION_BADGE_SIZE: f32 = 8.0;
 
 const SELECTION_BG: Color = Color::new(0.706, 0.824, 1.0, 0.25);
+const DRAG_ACTIVATION_THRESHOLD: f32 = 4.0;
+const GHOST_OFFSET: f32 = 10.0;
+const DROP_TARGET_OUTLINE: Color = SELECTION_BG;
 
 #[derive(Default)]
 struct MarqueeSelectionState {
@@ -43,6 +48,19 @@ struct MarqueeSelectionState {
     additive: bool,
     start_content_pos: Option<Vec2>,
     selection_snapshot: BTreeSet<usize>,
+}
+
+#[derive(Default)]
+struct DragState {
+    active: bool,
+    start_screen_pos: Vec2,
+    payload: Vec<DragPayload>,
+}
+
+pub(crate) struct DragPayload {
+    pub(crate) path: PathBuf,
+    pub(crate) name: String,
+    pub(crate) icon_type: IconType,
 }
 
 /// An entry in the Resources browser.
@@ -85,6 +103,7 @@ pub struct ResourcesPanel {
     context_menu_id: WidgetId,
     selected_indices: BTreeSet<usize>,
     marquee_selection: MarqueeSelectionState,
+    drag_state: DragState,
 }
 
 impl ResourcesPanel {
@@ -98,6 +117,7 @@ impl ResourcesPanel {
             context_menu_id: WidgetId(0xC07E_0001),
             selected_indices: BTreeSet::new(),
             marquee_selection: MarqueeSelectionState::default(),
+            drag_state: DragState::default(),
         }
     }
 
@@ -198,6 +218,38 @@ impl ResourcesPanel {
             IconType::File => file_icon(),
         }
     }
+
+    pub(crate) fn drop_target_index(
+        &self,
+        mouse: Vec2,
+        content_rect: Rect,
+        cols: usize,
+    ) -> Option<usize> {
+        self.entries.iter().enumerate().find_map(|(i, entry)| {
+            if !entry.is_dir_like() {
+                return None;
+            }
+            if self.is_dragged_item(&entry.path) {
+                return None;
+            }
+            let cell = cell_content_rect(i, cols);
+            let screen_rect = Rect::new(
+                content_rect.x + cell.x,
+                content_rect.y + cell.y + self.scroll_state.scroll_y,
+                cell.w,
+                cell.h,
+            );
+            if screen_rect.contains(mouse) {
+                Some(i)
+            } else {
+                None
+            }
+        })
+    }
+
+    pub(crate) fn is_dragged_item(&self, path: &Path) -> bool {
+        self.drag_state.payload.iter().any(|p| p.path == path)
+    }
 }
 
 fn content_space_mouse_position(mouse: Vec2, content_rect: Rect, scroll_y: f32) -> Vec2 {
@@ -260,12 +312,14 @@ impl PanelDefinition for ResourcesPanel {
         self.clear_selection();
         self.reset_marquee_selection();
         self.active_menu = None;
+        self.drag_state = DragState::default();
     }
 
     fn draw(&mut self, ctx: &mut WgpuContext, rect: Rect, editor: &mut Editor, blocked: bool) {
         self.scan_current_dir(&editor.game.asset_registry);
 
         let left_clicked = ctx.is_mouse_button_pressed(MouseButton::Left);
+        let left_held = ctx.is_mouse_button_down(MouseButton::Left);
         let right_clicked = ctx.is_mouse_button_pressed(MouseButton::Right);
         if right_clicked && !blocked && widgets::is_context_menu_open() {
             widgets::close_open_context_menus();
@@ -301,7 +355,8 @@ impl PanelDefinition for ResourcesPanel {
             && !interaction_blocked
             && !blocked
             && content_rect.contains(mouse)
-            && !widgets::is_click_consumed();
+            && !widgets::is_click_consumed()
+            && !self.drag_state.active;
         let mut right_clicked_entry = false;
         let shift_held =
             ctx.is_key_down(KeyCode::LeftShift) || ctx.is_key_down(KeyCode::RightShift);
@@ -319,6 +374,12 @@ impl PanelDefinition for ResourcesPanel {
             self.marquee_selection
                 .start_content_pos
                 .map(|start| rect_from_two_points(start, content_mouse))
+        } else {
+            None
+        };
+
+        let drop_target = if self.drag_state.active {
+            self.drop_target_index(mouse, content_rect, cols)
         } else {
             None
         };
@@ -357,6 +418,21 @@ impl PanelDefinition for ResourcesPanel {
                 let size = CELL_SIZE * 0.9 + 4.0;
                 let offset = (CELL_SIZE - size) / 2.0;
                 ctx.draw_rectangle(x + offset, cell_y, size, size, SELECTION_BG);
+            }
+
+            if self.drag_state.active {
+                if let Some(target_i) = drop_target {
+                    if target_i == i {
+                        ctx.draw_rectangle_lines(
+                            x,
+                            cell_y,
+                            CELL_SIZE,
+                            CELL_SIZE,
+                            2.0,
+                            DROP_TARGET_OUTLINE,
+                        );
+                    }
+                }
             }
 
             let icon_x = x + (CELL_SIZE - ICON_SIZE) / 2.0;
@@ -406,7 +482,9 @@ impl PanelDefinition for ResourcesPanel {
             {
                 clicked_empty_space = false;
 
-                if ctx.is_mouse_button_double_clicked(MouseButton::Left) {
+                if self.drag_state.active {
+                    // skip normal click handling during drag
+                } else if ctx.is_mouse_button_double_clicked(MouseButton::Left) {
                     if let Some(path) = self.handle_primary_click_on_entry(i, false, true) {
                         if let ResourceOpenResult::PrefabTransition(prefab_id) =
                             open_resource(&path, editor)
@@ -417,17 +495,30 @@ impl PanelDefinition for ResourcesPanel {
                         widgets::consume_click();
                     }
                     break;
+                } else if left_clicked {
+                    if !self.selected_indices.contains(&i) {
+                        self.handle_primary_click_on_entry(i, shift_held, false);
+                    }
+                    if self.is_draggable(i) {
+                        self.drag_state.start_screen_pos = mouse;
+                        self.drag_state.payload = self.build_drag_payload(i);
+                    }
                 }
 
-                if left_clicked {
-                    self.handle_primary_click_on_entry(i, shift_held, false);
-                }
-
-                if right_clicked {
+                if !self.drag_state.active && right_clicked {
                     right_clicked_entry = true;
                     self.handle_secondary_click_on_entry(i, mouse);
                 }
             }
+        }
+
+        if !self.drag_state.payload.is_empty()
+            && left_held
+            && !self.drag_state.active
+            && mouse.distance(self.drag_state.start_screen_pos) > DRAG_ACTIVATION_THRESHOLD
+        {
+            self.drag_state.active = true;
+            widgets::consume_click();
         }
 
         if self.marquee_selection.active {
@@ -444,30 +535,149 @@ impl PanelDefinition for ResourcesPanel {
         }
 
         ctx.pop_clip_rect();
+
+        if self.drag_state.active {
+            let ghost_x = mouse.x - GHOST_OFFSET;
+            let ghost_y = mouse.y - GHOST_OFFSET;
+            let ghost_alpha = Color::new(1.0, 1.0, 1.0, 0.6);
+
+            if self.drag_state.payload.len() == 1 {
+                let payload = &self.drag_state.payload[0];
+                let texture = self.icon_texture(payload.icon_type);
+                ctx.draw_texture_ex(
+                    texture,
+                    ghost_x,
+                    ghost_y,
+                    ghost_alpha,
+                    DrawTextureParams {
+                        dest_size: Some(vec2(ICON_SIZE, ICON_SIZE)),
+                        ..Default::default()
+                    },
+                );
+                let label = truncate_label(ctx, &payload.name, ICON_SIZE, LABEL_FONT_SIZE);
+                let label_width = measure_text(ctx, &label, LABEL_FONT_SIZE).width;
+                ctx.draw_text(
+                    &label,
+                    ghost_x + (ICON_SIZE - label_width) / 2.0,
+                    ghost_y + ICON_SIZE + 4.0 + LABEL_FONT_SIZE,
+                    LABEL_FONT_SIZE,
+                    ghost_alpha,
+                );
+            } else {
+                let payload = &self.drag_state.payload[0];
+                let texture = self.icon_texture(payload.icon_type);
+                ctx.draw_texture_ex(
+                    texture,
+                    ghost_x,
+                    ghost_y,
+                    ghost_alpha,
+                    DrawTextureParams {
+                        dest_size: Some(vec2(ICON_SIZE, ICON_SIZE)),
+                        ..Default::default()
+                    },
+                );
+                let count = self.drag_state.payload.len() - 1;
+                let badge_text = format!("+{}", count);
+                let badge_font_size = 14.0;
+                let text_width = measure_text(ctx, &badge_text, badge_font_size).width;
+                let badge_padding = 4.0;
+                let badge_w = text_width + badge_padding * 2.0;
+                let badge_h = badge_font_size + badge_padding;
+                let badge_x = ghost_x + ICON_SIZE - badge_w + 4.0;
+                let badge_y = ghost_y + ICON_SIZE - badge_h + 4.0;
+                ctx.draw_rectangle(
+                    badge_x,
+                    badge_y,
+                    badge_w,
+                    badge_h,
+                    Color::new(0.2, 0.2, 0.2, 0.8),
+                );
+                ctx.draw_text(
+                    &badge_text,
+                    badge_x + badge_padding,
+                    badge_y + badge_font_size,
+                    badge_font_size,
+                    Color::WHITE,
+                );
+            }
+        }
+
         area.draw_scrollbar(ctx, &self.scroll_state);
 
         if clicked_empty_space {
             self.begin_marquee_selection(content_mouse, shift_held);
         }
 
-        if self.marquee_selection.active && ctx.is_mouse_button_released(MouseButton::Left) {
-            if let Some(start) = self.marquee_selection.start_content_pos {
-                let marquee_rect = rect_from_two_points(start, content_mouse);
-                let matched: BTreeSet<usize> = self
-                    .entries
-                    .iter()
-                    .enumerate()
-                    .filter_map(|(index, entry)| {
-                        if entry.is_parent() {
-                            return None;
-                        }
-                        rects_intersect(marquee_rect, cell_content_rect(index, cols))
-                            .then_some(index)
-                    })
-                    .collect();
-                self.commit_marquee_selection(matched);
-            } else {
-                self.reset_marquee_selection();
+        if ctx.is_mouse_button_released(MouseButton::Left) {
+            if self.drag_state.active {
+                let mut dropped = false;
+                if let Some(target_index) = self.drop_target_index(mouse, content_rect, cols) {
+                    let dest_dir = if self.entries[target_index].is_parent() {
+                        self.navigation
+                            .current()
+                            .parent()
+                            .map(|p| p.to_path_buf())
+                            .unwrap_or_default()
+                    } else {
+                        self.entries[target_index].path.clone()
+                    };
+
+                    let targets: Vec<MoveTarget> = self
+                        .drag_state
+                        .payload
+                        .iter()
+                        .filter_map(|p| {
+                            if p.path.parent() == Some(dest_dir.as_path()) {
+                                return None;
+                            }
+                            if p.path.is_dir() && dest_dir.starts_with(&p.path) {
+                                return None;
+                            }
+                            if p.path.is_dir() {
+                                Some(MoveTarget::Directory {
+                                    old_path: p.path.clone().into(),
+                                    new_path: dest_dir.join(&p.name),
+                                })
+                            } else {
+                                Some(MoveTarget::File {
+                                    old_path: p.path.clone(),
+                                    new_path: dest_dir.join(&p.name),
+                                    key: editor.game.asset_registry.key_for_full_path(&p.path),
+                                })
+                            }
+                        })
+                        .collect();
+
+                    if !targets.is_empty() {
+                        push_command(Box::new(BatchMoveCmd::new(targets)));
+                        dropped = true;
+                    }
+                }
+                self.drag_state = DragState::default();
+                if dropped {
+                    self.clear_selection();
+                }
+            } else if !self.drag_state.payload.is_empty() {
+                self.drag_state = DragState::default();
+            } else if self.marquee_selection.active {
+                if let Some(start) = self.marquee_selection.start_content_pos {
+                    let marquee_rect = rect_from_two_points(start, content_mouse);
+                    let matched: BTreeSet<usize> = self
+                        .entries
+                        .iter()
+                        .enumerate()
+                        .filter_map(|(index, entry)| {
+                            if entry.is_parent() {
+                                return None;
+                            }
+                            rects_intersect(marquee_rect, cell_content_rect(index, cols))
+                                .then_some(index)
+                        })
+                        .collect();
+                    self.commit_marquee_selection(matched);
+                } else {
+                    self.reset_marquee_selection();
+                }
             }
         }
 

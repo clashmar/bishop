@@ -1,6 +1,6 @@
 use std::collections::BTreeSet;
 
-use super::{context_menu::*, MarqueeSelectionState, ResourcesPanel};
+use super::{context_menu::*, DragPayload, MarqueeSelectionState, ResourcesPanel};
 use bishop::prelude::*;
 use engine_core::prelude::*;
 use std::path::PathBuf;
@@ -132,6 +132,33 @@ impl ResourcesPanel {
     pub(crate) fn handle_secondary_click_on_background(&mut self, position: Vec2) {
         self.clear_selection();
         self.active_menu = Some(context_target_for_background(position));
+    }
+
+    pub(crate) fn is_draggable(&self, entry_index: usize) -> bool {
+        self.entries
+            .get(entry_index)
+            .is_some_and(|e| !matches!(e.kind, EntryKind::Parent | EntryKind::SystemDirectory))
+    }
+
+    pub(crate) fn build_drag_payload(&self, pressed_index: usize) -> Vec<DragPayload> {
+        let source_indices: Vec<usize> = if self.selected_indices.contains(&pressed_index) {
+            self.selected_indices.iter().copied().collect()
+        } else {
+            vec![pressed_index]
+        };
+
+        source_indices
+            .into_iter()
+            .filter(|&i| self.is_draggable(i))
+            .map(|i| {
+                let entry = &self.entries[i];
+                DragPayload {
+                    path: entry.path.clone(),
+                    name: entry.name.clone(),
+                    icon_type: entry.icon_type,
+                }
+            })
+            .collect()
     }
 
     /// Returns a pending delete action for the current selection.

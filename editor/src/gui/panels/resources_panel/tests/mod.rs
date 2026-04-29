@@ -1,5 +1,6 @@
 mod click_tests;
 mod context_menu_tests;
+mod drag_tests;
 mod icon_mapper_tests;
 mod navigation_tests;
 mod open_resource_tests;
