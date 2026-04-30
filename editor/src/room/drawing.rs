@@ -13,6 +13,7 @@ use crate::tilemap::tilemap_editor::TILEMAP_SUB_MODES;
 use crate::world::coord;
 use bishop::prelude::*;
 use engine_core::prelude::*;
+use widgets::constants::layout;
 
 const PLACEHOLDER_OPACITY: f32 = 0.5;
 const MODE_SELECTOR_PADDING: f32 = 8.0;
@@ -39,10 +40,10 @@ fn merged_play_button_layout(
     play_dims: TextDimensions,
     mode_dims: TextDimensions,
 ) -> MergedPlayButtonLayout {
-    let play_x = rect.x + WIDGET_PADDING;
+    let play_x = rect.x + layout::WIDGET_PADDING;
     let (_, play_y) = menu_button_text_position(rect, play_dims);
-    let divider_x = play_x + play_dims.width + WIDGET_PADDING;
-    let mode_x = divider_x + WIDGET_PADDING;
+    let divider_x = play_x + play_dims.width + layout::WIDGET_PADDING;
+    let mode_x = divider_x + layout::WIDGET_PADDING;
     let mode_y = rect.y + (rect.h - mode_dims.height) / 2.0 + mode_dims.offset_y;
 
     MergedPlayButtonLayout {
@@ -53,7 +54,7 @@ fn merged_play_button_layout(
         divider_x,
         divider_y: rect.y + 6.0,
         divider_h: rect.h - 12.0,
-        width: play_dims.width + mode_dims.width + WIDGET_PADDING * 4.0,
+        width: play_dims.width + mode_dims.width + layout::WIDGET_PADDING * 4.0,
     }
 }
 
@@ -187,15 +188,16 @@ impl RoomEditor {
                 // Play‑test button (menu bar)
                 let play_label = "Play";
                 let startup_mode = get_startup_mode();
-                let play_dims = measure_text(ctx, play_label, HEADER_FONT_SIZE_20);
-                let mode_dims = measure_text(ctx, &startup_mode.to_string(), DEFAULT_FONT_SIZE_16);
+                let play_dims = measure_text(ctx, play_label, layout::HEADER_FONT_SIZE_20);
+                let mode_dims =
+                    measure_text(ctx, &startup_mode.to_string(), layout::DEFAULT_FONT_SIZE_16);
                 let play_width = merged_play_button_layout(
                     Rect::new(0.0, 0.0, 0.0, BTN_HEIGHT),
                     play_dims,
                     mode_dims,
                 )
                 .width;
-                let play_x = mode_rect.x + mode_rect.w + WIDGET_SPACING;
+                let play_x = mode_rect.x + mode_rect.w + layout::WIDGET_SPACING;
                 let play_rect = Rect::new(play_x, INSET, play_width, BTN_HEIGHT);
 
                 let clicks = Button::new(play_rect, "")
@@ -229,13 +231,13 @@ impl RoomEditor {
 
         let txt = format!("({:.0}, {:.0})", world_grid.x, world_grid.y,);
 
-        let txt_metrics = measure_text(ctx, &txt, DEFAULT_FONT_SIZE_16);
+        let txt_metrics = measure_text(ctx, &txt, layout::DEFAULT_FONT_SIZE_16);
         let margin = 10.0;
 
         let x = (ctx.screen_width() - txt_metrics.width) / 2.0;
         let y = ctx.screen_height() - margin;
 
-        ctx.draw_text(&txt, x, y, DEFAULT_FONT_SIZE_16, Color::BLUE);
+        ctx.draw_text(&txt, x, y, layout::DEFAULT_FONT_SIZE_16, Color::BLUE);
     }
 
     /// Draw viewport rectangles for all cameras in the room when a camera is selected.
@@ -321,7 +323,7 @@ fn draw_merged_play_button_label(
         "Play",
         layout.play_x,
         layout.play_y,
-        HEADER_FONT_SIZE_20,
+        layout::HEADER_FONT_SIZE_20,
         Color::BLACK,
     );
     ctx.draw_line(
@@ -336,7 +338,7 @@ fn draw_merged_play_button_label(
         &startup_mode.to_string(),
         layout.mode_x,
         layout.mode_y,
-        DEFAULT_FONT_SIZE_16,
+        layout::DEFAULT_FONT_SIZE_16,
         Color::BLACK,
     );
 }

@@ -4,6 +4,7 @@ use crate::gui::prompts::constants::*;
 use crate::gui::prompts::helpers::*;
 use bishop::prelude::*;
 use engine_core::prelude::*;
+use widgets::constants::layout;
 use widgets::{input_is_focused, request_focus};
 
 /// Result of a string prompt.
@@ -34,7 +35,7 @@ impl StringPrompt {
     /// Create a new prompt centred inside the supplied rect.
     pub fn new(modal_rect: Rect, message: impl Into<String>) -> Self {
         let total_h = PROMPT_TOP_PADDING
-            + DEFAULT_FONT_SIZE_16
+            + layout::DEFAULT_FONT_SIZE_16
             + PROMPT_TEXT_GAP
             + FIELD_H
             + PROMPT_SECTION_GAP
@@ -83,7 +84,7 @@ impl StringPrompt {
 
         let field_rect = Rect::new(
             self.rect.x,
-            self.rect.y + PROMPT_TOP_PADDING + DEFAULT_FONT_SIZE_16 + PROMPT_TEXT_GAP,
+            self.rect.y + PROMPT_TOP_PADDING + layout::DEFAULT_FONT_SIZE_16 + PROMPT_TEXT_GAP,
             self.rect.w,
             FIELD_H,
         );
@@ -397,7 +398,7 @@ mod tests {
         let (confirm_rect, _) = {
             let field_rect = Rect::new(
                 prompt.rect.x,
-                prompt.rect.y + PROMPT_TOP_PADDING + DEFAULT_FONT_SIZE_16 + PROMPT_TEXT_GAP,
+                prompt.rect.y + PROMPT_TOP_PADDING + layout::DEFAULT_FONT_SIZE_16 + PROMPT_TEXT_GAP,
                 prompt.rect.w,
                 FIELD_H,
             );
@@ -440,7 +441,7 @@ mod tests {
         let (confirm_rect, _) = {
             let field_rect = Rect::new(
                 prompt.rect.x,
-                prompt.rect.y + PROMPT_TOP_PADDING + DEFAULT_FONT_SIZE_16 + PROMPT_TEXT_GAP,
+                prompt.rect.y + PROMPT_TOP_PADDING + layout::DEFAULT_FONT_SIZE_16 + PROMPT_TEXT_GAP,
                 prompt.rect.w,
                 FIELD_H,
             );
@@ -482,7 +483,7 @@ mod tests {
         let (confirm_rect, _) = {
             let field_rect = Rect::new(
                 prompt.rect.x,
-                prompt.rect.y + PROMPT_TOP_PADDING + DEFAULT_FONT_SIZE_16 + PROMPT_TEXT_GAP,
+                prompt.rect.y + PROMPT_TOP_PADDING + layout::DEFAULT_FONT_SIZE_16 + PROMPT_TEXT_GAP,
                 prompt.rect.w,
                 FIELD_H,
             );

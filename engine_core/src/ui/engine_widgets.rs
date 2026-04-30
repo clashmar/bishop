@@ -10,7 +10,8 @@ use bishop::prelude::*;
 use std::borrow::Cow;
 use std::fs;
 use std::path::{Path, PathBuf};
-use widgets::{truncate_to_width, Button, WidgetId, DEFAULT_FONT_SIZE_16, WIDGET_SPACING};
+use widgets::constants::layout::{DEFAULT_FONT_SIZE_16, WIDGET_SPACING};
+use widgets::{truncate_to_width, Button, WidgetId};
 
 pub fn gui_sprite_picker<C: BishopContext>(
     ctx: &mut C,

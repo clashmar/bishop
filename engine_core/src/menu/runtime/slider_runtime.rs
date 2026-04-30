@@ -1,4 +1,4 @@
-use widgets::{HOLD_INITIAL_DELAY, HOLD_REPEAT_RATE};
+use widgets::constants::input_repeat::{HOLD_INITIAL_DELAY, HOLD_REPEAT_RATE};
 
 /// Direction for adjusting a focused slider.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

@@ -1,4 +1,4 @@
-use crate::ui::widgets::DEFAULT_FIELD_HEIGHT;
+use widgets::constants::layout::DEFAULT_FIELD_HEIGHT;
 
 const DEFAULT_TOP_PADDING: f32 = 10.0;
 const DEFAULT_BOTTOM_GUTTER: f32 = 10.0;

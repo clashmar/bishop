@@ -11,6 +11,7 @@ use std::fmt::{Display, Formatter, Result as FmtResult};
 use std::fs;
 use std::io::{self, Error, ErrorKind};
 use std::path::Path;
+use widgets::constants::layout;
 
 const PANEL_W: f32 = 250.0;
 const PANEL_H: f32 = 750.0;
@@ -150,8 +151,8 @@ impl PanelDefinition for PrefabPalettePanel {
             ctx.draw_text(
                 "No recent prefabs",
                 cards_content.x + 4.0,
-                cards_content.y + DEFAULT_FONT_SIZE_16,
-                DEFAULT_FONT_SIZE_16,
+                cards_content.y + layout::DEFAULT_FONT_SIZE_16,
+                layout::DEFAULT_FONT_SIZE_16,
                 Color::GREY,
             );
         }
@@ -336,17 +337,17 @@ fn draw_recent_prefab_card(
     let truncated_name = truncate_to_width(
         ctx,
         &name,
-        footer_rect.w - WIDGET_PADDING,
-        DEFAULT_FONT_SIZE_16,
+        footer_rect.w - layout::WIDGET_PADDING,
+        layout::DEFAULT_FONT_SIZE_16,
     );
-    let text_dims = measure_text(ctx, &truncated_name, DEFAULT_FONT_SIZE_16);
+    let text_dims = measure_text(ctx, &truncated_name, layout::DEFAULT_FONT_SIZE_16);
     let text_x = footer_rect.x + (footer_rect.w - text_dims.width).max(0.0) * 0.5;
     let text_y = footer_rect.y + footer_rect.h - 10.0;
     ctx.draw_text(
         &truncated_name,
         text_x,
         text_y,
-        DEFAULT_FONT_SIZE_16,
+        layout::DEFAULT_FONT_SIZE_16,
         Color::WHITE,
     );
 

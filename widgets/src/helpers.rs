@@ -1,3 +1,4 @@
+use crate::constants::{colors, layout};
 use crate::*;
 
 /// Truncates text to fit within a given pixel width, appending "…" if needed.
@@ -37,31 +38,31 @@ pub fn draw_input_field_text<C: BishopContext>(ctx: &mut C, text: &str, rect: im
     draw_text_ui(
         ctx,
         text,
-        rect.x + WIDGET_PADDING / 2.,
+        rect.x + layout::WIDGET_PADDING / 2.,
         rect.y + rect.h * 0.7,
-        DEFAULT_FONT_SIZE_16,
-        FIELD_TEXT_COLOR,
+        layout::DEFAULT_FONT_SIZE_16,
+        colors::DEFAULT_TEXT_COLOR,
     );
 }
 
 /// Centers text horizontally and returns the x position and width.
 pub fn center_text_field<C: BishopContext>(ctx: &C, x: f32, text: &str) -> (f32, f32) {
     let text_to_measure = if text.is_empty() {
-        PLACEHOLDER_TEXT
+        crate::constants::PLACEHOLDER_TEXT
     } else {
         text
     };
-    let text_size = measure_text_ui(ctx, text_to_measure, DEFAULT_FONT_SIZE_16);
+    let text_size = measure_text_ui(ctx, text_to_measure, layout::DEFAULT_FONT_SIZE_16);
     let new_x = x - (text_size.width / 2.);
     (
-        new_x - WIDGET_PADDING / 2.,
-        text_size.width + WIDGET_PADDING,
+        new_x - layout::WIDGET_PADDING / 2.,
+        text_size.width + layout::WIDGET_PADDING,
     )
 }
 
 /// Returns the rectangle width needed to fit the given text.
 pub fn rect_width_for_text<C: BishopContext>(ctx: &C, text: &str, font_size: f32) -> f32 {
-    measure_text_ui(ctx, text, font_size).width + WIDGET_PADDING * 2.0
+    measure_text_ui(ctx, text, font_size).width + layout::WIDGET_PADDING * 2.0
 }
 
 /// Returns the selection range as (start, end) where start <= end.
@@ -123,7 +124,7 @@ pub fn char_index_from_x<C: BishopContext>(
     font_size: f32,
     scroll_offset: f32,
 ) -> usize {
-    let text_start_x = field_x + WIDGET_PADDING / 2.;
+    let text_start_x = field_x + layout::WIDGET_PADDING / 2.;
     let relative_x = mouse_x - text_start_x + scroll_offset;
 
     if relative_x <= 0.0 {

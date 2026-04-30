@@ -2,6 +2,7 @@
 use crate::gui::prompts::constants::*;
 use bishop::prelude::*;
 use engine_core::prelude::*;
+use widgets::constants::layout;
 
 /// Returns a centered content rect inside a modal for prompt widgets.
 pub fn prompt_content_rect(modal_rect: Rect, content_h: f32) -> Rect {
@@ -18,12 +19,12 @@ pub fn draw_prompt_label<C: BishopContext>(
     x: f32,
     top_y: f32,
 ) -> TextDimensions {
-    let dims = measure_text(ctx, text, DEFAULT_FONT_SIZE_16);
+    let dims = measure_text(ctx, text, layout::DEFAULT_FONT_SIZE_16);
     ctx.draw_text(
         text,
         x,
         top_y + dims.offset_y,
-        DEFAULT_FONT_SIZE_16,
+        layout::DEFAULT_FONT_SIZE_16,
         Color::WHITE,
     );
     dims

@@ -20,13 +20,14 @@ use bishop::prelude::*;
 use engine_core::prelude::*;
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter, Result as FmtResult};
+use widgets::constants::layout;
 
 const SCROLL_SPEED: f32 = 5.0;
 const PREFAB_METADATA_HEIGHT: f32 = 66.0;
 const PREFAB_ACTION_TOP_PADDING: f32 = 4.0;
 const PREFAB_ACTION_ROW_SPACING: f32 = 8.0;
 const PREFAB_ACTION_ROW_BUTTON_SCALE: f32 = 0.9;
-const PREFAB_ACTION_ROW_BUTTON_GAP: f32 = WIDGET_SPACING * 0.5;
+const PREFAB_ACTION_ROW_BUTTON_GAP: f32 = layout::WIDGET_SPACING * 0.5;
 const PREFAB_SECTION_BOTTOM_GAP: f32 = 8.0;
 
 struct PrefabActionStripLayout {
@@ -160,8 +161,8 @@ impl SceneInspector {
             }
 
             let add_label = "Add Component";
-            let txt_add = measure_text(ctx, add_label, HEADER_FONT_SIZE_20);
-            let btn_w_add = txt_add.width + WIDGET_PADDING;
+            let txt_add = measure_text(ctx, add_label, layout::HEADER_FONT_SIZE_20);
+            let btn_w_add = txt_add.width + layout::WIDGET_PADDING;
             let add_rect = register_rect(
                 &mut interactive_rects,
                 Rect::new(
@@ -173,11 +174,11 @@ impl SceneInspector {
             );
 
             let remove_label = "Remove";
-            let txt_remove = measure_text(ctx, remove_label, HEADER_FONT_SIZE_20);
-            let btn_w_remove = txt_remove.width + WIDGET_PADDING;
+            let txt_remove = measure_text(ctx, remove_label, layout::HEADER_FONT_SIZE_20);
+            let btn_w_remove = txt_remove.width + layout::WIDGET_PADDING;
             let create_label = "+ Entity";
-            let txt_create = measure_text(ctx, create_label, HEADER_FONT_SIZE_20);
-            let btn_w_create = txt_create.width + WIDGET_PADDING;
+            let txt_create = measure_text(ctx, create_label, layout::HEADER_FONT_SIZE_20);
+            let btn_w_create = txt_create.width + layout::WIDGET_PADDING;
 
             let top_offset = MENU_PANEL_HEIGHT + INSET;
             let inner = Rect::new(
@@ -366,7 +367,7 @@ impl SceneInspector {
                         }
                     }
 
-                    y += h + WIDGET_SPACING;
+                    y += h + layout::WIDGET_SPACING;
                 }
             }
 
@@ -461,7 +462,11 @@ impl SceneInspector {
                 let create_rect = register_rect(
                     &mut interactive_rects,
                     Rect::new(
-                        add_rect.x - WIDGET_SPACING - btn_w_remove - WIDGET_SPACING - btn_w_create,
+                        add_rect.x
+                            - layout::WIDGET_SPACING
+                            - btn_w_remove
+                            - layout::WIDGET_SPACING
+                            - btn_w_create,
                         panel_rect.y + INSET,
                         btn_w_create,
                         BTN_HEIGHT,
@@ -480,7 +485,7 @@ impl SceneInspector {
                 let remove_rect = register_rect(
                     &mut interactive_rects,
                     Rect::new(
-                        add_rect.x - WIDGET_SPACING - btn_w_remove,
+                        add_rect.x - layout::WIDGET_SPACING - btn_w_remove,
                         panel_rect.y + INSET,
                         btn_w_remove,
                         BTN_HEIGHT,
@@ -499,9 +504,9 @@ impl SceneInspector {
         } else {
             let create_label = "+ Entity";
             let open_label = "Open Prefab...";
-            let txt_open = measure_text(ctx, open_label, HEADER_FONT_SIZE_20);
-            let txt_create = measure_text(ctx, create_label, HEADER_FONT_SIZE_20);
-            let create_btn_w = txt_create.width + WIDGET_PADDING * 2.0;
+            let txt_open = measure_text(ctx, open_label, layout::HEADER_FONT_SIZE_20);
+            let txt_create = measure_text(ctx, create_label, layout::HEADER_FONT_SIZE_20);
+            let create_btn_w = txt_create.width + layout::WIDGET_PADDING * 2.0;
             let create_btn = Rect::new(
                 panel_rect.x + panel_rect.w - create_btn_w - BTN_MARGIN,
                 panel_rect.y + BTN_MARGIN,
@@ -511,10 +516,10 @@ impl SceneInspector {
 
             match scene_ctx.empty_state {
                 SceneEmptyInspectorBehavior::Prefab { fallback_parent } => {
-                    let open_btn_w = txt_open.width + WIDGET_PADDING * 2.0;
+                    let open_btn_w = txt_open.width + layout::WIDGET_PADDING * 2.0;
                     let delete_label = "Delete Prefab...";
-                    let txt_delete = measure_text(ctx, delete_label, HEADER_FONT_SIZE_20);
-                    let delete_btn_w = txt_delete.width + WIDGET_PADDING * 2.0;
+                    let txt_delete = measure_text(ctx, delete_label, layout::HEADER_FONT_SIZE_20);
+                    let delete_btn_w = txt_delete.width + layout::WIDGET_PADDING * 2.0;
                     let show_delete_button = matches!(
                         scene_ctx.command_mode,
                         EditorMode::Prefab(prefab_id) if prefab_id != crate::prefab::BLANK_PREFAB_ID
@@ -522,7 +527,7 @@ impl SceneInspector {
                     let open_btn = register_rect(
                         &mut interactive_rects,
                         Rect::new(
-                            create_btn.x - WIDGET_SPACING - open_btn_w,
+                            create_btn.x - layout::WIDGET_SPACING - open_btn_w,
                             create_btn.y,
                             open_btn_w,
                             BTN_HEIGHT,
@@ -539,7 +544,7 @@ impl SceneInspector {
                         let delete_btn = register_rect(
                             &mut interactive_rects,
                             Rect::new(
-                                open_btn.x - WIDGET_SPACING - delete_btn_w,
+                                open_btn.x - layout::WIDGET_SPACING - delete_btn_w,
                                 create_btn.y,
                                 delete_btn_w,
                                 BTN_HEIGHT,
@@ -563,10 +568,10 @@ impl SceneInspector {
             }
 
             let add_cam_label = "+ Camera";
-            let txt_cam = measure_text(ctx, add_cam_label, HEADER_FONT_SIZE_20);
-            let cam_btn_w = txt_cam.width + WIDGET_PADDING * 2.0;
+            let txt_cam = measure_text(ctx, add_cam_label, layout::HEADER_FONT_SIZE_20);
+            let cam_btn_w = txt_cam.width + layout::WIDGET_PADDING * 2.0;
             let cam_btn = Rect::new(
-                create_btn.x - WIDGET_SPACING - cam_btn_w,
+                create_btn.x - layout::WIDGET_SPACING - cam_btn_w,
                 create_btn.y,
                 cam_btn_w,
                 BTN_HEIGHT,
@@ -615,8 +620,8 @@ impl SceneInspector {
             }
 
             let txt_val = format!("{:.2}", cur_room.darkness);
-            let txt_measure = measure_text(ctx, &txt_val, DEFAULT_FONT_SIZE_16);
-            let txt_x = slider_rect.x - txt_measure.width - WIDGET_SPACING;
+            let txt_measure = measure_text(ctx, &txt_val, layout::DEFAULT_FONT_SIZE_16);
+            let txt_x = slider_rect.x - txt_measure.width - layout::WIDGET_SPACING;
             let txt_y = slider_rect.y + 20.;
             ctx.draw_text(&txt_val, txt_x, txt_y, 20.0, Color::WHITE);
 
@@ -693,11 +698,11 @@ impl SceneInspector {
                 && !(hide_room_only_components
                     && is_scene_component_hidden_in_prefab(module.title()))
             {
-                total_content_h += module.height() + WIDGET_SPACING;
+                total_content_h += module.height() + layout::WIDGET_SPACING;
             }
         }
         if total_content_h > 0.0 {
-            total_content_h -= WIDGET_SPACING;
+            total_content_h -= layout::WIDGET_SPACING;
         }
         total_content_h += INSET * 2.0;
         total_content_h
@@ -740,13 +745,13 @@ fn prefab_open_button_label<C: BishopContext>(
     truncate_to_width(
         ctx,
         label,
-        button_width - WIDGET_PADDING * 2.0,
-        DEFAULT_FONT_SIZE_16,
+        button_width - layout::WIDGET_PADDING * 2.0,
+        layout::DEFAULT_FONT_SIZE_16,
     )
 }
 
 fn prefab_metadata_section_spacing() -> f32 {
-    PREFAB_METADATA_HEIGHT + WIDGET_SPACING + PREFAB_SECTION_BOTTOM_GAP
+    PREFAB_METADATA_HEIGHT + layout::WIDGET_SPACING + PREFAB_SECTION_BOTTOM_GAP
 }
 
 fn prefab_action_strip_layout(metadata_rect: Rect) -> PrefabActionStripLayout {

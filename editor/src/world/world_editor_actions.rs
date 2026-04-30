@@ -3,6 +3,7 @@ use crate::world::coord;
 use crate::world::world_editor::WorldEditor;
 use bishop::prelude::*;
 use engine_core::prelude::*;
+use widgets::constants::layout;
 
 impl WorldEditor {
     /// Delete a room by its RoomId.
@@ -103,7 +104,7 @@ impl WorldEditor {
         let cur_world = game
             .current_world_mut()
             .expect("add_room requires a current world");
-        
+
         cur_world.rooms.push(room);
 
         let len = cur_world.rooms.len();
@@ -144,12 +145,12 @@ impl WorldEditor {
 
         let txt = format!("({:.0}, {:.0})", world_grid.x, world_grid.y,);
 
-        let txt_metrics = measure_text(ctx, &txt, DEFAULT_FONT_SIZE_16);
+        let txt_metrics = measure_text(ctx, &txt, layout::DEFAULT_FONT_SIZE_16);
         let margin = 10.0;
 
         let x = (ctx.screen_width() - txt_metrics.width) / 2.0;
         let y = ctx.screen_height() - margin;
 
-        ctx.draw_text(&txt, x, y, DEFAULT_FONT_SIZE_16, Color::BLACK);
+        ctx.draw_text(&txt, x, y, layout::DEFAULT_FONT_SIZE_16, Color::BLACK);
     }
 }

@@ -1,7 +1,6 @@
 use super::groups::{
-    assign_preset_by_name, available_preset_names, handle_assign_option,
-    handle_preset_action, preset_actions_for_group, rename_target_group, AssignOption,
-    PresetAction,
+    assign_preset_by_name, available_preset_names, handle_assign_option, handle_preset_action,
+    preset_actions_for_group, rename_target_group, AssignOption, PresetAction,
 };
 use super::preview::{
     active_preview_is_cleared_for_test, set_active_preview_for_test, ActivePreview,

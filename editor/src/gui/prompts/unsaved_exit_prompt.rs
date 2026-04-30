@@ -3,6 +3,7 @@ use crate::gui::prompts::constants::*;
 use crate::gui::prompts::helpers::{draw_prompt_label, prompt_content_rect};
 use bishop::prelude::*;
 use engine_core::prelude::*;
+use widgets::constants::layout;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum UnsavedExitResult {
@@ -19,7 +20,7 @@ pub struct UnsavedChangesExitPrompt {
 impl UnsavedChangesExitPrompt {
     pub fn new(modal_rect: Rect, message: impl Into<String>) -> Self {
         let total_h = PROMPT_TOP_PADDING
-            + DEFAULT_FONT_SIZE_16
+            + layout::DEFAULT_FONT_SIZE_16
             + PROMPT_SECTION_GAP
             + BUTTON_H
             + PROMPT_BOTTOM_PADDING;
@@ -32,11 +33,12 @@ impl UnsavedChangesExitPrompt {
     }
 
     pub fn draw(&mut self, ctx: &mut WgpuContext) -> Option<UnsavedExitResult> {
-        let text_dims = measure_text(ctx, &self.message, DEFAULT_FONT_SIZE_16);
+        let text_dims = measure_text(ctx, &self.message, layout::DEFAULT_FONT_SIZE_16);
         let x = self.rect.x + (self.rect.w - text_dims.width) * 0.5;
         draw_prompt_label(ctx, &self.message, x, self.rect.y + PROMPT_TOP_PADDING);
 
-        let y = self.rect.y + PROMPT_TOP_PADDING + DEFAULT_FONT_SIZE_16 + PROMPT_SECTION_GAP;
+        let y =
+            self.rect.y + PROMPT_TOP_PADDING + layout::DEFAULT_FONT_SIZE_16 + PROMPT_SECTION_GAP;
         let gap = 6.0;
         let width = (self.rect.w - (gap * 2.0)) / 3.0;
         let first = Rect::new(self.rect.x, y, width, BUTTON_H);

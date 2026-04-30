@@ -2,6 +2,7 @@ use crate::menu::*;
 use crate::text::TextManager;
 use bishop::prelude::*;
 use std::collections::HashMap;
+use widgets::constants::colors;
 use widgets::*;
 
 /// Renders the currently active menu and returns a triggered button action.
@@ -209,9 +210,9 @@ fn render_slider<C: BishopContext>(
         screen_rect.h,
     );
     let label_bg = if is_focused {
-        HOVER_COLOR
+        colors::DEFAULT_HOVER_COLOR
     } else {
-        FIELD_BACKGROUND_COLOR
+        colors::DEFAULT_BACKGROUND_COLOR
     };
     ctx.draw_rectangle(
         label_rect.x,

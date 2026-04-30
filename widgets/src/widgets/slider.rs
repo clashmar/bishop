@@ -1,3 +1,4 @@
+use crate::constants::colors;
 use crate::*;
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -50,23 +51,41 @@ pub fn gui_slider<C: BishopContext>(
     let norm = ((value - min) / range).clamp(0.0, 1.0);
     let handle_x = rect.x + norm * (rect.w - handle_sz);
 
-    ctx.draw_rectangle(rect.x, rect.y, rect.w, rect.h, FIELD_BACKGROUND_COLOR);
+    let track_color = Color::new(0.2, 0.2, 0.2, 0.8);
+    let handle_color_dragging = Color::new(0.6, 0.6, 0.9, 1.0);
+    let handle_color_idle = Color::new(0.4, 0.4, 0.8, 1.0);
+
     ctx.draw_rectangle(
         rect.x,
-        track_y,
+        rect.y,
         rect.w,
-        track_h,
-        Color::new(0.2, 0.2, 0.2, 0.8),
+        rect.h,
+        resolve(None, colors::DEFAULT_BACKGROUND_COLOR),
     );
-    ctx.draw_rectangle_lines(rect.x, rect.y, rect.w, rect.h, 2., OUTLINE_COLOR);
+    ctx.draw_rectangle(rect.x, track_y, rect.w, track_h, resolve(None, track_color));
+    ctx.draw_rectangle_lines(
+        rect.x,
+        rect.y,
+        rect.w,
+        rect.h,
+        2.,
+        resolve(None, colors::DEFAULT_BORDER_COLOR),
+    );
 
     let handle_col = if was_dragging && !is_dropdown_open() && !is_context_menu_open() {
-        Color::new(0.6, 0.6, 0.9, 1.0)
+        resolve(None, handle_color_dragging)
     } else {
-        Color::new(0.4, 0.4, 0.8, 1.0)
+        resolve(None, handle_color_idle)
     };
     ctx.draw_rectangle(handle_x, rect.y, handle_sz, rect.h, handle_col);
-    ctx.draw_rectangle_lines(handle_x, rect.y, handle_sz, rect.h, 2., Color::WHITE);
+    ctx.draw_rectangle_lines(
+        handle_x,
+        rect.y,
+        handle_sz,
+        rect.h,
+        2.,
+        resolve(None, Color::WHITE),
+    );
 
     if is_dropdown_open() || is_context_menu_open() {
         return (value, SliderState::Unchanged);

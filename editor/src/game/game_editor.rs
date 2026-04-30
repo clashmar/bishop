@@ -13,6 +13,7 @@ use crate::world::coord;
 use bishop::prelude::*;
 use engine_core::prelude::*;
 use once_cell::sync::Lazy;
+use widgets::constants::layout;
 
 use std::collections::HashMap;
 use strum::IntoEnumIterator;
@@ -278,7 +279,7 @@ impl GameEditor {
         const BTN_MARGIN: f32 = 10.0;
 
         let create_label = "New World";
-        let txt_create = measure_text(ctx, create_label, HEADER_FONT_SIZE_20);
+        let txt_create = measure_text(ctx, create_label, layout::HEADER_FONT_SIZE_20);
         let create_btn = Rect::new(
             ctx.screen_width() - txt_create.width - BTN_MARGIN - PADDING,
             BTN_MARGIN,

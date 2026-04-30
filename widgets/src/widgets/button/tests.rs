@@ -1,4 +1,5 @@
 use super::*;
+use crate::constants::colors;
 use crate::widgets::test_support::WidgetTestContext;
 
 #[test]
@@ -107,10 +108,16 @@ fn suppressed_buttons_are_not_dimmed_and_do_not_click() {
     assert!(!Button::new(button, "Play").suppressed(true).show(&mut ctx));
     assert_eq!(
         ctx.rectangle_fills.last().copied(),
-        Some(FIELD_BACKGROUND_COLOR)
+        Some(colors::DEFAULT_BACKGROUND_COLOR)
     );
-    assert_eq!(ctx.rectangle_lines.last().copied(), Some(OUTLINE_COLOR));
-    assert_eq!(ctx.text_colors.last().copied(), Some(FIELD_TEXT_COLOR));
+    assert_eq!(
+        ctx.rectangle_lines.last().copied(),
+        Some(colors::DEFAULT_BORDER_COLOR)
+    );
+    assert_eq!(
+        ctx.text_colors.last().copied(),
+        Some(colors::DEFAULT_TEXT_COLOR)
+    );
 }
 
 #[test]

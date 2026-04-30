@@ -6,6 +6,7 @@ use std::cell::RefCell;
 use std::collections::hash_map::DefaultHasher;
 use std::fmt::Display;
 use std::hash::{Hash, Hasher};
+use widgets::constants::layout;
 
 const MENU_BUTTON_TARGET_SALT: u64 = 0x4D45_4E55_4254_4E31;
 const MENU_ENTRY_TARGET_SALT: u64 = 0x4D45_4E55_454E_5452;
@@ -72,9 +73,9 @@ pub(crate) fn menu_dropdown<T: Clone + PartialEq + Display>(
 
     let mut max_opt_width = 0.0_f32;
     for opt in options {
-        let label_w = measure_text(ctx, &to_string(opt), DEFAULT_FONT_SIZE_16).width;
+        let label_w = measure_text(ctx, &to_string(opt), layout::DEFAULT_FONT_SIZE_16).width;
         let shortcut_w = shortcut(opt)
-            .map(|s| measure_text(ctx, s, DEFAULT_FONT_SIZE_16).width + SPACING)
+            .map(|s| measure_text(ctx, s, layout::DEFAULT_FONT_SIZE_16).width + SPACING)
             .unwrap_or(0.0);
         let total_w = label_w + shortcut_w;
         if total_w > max_opt_width {
@@ -140,18 +141,18 @@ pub(crate) fn menu_dropdown<T: Clone + PartialEq + Display>(
                 &to_string(opt),
                 entry_rect.x + 5.0,
                 entry_rect.y + entry_rect.h * 0.7,
-                DEFAULT_FONT_SIZE_16,
+                layout::DEFAULT_FONT_SIZE_16,
                 Color::BLACK,
             );
 
             if let Some(shortcut) = shortcut(opt) {
-                let sc_width = measure_text(ctx, shortcut, DEFAULT_FONT_SIZE_16).width;
+                let sc_width = measure_text(ctx, shortcut, layout::DEFAULT_FONT_SIZE_16).width;
                 let sc_x = entry_rect.x + entry_rect.w - sc_width - 5.0;
                 ctx.draw_text(
                     shortcut,
                     sc_x,
                     entry_rect.y + entry_rect.h * 0.7,
-                    DEFAULT_FONT_SIZE_16,
+                    layout::DEFAULT_FONT_SIZE_16,
                     Color::WHITE,
                 );
             }
@@ -183,7 +184,7 @@ pub(crate) fn menu_dropdown<T: Clone + PartialEq + Display>(
 
 /// Draws a menu-styled button and returns `true` when clicked.
 pub fn menu_button(ctx: &mut WgpuContext, rect: Rect, label: &str, is_dropdown_open: bool) -> bool {
-    let txt_dims = ctx.measure_text(label, HEADER_FONT_SIZE_20);
+    let txt_dims = ctx.measure_text(label, layout::HEADER_FONT_SIZE_20);
     let (txt_x, txt_y) = menu_button_text_position(rect, txt_dims);
 
     let mouse = ctx.mouse_position();
@@ -203,7 +204,13 @@ pub fn menu_button(ctx: &mut WgpuContext, rect: Rect, label: &str, is_dropdown_o
         );
     }
 
-    ctx.draw_text(label, txt_x, txt_y, HEADER_FONT_SIZE_20, Color::BLACK);
+    ctx.draw_text(
+        label,
+        txt_x,
+        txt_y,
+        layout::HEADER_FONT_SIZE_20,
+        Color::BLACK,
+    );
 
     activate_on_release(
         MouseButton::Left,

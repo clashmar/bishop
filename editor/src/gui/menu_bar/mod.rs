@@ -8,6 +8,7 @@ use bishop::prelude::*;
 use engine_core::prelude::*;
 use std::fmt;
 use strum_macros::EnumIter;
+use widgets::constants::layout;
 
 /// Holds the state of the top-level menu bar.
 pub struct MenuBar {
@@ -226,7 +227,7 @@ impl MenuBar {
         let title_rect = Rect::new(
             x,
             y,
-            rect_width_for_text(ctx, title, HEADER_FONT_SIZE_20),
+            rect_width_for_text(ctx, title, layout::HEADER_FONT_SIZE_20),
             HEIGHT,
         );
 
@@ -248,19 +249,31 @@ impl MenuBar {
                         self.pending = Some(selected);
                     }
                 } else {
-                    let txt_dims = ctx.measure_text(title, HEADER_FONT_SIZE_20);
+                    let txt_dims = ctx.measure_text(title, layout::HEADER_FONT_SIZE_20);
                     let txt_x = title_rect.x + PADDING / 2.0;
                     let txt_y =
                         title_rect.y + (title_rect.h - txt_dims.height) / 2.0 + txt_dims.offset_y;
-                    ctx.draw_text(title, txt_x, txt_y, HEADER_FONT_SIZE_20, Color::BLACK);
+                    ctx.draw_text(
+                        title,
+                        txt_x,
+                        txt_y,
+                        layout::HEADER_FONT_SIZE_20,
+                        Color::BLACK,
+                    );
                 }
             }
             _ => {
-                let txt_dims = ctx.measure_text(title, HEADER_FONT_SIZE_20);
+                let txt_dims = ctx.measure_text(title, layout::HEADER_FONT_SIZE_20);
                 let txt_x = title_rect.x + PADDING / 2.0;
                 let txt_y =
                     title_rect.y + (title_rect.h - txt_dims.height) / 2.0 + txt_dims.offset_y;
-                ctx.draw_text(title, txt_x, txt_y, HEADER_FONT_SIZE_20, Color::BLACK);
+                ctx.draw_text(
+                    title,
+                    txt_x,
+                    txt_y,
+                    layout::HEADER_FONT_SIZE_20,
+                    Color::BLACK,
+                );
             }
         }
 
@@ -272,7 +285,7 @@ impl MenuBar {
         let file_rect = Rect::new(
             x,
             y,
-            rect_width_for_text(ctx, file_label, HEADER_FONT_SIZE_20),
+            rect_width_for_text(ctx, file_label, layout::HEADER_FONT_SIZE_20),
             HEIGHT,
         );
 
@@ -298,7 +311,7 @@ impl MenuBar {
         let edit_rect = Rect::new(
             x,
             y,
-            rect_width_for_text(ctx, edit_label, HEADER_FONT_SIZE_20),
+            rect_width_for_text(ctx, edit_label, layout::HEADER_FONT_SIZE_20),
             HEIGHT,
         );
 
@@ -324,7 +337,7 @@ impl MenuBar {
         let view_rect = Rect::new(
             x,
             y,
-            rect_width_for_text(ctx, view_label, HEADER_FONT_SIZE_20),
+            rect_width_for_text(ctx, view_label, layout::HEADER_FONT_SIZE_20),
             HEIGHT,
         );
 
@@ -353,7 +366,7 @@ impl MenuBar {
             let options_rect = Rect::new(
                 x,
                 y,
-                rect_width_for_text(ctx, options_label, HEADER_FONT_SIZE_20),
+                rect_width_for_text(ctx, options_label, layout::HEADER_FONT_SIZE_20),
                 HEIGHT,
             );
 
@@ -378,7 +391,7 @@ impl MenuBar {
         let editors_rect = Rect::new(
             x,
             y,
-            rect_width_for_text(ctx, editors_label, HEADER_FONT_SIZE_20),
+            rect_width_for_text(ctx, editors_label, layout::HEADER_FONT_SIZE_20),
             HEIGHT,
         );
 

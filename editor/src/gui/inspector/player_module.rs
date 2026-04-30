@@ -1,6 +1,7 @@
 // editor/src/gui/inspector/player_module.rs
 use bishop::prelude::*;
 use engine_core::prelude::*;
+use widgets::constants::colors;
 
 #[derive(Default)]
 pub struct PlayerModule {}
@@ -30,7 +31,7 @@ impl InspectorModule for PlayerModule {
                 rect.x,
                 rect.y + 20.0,
                 18.0,
-                FIELD_TEXT_COLOR,
+                colors::DEFAULT_TEXT_COLOR,
             );
         } else if ecs.has::<PlayerProxy>(entity) {
             ctx.draw_text(
@@ -38,7 +39,7 @@ impl InspectorModule for PlayerModule {
                 rect.x,
                 rect.y + 20.0,
                 18.0,
-                FIELD_TEXT_COLOR,
+                colors::DEFAULT_TEXT_COLOR,
             );
         }
     }

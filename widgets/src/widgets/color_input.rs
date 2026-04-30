@@ -1,3 +1,4 @@
+use crate::constants::{colors, layout};
 use crate::*;
 
 /// A hex color input widget with a color swatch preview.
@@ -6,6 +7,7 @@ pub struct ColorInput {
     rect: Rect,
     current: Color,
     blocked: bool,
+    visuals: WidgetVisuals,
 }
 
 impl ColorInput {
@@ -16,6 +18,7 @@ impl ColorInput {
             rect: rect.into(),
             current,
             blocked: false,
+            visuals: WidgetVisuals::default(),
         }
     }
 
@@ -25,11 +28,17 @@ impl ColorInput {
         self
     }
 
+    /// Sets visual overrides for the color input.
+    pub fn visuals(mut self, visuals: WidgetVisuals) -> Self {
+        self.visuals = visuals;
+        self
+    }
+
     /// Draws the widget and returns the resolved color.
     pub fn show<C: BishopContext>(self, ctx: &mut C) -> Color {
         let swatch_size = self.rect.h;
         let gap = 4.0;
-        let prefix_width = measure_text_ui(ctx, "#", DEFAULT_FONT_SIZE_16).width + 2.0;
+        let prefix_width = measure_text_ui(ctx, "#", layout::DEFAULT_FONT_SIZE_16).width + 2.0;
         let text_field_x = self.rect.x + swatch_size + gap + prefix_width;
         let text_field_w = self.rect.w - swatch_size - gap - prefix_width;
 
@@ -40,14 +49,15 @@ impl ColorInput {
             "#",
             prefix_x,
             prefix_y,
-            DEFAULT_FONT_SIZE_16,
-            FIELD_TEXT_COLOR,
+            layout::DEFAULT_FONT_SIZE_16,
+            resolve(self.visuals.text, colors::DEFAULT_TEXT_COLOR),
         );
 
         let hex = self.current.to_hex();
         let text_rect = Rect::new(text_field_x, self.rect.y, text_field_w, self.rect.h);
         let (hex_text, _focused) = TextInput::new(self.id, text_rect, &hex)
             .blocked(self.blocked)
+            .visuals(self.visuals)
             .max_len(6)
             .char_filter(hex_char_filter)
             .show(ctx);
@@ -68,7 +78,7 @@ impl ColorInput {
             swatch_rect.w,
             swatch_rect.h,
             2.0,
-            Color::WHITE,
+            resolve(self.visuals.border, Color::WHITE),
         );
 
         resolved

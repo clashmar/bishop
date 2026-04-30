@@ -3,6 +3,7 @@ use crate::gui::gui_constants::*;
 use crate::Editor;
 use bishop::prelude::*;
 use engine_core::prelude::*;
+use widgets::constants::colors;
 use widgets::{focused_panel, is_context_menu_open, set_focused_panel};
 
 /// Must be globally unique.
@@ -202,7 +203,7 @@ impl GenericPanel {
             content_rect.y,
             content_rect.w,
             content_rect.h,
-            FIELD_BACKGROUND_COLOR,
+            colors::DEFAULT_BACKGROUND_COLOR,
         );
         ctx.draw_rectangle_lines(
             content_rect.x,

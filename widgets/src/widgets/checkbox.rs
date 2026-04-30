@@ -1,3 +1,4 @@
+use crate::constants::colors;
 use crate::*;
 
 /// Draws a checkbox widget and toggles the value on click when not blocked.
@@ -10,17 +11,32 @@ pub fn gui_checkbox<C: BishopContext>(
     blocked: bool,
 ) -> bool {
     let rect = rect.into();
-    ctx.draw_rectangle(rect.x, rect.y, rect.w, rect.h, FIELD_BACKGROUND_COLOR);
-    ctx.draw_rectangle_lines(rect.x, rect.y, rect.w, rect.h, 2., OUTLINE_COLOR);
+    // Checkbox doesn't have a builder, so use theme defaults only
+    ctx.draw_rectangle(
+        rect.x,
+        rect.y,
+        rect.w,
+        rect.h,
+        resolve(None, colors::DEFAULT_BACKGROUND_COLOR),
+    );
+    ctx.draw_rectangle_lines(
+        rect.x,
+        rect.y,
+        rect.w,
+        rect.h,
+        2.,
+        resolve(None, colors::DEFAULT_BORDER_COLOR),
+    );
 
     if *value {
+        let check_color = resolve(None, Color::GREEN);
         ctx.draw_line(
             rect.x + 3.,
             rect.y + rect.h * 0.5,
             rect.x + rect.w * 0.4,
             rect.y + rect.h - 4.,
             2.,
-            Color::GREEN,
+            check_color,
         );
         ctx.draw_line(
             rect.x + rect.w * 0.4,
@@ -28,7 +44,7 @@ pub fn gui_checkbox<C: BishopContext>(
             rect.x + rect.w - 3.,
             rect.y + 4.,
             2.,
-            Color::GREEN,
+            check_color,
         );
     }
 
@@ -49,10 +65,16 @@ pub fn gui_checkbox<C: BishopContext>(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::constants::layout;
     use crate::widgets::test_support::WidgetTestContext;
 
     fn checkbox_rect() -> Rect {
-        Rect::new(0.0, 0.0, DEFAULT_CHECKBOX_DIMS, DEFAULT_CHECKBOX_DIMS)
+        Rect::new(
+            0.0,
+            0.0,
+            layout::DEFAULT_CHECKBOX_DIMS,
+            layout::DEFAULT_CHECKBOX_DIMS,
+        )
     }
 
     #[test]

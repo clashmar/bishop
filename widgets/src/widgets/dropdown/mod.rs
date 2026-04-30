@@ -1,3 +1,4 @@
+use crate::constants::{colors, layout};
 use crate::*;
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -8,6 +9,11 @@ const FILTER_ID_OFFSET: usize = usize::MAX / 2 + 1;
 const ENTRY_ID_SALT: u64 = 0x4452_4F50_444F_574E;
 const FILTERED_ENTRY_ID_SALT: u64 = 0x0046_494C_5445_5244;
 
+// Hardcoded color constants used as fallbacks for dropdown-specific styling.
+const DROPDOWN_HOVER_BG: Color = Color::new(0.2, 0.2, 0.2, 0.9);
+const DROPDOWN_SCROLLBAR_TRACK: Color = Color::new(0.2, 0.2, 0.2, 0.5);
+const DROPDOWN_SCROLLBAR_THUMB: Color = Color::new(0.6, 0.6, 0.6, 0.9);
+
 /// Data for deferred dropdown rendering.
 struct DeferredDropdownRender {
     list_rect: Rect,
@@ -15,6 +21,7 @@ struct DeferredDropdownRender {
     scroll_offset: f32,
     labels: Vec<String>,
     option_count: usize,
+    visuals: WidgetVisuals,
 }
 
 thread_local! {
@@ -90,6 +97,7 @@ pub fn flush_dropdown_lists<C: BishopContext>(ctx: &mut C) {
                 render.scroll_offset,
                 &render.labels,
                 render.option_count,
+                render.visuals,
             );
         }
     });
@@ -131,6 +139,7 @@ pub struct Dropdown<'a, T> {
     alignment: DropDownAlignment,
     list_width: Option<f32>,
     truncate_trigger: bool,
+    visuals: WidgetVisuals,
 }
 
 impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
@@ -150,7 +159,7 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
             to_string: Box::new(to_string),
             style: DropDownStyle::Default,
             text_color: Color::WHITE,
-            label_font_size: FIELD_TEXT_SIZE_16,
+            label_font_size: layout::FIELD_TEXT_SIZE_16,
             y_offset: 0.0,
             blocked: false,
             suppressed: false,
@@ -159,6 +168,7 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
             alignment: DropDownAlignment::Left,
             list_width: None,
             truncate_trigger: false,
+            visuals: WidgetVisuals::default(),
         }
     }
 
@@ -173,13 +183,19 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
     pub fn menu_style(mut self) -> Self {
         self.style = DropDownStyle::Plain;
         self.text_color = Color::BLACK;
-        self.label_font_size = HEADER_FONT_SIZE_20;
+        self.label_font_size = layout::HEADER_FONT_SIZE_20;
+        self
+    }
+
+    /// Sets visual overrides for the dropdown.
+    pub fn visuals(mut self, visuals: WidgetVisuals) -> Self {
+        self.visuals = visuals;
         self
     }
 
     /// Sets the text color.
     pub fn text_color(mut self, color: impl Into<Color>) -> Self {
-        self.text_color = color.into();
+        self.visuals.text = Some(color.into());
         self
     }
 
@@ -263,8 +279,8 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
             truncated = truncate_to_width(
                 ctx,
                 self.label,
-                self.rect.w - WIDGET_PADDING,
-                DEFAULT_FONT_SIZE_16,
+                self.rect.w - layout::WIDGET_PADDING,
+                layout::DEFAULT_FONT_SIZE_16,
             );
             &truncated
         } else {
@@ -322,7 +338,7 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
         let mut max_opt_width = 0.0_f32;
         for opt in self.options.iter() {
             let txt = (self.to_string)(opt);
-            let width = measure_text_ui(ctx, &txt, DEFAULT_FONT_SIZE_16).width;
+            let width = measure_text_ui(ctx, &txt, layout::DEFAULT_FONT_SIZE_16).width;
             if width > max_opt_width {
                 max_opt_width = width;
             }
@@ -425,6 +441,7 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
                         scroll_offset,
                         labels,
                         option_count,
+                        visuals: self.visuals,
                     });
                 });
             }
@@ -494,7 +511,10 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
             popup_rect.y,
             popup_rect.w,
             popup_rect.h,
-            FIELD_BACKGROUND_COLOR,
+            resolve(
+                self.visuals.surface,
+                colors::DEFAULT_BACKGROUND_COLOR,
+            ),
         );
 
         // Filter TextInput
@@ -547,7 +567,7 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
                     entry_rect.y,
                     entry_rect.w,
                     entry_rect.h,
-                    Color::new(0.2, 0.2, 0.2, 0.9),
+                    resolve(self.visuals.hover, DROPDOWN_HOVER_BG),
                 );
             }
 
@@ -556,8 +576,8 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
                 &(self.to_string)(opt),
                 entry_rect,
                 0.0,
-                DEFAULT_FONT_SIZE_16,
-                FIELD_TEXT_COLOR,
+                layout::DEFAULT_FONT_SIZE_16,
+                resolve(self.visuals.text, colors::DEFAULT_TEXT_COLOR),
             );
 
             if activate_on_release(
@@ -589,14 +609,14 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
                 entries_y,
                 6.,
                 entries_h,
-                Color::new(0.2, 0.2, 0.2, 0.5),
+                resolve(self.visuals.surface, DROPDOWN_SCROLLBAR_TRACK),
             );
             ctx.draw_rectangle(
                 popup_rect.x + popup_rect.w - 6.,
                 thumb_y,
                 6.,
                 thumb_h,
-                Color::new(0.6, 0.6, 0.6, 0.9),
+                resolve(self.visuals.text_muted, DROPDOWN_SCROLLBAR_THUMB),
             );
         }
 
@@ -606,7 +626,7 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
             popup_rect.w,
             popup_rect.h,
             2.,
-            OUTLINE_COLOR,
+            resolve(self.visuals.border, colors::DEFAULT_BORDER_COLOR),
         );
 
         result
@@ -628,13 +648,14 @@ fn render_dropdown_list<C: BishopContext>(
     scroll_offset: f32,
     labels: &[String],
     option_count: usize,
+    visuals: WidgetVisuals,
 ) {
     ctx.draw_rectangle(
         list_rect.x,
         list_rect.y,
         list_rect.w,
         list_rect.h,
-        FIELD_BACKGROUND_COLOR,
+        resolve(visuals.surface, colors::DEFAULT_BACKGROUND_COLOR),
     );
 
     let mouse_pos = ctx.mouse_position();
@@ -659,7 +680,7 @@ fn render_dropdown_list<C: BishopContext>(
                 entry_rect.y,
                 entry_rect.w,
                 entry_rect.h,
-                Color::new(0.2, 0.2, 0.2, 0.9),
+                resolve(visuals.hover, DROPDOWN_HOVER_BG),
             );
         }
 
@@ -668,8 +689,8 @@ fn render_dropdown_list<C: BishopContext>(
             label,
             entry_rect,
             0.0,
-            DEFAULT_FONT_SIZE_16,
-            FIELD_TEXT_COLOR,
+            layout::DEFAULT_FONT_SIZE_16,
+            resolve(visuals.text, colors::DEFAULT_TEXT_COLOR),
         );
     }
 
@@ -684,14 +705,14 @@ fn render_dropdown_list<C: BishopContext>(
             list_rect.y,
             6.,
             list_rect.h,
-            Color::new(0.2, 0.2, 0.2, 0.5),
+            resolve(visuals.surface, DROPDOWN_SCROLLBAR_TRACK),
         );
         ctx.draw_rectangle(
             list_rect.x + list_rect.w - 6.,
             thumb_y,
             6.,
             thumb_h,
-            Color::new(0.6, 0.6, 0.6, 0.9),
+            resolve(visuals.text_muted, DROPDOWN_SCROLLBAR_THUMB),
         );
     }
 
@@ -701,7 +722,7 @@ fn render_dropdown_list<C: BishopContext>(
         list_rect.w,
         list_rect.h,
         2.,
-        OUTLINE_COLOR,
+        resolve(visuals.border, colors::DEFAULT_BORDER_COLOR),
     );
 }
 

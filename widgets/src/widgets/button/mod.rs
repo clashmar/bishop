@@ -1,3 +1,4 @@
+use crate::constants::{colors, layout};
 use crate::*;
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
@@ -29,8 +30,7 @@ pub struct Button<'a> {
     content: ButtonContent<'a>,
     style: ButtonStyle,
     font_size: f32,
-    text_color: Color,
-    hover_color: Color,
+    visuals: WidgetVisuals,
     text_offset: Vec2,
     blocked: bool,
     suppressed: bool,
@@ -44,6 +44,7 @@ pub struct Button<'a> {
 const BLOCKED_BACKGROUND_COLOR: Color = Color::new(0.08, 0.08, 0.08, 0.9);
 const BLOCKED_OUTLINE_COLOR: Color = Color::new(0.45, 0.45, 0.45, 0.7);
 const BLOCKED_TEXT_COLOR: Color = Color::new(0.65, 0.65, 0.65, 0.9);
+const PLAIN_BLOCKED_OVERLAY: Color = Color::new(0.2, 0.2, 0.2, 0.25);
 
 impl<'a> Button<'a> {
     /// Creates a new button with the given rect and label.
@@ -52,9 +53,8 @@ impl<'a> Button<'a> {
             rect: rect.into(),
             content: ButtonContent::Text(label),
             style: ButtonStyle::Default,
-            font_size: FIELD_TEXT_SIZE_16,
-            text_color: FIELD_TEXT_COLOR,
-            hover_color: HOVER_COLOR,
+            font_size: layout::FIELD_TEXT_SIZE_16,
+            visuals: WidgetVisuals::default(),
             text_offset: Vec2::ZERO,
             blocked: false,
             suppressed: false,
@@ -75,9 +75,8 @@ impl<'a> Button<'a> {
             rect: rect.into(),
             content: ButtonContent::Icon { texture, id },
             style: ButtonStyle::Default,
-            font_size: FIELD_TEXT_SIZE_16,
-            text_color: FIELD_TEXT_COLOR,
-            hover_color: HOVER_COLOR,
+            font_size: layout::FIELD_TEXT_SIZE_16,
+            visuals: WidgetVisuals::default(),
             text_offset: Vec2::ZERO,
             blocked: false,
             suppressed: false,
@@ -92,19 +91,24 @@ impl<'a> Button<'a> {
     /// Sets the button to use the plain style (no background).
     pub fn plain(mut self) -> Self {
         self.style = ButtonStyle::Plain;
-        self.hover_color = HOVER_COLOR_PLAIN;
         self
     }
 
-    /// Sets the text color.
+    /// Sets visual overrides for the button.
+    pub fn visuals(mut self, visuals: WidgetVisuals) -> Self {
+        self.visuals = visuals;
+        self
+    }
+
+    /// Sets the text color. Delegates to [`visuals`].
     pub fn text_color(mut self, color: impl Into<Color>) -> Self {
-        self.text_color = color.into();
+        self.visuals.text = Some(color.into());
         self
     }
 
-    /// Sets the hover background color.
+    /// Sets the hover background color. Delegates to [`visuals`].
     pub fn hover_color(mut self, color: impl Into<Color>) -> Self {
-        self.hover_color = color.into();
+        self.visuals.hover = Some(color.into());
         self
     }
 
@@ -215,16 +219,19 @@ impl<'a> Button<'a> {
         match self.style {
             ButtonStyle::Default => {
                 let background = if visually_blocked {
-                    BLOCKED_BACKGROUND_COLOR
+                    resolve(self.visuals.surface, BLOCKED_BACKGROUND_COLOR)
                 } else if highlight {
-                    self.hover_color
+                    resolve(self.visuals.hover, colors::DEFAULT_HOVER_COLOR)
                 } else {
-                    FIELD_BACKGROUND_COLOR
+                    resolve(
+                        self.visuals.background,
+                        colors::DEFAULT_BACKGROUND_COLOR,
+                    )
                 };
                 let outline_color = if visually_blocked {
                     BLOCKED_OUTLINE_COLOR
                 } else {
-                    OUTLINE_COLOR
+                    resolve(self.visuals.border, colors::DEFAULT_BORDER_COLOR)
                 };
                 ctx.draw_rectangle(
                     self.rect.x,
@@ -249,7 +256,7 @@ impl<'a> Button<'a> {
                         self.rect.y,
                         self.rect.w,
                         self.rect.h,
-                        Color::new(0.2, 0.2, 0.2, 0.25),
+                        resolve(self.visuals.surface, PLAIN_BLOCKED_OVERLAY),
                     );
                 } else if highlight {
                     ctx.draw_rectangle(
@@ -257,7 +264,7 @@ impl<'a> Button<'a> {
                         self.rect.y,
                         self.rect.w,
                         self.rect.h,
-                        self.hover_color,
+                        resolve(self.visuals.hover, colors::DEFAULT_HOVER_COLOR),
                     );
                 }
             }
@@ -266,9 +273,9 @@ impl<'a> Button<'a> {
         match &self.content {
             ButtonContent::Text(label) => {
                 let text_color = if visually_blocked {
-                    BLOCKED_TEXT_COLOR
+                    resolve(self.visuals.text_muted, BLOCKED_TEXT_COLOR)
                 } else {
-                    self.text_color
+                    resolve(self.visuals.text, colors::DEFAULT_TEXT_COLOR)
                 };
                 let txt_dims = measure_text_ui(ctx, label, self.font_size);
                 let txt_y = self.rect.y + (self.rect.h - txt_dims.height) / 2.0 + txt_dims.offset_y;
@@ -284,9 +291,9 @@ impl<'a> Button<'a> {
             }
             ButtonContent::Icon { texture, .. } => {
                 let icon_color = if visually_blocked {
-                    BLOCKED_TEXT_COLOR
+                    resolve(self.visuals.text_muted, BLOCKED_TEXT_COLOR)
                 } else {
-                    self.text_color
+                    resolve(self.visuals.text, colors::DEFAULT_TEXT_COLOR)
                 };
                 let p = self.icon_padding;
                 ctx.draw_texture_ex(

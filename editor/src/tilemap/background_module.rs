@@ -1,6 +1,7 @@
 // editor/src/tilemap/background_module.rs
 use bishop::prelude::*;
 use engine_core::prelude::*;
+use widgets::constants::layout;
 
 // TODO: Add more complex backgrounds
 /// Responsible for editing the background of a tilemap.
@@ -27,7 +28,7 @@ impl BackgroundModule {
             "Background",
             rect.x,
             rect.y + 18.0,
-            DEFAULT_FONT_SIZE_16,
+            layout::DEFAULT_FONT_SIZE_16,
             Color::WHITE,
         );
 
@@ -39,7 +40,7 @@ impl BackgroundModule {
         // Determine the width of a three‑digit number.
         // 255 is the widest possible value for an 8‑bit channel
         let sample = "255";
-        let num_width = measure_text(ctx, sample, DEFAULT_FONT_SIZE_16).width;
+        let num_width = measure_text(ctx, sample, layout::DEFAULT_FONT_SIZE_16).width;
 
         // Add padding so the cursor isn’t glued to the edge.
         let field_w = num_width + 13.0;

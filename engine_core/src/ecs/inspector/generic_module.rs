@@ -12,13 +12,14 @@ use crate::ui::widgets::*;
 use bishop::prelude::*;
 use std::collections::HashMap;
 use std::marker::PhantomData;
+use widgets::constants::{colors, layout};
 
 const TOP_PADDING: f32 = 10.0;
 const SPACING: f32 = 5.0;
 const LABEL_PADDING: f32 = 10.0;
 const MIN_WIDGET_WIDTH: f32 = 80.0;
 const MIN_LABEL_WIDTH: f32 = 80.0;
-const FONT_SIZE: f32 = DEFAULT_FONT_SIZE_16;
+const FONT_SIZE: f32 = layout::DEFAULT_FONT_SIZE_16;
 
 /// A thin wrapper that can draw *any* `T: Reflect`.
 pub struct GenericModule<T> {
@@ -95,7 +96,13 @@ where
                 .max(MIN_LABEL_WIDTH);
             let widget_x = rect.x + label_w + LABEL_PADDING;
 
-            ctx.draw_text(&label, rect.x, y + 22.0, FONT_SIZE, FIELD_TEXT_COLOR);
+            ctx.draw_text(
+                &label,
+                rect.x,
+                y + 22.0,
+                FONT_SIZE,
+                colors::DEFAULT_TEXT_COLOR,
+            );
 
             // Widget rectangle
             let widget_x = if widget_x > rect.x + rect.w - MIN_WIDGET_WIDTH {
@@ -110,7 +117,7 @@ where
                 widget_x,
                 y,
                 widget_w.max(MIN_WIDGET_WIDTH),
-                DEFAULT_FIELD_HEIGHT,
+                layout::DEFAULT_FIELD_HEIGHT,
             );
 
             // Dispatch based on the enum variant
@@ -154,8 +161,8 @@ where
                     let cb_rect = Rect::new(
                         widget_rect.x,
                         widget_rect.y + 7.5,
-                        DEFAULT_CHECKBOX_DIMS,
-                        DEFAULT_CHECKBOX_DIMS,
+                        layout::DEFAULT_CHECKBOX_DIMS,
+                        layout::DEFAULT_CHECKBOX_DIMS,
                     );
                     gui_checkbox(ctx, cb_rect, b, blocked);
                 }

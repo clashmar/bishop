@@ -1,10 +1,11 @@
 use bishop::prelude::*;
 use engine_core::prelude::*;
 use engine_core::ui::text::measure_text;
+use widgets::constants::layout;
 
 use super::navigation::Navigation;
 
-const BREADCRUMB_FONT_SIZE: f32 = DEFAULT_FONT_SIZE_16;
+const BREADCRUMB_FONT_SIZE: f32 = layout::DEFAULT_FONT_SIZE_16;
 const HOVER_COLOR: Color = Color::new(0.706, 0.824, 1.0, 1.0);
 
 struct BreadcrumbHit {

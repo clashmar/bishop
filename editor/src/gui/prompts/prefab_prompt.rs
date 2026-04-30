@@ -3,6 +3,7 @@ use crate::gui::prompts::constants::*;
 use crate::gui::prompts::helpers::{draw_prompt_label, prompt_content_rect};
 use bishop::prelude::*;
 use engine_core::prelude::*;
+use widgets::constants::layout;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum EmptyPrefabSaveConfirmResult {
@@ -110,7 +111,7 @@ impl DirtyPrefabExitPrompt {
 
 fn prefab_prompt_rect(modal_rect: Rect) -> Rect {
     let total_h = PROMPT_TOP_PADDING
-        + DEFAULT_FONT_SIZE_16
+        + layout::DEFAULT_FONT_SIZE_16
         + PROMPT_SECTION_GAP
         + BUTTON_H
         + PROMPT_BOTTOM_PADDING;
@@ -118,13 +119,13 @@ fn prefab_prompt_rect(modal_rect: Rect) -> Rect {
 }
 
 fn draw_prefab_prompt_message(ctx: &mut WgpuContext, rect: Rect, message: &str) {
-    let text_dims = measure_text(ctx, message, DEFAULT_FONT_SIZE_16);
+    let text_dims = measure_text(ctx, message, layout::DEFAULT_FONT_SIZE_16);
     let x = rect.x + (rect.w - text_dims.width) * 0.5;
     draw_prompt_label(ctx, message, x, rect.y + PROMPT_TOP_PADDING);
 }
 
 fn prefab_two_button_rects(rect: Rect) -> (Rect, Rect) {
-    let y = rect.y + PROMPT_TOP_PADDING + DEFAULT_FONT_SIZE_16 + PROMPT_SECTION_GAP;
+    let y = rect.y + PROMPT_TOP_PADDING + layout::DEFAULT_FONT_SIZE_16 + PROMPT_SECTION_GAP;
     let gap = 12.0;
     let width = (rect.w - gap) * 0.5;
     (
@@ -134,7 +135,7 @@ fn prefab_two_button_rects(rect: Rect) -> (Rect, Rect) {
 }
 
 fn prefab_three_button_rects(rect: Rect) -> (Rect, Rect, Rect) {
-    let y = rect.y + PROMPT_TOP_PADDING + DEFAULT_FONT_SIZE_16 + PROMPT_SECTION_GAP;
+    let y = rect.y + PROMPT_TOP_PADDING + layout::DEFAULT_FONT_SIZE_16 + PROMPT_SECTION_GAP;
     let gap = 12.0;
     let width = (rect.w - (gap * 2.0)) / 3.0;
     (

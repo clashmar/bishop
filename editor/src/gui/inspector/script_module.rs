@@ -4,6 +4,7 @@ use crate::with_lua;
 use bishop::prelude::*;
 use engine_core::prelude::*;
 use std::collections::HashMap;
+use widgets::constants::{colors, layout};
 
 #[derive(Default)]
 pub struct ScriptModule {
@@ -13,7 +14,7 @@ pub struct ScriptModule {
 }
 
 const SPACING: f32 = 5.0;
-const FONT_SIZE: f32 = DEFAULT_FONT_SIZE_16;
+const FONT_SIZE: f32 = layout::DEFAULT_FONT_SIZE_16;
 const MIN_LABEL_WIDTH: f32 = 80.0;
 const MIN_WIDGET_WIDTH: f32 = 80.0;
 const LABEL_PADDING: f32 = 10.0;
@@ -66,17 +67,17 @@ impl InspectorModule for ScriptModule {
         }
 
         // Layout
-        let mut y = rect.y + WIDGET_SPACING;
-        let full_w = rect.w - 2.0 * WIDGET_PADDING;
+        let mut y = rect.y + layout::WIDGET_SPACING;
+        let full_w = rect.w - 2.0 * layout::WIDGET_PADDING;
 
         // Picker
-        let button_size = DEFAULT_FIELD_HEIGHT;
+        let button_size = layout::DEFAULT_FIELD_HEIGHT;
 
         let picker_rect = Rect::new(
-            rect.x + WIDGET_PADDING,
+            rect.x + layout::WIDGET_PADDING,
             y,
             full_w - button_size - SPACING,
-            DEFAULT_FIELD_HEIGHT,
+            layout::DEFAULT_FIELD_HEIGHT,
         );
 
         let refresh_rect = Rect::new(
@@ -147,7 +148,13 @@ impl InspectorModule for ScriptModule {
                 .width
                 .max(MIN_LABEL_WIDTH);
             let widget_x = rect.x + label_w + LABEL_PADDING;
-            ctx.draw_text(&label, rect.x, y + 22.0, FONT_SIZE, FIELD_TEXT_COLOR);
+            ctx.draw_text(
+                &label,
+                rect.x,
+                y + 22.0,
+                FONT_SIZE,
+                colors::DEFAULT_TEXT_COLOR,
+            );
 
             // Widget rectangle
             let widget_x = if widget_x > rect.x + rect.w - MIN_WIDGET_WIDTH {
@@ -162,7 +169,7 @@ impl InspectorModule for ScriptModule {
                 widget_x,
                 y,
                 widget_w.max(MIN_WIDGET_WIDTH),
-                DEFAULT_FIELD_HEIGHT,
+                layout::DEFAULT_FIELD_HEIGHT,
             );
 
             // Pull the mutable reference to the field value
@@ -182,8 +189,8 @@ impl InspectorModule for ScriptModule {
                     let cb_rect = Rect::new(
                         widget_rect.x,
                         widget_rect.y + 6.0,
-                        DEFAULT_CHECKBOX_DIMS,
-                        DEFAULT_CHECKBOX_DIMS,
+                        layout::DEFAULT_CHECKBOX_DIMS,
+                        layout::DEFAULT_CHECKBOX_DIMS,
                     );
                     if gui_checkbox(ctx, cb_rect, v, blocked) {
                         changed = true;

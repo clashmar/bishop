@@ -6,6 +6,7 @@ use crate::game::GameCtxMut;
 use crate::storage::editor_config::*;
 use crate::ui::widgets::*;
 use bishop::prelude::*;
+use widgets::constants::layout;
 
 /// Every inspector sub‑module implements this trait.
 pub trait InspectorModule {
@@ -166,7 +167,7 @@ impl<T: InspectorModule> InspectorModule for CollapsibleModule<T> {
             self.title(),
             rect.x + 28.0,
             rect.y + 18.0,
-            DEFAULT_FONT_SIZE_16,
+            layout::DEFAULT_FONT_SIZE_16,
             Color::WHITE,
         );
 

@@ -48,6 +48,7 @@ pub struct ScrollableArea {
     scroll_speed: f32,
     scrollbar_w: f32,
     blocked: bool,
+    visuals: WidgetVisuals,
 }
 
 impl ScrollableArea {
@@ -59,12 +60,19 @@ impl ScrollableArea {
             scroll_speed: DEFAULT_SCROLL_SPEED,
             scrollbar_w: DEFAULT_SCROLLBAR_W,
             blocked: false,
+            visuals: WidgetVisuals::default(),
         }
     }
 
     /// Sets the scroll speed per mouse wheel tick.
     pub fn scroll_speed(mut self, speed: f32) -> Self {
         self.scroll_speed = speed;
+        self
+    }
+
+    /// Sets visual overrides for the scrollable area.
+    pub fn visuals(mut self, visuals: WidgetVisuals) -> Self {
+        self.visuals = visuals;
         self
     }
 
@@ -150,6 +158,7 @@ impl ScrollableArea {
             scroll_range,
             content_height: self.content_height,
             scrollbar_w: self.scrollbar_w,
+            visuals: self.visuals,
         }
     }
 }
@@ -160,6 +169,7 @@ pub struct ActiveScrollArea {
     scroll_range: f32,
     content_height: f32,
     scrollbar_w: f32,
+    visuals: WidgetVisuals,
 }
 
 impl ActiveScrollArea {
@@ -217,22 +227,27 @@ impl ActiveScrollArea {
         let thumb_rect = Rect::new(bar_x, bar_y, self.scrollbar_w, bar_h);
         let mouse_over_thumb = thumb_rect.contains(mouse);
 
+        const TRACK_COLOR: Color = Color::new(0.15, 0.15, 0.15, 0.6);
+        const THUMB_IDLE: Color = Color::new(0.7, 0.7, 0.7, 0.9);
+        const THUMB_HOVER: Color = Color::new(0.85, 0.85, 0.85, 0.9);
+        const THUMB_DRAG: Color = Color::new(0.9, 0.9, 0.9, 1.0);
+
         // Track
         ctx.draw_rectangle(
             bar_x,
             self.rect.y,
             self.scrollbar_w,
             self.rect.h,
-            Color::new(0.15, 0.15, 0.15, 0.6),
+            resolve(self.visuals.surface, TRACK_COLOR),
         );
 
         // Thumb
         let thumb_col = if state.dragging_thumb {
-            Color::new(0.9, 0.9, 0.9, 1.0)
+            resolve(self.visuals.text, THUMB_DRAG)
         } else if mouse_over_thumb {
-            Color::new(0.85, 0.85, 0.85, 0.9)
+            resolve(self.visuals.text_muted, THUMB_HOVER)
         } else {
-            Color::new(0.7, 0.7, 0.7, 0.9)
+            resolve(self.visuals.text_muted, THUMB_IDLE)
         };
         ctx.draw_rectangle(bar_x, bar_y, self.scrollbar_w, bar_h, thumb_col);
     }

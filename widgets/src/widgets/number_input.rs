@@ -1,4 +1,5 @@
 use crate::clipboard::*;
+use crate::constants::{colors, input_repeat, layout};
 use crate::*;
 use std::fmt::Display;
 use std::str::FromStr;
@@ -13,6 +14,7 @@ pub struct NumberInput<T> {
     blocked: bool,
     min: Option<T>,
     max: Option<T>,
+    visuals: WidgetVisuals,
 }
 
 impl<T> NumberInput<T>
@@ -29,6 +31,7 @@ where
             blocked: false,
             min: None,
             max: None,
+            visuals: WidgetVisuals::default(),
         }
     }
 
@@ -41,6 +44,12 @@ where
     /// Sets the minimum allowed value.
     pub fn min(mut self, min: T) -> Self {
         self.min = Some(min);
+        self
+    }
+
+    /// Sets visual overrides for the number input.
+    pub fn visuals(mut self, visuals: WidgetVisuals) -> Self {
+        self.visuals = visuals;
         self
     }
 
@@ -109,7 +118,7 @@ where
             self.rect.y,
             self.rect.w,
             self.rect.h,
-            FIELD_BACKGROUND_COLOR,
+            resolve(self.visuals.background, colors::DEFAULT_BACKGROUND_COLOR),
         );
         ctx.draw_rectangle_lines(
             self.rect.x,
@@ -117,23 +126,23 @@ where
             self.rect.w,
             self.rect.h,
             2.,
-            Color::WHITE,
+            resolve(self.visuals.border, Color::WHITE),
         );
 
-        let text_area_x = self.rect.x + WIDGET_PADDING / 2.;
+        let text_area_x = self.rect.x + layout::WIDGET_PADDING / 2.;
 
         if let Some((start, end)) = selection_range(cursor_char, selection_anchor) {
             let start_byte = byte_offset(&text, start);
             let end_byte = byte_offset(&text, end);
             let sel_start_x = text_area_x
-                + measure_text_ui(ctx, &text[..start_byte], DEFAULT_FONT_SIZE_16).width
+                + measure_text_ui(ctx, &text[..start_byte], layout::DEFAULT_FONT_SIZE_16).width
                 - scroll_offset_x;
             let sel_end_x = text_area_x
-                + measure_text_ui(ctx, &text[..end_byte], DEFAULT_FONT_SIZE_16).width
+                + measure_text_ui(ctx, &text[..end_byte], layout::DEFAULT_FONT_SIZE_16).width
                 - scroll_offset_x;
 
             let clipped_start = sel_start_x.max(text_area_x);
-            let clipped_end = sel_end_x.min(self.rect.x + self.rect.w - WIDGET_PADDING / 2.);
+            let clipped_end = sel_end_x.min(self.rect.x + self.rect.w - layout::WIDGET_PADDING / 2.);
 
             if clipped_end > clipped_start {
                 ctx.draw_rectangle(
@@ -141,7 +150,7 @@ where
                     self.rect.y + self.rect.h * 0.2,
                     clipped_end - clipped_start,
                     self.rect.h * 0.6,
-                    Color::new(0.3, 0.5, 0.8, 0.5),
+                    resolve(self.visuals.accent, colors::DEFAULT_INPUT_SELECTION_COLOR),
                 );
             }
         }
@@ -153,8 +162,8 @@ where
             display,
             self.rect,
             scroll_offset_x,
-            DEFAULT_FONT_SIZE_16,
-            FIELD_TEXT_COLOR,
+            layout::DEFAULT_FONT_SIZE_16,
+            resolve(self.visuals.text, colors::DEFAULT_TEXT_COLOR),
         );
 
         if is_dropdown_open() || is_context_menu_open() {
@@ -175,7 +184,7 @@ where
                     &text,
                     mouse.0,
                     self.rect.x,
-                    DEFAULT_FONT_SIZE_16,
+                    layout::DEFAULT_FONT_SIZE_16,
                     scroll_offset_x,
                 );
                 cursor_char = click_pos;
@@ -190,10 +199,10 @@ where
                 &text,
                 mouse.0,
                 self.rect.x,
-                DEFAULT_FONT_SIZE_16,
-                scroll_offset_x,
-            );
-            cursor_char = drag_pos;
+                    layout::DEFAULT_FONT_SIZE_16,
+                    scroll_offset_x,
+                );
+                cursor_char = drag_pos;
         }
 
         if ctx.is_mouse_button_released(MouseButton::Left) && dragging {
@@ -262,8 +271,8 @@ where
                     true
                 } else if down && *rk == Some(key) {
                     let elapsed = now - *lkt;
-                    if (!*rs && elapsed >= HOLD_INITIAL_DELAY)
-                        || (*rs && elapsed >= HOLD_REPEAT_RATE)
+                    if (!*rs && elapsed >= input_repeat::HOLD_INITIAL_DELAY)
+                        || (*rs && elapsed >= input_repeat::HOLD_REPEAT_RATE)
                     {
                         *lkt = now;
                         *rs = true;
@@ -435,8 +444,8 @@ where
                 cursor_char,
                 scroll_offset_x,
                 self.rect.w,
-                WIDGET_PADDING,
-                DEFAULT_FONT_SIZE_16,
+                layout::WIDGET_PADDING,
+                layout::DEFAULT_FONT_SIZE_16,
             );
         } else {
             scroll_offset_x = 0.0;
@@ -447,8 +456,8 @@ where
             let byte_pos = byte_offset(&text, cursor_char);
             let prefix = &text[..byte_pos];
             let caret_x = self.rect.x
-                + WIDGET_PADDING / 2.
-                + measure_text_ui(ctx, prefix, DEFAULT_FONT_SIZE_16).width
+                + layout::WIDGET_PADDING / 2.
+                + measure_text_ui(ctx, prefix, layout::DEFAULT_FONT_SIZE_16).width
                 - scroll_offset_x;
             if caret_x >= self.rect.x && caret_x <= self.rect.x + self.rect.w {
                 ctx.draw_line(
@@ -457,7 +466,7 @@ where
                     caret_x,
                     self.rect.y + self.rect.h * 0.8,
                     2.,
-                    OUTLINE_COLOR,
+                    resolve(self.visuals.border, colors::DEFAULT_BORDER_COLOR),
                 );
             }
         }
