@@ -26,6 +26,9 @@ mod storage;
 mod tilemap;
 mod world;
 
+#[cfg(test)]
+mod test_utils;
+
 /// Wrapper struct for running the editor via BishopApp.
 struct EditorApp {
     current_window_size: (u32, u32),
@@ -62,6 +65,9 @@ impl BishopApp for EditorApp {
             Ok(editor) => {
                 // This allows global access to services
                 set_editor(editor);
+
+                #[cfg(target_os = "macos")]
+                crate::app::macos_quit::install(&ctx);
             }
             Err(e) => {
                 onscreen_warn!("Failed to initialize editor: {}", e);
@@ -71,11 +77,8 @@ impl BishopApp for EditorApp {
     }
 
     fn on_exit(&mut self) {
-        with_editor(|editor| {
-            editor.game.sprite_manager.flush_pending_removals();
-            editor.game.script_manager.flush_pending_removals();
-            editor.save();
-        });
+        #[cfg(target_os = "macos")]
+        crate::app::macos_quit::uninstall();
     }
 
     async fn frame(&mut self, ctx: PlatformContext) {

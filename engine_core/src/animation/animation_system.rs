@@ -1,5 +1,6 @@
 // engine_core/src/animation/animation_system.rs
 use crate::animation::{ClipId, resolve_sprite_id};
+use crate::assets::AssetRegistry;
 use crate::assets::sprite_manager::SpriteManager;
 use crate::ecs::{Animation, CurrentFrame, SpriteId};
 use crate::ecs::ecs::Ecs;
@@ -15,6 +16,7 @@ use std::collections::HashSet;
 pub fn update_animation_sytem(
     loader: &impl TextureLoader,
     ecs: &mut Ecs,
+    asset_registry: &mut AssetRegistry,
     sprite_manager: &mut SpriteManager,
     dt: f32,
     room_id: RoomId,
@@ -28,13 +30,14 @@ pub fn update_animation_sytem(
         entities.insert(player);
     }
 
-    update_entity_animations(loader, ecs, sprite_manager, dt, &entities);
+    update_entity_animations(loader, ecs, asset_registry, sprite_manager, dt, &entities);
 }
 
 /// Updates animation state for the supplied entities.
 pub fn update_entity_animations(
     loader: &impl TextureLoader,
     ecs: &mut Ecs,
+    asset_registry: &mut AssetRegistry,
     sprite_manager: &mut SpriteManager,
     dt: f32,
     entities: &HashSet<Entity>,
@@ -56,10 +59,11 @@ pub fn update_entity_animations(
         };
 
         // Get the sprite id
-        let (sprite_id, resolved) = get_sprite_id(loader, animation, current_id, sprite_manager);
+        let (sprite_id, resolved) =
+            get_sprite_id(loader, animation, current_id, asset_registry, sprite_manager);
 
         if resolved {
-            animation.update_cache_entry(current_id, sprite_id, sprite_manager);
+            animation.update_cache_entry(current_id, sprite_id);
         }
 
         let Some(clip) = animation.clips.get(current_id) else {
@@ -156,8 +160,8 @@ impl Renderable for CurrentFrame {
             frame_h,
         );
         let draw_base = pivot_adjusted_position(params.pos, self.frame_size, params.pivot);
-        let draw_x = (draw_base.x + self.offset.x).floor();
-        let draw_y = (draw_base.y + self.offset.y).floor();
+        let draw_x = draw_base.x + self.offset.x;
+        let draw_y = draw_base.y + self.offset.y;
         ctx.draw_texture_ex(
             tex,
             draw_x,
@@ -179,6 +183,7 @@ fn get_sprite_id(
     loader: &impl TextureLoader,
     animation: &Animation,
     current_id: &ClipId,
+    asset_registry: &mut AssetRegistry,
     sprite_manager: &mut SpriteManager,
 ) -> (SpriteId, bool) {
     if let Some(&cached) = animation.sprite_cache.get(current_id)
@@ -187,7 +192,13 @@ fn get_sprite_id(
         return (cached, false);
     }
 
-    let resolved = resolve_sprite_id(loader, sprite_manager, &animation.variant, current_id);
+    let resolved = resolve_sprite_id(
+        loader,
+        asset_registry,
+        sprite_manager,
+        &animation.variant,
+        current_id,
+    );
 
     (resolved, true)
 }

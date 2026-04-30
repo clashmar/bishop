@@ -1,23 +1,24 @@
 use crate::app::EditorMode;
 use crate::commands::editor_command_manager::EditorCommand;
+use crate::editor_assets::write_prefabs_lua;
 use crate::editor_global::with_editor;
+use crate::storage::editor_storage::collect_prefab_names;
+use crate::storage::editor_storage::save_game;
 use crate::storage::editor_storage::PrefabPaletteState;
 use engine_core::prelude::*;
 
 #[derive(Debug)]
 pub struct DeletePrefabCmd {
     prefab_id: PrefabId,
-    mode: EditorMode,
     deleted_prefab: Option<PrefabAsset>,
     deleted_snapshots: Vec<GroupSnapshot>,
     previous_palette_state: Option<PrefabPaletteState>,
 }
 
 impl DeletePrefabCmd {
-    pub fn new(prefab_id: PrefabId, mode: EditorMode) -> Self {
+    pub fn new(prefab_id: PrefabId) -> Self {
         Self {
             prefab_id,
-            mode,
             deleted_prefab: None,
             deleted_snapshots: Vec::new(),
             previous_palette_state: None,
@@ -30,7 +31,7 @@ impl EditorCommand for DeletePrefabCmd {
         with_editor(|editor| {
             let Some(prefab) = editor
                 .game
-                .prefab_library
+                .prefab_manager
                 .prefabs
                 .get(&self.prefab_id)
                 .cloned()
@@ -43,14 +44,21 @@ impl EditorCommand for DeletePrefabCmd {
             self.deleted_snapshots =
                 capture_linked_prefab_instance_snapshots(&mut editor.game.ecs, self.prefab_id);
 
-            if let Err(error) = delete_prefab(&editor.game.name, self.prefab_id) {
+            if let Err(error) = editor.game.prefab_manager.delete_prefab(
+                &editor.game.name,
+                &mut editor.game.asset_registry,
+                self.prefab_id,
+            ) {
                 onscreen_error!("Could not delete prefab: {error}");
                 return;
             }
 
-            editor.game.prefab_library.prefabs.remove(&self.prefab_id);
             if let Err(error) = sync_prefabs_lua_file(&editor.game) {
                 onscreen_error!("Could not write prefabs.lua: {error}");
+                return;
+            }
+            if let Err(error) = save_game(&editor.game) {
+                onscreen_error!("Could not save prefab metadata: {error}");
                 return;
             }
 
@@ -68,28 +76,29 @@ impl EditorCommand for DeletePrefabCmd {
         };
 
         with_editor(|editor| {
-            if let Err(error) = save_prefab(&editor.game.name, prefab) {
+            if let Err(error) = editor.game.prefab_manager.save_prefab_and_sync(
+                &editor.game.name,
+                &mut editor.game.asset_registry,
+                prefab,
+                None,
+            ) {
                 onscreen_error!("Could not restore prefab: {error}");
                 return;
             }
 
-            editor
-                .game
-                .prefab_library
-                .prefabs
-                .insert(self.prefab_id, prefab.clone());
             if let Err(error) = sync_prefabs_lua_file(&editor.game) {
                 onscreen_error!("Could not write prefabs.lua: {error}");
+                return;
+            }
+            if let Err(error) = save_game(&editor.game) {
+                onscreen_error!("Could not save prefab metadata: {error}");
                 return;
             }
             restore_linked_prefab_instances(editor, &self.deleted_snapshots);
             editor.open_prefab_editor_for_id(self.prefab_id);
             restore_prefab_palette(editor, self.previous_palette_state.as_ref());
+            editor.modal.close();
         });
-    }
-
-    fn mode(&self) -> EditorMode {
-        self.mode
     }
 
     fn applies_in_mode(&self, current_mode: EditorMode) -> bool {
@@ -159,7 +168,7 @@ fn restore_prefab_palette(editor: &mut crate::Editor, state: Option<&PrefabPalet
 
     editor
         .room_editor
-        .load_prefab_palette_state(&editor.game.prefab_library, state);
+        .load_prefab_palette_state(&editor.game.prefab_manager, state);
     let _ = editor.save_prefab_palette_state();
 }
 
@@ -172,6 +181,6 @@ fn linked_prefab_instance_roots(ecs: &Ecs, prefab_id: PrefabId) -> Vec<Entity> {
 }
 
 fn sync_prefabs_lua_file(game: &Game) -> std::io::Result<()> {
-    let prefab_names = crate::storage::editor_storage::collect_prefab_names(&game.prefab_library)?;
-    crate::editor_assets::write_prefabs_lua(&scripts_folder(), &prefab_names)
+    let prefab_names = collect_prefab_names(&game.prefab_manager)?;
+    write_prefabs_lua(&scripts_folder(), &prefab_names)
 }

@@ -7,14 +7,9 @@ use std::fmt::Debug;
 pub trait EditorCommand: Debug {
     fn execute(&mut self);
     fn undo(&mut self);
-    fn mode(&self) -> EditorMode;
 
     /// Returns true if this command can be undone/redone in the given mode.
-    /// Default implementation requires exact mode match.
-    /// Override for commands that should apply across multiple modes.
-    fn applies_in_mode(&self, current_mode: EditorMode) -> bool {
-        self.mode() == current_mode
-    }
+    fn applies_in_mode(&self, current_mode: EditorMode) -> bool;
 }
 
 /// Stores and manages undo/redo stacks.
@@ -148,8 +143,8 @@ mod tests {
             *self.undone.borrow_mut() += 1;
         }
 
-        fn mode(&self) -> EditorMode {
-            self.mode
+        fn applies_in_mode(&self, current_mode: EditorMode) -> bool {
+            self.mode == current_mode
         }
     }
 

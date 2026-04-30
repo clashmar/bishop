@@ -22,11 +22,13 @@ impl EditorCommand for BatchMoveEntitiesCmd {
     fn execute(&mut self) {
         with_editor(|editor| {
             let ecs = match editor.mode {
-                EditorMode::Prefab(_) => &mut editor
-                    .prefab_stage
-                    .as_mut()
-                    .expect("Prefab stage missing")
-                    .ecs,
+                EditorMode::Prefab(_) => {
+                    &mut editor
+                        .prefab_stage
+                        .as_mut()
+                        .expect("Prefab stage missing")
+                        .ecs
+                }
                 _ => &mut editor.game.ecs,
             };
             for &(entity, _, to) in &self.moves {
@@ -38,11 +40,13 @@ impl EditorCommand for BatchMoveEntitiesCmd {
     fn undo(&mut self) {
         with_editor(|editor| {
             let ecs = match editor.mode {
-                EditorMode::Prefab(_) => &mut editor
-                    .prefab_stage
-                    .as_mut()
-                    .expect("Prefab stage missing")
-                    .ecs,
+                EditorMode::Prefab(_) => {
+                    &mut editor
+                        .prefab_stage
+                        .as_mut()
+                        .expect("Prefab stage missing")
+                        .ecs
+                }
                 _ => &mut editor.game.ecs,
             };
             for &(entity, from, _) in &self.moves {
@@ -51,7 +55,7 @@ impl EditorCommand for BatchMoveEntitiesCmd {
         });
     }
 
-    fn mode(&self) -> EditorMode {
-        self.mode
+    fn applies_in_mode(&self, current_mode: EditorMode) -> bool {
+        self.mode == current_mode
     }
 }

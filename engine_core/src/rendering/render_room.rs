@@ -10,12 +10,10 @@ use std::collections::{BTreeMap, HashMap};
 pub fn render_room<C: BishopContext>(
     ctx: &mut C,
     game_ctx: &mut GameCtxMut<'_>,
-    render_system: &mut RenderSystem,
     render_cam: &Camera2D,
     alpha: f32,
     prev_positions: Option<&HashMap<Entity, Vec2>>,
 ) {
-    let render_start = std::time::Instant::now();
     let Some(world) = game_ctx.world.as_deref_mut() else {
         return;
     };
@@ -73,7 +71,6 @@ pub fn render_room<C: BishopContext>(
     // render_system.run_spotlight_pass(ctx, render_cam, lights, room.darkness);
     // render_system.run_final_pass(ctx);
 
-    render_system.render_time_ms = render_start.elapsed().as_secs_f32() * 1000.0;
 }
 
 fn draw_entity<C: BishopContext>(
@@ -146,6 +143,7 @@ fn collect_interpolated_layer_map<'a>(
     let room_store = ecs.get_store::<CurrentRoom>();
     let layer_store = ecs.get_store::<Layer>();
     let glow_store = ecs.get_store::<Glow>();
+    let sub_pixel_store = ecs.get_store::<SubPixel>();
 
     for (entity, transform) in &trans_store.data {
         // Skip invisible entities
@@ -167,8 +165,13 @@ fn collect_interpolated_layer_map<'a>(
             continue;
         }
 
-        let draw_pos =
-            interpolate_draw_position(*entity, transform.position, alpha, prev_positions);
+        let current_pos = visual_position(transform.position, sub_pixel_store.get(*entity));
+        let draw_pos = interpolate_draw_position(
+            *entity,
+            current_pos,
+            alpha,
+            prev_positions,
+        );
 
         // Default layer is 0 if missing
         let z = layer_store.get(*entity).map_or(0, |l| l.z);
@@ -213,7 +216,7 @@ fn interpolate_draw_position(
 ) -> Vec2 {
     if let Some(prev_map) = prev_positions {
         if let Some(prev_pos) = prev_map.get(&entity) {
-            lerp_rounded(*prev_pos, current_pos, alpha)
+            lerp_position(*prev_pos, current_pos, alpha)
         } else {
             current_pos
         }

@@ -1,12 +1,14 @@
 use super::groups::{
-    assignment_options, handle_assign_option, handle_preset_action, preset_actions_for_group,
-    rename_target_group, AssignOption, PresetAction,
+    assign_preset_by_name, available_preset_names, handle_assign_option,
+    handle_preset_action, preset_actions_for_group, rename_target_group, AssignOption,
+    PresetAction,
 };
 use super::preview::{
     active_preview_is_cleared_for_test, set_active_preview_for_test, ActivePreview,
 };
 use super::*;
-use crate::storage::sound_preset_storage::set_current_sound_preset_library;
+use crate::storage::sound_preset_storage::{set_current_sound_preset_library, SoundPresetLibrary};
+use engine_core::assets::AssetRegistry;
 use engine_core::ecs::SoundPresetLink;
 
 #[test]
@@ -41,7 +43,7 @@ fn rename_target_group_errors_when_target_group_was_removed() {
 
 #[test]
 fn rename_target_group_renames_linked_preset_and_returns_link_update() {
-    set_current_sound_preset_library(crate::storage::sound_preset_storage::SoundPresetLibrary {
+    set_current_sound_preset_library(SoundPresetLibrary {
         presets: std::collections::HashMap::from([("Jump".to_string(), AudioGroup::default())]),
     });
 
@@ -74,7 +76,7 @@ fn rename_target_group_renames_linked_preset_and_returns_link_update() {
 }
 
 #[test]
-fn assignment_options_omits_presets_already_linked_on_entity() {
+fn available_preset_names_omit_presets_already_linked_on_entity() {
     let mut source = AudioSource::default();
     source.groups.insert(
         SoundGroupId::Custom("Jump".to_string()),
@@ -86,41 +88,42 @@ fn assignment_options_omits_presets_already_linked_on_entity() {
         },
     );
 
-    let library = crate::storage::sound_preset_storage::SoundPresetLibrary {
+    let library = SoundPresetLibrary {
         presets: std::collections::HashMap::from([
             ("Jump".to_string(), AudioGroup::default()),
             ("Land".to_string(), AudioGroup::default()),
         ]),
     };
 
-    let options = assignment_options(&source, &library);
-
-    assert!(!options.contains(&AssignOption::Preset("Jump".to_string())));
-    assert!(options.contains(&AssignOption::Preset("Land".to_string())));
+    assert_eq!(
+        available_preset_names(&source, &library),
+        vec!["Land".to_string()]
+    );
 }
 
 #[test]
-fn assignment_options_keep_matching_preset_visible_for_detached_group() {
+fn available_preset_names_keep_matching_preset_visible_for_detached_group() {
     let mut source = AudioSource::default();
     source.groups.insert(
         SoundGroupId::Custom("Jump".to_string()),
         AudioGroup::default(),
     );
 
-    let library = crate::storage::sound_preset_storage::SoundPresetLibrary {
+    let library = SoundPresetLibrary {
         presets: std::collections::HashMap::from([("Jump".to_string(), AudioGroup::default())]),
     };
 
-    let options = assignment_options(&source, &library);
-
-    assert!(options.contains(&AssignOption::Preset("Jump".to_string())));
+    assert_eq!(
+        available_preset_names(&source, &library),
+        vec!["Jump".to_string()]
+    );
 }
 
 #[test]
 fn preset_actions_offer_reattach_for_detached_group_matching_preset() {
     let group_id = SoundGroupId::Custom("Jump".to_string());
     let group = AudioGroup::default();
-    let library = crate::storage::sound_preset_storage::SoundPresetLibrary {
+    let library = SoundPresetLibrary {
         presets: std::collections::HashMap::from([("Jump".to_string(), AudioGroup::default())]),
     };
 
@@ -133,6 +136,23 @@ fn preset_actions_offer_reattach_for_detached_group_matching_preset() {
 }
 
 #[test]
+fn load_preset_action_opens_picker() {
+    let mut source = AudioSource::default();
+    let mut module = AudioSourceModule::default();
+    let asset_registry = AssetRegistry::default();
+
+    let warning = handle_assign_option(
+        &mut source,
+        AssignOption::LoadPreset,
+        &mut module,
+        &asset_registry,
+    );
+
+    assert_eq!(warning, None);
+    assert!(module.show_preset_picker);
+}
+
+#[test]
 fn assigning_matching_preset_warns_when_component_already_has_group_with_same_name() {
     let mut source = AudioSource::default();
     let jump = SoundGroupId::Custom("Jump".to_string());
@@ -141,18 +161,18 @@ fn assigning_matching_preset_warns_when_component_already_has_group_with_same_na
     source.groups.insert(land.clone(), AudioGroup::default());
     source.current = Some(land.clone());
 
-    let library = crate::storage::sound_preset_storage::SoundPresetLibrary {
+    let library = SoundPresetLibrary {
         presets: std::collections::HashMap::from([("Jump".to_string(), AudioGroup::default())]),
     };
-    let mut module = AudioSourceModule::default();
     let mut pending_sync_all = None;
+    let asset_registry = AssetRegistry::default();
 
-    let warning = handle_assign_option(
+    let warning = assign_preset_by_name(
         &mut source,
-        AssignOption::Preset("Jump".to_string()),
-        &mut module,
+        "Jump",
         &library,
         &mut pending_sync_all,
+        &asset_registry,
     );
 
     assert_eq!(
@@ -172,11 +192,11 @@ fn assigning_matching_preset_warns_when_component_already_has_group_with_same_na
 
 #[test]
 fn reattach_action_applies_preset_and_restores_link() {
-    set_current_sound_preset_library(crate::storage::sound_preset_storage::SoundPresetLibrary {
+    set_current_sound_preset_library(SoundPresetLibrary {
         presets: std::collections::HashMap::from([(
             "Jump".to_string(),
             AudioGroup {
-                sounds: vec!["sfx/jump".to_string()],
+                sounds: vec![SoundId(1)],
                 volume: 0.35,
                 pitch_variation: 0.2,
                 volume_variation: 0.1,
@@ -191,7 +211,7 @@ fn reattach_action_applies_preset_and_restores_link() {
     source.groups.insert(
         jump.clone(),
         AudioGroup {
-            sounds: vec!["sfx/local_jump".to_string()],
+            sounds: vec![SoundId(2)],
             volume: 0.9,
             pitch_variation: 0.0,
             volume_variation: 0.0,
@@ -202,17 +222,19 @@ fn reattach_action_applies_preset_and_restores_link() {
     source.current = Some(jump.clone());
 
     let mut pending_sync_all = None;
+    let asset_registry = AssetRegistry::default();
     let warning = handle_preset_action(
         &mut source,
         PresetAction::Reattach("Jump".to_string()),
         &mut pending_sync_all,
+        &asset_registry,
     );
 
     assert_eq!(warning, None);
     assert!(pending_sync_all.is_none());
 
     let group = source.groups.get(&jump).unwrap();
-    assert_eq!(group.sounds, vec!["sfx/jump".to_string()]);
+    assert_eq!(group.sounds, vec![SoundId(1)]);
     assert_eq!(group.volume, 0.35);
     assert_eq!(group.pitch_variation, 0.2);
     assert_eq!(group.volume_variation, 0.1);
@@ -234,9 +256,9 @@ fn format_volume_label_uses_two_decimal_place_multiplier() {
 
 #[test]
 fn preview_request_keeps_requested_sound_and_row() {
-    let next = PreviewRequest::new(7, "sfx/land".to_string());
+    let next = PreviewRequest::new(7, SoundId(7));
 
-    assert_eq!(next, PreviewRequest::new(7, "sfx/land".to_string()));
+    assert_eq!(next, PreviewRequest::new(7, SoundId(7)));
 }
 
 #[test]
@@ -244,7 +266,7 @@ fn tick_active_audio_preview_clears_expired_preview() {
     set_active_preview_for_test(Some(ActivePreview {
         entity: Entity(3),
         group_id: SoundGroupId::Custom("Jump".to_string()),
-        request: PreviewRequest::new(0, "sfx/jump".to_string()),
+        request: PreviewRequest::new(0, SoundId(1)),
         remaining_seconds: 0.25,
     }));
 

@@ -1,25 +1,19 @@
-// engine_core/src/worlds/world.rs
 use crate::assets::sprite_manager::SpriteManager;
 use crate::ecs::SpriteId;
+use crate::constants::world;
 use crate::tiles::tilemap::TileMap;
 use crate::worlds::room::*;
 use bishop::prelude::*;
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
 use serde_with::FromInto;
-use uuid::Uuid;
 
 /// Identifier for a world.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
-pub struct WorldId(pub Uuid);
-
-/// Default grid size in pixels.
-fn default_grid_size() -> f32 {
-    16.0
-}
+#[derive(Default, Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct WorldId(pub usize);
 
 #[serde_as]
-#[derive(Serialize, Deserialize, Default, Debug)]
+#[derive(Clone, Serialize, Deserialize, Default, Debug)]
 pub struct World {
     pub id: WorldId,
     pub name: String,
@@ -28,15 +22,25 @@ pub struct World {
     pub starting_room_id: Option<RoomId>,
     #[serde_as(as = "Option<FromInto<[f32; 2]>>")]
     pub starting_position: Option<Vec2>,
-    /// Meta information about the world to display the world in the editor/game.
     pub meta: WorldMeta,
-    /// Grid size in pixels for this world.
     #[serde(default = "default_grid_size")]
     pub grid_size: f32,
 }
 
+fn default_grid_size() -> f32 {
+    world::DEFAULT_GRID_SIZE
+}
+
+impl World {
+    /// Returns a static dummy world used as a fallback when no real worlds exist.
+    pub fn dummy() -> &'static Self {
+        static DUMMY: std::sync::OnceLock<World> = std::sync::OnceLock::new();
+        DUMMY.get_or_init(Self::default)
+    }
+}
+
 #[serde_as]
-#[derive(Serialize, Deserialize, Default, Debug)]
+#[derive(Clone, Serialize, Deserialize, Default, Debug)]
 pub struct WorldMeta {
     /// Position on the game map.
     #[serde_as(as = "FromInto<[f32; 2]>")]
@@ -46,7 +50,7 @@ pub struct WorldMeta {
 }
 
 impl WorldMeta {
-    /// Sets the sprite, handling ref counting for the change.
+    /// Sets the sprite.
     pub fn set_sprite(&mut self, new_id: Option<SpriteId>, sprite_manager: &mut SpriteManager) {
         sprite_manager.change_sprite_option(&mut self.sprite_id, new_id);
     }

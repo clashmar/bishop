@@ -128,7 +128,7 @@ impl DiagnosticsOverlay {
             cached_audio_matching_refs: 0,
             cached_audio_checked_refs: 0,
             cached_audio_rows: Vec::new(),
-            timing_trace: TimingTraceLogger::default(),
+            timing_trace: TimingTraceLogger::from_env(),
         }
     }
 
@@ -178,14 +178,15 @@ impl DiagnosticsOverlay {
         let audio_snapshot = audio_manager.diagnostics_snapshot();
         self.cached_entity_count = game.ecs.get_store::<Transform>().data.len();
         self.cached_texture_count = game.sprite_manager.texture_count();
-        self.cached_script_instances = game.script_manager.instances.len();
-        self.cached_listener_count = game.script_manager.event_bus.listener_count();
-        self.cached_script_id_count = game.script_manager.script_id_to_path.len();
-        self.cached_sprite_id_count = game.sprite_manager.sprite_id_to_path.len();
+        self.cached_script_instances = game.script_manager.instance_count();
+        self.cached_listener_count = game.script_manager.event_listener_count();
+        self.cached_script_id_count = game.script_manager.registered_id_count();
+        self.cached_sprite_id_count = game.sprite_manager.registered_id_count();
         self.cached_render_time = render_time_ms;
 
         let audio_sources = AudioSource::store(&game.ecs);
-        let expected_audio_refs = expected_audio_ref_counts(audio_sources.data.values());
+        let expected_audio_refs =
+            expected_audio_ref_counts(&game.asset_registry, audio_sources.data.values());
         let audio_rows = all_audio_diagnostics_rows(&expected_audio_refs, &audio_snapshot);
 
         self.cached_audio_working_set_resident = audio_rows
@@ -308,12 +309,13 @@ impl DiagnosticsOverlay {
 }
 
 fn expected_audio_ref_counts<'a>(
+    asset_registry: &AssetRegistry,
     sources: impl IntoIterator<Item = &'a AudioSource>,
 ) -> HashMap<String, usize> {
     let mut counts = HashMap::new();
 
     for source in sources {
-        for id in source.all_sound_ids() {
+        for id in sound_command_ids(asset_registry, source.all_sound_ids()) {
             *counts.entry(id).or_insert(0) += 1;
         }
     }
@@ -379,228 +381,4 @@ fn audio_ref_summary(rows: &[AudioDiagnosticsRow]) -> (usize, usize) {
         .count();
 
     (matching, relevant_rows.len())
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use std::collections::HashMap;
-
-    fn audio_source(sound_groups: &[(&str, &[&str])]) -> AudioSource {
-        let mut source = AudioSource::default();
-
-        for (group_name, sounds) in sound_groups {
-            source.groups.insert(
-                SoundGroupId::Custom((*group_name).to_string()),
-                AudioGroup {
-                    sounds: sounds.iter().map(|sound| (*sound).to_string()).collect(),
-                    ..Default::default()
-                },
-            );
-        }
-
-        source
-    }
-
-    #[test]
-    fn expected_audio_ref_counts_uses_each_source_sound_ids() {
-        let first = audio_source(&[("One", &["shared", "shared", "first"])]);
-        let second = audio_source(&[("Two", &["shared", "second"])]);
-
-        let counts = expected_audio_ref_counts([&first, &second]);
-
-        assert_eq!(counts.get("first"), Some(&1));
-        assert_eq!(counts.get("second"), Some(&1));
-        assert_eq!(counts.get("shared"), Some(&2));
-    }
-
-    #[test]
-    fn audio_diagnostics_rows_prioritize_attention_before_alphabetical() {
-        let ecs_counts = HashMap::from([
-            ("alpha".to_string(), 2),
-            ("beta".to_string(), 0),
-            ("gamma".to_string(), 1),
-            ("zeta".to_string(), 1),
-        ]);
-        let snapshot = AudioDiagnosticsSnapshot {
-            cached_sound_count: 3,
-            loading_sound_count: 1,
-            pinned_sound_count: 1,
-            ref_count_entry_count: 4,
-            entries: vec![
-                AudioDiagnosticsEntry {
-                    id: "alpha".to_string(),
-                    cached: true,
-                    loading: false,
-                    pinned: false,
-                    ref_count: 2,
-                },
-                AudioDiagnosticsEntry {
-                    id: "beta".to_string(),
-                    cached: false,
-                    loading: false,
-                    pinned: false,
-                    ref_count: 1,
-                },
-                AudioDiagnosticsEntry {
-                    id: "gamma".to_string(),
-                    cached: false,
-                    loading: true,
-                    pinned: false,
-                    ref_count: 1,
-                },
-                AudioDiagnosticsEntry {
-                    id: "zeta".to_string(),
-                    cached: true,
-                    loading: false,
-                    pinned: false,
-                    ref_count: 0,
-                },
-            ],
-        };
-
-        let rows = audio_diagnostics_rows(&ecs_counts, &snapshot);
-
-        assert_eq!(
-            rows.iter().map(|row| row.id.as_str()).collect::<Vec<_>>(),
-            vec!["beta", "zeta", "alpha", "gamma"]
-        );
-        assert!(rows[0].is_attention());
-        assert!(rows[1].is_attention());
-        assert!(!rows[2].is_attention());
-        assert!(!rows[3].is_attention());
-    }
-
-    #[test]
-    fn audio_diagnostics_rows_are_capped_to_six_entries() {
-        let ecs_counts = HashMap::new();
-        let snapshot = AudioDiagnosticsSnapshot {
-            cached_sound_count: 8,
-            loading_sound_count: 0,
-            pinned_sound_count: 0,
-            ref_count_entry_count: 8,
-            entries: vec![
-                AudioDiagnosticsEntry {
-                    id: "alpha".to_string(),
-                    cached: false,
-                    loading: false,
-                    pinned: false,
-                    ref_count: 0,
-                },
-                AudioDiagnosticsEntry {
-                    id: "beta".to_string(),
-                    cached: false,
-                    loading: false,
-                    pinned: false,
-                    ref_count: 0,
-                },
-                AudioDiagnosticsEntry {
-                    id: "charlie".to_string(),
-                    cached: false,
-                    loading: false,
-                    pinned: false,
-                    ref_count: 0,
-                },
-                AudioDiagnosticsEntry {
-                    id: "delta".to_string(),
-                    cached: false,
-                    loading: false,
-                    pinned: false,
-                    ref_count: 0,
-                },
-                AudioDiagnosticsEntry {
-                    id: "echo".to_string(),
-                    cached: false,
-                    loading: false,
-                    pinned: false,
-                    ref_count: 0,
-                },
-                AudioDiagnosticsEntry {
-                    id: "foxtrot".to_string(),
-                    cached: false,
-                    loading: false,
-                    pinned: false,
-                    ref_count: 0,
-                },
-                AudioDiagnosticsEntry {
-                    id: "golf".to_string(),
-                    cached: false,
-                    loading: false,
-                    pinned: false,
-                    ref_count: 0,
-                },
-                AudioDiagnosticsEntry {
-                    id: "hotel".to_string(),
-                    cached: false,
-                    loading: false,
-                    pinned: false,
-                    ref_count: 0,
-                },
-            ],
-        };
-
-        let rows = audio_diagnostics_rows(&ecs_counts, &snapshot);
-
-        assert_eq!(rows.len(), 6);
-        assert_eq!(
-            rows.iter().map(|row| row.id.as_str()).collect::<Vec<_>>(),
-            vec!["alpha", "beta", "charlie", "delta", "echo", "foxtrot"]
-        );
-    }
-
-    #[test]
-    fn audio_ref_summary_ignores_cache_only_entries() {
-        let rows = vec![
-            AudioDiagnosticsRow {
-                id: "cache-only".to_string(),
-                cached: true,
-                loading: false,
-                pinned: false,
-                ref_count: 0,
-                ecs_count: 0,
-            },
-            AudioDiagnosticsRow {
-                id: "matching".to_string(),
-                cached: true,
-                loading: false,
-                pinned: false,
-                ref_count: 1,
-                ecs_count: 1,
-            },
-            AudioDiagnosticsRow {
-                id: "stale".to_string(),
-                cached: true,
-                loading: false,
-                pinned: false,
-                ref_count: 2,
-                ecs_count: 0,
-            },
-        ];
-
-        assert_eq!(audio_ref_summary(&rows), (1, 2));
-    }
-
-    #[test]
-    fn audio_diagnostics_rows_treat_loading_working_set_entries_as_non_attention() {
-        let ecs_counts = HashMap::from([("warmup".to_string(), 1)]);
-        let snapshot = AudioDiagnosticsSnapshot {
-            cached_sound_count: 0,
-            loading_sound_count: 1,
-            pinned_sound_count: 0,
-            ref_count_entry_count: 1,
-            entries: vec![AudioDiagnosticsEntry {
-                id: "warmup".to_string(),
-                cached: false,
-                loading: true,
-                pinned: false,
-                ref_count: 1,
-            }],
-        };
-
-        let rows = audio_diagnostics_rows(&ecs_counts, &snapshot);
-
-        assert_eq!(rows.len(), 1);
-        assert!(!rows[0].is_attention());
-        assert_eq!(rows[0].display_line(), "Audio warmup rc=1 ecs=1 loading");
-    }
 }

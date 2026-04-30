@@ -13,8 +13,8 @@ pub trait SceneUiHost {
     /// Returns the command mode for hierarchy-triggered commands.
     fn command_mode(&self) -> EditorMode;
 
-    /// Returns the prefab library used for linked-prefab badges, if any.
-    fn prefab_library(&self) -> Option<&PrefabLibrary>;
+    /// Returns the prefab manager used for linked-prefab badges, if any.
+    fn prefab_manager(&self) -> Option<&PrefabManager>;
 }
 
 /// Selection behavior required by the shared hierarchy row renderer.
@@ -161,8 +161,8 @@ pub fn draw_scene_entity_tree(
             Color::WHITE,
         );
 
-        if let Some(prefab_library) = host.prefab_library() {
-            if let Some(prefab_display) = linked_prefab_display(ecs, prefab_library, entity) {
+        if let Some(prefab_manager) = host.prefab_manager() {
+            if let Some(prefab_display) = linked_prefab_display(ecs, prefab_manager, entity) {
                 let badge_font_size = 11.0;
                 let badge_padding_x = 6.0;
                 let badge_padding_y = 3.0;

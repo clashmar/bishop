@@ -1,0 +1,26 @@
+(
+    id: (2),
+    name: "Female",
+    next_node_id: 2,
+    root_node_id: 1,
+    nodes: [
+        (
+            node_id: 1,
+            parent_node_id: None,
+            components: [
+                (
+                    type_name: "Animation",
+                    ron: "(\n    clips: {\n        Idle: (\n            frame_size: (6.0, 16.0),\n            cols: 5,\n            rows: 1,\n            fps: 5.0,\n            frame_durations: [],\n            looping: true,\n            offset: (0.0, 0.0),\n            mirrored: true,\n        ),\n    },\n    variant: (\"animations/player/female\"),\n)",
+                ),
+                (
+                    type_name: "Name",
+                    ron: "(\"Entity\")",
+                ),
+                (
+                    type_name: "Transform",
+                    ron: "(visible:true,position:(0.0,0.0),pivot:BottomCenter)",
+                ),
+            ],
+        ),
+    ],
+)

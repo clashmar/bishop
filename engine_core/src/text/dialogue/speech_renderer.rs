@@ -3,9 +3,10 @@ use crate::assets::sprite_manager::SpriteManager;
 use crate::ecs::Pivot;
 use crate::ecs::ecs::Ecs;
 use crate::ecs::entity::Entity;
-use crate::ecs::{CurrentRoom, SpeechBubble, Transform, world_virtual_height, world_virtual_width};
-use crate::rendering::helpers::lerp_rounded;
+use crate::ecs::{CurrentRoom, SpeechBubble, SubPixel, Transform};
 use crate::rendering::helpers::entity_dimensions;
+use crate::rendering::helpers::lerp_position;
+use crate::rendering::helpers::visual_position;
 use crate::text::*;
 use crate::ui::text::*;
 use crate::worlds::room::RoomId;
@@ -40,6 +41,7 @@ pub fn collect_speech_bubbles(
     let bubble_store = ecs.get_store::<SpeechBubble>();
     let transform_store = ecs.get_store::<Transform>();
     let room_store = ecs.get_store::<CurrentRoom>();
+    let sub_pixel_store = ecs.get_store::<SubPixel>();
 
     for (entity, bubble) in &bubble_store.data {
         if let Some(current) = room_store.get(*entity) {
@@ -54,7 +56,13 @@ pub fn collect_speech_bubbles(
             continue;
         };
 
-        let world_pos = interpolate_position(*entity, transform.position, alpha, prev_positions);
+        let current_pos = visual_position(transform.position, sub_pixel_store.get(*entity));
+        let world_pos = interpolate_position(
+            *entity,
+            current_pos,
+            alpha,
+            prev_positions,
+        );
         let entity_size = entity_dimensions(ecs, sprite_manager, *entity, grid_size);
 
         bubbles.push(SpeechBubbleRenderData {
@@ -75,35 +83,14 @@ pub fn collect_speech_bubbles(
 }
 
 /// Renders speech bubbles in screen space for crisp text.
-/// Call this AFTER present_game() with the render camera used for the room.
+/// Call this after drawing the world with the render camera used for the room.
 pub fn render_speech_bubbles<C: BishopContext>(
     ctx: &mut C,
     bubbles: &[SpeechBubbleRenderData],
     config: &DialogueConfig,
     render_cam: &Camera2D,
-    grid_size: f32,
 ) {
-    let virt_w = world_virtual_width(grid_size);
-    let virt_h = world_virtual_height(grid_size);
-    let win_w = ctx.screen_width();
-    let win_h = ctx.screen_height();
-
-    let scale_w = win_w / virt_w;
-    let scaled_h = virt_h * scale_w;
-
-    let (scale, offset) = if scaled_h <= win_h {
-        (scale_w, Vec2::new(0.0, (win_h - scaled_h) / 2.0))
-    } else {
-        let scale_h = win_h / virt_h;
-        let scaled_w = virt_w * scale_h;
-        (scale_h, Vec2::new((win_w - scaled_w) / 2.0, 0.0))
-    };
-    let projection = ScreenSpaceProjection {
-        render_cam,
-        virt_size: Vec2::new(virt_w, virt_h),
-        scale,
-        offset,
-    };
+    let projection = screen_space_projection(render_cam, ctx.screen_width(), ctx.screen_height());
 
     for bubble in bubbles {
         render_bubble_screen_space(ctx, bubble, config, &projection);
@@ -113,9 +100,28 @@ pub fn render_speech_bubbles<C: BishopContext>(
 /// Shared screen-space projection derived from the current render camera and viewport.
 struct ScreenSpaceProjection<'a> {
     render_cam: &'a Camera2D,
-    virt_size: Vec2,
-    scale: f32,
-    offset: Vec2,
+    screen_size: Vec2,
+    screen_scale: Vec2,
+}
+
+fn screen_space_projection(
+    render_cam: &Camera2D,
+    screen_w: f32,
+    screen_h: f32,
+) -> ScreenSpaceProjection<'_> {
+    let screen_size = Vec2::new(screen_w, screen_h);
+    let viewport_size = render_cam
+        .viewport
+        .map(|(_, _, width, height)| Vec2::new(width as f32, height as f32))
+        .unwrap_or(screen_size);
+    let half_w = 1.0 / render_cam.zoom.x;
+    let half_h = 1.0 / render_cam.zoom.y;
+
+    ScreenSpaceProjection {
+        render_cam,
+        screen_size,
+        screen_scale: Vec2::new(viewport_size.x / (2.0 * half_w), viewport_size.y / (2.0 * half_h)),
+    }
 }
 
 /// Renders a single speech bubble in screen space.
@@ -125,9 +131,10 @@ fn render_bubble_screen_space<C: BishopContext>(
     config: &DialogueConfig,
     projection: &ScreenSpaceProjection<'_>,
 ) {
-    let font_size = bubble.font_size.unwrap_or(config.font_size) * projection.scale;
-    let max_width = bubble.max_width.unwrap_or(config.max_width) * projection.scale;
-    let padding = config.padding * projection.scale;
+    let text_scale = projection.screen_scale.x.min(projection.screen_scale.y);
+    let font_size = bubble.font_size.unwrap_or(config.font_size) * text_scale;
+    let max_width = bubble.max_width.unwrap_or(config.max_width) * text_scale;
+    let padding = config.padding * text_scale;
 
     let lines = wrap_text(ctx, &bubble.text, max_width, font_size);
     if lines.is_empty() {
@@ -146,28 +153,22 @@ fn render_bubble_screen_space<C: BishopContext>(
     let bubble_height = total_text_height + padding * 2.0;
 
     let pivot_offset = bubble.pivot.as_normalized();
-    let entity_width_scaled = bubble.entity_size.x * projection.scale;
-    let entity_height_scaled = bubble.entity_size.y * projection.scale;
+    let entity_width_scaled = bubble.entity_size.x * projection.screen_scale.x;
+    let entity_height_scaled = bubble.entity_size.y * projection.screen_scale.y;
 
-    let half_w = 1.0 / projection.render_cam.zoom.x;
-    let half_h = 1.0 / projection.render_cam.zoom.y;
-    let virt_x = (bubble.world_pos.x - projection.render_cam.target.x + half_w)
-        / (2.0 * half_w)
-        * projection.virt_size.x;
-    let virt_y = (bubble.world_pos.y - projection.render_cam.target.y + half_h)
-        / (2.0 * half_h)
-        * projection.virt_size.y;
-
-    let screen_x = virt_x * projection.scale + projection.offset.x;
-    let screen_y = virt_y * projection.scale + projection.offset.y;
+    let screen_pos = projection.render_cam.world_to_screen(
+        bubble.world_pos,
+        projection.screen_size.x,
+        projection.screen_size.y,
+    );
 
     let entity_top_center_x =
-        screen_x - entity_width_scaled * pivot_offset.x + entity_width_scaled / 2.0;
-    let entity_top_y = screen_y - entity_height_scaled * pivot_offset.y;
+        screen_pos.x - entity_width_scaled * pivot_offset.x + entity_width_scaled / 2.0;
+    let entity_top_y = screen_pos.y - entity_height_scaled * pivot_offset.y;
 
     let bubble_x =
-        entity_top_center_x - bubble_width / 2.0 + bubble.offset.0 * projection.scale;
-    let bubble_y = entity_top_y + bubble.offset.1 * projection.scale - bubble_height;
+        entity_top_center_x - bubble_width / 2.0 + bubble.offset.0 * projection.screen_scale.x;
+    let bubble_y = entity_top_y + bubble.offset.1 * projection.screen_scale.y - bubble_height;
 
     if bubble.show_background {
         let bg_color = Color::new(
@@ -243,7 +244,26 @@ fn interpolate_position(
     if let Some(prev_map) = prev_positions
         && let Some(prev_pos) = prev_map.get(&entity)
     {
-        return lerp_rounded(*prev_pos, current_pos, alpha);
+        return lerp_position(*prev_pos, current_pos, alpha);
     }
     current_pos
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn speech_bubble_projection_uses_camera_viewport_dimensions() {
+        let camera = Camera2D {
+            zoom: Vec2::new(2.0 / 320.0, 2.0 / 180.0),
+            viewport: Some((90, 0, 1920, 1080)),
+            ..Default::default()
+        };
+
+        let projection = screen_space_projection(&camera, 2100.0, 1080.0);
+
+        assert_eq!(projection.screen_size, Vec2::new(2100.0, 1080.0));
+        assert_eq!(projection.screen_scale, Vec2::new(6.0, 6.0));
+    }
 }

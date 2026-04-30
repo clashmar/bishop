@@ -1,5 +1,6 @@
 use crate::animation::clip_id_helpers::{builtin_clip_ids, sprite_filename};
 use crate::assets::sprite_manager::SpriteManager;
+use crate::assets::AssetRegistry;
 use crate::constants::world;
 use crate::ecs::SpriteId;
 use crate::scripting::lua_constants::lua_ownership;
@@ -115,6 +116,7 @@ pub struct ClipState {
 /// Returns the `SpriteId` for the current variant clip.
 pub fn resolve_sprite_id(
     loader: &impl TextureLoader,
+    asset_registry: &mut AssetRegistry,
     sprite_manager: &mut SpriteManager,
     variant_folder: &VariantFolder,
     clip_id: &ClipId,
@@ -123,7 +125,7 @@ pub fn resolve_sprite_id(
         return SpriteId(0);
     };
 
-    match sprite_manager.init_texture(loader, &path) {
+    match sprite_manager.init_texture(asset_registry, loader, &path) {
         Ok(id) => id,
         Err(_) => SpriteId(0),
     }

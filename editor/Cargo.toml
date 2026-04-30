@@ -10,12 +10,11 @@ path = "src/main.rs"
 
 [features]
 default = ["wgpu"]
-wgpu = ["bishop/wgpu", "engine_core/wgpu", "game/wgpu"]
+wgpu = ["bishop/wgpu", "engine_core/wgpu"]
 
 [dependencies]
 bishop = { path = "../bishop", default-features = false, features = ["wgpu", "audio-cpal"] }
 engine_core = { path = "../engine_core", default-features = false, features = ["wgpu", "editor"] }
-game = { path = "../game", default-features = false, features = ["wgpu"] }
 reflect_derive = { path = "../reflect_derive" }
 mlua = { version = "0.11.5", features = ["lua54", "vendored", "serde" ] }
 log = "0.4"
@@ -41,6 +40,11 @@ engine_core = { path = "../engine_core" }
 
 [dev-dependencies]
 engine_core = { path = "../engine_core", default-features = false, features = ["wgpu", "editor", "test-utils"] }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2 = { version = "0.5.2", features = ["relax-sign-encoding"] }
+objc2-app-kit = { version = "0.2.2", features = ["NSApplication"] }
+objc2-foundation = "0.2.2"
 
 # Bundle for macOS
 [package.metadata.bundle]

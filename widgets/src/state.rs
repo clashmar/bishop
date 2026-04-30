@@ -86,6 +86,18 @@ thread_local! {
 }
 
 thread_local! {
+    pub static CONTEXT_MENU_OPEN: RefCell<bool> = const { RefCell::new(false) };
+}
+
+thread_local! {
+    pub static MODAL_OPEN: RefCell<bool> = const { RefCell::new(false) };
+}
+
+thread_local! {
+    pub static FOCUSED_PANEL: RefCell<Option<&'static str>> = const { RefCell::new(None) };
+}
+
+thread_local! {
     pub static CLICK_CONSUMED: RefCell<bool> = const { RefCell::new(false) };
 }
 
@@ -229,13 +241,50 @@ pub fn activate_on_release(
     activated
 }
 
+/// Returns true if a dropdown is currently open.
 pub fn is_dropdown_open() -> bool {
     DROPDOWN_OPEN.with(|f| *f.borrow())
+}
+
+/// Returns true if a context menu is currently open.
+pub fn is_context_menu_open() -> bool {
+    CONTEXT_MENU_OPEN.with(|f| *f.borrow())
+}
+
+/// Sets whether a context menu is open.
+pub fn set_context_menu_open(open: bool) {
+    CONTEXT_MENU_OPEN.with(|f| *f.borrow_mut() = open);
+}
+
+/// Returns true if a modal is currently open.
+pub fn is_modal_open() -> bool {
+    MODAL_OPEN.with(|f| *f.borrow())
+}
+
+/// Sets whether a modal is open.
+pub fn set_modal_open(open: bool) {
+    MODAL_OPEN.with(|f| *f.borrow_mut() = open);
+}
+
+/// Returns the id of the currently focused panel, or None if the editor canvas has focus.
+pub fn focused_panel() -> Option<&'static str> {
+    FOCUSED_PANEL.with(|f| *f.borrow())
+}
+
+/// Sets the currently focused panel. Pass None when the editor canvas should hold focus.
+pub fn set_focused_panel(id: Option<&'static str>) {
+    FOCUSED_PANEL.with(|f| *f.borrow_mut() = id);
+}
+
+/// Returns true when a panel has keyboard focus (i.e. not the editor canvas).
+pub fn is_panel_focused() -> bool {
+    focused_panel().is_some()
 }
 
 /// Marks the current click as consumed, preventing other widgets from processing it.
 pub fn consume_click() {
     CLICK_CONSUMED.with(|f| *f.borrow_mut() = true);
+    bishop::input::request_double_click_reset();
 }
 
 /// Returns true if the current click has been consumed by another widget.
@@ -274,6 +323,7 @@ pub fn widgets_frame_end<C: BishopContext>(ctx: &mut C) {
 
     resolve_pending_tab();
     flush_dropdown_lists(ctx);
+    flush_context_menu(ctx);
 }
 
 #[cfg(test)]
@@ -337,5 +387,29 @@ mod tests {
             true,
         ));
         assert!(!is_click_target_armed(MouseButton::Left, target));
+    }
+
+    #[test]
+    fn context_menu_open_flag_roundtrips() {
+        set_context_menu_open(true);
+        assert!(is_context_menu_open());
+        set_context_menu_open(false);
+        assert!(!is_context_menu_open());
+    }
+
+    #[test]
+    fn modal_open_flag_roundtrips() {
+        set_modal_open(true);
+        assert!(is_modal_open());
+        set_modal_open(false);
+        assert!(!is_modal_open());
+    }
+
+    #[test]
+    fn focused_panel_roundtrips() {
+        set_focused_panel(Some("test_panel"));
+        assert_eq!(focused_panel(), Some("test_panel"));
+        set_focused_panel(None);
+        assert_eq!(focused_panel(), None);
     }
 }

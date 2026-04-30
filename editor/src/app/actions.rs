@@ -4,6 +4,11 @@ use crate::commands::scene::DeletePrefabCmd;
 use crate::editor_global::*;
 use crate::gui::inspector::audio_source_module::clear_active_audio_preview;
 use crate::gui::menu_bar::*;
+use crate::gui::modals::{
+    dirty_prefab_exit::DirtyPrefabExitModal, empty_prefab_exit::EmptyPrefabExitModal,
+    empty_prefab_save::EmptyPrefabSaveModal, is_modal_open, new_game::NewGameModal,
+    rename::RenameModal, save_as::SaveAsModal, world_settings::WorldSettingsModal, ModalHandler,
+};
 use crate::gui::panels::*;
 use crate::prefab::{PendingPrefabTransition, PrefabTransitionPrompt};
 use crate::storage::editor_storage::*;
@@ -12,22 +17,7 @@ use engine_core::prelude::*;
 
 impl Editor {
     pub fn draw_menu_bar(&mut self, ctx: &mut WgpuContext) {
-        let menu_title = match self.mode {
-            EditorMode::Game => self.game.name.clone(),
-            EditorMode::World(_) => self.game.current_world().name.clone(),
-            EditorMode::Room(id) => self
-                .game
-                .current_world()
-                .get_room(id)
-                .map(|room| room.name.clone())
-                .unwrap_or_else(|| "Room".to_string()),
-            EditorMode::Prefab(_) => self
-                .prefab_editor
-                .as_ref()
-                .map(|editor| editor.prefab_name.clone())
-                .unwrap_or_else(|| "Prefab".to_string()),
-            EditorMode::Menu => "Menu Editor".to_string(),
-        };
+        let menu_title = self.active_entity_name();
 
         if let Some(action) = self.menu_bar.draw(ctx, &menu_title, self.mode) {
             self.run_action(ctx, action);
@@ -42,33 +32,38 @@ impl Editor {
 
     fn shortcut_action(&self, ctx: &WgpuContext) -> Option<EditorAction> {
         let input_focused = input_is_focused();
-        let actions = [
+        let modal_open = is_modal_open();
+        let always_available = [EditorAction::Undo, EditorAction::Redo];
+        let modal_blocked = [
             EditorAction::Save,
             EditorAction::SaveAs,
-            EditorAction::Undo,
-            EditorAction::Redo,
             EditorAction::ViewConsolePanel,
             EditorAction::ViewDiagnosticsPanel,
             EditorAction::ViewHierarchyPanel,
             EditorAction::ViewPrefabBrowserPanel,
             EditorAction::ViewPrefabPalettePanel,
+            EditorAction::ViewResourcesPanel,
         ];
 
-        actions.into_iter().find(|action| {
-            action.is_available_in(self.mode)
-                && (!input_focused || !action.blocked_by_focused_input())
-                && action.shortcut_pressed(ctx)
-        })
+        always_available
+            .into_iter()
+            .chain(modal_blocked.into_iter())
+            .find(|action| {
+                action.is_available_in(self.mode)
+                    && (!input_focused || !action.blocked_by_focused_input())
+                    && (!modal_open || !action.blocked_by_modal())
+                    && action.shortcut_pressed(ctx)
+            })
     }
 
     fn run_action(&mut self, ctx: &mut WgpuContext, action: EditorAction) {
         match action {
             EditorAction::Rename => {
-                self.open_rename_modal(ctx);
+                RenameModal.open(self, ctx);
             }
             EditorAction::NewGame => {
                 self.save();
-                self.open_new_game_modal(ctx);
+                NewGameModal.open(self, ctx);
             }
             EditorAction::Open => {
                 #[cfg(not(target_arch = "wasm32"))]
@@ -118,7 +113,7 @@ impl Editor {
                     self.save();
                 }
             }
-            EditorAction::SaveAs => self.open_save_as_modal(ctx),
+            EditorAction::SaveAs => SaveAsModal.open(self, ctx),
             EditorAction::Undo => crate::editor_global::request_undo(),
             EditorAction::Redo => crate::editor_global::request_redo(),
             EditorAction::Export => self.begin_export(ctx),
@@ -159,8 +154,13 @@ impl Editor {
                     panel_manager.toggle(PREFAB_PALETTE_PANEL);
                 });
             }
+            EditorAction::ViewResourcesPanel => {
+                with_panel_manager(|panel_manager| {
+                    panel_manager.toggle(RESOURCES_PANEL);
+                });
+            }
             EditorAction::WorldSettings => {
-                self.open_world_settings_modal(ctx);
+                WorldSettingsModal.open(self, ctx);
             }
             EditorAction::OpenPrefabEditor => {
                 self.open_prefab_editor(ctx);
@@ -195,11 +195,9 @@ impl Editor {
                             .init_camera(ctx, &mut self.camera, &mut self.game);
                     }
                     EditorMode::World(id) => {
-                        self.world_editor.init_camera(
-                            ctx,
-                            &mut self.camera,
-                            self.game.get_world_mut(id),
-                        );
+                        if let Some(world) = self.game.get_world_mut(id) {
+                            self.world_editor.init_camera(ctx, &mut self.camera, world);
+                        }
                     }
                     EditorMode::Room(id) => {
                         let current_world = self.game.current_world();
@@ -219,15 +217,6 @@ impl Editor {
         }
     }
 
-    pub fn get_room_from_id(&self, room_id: &RoomId) -> &Room {
-        self.game
-            .current_world()
-            .rooms
-            .iter()
-            .find(|m| m.id == *room_id)
-            .expect("Could not find room from id.")
-    }
-
     pub(crate) fn request_prefab_save(&mut self, ctx: &WgpuContext) {
         if self.is_blank_prefab_mode() {
             self.toast = Some(Toast::new("Blank prefab sessions cannot be saved.", 2.5));
@@ -244,7 +233,7 @@ impl Editor {
             }
             crate::prefab::prefab_editor::StagedPrefabState::Empty => {
                 if !self.active_prefab_is_clean() {
-                    self.open_empty_prefab_save_modal(ctx);
+                    EmptyPrefabSaveModal.open(self, ctx);
                 }
             }
         }
@@ -253,8 +242,8 @@ impl Editor {
     pub(crate) fn request_exit_prefab_mode(&mut self, ctx: &WgpuContext) {
         match self.request_prefab_transition(PendingPrefabTransition::Exit) {
             PrefabTransitionPrompt::None => {}
-            PrefabTransitionPrompt::Dirty => self.open_dirty_prefab_exit_modal(ctx),
-            PrefabTransitionPrompt::Empty => self.open_empty_prefab_exit_modal(ctx),
+            PrefabTransitionPrompt::Dirty => DirtyPrefabExitModal.open(self, ctx),
+            PrefabTransitionPrompt::Empty => EmptyPrefabExitModal.open(self, ctx),
         }
     }
 
@@ -263,10 +252,7 @@ impl Editor {
             return;
         };
 
-        push_command(Box::new(DeletePrefabCmd::new(
-            prefab_id,
-            EditorMode::Prefab(prefab_id),
-        )));
+        push_command(Box::new(DeletePrefabCmd::new(prefab_id)));
     }
 
     /// Updates and draws the toast to the screen.
@@ -308,7 +294,12 @@ impl Editor {
     pub fn init_game_for_editor(&mut self, ctx: &WgpuContext, game: Game) -> Game {
         let mut game = game;
 
-        with_lua(|lua| game.initialize(ctx, lua));
+        with_lua(|lua| {
+            game.initialize(ctx, lua);
+            if let Err(error) = register_runtime_modules(lua, &game.script_manager.event_bus) {
+                onscreen_error!("Lua module registration failed: {error}");
+            }
+        });
         self.game_editor
             .init_camera(ctx, &mut self.camera, &mut game);
 

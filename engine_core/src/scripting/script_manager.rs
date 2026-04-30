@@ -1,8 +1,9 @@
 // engine_core/src/script/script_manager.rs
 use crate::assets::asset_manager::{AssetManager, IdPathAssetManager};
+use crate::assets::asset_registry::AssetKey;
+use crate::assets::AssetRegistry;
 use crate::ecs::ScriptId;
 use crate::ecs::entity::Entity;
-use crate::game::Game;
 use crate::scripting::event_bus::EventBus;
 use crate::scripting::lua_constants::{lua_entity, lua_fields};
 use crate::storage::path_utils::scripts_folder;
@@ -41,27 +42,14 @@ pub struct ScriptManager {
     /// Init functions that need to be executed.
     #[serde(skip)]
     pub pending_inits: Vec<(Entity, ScriptId)>,
-    /// Persistent map of all script ids to their paths.
-    #[serde(
-        serialize_with = "crate::storage::ordered_map::serialize",
-        deserialize_with = "crate::storage::ordered_map::deserialize"
-    )]
+    /// Derived cache of all script ids to their paths.
+    #[serde(skip)]
     pub script_id_to_path: HashMap<ScriptId, PathBuf>,
     #[serde(skip)]
     pub path_to_script_id: HashMap<PathBuf, ScriptId>,
     #[serde(skip)]
     /// Counter for script ids. Starts from 1.
     pub next_script_id: usize,
-    /// How many entities are using a script.
-    #[serde(
-        serialize_with = "crate::storage::ordered_map::serialize",
-        deserialize_with = "crate::storage::ordered_map::deserialize"
-    )]
-    ref_counts: HashMap<ScriptId, usize>,
-    /// Script ids whose path mappings should be removed on exit.
-    #[cfg(feature = "editor")]
-    #[serde(skip)]
-    pending_path_removal: HashSet<ScriptId>,
 }
 
 impl ScriptManager {
@@ -76,62 +64,22 @@ impl ScriptManager {
             script_id_to_path: HashMap::new(),
             path_to_script_id: HashMap::new(),
             next_script_id: 1,
-            ref_counts: HashMap::new(),
-            #[cfg(feature = "editor")]
-            pending_path_removal: HashSet::new(),
         }
     }
 
-    /// Increment reference count for a script.
-    pub fn increment_ref(&mut self, script_id: ScriptId) {
-        if script_id.0 == 0 {
-            return;
-        }
-
-        *self.ref_counts.entry(script_id).or_insert(0) += 1;
-
-        #[cfg(feature = "editor")]
-        {
-            self.pending_path_removal.remove(&script_id);
-        }
+    /// Returns the number of loaded script definitions.
+    pub fn loaded_script_count(&self) -> usize {
+        self.table_defs.len()
     }
 
-    /// Decrement reference count for a script, and clean up if it reaches zero.
-    fn decrement_ref(&mut self, script_id: ScriptId) {
-        if script_id.0 == 0 {
-            return;
-        }
-
-        if let Some(count) = self.ref_counts.get_mut(&script_id) {
-            *count = count.saturating_sub(1);
-
-            if *count == 0 {
-                self.ref_counts.remove(&script_id);
-                self.table_defs.remove(&script_id);
-                self.update_fns.remove(&script_id);
-
-                #[cfg(feature = "editor")]
-                {
-                    self.pending_path_removal.insert(script_id);
-                }
-            }
-        }
+    /// Returns the number of live script instances.
+    pub fn instance_count(&self) -> usize {
+        self.instances.len()
     }
 
-    /// Remove path mappings for all scripts with a zero ref count.
-    /// Call this before serializing game data on exit.
-    #[cfg(feature = "editor")]
-    pub fn flush_pending_removals(&mut self) {
-        for id in self.pending_path_removal.drain() {
-            if let Some(path) = self.script_id_to_path.remove(&id) {
-                self.path_to_script_id.remove(&path);
-            }
-        }
-    }
-
-    /// Get the reference count for a script.
-    pub fn get_ref_count(&self, script_id: ScriptId) -> usize {
-        self.ref_counts.get(&script_id).copied().unwrap_or(0)
+    /// Returns the number of registered script event listeners.
+    pub fn event_listener_count(&self) -> usize {
+        self.event_bus.listener_count()
     }
 
     /// Load the Lua table by id and return a reference to it.
@@ -234,7 +182,11 @@ impl ScriptManager {
     }
 
     /// Returns the id for `path`, loading it if necessary.
-    pub fn get_or_load<P: AsRef<Path>>(&mut self, path: P) -> Option<ScriptId> {
+    pub fn get_or_load<P: AsRef<Path>>(
+        &mut self,
+        asset_registry: &mut AssetRegistry,
+        path: P,
+    ) -> Option<ScriptId> {
         let p = path.as_ref();
         if p.to_string_lossy().trim().is_empty() {
             return None;
@@ -244,7 +196,7 @@ impl ScriptManager {
             return Some(id);
         }
 
-        match self.init_script(p) {
+        match self.init_script(asset_registry, p) {
             Ok(id) => Some(id),
             Err(err) => {
                 onscreen_error!("{}", err);
@@ -255,7 +207,11 @@ impl ScriptManager {
 
     /// Load and initialize a script from the scripts folder.
     /// Returns the `ScriptId` for the script.
-    pub fn init_script(&mut self, rel_path: impl AsRef<Path>) -> Result<ScriptId, String> {
+    pub fn init_script(
+        &mut self,
+        asset_registry: &mut AssetRegistry,
+        rel_path: impl AsRef<Path>,
+    ) -> Result<ScriptId, String> {
         let path = rel_path.as_ref().to_path_buf();
 
         if path.to_string_lossy().trim().is_empty() {
@@ -267,14 +223,22 @@ impl ScriptManager {
             return Ok(id);
         }
 
-        // Set and calculate the next script id
-        let id = ScriptId(self.next_script_id);
+        if self.next_script_id == 0 {
+            self.restore_next_script_id();
+        }
 
-        // Store everything
+        let id = match asset_registry.key_for_path(scripts_folder().join(&path)) {
+            Some(AssetKey::Script(id)) => id,
+            _ => ScriptId(self.next_script_id),
+        };
+
+        asset_registry
+            .register_asset_relative_path(id, &path)
+            .map_err(|error| error.to_string())?;
+
         self.path_to_script_id.insert(path.clone(), id);
         self.script_id_to_path.insert(id, path);
 
-        // Restore after inserting
         self.restore_next_script_id();
 
         Ok(id)
@@ -288,31 +252,20 @@ impl ScriptManager {
             .to_path_buf()
     }
 
-    /// Initialize all scripts for the game.
-    pub fn init_manager(game: &mut Game, lua: &Lua) {
-        Self::init_editor_services(&mut game.script_manager, lua);
+    /// Initialize script manager state from the asset registry and Lua runtime.
+    pub fn init_manager(
+        asset_registry: &AssetRegistry,
+        script_manager: &mut ScriptManager,
+        lua: &Lua,
+    ) {
+        Self::init_editor_metadata(asset_registry, script_manager);
+        Self::load_to_package(lua);
     }
 
     /// Initializes editor script metadata without requiring a Lua context.
-    pub fn init_editor_metadata(script_manager: &mut ScriptManager) {
+    pub fn init_editor_metadata(asset_registry: &AssetRegistry, script_manager: &mut ScriptManager) {
+        script_manager.rebuild_path_cache_from_registry(asset_registry);
         script_manager.restore_next_script_id();
-        script_manager.path_to_script_id.clear();
-
-        let scripts: Vec<(ScriptId, PathBuf)> = script_manager
-            .script_id_to_path
-            .iter()
-            .map(|(id, path)| (*id, path.clone()))
-            .collect();
-
-        for (id, path) in scripts {
-            script_manager.path_to_script_id.insert(path, id);
-        }
-    }
-
-    /// Initialize editor script services without requiring a world-backed game.
-    pub fn init_editor_services(script_manager: &mut ScriptManager, lua: &Lua) {
-        Self::load_to_package(lua);
-        Self::init_editor_metadata(script_manager);
     }
 
     /// Load all .lua files to the package.path
@@ -349,6 +302,16 @@ impl ScriptManager {
         self.next_script_id = candidate;
     }
 
+    /// Returns the number of registered script ids.
+    pub fn registered_id_count(&self) -> usize {
+        self.script_id_to_path.len()
+    }
+
+    /// Returns the registered relative path for a script id.
+    pub fn path_for_id(&self, script_id: ScriptId) -> Option<&Path> {
+        self.script_id_to_path.get(&script_id).map(PathBuf::as_path)
+    }
+
     pub fn reload(&mut self, lua: &Lua, entity: Entity, id: ScriptId) -> LuaResult<&Table> {
         self.table_defs.remove(&id);
         self.instances.remove(&(entity, id));
@@ -362,7 +325,11 @@ impl ScriptManager {
 
         self.instances
             .retain(|(ent, _script_id), _table| *ent != entity);
-        self.decrement_ref(script_id)
+        
+        if script_id.0 != 0 && !self.instances.keys().any(|(_, id)| *id == script_id) {
+            self.table_defs.remove(&script_id);
+            self.update_fns.remove(&script_id);
+        }
     }
 
     /// Change the script for an entity.
@@ -374,27 +341,42 @@ impl ScriptManager {
         // Update old script counter
         if old_id.0 != 0 {
             self.instances.remove(&(entity, *old_id));
-            self.decrement_ref(*old_id);
+            if !self.instances.keys().any(|(_, id)| *id == *old_id) {
+                self.table_defs.remove(old_id);
+                self.update_fns.remove(old_id);
+            }
         }
 
         *old_id = new_id;
-        self.increment_ref(new_id)
+    }
+
+    fn rebuild_path_cache_from_registry(&mut self, asset_registry: &AssetRegistry) {
+        self.script_id_to_path.clear();
+        self.path_to_script_id.clear();
+
+        for record_key in asset_registry.records().keys().copied() {
+            let crate::assets::AssetKey::Script(script_id) = record_key else {
+                continue;
+            };
+            let Some(relative_path) = asset_registry.relative_path(script_id) else {
+                continue;
+            };
+
+            self.path_to_script_id.insert(relative_path.clone(), script_id);
+            self.script_id_to_path.insert(script_id, relative_path);
+        }
     }
 
 }
 
 impl AssetManager for ScriptManager {
     fn editor_metadata_snapshot(&self) -> Self {
-        let mut snapshot = Self {
-            script_id_to_path: self.script_id_to_path.clone(),
-            ..Default::default()
-        };
-        Self::init_editor_metadata(&mut snapshot);
-        snapshot
+        Self::default()
     }
 
     fn merge_editor_metadata_from(&mut self, source: &Self) -> std::io::Result<()> {
-        self.merge_id_path_registry_from(source)
+        let _ = source;
+        Ok(())
     }
 }
 
@@ -422,6 +404,29 @@ impl IdPathAssetManager for ScriptManager {
     }
 
     fn rebuild_editor_metadata(&mut self) {
-        Self::init_editor_metadata(self);
+        self.restore_next_script_id();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::assets::asset_registry::AssetKey;
+    use crate::constants::paths;
+
+    #[test]
+    fn get_or_load_registers_new_script_path_in_asset_registry() {
+        let mut registry = AssetRegistry::default();
+        let mut script_manager = ScriptManager::default();
+        let path = PathBuf::from("player.lua");
+
+        let result = script_manager.get_or_load(&mut registry, &path);
+
+        assert_eq!(result, Some(ScriptId(1)));
+        assert_eq!(
+            registry.key_for_path(PathBuf::from(paths::SCRIPTS_FOLDER).join(&path)),
+            Some(AssetKey::Script(ScriptId(1)))
+        );
+        assert_eq!(script_manager.path_to_script_id.get(&path), Some(&ScriptId(1)));
     }
 }

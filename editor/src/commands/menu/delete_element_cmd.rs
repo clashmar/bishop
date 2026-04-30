@@ -136,7 +136,7 @@ impl EditorCommand for DeleteElementCmd {
         });
     }
 
-    fn mode(&self) -> EditorMode {
-        EditorMode::Menu
+    fn applies_in_mode(&self, current_mode: EditorMode) -> bool {
+        current_mode == EditorMode::Menu
     }
 }

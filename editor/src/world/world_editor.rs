@@ -6,6 +6,7 @@ use crate::canvas::grid_shader::GridRenderer;
 use crate::editor_assets::assets::*;
 use crate::gui::menu_bar::*;
 use crate::gui::mode_selector::*;
+use crate::shared::input::shortcuts_blocked;
 use crate::world::coord::*;
 use bishop::prelude::*;
 use engine_core::prelude::*;
@@ -84,14 +85,19 @@ impl WorldEditor {
         camera: &mut Camera2D,
         game: &mut Game,
     ) -> Option<RoomId> {
-        game.current_world_mut().link_all_exits();
+        if let Some(world) = game.current_world_mut() {
+            world.link_all_exits();
+        }
 
         self.handle_mouse_cursor(ctx);
         self.handle_shortcuts(ctx);
 
         match self.mode {
             WorldEditorMode::Select => {
-                self.update_selecting_mode(ctx, camera, game.current_world_mut())
+                let world = game
+                    .current_world_mut()
+                    .expect("World editor requires a world");
+                self.update_selecting_mode(ctx, camera, world)
             }
             WorldEditorMode::New => self.update_placing_mode(ctx, camera, game),
             WorldEditorMode::Delete => self.update_deleting_mode(ctx, camera, game),
@@ -209,7 +215,10 @@ impl WorldEditor {
         ctx.set_camera(camera);
         ctx.clear_background(Color::LIGHTGREY);
 
-        let world = game.get_world_mut(world_id);
+        let world = game
+            .get_world_mut(world_id)
+            .expect("World editor requires a world");
+
         let rooms = &world.rooms;
 
         grid::draw_grid(ctx, grid_renderer, camera, world.grid_size);
@@ -497,7 +506,7 @@ impl WorldEditor {
 
         for mode in WorldEditorMode::iter() {
             if let Some(shortcut) = mode.shortcut() {
-                if shortcut(ctx) && !input_is_focused() {
+                if shortcut(ctx) && !shortcuts_blocked() {
                     self.mode = mode;
                     self.mode_selector.current = mode;
                     break;

@@ -6,11 +6,14 @@ use crate::gui::panels::generic_panel::*;
 use crate::gui::panels::hierarchy_panel::HierarchyPanel;
 use crate::gui::panels::prefab_browser_panel::PrefabBrowserPanel;
 use crate::gui::panels::prefab_palette_panel::PrefabPalettePanel;
+use crate::gui::panels::resources_panel::ResourcesPanel;
 use crate::with_panel_manager;
 use crate::Editor;
 use bishop::prelude::*;
+use engine_core::prelude::*;
 use engine_core::storage::editor_config::{get_panel_position, set_panel_position, PanelPosition};
 use std::collections::HashMap;
+use widgets::{focused_panel, is_context_menu_open, is_modal_open, set_focused_panel};
 
 pub enum PanelMode {
     Room,
@@ -74,10 +77,12 @@ impl PanelManager {
     ) {
         let mouse_screen = ctx.mouse_position().into();
         let mouse_pressed = ctx.is_mouse_button_pressed(MouseButton::Left);
+        let modal_open = is_modal_open();
 
         // Find which panel was clicked (iterate back-to-front for z-order).
         let mut clicked_panel_id: Option<PanelId> = None;
-        if mouse_pressed {
+        let can_raise_panel = mouse_pressed && !is_context_menu_open() && !modal_open;
+        if can_raise_panel {
             for (id, panel) in self.panels.iter().rev() {
                 if panel.visible
                     && self.panel_modes[id].iter().any(|m| m.matches(&editor_mode))
@@ -89,9 +94,12 @@ impl PanelManager {
             }
         }
 
-        // Bring clicked panel to front.
+        // Bring clicked panel to front and update focus.
         if let Some(id) = clicked_panel_id {
             self.bring_to_front(id);
+            set_focused_panel(Some(id));
+        } else if can_raise_panel {
+            set_focused_panel(None);
         }
 
         // Find the topmost panel containing the mouse (for blocking lower panels)
@@ -115,13 +123,18 @@ impl PanelManager {
 
             panel.in_current_mode = true;
 
+            if focused_panel() == Some(*id) && (!panel.visible || !panel.in_current_mode) {
+                panel.defocus();
+            }
+
             // Skip hidden panels
             if !panel.visible {
                 continue;
             }
 
-            // Block this panel if the mouse is over a different (higher-z) panel
-            let blocked = topmost_panel_at_mouse.is_some() && topmost_panel_at_mouse != Some(*id);
+            // Block this panel if a modal is open or the mouse is over a different (higher-z) panel
+            let blocked = modal_open
+                || (topmost_panel_at_mouse.is_some() && topmost_panel_at_mouse != Some(*id));
             let was_dragging = panel.dragging;
 
             panel.update_and_draw(ctx, editor, blocked);
@@ -141,6 +154,10 @@ impl PanelManager {
     pub fn toggle(&mut self, id: PanelId) {
         if let Some((_, panel)) = self.panels.iter_mut().find(|(pid, _)| *pid == id) {
             panel.visible = !panel.visible;
+            if panel.visible {
+                self.bring_to_front(id);
+                set_focused_panel(Some(id));
+            }
         }
     }
 
@@ -176,6 +193,17 @@ impl PanelManager {
         self.register(
             GenericPanel::new(PrefabPalettePanel::new(), ctx),
             vec![PanelMode::Room],
+        );
+
+        self.register(
+            GenericPanel::new(ResourcesPanel::new(), ctx),
+            vec![
+                PanelMode::Game,
+                PanelMode::World,
+                PanelMode::Room,
+                PanelMode::Prefab,
+                PanelMode::Menu,
+            ],
         );
 
         self.register_prefab_browser_panel(ctx);

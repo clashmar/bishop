@@ -13,9 +13,8 @@ use crate::canvas::grid;
 use crate::canvas::grid_shader::GridRenderer;
 use crate::gui::inspector::inspector_panel::InspectorPanel;
 use crate::gui::menu_bar::draw_top_panel_full;
-use crate::gui::modal::is_modal_open;
-use crate::gui::panels::panel_manager::is_mouse_over_panel;
 use crate::room::drawing::{draw_collider, draw_pivot_marker, highlight_selected_entity};
+use crate::shared::input::canvas_blocked_by_global_ui;
 use crate::shared::scene_ui::inspector::{
     SceneCreateRequest, SceneEmptyInspectorBehavior, SceneInspectorContext,
 };
@@ -29,10 +28,10 @@ pub const PREFAB_EDITOR_GRID_SIZE: f32 = 16.0;
 
 pub struct PrefabStage {
     pub ecs: Ecs,
+    pub asset_registry: AssetRegistry,
     pub sprite_manager: SpriteManager,
     pub script_manager: ScriptManager,
-    /// Read-only prefab library loaded for linked-prefab labels.
-    pub prefab_library: PrefabLibrary,
+    pub prefab_manager: PrefabManager,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -110,6 +109,7 @@ impl PrefabEditor {
         self.tick_prefab_animations(
             ctx,
             game_ctx.ecs,
+            game_ctx.asset_registry,
             game_ctx.sprite_manager,
             ctx.get_frame_time(),
         );
@@ -285,8 +285,6 @@ impl SubEditor for PrefabEditor {
             .iter()
             .any(|rect| rect.contains(mouse_screen))
             || self.inspector.is_mouse_over(ctx)
-            || is_dropdown_open()
-            || is_modal_open()
-            || is_mouse_over_panel(ctx)
+            || canvas_blocked_by_global_ui(ctx)
     }
 }

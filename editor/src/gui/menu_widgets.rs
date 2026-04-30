@@ -1,5 +1,5 @@
 use crate::gui::gui_constants::*;
-use crate::gui::modal::is_modal_open;
+use crate::gui::modals::is_modal_open;
 use bishop::prelude::*;
 use engine_core::prelude::*;
 use std::cell::RefCell;
@@ -191,6 +191,7 @@ pub fn menu_button(ctx: &mut WgpuContext, rect: Rect, label: &str, is_dropdown_o
 
     if (hovered || is_dropdown_open)
         && !is_modal_open()
+        && !is_context_menu_open()
         && !ctx.is_mouse_button_down(MouseButton::Left)
     {
         ctx.draw_rectangle(
@@ -208,7 +209,7 @@ pub fn menu_button(ctx: &mut WgpuContext, rect: Rect, label: &str, is_dropdown_o
         MouseButton::Left,
         menu_button_click_target(rect, label),
         hovered,
-        !is_modal_open(),
+        !is_modal_open() && !is_context_menu_open(),
         ctx.is_mouse_button_pressed(MouseButton::Left),
         ctx.is_mouse_button_released(MouseButton::Left),
     )

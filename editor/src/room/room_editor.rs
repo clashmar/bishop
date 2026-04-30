@@ -8,11 +8,11 @@ use crate::commands::room::*;
 use crate::editor_assets::assets::*;
 use crate::editor_global::*;
 use crate::gui::inspector::inspector_panel::InspectorPanel;
-use crate::gui::modal::is_modal_open;
 use crate::gui::mode_selector::*;
-use crate::gui::panels::panel_manager::is_mouse_over_panel;
+use crate::prefab::reconcile_recent_prefab_ids;
 use crate::room::drawing::*;
 use crate::room::selection::DragState;
+use crate::shared::input::{canvas_blocked_by_global_ui, shortcuts_blocked};
 use crate::shared::scene_ui::inspector::{SceneCreateRequest, ScenePrefabActionRequest};
 use crate::shared::selection::draw_selection_box;
 use crate::storage::editor_storage::{PrefabPaletteState, PREFAB_PALETTE_RECENT_CAP};
@@ -50,6 +50,7 @@ pub(crate) struct RoomEditorUpdateState<'a> {
     pub(crate) room_id: RoomId,
     pub(crate) ecs: &'a mut Ecs,
     pub(crate) current_world: &'a mut World,
+    pub(crate) asset_registry: &'a mut AssetRegistry,
     pub(crate) sprite_manager: &'a mut SpriteManager,
     pub(crate) active_prefab_stamp: ActivePrefabStampState,
 }
@@ -157,6 +158,7 @@ impl RoomEditor {
             room_id,
             ecs,
             current_world,
+            asset_registry,
             sprite_manager,
             active_prefab_stamp,
         } = state;
@@ -197,7 +199,14 @@ impl RoomEditor {
 
         let delta_time = ctx.get_frame_time();
 
-        update_animation_sytem(ctx, ecs, sprite_manager, delta_time, room.id);
+        update_animation_sytem(
+            ctx,
+            ecs,
+            asset_registry,
+            sprite_manager,
+            delta_time,
+            room.id,
+        );
 
         match self.mode {
             RoomEditorMode::Tilemap => {
@@ -225,17 +234,17 @@ impl RoomEditor {
                 }
 
                 // Handle batch delete when multiple entities selected
-                if self.selected_entities.len() > 1 && Controls::delete(ctx) && !input_is_focused()
+                if self.selected_entities.len() > 1 && Controls::delete(ctx) && !shortcuts_blocked()
                 {
                     let entities: Vec<Entity> = self.selected_entities.iter().copied().collect();
                     push_command(Box::new(BatchDeleteEntitiesCmd::new(
                         entities,
-                        EditorMode::Room(room.id),
+                        EditorMode::Room(room_id),
                     )));
                 }
 
                 // Copy multiple selected entities
-                if Controls::copy(ctx) && self.selected_entities.len() > 1 && !input_is_focused() {
+                if Controls::copy(ctx) && self.selected_entities.len() > 1 && !shortcuts_blocked() {
                     let entities: Vec<Entity> = self.selected_entities.iter().copied().collect();
                     copy_entities(ecs, &entities);
                 }
@@ -290,24 +299,24 @@ impl RoomEditor {
 
     pub(crate) fn load_prefab_palette_state(
         &mut self,
-        prefab_library: &PrefabLibrary,
+        prefab_manager: &PrefabManager,
         state: PrefabPaletteState,
     ) {
         self.active_prefab_id = state
             .active_prefab_id
-            .filter(|prefab_id| prefab_library.prefabs.contains_key(prefab_id));
+            .filter(|prefab_id| prefab_manager.prefabs.contains_key(prefab_id));
         self.recent_prefab_ids =
-            reconcile_recent_prefab_ids(state.recent_prefab_ids, prefab_library);
+            reconcile_recent_prefab_ids(state.recent_prefab_ids, prefab_manager);
         self.scene_sub_mode = RoomSceneSubMode::Scene;
     }
 
-    pub(crate) fn reconcile_prefab_palette(&mut self, prefab_library: &PrefabLibrary) {
+    pub(crate) fn reconcile_prefab_palette(&mut self, prefab_manager: &PrefabManager) {
         self.recent_prefab_ids =
-            reconcile_recent_prefab_ids(self.recent_prefab_ids.clone(), prefab_library);
+            reconcile_recent_prefab_ids(self.recent_prefab_ids.clone(), prefab_manager);
 
         if self
             .active_prefab_id
-            .is_some_and(|prefab_id| !prefab_library.prefabs.contains_key(&prefab_id))
+            .is_some_and(|prefab_id| !prefab_manager.prefabs.contains_key(&prefab_id))
         {
             self.active_prefab_id = self.recent_prefab_ids.first().copied();
         }
@@ -364,11 +373,11 @@ impl RoomEditor {
         self.scene_sub_mode = mode;
     }
 
-    pub(crate) fn active_prefab_snap_pivot(&self, prefab_library: &PrefabLibrary) -> Pivot {
+    pub(crate) fn active_prefab_snap_pivot(&self, prefab_manager: &PrefabManager) -> Pivot {
         let Some(prefab_id) = self.active_prefab_id else {
             return Pivot::BottomCenter;
         };
-        let Some(prefab) = prefab_library.prefabs.get(&prefab_id) else {
+        let Some(prefab) = prefab_manager.prefabs.get(&prefab_id) else {
             return Pivot::BottomCenter;
         };
         let Some(root) = prefab
@@ -400,8 +409,8 @@ impl RoomEditor {
         self.active_rects.clear();
         let active_prefab = self
             .active_prefab_id
-            .and_then(|prefab_id| game.prefab_library.prefabs.get(&prefab_id).cloned());
-        let active_prefab_snap_pivot = self.active_prefab_snap_pivot(&game.prefab_library);
+            .and_then(|prefab_id| game.prefab_manager.prefabs.get(&prefab_id).cloned());
+        let active_prefab_snap_pivot = self.active_prefab_snap_pivot(&game.prefab_manager);
         {
             let mut game_ctx = game.ctx_mut();
             let Some(grid_size) = game_ctx.world.as_deref().map(|world| world.grid_size) else {
@@ -428,11 +437,18 @@ impl RoomEditor {
                     };
 
                     let ecs = &mut *game_ctx.ecs;
+                    let asset_registry = &mut *game_ctx.asset_registry;
                     let sprite_manager = &mut *game_ctx.sprite_manager;
 
                     self.tilemap_editor.tilemap_panel.set_rect(inspector_rect);
-                    self.tilemap_editor
-                        .draw(ctx, camera, room, sprite_manager, ecs, grid_size);
+                    self.tilemap_editor.draw(
+                        ctx,
+                        camera,
+                        room,
+                        (asset_registry, sprite_manager),
+                        ecs,
+                        grid_size,
+                    );
 
                     ctx.set_camera(camera);
                     if self.show_grid {
@@ -464,7 +480,7 @@ impl RoomEditor {
                         render_system.resize_to_window(ctx);
                     }
 
-                    render_room(ctx, &mut game_ctx, render_system, render_cam, 0.0, None);
+                    render_room(ctx, &mut game_ctx, render_cam, 0.0, None);
 
                     if view_preview {
                         render_system.end_scene(ctx);
@@ -487,6 +503,7 @@ impl RoomEditor {
                         }
 
                         let ecs = &*game_ctx.ecs;
+                        let asset_registry = &mut *game_ctx.asset_registry;
                         let sprite_manager = &mut *game_ctx.sprite_manager;
 
                         draw_exit_placeholders(ctx, &room.exits, room.position, grid_size);
@@ -501,6 +518,7 @@ impl RoomEditor {
                                 draw_prefab_stamp_ghost(
                                     ctx,
                                     camera,
+                                    asset_registry,
                                     sprite_manager,
                                     prefab,
                                     grid_size,
@@ -577,26 +595,8 @@ impl SubEditor for RoomEditor {
         self.active_rects.iter().any(|r| r.contains(mouse_screen))
             || self.sub_mode_rect.is_some_and(|r| r.contains(mouse_screen))
             || self.inspector.is_mouse_over(ctx)
-            || is_dropdown_open()
-            || is_modal_open()
-            || is_mouse_over_panel(ctx)
+            || canvas_blocked_by_global_ui(ctx)
     }
-}
-
-/// Filters recent prefabs against the available library and caps the list length.
-pub(crate) fn reconcile_recent_prefab_ids(
-    recent_prefab_ids: Vec<PrefabId>,
-    prefab_library: &PrefabLibrary,
-) -> Vec<PrefabId> {
-    recent_prefab_ids
-        .into_iter()
-        .filter(|prefab_id| prefab_library.prefabs.contains_key(prefab_id))
-        .fold(Vec::new(), |mut ids, prefab_id| {
-            if !ids.contains(&prefab_id) && ids.len() < PREFAB_PALETTE_RECENT_CAP {
-                ids.push(prefab_id);
-            }
-            ids
-        })
 }
 
 /// A slice of all the modes.
@@ -604,153 +604,5 @@ static ALL_MODES: Lazy<&'static [RoomEditorMode]> =
     Lazy::new(|| Box::leak(Box::new(RoomEditorMode::iter().collect::<Vec<_>>())));
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn prefab_library(ids: &[usize]) -> PrefabLibrary {
-        let mut library = PrefabLibrary::default();
-        for id in ids {
-            let prefab_id = PrefabId(*id);
-            library.prefabs.insert(
-                prefab_id,
-                PrefabAsset {
-                    id: prefab_id,
-                    name: format!("Prefab {id}"),
-                    next_node_id: 2,
-                    root_node_id: 1,
-                    nodes: vec![PrefabNode {
-                        node_id: 1,
-                        parent_node_id: None,
-                        components: vec![],
-                    }],
-                },
-            );
-        }
-        library
-    }
-
-    #[test]
-    fn recent_prefabs_are_newest_first_deduped_and_capped_at_ten() {
-        let mut editor = RoomEditor::new();
-
-        for prefab_id in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 3] {
-            editor.record_recent_prefab(PrefabId(prefab_id));
-        }
-
-        assert_eq!(
-            editor.recent_prefab_ids,
-            vec![
-                PrefabId(3),
-                PrefabId(12),
-                PrefabId(11),
-                PrefabId(10),
-                PrefabId(9),
-                PrefabId(8),
-                PrefabId(7),
-                PrefabId(6),
-                PrefabId(5),
-                PrefabId(4),
-            ]
-        );
-    }
-
-    #[test]
-    fn loading_palette_state_restores_active_prefab_without_restoring_stamp_mode() {
-        let mut editor = RoomEditor::new();
-        editor.scene_sub_mode = RoomSceneSubMode::Stamp;
-
-        editor.load_prefab_palette_state(
-            &prefab_library(&[2, 4, 6, 8, 10, 12]),
-            crate::storage::editor_storage::PrefabPaletteState {
-                active_prefab_id: Some(PrefabId(4)),
-                recent_prefab_ids: vec![
-                    PrefabId(12),
-                    PrefabId(10),
-                    PrefabId(8),
-                    PrefabId(6),
-                    PrefabId(4),
-                    PrefabId(2),
-                ],
-            },
-        );
-
-        assert_eq!(editor.active_prefab_id, Some(PrefabId(4)));
-        assert_eq!(
-            editor.recent_prefab_ids,
-            vec![
-                PrefabId(12),
-                PrefabId(10),
-                PrefabId(8),
-                PrefabId(6),
-                PrefabId(4),
-                PrefabId(2),
-            ]
-        );
-        assert_eq!(editor.scene_sub_mode, RoomSceneSubMode::Scene);
-    }
-
-    #[test]
-    fn loading_palette_state_filters_missing_prefabs_and_caps_recent_entries() {
-        let mut editor = RoomEditor::new();
-
-        editor.load_prefab_palette_state(
-            &prefab_library(&[1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23]),
-            crate::storage::editor_storage::PrefabPaletteState {
-                active_prefab_id: Some(PrefabId(999)),
-                recent_prefab_ids: vec![
-                    PrefabId(999),
-                    PrefabId(23),
-                    PrefabId(21),
-                    PrefabId(19),
-                    PrefabId(17),
-                    PrefabId(15),
-                    PrefabId(13),
-                    PrefabId(11),
-                    PrefabId(9),
-                    PrefabId(7),
-                    PrefabId(5),
-                    PrefabId(3),
-                    PrefabId(1),
-                ],
-            },
-        );
-
-        assert_eq!(editor.active_prefab_id, None);
-        assert_eq!(
-            editor.recent_prefab_ids,
-            vec![
-                PrefabId(23),
-                PrefabId(21),
-                PrefabId(19),
-                PrefabId(17),
-                PrefabId(15),
-                PrefabId(13),
-                PrefabId(11),
-                PrefabId(9),
-                PrefabId(7),
-                PrefabId(5),
-            ]
-        );
-    }
-
-    #[test]
-    fn reconcile_prefab_palette_promotes_first_valid_recent_when_active_is_missing() {
-        let library = prefab_library(&[2, 3]);
-        let mut editor = RoomEditor::new();
-        editor.active_prefab_id = Some(PrefabId(999));
-        editor.recent_prefab_ids = vec![PrefabId(999), PrefabId(2), PrefabId(3)];
-        editor.mode = RoomEditorMode::Tilemap;
-        editor.scene_sub_mode = RoomSceneSubMode::Stamp;
-        editor.view_preview = true;
-        editor.preview_camera_id = Some(7);
-
-        editor.reconcile_prefab_palette(&library);
-
-        assert_eq!(editor.active_prefab_id, Some(PrefabId(2)));
-        assert_eq!(editor.recent_prefab_ids, vec![PrefabId(2), PrefabId(3)]);
-        assert_eq!(editor.mode, RoomEditorMode::Tilemap);
-        assert_eq!(editor.scene_sub_mode, RoomSceneSubMode::Stamp);
-        assert!(editor.view_preview);
-        assert_eq!(editor.preview_camera_id, Some(7));
-    }
-}
+#[path = "tests/room_editor_tests.rs"]
+mod tests;

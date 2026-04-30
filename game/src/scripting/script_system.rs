@@ -1,7 +1,7 @@
 // engine_core/src/script/script_system.rs
 use crate::engine::Engine;
 use crate::game_global::drain_commands;
-use crate::scripting::modules::entity_module::*;
+use crate::scripting::modules::entity_module::lua_entity_handle;
 use engine_core::prelude::*;
 use engine_core::scripting::lua_constants::{lua_engine, lua_entity, lua_files, lua_globals};
 use mlua::prelude::LuaResult;
@@ -18,25 +18,12 @@ pub struct ScriptSystem;
 impl ScriptSystem {
     /// Initialize the script system.
     pub fn init(lua: &Lua, event_bus: &EventBus) {
-        // Registers the `engine` module that some other modules extend
-        if let Err(e) = Self::register_engine_module(lua) {
-            onscreen_error!("Error registering engine module: {e}")
-        };
-
-        // Store the event bus in Lua so engine.on/engine.emit work at require-time
-        if let Err(e) = lua
-            .globals()
-            .set(lua_globals::LUA_EVENT_BUS, event_bus.clone())
-        {
-            onscreen_error!("Failed to store event bus: {e}");
+        if let Err(e) = register_runtime_modules(lua, event_bus) {
+            onscreen_error!("Lua module registration failed: {e}");
         }
 
-        // Sub-modules — register before main.lua so all APIs are available at require-time
-        for descriptor in inventory::iter::<LuaModuleRegistry> {
-            let module = (descriptor.ctor)();
-            if let Err(e) = module.register(lua) {
-                onscreen_error!("Lua module registration failed: {e}");
-            }
+        if let Err(e) = Self::register_game_modules(lua) {
+            onscreen_error!("Lua game module registration failed: {e}");
         }
 
         // Run main.lua after all modules are registered
@@ -54,20 +41,22 @@ impl ScriptSystem {
         }
     }
 
+    /// Registers game-specific runtime modules after shared bootstrap has run.
+    fn register_game_modules(lua: &Lua) -> LuaResult<()> {
+        for descriptor in inventory::iter::<LuaModuleRegistry> {
+            let module = (descriptor.ctor)();
+            module.register(lua)?;
+        }
+
+        Ok(())
+    }
+
     /// Loads and executes main.lua if present.
     fn load_main(lua: &Lua) -> LuaResult<()> {
         let main_path = scripts_folder().join(lua_files::MAIN);
         let src =
             fs::read_to_string(main_path).map_err(|e| mlua::Error::ExternalError(Arc::new(e)))?;
         lua.load(&src).exec()
-    }
-
-    /// Called during init.
-    fn register_engine_module(lua: &Lua) -> LuaResult<()> {
-        let engine_mod = lua.create_table()?;
-        lua.globals().set(lua_engine::ENGINE, engine_mod.clone())?;
-        lua.register_module(lua_engine::ENGINE, &engine_mod)?;
-        Ok(())
     }
 
     /// Runs all lua scripts in the game.

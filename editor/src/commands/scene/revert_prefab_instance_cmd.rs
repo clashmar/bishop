@@ -34,7 +34,7 @@ impl EditorCommand for RevertPrefabInstanceCmd {
             };
             let Some(prefab) = editor
                 .game
-                .prefab_library
+                .prefab_manager
                 .prefabs
                 .get(&reference.prefab_id)
                 .cloned()
@@ -98,8 +98,8 @@ impl EditorCommand for RevertPrefabInstanceCmd {
         });
     }
 
-    fn mode(&self) -> EditorMode {
-        self.mode
+    fn applies_in_mode(&self, current_mode: EditorMode) -> bool {
+        self.mode == current_mode
     }
 }
 

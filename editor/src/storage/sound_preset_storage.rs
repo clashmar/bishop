@@ -203,4 +203,29 @@ mod tests {
             ]
         );
     }
+
+    #[test]
+    fn save_and_load_sound_preset_library_round_trips_sound_ids() {
+        let _lock = game_fs_test_lock()
+            .lock()
+            .unwrap_or_else(|poison| poison.into_inner());
+        let test_game = TestGameFolder::new("sound_presets_sound_id_roundtrip");
+
+        let library = SoundPresetLibrary {
+            presets: HashMap::from([(
+                "Jump".to_string(),
+                AudioGroup {
+                    sounds: vec![SoundId(3)],
+                    volume: 0.5,
+                    ..Default::default()
+                },
+            )]),
+        };
+
+        save_sound_preset_library(test_game.name(), &library).unwrap();
+
+        let loaded = load_sound_preset_library(test_game.name()).unwrap();
+
+        assert_eq!(loaded, library);
+    }
 }

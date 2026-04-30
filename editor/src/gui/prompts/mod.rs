@@ -5,6 +5,7 @@ pub mod helpers;
 pub mod prefab_picker_prompt;
 pub mod prefab_prompt;
 pub mod string_prompt;
+pub mod unsaved_exit_prompt;
 pub mod world_edit_prompt;
 pub mod world_settings_prompt;
 
@@ -12,5 +13,6 @@ pub use confirm_prompt::*;
 pub use prefab_picker_prompt::*;
 pub use prefab_prompt::*;
 pub use string_prompt::*;
+pub use unsaved_exit_prompt::*;
 pub use world_edit_prompt::*;
 pub use world_settings_prompt::*;

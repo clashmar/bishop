@@ -1,4 +1,7 @@
 use crate::app::{Editor, EditorMode};
+use crate::gui::modals::dirty_prefab_exit::DirtyPrefabExitModal;
+use crate::gui::modals::empty_prefab_exit::EmptyPrefabExitModal;
+use crate::gui::modals::ModalHandler;
 use crate::gui::prompts::{DirtyPrefabExitPromptResult, EmptyPrefabExitPromptResult};
 use crate::prefab::prefab_editor::{
     PrefabEditor, PrefabRoomSyncState, PrefabStage, StagedPrefabState,
@@ -80,7 +83,7 @@ impl Editor {
         prefab: PrefabAsset,
     ) -> PrefabTransitionPrompt {
         self.game
-            .prefab_library
+            .prefab_manager
             .prefabs
             .insert(prefab.id, prefab.clone());
         let _ = self.reconcile_prefab_palette_after_library_change();
@@ -102,8 +105,8 @@ impl Editor {
     ) {
         match prompt {
             PrefabTransitionPrompt::None => {}
-            PrefabTransitionPrompt::Dirty => self.open_dirty_prefab_exit_modal(ctx),
-            PrefabTransitionPrompt::Empty => self.open_empty_prefab_exit_modal(ctx),
+            PrefabTransitionPrompt::Dirty => DirtyPrefabExitModal.open(self, ctx),
+            PrefabTransitionPrompt::Empty => EmptyPrefabExitModal.open(self, ctx),
         }
     }
 
@@ -195,7 +198,9 @@ impl Editor {
             PendingPrefabTransition::OpenExisting(prefab_id) => {
                 self.open_prefab_editor_for_id(prefab_id)
             }
-            PendingPrefabTransition::CreateBlank(name) => self.create_blank_prefab_impl(name),
+            PendingPrefabTransition::CreateBlank { name, initial_path } => {
+                self.create_blank_prefab_impl(name, initial_path)
+            }
         }
     }
 }

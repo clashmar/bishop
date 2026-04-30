@@ -52,10 +52,6 @@ impl EditorCommand for SetParentCmd {
         });
     }
 
-    fn mode(&self) -> EditorMode {
-        self.mode
-    }
-
     fn applies_in_mode(&self, current_mode: EditorMode) -> bool {
         match self.mode {
             // Global entities can be undone from Game mode or any Room mode

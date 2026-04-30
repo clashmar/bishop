@@ -1,4 +1,5 @@
 use crate::animation::{ClipDef, ClipId, ClipState, VariantFolder, resolve_sprite_id, sprite_path};
+use crate::assets::AssetRegistry;
 use crate::assets::sprite_manager::SpriteManager;
 use crate::ecs::entity::Entity;
 use crate::ecs::SpriteId;
@@ -79,16 +80,22 @@ impl Animation {
         self.current = None;
     }
 
-    /// Populate `sprite_cache` for the current variant without modifying ref counts.
-    /// Use during game initialization when ref counts are already tracked by serialized state.
+    /// Populate `sprite_cache` for the current variant.
     pub fn init_sprite_cache(
         &mut self,
         loader: &impl TextureLoader,
+        asset_registry: &mut AssetRegistry,
         sprite_manager: &mut SpriteManager,
     ) {
         self.sprite_cache.clear();
         for clip_id in self.clips.keys() {
-            let sprite_id = resolve_sprite_id(loader, sprite_manager, &self.variant, clip_id);
+            let sprite_id = resolve_sprite_id(
+                loader,
+                asset_registry,
+                sprite_manager,
+                &self.variant,
+                clip_id,
+            );
             self.sprite_cache.insert(clip_id.clone(), sprite_id);
         }
     }
@@ -99,11 +106,8 @@ impl Animation {
         restore_sprite_cache_from_known_paths(self, sprite_manager);
     }
 
-    /// Decrements refs for all cached sprites and clears the cache.
-    pub fn clear_sprite_cache(&mut self, sprite_manager: &mut SpriteManager) {
-        for &sprite_id in self.sprite_cache.values() {
-            sprite_manager.decrement_ref(sprite_id);
-        }
+    /// Clears the cached sprite ids.
+    pub fn clear_sprite_cache(&mut self) {
         self.sprite_cache.clear();
     }
 
@@ -112,32 +116,30 @@ impl Animation {
     pub fn refresh_sprite_cache(
         &mut self,
         loader: &impl TextureLoader,
+        asset_registry: &mut AssetRegistry,
         sprite_manager: &mut SpriteManager,
     ) {
-        self.clear_sprite_cache(sprite_manager);
+        self.clear_sprite_cache();
 
         for clip_id in self.clips.keys() {
-            let sprite_id = resolve_sprite_id(loader, sprite_manager, &self.variant, clip_id);
-            if sprite_id.0 != 0 {
-                sprite_manager.increment_ref(sprite_id);
-            }
+            let sprite_id = resolve_sprite_id(
+                loader,
+                asset_registry,
+                sprite_manager,
+                &self.variant,
+                clip_id,
+            );
             self.sprite_cache.insert(clip_id.clone(), sprite_id);
         }
     }
 
-    /// Updates cache for a clip with a new SpriteId, handling ref counting.
+    /// Updates cache for a clip with a new SpriteId.
     pub fn update_cache_entry(
         &mut self,
         current_id: &ClipId,
         sprite_id: SpriteId,
-        sprite_manager: &mut SpriteManager,
     ) {
-        if let Some(&old_id) = self.sprite_cache.get(current_id) {
-            sprite_manager.decrement_ref(old_id);
-        }
-
         if sprite_id.0 != 0 {
-            sprite_manager.increment_ref(sprite_id);
             self.sprite_cache.insert(current_id.clone(), sprite_id);
         } else {
             self.sprite_cache.remove(current_id);
@@ -172,15 +174,11 @@ fn restore_sprite_cache_from_known_paths(animation: &mut Animation, sprite_manag
 pub fn post_create(anim: &mut Animation, _entity: &Entity, ctx: &mut GameCtxMut<'_>) {
     anim.init_runtime();
     restore_sprite_cache_from_known_paths(anim, ctx.sprite_manager);
-
-    for &sprite_id in anim.sprite_cache.values() {
-        ctx.sprite_manager.increment_ref(sprite_id);
-    }
 }
 
 /// Cleans up when the component is removed from an entity.
-pub fn post_remove(anim: &mut Animation, _entity: &Entity, ctx: &mut GameCtxMut<'_>) {
-    anim.clear_sprite_cache(ctx.sprite_manager);
+pub fn post_remove(anim: &mut Animation, _entity: &Entity, _ctx: &mut GameCtxMut<'_>) {
+    anim.clear_sprite_cache();
 }
 
 #[cfg(test)]
@@ -205,26 +203,19 @@ mod tests {
 
         let mut game = Game::default();
         game.worlds.push(Default::default());
-        game.sprite_manager
-            .sprite_id_to_path
-            .insert(idle, Path::new(&animation.variant.0).join("Idle.png"));
-        game.sprite_manager
-            .path_to_sprite_id
-            .insert(Path::new(&animation.variant.0).join("Idle.png"), idle);
-        game.sprite_manager
-            .sprite_id_to_path
-            .insert(run, Path::new(&animation.variant.0).join("Run.png"));
-        game.sprite_manager
-            .path_to_sprite_id
-            .insert(Path::new(&animation.variant.0).join("Run.png"), run);
+        game.asset_registry
+            .register_asset_relative_path(idle, Path::new(&animation.variant.0).join("Idle.png"))
+            .expect("idle sprite should register");
+        game.asset_registry
+            .register_asset_relative_path(run, Path::new(&animation.variant.0).join("Run.png"))
+            .expect("run sprite should register");
+        SpriteManager::init_editor_metadata(&game.asset_registry, &mut game.sprite_manager);
 
         let mut ctx = game.ctx_mut();
         post_create(&mut animation, &Entity(7), &mut ctx);
 
         assert_eq!(animation.sprite_cache.get(&ClipId::Idle), Some(&idle));
         assert_eq!(animation.sprite_cache.get(&ClipId::Run), Some(&run));
-        assert_eq!(ctx.sprite_manager.get_ref_count(idle), 1);
-        assert_eq!(ctx.sprite_manager.get_ref_count(run), 1);
     }
 
     #[test]
@@ -240,18 +231,16 @@ mod tests {
 
         let mut game = Game::default();
         game.worlds.push(Default::default());
-        game.sprite_manager
-            .sprite_id_to_path
-            .insert(idle, Path::new(&animation.variant.0).join("Idle.png"));
-        game.sprite_manager
-            .path_to_sprite_id
-            .insert(Path::new(&animation.variant.0).join("Idle.png"), idle);
-        game.sprite_manager
-            .sprite_id_to_path
-            .insert(stale_run, Path::new(&animation.variant.0).join("Run.png"));
-        game.sprite_manager
-            .path_to_sprite_id
-            .insert(Path::new(&animation.variant.0).join("Run.png"), stale_run);
+        game.asset_registry
+            .register_asset_relative_path(idle, Path::new(&animation.variant.0).join("Idle.png"))
+            .expect("idle sprite should register");
+        game.asset_registry
+            .register_asset_relative_path(
+                stale_run,
+                Path::new(&animation.variant.0).join("Run.png"),
+            )
+            .expect("run sprite should register");
+        SpriteManager::init_editor_metadata(&game.asset_registry, &mut game.sprite_manager);
 
         let mut ctx = game.ctx_mut();
         post_create(&mut animation, &Entity(9), &mut ctx);
@@ -259,8 +248,6 @@ mod tests {
         assert_eq!(animation.sprite_cache.len(), 1);
         assert_eq!(animation.sprite_cache.get(&ClipId::Idle), Some(&idle));
         assert!(!animation.sprite_cache.contains_key(&ClipId::Run));
-        assert_eq!(ctx.sprite_manager.get_ref_count(idle), 1);
-        assert_eq!(ctx.sprite_manager.get_ref_count(stale_run), 0);
     }
 
     #[test]
@@ -276,25 +263,19 @@ mod tests {
         let idle = SpriteId(31);
         let run = SpriteId(32);
 
+        let mut asset_registry = AssetRegistry::default();
+        asset_registry
+            .register_asset_relative_path(idle, Path::new(&animation.variant.0).join("Idle.png"))
+            .expect("idle sprite should register");
+        asset_registry
+            .register_asset_relative_path(run, Path::new(&animation.variant.0).join("Run.png"))
+            .expect("run sprite should register");
         let mut sprite_manager = crate::assets::sprite_manager::SpriteManager::default();
-        sprite_manager
-            .sprite_id_to_path
-            .insert(idle, Path::new(&animation.variant.0).join("Idle.png"));
-        sprite_manager
-            .path_to_sprite_id
-            .insert(Path::new(&animation.variant.0).join("Idle.png"), idle);
-        sprite_manager
-            .sprite_id_to_path
-            .insert(run, Path::new(&animation.variant.0).join("Run.png"));
-        sprite_manager
-            .path_to_sprite_id
-            .insert(Path::new(&animation.variant.0).join("Run.png"), run);
+        SpriteManager::init_editor_metadata(&asset_registry, &mut sprite_manager);
 
         animation.init_sprite_cache_runtime(&sprite_manager);
 
         assert_eq!(animation.sprite_cache.get(&ClipId::Idle), Some(&idle));
         assert_eq!(animation.sprite_cache.get(&ClipId::Run), Some(&run));
-        assert_eq!(sprite_manager.get_ref_count(idle), 0);
-        assert_eq!(sprite_manager.get_ref_count(run), 0);
     }
 }

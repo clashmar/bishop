@@ -40,6 +40,7 @@ pub enum EditorAction {
     ViewDiagnosticsPanel,
     ViewPrefabBrowserPanel,
     ViewPrefabPalettePanel,
+    ViewResourcesPanel,
     // Options actions
     WorldSettings,
     // Editors actions
@@ -64,6 +65,7 @@ impl EditorAction {
             EditorAction::ViewDiagnosticsPanel => "Diagnostics".to_string(),
             EditorAction::ViewPrefabBrowserPanel => "Prefab Browser".to_string(),
             EditorAction::ViewPrefabPalettePanel => "Prefab Palette".to_string(),
+            EditorAction::ViewResourcesPanel => "Resources".to_string(),
             EditorAction::WorldSettings => "World Settings".to_string(),
             EditorAction::OpenMenuEditor => "Menu Editor".to_string(),
             EditorAction::OpenPrefabEditor => "Prefab Editor".to_string(),
@@ -87,6 +89,7 @@ impl EditorAction {
                 EditorAction::ViewDiagnosticsPanel => Some("F3"),
                 EditorAction::ViewPrefabBrowserPanel => Some("P"),
                 EditorAction::ViewPrefabPalettePanel => Some("P"),
+                EditorAction::ViewResourcesPanel => Some("^ R"),
                 _ => None,
             }
         }
@@ -104,6 +107,7 @@ impl EditorAction {
                 EditorAction::ViewDiagnosticsPanel => Some("F3"),
                 EditorAction::ViewPrefabBrowserPanel => Some("P"),
                 EditorAction::ViewPrefabPalettePanel => Some("P"),
+                EditorAction::ViewResourcesPanel => Some("⌘ R"),
                 _ => None,
             }
         }
@@ -130,7 +134,8 @@ impl EditorAction {
             | EditorAction::Undo
             | EditorAction::Redo
             | EditorAction::ViewConsolePanel
-            | EditorAction::ViewDiagnosticsPanel => true,
+            | EditorAction::ViewDiagnosticsPanel
+            | EditorAction::ViewResourcesPanel => true,
             EditorAction::Save => !matches!(editor_mode, EditorMode::Prefab(BLANK_PREFAB_ID)),
             EditorAction::SaveAs => !matches!(editor_mode, EditorMode::Prefab(BLANK_PREFAB_ID)),
             EditorAction::ViewHierarchyPanel => {
@@ -161,6 +166,7 @@ impl EditorAction {
             EditorAction::ViewDiagnosticsPanel => Controls::f3(ctx),
             EditorAction::ViewPrefabBrowserPanel => Controls::p(ctx),
             EditorAction::ViewPrefabPalettePanel => Controls::p(ctx),
+            EditorAction::ViewResourcesPanel => Controls::cmd_r(ctx),
             _ => false,
         }
     }
@@ -171,9 +177,14 @@ impl EditorAction {
             EditorAction::ViewHierarchyPanel
                 | EditorAction::ViewConsolePanel
                 | EditorAction::ViewDiagnosticsPanel
+                | EditorAction::ViewResourcesPanel
                 | EditorAction::ViewPrefabBrowserPanel
                 | EditorAction::ViewPrefabPalettePanel
         )
+    }
+
+    pub(crate) fn blocked_by_modal(self) -> bool {
+        !matches!(self, EditorAction::Undo | EditorAction::Redo)
     }
 }
 
@@ -424,6 +435,7 @@ fn view_actions_for_mode(editor_mode: EditorMode) -> Vec<EditorAction> {
         EditorAction::ViewHierarchyPanel,
         EditorAction::ViewPrefabBrowserPanel,
         EditorAction::ViewPrefabPalettePanel,
+        EditorAction::ViewResourcesPanel,
     ]
     .into_iter()
     .filter(|action| action.is_available_in(editor_mode))

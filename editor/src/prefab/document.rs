@@ -9,6 +9,7 @@ use std::io;
 
 macro_rules! for_each_prefab_asset_manager {
     ($callback:ident, $($args:tt)*) => {{
+        $callback!($($args)*, asset_registry);
         $callback!($($args)*, sprite_manager);
         $callback!($($args)*, script_manager);
     }};
@@ -38,15 +39,20 @@ impl PrefabStage {
     pub fn from_editor_services(game: &Game) -> Self {
         let mut stage = Self {
             ecs: Ecs::default(),
+            asset_registry: AssetRegistry::default(),
             sprite_manager: SpriteManager::default(),
             script_manager: ScriptManager::default(),
-            prefab_library: game.prefab_library.clone(),
+            prefab_manager: game.prefab_manager.clone(),
         };
         for_each_prefab_asset_manager!(snapshot_prefab_asset_manager, game, stage);
 
         with_lua(|lua| {
-            SpriteManager::init_editor_metadata(&mut stage.sprite_manager);
-            ScriptManager::init_editor_services(&mut stage.script_manager, lua);
+            stage.asset_registry.init_editor_metadata();
+            SpriteManager::init_editor_metadata(&stage.asset_registry, &mut stage.sprite_manager);
+            ScriptManager::init_editor_metadata(&stage.asset_registry, &mut stage.script_manager);
+            if let Err(error) = register_runtime_modules(lua, &stage.script_manager.event_bus) {
+                onscreen_error!("Lua module registration failed: {error}");
+            }
         });
 
         stage
@@ -55,6 +61,13 @@ impl PrefabStage {
     /// Merges staged editor metadata back into the live game services.
     pub fn sync_editor_services(&self, game: &mut Game) -> io::Result<()> {
         for_each_prefab_asset_manager!(merge_prefab_asset_manager, game, self);
+        SpriteManager::init_editor_metadata(&game.asset_registry, &mut game.sprite_manager);
+        with_lua(|lua| {
+            ScriptManager::init_editor_metadata(&game.asset_registry, &mut game.script_manager);
+            if let Err(error) = register_runtime_modules(lua, &game.script_manager.event_bus) {
+                onscreen_error!("Lua module registration failed: {error}");
+            }
+        });
         Ok(())
     }
 
@@ -62,9 +75,10 @@ impl PrefabStage {
         GameCtxMut {
             ecs: &mut self.ecs,
             world: None,
+            asset_registry: &mut self.asset_registry,
             sprite_manager: &mut self.sprite_manager,
             script_manager: &mut self.script_manager,
-            prefab_library: &self.prefab_library,
+            prefab_manager: &self.prefab_manager,
         }
     }
 }
@@ -107,16 +121,10 @@ impl PrefabEditor {
         ))
     }
 
-    pub(crate) fn save_prefab_asset(
-        &mut self,
-        game_name: &str,
-        prefab: &PrefabAsset,
-    ) -> io::Result<()> {
-        let prefab = canonical_prefab_asset(prefab);
-        save_prefab(game_name, &prefab)?;
+    pub(crate) fn record_saved_prefab_asset(&mut self, prefab: PrefabAsset) {
+        let prefab = canonical_prefab_asset(&prefab);
         self.prefab_name = prefab.name.clone();
         self.last_committed_prefab = StagedPrefabState::PrefabAsset(prefab);
-        Ok(())
     }
 
     pub fn set_name(&mut self, name: String) {

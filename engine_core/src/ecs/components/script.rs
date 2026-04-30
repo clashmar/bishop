@@ -1,4 +1,6 @@
+use crate::assets::AssetRegistry;
 use crate::ecs::entity::Entity;
+use crate::ecs::TomlId;
 use crate::game::GameCtxMut;
 use crate::scripting::helpers::{read_script_field, write_script_field};
 use crate::scripting::lua_constants::lua_fields;
@@ -27,6 +29,7 @@ pub enum ScriptField {
     Text(String),
     Vec2([f32; 2]),
     Vec3([f32; 3]),
+    Toml(TomlId),
 }
 
 /// The script data that the editor shows.
@@ -40,7 +43,7 @@ pub struct ScriptData {
 }
 
 /// The script component that lives on an entity.
-#[ecs_component(post_create = post_create, post_remove = post_remove)]
+#[ecs_component(post_remove = post_remove)]
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct Script {
     /// Id stored by the script manager.
@@ -54,6 +57,7 @@ impl Script {
     pub fn load(
         &mut self,
         lua: &Lua,
+        _asset_registry: &mut AssetRegistry,
         script_manager: &mut ScriptManager,
         entity: Entity,
     ) -> LuaResult<()> {
@@ -84,9 +88,13 @@ impl Script {
 
         // Remove any stale fields
         self.data.fields.retain(|name, _| fields.contains_key(name));
-        // Add or update fields
+        // Refresh field definitions while preserving compatible saved overrides.
         for (name, field) in fields {
-            self.data.fields.entry(name).or_insert(field);
+            let merged = match self.data.fields.remove(&name) {
+                Some(existing) => merge_script_field(existing, field)?,
+                None => field,
+            };
+            self.data.fields.insert(name, merged);
         }
 
         // Sync current values back to Lua
@@ -126,8 +134,12 @@ impl Script {
     }
 }
 
-fn post_create(script: &mut Script, _entity: &Entity, ctx: &mut GameCtxMut<'_>) {
-    ctx.script_manager.increment_ref(script.script_id)
+fn merge_script_field(existing: ScriptField, current: ScriptField) -> LuaResult<ScriptField> {
+    if std::mem::discriminant(&existing) == std::mem::discriminant(&current) {
+        return Ok(existing);
+    }
+
+    Ok(current)
 }
 
 fn post_remove(script: &mut Script, entity: &Entity, ctx: &mut GameCtxMut<'_>) {
@@ -137,6 +149,7 @@ fn post_remove(script: &mut Script, entity: &Entity, ctx: &mut GameCtxMut<'_>) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::assets::AssetRegistry;
     use crate::scripting::lua_constants::lua_fields;
 
     #[test]
@@ -162,8 +175,11 @@ mod tests {
             script_id: ScriptId(1),
             data: ScriptData::default(),
         };
+        let mut asset_registry = AssetRegistry::default();
 
-        script.load(&lua, &mut script_manager, Entity(7)).unwrap();
+        script
+            .load(&lua, &mut asset_registry, &mut script_manager, Entity(7))
+            .unwrap();
 
         assert!(matches!(
             script.data.fields.get(lua_fields::POSITION),
@@ -207,9 +223,10 @@ mod tests {
             script_id: ScriptId(1),
             data: ScriptData::default(),
         };
+        let mut asset_registry = AssetRegistry::default();
 
         let error = script
-            .load(&lua, &mut script_manager, Entity(7))
+            .load(&lua, &mut asset_registry, &mut script_manager, Entity(7))
             .unwrap_err();
 
         assert!(error.to_string().contains(lua_fields::POSITION));

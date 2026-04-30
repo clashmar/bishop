@@ -1,6 +1,4 @@
-use crate::ecs::entity::Entity;
 use crate::ecs::SpriteId;
-use crate::game::GameCtxMut;
 use crate::inspector_module;
 use bishop::prelude::*;
 use ecs_component::ecs_component;
@@ -9,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
 
 /// A single glow source.
-#[ecs_component(post_create = post_create, post_remove = post_remove)]
+#[ecs_component]
 #[serde_as]
 #[derive(Clone, Serialize, Deserialize, Debug, Reflect)]
 #[serde(default)]
@@ -35,12 +33,4 @@ impl Default for Glow {
             sprite_id: SpriteId(0),
         }
     }
-}
-
-fn post_create(glow: &mut Glow, _entity: &Entity, ctx: &mut GameCtxMut<'_>) {
-    ctx.sprite_manager.increment_ref(glow.sprite_id);
-}
-
-fn post_remove(glow: &mut Glow, _entity: &Entity, ctx: &mut GameCtxMut<'_>) {
-    ctx.sprite_manager.decrement_ref(glow.sprite_id);
 }

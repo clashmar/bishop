@@ -49,27 +49,12 @@ pub fn create_new_game(name: String) -> Game {
     // Ensure the folder structure exists.
     create_game_folders(&name);
 
-    let sprite_manager = SpriteManager::default();
-    let script_manager = ScriptManager::default();
-
-    // Build the game first so we can allocate room IDs globally
     let mut game = Game {
-        version: 1,
-        id: Uuid::new_v4(),
         name,
-        ecs: Ecs::default(),
-        worlds: vec![],
-        sprite_manager,
-        script_manager,
-        text_manager: TextManager::default(),
-        prefab_library: PrefabLibrary::default(),
-        current_world_id: WorldId(Uuid::nil()),
-        game_map: GameMap::default(),
-        next_room_id: 0,
+        ..Default::default()
     };
 
     let world = create_new_world(&mut game);
-    game.current_world_id = world.id;
     game.worlds.push(world);
 
     // Create the global Player entity
@@ -137,8 +122,8 @@ pub(super) fn create_game_folders(name: &str) {
 fn create_default_text_files() {
     let text_root = text_folder();
 
-    // Create _manifest.toml with default config
-    let manifest_path = text_root.join("_manifest.toml");
+    // Create language manifest with default config
+    let manifest_path = text_root.join(paths::LANGUAGE_MANIFEST);
     if !manifest_path.exists() {
         let manifest_content = r#"# Text manifest configuration
 default_language = "en"
@@ -149,14 +134,28 @@ default_language = "en"
     }
 
     // Create default language folders
-    let en_dialogue = text_root.join("en").join("dialogue");
+    let en_dialogue = text_root
+        .join(paths::TEXT_LANGUAGE_FOLDER)
+        .join(paths::DIALOGUE_FOLDER);
     if let Err(e) = fs::create_dir_all(&en_dialogue) {
-        onscreen_error!("Could not create text/en/dialogue folder: {e}");
+        onscreen_error!(
+            "Could not create {}/{}/{} folder: {e}",
+            paths::TEXT_FOLDER,
+            paths::TEXT_LANGUAGE_FOLDER,
+            paths::DIALOGUE_FOLDER
+        );
     }
 
-    let en_ui = text_root.join("en").join("ui");
+    let en_ui = text_root
+        .join(paths::TEXT_LANGUAGE_FOLDER)
+        .join(paths::UI_TEXT_FOLDER);
     if let Err(e) = fs::create_dir_all(&en_ui) {
-        onscreen_error!("Could not create text/en/ui folder: {e}");
+        onscreen_error!(
+            "Could not create {}/{}/{} folder: {e}",
+            paths::TEXT_FOLDER,
+            paths::TEXT_LANGUAGE_FOLDER,
+            paths::UI_TEXT_FOLDER
+        );
     }
 
     let start_ui_path = en_ui.join("start.toml");
@@ -166,7 +165,11 @@ Start = "Start"
 Settings = "Settings"
 "#;
         if let Err(e) = fs::write(&start_ui_path, content) {
-            onscreen_error!("Could not create ui/start.toml: {e}");
+            onscreen_error!(
+                "Could not create {}/{}/start.toml: {e}",
+                paths::TEXT_LANGUAGE_FOLDER,
+                paths::UI_TEXT_FOLDER
+            );
         }
     }
 
@@ -179,7 +182,11 @@ SFX = "SFX Volume"
 Back = "Back"
 "#;
         if let Err(e) = fs::write(&settings_ui_path, content) {
-            onscreen_error!("Could not create ui/settings.toml: {e}");
+            onscreen_error!(
+                "Could not create {}/{}/settings.toml: {e}",
+                paths::TEXT_LANGUAGE_FOLDER,
+                paths::UI_TEXT_FOLDER
+            );
         }
     }
 }
@@ -254,7 +261,7 @@ pub fn save_game(game: &Game) -> io::Result<()> {
         onscreen_error!("Could not write animations.lua: {e}");
     }
 
-    let prefab_names = collect_prefab_names(&game.prefab_library)?;
+    let prefab_names = collect_prefab_names(&game.prefab_manager)?;
     write_prefabs_lua(&scripts_folder(), &prefab_names)?;
 
     let sound_library = current_sound_preset_library();
@@ -281,11 +288,11 @@ pub fn collect_custom_clip_names(ecs: &Ecs) -> Vec<String> {
     names.into_iter().collect()
 }
 
-/// Collects all unique prefab names from the prefab library.
-pub fn collect_prefab_names(prefab_library: &PrefabLibrary) -> io::Result<Vec<String>> {
+/// Collects all unique prefab names from the prefab manager.
+pub fn collect_prefab_names(prefab_manager: &PrefabManager) -> io::Result<Vec<String>> {
     let mut names = HashSet::new();
 
-    for prefab in prefab_library.prefabs.values() {
+    for prefab in prefab_manager.prefabs.values() {
         if !names.insert(prefab.name.clone()) {
             return Err(Error::new(
                 ErrorKind::InvalidData,
@@ -320,6 +327,8 @@ pub fn load_game_by_name(name: &str) -> io::Result<Game> {
         Ok(game) => game,
         Err(_) => return Ok(create_new_game(name.to_string())),
     };
+    game.id_allocator = IdAllocator::from_game(&game);
+    game.asset_registry.try_init_editor_metadata()?;
 
     set_current_sound_preset_library(load_sound_preset_library(name)?);
 
@@ -395,9 +404,9 @@ pub fn load_prefab_palette_state(game_name: &str) -> io::Result<PrefabPaletteSta
 
 /// Create a fresh world with a single default room.
 pub fn create_new_world(game: &mut Game) -> World {
-    let id = WorldId(Uuid::new_v4());
+    let id = game.id_allocator.allocate_world_id();
     let name = "new".to_string();
-    let room_id = game.allocate_room_id();
+    let room_id = game.id_allocator.allocate_room_id();
     let first_room = Room::new(&mut game.ecs, room_id, world_constants::DEFAULT_GRID_SIZE);
     let room_origin = first_room.position;
 

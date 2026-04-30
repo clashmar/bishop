@@ -1,0 +1,207 @@
+use super::*;
+use crate::ecs::{CurrentRoom, Ecs, Name};
+use crate::worlds::room::Room;
+
+#[test]
+fn game_ctx_mut_can_exist_without_a_current_world() {
+    let mut ecs = Ecs::default();
+    let mut asset_registry = AssetRegistry::default();
+    let mut sprite_manager = SpriteManager::default();
+    let mut script_manager = ScriptManager::default();
+    let prefab_manager = PrefabManager::default();
+
+    let ctx = GameCtxMut {
+        ecs: &mut ecs,
+        world: None,
+        asset_registry: &mut asset_registry,
+        sprite_manager: &mut sprite_manager,
+        script_manager: &mut script_manager,
+        prefab_manager: &prefab_manager,
+    };
+
+    assert!(ctx.world.is_none());
+}
+
+#[test]
+fn current_world_mut_returns_none_when_no_worlds() {
+    let mut game = Game::default();
+    assert!(game.current_world_mut().is_none());
+}
+
+#[test]
+fn get_world_mut_returns_none_for_missing_id() {
+    let mut game = Game::default();
+    assert!(game.get_world_mut(WorldId(99)).is_none());
+}
+
+#[cfg(feature = "editor")]
+#[test]
+fn delete_world_sets_current_to_dummy_when_empty() {
+    let mut game = Game::default();
+    let world_id = game.id_allocator.allocate_world_id();
+    game.add_world(World {
+        id: world_id,
+        ..Default::default()
+    });
+    game.delete_world(world_id);
+    assert_eq!(game.current_world_id, Some(WorldId::default()));
+}
+
+#[cfg(feature = "editor")]
+#[test]
+fn delete_world_sets_current_to_remaining_world() {
+    let mut game = Game::default();
+    let w1 = game.id_allocator.allocate_world_id();
+    let w2 = game.id_allocator.allocate_world_id();
+    game.add_world(World {
+        id: w1,
+        name: "a".into(),
+        ..Default::default()
+    });
+    game.add_world(World {
+        id: w2,
+        name: "b".into(),
+        ..Default::default()
+    });
+    game.delete_world(w2);
+    assert_eq!(game.current_world_id, Some(w1));
+}
+
+#[cfg(feature = "editor")]
+#[test]
+fn delete_world_removes_all_room_entities() {
+    let mut game = Game::default();
+    let world_id = game.id_allocator.allocate_world_id();
+    let room_id = game.id_allocator.allocate_room_id();
+    game.add_world(World {
+        id: world_id,
+        rooms: vec![Room {
+            id: room_id,
+            ..Default::default()
+        }],
+        ..Default::default()
+    });
+
+    let entity = game
+        .ecs
+        .create_entity()
+        .with(CurrentRoom(room_id))
+        .with(Name("test_entity".into()))
+        .finish();
+
+    game.delete_world(world_id);
+
+    assert!(
+        !game.ecs.has::<CurrentRoom>(entity),
+        "CurrentRoom should be gone after world deletion"
+    );
+    assert!(
+        !game.ecs.has::<Name>(entity),
+        "Name should be gone after world deletion"
+    );
+}
+
+#[cfg(feature = "editor")]
+#[test]
+fn delete_world_preserves_other_world_entities() {
+    let mut game = Game::default();
+    let world_a = game.id_allocator.allocate_world_id();
+    let world_b = game.id_allocator.allocate_world_id();
+    let room_a = game.id_allocator.allocate_room_id();
+    let room_b = game.id_allocator.allocate_room_id();
+
+    game.add_world(World {
+        id: world_a,
+        rooms: vec![Room {
+            id: room_a,
+            ..Default::default()
+        }],
+        ..Default::default()
+    });
+    game.add_world(World {
+        id: world_b,
+        rooms: vec![Room {
+            id: room_b,
+            ..Default::default()
+        }],
+        ..Default::default()
+    });
+
+    let entity_a = game.ecs.create_entity().with(CurrentRoom(room_a)).finish();
+    let entity_b = game.ecs.create_entity().with(CurrentRoom(room_b)).finish();
+
+    game.delete_world(world_a);
+
+    assert!(
+        !game.ecs.has::<CurrentRoom>(entity_a),
+        "entity_a should be gone after its world is deleted"
+    );
+    assert!(
+        game.ecs.has::<CurrentRoom>(entity_b),
+        "entity_b should still exist after the other world is deleted"
+    );
+}
+
+#[test]
+fn initialize_rebuilds_id_allocator() {
+    let mut game = Game::default();
+    let w1 = game.id_allocator.allocate_world_id();
+    let r1 = game.id_allocator.allocate_room_id();
+    game.add_world(World {
+        id: w1,
+        rooms: vec![Room {
+            id: r1,
+            ..Default::default()
+        }],
+        ..Default::default()
+    });
+    game.id_allocator = IdAllocator::default();
+    game.id_allocator = IdAllocator::from_game(&game);
+    assert!(game.id_allocator.allocate_world_id().0 > w1.0);
+    let next_room = game.id_allocator.allocate_room_id();
+    assert!(next_room.0 > r1.0);
+}
+
+#[cfg(feature = "editor")]
+#[test]
+fn reload_prefab_manager_keeps_existing_records_when_reload_fails() {
+    use crate::constants::extensions;
+    use crate::engine_global::set_game_name;
+    use crate::prefab::{create_prefab, persist_prefab, PrefabId};
+    use crate::storage::path_utils::prefabs_folder;
+    use crate::storage::test_utils::{game_fs_test_lock, TestGameFolder};
+    use std::path::PathBuf;
+
+    let _lock = game_fs_test_lock()
+        .lock()
+        .unwrap_or_else(|poison| poison.into_inner());
+    let test_folder = TestGameFolder::new("prefab_registry_no_partial_cleanup");
+    set_game_name(test_folder.name());
+    let first = create_prefab(PrefabId(3), "Bullet".to_string());
+    let second = create_prefab(PrefabId(9), "Bullet".to_string());
+    let stale_prefab_id = PrefabId(22);
+    let stale_relative_path = PathBuf::from(format!("stale_prefab.{}", extensions::PREFAB));
+    let mut game = Game {
+        name: test_folder.name().to_string(),
+        ..Default::default()
+    };
+
+    persist_prefab(test_folder.name(), &first, &AssetRegistry::default(), None).unwrap();
+    game.reload_prefab_manager();
+    std::fs::write(
+        prefabs_folder().join(format!("bullet_copy.{}", extensions::PREFAB)),
+        ron::to_string(&second).unwrap(),
+    )
+    .unwrap();
+    game.asset_registry
+        .register_asset_relative_path(stale_prefab_id, &stale_relative_path)
+        .unwrap();
+
+    let before = game.asset_registry.clone();
+    let before_prefab_manager = game.prefab_manager.clone();
+
+    game.reload_prefab_manager();
+
+    assert_eq!(game.asset_registry, before);
+    assert_eq!(game.prefab_manager, before_prefab_manager);
+}

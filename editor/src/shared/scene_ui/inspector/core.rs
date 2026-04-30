@@ -15,6 +15,7 @@ use crate::gui::inspector::audio_source_module::clear_active_audio_preview;
 use crate::gui::inspector::player_module::PlayerModule;
 use crate::gui::inspector::room_camera_module::ROOM_CAMERA_MODULE_TITLE;
 use crate::gui::menu_bar::menu_button;
+use crate::shared::input::shortcuts_blocked;
 use bishop::prelude::*;
 use engine_core::prelude::*;
 use std::collections::HashMap;
@@ -196,7 +197,7 @@ impl SceneInspector {
 
             let total_content_h = self.total_content_height(
                 game_ctx.ecs,
-                game_ctx.prefab_library,
+                game_ctx.prefab_manager,
                 entity,
                 scene_ctx.show_linked_prefab_metadata,
                 scene_ctx.hide_room_only_components,
@@ -215,7 +216,7 @@ impl SceneInspector {
             let linked_prefab = linked_prefab_instance_state_for_scene_inspector(
                 scene_ctx.show_linked_prefab_metadata,
                 game_ctx.ecs,
-                game_ctx.prefab_library,
+                game_ctx.prefab_manager,
                 entity,
             );
 
@@ -419,7 +420,7 @@ impl SceneInspector {
                 )));
             }
 
-            area.draw_scrollbar(ctx, self.scroll_state.scroll_y);
+            area.draw_scrollbar(ctx, &self.scroll_state);
             ctx.pop_clip_rect();
             flush_dropdown_lists(ctx);
             ctx.draw_rectangle_lines(inner.x, inner.y, inner.w, inner.h, 2., Color::WHITE);
@@ -487,7 +488,7 @@ impl SceneInspector {
                 );
 
                 if menu_button(ctx, remove_rect, remove_label, false)
-                    || Controls::delete(ctx) && !input_is_focused()
+                    || Controls::delete(ctx) && !shortcuts_blocked()
                 {
                     let command = DeleteEntityCmd::new(entity, scene_ctx.command_mode);
                     push_command(Box::new(command));
@@ -665,7 +666,7 @@ impl SceneInspector {
     fn total_content_height(
         &self,
         ecs: &mut Ecs,
-        prefab_library: &PrefabLibrary,
+        prefab_manager: &PrefabManager,
         entity: Entity,
         show_linked_prefab_metadata: bool,
         hide_room_only_components: bool,
@@ -675,7 +676,7 @@ impl SceneInspector {
         if linked_prefab_instance_state_for_scene_inspector(
             show_linked_prefab_metadata,
             ecs,
-            prefab_library,
+            prefab_manager,
             entity,
         )
         .is_some()

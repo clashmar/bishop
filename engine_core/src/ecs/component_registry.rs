@@ -1,5 +1,5 @@
-// engine_core/src/ecs/component_registry.rs
 use crate::ecs::component::Component;
+use crate::ecs::ComponentStore;
 use crate::ecs::{ecs::Ecs, entity::Entity};
 use crate::game::GameCtxMut;
 use mlua::Lua;
@@ -34,6 +34,8 @@ pub struct ComponentRegistry {
     pub from_ron: fn(String) -> Box<dyn Any + Send + Sync>,
     /// Factory that creates the component (and its dependencies) for an entity.
     pub factory: fn(&mut Ecs, Entity),
+    /// Ensures the component exists without overwriting an existing value.
+    pub ensure: fn(&mut Ecs, Entity),
     /// Returns true if the supplied entity already owns this component.
     pub has: fn(&Ecs, Entity) -> bool,
     // Removes the component for `entity` from the concrete store.
@@ -58,6 +60,8 @@ pub struct ComponentRegistry {
     pub lua_schema: fn() -> &'static [(&'static str, &'static str)],
     /// Whether this component should be visible through the public Lua API.
     pub is_public_lua_api: bool,
+    /// Returns the highest entity id present in the store, or `None` if empty.
+    pub max_entity_id: fn(&dyn Any) -> Option<usize>,
 }
 
 /// Factory that works for any component that implements `Component + Default`.
@@ -67,6 +71,16 @@ where
 {
     // Directly insert the default component into its typed store.
     ecs.get_store_mut::<T>().insert(entity, T::default());
+}
+
+pub fn generic_ensure<T>(ecs: &mut Ecs, entity: Entity)
+where
+    T: Component + Default + 'static,
+{
+    let store = ecs.get_store_mut::<T>();
+    if !store.contains(entity) {
+        store.insert(entity, T::default());
+    }
 }
 
 pub fn has_component<T>(world: &Ecs, entity: Entity) -> bool
@@ -89,6 +103,11 @@ pub fn generic_inserter<T>(ecs: &mut Ecs, entity: Entity, boxed: Box<dyn Any>)
 where
     T: Component + 'static,
 {
+    let type_id = TypeId::of::<ComponentStore<T>>();
+    if let Some(reg) = COMPONENTS.iter().find(|reg| reg.type_id == type_id) {
+        (reg.ensure)(ecs, entity);
+    }
+
     let concrete = *boxed
         .downcast::<T>()
         .expect("ComponentEntry contains wrong type");
@@ -139,6 +158,7 @@ mod tests {
         PrefabInstanceNode, PrefabInstanceRoot, PrefabOverrides,
     };
     use crate::ecs::MotionBody;
+    use crate::ecs::{Grounded, PhysicsBody};
 
     #[test]
     fn components_are_sorted_by_type_name() {
@@ -174,5 +194,20 @@ mod tests {
             .unwrap_or_else(|| panic!("missing registry entry for {type_name}"));
 
         assert!(!reg.is_public_lua_api, "{type_name} should be private");
+    }
+
+    #[test]
+    fn inserter_preserves_existing_dependency_state() {
+        let mut ecs = Ecs::default();
+        let entity = Entity(1);
+        ecs.get_store_mut::<Grounded>()
+            .insert(entity, Grounded(true));
+
+        generic_inserter::<PhysicsBody>(&mut ecs, entity, Box::new(PhysicsBody));
+
+        assert_eq!(
+            ecs.get::<Grounded>(entity).map(|grounded| grounded.0),
+            Some(true)
+        );
     }
 }

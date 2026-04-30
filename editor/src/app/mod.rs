@@ -3,19 +3,27 @@ mod actions;
 mod audio;
 pub mod camera_controller;
 pub(crate) mod escape;
+#[cfg(target_os = "macos")]
+pub(crate) mod macos_quit;
 mod modals;
 mod persistence;
+mod queries;
 pub mod sub_editor;
+mod validation;
 
 pub use camera_controller::EditorCameraController;
 pub use sub_editor::SubEditor;
 
 use crate::app::audio::default_audio_manager;
 use crate::canvas::grid_shader::GridRenderer;
-use crate::editor_global::push_toast;
+use crate::editor_global::{push_throbbing_toast, push_toast};
 use crate::game::game_editor::GameEditor;
 use crate::gui::menu_bar::MenuBar;
-use crate::gui::modal::Modal;
+use crate::gui::modals::delete_world::DeleteWorldModal;
+use crate::gui::modals::edit_world::EditWorldModal;
+use crate::gui::modals::{Modal, ModalHandler, ModalRegistry};
+use crate::gui::modals::delete_prefab::DeletePrefabModal;
+use crate::gui::modals::prefab_picker::PrefabPickerModal;
 use crate::menu::MenuEditor;
 use crate::playtest::playtest_process::PlaytestProcess;
 use crate::playtest::room_playtest::*;
@@ -59,6 +67,7 @@ pub struct Editor {
     pub render_system: RenderSystem,
     pub menu_bar: MenuBar,
     pub modal: Modal,
+    pub modal_handlers: ModalRegistry,
     pub pending_export: Option<PendingExport>,
     pub(crate) prefab_state: PrefabSessionState,
     pub(crate) pending_camera_reset: bool,
@@ -67,6 +76,8 @@ pub struct Editor {
     pub pending_playtest_build: Option<BackgroundTask<Result<(PathBuf, PathBuf), String>>>,
     pub grid_renderer: Option<GridRenderer>,
     pub audio_manager: AudioManager,
+    pub(crate) last_save_hash: u64,
+    pub(crate) handling_close: bool,
 }
 
 impl Default for Editor {
@@ -87,6 +98,7 @@ impl Default for Editor {
             render_system: RenderSystem::with_default_grid_size(),
             menu_bar: MenuBar::new(),
             modal: Modal::default(),
+            modal_handlers: ModalRegistry::new(),
             pending_export: None,
             prefab_state: PrefabSessionState::default(),
             pending_camera_reset: false,
@@ -95,6 +107,8 @@ impl Default for Editor {
             pending_playtest_build: None,
             grid_renderer: None,
             audio_manager: default_audio_manager(),
+            last_save_hash: 0,
+            handling_close: false,
         }
     }
 }
@@ -142,10 +156,17 @@ impl Editor {
         // Initialize the grid renderer
         editor.grid_renderer = Some(GridRenderer::new(&ctx.borrow()));
 
+        editor.update_save_state_hash();
+        editor.register_modal_handlers();
         Ok(editor)
     }
 
     pub fn update(&mut self, ctx: &mut WgpuContext) {
+        self.update_handle_close_request(ctx);
+        if ctx.is_close_requested() && ctx.is_exit_confirmed() {
+            return;
+        }
+
         if let Some(ref mut process) = self.playtest_process {
             if !process.poll() {
                 self.playtest_process = None;
@@ -212,12 +233,12 @@ impl Editor {
 
                 self.reconcile_active_prefab_room_preview();
                 if delete_prefab_requested {
-                    self.open_delete_prefab_modal(ctx);
+                    DeletePrefabModal.open(self, ctx);
                 }
                 if open_prefab_picker_requested
                     || (self.prefab_state.require_picker() && !self.modal.is_open())
                 {
-                    self.open_prefab_picker_modal(ctx);
+                    PrefabPickerModal.open(self, ctx);
                 }
                 if matches!(self.mode, EditorMode::Prefab(_))
                     && escape::escape_available_for_editor()
@@ -227,31 +248,37 @@ impl Editor {
                 }
             }
             EditorMode::Game => {
-                if self.pending_camera_reset {
-                    self.pending_camera_reset = false;
-                    self.game_editor
-                        .init_camera(ctx, &mut self.camera, &mut self.game);
-                }
                 // Returns the id of the world that was clicked on or None
                 if let Some(world_id) = self.game_editor.update(ctx, &self.camera, &mut self.game) {
-                    self.world_editor.init_camera(
-                        ctx,
-                        &mut self.camera,
-                        self.game.get_world_mut(world_id),
-                    );
-                    self.game.current_world_id = world_id;
+                    if let Some(world) = self.game.get_world_mut(world_id) {
+                        self.world_editor.init_camera(
+                            ctx,
+                            &mut self.camera,
+                            world,
+                        );
+                    }
+                    self.game.current_world_id = Some(world_id);
                     self.cur_world_id = Some(world_id);
                     self.mode = EditorMode::World(world_id);
+                }
+
+                if self.game_editor.pending_edit_world.is_some() {
+                    EditWorldModal.open(self, ctx);
+                }
+                if self.game_editor.pending_delete_world.is_some() {
+                    DeleteWorldModal.open(self, ctx);
                 }
             }
             EditorMode::World(world_id) => {
                 if self.pending_camera_reset {
                     self.pending_camera_reset = false;
-                    self.world_editor.init_camera(
-                        ctx,
-                        &mut self.camera,
-                        self.game.get_world_mut(world_id),
-                    );
+                    if let Some(world) = self.game.get_world_mut(world_id) {
+                        self.world_editor.init_camera(
+                            ctx,
+                            &mut self.camera,
+                            world,
+                        );
+                    }
                 }
                 // Returns the id of the room that was clicked on or None
                 if let Some(room_id) =
@@ -262,12 +289,15 @@ impl Editor {
                     self.mode = EditorMode::Room(room_id);
 
                     // The world current room must be set
-                    self.game.get_world_mut(world_id).current_room_id = Some(room_id);
+                    if let Some(world) = self.game.get_world_mut(world_id) {
+                        world.current_room_id = Some(room_id);
+                    }
 
                     // Init camera immediately, as game_editor/world_editor do on their transitions
-                    let world = self.game.get_world_mut(world_id);
-                    if let Some(room) = world.get_room(room_id) {
-                        RoomEditor::init_camera(ctx, &mut self.camera, room, world.grid_size);
+                    if let Some(world) = self.game.get_world_mut(world_id) {
+                        if let Some(room) = world.get_room(room_id) {
+                            RoomEditor::init_camera(ctx, &mut self.camera, room, world.grid_size);
+                        }
                     }
                 }
 
@@ -292,7 +322,7 @@ impl Editor {
                         .game
                         .worlds
                         .iter()
-                        .find(|w| w.id == self.game.current_world_id)
+                        .find(|w| Some(w.id) == self.game.current_world_id)
                         .and_then(|world| world.get_room(room_id).map(|r| (world.grid_size, r)))
                     {
                         RoomEditor::init_camera(ctx, &mut self.camera, room, grid_size);
@@ -305,18 +335,18 @@ impl Editor {
                 {
                     let active_prefab_stamp = room_editor::ActivePrefabStampState {
                         available: self.room_editor.active_prefab_id.is_some_and(|prefab_id| {
-                            self.game.prefab_library.prefabs.contains_key(&prefab_id)
+                            self.game.prefab_manager.prefabs.contains_key(&prefab_id)
                         }),
                         pivot: self
                             .room_editor
-                            .active_prefab_snap_pivot(&self.game.prefab_library),
+                            .active_prefab_snap_pivot(&self.game.prefab_manager),
                     };
-                    let current_world = &mut self
+                    let current_world = self
                         .game
                         .worlds
                         .iter_mut()
-                        .find(|w| w.id == self.game.current_world_id)
-                        .expect("Current world id not present in game.");
+                        .find(|w| Some(w.id) == self.game.current_world_id)
+                        .expect("Current world id not present in game while in Room mode.");
 
                     self.room_editor.update(
                         ctx,
@@ -325,6 +355,7 @@ impl Editor {
                             room_id,
                             ecs: &mut self.game.ecs,
                             current_world,
+                            asset_registry: &mut self.game.asset_registry,
                             sprite_manager: &mut self.game.sprite_manager,
                             active_prefab_stamp,
                         },
@@ -415,7 +446,7 @@ impl Editor {
                             }
                         } else {
                             // Dev mode: cargo build runs in the background
-                            push_toast("Building playtest...", 30.0);
+                            push_throbbing_toast("Building playtest");
                             self.pending_playtest_build = Some(BackgroundTask::spawn(move || {
                                 resolve_playtest_binary()
                                     .map(|exe_path| (exe_path, payload_path))
@@ -433,6 +464,12 @@ impl Editor {
     }
 
     pub fn draw(&mut self, ctx: &mut WgpuContext) {
+        if self.pending_camera_reset {
+            self.pending_camera_reset = false;
+            self.game_editor
+                .init_camera(ctx, &mut self.camera, &mut self.game);
+        }
+
         match self.mode {
             EditorMode::Menu => self.menu_editor.draw(ctx, &self.camera),
             EditorMode::Prefab(_) => {

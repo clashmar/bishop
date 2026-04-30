@@ -5,11 +5,11 @@ use std::cell::RefCell;
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(super) struct PreviewRequest {
     row_index: usize,
-    sound_id: String,
+    sound_id: SoundId,
 }
 
 impl PreviewRequest {
-    pub(super) fn new(row_index: usize, sound_id: String) -> Self {
+    pub(super) fn new(row_index: usize, sound_id: SoundId) -> Self {
         Self {
             row_index,
             sound_id,
@@ -53,7 +53,7 @@ pub(super) fn tick_active_audio_preview(dt: f32) {
     }
 }
 
-pub(super) fn sync_active_preview(entity: Entity, group_id: &SoundGroupId, sounds: &[String]) {
+pub(super) fn sync_active_preview(entity: Entity, group_id: &SoundGroupId, sounds: &[SoundId]) {
     let should_clear = ACTIVE_AUDIO_PREVIEW.with(|active| {
         active.borrow().as_ref().is_some_and(|preview| {
             preview.entity == entity
@@ -74,12 +74,13 @@ pub(super) fn apply_preview_request(
     group_id: &SoundGroupId,
     next_preview: Option<PreviewRequest>,
     group: &AudioGroup,
+    asset_registry: &AssetRegistry,
 ) {
     match next_preview {
         Some(request) => {
             push_audio_command(AudioCommand::PlayTrackedPreview {
                 handle: PREVIEW_HANDLE,
-                sounds: vec![request.sound_id.clone()],
+                sounds: sound_command_ids(asset_registry, [request.sound_id]),
                 volume: group.volume,
                 pitch_variation: group.pitch_variation,
                 volume_variation: group.volume_variation,

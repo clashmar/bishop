@@ -4,6 +4,7 @@ use crate::gui::prompts::constants::*;
 use crate::gui::prompts::helpers::*;
 use bishop::prelude::*;
 use engine_core::prelude::*;
+use widgets::{input_is_focused, request_focus};
 
 /// Result of a string prompt.
 #[derive(Debug, PartialEq, Eq)]
@@ -110,6 +111,10 @@ impl StringPrompt {
             return Some(StringPromptResult::Cancelled);
         }
 
+        if !input_is_focused() {
+            request_focus(self.input_id, true);
+        }
+
         None
     }
 }
@@ -168,6 +173,10 @@ mod tests {
 
         fn is_mouse_button_released(&self, button: MouseButton) -> bool {
             matches!(button, MouseButton::Left) && self.left_released
+        }
+
+        fn is_mouse_button_double_clicked(&self, _button: MouseButton) -> bool {
+            false
         }
 
         fn mouse_position(&self) -> (f32, f32) {

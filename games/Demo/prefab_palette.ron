@@ -2,7 +2,6 @@
     active_prefab_id: Some((3)),
     recent_prefab_ids: [
         (3),
-        (2),
         (1),
     ],
 )

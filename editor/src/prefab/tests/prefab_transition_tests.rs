@@ -10,7 +10,7 @@ fn clean_prefab_transition_opens_requested_prefab_without_changing_return_mode()
     let second_prefab = save_test_prefab(&test_game, PrefabId(2), "Barrel");
     editor
         .game
-        .prefab_library
+        .prefab_manager
         .prefabs
         .insert(second_prefab.id, second_prefab.clone());
 
@@ -80,7 +80,7 @@ fn clean_prefab_switch_ignores_component_snapshot_order() {
     let second_prefab = save_test_prefab(&test_game, PrefabId(2), "Barrel");
     editor
         .game
-        .prefab_library
+        .prefab_manager
         .prefabs
         .insert(second_prefab.id, second_prefab.clone());
 
@@ -123,7 +123,7 @@ fn requesting_prefab_transition_from_asset_loads_prefab_into_library() {
 
     assert!(!editor
         .game
-        .prefab_library
+        .prefab_manager
         .prefabs
         .contains_key(&second_prefab.id));
     assert_eq!(
@@ -133,7 +133,7 @@ fn requesting_prefab_transition_from_asset_loads_prefab_into_library() {
     assert_eq!(editor.mode, EditorMode::Prefab(second_prefab.id));
     assert_eq!(editor.return_mode, Some(EditorMode::Room(room_id)));
     assert_eq!(
-        editor.game.prefab_library.prefabs.get(&second_prefab.id),
+        editor.game.prefab_manager.prefabs.get(&second_prefab.id),
         Some(&second_prefab)
     );
 }
@@ -157,7 +157,7 @@ fn requesting_prefab_transition_to_asset_reconciles_stale_palette_state() {
     assert_eq!(editor.mode, EditorMode::Prefab(second_prefab.id));
     assert_eq!(editor.return_mode, Some(EditorMode::Room(room_id)));
     assert_eq!(
-        editor.game.prefab_library.prefabs.get(&second_prefab.id),
+        editor.game.prefab_manager.prefabs.get(&second_prefab.id),
         Some(&second_prefab)
     );
     assert_eq!(editor.room_editor.active_prefab_id, Some(second_prefab.id));
@@ -193,7 +193,7 @@ fn requesting_prefab_transition_from_file_path_marks_dirty_session_pending() {
         Some(&PendingPrefabTransition::OpenExisting(second_prefab.id))
     );
     assert_eq!(
-        editor.game.prefab_library.prefabs.get(&second_prefab.id),
+        editor.game.prefab_manager.prefabs.get(&second_prefab.id),
         Some(&second_prefab)
     );
 }
@@ -205,7 +205,7 @@ fn requesting_prefab_transition_from_invalid_file_path_returns_error() {
         .unwrap_or_else(|poison| poison.into_inner());
     let test_game = TestGameFolder::new("prefab_transition_file_invalid");
     let (mut editor, room_id, prefab_id, _) = make_prefab_session_editor(&test_game);
-    let invalid_path = write_invalid_prefab(&test_game, "broken.ron");
+    let invalid_path = write_invalid_prefab(&test_game, &format!("broken.{}", extensions::PREFAB));
 
     let error = editor
         .request_prefab_transition_to_path(&invalid_path)
@@ -227,7 +227,7 @@ fn dirty_prefab_transition_save_switches_and_persists_changes() {
     let second_prefab = save_test_prefab(&test_game, PrefabId(2), "Barrel");
     editor
         .game
-        .prefab_library
+        .prefab_manager
         .prefabs
         .insert(second_prefab.id, second_prefab.clone());
     editor.room_editor.active_prefab_id = Some(second_prefab.id);
@@ -261,7 +261,7 @@ fn dirty_prefab_transition_save_switches_and_persists_changes() {
     assert_eq!(
         editor
             .game
-            .prefab_library
+            .prefab_manager
             .prefabs
             .get(&prefab_id)
             .map(|prefab| prefab.nodes.len()),
@@ -288,7 +288,7 @@ fn dirty_prefab_transition_save_does_not_switch_when_palette_persist_fails() {
     let second_prefab = save_test_prefab(&test_game, PrefabId(2), "Barrel");
     editor
         .game
-        .prefab_library
+        .prefab_manager
         .prefabs
         .insert(second_prefab.id, second_prefab.clone());
     editor.room_editor.active_prefab_id = Some(PrefabId(999));
@@ -340,7 +340,7 @@ fn dirty_prefab_transition_cancel_keeps_current_prefab_open() {
     let second_prefab = save_test_prefab(&test_game, PrefabId(2), "Barrel");
     editor
         .game
-        .prefab_library
+        .prefab_manager
         .prefabs
         .insert(second_prefab.id, second_prefab);
 
@@ -377,7 +377,7 @@ fn empty_prefab_transition_delete_switches_to_requested_prefab() {
         let second_prefab = save_test_prefab(&test_game, PrefabId(2), "Barrel");
         editor
             .game
-            .prefab_library
+            .prefab_manager
             .prefabs
             .insert(second_prefab.id, second_prefab);
 
@@ -399,7 +399,7 @@ fn empty_prefab_transition_delete_switches_to_requested_prefab() {
 
         assert_eq!(editor.mode, EditorMode::Prefab(PrefabId(2)));
         assert_eq!(editor.return_mode, Some(EditorMode::Room(room_id)));
-        assert!(!editor.game.prefab_library.prefabs.contains_key(&prefab_id));
+        assert!(!editor.game.prefab_manager.prefabs.contains_key(&prefab_id));
         assert_eq!(editor.prefab_state.pending_transition(), None);
     });
 }
@@ -417,7 +417,7 @@ fn deleting_active_prefab_promotes_next_recent_and_persists_palette_state() {
         let second_prefab = save_test_prefab(&test_game, PrefabId(2), "Barrel");
         editor
             .game
-            .prefab_library
+            .prefab_manager
             .prefabs
             .insert(second_prefab.id, second_prefab);
         editor.room_editor.active_prefab_id = Some(prefab_id);
@@ -465,7 +465,7 @@ fn deleting_non_active_recent_prefab_compacts_palette_without_changing_active_pr
         let second_prefab = save_test_prefab(&test_game, PrefabId(2), "Barrel");
         editor
             .game
-            .prefab_library
+            .prefab_manager
             .prefabs
             .insert(second_prefab.id, second_prefab);
         editor.room_editor.active_prefab_id = Some(PrefabId(2));
@@ -513,7 +513,7 @@ fn deleting_active_prefab_keeps_reconciled_palette_state_when_palette_persist_fa
         let second_prefab = save_test_prefab(&test_game, PrefabId(2), "Barrel");
         editor
             .game
-            .prefab_library
+            .prefab_manager
             .prefabs
             .insert(second_prefab.id, second_prefab);
         editor.room_editor.active_prefab_id = Some(prefab_id);
@@ -544,7 +544,7 @@ fn deleting_active_prefab_keeps_reconciled_palette_state_when_palette_persist_fa
         assert_eq!(editor.mode, EditorMode::Room(room_id));
         assert_eq!(editor.room_editor.active_prefab_id, Some(PrefabId(2)));
         assert_eq!(editor.room_editor.recent_prefab_ids, vec![PrefabId(2)]);
-        assert!(!editor.game.prefab_library.prefabs.contains_key(&prefab_id));
+        assert!(!editor.game.prefab_manager.prefabs.contains_key(&prefab_id));
     });
 }
 
@@ -564,13 +564,15 @@ fn blank_prefab_transition_does_not_create_asset_until_confirmed() {
         .create_prefab_entity(&mut editor.prefab_stage.as_mut().unwrap().ecs, Some(root));
 
     assert_eq!(
-        editor
-            .request_prefab_transition(PendingPrefabTransition::CreateBlank("Fresh".to_string(),)),
+        editor.request_prefab_transition(PendingPrefabTransition::CreateBlank {
+            name: "Fresh".to_string(),
+            initial_path: prefabs_folder().join(format!("Fresh.{}", extensions::PREFAB)),
+        }),
         PrefabTransitionPrompt::Dirty
     );
     assert!(editor
         .game
-        .prefab_library
+        .prefab_manager
         .prefabs
         .values()
         .all(|prefab| prefab.name != "Fresh"));
@@ -579,7 +581,7 @@ fn blank_prefab_transition_does_not_create_asset_until_confirmed() {
 
     assert!(editor
         .game
-        .prefab_library
+        .prefab_manager
         .prefabs
         .values()
         .all(|prefab| prefab.name != "Fresh"));
@@ -602,7 +604,10 @@ fn request_blank_prefab_transition_returns_dirty_prompt_without_opening_a_modal(
 
     assert!(!editor.modal.is_open());
     assert_eq!(
-        editor.request_blank_prefab_transition("Fresh".to_string()),
+        editor.request_blank_prefab_transition(
+            "Fresh".to_string(),
+            prefabs_folder().join(format!("Fresh.{}", extensions::PREFAB)),
+        ),
         PrefabTransitionPrompt::Dirty
     );
     assert!(editor.prefab_state.pending_transition().is_some());
@@ -619,7 +624,7 @@ fn opening_real_prefab_from_forced_blank_session_clears_picker_requirement() {
     let prefab = save_test_prefab(&test_game, PrefabId(2), "Barrel");
     editor
         .game
-        .prefab_library
+        .prefab_manager
         .prefabs
         .insert(prefab.id, prefab.clone());
     editor.prefab_state.set_require_picker(true);

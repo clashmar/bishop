@@ -7,7 +7,6 @@ pub mod ecs;
 pub mod entity;
 pub mod has_any;
 pub mod inspector;
-pub mod prefab;
 pub mod reflect_field;
 
 pub use components::*;
@@ -19,5 +18,5 @@ pub use entity::*;
 pub use has_any::*;
 #[cfg(feature = "editor")]
 pub use inspector::*;
-pub use prefab::*;
+pub use crate::prefab::*;
 pub use reflect_field::*;

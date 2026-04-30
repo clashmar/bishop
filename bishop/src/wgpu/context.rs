@@ -58,6 +58,8 @@ pub struct WgpuContext {
     render_target_dims: Option<(f32, f32)>,
     clip_rect: Option<[u32; 4]>,
     draw_segments: Vec<DrawSegment>,
+    pub(crate) close_requested: bool,
+    pub(crate) exit_confirmed: bool,
 }
 
 impl WgpuContext {
@@ -98,6 +100,8 @@ impl WgpuContext {
             render_target_dims: None,
             clip_rect: None,
             draw_segments: Vec::new(),
+            close_requested: false,
+            exit_confirmed: false,
         })
     }
 
@@ -215,7 +219,11 @@ impl WgpuContext {
             WindowEvent::MouseInput { button, state, .. } => {
                 if let Some(btn) = convert_mouse_button(*button) {
                     match state {
-                        ElementState::Pressed => self.input.on_mouse_down(btn),
+                        ElementState::Pressed => {
+                            let time = self.time.elapsed();
+                            let pos = self.input.mouse_position();
+                            self.input.on_mouse_down(btn, time, pos);
+                        }
                         ElementState::Released => self.input.on_mouse_up(btn),
                     }
                 }
@@ -248,6 +256,22 @@ impl WgpuContext {
     /// Returns a reference to the underlying window.
     pub fn window(&self) -> &Window {
         &self.window
+    }
+
+    pub fn is_close_requested(&self) -> bool {
+        self.close_requested
+    }
+
+    pub fn set_close_requested(&mut self, requested: bool) {
+        self.close_requested = requested;
+    }
+
+    pub fn is_exit_confirmed(&self) -> bool {
+        self.exit_confirmed
+    }
+
+    pub fn set_exit_confirmed(&mut self, confirmed: bool) {
+        self.exit_confirmed = confirmed;
     }
 
     /// Returns the current screen width in logical pixels.
@@ -528,12 +552,28 @@ impl WgpuContext {
 
             if let Some([x, y, w, h]) = self.clip_rect {
                 let (pw, ph) = self.graphics.size;
+                let x = x.min(pw);
+                let y = y.min(ph);
                 render_pass.set_scissor_rect(
                     x,
                     y,
                     w.min(pw.saturating_sub(x)),
                     h.min(ph.saturating_sub(y)),
                 );
+            }
+
+            if let Some(camera) = &self.current_camera {
+                if let Some((x, y, w, h)) = camera.viewport {
+                    let scale = self.scale_factor.max(1.0);
+                    render_pass.set_viewport(
+                        x as f32 * scale,
+                        y as f32 * scale,
+                        w as f32 * scale,
+                        h as f32 * scale,
+                        0.0,
+                        1.0,
+                    );
+                }
             }
 
             for segment in &self.draw_segments {

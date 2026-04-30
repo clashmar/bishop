@@ -48,7 +48,7 @@ fn blank_prefab_session_save_is_a_no_op() {
     assert!(editor.is_blank_prefab_mode());
     assert_eq!(editor.active_persisted_prefab_id(), None);
     assert!(editor.toast.is_some());
-    assert!(editor.game.prefab_library.prefabs.is_empty());
+    assert!(editor.game.prefab_manager.prefabs.is_empty());
 }
 
 #[test]
@@ -61,7 +61,7 @@ fn blank_prefab_session_opens_real_prefab_without_prompt() {
     let prefab = create_prefab(PrefabId(2), "Barrel".to_string());
     editor
         .game
-        .prefab_library
+        .prefab_manager
         .prefabs
         .insert(prefab.id, prefab.clone());
 
@@ -85,7 +85,7 @@ fn dirty_blank_prefab_session_still_opens_real_prefab_without_prompt() {
     let prefab = create_prefab(PrefabId(2), "Barrel".to_string());
     editor
         .game
-        .prefab_library
+        .prefab_manager
         .prefabs
         .insert(prefab.id, prefab.clone());
 

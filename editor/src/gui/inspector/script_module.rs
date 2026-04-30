@@ -43,8 +43,12 @@ impl InspectorModule for ScriptModule {
         game_ctx: &mut GameCtxMut,
         entity: Entity,
     ) {
-        let ecs = &mut game_ctx.ecs;
-        let script_manager = &mut game_ctx.script_manager;
+        let GameCtxMut {
+            ecs,
+            asset_registry,
+            script_manager,
+            ..
+        } = game_ctx;
 
         let script_comp = if let Some(comp) = ecs.get_mut::<Script>(entity) {
             comp
@@ -55,7 +59,7 @@ impl InspectorModule for ScriptModule {
         // Ensure ScriptData is loaded if it exists
         if script_comp.script_id != ScriptId(0) {
             with_lua(|lua| {
-                if let Err(e) = script_comp.load(lua, script_manager, entity) {
+                if let Err(e) = script_comp.load(lua, asset_registry, script_manager, entity) {
                     onscreen_error!("Failed to load script: {}", e);
                 }
             });
@@ -87,13 +91,13 @@ impl InspectorModule for ScriptModule {
             ctx,
             picker_rect,
             self.picker_id,
-            entity,
-            &mut script_comp.script_id,
+            (entity, &mut script_comp.script_id),
+            asset_registry,
             script_manager,
             blocked,
         ) {
             with_lua(|lua| {
-                if let Err(e) = script_comp.load(lua, script_manager, entity) {
+                if let Err(e) = script_comp.load(lua, asset_registry, script_manager, entity) {
                     onscreen_error!("Failed to load script: {}", e);
                 }
             })
@@ -112,7 +116,8 @@ impl InspectorModule for ScriptModule {
             with_lua(|lua| {
                 if let Err(e) = script_manager.reload(lua, entity, script_comp.script_id) {
                     onscreen_error!("Failed to reload script: {}", e);
-                } else if let Err(e) = script_comp.load(lua, script_manager, entity) {
+                } else if let Err(e) = script_comp.load(lua, asset_registry, script_manager, entity)
+                {
                     onscreen_error!("Failed to reload script data: {}", e);
                 }
             });
@@ -208,6 +213,12 @@ impl InspectorModule for ScriptModule {
                         .show(ctx);
                     if txt != *s {
                         *s = txt;
+                        changed = true;
+                    }
+                }
+                ScriptField::Toml(ref mut toml_id) => {
+                    if gui_toml_picker(ctx, widget_rect, base_id, toml_id, asset_registry, blocked)
+                    {
                         changed = true;
                     }
                 }

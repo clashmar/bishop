@@ -175,6 +175,26 @@ impl LuaModule for EngineModule {
         })?;
         engine_tbl.set(lua_engine::GLOBAL, global_fn)?;
 
+        let asset_tbl = match engine_tbl.get::<Option<Table>>(lua_engine::ASSET)? {
+            Some(table) => table,
+            None => {
+                let table = lua.create_table()?;
+                engine_tbl.set(lua_engine::ASSET, table.clone())?;
+                table
+            }
+        };
+
+        let toml_fn = lua.create_function(|_lua, args: Variadic<Value>| {
+            if !args.is_empty() {
+                return Err(mlua::Error::RuntimeError(format!(
+                    "wrong number of arguments: expected 0, got {}",
+                    args.len()
+                )));
+            }
+            Ok(TomlId(0))
+        })?;
+        asset_tbl.set(lua_engine::TOML, toml_fn)?;
+
         // engine.player() - returns the player entity's script instance table
         let player_fn = lua.create_function(|lua, ()| {
             let ctx = LuaGameCtx::borrow_ctx(lua)?;
@@ -317,6 +337,18 @@ register_lua_api!(EngineModule, lua_files::ENGINE);
 
 impl LuaApi for EngineModule {
     fn emit_api(&self, out: &mut LuaApiWriter) {
+        out.line("--- Constructors for asset-backed script values.");
+        out.line("engine.asset = {}");
+        out.line("");
+        out.line("--- A TOML dialogue asset value.");
+        out.line("---@class TomlId");
+        out.line("local TomlId = {}");
+        out.line("");
+        out.line("--- Returns a toml asset field.");
+        out.line("---@return TomlId");
+        out.line("function engine.asset.toml() end");
+        out.line("");
+
         // engine.player
         out.line("--- Get the player entity's script instance table");
         out.line("--- @return table|nil The player's script instance, or nil if not found");

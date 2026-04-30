@@ -1,4 +1,5 @@
 use super::*;
+use std::path::Path;
 
 #[test]
 fn prefab_editor_launch_prefers_root_component() {
@@ -125,8 +126,10 @@ fn create_prefab_from_selection_relinks_selected_room_subtree() {
         .finish();
     set_parent(&mut editor.game.ecs, child, root);
     editor.room_editor.set_selected_entity(Some(root));
-
-    editor.create_prefab_from_selection(&(), root, "Crate".to_string());
+    let _picker = install_prefab_save_picker_result(Some(
+        prefabs_folder().join(format!("Crate.{}", extensions::PREFAB)),
+    ));
+    editor.create_prefab_from_selection(root);
 
     let linked_root = editor
         .room_editor
@@ -181,6 +184,69 @@ fn create_prefab_from_selection_relinks_selected_room_subtree() {
 }
 
 #[test]
+fn create_prefab_from_selection_uses_picked_path_and_filename_stem() {
+    let _lock = game_fs_test_lock()
+        .lock()
+        .unwrap_or_else(|poison| poison.into_inner());
+    let test_game = TestGameFolder::new("prefab_selection_initial_save_target");
+    let (mut editor, room_id) = make_room_editor(&test_game);
+    let root = editor
+        .game
+        .ecs
+        .create_entity()
+        .with(Transform::default())
+        .with(CurrentRoom(room_id))
+        .with(Name("Root".to_string()))
+        .finish();
+    let picked_path = prefabs_folder()
+        .join("characters")
+        .join("bosses")
+        .join(format!("Boss Ogre.{}", extensions::PREFAB));
+    let _picker = install_prefab_save_picker_result(Some(picked_path));
+
+    editor.create_prefab_from_selection(root);
+
+    assert_eq!(editor.mode, EditorMode::Prefab(PrefabId(1)));
+    assert_eq!(
+        editor
+            .prefab_editor
+            .as_ref()
+            .map(|prefab| prefab.prefab_name.as_str()),
+        Some("Boss Ogre")
+    );
+    assert_eq!(
+        editor.game.asset_registry.relative_path(PrefabId(1)),
+        Some(
+            PathBuf::from("characters")
+                .join("bosses")
+                .join(format!("Boss Ogre.{}", extensions::PREFAB))
+        )
+    );
+}
+
+#[test]
+fn create_prefab_from_selection_cancels_when_picker_returns_none() {
+    let _lock = game_fs_test_lock()
+        .lock()
+        .unwrap_or_else(|poison| poison.into_inner());
+    let test_game = TestGameFolder::new("prefab_selection_initial_save_cancelled");
+    let (mut editor, room_id) = make_room_editor(&test_game);
+    let root = editor
+        .game
+        .ecs
+        .create_entity()
+        .with(Transform::default())
+        .with(CurrentRoom(room_id))
+        .finish();
+    let _picker = install_prefab_save_picker_result(None);
+
+    editor.create_prefab_from_selection(root);
+
+    assert_eq!(editor.mode, EditorMode::Room(room_id));
+    assert!(editor.game.prefab_manager.prefabs.is_empty());
+}
+
+#[test]
 fn create_prefab_from_selection_preserves_external_parent() {
     let _lock = game_fs_test_lock()
         .lock()
@@ -212,8 +278,10 @@ fn create_prefab_from_selection_preserves_external_parent() {
         .finish();
     set_parent(&mut editor.game.ecs, root, container);
     editor.room_editor.set_selected_entity(Some(root));
-
-    editor.create_prefab_from_selection(&(), root, "Crate".to_string());
+    let _picker = install_prefab_save_picker_result(Some(
+        prefabs_folder().join(format!("Crate.{}", extensions::PREFAB)),
+    ));
+    editor.create_prefab_from_selection(root);
 
     let linked_root = editor
         .room_editor
@@ -247,29 +315,19 @@ fn opening_prefab_editor_seeds_stage_metadata_from_live_game_services() {
     };
     editor
         .game
-        .prefab_library
+        .prefab_manager
         .prefabs
         .insert(prefab.id, prefab.clone());
     editor
         .game
-        .sprite_manager
-        .sprite_id_to_path
-        .insert(SpriteId(9), PathBuf::from("sprites/building.png"));
+        .asset_registry
+        .register_asset_relative_path(SpriteId(9), "sprites/building.png")
+        .expect("sprite path should register");
     editor
         .game
-        .sprite_manager
-        .path_to_sprite_id
-        .insert(PathBuf::from("sprites/building.png"), SpriteId(9));
-    editor
-        .game
-        .script_manager
-        .script_id_to_path
-        .insert(ScriptId(9), PathBuf::from("building.lua"));
-    editor
-        .game
-        .script_manager
-        .path_to_script_id
-        .insert(PathBuf::from("building.lua"), ScriptId(9));
+        .asset_registry
+        .register_asset_relative_path(ScriptId(9), "building.lua")
+        .expect("script path should register");
 
     editor.open_prefab_editor_for_id(prefab.id);
 
@@ -278,19 +336,11 @@ fn opening_prefab_editor_seeds_stage_metadata_from_live_game_services() {
         .as_ref()
         .expect("prefab stage should open from live game services");
     assert_eq!(
-        prefab_stage
-            .sprite_manager
-            .sprite_id_to_path
-            .get(&SpriteId(9))
-            .cloned(),
-        Some(PathBuf::from("sprites/building.png"))
+        prefab_stage.sprite_manager.path_for_id(SpriteId(9)),
+        Some(Path::new("sprites/building.png"))
     );
     assert_eq!(
-        prefab_stage
-            .script_manager
-            .script_id_to_path
-            .get(&ScriptId(9))
-            .cloned(),
-        Some(PathBuf::from("building.lua"))
+        prefab_stage.script_manager.path_for_id(ScriptId(9)),
+        Some(Path::new("building.lua"))
     );
 }

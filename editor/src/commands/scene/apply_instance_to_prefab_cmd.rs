@@ -42,7 +42,7 @@ impl EditorCommand for ApplyInstanceToPrefabCmd {
             };
             let Some(prefab) = editor
                 .game
-                .prefab_library
+                .prefab_manager
                 .prefabs
                 .get(&reference.prefab_id)
                 .cloned()
@@ -69,16 +69,15 @@ impl EditorCommand for ApplyInstanceToPrefabCmd {
                 Some(&prefab),
             );
 
-            if let Err(error) = save_prefab(&editor.game.name, &updated_prefab) {
+            if let Err(error) = editor.game.prefab_manager.save_prefab_and_sync(
+                &editor.game.name,
+                &mut editor.game.asset_registry,
+                &updated_prefab,
+                None,
+            ) {
                 onscreen_error!("Could not save prefab: {error}");
                 return;
             }
-
-            editor
-                .game
-                .prefab_library
-                .prefabs
-                .insert(updated_prefab.id, updated_prefab.clone());
 
             let roots = linked_prefab_instance_roots(&editor.game.ecs, updated_prefab.id);
             for root_entity in roots {
@@ -112,16 +111,16 @@ impl EditorCommand for ApplyInstanceToPrefabCmd {
         };
 
         with_editor(|editor| {
-            if let Err(error) = save_prefab(&editor.game.name, previous_prefab) {
+            if let Err(error) = editor.game.prefab_manager.save_prefab_and_sync(
+                &editor.game.name,
+                &mut editor.game.asset_registry,
+                previous_prefab,
+                None,
+            ) {
                 onscreen_error!("Could not restore prefab: {error}");
                 return;
             }
 
-            editor
-                .game
-                .prefab_library
-                .prefabs
-                .insert(prefab_id, previous_prefab.clone());
             replace_linked_instances_with_snapshots(
                 &mut editor.game,
                 prefab_id,
@@ -131,8 +130,8 @@ impl EditorCommand for ApplyInstanceToPrefabCmd {
         });
     }
 
-    fn mode(&self) -> EditorMode {
-        self.mode
+    fn applies_in_mode(&self, current_mode: EditorMode) -> bool {
+        self.mode == current_mode
     }
 }
 

@@ -82,8 +82,6 @@ pub struct ScriptMetrics {
     pub instance_count: usize,
     /// Number of registered event listeners.
     pub event_listener_count: usize,
-    /// Reference counts per script ID.
-    pub ref_counts: HashMap<usize, usize>,
 }
 
 /// ECS metrics.

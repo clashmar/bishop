@@ -10,9 +10,9 @@ pub mod timing {
 pub mod world {
     use bishop::prelude::*;
 
-    /// Default tile size that the world scales to.
+    /// Default grid size that the world scales to.
     pub const DEFAULT_GRID_SIZE: f32 = 8.0;
-    pub const MINIMUM_TILE_SIZE: f32 = 5.0;
+    pub const MINIMUM_GRID_SIZE: f32 = 5.0;
 
     /// Base tile size for editor scaling.
     pub const BASE_GRID_SIZE: f32 = 32.0;
@@ -21,10 +21,38 @@ pub mod world {
     pub const DEFAULT_ROOM_POSITION: Vec2 = Vec2::new(0.0, 0.0);
 }
 
+/// File extension constants for known asset types.
+pub mod extensions {
+    /// Asset images (sprites, animations).
+    pub const PNG: &str = "png";
+    /// Lua script source.
+    pub const LUA: &str = "lua";
+    /// WAVE audio.
+    pub const WAV: &str = "wav";
+    /// TOML data files (text, manifests).
+    pub const TOML: &str = "toml";
+    /// RON data files (menus, game state, editor config).
+    pub const RON: &str = "ron";
+    /// Prefab asset files backed by RON text.
+    pub const PREFAB: &str = "prefab";
+    /// Aseprite source files (stripped on export, not assets).
+    pub const ASEPRITE: &str = "aseprite";
+    /// Aseprite source files (short extension).
+    pub const ASE: &str = "ase";
+    /// Aseprite-exported frame data (stripped on export, not assets).
+    pub const JSON: &str = "json";
+}
+
 /// Shared save and bundle paths.
 pub mod paths {
     /// Name of the game .ron save file.
     pub const GAME_RON: &str = "game.ron";
+
+    /// Name of the startup .ron file.
+    pub const STARTUP_RON: &str = "startup.ron";
+
+    /// Name of the language manifest file.
+    pub const LANGUAGE_MANIFEST: &str = "_manifest.toml";
 
     /// Name of the root user-facing save folder for the editor.
     pub const SAVE_ROOT: &str = "Bishop";
@@ -56,6 +84,15 @@ pub mod paths {
     /// Name of the music subfolder inside audio.
     pub const MUSIC_FOLDER: &str = "music";
 
+    /// Name of the default language subfolder inside text.
+    pub const TEXT_LANGUAGE_FOLDER: &str = "en";
+
+    /// Name of the dialogue subfolder inside a language folder.
+    pub const DIALOGUE_FOLDER: &str = "dialogue";
+
+    /// Name of the UI text subfolder inside a language folder.
+    pub const UI_TEXT_FOLDER: &str = "ui";
+
     /// Name of the prefabs folder.
     pub const PREFABS_FOLDER: &str = "prefabs";
 
@@ -81,11 +118,11 @@ pub fn editor_zoom_factor(grid_size: f32) -> f32 {
 pub mod window {
     use super::world::BASE_GRID_SIZE;
 
-    pub const DEFAULT_CAM_TILES_X: f32 = 16.0;
-    pub const DEFAULT_CAM_TILES_Y: f32 = 9.0;
+    pub const DEFAULT_CAM_GRID_X: f32 = 16.0;
+    pub const DEFAULT_CAM_GRID_Y: f32 = 9.0;
 
-    pub const FIXED_WINDOW_WIDTH: i32 = (DEFAULT_CAM_TILES_X * 3.0 * BASE_GRID_SIZE) as i32;
-    pub const FIXED_WINDOW_HEIGHT: i32 = (DEFAULT_CAM_TILES_Y * 3.0 * BASE_GRID_SIZE) as i32;
+    pub const FIXED_WINDOW_WIDTH: i32 = (DEFAULT_CAM_GRID_X * 3.0 * BASE_GRID_SIZE) as i32;
+    pub const FIXED_WINDOW_HEIGHT: i32 = (DEFAULT_CAM_GRID_Y * 3.0 * BASE_GRID_SIZE) as i32;
 
     // Prevents the window from becoming absurdly small/large
     pub const MIN_WINDOW_WIDTH: i32 = 640;

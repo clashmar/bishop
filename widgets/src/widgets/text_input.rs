@@ -261,7 +261,7 @@ impl<'a> TextInput<'a> {
             }
         }
 
-        if is_dropdown_open() && !self.bypass_dropdown {
+        if (is_dropdown_open() || is_context_menu_open()) && !self.bypass_dropdown {
             return (text, false);
         }
 

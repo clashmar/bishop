@@ -5,6 +5,7 @@ use crate::commands::room::{BatchMoveEntitiesCmd, MoveEntityCmd};
 use crate::editor_global::push_command;
 use crate::room::entity_hitbox;
 use crate::room::entity_world_rect;
+use crate::shared::input::shortcuts_blocked;
 use crate::shared::selection::{rect_from_two_points, rects_intersect};
 use crate::world::coord;
 use bishop::prelude::*;
@@ -130,7 +131,7 @@ impl PrefabEditor {
     }
 
     pub(crate) fn handle_keyboard_move(&mut self, ctx: &WgpuContext, ecs: &mut Ecs) {
-        if self.drag_state.dragging || self.selected_entities.is_empty() || input_is_focused() {
+        if self.drag_state.dragging || self.selected_entities.is_empty() || shortcuts_blocked() {
             return;
         }
 

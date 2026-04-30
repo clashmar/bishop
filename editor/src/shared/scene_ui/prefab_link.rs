@@ -23,7 +23,7 @@ pub struct PrefabLinkDisplay {
 /// Returns read-only display data for a linked prefab instance entity.
 pub fn linked_prefab_display(
     ecs: &Ecs,
-    prefab_library: &PrefabLibrary,
+    prefab_manager: &PrefabManager,
     entity: Entity,
 ) -> Option<PrefabLinkDisplay> {
     let (source, prefab_id) = if let Some(root) = ecs.get::<PrefabInstanceRoot>(entity) {
@@ -34,7 +34,7 @@ pub fn linked_prefab_display(
         return None;
     };
 
-    let prefab_label = prefab_library
+    let prefab_label = prefab_manager
         .prefabs
         .get(&prefab_id)
         .map(|prefab| prefab.name.clone())
@@ -72,15 +72,10 @@ mod tests {
 
         let prefab_id = PrefabId(7);
         let prefab = create_prefab(prefab_id, "Crate".to_string());
-        let mut prefab_library = PrefabLibrary::default();
-        prefab_library.prefabs.insert(prefab_id, prefab);
+        let mut prefab_manager = PrefabManager::default();
+        prefab_manager.prefabs.insert(prefab_id, prefab);
 
-        ecs.add_component_to_entity(
-            root,
-            PrefabInstanceRoot {
-                prefab_id,
-            },
-        );
+        ecs.add_component_to_entity(root, PrefabInstanceRoot { prefab_id });
         ecs.add_component_to_entity(
             root,
             PrefabInstanceNode {
@@ -98,8 +93,8 @@ mod tests {
             },
         );
 
-        let root_display = linked_prefab_display(&ecs, &prefab_library, root).unwrap();
-        let child_display = linked_prefab_display(&ecs, &prefab_library, child).unwrap();
+        let root_display = linked_prefab_display(&ecs, &prefab_manager, root).unwrap();
+        let child_display = linked_prefab_display(&ecs, &prefab_manager, child).unwrap();
 
         assert_eq!(root_display.source, PrefabLinkSource::Root);
         assert_eq!(root_display.label, "Prefab: Crate");
@@ -123,8 +118,8 @@ mod tests {
             },
         );
 
-        let prefab_library = PrefabLibrary::default();
-        let display = linked_prefab_display(&ecs, &prefab_library, entity).unwrap();
+        let prefab_manager = PrefabManager::default();
+        let display = linked_prefab_display(&ecs, &prefab_manager, entity).unwrap();
 
         assert_eq!(display.source, PrefabLinkSource::Root);
         assert_eq!(display.label, "Prefab: 42");

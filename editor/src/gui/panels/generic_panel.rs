@@ -3,6 +3,7 @@ use crate::gui::gui_constants::*;
 use crate::Editor;
 use bishop::prelude::*;
 use engine_core::prelude::*;
+use widgets::{focused_panel, is_context_menu_open, set_focused_panel};
 
 /// Must be globally unique.
 pub type PanelId = &'static str;
@@ -15,6 +16,17 @@ pub trait PanelDefinition {
     fn default_rect(&self, ctx: &WgpuContext) -> Rect;
     /// Draws panel contents. When `blocked` is true, the panel should not respond to mouse input.
     fn draw(&mut self, ctx: &mut WgpuContext, rect: Rect, editor: &mut Editor, blocked: bool);
+    /// Return `true` if the panel rendered its own title content, skipping the default text.
+    fn draw_custom_title(
+        &mut self,
+        _ctx: &mut WgpuContext,
+        _title_bar: Rect,
+        _blocked: bool,
+    ) -> bool {
+        false
+    }
+    /// Called when this panel loses focus. Override to clear selection, stop drag operations, etc.
+    fn on_defocus(&mut self) {}
 }
 
 /// Movable and collabsible panel to be composed with the supplied `PanelDefinition`.
@@ -28,6 +40,7 @@ pub struct GenericPanel {
     pub dragging: bool,
     drag_offset: Vec2,
     definition: Box<dyn PanelDefinition>,
+    had_focus_last_frame: bool,
 }
 
 impl GenericPanel {
@@ -44,27 +57,33 @@ impl GenericPanel {
             dragging: false,
             drag_offset: Vec2::ZERO,
             definition: Box::new(definition),
+            had_focus_last_frame: false,
+        }
+    }
+
+    /// Explicitly defocus this panel, notifying its definition and clearing global focus.
+    pub fn defocus(&mut self) {
+        if focused_panel() == Some(self.title) {
+            self.definition.on_defocus();
+            set_focused_panel(None);
         }
     }
 
     pub fn update_and_draw(&mut self, ctx: &mut WgpuContext, editor: &mut Editor, blocked: bool) {
+        let has_focus = focused_panel() == Some(self.title);
+        if self.had_focus_last_frame && !has_focus {
+            self.definition.on_defocus();
+        }
+        self.had_focus_last_frame = has_focus;
+
         if !self.visible {
             return;
         }
 
         const TITLE_BAR_H: f32 = 28.0;
 
-        // Process drag logic first (before snapshot) so drawing uses current position
+        // Process ongoing drag (before snapshot) so drawing uses current position
         let mouse: Vec2 = ctx.mouse_position().into();
-        let title_bar_for_drag = Rect::new(self.rect.x, self.rect.y, self.rect.w, TITLE_BAR_H);
-        if !blocked
-            && ctx.is_mouse_button_pressed(MouseButton::Left)
-            && title_bar_for_drag.contains(mouse)
-        {
-            self.dragging = true;
-            self.drag_offset = mouse - vec2(self.rect.x, self.rect.y);
-        }
-
         if self.dragging {
             if ctx.is_mouse_button_down(MouseButton::Left) {
                 let new_pos = mouse - self.drag_offset;
@@ -95,13 +114,24 @@ impl GenericPanel {
         let panel_rect = self.rect;
         let title_bar = Rect::new(panel_rect.x, panel_rect.y, panel_rect.w, TITLE_BAR_H);
 
-        // Title bar
+        // Title bar background
+        let has_focus = focused_panel() == Some(self.title);
+        let title_color = if has_focus {
+            PANEL_COLOR
+        } else {
+            Color::new(
+                PANEL_COLOR.r * 0.7,
+                PANEL_COLOR.g * 0.7,
+                PANEL_COLOR.b * 0.7,
+                PANEL_COLOR.a,
+            )
+        };
         ctx.draw_rectangle(
             title_bar.x,
             title_bar.y,
             title_bar.w,
             title_bar.h,
-            PANEL_COLOR,
+            title_color,
         );
 
         // Collapse button
@@ -113,16 +143,22 @@ impl GenericPanel {
             .show(ctx);
         if !blocked && collapse_clicked {
             self.collapsed = !self.collapsed;
+            if self.collapsed {
+                self.defocus();
+            }
         }
 
-        // Title
-        ctx.draw_text(
-            self.title,
-            collapse_rect.x + 25.,
-            title_bar.y + 20.,
-            16.,
-            Color::BLACK,
-        );
+        // Custom title or default title
+        let custom_drawn = self.definition.draw_custom_title(ctx, title_bar, blocked);
+        if !custom_drawn {
+            ctx.draw_text(
+                self.title,
+                collapse_rect.x + 25.,
+                title_bar.y + 20.,
+                16.,
+                Color::BLACK,
+            );
+        }
 
         // Close button
         let close_rect = Rect::new(panel_rect.right() - 26., panel_rect.y + 4., 20., 20.);
@@ -133,6 +169,19 @@ impl GenericPanel {
             .show(ctx);
         if !blocked && close_clicked {
             self.visible = false;
+            self.defocus();
+        }
+
+        // Start drag only after all title-bar interactions are processed
+        if !blocked
+            && !is_context_menu_open()
+            && !self.dragging
+            && ctx.is_mouse_button_pressed(MouseButton::Left)
+            && title_bar.contains(mouse)
+            && !widgets::is_click_consumed()
+        {
+            self.dragging = true;
+            self.drag_offset = mouse - vec2(self.rect.x, self.rect.y);
         }
 
         if self.collapsed {
@@ -164,8 +213,6 @@ impl GenericPanel {
             Color::WHITE,
         );
 
-        if !self.collapsed {
-            self.definition.draw(ctx, content_rect, editor, blocked);
-        }
+        self.definition.draw(ctx, content_rect, editor, blocked);
     }
 }

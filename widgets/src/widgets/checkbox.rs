@@ -32,7 +32,7 @@ pub fn gui_checkbox<C: BishopContext>(
         );
     }
 
-    if blocked || is_dropdown_open() {
+    if blocked || is_dropdown_open() || is_context_menu_open() {
         return false;
     }
 

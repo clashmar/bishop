@@ -19,6 +19,21 @@ use super::exec::poll_once;
 use crate::window::{IconData, WindowConfig, WindowIcon};
 use crate::BishopApp;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct CloseRequestState {
+    close_requested: bool,
+    exit_confirmed: bool,
+}
+
+impl Default for CloseRequestState {
+    fn default() -> Self {
+        Self {
+            close_requested: true,
+            exit_confirmed: true,
+        }
+    }
+}
+
 /// Internal application handler for running BishopApp with wgpu/winit.
 pub(crate) struct WgpuAppRunner<A: BishopApp> {
     config: WindowConfig,
@@ -26,7 +41,7 @@ pub(crate) struct WgpuAppRunner<A: BishopApp> {
     ctx: Option<Rc<RefCell<WgpuContext>>>,
     window: Option<Arc<Window>>,
     initialized: bool,
-    exit_requested: bool,
+
     init_future: Option<Pin<Box<dyn Future<Output = A>>>>,
     frame_future: Option<Pin<Box<dyn Future<Output = A>>>>,
 }
@@ -40,7 +55,7 @@ impl<A: BishopApp> WgpuAppRunner<A> {
             ctx: None,
             window: None,
             initialized: false,
-            exit_requested: false,
+
             init_future: None,
             frame_future: None,
         }
@@ -118,9 +133,11 @@ impl<A: BishopApp + 'static> ApplicationHandler for WgpuAppRunner<A> {
 
         match event {
             WindowEvent::CloseRequested => {
-                self.exit_requested = true;
-                if self.init_future.is_none() && self.frame_future.is_none() {
-                    event_loop.exit();
+                if let Some(ctx) = &self.ctx {
+                    let close_state = CloseRequestState::default();
+                    let mut ctx = ctx.borrow_mut();
+                    ctx.set_close_requested(close_state.close_requested);
+                    ctx.set_exit_confirmed(close_state.exit_confirmed);
                 }
             }
             WindowEvent::RedrawRequested => {
@@ -173,7 +190,12 @@ impl<A: BishopApp + 'static> ApplicationHandler for WgpuAppRunner<A> {
                     if let Err(e) = ctx.borrow_mut().render_frame() {
                         eprintln!("Render error: {e}");
                     }
-                    if self.exit_requested
+                    let should_exit = if let Some(ctx) = &self.ctx {
+                        ctx.borrow().is_close_requested() && ctx.borrow().is_exit_confirmed()
+                    } else {
+                        false
+                    };
+                    if should_exit
                         && self.init_future.is_none()
                         && self.frame_future.is_none()
                     {

@@ -30,7 +30,10 @@ impl ChangeGridSizeCmd {
 impl EditorCommand for ChangeGridSizeCmd {
     fn execute(&mut self) {
         with_editor(|editor| {
-            let world = editor.game.get_world_mut(self.world_id);
+            let world = match editor.game.get_world_mut(self.world_id) {
+                Some(w) => w,
+                None => return,
+            };
 
             if (self.new_grid_size - self.old_grid_size).abs() < 0.001 {
                 return;
@@ -50,7 +53,10 @@ impl EditorCommand for ChangeGridSizeCmd {
             let scale_factor = self.new_grid_size / self.old_grid_size;
 
             // Set the new grid size
-            let world = editor.game.get_world_mut(self.world_id);
+            let world = match editor.game.get_world_mut(self.world_id) {
+                Some(w) => w,
+                None => return,
+            };
             world.grid_size = self.new_grid_size;
 
             // Scale room positions
@@ -73,7 +79,10 @@ impl EditorCommand for ChangeGridSizeCmd {
 
     fn undo(&mut self) {
         with_editor(|editor| {
-            let world = editor.game.get_world_mut(self.world_id);
+            let world = match editor.game.get_world_mut(self.world_id) {
+                Some(w) => w,
+                None => return,
+            };
 
             // Restore grid size
             world.grid_size = self.old_grid_size;
@@ -98,10 +107,6 @@ impl EditorCommand for ChangeGridSizeCmd {
                 2.5,
             );
         });
-    }
-
-    fn mode(&self) -> EditorMode {
-        EditorMode::World(self.world_id)
     }
 
     fn applies_in_mode(&self, current_mode: EditorMode) -> bool {

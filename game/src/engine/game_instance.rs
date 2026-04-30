@@ -15,117 +15,56 @@ pub struct GameInstance {
 }
 
 impl GameInstance {
-    pub fn new<C: BishopContext>(
-        ctx: &mut C,
-        lua: &Lua,
-        camera_manager: &mut CameraManager,
-    ) -> Self {
-        // Allows the shared engine features to make decisions
-        set_engine_mode(EngineMode::Game);
-
-        let game = match load_game_ron() {
-            Ok(game) => game,
-            Err(e) => panic!("{e}"),
-        };
-
-        Self::from_loaded_game_blocking(ctx, game, lua, camera_manager)
-    }
-
-    pub fn for_room<C: BishopContext>(
-        ctx: &mut C,
-        room: Room,
-        game: Game,
-        lua: &Lua,
-        camera_manager: &mut CameraManager,
-    ) -> Self {
-        // Playtest mode is set in playtest_main.rs before this is called,
-        // so we only set Game mode if not already in Playtest mode
-        if get_engine_mode() != EngineMode::Playtest {
-            set_engine_mode(EngineMode::Game);
-        }
-
-        Self::from_loaded_room_blocking(ctx, room, game, lua, camera_manager)
-    }
-
     pub fn from_loaded_game<C: BishopContext>(
         ctx: &mut C,
-        game: Game,
+        mut game: Game,
         lua: &Lua,
         camera_manager: &mut CameraManager,
     ) -> Self {
-        let start_room_id = game
-            .current_world()
-            .starting_room_id
-            .or_else(|| {
-                game.worlds
-                    .first()
-                    .map(|world| world.starting_room_id.expect("Game has no starting room."))
-            })
-            .expect("Game has no starting room nor any rooms");
-
-        Self::from_loaded_room_id(ctx, start_room_id, game, lua, camera_manager, true)
-    }
-
-    fn from_loaded_game_blocking<C: BishopContext>(
-        ctx: &mut C,
-        game: Game,
-        lua: &Lua,
-        camera_manager: &mut CameraManager,
-    ) -> Self {
-        let start_room_id = game
-            .current_world()
-            .starting_room_id
-            .or_else(|| {
-                game.worlds
-                    .first()
-                    .map(|world| world.starting_room_id.expect("Game has no starting room."))
-            })
-            .expect("Game has no starting room nor any rooms");
-
-        Self::from_loaded_room_id(ctx, start_room_id, game, lua, camera_manager, false)
+        let room_id = Self::start_room_id(&game);
+        game.initialize_runtime(lua);
+        Self::finish_loading(ctx, room_id, game, lua, camera_manager)
     }
 
     pub fn from_loaded_room<C: BishopContext>(
         ctx: &mut C,
         room: Room,
-        game: Game,
-        lua: &Lua,
-        camera_manager: &mut CameraManager,
-    ) -> Self {
-        Self::from_loaded_room_id(ctx, room.id, game, lua, camera_manager, true)
-    }
-
-    fn from_loaded_room_blocking<C: BishopContext>(
-        ctx: &mut C,
-        room: Room,
-        game: Game,
-        lua: &Lua,
-        camera_manager: &mut CameraManager,
-    ) -> Self {
-        Self::from_loaded_room_id(ctx, room.id, game, lua, camera_manager, false)
-    }
-
-    fn from_loaded_room_id<C: BishopContext>(
-        ctx: &mut C,
-        room_id: RoomId,
         mut game: Game,
         lua: &Lua,
         camera_manager: &mut CameraManager,
-        runtime_loading: bool,
     ) -> Self {
-        if runtime_loading {
-            game.initialize_runtime(lua);
-        } else {
-            game.initialize(ctx, lua);
-        }
+        game.initialize_runtime(lua);
+        Self::finish_loading(ctx, room.id, game, lua, camera_manager)
+    }
 
+    fn start_room_id(game: &Game) -> RoomId {
+        game.current_world()
+            .starting_room_id
+            .or_else(|| {
+                game.worlds
+                    .first()
+                    .map(|world| world.starting_room_id.expect("Game has no starting room."))
+            })
+            .expect("Game has no starting room nor any rooms")
+    }
+
+    fn finish_loading<C: BishopContext>(
+        ctx: &mut C,
+        room_id: RoomId,
+        game: Game,
+        lua: &Lua,
+        camera_manager: &mut CameraManager,
+    ) -> Self {
         // Warm the audio cache for all AudioSource components that were loaded from the
         // save file. Ecs::deserialize bypasses post_create hooks (serde has no GameCtxMut),
         // so we push IncrementRefs manually here.
         // TODO(save-load): replace with a proper post-load hook once the Save/Load sprint
         // adds runtime save files and a generalised post-deserialize callback.
         for source in AudioSource::store(&game.ecs).data.values() {
-            push_audio_command(AudioCommand::IncrementRefs(source.all_sound_ids()));
+            push_audio_command(AudioCommand::IncrementRefs(sound_command_ids(
+                &game.asset_registry,
+                source.all_sound_ids(),
+            )));
         }
 
         let ecs = &game.ecs;
@@ -178,6 +117,7 @@ impl GameInstance {
         let ecs = &self.game.ecs;
         let trans_store = ecs.get_store::<Transform>();
         let room_store = ecs.get_store::<CurrentRoom>();
+        let sub_pixel_store = ecs.get_store::<SubPixel>();
 
         // Store the camera target
         camera_manager.previous_position = Some(camera_manager.active.camera.target);
@@ -188,7 +128,58 @@ impl GameInstance {
                 room_store
                     .get(*entity)
                     .filter(|cr| cr.0 == self.game.current_world().current_room_id.unwrap()) // TODO: handle unwrap
-                    .map(|_| (*entity, transform.position))
+                    .map(|_| {
+                        (
+                            *entity,
+                            visual_position(transform.position, sub_pixel_store.get(*entity)),
+                        )
+                    })
             }));
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn store_previous_positions_uses_visual_position_with_subpixel_remainder() {
+        let room_id = RoomId(1);
+        let room = Room {
+            id: room_id,
+            ..Default::default()
+        };
+
+        let mut world = World {
+            current_room_id: Some(room_id),
+            ..Default::default()
+        };
+        world.rooms.push(room);
+
+        let mut game = Game::default();
+        game.add_world(world);
+
+        let entity = game
+            .ecs
+            .create_entity()
+            .with(Transform {
+                position: Vec2::new(10.0, 12.0),
+                ..Default::default()
+            })
+            .with(CurrentRoom(room_id))
+            .with(SubPixel { x: 0.25, y: -0.5 })
+            .finish();
+
+        let mut game_instance = GameInstance {
+            game,
+            prev_positions: HashMap::new(),
+        };
+
+        game_instance.store_previous_positions(&mut CameraManager::default());
+
+        assert_eq!(
+            game_instance.prev_positions.get(&entity).copied(),
+            Some(Vec2::new(10.25, 11.5))
+        );
     }
 }

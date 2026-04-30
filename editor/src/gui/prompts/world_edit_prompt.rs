@@ -67,6 +67,7 @@ impl WorldEditPrompt {
     pub fn draw(
         &mut self,
         ctx: &mut WgpuContext,
+        asset_registry: &mut AssetRegistry,
         sprite_manager: &mut SpriteManager,
     ) -> Option<WorldEditResult> {
         let mut y = self.rect.y + PROMPT_TOP_PADDING;
@@ -96,6 +97,7 @@ impl WorldEditPrompt {
             sprite_rect,
             self.sprite_picker_id,
             &mut self.current_sprite,
+            asset_registry,
             sprite_manager,
             false,
         ) {

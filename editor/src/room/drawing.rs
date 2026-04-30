@@ -7,7 +7,7 @@ use crate::gui::menu_bar::*;
 use crate::gui::mode_selector::*;
 use crate::room::prefab_preview::{build_prefab_preview, PrefabPreviewVisual};
 use crate::room::room_editor::*;
-use crate::room::selection::snap_room_drag_position;
+use crate::room::selection::{entity_selection_rect, snap_room_drag_position};
 use crate::shared::scene_ui::inspector::{SceneEmptyInspectorBehavior, SceneInspectorContext};
 use crate::tilemap::tilemap_editor::TILEMAP_SUB_MODES;
 use crate::world::coord;
@@ -355,8 +355,8 @@ pub fn highlight_selected_entity<C: BishopContext>(
         None => return,
     };
 
-    let size = entity_dimensions(ecs, sprite_manager, entity, grid_size);
-    let draw_pos = pivot_adjusted_position(transform.position, size, transform.pivot);
+    let (draw_pos, size) =
+        entity_selection_rect(entity, transform.position, ecs, sprite_manager, grid_size);
 
     ctx.draw_rectangle_lines(
         draw_pos.x,
@@ -371,6 +371,7 @@ pub fn highlight_selected_entity<C: BishopContext>(
 pub(crate) fn draw_prefab_stamp_ghost(
     ctx: &mut WgpuContext,
     camera: &Camera2D,
+    asset_registry: &mut AssetRegistry,
     sprite_manager: &mut SpriteManager,
     prefab: &PrefabAsset,
     grid_size: f32,
@@ -378,7 +379,7 @@ pub(crate) fn draw_prefab_stamp_ghost(
 ) {
     let mouse_world = coord::mouse_world_pos(ctx, camera);
     let snapped_position = snap_room_drag_position(mouse_world, grid_size, pivot);
-    let preview = build_prefab_preview(ctx, prefab, sprite_manager);
+    let preview = build_prefab_preview(ctx, prefab, asset_registry, sprite_manager);
 
     for item in &preview.items {
         let draw_pos = snapped_position + item.stamp_position;

@@ -1,10 +1,12 @@
-use crate::gui::modal::is_modal_open;
+use crate::gui::modals::is_modal_open;
 use engine_core::prelude::*;
 use std::cell::RefCell;
+use widgets::{close_open_context_menus, is_context_menu_open};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum EscapeOwner {
     Modal,
+    ContextMenu,
     Dropdown,
     Input,
     Editor,
@@ -30,6 +32,11 @@ pub(crate) fn modal_escape_requested() -> bool {
     matches!(escape_owner(), Some(EscapeOwner::Modal))
 }
 
+#[allow(dead_code)]
+pub(crate) fn context_menu_escape_requested() -> bool {
+    matches!(escape_owner(), Some(EscapeOwner::ContextMenu))
+}
+
 pub(crate) fn resolve_escape(escape_pressed: bool) {
     reset_escape_resolution();
     if !escape_pressed {
@@ -38,6 +45,9 @@ pub(crate) fn resolve_escape(escape_pressed: bool) {
 
     let owner = if is_modal_open() {
         EscapeOwner::Modal
+    } else if is_context_menu_open() {
+        close_open_context_menus();
+        EscapeOwner::ContextMenu
     } else if is_dropdown_open() {
         close_open_dropdowns();
         EscapeOwner::Dropdown
@@ -54,17 +64,31 @@ pub(crate) fn resolve_escape(escape_pressed: bool) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::gui::modal::set_modal_open_for_test;
+    use widgets::{context_menu_state, set_context_menu_open, set_modal_open};
 
     #[test]
-    fn resolve_escape_prioritizes_modal_dropdown_input_then_editor() {
+    fn resolve_escape_prioritizes_modal_context_menu_dropdown_input_then_editor() {
         reset_escape_resolution();
-        set_modal_open_for_test(true);
+        set_modal_open(true);
         resolve_escape(true);
         assert_eq!(escape_owner(), Some(EscapeOwner::Modal));
 
         reset_escape_resolution();
-        set_modal_open_for_test(false);
+        set_modal_open(false);
+        context_menu_state::set(
+            WidgetId(99),
+            context_menu_state::ContextMenuState {
+                open: true,
+                rect: Rect::new(0.0, 0.0, 10.0, 10.0),
+                just_opened: false,
+            },
+        );
+        set_context_menu_open(true);
+        resolve_escape(true);
+        assert_eq!(escape_owner(), Some(EscapeOwner::ContextMenu));
+        assert!(!is_context_menu_open());
+
+        reset_escape_resolution();
         dropdown_state::set(
             WidgetId(1),
             dropdown_state::DropState {
@@ -111,7 +135,7 @@ mod tests {
     #[test]
     fn modal_escape_is_visible_to_prompt_code_but_not_editor_code() {
         reset_escape_resolution();
-        set_modal_open_for_test(true);
+        set_modal_open(true);
 
         resolve_escape(true);
 

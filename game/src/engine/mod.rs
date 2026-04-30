@@ -83,6 +83,9 @@ impl BishopApp for Engine {
             TimingTraceSample::new(raw_dt, dt, &*ctx)
         });
 
+        let gameplay_viewport = gameplay_viewport(ctx.borrow().screen_width(), ctx.borrow().screen_height());
+        self.menu_manager.set_viewport(gameplay_viewport);
+
         self.update_game_state();
 
         self.menu_manager.handle_input(&mut *ctx.borrow_mut());
@@ -206,13 +209,21 @@ impl Engine {
             update_speech_timers(&mut game_instance.game.ecs, dt);
 
             let game_ctx = game_instance.game.ctx_mut();
+            let asset_registry = game_ctx.asset_registry;
             let sprite_manager = game_ctx.sprite_manager;
             let ecs = game_ctx.ecs;
 
             if let Some(world) = game_ctx.world.as_deref() {
                 if let Some(current_room) = world.current_room() {
                     let loader = self.ctx.borrow();
-                    update_animation_sytem(&*loader, ecs, sprite_manager, dt, current_room.id);
+                    update_animation_sytem(
+                        &*loader,
+                        ecs,
+                        asset_registry,
+                        sprite_manager,
+                        dt,
+                        current_room.id,
+                    );
                 }
             }
 
@@ -236,7 +247,12 @@ impl Engine {
         if !self.menu_manager.is_hiding_game() {
             let mut ctx_borrow = ctx.borrow_mut();
             let platform_ctx = &mut *ctx_borrow;
-            let render_cam = build_render_camera(&self.camera_manager, alpha);
+            let render_cam = build_render_camera(
+                &self.camera_manager,
+                alpha,
+                platform_ctx.screen_width(),
+                platform_ctx.screen_height(),
+            );
             let mut game_borrow = self.game_instance.borrow_mut();
             let game_instance = &mut *game_borrow;
 

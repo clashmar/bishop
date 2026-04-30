@@ -168,7 +168,7 @@ impl MenuEditor {
             self.select_template(index);
         }
 
-        area.draw_scrollbar(ctx, self.menu_list_panel.scroll_state.scroll_y);
+        area.draw_scrollbar(ctx, &self.menu_list_panel.scroll_state);
     }
 
     fn calculate_menu_list_height(&self) -> f32 {

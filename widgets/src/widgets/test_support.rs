@@ -3,6 +3,7 @@ use bishop::prelude::*;
 
 pub(super) struct WidgetTestContext {
     pub mouse_pos: (f32, f32),
+    pub mouse_wheel_delta: (f32, f32),
     pub left_pressed: bool,
     pub left_down: bool,
     pub left_released: bool,
@@ -18,6 +19,7 @@ impl WidgetTestContext {
     pub(super) fn new() -> Self {
         Self {
             mouse_pos: (0.0, 0.0),
+            mouse_wheel_delta: (0.0, 0.0),
             left_pressed: false,
             left_down: false,
             left_released: false,
@@ -72,6 +74,10 @@ impl Input for WidgetTestContext {
         }
     }
 
+    fn is_mouse_button_double_clicked(&self, _button: MouseButton) -> bool {
+        false
+    }
+
     fn mouse_position(&self) -> (f32, f32) {
         self.mouse_pos
     }
@@ -81,7 +87,7 @@ impl Input for WidgetTestContext {
     }
 
     fn mouse_wheel(&self) -> (f32, f32) {
-        (0.0, 0.0)
+        self.mouse_wheel_delta
     }
 
     fn chars_pressed(&self) -> Vec<char> {

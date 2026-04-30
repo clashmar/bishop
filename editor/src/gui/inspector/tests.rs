@@ -24,22 +24,22 @@ fn linked_prefab_metadata_is_hidden_in_prefab_mode() {
         },
     );
 
-    let mut prefab_library = PrefabLibrary::default();
-    prefab_library
+    let mut prefab_manager = PrefabManager::default();
+    prefab_manager
         .prefabs
         .insert(PrefabId(9), create_prefab(PrefabId(9), "Crate".to_string()));
 
     assert!(linked_prefab_instance_state_for_scene_inspector(
         true,
         &mut ecs,
-        &prefab_library,
+        &prefab_manager,
         entity,
     )
     .is_some());
     assert!(linked_prefab_instance_state_for_scene_inspector(
         false,
         &mut ecs,
-        &prefab_library,
+        &prefab_manager,
         entity,
     )
     .is_none());
@@ -140,18 +140,14 @@ fn linked_prefab_state_for_scene_inspector_resolves_child_selection_to_root() {
         },
     );
 
-    let mut prefab_library = PrefabLibrary::default();
-    prefab_library
+    let mut prefab_manager = PrefabManager::default();
+    prefab_manager
         .prefabs
         .insert(prefab_id, create_prefab(prefab_id, "Crate".to_string()));
 
-    let state = linked_prefab_instance_state_for_scene_inspector(
-        true,
-        &mut ecs,
-        &prefab_library,
-        child,
-    )
-    .expect("linked child should expose room inspector prefab state");
+    let state =
+        linked_prefab_instance_state_for_scene_inspector(true, &mut ecs, &prefab_manager, child)
+            .expect("linked child should expose room inspector prefab state");
 
     assert_eq!(state.root_entity, root);
     assert_eq!(state.prefab_id, prefab_id);

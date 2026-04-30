@@ -13,7 +13,7 @@ use std::rc::Rc;
 fn setup_entity_lua() -> (Lua, Rc<RefCell<GameInstance>>, Entity) {
     let lua = Lua::new();
     let mut game = Game::default();
-    game.worlds.push(World::default());
+    game.add_world(World::default());
 
     let entity = game.ecs.create_entity().with(Transform::default()).finish();
     let game_instance = Rc::new(RefCell::new(GameInstance {

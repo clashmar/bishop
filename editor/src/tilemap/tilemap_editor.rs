@@ -4,10 +4,9 @@ use crate::editor_assets::assets::*;
 use crate::editor_global::{push_command, push_toast};
 use crate::gui::gui_constants::MENU_PANEL_HEIGHT;
 use crate::gui::menu_bar::draw_top_panel_full;
-use crate::gui::modal::*;
 use crate::gui::mode_selector::ModeInfo;
-use crate::gui::panels::panel_manager::*;
 use crate::room::drawing::*;
+use crate::shared::input::canvas_blocked_by_global_ui;
 use crate::tilemap::resize_handle::*;
 use crate::tilemap::tilemap_panel::TilemapPanel;
 use bishop::prelude::*;
@@ -309,10 +308,11 @@ impl TileMapEditor {
         ctx: &mut WgpuContext,
         camera: &Camera2D,
         room: &mut Room,
-        sprite_manager: &mut SpriteManager,
+        assets: (&mut AssetRegistry, &mut SpriteManager),
         ecs: &Ecs,
         grid_size: f32,
     ) {
+        let (registry, sprite_manager) = assets;
         let variant_index = room.current_variant_index();
         let tilemap = &mut room.variants[variant_index].tilemap;
         let room_position = room.position;
@@ -333,7 +333,7 @@ impl TileMapEditor {
         self.draw_ui(
             ctx,
             camera,
-            sprite_manager,
+            (registry, sprite_manager),
             tilemap,
             Rect::new(room_position.x, room_position.y, room_size.x, room_size.y),
             grid_size,
@@ -395,11 +395,12 @@ impl TileMapEditor {
         &mut self,
         ctx: &mut WgpuContext,
         camera: &Camera2D,
-        sprite_manager: &mut SpriteManager,
+        assets: (&mut AssetRegistry, &mut SpriteManager),
         tilemap: &mut TileMap,
         room_rect: Rect,
         grid_size: f32,
     ) {
+        let (registry, sprite_manager) = assets;
         // Draw resize handles and preview
         for (i, handle) in self.resize_handles.iter().enumerate() {
             let is_active = self.active_handle_index == Some(i);
@@ -424,7 +425,8 @@ impl TileMapEditor {
         draw_top_panel_full(ctx);
 
         // Draw inspector panel
-        self.tilemap_panel.draw(ctx, sprite_manager, tilemap);
+        self.tilemap_panel
+            .draw(ctx, registry, sprite_manager, tilemap);
     }
 
     fn get_hovered_tile(
@@ -490,9 +492,7 @@ impl TileMapEditor {
                 .iter()
                 .any(|h| h.is_hovered(mouse_world))
             || self.active_handle_index.is_some()
-            || is_dropdown_open()
-            || is_modal_open()
-            || is_mouse_over_panel(ctx)
+            || canvas_blocked_by_global_ui(ctx)
     }
 
     fn exit_direction_from_position(&self, tile_pos: GridPos, map: &TileMap) -> ExitDirection {

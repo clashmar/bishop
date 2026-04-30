@@ -6,9 +6,83 @@ use engine_core::prelude::*;
 use std::fs;
 use std::io;
 use std::io::{Error, ErrorKind};
-use std::path::Path;
+use std::path::{Path, PathBuf};
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct InitialPrefabSaveTarget {
+    pub(crate) name: String,
+    pub(crate) path: PathBuf,
+}
+
+pub(crate) fn derive_initial_prefab_save_target(
+    path: PathBuf,
+) -> Result<InitialPrefabSaveTarget, String> {
+    if !path.starts_with(prefabs_folder()) {
+        return Err("Selected prefab must be inside this project's prefabs folder.".to_string());
+    }
+
+    let name = path
+        .file_stem()
+        .and_then(|stem| stem.to_str())
+        .map(str::trim)
+        .filter(|stem| !stem.is_empty())
+        .ok_or_else(|| "Prefab name cannot be empty.".to_string())?
+        .to_string();
+
+    Ok(InitialPrefabSaveTarget { name, path })
+}
+
+pub(crate) fn pick_initial_prefab_save_path(suggested_name: &str) -> Option<PathBuf> {
+    #[cfg(test)]
+    if let Some(result) = crate::test_utils::take_test_prefab_save_picker_result() {
+        return result;
+    }
+
+    rfd::FileDialog::new()
+        .add_filter("Prefab", &[extensions::PREFAB])
+        .set_directory(prefabs_folder())
+        .set_file_name(format!("{suggested_name}.{}", extensions::PREFAB))
+        .save_file()
+}
 
 impl Editor {
+    pub(crate) fn resolve_initial_prefab_save_target(
+        &mut self,
+        path: PathBuf,
+    ) -> Option<InitialPrefabSaveTarget> {
+        let target = match derive_initial_prefab_save_target(path) {
+            Ok(target) => target,
+            Err(message) => {
+                self.toast = Some(Toast::new(message, 2.5));
+                return None;
+            }
+        };
+
+        let duplicate_exists = self
+            .game
+            .prefab_manager
+            .prefabs
+            .values()
+            .any(|prefab| prefab.name == target.name);
+        if duplicate_exists {
+            self.toast = Some(Toast::new(
+                format!("A prefab named \"{}\" already exists.", target.name),
+                2.5,
+            ));
+            return None;
+        }
+
+        Some(target)
+    }
+
+    pub(crate) fn pick_initial_prefab_save_target(
+        &mut self,
+        suggested_name: &str,
+    ) -> Option<InitialPrefabSaveTarget> {
+        let path = pick_initial_prefab_save_path(suggested_name)?;
+        self.resolve_initial_prefab_save_target(path)
+    }
+
     pub fn save_active_prefab(&mut self) {
         if self.is_blank_prefab_mode() {
             self.toast = Some(Toast::new("Blank prefab sessions cannot be saved.", 2.5));
@@ -58,10 +132,19 @@ impl Editor {
             }
         }
 
-        self.game
-            .prefab_library
-            .prefabs
-            .insert(prefab.id, prefab.clone());
+        let saved_prefab = match self.game.prefab_manager.save_prefab_and_sync(
+            &self.game.name,
+            &mut self.game.asset_registry,
+            &prefab,
+            None,
+        ) {
+            Ok(prefab) => prefab,
+            Err(error) => {
+                onscreen_error!("Could not save prefab: {error}");
+                return false;
+            }
+        };
+
         if let Err(error) = save_game(&self.game) {
             onscreen_error!("Could not save prefab metadata: {error}");
             return false;
@@ -70,24 +153,23 @@ impl Editor {
         let Some(prefab_editor) = self.prefab_editor.as_mut() else {
             return false;
         };
-        if let Err(error) = prefab_editor.save_prefab_asset(&self.game.name, &prefab) {
-            onscreen_error!("Could not save prefab: {error}");
-            return false;
-        }
+        prefab_editor.record_saved_prefab_asset(saved_prefab.clone());
 
         if let Some(prefab_stage) = self.prefab_stage.as_mut() {
             prefab_stage
-                .prefab_library
+                .prefab_manager
                 .prefabs
-                .insert(prefab.id, prefab.clone());
+                .insert(saved_prefab.id, saved_prefab.clone());
         }
-        self.reconcile_prefab_room_state(StagedPrefabState::PrefabAsset(prefab.clone()));
 
-        if !self.promote_prefab_in_palette(prefab.id) {
+        self.reconcile_prefab_room_state(StagedPrefabState::PrefabAsset(saved_prefab.clone()));
+
+        if !self.promote_prefab_in_palette(saved_prefab.id) {
             return false;
         }
 
         self.toast = Some(Toast::new("Prefab saved", 2.5));
+        self.update_save_state_hash();
         true
     }
 
@@ -96,32 +178,45 @@ impl Editor {
             return;
         };
 
-        if let Err(error) = delete_prefab(&self.game.name, prefab_id) {
+        if let Err(error) = self.game.prefab_manager.delete_prefab(
+            &self.game.name,
+            &mut self.game.asset_registry,
+            prefab_id,
+        ) {
             onscreen_error!("Could not delete prefab: {error}");
             return;
         }
 
-        self.game.prefab_library.prefabs.remove(&prefab_id);
         if let Err(error) = sync_prefabs_lua_file(&self.game) {
             onscreen_error!("Could not write prefabs.lua: {error}");
             return;
         }
-        if let Some(prefab_stage) = self.prefab_stage.as_mut() {
-            prefab_stage.prefab_library.prefabs.remove(&prefab_id);
+
+        if let Err(error) = save_game(&self.game) {
+            onscreen_error!("Could not save prefab metadata: {error}");
+            return;
         }
+
+        if let Some(prefab_stage) = self.prefab_stage.as_mut() {
+            prefab_stage.prefab_manager.prefabs.remove(&prefab_id);
+        }
+
         if let Some(prefab_editor) = self.prefab_editor.as_mut() {
             prefab_editor.last_committed_prefab = StagedPrefabState::Empty;
         }
+
         self.reconcile_prefab_room_state(StagedPrefabState::Empty);
         if !self.remove_prefab_from_palette(prefab_id) {
             return;
         }
+
+        self.update_save_state_hash();
         self.toast = Some(Toast::new("Prefab deleted", 2.5));
     }
 }
 
 pub(super) fn sync_prefabs_lua_file(game: &Game) -> io::Result<()> {
-    let prefab_names = collect_prefab_names(&game.prefab_library)?;
+    let prefab_names = collect_prefab_names(&game.prefab_manager)?;
     write_prefabs_lua(&scripts_folder(), &prefab_names)
 }
 

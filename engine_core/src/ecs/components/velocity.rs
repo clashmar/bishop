@@ -2,7 +2,9 @@ use ecs_component::ecs_component;
 use reflect_derive::Reflect;
 use serde::{Deserialize, Serialize};
 
-#[ecs_component]
+use crate::ecs::MotionBody;
+
+#[ecs_component(deps = [MotionBody])]
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, Default, Reflect)]
 #[serde(default)]
 pub struct Velocity {

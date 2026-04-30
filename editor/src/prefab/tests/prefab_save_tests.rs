@@ -1,4 +1,78 @@
 use super::*;
+use std::path::Path;
+
+#[test]
+fn saving_prefab_registers_prefab_record_in_asset_registry() {
+    let _lock = game_fs_test_lock()
+        .lock()
+        .unwrap_or_else(|poison| poison.into_inner());
+    let test_game = TestGameFolder::new("prefab_save_registers_asset_record");
+    let (editor, _, prefab_id, _) = make_prefab_session_editor(&test_game);
+    let _guard = EditorServicesGuard::install(editor);
+
+    with_editor(|editor| {
+        let staged_state = editor.active_prefab_staged_state();
+        let prefab = match staged_state {
+            Some(StagedPrefabState::PrefabAsset(prefab)) => prefab,
+            _ => unreachable!(),
+        };
+        let expected_path = saved_prefab_path(&prefab);
+        let expected_relative_path = Path::new(
+            expected_path
+                .file_name()
+                .expect("saved prefab path should have file name"),
+        );
+
+        assert!(editor.commit_prefab_asset_save(prefab));
+        assert_eq!(
+            editor
+                .game
+                .asset_registry
+                .relative_path(prefab_id)
+                .as_deref(),
+            Some(expected_relative_path)
+        );
+        assert_eq!(
+            editor
+                .game
+                .asset_registry
+                .key_for_path(PathBuf::from(paths::PREFABS_FOLDER).join(expected_relative_path)),
+            Some(AssetKey::Prefab(prefab_id))
+        );
+    });
+}
+
+#[test]
+fn saving_prefab_rename_keeps_prefab_record_path_and_file() {
+    let _lock = game_fs_test_lock()
+        .lock()
+        .unwrap_or_else(|poison| poison.into_inner());
+    let test_game = TestGameFolder::new("prefab_save_rename_keeps_existing_path");
+    let (editor, _, prefab_id, _) = make_prefab_session_editor(&test_game);
+    let _guard = EditorServicesGuard::install(editor);
+
+    with_editor(|editor| {
+        let original_prefab = match editor.active_prefab_staged_state() {
+            Some(StagedPrefabState::PrefabAsset(prefab)) => prefab,
+            _ => unreachable!(),
+        };
+        assert!(editor.commit_prefab_asset_save(original_prefab.clone()));
+
+        let original_relative_path = editor.game.asset_registry.relative_path(prefab_id).unwrap();
+        let original_full_path = prefabs_folder().join(&original_relative_path);
+        let renamed_prefab = PrefabAsset {
+            name: "Barrel".to_string(),
+            ..original_prefab
+        };
+
+        assert!(editor.commit_prefab_asset_save(renamed_prefab));
+        assert_eq!(
+            editor.game.asset_registry.relative_path(prefab_id),
+            Some(original_relative_path)
+        );
+        assert!(original_full_path.is_file());
+    });
+}
 
 #[test]
 fn saving_empty_prefab_delete_supports_undo_and_redo_preview_sync() {
@@ -21,7 +95,7 @@ fn saving_empty_prefab_delete_supports_undo_and_redo_preview_sync() {
     with_editor(|editor| {
         editor.reconcile_active_prefab_room_preview();
         editor.confirm_empty_prefab_save_delete();
-        assert!(!editor.game.prefab_library.prefabs.contains_key(&prefab_id));
+        assert!(!editor.game.prefab_manager.prefabs.contains_key(&prefab_id));
         assert!(linked_root_entities(&editor.game.ecs, prefab_id).is_empty());
     });
 
@@ -72,9 +146,15 @@ fn saving_prefab_canonicalizes_root_component_order_on_disk() {
         .components
         .sort_by(|left, right| right.type_name.cmp(&left.type_name));
 
-    save_prefab(test_game.name(), &prefab).expect("prefab should save");
+    persist_prefab(test_game.name(), &prefab, &AssetRegistry::default(), None)
+        .expect("prefab should save");
 
-    let saved_prefab = load_prefab(test_game.name(), prefab.id).expect("prefab should load");
+    let saved_prefab = load_prefab_manager(test_game.name(), &mut AssetRegistry::default())
+        .expect("prefab should load")
+        .prefabs
+        .get(&prefab.id)
+        .cloned()
+        .expect("saved prefab should exist in manager");
     let saved_root = saved_prefab
         .nodes
         .iter()
@@ -120,9 +200,15 @@ fn saving_prefab_canonicalizes_node_order_on_disk() {
     prefab.next_node_id = 4;
     prefab.nodes.swap(0, 2);
 
-    save_prefab(test_game.name(), &prefab).expect("prefab should save");
+    persist_prefab(test_game.name(), &prefab, &AssetRegistry::default(), None)
+        .expect("prefab should save");
 
-    let saved_prefab = load_prefab(test_game.name(), prefab.id).expect("prefab should load");
+    let saved_prefab = load_prefab_manager(test_game.name(), &mut AssetRegistry::default())
+        .expect("prefab should load")
+        .prefabs
+        .get(&prefab.id)
+        .cloned()
+        .expect("saved prefab should exist in manager");
     let node_ids = saved_prefab
         .nodes
         .iter()
@@ -312,6 +398,8 @@ fn saving_new_prefab_session_marks_prefab_clean_for_exit() {
 
 #[test]
 fn saving_prefab_syncs_stage_sprite_registry_into_game_and_disk() {
+    const BUILDING_SPRITE_PATH: &str = "sprites/building.png";
+
     let _lock = game_fs_test_lock()
         .lock()
         .unwrap_or_else(|poison| poison.into_inner());
@@ -337,10 +425,13 @@ fn saving_prefab_syncs_stage_sprite_registry_into_game_and_disk() {
         },
     );
     prefab_stage
-        .sprite_manager
-        .sprite_id_to_path
-        .insert(SpriteId(9), PathBuf::from("sprites/building.png"));
-    prefab_stage.sprite_manager.restore_next_sprite_id();
+        .asset_registry
+        .register_asset_relative_path(SpriteId(9), BUILDING_SPRITE_PATH)
+        .expect("sprite path should register");
+    SpriteManager::init_editor_metadata(
+        &prefab_stage.asset_registry,
+        &mut prefab_stage.sprite_manager,
+    );
 
     let editor = Editor {
         game: create_new_game(test_game.name().to_string()),
@@ -361,22 +452,29 @@ fn saving_prefab_syncs_stage_sprite_registry_into_game_and_disk() {
         assert_eq!(
             editor
                 .game
-                .sprite_manager
-                .sprite_id_to_path
-                .get(&SpriteId(9))
-                .cloned(),
-            Some(PathBuf::from("sprites/building.png"))
+                .asset_registry
+                .relative_path(SpriteId(9))
+                .as_deref(),
+            Some(Path::new(BUILDING_SPRITE_PATH))
+        );
+        assert_eq!(
+            editor.game.sprite_manager.path_for_id(SpriteId(9)),
+            Some(Path::new(BUILDING_SPRITE_PATH))
         );
     });
 
-    let saved_game = load_game_by_name(test_game.name()).expect("saved game should load");
+    let mut saved_game = load_game_by_name(test_game.name()).expect("saved game should load");
+    SpriteManager::init_editor_metadata(&saved_game.asset_registry, &mut saved_game.sprite_manager);
     assert_eq!(
         saved_game
-            .sprite_manager
-            .sprite_id_to_path
-            .get(&SpriteId(9))
-            .cloned(),
-        Some(PathBuf::from("sprites/building.png"))
+            .asset_registry
+            .relative_path(SpriteId(9))
+            .as_deref(),
+        Some(Path::new(BUILDING_SPRITE_PATH))
+    );
+    assert_eq!(
+        saved_game.sprite_manager.path_for_id(SpriteId(9)),
+        Some(Path::new(BUILDING_SPRITE_PATH))
     );
 }
 
@@ -392,7 +490,7 @@ fn saving_prefab_activates_it_in_room_palette_and_persists_state() {
     let other_prefab = create_prefab(PrefabId(2), "Torch".to_string());
     let mut base_game = create_new_game(test_game.name().to_string());
     base_game
-        .prefab_library
+        .prefab_manager
         .prefabs
         .insert(prefab.id, prefab.clone());
     let (mut prefab_editor, mut prefab_stage) = PrefabEditor::open_existing_from_game(
@@ -416,7 +514,7 @@ fn saving_prefab_activates_it_in_room_palette_and_persists_state() {
     };
     editor
         .game
-        .prefab_library
+        .prefab_manager
         .prefabs
         .insert(other_prefab.id, other_prefab);
     editor.room_editor.mode = RoomEditorMode::Tilemap;
@@ -460,6 +558,8 @@ fn saving_prefab_activates_it_in_room_palette_and_persists_state() {
 
 #[test]
 fn saving_prefab_syncs_stage_script_registry_into_game_and_disk() {
+    const BUILDING_SCRIPT_PATH: &str = "building.lua";
+
     let _lock = game_fs_test_lock()
         .lock()
         .unwrap_or_else(|poison| poison.into_inner());
@@ -486,10 +586,13 @@ fn saving_prefab_syncs_stage_script_registry_into_game_and_disk() {
         },
     );
     prefab_stage
-        .script_manager
-        .script_id_to_path
-        .insert(ScriptId(9), PathBuf::from("building.lua"));
-    prefab_stage.script_manager.restore_next_script_id();
+        .asset_registry
+        .register_asset_relative_path(ScriptId(9), BUILDING_SCRIPT_PATH)
+        .expect("script path should register");
+    ScriptManager::init_editor_metadata(
+        &prefab_stage.asset_registry,
+        &mut prefab_stage.script_manager,
+    );
 
     let editor = Editor {
         game: create_new_game(test_game.name().to_string()),
@@ -510,21 +613,58 @@ fn saving_prefab_syncs_stage_script_registry_into_game_and_disk() {
         assert_eq!(
             editor
                 .game
-                .script_manager
-                .script_id_to_path
-                .get(&ScriptId(9))
-                .cloned(),
-            Some(PathBuf::from("building.lua"))
+                .asset_registry
+                .relative_path(ScriptId(9))
+                .as_deref(),
+            Some(Path::new(BUILDING_SCRIPT_PATH))
+        );
+        assert_eq!(
+            editor.game.script_manager.path_for_id(ScriptId(9)),
+            Some(Path::new(BUILDING_SCRIPT_PATH))
         );
     });
 
-    let saved_game = load_game_by_name(test_game.name()).expect("saved game should load");
+    let mut saved_game = load_game_by_name(test_game.name()).expect("saved game should load");
+    ScriptManager::init_editor_metadata(&saved_game.asset_registry, &mut saved_game.script_manager);
     assert_eq!(
         saved_game
-            .script_manager
-            .script_id_to_path
-            .get(&ScriptId(9))
-            .cloned(),
-        Some(PathBuf::from("building.lua"))
+            .asset_registry
+            .relative_path(ScriptId(9))
+            .as_deref(),
+        Some(Path::new(BUILDING_SCRIPT_PATH))
     );
+    assert_eq!(
+        saved_game.script_manager.path_for_id(ScriptId(9)),
+        Some(Path::new(BUILDING_SCRIPT_PATH))
+    );
+}
+
+#[test]
+fn create_blank_prefab_uses_selected_save_target() {
+    let _lock = game_fs_test_lock()
+        .lock()
+        .unwrap_or_else(|poison| poison.into_inner());
+    let test_game = TestGameFolder::new("prefab_blank_initial_save_target");
+    let mut editor = blank_prefab_session_editor(&test_game);
+    let picked_path = prefabs_folder()
+        .join("props")
+        .join(format!("Barrel.{}", extensions::PREFAB));
+
+    let prompt = editor.request_blank_prefab_transition("Barrel".to_string(), picked_path.clone());
+    assert_eq!(prompt, PrefabTransitionPrompt::None);
+
+    assert_eq!(editor.mode, EditorMode::Prefab(PrefabId(1)));
+    assert_eq!(
+        editor
+            .game
+            .asset_registry
+            .relative_path(PrefabId(1))
+            .as_deref(),
+        Some(
+            Path::new("props")
+                .join(format!("Barrel.{}", extensions::PREFAB))
+                .as_path()
+        )
+    );
+    assert!(picked_path.is_file());
 }

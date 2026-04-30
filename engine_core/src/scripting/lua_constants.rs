@@ -44,6 +44,7 @@ pub mod lua_fields {
 /// Root engine Lua table names.
 pub mod lua_engine {
     pub const ENGINE: &str = "engine";
+    pub const ASSET: &str = "asset";
     pub const GLOBAL: &str = "global";
     pub const CALL: &str = "call";
     pub const ON: &str = "on";
@@ -52,6 +53,7 @@ pub mod lua_engine {
     pub const LOG: &str = "log";
     pub const PREFAB: &str = "prefab";
     pub const SPAWN: &str = "spawn";
+    pub const TOML: &str = "toml";
 }
 
 /// Entity Lua method names.

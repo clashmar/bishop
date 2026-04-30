@@ -8,6 +8,7 @@ impl PrefabEditor {
         &self,
         loader: &impl TextureLoader,
         ecs: &mut Ecs,
+        asset_registry: &mut AssetRegistry,
         sprite_manager: &mut SpriteManager,
         dt: f32,
     ) {
@@ -19,6 +20,6 @@ impl PrefabEditor {
             .filter(|entity| is_prefab_entity(ecs, *entity))
             .collect();
 
-        update_entity_animations(loader, ecs, sprite_manager, dt, &entities);
+        update_entity_animations(loader, ecs, asset_registry, sprite_manager, dt, &entities);
     }
 }

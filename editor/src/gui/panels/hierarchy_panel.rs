@@ -31,7 +31,7 @@ pub struct HierarchyPanel {
 pub(crate) struct RoomHierarchyHost<'a> {
     pub(crate) room_editor: &'a mut RoomEditor,
     pub(crate) mode: EditorMode,
-    pub(crate) prefab_library: Option<&'a PrefabLibrary>,
+    pub(crate) prefab_manager: Option<&'a PrefabManager>,
 }
 
 impl SceneUiHost for RoomHierarchyHost<'_> {
@@ -39,8 +39,8 @@ impl SceneUiHost for RoomHierarchyHost<'_> {
         self.mode
     }
 
-    fn prefab_library(&self) -> Option<&PrefabLibrary> {
-        self.prefab_library
+    fn prefab_manager(&self) -> Option<&PrefabManager> {
+        self.prefab_manager
     }
 }
 
@@ -71,7 +71,7 @@ impl SceneUiHost for PrefabHierarchyHost<'_> {
         self.mode
     }
 
-    fn prefab_library(&self) -> Option<&PrefabLibrary> {
+    fn prefab_manager(&self) -> Option<&PrefabManager> {
         None
     }
 }
@@ -140,7 +140,7 @@ impl PanelDefinition for HierarchyPanel {
         });
 
         let game = &mut editor.game;
-        let room_mode_prefab_library = room_mode_prefab_library(cur_room_id, &game.prefab_library);
+        let room_mode_prefab_manager = room_mode_prefab_manager(cur_room_id, &game.prefab_manager);
         let ecs = &mut game.ecs;
         let room_editor = &mut editor.room_editor;
         prune_dead_hierarchy_state(ecs, &mut self.expanded, &mut self.dragging);
@@ -204,7 +204,7 @@ impl PanelDefinition for HierarchyPanel {
         let mut room_host = RoomHierarchyHost {
             room_editor,
             mode: EditorMode::Game,
-            prefab_library: room_mode_prefab_library,
+            prefab_manager: room_mode_prefab_manager,
         };
 
         // Add global button
@@ -303,7 +303,7 @@ impl PanelDefinition for HierarchyPanel {
             }
         }
 
-        area.draw_scrollbar(ctx, self.scroll_state.scroll_y);
+        area.draw_scrollbar(ctx, &self.scroll_state);
         draw_drag_ghost(ctx, ecs, &mut self.dragging, self.drag_offset);
     }
 }
@@ -388,7 +388,7 @@ impl HierarchyPanel {
             }
         }
 
-        area.draw_scrollbar(ctx, self.scroll_state.scroll_y);
+        area.draw_scrollbar(ctx, &self.scroll_state);
         draw_drag_ghost(ctx, ecs, &mut self.dragging, self.drag_offset);
     }
 }
@@ -446,11 +446,11 @@ pub(crate) fn clear_drag_on_mouse_release(dragging: &mut Option<Entity>, mouse_r
     }
 }
 
-pub(crate) fn room_mode_prefab_library(
+pub(crate) fn room_mode_prefab_manager(
     cur_room_id: Option<RoomId>,
-    prefab_library: &PrefabLibrary,
-) -> Option<&PrefabLibrary> {
-    cur_room_id.map(|_| prefab_library)
+    prefab_manager: &PrefabManager,
+) -> Option<&PrefabManager> {
+    cur_room_id.map(|_| prefab_manager)
 }
 
 fn draw_drag_ghost(
