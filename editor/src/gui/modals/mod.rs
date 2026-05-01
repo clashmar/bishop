@@ -1,6 +1,7 @@
 use crate::app::Editor;
 use bishop::prelude::*;
 use engine_core::prelude::*;
+use engine_core::theme::with_theme;
 use std::cell::RefCell;
 use std::thread::LocalKey;
 
@@ -101,7 +102,7 @@ impl Modal {
             0.0,
             ctx.screen_width(),
             ctx.screen_height(),
-            Color::new(0.0, 0.0, 0.0, 0.6),
+            with_theme(|t| t.overlay.with_alpha(0.6)),
         );
 
         ctx.draw_rectangle(
@@ -109,7 +110,7 @@ impl Modal {
             self.rect.y,
             self.rect.w,
             self.rect.h,
-            Color::new(0.08, 0.08, 0.10, 0.95),
+            with_theme(|t| t.surface),
         );
 
         ctx.draw_rectangle_lines(
@@ -118,7 +119,7 @@ impl Modal {
             self.rect.w,
             self.rect.h,
             2.0,
-            Color::WHITE,
+            with_theme(|t| t.border),
         );
 
         for widget in self.widgets.iter_mut() {

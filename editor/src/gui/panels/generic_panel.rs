@@ -1,9 +1,8 @@
 // editor/src/gui/generic_panel.rs
-use crate::gui::gui_constants::*;
+use crate::gui::gui_constants::MENU_PANEL_HEIGHT;
 use crate::Editor;
 use bishop::prelude::*;
 use engine_core::prelude::*;
-use widgets::constants::colors;
 use widgets::{focused_panel, is_context_menu_open, set_focused_panel};
 
 /// Must be globally unique.
@@ -117,16 +116,13 @@ impl GenericPanel {
 
         // Title bar background
         let has_focus = focused_panel() == Some(self.title);
-        let title_color = if has_focus {
-            PANEL_COLOR
-        } else {
-            Color::new(
-                PANEL_COLOR.r * 0.7,
-                PANEL_COLOR.g * 0.7,
-                PANEL_COLOR.b * 0.7,
-                PANEL_COLOR.a,
-            )
-        };
+        let title_color = with_theme(|t| {
+            if has_focus {
+                t.panel
+            } else {
+                Color::new(t.panel.r * 0.7, t.panel.g * 0.7, t.panel.b * 0.7, t.panel.a)
+            }
+        });
         ctx.draw_rectangle(
             title_bar.x,
             title_bar.y,
@@ -139,7 +135,7 @@ impl GenericPanel {
         let collapse_rect = Rect::new(panel_rect.left() + 5., panel_rect.y + 4., 20., 20.);
         let collapse_clicked = Button::new(collapse_rect, if self.collapsed { "+" } else { "-" })
             .plain()
-            .text_color(Color::BLACK)
+            .text_color(with_theme(|t| t.panel_text))
             .suppressed(blocked)
             .show(ctx);
         if !blocked && collapse_clicked {
@@ -157,7 +153,7 @@ impl GenericPanel {
                 collapse_rect.x + 25.,
                 title_bar.y + 20.,
                 16.,
-                Color::BLACK,
+                with_theme(|t| t.panel_text),
             );
         }
 
@@ -165,7 +161,7 @@ impl GenericPanel {
         let close_rect = Rect::new(panel_rect.right() - 26., panel_rect.y + 4., 20., 20.);
         let close_clicked = Button::new(close_rect, "x")
             .plain()
-            .text_color(Color::BLACK)
+            .text_color(with_theme(|t| t.panel_text))
             .suppressed(blocked)
             .show(ctx);
         if !blocked && close_clicked {
@@ -203,7 +199,7 @@ impl GenericPanel {
             content_rect.y,
             content_rect.w,
             content_rect.h,
-            colors::DEFAULT_BACKGROUND_COLOR,
+            with_theme(|t| t.background),
         );
         ctx.draw_rectangle_lines(
             content_rect.x,
@@ -211,7 +207,7 @@ impl GenericPanel {
             content_rect.w,
             content_rect.h,
             2.,
-            Color::WHITE,
+            with_theme(|t| t.border),
         );
 
         self.definition.draw(ctx, content_rect, editor, blocked);

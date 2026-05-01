@@ -13,6 +13,14 @@ pub fn dark() -> Theme {
         text_muted: Color::new(0.55, 0.55, 0.60, 1.0),
         border: Color::new(0.25, 0.25, 0.30, 1.0),
         hover: Color::new(0.20, 0.20, 0.28, 1.0),
+        selection: Color::new(0.706, 0.824, 1.0, 0.25),
+        highlight: Color::YELLOW,
+        placeholder: Color::new(0.2, 0.85, 0.35, 0.22),
+        card: Color::new(0.20, 0.20, 0.24, 1.0),
+        grid: Color::new(0.4, 0.4, 0.4, 0.15),
+        overlay: Color::BLACK,
+        panel: Color::new(0.28, 0.28, 0.32, 1.0),
+        panel_text: Color::WHITE,
         ..Theme::default()
     }
 }
@@ -27,6 +35,14 @@ pub fn high_contrast() -> Theme {
         border: Color::new(0.5, 0.5, 0.5, 1.0),
         hover: Color::new(0.3, 0.3, 0.3, 1.0),
         danger: Color::new(1.0, 0.2, 0.2, 1.0),
+        selection: Color::new(0.4, 0.6, 1.0, 0.35),
+        highlight: Color::YELLOW,
+        placeholder: Color::new(0.2, 0.85, 0.35, 0.22),
+        card: Color::new(0.22, 0.22, 0.22, 1.0),
+        grid: Color::new(0.6, 0.6, 0.6, 0.25),
+        overlay: Color::BLACK,
+        panel: Color::new(0.45, 0.45, 0.45, 1.0),
+        panel_text: Color::BLACK,
         ..Theme::default()
     }
 }
@@ -53,6 +69,14 @@ mod tests {
         assert_valid_color(theme.border, &format!("{label}.border"));
         assert_valid_color(theme.hover, &format!("{label}.hover"));
         assert_valid_color(theme.danger, &format!("{label}.danger"));
+        assert_valid_color(theme.selection, &format!("{label}.selection"));
+        assert_valid_color(theme.highlight, &format!("{label}.highlight"));
+        assert_valid_color(theme.placeholder, &format!("{label}.placeholder"));
+        assert_valid_color(theme.card, &format!("{label}.card"));
+        assert_valid_color(theme.grid, &format!("{label}.grid"));
+        assert_valid_color(theme.overlay, &format!("{label}.overlay"));
+        assert_valid_color(theme.panel, &format!("{label}.panel"));
+        assert_valid_color(theme.panel_text, &format!("{label}.panel_text"));
     }
 
     #[test]

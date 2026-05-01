@@ -6,6 +6,7 @@ pub(crate) use crate::gui::menu_widgets::{menu_button, menu_button_text_position
 use crate::prefab::BLANK_PREFAB_ID;
 use bishop::prelude::*;
 use engine_core::prelude::*;
+use engine_core::theme::with_theme;
 use std::fmt;
 use strum_macros::EnumIter;
 use widgets::constants::layout;
@@ -258,7 +259,7 @@ impl MenuBar {
                         txt_x,
                         txt_y,
                         layout::HEADER_FONT_SIZE_20,
-                        Color::BLACK,
+                        with_theme(|t| t.panel_text),
                     );
                 }
             }
@@ -272,7 +273,7 @@ impl MenuBar {
                     txt_x,
                     txt_y,
                     layout::HEADER_FONT_SIZE_20,
-                    Color::BLACK,
+                    with_theme(|t| t.panel_text),
                 );
             }
         }
@@ -476,7 +477,7 @@ fn editors_actions_for_mode(editor_mode: EditorMode) -> Vec<EditorAction> {
 /// Draws a the panel background for the top menu across the whole width of the screen and returns its `Rect`.
 pub fn draw_top_panel_full(ctx: &mut WgpuContext) -> Rect {
     let rect = menu_panel_rect(ctx);
-    ctx.draw_rectangle(rect.x, rect.y, rect.w, rect.h, PANEL_COLOR);
+    ctx.draw_rectangle(rect.x, rect.y, rect.w, rect.h, with_theme(|t| t.panel));
     rect
 }
 

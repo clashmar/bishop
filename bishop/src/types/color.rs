@@ -22,6 +22,16 @@ impl Color {
         Self { r, g, b, a: 1.0 }
     }
 
+    /// Returns a copy with the given alpha value.
+    pub const fn with_alpha(self, a: f32) -> Self {
+        Self {
+            r: self.r,
+            g: self.g,
+            b: self.b,
+            a,
+        }
+    }
+
     pub const LIGHTGREY: Color = Color::new(0.78, 0.78, 0.78, 1.00);
     pub const GREY: Color = Color::new(0.51, 0.51, 0.51, 1.00);
     pub const DARKGRAY: Color = Color::new(0.31, 0.31, 0.31, 1.00);

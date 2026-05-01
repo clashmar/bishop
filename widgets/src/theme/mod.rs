@@ -31,6 +31,22 @@ pub struct Theme {
     pub hover: Color,
     /// Danger/error/destructive-action color.
     pub danger: Color,
+    /// Selection highlight background.
+    pub selection: Color,
+    /// Active element highlight (marquee, entity outline, active prefab).
+    pub highlight: Color,
+    /// Room editor ghost stamp fill.
+    pub placeholder: Color,
+    /// Card background (prefab/resource cards).
+    pub card: Color,
+    /// Grid line color.
+    pub grid: Color,
+    /// Overlay base (toast, tooltip, modal backdrop — alpha applied per-context).
+    pub overlay: Color,
+    /// Panel background (menu bar, side panels, dropdowns).
+    pub panel: Color,
+    /// Text on panel backgrounds (contrasts with panel).
+    pub panel_text: Color,
 }
 
 impl Default for Theme {
@@ -46,6 +62,14 @@ impl Default for Theme {
             border: colors::DEFAULT_BORDER_COLOR,
             hover: colors::DEFAULT_HOVER_COLOR,
             danger: colors::DEFAULT_DANGER_COLOR,
+            selection: colors::DEFAULT_SELECTION_COLOR,
+            highlight: colors::DEFAULT_HIGHLIGHT_COLOR,
+            placeholder: colors::DEFAULT_PLACEHOLDER_COLOR,
+            card: colors::DEFAULT_CARD_COLOR,
+            grid: colors::DEFAULT_GRID_COLOR,
+            overlay: colors::DEFAULT_OVERLAY_COLOR,
+            panel: colors::DEFAULT_PANEL_COLOR,
+            panel_text: colors::DEFAULT_PANEL_TEXT_COLOR,
         }
     }
 }

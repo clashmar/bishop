@@ -13,6 +13,7 @@ use crate::tilemap::tilemap_editor::TILEMAP_SUB_MODES;
 use crate::world::coord;
 use bishop::prelude::*;
 use engine_core::prelude::*;
+use engine_core::theme::with_theme;
 use widgets::constants::layout;
 
 const PLACEHOLDER_OPACITY: f32 = 0.5;
@@ -203,7 +204,7 @@ impl RoomEditor {
                 let clicks = Button::new(play_rect, "")
                     .plain()
                     .allow_secondary_click()
-                    .show_clicks(ctx, with_theme(|t| Button::theme_visuals(t)));
+                    .show_clicks(ctx, with_theme(Button::theme_visuals));
 
                 if clicks.primary {
                     self.request_play = true;
@@ -426,8 +427,15 @@ pub(crate) fn draw_prefab_stamp_ghost(
 }
 
 fn draw_prefab_stamp_placeholder(ctx: &mut WgpuContext, draw_pos: Vec2, size: Vec2) {
-    let fill = Color::new(0.2, 0.85, 0.35, 0.22);
-    let outline = Color::new(0.2, 0.95, 0.45, PREFAB_GHOST_OPACITY);
+    let fill = with_theme(|t| t.placeholder);
+    let outline = with_theme(|t| {
+        Color::new(
+            t.placeholder.r,
+            t.placeholder.g + 0.10,
+            t.placeholder.b + 0.10,
+            PREFAB_GHOST_OPACITY,
+        )
+    });
     ctx.draw_rectangle(draw_pos.x, draw_pos.y, size.x, size.y, fill);
     ctx.draw_rectangle_lines(draw_pos.x, draw_pos.y, size.x, size.y, 1.0, outline);
     ctx.draw_line(
@@ -723,7 +731,13 @@ pub fn draw_exit_arrow(
     direction: ExitDirection,
     grid_size: f32,
 ) {
-    draw_exit_arrow_colored(ctx, position, direction, grid_size, HIGHLIGHT_GREEN);
+    draw_exit_arrow_colored(
+        ctx,
+        position,
+        direction,
+        grid_size,
+        with_theme(|t| t.accent),
+    );
 }
 
 /// Draw an arrow for an adjacent room's exit (pink color to distinguish from current room).

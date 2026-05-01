@@ -1,5 +1,5 @@
 use crate::constants::{colors, layout};
-use crate::theme::WidgetThemeMapper;
+use crate::theme::{with_theme, WidgetThemeMapper};
 use crate::*;
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -180,10 +180,10 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
     }
 
     /// Renders the trigger button using the menu bar style: transparent at rest,
-    /// dark overlay on hover or when open, black text at 20pt.
+    /// dark overlay on hover or when open, panel-text-colored text at 20pt.
     pub fn menu_style(mut self) -> Self {
         self.style = DropDownStyle::Plain;
-        self.text_color = Color::BLACK;
+        self.text_color = with_theme(|t| t.panel_text);
         self.label_font_size = layout::HEADER_FONT_SIZE_20;
         self
     }

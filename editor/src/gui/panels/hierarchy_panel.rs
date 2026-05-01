@@ -9,6 +9,7 @@ use crate::shared::scene_ui::hierarchy::{
 use crate::Editor;
 use bishop::prelude::*;
 use engine_core::prelude::*;
+use engine_core::theme::with_theme;
 use std::collections::HashSet;
 
 const ROW_HEIGHT: f32 = 22.0;
@@ -232,7 +233,7 @@ impl PanelDefinition for HierarchyPanel {
                 rect.x + 6.,
                 y + 14.,
                 HEADER_FONT_SIZE,
-                Color::GREY,
+                with_theme(|t| t.text_muted),
             );
         }
         y += HEADER_HEIGHT;
@@ -257,7 +258,13 @@ impl PanelDefinition for HierarchyPanel {
 
         // Room header
         if area.is_visible(y, HEADER_HEIGHT) {
-            ctx.draw_text("Room", rect.x + 6., y + 14., HEADER_FONT_SIZE, Color::GREY);
+            ctx.draw_text(
+                "Room",
+                rect.x + 6.,
+                y + 14.,
+                HEADER_FONT_SIZE,
+                with_theme(|t| t.text_muted),
+            );
         }
         y += HEADER_HEIGHT;
 
@@ -367,7 +374,7 @@ impl HierarchyPanel {
                 rect.x + 6.,
                 y + 14.,
                 HEADER_FONT_SIZE,
-                Color::GREY,
+                with_theme(|t| t.text_muted),
             );
         }
         y += HEADER_HEIGHT;
@@ -467,14 +474,14 @@ fn draw_drag_ghost(
             my - drag_offset.y,
             150.0,
             ROW_HEIGHT,
-            Color::new(0.3, 0.5, 0.7, 0.5),
+            Color::new(0.3, 0.5, 0.7, 1.0).with_alpha(0.5),
         );
         ctx.draw_text(
             &name,
             mx - drag_offset.x + 4.0,
             my - drag_offset.y + 16.0,
             14.0,
-            Color::WHITE,
+            with_theme(|t| t.text),
         );
         clear_drag_on_mouse_release(dragging, ctx.is_mouse_button_released(MouseButton::Left));
     }

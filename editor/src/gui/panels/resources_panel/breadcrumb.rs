@@ -1,12 +1,12 @@
 use bishop::prelude::*;
 use engine_core::prelude::*;
+use engine_core::theme::with_theme;
 use engine_core::ui::text::measure_text;
 use widgets::constants::layout;
 
 use super::navigation::Navigation;
 
 const BREADCRUMB_FONT_SIZE: f32 = layout::DEFAULT_FONT_SIZE_16;
-const HOVER_COLOR: Color = Color::new(0.706, 0.824, 1.0, 1.0);
 
 struct BreadcrumbHit {
     rect: Rect,
@@ -50,9 +50,9 @@ pub fn draw_breadcrumb(
     if cursor_x + dims.width <= style.x + style.max_width {
         let rect = Rect::new(cursor_x, style.y, dims.width, style.height);
         let color = if hovered == Some(0) {
-            HOVER_COLOR
+            with_theme(|t| t.accent)
         } else {
-            Color::BLACK
+            with_theme(|t| t.panel_text)
         };
         ctx.draw_text(&label, cursor_x, text_y, BREADCRUMB_FONT_SIZE, color);
         hits.push(BreadcrumbHit { rect, depth: 0 });
@@ -83,9 +83,9 @@ pub fn draw_breadcrumb(
         }
         let rect = Rect::new(cursor_x, style.y, dims.width, style.height);
         let color = if hovered == Some(i + 1) {
-            HOVER_COLOR
+            with_theme(|t| t.accent)
         } else {
-            Color::BLACK
+            with_theme(|t| t.panel_text)
         };
         ctx.draw_text(&label, cursor_x, text_y, BREADCRUMB_FONT_SIZE, color);
         hits.push(BreadcrumbHit { rect, depth: i + 1 });

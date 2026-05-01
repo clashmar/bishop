@@ -3,6 +3,7 @@ use crate::ui::text::*;
 use crate::ui::widgets::*;
 use std::time::Instant;
 use widgets::constants::layout;
+use widgets::theme::with_theme;
 
 const PADDING: f32 = 20.0;
 
@@ -79,7 +80,7 @@ impl Toast {
             bg_rect.y,
             bg_rect.w,
             bg_rect.h,
-            Color::new(0.0, 0.0, 0.0, 0.7),
+            with_theme(|t| t.overlay.with_alpha(0.7)),
         );
 
         // Text
@@ -89,7 +90,7 @@ impl Toast {
             bg_rect.x + PADDING,
             bg_rect.y + (bg_rect.h - txt.height) / 2.0 + txt.offset_y,
             layout::DEFAULT_FONT_SIZE_16,
-            Color::WHITE,
+            with_theme(|t| t.text),
         );
     }
 

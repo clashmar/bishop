@@ -3,6 +3,7 @@ use crate::gui::panels::generic_panel::PanelDefinition;
 use crate::Editor;
 use bishop::prelude::*;
 use engine_core::prelude::*;
+use engine_core::theme::with_theme;
 
 const ROW_HEIGHT: f32 = 18.0;
 const TOP_PADDING: f32 = 4.0;
@@ -487,7 +488,7 @@ impl PanelDefinition for ConsolePanel {
                             line_y,
                             sel_end_x - sel_start_x,
                             ROW_HEIGHT,
-                            Color::new(0.3, 0.5, 0.8, 0.5),
+                            with_theme(|t| t.selection),
                         );
                     }
                 }

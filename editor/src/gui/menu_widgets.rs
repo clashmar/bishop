@@ -2,6 +2,7 @@ use crate::gui::gui_constants::*;
 use crate::gui::modals::is_modal_open;
 use bishop::prelude::*;
 use engine_core::prelude::*;
+use engine_core::theme::with_theme;
 use std::cell::RefCell;
 use std::collections::hash_map::DefaultHasher;
 use std::fmt::Display;
@@ -105,7 +106,7 @@ pub(crate) fn menu_dropdown<T: Clone + PartialEq + Display>(
             list_rect.y,
             list_rect.w,
             list_rect.h,
-            PANEL_COLOR,
+            with_theme(|t| t.panel),
         );
 
         for (i, opt) in options.iter().enumerate() {
@@ -133,7 +134,7 @@ pub(crate) fn menu_dropdown<T: Clone + PartialEq + Display>(
                     entry_rect.y,
                     entry_rect.w,
                     entry_rect.h,
-                    Color::new(0.2, 0.2, 0.2, 0.9),
+                    with_theme(|t| t.hover),
                 );
             }
 
@@ -142,7 +143,7 @@ pub(crate) fn menu_dropdown<T: Clone + PartialEq + Display>(
                 entry_rect.x + 5.0,
                 entry_rect.y + entry_rect.h * 0.7,
                 layout::DEFAULT_FONT_SIZE_16,
-                Color::BLACK,
+                with_theme(|t| t.panel_text),
             );
 
             if let Some(shortcut) = shortcut(opt) {
@@ -153,7 +154,7 @@ pub(crate) fn menu_dropdown<T: Clone + PartialEq + Display>(
                     sc_x,
                     entry_rect.y + entry_rect.h * 0.7,
                     layout::DEFAULT_FONT_SIZE_16,
-                    Color::WHITE,
+                    with_theme(|t| t.text_muted),
                 );
             }
 
@@ -163,7 +164,7 @@ pub(crate) fn menu_dropdown<T: Clone + PartialEq + Display>(
                 list_rect.w,
                 list_rect.h,
                 2.0,
-                Color::BLACK,
+                with_theme(|t| t.border),
             );
         }
     }
@@ -200,7 +201,7 @@ pub fn menu_button(ctx: &mut WgpuContext, rect: Rect, label: &str, is_dropdown_o
             rect.y,
             rect.w,
             rect.h,
-            Color::new(0.0, 0.0, 0.0, 0.5),
+            with_theme(|t| t.hover.with_alpha(0.5)),
         );
     }
 
@@ -209,7 +210,7 @@ pub fn menu_button(ctx: &mut WgpuContext, rect: Rect, label: &str, is_dropdown_o
         txt_x,
         txt_y,
         layout::HEADER_FONT_SIZE_20,
-        Color::BLACK,
+        with_theme(|t| t.panel_text),
     );
 
     activate_on_release(

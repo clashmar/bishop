@@ -20,6 +20,14 @@ pub struct WidgetVisuals {
     pub border: Option<Color>,
     pub hover: Option<Color>,
     pub danger: Option<Color>,
+    pub selection: Option<Color>,
+    pub highlight: Option<Color>,
+    pub placeholder: Option<Color>,
+    pub card: Option<Color>,
+    pub grid: Option<Color>,
+    pub overlay: Option<Color>,
+    pub panel: Option<Color>,
+    pub panel_text: Option<Color>,
 }
 
 impl WidgetVisuals {
@@ -37,6 +45,14 @@ impl WidgetVisuals {
             border: self.border.or(theme.border),
             hover: self.hover.or(theme.hover),
             danger: self.danger.or(theme.danger),
+            selection: self.selection.or(theme.selection),
+            highlight: self.highlight.or(theme.highlight),
+            placeholder: self.placeholder.or(theme.placeholder),
+            card: self.card.or(theme.card),
+            grid: self.grid.or(theme.grid),
+            overlay: self.overlay.or(theme.overlay),
+            panel: self.panel.or(theme.panel),
+            panel_text: self.panel_text.or(theme.panel_text),
         }
     }
 }
@@ -94,6 +110,14 @@ mod tests {
         assert!(v.border.is_none());
         assert!(v.hover.is_none());
         assert!(v.danger.is_none());
+        assert!(v.selection.is_none());
+        assert!(v.highlight.is_none());
+        assert!(v.placeholder.is_none());
+        assert!(v.card.is_none());
+        assert!(v.grid.is_none());
+        assert!(v.overlay.is_none());
+        assert!(v.panel.is_none());
+        assert!(v.panel_text.is_none());
     }
 
     #[test]

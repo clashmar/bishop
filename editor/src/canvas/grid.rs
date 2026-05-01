@@ -5,9 +5,8 @@ use crate::{
     world::world_editor::LINE_THICKNESS_MULTIPLIER,
 };
 use bishop::prelude::*;
+use engine_core::theme::with_theme;
 use glam::vec2;
-
-const GRID_LINE_COLOR: Color = Color::new(0.5, 0.5, 0.5, 0.2);
 
 /// Draw a grid overlay for the editor using a shader.
 pub fn draw_grid(
@@ -26,7 +25,7 @@ pub fn draw_grid(
         camera_zoom: scalar,
         viewport_size: vec2(ctx.screen_width(), ctx.screen_height()),
         grid_size,
-        line_color: GRID_LINE_COLOR,
+        line_color: with_theme(|t| t.grid),
         line_thickness: LINE_THICKNESS_MULTIPLIER / 2.0,
     };
 
