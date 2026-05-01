@@ -319,7 +319,8 @@ impl InspectorModule for AudioSourceModule {
                     colors::DEFAULT_TEXT_COLOR,
                 );
                 let volume_label = format_volume_label(group.volume);
-                let volume_measure = measure_text(ctx, &volume_label, widget_layout::DEFAULT_FONT_SIZE_16);
+                let volume_measure =
+                    measure_text(ctx, &volume_label, widget_layout::DEFAULT_FONT_SIZE_16);
                 let value_x = x + LABEL_W + SPACING;
                 ctx.draw_text(
                     &volume_label,
@@ -335,7 +336,7 @@ impl InspectorModule for AudioSourceModule {
                     ROW_HEIGHT,
                 );
                 let (new_vol, state) =
-                    gui_slider(ctx, self.volume_id, slider_rect, 0.0, 1.0, group.volume);
+                    Slider::new(self.volume_id, slider_rect, 0.0, 1.0, group.volume).show(ctx);
                 if !blocked && !matches!(state, SliderState::Unchanged) {
                     group.volume = new_vol;
                 }
@@ -350,14 +351,9 @@ impl InspectorModule for AudioSourceModule {
                 );
                 let slider_rect =
                     Rect::new(x + LABEL_W + SPACING, y, w - LABEL_W - SPACING, ROW_HEIGHT);
-                let (new_pitch, state) = gui_slider(
-                    ctx,
-                    self.pitch_id,
-                    slider_rect,
-                    0.0,
-                    1.0,
-                    group.pitch_variation,
-                );
+                let (new_pitch, state) =
+                    Slider::new(self.pitch_id, slider_rect, 0.0, 1.0, group.pitch_variation)
+                        .show(ctx);
                 if !blocked && !matches!(state, SliderState::Unchanged) {
                     group.pitch_variation = new_pitch;
                 }
@@ -372,14 +368,14 @@ impl InspectorModule for AudioSourceModule {
                 );
                 let slider_rect =
                     Rect::new(x + LABEL_W + SPACING, y, w - LABEL_W - SPACING, ROW_HEIGHT);
-                let (new_vol_var, state) = gui_slider(
-                    ctx,
+                let (new_vol_var, state) = Slider::new(
                     self.volume_var_id,
                     slider_rect,
                     0.0,
                     1.0,
                     group.volume_variation,
-                );
+                )
+                .show(ctx);
                 if !blocked && !matches!(state, SliderState::Unchanged) {
                     group.volume_variation = new_vol_var;
                 }
@@ -398,7 +394,9 @@ impl InspectorModule for AudioSourceModule {
                     widget_layout::DEFAULT_CHECKBOX_DIMS,
                     widget_layout::DEFAULT_CHECKBOX_DIMS,
                 );
-                gui_checkbox(ctx, cb_rect, &mut group.looping, blocked);
+                Checkbox::new(cb_rect, &mut group.looping)
+                    .blocked(blocked)
+                    .show(ctx);
             }
 
             if let Some(message) = render_preset_picker(

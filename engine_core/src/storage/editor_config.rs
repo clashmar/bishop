@@ -1,11 +1,11 @@
 // editor/src/storage/editor_config.rs
-use crate::*;
 #[cfg(feature = "editor")]
 use crate::game::StartupMode;
+use crate::*;
 use directories_next::ProjectDirs;
 use once_cell::sync::Lazy;
 use ron::from_str;
-use ron::ser::{PrettyConfig, to_string_pretty};
+use ron::ser::{to_string_pretty, PrettyConfig};
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "editor")]
 use std::collections::BTreeMap;
@@ -14,12 +14,15 @@ use std::fs;
 use std::path::Path;
 use std::path::PathBuf;
 use std::sync::RwLock;
+use widgets::theme::Theme;
 
 pub static EDITOR_CONFIG: Lazy<RwLock<EditorConfig>> = Lazy::new(|| RwLock::new(load_config()));
 
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
 pub struct EditorConfig {
     pub save_root: Option<PathBuf>,
+    #[serde(default)]
+    pub theme: Theme,
     #[cfg(feature = "editor")]
     #[serde(default = "default_startup_mode")]
     pub playtest_startup_mode: StartupMode,
@@ -160,11 +163,14 @@ pub fn app_dir() -> PathBuf {
     }
 }
 
-fn config_path() -> PathBuf {
+pub(crate) fn config_path() -> PathBuf {
     app_dir().join("editor_config.ron")
 }
 
-fn save_config_to_path(config: &EditorConfig, path: &Path) -> Result<(), Box<dyn Error>> {
+pub(crate) fn save_config_to_path(
+    config: &EditorConfig,
+    path: &Path,
+) -> Result<(), Box<dyn Error>> {
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent)?;
     }
@@ -186,9 +192,21 @@ fn load_config() -> EditorConfig {
     }
 }
 
+/// Call once after loading EditorConfig to set the active theme.
+#[cfg(feature = "editor")]
+pub fn apply_config_theme() {
+    match EDITOR_CONFIG.read() {
+        Ok(cfg) => widgets::theme::set_theme(cfg.theme),
+        Err(poison) => {
+            onscreen_error!("Editor config lock poisoned: {poison}");
+        }
+    }
+}
+
 #[cfg(all(test, feature = "editor"))]
 mod tests {
     use super::*;
+    use bishop::Color;
     use uuid::Uuid;
 
     #[test]
@@ -263,5 +281,30 @@ mod tests {
         );
 
         let _ = fs::remove_file(path);
+    }
+
+    #[test]
+    fn theme_field_roundtrips_through_ron() {
+        let theme = Theme {
+            primary: Color::new(1.0, 0.0, 0.0, 1.0),
+            ..Theme::default()
+        };
+        let mut config = EditorConfig::default();
+        config.theme = theme;
+
+        let path = std::env::temp_dir().join(format!("bishop-theme-test-{}.ron", Uuid::new_v4()));
+        save_config_to_path(&config, &path).unwrap();
+
+        let loaded: EditorConfig = ron::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
+        assert_eq!(loaded.theme, theme);
+
+        let _ = fs::remove_file(path);
+    }
+
+    #[test]
+    fn missing_theme_defaults_to_default_theme() {
+        let ron = r#"(save_root: None)"#;
+        let config: EditorConfig = ron::from_str(ron).unwrap();
+        assert_eq!(config.theme, Theme::default());
     }
 }

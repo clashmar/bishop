@@ -3617,6 +3617,9 @@ version = "0.1.0"
 dependencies = [
  "arboard",
  "bishop",
+ "once_cell",
+ "ron",
+ "serde",
 ]
 
 [[package]]

@@ -1,3 +1,4 @@
+use crate::theme::{set_theme, Theme};
 use bishop::material::BishopRenderTarget;
 use bishop::prelude::*;
 
@@ -17,6 +18,7 @@ pub(super) struct WidgetTestContext {
 
 impl WidgetTestContext {
     pub(super) fn new() -> Self {
+        set_theme(Theme::default());
         Self {
             mouse_pos: (0.0, 0.0),
             mouse_wheel_delta: (0.0, 0.0),

@@ -1,4 +1,5 @@
 use crate::constants::{colors, layout};
+use crate::theme::WidgetThemeMapper;
 use crate::*;
 use std::cell::RefCell;
 
@@ -81,6 +82,7 @@ impl<'a, T: Clone + PartialEq + 'static> ContextMenu<'a, T> {
     }
 
     pub fn show<C: BishopContext>(self, ctx: &mut C) -> Option<T> {
+        let theme_vs = with_theme(Self::theme_visuals);
         if self.items.is_empty() {
             return None;
         }
@@ -155,7 +157,7 @@ impl<'a, T: Clone + PartialEq + 'static> ContextMenu<'a, T> {
                 labels,
                 hovered_index,
                 self.font_size,
-                self.visuals,
+                self.visuals.merge(theme_vs),
             );
             return result;
         }
@@ -187,6 +189,18 @@ impl<'a, T: Clone + PartialEq + 'static> ContextMenu<'a, T> {
         }
 
         Rect::new(x, y, width, height)
+    }
+}
+
+impl<T> WidgetThemeMapper for ContextMenu<'_, T> {
+    fn theme_visuals(theme: &Theme) -> WidgetVisuals {
+        WidgetVisuals {
+            background: Some(theme.surface),
+            text: Some(theme.text),
+            border: Some(theme.border),
+            hover: Some(theme.hover),
+            ..Default::default()
+        }
     }
 }
 
@@ -236,10 +250,7 @@ fn render_context_menu<C: BishopContext>(ctx: &mut C, render: DeferredContextMen
         render.rect.y,
         render.rect.w,
         render.rect.h,
-        resolve(
-            render.visuals.surface,
-            colors::DEFAULT_BACKGROUND_COLOR,
-        ),
+        resolve(render.visuals.surface, colors::DEFAULT_BACKGROUND_COLOR),
     );
 
     let mouse_pos: Vec2 = ctx.mouse_position().into();

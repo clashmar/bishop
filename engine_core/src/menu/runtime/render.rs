@@ -225,14 +225,8 @@ fn render_slider<C: BishopContext>(
     let label = LabelElement::default();
     MenuTemplate::render_label(ctx, &label, label_rect, &display_text);
 
-    let (new_value, state) = gui_slider(
-        ctx,
-        slider.widget_id,
-        slider_rect,
-        slider.min,
-        slider.max,
-        value,
-    );
+    let (new_value, state) =
+        Slider::new(slider.widget_id, slider_rect, slider.min, slider.max, value).show(ctx);
     if !matches!(state, SliderState::Unchanged) {
         slider_values.insert(slider.key.clone(), new_value);
         push_slider_event(slider.key.clone(), new_value);

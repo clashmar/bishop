@@ -142,3 +142,28 @@ fn empty_non_filterable_dropdown_does_not_open() {
     );
     assert!(!dropdown_state::get(id).open);
 }
+
+#[cfg(test)]
+mod theme_tests {
+    use super::*;
+    use crate::theme::{Theme, WidgetThemeMapper};
+
+    #[test]
+    fn dropdown_theme_mapper_maps_key_roles() {
+        let theme = Theme {
+            surface: Color::GREEN,
+            text: Color::BLUE,
+            border: Color::new(0.8, 0.8, 0.8, 1.0),
+            hover: Color::new(0.2, 0.2, 1.0, 1.0),
+            ..Theme::default()
+        };
+        let visuals = Dropdown::<&str>::theme_visuals(&theme);
+        assert_eq!(visuals.background, Some(Color::GREEN));
+        assert_eq!(visuals.text, Some(Color::BLUE));
+        assert_eq!(visuals.border, Some(Color::new(0.8, 0.8, 0.8, 1.0)));
+        assert_eq!(visuals.hover, Some(Color::new(0.2, 0.2, 1.0, 1.0)));
+        assert_eq!(visuals.primary, None);
+        assert_eq!(visuals.surface, None);
+        assert_eq!(visuals.accent, None);
+    }
+}

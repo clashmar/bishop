@@ -1,5 +1,6 @@
 use crate::clipboard::{clipboard_get_text, clipboard_set_text};
 use crate::constants::{colors, input_repeat, layout};
+use crate::theme::WidgetThemeMapper;
 use crate::*;
 
 /// A text input widget using the builder pattern.
@@ -88,6 +89,7 @@ impl<'a> TextInput<'a> {
 
     /// Draws the widget and returns the current text and focus state.
     pub fn show<C: BishopContext>(self, ctx: &mut C) -> (String, bool) {
+        let theme_vs = with_theme(Self::theme_visuals);
         tab_registry_add(self.id, self.rect, true);
 
         let mut just_gained_focus = false;
@@ -153,14 +155,14 @@ impl<'a> TextInput<'a> {
             scroll_offset_x = 0.0;
         }
 
-        let selection_color = resolve(self.visuals.accent, colors::DEFAULT_INPUT_SELECTION_COLOR);
+        let selection_color = resolve_with_theme(self.visuals.accent, theme_vs.accent, colors::DEFAULT_INPUT_SELECTION_COLOR);
 
         ctx.draw_rectangle(
             self.rect.x,
             self.rect.y,
             self.rect.w,
             self.rect.h,
-            resolve(self.visuals.background, colors::DEFAULT_BACKGROUND_COLOR),
+            resolve_with_theme(self.visuals.background, theme_vs.background, colors::DEFAULT_BACKGROUND_COLOR),
         );
         ctx.draw_rectangle_lines(
             self.rect.x,
@@ -168,7 +170,7 @@ impl<'a> TextInput<'a> {
             self.rect.w,
             self.rect.h,
             2.,
-            resolve(self.visuals.border, Color::WHITE),
+            resolve_with_theme(self.visuals.border, theme_vs.border, Color::WHITE),
         );
 
         let text_area_x = self.rect.x + layout::WIDGET_PADDING / 2.;
@@ -208,7 +210,7 @@ impl<'a> TextInput<'a> {
             self.rect,
             scroll_offset_x,
             layout::DEFAULT_FONT_SIZE_16,
-            resolve(self.visuals.text, colors::DEFAULT_TEXT_COLOR),
+            resolve_with_theme(self.visuals.text, theme_vs.text, colors::DEFAULT_TEXT_COLOR),
         );
 
         let mouse = ctx.mouse_position();
@@ -533,7 +535,7 @@ impl<'a> TextInput<'a> {
                     cursor_x,
                     self.rect.y + self.rect.h * 0.8,
                     2.,
-                    resolve(self.visuals.border, colors::DEFAULT_BORDER_COLOR),
+                    resolve_with_theme(self.visuals.border, theme_vs.border, colors::DEFAULT_BORDER_COLOR),
                 );
             }
         }
@@ -564,6 +566,18 @@ impl<'a> TextInput<'a> {
     }
 }
 
+impl WidgetThemeMapper for TextInput<'_> {
+    fn theme_visuals(theme: &Theme) -> WidgetVisuals {
+        WidgetVisuals {
+            background: Some(theme.background),
+            accent: Some(theme.accent),
+            border: Some(theme.border),
+            text: Some(theme.text),
+            ..Default::default()
+        }
+    }
+}
+
 /// Resets the text input state for the given widget id.
 pub fn text_input_reset(id: WidgetId) {
     INPUT_FOCUSED.with(|f| *f.borrow_mut() = false);
@@ -571,4 +585,29 @@ pub fn text_input_reset(id: WidgetId) {
         let mut map = s.borrow_mut();
         map.remove(&id);
     });
+}
+
+#[cfg(test)]
+mod theme_tests {
+    use super::*;
+    use crate::theme::{Theme, WidgetThemeMapper};
+
+    #[test]
+    fn text_input_theme_mapper_maps_key_roles() {
+        let theme = Theme {
+            background: Color::GREEN,
+            accent: Color::BLUE,
+            border: Color::new(0.8, 0.8, 0.8, 1.0),
+            text: Color::BLACK,
+            ..Theme::default()
+        };
+        let visuals = TextInput::theme_visuals(&theme);
+        assert_eq!(visuals.background, Some(Color::GREEN));
+        assert_eq!(visuals.accent, Some(Color::BLUE));
+        assert_eq!(visuals.border, Some(Color::new(0.8, 0.8, 0.8, 1.0)));
+        assert_eq!(visuals.text, Some(Color::BLACK));
+        assert_eq!(visuals.primary, None);
+        assert_eq!(visuals.surface, None);
+        assert_eq!(visuals.hover, None);
+    }
 }

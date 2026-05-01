@@ -599,7 +599,9 @@ pub fn draw_fps_loop_and_mirrored(
     clip.fps = NumberInput::new(module.fps_id, inp_fps, clip.fps)
         .blocked(blocked)
         .show(ctx);
-    gui_checkbox(ctx, inp_loop, &mut clip.looping, blocked);
+    Checkbox::new(inp_loop, &mut clip.looping)
+        .blocked(blocked)
+        .show(ctx);
 
     // Mirrored checkbox
     let mirrored_label = "Mirror:";
@@ -619,7 +621,9 @@ pub fn draw_fps_loop_and_mirrored(
         CHECKBOX_SIZE,
         CHECKBOX_SIZE,
     );
-    gui_checkbox(ctx, inp_mirrored, &mut clip.mirrored, blocked);
+    Checkbox::new(inp_mirrored, &mut clip.mirrored)
+        .blocked(blocked)
+        .show(ctx);
 }
 
 pub fn draw_offset_fields(

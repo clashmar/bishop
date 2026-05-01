@@ -203,7 +203,7 @@ impl RoomEditor {
                 let clicks = Button::new(play_rect, "")
                     .plain()
                     .allow_secondary_click()
-                    .show_clicks(ctx);
+                    .show_clicks(ctx, with_theme(|t| Button::theme_visuals(t)));
 
                 if clicks.primary {
                     self.request_play = true;

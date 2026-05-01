@@ -606,14 +606,14 @@ impl SceneInspector {
                 ),
             );
 
-            let (new_val, state) = gui_slider(
-                ctx,
+            let (new_val, state) = Slider::new(
                 self.widget_ids.darkness_slider_id,
                 slider_rect,
                 0.0,
                 1.0,
                 cur_room.darkness,
-            );
+            )
+            .show(ctx);
 
             if !matches!(state, SliderState::Unchanged) {
                 cur_room.darkness = new_val.clamp(0.0, 1.0);

@@ -1,3 +1,4 @@
+use crate::theme::Theme;
 use bishop::Color;
 
 /// Per-widget visual overrides. Every field is `Option<Color>` — `None` defers
@@ -21,10 +22,47 @@ pub struct WidgetVisuals {
     pub danger: Option<Color>,
 }
 
+impl WidgetVisuals {
+    /// Merge instance overrides with theme-derived values.
+    /// Instance wins where present; theme fills gaps.
+    pub fn merge(self, theme: Self) -> Self {
+        Self {
+            primary: self.primary.or(theme.primary),
+            secondary: self.secondary.or(theme.secondary),
+            background: self.background.or(theme.background),
+            surface: self.surface.or(theme.surface),
+            text: self.text.or(theme.text),
+            text_muted: self.text_muted.or(theme.text_muted),
+            accent: self.accent.or(theme.accent),
+            border: self.border.or(theme.border),
+            hover: self.hover.or(theme.hover),
+            danger: self.danger.or(theme.danger),
+        }
+    }
+}
+
 /// Resolves a color value from the priority chain:
 /// `instance override → hardcoded constant`.
 pub fn resolve(instance: Option<Color>, constant: Color) -> Color {
     instance.unwrap_or(constant)
+}
+
+/// Resolves a color from the three-level priority chain:
+/// `instance override → theme mapping → hardcoded constant`.
+pub fn resolve_with_theme(
+    instance: Option<Color>,
+    theme_slot: Option<Color>,
+    constant: Color,
+) -> Color {
+    instance.or(theme_slot).unwrap_or(constant)
+}
+
+/// Maps a `Theme` to `WidgetVisuals` for a specific widget type.
+///
+/// Each widget implements this trait to declare which `Theme` roles
+/// it reads and how they map to its visual fields.
+pub trait WidgetThemeMapper {
+    fn theme_visuals(theme: &Theme) -> WidgetVisuals;
 }
 
 #[cfg(test)]
@@ -68,5 +106,23 @@ mod tests {
         assert!(v.background.is_none());
         assert!(v.text.is_none());
         assert!(v.hover.is_none());
+    }
+
+    #[test]
+    fn resolve_with_theme_instance_wins_over_theme_and_constant() {
+        let result = resolve_with_theme(Some(Color::RED), Some(Color::GREEN), Color::BLUE);
+        assert_eq!(result, Color::RED);
+    }
+
+    #[test]
+    fn resolve_with_theme_theme_wins_over_constant_when_instance_none() {
+        let result = resolve_with_theme(None, Some(Color::GREEN), Color::BLUE);
+        assert_eq!(result, Color::GREEN);
+    }
+
+    #[test]
+    fn resolve_with_theme_constant_fallback_when_both_none() {
+        let result = resolve_with_theme(None, None, Color::BLUE);
+        assert_eq!(result, Color::BLUE);
     }
 }

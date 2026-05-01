@@ -164,7 +164,7 @@ where
                         layout::DEFAULT_CHECKBOX_DIMS,
                         layout::DEFAULT_CHECKBOX_DIMS,
                     );
-                    gui_checkbox(ctx, cb_rect, b, blocked);
+                    Checkbox::new(cb_rect, b).blocked(blocked).show(ctx);
                 }
                 (FieldValue::Vec2(v), _) => {
                     let id_x = *self

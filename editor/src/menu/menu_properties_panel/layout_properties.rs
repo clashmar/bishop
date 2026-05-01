@@ -74,7 +74,7 @@ impl MenuEditor {
             ctx.draw_text("Enabled:", x, *y + 16.0, 12.0, Color::WHITE);
             let checkbox_rect = Rect::new(x + LABEL_WIDTH, *y + 4.0, 16.0, 16.0);
             let mut enabled = has_bg;
-            if gui_checkbox(ctx, checkbox_rect, &mut enabled, false) {
+            if Checkbox::new(checkbox_rect, &mut enabled).show(ctx) {
                 self.push_element_update(|el| {
                     if let MenuElementKind::LayoutGroup(group) = &mut el.kind {
                         group.background = if enabled {
@@ -114,14 +114,14 @@ impl MenuEditor {
             if row_visible(*y, ROW_HEIGHT, clip) {
                 ctx.draw_text("Opacity:", x, *y + 16.0, 12.0, Color::WHITE);
                 let field_rect = Rect::new(x + LABEL_WIDTH, *y, w - LABEL_WIDTH, FIELD_HEIGHT);
-                let (new_opacity, state) = gui_slider(
-                    ctx,
+                let (new_opacity, state) = Slider::new(
                     self.properties_panel.widget_ids.layout_bg_opacity_id,
                     field_rect,
                     0.0,
                     1.0,
                     bg_opacity,
-                );
+                )
+                .show(ctx);
                 match state {
                     SliderState::Previewing => {
                         self.preview_element_update(|el| {
@@ -460,7 +460,7 @@ impl MenuEditor {
 
                 let checkbox_rect = Rect::new(x, *y + 4.0, 16.0, 16.0);
                 let mut managed_val = managed;
-                if gui_checkbox(ctx, checkbox_rect, &mut managed_val, false) {
+                if Checkbox::new(checkbox_rect, &mut managed_val).show(ctx) {
                     self.push_element_update(|el| {
                         if let MenuElementKind::LayoutGroup(group) = &mut el.kind {
                             if let Some(child) = group.children.get_mut(i) {

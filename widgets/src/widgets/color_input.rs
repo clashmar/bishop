@@ -1,4 +1,5 @@
 use crate::constants::{colors, layout};
+use crate::theme::WidgetThemeMapper;
 use crate::*;
 
 /// A hex color input widget with a color swatch preview.
@@ -36,6 +37,7 @@ impl ColorInput {
 
     /// Draws the widget and returns the resolved color.
     pub fn show<C: BishopContext>(self, ctx: &mut C) -> Color {
+        let theme_vs = with_theme(Self::theme_visuals);
         let swatch_size = self.rect.h;
         let gap = 4.0;
         let prefix_width = measure_text_ui(ctx, "#", layout::DEFAULT_FONT_SIZE_16).width + 2.0;
@@ -50,7 +52,7 @@ impl ColorInput {
             prefix_x,
             prefix_y,
             layout::DEFAULT_FONT_SIZE_16,
-            resolve(self.visuals.text, colors::DEFAULT_TEXT_COLOR),
+            resolve_with_theme(self.visuals.text, theme_vs.text, colors::DEFAULT_TEXT_COLOR),
         );
 
         let hex = self.current.to_hex();
@@ -78,10 +80,22 @@ impl ColorInput {
             swatch_rect.w,
             swatch_rect.h,
             2.0,
-            resolve(self.visuals.border, Color::WHITE),
+            resolve_with_theme(self.visuals.border, theme_vs.border, Color::WHITE),
         );
 
         resolved
+    }
+}
+
+impl WidgetThemeMapper for ColorInput {
+    fn theme_visuals(theme: &Theme) -> WidgetVisuals {
+        WidgetVisuals {
+            background: Some(theme.surface),
+            border: Some(theme.border),
+            accent: Some(theme.accent),
+            text: Some(theme.text),
+            ..Default::default()
+        }
     }
 }
 
@@ -95,5 +109,29 @@ fn hex_char_filter(c: char) -> Option<char> {
         Some(c.to_ascii_uppercase())
     } else {
         None
+    }
+}
+
+#[cfg(test)]
+mod theme_tests {
+    use super::*;
+    use crate::theme::{Theme, WidgetThemeMapper};
+
+    #[test]
+    fn color_input_theme_mapper_maps_key_roles() {
+        let theme = Theme {
+            surface: Color::GREEN,
+            border: Color::BLUE,
+            accent: Color::RED,
+            text: Color::BLACK,
+            ..Theme::default()
+        };
+        let visuals = ColorInput::theme_visuals(&theme);
+        assert_eq!(visuals.background, Some(Color::GREEN));
+        assert_eq!(visuals.border, Some(Color::BLUE));
+        assert_eq!(visuals.accent, Some(Color::RED));
+        assert_eq!(visuals.text, Some(Color::BLACK));
+        assert_eq!(visuals.primary, None);
+        assert_eq!(visuals.hover, None);
     }
 }

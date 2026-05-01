@@ -192,7 +192,7 @@ impl InspectorModule for ScriptModule {
                         layout::DEFAULT_CHECKBOX_DIMS,
                         layout::DEFAULT_CHECKBOX_DIMS,
                     );
-                    if gui_checkbox(ctx, cb_rect, v, blocked) {
+                    if Checkbox::new(cb_rect, v).blocked(blocked).show(ctx) {
                         changed = true;
                     }
                 }

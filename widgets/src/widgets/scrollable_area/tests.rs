@@ -446,3 +446,26 @@ fn thumb_drag_from_bottom_does_not_get_overridden_by_auto_scroll() {
     assert!(state.scroll_y > -200.0);
     assert!(!state.auto_scroll);
 }
+
+#[cfg(test)]
+mod theme_tests {
+    use super::*;
+    use crate::theme::{Theme, WidgetThemeMapper};
+
+    #[test]
+    fn scrollable_area_theme_mapper_maps_key_roles() {
+        let theme = Theme {
+            surface: Color::GREEN,
+            text: Color::RED,
+            text_muted: Color::new(0.5, 0.5, 0.5, 1.0),
+            ..Theme::default()
+        };
+        let visuals = ScrollableArea::theme_visuals(&theme);
+        assert_eq!(visuals.surface, Some(Color::GREEN));
+        assert_eq!(visuals.text, Some(Color::RED));
+        assert_eq!(visuals.text_muted, Some(Color::new(0.5, 0.5, 0.5, 1.0)));
+        assert_eq!(visuals.primary, None);
+        assert_eq!(visuals.background, None);
+        assert_eq!(visuals.border, None);
+    }
+}

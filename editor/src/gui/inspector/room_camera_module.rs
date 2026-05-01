@@ -98,8 +98,9 @@ impl InspectorModule for RoomCameraModule {
                 const STEPS: &[f32; 5] = &[0.5_f32, 1.0, 2.0, 3.0, 4.0];
 
                 let current_scalar = 2.0 / (cam.zoom.x * world_virtual_width(grid_size));
-                let new_scalar =
-                    gui_stepper(ctx, scale_rect, "Scale", STEPS, current_scalar, blocked);
+                let new_scalar = Stepper::new(scale_rect, "Scale", STEPS, current_scalar)
+                    .blocked(blocked)
+                    .show(ctx);
 
                 if !blocked && (new_scalar - current_scalar).abs() > f32::EPSILON {
                     let width = world_virtual_width(grid_size) * new_scalar;
@@ -275,14 +276,14 @@ impl RoomCameraModule {
             .show(ctx);
 
         // Slider
-        let (slider_val, slider_state) = gui_slider(
-            ctx,
+        let (slider_val, slider_state) = Slider::new(
             self.slider_id,
             slider_rect,
             MIN, // min
             MAX, // max
             round_to_dp(scalar, 2),
-        );
+        )
+        .show(ctx);
 
         // Resolve the new scalar
         let mut new_scalar = scalar;

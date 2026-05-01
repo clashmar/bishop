@@ -1,27 +1,35 @@
 pub mod visuals;
 
-pub use visuals::{resolve, WidgetVisuals};
+pub use visuals::{resolve, resolve_with_theme, WidgetThemeMapper, WidgetVisuals};
 
 use crate::constants::colors;
 use bishop::Color;
+use once_cell::sync::Lazy;
+use serde::{Deserialize, Serialize};
+use std::sync::RwLock;
 
-/// A collection of semantic color roles used by widgets and editor UI.
-///
-/// The default implementation captures the current hardcoded constant values,
-/// so there is zero visual change at rest. Applications populate the active
-/// theme from a config source (editor_config.ron, theme.ron) and push it
-/// into the global `ACTIVE_THEME` static via `widgets::theme::set_theme()`.
-#[derive(Clone, Copy, Debug, PartialEq)]
+/// A collection of semantic color roles.
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Theme {
+    /// Primary accent color.
     pub primary: Color,
+    /// Secondary accent color.
     pub secondary: Color,
+    /// Deepest background tone.
     pub background: Color,
+    /// Raised surface tone.
     pub surface: Color,
+    /// Primary text color.
     pub text: Color,
+    /// Diminished text for labels, hints, disabled state.
     pub text_muted: Color,
+    /// Accent highlight (selections, check marks, active indicators).
     pub accent: Color,
+    /// Border and outline color.
     pub border: Color,
+    /// Hover highlight color.
     pub hover: Color,
+    /// Danger/error/destructive-action color.
     pub danger: Color,
 }
 
@@ -39,5 +47,47 @@ impl Default for Theme {
             hover: colors::DEFAULT_HOVER_COLOR,
             danger: colors::DEFAULT_DANGER_COLOR,
         }
+    }
+}
+
+pub static ACTIVE_THEME: Lazy<RwLock<Theme>> = Lazy::new(|| RwLock::new(Theme::default()));
+
+pub fn set_theme(theme: Theme) {
+    *ACTIVE_THEME.write().expect("ACTIVE_THEME lock poisoned") = theme;
+}
+
+pub fn with_theme<R>(f: impl FnOnce(&Theme) -> R) -> R {
+    let guard = ACTIVE_THEME.read().expect("ACTIVE_THEME lock poisoned");
+    f(&guard)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn theme_ron_roundtrip() {
+        let original = Theme::default();
+        let ron = ron::to_string(&original).unwrap();
+        let loaded: Theme = ron::from_str(&ron).unwrap();
+        assert_eq!(original, loaded);
+    }
+
+    #[test]
+    fn set_theme_updates_active_theme() {
+        let original = Theme::default();
+        set_theme(original);
+        let read_back = with_theme(|t| *t);
+        assert_eq!(original, read_back);
+
+        let dark = Theme {
+            background: Color::new(0.05, 0.05, 0.08, 1.0),
+            surface: Color::new(0.10, 0.10, 0.14, 1.0),
+            ..Theme::default()
+        };
+        set_theme(dark);
+        let read_back = with_theme(|t| *t);
+        assert_eq!(dark, read_back);
+        assert_ne!(original, read_back);
     }
 }

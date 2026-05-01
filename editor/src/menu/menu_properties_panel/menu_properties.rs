@@ -176,14 +176,14 @@ impl MenuEditor {
                 if row_visible(*y, ROW_HEIGHT, clip) {
                     ctx.draw_text("Alpha:", x, *y + 16.0, 12.0, Color::WHITE);
                     let field_rect = Rect::new(x + LABEL_WIDTH, *y, w - LABEL_WIDTH, FIELD_HEIGHT);
-                    let (new_alpha, state) = gui_slider(
-                        ctx,
+                    let (new_alpha, state) = Slider::new(
                         self.properties_panel.widget_ids.bg_alpha_id,
                         field_rect,
                         0.0,
                         1.0,
                         alpha,
-                    );
+                    )
+                    .show(ctx);
                     match state {
                         SliderState::Previewing => {
                             if let Some(idx) = self.current_template_index {

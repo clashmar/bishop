@@ -55,7 +55,7 @@ fn secondary_clicks_are_reported_when_opted_in() {
 
     let clicks = Button::new(button, "Play")
         .allow_secondary_click()
-        .show_clicks(&mut ctx);
+        .show_clicks(&mut ctx, WidgetVisuals::default());
 
     assert!(!clicks.primary);
     assert!(!clicks.secondary);
@@ -67,7 +67,7 @@ fn secondary_clicks_are_reported_when_opted_in() {
 
     let clicks = Button::new(button, "Play")
         .allow_secondary_click()
-        .show_clicks(&mut ctx);
+        .show_clicks(&mut ctx, WidgetVisuals::default());
 
     assert!(!clicks.primary);
     assert!(clicks.secondary);
@@ -108,7 +108,7 @@ fn suppressed_buttons_are_not_dimmed_and_do_not_click() {
     assert!(!Button::new(button, "Play").suppressed(true).show(&mut ctx));
     assert_eq!(
         ctx.rectangle_fills.last().copied(),
-        Some(colors::DEFAULT_BACKGROUND_COLOR)
+        Some(colors::DEFAULT_SURFACE_COLOR)
     );
     assert_eq!(
         ctx.rectangle_lines.last().copied(),
@@ -265,4 +265,32 @@ fn deferred_button_activation_does_not_leak_between_targets() {
         .interaction_id(first)
         .show_native_dialog(&mut idle_ctx));
     widgets_frame_end(&mut idle_ctx);
+}
+
+#[cfg(test)]
+mod theme_tests {
+    use super::*;
+    use crate::theme::{Theme, WidgetThemeMapper};
+
+    #[test]
+    fn button_theme_mapper_maps_key_roles() {
+        let theme = Theme {
+            background: Color::GREEN,
+            text: Color::BLUE,
+            text_muted: Color::new(0.5, 0.5, 0.5, 1.0),
+            border: Color::new(0.8, 0.8, 0.8, 1.0),
+            hover: Color::new(0.2, 0.2, 1.0, 1.0),
+            ..Theme::default()
+        };
+        let visuals = Button::theme_visuals(&theme);
+        assert_eq!(visuals.background, Some(Color::GREEN));
+        assert_eq!(visuals.text, Some(Color::BLUE));
+        assert_eq!(visuals.text_muted, Some(Color::new(0.5, 0.5, 0.5, 1.0)));
+        assert_eq!(visuals.border, Some(Color::new(0.8, 0.8, 0.8, 1.0)));
+        assert_eq!(visuals.hover, Some(Color::new(0.2, 0.2, 1.0, 1.0)));
+        assert_eq!(visuals.primary, None);
+        assert_eq!(visuals.danger, None);
+        assert_eq!(visuals.surface, None);
+        assert_eq!(visuals.accent, None);
+    }
 }

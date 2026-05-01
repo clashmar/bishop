@@ -1,4 +1,5 @@
 use crate::constants::{colors, layout};
+use crate::theme::WidgetThemeMapper;
 use crate::*;
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -256,6 +257,7 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
 
     /// Draws the dropdown and returns the selected option if one was clicked.
     pub fn show<C: BishopContext>(self, ctx: &mut C) -> Option<T> {
+        let theme_vs = with_theme(Self::theme_visuals);
         const MAX_VISIBLE_ROWS: usize = 8;
         const SCROLL_SPEED: f32 = 5.0;
         const W_PADDING: f32 = 8.0;
@@ -291,6 +293,7 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
             DropDownStyle::Default => {
                 Button::new(self.rect, display_label)
                     .text_offset(Vec2::new(0.0, -1.0))
+                    .visuals(self.visuals)
                     .blocked(self.blocked)
                     .suppressed(self.suppressed)
                     .show(ctx)
@@ -303,6 +306,7 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
                     .text_color(self.text_color)
                     .font_size(self.label_font_size)
                     .text_offset(Vec2::new(0.0, -1.0))
+                    .visuals(self.visuals)
                     .blocked(self.blocked)
                     .suppressed(self.suppressed)
                     .show(ctx)
@@ -358,7 +362,8 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
 
         if list_is_open {
             if self.filterable {
-                result = self.show_filterable_list(ctx, &mut state, list_width);
+                let merged = self.visuals.merge(theme_vs);
+                result = self.show_filterable_list(ctx, &merged, &mut state, list_width);
             } else {
                 let visible_rows = MAX_VISIBLE_ROWS.min(self.options.len());
                 let list_h = self.rect.h * visible_rows as f32;
@@ -441,7 +446,7 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
                         scroll_offset,
                         labels,
                         option_count,
-                        visuals: self.visuals,
+                        visuals: self.visuals.merge(theme_vs),
                     });
                 });
             }
@@ -468,6 +473,7 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
     fn show_filterable_list<C: BishopContext>(
         &self,
         ctx: &mut C,
+        visuals: &WidgetVisuals,
         state: &mut dropdown_state::DropState,
         list_width: f32,
     ) -> Option<T> {
@@ -511,10 +517,7 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
             popup_rect.y,
             popup_rect.w,
             popup_rect.h,
-            resolve(
-                self.visuals.surface,
-                colors::DEFAULT_BACKGROUND_COLOR,
-            ),
+            resolve(visuals.surface, colors::DEFAULT_BACKGROUND_COLOR),
         );
 
         // Filter TextInput
@@ -523,6 +526,7 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
         let (new_filter, _) = TextInput::new(filter_id, filter_rect, &prev_filter)
             .in_dropdown()
             .live()
+            .visuals(self.visuals)
             .show(ctx);
 
         // Reset scroll when filter changes so the user is never stranded past new results
@@ -567,7 +571,7 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
                     entry_rect.y,
                     entry_rect.w,
                     entry_rect.h,
-                    resolve(self.visuals.hover, DROPDOWN_HOVER_BG),
+                    resolve(visuals.hover, DROPDOWN_HOVER_BG),
                 );
             }
 
@@ -577,7 +581,7 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
                 entry_rect,
                 0.0,
                 layout::DEFAULT_FONT_SIZE_16,
-                resolve(self.visuals.text, colors::DEFAULT_TEXT_COLOR),
+                resolve(visuals.text, colors::DEFAULT_TEXT_COLOR),
             );
 
             if activate_on_release(
@@ -609,14 +613,14 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
                 entries_y,
                 6.,
                 entries_h,
-                resolve(self.visuals.surface, DROPDOWN_SCROLLBAR_TRACK),
+                resolve(visuals.surface, DROPDOWN_SCROLLBAR_TRACK),
             );
             ctx.draw_rectangle(
                 popup_rect.x + popup_rect.w - 6.,
                 thumb_y,
                 6.,
                 thumb_h,
-                resolve(self.visuals.text_muted, DROPDOWN_SCROLLBAR_THUMB),
+                resolve(visuals.text_muted, DROPDOWN_SCROLLBAR_THUMB),
             );
         }
 
@@ -626,7 +630,7 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
             popup_rect.w,
             popup_rect.h,
             2.,
-            resolve(self.visuals.border, colors::DEFAULT_BORDER_COLOR),
+            resolve(visuals.border, colors::DEFAULT_BORDER_COLOR),
         );
 
         result
@@ -724,6 +728,18 @@ fn render_dropdown_list<C: BishopContext>(
         2.,
         resolve(visuals.border, colors::DEFAULT_BORDER_COLOR),
     );
+}
+
+impl<T> WidgetThemeMapper for Dropdown<'_, T> {
+    fn theme_visuals(theme: &Theme) -> WidgetVisuals {
+        WidgetVisuals {
+            background: Some(theme.surface),
+            text: Some(theme.text),
+            border: Some(theme.border),
+            hover: Some(theme.hover),
+            ..Default::default()
+        }
+    }
 }
 
 /// Internal module for managing dropdown state.

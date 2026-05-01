@@ -38,6 +38,7 @@ use crate::with_panel_manager;
 use crate::world::world_editor::WorldEditor;
 use bishop::prelude::*;
 use engine_core::prelude::*;
+use engine_core::storage::editor_config;
 use engine_core::task::BackgroundTask;
 use std::io;
 use std::path::PathBuf;
@@ -116,6 +117,8 @@ impl Default for Editor {
 impl Editor {
     pub async fn new(ctx: PlatformContext) -> io::Result<Self> {
         let mut editor = Editor::default();
+
+        editor_config::apply_config_theme();
 
         let game = if let Some(name) = most_recent_game_name() {
             load_game_by_name(&name)?

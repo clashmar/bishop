@@ -18,6 +18,7 @@ pub mod scripting;
 pub mod shaders;
 pub mod storage;
 pub mod task;
+pub mod theme;
 pub mod text;
 pub mod tiles;
 pub mod ui;
@@ -50,6 +51,7 @@ pub mod prelude {
     pub use crate::shaders::*;
     pub use crate::storage::*;
     pub use crate::task::*;
+    pub use crate::theme::*;
     pub use crate::text::*;
     pub use crate::tiles::*;
     pub use crate::ui::*;
