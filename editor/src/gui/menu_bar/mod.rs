@@ -45,6 +45,7 @@ pub enum EditorAction {
     ViewResourcesPanel,
     // Options actions
     WorldSettings,
+    EditorSettings,
     // Editors actions
     OpenMenuEditor,
     OpenPrefabEditor,
@@ -69,6 +70,7 @@ impl EditorAction {
             EditorAction::ViewPrefabPalettePanel => "Prefab Palette".to_string(),
             EditorAction::ViewResourcesPanel => "Resources".to_string(),
             EditorAction::WorldSettings => "World Settings".to_string(),
+            EditorAction::EditorSettings => "Editor Settings".to_string(),
             EditorAction::OpenMenuEditor => "Menu Editor".to_string(),
             EditorAction::OpenPrefabEditor => "Prefab Editor".to_string(),
             EditorAction::ReturnToGameEditor => "Game Editor".to_string(),
@@ -137,7 +139,8 @@ impl EditorAction {
             | EditorAction::Redo
             | EditorAction::ViewConsolePanel
             | EditorAction::ViewDiagnosticsPanel
-            | EditorAction::ViewResourcesPanel => true,
+            | EditorAction::ViewResourcesPanel
+            | EditorAction::EditorSettings => true,
             EditorAction::Save => !matches!(editor_mode, EditorMode::Prefab(BLANK_PREFAB_ID)),
             EditorAction::SaveAs => !matches!(editor_mode, EditorMode::Prefab(BLANK_PREFAB_ID)),
             EditorAction::ViewHierarchyPanel => {
@@ -457,7 +460,7 @@ fn view_actions_for_mode(editor_mode: EditorMode) -> Vec<EditorAction> {
 }
 
 fn options_actions_for_mode(editor_mode: EditorMode) -> Vec<EditorAction> {
-    [EditorAction::WorldSettings]
+    [EditorAction::EditorSettings, EditorAction::WorldSettings]
         .into_iter()
         .filter(|action| action.is_available_in(editor_mode))
         .collect()

@@ -11,6 +11,7 @@ pub mod delete_resource;
 pub mod delete_world;
 pub mod dirty_prefab_exit;
 pub mod edit_world;
+pub mod editor_settings;
 pub mod empty_prefab_exit;
 pub mod empty_prefab_save;
 pub mod export_overwrite;

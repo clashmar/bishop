@@ -60,10 +60,10 @@ fn prefab_mode_shows_hierarchy_in_view_menu() {
 }
 
 #[test]
-fn prefab_mode_hides_world_options_menu() {
+fn prefab_mode_shows_editor_settings_in_options_menu() {
     let actions = options_actions_for_mode(EditorMode::Prefab(PrefabId(7)));
 
-    assert!(actions.is_empty());
+    assert!(actions.contains(&EditorAction::EditorSettings));
 }
 
 #[test]

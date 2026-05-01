@@ -5,9 +5,10 @@ use crate::editor_global::*;
 use crate::gui::inspector::audio_source_module::clear_active_audio_preview;
 use crate::gui::menu_bar::*;
 use crate::gui::modals::{
-    dirty_prefab_exit::DirtyPrefabExitModal, empty_prefab_exit::EmptyPrefabExitModal,
-    empty_prefab_save::EmptyPrefabSaveModal, is_modal_open, new_game::NewGameModal,
-    rename::RenameModal, save_as::SaveAsModal, world_settings::WorldSettingsModal, ModalHandler,
+    dirty_prefab_exit::DirtyPrefabExitModal, editor_settings::EditorSettingsModal,
+    empty_prefab_exit::EmptyPrefabExitModal, empty_prefab_save::EmptyPrefabSaveModal,
+    is_modal_open, new_game::NewGameModal, rename::RenameModal, save_as::SaveAsModal,
+    world_settings::WorldSettingsModal, ModalHandler,
 };
 use crate::gui::panels::*;
 use crate::prefab::{PendingPrefabTransition, PrefabTransitionPrompt};
@@ -161,6 +162,9 @@ impl Editor {
             }
             EditorAction::WorldSettings => {
                 WorldSettingsModal.open(self, ctx);
+            }
+            EditorAction::EditorSettings => {
+                EditorSettingsModal.open(self, ctx);
             }
             EditorAction::OpenPrefabEditor => {
                 self.open_prefab_editor(ctx);
