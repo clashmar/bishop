@@ -1,15 +1,11 @@
 use crate::constants::colors;
-use crate::theme::WidgetThemeMapper;
 use crate::*;
 
 /// A checkbox widget that toggles a boolean value on click.
 pub struct Checkbox<'a> {
     rect: Rect,
     value: &'a mut bool,
-    blocked: bool,
-    visuals: WidgetVisuals,
-    class_name: Option<String>,
-    style_id: Option<String>,
+    base: WidgetBase,
 }
 
 impl<'a> Checkbox<'a> {
@@ -17,61 +13,18 @@ impl<'a> Checkbox<'a> {
         Self {
             rect: rect.into(),
             value,
-            blocked: false,
-            visuals: WidgetVisuals::default(),
-            class_name: None,
-            style_id: None,
+            base: WidgetBase {
+                blocked: false,
+                visuals: WidgetTheme::default(),
+                ..WidgetBase::default()
+            },
         }
-    }
-
-    pub fn blocked(mut self, blocked: bool) -> Self {
-        self.blocked = blocked;
-        self
-    }
-
-    pub fn visuals(mut self, visuals: WidgetVisuals) -> Self {
-        self.visuals = visuals;
-        self
-    }
-
-    pub fn class(mut self, class: impl Into<String>) -> Self {
-        self.class_name = Some(class.into());
-        self
-    }
-
-    pub fn style_id(mut self, id: impl Into<String>) -> Self {
-        self.style_id = Some(id.into());
-        self
-    }
-
-    pub fn maybe_class(mut self, class: Option<&str>) -> Self {
-        if let Some(c) = class {
-            self.class_name = Some(c.to_string());
-        }
-        self
-    }
-
-    pub fn maybe_style_id(mut self, id: Option<&str>) -> Self {
-        if let Some(i) = id {
-            self.style_id = Some(i.to_string());
-        }
-        self
-    }
-
-    pub fn apply_selectors(mut self, class: Option<&str>, style_id: Option<&str>) -> Self {
-        if let Some(c) = class {
-            self.class_name = Some(c.to_string());
-        }
-        if let Some(i) = style_id {
-            self.style_id = Some(i.to_string());
-        }
-        self
     }
 
     pub fn show<C: BishopContext>(self, ctx: &mut C) -> bool {
-        let class = self.class_name.as_deref();
-        let id = self.style_id.as_deref();
-        let theme_vs = themed_visuals_for::<Self>(class, id);
+        let class = self.base.class_name.as_deref();
+        let id = self.base.style_id.as_deref();
+        let theme_vs = resolve_theme_for::<Self>(class, id);
         let rect = self.rect;
         ctx.draw_rectangle(
             rect.x,
@@ -79,7 +32,7 @@ impl<'a> Checkbox<'a> {
             rect.w,
             rect.h,
             resolve_with_theme(
-                self.visuals.background,
+                self.base.visuals.background,
                 theme_vs.background,
                 colors::DEFAULT_BACKGROUND_COLOR,
             ),
@@ -91,7 +44,7 @@ impl<'a> Checkbox<'a> {
             rect.h,
             2.,
             resolve_with_theme(
-                self.visuals.border,
+                self.base.visuals.border,
                 theme_vs.border,
                 colors::DEFAULT_BORDER_COLOR,
             ),
@@ -99,7 +52,7 @@ impl<'a> Checkbox<'a> {
 
         if *self.value {
             let check_color =
-                resolve_with_theme(self.visuals.primary, theme_vs.primary, Color::GREEN);
+                resolve_with_theme(self.base.visuals.primary, theme_vs.primary, Color::GREEN);
             ctx.draw_line(
                 rect.x + 3.,
                 rect.y + rect.h * 0.5,
@@ -118,7 +71,7 @@ impl<'a> Checkbox<'a> {
             );
         }
 
-        if self.blocked || is_dropdown_open() || is_context_menu_open() {
+        if self.base.blocked || is_dropdown_open() || is_context_menu_open() {
             return false;
         }
 
@@ -134,12 +87,15 @@ impl<'a> Checkbox<'a> {
     }
 }
 
-impl WidgetThemeMapper for Checkbox<'_> {
-    fn type_kind() -> WidgetType {
+impl Widget for Checkbox<'_> {
+    fn widget_type() -> WidgetType {
         WidgetType::Checkbox
     }
-    fn theme_visuals(theme: &Theme) -> WidgetVisuals {
-        WidgetVisuals {
+    fn base_mut(&mut self) -> &mut WidgetBase {
+        &mut self.base
+    }
+    fn map_theme(theme: &Theme) -> WidgetTheme {
+        WidgetTheme {
             background: Some(theme.background),
             border: Some(theme.border),
             primary: Some(theme.primary),

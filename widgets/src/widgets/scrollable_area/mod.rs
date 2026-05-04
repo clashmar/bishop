@@ -1,4 +1,3 @@
-use crate::theme::WidgetThemeMapper;
 use crate::*;
 
 const DEFAULT_SCROLL_SPEED: f32 = 24.0;
@@ -48,10 +47,7 @@ pub struct ScrollableArea {
     content_height: f32,
     scroll_speed: f32,
     scrollbar_w: f32,
-    blocked: bool,
-    visuals: WidgetVisuals,
-    class_name: Option<String>,
-    style_id: Option<String>,
+    base: WidgetBase,
 }
 
 impl ScrollableArea {
@@ -62,10 +58,11 @@ impl ScrollableArea {
             content_height,
             scroll_speed: DEFAULT_SCROLL_SPEED,
             scrollbar_w: DEFAULT_SCROLLBAR_W,
-            blocked: false,
-            visuals: WidgetVisuals::default(),
-            class_name: None,
-            style_id: None,
+            base: WidgetBase {
+                blocked: false,
+                visuals: WidgetTheme::default(),
+                ..WidgetBase::default()
+            },
         }
     }
 
@@ -75,57 +72,11 @@ impl ScrollableArea {
         self
     }
 
-    /// Sets visual overrides for the scrollable area.
-    pub fn visuals(mut self, visuals: WidgetVisuals) -> Self {
-        self.visuals = visuals;
-        self
-    }
-
-    pub fn class(mut self, class: impl Into<String>) -> Self {
-        self.class_name = Some(class.into());
-        self
-    }
-
-    pub fn style_id(mut self, id: impl Into<String>) -> Self {
-        self.style_id = Some(id.into());
-        self
-    }
-
-    pub fn maybe_class(mut self, class: Option<&str>) -> Self {
-        if let Some(c) = class {
-            self.class_name = Some(c.to_string());
-        }
-        self
-    }
-
-    pub fn maybe_style_id(mut self, id: Option<&str>) -> Self {
-        if let Some(i) = id {
-            self.style_id = Some(i.to_string());
-        }
-        self
-    }
-
-    pub fn apply_selectors(mut self, class: Option<&str>, style_id: Option<&str>) -> Self {
-        if let Some(c) = class {
-            self.class_name = Some(c.to_string());
-        }
-        if let Some(i) = style_id {
-            self.style_id = Some(i.to_string());
-        }
-        self
-    }
-
-    /// Sets whether interaction is blocked.
-    pub fn blocked(mut self, blocked: bool) -> Self {
-        self.blocked = blocked;
-        self
-    }
-
     /// Processes scroll input and returns an active area for content drawing.
     pub fn begin<C: BishopContext>(self, ctx: &mut C, state: &mut ScrollState) -> ActiveScrollArea {
-        let class = self.class_name.as_deref();
-        let id = self.style_id.as_deref();
-        let theme_vs = themed_visuals_for::<Self>(class, id);
+        let class = self.base.class_name.as_deref();
+        let id = self.base.style_id.as_deref();
+        let theme_vs = resolve_theme_for::<Self>(class, id);
         let mouse: Vec2 = ctx.mouse_position().into();
         let scroll_range = (self.content_height - self.rect.h).max(0.0);
 
@@ -141,7 +92,7 @@ impl ScrollableArea {
         let thumb_rect = Rect::new(bar_x, thumb_y, self.scrollbar_w, bar_h);
         let track_rect = Rect::new(bar_x, self.rect.y, self.scrollbar_w, self.rect.h);
 
-        if !self.blocked && scroll_range > 0.0 {
+        if !self.base.blocked && scroll_range > 0.0 {
             // Wheel scroll
             if self.rect.contains(mouse) {
                 let (_, wheel_y) = ctx.mouse_wheel();
@@ -200,18 +151,21 @@ impl ScrollableArea {
             scroll_range,
             content_height: self.content_height,
             scrollbar_w: self.scrollbar_w,
-            visuals: self.visuals,
+            visuals: self.base.visuals,
             theme_vs,
         }
     }
 }
 
-impl WidgetThemeMapper for ScrollableArea {
-    fn type_kind() -> WidgetType {
+impl Widget for ScrollableArea {
+    fn widget_type() -> WidgetType {
         WidgetType::ScrollableArea
     }
-    fn theme_visuals(theme: &Theme) -> WidgetVisuals {
-        WidgetVisuals {
+    fn base_mut(&mut self) -> &mut WidgetBase {
+        &mut self.base
+    }
+    fn map_theme(theme: &Theme) -> WidgetTheme {
+        WidgetTheme {
             surface: Some(theme.surface),
             text: Some(theme.text),
             text_muted: Some(theme.text_muted),
@@ -226,8 +180,8 @@ pub struct ActiveScrollArea {
     scroll_range: f32,
     content_height: f32,
     scrollbar_w: f32,
-    visuals: WidgetVisuals,
-    theme_vs: WidgetVisuals,
+    visuals: WidgetTheme,
+    theme_vs: WidgetTheme,
 }
 
 impl ActiveScrollArea {

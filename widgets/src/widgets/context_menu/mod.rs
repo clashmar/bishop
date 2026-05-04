@@ -1,5 +1,4 @@
 use crate::constants::{colors, layout};
-use crate::theme::WidgetThemeMapper;
 use crate::*;
 use std::cell::RefCell;
 
@@ -20,7 +19,7 @@ struct DeferredContextMenuRender {
     labels: Vec<String>,
     hovered_index: Option<usize>,
     font_size: f32,
-    visuals: WidgetVisuals,
+    visuals: WidgetTheme,
 }
 
 thread_local! {
@@ -37,12 +36,9 @@ pub struct ContextMenu<'a, T> {
     id: WidgetId,
     position: Vec2,
     items: &'a [ContextMenuItem<T>],
-    blocked: bool,
     suppressed: bool,
     font_size: f32,
-    visuals: WidgetVisuals,
-    class_name: Option<String>,
-    style_id: Option<String>,
+    base: WidgetBase,
 }
 
 impl<'a, T: Clone + PartialEq + 'static> ContextMenu<'a, T> {
@@ -51,18 +47,14 @@ impl<'a, T: Clone + PartialEq + 'static> ContextMenu<'a, T> {
             id,
             position,
             items,
-            blocked: false,
             suppressed: false,
             font_size: layout::DEFAULT_FONT_SIZE_16,
-            visuals: WidgetVisuals::default(),
-            class_name: None,
-            style_id: None,
+            base: WidgetBase {
+                blocked: false,
+                visuals: WidgetTheme::default(),
+                ..WidgetBase::default()
+            },
         }
-    }
-
-    pub fn blocked(mut self, blocked: bool) -> Self {
-        self.blocked = blocked;
-        self
     }
 
     pub fn suppressed(mut self, suppressed: bool) -> Self {
@@ -75,60 +67,21 @@ impl<'a, T: Clone + PartialEq + 'static> ContextMenu<'a, T> {
         self
     }
 
-    pub fn visuals(mut self, visuals: WidgetVisuals) -> Self {
-        self.visuals = visuals;
-        self
-    }
-
-    pub fn class(mut self, class: impl Into<String>) -> Self {
-        self.class_name = Some(class.into());
-        self
-    }
-
-    pub fn style_id(mut self, id: impl Into<String>) -> Self {
-        self.style_id = Some(id.into());
-        self
-    }
-
-    pub fn maybe_class(mut self, class: Option<&str>) -> Self {
-        if let Some(c) = class {
-            self.class_name = Some(c.to_string());
-        }
-        self
-    }
-
-    pub fn maybe_style_id(mut self, id: Option<&str>) -> Self {
-        if let Some(i) = id {
-            self.style_id = Some(i.to_string());
-        }
-        self
-    }
-
-    pub fn apply_selectors(mut self, class: Option<&str>, style_id: Option<&str>) -> Self {
-        if let Some(c) = class {
-            self.class_name = Some(c.to_string());
-        }
-        if let Some(i) = style_id {
-            self.style_id = Some(i.to_string());
-        }
-        self
-    }
-
     pub fn text_color(mut self, color: impl Into<Color>) -> Self {
-        self.visuals.text = Some(color.into());
+        self.base.visuals.text = Some(color.into());
         self
     }
 
     pub fn show<C: BishopContext>(self, ctx: &mut C) -> Option<T> {
-        let class = self.class_name.as_deref();
-        let id = self.style_id.as_deref();
-        let theme_vs = themed_visuals_for::<Self>(class, id);
+        let class = self.base.class_name.as_deref();
+        let id = self.base.style_id.as_deref();
+        let theme_vs = resolve_theme_for::<Self>(class, id);
         if self.items.is_empty() {
             return None;
         }
 
         let mut state = context_menu_state::get(self.id);
-        let interactive = !self.blocked && !self.suppressed && !is_modal_open();
+        let interactive = !self.base.blocked && !self.suppressed && !is_modal_open();
         let mouse_pos: Vec2 = ctx.mouse_position().into();
 
         if ctx.is_mouse_button_pressed(MouseButton::Right) && interactive {
@@ -197,7 +150,7 @@ impl<'a, T: Clone + PartialEq + 'static> ContextMenu<'a, T> {
                 labels,
                 hovered_index,
                 self.font_size,
-                self.visuals.merge(theme_vs),
+                self.base.visuals.merge(theme_vs),
             );
             return result;
         }
@@ -232,12 +185,15 @@ impl<'a, T: Clone + PartialEq + 'static> ContextMenu<'a, T> {
     }
 }
 
-impl<T> WidgetThemeMapper for ContextMenu<'_, T> {
-    fn type_kind() -> WidgetType {
+impl<T> Widget for ContextMenu<'_, T> {
+    fn widget_type() -> WidgetType {
         WidgetType::ContextMenu
     }
-    fn theme_visuals(theme: &Theme) -> WidgetVisuals {
-        WidgetVisuals {
+    fn base_mut(&mut self) -> &mut WidgetBase {
+        &mut self.base
+    }
+    fn map_theme(theme: &Theme) -> WidgetTheme {
+        WidgetTheme {
             background: Some(theme.surface),
             text: Some(theme.text),
             border: Some(theme.border),
@@ -253,7 +209,7 @@ fn push_deferred_render(
     labels: Vec<String>,
     hovered_index: Option<usize>,
     font_size: f32,
-    visuals: WidgetVisuals,
+    visuals: WidgetTheme,
 ) {
     DEFERRED_CONTEXT_MENU_RENDERS.with(|renders| {
         renders.borrow_mut().push(DeferredContextMenuRender {

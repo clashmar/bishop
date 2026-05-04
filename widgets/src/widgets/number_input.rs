@@ -1,6 +1,5 @@
 use crate::clipboard::*;
 use crate::constants::{colors, input_repeat, layout};
-use crate::theme::WidgetThemeMapper;
 use crate::*;
 use std::fmt::Display;
 use std::str::FromStr;
@@ -12,12 +11,9 @@ pub struct NumberInput<T> {
     id: WidgetId,
     rect: Rect,
     current: T,
-    blocked: bool,
     min: Option<T>,
     max: Option<T>,
-    visuals: WidgetVisuals,
-    class_name: Option<String>,
-    style_id: Option<String>,
+    base: WidgetBase,
 }
 
 impl<T> NumberInput<T>
@@ -31,56 +27,19 @@ where
             id,
             rect: rect.into(),
             current,
-            blocked: false,
             min: None,
             max: None,
-            visuals: WidgetVisuals::default(),
-            class_name: None,
-            style_id: None,
+            base: WidgetBase {
+                blocked: false,
+                visuals: WidgetTheme::default(),
+                ..WidgetBase::default()
+            },
         }
-    }
-
-    /// Sets whether the input is blocked from interaction.
-    pub fn blocked(mut self, blocked: bool) -> Self {
-        self.blocked = blocked;
-        self
     }
 
     /// Sets the minimum allowed value.
     pub fn min(mut self, min: T) -> Self {
         self.min = Some(min);
-        self
-    }
-
-    /// Sets visual overrides for the number input.
-    pub fn visuals(mut self, visuals: WidgetVisuals) -> Self {
-        self.visuals = visuals;
-        self
-    }
-
-    pub fn class(mut self, class: impl Into<String>) -> Self {
-        self.class_name = Some(class.into());
-        self
-    }
-
-    pub fn style_id(mut self, id: impl Into<String>) -> Self {
-        self.style_id = Some(id.into());
-        self
-    }
-
-    pub fn maybe_class(mut self, class: Option<&str>) -> Self {
-        if let Some(c) = class { self.class_name = Some(c.to_string()); }
-        self
-    }
-
-    pub fn maybe_style_id(mut self, id: Option<&str>) -> Self {
-        if let Some(i) = id { self.style_id = Some(i.to_string()); }
-        self
-    }
-
-    pub fn apply_selectors(mut self, class: Option<&str>, style_id: Option<&str>) -> Self {
-        if let Some(c) = class { self.class_name = Some(c.to_string()); }
-        if let Some(i) = style_id { self.style_id = Some(i.to_string()); }
         self
     }
 
@@ -92,9 +51,9 @@ where
 
     /// Draws the widget and returns the current numeric value.
     pub fn show<C: BishopContext>(self, ctx: &mut C) -> T {
-        let class = self.class_name.as_deref();
-        let id = self.style_id.as_deref();
-        let theme_vs = themed_visuals_for::<Self>(class, id);
+        let class = self.base.class_name.as_deref();
+        let id = self.base.style_id.as_deref();
+        let theme_vs = resolve_theme_for::<Self>(class, id);
         tab_registry_add(self.id, self.rect, false);
 
         let mut confirmed = false;
@@ -152,7 +111,7 @@ where
             self.rect.y,
             self.rect.w,
             self.rect.h,
-            resolve_with_theme(self.visuals.background, theme_vs.background, colors::DEFAULT_BACKGROUND_COLOR),
+            resolve_with_theme(self.base.visuals.background, theme_vs.background, colors::DEFAULT_BACKGROUND_COLOR),
         );
         ctx.draw_rectangle_lines(
             self.rect.x,
@@ -160,7 +119,7 @@ where
             self.rect.w,
             self.rect.h,
             2.,
-            resolve_with_theme(self.visuals.border, theme_vs.border, Color::WHITE),
+            resolve_with_theme(self.base.visuals.border, theme_vs.border, Color::WHITE),
         );
 
         let text_area_x = self.rect.x + layout::WIDGET_PADDING / 2.;
@@ -184,7 +143,7 @@ where
                     self.rect.y + self.rect.h * 0.2,
                     clipped_end - clipped_start,
                     self.rect.h * 0.6,
-                    resolve_with_theme(self.visuals.accent, theme_vs.accent, colors::DEFAULT_INPUT_SELECTION_COLOR),
+                    resolve_with_theme(self.base.visuals.accent, theme_vs.accent, colors::DEFAULT_INPUT_SELECTION_COLOR),
                 );
             }
         }
@@ -197,7 +156,7 @@ where
             self.rect,
             scroll_offset_x,
             layout::DEFAULT_FONT_SIZE_16,
-            resolve_with_theme(self.visuals.text, theme_vs.text, colors::DEFAULT_TEXT_COLOR),
+            resolve_with_theme(self.base.visuals.text, theme_vs.text, colors::DEFAULT_TEXT_COLOR),
         );
 
         if is_dropdown_open() || is_context_menu_open() {
@@ -208,7 +167,7 @@ where
         let mouse_over = self.rect.contains(Vec2::new(mouse.0, mouse.1));
 
         if ctx.is_mouse_button_pressed(MouseButton::Left) && !is_click_consumed() {
-            focused = mouse_over && !self.blocked;
+            focused = mouse_over && !self.base.blocked;
 
             if !focused {
                 selection_anchor = None;
@@ -500,7 +459,7 @@ where
                     caret_x,
                     self.rect.y + self.rect.h * 0.8,
                     2.,
-                    resolve_with_theme(self.visuals.border, theme_vs.border, colors::DEFAULT_BORDER_COLOR),
+                    resolve_with_theme(self.base.visuals.border, theme_vs.border, colors::DEFAULT_BORDER_COLOR),
                 );
             }
         }
@@ -544,10 +503,11 @@ where
     }
 }
 
-impl<T> WidgetThemeMapper for NumberInput<T> {
-    fn type_kind() -> WidgetType { WidgetType::NumberInput }
-    fn theme_visuals(theme: &Theme) -> WidgetVisuals {
-        WidgetVisuals {
+impl<T> Widget for NumberInput<T> {
+    fn widget_type() -> WidgetType { WidgetType::NumberInput }
+    fn base_mut(&mut self) -> &mut WidgetBase { &mut self.base }
+    fn map_theme(theme: &Theme) -> WidgetTheme {
+        WidgetTheme {
             background: Some(theme.background),
             accent: Some(theme.accent),
             border: Some(theme.border),
@@ -569,7 +529,7 @@ pub fn number_input_reset(id: WidgetId) {
 #[cfg(test)]
 mod theme_tests {
     use super::*;
-    use crate::theme::{Theme, WidgetThemeMapper};
+    use crate::theme::Theme;
 
     #[test]
     fn number_input_theme_mapper_maps_key_roles() {
@@ -580,7 +540,7 @@ mod theme_tests {
             text: Color::BLACK,
             ..Theme::default()
         };
-        let visuals = NumberInput::<f32>::theme_visuals(&theme);
+        let visuals = NumberInput::<f32>::map_theme(&theme);
         assert_eq!(visuals.background, Some(Color::GREEN));
         assert_eq!(visuals.accent, Some(Color::BLUE));
         assert_eq!(visuals.border, Some(Color::new(0.8, 0.8, 0.8, 1.0)));

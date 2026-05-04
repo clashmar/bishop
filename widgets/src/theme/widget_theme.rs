@@ -1,8 +1,8 @@
-use crate::theme::{Theme, WidgetType};
+use crate::widgets::Widget;
 use bishop::Color;
 use serde::{Deserialize, Serialize};
 
-/// Defines the list of color fields on [`WidgetVisuals`] and [`Theme`].
+/// Defines the list of color fields on [`WidgetTheme`] and [`Theme`].
 /// Every field is visited by the caller-provided macro `$m`.
 ///
 /// When you add/remove/rename a color field on the struct, update this
@@ -32,15 +32,15 @@ macro_rules! each_color_field {
     };
 }
 
-/// Per-widget visual overrides. Every field is `Option<Color>` — `None` defers
+/// Per-widget theme overrides. Every field is `Option<Color>` — `None` defers
 /// to the active theme, then to the hardcoded constant fallback.
 ///
 /// Override individual fields with the struct update syntax:
 /// ```ignore
-/// WidgetVisuals { background: Some(Color::RED), ..Default::default() }
+/// WidgetTheme { background: Some(Color::RED), ..Default::default() }
 /// ```
 #[derive(Clone, Copy, Debug, Default, PartialEq, Serialize, Deserialize)]
-pub struct WidgetVisuals {
+pub struct WidgetTheme {
     pub primary: Option<Color>,
     pub secondary: Option<Color>,
     pub background: Option<Color>,
@@ -61,7 +61,7 @@ pub struct WidgetVisuals {
     pub panel_text: Option<Color>,
 }
 
-impl WidgetVisuals {
+impl WidgetTheme {
     /// Merge instance overrides with theme-derived values.
     /// Instance wins where present; theme fills gaps.
     pub fn merge(self, theme: Self) -> Self {
@@ -116,25 +116,11 @@ pub fn resolve_with_theme(
     instance.or(theme_slot).unwrap_or(constant)
 }
 
-/// Maps a `Theme` to `WidgetVisuals` for a specific widget type.
-///
-/// Each widget implements this trait to declare which `Theme` roles
-/// it reads and how they map to its visual fields.
-pub trait WidgetThemeMapper {
-    /// Returns the widget type kind for style rule matching.
-    fn type_kind() -> WidgetType;
-    /// Maps theme roles to WidgetVisuals for this widget type.
-    fn theme_visuals(theme: &Theme) -> WidgetVisuals;
-}
-
 /// Resolves theme visuals for a widget type, applying matching style rules.
-pub fn themed_visuals_for<T: WidgetThemeMapper>(
-    class: Option<&str>,
-    id: Option<&str>,
-) -> WidgetVisuals {
+pub fn resolve_theme_for<T: Widget>(class: Option<&str>, id: Option<&str>) -> WidgetTheme {
     super::with_theme(|t| {
-        let mut base = T::theme_visuals(t);
-        t.apply_rules(T::type_kind(), class, id, &mut base);
+        let mut base = T::map_theme(t);
+        t.apply_rules(T::widget_type(), class, id, &mut base);
         base
     })
 }
@@ -157,7 +143,7 @@ mod tests {
 
     #[test]
     fn resolve_default_widget_visuals_all_none() {
-        let v = WidgetVisuals::default();
+        let v = WidgetTheme::default();
         macro_rules! check_none {
             ($f:ident) => {
                 assert!(v.$f.is_none(), "{} should be None", stringify!($f));
@@ -168,7 +154,7 @@ mod tests {
 
     #[test]
     fn partial_override_leaves_other_fields_default() {
-        let v = WidgetVisuals {
+        let v = WidgetTheme {
             primary: Some(Color::RED),
             ..Default::default()
         };
@@ -198,12 +184,12 @@ mod tests {
 
     #[test]
     fn apply_overrides_some_fields_leaves_others() {
-        let mut base = WidgetVisuals {
+        let mut base = WidgetTheme {
             background: Some(Color::RED),
             text: Some(Color::WHITE),
             ..Default::default()
         };
-        let overrides = WidgetVisuals {
+        let overrides = WidgetTheme {
             background: Some(Color::BLUE),
             ..Default::default()
         };
@@ -214,8 +200,8 @@ mod tests {
 
     #[test]
     fn apply_all_overrides_take_effect() {
-        let mut base = WidgetVisuals::default();
-        let overrides = WidgetVisuals {
+        let mut base = WidgetTheme::default();
+        let overrides = WidgetTheme {
             background: Some(Color::RED),
             text: Some(Color::BLUE),
             border: Some(Color::GREEN),

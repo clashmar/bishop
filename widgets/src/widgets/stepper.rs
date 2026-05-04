@@ -1,5 +1,4 @@
 use crate::constants::{colors, layout};
-use crate::theme::WidgetThemeMapper;
 use crate::*;
 
 /// A stepper widget that allows selecting from a list of predefined values.
@@ -8,10 +7,7 @@ pub struct Stepper<'a> {
     label: &'a str,
     steps: &'a [f32],
     current: f32,
-    blocked: bool,
-    visuals: WidgetVisuals,
-    class_name: Option<String>,
-    style_id: Option<String>,
+    base: WidgetBase,
 }
 
 impl<'a> Stepper<'a> {
@@ -21,61 +17,18 @@ impl<'a> Stepper<'a> {
             label,
             steps,
             current,
-            blocked: false,
-            visuals: WidgetVisuals::default(),
-            class_name: None,
-            style_id: None,
+            base: WidgetBase {
+                blocked: false,
+                visuals: WidgetTheme::default(),
+                ..WidgetBase::default()
+            },
         }
-    }
-
-    pub fn blocked(mut self, blocked: bool) -> Self {
-        self.blocked = blocked;
-        self
-    }
-
-    pub fn visuals(mut self, visuals: WidgetVisuals) -> Self {
-        self.visuals = visuals;
-        self
-    }
-
-    pub fn class(mut self, class: impl Into<String>) -> Self {
-        self.class_name = Some(class.into());
-        self
-    }
-
-    pub fn style_id(mut self, id: impl Into<String>) -> Self {
-        self.style_id = Some(id.into());
-        self
-    }
-
-    pub fn maybe_class(mut self, class: Option<&str>) -> Self {
-        if let Some(c) = class {
-            self.class_name = Some(c.to_string());
-        }
-        self
-    }
-
-    pub fn maybe_style_id(mut self, id: Option<&str>) -> Self {
-        if let Some(i) = id {
-            self.style_id = Some(i.to_string());
-        }
-        self
-    }
-
-    pub fn apply_selectors(mut self, class: Option<&str>, style_id: Option<&str>) -> Self {
-        if let Some(c) = class {
-            self.class_name = Some(c.to_string());
-        }
-        if let Some(i) = style_id {
-            self.style_id = Some(i.to_string());
-        }
-        self
     }
 
     pub fn show<C: BishopContext>(self, ctx: &mut C) -> f32 {
-        let class = self.class_name.as_deref();
-        let id = self.style_id.as_deref();
-        let theme_vs = themed_visuals_for::<Self>(class, id);
+        let class = self.base.class_name.as_deref();
+        let id = self.base.style_id.as_deref();
+        let theme_vs = resolve_theme_for::<Self>(class, id);
         let rect = self.rect;
         let mut idx = self
             .steps
@@ -106,7 +59,11 @@ impl<'a> Stepper<'a> {
             rect.x,
             rect.y,
             layout::FIELD_TEXT_SIZE_16,
-            resolve_with_theme(self.visuals.text, theme_vs.text, colors::DEFAULT_TEXT_COLOR),
+            resolve_with_theme(
+                self.base.visuals.text,
+                theme_vs.text,
+                colors::DEFAULT_TEXT_COLOR,
+            ),
         );
 
         let val_rect = Rect::new(
@@ -123,7 +80,7 @@ impl<'a> Stepper<'a> {
             btn_w + 15.0,
             2.,
             resolve_with_theme(
-                self.visuals.border,
+                self.base.visuals.border,
                 theme_vs.border,
                 colors::DEFAULT_BORDER_COLOR,
             ),
@@ -136,7 +93,11 @@ impl<'a> Stepper<'a> {
             val_rect.x + 7.5,
             val_rect.y + 17.5,
             layout::FIELD_TEXT_SIZE_16,
-            resolve_with_theme(self.visuals.text, theme_vs.text, colors::DEFAULT_TEXT_COLOR),
+            resolve_with_theme(
+                self.base.visuals.text,
+                theme_vs.text,
+                colors::DEFAULT_TEXT_COLOR,
+            ),
         );
 
         let decrease_rect = Rect::new(
@@ -147,8 +108,8 @@ impl<'a> Stepper<'a> {
         );
 
         if Button::new(decrease_rect, "-")
-            .suppressed(self.blocked)
-            .visuals(self.visuals)
+            .suppressed(self.base.blocked)
+            .visuals(self.base.visuals)
             .show(ctx)
             && idx > 0
         {
@@ -162,8 +123,8 @@ impl<'a> Stepper<'a> {
             btn_w,
         );
         if Button::new(increase_rect, "+")
-            .suppressed(self.blocked)
-            .visuals(self.visuals)
+            .suppressed(self.base.blocked)
+            .visuals(self.base.visuals)
             .show(ctx)
             && idx + 1 < self.steps.len()
         {
@@ -174,12 +135,15 @@ impl<'a> Stepper<'a> {
     }
 }
 
-impl WidgetThemeMapper for Stepper<'_> {
-    fn type_kind() -> WidgetType {
+impl Widget for Stepper<'_> {
+    fn widget_type() -> WidgetType {
         WidgetType::Stepper
     }
-    fn theme_visuals(theme: &Theme) -> WidgetVisuals {
-        WidgetVisuals {
+    fn base_mut(&mut self) -> &mut WidgetBase {
+        &mut self.base
+    }
+    fn map_theme(theme: &Theme) -> WidgetTheme {
+        WidgetTheme {
             text: Some(theme.text),
             border: Some(theme.border),
             ..Default::default()
@@ -195,7 +159,7 @@ mod tests {
     #[test]
     fn stepper_builder_overrides_text_color() {
         let mut ctx = WidgetTestContext::new();
-        let custom_visuals = WidgetVisuals {
+        let custom_visuals = WidgetTheme {
             text: Some(Color::RED),
             ..Default::default()
         };
@@ -212,7 +176,7 @@ mod tests {
 #[cfg(test)]
 mod theme_tests {
     use super::*;
-    use crate::theme::{Theme, WidgetThemeMapper};
+    use crate::theme::Theme;
 
     #[test]
     fn stepper_theme_mapper_maps_key_roles() {
@@ -221,7 +185,7 @@ mod theme_tests {
             border: Color::BLUE,
             ..Theme::default()
         };
-        let visuals = Stepper::theme_visuals(&theme);
+        let visuals = Stepper::map_theme(&theme);
         assert_eq!(visuals.text, Some(Color::RED));
         assert_eq!(visuals.border, Some(Color::BLUE));
         assert_eq!(visuals.primary, None);

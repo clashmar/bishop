@@ -395,7 +395,7 @@ fn modal_open_prevents_item_selection() {
 #[cfg(test)]
 mod theme_tests {
     use super::*;
-    use crate::theme::{Theme, WidgetThemeMapper};
+    use crate::theme::Theme;
 
     #[test]
     fn context_menu_theme_mapper_maps_key_roles() {
@@ -406,7 +406,7 @@ mod theme_tests {
             hover: Color::new(0.2, 0.2, 1.0, 1.0),
             ..Theme::default()
         };
-        let visuals = ContextMenu::<String>::theme_visuals(&theme);
+        let visuals = ContextMenu::<String>::map_theme(&theme);
         assert_eq!(visuals.background, Some(Color::GREEN));
         assert_eq!(visuals.text, Some(Color::BLUE));
         assert_eq!(visuals.border, Some(Color::new(0.8, 0.8, 0.8, 1.0)));

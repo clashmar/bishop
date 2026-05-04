@@ -200,7 +200,7 @@ impl RoomEditor {
                 let clicks = Button::new(play_rect, "")
                     .plain()
                     .allow_secondary_click()
-                    .show_clicks(ctx, with_theme(Button::theme_visuals));
+                    .show_clicks(ctx, with_theme(Button::map_theme));
 
                 if clicks.primary {
                     self.request_play = true;
@@ -533,7 +533,14 @@ pub fn draw_light_placeholders(ctx: &mut WgpuContext, ecs: &Ecs, room_id: RoomId
             let yellow = Color::new(0.94, 0.86, 0.0, PLACEHOLDER_OPACITY);
 
             // Outer square
-            ctx.draw_rectangle_lines(body.x, body.y, body.w, body.h, outline_thickness(grid_size), cyan);
+            ctx.draw_rectangle_lines(
+                body.x,
+                body.y,
+                body.w,
+                body.h,
+                outline_thickness(grid_size),
+                cyan,
+            );
 
             // Lens
             let lens_radius = grid_size * 0.2;
@@ -585,7 +592,14 @@ pub fn draw_glow_placeholders(
             let yellow = Color::new(0.94, 0.86, 0.0, PLACEHOLDER_OPACITY);
 
             // Outer square
-            ctx.draw_rectangle_lines(body.x, body.y, body.w, body.h, outline_thickness(grid_size), cyan);
+            ctx.draw_rectangle_lines(
+                body.x,
+                body.y,
+                body.w,
+                body.h,
+                outline_thickness(grid_size),
+                cyan,
+            );
 
             // Lens
             let lens_radius = grid_size * 0.2;

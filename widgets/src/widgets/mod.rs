@@ -8,6 +8,7 @@ mod scrollable_area;
 mod slider;
 mod stepper;
 mod text_input;
+mod widget;
 
 #[cfg(test)]
 mod test_support;
@@ -22,3 +23,4 @@ pub use scrollable_area::*;
 pub use slider::*;
 pub use stepper::*;
 pub use text_input::*;
+pub use widget::{Widget, WidgetBase};

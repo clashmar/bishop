@@ -1,5 +1,4 @@
 use crate::constants::colors;
-use crate::theme::WidgetThemeMapper;
 use crate::*;
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -22,10 +21,7 @@ pub struct Slider {
     min: f32,
     max: f32,
     value: f32,
-    blocked: bool,
-    visuals: WidgetVisuals,
-    class_name: Option<String>,
-    style_id: Option<String>,
+    base: WidgetBase,
 }
 
 impl Slider {
@@ -36,61 +32,18 @@ impl Slider {
             min,
             max,
             value,
-            blocked: false,
-            visuals: WidgetVisuals::default(),
-            class_name: None,
-            style_id: None,
+            base: WidgetBase {
+                blocked: false,
+                visuals: WidgetTheme::default(),
+                ..WidgetBase::default()
+            },
         }
-    }
-
-    pub fn blocked(mut self, blocked: bool) -> Self {
-        self.blocked = blocked;
-        self
-    }
-
-    pub fn visuals(mut self, visuals: WidgetVisuals) -> Self {
-        self.visuals = visuals;
-        self
-    }
-
-    pub fn class(mut self, class: impl Into<String>) -> Self {
-        self.class_name = Some(class.into());
-        self
-    }
-
-    pub fn style_id(mut self, id: impl Into<String>) -> Self {
-        self.style_id = Some(id.into());
-        self
-    }
-
-    pub fn maybe_class(mut self, class: Option<&str>) -> Self {
-        if let Some(c) = class {
-            self.class_name = Some(c.to_string());
-        }
-        self
-    }
-
-    pub fn maybe_style_id(mut self, id: Option<&str>) -> Self {
-        if let Some(i) = id {
-            self.style_id = Some(i.to_string());
-        }
-        self
-    }
-
-    pub fn apply_selectors(mut self, class: Option<&str>, style_id: Option<&str>) -> Self {
-        if let Some(c) = class {
-            self.class_name = Some(c.to_string());
-        }
-        if let Some(i) = style_id {
-            self.style_id = Some(i.to_string());
-        }
-        self
     }
 
     pub fn show<C: BishopContext>(self, ctx: &mut C) -> (f32, SliderState) {
-        let class = self.class_name.as_deref();
-        let id = self.style_id.as_deref();
-        let theme_vs = themed_visuals_for::<Self>(class, id);
+        let class = self.base.class_name.as_deref();
+        let id = self.base.style_id.as_deref();
+        let theme_vs = resolve_theme_for::<Self>(class, id);
         let rect = self.rect;
         let id = self.id;
         let min = self.min;
@@ -131,7 +84,7 @@ impl Slider {
             rect.w,
             rect.h,
             resolve_with_theme(
-                self.visuals.background,
+                self.base.visuals.background,
                 theme_vs.background,
                 colors::DEFAULT_BACKGROUND_COLOR,
             ),
@@ -141,7 +94,7 @@ impl Slider {
             track_y,
             rect.w,
             track_h,
-            resolve_with_theme(self.visuals.secondary, theme_vs.secondary, track_color),
+            resolve_with_theme(self.base.visuals.secondary, theme_vs.secondary, track_color),
         );
         ctx.draw_rectangle_lines(
             rect.x,
@@ -150,17 +103,26 @@ impl Slider {
             rect.h,
             2.,
             resolve_with_theme(
-                self.visuals.border,
+                self.base.visuals.border,
                 theme_vs.border,
                 colors::DEFAULT_BORDER_COLOR,
             ),
         );
 
         let handle_col =
-            if was_dragging && !is_dropdown_open() && !is_context_menu_open() && !self.blocked {
-                resolve_with_theme(self.visuals.hover, theme_vs.hover, handle_color_dragging)
+            if was_dragging && !is_dropdown_open() && !is_context_menu_open() && !self.base.blocked
+            {
+                resolve_with_theme(
+                    self.base.visuals.hover,
+                    theme_vs.hover,
+                    handle_color_dragging,
+                )
             } else {
-                resolve_with_theme(self.visuals.primary, theme_vs.primary, handle_color_idle)
+                resolve_with_theme(
+                    self.base.visuals.primary,
+                    theme_vs.primary,
+                    handle_color_idle,
+                )
             };
         ctx.draw_rectangle(handle_x, rect.y, handle_sz, rect.h, handle_col);
         ctx.draw_rectangle_lines(
@@ -169,10 +131,10 @@ impl Slider {
             handle_sz,
             rect.h,
             2.,
-            resolve_with_theme(self.visuals.border, theme_vs.border, Color::WHITE),
+            resolve_with_theme(self.base.visuals.border, theme_vs.border, Color::WHITE),
         );
 
-        if self.blocked || is_dropdown_open() || is_context_menu_open() {
+        if self.base.blocked || is_dropdown_open() || is_context_menu_open() {
             return (value, SliderState::Unchanged);
         }
 
@@ -225,12 +187,15 @@ impl Slider {
     }
 }
 
-impl WidgetThemeMapper for Slider {
-    fn type_kind() -> WidgetType {
+impl Widget for Slider {
+    fn widget_type() -> WidgetType {
         WidgetType::Slider
     }
-    fn theme_visuals(theme: &Theme) -> WidgetVisuals {
-        WidgetVisuals {
+    fn base_mut(&mut self) -> &mut WidgetBase {
+        &mut self.base
+    }
+    fn map_theme(theme: &Theme) -> WidgetTheme {
+        WidgetTheme {
             primary: Some(theme.primary),
             background: Some(theme.background),
             surface: Some(theme.surface),

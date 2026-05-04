@@ -1,5 +1,4 @@
 // editor/src/menu/menu_canvas/drawing.rs
-use crate::gui::modals::is_modal_open;
 use crate::menu::resize_handle::*;
 use crate::menu::MenuEditor;
 use crate::menu::SnapLine;

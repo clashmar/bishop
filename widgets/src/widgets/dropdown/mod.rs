@@ -1,5 +1,4 @@
 use crate::constants::{colors, layout};
-use crate::theme::WidgetThemeMapper;
 use crate::*;
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -22,7 +21,7 @@ struct DeferredDropdownRender {
     scroll_offset: f32,
     labels: Vec<String>,
     option_count: usize,
-    visuals: WidgetVisuals,
+    visuals: WidgetTheme,
 }
 
 thread_local! {
@@ -133,16 +132,13 @@ pub struct Dropdown<'a, T> {
     text_color: Color,
     label_font_size: f32,
     y_offset: f32,
-    blocked: bool,
     suppressed: bool,
     fixed_width: bool,
     filterable: bool,
     alignment: DropDownAlignment,
     list_width: Option<f32>,
     truncate_trigger: bool,
-    visuals: WidgetVisuals,
-    class_name: Option<String>,
-    style_id: Option<String>,
+    base: WidgetBase,
 }
 
 impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
@@ -164,16 +160,17 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
             text_color: Color::WHITE,
             label_font_size: layout::FIELD_TEXT_SIZE_16,
             y_offset: 0.0,
-            blocked: false,
             suppressed: false,
             fixed_width: false,
             filterable: false,
             alignment: DropDownAlignment::Left,
             list_width: None,
             truncate_trigger: false,
-            visuals: WidgetVisuals::default(),
-            class_name: None,
-            style_id: None,
+            base: WidgetBase {
+                blocked: false,
+                visuals: WidgetTheme::default(),
+                ..WidgetBase::default()
+            },
         }
     }
 
@@ -192,49 +189,9 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
         self
     }
 
-    /// Sets visual overrides for the dropdown.
-    pub fn visuals(mut self, visuals: WidgetVisuals) -> Self {
-        self.visuals = visuals;
-        self
-    }
-
-    pub fn class(mut self, class: impl Into<String>) -> Self {
-        self.class_name = Some(class.into());
-        self
-    }
-
-    pub fn style_id(mut self, id: impl Into<String>) -> Self {
-        self.style_id = Some(id.into());
-        self
-    }
-
-    pub fn maybe_class(mut self, class: Option<&str>) -> Self {
-        if let Some(c) = class {
-            self.class_name = Some(c.to_string());
-        }
-        self
-    }
-
-    pub fn maybe_style_id(mut self, id: Option<&str>) -> Self {
-        if let Some(i) = id {
-            self.style_id = Some(i.to_string());
-        }
-        self
-    }
-
-    pub fn apply_selectors(mut self, class: Option<&str>, style_id: Option<&str>) -> Self {
-        if let Some(c) = class {
-            self.class_name = Some(c.to_string());
-        }
-        if let Some(i) = style_id {
-            self.style_id = Some(i.to_string());
-        }
-        self
-    }
-
     /// Sets the text color.
     pub fn text_color(mut self, color: impl Into<Color>) -> Self {
-        self.visuals.text = Some(color.into());
+        self.base.visuals.text = Some(color.into());
         self
     }
 
@@ -247,12 +204,6 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
     /// Sets the vertical offset for the dropdown list.
     pub fn y_offset(mut self, offset: f32) -> Self {
         self.y_offset = offset;
-        self
-    }
-
-    /// Sets whether the dropdown is blocked from interaction.
-    pub fn blocked(mut self, blocked: bool) -> Self {
-        self.blocked = blocked;
         self
     }
 
@@ -295,9 +246,9 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
 
     /// Draws the dropdown and returns the selected option if one was clicked.
     pub fn show<C: BishopContext>(self, ctx: &mut C) -> Option<T> {
-        let class = self.class_name.as_deref();
-        let id = self.style_id.as_deref();
-        let theme_vs = themed_visuals_for::<Self>(class, id);
+        let class = self.base.class_name.as_deref();
+        let id = self.base.style_id.as_deref();
+        let theme_vs = resolve_theme_for::<Self>(class, id);
         const MAX_VISIBLE_ROWS: usize = 8;
         const SCROLL_SPEED: f32 = 5.0;
         const W_PADDING: f32 = 8.0;
@@ -333,11 +284,11 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
             DropDownStyle::Default => {
                 Button::new(self.rect, display_label)
                     .text_offset(Vec2::new(0.0, -1.0))
-                    .visuals(self.visuals)
-                    .blocked(self.blocked)
+                    .visuals(self.base.visuals)
+                    .blocked(self.base.blocked)
                     .suppressed(self.suppressed)
                     .show(ctx)
-                    && !self.blocked
+                    && !self.base.blocked
                     && !self.suppressed
             }
             DropDownStyle::Plain => {
@@ -346,11 +297,11 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
                     .text_color(self.text_color)
                     .font_size(self.label_font_size)
                     .text_offset(Vec2::new(0.0, -1.0))
-                    .visuals(self.visuals)
-                    .blocked(self.blocked)
+                    .visuals(self.base.visuals)
+                    .blocked(self.base.blocked)
                     .suppressed(self.suppressed)
                     .show(ctx)
-                    && !self.blocked
+                    && !self.base.blocked
                     && !self.suppressed
             }
         };
@@ -402,7 +353,7 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
 
         if list_is_open {
             if self.filterable {
-                let merged = self.visuals.merge(theme_vs);
+                let merged = self.base.visuals.merge(theme_vs);
                 result = self.show_filterable_list(ctx, &merged, &mut state, list_width);
             } else {
                 let visible_rows = MAX_VISIBLE_ROWS.min(self.options.len());
@@ -486,7 +437,7 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
                         scroll_offset,
                         labels,
                         option_count,
-                        visuals: self.visuals.merge(theme_vs),
+                        visuals: self.base.visuals.merge(theme_vs),
                     });
                 });
             }
@@ -513,7 +464,7 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
     fn show_filterable_list<C: BishopContext>(
         &self,
         ctx: &mut C,
-        visuals: &WidgetVisuals,
+        visuals: &WidgetTheme,
         state: &mut dropdown_state::DropState,
         list_width: f32,
     ) -> Option<T> {
@@ -566,7 +517,7 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
         let (new_filter, _) = TextInput::new(filter_id, filter_rect, &prev_filter)
             .in_dropdown()
             .live()
-            .visuals(self.visuals)
+            .visuals(self.base.visuals)
             .show(ctx);
 
         // Reset scroll when filter changes so the user is never stranded past new results
@@ -692,7 +643,7 @@ fn render_dropdown_list<C: BishopContext>(
     scroll_offset: f32,
     labels: &[String],
     option_count: usize,
-    visuals: WidgetVisuals,
+    visuals: WidgetTheme,
 ) {
     ctx.draw_rectangle(
         list_rect.x,
@@ -770,12 +721,15 @@ fn render_dropdown_list<C: BishopContext>(
     );
 }
 
-impl<T> WidgetThemeMapper for Dropdown<'_, T> {
-    fn type_kind() -> WidgetType {
+impl<T> Widget for Dropdown<'_, T> {
+    fn widget_type() -> WidgetType {
         WidgetType::Dropdown
     }
-    fn theme_visuals(theme: &Theme) -> WidgetVisuals {
-        WidgetVisuals {
+    fn base_mut(&mut self) -> &mut WidgetBase {
+        &mut self.base
+    }
+    fn map_theme(theme: &Theme) -> WidgetTheme {
+        WidgetTheme {
             background: Some(theme.surface),
             text: Some(theme.text),
             border: Some(theme.border),

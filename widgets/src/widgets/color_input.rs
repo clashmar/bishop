@@ -1,5 +1,4 @@
 use crate::constants::{colors, layout};
-use crate::theme::WidgetThemeMapper;
 use crate::*;
 
 /// A hex color input widget with a color swatch preview.
@@ -7,10 +6,7 @@ pub struct ColorInput {
     id: WidgetId,
     rect: Rect,
     current: Color,
-    blocked: bool,
-    visuals: WidgetVisuals,
-    class_name: Option<String>,
-    style_id: Option<String>,
+    base: WidgetBase,
 }
 
 impl ColorInput {
@@ -20,64 +16,19 @@ impl ColorInput {
             id,
             rect: rect.into(),
             current,
-            blocked: false,
-            visuals: WidgetVisuals::default(),
-            class_name: None,
-            style_id: None,
+            base: WidgetBase {
+                blocked: false,
+                visuals: WidgetTheme::default(),
+                ..WidgetBase::default()
+            },
         }
-    }
-
-    /// Sets whether the input is blocked from interaction.
-    pub fn blocked(mut self, blocked: bool) -> Self {
-        self.blocked = blocked;
-        self
-    }
-
-    /// Sets visual overrides for the color input.
-    pub fn visuals(mut self, visuals: WidgetVisuals) -> Self {
-        self.visuals = visuals;
-        self
-    }
-
-    pub fn class(mut self, class: impl Into<String>) -> Self {
-        self.class_name = Some(class.into());
-        self
-    }
-
-    pub fn style_id(mut self, id: impl Into<String>) -> Self {
-        self.style_id = Some(id.into());
-        self
-    }
-
-    pub fn maybe_class(mut self, class: Option<&str>) -> Self {
-        if let Some(c) = class {
-            self.class_name = Some(c.to_string());
-        }
-        self
-    }
-
-    pub fn maybe_style_id(mut self, id: Option<&str>) -> Self {
-        if let Some(i) = id {
-            self.style_id = Some(i.to_string());
-        }
-        self
-    }
-
-    pub fn apply_selectors(mut self, class: Option<&str>, style_id: Option<&str>) -> Self {
-        if let Some(c) = class {
-            self.class_name = Some(c.to_string());
-        }
-        if let Some(i) = style_id {
-            self.style_id = Some(i.to_string());
-        }
-        self
     }
 
     /// Draws the widget and returns the resolved color.
     pub fn show<C: BishopContext>(self, ctx: &mut C) -> Color {
-        let class = self.class_name.as_deref();
-        let id = self.style_id.as_deref();
-        let theme_vs = themed_visuals_for::<Self>(class, id);
+        let class = self.base.class_name.as_deref();
+        let id = self.base.style_id.as_deref();
+        let theme_vs = resolve_theme_for::<Self>(class, id);
         let swatch_size = self.rect.h;
         let gap = 4.0;
         let prefix_width = measure_text_ui(ctx, "#", layout::DEFAULT_FONT_SIZE_16).width + 2.0;
@@ -92,14 +43,18 @@ impl ColorInput {
             prefix_x,
             prefix_y,
             layout::DEFAULT_FONT_SIZE_16,
-            resolve_with_theme(self.visuals.text, theme_vs.text, colors::DEFAULT_TEXT_COLOR),
+            resolve_with_theme(
+                self.base.visuals.text,
+                theme_vs.text,
+                colors::DEFAULT_TEXT_COLOR,
+            ),
         );
 
         let hex = self.current.to_hex();
         let text_rect = Rect::new(text_field_x, self.rect.y, text_field_w, self.rect.h);
         let (hex_text, _focused) = TextInput::new(self.id, text_rect, &hex)
-            .blocked(self.blocked)
-            .visuals(self.visuals)
+            .blocked(self.base.blocked)
+            .visuals(self.base.visuals)
             .max_len(6)
             .char_filter(hex_char_filter)
             .show(ctx);
@@ -120,19 +75,22 @@ impl ColorInput {
             swatch_rect.w,
             swatch_rect.h,
             2.0,
-            resolve_with_theme(self.visuals.border, theme_vs.border, Color::WHITE),
+            resolve_with_theme(self.base.visuals.border, theme_vs.border, Color::WHITE),
         );
 
         resolved
     }
 }
 
-impl WidgetThemeMapper for ColorInput {
-    fn type_kind() -> WidgetType {
+impl Widget for ColorInput {
+    fn widget_type() -> WidgetType {
         WidgetType::ColorInput
     }
-    fn theme_visuals(theme: &Theme) -> WidgetVisuals {
-        WidgetVisuals {
+    fn base_mut(&mut self) -> &mut WidgetBase {
+        &mut self.base
+    }
+    fn map_theme(theme: &Theme) -> WidgetTheme {
+        WidgetTheme {
             background: Some(theme.surface),
             border: Some(theme.border),
             accent: Some(theme.accent),
@@ -158,7 +116,7 @@ fn hex_char_filter(c: char) -> Option<char> {
 #[cfg(test)]
 mod theme_tests {
     use super::*;
-    use crate::theme::{Theme, WidgetThemeMapper};
+    use crate::theme::Theme;
 
     #[test]
     fn color_input_theme_mapper_maps_key_roles() {
@@ -169,7 +127,7 @@ mod theme_tests {
             text: Color::BLACK,
             ..Theme::default()
         };
-        let visuals = ColorInput::theme_visuals(&theme);
+        let visuals = ColorInput::map_theme(&theme);
         assert_eq!(visuals.background, Some(Color::GREEN));
         assert_eq!(visuals.border, Some(Color::BLUE));
         assert_eq!(visuals.accent, Some(Color::RED));

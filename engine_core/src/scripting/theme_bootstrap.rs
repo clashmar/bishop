@@ -3,7 +3,7 @@ use mlua::prelude::LuaResult;
 use mlua::{Lua, Table};
 use strum::VariantNames;
 use widgets::theme::set_theme;
-use widgets::theme::{StyleRule, StyleSelector, Theme, WidgetType, WidgetVisuals};
+use widgets::theme::{StyleRule, StyleSelector, Theme, WidgetType, WidgetTheme};
 
 const RULES_KEY: &str = lua_theme::RULES_TABLE;
 const RULE_FN: &str = lua_theme::RULE;
@@ -100,7 +100,7 @@ pub fn lua_table_to_theme(tbl: &Table) -> LuaResult<Theme> {
             if let Ok(rule_tbl) = rules_tbl.get::<Table>(i) {
                 let selector_str: String = rule_tbl.get(SELECTOR_KEY).unwrap_or_default();
                 let selector = selector_from_str(&selector_str);
-                let mut props = WidgetVisuals::default();
+                let mut props = WidgetTheme::default();
                 macro_rules! prop {
                     ($f:ident) => {
                         if let Ok(ct) = rule_tbl.get::<Table>(stringify!($f)) {

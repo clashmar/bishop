@@ -1,7 +1,7 @@
-pub mod visuals;
+pub mod widget_theme;
 
-pub use visuals::{
-    resolve, resolve_with_theme, themed_visuals_for, WidgetThemeMapper, WidgetVisuals,
+pub use widget_theme::{
+    resolve, resolve_with_theme, resolve_theme_for, WidgetTheme,
 };
 
 use crate::constants::colors;
@@ -143,7 +143,7 @@ impl StyleSelector {
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct StyleRule {
     pub selector: StyleSelector,
-    pub properties: WidgetVisuals,
+    pub properties: WidgetTheme,
 }
 
 impl Theme {
@@ -155,7 +155,7 @@ impl Theme {
         widget_type: WidgetType,
         class: Option<&str>,
         id: Option<&str>,
-        base: &mut WidgetVisuals,
+        base: &mut WidgetTheme,
     ) {
         for rule in &self.rules {
             if let StyleSelector::Type(t) = &rule.selector
@@ -200,6 +200,7 @@ pub fn get_theme() -> Theme {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::WidgetBase;
 
     #[test]
     fn theme_ron_roundtrip() {
@@ -263,7 +264,7 @@ mod tests {
     #[test]
     fn apply_rules_empty_returns_base_unchanged() {
         let theme = Theme::default();
-        let mut base = WidgetVisuals {
+        let mut base = WidgetTheme {
             background: Some(Color::RED),
             ..Default::default()
         };
@@ -277,12 +278,12 @@ mod tests {
         let mut theme = Theme::default();
         theme.rules.push(StyleRule {
             selector: StyleSelector::Type(WidgetType::Button),
-            properties: WidgetVisuals {
+            properties: WidgetTheme {
                 background: Some(Color::BLUE),
                 ..Default::default()
             },
         });
-        let mut base = WidgetVisuals {
+        let mut base = WidgetTheme {
             background: Some(Color::RED),
             text: Some(Color::WHITE),
             ..Default::default()
@@ -297,19 +298,19 @@ mod tests {
         let mut theme = Theme::default();
         theme.rules.push(StyleRule {
             selector: StyleSelector::Type(WidgetType::Button),
-            properties: WidgetVisuals {
+            properties: WidgetTheme {
                 background: Some(Color::BLUE),
                 ..Default::default()
             },
         });
         theme.rules.push(StyleRule {
             selector: StyleSelector::Class("danger".into()),
-            properties: WidgetVisuals {
+            properties: WidgetTheme {
                 background: Some(Color::RED),
                 ..Default::default()
             },
         });
-        let mut base = WidgetVisuals {
+        let mut base = WidgetTheme {
             background: Some(Color::GREEN),
             ..Default::default()
         };
@@ -322,26 +323,26 @@ mod tests {
         let mut theme = Theme::default();
         theme.rules.push(StyleRule {
             selector: StyleSelector::Type(WidgetType::Button),
-            properties: WidgetVisuals {
+            properties: WidgetTheme {
                 background: Some(Color::BLUE),
                 ..Default::default()
             },
         });
         theme.rules.push(StyleRule {
             selector: StyleSelector::Class("danger".into()),
-            properties: WidgetVisuals {
+            properties: WidgetTheme {
                 background: Some(Color::RED),
                 ..Default::default()
             },
         });
         theme.rules.push(StyleRule {
             selector: StyleSelector::Id("confirm".into()),
-            properties: WidgetVisuals {
+            properties: WidgetTheme {
                 background: Some(Color::YELLOW),
                 ..Default::default()
             },
         });
-        let mut base = WidgetVisuals {
+        let mut base = WidgetTheme {
             background: Some(Color::GREEN),
             ..Default::default()
         };
@@ -360,22 +361,25 @@ mod tests {
         theme.background = Color::RED;
         theme.rules.push(StyleRule {
             selector: StyleSelector::Type(WidgetType::Button),
-            properties: WidgetVisuals {
+            properties: WidgetTheme {
                 background: Some(Color::BLUE),
                 ..Default::default()
             },
         });
         set_theme(theme);
 
-        struct TestButton;
-        impl WidgetThemeMapper for TestButton {
-            fn type_kind() -> WidgetType { WidgetType::Button }
-            fn theme_visuals(theme: &Theme) -> WidgetVisuals {
-                WidgetVisuals { background: Some(theme.background), ..Default::default() }
+        struct TestButton {
+            base: WidgetBase,
+        }
+        impl crate::widgets::Widget for TestButton {
+            fn widget_type() -> WidgetType { WidgetType::Button }
+            fn base_mut(&mut self) -> &mut WidgetBase { &mut self.base }
+            fn map_theme(theme: &Theme) -> WidgetTheme {
+                WidgetTheme { background: Some(theme.background), ..Default::default() }
             }
         }
 
-        let visuals = themed_visuals_for::<TestButton>(None, None);
+        let visuals = resolve_theme_for::<TestButton>(None, None);
         // Rule overrides base theme mapping
         assert_eq!(visuals.background, Some(Color::BLUE));
     }
@@ -385,29 +389,32 @@ mod tests {
         let mut theme = Theme::default();
         theme.rules.push(StyleRule {
             selector: StyleSelector::Type(WidgetType::Button),
-            properties: WidgetVisuals {
+            properties: WidgetTheme {
                 background: Some(Color::BLUE),
                 ..Default::default()
             },
         });
         theme.rules.push(StyleRule {
             selector: StyleSelector::Class("danger".into()),
-            properties: WidgetVisuals {
+            properties: WidgetTheme {
                 background: Some(Color::RED),
                 ..Default::default()
             },
         });
         set_theme(theme);
 
-        struct TestButton;
-        impl WidgetThemeMapper for TestButton {
-            fn type_kind() -> WidgetType { WidgetType::Button }
-            fn theme_visuals(theme: &Theme) -> WidgetVisuals {
-                WidgetVisuals { background: Some(theme.background), ..Default::default() }
+        struct TestButton {
+            base: WidgetBase,
+        }
+        impl crate::widgets::Widget for TestButton {
+            fn widget_type() -> WidgetType { WidgetType::Button }
+            fn base_mut(&mut self) -> &mut WidgetBase { &mut self.base }
+            fn map_theme(theme: &Theme) -> WidgetTheme {
+                WidgetTheme { background: Some(theme.background), ..Default::default() }
             }
         }
 
-        let visuals = themed_visuals_for::<TestButton>(Some("danger"), None);
+        let visuals = resolve_theme_for::<TestButton>(Some("danger"), None);
         assert_eq!(visuals.background, Some(Color::RED));
     }
 
@@ -417,22 +424,25 @@ mod tests {
         theme.background = Color::GREEN;
         theme.rules.push(StyleRule {
             selector: StyleSelector::Type(WidgetType::Button),
-            properties: WidgetVisuals {
+            properties: WidgetTheme {
                 background: Some(Color::BLUE),
                 ..Default::default()
             },
         });
         set_theme(theme);
 
-        struct TestSlider;
-        impl WidgetThemeMapper for TestSlider {
-            fn type_kind() -> WidgetType { WidgetType::Slider }
-            fn theme_visuals(theme: &Theme) -> WidgetVisuals {
-                WidgetVisuals { background: Some(theme.background), ..Default::default() }
+        struct TestSlider {
+            base: WidgetBase,
+        }
+        impl crate::widgets::Widget for TestSlider {
+            fn widget_type() -> WidgetType { WidgetType::Slider }
+            fn base_mut(&mut self) -> &mut WidgetBase { &mut self.base }
+            fn map_theme(theme: &Theme) -> WidgetTheme {
+                WidgetTheme { background: Some(theme.background), ..Default::default() }
             }
         }
 
-        let visuals = themed_visuals_for::<TestSlider>(None, None);
+        let visuals = resolve_theme_for::<TestSlider>(None, None);
         // Rule targets Button, not Slider — base theme mapping passes through
         assert_eq!(visuals.background, Some(Color::GREEN));
     }

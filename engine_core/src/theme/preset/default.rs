@@ -12,4 +12,3 @@ inventory::submit! {
         build: default_theme,
     }
 }
-

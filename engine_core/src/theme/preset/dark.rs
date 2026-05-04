@@ -29,5 +29,3 @@ inventory::submit! {
         build: dark_theme,
     }
 }
-
-

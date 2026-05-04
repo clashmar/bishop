@@ -1,5 +1,4 @@
 use crate::constants::{colors, layout};
-use crate::theme::WidgetThemeMapper;
 use crate::*;
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
@@ -31,17 +30,14 @@ pub struct Button<'a> {
     content: ButtonContent<'a>,
     style: ButtonStyle,
     font_size: f32,
-    visuals: WidgetVisuals,
     text_offset: Vec2,
-    blocked: bool,
     suppressed: bool,
     focused: bool,
     mouse_position: Option<Vec2>,
     allow_secondary_click: bool,
     interaction_id: Option<ClickTargetId>,
     icon_padding: f32,
-    class_name: Option<String>,
-    style_id: Option<String>,
+    base: WidgetBase,
 }
 
 const BLOCKED_BACKGROUND_COLOR: Color = Color::new(0.08, 0.08, 0.08, 0.9);
@@ -57,17 +53,18 @@ impl<'a> Button<'a> {
             content: ButtonContent::Text(label),
             style: ButtonStyle::Default,
             font_size: layout::FIELD_TEXT_SIZE_16,
-            visuals: WidgetVisuals::default(),
             text_offset: Vec2::ZERO,
-            blocked: false,
             suppressed: false,
             focused: false,
             mouse_position: None,
             allow_secondary_click: false,
             interaction_id: None,
             icon_padding: 2.0,
-            class_name: None,
-            style_id: None,
+            base: WidgetBase {
+                blocked: false,
+                visuals: WidgetTheme::default(),
+                ..WidgetBase::default()
+            },
         }
     }
 
@@ -81,17 +78,18 @@ impl<'a> Button<'a> {
             content: ButtonContent::Icon { texture, id },
             style: ButtonStyle::Default,
             font_size: layout::FIELD_TEXT_SIZE_16,
-            visuals: WidgetVisuals::default(),
             text_offset: Vec2::ZERO,
-            blocked: false,
             suppressed: false,
             focused: false,
             mouse_position: None,
             allow_secondary_click: false,
             interaction_id: None,
             icon_padding: 2.0,
-            class_name: None,
-            style_id: None,
+            base: WidgetBase {
+                blocked: false,
+                visuals: WidgetTheme::default(),
+                ..WidgetBase::default()
+            },
         }
     }
 
@@ -101,21 +99,15 @@ impl<'a> Button<'a> {
         self
     }
 
-    /// Sets visual overrides for the button.
-    pub fn visuals(mut self, visuals: WidgetVisuals) -> Self {
-        self.visuals = visuals;
-        self
-    }
-
     /// Sets the text color. Delegates to [`visuals`].
     pub fn text_color(mut self, color: impl Into<Color>) -> Self {
-        self.visuals.text = Some(color.into());
+        self.base.visuals.text = Some(color.into());
         self
     }
 
     /// Sets the hover background color. Delegates to [`visuals`].
     pub fn hover_color(mut self, color: impl Into<Color>) -> Self {
-        self.visuals.hover = Some(color.into());
+        self.base.visuals.hover = Some(color.into());
         self
     }
 
@@ -128,12 +120,6 @@ impl<'a> Button<'a> {
     /// Sets the font size for the button label.
     pub fn font_size(mut self, size: f32) -> Self {
         self.font_size = size;
-        self
-    }
-
-    /// Sets whether the button is blocked from interaction.
-    pub fn blocked(mut self, blocked: bool) -> Self {
-        self.blocked = blocked;
         self
     }
 
@@ -167,43 +153,6 @@ impl<'a> Button<'a> {
         self
     }
 
-    /// Sets a class name for style rule targeting.
-    pub fn class(mut self, class: impl Into<String>) -> Self {
-        self.class_name = Some(class.into());
-        self
-    }
-
-    /// Sets a style id for per-instance style rule targeting.
-    pub fn style_id(mut self, id: impl Into<String>) -> Self {
-        self.style_id = Some(id.into());
-        self
-    }
-
-    pub fn maybe_class(mut self, class: Option<&str>) -> Self {
-        if let Some(c) = class {
-            self.class_name = Some(c.to_string());
-        }
-        self
-    }
-
-    pub fn maybe_style_id(mut self, id: Option<&str>) -> Self {
-        if let Some(i) = id {
-            self.style_id = Some(i.to_string());
-        }
-        self
-    }
-
-    /// Applies class and style-id from a MenuElement or similar source.
-    pub fn apply_selectors(mut self, class: Option<&str>, style_id: Option<&str>) -> Self {
-        if let Some(c) = class {
-            self.class_name = Some(c.to_string());
-        }
-        if let Some(i) = style_id {
-            self.style_id = Some(i.to_string());
-        }
-        self
-    }
-
     /// Overrides the mouse position used for hover detection (e.g. world-space coords when a camera is active).
     pub fn mouse_position(mut self, pos: Vec2) -> Self {
         self.mouse_position = Some(pos);
@@ -212,9 +161,9 @@ impl<'a> Button<'a> {
 
     /// Draws the button and returns true if clicked.
     pub fn show<C: BishopContext>(self, ctx: &mut C) -> bool {
-        let class = self.class_name.as_deref();
-        let id = self.style_id.as_deref();
-        let theme_vs = themed_visuals_for::<Self>(class, id);
+        let class = self.base.class_name.as_deref();
+        let id = self.base.style_id.as_deref();
+        let theme_vs = resolve_theme_for::<Self>(class, id);
         self.show_clicks(ctx, theme_vs).primary
     }
 
@@ -222,9 +171,9 @@ impl<'a> Button<'a> {
         let interaction_id = self
             .interaction_id
             .unwrap_or_else(|| self.default_interaction_id());
-        let class = self.class_name.as_deref();
-        let id = self.style_id.as_deref();
-        let theme_vs = themed_visuals_for::<Self>(class, id);
+        let class = self.base.class_name.as_deref();
+        let id = self.base.style_id.as_deref();
+        let theme_vs = resolve_theme_for::<Self>(class, id);
         let clicks = self.show_clicks(ctx, theme_vs);
 
         if clicks.primary {
@@ -242,7 +191,7 @@ impl<'a> Button<'a> {
     pub fn show_clicks<C: BishopContext>(
         self,
         ctx: &mut C,
-        theme_vs: WidgetVisuals,
+        theme_vs: WidgetTheme,
     ) -> ButtonClicks {
         let interaction_id = self
             .interaction_id
@@ -254,8 +203,8 @@ impl<'a> Button<'a> {
         let primary_held = hovered && ctx.is_mouse_button_down(MouseButton::Left);
         let secondary_held =
             self.allow_secondary_click && hovered && ctx.is_mouse_button_down(MouseButton::Right);
-        let visually_blocked = self.blocked;
-        let interactive_blocked = self.blocked || self.suppressed;
+        let visually_blocked = self.base.blocked;
+        let interactive_blocked = self.base.blocked || self.suppressed;
 
         let highlight = (hovered || self.focused)
             && !is_dropdown_open()
@@ -268,19 +217,19 @@ impl<'a> Button<'a> {
             ButtonStyle::Default => {
                 let background = if visually_blocked {
                     resolve_with_theme(
-                        self.visuals.surface,
+                        self.base.visuals.surface,
                         theme_vs.surface,
                         BLOCKED_BACKGROUND_COLOR,
                     )
                 } else if highlight {
                     resolve_with_theme(
-                        self.visuals.hover,
+                        self.base.visuals.hover,
                         theme_vs.hover,
                         colors::DEFAULT_HOVER_COLOR,
                     )
                 } else {
                     resolve_with_theme(
-                        self.visuals.background,
+                        self.base.visuals.background,
                         theme_vs.background,
                         colors::DEFAULT_BACKGROUND_COLOR,
                     )
@@ -289,7 +238,7 @@ impl<'a> Button<'a> {
                     BLOCKED_OUTLINE_COLOR
                 } else {
                     resolve_with_theme(
-                        self.visuals.border,
+                        self.base.visuals.border,
                         theme_vs.border,
                         colors::DEFAULT_BORDER_COLOR,
                     )
@@ -318,7 +267,7 @@ impl<'a> Button<'a> {
                         self.rect.w,
                         self.rect.h,
                         resolve_with_theme(
-                            self.visuals.surface,
+                            self.base.visuals.surface,
                             theme_vs.surface,
                             PLAIN_BLOCKED_OVERLAY,
                         ),
@@ -330,7 +279,7 @@ impl<'a> Button<'a> {
                         self.rect.w,
                         self.rect.h,
                         resolve_with_theme(
-                            self.visuals.hover,
+                            self.base.visuals.hover,
                             theme_vs.hover,
                             colors::DEFAULT_HOVER_COLOR,
                         ),
@@ -343,12 +292,16 @@ impl<'a> Button<'a> {
             ButtonContent::Text(label) => {
                 let text_color = if visually_blocked {
                     resolve_with_theme(
-                        self.visuals.text_muted,
+                        self.base.visuals.text_muted,
                         theme_vs.text_muted,
                         BLOCKED_TEXT_COLOR,
                     )
                 } else {
-                    resolve_with_theme(self.visuals.text, theme_vs.text, colors::DEFAULT_TEXT_COLOR)
+                    resolve_with_theme(
+                        self.base.visuals.text,
+                        theme_vs.text,
+                        colors::DEFAULT_TEXT_COLOR,
+                    )
                 };
                 let txt_dims = measure_text_ui(ctx, label, self.font_size);
                 let txt_y = self.rect.y + (self.rect.h - txt_dims.height) / 2.0 + txt_dims.offset_y;
@@ -414,12 +367,15 @@ impl<'a> Button<'a> {
     }
 }
 
-impl WidgetThemeMapper for Button<'_> {
-    fn type_kind() -> WidgetType {
+impl Widget for Button<'_> {
+    fn widget_type() -> WidgetType {
         WidgetType::Button
     }
-    fn theme_visuals(theme: &Theme) -> WidgetVisuals {
-        WidgetVisuals {
+    fn base_mut(&mut self) -> &mut WidgetBase {
+        &mut self.base
+    }
+    fn map_theme(theme: &Theme) -> WidgetTheme {
+        WidgetTheme {
             background: Some(theme.background),
             text: Some(theme.text),
             text_muted: Some(theme.text_muted),
