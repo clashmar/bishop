@@ -60,8 +60,14 @@ impl Color {
     pub const TRANSPARENT: Color = Color::new(0.00, 0.00, 0.00, 0.00);
 
     /// Parses a 6-character hex RGB string into a Color with alpha 1.0.
+    /// Accepts with or without leading `#`. Panics on invalid input.
+    pub fn from_hex(hex: &str) -> Color {
+        Self::try_from_hex(hex).unwrap_or_else(|| panic!("invalid hex color: {hex:?}"))
+    }
+
+    /// Parses a 6-character hex RGB string into a Color with alpha 1.0.
     /// Accepts with or without leading `#`. Returns `None` on invalid input.
-    pub fn from_hex(hex: &str) -> Option<Color> {
+    pub fn try_from_hex(hex: &str) -> Option<Color> {
         let hex = hex.strip_prefix('#').unwrap_or(hex);
         if hex.len() != 6 {
             return None;

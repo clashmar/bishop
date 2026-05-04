@@ -4,25 +4,28 @@ use widgets::theme::Theme;
 use super::ThemePreset;
 
 fn bishop_theme() -> Theme {
+    let primary = Color::from_hex("000000");
+    let secondary = Color::from_hex("122D35");
+
     Theme {
-        primary: Color::new(0.086, 0.420, 0.486, 1.0),
-        secondary: Color::new(0.051, 0.239, 0.278, 1.0),
-        background: Color::new(0.043, 0.118, 0.137, 1.0),
-        surface: Color::new(0.071, 0.176, 0.208, 1.0),
-        text: Color::new(0.878, 0.910, 0.918, 1.0),
-        text_muted: Color::new(0.478, 0.604, 0.639, 1.0),
-        accent: Color::new(0.086, 0.420, 0.486, 1.0),
-        border: Color::new(0.102, 0.227, 0.259, 1.0),
-        hover: Color::new(0.114, 0.310, 0.361, 1.0),
-        danger: Color::new(0.753, 0.224, 0.169, 1.0),
-        selection: Color::new(0.086, 0.420, 0.486, 0.25),
-        highlight: Color::new(0.086, 0.420, 0.486, 1.0),
-        placeholder: Color::new(0.086, 0.420, 0.486, 0.22),
-        card: Color::new(0.071, 0.176, 0.208, 1.0),
-        grid: Color::new(0.086, 0.420, 0.486, 0.15),
-        overlay: Color::new(0.0, 0.0, 0.0, 0.6),
-        panel: Color::new(0.086, 0.420, 0.486, 1.0),
-        panel_text: Color::new(1.0, 1.0, 1.0, 1.0),
+        primary,
+        secondary: Color::from_hex("0D3D47"),
+        background: Color::from_hex("0B1E23"),
+        surface: secondary,
+        text: Color::from_hex("E0E8EA"),
+        text_muted: Color::from_hex("7A9AA3"),
+        accent: primary,
+        border: Color::from_hex("1A3A42"),
+        hover: Color::from_hex("1D4F5C"),
+        danger: Color::from_hex("C0392B"),
+        selection: primary.with_alpha(0.25),
+        highlight: primary,
+        placeholder: primary.with_alpha(0.22),
+        card: secondary,
+        grid: primary.with_alpha(0.15),
+        overlay: Color::from_hex("000000").with_alpha(0.6),
+        panel: primary,
+        panel_text: Color::from_hex("FFFFFF"),
     }
 }
 
@@ -32,5 +35,3 @@ inventory::submit! {
         build: bishop_theme,
     }
 }
-
-

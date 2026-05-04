@@ -64,7 +64,7 @@ impl ColorInput {
             .char_filter(hex_char_filter)
             .show(ctx);
 
-        let resolved = Color::from_hex(&hex_text).unwrap_or(self.current);
+        let resolved = Color::try_from_hex(&hex_text).unwrap_or(self.current);
 
         let swatch_rect = Rect::new(self.rect.x, self.rect.y, swatch_size, swatch_size);
         ctx.draw_rectangle(
