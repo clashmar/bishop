@@ -2,6 +2,7 @@
 use crate::gui::menu_bar::{draw_top_panel_full, menu_panel_rect};
 use crate::menu::MenuEditor;
 use bishop::prelude::*;
+use engine_core::ui::with_theme;
 
 impl MenuEditor {
     /// Draws the menu editor ui.
@@ -54,7 +55,7 @@ impl MenuEditor {
             menu_list_rect.y,
             menu_list_rect.w,
             menu_list_rect.h,
-            Color::new(0.15, 0.15, 0.18, 1.0),
+            with_theme(|theme| theme.background),
         );
 
         ctx.draw_rectangle_lines(
@@ -63,7 +64,7 @@ impl MenuEditor {
             menu_list_rect.w,
             menu_list_rect.h,
             1.0,
-            Color::new(0.4, 0.4, 0.4, 1.0),
+            with_theme(|theme| theme.border),
         );
 
         self.draw_menu_list_panel(ctx, menu_list_rect, blocked);
@@ -74,7 +75,7 @@ impl MenuEditor {
             palette_rect.y,
             palette_rect.w,
             palette_rect.h,
-            Color::new(0.15, 0.15, 0.18, 1.0),
+            with_theme(|theme| theme.background),
         );
 
         ctx.draw_rectangle_lines(
@@ -83,7 +84,7 @@ impl MenuEditor {
             palette_rect.w,
             palette_rect.h,
             1.0,
-            Color::new(0.4, 0.4, 0.4, 1.0),
+            with_theme(|theme| theme.border),
         );
 
         // Handle palette clicks to set pending element type
@@ -97,7 +98,7 @@ impl MenuEditor {
             properties_rect.y,
             properties_rect.w,
             properties_rect.h,
-            Color::new(0.15, 0.15, 0.18, 1.0),
+            with_theme(|theme| theme.background),
         );
 
         ctx.draw_rectangle_lines(
@@ -106,7 +107,7 @@ impl MenuEditor {
             properties_rect.w,
             properties_rect.h,
             1.0,
-            Color::new(0.4, 0.4, 0.4, 1.0),
+            with_theme(|theme| theme.border),
         );
 
         self.draw_properties_panel(ctx, properties_rect, blocked);

@@ -11,7 +11,7 @@ pub mod world {
     use bishop::prelude::*;
 
     /// Default grid size that the world scales to.
-    pub const DEFAULT_GRID_SIZE: f32 = 8.0;
+    pub const DEFAULT_GRID_SIZE: f32 = 16.0;
     pub const MINIMUM_GRID_SIZE: f32 = 5.0;
 
     /// Base tile size for editor scaling.

@@ -20,6 +20,7 @@ use context_menu::{
     pending_action_for_background, ActiveMenu, EntryKind, PendingResourceAction,
     ResourceMenuAction, ResourceOpenResult,
 };
+use engine_core::constants::world;
 use engine_core::prelude::*;
 use icon_mapper::{IconMapper, IconType};
 use navigation::Navigation;
@@ -454,7 +455,7 @@ impl PanelDefinition for ResourcesPanel {
                     badge_x + REGISTRATION_BADGE_SIZE / 2.0,
                     badge_y + REGISTRATION_BADGE_SIZE / 2.0,
                     REGISTRATION_BADGE_SIZE / 2.0,
-                    with_theme(|t| t.accent),
+                    Color::GREEN,
                 );
             }
 
@@ -527,7 +528,7 @@ impl PanelDefinition for ResourcesPanel {
                     content_rect,
                     self.scroll_state.scroll_y,
                 );
-                draw_selection_box(ctx, start_screen, current_screen);
+                draw_selection_box(ctx, start_screen, current_screen, world::DEFAULT_GRID_SIZE);
             }
         }
 

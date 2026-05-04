@@ -345,7 +345,7 @@ impl WorldEditor {
                 // Choose highlight color based on mode
                 let color = match self.mode {
                     WorldEditorMode::Delete => with_theme(|t| t.danger.with_alpha(0.5)),
-                    _ => with_theme(|t| t.accent.with_alpha(0.5)),
+                    _ => with_theme(|t| t.primary.with_alpha(0.5)),
                 };
 
                 ctx.draw_rectangle(

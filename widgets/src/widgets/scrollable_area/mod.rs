@@ -253,7 +253,7 @@ impl ActiveScrollArea {
             self.rect.y,
             self.scrollbar_w,
             self.rect.h,
-            resolve_with_theme(self.visuals.surface, self.theme_vs.surface, TRACK_COLOR),
+            resolve_with_theme(self.visuals.secondary, self.theme_vs.secondary, TRACK_COLOR),
         );
 
         // Thumb

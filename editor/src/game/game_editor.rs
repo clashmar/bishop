@@ -187,7 +187,7 @@ impl GameEditor {
             {
                 match self.mode {
                     GameEditorMode::Delete => with_theme(|t| t.danger),
-                    _ => with_theme(|t| t.accent),
+                    _ => with_theme(|t| t.primary),
                 }
             } else {
                 Color::WHITE

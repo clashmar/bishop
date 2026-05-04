@@ -20,10 +20,6 @@ const PLACEHOLDER_OPACITY: f32 = 0.5;
 const MODE_SELECTOR_PADDING: f32 = 8.0;
 const PREFAB_GHOST_OPACITY: f32 = 0.55;
 
-fn thickness(grid_size: f32) -> f32 {
-    (grid_size * 0.1).max(1.0)
-}
-
 #[derive(Clone, Copy)]
 struct MergedPlayButtonLayout {
     play_x: f32,
@@ -242,7 +238,6 @@ impl RoomEditor {
     }
 
     /// Draw viewport rectangles for all cameras in the room when a camera is selected.
-    /// The selected camera is drawn in yellow, others in pink.
     pub fn draw_camera_viewport(
         &self,
         ctx: &mut WgpuContext,
@@ -297,11 +292,10 @@ impl RoomEditor {
             let half = vec2(viewport_w, viewport_h) * 0.5;
             let top_left = pos - half;
 
-            // Selected camera is yellow, others are dimmer cyan
             let color = if *entity == selected {
-                Color::YELLOW
+                with_theme(|t| t.highlight)
             } else {
-                Color::PINK
+                with_theme(|t| t.accent)
             };
 
             ctx.draw_rectangle_lines(
@@ -320,12 +314,13 @@ fn draw_merged_play_button_label(
 ) {
     let layout = merged_play_button_layout(rect, play_dims, mode_dims);
 
+    let text_color = with_theme(|t| t.panel_text);
     ctx.draw_text(
         "Play",
         layout.play_x,
         layout.play_y,
         layout::HEADER_FONT_SIZE_20,
-        Color::BLACK,
+        text_color,
     );
     ctx.draw_line(
         layout.divider_x,
@@ -333,14 +328,14 @@ fn draw_merged_play_button_label(
         layout.divider_x,
         layout.divider_y + layout.divider_h,
         1.0,
-        Color::BLACK,
+        text_color,
     );
     ctx.draw_text(
         &startup_mode.to_string(),
         layout.mode_x,
         layout.mode_y,
         layout::DEFAULT_FONT_SIZE_16,
-        Color::BLACK,
+        text_color,
     );
 }
 
@@ -350,7 +345,6 @@ pub fn highlight_selected_entity<C: BishopContext>(
     ecs: &Ecs,
     entity: Entity,
     sprite_manager: &mut SpriteManager,
-    color: Color,
     grid_size: f32,
 ) {
     let transform = match ecs.get_store::<Transform>().get(entity) {
@@ -361,12 +355,13 @@ pub fn highlight_selected_entity<C: BishopContext>(
     let (draw_pos, size) =
         entity_selection_rect(entity, transform.position, ecs, sprite_manager, grid_size);
 
+    let color = with_theme(|t| t.highlight);
     ctx.draw_rectangle_lines(
         draw_pos.x,
         draw_pos.y,
         size.x,
         size.y,
-        thickness(grid_size) * 0.25,
+        outline_thickness(grid_size) * 0.25,
         color,
     );
 }
@@ -538,7 +533,7 @@ pub fn draw_light_placeholders(ctx: &mut WgpuContext, ecs: &Ecs, room_id: RoomId
             let yellow = Color::new(0.94, 0.86, 0.0, PLACEHOLDER_OPACITY);
 
             // Outer square
-            ctx.draw_rectangle_lines(body.x, body.y, body.w, body.h, thickness(grid_size), cyan);
+            ctx.draw_rectangle_lines(body.x, body.y, body.w, body.h, outline_thickness(grid_size), cyan);
 
             // Lens
             let lens_radius = grid_size * 0.2;
@@ -548,7 +543,7 @@ pub fn draw_light_placeholders(ctx: &mut WgpuContext, ecs: &Ecs, room_id: RoomId
                 lens_center.x,
                 lens_center.y,
                 lens_radius,
-                thickness(grid_size) * 0.75,
+                outline_thickness(grid_size) * 0.75,
                 yellow,
             );
         }
@@ -590,7 +585,7 @@ pub fn draw_glow_placeholders(
             let yellow = Color::new(0.94, 0.86, 0.0, PLACEHOLDER_OPACITY);
 
             // Outer square
-            ctx.draw_rectangle_lines(body.x, body.y, body.w, body.h, thickness(grid_size), cyan);
+            ctx.draw_rectangle_lines(body.x, body.y, body.w, body.h, outline_thickness(grid_size), cyan);
 
             // Lens
             let lens_radius = grid_size * 0.2;
@@ -600,7 +595,7 @@ pub fn draw_glow_placeholders(
                 lens_center.x,
                 lens_center.y,
                 lens_radius,
-                thickness(grid_size) * 0.75,
+                outline_thickness(grid_size) * 0.75,
                 yellow,
             );
         }
@@ -647,7 +642,7 @@ pub fn draw_interactable_ranges(ctx: &mut WgpuContext, ecs: &Ecs, room_id: RoomI
                 pos.x,
                 pos.y,
                 interactable.range,
-                thickness(grid_size) * 0.25,
+                outline_thickness(grid_size) * 0.25,
                 violet,
             );
         }
@@ -719,7 +714,7 @@ pub fn draw_all_camera_viewports(
             viewport_w,
             viewport_h,
             thickness,
-            Color::PINK,
+            with_theme(|t| t.accent),
         );
     }
 }

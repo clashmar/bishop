@@ -1,9 +1,12 @@
 // editor/src/menu/menu_canvas/drawing.rs
+use crate::gui::modals::is_modal_open;
 use crate::menu::resize_handle::*;
 use crate::menu::MenuEditor;
 use crate::menu::SnapLine;
+use crate::shared::input::canvas_blocked_by_global_ui;
 use crate::shared::selection::draw_selection_box;
 use bishop::prelude::*;
+use engine_core::constants::world;
 use engine_core::prelude::*;
 
 pub(crate) struct MenuCanvasFrame<'a> {
@@ -22,7 +25,7 @@ impl MenuEditor {
             rect.y,
             rect.w,
             rect.h,
-            Color::new(0.15, 0.15, 0.2, 1.0),
+            with_theme(|theme| theme.background),
         );
 
         ctx.draw_rectangle_lines(
@@ -31,7 +34,7 @@ impl MenuEditor {
             rect.w,
             rect.h,
             2.0,
-            Color::new(0.4, 0.4, 0.4, 1.0),
+            with_theme(|theme| theme.border),
         );
 
         let canvas_origin = Vec2::new(rect.x, rect.y);
@@ -46,7 +49,7 @@ impl MenuEditor {
                 center_x - 55.0,
                 center_y,
                 14.0,
-                Color::new(0.4, 0.4, 0.4, 1.0),
+                with_theme(|theme| theme.text),
             );
             return;
         }
@@ -70,7 +73,7 @@ impl MenuEditor {
             }
 
             // Draw snap guide lines
-            let guide_color = Color::new(1.0, 1.0, 0.4, 0.4);
+            let guide_color = with_theme(|theme| theme.highlight);
             for line in &self.snap_lines {
                 match line {
                     SnapLine::Vertical(nx) => {
@@ -95,7 +98,7 @@ impl MenuEditor {
                 world_mouse,
                 preview: false,
             };
-            
+
             let sorted = template.sorted_element_indices();
             for i in sorted {
                 let element = &template.elements[i];
@@ -115,7 +118,7 @@ impl MenuEditor {
                     size,
                     size,
                     2.0,
-                    Color::new(0.5, 0.8, 0.5, 0.8),
+                    with_theme(|theme| theme.primary),
                 );
             }
         }
@@ -131,7 +134,7 @@ impl MenuEditor {
                     canvas_origin.x + current.x * canvas_size.x,
                     canvas_origin.y + current.y * canvas_size.y,
                 );
-                draw_selection_box(ctx, start_screen, end_screen);
+                draw_selection_box(ctx, start_screen, end_screen, world::DEFAULT_GRID_SIZE);
             }
         }
     }
@@ -164,7 +167,7 @@ impl MenuEditor {
         let raw_mouse: Vec2 = ctx.mouse_position().into();
         let world_mouse =
             camera.screen_to_world(raw_mouse, ctx.screen_width(), ctx.screen_height());
-            
+
         let mut frame = MenuCanvasFrame {
             ctx,
             canvas_origin,
@@ -198,6 +201,7 @@ impl MenuEditor {
                 Button::new(element_rect, &display_text)
                     .font_size(button.font_size)
                     .mouse_position(world_mouse)
+                    .suppressed(canvas_blocked_by_global_ui(frame.ctx))
                     .show(frame.ctx);
 
                 if is_selected {
@@ -207,7 +211,7 @@ impl MenuEditor {
                         element_rect.w,
                         element_rect.h,
                         2.0,
-                        Color::new(0.6, 0.8, 1.0, 1.0),
+                        with_theme(|theme| theme.highlight),
                     );
                 }
             }
@@ -225,18 +229,14 @@ impl MenuEditor {
                 }
 
                 if !preview {
-                    let outline_color = if is_selected {
-                        Color::new(0.6, 0.9, 0.6, 1.0)
-                    } else {
-                        Color::new(0.4, 0.7, 0.4, 0.8)
-                    };
+                    let outline_color = selection_outline_color(is_selected);
 
                     frame.ctx.draw_rectangle_lines(
                         element_rect.x,
                         element_rect.y,
                         element_rect.w,
                         element_rect.h,
-                        if is_selected { 2.0 } else { 1.0 },
+                        selection_line_thickness(is_selected),
                         outline_color,
                     );
 
@@ -324,18 +324,14 @@ impl MenuEditor {
             }
             MenuElementKind::Label(label) => {
                 if !preview {
-                    let outline_color = if is_selected {
-                        Color::new(0.6, 0.8, 1.0, 1.0)
-                    } else {
-                        Color::new(0.5, 0.5, 0.5, 1.0)
-                    };
+                    let outline_color = selection_outline_color(is_selected);
 
                     frame.ctx.draw_rectangle_lines(
                         element_rect.x,
                         element_rect.y,
                         element_rect.w,
                         element_rect.h,
-                        if is_selected { 2.0 } else { 1.0 },
+                        selection_line_thickness(is_selected),
                         outline_color,
                     );
                 }
@@ -364,23 +360,15 @@ impl MenuEditor {
                     element_rect.w - split,
                     element_rect.h,
                 );
-                let track_h = element_rect.h * 0.2;
-                let track_y = element_rect.y + (element_rect.h - track_h) * 0.5;
-
-                frame.ctx.draw_rectangle(
-                    track_rect.x,
-                    track_rect.y,
-                    track_rect.w,
-                    track_rect.h,
-                    Color::new(0.15, 0.15, 0.18, 1.0),
-                );
-                frame.ctx.draw_rectangle(
-                    track_rect.x,
-                    track_y,
-                    track_rect.w,
-                    track_h,
-                    Color::new(0.2, 0.2, 0.2, 0.8),
-                );
+                Slider::new(
+                    slider.widget_id,
+                    track_rect,
+                    slider.min,
+                    slider.max,
+                    slider.default_value,
+                )
+                .blocked(true)
+                .show(frame.ctx);
 
                 let text_dims = frame.ctx.measure_text(&slider.text_key, 14.0);
                 let text_y =
@@ -394,17 +382,13 @@ impl MenuEditor {
                 );
 
                 if !preview {
-                    let outline_color = if is_selected {
-                        Color::new(0.6, 0.8, 1.0, 1.0)
-                    } else {
-                        Color::new(0.5, 0.5, 0.5, 1.0)
-                    };
+                    let outline_color = selection_outline_color(is_selected);
                     frame.ctx.draw_rectangle_lines(
                         element_rect.x,
                         element_rect.y,
                         element_rect.w,
                         element_rect.h,
-                        if is_selected { 2.0 } else { 1.0 },
+                        selection_line_thickness(is_selected),
                         outline_color,
                     );
                 }
@@ -419,18 +403,14 @@ impl MenuEditor {
                 );
 
                 if !preview {
-                    let outline_color = if is_selected {
-                        Color::new(0.6, 0.8, 1.0, 1.0)
-                    } else {
-                        Color::new(0.5, 0.5, 0.5, 1.0)
-                    };
+                    let outline_color = selection_outline_color(is_selected);
 
                     frame.ctx.draw_rectangle_lines(
                         element_rect.x,
                         element_rect.y,
                         element_rect.w,
                         element_rect.h,
-                        if is_selected { 2.0 } else { 1.0 },
+                        selection_line_thickness(is_selected),
                         outline_color,
                     );
 
@@ -541,6 +521,22 @@ pub(crate) fn draw_reorder_indicator(
 }
 
 /// Maps a Vec child index to its managed slot index.
+fn selection_outline_color(is_selected: bool) -> Color {
+    if is_selected {
+        with_theme(|theme| theme.highlight)
+    } else {
+        Color::new(0., 0., 0., 0.)
+    }
+}
+
+fn selection_line_thickness(is_selected: bool) -> f32 {
+    if is_selected {
+        2.0
+    } else {
+        1.0
+    }
+}
+
 fn child_index_to_managed_slot(group: &LayoutGroupElement, child_index: usize) -> usize {
     group
         .children

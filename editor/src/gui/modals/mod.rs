@@ -111,7 +111,7 @@ impl Modal {
             self.rect.y,
             self.rect.w,
             self.rect.h,
-            with_theme(|t| t.surface),
+            with_theme(|t| t.panel),
         );
 
         ctx.draw_rectangle_lines(

@@ -5,7 +5,6 @@ use crate::gui::modals::{
 };
 use crate::gui::modals::new_game::NewGameModal;
 use bishop::prelude::*;
-use engine_core::prelude::*;
 
 impl Editor {
     /// Returns `Some(name)` when the user confirms, `None` on cancel.

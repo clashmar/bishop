@@ -13,7 +13,7 @@ pub mod layout {
 pub mod colors {
     use bishop::Color;
 
-    pub const DEFAULT_PRIMARY_COLOR: Color = Color::new(0.0, 0.0, 0.0, 1.0);
+    pub const DEFAULT_PRIMARY_COLOR: Color = Color::GREEN;
     pub const DEFAULT_SECONDARY_COLOR: Color = Color::new(0.2, 0.2, 0.2, 0.8);
     pub const DEFAULT_BACKGROUND_COLOR: Color = Color::new(0.0, 0.0, 0.0, 1.0);
     pub const DEFAULT_SURFACE_COLOR: Color = Color::new(0.08, 0.08, 0.08, 0.9);

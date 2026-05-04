@@ -5,6 +5,7 @@ mod movement;
 pub(crate) mod selection;
 mod shortcuts;
 
+use engine_core::constants::world;
 use self::canvas::draw_prefab_entities;
 use crate::app::EditorCameraController;
 use crate::app::EditorMode;
@@ -166,7 +167,7 @@ impl PrefabEditor {
         self.active_rects.clear();
 
         ctx.set_camera(camera);
-        ctx.clear_background(Color::BISHOP_BLUE);
+        ctx.clear_background(with_theme(|theme| theme.background));
 
         if self.show_grid {
             grid::draw_grid(ctx, grid_renderer, camera, PREFAB_EDITOR_GRID_SIZE);
@@ -185,7 +186,6 @@ impl PrefabEditor {
                 game_ctx.ecs,
                 selected_entity,
                 game_ctx.sprite_manager,
-                Color::YELLOW,
                 PREFAB_EDITOR_GRID_SIZE,
             );
             draw_pivot_marker(ctx, game_ctx.ecs, selected_entity);
@@ -198,7 +198,7 @@ impl PrefabEditor {
         if self.drag_state.box_select_active {
             if let Some(start) = self.drag_state.box_select_start {
                 let mouse_world = coord::mouse_world_pos(ctx, camera);
-                draw_selection_box(ctx, start, mouse_world);
+                draw_selection_box(ctx, start, mouse_world, world::DEFAULT_GRID_SIZE);
             }
         }
 

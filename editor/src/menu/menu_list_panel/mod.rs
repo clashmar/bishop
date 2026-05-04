@@ -135,11 +135,11 @@ impl MenuEditor {
             let hover = item_rect.contains(mouse);
 
             let bg_color = if is_selected {
-                Color::new(0.3, 0.4, 0.6, 1.0)
+                with_theme(|theme| theme.primary)
             } else if hover && !blocked {
-                Color::new(0.25, 0.25, 0.3, 1.0)
+                with_theme(|theme| theme.hover)
             } else {
-                Color::new(0.2, 0.2, 0.25, 1.0)
+                with_theme(|theme| theme.background)
             };
 
             ctx.draw_rectangle(item_rect.x, item_rect.y, item_rect.w, item_rect.h, bg_color);

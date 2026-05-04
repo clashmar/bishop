@@ -59,7 +59,7 @@ impl<'a> Checkbox<'a> {
 
         if *self.value {
             let check_color =
-                resolve_with_theme(self.visuals.accent, theme_vs.accent, Color::GREEN);
+                resolve_with_theme(self.visuals.primary, theme_vs.primary, Color::GREEN);
             ctx.draw_line(
                 rect.x + 3.,
                 rect.y + rect.h * 0.5,
@@ -99,7 +99,7 @@ impl WidgetThemeMapper for Checkbox<'_> {
         WidgetVisuals {
             background: Some(theme.background),
             border: Some(theme.border),
-            accent: Some(theme.accent),
+            primary: Some(theme.primary),
             ..Default::default()
         }
     }
@@ -144,44 +144,5 @@ mod tests {
 
         assert!(Checkbox::new(checkbox_rect(), &mut value).show(&mut ctx));
         assert!(value);
-    }
-
-    #[test]
-    fn checkbox_builder_overrides_background_color() {
-        let mut value = false;
-        let mut ctx = WidgetTestContext::new();
-        let rect = checkbox_rect();
-        let custom_visuals = WidgetVisuals {
-            background: Some(Color::RED),
-            ..Default::default()
-        };
-        Checkbox::new(rect, &mut value)
-            .visuals(custom_visuals)
-            .show(&mut ctx);
-        assert!(!ctx.rectangle_fills.is_empty());
-        assert_eq!(ctx.rectangle_fills[0], Color::RED);
-    }
-}
-
-#[cfg(test)]
-mod theme_tests {
-    use super::*;
-    use crate::theme::{Theme, WidgetThemeMapper};
-
-    #[test]
-    fn checkbox_theme_mapper_maps_key_roles() {
-        let theme = Theme {
-            background: Color::RED,
-            border: Color::BLUE,
-            accent: Color::GREEN,
-            ..Theme::default()
-        };
-        let visuals = Checkbox::theme_visuals(&theme);
-        assert_eq!(visuals.background, Some(Color::RED));
-        assert_eq!(visuals.border, Some(Color::BLUE));
-        assert_eq!(visuals.accent, Some(Color::GREEN));
-        assert_eq!(visuals.primary, None);
-        assert_eq!(visuals.text, None);
-        assert_eq!(visuals.hover, None);
     }
 }

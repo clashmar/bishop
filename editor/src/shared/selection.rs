@@ -1,5 +1,6 @@
 // editor/src/shared/selection.rs
 use bishop::prelude::*;
+use engine_core::prelude::*;
 
 /// Creates a Rect from two corner points, handling any orientation.
 pub fn rect_from_two_points(a: Vec2, b: Vec2) -> Rect {
@@ -16,7 +17,7 @@ pub fn rects_intersect(a: Rect, b: Rect) -> bool {
 }
 
 /// Draws a selection box rectangle in world space.
-pub fn draw_selection_box(ctx: &mut WgpuContext, start: Vec2, end: Vec2) {
+pub fn draw_selection_box(ctx: &mut WgpuContext, start: Vec2, end: Vec2, grid_size: f32) {
     let min_x = start.x.min(end.x);
     let min_y = start.y.min(end.y);
     let max_x = start.x.max(end.x);
@@ -24,10 +25,16 @@ pub fn draw_selection_box(ctx: &mut WgpuContext, start: Vec2, end: Vec2) {
     let width = max_x - min_x;
     let height = max_y - min_y;
 
-    // Semi-transparent fill
-    ctx.draw_rectangle(min_x, min_y, width, height, Color::new(1.0, 1.0, 0.0, 0.1));
-    // Yellow outline
-    ctx.draw_rectangle_lines(min_x, min_y, width, height, 1.0, Color::YELLOW);
+    let color = with_theme(|t| t.highlight);
+    ctx.draw_rectangle(min_x, min_y, width, height, color.with_alpha(0.1));
+    ctx.draw_rectangle_lines(
+        min_x,
+        min_y,
+        width,
+        height,
+        outline_thickness(grid_size) * 0.25,
+        color,
+    );
 }
 
 #[cfg(test)]

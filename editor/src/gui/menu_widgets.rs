@@ -106,7 +106,7 @@ pub(crate) fn menu_dropdown<T: Clone + PartialEq + Display>(
             list_rect.y,
             list_rect.w,
             list_rect.h,
-            with_theme(|t| t.panel),
+            with_theme(|t| t.background),
         );
 
         for (i, opt) in options.iter().enumerate() {
@@ -143,7 +143,7 @@ pub(crate) fn menu_dropdown<T: Clone + PartialEq + Display>(
                 entry_rect.x + 5.0,
                 entry_rect.y + entry_rect.h * 0.7,
                 layout::DEFAULT_FONT_SIZE_16,
-                with_theme(|t| t.panel_text),
+                with_theme(|t| t.text),
             );
 
             if let Some(shortcut) = shortcut(opt) {

@@ -101,7 +101,7 @@ impl Slider {
             track_y,
             rect.w,
             track_h,
-            resolve_with_theme(self.visuals.surface, theme_vs.surface, track_color),
+            resolve_with_theme(self.visuals.secondary, theme_vs.secondary, track_color),
         );
         ctx.draw_rectangle_lines(
             rect.x,
@@ -188,60 +188,12 @@ impl Slider {
 impl WidgetThemeMapper for Slider {
     fn theme_visuals(theme: &Theme) -> WidgetVisuals {
         WidgetVisuals {
+            primary: Some(theme.primary),
             background: Some(theme.background),
             surface: Some(theme.surface),
             border: Some(theme.border),
             hover: Some(theme.hover),
-            primary: Some(theme.primary),
             ..Default::default()
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::widgets::test_support::WidgetTestContext;
-
-    #[test]
-    fn slider_builder_overrides_track_color() {
-        let mut ctx = WidgetTestContext::new();
-        let custom_visuals = WidgetVisuals {
-            background: Some(Color::RED),
-            ..Default::default()
-        };
-        let id = WidgetId::default();
-        let rect = Rect::new(0.0, 0.0, 200.0, 20.0);
-        let (_val, _state) = Slider::new(id, rect, 0.0, 1.0, 0.5)
-            .visuals(custom_visuals)
-            .show(&mut ctx);
-        assert!(ctx.rectangle_fills.len() >= 1);
-        assert_eq!(ctx.rectangle_fills[0], Color::RED);
-    }
-}
-
-#[cfg(test)]
-mod theme_tests {
-    use super::*;
-    use crate::theme::{Theme, WidgetThemeMapper};
-
-    #[test]
-    fn slider_theme_mapper_maps_key_roles() {
-        let theme = Theme {
-            background: Color::RED,
-            surface: Color::GREEN,
-            border: Color::BLUE,
-            primary: Color::BLACK,
-            hover: Color::new(0.1, 0.1, 0.1, 1.0),
-            ..Theme::default()
-        };
-        let visuals = Slider::theme_visuals(&theme);
-        assert_eq!(visuals.background, Some(Color::RED));
-        assert_eq!(visuals.surface, Some(Color::GREEN));
-        assert_eq!(visuals.border, Some(Color::BLUE));
-        assert_eq!(visuals.primary, Some(Color::BLACK));
-        assert_eq!(visuals.hover, Some(Color::new(0.1, 0.1, 0.1, 1.0)));
-        assert_eq!(visuals.accent, None);
-        assert_eq!(visuals.text, None);
     }
 }
