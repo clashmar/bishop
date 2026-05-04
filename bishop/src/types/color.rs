@@ -67,7 +67,6 @@ impl Color {
 
     /// Parses a 6-character hex RGB string into a Color with alpha 1.0.
     /// Accepts with or without leading `#`. Returns `None` on invalid input.
-    /// Converts from sRGB to linear for correct display on sRGB framebuffers.
     pub fn try_from_hex(hex: &str) -> Option<Color> {
         let hex = hex.strip_prefix('#').unwrap_or(hex);
         if hex.len() != 6 {
@@ -77,36 +76,19 @@ impl Color {
         let g = u8::from_str_radix(&hex[2..4], 16).ok()?;
         let b = u8::from_str_radix(&hex[4..6], 16).ok()?;
         Some(Color::new(
-            srgb_to_linear(r as f32 / 255.0),
-            srgb_to_linear(g as f32 / 255.0),
-            srgb_to_linear(b as f32 / 255.0),
+            r as f32 / 255.0,
+            g as f32 / 255.0,
+            b as f32 / 255.0,
             1.0,
         ))
     }
 
     /// Returns the color as a 6-character uppercase hex string (no `#` prefix).
-    /// Converts from linear back to sRGB for display.
     pub fn to_hex(&self) -> String {
-        let r = (linear_to_srgb(self.r) * 255.0).round() as u8;
-        let g = (linear_to_srgb(self.g) * 255.0).round() as u8;
-        let b = (linear_to_srgb(self.b) * 255.0).round() as u8;
+        let r = (self.r * 255.0).round() as u8;
+        let g = (self.g * 255.0).round() as u8;
+        let b = (self.b * 255.0).round() as u8;
         format!("{:02X}{:02X}{:02X}", r, g, b)
-    }
-}
-
-fn srgb_to_linear(c: f32) -> f32 {
-    if c <= 0.04045 {
-        c / 12.92
-    } else {
-        ((c + 0.055) / 1.055).powf(2.4)
-    }
-}
-
-fn linear_to_srgb(c: f32) -> f32 {
-    if c <= 0.0031308 {
-        c * 12.92
-    } else {
-        1.055 * c.powf(1.0 / 2.4) - 0.055
     }
 }
 

@@ -316,21 +316,12 @@ impl<'a> Button<'a> {
                 );
             }
             ButtonContent::Icon { texture, .. } => {
-                let icon_color = if visually_blocked {
-                    resolve_with_theme(
-                        self.visuals.text_muted,
-                        theme_vs.text_muted,
-                        BLOCKED_TEXT_COLOR,
-                    )
-                } else {
-                    resolve_with_theme(self.visuals.text, theme_vs.text, colors::DEFAULT_TEXT_COLOR)
-                };
                 let p = self.icon_padding;
                 ctx.draw_texture_ex(
                     texture,
                     self.rect.x + p,
                     self.rect.y + p,
-                    icon_color,
+                    Color::WHITE,
                     DrawTextureParams {
                         dest_size: Some(Vec2::new(self.rect.w - 2.0 * p, self.rect.h - 2.0 * p)),
                         ..Default::default()

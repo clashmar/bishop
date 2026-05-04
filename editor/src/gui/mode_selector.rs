@@ -68,7 +68,7 @@ impl<M: ModeInfo + Copy + PartialEq> ModeSelector<M> {
                 mode.icon(),
                 rect.x,
                 rect.y,
-                with_theme(|t| t.text),
+                Color::WHITE,
                 DrawTextureParams {
                     dest_size: Some(vec2(rect.w, rect.h)),
                     ..Default::default()
@@ -203,7 +203,7 @@ pub fn draw_sub_mode_strip<S: ModeInfo + Copy + PartialEq + 'static>(
             mode.icon(),
             rect.x,
             rect.y,
-            with_theme(|t| t.text),
+            Color::WHITE,
             DrawTextureParams {
                 dest_size: Some(vec2(rect.w, rect.h)),
                 ..Default::default()

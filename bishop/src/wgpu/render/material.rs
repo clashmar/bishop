@@ -199,14 +199,7 @@ impl GridMaterial {
     ) -> Self {
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("grid_shader"),
-            source: wgpu::ShaderSource::Wgsl(
-                concat!(
-                    include_str!("shaders/vertex.wgsl"),
-                    "\n",
-                    include_str!("shaders/grid.wgsl")
-                )
-                .into(),
-            ),
+            source: wgpu::ShaderSource::Wgsl(include_str!("shaders/grid.wgsl").into()),
         });
 
         let uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {

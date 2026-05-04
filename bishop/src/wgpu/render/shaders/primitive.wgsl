@@ -17,6 +17,13 @@ struct VertexOutput {
     @location(0) color: vec4<f32>,
 }
 
+fn srgb_to_linear(c: f32) -> f32 {
+    if (c <= 0.04045) {
+        return c / 12.92;
+    }
+    return pow((c + 0.055) / 1.055, 2.4);
+}
+
 @vertex
 fn vs_main(in: VertexInput) -> VertexOutput {
     var out: VertexOutput;
@@ -27,5 +34,10 @@ fn vs_main(in: VertexInput) -> VertexOutput {
 
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
-    return in.color;
+    return vec4<f32>(
+        srgb_to_linear(in.color.r),
+        srgb_to_linear(in.color.g),
+        srgb_to_linear(in.color.b),
+        in.color.a,
+    );
 }

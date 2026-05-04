@@ -1,6 +1,37 @@
 // Grid shader for editor grid overlay.
 // Renders an infinite grid with anti-aliased lines that scale with zoom.
-// VertexOutput is defined in vertex.wgsl which is concatenated with this shader.
+
+struct CameraUniforms {
+    projection: mat4x4<f32>,
+}
+
+struct ModelUniforms {
+    model: mat4x4<f32>,
+}
+
+@group(0) @binding(0)
+var<uniform> camera: CameraUniforms;
+
+@group(0) @binding(1)
+var<uniform> model: ModelUniforms;
+
+struct VertexInput {
+    @location(0) position: vec3<f32>,
+    @location(1) tex_coord: vec2<f32>,
+}
+
+struct VertexOutput {
+    @builtin(position) clip_position: vec4<f32>,
+    @location(0) uv: vec2<f32>,
+}
+
+@vertex
+fn vs_main(in: VertexInput) -> VertexOutput {
+    var out: VertexOutput;
+    out.clip_position = camera.projection * model.model * vec4<f32>(in.position, 1.0);
+    out.uv = in.tex_coord;
+    return out;
+}
 
 struct GridUniforms {
     camera_pos: vec2<f32>,
@@ -15,37 +46,40 @@ struct GridUniforms {
 @group(1) @binding(0)
 var<uniform> params: GridUniforms;
 
+fn srgb_to_linear(c: f32) -> f32 {
+    if (c <= 0.04045) {
+        return c / 12.92;
+    }
+    return pow((c + 0.055) / 1.055, 2.4);
+}
+
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
-    // UV (0..1) maps to the visible world area
-    // visible_half_height = 1.0 / zoom (macroquad convention)
-    // visible_half_width = aspect / zoom = (viewport.x / viewport.y) / zoom
     let aspect = params.viewport_size.x / params.viewport_size.y;
     let visible_half_height = 1.0 / params.camera_zoom;
     let visible_half_width = aspect / params.camera_zoom;
 
-    // Convert UV to world position
     let world_offset = vec2<f32>(
         (in.uv.x - 0.5) * 2.0 * visible_half_width,
         (in.uv.y - 0.5) * 2.0 * visible_half_height
     );
     let world_pos = world_offset + params.camera_pos;
 
-    // Calculate distance to nearest grid line
     let grid_coord = world_pos / params.grid_size;
     let frac_coord = fract(grid_coord + 0.5) - 0.5;
     let dist_to_line = abs(frac_coord) * params.grid_size;
 
-    // Find minimum distance to either vertical or horizontal line
     let min_dist = min(dist_to_line.x, dist_to_line.y);
 
-    // Convert line thickness to world units
-    // line_thickness is a scale factor, dividing by zoom gives world thickness
     let world_thickness = params.line_thickness / params.camera_zoom;
 
-    // Anti-aliased line rendering
     let half_thickness = world_thickness * 0.5;
     let alpha = 1.0 - smoothstep(0.0, half_thickness, min_dist);
 
-    return vec4<f32>(params.line_color.rgb, params.line_color.a * alpha);
+    return vec4<f32>(
+        srgb_to_linear(params.line_color.r),
+        srgb_to_linear(params.line_color.g),
+        srgb_to_linear(params.line_color.b),
+        params.line_color.a * alpha,
+    );
 }
