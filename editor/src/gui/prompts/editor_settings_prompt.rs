@@ -24,7 +24,7 @@ pub struct EditorSettingsPrompt {
 impl EditorSettingsPrompt {
     pub fn new(modal_rect: Rect, dropdown_id: WidgetId) -> Self {
         let presets = all_presets();
-        let current_theme = with_theme(|t| *t);
+        let current_theme = with_theme(|t| t.clone());
         let (selected_index, selected_preset_name) = presets
             .iter()
             .position(|p| (p.build)() == current_theme)
@@ -84,7 +84,7 @@ impl EditorSettingsPrompt {
         if confirm_clicked || Controls::enter(ctx) {
             return Some(EditorSettingsResult {
                 preset_name: self.selected_preset_name.clone(),
-                snapshot_theme: self.snapshot_theme,
+                snapshot_theme: self.snapshot_theme.clone(),
                 confirmed: true,
             });
         }
@@ -92,7 +92,7 @@ impl EditorSettingsPrompt {
         if cancel_clicked || modal_escape_requested() {
             return Some(EditorSettingsResult {
                 preset_name: None,
-                snapshot_theme: self.snapshot_theme,
+                snapshot_theme: self.snapshot_theme.clone(),
                 confirmed: false,
             });
         }

@@ -1,0 +1,37 @@
+-- Sample theme for the Bishop engine.
+local t = engine.theme.new()
+
+t.primary     = Color.from_hex("#22b1d0")
+t.secondary   = Color.rgba(0.133, 0.125, 0.204, 1.0)
+t.background  = Color.from_hex("#000000")
+t.surface     = Color.from_hex("#1a1a2e")
+t.text        = Color.from_hex("#E0E8EA")
+t.text_muted  = Color.from_hex("#7A9AA3")
+t.accent      = Color.from_hex("#D95763")
+t.border      = Color.from_hex("#3a3a5c")
+t.hover       = Color.from_hex("#22b1d0", 0.25)
+t.danger      = Color.from_hex("#C0392B")
+t.selection   = Color.from_hex("#22b1d0", 0.3)
+t.highlight   = Color.from_hex("#E8FBFF")
+t.placeholder = Color.from_hex("#22b1d0", 0.22)
+t.card        = Color.from_hex("#222034")
+t.grid        = Color.from_hex("#22b1d0", 0.1)
+t.overlay     = Color.from_hex("#000000", 0.6)
+t.panel       = Color.from_hex("#1a1a2e")
+t.panel_text  = Color.from_hex("#E0E8EA")
+
+t:rule(Widget.Button,         { background = t.surface })
+t:rule(Widget.Slider,         { background = t.panel })
+t:rule(Widget.Checkbox,       { background = t.surface })
+t:rule(Widget.TextInput,      { background = t.surface, border = t.hover })
+t:rule(Widget.NumberInput,    { background = t.surface })
+t:rule(Widget.Dropdown,       { background = t.panel })
+t:rule(Widget.ContextMenu,    { background = t.surface, text = t.panel_text })
+t:rule(Widget.ColorInput,     { background = t.surface })
+t:rule(Widget.Stepper,        { background = t.surface })
+t:rule(Widget.ScrollableArea, { background = t.background })
+
+t:rule(".danger",  { background = t.danger, text = t.highlight })
+t:rule("#confirm", { background = t.accent })
+
+return t

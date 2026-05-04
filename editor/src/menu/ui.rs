@@ -1,8 +1,10 @@
 // editor/src/menu_editor/ui.rs
 use crate::gui::menu_bar::{draw_top_panel_full, menu_panel_rect};
+use crate::menu::game_theme::{discover_themes, load_theme};
 use crate::menu::MenuEditor;
 use bishop::prelude::*;
 use engine_core::ui::with_theme;
+use engine_core::ui::Button;
 
 impl MenuEditor {
     /// Draws the menu editor ui.
@@ -10,6 +12,7 @@ impl MenuEditor {
         const LEFT_COLUMN_WIDTH: f32 = 200.0;
         const PROPERTIES_WIDTH: f32 = 250.0;
         const SPACING: f32 = 8.0;
+        const THEME_ROW_H: f32 = 28.0;
 
         let blocked = false;
 
@@ -26,11 +29,22 @@ impl MenuEditor {
             ctx.screen_height() - menu_panel.h,
         );
 
-        let half_height = (screen_rect.h - SPACING * 3.0) / 2.0;
+        // Game theme picker row
+        let theme_row_rect = self.register_rect(Rect::new(
+            screen_rect.x + SPACING,
+            screen_rect.y + SPACING,
+            LEFT_COLUMN_WIDTH,
+            THEME_ROW_H,
+        ));
+        draw_theme_picker(ctx, theme_row_rect, self);
+
+        let content_y = theme_row_rect.bottom() + SPACING;
+        let remaining_h = screen_rect.h - THEME_ROW_H - SPACING * 3.0;
+        let half_height = (remaining_h - SPACING) / 2.0;
 
         let menu_list_rect = self.register_rect(Rect::new(
             screen_rect.x + SPACING,
-            screen_rect.y + SPACING,
+            content_y,
             LEFT_COLUMN_WIDTH,
             half_height,
         ));
@@ -114,5 +128,35 @@ impl MenuEditor {
 
         // Draw top menu
         self.register_rect(draw_top_panel_full(ctx));
+    }
+}
+
+fn draw_theme_picker(ctx: &mut WgpuContext, rect: Rect, editor: &mut MenuEditor) {
+    let themes = discover_themes();
+
+    let label_text = if let Some(ref name) = editor.selected_theme_name {
+        format!("Theme: {name}")
+    } else {
+        "Theme: None".into()
+    };
+
+    if Button::new(rect, &label_text).suppressed(false).show(ctx) {
+        // Cycle through themes + None option
+        let current_idx = editor
+            .selected_theme_name
+            .as_ref()
+            .and_then(|n| themes.iter().position(|t| t == n))
+            .map(|i| i as isize)
+            .unwrap_or(-1);
+
+        let next_idx = current_idx + 1;
+        if next_idx >= themes.len() as isize {
+            editor.selected_theme_name = None;
+            editor.game_theme = None;
+        } else {
+            let name = themes[next_idx as usize].clone();
+            editor.game_theme = load_theme(&name);
+            editor.selected_theme_name = Some(name);
+        }
     }
 }

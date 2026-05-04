@@ -2,6 +2,26 @@
 -- bishop-owner: shared-engine
 ---@meta
 
+---@param input string
+function engine.input.is_down(input) end
+
+---@param input string
+function engine.input.pressed(input) end
+
+---@param input string
+function engine.input.released(input) end
+
+---@param name string
+---@param priority number
+function engine.input.take_control(name, priority) end
+
+---@param name string
+function engine.input.release_control(name) end
+
+---@param name string
+---@return boolean
+function engine.input.in_control(name) end
+
 engine.prefab = {}
 
 ---@param prefab_name PrefabId
@@ -29,7 +49,7 @@ engine.asset = {}
 ---@class TomlId
 local TomlId = {}
 
---- Use this as the default value for a script field that should be assigned in the editor.
+--- Returns a toml asset field.
 ---@return TomlId
 function engine.asset.toml() end
 
@@ -55,24 +75,4 @@ function engine.on(event, handler) end
 --- @param ... any Arguments that will be passed to each handler
 --- @return nil
 function engine.emit(event, ...) end
-
----@param input string
-function engine.input.is_down(input) end
-
----@param input string
-function engine.input.pressed(input) end
-
----@param input string
-function engine.input.released(input) end
-
----@param name string
----@param priority number
-function engine.input.take_control(name, priority) end
-
----@param name string
-function engine.input.release_control(name) end
-
----@param name string
----@return boolean
-function engine.input.in_control(name) end
 

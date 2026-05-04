@@ -10,6 +10,8 @@ pub mod lua_files {
     pub const TEXT: &str = "text.lua";
     pub const MENU: &str = "menu.lua";
     pub const AUDIO: &str = "audio.lua";
+    pub const THEME: &str = "theme.lua";
+    pub const COLOR: &str = "color.lua";
 }
 
 /// Ownership markers for generated Lua files.
@@ -54,6 +56,7 @@ pub mod lua_engine {
     pub const PREFAB: &str = "prefab";
     pub const SPAWN: &str = "spawn";
     pub const TOML: &str = "toml";
+    pub const THEME: &str = "theme";
 }
 
 /// Entity Lua method names.
@@ -125,4 +128,30 @@ pub mod lua_audio {
     pub const ENTITY_PLAY_SOUND: &str = "play_sound";
     pub const ENTITY_STOP_SOUND: &str = "stop_sound";
     pub const ENTITY_SET_SOUND_VOLUME: &str = "set_sound_volume";
+}
+
+/// Theme Lua names.
+pub mod lua_theme {
+    pub const THEME: &str = "theme";
+    pub const NEW: &str = "new";
+    pub const ACTIVATE: &str = "activate";
+    pub const RULE: &str = "rule";
+    pub const CLASS_THEME: &str = "Theme";
+    pub const CLASS_THEME_API: &str = "ThemeApi";
+    pub const CLASS_COLOR: &str = "Color";
+    pub const CLASS_WIDGET_TYPE: &str = "Widget";
+    pub const SELECTOR: &str = "selector";
+    pub const PROPS: &str = "props";
+    pub const RULES_TABLE: &str = "_rules";
+}
+
+/// Color Lua names.
+pub mod lua_color {
+    pub const COLOR: &str = "Color";
+    pub const FROM_HEX: &str = "from_hex";
+    pub const RGBA: &str = "rgba";
+    pub const R: &str = "r";
+    pub const G: &str = "g";
+    pub const B: &str = "b";
+    pub const A: &str = "a";
 }

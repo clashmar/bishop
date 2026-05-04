@@ -6,4 +6,5 @@ pub mod widgets;
 pub use engine_widgets::*;
 pub use text::*;
 pub use toast::*;
+pub use widgets::each_color_field;
 pub use widgets::*;

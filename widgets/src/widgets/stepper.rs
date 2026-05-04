@@ -10,6 +10,8 @@ pub struct Stepper<'a> {
     current: f32,
     blocked: bool,
     visuals: WidgetVisuals,
+    class_name: Option<String>,
+    style_id: Option<String>,
 }
 
 impl<'a> Stepper<'a> {
@@ -21,6 +23,8 @@ impl<'a> Stepper<'a> {
             current,
             blocked: false,
             visuals: WidgetVisuals::default(),
+            class_name: None,
+            style_id: None,
         }
     }
 
@@ -34,8 +38,44 @@ impl<'a> Stepper<'a> {
         self
     }
 
+    pub fn class(mut self, class: impl Into<String>) -> Self {
+        self.class_name = Some(class.into());
+        self
+    }
+
+    pub fn style_id(mut self, id: impl Into<String>) -> Self {
+        self.style_id = Some(id.into());
+        self
+    }
+
+    pub fn maybe_class(mut self, class: Option<&str>) -> Self {
+        if let Some(c) = class {
+            self.class_name = Some(c.to_string());
+        }
+        self
+    }
+
+    pub fn maybe_style_id(mut self, id: Option<&str>) -> Self {
+        if let Some(i) = id {
+            self.style_id = Some(i.to_string());
+        }
+        self
+    }
+
+    pub fn apply_selectors(mut self, class: Option<&str>, style_id: Option<&str>) -> Self {
+        if let Some(c) = class {
+            self.class_name = Some(c.to_string());
+        }
+        if let Some(i) = style_id {
+            self.style_id = Some(i.to_string());
+        }
+        self
+    }
+
     pub fn show<C: BishopContext>(self, ctx: &mut C) -> f32 {
-        let theme_vs = with_theme(Self::theme_visuals);
+        let class = self.class_name.as_deref();
+        let id = self.style_id.as_deref();
+        let theme_vs = themed_visuals_for::<Self>(class, id);
         let rect = self.rect;
         let mut idx = self
             .steps
@@ -135,6 +175,9 @@ impl<'a> Stepper<'a> {
 }
 
 impl WidgetThemeMapper for Stepper<'_> {
+    fn type_kind() -> WidgetType {
+        WidgetType::Stepper
+    }
     fn theme_visuals(theme: &Theme) -> WidgetVisuals {
         WidgetVisuals {
             text: Some(theme.text),

@@ -24,6 +24,8 @@ pub struct Slider {
     value: f32,
     blocked: bool,
     visuals: WidgetVisuals,
+    class_name: Option<String>,
+    style_id: Option<String>,
 }
 
 impl Slider {
@@ -36,6 +38,8 @@ impl Slider {
             value,
             blocked: false,
             visuals: WidgetVisuals::default(),
+            class_name: None,
+            style_id: None,
         }
     }
 
@@ -49,8 +53,44 @@ impl Slider {
         self
     }
 
+    pub fn class(mut self, class: impl Into<String>) -> Self {
+        self.class_name = Some(class.into());
+        self
+    }
+
+    pub fn style_id(mut self, id: impl Into<String>) -> Self {
+        self.style_id = Some(id.into());
+        self
+    }
+
+    pub fn maybe_class(mut self, class: Option<&str>) -> Self {
+        if let Some(c) = class {
+            self.class_name = Some(c.to_string());
+        }
+        self
+    }
+
+    pub fn maybe_style_id(mut self, id: Option<&str>) -> Self {
+        if let Some(i) = id {
+            self.style_id = Some(i.to_string());
+        }
+        self
+    }
+
+    pub fn apply_selectors(mut self, class: Option<&str>, style_id: Option<&str>) -> Self {
+        if let Some(c) = class {
+            self.class_name = Some(c.to_string());
+        }
+        if let Some(i) = style_id {
+            self.style_id = Some(i.to_string());
+        }
+        self
+    }
+
     pub fn show<C: BishopContext>(self, ctx: &mut C) -> (f32, SliderState) {
-        let theme_vs = with_theme(Self::theme_visuals);
+        let class = self.class_name.as_deref();
+        let id = self.style_id.as_deref();
+        let theme_vs = themed_visuals_for::<Self>(class, id);
         let rect = self.rect;
         let id = self.id;
         let min = self.min;
@@ -186,6 +226,9 @@ impl Slider {
 }
 
 impl WidgetThemeMapper for Slider {
+    fn type_kind() -> WidgetType {
+        WidgetType::Slider
+    }
     fn theme_visuals(theme: &Theme) -> WidgetVisuals {
         WidgetVisuals {
             primary: Some(theme.primary),

@@ -2,7 +2,6 @@ use crate::menu::*;
 use crate::text::TextManager;
 use bishop::prelude::*;
 use std::collections::HashMap;
-use widgets::constants::colors;
 use widgets::*;
 
 /// Renders the currently active menu and returns a triggered button action.
@@ -100,7 +99,8 @@ fn render_element<C: BishopContext>(
                 normalized_rect_to_screen(element.rect, env.canvas_origin, env.canvas_size);
             let widget = Button::new(screen_rect, &display_text)
                 .blocked(!element.enabled)
-                .focused(is_focused);
+                .focused(is_focused)
+                .apply_selectors(element.class.as_deref(), element.style_id.as_deref());
             if widget.show(ctx) {
                 *env.triggered_action = Some(button.action.clone());
             }
@@ -180,7 +180,11 @@ fn render_layout_group<C: BishopContext>(
                     env.focus.node == element_index && env.focus.child == Some(focusable_idx);
                 let widget = Button::new(screen_rect, &display_text)
                     .blocked(!child.element.enabled)
-                    .focused(is_focused);
+                    .focused(is_focused)
+                    .apply_selectors(
+                        child.element.class.as_deref(),
+                        child.element.style_id.as_deref(),
+                    );
                 if widget.show(ctx) {
                     *env.triggered_action = Some(button.action.clone());
                 }
@@ -230,11 +234,7 @@ fn render_slider<C: BishopContext>(
         screen_rect.w - split,
         screen_rect.h,
     );
-    let label_bg = if is_focused {
-        colors::DEFAULT_HOVER_COLOR
-    } else {
-        colors::DEFAULT_BACKGROUND_COLOR
-    };
+    let label_bg = with_theme(|t| if is_focused { t.hover } else { t.background });
     ctx.draw_rectangle(
         label_rect.x,
         label_rect.y,
@@ -253,11 +253,7 @@ fn render_slider<C: BishopContext>(
         push_slider_event(slider.key.clone(), new_value);
     }
 
-    let outline_color = if is_focused {
-        Color::WHITE
-    } else {
-        Color::new(0.5, 0.5, 0.5, 1.0)
-    };
+    let outline_color = with_theme(|t| if is_focused { t.highlight } else { t.border });
     ctx.draw_rectangle_lines(
         screen_rect.x,
         screen_rect.y,

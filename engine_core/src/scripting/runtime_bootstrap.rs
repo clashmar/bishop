@@ -1,6 +1,8 @@
 use crate::ecs::components::text::TomlId;
+use crate::scripting::color_bootstrap::register_color_helpers;
 use crate::scripting::event_bus::EventBus;
 use crate::scripting::lua_constants::{lua_engine, lua_globals};
+use crate::scripting::theme_bootstrap::register_theme_helpers;
 use mlua::prelude::LuaResult;
 use mlua::{Lua, Table, Value, Variadic};
 
@@ -9,6 +11,8 @@ pub fn register_runtime_modules(lua: &Lua, event_bus: &EventBus) -> LuaResult<()
     register_engine_module(lua)?;
     register_engine_asset_helpers(lua)?;
     register_engine_event_helpers(lua)?;
+    register_color_helpers(lua)?;
+    register_theme_helpers(lua)?;
     lua.globals()
         .set(lua_globals::LUA_EVENT_BUS, event_bus.clone())?;
     Ok(())
@@ -121,7 +125,10 @@ mod tests {
         engine_tbl
             .get::<mlua::Function>(lua_engine::EMIT)
             .unwrap()
-            .call::<()>(("editor:test".to_string(), mlua::MultiValue::from_vec(vec![Value::Integer(7)])))
+            .call::<()>((
+                "editor:test".to_string(),
+                mlua::MultiValue::from_vec(vec![Value::Integer(7)]),
+            ))
             .unwrap();
 
         assert_eq!(lua.globals().get::<i64>("engine_value").unwrap(), 7);

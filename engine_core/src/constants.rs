@@ -96,6 +96,9 @@ pub mod paths {
     /// Name of the prefabs folder.
     pub const PREFABS_FOLDER: &str = "prefabs";
 
+    /// Name of the themes folder.
+    pub const THEMES_FOLDER: &str = "themes";
+
     /// Name of the folder for windows-specific game assets.
     pub const WINDOWS_FOLDER: &str = "windows";
 

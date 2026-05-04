@@ -40,6 +40,8 @@ pub struct Button<'a> {
     allow_secondary_click: bool,
     interaction_id: Option<ClickTargetId>,
     icon_padding: f32,
+    class_name: Option<String>,
+    style_id: Option<String>,
 }
 
 const BLOCKED_BACKGROUND_COLOR: Color = Color::new(0.08, 0.08, 0.08, 0.9);
@@ -64,6 +66,8 @@ impl<'a> Button<'a> {
             allow_secondary_click: false,
             interaction_id: None,
             icon_padding: 2.0,
+            class_name: None,
+            style_id: None,
         }
     }
 
@@ -86,6 +90,8 @@ impl<'a> Button<'a> {
             allow_secondary_click: false,
             interaction_id: None,
             icon_padding: 2.0,
+            class_name: None,
+            style_id: None,
         }
     }
 
@@ -161,6 +167,43 @@ impl<'a> Button<'a> {
         self
     }
 
+    /// Sets a class name for style rule targeting.
+    pub fn class(mut self, class: impl Into<String>) -> Self {
+        self.class_name = Some(class.into());
+        self
+    }
+
+    /// Sets a style id for per-instance style rule targeting.
+    pub fn style_id(mut self, id: impl Into<String>) -> Self {
+        self.style_id = Some(id.into());
+        self
+    }
+
+    pub fn maybe_class(mut self, class: Option<&str>) -> Self {
+        if let Some(c) = class {
+            self.class_name = Some(c.to_string());
+        }
+        self
+    }
+
+    pub fn maybe_style_id(mut self, id: Option<&str>) -> Self {
+        if let Some(i) = id {
+            self.style_id = Some(i.to_string());
+        }
+        self
+    }
+
+    /// Applies class and style-id from a MenuElement or similar source.
+    pub fn apply_selectors(mut self, class: Option<&str>, style_id: Option<&str>) -> Self {
+        if let Some(c) = class {
+            self.class_name = Some(c.to_string());
+        }
+        if let Some(i) = style_id {
+            self.style_id = Some(i.to_string());
+        }
+        self
+    }
+
     /// Overrides the mouse position used for hover detection (e.g. world-space coords when a camera is active).
     pub fn mouse_position(mut self, pos: Vec2) -> Self {
         self.mouse_position = Some(pos);
@@ -169,7 +212,9 @@ impl<'a> Button<'a> {
 
     /// Draws the button and returns true if clicked.
     pub fn show<C: BishopContext>(self, ctx: &mut C) -> bool {
-        let theme_vs = with_theme(Self::theme_visuals);
+        let class = self.class_name.as_deref();
+        let id = self.style_id.as_deref();
+        let theme_vs = themed_visuals_for::<Self>(class, id);
         self.show_clicks(ctx, theme_vs).primary
     }
 
@@ -177,7 +222,9 @@ impl<'a> Button<'a> {
         let interaction_id = self
             .interaction_id
             .unwrap_or_else(|| self.default_interaction_id());
-        let theme_vs = with_theme(Self::theme_visuals);
+        let class = self.class_name.as_deref();
+        let id = self.style_id.as_deref();
+        let theme_vs = themed_visuals_for::<Self>(class, id);
         let clicks = self.show_clicks(ctx, theme_vs);
 
         if clicks.primary {
@@ -368,6 +415,9 @@ impl<'a> Button<'a> {
 }
 
 impl WidgetThemeMapper for Button<'_> {
+    fn type_kind() -> WidgetType {
+        WidgetType::Button
+    }
     fn theme_visuals(theme: &Theme) -> WidgetVisuals {
         WidgetVisuals {
             background: Some(theme.background),

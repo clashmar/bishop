@@ -44,6 +44,10 @@ pub struct MenuEditor {
     pub(crate) last_norm_mouse: Option<Vec2>,
     pub(crate) view_preview: bool,
     pub(crate) drag_original_element: Option<MenuElement>,
+    /// Optional game theme loaded for canvas preview.
+    pub game_theme: Option<Theme>,
+    /// Name of the selected theme (for UI display).
+    pub selected_theme_name: Option<String>,
 }
 
 impl MenuEditor {
@@ -71,6 +75,8 @@ impl MenuEditor {
             last_norm_mouse: None,
             view_preview: false,
             drag_original_element: None,
+            game_theme: None,
+            selected_theme_name: None,
         }
     }
 

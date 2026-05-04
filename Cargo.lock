@@ -3620,6 +3620,8 @@ dependencies = [
  "once_cell",
  "ron",
  "serde",
+ "strum",
+ "strum_macros",
 ]
 
 [[package]]

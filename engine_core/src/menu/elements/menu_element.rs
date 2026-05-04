@@ -96,6 +96,10 @@ pub struct MenuElement {
     pub enabled: bool,
     pub visible: bool,
     pub z_order: i32,
+    #[serde(default)]
+    pub class: Option<String>,
+    #[serde(default)]
+    pub style_id: Option<String>,
 }
 
 impl MenuElement {
@@ -108,6 +112,8 @@ impl MenuElement {
             enabled: true,
             visible: true,
             z_order: 0,
+            class: None,
+            style_id: None,
         }
     }
 

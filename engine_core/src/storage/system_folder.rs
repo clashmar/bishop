@@ -74,6 +74,7 @@ pub const SYSTEM_FOLDER_ROOTS: &[&str] = &[
     paths::PREFABS_FOLDER,
     paths::AUDIO_FOLDER,
     paths::MENUS_FOLDER,
+    paths::THEMES_FOLDER,
 ];
 
 /// Engine-managed subfolder paths, expressed as arrays of existing constants.

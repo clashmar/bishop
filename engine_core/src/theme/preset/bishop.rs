@@ -30,6 +30,7 @@ fn bishop_theme() -> Theme {
         overlay: Color::from_hex("000000").with_alpha(0.6),
         panel: panel,
         panel_text: Color::from_hex("FFFFFF"),
+        rules: Vec::new(),
     }
 }
 

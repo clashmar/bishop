@@ -1,5 +1,5 @@
 use crate::constants::{colors, layout};
-use crate::theme::{with_theme, WidgetThemeMapper};
+use crate::theme::WidgetThemeMapper;
 use crate::*;
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -141,6 +141,8 @@ pub struct Dropdown<'a, T> {
     list_width: Option<f32>,
     truncate_trigger: bool,
     visuals: WidgetVisuals,
+    class_name: Option<String>,
+    style_id: Option<String>,
 }
 
 impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
@@ -170,6 +172,8 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
             list_width: None,
             truncate_trigger: false,
             visuals: WidgetVisuals::default(),
+            class_name: None,
+            style_id: None,
         }
     }
 
@@ -191,6 +195,40 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
     /// Sets visual overrides for the dropdown.
     pub fn visuals(mut self, visuals: WidgetVisuals) -> Self {
         self.visuals = visuals;
+        self
+    }
+
+    pub fn class(mut self, class: impl Into<String>) -> Self {
+        self.class_name = Some(class.into());
+        self
+    }
+
+    pub fn style_id(mut self, id: impl Into<String>) -> Self {
+        self.style_id = Some(id.into());
+        self
+    }
+
+    pub fn maybe_class(mut self, class: Option<&str>) -> Self {
+        if let Some(c) = class {
+            self.class_name = Some(c.to_string());
+        }
+        self
+    }
+
+    pub fn maybe_style_id(mut self, id: Option<&str>) -> Self {
+        if let Some(i) = id {
+            self.style_id = Some(i.to_string());
+        }
+        self
+    }
+
+    pub fn apply_selectors(mut self, class: Option<&str>, style_id: Option<&str>) -> Self {
+        if let Some(c) = class {
+            self.class_name = Some(c.to_string());
+        }
+        if let Some(i) = style_id {
+            self.style_id = Some(i.to_string());
+        }
         self
     }
 
@@ -257,7 +295,9 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
 
     /// Draws the dropdown and returns the selected option if one was clicked.
     pub fn show<C: BishopContext>(self, ctx: &mut C) -> Option<T> {
-        let theme_vs = with_theme(Self::theme_visuals);
+        let class = self.class_name.as_deref();
+        let id = self.style_id.as_deref();
+        let theme_vs = themed_visuals_for::<Self>(class, id);
         const MAX_VISIBLE_ROWS: usize = 8;
         const SCROLL_SPEED: f32 = 5.0;
         const W_PADDING: f32 = 8.0;
@@ -731,6 +771,9 @@ fn render_dropdown_list<C: BishopContext>(
 }
 
 impl<T> WidgetThemeMapper for Dropdown<'_, T> {
+    fn type_kind() -> WidgetType {
+        WidgetType::Dropdown
+    }
     fn theme_visuals(theme: &Theme) -> WidgetVisuals {
         WidgetVisuals {
             background: Some(theme.surface),

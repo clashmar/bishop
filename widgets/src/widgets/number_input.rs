@@ -16,6 +16,8 @@ pub struct NumberInput<T> {
     min: Option<T>,
     max: Option<T>,
     visuals: WidgetVisuals,
+    class_name: Option<String>,
+    style_id: Option<String>,
 }
 
 impl<T> NumberInput<T>
@@ -33,6 +35,8 @@ where
             min: None,
             max: None,
             visuals: WidgetVisuals::default(),
+            class_name: None,
+            style_id: None,
         }
     }
 
@@ -54,6 +58,32 @@ where
         self
     }
 
+    pub fn class(mut self, class: impl Into<String>) -> Self {
+        self.class_name = Some(class.into());
+        self
+    }
+
+    pub fn style_id(mut self, id: impl Into<String>) -> Self {
+        self.style_id = Some(id.into());
+        self
+    }
+
+    pub fn maybe_class(mut self, class: Option<&str>) -> Self {
+        if let Some(c) = class { self.class_name = Some(c.to_string()); }
+        self
+    }
+
+    pub fn maybe_style_id(mut self, id: Option<&str>) -> Self {
+        if let Some(i) = id { self.style_id = Some(i.to_string()); }
+        self
+    }
+
+    pub fn apply_selectors(mut self, class: Option<&str>, style_id: Option<&str>) -> Self {
+        if let Some(c) = class { self.class_name = Some(c.to_string()); }
+        if let Some(i) = style_id { self.style_id = Some(i.to_string()); }
+        self
+    }
+
     /// Sets the maximum allowed value.
     pub fn max(mut self, max: T) -> Self {
         self.max = Some(max);
@@ -62,7 +92,9 @@ where
 
     /// Draws the widget and returns the current numeric value.
     pub fn show<C: BishopContext>(self, ctx: &mut C) -> T {
-        let theme_vs = with_theme(Self::theme_visuals);
+        let class = self.class_name.as_deref();
+        let id = self.style_id.as_deref();
+        let theme_vs = themed_visuals_for::<Self>(class, id);
         tab_registry_add(self.id, self.rect, false);
 
         let mut confirmed = false;
@@ -513,6 +545,7 @@ where
 }
 
 impl<T> WidgetThemeMapper for NumberInput<T> {
+    fn type_kind() -> WidgetType { WidgetType::NumberInput }
     fn theme_visuals(theme: &Theme) -> WidgetVisuals {
         WidgetVisuals {
             background: Some(theme.background),

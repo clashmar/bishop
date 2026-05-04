@@ -50,6 +50,8 @@ pub struct ScrollableArea {
     scrollbar_w: f32,
     blocked: bool,
     visuals: WidgetVisuals,
+    class_name: Option<String>,
+    style_id: Option<String>,
 }
 
 impl ScrollableArea {
@@ -62,6 +64,8 @@ impl ScrollableArea {
             scrollbar_w: DEFAULT_SCROLLBAR_W,
             blocked: false,
             visuals: WidgetVisuals::default(),
+            class_name: None,
+            style_id: None,
         }
     }
 
@@ -77,6 +81,40 @@ impl ScrollableArea {
         self
     }
 
+    pub fn class(mut self, class: impl Into<String>) -> Self {
+        self.class_name = Some(class.into());
+        self
+    }
+
+    pub fn style_id(mut self, id: impl Into<String>) -> Self {
+        self.style_id = Some(id.into());
+        self
+    }
+
+    pub fn maybe_class(mut self, class: Option<&str>) -> Self {
+        if let Some(c) = class {
+            self.class_name = Some(c.to_string());
+        }
+        self
+    }
+
+    pub fn maybe_style_id(mut self, id: Option<&str>) -> Self {
+        if let Some(i) = id {
+            self.style_id = Some(i.to_string());
+        }
+        self
+    }
+
+    pub fn apply_selectors(mut self, class: Option<&str>, style_id: Option<&str>) -> Self {
+        if let Some(c) = class {
+            self.class_name = Some(c.to_string());
+        }
+        if let Some(i) = style_id {
+            self.style_id = Some(i.to_string());
+        }
+        self
+    }
+
     /// Sets whether interaction is blocked.
     pub fn blocked(mut self, blocked: bool) -> Self {
         self.blocked = blocked;
@@ -85,7 +123,9 @@ impl ScrollableArea {
 
     /// Processes scroll input and returns an active area for content drawing.
     pub fn begin<C: BishopContext>(self, ctx: &mut C, state: &mut ScrollState) -> ActiveScrollArea {
-        let theme_vs = with_theme(Self::theme_visuals);
+        let class = self.class_name.as_deref();
+        let id = self.style_id.as_deref();
+        let theme_vs = themed_visuals_for::<Self>(class, id);
         let mouse: Vec2 = ctx.mouse_position().into();
         let scroll_range = (self.content_height - self.rect.h).max(0.0);
 
@@ -167,6 +207,9 @@ impl ScrollableArea {
 }
 
 impl WidgetThemeMapper for ScrollableArea {
+    fn type_kind() -> WidgetType {
+        WidgetType::ScrollableArea
+    }
     fn theme_visuals(theme: &Theme) -> WidgetVisuals {
         WidgetVisuals {
             surface: Some(theme.surface),

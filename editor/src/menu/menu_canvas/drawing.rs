@@ -100,6 +100,11 @@ impl MenuEditor {
                 preview: false,
             };
 
+            let editor_theme = get_theme();
+            if let Some(ref game_theme) = self.game_theme {
+                set_theme(game_theme.clone());
+            }
+
             let sorted = template.sorted_element_indices();
             for i in sorted {
                 let element = &template.elements[i];
@@ -107,6 +112,10 @@ impl MenuEditor {
                 let element_rect =
                     normalized_rect_to_screen(element.rect, canvas_origin, canvas_size);
                 self.draw_element(&mut frame, element, element_rect, is_selected, true);
+            }
+
+            if self.game_theme.is_some() {
+                set_theme(editor_theme);
             }
 
             // Draw placement cursor if pending
@@ -151,6 +160,12 @@ impl MenuEditor {
         };
         let mut slider_values = HashMap::new();
         let text_manager = TextManager::default();
+
+        let editor_theme = get_theme();
+        if let Some(ref game_theme) = self.game_theme {
+            set_theme(game_theme.clone());
+        }
+
         render_menu_elements(
             ctx,
             template,
@@ -160,6 +175,10 @@ impl MenuEditor {
             &mut slider_values,
             &text_manager,
         );
+
+        if self.game_theme.is_some() {
+            set_theme(editor_theme);
+        }
     }
 
     pub(crate) fn draw_element(

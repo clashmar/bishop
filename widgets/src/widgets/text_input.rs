@@ -16,6 +16,8 @@ pub struct TextInput<'a> {
     live: bool,
     bypass_dropdown: bool,
     visuals: WidgetVisuals,
+    class_name: Option<String>,
+    style_id: Option<String>,
 }
 
 impl<'a> TextInput<'a> {
@@ -33,6 +35,8 @@ impl<'a> TextInput<'a> {
             live: false,
             bypass_dropdown: false,
             visuals: WidgetVisuals::default(),
+            class_name: None,
+            style_id: None,
         }
     }
 
@@ -80,6 +84,32 @@ impl<'a> TextInput<'a> {
         self
     }
 
+    pub fn class(mut self, class: impl Into<String>) -> Self {
+        self.class_name = Some(class.into());
+        self
+    }
+
+    pub fn style_id(mut self, id: impl Into<String>) -> Self {
+        self.style_id = Some(id.into());
+        self
+    }
+
+    pub fn maybe_class(mut self, class: Option<&str>) -> Self {
+        if let Some(c) = class { self.class_name = Some(c.to_string()); }
+        self
+    }
+
+    pub fn maybe_style_id(mut self, id: Option<&str>) -> Self {
+        if let Some(i) = id { self.style_id = Some(i.to_string()); }
+        self
+    }
+
+    pub fn apply_selectors(mut self, class: Option<&str>, style_id: Option<&str>) -> Self {
+        if let Some(c) = class { self.class_name = Some(c.to_string()); }
+        if let Some(i) = style_id { self.style_id = Some(i.to_string()); }
+        self
+    }
+
     /// Allows this input to receive keyboard events even when a dropdown list is open.
     /// Use for TextInputs that are embedded inside a dropdown list.
     pub fn in_dropdown(mut self) -> Self {
@@ -89,7 +119,9 @@ impl<'a> TextInput<'a> {
 
     /// Draws the widget and returns the current text and focus state.
     pub fn show<C: BishopContext>(self, ctx: &mut C) -> (String, bool) {
-        let theme_vs = with_theme(Self::theme_visuals);
+        let class = self.class_name.as_deref();
+        let id = self.style_id.as_deref();
+        let theme_vs = themed_visuals_for::<Self>(class, id);
         tab_registry_add(self.id, self.rect, true);
 
         let mut just_gained_focus = false;
@@ -567,6 +599,7 @@ impl<'a> TextInput<'a> {
 }
 
 impl WidgetThemeMapper for TextInput<'_> {
+    fn type_kind() -> WidgetType { WidgetType::TextInput }
     fn theme_visuals(theme: &Theme) -> WidgetVisuals {
         WidgetVisuals {
             background: Some(theme.background),

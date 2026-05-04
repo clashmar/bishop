@@ -1,5 +1,36 @@
-use crate::theme::Theme;
+use crate::theme::{Theme, WidgetType};
 use bishop::Color;
+use serde::{Deserialize, Serialize};
+
+/// Defines the list of color fields on [`WidgetVisuals`] and [`Theme`].
+/// Every field is visited by the caller-provided macro `$m`.
+///
+/// When you add/remove/rename a color field on the struct, update this
+/// macro *and* the struct definition — they must stay in sync.
+#[doc(hidden)]
+#[macro_export]
+macro_rules! each_color_field {
+    ($m:ident) => {
+        $m!(primary);
+        $m!(secondary);
+        $m!(background);
+        $m!(surface);
+        $m!(text);
+        $m!(text_muted);
+        $m!(accent);
+        $m!(border);
+        $m!(hover);
+        $m!(danger);
+        $m!(selection);
+        $m!(highlight);
+        $m!(placeholder);
+        $m!(card);
+        $m!(grid);
+        $m!(overlay);
+        $m!(panel);
+        $m!(panel_text);
+    };
+}
 
 /// Per-widget visual overrides. Every field is `Option<Color>` — `None` defers
 /// to the active theme, then to the hardcoded constant fallback.
@@ -8,7 +39,7 @@ use bishop::Color;
 /// ```ignore
 /// WidgetVisuals { background: Some(Color::RED), ..Default::default() }
 /// ```
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct WidgetVisuals {
     pub primary: Option<Color>,
     pub secondary: Option<Color>,
@@ -55,6 +86,18 @@ impl WidgetVisuals {
             panel_text: self.panel_text.or(theme.panel_text),
         }
     }
+
+    /// Overlays non-`None` fields from `other` onto `self`.
+    pub fn apply(&mut self, other: &Self) {
+        macro_rules! apply_one {
+            ($f:ident) => {
+                if let Some(v) = other.$f {
+                    self.$f = Some(v);
+                }
+            };
+        }
+        each_color_field!(apply_one);
+    }
 }
 
 /// Resolves a color value from the priority chain:
@@ -78,7 +121,22 @@ pub fn resolve_with_theme(
 /// Each widget implements this trait to declare which `Theme` roles
 /// it reads and how they map to its visual fields.
 pub trait WidgetThemeMapper {
+    /// Returns the widget type kind for style rule matching.
+    fn type_kind() -> WidgetType;
+    /// Maps theme roles to WidgetVisuals for this widget type.
     fn theme_visuals(theme: &Theme) -> WidgetVisuals;
+}
+
+/// Resolves theme visuals for a widget type, applying matching style rules.
+pub fn themed_visuals_for<T: WidgetThemeMapper>(
+    class: Option<&str>,
+    id: Option<&str>,
+) -> WidgetVisuals {
+    super::with_theme(|t| {
+        let mut base = T::theme_visuals(t);
+        t.apply_rules(T::type_kind(), class, id, &mut base);
+        base
+    })
 }
 
 #[cfg(test)]
@@ -100,24 +158,12 @@ mod tests {
     #[test]
     fn resolve_default_widget_visuals_all_none() {
         let v = WidgetVisuals::default();
-        assert!(v.primary.is_none());
-        assert!(v.secondary.is_none());
-        assert!(v.background.is_none());
-        assert!(v.surface.is_none());
-        assert!(v.text.is_none());
-        assert!(v.text_muted.is_none());
-        assert!(v.accent.is_none());
-        assert!(v.border.is_none());
-        assert!(v.hover.is_none());
-        assert!(v.danger.is_none());
-        assert!(v.selection.is_none());
-        assert!(v.highlight.is_none());
-        assert!(v.placeholder.is_none());
-        assert!(v.card.is_none());
-        assert!(v.grid.is_none());
-        assert!(v.overlay.is_none());
-        assert!(v.panel.is_none());
-        assert!(v.panel_text.is_none());
+        macro_rules! check_none {
+            ($f:ident) => {
+                assert!(v.$f.is_none(), "{} should be None", stringify!($f));
+            };
+        }
+        each_color_field!(check_none);
     }
 
     #[test]
@@ -148,5 +194,36 @@ mod tests {
     fn resolve_with_theme_constant_fallback_when_both_none() {
         let result = resolve_with_theme(None, None, Color::BLUE);
         assert_eq!(result, Color::BLUE);
+    }
+
+    #[test]
+    fn apply_overrides_some_fields_leaves_others() {
+        let mut base = WidgetVisuals {
+            background: Some(Color::RED),
+            text: Some(Color::WHITE),
+            ..Default::default()
+        };
+        let overrides = WidgetVisuals {
+            background: Some(Color::BLUE),
+            ..Default::default()
+        };
+        base.apply(&overrides);
+        assert_eq!(base.background, Some(Color::BLUE));
+        assert_eq!(base.text, Some(Color::WHITE));
+    }
+
+    #[test]
+    fn apply_all_overrides_take_effect() {
+        let mut base = WidgetVisuals::default();
+        let overrides = WidgetVisuals {
+            background: Some(Color::RED),
+            text: Some(Color::BLUE),
+            border: Some(Color::GREEN),
+            ..Default::default()
+        };
+        base.apply(&overrides);
+        assert_eq!(base.background, Some(Color::RED));
+        assert_eq!(base.text, Some(Color::BLUE));
+        assert_eq!(base.border, Some(Color::GREEN));
     }
 }

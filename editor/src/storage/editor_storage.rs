@@ -78,12 +78,13 @@ pub fn create_new_game(name: String) -> Game {
 }
 
 pub(super) fn create_game_folders(name: &str) {
-    let folders: [(PathBuf, &str); 7] = [
+    let folders: [(PathBuf, &str); 8] = [
         (resources_folder_current(), paths::RESOURCES_FOLDER),
         (assets_folder(), paths::ASSETS_FOLDER),
         (scripts_folder(), paths::SCRIPTS_FOLDER),
         (text_folder(), paths::TEXT_FOLDER),
         (prefabs_folder(), paths::PREFABS_FOLDER),
+        (themes_folder(), paths::THEMES_FOLDER),
         (windows_folder(), paths::WINDOWS_FOLDER),
         (mac_os_folder(), paths::MAC_OS_FOLDER),
     ];
