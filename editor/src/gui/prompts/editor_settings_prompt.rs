@@ -8,7 +8,8 @@ use engine_core::theme::{set_theme, with_theme, Theme};
 use widgets::constants::layout;
 
 pub struct EditorSettingsResult {
-    pub theme: Theme,
+    pub preset_name: Option<String>,
+    pub snapshot_theme: Theme,
     pub confirmed: bool,
 }
 
@@ -16,6 +17,7 @@ pub struct EditorSettingsPrompt {
     rect: Rect,
     dropdown_id: WidgetId,
     selected_index: usize,
+    selected_preset_name: Option<String>,
     snapshot_theme: Theme,
 }
 
@@ -23,10 +25,11 @@ impl EditorSettingsPrompt {
     pub fn new(modal_rect: Rect, dropdown_id: WidgetId) -> Self {
         let presets = all_presets();
         let current_theme = with_theme(|t| *t);
-        let selected_index = presets
+        let (selected_index, selected_preset_name) = presets
             .iter()
             .position(|p| (p.build)() == current_theme)
-            .unwrap_or(0);
+            .map(|i| (i, Some(presets[i].name.to_string())))
+            .unwrap_or((0, None));
 
         let total_h = PROMPT_TOP_PADDING
             + layout::DEFAULT_FONT_SIZE_16
@@ -41,6 +44,7 @@ impl EditorSettingsPrompt {
             rect,
             dropdown_id,
             selected_index,
+            selected_preset_name,
             snapshot_theme: current_theme,
         }
     }
@@ -66,8 +70,8 @@ impl EditorSettingsPrompt {
         {
             if let Some(idx) = preset_names.iter().position(|n| n == &selected_name) {
                 self.selected_index = idx;
-                let new_theme = (presets[self.selected_index].build)();
-                set_theme(new_theme);
+                self.selected_preset_name = Some(selected_name.clone());
+                set_theme((presets[idx].build)());
             }
         }
 
@@ -78,16 +82,17 @@ impl EditorSettingsPrompt {
         let cancel_clicked = Button::new(cancel_rect, "Cancel").show(ctx);
 
         if confirm_clicked || Controls::enter(ctx) {
-            let current_theme = with_theme(|t| *t);
             return Some(EditorSettingsResult {
-                theme: current_theme,
+                preset_name: self.selected_preset_name.clone(),
+                snapshot_theme: self.snapshot_theme,
                 confirmed: true,
             });
         }
 
         if cancel_clicked || modal_escape_requested() {
             return Some(EditorSettingsResult {
-                theme: self.snapshot_theme,
+                preset_name: None,
+                snapshot_theme: self.snapshot_theme,
                 confirmed: false,
             });
         }

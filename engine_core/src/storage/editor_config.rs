@@ -14,15 +14,13 @@ use std::fs;
 use std::path::Path;
 use std::path::PathBuf;
 use std::sync::RwLock;
-use widgets::theme::Theme;
-
 pub static EDITOR_CONFIG: Lazy<RwLock<EditorConfig>> = Lazy::new(|| RwLock::new(load_config()));
 
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
 pub struct EditorConfig {
     pub save_root: Option<PathBuf>,
     #[serde(default)]
-    pub theme: Theme,
+    pub theme_preset: Option<String>,
     #[cfg(feature = "editor")]
     #[serde(default = "default_startup_mode")]
     pub playtest_startup_mode: StartupMode,
@@ -195,18 +193,24 @@ fn load_config() -> EditorConfig {
 /// Call once after loading EditorConfig to set the active theme.
 #[cfg(feature = "editor")]
 pub fn apply_config_theme() {
-    match EDITOR_CONFIG.read() {
-        Ok(cfg) => widgets::theme::set_theme(cfg.theme),
+    let preset_name = match EDITOR_CONFIG.read() {
+        Ok(cfg) => cfg.theme_preset.clone(),
         Err(poison) => {
             onscreen_error!("Editor config lock poisoned: {poison}");
+            return;
         }
-    }
+    };
+    let theme = preset_name
+        .as_deref()
+        .and_then(crate::theme::preset::find_preset_by_name)
+        .map(|p| (p.build)())
+        .unwrap_or_else(widgets::theme::Theme::default);
+    widgets::theme::set_theme(theme);
 }
 
 #[cfg(all(test, feature = "editor"))]
 mod tests {
     use super::*;
-    use bishop::Color;
     use uuid::Uuid;
 
     #[test]
@@ -284,27 +288,23 @@ mod tests {
     }
 
     #[test]
-    fn theme_field_roundtrips_through_ron() {
-        let theme = Theme {
-            primary: Color::new(1.0, 0.0, 0.0, 1.0),
-            ..Theme::default()
-        };
+    fn theme_preset_roundtrips_through_ron() {
         let mut config = EditorConfig::default();
-        config.theme = theme;
+        config.theme_preset = Some("Bishop".to_string());
 
         let path = std::env::temp_dir().join(format!("bishop-theme-test-{}.ron", Uuid::new_v4()));
         save_config_to_path(&config, &path).unwrap();
 
         let loaded: EditorConfig = ron::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
-        assert_eq!(loaded.theme, theme);
+        assert_eq!(loaded.theme_preset, Some("Bishop".to_string()));
 
         let _ = fs::remove_file(path);
     }
 
     #[test]
-    fn missing_theme_defaults_to_default_theme() {
+    fn missing_theme_preset_defaults_to_none() {
         let ron = r#"(save_root: None)"#;
         let config: EditorConfig = ron::from_str(ron).unwrap();
-        assert_eq!(config.theme, Theme::default());
+        assert_eq!(config.theme_preset, None);
     }
 }

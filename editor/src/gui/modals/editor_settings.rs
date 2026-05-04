@@ -4,7 +4,7 @@ use crate::gui::prompts::editor_settings_prompt::{EditorSettingsPrompt, EditorSe
 use bishop::prelude::*;
 use engine_core::prelude::WidgetId;
 use engine_core::theme::set_theme;
-use engine_core::theme::storage::save_editor_theme;
+use engine_core::theme::storage::save_editor_preset;
 use std::cell::RefCell;
 use std::thread::LocalKey;
 
@@ -40,9 +40,11 @@ impl ModalHandler for EditorSettingsModal {
         result: Self::Result,
     ) -> Option<ModalResult> {
         if result.confirmed {
-            save_editor_theme(result.theme);
+            if let Some(ref name) = result.preset_name {
+                save_editor_preset(name);
+            }
         } else {
-            set_theme(result.theme);
+            set_theme(result.snapshot_theme);
         }
         editor.modal.close();
         None
