@@ -117,14 +117,16 @@ impl MenuEditor {
     pub fn draw(&mut self, ctx: &mut WgpuContext, camera: &Camera2D) {
         self.active_rects.clear();
 
-        ctx.set_camera(camera);
-        ctx.clear_background(Color::BLACK);
-
         if self.view_preview {
+            ctx.set_default_camera();
+            ctx.clear_background(Color::BLACK);
             let preview_rect = compute_preview_rect(ctx.screen_width(), ctx.screen_height());
-            self.draw_preview_canvas(ctx, camera, preview_rect);
+            self.draw_preview_canvas(ctx, preview_rect);
             return;
         }
+
+        ctx.set_camera(camera);
+        ctx.clear_background(Color::BLACK);
 
         let canvas_rect = compute_canvas_rect(ctx.screen_width(), ctx.screen_height());
 

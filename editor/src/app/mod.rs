@@ -531,6 +531,7 @@ impl Editor {
         if !self
             .active_room_editor()
             .is_some_and(|editor| editor.view_preview)
+            && !(matches!(self.mode, EditorMode::Menu) && self.menu_editor.view_preview)
         {
             ctx.set_default_camera();
 

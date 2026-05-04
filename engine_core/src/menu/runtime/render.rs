@@ -16,7 +16,29 @@ pub(crate) fn render_active_menu<C: BishopContext>(
     text_manager: &TextManager,
 ) -> Option<MenuAction> {
     widgets_frame_start(ctx);
+    let action = render_menu_elements(
+        ctx,
+        template,
+        menu_id,
+        viewport,
+        focus,
+        slider_values,
+        text_manager,
+    );
+    widgets_frame_end(ctx);
+    action
+}
 
+/// Renders all menu elements into the given viewport rect using screen-space coordinates.
+pub fn render_menu_elements<C: BishopContext>(
+    ctx: &mut C,
+    template: &MenuTemplate,
+    menu_id: &str,
+    viewport: Rect,
+    focus: &MenuFocus,
+    slider_values: &mut HashMap<String, f32>,
+    text_manager: &TextManager,
+) -> Option<MenuAction> {
     let text_id = format!("ui/{}", menu_id);
     let mut triggered_action = None;
     let mut env = RenderEnv {
@@ -40,7 +62,6 @@ pub(crate) fn render_active_menu<C: BishopContext>(
         render_element(ctx, template, element_index, element, &mut env);
     }
 
-    widgets_frame_end(ctx);
     triggered_action
 }
 

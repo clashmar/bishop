@@ -8,6 +8,7 @@ use crate::shared::selection::draw_selection_box;
 use bishop::prelude::*;
 use engine_core::constants::world;
 use engine_core::prelude::*;
+use std::collections::HashMap;
 
 pub(crate) struct MenuCanvasFrame<'a> {
     pub(crate) ctx: &'a mut WgpuContext,
@@ -139,48 +140,26 @@ impl MenuEditor {
         }
     }
 
-    /// Renders the menu fullscreen in preview mode without editor overlays.
-    pub fn draw_preview_canvas(&self, ctx: &mut WgpuContext, camera: &Camera2D, rect: Rect) {
-        let canvas_origin = Vec2::new(rect.x, rect.y);
-        let canvas_size = Vec2::new(rect.w, rect.h);
-
+    /// Renders the menu fullscreen in preview mode using the runtime's element rendering.
+    pub fn draw_preview_canvas(&self, ctx: &mut WgpuContext, rect: Rect) {
         let Some(template) = self.current_template() else {
             return;
         };
-
-        match template.background {
-            MenuBackground::SolidColor(color) => {
-                ctx.draw_rectangle(rect.x, rect.y, rect.w, rect.h, color);
-            }
-            MenuBackground::Dimmed(alpha) => {
-                ctx.draw_rectangle(
-                    rect.x,
-                    rect.y,
-                    rect.w,
-                    rect.h,
-                    Color::new(0.0, 0.0, 0.0, alpha),
-                );
-            }
-            MenuBackground::None => {}
-        }
-
-        let raw_mouse: Vec2 = ctx.mouse_position().into();
-        let world_mouse =
-            camera.screen_to_world(raw_mouse, ctx.screen_width(), ctx.screen_height());
-
-        let mut frame = MenuCanvasFrame {
-            ctx,
-            canvas_origin,
-            canvas_size,
-            world_mouse,
-            preview: true,
+        let focus = MenuFocus {
+            node: usize::MAX,
+            child: None,
         };
-
-        for i in template.sorted_element_indices() {
-            let element = &template.elements[i];
-            let element_rect = normalized_rect_to_screen(element.rect, canvas_origin, canvas_size);
-            self.draw_element(&mut frame, element, element_rect, false, false);
-        }
+        let mut slider_values = HashMap::new();
+        let text_manager = TextManager::default();
+        render_menu_elements(
+            ctx,
+            template,
+            &template.id,
+            rect,
+            &focus,
+            &mut slider_values,
+            &text_manager,
+        );
     }
 
     pub(crate) fn draw_element(

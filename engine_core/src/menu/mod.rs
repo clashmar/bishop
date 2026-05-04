@@ -21,3 +21,4 @@ pub use menu_handler::*;
 pub use menu_manager::*;
 pub use menu_navigation::*;
 pub use menu_template::*;
+pub use runtime::render_menu_elements;
