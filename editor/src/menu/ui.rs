@@ -1,8 +1,11 @@
 // editor/src/menu_editor/ui.rs
+use crate::editor_assets::assets::refresh_icon;
 use crate::gui::menu_bar::{draw_top_panel_full, menu_panel_rect};
 use crate::menu::game_theme::{discover_themes, load_theme};
 use crate::menu::MenuEditor;
 use bishop::prelude::*;
+use engine_core::ui::constants::layout;
+use engine_core::ui::truncate_to_width;
 use engine_core::ui::with_theme;
 use engine_core::ui::Button;
 
@@ -30,15 +33,21 @@ impl MenuEditor {
         );
 
         // Game theme picker row
-        let theme_row_rect = self.register_rect(Rect::new(
+        let theme_button_rect = self.register_rect(Rect::new(
             screen_rect.x + SPACING,
             screen_rect.y + SPACING,
-            LEFT_COLUMN_WIDTH,
+            LEFT_COLUMN_WIDTH - THEME_ROW_H - SPACING,
             THEME_ROW_H,
         ));
-        draw_theme_picker(ctx, theme_row_rect, self);
+        let refresh_rect = self.register_rect(Rect::new(
+            theme_button_rect.right() + SPACING,
+            screen_rect.y + SPACING,
+            THEME_ROW_H,
+            THEME_ROW_H,
+        ));
+        draw_theme_picker(ctx, refresh_rect, theme_button_rect, self);
 
-        let content_y = theme_row_rect.bottom() + SPACING;
+        let content_y = theme_button_rect.bottom() + SPACING;
         let remaining_h = screen_rect.h - THEME_ROW_H - SPACING * 3.0;
         let half_height = (remaining_h - SPACING) / 2.0;
 
@@ -131,16 +140,40 @@ impl MenuEditor {
     }
 }
 
-fn draw_theme_picker(ctx: &mut WgpuContext, rect: Rect, editor: &mut MenuEditor) {
+fn draw_theme_picker(
+    ctx: &mut WgpuContext,
+    refresh_rect: Rect,
+    theme_button_rect: Rect,
+    editor: &mut MenuEditor,
+) {
     let themes = discover_themes();
 
+    // Refresh button — reloads the current theme from disk
+    if Button::icon(refresh_rect, refresh_icon(), "refresh_theme")
+        .icon_padding(5.0)
+        .suppressed(false)
+        .show(ctx)
+    {
+        if let Some(ref name) = editor.selected_theme_name {
+            editor.game_theme = load_theme(name);
+        }
+    }
+
     let label_text = if let Some(ref name) = editor.selected_theme_name {
-        format!("Theme: {name}")
+        truncate_to_width(
+            ctx,
+            name,
+            theme_button_rect.w - layout::WIDGET_PADDING,
+            layout::DEFAULT_FONT_SIZE_16,
+        )
     } else {
         "Theme: None".into()
     };
 
-    if Button::new(rect, &label_text).suppressed(false).show(ctx) {
+    if Button::new(theme_button_rect, &label_text)
+        .suppressed(false)
+        .show(ctx)
+    {
         // Cycle through themes + None option
         let current_idx = editor
             .selected_theme_name
