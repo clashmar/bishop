@@ -6,7 +6,7 @@ macro_rules! impl_widget_theme_mappings {
     (
         $(
             $widget:ident: [
-                $( ($f:ident, $r:ident, $d:literal) ),+ $(,)?
+                $( ($r:ident, $d:literal) ),+ $(,)?
             ]
         );+ $(;)?
     ) => {
@@ -16,7 +16,7 @@ macro_rules! impl_widget_theme_mappings {
                 match self {
                     $(
                         WidgetType::$widget => WidgetTheme {
-                            $($f: Some(theme.$r),)+
+                            $($r: Some(theme.$r),)+
                             ..Default::default()
                         },
                     )+
@@ -28,7 +28,7 @@ macro_rules! impl_widget_theme_mappings {
                 match self {
                     $(
                         WidgetType::$widget => &[
-                            $((stringify!($f), stringify!($r), $d),)+
+                            $((stringify!($r), stringify!($r), $d),)+
                         ],
                     )+
                 }
@@ -39,69 +39,82 @@ macro_rules! impl_widget_theme_mappings {
 
 impl_widget_theme_mappings! {
     Button: [
-        (primary, primary, "Button fill"),
-        (text, text, "Label text"),
-        (text_muted, text_muted, "Blocked state text"),
-        (border, border, "Outline"),
-        (hover, hover, "Hover overlay"),
+        (primary, "Button fill"),
+        (text, "Label text"),
+        (text_muted, "Blocked state text"),
+        (border, "Outline"),
+        (hover, "Hover overlay"),
     ];
     Slider: [
-        (primary, primary, "Handle fill"),
-        (background, background, "Track fill"),
-        (surface, surface, "Track gutter"),
-        (border, border, "Handle outline"),
-        (hover, hover, "Handle when dragging"),
+        (primary, "Handle fill"),
+        (background, "Track fill"),
+        (surface, "Track gutter"),
+        (border, "Handle outline"),
+        (hover, "Handle when dragging"),
     ];
     Checkbox: [
-        (background, background, "Box fill"),
-        (border, border, "Box outline"),
-        (primary, primary, "Check mark"),
+        (background, "Box fill"),
+        (border, "Box outline"),
+        (primary, "Check mark"),
     ];
     TextInput: [
-        (background, background, "Field fill"),
-        (accent, accent, "Selection highlight"),
-        (border, border, "Field outline"),
-        (text, text, "Input text"),
+        (background, "Field fill"),
+        (accent, "Selection highlight"),
+        (border, "Field outline"),
+        (text, "Input text"),
     ];
     NumberInput: [
-        (background, background, "Field fill"),
-        (accent, accent, "Selection highlight"),
-        (border, border, "Field outline"),
-        (text, text, "Input text"),
+        (background, "Field fill"),
+        (accent, "Selection highlight"),
+        (border, "Field outline"),
+        (text, "Input text"),
+    ];
+    Panel: [
+        (panel, "Panel surface"),
+        (border, "Panel outline"),
     ];
     Dropdown: [
-        (background, surface, "List background"),
-        (text, text, "Entry text"),
-        (border, border, "List border"),
-        (hover, hover, "Entry hover"),
+        (surface, "List background"),
+        (text, "Entry text"),
+        (border, "List border"),
+        (hover, "Entry hover"),
     ];
     ContextMenu: [
-        (background, surface, "Menu background"),
-        (text, text, "Menu text"),
-        (border, border, "Menu border"),
-        (hover, hover, "Entry hover"),
+        (surface, "Menu background"),
+        (text, "Menu text"),
+        (border, "Menu border"),
+        (hover, "Entry hover"),
     ];
     ColorInput: [
-        (background, surface, "Field fill"),
-        (border, border, "Field outline"),
-        (accent, accent, "Selection highlight"),
-        (text, text, "Display text"),
+        (surface, "Field fill"),
+        (border, "Field outline"),
+        (accent, "Selection highlight"),
+        (text, "Display text"),
     ];
     Stepper: [
-        (text, text, "Value text"),
-        (border, border, "Field outline"),
+        (text, "Value text"),
+        (border, "Field outline"),
     ];
     ScrollableArea: [
-        (surface, surface, "Scrollbar track"),
-        (text, text, "Scrollbar thumb active"),
-        (text_muted, text_muted, "Scrollbar thumb idle"),
+        (surface, "Scrollbar track"),
+        (text, "Scrollbar thumb active"),
+        (text_muted, "Scrollbar thumb idle"),
+    ];
+    Label: [
+        (text, "Label text"),
     ];
 }
 
 impl WidgetType {
     /// Whether this widget has a corresponding menu element and is usable from Lua.
     pub fn is_exposed_to_lua(&self) -> bool {
-        matches!(self, WidgetType::Button | WidgetType::Slider)
+        matches!(
+            self,
+            WidgetType::Button | 
+            WidgetType::Slider | 
+            WidgetType::Label | 
+            WidgetType::Panel
+        )
     }
 }
 

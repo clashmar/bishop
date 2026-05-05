@@ -199,6 +199,7 @@ impl MenuEditor {
                     .font_size(button.font_size)
                     .mouse_position(world_mouse)
                     .suppressed(canvas_blocked_by_global_ui(frame.ctx))
+                    .apply_selectors(element.class.as_deref(), element.style_id.as_deref())
                     .show(frame.ctx);
 
                 if is_selected {
@@ -322,7 +323,6 @@ impl MenuEditor {
             MenuElementKind::Label(label) => {
                 if !preview {
                     let outline_color = selection_outline_color(is_selected);
-
                     frame.ctx.draw_rectangle_lines(
                         element_rect.x,
                         element_rect.y,
@@ -333,23 +333,18 @@ impl MenuEditor {
                     );
                 }
 
-                let text = &label.text_key;
-                let text_dims = frame.ctx.measure_text(text, label.font_size);
-                let text_x = match label.alignment {
-                    HorizontalAlign::Left => element_rect.x,
-                    HorizontalAlign::Center => {
-                        element_rect.x + (element_rect.w - text_dims.width) / 2.0
-                    }
-                    HorizontalAlign::Right => element_rect.x + element_rect.w - text_dims.width,
+                let label_align = match label.alignment {
+                    HorizontalAlign::Left => LabelAlign::Left,
+                    HorizontalAlign::Center => LabelAlign::Center,
+                    HorizontalAlign::Right => LabelAlign::Right,
                 };
-                let text_y =
-                    element_rect.y + (element_rect.h - text_dims.height) / 2.0 + text_dims.offset_y;
-                frame
-                    .ctx
-                    .draw_text(text, text_x, text_y, label.font_size, label.color);
+                Label::new(element_rect, &label.text_key)
+                    .font_size(label.font_size)
+                    .alignment(label_align)
+                    .apply_selectors(element.class.as_deref(), element.style_id.as_deref())
+                    .show(frame.ctx);
             }
             MenuElementKind::Slider(slider) => {
-                // Draw label area (left 40%) and track area (right 60%)
                 let split = element_rect.w * 0.4;
                 let track_rect = Rect::new(
                     element_rect.x + split,
@@ -365,6 +360,7 @@ impl MenuEditor {
                     slider.default_value,
                 )
                 .blocked(true)
+                .apply_selectors(element.class.as_deref(), element.style_id.as_deref())
                 .show(frame.ctx);
 
                 let text_dims = frame.ctx.measure_text(&slider.text_key, 14.0);
@@ -390,38 +386,19 @@ impl MenuEditor {
                     );
                 }
             }
-            MenuElementKind::Panel(panel) => {
-                frame.ctx.draw_rectangle(
-                    element_rect.x,
-                    element_rect.y,
-                    element_rect.w,
-                    element_rect.h,
-                    panel.background.render_color(),
-                );
+            MenuElementKind::Panel(_panel) => {
+                Panel::new(element_rect)
+                    .apply_selectors(element.class.as_deref(), element.style_id.as_deref())
+                    .show(frame.ctx);
 
                 if !preview {
                     let outline_color = selection_outline_color(is_selected);
-
                     frame.ctx.draw_rectangle_lines(
                         element_rect.x,
                         element_rect.y,
                         element_rect.w,
                         element_rect.h,
                         selection_line_thickness(is_selected),
-                        outline_color,
-                    );
-
-                    let label = if !element.name.is_empty() {
-                        element.name.as_str()
-                    } else {
-                        "[Panel]"
-                    };
-
-                    frame.ctx.draw_text(
-                        label,
-                        element_rect.x + 4.0,
-                        element_rect.y + 12.0,
-                        10.0,
                         outline_color,
                     );
                 }

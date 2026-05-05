@@ -88,7 +88,16 @@ fn render_element<C: BishopContext>(
                 .resolve_ui_text(env.text_id, &label.text_key);
             let screen_rect =
                 normalized_rect_to_screen(element.rect, env.canvas_origin, env.canvas_size);
-            MenuTemplate::render_label(ctx, label, screen_rect, &display_text);
+            let label_align = match label.alignment {
+                HorizontalAlign::Left => LabelAlign::Left,
+                HorizontalAlign::Center => LabelAlign::Center,
+                HorizontalAlign::Right => LabelAlign::Right,
+            };
+            Label::new(screen_rect, display_text)
+                .font_size(label.font_size)
+                .alignment(label_align)
+                .apply_selectors(element.class.as_deref(), element.style_id.as_deref())
+                .show(ctx);
         }
         MenuElementKind::Button(button) => {
             let display_text = env
@@ -105,16 +114,12 @@ fn render_element<C: BishopContext>(
                 *env.triggered_action = Some(button.action.clone());
             }
         }
-        MenuElementKind::Panel(panel) => {
+        MenuElementKind::Panel(_panel) => {
             let screen_rect =
                 normalized_rect_to_screen(element.rect, env.canvas_origin, env.canvas_size);
-            ctx.draw_rectangle(
-                screen_rect.x,
-                screen_rect.y,
-                screen_rect.w,
-                screen_rect.h,
-                panel.background.render_color(),
-            );
+            Panel::new(screen_rect)
+                .apply_selectors(element.class.as_deref(), element.style_id.as_deref())
+                .show(ctx);
         }
         MenuElementKind::LayoutGroup(group) => {
             render_layout_group(ctx, template, group, element_index, element, env);
@@ -123,14 +128,17 @@ fn render_element<C: BishopContext>(
             let screen_rect =
                 normalized_rect_to_screen(element.rect, env.canvas_origin, env.canvas_size);
             let is_focused = env.focus.node == element_index && env.focus.child.is_none();
+            let display_text = env
+                .text_manager
+                .resolve_ui_text(env.text_id, &slider.text_key);
             render_slider(
                 ctx,
                 slider,
                 screen_rect,
-                env.text_manager,
-                env.text_id,
+                &display_text,
                 env.slider_values,
                 is_focused,
+                element,
             );
         }
     }
@@ -170,7 +178,19 @@ fn render_layout_group<C: BishopContext>(
                 let display_text = env
                     .text_manager
                     .resolve_ui_text(env.text_id, &label.text_key);
-                MenuTemplate::render_label(ctx, label, screen_rect, &display_text);
+                let label_align = match label.alignment {
+                    HorizontalAlign::Left => LabelAlign::Left,
+                    HorizontalAlign::Center => LabelAlign::Center,
+                    HorizontalAlign::Right => LabelAlign::Right,
+                };
+                Label::new(screen_rect, display_text)
+                    .font_size(label.font_size)
+                    .alignment(label_align)
+                    .apply_selectors(
+                        child.element.class.as_deref(),
+                        child.element.style_id.as_deref(),
+                    )
+                    .show(ctx);
             }
             MenuElementKind::Button(button) => {
                 let display_text = env
@@ -195,14 +215,17 @@ fn render_layout_group<C: BishopContext>(
             MenuElementKind::Slider(slider) => {
                 let is_focused =
                     env.focus.node == element_index && env.focus.child == Some(focusable_idx);
+                let display_text = env
+                    .text_manager
+                    .resolve_ui_text(env.text_id, &slider.text_key);
                 render_slider(
                     ctx,
                     slider,
                     screen_rect,
-                    env.text_manager,
-                    env.text_id,
+                    &display_text,
                     env.slider_values,
                     is_focused,
+                    &child.element,
                 );
                 if child.element.enabled {
                     focusable_idx += 1;
@@ -217,10 +240,10 @@ fn render_slider<C: BishopContext>(
     ctx: &mut C,
     slider: &SliderElement,
     screen_rect: Rect,
-    text_manager: &TextManager,
-    text_id: &str,
+    display_text: &str,
     slider_values: &mut HashMap<String, f32>,
     is_focused: bool,
+    element: &MenuElement,
 ) {
     let value = slider_values
         .get(&slider.key)
@@ -242,12 +265,15 @@ fn render_slider<C: BishopContext>(
         label_rect.h,
         label_bg,
     );
-    let display_text = text_manager.resolve_ui_text(text_id, &slider.text_key);
-    let label = LabelElement::default();
-    MenuTemplate::render_label(ctx, &label, label_rect, &display_text);
+    Label::new(label_rect, display_text)
+        .font_size(14.0)
+        .apply_selectors(element.class.as_deref(), element.style_id.as_deref())
+        .show(ctx);
 
     let (new_value, state) =
-        Slider::new(slider.widget_id, slider_rect, slider.min, slider.max, value).show(ctx);
+        Slider::new(slider.widget_id, slider_rect, slider.min, slider.max, value)
+            .apply_selectors(element.class.as_deref(), element.style_id.as_deref())
+            .show(ctx);
     if !matches!(state, SliderState::Unchanged) {
         slider_values.insert(slider.key.clone(), new_value);
         push_slider_event(slider.key.clone(), new_value);

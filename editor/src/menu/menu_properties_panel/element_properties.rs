@@ -439,81 +439,13 @@ impl MenuEditor {
 
     pub(super) fn draw_panel_properties(
         &mut self,
-        ctx: &mut WgpuContext,
-        y: &mut f32,
-        x: f32,
-        w: f32,
-        blocked: bool,
-        clip: &Rect,
+        _ctx: &mut WgpuContext,
+        _y: &mut f32,
+        _x: f32,
+        _w: f32,
+        _blocked: bool,
+        _clip: &Rect,
     ) {
-        let (current_color, current_opacity) = {
-            let Some(element) = self.selected_element() else {
-                return;
-            };
-            let MenuElementKind::Panel(panel) = &element.kind else {
-                return;
-            };
-            let PanelFill::SolidColor(color) = panel.background.fill;
-            (color, panel.background.opacity)
-        };
-
-        if row_visible(*y, 20.0, clip) {
-            ctx.draw_text("Background", x, *y + 14.0, 12.0, Color::GREY);
-        }
-        *y += 20.0;
-
-        // Color
-        if row_visible(*y, ROW_HEIGHT, clip) {
-            ctx.draw_text("Color:", x, *y + 16.0, 12.0, Color::WHITE);
-            let field_rect = Rect::new(x + LABEL_WIDTH, *y, w - LABEL_WIDTH, FIELD_HEIGHT);
-            let new_color = ColorInput::new(
-                self.properties_panel.widget_ids.panel_color_id,
-                field_rect,
-                current_color,
-            )
-            .blocked(blocked)
-            .show(ctx);
-            if new_color != current_color {
-                self.push_element_update(|el| {
-                    if let MenuElementKind::Panel(panel) = &mut el.kind {
-                        panel.background.fill = PanelFill::SolidColor(new_color);
-                    }
-                });
-            }
-        }
-        *y += ROW_HEIGHT;
-
-        // Opacity
-        if row_visible(*y, ROW_HEIGHT, clip) {
-            ctx.draw_text("Opacity:", x, *y + 16.0, 12.0, Color::WHITE);
-            let field_rect = Rect::new(x + LABEL_WIDTH, *y, w - LABEL_WIDTH, FIELD_HEIGHT);
-            let (new_opacity, state) = Slider::new(
-                self.properties_panel.widget_ids.panel_opacity_id,
-                field_rect,
-                0.0,
-                1.0,
-                current_opacity,
-            )
-            .show(ctx);
-            match state {
-                SliderState::Previewing => {
-                    self.preview_element_update(|el| {
-                        if let MenuElementKind::Panel(panel) = &mut el.kind {
-                            panel.background.opacity = new_opacity;
-                        }
-                    });
-                }
-                SliderState::Committed { .. } => {
-                    self.preview_element_update(|el| {
-                        if let MenuElementKind::Panel(panel) = &mut el.kind {
-                            panel.background.opacity = new_opacity;
-                        }
-                    });
-                    self.commit_element_update();
-                }
-                SliderState::Unchanged => {}
-            }
-        }
-        *y += ROW_HEIGHT;
+        // This function is kept as a placeholder for future per-element panel properties.
     }
 }

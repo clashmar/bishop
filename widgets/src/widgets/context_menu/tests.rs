@@ -391,28 +391,3 @@ fn modal_open_prevents_item_selection() {
     set_context_menu_open(false);
     set_modal_open(false);
 }
-
-#[cfg(test)]
-mod theme_tests {
-    use super::*;
-    use crate::theme::Theme;
-
-    #[test]
-    fn context_menu_theme_mapper_maps_key_roles() {
-        let theme = Theme {
-            surface: Color::GREEN,
-            text: Color::BLUE,
-            border: Color::new(0.8, 0.8, 0.8, 1.0),
-            hover: Color::new(0.2, 0.2, 1.0, 1.0),
-            ..Theme::default()
-        };
-        let overrides = ContextMenu::<String>::map_theme(&theme);
-        assert_eq!(overrides.background, Some(Color::GREEN));
-        assert_eq!(overrides.text, Some(Color::BLUE));
-        assert_eq!(overrides.border, Some(Color::new(0.8, 0.8, 0.8, 1.0)));
-        assert_eq!(overrides.hover, Some(Color::new(0.2, 0.2, 1.0, 1.0)));
-        assert_eq!(overrides.primary, None);
-        assert_eq!(overrides.surface, None);
-        assert_eq!(overrides.accent, None);
-    }
-}

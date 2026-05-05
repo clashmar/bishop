@@ -17,6 +17,8 @@ pub(crate) const FIELD_HEIGHT: f32 = 24.0;
 #[derive(Default)]
 pub struct PropertiesWidgetIds {
     pub(crate) name_id: WidgetId,
+    pub(crate) class_id: WidgetId,
+    pub(crate) style_id: WidgetId,
     pub(crate) text_id: WidgetId,
     pub(crate) font_size_id: WidgetId,
     pub(crate) action_id: WidgetId,
@@ -40,8 +42,6 @@ pub struct PropertiesWidgetIds {
     pub(crate) layout_item_h_id: WidgetId,
     pub(crate) layout_nav_ids: NavWidgetIds,
     pub(crate) label_h_align_id: WidgetId,
-    pub(crate) panel_color_id: WidgetId,
-    pub(crate) panel_opacity_id: WidgetId,
     pub(crate) layout_bg_color_id: WidgetId,
     pub(crate) layout_bg_opacity_id: WidgetId,
     pub(crate) bg_type_id: WidgetId,

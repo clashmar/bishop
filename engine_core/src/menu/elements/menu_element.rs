@@ -1,5 +1,4 @@
 use super::layout_group::LayoutGroupElement;
-use super::menu_panel::PanelBackground;
 use super::menu_slider::SliderElement;
 use crate::menu::layout::HorizontalAlign;
 use crate::menu::menu_builder::MenuAction;
@@ -23,7 +22,6 @@ pub struct LabelElement {
     #[serde(alias = "text")]
     pub text_key: String,
     pub font_size: f32,
-    pub color: Color,
     #[serde(default)]
     pub alignment: HorizontalAlign,
 }
@@ -33,7 +31,6 @@ impl Default for LabelElement {
         Self {
             text_key: String::new(),
             font_size: 20.0,
-            color: Color::WHITE,
             alignment: HorizontalAlign::default(),
         }
     }
@@ -81,11 +78,9 @@ impl Navigable for ButtonElement {
     }
 }
 
-/// Decorative panel element that renders a background fill.
+/// Decorative panel element styled via theme.
 #[derive(Default, Debug, Clone, Serialize, Deserialize)]
-pub struct PanelElement {
-    pub background: PanelBackground,
-}
+pub struct PanelElement;
 
 /// Menu element variants with positional data.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -141,8 +136,8 @@ impl MenuElement {
     }
 
     /// Creates a panel element.
-    pub fn panel(background: PanelBackground, rect: Rect) -> Self {
-        Self::new(MenuElementKind::Panel(PanelElement { background }), rect)
+    pub fn panel(rect: Rect) -> Self {
+        Self::new(MenuElementKind::Panel(PanelElement), rect)
     }
 
     /// Creates a layout group element.

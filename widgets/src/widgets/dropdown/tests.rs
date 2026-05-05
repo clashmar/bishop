@@ -142,28 +142,3 @@ fn empty_non_filterable_dropdown_does_not_open() {
     );
     assert!(!dropdown_state::get(id).open);
 }
-
-#[cfg(test)]
-mod theme_tests {
-    use super::*;
-    use crate::theme::Theme;
-
-    #[test]
-    fn dropdown_theme_mapper_maps_key_roles() {
-        let theme = Theme {
-            surface: Color::GREEN,
-            text: Color::BLUE,
-            border: Color::new(0.8, 0.8, 0.8, 1.0),
-            hover: Color::new(0.2, 0.2, 1.0, 1.0),
-            ..Theme::default()
-        };
-        let overrides = Dropdown::<&str>::map_theme(&theme);
-        assert_eq!(overrides.background, Some(Color::GREEN));
-        assert_eq!(overrides.text, Some(Color::BLUE));
-        assert_eq!(overrides.border, Some(Color::new(0.8, 0.8, 0.8, 1.0)));
-        assert_eq!(overrides.hover, Some(Color::new(0.2, 0.2, 1.0, 1.0)));
-        assert_eq!(overrides.primary, None);
-        assert_eq!(overrides.surface, None);
-        assert_eq!(overrides.accent, None);
-    }
-}

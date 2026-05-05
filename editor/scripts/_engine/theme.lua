@@ -9,6 +9,8 @@ engine.theme = {}
 Widget = {
     Button = "Button",
     Slider = "Slider",
+    Panel = "Panel",
+    Label = "Label",
 }
 
 ---@class Theme

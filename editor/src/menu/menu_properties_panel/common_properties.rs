@@ -4,6 +4,15 @@ use crate::menu::MenuEditor;
 use bishop::prelude::*;
 use engine_core::prelude::*;
 
+struct CommonState {
+    name: String,
+    class: Option<String>,
+    style_id: Option<String>,
+    rect_val: Rect,
+    z_order: i32,
+    type_label: &'static str,
+}
+
 impl MenuEditor {
     pub(super) fn draw_common_properties(
         &mut self,
@@ -14,10 +23,11 @@ impl MenuEditor {
         blocked: bool,
         clip: &Rect,
     ) {
-        let (current_name, rect_val, z_order, type_label) = {
+        let state = {
             let Some(element) = self.selected_element() else {
                 return;
             };
+
             let type_label = match &element.kind {
                 MenuElementKind::Label(_) => "Label",
                 MenuElementKind::Button(_) => "Button",
@@ -25,20 +35,24 @@ impl MenuEditor {
                 MenuElementKind::LayoutGroup(_) => "Layout Group",
                 MenuElementKind::Slider(_) => "Slider",
             };
-            (
-                element.name.clone(),
-                element.rect,
-                element.z_order,
+
+            CommonState {
+                name: element.name.clone(),
+                class: element.class.clone(),
+                style_id: element.style_id.clone(),
+                rect_val: element.rect,
+                z_order: element.z_order,
                 type_label,
-            )
+            }
         };
+        
         let child_is_managed = self.is_selected_child_managed();
 
         // Type (read-only)
         if row_visible(*y, ROW_HEIGHT, clip) {
             ctx.draw_text("Type:", x, *y + 16.0, 12.0, Color::WHITE);
             ctx.draw_text(
-                type_label,
+                state.type_label,
                 x + LABEL_WIDTH,
                 *y + 16.0,
                 12.0,
@@ -54,12 +68,58 @@ impl MenuEditor {
             let (new_name, _) = TextInput::new(
                 self.properties_panel.widget_ids.name_id,
                 field_rect,
-                &current_name,
+                &state.name,
             )
             .blocked(blocked)
             .show(ctx);
-            if new_name != current_name {
+            if new_name != state.name {
                 self.push_element_update(|el| el.name = new_name);
+            }
+        }
+        *y += ROW_HEIGHT;
+
+        // Class field
+        if row_visible(*y, ROW_HEIGHT, clip) {
+            ctx.draw_text("Class:", x, *y + 16.0, 12.0, Color::WHITE);
+            let field_rect = Rect::new(x + LABEL_WIDTH, *y, 120.0, FIELD_HEIGHT);
+            let class_str = state.class.as_deref().unwrap_or("");
+            let (new_class, _) = TextInput::new(
+                self.properties_panel.widget_ids.class_id,
+                field_rect,
+                class_str,
+            )
+            .blocked(blocked)
+            .show(ctx);
+            let new_class = if new_class.is_empty() {
+                None
+            } else {
+                Some(new_class)
+            };
+            if new_class != state.class {
+                self.push_element_update(|el| el.class = new_class);
+            }
+        }
+        *y += ROW_HEIGHT;
+
+        // Style ID field
+        if row_visible(*y, ROW_HEIGHT, clip) {
+            ctx.draw_text("Style ID:", x, *y + 16.0, 12.0, Color::WHITE);
+            let field_rect = Rect::new(x + LABEL_WIDTH, *y, 120.0, FIELD_HEIGHT);
+            let id_str = state.style_id.as_deref().unwrap_or("");
+            let (new_id, _) = TextInput::new(
+                self.properties_panel.widget_ids.style_id,
+                field_rect,
+                id_str,
+            )
+            .blocked(blocked)
+            .show(ctx);
+            let new_id = if new_id.is_empty() {
+                None
+            } else {
+                Some(new_id)
+            };
+            if new_id != state.style_id {
+                self.push_element_update(|el| el.style_id = new_id);
             }
         }
         *y += ROW_HEIGHT;
@@ -72,12 +132,12 @@ impl MenuEditor {
                 let new_z = NumberInput::new(
                     self.properties_panel.widget_ids.z_order_id,
                     field_rect,
-                    z_order as f32,
+                    state.z_order as f32,
                 )
                 .blocked(blocked)
                 .show(ctx);
                 let new_z = new_z as i32;
-                if new_z != z_order {
+                if new_z != state.z_order {
                     self.push_element_update(|el| el.z_order = new_z);
                 }
             }
@@ -97,7 +157,7 @@ impl MenuEditor {
                 let new_x = NumberInput::new(
                     self.properties_panel.widget_ids.pos_x_id,
                     field_rect,
-                    rect_val.x,
+                    state.rect_val.x,
                 )
                 .blocked(blocked)
                 .show(ctx);
@@ -110,12 +170,14 @@ impl MenuEditor {
                 let new_y = NumberInput::new(
                     self.properties_panel.widget_ids.pos_y_id,
                     field_rect,
-                    rect_val.y,
+                    state.rect_val.y,
                 )
                 .blocked(blocked)
                 .show(ctx);
 
-                if (new_x - rect_val.x).abs() > 0.001 || (new_y - rect_val.y).abs() > 0.001 {
+                if (new_x - state.rect_val.x).abs() > 0.001
+                    || (new_y - state.rect_val.y).abs() > 0.001
+                {
                     self.push_element_update(|el| {
                         el.rect.x = new_x;
                         el.rect.y = new_y;
@@ -131,7 +193,7 @@ impl MenuEditor {
                 let new_w = NumberInput::new(
                     self.properties_panel.widget_ids.size_w_id,
                     field_rect,
-                    rect_val.w,
+                    state.rect_val.w,
                 )
                 .blocked(blocked)
                 .min(0.005)
@@ -145,13 +207,15 @@ impl MenuEditor {
                 let new_h = NumberInput::new(
                     self.properties_panel.widget_ids.size_h_id,
                     field_rect,
-                    rect_val.h,
+                    state.rect_val.h,
                 )
                 .blocked(blocked)
                 .min(0.005)
                 .show(ctx);
 
-                if (new_w - rect_val.w).abs() > 0.001 || (new_h - rect_val.h).abs() > 0.001 {
+                if (new_w - state.rect_val.w).abs() > 0.001
+                    || (new_h - state.rect_val.h).abs() > 0.001
+                {
                     self.push_element_update(|el| {
                         el.rect.w = new_w;
                         el.rect.h = new_h;

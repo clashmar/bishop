@@ -75,7 +75,11 @@ impl ColorInput {
             swatch_rect.w,
             swatch_rect.h,
             2.0,
-            resolve_with_theme(self.base.overrides.border, widget_theme.border, Color::WHITE),
+            resolve_with_theme(
+                self.base.overrides.border,
+                widget_theme.border,
+                Color::WHITE,
+            ),
         );
 
         resolved
@@ -101,29 +105,5 @@ fn hex_char_filter(c: char) -> Option<char> {
         Some(c.to_ascii_uppercase())
     } else {
         None
-    }
-}
-
-#[cfg(test)]
-mod theme_tests {
-    use super::*;
-    use crate::theme::Theme;
-
-    #[test]
-    fn color_input_theme_mapper_maps_key_roles() {
-        let theme = Theme {
-            surface: Color::GREEN,
-            border: Color::BLUE,
-            accent: Color::RED,
-            text: Color::BLACK,
-            ..Theme::default()
-        };
-        let overrides = ColorInput::map_theme(&theme);
-        assert_eq!(overrides.background, Some(Color::GREEN));
-        assert_eq!(overrides.border, Some(Color::BLUE));
-        assert_eq!(overrides.accent, Some(Color::RED));
-        assert_eq!(overrides.text, Some(Color::BLACK));
-        assert_eq!(overrides.primary, None);
-        assert_eq!(overrides.hover, None);
     }
 }

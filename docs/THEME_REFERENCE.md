@@ -47,3 +47,16 @@ These are the fields you can set in `t:rule(Widget.X, { ... })`.
 | `border` | Handle outline |
 | `hover` | Handle when dragging |
 
+### Panel
+
+| Field | What it colors |
+|-------|---------------|
+| `background` | Panel surface |
+| `border` | Panel outline |
+
+### Label
+
+| Field | What it colors |
+|-------|---------------|
+| `text` | Label text |
+

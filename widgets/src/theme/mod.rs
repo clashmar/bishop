@@ -87,11 +87,13 @@ pub enum WidgetType {
     Checkbox,
     TextInput,
     NumberInput,
+    Panel,
     Dropdown,
     ContextMenu,
     ColorInput,
     Stepper,
     ScrollableArea,
+    Label,
 }
 
 /// Describes which [`Theme`] color roles a widget maps to its [`WidgetTheme`] fields.

@@ -18,18 +18,11 @@ t.overlay     = Color.from_hex("#000000", 0.6)
 t.panel       = Color.from_hex("#1a1a2e")
 t.panel_text  = Color.from_hex("#E0E8EA")
 
-t:rule(Widget.Button,         { primary = t.surface })
-t:rule(Widget.Slider,         { background = t.panel })
-t:rule(Widget.Checkbox,       { background = t.surface })
-t:rule(Widget.TextInput,      { background = t.surface, border = t.hover })
-t:rule(Widget.NumberInput,    { background = t.surface })
-t:rule(Widget.Dropdown,       { background = t.panel })
-t:rule(Widget.ContextMenu,    { background = t.surface, text = t.panel_text })
-t:rule(Widget.ColorInput,     { background = t.surface })
-t:rule(Widget.Stepper,        { background = t.surface })
-t:rule(Widget.ScrollableArea, { background = t.background })
+t:rule(Widget.Button, { primary = t.danger })
+t:rule(Widget.Slider, { background = t.panel })
+t:rule(Widget.Panel,  { panel = t.danger })
 
-t:rule(".danger",  { background = t.danger, text = t.highlight })
-t:rule("#confirm", { background = t.accent })
+t:rule(".danger",  { text = t.danger })
+t:rule("#confirm", { panel = t.highlight })
 
 return t
