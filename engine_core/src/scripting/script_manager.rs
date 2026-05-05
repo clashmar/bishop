@@ -6,7 +6,7 @@ use crate::ecs::ScriptId;
 use crate::ecs::entity::Entity;
 use crate::scripting::event_bus::EventBus;
 use crate::scripting::lua_constants::{lua_entity, lua_fields};
-use crate::storage::path_utils::scripts_folder;
+use crate::storage::path_utils::{scripts_folder, themes_folder};
 use crate::*;
 use mlua::Function;
 use mlua::Lua;
@@ -270,14 +270,15 @@ impl ScriptManager {
 
     /// Load all .lua files to the package.path
     fn load_to_package(lua: &Lua) {
-        let dir = scripts_folder().to_string_lossy().replace('\\', "/");
+        let scripts_dir = scripts_folder().to_string_lossy().replace('\\', "/");
+        let themes_dir = themes_folder().to_string_lossy().replace('\\', "/");
 
-        onscreen_debug!("package.path loaded from: {}", dir);
+        onscreen_debug!("package.path loaded from: {} {}", scripts_dir, themes_dir);
 
         let add_path = format!(
             r#"
             local p = package.path
-            package.path = p .. ';{dir}/?.lua;{dir}/?/init.lua'
+            package.path = p .. ';{scripts_dir}/?.lua;{scripts_dir}/?/init.lua;{themes_dir}/?.lua'
             "#,
         );
 
