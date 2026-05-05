@@ -42,16 +42,17 @@ These are the fields you can set in `t:rule(Widget.X, { ... })`.
 | Field | What it colors |
 |-------|---------------|
 | `primary` | Handle fill |
-| `background` | Track fill |
+| `background` | Track and label background |
 | `surface` | Track gutter |
-| `border` | Handle outline |
-| `hover` | Handle when dragging |
+| `border` | Widget outline and label divider |
+| `hover` | Focused label background |
+| `highlight` | Focused outline |
 
 ### Panel
 
 | Field | What it colors |
 |-------|---------------|
-| `background` | Panel surface |
+| `panel` | Panel surface |
 | `border` | Panel outline |
 
 ### Label

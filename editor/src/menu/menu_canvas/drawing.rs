@@ -345,34 +345,17 @@ impl MenuEditor {
                     .show(frame.ctx);
             }
             MenuElementKind::Slider(slider) => {
-                let split = element_rect.w * 0.4;
-                let track_rect = Rect::new(
-                    element_rect.x + split,
-                    element_rect.y,
-                    element_rect.w - split,
-                    element_rect.h,
-                );
                 Slider::new(
                     slider.widget_id,
-                    track_rect,
+                    element_rect,
                     slider.min,
                     slider.max,
                     slider.default_value,
                 )
+                .label(&slider.text_key)
                 .blocked(true)
                 .apply_selectors(element.class.as_deref(), element.style_id.as_deref())
                 .show(frame.ctx);
-
-                let text_dims = frame.ctx.measure_text(&slider.text_key, 14.0);
-                let text_y =
-                    element_rect.y + (element_rect.h - text_dims.height) * 0.5 + text_dims.offset_y;
-                frame.ctx.draw_text(
-                    &slider.text_key,
-                    element_rect.x + 4.0,
-                    text_y,
-                    14.0,
-                    Color::WHITE,
-                );
 
                 if !preview {
                     let outline_color = selection_outline_color(is_selected);

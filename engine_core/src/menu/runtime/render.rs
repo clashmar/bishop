@@ -128,17 +128,14 @@ fn render_element<C: BishopContext>(
             let screen_rect =
                 normalized_rect_to_screen(element.rect, env.canvas_origin, env.canvas_size);
             let is_focused = env.focus.node == element_index && env.focus.child.is_none();
-            let display_text = env
-                .text_manager
-                .resolve_ui_text(env.text_id, &slider.text_key);
             render_slider(
                 ctx,
                 slider,
                 screen_rect,
-                &display_text,
+                env.text_manager,
+                env.text_id,
                 env.slider_values,
                 is_focused,
-                element,
             );
         }
     }
@@ -215,17 +212,14 @@ fn render_layout_group<C: BishopContext>(
             MenuElementKind::Slider(slider) => {
                 let is_focused =
                     env.focus.node == element_index && env.focus.child == Some(focusable_idx);
-                let display_text = env
-                    .text_manager
-                    .resolve_ui_text(env.text_id, &slider.text_key);
                 render_slider(
                     ctx,
                     slider,
                     screen_rect,
-                    &display_text,
+                    env.text_manager,
+                    env.text_id,
                     env.slider_values,
                     is_focused,
-                    &child.element,
                 );
                 if child.element.enabled {
                     focusable_idx += 1;
@@ -240,52 +234,23 @@ fn render_slider<C: BishopContext>(
     ctx: &mut C,
     slider: &SliderElement,
     screen_rect: Rect,
-    display_text: &str,
+    text_manager: &TextManager,
+    text_id: &str,
     slider_values: &mut HashMap<String, f32>,
     is_focused: bool,
-    element: &MenuElement,
 ) {
     let value = slider_values
         .get(&slider.key)
         .copied()
         .unwrap_or(slider.default_value);
-    let split = screen_rect.w * 0.4;
-    let label_rect = Rect::new(screen_rect.x, screen_rect.y, split, screen_rect.h);
-    let slider_rect = Rect::new(
-        screen_rect.x + split,
-        screen_rect.y,
-        screen_rect.w - split,
-        screen_rect.h,
-    );
-    let label_bg = with_theme(|t| if is_focused { t.hover } else { t.background });
-    ctx.draw_rectangle(
-        label_rect.x,
-        label_rect.y,
-        label_rect.w,
-        label_rect.h,
-        label_bg,
-    );
-    Label::new(label_rect, display_text)
-        .font_size(14.0)
-        .apply_selectors(element.class.as_deref(), element.style_id.as_deref())
-        .show(ctx);
-
+    let display_text = text_manager.resolve_ui_text(text_id, &slider.text_key);
     let (new_value, state) =
-        Slider::new(slider.widget_id, slider_rect, slider.min, slider.max, value)
-            .apply_selectors(element.class.as_deref(), element.style_id.as_deref())
+        Slider::new(slider.widget_id, screen_rect, slider.min, slider.max, value)
+            .label(&display_text)
+            .focused(is_focused)
             .show(ctx);
     if !matches!(state, SliderState::Unchanged) {
         slider_values.insert(slider.key.clone(), new_value);
         push_slider_event(slider.key.clone(), new_value);
     }
-
-    let outline_color = with_theme(|t| if is_focused { t.highlight } else { t.border });
-    ctx.draw_rectangle_lines(
-        screen_rect.x,
-        screen_rect.y,
-        screen_rect.w,
-        screen_rect.h,
-        2.0,
-        outline_color,
-    );
 }

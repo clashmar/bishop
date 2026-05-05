@@ -47,10 +47,11 @@ impl_widget_theme_mappings! {
     ];
     Slider: [
         (primary, "Handle fill"),
-        (background, "Track fill"),
+        (background, "Track and label background"),
         (surface, "Track gutter"),
-        (border, "Handle outline"),
-        (hover, "Handle when dragging"),
+        (border, "Widget outline and label divider"),
+        (hover, "Focused label background"),
+        (highlight, "Focused outline"),
     ];
     Checkbox: [
         (background, "Box fill"),
