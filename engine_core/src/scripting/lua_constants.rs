@@ -155,3 +155,9 @@ pub mod lua_color {
     pub const B: &str = "b";
     pub const A: &str = "a";
 }
+
+/// Auto-generated documentation paths.
+pub mod lua_docs {
+    pub const DOCS_DIR: &str = "docs";
+    pub const THEME_REFERENCE: &str = "THEME_REFERENCE.md";
+}

@@ -60,7 +60,7 @@ impl ScrollableArea {
             scrollbar_w: DEFAULT_SCROLLBAR_W,
             base: WidgetBase {
                 blocked: false,
-                visuals: WidgetTheme::default(),
+                overrides: WidgetTheme::default(),
                 ..WidgetBase::default()
             },
         }
@@ -151,7 +151,7 @@ impl ScrollableArea {
             scroll_range,
             content_height: self.content_height,
             scrollbar_w: self.scrollbar_w,
-            visuals: self.base.visuals,
+            overrides: self.base.overrides,
             widget_theme,
         }
     }
@@ -164,14 +164,6 @@ impl Widget for ScrollableArea {
     fn base_mut(&mut self) -> &mut WidgetBase {
         &mut self.base
     }
-    fn map_theme(theme: &Theme) -> WidgetTheme {
-        WidgetTheme {
-            surface: Some(theme.surface),
-            text: Some(theme.text),
-            text_muted: Some(theme.text_muted),
-            ..Default::default()
-        }
-    }
 }
 
 /// Active scroll area returned by `begin()`. Provides visibility helpers and scrollbar drawing.
@@ -180,7 +172,7 @@ pub struct ActiveScrollArea {
     scroll_range: f32,
     content_height: f32,
     scrollbar_w: f32,
-    visuals: WidgetTheme,
+    overrides: WidgetTheme,
     widget_theme: WidgetTheme,
 }
 
@@ -250,21 +242,25 @@ impl ActiveScrollArea {
             self.rect.y,
             self.scrollbar_w,
             self.rect.h,
-            resolve_with_theme(self.visuals.secondary, self.widget_theme.secondary, TRACK_COLOR),
+            resolve_with_theme(
+                self.overrides.secondary,
+                self.widget_theme.secondary,
+                TRACK_COLOR,
+            ),
         );
 
         // Thumb
         let thumb_col = if state.dragging_thumb {
-            resolve_with_theme(self.visuals.text, self.widget_theme.text, THUMB_DRAG)
+            resolve_with_theme(self.overrides.text, self.widget_theme.text, THUMB_DRAG)
         } else if mouse_over_thumb {
             resolve_with_theme(
-                self.visuals.text_muted,
+                self.overrides.text_muted,
                 self.widget_theme.text_muted,
                 THUMB_HOVER,
             )
         } else {
             resolve_with_theme(
-                self.visuals.text_muted,
+                self.overrides.text_muted,
                 self.widget_theme.text_muted,
                 THUMB_IDLE,
             )

@@ -62,7 +62,7 @@ impl<'a> Button<'a> {
             icon_padding: 2.0,
             base: WidgetBase {
                 blocked: false,
-                visuals: WidgetTheme::default(),
+                overrides: WidgetTheme::default(),
                 ..WidgetBase::default()
             },
         }
@@ -87,7 +87,7 @@ impl<'a> Button<'a> {
             icon_padding: 2.0,
             base: WidgetBase {
                 blocked: false,
-                visuals: WidgetTheme::default(),
+                overrides: WidgetTheme::default(),
                 ..WidgetBase::default()
             },
         }
@@ -99,15 +99,15 @@ impl<'a> Button<'a> {
         self
     }
 
-    /// Sets the text color. Delegates to [`visuals`].
+    /// Sets the text color.
     pub fn text_color(mut self, color: impl Into<Color>) -> Self {
-        self.base.visuals.text = Some(color.into());
+        self.base.overrides.text = Some(color.into());
         self
     }
 
-    /// Sets the hover background color. Delegates to [`visuals`].
+    /// Sets the hover background color.
     pub fn hover_color(mut self, color: impl Into<Color>) -> Self {
-        self.base.visuals.hover = Some(color.into());
+        self.base.overrides.hover = Some(color.into());
         self
     }
 
@@ -217,28 +217,28 @@ impl<'a> Button<'a> {
             ButtonStyle::Default => {
                 let background = if visually_blocked {
                     resolve_with_theme(
-                        self.base.visuals.surface,
+                        self.base.overrides.surface,
                         widget_theme.surface,
                         BLOCKED_BACKGROUND_COLOR,
                     )
                 } else if highlight {
                     resolve_with_theme(
-                        self.base.visuals.hover,
+                        self.base.overrides.hover,
                         widget_theme.hover,
                         colors::DEFAULT_HOVER_COLOR,
                     )
                 } else {
                     resolve_with_theme(
-                        self.base.visuals.background,
-                        widget_theme.background,
-                        colors::DEFAULT_BACKGROUND_COLOR,
+                        self.base.overrides.primary,
+                        widget_theme.primary,
+                        colors::DEFAULT_PRIMARY_COLOR,
                     )
                 };
                 let outline_color = if visually_blocked {
                     BLOCKED_OUTLINE_COLOR
                 } else {
                     resolve_with_theme(
-                        self.base.visuals.border,
+                        self.base.overrides.border,
                         widget_theme.border,
                         colors::DEFAULT_BORDER_COLOR,
                     )
@@ -267,7 +267,7 @@ impl<'a> Button<'a> {
                         self.rect.w,
                         self.rect.h,
                         resolve_with_theme(
-                            self.base.visuals.surface,
+                            self.base.overrides.surface,
                             widget_theme.surface,
                             PLAIN_BLOCKED_OVERLAY,
                         ),
@@ -279,7 +279,7 @@ impl<'a> Button<'a> {
                         self.rect.w,
                         self.rect.h,
                         resolve_with_theme(
-                            self.base.visuals.hover,
+                            self.base.overrides.hover,
                             widget_theme.hover,
                             colors::DEFAULT_HOVER_COLOR,
                         ),
@@ -292,13 +292,13 @@ impl<'a> Button<'a> {
             ButtonContent::Text(label) => {
                 let text_color = if visually_blocked {
                     resolve_with_theme(
-                        self.base.visuals.text_muted,
+                        self.base.overrides.text_muted,
                         widget_theme.text_muted,
                         BLOCKED_TEXT_COLOR,
                     )
                 } else {
                     resolve_with_theme(
-                        self.base.visuals.text,
+                        self.base.overrides.text,
                         widget_theme.text,
                         colors::DEFAULT_TEXT_COLOR,
                     )
@@ -373,16 +373,6 @@ impl Widget for Button<'_> {
     }
     fn base_mut(&mut self) -> &mut WidgetBase {
         &mut self.base
-    }
-    fn map_theme(theme: &Theme) -> WidgetTheme {
-        WidgetTheme {
-            background: Some(theme.background),
-            text: Some(theme.text),
-            text_muted: Some(theme.text_muted),
-            border: Some(theme.border),
-            hover: Some(theme.hover),
-            ..Default::default()
-        }
     }
 }
 

@@ -15,7 +15,7 @@ impl<'a> Checkbox<'a> {
             value,
             base: WidgetBase {
                 blocked: false,
-                visuals: WidgetTheme::default(),
+                overrides: WidgetTheme::default(),
                 ..WidgetBase::default()
             },
         }
@@ -32,7 +32,7 @@ impl<'a> Checkbox<'a> {
             rect.w,
             rect.h,
             resolve_with_theme(
-                self.base.visuals.background,
+                self.base.overrides.background,
                 widget_theme.background,
                 colors::DEFAULT_BACKGROUND_COLOR,
             ),
@@ -44,15 +44,18 @@ impl<'a> Checkbox<'a> {
             rect.h,
             2.,
             resolve_with_theme(
-                self.base.visuals.border,
+                self.base.overrides.border,
                 widget_theme.border,
                 colors::DEFAULT_BORDER_COLOR,
             ),
         );
 
         if *self.value {
-            let check_color =
-                resolve_with_theme(self.base.visuals.primary, widget_theme.primary, Color::GREEN);
+            let check_color = resolve_with_theme(
+                self.base.overrides.primary,
+                widget_theme.primary,
+                Color::GREEN,
+            );
             ctx.draw_line(
                 rect.x + 3.,
                 rect.y + rect.h * 0.5,
@@ -93,14 +96,6 @@ impl Widget for Checkbox<'_> {
     }
     fn base_mut(&mut self) -> &mut WidgetBase {
         &mut self.base
-    }
-    fn map_theme(theme: &Theme) -> WidgetTheme {
-        WidgetTheme {
-            background: Some(theme.background),
-            border: Some(theme.border),
-            primary: Some(theme.primary),
-            ..Default::default()
-        }
     }
 }
 

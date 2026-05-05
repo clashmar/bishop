@@ -297,7 +297,7 @@ fn draw_recent_prefab_card(
     } else {
         with_theme(|t| t.border)
     };
-    ctx.draw_rectangle(rect.x, rect.y, rect.w, rect.h, with_theme(|t| t.card));
+    ctx.draw_rectangle(rect.x, rect.y, rect.w, rect.h, with_theme(|t| t.panel));
     ctx.draw_rectangle_lines(rect.x, rect.y, rect.w, rect.h, 2.0, border);
 
     let footer_rect = Rect::new(
@@ -329,7 +329,14 @@ fn draw_recent_prefab_card(
         footer_rect.y,
         footer_rect.w,
         footer_rect.h,
-        with_theme(|t| Color::new(t.card.r * 0.56, t.card.g * 0.56, t.card.b * 0.6, 0.95)),
+        with_theme(|t| {
+            Color::new(
+                t.surface.r * 0.56,
+                t.surface.g * 0.56,
+                t.surface.b * 0.6,
+                0.95,
+            )
+        }),
     );
 
     let name = sanitise_name(&prefab.name);

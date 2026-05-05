@@ -19,7 +19,7 @@ impl<'a> Stepper<'a> {
             current,
             base: WidgetBase {
                 blocked: false,
-                visuals: WidgetTheme::default(),
+                overrides: WidgetTheme::default(),
                 ..WidgetBase::default()
             },
         }
@@ -60,7 +60,7 @@ impl<'a> Stepper<'a> {
             rect.y,
             layout::FIELD_TEXT_SIZE_16,
             resolve_with_theme(
-                self.base.visuals.text,
+                self.base.overrides.text,
                 widget_theme.text,
                 colors::DEFAULT_TEXT_COLOR,
             ),
@@ -80,7 +80,7 @@ impl<'a> Stepper<'a> {
             btn_w + 15.0,
             2.,
             resolve_with_theme(
-                self.base.visuals.border,
+                self.base.overrides.border,
                 widget_theme.border,
                 colors::DEFAULT_BORDER_COLOR,
             ),
@@ -94,7 +94,7 @@ impl<'a> Stepper<'a> {
             val_rect.y + 17.5,
             layout::FIELD_TEXT_SIZE_16,
             resolve_with_theme(
-                self.base.visuals.text,
+                self.base.overrides.text,
                 widget_theme.text,
                 colors::DEFAULT_TEXT_COLOR,
             ),
@@ -109,7 +109,7 @@ impl<'a> Stepper<'a> {
 
         if Button::new(decrease_rect, "-")
             .suppressed(self.base.blocked)
-            .visuals(self.base.visuals)
+            .overrides(self.base.overrides)
             .show(ctx)
             && idx > 0
         {
@@ -124,7 +124,7 @@ impl<'a> Stepper<'a> {
         );
         if Button::new(increase_rect, "+")
             .suppressed(self.base.blocked)
-            .visuals(self.base.visuals)
+            .overrides(self.base.overrides)
             .show(ctx)
             && idx + 1 < self.steps.len()
         {
@@ -141,13 +141,6 @@ impl Widget for Stepper<'_> {
     }
     fn base_mut(&mut self) -> &mut WidgetBase {
         &mut self.base
-    }
-    fn map_theme(theme: &Theme) -> WidgetTheme {
-        WidgetTheme {
-            text: Some(theme.text),
-            border: Some(theme.border),
-            ..Default::default()
-        }
     }
 }
 
@@ -166,7 +159,7 @@ mod tests {
         let steps = [1.0, 2.0, 3.0];
         let rect = Rect::new(0.0, 0.0, 100.0, 20.0);
         let result = Stepper::new(rect, "Scale", &steps, 2.0)
-            .visuals(custom_visuals)
+            .overrides(custom_visuals)
             .show(&mut ctx);
         assert!((result - 2.0).abs() < f32::EPSILON);
         assert!(ctx.text_colors.iter().any(|c| *c == Color::RED));
@@ -185,12 +178,12 @@ mod theme_tests {
             border: Color::BLUE,
             ..Theme::default()
         };
-        let visuals = Stepper::map_theme(&theme);
-        assert_eq!(visuals.text, Some(Color::RED));
-        assert_eq!(visuals.border, Some(Color::BLUE));
-        assert_eq!(visuals.primary, None);
-        assert_eq!(visuals.background, None);
-        assert_eq!(visuals.accent, None);
-        assert_eq!(visuals.hover, None);
+        let overrides = Stepper::map_theme(&theme);
+        assert_eq!(overrides.text, Some(Color::RED));
+        assert_eq!(overrides.border, Some(Color::BLUE));
+        assert_eq!(overrides.primary, None);
+        assert_eq!(overrides.background, None);
+        assert_eq!(overrides.accent, None);
+        assert_eq!(overrides.hover, None);
     }
 }

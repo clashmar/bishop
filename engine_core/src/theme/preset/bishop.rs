@@ -1,6 +1,6 @@
 use bishop::Color;
-use widgets::theme::Theme;
 use widgets::constants::colors;
+use widgets::theme::{StyleRule, StyleSelector, Theme, WidgetTheme, WidgetType};
 
 use super::ThemePreset;
 
@@ -26,11 +26,16 @@ fn bishop_theme() -> Theme {
         selection: primary.with_alpha(0.25),
         highlight: highlight,
         placeholder: primary.with_alpha(0.22),
-        card: panel,
         overlay: Color::from_hex("000000").with_alpha(0.6),
         panel: panel,
         panel_text: Color::from_hex("FFFFFF"),
-        rules: Vec::new(),
+        rules: vec![StyleRule {
+            selector: StyleSelector::Type(WidgetType::Button),
+            properties: WidgetTheme {
+                primary: Some(background),
+                ..WidgetTheme::default()
+            },
+        }],
     }
 }
 

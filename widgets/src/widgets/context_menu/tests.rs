@@ -406,13 +406,13 @@ mod theme_tests {
             hover: Color::new(0.2, 0.2, 1.0, 1.0),
             ..Theme::default()
         };
-        let visuals = ContextMenu::<String>::map_theme(&theme);
-        assert_eq!(visuals.background, Some(Color::GREEN));
-        assert_eq!(visuals.text, Some(Color::BLUE));
-        assert_eq!(visuals.border, Some(Color::new(0.8, 0.8, 0.8, 1.0)));
-        assert_eq!(visuals.hover, Some(Color::new(0.2, 0.2, 1.0, 1.0)));
-        assert_eq!(visuals.primary, None);
-        assert_eq!(visuals.surface, None);
-        assert_eq!(visuals.accent, None);
+        let overrides = ContextMenu::<String>::map_theme(&theme);
+        assert_eq!(overrides.background, Some(Color::GREEN));
+        assert_eq!(overrides.text, Some(Color::BLUE));
+        assert_eq!(overrides.border, Some(Color::new(0.8, 0.8, 0.8, 1.0)));
+        assert_eq!(overrides.hover, Some(Color::new(0.2, 0.2, 1.0, 1.0)));
+        assert_eq!(overrides.primary, None);
+        assert_eq!(overrides.surface, None);
+        assert_eq!(overrides.accent, None);
     }
 }

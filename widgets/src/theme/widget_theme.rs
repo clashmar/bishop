@@ -2,40 +2,59 @@ use crate::widgets::Widget;
 use bishop::Color;
 use serde::{Deserialize, Serialize};
 
-/// The canonical list of theme color fields.
-/// Struct definitions, `merge`, `apply`, and [`each_color_field`]
-/// all derive from this list. Update here when adding/removing fields.
+/// The canonical list of theme color fields with descriptions.
+///
+/// Struct definitions, `merge`, `apply`, [`each_color_field`], and
+/// [`each_color_field_desc`] all derive from this list.
+/// Update here when adding/removing fields — docs regenerate automatically.
 #[doc(hidden)]
 #[macro_export]
 macro_rules! define_theme_colors {
     ($m:ident) => {
-        $m!(primary);
-        $m!(secondary);
-        $m!(background);
-        $m!(surface);
-        $m!(text);
-        $m!(text_muted);
-        $m!(accent);
-        $m!(border);
-        $m!(hover);
-        $m!(danger);
-        $m!(selection);
-        $m!(highlight);
-        $m!(placeholder);
-        $m!(card);
-        $m!(overlay);
-        $m!(panel);
-        $m!(panel_text);
+        $m!(primary, "Brand accent; interactive control fill");
+        $m!(secondary, "Alternate accent for secondary emphasis");
+        $m!(background, "Page-level background");
+        $m!(surface, "Elevated surfaces above background");
+        $m!(text, "Primary text for readability");
+        $m!(text_muted, "Subdued text for secondary or disabled content");
+        $m!(accent, "Emphasized accent for active or focused elements");
+        $m!(border, "Outline color for widgets and containers");
+        $m!(hover, "Hover or pressed overlay");
+        $m!(danger, "Error, destructive action, or critical warning");
+        $m!(selection, "Text-selection highlight background");
+        $m!(
+            highlight,
+            "Transient highlight for active or matching elements"
+        );
+        $m!(placeholder, "Fill for placeholder or ghost content");
+        $m!(overlay, "Scrim or backdrop for overlays and modals");
+        $m!(panel, "Large surface for panels and sidebars");
+        $m!(panel_text, "Text rendered on panel surfaces");
     };
 }
 
 /// Visits every theme color field by name, calling the caller-provided
-/// macro `$m` once per field.
+/// macro `$m` once per field. Description is discarded.
 ///
 /// Delegates to [`define_theme_colors`] so the field list stays in sync.
 #[doc(hidden)]
 #[macro_export]
 macro_rules! each_color_field {
+    ($cb:ident) => {
+        macro_rules! __field_name_only {
+            ($f:ident, $desc:literal) => {
+                $cb!($f);
+            };
+        }
+        $crate::define_theme_colors!(__field_name_only);
+    };
+}
+
+/// Visits every theme color field, passing the field name and its
+/// description to the caller-provided macro `$m`.
+#[doc(hidden)]
+#[macro_export]
+macro_rules! each_color_field_desc {
     ($cb:ident) => {
         $crate::define_theme_colors!($cb);
     };
@@ -63,7 +82,6 @@ pub struct WidgetTheme {
     pub selection: Option<Color>,
     pub highlight: Option<Color>,
     pub placeholder: Option<Color>,
-    pub card: Option<Color>,
     pub overlay: Option<Color>,
     pub panel: Option<Color>,
     pub panel_text: Option<Color>,
@@ -112,7 +130,7 @@ pub fn resolve_with_theme(
     instance.or(theme_slot).unwrap_or(constant)
 }
 
-/// Resolves theme visuals for a widget type, applying matching style rules.
+/// Resolves theme overrides for a widget type, applying matching style rules.
 pub fn resolve_theme_for<T: Widget>(class: Option<&str>, id: Option<&str>) -> WidgetTheme {
     super::with_theme(|t| {
         let mut base = T::map_theme(t);
@@ -138,7 +156,7 @@ mod tests {
     }
 
     #[test]
-    fn resolve_default_widget_visuals_all_none() {
+    fn resolve_default_widget_overrides_all_none() {
         let v = WidgetTheme::default();
         macro_rules! check_none {
             ($f:ident) => {

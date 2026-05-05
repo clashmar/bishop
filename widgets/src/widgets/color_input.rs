@@ -18,7 +18,7 @@ impl ColorInput {
             current,
             base: WidgetBase {
                 blocked: false,
-                visuals: WidgetTheme::default(),
+                overrides: WidgetTheme::default(),
                 ..WidgetBase::default()
             },
         }
@@ -44,7 +44,7 @@ impl ColorInput {
             prefix_y,
             layout::DEFAULT_FONT_SIZE_16,
             resolve_with_theme(
-                self.base.visuals.text,
+                self.base.overrides.text,
                 widget_theme.text,
                 colors::DEFAULT_TEXT_COLOR,
             ),
@@ -54,7 +54,7 @@ impl ColorInput {
         let text_rect = Rect::new(text_field_x, self.rect.y, text_field_w, self.rect.h);
         let (hex_text, _focused) = TextInput::new(self.id, text_rect, &hex)
             .blocked(self.base.blocked)
-            .visuals(self.base.visuals)
+            .overrides(self.base.overrides)
             .max_len(6)
             .char_filter(hex_char_filter)
             .show(ctx);
@@ -75,7 +75,7 @@ impl ColorInput {
             swatch_rect.w,
             swatch_rect.h,
             2.0,
-            resolve_with_theme(self.base.visuals.border, widget_theme.border, Color::WHITE),
+            resolve_with_theme(self.base.overrides.border, widget_theme.border, Color::WHITE),
         );
 
         resolved
@@ -88,15 +88,6 @@ impl Widget for ColorInput {
     }
     fn base_mut(&mut self) -> &mut WidgetBase {
         &mut self.base
-    }
-    fn map_theme(theme: &Theme) -> WidgetTheme {
-        WidgetTheme {
-            background: Some(theme.surface),
-            border: Some(theme.border),
-            accent: Some(theme.accent),
-            text: Some(theme.text),
-            ..Default::default()
-        }
     }
 }
 
@@ -127,12 +118,12 @@ mod theme_tests {
             text: Color::BLACK,
             ..Theme::default()
         };
-        let visuals = ColorInput::map_theme(&theme);
-        assert_eq!(visuals.background, Some(Color::GREEN));
-        assert_eq!(visuals.border, Some(Color::BLUE));
-        assert_eq!(visuals.accent, Some(Color::RED));
-        assert_eq!(visuals.text, Some(Color::BLACK));
-        assert_eq!(visuals.primary, None);
-        assert_eq!(visuals.hover, None);
+        let overrides = ColorInput::map_theme(&theme);
+        assert_eq!(overrides.background, Some(Color::GREEN));
+        assert_eq!(overrides.border, Some(Color::BLUE));
+        assert_eq!(overrides.accent, Some(Color::RED));
+        assert_eq!(overrides.text, Some(Color::BLACK));
+        assert_eq!(overrides.primary, None);
+        assert_eq!(overrides.hover, None);
     }
 }

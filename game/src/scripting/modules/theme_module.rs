@@ -30,6 +30,10 @@ impl LuaApi for ThemeModule {
         out.line(&format!("---@enum {}", lua_theme::CLASS_WIDGET_TYPE));
         out.line(&format!("{} = {{", lua_theme::CLASS_WIDGET_TYPE));
         for &name in WidgetType::VARIANTS {
+            let wt: WidgetType = name.parse().unwrap();
+            if !wt.is_exposed_to_lua() {
+                continue;
+            }
             out.line(&format!("    {} = \"{}\",", name, name));
         }
         out.line("}");
@@ -37,15 +41,16 @@ impl LuaApi for ThemeModule {
 
         out.line(&format!("---@class {}", lua_theme::CLASS_THEME));
         macro_rules! field_doc {
-            ($f:ident) => {
+            ($f:ident, $desc:literal) => {
                 out.line(&format!(
-                    "---@field {} {}",
+                    "---@field {} {} -- {}",
                     stringify!($f),
-                    lua_theme::CLASS_COLOR
+                    lua_theme::CLASS_COLOR,
+                    $desc
                 ));
             };
         }
-        widgets::each_color_field!(field_doc);
+        widgets::each_color_field_desc!(field_doc);
         out.line(&format!(
             "---@field {} fun(self: {}, {}: {}|string, {}: table)",
             lua_theme::RULE,

@@ -1,4 +1,4 @@
-use crate::theme::{Theme, WidgetType, WidgetTheme};
+use crate::theme::{Theme, WidgetTheme, WidgetType};
 
 /// Common widget fields shared by all widgets.
 #[derive(Default)]
@@ -6,14 +6,18 @@ pub struct WidgetBase {
     pub class_name: Option<String>,
     pub style_id: Option<String>,
     pub blocked: bool,
-    pub visuals: WidgetTheme,
+    pub overrides: WidgetTheme,
 }
 
 /// Common API shared by all widgets.
 pub trait Widget: Sized {
     fn widget_type() -> WidgetType;
     fn base_mut(&mut self) -> &mut WidgetBase;
-    fn map_theme(theme: &Theme) -> WidgetTheme;
+
+    /// Maps the active theme into this widget's color slots.
+    fn map_theme(theme: &Theme) -> WidgetTheme {
+        Self::widget_type().map_theme(theme)
+    }
 
     fn apply_selectors(mut self, class: Option<&str>, id: Option<&str>) -> Self {
         if let Some(c) = class {
@@ -40,8 +44,8 @@ pub trait Widget: Sized {
         self
     }
 
-    fn visuals(mut self, visuals: WidgetTheme) -> Self {
-        self.base_mut().visuals = visuals;
+    fn overrides(mut self, overrides: WidgetTheme) -> Self {
+        self.base_mut().overrides = overrides;
         self
     }
 }

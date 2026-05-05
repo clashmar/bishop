@@ -31,7 +31,7 @@ where
             max: None,
             base: WidgetBase {
                 blocked: false,
-                visuals: WidgetTheme::default(),
+                overrides: WidgetTheme::default(),
                 ..WidgetBase::default()
             },
         }
@@ -111,7 +111,7 @@ where
             self.rect.y,
             self.rect.w,
             self.rect.h,
-            resolve_with_theme(self.base.visuals.background, widget_theme.background, colors::DEFAULT_BACKGROUND_COLOR),
+            resolve_with_theme(self.base.overrides.background, widget_theme.background, colors::DEFAULT_BACKGROUND_COLOR),
         );
         ctx.draw_rectangle_lines(
             self.rect.x,
@@ -119,7 +119,7 @@ where
             self.rect.w,
             self.rect.h,
             2.,
-            resolve_with_theme(self.base.visuals.border, widget_theme.border, Color::WHITE),
+            resolve_with_theme(self.base.overrides.border, widget_theme.border, Color::WHITE),
         );
 
         let text_area_x = self.rect.x + layout::WIDGET_PADDING / 2.;
@@ -143,7 +143,7 @@ where
                     self.rect.y + self.rect.h * 0.2,
                     clipped_end - clipped_start,
                     self.rect.h * 0.6,
-                    resolve_with_theme(self.base.visuals.accent, widget_theme.accent, colors::DEFAULT_INPUT_SELECTION_COLOR),
+                    resolve_with_theme(self.base.overrides.accent, widget_theme.accent, colors::DEFAULT_INPUT_SELECTION_COLOR),
                 );
             }
         }
@@ -156,7 +156,7 @@ where
             self.rect,
             scroll_offset_x,
             layout::DEFAULT_FONT_SIZE_16,
-            resolve_with_theme(self.base.visuals.text, widget_theme.text, colors::DEFAULT_TEXT_COLOR),
+            resolve_with_theme(self.base.overrides.text, widget_theme.text, colors::DEFAULT_TEXT_COLOR),
         );
 
         if is_dropdown_open() || is_context_menu_open() {
@@ -459,7 +459,7 @@ where
                     caret_x,
                     self.rect.y + self.rect.h * 0.8,
                     2.,
-                    resolve_with_theme(self.base.visuals.border, widget_theme.border, colors::DEFAULT_BORDER_COLOR),
+                    resolve_with_theme(self.base.overrides.border, widget_theme.border, colors::DEFAULT_BORDER_COLOR),
                 );
             }
         }
@@ -506,15 +506,6 @@ where
 impl<T> Widget for NumberInput<T> {
     fn widget_type() -> WidgetType { WidgetType::NumberInput }
     fn base_mut(&mut self) -> &mut WidgetBase { &mut self.base }
-    fn map_theme(theme: &Theme) -> WidgetTheme {
-        WidgetTheme {
-            background: Some(theme.background),
-            accent: Some(theme.accent),
-            border: Some(theme.border),
-            text: Some(theme.text),
-            ..Default::default()
-        }
-    }
 }
 
 /// Resets the number input state for the given widget id.
@@ -540,13 +531,13 @@ mod theme_tests {
             text: Color::BLACK,
             ..Theme::default()
         };
-        let visuals = NumberInput::<f32>::map_theme(&theme);
-        assert_eq!(visuals.background, Some(Color::GREEN));
-        assert_eq!(visuals.accent, Some(Color::BLUE));
-        assert_eq!(visuals.border, Some(Color::new(0.8, 0.8, 0.8, 1.0)));
-        assert_eq!(visuals.text, Some(Color::BLACK));
-        assert_eq!(visuals.primary, None);
-        assert_eq!(visuals.surface, None);
-        assert_eq!(visuals.hover, None);
+        let overrides = NumberInput::<f32>::map_theme(&theme);
+        assert_eq!(overrides.background, Some(Color::GREEN));
+        assert_eq!(overrides.accent, Some(Color::BLUE));
+        assert_eq!(overrides.border, Some(Color::new(0.8, 0.8, 0.8, 1.0)));
+        assert_eq!(overrides.text, Some(Color::BLACK));
+        assert_eq!(overrides.primary, None);
+        assert_eq!(overrides.surface, None);
+        assert_eq!(overrides.hover, None);
     }
 }

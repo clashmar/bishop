@@ -1,4 +1,6 @@
 pub mod widget_theme;
+pub mod mappings;
+pub use mappings::generate_theme_reference_markdown;
 
 pub use widget_theme::{
     resolve, resolve_with_theme, resolve_theme_for, WidgetTheme,
@@ -13,39 +15,37 @@ use std::sync::RwLock;
 /// A collection of semantic color roles.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Theme {
-    /// Primary accent color.
+    /// Brand/accent color used for interactive controls.
     pub primary: Color,
-    /// Secondary accent color.
+    /// Alternate accent color for secondary emphasis.
     pub secondary: Color,
-    /// Deepest background tone.
+    /// Deepest page-level background.
     pub background: Color,
-    /// Raised surface tone.
+    /// Elevated surface above the background.
     pub surface: Color,
-    /// Primary text color.
+    /// Primary text color for readability.
     pub text: Color,
-    /// Diminished text for labels, hints, disabled state.
+    /// Subdued text for secondary or disabled content.
     pub text_muted: Color,
-    /// Accent highlight (selections, check marks, active indicators).
+    /// Emphasized accent for active or focused elements.
     pub accent: Color,
-    /// Border and outline color.
+    /// Outline color for widgets and containers.
     pub border: Color,
-    /// Hover highlight color.
+    /// Hover or pressed overlay color.
     pub hover: Color,
-    /// Danger/error/destructive-action color.
+    /// Error, destructive action, or critical warning color.
     pub danger: Color,
-    /// Selection highlight background.
+    /// Text-selection highlight background.
     pub selection: Color,
-    /// Active element highlight (marquee, entity outline, active prefab).
+    /// Transient highlight for active or matching elements.
     pub highlight: Color,
-    /// Room editor ghost stamp fill.
+    /// Fill for placeholder or ghost content.
     pub placeholder: Color,
-    /// Card background (prefab/resource cards).
-    pub card: Color,
-    /// Overlay base (toast, tooltip, modal backdrop — alpha applied per-context).
+    /// Scrim or backdrop for overlays and modals.
     pub overlay: Color,
-    /// Panel background (menu bar, side panels, dropdowns).
+    /// Large surface area for panels and sidebars.
     pub panel: Color,
-    /// Text on panel backgrounds (contrasts with panel).
+    /// Text rendered on panel-colored surfaces.
     pub panel_text: Color,
     /// Style rules applied during widget rendering.
     #[serde(default)]
@@ -68,7 +68,6 @@ impl Default for Theme {
             selection: colors::DEFAULT_SELECTION_COLOR,
             highlight: colors::DEFAULT_HIGHLIGHT_COLOR,
             placeholder: colors::DEFAULT_PLACEHOLDER_COLOR,
-            card: colors::DEFAULT_CARD_COLOR,
             overlay: colors::DEFAULT_OVERLAY_COLOR,
             panel: colors::DEFAULT_PANEL_COLOR,
             panel_text: colors::DEFAULT_PANEL_TEXT_COLOR,
@@ -94,6 +93,9 @@ pub enum WidgetType {
     Stepper,
     ScrollableArea,
 }
+
+/// Describes which [`Theme`] color roles a widget maps to its [`WidgetTheme`] fields.
+pub type FieldMapping = &'static [(&'static str, &'static str, &'static str)];
 
 /// A selector that targets widgets for style rule application.
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -145,8 +147,6 @@ pub struct StyleRule {
 
 impl Theme {
     /// Applies matching style rules to `base` in priority order.
-    /// Three-pass iteration: type (lowest) → class → id (highest).
-    /// No allocation, no sorting — O(n) where n = rules.len().
     pub fn apply_rules(
         &self,
         widget_type: WidgetType,
@@ -353,7 +353,7 @@ mod tests {
     }
 
     #[test]
-    fn themed_visuals_respects_type_rule() {
+    fn themed_overrides_respects_type_rule() {
         let mut theme = Theme::default();
         theme.background = Color::RED;
         theme.rules.push(StyleRule {
@@ -376,9 +376,9 @@ mod tests {
             }
         }
 
-        let visuals = resolve_theme_for::<TestButton>(None, None);
+        let overrides = resolve_theme_for::<TestButton>(None, None);
         // Rule overrides base theme mapping
-        assert_eq!(visuals.background, Some(Color::BLUE));
+        assert_eq!(overrides.background, Some(Color::BLUE));
     }
 
     #[test]
@@ -411,8 +411,8 @@ mod tests {
             }
         }
 
-        let visuals = resolve_theme_for::<TestButton>(Some("danger"), None);
-        assert_eq!(visuals.background, Some(Color::RED));
+        let overrides = resolve_theme_for::<TestButton>(Some("danger"), None);
+        assert_eq!(overrides.background, Some(Color::RED));
     }
 
     #[test]
@@ -439,8 +439,8 @@ mod tests {
             }
         }
 
-        let visuals = resolve_theme_for::<TestSlider>(None, None);
+        let overrides = resolve_theme_for::<TestSlider>(None, None);
         // Rule targets Button, not Slider — base theme mapping passes through
-        assert_eq!(visuals.background, Some(Color::GREEN));
+        assert_eq!(overrides.background, Some(Color::GREEN));
     }
 }

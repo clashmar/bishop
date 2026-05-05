@@ -21,7 +21,7 @@ struct DeferredDropdownRender {
     scroll_offset: f32,
     labels: Vec<String>,
     option_count: usize,
-    visuals: WidgetTheme,
+    overrides: WidgetTheme,
 }
 
 thread_local! {
@@ -97,7 +97,7 @@ pub fn flush_dropdown_lists<C: BishopContext>(ctx: &mut C) {
                 render.scroll_offset,
                 &render.labels,
                 render.option_count,
-                render.visuals,
+                render.overrides,
             );
         }
     });
@@ -168,7 +168,7 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
             truncate_trigger: false,
             base: WidgetBase {
                 blocked: false,
-                visuals: WidgetTheme::default(),
+                overrides: WidgetTheme::default(),
                 ..WidgetBase::default()
             },
         }
@@ -191,7 +191,7 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
 
     /// Sets the text color.
     pub fn text_color(mut self, color: impl Into<Color>) -> Self {
-        self.base.visuals.text = Some(color.into());
+        self.base.overrides.text = Some(color.into());
         self
     }
 
@@ -284,7 +284,7 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
             DropDownStyle::Default => {
                 Button::new(self.rect, display_label)
                     .text_offset(Vec2::new(0.0, -1.0))
-                    .visuals(self.base.visuals)
+                    .overrides(self.base.overrides)
                     .blocked(self.base.blocked)
                     .suppressed(self.suppressed)
                     .show(ctx)
@@ -297,7 +297,7 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
                     .text_color(self.text_color)
                     .font_size(self.label_font_size)
                     .text_offset(Vec2::new(0.0, -1.0))
-                    .visuals(self.base.visuals)
+                    .overrides(self.base.overrides)
                     .blocked(self.base.blocked)
                     .suppressed(self.suppressed)
                     .show(ctx)
@@ -353,7 +353,7 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
 
         if list_is_open {
             if self.filterable {
-                let merged = self.base.visuals.merge(widget_theme);
+                let merged = self.base.overrides.merge(widget_theme);
                 result = self.show_filterable_list(ctx, &merged, &mut state, list_width);
             } else {
                 let visible_rows = MAX_VISIBLE_ROWS.min(self.options.len());
@@ -437,7 +437,7 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
                         scroll_offset,
                         labels,
                         option_count,
-                        visuals: self.base.visuals.merge(widget_theme),
+                        overrides: self.base.overrides.merge(widget_theme),
                     });
                 });
             }
@@ -464,7 +464,7 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
     fn show_filterable_list<C: BishopContext>(
         &self,
         ctx: &mut C,
-        visuals: &WidgetTheme,
+        overrides: &WidgetTheme,
         state: &mut dropdown_state::DropState,
         list_width: f32,
     ) -> Option<T> {
@@ -508,7 +508,7 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
             popup_rect.y,
             popup_rect.w,
             popup_rect.h,
-            resolve(visuals.surface, colors::DEFAULT_BACKGROUND_COLOR),
+            resolve(overrides.surface, colors::DEFAULT_BACKGROUND_COLOR),
         );
 
         // Filter TextInput
@@ -517,7 +517,7 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
         let (new_filter, _) = TextInput::new(filter_id, filter_rect, &prev_filter)
             .in_dropdown()
             .live()
-            .visuals(self.base.visuals)
+            .overrides(self.base.overrides)
             .show(ctx);
 
         // Reset scroll when filter changes so the user is never stranded past new results
@@ -562,7 +562,7 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
                     entry_rect.y,
                     entry_rect.w,
                     entry_rect.h,
-                    resolve(visuals.hover, DROPDOWN_HOVER_BG),
+                    resolve(overrides.hover, DROPDOWN_HOVER_BG),
                 );
             }
 
@@ -572,7 +572,7 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
                 entry_rect,
                 0.0,
                 layout::DEFAULT_FONT_SIZE_16,
-                resolve(visuals.text, colors::DEFAULT_TEXT_COLOR),
+                resolve(overrides.text, colors::DEFAULT_TEXT_COLOR),
             );
 
             if activate_on_release(
@@ -604,14 +604,14 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
                 entries_y,
                 6.,
                 entries_h,
-                resolve(visuals.surface, DROPDOWN_SCROLLBAR_TRACK),
+                resolve(overrides.surface, DROPDOWN_SCROLLBAR_TRACK),
             );
             ctx.draw_rectangle(
                 popup_rect.x + popup_rect.w - 6.,
                 thumb_y,
                 6.,
                 thumb_h,
-                resolve(visuals.text_muted, DROPDOWN_SCROLLBAR_THUMB),
+                resolve(overrides.text_muted, DROPDOWN_SCROLLBAR_THUMB),
             );
         }
 
@@ -621,7 +621,7 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
             popup_rect.w,
             popup_rect.h,
             2.,
-            resolve(visuals.border, colors::DEFAULT_BORDER_COLOR),
+            resolve(overrides.border, colors::DEFAULT_BORDER_COLOR),
         );
 
         result
@@ -643,14 +643,14 @@ fn render_dropdown_list<C: BishopContext>(
     scroll_offset: f32,
     labels: &[String],
     option_count: usize,
-    visuals: WidgetTheme,
+    overrides: WidgetTheme,
 ) {
     ctx.draw_rectangle(
         list_rect.x,
         list_rect.y,
         list_rect.w,
         list_rect.h,
-        resolve(visuals.surface, colors::DEFAULT_BACKGROUND_COLOR),
+        resolve(overrides.surface, colors::DEFAULT_BACKGROUND_COLOR),
     );
 
     let mouse_pos = ctx.mouse_position();
@@ -675,7 +675,7 @@ fn render_dropdown_list<C: BishopContext>(
                 entry_rect.y,
                 entry_rect.w,
                 entry_rect.h,
-                resolve(visuals.hover, DROPDOWN_HOVER_BG),
+                resolve(overrides.hover, DROPDOWN_HOVER_BG),
             );
         }
 
@@ -685,7 +685,7 @@ fn render_dropdown_list<C: BishopContext>(
             entry_rect,
             0.0,
             layout::DEFAULT_FONT_SIZE_16,
-            resolve(visuals.text, colors::DEFAULT_TEXT_COLOR),
+            resolve(overrides.text, colors::DEFAULT_TEXT_COLOR),
         );
     }
 
@@ -700,14 +700,14 @@ fn render_dropdown_list<C: BishopContext>(
             list_rect.y,
             6.,
             list_rect.h,
-            resolve(visuals.surface, DROPDOWN_SCROLLBAR_TRACK),
+            resolve(overrides.surface, DROPDOWN_SCROLLBAR_TRACK),
         );
         ctx.draw_rectangle(
             list_rect.x + list_rect.w - 6.,
             thumb_y,
             6.,
             thumb_h,
-            resolve(visuals.text_muted, DROPDOWN_SCROLLBAR_THUMB),
+            resolve(overrides.text_muted, DROPDOWN_SCROLLBAR_THUMB),
         );
     }
 
@@ -717,7 +717,7 @@ fn render_dropdown_list<C: BishopContext>(
         list_rect.w,
         list_rect.h,
         2.,
-        resolve(visuals.border, colors::DEFAULT_BORDER_COLOR),
+        resolve(overrides.border, colors::DEFAULT_BORDER_COLOR),
     );
 }
 
@@ -727,15 +727,6 @@ impl<T> Widget for Dropdown<'_, T> {
     }
     fn base_mut(&mut self) -> &mut WidgetBase {
         &mut self.base
-    }
-    fn map_theme(theme: &Theme) -> WidgetTheme {
-        WidgetTheme {
-            background: Some(theme.surface),
-            text: Some(theme.text),
-            border: Some(theme.border),
-            hover: Some(theme.hover),
-            ..Default::default()
-        }
     }
 }
 

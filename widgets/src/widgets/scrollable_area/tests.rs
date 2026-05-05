@@ -460,12 +460,12 @@ mod theme_tests {
             text_muted: Color::new(0.5, 0.5, 0.5, 1.0),
             ..Theme::default()
         };
-        let visuals = ScrollableArea::map_theme(&theme);
-        assert_eq!(visuals.surface, Some(Color::GREEN));
-        assert_eq!(visuals.text, Some(Color::RED));
-        assert_eq!(visuals.text_muted, Some(Color::new(0.5, 0.5, 0.5, 1.0)));
-        assert_eq!(visuals.primary, None);
-        assert_eq!(visuals.background, None);
-        assert_eq!(visuals.border, None);
+        let overrides = ScrollableArea::map_theme(&theme);
+        assert_eq!(overrides.surface, Some(Color::GREEN));
+        assert_eq!(overrides.text, Some(Color::RED));
+        assert_eq!(overrides.text_muted, Some(Color::new(0.5, 0.5, 0.5, 1.0)));
+        assert_eq!(overrides.primary, None);
+        assert_eq!(overrides.background, None);
+        assert_eq!(overrides.border, None);
     }
 }

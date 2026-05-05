@@ -34,7 +34,7 @@ impl Slider {
             value,
             base: WidgetBase {
                 blocked: false,
-                visuals: WidgetTheme::default(),
+                overrides: WidgetTheme::default(),
                 ..WidgetBase::default()
             },
         }
@@ -84,7 +84,7 @@ impl Slider {
             rect.w,
             rect.h,
             resolve_with_theme(
-                self.base.visuals.background,
+                self.base.overrides.background,
                 widget_theme.background,
                 colors::DEFAULT_BACKGROUND_COLOR,
             ),
@@ -94,7 +94,11 @@ impl Slider {
             track_y,
             rect.w,
             track_h,
-            resolve_with_theme(self.base.visuals.secondary, widget_theme.secondary, track_color),
+            resolve_with_theme(
+                self.base.overrides.secondary,
+                widget_theme.secondary,
+                track_color,
+            ),
         );
         ctx.draw_rectangle_lines(
             rect.x,
@@ -103,7 +107,7 @@ impl Slider {
             rect.h,
             2.,
             resolve_with_theme(
-                self.base.visuals.border,
+                self.base.overrides.border,
                 widget_theme.border,
                 colors::DEFAULT_BORDER_COLOR,
             ),
@@ -113,13 +117,13 @@ impl Slider {
             if was_dragging && !is_dropdown_open() && !is_context_menu_open() && !self.base.blocked
             {
                 resolve_with_theme(
-                    self.base.visuals.hover,
+                    self.base.overrides.hover,
                     widget_theme.hover,
                     handle_color_dragging,
                 )
             } else {
                 resolve_with_theme(
-                    self.base.visuals.primary,
+                    self.base.overrides.primary,
                     widget_theme.primary,
                     handle_color_idle,
                 )
@@ -131,7 +135,7 @@ impl Slider {
             handle_sz,
             rect.h,
             2.,
-            resolve_with_theme(self.base.visuals.border, widget_theme.border, Color::WHITE),
+            resolve_with_theme(self.base.overrides.border, widget_theme.border, Color::WHITE),
         );
 
         if self.base.blocked || is_dropdown_open() || is_context_menu_open() {
@@ -193,15 +197,5 @@ impl Widget for Slider {
     }
     fn base_mut(&mut self) -> &mut WidgetBase {
         &mut self.base
-    }
-    fn map_theme(theme: &Theme) -> WidgetTheme {
-        WidgetTheme {
-            primary: Some(theme.primary),
-            background: Some(theme.background),
-            surface: Some(theme.surface),
-            border: Some(theme.border),
-            hover: Some(theme.hover),
-            ..Default::default()
-        }
     }
 }

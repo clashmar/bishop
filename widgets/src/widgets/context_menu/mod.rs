@@ -19,7 +19,7 @@ struct DeferredContextMenuRender {
     labels: Vec<String>,
     hovered_index: Option<usize>,
     font_size: f32,
-    visuals: WidgetTheme,
+    overrides: WidgetTheme,
 }
 
 thread_local! {
@@ -51,7 +51,7 @@ impl<'a, T: Clone + PartialEq + 'static> ContextMenu<'a, T> {
             font_size: layout::DEFAULT_FONT_SIZE_16,
             base: WidgetBase {
                 blocked: false,
-                visuals: WidgetTheme::default(),
+                overrides: WidgetTheme::default(),
                 ..WidgetBase::default()
             },
         }
@@ -68,7 +68,7 @@ impl<'a, T: Clone + PartialEq + 'static> ContextMenu<'a, T> {
     }
 
     pub fn text_color(mut self, color: impl Into<Color>) -> Self {
-        self.base.visuals.text = Some(color.into());
+        self.base.overrides.text = Some(color.into());
         self
     }
 
@@ -150,7 +150,7 @@ impl<'a, T: Clone + PartialEq + 'static> ContextMenu<'a, T> {
                 labels,
                 hovered_index,
                 self.font_size,
-                self.base.visuals.merge(widget_theme),
+                self.base.overrides.merge(widget_theme),
             );
             return result;
         }
@@ -192,15 +192,6 @@ impl<T> Widget for ContextMenu<'_, T> {
     fn base_mut(&mut self) -> &mut WidgetBase {
         &mut self.base
     }
-    fn map_theme(theme: &Theme) -> WidgetTheme {
-        WidgetTheme {
-            background: Some(theme.surface),
-            text: Some(theme.text),
-            border: Some(theme.border),
-            hover: Some(theme.hover),
-            ..Default::default()
-        }
-    }
 }
 
 fn push_deferred_render(
@@ -209,7 +200,7 @@ fn push_deferred_render(
     labels: Vec<String>,
     hovered_index: Option<usize>,
     font_size: f32,
-    visuals: WidgetTheme,
+    overrides: WidgetTheme,
 ) {
     DEFERRED_CONTEXT_MENU_RENDERS.with(|renders| {
         renders.borrow_mut().push(DeferredContextMenuRender {
@@ -218,7 +209,7 @@ fn push_deferred_render(
             labels,
             hovered_index,
             font_size,
-            visuals,
+            overrides,
         });
     });
 }
@@ -249,7 +240,7 @@ fn render_context_menu<C: BishopContext>(ctx: &mut C, render: DeferredContextMen
         render.rect.y,
         render.rect.w,
         render.rect.h,
-        resolve(render.visuals.surface, colors::DEFAULT_BACKGROUND_COLOR),
+        resolve(render.overrides.surface, colors::DEFAULT_BACKGROUND_COLOR),
     );
 
     let mouse_pos: Vec2 = ctx.mouse_position().into();
@@ -264,7 +255,7 @@ fn render_context_menu<C: BishopContext>(ctx: &mut C, render: DeferredContextMen
                 entry_rect.y,
                 entry_rect.w,
                 entry_rect.h,
-                resolve(render.visuals.hover, CONTEXT_HOVER),
+                resolve(render.overrides.hover, CONTEXT_HOVER),
             );
         }
 
@@ -274,7 +265,7 @@ fn render_context_menu<C: BishopContext>(ctx: &mut C, render: DeferredContextMen
             entry_rect.x + W_PADDING,
             entry_rect.y + entry_rect.h * 0.7,
             render.font_size,
-            resolve(render.visuals.text, colors::DEFAULT_TEXT_COLOR),
+            resolve(render.overrides.text, colors::DEFAULT_TEXT_COLOR),
         );
     }
 
@@ -284,7 +275,7 @@ fn render_context_menu<C: BishopContext>(ctx: &mut C, render: DeferredContextMen
         render.rect.w,
         render.rect.h,
         2.,
-        resolve(render.visuals.border, colors::DEFAULT_BORDER_COLOR),
+        resolve(render.overrides.border, colors::DEFAULT_BORDER_COLOR),
     );
 }
 

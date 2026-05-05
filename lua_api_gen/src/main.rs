@@ -50,6 +50,9 @@ fn main() {
     for out_dir in out_dirs {
         write_generated_files(&out_dir, &per_file);
     }
+
+    // Generate theme reference markdown
+    write_theme_reference(&workspace_root);
 }
 
 fn write_generated_files(out_dir: &Path, per_file: &HashMap<&'static str, String>) {
@@ -83,4 +86,18 @@ fn write_generated_files(out_dir: &Path, per_file: &HashMap<&'static str, String
         file.write_all(content.as_bytes()).unwrap();
         println!("Written to: {}", path.display());
     }
+}
+
+fn write_theme_reference(workspace_root: &Path) {
+    use engine_core::scripting::lua_constants::lua_docs;
+
+    let markdown = engine_core::theme::generate_theme_reference_markdown();
+    let path = workspace_root
+        .join(lua_docs::DOCS_DIR)
+        .join(lua_docs::THEME_REFERENCE);
+    fs::write(&path, &markdown).unwrap();
+    println!(
+        "cargo:warning=Theme reference written to {}",
+        path.display()
+    );
 }

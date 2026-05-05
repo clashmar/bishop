@@ -9,34 +9,25 @@ engine.theme = {}
 Widget = {
     Button = "Button",
     Slider = "Slider",
-    Checkbox = "Checkbox",
-    TextInput = "TextInput",
-    NumberInput = "NumberInput",
-    Dropdown = "Dropdown",
-    ContextMenu = "ContextMenu",
-    ColorInput = "ColorInput",
-    Stepper = "Stepper",
-    ScrollableArea = "ScrollableArea",
 }
 
 ---@class Theme
----@field primary Color
----@field secondary Color
----@field background Color
----@field surface Color
----@field text Color
----@field text_muted Color
----@field accent Color
----@field border Color
----@field hover Color
----@field danger Color
----@field selection Color
----@field highlight Color
----@field placeholder Color
----@field card Color
----@field overlay Color
----@field panel Color
----@field panel_text Color
+---@field primary Color -- Brand accent; interactive control fill
+---@field secondary Color -- Alternate accent for secondary emphasis
+---@field background Color -- Page-level background
+---@field surface Color -- Elevated surfaces above background
+---@field text Color -- Primary text for readability
+---@field text_muted Color -- Subdued text for secondary or disabled content
+---@field accent Color -- Emphasized accent for active or focused elements
+---@field border Color -- Outline color for widgets and containers
+---@field hover Color -- Hover or pressed overlay
+---@field danger Color -- Error, destructive action, or critical warning
+---@field selection Color -- Text-selection highlight background
+---@field highlight Color -- Transient highlight for active or matching elements
+---@field placeholder Color -- Fill for placeholder or ghost content
+---@field overlay Color -- Scrim or backdrop for overlays and modals
+---@field panel Color -- Large surface for panels and sidebars
+---@field panel_text Color -- Text rendered on panel surfaces
 ---@field rule fun(self: Theme, selector: Widget|string, props: table)
 
 ---@return Theme

@@ -97,7 +97,10 @@ fn blocked_buttons_are_dimmed_and_do_not_click() {
 
 #[test]
 fn suppressed_buttons_are_not_dimmed_and_do_not_click() {
+    use crate::theme::{set_theme, Theme};
+
     reset_click_consumed();
+    set_theme(Theme::default());
 
     let button = Rect::new(0.0, 0.0, 80.0, 30.0);
     let mut ctx = WidgetTestContext::new();
@@ -108,7 +111,7 @@ fn suppressed_buttons_are_not_dimmed_and_do_not_click() {
     assert!(!Button::new(button, "Play").suppressed(true).show(&mut ctx));
     assert_eq!(
         ctx.rectangle_fills.last().copied(),
-        Some(colors::DEFAULT_BACKGROUND_COLOR)
+        Some(colors::DEFAULT_PRIMARY_COLOR)
     );
     assert_eq!(
         ctx.rectangle_lines.last().copied(),
@@ -275,22 +278,22 @@ mod theme_tests {
     #[test]
     fn button_theme_mapper_maps_key_roles() {
         let theme = Theme {
-            background: Color::GREEN,
+            primary: Color::GREEN,
             text: Color::BLUE,
             text_muted: Color::new(0.5, 0.5, 0.5, 1.0),
             border: Color::new(0.8, 0.8, 0.8, 1.0),
             hover: Color::new(0.2, 0.2, 1.0, 1.0),
             ..Theme::default()
         };
-        let visuals = Button::map_theme(&theme);
-        assert_eq!(visuals.background, Some(Color::GREEN));
-        assert_eq!(visuals.text, Some(Color::BLUE));
-        assert_eq!(visuals.text_muted, Some(Color::new(0.5, 0.5, 0.5, 1.0)));
-        assert_eq!(visuals.border, Some(Color::new(0.8, 0.8, 0.8, 1.0)));
-        assert_eq!(visuals.hover, Some(Color::new(0.2, 0.2, 1.0, 1.0)));
-        assert_eq!(visuals.primary, None);
-        assert_eq!(visuals.danger, None);
-        assert_eq!(visuals.surface, None);
-        assert_eq!(visuals.accent, None);
+        let overrides = Button::map_theme(&theme);
+        assert_eq!(overrides.primary, Some(Color::GREEN));
+        assert_eq!(overrides.text, Some(Color::BLUE));
+        assert_eq!(overrides.text_muted, Some(Color::new(0.5, 0.5, 0.5, 1.0)));
+        assert_eq!(overrides.border, Some(Color::new(0.8, 0.8, 0.8, 1.0)));
+        assert_eq!(overrides.hover, Some(Color::new(0.2, 0.2, 1.0, 1.0)));
+        assert_eq!(overrides.background, None);
+        assert_eq!(overrides.danger, None);
+        assert_eq!(overrides.surface, None);
+        assert_eq!(overrides.accent, None);
     }
 }

@@ -27,7 +27,6 @@ pub mod colors {
     pub const DEFAULT_SELECTION_COLOR: Color = Color::new(0.706, 0.824, 1.0, 0.25);
     pub const DEFAULT_HIGHLIGHT_COLOR: Color = Color::YELLOW;
     pub const DEFAULT_PLACEHOLDER_COLOR: Color = Color::new(0.2, 0.85, 0.35, 0.22);
-    pub const DEFAULT_CARD_COLOR: Color = Color::new(0.18, 0.18, 0.20, 1.0);
     pub const DEFAULT_OVERLAY_COLOR: Color = Color::BLACK;
     pub const DEFAULT_PANEL_COLOR: Color = Color::GREY;
     pub const DEFAULT_PANEL_TEXT_COLOR: Color = Color::BLACK;
