@@ -24,7 +24,7 @@ impl<'a> Checkbox<'a> {
     pub fn show<C: BishopContext>(self, ctx: &mut C) -> bool {
         let class = self.base.class_name.as_deref();
         let id = self.base.style_id.as_deref();
-        let theme_vs = resolve_theme_for::<Self>(class, id);
+        let widget_theme = resolve_theme_for::<Self>(class, id);
         let rect = self.rect;
         ctx.draw_rectangle(
             rect.x,
@@ -33,7 +33,7 @@ impl<'a> Checkbox<'a> {
             rect.h,
             resolve_with_theme(
                 self.base.visuals.background,
-                theme_vs.background,
+                widget_theme.background,
                 colors::DEFAULT_BACKGROUND_COLOR,
             ),
         );
@@ -45,14 +45,14 @@ impl<'a> Checkbox<'a> {
             2.,
             resolve_with_theme(
                 self.base.visuals.border,
-                theme_vs.border,
+                widget_theme.border,
                 colors::DEFAULT_BORDER_COLOR,
             ),
         );
 
         if *self.value {
             let check_color =
-                resolve_with_theme(self.base.visuals.primary, theme_vs.primary, Color::GREEN);
+                resolve_with_theme(self.base.visuals.primary, widget_theme.primary, Color::GREEN);
             ctx.draw_line(
                 rect.x + 3.,
                 rect.y + rect.h * 0.5,

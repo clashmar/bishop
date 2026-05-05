@@ -28,7 +28,7 @@ impl<'a> Stepper<'a> {
     pub fn show<C: BishopContext>(self, ctx: &mut C) -> f32 {
         let class = self.base.class_name.as_deref();
         let id = self.base.style_id.as_deref();
-        let theme_vs = resolve_theme_for::<Self>(class, id);
+        let widget_theme = resolve_theme_for::<Self>(class, id);
         let rect = self.rect;
         let mut idx = self
             .steps
@@ -61,7 +61,7 @@ impl<'a> Stepper<'a> {
             layout::FIELD_TEXT_SIZE_16,
             resolve_with_theme(
                 self.base.visuals.text,
-                theme_vs.text,
+                widget_theme.text,
                 colors::DEFAULT_TEXT_COLOR,
             ),
         );
@@ -81,7 +81,7 @@ impl<'a> Stepper<'a> {
             2.,
             resolve_with_theme(
                 self.base.visuals.border,
-                theme_vs.border,
+                widget_theme.border,
                 colors::DEFAULT_BORDER_COLOR,
             ),
         );
@@ -95,7 +95,7 @@ impl<'a> Stepper<'a> {
             layout::FIELD_TEXT_SIZE_16,
             resolve_with_theme(
                 self.base.visuals.text,
-                theme_vs.text,
+                widget_theme.text,
                 colors::DEFAULT_TEXT_COLOR,
             ),
         );

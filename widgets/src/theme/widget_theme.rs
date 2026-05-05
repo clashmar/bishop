@@ -2,14 +2,12 @@ use crate::widgets::Widget;
 use bishop::Color;
 use serde::{Deserialize, Serialize};
 
-/// Defines the list of color fields on [`WidgetTheme`] and [`Theme`].
-/// Every field is visited by the caller-provided macro `$m`.
-///
-/// When you add/remove/rename a color field on the struct, update this
-/// macro *and* the struct definition — they must stay in sync.
+/// The canonical list of theme color fields.
+/// Struct definitions, `merge`, `apply`, and [`each_color_field`]
+/// all derive from this list. Update here when adding/removing fields.
 #[doc(hidden)]
 #[macro_export]
-macro_rules! each_color_field {
+macro_rules! define_theme_colors {
     ($m:ident) => {
         $m!(primary);
         $m!(secondary);
@@ -28,6 +26,18 @@ macro_rules! each_color_field {
         $m!(overlay);
         $m!(panel);
         $m!(panel_text);
+    };
+}
+
+/// Visits every theme color field by name, calling the caller-provided
+/// macro `$m` once per field.
+///
+/// Delegates to [`define_theme_colors`] so the field list stays in sync.
+#[doc(hidden)]
+#[macro_export]
+macro_rules! each_color_field {
+    ($cb:ident) => {
+        $crate::define_theme_colors!($cb);
     };
 }
 
@@ -62,26 +72,15 @@ pub struct WidgetTheme {
 impl WidgetTheme {
     /// Merge instance overrides with theme-derived values.
     /// Instance wins where present; theme fills gaps.
-    pub fn merge(self, theme: Self) -> Self {
-        Self {
-            primary: self.primary.or(theme.primary),
-            secondary: self.secondary.or(theme.secondary),
-            background: self.background.or(theme.background),
-            surface: self.surface.or(theme.surface),
-            text: self.text.or(theme.text),
-            text_muted: self.text_muted.or(theme.text_muted),
-            accent: self.accent.or(theme.accent),
-            border: self.border.or(theme.border),
-            hover: self.hover.or(theme.hover),
-            danger: self.danger.or(theme.danger),
-            selection: self.selection.or(theme.selection),
-            highlight: self.highlight.or(theme.highlight),
-            placeholder: self.placeholder.or(theme.placeholder),
-            card: self.card.or(theme.card),
-            overlay: self.overlay.or(theme.overlay),
-            panel: self.panel.or(theme.panel),
-            panel_text: self.panel_text.or(theme.panel_text),
+    pub fn merge(self, other: Self) -> Self {
+        let mut out = self;
+        macro_rules! merge_one {
+            ($f:ident) => {
+                out.$f = out.$f.or(other.$f);
+            };
         }
+        each_color_field!(merge_one);
+        out
     }
 
     /// Overlays non-`None` fields from `other` onto `self`.

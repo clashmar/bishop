@@ -76,7 +76,7 @@ impl ScrollableArea {
     pub fn begin<C: BishopContext>(self, ctx: &mut C, state: &mut ScrollState) -> ActiveScrollArea {
         let class = self.base.class_name.as_deref();
         let id = self.base.style_id.as_deref();
-        let theme_vs = resolve_theme_for::<Self>(class, id);
+        let widget_theme = resolve_theme_for::<Self>(class, id);
         let mouse: Vec2 = ctx.mouse_position().into();
         let scroll_range = (self.content_height - self.rect.h).max(0.0);
 
@@ -152,7 +152,7 @@ impl ScrollableArea {
             content_height: self.content_height,
             scrollbar_w: self.scrollbar_w,
             visuals: self.base.visuals,
-            theme_vs,
+            widget_theme,
         }
     }
 }
@@ -181,7 +181,7 @@ pub struct ActiveScrollArea {
     content_height: f32,
     scrollbar_w: f32,
     visuals: WidgetTheme,
-    theme_vs: WidgetTheme,
+    widget_theme: WidgetTheme,
 }
 
 impl ActiveScrollArea {
@@ -250,22 +250,22 @@ impl ActiveScrollArea {
             self.rect.y,
             self.scrollbar_w,
             self.rect.h,
-            resolve_with_theme(self.visuals.secondary, self.theme_vs.secondary, TRACK_COLOR),
+            resolve_with_theme(self.visuals.secondary, self.widget_theme.secondary, TRACK_COLOR),
         );
 
         // Thumb
         let thumb_col = if state.dragging_thumb {
-            resolve_with_theme(self.visuals.text, self.theme_vs.text, THUMB_DRAG)
+            resolve_with_theme(self.visuals.text, self.widget_theme.text, THUMB_DRAG)
         } else if mouse_over_thumb {
             resolve_with_theme(
                 self.visuals.text_muted,
-                self.theme_vs.text_muted,
+                self.widget_theme.text_muted,
                 THUMB_HOVER,
             )
         } else {
             resolve_with_theme(
                 self.visuals.text_muted,
-                self.theme_vs.text_muted,
+                self.widget_theme.text_muted,
                 THUMB_IDLE,
             )
         };

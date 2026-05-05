@@ -163,8 +163,8 @@ impl<'a> Button<'a> {
     pub fn show<C: BishopContext>(self, ctx: &mut C) -> bool {
         let class = self.base.class_name.as_deref();
         let id = self.base.style_id.as_deref();
-        let theme_vs = resolve_theme_for::<Self>(class, id);
-        self.show_clicks(ctx, theme_vs).primary
+        let widget_theme = resolve_theme_for::<Self>(class, id);
+        self.show_clicks(ctx, widget_theme).primary
     }
 
     pub fn show_native_dialog<C: BishopContext>(self, ctx: &mut C) -> bool {
@@ -173,8 +173,8 @@ impl<'a> Button<'a> {
             .unwrap_or_else(|| self.default_interaction_id());
         let class = self.base.class_name.as_deref();
         let id = self.base.style_id.as_deref();
-        let theme_vs = resolve_theme_for::<Self>(class, id);
-        let clicks = self.show_clicks(ctx, theme_vs);
+        let widget_theme = resolve_theme_for::<Self>(class, id);
+        let clicks = self.show_clicks(ctx, widget_theme);
 
         if clicks.primary {
             queue_deferred_click_target(interaction_id);
@@ -191,7 +191,7 @@ impl<'a> Button<'a> {
     pub fn show_clicks<C: BishopContext>(
         self,
         ctx: &mut C,
-        theme_vs: WidgetTheme,
+        widget_theme: WidgetTheme,
     ) -> ButtonClicks {
         let interaction_id = self
             .interaction_id
@@ -218,19 +218,19 @@ impl<'a> Button<'a> {
                 let background = if visually_blocked {
                     resolve_with_theme(
                         self.base.visuals.surface,
-                        theme_vs.surface,
+                        widget_theme.surface,
                         BLOCKED_BACKGROUND_COLOR,
                     )
                 } else if highlight {
                     resolve_with_theme(
                         self.base.visuals.hover,
-                        theme_vs.hover,
+                        widget_theme.hover,
                         colors::DEFAULT_HOVER_COLOR,
                     )
                 } else {
                     resolve_with_theme(
                         self.base.visuals.background,
-                        theme_vs.background,
+                        widget_theme.background,
                         colors::DEFAULT_BACKGROUND_COLOR,
                     )
                 };
@@ -239,7 +239,7 @@ impl<'a> Button<'a> {
                 } else {
                     resolve_with_theme(
                         self.base.visuals.border,
-                        theme_vs.border,
+                        widget_theme.border,
                         colors::DEFAULT_BORDER_COLOR,
                     )
                 };
@@ -268,7 +268,7 @@ impl<'a> Button<'a> {
                         self.rect.h,
                         resolve_with_theme(
                             self.base.visuals.surface,
-                            theme_vs.surface,
+                            widget_theme.surface,
                             PLAIN_BLOCKED_OVERLAY,
                         ),
                     );
@@ -280,7 +280,7 @@ impl<'a> Button<'a> {
                         self.rect.h,
                         resolve_with_theme(
                             self.base.visuals.hover,
-                            theme_vs.hover,
+                            widget_theme.hover,
                             colors::DEFAULT_HOVER_COLOR,
                         ),
                     );
@@ -293,13 +293,13 @@ impl<'a> Button<'a> {
                 let text_color = if visually_blocked {
                     resolve_with_theme(
                         self.base.visuals.text_muted,
-                        theme_vs.text_muted,
+                        widget_theme.text_muted,
                         BLOCKED_TEXT_COLOR,
                     )
                 } else {
                     resolve_with_theme(
                         self.base.visuals.text,
-                        theme_vs.text,
+                        widget_theme.text,
                         colors::DEFAULT_TEXT_COLOR,
                     )
                 };

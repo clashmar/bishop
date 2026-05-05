@@ -80,7 +80,7 @@ impl<'a> TextInput<'a> {
     pub fn show<C: BishopContext>(self, ctx: &mut C) -> (String, bool) {
         let class = self.base.class_name.as_deref();
         let id = self.base.style_id.as_deref();
-        let theme_vs = resolve_theme_for::<Self>(class, id);
+        let widget_theme = resolve_theme_for::<Self>(class, id);
         tab_registry_add(self.id, self.rect, true);
 
         let mut just_gained_focus = false;
@@ -146,14 +146,14 @@ impl<'a> TextInput<'a> {
             scroll_offset_x = 0.0;
         }
 
-        let selection_color = resolve_with_theme(self.base.visuals.accent, theme_vs.accent, colors::DEFAULT_INPUT_SELECTION_COLOR);
+        let selection_color = resolve_with_theme(self.base.visuals.accent, widget_theme.accent, colors::DEFAULT_INPUT_SELECTION_COLOR);
 
         ctx.draw_rectangle(
             self.rect.x,
             self.rect.y,
             self.rect.w,
             self.rect.h,
-            resolve_with_theme(self.base.visuals.background, theme_vs.background, colors::DEFAULT_BACKGROUND_COLOR),
+            resolve_with_theme(self.base.visuals.background, widget_theme.background, colors::DEFAULT_BACKGROUND_COLOR),
         );
         ctx.draw_rectangle_lines(
             self.rect.x,
@@ -161,7 +161,7 @@ impl<'a> TextInput<'a> {
             self.rect.w,
             self.rect.h,
             2.,
-            resolve_with_theme(self.base.visuals.border, theme_vs.border, Color::WHITE),
+            resolve_with_theme(self.base.visuals.border, widget_theme.border, Color::WHITE),
         );
 
         let text_area_x = self.rect.x + layout::WIDGET_PADDING / 2.;
@@ -201,7 +201,7 @@ impl<'a> TextInput<'a> {
             self.rect,
             scroll_offset_x,
             layout::DEFAULT_FONT_SIZE_16,
-            resolve_with_theme(self.base.visuals.text, theme_vs.text, colors::DEFAULT_TEXT_COLOR),
+            resolve_with_theme(self.base.visuals.text, widget_theme.text, colors::DEFAULT_TEXT_COLOR),
         );
 
         let mouse = ctx.mouse_position();
@@ -526,7 +526,7 @@ impl<'a> TextInput<'a> {
                     cursor_x,
                     self.rect.y + self.rect.h * 0.8,
                     2.,
-                    resolve_with_theme(self.base.visuals.border, theme_vs.border, colors::DEFAULT_BORDER_COLOR),
+                    resolve_with_theme(self.base.visuals.border, widget_theme.border, colors::DEFAULT_BORDER_COLOR),
                 );
             }
         }

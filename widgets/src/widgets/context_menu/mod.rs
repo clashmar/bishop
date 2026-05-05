@@ -75,7 +75,7 @@ impl<'a, T: Clone + PartialEq + 'static> ContextMenu<'a, T> {
     pub fn show<C: BishopContext>(self, ctx: &mut C) -> Option<T> {
         let class = self.base.class_name.as_deref();
         let id = self.base.style_id.as_deref();
-        let theme_vs = resolve_theme_for::<Self>(class, id);
+        let widget_theme = resolve_theme_for::<Self>(class, id);
         if self.items.is_empty() {
             return None;
         }
@@ -150,7 +150,7 @@ impl<'a, T: Clone + PartialEq + 'static> ContextMenu<'a, T> {
                 labels,
                 hovered_index,
                 self.font_size,
-                self.base.visuals.merge(theme_vs),
+                self.base.visuals.merge(widget_theme),
             );
             return result;
         }

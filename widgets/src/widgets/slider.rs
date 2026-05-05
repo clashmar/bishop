@@ -43,7 +43,7 @@ impl Slider {
     pub fn show<C: BishopContext>(self, ctx: &mut C) -> (f32, SliderState) {
         let class = self.base.class_name.as_deref();
         let id = self.base.style_id.as_deref();
-        let theme_vs = resolve_theme_for::<Self>(class, id);
+        let widget_theme = resolve_theme_for::<Self>(class, id);
         let rect = self.rect;
         let id = self.id;
         let min = self.min;
@@ -85,7 +85,7 @@ impl Slider {
             rect.h,
             resolve_with_theme(
                 self.base.visuals.background,
-                theme_vs.background,
+                widget_theme.background,
                 colors::DEFAULT_BACKGROUND_COLOR,
             ),
         );
@@ -94,7 +94,7 @@ impl Slider {
             track_y,
             rect.w,
             track_h,
-            resolve_with_theme(self.base.visuals.secondary, theme_vs.secondary, track_color),
+            resolve_with_theme(self.base.visuals.secondary, widget_theme.secondary, track_color),
         );
         ctx.draw_rectangle_lines(
             rect.x,
@@ -104,7 +104,7 @@ impl Slider {
             2.,
             resolve_with_theme(
                 self.base.visuals.border,
-                theme_vs.border,
+                widget_theme.border,
                 colors::DEFAULT_BORDER_COLOR,
             ),
         );
@@ -114,13 +114,13 @@ impl Slider {
             {
                 resolve_with_theme(
                     self.base.visuals.hover,
-                    theme_vs.hover,
+                    widget_theme.hover,
                     handle_color_dragging,
                 )
             } else {
                 resolve_with_theme(
                     self.base.visuals.primary,
-                    theme_vs.primary,
+                    widget_theme.primary,
                     handle_color_idle,
                 )
             };
@@ -131,7 +131,7 @@ impl Slider {
             handle_sz,
             rect.h,
             2.,
-            resolve_with_theme(self.base.visuals.border, theme_vs.border, Color::WHITE),
+            resolve_with_theme(self.base.visuals.border, widget_theme.border, Color::WHITE),
         );
 
         if self.base.blocked || is_dropdown_open() || is_context_menu_open() {

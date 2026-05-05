@@ -248,7 +248,7 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
     pub fn show<C: BishopContext>(self, ctx: &mut C) -> Option<T> {
         let class = self.base.class_name.as_deref();
         let id = self.base.style_id.as_deref();
-        let theme_vs = resolve_theme_for::<Self>(class, id);
+        let widget_theme = resolve_theme_for::<Self>(class, id);
         const MAX_VISIBLE_ROWS: usize = 8;
         const SCROLL_SPEED: f32 = 5.0;
         const W_PADDING: f32 = 8.0;
@@ -353,7 +353,7 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
 
         if list_is_open {
             if self.filterable {
-                let merged = self.base.visuals.merge(theme_vs);
+                let merged = self.base.visuals.merge(widget_theme);
                 result = self.show_filterable_list(ctx, &merged, &mut state, list_width);
             } else {
                 let visible_rows = MAX_VISIBLE_ROWS.min(self.options.len());
@@ -437,7 +437,7 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
                         scroll_offset,
                         labels,
                         option_count,
-                        visuals: self.base.visuals.merge(theme_vs),
+                        visuals: self.base.visuals.merge(widget_theme),
                     });
                 });
             }

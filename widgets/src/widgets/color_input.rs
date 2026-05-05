@@ -28,7 +28,7 @@ impl ColorInput {
     pub fn show<C: BishopContext>(self, ctx: &mut C) -> Color {
         let class = self.base.class_name.as_deref();
         let id = self.base.style_id.as_deref();
-        let theme_vs = resolve_theme_for::<Self>(class, id);
+        let widget_theme = resolve_theme_for::<Self>(class, id);
         let swatch_size = self.rect.h;
         let gap = 4.0;
         let prefix_width = measure_text_ui(ctx, "#", layout::DEFAULT_FONT_SIZE_16).width + 2.0;
@@ -45,7 +45,7 @@ impl ColorInput {
             layout::DEFAULT_FONT_SIZE_16,
             resolve_with_theme(
                 self.base.visuals.text,
-                theme_vs.text,
+                widget_theme.text,
                 colors::DEFAULT_TEXT_COLOR,
             ),
         );
@@ -75,7 +75,7 @@ impl ColorInput {
             swatch_rect.w,
             swatch_rect.h,
             2.0,
-            resolve_with_theme(self.base.visuals.border, theme_vs.border, Color::WHITE),
+            resolve_with_theme(self.base.visuals.border, widget_theme.border, Color::WHITE),
         );
 
         resolved

@@ -53,7 +53,7 @@ where
     pub fn show<C: BishopContext>(self, ctx: &mut C) -> T {
         let class = self.base.class_name.as_deref();
         let id = self.base.style_id.as_deref();
-        let theme_vs = resolve_theme_for::<Self>(class, id);
+        let widget_theme = resolve_theme_for::<Self>(class, id);
         tab_registry_add(self.id, self.rect, false);
 
         let mut confirmed = false;
@@ -111,7 +111,7 @@ where
             self.rect.y,
             self.rect.w,
             self.rect.h,
-            resolve_with_theme(self.base.visuals.background, theme_vs.background, colors::DEFAULT_BACKGROUND_COLOR),
+            resolve_with_theme(self.base.visuals.background, widget_theme.background, colors::DEFAULT_BACKGROUND_COLOR),
         );
         ctx.draw_rectangle_lines(
             self.rect.x,
@@ -119,7 +119,7 @@ where
             self.rect.w,
             self.rect.h,
             2.,
-            resolve_with_theme(self.base.visuals.border, theme_vs.border, Color::WHITE),
+            resolve_with_theme(self.base.visuals.border, widget_theme.border, Color::WHITE),
         );
 
         let text_area_x = self.rect.x + layout::WIDGET_PADDING / 2.;
@@ -143,7 +143,7 @@ where
                     self.rect.y + self.rect.h * 0.2,
                     clipped_end - clipped_start,
                     self.rect.h * 0.6,
-                    resolve_with_theme(self.base.visuals.accent, theme_vs.accent, colors::DEFAULT_INPUT_SELECTION_COLOR),
+                    resolve_with_theme(self.base.visuals.accent, widget_theme.accent, colors::DEFAULT_INPUT_SELECTION_COLOR),
                 );
             }
         }
@@ -156,7 +156,7 @@ where
             self.rect,
             scroll_offset_x,
             layout::DEFAULT_FONT_SIZE_16,
-            resolve_with_theme(self.base.visuals.text, theme_vs.text, colors::DEFAULT_TEXT_COLOR),
+            resolve_with_theme(self.base.visuals.text, widget_theme.text, colors::DEFAULT_TEXT_COLOR),
         );
 
         if is_dropdown_open() || is_context_menu_open() {
@@ -459,7 +459,7 @@ where
                     caret_x,
                     self.rect.y + self.rect.h * 0.8,
                     2.,
-                    resolve_with_theme(self.base.visuals.border, theme_vs.border, colors::DEFAULT_BORDER_COLOR),
+                    resolve_with_theme(self.base.visuals.border, widget_theme.border, colors::DEFAULT_BORDER_COLOR),
                 );
             }
         }
