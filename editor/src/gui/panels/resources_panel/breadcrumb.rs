@@ -5,6 +5,7 @@ use engine_core::ui::text::measure_text;
 use widgets::constants::layout;
 
 use super::navigation::Navigation;
+use crate::gui::panel_text_color;
 
 const BREADCRUMB_FONT_SIZE: f32 = layout::DEFAULT_FONT_SIZE_16;
 
@@ -52,7 +53,7 @@ pub fn draw_breadcrumb(
         let color = if hovered == Some(0) {
             with_theme(|t| t.accent)
         } else {
-            with_theme(|t| t.panel_text)
+            panel_text_color()
         };
         ctx.draw_text(&label, cursor_x, text_y, BREADCRUMB_FONT_SIZE, color);
         hits.push(BreadcrumbHit { rect, depth: 0 });
@@ -85,7 +86,7 @@ pub fn draw_breadcrumb(
         let color = if hovered == Some(i + 1) {
             with_theme(|t| t.accent)
         } else {
-            with_theme(|t| t.panel_text)
+            panel_text_color()
         };
         ctx.draw_text(&label, cursor_x, text_y, BREADCRUMB_FONT_SIZE, color);
         hits.push(BreadcrumbHit { rect, depth: i + 1 });

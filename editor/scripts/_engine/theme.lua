@@ -29,7 +29,6 @@ Widget = {
 ---@field placeholder Color -- Fill for placeholder or ghost content
 ---@field overlay Color -- Scrim or backdrop for overlays and modals
 ---@field panel Color -- Large surface for panels and sidebars
----@field panel_text Color -- Text rendered on panel surfaces
 ---@field rule fun(self: Theme, selector: Widget|string, props: table)
 
 ---@return Theme

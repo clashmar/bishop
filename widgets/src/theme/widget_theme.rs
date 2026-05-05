@@ -29,7 +29,6 @@ macro_rules! define_theme_colors {
         $m!(placeholder, "Fill for placeholder or ghost content");
         $m!(overlay, "Scrim or backdrop for overlays and modals");
         $m!(panel, "Large surface for panels and sidebars");
-        $m!(panel_text, "Text rendered on panel surfaces");
     };
 }
 
@@ -84,7 +83,6 @@ pub struct WidgetTheme {
     pub placeholder: Option<Color>,
     pub overlay: Option<Color>,
     pub panel: Option<Color>,
-    pub panel_text: Option<Color>,
 }
 
 impl WidgetTheme {

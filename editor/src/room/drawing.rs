@@ -5,6 +5,7 @@ use crate::editor_assets::assets::camera_icon;
 use crate::gui::gui_constants::*;
 use crate::gui::menu_bar::*;
 use crate::gui::mode_selector::*;
+use crate::gui::panel_text_color;
 use crate::room::prefab_preview::{build_prefab_preview, PrefabPreviewVisual};
 use crate::room::room_editor::*;
 use crate::room::selection::{entity_selection_rect, snap_room_drag_position};
@@ -314,7 +315,7 @@ fn draw_merged_play_button_label(
 ) {
     let layout = merged_play_button_layout(rect, play_dims, mode_dims);
 
-    let text_color = with_theme(|t| t.panel_text);
+    let text_color = panel_text_color();
     ctx.draw_text(
         "Play",
         layout.play_x,

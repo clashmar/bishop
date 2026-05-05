@@ -231,39 +231,45 @@ impl ActiveScrollArea {
         let thumb_rect = Rect::new(bar_x, bar_y, self.scrollbar_w, bar_h);
         let mouse_over_thumb = thumb_rect.contains(mouse);
 
-        const TRACK_COLOR: Color = Color::new(0.15, 0.15, 0.15, 0.6);
+        const TRACK_ALPHA: f32 = 0.6;
         const THUMB_IDLE: Color = Color::new(0.7, 0.7, 0.7, 0.9);
         const THUMB_HOVER: Color = Color::new(0.85, 0.85, 0.85, 0.9);
-        const THUMB_DRAG: Color = Color::new(0.9, 0.9, 0.9, 1.0);
 
-        // Track
-        ctx.draw_rectangle(
-            bar_x,
-            self.rect.y,
-            self.scrollbar_w,
-            self.rect.h,
-            resolve_with_theme(
-                self.overrides.secondary,
-                self.widget_theme.secondary,
-                TRACK_COLOR,
-            ),
+        // Track — 50% brightness of resolved primary
+        let primary_col = resolve_with_theme(
+            self.overrides.primary,
+            self.widget_theme.primary,
+            crate::constants::colors::DEFAULT_PRIMARY_COLOR,
         );
+        let track_col = Color::new(
+            primary_col.r * 0.5,
+            primary_col.g * 0.5,
+            primary_col.b * 0.5,
+            TRACK_ALPHA,
+        );
+        ctx.draw_rectangle(bar_x, self.rect.y, self.scrollbar_w, self.rect.h, track_col);
 
         // Thumb
+        let idle_col = resolve_with_theme(
+            self.overrides.primary,
+            self.widget_theme.primary,
+            THUMB_IDLE,
+        );
         let thumb_col = if state.dragging_thumb {
-            resolve_with_theme(self.overrides.text, self.widget_theme.text, THUMB_DRAG)
+            Color::new(
+                (idle_col.r * 1.25).min(1.0),
+                (idle_col.g * 1.25).min(1.0),
+                (idle_col.b * 1.25).min(1.0),
+                1.0,
+            )
         } else if mouse_over_thumb {
             resolve_with_theme(
-                self.overrides.text_muted,
-                self.widget_theme.text_muted,
+                self.overrides.primary,
+                self.widget_theme.primary,
                 THUMB_HOVER,
             )
         } else {
-            resolve_with_theme(
-                self.overrides.text_muted,
-                self.widget_theme.text_muted,
-                THUMB_IDLE,
-            )
+            idle_col
         };
         ctx.draw_rectangle(bar_x, bar_y, self.scrollbar_w, bar_h, thumb_col);
     }

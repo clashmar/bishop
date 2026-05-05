@@ -3,6 +3,7 @@ use crate::app::EditorMode;
 use crate::gui::gui_constants::*;
 use crate::gui::menu_widgets::menu_dropdown;
 pub(crate) use crate::gui::menu_widgets::{menu_button, menu_button_text_position};
+use crate::gui::panel_text_color;
 use crate::prefab::BLANK_PREFAB_ID;
 use bishop::prelude::*;
 use engine_core::prelude::*;
@@ -262,7 +263,7 @@ impl MenuBar {
                         txt_x,
                         txt_y,
                         layout::HEADER_FONT_SIZE_20,
-                        with_theme(|t| t.panel_text),
+                        panel_text_color(),
                     );
                 }
             }
@@ -276,7 +277,7 @@ impl MenuBar {
                     txt_x,
                     txt_y,
                     layout::HEADER_FONT_SIZE_20,
-                    with_theme(|t| t.panel_text),
+                    panel_text_color(),
                 );
             }
         }

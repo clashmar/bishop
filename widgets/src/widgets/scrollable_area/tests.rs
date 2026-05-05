@@ -455,17 +455,16 @@ mod theme_tests {
     #[test]
     fn scrollable_area_theme_mapper_maps_key_roles() {
         let theme = Theme {
-            surface: Color::GREEN,
-            text: Color::RED,
-            text_muted: Color::new(0.5, 0.5, 0.5, 1.0),
+            primary: Color::RED,
             ..Theme::default()
         };
         let overrides = ScrollableArea::map_theme(&theme);
-        assert_eq!(overrides.surface, Some(Color::GREEN));
-        assert_eq!(overrides.text, Some(Color::RED));
-        assert_eq!(overrides.text_muted, Some(Color::new(0.5, 0.5, 0.5, 1.0)));
-        assert_eq!(overrides.primary, None);
+        assert_eq!(overrides.primary, Some(Color::RED));
+        assert_eq!(overrides.surface, None);
         assert_eq!(overrides.background, None);
+        assert_eq!(overrides.secondary, None);
+        assert_eq!(overrides.text, None);
+        assert_eq!(overrides.text_muted, None);
         assert_eq!(overrides.border, None);
     }
 }

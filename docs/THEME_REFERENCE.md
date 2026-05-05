@@ -21,7 +21,6 @@ Set theme colors globally, then override per-widget with `t:rule()`.
 | `placeholder` | Fill for placeholder or ghost content |
 | `overlay` | Scrim or backdrop for overlays and modals |
 | `panel` | Large surface for panels and sidebars |
-| `panel_text` | Text rendered on panel surfaces |
 
 ## Per-widget rule fields
 

@@ -1,5 +1,6 @@
 use crate::gui::gui_constants::*;
 use crate::gui::modals::is_modal_open;
+use crate::gui::panel_text_color;
 use bishop::prelude::*;
 use engine_core::prelude::*;
 use engine_core::theme::with_theme;
@@ -210,7 +211,7 @@ pub fn menu_button(ctx: &mut WgpuContext, rect: Rect, label: &str, is_dropdown_o
         txt_x,
         txt_y,
         layout::HEADER_FONT_SIZE_20,
-        with_theme(|t| t.panel_text),
+        panel_text_color(),
     );
 
     activate_on_release(

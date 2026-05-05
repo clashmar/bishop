@@ -180,11 +180,10 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
         self
     }
 
-    /// Renders the trigger button using the menu bar style: transparent at rest,
-    /// dark overlay on hover or when open, panel-text-colored text at 20pt.
+    /// Renders the trigger button using the menu bar style.
     pub fn menu_style(mut self) -> Self {
         self.style = DropDownStyle::Plain;
-        self.text_color = with_theme(|t| t.panel_text);
+        self.text_color = with_theme(|t| t.text);
         self.label_font_size = layout::HEADER_FONT_SIZE_20;
         self
     }
@@ -508,7 +507,7 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
             popup_rect.y,
             popup_rect.w,
             popup_rect.h,
-            resolve(overrides.surface, colors::DEFAULT_BACKGROUND_COLOR),
+            resolve(overrides.background, colors::DEFAULT_BACKGROUND_COLOR),
         );
 
         // Filter TextInput
@@ -599,19 +598,26 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
             let thumb_h = (entries_h / total_entries_h) * entries_h;
             let thumb_y = entries_y + (state.scroll_offset / max_offset) * (entries_h - thumb_h);
 
+            let track_primary = resolve(overrides.primary, colors::DEFAULT_PRIMARY_COLOR);
+            let track_col = Color::new(
+                track_primary.r * 0.5,
+                track_primary.g * 0.5,
+                track_primary.b * 0.5,
+                DROPDOWN_SCROLLBAR_TRACK.a,
+            );
             ctx.draw_rectangle(
                 popup_rect.x + popup_rect.w - 6.,
                 entries_y,
                 6.,
                 entries_h,
-                resolve(overrides.surface, DROPDOWN_SCROLLBAR_TRACK),
+                track_col,
             );
             ctx.draw_rectangle(
                 popup_rect.x + popup_rect.w - 6.,
                 thumb_y,
                 6.,
                 thumb_h,
-                resolve(overrides.text_muted, DROPDOWN_SCROLLBAR_THUMB),
+                resolve(overrides.primary, DROPDOWN_SCROLLBAR_THUMB),
             );
         }
 
@@ -650,7 +656,7 @@ fn render_dropdown_list<C: BishopContext>(
         list_rect.y,
         list_rect.w,
         list_rect.h,
-        resolve(overrides.surface, colors::DEFAULT_BACKGROUND_COLOR),
+        resolve(overrides.background, colors::DEFAULT_BACKGROUND_COLOR),
     );
 
     let mouse_pos = ctx.mouse_position();
@@ -695,19 +701,26 @@ fn render_dropdown_list<C: BishopContext>(
         let thumb_y =
             list_rect.y + (scroll_offset / (total_height - list_rect.h)) * (list_rect.h - thumb_h);
 
+        let track_primary = resolve(overrides.primary, colors::DEFAULT_PRIMARY_COLOR);
+        let track_col = Color::new(
+            track_primary.r * 0.5,
+            track_primary.g * 0.5,
+            track_primary.b * 0.5,
+            DROPDOWN_SCROLLBAR_TRACK.a,
+        );
         ctx.draw_rectangle(
             list_rect.x + list_rect.w - 6.,
             list_rect.y,
             6.,
             list_rect.h,
-            resolve(overrides.surface, DROPDOWN_SCROLLBAR_TRACK),
+            track_col,
         );
         ctx.draw_rectangle(
             list_rect.x + list_rect.w - 6.,
             thumb_y,
             6.,
             thumb_h,
-            resolve(overrides.text_muted, DROPDOWN_SCROLLBAR_THUMB),
+            resolve(overrides.primary, DROPDOWN_SCROLLBAR_THUMB),
         );
     }
 

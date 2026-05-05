@@ -45,8 +45,6 @@ pub struct Theme {
     pub overlay: Color,
     /// Large surface area for panels and sidebars.
     pub panel: Color,
-    /// Text rendered on panel-colored surfaces.
-    pub panel_text: Color,
     /// Style rules applied during widget rendering.
     #[serde(default)]
     pub rules: Vec<StyleRule>,
@@ -70,7 +68,6 @@ impl Default for Theme {
             placeholder: colors::DEFAULT_PLACEHOLDER_COLOR,
             overlay: colors::DEFAULT_OVERLAY_COLOR,
             panel: colors::DEFAULT_PANEL_COLOR,
-            panel_text: colors::DEFAULT_PANEL_TEXT_COLOR,
             rules: Vec::new(),
         }
     }

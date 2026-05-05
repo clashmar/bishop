@@ -18,14 +18,22 @@ fn dark_theme() -> Theme {
         placeholder: Color::new(0.2, 0.85, 0.35, 0.22),
         overlay: Color::BLACK,
         panel: Color::new(0.28, 0.28, 0.32, 1.0),
-        panel_text: Color::WHITE,
-        rules: vec![StyleRule {
-            selector: StyleSelector::Type(WidgetType::Button),
-            properties: WidgetTheme {
-                primary: Some(background),
-                ..WidgetTheme::default()
+        rules: vec![
+            StyleRule {
+                selector: StyleSelector::Type(WidgetType::Button),
+                properties: WidgetTheme {
+                    primary: Some(background),
+                    ..WidgetTheme::default()
+                },
             },
-        }],
+            StyleRule {
+                selector: StyleSelector::Class("panel-text".into()),
+                properties: WidgetTheme {
+                    text: Some(Color::WHITE),
+                    ..WidgetTheme::default()
+                },
+            },
+        ],
         ..Theme::default()
     }
 }

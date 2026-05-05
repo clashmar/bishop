@@ -29,7 +29,6 @@ pub mod colors {
     pub const DEFAULT_PLACEHOLDER_COLOR: Color = Color::new(0.2, 0.85, 0.35, 0.22);
     pub const DEFAULT_OVERLAY_COLOR: Color = Color::BLACK;
     pub const DEFAULT_PANEL_COLOR: Color = Color::GREY;
-    pub const DEFAULT_PANEL_TEXT_COLOR: Color = Color::BLACK;
 }
 
 pub mod input_repeat {

@@ -75,8 +75,9 @@ impl_widget_theme_mappings! {
         (border, "Panel outline"),
     ];
     Dropdown: [
-        (surface, "List background"),
+        (background, "List background"),
         (text, "Entry text"),
+        (primary, "Scrollbar thumb"),
         (border, "List border"),
         (hover, "Entry hover"),
     ];
@@ -97,9 +98,7 @@ impl_widget_theme_mappings! {
         (border, "Field outline"),
     ];
     ScrollableArea: [
-        (surface, "Scrollbar track"),
-        (text, "Scrollbar thumb active"),
-        (text_muted, "Scrollbar thumb idle"),
+        (primary, "Scrollbar thumb"),
     ];
     Label: [
         (text, "Label text"),
@@ -111,10 +110,7 @@ impl WidgetType {
     pub fn is_exposed_to_lua(&self) -> bool {
         matches!(
             self,
-            WidgetType::Button | 
-            WidgetType::Slider | 
-            WidgetType::Label | 
-            WidgetType::Panel
+            WidgetType::Button | WidgetType::Slider | WidgetType::Label | WidgetType::Panel
         )
     }
 }

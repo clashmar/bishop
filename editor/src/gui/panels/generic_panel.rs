@@ -1,5 +1,6 @@
 // editor/src/gui/generic_panel.rs
 use crate::gui::gui_constants::MENU_PANEL_HEIGHT;
+use crate::gui::panel_text_color;
 use crate::Editor;
 use bishop::prelude::*;
 use engine_core::prelude::*;
@@ -135,7 +136,7 @@ impl GenericPanel {
         let collapse_rect = Rect::new(panel_rect.left() + 5., panel_rect.y + 4., 20., 20.);
         let collapse_clicked = Button::new(collapse_rect, if self.collapsed { "+" } else { "-" })
             .plain()
-            .text_color(with_theme(|t| t.panel_text))
+            .text_color(panel_text_color())
             .suppressed(blocked)
             .show(ctx);
         if !blocked && collapse_clicked {
@@ -153,7 +154,7 @@ impl GenericPanel {
                 collapse_rect.x + 25.,
                 title_bar.y + 20.,
                 16.,
-                with_theme(|t| t.panel_text),
+                panel_text_color(),
             );
         }
 
@@ -161,7 +162,7 @@ impl GenericPanel {
         let close_rect = Rect::new(panel_rect.right() - 26., panel_rect.y + 4., 20., 20.);
         let close_clicked = Button::new(close_rect, "x")
             .plain()
-            .text_color(with_theme(|t| t.panel_text))
+            .text_color(panel_text_color())
             .suppressed(blocked)
             .show(ctx);
         if !blocked && close_clicked {

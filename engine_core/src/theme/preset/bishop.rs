@@ -28,14 +28,22 @@ fn bishop_theme() -> Theme {
         placeholder: primary.with_alpha(0.22),
         overlay: Color::from_hex("000000").with_alpha(0.6),
         panel: panel,
-        panel_text: Color::from_hex("FFFFFF"),
-        rules: vec![StyleRule {
-            selector: StyleSelector::Type(WidgetType::Button),
-            properties: WidgetTheme {
-                primary: Some(background),
-                ..WidgetTheme::default()
+        rules: vec![
+            StyleRule {
+                selector: StyleSelector::Type(WidgetType::Button),
+                properties: WidgetTheme {
+                    primary: Some(background),
+                    ..WidgetTheme::default()
+                },
             },
-        }],
+            StyleRule {
+                selector: StyleSelector::Class("panel-text".into()),
+                properties: WidgetTheme {
+                    text: Some(Color::from_hex("FFFFFF")),
+                    ..WidgetTheme::default()
+                },
+            },
+        ],
     }
 }
 
