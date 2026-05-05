@@ -15,7 +15,6 @@ fn dark_theme() -> Theme {
         highlight: Color::YELLOW,
         placeholder: Color::new(0.2, 0.85, 0.35, 0.22),
         card: Color::new(0.20, 0.20, 0.24, 1.0),
-        grid: Color::new(0.4, 0.4, 0.4, 0.15),
         overlay: Color::BLACK,
         panel: Color::new(0.28, 0.28, 0.32, 1.0),
         panel_text: Color::WHITE,

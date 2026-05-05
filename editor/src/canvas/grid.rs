@@ -25,7 +25,7 @@ pub fn draw_grid(
         camera_zoom: scalar,
         viewport_size: vec2(ctx.screen_width(), ctx.screen_height()),
         grid_size,
-        line_color: with_theme(|t| t.grid),
+        line_color: Color::GREY.with_alpha(0.25),
         line_thickness: LINE_THICKNESS_MULTIPLIER / 2.0,
     };
 

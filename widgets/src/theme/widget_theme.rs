@@ -25,7 +25,6 @@ macro_rules! each_color_field {
         $m!(highlight);
         $m!(placeholder);
         $m!(card);
-        $m!(grid);
         $m!(overlay);
         $m!(panel);
         $m!(panel_text);
@@ -55,7 +54,6 @@ pub struct WidgetTheme {
     pub highlight: Option<Color>,
     pub placeholder: Option<Color>,
     pub card: Option<Color>,
-    pub grid: Option<Color>,
     pub overlay: Option<Color>,
     pub panel: Option<Color>,
     pub panel_text: Option<Color>,
@@ -80,7 +78,6 @@ impl WidgetTheme {
             highlight: self.highlight.or(theme.highlight),
             placeholder: self.placeholder.or(theme.placeholder),
             card: self.card.or(theme.card),
-            grid: self.grid.or(theme.grid),
             overlay: self.overlay.or(theme.overlay),
             panel: self.panel.or(theme.panel),
             panel_text: self.panel_text.or(theme.panel_text),

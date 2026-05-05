@@ -34,7 +34,6 @@ Widget = {
 ---@field highlight Color
 ---@field placeholder Color
 ---@field card Color
----@field grid Color
 ---@field overlay Color
 ---@field panel Color
 ---@field panel_text Color

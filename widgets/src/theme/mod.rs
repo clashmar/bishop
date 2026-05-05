@@ -41,8 +41,6 @@ pub struct Theme {
     pub placeholder: Color,
     /// Card background (prefab/resource cards).
     pub card: Color,
-    /// Grid line color.
-    pub grid: Color,
     /// Overlay base (toast, tooltip, modal backdrop — alpha applied per-context).
     pub overlay: Color,
     /// Panel background (menu bar, side panels, dropdowns).
@@ -71,7 +69,6 @@ impl Default for Theme {
             highlight: colors::DEFAULT_HIGHLIGHT_COLOR,
             placeholder: colors::DEFAULT_PLACEHOLDER_COLOR,
             card: colors::DEFAULT_CARD_COLOR,
-            grid: colors::DEFAULT_GRID_COLOR,
             overlay: colors::DEFAULT_OVERLAY_COLOR,
             panel: colors::DEFAULT_PANEL_COLOR,
             panel_text: colors::DEFAULT_PANEL_TEXT_COLOR,
