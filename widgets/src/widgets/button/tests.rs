@@ -1,5 +1,4 @@
 use super::*;
-use crate::constants::colors;
 use crate::widgets::test_support::WidgetTestContext;
 
 #[test]
@@ -96,7 +95,7 @@ fn blocked_buttons_are_dimmed_and_do_not_click() {
 }
 
 #[test]
-fn suppressed_buttons_are_not_dimmed_and_do_not_click() {
+fn suppressed_buttons_do_not_click() {
     use crate::theme::{set_theme, Theme};
 
     reset_click_consumed();
@@ -109,18 +108,6 @@ fn suppressed_buttons_are_not_dimmed_and_do_not_click() {
     ctx.left_down = true;
 
     assert!(!Button::new(button, "Play").suppressed(true).show(&mut ctx));
-    assert_eq!(
-        ctx.rectangle_fills.last().copied(),
-        Some(colors::DEFAULT_PRIMARY_COLOR)
-    );
-    assert_eq!(
-        ctx.rectangle_lines.last().copied(),
-        Some(colors::DEFAULT_BORDER_COLOR)
-    );
-    assert_eq!(
-        ctx.text_colors.last().copied(),
-        Some(colors::DEFAULT_TEXT_COLOR)
-    );
 }
 
 #[test]

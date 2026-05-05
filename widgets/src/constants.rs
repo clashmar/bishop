@@ -21,7 +21,7 @@ pub mod colors {
     pub const DEFAULT_TEXT_MUTED_COLOR: Color = Color::new(0.65, 0.65, 0.65, 0.9);
     pub const DEFAULT_ACCENT_COLOR: Color = Color::new(0.1647059, 1.0, 0.0, 1.0);
     pub const DEFAULT_BORDER_COLOR: Color = Color::WHITE;
-    pub const DEFAULT_HOVER_COLOR: Color = Color::new(0.2, 0.2, 0.2, 0.8);
+    pub const DEFAULT_HOVER_COLOR: Color = Color::new(0.35, 0.35, 0.35, 0.9);
     pub const DEFAULT_DANGER_COLOR: Color = Color::RED;
     pub const DEFAULT_INPUT_SELECTION_COLOR: Color = Color::new(0.3, 0.5, 0.8, 0.5);
     pub const DEFAULT_SELECTION_COLOR: Color = Color::new(0.706, 0.824, 1.0, 0.25);

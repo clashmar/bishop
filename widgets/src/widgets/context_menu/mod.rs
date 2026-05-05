@@ -233,14 +233,17 @@ pub fn flush_context_menu<C: BishopContext>(ctx: &mut C) {
 }
 
 fn render_context_menu<C: BishopContext>(ctx: &mut C, render: DeferredContextMenuRender) {
-    const CONTEXT_HOVER: Color = Color::new(0.2, 0.2, 0.2, 0.9);
+    const CONTEXT_HOVER: Color = Color::new(0.35, 0.35, 0.35, 0.9);
 
     ctx.draw_rectangle(
         render.rect.x,
         render.rect.y,
         render.rect.w,
         render.rect.h,
-        resolve(render.overrides.surface, colors::DEFAULT_BACKGROUND_COLOR),
+        resolve(
+            render.overrides.background,
+            colors::DEFAULT_BACKGROUND_COLOR,
+        ),
     );
 
     let mouse_pos: Vec2 = ctx.mouse_position().into();

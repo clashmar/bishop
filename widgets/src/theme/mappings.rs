@@ -82,7 +82,7 @@ impl_widget_theme_mappings! {
         (hover, "Entry hover"),
     ];
     ContextMenu: [
-        (surface, "Menu background"),
+        (background, "Menu background"),
         (text, "Menu text"),
         (border, "Menu border"),
         (hover, "Entry hover"),

@@ -68,7 +68,7 @@ impl Default for Theme {
             placeholder: colors::DEFAULT_PLACEHOLDER_COLOR,
             overlay: colors::DEFAULT_OVERLAY_COLOR,
             panel: colors::DEFAULT_PANEL_COLOR,
-            rules: Vec::new(),
+            rules: vec![],
         }
     }
 }
