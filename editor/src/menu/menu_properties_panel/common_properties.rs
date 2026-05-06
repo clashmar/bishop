@@ -29,13 +29,7 @@ impl MenuEditor {
                 return;
             };
 
-            let type_label = match &element.kind {
-                MenuElementKind::Label(_) => "Label",
-                MenuElementKind::Button(_) => "Button",
-                MenuElementKind::Panel(_) => "Panel",
-                MenuElementKind::LayoutGroup(_) => "Layout Group",
-                MenuElementKind::Slider(_) => "Slider",
-            };
+            let type_label = element.kind.kind_name();
 
             CommonState {
                 name: element.name.clone(),
@@ -252,6 +246,6 @@ impl MenuEditor {
 }
 
 /// Returns true if a row is fully visible within the clip rect.
-pub(super) fn row_visible(y: f32, h: f32, clip: &Rect) -> bool {
+pub(crate) fn row_visible(y: f32, h: f32, clip: &Rect) -> bool {
     y >= clip.y && y + h <= clip.y + clip.h
 }

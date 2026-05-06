@@ -228,12 +228,12 @@ impl MenuEditor {
                     let label = if !el.name.is_empty() {
                         el.name.clone()
                     } else {
+                        let type_name = el.kind.kind_name();
                         match &el.kind {
-                            MenuElementKind::Label(l) => format!("Label: {}", l.text_key),
-                            MenuElementKind::Button(b) => format!("Button: {}", b.text_key),
-                            MenuElementKind::Panel(_) => "Panel".to_string(),
-                            MenuElementKind::LayoutGroup(_) => "Layout Group".to_string(),
-                            MenuElementKind::Slider(s) => format!("Slider: {}", s.text_key),
+                            MenuElementKind::Label(l) => format!("{}: {}", type_name, l.text_key),
+                            MenuElementKind::Button(b) => format!("{}: {}", type_name, b.text_key),
+                            MenuElementKind::Slider(s) => format!("{}: {}", type_name, s.text_key),
+                            _ => type_name.to_string(),
                         }
                     };
                     (i, label)

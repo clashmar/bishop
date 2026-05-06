@@ -1,5 +1,6 @@
 // editor/src/menu_editor/mod.rs
 pub mod element_palette;
+pub mod elements;
 pub mod game_theme;
 pub mod menu_canvas;
 pub mod menu_editor;

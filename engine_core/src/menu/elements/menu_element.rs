@@ -1,8 +1,10 @@
+use super::button::ButtonElement;
+use super::element_kind::ElementKind;
+use super::label::LabelElement;
 use super::layout_group::LayoutGroupElement;
-use super::menu_slider::SliderElement;
-use crate::menu::layout::HorizontalAlign;
+use super::panel::PanelElement;
+use super::slider::SliderElement;
 use crate::menu::menu_builder::MenuAction;
-use crate::menu::{NavTargets, Navigable};
 use bishop::prelude::*;
 use serde::{Deserialize, Serialize};
 
@@ -16,71 +18,46 @@ pub enum MenuElementKind {
     Slider(SliderElement),
 }
 
-/// Label element displaying text resolved from a text key.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct LabelElement {
-    #[serde(alias = "text")]
-    pub text_key: String,
-    pub font_size: f32,
-    #[serde(default)]
-    pub alignment: HorizontalAlign,
-}
-
-impl Default for LabelElement {
-    fn default() -> Self {
-        Self {
-            text_key: String::new(),
-            font_size: 20.0,
-            alignment: HorizontalAlign::default(),
-        }
-    }
-}
-
-/// Button element that triggers an action when clicked.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ButtonElement {
-    #[serde(alias = "text")]
-    pub text_key: String,
-    pub action: MenuAction,
-    pub font_size: f32,
-    pub nav_targets: NavTargets,
-}
-
-impl Default for ButtonElement {
-    fn default() -> Self {
-        Self {
-            text_key: String::new(),
-            action: MenuAction::CloseMenu,
-            font_size: 20.0,
-            nav_targets: NavTargets::default(),
-        }
-    }
-}
-
-impl Navigable for ButtonElement {
-    fn nav_targets(&self) -> &NavTargets {
-        &self.nav_targets
-    }
-
-    fn nav_targets_mut(&mut self) -> &mut NavTargets {
-        &mut self.nav_targets
-    }
-
-    fn from_element(el: &MenuElement) -> Option<&Self> {
-        match &el.kind {
-            MenuElementKind::Button(b) => Some(b),
-            _ => None,
+impl ElementKind for MenuElementKind {
+    fn kind_name(&self) -> &'static str {
+        match self {
+            MenuElementKind::Label(l) => l.kind_name(),
+            MenuElementKind::Button(b) => b.kind_name(),
+            MenuElementKind::Panel(p) => p.kind_name(),
+            MenuElementKind::LayoutGroup(g) => g.kind_name(),
+            MenuElementKind::Slider(s) => s.kind_name(),
         }
     }
 
-    fn wrap_into_element(self) -> MenuElementKind {
-        MenuElementKind::Button(self)
+    fn default_rect(&self) -> Rect {
+        match self {
+            MenuElementKind::Label(l) => l.default_rect(),
+            MenuElementKind::Button(b) => b.default_rect(),
+            MenuElementKind::Panel(p) => p.default_rect(),
+            MenuElementKind::LayoutGroup(g) => g.default_rect(),
+            MenuElementKind::Slider(s) => s.default_rect(),
+        }
+    }
+
+    fn is_focusable(&self) -> bool {
+        match self {
+            MenuElementKind::Button(b) => b.is_focusable(),
+            MenuElementKind::Slider(s) => s.is_focusable(),
+            MenuElementKind::LayoutGroup(g) => g.is_focusable(),
+            _ => false,
+        }
+    }
+
+    fn wrap(&self, name: String) -> MenuElement {
+        match self {
+            MenuElementKind::Label(l) => l.wrap(name),
+            MenuElementKind::Button(b) => b.wrap(name),
+            MenuElementKind::Panel(p) => p.wrap(name),
+            MenuElementKind::LayoutGroup(g) => g.wrap(name),
+            MenuElementKind::Slider(s) => s.wrap(name),
+        }
     }
 }
-
-/// Decorative panel element styled via theme.
-#[derive(Default, Debug, Clone, Serialize, Deserialize)]
-pub struct PanelElement;
 
 /// Menu element variants with positional data.
 #[derive(Debug, Clone, Serialize, Deserialize)]

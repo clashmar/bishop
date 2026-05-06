@@ -1,5 +1,5 @@
 // editor/src/menu/menu_canvas/mod.rs
-mod drawing;
+pub(crate) mod drawing;
 mod selection;
 
 use crate::commands::menu::*;

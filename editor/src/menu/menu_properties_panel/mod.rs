@@ -1,9 +1,7 @@
 // editor/src/menu_editor/menu_properties_panel/mod.rs
-mod common_properties;
-mod element_properties;
-mod layout_properties;
+pub(crate) mod common_properties;
 mod menu_properties;
-mod nav_section;
+pub(crate) mod nav_section;
 
 use crate::menu::MenuEditor;
 use bishop::prelude::*;

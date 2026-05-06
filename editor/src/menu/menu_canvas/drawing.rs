@@ -2,7 +2,6 @@
 use crate::menu::resize_handle::*;
 use crate::menu::MenuEditor;
 use crate::menu::SnapLine;
-use crate::shared::input::canvas_blocked_by_global_ui;
 use crate::shared::selection::draw_selection_box;
 use bishop::prelude::*;
 use engine_core::constants::world;
@@ -188,204 +187,22 @@ impl MenuEditor {
         is_selected: bool,
         allow_resize: bool,
     ) {
-        let canvas_origin = frame.canvas_origin;
-        let canvas_size = frame.canvas_size;
-        let world_mouse = frame.world_mouse;
-        let preview = frame.preview;
         match &element.kind {
-            MenuElementKind::Button(button) => {
-                let display_text = button.text_key.to_string();
-                Button::new(element_rect, &display_text)
-                    .font_size(button.font_size)
-                    .mouse_position(world_mouse)
-                    .suppressed(canvas_blocked_by_global_ui(frame.ctx))
-                    .apply_selectors(element.class.as_deref(), element.style_id.as_deref())
-                    .show(frame.ctx);
-
-                if is_selected {
-                    frame.ctx.draw_rectangle_lines(
-                        element_rect.x,
-                        element_rect.y,
-                        element_rect.w,
-                        element_rect.h,
-                        2.0,
-                        with_theme(|theme| theme.highlight),
-                    );
-                }
+            MenuElementKind::Button(_) => {
+                self.draw_button(frame, element, element_rect, is_selected);
             }
-            MenuElementKind::LayoutGroup(group) => {
-                let has_child_selected = is_selected && self.selected_child_index.is_some();
-
-                for child in group.children.iter().filter(|c| !c.managed) {
-                    if let MenuElementKind::Panel(_) = &child.element.kind {
-                        Panel::new(element_rect)
-                            .apply_selectors(
-                                child.element.class.as_deref(),
-                                child.element.style_id.as_deref(),
-                            )
-                            .show(frame.ctx);
-                    }
-                }
-
-                if !preview {
-                    let outline_color = selection_outline_color(is_selected);
-
-                    frame.ctx.draw_rectangle_lines(
-                        element_rect.x,
-                        element_rect.y,
-                        element_rect.w,
-                        element_rect.h,
-                        selection_line_thickness(is_selected),
-                        outline_color,
-                    );
-
-                    // Label
-                    let group_label = if !element.name.is_empty() {
-                        format!("[{}]", element.name)
-                    } else {
-                        "[Layout Group]".to_string()
-                    };
-                    frame.ctx.draw_text(
-                        &group_label,
-                        element_rect.x + 4.0,
-                        element_rect.y + 12.0,
-                        10.0,
-                        outline_color,
-                    );
-                }
-
-                // Draw children at resolved positions
-                let resolved = resolve_layout(group, element.rect);
-                let reorder_info = self
-                    .reorder_drag
-                    .as_ref()
-                    .filter(|r| self.selected_element_indices.contains(&r.group_index));
-                let dragged_child_idx = reorder_info.map(|r| r.child_index);
-                let drop_target = reorder_info.and_then(|r| r.drop_target);
-
-                for (child_idx, (child, resolved_rect)) in
-                    group.children.iter().zip(resolved.iter()).enumerate()
-                {
-                    let child_screen =
-                        normalized_rect_to_screen(*resolved_rect, canvas_origin, canvas_size);
-                    let is_child_selected =
-                        is_selected && self.selected_child_index == Some(child_idx);
-                    let child_allow_resize = !child.managed;
-
-                    // Dim the dragged child at its original slot
-                    if dragged_child_idx == Some(child_idx) {
-                        frame.ctx.draw_rectangle(
-                            child_screen.x,
-                            child_screen.y,
-                            child_screen.w,
-                            child_screen.h,
-                            Color::new(0.0, 0.0, 0.0, 0.3),
-                        );
-                    }
-
-                    self.draw_element(
-                        frame,
-                        &child.element,
-                        child_screen,
-                        is_child_selected,
-                        child_allow_resize,
-                    );
-                }
-
-                // Draw drop indicator line
-                if let Some(target) = drop_target {
-                    let managed_rects: Vec<(usize, Rect)> = group
-                        .children
-                        .iter()
-                        .zip(resolved.iter())
-                        .enumerate()
-                        .filter(|(_, (child, _))| child.managed)
-                        .map(|(idx, (_, rect))| (idx, *rect))
-                        .collect();
-
-                    let managed_slot = child_index_to_managed_slot(group, target);
-
-                    draw_reorder_indicator(
-                        frame.ctx,
-                        &managed_rects,
-                        managed_slot,
-                        &group.layout,
-                        canvas_origin,
-                        canvas_size,
-                    );
-                }
-
-                // Draw resize handles on group only when no child is selected
-                if is_selected && !has_child_selected {
-                    draw_resize_handles(frame.ctx, element_rect);
-                }
+            MenuElementKind::LayoutGroup(_) => {
+                self.draw_layout_group(frame, element, element_rect, is_selected);
                 return;
             }
-            MenuElementKind::Label(label) => {
-                if !preview {
-                    let outline_color = selection_outline_color(is_selected);
-                    frame.ctx.draw_rectangle_lines(
-                        element_rect.x,
-                        element_rect.y,
-                        element_rect.w,
-                        element_rect.h,
-                        selection_line_thickness(is_selected),
-                        outline_color,
-                    );
-                }
-
-                let label_align = match label.alignment {
-                    HorizontalAlign::Left => LabelAlign::Left,
-                    HorizontalAlign::Center => LabelAlign::Center,
-                    HorizontalAlign::Right => LabelAlign::Right,
-                };
-                Label::new(element_rect, &label.text_key)
-                    .font_size(label.font_size)
-                    .alignment(label_align)
-                    .apply_selectors(element.class.as_deref(), element.style_id.as_deref())
-                    .show(frame.ctx);
+            MenuElementKind::Label(_) => {
+                self.draw_label(frame, element, element_rect, is_selected);
             }
-            MenuElementKind::Slider(slider) => {
-                Slider::new(
-                    slider.widget_id,
-                    element_rect,
-                    slider.min,
-                    slider.max,
-                    slider.default_value,
-                )
-                .label(&slider.text_key)
-                .blocked(true)
-                .apply_selectors(element.class.as_deref(), element.style_id.as_deref())
-                .show(frame.ctx);
-
-                if !preview {
-                    let outline_color = selection_outline_color(is_selected);
-                    frame.ctx.draw_rectangle_lines(
-                        element_rect.x,
-                        element_rect.y,
-                        element_rect.w,
-                        element_rect.h,
-                        selection_line_thickness(is_selected),
-                        outline_color,
-                    );
-                }
+            MenuElementKind::Slider(_) => {
+                self.draw_slider(frame, element, element_rect, is_selected);
             }
-            MenuElementKind::Panel(_panel) => {
-                Panel::new(element_rect)
-                    .apply_selectors(element.class.as_deref(), element.style_id.as_deref())
-                    .show(frame.ctx);
-
-                if !preview {
-                    let outline_color = selection_outline_color(is_selected);
-                    frame.ctx.draw_rectangle_lines(
-                        element_rect.x,
-                        element_rect.y,
-                        element_rect.w,
-                        element_rect.h,
-                        selection_line_thickness(is_selected),
-                        outline_color,
-                    );
-                }
+            MenuElementKind::Panel(_) => {
+                self.draw_panel(frame, element, element_rect, is_selected);
             }
         }
 
@@ -476,30 +293,4 @@ pub(crate) fn draw_reorder_indicator(
             ctx.draw_rectangle(screen.x, screen.y, screen.w, thickness, indicator_color);
         }
     }
-}
-
-/// Maps a Vec child index to its managed slot index.
-fn selection_outline_color(is_selected: bool) -> Color {
-    if is_selected {
-        with_theme(|theme| theme.highlight)
-    } else {
-        Color::new(0., 0., 0., 0.)
-    }
-}
-
-fn selection_line_thickness(is_selected: bool) -> f32 {
-    if is_selected {
-        2.0
-    } else {
-        1.0
-    }
-}
-
-fn child_index_to_managed_slot(group: &LayoutGroupElement, child_index: usize) -> usize {
-    group
-        .children
-        .iter()
-        .take(child_index)
-        .filter(|c| c.managed)
-        .count()
 }

@@ -1,7 +1,7 @@
 // editor/src/menu/game_theme.rs
 use crate::with_lua;
-use engine_core::prelude::*;
 use engine_core::constants::extensions;
+use engine_core::prelude::*;
 use widgets::theme::Theme;
 
 /// Returns a list of theme names discovered in `Resources/themes/`.

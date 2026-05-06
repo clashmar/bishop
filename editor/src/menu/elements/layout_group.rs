@@ -1,15 +1,132 @@
-// editor/src/menu_editor/menu_properties_panel/layout_properties.rs
-use super::{
-    common_properties::row_visible, nav_section::NavSectionStyle, FIELD_HEIGHT, LABEL_WIDTH,
-    ROW_HEIGHT,
-};
+use crate::menu::menu_canvas::drawing::{draw_reorder_indicator, MenuCanvasFrame};
+use crate::menu::menu_properties_panel::common_properties::row_visible;
+use crate::menu::menu_properties_panel::nav_section::NavSectionStyle;
+use crate::menu::menu_properties_panel::{FIELD_HEIGHT, LABEL_WIDTH, ROW_HEIGHT};
+use crate::menu::resize_handle::draw_resize_handles;
 use crate::menu::MenuEditor;
 use bishop::prelude::*;
 use engine_core::prelude::*;
 use engine_core::theme::with_theme;
 
 impl MenuEditor {
-    pub(super) fn draw_layout_group_properties(
+    pub(crate) fn draw_layout_group(
+        &self,
+        frame: &mut MenuCanvasFrame<'_>,
+        element: &MenuElement,
+        element_rect: Rect,
+        is_selected: bool,
+    ) {
+        let MenuElementKind::LayoutGroup(group) = &element.kind else {
+            return;
+        };
+        let has_child_selected = is_selected && self.selected_child_index.is_some();
+
+        for child in group.children.iter().filter(|c| !c.managed) {
+            if let MenuElementKind::Panel(_) = &child.element.kind {
+                Panel::new(element_rect)
+                    .apply_selectors(
+                        child.element.class.as_deref(),
+                        child.element.style_id.as_deref(),
+                    )
+                    .show(frame.ctx);
+            }
+        }
+
+        if !frame.preview {
+            let outline_color = if is_selected {
+                with_theme(|t| t.highlight)
+            } else {
+                Color::new(0., 0., 0., 0.)
+            };
+            let thickness = if is_selected { 2.0 } else { 1.0 };
+            frame.ctx.draw_rectangle_lines(
+                element_rect.x,
+                element_rect.y,
+                element_rect.w,
+                element_rect.h,
+                thickness,
+                outline_color,
+            );
+            let group_label = if !element.name.is_empty() {
+                format!("[{}]", element.name)
+            } else {
+                "[Layout Group]".to_string()
+            };
+            frame.ctx.draw_text(
+                &group_label,
+                element_rect.x + 4.0,
+                element_rect.y + 12.0,
+                10.0,
+                outline_color,
+            );
+        }
+
+        let resolved = resolve_layout(group, element.rect);
+        let reorder_info = self
+            .reorder_drag
+            .as_ref()
+            .filter(|r| self.selected_element_indices.contains(&r.group_index));
+        let dragged_child_idx = reorder_info.map(|r| r.child_index);
+        let drop_target = reorder_info.and_then(|r| r.drop_target);
+
+        for (child_idx, (child, resolved_rect)) in
+            group.children.iter().zip(resolved.iter()).enumerate()
+        {
+            let child_screen =
+                normalized_rect_to_screen(*resolved_rect, frame.canvas_origin, frame.canvas_size);
+            let is_child_selected = is_selected && self.selected_child_index == Some(child_idx);
+            let child_allow_resize = !child.managed;
+
+            if dragged_child_idx == Some(child_idx) {
+                frame.ctx.draw_rectangle(
+                    child_screen.x,
+                    child_screen.y,
+                    child_screen.w,
+                    child_screen.h,
+                    Color::new(0.0, 0.0, 0.0, 0.3),
+                );
+            }
+
+            self.draw_element(
+                frame,
+                &child.element,
+                child_screen,
+                is_child_selected,
+                child_allow_resize,
+            );
+        }
+
+        if let Some(target) = drop_target {
+            let managed_rects: Vec<(usize, Rect)> = group
+                .children
+                .iter()
+                .zip(resolved.iter())
+                .enumerate()
+                .filter(|(_, (child, _))| child.managed)
+                .map(|(idx, (_, rect))| (idx, *rect))
+                .collect();
+            let managed_slot = group
+                .children
+                .iter()
+                .take(target)
+                .filter(|c| c.managed)
+                .count();
+            draw_reorder_indicator(
+                frame.ctx,
+                &managed_rects,
+                managed_slot,
+                &group.layout,
+                frame.canvas_origin,
+                frame.canvas_size,
+            );
+        }
+
+        if is_selected && !has_child_selected {
+            draw_resize_handles(frame.ctx, element_rect);
+        }
+    }
+
+    pub(crate) fn draw_layout_group_properties(
         &mut self,
         ctx: &mut WgpuContext,
         y: &mut f32,
@@ -129,12 +246,12 @@ impl MenuEditor {
                 let label = if !child.element.name.is_empty() {
                     child.element.name.clone()
                 } else {
+                    let kind_name = child.element.kind.kind_name();
                     match &child.element.kind {
-                        MenuElementKind::Label(l) => format!("Label: {}", l.text_key),
-                        MenuElementKind::Button(b) => format!("Button: {}", b.text_key),
-                        MenuElementKind::Panel(_) => "Panel".to_string(),
-                        MenuElementKind::LayoutGroup(_) => "Layout Group".to_string(),
-                        MenuElementKind::Slider(s) => format!("Slider: {}", s.text_key),
+                        MenuElementKind::Label(l) => format!("{}: {}", kind_name, l.text_key),
+                        MenuElementKind::Button(b) => format!("{}: {}", kind_name, b.text_key),
+                        MenuElementKind::Slider(s) => format!("{}: {}", kind_name, s.text_key),
+                        _ => kind_name.to_string(),
                     }
                 };
                 let is_bg = i == 0
