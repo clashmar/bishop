@@ -439,13 +439,64 @@ impl MenuEditor {
 
     pub(super) fn draw_panel_properties(
         &mut self,
-        _ctx: &mut WgpuContext,
-        _y: &mut f32,
-        _x: f32,
-        _w: f32,
-        _blocked: bool,
-        _clip: &Rect,
+        ctx: &mut WgpuContext,
+        y: &mut f32,
+        x: f32,
+        w: f32,
+        blocked: bool,
+        clip: &Rect,
     ) {
-        // This function is kept as a placeholder for future per-element panel properties.
+        let (current_class, current_style_id) = {
+            let Some(element) = self.selected_element() else {
+                return;
+            };
+            (element.class.clone(), element.style_id.clone())
+        };
+
+        // Class field
+        if row_visible(*y, ROW_HEIGHT, clip) {
+            ctx.draw_text("Class:", x, *y + 16.0, 12.0, Color::WHITE);
+            let field_rect = Rect::new(x + LABEL_WIDTH, *y, w - LABEL_WIDTH, FIELD_HEIGHT);
+            let class_str = current_class.as_deref().unwrap_or("");
+            let (new_class, _) = TextInput::new(
+                self.properties_panel.widget_ids.class_id,
+                field_rect,
+                class_str,
+            )
+            .blocked(blocked)
+            .show(ctx);
+            let new_class = if new_class.is_empty() {
+                None
+            } else {
+                Some(new_class)
+            };
+            if new_class != current_class {
+                self.push_element_update(|el| el.class = new_class);
+            }
+        }
+        *y += ROW_HEIGHT;
+
+        // Style ID field
+        if row_visible(*y, ROW_HEIGHT, clip) {
+            ctx.draw_text("Style ID:", x, *y + 16.0, 12.0, Color::WHITE);
+            let field_rect = Rect::new(x + LABEL_WIDTH, *y, w - LABEL_WIDTH, FIELD_HEIGHT);
+            let id_str = current_style_id.as_deref().unwrap_or("");
+            let (new_id, _) = TextInput::new(
+                self.properties_panel.widget_ids.style_id,
+                field_rect,
+                id_str,
+            )
+            .blocked(blocked)
+            .show(ctx);
+            let new_id = if new_id.is_empty() {
+                None
+            } else {
+                Some(new_id)
+            };
+            if new_id != current_style_id {
+                self.push_element_update(|el| el.style_id = new_id);
+            }
+        }
+        *y += ROW_HEIGHT;
     }
 }

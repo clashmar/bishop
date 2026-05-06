@@ -179,7 +179,6 @@ impl LayoutGroupBuilder {
         LayoutGroupElement {
             layout: self.layout,
             children: self.children,
-            background: None,
             nav_targets: NavTargets::default(),
         }
     }

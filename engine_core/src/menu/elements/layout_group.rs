@@ -1,5 +1,4 @@
 use super::menu_element::MenuElement;
-use super::menu_panel::PanelBackground;
 use crate::menu::*;
 use serde::{Deserialize, Serialize};
 
@@ -8,9 +7,6 @@ use serde::{Deserialize, Serialize};
 pub struct LayoutGroupElement {
     pub layout: LayoutConfig,
     pub children: Vec<LayoutChild>,
-    /// Optional panel background rendered behind the children.
-    #[serde(default)]
-    pub background: Option<PanelBackground>,
     pub nav_targets: NavTargets,
 }
 

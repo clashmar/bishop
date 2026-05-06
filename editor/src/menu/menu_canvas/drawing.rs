@@ -216,14 +216,15 @@ impl MenuEditor {
             MenuElementKind::LayoutGroup(group) => {
                 let has_child_selected = is_selected && self.selected_child_index.is_some();
 
-                if let Some(bg) = &group.background {
-                    frame.ctx.draw_rectangle(
-                        element_rect.x,
-                        element_rect.y,
-                        element_rect.w,
-                        element_rect.h,
-                        bg.render_color(),
-                    );
+                for child in group.children.iter().filter(|c| !c.managed) {
+                    if let MenuElementKind::Panel(_) = &child.element.kind {
+                        Panel::new(element_rect)
+                            .apply_selectors(
+                                child.element.class.as_deref(),
+                                child.element.style_id.as_deref(),
+                            )
+                            .show(frame.ctx);
+                    }
                 }
 
                 if !preview {

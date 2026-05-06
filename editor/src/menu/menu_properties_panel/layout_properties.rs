@@ -6,6 +6,7 @@ use super::{
 use crate::menu::MenuEditor;
 use bishop::prelude::*;
 use engine_core::prelude::*;
+use engine_core::theme::with_theme;
 
 impl MenuEditor {
     pub(super) fn draw_layout_group_properties(
@@ -18,9 +19,7 @@ impl MenuEditor {
         clip: &Rect,
     ) {
         let (
-            has_bg,
-            bg_color,
-            bg_opacity,
+            has_bg_panel,
             direction,
             grid_cols,
             spacing,
@@ -29,7 +28,6 @@ impl MenuEditor {
             v_align,
             item_w,
             item_h,
-            child_count,
         ) = {
             let Some(element) = self.selected_element() else {
                 return;
@@ -41,17 +39,12 @@ impl MenuEditor {
                 LayoutDirection::Grid { columns } => columns,
                 _ => 2,
             };
-            let (has_bg, bg_color, bg_opacity) = match &group.background {
-                Some(bg) => {
-                    let PanelFill::SolidColor(color) = bg.fill;
-                    (true, color, bg.opacity)
-                }
-                None => (false, Color::new(0.3, 0.3, 0.35, 1.0), 1.0),
-            };
+            let has_bg_panel = group
+                .children
+                .first()
+                .is_some_and(|c| !c.managed && matches!(c.element.kind, MenuElementKind::Panel(_)));
             (
-                has_bg,
-                bg_color,
-                bg_opacity,
+                has_bg_panel,
                 group.layout.direction,
                 cols,
                 group.layout.spacing,
@@ -60,95 +53,142 @@ impl MenuEditor {
                 group.layout.alignment.vertical,
                 group.layout.item_width,
                 group.layout.item_height,
-                group.children.len(),
             )
         };
 
-        // Background section
+        // Background Panel section
         if row_visible(*y, 20.0, clip) {
-            ctx.draw_text("Background", x, *y + 14.0, 12.0, Color::GREY);
+            ctx.draw_text("Background Panel", x, *y + 14.0, 12.0, Color::GREY);
         }
         *y += 20.0;
 
         if row_visible(*y, ROW_HEIGHT, clip) {
             ctx.draw_text("Enabled:", x, *y + 16.0, 12.0, Color::WHITE);
             let checkbox_rect = Rect::new(x + LABEL_WIDTH, *y + 4.0, 16.0, 16.0);
-            let mut enabled = has_bg;
+            let mut enabled = has_bg_panel;
             if Checkbox::new(checkbox_rect, &mut enabled).show(ctx) {
                 self.push_element_update(|el| {
                     if let MenuElementKind::LayoutGroup(group) = &mut el.kind {
-                        group.background = if enabled {
-                            Some(PanelBackground::default())
-                        } else {
-                            None
-                        };
+                        let has_bg = !group.children.is_empty()
+                            && !group.children[0].managed
+                            && matches!(group.children[0].element.kind, MenuElementKind::Panel(_));
+                        if enabled && !has_bg {
+                            let child = LayoutChild {
+                                element: MenuElement::new(
+                                    MenuElementKind::Panel(PanelElement),
+                                    Rect::new(0.0, 0.0, 0.0, 0.0),
+                                ),
+                                managed: false,
+                            };
+                            group.children.insert(0, child);
+                        } else if !enabled && has_bg {
+                            group.children.remove(0);
+                        }
                     }
                 });
             }
         }
         *y += ROW_HEIGHT;
 
-        if has_bg {
-            if row_visible(*y, ROW_HEIGHT, clip) {
-                ctx.draw_text("Color:", x, *y + 16.0, 12.0, Color::WHITE);
-                let field_rect = Rect::new(x + LABEL_WIDTH, *y, w - LABEL_WIDTH, FIELD_HEIGHT);
-                let new_color = ColorInput::new(
-                    self.properties_panel.widget_ids.layout_bg_color_id,
-                    field_rect,
-                    bg_color,
-                )
-                .blocked(blocked)
-                .show(ctx);
-                if new_color != bg_color {
-                    self.push_element_update(|el| {
-                        if let MenuElementKind::LayoutGroup(group) = &mut el.kind {
-                            if let Some(bg) = &mut group.background {
-                                bg.fill = PanelFill::SolidColor(new_color);
-                            }
-                        }
-                    });
-                }
-            }
-            *y += ROW_HEIGHT;
-
-            if row_visible(*y, ROW_HEIGHT, clip) {
-                ctx.draw_text("Opacity:", x, *y + 16.0, 12.0, Color::WHITE);
-                let field_rect = Rect::new(x + LABEL_WIDTH, *y, w - LABEL_WIDTH, FIELD_HEIGHT);
-                let (new_opacity, state) = Slider::new(
-                    self.properties_panel.widget_ids.layout_bg_opacity_id,
-                    field_rect,
-                    0.0,
-                    1.0,
-                    bg_opacity,
-                )
-                .show(ctx);
-                match state {
-                    SliderState::Previewing => {
-                        self.preview_element_update(|el| {
-                            if let MenuElementKind::LayoutGroup(group) = &mut el.kind {
-                                if let Some(bg) = &mut group.background {
-                                    bg.opacity = new_opacity;
-                                }
-                            }
-                        });
-                    }
-                    SliderState::Committed { .. } => {
-                        self.preview_element_update(|el| {
-                            if let MenuElementKind::LayoutGroup(group) = &mut el.kind {
-                                if let Some(bg) = &mut group.background {
-                                    bg.opacity = new_opacity;
-                                }
-                            }
-                        });
-                        self.commit_element_update();
-                    }
-                    SliderState::Unchanged => {}
-                }
-            }
-            *y += ROW_HEIGHT;
-        }
+        // Children
+        let child_count = {
+            let Some(element) = self.selected_element() else {
+                return;
+            };
+            let MenuElementKind::LayoutGroup(group) = &element.kind else {
+                return;
+            };
+            group.children.len()
+        };
 
         *y += 4.0;
+        if row_visible(*y, 20.0, clip) {
+            ctx.draw_text(
+                &format!("Children ({})", child_count),
+                x,
+                *y + 14.0,
+                12.0,
+                Color::GREY,
+            );
+        }
+        *y += 20.0;
+
+        let selected_idx = self.selected_child_index;
+        let children_item_h = 24.0;
+        let children_item_pad = 4.0;
+
+        for i in 0..child_count {
+            let (child_label, managed, is_selected, is_background) = {
+                let Some(element) = self.selected_element() else {
+                    break;
+                };
+                let MenuElementKind::LayoutGroup(group) = &element.kind else {
+                    break;
+                };
+                let child = &group.children[i];
+                let label = if !child.element.name.is_empty() {
+                    child.element.name.clone()
+                } else {
+                    match &child.element.kind {
+                        MenuElementKind::Label(l) => format!("Label: {}", l.text_key),
+                        MenuElementKind::Button(b) => format!("Button: {}", b.text_key),
+                        MenuElementKind::Panel(_) => "Panel".to_string(),
+                        MenuElementKind::LayoutGroup(_) => "Layout Group".to_string(),
+                        MenuElementKind::Slider(s) => format!("Slider: {}", s.text_key),
+                    }
+                };
+                let is_bg = i == 0
+                    && !child.managed
+                    && matches!(child.element.kind, MenuElementKind::Panel(_));
+                (label, child.managed, selected_idx == Some(i), is_bg)
+            };
+
+            if row_visible(*y, children_item_h, clip) {
+                let mouse: Vec2 = ctx.mouse_position().into();
+                let item_rect = Rect::new(x, *y, w - 40.0, children_item_h);
+                let hovering = item_rect.contains(mouse) && !blocked;
+
+                let bg = if is_selected {
+                    with_theme(|theme| theme.primary)
+                } else if hovering {
+                    with_theme(|theme| theme.hover)
+                } else {
+                    with_theme(|theme| theme.background)
+                };
+                ctx.draw_rectangle(item_rect.x, item_rect.y, item_rect.w, item_rect.h, bg);
+
+                let text_color = if is_selected {
+                    Color::WHITE
+                } else {
+                    Color::new(0.8, 0.8, 0.8, 1.0)
+                };
+                ctx.draw_text(&child_label, item_rect.x + 8.0, *y + 16.0, 12.0, text_color);
+
+                // Managed checkbox (background panel managed flag is immutable)
+                if !is_background {
+                    let checkbox_rect =
+                        Rect::new(item_rect.x + item_rect.w + 6.0, *y + 4.0, 16.0, 16.0);
+                    let mut managed_val = managed;
+                    if Checkbox::new(checkbox_rect, &mut managed_val).show(ctx) {
+                        self.push_element_update(|el| {
+                            if let MenuElementKind::LayoutGroup(group) = &mut el.kind {
+                                if let Some(child) = group.children.get_mut(i) {
+                                    child.managed = managed_val;
+                                }
+                            }
+                        });
+                    }
+                }
+
+                if hovering && ctx.is_mouse_button_pressed(MouseButton::Left) {
+                    self.selected_child_index = Some(i);
+                    return;
+                }
+            }
+            *y += children_item_h + children_item_pad;
+        }
+
+        *y += 6.0;
 
         // Direction dropdown
         if row_visible(*y, ROW_HEIGHT, clip) {
@@ -417,61 +457,6 @@ impl MenuEditor {
             }
         }
         *y += ROW_HEIGHT;
-
-        // Children list
-        *y += 4.0;
-        if row_visible(*y, 20.0, clip) {
-            ctx.draw_text(
-                &format!("Children ({})", child_count),
-                x,
-                *y + 14.0,
-                12.0,
-                Color::GREY,
-            );
-        }
-        *y += 20.0;
-
-        // Managed toggle
-        for i in 0..child_count {
-            let (child_label, managed) = {
-                let Some(element) = self.selected_element() else {
-                    break;
-                };
-                let MenuElementKind::LayoutGroup(group) = &element.kind else {
-                    break;
-                };
-                let child = &group.children[i];
-                let label = if !child.element.name.is_empty() {
-                    child.element.name.clone()
-                } else {
-                    match &child.element.kind {
-                        MenuElementKind::Label(l) => format!("Label: {}", l.text_key),
-                        MenuElementKind::Button(b) => format!("Button: {}", b.text_key),
-                        MenuElementKind::Panel(_) => "Panel".to_string(),
-                        MenuElementKind::LayoutGroup(_) => "Layout Group".to_string(),
-                        MenuElementKind::Slider(s) => format!("Slider: {}", s.text_key),
-                    }
-                };
-                (label, child.managed)
-            };
-
-            if row_visible(*y, ROW_HEIGHT, clip) {
-                ctx.draw_text(&child_label, x + 20.0, *y + 16.0, 11.0, Color::WHITE);
-
-                let checkbox_rect = Rect::new(x, *y + 4.0, 16.0, 16.0);
-                let mut managed_val = managed;
-                if Checkbox::new(checkbox_rect, &mut managed_val).show(ctx) {
-                    self.push_element_update(|el| {
-                        if let MenuElementKind::LayoutGroup(group) = &mut el.kind {
-                            if let Some(child) = group.children.get_mut(i) {
-                                child.managed = managed_val;
-                            }
-                        }
-                    });
-                }
-            }
-            *y += ROW_HEIGHT;
-        }
 
         // Navigation section
         *y += 8.0;

@@ -10,6 +10,7 @@ struct CommonState {
     style_id: Option<String>,
     rect_val: Rect,
     z_order: i32,
+    visible: bool,
     type_label: &'static str,
 }
 
@@ -42,10 +43,11 @@ impl MenuEditor {
                 style_id: element.style_id.clone(),
                 rect_val: element.rect,
                 z_order: element.z_order,
+                visible: element.visible,
                 type_label,
             }
         };
-        
+
         let child_is_managed = self.is_selected_child_managed();
 
         // Type (read-only)
@@ -74,6 +76,17 @@ impl MenuEditor {
             .show(ctx);
             if new_name != state.name {
                 self.push_element_update(|el| el.name = new_name);
+            }
+        }
+        *y += ROW_HEIGHT;
+
+        // Visible checkbox
+        if row_visible(*y, ROW_HEIGHT, clip) {
+            ctx.draw_text("Visible:", x, *y + 16.0, 12.0, Color::WHITE);
+            let checkbox_rect = Rect::new(x + LABEL_WIDTH, *y + 4.0, 16.0, 16.0);
+            let mut visible_val = state.visible;
+            if Checkbox::new(checkbox_rect, &mut visible_val).show(ctx) {
+                self.push_element_update(|el| el.visible = visible_val);
             }
         }
         *y += ROW_HEIGHT;

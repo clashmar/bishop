@@ -42,8 +42,6 @@ pub struct PropertiesWidgetIds {
     pub(crate) layout_item_h_id: WidgetId,
     pub(crate) layout_nav_ids: NavWidgetIds,
     pub(crate) label_h_align_id: WidgetId,
-    pub(crate) layout_bg_color_id: WidgetId,
-    pub(crate) layout_bg_opacity_id: WidgetId,
     pub(crate) bg_type_id: WidgetId,
     pub(crate) bg_color_id: WidgetId,
     pub(crate) bg_alpha_id: WidgetId,

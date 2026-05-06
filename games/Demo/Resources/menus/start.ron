@@ -106,7 +106,6 @@
                         managed: true,
                     ),
                 ],
-                background: None,
                 nav_targets: (
                     up: None,
                     down: None,

@@ -149,23 +149,27 @@ fn render_layout_group<C: BishopContext>(
     element: &MenuElement,
     env: &mut RenderEnv<'_>,
 ) {
-    if let Some(bg) = &group.background {
-        let screen_rect =
-            normalized_rect_to_screen(element.rect, env.canvas_origin, env.canvas_size);
-        ctx.draw_rectangle(
-            screen_rect.x,
-            screen_rect.y,
-            screen_rect.w,
-            screen_rect.h,
-            bg.render_color(),
-        );
+    for child in group.children.iter().filter(|c| !c.managed) {
+        if !child.element.visible {
+            continue;
+        }
+        if let MenuElementKind::Panel(_) = &child.element.kind {
+            let screen_rect =
+                normalized_rect_to_screen(element.rect, env.canvas_origin, env.canvas_size);
+            Panel::new(screen_rect)
+                .apply_selectors(
+                    child.element.class.as_deref(),
+                    child.element.style_id.as_deref(),
+                )
+                .show(ctx);
+        }
     }
 
     let resolved = resolve_layout(group, element.rect);
     let mut focusable_idx = 0;
 
     for (child, rect) in group.children.iter().zip(resolved.iter()) {
-        if !child.element.visible {
+        if !child.element.visible || !child.managed {
             continue;
         }
 
