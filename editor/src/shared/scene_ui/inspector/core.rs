@@ -44,6 +44,7 @@ pub struct SceneInspector {
     scroll_state: ScrollState,
     widget_ids: WidgetIds,
     component_edits: HashMap<(Entity, &'static str), ComponentEditState>,
+    command_mode: Option<EditorMode>,
 }
 
 /// Stable widget ids used by the inspector.
@@ -123,6 +124,7 @@ impl SceneInspector {
                 add_component_dropdown_id: WidgetId::default(),
             },
             component_edits: HashMap::new(),
+            command_mode: None,
         }
     }
 
@@ -135,9 +137,45 @@ impl SceneInspector {
     pub fn set_target(&mut self, entity: Option<Entity>) {
         if self.target != entity {
             clear_active_audio_preview();
+            self.flush_pending_edits();
             self.target = entity;
             self.scroll_state = ScrollState::new();
             self.component_edits.clear();
+        }
+    }
+
+    fn flush_pending_edits(&mut self) {
+        let Some(command_mode) = self.command_mode else {
+            return;
+        };
+        let completed: Vec<ComponentChange> = self
+            .component_edits
+            .drain()
+            .filter_map(|((entity, type_name), state)| {
+                if state.old_ron != state.new_ron {
+                    Some(ComponentChange {
+                        entity,
+                        type_name,
+                        old_ron: state.old_ron,
+                        new_ron: state.new_ron,
+                        old_transient_state: state.old_transient_state,
+                        new_transient_state: state.new_transient_state,
+                    })
+                } else {
+                    None
+                }
+            })
+            .collect();
+        for change in completed {
+            push_command(Box::new(UpdateComponentCmd::new(
+                change.entity,
+                command_mode,
+                change.type_name,
+                change.old_ron,
+                change.new_ron,
+                change.old_transient_state,
+                change.new_transient_state,
+            )));
         }
     }
 
@@ -150,6 +188,7 @@ impl SceneInspector {
         game_ctx: &mut GameCtxMut,
         scene_ctx: &SceneInspectorContext,
     ) -> SceneInspectorDrawResult {
+        self.command_mode = Some(scene_ctx.command_mode);
         let mut interactive_rects = Vec::new();
         let mut output = SceneInspectorOutput::default();
 
@@ -300,6 +339,7 @@ impl SceneInspector {
             }
 
             let mut comp_changes: Vec<ComponentChange> = Vec::new();
+            let mut any_module_editing = false;
 
             for module in &mut self.modules {
                 let module_entity = if is_proxy_local_module(module.title()) {
@@ -330,6 +370,10 @@ impl SceneInspector {
                         });
 
                         module.draw(ctx, blocked, sub_rect, game_ctx, module_entity);
+
+                        if module.was_input_active() {
+                            any_module_editing = true;
+                        }
 
                         if module.take_remove_request() {
                             if let Some((type_name, ron, _)) = pre_snapshot {
@@ -391,7 +435,10 @@ impl SceneInspector {
                 .component_edits
                 .iter_mut()
                 .filter_map(|(&(entity, type_name), state)| {
-                    if !state.changed_this_frame {
+                    if !state.changed_this_frame
+                        && !any_module_editing
+                        && state.old_ron != state.new_ron
+                    {
                         Some(ComponentChange {
                             entity,
                             type_name,

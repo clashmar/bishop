@@ -66,7 +66,7 @@ impl MenuEditor {
 
             let field_rect = Rect::new(x + LABEL_WIDTH, *y, w - LABEL_WIDTH, FIELD_HEIGHT);
 
-            let (new_text_key, _) = TextInput::new(
+            let (new_text_key, commit) = TextInput::new(
                 self.properties_panel.widget_ids.text_id,
                 field_rect,
                 &current_text_key,
@@ -74,13 +74,11 @@ impl MenuEditor {
             .blocked(blocked)
             .show(ctx);
 
-            if new_text_key != current_text_key {
-                self.push_element_update(|el| {
-                    if let MenuElementKind::Button(button) = &mut el.kind {
-                        button.text_key = new_text_key;
-                    }
-                });
-            }
+            self.push_input_update(commit, |el| {
+                if let MenuElementKind::Button(button) = &mut el.kind {
+                    button.text_key = new_text_key;
+                }
+            });
         }
         *y += ROW_HEIGHT;
 
@@ -88,7 +86,7 @@ impl MenuEditor {
         if row_visible(*y, ROW_HEIGHT, clip) {
             ctx.draw_text("Font Size:", x, *y + 16.0, 12.0, Color::WHITE);
             let field_rect = Rect::new(x + LABEL_WIDTH, *y, 60.0, FIELD_HEIGHT);
-            let new_font_size = NumberInput::new(
+            let (new_font_size, commit) = NumberInput::new(
                 self.properties_panel.widget_ids.font_size_id,
                 field_rect,
                 current_font_size,
@@ -98,13 +96,11 @@ impl MenuEditor {
             .max(72.0)
             .show(ctx);
 
-            if (new_font_size - current_font_size).abs() > 0.01 {
-                self.push_element_update(|el| {
-                    if let MenuElementKind::Button(button) = &mut el.kind {
-                        button.font_size = new_font_size;
-                    }
-                });
-            }
+            self.push_input_update(commit, |el| {
+                if let MenuElementKind::Button(button) = &mut el.kind {
+                    button.font_size = new_font_size;
+                }
+            });
         }
         *y += ROW_HEIGHT;
 
@@ -160,7 +156,7 @@ impl MenuEditor {
 
                 ctx.draw_text("Param:", x, *y + 16.0, 12.0, Color::WHITE);
                 let field_rect = Rect::new(x + LABEL_WIDTH, *y, w - LABEL_WIDTH, FIELD_HEIGHT);
-                let (new_param, _) = TextInput::new(
+                let (new_param, commit) = TextInput::new(
                     self.properties_panel.widget_ids.action_param_id,
                     field_rect,
                     &param_value,
@@ -168,17 +164,15 @@ impl MenuEditor {
                 .blocked(blocked)
                 .show(ctx);
 
-                if new_param != param_value {
-                    self.push_element_update(|el| {
-                        if let MenuElementKind::Button(button) = &mut el.kind {
-                            button.action = match &button.action {
-                                MenuAction::OpenMenu(_) => MenuAction::OpenMenu(new_param),
-                                MenuAction::Custom(_) => MenuAction::Custom(new_param),
-                                other => other.clone(),
-                            };
-                        }
-                    });
-                }
+                self.push_input_update(commit, |el| {
+                    if let MenuElementKind::Button(button) = &mut el.kind {
+                        button.action = match &button.action {
+                            MenuAction::OpenMenu(_) => MenuAction::OpenMenu(new_param),
+                            MenuAction::Custom(_) => MenuAction::Custom(new_param),
+                            other => other.clone(),
+                        };
+                    }
+                });
             }
             *y += ROW_HEIGHT;
         }

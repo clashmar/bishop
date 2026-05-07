@@ -68,7 +68,7 @@ impl MenuEditor {
             ctx.draw_text("Text Key:", x, *y + 16.0, 12.0, Color::WHITE);
             let field_rect = Rect::new(x + LABEL_WIDTH, *y, w - LABEL_WIDTH, FIELD_HEIGHT);
 
-            let (new_text_key, _) = TextInput::new(
+            let (new_text_key, commit) = TextInput::new(
                 self.properties_panel.widget_ids.text_id,
                 field_rect,
                 &current_text_key,
@@ -76,13 +76,11 @@ impl MenuEditor {
             .blocked(blocked)
             .show(ctx);
 
-            if new_text_key != current_text_key {
-                self.push_element_update(|el| {
-                    if let MenuElementKind::Label(label) = &mut el.kind {
-                        label.text_key = new_text_key;
-                    }
-                });
-            }
+            self.push_input_update(commit, |el| {
+                if let MenuElementKind::Label(label) = &mut el.kind {
+                    label.text_key = new_text_key;
+                }
+            });
         }
         *y += ROW_HEIGHT;
 
@@ -92,7 +90,7 @@ impl MenuEditor {
 
             let field_rect = Rect::new(x + LABEL_WIDTH, *y, 60.0, FIELD_HEIGHT);
 
-            let new_font_size = NumberInput::new(
+            let (new_font_size, commit) = NumberInput::new(
                 self.properties_panel.widget_ids.font_size_id,
                 field_rect,
                 current_font_size,
@@ -102,13 +100,11 @@ impl MenuEditor {
             .max(72.0)
             .show(ctx);
 
-            if (new_font_size - current_font_size).abs() > 0.01 {
-                self.push_element_update(|el| {
-                    if let MenuElementKind::Label(label) = &mut el.kind {
-                        label.font_size = new_font_size;
-                    }
-                });
-            }
+            self.push_input_update(commit, |el| {
+                if let MenuElementKind::Label(label) = &mut el.kind {
+                    label.font_size = new_font_size;
+                }
+            });
         }
         *y += ROW_HEIGHT;
 

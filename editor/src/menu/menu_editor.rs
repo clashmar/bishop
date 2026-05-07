@@ -6,7 +6,7 @@ use crate::menu::*;
 use crate::shared::input::canvas_blocked_by_global_ui;
 use bishop::prelude::*;
 use engine_core::prelude::*;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 /// Tracks an in-progress drag-to-reorder operation for managed layout children.
 pub(crate) struct ReorderDragState {
@@ -44,10 +44,16 @@ pub struct MenuEditor {
     pub(crate) last_norm_mouse: Option<Vec2>,
     pub(crate) view_preview: bool,
     pub(crate) drag_original_element: Option<MenuElement>,
+    pub(crate) drag_original_indices: Option<(usize, usize)>,
+    /// Per-field original values, keyed by WidgetId. Mirrors inspector's field_snapshots.
+    pub(crate) field_originals: HashMap<WidgetId, f32>,
     /// Optional game theme loaded for canvas preview.
     pub game_theme: Option<Theme>,
     /// Name of the selected theme (for UI display).
     pub selected_theme_name: Option<String>,
+    /// Set to true when any input field was actively Previewing during this frame's
+    /// property draw.
+    pub(crate) input_active_this_frame: bool,
 }
 
 impl MenuEditor {
@@ -75,8 +81,11 @@ impl MenuEditor {
             last_norm_mouse: None,
             view_preview: false,
             drag_original_element: None,
+            drag_original_indices: None,
+            field_originals: HashMap::new(),
             game_theme: None,
             selected_theme_name: None,
+            input_active_this_frame: false,
         }
     }
 
@@ -257,7 +266,15 @@ impl MenuEditor {
         F: FnOnce(&mut MenuElement),
     {
         if self.drag_original_element.is_none() {
-            self.drag_original_element = self.selected_element().cloned();
+            let ti = self.current_template_index;
+            let ei = self.primary_selected_index();
+            if let (Some(ti), Some(ei)) = (ti, ei) {
+                self.drag_original_element = self
+                    .templates
+                    .get(ti)
+                    .and_then(|t| t.elements.get(ei).cloned());
+                self.drag_original_indices = Some((ti, ei));
+            }
         }
         if let Some(target) = self.selected_element_mut() {
             mutate(target);
@@ -270,14 +287,15 @@ impl MenuEditor {
         let Some(old_element) = self.drag_original_element.take() else {
             return;
         };
-        let Some(template_idx) = self.current_template_index else {
-            return;
-        };
-        let Some(element_idx) = self.primary_selected_index() else {
+        let Some((template_idx, element_idx)) = self.drag_original_indices.take() else {
             return;
         };
         let child_idx = self.selected_child_index;
-        let Some(new_element) = self.selected_element().cloned() else {
+        let Some(new_element) = self
+            .templates
+            .get(template_idx)
+            .and_then(|t| t.elements.get(element_idx).cloned())
+        else {
             return;
         };
 
@@ -288,6 +306,75 @@ impl MenuEditor {
             old_element,
             new_element,
         )));
+    }
+
+    /// Apply a mutation for live preview. Creates an undo entry only when committed.
+    /// Sets `input_active_this_frame` when Previewing so that `draw_properties_panel`
+    /// knows not to call `try_revert_escape` at the end of this frame.
+    pub fn push_input_update<F>(&mut self, commit: InputCommit, mutate: F)
+    where
+        F: FnOnce(&mut MenuElement),
+    {
+        if commit == InputCommit::Unchanged {
+            return;
+        }
+
+        if commit == InputCommit::Previewing && self.drag_original_element.is_none() {
+            let ti = self.current_template_index;
+            let ei = self.primary_selected_index();
+            if let (Some(ti), Some(ei)) = (ti, ei) {
+                if let Some(element) = self
+                    .templates
+                    .get(ti)
+                    .and_then(|t| t.elements.get(ei).cloned())
+                {
+                    self.drag_original_element = Some(element);
+                    self.drag_original_indices = Some((ti, ei));
+                }
+            }
+        }
+
+        if commit == InputCommit::Previewing {
+            self.input_active_this_frame = true;
+        }
+
+        {
+            let ti = self.current_template_index;
+            if let (Some(ti), Some(ei)) = (ti, self.primary_selected_index()) {
+                if let Some(target) = self
+                    .templates
+                    .get_mut(ti)
+                    .and_then(|t| t.elements.get_mut(ei))
+                {
+                    mutate(target);
+                }
+            }
+        }
+
+        if commit == InputCommit::Committed {
+            self.commit_element_update();
+        }
+    }
+
+    /// Restores the selected element from the pre-edit snapshot captured during
+    /// a Previewing session. Called at the end of each properties-panel frame when
+    /// no field was actively Previewing (i.e. the user pressed Escape or no field
+    /// had focus). Uses the stored `drag_original_indices` so it remains correct
+    /// even if the selection has changed since the snapshot was taken.
+    pub fn try_revert_escape(&mut self) {
+        let Some(original) = self.drag_original_element.take() else {
+            return;
+        };
+        let Some((ti, ei)) = self.drag_original_indices.take() else {
+            return;
+        };
+        if let Some(target) = self
+            .templates
+            .get_mut(ti)
+            .and_then(|t| t.elements.get_mut(ei))
+        {
+            *target = original;
+        }
     }
 
     /// Returns true when a managed child element is currently selected.
@@ -348,5 +435,257 @@ impl SubEditor for MenuEditor {
 impl Default for MenuEditor {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::editor_global::with_command_manager;
+    use engine_core::menu::MenuTemplate;
+
+    fn setup() -> MenuEditor {
+        let mut editor = MenuEditor::new();
+        let mut template = MenuTemplate::new("test".to_string());
+        template.elements.push(MenuElement::new(
+            MenuElementKind::Button(Default::default()),
+            Rect::new(0.1, 0.2, 0.3, 0.4),
+        ));
+        editor.templates.push(template);
+        editor.current_template_index = Some(0);
+        editor.selected_element_indices.insert(0);
+        editor
+    }
+
+    fn element_x(editor: &MenuEditor) -> f32 {
+        editor.templates[0].elements[0].rect.x
+    }
+
+    #[test]
+    fn previewing_mutates_element() {
+        let mut editor = setup();
+        let original_x = element_x(&editor);
+
+        editor.push_input_update(InputCommit::Previewing, |el| el.rect.x = 0.5);
+
+        let updated_x = element_x(&editor);
+        assert!(
+            (updated_x - 0.5).abs() < 0.001,
+            "Previewing did not mutate rect.x: got {updated_x}"
+        );
+        assert!(
+            editor.drag_original_element.is_some(),
+            "Snapshot should be captured on first preview"
+        );
+        assert_eq!(editor.drag_original_indices, Some((0, 0)));
+        // Snapshot stores the original value
+        let snap_x = editor.drag_original_element.as_ref().unwrap().rect.x;
+        assert!((snap_x - original_x).abs() < 0.001);
+    }
+
+    #[test]
+    fn snapshot_stable_after_first_preview() {
+        let mut editor = setup();
+        editor.push_input_update(InputCommit::Previewing, |el| el.rect.x = 0.5);
+        let snap1_x = editor.drag_original_element.as_ref().unwrap().rect.x;
+
+        editor.push_input_update(InputCommit::Previewing, |el| el.rect.x = 0.9);
+        let snap2_x = editor.drag_original_element.as_ref().unwrap().rect.x;
+
+        assert!(
+            (snap1_x - snap2_x).abs() < 0.001,
+            "Snapshot should not change after first preview"
+        );
+    }
+
+    #[test]
+    fn unchanged_before_preview_does_nothing() {
+        let mut editor = setup();
+        let original_x = element_x(&editor);
+
+        editor.push_input_update(InputCommit::Unchanged, |el| el.rect.x = 0.9);
+
+        assert!((element_x(&editor) - original_x).abs() < 0.001);
+        assert!(editor.drag_original_element.is_none());
+    }
+
+    #[test]
+    fn escape_reverts_preview() {
+        let mut editor = setup();
+        let original_x = element_x(&editor);
+
+        editor.push_input_update(InputCommit::Previewing, |el| el.rect.x = 0.5);
+        let after_preview = element_x(&editor);
+        assert!(
+            (after_preview - 0.5).abs() < 0.001,
+            "Preview should set x to 0.5, got {after_preview}"
+        );
+
+        editor.try_revert_escape();
+
+        let reverted = element_x(&editor);
+        assert!(
+            (reverted - original_x).abs() < 0.001,
+            "Escape should restore original x: {original_x}, got {reverted}"
+        );
+        assert!(editor.drag_original_element.is_none());
+        assert!(editor.drag_original_indices.is_none());
+    }
+
+    #[test]
+    fn escape_without_preview_does_nothing() {
+        let mut editor = setup();
+        let original_x = element_x(&editor);
+
+        editor.try_revert_escape();
+
+        assert!((element_x(&editor) - original_x).abs() < 0.001);
+    }
+
+    #[test]
+    fn committed_with_stored_indices() {
+        let mut editor = setup();
+        editor.push_input_update(InputCommit::Previewing, |el| el.rect.x = 0.5);
+
+        // Simulate canvas click changing selection
+        editor.selected_element_indices.clear();
+
+        // Commit should still work using stored indices
+        editor.push_input_update(InputCommit::Committed, |el| el.rect.x = 0.5);
+
+        assert!(editor.drag_original_element.is_none());
+    }
+
+    #[test]
+    fn committed_mutates_element() {
+        let mut editor = setup();
+
+        editor.push_input_update(InputCommit::Previewing, |el| el.rect.x = 0.5);
+        editor.push_input_update(InputCommit::Committed, |el| el.rect.x = 0.9);
+
+        assert!(
+            (element_x(&editor) - 0.9).abs() < 0.001,
+            "Committed should mutate element to 0.9, got {}",
+            element_x(&editor)
+        );
+    }
+
+    #[test]
+    fn committed_undo_saves_correct_values() {
+        crate::editor_global::reset_services();
+        let mut editor = setup();
+
+        editor.push_input_update(InputCommit::Previewing, |el| el.rect.x = 0.5);
+        let cmd_count_before = with_command_manager(|cm| cm.pending_len());
+        editor.push_input_update(InputCommit::Committed, |el| el.rect.x = 0.9);
+        let cmd_count_after = with_command_manager(|cm| cm.pending_len());
+
+        assert!(
+            cmd_count_after > cmd_count_before,
+            "Committed should push undo command (pending {cmd_count_before} -> {cmd_count_after})"
+        );
+    }
+
+    #[test]
+    fn snapshot_captures_pre_edit_when_push_input_update_called_first() {
+        let mut editor = setup();
+        let original_x = element_x(&editor);
+
+        // Correct ordering: push_input_update first (captures snapshot),
+        // then direct mutation (applies live value for canvas)
+        editor.push_input_update(InputCommit::Previewing, |el| el.rect.x = 0.5);
+        editor.templates[0].elements[0].rect.x = 0.5;
+
+        let snap_x = editor.drag_original_element.as_ref().unwrap().rect.x;
+        assert!(
+            (snap_x - original_x).abs() < 0.001,
+            "Snapshot must capture pre-edit value {original_x}, but got {snap_x}"
+        );
+    }
+
+    #[test]
+    fn escape_restores_to_pre_edit_when_snapshot_correct() {
+        let mut editor = setup();
+        let original_x = element_x(&editor);
+
+        // Correct ordering: push_input_update FIRST, then direct mutation
+        editor.push_input_update(InputCommit::Previewing, |el| el.rect.x = 0.5);
+        editor.templates[0].elements[0].rect.x = 0.5;
+        editor.try_revert_escape();
+
+        assert!(
+            (element_x(&editor) - original_x).abs() < 0.001,
+            "Escape must restore to pre-edit {original_x}, got {}",
+            element_x(&editor)
+        );
+    }
+
+    #[test]
+    fn undo_must_revert_to_pre_edit_not_preview_value() {
+        crate::editor_global::reset_services();
+        let mut editor = setup();
+        let _original_x = element_x(&editor);
+
+        // Preview then commit — undo should revert to original_x, not 0.5
+        editor.push_input_update(InputCommit::Previewing, |el| el.rect.x = 0.5);
+        editor.push_input_update(InputCommit::Committed, |el| el.rect.x = 0.9);
+
+        // The element should be at 0.9 now (committed value)
+        assert!((element_x(&editor) - 0.9).abs() < 0.001);
+
+        // The undo command's old_element should be original_x, not 0.5
+        let pending_count = with_command_manager(|cm| cm.pending_len());
+        assert!(pending_count > 0);
+    }
+
+    #[test]
+    fn inline_pattern_preview_and_commit_creates_undo() {
+        crate::editor_global::reset_services();
+        let mut editor = setup();
+
+        let widget_id = WidgetId::default();
+        let current_x = element_x(&editor);
+        editor.field_originals.entry(widget_id).or_insert(current_x);
+
+        // Capture element snapshot
+        if editor.drag_original_element.is_none() {
+            if let (Some(ti), Some(ei)) = (
+                editor.current_template_index,
+                editor.primary_selected_index(),
+            ) {
+                if let Some(elem) = editor
+                    .templates
+                    .get(ti)
+                    .and_then(|t| t.elements.get(ei).cloned())
+                {
+                    editor.drag_original_element = Some(elem);
+                    editor.drag_original_indices = Some((ti, ei));
+                }
+            }
+        }
+
+        // Previewing mutation
+        {
+            let ti = editor.current_template_index;
+            if let (Some(ti), Some(ei)) = (ti, editor.primary_selected_index()) {
+                if let Some(element) = editor
+                    .templates
+                    .get_mut(ti)
+                    .and_then(|t| t.elements.get_mut(ei))
+                {
+                    element.rect.x = 0.5;
+                }
+            }
+        }
+
+        // Committed
+        editor.field_originals.remove(&widget_id);
+        editor.commit_element_update();
+
+        let pending_count = with_command_manager(|cm| cm.pending_len());
+        assert!(
+            pending_count > 0,
+            "Inline Committed should push undo command"
+        );
     }
 }

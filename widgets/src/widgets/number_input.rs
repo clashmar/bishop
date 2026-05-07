@@ -49,8 +49,8 @@ where
         self
     }
 
-    /// Draws the widget and returns the current numeric value.
-    pub fn show<C: BishopContext>(self, ctx: &mut C) -> T {
+    /// Draws the widget and returns the current numeric value and commit state.
+    pub fn show<C: BishopContext>(self, ctx: &mut C) -> (T, InputCommit) {
         let class = self.base.class_name.as_deref();
         let id = self.base.style_id.as_deref();
         let widget_theme = resolve_theme_for::<Self>(class, id);
@@ -160,16 +160,21 @@ where
         );
 
         if is_dropdown_open() || is_context_menu_open() {
-            return self.current;
+            let commit = if confirmed { InputCommit::Committed } else { InputCommit::Unchanged };
+            return (self.current, commit);
         }
 
         let mouse = ctx.mouse_position();
         let mouse_over = self.rect.contains(Vec2::new(mouse.0, mouse.1));
 
         if ctx.is_mouse_button_pressed(MouseButton::Left) && !is_click_consumed() {
+            let was_focused = focused;
             focused = mouse_over && !self.base.blocked;
 
             if !focused {
+                if was_focused {
+                    confirmed = true;
+                }
                 selection_anchor = None;
             } else if mouse_over {
                 let click_pos = char_index_from_x(
@@ -383,6 +388,10 @@ where
             }
 
             if ctx.is_key_pressed(KeyCode::Tab) {
+                INPUT_FOCUSED.with(|f| *f.borrow_mut() = false);
+                focused = false;
+                confirmed = true;
+                selection_anchor = None;
                 tab_request_pending(self.id, shift_held);
             }
 
@@ -464,6 +473,7 @@ where
             }
         }
 
+        let current_gen = current_widget_frame_generation();
         INPUT_NUMBER_STATE.with(|s| {
             let mut map = s.borrow_mut();
             map.insert(
@@ -478,13 +488,22 @@ where
                     repeat_started,
                     dragging,
                     scroll_offset_x,
+                    last_drawn_frame: current_gen,
                 },
             );
         });
 
-        if focused || !confirmed {
-            self.current
+        let commit = if focused {
+            InputCommit::Previewing
+        } else if confirmed {
+            InputCommit::Committed
         } else {
+            InputCommit::Unchanged
+        };
+
+        let value = if focused {
+            text.parse::<T>().unwrap_or(self.current)
+        } else if confirmed {
             let mut result = text.parse::<T>().unwrap_or(self.current);
             if let Some(min) = self.min
                 && result < min
@@ -499,7 +518,11 @@ where
             }
 
             result
-        }
+        } else {
+            self.current
+        };
+
+        (value, commit)
     }
 }
 

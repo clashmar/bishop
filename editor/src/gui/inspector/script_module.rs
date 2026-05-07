@@ -197,18 +197,20 @@ impl InspectorModule for ScriptModule {
                     }
                 }
                 ScriptField::Int(ref mut v) => {
-                    let new = NumberInput::new(base_id, widget_rect, *v as i32)
+                    let (new, _) = NumberInput::new(base_id, widget_rect, *v as i32)
                         .blocked(blocked)
-                        .show(ctx) as i64;
+                        .show(ctx);
+                    let new = new as i64;
                     if new != *v {
                         *v = new;
                         changed = true;
                     }
                 }
                 ScriptField::Float(ref mut v) => {
-                    let new = NumberInput::new(base_id, widget_rect, *v as f32)
+                    let (new, _) = NumberInput::new(base_id, widget_rect, *v as f32)
                         .blocked(blocked)
-                        .show(ctx) as f64;
+                        .show(ctx);
+                    let new = new as f64;
                     if new != *v {
                         *v = new;
                         changed = true;
@@ -238,7 +240,7 @@ impl InspectorModule for ScriptModule {
 
                     // X
                     let rect_x = Rect::new(widget_rect.x, widget_rect.y, half - 2.0, widget_rect.h);
-                    let new_x = NumberInput::new(id_x, rect_x, v[0])
+                    let (new_x, _) = NumberInput::new(id_x, rect_x, v[0])
                         .blocked(blocked)
                         .show(ctx);
                     if (new_x - v[0]).abs() > f32::EPSILON {
@@ -254,7 +256,7 @@ impl InspectorModule for ScriptModule {
                         widget_rect.h,
                     );
 
-                    let new_y = NumberInput::new(id_y, rect_y, v[0])
+                    let (new_y, _) = NumberInput::new(id_y, rect_y, v[0])
                         .blocked(blocked)
                         .show(ctx);
                     if (new_y - v[0]).abs() > f32::EPSILON {
@@ -274,7 +276,7 @@ impl InspectorModule for ScriptModule {
                     // X
                     let rect_x =
                         Rect::new(widget_rect.x, widget_rect.y, third - 2.0, widget_rect.h);
-                    let new_x = NumberInput::new(id_x, rect_x, v[0])
+                    let (new_x, _) = NumberInput::new(id_x, rect_x, v[0])
                         .blocked(blocked)
                         .show(ctx);
                     if (new_x - v[0]).abs() > f32::EPSILON {
@@ -290,7 +292,7 @@ impl InspectorModule for ScriptModule {
                         widget_rect.h,
                     );
 
-                    let new_y = NumberInput::new(id_y, rect_y, v[0])
+                    let (new_y, _) = NumberInput::new(id_y, rect_y, v[0])
                         .blocked(blocked)
                         .show(ctx);
                     if (new_y - v[0]).abs() > f32::EPSILON {
@@ -306,7 +308,7 @@ impl InspectorModule for ScriptModule {
                         widget_rect.h,
                     );
 
-                    let new_z = NumberInput::new(id_z, rect_z, v[0])
+                    let (new_z, _) = NumberInput::new(id_z, rect_z, v[0])
                         .blocked(blocked)
                         .show(ctx);
                     if (new_z - v[0]).abs() > f32::EPSILON {

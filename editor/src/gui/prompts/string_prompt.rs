@@ -90,8 +90,7 @@ impl StringPrompt {
         );
 
         let mut input = TextInput::new(self.input_id, field_rect, &self.current)
-            .focused(true)
-            .live();
+            .focused(true);
         if self.select_all_on_open {
             input = input.select_all_on_focus();
         }

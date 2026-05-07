@@ -22,6 +22,7 @@ pub struct TextInputState {
     pub repeat_started: bool,
     pub dragging: bool,
     pub scroll_offset_x: f32,
+    pub last_drawn_frame: u64,
 }
 
 impl TextInputState {
@@ -37,6 +38,7 @@ impl TextInputState {
             repeat_started: false,
             dragging: false,
             scroll_offset_x: 0.0,
+            last_drawn_frame: 0,
         }
     }
 }
@@ -52,6 +54,7 @@ pub struct NumberInputState {
     pub repeat_started: bool,
     pub dragging: bool,
     pub scroll_offset_x: f32,
+    pub last_drawn_frame: u64,
 }
 
 impl NumberInputState {
@@ -67,6 +70,7 @@ impl NumberInputState {
             repeat_started: false,
             dragging: false,
             scroll_offset_x: 0.0,
+            last_drawn_frame: 0,
         }
     }
 }
@@ -194,7 +198,7 @@ pub fn take_deferred_click_target(target: ClickTargetId, ready: bool) -> bool {
     })
 }
 
-fn current_widget_frame_generation() -> u64 {
+pub fn current_widget_frame_generation() -> u64 {
     WIDGET_FRAME_GENERATION.with(|generation| *generation.borrow())
 }
 
@@ -300,6 +304,24 @@ pub fn reset_click_consumed() {
 /// Called at the start of each frame to update widget state.
 pub fn widgets_frame_start<C: BishopContext>(_ctx: &mut C) {
     advance_widget_frame_generation();
+    let current_gen = current_widget_frame_generation();
+
+    INPUT_TEXT_STATE.with(|s| {
+        for entry in s.borrow_mut().values_mut() {
+            if entry.last_drawn_frame < current_gen.saturating_sub(1) {
+                entry.focused = false;
+            }
+        }
+    });
+
+    INPUT_NUMBER_STATE.with(|s| {
+        for entry in s.borrow_mut().values_mut() {
+            if entry.last_drawn_frame < current_gen.saturating_sub(1) {
+                entry.focused = false;
+            }
+        }
+    });
+
     tab_registry_clear();
     reset_click_consumed();
 }

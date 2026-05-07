@@ -515,7 +515,6 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
         let filter_id = WidgetId(self.id.0.wrapping_add(FILTER_ID_OFFSET));
         let (new_filter, _) = TextInput::new(filter_id, filter_rect, &prev_filter)
             .in_dropdown()
-            .live()
             .overrides(self.base.overrides)
             .show(ctx);
 

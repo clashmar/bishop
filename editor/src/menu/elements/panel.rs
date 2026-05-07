@@ -55,21 +55,19 @@ impl MenuEditor {
             ctx.draw_text("Class:", x, *y + 16.0, 12.0, Color::WHITE);
             let field_rect = Rect::new(x + LABEL_WIDTH, *y, w - LABEL_WIDTH, FIELD_HEIGHT);
             let class_str = current_class.as_deref().unwrap_or("");
-            let (new_class, _) = TextInput::new(
+            let (new_class_val, commit) = TextInput::new(
                 self.properties_panel.widget_ids.class_id,
                 field_rect,
                 class_str,
             )
             .blocked(blocked)
             .show(ctx);
-            let new_class = if new_class.is_empty() {
+            let new_class = if new_class_val.is_empty() {
                 None
             } else {
-                Some(new_class)
+                Some(new_class_val)
             };
-            if new_class != current_class {
-                self.push_element_update(|el| el.class = new_class);
-            }
+            self.push_input_update(commit, |el| el.class = new_class);
         }
         *y += ROW_HEIGHT;
 
@@ -78,21 +76,19 @@ impl MenuEditor {
             ctx.draw_text("Style ID:", x, *y + 16.0, 12.0, Color::WHITE);
             let field_rect = Rect::new(x + LABEL_WIDTH, *y, w - LABEL_WIDTH, FIELD_HEIGHT);
             let id_str = current_style_id.as_deref().unwrap_or("");
-            let (new_id, _) = TextInput::new(
+            let (new_id_val, commit) = TextInput::new(
                 self.properties_panel.widget_ids.style_id,
                 field_rect,
                 id_str,
             )
             .blocked(blocked)
             .show(ctx);
-            let new_id = if new_id.is_empty() {
+            let new_id = if new_id_val.is_empty() {
                 None
             } else {
-                Some(new_id)
+                Some(new_id_val)
             };
-            if new_id != current_style_id {
-                self.push_element_update(|el| el.style_id = new_id);
-            }
+            self.push_input_update(commit, |el| el.style_id = new_id);
         }
         *y += ROW_HEIGHT;
     }

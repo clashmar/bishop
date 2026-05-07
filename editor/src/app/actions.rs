@@ -48,7 +48,7 @@ impl Editor {
 
         always_available
             .into_iter()
-            .chain(modal_blocked.into_iter())
+            .chain(modal_blocked)
             .find(|action| {
                 action.is_available_in(self.mode)
                     && (!input_focused || !action.blocked_by_focused_input())

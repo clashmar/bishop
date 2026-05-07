@@ -271,7 +271,7 @@ impl RoomCameraModule {
         );
 
         // Numeric field
-        let typed = NumberInput::new(self.zoom_id, num_rect, round_to_dp(scalar, 2))
+        let (typed, _) = NumberInput::new(self.zoom_id, num_rect, round_to_dp(scalar, 2))
             .blocked(blocked)
             .show(ctx);
 

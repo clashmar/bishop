@@ -348,7 +348,7 @@ impl MenuEditor {
             if row_visible(*y, ROW_HEIGHT, clip) {
                 ctx.draw_text("Columns:", x, *y + 16.0, 12.0, Color::WHITE);
                 let field_rect = Rect::new(x + LABEL_WIDTH, *y, 60.0, FIELD_HEIGHT);
-                let new_cols = NumberInput::new(
+                let (new_cols_val, commit) = NumberInput::new(
                     self.properties_panel.widget_ids.layout_grid_cols_id,
                     field_rect,
                     grid_cols as f32,
@@ -357,14 +357,12 @@ impl MenuEditor {
                 .min(1.0)
                 .max(20.0)
                 .show(ctx);
-                let new_cols = new_cols as u32;
-                if new_cols != grid_cols {
-                    self.push_element_update(|el| {
-                        if let MenuElementKind::LayoutGroup(group) = &mut el.kind {
-                            group.layout.direction = LayoutDirection::Grid { columns: new_cols };
-                        }
-                    });
-                }
+                let new_cols = new_cols_val as u32;
+                self.push_input_update(commit, |el| {
+                    if let MenuElementKind::LayoutGroup(group) = &mut el.kind {
+                        group.layout.direction = LayoutDirection::Grid { columns: new_cols };
+                    }
+                });
             }
             *y += ROW_HEIGHT;
         }
@@ -373,7 +371,7 @@ impl MenuEditor {
         if row_visible(*y, ROW_HEIGHT, clip) {
             ctx.draw_text("Spacing:", x, *y + 16.0, 12.0, Color::WHITE);
             let field_rect = Rect::new(x + LABEL_WIDTH, *y, 60.0, FIELD_HEIGHT);
-            let new_spacing = NumberInput::new(
+            let (new_spacing, commit) = NumberInput::new(
                 self.properties_panel.widget_ids.layout_spacing_id,
                 field_rect,
                 spacing,
@@ -381,13 +379,11 @@ impl MenuEditor {
             .blocked(blocked)
             .min(0.0)
             .show(ctx);
-            if (new_spacing - spacing).abs() > 0.01 {
-                self.push_element_update(|el| {
-                    if let MenuElementKind::LayoutGroup(group) = &mut el.kind {
-                        group.layout.spacing = new_spacing;
-                    }
-                });
-            }
+            self.push_input_update(commit, |el| {
+                if let MenuElementKind::LayoutGroup(group) = &mut el.kind {
+                    group.layout.spacing = new_spacing;
+                }
+            });
         }
         *y += ROW_HEIGHT;
 
@@ -425,24 +421,23 @@ impl MenuEditor {
             if row_visible(*y, ROW_HEIGHT, clip) {
                 ctx.draw_text(label, x, *y + 16.0, 12.0, Color::WHITE);
                 let field_rect = Rect::new(x + LABEL_WIDTH, *y, 60.0, FIELD_HEIGHT);
-                let new_val = NumberInput::new(id, field_rect, current_val)
+                let (new_val, commit) = NumberInput::new(id, field_rect, current_val)
                     .blocked(blocked)
                     .min(0.0)
                     .show(ctx);
-                if (new_val - current_val).abs() > 0.01 {
-                    let label_str = label.to_string();
-                    self.push_element_update(|el| {
-                        if let MenuElementKind::LayoutGroup(group) = &mut el.kind {
-                            match label_str.as_str() {
-                                "Top:" => group.layout.padding.top = new_val,
-                                "Right:" => group.layout.padding.right = new_val,
-                                "Bottom:" => group.layout.padding.bottom = new_val,
-                                "Left:" => group.layout.padding.left = new_val,
-                                _ => {}
-                            }
+
+                let label_str = label.to_string();
+                self.push_input_update(commit, |el| {
+                    if let MenuElementKind::LayoutGroup(group) = &mut el.kind {
+                        match label_str.as_str() {
+                            "Top:" => group.layout.padding.top = new_val,
+                            "Right:" => group.layout.padding.right = new_val,
+                            "Bottom:" => group.layout.padding.bottom = new_val,
+                            "Left:" => group.layout.padding.left = new_val,
+                            _ => {}
                         }
-                    });
-                }
+                    }
+                });
             }
             *y += ROW_HEIGHT;
         }
@@ -536,7 +531,7 @@ impl MenuEditor {
         if row_visible(*y, ROW_HEIGHT, clip) {
             ctx.draw_text("Width:", x, *y + 16.0, 12.0, Color::WHITE);
             let field_rect = Rect::new(x + LABEL_WIDTH, *y, 60.0, FIELD_HEIGHT);
-            let new_item_w = NumberInput::new(
+            let (new_item_w, commit) = NumberInput::new(
                 self.properties_panel.widget_ids.layout_item_w_id,
                 field_rect,
                 item_w,
@@ -544,20 +539,18 @@ impl MenuEditor {
             .blocked(blocked)
             .min(1.0)
             .show(ctx);
-            if (new_item_w - item_w).abs() > 0.01 {
-                self.push_element_update(|el| {
-                    if let MenuElementKind::LayoutGroup(group) = &mut el.kind {
-                        group.layout.item_width = new_item_w;
-                    }
-                });
-            }
+            self.push_input_update(commit, |el| {
+                if let MenuElementKind::LayoutGroup(group) = &mut el.kind {
+                    group.layout.item_width = new_item_w;
+                }
+            });
         }
         *y += ROW_HEIGHT;
 
         if row_visible(*y, ROW_HEIGHT, clip) {
             ctx.draw_text("Height:", x, *y + 16.0, 12.0, Color::WHITE);
             let field_rect = Rect::new(x + LABEL_WIDTH, *y, 60.0, FIELD_HEIGHT);
-            let new_item_h = NumberInput::new(
+            let (new_item_h, commit) = NumberInput::new(
                 self.properties_panel.widget_ids.layout_item_h_id,
                 field_rect,
                 item_h,
@@ -565,13 +558,11 @@ impl MenuEditor {
             .blocked(blocked)
             .min(1.0)
             .show(ctx);
-            if (new_item_h - item_h).abs() > 0.01 {
-                self.push_element_update(|el| {
-                    if let MenuElementKind::LayoutGroup(group) = &mut el.kind {
-                        group.layout.item_height = new_item_h;
-                    }
-                });
-            }
+            self.push_input_update(commit, |el| {
+                if let MenuElementKind::LayoutGroup(group) = &mut el.kind {
+                    group.layout.item_height = new_item_h;
+                }
+            });
         }
         *y += ROW_HEIGHT;
 

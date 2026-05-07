@@ -471,7 +471,7 @@ pub fn draw_current_clip_dropdowns(
         const CLAMP: usize = 12;
 
         // The field starts empty each time we open it
-        let (entered, focused) = TextInput::new(
+        let (entered, commit) = TextInput::new(
             module.rename_field_id,
             input_rect,
             &module.rename_initial_value,
@@ -488,7 +488,7 @@ pub fn draw_current_clip_dropdowns(
             module.pending_rename = false;
             text_input_reset(module.rename_field_id);
             return true;
-        } else if !focused {
+        } else if !matches!(commit, InputCommit::Previewing) {
             text_input_reset(module.rename_field_id);
             module.pending_rename = false;
         }
@@ -525,12 +525,14 @@ pub fn draw_frame_size_fields(
     );
 
     // Numeric inputs
-    clip.frame_size.x = NumberInput::new(module.frame_x_id, inp_x, clip.frame_size.x)
+    let (fw, _) = NumberInput::new(module.frame_x_id, inp_x, clip.frame_size.x)
         .blocked(blocked)
         .show(ctx);
-    clip.frame_size.y = NumberInput::new(module.frame_y_id, inp_y, clip.frame_size.y)
+    clip.frame_size.x = fw;
+    let (fh, _) = NumberInput::new(module.frame_y_id, inp_y, clip.frame_size.y)
         .blocked(blocked)
         .show(ctx);
+    clip.frame_size.y = fh;
 }
 
 pub fn draw_spritesheet_dimension_fields(
@@ -559,12 +561,14 @@ pub fn draw_spritesheet_dimension_fields(
         colors::DEFAULT_TEXT_COLOR,
     );
 
-    clip.cols = NumberInput::new(module.cols_id, inp_c, clip.cols as f32)
+    let (c, _) = NumberInput::new(module.cols_id, inp_c, clip.cols as f32)
         .blocked(blocked)
-        .show(ctx) as usize;
-    clip.rows = NumberInput::new(module.rows_id, inp_r, clip.rows as f32)
+        .show(ctx);
+    clip.cols = c as usize;
+    let (r, _) = NumberInput::new(module.rows_id, inp_r, clip.rows as f32)
         .blocked(blocked)
-        .show(ctx) as usize;
+        .show(ctx);
+    clip.rows = r as usize;
 }
 
 pub fn draw_fps_loop_and_mirrored(
@@ -596,9 +600,10 @@ pub fn draw_fps_loop_and_mirrored(
         colors::DEFAULT_TEXT_COLOR,
     );
 
-    clip.fps = NumberInput::new(module.fps_id, inp_fps, clip.fps)
+    let (nfps, _) = NumberInput::new(module.fps_id, inp_fps, clip.fps)
         .blocked(blocked)
         .show(ctx);
+    clip.fps = nfps;
     Checkbox::new(inp_loop, &mut clip.looping)
         .blocked(blocked)
         .show(ctx);
@@ -652,12 +657,14 @@ pub fn draw_offset_fields(
         colors::DEFAULT_TEXT_COLOR,
     );
 
-    clip.offset.x = NumberInput::new(module.offset_x_id, inp_x, clip.offset.x)
+    let (ox, _) = NumberInput::new(module.offset_x_id, inp_x, clip.offset.x)
         .blocked(blocked)
         .show(ctx);
-    clip.offset.y = NumberInput::new(module.offset_y_id, inp_y, clip.offset.y)
+    clip.offset.x = ox;
+    let (oy, _) = NumberInput::new(module.offset_y_id, inp_y, clip.offset.y)
         .blocked(blocked)
         .show(ctx);
+    clip.offset.y = oy;
 }
 
 /// Returns every ClipId that has a concrete Clip stored in the map.

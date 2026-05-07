@@ -89,6 +89,8 @@ impl Default for MenuPropertiesPanel {
 impl MenuEditor {
     /// Renders the properties panel and handles editing.
     pub fn draw_properties_panel(&mut self, ctx: &mut WgpuContext, rect: Rect, blocked: bool) {
+        self.input_active_this_frame = false;
+
         let content_height = self.properties_panel.last_content_height;
 
         let area = ScrollableArea::new(rect, content_height)
@@ -110,6 +112,9 @@ impl MenuEditor {
             self.draw_menu_properties(ctx, &mut y, content_x, content_w, blocked, &rect);
             self.properties_panel.last_content_height = y - start_y + 16.0;
             area.draw_scrollbar(ctx, &self.properties_panel.scroll_state);
+            if !self.input_active_this_frame {
+                self.try_revert_escape();
+            }
             return;
         }
 
@@ -118,6 +123,9 @@ impl MenuEditor {
         let Some(kind) = element_kind else {
             self.properties_panel.last_content_height = y - start_y + 16.0;
             area.draw_scrollbar(ctx, &self.properties_panel.scroll_state);
+            if !self.input_active_this_frame {
+                self.try_revert_escape();
+            }
             return;
         };
 
@@ -146,5 +154,8 @@ impl MenuEditor {
 
         self.properties_panel.last_content_height = y - start_y + 16.0;
         area.draw_scrollbar(ctx, &self.properties_panel.scroll_state);
+        if !self.input_active_this_frame {
+            self.try_revert_escape();
+        }
     }
 }

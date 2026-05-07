@@ -51,6 +51,12 @@ pub trait InspectorModule {
         false
     }
 
+    /// Return true if any input widget inside this module was actively being edited
+    /// (focused or committed) during the most recent draw.
+    fn was_input_active(&self) -> bool {
+        false
+    }
+
     /// Return true if the module should get a “Remove” button in the header.
     /// Default is false.
     fn removable(&self) -> bool {
@@ -144,6 +150,10 @@ impl<T: InspectorModule> InspectorModule for CollapsibleModule<T> {
 
     fn take_remove_request(&mut self) -> bool {
         std::mem::take(&mut self.remove_requested)
+    }
+
+    fn was_input_active(&self) -> bool {
+        self.inner.was_input_active()
     }
 
     fn draw(

@@ -75,20 +75,18 @@ impl MenuEditor {
         if row_visible(*y, ROW_HEIGHT, clip) {
             ctx.draw_text("Label:", x, *y + 16.0, 12.0, Color::WHITE);
             let field_rect = Rect::new(x + LABEL_WIDTH, *y, w - LABEL_WIDTH, FIELD_HEIGHT);
-            let (new_val, _) = TextInput::new(
+            let (new_val, commit) = TextInput::new(
                 self.properties_panel.widget_ids.slider_text_id,
                 field_rect,
                 &text_key,
             )
             .blocked(blocked)
             .show(ctx);
-            if new_val != text_key {
-                self.push_element_update(|el| {
-                    if let MenuElementKind::Slider(s) = &mut el.kind {
-                        s.text_key = new_val;
-                    }
-                });
-            }
+            self.push_input_update(commit, |el| {
+                if let MenuElementKind::Slider(s) = &mut el.kind {
+                    s.text_key = new_val;
+                }
+            });
         }
         *y += ROW_HEIGHT;
 
@@ -96,20 +94,18 @@ impl MenuEditor {
         if row_visible(*y, ROW_HEIGHT, clip) {
             ctx.draw_text("Key:", x, *y + 16.0, 12.0, Color::WHITE);
             let field_rect = Rect::new(x + LABEL_WIDTH, *y, w - LABEL_WIDTH, FIELD_HEIGHT);
-            let (new_val, _) = TextInput::new(
+            let (new_val, commit) = TextInput::new(
                 self.properties_panel.widget_ids.slider_key_id,
                 field_rect,
                 &key,
             )
             .blocked(blocked)
             .show(ctx);
-            if new_val != key {
-                self.push_element_update(|el| {
-                    if let MenuElementKind::Slider(s) = &mut el.kind {
-                        s.key = new_val;
-                    }
-                });
-            }
+            self.push_input_update(commit, |el| {
+                if let MenuElementKind::Slider(s) = &mut el.kind {
+                    s.key = new_val;
+                }
+            });
         }
         *y += ROW_HEIGHT;
 
@@ -117,20 +113,18 @@ impl MenuEditor {
         if row_visible(*y, ROW_HEIGHT, clip) {
             ctx.draw_text("Min:", x, *y + 16.0, 12.0, Color::WHITE);
             let field_rect = Rect::new(x + LABEL_WIDTH, *y, 80.0, FIELD_HEIGHT);
-            let new_val = NumberInput::new(
+            let (new_val, commit) = NumberInput::new(
                 self.properties_panel.widget_ids.slider_min_id,
                 field_rect,
                 min,
             )
             .blocked(blocked)
             .show(ctx);
-            if (new_val - min).abs() > f32::EPSILON {
-                self.push_element_update(|el| {
-                    if let MenuElementKind::Slider(s) = &mut el.kind {
-                        s.min = new_val;
-                    }
-                });
-            }
+            self.push_input_update(commit, |el| {
+                if let MenuElementKind::Slider(s) = &mut el.kind {
+                    s.min = new_val;
+                }
+            });
         }
         *y += ROW_HEIGHT;
 
@@ -138,20 +132,18 @@ impl MenuEditor {
         if row_visible(*y, ROW_HEIGHT, clip) {
             ctx.draw_text("Max:", x, *y + 16.0, 12.0, Color::WHITE);
             let field_rect = Rect::new(x + LABEL_WIDTH, *y, 80.0, FIELD_HEIGHT);
-            let new_val = NumberInput::new(
+            let (new_val, commit) = NumberInput::new(
                 self.properties_panel.widget_ids.slider_max_id,
                 field_rect,
                 max,
             )
             .blocked(blocked)
             .show(ctx);
-            if (new_val - max).abs() > f32::EPSILON {
-                self.push_element_update(|el| {
-                    if let MenuElementKind::Slider(s) = &mut el.kind {
-                        s.max = new_val;
-                    }
-                });
-            }
+            self.push_input_update(commit, |el| {
+                if let MenuElementKind::Slider(s) = &mut el.kind {
+                    s.max = new_val;
+                }
+            });
         }
         *y += ROW_HEIGHT;
 
@@ -159,7 +151,7 @@ impl MenuEditor {
         if row_visible(*y, ROW_HEIGHT, clip) {
             ctx.draw_text("Step:", x, *y + 16.0, 12.0, Color::WHITE);
             let field_rect = Rect::new(x + LABEL_WIDTH, *y, 80.0, FIELD_HEIGHT);
-            let new_val = NumberInput::new(
+            let (new_val, commit) = NumberInput::new(
                 self.properties_panel.widget_ids.slider_step_id,
                 field_rect,
                 step,
@@ -167,13 +159,11 @@ impl MenuEditor {
             .blocked(blocked)
             .min(0.001)
             .show(ctx);
-            if (new_val - step).abs() > f32::EPSILON {
-                self.push_element_update(|el| {
-                    if let MenuElementKind::Slider(s) = &mut el.kind {
-                        s.step = new_val;
-                    }
-                });
-            }
+            self.push_input_update(commit, |el| {
+                if let MenuElementKind::Slider(s) = &mut el.kind {
+                    s.step = new_val;
+                }
+            });
         }
         *y += ROW_HEIGHT;
 
@@ -181,20 +171,18 @@ impl MenuEditor {
         if row_visible(*y, ROW_HEIGHT, clip) {
             ctx.draw_text("Default:", x, *y + 16.0, 12.0, Color::WHITE);
             let field_rect = Rect::new(x + LABEL_WIDTH, *y, 80.0, FIELD_HEIGHT);
-            let new_val = NumberInput::new(
+            let (new_val, commit) = NumberInput::new(
                 self.properties_panel.widget_ids.slider_default_id,
                 field_rect,
                 default_value,
             )
             .blocked(blocked)
             .show(ctx);
-            if (new_val - default_value).abs() > f32::EPSILON {
-                self.push_element_update(|el| {
-                    if let MenuElementKind::Slider(s) = &mut el.kind {
-                        s.default_value = new_val;
-                    }
-                });
-            }
+            self.push_input_update(commit, |el| {
+                if let MenuElementKind::Slider(s) = &mut el.kind {
+                    s.default_value = new_val;
+                }
+            });
         }
         *y += ROW_HEIGHT;
     }

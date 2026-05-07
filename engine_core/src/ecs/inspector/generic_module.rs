@@ -26,6 +26,14 @@ pub struct GenericModule<T> {
     _phantom: PhantomData<T>,
     field_ids: HashMap<String, WidgetId>,
     removable: bool,
+    was_editing: bool,
+    field_snapshots: HashMap<WidgetId, FieldSnapshot>,
+}
+
+enum FieldSnapshot {
+    Text(String),
+    Float(f32),
+    Int(i32),
 }
 
 impl<T> Default for GenericModule<T> {
@@ -33,17 +41,63 @@ impl<T> Default for GenericModule<T> {
         Self {
             _phantom: PhantomData,
             field_ids: HashMap::new(),
+            field_snapshots: HashMap::new(),
             removable: true,
+            was_editing: false,
         }
     }
 }
 
 impl<T> GenericModule<T> {
+    fn show_number_with_snapshot(
+        &mut self,
+        id: WidgetId,
+        rect: Rect,
+        current: f32,
+        blocked: bool,
+        assign: &mut dyn FnMut(f32),
+        ctx: &mut WgpuContext,
+    ) {
+        let snapshot = self
+            .field_snapshots
+            .entry(id)
+            .or_insert_with(|| FieldSnapshot::Float(current));
+        let orig = match *snapshot {
+            FieldSnapshot::Float(v) => v,
+            _ => unreachable!(),
+        };
+        let (new, commit) = NumberInput::new(id, rect, orig).blocked(blocked).show(ctx);
+        match commit {
+            InputCommit::Previewing => {
+                self.was_editing = true;
+                if (new - current).abs() > f32::EPSILON {
+                    assign(new);
+                }
+            }
+            InputCommit::Committed => {
+                self.field_snapshots.remove(&id);
+                self.was_editing = true;
+                if (new - current).abs() > f32::EPSILON {
+                    assign(new);
+                }
+            }
+            InputCommit::Unchanged => {
+                if let Some(FieldSnapshot::Float(original)) = self.field_snapshots.remove(&id) {
+                    if (original - current).abs() > f32::EPSILON {
+                        assign(original);
+                    }
+                }
+            }
+        }
+    }
+
     pub fn new(removable: bool) -> Self {
         Self {
             _phantom: PhantomData,
             field_ids: HashMap::new(),
+            field_snapshots: HashMap::new(),
             removable,
+            was_editing: false,
         }
     }
 }
@@ -70,8 +124,8 @@ where
         entity: Entity,
     ) {
         let ecs = &mut game_ctx.ecs;
+        self.was_editing = false;
 
-        // Grab a mutable reference to the component instance
         let component = {
             match ecs.get_store_mut::<T>().get_mut(entity) {
                 Some(c) => c,
@@ -79,16 +133,12 @@ where
             }
         };
 
-        // Layout constants
         let mut y = rect.y + TOP_PADDING;
 
-        // Iterate over the fields supplied by the `Reflect` impl
         for field in component.fields() {
-            // Create the id for the widget
             let base_key = field.name.to_string();
             let base_id = *self.field_ids.entry(base_key.clone()).or_default();
 
-            // Prepare the field label
             let display_name = parse_field_name(field.name);
             let label = format!("{} :", display_name);
             let label_w = measure_text(ctx, &label, FONT_SIZE)
@@ -104,9 +154,7 @@ where
                 colors::DEFAULT_TEXT_COLOR,
             );
 
-            // Widget rectangle
             let widget_x = if widget_x > rect.x + rect.w - MIN_WIDGET_WIDTH {
-                // Clamp the widget size to the min length
                 rect.x + rect.w - MIN_WIDGET_WIDTH
             } else {
                 widget_x
@@ -120,7 +168,6 @@ where
                 layout::DEFAULT_FIELD_HEIGHT,
             );
 
-            // Dispatch based on the enum variant
             match (field.value, field.widget_hint) {
                 (FieldValue::SpriteId(id), _) => {
                     gui_sprite_picker(
@@ -134,27 +181,114 @@ where
                     );
                 }
                 (FieldValue::Text(txt), _) => {
-                    let (new, _) = TextInput::new(base_id, widget_rect, txt.as_str())
+                    let snapshot = self
+                        .field_snapshots
+                        .entry(base_id)
+                        .or_insert_with(|| FieldSnapshot::Text(txt.clone()));
+                    let current = match snapshot {
+                        FieldSnapshot::Text(s) => s.as_str(),
+                        _ => unreachable!(),
+                    };
+                    let (new, commit) = TextInput::new(base_id, widget_rect, current)
                         .blocked(blocked)
                         .show(ctx);
-                    if new != *txt {
-                        *txt = new;
+                    match commit {
+                        InputCommit::Previewing => {
+                            self.was_editing = true;
+                            if new != *txt {
+                                *txt = new;
+                            }
+                        }
+                        InputCommit::Committed => {
+                            self.field_snapshots.remove(&base_id);
+                            self.was_editing = true;
+                            if new != *txt {
+                                *txt = new;
+                            }
+                        }
+                        InputCommit::Unchanged => {
+                            if let Some(FieldSnapshot::Text(original)) =
+                                self.field_snapshots.remove(&base_id)
+                            {
+                                if original != *txt {
+                                    *txt = original;
+                                }
+                            }
+                        }
                     }
                 }
                 (FieldValue::Float(f), _) => {
-                    let new = NumberInput::new(base_id, widget_rect, *f)
+                    let snapshot = self
+                        .field_snapshots
+                        .entry(base_id)
+                        .or_insert_with(|| FieldSnapshot::Float(*f));
+                    let current = match *snapshot {
+                        FieldSnapshot::Float(v) => v,
+                        _ => unreachable!(),
+                    };
+                    let (new, commit) = NumberInput::new(base_id, widget_rect, current)
                         .blocked(blocked)
                         .show(ctx);
-                    if (new - *f).abs() > f32::EPSILON {
-                        *f = new;
+                    match commit {
+                        InputCommit::Previewing => {
+                            self.was_editing = true;
+                            if (new - *f).abs() > f32::EPSILON {
+                                *f = new;
+                            }
+                        }
+                        InputCommit::Committed => {
+                            self.field_snapshots.remove(&base_id);
+                            self.was_editing = true;
+                            if (new - *f).abs() > f32::EPSILON {
+                                *f = new;
+                            }
+                        }
+                        InputCommit::Unchanged => {
+                            if let Some(FieldSnapshot::Float(original)) =
+                                self.field_snapshots.remove(&base_id)
+                            {
+                                if (original - *f).abs() > f32::EPSILON {
+                                    *f = original;
+                                }
+                            }
+                        }
                     }
                 }
                 (FieldValue::Int(i), _) => {
-                    let new = NumberInput::new(base_id, widget_rect, *i)
+                    let snapshot = self
+                        .field_snapshots
+                        .entry(base_id)
+                        .or_insert_with(|| FieldSnapshot::Int(*i));
+                    let current = match *snapshot {
+                        FieldSnapshot::Int(v) => v,
+                        _ => unreachable!(),
+                    };
+                    let (new, commit) = NumberInput::new(base_id, widget_rect, current)
                         .blocked(blocked)
                         .show(ctx);
-                    if new != *i {
-                        *i = new;
+                    match commit {
+                        InputCommit::Previewing => {
+                            self.was_editing = true;
+                            if new != *i {
+                                *i = new;
+                            }
+                        }
+                        InputCommit::Committed => {
+                            self.field_snapshots.remove(&base_id);
+                            self.was_editing = true;
+                            if new != *i {
+                                *i = new;
+                            }
+                        }
+                        InputCommit::Unchanged => {
+                            if let Some(FieldSnapshot::Int(original)) =
+                                self.field_snapshots.remove(&base_id)
+                            {
+                                if original != *i {
+                                    *i = original;
+                                }
+                            }
+                        }
                     }
                 }
                 (FieldValue::Bool(b), _) => {
@@ -179,27 +313,30 @@ where
 
                     let half = widget_rect.w / 2.0;
 
-                    // X
                     let rect_x = Rect::new(widget_rect.x, widget_rect.y, half - 2.0, widget_rect.h);
-                    let new_x = NumberInput::new(id_x, rect_x, v.x)
-                        .blocked(blocked)
-                        .show(ctx);
-                    if (new_x - v.x).abs() > f32::EPSILON {
-                        v.x = new_x;
-                    }
-                    // Y
+                    self.show_number_with_snapshot(
+                        id_x,
+                        rect_x,
+                        v.x,
+                        blocked,
+                        &mut |val| v.x = val,
+                        ctx,
+                    );
+
                     let rect_y = Rect::new(
                         widget_rect.x + half + 2.0,
                         widget_rect.y,
                         half - 2.0,
                         widget_rect.h,
                     );
-                    let new_y = NumberInput::new(id_y, rect_y, v.y)
-                        .blocked(blocked)
-                        .show(ctx);
-                    if (new_y - v.y).abs() > f32::EPSILON {
-                        v.y = new_y;
-                    }
+                    self.show_number_with_snapshot(
+                        id_y,
+                        rect_y,
+                        v.y,
+                        blocked,
+                        &mut |val| v.y = val,
+                        ctx,
+                    );
                 }
                 (FieldValue::Vec3(v), _) => {
                     let id_x = *self
@@ -217,40 +354,45 @@ where
 
                     let third = widget_rect.w / 3.0 - SPACING / 3.0;
 
-                    // X
                     let rect_x = Rect::new(widget_rect.x, widget_rect.y, third, widget_rect.h);
-                    let new_x = NumberInput::new(id_x, rect_x, v.x)
-                        .blocked(blocked)
-                        .show(ctx);
-                    if (new_x - v.x).abs() > f32::EPSILON {
-                        v.x = new_x;
-                    }
-                    // Y
+                    self.show_number_with_snapshot(
+                        id_x,
+                        rect_x,
+                        v.x,
+                        blocked,
+                        &mut |val| v.x = val,
+                        ctx,
+                    );
+
                     let rect_y = Rect::new(
                         widget_rect.x + third + 2.0,
                         widget_rect.y,
                         third,
                         widget_rect.h,
                     );
-                    let new_y = NumberInput::new(id_y, rect_y, v.y)
-                        .blocked(blocked)
-                        .show(ctx);
-                    if (new_y - v.y).abs() > f32::EPSILON {
-                        v.y = new_y;
-                    }
-                    // Z
+                    self.show_number_with_snapshot(
+                        id_y,
+                        rect_y,
+                        v.y,
+                        blocked,
+                        &mut |val| v.y = val,
+                        ctx,
+                    );
+
                     let rect_z = Rect::new(
                         widget_rect.x + 2.0 * third + 4.0,
                         widget_rect.y,
                         third,
                         widget_rect.h,
                     );
-                    let new_z = NumberInput::new(id_z, rect_z, v.z)
-                        .blocked(blocked)
-                        .show(ctx);
-                    if (new_z - v.z).abs() > f32::EPSILON {
-                        v.z = new_z;
-                    }
+                    self.show_number_with_snapshot(
+                        id_z,
+                        rect_z,
+                        v.z,
+                        blocked,
+                        &mut |val| v.z = val,
+                        ctx,
+                    );
                 }
                 (FieldValue::Pivot(pivot), _) => {
                     if let Some(selected) =
@@ -280,6 +422,10 @@ where
 
     fn removable(&self) -> bool {
         self.removable
+    }
+
+    fn was_input_active(&self) -> bool {
+        self.was_editing
     }
 
     fn remove(&mut self, game_ctx: &mut GameCtxMut, entity: Entity) {

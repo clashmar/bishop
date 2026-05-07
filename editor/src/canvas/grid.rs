@@ -5,7 +5,6 @@ use crate::{
     world::world_editor::LINE_THICKNESS_MULTIPLIER,
 };
 use bishop::prelude::*;
-use engine_core::theme::with_theme;
 use glam::vec2;
 
 /// Draw a grid overlay for the editor using a shader.

@@ -61,16 +61,14 @@ impl MenuEditor {
         if row_visible(*y, ROW_HEIGHT, clip) {
             ctx.draw_text("Name:", x, *y + 16.0, 12.0, Color::WHITE);
             let field_rect = Rect::new(x + LABEL_WIDTH, *y, _w - LABEL_WIDTH, FIELD_HEIGHT);
-            let (new_name, _) = TextInput::new(
+            let (new_name, commit) = TextInput::new(
                 self.properties_panel.widget_ids.name_id,
                 field_rect,
                 &state.name,
             )
             .blocked(blocked)
             .show(ctx);
-            if new_name != state.name {
-                self.push_element_update(|el| el.name = new_name);
-            }
+            self.push_input_update(commit, |el| el.name = new_name);
         }
         *y += ROW_HEIGHT;
 
@@ -90,21 +88,19 @@ impl MenuEditor {
             ctx.draw_text("Class:", x, *y + 16.0, 12.0, Color::WHITE);
             let field_rect = Rect::new(x + LABEL_WIDTH, *y, 120.0, FIELD_HEIGHT);
             let class_str = state.class.as_deref().unwrap_or("");
-            let (new_class, _) = TextInput::new(
+            let (new_class_val, commit) = TextInput::new(
                 self.properties_panel.widget_ids.class_id,
                 field_rect,
                 class_str,
             )
             .blocked(blocked)
             .show(ctx);
-            let new_class = if new_class.is_empty() {
+            let new_class = if new_class_val.is_empty() {
                 None
             } else {
-                Some(new_class)
+                Some(new_class_val)
             };
-            if new_class != state.class {
-                self.push_element_update(|el| el.class = new_class);
-            }
+            self.push_input_update(commit, |el| el.class = new_class);
         }
         *y += ROW_HEIGHT;
 
@@ -113,21 +109,19 @@ impl MenuEditor {
             ctx.draw_text("Style ID:", x, *y + 16.0, 12.0, Color::WHITE);
             let field_rect = Rect::new(x + LABEL_WIDTH, *y, 120.0, FIELD_HEIGHT);
             let id_str = state.style_id.as_deref().unwrap_or("");
-            let (new_id, _) = TextInput::new(
+            let (new_id_val, commit) = TextInput::new(
                 self.properties_panel.widget_ids.style_id,
                 field_rect,
                 id_str,
             )
             .blocked(blocked)
             .show(ctx);
-            let new_id = if new_id.is_empty() {
+            let new_id = if new_id_val.is_empty() {
                 None
             } else {
-                Some(new_id)
+                Some(new_id_val)
             };
-            if new_id != state.style_id {
-                self.push_element_update(|el| el.style_id = new_id);
-            }
+            self.push_input_update(commit, |el| el.style_id = new_id);
         }
         *y += ROW_HEIGHT;
 
@@ -136,17 +130,15 @@ impl MenuEditor {
             if row_visible(*y, ROW_HEIGHT, clip) {
                 ctx.draw_text("Z Order:", x, *y + 16.0, 12.0, Color::WHITE);
                 let field_rect = Rect::new(x + LABEL_WIDTH, *y, 60.0, FIELD_HEIGHT);
-                let new_z = NumberInput::new(
+                let (new_z_val, commit) = NumberInput::new(
                     self.properties_panel.widget_ids.z_order_id,
                     field_rect,
                     state.z_order as f32,
                 )
                 .blocked(blocked)
                 .show(ctx);
-                let new_z = new_z as i32;
-                if new_z != state.z_order {
-                    self.push_element_update(|el| el.z_order = new_z);
-                }
+                let new_z = new_z_val as i32;
+                self.push_input_update(commit, |el| el.z_order = new_z);
             }
             *y += ROW_HEIGHT;
         }
@@ -161,10 +153,14 @@ impl MenuEditor {
                 // Position X
                 ctx.draw_text("X:", x, *y + 16.0, 12.0, Color::WHITE);
                 let field_rect = Rect::new(x + 24.0, *y, 60.0, FIELD_HEIGHT);
-                let new_x = NumberInput::new(
+                let snap_x = self
+                    .field_originals
+                    .entry(self.properties_panel.widget_ids.pos_x_id)
+                    .or_insert(state.rect_val.x);
+                let (new_x, commit_x) = NumberInput::new(
                     self.properties_panel.widget_ids.pos_x_id,
                     field_rect,
-                    state.rect_val.x,
+                    *snap_x,
                 )
                 .blocked(blocked)
                 .show(ctx);
@@ -174,21 +170,93 @@ impl MenuEditor {
                 // Position Y
                 ctx.draw_text("Y:", x + 130.0, *y + 16.0, 12.0, Color::WHITE);
                 let field_rect = Rect::new(x + 154.0, *y, 60.0, FIELD_HEIGHT);
-                let new_y = NumberInput::new(
+                let snap_y = self
+                    .field_originals
+                    .entry(self.properties_panel.widget_ids.pos_y_id)
+                    .or_insert(state.rect_val.y);
+                let (new_y, commit_y) = NumberInput::new(
                     self.properties_panel.widget_ids.pos_y_id,
                     field_rect,
-                    state.rect_val.y,
+                    *snap_y,
                 )
                 .blocked(blocked)
                 .show(ctx);
 
-                if (new_x - state.rect_val.x).abs() > 0.001
-                    || (new_y - state.rect_val.y).abs() > 0.001
+                // Shared element snapshot for undo (full element, first preview only)
+                if self.drag_original_element.is_none()
+                    && (matches!(commit_x, InputCommit::Previewing | InputCommit::Committed)
+                        || matches!(commit_y, InputCommit::Previewing | InputCommit::Committed))
                 {
-                    self.push_element_update(|el| {
-                        el.rect.x = new_x;
-                        el.rect.y = new_y;
-                    });
+                    let ti = self.current_template_index;
+                    let ei = self.primary_selected_index();
+                    if let (Some(ti), Some(ei)) = (ti, ei) {
+                        if let Some(element) = self
+                            .templates
+                            .get(ti)
+                            .and_then(|t| t.elements.get(ei).cloned())
+                        {
+                            self.drag_original_element = Some(element);
+                            self.drag_original_indices = Some((ti, ei));
+                        }
+                    }
+                }
+
+                if matches!(commit_x, InputCommit::Previewing)
+                    || matches!(commit_y, InputCommit::Previewing)
+                {
+                    self.input_active_this_frame = true;
+                }
+
+                // Apply values (mirrors inspector per-field pattern)
+                match commit_x {
+                    InputCommit::Previewing => {
+                        if let Some(element) = element_mut(self) {
+                            element.rect.x = new_x;
+                        }
+                    }
+                    InputCommit::Committed => {
+                        if let Some(element) = element_mut(self) {
+                            element.rect.x = new_x;
+                        }
+                        self.field_originals
+                            .remove(&self.properties_panel.widget_ids.pos_x_id);
+                        self.commit_element_update();
+                    }
+                    InputCommit::Unchanged => {
+                        if let Some(original) = self
+                            .field_originals
+                            .remove(&self.properties_panel.widget_ids.pos_x_id)
+                        {
+                            if let Some(element) = element_mut(self) {
+                                element.rect.x = original;
+                            }
+                        }
+                    }
+                }
+                match commit_y {
+                    InputCommit::Previewing => {
+                        if let Some(element) = element_mut(self) {
+                            element.rect.y = new_y;
+                        }
+                    }
+                    InputCommit::Committed => {
+                        if let Some(element) = element_mut(self) {
+                            element.rect.y = new_y;
+                        }
+                        self.field_originals
+                            .remove(&self.properties_panel.widget_ids.pos_y_id);
+                        self.commit_element_update();
+                    }
+                    InputCommit::Unchanged => {
+                        if let Some(original) = self
+                            .field_originals
+                            .remove(&self.properties_panel.widget_ids.pos_y_id)
+                        {
+                            if let Some(element) = element_mut(self) {
+                                element.rect.y = original;
+                            }
+                        }
+                    }
                 }
             }
             *y += ROW_HEIGHT;
@@ -197,10 +265,14 @@ impl MenuEditor {
                 // Size W
                 ctx.draw_text("W:", x, *y + 16.0, 12.0, Color::WHITE);
                 let field_rect = Rect::new(x + 24.0, *y, 60.0, FIELD_HEIGHT);
-                let new_w = NumberInput::new(
+                let snap_w = *self
+                    .field_originals
+                    .entry(self.properties_panel.widget_ids.size_w_id)
+                    .or_insert(state.rect_val.w);
+                let (new_w, commit_w) = NumberInput::new(
                     self.properties_panel.widget_ids.size_w_id,
                     field_rect,
-                    state.rect_val.w,
+                    snap_w,
                 )
                 .blocked(blocked)
                 .min(0.005)
@@ -211,22 +283,92 @@ impl MenuEditor {
                 // Size H
                 ctx.draw_text("H:", x + 130.0, *y + 16.0, 12.0, Color::WHITE);
                 let field_rect = Rect::new(x + 154.0, *y, 60.0, FIELD_HEIGHT);
-                let new_h = NumberInput::new(
+                let snap_h = *self
+                    .field_originals
+                    .entry(self.properties_panel.widget_ids.size_h_id)
+                    .or_insert(state.rect_val.h);
+                let (new_h, commit_h) = NumberInput::new(
                     self.properties_panel.widget_ids.size_h_id,
                     field_rect,
-                    state.rect_val.h,
+                    snap_h,
                 )
                 .blocked(blocked)
                 .min(0.005)
                 .show(ctx);
 
-                if (new_w - state.rect_val.w).abs() > 0.001
-                    || (new_h - state.rect_val.h).abs() > 0.001
+                if self.drag_original_element.is_none()
+                    && (matches!(commit_w, InputCommit::Previewing | InputCommit::Committed)
+                        || matches!(commit_h, InputCommit::Previewing | InputCommit::Committed))
                 {
-                    self.push_element_update(|el| {
-                        el.rect.w = new_w;
-                        el.rect.h = new_h;
-                    });
+                    let ti = self.current_template_index;
+                    let ei = self.primary_selected_index();
+                    if let (Some(ti), Some(ei)) = (ti, ei) {
+                        if let Some(element) = self
+                            .templates
+                            .get(ti)
+                            .and_then(|t| t.elements.get(ei).cloned())
+                        {
+                            self.drag_original_element = Some(element);
+                            self.drag_original_indices = Some((ti, ei));
+                        }
+                    }
+                }
+
+                if matches!(commit_w, InputCommit::Previewing)
+                    || matches!(commit_h, InputCommit::Previewing)
+                {
+                    self.input_active_this_frame = true;
+                }
+
+                match commit_w {
+                    InputCommit::Previewing => {
+                        if let Some(element) = element_mut(self) {
+                            element.rect.w = new_w;
+                        }
+                    }
+                    InputCommit::Committed => {
+                        if let Some(element) = element_mut(self) {
+                            element.rect.w = new_w;
+                        }
+                        self.field_originals
+                            .remove(&self.properties_panel.widget_ids.size_w_id);
+                        self.commit_element_update();
+                    }
+                    InputCommit::Unchanged => {
+                        if let Some(original) = self
+                            .field_originals
+                            .remove(&self.properties_panel.widget_ids.size_w_id)
+                        {
+                            if let Some(element) = element_mut(self) {
+                                element.rect.w = original;
+                            }
+                        }
+                    }
+                }
+                match commit_h {
+                    InputCommit::Previewing => {
+                        if let Some(element) = element_mut(self) {
+                            element.rect.h = new_h;
+                        }
+                    }
+                    InputCommit::Committed => {
+                        if let Some(element) = element_mut(self) {
+                            element.rect.h = new_h;
+                        }
+                        self.field_originals
+                            .remove(&self.properties_panel.widget_ids.size_h_id);
+                        self.commit_element_update();
+                    }
+                    InputCommit::Unchanged => {
+                        if let Some(original) = self
+                            .field_originals
+                            .remove(&self.properties_panel.widget_ids.size_h_id)
+                        {
+                            if let Some(element) = element_mut(self) {
+                                element.rect.h = original;
+                            }
+                        }
+                    }
                 }
             }
             *y += ROW_HEIGHT + 8.0;
@@ -248,4 +390,10 @@ impl MenuEditor {
 /// Returns true if a row is fully visible within the clip rect.
 pub(crate) fn row_visible(y: f32, h: f32, clip: &Rect) -> bool {
     y >= clip.y && y + h <= clip.y + clip.h
+}
+
+fn element_mut(editor: &mut MenuEditor) -> Option<&mut MenuElement> {
+    let ti = editor.current_template_index?;
+    let ei = editor.primary_selected_index()?;
+    editor.templates.get_mut(ti)?.elements.get_mut(ei)
 }

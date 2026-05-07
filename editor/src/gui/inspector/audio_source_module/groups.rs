@@ -187,7 +187,7 @@ pub(super) fn draw_rename_field(
     source: &mut AudioSource,
     pending_link_rename: &mut Option<(String, String)>,
 ) -> Option<String> {
-    let (entered, focused) =
+    let (entered, commit) =
         TextInput::new(module.rename_field_id, rect, &module.rename_initial_value)
             .focused(true)
             .blocked(blocked)
@@ -206,7 +206,7 @@ pub(super) fn draw_rename_field(
             Err(message) => Some(message),
         }
     } else {
-        if !focused {
+        if !matches!(commit, InputCommit::Previewing) {
             module.pending_rename_target = None;
             text_input_reset(module.rename_field_id);
         }

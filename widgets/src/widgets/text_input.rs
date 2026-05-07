@@ -2,32 +2,29 @@ use crate::clipboard::{clipboard_get_text, clipboard_set_text};
 use crate::constants::{colors, input_repeat, layout};
 use crate::*;
 
-/// A text input widget using the builder pattern.
-pub struct TextInput<'a> {
+pub struct TextInput {
     id: WidgetId,
     rect: Rect,
-    current: &'a str,
+    current: String,
     start_focused: bool,
     select_all_on_focus: bool,
     max_len: Option<usize>,
     char_filter: Option<fn(char) -> Option<char>>,
-    live: bool,
     bypass_dropdown: bool,
     base: WidgetBase,
 }
 
-impl<'a> TextInput<'a> {
+impl TextInput {
     /// Creates a new text input widget with the given id, rect, and current value.
-    pub fn new(id: WidgetId, rect: impl Into<Rect>, current: &'a str) -> Self {
+    pub fn new(id: WidgetId, rect: impl Into<Rect>, current: &str) -> Self {
         Self {
             id,
             rect: rect.into(),
-            current,
+            current: current.to_string(),
             start_focused: false,
             select_all_on_focus: false,
             max_len: None,
             char_filter: None,
-            live: false,
             bypass_dropdown: false,
             base: WidgetBase {
                 blocked: false,
@@ -62,13 +59,6 @@ impl<'a> TextInput<'a> {
         self
     }
 
-    /// Returns the current typed text every frame without requiring Enter to confirm.
-    /// Use for inputs that should filter or react in real time.
-    pub fn live(mut self) -> Self {
-        self.live = true;
-        self
-    }
-
     /// Allows this input to receive keyboard events even when a dropdown list is open.
     /// Use for TextInputs that are embedded inside a dropdown list.
     pub fn in_dropdown(mut self) -> Self {
@@ -76,8 +66,8 @@ impl<'a> TextInput<'a> {
         self
     }
 
-    /// Draws the widget and returns the current text and focus state.
-    pub fn show<C: BishopContext>(self, ctx: &mut C) -> (String, bool) {
+    /// Draws the widget and returns the current text and commit state.
+    pub fn show<C: BishopContext>(self, ctx: &mut C) -> (String, InputCommit) {
         let class = self.base.class_name.as_deref();
         let id = self.base.style_id.as_deref();
         let widget_theme = resolve_theme_for::<Self>(class, id);
@@ -211,9 +201,14 @@ impl<'a> TextInput<'a> {
             if !focused && mouse_over {
                 just_gained_focus = true;
             }
+
+            let was_focused = focused;
             focused = mouse_over && !self.base.blocked;
 
             if !focused {
+                if was_focused {
+                    confirmed = true;
+                }
                 INPUT_FOCUSED.with(|f| *f.borrow_mut() = false);
                 selection_anchor = None;
             }
@@ -266,7 +261,8 @@ impl<'a> TextInput<'a> {
         }
 
         if (is_dropdown_open() || is_context_menu_open()) && !self.bypass_dropdown {
-            return (text, false);
+            let commit = if confirmed { InputCommit::Committed } else { InputCommit::Unchanged };
+            return (text, commit);
         }
 
         if focused {
@@ -457,6 +453,10 @@ impl<'a> TextInput<'a> {
             }
 
             if ctx.is_key_pressed(KeyCode::Tab) {
+                INPUT_FOCUSED.with(|f| *f.borrow_mut() = false);
+                focused = false;
+                confirmed = true;
+                selection_anchor = None;
                 tab_request_pending(self.id, shift_held);
             }
 
@@ -531,6 +531,7 @@ impl<'a> TextInput<'a> {
             }
         }
 
+        let current_gen = current_widget_frame_generation();
         INPUT_TEXT_STATE.with(|s| {
             let mut map = s.borrow_mut();
             map.insert(
@@ -545,19 +546,30 @@ impl<'a> TextInput<'a> {
                     repeat_started,
                     dragging,
                     scroll_offset_x,
+                    last_drawn_frame: current_gen,
                 },
             );
         });
 
-        if self.live || (!focused && confirmed) {
-            (text, focused)
+        let commit = if focused {
+            InputCommit::Previewing
+        } else if confirmed {
+            InputCommit::Committed
         } else {
-            (self.current.to_string(), focused)
-        }
+            InputCommit::Unchanged
+        };
+
+        let result_text = if focused || confirmed {
+            text
+        } else {
+            self.current.clone()
+        };
+
+        (result_text, commit)
     }
 }
 
-impl Widget for TextInput<'_> {
+impl Widget for TextInput {
     fn widget_type() -> WidgetType { WidgetType::TextInput }
     fn base_mut(&mut self) -> &mut WidgetBase { &mut self.base }
 }

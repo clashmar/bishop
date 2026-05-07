@@ -9,7 +9,7 @@ use bishop::prelude::*;
 impl Editor {
     /// Returns `Some(name)` when the user confirms, `None` on cancel.
     pub async fn prompt_new_game(&mut self, ctx: PlatformContext) -> Option<String> {
-        NewGameModal.open(self, &mut ctx.borrow_mut());
+        NewGameModal.open(self, &ctx.borrow_mut());
 
         loop {
             if let Some(ModalResult::String(name)) = self.handle_modal(&mut ctx.borrow_mut()) {
