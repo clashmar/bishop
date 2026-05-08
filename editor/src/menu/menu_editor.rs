@@ -394,11 +394,14 @@ impl MenuEditor {
         let MenuElementKind::LayoutGroup(group) = &element.kind else {
             return false;
         };
-        group
-            .children
-            .get(child_idx)
-            .map(|c| c.managed)
-            .unwrap_or(false)
+        let Some(child) = group.children.get(child_idx) else {
+            return false;
+        };
+        if child.managed {
+            return true;
+        }
+        // Background panels are unmanaged but their rect is controlled by the layout group
+        child_idx == 0 && matches!(child.element.kind, MenuElementKind::Panel(_))
     }
 
     #[inline]
