@@ -106,6 +106,9 @@ impl MenuEditor {
             let sorted = template.sorted_element_indices();
             for i in sorted {
                 let element = &template.elements[i];
+                if !element.visible {
+                    continue;
+                }
                 let is_selected = self.selected_element_indices.contains(&i);
                 let element_rect =
                     normalized_rect_to_screen(element.rect, canvas_origin, canvas_size);

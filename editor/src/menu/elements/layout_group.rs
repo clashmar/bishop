@@ -22,6 +22,9 @@ impl MenuEditor {
         let has_child_selected = is_selected && self.selected_child_index.is_some();
 
         for child in group.children.iter().filter(|c| !c.managed) {
+            if !child.element.visible {
+                continue;
+            }
             if let MenuElementKind::Panel(_) = &child.element.kind {
                 Panel::new(element_rect)
                     .apply_selectors(
@@ -72,6 +75,9 @@ impl MenuEditor {
         for (child_idx, (child, resolved_rect)) in
             group.children.iter().zip(resolved.iter()).enumerate()
         {
+            if !child.element.visible {
+                continue;
+            }
             let child_screen =
                 normalized_rect_to_screen(*resolved_rect, frame.canvas_origin, frame.canvas_size);
             let is_child_selected = is_selected && self.selected_child_index == Some(child_idx);
