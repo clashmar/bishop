@@ -179,6 +179,9 @@ impl Theme {
 
 pub static ACTIVE_THEME: Lazy<RwLock<Theme>> = Lazy::new(|| RwLock::new(Theme::default()));
 
+#[cfg(test)]
+pub(crate) static THEME_TEST_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
 pub fn set_theme(theme: Theme) {
     *ACTIVE_THEME.write().expect("ACTIVE_THEME lock poisoned") = theme;
 }
@@ -208,6 +211,7 @@ mod tests {
 
     #[test]
     fn set_theme_updates_active_theme() {
+        let _guard = THEME_TEST_LOCK.lock().unwrap();
         let original = Theme::default();
         set_theme(original.clone());
         let read_back = with_theme(|t| t.clone());
@@ -353,6 +357,7 @@ mod tests {
 
     #[test]
     fn themed_overrides_respects_type_rule() {
+        let _guard = THEME_TEST_LOCK.lock().unwrap();
         let mut theme = Theme::default();
         theme.background = Color::RED;
         theme.rules.push(StyleRule {
@@ -382,6 +387,7 @@ mod tests {
 
     #[test]
     fn themed_visuals_class_overrides_type_rule() {
+        let _guard = THEME_TEST_LOCK.lock().unwrap();
         let mut theme = Theme::default();
         theme.rules.push(StyleRule {
             selector: StyleSelector::Type(WidgetType::Button),
@@ -416,6 +422,7 @@ mod tests {
 
     #[test]
     fn themed_visuals_non_matching_type_skips_rule() {
+        let _guard = THEME_TEST_LOCK.lock().unwrap();
         let mut theme = Theme::default();
         theme.background = Color::GREEN;
         theme.rules.push(StyleRule {

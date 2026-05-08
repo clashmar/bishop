@@ -1,4 +1,4 @@
-use crate::theme::{set_theme, Theme};
+use crate::theme::{set_theme, Theme, THEME_TEST_LOCK};
 use bishop::material::BishopRenderTarget;
 use bishop::prelude::*;
 
@@ -18,7 +18,9 @@ pub(super) struct WidgetTestContext {
 
 impl WidgetTestContext {
     pub(super) fn new() -> Self {
+        let _guard = THEME_TEST_LOCK.lock().unwrap();
         set_theme(Theme::default());
+        drop(_guard);
         Self {
             mouse_pos: (0.0, 0.0),
             mouse_wheel_delta: (0.0, 0.0),

@@ -96,10 +96,7 @@ fn blocked_buttons_are_dimmed_and_do_not_click() {
 
 #[test]
 fn suppressed_buttons_do_not_click() {
-    use crate::theme::{set_theme, Theme};
-
     reset_click_consumed();
-    set_theme(Theme::default());
 
     let button = Rect::new(0.0, 0.0, 80.0, 30.0);
     let mut ctx = WidgetTestContext::new();
