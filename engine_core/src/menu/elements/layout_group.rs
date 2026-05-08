@@ -72,8 +72,8 @@ impl LayoutGroupElement {
         _is_focused: bool,
         env: &mut crate::menu::runtime::RenderEnv<'_>,
     ) -> Option<crate::menu::menu_builder::MenuAction> {
-        for child in self.children.iter().filter(|c| !c.managed) {
-            if !child.element.visible {
+        for (child_idx, child) in self.children.iter().enumerate() {
+            if !is_background_panel(self, child_idx) || !child.element.visible {
                 continue;
             }
             if let MenuElementKind::Panel(_) = &child.element.kind {
@@ -92,7 +92,7 @@ impl LayoutGroupElement {
         let element_index = env.current_element_index;
 
         for (child, rect) in self.children.iter().zip(resolved.iter()) {
-            if !child.element.visible || !child.managed {
+            if !child.element.visible {
                 continue;
             }
 
@@ -140,4 +140,16 @@ pub struct LayoutChild {
     /// When true, position is computed from layout rules.
     /// When false, rect is relative to group origin but not subject to layout.
     pub managed: bool,
+}
+
+/// Returns true if the child is the dedicated background panel
+/// (first child, non-managed, panel kind).
+pub fn is_background_panel(group: &LayoutGroupElement, child_index: usize) -> bool {
+    if child_index != 0 {
+        return false;
+    }
+    let Some(child) = group.children.first() else {
+        return false;
+    };
+    !child.managed && matches!(child.element.kind, MenuElementKind::Panel(_))
 }

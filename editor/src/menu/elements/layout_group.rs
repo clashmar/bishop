@@ -21,8 +21,8 @@ impl MenuEditor {
         };
         let has_child_selected = is_selected && self.selected_child_index.is_some();
 
-        for child in group.children.iter().filter(|c| !c.managed) {
-            if !child.element.visible {
+        for (child_idx, child) in group.children.iter().enumerate() {
+            if !is_background_panel(group, child_idx) || !child.element.visible {
                 continue;
             }
             if let MenuElementKind::Panel(_) = &child.element.kind {

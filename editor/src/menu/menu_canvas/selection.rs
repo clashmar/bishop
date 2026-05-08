@@ -15,6 +15,7 @@ pub enum HitKind {
         child_index: usize,
         rect: Rect,
         is_managed: bool,
+        is_background: bool,
     },
 }
 
@@ -34,6 +35,7 @@ impl MenuEditor {
                             .get(child_idx)
                             .map(|c| c.managed)
                             .unwrap_or(true);
+                        let is_background = is_background_panel(group, child_idx);
                         return Some(HitTestResult {
                             element_index: i,
                             element_rect: element.rect,
@@ -41,6 +43,7 @@ impl MenuEditor {
                                 child_index: child_idx,
                                 rect: *resolved_rect,
                                 is_managed,
+                                is_background,
                             },
                         });
                     }
@@ -80,16 +83,26 @@ impl MenuEditor {
                 child_index,
                 rect: child_rect,
                 is_managed,
+                is_background,
             } => {
                 self.selected_element_indices.clear();
                 self.selected_element_indices.insert(idx);
                 self.selected_child_index = Some(child_index);
+
+                if is_background {
+                    self.dragging_element = None;
+                    self.reorder_drag = None;
+                    self.drag_start_rects.clear();
+                    return;
+                }
 
                 if is_managed {
                     self.reorder_drag = Some(ReorderDragState {
                         group_index: idx,
                         child_index,
                         drop_target: None,
+                        dragging_out: false,
+                        resolved_abs_rect: None,
                     });
                 } else {
                     self.dragging_element = Some(idx);

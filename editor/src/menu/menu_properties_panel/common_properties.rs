@@ -393,7 +393,5 @@ pub(crate) fn row_visible(y: f32, h: f32, clip: &Rect) -> bool {
 }
 
 fn element_mut(editor: &mut MenuEditor) -> Option<&mut MenuElement> {
-    let ti = editor.current_template_index?;
-    let ei = editor.primary_selected_index()?;
-    editor.templates.get_mut(ti)?.elements.get_mut(ei)
+    editor.selected_element_mut()
 }

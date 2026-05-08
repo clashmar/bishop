@@ -13,6 +13,8 @@ pub(crate) struct ReorderDragState {
     pub group_index: usize,
     pub child_index: usize,
     pub drop_target: Option<usize>,
+    pub dragging_out: bool,
+    pub resolved_abs_rect: Option<Rect>,
 }
 
 /// A snap guide line to draw on the canvas.
@@ -54,6 +56,7 @@ pub struct MenuEditor {
     /// Set to true when any input field was actively Previewing during this frame's
     /// property draw.
     pub(crate) input_active_this_frame: bool,
+    pub(crate) drop_target_group: Option<usize>,
 }
 
 impl MenuEditor {
@@ -86,6 +89,7 @@ impl MenuEditor {
             game_theme: None,
             selected_theme_name: None,
             input_active_this_frame: false,
+            drop_target_group: None,
         }
     }
 
@@ -126,6 +130,7 @@ impl MenuEditor {
             self.snap_lines.clear();
             self.box_select_start = None;
             self.box_select_active = false;
+            self.drop_target_group = None;
         }
     }
 
