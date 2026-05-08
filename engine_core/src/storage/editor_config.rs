@@ -1,6 +1,8 @@
 // editor/src/storage/editor_config.rs
 #[cfg(feature = "editor")]
 use crate::game::StartupMode;
+#[cfg(feature = "editor")]
+use crate::theme::preset::{find_preset_by_name, DEFAULT_PRESET_NAME};
 use crate::*;
 use directories_next::ProjectDirs;
 use once_cell::sync::Lazy;
@@ -202,7 +204,8 @@ pub fn apply_config_theme() {
     };
     let theme = preset_name
         .as_deref()
-        .and_then(crate::theme::preset::find_preset_by_name)
+        .and_then(find_preset_by_name)
+        .or_else(|| find_preset_by_name(DEFAULT_PRESET_NAME))
         .map(|p| (p.build)())
         .unwrap_or_else(widgets::theme::Theme::default);
     widgets::theme::set_theme(theme);

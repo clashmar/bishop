@@ -1,13 +1,15 @@
 use crate::prelude::constants::colors;
 use bishop::Color;
-use widgets::{WidgetType, theme::{StyleRule, StyleSelector, Theme, WidgetTheme}};
+use widgets::{
+    theme::{StyleRule, StyleSelector, Theme, WidgetTheme},
+    WidgetType,
+};
 
-use super::ThemePreset;
+use super::{ThemePreset, DEFAULT_PRESET_NAME};
 
 fn default_theme() -> Theme {
     Theme {
-        rules: vec!
-        [
+        rules: vec![
             StyleRule {
                 selector: StyleSelector::Type(WidgetType::Button),
                 properties: WidgetTheme {
@@ -21,7 +23,7 @@ fn default_theme() -> Theme {
                     text: Some(Color::BLACK),
                     ..WidgetTheme::default()
                 },
-            }
+            },
         ],
         ..Theme::default()
     }
@@ -29,7 +31,7 @@ fn default_theme() -> Theme {
 
 inventory::submit! {
     ThemePreset {
-        name: "Default",
+        name: DEFAULT_PRESET_NAME,
         build: default_theme,
     }
 }

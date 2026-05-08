@@ -4,6 +4,8 @@ pub mod bishop;
 pub mod dark;
 pub mod default;
 
+pub const DEFAULT_PRESET_NAME: &str = "Default";
+
 pub struct ThemePreset {
     pub name: &'static str,
     pub build: fn() -> Theme,
