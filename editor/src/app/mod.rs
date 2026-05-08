@@ -215,7 +215,42 @@ impl Editor {
 
         match self.mode {
             EditorMode::Menu => {
+                let was_viewing_preview = self.menu_editor.view_preview;
                 self.menu_editor.update(ctx, &self.camera);
+
+                if !was_viewing_preview
+                    && escape::escape_available_for_editor()
+                    && !input_is_focused()
+                {
+                    self.save_menus();
+                    let return_mode = self.return_mode.unwrap_or(EditorMode::Game);
+                    self.mode = return_mode;
+                    self.return_mode = None;
+
+                    match return_mode {
+                        EditorMode::Game => {
+                            self.game_editor
+                                .init_camera(ctx, &mut self.camera, &mut self.game);
+                        }
+                        EditorMode::World(id) => {
+                            if let Some(world) = self.game.get_world_mut(id) {
+                                self.world_editor.init_camera(ctx, &mut self.camera, world);
+                            }
+                        }
+                        EditorMode::Room(id) => {
+                            let current_world = self.game.current_world();
+                            if let Some(room) = current_world.get_room(id) {
+                                EditorCameraController::reset_room_editor_camera(
+                                    ctx,
+                                    &mut self.camera,
+                                    room,
+                                    current_world.grid_size,
+                                );
+                            }
+                        }
+                        EditorMode::Prefab(_) | EditorMode::Menu => {}
+                    }
+                }
             }
             EditorMode::Prefab(_) => {
                 let open_prefab_picker_requested =
