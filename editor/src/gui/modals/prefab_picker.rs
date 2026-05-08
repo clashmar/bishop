@@ -55,7 +55,7 @@ impl ModalHandler for PrefabPickerModal {
             }
             PrefabPickerResult::New(path) => {
                 let target = editor.resolve_initial_prefab_save_target(path);
-                let Some(target) = target else { return None };
+                let target = target?;
                 let prompt = editor.request_blank_prefab_transition(target.name, target.path);
                 if prompt == PrefabTransitionPrompt::None {
                     editor.modal.close();

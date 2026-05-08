@@ -19,15 +19,15 @@ fn bishop_theme() -> Theme {
         surface: primary,
         text: Color::from_hex("E0E8EA"),
         text_muted: Color::from_hex("7A9AA3"),
-        accent: accent,
+        accent,
         border: Color::from_hex("FFFFFF"),
         hover: primary.with_alpha(0.25),
         danger: Color::from_hex("C0392B"),
         selection: primary.with_alpha(0.25),
-        highlight: highlight,
+        highlight,
         placeholder: primary.with_alpha(0.22),
         overlay: Color::from_hex("000000").with_alpha(0.6),
-        panel: panel,
+        panel,
         rules: vec![
             StyleRule {
                 selector: StyleSelector::Type(WidgetType::Button),

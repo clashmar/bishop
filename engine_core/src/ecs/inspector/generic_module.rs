@@ -82,10 +82,10 @@ impl<T> GenericModule<T> {
                 }
             }
             InputCommit::Unchanged => {
-                if let Some(FieldSnapshot::Float(original)) = self.field_snapshots.remove(&id) {
-                    if (original - current).abs() > f32::EPSILON {
-                        assign(original);
-                    }
+                if let Some(FieldSnapshot::Float(original)) = self.field_snapshots.remove(&id)
+                    && (original - current).abs() > f32::EPSILON
+                {
+                    assign(original);
                 }
             }
         }
@@ -209,10 +209,9 @@ where
                         InputCommit::Unchanged => {
                             if let Some(FieldSnapshot::Text(original)) =
                                 self.field_snapshots.remove(&base_id)
+                                && original != *txt
                             {
-                                if original != *txt {
-                                    *txt = original;
-                                }
+                                *txt = original;
                             }
                         }
                     }
@@ -246,10 +245,9 @@ where
                         InputCommit::Unchanged => {
                             if let Some(FieldSnapshot::Float(original)) =
                                 self.field_snapshots.remove(&base_id)
+                                && (original - *f).abs() > f32::EPSILON
                             {
-                                if (original - *f).abs() > f32::EPSILON {
-                                    *f = original;
-                                }
+                                *f = original;
                             }
                         }
                     }
@@ -283,10 +281,9 @@ where
                         InputCommit::Unchanged => {
                             if let Some(FieldSnapshot::Int(original)) =
                                 self.field_snapshots.remove(&base_id)
+                                && original != *i
                             {
-                                if original != *i {
-                                    *i = original;
-                                }
+                                *i = original;
                             }
                         }
                     }

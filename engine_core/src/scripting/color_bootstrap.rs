@@ -9,29 +9,29 @@ pub(crate) fn register_color_helpers(lua: &Lua) -> LuaResult<()> {
         let hex = hex_str.trim_start_matches('#');
         let (r, g, b, a) = match hex.len() {
             3 => {
-                let r = hex_to_f32(&hex, 0, 1)?;
-                let g = hex_to_f32(&hex, 1, 1)?;
-                let b = hex_to_f32(&hex, 2, 1)?;
+                let r = hex_to_f32(hex, 0, 1)?;
+                let g = hex_to_f32(hex, 1, 1)?;
+                let b = hex_to_f32(hex, 2, 1)?;
                 (r, g, b, alpha.unwrap_or(1.0))
             }
             4 => {
-                let r = hex_to_f32(&hex, 0, 1)?;
-                let g = hex_to_f32(&hex, 1, 1)?;
-                let b = hex_to_f32(&hex, 2, 1)?;
-                let a = hex_to_f32(&hex, 3, 1)?;
+                let r = hex_to_f32(hex, 0, 1)?;
+                let g = hex_to_f32(hex, 1, 1)?;
+                let b = hex_to_f32(hex, 2, 1)?;
+                let a = hex_to_f32(hex, 3, 1)?;
                 (r, g, b, a as f64)
             }
             6 => {
-                let r = hex_to_f32(&hex, 0, 2)?;
-                let g = hex_to_f32(&hex, 2, 2)?;
-                let b = hex_to_f32(&hex, 4, 2)?;
+                let r = hex_to_f32(hex, 0, 2)?;
+                let g = hex_to_f32(hex, 2, 2)?;
+                let b = hex_to_f32(hex, 4, 2)?;
                 (r, g, b, alpha.unwrap_or(1.0))
             }
             8 => {
-                let r = hex_to_f32(&hex, 0, 2)?;
-                let g = hex_to_f32(&hex, 2, 2)?;
-                let b = hex_to_f32(&hex, 4, 2)?;
-                let a = hex_to_f32(&hex, 6, 2)?;
+                let r = hex_to_f32(hex, 0, 2)?;
+                let g = hex_to_f32(hex, 2, 2)?;
+                let b = hex_to_f32(hex, 4, 2)?;
+                let a = hex_to_f32(hex, 6, 2)?;
                 (r, g, b, a as f64)
             }
             _ => return Err(mlua::Error::RuntimeError(format!("invalid hex: {hex_str}"))),

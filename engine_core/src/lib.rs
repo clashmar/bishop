@@ -43,7 +43,6 @@ pub mod prelude {
     #[allow(ambiguous_glob_reexports)]
     pub use crate::menu::*;
     pub use crate::physics::*;
-    pub use crate::prefab::*;
     pub use crate::register_lua_api;
     pub use crate::register_lua_module;
     pub use crate::rendering::*;

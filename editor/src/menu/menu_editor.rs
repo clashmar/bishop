@@ -261,6 +261,7 @@ impl MenuEditor {
 
     /// Applies a mutation directly to the selected element for real-time preview.
     /// Caches the original element state on the first call of a drag sequence.
+    #[allow(dead_code)]
     pub fn preview_element_update<F>(&mut self, mutate: F)
     where
         F: FnOnce(&mut MenuElement),
