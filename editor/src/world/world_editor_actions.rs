@@ -40,6 +40,8 @@ impl WorldEditor {
             }
         }
 
+        world.rebuild_room_grid();
+
         // Gather all entities from the current room.
         let mut entities_to_remove = Vec::new();
         {
@@ -119,6 +121,8 @@ impl WorldEditor {
                 new_room.adjacent_rooms.push(old_room.id);
             }
         }
+
+        cur_world.rebuild_room_grid();
 
         id
     }

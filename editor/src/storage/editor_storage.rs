@@ -420,7 +420,7 @@ pub fn create_new_world(game: &mut Game) -> World {
     let first_room = Room::new(&mut game.ecs, room_id, world_constants::DEFAULT_GRID_SIZE);
     let room_origin = first_room.position;
 
-    let world = World {
+    let mut world = World {
         id,
         name: name.clone(),
         rooms: vec![first_room],
@@ -429,7 +429,9 @@ pub fn create_new_world(game: &mut Game) -> World {
         starting_position: Some(room_origin),
         meta: WorldMeta::default(),
         grid_size: world_constants::DEFAULT_GRID_SIZE,
+        room_grid: RoomGrid::default(),
     };
+    world.room_grid = RoomGrid::build(&world);
 
     let _spawn_point = game
         .ecs

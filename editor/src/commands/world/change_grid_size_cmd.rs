@@ -64,6 +64,8 @@ impl EditorCommand for ChangeGridSizeCmd {
                 room.position *= scale_factor;
             }
 
+            world.rebuild_room_grid();
+
             // Scale entity positions
             let pos_store = editor.game.ecs.get_store_mut::<Transform>();
             for transform in pos_store.data.values_mut() {
@@ -93,6 +95,8 @@ impl EditorCommand for ChangeGridSizeCmd {
                     room.position = *position;
                 }
             }
+
+            world.rebuild_room_grid();
 
             // Restore exact entity positions
             let pos_store = editor.game.ecs.get_store_mut::<Transform>();

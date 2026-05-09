@@ -237,6 +237,8 @@ impl EditorCommand for ResizeTilemapCmd {
                     }
                 }
             }
+
+            current_world.rebuild_room_grid();
         });
     }
 
@@ -264,6 +266,8 @@ impl EditorCommand for ResizeTilemapCmd {
             map.width = self.old_width;
             map.height = self.old_height;
             map.tiles = self.old_tiles.clone();
+
+            current_world.rebuild_room_grid();
         });
     }
 

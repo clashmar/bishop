@@ -1,4 +1,4 @@
-// engine_core/src/world/transition_manager.rs
+// game/src/transitions/transition_manager.rs
 use crate::engine::game_instance::GameInstance;
 use engine_core::prelude::*;
 use uuid::Uuid;
@@ -53,9 +53,6 @@ impl TransitionManager {
 
     /// Handles entity transitions between rooms.
     pub fn handle_transitions(game_instance: &mut GameInstance) {
-        let grid_size = game_instance.game.current_world().grid_size;
-        let rooms = game_instance.game.current_world().rooms.clone();
-
         let entities: Vec<_> = game_instance
             .game
             .ecs
@@ -79,7 +76,7 @@ impl TransitionManager {
             };
 
             // Find the room that now contains the entity
-            let target_id = match room_of_entity(pos, &rooms, grid_size) {
+            let target_id = match game_instance.game.current_world().room_at(pos) {
                 Some(id) => id,
                 None => continue,
             };
@@ -93,26 +90,11 @@ impl TransitionManager {
             }
 
             if game_instance.game.ecs.get_player_entity() == Some(entity) {
-                if let Some(new_room) = rooms.iter().find(|r| r.id == target_id) {
-                    if let Some(world) = game_instance.game.current_world_mut() {
-                        world.current_room_id = Some(new_room.id);
-                    }
+                if let Some(world) = game_instance.game.current_world_mut() {
+                    world.current_room_id = Some(target_id);
                 }
             }
         }
     }
 }
 
-/// Return the id of the room whose bounds contain the entity's AABB.
-pub fn room_of_entity(pos: Vec2, rooms: &[Room], grid_size: f32) -> Option<RoomId> {
-    for room in rooms {
-        let min = room.position;
-        let max = room.position + room.size * grid_size;
-
-        // Never use <=/>= here or will overlap with adjacent rooms
-        if pos.x >= min.x && pos.x < max.x && pos.y > min.y && pos.y <= max.y {
-            return Some(room.id);
-        }
-    }
-    None
-}

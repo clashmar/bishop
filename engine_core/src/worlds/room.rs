@@ -208,14 +208,6 @@ impl Room {
             .with(Name(format!("{}{}", CAMERA_PREFIX, next_idx)));
     }
 
-    /// Returns the axis‑aligned rectangle that a room occupies in world space.
-    #[inline]
-    pub fn room_bounds(&self, grid_size: f32) -> (Vec2, Vec2) {
-        let min = self.position;
-        let max = self.position + self.size * grid_size;
-        (min, max)
-    }
-
     /// Returns the index of the current variant.
     pub fn current_variant_index(&self) -> usize {
         0

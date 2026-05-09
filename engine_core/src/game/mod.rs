@@ -226,6 +226,9 @@ impl Game {
         ScriptManager::init_manager(&self.asset_registry, &mut self.script_manager, lua);
         self.init_text_manager();
         self.reload_prefab_manager();
+        for world in &mut self.worlds {
+            world.rebuild_room_grid();
+        }
     }
 
     /// Initializes runtime state for the game without eagerly hydrating all textures.
@@ -237,6 +240,9 @@ impl Game {
         ScriptManager::init_manager(&self.asset_registry, &mut self.script_manager, lua);
         self.init_text_manager();
         self.reload_prefab_manager();
+        for world in &mut self.worlds {
+            world.rebuild_room_grid();
+        }
     }
 
     /// Initializes the text manager with the correct path.
