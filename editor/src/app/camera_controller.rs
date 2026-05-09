@@ -5,7 +5,7 @@ use engine_core::prelude::*;
 pub const ZOOM_STEP_PERCENT: f32 = 0.5;
 pub const PIXEL_ZOOM_PERCENT_PER_DELTA: f32 = 0.01;
 pub const MAX_PIXEL_ZOOM_PERCENT: f32 = 0.2;
-pub const MIN_ZOOM: f32 = 0.000001;
+pub const MIN_ZOOM: f32 = 0.0005;
 pub const MAX_ZOOM: f32 = 0.1;
 
 pub struct EditorCameraController;
