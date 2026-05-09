@@ -2,6 +2,7 @@
 use crate::gui::gui_constants::*;
 use crate::gui::modals::is_modal_open;
 use bishop::prelude::*;
+use engine_core::theme::with_theme;
 use engine_core::ui::text::*;
 use engine_core::ui::widgets::is_context_menu_open;
 
@@ -47,7 +48,7 @@ impl<M: ModeInfo + Copy + PartialEq> ModeSelector<M> {
                     rect.w + 4.0,
                     rect.h + 4.0,
                     2.0,
-                    Color::YELLOW,
+                    with_theme(|t| t.highlight),
                 );
             }
 
@@ -104,10 +105,16 @@ impl<M: ModeInfo + Copy + PartialEq> ModeSelector<M> {
                     tip_rect.y,
                     tip_rect.w,
                     tip_rect.h,
-                    Color::new(0.0, 0.0, 0.0, 0.8),
+                    with_theme(|t| t.overlay.with_alpha(0.8)),
                 );
 
-                ctx.draw_text(tip, tip_rect.x + 4.0, tip_rect.y + 15.0, 16.0, Color::WHITE);
+                ctx.draw_text(
+                    tip,
+                    tip_rect.x + 4.0,
+                    tip_rect.y + 15.0,
+                    16.0,
+                    with_theme(|t| t.text),
+                );
             }
         }
     }
@@ -145,7 +152,7 @@ pub fn draw_sub_mode_strip_background(
         strip_rect.y,
         strip_rect.w,
         strip_rect.h,
-        PANEL_COLOR,
+        with_theme(|t| t.panel),
     );
 
     strip_rect
@@ -177,7 +184,7 @@ pub fn draw_sub_mode_strip<S: ModeInfo + Copy + PartialEq + 'static>(
                 rect.w + 4.0,
                 rect.h + 4.0,
                 2.0,
-                Color::YELLOW,
+                with_theme(|t| t.highlight),
             );
         }
 
@@ -215,10 +222,16 @@ pub fn draw_sub_mode_strip<S: ModeInfo + Copy + PartialEq + 'static>(
                 tip_rect.y,
                 tip_rect.w,
                 tip_rect.h,
-                Color::new(0.0, 0.0, 0.0, 0.8),
+                with_theme(|t| t.overlay.with_alpha(0.8)),
             );
 
-            ctx.draw_text(tip, tip_rect.x + 4.0, tip_rect.y + 15.0, 16.0, Color::WHITE);
+            ctx.draw_text(
+                tip,
+                tip_rect.x + 4.0,
+                tip_rect.y + 15.0,
+                16.0,
+                with_theme(|t| t.text),
+            );
         }
     }
 

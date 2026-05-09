@@ -42,14 +42,14 @@ impl ElementPalette {
         let mut clicked_kind = None;
 
         if self
-            .draw_palette_item(ctx, rect, &mut y, "Layout Group", blocked)
+            .draw_palette_item(ctx, rect, &mut y, LayoutGroupElement::KIND_NAME, blocked)
             .is_some()
         {
             clicked_kind = Some(MenuElementKind::LayoutGroup(LayoutGroupElement::default()));
         }
 
         if self
-            .draw_palette_item(ctx, rect, &mut y, "Label", blocked)
+            .draw_palette_item(ctx, rect, &mut y, LabelElement::KIND_NAME, blocked)
             .is_some()
         {
             clicked_kind = Some(MenuElementKind::Label(LabelElement {
@@ -59,7 +59,7 @@ impl ElementPalette {
         }
 
         if self
-            .draw_palette_item(ctx, rect, &mut y, "Button", blocked)
+            .draw_palette_item(ctx, rect, &mut y, ButtonElement::KIND_NAME, blocked)
             .is_some()
         {
             clicked_kind = Some(MenuElementKind::Button(ButtonElement {
@@ -69,7 +69,7 @@ impl ElementPalette {
         }
 
         if self
-            .draw_palette_item(ctx, rect, &mut y, "Slider", blocked)
+            .draw_palette_item(ctx, rect, &mut y, SliderElement::KIND_NAME, blocked)
             .is_some()
         {
             clicked_kind = Some(MenuElementKind::Slider(SliderElement {
@@ -84,10 +84,10 @@ impl ElementPalette {
         }
 
         if self
-            .draw_palette_item(ctx, rect, &mut y, "Panel", blocked)
+            .draw_palette_item(ctx, rect, &mut y, PanelElement::KIND_NAME, blocked)
             .is_some()
         {
-            clicked_kind = Some(MenuElementKind::Panel(PanelElement::default()));
+            clicked_kind = Some(MenuElementKind::Panel(PanelElement));
         }
 
         clicked_kind

@@ -79,6 +79,10 @@ pub fn snap_dt(raw_dt: f32) -> f32 {
     raw_dt
 }
 
+pub fn outline_thickness(grid_size: f32) -> f32 {
+    (grid_size * 0.2).max(1.0)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

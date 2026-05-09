@@ -3,11 +3,14 @@ use crate::app::EditorMode;
 use crate::gui::gui_constants::*;
 use crate::gui::menu_widgets::menu_dropdown;
 pub(crate) use crate::gui::menu_widgets::{menu_button, menu_button_text_position};
+use crate::gui::panel_text_color;
 use crate::prefab::BLANK_PREFAB_ID;
 use bishop::prelude::*;
 use engine_core::prelude::*;
+use engine_core::theme::with_theme;
 use std::fmt;
 use strum_macros::EnumIter;
+use widgets::constants::layout;
 
 /// Holds the state of the top-level menu bar.
 pub struct MenuBar {
@@ -43,6 +46,7 @@ pub enum EditorAction {
     ViewResourcesPanel,
     // Options actions
     WorldSettings,
+    EditorSettings,
     // Editors actions
     OpenMenuEditor,
     OpenPrefabEditor,
@@ -67,6 +71,7 @@ impl EditorAction {
             EditorAction::ViewPrefabPalettePanel => "Prefab Palette".to_string(),
             EditorAction::ViewResourcesPanel => "Resources".to_string(),
             EditorAction::WorldSettings => "World Settings".to_string(),
+            EditorAction::EditorSettings => "Editor Settings".to_string(),
             EditorAction::OpenMenuEditor => "Menu Editor".to_string(),
             EditorAction::OpenPrefabEditor => "Prefab Editor".to_string(),
             EditorAction::ReturnToGameEditor => "Game Editor".to_string(),
@@ -135,7 +140,8 @@ impl EditorAction {
             | EditorAction::Redo
             | EditorAction::ViewConsolePanel
             | EditorAction::ViewDiagnosticsPanel
-            | EditorAction::ViewResourcesPanel => true,
+            | EditorAction::ViewResourcesPanel
+            | EditorAction::EditorSettings => true,
             EditorAction::Save => !matches!(editor_mode, EditorMode::Prefab(BLANK_PREFAB_ID)),
             EditorAction::SaveAs => !matches!(editor_mode, EditorMode::Prefab(BLANK_PREFAB_ID)),
             EditorAction::ViewHierarchyPanel => {
@@ -226,7 +232,7 @@ impl MenuBar {
         let title_rect = Rect::new(
             x,
             y,
-            rect_width_for_text(ctx, title, HEADER_FONT_SIZE_20),
+            rect_width_for_text(ctx, title, layout::HEADER_FONT_SIZE_20),
             HEIGHT,
         );
 
@@ -248,19 +254,31 @@ impl MenuBar {
                         self.pending = Some(selected);
                     }
                 } else {
-                    let txt_dims = ctx.measure_text(title, HEADER_FONT_SIZE_20);
+                    let txt_dims = ctx.measure_text(title, layout::HEADER_FONT_SIZE_20);
                     let txt_x = title_rect.x + PADDING / 2.0;
                     let txt_y =
                         title_rect.y + (title_rect.h - txt_dims.height) / 2.0 + txt_dims.offset_y;
-                    ctx.draw_text(title, txt_x, txt_y, HEADER_FONT_SIZE_20, Color::BLACK);
+                    ctx.draw_text(
+                        title,
+                        txt_x,
+                        txt_y,
+                        layout::HEADER_FONT_SIZE_20,
+                        panel_text_color(),
+                    );
                 }
             }
             _ => {
-                let txt_dims = ctx.measure_text(title, HEADER_FONT_SIZE_20);
+                let txt_dims = ctx.measure_text(title, layout::HEADER_FONT_SIZE_20);
                 let txt_x = title_rect.x + PADDING / 2.0;
                 let txt_y =
                     title_rect.y + (title_rect.h - txt_dims.height) / 2.0 + txt_dims.offset_y;
-                ctx.draw_text(title, txt_x, txt_y, HEADER_FONT_SIZE_20, Color::BLACK);
+                ctx.draw_text(
+                    title,
+                    txt_x,
+                    txt_y,
+                    layout::HEADER_FONT_SIZE_20,
+                    panel_text_color(),
+                );
             }
         }
 
@@ -272,7 +290,7 @@ impl MenuBar {
         let file_rect = Rect::new(
             x,
             y,
-            rect_width_for_text(ctx, file_label, HEADER_FONT_SIZE_20),
+            rect_width_for_text(ctx, file_label, layout::HEADER_FONT_SIZE_20),
             HEIGHT,
         );
 
@@ -298,7 +316,7 @@ impl MenuBar {
         let edit_rect = Rect::new(
             x,
             y,
-            rect_width_for_text(ctx, edit_label, HEADER_FONT_SIZE_20),
+            rect_width_for_text(ctx, edit_label, layout::HEADER_FONT_SIZE_20),
             HEIGHT,
         );
 
@@ -324,7 +342,7 @@ impl MenuBar {
         let view_rect = Rect::new(
             x,
             y,
-            rect_width_for_text(ctx, view_label, HEADER_FONT_SIZE_20),
+            rect_width_for_text(ctx, view_label, layout::HEADER_FONT_SIZE_20),
             HEIGHT,
         );
 
@@ -353,7 +371,7 @@ impl MenuBar {
             let options_rect = Rect::new(
                 x,
                 y,
-                rect_width_for_text(ctx, options_label, HEADER_FONT_SIZE_20),
+                rect_width_for_text(ctx, options_label, layout::HEADER_FONT_SIZE_20),
                 HEIGHT,
             );
 
@@ -378,7 +396,7 @@ impl MenuBar {
         let editors_rect = Rect::new(
             x,
             y,
-            rect_width_for_text(ctx, editors_label, HEADER_FONT_SIZE_20),
+            rect_width_for_text(ctx, editors_label, layout::HEADER_FONT_SIZE_20),
             HEIGHT,
         );
 
@@ -443,7 +461,7 @@ fn view_actions_for_mode(editor_mode: EditorMode) -> Vec<EditorAction> {
 }
 
 fn options_actions_for_mode(editor_mode: EditorMode) -> Vec<EditorAction> {
-    [EditorAction::WorldSettings]
+    [EditorAction::EditorSettings, EditorAction::WorldSettings]
         .into_iter()
         .filter(|action| action.is_available_in(editor_mode))
         .collect()
@@ -463,7 +481,7 @@ fn editors_actions_for_mode(editor_mode: EditorMode) -> Vec<EditorAction> {
 /// Draws a the panel background for the top menu across the whole width of the screen and returns its `Rect`.
 pub fn draw_top_panel_full(ctx: &mut WgpuContext) -> Rect {
     let rect = menu_panel_rect(ctx);
-    ctx.draw_rectangle(rect.x, rect.y, rect.w, rect.h, PANEL_COLOR);
+    ctx.draw_rectangle(rect.x, rect.y, rect.w, rect.h, with_theme(|t| t.panel));
     rect
 }
 

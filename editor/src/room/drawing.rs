@@ -5,6 +5,7 @@ use crate::editor_assets::assets::camera_icon;
 use crate::gui::gui_constants::*;
 use crate::gui::menu_bar::*;
 use crate::gui::mode_selector::*;
+use crate::gui::panel_text_color;
 use crate::room::prefab_preview::{build_prefab_preview, PrefabPreviewVisual};
 use crate::room::room_editor::*;
 use crate::room::selection::{entity_selection_rect, snap_room_drag_position};
@@ -13,14 +14,12 @@ use crate::tilemap::tilemap_editor::TILEMAP_SUB_MODES;
 use crate::world::coord;
 use bishop::prelude::*;
 use engine_core::prelude::*;
+use engine_core::theme::with_theme;
+use widgets::constants::layout;
 
 const PLACEHOLDER_OPACITY: f32 = 0.5;
 const MODE_SELECTOR_PADDING: f32 = 8.0;
 const PREFAB_GHOST_OPACITY: f32 = 0.55;
-
-fn thickness(grid_size: f32) -> f32 {
-    (grid_size * 0.1).max(1.0)
-}
 
 #[derive(Clone, Copy)]
 struct MergedPlayButtonLayout {
@@ -39,10 +38,10 @@ fn merged_play_button_layout(
     play_dims: TextDimensions,
     mode_dims: TextDimensions,
 ) -> MergedPlayButtonLayout {
-    let play_x = rect.x + WIDGET_PADDING;
+    let play_x = rect.x + layout::WIDGET_PADDING;
     let (_, play_y) = menu_button_text_position(rect, play_dims);
-    let divider_x = play_x + play_dims.width + WIDGET_PADDING;
-    let mode_x = divider_x + WIDGET_PADDING;
+    let divider_x = play_x + play_dims.width + layout::WIDGET_PADDING;
+    let mode_x = divider_x + layout::WIDGET_PADDING;
     let mode_y = rect.y + (rect.h - mode_dims.height) / 2.0 + mode_dims.offset_y;
 
     MergedPlayButtonLayout {
@@ -53,7 +52,7 @@ fn merged_play_button_layout(
         divider_x,
         divider_y: rect.y + 6.0,
         divider_h: rect.h - 12.0,
-        width: play_dims.width + mode_dims.width + WIDGET_PADDING * 4.0,
+        width: play_dims.width + mode_dims.width + layout::WIDGET_PADDING * 4.0,
     }
 }
 
@@ -187,21 +186,22 @@ impl RoomEditor {
                 // Play‑test button (menu bar)
                 let play_label = "Play";
                 let startup_mode = get_startup_mode();
-                let play_dims = measure_text(ctx, play_label, HEADER_FONT_SIZE_20);
-                let mode_dims = measure_text(ctx, &startup_mode.to_string(), DEFAULT_FONT_SIZE_16);
+                let play_dims = measure_text(ctx, play_label, layout::HEADER_FONT_SIZE_20);
+                let mode_dims =
+                    measure_text(ctx, &startup_mode.to_string(), layout::DEFAULT_FONT_SIZE_16);
                 let play_width = merged_play_button_layout(
                     Rect::new(0.0, 0.0, 0.0, BTN_HEIGHT),
                     play_dims,
                     mode_dims,
                 )
                 .width;
-                let play_x = mode_rect.x + mode_rect.w + WIDGET_SPACING;
+                let play_x = mode_rect.x + mode_rect.w + layout::WIDGET_SPACING;
                 let play_rect = Rect::new(play_x, INSET, play_width, BTN_HEIGHT);
 
                 let clicks = Button::new(play_rect, "")
                     .plain()
                     .allow_secondary_click()
-                    .show_clicks(ctx);
+                    .show_clicks(ctx, with_theme(Button::map_theme));
 
                 if clicks.primary {
                     self.request_play = true;
@@ -229,17 +229,16 @@ impl RoomEditor {
 
         let txt = format!("({:.0}, {:.0})", world_grid.x, world_grid.y,);
 
-        let txt_metrics = measure_text(ctx, &txt, DEFAULT_FONT_SIZE_16);
+        let txt_metrics = measure_text(ctx, &txt, layout::DEFAULT_FONT_SIZE_16);
         let margin = 10.0;
 
         let x = (ctx.screen_width() - txt_metrics.width) / 2.0;
         let y = ctx.screen_height() - margin;
 
-        ctx.draw_text(&txt, x, y, DEFAULT_FONT_SIZE_16, Color::BLUE);
+        ctx.draw_text(&txt, x, y, layout::DEFAULT_FONT_SIZE_16, Color::BLUE);
     }
 
     /// Draw viewport rectangles for all cameras in the room when a camera is selected.
-    /// The selected camera is drawn in yellow, others in pink.
     pub fn draw_camera_viewport(
         &self,
         ctx: &mut WgpuContext,
@@ -294,11 +293,10 @@ impl RoomEditor {
             let half = vec2(viewport_w, viewport_h) * 0.5;
             let top_left = pos - half;
 
-            // Selected camera is yellow, others are dimmer cyan
             let color = if *entity == selected {
-                Color::YELLOW
+                with_theme(|t| t.highlight)
             } else {
-                Color::PINK
+                with_theme(|t| t.accent)
             };
 
             ctx.draw_rectangle_lines(
@@ -317,12 +315,13 @@ fn draw_merged_play_button_label(
 ) {
     let layout = merged_play_button_layout(rect, play_dims, mode_dims);
 
+    let text_color = panel_text_color();
     ctx.draw_text(
         "Play",
         layout.play_x,
         layout.play_y,
-        HEADER_FONT_SIZE_20,
-        Color::BLACK,
+        layout::HEADER_FONT_SIZE_20,
+        text_color,
     );
     ctx.draw_line(
         layout.divider_x,
@@ -330,14 +329,14 @@ fn draw_merged_play_button_label(
         layout.divider_x,
         layout.divider_y + layout.divider_h,
         1.0,
-        Color::BLACK,
+        text_color,
     );
     ctx.draw_text(
         &startup_mode.to_string(),
         layout.mode_x,
         layout.mode_y,
-        DEFAULT_FONT_SIZE_16,
-        Color::BLACK,
+        layout::DEFAULT_FONT_SIZE_16,
+        text_color,
     );
 }
 
@@ -347,7 +346,6 @@ pub fn highlight_selected_entity<C: BishopContext>(
     ecs: &Ecs,
     entity: Entity,
     sprite_manager: &mut SpriteManager,
-    color: Color,
     grid_size: f32,
 ) {
     let transform = match ecs.get_store::<Transform>().get(entity) {
@@ -358,12 +356,13 @@ pub fn highlight_selected_entity<C: BishopContext>(
     let (draw_pos, size) =
         entity_selection_rect(entity, transform.position, ecs, sprite_manager, grid_size);
 
+    let color = with_theme(|t| t.highlight);
     ctx.draw_rectangle_lines(
         draw_pos.x,
         draw_pos.y,
         size.x,
         size.y,
-        thickness(grid_size) * 0.25,
+        outline_thickness(grid_size) * 0.25,
         color,
     );
 }
@@ -424,8 +423,15 @@ pub(crate) fn draw_prefab_stamp_ghost(
 }
 
 fn draw_prefab_stamp_placeholder(ctx: &mut WgpuContext, draw_pos: Vec2, size: Vec2) {
-    let fill = Color::new(0.2, 0.85, 0.35, 0.22);
-    let outline = Color::new(0.2, 0.95, 0.45, PREFAB_GHOST_OPACITY);
+    let fill = with_theme(|t| t.placeholder);
+    let outline = with_theme(|t| {
+        Color::new(
+            t.placeholder.r,
+            t.placeholder.g + 0.10,
+            t.placeholder.b + 0.10,
+            PREFAB_GHOST_OPACITY,
+        )
+    });
     ctx.draw_rectangle(draw_pos.x, draw_pos.y, size.x, size.y, fill);
     ctx.draw_rectangle_lines(draw_pos.x, draw_pos.y, size.x, size.y, 1.0, outline);
     ctx.draw_line(
@@ -528,7 +534,14 @@ pub fn draw_light_placeholders(ctx: &mut WgpuContext, ecs: &Ecs, room_id: RoomId
             let yellow = Color::new(0.94, 0.86, 0.0, PLACEHOLDER_OPACITY);
 
             // Outer square
-            ctx.draw_rectangle_lines(body.x, body.y, body.w, body.h, thickness(grid_size), cyan);
+            ctx.draw_rectangle_lines(
+                body.x,
+                body.y,
+                body.w,
+                body.h,
+                outline_thickness(grid_size),
+                cyan,
+            );
 
             // Lens
             let lens_radius = grid_size * 0.2;
@@ -538,7 +551,7 @@ pub fn draw_light_placeholders(ctx: &mut WgpuContext, ecs: &Ecs, room_id: RoomId
                 lens_center.x,
                 lens_center.y,
                 lens_radius,
-                thickness(grid_size) * 0.75,
+                outline_thickness(grid_size) * 0.75,
                 yellow,
             );
         }
@@ -580,7 +593,14 @@ pub fn draw_glow_placeholders(
             let yellow = Color::new(0.94, 0.86, 0.0, PLACEHOLDER_OPACITY);
 
             // Outer square
-            ctx.draw_rectangle_lines(body.x, body.y, body.w, body.h, thickness(grid_size), cyan);
+            ctx.draw_rectangle_lines(
+                body.x,
+                body.y,
+                body.w,
+                body.h,
+                outline_thickness(grid_size),
+                cyan,
+            );
 
             // Lens
             let lens_radius = grid_size * 0.2;
@@ -590,7 +610,7 @@ pub fn draw_glow_placeholders(
                 lens_center.x,
                 lens_center.y,
                 lens_radius,
-                thickness(grid_size) * 0.75,
+                outline_thickness(grid_size) * 0.75,
                 yellow,
             );
         }
@@ -619,28 +639,36 @@ pub fn is_pure_placeholder(ecs: &Ecs, entity: Entity) -> bool {
         || (ecs.has::<Light>(entity) && !ecs.has_any::<(Sprite, Animation, CurrentFrame)>(entity))
 }
 
+/// Draw a thin circle showing the interaction range for an `Interactable` entity.
+pub fn draw_interactable_range(ctx: &mut WgpuContext, ecs: &Ecs, entity: Entity, grid_size: f32) {
+    let interactable = match ecs.get_store::<Interactable>().get(entity) {
+        Some(i) => i,
+        None => return,
+    };
+    let transform = match ecs.get_store::<Transform>().get(entity) {
+        Some(t) => t,
+        None => return,
+    };
+    let violet = Color::new(0.75, 0.25, 1.0, 0.55);
+    ctx.draw_circle_lines(
+        transform.position.x,
+        transform.position.y,
+        interactable.range,
+        outline_thickness(grid_size) * 0.25,
+        violet,
+    );
+}
+
 /// Draw a thin circle showing the interaction range for each `Interactable` entity in the room.
 pub fn draw_interactable_ranges(ctx: &mut WgpuContext, ecs: &Ecs, room_id: RoomId, grid_size: f32) {
     let room_store = ecs.get_store::<CurrentRoom>();
-    let violet = Color::new(0.75, 0.25, 1.0, 0.55);
-
-    for (entity, interactable) in ecs.get_store::<Interactable>().data.iter() {
+    for (entity, _interactable) in ecs.get_store::<Interactable>().data.iter() {
         if let Some(CurrentRoom(id)) = room_store.get(*entity) {
             if *id != room_id {
                 continue;
             }
         }
-
-        if let Some(transform) = ecs.get_store::<Transform>().get(*entity) {
-            let pos = transform.position;
-            ctx.draw_circle_lines(
-                pos.x,
-                pos.y,
-                interactable.range,
-                thickness(grid_size) * 0.25,
-                violet,
-            );
-        }
+        draw_interactable_range(ctx, ecs, *entity, grid_size);
     }
 }
 
@@ -709,7 +737,7 @@ pub fn draw_all_camera_viewports(
             viewport_w,
             viewport_h,
             thickness,
-            Color::PINK,
+            with_theme(|t| t.accent),
         );
     }
 }
@@ -721,7 +749,13 @@ pub fn draw_exit_arrow(
     direction: ExitDirection,
     grid_size: f32,
 ) {
-    draw_exit_arrow_colored(ctx, position, direction, grid_size, HIGHLIGHT_GREEN);
+    draw_exit_arrow_colored(
+        ctx,
+        position,
+        direction,
+        grid_size,
+        with_theme(|t| t.accent),
+    );
 }
 
 /// Draw an arrow for an adjacent room's exit (pink color to distinguish from current room).

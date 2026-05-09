@@ -3,6 +3,7 @@
 /// Embedded _engine Lua scripts for new game projects.
 pub static ENGINE_SCRIPTS: &[(&str, &str)] = &[
     ("audio.lua", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/scripts/_engine/audio.lua"))),
+    ("color.lua", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/scripts/_engine/color.lua"))),
     ("components.lua", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/scripts/_engine/components.lua"))),
     ("direction.lua", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/scripts/_engine/direction.lua"))),
     ("engine.lua", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/scripts/_engine/engine.lua"))),
@@ -11,4 +12,5 @@ pub static ENGINE_SCRIPTS: &[(&str, &str)] = &[
     ("menu.lua", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/scripts/_engine/menu.lua"))),
     ("script.lua", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/scripts/_engine/script.lua"))),
     ("text.lua", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/scripts/_engine/text.lua"))),
+    ("theme.lua", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/scripts/_engine/theme.lua"))),
 ];

@@ -1,3 +1,4 @@
+use crate::constants::{colors, layout};
 use crate::*;
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -8,6 +9,11 @@ const FILTER_ID_OFFSET: usize = usize::MAX / 2 + 1;
 const ENTRY_ID_SALT: u64 = 0x4452_4F50_444F_574E;
 const FILTERED_ENTRY_ID_SALT: u64 = 0x0046_494C_5445_5244;
 
+// Hardcoded color constants used as fallbacks for dropdown-specific styling.
+const DROPDOWN_HOVER_BG: Color = Color::new(0.2, 0.2, 0.2, 0.9);
+const DROPDOWN_SCROLLBAR_TRACK: Color = Color::new(0.2, 0.2, 0.2, 0.5);
+const DROPDOWN_SCROLLBAR_THUMB: Color = Color::new(0.6, 0.6, 0.6, 0.9);
+
 /// Data for deferred dropdown rendering.
 struct DeferredDropdownRender {
     list_rect: Rect,
@@ -15,6 +21,7 @@ struct DeferredDropdownRender {
     scroll_offset: f32,
     labels: Vec<String>,
     option_count: usize,
+    overrides: WidgetTheme,
 }
 
 thread_local! {
@@ -90,6 +97,7 @@ pub fn flush_dropdown_lists<C: BishopContext>(ctx: &mut C) {
                 render.scroll_offset,
                 &render.labels,
                 render.option_count,
+                render.overrides,
             );
         }
     });
@@ -124,13 +132,13 @@ pub struct Dropdown<'a, T> {
     text_color: Color,
     label_font_size: f32,
     y_offset: f32,
-    blocked: bool,
     suppressed: bool,
     fixed_width: bool,
     filterable: bool,
     alignment: DropDownAlignment,
     list_width: Option<f32>,
     truncate_trigger: bool,
+    base: WidgetBase,
 }
 
 impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
@@ -150,15 +158,19 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
             to_string: Box::new(to_string),
             style: DropDownStyle::Default,
             text_color: Color::WHITE,
-            label_font_size: FIELD_TEXT_SIZE_16,
+            label_font_size: layout::FIELD_TEXT_SIZE_16,
             y_offset: 0.0,
-            blocked: false,
             suppressed: false,
             fixed_width: false,
             filterable: false,
             alignment: DropDownAlignment::Left,
             list_width: None,
             truncate_trigger: false,
+            base: WidgetBase {
+                blocked: false,
+                overrides: WidgetTheme::default(),
+                ..WidgetBase::default()
+            },
         }
     }
 
@@ -168,18 +180,17 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
         self
     }
 
-    /// Renders the trigger button using the menu bar style: transparent at rest,
-    /// dark overlay on hover or when open, black text at 20pt.
+    /// Renders the trigger button using the menu bar style.
     pub fn menu_style(mut self) -> Self {
         self.style = DropDownStyle::Plain;
-        self.text_color = Color::BLACK;
-        self.label_font_size = HEADER_FONT_SIZE_20;
+        self.text_color = with_theme(|t| t.text);
+        self.label_font_size = layout::HEADER_FONT_SIZE_20;
         self
     }
 
     /// Sets the text color.
     pub fn text_color(mut self, color: impl Into<Color>) -> Self {
-        self.text_color = color.into();
+        self.base.overrides.text = Some(color.into());
         self
     }
 
@@ -192,12 +203,6 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
     /// Sets the vertical offset for the dropdown list.
     pub fn y_offset(mut self, offset: f32) -> Self {
         self.y_offset = offset;
-        self
-    }
-
-    /// Sets whether the dropdown is blocked from interaction.
-    pub fn blocked(mut self, blocked: bool) -> Self {
-        self.blocked = blocked;
         self
     }
 
@@ -240,6 +245,9 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
 
     /// Draws the dropdown and returns the selected option if one was clicked.
     pub fn show<C: BishopContext>(self, ctx: &mut C) -> Option<T> {
+        let class = self.base.class_name.as_deref();
+        let id = self.base.style_id.as_deref();
+        let widget_theme = resolve_theme_for::<Self>(class, id);
         const MAX_VISIBLE_ROWS: usize = 8;
         const SCROLL_SPEED: f32 = 5.0;
         const W_PADDING: f32 = 8.0;
@@ -263,8 +271,8 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
             truncated = truncate_to_width(
                 ctx,
                 self.label,
-                self.rect.w - WIDGET_PADDING,
-                DEFAULT_FONT_SIZE_16,
+                self.rect.w - layout::WIDGET_PADDING,
+                layout::DEFAULT_FONT_SIZE_16,
             );
             &truncated
         } else {
@@ -275,10 +283,11 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
             DropDownStyle::Default => {
                 Button::new(self.rect, display_label)
                     .text_offset(Vec2::new(0.0, -1.0))
-                    .blocked(self.blocked)
+                    .overrides(self.base.overrides)
+                    .blocked(self.base.blocked)
                     .suppressed(self.suppressed)
                     .show(ctx)
-                    && !self.blocked
+                    && !self.base.blocked
                     && !self.suppressed
             }
             DropDownStyle::Plain => {
@@ -287,10 +296,11 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
                     .text_color(self.text_color)
                     .font_size(self.label_font_size)
                     .text_offset(Vec2::new(0.0, -1.0))
-                    .blocked(self.blocked)
+                    .overrides(self.base.overrides)
+                    .blocked(self.base.blocked)
                     .suppressed(self.suppressed)
                     .show(ctx)
-                    && !self.blocked
+                    && !self.base.blocked
                     && !self.suppressed
             }
         };
@@ -322,7 +332,7 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
         let mut max_opt_width = 0.0_f32;
         for opt in self.options.iter() {
             let txt = (self.to_string)(opt);
-            let width = measure_text_ui(ctx, &txt, DEFAULT_FONT_SIZE_16).width;
+            let width = measure_text_ui(ctx, &txt, layout::DEFAULT_FONT_SIZE_16).width;
             if width > max_opt_width {
                 max_opt_width = width;
             }
@@ -342,7 +352,8 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
 
         if list_is_open {
             if self.filterable {
-                result = self.show_filterable_list(ctx, &mut state, list_width);
+                let merged = self.base.overrides.merge(widget_theme);
+                result = self.show_filterable_list(ctx, &merged, &mut state, list_width);
             } else {
                 let visible_rows = MAX_VISIBLE_ROWS.min(self.options.len());
                 let list_h = self.rect.h * visible_rows as f32;
@@ -425,6 +436,7 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
                         scroll_offset,
                         labels,
                         option_count,
+                        overrides: self.base.overrides.merge(widget_theme),
                     });
                 });
             }
@@ -451,6 +463,7 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
     fn show_filterable_list<C: BishopContext>(
         &self,
         ctx: &mut C,
+        overrides: &WidgetTheme,
         state: &mut dropdown_state::DropState,
         list_width: f32,
     ) -> Option<T> {
@@ -494,7 +507,7 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
             popup_rect.y,
             popup_rect.w,
             popup_rect.h,
-            FIELD_BACKGROUND_COLOR,
+            resolve(overrides.background, colors::DEFAULT_BACKGROUND_COLOR),
         );
 
         // Filter TextInput
@@ -502,7 +515,7 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
         let filter_id = WidgetId(self.id.0.wrapping_add(FILTER_ID_OFFSET));
         let (new_filter, _) = TextInput::new(filter_id, filter_rect, &prev_filter)
             .in_dropdown()
-            .live()
+            .overrides(self.base.overrides)
             .show(ctx);
 
         // Reset scroll when filter changes so the user is never stranded past new results
@@ -547,7 +560,7 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
                     entry_rect.y,
                     entry_rect.w,
                     entry_rect.h,
-                    Color::new(0.2, 0.2, 0.2, 0.9),
+                    resolve(overrides.hover, DROPDOWN_HOVER_BG),
                 );
             }
 
@@ -556,8 +569,8 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
                 &(self.to_string)(opt),
                 entry_rect,
                 0.0,
-                DEFAULT_FONT_SIZE_16,
-                FIELD_TEXT_COLOR,
+                layout::DEFAULT_FONT_SIZE_16,
+                resolve(overrides.text, colors::DEFAULT_TEXT_COLOR),
             );
 
             if activate_on_release(
@@ -584,19 +597,26 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
             let thumb_h = (entries_h / total_entries_h) * entries_h;
             let thumb_y = entries_y + (state.scroll_offset / max_offset) * (entries_h - thumb_h);
 
+            let track_primary = resolve(overrides.primary, colors::DEFAULT_PRIMARY_COLOR);
+            let track_col = Color::new(
+                track_primary.r * 0.5,
+                track_primary.g * 0.5,
+                track_primary.b * 0.5,
+                DROPDOWN_SCROLLBAR_TRACK.a,
+            );
             ctx.draw_rectangle(
                 popup_rect.x + popup_rect.w - 6.,
                 entries_y,
                 6.,
                 entries_h,
-                Color::new(0.2, 0.2, 0.2, 0.5),
+                track_col,
             );
             ctx.draw_rectangle(
                 popup_rect.x + popup_rect.w - 6.,
                 thumb_y,
                 6.,
                 thumb_h,
-                Color::new(0.6, 0.6, 0.6, 0.9),
+                resolve(overrides.primary, DROPDOWN_SCROLLBAR_THUMB),
             );
         }
 
@@ -606,7 +626,7 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
             popup_rect.w,
             popup_rect.h,
             2.,
-            OUTLINE_COLOR,
+            resolve(overrides.border, colors::DEFAULT_BORDER_COLOR),
         );
 
         result
@@ -628,13 +648,14 @@ fn render_dropdown_list<C: BishopContext>(
     scroll_offset: f32,
     labels: &[String],
     option_count: usize,
+    overrides: WidgetTheme,
 ) {
     ctx.draw_rectangle(
         list_rect.x,
         list_rect.y,
         list_rect.w,
         list_rect.h,
-        FIELD_BACKGROUND_COLOR,
+        resolve(overrides.background, colors::DEFAULT_BACKGROUND_COLOR),
     );
 
     let mouse_pos = ctx.mouse_position();
@@ -659,7 +680,7 @@ fn render_dropdown_list<C: BishopContext>(
                 entry_rect.y,
                 entry_rect.w,
                 entry_rect.h,
-                Color::new(0.2, 0.2, 0.2, 0.9),
+                resolve(overrides.hover, DROPDOWN_HOVER_BG),
             );
         }
 
@@ -668,8 +689,8 @@ fn render_dropdown_list<C: BishopContext>(
             label,
             entry_rect,
             0.0,
-            DEFAULT_FONT_SIZE_16,
-            FIELD_TEXT_COLOR,
+            layout::DEFAULT_FONT_SIZE_16,
+            resolve(overrides.text, colors::DEFAULT_TEXT_COLOR),
         );
     }
 
@@ -679,19 +700,26 @@ fn render_dropdown_list<C: BishopContext>(
         let thumb_y =
             list_rect.y + (scroll_offset / (total_height - list_rect.h)) * (list_rect.h - thumb_h);
 
+        let track_primary = resolve(overrides.primary, colors::DEFAULT_PRIMARY_COLOR);
+        let track_col = Color::new(
+            track_primary.r * 0.5,
+            track_primary.g * 0.5,
+            track_primary.b * 0.5,
+            DROPDOWN_SCROLLBAR_TRACK.a,
+        );
         ctx.draw_rectangle(
             list_rect.x + list_rect.w - 6.,
             list_rect.y,
             6.,
             list_rect.h,
-            Color::new(0.2, 0.2, 0.2, 0.5),
+            track_col,
         );
         ctx.draw_rectangle(
             list_rect.x + list_rect.w - 6.,
             thumb_y,
             6.,
             thumb_h,
-            Color::new(0.6, 0.6, 0.6, 0.9),
+            resolve(overrides.primary, DROPDOWN_SCROLLBAR_THUMB),
         );
     }
 
@@ -701,8 +729,17 @@ fn render_dropdown_list<C: BishopContext>(
         list_rect.w,
         list_rect.h,
         2.,
-        OUTLINE_COLOR,
+        resolve(overrides.border, colors::DEFAULT_BORDER_COLOR),
     );
+}
+
+impl<T> Widget for Dropdown<'_, T> {
+    fn widget_type() -> WidgetType {
+        WidgetType::Dropdown
+    }
+    fn base_mut(&mut self) -> &mut WidgetBase {
+        &mut self.base
+    }
 }
 
 /// Internal module for managing dropdown state.

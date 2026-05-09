@@ -11,7 +11,7 @@ pub mod world {
     use bishop::prelude::*;
 
     /// Default grid size that the world scales to.
-    pub const DEFAULT_GRID_SIZE: f32 = 8.0;
+    pub const DEFAULT_GRID_SIZE: f32 = 16.0;
     pub const MINIMUM_GRID_SIZE: f32 = 5.0;
 
     /// Base tile size for editor scaling.
@@ -95,6 +95,9 @@ pub mod paths {
 
     /// Name of the prefabs folder.
     pub const PREFABS_FOLDER: &str = "prefabs";
+
+    /// Name of the themes folder.
+    pub const THEMES_FOLDER: &str = "themes";
 
     /// Name of the folder for windows-specific game assets.
     pub const WINDOWS_FOLDER: &str = "windows";

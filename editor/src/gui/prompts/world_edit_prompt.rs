@@ -4,6 +4,7 @@ use crate::gui::prompts::constants::*;
 use crate::gui::prompts::helpers::*;
 use bishop::prelude::*;
 use engine_core::prelude::*;
+use widgets::constants::layout;
 
 /// Result an edit world prompt.
 pub struct WorldEditResult {
@@ -37,11 +38,11 @@ impl WorldEditPrompt {
         og_sprite: SpriteId,
     ) -> Self {
         let total_h = PROMPT_TOP_PADDING
-            + DEFAULT_FONT_SIZE_16
+            + layout::DEFAULT_FONT_SIZE_16
             + PROMPT_TEXT_GAP
             + FIELD_H
             + PROMPT_SECTION_GAP
-            + DEFAULT_FONT_SIZE_16
+            + layout::DEFAULT_FONT_SIZE_16
             + PROMPT_TEXT_GAP
             + FIELD_H
             + PROMPT_SECTION_GAP

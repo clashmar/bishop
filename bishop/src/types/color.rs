@@ -22,6 +22,16 @@ impl Color {
         Self { r, g, b, a: 1.0 }
     }
 
+    /// Returns a copy with the given alpha value.
+    pub const fn with_alpha(self, a: f32) -> Self {
+        Self {
+            r: self.r,
+            g: self.g,
+            b: self.b,
+            a,
+        }
+    }
+
     pub const LIGHTGREY: Color = Color::new(0.78, 0.78, 0.78, 1.00);
     pub const GREY: Color = Color::new(0.51, 0.51, 0.51, 1.00);
     pub const DARKGRAY: Color = Color::new(0.31, 0.31, 0.31, 1.00);
@@ -50,8 +60,14 @@ impl Color {
     pub const TRANSPARENT: Color = Color::new(0.00, 0.00, 0.00, 0.00);
 
     /// Parses a 6-character hex RGB string into a Color with alpha 1.0.
+    /// Accepts with or without leading `#`. Panics on invalid input.
+    pub fn from_hex(hex: &str) -> Color {
+        Self::try_from_hex(hex).unwrap_or_else(|| panic!("invalid hex color: {hex:?}"))
+    }
+
+    /// Parses a 6-character hex RGB string into a Color with alpha 1.0.
     /// Accepts with or without leading `#`. Returns `None` on invalid input.
-    pub fn from_hex(hex: &str) -> Option<Color> {
+    pub fn try_from_hex(hex: &str) -> Option<Color> {
         let hex = hex.strip_prefix('#').unwrap_or(hex);
         if hex.len() != 6 {
             return None;

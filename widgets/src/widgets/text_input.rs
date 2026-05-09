@@ -1,41 +1,37 @@
 use crate::clipboard::{clipboard_get_text, clipboard_set_text};
+use crate::constants::{colors, input_repeat, layout};
 use crate::*;
 
-/// A text input widget using the builder pattern.
-pub struct TextInput<'a> {
+pub struct TextInput {
     id: WidgetId,
     rect: Rect,
-    current: &'a str,
-    blocked: bool,
+    current: String,
     start_focused: bool,
     select_all_on_focus: bool,
     max_len: Option<usize>,
     char_filter: Option<fn(char) -> Option<char>>,
-    live: bool,
     bypass_dropdown: bool,
+    base: WidgetBase,
 }
 
-impl<'a> TextInput<'a> {
+impl TextInput {
     /// Creates a new text input widget with the given id, rect, and current value.
-    pub fn new(id: WidgetId, rect: impl Into<Rect>, current: &'a str) -> Self {
+    pub fn new(id: WidgetId, rect: impl Into<Rect>, current: &str) -> Self {
         Self {
             id,
             rect: rect.into(),
-            current,
-            blocked: false,
+            current: current.to_string(),
             start_focused: false,
             select_all_on_focus: false,
             max_len: None,
             char_filter: None,
-            live: false,
             bypass_dropdown: false,
+            base: WidgetBase {
+                blocked: false,
+                overrides: WidgetTheme::default(),
+                ..WidgetBase::default()
+            },
         }
-    }
-
-    /// Sets whether the input is blocked from interaction.
-    pub fn blocked(mut self, blocked: bool) -> Self {
-        self.blocked = blocked;
-        self
     }
 
     /// Sets whether the input should start focused.
@@ -63,13 +59,6 @@ impl<'a> TextInput<'a> {
         self
     }
 
-    /// Returns the current typed text every frame without requiring Enter to confirm.
-    /// Use for inputs that should filter or react in real time.
-    pub fn live(mut self) -> Self {
-        self.live = true;
-        self
-    }
-
     /// Allows this input to receive keyboard events even when a dropdown list is open.
     /// Use for TextInputs that are embedded inside a dropdown list.
     pub fn in_dropdown(mut self) -> Self {
@@ -77,8 +66,11 @@ impl<'a> TextInput<'a> {
         self
     }
 
-    /// Draws the widget and returns the current text and focus state.
-    pub fn show<C: BishopContext>(self, ctx: &mut C) -> (String, bool) {
+    /// Draws the widget and returns the current text and commit state.
+    pub fn show<C: BishopContext>(self, ctx: &mut C) -> (String, InputCommit) {
+        let class = self.base.class_name.as_deref();
+        let id = self.base.style_id.as_deref();
+        let widget_theme = resolve_theme_for::<Self>(class, id);
         tab_registry_add(self.id, self.rect, true);
 
         let mut just_gained_focus = false;
@@ -144,12 +136,14 @@ impl<'a> TextInput<'a> {
             scroll_offset_x = 0.0;
         }
 
+        let selection_color = resolve_with_theme(self.base.overrides.accent, widget_theme.accent, colors::DEFAULT_INPUT_SELECTION_COLOR);
+
         ctx.draw_rectangle(
             self.rect.x,
             self.rect.y,
             self.rect.w,
             self.rect.h,
-            FIELD_BACKGROUND_COLOR,
+            resolve_with_theme(self.base.overrides.background, widget_theme.background, colors::DEFAULT_BACKGROUND_COLOR),
         );
         ctx.draw_rectangle_lines(
             self.rect.x,
@@ -157,23 +151,23 @@ impl<'a> TextInput<'a> {
             self.rect.w,
             self.rect.h,
             2.,
-            Color::WHITE,
+            resolve_with_theme(self.base.overrides.border, widget_theme.border, Color::WHITE),
         );
 
-        let text_area_x = self.rect.x + WIDGET_PADDING / 2.;
+        let text_area_x = self.rect.x + layout::WIDGET_PADDING / 2.;
 
         if let Some((start, end)) = selection_range(cursor_char, selection_anchor) {
             let start_byte = byte_offset(&text, start);
             let end_byte = byte_offset(&text, end);
             let sel_start_x = text_area_x
-                + measure_text_ui(ctx, &text[..start_byte], DEFAULT_FONT_SIZE_16).width
+                + measure_text_ui(ctx, &text[..start_byte], layout::DEFAULT_FONT_SIZE_16).width
                 - scroll_offset_x;
             let sel_end_x = text_area_x
-                + measure_text_ui(ctx, &text[..end_byte], DEFAULT_FONT_SIZE_16).width
+                + measure_text_ui(ctx, &text[..end_byte], layout::DEFAULT_FONT_SIZE_16).width
                 - scroll_offset_x;
 
             let clipped_start = sel_start_x.max(text_area_x);
-            let clipped_end = sel_end_x.min(self.rect.x + self.rect.w - WIDGET_PADDING / 2.);
+            let clipped_end = sel_end_x.min(self.rect.x + self.rect.w - layout::WIDGET_PADDING / 2.);
 
             if clipped_end > clipped_start {
                 ctx.draw_rectangle(
@@ -181,13 +175,13 @@ impl<'a> TextInput<'a> {
                     self.rect.y + self.rect.h * 0.2,
                     clipped_end - clipped_start,
                     self.rect.h * 0.6,
-                    Color::new(0.3, 0.5, 0.8, 0.5),
+                    selection_color,
                 );
             }
         }
 
         let display = if text.is_empty() {
-            PLACEHOLDER_TEXT
+            crate::constants::PLACEHOLDER_TEXT
         } else {
             &text
         };
@@ -196,8 +190,8 @@ impl<'a> TextInput<'a> {
             display,
             self.rect,
             scroll_offset_x,
-            DEFAULT_FONT_SIZE_16,
-            FIELD_TEXT_COLOR,
+            layout::DEFAULT_FONT_SIZE_16,
+            resolve_with_theme(self.base.overrides.text, widget_theme.text, colors::DEFAULT_TEXT_COLOR),
         );
 
         let mouse = ctx.mouse_position();
@@ -207,9 +201,14 @@ impl<'a> TextInput<'a> {
             if !focused && mouse_over {
                 just_gained_focus = true;
             }
-            focused = mouse_over && !self.blocked;
+
+            let was_focused = focused;
+            focused = mouse_over && !self.base.blocked;
 
             if !focused {
+                if was_focused {
+                    confirmed = true;
+                }
                 INPUT_FOCUSED.with(|f| *f.borrow_mut() = false);
                 selection_anchor = None;
             }
@@ -223,7 +222,7 @@ impl<'a> TextInput<'a> {
                     &text,
                     mouse.0,
                     self.rect.x,
-                    DEFAULT_FONT_SIZE_16,
+                    layout::DEFAULT_FONT_SIZE_16,
                     scroll_offset_x,
                 );
                 cursor_char = click_pos;
@@ -238,8 +237,8 @@ impl<'a> TextInput<'a> {
                 &text,
                 mouse.0,
                 self.rect.x,
-                DEFAULT_FONT_SIZE_16,
-                scroll_offset_x,
+                    layout::DEFAULT_FONT_SIZE_16,
+                    scroll_offset_x,
             );
             cursor_char = drag_pos;
         }
@@ -262,7 +261,8 @@ impl<'a> TextInput<'a> {
         }
 
         if (is_dropdown_open() || is_context_menu_open()) && !self.bypass_dropdown {
-            return (text, false);
+            let commit = if confirmed { InputCommit::Committed } else { InputCommit::Unchanged };
+            return (text, commit);
         }
 
         if focused {
@@ -330,8 +330,8 @@ impl<'a> TextInput<'a> {
                     true
                 } else if down && *rk == Some(key) {
                     let elapsed = now - *lkt;
-                    if (!*rs && elapsed >= HOLD_INITIAL_DELAY)
-                        || (*rs && elapsed >= HOLD_REPEAT_RATE)
+                    if (!*rs && elapsed >= input_repeat::HOLD_INITIAL_DELAY)
+                        || (*rs && elapsed >= input_repeat::HOLD_REPEAT_RATE)
                     {
                         *lkt = now;
                         *rs = true;
@@ -453,6 +453,10 @@ impl<'a> TextInput<'a> {
             }
 
             if ctx.is_key_pressed(KeyCode::Tab) {
+                INPUT_FOCUSED.with(|f| *f.borrow_mut() = false);
+                focused = false;
+                confirmed = true;
+                selection_anchor = None;
                 tab_request_pending(self.id, shift_held);
             }
 
@@ -503,8 +507,8 @@ impl<'a> TextInput<'a> {
             cursor_char,
             scroll_offset_x,
             self.rect.w,
-            WIDGET_PADDING,
-            DEFAULT_FONT_SIZE_16,
+            layout::WIDGET_PADDING,
+            layout::DEFAULT_FONT_SIZE_16,
         );
 
         let now = ctx.get_time();
@@ -512,8 +516,8 @@ impl<'a> TextInput<'a> {
             let byte_pos = byte_offset(&text, cursor_char);
             let prefix = &text[..byte_pos];
             let cursor_x = self.rect.x
-                + WIDGET_PADDING / 2.
-                + measure_text_ui(ctx, prefix, DEFAULT_FONT_SIZE_16).width
+                + layout::WIDGET_PADDING / 2.
+                + measure_text_ui(ctx, prefix, layout::DEFAULT_FONT_SIZE_16).width
                 - scroll_offset_x;
             if cursor_x >= self.rect.x && cursor_x <= self.rect.x + self.rect.w {
                 ctx.draw_line(
@@ -522,11 +526,12 @@ impl<'a> TextInput<'a> {
                     cursor_x,
                     self.rect.y + self.rect.h * 0.8,
                     2.,
-                    OUTLINE_COLOR,
+                    resolve_with_theme(self.base.overrides.border, widget_theme.border, colors::DEFAULT_BORDER_COLOR),
                 );
             }
         }
 
+        let current_gen = current_widget_frame_generation();
         INPUT_TEXT_STATE.with(|s| {
             let mut map = s.borrow_mut();
             map.insert(
@@ -541,16 +546,32 @@ impl<'a> TextInput<'a> {
                     repeat_started,
                     dragging,
                     scroll_offset_x,
+                    last_drawn_frame: current_gen,
                 },
             );
         });
 
-        if self.live || (!focused && confirmed) {
-            (text, focused)
+        let commit = if focused {
+            InputCommit::Previewing
+        } else if confirmed {
+            InputCommit::Committed
         } else {
-            (self.current.to_string(), focused)
-        }
+            InputCommit::Unchanged
+        };
+
+        let result_text = if focused || confirmed {
+            text
+        } else {
+            self.current.clone()
+        };
+
+        (result_text, commit)
     }
+}
+
+impl Widget for TextInput {
+    fn widget_type() -> WidgetType { WidgetType::TextInput }
+    fn base_mut(&mut self) -> &mut WidgetBase { &mut self.base }
 }
 
 /// Resets the text input state for the given widget id.
@@ -560,4 +581,29 @@ pub fn text_input_reset(id: WidgetId) {
         let mut map = s.borrow_mut();
         map.remove(&id);
     });
+}
+
+#[cfg(test)]
+mod theme_tests {
+    use super::*;
+    use crate::theme::Theme;
+
+    #[test]
+    fn text_input_theme_mapper_maps_key_roles() {
+        let theme = Theme {
+            background: Color::GREEN,
+            accent: Color::BLUE,
+            border: Color::new(0.8, 0.8, 0.8, 1.0),
+            text: Color::BLACK,
+            ..Theme::default()
+        };
+        let overrides = TextInput::map_theme(&theme);
+        assert_eq!(overrides.background, Some(Color::GREEN));
+        assert_eq!(overrides.accent, Some(Color::BLUE));
+        assert_eq!(overrides.border, Some(Color::new(0.8, 0.8, 0.8, 1.0)));
+        assert_eq!(overrides.text, Some(Color::BLACK));
+        assert_eq!(overrides.primary, None);
+        assert_eq!(overrides.surface, None);
+        assert_eq!(overrides.hover, None);
+    }
 }

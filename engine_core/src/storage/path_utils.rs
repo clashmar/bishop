@@ -65,6 +65,11 @@ pub fn prefabs_folder() -> PathBuf {
     resources_folder_current().join(paths::PREFABS_FOLDER)
 }
 
+/// Returns the path to the themes folder for the current game.
+pub fn themes_folder() -> PathBuf {
+    resources_folder_current().join(paths::THEMES_FOLDER)
+}
+
 /// Path to the audio folder inside the resources folder (Editor/Game).
 pub fn audio_folder() -> PathBuf {
     resources_folder_current().join(paths::AUDIO_FOLDER)

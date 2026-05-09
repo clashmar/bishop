@@ -29,6 +29,8 @@ pub struct MenuManager {
     slider_values: HashMap<String, f32>,
     /// Hold-to-repeat state for the currently focused slider.
     slider_repeat: SliderRepeatState,
+    /// Tracks the last focusable element the mouse was over, for hover detection.
+    last_hovered_focus: Option<MenuFocus>,
 }
 
 impl Default for MenuManager {
@@ -86,6 +88,7 @@ impl MenuManager {
             viewport: Rect::new(0.0, 0.0, 1.0, 1.0),
             slider_values: HashMap::new(),
             slider_repeat: SliderRepeatState::default(),
+            last_hovered_focus: None,
         };
         for template in default_menus() {
             manager.register_template(template);
@@ -124,12 +127,14 @@ impl MenuManager {
             self.focus.reset(template);
             self.slider_repeat.reset();
             self.menu_stack.push(id.to_string());
+            self.last_hovered_focus = None;
         }
     }
 
     /// Closes the current menu and returns to previous menu if any.
     pub fn close_menu(&mut self) {
         self.menu_stack.pop();
+        self.last_hovered_focus = None;
         if let Some(parent_id) = self.menu_stack.last()
             && let Some(template) = self.templates.get(parent_id)
         {
@@ -145,6 +150,7 @@ impl MenuManager {
     pub fn close_all(&mut self) {
         self.menu_stack.clear();
         self.focus = MenuFocus::new(0);
+        self.last_hovered_focus = None;
         self.slider_repeat.reset();
     }
 
@@ -305,6 +311,10 @@ impl MenuManager {
                 self.slider_repeat.reset();
             }
 
+            // Mouse hover overrides keyboard focus
+            let mouse = ctx.mouse_position();
+            self.handle_mouse_hover(&template, Vec2::new(mouse.0, mouse.1));
+
             let confirm_pressed = self.navigation.confirm_pressed(ctx);
             let action_to_handle = if confirm_pressed {
                 template
@@ -326,6 +336,18 @@ impl MenuManager {
                 self.handle_action(action);
             }
         }
+    }
+
+    /// Applies mouse hover to focus: only changes focus when the mouse enters a new element.
+    fn handle_mouse_hover(&mut self, template: &MenuTemplate, mouse: Vec2) {
+        let hovered_focus = focus_target_at(template, self.viewport, mouse);
+
+        if hovered_focus != self.last_hovered_focus
+            && let Some(f) = hovered_focus.clone() {
+            self.focus = f;
+            self.slider_repeat.reset();
+        }
+        self.last_hovered_focus = hovered_focus;
     }
 
     /// Renders the active menu if any.
@@ -461,5 +483,94 @@ mod tests {
         manager.open_menu("start");
 
         assert!(manager.is_hiding_game());
+    }
+
+    #[test]
+    fn hover_sets_focus_on_menu_button() {
+        let mut manager = MenuManager::new();
+        let template = MenuTemplate {
+            id: "test".to_string(),
+            background: MenuBackground::None,
+            elements: vec![
+                MenuElement::button(
+                    "btn0".to_string(),
+                    MenuAction::Resume,
+                    Rect::new(0.0, 0.0, 0.5, 1.0),
+                ),
+                MenuElement::button(
+                    "btn1".to_string(),
+                    MenuAction::CloseMenu,
+                    Rect::new(0.5, 0.0, 0.5, 1.0),
+                ),
+            ],
+            mode: MenuMode::Paused,
+        };
+        manager.register_template(template.clone());
+        manager.open_menu("test");
+
+        // Hover over second button (normalized coords for default viewport)
+        manager.handle_mouse_hover(&template, Vec2::new(0.75, 0.5));
+        assert_eq!(manager.focus.node, 1);
+    }
+
+    #[test]
+    fn hover_leaves_focus_stays_on_menu() {
+        let mut manager = MenuManager::new();
+        let template = MenuTemplate {
+            id: "test".to_string(),
+            background: MenuBackground::None,
+            elements: vec![
+                MenuElement::button(
+                    "btn0".to_string(),
+                    MenuAction::Resume,
+                    Rect::new(0.0, 0.0, 0.5, 1.0),
+                ),
+                MenuElement::button(
+                    "btn1".to_string(),
+                    MenuAction::CloseMenu,
+                    Rect::new(0.5, 0.0, 0.5, 1.0),
+                ),
+            ],
+            mode: MenuMode::Paused,
+        };
+        manager.register_template(template.clone());
+        manager.open_menu("test");
+
+        // Hover button 1
+        manager.handle_mouse_hover(&template, Vec2::new(0.75, 0.5));
+        assert_eq!(manager.focus.node, 1);
+
+        // Mouse leaves all elements
+        manager.handle_mouse_hover(&template, Vec2::new(-1.0, -1.0));
+        assert_eq!(manager.focus.node, 1); // Focus stays
+    }
+
+    #[test]
+    fn reopen_menu_resets_last_hovered() {
+        let mut manager = MenuManager::new();
+        let template = MenuTemplate {
+            id: "test".to_string(),
+            background: MenuBackground::None,
+            elements: vec![
+                MenuElement::button(
+                    "btn0".to_string(),
+                    MenuAction::Resume,
+                    Rect::new(0.0, 0.0, 1.0, 1.0),
+                ),
+            ],
+            mode: MenuMode::Paused,
+        };
+        manager.register_template(template.clone());
+
+        // Open, hover, close, re-open — hover state should be fresh
+        manager.open_menu("test");
+        manager.handle_mouse_hover(&template, Vec2::new(0.5, 0.5));
+        manager.close_menu();
+
+        manager.open_menu("test");
+        // After re-open, last_hovered_focus is None
+        // Hovering again should shift focus (proving it was reset)
+        manager.handle_mouse_hover(&template, Vec2::new(0.5, 0.5));
+        assert_eq!(manager.focus.node, 0);
     }
 }

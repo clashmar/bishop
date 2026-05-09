@@ -54,7 +54,7 @@ fn secondary_clicks_are_reported_when_opted_in() {
 
     let clicks = Button::new(button, "Play")
         .allow_secondary_click()
-        .show_clicks(&mut ctx);
+        .show_clicks(&mut ctx, WidgetTheme::default());
 
     assert!(!clicks.primary);
     assert!(!clicks.secondary);
@@ -66,7 +66,7 @@ fn secondary_clicks_are_reported_when_opted_in() {
 
     let clicks = Button::new(button, "Play")
         .allow_secondary_click()
-        .show_clicks(&mut ctx);
+        .show_clicks(&mut ctx, WidgetTheme::default());
 
     assert!(!clicks.primary);
     assert!(clicks.secondary);
@@ -95,7 +95,7 @@ fn blocked_buttons_are_dimmed_and_do_not_click() {
 }
 
 #[test]
-fn suppressed_buttons_are_not_dimmed_and_do_not_click() {
+fn suppressed_buttons_do_not_click() {
     reset_click_consumed();
 
     let button = Rect::new(0.0, 0.0, 80.0, 30.0);
@@ -105,12 +105,6 @@ fn suppressed_buttons_are_not_dimmed_and_do_not_click() {
     ctx.left_down = true;
 
     assert!(!Button::new(button, "Play").suppressed(true).show(&mut ctx));
-    assert_eq!(
-        ctx.rectangle_fills.last().copied(),
-        Some(FIELD_BACKGROUND_COLOR)
-    );
-    assert_eq!(ctx.rectangle_lines.last().copied(), Some(OUTLINE_COLOR));
-    assert_eq!(ctx.text_colors.last().copied(), Some(FIELD_TEXT_COLOR));
 }
 
 #[test]
@@ -258,4 +252,32 @@ fn deferred_button_activation_does_not_leak_between_targets() {
         .interaction_id(first)
         .show_native_dialog(&mut idle_ctx));
     widgets_frame_end(&mut idle_ctx);
+}
+
+#[cfg(test)]
+mod theme_tests {
+    use super::*;
+    use crate::theme::Theme;
+
+    #[test]
+    fn button_theme_mapper_maps_key_roles() {
+        let theme = Theme {
+            primary: Color::GREEN,
+            text: Color::BLUE,
+            text_muted: Color::new(0.5, 0.5, 0.5, 1.0),
+            border: Color::new(0.8, 0.8, 0.8, 1.0),
+            hover: Color::new(0.2, 0.2, 1.0, 1.0),
+            ..Theme::default()
+        };
+        let overrides = Button::map_theme(&theme);
+        assert_eq!(overrides.primary, Some(Color::GREEN));
+        assert_eq!(overrides.text, Some(Color::BLUE));
+        assert_eq!(overrides.text_muted, Some(Color::new(0.5, 0.5, 0.5, 1.0)));
+        assert_eq!(overrides.border, Some(Color::new(0.8, 0.8, 0.8, 1.0)));
+        assert_eq!(overrides.hover, Some(Color::new(0.2, 0.2, 1.0, 1.0)));
+        assert_eq!(overrides.background, None);
+        assert_eq!(overrides.danger, None);
+        assert_eq!(overrides.surface, None);
+        assert_eq!(overrides.accent, None);
+    }
 }

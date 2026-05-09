@@ -4,6 +4,7 @@ use crate::gui::prompts::constants::*;
 use crate::gui::prompts::helpers::*;
 use bishop::prelude::*;
 use engine_core::prelude::*;
+use widgets::constants::layout;
 
 /// Result of a world settings prompt.
 pub struct WorldSettingsResult {
@@ -31,7 +32,7 @@ impl WorldSettingsPrompt {
         og_grid_size: f32,
     ) -> Self {
         let total_h = PROMPT_TOP_PADDING
-            + DEFAULT_FONT_SIZE_16
+            + layout::DEFAULT_FONT_SIZE_16
             + PROMPT_TEXT_GAP
             + FIELD_H
             + PROMPT_SECTION_GAP
@@ -59,7 +60,7 @@ impl WorldSettingsPrompt {
 
         // Grid size field
         let grid_size_rect = Rect::new(self.rect.x, y, self.rect.w, FIELD_H);
-        let new_grid_size =
+        let (new_grid_size, _) =
             NumberInput::new(self.grid_size_id, grid_size_rect, self.current_grid_size)
                 .min(8.0)
                 .max(64.0)

@@ -262,4 +262,10 @@ fn generate_engine_scripts_rs() {
 
     // Rerun if _engine directory changes
     println!("cargo:rerun-if-changed=scripts/_engine");
+
+    // Rerun if bishop theme file changes
+    println!(
+        "cargo:rerun-if-changed=../games/Demo/Resources/themes/{}",
+        lua_files::BISHOP_THEME
+    );
 }

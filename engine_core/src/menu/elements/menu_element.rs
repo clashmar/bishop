@@ -1,9 +1,10 @@
+use super::button::ButtonElement;
+use super::element_kind::ElementKind;
+use super::label::LabelElement;
 use super::layout_group::LayoutGroupElement;
-use super::menu_panel::PanelBackground;
-use super::menu_slider::SliderElement;
-use crate::menu::layout::HorizontalAlign;
+use super::panel::PanelElement;
+use super::slider::SliderElement;
 use crate::menu::menu_builder::MenuAction;
-use crate::menu::{NavTargets, Navigable};
 use bishop::prelude::*;
 use serde::{Deserialize, Serialize};
 
@@ -17,74 +18,45 @@ pub enum MenuElementKind {
     Slider(SliderElement),
 }
 
-/// Label element displaying text resolved from a text key.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct LabelElement {
-    #[serde(alias = "text")]
-    pub text_key: String,
-    pub font_size: f32,
-    pub color: Color,
-    #[serde(default)]
-    pub alignment: HorizontalAlign,
-}
-
-impl Default for LabelElement {
-    fn default() -> Self {
-        Self {
-            text_key: String::new(),
-            font_size: 20.0,
-            color: Color::WHITE,
-            alignment: HorizontalAlign::default(),
-        }
-    }
-}
-
-/// Button element that triggers an action when clicked.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ButtonElement {
-    #[serde(alias = "text")]
-    pub text_key: String,
-    pub action: MenuAction,
-    pub font_size: f32,
-    pub nav_targets: NavTargets,
-}
-
-impl Default for ButtonElement {
-    fn default() -> Self {
-        Self {
-            text_key: String::new(),
-            action: MenuAction::CloseMenu,
-            font_size: 20.0,
-            nav_targets: NavTargets::default(),
-        }
-    }
-}
-
-impl Navigable for ButtonElement {
-    fn nav_targets(&self) -> &NavTargets {
-        &self.nav_targets
-    }
-
-    fn nav_targets_mut(&mut self) -> &mut NavTargets {
-        &mut self.nav_targets
-    }
-
-    fn from_element(el: &MenuElement) -> Option<&Self> {
-        match &el.kind {
-            MenuElementKind::Button(b) => Some(b),
-            _ => None,
+impl ElementKind for MenuElementKind {
+    fn kind_name(&self) -> &'static str {
+        match self {
+            MenuElementKind::Label(l) => l.kind_name(),
+            MenuElementKind::Button(b) => b.kind_name(),
+            MenuElementKind::Panel(p) => p.kind_name(),
+            MenuElementKind::LayoutGroup(g) => g.kind_name(),
+            MenuElementKind::Slider(s) => s.kind_name(),
         }
     }
 
-    fn wrap_into_element(self) -> MenuElementKind {
-        MenuElementKind::Button(self)
+    fn default_rect(&self) -> Rect {
+        match self {
+            MenuElementKind::Label(l) => l.default_rect(),
+            MenuElementKind::Button(b) => b.default_rect(),
+            MenuElementKind::Panel(p) => p.default_rect(),
+            MenuElementKind::LayoutGroup(g) => g.default_rect(),
+            MenuElementKind::Slider(s) => s.default_rect(),
+        }
     }
-}
 
-/// Decorative panel element that renders a background fill.
-#[derive(Default, Debug, Clone, Serialize, Deserialize)]
-pub struct PanelElement {
-    pub background: PanelBackground,
+    fn is_focusable(&self) -> bool {
+        match self {
+            MenuElementKind::Button(b) => b.is_focusable(),
+            MenuElementKind::Slider(s) => s.is_focusable(),
+            MenuElementKind::LayoutGroup(g) => g.is_focusable(),
+            _ => false,
+        }
+    }
+
+    fn wrap(&self, name: String) -> MenuElement {
+        match self {
+            MenuElementKind::Label(l) => l.wrap(name),
+            MenuElementKind::Button(b) => b.wrap(name),
+            MenuElementKind::Panel(p) => p.wrap(name),
+            MenuElementKind::LayoutGroup(g) => g.wrap(name),
+            MenuElementKind::Slider(s) => s.wrap(name),
+        }
+    }
 }
 
 /// Menu element variants with positional data.
@@ -96,6 +68,10 @@ pub struct MenuElement {
     pub enabled: bool,
     pub visible: bool,
     pub z_order: i32,
+    #[serde(default)]
+    pub class: Option<String>,
+    #[serde(default)]
+    pub style_id: Option<String>,
 }
 
 impl MenuElement {
@@ -108,6 +84,8 @@ impl MenuElement {
             enabled: true,
             visible: true,
             z_order: 0,
+            class: None,
+            style_id: None,
         }
     }
 
@@ -135,8 +113,8 @@ impl MenuElement {
     }
 
     /// Creates a panel element.
-    pub fn panel(background: PanelBackground, rect: Rect) -> Self {
-        Self::new(MenuElementKind::Panel(PanelElement { background }), rect)
+    pub fn panel(rect: Rect) -> Self {
+        Self::new(MenuElementKind::Panel(PanelElement), rect)
     }
 
     /// Creates a layout group element.

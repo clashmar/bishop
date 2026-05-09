@@ -12,7 +12,9 @@ use crate::push_command;
 use crate::world::coord;
 use bishop::prelude::*;
 use engine_core::prelude::*;
+use engine_core::theme::with_theme;
 use once_cell::sync::Lazy;
+use widgets::constants::layout;
 
 use std::collections::HashMap;
 use strum::IntoEnumIterator;
@@ -184,8 +186,8 @@ impl GameEditor {
                 && self.dragged_world.is_none()
             {
                 match self.mode {
-                    GameEditorMode::Delete => Color::RED,
-                    _ => HIGHLIGHT_GREEN,
+                    GameEditorMode::Delete => with_theme(|t| t.danger),
+                    _ => with_theme(|t| t.primary),
                 }
             } else {
                 Color::WHITE
@@ -278,7 +280,7 @@ impl GameEditor {
         const BTN_MARGIN: f32 = 10.0;
 
         let create_label = "New World";
-        let txt_create = measure_text(ctx, create_label, HEADER_FONT_SIZE_20);
+        let txt_create = measure_text(ctx, create_label, layout::HEADER_FONT_SIZE_20);
         let create_btn = Rect::new(
             ctx.screen_width() - txt_create.width - BTN_MARGIN - PADDING,
             BTN_MARGIN,

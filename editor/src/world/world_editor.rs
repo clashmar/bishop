@@ -10,13 +10,12 @@ use crate::shared::input::shortcuts_blocked;
 use crate::world::coord::*;
 use bishop::prelude::*;
 use engine_core::prelude::*;
+use engine_core::theme::with_theme;
 use once_cell::sync::Lazy;
 use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
 
 pub const LINE_THICKNESS_MULTIPLIER: f32 = 0.005;
-const HIGHLIGHT_COLOR: Color = Color::new(0.0, 1.0, 0.0, 0.5);
-const HIGHLIGHT_ERROR_COLOR: Color = Color::new(1.0, 0.0, 0.0, 0.5);
 const ROOM_LINE_INSET: f32 = 1.0;
 const HOVER_LINE_THICKNESS: f32 = 0.01;
 
@@ -345,8 +344,8 @@ impl WorldEditor {
 
                 // Choose highlight color based on mode
                 let color = match self.mode {
-                    WorldEditorMode::Delete => HIGHLIGHT_ERROR_COLOR,
-                    _ => HIGHLIGHT_COLOR,
+                    WorldEditorMode::Delete => with_theme(|t| t.danger.with_alpha(0.5)),
+                    _ => with_theme(|t| t.primary.with_alpha(0.5)),
                 };
 
                 ctx.draw_rectangle(
@@ -429,9 +428,9 @@ impl WorldEditor {
         if let (Some(start), Some(end)) = (self.placing_start, self.placing_end) {
             let (top_left, size) = rect_from_points(start, end);
             let color = if self.intersects_existing_room(rooms, top_left, size, grid_size) {
-                HIGHLIGHT_ERROR_COLOR
+                with_theme(|t| t.danger.with_alpha(0.5))
             } else {
-                HIGHLIGHT_COLOR
+                with_theme(|t| t.accent.with_alpha(0.5))
             };
             let inset = ROOM_LINE_INSET * grid_size;
             ctx.draw_rectangle_lines(
@@ -446,9 +445,9 @@ impl WorldEditor {
             let hover_tile = snap_to_grid(mouse_world_grid(ctx, camera, grid_size));
             let color =
                 if self.intersects_existing_room(rooms, hover_tile, vec2(1.0, 1.0), grid_size) {
-                    HIGHLIGHT_ERROR_COLOR
+                    with_theme(|t| t.danger.with_alpha(0.5))
                 } else {
-                    HIGHLIGHT_COLOR
+                    with_theme(|t| t.accent.with_alpha(0.5))
                 };
             ctx.draw_rectangle(
                 hover_tile.x * grid_size,

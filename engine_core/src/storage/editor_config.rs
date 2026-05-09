@@ -1,11 +1,13 @@
 // editor/src/storage/editor_config.rs
-use crate::*;
 #[cfg(feature = "editor")]
 use crate::game::StartupMode;
+#[cfg(feature = "editor")]
+use crate::theme::preset::{find_preset_by_name, DEFAULT_PRESET_NAME};
+use crate::*;
 use directories_next::ProjectDirs;
 use once_cell::sync::Lazy;
 use ron::from_str;
-use ron::ser::{PrettyConfig, to_string_pretty};
+use ron::ser::{to_string_pretty, PrettyConfig};
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "editor")]
 use std::collections::BTreeMap;
@@ -14,12 +16,13 @@ use std::fs;
 use std::path::Path;
 use std::path::PathBuf;
 use std::sync::RwLock;
-
 pub static EDITOR_CONFIG: Lazy<RwLock<EditorConfig>> = Lazy::new(|| RwLock::new(load_config()));
 
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
 pub struct EditorConfig {
     pub save_root: Option<PathBuf>,
+    #[serde(default)]
+    pub theme_preset: Option<String>,
     #[cfg(feature = "editor")]
     #[serde(default = "default_startup_mode")]
     pub playtest_startup_mode: StartupMode,
@@ -160,11 +163,14 @@ pub fn app_dir() -> PathBuf {
     }
 }
 
-fn config_path() -> PathBuf {
+pub(crate) fn config_path() -> PathBuf {
     app_dir().join("editor_config.ron")
 }
 
-fn save_config_to_path(config: &EditorConfig, path: &Path) -> Result<(), Box<dyn Error>> {
+pub(crate) fn save_config_to_path(
+    config: &EditorConfig,
+    path: &Path,
+) -> Result<(), Box<dyn Error>> {
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent)?;
     }
@@ -184,6 +190,25 @@ fn load_config() -> EditorConfig {
             EditorConfig::default()
         }
     }
+}
+
+/// Call once after loading EditorConfig to set the active theme.
+#[cfg(feature = "editor")]
+pub fn apply_config_theme() {
+    let preset_name = match EDITOR_CONFIG.read() {
+        Ok(cfg) => cfg.theme_preset.clone(),
+        Err(poison) => {
+            onscreen_error!("Editor config lock poisoned: {poison}");
+            return;
+        }
+    };
+    let theme = preset_name
+        .as_deref()
+        .and_then(find_preset_by_name)
+        .or_else(|| find_preset_by_name(DEFAULT_PRESET_NAME))
+        .map(|p| (p.build)())
+        .unwrap_or_else(widgets::theme::Theme::default);
+    widgets::theme::set_theme(theme);
 }
 
 #[cfg(all(test, feature = "editor"))]
@@ -263,5 +288,26 @@ mod tests {
         );
 
         let _ = fs::remove_file(path);
+    }
+
+    #[test]
+    fn theme_preset_roundtrips_through_ron() {
+        let mut config = EditorConfig::default();
+        config.theme_preset = Some("Bishop".to_string());
+
+        let path = std::env::temp_dir().join(format!("bishop-theme-test-{}.ron", Uuid::new_v4()));
+        save_config_to_path(&config, &path).unwrap();
+
+        let loaded: EditorConfig = ron::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
+        assert_eq!(loaded.theme_preset, Some("Bishop".to_string()));
+
+        let _ = fs::remove_file(path);
+    }
+
+    #[test]
+    fn missing_theme_preset_defaults_to_none() {
+        let ron = r#"(save_root: None)"#;
+        let config: EditorConfig = ron::from_str(ron).unwrap();
+        assert_eq!(config.theme_preset, None);
     }
 }

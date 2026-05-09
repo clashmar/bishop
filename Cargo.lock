@@ -3617,6 +3617,11 @@ version = "0.1.0"
 dependencies = [
  "arboard",
  "bishop",
+ "once_cell",
+ "ron",
+ "serde",
+ "strum",
+ "strum_macros",
 ]
 
 [[package]]

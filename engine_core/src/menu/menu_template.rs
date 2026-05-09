@@ -48,23 +48,6 @@ impl MenuTemplate {
         indices
     }
 
-    /// Renders menu labels transformed from normalized to screen-space using canvas origin/size.
-    pub(crate) fn render_label<C: BishopContext>(
-        ctx: &mut C,
-        label: &LabelElement,
-        rect: Rect,
-        display_text: &str,
-    ) {
-        let txt_dims = ctx.measure_text(display_text, label.font_size);
-        let txt_x = match label.alignment {
-            HorizontalAlign::Left => rect.x,
-            HorizontalAlign::Center => rect.x + (rect.w - txt_dims.width) / 2.0,
-            HorizontalAlign::Right => rect.x + rect.w - txt_dims.width,
-        };
-        let txt_y = rect.y + (rect.h - txt_dims.height) / 2.0 + txt_dims.offset_y;
-        ctx.draw_text(display_text, txt_x, txt_y, label.font_size, label.color);
-    }
-
     /// Returns button elements in z_order with their data.
     pub fn buttons(&self) -> Vec<(&ButtonElement, Rect, bool)> {
         let mut result = Vec::new();

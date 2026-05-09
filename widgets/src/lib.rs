@@ -1,18 +1,19 @@
 pub mod clipboard;
-mod constants;
+pub mod constants;
 mod focus;
 mod helpers;
 pub mod state;
 mod tab_registry;
+pub mod theme;
 pub mod widget_id;
 mod widgets;
 
 pub use clipboard::*;
-pub use constants::*;
 pub use focus::*;
 pub use helpers::*;
 pub use state::*;
 pub use tab_registry::*;
+pub use theme::*;
 pub use widget_id::*;
 pub use widgets::*;
 
@@ -20,6 +21,8 @@ pub use bishop::BishopContext;
 pub use bishop::TextDimensions;
 
 pub use bishop::{Color, DrawTextureParams, KeyCode, MouseButton, Rect, Texture2D, Vec2};
+
+use constants::layout;
 
 /// Draws text at the given position using the provided context.
 pub(crate) fn draw_text_ui<C: BishopContext>(
@@ -51,11 +54,11 @@ pub(crate) fn draw_text_clipped<C: BishopContext>(
     font_size: f32,
     color: Color,
 ) {
-    let text_x = rect.x + WIDGET_PADDING / 2. - scroll_offset;
+    let text_x = rect.x + layout::WIDGET_PADDING / 2. - scroll_offset;
     let text_y = rect.y + rect.h * 0.7;
 
-    let clip_left = rect.x + WIDGET_PADDING / 2.;
-    let clip_right = rect.x + rect.w - WIDGET_PADDING / 2.;
+    let clip_left = rect.x + layout::WIDGET_PADDING / 2.;
+    let clip_right = rect.x + rect.w - layout::WIDGET_PADDING / 2.;
 
     let mut visible_start_byte = 0;
     let mut visible_end_byte = text.len();

@@ -534,7 +534,6 @@ impl RoomEditor {
                                     ecs,
                                     selected_entity,
                                     sprite_manager,
-                                    Color::YELLOW,
                                     grid_size,
                                 );
                             }
@@ -549,7 +548,7 @@ impl RoomEditor {
                         if self.drag_state.box_select_active {
                             if let Some(start) = self.drag_state.box_select_start {
                                 let mouse_world = coord::mouse_world_pos(ctx, camera);
-                                draw_selection_box(ctx, start, mouse_world);
+                                draw_selection_box(ctx, start, mouse_world, grid_size);
                             }
                         }
                     }

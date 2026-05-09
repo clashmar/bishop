@@ -1,3 +1,4 @@
+use crate::constants::{colors, layout};
 use crate::*;
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
@@ -29,21 +30,20 @@ pub struct Button<'a> {
     content: ButtonContent<'a>,
     style: ButtonStyle,
     font_size: f32,
-    text_color: Color,
-    hover_color: Color,
     text_offset: Vec2,
-    blocked: bool,
     suppressed: bool,
     focused: bool,
     mouse_position: Option<Vec2>,
     allow_secondary_click: bool,
     interaction_id: Option<ClickTargetId>,
     icon_padding: f32,
+    base: WidgetBase,
 }
 
 const BLOCKED_BACKGROUND_COLOR: Color = Color::new(0.08, 0.08, 0.08, 0.9);
 const BLOCKED_OUTLINE_COLOR: Color = Color::new(0.45, 0.45, 0.45, 0.7);
 const BLOCKED_TEXT_COLOR: Color = Color::new(0.65, 0.65, 0.65, 0.9);
+const PLAIN_BLOCKED_OVERLAY: Color = Color::new(0.2, 0.2, 0.2, 0.25);
 
 impl<'a> Button<'a> {
     /// Creates a new button with the given rect and label.
@@ -52,17 +52,19 @@ impl<'a> Button<'a> {
             rect: rect.into(),
             content: ButtonContent::Text(label),
             style: ButtonStyle::Default,
-            font_size: FIELD_TEXT_SIZE_16,
-            text_color: FIELD_TEXT_COLOR,
-            hover_color: HOVER_COLOR,
+            font_size: layout::FIELD_TEXT_SIZE_16,
             text_offset: Vec2::ZERO,
-            blocked: false,
             suppressed: false,
             focused: false,
             mouse_position: None,
             allow_secondary_click: false,
             interaction_id: None,
             icon_padding: 2.0,
+            base: WidgetBase {
+                blocked: false,
+                overrides: WidgetTheme::default(),
+                ..WidgetBase::default()
+            },
         }
     }
 
@@ -75,36 +77,37 @@ impl<'a> Button<'a> {
             rect: rect.into(),
             content: ButtonContent::Icon { texture, id },
             style: ButtonStyle::Default,
-            font_size: FIELD_TEXT_SIZE_16,
-            text_color: FIELD_TEXT_COLOR,
-            hover_color: HOVER_COLOR,
+            font_size: layout::FIELD_TEXT_SIZE_16,
             text_offset: Vec2::ZERO,
-            blocked: false,
             suppressed: false,
             focused: false,
             mouse_position: None,
             allow_secondary_click: false,
             interaction_id: None,
             icon_padding: 2.0,
+            base: WidgetBase {
+                blocked: false,
+                overrides: WidgetTheme::default(),
+                ..WidgetBase::default()
+            },
         }
     }
 
     /// Sets the button to use the plain style (no background).
     pub fn plain(mut self) -> Self {
         self.style = ButtonStyle::Plain;
-        self.hover_color = HOVER_COLOR_PLAIN;
         self
     }
 
     /// Sets the text color.
     pub fn text_color(mut self, color: impl Into<Color>) -> Self {
-        self.text_color = color.into();
+        self.base.overrides.text = Some(color.into());
         self
     }
 
     /// Sets the hover background color.
     pub fn hover_color(mut self, color: impl Into<Color>) -> Self {
-        self.hover_color = color.into();
+        self.base.overrides.hover = Some(color.into());
         self
     }
 
@@ -117,12 +120,6 @@ impl<'a> Button<'a> {
     /// Sets the font size for the button label.
     pub fn font_size(mut self, size: f32) -> Self {
         self.font_size = size;
-        self
-    }
-
-    /// Sets whether the button is blocked from interaction.
-    pub fn blocked(mut self, blocked: bool) -> Self {
-        self.blocked = blocked;
         self
     }
 
@@ -164,20 +161,20 @@ impl<'a> Button<'a> {
 
     /// Draws the button and returns true if clicked.
     pub fn show<C: BishopContext>(self, ctx: &mut C) -> bool {
-        self.show_clicks(ctx).primary
+        let class = self.base.class_name.as_deref();
+        let id = self.base.style_id.as_deref();
+        let widget_theme = resolve_theme_for::<Self>(class, id);
+        self.show_clicks(ctx, widget_theme).primary
     }
 
-    /// Draws the button and returns true one idle frame after a primary click.
-    ///
-    /// Use this specifically for actions that open native OS dialogs, so the
-    /// dialog is not launched during the same input-release frame that
-    /// triggered it. Callers should provide a stable [`Button::interaction_id`]
-    /// so the deferred activation survives the frame boundary reliably.
     pub fn show_native_dialog<C: BishopContext>(self, ctx: &mut C) -> bool {
         let interaction_id = self
             .interaction_id
             .unwrap_or_else(|| self.default_interaction_id());
-        let clicks = self.show_clicks(ctx);
+        let class = self.base.class_name.as_deref();
+        let id = self.base.style_id.as_deref();
+        let widget_theme = resolve_theme_for::<Self>(class, id);
+        let clicks = self.show_clicks(ctx, widget_theme);
 
         if clicks.primary {
             queue_deferred_click_target(interaction_id);
@@ -191,7 +188,11 @@ impl<'a> Button<'a> {
     }
 
     /// Draws the button and returns primary and secondary click results.
-    pub fn show_clicks<C: BishopContext>(self, ctx: &mut C) -> ButtonClicks {
+    pub fn show_clicks<C: BishopContext>(
+        self,
+        ctx: &mut C,
+        widget_theme: WidgetTheme,
+    ) -> ButtonClicks {
         let interaction_id = self
             .interaction_id
             .unwrap_or_else(|| self.default_interaction_id());
@@ -202,8 +203,8 @@ impl<'a> Button<'a> {
         let primary_held = hovered && ctx.is_mouse_button_down(MouseButton::Left);
         let secondary_held =
             self.allow_secondary_click && hovered && ctx.is_mouse_button_down(MouseButton::Right);
-        let visually_blocked = self.blocked;
-        let interactive_blocked = self.blocked || self.suppressed;
+        let visually_blocked = self.base.blocked;
+        let interactive_blocked = self.base.blocked || self.suppressed;
 
         let highlight = (hovered || self.focused)
             && !is_dropdown_open()
@@ -215,16 +216,32 @@ impl<'a> Button<'a> {
         match self.style {
             ButtonStyle::Default => {
                 let background = if visually_blocked {
-                    BLOCKED_BACKGROUND_COLOR
+                    resolve_with_theme(
+                        self.base.overrides.surface,
+                        widget_theme.surface,
+                        BLOCKED_BACKGROUND_COLOR,
+                    )
                 } else if highlight {
-                    self.hover_color
+                    resolve_with_theme(
+                        self.base.overrides.hover,
+                        widget_theme.hover,
+                        colors::DEFAULT_HOVER_COLOR,
+                    )
                 } else {
-                    FIELD_BACKGROUND_COLOR
+                    resolve_with_theme(
+                        self.base.overrides.primary,
+                        widget_theme.primary,
+                        colors::DEFAULT_PRIMARY_COLOR,
+                    )
                 };
                 let outline_color = if visually_blocked {
                     BLOCKED_OUTLINE_COLOR
                 } else {
-                    OUTLINE_COLOR
+                    resolve_with_theme(
+                        self.base.overrides.border,
+                        widget_theme.border,
+                        colors::DEFAULT_BORDER_COLOR,
+                    )
                 };
                 ctx.draw_rectangle(
                     self.rect.x,
@@ -249,7 +266,11 @@ impl<'a> Button<'a> {
                         self.rect.y,
                         self.rect.w,
                         self.rect.h,
-                        Color::new(0.2, 0.2, 0.2, 0.25),
+                        resolve_with_theme(
+                            self.base.overrides.surface,
+                            widget_theme.surface,
+                            PLAIN_BLOCKED_OVERLAY,
+                        ),
                     );
                 } else if highlight {
                     ctx.draw_rectangle(
@@ -257,7 +278,11 @@ impl<'a> Button<'a> {
                         self.rect.y,
                         self.rect.w,
                         self.rect.h,
-                        self.hover_color,
+                        resolve_with_theme(
+                            self.base.overrides.hover,
+                            widget_theme.hover,
+                            colors::DEFAULT_HOVER_COLOR,
+                        ),
                     );
                 }
             }
@@ -266,9 +291,17 @@ impl<'a> Button<'a> {
         match &self.content {
             ButtonContent::Text(label) => {
                 let text_color = if visually_blocked {
-                    BLOCKED_TEXT_COLOR
+                    resolve_with_theme(
+                        self.base.overrides.text_muted,
+                        widget_theme.text_muted,
+                        BLOCKED_TEXT_COLOR,
+                    )
                 } else {
-                    self.text_color
+                    resolve_with_theme(
+                        self.base.overrides.text,
+                        widget_theme.text,
+                        colors::DEFAULT_TEXT_COLOR,
+                    )
                 };
                 let txt_dims = measure_text_ui(ctx, label, self.font_size);
                 let txt_y = self.rect.y + (self.rect.h - txt_dims.height) / 2.0 + txt_dims.offset_y;
@@ -283,17 +316,12 @@ impl<'a> Button<'a> {
                 );
             }
             ButtonContent::Icon { texture, .. } => {
-                let icon_color = if visually_blocked {
-                    BLOCKED_TEXT_COLOR
-                } else {
-                    self.text_color
-                };
                 let p = self.icon_padding;
                 ctx.draw_texture_ex(
                     texture,
                     self.rect.x + p,
                     self.rect.y + p,
-                    icon_color,
+                    Color::WHITE,
                     DrawTextureParams {
                         dest_size: Some(Vec2::new(self.rect.w - 2.0 * p, self.rect.h - 2.0 * p)),
                         ..Default::default()
@@ -336,6 +364,15 @@ impl<'a> Button<'a> {
         self.rect.h.to_bits().hash(&mut hasher);
         self.style.hash(&mut hasher);
         ClickTargetId(hasher.finish())
+    }
+}
+
+impl Widget for Button<'_> {
+    fn widget_type() -> WidgetType {
+        WidgetType::Button
+    }
+    fn base_mut(&mut self) -> &mut WidgetBase {
+        &mut self.base
     }
 }
 

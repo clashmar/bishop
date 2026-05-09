@@ -2,6 +2,8 @@
 use crate::ui::text::*;
 use crate::ui::widgets::*;
 use std::time::Instant;
+use widgets::constants::layout;
+use widgets::theme::with_theme;
 
 const PADDING: f32 = 20.0;
 
@@ -62,7 +64,7 @@ impl Toast {
 
         let display_msg = self.throb_display_msg();
         let measure_msg = self.throb_measure_msg();
-        let txt = measure_text(ctx, &measure_msg, DEFAULT_FONT_SIZE_16);
+        let txt = measure_text(ctx, &measure_msg, layout::DEFAULT_FONT_SIZE_16);
 
         // Bottom left
         let bg_rect = Rect::new(
@@ -78,7 +80,7 @@ impl Toast {
             bg_rect.y,
             bg_rect.w,
             bg_rect.h,
-            Color::new(0.0, 0.0, 0.0, 0.7),
+            with_theme(|t| t.overlay.with_alpha(0.7)),
         );
 
         // Text
@@ -87,8 +89,8 @@ impl Toast {
             &display_msg,
             bg_rect.x + PADDING,
             bg_rect.y + (bg_rect.h - txt.height) / 2.0 + txt.offset_y,
-            DEFAULT_FONT_SIZE_16,
-            Color::WHITE,
+            layout::DEFAULT_FONT_SIZE_16,
+            with_theme(|t| t.text),
         );
     }
 
@@ -367,7 +369,7 @@ mod tests {
         let expected_baseline_y = bg.y + (bg.h - text_dims.height) / 2.0 + text_dims.offset_y;
 
         assert_eq!(text_call.text, "Saved");
-        assert_eq!(text_call.font_size, DEFAULT_FONT_SIZE_16);
+        assert_eq!(text_call.font_size, layout::DEFAULT_FONT_SIZE_16);
         assert_eq!(text_call.color, Color::WHITE);
         assert!((text_call.x - (bg.x + PADDING)).abs() < f32::EPSILON);
         assert!((text_call.y - expected_baseline_y).abs() < f32::EPSILON);

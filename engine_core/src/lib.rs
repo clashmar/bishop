@@ -18,6 +18,7 @@ pub mod scripting;
 pub mod shaders;
 pub mod storage;
 pub mod task;
+pub mod theme;
 pub mod text;
 pub mod tiles;
 pub mod ui;
@@ -42,7 +43,6 @@ pub mod prelude {
     #[allow(ambiguous_glob_reexports)]
     pub use crate::menu::*;
     pub use crate::physics::*;
-    pub use crate::prefab::*;
     pub use crate::register_lua_api;
     pub use crate::register_lua_module;
     pub use crate::rendering::*;
@@ -50,6 +50,7 @@ pub mod prelude {
     pub use crate::shaders::*;
     pub use crate::storage::*;
     pub use crate::task::*;
+    pub use crate::theme::*;
     pub use crate::text::*;
     pub use crate::tiles::*;
     pub use crate::ui::*;

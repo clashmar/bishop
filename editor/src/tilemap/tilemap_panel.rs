@@ -6,6 +6,7 @@ use crate::tilemap::tile_palette::TilePalette;
 use crate::tilemap::tile_palette::*;
 use bishop::prelude::*;
 use engine_core::prelude::*;
+use engine_core::theme::with_theme;
 
 const INSET: f32 = 10.0;
 const BTN_HEIGHT: f32 = 30.0;
@@ -84,14 +85,21 @@ impl TilemapPanel {
             inner.y,
             inner.w,
             inner.h,
-            Color::new(0., 0., 0., 0.6),
+            with_theme(|t| t.overlay.with_alpha(0.6)),
         );
 
         // Top/bottom/side panelling
         self.draw_overflow_covers(ctx, inner);
 
         // Outline
-        ctx.draw_rectangle_lines(inner.x, inner.y, inner.w, inner.h, 2., Color::WHITE);
+        ctx.draw_rectangle_lines(
+            inner.x,
+            inner.y,
+            inner.w,
+            inner.h,
+            2.,
+            with_theme(|t| t.border),
+        );
 
         // Layout the modules vertically
         let mut y = inner.y + 10.0;
@@ -184,7 +192,7 @@ impl TilemapPanel {
             self.rect.y,
             inner.y - self.rect.y,
             self.rect.w,
-            PANEL_COLOR,
+            with_theme(|t| t.panel),
         );
 
         // Bottom cover
@@ -196,7 +204,7 @@ impl TilemapPanel {
             inner_bottom,
             self.rect.w,
             panel_bottom - inner_bottom,
-            PANEL_COLOR,
+            with_theme(|t| t.panel),
         );
 
         // Left strip
@@ -205,7 +213,7 @@ impl TilemapPanel {
             self.rect.y,
             INSET,
             self.rect.h,
-            PANEL_COLOR,
+            with_theme(|t| t.panel),
         );
 
         // Right strip
@@ -216,7 +224,7 @@ impl TilemapPanel {
             self.rect.y,
             panel_right - inner_right,
             self.rect.h,
-            PANEL_COLOR,
+            with_theme(|t| t.panel),
         );
     }
 }

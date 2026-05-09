@@ -10,12 +10,14 @@ use crate::editor_global::push_toast;
 use crate::storage::sound_preset_storage::*;
 use bishop::prelude::*;
 use engine_core::prelude::*;
+use widgets::constants::colors;
+use widgets::constants::layout as widget_layout;
 
 const TOP_PADDING: f32 = 10.0;
 const SPACING: f32 = 5.0;
 const SECTION_GAP: f32 = 12.0;
 const EDIT_SECTION_SPACING: f32 = 9.0;
-const ROW_HEIGHT: f32 = DEFAULT_FIELD_HEIGHT;
+const ROW_HEIGHT: f32 = widget_layout::DEFAULT_FIELD_HEIGHT;
 const LABEL_W: f32 = 80.0;
 const VOLUME_LABEL_DECIMALS: usize = 2;
 pub(super) const PREVIEW_HANDLE: u64 = 0x4544_4954_4F52_5052;
@@ -95,8 +97,8 @@ impl InspectorModule for AudioSourceModule {
             self.has_preset_actions = false;
 
             let mut y = rect.y + TOP_PADDING;
-            let x = rect.x + WIDGET_PADDING;
-            let w = rect.w - 2.0 * WIDGET_PADDING;
+            let x = rect.x + widget_layout::WIDGET_PADDING;
+            let w = rect.w - 2.0 * widget_layout::WIDGET_PADDING;
 
             if let Some(message) = draw_group_dropdowns(
                 ctx,
@@ -225,14 +227,14 @@ impl InspectorModule for AudioSourceModule {
                 ctx,
                 &status_text,
                 status_rect.w.max(0.0),
-                DEFAULT_FONT_SIZE_16,
+                widget_layout::DEFAULT_FONT_SIZE_16,
             );
             ctx.draw_text(
                 &truncated_status,
                 status_rect.x,
                 status_rect.y + 20.0,
-                DEFAULT_FONT_SIZE_16,
-                FIELD_TEXT_COLOR,
+                widget_layout::DEFAULT_FONT_SIZE_16,
+                colors::DEFAULT_TEXT_COLOR,
             );
             y += ROW_HEIGHT + EDIT_SECTION_SPACING;
 
@@ -268,8 +270,8 @@ impl InspectorModule for AudioSourceModule {
                     &sound_label(game_ctx.asset_registry, *sound),
                     label_rect.x,
                     label_rect.y + 20.0,
-                    DEFAULT_FONT_SIZE_16,
-                    FIELD_TEXT_COLOR,
+                    widget_layout::DEFAULT_FONT_SIZE_16,
+                    colors::DEFAULT_TEXT_COLOR,
                 );
 
                 if Button::new(preview_rect, "Test")
@@ -313,18 +315,19 @@ impl InspectorModule for AudioSourceModule {
                     "Volume:",
                     x,
                     y + 20.0,
-                    DEFAULT_FONT_SIZE_16,
-                    FIELD_TEXT_COLOR,
+                    widget_layout::DEFAULT_FONT_SIZE_16,
+                    colors::DEFAULT_TEXT_COLOR,
                 );
                 let volume_label = format_volume_label(group.volume);
-                let volume_measure = measure_text(ctx, &volume_label, DEFAULT_FONT_SIZE_16);
+                let volume_measure =
+                    measure_text(ctx, &volume_label, widget_layout::DEFAULT_FONT_SIZE_16);
                 let value_x = x + LABEL_W + SPACING;
                 ctx.draw_text(
                     &volume_label,
                     value_x,
                     y + 20.0,
-                    DEFAULT_FONT_SIZE_16,
-                    FIELD_TEXT_COLOR,
+                    widget_layout::DEFAULT_FONT_SIZE_16,
+                    colors::DEFAULT_TEXT_COLOR,
                 );
                 let slider_rect = Rect::new(
                     value_x + volume_measure.width + SPACING * 2.0,
@@ -333,7 +336,7 @@ impl InspectorModule for AudioSourceModule {
                     ROW_HEIGHT,
                 );
                 let (new_vol, state) =
-                    gui_slider(ctx, self.volume_id, slider_rect, 0.0, 1.0, group.volume);
+                    Slider::new(self.volume_id, slider_rect, 0.0, 1.0, group.volume).show(ctx);
                 if !blocked && !matches!(state, SliderState::Unchanged) {
                     group.volume = new_vol;
                 }
@@ -343,19 +346,14 @@ impl InspectorModule for AudioSourceModule {
                     "Pitch Var:",
                     x,
                     y + 20.0,
-                    DEFAULT_FONT_SIZE_16,
-                    FIELD_TEXT_COLOR,
+                    widget_layout::DEFAULT_FONT_SIZE_16,
+                    colors::DEFAULT_TEXT_COLOR,
                 );
                 let slider_rect =
                     Rect::new(x + LABEL_W + SPACING, y, w - LABEL_W - SPACING, ROW_HEIGHT);
-                let (new_pitch, state) = gui_slider(
-                    ctx,
-                    self.pitch_id,
-                    slider_rect,
-                    0.0,
-                    1.0,
-                    group.pitch_variation,
-                );
+                let (new_pitch, state) =
+                    Slider::new(self.pitch_id, slider_rect, 0.0, 1.0, group.pitch_variation)
+                        .show(ctx);
                 if !blocked && !matches!(state, SliderState::Unchanged) {
                     group.pitch_variation = new_pitch;
                 }
@@ -365,19 +363,19 @@ impl InspectorModule for AudioSourceModule {
                     "Vol Var:",
                     x,
                     y + 20.0,
-                    DEFAULT_FONT_SIZE_16,
-                    FIELD_TEXT_COLOR,
+                    widget_layout::DEFAULT_FONT_SIZE_16,
+                    colors::DEFAULT_TEXT_COLOR,
                 );
                 let slider_rect =
                     Rect::new(x + LABEL_W + SPACING, y, w - LABEL_W - SPACING, ROW_HEIGHT);
-                let (new_vol_var, state) = gui_slider(
-                    ctx,
+                let (new_vol_var, state) = Slider::new(
                     self.volume_var_id,
                     slider_rect,
                     0.0,
                     1.0,
                     group.volume_variation,
-                );
+                )
+                .show(ctx);
                 if !blocked && !matches!(state, SliderState::Unchanged) {
                     group.volume_variation = new_vol_var;
                 }
@@ -387,16 +385,18 @@ impl InspectorModule for AudioSourceModule {
                     "Looping:",
                     x,
                     y + 20.0,
-                    DEFAULT_FONT_SIZE_16,
-                    FIELD_TEXT_COLOR,
+                    widget_layout::DEFAULT_FONT_SIZE_16,
+                    colors::DEFAULT_TEXT_COLOR,
                 );
                 let cb_rect = Rect::new(
                     x + LABEL_W + SPACING,
-                    y + (ROW_HEIGHT - DEFAULT_CHECKBOX_DIMS) / 2.0,
-                    DEFAULT_CHECKBOX_DIMS,
-                    DEFAULT_CHECKBOX_DIMS,
+                    y + (ROW_HEIGHT - widget_layout::DEFAULT_CHECKBOX_DIMS) / 2.0,
+                    widget_layout::DEFAULT_CHECKBOX_DIMS,
+                    widget_layout::DEFAULT_CHECKBOX_DIMS,
                 );
-                gui_checkbox(ctx, cb_rect, &mut group.looping, blocked);
+                Checkbox::new(cb_rect, &mut group.looping)
+                    .blocked(blocked)
+                    .show(ctx);
             }
 
             if let Some(message) = render_preset_picker(

@@ -4,6 +4,7 @@ use crate::Editor;
 use bishop::prelude::*;
 use engine_core::prelude::*;
 use std::cmp::Ordering;
+use widgets::constants::layout;
 
 pub(crate) const PREFAB_BROWSER_PANEL: &str = "Prefab Browser";
 const CONTENT_PADDING: f32 = 8.0;
@@ -61,7 +62,7 @@ impl PanelDefinition for PrefabBrowserPanel {
                     "No prefabs available",
                     rect.x + CONTENT_PADDING,
                     y + ROW_HEIGHT * 0.75,
-                    DEFAULT_FONT_SIZE_16,
+                    layout::DEFAULT_FONT_SIZE_16,
                     Color::GREY,
                 );
             }

@@ -30,6 +30,24 @@
                     /*[0]*/ (
                         element: (
                             name: "",
+                            kind: Panel(()),
+                            rect: (
+                                x: 0.0,
+                                y: 0.0,
+                                w: 0.0,
+                                h: 0.0,
+                            ),
+                            enabled: true,
+                            visible: true,
+                            z_order: 0,
+                            class: None,
+                            style_id: None,
+                        ),
+                        managed: false,
+                    ),
+                    /*[1]*/ (
+                        element: (
+                            name: "",
                             kind: Slider((
                                 text_key: "Master",
                                 key: "master_volume",
@@ -45,18 +63,20 @@
                                 ),
                             )),
                             rect: (
-                                x: 0.13682282,
-                                y: 0.19312176,
-                                w: 0.2,
-                                h: 0.037,
+                                x: 0.14878851,
+                                y: 0.0061721504,
+                                w: 0.15625,
+                                h: 0.037037037,
                             ),
                             enabled: true,
                             visible: true,
                             z_order: 0,
+                            class: None,
+                            style_id: None,
                         ),
                         managed: true,
                     ),
-                    /*[1]*/ (
+                    /*[2]*/ (
                         element: (
                             name: "",
                             kind: Slider((
@@ -82,10 +102,12 @@
                             enabled: true,
                             visible: true,
                             z_order: 0,
+                            class: None,
+                            style_id: None,
                         ),
                         managed: true,
                     ),
-                    /*[2]*/ (
+                    /*[3]*/ (
                         element: (
                             name: "",
                             kind: Slider((
@@ -111,10 +133,12 @@
                             enabled: true,
                             visible: true,
                             z_order: 0,
+                            class: None,
+                            style_id: None,
                         ),
                         managed: true,
                     ),
-                    /*[3]*/ (
+                    /*[4]*/ (
                         element: (
                             name: "",
                             kind: Button((
@@ -137,11 +161,12 @@
                             enabled: true,
                             visible: true,
                             z_order: 0,
+                            class: None,
+                            style_id: None,
                         ),
                         managed: true,
                     ),
                 ],
-                background: None,
                 nav_targets: (
                     up: None,
                     down: None,
@@ -158,6 +183,8 @@
             enabled: true,
             visible: true,
             z_order: 0,
+            class: None,
+            style_id: None,
         ),
     ],
     mode: FrontEnd,

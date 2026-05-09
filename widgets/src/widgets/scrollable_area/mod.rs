@@ -47,7 +47,7 @@ pub struct ScrollableArea {
     content_height: f32,
     scroll_speed: f32,
     scrollbar_w: f32,
-    blocked: bool,
+    base: WidgetBase,
 }
 
 impl ScrollableArea {
@@ -58,7 +58,11 @@ impl ScrollableArea {
             content_height,
             scroll_speed: DEFAULT_SCROLL_SPEED,
             scrollbar_w: DEFAULT_SCROLLBAR_W,
-            blocked: false,
+            base: WidgetBase {
+                blocked: false,
+                overrides: WidgetTheme::default(),
+                ..WidgetBase::default()
+            },
         }
     }
 
@@ -68,14 +72,11 @@ impl ScrollableArea {
         self
     }
 
-    /// Sets whether interaction is blocked.
-    pub fn blocked(mut self, blocked: bool) -> Self {
-        self.blocked = blocked;
-        self
-    }
-
     /// Processes scroll input and returns an active area for content drawing.
     pub fn begin<C: BishopContext>(self, ctx: &mut C, state: &mut ScrollState) -> ActiveScrollArea {
+        let class = self.base.class_name.as_deref();
+        let id = self.base.style_id.as_deref();
+        let widget_theme = resolve_theme_for::<Self>(class, id);
         let mouse: Vec2 = ctx.mouse_position().into();
         let scroll_range = (self.content_height - self.rect.h).max(0.0);
 
@@ -91,7 +92,7 @@ impl ScrollableArea {
         let thumb_rect = Rect::new(bar_x, thumb_y, self.scrollbar_w, bar_h);
         let track_rect = Rect::new(bar_x, self.rect.y, self.scrollbar_w, self.rect.h);
 
-        if !self.blocked && scroll_range > 0.0 {
+        if !self.base.blocked && scroll_range > 0.0 {
             // Wheel scroll
             if self.rect.contains(mouse) {
                 let (_, wheel_y) = ctx.mouse_wheel();
@@ -150,7 +151,18 @@ impl ScrollableArea {
             scroll_range,
             content_height: self.content_height,
             scrollbar_w: self.scrollbar_w,
+            overrides: self.base.overrides,
+            widget_theme,
         }
+    }
+}
+
+impl Widget for ScrollableArea {
+    fn widget_type() -> WidgetType {
+        WidgetType::ScrollableArea
+    }
+    fn base_mut(&mut self) -> &mut WidgetBase {
+        &mut self.base
     }
 }
 
@@ -160,6 +172,8 @@ pub struct ActiveScrollArea {
     scroll_range: f32,
     content_height: f32,
     scrollbar_w: f32,
+    overrides: WidgetTheme,
+    widget_theme: WidgetTheme,
 }
 
 impl ActiveScrollArea {
@@ -217,22 +231,45 @@ impl ActiveScrollArea {
         let thumb_rect = Rect::new(bar_x, bar_y, self.scrollbar_w, bar_h);
         let mouse_over_thumb = thumb_rect.contains(mouse);
 
-        // Track
-        ctx.draw_rectangle(
-            bar_x,
-            self.rect.y,
-            self.scrollbar_w,
-            self.rect.h,
-            Color::new(0.15, 0.15, 0.15, 0.6),
+        const TRACK_ALPHA: f32 = 0.6;
+        const THUMB_IDLE: Color = Color::new(0.7, 0.7, 0.7, 0.9);
+        const THUMB_HOVER: Color = Color::new(0.85, 0.85, 0.85, 0.9);
+
+        // Track — 50% brightness of resolved primary
+        let primary_col = resolve_with_theme(
+            self.overrides.primary,
+            self.widget_theme.primary,
+            crate::constants::colors::DEFAULT_PRIMARY_COLOR,
         );
+        let track_col = Color::new(
+            primary_col.r * 0.5,
+            primary_col.g * 0.5,
+            primary_col.b * 0.5,
+            TRACK_ALPHA,
+        );
+        ctx.draw_rectangle(bar_x, self.rect.y, self.scrollbar_w, self.rect.h, track_col);
 
         // Thumb
+        let idle_col = resolve_with_theme(
+            self.overrides.primary,
+            self.widget_theme.primary,
+            THUMB_IDLE,
+        );
         let thumb_col = if state.dragging_thumb {
-            Color::new(0.9, 0.9, 0.9, 1.0)
+            Color::new(
+                (idle_col.r * 1.25).min(1.0),
+                (idle_col.g * 1.25).min(1.0),
+                (idle_col.b * 1.25).min(1.0),
+                1.0,
+            )
         } else if mouse_over_thumb {
-            Color::new(0.85, 0.85, 0.85, 0.9)
+            resolve_with_theme(
+                self.overrides.primary,
+                self.widget_theme.primary,
+                THUMB_HOVER,
+            )
         } else {
-            Color::new(0.7, 0.7, 0.7, 0.9)
+            idle_col
         };
         ctx.draw_rectangle(bar_x, bar_y, self.scrollbar_w, bar_h, thumb_col);
     }

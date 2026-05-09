@@ -537,3 +537,22 @@ fn load_prefab_palette_state_defaults_when_file_is_missing() {
 
     assert_eq!(loaded, PrefabPaletteState::default());
 }
+
+#[test]
+fn create_new_game_creates_bishop_theme() {
+    let _lock = game_fs_test_lock()
+        .lock()
+        .unwrap_or_else(|poison| poison.into_inner());
+    let test_game = TestGameFolder::new("bishop_theme_created");
+    set_game_name(test_game.name());
+
+    let _game = create_new_game(test_game.name().to_string());
+
+    let theme_path = themes_folder().join(lua_files::BISHOP_THEME);
+    assert!(theme_path.exists(), "bishop_theme.lua should exist");
+    let content = fs::read_to_string(theme_path).unwrap();
+    assert!(
+        content.contains("local t = engine.theme.new()"),
+        "theme should contain expected header"
+    );
+}

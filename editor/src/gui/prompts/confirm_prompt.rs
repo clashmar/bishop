@@ -4,6 +4,7 @@ use crate::gui::prompts::constants::*;
 use crate::gui::prompts::helpers::*;
 use bishop::prelude::*;
 use engine_core::prelude::*;
+use widgets::constants::layout;
 
 /// Result of a confirm prompt.
 pub enum ConfirmPromptResult {
@@ -25,7 +26,7 @@ impl ConfirmPrompt {
     /// Create a new prompt centred inside the supplied rect.
     pub fn new(modal_rect: Rect, message: impl Into<String>) -> Self {
         let total_h = PROMPT_TOP_PADDING
-            + DEFAULT_FONT_SIZE_16
+            + layout::DEFAULT_FONT_SIZE_16
             + PROMPT_SECTION_GAP
             + BUTTON_H
             + PROMPT_BOTTOM_PADDING;
@@ -41,8 +42,8 @@ impl ConfirmPrompt {
     pub fn draw(&mut self, ctx: &mut WgpuContext) -> Option<ConfirmPromptResult> {
         // Message
         let center_x = self.rect.x + (self.rect.w / 2.0);
-        let message_x = center_text(ctx, center_x, &self.message, DEFAULT_FONT_SIZE_16).0;
-        let message_height = measure_text(ctx, &self.message, DEFAULT_FONT_SIZE_16).height;
+        let message_x = center_text(ctx, center_x, &self.message, layout::DEFAULT_FONT_SIZE_16).0;
+        let message_height = measure_text(ctx, &self.message, layout::DEFAULT_FONT_SIZE_16).height;
 
         draw_prompt_label(
             ctx,

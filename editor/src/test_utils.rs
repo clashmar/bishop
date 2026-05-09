@@ -139,3 +139,80 @@ pub fn linked_root_entities(ecs: &Ecs, prefab_id: PrefabId) -> Vec<Entity> {
         .filter_map(|(&entity, root)| (root.prefab_id == prefab_id).then_some(entity))
         .collect()
 }
+
+/// A minimal `Input` mock for unit tests that need to simulate keyboard state.
+#[cfg(test)]
+pub struct MockInput {
+    pressed_keys: Vec<KeyCode>,
+    down_keys: Vec<KeyCode>,
+    mouse_pos: (f32, f32),
+}
+
+#[cfg(test)]
+impl MockInput {
+    pub fn new() -> Self {
+        Self {
+            pressed_keys: Vec::new(),
+            down_keys: Vec::new(),
+            mouse_pos: (0.0, 0.0),
+        }
+    }
+
+    pub fn press(&mut self, key: KeyCode) -> &mut Self {
+        self.pressed_keys.push(key);
+        self
+    }
+
+    pub fn hold(&mut self, key: KeyCode) -> &mut Self {
+        self.down_keys.push(key);
+        self
+    }
+
+    pub fn set_mouse_position(&mut self, pos: (f32, f32)) -> &mut Self {
+        self.mouse_pos = pos;
+        self
+    }
+}
+
+#[cfg(test)]
+impl Input for MockInput {
+    fn is_key_pressed(&self, key: KeyCode) -> bool {
+        self.pressed_keys.contains(&key)
+    }
+    fn is_key_down(&self, key: KeyCode) -> bool {
+        self.down_keys.contains(&key)
+    }
+    fn is_key_released(&self, _key: KeyCode) -> bool {
+        false
+    }
+    fn any_key_pressed(&self) -> bool {
+        !self.pressed_keys.is_empty()
+    }
+    fn is_mouse_button_down(&self, _button: MouseButton) -> bool {
+        false
+    }
+    fn is_mouse_button_pressed(&self, _button: MouseButton) -> bool {
+        false
+    }
+    fn is_mouse_button_released(&self, _button: MouseButton) -> bool {
+        false
+    }
+    fn is_mouse_button_double_clicked(&self, _button: MouseButton) -> bool {
+        false
+    }
+    fn mouse_position(&self) -> (f32, f32) {
+        self.mouse_pos
+    }
+    fn mouse_delta_position(&self) -> (f32, f32) {
+        (0.0, 0.0)
+    }
+    fn mouse_wheel(&self) -> (f32, f32) {
+        (0.0, 0.0)
+    }
+    fn chars_pressed(&self) -> Vec<char> {
+        Vec::new()
+    }
+    fn get_time(&self) -> f64 {
+        0.0
+    }
+}

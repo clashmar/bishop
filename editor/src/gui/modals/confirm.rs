@@ -4,6 +4,7 @@ use crate::gui::prompts::constants::*;
 use bishop::prelude::*;
 use engine_core::prelude::*;
 use std::{cell::RefCell, thread::LocalKey};
+use widgets::constants::layout;
 
 pub fn open_confirm_modal(
     ctx: &WgpuContext,
@@ -40,7 +41,7 @@ fn confirm_modal_width(ctx: &WgpuContext, message: &str) -> f32 {
         (BUTTON_W * 2.0 + PROMPT_ACTION_GAP * 3.0) / PROMPT_CONTENT_WIDTH_RATIO;
     let minimum_modal_width = MIN_MODAL_WIDTH.max(minimum_button_layout_width);
 
-    let message_width = measure_text(ctx, message, DEFAULT_FONT_SIZE_16).width;
+    let message_width = measure_text(ctx, message, layout::DEFAULT_FONT_SIZE_16).width;
     let content_width = message_width + MESSAGE_WIDTH_BUFFER;
     let modal_width = content_width / PROMPT_CONTENT_WIDTH_RATIO;
     let max_modal_width = (ctx.screen_width() - SCREEN_MARGIN).max(minimum_modal_width);

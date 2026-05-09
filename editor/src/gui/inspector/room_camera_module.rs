@@ -2,6 +2,7 @@
 use bishop::prelude::*;
 use engine_core::prelude::*;
 use strum::IntoEnumIterator;
+use widgets::constants::{colors, layout};
 
 pub const ROOM_CAMERA_MODULE_TITLE: &str = "Room Camera";
 
@@ -14,9 +15,9 @@ pub struct RoomCameraModule {
     current_zoom_mode: ZoomMode,
 }
 
-const BODY_TOP_PADDING: f32 = WIDGET_SPACING;
+const BODY_TOP_PADDING: f32 = layout::WIDGET_SPACING;
 const ROOM_CAMERA_BOTTOM_GUTTER: f32 = 10.0;
-const ROOM_CAMERA_VISUAL_GAP: f32 = WIDGET_SPACING;
+const ROOM_CAMERA_VISUAL_GAP: f32 = layout::WIDGET_SPACING;
 const MODE_ROW_HEIGHT: f32 = 30.0;
 const STEP_SECTION_HEIGHT: f32 = 40.0;
 const FREE_SECTION_HEIGHT: f32 = 35.0;
@@ -68,19 +69,19 @@ impl InspectorModule for RoomCameraModule {
 
         // Layout dropdown now but draw at the end
         let mode_label = "Zoom Mode: ";
-        let label_width = measure_text(ctx, mode_label, FIELD_TEXT_SIZE_16).width;
+        let label_width = measure_text(ctx, mode_label, layout::FIELD_TEXT_SIZE_16).width;
         ctx.draw_text(
             mode_label,
             rect.x,
             y + 20.0,
-            FIELD_TEXT_SIZE_16,
-            FIELD_TEXT_COLOR,
+            layout::FIELD_TEXT_SIZE_16,
+            colors::DEFAULT_TEXT_COLOR,
         );
 
         let mode_rect = Rect::new(
-            rect.x + label_width + WIDGET_SPACING,
+            rect.x + label_width + layout::WIDGET_SPACING,
             y,
-            rect.w - label_width - WIDGET_SPACING,
+            rect.w - label_width - layout::WIDGET_SPACING,
             MODE_ROW_HEIGHT,
         );
         let current_mode = cam.zoom_mode;
@@ -97,8 +98,9 @@ impl InspectorModule for RoomCameraModule {
                 const STEPS: &[f32; 5] = &[0.5_f32, 1.0, 2.0, 3.0, 4.0];
 
                 let current_scalar = 2.0 / (cam.zoom.x * world_virtual_width(grid_size));
-                let new_scalar =
-                    gui_stepper(ctx, scale_rect, "Scale", STEPS, current_scalar, blocked);
+                let new_scalar = Stepper::new(scale_rect, "Scale", STEPS, current_scalar)
+                    .blocked(blocked)
+                    .show(ctx);
 
                 if !blocked && (new_scalar - current_scalar).abs() > f32::EPSILON {
                     let width = world_virtual_width(grid_size) * new_scalar;
@@ -119,19 +121,19 @@ impl InspectorModule for RoomCameraModule {
 
         // Camera mode
         let cam_mode_label = "Camera Mode: ";
-        let cam_label_width = measure_text(ctx, cam_mode_label, FIELD_TEXT_SIZE_16).width;
+        let cam_label_width = measure_text(ctx, cam_mode_label, layout::FIELD_TEXT_SIZE_16).width;
         ctx.draw_text(
             cam_mode_label,
             rect.x,
             y + 20.0,
-            FIELD_TEXT_SIZE_16,
-            FIELD_TEXT_COLOR,
+            layout::FIELD_TEXT_SIZE_16,
+            colors::DEFAULT_TEXT_COLOR,
         );
 
         let cam_mode_rect = Rect::new(
-            rect.x + cam_label_width + WIDGET_SPACING,
+            rect.x + cam_label_width + layout::WIDGET_SPACING,
             y,
-            rect.w - cam_label_width - WIDGET_SPACING,
+            rect.w - cam_label_width - layout::WIDGET_SPACING,
             MODE_ROW_HEIGHT,
         );
 
@@ -191,11 +193,11 @@ fn stepper_top_bleed() -> f32 {
 }
 
 fn stepper_visual_height() -> f32 {
-    FIELD_TEXT_SIZE_16 * 1.2 + 15.0
+    layout::FIELD_TEXT_SIZE_16 * 1.2 + 15.0
 }
 
 fn free_zoom_top_bleed() -> f32 {
-    FIELD_TEXT_SIZE_16
+    layout::FIELD_TEXT_SIZE_16
 }
 
 fn free_zoom_visual_height() -> f32 {
@@ -242,40 +244,46 @@ impl RoomCameraModule {
 
         // Label
         let label = "Scale: ";
-        let label_width = measure_text(ctx, label, FIELD_TEXT_SIZE_16).width + 1.0;
-        let num_width = measure_text(ctx, "0.00", FIELD_TEXT_SIZE_16).width;
-        ctx.draw_text(label, rect.x, rect.y, FIELD_TEXT_SIZE_16, FIELD_TEXT_COLOR);
+        let label_width = measure_text(ctx, label, layout::FIELD_TEXT_SIZE_16).width + 1.0;
+        let num_width = measure_text(ctx, "0.00", layout::FIELD_TEXT_SIZE_16).width;
+        ctx.draw_text(
+            label,
+            rect.x,
+            rect.y,
+            layout::FIELD_TEXT_SIZE_16,
+            colors::DEFAULT_TEXT_COLOR,
+        );
 
         // Numeric field
         let num_rect = Rect::new(
             rect.x + label_width,
-            rect.y - FIELD_TEXT_SIZE_16,
-            num_width + WIDGET_SPACING,
+            rect.y - layout::FIELD_TEXT_SIZE_16,
+            num_width + layout::WIDGET_SPACING,
             rect.h,
         );
 
         // Slider
         let slider_rect = Rect::new(
-            rect.x + label_width + num_width + 2.0 * WIDGET_SPACING,
-            rect.y - FIELD_TEXT_SIZE_16,
-            rect.w - (label_width + num_width + 2.0 * WIDGET_SPACING),
+            rect.x + label_width + num_width + 2.0 * layout::WIDGET_SPACING,
+            rect.y - layout::FIELD_TEXT_SIZE_16,
+            rect.w - (label_width + num_width + 2.0 * layout::WIDGET_SPACING),
             rect.h,
         );
 
         // Numeric field
-        let typed = NumberInput::new(self.zoom_id, num_rect, round_to_dp(scalar, 2))
+        let (typed, _) = NumberInput::new(self.zoom_id, num_rect, round_to_dp(scalar, 2))
             .blocked(blocked)
             .show(ctx);
 
         // Slider
-        let (slider_val, slider_state) = gui_slider(
-            ctx,
+        let (slider_val, slider_state) = Slider::new(
             self.slider_id,
             slider_rect,
             MIN, // min
             MAX, // max
             round_to_dp(scalar, 2),
-        );
+        )
+        .show(ctx);
 
         // Resolve the new scalar
         let mut new_scalar = scalar;

@@ -1,3 +1,4 @@
+use crate::constants::{colors, layout};
 use crate::*;
 
 /// A hex color input widget with a color swatch preview.
@@ -5,7 +6,7 @@ pub struct ColorInput {
     id: WidgetId,
     rect: Rect,
     current: Color,
-    blocked: bool,
+    base: WidgetBase,
 }
 
 impl ColorInput {
@@ -15,21 +16,22 @@ impl ColorInput {
             id,
             rect: rect.into(),
             current,
-            blocked: false,
+            base: WidgetBase {
+                blocked: false,
+                overrides: WidgetTheme::default(),
+                ..WidgetBase::default()
+            },
         }
-    }
-
-    /// Sets whether the input is blocked from interaction.
-    pub fn blocked(mut self, blocked: bool) -> Self {
-        self.blocked = blocked;
-        self
     }
 
     /// Draws the widget and returns the resolved color.
     pub fn show<C: BishopContext>(self, ctx: &mut C) -> Color {
+        let class = self.base.class_name.as_deref();
+        let id = self.base.style_id.as_deref();
+        let widget_theme = resolve_theme_for::<Self>(class, id);
         let swatch_size = self.rect.h;
         let gap = 4.0;
-        let prefix_width = measure_text_ui(ctx, "#", DEFAULT_FONT_SIZE_16).width + 2.0;
+        let prefix_width = measure_text_ui(ctx, "#", layout::DEFAULT_FONT_SIZE_16).width + 2.0;
         let text_field_x = self.rect.x + swatch_size + gap + prefix_width;
         let text_field_w = self.rect.w - swatch_size - gap - prefix_width;
 
@@ -40,19 +42,24 @@ impl ColorInput {
             "#",
             prefix_x,
             prefix_y,
-            DEFAULT_FONT_SIZE_16,
-            FIELD_TEXT_COLOR,
+            layout::DEFAULT_FONT_SIZE_16,
+            resolve_with_theme(
+                self.base.overrides.text,
+                widget_theme.text,
+                colors::DEFAULT_TEXT_COLOR,
+            ),
         );
 
         let hex = self.current.to_hex();
         let text_rect = Rect::new(text_field_x, self.rect.y, text_field_w, self.rect.h);
         let (hex_text, _focused) = TextInput::new(self.id, text_rect, &hex)
-            .blocked(self.blocked)
+            .blocked(self.base.blocked)
+            .overrides(self.base.overrides)
             .max_len(6)
             .char_filter(hex_char_filter)
             .show(ctx);
 
-        let resolved = Color::from_hex(&hex_text).unwrap_or(self.current);
+        let resolved = Color::try_from_hex(&hex_text).unwrap_or(self.current);
 
         let swatch_rect = Rect::new(self.rect.x, self.rect.y, swatch_size, swatch_size);
         ctx.draw_rectangle(
@@ -68,10 +75,23 @@ impl ColorInput {
             swatch_rect.w,
             swatch_rect.h,
             2.0,
-            Color::WHITE,
+            resolve_with_theme(
+                self.base.overrides.border,
+                widget_theme.border,
+                Color::WHITE,
+            ),
         );
 
         resolved
+    }
+}
+
+impl Widget for ColorInput {
+    fn widget_type() -> WidgetType {
+        WidgetType::ColorInput
+    }
+    fn base_mut(&mut self) -> &mut WidgetBase {
+        &mut self.base
     }
 }
 

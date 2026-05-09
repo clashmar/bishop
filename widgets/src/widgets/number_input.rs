@@ -1,4 +1,5 @@
 use crate::clipboard::*;
+use crate::constants::{colors, input_repeat, layout};
 use crate::*;
 use std::fmt::Display;
 use std::str::FromStr;
@@ -10,9 +11,9 @@ pub struct NumberInput<T> {
     id: WidgetId,
     rect: Rect,
     current: T,
-    blocked: bool,
     min: Option<T>,
     max: Option<T>,
+    base: WidgetBase,
 }
 
 impl<T> NumberInput<T>
@@ -26,16 +27,14 @@ where
             id,
             rect: rect.into(),
             current,
-            blocked: false,
             min: None,
             max: None,
+            base: WidgetBase {
+                blocked: false,
+                overrides: WidgetTheme::default(),
+                ..WidgetBase::default()
+            },
         }
-    }
-
-    /// Sets whether the input is blocked from interaction.
-    pub fn blocked(mut self, blocked: bool) -> Self {
-        self.blocked = blocked;
-        self
     }
 
     /// Sets the minimum allowed value.
@@ -50,8 +49,11 @@ where
         self
     }
 
-    /// Draws the widget and returns the current numeric value.
-    pub fn show<C: BishopContext>(self, ctx: &mut C) -> T {
+    /// Draws the widget and returns the current numeric value and commit state.
+    pub fn show<C: BishopContext>(self, ctx: &mut C) -> (T, InputCommit) {
+        let class = self.base.class_name.as_deref();
+        let id = self.base.style_id.as_deref();
+        let widget_theme = resolve_theme_for::<Self>(class, id);
         tab_registry_add(self.id, self.rect, false);
 
         let mut confirmed = false;
@@ -109,7 +111,7 @@ where
             self.rect.y,
             self.rect.w,
             self.rect.h,
-            FIELD_BACKGROUND_COLOR,
+            resolve_with_theme(self.base.overrides.background, widget_theme.background, colors::DEFAULT_BACKGROUND_COLOR),
         );
         ctx.draw_rectangle_lines(
             self.rect.x,
@@ -117,23 +119,23 @@ where
             self.rect.w,
             self.rect.h,
             2.,
-            Color::WHITE,
+            resolve_with_theme(self.base.overrides.border, widget_theme.border, Color::WHITE),
         );
 
-        let text_area_x = self.rect.x + WIDGET_PADDING / 2.;
+        let text_area_x = self.rect.x + layout::WIDGET_PADDING / 2.;
 
         if let Some((start, end)) = selection_range(cursor_char, selection_anchor) {
             let start_byte = byte_offset(&text, start);
             let end_byte = byte_offset(&text, end);
             let sel_start_x = text_area_x
-                + measure_text_ui(ctx, &text[..start_byte], DEFAULT_FONT_SIZE_16).width
+                + measure_text_ui(ctx, &text[..start_byte], layout::DEFAULT_FONT_SIZE_16).width
                 - scroll_offset_x;
             let sel_end_x = text_area_x
-                + measure_text_ui(ctx, &text[..end_byte], DEFAULT_FONT_SIZE_16).width
+                + measure_text_ui(ctx, &text[..end_byte], layout::DEFAULT_FONT_SIZE_16).width
                 - scroll_offset_x;
 
             let clipped_start = sel_start_x.max(text_area_x);
-            let clipped_end = sel_end_x.min(self.rect.x + self.rect.w - WIDGET_PADDING / 2.);
+            let clipped_end = sel_end_x.min(self.rect.x + self.rect.w - layout::WIDGET_PADDING / 2.);
 
             if clipped_end > clipped_start {
                 ctx.draw_rectangle(
@@ -141,7 +143,7 @@ where
                     self.rect.y + self.rect.h * 0.2,
                     clipped_end - clipped_start,
                     self.rect.h * 0.6,
-                    Color::new(0.3, 0.5, 0.8, 0.5),
+                    resolve_with_theme(self.base.overrides.accent, widget_theme.accent, colors::DEFAULT_INPUT_SELECTION_COLOR),
                 );
             }
         }
@@ -153,21 +155,26 @@ where
             display,
             self.rect,
             scroll_offset_x,
-            DEFAULT_FONT_SIZE_16,
-            FIELD_TEXT_COLOR,
+            layout::DEFAULT_FONT_SIZE_16,
+            resolve_with_theme(self.base.overrides.text, widget_theme.text, colors::DEFAULT_TEXT_COLOR),
         );
 
         if is_dropdown_open() || is_context_menu_open() {
-            return self.current;
+            let commit = if confirmed { InputCommit::Committed } else { InputCommit::Unchanged };
+            return (self.current, commit);
         }
 
         let mouse = ctx.mouse_position();
         let mouse_over = self.rect.contains(Vec2::new(mouse.0, mouse.1));
 
         if ctx.is_mouse_button_pressed(MouseButton::Left) && !is_click_consumed() {
-            focused = mouse_over && !self.blocked;
+            let was_focused = focused;
+            focused = mouse_over && !self.base.blocked;
 
             if !focused {
+                if was_focused {
+                    confirmed = true;
+                }
                 selection_anchor = None;
             } else if mouse_over {
                 let click_pos = char_index_from_x(
@@ -175,7 +182,7 @@ where
                     &text,
                     mouse.0,
                     self.rect.x,
-                    DEFAULT_FONT_SIZE_16,
+                    layout::DEFAULT_FONT_SIZE_16,
                     scroll_offset_x,
                 );
                 cursor_char = click_pos;
@@ -190,10 +197,10 @@ where
                 &text,
                 mouse.0,
                 self.rect.x,
-                DEFAULT_FONT_SIZE_16,
-                scroll_offset_x,
-            );
-            cursor_char = drag_pos;
+                    layout::DEFAULT_FONT_SIZE_16,
+                    scroll_offset_x,
+                );
+                cursor_char = drag_pos;
         }
 
         if ctx.is_mouse_button_released(MouseButton::Left) && dragging {
@@ -262,8 +269,8 @@ where
                     true
                 } else if down && *rk == Some(key) {
                     let elapsed = now - *lkt;
-                    if (!*rs && elapsed >= HOLD_INITIAL_DELAY)
-                        || (*rs && elapsed >= HOLD_REPEAT_RATE)
+                    if (!*rs && elapsed >= input_repeat::HOLD_INITIAL_DELAY)
+                        || (*rs && elapsed >= input_repeat::HOLD_REPEAT_RATE)
                     {
                         *lkt = now;
                         *rs = true;
@@ -381,6 +388,10 @@ where
             }
 
             if ctx.is_key_pressed(KeyCode::Tab) {
+                INPUT_FOCUSED.with(|f| *f.borrow_mut() = false);
+                focused = false;
+                confirmed = true;
+                selection_anchor = None;
                 tab_request_pending(self.id, shift_held);
             }
 
@@ -435,8 +446,8 @@ where
                 cursor_char,
                 scroll_offset_x,
                 self.rect.w,
-                WIDGET_PADDING,
-                DEFAULT_FONT_SIZE_16,
+                layout::WIDGET_PADDING,
+                layout::DEFAULT_FONT_SIZE_16,
             );
         } else {
             scroll_offset_x = 0.0;
@@ -447,8 +458,8 @@ where
             let byte_pos = byte_offset(&text, cursor_char);
             let prefix = &text[..byte_pos];
             let caret_x = self.rect.x
-                + WIDGET_PADDING / 2.
-                + measure_text_ui(ctx, prefix, DEFAULT_FONT_SIZE_16).width
+                + layout::WIDGET_PADDING / 2.
+                + measure_text_ui(ctx, prefix, layout::DEFAULT_FONT_SIZE_16).width
                 - scroll_offset_x;
             if caret_x >= self.rect.x && caret_x <= self.rect.x + self.rect.w {
                 ctx.draw_line(
@@ -457,11 +468,12 @@ where
                     caret_x,
                     self.rect.y + self.rect.h * 0.8,
                     2.,
-                    OUTLINE_COLOR,
+                    resolve_with_theme(self.base.overrides.border, widget_theme.border, colors::DEFAULT_BORDER_COLOR),
                 );
             }
         }
 
+        let current_gen = current_widget_frame_generation();
         INPUT_NUMBER_STATE.with(|s| {
             let mut map = s.borrow_mut();
             map.insert(
@@ -476,13 +488,22 @@ where
                     repeat_started,
                     dragging,
                     scroll_offset_x,
+                    last_drawn_frame: current_gen,
                 },
             );
         });
 
-        if focused || !confirmed {
-            self.current
+        let commit = if focused {
+            InputCommit::Previewing
+        } else if confirmed {
+            InputCommit::Committed
         } else {
+            InputCommit::Unchanged
+        };
+
+        let value = if focused {
+            text.parse::<T>().unwrap_or(self.current)
+        } else if confirmed {
             let mut result = text.parse::<T>().unwrap_or(self.current);
             if let Some(min) = self.min
                 && result < min
@@ -497,8 +518,17 @@ where
             }
 
             result
-        }
+        } else {
+            self.current
+        };
+
+        (value, commit)
     }
+}
+
+impl<T> Widget for NumberInput<T> {
+    fn widget_type() -> WidgetType { WidgetType::NumberInput }
+    fn base_mut(&mut self) -> &mut WidgetBase { &mut self.base }
 }
 
 /// Resets the number input state for the given widget id.
@@ -508,4 +538,29 @@ pub fn number_input_reset(id: WidgetId) {
         let mut map = s.borrow_mut();
         map.remove(&id);
     });
+}
+
+#[cfg(test)]
+mod theme_tests {
+    use super::*;
+    use crate::theme::Theme;
+
+    #[test]
+    fn number_input_theme_mapper_maps_key_roles() {
+        let theme = Theme {
+            background: Color::GREEN,
+            accent: Color::BLUE,
+            border: Color::new(0.8, 0.8, 0.8, 1.0),
+            text: Color::BLACK,
+            ..Theme::default()
+        };
+        let overrides = NumberInput::<f32>::map_theme(&theme);
+        assert_eq!(overrides.background, Some(Color::GREEN));
+        assert_eq!(overrides.accent, Some(Color::BLUE));
+        assert_eq!(overrides.border, Some(Color::new(0.8, 0.8, 0.8, 1.0)));
+        assert_eq!(overrides.text, Some(Color::BLACK));
+        assert_eq!(overrides.primary, None);
+        assert_eq!(overrides.surface, None);
+        assert_eq!(overrides.hover, None);
+    }
 }

@@ -11,7 +11,6 @@ use crate::editor_assets::assets::{
     text_icon,
 };
 use crate::editor_global::push_command;
-use crate::gui::gui_constants::HIGHLIGHT_GREEN;
 use crate::gui::panels::generic_panel::PanelDefinition;
 use crate::shared::selection::{draw_selection_box, rect_from_two_points, rects_intersect};
 use crate::Editor;
@@ -21,6 +20,7 @@ use context_menu::{
     pending_action_for_background, ActiveMenu, EntryKind, PendingResourceAction,
     ResourceMenuAction, ResourceOpenResult,
 };
+use engine_core::constants::world;
 use engine_core::prelude::*;
 use icon_mapper::{IconMapper, IconType};
 use navigation::Navigation;
@@ -37,10 +37,8 @@ const ICON_SIZE: f32 = 42.0;
 const LABEL_FONT_SIZE: f32 = 12.0;
 const REGISTRATION_BADGE_SIZE: f32 = 8.0;
 
-const SELECTION_BG: Color = Color::new(0.706, 0.824, 1.0, 0.25);
 const DRAG_ACTIVATION_THRESHOLD: f32 = 4.0;
 const GHOST_OFFSET: f32 = 10.0;
-const DROP_TARGET_OUTLINE: Color = SELECTION_BG;
 
 #[derive(Default)]
 struct MarqueeSelectionState {
@@ -363,11 +361,10 @@ impl PanelDefinition for ResourcesPanel {
         let mut content_mouse =
             content_space_mouse_position(mouse, content_rect, self.scroll_state.scroll_y);
 
-        if self.marquee_selection.active && !interaction_blocked && !blocked {
-            if area.apply_drag_edge_autoscroll(ctx, &mut self.scroll_state, true) {
+        if self.marquee_selection.active && !interaction_blocked && !blocked
+            && area.apply_drag_edge_autoscroll(ctx, &mut self.scroll_state, true) {
                 content_mouse =
                     content_space_mouse_position(mouse, content_rect, self.scroll_state.scroll_y);
-            }
         }
 
         let live_marquee_rect = if self.marquee_selection.active {
@@ -417,7 +414,7 @@ impl PanelDefinition for ResourcesPanel {
             if is_selected {
                 let size = CELL_SIZE * 0.9 + 4.0;
                 let offset = (CELL_SIZE - size) / 2.0;
-                ctx.draw_rectangle(x + offset, cell_y, size, size, SELECTION_BG);
+                ctx.draw_rectangle(x + offset, cell_y, size, size, with_theme(|t| t.selection));
             }
 
             if self.drag_state.active {
@@ -429,7 +426,7 @@ impl PanelDefinition for ResourcesPanel {
                             CELL_SIZE,
                             CELL_SIZE,
                             2.0,
-                            DROP_TARGET_OUTLINE,
+                            with_theme(|t| t.selection),
                         );
                     }
                 }
@@ -457,7 +454,7 @@ impl PanelDefinition for ResourcesPanel {
                     badge_x + REGISTRATION_BADGE_SIZE / 2.0,
                     badge_y + REGISTRATION_BADGE_SIZE / 2.0,
                     REGISTRATION_BADGE_SIZE / 2.0,
-                    HIGHLIGHT_GREEN,
+                    Color::GREEN,
                 );
             }
 
@@ -470,7 +467,7 @@ impl PanelDefinition for ResourcesPanel {
                 text_x,
                 text_y + LABEL_FONT_SIZE,
                 LABEL_FONT_SIZE,
-                Color::WHITE,
+                with_theme(|t| t.text),
             );
 
             let cell_rect = Rect::new(x, cell_y, CELL_SIZE, CELL_SIZE);
@@ -530,7 +527,7 @@ impl PanelDefinition for ResourcesPanel {
                     content_rect,
                     self.scroll_state.scroll_y,
                 );
-                draw_selection_box(ctx, start_screen, current_screen);
+                draw_selection_box(ctx, start_screen, current_screen, world::DEFAULT_GRID_SIZE);
             }
         }
 
@@ -590,7 +587,7 @@ impl PanelDefinition for ResourcesPanel {
                     badge_y,
                     badge_w,
                     badge_h,
-                    Color::new(0.2, 0.2, 0.2, 0.8),
+                    Color::BLACK.with_alpha(0.8),
                 );
                 ctx.draw_text(
                     &badge_text,
@@ -735,7 +732,14 @@ impl PanelDefinition for ResourcesPanel {
 
         self.pending_action = handle_pending_action(self.pending_action.take(), editor, ctx);
 
-        ctx.draw_rectangle_lines(rect.x, rect.y, rect.w, rect.h, 2.0, Color::WHITE);
+        ctx.draw_rectangle_lines(
+            rect.x,
+            rect.y,
+            rect.w,
+            rect.h,
+            2.0,
+            with_theme(|t| t.border),
+        );
     }
 }
 

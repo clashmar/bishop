@@ -9,11 +9,12 @@ use std::{
     path::Path,
 };
 use strum::IntoEnumIterator;
+use widgets::constants::{colors, layout};
 
 // Width of a three‑digit numeric field
 const NUM_FIELD_W: f32 = 40.0;
 const LABEL_Y_OFFSET: f32 = 20.0;
-const LABEL_FONT_SIZE: f32 = DEFAULT_FONT_SIZE_16;
+const LABEL_FONT_SIZE: f32 = layout::DEFAULT_FONT_SIZE_16;
 const COLON_GAP: f32 = 10.0;
 const FIELD_GAP: f32 = 20.0;
 const SECTION_SPACING: f32 = 10.0;
@@ -78,8 +79,8 @@ impl InspectorModule for AnimationModule {
             .get_mut::<Animation>(entity)
             .expect("Animation must exist");
 
-        let mut y = rect.y + WIDGET_SPACING;
-        let full_w = rect.w - 2.0 * WIDGET_PADDING;
+        let mut y = rect.y + layout::WIDGET_SPACING;
+        let full_w = rect.w - 2.0 * layout::WIDGET_PADDING;
 
         // Track whether we have clips for dynamic height
         self.has_clips = !animation.clips.is_empty();
@@ -87,8 +88,8 @@ impl InspectorModule for AnimationModule {
         // Button dimensions
         const ADD_LABEL: &str = "Add Clip";
         const REMOVE_LABEL: &str = "Remove Clip";
-        let add_txt = measure_text(ctx, ADD_LABEL, DEFAULT_FONT_SIZE_16);
-        let remove_txt = measure_text(ctx, REMOVE_LABEL, DEFAULT_FONT_SIZE_16);
+        let add_txt = measure_text(ctx, ADD_LABEL, layout::DEFAULT_FONT_SIZE_16);
+        let remove_txt = measure_text(ctx, REMOVE_LABEL, layout::DEFAULT_FONT_SIZE_16);
         let btn_h = add_txt.height + 8.0;
         let add_btn_w = add_txt.width + 12.0;
         let remove_btn_w = remove_txt.width + 12.0;
@@ -153,7 +154,7 @@ impl InspectorModule for AnimationModule {
             }
         }
 
-        y += MARGIN + WIDGET_PADDING;
+        y += MARGIN + layout::WIDGET_PADDING;
 
         // Return if there is no current clip
         if animation.current.is_none() {
@@ -163,7 +164,7 @@ impl InspectorModule for AnimationModule {
         // Variant picker
         let has_variant = !animation.variant.0.as_os_str().is_empty();
         let variant_btn_w = full_w / 2.0;
-        let sprite_btn = Rect::new(rect.x + WIDGET_PADDING, y, variant_btn_w, MARGIN);
+        let sprite_btn = Rect::new(rect.x + layout::WIDGET_PADDING, y, variant_btn_w, MARGIN);
 
         if Button::new(
             sprite_btn,
@@ -200,18 +201,18 @@ impl InspectorModule for AnimationModule {
 
         ctx.draw_text(
             &variant_label,
-            sprite_btn.x + sprite_btn.w + WIDGET_SPACING,
+            sprite_btn.x + sprite_btn.w + layout::WIDGET_SPACING,
             y + LABEL_Y_OFFSET,
-            DEFAULT_FONT_SIZE_16,
-            FIELD_TEXT_COLOR,
+            layout::DEFAULT_FONT_SIZE_16,
+            colors::DEFAULT_TEXT_COLOR,
         );
 
-        y += MARGIN + WIDGET_PADDING;
+        y += MARGIN + layout::WIDGET_PADDING;
 
         // Calculate clip selector dropdown here
-        let clip_dropdown_rect = Rect::new(rect.x + WIDGET_PADDING, y, full_w, BTN_HEIGHT);
+        let clip_dropdown_rect = Rect::new(rect.x + layout::WIDGET_PADDING, y, full_w, BTN_HEIGHT);
 
-        y += MARGIN + WIDGET_PADDING;
+        y += MARGIN + layout::WIDGET_PADDING;
 
         let Some(current_clip_id) = animation.current.clone() else {
             return;
@@ -221,19 +222,19 @@ impl InspectorModule for AnimationModule {
         if let Some(clip) = animation.clips.get_mut(&current_clip_id) {
             // Frame size
             draw_frame_size_fields(ctx, self, y, rect, clip, blocked);
-            y += MARGIN + WIDGET_PADDING;
+            y += MARGIN + layout::WIDGET_PADDING;
 
             // Columns / rows
             draw_spritesheet_dimension_fields(ctx, self, y, rect, clip, blocked);
-            y += MARGIN + WIDGET_PADDING;
+            y += MARGIN + layout::WIDGET_PADDING;
 
             // FPS / Loop / Mirrored toggles
             draw_fps_loop_and_mirrored(ctx, self, y, rect, clip, blocked);
-            y += MARGIN + WIDGET_PADDING;
+            y += MARGIN + layout::WIDGET_PADDING;
 
             // Optional offset
             draw_offset_fields(ctx, self, y, rect, clip, blocked);
-            y += MARGIN + WIDGET_PADDING;
+            y += MARGIN + layout::WIDGET_PADDING;
 
             // Import buttons at the bottom: "Import: [JSON] [Variant]"
             const IMPORT_LABEL: &str = "Import:";
@@ -241,18 +242,20 @@ impl InspectorModule for AnimationModule {
             const VARIANT_LABEL: &str = "Variant";
 
             let import_label_w = measure_text(ctx, IMPORT_LABEL, LABEL_FONT_SIZE).width + COLON_GAP;
-            let json_btn_w = measure_text(ctx, JSON_LABEL, DEFAULT_FONT_SIZE_16).width + 16.0;
-            let variant_btn_w = measure_text(ctx, VARIANT_LABEL, DEFAULT_FONT_SIZE_16).width + 16.0;
+            let json_btn_w =
+                measure_text(ctx, JSON_LABEL, layout::DEFAULT_FONT_SIZE_16).width + 16.0;
+            let variant_btn_w =
+                measure_text(ctx, VARIANT_LABEL, layout::DEFAULT_FONT_SIZE_16).width + 16.0;
             let btn_gap = 8.0;
 
-            let start_x = rect.x + WIDGET_PADDING;
+            let start_x = rect.x + layout::WIDGET_PADDING;
 
             ctx.draw_text(
                 IMPORT_LABEL,
                 start_x,
                 y + LABEL_Y_OFFSET,
                 LABEL_FONT_SIZE,
-                FIELD_TEXT_COLOR,
+                colors::DEFAULT_TEXT_COLOR,
             );
 
             let import_json_btn = Rect::new(start_x + import_label_w, y, json_btn_w, MARGIN);
@@ -365,15 +368,15 @@ impl InspectorModule for AnimationModule {
     fn body_layout(&self) -> InspectorBodyLayout {
         if self.has_clips {
             return InspectorBodyLayout::new()
-                .top_padding(WIDGET_SPACING)
+                .top_padding(layout::WIDGET_SPACING)
                 .rows(7, SECTION_SPACING)
                 .gap(SECTION_SPACING)
                 .block(IMPORT_ROW_HEIGHT);
         }
 
         InspectorBodyLayout::new()
-            .top_padding(WIDGET_SPACING)
-            .bottom_gutter(WIDGET_PADDING)
+            .top_padding(layout::WIDGET_SPACING)
+            .bottom_gutter(layout::WIDGET_PADDING)
             .block(BUTTON_ROW_HEIGHT)
     }
 }
@@ -390,7 +393,7 @@ pub fn draw_current_clip_dropdowns(
         return false;
     };
     let clip_label = format!("{current_id}");
-    let width = rect.w / 2.0 - WIDGET_SPACING;
+    let width = rect.w / 2.0 - layout::WIDGET_SPACING;
 
     // Select clip
     let select_rect = Rect::new(rect.x, rect.y, width, rect.h);
@@ -468,7 +471,7 @@ pub fn draw_current_clip_dropdowns(
         const CLAMP: usize = 12;
 
         // The field starts empty each time we open it
-        let (entered, focused) = TextInput::new(
+        let (entered, commit) = TextInput::new(
             module.rename_field_id,
             input_rect,
             &module.rename_initial_value,
@@ -485,7 +488,7 @@ pub fn draw_current_clip_dropdowns(
             module.pending_rename = false;
             text_input_reset(module.rename_field_id);
             return true;
-        } else if !focused {
+        } else if !matches!(commit, InputCommit::Previewing) {
             text_input_reset(module.rename_field_id);
             module.pending_rename = false;
         }
@@ -511,23 +514,25 @@ pub fn draw_frame_size_fields(
         lbl_x.x,
         lbl_x.y,
         LABEL_FONT_SIZE,
-        FIELD_TEXT_COLOR,
+        colors::DEFAULT_TEXT_COLOR,
     );
     ctx.draw_text(
         LABELS[1],
         lbl_y.x,
         lbl_y.y,
         LABEL_FONT_SIZE,
-        FIELD_TEXT_COLOR,
+        colors::DEFAULT_TEXT_COLOR,
     );
 
     // Numeric inputs
-    clip.frame_size.x = NumberInput::new(module.frame_x_id, inp_x, clip.frame_size.x)
+    let (fw, _) = NumberInput::new(module.frame_x_id, inp_x, clip.frame_size.x)
         .blocked(blocked)
         .show(ctx);
-    clip.frame_size.y = NumberInput::new(module.frame_y_id, inp_y, clip.frame_size.y)
+    clip.frame_size.x = fw;
+    let (fh, _) = NumberInput::new(module.frame_y_id, inp_y, clip.frame_size.y)
         .blocked(blocked)
         .show(ctx);
+    clip.frame_size.y = fh;
 }
 
 pub fn draw_spritesheet_dimension_fields(
@@ -546,22 +551,24 @@ pub fn draw_spritesheet_dimension_fields(
         lbl_c.x,
         lbl_c.y,
         LABEL_FONT_SIZE,
-        FIELD_TEXT_COLOR,
+        colors::DEFAULT_TEXT_COLOR,
     );
     ctx.draw_text(
         LABELS[1],
         lbl_r.x,
         lbl_r.y,
         LABEL_FONT_SIZE,
-        FIELD_TEXT_COLOR,
+        colors::DEFAULT_TEXT_COLOR,
     );
 
-    clip.cols = NumberInput::new(module.cols_id, inp_c, clip.cols as f32)
+    let (c, _) = NumberInput::new(module.cols_id, inp_c, clip.cols as f32)
         .blocked(blocked)
-        .show(ctx) as usize;
-    clip.rows = NumberInput::new(module.rows_id, inp_r, clip.rows as f32)
+        .show(ctx);
+    clip.cols = c as usize;
+    let (r, _) = NumberInput::new(module.rows_id, inp_r, clip.rows as f32)
         .blocked(blocked)
-        .show(ctx) as usize;
+        .show(ctx);
+    clip.rows = r as usize;
 }
 
 pub fn draw_fps_loop_and_mirrored(
@@ -583,20 +590,23 @@ pub fn draw_fps_loop_and_mirrored(
         lbl_fps.x,
         lbl_fps.y,
         LABEL_FONT_SIZE,
-        FIELD_TEXT_COLOR,
+        colors::DEFAULT_TEXT_COLOR,
     );
     ctx.draw_text(
         LABELS[1],
         lbl_loop.x,
         lbl_loop.y,
         LABEL_FONT_SIZE,
-        FIELD_TEXT_COLOR,
+        colors::DEFAULT_TEXT_COLOR,
     );
 
-    clip.fps = NumberInput::new(module.fps_id, inp_fps, clip.fps)
+    let (nfps, _) = NumberInput::new(module.fps_id, inp_fps, clip.fps)
         .blocked(blocked)
         .show(ctx);
-    gui_checkbox(ctx, inp_loop, &mut clip.looping, blocked);
+    clip.fps = nfps;
+    Checkbox::new(inp_loop, &mut clip.looping)
+        .blocked(blocked)
+        .show(ctx);
 
     // Mirrored checkbox
     let mirrored_label = "Mirror:";
@@ -607,7 +617,7 @@ pub fn draw_fps_loop_and_mirrored(
         mirrored_lbl_x,
         lbl_loop.y,
         LABEL_FONT_SIZE,
-        FIELD_TEXT_COLOR,
+        colors::DEFAULT_TEXT_COLOR,
     );
 
     let inp_mirrored = Rect::new(
@@ -616,7 +626,9 @@ pub fn draw_fps_loop_and_mirrored(
         CHECKBOX_SIZE,
         CHECKBOX_SIZE,
     );
-    gui_checkbox(ctx, inp_mirrored, &mut clip.mirrored, blocked);
+    Checkbox::new(inp_mirrored, &mut clip.mirrored)
+        .blocked(blocked)
+        .show(ctx);
 }
 
 pub fn draw_offset_fields(
@@ -635,22 +647,24 @@ pub fn draw_offset_fields(
         lbl_x.x,
         lbl_x.y,
         LABEL_FONT_SIZE,
-        FIELD_TEXT_COLOR,
+        colors::DEFAULT_TEXT_COLOR,
     );
     ctx.draw_text(
         LABELS[1],
         lbl_y.x,
         lbl_y.y,
         LABEL_FONT_SIZE,
-        FIELD_TEXT_COLOR,
+        colors::DEFAULT_TEXT_COLOR,
     );
 
-    clip.offset.x = NumberInput::new(module.offset_x_id, inp_x, clip.offset.x)
+    let (ox, _) = NumberInput::new(module.offset_x_id, inp_x, clip.offset.x)
         .blocked(blocked)
         .show(ctx);
-    clip.offset.y = NumberInput::new(module.offset_y_id, inp_y, clip.offset.y)
+    clip.offset.x = ox;
+    let (oy, _) = NumberInput::new(module.offset_y_id, inp_y, clip.offset.y)
         .blocked(blocked)
         .show(ctx);
+    clip.offset.y = oy;
 }
 
 /// Returns every ClipId that has a concrete Clip stored in the map.
@@ -720,7 +734,7 @@ fn layout_pair(
 
     // First label
     let label1 = Rect::new(
-        rect.x + WIDGET_PADDING,
+        rect.x + layout::WIDGET_PADDING,
         y + LABEL_Y_OFFSET,
         width1,
         INPUT_HEIGHT,

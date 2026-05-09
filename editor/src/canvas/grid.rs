@@ -7,8 +7,6 @@ use crate::{
 use bishop::prelude::*;
 use glam::vec2;
 
-const GRID_LINE_COLOR: Color = Color::new(0.5, 0.5, 0.5, 0.2);
-
 /// Draw a grid overlay for the editor using a shader.
 pub fn draw_grid(
     ctx: &mut WgpuContext,
@@ -26,7 +24,7 @@ pub fn draw_grid(
         camera_zoom: scalar,
         viewport_size: vec2(ctx.screen_width(), ctx.screen_height()),
         grid_size,
-        line_color: GRID_LINE_COLOR,
+        line_color: Color::GREY.with_alpha(0.25),
         line_thickness: LINE_THICKNESS_MULTIPLIER / 2.0,
     };
 

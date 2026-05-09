@@ -29,6 +29,13 @@ pub static PLAYTEST_BIN: &[u8] = include_bytes!(concat!(
     "/binaries/game-playtest"
 ));
 
+/// Sample theme embedded from the Demo game, written into every new game
+/// so users have an example to follow / modify.
+pub static BISHOP_THEME_LUA: &str = include_str!(concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/../games/Demo/Resources/themes/bishop_theme.lua"
+));
+
 pub static ICON_SMALL: LazyLock<[u8; 16 * 16 * 4]> =
     LazyLock::new(|| load_rgba_resized::<{ 16 * 16 * 4 }>(include_bytes!("icon.png"), 16));
 
@@ -126,7 +133,9 @@ pub fn folder_icon() -> &'static Texture2D {
     FOLDER_ICON.get().expect("Editor icons not initialized")
 }
 pub fn system_folder_icon() -> &'static Texture2D {
-    SYSTEM_FOLDER_ICON.get().expect("Editor icons not initialized")
+    SYSTEM_FOLDER_ICON
+        .get()
+        .expect("Editor icons not initialized")
 }
 pub fn lua_icon() -> &'static Texture2D {
     LUA_ICON.get().expect("Editor icons not initialized")

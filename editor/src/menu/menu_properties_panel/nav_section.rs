@@ -161,7 +161,11 @@ impl MenuEditor {
                                 .iter()
                                 .filter(|c| matches!(c.element.kind, MenuElementKind::Button(_)))
                                 .count();
-                            format!("Layout Group ({} buttons)", button_count)
+                            format!(
+                                "{} ({} buttons)",
+                                LayoutGroupElement::KIND_NAME,
+                                button_count
+                            )
                         }
                         _ => return None,
                     }

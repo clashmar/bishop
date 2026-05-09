@@ -6,11 +6,13 @@ use crate::room::room_editor::RoomEditorMode;
 use crate::Editor;
 use bishop::prelude::*;
 use engine_core::prelude::*;
+use engine_core::theme::with_theme;
 use std::cmp::Ordering;
 use std::fmt::{Display, Formatter, Result as FmtResult};
 use std::fs;
 use std::io::{self, Error, ErrorKind};
 use std::path::Path;
+use widgets::constants::layout;
 
 const PANEL_W: f32 = 250.0;
 const PANEL_H: f32 = 750.0;
@@ -150,9 +152,9 @@ impl PanelDefinition for PrefabPalettePanel {
             ctx.draw_text(
                 "No recent prefabs",
                 cards_content.x + 4.0,
-                cards_content.y + DEFAULT_FONT_SIZE_16,
-                DEFAULT_FONT_SIZE_16,
-                Color::GREY,
+                cards_content.y + layout::DEFAULT_FONT_SIZE_16,
+                layout::DEFAULT_FONT_SIZE_16,
+                with_theme(|t| t.text_muted),
             );
         }
 
@@ -290,14 +292,12 @@ fn draw_recent_prefab_card(
     mouse_position: Vec2,
 ) {
     let active = editor.room_editor.active_prefab_id == Some(prefab.id);
-    let border = if active { Color::YELLOW } else { Color::WHITE };
-    ctx.draw_rectangle(
-        rect.x,
-        rect.y,
-        rect.w,
-        rect.h,
-        Color::new(0.18, 0.18, 0.20, 1.0),
-    );
+    let border = if active {
+        with_theme(|t| t.highlight)
+    } else {
+        with_theme(|t| t.border)
+    };
+    ctx.draw_rectangle(rect.x, rect.y, rect.w, rect.h, with_theme(|t| t.panel));
     ctx.draw_rectangle_lines(rect.x, rect.y, rect.w, rect.h, 2.0, border);
 
     let footer_rect = Rect::new(
@@ -329,24 +329,31 @@ fn draw_recent_prefab_card(
         footer_rect.y,
         footer_rect.w,
         footer_rect.h,
-        Color::new(0.10, 0.10, 0.12, 0.95),
+        with_theme(|t| {
+            Color::new(
+                t.surface.r * 0.56,
+                t.surface.g * 0.56,
+                t.surface.b * 0.6,
+                0.95,
+            )
+        }),
     );
 
     let name = sanitise_name(&prefab.name);
     let truncated_name = truncate_to_width(
         ctx,
         &name,
-        footer_rect.w - WIDGET_PADDING,
-        DEFAULT_FONT_SIZE_16,
+        footer_rect.w - layout::WIDGET_PADDING,
+        layout::DEFAULT_FONT_SIZE_16,
     );
-    let text_dims = measure_text(ctx, &truncated_name, DEFAULT_FONT_SIZE_16);
+    let text_dims = measure_text(ctx, &truncated_name, layout::DEFAULT_FONT_SIZE_16);
     let text_x = footer_rect.x + (footer_rect.w - text_dims.width).max(0.0) * 0.5;
     let text_y = footer_rect.y + footer_rect.h - 10.0;
     ctx.draw_text(
         &truncated_name,
         text_x,
         text_y,
-        DEFAULT_FONT_SIZE_16,
+        layout::DEFAULT_FONT_SIZE_16,
         Color::WHITE,
     );
 

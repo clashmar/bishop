@@ -6,6 +6,7 @@ use bishop::prelude::*;
 use engine_core::prelude::*;
 use std::fmt::{Display, Formatter, Result as FmtResult};
 use std::path::PathBuf;
+use widgets::constants::layout;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum PrefabPickerResult {
@@ -45,7 +46,7 @@ impl PrefabPickerPrompt {
         exit_instead_of_cancel: bool,
     ) -> Self {
         let total_h = PROMPT_TOP_PADDING
-            + DEFAULT_FONT_SIZE_16
+            + layout::DEFAULT_FONT_SIZE_16
             + PROMPT_TEXT_GAP
             + FIELD_H
             + PROMPT_SECTION_GAP
@@ -90,7 +91,7 @@ impl PrefabPickerPrompt {
 
         let dropdown_rect = Rect::new(
             self.rect.x,
-            self.rect.y + PROMPT_TOP_PADDING + DEFAULT_FONT_SIZE_16 + PROMPT_TEXT_GAP,
+            self.rect.y + PROMPT_TOP_PADDING + layout::DEFAULT_FONT_SIZE_16 + PROMPT_TEXT_GAP,
             self.rect.w,
             FIELD_H,
         );

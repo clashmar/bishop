@@ -13,7 +13,9 @@ use crate::canvas::grid;
 use crate::canvas::grid_shader::GridRenderer;
 use crate::gui::inspector::inspector_panel::InspectorPanel;
 use crate::gui::menu_bar::draw_top_panel_full;
-use crate::room::drawing::{draw_collider, draw_pivot_marker, highlight_selected_entity};
+use crate::room::drawing::{
+    draw_collider, draw_interactable_range, draw_pivot_marker, highlight_selected_entity,
+};
 use crate::shared::input::canvas_blocked_by_global_ui;
 use crate::shared::scene_ui::inspector::{
     SceneCreateRequest, SceneEmptyInspectorBehavior, SceneInspectorContext,
@@ -21,6 +23,7 @@ use crate::shared::scene_ui::inspector::{
 use crate::shared::selection::draw_selection_box;
 use crate::world::coord;
 use bishop::prelude::*;
+use engine_core::constants::world;
 use engine_core::prelude::*;
 use std::collections::HashSet;
 
@@ -166,7 +169,7 @@ impl PrefabEditor {
         self.active_rects.clear();
 
         ctx.set_camera(camera);
-        ctx.clear_background(Color::BISHOP_BLUE);
+        ctx.clear_background(with_theme(|theme| theme.background));
 
         if self.show_grid {
             grid::draw_grid(ctx, grid_renderer, camera, PREFAB_EDITOR_GRID_SIZE);
@@ -185,7 +188,6 @@ impl PrefabEditor {
                 game_ctx.ecs,
                 selected_entity,
                 game_ctx.sprite_manager,
-                Color::YELLOW,
                 PREFAB_EDITOR_GRID_SIZE,
             );
             draw_pivot_marker(ctx, game_ctx.ecs, selected_entity);
@@ -193,12 +195,13 @@ impl PrefabEditor {
 
         if let Some(selected_entity) = self.single_selected_entity() {
             draw_collider(ctx, game_ctx.ecs, selected_entity);
+            draw_interactable_range(ctx, game_ctx.ecs, selected_entity, PREFAB_EDITOR_GRID_SIZE);
         }
 
         if self.drag_state.box_select_active {
             if let Some(start) = self.drag_state.box_select_start {
                 let mouse_world = coord::mouse_world_pos(ctx, camera);
-                draw_selection_box(ctx, start, mouse_world);
+                draw_selection_box(ctx, start, mouse_world, world::DEFAULT_GRID_SIZE);
             }
         }
 

@@ -1,5 +1,5 @@
 // editor/src/menu/menu_canvas/mod.rs
-mod drawing;
+pub(crate) mod drawing;
 mod selection;
 
 use crate::commands::menu::*;
@@ -9,6 +9,7 @@ use crate::menu::resize_handle::*;
 use crate::menu::MenuEditor;
 use crate::shared::selection::*;
 use bishop::prelude::*;
+use engine_core::menu::elements::layout_group::is_background_panel;
 use engine_core::prelude::*;
 
 const SNAP_FRACTIONS: [f32; 7] = [0.0, 0.25, 1.0 / 3.0, 0.5, 2.0 / 3.0, 0.75, 1.0];
@@ -285,24 +286,94 @@ impl MenuEditor {
 
         // Handle reorder drag for managed children
         if let Some(mut reorder) = self.reorder_drag.take() {
+            let group_index = reorder.group_index;
+            let child_index = reorder.child_index;
+
             if ctx.is_mouse_button_down(MouseButton::Left) {
-                let group_index = reorder.group_index;
-                let child_index = reorder.child_index;
+                // Check if mouse has left the group rect 
+                if !reorder.dragging_out {
+                    let group_rect = self
+                        .current_template()
+                        .and_then(|t| t.elements.get(group_index))
+                        .map(|e| e.rect);
 
-                let drop = self.current_template().and_then(|t| {
-                    let element = t.elements.get(group_index)?;
-                    if let MenuElementKind::LayoutGroup(group) = &element.kind {
-                        compute_reorder_drop_index(group, element.rect, norm_mouse, child_index)
-                    } else {
-                        None
+                    let is_bg = self
+                        .current_template()
+                        .and_then(|t| t.elements.get(group_index))
+                        .and_then(|e| match &e.kind {
+                            MenuElementKind::LayoutGroup(g) => {
+                                Some(is_background_panel(g, child_index))
+                            }
+                            _ => None,
+                        })
+                        .unwrap_or(false);
+
+                    if let Some(group_rect) = group_rect {
+                        if !group_rect.contains(norm_mouse) && !is_bg {
+                            reorder.dragging_out = true;
+                            reorder.drop_target = None;
+                            // Snapshot resolved absolute rect for the child
+                            reorder.resolved_abs_rect = self.current_template().and_then(|t| {
+                                let el = t.elements.get(group_index)?;
+                                let group = match &el.kind {
+                                    MenuElementKind::LayoutGroup(g) => g,
+                                    _ => return None,
+                                };
+                                resolve_layout(group, el.rect).get(child_index).copied()
+                            });
+                        }
                     }
-                });
+                } else {
+                    // Cancel drag-out if mouse returned inside the group
+                    if let Some(group_rect) = self
+                        .current_template()
+                        .and_then(|t| t.elements.get(group_index))
+                        .map(|e| e.rect)
+                    {
+                        if group_rect.contains(norm_mouse) {
+                            reorder.dragging_out = false;
+                        }
+                    }
+                }
 
-                reorder.drop_target = drop;
+                if reorder.dragging_out {
+                    reorder.drop_target = None;
+                } else {
+                    let drop = self.current_template().and_then(|t| {
+                        let element = t.elements.get(group_index)?;
+                        if let MenuElementKind::LayoutGroup(group) = &element.kind {
+                            compute_reorder_drop_index(group, element.rect, norm_mouse, child_index)
+                        } else {
+                            None
+                        }
+                    });
+                    reorder.drop_target = drop;
+                }
+
                 self.reorder_drag = Some(reorder);
+            } else if reorder.dragging_out {
+                // Commit drag-out
+                if let Some(resolved_rect) = reorder.resolved_abs_rect {
+                    if let Some(template_idx) = self.current_template_index {
+                        let insert_index =
+                            self.current_template().map(|t| t.elements.len()).unwrap_or(0);
+                        // Place element centered on mouse position
+                        let final_rect = Rect::new(
+                            norm_mouse.x - resolved_rect.w / 2.0,
+                            norm_mouse.y - resolved_rect.h / 2.0,
+                            resolved_rect.w,
+                            resolved_rect.h,
+                        );
+                        push_command(Box::new(MoveElementOutCmd::new(
+                            template_idx,
+                            group_index,
+                            child_index,
+                            insert_index,
+                            final_rect,
+                        )));
+                    }
+                }
             } else {
-                let group_index = reorder.group_index;
-                let child_index = reorder.child_index;
                 let drop_target = reorder.drop_target;
 
                 if let Some(target) = drop_target.filter(|&t| t != child_index) {
@@ -336,6 +407,7 @@ impl MenuEditor {
                 };
 
                 if let Some(child_idx) = child_idx {
+                    // Child drag: move unmanaged child freely within (or outside) the group
                     let group_origin = self
                         .current_template()
                         .and_then(|t| t.elements.get(anchor_index))
@@ -419,6 +491,31 @@ impl MenuEditor {
                         }
                     }
                 }
+
+                // Drag-in: detect if a top-level element's center overlaps a layout group
+                self.drop_target_group = None;
+                if self.selected_child_index.is_none() {
+                    self.drop_target_group = self.current_template()
+                        .and_then(|t| {
+                            let element = t.elements.get(anchor_index)?;
+                            let center = Vec2::new(
+                                element.rect.x + element.rect.w / 2.0,
+                                element.rect.y + element.rect.h / 2.0,
+                            );
+                            Some(
+                                t.elements
+                                    .iter()
+                                    .enumerate()
+                                    .filter(|(i, _)| *i != anchor_index)
+                                    .find(|(_, el)| {
+                                        matches!(el.kind, MenuElementKind::LayoutGroup(_))
+                                            && el.rect.contains(center)
+                                    })
+                                    .map(|(i, _)| i),
+                            )
+                        })
+                        .flatten();
+                }
             } else {
                 if let Some(template_idx) = self.current_template_index {
                     let child_idx = self.selected_child_index;
@@ -466,6 +563,87 @@ impl MenuEditor {
                         }
                     }
 
+                    // Drag-out: if unmanaged child released outside group, use MoveElementOutCmd
+                    if let Some(ci) = child_idx {
+                        let should_move_out = self.current_template().and_then(|t| {
+                            let group_el = t.elements.get(anchor_index)?;
+                            let (group, child) = Self::group_and_child(t, anchor_index, ci)?;
+                            let is_bg = is_background_panel(group, ci);
+                            Some(!child.managed && !is_bg && !group_el.rect.contains(norm_mouse))
+                        }).unwrap_or(false);
+
+                        if should_move_out {
+                            // Restore child to original position before removing
+                            if let Some((_, start_pos)) = self.drag_start_rects.first() {
+                                let start = *start_pos;
+                                let child = self
+                                    .current_template_mut()
+                                    .and_then(|t| Self::child_mut(t, anchor_index, ci));
+                                if let Some(child) = child {
+                                    child.element.rect.x = start.x;
+                                    child.element.rect.y = start.y;
+                                }
+                            }
+
+                            let payload = self.current_template().and_then(|t| {
+                                let (_, child) = Self::group_and_child(t, anchor_index, ci)?;
+                                let insert_index = t.elements.len();
+                                let final_rect = Rect::new(
+                                    norm_mouse.x - child.element.rect.w / 2.0,
+                                    norm_mouse.y - child.element.rect.h / 2.0,
+                                    child.element.rect.w,
+                                    child.element.rect.h,
+                                );
+                                Some((insert_index, final_rect))
+                            });
+
+                            if let Some((insert_index, final_rect)) = payload {
+                                push_command(Box::new(MoveElementOutCmd::new(
+                                    template_idx,
+                                    anchor_index,
+                                    ci,
+                                    insert_index,
+                                    final_rect,
+                                )));
+
+                                self.dragging_element = None;
+                                self.drag_start_rects.clear();
+                                self.snap_lines.clear();
+                                self.drop_target_group = None;
+                                return;
+                            }
+                        }
+                    }
+
+                    // Drag-in: if dropping into a layout group, use MoveElementInCmd
+                    if let Some(group_idx) = self.drop_target_group {
+                        if child_idx.is_none() {
+                            let insert_child = self.current_template()
+                                .and_then(|t| t.elements.get(group_idx))
+                                .and_then(|el| match &el.kind {
+                                    MenuElementKind::LayoutGroup(g) => Some(
+                                        g.children.iter().position(|c| c.managed)
+                                            .unwrap_or(g.children.len()),
+                                    ),
+                                    _ => None,
+                                })
+                                .unwrap_or(0);
+
+                            push_command(Box::new(MoveElementInCmd::new(
+                                template_idx,
+                                anchor_index,
+                                group_idx,
+                                insert_child,
+                            )));
+
+                            self.dragging_element = None;
+                            self.drag_start_rects.clear();
+                            self.snap_lines.clear();
+                            self.drop_target_group = None;
+                            return;
+                        }
+                    }
+
                     if !moves.is_empty() {
                         push_command(Box::new(MoveElementCmd::new(template_idx, moves)));
                     }
@@ -474,6 +652,7 @@ impl MenuEditor {
                 self.dragging_element = None;
                 self.drag_start_rects.clear();
                 self.snap_lines.clear();
+                self.drop_target_group = None;
             }
         }
     }
@@ -492,15 +671,9 @@ impl MenuEditor {
 
         if let Some(child_idx) = self.selected_child_index {
             let child_norm_rect = self.current_template().and_then(|t| {
-                let element = t.elements.get(selected_index)?;
-                let MenuElementKind::LayoutGroup(group) = &element.kind else {
-                    return None;
-                };
-                let child = group.children.get(child_idx)?;
-                if child.managed {
-                    return None;
-                }
-                resolve_layout(group, element.rect).get(child_idx).copied()
+                Self::resolve_group_child(t, selected_index, child_idx)
+                    .filter(|(_, child, _)| !child.managed)
+                    .map(|(_, _, rect)| rect)
             });
             let Some(child_norm_rect) = child_norm_rect else {
                 return false;

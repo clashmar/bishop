@@ -1,3 +1,4 @@
+use crate::constants::{colors, layout};
 use crate::*;
 use std::cell::RefCell;
 
@@ -5,7 +6,7 @@ pub mod state;
 pub use state as context_menu_state;
 
 const W_PADDING: f32 = 8.0;
-const ROW_HEIGHT: f32 = DEFAULT_FIELD_HEIGHT;
+const ROW_HEIGHT: f32 = layout::DEFAULT_FIELD_HEIGHT;
 
 pub struct ContextMenuItem<T> {
     pub label: String,
@@ -18,7 +19,7 @@ struct DeferredContextMenuRender {
     labels: Vec<String>,
     hovered_index: Option<usize>,
     font_size: f32,
-    text_color: Color,
+    overrides: WidgetTheme,
 }
 
 thread_local! {
@@ -35,10 +36,9 @@ pub struct ContextMenu<'a, T> {
     id: WidgetId,
     position: Vec2,
     items: &'a [ContextMenuItem<T>],
-    blocked: bool,
     suppressed: bool,
     font_size: f32,
-    text_color: Color,
+    base: WidgetBase,
 }
 
 impl<'a, T: Clone + PartialEq + 'static> ContextMenu<'a, T> {
@@ -47,16 +47,14 @@ impl<'a, T: Clone + PartialEq + 'static> ContextMenu<'a, T> {
             id,
             position,
             items,
-            blocked: false,
             suppressed: false,
-            font_size: DEFAULT_FONT_SIZE_16,
-            text_color: FIELD_TEXT_COLOR,
+            font_size: layout::DEFAULT_FONT_SIZE_16,
+            base: WidgetBase {
+                blocked: false,
+                overrides: WidgetTheme::default(),
+                ..WidgetBase::default()
+            },
         }
-    }
-
-    pub fn blocked(mut self, blocked: bool) -> Self {
-        self.blocked = blocked;
-        self
     }
 
     pub fn suppressed(mut self, suppressed: bool) -> Self {
@@ -70,17 +68,20 @@ impl<'a, T: Clone + PartialEq + 'static> ContextMenu<'a, T> {
     }
 
     pub fn text_color(mut self, color: impl Into<Color>) -> Self {
-        self.text_color = color.into();
+        self.base.overrides.text = Some(color.into());
         self
     }
 
     pub fn show<C: BishopContext>(self, ctx: &mut C) -> Option<T> {
+        let class = self.base.class_name.as_deref();
+        let id = self.base.style_id.as_deref();
+        let widget_theme = resolve_theme_for::<Self>(class, id);
         if self.items.is_empty() {
             return None;
         }
 
         let mut state = context_menu_state::get(self.id);
-        let interactive = !self.blocked && !self.suppressed && !is_modal_open();
+        let interactive = !self.base.blocked && !self.suppressed && !is_modal_open();
         let mouse_pos: Vec2 = ctx.mouse_position().into();
 
         if ctx.is_mouse_button_pressed(MouseButton::Right) && interactive {
@@ -149,7 +150,7 @@ impl<'a, T: Clone + PartialEq + 'static> ContextMenu<'a, T> {
                 labels,
                 hovered_index,
                 self.font_size,
-                self.text_color,
+                self.base.overrides.merge(widget_theme),
             );
             return result;
         }
@@ -184,13 +185,22 @@ impl<'a, T: Clone + PartialEq + 'static> ContextMenu<'a, T> {
     }
 }
 
+impl<T> Widget for ContextMenu<'_, T> {
+    fn widget_type() -> WidgetType {
+        WidgetType::ContextMenu
+    }
+    fn base_mut(&mut self) -> &mut WidgetBase {
+        &mut self.base
+    }
+}
+
 fn push_deferred_render(
     rect: Rect,
     row_height: f32,
     labels: Vec<String>,
     hovered_index: Option<usize>,
     font_size: f32,
-    text_color: Color,
+    overrides: WidgetTheme,
 ) {
     DEFERRED_CONTEXT_MENU_RENDERS.with(|renders| {
         renders.borrow_mut().push(DeferredContextMenuRender {
@@ -199,7 +209,7 @@ fn push_deferred_render(
             labels,
             hovered_index,
             font_size,
-            text_color,
+            overrides,
         });
     });
 }
@@ -223,12 +233,17 @@ pub fn flush_context_menu<C: BishopContext>(ctx: &mut C) {
 }
 
 fn render_context_menu<C: BishopContext>(ctx: &mut C, render: DeferredContextMenuRender) {
+    const CONTEXT_HOVER: Color = Color::new(0.35, 0.35, 0.35, 0.9);
+
     ctx.draw_rectangle(
         render.rect.x,
         render.rect.y,
         render.rect.w,
         render.rect.h,
-        FIELD_BACKGROUND_COLOR,
+        resolve(
+            render.overrides.background,
+            colors::DEFAULT_BACKGROUND_COLOR,
+        ),
     );
 
     let mouse_pos: Vec2 = ctx.mouse_position().into();
@@ -243,7 +258,7 @@ fn render_context_menu<C: BishopContext>(ctx: &mut C, render: DeferredContextMen
                 entry_rect.y,
                 entry_rect.w,
                 entry_rect.h,
-                Color::new(0.2, 0.2, 0.2, 0.9),
+                resolve(render.overrides.hover, CONTEXT_HOVER),
             );
         }
 
@@ -253,7 +268,7 @@ fn render_context_menu<C: BishopContext>(ctx: &mut C, render: DeferredContextMen
             entry_rect.x + W_PADDING,
             entry_rect.y + entry_rect.h * 0.7,
             render.font_size,
-            render.text_color,
+            resolve(render.overrides.text, colors::DEFAULT_TEXT_COLOR),
         );
     }
 
@@ -263,7 +278,7 @@ fn render_context_menu<C: BishopContext>(ctx: &mut C, render: DeferredContextMen
         render.rect.w,
         render.rect.h,
         2.,
-        OUTLINE_COLOR,
+        resolve(render.overrides.border, colors::DEFAULT_BORDER_COLOR),
     );
 }
 
