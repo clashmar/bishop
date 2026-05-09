@@ -40,8 +40,6 @@ impl UnsavedChangesExitPrompt {
         let x = self.rect.x + (self.rect.w - text_dims.width) * 0.5;
         draw_prompt_label(ctx, &self.message, x, self.rect.y + PROMPT_TOP_PADDING);
 
-        self.focus.navigate(ctx);
-
         let y =
             self.rect.y + PROMPT_TOP_PADDING + layout::DEFAULT_FONT_SIZE_16 + PROMPT_SECTION_GAP;
         let gap = 6.0;
@@ -49,6 +47,8 @@ impl UnsavedChangesExitPrompt {
         let first = Rect::new(self.rect.x, y, width, BUTTON_H);
         let second = Rect::new(self.rect.x + width + gap, y, width, BUTTON_H);
         let third = Rect::new(self.rect.x + (width + gap) * 2.0, y, width, BUTTON_H);
+
+        self.focus.navigate_with_mouse(ctx, &[first, second, third]);
 
         if Button::new(first, "Save").focused(self.focus.is_focused(0)).show(ctx)
             || (self.focus.is_focused(0) && Controls::enter(ctx))
