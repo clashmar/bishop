@@ -342,11 +342,10 @@ impl MenuManager {
     fn handle_mouse_hover(&mut self, template: &MenuTemplate, mouse: Vec2) {
         let hovered_focus = focus_target_at(template, self.viewport, mouse);
 
-        if hovered_focus != self.last_hovered_focus {
-            if let Some(f) = hovered_focus.clone() {
-                self.focus = f;
-                self.slider_repeat.reset();
-            }
+        if hovered_focus != self.last_hovered_focus
+            && let Some(f) = hovered_focus.clone() {
+            self.focus = f;
+            self.slider_repeat.reset();
         }
         self.last_hovered_focus = hovered_focus;
     }

@@ -113,11 +113,25 @@ impl MenuEditor {
                 let element_rect =
                     normalized_rect_to_screen(element.rect, canvas_origin, canvas_size);
                 self.draw_element(&mut frame, element, element_rect, is_selected, true);
+
+                // Highlight drop-target group during drag-in hover
+                if self.drop_target_group == Some(i) {
+                    frame.ctx.draw_rectangle_lines(
+                        element_rect.x - 2.0,
+                        element_rect.y - 2.0,
+                        element_rect.w + 4.0,
+                        element_rect.h + 4.0,
+                        3.0,
+                        Color::new(0.3, 0.7, 1.0, 0.8),
+                    );
+                }
             }
 
             if self.game_theme.is_some() {
                 set_theme(editor_theme);
             }
+
+            self.draw_child_drag_overlay(&mut frame, template);
 
             // Draw placement cursor if pending
             if self.pending_element_type.is_some() && rect.contains(world_mouse) {
@@ -213,6 +227,128 @@ impl MenuEditor {
             draw_resize_handles(frame.ctx, element_rect);
         }
     }
+
+    /// Returns (group, child) for the given template indices — the core lookup.
+    pub(crate) fn group_and_child(
+        template: &MenuTemplate,
+        group_index: usize,
+        child_index: usize,
+    ) -> Option<(&LayoutGroupElement, &LayoutChild)> {
+        let el = template.elements.get(group_index)?;
+        let group = match &el.kind {
+            MenuElementKind::LayoutGroup(g) => g,
+            _ => return None,
+        };
+        let child = group.children.get(child_index)?;
+        Some((group, child))
+    }
+
+    /// Mutable version for drag/update operations. Returns the child element.
+    pub(crate) fn child_mut(
+        template: &mut MenuTemplate,
+        group_index: usize,
+        child_index: usize,
+    ) -> Option<&mut LayoutChild> {
+        let el = template.elements.get_mut(group_index)?;
+        let group = match &mut el.kind {
+            MenuElementKind::LayoutGroup(g) => g,
+            _ => return None,
+        };
+        group.children.get_mut(child_index)
+    }
+
+    /// Resolves (group, child, resolved_normalized_rect) for the given group/child indices.
+    pub(crate) fn resolve_group_child(
+        template: &MenuTemplate,
+        group_index: usize,
+        child_index: usize,
+    ) -> Option<(&LayoutGroupElement, &LayoutChild, Rect)> {
+        let (group, child) = Self::group_and_child(template, group_index, child_index)?;
+        let resolved_rect = *resolve_layout(group, template.elements.get(group_index)?.rect)
+            .get(child_index)?;
+        Some((group, child, resolved_rect))
+    }
+
+    fn is_mouse_outside_element(&self, template: &MenuTemplate, element_index: usize) -> bool {
+        self.last_norm_mouse
+            .and_then(|nm| {
+                template
+                    .elements
+                    .get(element_index)
+                    .map(|el| !el.rect.contains(nm))
+            })
+            .unwrap_or(false)
+    }
+
+    fn draw_child_drag_overlay(
+        &self,
+        frame: &mut MenuCanvasFrame<'_>,
+        template: &MenuTemplate,
+    ) {
+        self.draw_managed_child_ghost(frame, template);
+        self.draw_unmanaged_child_outline(frame, template);
+    }
+
+    fn draw_managed_child_ghost(&self, frame: &mut MenuCanvasFrame<'_>, template: &MenuTemplate) {
+        let Some(reorder) = self.reorder_drag.as_ref() else {
+            return;
+        };
+        let Some((_group, _child, resolved_rect)) =
+            Self::resolve_group_child(template, reorder.group_index, reorder.child_index)
+        else {
+            return;
+        };
+
+        let raw_mouse: Vec2 = frame.ctx.mouse_position().into();
+        let ghost_rect = Rect::new(
+            raw_mouse.x - resolved_rect.w * frame.canvas_size.x / 2.0,
+            raw_mouse.y - resolved_rect.h * frame.canvas_size.y / 2.0,
+            resolved_rect.w * frame.canvas_size.x,
+            resolved_rect.h * frame.canvas_size.y,
+        );
+        self.draw_element(frame, &_child.element, ghost_rect, false, false);
+        frame.ctx.draw_rectangle(
+            ghost_rect.x,
+            ghost_rect.y,
+            ghost_rect.w,
+            ghost_rect.h,
+            Color::new(1.0, 1.0, 1.0, 0.3),
+        );
+        if reorder.dragging_out {
+            draw_exit_outline(frame.ctx, ghost_rect);
+        }
+    }
+
+    /// Draws an exit outline for an unmanaged child being dragged outside its parent group.
+    fn draw_unmanaged_child_outline(
+        &self,
+        frame: &mut MenuCanvasFrame<'_>,
+        template: &MenuTemplate,
+    ) {
+        let Some(anchor_index) = self.dragging_element else {
+            return;
+        };
+        let Some(child_idx) = self.selected_child_index else {
+            return;
+        };
+        if !self.is_mouse_outside_element(template, anchor_index) {
+            return;
+        };
+
+        let Some((group, child, resolved_rect)) =
+            Self::resolve_group_child(template, anchor_index, child_idx)
+        else {
+            return;
+        };
+        if child.managed || is_background_panel(group, child_idx) {
+            return;
+        };
+
+        draw_exit_outline(
+            frame.ctx,
+            normalized_rect_to_screen(resolved_rect, frame.canvas_origin, frame.canvas_size),
+        );
+    }
 }
 
 /// Draws a drop indicator line at the target managed slot position.
@@ -296,4 +432,15 @@ pub(crate) fn draw_reorder_indicator(
             ctx.draw_rectangle(screen.x, screen.y, screen.w, thickness, indicator_color);
         }
     }
+}
+
+fn draw_exit_outline(ctx: &mut WgpuContext, rect: Rect) {
+    ctx.draw_rectangle_lines(
+        rect.x - 2.0,
+        rect.y - 2.0,
+        rect.w + 4.0,
+        rect.h + 4.0,
+        3.0,
+        Color::new(0.3, 0.7, 1.0, 0.8),
+    );
 }

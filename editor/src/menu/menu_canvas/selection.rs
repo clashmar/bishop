@@ -111,12 +111,8 @@ impl MenuEditor {
 
                     let start = self
                         .current_template()
-                        .and_then(|t| t.elements.get(idx))
-                        .and_then(|e| match &e.kind {
-                            MenuElementKind::LayoutGroup(g) => g.children.get(child_index),
-                            _ => None,
-                        })
-                        .map(|child| Vec2::new(child.element.rect.x, child.element.rect.y));
+                        .and_then(|t| Self::group_and_child(t, idx, child_index))
+                        .map(|(_, child)| Vec2::new(child.element.rect.x, child.element.rect.y));
 
                     if let Some(pos) = start {
                         self.drag_start_rects = vec![(idx, pos)];
