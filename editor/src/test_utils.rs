@@ -145,6 +145,7 @@ pub fn linked_root_entities(ecs: &Ecs, prefab_id: PrefabId) -> Vec<Entity> {
 pub struct MockInput {
     pressed_keys: Vec<KeyCode>,
     down_keys: Vec<KeyCode>,
+    mouse_pos: (f32, f32),
 }
 
 #[cfg(test)]
@@ -153,6 +154,7 @@ impl MockInput {
         Self {
             pressed_keys: Vec::new(),
             down_keys: Vec::new(),
+            mouse_pos: (0.0, 0.0),
         }
     }
 
@@ -163,6 +165,11 @@ impl MockInput {
 
     pub fn hold(&mut self, key: KeyCode) -> &mut Self {
         self.down_keys.push(key);
+        self
+    }
+
+    pub fn set_mouse_position(&mut self, pos: (f32, f32)) -> &mut Self {
+        self.mouse_pos = pos;
         self
     }
 }
@@ -194,7 +201,7 @@ impl Input for MockInput {
         false
     }
     fn mouse_position(&self) -> (f32, f32) {
-        (0.0, 0.0)
+        self.mouse_pos
     }
     fn mouse_delta_position(&self) -> (f32, f32) {
         (0.0, 0.0)
