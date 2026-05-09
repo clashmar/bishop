@@ -639,28 +639,36 @@ pub fn is_pure_placeholder(ecs: &Ecs, entity: Entity) -> bool {
         || (ecs.has::<Light>(entity) && !ecs.has_any::<(Sprite, Animation, CurrentFrame)>(entity))
 }
 
+/// Draw a thin circle showing the interaction range for an `Interactable` entity.
+pub fn draw_interactable_range(ctx: &mut WgpuContext, ecs: &Ecs, entity: Entity, grid_size: f32) {
+    let interactable = match ecs.get_store::<Interactable>().get(entity) {
+        Some(i) => i,
+        None => return,
+    };
+    let transform = match ecs.get_store::<Transform>().get(entity) {
+        Some(t) => t,
+        None => return,
+    };
+    let violet = Color::new(0.75, 0.25, 1.0, 0.55);
+    ctx.draw_circle_lines(
+        transform.position.x,
+        transform.position.y,
+        interactable.range,
+        outline_thickness(grid_size) * 0.25,
+        violet,
+    );
+}
+
 /// Draw a thin circle showing the interaction range for each `Interactable` entity in the room.
 pub fn draw_interactable_ranges(ctx: &mut WgpuContext, ecs: &Ecs, room_id: RoomId, grid_size: f32) {
     let room_store = ecs.get_store::<CurrentRoom>();
-    let violet = Color::new(0.75, 0.25, 1.0, 0.55);
-
-    for (entity, interactable) in ecs.get_store::<Interactable>().data.iter() {
+    for (entity, _interactable) in ecs.get_store::<Interactable>().data.iter() {
         if let Some(CurrentRoom(id)) = room_store.get(*entity) {
             if *id != room_id {
                 continue;
             }
         }
-
-        if let Some(transform) = ecs.get_store::<Transform>().get(*entity) {
-            let pos = transform.position;
-            ctx.draw_circle_lines(
-                pos.x,
-                pos.y,
-                interactable.range,
-                outline_thickness(grid_size) * 0.25,
-                violet,
-            );
-        }
+        draw_interactable_range(ctx, ecs, *entity, grid_size);
     }
 }
 
