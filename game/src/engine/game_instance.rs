@@ -23,6 +23,7 @@ impl GameInstance {
     ) -> Self {
         let room_id = Self::start_room_id(&game);
         game.initialize_runtime(lua);
+        game.ecs.finalize_after_load();
         Self::finish_loading(ctx, room_id, game, lua, camera_manager)
     }
 
@@ -34,6 +35,7 @@ impl GameInstance {
         camera_manager: &mut CameraManager,
     ) -> Self {
         game.initialize_runtime(lua);
+        game.ecs.finalize_after_load();
         Self::finish_loading(ctx, room.id, game, lua, camera_manager)
     }
 
@@ -55,11 +57,9 @@ impl GameInstance {
         lua: &Lua,
         camera_manager: &mut CameraManager,
     ) -> Self {
-        // Warm the audio cache for all AudioSource components that were loaded from the
-        // save file. Ecs::deserialize bypasses post_create hooks (serde has no GameCtxMut),
-        // so we push IncrementRefs manually here.
-        // TODO(save-load): replace with a proper post-load hook once the Save/Load sprint
-        // adds runtime save files and a generalised post-deserialize callback.
+        // Post-load finalization: on_insert hooks have fired via ecs.finalize_after_load().
+        // Contextful post_create hooks (requiring GameCtxMut) still need manual wiring
+        // for components like AudioSource that depend on runtime command queues.
         for source in AudioSource::store(&game.ecs).data.values() {
             push_audio_command(AudioCommand::IncrementRefs(sound_command_ids(
                 &game.asset_registry,

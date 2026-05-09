@@ -32,6 +32,7 @@ impl std::ops::DerefMut for Entity {
     }
 }
 
+/// Builder for constructing entities with components.
 pub struct EntityBuilder<'a> {
     pub id: Entity,
     pub ecs: &'a mut Ecs,
@@ -49,9 +50,16 @@ impl<'a> EntityBuilder<'a> {
             // TODO handle expect
             .expect("Component not registered.");
 
-        // Insert `T` and every component listed in the macro’s requirement list.
+        debug_assert!(
+            !reg.guarded,
+            "EntityBuilder::with() bypasses lifecycle hooks for guarded component {}. Use the dedicated API (e.g. add_component_to_entity) instead.",
+            std::any::type_name::<T>()
+        );
+
+        // Insert `T` and every component listed in the macro's requirement list.
         (reg.factory)(self.ecs, self.id);
         T::store_mut(self.ecs).insert(self.id, comp);
+        self.ecs.invoke_on_insert::<T>(self.id);
         self
     }
 

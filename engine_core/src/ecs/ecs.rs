@@ -17,7 +17,7 @@ use std::collections::HashMap;
 #[derive(Debug)]
 pub struct Ecs {
     pub stores: HashMap<TypeId, Box<dyn Any + Send + Sync>>,
-    next_entity_id: usize,
+    pub(crate) next_entity_id: usize,
 }
 
 impl Default for Ecs {
@@ -170,6 +170,7 @@ impl Ecs {
     {
         // Store in the typed store (engine code can still use it directly)
         self.get_store_mut::<T>().insert(entity, component.clone());
+        self.invoke_on_insert::<T>(entity);
     }
 
     /// Insert a component on an existing entity.
@@ -179,6 +180,21 @@ impl Ecs {
         T: Component + Serialize + for<'de> Deserialize<'de> + Clone + Default + 'static,
     {
         // Store it in the typed store – the same place the engine uses directly.
+        self.get_store_mut::<T>().insert(entity, component);
+        self.invoke_on_insert::<T>(entity);
+    }
+
+    /// Replace a component wholesale through the store.
+    pub fn replace_component<T>(&mut self, entity: Entity, component: T)
+    where
+        T: Component + Serialize + for<'de> Deserialize<'de> + Clone + Default + 'static,
+    {
+        debug_assert!(
+            !Self::component_has_lifecycle_hooks::<T>(),
+            "replace_component bypasses lifecycle hooks for {}. Use insert_component or remove_component instead.",
+            std::any::type_name::<T>()
+        );
+        self.get_store_mut::<T>().remove(entity);
         self.get_store_mut::<T>().insert(entity, component);
     }
 
@@ -250,7 +266,7 @@ impl Ecs {
     }
 
     /// Recalculate next_entity_id from the highest entity id across all component stores.
-    fn restore_next_entity_id(&mut self) {
+    pub(crate) fn restore_next_entity_id(&mut self) {
         self.next_entity_id = inventory::iter::<ComponentRegistry>
             .into_iter()
             .filter_map(|reg| {
@@ -261,6 +277,38 @@ impl Ecs {
             .max()
             .map(|max_id| max_id + 1)
             .unwrap_or(1);
+    }
+
+    /// Call on_insert for the given component type and entity.
+    pub(crate) fn invoke_on_insert<T: Component + 'static>(&mut self, entity: Entity) {
+        let store_tid = std::any::TypeId::of::<ComponentStore<T>>();
+        if let Some(reg) = inventory::iter::<ComponentRegistry>
+            .into_iter()
+            .find(|r| r.type_id == store_tid)
+        {
+            // Take the component out to avoid borrow conflicts,
+            // call on_insert on the extracted value, then re-insert.
+            if let Some(component) = self.get_store_mut::<T>().take(entity) {
+                let mut boxed: Box<dyn Any> = Box::new(component);
+                (reg.on_insert)(&mut *boxed, &entity, self);
+                if let Ok(component) = boxed.downcast::<T>() {
+                    self.get_store_mut::<T>().insert(entity, *component);
+                }
+            }
+        }
+    }
+
+    /// Check if a component type has any lifecycle hooks registered.
+    fn component_has_lifecycle_hooks<T: 'static>() -> bool {
+        let store_tid = std::any::TypeId::of::<ComponentStore<T>>();
+        inventory::iter::<ComponentRegistry>
+            .into_iter()
+            .find(|r| r.type_id == store_tid)
+            .map(|reg| {
+                reg.on_insert as *const () != noop_on_insert as *const ()
+                    || reg.on_remove as *const () != noop_on_remove as *const ()
+            })
+            .unwrap_or(false)
     }
 }
 
@@ -361,58 +409,37 @@ static TYPE_NAME_FOR_ID: Lazy<HashMap<TypeId, &'static str>> = Lazy::new(|| {
     map
 });
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::ecs::Transform;
+impl Ecs {
+    /// Call on_insert for every component on every entity.
+    pub fn finalize_after_load(&mut self) {
+        let registry_for_type_id: std::collections::HashMap<TypeId, &ComponentRegistry> =
+            inventory::iter::<ComponentRegistry>
+                .into_iter()
+                .map(|reg| (reg.type_id, reg))
+                .collect();
 
-    #[test]
-    fn restore_next_entity_id_finds_max() {
-        let mut ecs = Ecs::default();
-        let _e1 = ecs.create_entity().with(Transform::default()).finish();
-        let _e2 = ecs.create_entity().with(Transform::default()).finish();
-        let e3 = ecs.create_entity().with(Transform::default()).finish();
+        // Collect (entity, type_id) pairs to avoid borrow conflicts
+        let mut to_finalize: Vec<(Entity, TypeId)> = Vec::new();
+        for (type_id, any_box) in &self.stores {
+            if let Some(reg) = registry_for_type_id.get(type_id)
+                && let Some(max) = (reg.max_entity_id)(&**any_box)
+            {
+                    for id in 0..=max {
+                        let entity = Entity(id);
+                        if (reg.has)(self, entity) {
+                            to_finalize.push((entity, *type_id));
+                        }
+                    }
+                }
+        }
 
-        assert_eq!(ecs.next_entity_id, 4);
-
-        ecs.get_store_mut::<Transform>().remove(e3);
-        ecs.restore_next_entity_id();
-        assert_eq!(
-            ecs.next_entity_id, 3,
-            "after removing the highest entity, next_entity_id should be max(existing) + 1"
-        );
-
-        let e_new = ecs.create_entity().finish();
-        assert_eq!(e_new.0, 3);
-    }
-
-    #[test]
-    fn restore_next_entity_id_empty_ecs_defaults_to_1() {
-        let mut ecs = Ecs {
-            stores: HashMap::new(),
-            next_entity_id: 42,
-        };
-        ecs.restore_next_entity_id();
-        assert_eq!(ecs.next_entity_id, 1);
-    }
-
-    #[test]
-    fn roundtrip_serde_derives_next_entity_id() {
-        let mut ecs = Ecs::default();
-        ecs.create_entity().with(Transform::default()).finish();
-        ecs.create_entity().with(Transform::default()).finish();
-        assert_eq!(ecs.next_entity_id, 3);
-
-        let ron = ron::ser::to_string(&ecs).unwrap();
-        let deserialized: Ecs = ron::de::from_str(&ron).unwrap();
-        assert_eq!(deserialized.next_entity_id, 3);
-    }
-
-    #[test]
-    fn roundtrip_serde_empty_ecs() {
-        let ecs = Ecs::default();
-        let ron = ron::ser::to_string(&ecs).unwrap();
-        let deserialized: Ecs = ron::de::from_str(&ron).unwrap();
-        assert_eq!(deserialized.next_entity_id, 1);
+        // Call on_insert for each collected pair, then re-insert the modified component
+        for (entity, type_id) in &to_finalize {
+            if let Some(reg) = registry_for_type_id.get(type_id) {
+                let mut boxed = (reg.clone)(self, *entity);
+                (reg.on_insert)(&mut *boxed, entity, self);
+                (reg.inserter)(self, *entity, boxed);
+            }
+        }
     }
 }
