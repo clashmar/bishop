@@ -68,6 +68,9 @@ impl<T> ComponentStore<T> {
     pub fn remove(&mut self, entity: Entity) {
         self.data.remove(&entity);
     }
+    pub fn take(&mut self, entity: Entity) -> Option<T> {
+        self.data.remove(&entity)
+    }
     pub fn contains(&self, entity: Entity) -> bool {
         self.data.contains_key(&entity)
     }
