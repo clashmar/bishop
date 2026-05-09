@@ -1,0 +1,22 @@
+editor/src/menu/menu_properties_panel/common_properties.rs
+  s_eeaa12f35c8e24::t_45044f28f0cc2d 396
+editor/src/menu/menu_canvas/mod.rs
+  s_eeaa12f35c8e24::t_bb2f9c9386ece0 557-585
+  s_eeaa12f35c8e24::t_03a407813c4550 401
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.4",
+  "base_commit_sha": "b4af0132dd4e21c1e95671098185a6b7263886d0",
+  "prompts": {},
+  "sessions": {
+    "s_eeaa12f35c8e24": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019e0a2a-e016-701e-bd9e-e6542e3d012b",
+        "model": "claude-opus-4.6"
+      },
+      "human_author": "Charlie Lashmar <c.lashmar08@gmail.com>"
+    }
+  }
+}
