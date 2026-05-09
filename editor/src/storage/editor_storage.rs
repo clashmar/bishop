@@ -1,7 +1,7 @@
 // editor/src/storage/editor_storage.rs
 #![allow(unused)]
 use crate::editor_assets::assets::write_sounds_lua;
-use crate::editor_assets::write_prefabs_lua;
+use crate::editor_assets::assets::{write_prefabs_lua, BISHOP_THEME_LUA};
 use crate::storage::sound_preset_storage::*;
 use crate::tilemap::tile_palette::TilePalette;
 use crate::write_animations_lua;
@@ -9,6 +9,7 @@ use crate::write_engine_scripts;
 use bishop::prelude::*;
 use engine_core::constants::world as world_constants;
 use engine_core::prelude::*;
+use engine_core::scripting::lua_constants::lua_files;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::fs;
@@ -98,6 +99,14 @@ pub(super) fn create_game_folders(name: &str) {
     // Extract embedded _engine scripts
     if let Err(e) = write_engine_scripts(&scripts_folder()) {
         onscreen_error!("Could not write _engine scripts: {e}");
+    }
+
+    // Write sample theme file if it doesn't exist
+    let theme_path = themes_folder().join(lua_files::BISHOP_THEME);
+    if !theme_path.exists() {
+        if let Err(e) = fs::write(&theme_path, BISHOP_THEME_LUA) {
+            onscreen_error!("Could not write sample theme: {e}");
+        }
     }
 
     // Create an empty main.lua for the user (only if it doesn't already exist)

@@ -12,6 +12,7 @@ pub mod lua_files {
     pub const AUDIO: &str = "audio.lua";
     pub const THEME: &str = "theme.lua";
     pub const COLOR: &str = "color.lua";
+    pub const BISHOP_THEME: &str = "bishop_theme.lua";
 }
 
 /// Ownership markers for generated Lua files.
