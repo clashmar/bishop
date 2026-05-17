@@ -1,5 +1,19 @@
 use super::*;
 
+fn assert_room_membership_after_prefab_discard_exit(
+    editor: &Editor,
+    room_id: RoomId,
+    prefab_id: PrefabId,
+) {
+    let linked = linked_root_entities(&editor.game.ecs, prefab_id);
+    assert_eq!(linked.len(), 1);
+    let room_entities = editor.game.ecs.entities_in_room(room_id);
+    assert!(
+        room_entities.contains(&linked[0]),
+        "restored linked root should be tracked in room_entities after prefab discard exit"
+    );
+}
+
 #[test]
 fn staged_prefab_edits_preview_sync_to_linked_room_instances() {
     let _lock = game_fs_test_lock()
@@ -35,6 +49,13 @@ fn staged_prefab_edits_preview_sync_to_linked_room_instances() {
                 .map(|room| room.0),
             Some(room_id)
         );
+
+        // Verify room_entities tracking after prefab preview sync
+        let room_entities = editor.game.ecs.entities_in_room(room_id);
+        assert!(
+            room_entities.contains(&linked_roots[0]),
+            "linked root should be tracked in room_entities after prefab sync"
+        );
     });
 }
 
@@ -44,7 +65,7 @@ fn empty_prefab_preview_delete_and_undo_restore_room_instances() {
         .lock()
         .unwrap_or_else(|poison| poison.into_inner());
     let test_game = TestGameFolder::new("prefab_empty_preview_undo");
-    let (editor, _, prefab_id, _) = make_prefab_session_editor(&test_game);
+    let (editor, room_id, prefab_id, _) = make_prefab_session_editor(&test_game);
     let _guard = EditorServicesGuard::install(editor);
 
     with_editor(|editor| {
@@ -68,6 +89,11 @@ fn empty_prefab_preview_delete_and_undo_restore_room_instances() {
         editor.reconcile_active_prefab_room_preview();
         assert!(editor.prefab_editor.as_ref().unwrap().root_entity.is_some());
         assert_eq!(linked_root_entities(&editor.game.ecs, prefab_id).len(), 1);
+        assert_room_membership_after_prefab_discard_exit(
+            editor,
+            room_id,
+            prefab_id,
+        );
     });
 }
 
@@ -100,5 +126,10 @@ fn discarding_empty_prefab_exit_restores_committed_room_state() {
         assert_eq!(editor.mode, EditorMode::Room(room_id));
         assert!(editor.prefab_editor.is_none());
         assert_eq!(linked_root_entities(&editor.game.ecs, prefab_id).len(), 1);
+        assert_room_membership_after_prefab_discard_exit(
+            editor,
+            room_id,
+            prefab_id,
+        );
     });
 }

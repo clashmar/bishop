@@ -8,6 +8,7 @@ pub mod entity;
 pub mod has_any;
 pub mod inspector;
 pub mod reflect_field;
+pub mod room_membership;
 
 pub use components::*;
 pub use capture::*;

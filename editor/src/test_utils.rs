@@ -120,8 +120,8 @@ pub fn make_prefab_session_editor(
             position: Vec2::new(48.0, 96.0),
             ..Default::default()
         })
-        .with(CurrentRoom(room_id))
         .with(Name("Root".to_string()))
+        .with_current_room(room_id)
         .finish();
     editor.room_editor.set_selected_entity(Some(root));
     let _picker = install_prefab_save_picker_result(Some(

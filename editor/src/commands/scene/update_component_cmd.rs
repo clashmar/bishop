@@ -148,6 +148,23 @@ impl UpdateComponentCmd {
         editor: &mut crate::Editor,
     ) {
         with_scene_ctx(editor, mode, |ctx| {
+            // FLAG: If we start adding more special cases
+            // consider defining this behaviour on the component
+            if type_name == CurrentRoom::TYPE_NAME {
+                let CurrentRoom(room_id) =
+                    ron::from_str::<CurrentRoom>(&ron).expect("CurrentRoom RON should deserialize");
+                if ctx
+                    .ecs()
+                    .get::<CurrentRoom>(entity)
+                    .is_some_and(|current_room| current_room.0 == room_id)
+                {
+                    return;
+                }
+
+                ctx.ecs().set_current_room(entity, room_id);
+                return;
+            }
+
             if let Some(reg) = COMPONENTS.iter().find(|r| r.type_name == type_name) {
                 if (reg.has)(ctx.ecs(), entity) {
                     let old = (reg.clone)(ctx.ecs(), entity);

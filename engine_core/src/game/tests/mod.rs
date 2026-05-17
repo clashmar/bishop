@@ -1,6 +1,8 @@
 use super::*;
-use crate::ecs::{CurrentRoom, Ecs, Name};
-use crate::worlds::room::Room;
+use crate::ecs::Ecs;
+#[cfg(feature = "editor")]
+use crate::ecs::{CurrentRoom, Name};
+use crate::worlds::room::{Room, RoomId};
 
 #[test]
 fn game_ctx_mut_can_exist_without_a_current_world() {
@@ -85,8 +87,8 @@ fn delete_world_removes_all_room_entities() {
     let entity = game
         .ecs
         .create_entity()
-        .with(CurrentRoom(room_id))
         .with(Name("test_entity".into()))
+        .with_current_room(room_id)
         .finish();
 
     game.delete_world(world_id);
@@ -98,6 +100,10 @@ fn delete_world_removes_all_room_entities() {
     assert!(
         !game.ecs.has::<Name>(entity),
         "Name should be gone after world deletion"
+    );
+    assert!(
+        game.ecs.room_entities.is_empty(),
+        "room_entities should be empty after world deletion"
     );
 }
 
@@ -127,8 +133,8 @@ fn delete_world_preserves_other_world_entities() {
         ..Default::default()
     });
 
-    let entity_a = game.ecs.create_entity().with(CurrentRoom(room_a)).finish();
-    let entity_b = game.ecs.create_entity().with(CurrentRoom(room_b)).finish();
+    let entity_a = game.ecs.create_entity().with_current_room(room_a).finish();
+    let entity_b = game.ecs.create_entity().with_current_room(room_b).finish();
 
     game.delete_world(world_a);
 
@@ -139,6 +145,23 @@ fn delete_world_preserves_other_world_entities() {
     assert!(
         game.ecs.has::<CurrentRoom>(entity_b),
         "entity_b should still exist after the other world is deleted"
+    );
+    assert_eq!(
+        game.ecs.room_entities.len(),
+        1,
+        "only room_b should remain in room_entities"
+    );
+    assert!(
+        !game.ecs.room_entities.contains_key(&room_a),
+        "room_a should not be in room_entities"
+    );
+    assert!(
+        game.ecs
+            .room_entities
+            .get(&room_b)
+            .unwrap()
+            .contains(&entity_b),
+        "entity_b should be tracked for room_b in room_entities"
     );
 }
 
@@ -204,4 +227,22 @@ fn reload_prefab_manager_keeps_existing_records_when_reload_fails() {
 
     assert_eq!(game.asset_registry, before);
     assert_eq!(game.prefab_manager, before_prefab_manager);
+}
+
+#[test]
+fn room_new_indexes_room_camera() {
+    let mut ecs = Ecs::default();
+    let room_id = RoomId(1);
+    let grid_size = 16.0;
+
+    let room = Room {
+        id: room_id,
+        ..Default::default()
+    };
+
+    room.create_room_camera(&mut ecs, room_id, grid_size);
+
+    // Camera entity should be tracked in ecs.room_entities via the ECS index
+    let camera_entities = ecs.entities_in_room(room_id);
+    assert_eq!(camera_entities.len(), 1, "camera should be tracked in room_entities");
 }

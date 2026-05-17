@@ -115,19 +115,25 @@ impl GameInstance {
     /// Updates the previous position for all entities in the active room.
     pub fn store_previous_positions(&mut self, camera_manager: &mut CameraManager) {
         let ecs = &self.game.ecs;
-        let trans_store = ecs.get_store::<Transform>();
-        let room_store = ecs.get_store::<CurrentRoom>();
-        let sub_pixel_store = ecs.get_store::<SubPixel>();
 
         // Store the camera target
         camera_manager.previous_position = Some(camera_manager.active.camera.target);
+
+        let Some(current_room_id) = self.game.current_world().current_room_id else {
+            self.prev_positions.clear();
+            return;
+        };
+
+        let trans_store = ecs.get_store::<Transform>();
+        let room_store = ecs.get_store::<CurrentRoom>();
+        let sub_pixel_store = ecs.get_store::<SubPixel>();
 
         self.prev_positions.clear();
         self.prev_positions
             .extend(trans_store.data.iter().filter_map(|(entity, transform)| {
                 room_store
                     .get(*entity)
-                    .filter(|cr| cr.0 == self.game.current_world().current_room_id.unwrap()) // TODO: handle unwrap
+                    .filter(|cr| cr.0 == current_room_id)
                     .map(|_| {
                         (
                             *entity,
@@ -159,16 +165,16 @@ mod tests {
         let mut game = Game::default();
         game.add_world(world);
 
-        let entity = game
-            .ecs
+        let entity = game.ecs
             .create_entity()
             .with(Transform {
                 position: Vec2::new(10.0, 12.0),
                 ..Default::default()
             })
-            .with(CurrentRoom(room_id))
             .with(SubPixel { x: 0.25, y: -0.5 })
+            .with_current_room(room_id)
             .finish();
+
 
         let mut game_instance = GameInstance {
             game,

@@ -38,6 +38,13 @@ impl EditorCommand for RemoveComponentCmd {
         let mode = self.mode;
         with_editor(|editor| {
             with_scene_ctx(editor, mode, |ctx| {
+                // FLAG: If we start adding more special cases
+                // consider defining this behaviour on the component
+                if type_name == CurrentRoom::TYPE_NAME {
+                    Ecs::remove_component::<CurrentRoom>(ctx, entity);
+                    return;
+                }
+
                 if let Some(reg) = COMPONENTS.iter().find(|r| r.type_name == type_name) {
                     if (reg.has)(ctx.ecs(), entity) {
                         let mut boxed = (reg.clone)(ctx.ecs(), entity);
@@ -67,6 +74,15 @@ impl EditorCommand for RemoveComponentCmd {
         let mode = self.mode;
         with_editor(|editor| {
             with_scene_ctx(editor, mode, |ctx| {
+                // FLAG: If we start adding more special cases
+                // consider defining this behaviour on the component
+                if type_name == CurrentRoom::TYPE_NAME {
+                    let CurrentRoom(room_id) = ron::from_str::<CurrentRoom>(&snapshot)
+                        .expect("CurrentRoom snapshot should deserialize");
+                    ctx.ecs().set_current_room(entity, room_id);
+                    return;
+                }
+
                 if let Some(reg) = COMPONENTS.iter().find(|r| r.type_name == type_name) {
                     let mut boxed = (reg.from_ron_component)(snapshot);
                     (reg.post_create)(&mut *boxed, &entity, ctx);
@@ -138,6 +154,46 @@ mod tests {
         with_editor(|editor| {
             assert!(!editor.game.ecs.has::<Animation>(entity));
             assert!(!editor.game.ecs.has::<CurrentFrame>(entity));
+        });
+    }
+
+    #[test]
+    fn room_component_remove_clears_membership_and_undo_restores_it() {
+        reset_services();
+
+        let mut editor = Editor::default();
+        editor.game.add_world(Default::default());
+        set_editor(editor);
+
+        let entity = with_editor(|editor| {
+            editor
+                .game
+                .ecs
+                .create_entity()
+                .with_current_room(RoomId(3))
+                .finish()
+        });
+
+        let snapshot = ron::to_string(&CurrentRoom(RoomId(3))).expect("CurrentRoom should serialize");
+        let mut cmd = RemoveComponentCmd::new(
+            entity,
+            EditorMode::Room(RoomId(3)),
+            CurrentRoom::TYPE_NAME,
+            snapshot,
+        );
+
+        cmd.execute();
+
+        with_editor(|editor| {
+            assert!(!editor.game.ecs.has::<CurrentRoom>(entity));
+            assert!(!editor.game.ecs.entities_in_room(RoomId(3)).contains(&entity));
+        });
+
+        cmd.undo();
+
+        with_editor(|editor| {
+            assert_eq!(editor.game.ecs.get::<CurrentRoom>(entity).map(|room| room.0), Some(RoomId(3)));
+            assert!(editor.game.ecs.entities_in_room(RoomId(3)).contains(&entity));
         });
     }
 }

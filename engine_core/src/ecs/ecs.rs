@@ -12,12 +12,14 @@ use serde::ser::{SerializeStruct, Serializer};
 use serde::{Deserialize, Serialize};
 use std::any::Any;
 use std::any::TypeId;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 #[derive(Debug)]
 pub struct Ecs {
     pub stores: HashMap<TypeId, Box<dyn Any + Send + Sync>>,
     pub(crate) next_entity_id: usize,
+    /// Room-index: maps RoomId -> set of Entities in that room.
+    pub(crate) room_entities: HashMap<RoomId, HashSet<Entity>>,
 }
 
 impl Default for Ecs {
@@ -25,6 +27,7 @@ impl Default for Ecs {
         Self {
             stores: HashMap::new(),
             next_entity_id: 1,
+            room_entities: HashMap::new(),
         }
     }
 }
@@ -95,10 +98,11 @@ impl Ecs {
 
         // Remove all its components
         for reg in inventory::iter::<ComponentRegistry> {
-            // Run post_remove for all components before removing them
+            // Run post_remove and on_remove for all components before removing them
             if (reg.has)(ctx.ecs(), entity) {
                 let mut boxed = (reg.clone)(ctx.ecs(), entity);
                 (reg.post_remove)(&mut *boxed, &entity, ctx);
+                (reg.on_remove)(&mut *boxed, &entity, ctx.ecs());
             }
 
             (reg.remove)(ctx.ecs(), entity);
@@ -122,6 +126,7 @@ impl Ecs {
         {
             let mut boxed = (reg.clone)(ctx.ecs(), entity);
             (reg.post_remove)(&mut *boxed, &entity, ctx);
+            (reg.on_remove)(&mut *boxed, &entity, ctx.ecs());
             (reg.remove)(ctx.ecs(), entity);
         }
     }
@@ -260,6 +265,11 @@ impl Ecs {
 
         for entity in proxy_entities {
             for reg in inventory::iter::<ComponentRegistry> {
+                // Run on_remove for proxies that have lifecycle hooks
+                if (reg.has)(self, entity) {
+                    let mut boxed = (reg.clone)(self, entity);
+                    (reg.on_remove)(&mut *boxed, &entity, self);
+                }
                 (reg.remove)(self, entity);
             }
         }
@@ -296,6 +306,17 @@ impl Ecs {
                 }
             }
         }
+    }
+
+    /// Re-runs a registry-backed `on_insert` hook for a component already stored on an entity.
+    pub(crate) fn run_registered_on_insert(
+        &mut self,
+        reg: &ComponentRegistry,
+        entity: Entity,
+    ) {
+        let mut boxed = (reg.clone)(self, entity);
+        (reg.on_insert)(&mut *boxed, &entity, self);
+        (reg.inserter)(self, entity, boxed);
     }
 
     /// Check if a component type has any lifecycle hooks registered.
@@ -395,6 +416,7 @@ impl<'de> Deserialize<'de> for Ecs {
         let mut ecs = Ecs {
             stores,
             next_entity_id: 1,
+            room_entities: HashMap::new(),
         };
         ecs.restore_next_entity_id();
         Ok(ecs)
@@ -412,7 +434,7 @@ static TYPE_NAME_FOR_ID: Lazy<HashMap<TypeId, &'static str>> = Lazy::new(|| {
 impl Ecs {
     /// Call on_insert for every component on every entity.
     pub fn finalize_after_load(&mut self) {
-        let registry_for_type_id: std::collections::HashMap<TypeId, &ComponentRegistry> =
+        let registry_for_type_id: HashMap<TypeId, &ComponentRegistry> =
             inventory::iter::<ComponentRegistry>
                 .into_iter()
                 .map(|reg| (reg.type_id, reg))
@@ -433,13 +455,14 @@ impl Ecs {
                 }
         }
 
-        // Call on_insert for each collected pair, then re-insert the modified component
+        // Call on_insert for each collected pair, then write back the modified component.
         for (entity, type_id) in &to_finalize {
             if let Some(reg) = registry_for_type_id.get(type_id) {
-                let mut boxed = (reg.clone)(self, *entity);
-                (reg.on_insert)(&mut *boxed, entity, self);
-                (reg.inserter)(self, *entity, boxed);
+                self.run_registered_on_insert(reg, *entity);
             }
         }
+
+        // Rebuild room membership from CurrentRoom components
+        self.rebuild_room_entities();
     }
 }

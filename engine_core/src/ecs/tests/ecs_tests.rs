@@ -1,5 +1,106 @@
 use super::*;
+use crate::assets::asset_registry::AssetRegistry;
+use crate::assets::sprite_manager::SpriteManager;
+use crate::game::GameCtxMut;
+use crate::prefab::PrefabManager;
+use crate::scripting::script_manager::ScriptManager;
+use crate::worlds::room::RoomId;
 use std::collections::HashMap;
+
+/// Declare a minimal GameCtxMut for tests that need remove_entity/remove_component.
+/// Variables are placed in the enclosing scope so borrows live long enough.
+macro_rules! make_game_ctx {
+    ($ecs:expr, $ctx:ident) => {
+        let mut _mgc_ar = AssetRegistry::default();
+        let mut _mgc_sm = SpriteManager::default();
+        let mut _mgc_scm = ScriptManager::default();
+        let _mgc_pm = PrefabManager::default();
+        let mut $ctx = GameCtxMut {
+            ecs: $ecs,
+            world: None,
+            asset_registry: &mut _mgc_ar,
+            sprite_manager: &mut _mgc_sm,
+            script_manager: &mut _mgc_scm,
+            prefab_manager: &_mgc_pm,
+        };
+    };
+}
+
+// ---- room_entities tests ----
+
+#[test]
+fn current_room_insert_tracks_room_entities() {
+    let mut ecs = Ecs::default();
+    let entity = ecs.create_entity().finish();
+    let room_id = RoomId(42);
+
+    ecs.insert_component(entity, CurrentRoom(room_id));
+
+    let entities = ecs.entities_in_room(room_id);
+    assert_eq!(entities.len(), 1, "exactly one entity in room");
+    assert!(entities.contains(&entity), "entity should be tracked in room_entities");
+}
+
+#[test]
+fn current_room_remove_untracks_room_entities() {
+    let mut ecs = Ecs::default();
+    let entity = ecs.create_entity().finish();
+    let room_id = RoomId(42);
+
+    ecs.insert_component(entity, CurrentRoom(room_id));
+
+    make_game_ctx!(&mut ecs, ctx);
+    Ecs::remove_component::<CurrentRoom>(&mut ctx, entity);
+
+    let entities = ecs.entities_in_room(room_id);
+    assert!(
+        entities.is_empty() || !entities.contains(&entity),
+        "entity should not be tracked after CurrentRoom removed"
+    );
+    // Also verify the entity has no CurrentRoom at all
+    assert!(!ecs.has::<CurrentRoom>(entity));
+}
+
+#[test]
+fn set_current_room_tracks_entity_in_room_entities() {
+    let mut ecs = Ecs::default();
+    let entity = ecs.create_entity().finish();
+    let room_a = RoomId(1);
+    let room_b = RoomId(2);
+
+    // Move to room_a — inserts CurrentRoom and tracks in room_entities
+    ecs.set_current_room(entity, room_a);
+    assert!(ecs.entities_in_room(room_a).contains(&entity));
+    assert!(!ecs.entities_in_room(room_b).contains(&entity));
+
+    // Move to room_b — updates CurrentRoom and room_entities
+    ecs.set_current_room(entity, room_b);
+    assert!(!ecs.entities_in_room(room_a).contains(&entity),
+        "entity should be removed from old room");
+    assert!(ecs.entities_in_room(room_b).contains(&entity),
+        "entity should be added to new room");
+}
+
+#[test]
+fn finalize_after_load_rebuilds_room_entities_for_current_room() {
+    // Simulate a loaded ECS: insert CurrentRoom directly into store,
+    // bypassing lifecycle hooks. Then call finalize_after_load.
+    let mut ecs = Ecs::default();
+    let entity = ecs.create_entity().finish();
+    let room_id = RoomId(42);
+
+    // Bypass lifecycle hooks: insert directly into the store
+    ecs.get_store_mut::<CurrentRoom>().insert(entity, CurrentRoom(room_id));
+
+    // room_entities should be empty since on_insert didn't fire
+    assert!(ecs.entities_in_room(room_id).is_empty(), "room_entities should be empty before finalize");
+
+    ecs.finalize_after_load();
+
+    let entities = ecs.entities_in_room(room_id);
+    assert_eq!(entities.len(), 1, "exactly one entity in room after finalize");
+    assert!(entities.contains(&entity), "entity should be tracked after finalize");
+}
 
 #[test]
 fn on_insert_fires_on_builder_insertion() {
@@ -34,22 +135,11 @@ fn on_insert_fires_on_add_component_to_entity() {
 #[test]
 fn on_remove_fires_on_remove_entity() {
     let mut ecs = Ecs::default();
-    let mut asset_registry = AssetRegistry::default();
-    let mut sprite_manager = SpriteManager::default();
-    let mut script_manager = ScriptManager::default();
-    let prefab_manager = PrefabManager::default();
 
     let entity = ecs.create_entity().with(Transform::default()).finish();
     ecs.insert_component(entity, LifecycleMarker::default());
 
-    let mut ctx = GameCtxMut {
-        ecs: &mut ecs,
-        world: None,
-        asset_registry: &mut asset_registry,
-        sprite_manager: &mut sprite_manager,
-        script_manager: &mut script_manager,
-        prefab_manager: &prefab_manager,
-    };
+    make_game_ctx!(&mut ecs, ctx);
 
     Ecs::remove_entity(&mut ctx, entity);
 
@@ -59,22 +149,11 @@ fn on_remove_fires_on_remove_entity() {
 #[test]
 fn on_remove_fires_on_remove_component() {
     let mut ecs = Ecs::default();
-    let mut asset_registry = AssetRegistry::default();
-    let mut sprite_manager = SpriteManager::default();
-    let mut script_manager = ScriptManager::default();
-    let prefab_manager = PrefabManager::default();
 
     let entity = ecs.create_entity().with(Transform::default()).finish();
     ecs.insert_component(entity, LifecycleMarker::default());
 
-    let mut ctx = GameCtxMut {
-        ecs: &mut ecs,
-        world: None,
-        asset_registry: &mut asset_registry,
-        sprite_manager: &mut sprite_manager,
-        script_manager: &mut script_manager,
-        prefab_manager: &prefab_manager,
-    };
+    make_game_ctx!(&mut ecs, ctx);
 
     Ecs::remove_component::<LifecycleMarker>(&mut ctx, entity);
 
@@ -179,6 +258,7 @@ fn restore_next_entity_id_empty_ecs_defaults_to_1() {
     let mut ecs = Ecs {
         stores: HashMap::new(),
         next_entity_id: 42,
+        room_entities: HashMap::new(),
     };
     ecs.restore_next_entity_id();
     assert_eq!(ecs.next_entity_id, 1);

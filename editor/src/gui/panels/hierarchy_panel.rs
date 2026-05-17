@@ -152,20 +152,12 @@ impl PanelDefinition for HierarchyPanel {
             get_root_entities(ecs, &all)
         };
 
-        let room_entities = {
-            let cur_room_store = ecs.get_store::<CurrentRoom>();
-            let entities: Vec<Entity> = cur_room_store
-                .data
-                .iter()
-                .filter_map(|(&entity, cur_room_comp)| {
-                    if cur_room_comp.0 == cur_room_id.unwrap() {
-                        Some(entity)
-                    } else {
-                        None
-                    }
-                })
-                .collect();
+        let room_entities = if let Some(room_id) = cur_room_id {
+            let entities = ecs.entities_in_room(room_id).clone();
+            let entities: Vec<Entity> = entities.into_iter().collect();
             get_root_entities(ecs, &entities)
+        } else {
+            Vec::new()
         };
 
         // Layout pass
@@ -501,12 +493,14 @@ fn entity_exists_in_hierarchy(ecs: &Ecs, entity: Entity) -> bool {
 
 /// Creates a player proxy entity at the room's origin.
 fn create_spawn_point(ecs: &mut Ecs, room_id: RoomId, room_position: Vec2) {
-    ecs.create_entity()
+    ecs
+        .create_entity()
         .with(PlayerProxy)
         .with(Transform {
             position: room_position,
             ..Default::default()
         })
-        .with(CurrentRoom(room_id))
-        .with(Name("Player Proxy".to_string()));
+        .with(Name("Player Proxy".to_string()))
+        .with_current_room(room_id)
+        .finish();
 }

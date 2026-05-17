@@ -2,6 +2,7 @@ use crate::ecs::component::{Component, ComponentStore};
 use crate::ecs::component_registry::ComponentRegistry;
 pub use crate::ecs::components::hierarchy::{Children, Parent};
 use crate::ecs::ecs::Ecs;
+use crate::worlds::room::RoomId;
 use inventory::iter;
 use serde::{Deserialize, Serialize};
 use std::any::TypeId;
@@ -60,6 +61,12 @@ impl<'a> EntityBuilder<'a> {
         (reg.factory)(self.ecs, self.id);
         T::store_mut(self.ecs).insert(self.id, comp);
         self.ecs.invoke_on_insert::<T>(self.id);
+        self
+    }
+
+    /// Attach this entity to a room.
+    pub fn with_current_room(self, room_id: RoomId) -> Self {
+        self.ecs.set_current_room(self.id, room_id);
         self
     }
 

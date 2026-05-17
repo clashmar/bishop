@@ -19,6 +19,8 @@ use std::collections::HashMap;
 #[cfg(feature = "editor")]
 use crate::ecs::Ecs;
 
+/// Instantiates a prefab into the game world, creating entities for each node
+/// and setting up hierarchy, components, and prefab metadata.
 pub fn instantiate_prefab(
     ctx: &mut GameCtxMut<'_>,
     prefab: &PrefabAsset,
@@ -87,6 +89,8 @@ pub fn instantiate_prefab(
     root_entity
 }
 
+/// Refreshes all entities in an existing prefab instance to match the current
+/// prefab asset definition, preserving overrides and handling node additions/removals.
 #[cfg(feature = "editor")]
 pub fn refresh_prefab_instance(
     ctx: &mut GameCtxMut<'_>,
@@ -184,6 +188,7 @@ pub fn refresh_prefab_instance(
     );
 }
 
+/// Returns a map of node IDs to entities for all nodes belonging to a prefab instance.
 #[cfg(feature = "editor")]
 pub(super) fn prefab_instance_entities(ecs: &Ecs, root_entity: Entity) -> HashMap<usize, Entity> {
     ecs.get_store::<PrefabInstanceNode>()

@@ -81,11 +81,14 @@ impl TransitionManager {
                 None => continue,
             };
 
-            if let Some(comp) = game_instance.game.ecs.get_mut::<CurrentRoom>(entity) {
-                if comp.0 == target_id {
-                    continue;
-                } else {
-                    comp.0 = target_id
+            if let Some(current_room) = game_instance
+                .game
+                .ecs
+                .get::<CurrentRoom>(entity)
+                .map(|room| room.0)
+            {
+                if current_room != target_id {
+                    game_instance.game.ecs.set_current_room(entity, target_id);
                 }
             }
 
@@ -95,6 +98,68 @@ impl TransitionManager {
                 }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::HashMap;
+
+    #[test]
+    fn handle_transitions_moves_membership_between_rooms() {
+        let room_a = Room {
+            id: RoomId(1),
+            position: Vec2::ZERO,
+            size: Vec2::new(32.0, 32.0),
+            ..Default::default()
+        };
+        let room_b = Room {
+            id: RoomId(2),
+            position: Vec2::new(32.0, 0.0),
+            size: Vec2::new(32.0, 32.0),
+            ..Default::default()
+        };
+
+        let mut world = World {
+            rooms: vec![room_a, room_b],
+            grid_size: 1.0,
+            ..Default::default()
+        };
+        world.rebuild_room_grid();
+
+        let mut game = Game::default();
+        game.add_world(world);
+        let entity = game
+            .ecs
+            .create_entity()
+            .with(Transform {
+                position: Vec2::new(40.0, 8.0),
+                ..Default::default()
+            })
+            .with(Collider::default())
+            .with_current_room(RoomId(1))
+            .finish();
+
+        let mut game_instance = GameInstance {
+            game,
+            prev_positions: HashMap::new(),
+        };
+
+        TransitionManager::handle_transitions(&mut game_instance);
+
+        assert_eq!(
+            game_instance
+                .game
+                .ecs
+                .get::<CurrentRoom>(entity)
+                .map(|room| room.0),
+            Some(RoomId(2))
+        );
+        let room_b_entities = game_instance.game.ecs.entities_in_room(RoomId(2));
+        assert!(room_b_entities.contains(&entity));
+        let room_a_entities = game_instance.game.ecs.entities_in_room(RoomId(1));
+        assert!(!room_a_entities.contains(&entity));
     }
 }
 

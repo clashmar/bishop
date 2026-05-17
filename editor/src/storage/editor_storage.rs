@@ -338,6 +338,7 @@ pub fn load_game_by_name(name: &str) -> io::Result<Game> {
         Err(_) => return Ok(create_new_game(name.to_string())),
     };
     game.id_allocator = IdAllocator::from_game(&game);
+    game.ecs.finalize_after_load();
     game.asset_registry.try_init_editor_metadata()?;
 
     set_current_sound_preset_library(load_sound_preset_library(name)?);
@@ -433,7 +434,7 @@ pub fn create_new_world(game: &mut Game) -> World {
     };
     world.room_grid = RoomGrid::build(&world);
 
-    let _spawn_point = game
+    let spawn_point = game
         .ecs
         .create_entity()
         .with(PlayerProxy)
@@ -441,8 +442,8 @@ pub fn create_new_world(game: &mut Game) -> World {
             position: room_origin,
             ..Default::default()
         })
-        .with(CurrentRoom(room_id))
         .with(Name("Player Proxy".to_string()))
+        .with_current_room(room_id)
         .finish();
 
     world
