@@ -125,22 +125,21 @@ impl GameInstance {
         };
 
         let trans_store = ecs.get_store::<Transform>();
-        let room_store = ecs.get_store::<CurrentRoom>();
         let sub_pixel_store = ecs.get_store::<SubPixel>();
 
         self.prev_positions.clear();
-        self.prev_positions
-            .extend(trans_store.data.iter().filter_map(|(entity, transform)| {
-                room_store
-                    .get(*entity)
-                    .filter(|cr| cr.0 == current_room_id)
-                    .map(|_| {
-                        (
-                            *entity,
-                            visual_position(transform.position, sub_pixel_store.get(*entity)),
-                        )
-                    })
-            }));
+        self.prev_positions.extend(
+            ecs.entities_in_room(current_room_id)
+                .iter()
+                .filter_map(|entity| {
+                    ecs.assert_room_membership(current_room_id, *entity);
+                    let transform = trans_store.get(*entity)?;
+                    Some((
+                        *entity,
+                        visual_position(transform.position, sub_pixel_store.get(*entity)),
+                    ))
+                }),
+        );
     }
 }
 

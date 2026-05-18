@@ -109,6 +109,41 @@ fn delete_world_removes_all_room_entities() {
 
 #[cfg(feature = "editor")]
 #[test]
+fn delete_world_collects_entities_from_room_index_only_for_target_world() {
+    let mut game = Game::default();
+    let world_a = game.id_allocator.allocate_world_id();
+    let world_b = game.id_allocator.allocate_world_id();
+    let room_a = game.id_allocator.allocate_room_id();
+    let room_b = game.id_allocator.allocate_room_id();
+
+    game.add_world(World {
+        id: world_a,
+        rooms: vec![Room {
+            id: room_a,
+            ..Default::default()
+        }],
+        ..Default::default()
+    });
+    game.add_world(World {
+        id: world_b,
+        rooms: vec![Room {
+            id: room_b,
+            ..Default::default()
+        }],
+        ..Default::default()
+    });
+
+    let entity_a = game.ecs.create_entity().with_current_room(room_a).finish();
+    let entity_b = game.ecs.create_entity().with_current_room(room_b).finish();
+
+    game.delete_world(world_a);
+
+    assert!(!game.ecs.has::<CurrentRoom>(entity_a));
+    assert!(game.ecs.has::<CurrentRoom>(entity_b));
+}
+
+#[cfg(feature = "editor")]
+#[test]
 fn delete_world_preserves_other_world_entities() {
     let mut game = Game::default();
     let world_a = game.id_allocator.allocate_world_id();

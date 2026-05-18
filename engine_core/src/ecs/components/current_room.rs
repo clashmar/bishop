@@ -5,7 +5,7 @@ use ecs_component::ecs_component;
 use serde::{Deserialize, Serialize};
 
 /// Component that stores the room identifier an entity belongs to.
-#[ecs_component(on_insert = on_insert, on_remove = on_remove, guarded)]
+#[ecs_component(on_insert = on_insert, on_remove = on_remove, guarded, lua_api = false)]
 #[derive(Clone, Copy, Serialize, Deserialize, Default)]
 #[serde(default)]
 pub struct CurrentRoom(pub RoomId);

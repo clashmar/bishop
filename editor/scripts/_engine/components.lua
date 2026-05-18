@@ -34,8 +34,6 @@
 ---@field frame_size vec2
 ---@field flip_x boolean
 
----@alias CurrentRoom number
-
 ---@class Damage
 ---@field amount number
 
@@ -130,7 +128,6 @@
 ---@field Children "Children"
 ---@field Collider "Collider"
 ---@field CurrentFrame "CurrentFrame"
----@field CurrentRoom "CurrentRoom"
 ---@field Damage "Damage"
 ---@field FacingDirection "FacingDirection"
 ---@field Global "Global"
@@ -162,7 +159,6 @@ C.AudioSource = "AudioSource"
 C.Children = "Children"
 C.Collider = "Collider"
 C.CurrentFrame = "CurrentFrame"
-C.CurrentRoom = "CurrentRoom"
 C.Damage = "Damage"
 C.FacingDirection = "FacingDirection"
 C.Global = "Global"

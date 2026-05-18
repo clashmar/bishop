@@ -171,7 +171,7 @@ mod tests {
         PrefabInstanceNode, PrefabInstanceRoot, PrefabOverrides,
     };
     use crate::ecs::MotionBody;
-    use crate::ecs::{Grounded, PhysicsBody};
+    use crate::ecs::{CurrentRoom, Grounded, PhysicsBody};
 
     #[test]
     fn registry_has_on_insert_field() {
@@ -229,6 +229,17 @@ mod tests {
 
             assert!(!reg.is_public_lua_api, "{type_name} should be private");
         }
+    }
+
+    #[test]
+    fn current_room_is_not_public_lua_api() {
+        let type_name = comp_type_name::<CurrentRoom>();
+        let reg = COMPONENTS
+            .iter()
+            .find(|reg| reg.type_name == type_name)
+            .unwrap_or_else(|| panic!("missing registry entry for {type_name}"));
+
+        assert!(!reg.is_public_lua_api, "{type_name} should be private");
     }
 
     #[test]

@@ -15,26 +15,45 @@ impl Ecs {
         self.room_entities.get(&room_id).unwrap_or(&EMPTY_ROOM)
     }
 
+    /// Removes room membership for an entity if it has one.
+    pub fn clear_current_room(&mut self, entity: Entity) {
+        let Some(current_room) = self.get::<CurrentRoom>(entity).copied() else {
+            return;
+        };
+
+        self.get_store_mut::<CurrentRoom>().remove(entity);
+
+        if let Some(entities) = self.room_entities.get_mut(&current_room.0) {
+            entities.remove(&entity);
+            if entities.is_empty() {
+                self.room_entities.remove(&current_room.0);
+            }
+        }
+    }
+
     /// Set the `CurrentRoom` component on an entity to `new_room`.
     ///
     /// If the entity was previously in another room it is moved out of that
-    /// room's membership set.  The entity must already exist.  If the entity
-    /// does not currently have a `CurrentRoom` component, one is inserted.
+    /// room's membership set. The entity must already exist.
     pub fn set_current_room(&mut self, entity: Entity, new_room: RoomId) {
-        // Remove from old room membership directly (avoid scanning all rooms)
-        let old_room = self.get::<CurrentRoom>(entity).map(|cr| cr.0);
-        if let Some(old_room) = old_room {
-            if let Some(entities) = self.room_entities.get_mut(&old_room) {
-                entities.remove(&entity);
-                if entities.is_empty() {
-                    self.room_entities.remove(&old_room);
-                }
-            }
+        if self
+            .get::<CurrentRoom>(entity)
+            .is_some_and(|current| current.0 == new_room)
+        {
+            return;
         }
 
-        // Insert (or overwrite) the CurrentRoom component.
-        // on_insert on CurrentRoom will add the entity to `room_entities`.
+        self.clear_current_room(entity);
         self.insert_component(entity, CurrentRoom(new_room));
+    }
+
+    /// Checks that an indexed room membership maps to a matching `CurrentRoom`.
+    pub fn assert_room_membership(&self, room_id: RoomId, entity: Entity) {
+        debug_assert!(
+            self.get::<CurrentRoom>(entity)
+                .is_some_and(|current_room| current_room.0 == room_id),
+            "room_entities contained {entity:?} for {room_id:?} without matching CurrentRoom"
+        );
     }
 
     /// Rebuild `room_entities` from scratch by scanning all `CurrentRoom`

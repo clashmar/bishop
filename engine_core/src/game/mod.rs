@@ -9,7 +9,7 @@ pub use startup_mode::*;
 use crate::assets::{sprite_manager::SpriteManager, AssetRegistry};
 use crate::ecs::ecs::Ecs;
 #[cfg(feature = "editor")]
-use crate::ecs::{get_root_entities_in_set, CurrentRoom, Entity};
+use crate::ecs::{get_root_entities_in_set, Entity};
 use crate::engine_global::set_game_name;
 use crate::onscreen_error;
 use crate::prefab::{load_prefab_manager, PrefabManager};
@@ -187,15 +187,10 @@ impl Game {
             .map(|w| w.rooms.iter().map(|r| r.id).collect())
             .unwrap_or_default();
 
-        let entity_ids: HashSet<Entity> = {
-            let store = self.ecs.get_store::<CurrentRoom>();
-            store
-                .data
-                .iter()
-                .filter(|(_, CurrentRoom(room))| room_ids.contains(room))
-                .map(|(&entity, _)| entity)
-                .collect()
-        };
+        let entity_ids: HashSet<Entity> = room_ids
+            .iter()
+            .flat_map(|room_id| self.ecs.entities_in_room(*room_id).iter().copied())
+            .collect();
 
         let root_entities = get_root_entities_in_set(&self.ecs, &entity_ids);
 

@@ -52,6 +52,8 @@ entity_handle_methods! {
     SetAnimSpeed => SetAnimSpeedMethod,
     Teleport => TeleportMethod,
     MoveBy => MoveByMethod,
+    MoveToRoom => MoveToRoomMethod,
+    RemoveFromRoom => RemoveFromRoomMethod,
     GetCurrentFrame => GetCurrentFrameMethod,
     IsClipFinished => IsClipFinishedMethod,
     Say => SayMethod,

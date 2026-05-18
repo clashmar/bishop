@@ -62,6 +62,39 @@ fn current_room_remove_untracks_room_entities() {
 }
 
 #[test]
+fn clear_current_room_removes_component_and_untracks_entity() {
+    let mut ecs = Ecs::default();
+    let entity = ecs.create_entity().finish();
+    let room_id = RoomId(9);
+
+    ecs.set_current_room(entity, room_id);
+    ecs.clear_current_room(entity);
+
+    assert!(!ecs.has::<CurrentRoom>(entity));
+    assert!(!ecs.entities_in_room(room_id).contains(&entity));
+}
+
+#[test]
+fn set_current_room_rehomes_entity_without_leaving_stale_membership() {
+    let mut ecs = Ecs::default();
+    let entity = ecs.create_entity().finish();
+    let room_a = RoomId(1);
+    let room_b = RoomId(2);
+
+    ecs.set_current_room(entity, room_a);
+    ecs.set_current_room(entity, room_b);
+
+    assert!(
+        !ecs.entities_in_room(room_a).contains(&entity),
+        "entity should be removed from old room"
+    );
+    assert!(
+        ecs.entities_in_room(room_b).contains(&entity),
+        "entity should be added to new room"
+    );
+}
+
+#[test]
 fn set_current_room_tracks_entity_in_room_entities() {
     let mut ecs = Ecs::default();
     let entity = ecs.create_entity().finish();

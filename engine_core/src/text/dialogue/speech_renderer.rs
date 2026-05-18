@@ -3,7 +3,7 @@ use crate::assets::sprite_manager::SpriteManager;
 use crate::ecs::Pivot;
 use crate::ecs::ecs::Ecs;
 use crate::ecs::entity::Entity;
-use crate::ecs::{CurrentRoom, SpeechBubble, SubPixel, Transform};
+use crate::ecs::{SpeechBubble, SubPixel, Transform};
 use crate::rendering::helpers::entity_dimensions;
 use crate::rendering::helpers::lerp_position;
 use crate::rendering::helpers::visual_position;
@@ -40,30 +40,26 @@ pub fn collect_speech_bubbles(
     let mut bubbles = Vec::new();
     let bubble_store = ecs.get_store::<SpeechBubble>();
     let transform_store = ecs.get_store::<Transform>();
-    let room_store = ecs.get_store::<CurrentRoom>();
     let sub_pixel_store = ecs.get_store::<SubPixel>();
 
-    for (entity, bubble) in &bubble_store.data {
-        if let Some(current) = room_store.get(*entity) {
-            if current.0 != current_room {
-                continue;
-            }
-        } else {
-            continue;
-        }
+    for &entity in ecs.entities_in_room(current_room) {
+        ecs.assert_room_membership(current_room, entity);
 
-        let Some(transform) = transform_store.get(*entity) else {
+        let Some(bubble) = bubble_store.get(entity) else {
+            continue;
+        };
+        let Some(transform) = transform_store.get(entity) else {
             continue;
         };
 
-        let current_pos = visual_position(transform.position, sub_pixel_store.get(*entity));
+        let current_pos = visual_position(transform.position, sub_pixel_store.get(entity));
         let world_pos = interpolate_position(
-            *entity,
+            entity,
             current_pos,
             alpha,
             prev_positions,
         );
-        let entity_size = entity_dimensions(ecs, sprite_manager, *entity, grid_size);
+        let entity_size = entity_dimensions(ecs, sprite_manager, entity, grid_size);
 
         bubbles.push(SpeechBubbleRenderData {
             text: bubble.text.clone(),
@@ -265,5 +261,36 @@ mod tests {
 
         assert_eq!(projection.screen_size, Vec2::new(2100.0, 1080.0));
         assert_eq!(projection.screen_scale, Vec2::new(6.0, 6.0));
+    }
+
+    #[test]
+    fn collect_speech_bubbles_only_returns_entities_in_current_room() {
+        let room_a = RoomId(1);
+        let room_b = RoomId(2);
+        let mut ecs = Ecs::default();
+
+        let in_room = ecs.create_entity()
+            .with(Transform::default())
+            .with(SpeechBubble::default())
+            .with_current_room(room_a)
+            .finish();
+
+        ecs.create_entity()
+            .with(Transform::default())
+            .with(SpeechBubble::default())
+            .with_current_room(room_b)
+            .finish();
+
+        let bubbles = collect_speech_bubbles(
+            &ecs,
+            &SpriteManager::default(),
+            room_a,
+            1.0,
+            None,
+            16.0,
+        );
+
+        assert_eq!(bubbles.len(), 1);
+        assert_eq!(ecs.get::<crate::ecs::CurrentRoom>(in_room).map(|room| room.0), Some(room_a));
     }
 }
