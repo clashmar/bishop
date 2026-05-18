@@ -2,7 +2,6 @@
 use crate::constants::world;
 use crate::ecs::{Name, Pivot, RoomCamera, Transform};
 use crate::ecs::ecs::Ecs;
-use crate::ecs::entity::Entity;
 use crate::tiles::tilemap::TileMap;
 use bishop::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -221,11 +220,6 @@ impl Room {
         let idx = self.current_variant_index();
         &mut self.variants[idx]
     }
-}
-
-/// Returns a HashSet of all entities in the current room.
-pub fn entities_in_room(ecs: &Ecs, room_id: RoomId) -> HashSet<Entity> {
-    ecs.entities_in_room(room_id).clone()
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]

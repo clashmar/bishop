@@ -41,15 +41,12 @@ impl EditorCommand for DeleteWorldCmd {
             {
                 self.deleted_world_index = Some(world_index);
                 let room_ids: HashSet<RoomId> = world.rooms.iter().map(|room| room.id).collect();
-                let entity_ids: HashSet<Entity> = {
-                    let store = game.ecs.get_store::<CurrentRoom>();
-                    store
-                        .data
-                        .iter()
-                        .filter(|(_, CurrentRoom(room))| room_ids.contains(room))
-                        .map(|(&entity, _)| entity)
-                        .collect()
-                };
+                let entity_ids: HashSet<Entity> = room_ids
+                    .iter()
+                    .flat_map(|room_id| {
+                        game.ecs.entities_in_room(*room_id).iter().copied()
+                    })
+                    .collect();
 
                 let root_entities = get_root_entities_in_set(&game.ecs, &entity_ids);
 

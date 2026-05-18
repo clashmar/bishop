@@ -9,7 +9,6 @@ use crate::ecs::PlayerProxy;
 use crate::rendering::render_room::pivot_adjusted_position;
 use crate::rendering::renderable::{EntityDrawParams, Renderable};
 use crate::worlds::room::RoomId;
-use crate::worlds::room::entities_in_room;
 use bishop::prelude::*;
 use std::collections::HashSet;
 
@@ -22,7 +21,7 @@ pub fn update_animation_sytem(
     room_id: RoomId,
 ) {
     // Gather the ids of all entities that are in the current room
-    let mut entities = entities_in_room(ecs, room_id);
+    let mut entities = ecs.entities_in_room(room_id).clone();
 
     // Process the player entity if there's a player proxy
     let has_spawn_point = entities.iter().any(|e| ecs.has::<PlayerProxy>(*e));
