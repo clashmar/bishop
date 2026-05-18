@@ -8,6 +8,7 @@ pub mod entity;
 pub mod has_any;
 pub mod inspector;
 pub mod reflect_field;
+pub mod room_membership;
 
 pub use components::*;
 pub use capture::*;
@@ -15,6 +16,9 @@ pub use component::*;
 pub use component_registry::*;
 pub use ecs::*;
 pub use entity::*;
+
+#[cfg(test)]
+mod tests;
 pub use has_any::*;
 #[cfg(feature = "editor")]
 pub use inspector::*;

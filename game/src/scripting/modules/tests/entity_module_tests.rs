@@ -142,6 +142,10 @@ fn typed_setter_is_not_registered_for_private_components() {
         "entity.set_{} ~= nil",
         to_snake_case(comp_type_name::<PrefabInstanceRoot>())
     );
+    let current_room_typed_setter = format!(
+        "entity.set_{} ~= nil",
+        to_snake_case(comp_type_name::<CurrentRoom>())
+    );
 
     let has_public_typed_setter = lua
         .load(format!("return {public_typed_setter}"))
@@ -154,6 +158,24 @@ fn typed_setter_is_not_registered_for_private_components() {
         .eval::<bool>()
         .unwrap();
     assert!(!has_private_typed_setter);
+
+    let has_current_room_typed_setter = lua
+        .load(format!("return {current_room_typed_setter}"))
+        .eval::<bool>()
+        .unwrap();
+    assert!(!has_current_room_typed_setter);
+}
+
+#[test]
+fn move_to_room_and_remove_from_room_queue_commands() {
+    let (lua, _game_instance, _entity) = setup_entity_lua();
+
+    lua.load("entity:move_to_room(2); entity:remove_from_room()")
+        .exec()
+        .unwrap();
+
+    let commands: Vec<Box<dyn LuaCommand>> = drain_commands().collect();
+    assert_eq!(commands.len(), 2);
 }
 
 #[test]

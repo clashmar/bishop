@@ -140,47 +140,39 @@ fn collect_interpolated_layer_map<'a>(
 
     let trans_store = ecs.get_store::<Transform>();
     let cam_store = ecs.get_store::<RoomCamera>();
-    let room_store = ecs.get_store::<CurrentRoom>();
     let layer_store = ecs.get_store::<Layer>();
     let glow_store = ecs.get_store::<Glow>();
     let sub_pixel_store = ecs.get_store::<SubPixel>();
 
-    for (entity, transform) in &trans_store.data {
-        // Skip invisible entities
+    for &entity in ecs.entities_in_room(room.id) {
+        ecs.assert_room_membership(room.id, entity);
+
+        let Some(transform) = trans_store.get(entity) else {
+            continue;
+        };
+
         if !transform.visible {
             continue;
         }
 
-        // Skip camera
-        if cam_store.get(*entity).is_some() {
+        if cam_store.get(entity).is_some() {
             continue;
         }
 
-        // Filter by current room
-        if let Some(cr) = room_store.get(*entity) {
-            if cr.0 != room.id {
-                continue;
-            }
-        } else {
-            continue;
-        }
-
-        let current_pos = visual_position(transform.position, sub_pixel_store.get(*entity));
+        let current_pos = visual_position(transform.position, sub_pixel_store.get(entity));
         let draw_pos = interpolate_draw_position(
-            *entity,
+            entity,
             current_pos,
             alpha,
             prev_positions,
         );
 
-        // Default layer is 0 if missing
-        let z = layer_store.get(*entity).map_or(0, |l| l.z);
+        let z = layer_store.get(entity).map_or(0, |layer| layer.z);
 
         let entry = map.entry(z).or_default();
-        entry.entities.push((*entity, draw_pos));
+        entry.entities.push((entity, draw_pos));
 
-        // If the entity also has a Glow component, apply pivot to glow position
-        if let Some(glow) = glow_store.get(*entity) {
+        if let Some(glow) = glow_store.get(entity) {
             let glow_size = sprite_manager
                 .texture_size(glow.sprite_id)
                 .map(|(w, h)| Vec2::new(w, h))
@@ -222,6 +214,45 @@ fn interpolate_draw_position(
         }
     } else {
         current_pos
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn collect_interpolated_layer_map_skips_entities_outside_the_room_index() {
+        let room_id = RoomId(1);
+        let other_room = RoomId(2);
+        let mut ecs = Ecs::default();
+
+        let visible = ecs.create_entity()
+            .with(Transform::default())
+            .with_current_room(room_id)
+            .finish();
+
+        ecs.create_entity()
+            .with(Transform::default())
+            .with_current_room(other_room)
+            .finish();
+
+        let layers = collect_interpolated_layer_map(
+            &ecs,
+            &Room {
+                id: room_id,
+                ..Default::default()
+            },
+            &SpriteManager::default(),
+            1.0,
+            None,
+            16.0,
+        );
+
+        assert!(layers
+            .values()
+            .flat_map(|layer| layer.entities.iter())
+            .any(|(entity, _)| *entity == visible));
     }
 }
 

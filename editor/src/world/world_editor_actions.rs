@@ -40,18 +40,11 @@ impl WorldEditor {
             }
         }
 
-        // Gather all entities from the current room.
-        let mut entities_to_remove = Vec::new();
-        {
-            let current_room_store = ctx.ecs.get_store::<CurrentRoom>();
-            for (&entity, &CurrentRoom(room)) in current_room_store.data.iter() {
-                if room == room_id {
-                    entities_to_remove.push(entity);
-                }
-            }
-        }
+        world.rebuild_room_grid();
 
-        // Delete the entities
+        let entities_to_remove: Vec<Entity> =
+            ctx.ecs.entities_in_room(room_id).iter().copied().collect();
+
         for entity in entities_to_remove {
             Ecs::remove_entity(ctx, entity);
         }
@@ -119,6 +112,8 @@ impl WorldEditor {
                 new_room.adjacent_rooms.push(old_room.id);
             }
         }
+
+        cur_world.rebuild_room_grid();
 
         id
     }

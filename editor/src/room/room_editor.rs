@@ -259,8 +259,8 @@ impl RoomEditor {
                             position: room.position,
                             ..Default::default()
                         })
-                        .with(CurrentRoom(room.id))
                         .with(Name("Entity".to_string()))
+                        .with_current_room(room.id)
                         .finish();
 
                     if let Some(parent) = parent {
@@ -273,8 +273,7 @@ impl RoomEditor {
                 }
 
                 // If exactly one entity is selected, show the inspector
-                if self.selected_entities.len() == 1 {
-                    let entity = *self.selected_entities.iter().next().unwrap();
+                if let Some(entity) = self.single_selected_entity() {
                     self.inspector.set_target(Some(entity));
                 } else {
                     self.inspector.set_target(None);

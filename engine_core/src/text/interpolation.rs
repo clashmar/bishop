@@ -5,6 +5,9 @@ use std::collections::HashMap;
 ///
 /// # Example
 /// ```
+/// use std::collections::HashMap;
+/// use engine_core::prelude::interpolate;
+///
 /// let mut vars = HashMap::new();
 /// vars.insert("name".to_string(), "Hero".to_string());
 /// let result = interpolate("Hello {{name}}!", &vars);

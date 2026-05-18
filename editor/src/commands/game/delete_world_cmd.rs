@@ -131,8 +131,8 @@ mod tests {
         let entity = game
             .ecs
             .create_entity()
-            .with(CurrentRoom(room_id))
             .with(Name(entity_name.clone()))
+            .with_current_room(room_id)
             .finish();
 
         let mut cmd = DeleteWorldCmd::new(&mut game, world_id);
@@ -167,6 +167,13 @@ mod tests {
                 editor.game.ecs.get::<Name>(entity).map(|name| &name.0),
                 Some(&entity_name)
             );
+
+            // Verify room_entities tracking after restore
+            let room_entities = editor.game.ecs.entities_in_room(room_id);
+            assert!(
+                room_entities.contains(&entity),
+                "entity should be tracked in room_entities after undo"
+            );
         });
     }
 
@@ -197,14 +204,14 @@ mod tests {
         let root = game
             .ecs
             .create_entity()
-            .with(CurrentRoom(room_id))
             .with(Name(root_name.clone()))
+            .with_current_room(room_id)
             .finish();
         let child = game
             .ecs
             .create_entity()
-            .with(CurrentRoom(extra_room_id))
             .with(Name(child_name.clone()))
+            .with_current_room(extra_room_id)
             .finish();
         set_parent(&mut game.ecs, child, root);
 
@@ -250,6 +257,19 @@ mod tests {
             assert_eq!(
                 editor.game.ecs.get::<Name>(child).map(|name| &name.0),
                 Some(&child_name)
+            );
+
+            // Verify room_entities tracking after restore
+            let room_entities = editor.game.ecs.entities_in_room(room_id);
+            assert!(
+                room_entities.contains(&root),
+                "root should be tracked in room_entities after undo"
+            );
+            // child was in extra_room_id (world 1), not world 0's room
+            let extra_room_entities = editor.game.ecs.entities_in_room(extra_room_id);
+            assert!(
+                extra_room_entities.contains(&child),
+                "child should be tracked in extra_room_entities after undo"
             );
         });
     }

@@ -110,8 +110,8 @@ fn create_prefab_from_selection_relinks_selected_room_subtree() {
             position: Vec2::new(48.0, 96.0),
             ..Default::default()
         })
-        .with(CurrentRoom(room_id))
         .with(Name("Root".to_string()))
+        .with_current_room(room_id)
         .finish();
     let child = editor
         .game
@@ -121,8 +121,8 @@ fn create_prefab_from_selection_relinks_selected_room_subtree() {
             position: Vec2::new(64.0, 112.0),
             ..Default::default()
         })
-        .with(CurrentRoom(room_id))
         .with(Name("Child".to_string()))
+        .with_current_room(room_id)
         .finish();
     set_parent(&mut editor.game.ecs, child, root);
     editor.room_editor.set_selected_entity(Some(root));
@@ -195,8 +195,8 @@ fn create_prefab_from_selection_uses_picked_path_and_filename_stem() {
         .ecs
         .create_entity()
         .with(Transform::default())
-        .with(CurrentRoom(room_id))
         .with(Name("Root".to_string()))
+        .with_current_room(room_id)
         .finish();
     let picked_path = prefabs_folder()
         .join("characters")
@@ -236,7 +236,7 @@ fn create_prefab_from_selection_cancels_when_picker_returns_none() {
         .ecs
         .create_entity()
         .with(Transform::default())
-        .with(CurrentRoom(room_id))
+        .with_current_room(room_id)
         .finish();
     let _picker = install_prefab_save_picker_result(None);
 
@@ -262,8 +262,8 @@ fn create_prefab_from_selection_preserves_external_parent() {
             position: Vec2::new(12.0, 24.0),
             ..Default::default()
         })
-        .with(CurrentRoom(room_id))
         .with(Name("Container".to_string()))
+        .with_current_room(room_id)
         .finish();
     let root = editor
         .game
@@ -273,8 +273,8 @@ fn create_prefab_from_selection_preserves_external_parent() {
             position: Vec2::new(80.0, 120.0),
             ..Default::default()
         })
-        .with(CurrentRoom(room_id))
         .with(Name("Root".to_string()))
+        .with_current_room(room_id)
         .finish();
     set_parent(&mut editor.game.ecs, root, container);
     editor.room_editor.set_selected_entity(Some(root));

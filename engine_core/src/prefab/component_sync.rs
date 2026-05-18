@@ -159,6 +159,7 @@ fn remove_component_snapshot(ctx: &mut GameCtxMut<'_>, entity: Entity, type_name
 
     let mut boxed = (component_reg.clone)(ctx.ecs(), entity);
     (component_reg.post_remove)(&mut *boxed, &entity, ctx);
+    (component_reg.on_remove)(&mut *boxed, &entity, ctx.ecs());
     (component_reg.remove)(ctx.ecs(), entity);
 }
 
@@ -212,12 +213,7 @@ fn remove_stale_prefab_components(
         .unwrap_or_default();
 
     for component in capture_entity(ctx.ecs(), entity) {
-        let is_reserved_type = component.type_name == comp_type_name::<PrefabInstanceRoot>()
-            || component.type_name == comp_type_name::<PrefabInstanceNode>()
-            || component.type_name == comp_type_name::<PrefabOverrides>()
-            || component.type_name == comp_type_name::<CurrentRoom>()
-            || component.type_name == comp_type_name::<Parent>()
-            || component.type_name == comp_type_name::<Children>()
+        let is_reserved_type = excluded_from_prefab_asset(&component.type_name)
             || (is_instance_root
                 && component.type_name == comp_type_name::<Transform>()
                 && prefab_types.contains(comp_type_name::<Transform>()));

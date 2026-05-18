@@ -3,6 +3,7 @@ use crate::ecs::SpriteId;
 use crate::constants::world;
 use crate::tiles::tilemap::TileMap;
 use crate::worlds::room::*;
+use crate::worlds::room_grid::RoomGrid;
 use bishop::prelude::*;
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
@@ -25,6 +26,8 @@ pub struct World {
     pub meta: WorldMeta,
     #[serde(default = "default_grid_size")]
     pub grid_size: f32,
+    #[serde(skip)]
+    pub room_grid: RoomGrid,
 }
 
 fn default_grid_size() -> f32 {
@@ -36,6 +39,16 @@ impl World {
     pub fn dummy() -> &'static Self {
         static DUMMY: std::sync::OnceLock<World> = std::sync::OnceLock::new();
         DUMMY.get_or_init(Self::default)
+    }
+
+    /// Rebuild the room grid from the current room list.
+    pub fn rebuild_room_grid(&mut self) {
+        self.room_grid = RoomGrid::build(self);
+    }
+
+    /// Returns the room containing this world-space position.
+    pub fn room_at(&self, pos: Vec2) -> Option<RoomId> {
+        self.room_grid.room_at(pos, self.grid_size)
     }
 }
 

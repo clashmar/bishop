@@ -32,13 +32,26 @@ impl LuaCommand for SetComponentCmd {
 mod tests {
     use super::*;
     use engine_core::ecs::component::comp_type_name;
-    use engine_core::prelude::PrefabInstanceRoot;
+    use engine_core::prelude::{CurrentRoom, PrefabInstanceRoot};
 
     #[test]
     fn set_component_command_rejects_private_components() {
         let type_name = comp_type_name::<PrefabInstanceRoot>();
         let err = match public_lua_component(type_name) {
             Ok(_) => panic!("private component should not be settable from Lua"),
+            Err(err) => err,
+        };
+        assert_eq!(
+            err,
+            format!("Component '{type_name}' is not available to Lua")
+        );
+    }
+
+    #[test]
+    fn set_component_command_rejects_current_room_after_it_becomes_private() {
+        let type_name = comp_type_name::<CurrentRoom>();
+        let err = match public_lua_component(type_name) {
+            Ok(_) => panic!("CurrentRoom should be private to generic Lua APIs"),
             Err(err) => err,
         };
         assert_eq!(

@@ -4,7 +4,7 @@ use crate::ecs::components::room_camera::{
 };
 use crate::ecs::ecs::Ecs;
 use crate::ecs::entity::Entity;
-use crate::ecs::{CurrentRoom, Transform};
+use crate::ecs::Transform;
 use crate::worlds::room::RoomId;
 use bishop::prelude::*;
 
@@ -43,17 +43,12 @@ pub fn game_render_target<C: BishopContext>(ctx: &mut C, grid_size: f32) -> Bish
 /// Returns every `GameCamera` for a room from its id.
 pub fn get_room_cameras(ecs: &Ecs, room_id: RoomId) -> Vec<(Entity, RoomCamera)> {
     let cam_store = ecs.get_store::<RoomCamera>();
-    let room_store = ecs.get_store::<CurrentRoom>();
 
-    cam_store
-        .data
+    ecs.entities_in_room(room_id)
         .iter()
-        .filter_map(|(entity, room_cam)| {
-            let cur = room_store.get(*entity)?;
-            if cur.0 != room_id {
-                return None;
-            }
-            Some((*entity, *room_cam))
+        .filter_map(|entity| {
+            ecs.assert_room_membership(room_id, *entity);
+            cam_store.get(*entity).copied().map(|room_cam| (*entity, room_cam))
         })
         .collect()
 }

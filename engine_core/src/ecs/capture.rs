@@ -49,7 +49,7 @@ pub fn restore_subtree(ctx: &mut GameCtxMut<'_>, saved: &GroupSnapshot) {
     }
 }
 
-/// Restores an entity into the Ecs from its component bag.
+/// Restores an entity into the ECS from its captured component snapshots.
 pub fn restore_entity(
     ctx: &mut GameCtxMut<'_>,
     entity: Entity,
@@ -63,6 +63,8 @@ pub fn restore_entity(
         let mut boxed = (component_reg.from_ron_component)(comp.ron);
         (component_reg.post_create)(&mut *boxed, &entity, ctx);
         (component_reg.inserter)(ctx.ecs(), entity, boxed);
+
+        ctx.ecs().run_registered_on_insert(component_reg, entity);
     }
 }
 

@@ -23,6 +23,7 @@ impl GameInstance {
     ) -> Self {
         let room_id = Self::start_room_id(&game);
         game.initialize_runtime(lua);
+        game.ecs.finalize_after_load();
         Self::finish_loading(ctx, room_id, game, lua, camera_manager)
     }
 
@@ -34,6 +35,7 @@ impl GameInstance {
         camera_manager: &mut CameraManager,
     ) -> Self {
         game.initialize_runtime(lua);
+        game.ecs.finalize_after_load();
         Self::finish_loading(ctx, room.id, game, lua, camera_manager)
     }
 
@@ -55,11 +57,9 @@ impl GameInstance {
         lua: &Lua,
         camera_manager: &mut CameraManager,
     ) -> Self {
-        // Warm the audio cache for all AudioSource components that were loaded from the
-        // save file. Ecs::deserialize bypasses post_create hooks (serde has no GameCtxMut),
-        // so we push IncrementRefs manually here.
-        // TODO(save-load): replace with a proper post-load hook once the Save/Load sprint
-        // adds runtime save files and a generalised post-deserialize callback.
+        // Post-load finalization: on_insert hooks have fired via ecs.finalize_after_load().
+        // Contextful post_create hooks (requiring GameCtxMut) still need manual wiring
+        // for components like AudioSource that depend on runtime command queues.
         for source in AudioSource::store(&game.ecs).data.values() {
             push_audio_command(AudioCommand::IncrementRefs(sound_command_ids(
                 &game.asset_registry,
@@ -115,26 +115,31 @@ impl GameInstance {
     /// Updates the previous position for all entities in the active room.
     pub fn store_previous_positions(&mut self, camera_manager: &mut CameraManager) {
         let ecs = &self.game.ecs;
-        let trans_store = ecs.get_store::<Transform>();
-        let room_store = ecs.get_store::<CurrentRoom>();
-        let sub_pixel_store = ecs.get_store::<SubPixel>();
 
         // Store the camera target
         camera_manager.previous_position = Some(camera_manager.active.camera.target);
 
+        let Some(current_room_id) = self.game.current_world().current_room_id else {
+            self.prev_positions.clear();
+            return;
+        };
+
+        let trans_store = ecs.get_store::<Transform>();
+        let sub_pixel_store = ecs.get_store::<SubPixel>();
+
         self.prev_positions.clear();
-        self.prev_positions
-            .extend(trans_store.data.iter().filter_map(|(entity, transform)| {
-                room_store
-                    .get(*entity)
-                    .filter(|cr| cr.0 == self.game.current_world().current_room_id.unwrap()) // TODO: handle unwrap
-                    .map(|_| {
-                        (
-                            *entity,
-                            visual_position(transform.position, sub_pixel_store.get(*entity)),
-                        )
-                    })
-            }));
+        self.prev_positions.extend(
+            ecs.entities_in_room(current_room_id)
+                .iter()
+                .filter_map(|entity| {
+                    ecs.assert_room_membership(current_room_id, *entity);
+                    let transform = trans_store.get(*entity)?;
+                    Some((
+                        *entity,
+                        visual_position(transform.position, sub_pixel_store.get(*entity)),
+                    ))
+                }),
+        );
     }
 }
 
@@ -159,16 +164,16 @@ mod tests {
         let mut game = Game::default();
         game.add_world(world);
 
-        let entity = game
-            .ecs
+        let entity = game.ecs
             .create_entity()
             .with(Transform {
                 position: Vec2::new(10.0, 12.0),
                 ..Default::default()
             })
-            .with(CurrentRoom(room_id))
             .with(SubPixel { x: 0.25, y: -0.5 })
+            .with_current_room(room_id)
             .finish();
+
 
         let mut game_instance = GameInstance {
             game,

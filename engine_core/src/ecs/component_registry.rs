@@ -62,6 +62,13 @@ pub struct ComponentRegistry {
     pub is_public_lua_api: bool,
     /// Returns the highest entity id present in the store, or `None` if empty.
     pub max_entity_id: fn(&dyn Any) -> Option<usize>,
+    /// Called on every component insertion.
+    pub on_insert: for<'a> fn(&mut dyn Any, &Entity, &mut Ecs),
+    /// Called on every component removal.
+    pub on_remove: for<'a> fn(&mut dyn Any, &Entity, &mut Ecs),
+    /// When true, this component's mutation should go through replace_component
+    /// rather than raw get_mut field edits.
+    pub guarded: bool,
 }
 
 /// Factory that works for any component that implements `Component + Default`.
@@ -126,6 +133,12 @@ pub fn noop_post_create(_any: &mut dyn Any, _entity: &Entity, _ctx: &mut GameCtx
 /// Default implementation used when a component does not need any post-remove work.
 pub fn noop_post_remove(_any: &mut dyn Any, _entity: &Entity, _ctx: &mut GameCtxMut<'_>) {}
 
+/// No-op on_insert hook (default for components without custom lifecycle logic).
+pub fn noop_on_insert(_component: &mut dyn Any, _entity: &Entity, _ecs: &mut Ecs) {}
+
+/// No-op on_remove hook (default for components without custom lifecycle logic).
+pub fn noop_on_remove(_component: &mut dyn Any, _entity: &Entity, _ecs: &mut Ecs) {}
+
 /// Returns the components exposed through the public Lua API.
 pub fn public_lua_components() -> impl Iterator<Item = &'static ComponentRegistry> {
     COMPONENTS
@@ -158,7 +171,40 @@ mod tests {
         PrefabInstanceNode, PrefabInstanceRoot, PrefabOverrides,
     };
     use crate::ecs::MotionBody;
-    use crate::ecs::{Grounded, PhysicsBody};
+    use crate::ecs::{CurrentRoom, Grounded, PhysicsBody};
+
+    #[test]
+    fn registry_has_on_insert_field() {
+        // Construct a minimal registry entry — will fail because fields don't exist yet
+        let entry = ComponentRegistry {
+            type_name: "Test",
+            type_id: std::any::TypeId::of::<u32>(),
+            to_ron: |_: &dyn Any| String::new(),
+            from_ron: |_: String| Box::new(()) as Box<dyn Any + Send + Sync>,
+            to_ron_component: |_: &dyn Any| String::new(),
+            from_ron_component: |_: String| Box::new(()) as Box<dyn Any>,
+            factory: |_: &mut Ecs, _: Entity| {},
+            ensure: |_: &mut Ecs, _: Entity| {},
+            has: |_: &Ecs, _: Entity| false,
+            remove: |_: &mut Ecs, _: Entity| {},
+            inserter: |_: &mut Ecs, _: Entity, _: Box<dyn Any>| {},
+            clone: |_: &Ecs, _: Entity| Box::new(0u32) as Box<dyn Any>,
+            post_create: |_: &mut dyn Any, _: &Entity, _: &mut GameCtxMut<'_>| {},
+            post_remove: |_: &mut dyn Any, _: &Entity, _: &mut GameCtxMut<'_>| {},
+            to_lua: |_: &Lua, _: &dyn Any| Ok(mlua::Value::Nil),
+            from_lua: |_: &Lua, _: Value| Ok(Box::new(()) as Box<dyn Any>),
+            lua_schema: || &[],
+            is_public_lua_api: true,
+            max_entity_id: |_: &dyn Any| None,
+            on_insert: noop_on_insert,
+            on_remove: noop_on_remove,
+            guarded: false,
+        };
+        // Verify noops don't panic
+        let mut val: Box<dyn Any> = Box::new(42u32);
+        (entry.on_insert)(&mut *val, &Entity(1), &mut Ecs::default());
+        (entry.on_remove)(&mut *val, &Entity(1), &mut Ecs::default());
+    }
 
     #[test]
     fn components_are_sorted_by_type_name() {
@@ -183,6 +229,17 @@ mod tests {
 
             assert!(!reg.is_public_lua_api, "{type_name} should be private");
         }
+    }
+
+    #[test]
+    fn current_room_is_not_public_lua_api() {
+        let type_name = comp_type_name::<CurrentRoom>();
+        let reg = COMPONENTS
+            .iter()
+            .find(|reg| reg.type_name == type_name)
+            .unwrap_or_else(|| panic!("missing registry entry for {type_name}"));
+
+        assert!(!reg.is_public_lua_api, "{type_name} should be private");
     }
 
     #[test]

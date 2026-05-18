@@ -208,6 +208,32 @@ fn shipped_demo_game_loads_with_slim_asset_registry_records() {
 }
 
 #[test]
+fn load_game_by_name_rebuilds_room_entities_after_deserialize() {
+    let _lock = game_fs_test_lock()
+        .lock()
+        .unwrap_or_else(|poison| poison.into_inner());
+    let test_game = TestGameFolder::new("room_entities_rebuild_on_load");
+    set_game_name(test_game.name());
+
+    let mut game = create_new_game(test_game.name().to_string());
+    let room_id = game.worlds[0].rooms[0].id;
+    let entity = game
+        .ecs
+        .create_entity()
+        .with(Animation::default())
+        .with_current_room(room_id)
+        .finish();
+
+    save_game(&game).unwrap();
+    let loaded = load_game_by_name(test_game.name()).unwrap();
+
+    assert!(
+        loaded.ecs.entities_in_room(room_id).contains(&entity),
+        "loaded game should rebuild room_entities for deserialized CurrentRoom components"
+    );
+}
+
+#[test]
 fn save_game_round_trips_sound_asset_registry_records() {
     let _lock = game_fs_test_lock()
         .lock()

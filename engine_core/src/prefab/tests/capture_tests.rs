@@ -14,8 +14,9 @@ fn capture_prefab_normalizes_root_offset_and_instantiate_restores_world_position
             position: Vec2::new(10.0, 15.0),
             ..Default::default()
         })
-        .with(CurrentRoom(room_id))
+        .with_current_room(room_id)
         .finish();
+    
     let child = game
         .ecs
         .create_entity()
@@ -78,6 +79,17 @@ fn capture_prefab_normalizes_root_offset_and_instantiate_restores_world_position
     assert_eq!(
         game.ecs.get::<CurrentRoom>(child_entity).map(|room| room.0),
         Some(room_id)
+    );
+
+    // Verify room_entities tracking after restore/prefab instantiation
+    let room_entities = game.ecs.entities_in_room(room_id);
+    assert!(
+        room_entities.contains(&root_entity),
+        "root should be tracked in room_entities after instantiate"
+    );
+    assert!(
+        room_entities.contains(&child_entity),
+        "child should be tracked in room_entities after instantiate"
     );
 }
 

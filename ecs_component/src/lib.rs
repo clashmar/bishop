@@ -18,6 +18,9 @@ struct EcsComponentArgs {
     post_create: Option<Path>,
     post_remove: Option<Path>,
     lua_api: bool,
+    on_insert: Option<syn::Ident>,
+    on_remove: Option<syn::Ident>,
+    guarded: bool,
 }
 
 impl Parse for EcsComponentArgs {
@@ -26,29 +29,46 @@ impl Parse for EcsComponentArgs {
         let mut post_create = None;
         let mut post_remove = None;
         let mut lua_api = true;
+        let mut on_insert = None;
+        let mut on_remove = None;
+        let mut guarded = false;
 
         while !input.is_empty() {
             let ident: syn::Ident = input.parse()?;
-            let _eq: Token![=] = input.parse()?;
 
-            if ident == "deps" {
-                let content;
-                syn::bracketed!(content in input);
-                let types: Punctuated<Type, Token![,]> =
-                    content.parse_terminated(Type::parse, Token![,])?;
-                deps = types.into_iter().collect();
-            } else if ident == "post_create" {
-                post_create = Some(input.parse()?);
-            } else if ident == "post_remove" {
-                post_remove = Some(input.parse()?);
-            } else if ident == "lua_api" {
-                let value: syn::LitBool = input.parse()?;
-                lua_api = value.value;
+            // guarded is a flag without a value
+            if ident == "guarded" {
+                guarded = true;
+            } else if ident == "on_insert" {
+                // on_insert requires a value
+                let _eq: Token![=] = input.parse()?;
+                on_insert = Some(input.parse()?);
+            } else if ident == "on_remove" {
+                // on_remove requires a value
+                let _eq: Token![=] = input.parse()?;
+                on_remove = Some(input.parse()?);
             } else {
-                return Err(syn::Error::new_spanned(
-                    ident,
-                    "Expected 'deps', 'post_create', 'post_remove' or 'lua_api'",
-                ));
+                let _eq: Token![=] = input.parse()?;
+
+                if ident == "deps" {
+                    let content;
+                    syn::bracketed!(content in input);
+                    let types: Punctuated<Type, Token![,]> =
+                        content.parse_terminated(Type::parse, Token![,])?;
+                    deps = types.into_iter().collect();
+                } else if ident == "post_create" {
+                    post_create = Some(input.parse()?);
+                } else if ident == "post_remove" {
+                    post_remove = Some(input.parse()?);
+                } else if ident == "lua_api" {
+                    let value: syn::LitBool = input.parse()?;
+                    lua_api = value.value;
+                } else {
+                    return Err(syn::Error::new(
+                        ident.span(),
+                        "Expected 'deps', 'post_create', 'post_remove', 'lua_api', 'on_insert', 'on_remove', or 'guarded'",
+                    ));
+                }
             }
 
             if input.peek(Token![,]) {
@@ -61,6 +81,9 @@ impl Parse for EcsComponentArgs {
             post_create,
             post_remove,
             lua_api,
+            on_insert,
+            on_remove,
+            guarded,
         })
     }
 }
@@ -74,6 +97,9 @@ pub fn ecs_component(args: TokenStream, input: TokenStream) -> TokenStream {
             post_create: None,
             post_remove: None,
             lua_api: true,
+            on_insert: None,
+            on_remove: None,
+            guarded: false,
         }
     } else {
         parse_macro_input!(args as EcsComponentArgs)
@@ -89,7 +115,10 @@ pub fn ecs_component(args: TokenStream, input: TokenStream) -> TokenStream {
     let struct_data = match &input.data {
         Data::Struct(s) => s,
         _ => {
-            return syn::Error::new_spanned(name, "ecs_component only works on structs")
+            return syn::Error::new(
+                name.span(),
+                "ecs_component only works on structs"
+            )
                 .to_compile_error()
                 .into();
         }
@@ -98,6 +127,7 @@ pub fn ecs_component(args: TokenStream, input: TokenStream) -> TokenStream {
     let fields = &struct_data.fields;
     let deps = &args.deps;
     let lua_api = args.lua_api;
+    let guarded = args.guarded;
 
     // Build the struct definition
     let struct_def = match fields {
@@ -199,6 +229,44 @@ pub fn ecs_component(args: TokenStream, input: TokenStream) -> TokenStream {
         }
     };
 
+    // Generate on_insert function
+    let on_insert_fn = if let Some(func) = &args.on_insert {
+        quote! {
+            |any: &mut dyn std::any::Any, entity: &Entity, ecs: &mut crate::ecs::Ecs| {
+                let comp = any
+                    .downcast_mut::<#name>()
+                    .expect(concat!(
+                        "on_insert: Type mismatch for ",
+                        stringify!(#name)
+                    ));
+                #func(comp, entity, ecs);
+            }
+        }
+    } else {
+        quote! {
+            crate::ecs::component_registry::noop_on_insert
+        }
+    };
+
+    // Generate on_remove function
+    let on_remove_fn = if let Some(func) = &args.on_remove {
+        quote! {
+            |any: &mut dyn std::any::Any, entity: &Entity, ecs: &mut crate::ecs::Ecs| {
+                let comp = any
+                    .downcast_mut::<#name>()
+                    .expect(concat!(
+                        "on_remove: Type mismatch for ",
+                        stringify!(#name)
+                    ));
+                #func(comp, entity, ecs);
+            }
+        }
+    } else {
+        quote! {
+            crate::ecs::component_registry::noop_on_remove
+        }
+    };
+
     let to_lua_impl = generate_to_lua_impl(fields, name);
     let from_lua_impl = generate_from_lua_impl(fields, name);
 
@@ -246,6 +314,14 @@ pub fn ecs_component(args: TokenStream, input: TokenStream) -> TokenStream {
             ) {
                 crate::ecs::component_registry::generic_ensure::<#name>(world, entity);
                 #(#factory_deps)*
+            }
+
+            /// Returns the `ComponentRegistry` entry for this component type.
+            pub(crate) fn __component_registry() -> &'static crate::ecs::component_registry::ComponentRegistry {
+                inventory::iter::<crate::ecs::component_registry::ComponentRegistry>
+                    .into_iter()
+                    .find(|reg| reg.type_name == #name::TYPE_NAME)
+                    .expect(concat!("ComponentRegistry missing for ", stringify!(#name)))
             }
 
             fn __to_ron(store: &dyn std::any::Any) -> String {
@@ -333,6 +409,9 @@ pub fn ecs_component(args: TokenStream, input: TokenStream) -> TokenStream {
                         .downcast_ref::<crate::ecs::component::ComponentStore<#name>>()
                         .and_then(|s| s.data.keys().map(|e| e.0).max())
                 },
+                on_insert: #on_insert_fn,
+                on_remove: #on_remove_fn,
+                guarded: #guarded,
             }
         }
     };

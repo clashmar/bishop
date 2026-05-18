@@ -1,5 +1,7 @@
 mod call_entity_fn_cmd;
 mod move_entity_by_cmd;
+mod move_to_room_cmd;
+mod remove_from_room_cmd;
 mod reposition_entity;
 mod reposition_entity_cmd;
 mod reset_clip_cmd;
@@ -12,6 +14,8 @@ mod set_flip_x_cmd;
 pub(crate) use call_entity_fn_cmd::CallEntityFnCmd;
 pub(crate) use engine_core::ecs::{flip_x_for_direction, parse_direction};
 pub(crate) use move_entity_by_cmd::MoveEntityByCmd;
+pub(crate) use move_to_room_cmd::MoveToRoomCmd;
+pub(crate) use remove_from_room_cmd::RemoveFromRoomCmd;
 pub(crate) use reposition_entity::reposition_entity;
 pub(crate) use reposition_entity_cmd::RepositionEntityCmd;
 pub(crate) use reset_clip_cmd::ResetClipCmd;

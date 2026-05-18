@@ -74,6 +74,8 @@ pub mod lua_entity {
     pub const FIND_BEST_INTERACTABLE: &str = "find_best_interactable";
     pub const TELEPORT: &str = "teleport";
     pub const MOVE_BY: &str = "move_by";
+    pub const MOVE_TO_ROOM: &str = "move_to_room";
+    pub const REMOVE_FROM_ROOM: &str = "remove_from_room";
 }
 
 /// Animation Lua method names.

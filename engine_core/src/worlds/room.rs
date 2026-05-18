@@ -1,6 +1,6 @@
 // engine_core/src/world/room.rs
 use crate::constants::world;
-use crate::ecs::{CurrentRoom, Name, Pivot, RoomCamera, Transform};
+use crate::ecs::{Name, Pivot, RoomCamera, Transform};
 use crate::ecs::ecs::Ecs;
 use crate::ecs::entity::Entity;
 use crate::tiles::tilemap::TileMap;
@@ -174,15 +174,11 @@ impl Room {
     pub fn create_room_camera(&self, ecs: &mut Ecs, room_id: RoomId, grid_size: f32) {
         const CAMERA_PREFIX: &str = "Camera ";
         let name_store = ecs.get_store::<Name>();
-        let cur_room_store = ecs.get_store::<CurrentRoom>();
 
         let mut used: HashSet<usize> = HashSet::new();
 
-        for (entity, name) in name_store.data.iter() {
-            if let Some(cur_room) = cur_room_store.get(*entity) {
-                if cur_room.0 != self.id {
-                    continue;
-                }
+        for &entity in ecs.entities_in_room(self.id) {
+            if let Some(name) = name_store.get(entity) {
                 if let Some(num_str) = name.strip_prefix(CAMERA_PREFIX)
                     && let Ok(num) = num_str.parse::<usize>()
                     && num > 0
@@ -197,23 +193,17 @@ impl Room {
             next_idx += 1;
         }
 
-        ecs.create_entity()
+        ecs
+            .create_entity()
             .with(Transform {
                 position: self.position,
                 pivot: Pivot::CenterLeft,
                 ..Default::default()
             })
             .with(RoomCamera::new(room_id, grid_size))
-            .with(CurrentRoom(self.id))
-            .with(Name(format!("{}{}", CAMERA_PREFIX, next_idx)));
-    }
-
-    /// Returns the axis‑aligned rectangle that a room occupies in world space.
-    #[inline]
-    pub fn room_bounds(&self, grid_size: f32) -> (Vec2, Vec2) {
-        let min = self.position;
-        let max = self.position + self.size * grid_size;
-        (min, max)
+            .with(Name(format!("{}{}", CAMERA_PREFIX, next_idx)))
+            .with_current_room(self.id)
+            .finish();
     }
 
     /// Returns the index of the current variant.
@@ -234,19 +224,8 @@ impl Room {
 }
 
 /// Returns a HashSet of all entities in the current room.
-pub fn entities_in_room(ecs: &mut Ecs, room_id: RoomId) -> HashSet<Entity> {
-    let room_store = ecs.get_store::<CurrentRoom>();
-    room_store
-        .data
-        .iter()
-        .filter_map(|(entity, cur_room)| {
-            if cur_room.0 == room_id {
-                Some(*entity)
-            } else {
-                None
-            }
-        })
-        .collect()
+pub fn entities_in_room(ecs: &Ecs, room_id: RoomId) -> HashSet<Entity> {
+    ecs.entities_in_room(room_id).clone()
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]

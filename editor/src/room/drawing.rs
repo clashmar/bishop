@@ -254,7 +254,6 @@ impl RoomEditor {
 
         let cam_store = ecs.get_store::<RoomCamera>();
         let pos_store = ecs.get_store::<Transform>();
-        let room_store = ecs.get_store::<CurrentRoom>();
 
         let editor_scalar = EditorCameraController::scalar_zoom(ctx, editor_cam);
         const BASE_THICKNESS: f32 = 0.25;
@@ -268,20 +267,14 @@ impl RoomEditor {
         let editor_w = (tr.x - bl.x).abs();
         let editor_h = (tr.y - bl.y).abs();
 
-        // Collect all cameras in this room
-        for (entity, room_cam) in cam_store.data.iter() {
-            // Only draw cameras in this room
-            if let Some(CurrentRoom(id)) = room_store.get(*entity) {
-                if *id != room_id {
-                    continue;
-                }
-            } else {
-                continue;
-            }
+        for &entity in ecs.entities_in_room(room_id) {
+            ecs.assert_room_membership(room_id, entity);
 
-            let pos = match pos_store.get(*entity) {
-                Some(p) => p.position,
-                None => continue,
+            let Some(room_cam) = cam_store.get(entity) else {
+                continue;
+            };
+            let Some(pos) = pos_store.get(entity).map(|transform| transform.position) else {
+                continue;
             };
 
             let factor_x = editor_cam.zoom.x / room_cam.zoom.x;
@@ -293,7 +286,7 @@ impl RoomEditor {
             let half = vec2(viewport_w, viewport_h) * 0.5;
             let top_left = pos - half;
 
-            let color = if *entity == selected {
+            let color = if entity == selected {
                 with_theme(|t| t.highlight)
             } else {
                 with_theme(|t| t.accent)
@@ -476,16 +469,13 @@ pub fn draw_collider(ctx: &mut WgpuContext, ecs: &Ecs, entity: Entity) {
 pub fn draw_camera_placeholders(ctx: &mut WgpuContext, ecs: &Ecs, room_id: RoomId, grid_size: f32) {
     let cam_store = ecs.get_store::<RoomCamera>();
     let pos_store = ecs.get_store::<Transform>();
-    let room_store = ecs.get_store::<CurrentRoom>();
 
-    let positions: Vec<Vec2> = cam_store
-        .data
+    let positions: Vec<Vec2> = ecs
+        .entities_in_room(room_id)
         .iter()
-        .filter_map(|(entity, _room_cam)| {
-            let cur_room = room_store.get(*entity)?;
-            if cur_room.0 != room_id {
-                return None;
-            }
+        .filter_map(|entity| {
+            ecs.assert_room_membership(room_id, *entity);
+            cam_store.get(*entity)?;
             let pos = pos_store.get(*entity)?;
             Some(pos.position)
         })
@@ -510,21 +500,18 @@ pub fn draw_camera_placeholders(ctx: &mut WgpuContext, ecs: &Ecs, room_id: RoomI
 
 /// Draw an icon for a `Light` that has no other visual component.
 pub fn draw_light_placeholders(ctx: &mut WgpuContext, ecs: &Ecs, room_id: RoomId, grid_size: f32) {
-    let room_store = ecs.get_store::<CurrentRoom>();
-    for (entity, _light) in ecs.get_store::<Light>().data.iter() {
-        // Only draw placeholders in this room
-        if let Some(CurrentRoom(id)) = room_store.get(*entity) {
-            if *id != room_id {
-                continue;
-            }
-        }
+    for &entity in ecs.entities_in_room(room_id) {
+        ecs.assert_room_membership(room_id, entity);
 
-        // Don't draw if there is a Sprite or Animation component
-        if ecs.has_any::<(Sprite, Animation)>(*entity) {
+        if !ecs.has::<Light>(entity) {
             continue;
         }
 
-        if let Some(position) = ecs.get_store::<Transform>().get(*entity) {
+        if ecs.has_any::<(Sprite, Animation)>(entity) {
+            continue;
+        }
+
+        if let Some(position) = ecs.get_store::<Transform>().get(entity) {
             let pos = position.position;
 
             let half_tile = grid_size * 0.5;
@@ -566,21 +553,20 @@ pub fn draw_glow_placeholders(
     room_id: RoomId,
     grid_size: f32,
 ) {
-    let room_store = ecs.get_store::<CurrentRoom>();
-    for (entity, glow) in ecs.get_store::<Glow>().data.iter() {
-        // Only draw placeholders in this room
-        if let Some(CurrentRoom(id)) = room_store.get(*entity) {
-            if *id != room_id {
-                continue;
-            }
-        }
+    let glow_store = ecs.get_store::<Glow>();
 
-        // Don't draw if there is a Sprite or Animation component
-        if ecs.has_any::<(Sprite, Animation)>(*entity) {
+    for &entity in ecs.entities_in_room(room_id) {
+        ecs.assert_room_membership(room_id, entity);
+
+        let Some(glow) = glow_store.get(entity) else {
+            continue;
+        };
+
+        if ecs.has_any::<(Sprite, Animation)>(entity) {
             continue;
         }
 
-        if let Some(position) = ecs.get_store::<Transform>().get(*entity) {
+        if let Some(position) = ecs.get_store::<Transform>().get(entity) {
             let mut pos = position.position;
 
             if let Some((w, h)) = sprite_manager.texture_size(glow.sprite_id) {
@@ -661,14 +647,11 @@ pub fn draw_interactable_range(ctx: &mut WgpuContext, ecs: &Ecs, entity: Entity,
 
 /// Draw a thin circle showing the interaction range for each `Interactable` entity in the room.
 pub fn draw_interactable_ranges(ctx: &mut WgpuContext, ecs: &Ecs, room_id: RoomId, grid_size: f32) {
-    let room_store = ecs.get_store::<CurrentRoom>();
-    for (entity, _interactable) in ecs.get_store::<Interactable>().data.iter() {
-        if let Some(CurrentRoom(id)) = room_store.get(*entity) {
-            if *id != room_id {
-                continue;
-            }
+    for &entity in ecs.entities_in_room(room_id) {
+        ecs.assert_room_membership(room_id, entity);
+        if ecs.has::<Interactable>(entity) {
+            draw_interactable_range(ctx, ecs, entity, grid_size);
         }
-        draw_interactable_range(ctx, ecs, *entity, grid_size);
     }
 }
 
@@ -694,7 +677,6 @@ pub fn draw_all_camera_viewports(
 ) {
     let cam_store = ecs.get_store::<RoomCamera>();
     let pos_store = ecs.get_store::<Transform>();
-    let room_store = ecs.get_store::<CurrentRoom>();
 
     let editor_scalar = EditorCameraController::scalar_zoom(ctx, editor_cam);
     const BASE_THICKNESS: f32 = 0.5;
@@ -708,16 +690,14 @@ pub fn draw_all_camera_viewports(
     let editor_w = (tr.x - bl.x).abs();
     let editor_h = (tr.y - bl.y).abs();
 
-    for (entity, room_cam) in cam_store.data.iter() {
-        if let Some(CurrentRoom(id)) = room_store.get(*entity) {
-            if *id != room_id {
-                continue;
-            }
-        } else {
-            continue;
-        }
+    for &entity in ecs.entities_in_room(room_id) {
+        ecs.assert_room_membership(room_id, entity);
 
-        let pos = match pos_store.get(*entity) {
+        let Some(room_cam) = cam_store.get(entity) else {
+            continue;
+        };
+
+        let pos = match pos_store.get(entity) {
             Some(p) => p.position,
             None => continue,
         };

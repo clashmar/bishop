@@ -1,4 +1,4 @@
-// engine_core/src/world/transition_manager.rs
+// game/src/transitions/transition_manager.rs
 use crate::engine::game_instance::GameInstance;
 use engine_core::prelude::*;
 use uuid::Uuid;
@@ -53,9 +53,6 @@ impl TransitionManager {
 
     /// Handles entity transitions between rooms.
     pub fn handle_transitions(game_instance: &mut GameInstance) {
-        let grid_size = game_instance.game.current_world().grid_size;
-        let rooms = game_instance.game.current_world().rooms.clone();
-
         let entities: Vec<_> = game_instance
             .game
             .ecs
@@ -79,40 +76,90 @@ impl TransitionManager {
             };
 
             // Find the room that now contains the entity
-            let target_id = match room_of_entity(pos, &rooms, grid_size) {
+            let target_id = match game_instance.game.current_world().room_at(pos) {
                 Some(id) => id,
                 None => continue,
             };
 
-            if let Some(comp) = game_instance.game.ecs.get_mut::<CurrentRoom>(entity) {
-                if comp.0 == target_id {
-                    continue;
-                } else {
-                    comp.0 = target_id
+            if let Some(current_room) = game_instance
+                .game
+                .ecs
+                .get::<CurrentRoom>(entity)
+                .map(|room| room.0)
+            {
+                if current_room != target_id {
+                    game_instance.game.ecs.set_current_room(entity, target_id);
                 }
             }
 
             if game_instance.game.ecs.get_player_entity() == Some(entity) {
-                if let Some(new_room) = rooms.iter().find(|r| r.id == target_id) {
-                    if let Some(world) = game_instance.game.current_world_mut() {
-                        world.current_room_id = Some(new_room.id);
-                    }
+                if let Some(world) = game_instance.game.current_world_mut() {
+                    world.current_room_id = Some(target_id);
                 }
             }
         }
     }
 }
 
-/// Return the id of the room whose bounds contain the entity's AABB.
-pub fn room_of_entity(pos: Vec2, rooms: &[Room], grid_size: f32) -> Option<RoomId> {
-    for room in rooms {
-        let min = room.position;
-        let max = room.position + room.size * grid_size;
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::HashMap;
 
-        // Never use <=/>= here or will overlap with adjacent rooms
-        if pos.x >= min.x && pos.x < max.x && pos.y > min.y && pos.y <= max.y {
-            return Some(room.id);
-        }
+    #[test]
+    fn handle_transitions_moves_membership_between_rooms() {
+        let room_a = Room {
+            id: RoomId(1),
+            position: Vec2::ZERO,
+            size: Vec2::new(32.0, 32.0),
+            ..Default::default()
+        };
+        let room_b = Room {
+            id: RoomId(2),
+            position: Vec2::new(32.0, 0.0),
+            size: Vec2::new(32.0, 32.0),
+            ..Default::default()
+        };
+
+        let mut world = World {
+            rooms: vec![room_a, room_b],
+            grid_size: 1.0,
+            ..Default::default()
+        };
+        world.rebuild_room_grid();
+
+        let mut game = Game::default();
+        game.add_world(world);
+        let entity = game
+            .ecs
+            .create_entity()
+            .with(Transform {
+                position: Vec2::new(40.0, 8.0),
+                ..Default::default()
+            })
+            .with(Collider::default())
+            .with_current_room(RoomId(1))
+            .finish();
+
+        let mut game_instance = GameInstance {
+            game,
+            prev_positions: HashMap::new(),
+        };
+
+        TransitionManager::handle_transitions(&mut game_instance);
+
+        assert_eq!(
+            game_instance
+                .game
+                .ecs
+                .get::<CurrentRoom>(entity)
+                .map(|room| room.0),
+            Some(RoomId(2))
+        );
+        let room_b_entities = game_instance.game.ecs.entities_in_room(RoomId(2));
+        assert!(room_b_entities.contains(&entity));
+        let room_a_entities = game_instance.game.ecs.entities_in_room(RoomId(1));
+        assert!(!room_a_entities.contains(&entity));
     }
-    None
 }
+
