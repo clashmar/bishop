@@ -111,7 +111,7 @@ impl WorldEditor {
     ) -> Option<RoomId> {
         if ctx.is_mouse_button_pressed(MouseButton::Left) && !self.should_block_canvas(ctx) {
             let world_mouse = mouse_world_pos(ctx, camera);
-            for room in &world.rooms {
+            for room in world.rooms() {
                 let rect = scaled_room_rect(room, world.grid_size);
                 if rect.contains(world_mouse) {
                     return Some(room.id);
@@ -130,7 +130,7 @@ impl WorldEditor {
         if ctx.is_mouse_button_pressed(MouseButton::Left) && !self.should_block_canvas(ctx) {
             let world_mouse = mouse_world_pos(ctx, camera);
             let cur_world = game.current_world();
-            for room in &cur_world.rooms {
+            for room in cur_world.rooms() {
                 let rect = scaled_room_rect(room, cur_world.grid_size);
                 if rect.contains(world_mouse) {
                     let room_id = room.id;
@@ -168,7 +168,7 @@ impl WorldEditor {
         if ctx.is_mouse_button_released(MouseButton::Left) {
             if let (Some(start), Some(end)) = (self.placing_start, self.placing_end) {
                 let (top_left, size) = rect_from_points(start, end);
-                let rooms = &game.current_world().rooms;
+                let rooms = game.current_world().rooms();
                 let should_create =
                     !self.intersects_existing_room(rooms, top_left, size, grid_size);
 
@@ -218,7 +218,7 @@ impl WorldEditor {
             .get_world_mut(world_id)
             .expect("World editor requires a world");
 
-        let rooms = &world.rooms;
+        let rooms = world.rooms();
 
         grid::draw_grid(ctx, grid_renderer, camera, world.grid_size);
 
@@ -251,7 +251,7 @@ impl WorldEditor {
         &self,
         ctx: &mut WgpuContext,
         camera: &Camera2D,
-        rooms: &Vec<Room>,
+        rooms: &[Room],
         grid_size: f32,
     ) {
         for room in rooms {
@@ -270,7 +270,7 @@ impl WorldEditor {
         }
     }
 
-    fn draw_exits(&self, ctx: &mut WgpuContext, rooms: &Vec<Room>, grid_size: f32) {
+    fn draw_exits(&self, ctx: &mut WgpuContext, rooms: &[Room], grid_size: f32) {
         for room in rooms {
             for exit in &room.exits {
                 let exit_world_coord = (room.position / grid_size) + exit.position;
@@ -333,7 +333,7 @@ impl WorldEditor {
         &self,
         ctx: &mut WgpuContext,
         camera: &Camera2D,
-        rooms: &Vec<Room>,
+        rooms: &[Room],
         grid_size: f32,
     ) {
         let world_mouse = mouse_world_pos(ctx, camera);
@@ -365,7 +365,7 @@ impl WorldEditor {
         &self,
         ctx: &mut WgpuContext,
         camera: &Camera2D,
-        rooms: &Vec<Room>,
+        rooms: &[Room],
         grid_size: f32,
     ) {
         ctx.set_default_camera(); // draw in screen space
@@ -481,7 +481,7 @@ impl WorldEditor {
         let target_room = world
             .starting_room_id
             .and_then(|id| world.get_room(id))
-            .or_else(|| world.rooms.first());
+            .or_else(|| world.rooms().first());
 
         if let Some(room) = target_room {
             self.center_on_room(ctx, camera, room, world.grid_size);

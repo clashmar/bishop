@@ -12,19 +12,17 @@ impl WorldEditor {
             return;
         };
 
-        // Find the index of the room we want to remove
-        let idx = match world.rooms.iter().position(|m| m.id == room_id) {
-            Some(i) => i,
-            None => return, // nothing to delete
-        };
-
         // Remove the room from the world
-        world.rooms.remove(idx);
+        let removed = world.remove_room(room_id);
+        if removed.is_none() {
+            return; // nothing to delete
+        }
 
         // Re‑compute adjacency for the remaining rooms
-        let len = world.rooms.len();
+        let len = world.rooms().len();
+        let rooms = world.rooms_mut();
         for i in 0..len {
-            let (before, rest) = world.rooms.split_at_mut(i);
+            let (before, rest) = rooms.split_at_mut(i);
             let (room_i, after) = rest.split_first_mut().unwrap();
             room_i.adjacent_rooms.clear();
 
@@ -98,12 +96,13 @@ impl WorldEditor {
             .current_world_mut()
             .expect("add_room requires a current world");
 
-        cur_world.rooms.push(room);
+        cur_world.add_room(room);
 
-        let len = cur_world.rooms.len();
+        let len = cur_world.rooms().len();
 
         // Split the vector into "old rooms" and "the new room"
-        let (old_slice, new_slice) = cur_world.rooms.split_at_mut(len - 1);
+        let rooms = cur_world.rooms_mut();
+        let (old_slice, new_slice) = rooms.split_at_mut(len - 1);
         let new_room = &mut new_slice[0];
 
         for old_room in old_slice.iter_mut() {

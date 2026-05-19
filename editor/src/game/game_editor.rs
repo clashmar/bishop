@@ -103,11 +103,23 @@ impl GameEditor {
                 // Select world
                 if ctx.is_mouse_button_pressed(MouseButton::Left) && !self.should_block_canvas(ctx)
                 {
-                    for world in &game.worlds {
-                        let texture =
-                            self.resolve_world_texture(ctx, world, &mut game.sprite_manager);
-                        if self.is_mouse_over_world(ctx, camera, world, texture) {
-                            return Some(world.id);
+                    let world_data: Vec<(WorldId, Vec2, Option<SpriteId>)> = game.worlds().iter()
+                        .map(|w| (w.id, w.meta.position, w.meta.sprite_id))
+                        .collect();
+                    for (world_id, position, sprite_id) in world_data {
+                        let texture = match sprite_id {
+                            Some(id) => game.sprite_manager.get_texture_from_id(ctx, id),
+                            None => circle_120px(),
+                        };
+                        let bounds = Rect::new(
+                            position.x,
+                            position.y,
+                            texture.width(),
+                            texture.height(),
+                        );
+                        let world_mouse = coord::mouse_world_pos(ctx, camera);
+                        if bounds.contains(world_mouse) {
+                            return Some(world_id);
                         }
                     }
                 }
@@ -117,18 +129,28 @@ impl GameEditor {
                     && !self.should_block_canvas(ctx)
                     && !is_modal_open()
                 {
-                    for world in &game.worlds {
-                        let texture =
-                            self.resolve_world_texture(ctx, world, &mut game.sprite_manager);
-                        if self.is_mouse_over_world(ctx, camera, world, texture) {
-                            let world_id = world.id;
-                            let current_name = world.name.clone();
-                            let current_sprite = world.meta.sprite_id.unwrap_or(SpriteId(0));
+                    let world_data: Vec<(WorldId, Vec2, String, Option<SpriteId>)> = game.worlds().iter()
+                        .map(|w| (w.id, w.meta.position, w.name.clone(), w.meta.sprite_id))
+                        .collect();
+                    for (world_id, position, name, sprite_id) in world_data {
+                        let texture = match sprite_id {
+                            Some(id) => game.sprite_manager.get_texture_from_id(ctx, id),
+                            None => circle_120px(),
+                        };
+                        let bounds = Rect::new(
+                            position.x,
+                            position.y,
+                            texture.width(),
+                            texture.height(),
+                        );
+                        let world_mouse = coord::mouse_world_pos(ctx, camera);
+                        if bounds.contains(world_mouse) {
+                            let current_sprite = sprite_id.unwrap_or(SpriteId(0));
                             let widget_id = self.widget_id_for_world(world_id);
 
                             self.pending_edit_world = Some(EditWorldData {
                                 world_id,
-                                current_name,
+                                current_name: name,
                                 current_sprite,
                                 widget_id,
                             });
@@ -146,11 +168,23 @@ impl GameEditor {
             GameEditorMode::Delete => {
                 if ctx.is_mouse_button_pressed(MouseButton::Left) && !self.should_block_canvas(ctx)
                 {
-                    for world in &game.worlds {
-                        let texture =
-                            self.resolve_world_texture(ctx, world, &mut game.sprite_manager);
-                        if self.is_mouse_over_world(ctx, camera, world, texture) {
-                            self.pending_delete_world = Some(world.id);
+                    let world_data: Vec<(WorldId, Vec2, Option<SpriteId>)> = game.worlds().iter()
+                        .map(|w| (w.id, w.meta.position, w.meta.sprite_id))
+                        .collect();
+                    for (world_id, position, sprite_id) in world_data {
+                        let texture = match sprite_id {
+                            Some(id) => game.sprite_manager.get_texture_from_id(ctx, id),
+                            None => circle_120px(),
+                        };
+                        let bounds = Rect::new(
+                            position.x,
+                            position.y,
+                            texture.width(),
+                            texture.height(),
+                        );
+                        let world_mouse = coord::mouse_world_pos(ctx, camera);
+                        if bounds.contains(world_mouse) {
+                            self.pending_delete_world = Some(world_id);
                             break;
                         }
                     }
@@ -164,7 +198,7 @@ impl GameEditor {
     }
 
     pub fn draw(&mut self, ctx: &mut WgpuContext, camera: &mut Camera2D, game: &mut Game) {
-        if self.pending_camera_init && !game.worlds.is_empty() {
+        if self.pending_camera_init && !game.worlds().is_empty() {
             GameEditor::init_camera(self, ctx, camera, game);
             self.pending_camera_init = false;
         }
@@ -177,14 +211,31 @@ impl GameEditor {
     }
 
     fn draw_worlds(&mut self, ctx: &mut WgpuContext, camera: &Camera2D, game: &mut Game) {
-        // Draw world
-        for world in &game.worlds {
-            let texture = self.resolve_world_texture(ctx, world, &mut game.sprite_manager);
-            // Hover tint
-            let tint = if self.is_mouse_over_world(ctx, camera, world, texture)
+        // Collect world data first (immutable borrow of worlds only)
+        let world_data: Vec<(Vec2, Option<SpriteId>, String)> = game.worlds().iter()
+            .map(|w| (w.meta.position, w.meta.sprite_id, w.name.clone()))
+            .collect();
+
+        // Draw worlds (mutable borrow of sprite_manager in the loop)
+        for (position, sprite_id, name) in world_data {
+            let texture = match sprite_id {
+                Some(id) => game.sprite_manager.get_texture_from_id(ctx, id),
+                None => circle_120px(),
+            };
+
+            // Hover tint — inline the bounds check
+            let world_mouse = coord::mouse_world_pos(ctx, camera);
+            let bounds = Rect::new(
+                position.x,
+                position.y,
+                texture.width(),
+                texture.height(),
+            );
+            let is_hovered = bounds.contains(world_mouse)
                 && !self.should_block_canvas(ctx)
-                && self.dragged_world.is_none()
-            {
+                && self.dragged_world.is_none();
+
+            let tint = if is_hovered {
                 match self.mode {
                     GameEditorMode::Delete => with_theme(|t| t.danger),
                     _ => with_theme(|t| t.primary),
@@ -194,35 +245,48 @@ impl GameEditor {
             };
 
             // Default is a circle
-            ctx.draw_texture(texture, world.meta.position.x, world.meta.position.y, tint);
+            ctx.draw_texture(texture, position.x, position.y, tint);
 
             // Display name
             const NAME_HEIGHT: f32 = 24.0;
-            let center = world.meta.position.x + (texture.width() / 2.);
-            let (x, width) = center_text_field(ctx, center, &world.name);
+            let center = position.x + (texture.width() / 2.);
+            let (x, width) = center_text_field(ctx, center, &name);
 
             let name_rect = Rect::new(
                 x,
-                world.meta.position.y - SPACING - NAME_HEIGHT,
+                position.y - SPACING - NAME_HEIGHT,
                 width,
                 NAME_HEIGHT,
             );
 
-            draw_input_field_text(ctx, &world.name, name_rect);
+            draw_input_field_text(ctx, &name, name_rect);
         }
     }
 
     fn handle_drag(&mut self, ctx: &WgpuContext, camera: &Camera2D, game: &mut Game) {
         // Start dragging
         if !self.dragging && ctx.is_mouse_button_pressed(MouseButton::Left) {
-            for world in &game.worlds {
-                let texture = self.resolve_world_texture(ctx, world, &mut game.sprite_manager);
-                if self.is_mouse_over_world(ctx, camera, world, texture) {
+            let world_data: Vec<(WorldId, Vec2, Option<SpriteId>)> = game.worlds().iter()
+                .map(|w| (w.id, w.meta.position, w.meta.sprite_id))
+                .collect();
+            for (world_id, position, sprite_id) in world_data {
+                let texture = match sprite_id {
+                    Some(id) => game.sprite_manager.get_texture_from_id(ctx, id),
+                    None => circle_120px(),
+                };
+                let bounds = Rect::new(
+                    position.x,
+                    position.y,
+                    texture.width(),
+                    texture.height(),
+                );
+                let world_mouse = coord::mouse_world_pos(ctx, camera);
+                if bounds.contains(world_mouse) {
                     self.dragging = true;
-                    self.dragged_world = Some(world.id);
+                    self.dragged_world = Some(world_id);
 
                     let mouse_world = coord::mouse_world_pos(ctx, camera);
-                    let world_pos = world.meta.position;
+                    let world_pos = position;
                     self.drag_offset = world_pos - mouse_world;
                     self.drag_start_position = Some(world_pos);
                     break;
@@ -236,7 +300,7 @@ impl GameEditor {
                 if ctx.is_mouse_button_down(MouseButton::Left) {
                     let mouse_world = coord::mouse_world_pos(ctx, camera);
 
-                    if let Some(world) = game.worlds.iter_mut().find(|w| w.id == id) {
+                    if let Some(world) = game.get_world_mut(id) {
                         world.meta.position = mouse_world + self.drag_offset;
                     }
                 }
@@ -246,7 +310,7 @@ impl GameEditor {
                     if let (Some(start_pos), Some(id)) =
                         (self.drag_start_position.take(), self.dragged_world.take())
                     {
-                        if let Some(world) = game.worlds.iter().find(|w| w.id == id) {
+                        if let Some(world) = game.get_world(id) {
                             let final_pos = world.meta.position;
 
                             // Only push command if world actually moved
@@ -341,39 +405,6 @@ impl GameEditor {
         }
     }
 
-    fn is_mouse_over_world(
-        &self,
-        ctx: &WgpuContext,
-        camera: &Camera2D,
-        world: &World,
-        world_texture: &Texture2D,
-    ) -> bool {
-        let world_mouse = coord::mouse_world_pos(ctx, camera);
-        self.world_texture_bounds(world, world_texture)
-            .contains(world_mouse)
-    }
-
-    fn world_texture_bounds(&self, world: &World, world_texture: &Texture2D) -> Rect {
-        Rect::new(
-            world.meta.position.x,
-            world.meta.position.y,
-            world_texture.width(),
-            world_texture.height(),
-        )
-    }
-
-    fn resolve_world_texture<'a>(
-        &self,
-        loader: &impl TextureLoader,
-        world: &World,
-        sprite_manager: &'a mut SpriteManager,
-    ) -> &'a Texture2D {
-        if let Some(id) = world.meta.sprite_id {
-            sprite_manager.get_texture_from_id(loader, id)
-        } else {
-            circle_120px()
-        }
-    }
 
     /// Sets the default camera for the game editor.
     pub fn init_camera(&self, ctx: &WgpuContext, camera: &mut Camera2D, game: &mut Game) {
@@ -392,27 +423,35 @@ impl GameEditor {
 
     /// Returns the (min, max) world‑space corners that contain all worlds.
     fn world_bounds(&self, loader: &impl TextureLoader, game: &mut Game) -> (Vec2, Vec2) {
-        if game.worlds.is_empty() {
+        if game.worlds().is_empty() {
             return (vec2(0.0, 0.0), vec2(1.0, 1.0));
         }
 
         let mut min = vec2(f32::INFINITY, f32::INFINITY);
         let mut max = vec2(f32::NEG_INFINITY, f32::NEG_INFINITY);
 
-        for world in &game.worlds {
-            let tex = self.resolve_world_texture(loader, world, &mut game.sprite_manager);
+        // Collect world data first (immutable borrow of worlds only)
+        let world_data: Vec<(Vec2, Option<SpriteId>)> = game.worlds().iter()
+            .map(|w| (w.meta.position, w.meta.sprite_id))
+            .collect();
+
+        // Compute bounds (mutable borrow of sprite_manager in the loop)
+        for (position, sprite_id) in world_data {
+            let tex = match sprite_id {
+                Some(id) => game.sprite_manager.get_texture_from_id(loader, id),
+                None => circle_120px(),
+            };
             let w = tex.width();
             let h = tex.height();
 
-            let pos = world.meta.position;
-            let right = pos.x + w;
-            let bottom = pos.y + h;
+            let right = position.x + w;
+            let bottom = position.y + h;
 
-            if pos.x < min.x {
-                min.x = pos.x;
+            if position.x < min.x {
+                min.x = position.x;
             }
-            if pos.y < min.y {
-                min.y = pos.y;
+            if position.y < min.y {
+                min.y = position.y;
             }
             if right > max.x {
                 max.x = right;

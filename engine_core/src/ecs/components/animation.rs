@@ -4,6 +4,8 @@ use crate::assets::sprite_manager::SpriteManager;
 use crate::ecs::entity::Entity;
 use crate::ecs::SpriteId;
 use crate::game::*;
+#[cfg(test)]
+use crate::worlds::World;
 use bishop::TextureLoader;
 use ecs_component::ecs_component;
 use serde::{Deserialize, Serialize};
@@ -202,7 +204,7 @@ mod tests {
         let run = SpriteId(12);
 
         let mut game = Game::default();
-        game.worlds.push(Default::default());
+        game.add_world(World::default());
         game.asset_registry
             .register_asset_relative_path(idle, Path::new(&animation.variant.0).join("Idle.png"))
             .expect("idle sprite should register");
@@ -230,7 +232,7 @@ mod tests {
         };
 
         let mut game = Game::default();
-        game.worlds.push(Default::default());
+        game.add_world(World::default());
         game.asset_registry
             .register_asset_relative_path(idle, Path::new(&animation.variant.0).join("Idle.png"))
             .expect("idle sprite should register");

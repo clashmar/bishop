@@ -216,7 +216,7 @@ fn load_game_by_name_rebuilds_room_entities_after_deserialize() {
     set_game_name(test_game.name());
 
     let mut game = create_new_game(test_game.name().to_string());
-    let room_id = game.worlds[0].rooms[0].id;
+    let room_id = game.worlds()[0].rooms()[0].id;
     let entity = game
         .ecs
         .create_entity()
@@ -398,10 +398,8 @@ fn save_game_writes_prefabs_lua() {
     set_game_name(test_game.name());
     create_game_folders(test_game.name());
 
-    let mut game = Game {
-        name: test_game.name().to_string(),
-        ..Default::default()
-    };
+    let mut game = Game::default();
+    game.name = test_game.name().to_string();
     game.prefab_manager.prefabs.insert(
         PrefabId(1),
         PrefabAsset {
@@ -436,10 +434,8 @@ fn save_game_rejects_duplicate_prefab_names() {
     set_game_name(test_game.name());
     create_game_folders(test_game.name());
 
-    let mut game = Game {
-        name: test_game.name().to_string(),
-        ..Default::default()
-    };
+    let mut game = Game::default();
+    game.name = test_game.name().to_string();
     let prefab_a = PrefabAsset {
         id: PrefabId(1),
         name: "Crate".to_string(),
@@ -581,4 +577,28 @@ fn create_new_game_creates_bishop_theme() {
         content.contains("local t = engine.theme.new()"),
         "theme should contain expected header"
     );
+}
+
+#[test]
+fn load_game_by_name_rebuilds_world_and_room_indexes_after_deserialize() {
+    let _lock = game_fs_test_lock()
+        .lock()
+        .unwrap_or_else(|poison| poison.into_inner());
+    let test_game = TestGameFolder::new("world_room_index_rebuild_on_load");
+    set_game_name(test_game.name());
+
+    let game = create_new_game(test_game.name().to_string());
+    let world_id = game.current_world().id;
+    let room_id = game
+        .current_world()
+        .rooms()
+        .first()
+        .expect("new game should have one room")
+        .id;
+
+    save_game(&game).unwrap();
+    let loaded = load_game_by_name(test_game.name()).unwrap();
+
+    assert_eq!(loaded.get_world(world_id).map(|world| world.id), Some(world_id));
+    assert!(loaded.current_world().get_room(room_id).is_some());
 }

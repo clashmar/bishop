@@ -145,8 +145,9 @@ impl PrefabEditor {
 
 #[cfg(test)]
 fn load_prefab_game(game_name: &str) -> Game {
-    load_game_by_name(game_name).unwrap_or_else(|_| Game {
-        name: game_name.to_string(),
-        ..Default::default()
+    load_game_by_name(game_name).unwrap_or_else(|_| {
+        let mut game = Game::default();
+        game.name = game_name.to_string();
+        game
     })
 }

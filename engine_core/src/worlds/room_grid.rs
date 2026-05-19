@@ -14,7 +14,7 @@ impl RoomGrid {
     /// Build the grid from a world's rooms.
     pub fn build(world: &World) -> Self {
         let mut cells = HashMap::new();
-        for room in &world.rooms {
+        for room in world.rooms() {
             let bounds = RoomBounds::from_room(room, world.grid_size);
             for (cx, cy) in bounds.cells() {
                 cells.insert((cx, cy), room.id);
@@ -35,14 +35,10 @@ impl RoomGrid {
 mod tests {
     use super::*;
     use crate::worlds::test_utils::make_room;
-    use crate::worlds::World;
+    use crate::worlds::{World, WorldId};
 
     fn make_world(rooms: Vec<Room>, grid_size: f32) -> World {
-        World {
-            rooms,
-            grid_size,
-            ..Default::default()
-        }
+        World::from_rooms(WorldId(0), String::new(), rooms, grid_size)
     }
 
     #[test]

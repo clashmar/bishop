@@ -38,19 +38,19 @@ impl EditWorldCmd {
         name: Option<&str>,
         sprite: Option<Option<SpriteId>>,
     ) {
-        if let Some(world) = game.worlds.iter_mut().find(|w| w.id == world_id) {
-            if let Some(name) = name {
+        if let Some(name) = name {
+            if let Some(world) = game.get_world_mut(world_id) {
                 world.name = name.to_owned();
             }
-            if let Some(sprite_opt) = sprite {
-                world.meta.set_sprite(sprite_opt, &mut game.sprite_manager);
-            }
+        }
+        if let Some(sprite_opt) = sprite {
+            game.set_world_sprite(world_id, sprite_opt);
         }
     }
 
     /// Capture the current state of the world.
     fn capture_original_state(&mut self, game: &Game) {
-        if let Some(world) = game.worlds.iter().find(|w| w.id == self.world_id) {
+        if let Some(world) = game.get_world(self.world_id) {
             self.old_name = world.name.clone();
             self.old_sprite = world.meta.sprite_id;
         }

@@ -154,10 +154,8 @@ mod tests {
             .join(lua_files::SOUNDS);
         fs::create_dir_all(&sounds_lua_path).unwrap();
 
-        let game = Game {
-            name: test_game.name().to_string(),
-            ..Default::default()
-        };
+        let mut game = Game::default();
+        game.name = test_game.name().to_string();
 
         let error = save_game(&game).unwrap_err();
 

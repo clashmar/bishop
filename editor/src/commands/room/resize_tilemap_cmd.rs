@@ -50,7 +50,7 @@ impl ResizeTilemapCmd {
 
         with_editor(|editor| {
             let world = editor.game.current_world();
-            if let Some(room) = world.rooms.iter().find(|r| r.id == self.room_id) {
+            if let Some(room) = world.get_room(self.room_id) {
                 let map = &room.variants[self.variant_index].tilemap;
                 self.old_width = map.width;
                 self.old_height = map.height;
@@ -77,7 +77,7 @@ impl EditorCommand for ResizeTilemapCmd {
             };
             
             let room = current_world
-                .rooms
+                .rooms_mut()
                 .iter_mut()
                 .find(|r| r.id == self.room_id);
 
@@ -248,7 +248,7 @@ impl EditorCommand for ResizeTilemapCmd {
                 return;
             };
             let room = current_world
-                .rooms
+                .rooms_mut()
                 .iter_mut()
                 .find(|r| r.id == self.room_id);
 

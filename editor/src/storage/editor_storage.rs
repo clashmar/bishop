@@ -50,13 +50,11 @@ pub fn create_new_game(name: String) -> Game {
     // Ensure the folder structure exists.
     create_game_folders(&name);
 
-    let mut game = Game {
-        name,
-        ..Default::default()
-    };
+    let mut game = Game::default();
+    game.name = name;
 
     let world = create_new_world(&mut game);
-    game.worlds.push(world);
+    game.add_world(world);
 
     // Create the global Player entity
     game.ecs
@@ -337,6 +335,10 @@ pub fn load_game_by_name(name: &str) -> io::Result<Game> {
         Ok(game) => game,
         Err(_) => return Ok(create_new_game(name.to_string())),
     };
+    game.rebuild_world_index();
+    for world in game.worlds_mut() {
+        world.rebuild_room_grid();
+    }
     game.id_allocator = IdAllocator::from_game(&game);
     game.ecs.finalize_after_load();
     game.asset_registry.try_init_editor_metadata()?;
@@ -421,18 +423,12 @@ pub fn create_new_world(game: &mut Game) -> World {
     let first_room = Room::new(&mut game.ecs, room_id, world_constants::DEFAULT_GRID_SIZE);
     let room_origin = first_room.position;
 
-    let mut world = World {
-        id,
-        name: name.clone(),
-        rooms: vec![first_room],
-        current_room_id: None,
-        starting_room_id: Some(room_id),
-        starting_position: Some(room_origin),
-        meta: WorldMeta::default(),
-        grid_size: world_constants::DEFAULT_GRID_SIZE,
-        room_grid: RoomGrid::default(),
-    };
-    world.room_grid = RoomGrid::build(&world);
+    let mut world = World::new(id, name.clone(), world_constants::DEFAULT_GRID_SIZE);
+    world.add_room(first_room);
+    world.current_room_id = None;
+    world.starting_room_id = Some(room_id);
+    world.starting_position = Some(room_origin);
+    world.meta = WorldMeta::default();
 
     let spawn_point = game
         .ecs

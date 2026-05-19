@@ -5,6 +5,7 @@ use crate::ecs::components::audio_source::{test_post_create, test_post_remove};
 use crate::ecs::entity::Entity;
 use crate::ecs::{AudioGroup, AudioSource, SoundGroupId, SoundId, SoundPresetLink};
 use crate::game::Game;
+use crate::worlds::World;
 use serde::Deserialize;
 
 fn sound_ids(ids: &[usize]) -> Vec<SoundId> {
@@ -385,7 +386,7 @@ fn post_create_ignores_new_group_when_incrementing_refs() {
     );
 
     let mut game = Game::default();
-    game.worlds.push(Default::default());
+    game.add_world(World::default());
     game.asset_registry
         .register_asset_relative_path(
             SoundId(1),
@@ -428,7 +429,7 @@ fn post_remove_ignores_new_group_when_decrementing_refs() {
 
     let entity = Entity(9);
     let mut game = Game::default();
-    game.worlds.push(Default::default());
+    game.add_world(World::default());
     game.asset_registry
         .register_asset_relative_path(
             SoundId(1),

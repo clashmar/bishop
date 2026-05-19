@@ -21,11 +21,11 @@ impl Default for IdAllocator {
 
 impl IdAllocator {
     pub fn from_game(game: &Game) -> Self {
-        let next_world_id = game.worlds.iter().map(|w| w.id.0).max().unwrap_or(0) + 1;
+        let next_world_id = game.worlds().iter().map(|w| w.id.0).max().unwrap_or(0) + 1;
         let next_room_id = game
-            .worlds
+            .worlds()
             .iter()
-            .flat_map(|w| w.rooms.iter().map(|r| r.id.0))
+            .flat_map(|w| w.rooms().iter().map(|r| r.id.0))
             .max()
             .unwrap_or(0)
             + 1;
@@ -86,19 +86,9 @@ mod tests {
     fn from_game_computes_next_world_id_from_max() {
         use crate::worlds::world::World;
 
-        let game = Game {
-            worlds: vec![
-                World {
-                    id: WorldId(2),
-                    ..Default::default()
-                },
-                World {
-                    id: WorldId(5),
-                    ..Default::default()
-                },
-            ],
-            ..Default::default()
-        };
+        let mut game = Game::default();
+        game.add_world(World::new(WorldId(2), String::new(), 16.0));
+        game.add_world(World::new(WorldId(5), String::new(), 16.0));
         let alloc = IdAllocator::from_game(&game);
         assert_eq!(alloc.next_world_id, 6);
     }
@@ -108,27 +98,25 @@ mod tests {
         use crate::worlds::room::Room;
         use crate::worlds::world::World;
 
-        let game = Game {
-            worlds: vec![
-                World {
-                    id: WorldId(1),
-                    rooms: vec![Room {
-                        id: RoomId(3),
-                        ..Default::default()
-                    }],
-                    ..Default::default()
-                },
-                World {
-                    id: WorldId(2),
-                    rooms: vec![Room {
-                        id: RoomId(7),
-                        ..Default::default()
-                    }],
-                    ..Default::default()
-                },
-            ],
-            ..Default::default()
-        };
+        let mut game = Game::default();
+        game.add_world(World::from_rooms(
+            WorldId(1),
+            String::new(),
+            vec![Room {
+                id: RoomId(3),
+                ..Default::default()
+            }],
+            16.0,
+        ));
+        game.add_world(World::from_rooms(
+            WorldId(2),
+            String::new(),
+            vec![Room {
+                id: RoomId(7),
+                ..Default::default()
+            }],
+            16.0,
+        ));
         let alloc = IdAllocator::from_game(&game);
         assert_eq!(alloc.next_room_id, 8);
     }

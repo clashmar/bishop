@@ -26,14 +26,13 @@ mod tests {
 
     fn game_with_room(room_id: RoomId) -> Game {
         let mut game = Game::default();
-        game.add_world(World {
-            rooms: vec![Room {
+        let mut world = World::default();
+        world.add_room(Room {
                 id: room_id,
                 ..Default::default()
-            }],
-            current_room_id: Some(room_id),
-            ..Default::default()
-        });
+            });
+        world.current_room_id = Some(room_id);
+        game.add_world(world);
         game
     }
 

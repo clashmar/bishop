@@ -301,12 +301,11 @@ mod tests {
     #[cfg(unix)]
     #[test]
     fn export_target_path_uses_app_bundle_name_on_macos() {
+        let mut game = Game::default();
+        game.name = "Demo".to_string();
         let path = export_target_path(
             Path::new("/tmp/exports"),
-            &Game {
-                name: "Demo".to_string(),
-                ..Game::default()
-            },
+            &game,
         );
 
         assert_eq!(path, PathBuf::from("/tmp/exports/Demo.app"));
@@ -315,12 +314,11 @@ mod tests {
     #[cfg(windows)]
     #[test]
     fn export_target_path_uses_plain_folder_name_on_windows() {
+        let mut g = Game::default();
+        g.name = "Demo".to_string();
         let path = export_target_path(
             Path::new(r"C:\exports"),
-            &Game {
-                name: "Demo".to_string(),
-                ..Game::default()
-            },
+            &g,
         );
 
         assert_eq!(path, PathBuf::from(r"C:\exports\Demo"));
@@ -329,10 +327,9 @@ mod tests {
     #[cfg(unix)]
     #[test]
     fn mac_export_info_plist_contains_required_bundle_keys() {
-        let plist = mac_export_info_plist(&Game {
-            name: "Demo".to_string(),
-            ..Game::default()
-        });
+        let mut game = Game::default();
+        game.name = "Demo".to_string();
+        let plist = mac_export_info_plist(&game);
 
         assert!(plist.contains("<key>CFBundleExecutable</key>"));
         assert!(plist.contains("<string>Demo</string>"));

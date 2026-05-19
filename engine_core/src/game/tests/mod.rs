@@ -41,10 +41,7 @@ fn get_world_mut_returns_none_for_missing_id() {
 fn delete_world_sets_current_to_dummy_when_empty() {
     let mut game = Game::default();
     let world_id = game.id_allocator.allocate_world_id();
-    game.add_world(World {
-        id: world_id,
-        ..Default::default()
-    });
+    game.add_world(World::new(world_id, String::new(), 16.0));
     game.delete_world(world_id);
     assert_eq!(game.current_world_id, Some(WorldId::default()));
 }
@@ -55,16 +52,8 @@ fn delete_world_sets_current_to_remaining_world() {
     let mut game = Game::default();
     let w1 = game.id_allocator.allocate_world_id();
     let w2 = game.id_allocator.allocate_world_id();
-    game.add_world(World {
-        id: w1,
-        name: "a".into(),
-        ..Default::default()
-    });
-    game.add_world(World {
-        id: w2,
-        name: "b".into(),
-        ..Default::default()
-    });
+    game.add_world(World::new(w1, "a".to_string(), 16.0));
+    game.add_world(World::new(w2, "b".to_string(), 16.0));
     game.delete_world(w2);
     assert_eq!(game.current_world_id, Some(w1));
 }
@@ -75,14 +64,15 @@ fn delete_world_removes_all_room_entities() {
     let mut game = Game::default();
     let world_id = game.id_allocator.allocate_world_id();
     let room_id = game.id_allocator.allocate_room_id();
-    game.add_world(World {
-        id: world_id,
-        rooms: vec![Room {
+    game.add_world(World::from_rooms(
+        world_id,
+        String::new(),
+        vec![Room {
             id: room_id,
             ..Default::default()
         }],
-        ..Default::default()
-    });
+        16.0,
+    ));
 
     let entity = game
         .ecs
@@ -116,22 +106,24 @@ fn delete_world_collects_entities_from_room_index_only_for_target_world() {
     let room_a = game.id_allocator.allocate_room_id();
     let room_b = game.id_allocator.allocate_room_id();
 
-    game.add_world(World {
-        id: world_a,
-        rooms: vec![Room {
+    game.add_world(World::from_rooms(
+        world_a,
+        String::new(),
+        vec![Room {
             id: room_a,
             ..Default::default()
         }],
-        ..Default::default()
-    });
-    game.add_world(World {
-        id: world_b,
-        rooms: vec![Room {
+        16.0,
+    ));
+    game.add_world(World::from_rooms(
+        world_b,
+        String::new(),
+        vec![Room {
             id: room_b,
             ..Default::default()
         }],
-        ..Default::default()
-    });
+        16.0,
+    ));
 
     let entity_a = game.ecs.create_entity().with_current_room(room_a).finish();
     let entity_b = game.ecs.create_entity().with_current_room(room_b).finish();
@@ -151,22 +143,24 @@ fn delete_world_preserves_other_world_entities() {
     let room_a = game.id_allocator.allocate_room_id();
     let room_b = game.id_allocator.allocate_room_id();
 
-    game.add_world(World {
-        id: world_a,
-        rooms: vec![Room {
+    game.add_world(World::from_rooms(
+        world_a,
+        String::new(),
+        vec![Room {
             id: room_a,
             ..Default::default()
         }],
-        ..Default::default()
-    });
-    game.add_world(World {
-        id: world_b,
-        rooms: vec![Room {
+        16.0,
+    ));
+    game.add_world(World::from_rooms(
+        world_b,
+        String::new(),
+        vec![Room {
             id: room_b,
             ..Default::default()
         }],
-        ..Default::default()
-    });
+        16.0,
+    ));
 
     let entity_a = game.ecs.create_entity().with_current_room(room_a).finish();
     let entity_b = game.ecs.create_entity().with_current_room(room_b).finish();
@@ -201,18 +195,54 @@ fn delete_world_preserves_other_world_entities() {
 }
 
 #[test]
+fn world_index_current_world_returns_selected_world() {
+    let mut game = Game::default();
+    game.add_world(World::new(WorldId(1), "a".to_string(), 16.0));
+    game.add_world(World::new(WorldId(2), "b".to_string(), 16.0));
+
+    game.select_world(WorldId(1));
+
+    assert_eq!(game.current_world().id, WorldId(1));
+}
+
+#[test]
+fn world_index_get_world_mut_returns_inserted_world() {
+    let mut game = Game::default();
+    let world = World::new(WorldId(7), "inserted".to_string(), 16.0);
+
+    game.insert_world(0, world);
+
+    assert_eq!(game.get_world(WorldId(7)).map(|world| world.id), Some(WorldId(7)));
+    assert!(game.get_world_mut(WorldId(7)).is_some());
+}
+
+#[test]
+fn world_index_rebuild_tracks_swap_remove_after_rebuild() {
+    let mut game = Game::default();
+    game.add_world(World::new(WorldId(1), "a".to_string(), 16.0));
+    game.add_world(World::new(WorldId(2), "b".to_string(), 16.0));
+
+    game.worlds.swap_remove(0);
+    game.rebuild_world_index();
+
+    assert_eq!(game.get_world(WorldId(2)).map(|world| world.id), Some(WorldId(2)));
+    assert!(game.get_world(WorldId(1)).is_none());
+}
+
+#[test]
 fn initialize_rebuilds_id_allocator() {
     let mut game = Game::default();
     let w1 = game.id_allocator.allocate_world_id();
     let r1 = game.id_allocator.allocate_room_id();
-    game.add_world(World {
-        id: w1,
-        rooms: vec![Room {
+    game.add_world(World::from_rooms(
+        w1,
+        String::new(),
+        vec![Room {
             id: r1,
             ..Default::default()
         }],
-        ..Default::default()
-    });
+        16.0,
+    ));
     game.id_allocator = IdAllocator::default();
     game.id_allocator = IdAllocator::from_game(&game);
     assert!(game.id_allocator.allocate_world_id().0 > w1.0);

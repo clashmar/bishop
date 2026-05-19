@@ -165,18 +165,18 @@ impl RoomEditor {
         let grid_size = current_world.grid_size;
 
         let other_bounds: Vec<(Vec2, Vec2)> = current_world
-            .rooms
+            .rooms()
             .iter()
             .filter(|r| r.id != room_id)
             .map(|r| (r.position, r.size))
             .collect();
 
         let adjacent_exits: Vec<(Vec2, ExitDirection)> = {
-            let current_room = current_world.rooms.iter().find(|r| r.id == room_id);
+            let current_room = current_world.get_room(room_id);
 
             match current_room {
                 Some(target) => current_world
-                    .rooms
+                    .rooms()
                     .iter()
                     .filter(|r| r.id != room_id)
                     .flat_map(|adj| adj.exits_facing_room(target, grid_size))
@@ -186,7 +186,7 @@ impl RoomEditor {
         };
 
         let room = current_world
-            .rooms
+            .rooms_mut()
             .iter_mut()
             .find(|r| r.id == room_id)
             .expect("Could not find room in world.");

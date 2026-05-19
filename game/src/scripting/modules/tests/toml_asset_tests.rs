@@ -35,7 +35,7 @@ fn setup_game_lua() -> (Lua, Rc<RefCell<GameInstance>>) {
     game.name = DEMO_GAME_NAME.to_string();
     set_game_name(DEMO_GAME_NAME);
     game.init_text_manager();
-    game.worlds.push(World::default());
+    game.add_world(World::default());
 
     let game_instance = Rc::new(RefCell::new(GameInstance {
         game,

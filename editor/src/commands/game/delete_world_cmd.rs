@@ -33,14 +33,14 @@ impl EditorCommand for DeleteWorldCmd {
             let game = &mut editor.game;
 
             if let Some((world_index, world)) = game
-                .worlds
+                .worlds()
                 .iter()
                 .enumerate()
                 .find(|(_, w)| w.id == self.world_id)
                 .map(|(index, world)| (index, world.clone()))
             {
                 self.deleted_world_index = Some(world_index);
-                let room_ids: HashSet<RoomId> = world.rooms.iter().map(|room| room.id).collect();
+                let room_ids: HashSet<RoomId> = world.rooms().iter().map(|room| room.id).collect();
                 let entity_ids: HashSet<Entity> = room_ids
                     .iter()
                     .flat_map(|room_id| {
@@ -69,9 +69,9 @@ impl EditorCommand for DeleteWorldCmd {
             if let Some(world) = self.deleted_world.take() {
                 let index = self
                     .deleted_world_index
-                    .unwrap_or(editor.game.worlds.len())
-                    .min(editor.game.worlds.len());
-                editor.game.worlds.insert(index, world);
+                    .unwrap_or(editor.game.worlds().len())
+                    .min(editor.game.worlds().len());
+                editor.game.insert_world(index, world);
             }
 
             editor.game.current_world_id = self.prev_current_world;
@@ -107,19 +107,19 @@ mod tests {
         set_game_name(test_game.name());
 
         let mut game = create_new_game(test_game.name().to_string());
-        assert_eq!(game.worlds.len(), 1);
-        let world_id = game.worlds[0].id;
-        assert!(!game.worlds[0].rooms.is_empty());
-        let room_id = game.worlds[0].rooms[0].id;
+        assert_eq!(game.worlds().len(), 1);
+        let world_id = game.worlds()[0].id;
+        assert!(!game.worlds()[0].rooms().is_empty());
+        let room_id = game.worlds()[0].rooms()[0].id;
 
         let extra_world = create_new_world(&mut game);
         let extra_world_id = extra_world.id;
-        assert!(!extra_world.rooms.is_empty());
+        assert!(!extra_world.rooms().is_empty());
         game.add_world(extra_world);
 
         let second_extra_world = create_new_world(&mut game);
         let second_extra_world_id = second_extra_world.id;
-        assert!(!second_extra_world.rooms.is_empty());
+        assert!(!second_extra_world.rooms().is_empty());
         game.add_world(second_extra_world);
 
         game.select_world(world_id);
@@ -144,7 +144,7 @@ mod tests {
         cmd.execute();
 
         with_editor(|editor| {
-            assert_eq!(editor.game.worlds.len(), 2);
+            assert_eq!(editor.game.worlds().len(), 2);
             assert_eq!(editor.game.current_world_id, Some(extra_world_id));
             assert!(!editor.game.ecs.has::<CurrentRoom>(entity));
             assert!(!editor.game.ecs.has::<Name>(entity));
@@ -153,10 +153,10 @@ mod tests {
         cmd.undo();
 
         with_editor(|editor| {
-            assert_eq!(editor.game.worlds.len(), 3);
-            assert_eq!(editor.game.worlds[0].id, world_id);
-            assert_eq!(editor.game.worlds[1].id, extra_world_id);
-            assert_eq!(editor.game.worlds[2].id, second_extra_world_id);
+            assert_eq!(editor.game.worlds().len(), 3);
+            assert_eq!(editor.game.worlds()[0].id, world_id);
+            assert_eq!(editor.game.worlds()[1].id, extra_world_id);
+            assert_eq!(editor.game.worlds()[2].id, second_extra_world_id);
             assert_eq!(editor.game.current_world_id, Some(world_id));
             assert!(editor.game.ecs.has::<CurrentRoom>(entity));
             assert!(editor.game.ecs.has::<Name>(entity));
@@ -183,15 +183,15 @@ mod tests {
         set_game_name(test_game.name());
 
         let mut game = create_new_game(test_game.name().to_string());
-        assert_eq!(game.worlds.len(), 1);
-        let world_id = game.worlds[0].id;
-        assert!(!game.worlds[0].rooms.is_empty());
-        let room_id = game.worlds[0].rooms[0].id;
+        assert_eq!(game.worlds().len(), 1);
+        let world_id = game.worlds()[0].id;
+        assert!(!game.worlds()[0].rooms().is_empty());
+        let room_id = game.worlds()[0].rooms()[0].id;
 
         let extra_world = create_new_world(&mut game);
         let extra_world_id = extra_world.id;
-        assert!(!extra_world.rooms.is_empty());
-        let extra_room_id = extra_world.rooms[0].id;
+        assert!(!extra_world.rooms().is_empty());
+        let extra_room_id = extra_world.rooms()[0].id;
         game.add_world(extra_world);
         game.select_world(world_id);
 
@@ -224,8 +224,8 @@ mod tests {
         cmd.execute();
 
         with_editor(|editor| {
-            assert_eq!(editor.game.worlds.len(), 1);
-            assert_eq!(editor.game.worlds[0].id, extra_world_id);
+            assert_eq!(editor.game.worlds().len(), 1);
+            assert_eq!(editor.game.worlds()[0].id, extra_world_id);
             assert!(!editor.game.ecs.has::<CurrentRoom>(root));
             assert!(!editor.game.ecs.has::<CurrentRoom>(child));
         });
@@ -233,9 +233,9 @@ mod tests {
         cmd.undo();
 
         with_editor(|editor| {
-            assert_eq!(editor.game.worlds.len(), 2);
-            assert_eq!(editor.game.worlds[0].id, world_id);
-            assert_eq!(editor.game.worlds[1].id, extra_world_id);
+            assert_eq!(editor.game.worlds().len(), 2);
+            assert_eq!(editor.game.worlds()[0].id, world_id);
+            assert_eq!(editor.game.worlds()[1].id, extra_world_id);
             assert!(editor.game.ecs.has::<Name>(root));
             assert!(editor.game.ecs.has::<Name>(child));
             assert_eq!(

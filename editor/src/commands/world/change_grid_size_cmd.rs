@@ -40,7 +40,7 @@ impl EditorCommand for ChangeGridSizeCmd {
             }
 
             // Capture room positions before scaling
-            self.old_room_positions = world.rooms.iter().map(|r| (r.id, r.position)).collect();
+            self.old_room_positions = world.rooms().iter().map(|r| (r.id, r.position)).collect();
 
             // Capture entity positions before scaling
             let trans_store = editor.game.ecs.get_store::<Transform>();
@@ -60,7 +60,7 @@ impl EditorCommand for ChangeGridSizeCmd {
             world.grid_size = self.new_grid_size;
 
             // Scale room positions
-            for room in &mut world.rooms {
+            for room in world.rooms_mut() {
                 room.position *= scale_factor;
             }
 
@@ -91,7 +91,7 @@ impl EditorCommand for ChangeGridSizeCmd {
 
             // Restore exact room positions
             for (room_id, position) in &self.old_room_positions {
-                if let Some(room) = world.rooms.iter_mut().find(|r| r.id == *room_id) {
+                if let Some(room) = world.rooms_mut().iter_mut().find(|r| r.id == *room_id) {
                     room.position = *position;
                 }
             }
@@ -119,7 +119,7 @@ impl EditorCommand for ChangeGridSizeCmd {
             EditorMode::Room(room_id) => with_editor(|editor| {
                 editor
                     .game
-                    .worlds
+                    .worlds()
                     .iter()
                     .find(|w| w.id == self.world_id)
                     .and_then(|w| w.get_room(room_id))

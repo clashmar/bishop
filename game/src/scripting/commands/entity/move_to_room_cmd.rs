@@ -12,7 +12,7 @@ pub struct MoveToRoomCmd {
 fn move_entity_to_room(game: &mut Game, entity: Entity, room_id: RoomId) -> bool {
     let room_exists = game
         .current_world()
-        .rooms
+        .rooms()
         .iter()
         .any(|room| room.id == room_id);
 
@@ -40,14 +40,13 @@ mod tests {
 
     fn game_with_room(room_id: RoomId) -> Game {
         let mut game = Game::default();
-        game.add_world(World {
-            rooms: vec![Room {
-                id: room_id,
-                ..Default::default()
-            }],
-            current_room_id: Some(room_id),
+        let mut world = World::default();
+        world.add_room(Room {
+            id: room_id,
             ..Default::default()
         });
+        world.current_room_id = Some(room_id);
+        game.add_world(world);
         game
     }
 

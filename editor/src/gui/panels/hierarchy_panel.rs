@@ -134,7 +134,7 @@ impl PanelDefinition for HierarchyPanel {
             editor
                 .game
                 .current_world()
-                .rooms
+                .rooms()
                 .iter()
                 .find(|r| r.id == room_id)
                 .map(|r| r.position)

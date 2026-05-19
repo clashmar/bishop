@@ -21,8 +21,8 @@ impl GameInstance {
         lua: &Lua,
         camera_manager: &mut CameraManager,
     ) -> Self {
-        let room_id = Self::start_room_id(&game);
         game.initialize_runtime(lua);
+        let room_id = Self::start_room_id(&game);
         game.ecs.finalize_after_load();
         Self::finish_loading(ctx, room_id, game, lua, camera_manager)
     }
@@ -43,7 +43,7 @@ impl GameInstance {
         game.current_world()
             .starting_room_id
             .or_else(|| {
-                game.worlds
+                game.worlds()
                     .first()
                     .map(|world| world.starting_room_id.expect("Game has no starting room."))
             })
@@ -155,11 +155,9 @@ mod tests {
             ..Default::default()
         };
 
-        let mut world = World {
-            current_room_id: Some(room_id),
-            ..Default::default()
-        };
-        world.rooms.push(room);
+        let mut world = World::default();
+        world.current_room_id = Some(room_id);
+        world.add_room(room);
 
         let mut game = Game::default();
         game.add_world(world);

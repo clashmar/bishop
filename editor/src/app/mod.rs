@@ -358,7 +358,7 @@ impl Editor {
                     self.pending_camera_reset = false;
                     if let Some((grid_size, room)) = self
                         .game
-                        .worlds
+                        .worlds()
                         .iter()
                         .find(|w| Some(w.id) == self.game.current_world_id)
                         .and_then(|world| world.get_room(room_id).map(|r| (world.grid_size, r)))
@@ -370,6 +370,7 @@ impl Editor {
                 let room_prefab_action;
                 let mut save_prefab_palette = false;
                 let mut save_after_room_exit = false;
+                let game_name = self.game.name.clone();
                 {
                     let active_prefab_stamp = room_editor::ActivePrefabStampState {
                         available: self.room_editor.active_prefab_id.is_some_and(|prefab_id| {
@@ -379,11 +380,11 @@ impl Editor {
                             .room_editor
                             .active_prefab_snap_pivot(&self.game.prefab_manager),
                     };
-                    let current_world = self
-                        .game
-                        .worlds
-                        .iter_mut()
-                        .find(|w| Some(w.id) == self.game.current_world_id)
+
+                    let mut game_ctx = self.game.ctx_mut();
+                    let current_world = game_ctx
+                        .world
+                        .as_deref_mut()
                         .expect("Current world id not present in game while in Room mode.");
 
                     self.room_editor.update(
@@ -391,18 +392,18 @@ impl Editor {
                         &mut self.camera,
                         room_editor::RoomEditorUpdateState {
                             room_id,
-                            ecs: &mut self.game.ecs,
+                            ecs: game_ctx.ecs,
                             current_world,
-                            asset_registry: &mut self.game.asset_registry,
-                            sprite_manager: &mut self.game.sprite_manager,
+                            asset_registry: game_ctx.asset_registry,
+                            sprite_manager: game_ctx.sprite_manager,
                             active_prefab_stamp,
                         },
                     );
                     room_prefab_action = self.room_editor.prefab_action_request.take();
 
                     collider_system::update_colliders_from_sprites(
-                        &mut self.game.ecs,
-                        &mut self.game.sprite_manager,
+                        game_ctx.ecs,
+                        game_ctx.sprite_manager,
                     );
 
                     if escape::escape_available_for_editor()
@@ -411,14 +412,21 @@ impl Editor {
                     {
                         save_prefab_palette = true;
                     } else if escape::escape_available_for_editor() && !input_is_focused() {
-                        let palette = &mut self.room_editor.tilemap_editor.tilemap_panel.palette;
+                        let palette =
+                            &mut self.room_editor.tilemap_editor.tilemap_panel.palette;
 
-                        if let Err(e) = editor_storage::save_palette(palette, &self.game.name) {
+                        if let Err(e) = editor_storage::save_palette(palette, &game_name) {
                             onscreen_error!("Could not save tile palette: {e}")
                         }
 
                         // Find the room we just left for center_on_room
-                        if let Some(room) = current_world.rooms.iter().find(|m| m.id == room_id) {
+                        let current_world = game_ctx
+                            .world
+                            .as_deref_mut()
+                            .expect("Current world id not present in game while in Room mode.");
+                        if let Some(room) =
+                            current_world.get_room(room_id)
+                        {
                             self.world_editor.center_on_room(
                                 ctx,
                                 &mut self.camera,

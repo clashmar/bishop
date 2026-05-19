@@ -121,11 +121,10 @@ mod tests {
             ..Default::default()
         };
 
-        let mut world = World {
-            rooms: vec![room_a, room_b],
-            grid_size: 1.0,
-            ..Default::default()
-        };
+        let mut world = World::default();
+        world.add_room(room_a);
+        world.add_room(room_b);
+        world.grid_size = 1.0;
         world.rebuild_room_grid();
 
         let mut game = Game::default();

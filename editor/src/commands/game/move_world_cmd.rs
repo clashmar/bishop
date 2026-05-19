@@ -21,7 +21,7 @@ impl MoveWorldCmd {
 
     /// Helper that sets the position of the world.
     fn set_position(game: &mut Game, world_id: WorldId, position: Vec2) {
-        if let Some(world) = game.worlds.iter_mut().find(|w| w.id == world_id) {
+        if let Some(world) = game.get_world_mut(world_id) {
             world.meta.position = position
         }
     }

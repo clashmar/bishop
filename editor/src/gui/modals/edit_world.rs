@@ -65,7 +65,7 @@ impl ModalHandler for EditWorldModal {
         let mut new_sprite = None;
 
         if let Some(ref name) = result.name {
-            if let Some(world) = editor.game.worlds.iter().find(|w| w.id == result.id) {
+            if let Some(world) = editor.game.get_world(result.id) {
                 if world.name != *name {
                     new_name = Some(name.clone());
                 }
@@ -74,7 +74,7 @@ impl ModalHandler for EditWorldModal {
 
         if let Some(sprite) = result.sprite {
             let sprite_opt = if sprite.0 == 0 { None } else { Some(sprite) };
-            if let Some(world) = editor.game.worlds.iter().find(|w| w.id == result.id) {
+            if let Some(world) = editor.game.get_world(result.id) {
                 if world.meta.sprite_id != sprite_opt {
                     new_sprite = Some(sprite_opt);
                 }

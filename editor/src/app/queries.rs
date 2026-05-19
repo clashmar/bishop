@@ -26,9 +26,7 @@ impl Editor {
     pub fn get_room_from_id(&self, room_id: &RoomId) -> &Room {
         self.game
             .current_world()
-            .rooms
-            .iter()
-            .find(|m| m.id == *room_id)
+            .get_room(*room_id)
             .expect("Could not find room from id.")
     }
 }

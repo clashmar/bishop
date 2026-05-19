@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use crate::assets::sprite_manager::SpriteManager;
 use crate::ecs::SpriteId;
 use crate::constants::world;
@@ -18,7 +19,7 @@ pub struct WorldId(pub usize);
 pub struct World {
     pub id: WorldId,
     pub name: String,
-    pub rooms: Vec<Room>,
+    rooms: Vec<Room>,
     pub current_room_id: Option<RoomId>,
     pub starting_room_id: Option<RoomId>,
     #[serde_as(as = "Option<FromInto<[f32; 2]>>")]
@@ -28,6 +29,8 @@ pub struct World {
     pub grid_size: f32,
     #[serde(skip)]
     pub room_grid: RoomGrid,
+    #[serde(skip)]
+    room_index: HashMap<RoomId, usize>,
 }
 
 fn default_grid_size() -> f32 {
@@ -41,9 +44,87 @@ impl World {
         DUMMY.get_or_init(Self::default)
     }
 
-    /// Rebuild the room grid from the current room list.
+    /// Rebuild the room index and grid from the current room list.
     pub fn rebuild_room_grid(&mut self) {
+        self.rebuild_room_index();
         self.room_grid = RoomGrid::build(self);
+    }
+
+    /// Creates a new world with the given id, name, and grid size.
+    pub fn new(id: WorldId, name: String, grid_size: f32) -> Self {
+        Self {
+            id,
+            name,
+            grid_size,
+            ..Default::default()
+        }
+    }
+
+    /// Creates a new world from the given id, name, rooms, and grid size.
+    #[cfg(any(test, feature = "editor"))]
+    pub fn from_rooms(id: WorldId, name: String, rooms: Vec<Room>, grid_size: f32) -> Self {
+        let mut world = Self::new(id, name, grid_size);
+        world.rooms = rooms;
+        world.rebuild_room_grid();
+        world
+    }
+
+    /// Returns a read-only slice of all rooms.
+    pub fn rooms(&self) -> &[Room] {
+        &self.rooms
+    }
+
+    /// Returns a mutable slice of all rooms (non-resizing).
+    pub fn rooms_mut(&mut self) -> &mut [Room] {
+        &mut self.rooms
+    }
+
+    /// Adds a room to the world and rebuilds the room grid.
+    pub fn add_room(&mut self, room: Room) {
+        self.rooms.push(room);
+        self.rebuild_room_grid();
+    }
+
+    /// Removes a room by id and returns it. Returns None if not found.
+    /// Rebuilds the room grid.
+    pub fn remove_room(&mut self, room_id: RoomId) -> Option<Room> {
+        let index = *self.room_index.get(&room_id)?;
+        let room = self.rooms.remove(index);
+        self.rebuild_room_grid();
+        Some(room)
+    }
+
+    /// Rebuild the room index from the current room list.
+    pub fn rebuild_room_index(&mut self) {
+        self.room_index.clear();
+        for (index, room) in self.rooms.iter().enumerate() {
+            let previous = self.room_index.insert(room.id, index);
+            debug_assert!(previous.is_none(), "duplicate RoomId {:?}", room.id);
+        }
+    }
+
+    /// Returns an immutable reference to a room given its id.
+    pub fn get_room(&self, id: RoomId) -> Option<&Room> {
+        let index = *self.room_index.get(&id)?;
+        self.rooms.get(index)
+    }
+
+    /// Returns a mutable reference to a room given its id.
+    pub fn get_room_mut(&mut self, id: RoomId) -> Option<&mut Room> {
+        let index = *self.room_index.get(&id)?;
+        self.rooms.get_mut(index)
+    }
+
+    /// Returns an immutable reference to the current room of the world.
+    pub fn current_room(&self) -> Option<&Room> {
+        let id = self.current_room_id?;
+        self.get_room(id)
+    }
+
+    /// Returns a mutable reference to the current room of the world.
+    pub fn current_room_mut(&mut self) -> Option<&mut Room> {
+        let id = self.current_room_id?;
+        self.get_room_mut(id)
     }
 
     /// Returns the room containing this world-space position.
@@ -72,41 +153,19 @@ impl WorldMeta {
 impl World {
     /// Links all exits in all rooms of this world.
     pub fn link_all_exits(&mut self) {
-        let len = self.rooms.len();
+        let len = self.rooms().len();
         let grid_size = self.grid_size;
 
         for i in 0..len {
-            // Split the rooms vector into two disjoint mutable slices
-            let (left, right) = self.rooms.split_at_mut(i);
-            let (room, right) = right.split_first_mut().unwrap(); // room = &mut self.rooms[i]
+            let rooms = self.rooms_mut();
+            let (left, right) = rooms.split_at_mut(i);
+            let (room, right) = right.split_first_mut().unwrap();
 
             // Create a slice of immutable references to all other rooms
             let other_rooms: Vec<&Room> = left.iter().chain(right.iter()).collect();
 
             room.link_exits(&other_rooms, grid_size);
         }
-    }
-
-    /// Returns an immutable reference to a room given its id.
-    pub fn get_room(&self, id: RoomId) -> Option<&Room> {
-        self.rooms.iter().find(|r| r.id == id)
-    }
-
-    /// Returns a mutable reference to a room given its id.
-    pub fn get_room_mut(&mut self, id: RoomId) -> Option<&mut Room> {
-        self.rooms.iter_mut().find(|r| r.id == id)
-    }
-
-    /// Returns an  immutable reference to the current room of the world.
-    pub fn current_room(&self) -> Option<&Room> {
-        let id = self.current_room_id?;
-        self.get_room(id)
-    }
-
-    /// Returns a mutable reference to the current room of the world.
-    pub fn current_room_mut(&mut self) -> Option<&mut Room> {
-        let id = self.current_room_id?;
-        self.get_room_mut(id)
     }
 }
 
@@ -166,5 +225,44 @@ impl GridPos {
         }
 
         GridPos::new(x, y)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn room(id: usize) -> Room {
+        Room {
+            id: RoomId(id),
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn room_index_get_room_returns_room_after_rebuild() {
+        let mut world = World::from_rooms(WorldId(1), "test".to_string(), vec![room(1), room(2)], 16.0);
+        world.rebuild_room_index();
+
+        assert_eq!(world.get_room(RoomId(2)).map(|room| room.id), Some(RoomId(2)));
+    }
+
+    #[test]
+    fn room_index_get_room_mut_tracks_swap_remove_after_rebuild() {
+        let mut world = World::from_rooms(WorldId(1), "test".to_string(), vec![room(1), room(2)], 16.0);
+        world.rooms.swap_remove(0);
+        world.rebuild_room_index();
+
+        assert_eq!(world.get_room_mut(RoomId(2)).map(|room| room.id), Some(RoomId(2)));
+        assert!(world.get_room(RoomId(1)).is_none());
+    }
+
+    #[test]
+    fn room_index_current_room_uses_indexed_lookup() {
+        let mut world = World::from_rooms(WorldId(1), "test".to_string(), vec![room(1), room(2)], 16.0);
+        world.current_room_id = Some(RoomId(2));
+        world.rebuild_room_index();
+
+        assert_eq!(world.current_room().map(|room| room.id), Some(RoomId(2)));
     }
 }
