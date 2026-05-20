@@ -1,10 +1,7 @@
-use super::{SaveLane, SaveSlotKey};
+use super::{RonPersist, SaveLane, SaveSlotKey};
 use engine_core::storage::ordered_map;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::fs;
-use std::io::{self, Error};
-use std::path::Path;
 use uuid::Uuid;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -33,27 +30,10 @@ pub struct RuntimeSaveDocument {
     pub sections: HashMap<String, SavedSection>,
 }
 
-impl RuntimeSaveDocument {
-    pub fn to_ron_string(&self) -> io::Result<String> {
-        let pretty = ron::ser::PrettyConfig::new()
+impl RonPersist for RuntimeSaveDocument {
+    fn ron_config() -> ron::ser::PrettyConfig {
+        ron::ser::PrettyConfig::new()
             .separate_tuple_members(false)
-            .enumerate_arrays(true);
-        ron::ser::to_string_pretty(self, pretty).map_err(Error::other)
-    }
-
-    pub fn from_ron_str(ron: &str) -> io::Result<Self> {
-        ron::from_str(ron).map_err(Error::other)
-    }
-
-    pub fn write_to_path(&self, path: &Path) -> io::Result<()> {
-        if let Some(parent) = path.parent() {
-            fs::create_dir_all(parent)?;
-        }
-        fs::write(path, self.to_ron_string()?)
-    }
-
-    pub fn read_from_path(path: &Path) -> io::Result<Self> {
-        let ron = fs::read_to_string(path)?;
-        Self::from_ron_str(&ron)
+            .enumerate_arrays(true)
     }
 }

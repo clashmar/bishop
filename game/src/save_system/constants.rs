@@ -14,7 +14,7 @@ pub const LATEST_RUNTIME_SAVE_MANIFEST: &str = "latest.ron";
 pub const RUNTIME_SAVE_SCHEMA_VERSION: u32 = 1;
 
 /// Save lane file-stems.
-pub mod lane_stems {
+pub(super) mod lane_stems {
     pub const MANUAL: &str = "manual";
     pub const AUTOSAVE: &str = "autosave";
 }

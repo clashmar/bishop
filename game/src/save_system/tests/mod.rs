@@ -9,8 +9,19 @@ use std::sync::MutexGuard;
 
 use crate::save_system::runtime_saves_root;
 
-/// Drops `runtime_saves_root()` on cleanup (no game-folder setup).
-pub(super) struct CleanSaveRoot;
+/// Acquires the global test lock and drops `runtime_saves_root()` on cleanup.
+pub(super) struct CleanSaveRoot {
+    _lock: MutexGuard<'static, ()>,
+}
+
+impl CleanSaveRoot {
+    pub(super) fn new() -> Self {
+        let _ = fs::remove_dir_all(runtime_saves_root());
+        Self {
+            _lock: game_fs_test_lock().lock().unwrap(),
+        }
+    }
+}
 
 impl Drop for CleanSaveRoot {
     fn drop(&mut self) {
