@@ -10,6 +10,9 @@ pub const DEFAULT_RUNTIME_SAVE_SLOT: &str = "default";
 /// Latest-save manifest file stored at the game runtime-save root.
 pub const LATEST_RUNTIME_SAVE_MANIFEST: &str = "latest.ron";
 
+/// Current schema version for runtime save documents.
+pub const RUNTIME_SAVE_SCHEMA_VERSION: u32 = 1;
+
 /// Save lane file-stems.
 pub mod lane_stems {
     pub const MANUAL: &str = "manual";

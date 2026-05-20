@@ -1,3 +1,4 @@
+mod document_tests;
 mod paths_tests;
 
 use engine_core::engine_global::set_game_name;
