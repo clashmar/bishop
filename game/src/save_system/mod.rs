@@ -1,9 +1,11 @@
 mod constants;
 mod document;
+mod latest;
 mod paths;
 
 pub use constants::*;
 pub use document::*;
+pub use latest::*;
 pub use paths::*;
 
 use engine_core::storage::sanitise_name;

@@ -1,4 +1,5 @@
 mod document_tests;
+mod latest_tests;
 mod paths_tests;
 
 use engine_core::engine_global::set_game_name;
@@ -7,6 +8,15 @@ use std::fs;
 use std::sync::MutexGuard;
 
 use crate::save_system::runtime_saves_root;
+
+/// Drops `runtime_saves_root()` on cleanup (no game-folder setup).
+pub(super) struct CleanSaveRoot;
+
+impl Drop for CleanSaveRoot {
+    fn drop(&mut self) {
+        let _ = fs::remove_dir_all(runtime_saves_root());
+    }
+}
 
 pub(super) struct RuntimeSaveTestContext {
     _lock: MutexGuard<'static, ()>,

@@ -7,8 +7,6 @@ use std::io::{self, Error};
 use std::path::Path;
 use uuid::Uuid;
 
-use crate::save_system::constants::RUNTIME_SAVE_SCHEMA_VERSION;
-
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SavedSection {
     pub version: u32,
