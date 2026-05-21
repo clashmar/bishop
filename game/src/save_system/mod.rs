@@ -1,4 +1,5 @@
 mod constants;
+mod coordinator;
 mod document;
 mod latest;
 mod paths;
@@ -7,6 +8,7 @@ mod provider;
 mod registry;
 
 pub use constants::*;
+pub use coordinator::*;
 pub use document::*;
 pub use latest::*;
 pub use paths::*;

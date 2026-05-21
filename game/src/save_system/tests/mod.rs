@@ -1,3 +1,4 @@
+mod coordinator_tests;
 mod document_tests;
 mod latest_tests;
 mod paths_tests;

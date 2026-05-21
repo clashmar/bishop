@@ -1,4 +1,5 @@
 use crate::save_system::{SaveProvider, SaveProviderId};
+use std::cmp::Ordering;
 
 /// Error returned when registering a provider with a duplicate id.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -15,14 +16,8 @@ impl std::fmt::Display for SaveRegistrationError {
 
 impl std::error::Error for SaveRegistrationError {}
 
-/// A registry of [`SaveProvider`]s with deterministic iteration order.
-///
-/// Providers are kept sorted first by [`RestorePhase`] ([`RestorePhase::PreRuntime`]
-/// before [`RestorePhase::PostRuntime`]), then by provider id within each phase.
-/// Duplicate provider ids are rejected on registration.
-///
-/// Use [`SaveProviderRegistry::iter`] and [`SaveProviderRegistry::iter_mut`] to
-/// iterate over registered providers in the canonical order.
+/// A registry of [`SaveProvider`]s sorted by [`RestorePhase`] then provider id.
+/// Duplicate ids are rejected on registration.
 pub struct SaveProviderRegistry<'a> {
     providers: Vec<Box<dyn SaveProvider + 'a>>,
 }
@@ -36,8 +31,7 @@ impl<'a> SaveProviderRegistry<'a> {
     }
 
     /// Registers a provider, returning an error if its id is already registered.
-    ///
-    /// Providers are inserted in sorted order: first by [`RestorePhase`], then by id.
+    /// Insertion maintains sorted order.
     pub fn register(
         &mut self,
         provider: Box<dyn SaveProvider + 'a>,
@@ -52,9 +46,9 @@ impl<'a> SaveProviderRegistry<'a> {
             let p_phase = p.restore_phase();
             let p_id = p.id();
             match p_phase.cmp(&phase) {
-                std::cmp::Ordering::Less => false,
-                std::cmp::Ordering::Greater => true,
-                std::cmp::Ordering::Equal => p_id > provider.id(),
+                Ordering::Less => false,
+                Ordering::Greater => true,
+                Ordering::Equal => p_id > provider.id(),
             }
         });
 
