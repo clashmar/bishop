@@ -1,6 +1,7 @@
 mod document_tests;
 mod latest_tests;
 mod paths_tests;
+mod registry_tests;
 
 use engine_core::engine_global::set_game_name;
 use engine_core::storage::test_utils::{game_fs_test_lock, TestGameFolder};

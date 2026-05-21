@@ -3,12 +3,16 @@ mod document;
 mod latest;
 mod paths;
 mod persist;
+mod provider;
+mod registry;
 
 pub use constants::*;
 pub use document::*;
 pub use latest::*;
 pub use paths::*;
 pub use persist::*;
+pub use provider::*;
+pub use registry::*;
 
 use engine_core::storage::sanitise_name;
 use serde::{Deserialize, Serialize};
