@@ -121,6 +121,12 @@ impl EditorCommand for DuplicateEntitiesCmd {
                                 *child = new_child;
                             }
                         }
+                    } else if comp.type_name == comp_type_name::<PrefabInstanceNode>() {
+                        if let Some(node) = boxed.as_mut().downcast_mut::<PrefabInstanceNode>() {
+                            if let Some(&new_root) = map.get(&node.root_entity) {
+                                node.root_entity = new_root;
+                            }
+                        }
                     }
 
                     (component_reg.post_create)(&mut *boxed, &new_id, ctx);

@@ -598,6 +598,15 @@ impl RoomEditor {
                     }
                 }
 
+                // Remap prefab node references
+                if comp.type_name == comp_type_name::<PrefabInstanceNode>() {
+                    if let Some(node) = boxed.as_mut().downcast_mut::<PrefabInstanceNode>() {
+                        if let Some(&new_root) = id_map.get(&node.root_entity) {
+                            node.root_entity = new_root;
+                        }
+                    }
+                }
+
                 // Initialize Animation runtime state so it renders during drag
                 if comp.type_name == comp_type_name::<Animation>() {
                     if let Some(anim) = boxed.as_mut().downcast_mut::<Animation>() {
