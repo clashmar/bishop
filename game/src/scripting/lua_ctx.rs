@@ -1,5 +1,6 @@
 // game/src/scripting/lua_ctx.rs
 use crate::engine::game_instance::GameInstance;
+use crate::save_system::SaveProviderRegistry;
 use bishop::prelude::*;
 use engine_core::scripting::lua_constants::lua_globals;
 use mlua::prelude::LuaResult;
@@ -55,13 +56,40 @@ impl LuaBishopCtx {
     }
 }
 
-/// Registers both game and bishop contexts in the Lua global table.
+/// The Lua constant for the save context.
+pub const LUA_SAVE_CTX: &str = "LUA_SAVE_CTX";
+
+/// The Lua‑exposed save context that gives scripts access to the shared
+/// [`SaveProviderRegistry`].
+#[derive(Clone)]
+pub struct LuaSaveCtx {
+    pub save_providers: Rc<RefCell<SaveProviderRegistry<'static>>>,
+}
+
+impl UserData for LuaSaveCtx {}
+
+impl LuaSaveCtx {
+    /// Registers this `LuaSaveCtx` instance in the Lua global table.
+    pub fn set_lua_ctx(self, lua: &Lua) -> LuaResult<()> {
+        lua.globals().set(LUA_SAVE_CTX, self)
+    }
+
+    /// Retrieves a borrowed reference to the stored `LuaSaveCtx`.
+    pub fn borrow_ctx(lua: &Lua) -> LuaResult<UserDataRef<LuaSaveCtx>> {
+        let user_data: mlua::AnyUserData = lua.globals().get(LUA_SAVE_CTX)?;
+        user_data.borrow::<LuaSaveCtx>()
+    }
+}
+
+/// Registers game, save, and bishop contexts in the Lua global table.
 pub fn register_lua_contexts(
     lua: &Lua,
     game_instance: Rc<RefCell<GameInstance>>,
+    save_providers: Rc<RefCell<SaveProviderRegistry<'static>>>,
     ctx: PlatformContext,
 ) -> LuaResult<()> {
     LuaGameCtx { game_instance }.set_lua_ctx(lua)?;
+    LuaSaveCtx { save_providers }.set_lua_ctx(lua)?;
     LuaBishopCtx { ctx }.set_lua_ctx(lua)?;
     Ok(())
 }

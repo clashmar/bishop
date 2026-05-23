@@ -10,6 +10,7 @@ pub mod lua_files {
     pub const TEXT: &str = "text.lua";
     pub const MENU: &str = "menu.lua";
     pub const AUDIO: &str = "audio.lua";
+    pub const SAVE: &str = "save.lua";
     pub const THEME: &str = "theme.lua";
     pub const COLOR: &str = "color.lua";
     pub const BISHOP_THEME: &str = "bishop_theme.lua";
@@ -131,6 +132,19 @@ pub mod lua_audio {
     pub const ENTITY_PLAY_SOUND: &str = "play_sound";
     pub const ENTITY_STOP_SOUND: &str = "stop_sound";
     pub const ENTITY_SET_SOUND_VOLUME: &str = "set_sound_volume";
+}
+
+/// Save Lua names.
+pub mod lua_save {
+    pub const SAVE: &str = "save";
+    pub const MANUAL: &str = "manual";
+    pub const AUTO: &str = "auto";
+    pub const CHECKPOINT: &str = "checkpoint";
+    pub const LOAD_LATEST: &str = "load_latest";
+    pub const REGISTER_PROVIDER: &str = "register_provider";
+    pub const PROVIDER_VERSION: &str = "version";
+    pub const PROVIDER_CAPTURE: &str = "capture";
+    pub const PROVIDER_APPLY: &str = "apply";
 }
 
 /// Theme Lua names.

@@ -1,10 +1,10 @@
-// game/src/engine/mod.rs
 // Keep `mod.rs` limited to frame orchestration. Feature-specific methods belong in focused
 // helper modules alongside the subsystem it serves, or in a new engine sub-module.
 mod audio_events;
 pub mod engine_builder;
 pub mod game_instance;
 mod render;
+pub mod save_runtime;
 #[cfg(test)]
 mod tests;
 use audio_events::emit_pending_audio_events;
@@ -12,6 +12,8 @@ use render::*;
 
 pub use engine_builder::EngineBuilder;
 pub use game_instance::GameInstance;
+
+pub use save_runtime::{RuntimeLoadRequest, SaveRuntime};
 
 use crate::diagnostics::{DiagnosticsOverlay, TimingTraceSample};
 use crate::game_global::set_menu_active;
@@ -34,6 +36,8 @@ pub struct Engine {
     pub ctx: PlatformContext,
     /// Single Lua VM.
     pub lua: Lua,
+    /// Runtime save/restore subsystem.
+    pub save_runtime: SaveRuntime,
     /// Camera manager for the game.
     pub camera_manager: CameraManager,
     /// Rendering system for the game.
@@ -138,6 +142,7 @@ impl Engine {
         game_instance: Rc<RefCell<GameInstance>>,
         ctx: PlatformContext,
         lua: Lua,
+        save_runtime: SaveRuntime,
         camera_manager: CameraManager,
         grid_size: f32,
         is_playtest: bool,
@@ -154,6 +159,7 @@ impl Engine {
             game_state,
             ctx,
             lua,
+            save_runtime,
             camera_manager,
             render_system: RenderSystem::with_grid_size(grid_size),
             diagnostics: DiagnosticsOverlay::new(),

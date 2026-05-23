@@ -15,7 +15,6 @@ function Entity:despawn() end
 ---@overload fun(self: Entity, component: "Children"): Children
 ---@overload fun(self: Entity, component: "Collider"): Collider
 ---@overload fun(self: Entity, component: "CurrentFrame"): CurrentFrame
----@overload fun(self: Entity, component: "CurrentRoom"): CurrentRoom
 ---@overload fun(self: Entity, component: "Damage"): Damage
 ---@overload fun(self: Entity, component: "FacingDirection"): FacingDirection
 ---@overload fun(self: Entity, component: "Global"): Global
@@ -68,10 +67,6 @@ function Entity:set_collider(v) end
 ---@param self Entity
 ---@param v CurrentFrame
 function Entity:set_current_frame(v) end
-
----@param self Entity
----@param v CurrentRoom
-function Entity:set_current_room(v) end
 
 ---@param self Entity
 ---@param v Damage
@@ -218,6 +213,13 @@ function Entity:teleport(position) end
 --- Instantly offsets the entity by a world-space delta.
 ---@param delta vec2
 function Entity:move_by(delta) end
+
+--- Moves this entity to the target room.
+---@param room_id integer
+function Entity:move_to_room(room_id) end
+
+--- Removes this entity from its current room membership.
+function Entity:remove_from_room() end
 
 --- Gets the current animation frame indices.
 ---@return {col: integer, row: integer}|nil

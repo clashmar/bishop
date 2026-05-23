@@ -78,13 +78,14 @@ pub fn capture_document(
 
     for provider in registry.iter_mut() {
         let id = provider.id();
+        let section_key = id.as_str().to_string();
         let section = provider.capture().map_err(|source| {
             SaveCoordinatorError::Capture {
                 provider_id: id,
                 source,
             }
         })?;
-        sections.insert(id.as_str().to_string(), section);
+        sections.insert(section_key, section);
     }
 
     Ok(RuntimeSaveDocument {
@@ -113,7 +114,8 @@ pub fn apply_document(
 
     // Apply providers in canonical registry order
     for provider in registry.iter_mut() {
-        let section_key = provider.id().as_str();
+        let provider_id = provider.id();
+        let section_key = provider_id.as_str();
         if let Some(section) = document.sections.get(section_key) {
             provider.apply(section).map_err(|source| {
                 SaveCoordinatorError::Apply {

@@ -79,3 +79,16 @@ fn iter_providers_mixed_phases_returns_phase_then_id_order() {
         ]
     );
 }
+
+#[test]
+fn save_provider_id_accepts_runtime_owned_strings() {
+    let mut ids = vec![
+        SaveProviderId::new(format!("{}.player", "game")),
+        SaveProviderId::new(format!("{}.resume", "engine")),
+    ];
+
+    ids.sort();
+
+    assert_eq!(ids[0].as_str(), "engine.resume");
+    assert_eq!(ids[1].as_str(), "game.player");
+}

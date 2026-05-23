@@ -1,6 +1,8 @@
 // game/src/engine/engine_builder.rs
 use super::game_instance::GameInstance;
+use super::save_runtime::SaveRuntime;
 use super::{Engine, EngineEntryMode};
+use crate::save_system::SaveProviderRegistry;
 use crate::scripting::lua_ctx::register_lua_contexts;
 use bishop::prelude::*;
 use engine_core::prelude::*;
@@ -39,7 +41,7 @@ impl EngineBuilder {
     }
 
     /// Wraps `game_instance`, extracts `grid_size`, registers Lua contexts,
-    /// and constructs the [`Engine`].
+    /// creates the runtime save infrastructure, and constructs the [`Engine`].
     pub fn assemble(
         self,
         game_instance: GameInstance,
@@ -48,13 +50,21 @@ impl EngineBuilder {
     ) -> Engine {
         let grid_size = game_instance.game.current_world().grid_size;
         let game_instance = Rc::new(RefCell::new(game_instance));
-        if let Err(e) = register_lua_contexts(&self.lua, game_instance.clone(), ctx.clone()) {
+        let save_providers = Rc::new(RefCell::new(SaveProviderRegistry::new()));
+        let save_runtime = SaveRuntime::new(save_providers.clone());
+        if let Err(e) = register_lua_contexts(
+            &self.lua,
+            game_instance.clone(),
+            save_providers.clone(),
+            ctx.clone(),
+        ) {
             onscreen_error!("Could not register lua contexts: {}", e);
         }
         Engine::new(
             game_instance,
             ctx,
             self.lua,
+            save_runtime,
             self.camera_manager,
             grid_size,
             is_playtest,

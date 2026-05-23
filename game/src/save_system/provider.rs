@@ -2,19 +2,19 @@ use std::io;
 
 use crate::save_system::SavedSection;
 
-/// A typed identifier for a save provider, wrapping a unique `&'static str` key.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct SaveProviderId(&'static str);
+/// A typed identifier for a save provider, wrapping a unique string key.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct SaveProviderId(String);
 
 impl SaveProviderId {
-    /// Creates a new `SaveProviderId` from a static string.
-    pub const fn new(value: &'static str) -> Self {
-        Self(value)
+    /// Creates a new `SaveProviderId` from any string-like value.
+    pub fn new(value: impl Into<String>) -> Self {
+        Self(value.into())
     }
 
-    /// Returns the underlying static string.
-    pub const fn as_str(self) -> &'static str {
-        self.0
+    /// Returns the underlying string as a borrowed `&str`.
+    pub fn as_str(&self) -> &str {
+        &self.0
     }
 }
 
