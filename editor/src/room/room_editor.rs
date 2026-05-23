@@ -5,6 +5,7 @@ use crate::app::SubEditor;
 use crate::canvas::grid;
 use crate::canvas::grid_shader::GridRenderer;
 use crate::commands::room::*;
+use crate::commands::scene::CreateSceneEntityCmd;
 use crate::editor_assets::assets::*;
 use crate::editor_global::*;
 use crate::gui::inspector::inspector_panel::InspectorPanel;
@@ -251,25 +252,11 @@ impl RoomEditor {
 
                 // Create a new entity if create was pressed
                 if let Some(create_request) = self.create_request.take() {
-                    let parent = create_request.parent;
-                    // Build the entity
-                    let entity = ecs
-                        .create_entity()
-                        .with(Transform {
-                            position: room.position,
-                            ..Default::default()
-                        })
-                        .with(Name("Entity".to_string()))
-                        .with_current_room(room.id)
-                        .finish();
-
-                    if let Some(parent) = parent {
-                        set_parent(ecs, entity, parent);
-                    }
-
-                    // Immediately select it so the inspector shows the newly-created entity
-                    self.selected_entities.clear();
-                    self.selected_entities.insert(entity);
+                    push_command(Box::new(CreateSceneEntityCmd::new_room_entity(
+                        room.id,
+                        room.position,
+                        create_request.parent,
+                    )));
                 }
 
                 // If exactly one entity is selected, show the inspector
