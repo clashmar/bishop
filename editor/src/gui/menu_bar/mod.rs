@@ -11,6 +11,7 @@ use engine_core::theme::with_theme;
 use std::fmt;
 use strum_macros::EnumIter;
 use widgets::constants::layout;
+use widgets::truncate_to_width;
 
 /// Holds the state of the top-level menu bar.
 pub struct MenuBar {
@@ -229,11 +230,20 @@ impl MenuBar {
         let mut x = panel_rect.x + PADDING;
         let y = panel_rect.y + PADDING / 2.0;
 
+        const MAX_TITLE_WIDTH: f32 = 250.0;
+
         let title_rect = Rect::new(
             x,
             y,
-            rect_width_for_text(ctx, title, layout::HEADER_FONT_SIZE_20),
+            rect_width_for_text(ctx, title, layout::HEADER_FONT_SIZE_20).min(MAX_TITLE_WIDTH),
             HEIGHT,
+        );
+
+        let display_title = truncate_to_width(
+            ctx,
+            title,
+            title_rect.w - PADDING,
+            layout::HEADER_FONT_SIZE_20,
         );
 
         match editor_mode {
@@ -246,7 +256,7 @@ impl MenuBar {
                         ctx,
                         self.title_id,
                         title_rect,
-                        title,
+                        &display_title,
                         &title_actions,
                         |a| a.ui_label(),
                         |a| a.shortcut(),
@@ -254,12 +264,12 @@ impl MenuBar {
                         self.pending = Some(selected);
                     }
                 } else {
-                    let txt_dims = ctx.measure_text(title, layout::HEADER_FONT_SIZE_20);
+                    let txt_dims = ctx.measure_text(&display_title, layout::HEADER_FONT_SIZE_20);
                     let txt_x = title_rect.x + PADDING / 2.0;
                     let txt_y =
                         title_rect.y + (title_rect.h - txt_dims.height) / 2.0 + txt_dims.offset_y;
                     ctx.draw_text(
-                        title,
+                        &display_title,
                         txt_x,
                         txt_y,
                         layout::HEADER_FONT_SIZE_20,
@@ -268,12 +278,12 @@ impl MenuBar {
                 }
             }
             _ => {
-                let txt_dims = ctx.measure_text(title, layout::HEADER_FONT_SIZE_20);
+                let txt_dims = ctx.measure_text(&display_title, layout::HEADER_FONT_SIZE_20);
                 let txt_x = title_rect.x + PADDING / 2.0;
                 let txt_y =
                     title_rect.y + (title_rect.h - txt_dims.height) / 2.0 + txt_dims.offset_y;
                 ctx.draw_text(
-                    title,
+                    &display_title,
                     txt_x,
                     txt_y,
                     layout::HEADER_FONT_SIZE_20,
