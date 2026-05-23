@@ -135,8 +135,7 @@ mod tests {
             .register(Box::new(StubSaveProvider))
             .unwrap();
 
-        let mut game = Game::default();
-        game.name = folder.name().to_string();
+        let mut game = Game::with_name(folder.name());
         let game_instance = Rc::new(RefCell::new(GameInstance {
             game,
             prev_positions: HashMap::new(),
