@@ -95,42 +95,11 @@ impl EditorCommand for DuplicateEntitiesCmd {
                 let new_id = map[&snapshot.entity];
 
                 for comp in snapshot.components.iter() {
-                    let component_reg = inventory::iter::<ComponentRegistry>()
-                        .find(|r| r.type_name == comp.type_name)
-                        .expect("Component not registered");
-
-                    let mut boxed = (component_reg.from_ron_component)(comp.ron.clone());
-
-                    if comp.type_name == comp_type_name::<Parent>() {
-                        let parent = boxed
-                            .as_mut()
-                            .downcast_mut::<Parent>()
-                            .expect("Parent component type mismatch");
-
-                        if let Some(&new_parent) = map.get(&parent.0) {
-                            parent.0 = new_parent;
-                        }
-                    } else if comp.type_name == comp_type_name::<Children>() {
-                        let children = boxed
-                            .as_mut()
-                            .downcast_mut::<Children>()
-                            .expect("Children component type mismatch");
-
-                        for child in &mut children.entities {
-                            if let Some(&new_child) = map.get(child) {
-                                *child = new_child;
-                            }
-                        }
-                    } else if comp.type_name == comp_type_name::<PrefabInstanceNode>() {
-                        if let Some(node) = boxed.as_mut().downcast_mut::<PrefabInstanceNode>() {
-                            if let Some(&new_root) = map.get(&node.root_entity) {
-                                node.root_entity = new_root;
-                            }
-                        }
-                    }
-
-                    (component_reg.post_create)(&mut *boxed, &new_id, ctx);
-                    ctx.ecs.insert_component_dyn(component_reg, new_id, boxed);
+                    let Some((reg, mut boxed)) = restore_component_with_remap(comp, &map) else {
+                        continue;
+                    };
+                    (reg.post_create)(&mut *boxed, &new_id, ctx);
+                    ctx.ecs.insert_component_dyn(reg, new_id, boxed);
                 }
             }
 

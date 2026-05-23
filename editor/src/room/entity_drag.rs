@@ -569,43 +569,9 @@ impl RoomEditor {
             let new_id = id_map[&snapshot.entity];
 
             for comp in snapshot.components.iter() {
-                let component_reg = match inventory::iter::<ComponentRegistry>()
-                    .find(|r| r.type_name == comp.type_name)
-                {
-                    Some(reg) => reg,
-                    None => continue,
+                let Some((reg, mut boxed)) = restore_component_with_remap(comp, &id_map) else {
+                    continue;
                 };
-
-                let mut boxed = (component_reg.from_ron_component)(comp.ron.clone());
-
-                // Remap parent references
-                if comp.type_name == comp_type_name::<Parent>() {
-                    if let Some(parent) = boxed.as_mut().downcast_mut::<Parent>() {
-                        if let Some(&new_parent) = id_map.get(&parent.0) {
-                            parent.0 = new_parent;
-                        }
-                    }
-                }
-
-                // Remap children references
-                if comp.type_name == comp_type_name::<Children>() {
-                    if let Some(children) = boxed.as_mut().downcast_mut::<Children>() {
-                        for child in &mut children.entities {
-                            if let Some(&new_child) = id_map.get(child) {
-                                *child = new_child;
-                            }
-                        }
-                    }
-                }
-
-                // Remap prefab node references
-                if comp.type_name == comp_type_name::<PrefabInstanceNode>() {
-                    if let Some(node) = boxed.as_mut().downcast_mut::<PrefabInstanceNode>() {
-                        if let Some(&new_root) = id_map.get(&node.root_entity) {
-                            node.root_entity = new_root;
-                        }
-                    }
-                }
 
                 // Initialize Animation runtime state so it renders during drag
                 if comp.type_name == comp_type_name::<Animation>() {
@@ -614,7 +580,7 @@ impl RoomEditor {
                     }
                 }
 
-                ecs.insert_component_dyn(component_reg, new_id, boxed);
+                ecs.insert_component_dyn(reg, new_id, boxed);
             }
         }
 
