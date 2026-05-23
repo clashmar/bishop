@@ -343,9 +343,7 @@ impl RoomEditor {
 
                     // Delete the copied entities
                     for &copy_entity in &self.drag_state.alt_copied_entities {
-                        for reg in inventory::iter::<ComponentRegistry> {
-                            (reg.remove)(ecs, copy_entity);
-                        }
+                        ecs.remove_entity_components(copy_entity);
                     }
                     self.drag_state.alt_copied_entities.clear();
 
@@ -607,7 +605,7 @@ impl RoomEditor {
                     }
                 }
 
-                (component_reg.inserter)(ecs, new_id, boxed);
+                ecs.insert_component_dyn(component_reg, new_id, boxed);
             }
         }
 

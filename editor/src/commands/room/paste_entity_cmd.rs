@@ -112,7 +112,7 @@ impl EditorCommand for PasteEntityCmd {
                     }
 
                     (component_reg.post_create)(&mut *boxed, &new_id, ctx);
-                    (component_reg.inserter)(ctx.ecs, new_id, boxed);
+                    ctx.ecs.insert_component_dyn(component_reg, new_id, boxed);
                 }
             }
 

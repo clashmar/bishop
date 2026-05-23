@@ -203,6 +203,28 @@ impl Ecs {
         self.get_store_mut::<T>().insert(entity, component);
     }
 
+    /// Insert a component via its registry entry, firing lifecycle hooks.
+    pub fn insert_component_dyn(
+        &mut self,
+        reg: &ComponentRegistry,
+        entity: Entity,
+        boxed: Box<dyn Any>,
+    ) {
+        (reg.inserter)(self, entity, boxed);
+        self.run_registered_on_insert(reg, entity);
+    }
+
+    /// Fire `on_remove` hooks and remove all components from an entity.
+    pub fn remove_entity_components(&mut self, entity: Entity) {
+        for reg in inventory::iter::<ComponentRegistry> {
+            if (reg.has)(self, entity) {
+                let mut boxed = (reg.clone)(self, entity);
+                (reg.on_remove)(&mut *boxed, &entity, self);
+            }
+            (reg.remove)(self, entity);
+        }
+    }
+
     /// Returns the player Entity if one exists.
     pub fn get_player_entity(&self) -> Option<Entity> {
         self.get_store::<Player>().data.keys().next().copied()

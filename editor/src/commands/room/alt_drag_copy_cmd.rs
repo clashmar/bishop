@@ -66,7 +66,7 @@ impl EditorCommand for AltDragCopyCmd {
                         // Clone the existing component, call post_create, then reinsert
                         let mut boxed = (component_reg.clone)(ctx.ecs, snapshot.entity);
                         (component_reg.post_create)(&mut *boxed, &snapshot.entity, ctx);
-                        (component_reg.inserter)(ctx.ecs, snapshot.entity, boxed);
+                        ctx.ecs.insert_component_dyn(component_reg, snapshot.entity, boxed);
                     }
                 }
             });
@@ -157,7 +157,7 @@ impl EditorCommand for AltDragCopyCmd {
                     }
 
                     (component_reg.post_create)(&mut *boxed, &new_id, ctx);
-                    (component_reg.inserter)(ctx.ecs, new_id, boxed);
+                    ctx.ecs.insert_component_dyn(component_reg, new_id, boxed);
                 }
             }
 
