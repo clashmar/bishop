@@ -1,10 +1,10 @@
 use crate::engine::GameInstance;
 use crate::game_global::drain_commands;
 use crate::save_system::SaveProviderRegistry;
-use crate::scripting::lua_ctx::{LuaGameCtx, LuaSaveCtx};
+use crate::scripting::lua_ctx::{LuaGameCtx, LuaSaveCtx, register_save_lua_context};
 use crate::scripting::modules::save_module::SaveModule;
 use engine_core::prelude::*;
-use engine_core::scripting::lua_constants::{lua_engine, lua_save};
+use engine_core::scripting::lua_constants::{lua_engine, lua_fields, lua_save};
 use engine_core::scripting::modules::lua_module::LuaApiWriter;
 use mlua::Lua;
 use std::cell::RefCell;
@@ -46,12 +46,18 @@ fn save_helpers_enqueue_four_commands() {
     SaveModule.register(&lua).unwrap();
 
     lua.load(
-        r#"
-        engine.save.manual()
-        engine.save.auto()
-        engine.save.checkpoint()
-        engine.save.load_latest()
+        format!(
+            r#"
+        engine.{}.{}()
+        engine.{}.{}()
+        engine.{}.{}()
+        engine.{}.{}()
         "#,
+            lua_save::SAVE, lua_save::MANUAL,
+            lua_save::SAVE, lua_save::AUTO,
+            lua_save::SAVE, lua_save::CHECKPOINT,
+            lua_save::SAVE, lua_save::LOAD_LATEST,
+        ),
     )
     .exec()
     .unwrap();
@@ -66,13 +72,19 @@ fn register_provider_rejects_missing_capture_function() {
 
     let err = lua
         .load(
-            r#"
-            engine.save.register_provider({
-              id = "game.flags",
-              version = 1,
-              apply = function(_) end,
-            })
+            format!(
+                r#"
+            engine.{}.{}{{
+              ["{}"] = "game.flags",
+              ["{}"] = 1,
+              ["{}"] = function(_) end,
+            }}
             "#,
+                lua_save::SAVE, lua_save::REGISTER_PROVIDER,
+                lua_fields::ID,
+                lua_save::PROVIDER_VERSION,
+                lua_save::PROVIDER_APPLY,
+            ),
         )
         .exec()
         .unwrap_err();
@@ -91,13 +103,19 @@ fn register_provider_rejects_missing_version_field() {
 
     let err = lua
         .load(
-            r#"
-            engine.save.register_provider({
-              id = "game.flags",
-              capture = function() return "{}" end,
-              apply = function(_) end,
-            })
+            format!(
+                r#"
+            engine.{}.{}{{
+              ["{}"] = "game.flags",
+              ["{}"] = function() return "{{}}" end,
+              ["{}"] = function(_) end,
+            }}
             "#,
+                lua_save::SAVE, lua_save::REGISTER_PROVIDER,
+                lua_fields::ID,
+                lua_save::PROVIDER_CAPTURE,
+                lua_save::PROVIDER_APPLY,
+            ),
         )
         .exec()
         .unwrap_err();
@@ -116,13 +134,19 @@ fn register_provider_rejects_missing_apply_function() {
 
     let err = lua
         .load(
-            r#"
-            engine.save.register_provider({
-              id = "game.flags",
-              version = 1,
-              capture = function() return "{}" end,
-            })
+            format!(
+                r#"
+            engine.{}.{}{{
+              ["{}"] = "game.flags",
+              ["{}"] = 1,
+              ["{}"] = function() return "{{}}" end,
+            }}
             "#,
+                lua_save::SAVE, lua_save::REGISTER_PROVIDER,
+                lua_fields::ID,
+                lua_save::PROVIDER_VERSION,
+                lua_save::PROVIDER_CAPTURE,
+            ),
         )
         .exec()
         .unwrap_err();
@@ -141,14 +165,21 @@ fn register_provider_rejects_duplicate_id() {
 
     // First registration succeeds.
     lua.load(
-        r#"
-        engine.save.register_provider({
-          id = "game.flags",
-          version = 1,
-          capture = function() return "{}" end,
-          apply = function(_) end,
-        })
+        format!(
+            r#"
+        engine.{}.{}{{
+          ["{}"] = "game.flags",
+          ["{}"] = 1,
+          ["{}"] = function() return "{{}}" end,
+          ["{}"] = function(_) end,
+        }}
         "#,
+            lua_save::SAVE, lua_save::REGISTER_PROVIDER,
+            lua_fields::ID,
+            lua_save::PROVIDER_VERSION,
+            lua_save::PROVIDER_CAPTURE,
+            lua_save::PROVIDER_APPLY,
+        ),
     )
     .exec()
     .unwrap();
@@ -156,14 +187,21 @@ fn register_provider_rejects_duplicate_id() {
     // Second registration with the same id fails.
     let err = lua
         .load(
-            r#"
-            engine.save.register_provider({
-              id = "game.flags",
-              version = 2,
-              capture = function() return "{}" end,
-              apply = function(_) end,
-            })
+            format!(
+                r#"
+            engine.{}.{}{{
+              ["{}"] = "game.flags",
+              ["{}"] = 2,
+              ["{}"] = function() return "{{}}" end,
+              ["{}"] = function(_) end,
+            }}
             "#,
+                lua_save::SAVE, lua_save::REGISTER_PROVIDER,
+                lua_fields::ID,
+                lua_save::PROVIDER_VERSION,
+                lua_save::PROVIDER_CAPTURE,
+                lua_save::PROVIDER_APPLY,
+            ),
         )
         .exec()
         .unwrap_err();
@@ -178,7 +216,7 @@ fn register_provider_rejects_duplicate_id() {
 #[test]
 fn save_module_api_emits_all_public_helpers() {
     let mut out = LuaApiWriter::default();
-    SaveModule::default().emit_api(&mut out);
+    SaveModule.emit_api(&mut out);
 
     let engine_save = format!("engine.{} = {{}}", lua_save::SAVE);
     let manual = format!("function engine.{}.{}() end", lua_save::SAVE, lua_save::MANUAL);
@@ -196,21 +234,67 @@ fn save_module_api_emits_all_public_helpers() {
 }
 
 #[test]
+fn save_provider_registration_only_requires_save_context() {
+    // This test proves that registering a save provider from Lua only needs the
+    // save context (LuaSaveCtx), not the full game runtime context.
+    let lua = Lua::new();
+    lua.globals()
+        .set(lua_engine::ENGINE, lua.create_table().unwrap())
+        .unwrap();
+
+    let save_providers = Rc::new(RefCell::new(SaveProviderRegistry::new()));
+    register_save_lua_context(&lua, save_providers.clone()).unwrap();
+
+    SaveModule.register(&lua).unwrap();
+
+    lua.load(
+        format!(
+            r#"
+        engine.{}.{}{{
+          ["{}"] = "game.test_only_save_ctx",
+          ["{}"] = 1,
+          ["{}"] = function() return "{{}}" end,
+          ["{}"] = function(_) end,
+        }}
+        "#,
+            lua_save::SAVE, lua_save::REGISTER_PROVIDER,
+            lua_fields::ID,
+            lua_save::PROVIDER_VERSION,
+            lua_save::PROVIDER_CAPTURE,
+            lua_save::PROVIDER_APPLY,
+        ),
+    )
+    .exec()
+    .unwrap();
+
+    assert_eq!(save_providers.borrow().iter().count(), 1);
+}
+
+#[test]
 fn script_can_register_provider_and_invoke_manual_and_load_latest() {
     let (lua, _game_instance) = setup_save_lua();
     SaveModule.register(&lua).unwrap();
 
     lua.load(
-        r#"
-        engine.save.register_provider({
-          id = "game.test",
-          version = 1,
-          capture = function() return "{}" end,
-          apply = function(_) end,
-        })
-        engine.save.manual()
-        engine.save.load_latest()
+        format!(
+            r#"
+        engine.{}.{}{{
+          ["{}"] = "game.test",
+          ["{}"] = 1,
+          ["{}"] = function() return "{{}}" end,
+          ["{}"] = function(_) end,
+        }}
+        engine.{}.{}()
+        engine.{}.{}()
         "#,
+            lua_save::SAVE, lua_save::REGISTER_PROVIDER,
+            lua_fields::ID,
+            lua_save::PROVIDER_VERSION,
+            lua_save::PROVIDER_CAPTURE,
+            lua_save::PROVIDER_APPLY,
+            lua_save::SAVE, lua_save::MANUAL,
+            lua_save::SAVE, lua_save::LOAD_LATEST,
+        ),
     )
     .exec()
     .unwrap();

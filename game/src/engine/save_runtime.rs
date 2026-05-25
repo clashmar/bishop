@@ -1,7 +1,7 @@
 use crate::save_system::{
     capture_document, runtime_latest_save_manifest_path, runtime_save_file, SaveCoordinatorError,
     SaveLane, SaveProviderRegistry, SaveSlotKey, LatestRuntimeSaveManifest, RonPersist,
-    RUNTIME_SAVE_SCHEMA_VERSION, RuntimeSaveMetadata,
+    RUNTIME_SAVE_SCHEMA_VERSION, RuntimeSaveDocument, RuntimeSaveMetadata,
 };
 #[cfg(test)]
 use crate::save_system::{SaveProvider, SaveProviderId};
@@ -11,7 +11,7 @@ use std::io;
 use std::rc::Rc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-/// The type of runtime load request, indicating which save to restore from.
+/// The type of runtime load request.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RuntimeLoadRequest {
     /// Load the most recent save across any lane.
@@ -32,7 +32,7 @@ impl SaveRuntime {
         }
     }
 
-    /// Captures state from all registered providers and persists to `lane`.
+    /// Captures state from all providers and persists to `lane`.
     pub fn save_to_lane(
         &mut self,
         game_instance: &Rc<RefCell<GameInstance>>,
@@ -69,6 +69,24 @@ impl SaveRuntime {
     /// Returns the pending load request, if any.
     pub fn pending_runtime_load_request(&self) -> Option<RuntimeLoadRequest> {
         self.pending_runtime_load_request
+    }
+
+    /// Takes the pending load request, clearing it, and returns it.
+    pub fn take_pending_runtime_load_request(&mut self) -> Option<RuntimeLoadRequest> {
+        self.pending_runtime_load_request.take()
+    }
+
+    /// Reads the latest saved document from disk based on the latest manifest.
+    /// Returns `Ok(None)` if no manifest exists.
+    pub fn load_latest_document(&self) -> io::Result<Option<RuntimeSaveDocument>> {
+        let manifest_path = runtime_latest_save_manifest_path();
+        if !manifest_path.exists() {
+            return Ok(None);
+        }
+        let manifest = LatestRuntimeSaveManifest::read_from_path(&manifest_path)?;
+        let doc_path = runtime_save_file(&manifest.slot, manifest.lane);
+        let document = RuntimeSaveDocument::read_from_path(&doc_path)?;
+        Ok(Some(document))
     }
 }
 
@@ -135,7 +153,7 @@ mod tests {
             .register(Box::new(StubSaveProvider))
             .unwrap();
 
-        let mut game = Game::with_name(folder.name());
+        let game = Game::with_name(folder.name());
         let game_instance = Rc::new(RefCell::new(GameInstance {
             game,
             prev_positions: HashMap::new(),
@@ -172,5 +190,63 @@ mod tests {
             save_runtime.pending_runtime_load_request(),
             Some(RuntimeLoadRequest::Latest)
         );
+    }
+
+    #[test]
+    fn take_pending_runtime_load_request_clears_request() {
+        let _lock = game_fs_test_lock().lock().unwrap();
+        let (_folder, _game_instance, mut save_runtime) =
+            setup_save_runtime("save_runtime_take");
+
+        save_runtime.request_latest_runtime_load();
+
+        let taken = save_runtime.take_pending_runtime_load_request();
+        assert_eq!(taken, Some(RuntimeLoadRequest::Latest));
+
+        assert_eq!(save_runtime.pending_runtime_load_request(), None);
+    }
+
+    #[test]
+    fn load_latest_document_reads_manifest_target() {
+        let _lock = game_fs_test_lock().lock().unwrap();
+        let (_folder, game_instance, mut save_runtime) =
+            setup_save_runtime("save_runtime_load_latest");
+
+        save_runtime
+            .save_to_lane(&game_instance, SaveLane::Manual)
+            .unwrap();
+
+        let document = save_runtime
+            .load_latest_document()
+            .unwrap()
+            .expect("expected a saved document");
+
+        assert_eq!(document.metadata.lane, SaveLane::Manual);
+        assert!(document.sections.contains_key("game.flags"));
+        assert_eq!(document.sections.len(), 1);
+    }
+
+    #[test]
+    fn load_latest_document_errors_on_manifest_with_missing_target() {
+        let _lock = game_fs_test_lock().lock().unwrap();
+        let folder = TestGameFolder::new("save_runtime_bad_manifest");
+        set_game_name(folder.name());
+
+        // Write a manifest that points to a lane that has no save file.
+        let manifest = LatestRuntimeSaveManifest {
+            lane: SaveLane::Autosave,
+            slot: SaveSlotKey::Default,
+            saved_at_unix_ms: 42,
+        };
+        manifest
+            .write_to_path(&runtime_latest_save_manifest_path())
+            .unwrap();
+
+        // The save file does not exist, so load_latest_document should error.
+        let save_providers = Rc::new(RefCell::new(SaveProviderRegistry::new()));
+        let save_runtime = SaveRuntime::new(save_providers);
+        let result = save_runtime.load_latest_document();
+
+        assert!(result.is_err(), "expected error for manifest with missing target");
     }
 }

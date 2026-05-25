@@ -11,7 +11,7 @@ use audio_events::emit_pending_audio_events;
 use render::*;
 
 pub use engine_builder::EngineBuilder;
-pub use game_instance::GameInstance;
+pub use game_instance::{GameInstance, PreparedGameInstance};
 
 pub use save_runtime::{RuntimeLoadRequest, SaveRuntime};
 

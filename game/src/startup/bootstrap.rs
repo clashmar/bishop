@@ -1,16 +1,22 @@
 use super::{
     load_startup_for_game_name, load_startup_from_resources,
+    rebootstrap::{entry_mode_for_intent, StartupIntent, StartupRequest},
     runtime_icon::playtest_game_name_from_payload as parse_playtest_game_name, StartupAsset,
     StartupScreenContent, StartupScreenSpec,
 };
-use crate::engine::{Engine, EngineBuilder, EngineEntryMode, GameInstance};
+use crate::engine::{Engine, EngineBuilder, EngineEntryMode, GameInstance, SaveRuntime};
+use crate::save_system::{apply_document_phase, RestorePhase};
+use crate::scripting::script_system::ScriptSystem;
 use bishop::prelude::*;
 use engine_core::prelude::*;
 use ron::de::from_str;
+use std::cell::RefCell;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::rc::Rc;
 
 /// The source for runtime startup.
+#[derive(Clone, Debug, PartialEq)]
 pub enum StartupSource {
     /// Load the shipped game from the game binary's `Resources/` folder.
     Game,
@@ -27,7 +33,7 @@ struct PlaytestPayload {
     startup_mode: StartupMode,
 }
 
-enum LoadedStartupData {
+pub(crate) enum LoadedStartupData {
     Game {
         startup_asset: StartupAsset,
         game: Game,
@@ -40,7 +46,7 @@ enum LoadedStartupData {
     },
 }
 
-enum LoadedStartupFiles {
+pub(crate) enum LoadedStartupFiles {
     Game {
         resources_dir: PathBuf,
         startup_ron: Option<String>,
@@ -56,6 +62,8 @@ pub struct StartupController {
     startup_asset: StartupAsset,
     load_task: BackgroundTask<Result<LoadedStartupFiles, String>>,
     loaded: Option<LoadedStartupData>,
+    intent: StartupIntent,
+    source: StartupSource,
     splash_index: usize,
     splash_started_at_secs: Option<f64>,
     fallback_started_at_secs: Option<f64>,
@@ -63,18 +71,32 @@ pub struct StartupController {
 }
 
 impl StartupController {
-    /// Creates a startup controller for the given source.
-    pub fn new(source: StartupSource) -> Self {
+    /// Creates a startup controller from the given [`StartupRequest`](StartupRequest).
+    pub fn from_request(request: StartupRequest) -> Self {
+        let intent = request.intent.clone();
+        Self::new_with_intent(request.source, intent)
+    }
+
+    /// Creates a startup controller for the given source and intent.
+    pub fn new_with_intent(source: StartupSource, intent: StartupIntent) -> Self {
         let startup_asset = load_initial_startup(&source);
+        let source_for_task = source.clone();
         Self {
             startup_asset,
-            load_task: BackgroundTask::spawn(move || load_startup_data(source)),
+            load_task: BackgroundTask::spawn(move || load_startup_data(source_for_task)),
             loaded: None,
+            intent,
+            source,
             splash_index: 0,
             splash_started_at_secs: None,
             fallback_started_at_secs: None,
             error: None,
         }
+    }
+
+    /// Creates a startup controller for the given source.
+    pub fn new(source: StartupSource) -> Self {
+        Self::new_with_intent(source, StartupIntent::Raw)
     }
 
     /// Advances bootstrap and returns the fully-built engine once ready.
@@ -112,7 +134,17 @@ impl StartupController {
             .is_some_and(LoadedStartupData::skips_startup_presentation)
         {
             let loaded = self.loaded.take()?;
-            return Some(build_engine(ctx, loaded));
+            let request = StartupRequest {
+                source: self.source.clone(),
+                intent: self.intent.clone(),
+            };
+            match try_build_engine(ctx, request, loaded) {
+                Ok(engine) => return Some(engine),
+                Err(error) => {
+                    self.error = Some(error);
+                    return None;
+                }
+            }
         }
 
         if let Some(screen) = self
@@ -145,7 +177,18 @@ impl StartupController {
 
         self.fallback_started_at_secs = None;
         let loaded = self.loaded.take()?;
-        Some(build_engine(ctx, loaded))
+        let request = StartupRequest {
+            source: self.source.clone(),
+            intent: self.intent.clone(),
+        };
+        let result = try_build_engine(ctx, request, loaded);
+        match result {
+            Ok(engine) => Some(engine),
+            Err(error) => {
+                self.error = Some(error);
+                None
+            }
+        }
     }
 }
 
@@ -158,7 +201,7 @@ impl LoadedStartupData {
         }
     }
 
-    fn skips_startup_presentation(&self) -> bool {
+    pub(crate) fn skips_startup_presentation(&self) -> bool {
         matches!(
             self,
             Self::Playtest {
@@ -206,7 +249,7 @@ fn load_initial_startup(source: &StartupSource) -> StartupAsset {
     }
 }
 
-fn load_playtest_startup_preview(payload_path: &Path) -> Option<StartupAsset> {
+pub(crate) fn load_playtest_startup_preview(payload_path: &Path) -> Option<StartupAsset> {
     #[derive(serde::Deserialize)]
     struct PayloadStartupPreview {
         startup_ron: Option<String>,
@@ -221,7 +264,7 @@ fn load_playtest_startup_preview(payload_path: &Path) -> Option<StartupAsset> {
     Some(load_startup_for_game_name(&game_name))
 }
 
-fn parse_startup_data(files: LoadedStartupFiles) -> Result<LoadedStartupData, String> {
+pub(crate) fn parse_startup_data(files: LoadedStartupFiles) -> Result<LoadedStartupData, String> {
     match files {
         LoadedStartupFiles::Game {
             resources_dir,
@@ -280,52 +323,122 @@ fn parse_payload_startup(startup_ron: &str) -> StartupAsset {
     })
 }
 
-fn build_engine(ctx: PlatformContext, loaded: LoadedStartupData) -> Engine {
-    match loaded {
-        LoadedStartupData::Game {
-            startup_asset,
-            game,
-        } => {
-            set_engine_mode(EngineMode::Game);
-            set_game_name(game.name.clone());
+fn try_build_engine(
+    ctx: PlatformContext,
+    request: StartupRequest,
+    loaded: LoadedStartupData,
+) -> Result<Engine, String> {
+    // Register save Lua context before any bootstrap scripts run so that
+    // scripts can register save providers during load.
+    let mut builder = EngineBuilder::new();
+    builder
+        .register_save_context()
+        .map_err(|e| format!("Failed to register save Lua context: {e}"))?;
 
-            let entry_mode = resolve_entry_mode(&startup_asset, &game, StartupMode::Full);
-            let mut builder = EngineBuilder::new().entry_mode(entry_mode);
-            let game_instance = {
-                let mut ctx_ref = ctx.borrow_mut();
-                GameInstance::from_loaded_game(
-                    &mut *ctx_ref,
-                    game,
-                    &builder.lua,
-                    &mut builder.camera_manager,
-                )
+    match request.intent {
+        StartupIntent::Raw => match loaded {
+            LoadedStartupData::Game {
+                startup_asset,
+                game,
+            } => {
+                set_engine_mode(EngineMode::Game);
+                set_game_name(game.name.clone());
+
+                let entry_mode = resolve_entry_mode(&startup_asset, &game, StartupMode::Full);
+                builder = builder.entry_mode(entry_mode);
+                let game_instance = {
+                    let mut ctx_ref = ctx.borrow_mut();
+                    GameInstance::from_loaded_game(
+                        &mut *ctx_ref,
+                        game,
+                        &builder.lua,
+                        &mut builder.camera_manager,
+                    )
+                };
+
+                Ok(builder.assemble(game_instance, ctx, false))
+            }
+            LoadedStartupData::Playtest {
+                startup_asset,
+                room,
+                game,
+                startup_mode,
+            } => {
+                set_engine_mode(EngineMode::Playtest);
+                set_game_name(game.name.clone());
+
+                let entry_mode = resolve_entry_mode(&startup_asset, &game, startup_mode);
+                builder = builder.entry_mode(entry_mode);
+                let game_instance = {
+                    let mut ctx_ref = ctx.borrow_mut();
+                    GameInstance::from_loaded_room(
+                        &mut *ctx_ref,
+                        room,
+                        game,
+                        &builder.lua,
+                        &mut builder.camera_manager,
+                    )
+                };
+
+                Ok(builder.assemble(game_instance, ctx, true))
+            }
+        },
+        StartupIntent::LoadLatest => {
+            let is_playtest = matches!(loaded, LoadedStartupData::Playtest { .. });
+            let game_name = match &loaded {
+                LoadedStartupData::Game { game, .. }
+                | LoadedStartupData::Playtest { game, .. } => game.name.clone(),
+            };
+            set_engine_mode(if is_playtest {
+                EngineMode::Playtest
+            } else {
+                EngineMode::Game
+            });
+            set_game_name(game_name);
+
+            let save_runtime = SaveRuntime::new(builder.save_providers.clone());
+
+            let document = save_runtime
+                .load_latest_document()
+                .map_err(|e| format!("Failed to read save document: {e}"))?
+                .ok_or_else(|| "No save data found for explicit load".to_string())?;
+
+            apply_document_phase(
+                &mut builder.save_providers.borrow_mut(),
+                &document,
+                RestorePhase::PreRuntime,
+            )
+            .map_err(|e| format!("Failed to apply PreRuntime restore: {e}"))?;
+
+            let prepared = match loaded {
+                LoadedStartupData::Game { game, .. } => {
+                    GameInstance::prepare_loaded_game(&builder.lua, game)
+                }
+                LoadedStartupData::Playtest { room, game, .. } => {
+                    GameInstance::prepare_loaded_room(&builder.lua, room, game)
+                }
             };
 
-            builder.assemble(game_instance, ctx, false)
-        }
-        LoadedStartupData::Playtest {
-            startup_asset,
-            room,
-            game,
-            startup_mode,
-        } => {
-            set_engine_mode(EngineMode::Playtest);
-            set_game_name(game.name.clone());
-
-            let entry_mode = resolve_entry_mode(&startup_asset, &game, startup_mode);
-            let mut builder = EngineBuilder::new().entry_mode(entry_mode);
             let game_instance = {
                 let mut ctx_ref = ctx.borrow_mut();
-                GameInstance::from_loaded_room(
-                    &mut *ctx_ref,
-                    room,
-                    game,
-                    &builder.lua,
-                    &mut builder.camera_manager,
-                )
+                GameInstance::from_prepared(&mut *ctx_ref, prepared, &mut builder.camera_manager)
             };
 
-            builder.assemble(game_instance, ctx, true)
+            ScriptSystem::init(&builder.lua, &game_instance.game.script_manager.event_bus);
+
+            apply_document_phase(
+                &mut builder.save_providers.borrow_mut(),
+                &document,
+                RestorePhase::PostRuntime,
+            )
+            .map_err(|e| format!("Failed to apply PostRuntime restore: {e}"))?;
+
+            let entry_mode =
+                entry_mode_for_intent(&StartupIntent::LoadLatest, EngineEntryMode::Playing);
+            let game_instance = Rc::new(RefCell::new(game_instance));
+            Ok(builder
+                .entry_mode(entry_mode)
+                .into_engine(game_instance, ctx, save_runtime, is_playtest))
         }
     }
 }
@@ -417,205 +530,10 @@ fn draw_centered_text(ctx: &mut impl BishopContext, text: &str, font_size: f32, 
     ctx.draw_text(text, x, y, font_size, color);
 }
 
-fn splash_min_duration_elapsed(
+pub(crate) fn splash_min_duration_elapsed(
     started_at_secs: f64,
     now_secs: f64,
     min_duration_secs: f32,
 ) -> bool {
     (now_secs - started_at_secs) >= min_duration_secs as f64
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use std::time::{SystemTime, UNIX_EPOCH};
-
-    fn unique_name(prefix: &str) -> String {
-        let nanos = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_nanos();
-        format!("{prefix}-{nanos}")
-    }
-
-    #[test]
-    fn playtest_startup_preview_loads_authored_splash_screens_from_payload_game_name() {
-        let game_name = unique_name("PlaytestPreview");
-        let game_dir = game_folder(&game_name);
-        let resources_dir = game_dir.join(paths::RESOURCES_FOLDER);
-        fs::create_dir_all(&resources_dir).unwrap();
-        let startup = StartupAsset {
-            loading: super::super::LoadingConfig {
-                splash_screens: vec![StartupScreenSpec {
-                    min_duration_secs: 1.0,
-                    background_color: [0.1, 0.2, 0.3, 1.0],
-                    content: StartupScreenContent::Text {
-                        text: "Splash".to_string(),
-                        font_size: 42.0,
-                        color: [1.0, 1.0, 1.0, 1.0],
-                    },
-                }],
-                fallback_screen: StartupScreenSpec::default(),
-            },
-            start_menu_id: "start".to_string(),
-        };
-        fs::write(
-            resources_dir.join(paths::STARTUP_RON),
-            ron::ser::to_string_pretty(&startup, ron::ser::PrettyConfig::new()).unwrap(),
-        )
-        .unwrap();
-
-        let payload_path = std::env::temp_dir().join(format!("{}.ron", unique_name("payload")));
-        fs::write(
-            &payload_path,
-            format!(
-                r#"
-(
-    game: (
-        name: "{game_name}",
-    ),
-)
-"#
-            ),
-        )
-        .unwrap();
-
-        let startup = load_playtest_startup_preview(&payload_path).unwrap();
-
-        assert_eq!(startup.loading.splash_screens.len(), 1);
-
-        let _ = fs::remove_file(payload_path);
-        let _ = fs::remove_dir_all(game_dir);
-    }
-
-    #[test]
-    fn playtest_startup_preview_prefers_embedded_payload() {
-        let game_name = unique_name("EmbeddedPlaytestPreview");
-        let payload_path = std::env::temp_dir().join(format!("{}.ron", unique_name("payload")));
-        let embedded_startup = StartupAsset {
-            loading: super::super::LoadingConfig {
-                splash_screens: vec![StartupScreenSpec {
-                    min_duration_secs: 3.0,
-                    background_color: [0.4, 0.3, 0.2, 1.0],
-                    content: StartupScreenContent::Text {
-                        text: "Embedded".to_string(),
-                        font_size: 30.0,
-                        color: [1.0, 1.0, 1.0, 1.0],
-                    },
-                }],
-                fallback_screen: StartupScreenSpec::default(),
-            },
-            start_menu_id: "start".to_string(),
-        };
-
-        #[derive(serde::Serialize)]
-        struct Payload<'a> {
-            game: PayloadGame<'a>,
-            startup_ron: Option<String>,
-        }
-
-        #[derive(serde::Serialize)]
-        struct PayloadGame<'a> {
-            name: &'a str,
-        }
-
-        fs::write(
-            &payload_path,
-            ron::ser::to_string_pretty(
-                &Payload {
-                    game: PayloadGame { name: &game_name },
-                    startup_ron: Some(
-                        ron::ser::to_string_pretty(
-                            &embedded_startup,
-                            ron::ser::PrettyConfig::new(),
-                        )
-                        .unwrap(),
-                    ),
-                },
-                ron::ser::PrettyConfig::new(),
-            )
-            .unwrap(),
-        )
-        .unwrap();
-
-        let startup = load_playtest_startup_preview(&payload_path).unwrap();
-
-        assert_eq!(startup.loading.splash_screens.len(), 1);
-        match &startup.loading.splash_screens[0].content {
-            StartupScreenContent::Text { text, .. } => assert_eq!(text, "Embedded"),
-        }
-
-        let _ = fs::remove_file(payload_path);
-    }
-
-    #[test]
-    fn splash_duration_starts_from_first_visible_frame() {
-        assert!(!splash_min_duration_elapsed(10.0, 10.0, 1.5));
-        assert!(!splash_min_duration_elapsed(10.0, 11.49, 1.5));
-        assert!(splash_min_duration_elapsed(10.0, 11.5, 1.5));
-    }
-
-    #[test]
-    fn fallback_min_duration_starts_from_first_visible_frame() {
-        assert!(!splash_min_duration_elapsed(20.0, 20.0, 5.0));
-        assert!(!splash_min_duration_elapsed(20.0, 24.99, 5.0));
-        assert!(splash_min_duration_elapsed(20.0, 25.0, 5.0));
-    }
-
-    #[test]
-    fn parse_startup_data_uses_startup_mode_from_payload() {
-        let payload = r#"
-(
-    room: (
-        name: "Room",
-    ),
-    game: (
-        name: "Demo",
-    ),
-    startup_mode: Full,
-)
-"#;
-
-        let loaded = parse_startup_data(LoadedStartupFiles::Playtest {
-            payload_ron: payload.to_string(),
-        })
-        .unwrap();
-
-        match loaded {
-            LoadedStartupData::Playtest { startup_mode, .. } => {
-                assert_eq!(startup_mode, StartupMode::Full)
-            }
-            LoadedStartupData::Game { .. } => panic!("expected playtest startup data"),
-        }
-    }
-
-    #[test]
-    fn playtest_skip_mode_bypasses_startup_presentation() {
-        let loaded = LoadedStartupData::Playtest {
-            startup_asset: StartupAsset::default(),
-            room: Room::default(),
-            game: Game::default(),
-            startup_mode: StartupMode::Skip,
-        };
-
-        assert!(loaded.skips_startup_presentation());
-    }
-
-    #[test]
-    fn playtest_game_name_reads_name_from_payload() {
-        let payload = r#"
-(
-    room: (
-        name: "Room",
-    ),
-    game: (
-        name: "Demo",
-    ),
-)
-"#;
-
-        let game_name = parse_playtest_game_name(payload).unwrap();
-
-        assert_eq!(game_name, "Demo");
-    }
 }

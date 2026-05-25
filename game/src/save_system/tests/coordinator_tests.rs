@@ -4,7 +4,9 @@ use std::io;
 use std::rc::Rc;
 
 use crate::save_system::{
-    coordinator::{capture_document, apply_document, SaveCoordinatorError},
+    coordinator::{
+        apply_document, apply_document_phase, capture_document, SaveCoordinatorError,
+    },
     RestorePhase, SaveProvider, SaveProviderId, SaveProviderRegistry, RuntimeSaveDocument,
     RuntimeSaveMetadata, SaveLane, SaveSlotKey, SavedSection,
 };
@@ -124,7 +126,7 @@ impl SaveProvider for ApplyTestProvider {
             log.push(self.id.to_string());
         }
         if self.should_fail {
-            Err(io::Error::new(io::ErrorKind::Other, "apply failed"))
+            Err(io::Error::other("apply failed"))
         } else {
             Ok(())
         }
@@ -170,7 +172,7 @@ fn capture_document_captures_two_sections_with_string_keys() {
 #[test]
 fn capture_document_returns_capture_error_on_provider_failure() {
     let mut registry = SaveProviderRegistry::new();
-    let err = io::Error::new(io::ErrorKind::Other, "disk full");
+    let err = io::Error::other("disk full");
     registry
         .register(Box::new(
             CaptureProvider::new("engine.resume").with_result(Err(err)),
@@ -347,4 +349,102 @@ fn apply_document_provider_apply_fails_returns_provider_id_error() {
         }
         other => panic!("expected Apply error, got {other:?}"),
     }
+}
+
+#[test]
+fn apply_document_phase_only_runs_matching_phase() {
+    let mut registry = SaveProviderRegistry::new();
+    let log = ApplyOrderLog::new();
+
+    registry
+        .register(Box::new(
+            ApplyTestProvider::new("engine.resume", RestorePhase::PreRuntime).with_log(&log),
+        ))
+        .unwrap();
+    registry
+        .register(Box::new(
+            ApplyTestProvider::new("game.player", RestorePhase::PostRuntime).with_log(&log),
+        ))
+        .unwrap();
+
+    let mut sections = HashMap::new();
+    sections.insert(
+        "engine.resume".to_string(),
+        SavedSection {
+            version: 1,
+            data: "resume".to_string(),
+        },
+    );
+    sections.insert(
+        "game.player".to_string(),
+        SavedSection {
+            version: 1,
+            data: "player".to_string(),
+        },
+    );
+
+    let document = RuntimeSaveDocument {
+        metadata: sample_metadata(),
+        sections,
+    };
+
+    let report = apply_document_phase(
+        &mut registry,
+        &document,
+        RestorePhase::PreRuntime,
+    )
+    .unwrap();
+
+    let order = log.snapshot();
+    assert_eq!(order, vec!["engine.resume"]);
+    assert!(report.unknown_section_ids.is_empty());
+}
+
+#[test]
+fn apply_document_phase_only_runs_matching_post_runtime() {
+    let mut registry = SaveProviderRegistry::new();
+    let log = ApplyOrderLog::new();
+
+    registry
+        .register(Box::new(
+            ApplyTestProvider::new("engine.resume", RestorePhase::PreRuntime).with_log(&log),
+        ))
+        .unwrap();
+    registry
+        .register(Box::new(
+            ApplyTestProvider::new("game.player", RestorePhase::PostRuntime).with_log(&log),
+        ))
+        .unwrap();
+
+    let mut sections = HashMap::new();
+    sections.insert(
+        "engine.resume".to_string(),
+        SavedSection {
+            version: 1,
+            data: "resume".to_string(),
+        },
+    );
+    sections.insert(
+        "game.player".to_string(),
+        SavedSection {
+            version: 1,
+            data: "player".to_string(),
+        },
+    );
+
+    let document = RuntimeSaveDocument {
+        metadata: sample_metadata(),
+        sections,
+    };
+
+    let report = apply_document_phase(
+        &mut registry,
+        &document,
+        RestorePhase::PostRuntime,
+    )
+    .unwrap();
+
+    let order = log.snapshot();
+    assert_eq!(order, vec!["game.player"]);
+    assert!(report.unknown_section_ids.is_empty());
 }

@@ -3,7 +3,7 @@ use bishop::prelude::*;
 use bishop::BishopApp;
 use engine_core::prelude::*;
 use game_lib::engine::Engine;
-use game_lib::startup::{runtime_icon_for_current_exe, StartupController, StartupSource};
+use game_lib::startup::{runtime_icon_for_current_exe, StartupController, StartupRequest};
 use std::any::Any;
 use std::env;
 use std::panic::{catch_unwind, AssertUnwindSafe};
@@ -13,6 +13,7 @@ use std::path::Path;
 struct GameApp {
     engine: Option<Engine>,
     startup: Option<StartupController>,
+    current_startup_request: Option<StartupRequest>,
 }
 
 impl GameApp {
@@ -20,6 +21,7 @@ impl GameApp {
         Self {
             engine: None,
             startup: None,
+            current_startup_request: None,
         }
     }
 }
@@ -28,12 +30,25 @@ impl BishopApp for GameApp {
     async fn init(&mut self, ctx: PlatformContext) {
         onscreen_info!("Initializing game.");
         let _ = ctx;
-        self.startup = Some(StartupController::new(StartupSource::Game));
+        let request = StartupRequest::game();
+        self.current_startup_request = Some(request.clone());
+        self.startup = Some(StartupController::from_request(request));
     }
 
     async fn frame(&mut self, ctx: PlatformContext) {
         if let Some(engine) = &mut self.engine {
-            engine.frame(ctx).await;
+            engine.frame(ctx.clone()).await;
+
+            if let Some(load_request) = engine.save_runtime.take_pending_runtime_load_request() {
+                let current = self
+                    .current_startup_request
+                    .clone()
+                    .unwrap_or_else(StartupRequest::game);
+                let next_request = current.for_runtime_load(load_request);
+                self.current_startup_request = Some(next_request.clone());
+                self.engine = None;
+                self.startup = Some(StartupController::from_request(next_request));
+            }
             return;
         }
 

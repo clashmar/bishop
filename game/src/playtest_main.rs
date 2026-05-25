@@ -4,7 +4,7 @@ use bishop::BishopApp;
 use engine_core::prelude::*;
 use game_lib::engine::Engine;
 use game_lib::startup::{
-    runtime_icon_for_playtest_payload, PlaytestLaunchArgs, StartupController, StartupSource,
+    runtime_icon_for_playtest_payload, PlaytestLaunchArgs, StartupController, StartupRequest,
 };
 use std::env;
 
@@ -13,6 +13,7 @@ struct PlaytestApp {
     payload_path: String,
     engine: Option<Engine>,
     startup: Option<StartupController>,
+    current_startup_request: Option<StartupRequest>,
 }
 
 impl PlaytestApp {
@@ -21,6 +22,7 @@ impl PlaytestApp {
             payload_path,
             engine: None,
             startup: None,
+            current_startup_request: None,
         }
     }
 }
@@ -29,14 +31,28 @@ impl BishopApp for PlaytestApp {
     async fn init(&mut self, ctx: PlatformContext) {
         set_engine_mode(EngineMode::Playtest);
         let _ = ctx;
-        self.startup = Some(StartupController::new(StartupSource::Playtest {
-            payload_path: self.payload_path.clone(),
-        }));
+        let request = StartupRequest::playtest(self.payload_path.clone());
+        self.current_startup_request = Some(request.clone());
+        self.startup = Some(StartupController::from_request(request));
     }
 
     async fn frame(&mut self, ctx: PlatformContext) {
         if let Some(engine) = &mut self.engine {
-            engine.frame(ctx).await;
+            engine.frame(ctx.clone()).await;
+
+            if let Some(load_request) = engine.save_runtime.take_pending_runtime_load_request() {
+                let playtest_for_fallback = || {
+                    StartupRequest::playtest(self.payload_path.clone())
+                };
+                let current = self
+                    .current_startup_request
+                    .clone()
+                    .unwrap_or_else(playtest_for_fallback);
+                let next_request = current.for_runtime_load(load_request);
+                self.current_startup_request = Some(next_request.clone());
+                self.engine = None;
+                self.startup = Some(StartupController::from_request(next_request));
+            }
             return;
         }
 

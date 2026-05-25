@@ -1,9 +1,12 @@
 use std::collections::HashMap;
 use std::io;
 
-use crate::save_system::{SaveProviderId, SaveProviderRegistry, RuntimeSaveDocument, RuntimeSaveMetadata, SavedSection};
+use crate::save_system::{
+    RestorePhase, SaveProviderId, SaveProviderRegistry, RuntimeSaveDocument,
+    RuntimeSaveMetadata, SavedSection,
+};
 
-/// Errors that can occur during a coordinated save or restore.
+/// Errors during coordinated save or restore.
 #[derive(Debug)]
 pub enum SaveCoordinatorError {
     /// A provider failed during the capture phase.
@@ -68,8 +71,7 @@ pub struct ApplySaveReport {
     pub unknown_section_ids: Vec<String>,
 }
 
-/// Captures state from all providers into a [`RuntimeSaveDocument`].
-/// On failure, the error identifies the failing provider.
+/// Captures state from all providers into a `RuntimeSaveDocument`.
 pub fn capture_document(
     registry: &mut SaveProviderRegistry<'_>,
     metadata: &RuntimeSaveMetadata,
@@ -94,25 +96,13 @@ pub fn capture_document(
     })
 }
 
-/// Applies saved sections from a [`RuntimeSaveDocument`] in registry order.
-///
-/// Unknown section ids are reported in [`ApplySaveReport::unknown_section_ids`].
+/// Applies all saved sections from a document in registry order.
 pub fn apply_document(
     registry: &mut SaveProviderRegistry<'_>,
     document: &RuntimeSaveDocument,
 ) -> Result<ApplySaveReport, SaveCoordinatorError> {
-    let mut report = ApplySaveReport::default();
+    let unknown_section_ids = collect_unknown_sections(registry, document);
 
-    // Collect unknown section ids (document keys with no registered provider)
-    for section_key in document.sections.keys() {
-        let has_provider = registry.iter().any(|p| p.id().as_str() == section_key);
-        if !has_provider {
-            report.unknown_section_ids.push(section_key.clone());
-        }
-    }
-    report.unknown_section_ids.sort();
-
-    // Apply providers in canonical registry order
     for provider in registry.iter_mut() {
         let provider_id = provider.id();
         let section_key = provider_id.as_str();
@@ -126,5 +116,47 @@ pub fn apply_document(
         }
     }
 
-    Ok(report)
+    Ok(ApplySaveReport { unknown_section_ids })
+}
+
+/// Applies saved sections matching a given restore phase.
+pub fn apply_document_phase(
+    registry: &mut SaveProviderRegistry<'_>,
+    document: &RuntimeSaveDocument,
+    phase: RestorePhase,
+) -> Result<ApplySaveReport, SaveCoordinatorError> {
+    let unknown_section_ids = collect_unknown_sections(registry, document);
+
+    for provider in registry.iter_mut() {
+        if provider.restore_phase() != phase {
+            continue;
+        }
+        let provider_id = provider.id();
+        let section_key = provider_id.as_str();
+        if let Some(section) = document.sections.get(section_key) {
+            provider.apply(section).map_err(|source| {
+                SaveCoordinatorError::Apply {
+                    provider_id: provider.id(),
+                    source,
+                }
+            })?;
+        }
+    }
+
+    Ok(ApplySaveReport { unknown_section_ids })
+}
+
+/// Collects section keys from the document that have no matching provider.
+fn collect_unknown_sections(
+    registry: &SaveProviderRegistry<'_>,
+    document: &RuntimeSaveDocument,
+) -> Vec<String> {
+    let mut unknown: Vec<String> = document
+        .sections
+        .keys()
+        .filter(|section_key| !registry.iter().any(|p| p.id().as_str() == section_key.as_str()))
+        .cloned()
+        .collect();
+    unknown.sort();
+    unknown
 }

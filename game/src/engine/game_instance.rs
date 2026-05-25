@@ -6,9 +6,17 @@ use mlua::Value;
 use mlua::Variadic;
 use std::collections::HashMap;
 
-/// Top level orchestrator of the game and systems.
+/// Intermediate result after loading game data but before final runtime assembly.
+///
+/// The bootstrap pipeline can apply save providers between preparation
+/// and finalization, separating PreRuntime and PostRuntime restore phases.
+pub struct PreparedGameInstance {
+    pub game: Game,
+    pub room_id: RoomId,
+}
+
+/// Top-level orchestrator of the game and systems.
 pub struct GameInstance {
-    /// The whole game.
     pub game: Game,
     /// Holds the Transform of every entity rendered in the previous frame.
     pub prev_positions: HashMap<Entity, Vec2>,
@@ -17,49 +25,60 @@ pub struct GameInstance {
 impl GameInstance {
     pub fn from_loaded_game<C: BishopContext>(
         ctx: &mut C,
-        mut game: Game,
+        game: Game,
         lua: &Lua,
         camera_manager: &mut CameraManager,
     ) -> Self {
-        game.initialize_runtime(lua);
-        let room_id = Self::start_room_id(&game);
-        game.ecs.finalize_after_load();
-        Self::finish_loading(ctx, room_id, game, lua, camera_manager)
+        let prepared = Self::prepare_loaded_game(lua, game);
+        let instance = Self::from_prepared(ctx, prepared, camera_manager);
+        ScriptSystem::init(lua, &instance.game.script_manager.event_bus);
+        instance
     }
 
     pub fn from_loaded_room<C: BishopContext>(
         ctx: &mut C,
         room: Room,
-        mut game: Game,
-        lua: &Lua,
-        camera_manager: &mut CameraManager,
-    ) -> Self {
-        game.initialize_runtime(lua);
-        game.ecs.finalize_after_load();
-        Self::finish_loading(ctx, room.id, game, lua, camera_manager)
-    }
-
-    fn start_room_id(game: &Game) -> RoomId {
-        game.current_world()
-            .starting_room_id
-            .or_else(|| {
-                game.worlds()
-                    .first()
-                    .map(|world| world.starting_room_id.expect("Game has no starting room."))
-            })
-            .expect("Game has no starting room nor any rooms")
-    }
-
-    fn finish_loading<C: BishopContext>(
-        ctx: &mut C,
-        room_id: RoomId,
         game: Game,
         lua: &Lua,
         camera_manager: &mut CameraManager,
     ) -> Self {
-        // Post-load finalization: on_insert hooks have fired via ecs.finalize_after_load().
-        // Contextful post_create hooks (requiring GameCtxMut) still need manual wiring
-        // for components like AudioSource that depend on runtime command queues.
+        let prepared = Self::prepare_loaded_room(lua, room, game);
+        let instance = Self::from_prepared(ctx, prepared, camera_manager);
+        ScriptSystem::init(lua, &instance.game.script_manager.event_bus);
+        instance
+    }
+
+    /// Loads a game and determines the starting room, without finalizing
+    /// audio wiring, camera setup, or script initialization.
+    pub fn prepare_loaded_game(lua: &Lua, mut game: Game) -> PreparedGameInstance {
+        game.initialize_runtime(lua);
+        let room_id = Self::start_room_id(&game);
+        game.ecs.finalize_after_load();
+        PreparedGameInstance { game, room_id }
+    }
+
+    /// Loads a specific room into a game, without finalizing
+    /// audio wiring, camera setup, or script initialization.
+    pub fn prepare_loaded_room(lua: &Lua, room: Room, mut game: Game) -> PreparedGameInstance {
+        game.initialize_runtime(lua);
+        game.ecs.finalize_after_load();
+        PreparedGameInstance {
+            room_id: room.id,
+            game,
+        }
+    }
+
+    /// Converts a prepared game into a fully wired GameInstance.
+    pub fn from_prepared<C: BishopContext>(
+        ctx: &mut C,
+        prepared: PreparedGameInstance,
+        camera_manager: &mut CameraManager,
+    ) -> Self {
+        let PreparedGameInstance {
+            game,
+            room_id,
+        } = prepared;
+
         for source in AudioSource::store(&game.ecs).data.values() {
             push_audio_command(AudioCommand::IncrementRefs(sound_command_ids(
                 &game.asset_registry,
@@ -76,12 +95,21 @@ impl GameInstance {
 
         *camera_manager = CameraManager::new(ctx, ecs, room_id, player_pos, grid_size);
 
-        ScriptSystem::init(lua, &game.script_manager.event_bus);
-
         Self {
             game,
             prev_positions: HashMap::new(),
         }
+    }
+
+    fn start_room_id(game: &Game) -> RoomId {
+        game.current_world()
+            .starting_room_id
+            .or_else(|| {
+                game.worlds()
+                    .first()
+                    .map(|world| world.starting_room_id.expect("Game has no starting room."))
+            })
+            .expect("Game has no starting room nor any rooms")
     }
 
     /// Drains events generated during UI rendering and forwards them to the event bus.
