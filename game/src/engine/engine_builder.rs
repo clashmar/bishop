@@ -7,7 +7,7 @@ use bishop::prelude::*;
 use engine_core::prelude::*;
 use mlua::prelude::LuaResult;
 use mlua::Lua;
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
 /// Shared resources for constructing an Engine, with early save-context registration.
@@ -15,6 +15,7 @@ pub struct EngineBuilder {
     pub lua: Lua,
     pub camera_manager: CameraManager,
     pub save_providers: Rc<RefCell<SaveProviderRegistry<'static>>>,
+    pub pending_quit_to_title: Rc<Cell<bool>>,
     entry_mode: EngineEntryMode,
 }
 
@@ -31,6 +32,7 @@ impl EngineBuilder {
             lua: Lua::new(),
             camera_manager: CameraManager::default(),
             save_providers: Rc::new(RefCell::new(SaveProviderRegistry::new())),
+            pending_quit_to_title: Rc::new(Cell::new(false)),
             entry_mode: EngineEntryMode::Playing,
         }
     }
@@ -43,7 +45,7 @@ impl EngineBuilder {
 
     /// Registers only LuaSaveCtx so bootstrap scripts can register save providers.
     pub fn register_save_context(&self) -> LuaResult<()> {
-        register_save_lua_context(&self.lua, self.save_providers.clone())
+        register_save_lua_context(&self.lua, self.save_providers.clone(), self.pending_quit_to_title.clone())
     }
 
     /// Final assembly with pre-built runtime pieces.
@@ -83,7 +85,7 @@ impl EngineBuilder {
         ctx: PlatformContext,
         is_playtest: bool,
     ) -> Engine {
-        let save_runtime = SaveRuntime::new(self.save_providers.clone());
+        let save_runtime = SaveRuntime::new(self.save_providers.clone(), self.pending_quit_to_title.clone());
         let game_instance = Rc::new(RefCell::new(game_instance));
         self.into_engine(game_instance, ctx, save_runtime, is_playtest)
     }

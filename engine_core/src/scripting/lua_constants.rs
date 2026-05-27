@@ -59,6 +59,7 @@ pub mod lua_engine {
     pub const SPAWN: &str = "spawn";
     pub const TOML: &str = "toml";
     pub const THEME: &str = "theme";
+    pub const QUIT_TO_TITLE: &str = "quit_to_title";
 }
 
 /// Entity Lua method names.
@@ -77,6 +78,12 @@ pub mod lua_entity {
     pub const MOVE_BY: &str = "move_by";
     pub const MOVE_TO_ROOM: &str = "move_to_room";
     pub const REMOVE_FROM_ROOM: &str = "remove_from_room";
+    pub const CURRENT_ROOM: &str = "current_room";
+}
+
+/// Lua event names passed to `engine.on` / `engine.emit`.
+pub mod lua_events {
+    pub const ROOM_ENTERED: &str = "room:entered";
 }
 
 /// Animation Lua method names.
@@ -142,6 +149,10 @@ pub mod lua_save {
     pub const CHECKPOINT: &str = "checkpoint";
     pub const LOAD_LATEST: &str = "load_latest";
     pub const REGISTER_PROVIDER: &str = "register_provider";
+    pub const QUIT_TO_TITLE: &str = "quit_to_title";
+    pub const TO_STRING: &str = "to_string";
+    pub const FROM_STRING: &str = "from_string";
+    pub const HAS_LATEST: &str = "has_latest";
     pub const PROVIDER_VERSION: &str = "version";
     pub const PROVIDER_CAPTURE: &str = "capture";
     pub const PROVIDER_APPLY: &str = "apply";

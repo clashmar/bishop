@@ -1,6 +1,9 @@
 // game/src/transitions/transition_manager.rs
 use crate::engine::game_instance::GameInstance;
 use engine_core::prelude::*;
+use engine_core::scripting::lua_constants::lua_events;
+use mlua::Value;
+use mlua::Variadic;
 use uuid::Uuid;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -89,12 +92,16 @@ impl TransitionManager {
             {
                 if current_room != target_id {
                     game_instance.game.ecs.set_current_room(entity, target_id);
-                }
-            }
 
-            if game_instance.game.ecs.get_player_entity() == Some(entity) {
-                if let Some(world) = game_instance.game.current_world_mut() {
-                    world.current_room_id = Some(target_id);
+                    if game_instance.game.ecs.get_player_entity() == Some(entity) {
+                        if let Some(world) = game_instance.game.current_world_mut() {
+                            world.current_room_id = Some(target_id);
+                        }
+                        game_instance.game.script_manager.event_bus.emit(
+                            lua_events::ROOM_ENTERED.to_string(),
+                            Variadic::from_iter([Value::Integer(target_id.0 as i64)]),
+                        );
+                    }
                 }
             }
         }

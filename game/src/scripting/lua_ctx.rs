@@ -6,7 +6,7 @@ use mlua::prelude::LuaResult;
 use mlua::Lua;
 use mlua::UserData;
 use mlua::UserDataRef;
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
 /// Lua global key for the bishop context.
@@ -62,6 +62,7 @@ pub const LUA_SAVE_CTX: &str = "LUA_SAVE_CTX";
 #[derive(Clone)]
 pub struct LuaSaveCtx {
     pub save_providers: Rc<RefCell<SaveProviderRegistry<'static>>>,
+    pub pending_quit_to_title: Rc<Cell<bool>>,
 }
 
 impl UserData for LuaSaveCtx {}
@@ -83,8 +84,13 @@ impl LuaSaveCtx {
 pub fn register_save_lua_context(
     lua: &Lua,
     save_providers: Rc<RefCell<SaveProviderRegistry<'static>>>,
+    pending_quit_to_title: Rc<Cell<bool>>,
 ) -> LuaResult<()> {
-    LuaSaveCtx { save_providers }.set_lua_ctx(lua)?;
+    LuaSaveCtx {
+        save_providers,
+        pending_quit_to_title,
+    }
+    .set_lua_ctx(lua)?;
     Ok(())
 }
 
@@ -106,7 +112,7 @@ pub fn register_lua_contexts(
     save_providers: Rc<RefCell<SaveProviderRegistry<'static>>>,
     ctx: PlatformContext,
 ) -> LuaResult<()> {
-    register_save_lua_context(lua, save_providers)?;
+    register_save_lua_context(lua, save_providers, Rc::new(Cell::new(false)))?;
     register_runtime_lua_contexts(lua, game_instance, ctx)?;
     Ok(())
 }

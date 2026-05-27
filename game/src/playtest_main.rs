@@ -39,20 +39,7 @@ impl BishopApp for PlaytestApp {
     async fn frame(&mut self, ctx: PlatformContext) {
         if let Some(engine) = &mut self.engine {
             engine.frame(ctx.clone()).await;
-
-            if let Some(load_request) = engine.save_runtime.take_pending_runtime_load_request() {
-                let playtest_for_fallback = || {
-                    StartupRequest::playtest(self.payload_path.clone())
-                };
-                let current = self
-                    .current_startup_request
-                    .clone()
-                    .unwrap_or_else(playtest_for_fallback);
-                let next_request = current.for_runtime_load(load_request);
-                self.current_startup_request = Some(next_request.clone());
-                self.engine = None;
-                self.startup = Some(StartupController::from_request(next_request));
-            }
+            self.maybe_rebootstrap();
             return;
         }
 
@@ -62,6 +49,32 @@ impl BishopApp for PlaytestApp {
                 self.startup = None;
             }
         }
+    }
+}
+
+impl PlaytestApp {
+    fn maybe_rebootstrap(&mut self) {
+        let engine = match &mut self.engine {
+            Some(e) => e,
+            None => return,
+        };
+
+        let next_request = if engine.save_runtime.pending_quit_to_title.get() {
+            engine.save_runtime.pending_quit_to_title.set(false);
+            StartupRequest::playtest(self.payload_path.clone())
+        } else if let Some(lr) = engine.save_runtime.take_pending_runtime_load_request()
+        {
+            self.current_startup_request
+                .clone()
+                .unwrap_or_else(|| StartupRequest::playtest(self.payload_path.clone()))
+                .for_runtime_load(lr)
+        } else {
+            return;
+        };
+
+        self.current_startup_request = Some(next_request.clone());
+        self.engine = None;
+        self.startup = Some(StartupController::from_request(next_request));
     }
 }
 

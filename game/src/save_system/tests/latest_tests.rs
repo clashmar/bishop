@@ -13,6 +13,7 @@ fn latest_manifest_round_trips_through_disk() {
     let manifest = LatestRuntimeSaveManifest {
         lane: SaveLane::Autosave,
         slot: SaveSlotKey::Default,
+        game_name: "test".to_string(),
         saved_at_unix_ms: 456,
     };
 

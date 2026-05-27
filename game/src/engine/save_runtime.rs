@@ -6,7 +6,7 @@ use crate::save_system::{
 #[cfg(test)]
 use crate::save_system::{SaveProvider, SaveProviderId};
 use super::game_instance::GameInstance;
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::io;
 use std::rc::Rc;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -22,13 +22,15 @@ pub enum RuntimeLoadRequest {
 pub struct SaveRuntime {
     providers: Rc<RefCell<SaveProviderRegistry<'static>>>,
     pending_runtime_load_request: Option<RuntimeLoadRequest>,
+    pub pending_quit_to_title: Rc<Cell<bool>>,
 }
 
 impl SaveRuntime {
-    pub fn new(providers: Rc<RefCell<SaveProviderRegistry<'static>>>) -> Self {
+    pub fn new(providers: Rc<RefCell<SaveProviderRegistry<'static>>>, pending_quit_to_title: Rc<Cell<bool>>) -> Self {
         Self {
             providers,
             pending_runtime_load_request: None,
+            pending_quit_to_title,
         }
     }
 
@@ -55,6 +57,7 @@ impl SaveRuntime {
         LatestRuntimeSaveManifest {
             lane,
             slot: metadata.slot.clone(),
+            game_name: metadata.game_name.clone(),
             saved_at_unix_ms: metadata.saved_at_unix_ms,
         }
         .write_to_path(&runtime_latest_save_manifest_path())?;
@@ -74,6 +77,16 @@ impl SaveRuntime {
     /// Takes the pending load request, clearing it, and returns it.
     pub fn take_pending_runtime_load_request(&mut self) -> Option<RuntimeLoadRequest> {
         self.pending_runtime_load_request.take()
+    }
+
+    /// Shared reference to the provider registry.
+    pub fn providers(&self) -> &Rc<RefCell<SaveProviderRegistry<'static>>> {
+        &self.providers
+    }
+
+    /// Returns true if a latest-save manifest exists on disk.
+    pub fn has_latest_save() -> bool {
+        runtime_latest_save_manifest_path().exists()
     }
 
     /// Reads the latest saved document from disk based on the latest manifest.
@@ -159,7 +172,7 @@ mod tests {
             prev_positions: HashMap::new(),
         }));
 
-        (folder, game_instance, SaveRuntime::new(save_providers))
+        (folder, game_instance, SaveRuntime::new(save_providers, Rc::new(Cell::new(false))))
     }
 
     #[test]
@@ -236,6 +249,7 @@ mod tests {
         let manifest = LatestRuntimeSaveManifest {
             lane: SaveLane::Autosave,
             slot: SaveSlotKey::Default,
+            game_name: folder.name().to_string(),
             saved_at_unix_ms: 42,
         };
         manifest
@@ -244,9 +258,88 @@ mod tests {
 
         // The save file does not exist, so load_latest_document should error.
         let save_providers = Rc::new(RefCell::new(SaveProviderRegistry::new()));
-        let save_runtime = SaveRuntime::new(save_providers);
+        let save_runtime = SaveRuntime::new(save_providers, Rc::new(Cell::new(false)));
         let result = save_runtime.load_latest_document();
 
         assert!(result.is_err(), "expected error for manifest with missing target");
+    }
+
+    #[test]
+    fn save_triggered_from_command_queue_writes_document_and_manifest() {
+        use crate::scripting::lua_ctx::register_save_lua_context;
+        use crate::scripting::modules::save_module::SaveModule;
+        use engine_core::prelude::World;
+        use engine_core::scripting::LuaModule;
+        use engine_core::scripting::lua_constants::{lua_engine, lua_fields, lua_save};
+        use mlua::Lua;
+
+        let _lock = game_fs_test_lock().lock().unwrap();
+        let folder = TestGameFolder::new("save_runtime_cmd_queue");
+        set_game_name(folder.name());
+
+        // Set up Lua with save context and module
+        let lua = Lua::new();
+        lua.globals()
+            .set(lua_engine::ENGINE, lua.create_table().unwrap())
+            .unwrap();
+
+        let save_providers = Rc::new(RefCell::new(SaveProviderRegistry::new()));
+        register_save_lua_context(&lua, save_providers.clone(), Rc::new(Cell::new(false))).unwrap();
+        SaveModule.register(&lua).unwrap();
+
+        // Register a trivial Lua save provider so capture succeeds
+        lua.load(format!(
+            r#"engine.{}.{}{{["{}"]="game.test",["{}"]=1,["{}"]=function() return "{{"..[["room"]]..":2}}" end,["{}"]=function(_) end}}"#,
+            lua_save::SAVE, lua_save::REGISTER_PROVIDER,
+            lua_fields::ID, lua_save::PROVIDER_VERSION,
+            lua_save::PROVIDER_CAPTURE, lua_save::PROVIDER_APPLY,
+        )).exec().unwrap();
+
+        let mut game = Game::with_name(folder.name());
+        game.add_world(World::default());
+        let game_instance = Rc::new(RefCell::new(GameInstance {
+            game,
+            prev_positions: HashMap::new(),
+        }));
+
+        let mut save_runtime = SaveRuntime::new(save_providers, Rc::new(Cell::new(false)));
+        save_runtime
+            .save_to_lane(&game_instance, SaveLane::Manual)
+            .unwrap();
+
+        let save_path = runtime_save_file(&SaveSlotKey::Default, SaveLane::Manual);
+        let manifest_path = runtime_latest_save_manifest_path();
+        assert!(save_path.exists(), "save file should exist at {:?}", save_path);
+        assert!(manifest_path.exists(), "manifest should exist at {:?}", manifest_path);
+    }
+
+    #[test]
+    fn quit_to_title_flag_is_shared_between_lua_and_save_runtime() {
+        use crate::scripting::lua_ctx::{LuaSaveCtx, register_save_lua_context};
+        use engine_core::scripting::lua_constants::lua_engine;
+        use mlua::Lua;
+
+        let lua = Lua::new();
+        lua.globals()
+            .set(lua_engine::ENGINE, lua.create_table().unwrap())
+            .unwrap();
+
+        let flag = Rc::new(Cell::new(false));
+        let save_providers = Rc::new(RefCell::new(SaveProviderRegistry::new()));
+        register_save_lua_context(&lua, save_providers.clone(), flag.clone()).unwrap();
+
+        let save_runtime = SaveRuntime::new(save_providers, flag.clone());
+
+        assert!(!save_runtime.pending_quit_to_title.get());
+
+        // Simulate Lua calling engine.quit_to_title()
+        LuaSaveCtx::borrow_ctx(&lua)
+            .unwrap()
+            .pending_quit_to_title
+            .set(true);
+
+        // Both should see the change
+        assert!(save_runtime.pending_quit_to_title.get());
+        assert!(flag.get());
     }
 }

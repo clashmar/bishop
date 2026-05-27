@@ -38,17 +38,7 @@ impl BishopApp for GameApp {
     async fn frame(&mut self, ctx: PlatformContext) {
         if let Some(engine) = &mut self.engine {
             engine.frame(ctx.clone()).await;
-
-            if let Some(load_request) = engine.save_runtime.take_pending_runtime_load_request() {
-                let current = self
-                    .current_startup_request
-                    .clone()
-                    .unwrap_or_else(StartupRequest::game);
-                let next_request = current.for_runtime_load(load_request);
-                self.current_startup_request = Some(next_request.clone());
-                self.engine = None;
-                self.startup = Some(StartupController::from_request(next_request));
-            }
+            self.maybe_rebootstrap();
             return;
         }
 
@@ -58,6 +48,32 @@ impl BishopApp for GameApp {
                 self.startup = None;
             }
         }
+    }
+}
+
+impl GameApp {
+    fn maybe_rebootstrap(&mut self) {
+        let engine = match &mut self.engine {
+            Some(e) => e,
+            None => return,
+        };
+
+        let next_request = if engine.save_runtime.pending_quit_to_title.get() {
+            engine.save_runtime.pending_quit_to_title.set(false);
+            StartupRequest::game()
+        } else if let Some(load_request) = engine.save_runtime.take_pending_runtime_load_request()
+        {
+            self.current_startup_request
+                .clone()
+                .unwrap_or_else(StartupRequest::game)
+                .for_runtime_load(load_request)
+        } else {
+            return;
+        };
+
+        self.current_startup_request = Some(next_request.clone());
+        self.engine = None;
+        self.startup = Some(StartupController::from_request(next_request));
     }
 }
 

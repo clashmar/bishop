@@ -132,6 +132,7 @@ impl StartupController {
             .loaded
             .as_ref()
             .is_some_and(LoadedStartupData::skips_startup_presentation)
+            || self.intent == StartupIntent::LoadLatest
         {
             let loaded = self.loaded.take()?;
             let request = StartupRequest {
@@ -396,7 +397,7 @@ fn try_build_engine(
             });
             set_game_name(game_name);
 
-            let save_runtime = SaveRuntime::new(builder.save_providers.clone());
+            let save_runtime = SaveRuntime::new(builder.save_providers.clone(), builder.pending_quit_to_title.clone());
 
             let document = save_runtime
                 .load_latest_document()
@@ -426,19 +427,30 @@ fn try_build_engine(
 
             ScriptSystem::init(&builder.lua, &game_instance.game.script_manager.event_bus);
 
+            let entry_mode =
+                entry_mode_for_intent(&StartupIntent::LoadLatest, EngineEntryMode::Playing);
+            let game_instance = Rc::new(RefCell::new(game_instance));
+            let mut engine = builder
+                .entry_mode(entry_mode)
+                .into_engine(game_instance, ctx.clone(), save_runtime, is_playtest);
+
+            {
+                let mut game_ref = engine.game_instance.borrow_mut();
+                let game_ctx = game_ref.game.ctx_mut();
+                ScriptSystem::load_scripts(&engine.lua, game_ctx.ecs, game_ctx.script_manager)
+                    .map_err(|e| format!("Failed to prime scripts for runtime restore: {e}"))?;
+            }
+
             apply_document_phase(
-                &mut builder.save_providers.borrow_mut(),
+                &mut engine.save_runtime.providers().borrow_mut(),
                 &document,
                 RestorePhase::PostRuntime,
             )
             .map_err(|e| format!("Failed to apply PostRuntime restore: {e}"))?;
 
-            let entry_mode =
-                entry_mode_for_intent(&StartupIntent::LoadLatest, EngineEntryMode::Playing);
-            let game_instance = Rc::new(RefCell::new(game_instance));
-            Ok(builder
-                .entry_mode(entry_mode)
-                .into_engine(game_instance, ctx, save_runtime, is_playtest))
+            ScriptSystem::process_commands(&mut engine);
+            engine.rebuild_camera_from_loaded_state();
+            Ok(engine)
         }
     }
 }

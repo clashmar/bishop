@@ -133,6 +133,7 @@ impl BishopApp for Engine {
 
         // Process ui events and emit to Lua
         self.game_instance.borrow().drain_ui_events();
+        ScriptSystem::process_commands(self);
     }
 }
 
@@ -168,6 +169,28 @@ impl Engine {
             accumulator: 0.0,
             smoothed_dt: None,
             audio_manager: AudioManager::new::<PlatformAudioBackend>(),
+        }
+    }
+
+    /// Rebuilds the active camera from the current player position after a save is loaded.
+    pub fn rebuild_camera_from_loaded_state(&mut self) {
+        let mut ctx_ref = self.ctx.borrow_mut();
+        let game_ref = self.game_instance.borrow();
+        let ecs = &game_ref.game.ecs;
+        let world = game_ref.game.current_world();
+        let player_pos = ecs
+            .get_player_transform()
+            .map(|transform| transform.position)
+            .unwrap_or_default();
+
+        if let Some(current_room) = world.current_room() {
+            self.camera_manager = CameraManager::new(
+                &mut *ctx_ref,
+                ecs,
+                current_room.id,
+                player_pos,
+                world.grid_size,
+            );
         }
     }
 

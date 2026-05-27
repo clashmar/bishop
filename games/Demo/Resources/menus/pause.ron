@@ -1,5 +1,5 @@
 (
-    id: "title",
+    id: "pause",
     background: SolidColor((
         r: 0.050980393,
         g: 0.05882353,
@@ -29,17 +29,23 @@
                 children: [
                     /*[0]*/ (
                         element: (
-                            name: "Title",
-                            kind: Label((
-                                text_key: "DemoTitle",
-                                font_size: 24.0,
-                                alignment: Center,
+                            name: "Resume",
+                            kind: Button((
+                                text_key: "Resume",
+                                action: CloseMenu,
+                                font_size: 20.0,
+                                nav_targets: (
+                                    up: None,
+                                    down: None,
+                                    left: None,
+                                    right: None,
+                                ),
                             )),
                             rect: (
-                                x: 0.11101067,
-                                y: 0.05969298,
+                                x: 0.14700973,
+                                y: 0.0810237,
                                 w: 0.1,
-                                h: 0.03,
+                                h: 0.037,
                             ),
                             enabled: true,
                             visible: true,
@@ -51,10 +57,10 @@
                     ),
                     /*[1]*/ (
                         element: (
-                            name: "NewGame",
+                            name: "SaveGame",
                             kind: Button((
-                                text_key: "NewGame",
-                                action: CloseMenu,
+                                text_key: "SaveGame",
+                                action: Custom("manual_save"),
                                 font_size: 20.0,
                                 nav_targets: (
                                     up: None,
@@ -79,34 +85,6 @@
                     ),
                     /*[2]*/ (
                         element: (
-                            name: "LoadGame",
-                            kind: Button((
-                                text_key: "LoadGame",
-                                action: Custom("load_latest"),
-                                font_size: 20.0,
-                                nav_targets: (
-                                    up: None,
-                                    down: None,
-                                    left: None,
-                                    right: None,
-                                ),
-                            )),
-                            rect: (
-                                x: 0.14700973,
-                                y: 0.1810237,
-                                w: 0.1,
-                                h: 0.037,
-                            ),
-                            enabled: true,
-                            visible: true,
-                            z_order: 0,
-                            class: None,
-                            style_id: None,
-                        ),
-                        managed: true,
-                    ),
-                    /*[3]*/ (
-                        element: (
                             name: "",
                             kind: Button((
                                 text_key: "Settings",
@@ -121,7 +99,35 @@
                             )),
                             rect: (
                                 x: 0.14793742,
-                                y: 0.23101828,
+                                y: 0.1810237,
+                                w: 0.1,
+                                h: 0.037,
+                            ),
+                            enabled: true,
+                            visible: true,
+                            z_order: 0,
+                            class: None,
+                            style_id: None,
+                        ),
+                        managed: true,
+                    ),
+                    /*[3]*/ (
+                        element: (
+                            name: "QuitTitle",
+                            kind: Button((
+                                text_key: "QuitTitle",
+                                action: Custom("quit_title"),
+                                font_size: 20.0,
+                                nav_targets: (
+                                    up: None,
+                                    down: None,
+                                    left: None,
+                                    right: None,
+                                ),
+                            )),
+                            rect: (
+                                x: 0.0,
+                                y: 0.0,
                                 w: 0.1,
                                 h: 0.037,
                             ),
@@ -154,5 +160,5 @@
             style_id: None,
         ),
     ],
-    mode: FrontEnd,
+    mode: Paused,
 )

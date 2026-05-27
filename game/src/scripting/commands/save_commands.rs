@@ -1,4 +1,5 @@
 use crate::engine::Engine;
+use crate::engine::SaveRuntime;
 use crate::save_system::SaveLane;
 use crate::scripting::commands::lua_command::LuaCommand;
 
@@ -21,6 +22,8 @@ pub struct LoadLatestSaveCmd;
 
 impl LuaCommand for LoadLatestSaveCmd {
     fn execute(&mut self, engine: &mut Engine) {
-        engine.save_runtime.request_latest_runtime_load();
+        if SaveRuntime::has_latest_save() {
+            engine.save_runtime.request_latest_runtime_load();
+        }
     }
 }

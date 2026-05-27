@@ -1,0 +1,7 @@
+DemoTitle = "DEMO GAME"
+NewGame = "New Game"
+LoadGame = "Load"
+Resume = "Resume"
+SaveGame = "Save"
+Settings = "Settings"
+label = "Label"

@@ -21,6 +21,13 @@ fn move_entity_to_room(game: &mut Game, entity: Entity, room_id: RoomId) -> bool
     }
 
     game.ecs.set_current_room(entity, room_id);
+
+    if game.ecs.get_player_entity() == Some(entity) {
+        if let Some(world) = game.current_world_mut() {
+            world.current_room_id = Some(room_id);
+        }
+    }
+
     true
 }
 
@@ -36,7 +43,7 @@ impl LuaCommand for MoveToRoomCmd {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use engine_core::prelude::{CurrentRoom, Room, World};
+    use engine_core::prelude::{CurrentRoom, Player, Room, World};
 
     fn game_with_room(room_id: RoomId) -> Game {
         let mut game = Game::default();
@@ -59,5 +66,37 @@ mod tests {
 
         assert!(!changed);
         assert!(game.ecs.get::<CurrentRoom>(entity).is_none());
+    }
+
+    #[test]
+    fn move_to_room_command_updates_active_world_for_player() {
+        let mut game = Game::default();
+        let mut world = World::default();
+        world.add_room(Room {
+            id: RoomId(1),
+            ..Default::default()
+        });
+        world.add_room(Room {
+            id: RoomId(2),
+            ..Default::default()
+        });
+        world.current_room_id = Some(RoomId(1));
+        game.add_world(world);
+
+        let player = game
+            .ecs
+            .create_entity()
+            .with(Player::default())
+            .with_current_room(RoomId(1))
+            .finish();
+
+        let changed = move_entity_to_room(&mut game, player, RoomId(2));
+
+        assert!(changed);
+        assert_eq!(game.current_world().current_room_id, Some(RoomId(2)));
+        assert_eq!(
+            game.ecs.get::<CurrentRoom>(player).map(|room| room.0),
+            Some(RoomId(2))
+        );
     }
 }

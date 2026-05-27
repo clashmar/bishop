@@ -54,6 +54,7 @@ entity_handle_methods! {
     MoveBy => MoveByMethod,
     MoveToRoom => MoveToRoomMethod,
     RemoveFromRoom => RemoveFromRoomMethod,
+    CurrentRoom => CurrentRoomMethod,
     GetCurrentFrame => GetCurrentFrameMethod,
     IsClipFinished => IsClipFinishedMethod,
     Say => SayMethod,

@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 pub struct LatestRuntimeSaveManifest {
     pub lane: SaveLane,
     pub slot: SaveSlotKey,
+    pub game_name: String,
     pub saved_at_unix_ms: u64,
 }
 

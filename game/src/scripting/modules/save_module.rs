@@ -10,6 +10,7 @@ use mlua::prelude::LuaResult;
 use mlua::Function;
 use mlua::Lua;
 use mlua::Table;
+use serde_json;
 
 /// Registers a save provider from a Lua table definition.
 ///
@@ -81,6 +82,30 @@ impl LuaModule for SaveModule {
             lua_save::REGISTER_PROVIDER,
             lua.create_function(register_provider)?,
         )?;
+        save_tbl.set(
+            lua_save::TO_STRING,
+            lua.create_function(|_lua, value: mlua::Value| {
+                let json = serde_json::to_string(&value).map_err(|e| {
+                    mlua::Error::RuntimeError(format!("Failed to serialize: {e}"))
+                })?;
+                Ok(json)
+            })?,
+        )?;
+        save_tbl.set(
+            lua_save::FROM_STRING,
+            lua.create_function(|lua, json: String| {
+                let serde_val: serde_json::Value = serde_json::from_str(&json).map_err(|e| {
+                    mlua::Error::RuntimeError(format!("Failed to deserialize: {e}"))
+                })?;
+                json_to_lua(lua, &serde_val)
+            })?,
+        )?;
+        save_tbl.set(
+            lua_save::HAS_LATEST,
+            lua.create_function(|_, ()| {
+                Ok(crate::engine::SaveRuntime::has_latest_save())
+            })?,
+        )?;
 
         engine_tbl.set(lua_save::SAVE, save_tbl)?;
         Ok(())
@@ -114,5 +139,54 @@ impl LuaApi for SaveModule {
             lua_save::SAVE, lua_save::REGISTER_PROVIDER
         ));
         out.line("");
+        out.line("--- Serialize a Lua value to a string.");
+        out.line(&format!(
+            "function engine.{}.{}(value) end",
+            lua_save::SAVE, lua_save::TO_STRING
+        ));
+        out.line("");
+        out.line("--- Deserialize a string to a Lua value.");
+        out.line(&format!(
+            "function engine.{}.{}(json) end",
+            lua_save::SAVE, lua_save::FROM_STRING
+        ));
+        out.line("");
+        out.line("--- Returns true if a latest save exists on disk.");
+        out.line(&format!(
+            "function engine.{}.{}() end",
+            lua_save::SAVE, lua_save::HAS_LATEST
+        ));
+        out.line("");
+    }
+}
+
+fn json_to_lua(lua: &Lua, value: &serde_json::Value) -> mlua::Result<mlua::Value> {
+    match value {
+        serde_json::Value::Null => Ok(mlua::Value::Nil),
+        serde_json::Value::Bool(b) => Ok(mlua::Value::Boolean(*b)),
+        serde_json::Value::Number(n) => {
+            if let Some(i) = n.as_i64() {
+                Ok(mlua::Value::Integer(i))
+            } else if let Some(f) = n.as_f64() {
+                Ok(mlua::Value::Number(f))
+            } else {
+                Ok(mlua::Value::Nil)
+            }
+        }
+        serde_json::Value::String(s) => Ok(mlua::Value::String(lua.create_string(s)?)),
+        serde_json::Value::Array(arr) => {
+            let table = lua.create_table()?;
+            for (i, v) in arr.iter().enumerate() {
+                table.set(i as i64 + 1, json_to_lua(lua, v)?)?;
+            }
+            Ok(mlua::Value::Table(table))
+        }
+        serde_json::Value::Object(obj) => {
+            let table = lua.create_table()?;
+            for (k, v) in obj {
+                table.set(k.as_str(), json_to_lua(lua, v)?)?;
+            }
+            Ok(mlua::Value::Table(table))
+        }
     }
 }

@@ -1044,6 +1044,7 @@ dependencies = [
  "rfd",
  "ron",
  "serde",
+ "serde_json",
  "strum",
  "strum_macros",
  "uuid",
