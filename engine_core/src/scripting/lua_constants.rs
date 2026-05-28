@@ -149,7 +149,6 @@ pub mod lua_save {
     pub const CHECKPOINT: &str = "checkpoint";
     pub const LOAD_LATEST: &str = "load_latest";
     pub const REGISTER_PROVIDER: &str = "register_provider";
-    pub const QUIT_TO_TITLE: &str = "quit_to_title";
     pub const TO_STRING: &str = "to_string";
     pub const FROM_STRING: &str = "from_string";
     pub const HAS_LATEST: &str = "has_latest";

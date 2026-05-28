@@ -31,6 +31,8 @@ pub struct MenuManager {
     slider_repeat: SliderRepeatState,
     /// Tracks the last focusable element the mouse was over, for hover detection.
     last_hovered_focus: Option<MenuFocus>,
+    /// Terminal session action requested by a built-in quit button.
+    pending_session_action: Option<MenuSessionAction>,
 }
 
 impl Default for MenuManager {
@@ -75,6 +77,15 @@ impl MenuMode {
     }
 }
 
+/// Terminal session actions requested by built-in menu buttons.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MenuSessionAction {
+    /// Quit to the title or start menu.
+    QuitToMainMenu,
+    /// Close the current application session entirely.
+    QuitGame,
+}
+
 impl MenuManager {
     /// Creates a new menu manager with default settings.
     pub fn new() -> Self {
@@ -89,6 +100,7 @@ impl MenuManager {
             slider_values: HashMap::new(),
             slider_repeat: SliderRepeatState::default(),
             last_hovered_focus: None,
+            pending_session_action: None,
         };
         for template in default_menus() {
             manager.register_template(template);
@@ -378,9 +390,11 @@ impl MenuManager {
             MenuAction::CloseMenu => self.close_menu(),
             MenuAction::OpenMenu(menu_id) => self.open_menu(&menu_id),
             MenuAction::QuitToMainMenu => {
+                self.pending_session_action = Some(MenuSessionAction::QuitToMainMenu);
                 self.close_all();
             }
             MenuAction::QuitGame => {
+                self.pending_session_action = Some(MenuSessionAction::QuitGame);
                 self.close_all();
             }
             MenuAction::Custom(action_name) => {
@@ -392,6 +406,11 @@ impl MenuManager {
     /// Closes any active menu and resumes the game.
     pub fn close(&mut self) {
         self.close_all();
+    }
+
+    /// Returns the pending terminal session action, if any, clearing it.
+    pub fn drain_pending_session_action(&mut self) -> Option<MenuSessionAction> {
+        self.pending_session_action.take()
     }
 
     /// Loads all .ron menu templates from the menus folder and registers them.
@@ -572,5 +591,31 @@ mod tests {
         // Hovering again should shift focus (proving it was reset)
         manager.handle_mouse_hover(&template, Vec2::new(0.5, 0.5));
         assert_eq!(manager.focus.node, 0);
+    }
+
+    #[test]
+    fn drain_pending_session_action_returns_quit_to_main_menu_after_quit_to_main_menu() {
+        let mut mgr = MenuManager::new();
+        assert_eq!(mgr.drain_pending_session_action(), None);
+
+        mgr.handle_action(MenuAction::QuitToMainMenu);
+        assert_eq!(
+            mgr.drain_pending_session_action(),
+            Some(MenuSessionAction::QuitToMainMenu)
+        );
+        assert_eq!(mgr.drain_pending_session_action(), None);
+    }
+
+    #[test]
+    fn drain_pending_session_action_returns_quit_game_after_quit_game() {
+        let mut mgr = MenuManager::new();
+
+        mgr.handle_action(MenuAction::QuitGame);
+
+        assert_eq!(
+            mgr.drain_pending_session_action(),
+            Some(MenuSessionAction::QuitGame)
+        );
+        assert_eq!(mgr.drain_pending_session_action(), None);
     }
 }

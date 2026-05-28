@@ -57,10 +57,6 @@ function save_manager.bind_menu_actions()
         engine.log.info("Game saved")
         engine.menu.close()
     end)
-
-    engine.on("menu:quit_title", function()
-        engine.quit_to_title()
-    end)
 end
 
 function save_manager.update()

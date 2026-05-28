@@ -3,7 +3,7 @@ use bishop::prelude::*;
 use bishop::BishopApp;
 use engine_core::prelude::*;
 use game_lib::engine::Engine;
-use game_lib::startup::{runtime_icon_for_current_exe, StartupController, StartupRequest};
+use game_lib::startup::{runtime_icon_for_current_exe, StartupController, StartupIntent, StartupRequest};
 use std::any::Any;
 use std::env;
 use std::panic::{catch_unwind, AssertUnwindSafe};
@@ -60,7 +60,10 @@ impl GameApp {
 
         let next_request = if engine.save_runtime.pending_quit_to_title.get() {
             engine.save_runtime.pending_quit_to_title.set(false);
-            StartupRequest::game()
+            StartupRequest {
+                intent: StartupIntent::QuitToTitle,
+                ..StartupRequest::game()
+            }
         } else if let Some(load_request) = engine.save_runtime.take_pending_runtime_load_request()
         {
             self.current_startup_request

@@ -16,6 +16,7 @@ pub struct EngineBuilder {
     pub camera_manager: CameraManager,
     pub save_providers: Rc<RefCell<SaveProviderRegistry<'static>>>,
     pub pending_quit_to_title: Rc<Cell<bool>>,
+    quit_to_title_enabled: bool,
     entry_mode: EngineEntryMode,
 }
 
@@ -33,6 +34,7 @@ impl EngineBuilder {
             camera_manager: CameraManager::default(),
             save_providers: Rc::new(RefCell::new(SaveProviderRegistry::new())),
             pending_quit_to_title: Rc::new(Cell::new(false)),
+            quit_to_title_enabled: true,
             entry_mode: EngineEntryMode::Playing,
         }
     }
@@ -40,6 +42,11 @@ impl EngineBuilder {
     /// Sets the entry mode for the loaded session.
     pub fn entry_mode(mut self, entry_mode: EngineEntryMode) -> Self {
         self.entry_mode = entry_mode;
+        self
+    }
+
+    pub(crate) fn quit_to_title_enabled(mut self, enabled: bool) -> Self {
+        self.quit_to_title_enabled = enabled;
         self
     }
 
@@ -74,6 +81,7 @@ impl EngineBuilder {
             self.camera_manager,
             grid_size,
             is_playtest,
+            self.quit_to_title_enabled,
             self.entry_mode,
         )
     }

@@ -133,6 +133,7 @@ impl StartupController {
             .as_ref()
             .is_some_and(LoadedStartupData::skips_startup_presentation)
             || self.intent == StartupIntent::LoadLatest
+            || self.intent == StartupIntent::QuitToTitle
         {
             let loaded = self.loaded.take()?;
             let request = StartupRequest {
@@ -337,7 +338,7 @@ fn try_build_engine(
         .map_err(|e| format!("Failed to register save Lua context: {e}"))?;
 
     match request.intent {
-        StartupIntent::Raw => match loaded {
+        StartupIntent::Raw | StartupIntent::QuitToTitle => match loaded {
             LoadedStartupData::Game {
                 startup_asset,
                 game,
@@ -346,7 +347,9 @@ fn try_build_engine(
                 set_game_name(game.name.clone());
 
                 let entry_mode = resolve_entry_mode(&startup_asset, &game, StartupMode::Full);
-                builder = builder.entry_mode(entry_mode);
+                builder = builder
+                    .entry_mode(entry_mode)
+                    .quit_to_title_enabled(true);
                 let game_instance = {
                     let mut ctx_ref = ctx.borrow_mut();
                     GameInstance::from_loaded_game(
@@ -369,7 +372,9 @@ fn try_build_engine(
                 set_game_name(game.name.clone());
 
                 let entry_mode = resolve_entry_mode(&startup_asset, &game, startup_mode);
-                builder = builder.entry_mode(entry_mode);
+                builder = builder
+                    .entry_mode(entry_mode)
+                    .quit_to_title_enabled(startup_mode != StartupMode::Skip);
                 let game_instance = {
                     let mut ctx_ref = ctx.borrow_mut();
                     GameInstance::from_loaded_room(
@@ -397,6 +402,12 @@ fn try_build_engine(
             });
             set_game_name(game_name);
 
+            let quit_to_title_enabled = match &loaded {
+                LoadedStartupData::Game { .. } => true,
+                LoadedStartupData::Playtest { startup_mode, .. } => {
+                    *startup_mode != StartupMode::Skip
+                }
+            };
             let save_runtime = SaveRuntime::new(builder.save_providers.clone(), builder.pending_quit_to_title.clone());
 
             let document = save_runtime
@@ -432,6 +443,7 @@ fn try_build_engine(
             let game_instance = Rc::new(RefCell::new(game_instance));
             let mut engine = builder
                 .entry_mode(entry_mode)
+                .quit_to_title_enabled(quit_to_title_enabled)
                 .into_engine(game_instance, ctx.clone(), save_runtime, is_playtest);
 
             {

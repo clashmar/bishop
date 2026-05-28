@@ -19,7 +19,7 @@ use std::io::ErrorKind;
 use std::io::Write;
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::sync::Mutex;
 use std::time::SystemTime;
@@ -350,16 +350,11 @@ pub fn load_game_by_name(name: &str) -> io::Result<Game> {
 
 /// Return the name of the most recently modified game folder.
 pub fn most_recent_game_name() -> Option<String> {
-    let root = absolute_save_root();
     let mut best: Option<(String, SystemTime)> = None;
 
-    for entry in fs::read_dir(root).ok()? {
-        let entry = entry.ok()?;
-        if !entry.path().is_dir() {
-            continue;
-        }
-        let name = entry.file_name().to_string_lossy().into_owned();
-        if let Ok(mod_time) = entry.metadata().ok()?.modified() {
+    for path in list_game_folders().ok()? {
+        let name = path.file_name()?.to_string_lossy().into_owned();
+        if let Ok(mod_time) = fs::metadata(&path).ok()?.modified() {
             match best {
                 None => best = Some((name, mod_time)),
                 Some((_, t)) if mod_time > t => best = Some((name, mod_time)),
@@ -367,6 +362,7 @@ pub fn most_recent_game_name() -> Option<String> {
             }
         }
     }
+
     best.map(|(name, _)| name)
 }
 
@@ -503,6 +499,14 @@ pub fn write_to_app_dir(filename: &str, embedded: &[u8]) -> io::Result<PathBuf> 
     Ok(path)
 }
 
+fn is_game_folder(path: &Path) -> bool {
+    path.is_dir()
+        && path
+            .join(paths::RESOURCES_FOLDER)
+            .join(paths::GAME_RON)
+            .exists()
+}
+
 /// Find all game folders in `games/`.
 pub fn list_game_folders() -> io::Result<Vec<PathBuf>> {
     let root = match cfg!(debug_assertions) {
@@ -515,7 +519,7 @@ pub fn list_game_folders() -> io::Result<Vec<PathBuf>> {
     for entry in fs::read_dir(root)? {
         let entry = entry?;
         let path = entry.path();
-        if path.is_dir() && path.join(paths::GAME_RON).exists() {
+        if is_game_folder(&path) {
             folders.push(path);
         }
     }
@@ -544,12 +548,10 @@ pub fn most_recent_game_folder() -> Option<PathBuf> {
 
 /// Returns a Vec of all game names in the absolute save root.
 pub fn list_game_names() -> Vec<String> {
-    std::fs::read_dir(absolute_save_root())
+    list_game_folders()
         .into_iter()
         .flatten()
-        .filter_map(|e| e.ok())
-        .filter(|e| e.path().is_dir())
-        .filter_map(|e| e.file_name().into_string().ok())
+        .filter_map(|path| path.file_name().and_then(|name| name.to_str()).map(str::to_string))
         .collect()
 }
 

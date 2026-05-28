@@ -303,36 +303,3 @@ fn script_can_register_provider_and_invoke_manual_and_load_latest() {
     assert_eq!(drain_commands().count(), 2);
 }
 
-#[test]
-fn engine_quit_to_title_sets_flag_visible_to_save_runtime() {
-    use crate::scripting::lua_ctx::LuaSaveCtx;
-    use crate::scripting::modules::engine_module::EngineModule;
-    use engine_core::scripting::EventBus;
-    use engine_core::scripting::lua_constants::lua_engine;
-
-    let lua = mlua::Lua::new();
-    lua.globals()
-        .set(lua_engine::ENGINE, lua.create_table().unwrap())
-        .unwrap();
-
-    let flag = Rc::new(Cell::new(false));
-    let save_providers = Rc::new(RefCell::new(SaveProviderRegistry::new()));
-    register_save_lua_context(&lua, save_providers.clone(), flag.clone()).unwrap();
-
-    let event_bus = EventBus::default();
-    lua.globals()
-        .set(
-            engine_core::scripting::lua_constants::lua_globals::LUA_EVENT_BUS,
-            event_bus,
-        )
-        .unwrap();
-
-    EngineModule.register(&lua).unwrap();
-
-    // Call engine.quit_to_title() from Lua
-    lua.load("engine.quit_to_title()").exec().unwrap();
-
-    assert!(LuaSaveCtx::borrow_ctx(&lua).unwrap().pending_quit_to_title.get());
-    assert!(flag.get());
-}
-

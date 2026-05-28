@@ -1,6 +1,6 @@
 use super::RuntimeSaveTestContext;
 use engine_core::constants::extensions;
-use engine_core::storage::resources_folder;
+use engine_core::storage::{absolute_save_root, resources_folder, sanitise_name};
 
 use crate::save_system::{
     runtime_latest_save_manifest_path,
@@ -12,6 +12,7 @@ use crate::save_system::{
     RUNTIME_SAVE_SLOTS_FOLDER,
     DEFAULT_RUNTIME_SAVE_SLOT,
     LATEST_RUNTIME_SAVE_MANIFEST,
+    RUNTIME_SAVES_ROOT,
 };
 
 #[test]
@@ -21,6 +22,20 @@ fn runtime_save_root_lives_outside_resources_folder() {
     let resources = resources_folder(ctx.game_name());
 
     assert!(!root.starts_with(&resources));
+}
+
+#[test]
+fn runtime_save_root_moves_to_workspace_root_and_namespaces_by_game() {
+    let ctx = RuntimeSaveTestContext::new("runtime_save_workspace_root");
+
+    assert_eq!(
+        runtime_saves_root(),
+        absolute_save_root()
+            .parent()
+            .expect("debug game save root should be nested under the workspace root")
+            .join(RUNTIME_SAVES_ROOT)
+            .join(sanitise_name(ctx.game_name()))
+    );
 }
 
 #[test]

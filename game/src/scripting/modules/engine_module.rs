@@ -1,6 +1,5 @@
 // game/src/scripting/modules/engine_module.rs
 use crate::scripting::lua_ctx::LuaGameCtx;
-use crate::scripting::lua_ctx::LuaSaveCtx;
 use engine_core::prelude::*;
 use engine_core::register_lua_api;
 use engine_core::register_lua_module;
@@ -330,14 +329,6 @@ impl LuaModule for EngineModule {
             Ok(())
         })?;
         engine_tbl.set(lua_engine::EMIT, emit_fn)?;
-
-        // engine.quit_to_title()
-        let quit_fn = lua.create_function(|lua, ()| {
-            LuaSaveCtx::borrow_ctx(lua)?.pending_quit_to_title.set(true);
-            Ok(())
-        })?;
-        engine_tbl.set(lua_engine::QUIT_TO_TITLE, quit_fn)?;
-
         Ok(())
     }
 }
@@ -387,11 +378,6 @@ impl LuaApi for EngineModule {
         out.line("--- @param ... any Arguments that will be passed to each handler");
         out.line("--- @return nil");
         out.line("function engine.emit(event, ...) end");
-        out.line("");
-
-        // engine.quit_to_title
-        out.line("--- Quit to the title screen.");
-        out.line("function engine.quit_to_title() end");
         out.line("");
     }
 }
