@@ -136,11 +136,26 @@ impl ScriptSystem {
         Ok(())
     }
 
-    /// Process all Lua commands to the `Engine`.
+    /// Process all Lua commands and queued menu-open callbacks to completion.
     pub fn process_commands(engine: &mut Engine) {
-        // Drain the command queue and apply each command
-        for mut cmd in drain_commands() {
-            cmd.execute(engine);
+        loop {
+            let mut did_work = false;
+
+            for mut cmd in drain_commands() {
+                did_work = true;
+                cmd.execute(engine);
+            }
+
+            if let Some(callback_path) = engine.menu_manager.take_pending_on_open() {
+                did_work = true;
+                if let Err(e) = invoke_menu_callback(&engine.lua, &callback_path) {
+                    onscreen_error!("menu on_open callback failed: {e}");
+                }
+            }
+
+            if !did_work {
+                break;
+            }
         }
     }
 
@@ -245,6 +260,34 @@ impl ScriptSystem {
     }
 }
 
+fn invoke_menu_callback(lua: &Lua, callback_path: &str) -> LuaResult<()> {
+    let (module_name, path) = callback_path.split_once('.').ok_or_else(|| {
+        mlua::Error::RuntimeError(format!(
+            "menu on_open callback '{callback_path}' must be in 'module.function' form"
+        ))
+    })?;
+
+    let require: Function = lua.globals().get("require")?;
+    let mut value = require.call::<Value>(module_name)?;
+
+    for segment in path.split('.') {
+        let Value::Table(table) = value else {
+            return Err(mlua::Error::RuntimeError(format!(
+                "menu on_open callback '{callback_path}' path '{segment}' is not a table/function path"
+            )));
+        };
+        value = table.get::<Value>(segment)?;
+    }
+
+    let Value::Function(callback) = value else {
+        return Err(mlua::Error::RuntimeError(format!(
+            "menu on_open callback '{callback_path}' did not resolve to a function"
+        )));
+    };
+
+    callback.call(())
+}
+
 fn collect_prefab_subtree(ecs: &Ecs, root_entity: Entity, entities: &mut Vec<Entity>) {
     entities.push(root_entity);
     for child in get_children(ecs, root_entity) {
@@ -261,6 +304,28 @@ fn script_update_is_still_valid(ecs: &Ecs, entity: Entity, script_id: ScriptId) 
 mod tests {
     use super::*;
     use engine_core::scripting::lua_constants::lua_fields;
+
+    fn install_callback_module(lua: &Lua) {
+        lua.load(
+            r#"
+            callback_hits = 0
+            package.preload["save_manager"] = function()
+                return {
+                    on_title_menu_open = function()
+                        callback_hits = callback_hits + 1
+                    end,
+                    nested = {
+                        on_open = function()
+                            callback_hits = callback_hits + 1
+                        end,
+                    },
+                }
+            end
+            "#,
+        )
+        .exec()
+        .unwrap();
+    }
 
     #[test]
     fn script_update_eligibility_rejects_entities_without_the_same_script_component() {
@@ -279,6 +344,26 @@ mod tests {
 
         assert!(!script_update_is_still_valid(&ecs, entity, ScriptId(7)));
         assert!(script_update_is_still_valid(&ecs, entity, ScriptId(3)));
+    }
+
+    #[test]
+    fn invoke_menu_callback_calls_exported_function() {
+        let lua = Lua::new();
+        install_callback_module(&lua);
+
+        invoke_menu_callback(&lua, "save_manager.on_title_menu_open").unwrap();
+
+        assert_eq!(lua.globals().get::<i64>("callback_hits").unwrap(), 1);
+    }
+
+    #[test]
+    fn invoke_menu_callback_supports_nested_table_paths() {
+        let lua = Lua::new();
+        install_callback_module(&lua);
+
+        invoke_menu_callback(&lua, "save_manager.nested.on_open").unwrap();
+
+        assert_eq!(lua.globals().get::<i64>("callback_hits").unwrap(), 1);
     }
 
     #[test]

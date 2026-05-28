@@ -35,7 +35,7 @@ fn playtest_startup_preview_loads_authored_splash_screens_from_payload_game_name
             }],
             fallback_screen: StartupScreenSpec::default(),
         },
-        start_menu_id: "start".to_string(),
+        title_menu_id: "title".to_string(),
     };
     fs::write(
         resources_dir.join(paths::STARTUP_RON),
@@ -83,7 +83,7 @@ fn playtest_startup_preview_prefers_embedded_payload() {
             }],
             fallback_screen: StartupScreenSpec::default(),
         },
-        start_menu_id: "start".to_string(),
+        title_menu_id: "title".to_string(),
     };
 
     #[derive(serde::Serialize)]

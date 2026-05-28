@@ -1,3 +1,5 @@
+local menu = require("_engine.menus")
+
 local save_manager = {
     last_room_id = nil,
     autosave_transitions = {
@@ -38,6 +40,9 @@ function save_manager.register_provider()
                 return
             end
             local progress = engine.save.from_string(data)
+            if not progress then
+                return
+            end
             engine.game_manager.public.score = progress.score
             engine.game_manager.public.level = progress.level
             player.public.health = progress.health
@@ -45,6 +50,10 @@ function save_manager.register_provider()
             player.entity:teleport({ x = progress.x, y = progress.y })
         end,
     })
+end
+
+function save_manager.on_title_menu_open()
+    engine.menu.set_enabled(menu.Title, menu.Title.LoadGame, engine.save.has_latest())
 end
 
 function save_manager.bind_menu_actions()

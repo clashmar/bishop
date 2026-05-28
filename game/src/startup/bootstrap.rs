@@ -464,7 +464,7 @@ fn resolve_entry_mode(
         return EngineEntryMode::Playing;
     }
 
-    let menu_id = startup_asset.start_menu_id.trim();
+    let menu_id = startup_asset.title_menu_id.trim();
     if menu_id.is_empty() {
         return EngineEntryMode::Playing;
     }

@@ -1,5 +1,6 @@
 (
     id: "title",
+    on_open: "save_manager.on_title_menu_open",
     background: SolidColor((
         r: 0.050980393,
         g: 0.05882353,

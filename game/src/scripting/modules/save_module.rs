@@ -118,18 +118,23 @@ impl LuaApi for SaveModule {
         out.line(&format!("engine.{} = {{}}", lua_save::SAVE));
         out.line("");
         out.line("--- Save the current game state to the manual save lane.");
+        out.line("---@return nil");
         out.line(&format!("function engine.{}.{}() end", lua_save::SAVE, lua_save::MANUAL));
         out.line("");
         out.line("--- Save the current game state to the autosave lane.");
+        out.line("---@return nil");
         out.line(&format!("function engine.{}.{}() end", lua_save::SAVE, lua_save::AUTO));
         out.line("");
         out.line("--- Save a checkpoint (stored in the autosave lane).");
+        out.line("---@return nil");
         out.line(&format!("function engine.{}.{}() end", lua_save::SAVE, lua_save::CHECKPOINT));
         out.line("");
         out.line("--- Request loading the latest available runtime save.");
+        out.line("---@return nil");
         out.line(&format!("function engine.{}.{}() end", lua_save::SAVE, lua_save::LOAD_LATEST));
         out.line("");
         out.line("--- Register a save provider.");
+        out.line("---@return nil");
         out.line(&format!(
             "---@param def table A table with `{}`, `{}`, `{}`, and `{}` fields.",
             lua_fields::ID, lua_save::PROVIDER_VERSION, lua_save::PROVIDER_CAPTURE, lua_save::PROVIDER_APPLY
@@ -140,18 +145,21 @@ impl LuaApi for SaveModule {
         ));
         out.line("");
         out.line("--- Serialize a Lua value to a string.");
+        out.line("---@return string");
         out.line(&format!(
             "function engine.{}.{}(value) end",
             lua_save::SAVE, lua_save::TO_STRING
         ));
         out.line("");
         out.line("--- Deserialize a string to a Lua value.");
+        out.line("---@return table|nil");
         out.line(&format!(
             "function engine.{}.{}(json) end",
             lua_save::SAVE, lua_save::FROM_STRING
         ));
         out.line("");
         out.line("--- Returns true if a latest save exists on disk.");
+        out.line("---@return boolean");
         out.line(&format!(
             "function engine.{}.{}() end",
             lua_save::SAVE, lua_save::HAS_LATEST

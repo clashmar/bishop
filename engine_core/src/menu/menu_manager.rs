@@ -31,6 +31,8 @@ pub struct MenuManager {
     slider_repeat: SliderRepeatState,
     /// Tracks the last focusable element the mouse was over, for hover detection.
     last_hovered_focus: Option<MenuFocus>,
+    /// Pending on_open script name, set by open_menu, consumed by invoke_on_open.
+    pending_on_open: Option<String>,
 }
 
 impl Default for MenuManager {
@@ -89,6 +91,7 @@ impl MenuManager {
             slider_values: HashMap::new(),
             slider_repeat: SliderRepeatState::default(),
             last_hovered_focus: None,
+            pending_on_open: None,
         };
         for template in default_menus() {
             manager.register_template(template);
@@ -128,7 +131,45 @@ impl MenuManager {
             self.slider_repeat.reset();
             self.menu_stack.push(id.to_string());
             self.last_hovered_focus = None;
+            self.pending_on_open = match template.on_open.trim() {
+                "" => None,
+                callback => Some(callback.to_string()),
+            };
         }
+    }
+
+    /// Returns a reference to a registered template by id.
+    pub fn get_template(&self, id: &str) -> Option<&MenuTemplate> {
+        self.templates.get(id)
+    }
+
+    /// Sets the enabled state of a named element in a menu template.
+    /// Returns true if the element was found and updated.
+    pub fn set_element_enabled(&mut self, menu_id: &str, name: &str, enabled: bool) -> bool {
+        self.templates
+            .get_mut(menu_id)
+            .and_then(|template| find_named_element_mut(&mut template.elements, name))
+            .map(|element| {
+                element.enabled = enabled;
+            })
+            .is_some()
+    }
+
+    /// Sets the visible state of a named element in a menu template.
+    /// Returns true if the element was found and updated.
+    pub fn set_element_visible(&mut self, menu_id: &str, name: &str, visible: bool) -> bool {
+        self.templates
+            .get_mut(menu_id)
+            .and_then(|template| find_named_element_mut(&mut template.elements, name))
+            .map(|element| {
+                element.visible = visible;
+            })
+            .is_some()
+    }
+
+    /// Returns the next pending on_open callback path, if any.
+    pub fn take_pending_on_open(&mut self) -> Option<String> {
+        self.pending_on_open.take()
     }
 
     /// Closes the current menu and returns to previous menu if any.
@@ -427,150 +468,34 @@ impl MenuManager {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn gameplay_pause_policy_toggles_the_pause_menu_with_pause_key() {
-        let mut manager = MenuManager::new();
-        manager.set_input_policy(MenuInputPolicy::GameplayPause {
-            pause_menu_id: "pause".to_string(),
-        });
-
-        manager.apply_input_shortcuts(true, false);
-        assert_eq!(manager.active_menu_id(), Some("pause"));
-
-        manager.apply_input_shortcuts(true, false);
-        assert_eq!(manager.active_menu_id(), None);
+fn find_named_element_mut<'a>(elements: &'a mut [MenuElement], name: &str) -> Option<&'a mut MenuElement> {
+    for element in elements {
+        if element.name == name {
+            return Some(element);
+        }
+        if let MenuElementKind::LayoutGroup(group) = &mut element.kind
+            && let Some(found) = find_named_child_element_mut(&mut group.children, name)
+        {
+            return Some(found);
+        }
     }
-
-    #[test]
-    fn front_end_policy_ignores_pause_key_toggle() {
-        let mut manager = MenuManager::new();
-        manager.set_input_policy(MenuInputPolicy::FrontEnd);
-        manager.open_menu("pause");
-
-        manager.apply_input_shortcuts(true, false);
-
-        assert_eq!(manager.active_menu_id(), Some("pause"));
-    }
-
-    #[test]
-    fn front_end_policy_only_closes_submenus_on_cancel() {
-        let mut manager = MenuManager::new();
-        manager.set_input_policy(MenuInputPolicy::FrontEnd);
-        manager.open_menu("pause");
-        manager.open_menu("settings");
-
-        manager.apply_input_shortcuts(false, true);
-        assert_eq!(manager.active_menu_id(), Some("pause"));
-
-        manager.apply_input_shortcuts(false, true);
-        assert_eq!(manager.active_menu_id(), Some("pause"));
-    }
-
-    #[test]
-    fn front_end_mode_hides_game_even_with_non_opaque_background() {
-        let mut manager = MenuManager::new();
-        manager.register_template(MenuTemplate {
-            id: "start".to_string(),
-            background: MenuBackground::None,
-            elements: Vec::new(),
-            mode: MenuMode::FrontEnd,
-        });
-
-        manager.open_menu("start");
-
-        assert!(manager.is_hiding_game());
-    }
-
-    #[test]
-    fn hover_sets_focus_on_menu_button() {
-        let mut manager = MenuManager::new();
-        let template = MenuTemplate {
-            id: "test".to_string(),
-            background: MenuBackground::None,
-            elements: vec![
-                MenuElement::button(
-                    "btn0".to_string(),
-                    MenuAction::Resume,
-                    Rect::new(0.0, 0.0, 0.5, 1.0),
-                ),
-                MenuElement::button(
-                    "btn1".to_string(),
-                    MenuAction::CloseMenu,
-                    Rect::new(0.5, 0.0, 0.5, 1.0),
-                ),
-            ],
-            mode: MenuMode::Paused,
-        };
-        manager.register_template(template.clone());
-        manager.open_menu("test");
-
-        // Hover over second button (normalized coords for default viewport)
-        manager.handle_mouse_hover(&template, Vec2::new(0.75, 0.5));
-        assert_eq!(manager.focus.node, 1);
-    }
-
-    #[test]
-    fn hover_leaves_focus_stays_on_menu() {
-        let mut manager = MenuManager::new();
-        let template = MenuTemplate {
-            id: "test".to_string(),
-            background: MenuBackground::None,
-            elements: vec![
-                MenuElement::button(
-                    "btn0".to_string(),
-                    MenuAction::Resume,
-                    Rect::new(0.0, 0.0, 0.5, 1.0),
-                ),
-                MenuElement::button(
-                    "btn1".to_string(),
-                    MenuAction::CloseMenu,
-                    Rect::new(0.5, 0.0, 0.5, 1.0),
-                ),
-            ],
-            mode: MenuMode::Paused,
-        };
-        manager.register_template(template.clone());
-        manager.open_menu("test");
-
-        // Hover button 1
-        manager.handle_mouse_hover(&template, Vec2::new(0.75, 0.5));
-        assert_eq!(manager.focus.node, 1);
-
-        // Mouse leaves all elements
-        manager.handle_mouse_hover(&template, Vec2::new(-1.0, -1.0));
-        assert_eq!(manager.focus.node, 1); // Focus stays
-    }
-
-    #[test]
-    fn reopen_menu_resets_last_hovered() {
-        let mut manager = MenuManager::new();
-        let template = MenuTemplate {
-            id: "test".to_string(),
-            background: MenuBackground::None,
-            elements: vec![
-                MenuElement::button(
-                    "btn0".to_string(),
-                    MenuAction::Resume,
-                    Rect::new(0.0, 0.0, 1.0, 1.0),
-                ),
-            ],
-            mode: MenuMode::Paused,
-        };
-        manager.register_template(template.clone());
-
-        // Open, hover, close, re-open — hover state should be fresh
-        manager.open_menu("test");
-        manager.handle_mouse_hover(&template, Vec2::new(0.5, 0.5));
-        manager.close_menu();
-
-        manager.open_menu("test");
-        // After re-open, last_hovered_focus is None
-        // Hovering again should shift focus (proving it was reset)
-        manager.handle_mouse_hover(&template, Vec2::new(0.5, 0.5));
-        assert_eq!(manager.focus.node, 0);
-    }
+    None
 }
+
+fn find_named_child_element_mut<'a>(children: &'a mut [LayoutChild], name: &str) -> Option<&'a mut MenuElement> {
+    for child in children {
+        if child.element.name == name {
+            return Some(&mut child.element);
+        }
+        if let MenuElementKind::LayoutGroup(group) = &mut child.element.kind
+            && let Some(found) = find_named_child_element_mut(&mut group.children, name)
+        {
+            return Some(found);
+        }
+    }
+    None
+}
+
+#[cfg(test)]
+#[path = "tests/menu_manager_tests.rs"]
+mod tests;

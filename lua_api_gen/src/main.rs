@@ -1,5 +1,8 @@
 // lua_api_gen/src/main.rs
-use engine_core::scripting::lua_constants::lua_ownership;
+mod menus_lua;
+
+use engine_core::constants::paths;
+use engine_core::scripting::lua_constants::{lua_dirs, lua_files, lua_ownership};
 use engine_core::scripting::modules::lua_module::*;
 use game_lib as _;
 use std::collections::HashMap;
@@ -51,6 +54,8 @@ fn main() {
         write_generated_files(&out_dir, &per_file);
     }
 
+    write_menu_constants_files(&workspace_root);
+
     // Generate theme reference markdown
     write_theme_reference(&workspace_root);
 }
@@ -88,6 +93,27 @@ fn write_generated_files(out_dir: &Path, per_file: &HashMap<&'static str, String
     }
 }
 
+fn write_menu_constants_files(workspace_root: &Path) {
+    let menus_dir = workspace_root.join(paths::GAME_SAVE_ROOT).join("Demo").join(paths::RESOURCES_FOLDER).join(paths::MENUS_FOLDER);
+    let content = menus_lua::generate_menus_lua_from_dir(&menus_dir)
+        .unwrap_or_else(|err| panic!("{err}"));
+    let out_dirs = [
+        workspace_root.join("editor").join(paths::SCRIPTS_FOLDER).join(lua_dirs::ENGINE),
+        workspace_root
+            .join(paths::GAME_SAVE_ROOT)
+            .join("Demo")
+            .join(paths::RESOURCES_FOLDER)
+            .join(paths::SCRIPTS_FOLDER)
+            .join(lua_dirs::ENGINE),
+    ];
+
+    for out_dir in out_dirs {
+        let path = out_dir.join(lua_files::MENUS);
+        fs::write(&path, &content).unwrap();
+        println!("Written to: {}", path.display());
+    }
+}
+
 fn write_theme_reference(workspace_root: &Path) {
     use engine_core::scripting::lua_constants::lua_docs;
 
@@ -101,3 +127,7 @@ fn write_theme_reference(workspace_root: &Path) {
         path.display()
     );
 }
+
+#[cfg(test)]
+#[path = "tests/menus_lua_tests.rs"]
+mod menus_lua_tests;

@@ -224,6 +224,7 @@ fn save_module_api_emits_all_public_helpers() {
     let auto = format!("function engine.{}.{}() end", lua_save::SAVE, lua_save::AUTO);
     let checkpoint = format!("function engine.{}.{}() end", lua_save::SAVE, lua_save::CHECKPOINT);
     let load_latest = format!("function engine.{}.{}() end", lua_save::SAVE, lua_save::LOAD_LATEST);
+    let has_latest = format!("function engine.{}.{}() end", lua_save::SAVE, lua_save::HAS_LATEST);
     let register = format!("function engine.{}.{}(def) end", lua_save::SAVE, lua_save::REGISTER_PROVIDER);
 
     assert!(out.buf.contains(&engine_save), "missing: {}", engine_save);
@@ -231,6 +232,7 @@ fn save_module_api_emits_all_public_helpers() {
     assert!(out.buf.contains(&auto), "missing: {}", auto);
     assert!(out.buf.contains(&checkpoint), "missing: {}", checkpoint);
     assert!(out.buf.contains(&load_latest), "missing: {}", load_latest);
+    assert!(out.buf.contains(&has_latest), "missing: {}", has_latest);
     assert!(out.buf.contains(&register), "missing: {}", register);
 }
 

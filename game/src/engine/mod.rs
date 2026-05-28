@@ -131,7 +131,7 @@ impl BishopApp for Engine {
         }
         self.render(&ctx, alpha);
 
-        // Process ui events and emit to Lua
+        // Process ui events and any queued menu-open callbacks.
         self.game_instance.borrow().drain_ui_events();
         ScriptSystem::process_commands(self);
     }

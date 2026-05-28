@@ -19,5 +19,9 @@ mod entity_module_tests;
 mod save_module_tests;
 
 #[cfg(test)]
+#[path = "tests/menu_module_tests.rs"]
+mod menu_module_tests;
+
+#[cfg(test)]
 #[path = "tests/toml_asset_tests.rs"]
 mod toml_asset_tests;

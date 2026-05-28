@@ -1593,6 +1593,7 @@ dependencies = [
  "engine_core",
  "game",
  "inventory",
+ "ron",
 ]
 
 [[package]]

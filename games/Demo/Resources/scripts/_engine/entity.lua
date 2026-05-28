@@ -221,6 +221,10 @@ function Entity:move_to_room(room_id) end
 --- Removes this entity from its current room membership.
 function Entity:remove_from_room() end
 
+--- Returns the room this entity belongs to.
+---@return integer|nil
+function Entity:current_room() end
+
 --- Gets the current animation frame indices.
 ---@return {col: integer, row: integer}|nil
 function Entity:get_current_frame() end

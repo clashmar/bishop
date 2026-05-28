@@ -10,6 +10,7 @@ pub static ENGINE_SCRIPTS: &[(&str, &str)] = &[
     ("entity.lua", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/scripts/_engine/entity.lua"))),
     ("input.lua", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/scripts/_engine/input.lua"))),
     ("menu.lua", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/scripts/_engine/menu.lua"))),
+    ("menus.lua", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/scripts/_engine/menus.lua"))),
     ("save.lua", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/scripts/_engine/save.lua"))),
     ("script.lua", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/scripts/_engine/script.lua"))),
     ("text.lua", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/scripts/_engine/text.lua"))),
