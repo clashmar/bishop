@@ -4,7 +4,8 @@ use bishop::BishopApp;
 use engine_core::prelude::*;
 use game_lib::engine::Engine;
 use game_lib::startup::{
-    runtime_icon_for_playtest_payload, PlaytestLaunchArgs, StartupController, StartupRequest,
+    runtime_icon_for_playtest_payload, PlaytestLaunchArgs, StartupController, StartupIntent,
+    StartupRequest,
 };
 use std::env;
 
@@ -61,7 +62,10 @@ impl PlaytestApp {
 
         let next_request = if engine.save_runtime.pending_quit_to_title.get() {
             engine.save_runtime.pending_quit_to_title.set(false);
-            StartupRequest::playtest(self.payload_path.clone())
+            StartupRequest {
+                intent: StartupIntent::QuitToTitle,
+                ..StartupRequest::playtest(self.payload_path.clone())
+            }
         } else if let Some(lr) = engine.save_runtime.take_pending_runtime_load_request()
         {
             self.current_startup_request

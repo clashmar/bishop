@@ -48,3 +48,27 @@ fn gameplay_pause_session_uses_the_paused_state() {
         GameState::Paused
     );
 }
+
+#[test]
+fn resolve_requested_session_action_returns_quit_to_title_when_enabled() {
+    assert_eq!(
+        resolve_requested_session_action(MenuSessionAction::QuitToMainMenu, true),
+        RequestedSessionAction::QuitToTitle
+    );
+}
+
+#[test]
+fn resolve_requested_session_action_returns_close_app_for_skip_playtest_quit() {
+    assert_eq!(
+        resolve_requested_session_action(MenuSessionAction::QuitToMainMenu, false),
+        RequestedSessionAction::CloseApp
+    );
+}
+
+#[test]
+fn resolve_requested_session_action_returns_close_app_for_quit_game() {
+    assert_eq!(
+        resolve_requested_session_action(MenuSessionAction::QuitGame, true),
+        RequestedSessionAction::CloseApp
+    );
+}

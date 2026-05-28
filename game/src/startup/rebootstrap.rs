@@ -10,6 +10,8 @@ pub enum StartupIntent {
     Raw,
     /// Load from a runtime save and enter gameplay directly.
     LoadLatest,
+    /// Quit to the title screen, skipping splash screens.
+    QuitToTitle,
 }
 
 /// Describes a startup cycle (source + intent).
@@ -46,14 +48,13 @@ impl StartupRequest {
 }
 
 /// Determines the effective [`EngineEntryMode`] given a startup intent.
-///
 /// `LoadLatest` always returns [`EngineEntryMode::Playing`].
 pub fn entry_mode_for_intent(
     intent: &StartupIntent,
     raw_entry_mode: EngineEntryMode,
 ) -> EngineEntryMode {
     match intent {
-        StartupIntent::Raw => raw_entry_mode,
+        StartupIntent::Raw | StartupIntent::QuitToTitle => raw_entry_mode,
         StartupIntent::LoadLatest => EngineEntryMode::Playing,
     }
 }
@@ -120,5 +121,16 @@ mod tests {
         let result = entry_mode_for_intent(&StartupIntent::LoadLatest, raw_entry);
 
         assert_eq!(result, EngineEntryMode::Playing);
+    }
+
+    #[test]
+    fn quit_to_title_passes_through_start_menu_entry_mode() {
+        let raw_entry = EngineEntryMode::StartMenu {
+            menu_id: "title".to_string(),
+        };
+
+        let result = entry_mode_for_intent(&StartupIntent::QuitToTitle, raw_entry.clone());
+
+        assert_eq!(result, raw_entry);
     }
 }

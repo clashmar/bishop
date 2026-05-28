@@ -116,7 +116,7 @@
                             name: "QuitTitle",
                             kind: Button((
                                 text_key: "QuitTitle",
-                                action: Custom("quit_title"),
+                                action: QuitToMainMenu,
                                 font_size: 20.0,
                                 nav_targets: (
                                     up: None,

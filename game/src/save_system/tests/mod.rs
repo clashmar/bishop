@@ -19,10 +19,10 @@ pub(super) struct CleanSaveRoot {
 
 impl CleanSaveRoot {
     pub(super) fn new() -> Self {
+        let lock = game_fs_test_lock().lock().unwrap();
+        set_game_name("clean_save_root");
         let _ = fs::remove_dir_all(runtime_saves_root());
-        Self {
-            _lock: game_fs_test_lock().lock().unwrap(),
-        }
+        Self { _lock: lock }
     }
 }
 

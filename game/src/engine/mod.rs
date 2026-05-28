@@ -48,6 +48,8 @@ pub struct Engine {
     pub menu_manager: MenuManager,
     /// Whether the engine is running in playtest mode.
     pub is_playtest: bool,
+    /// Whether a pause-menu quit should reboot to the title instead of ending the session.
+    quit_to_title_enabled: bool,
     /// Accumulator for fixed timestep updates.
     pub accumulator: f32,
     /// Exponential moving average of frame time, used to smooth accumulator input.
@@ -76,6 +78,12 @@ pub enum EngineEntryMode {
     Playing,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum RequestedSessionAction {
+    QuitToTitle,
+    CloseApp,
+}
+
 impl BishopApp for Engine {
     async fn frame(&mut self, ctx: PlatformContext) {
         let raw_dt = ctx.borrow().get_frame_time();
@@ -92,7 +100,9 @@ impl BishopApp for Engine {
 
         self.update_game_state();
 
-        self.menu_manager.handle_input(&mut *ctx.borrow_mut());
+        if self.process_menu_input(&ctx) {
+            return;
+        }
         emit_pending_audio_events(self);
 
         if let Some(sample) = timing_sample {
@@ -139,7 +149,7 @@ impl BishopApp for Engine {
 
 impl Engine {
     /// Creates a new Engine with the given configuration and session entry mode.
-    pub fn new(
+    fn new(
         game_instance: Rc<RefCell<GameInstance>>,
         ctx: PlatformContext,
         lua: Lua,
@@ -147,6 +157,7 @@ impl Engine {
         camera_manager: CameraManager,
         grid_size: f32,
         is_playtest: bool,
+        quit_to_title_enabled: bool,
         entry_mode: EngineEntryMode,
     ) -> Self {
         let mut menu_manager = MenuManager::new();
@@ -166,6 +177,7 @@ impl Engine {
             diagnostics: DiagnosticsOverlay::new(),
             menu_manager,
             is_playtest,
+            quit_to_title_enabled,
             accumulator: 0.0,
             smoothed_dt: None,
             audio_manager: AudioManager::new::<PlatformAudioBackend>(),
@@ -308,6 +320,45 @@ impl Engine {
     /// Resolves the current game state from all active systems.
     fn update_game_state(&mut self) {
         self.game_state = resolve_game_state(self.game_state.clone(), &self.menu_manager);
+    }
+
+    fn process_menu_input(&mut self, ctx: &PlatformContext) -> bool {
+        let pending_action = {
+            let mut ctx_ref = ctx.borrow_mut();
+            self.menu_manager.handle_input(&mut *ctx_ref);
+            self.menu_manager.drain_pending_session_action()
+        };
+
+        let Some(action) = pending_action else {
+            return false;
+        };
+
+        match resolve_requested_session_action(action, self.quit_to_title_enabled) {
+            RequestedSessionAction::QuitToTitle => {
+                self.save_runtime.pending_quit_to_title.set(true);
+            }
+            RequestedSessionAction::CloseApp => {
+                let mut ctx_ref = ctx.borrow_mut();
+                ctx_ref.set_close_requested(true);
+                ctx_ref.set_exit_confirmed(true);
+            }
+        }
+
+        true
+    }
+}
+
+fn resolve_requested_session_action(
+    action: MenuSessionAction,
+    quit_to_title_enabled: bool,
+) -> RequestedSessionAction {
+    match action {
+        MenuSessionAction::QuitToMainMenu if quit_to_title_enabled => {
+            RequestedSessionAction::QuitToTitle
+        }
+        MenuSessionAction::QuitToMainMenu | MenuSessionAction::QuitGame => {
+            RequestedSessionAction::CloseApp
+        }
     }
 }
 

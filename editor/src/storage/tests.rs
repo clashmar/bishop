@@ -602,3 +602,37 @@ fn load_game_by_name_rebuilds_world_and_room_indexes_after_deserialize() {
     assert_eq!(loaded.get_world(world_id).map(|world| world.id), Some(world_id));
     assert!(loaded.current_world().get_room(room_id).is_some());
 }
+
+#[test]
+fn list_game_names_ignores_non_game_directories() {
+    let _lock = game_fs_test_lock()
+        .lock()
+        .unwrap_or_else(|poison| poison.into_inner());
+    let test_game = TestGameFolder::new("editor_game_name_listing");
+    set_game_name(test_game.name());
+    create_new_game(test_game.name().to_string());
+    fs::create_dir_all(absolute_save_root().join("_runtime_saves")).unwrap();
+
+    let game_names = list_game_names();
+    let expected = sanitise_name(test_game.name());
+
+    assert!(game_names.iter().any(|name| name == &expected));
+    assert!(!game_names.iter().any(|name| name == "_runtime_saves"));
+}
+
+#[test]
+fn most_recent_game_name_ignores_reserved_runtime_save_folder() {
+    let _lock = game_fs_test_lock()
+        .lock()
+        .unwrap_or_else(|poison| poison.into_inner());
+    let test_game = TestGameFolder::new("editor_most_recent_game");
+    set_game_name(test_game.name());
+    create_new_game(test_game.name().to_string());
+
+    let reserved = absolute_save_root().join("_runtime_saves");
+    fs::create_dir_all(&reserved).unwrap();
+    fs::write(reserved.join("touch.txt"), "latest").unwrap();
+
+    let expected = sanitise_name(test_game.name());
+    assert_eq!(most_recent_game_name().as_deref(), Some(expected.as_str()));
+}
