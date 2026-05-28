@@ -9,6 +9,7 @@ pub mod lua_files {
     pub const PREFABS: &str = "prefabs.lua";
     pub const TEXT: &str = "text.lua";
     pub const MENU: &str = "menu.lua";
+    pub const MENUS: &str = "menus.lua";
     pub const AUDIO: &str = "audio.lua";
     pub const SAVE: &str = "save.lua";
     pub const THEME: &str = "theme.lua";
@@ -119,6 +120,9 @@ pub mod lua_menu {
     pub const OPEN: &str = "open";
     pub const CLOSE: &str = "close";
     pub const IS_OPEN: &str = "is_open";
+    pub const SET_ENABLED: &str = "set_enabled";
+    pub const SET_VISIBLE: &str = "set_visible";
+    pub const MENUS_CLASS: &str = "Menus";
 }
 
 /// Audio Lua names.
