@@ -86,6 +86,7 @@ impl WorldEditor {
             size,
             exits: vec![],
             adjacent_rooms: vec![],
+            tags: vec![],
             variants: vec![variant],
             darkness: 0.,
         };

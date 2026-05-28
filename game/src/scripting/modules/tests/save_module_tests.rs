@@ -4,7 +4,7 @@ use crate::save_system::SaveProviderRegistry;
 use crate::scripting::lua_ctx::{LuaGameCtx, LuaSaveCtx, register_save_lua_context};
 use crate::scripting::modules::save_module::SaveModule;
 use engine_core::prelude::*;
-use engine_core::scripting::lua_constants::{lua_engine, lua_fields, lua_save};
+use engine_core::scripting::lua_constants::{lua_engine, lua_fields, lua_globals, lua_save, lua_tags};
 use engine_core::scripting::modules::lua_module::LuaApiWriter;
 use mlua::Lua;
 use std::cell::{Cell, RefCell};
@@ -303,5 +303,24 @@ fn script_can_register_provider_and_invoke_manual_and_load_latest() {
     .unwrap();
 
     assert_eq!(drain_commands().count(), 2);
+}
+
+#[test]
+fn engine_tags_table_is_registered_with_autosave_constant() {
+    use crate::scripting::modules::engine_module::EngineModule;
+    use engine_core::scripting::EventBus;
+
+    let lua = mlua::Lua::new();
+    lua.globals()
+        .set(lua_engine::ENGINE, lua.create_table().unwrap())
+        .unwrap();
+    lua.globals()
+        .set(lua_globals::LUA_EVENT_BUS, EventBus::default())
+        .unwrap();
+
+    EngineModule.register(&lua).unwrap();
+
+    let value: String = lua.load("return engine.tags.autosave").eval().unwrap();
+    assert_eq!(value, lua_tags::AUTOSAVE);
 }
 

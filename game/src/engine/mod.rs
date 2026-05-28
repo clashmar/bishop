@@ -228,7 +228,7 @@ impl Engine {
         }
 
         // Resolve room transitions before updating the camera
-        TransitionManager::handle_transitions(&mut game_instance);
+        TransitionManager::handle_transitions(&self.lua, &mut game_instance);
 
         let game_ctx = game_instance.game.ctx_mut();
         if let Some(world) = game_ctx.world.as_deref() {

@@ -46,6 +46,12 @@ pub mod lua_fields {
     pub const Z: &str = "z";
 }
 
+/// Built-in tag constants.
+pub mod lua_tags {
+    pub const TAGS: &str = "tags";
+    pub const AUTOSAVE: &str = "autosave";
+}
+
 /// Root engine Lua table names.
 pub mod lua_engine {
     pub const ENGINE: &str = "engine";
@@ -84,6 +90,8 @@ pub mod lua_entity {
 
 /// Lua event names passed to `engine.on` / `engine.emit`.
 pub mod lua_events {
+    pub const EVENTS: &str = "events";
+    pub const ROOM_ENTERED_FIELD: &str = "room_entered";
     pub const ROOM_ENTERED: &str = "room:entered";
 }
 

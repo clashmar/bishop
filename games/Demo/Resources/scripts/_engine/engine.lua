@@ -25,6 +25,14 @@ local TomlId = {}
 ---@return TomlId
 function engine.asset.toml() end
 
+--- Built-in tag constants.
+engine.tags = {}
+engine.tags.autosave = "autosave"
+
+--- Built-in event name constants.
+engine.events = {}
+engine.events.room_entered = "room:entered"
+
 --- Get the player entity's script instance table
 --- @return table|nil The player's script instance, or nil if not found
 function engine.player() end
@@ -37,6 +45,8 @@ function engine.player() end
 function engine.call(name, method, ...) end
 
 --- Register an event handler
+--- Built-in events:
+---   room:entered(room_id: integer, ...string)  The entered room id followed by room tags
 --- @param event string The name of the event to listen for
 --- @param handler function The Lua function that will be called
 --- @return nil
@@ -47,9 +57,6 @@ function engine.on(event, handler) end
 --- @param ... any Arguments that will be passed to each handler
 --- @return nil
 function engine.emit(event, ...) end
-
---- Quit to the title screen.
-function engine.quit_to_title() end
 
 engine.prefab = {}
 

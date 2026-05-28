@@ -3,7 +3,7 @@ engine.game_manager = GameManager
 
 local input = require("_engine.input")
 local menu = require("_engine.menus")
-local save_manager = require("save_manager")
+require("save_manager")
 
 -- Activates listeners for audio setting sliders
 require("audio_settings")
@@ -15,6 +15,4 @@ engine.update = function(dt)
     if engine.input.pressed(input.M) then
         engine.menu.open(menu.Pause)
     end
-
-    save_manager.update()
 end

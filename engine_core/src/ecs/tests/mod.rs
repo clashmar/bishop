@@ -1,10 +1,5 @@
 use super::*;
-use crate::assets::asset_registry::AssetRegistry;
-use crate::assets::sprite_manager::SpriteManager;
 use crate::ecs::Transform;
-use crate::game::GameCtxMut;
-use crate::prefab::PrefabManager;
-use crate::scripting::script_manager::ScriptManager;
 
 use serde::{Deserialize, Serialize};
 
