@@ -86,10 +86,10 @@ pub fn restore_component_with_remap(
     let mut boxed = (reg.from_ron_component)(comp.ron.clone());
 
     if comp.type_name == comp_type_name::<Parent>() {
-        if let Some(parent) = boxed.as_mut().downcast_mut::<Parent>() {
-            if let Some(&new_parent) = id_map.get(&parent.0) {
-                parent.0 = new_parent;
-            }
+        if let Some(parent) = boxed.as_mut().downcast_mut::<Parent>()
+            && let Some(&new_parent) = id_map.get(&parent.0)
+        {
+            parent.0 = new_parent;
         }
     } else if comp.type_name == comp_type_name::<Children>() {
         if let Some(children) = boxed.as_mut().downcast_mut::<Children>() {
@@ -99,12 +99,11 @@ pub fn restore_component_with_remap(
                 }
             }
         }
-    } else if comp.type_name == comp_type_name::<PrefabInstanceNode>() {
-        if let Some(node) = boxed.as_mut().downcast_mut::<PrefabInstanceNode>() {
-            if let Some(&new_root) = id_map.get(&node.root_entity) {
-                node.root_entity = new_root;
-            }
-        }
+    } else if comp.type_name == comp_type_name::<PrefabInstanceNode>()
+        && let Some(node) = boxed.as_mut().downcast_mut::<PrefabInstanceNode>()
+        && let Some(&new_root) = id_map.get(&node.root_entity)
+    {
+        node.root_entity = new_root;
     }
 
     Some((reg, boxed))

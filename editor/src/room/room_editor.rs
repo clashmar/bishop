@@ -9,7 +9,8 @@ use crate::commands::scene::CreateSceneEntityCmd;
 use crate::editor_assets::assets::*;
 use crate::editor_global::*;
 use crate::gui::inspector::inspector_panel::InspectorPanel;
-use crate::gui::mode_selector::*;
+use crate::gui::{gui_constants::*, mode_selector::*};
+use widgets::constants::layout;
 use crate::prefab::reconcile_recent_prefab_ids;
 use crate::room::drawing::*;
 use crate::room::selection::DragState;
@@ -118,6 +119,7 @@ pub struct RoomEditor {
     pub(crate) tilemap_sub_mode: TilemapEditorMode,
     /// Rect of the sub-mode strip for UI tracking.
     pub(crate) sub_mode_rect: Option<Rect>,
+    pub(crate) room_tags_input_id: WidgetId,
 }
 
 impl RoomEditor {
@@ -146,6 +148,7 @@ impl RoomEditor {
             view_preview: false,
             tilemap_sub_mode: TilemapEditorMode::Tiles,
             sub_mode_rect: None,
+            room_tags_input_id: WidgetId::default(),
         }
     }
 
@@ -567,6 +570,35 @@ impl RoomEditor {
         self.drag_state = DragState::default();
         self.tilemap_sub_mode = TilemapEditorMode::Tiles;
         self.sub_mode_rect = None;
+    }
+
+    /// Draws the room tags text input immediately below the inspector panel.
+    pub fn draw_room_tags(&mut self, ctx: &mut WgpuContext, world: &mut World) {
+        let Some(cur_room) = world.current_room_mut() else { return };
+        let rect = self.inspector.rect();
+        let y = rect.y + rect.h + 8.0;
+        ctx.draw_text("Tags:", rect.x + MARGIN, y + 20.0, 20.0, Color::WHITE);
+        let tags_measure = measure_text(ctx, "Tags:", layout::DEFAULT_FONT_SIZE_16);
+        let input_rect = Rect::new(
+            rect.x + MARGIN + tags_measure.width + SPACING,
+            y,
+            rect.w - (MARGIN * 2.0) - tags_measure.width - SPACING,
+            INPUT_HEIGHT,
+        );
+        let tags_value = cur_room.tags.join(", ");
+        let (new_val, commit) = TextInput::new(
+            self.room_tags_input_id,
+            input_rect,
+            &tags_value,
+        )
+        .show(ctx);
+        if !matches!(commit, InputCommit::Unchanged) {
+            cur_room.tags = new_val
+                .split(',')
+                .map(|tag| tag.trim().to_string())
+                .filter(|tag| !tag.is_empty())
+                .collect();
+        }
     }
 }
 

@@ -1,9 +1,6 @@
-local save_manager = {
-    last_room_id = nil,
-    autosave_transitions = {
-        ["1->2"] = true,
-    },
-}
+local autosave = require("autosave")
+
+local save_manager = {}
 
 local function player_state()
     local player = engine.player()
@@ -63,23 +60,8 @@ function save_manager.bind_menu_actions()
     end)
 end
 
-function save_manager.update()
-    local _, _, room_id = player_state()
-    if not room_id then
-        return
-    end
-
-    if save_manager.last_room_id ~= nil and save_manager.last_room_id ~= room_id then
-        local transition_key = string.format("%d->%d", save_manager.last_room_id, room_id)
-        if save_manager.autosave_transitions[transition_key] then
-            engine.save.auto()
-        end
-    end
-
-    save_manager.last_room_id = room_id
-end
-
 save_manager.register_provider()
 save_manager.bind_menu_actions()
+autosave.configure({ tag = engine.tags.autosave })
 
 return save_manager

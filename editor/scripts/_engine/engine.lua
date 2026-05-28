@@ -2,34 +2,6 @@
 -- bishop-owner: shared-engine
 ---@meta
 
----@param input string
-function engine.input.is_down(input) end
-
----@param input string
-function engine.input.pressed(input) end
-
----@param input string
-function engine.input.released(input) end
-
----@param name string
----@param priority number
-function engine.input.take_control(name, priority) end
-
----@param name string
-function engine.input.release_control(name) end
-
----@param name string
----@return boolean
-function engine.input.in_control(name) end
-
-engine.prefab = {}
-
----@param prefab_name PrefabId
----@param position vec2
----@param init? table
----@return Entity
-function engine.prefab.spawn(prefab_name, position, init) end
-
 ---@param msg string
 function engine.log.info(msg) end
 
@@ -53,6 +25,14 @@ local TomlId = {}
 ---@return TomlId
 function engine.asset.toml() end
 
+--- Built-in tag constants.
+engine.tags = {}
+engine.tags.autosave = "autosave"
+
+--- Built-in event name constants.
+engine.events = {}
+engine.events.room_entered = "room:entered"
+
 --- Get the player entity's script instance table
 --- @return table|nil The player's script instance, or nil if not found
 function engine.player() end
@@ -65,6 +45,8 @@ function engine.player() end
 function engine.call(name, method, ...) end
 
 --- Register an event handler
+--- Built-in events:
+---   room:entered(room_id: integer, ...string)  The entered room id followed by room tags
 --- @param event string The name of the event to listen for
 --- @param handler function The Lua function that will be called
 --- @return nil
@@ -75,4 +57,35 @@ function engine.on(event, handler) end
 --- @param ... any Arguments that will be passed to each handler
 --- @return nil
 function engine.emit(event, ...) end
+
+--- Quit to the title screen.
+function engine.quit_to_title() end
+
+engine.prefab = {}
+
+---@param prefab_name PrefabId
+---@param position vec2
+---@param init? table
+---@return Entity
+function engine.prefab.spawn(prefab_name, position, init) end
+
+---@param input string
+function engine.input.is_down(input) end
+
+---@param input string
+function engine.input.pressed(input) end
+
+---@param input string
+function engine.input.released(input) end
+
+---@param name string
+---@param priority number
+function engine.input.take_control(name, priority) end
+
+---@param name string
+function engine.input.release_control(name) end
+
+---@param name string
+---@return boolean
+function engine.input.in_control(name) end
 

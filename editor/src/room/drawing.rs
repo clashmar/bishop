@@ -156,6 +156,12 @@ impl RoomEditor {
                 self.create_request = inspector_output.create_request;
                 self.prefab_action_request = inspector_output.prefab_action;
 
+                if self.inspector.target.is_none() {
+                    if let Some(world) = game_ctx.world.as_deref_mut() {
+                        self.draw_room_tags(ctx, world);
+                    }
+                }
+
                 // Mode selector (menu bar)
                 let (mode_rect, changed) = self.mode_selector.draw(ctx);
                 if changed {

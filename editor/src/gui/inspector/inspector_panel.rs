@@ -34,6 +34,10 @@ impl InspectorPanel {
         self.rect = rect;
     }
 
+    pub fn rect(&self) -> Rect {
+        self.rect
+    }
+
     /// Tell the inspector which entity is currently selected.
     pub fn set_target(&mut self, entity: Option<Entity>) {
         self.core.set_target(entity);
