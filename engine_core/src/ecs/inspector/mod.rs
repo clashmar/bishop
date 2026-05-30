@@ -1,5 +1,7 @@
 pub mod factory;
 #[cfg(feature = "editor")]
+pub mod collapsible_header;
+#[cfg(feature = "editor")]
 pub mod generic_module;
 #[cfg(feature = "editor")]
 pub mod layout;

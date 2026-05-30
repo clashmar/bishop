@@ -1,4 +1,3 @@
-// editor/src/room/selection.rs
 use crate::app::SubEditor;
 use crate::room::room_editor::*;
 use crate::world::coord;
@@ -38,8 +37,12 @@ pub(crate) struct DragState {
 }
 
 impl RoomEditor {
-    fn sync_inspector_to_selection(&mut self) {
-        self.inspector.set_target(self.single_selected_entity());
+    pub(crate) fn sync_inspector_to_selection(&mut self) {
+        if let Some(entity) = self.single_selected_entity() {
+            self.inspector.show_entity(entity);
+        } else {
+            self.inspector.show_room_properties();
+        }
     }
 
     /// Sets a single selected entity for the room editor, clearing any previous selection.

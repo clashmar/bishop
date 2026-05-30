@@ -59,8 +59,12 @@ impl CreateSceneEntityCmd {
     }
 
     fn sync_room_selection(editor: &mut crate::app::Editor) {
-        let target = editor.room_editor.single_selected_entity();
-        editor.room_editor.inspector.set_target(target);
+        let room_editor = &mut editor.room_editor;
+        if let Some(entity) = room_editor.single_selected_entity() {
+            room_editor.inspector.show_entity(entity);
+        } else {
+            room_editor.inspector.show_room_properties();
+        }
     }
 }
 

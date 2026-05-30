@@ -1,4 +1,3 @@
-// editor/src/room/drawing.rs
 use crate::app::camera_controller::*;
 use crate::app::EditorMode;
 use crate::editor_assets::assets::camera_icon;
@@ -9,7 +8,7 @@ use crate::gui::panel_text_color;
 use crate::room::prefab_preview::{build_prefab_preview, PrefabPreviewVisual};
 use crate::room::room_editor::*;
 use crate::room::selection::{entity_selection_rect, snap_room_drag_position};
-use crate::shared::scene_ui::inspector::{SceneEmptyInspectorBehavior, SceneInspectorContext};
+use crate::shared::scene_ui::inspector::{SceneInspectorContext};
 use crate::tilemap::tilemap_editor::TILEMAP_SUB_MODES;
 use crate::world::coord;
 use bishop::prelude::*;
@@ -150,17 +149,10 @@ impl RoomEditor {
                     show_linked_prefab_metadata: true,
                     hide_room_only_components: false,
                     selected_create_parent: None,
-                    empty_state: SceneEmptyInspectorBehavior::Room,
                 };
                 let inspector_output = self.inspector.draw(ctx, game_ctx, &inspector_ctx);
                 self.create_request = inspector_output.create_request;
                 self.prefab_action_request = inspector_output.prefab_action;
-
-                if self.inspector.target.is_none() {
-                    if let Some(world) = game_ctx.world.as_deref_mut() {
-                        self.draw_room_tags(ctx, world);
-                    }
-                }
 
                 // Mode selector (menu bar)
                 let (mode_rect, changed) = self.mode_selector.draw(ctx);

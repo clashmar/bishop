@@ -198,14 +198,10 @@ fn remove_prefab_and_linked_instances(
     room_editor
         .selected_entities
         .retain(|entity| !removed_entities.contains(entity));
-    if !room_editor
-        .inspector
-        .target
-        .is_some_and(|entity| removed_entities.contains(&entity))
-    {
+    if !room_editor.inspector.has_target() {
         return snapshots;
     }
 
-    room_editor.inspector.set_target(None);
+    room_editor.inspector.show_room_properties();
     snapshots
 }

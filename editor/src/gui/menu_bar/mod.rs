@@ -1,4 +1,3 @@
-// editor/src/gui/menu_bar.rs
 use crate::app::EditorMode;
 use crate::gui::gui_constants::*;
 use crate::gui::menu_widgets::menu_dropdown;
@@ -130,7 +129,7 @@ impl EditorAction {
             EditorAction::Rename => {
                 matches!(
                     editor_mode,
-                    EditorMode::Game | EditorMode::World(_) | EditorMode::Room(_)
+                    EditorMode::Game | EditorMode::World(_)
                 ) || matches!(editor_mode, EditorMode::Prefab(prefab_id) if prefab_id != BLANK_PREFAB_ID)
             }
             EditorAction::NewGame
@@ -430,7 +429,7 @@ impl MenuBar {
 }
 
 fn title_actions_for_mode(editor_mode: EditorMode) -> Option<Vec<EditorAction>> {
-    if matches!(editor_mode, EditorMode::Prefab(BLANK_PREFAB_ID)) {
+    if matches!(editor_mode, EditorMode::Prefab(BLANK_PREFAB_ID) | EditorMode::Room(_)) {
         None
     } else {
         Some(vec![EditorAction::Rename])

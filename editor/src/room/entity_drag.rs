@@ -1,4 +1,3 @@
-// editor/src/room/entity_drag.rs
 use crate::app::EditorMode;
 use crate::app::SubEditor;
 use crate::commands::room::*;
@@ -64,6 +63,7 @@ impl RoomEditor {
         let shift_held =
             ctx.is_key_down(KeyCode::LeftShift) || ctx.is_key_down(KeyCode::RightShift);
         let mouse_world = coord::mouse_world_pos(ctx, camera);
+        let mut selection_changed = false;
 
         // Handle mouse button press
         if !ui_was_clicked
@@ -114,11 +114,13 @@ impl RoomEditor {
                     } else {
                         self.selected_entities.insert(entity);
                     }
+                    selection_changed = true;
                 } else {
                     // Clear and select single, start drag
                     if !self.selected_entities.contains(&entity) {
                         self.selected_entities.clear();
                         self.selected_entities.insert(entity);
+                        selection_changed = true;
                     }
 
                     // Start normal drag
@@ -180,6 +182,7 @@ impl RoomEditor {
                             for (_, dup) in &duplicates {
                                 self.selected_entities.insert(*dup);
                             }
+                            selection_changed = true;
 
                             // Update drag tracking to use duplicates
                             self.drag_state.drag_start_positions = duplicates
@@ -211,8 +214,13 @@ impl RoomEditor {
                     self.selected_entities.clear();
                     self.drag_state.box_select_start = Some(mouse_world);
                     self.drag_state.box_select_active = true;
+                    selection_changed = true;
                 }
             }
+        }
+
+        if selection_changed {
+            self.sync_inspector_to_selection();
         }
 
         // Handle box selection
@@ -238,8 +246,12 @@ impl RoomEditor {
                             self.selected_entities.insert(*entity);
                         }
                     }
+                    selection_changed = true;
                 }
                 self.drag_state.box_select_active = false;
+                if selection_changed {
+                    self.sync_inspector_to_selection();
+                }
             }
             return true;
         }
@@ -296,6 +308,7 @@ impl RoomEditor {
                     for (_, dup) in &duplicates {
                         self.selected_entities.insert(*dup);
                     }
+                    self.sync_inspector_to_selection();
 
                     // Update drag tracking to use duplicates
                     self.drag_state.drag_start_positions = duplicates
@@ -350,6 +363,7 @@ impl RoomEditor {
                     // Restore original selection and anchor
                     self.selected_entities = original_state.selected_entities;
                     self.drag_state.drag_anchor_entity = original_state.anchor_entity;
+                    self.sync_inspector_to_selection();
 
                     // Move originals to where copies were (under the mouse)
                     self.drag_state.drag_start_positions.clear();

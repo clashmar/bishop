@@ -1,4 +1,3 @@
-// editor/src/gui/mod.rs
 pub mod gui_constants;
 pub mod inspector;
 pub mod menu_bar;
@@ -7,6 +6,7 @@ pub mod modals;
 pub mod mode_selector;
 pub mod panels;
 pub mod prompts;
+pub mod properties;
 
 use crate::constants::colors;
 use crate::gui::gui_constants::classes;

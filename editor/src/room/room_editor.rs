@@ -1,4 +1,3 @@
-// editor/src/room/room_editor.rs
 use crate::app::EditorCameraController;
 use crate::app::EditorMode;
 use crate::app::SubEditor;
@@ -8,9 +7,8 @@ use crate::commands::room::*;
 use crate::commands::scene::CreateSceneEntityCmd;
 use crate::editor_assets::assets::*;
 use crate::editor_global::*;
-use crate::gui::inspector::inspector_panel::InspectorPanel;
-use crate::gui::{gui_constants::*, mode_selector::*};
-use widgets::constants::layout;
+use crate::gui::inspector::inspector::Inspector;
+use crate::gui::mode_selector::*;
 use crate::prefab::reconcile_recent_prefab_ids;
 use crate::room::drawing::*;
 use crate::room::selection::DragState;
@@ -102,7 +100,7 @@ pub struct RoomEditor {
     pub mode: RoomEditorMode,
     pub mode_selector: ModeSelector<RoomEditorMode>,
     pub tilemap_editor: TileMapEditor,
-    pub inspector: InspectorPanel,
+    pub inspector: Inspector,
     pub selected_entities: HashSet<Entity>,
     pub active_prefab_id: Option<PrefabId>,
     pub recent_prefab_ids: Vec<PrefabId>,
@@ -119,12 +117,14 @@ pub struct RoomEditor {
     pub(crate) tilemap_sub_mode: TilemapEditorMode,
     /// Rect of the sub-mode strip for UI tracking.
     pub(crate) sub_mode_rect: Option<Rect>,
-    pub(crate) room_tags_input_id: WidgetId,
 }
 
 impl RoomEditor {
     pub fn new() -> Self {
         let mode = RoomEditorMode::Scene;
+
+        let mut inspector = Inspector::new();
+        inspector.show_room_properties();
 
         Self {
             mode: RoomEditorMode::Scene,
@@ -133,7 +133,7 @@ impl RoomEditor {
                 options: *ALL_MODES,
             },
             tilemap_editor: TileMapEditor::new(),
-            inspector: InspectorPanel::new(),
+            inspector,
             selected_entities: HashSet::new(),
             active_prefab_id: None,
             recent_prefab_ids: Vec::new(),
@@ -148,7 +148,6 @@ impl RoomEditor {
             view_preview: false,
             tilemap_sub_mode: TilemapEditorMode::Tiles,
             sub_mode_rect: None,
-            room_tags_input_id: WidgetId::default(),
         }
     }
 
@@ -262,16 +261,9 @@ impl RoomEditor {
                     )));
                 }
 
-                // If exactly one entity is selected, show the inspector
-                if let Some(entity) = self.single_selected_entity() {
-                    self.inspector.set_target(Some(entity));
-                } else {
-                    self.inspector.set_target(None);
-                }
-
-                // If target was cleared by inspector, sync selection
-                if self.inspector.target.is_none() && self.selected_entities.len() == 1 {
-                    self.selected_entities.clear();
+                // If target was cleared by inspector, sync selection.
+                if !self.inspector.has_target() && self.selected_entities.len() == 1 {
+                    self.clear_selection();
                 }
             }
         }
@@ -556,7 +548,7 @@ impl RoomEditor {
     }
 
     pub fn reset(&mut self) {
-        self.inspector.set_target(None);
+        self.inspector.show_room_properties();
         self.tilemap_editor.reset();
         self.reset_scene_sub_mode();
         self.mode = RoomEditorMode::Scene;
@@ -570,39 +562,6 @@ impl RoomEditor {
         self.drag_state = DragState::default();
         self.tilemap_sub_mode = TilemapEditorMode::Tiles;
         self.sub_mode_rect = None;
-    }
-
-    /// Draws the room tags text input immediately below the inspector panel.
-    pub fn draw_room_tags(&mut self, ctx: &mut WgpuContext, world: &mut World) {
-        let Some(cur_room) = world.current_room_mut() else { return };
-        let rect = self.inspector.rect();
-        // Position below the room empty-state controls (create-btn + darkness slider).
-        // matches the y-offset from SceneInspector's empty-state layout:
-        //   panel_top + BTN_MARGIN(10) + BTN_HEIGHT(30) + gap(20) + BTN_HEIGHT(30) + gap(16) ≈ 106
-        let y = rect.y + 110.0;
-        ctx.draw_text("Tags:", rect.x + MARGIN, y + 20.0, 20.0, Color::WHITE);
-        let tags_measure = measure_text(ctx, "Tags:", layout::DEFAULT_FONT_SIZE_16);
-        let input_rect = Rect::new(
-            rect.x + MARGIN + tags_measure.width + SPACING,
-            y,
-            rect.w - (MARGIN * 2.0) - tags_measure.width - SPACING,
-            INPUT_HEIGHT,
-        );
-        self.active_rects.push(input_rect);
-        let tags_value = cur_room.tags.join(", ");
-        let (new_val, commit) = TextInput::new(
-            self.room_tags_input_id,
-            input_rect,
-            &tags_value,
-        )
-        .show(ctx);
-        if !matches!(commit, InputCommit::Unchanged) {
-            cur_room.tags = new_val
-                .split(',')
-                .map(|tag| tag.trim().to_string())
-                .filter(|tag| !tag.is_empty())
-                .collect();
-        }
     }
 }
 

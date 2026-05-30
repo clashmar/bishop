@@ -1,4 +1,3 @@
-// editor/src/gui/inspector/animation_module.rs
 use crate::editor_global::push_toast;
 use crate::gui::gui_constants::*;
 use bishop::prelude::*;
@@ -762,7 +761,7 @@ inventory::submit! {
         title: <Animation>::TYPE_NAME,
         factory: || {
             Box::new(
-                CollapsibleModule::new(
+                CollapsibleComponentModule::new(
                     crate::gui::inspector::animation_module::AnimationModule::default()
                 )
                 .with_title(<Animation>::TYPE_NAME)

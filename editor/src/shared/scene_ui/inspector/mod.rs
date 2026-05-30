@@ -1,13 +1,64 @@
-mod core;
+pub mod entity_inspector;
 mod policy;
 
 use crate::app::EditorMode;
+use bishop::prelude::*;
+use engine_core::game::GameCtxMut;
 use engine_core::prelude::*;
 
-pub use core::SceneInspector;
+pub use entity_inspector::EntityInspector;
 pub use policy::{
     is_scene_component_hidden_in_prefab, linked_prefab_instance_state_for_scene_inspector,
 };
+
+/// Content that the inspector shell renders.
+/// The shell handles scrolling, clipping, and background.
+pub trait InspectorContent {
+    /// Height of the fixed header area (buttons, dropdowns). 0 if none.
+    fn header_height(&self) -> f32 {
+        0.0
+    }
+
+    /// Draw fixed header controls above the scrollable area.
+    fn draw_header(
+        &mut self,
+        _ctx: &mut WgpuContext,
+        _rect: Rect,
+        _blocked: bool,
+        _game_ctx: &mut GameCtxMut,
+        _scene_ctx: &SceneInspectorContext,
+    ) -> SceneInspectorOutput {
+        SceneInspectorOutput::default()
+    }
+
+    /// Draw the scrollable module list.
+    fn draw_modules(
+        &mut self,
+        ctx: &mut WgpuContext,
+        rect: Rect,
+        blocked: bool,
+        game_ctx: &mut GameCtxMut,
+        scene_ctx: &SceneInspectorContext,
+    ) -> SceneInspectorOutput;
+
+    /// Total scrollable content height.
+    fn total_content_height(&self, game_ctx: &mut GameCtxMut, scene_ctx: &SceneInspectorContext) -> f32;
+
+    /// Whether any input widget in this content is actively being edited.
+    fn was_input_active(&self) -> bool {
+        false
+    }
+
+    /// The currently inspected entity, if this content is entity-scoped.
+    fn target(&self) -> Option<Entity> {
+        None
+    }
+
+    /// Interactive rects for hit-testing.
+    fn interactive_rects(&self) -> Vec<Rect> {
+        vec![]
+    }
+}
 
 /// Supported linked-prefab actions emitted from the room inspector.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -38,20 +89,6 @@ pub struct SceneInspectorContext {
     pub hide_room_only_components: bool,
     /// Parent to use for the selected-entity `+ Entity` affordance.
     pub selected_create_parent: Option<Entity>,
-    /// Empty-state behavior when no entity is selected.
-    pub empty_state: SceneEmptyInspectorBehavior,
-}
-
-/// Empty-state behavior variants for room and prefab hosts.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum SceneEmptyInspectorBehavior {
-    /// Room-mode empty state with root-entity, camera, and darkness controls.
-    Room,
-    /// Prefab-mode empty state with a fallback parent/root for new entities.
-    Prefab {
-        /// Parent to use when the prefab empty-state `+ Entity` action is clicked.
-        fallback_parent: Option<Entity>,
-    },
 }
 
 /// Per-frame output emitted by the shared inspector UI.
@@ -67,24 +104,19 @@ pub struct SceneInspectorOutput {
     pub delete_prefab: bool,
 }
 
-/// Full draw result emitted by the shared inspector core.
-#[derive(Clone, Debug, Default)]
-pub struct SceneInspectorDrawResult {
-    /// Behavioral output emitted by the inspector draw.
-    pub output: SceneInspectorOutput,
-    /// Interactive rectangles used by the thin host wrapper for hit-testing.
-    pub interactive_rects: Vec<Rect>,
-}
-
-impl SceneInspectorDrawResult {
-    /// Creates a full draw result from inspector output and interactive rectangles.
-    pub fn new(output: SceneInspectorOutput, interactive_rects: Vec<Rect>) -> Self {
-        Self {
-            output,
-            interactive_rects,
+impl SceneInspectorOutput {
+    pub fn merge(&mut self, other: Self) {
+        if self.create_request.is_none() {
+            self.create_request = other.create_request;
         }
+        if self.prefab_action.is_none() {
+            self.prefab_action = other.prefab_action;
+        }
+        self.open_prefab_picker |= other.open_prefab_picker;
+        self.delete_prefab |= other.delete_prefab;
     }
 }
+
 
 /// Scene entity creation request emitted by the inspector.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
