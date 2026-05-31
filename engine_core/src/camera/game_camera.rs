@@ -1,4 +1,3 @@
-// engine_core/src/camera/game_camera.rs
 use crate::ecs::components::room_camera::{
     world_virtual_height, world_virtual_width, CameraMode, FollowRestriction, RoomCamera,
 };

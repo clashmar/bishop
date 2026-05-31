@@ -1,5 +1,4 @@
 //! OLD MACROQUAD IMPL DO NOT UPDATE THIS FILE
-// // engine_core/src/lighting/render_system.rs
 // use crate::shaders::shaders::*;
 // use crate::prelude::*;
 // use bishop::prelude::*;

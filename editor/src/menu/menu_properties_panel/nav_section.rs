@@ -1,4 +1,3 @@
-// editor/src/menu_editor/menu_properties_panel/nav_helpers.rs
 use super::{common_properties::row_visible, FIELD_HEIGHT, LABEL_WIDTH, ROW_HEIGHT};
 use crate::menu::{MenuEditor, NavWidgetIds};
 use bishop::prelude::*;

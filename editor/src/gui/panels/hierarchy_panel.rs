@@ -1,4 +1,6 @@
 use crate::app::EditorMode;
+use crate::commands::scene::CreateSceneEntityCmd;
+use crate::editor_global::push_command;
 use crate::gui::panels::generic_panel::PanelDefinition;
 use crate::prefab::prefab_editor::selection::is_prefab_entity;
 use crate::room::room_editor::RoomEditor;
@@ -210,9 +212,9 @@ impl PanelDefinition for HierarchyPanel {
             .suppressed(blocked)
             .show(ctx);
             if !blocked && clicked {
-                ecs.create_entity()
-                    .with(Global::default())
-                    .with(Name("Global Entity".into()));
+                if let Some(room_id) = cur_room_id {
+                    push_command(Box::new(CreateSceneEntityCmd::new_global_entity(room_id)));
+                }
             }
         }
 
@@ -273,7 +275,9 @@ impl PanelDefinition for HierarchyPanel {
                     .suppressed(blocked)
                     .show(ctx);
                     if !blocked && clicked {
-                        create_spawn_point(ecs, room_id, spawn_pos);
+                        push_command(Box::new(CreateSceneEntityCmd::new_player_proxy(
+                            room_id, spawn_pos,
+                        )));
                     }
                 }
                 y += ADD_BUTTON_HEIGHT + ROW_SPACING;
@@ -489,18 +493,4 @@ fn entity_exists_in_hierarchy(ecs: &Ecs, entity: Entity) -> bool {
         || ecs.get_store::<RoomCamera>().contains(entity)
         || ecs.get_store::<PlayerProxy>().contains(entity)
         || ecs.get_store::<Player>().contains(entity)
-}
-
-/// Creates a player proxy entity at the room's origin.
-fn create_spawn_point(ecs: &mut Ecs, room_id: RoomId, room_position: Vec2) {
-    ecs
-        .create_entity()
-        .with(PlayerProxy)
-        .with(Transform {
-            position: room_position,
-            ..Default::default()
-        })
-        .with(Name("Player Proxy".to_string()))
-        .with_current_room(room_id)
-        .finish();
 }

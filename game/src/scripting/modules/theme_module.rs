@@ -75,6 +75,7 @@ impl LuaApi for ThemeModule {
             lua_theme::THEME,
             lua_theme::CLASS_THEME
         ));
+        out.line("---@return nil");
         out.line(&format!(
             "function engine.{}.{}({}) end",
             lua_theme::THEME,

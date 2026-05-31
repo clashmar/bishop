@@ -1,4 +1,3 @@
-// engine_core/src/animation/animation_system.rs
 use crate::animation::{ClipId, resolve_sprite_id};
 use crate::assets::AssetRegistry;
 use crate::assets::sprite_manager::SpriteManager;

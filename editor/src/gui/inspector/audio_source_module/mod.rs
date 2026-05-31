@@ -479,7 +479,7 @@ inventory::submit! {
         title: <AudioSource>::TYPE_NAME,
         factory: || {
             Box::new(
-                CollapsibleModule::new(
+                CollapsibleComponentModule::new(
                     crate::gui::inspector::audio_source_module::AudioSourceModule::default()
                 )
                 .with_title("Audio Source")

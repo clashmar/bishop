@@ -1,4 +1,3 @@
-// engine_core/src/shaders/undarkened.frag
 #version 100
 precision mediump float;
 varying vec2 uv;

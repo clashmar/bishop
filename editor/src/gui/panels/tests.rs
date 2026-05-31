@@ -140,7 +140,7 @@ fn room_hierarchy_host_toggles_selection_additively() {
 
     host.apply_selection_action(entity, SceneHierarchySelectionAction::Toggle);
     assert!(!host.is_selected(entity));
-    assert_eq!(host.room_editor.inspector.target, None);
+    assert!(!host.room_editor.inspector.has_target());
 }
 
 #[test]
@@ -165,7 +165,7 @@ fn prefab_hierarchy_host_toggles_selection_additively() {
 
     host.apply_selection_action(entity, SceneHierarchySelectionAction::Toggle);
     assert!(!host.is_selected(entity));
-    assert_eq!(host.prefab_editor.inspector.target, None);
+    assert!(!host.prefab_editor.inspector.has_target());
 }
 
 #[test]

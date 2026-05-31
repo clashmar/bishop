@@ -1,4 +1,3 @@
-// editor/src/commands/asset/batch_delete_cmd.rs
 use crate::app::EditorMode;
 use crate::commands::asset::{DeleteAssetCmd, DeleteDirectoryCmd, DeleteUnregisteredFileCmd};
 use crate::commands::editor_command_manager::EditorCommand;

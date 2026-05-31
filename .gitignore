@@ -1,4 +1,6 @@
 /target
+/_runtime_saves/
+/games/_runtime_saves/
 .DS_Store
 nul
 *.wav

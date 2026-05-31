@@ -1,4 +1,3 @@
-// editor/src/gui/prompts/mod.rs
 pub mod confirm_prompt;
 pub mod constants;
 pub mod editor_settings_prompt;

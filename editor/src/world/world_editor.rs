@@ -1,4 +1,3 @@
-// editor/src/world/world_editor.rs
 use crate::app::EditorCameraController;
 use crate::app::SubEditor;
 use crate::canvas::grid;

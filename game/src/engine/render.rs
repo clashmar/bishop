@@ -1,4 +1,3 @@
-// game/src/engine/render.rs
 use crate::engine::*;
 use bishop::prelude::*;
 use engine_core::prelude::*;

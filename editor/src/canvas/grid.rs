@@ -1,4 +1,3 @@
-// editor/src/canvas/grid.rs
 use crate::{
     app::camera_controller::{self, EditorCameraController},
     canvas::grid_shader::{GridParams, GridRenderer},

@@ -1,4 +1,3 @@
-// editor/src/menu_editor/menu_properties_panel/mod.rs
 pub(crate) mod common_properties;
 mod menu_properties;
 pub(crate) mod nav_section;

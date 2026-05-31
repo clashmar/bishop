@@ -419,7 +419,9 @@ fn save_game_writes_prefabs_lua() {
 
     let prefabs_path = scripts_folder()
         .join(lua_dirs::ENGINE)
-        .join(lua_files::PREFABS);
+        .join(engine_core::scripting::lua_project::engine_relative_path(
+            lua_files::PREFABS,
+        ));
     assert!(prefabs_path.is_file());
     let contents = std::fs::read_to_string(prefabs_path).unwrap();
     assert!(contents.contains("BossAttack = \"Boss Attack\""));
@@ -487,7 +489,9 @@ fn write_prefabs_lua_sanitizes_collisions() {
 
     let prefabs_path = scripts_folder()
         .join(lua_dirs::ENGINE)
-        .join(lua_files::PREFABS);
+        .join(engine_core::scripting::lua_project::engine_relative_path(
+            lua_files::PREFABS,
+        ));
     let contents = std::fs::read_to_string(prefabs_path).unwrap();
 
     assert!(contents.contains("BossAttack = \"Boss Attack\""));
@@ -499,8 +503,18 @@ fn write_prefabs_lua_sanitizes_collisions() {
 fn generated_lua_typings_hide_prefab_internal_components() {
     let root = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let engine_dir = root.join(lua_dirs::SCRIPTS).join(lua_dirs::ENGINE);
-    let components = std::fs::read_to_string(engine_dir.join(lua_files::COMPONENTS)).unwrap();
-    let entity = std::fs::read_to_string(engine_dir.join(lua_files::ENTITY)).unwrap();
+    let components = std::fs::read_to_string(
+        engine_dir.join(engine_core::scripting::lua_project::engine_relative_path(
+            lua_files::COMPONENTS,
+        )),
+    )
+    .unwrap();
+    let entity = std::fs::read_to_string(
+        engine_dir.join(engine_core::scripting::lua_project::engine_relative_path(
+            lua_files::ENTITY,
+        )),
+    )
+    .unwrap();
     let public_type = comp_type_name::<Transform>();
     let hidden = [
         comp_type_name::<PrefabInstanceNode>(),
@@ -561,6 +575,52 @@ fn load_prefab_palette_state_defaults_when_file_is_missing() {
 }
 
 #[test]
+fn create_game_folders_scaffolds_lua_project_files() {
+    let _lock = game_fs_test_lock()
+        .lock()
+        .unwrap_or_else(|poison| poison.into_inner());
+    let test_game = TestGameFolder::new("lua_scaffold_files");
+    set_game_name(test_game.name());
+
+    create_game_folders(test_game.name());
+
+    let game_root = game_folder(test_game.name());
+    let engine_folder = scripts_folder().join(lua_dirs::ENGINE);
+
+    assert!(editor_metadata_folder(test_game.name()).exists(), "game root should include _editor metadata folder");
+    assert!(game_root.join(lua_files::LUARC).exists(), "game root should include .luarc.json");
+    assert!(game_root.join(lua_files::LUACHECK).exists(), "game root should include .luacheckrc");
+    assert!(game_root.join(lua_files::STYLUA).exists(), "game root should include stylua.toml");
+    assert!(engine_folder.join(lua_files::GLOBALS).exists(), "_engine/globals.lua should be scaffolded");
+}
+
+#[test]
+fn create_new_game_seeds_generated_lua_tables_for_globals_prelude() {
+    let _lock = game_fs_test_lock()
+        .lock()
+        .unwrap_or_else(|poison| poison.into_inner());
+    let test_game = TestGameFolder::new("lua_generated_tables");
+    set_game_name(test_game.name());
+
+    let _game = create_new_game(test_game.name().to_string());
+
+    let engine_folder = scripts_folder().join(lua_dirs::ENGINE);
+    for filename in [
+        lua_files::ANIMATIONS,
+        lua_files::PREFABS,
+        lua_files::SOUNDS,
+        lua_files::MENUS,
+    ] {
+        assert!(
+            engine_folder
+                .join(engine_core::scripting::lua_project::engine_relative_path(filename))
+                .exists(),
+            "{filename} should exist for globals prelude consumers"
+        );
+    }
+}
+
+#[test]
 fn create_new_game_creates_bishop_theme() {
     let _lock = game_fs_test_lock()
         .lock()
@@ -601,4 +661,38 @@ fn load_game_by_name_rebuilds_world_and_room_indexes_after_deserialize() {
 
     assert_eq!(loaded.get_world(world_id).map(|world| world.id), Some(world_id));
     assert!(loaded.current_world().get_room(room_id).is_some());
+}
+
+#[test]
+fn list_game_names_ignores_non_game_directories() {
+    let _lock = game_fs_test_lock()
+        .lock()
+        .unwrap_or_else(|poison| poison.into_inner());
+    let test_game = TestGameFolder::new("editor_game_name_listing");
+    set_game_name(test_game.name());
+    create_new_game(test_game.name().to_string());
+    fs::create_dir_all(absolute_save_root().join("_runtime_saves")).unwrap();
+
+    let game_names = list_game_names();
+    let expected = sanitise_name(test_game.name());
+
+    assert!(game_names.iter().any(|name| name == &expected));
+    assert!(!game_names.iter().any(|name| name == "_runtime_saves"));
+}
+
+#[test]
+fn most_recent_game_name_ignores_reserved_runtime_save_folder() {
+    let _lock = game_fs_test_lock()
+        .lock()
+        .unwrap_or_else(|poison| poison.into_inner());
+    let test_game = TestGameFolder::new("editor_most_recent_game");
+    set_game_name(test_game.name());
+    create_new_game(test_game.name().to_string());
+
+    let reserved = absolute_save_root().join("_runtime_saves");
+    fs::create_dir_all(&reserved).unwrap();
+    fs::write(reserved.join("touch.txt"), "latest").unwrap();
+
+    let expected = sanitise_name(test_game.name());
+    assert_eq!(most_recent_game_name().as_deref(), Some(expected.as_str()));
 }

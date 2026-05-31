@@ -26,7 +26,7 @@
             ),
             /*[5]*/ (
                 type_name: "CurrentRoom",
-                data: "{\n    (1): ((1)),\n    (2): ((1)),\n    (24): ((2)),\n    (37): ((1)),\n}",
+                data: "{\n    (1): ((1)),\n    (2): ((1)),\n    (24): ((2)),\n    (37): ((1)),\n    (38): ((2)),\n}",
             ),
             /*[6]*/ (
                 type_name: "Damage",
@@ -50,7 +50,7 @@
             ),
             /*[11]*/ (
                 type_name: "Interactable",
-                data: "{\n    (37): (\n        range: 20.0,\n    ),\n}",
+                data: "{\n    (37): (\n        range: 20.0,\n    ),\n    (38): (\n        range: 20.0,\n    ),\n}",
             ),
             /*[12]*/ (
                 type_name: "Kinematic",
@@ -70,7 +70,7 @@
             ),
             /*[16]*/ (
                 type_name: "Name",
-                data: "{\n    (1): (\"Camera 1\"),\n    (2): (\"Player Proxy\"),\n    (3): (\"Player\"),\n    (24): (\"Camera 1\"),\n    (37): (\"Cat\"),\n}",
+                data: "{\n    (1): (\"Camera 1\"),\n    (2): (\"Player Proxy\"),\n    (3): (\"Player\"),\n    (24): (\"Camera 1\"),\n    (37): (\"Cat\"),\n    (38): (\"Checkpoint\"),\n}",
             ),
             /*[17]*/ (
                 type_name: "Parent",
@@ -106,7 +106,7 @@
             ),
             /*[25]*/ (
                 type_name: "Script",
-                data: "{\n    (3): (\n        script_id: (2),\n        data: (\n            fields: {\n                \"health\": Int(100),\n                \"jump_speed\": Int(200),\n                \"name\": Text(\"Player\"),\n                \"run_speed\": Int(180),\n                \"speed\": Int(100),\n            },\n        ),\n    ),\n    (37): (\n        script_id: (3),\n        data: (\n            fields: {\n                \"dialogue\": Toml((1)),\n                \"name\": Text(\"NPC\"),\n            },\n        ),\n    ),\n}",
+                data: "{\n    (3): (\n        script_id: (2),\n        data: (\n            fields: {\n                \"health\": Int(100),\n                \"jump_speed\": Int(200),\n                \"name\": Text(\"Player\"),\n                \"run_speed\": Int(180),\n                \"speed\": Int(100),\n            },\n        ),\n    ),\n    (37): (\n        script_id: (3),\n        data: (\n            fields: {\n                \"dialogue\": Toml((1)),\n                \"name\": Text(\"NPC\"),\n            },\n        ),\n    ),\n    (38): (\n        script_id: (4),\n        data: (\n            fields: {\n                \"name\": Text(\"Checkpoint\"),\n            },\n        ),\n    ),\n}",
             ),
             /*[26]*/ (
                 type_name: "Solid",
@@ -118,7 +118,7 @@
             ),
             /*[28]*/ (
                 type_name: "Sprite",
-                data: "{\n    (37): (\n        sprite: (9),\n    ),\n}",
+                data: "{\n    (37): (\n        sprite: (9),\n    ),\n    (38): (\n        sprite: (9),\n    ),\n}",
             ),
             /*[29]*/ (
                 type_name: "SubPixel",
@@ -126,7 +126,7 @@
             ),
             /*[30]*/ (
                 type_name: "Transform",
-                data: "{\n    (1): (\n        visible: true,\n        position: (128.0, 0.0),\n        pivot: TopLeft,\n    ),\n    (2): (\n        visible: true,\n        position: (28.0, 72.0),\n        pivot: BottomCenter,\n    ),\n    (24): (\n        visible: true,\n        position: (-64.0, 36.0),\n        pivot: CenterLeft,\n    ),\n    (37): (\n        visible: true,\n        position: (164.0, 72.0),\n        pivot: BottomCenter,\n    ),\n}",
+                data: "{\n    (1): (\n        visible: true,\n        position: (128.0, 0.0),\n        pivot: TopLeft,\n    ),\n    (2): (\n        visible: true,\n        position: (28.0, 72.0),\n        pivot: BottomCenter,\n    ),\n    (24): (\n        visible: true,\n        position: (-64.0, 36.0),\n        pivot: CenterLeft,\n    ),\n    (37): (\n        visible: true,\n        position: (164.0, 72.0),\n        pivot: BottomCenter,\n    ),\n    (38): (\n        visible: true,\n        position: (-84.0, 72.0),\n        pivot: BottomCenter,\n    ),\n}",
             ),
             /*[31]*/ (
                 type_name: "Velocity",
@@ -148,8 +148,27 @@
                     name: "untitled",
                     position: (0.0, 0.0),
                     size: (32.0, 9.0),
-                    exits: [],
+                    exits: [
+                        /*[0]*/ (
+                            position: (-1.0, 7.0),
+                            direction: Left,
+                            target_room_id: Some((2)),
+                        ),
+                        /*[1]*/ (
+                            position: (-1.0, 6.0),
+                            direction: Left,
+                            target_room_id: Some((2)),
+                        ),
+                        /*[2]*/ (
+                            position: (-1.0, 5.0),
+                            direction: Left,
+                            target_room_id: Some((2)),
+                        ),
+                    ],
                     adjacent_rooms: [],
+                    tags: [
+                        /*[0]*/ "autosave",
+                    ],
                     variants: [
                         /*[0]*/ (
                             id: "default",
@@ -167,8 +186,27 @@
                     name: "untitled",
                     position: (-104.0, 0.0),
                     size: (13.0, 9.0),
-                    exits: [],
+                    exits: [
+                        /*[0]*/ (
+                            position: (13.0, 7.0),
+                            direction: Right,
+                            target_room_id: Some((1)),
+                        ),
+                        /*[1]*/ (
+                            position: (13.0, 6.0),
+                            direction: Right,
+                            target_room_id: Some((1)),
+                        ),
+                        /*[2]*/ (
+                            position: (13.0, 5.0),
+                            direction: Right,
+                            target_room_id: Some((1)),
+                        ),
+                    ],
                     adjacent_rooms: [],
+                    tags: [
+                        /*[0]*/ "autosave",
+                    ],
                     variants: [
                         /*[0]*/ (
                             id: "default",
@@ -182,7 +220,7 @@
                     darkness: 0.0,
                 ),
             ],
-            current_room_id: Some((5)),
+            current_room_id: Some((1)),
             starting_room_id: Some((1)),
             starting_position: Some((0.0, 0.0)),
             meta: (
@@ -229,6 +267,9 @@
             ),
             Script((3)): (
                 path: "scripts/npc.lua",
+            ),
+            Script((4)): (
+                path: "scripts/checkpoint.lua",
             ),
             Prefab((1)): (
                 path: "prefabs/Cat.prefab",

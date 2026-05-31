@@ -1,5 +1,3 @@
-// editor/src/main.rs
-
 // Tells windows if it's a console app or not (console is useful in debug)
 // #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 

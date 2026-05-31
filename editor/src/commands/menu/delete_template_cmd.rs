@@ -1,4 +1,3 @@
-// editor/src/commands/menu/delete_template_cmd.rs
 use crate::app::EditorMode;
 use crate::commands::editor_command_manager::EditorCommand;
 use crate::storage::editor_storage::delete_menu;

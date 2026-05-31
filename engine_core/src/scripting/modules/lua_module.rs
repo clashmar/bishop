@@ -1,4 +1,3 @@
-// engine_core/src/scripting/modules/lua_module.rs
 use mlua::Lua;
 use mlua::prelude::LuaResult;
 use std::fmt::Write;

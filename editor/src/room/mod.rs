@@ -1,4 +1,3 @@
-// editor/src/room/mod.rs
 pub mod drawing;
 mod entity_drag;
 pub(crate) mod prefab_preview;

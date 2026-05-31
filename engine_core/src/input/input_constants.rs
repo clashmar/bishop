@@ -1,5 +1,3 @@
-// engine_core/src/input/input_constants.rs
-
 /// String constant for the mouse.
 pub const MOUSE_LEFT: &str = "mouse_left";
 pub const MOUSE_MIDDLE: &str = "mouse_middle";

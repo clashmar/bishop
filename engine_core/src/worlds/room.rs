@@ -38,6 +38,7 @@ pub struct Room {
     pub size: Vec2,
     pub exits: Vec<Exit>,
     pub adjacent_rooms: Vec<RoomId>,
+    pub tags: Vec<String>,
     pub variants: Vec<RoomVariant>,
     pub darkness: f32,
 }
@@ -60,6 +61,7 @@ impl Room {
             size: world::DEFAULT_ROOM_SIZE,
             exits: vec![],
             adjacent_rooms: vec![],
+            tags: vec![],
             variants: vec![first_variant],
             darkness: 0.,
         };
@@ -177,13 +179,12 @@ impl Room {
         let mut used: HashSet<usize> = HashSet::new();
 
         for &entity in ecs.entities_in_room(self.id) {
-            if let Some(name) = name_store.get(entity) {
-                if let Some(num_str) = name.strip_prefix(CAMERA_PREFIX)
-                    && let Ok(num) = num_str.parse::<usize>()
-                    && num > 0
-                {
-                    used.insert(num);
-                }
+            if let Some(name) = name_store.get(entity)
+                && let Some(num_str) = name.strip_prefix(CAMERA_PREFIX)
+                && let Ok(num) = num_str.parse::<usize>()
+                && num > 0
+            {
+                used.insert(num);
             }
         }
 
@@ -268,4 +269,27 @@ pub struct Exit {
     pub position: Vec2,
     pub direction: ExitDirection,
     pub target_room_id: Option<RoomId>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn room_tags_round_trip_through_ron() {
+        let room = Room {
+            id: RoomId(1),
+            tags: vec!["autosave".to_string(), "hazardous".to_string()],
+            ..Default::default()
+        };
+        let ron = ron::ser::to_string_pretty(&room, ron::ser::PrettyConfig::new()).unwrap();
+        let parsed: Room = ron::from_str(&ron).unwrap();
+        assert_eq!(parsed.tags, vec!["autosave", "hazardous"]);
+    }
+
+    #[test]
+    fn room_tags_default_to_empty() {
+        let room = Room::default();
+        assert!(room.tags.is_empty());
+    }
 }

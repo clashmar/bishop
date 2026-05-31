@@ -1,4 +1,3 @@
-// engine_core/src/ui/toast.rs
 use crate::ui::text::*;
 use crate::ui::widgets::*;
 use std::time::Instant;

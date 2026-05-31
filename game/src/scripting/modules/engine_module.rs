@@ -1,9 +1,8 @@
-// game/src/scripting/modules/engine_module.rs
 use crate::scripting::lua_ctx::LuaGameCtx;
 use engine_core::prelude::*;
 use engine_core::register_lua_api;
 use engine_core::register_lua_module;
-use engine_core::scripting::lua_constants::{lua_engine, lua_fields, lua_files, lua_globals};
+use engine_core::scripting::lua_constants::{lua_engine, lua_events, lua_fields, lua_files, lua_globals, lua_tags};
 use mlua::prelude::LuaResult;
 use mlua::Function;
 use mlua::Lua;
@@ -174,6 +173,26 @@ impl LuaModule for EngineModule {
             Ok(proxy)
         })?;
         engine_tbl.set(lua_engine::GLOBAL, global_fn)?;
+
+        let tags_tbl = match engine_tbl.get::<Option<Table>>(lua_tags::TAGS)? {
+            Some(table) => table,
+            None => {
+                let table = lua.create_table()?;
+                engine_tbl.set(lua_tags::TAGS, table.clone())?;
+                table
+            }
+        };
+        tags_tbl.set(lua_tags::AUTOSAVE, lua_tags::AUTOSAVE)?;
+
+        let events_tbl = match engine_tbl.get::<Option<Table>>(lua_events::EVENTS)? {
+            Some(table) => table,
+            None => {
+                let table = lua.create_table()?;
+                engine_tbl.set(lua_events::EVENTS, table.clone())?;
+                table
+            }
+        };
+        events_tbl.set(lua_events::ROOM_ENTERED_FIELD, lua_events::ROOM_ENTERED)?;
 
         let asset_tbl = match engine_tbl.get::<Option<Table>>(lua_engine::ASSET)? {
             Some(table) => table,
@@ -349,6 +368,16 @@ impl LuaApi for EngineModule {
         out.line("function engine.asset.toml() end");
         out.line("");
 
+        out.line("--- Built-in tag constants.");
+        out.line("engine.tags = {}");
+        out.line(&format!("engine.tags.autosave = \"{}\"", lua_tags::AUTOSAVE));
+        out.line("");
+
+        out.line("--- Built-in event name constants.");
+        out.line("engine.events = {}");
+        out.line(&format!("engine.events.{} = \"{}\"", lua_events::ROOM_ENTERED_FIELD, lua_events::ROOM_ENTERED));
+        out.line("");
+
         // engine.player
         out.line("--- Get the player entity's script instance table");
         out.line("--- @return table|nil The player's script instance, or nil if not found");
@@ -378,6 +407,12 @@ impl LuaApi for EngineModule {
         out.line("--- @param ... any Arguments that will be passed to each handler");
         out.line("--- @return nil");
         out.line("function engine.emit(event, ...) end");
+        out.line("");
+
+        // engine.quit_to_title
+        out.line("--- Quit to the title screen.");
+        out.line("---@return nil");
+        out.line(&format!("function engine.{}() end", lua_engine::QUIT_TO_TITLE));
         out.line("");
     }
 }

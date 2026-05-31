@@ -1,4 +1,3 @@
-// editor/src/gui/inspector/script_module.rs
 use crate::editor_assets::assets::refresh_icon;
 use crate::with_lua;
 use bishop::prelude::*;
@@ -344,7 +343,7 @@ inventory::submit! {
         title: <engine_core::ecs::Script>::TYPE_NAME,
         factory: || {
             Box::new(
-                CollapsibleModule::new(
+                CollapsibleComponentModule::new(
                     crate::gui::inspector::script_module::ScriptModule::default()
                 )
                 .with_title(<engine_core::ecs::Script>::TYPE_NAME)

@@ -1,4 +1,3 @@
-// editor/src/commands/asset/tests/rename_asset_cmd_tests.rs
 use crate::app::EditorMode;
 use crate::commands::asset::RenameAssetCmd;
 use crate::commands::editor_command_manager::EditorCommand;

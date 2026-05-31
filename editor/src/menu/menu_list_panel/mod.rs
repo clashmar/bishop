@@ -1,4 +1,3 @@
-// editor/src/menu/menu_list_panel/mod.rs
 use crate::commands::menu::{CreateTemplateCmd, DeleteTemplateCmd};
 use crate::editor_global::push_command;
 use crate::menu::MenuEditor;

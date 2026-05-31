@@ -1,4 +1,3 @@
-// game/src/physics/collision.rs
 use bishop::prelude::*;
 use engine_core::prelude::*;
 use std::collections::HashSet;

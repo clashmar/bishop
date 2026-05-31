@@ -1,17 +1,19 @@
-// game/src/engine/mod.rs
 // Keep `mod.rs` limited to frame orchestration. Feature-specific methods belong in focused
 // helper modules alongside the subsystem it serves, or in a new engine sub-module.
 mod audio_events;
 pub mod engine_builder;
 pub mod game_instance;
 mod render;
+pub mod save_runtime;
 #[cfg(test)]
 mod tests;
 use audio_events::emit_pending_audio_events;
 use render::*;
 
 pub use engine_builder::EngineBuilder;
-pub use game_instance::GameInstance;
+pub use game_instance::{GameInstance, PreparedGameInstance};
+
+pub use save_runtime::{RuntimeLoadRequest, SaveRuntime};
 
 use crate::diagnostics::{DiagnosticsOverlay, TimingTraceSample};
 use crate::game_global::set_menu_active;
@@ -34,6 +36,8 @@ pub struct Engine {
     pub ctx: PlatformContext,
     /// Single Lua VM.
     pub lua: Lua,
+    /// Runtime save/restore subsystem.
+    pub save_runtime: SaveRuntime,
     /// Camera manager for the game.
     pub camera_manager: CameraManager,
     /// Rendering system for the game.
@@ -44,6 +48,8 @@ pub struct Engine {
     pub menu_manager: MenuManager,
     /// Whether the engine is running in playtest mode.
     pub is_playtest: bool,
+    /// Whether a pause-menu quit should reboot to the title instead of ending the session.
+    quit_to_title_enabled: bool,
     /// Accumulator for fixed timestep updates.
     pub accumulator: f32,
     /// Exponential moving average of frame time, used to smooth accumulator input.
@@ -72,6 +78,12 @@ pub enum EngineEntryMode {
     Playing,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum RequestedSessionAction {
+    QuitToTitle,
+    CloseApp,
+}
+
 impl BishopApp for Engine {
     async fn frame(&mut self, ctx: PlatformContext) {
         let raw_dt = ctx.borrow().get_frame_time();
@@ -88,7 +100,9 @@ impl BishopApp for Engine {
 
         self.update_game_state();
 
-        self.menu_manager.handle_input(&mut *ctx.borrow_mut());
+        if self.process_menu_input(&ctx) {
+            return;
+        }
         emit_pending_audio_events(self);
 
         if let Some(sample) = timing_sample {
@@ -127,20 +141,23 @@ impl BishopApp for Engine {
         }
         self.render(&ctx, alpha);
 
-        // Process ui events and emit to Lua
+        // Process ui events and any queued menu-open callbacks.
         self.game_instance.borrow().drain_ui_events();
+        ScriptSystem::process_commands(self);
     }
 }
 
 impl Engine {
     /// Creates a new Engine with the given configuration and session entry mode.
-    pub fn new(
+    fn new(
         game_instance: Rc<RefCell<GameInstance>>,
         ctx: PlatformContext,
         lua: Lua,
+        save_runtime: SaveRuntime,
         camera_manager: CameraManager,
         grid_size: f32,
         is_playtest: bool,
+        quit_to_title_enabled: bool,
         entry_mode: EngineEntryMode,
     ) -> Self {
         let mut menu_manager = MenuManager::new();
@@ -154,14 +171,38 @@ impl Engine {
             game_state,
             ctx,
             lua,
+            save_runtime,
             camera_manager,
             render_system: RenderSystem::with_grid_size(grid_size),
             diagnostics: DiagnosticsOverlay::new(),
             menu_manager,
             is_playtest,
+            quit_to_title_enabled,
             accumulator: 0.0,
             smoothed_dt: None,
             audio_manager: AudioManager::new::<PlatformAudioBackend>(),
+        }
+    }
+
+    /// Rebuilds the active camera from the current player position after a save is loaded.
+    pub fn rebuild_camera_from_loaded_state(&mut self) {
+        let mut ctx_ref = self.ctx.borrow_mut();
+        let game_ref = self.game_instance.borrow();
+        let ecs = &game_ref.game.ecs;
+        let world = game_ref.game.current_world();
+        let player_pos = ecs
+            .get_player_transform()
+            .map(|transform| transform.position)
+            .unwrap_or_default();
+
+        if let Some(current_room) = world.current_room() {
+            self.camera_manager = CameraManager::new(
+                &mut *ctx_ref,
+                ecs,
+                current_room.id,
+                player_pos,
+                world.grid_size,
+            );
         }
     }
 
@@ -187,7 +228,7 @@ impl Engine {
         }
 
         // Resolve room transitions before updating the camera
-        TransitionManager::handle_transitions(&mut game_instance);
+        TransitionManager::handle_transitions(&self.lua, &mut game_instance);
 
         let game_ctx = game_instance.game.ctx_mut();
         if let Some(world) = game_ctx.world.as_deref() {
@@ -279,6 +320,45 @@ impl Engine {
     /// Resolves the current game state from all active systems.
     fn update_game_state(&mut self) {
         self.game_state = resolve_game_state(self.game_state.clone(), &self.menu_manager);
+    }
+
+    fn process_menu_input(&mut self, ctx: &PlatformContext) -> bool {
+        let pending_action = {
+            let mut ctx_ref = ctx.borrow_mut();
+            self.menu_manager.handle_input(&mut *ctx_ref);
+            self.menu_manager.drain_pending_session_action()
+        };
+
+        let Some(action) = pending_action else {
+            return false;
+        };
+
+        match resolve_requested_session_action(action, self.quit_to_title_enabled) {
+            RequestedSessionAction::QuitToTitle => {
+                self.save_runtime.pending_quit_to_title.set(true);
+            }
+            RequestedSessionAction::CloseApp => {
+                let mut ctx_ref = ctx.borrow_mut();
+                ctx_ref.set_close_requested(true);
+                ctx_ref.set_exit_confirmed(true);
+            }
+        }
+
+        true
+    }
+}
+
+fn resolve_requested_session_action(
+    action: MenuSessionAction,
+    quit_to_title_enabled: bool,
+) -> RequestedSessionAction {
+    match action {
+        MenuSessionAction::QuitToMainMenu if quit_to_title_enabled => {
+            RequestedSessionAction::QuitToTitle
+        }
+        MenuSessionAction::QuitToMainMenu | MenuSessionAction::QuitGame => {
+            RequestedSessionAction::CloseApp
+        }
     }
 }
 

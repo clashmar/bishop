@@ -4,6 +4,7 @@ pub mod engine;
 pub mod game_global;
 pub mod input;
 pub mod physics;
+pub mod save_system;
 pub mod scripting;
 pub mod startup;
 pub mod transitions;

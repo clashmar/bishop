@@ -1,4 +1,3 @@
-// engine_core/src/storage/path_utils.rs
 use crate::constants::paths;
 use crate::engine_global::*;
 use crate::storage::editor_config::*;
@@ -15,6 +14,11 @@ use std::path::PathBuf;
 /// Path to the folder that belongs to a particular game (Editor).
 pub fn game_folder(name: &str) -> PathBuf {
     absolute_save_root().join(sanitise_name(name))
+}
+
+/// Path to the editor-only metadata folder for a game.
+pub fn editor_metadata_folder(game_name: &str) -> PathBuf {
+    game_folder(game_name).join(paths::EDITOR_METADATA_FOLDER)
 }
 
 /// Path to the resources folder for a game (Editor/Game/Playtest).

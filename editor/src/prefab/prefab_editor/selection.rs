@@ -3,7 +3,11 @@ use engine_core::prelude::*;
 
 impl PrefabEditor {
     pub(crate) fn sync_inspector_to_selection(&mut self) {
-        self.inspector.set_target(self.single_selected_entity());
+        if let Some(entity) = self.single_selected_entity() {
+            self.inspector.show_entity(entity);
+        } else {
+            self.inspector.hide();
+        }
     }
 
     pub fn set_selected_entity(&mut self, entity: Option<Entity>) {
@@ -83,6 +87,7 @@ impl PrefabEditor {
     }
 
     pub(crate) fn sanitize_live_state(&mut self, ecs: &Ecs) {
+        let root_entity = self.root_entity;
         if self
             .root_entity
             .is_some_and(|entity| !is_live_prefab_entity(ecs, entity))
@@ -90,9 +95,12 @@ impl PrefabEditor {
             self.root_entity = None;
         }
 
+        let selected_count = self.selected_entities.len();
         self.selected_entities
             .retain(|entity| is_live_prefab_entity(ecs, *entity));
-        self.sync_inspector_to_selection();
+        if self.root_entity != root_entity || self.selected_entities.len() != selected_count {
+            self.sync_inspector_to_selection();
+        }
     }
 }
 

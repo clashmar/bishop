@@ -45,9 +45,9 @@ pub fn delete_sound_preset(preset_name: &str) -> bool {
 
 /// Loads the project's sound preset library from disk.
 pub fn load_sound_preset_library(game_name: &str) -> io::Result<SoundPresetLibrary> {
-    let path = game_folder(game_name).join(SOUND_PRESETS_RON);
+    let path = editor_metadata_folder(game_name).join(SOUND_PRESETS_RON);
 
-    match fs::read_to_string(path) {
+    match fs::read_to_string(&path) {
         Ok(ron) => ron::from_str(&ron).map_err(|error| {
             Error::new(
                 ErrorKind::InvalidData,
@@ -61,8 +61,9 @@ pub fn load_sound_preset_library(game_name: &str) -> io::Result<SoundPresetLibra
 
 /// Saves the project's sound preset library to disk.
 pub fn save_sound_preset_library(game_name: &str, library: &SoundPresetLibrary) -> io::Result<()> {
-    let path = game_folder(game_name).join(SOUND_PRESETS_RON);
-    fs::create_dir_all(game_folder(game_name))?;
+    let dir = editor_metadata_folder(game_name);
+    let path = dir.join(SOUND_PRESETS_RON);
+    fs::create_dir_all(&dir)?;
 
     let ron =
         ron::ser::to_string_pretty(library, ron::ser::PrettyConfig::new()).map_err(Error::other)?;
@@ -117,10 +118,9 @@ mod tests {
             .unwrap_or_else(|poison| poison.into_inner());
         let test_game = TestGameFolder::new("sound_presets_invalid");
         fs::create_dir_all(test_game.path()).unwrap();
-        fs::write(
-            test_game.path().join(SOUND_PRESETS_RON),
-            "this is not valid ron",
-        )
+        let editor_dir = editor_metadata_folder(test_game.name());
+        fs::create_dir_all(&editor_dir).unwrap();
+        fs::write(editor_dir.join(SOUND_PRESETS_RON), "this is not valid ron")
         .unwrap();
 
         let error = load_sound_preset_library(test_game.name()).unwrap_err();
@@ -149,9 +149,9 @@ mod tests {
         let test_game = TestGameFolder::new("save_game_sounds_lua_error");
         set_game_name(test_game.name());
 
-        let sounds_lua_path = scripts_folder()
-            .join(lua_dirs::ENGINE)
-            .join(lua_files::SOUNDS);
+        let sounds_lua_path = scripts_folder().join(lua_dirs::ENGINE).join(
+            engine_core::scripting::lua_project::engine_relative_path(lua_files::SOUNDS),
+        );
         fs::create_dir_all(&sounds_lua_path).unwrap();
 
         let mut game = Game::default();
@@ -224,6 +224,7 @@ mod tests {
 
         let loaded = load_sound_preset_library(test_game.name()).unwrap();
 
+        assert!(editor_metadata_folder(test_game.name()).join(SOUND_PRESETS_RON).exists());
         assert_eq!(loaded, library);
     }
 }

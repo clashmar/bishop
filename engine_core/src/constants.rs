@@ -60,6 +60,9 @@ pub mod paths {
     /// Name of the root of the save root for all games.
     pub const GAME_SAVE_ROOT: &str = "games";
 
+    /// Name of the shipped demo game.
+    pub const DEMO_GAME: &str = "Demo";
+
     /// Name of the `Resources` folder.
     pub const RESOURCES_FOLDER: &str = "Resources";
 
@@ -110,6 +113,9 @@ pub mod paths {
 
     /// Name of the bundle assets for the macOS editor.
     pub const BUNDLE_ASSETS: &str = "bundle_assets";
+
+    /// Name of the underscore-prefixed folder that stores editor-only per-game metadata.
+    pub const EDITOR_METADATA_FOLDER: &str = "_editor";
 }
 
 /// Scale to the base resolution.

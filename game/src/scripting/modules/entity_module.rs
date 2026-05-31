@@ -54,6 +54,7 @@ entity_handle_methods! {
     MoveBy => MoveByMethod,
     MoveToRoom => MoveToRoomMethod,
     RemoveFromRoom => RemoveFromRoomMethod,
+    CurrentRoom => CurrentRoomMethod,
     GetCurrentFrame => GetCurrentFrameMethod,
     IsClipFinished => IsClipFinishedMethod,
     Say => SayMethod,
@@ -73,7 +74,7 @@ impl LuaModule for EntityModule {
     fn register(&self, lua: &Lua) -> LuaResult<()> {
         let factory =
             lua.create_function(|_, id: usize| Ok(EntityHandle { entity: Entity(id) }))?;
-        lua.globals().set(lua_globals::ENTITY, factory)?;
+        lua.globals().set(lua_globals::ENTITY_HANDLE, factory)?;
         Ok(())
     }
 }

@@ -1,4 +1,3 @@
-// editor/src/menu_editor/resize_handle.rs
 use bishop::prelude::*;
 
 const HANDLE_SIZE: f32 = 6.0;

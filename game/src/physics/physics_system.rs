@@ -1,4 +1,3 @@
-// game/src/physics/physics_system.rs
 use crate::constants::GRAVITY;
 use crate::physics::collision::SweepContext;
 use engine_core::prelude::*;

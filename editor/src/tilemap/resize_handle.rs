@@ -1,4 +1,3 @@
-// editor/src/gui/resize_handle.rs
 use crate::world::coord::overlaps_existing_rooms;
 use bishop::prelude::*;
 use engine_core::prelude::*;

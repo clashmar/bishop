@@ -1,4 +1,3 @@
-// game/src/scripting/commands/lua_command_manager.rs
 use crate::scripting::commands::lua_command::LuaCommand;
 use std::mem::take;
 use std::vec::IntoIter;

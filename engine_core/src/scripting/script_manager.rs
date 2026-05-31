@@ -1,4 +1,3 @@
-// engine_core/src/script/script_manager.rs
 use crate::assets::asset_manager::{AssetManager, IdPathAssetManager};
 use crate::assets::asset_registry::AssetKey;
 use crate::assets::AssetRegistry;
@@ -268,8 +267,8 @@ impl ScriptManager {
         script_manager.restore_next_script_id();
     }
 
-    /// Load all .lua files to the package.path
-    fn load_to_package(lua: &Lua) {
+    /// Load all .lua files to the package.path.
+    pub fn load_to_package(lua: &Lua) {
         let scripts_dir = scripts_folder().to_string_lossy().replace('\\', "/");
         let themes_dir = themes_folder().to_string_lossy().replace('\\', "/");
 

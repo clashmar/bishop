@@ -5,20 +5,15 @@ use crate::scripting::modules::engine_module::EngineModule;
 use crate::scripting::modules::entity_module::EntityHandle;
 use engine_core::prelude::lua_constants::lua_engine;
 use engine_core::prelude::*;
+use engine_core::storage::test_utils::game_fs_test_lock;
 use mlua::{Lua, Table};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
-use std::sync::{Mutex, OnceLock};
 
 const DEMO_GAME_NAME: &str = "Demo";
 const DIALOGUE_KEY: &str = "greeting";
 const DIALOGUE_FIELD: &str = "dialogue_id";
-
-fn game_name_test_lock() -> &'static Mutex<()> {
-    static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
-    LOCK.get_or_init(|| Mutex::new(()))
-}
 
 fn setup_engine_lua() -> Lua {
     let lua = Lua::new();
@@ -69,7 +64,7 @@ fn setup_entity_lua() -> (Lua, Rc<RefCell<GameInstance>>, Entity) {
 
 #[test]
 fn engine_asset_toml_without_argument_returns_unset_toml_id() {
-    let _lock = game_name_test_lock()
+    let _lock = game_fs_test_lock()
         .lock()
         .unwrap_or_else(|poison| poison.into_inner());
     let lua = setup_engine_lua();
@@ -85,7 +80,7 @@ fn engine_asset_toml_without_argument_returns_unset_toml_id() {
 
 #[test]
 fn script_load_reads_toml_constructor_output_into_typed_field() {
-    let _lock = game_name_test_lock()
+    let _lock = game_fs_test_lock()
         .lock()
         .unwrap_or_else(|poison| poison.into_inner());
     let (lua, _game_instance) = setup_game_lua();
@@ -116,7 +111,7 @@ fn script_load_reads_toml_constructor_output_into_typed_field() {
 
 #[test]
 fn script_sync_to_lua_writes_toml_field_as_typed_userdata() {
-    let _lock = game_name_test_lock()
+    let _lock = game_fs_test_lock()
         .lock()
         .unwrap_or_else(|poison| poison.into_inner());
     let (lua, _game_instance) = setup_game_lua();
@@ -141,7 +136,7 @@ fn script_sync_to_lua_writes_toml_field_as_typed_userdata() {
 
 #[test]
 fn entity_say_accepts_toml_id_dialogue_fields() {
-    let _lock = game_name_test_lock()
+    let _lock = game_fs_test_lock()
         .lock()
         .unwrap_or_else(|poison| poison.into_inner());
     let (lua, game_instance, _entity) = setup_entity_lua();
@@ -167,7 +162,7 @@ fn entity_say_accepts_toml_id_dialogue_fields() {
 
 #[test]
 fn entity_say_skips_queueing_when_toml_lookup_fails() {
-    let _lock = game_name_test_lock()
+    let _lock = game_fs_test_lock()
         .lock()
         .unwrap_or_else(|poison| poison.into_inner());
     let (lua, game_instance, _entity) = setup_entity_lua();

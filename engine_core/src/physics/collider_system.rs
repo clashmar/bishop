@@ -1,4 +1,3 @@
-// engine_core/src/physics/collider_system.rs
 use crate::assets::sprite_manager::SpriteManager;
 use crate::ecs::component::ComponentStore;
 use crate::ecs::ecs::Ecs;

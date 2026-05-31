@@ -10,14 +10,14 @@ pub struct StartupAsset {
     /// Loading-phase screens shown before entering the runtime session flow.
     pub loading: LoadingConfig,
     /// Menu id to open when entering the front-end start menu.
-    pub start_menu_id: String,
+    pub title_menu_id: String,
 }
 
 impl Default for StartupAsset {
     fn default() -> Self {
         Self {
             loading: LoadingConfig::default(),
-            start_menu_id: "start".to_string(),
+            title_menu_id: String::new(),
         }
     }
 }
@@ -116,7 +116,7 @@ mod tests {
         let asset = StartupAsset::default();
 
         assert!(asset.loading.splash_screens.is_empty());
-        assert_eq!(asset.start_menu_id, "start");
+        assert!(asset.title_menu_id.is_empty());
         assert_eq!(
             asset.loading.fallback_screen.content,
             StartupScreenContent::Text {

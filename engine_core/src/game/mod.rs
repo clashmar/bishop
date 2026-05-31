@@ -106,6 +106,14 @@ pub struct GameCtxMut<'a> {
 }
 
 impl Game {
+    /// Creates a default `Game` with the given name.
+    pub fn with_name(name: impl Into<String>) -> Self {
+        Self {
+            name: name.into(),
+            ..Default::default()
+        }
+    }
+
     /// Returns an immutable slice of all worlds for read-only iteration.
     pub fn worlds(&self) -> &[World] {
         &self.worlds

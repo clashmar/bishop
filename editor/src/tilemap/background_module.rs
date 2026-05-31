@@ -1,4 +1,3 @@
-// editor/src/tilemap/background_module.rs
 use bishop::prelude::*;
 use engine_core::prelude::*;
 use widgets::constants::layout;

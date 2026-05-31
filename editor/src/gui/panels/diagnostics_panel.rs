@@ -1,4 +1,3 @@
-// editor/src/gui/panels/diagnostics_panel.rs
 use crate::editor_global::with_command_manager;
 use crate::gui::panels::generic_panel::PanelDefinition;
 use crate::Editor;

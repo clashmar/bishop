@@ -1,15 +1,24 @@
 /// Generated Lua filenames.
 pub mod lua_files {
+    pub const LUARC: &str = ".luarc.json";
+    pub const LUACHECK: &str = ".luacheckrc";
+    pub const STYLUA: &str = "stylua.toml";
     pub const MAIN: &str = "main.lua";
     pub const ENGINE: &str = "engine.lua";
     pub const COMPONENTS: &str = "components.lua";
     pub const ENTITY: &str = "entity.lua";
+    pub const INPUT: &str = "input.lua";
+    pub const DIRECTION: &str = "direction.lua";
+    pub const SCRIPT: &str = "script.lua";
+    pub const GLOBALS: &str = "globals.lua";
     pub const ANIMATIONS: &str = "animations.lua";
     pub const SOUNDS: &str = "sounds.lua";
     pub const PREFABS: &str = "prefabs.lua";
     pub const TEXT: &str = "text.lua";
     pub const MENU: &str = "menu.lua";
+    pub const MENUS: &str = "menus.lua";
     pub const AUDIO: &str = "audio.lua";
+    pub const SAVE: &str = "save.lua";
     pub const THEME: &str = "theme.lua";
     pub const COLOR: &str = "color.lua";
     pub const BISHOP_THEME: &str = "bishop_theme.lua";
@@ -25,13 +34,30 @@ pub mod lua_ownership {
 pub mod lua_globals {
     pub const LUA_GAME_CTX: &str = "lua_game_ctx";
     pub const LUA_EVENT_BUS: &str = "lua_event_bus";
-    pub const ENTITY: &str = "entity";
+    pub const ENTITY_HANDLE: &str = "entity";
+    pub const ENGINE: &str = "engine";
+    pub const COLOR: &str = "Color";
+    pub const WIDGET: &str = "Widget";
+    pub const PRIVATE: &str = "private";
+    pub const LOCAL: &str = "local";
+    pub const INPUT: &str = "Input";
+    pub const DIRECTION: &str = "Direction";
+    pub const COMPONENTS: &str = "Components";
+    pub const ANIMATIONS: &str = "Animations";
+    pub const PREFABS: &str = "Prefabs";
+    pub const SOUNDS: &str = "Sounds";
+    pub const MENUS: &str = "Menus";
+    pub const SCRIPT: &str = "Script";
+    pub const ENTITY: &str = "Entity";
 }
 
 /// Lua script directories.
 pub mod lua_dirs {
     pub const ENGINE: &str = "_engine";
     pub const SCRIPTS: &str = "scripts";
+    pub const DATA: &str = "data";
+    pub const RUNTIME: &str = "runtime";
+    pub const UI: &str = "ui";
 }
 
 /// Shared Lua field names.
@@ -42,6 +68,12 @@ pub mod lua_fields {
     pub const X: &str = "x";
     pub const Y: &str = "y";
     pub const Z: &str = "z";
+}
+
+/// Built-in tag constants.
+pub mod lua_tags {
+    pub const TAGS: &str = "tags";
+    pub const AUTOSAVE: &str = "autosave";
 }
 
 /// Root engine Lua table names.
@@ -58,6 +90,7 @@ pub mod lua_engine {
     pub const SPAWN: &str = "spawn";
     pub const TOML: &str = "toml";
     pub const THEME: &str = "theme";
+    pub const QUIT_TO_TITLE: &str = "quit_to_title";
 }
 
 /// Entity Lua method names.
@@ -76,6 +109,14 @@ pub mod lua_entity {
     pub const MOVE_BY: &str = "move_by";
     pub const MOVE_TO_ROOM: &str = "move_to_room";
     pub const REMOVE_FROM_ROOM: &str = "remove_from_room";
+    pub const CURRENT_ROOM: &str = "current_room";
+}
+
+/// Lua event names passed to `engine.on` / `engine.emit`.
+pub mod lua_events {
+    pub const EVENTS: &str = "events";
+    pub const ROOM_ENTERED_FIELD: &str = "room_entered";
+    pub const ROOM_ENTERED: &str = "room:entered";
 }
 
 /// Animation Lua method names.
@@ -111,6 +152,9 @@ pub mod lua_menu {
     pub const OPEN: &str = "open";
     pub const CLOSE: &str = "close";
     pub const IS_OPEN: &str = "is_open";
+    pub const SET_ENABLED: &str = "set_enabled";
+    pub const SET_VISIBLE: &str = "set_visible";
+    pub const MENUS_CLASS: &str = "Menus";
 }
 
 /// Audio Lua names.
@@ -131,6 +175,22 @@ pub mod lua_audio {
     pub const ENTITY_PLAY_SOUND: &str = "play_sound";
     pub const ENTITY_STOP_SOUND: &str = "stop_sound";
     pub const ENTITY_SET_SOUND_VOLUME: &str = "set_sound_volume";
+}
+
+/// Save Lua names.
+pub mod lua_save {
+    pub const SAVE: &str = "save";
+    pub const MANUAL: &str = "manual";
+    pub const AUTO: &str = "auto";
+    pub const CHECKPOINT: &str = "checkpoint";
+    pub const LOAD_LATEST: &str = "load_latest";
+    pub const REGISTER_PROVIDER: &str = "register_provider";
+    pub const TO_STRING: &str = "to_string";
+    pub const FROM_STRING: &str = "from_string";
+    pub const HAS_LATEST: &str = "has_latest";
+    pub const PROVIDER_VERSION: &str = "version";
+    pub const PROVIDER_CAPTURE: &str = "capture";
+    pub const PROVIDER_APPLY: &str = "apply";
 }
 
 /// Theme Lua names.

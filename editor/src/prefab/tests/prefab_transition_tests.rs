@@ -301,7 +301,7 @@ fn dirty_prefab_transition_save_does_not_switch_when_palette_persist_fails() {
         .unwrap()
         .create_prefab_entity(&mut editor.prefab_stage.as_mut().unwrap().ecs, Some(root));
 
-    let palette_path = game_folder(test_game.name()).join("prefab_palette.ron");
+    let palette_path = editor_metadata_folder(test_game.name()).join("prefab_palette.ron");
     std::fs::remove_file(&palette_path).expect("palette state file should exist");
     std::fs::create_dir(&palette_path).expect("palette path should become a directory");
 
@@ -520,7 +520,7 @@ fn deleting_active_prefab_keeps_reconciled_palette_state_when_palette_persist_fa
         editor.room_editor.recent_prefab_ids = vec![prefab_id, PrefabId(999), PrefabId(2)];
         assert!(editor.save_prefab_palette_state());
 
-        let palette_path = game_folder(test_game.name()).join("prefab_palette.ron");
+        let palette_path = editor_metadata_folder(test_game.name()).join("prefab_palette.ron");
         std::fs::remove_file(&palette_path).expect("palette state file should exist");
         std::fs::create_dir(&palette_path).expect("palette path should become a directory");
 

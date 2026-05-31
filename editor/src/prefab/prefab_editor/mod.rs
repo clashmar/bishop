@@ -11,15 +11,13 @@ use crate::app::EditorMode;
 use crate::app::SubEditor;
 use crate::canvas::grid;
 use crate::canvas::grid_shader::GridRenderer;
-use crate::gui::inspector::inspector_panel::InspectorPanel;
+use crate::gui::inspector::inspector::Inspector;
 use crate::gui::menu_bar::draw_top_panel_full;
 use crate::room::drawing::{
     draw_collider, draw_interactable_range, draw_pivot_marker, highlight_selected_entity,
 };
 use crate::shared::input::canvas_blocked_by_global_ui;
-use crate::shared::scene_ui::inspector::{
-    SceneCreateRequest, SceneEmptyInspectorBehavior, SceneInspectorContext,
-};
+use crate::shared::scene_ui::inspector::{SceneCreateRequest, SceneInspectorContext};
 use crate::shared::selection::draw_selection_box;
 use crate::world::coord;
 use bishop::prelude::*;
@@ -65,7 +63,7 @@ pub struct PrefabEditor {
     pub prefab_name: String,
     pub root_entity: Option<Entity>,
     pub selected_entities: HashSet<Entity>,
-    pub inspector: InspectorPanel,
+    pub inspector: Inspector,
     pub active_rects: Vec<Rect>,
     pub show_grid: bool,
     pub(crate) needs_camera_reset: bool,
@@ -84,12 +82,15 @@ impl PrefabEditor {
         last_committed_prefab: StagedPrefabState,
         last_room_synced_state: PrefabRoomSyncState,
     ) -> Self {
+        let mut inspector = Inspector::new();
+        inspector.hide();
+
         Self {
             prefab_id,
             prefab_name,
             root_entity: None,
             selected_entities: HashSet::new(),
-            inspector: InspectorPanel::new(),
+            inspector,
             active_rects: Vec::new(),
             show_grid: true,
             needs_camera_reset: true,
@@ -133,12 +134,6 @@ impl PrefabEditor {
 
         self.handle_shortcuts(ctx);
         self.handle_camera(ctx, camera, game_ctx.ecs);
-
-        if self.selected_entities.len() == 1 {
-            self.inspector.set_target(self.single_selected_entity());
-        } else {
-            self.inspector.set_target(None);
-        }
     }
 
     fn handle_camera(&mut self, ctx: &WgpuContext, camera: &mut Camera2D, ecs: &Ecs) {
@@ -221,9 +216,6 @@ impl PrefabEditor {
             show_linked_prefab_metadata: false,
             hide_room_only_components: true,
             selected_create_parent: self.single_selected_entity(),
-            empty_state: SceneEmptyInspectorBehavior::Prefab {
-                fallback_parent: self.root_entity,
-            },
         };
         let inspector_output = self.inspector.draw(ctx, game_ctx, &inspector_ctx);
         self.create_request = inspector_output.create_request;

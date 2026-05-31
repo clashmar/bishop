@@ -1,6 +1,10 @@
-// engine_core/src/ecs/capture.rs
-use crate::{ecs::entity::Children, game::GameCtxMut};
+use crate::ecs::component::comp_type_name;
+use crate::ecs::components::prefab_instance::PrefabInstanceNode;
+use crate::ecs::entity::{Children, Parent};
+use crate::game::GameCtxMut;
 use serde::{Deserialize, Serialize};
+use std::any::Any;
+use std::collections::HashMap;
 
 /// A single serialized component.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -66,6 +70,42 @@ pub fn restore_entity(
 
         ctx.ecs().run_registered_on_insert(component_reg, entity);
     }
+}
+
+/// Deserialize a component snapshot and remap entity ID references.
+/// Returns the registry entry and the remapped component, ready for insertion
+/// via `Ecs::insert_component_dyn`.
+pub fn restore_component_with_remap(
+    comp: &ComponentSnapshot,
+    id_map: &HashMap<Entity, Entity>,
+) -> Option<(&'static ComponentRegistry, Box<dyn Any>)> {
+    let reg = inventory::iter::<ComponentRegistry>()
+        .find(|r| r.type_name == comp.type_name)?;
+
+    let mut boxed = (reg.from_ron_component)(comp.ron.clone());
+
+    if comp.type_name == comp_type_name::<Parent>() {
+        if let Some(parent) = boxed.as_mut().downcast_mut::<Parent>()
+            && let Some(&new_parent) = id_map.get(&parent.0)
+        {
+            parent.0 = new_parent;
+        }
+    } else if comp.type_name == comp_type_name::<Children>() {
+        if let Some(children) = boxed.as_mut().downcast_mut::<Children>() {
+            for child in &mut children.entities {
+                if let Some(&new_child) = id_map.get(child) {
+                    *child = new_child;
+                }
+            }
+        }
+    } else if comp.type_name == comp_type_name::<PrefabInstanceNode>()
+        && let Some(node) = boxed.as_mut().downcast_mut::<PrefabInstanceNode>()
+        && let Some(&new_root) = id_map.get(&node.root_entity)
+    {
+        node.root_entity = new_root;
+    }
+
+    Some((reg, boxed))
 }
 
 /// Generates a `capture_entity` implementation that works for any component

@@ -1,4 +1,3 @@
-// engine_core/src/diagnostics/collector.rs
 //! Collects and aggregates metrics from engine systems.
 
 use super::metrics::*;

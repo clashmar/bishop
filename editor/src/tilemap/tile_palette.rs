@@ -1,4 +1,3 @@
-// editor/src/tilemap/tile_palette.rs
 use bishop::prelude::*;
 use engine_core::constants::world as world_constants;
 use engine_core::prelude::*;

@@ -1,5 +1,3 @@
-// engine_core/src/game/id_allocator.rs
-
 use crate::game::Game;
 use crate::worlds::room::RoomId;
 use crate::worlds::world::WorldId;

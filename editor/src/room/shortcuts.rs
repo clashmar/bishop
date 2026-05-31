@@ -1,4 +1,3 @@
-// editor/src/room/shortcuts.rs
 use crate::app::EditorCameraController;
 use crate::app::EditorMode;
 use crate::commands::room::*;

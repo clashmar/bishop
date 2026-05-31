@@ -1,4 +1,3 @@
-// editor/src/tilemap/tilemap_editor.rs
 use crate::commands::room::*;
 use crate::editor_assets::assets::*;
 use crate::editor_global::{push_command, push_toast};

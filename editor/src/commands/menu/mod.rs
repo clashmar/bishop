@@ -1,4 +1,3 @@
-// editor/src/commands/menu/mod.rs
 mod add_element_cmd;
 mod create_template_cmd;
 mod delete_element_cmd;

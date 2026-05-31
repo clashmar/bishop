@@ -1,4 +1,3 @@
-// editor/src/gui/panels/panel_manager.rs
 use crate::app::EditorMode;
 use crate::gui::panels::console_panel::ConsolePanel;
 use crate::gui::panels::diagnostics_panel::DiagnosticsPanel;

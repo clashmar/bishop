@@ -1,4 +1,3 @@
-// editor/src/room/entity_drag.rs
 use crate::app::EditorMode;
 use crate::app::SubEditor;
 use crate::commands::room::*;
@@ -64,6 +63,7 @@ impl RoomEditor {
         let shift_held =
             ctx.is_key_down(KeyCode::LeftShift) || ctx.is_key_down(KeyCode::RightShift);
         let mouse_world = coord::mouse_world_pos(ctx, camera);
+        let mut selection_changed = false;
 
         // Handle mouse button press
         if !ui_was_clicked
@@ -114,11 +114,13 @@ impl RoomEditor {
                     } else {
                         self.selected_entities.insert(entity);
                     }
+                    selection_changed = true;
                 } else {
                     // Clear and select single, start drag
                     if !self.selected_entities.contains(&entity) {
                         self.selected_entities.clear();
                         self.selected_entities.insert(entity);
+                        selection_changed = true;
                     }
 
                     // Start normal drag
@@ -180,6 +182,7 @@ impl RoomEditor {
                             for (_, dup) in &duplicates {
                                 self.selected_entities.insert(*dup);
                             }
+                            selection_changed = true;
 
                             // Update drag tracking to use duplicates
                             self.drag_state.drag_start_positions = duplicates
@@ -211,8 +214,13 @@ impl RoomEditor {
                     self.selected_entities.clear();
                     self.drag_state.box_select_start = Some(mouse_world);
                     self.drag_state.box_select_active = true;
+                    selection_changed = true;
                 }
             }
+        }
+
+        if selection_changed {
+            self.sync_inspector_to_selection();
         }
 
         // Handle box selection
@@ -238,8 +246,12 @@ impl RoomEditor {
                             self.selected_entities.insert(*entity);
                         }
                     }
+                    selection_changed = true;
                 }
                 self.drag_state.box_select_active = false;
+                if selection_changed {
+                    self.sync_inspector_to_selection();
+                }
             }
             return true;
         }
@@ -296,6 +308,7 @@ impl RoomEditor {
                     for (_, dup) in &duplicates {
                         self.selected_entities.insert(*dup);
                     }
+                    self.sync_inspector_to_selection();
 
                     // Update drag tracking to use duplicates
                     self.drag_state.drag_start_positions = duplicates
@@ -343,15 +356,14 @@ impl RoomEditor {
 
                     // Delete the copied entities
                     for &copy_entity in &self.drag_state.alt_copied_entities {
-                        for reg in inventory::iter::<ComponentRegistry> {
-                            (reg.remove)(ecs, copy_entity);
-                        }
+                        ecs.remove_entity_components(copy_entity);
                     }
                     self.drag_state.alt_copied_entities.clear();
 
                     // Restore original selection and anchor
                     self.selected_entities = original_state.selected_entities;
                     self.drag_state.drag_anchor_entity = original_state.anchor_entity;
+                    self.sync_inspector_to_selection();
 
                     // Move originals to where copies were (under the mouse)
                     self.drag_state.drag_start_positions.clear();
@@ -571,34 +583,9 @@ impl RoomEditor {
             let new_id = id_map[&snapshot.entity];
 
             for comp in snapshot.components.iter() {
-                let component_reg = match inventory::iter::<ComponentRegistry>()
-                    .find(|r| r.type_name == comp.type_name)
-                {
-                    Some(reg) => reg,
-                    None => continue,
+                let Some((reg, mut boxed)) = restore_component_with_remap(comp, &id_map) else {
+                    continue;
                 };
-
-                let mut boxed = (component_reg.from_ron_component)(comp.ron.clone());
-
-                // Remap parent references
-                if comp.type_name == comp_type_name::<Parent>() {
-                    if let Some(parent) = boxed.as_mut().downcast_mut::<Parent>() {
-                        if let Some(&new_parent) = id_map.get(&parent.0) {
-                            parent.0 = new_parent;
-                        }
-                    }
-                }
-
-                // Remap children references
-                if comp.type_name == comp_type_name::<Children>() {
-                    if let Some(children) = boxed.as_mut().downcast_mut::<Children>() {
-                        for child in &mut children.entities {
-                            if let Some(&new_child) = id_map.get(child) {
-                                *child = new_child;
-                            }
-                        }
-                    }
-                }
 
                 // Initialize Animation runtime state so it renders during drag
                 if comp.type_name == comp_type_name::<Animation>() {
@@ -607,7 +594,7 @@ impl RoomEditor {
                     }
                 }
 
-                (component_reg.inserter)(ecs, new_id, boxed);
+                ecs.insert_component_dyn(reg, new_id, boxed);
             }
         }
 

@@ -1,4 +1,3 @@
-// engine_core/src/text/interpolation.rs
 use std::collections::HashMap;
 
 /// Interpolates `{{variable}}` placeholders in text with provided values.

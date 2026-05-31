@@ -1,4 +1,3 @@
-// engine_core/src/ecs/inspector/factory.rs
 #[cfg(feature = "editor")]
 use crate::ecs::component::Component;
 #[cfg(feature = "editor")]
@@ -38,7 +37,7 @@ pub fn make_module<T>(title: &str, removable: bool) -> Box<dyn InspectorModule>
 where
     T: Component + Reflect + Default + 'static,
 {
-    Box::new(CollapsibleModule::new(GenericModule::<T>::new(removable)).with_title(title))
+    Box::new(CollapsibleComponentModule::new(GenericModule::<T>::new(removable)).with_title(title))
 }
 
 /// Public macro for each component that appears in the inspector.

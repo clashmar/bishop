@@ -1,4 +1,3 @@
-// editor/src/commands/asset/tests/move_directory_cmd_tests.rs
 use crate::app::EditorMode;
 use crate::commands::asset::MoveDirectoryCmd;
 use crate::commands::editor_command_manager::EditorCommand;

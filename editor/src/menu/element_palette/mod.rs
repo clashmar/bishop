@@ -1,4 +1,3 @@
-// editor/src/menu/element_palette/mod.rs
 use bishop::prelude::*;
 use engine_core::prelude::*;
 

@@ -1,4 +1,3 @@
-// editor/src/commands/room/alt_drag_copy_cmd.rs
 use crate::app::EditorMode;
 use crate::commands::editor_command_manager::EditorCommand;
 use crate::with_editor;
@@ -66,7 +65,7 @@ impl EditorCommand for AltDragCopyCmd {
                         // Clone the existing component, call post_create, then reinsert
                         let mut boxed = (component_reg.clone)(ctx.ecs, snapshot.entity);
                         (component_reg.post_create)(&mut *boxed, &snapshot.entity, ctx);
-                        (component_reg.inserter)(ctx.ecs, snapshot.entity, boxed);
+                        ctx.ecs.insert_component_dyn(component_reg, snapshot.entity, boxed);
                     }
                 }
             });
@@ -128,36 +127,11 @@ impl EditorCommand for AltDragCopyCmd {
                 let new_id = map[&snapshot.entity];
 
                 for comp in snapshot.components.iter() {
-                    let component_reg = inventory::iter::<ComponentRegistry>()
-                        .find(|r| r.type_name == comp.type_name)
-                        .expect("Component not registered");
-
-                    let mut boxed = (component_reg.from_ron_component)(comp.ron.clone());
-
-                    if comp.type_name == comp_type_name::<Parent>() {
-                        let parent = boxed
-                            .as_mut()
-                            .downcast_mut::<Parent>()
-                            .expect("Parent component type mismatch");
-
-                        if let Some(&new_parent) = map.get(&parent.0) {
-                            parent.0 = new_parent;
-                        }
-                    } else if comp.type_name == comp_type_name::<Children>() {
-                        let children = boxed
-                            .as_mut()
-                            .downcast_mut::<Children>()
-                            .expect("Children component type mismatch");
-
-                        for child in &mut children.entities {
-                            if let Some(&new_child) = map.get(child) {
-                                *child = new_child;
-                            }
-                        }
-                    }
-
-                    (component_reg.post_create)(&mut *boxed, &new_id, ctx);
-                    (component_reg.inserter)(ctx.ecs, new_id, boxed);
+                    let Some((reg, mut boxed)) = restore_component_with_remap(comp, &map) else {
+                        continue;
+                    };
+                    (reg.post_create)(&mut *boxed, &new_id, ctx);
+                    ctx.ecs.insert_component_dyn(reg, new_id, boxed);
                 }
             }
 

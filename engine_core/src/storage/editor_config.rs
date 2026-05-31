@@ -1,4 +1,3 @@
-// editor/src/storage/editor_config.rs
 #[cfg(feature = "editor")]
 use crate::game::StartupMode;
 #[cfg(feature = "editor")]

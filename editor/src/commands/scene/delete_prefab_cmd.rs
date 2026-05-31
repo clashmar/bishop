@@ -151,13 +151,8 @@ fn remove_linked_prefab_instances(editor: &mut crate::Editor, snapshots: &[Group
         .room_editor
         .selected_entities
         .retain(|entity| !removed_entities.contains(entity));
-    if editor
-        .room_editor
-        .inspector
-        .target
-        .is_some_and(|entity| removed_entities.contains(&entity))
-    {
-        editor.room_editor.inspector.set_target(None);
+    if editor.room_editor.inspector.has_target() {
+        editor.room_editor.inspector.show_room_properties();
     }
 }
 

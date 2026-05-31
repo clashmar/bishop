@@ -1,4 +1,3 @@
-// editor/src/world/world_editor_actions.rs
 use crate::world::coord;
 use crate::world::world_editor::WorldEditor;
 use bishop::prelude::*;
@@ -86,6 +85,7 @@ impl WorldEditor {
             size,
             exits: vec![],
             adjacent_rooms: vec![],
+            tags: vec![],
             variants: vec![variant],
             darkness: 0.,
         };

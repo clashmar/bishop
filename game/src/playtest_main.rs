@@ -1,10 +1,10 @@
-// game/src/playtest_main.rs
 use bishop::prelude::*;
 use bishop::BishopApp;
 use engine_core::prelude::*;
 use game_lib::engine::Engine;
 use game_lib::startup::{
-    runtime_icon_for_playtest_payload, PlaytestLaunchArgs, StartupController, StartupSource,
+    runtime_icon_for_playtest_payload, PlaytestLaunchArgs, StartupController, StartupIntent,
+    StartupRequest,
 };
 use std::env;
 
@@ -13,6 +13,7 @@ struct PlaytestApp {
     payload_path: String,
     engine: Option<Engine>,
     startup: Option<StartupController>,
+    current_startup_request: Option<StartupRequest>,
 }
 
 impl PlaytestApp {
@@ -21,6 +22,7 @@ impl PlaytestApp {
             payload_path,
             engine: None,
             startup: None,
+            current_startup_request: None,
         }
     }
 }
@@ -29,14 +31,15 @@ impl BishopApp for PlaytestApp {
     async fn init(&mut self, ctx: PlatformContext) {
         set_engine_mode(EngineMode::Playtest);
         let _ = ctx;
-        self.startup = Some(StartupController::new(StartupSource::Playtest {
-            payload_path: self.payload_path.clone(),
-        }));
+        let request = StartupRequest::playtest(self.payload_path.clone());
+        self.current_startup_request = Some(request.clone());
+        self.startup = Some(StartupController::from_request(request));
     }
 
     async fn frame(&mut self, ctx: PlatformContext) {
         if let Some(engine) = &mut self.engine {
-            engine.frame(ctx).await;
+            engine.frame(ctx.clone()).await;
+            self.maybe_rebootstrap();
             return;
         }
 
@@ -46,6 +49,35 @@ impl BishopApp for PlaytestApp {
                 self.startup = None;
             }
         }
+    }
+}
+
+impl PlaytestApp {
+    fn maybe_rebootstrap(&mut self) {
+        let engine = match &mut self.engine {
+            Some(e) => e,
+            None => return,
+        };
+
+        let next_request = if engine.save_runtime.pending_quit_to_title.get() {
+            engine.save_runtime.pending_quit_to_title.set(false);
+            StartupRequest {
+                intent: StartupIntent::QuitToTitle,
+                ..StartupRequest::playtest(self.payload_path.clone())
+            }
+        } else if let Some(lr) = engine.save_runtime.take_pending_runtime_load_request()
+        {
+            self.current_startup_request
+                .clone()
+                .unwrap_or_else(|| StartupRequest::playtest(self.payload_path.clone()))
+                .for_runtime_load(lr)
+        } else {
+            return;
+        };
+
+        self.current_startup_request = Some(next_request.clone());
+        self.engine = None;
+        self.startup = Some(StartupController::from_request(next_request));
     }
 }
 

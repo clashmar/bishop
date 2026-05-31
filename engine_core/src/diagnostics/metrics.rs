@@ -1,4 +1,3 @@
-// engine_core/src/diagnostics/metrics.rs
 //! Metric types for engine diagnostics.
 
 use std::collections::HashMap;

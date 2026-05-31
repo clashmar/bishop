@@ -1,4 +1,3 @@
-// editor/src/commands/room/copy_entity.rs
 use crate::EDITOR_SERVICES;
 use engine_core::prelude::*;
 

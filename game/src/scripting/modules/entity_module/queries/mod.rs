@@ -1,3 +1,4 @@
+mod current_room;
 mod find_best_interactable;
 mod get;
 mod get_clip;
@@ -7,6 +8,7 @@ mod has;
 mod is_clip_finished;
 mod is_speaking;
 
+pub(super) use current_room::CurrentRoomMethod;
 pub(super) use find_best_interactable::FindBestInteractableMethod;
 pub(super) use get::GetMethod;
 pub(super) use get_clip::GetClipMethod;
