@@ -21,7 +21,7 @@ pub(super) use crate::test_utils::{
 };
 pub(super) use engine_core::constants::extensions;
 pub(super) use engine_core::prelude::*;
-pub(super) use engine_core::storage::path_utils::{game_folder, sanitise_name};
+pub(super) use engine_core::storage::path_utils::sanitise_name;
 pub(super) use std::path::PathBuf;
 
 mod asset_registry_stage_tests;

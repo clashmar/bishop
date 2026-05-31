@@ -160,9 +160,9 @@ fn delete_prefab_asset_undo_restores_prefabs_lua() {
     with_editor(|e| {
         assert!(!e.game.prefab_manager.prefabs.contains_key(&PrefabId(1)));
         let prefabs_lua = fs::read_to_string(
-            scripts_folder()
-                .join(lua_dirs::ENGINE)
-                .join(lua_files::PREFABS),
+            scripts_folder().join(lua_dirs::ENGINE).join(
+                engine_core::scripting::lua_project::engine_relative_path(lua_files::PREFABS),
+            ),
         )
         .unwrap();
         assert!(!prefabs_lua.contains("Crate"));
@@ -173,9 +173,9 @@ fn delete_prefab_asset_undo_restores_prefabs_lua() {
     with_editor(|e| {
         assert!(e.game.prefab_manager.prefabs.contains_key(&PrefabId(1)));
         let prefabs_lua = fs::read_to_string(
-            scripts_folder()
-                .join(lua_dirs::ENGINE)
-                .join(lua_files::PREFABS),
+            scripts_folder().join(lua_dirs::ENGINE).join(
+                engine_core::scripting::lua_project::engine_relative_path(lua_files::PREFABS),
+            ),
         )
         .unwrap();
         assert!(prefabs_lua.contains("Crate"));

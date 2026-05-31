@@ -5,6 +5,10 @@ use crate::storage::sound_preset_storage::SoundPresetLibrary;
 use bishop::prelude::*;
 use engine_core::prelude::*;
 use engine_core::scripting::lua_constants::{lua_dirs, lua_files};
+use engine_core::scripting::lua_project::{
+    engine_relative_path, scaffold_luacheckrc, scaffold_luarc_json, scaffold_stylua_toml,
+};
+use engine_core::scripting::menus_lua::generate_menus_lua_from_dir;
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 use std::sync::{LazyLock, OnceLock};
@@ -158,13 +162,25 @@ include!("engine_scripts.rs");
 
 pub use crate::editor_assets::sounds_lua::generate_sounds_lua;
 
+/// Writes standalone Lua tooling config files for a scaffolded game root.
+pub fn write_lua_scaffold_configs(game_root: &Path) -> io::Result<()> {
+    write_if_missing(&game_root.join(lua_files::LUARC), &scaffold_luarc_json())?;
+    write_if_missing(&game_root.join(lua_files::LUACHECK), &scaffold_luacheckrc())?;
+    write_if_missing(&game_root.join(lua_files::STYLUA), &scaffold_stylua_toml())?;
+    Ok(())
+}
+
 /// Write embedded shared `_engine` scripts to the specified scripts folder.
 pub fn write_engine_scripts(scripts_folder: &Path) -> io::Result<()> {
     let engine_folder = scripts_folder.join(lua_dirs::ENGINE);
     fs::create_dir_all(&engine_folder)?;
 
-    for (filename, content) in ENGINE_SCRIPTS {
-        fs::write(engine_folder.join(filename), content)?;
+    for (relative_path, content) in ENGINE_SCRIPTS {
+        let path = engine_folder.join(relative_path);
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent)?;
+        }
+        fs::write(path, content)?;
     }
 
     hide_folder(&engine_folder);
@@ -190,32 +206,73 @@ fn hide_folder(path: &Path) {
     }
 }
 
+fn write_if_missing(path: &Path, content: &str) -> io::Result<()> {
+    if path.exists() {
+        return Ok(());
+    }
+    fs::write(path, content)
+}
+
+/// Writes initial per-game generated Lua tables so `_engine/globals.lua`
+/// can require them immediately in a brand-new project.
+pub fn write_initial_generated_lua_files(scripts_folder: &Path) -> io::Result<()> {
+    write_animations_lua(scripts_folder, &[])?;
+    write_prefabs_lua(scripts_folder, &[])?;
+    write_sounds_lua(scripts_folder, &[])?;
+    write_menus_lua(scripts_folder, &[])?;
+    Ok(())
+}
+
 /// Writes the per-game `animations.lua` file with built-in and custom clips.
 pub fn write_animations_lua(scripts_folder: &Path, custom_clips: &[String]) -> io::Result<()> {
     let engine_folder = scripts_folder.join(lua_dirs::ENGINE);
-    fs::create_dir_all(&engine_folder)?;
-    fs::write(
-        engine_folder.join(lua_files::ANIMATIONS),
-        generate_animations_lua(custom_clips),
-    )
+    let path = engine_folder.join(engine_relative_path(lua_files::ANIMATIONS));
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)?;
+    }
+    fs::write(path, generate_animations_lua(custom_clips))
 }
 
 /// Writes the per-game `sounds.lua` file with the supplied group names.
 pub fn write_sounds_lua(scripts_folder: &Path, group_names: &[String]) -> io::Result<()> {
     let engine_folder = scripts_folder.join(lua_dirs::ENGINE);
-    fs::create_dir_all(&engine_folder)?;
-    fs::write(
-        engine_folder.join(lua_files::SOUNDS),
-        generate_sounds_lua(group_names),
-    )
+    let path = engine_folder.join(engine_relative_path(lua_files::SOUNDS));
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)?;
+    }
+    fs::write(path, generate_sounds_lua(group_names))
 }
 
 /// Writes the per-game `prefabs.lua` file with the supplied prefab names.
 pub fn write_prefabs_lua(scripts_folder: &Path, prefab_names: &[String]) -> io::Result<()> {
     let engine_folder = scripts_folder.join(lua_dirs::ENGINE);
-    fs::create_dir_all(&engine_folder)?;
+    let path = engine_folder.join(engine_relative_path(lua_files::PREFABS));
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)?;
+    }
+    fs::write(path, generate_prefabs_lua(prefab_names))
+}
+
+/// Writes the per-game `menus.lua` file for the supplied menu templates.
+pub fn write_menus_lua(scripts_folder: &Path, templates: &[MenuTemplate]) -> io::Result<()> {
+    let engine_folder = scripts_folder.join(lua_dirs::ENGINE);
+    let path = engine_folder.join(engine_relative_path(lua_files::MENUS));
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)?;
+    }
     fs::write(
-        engine_folder.join(lua_files::PREFABS),
-        generate_prefabs_lua(prefab_names),
+        path,
+        engine_core::scripting::menus_lua::generate_menus_lua(templates),
     )
+}
+
+/// Regenerates `menus.lua` from the current menus directory on disk.
+pub fn write_menus_lua_from_dir(scripts_folder: &Path, menus_dir: &Path) -> io::Result<()> {
+    let engine_folder = scripts_folder.join(lua_dirs::ENGINE);
+    let path = engine_folder.join(engine_relative_path(lua_files::MENUS));
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)?;
+    }
+    let content = generate_menus_lua_from_dir(menus_dir).map_err(io::Error::other)?;
+    fs::write(path, content)
 }

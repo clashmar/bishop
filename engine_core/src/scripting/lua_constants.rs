@@ -1,9 +1,16 @@
 /// Generated Lua filenames.
 pub mod lua_files {
+    pub const LUARC: &str = ".luarc.json";
+    pub const LUACHECK: &str = ".luacheckrc";
+    pub const STYLUA: &str = "stylua.toml";
     pub const MAIN: &str = "main.lua";
     pub const ENGINE: &str = "engine.lua";
     pub const COMPONENTS: &str = "components.lua";
     pub const ENTITY: &str = "entity.lua";
+    pub const INPUT: &str = "input.lua";
+    pub const DIRECTION: &str = "direction.lua";
+    pub const SCRIPT: &str = "script.lua";
+    pub const GLOBALS: &str = "globals.lua";
     pub const ANIMATIONS: &str = "animations.lua";
     pub const SOUNDS: &str = "sounds.lua";
     pub const PREFABS: &str = "prefabs.lua";
@@ -27,13 +34,30 @@ pub mod lua_ownership {
 pub mod lua_globals {
     pub const LUA_GAME_CTX: &str = "lua_game_ctx";
     pub const LUA_EVENT_BUS: &str = "lua_event_bus";
-    pub const ENTITY: &str = "entity";
+    pub const ENTITY_HANDLE: &str = "entity";
+    pub const ENGINE: &str = "engine";
+    pub const COLOR: &str = "Color";
+    pub const WIDGET: &str = "Widget";
+    pub const PRIVATE: &str = "private";
+    pub const LOCAL: &str = "local";
+    pub const INPUT: &str = "Input";
+    pub const DIRECTION: &str = "Direction";
+    pub const COMPONENTS: &str = "Components";
+    pub const ANIMATIONS: &str = "Animations";
+    pub const PREFABS: &str = "Prefabs";
+    pub const SOUNDS: &str = "Sounds";
+    pub const MENUS: &str = "Menus";
+    pub const SCRIPT: &str = "Script";
+    pub const ENTITY: &str = "Entity";
 }
 
 /// Lua script directories.
 pub mod lua_dirs {
     pub const ENGINE: &str = "_engine";
     pub const SCRIPTS: &str = "scripts";
+    pub const DATA: &str = "data";
+    pub const RUNTIME: &str = "runtime";
+    pub const UI: &str = "ui";
 }
 
 /// Shared Lua field names.

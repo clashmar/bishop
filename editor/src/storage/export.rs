@@ -1,7 +1,6 @@
 // editor\src\storage\export.rs
 #![allow(unused)]
 use crate::editor_assets::assets::*;
-use crate::storage::sound_preset_storage::SOUND_PRESETS_RON;
 use bishop::prelude::*;
 use engine_core::prelude::*;
 use std::fs;
@@ -106,7 +105,6 @@ fn export_for_windows(dest_root: &Path, game: &Game) -> io::Result<PathBuf> {
     let target_resources = target_package.join(paths::RESOURCES_FOLDER);
     let skip_extensions = &["json", "aseprite", "ase"];
     copy_dir_filtered(&src_resources, &target_resources, skip_extensions)?;
-    let _ = fs::remove_file(target_resources.join(SOUND_PRESETS_RON));
 
     // Overwrite game.ron purging player proxies
     let game_ron = ron::to_string(game).map_err(|e| io::Error::other(e.to_string()))?;
@@ -166,7 +164,6 @@ fn export_for_mac(dest_root: &Path, game: &Game) -> io::Result<PathBuf> {
 
     let skip_extensions = &["json", "aseprite", "ase"];
     copy_dir_filtered(&src_resources, &target_resources, skip_extensions)?;
-    let _ = fs::remove_file(target_resources.join(SOUND_PRESETS_RON));
 
     // Overwrite game.ron purging player proxies
     let game_ron = ron::to_string(game).map_err(|e| io::Error::other(e.to_string()))?;

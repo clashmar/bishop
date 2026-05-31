@@ -1,5 +1,4 @@
 -- bullet.lua
-local direction = require("_engine.direction")
 
 ---@class BulletSpawnArgs
 ---@field direction Direction?
@@ -18,14 +17,14 @@ local Bullet = {
     ---@param self BulletInstance
     ---@param spawn_args BulletSpawnArgs?
     init = function(self, spawn_args)
-        local launch_direction = (spawn_args and spawn_args.direction) or direction.Right
+        local launch_direction = (spawn_args and spawn_args.direction) or Direction.Right
         local velocity = { x = 0, y = 0 }
 
-        if launch_direction == direction.Left then
+        if launch_direction == Direction.Left then
             velocity.x = -self.public.speed
-        elseif launch_direction == direction.Up then
+        elseif launch_direction == Direction.Up then
             velocity.y = -self.public.speed
-        elseif launch_direction == direction.Down then
+        elseif launch_direction == Direction.Down then
             velocity.y = self.public.speed
         else
             velocity.x = self.public.speed

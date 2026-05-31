@@ -2,6 +2,8 @@ pub mod color_bootstrap;
 pub mod event_bus;
 pub mod helpers;
 pub mod lua_constants;
+pub mod lua_project;
+pub mod menus_lua;
 pub mod modules;
 pub mod runtime_bootstrap;
 pub mod script_manager;
@@ -9,6 +11,8 @@ pub mod theme_bootstrap;
 
 pub use event_bus::*;
 pub use helpers::*;
+pub use lua_project::*;
+pub use menus_lua::*;
 pub use modules::*;
 pub use runtime_bootstrap::*;
 pub use script_manager::*;

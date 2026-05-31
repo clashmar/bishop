@@ -19,7 +19,7 @@ globals = {
 
 unused_args = false
 
-files["games/Demo/Resources/scripts/_engine/**/*.lua"] = {
+files["Resources/scripts/_engine/**/*.lua"] = {
     globals = {
         "engine",
         "Color",

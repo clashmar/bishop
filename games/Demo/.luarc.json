@@ -17,12 +17,5 @@
       "Script",
       "Entity"
     ]
-  },
-  "workspace": {
-    "ignoreDir": [
-      "editor/scripts/_engine",
-      "games/*/Resources/scripts/_engine",
-      "!games/Demo/Resources/scripts/_engine"
-    ]
   }
 }

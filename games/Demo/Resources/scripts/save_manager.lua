@@ -9,7 +9,7 @@ local function player_state()
         return nil, nil, nil
     end
 
-    local transform = player.entity:get("Transform")
+    local transform = player.entity:get(Components.Transform)
     local room_id = player.entity:current_room()
     return player, transform, room_id
 end

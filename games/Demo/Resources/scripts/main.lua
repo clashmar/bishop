@@ -1,8 +1,6 @@
 local GameManager = require("game_manager")
 engine.game_manager = GameManager
 
-local input = require("_engine.input")
-local menu = require("_engine.menus")
 require("save_manager")
 
 -- Activates listeners for audio setting sliders
@@ -13,7 +11,7 @@ AudioSettings:init()
 engine.theme.activate(require("bishop_theme"))
 
 engine.update = function(dt)
-    if engine.input.pressed(input.M) then
-        engine.menu.open(menu.Pause)
+    if engine.input.pressed(Input.M) then
+        engine.menu.open(Menus.Pause)
     end
 end

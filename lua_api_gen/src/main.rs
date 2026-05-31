@@ -1,8 +1,8 @@
 // lua_api_gen/src/main.rs
-mod menus_lua;
-
 use engine_core::constants::paths;
 use engine_core::scripting::lua_constants::{lua_dirs, lua_files, lua_ownership};
+use engine_core::scripting::lua_project::engine_relative_path;
+use engine_core::scripting::menus_lua::generate_menus_lua_from_dir;
 use engine_core::scripting::modules::lua_module::*;
 use game_lib as _;
 use std::collections::HashMap;
@@ -13,23 +13,30 @@ use std::io::Write;
 use std::path::Path;
 use std::path::PathBuf;
 
+const EDITOR_DIR: &str = "editor";
+
+fn editor_engine_dir(workspace_root: &Path) -> PathBuf {
+    workspace_root
+        .join(EDITOR_DIR)
+        .join(paths::SCRIPTS_FOLDER)
+        .join(lua_dirs::ENGINE)
+}
+
+fn demo_engine_dir(workspace_root: &Path) -> PathBuf {
+    workspace_root
+        .join(paths::GAME_SAVE_ROOT)
+        .join(paths::DEMO_GAME)
+        .join(paths::RESOURCES_FOLDER)
+        .join(paths::SCRIPTS_FOLDER)
+        .join(lua_dirs::ENGINE)
+}
+
 fn main() {
     let workspace_root = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap())
         .parent()
         .expect("CARGO_MANIFEST_DIR should have a parent")
         .to_path_buf();
-    let out_dirs = [
-        workspace_root
-            .join("editor")
-            .join("scripts")
-            .join("_engine"),
-        workspace_root
-            .join("games")
-            .join("Demo")
-            .join("Resources")
-            .join("scripts")
-            .join("_engine"),
-    ];
+    let out_dirs = [editor_engine_dir(&workspace_root), demo_engine_dir(&workspace_root)];
 
     for out_dir in &out_dirs {
         fs::create_dir_all(out_dir).unwrap();
@@ -61,9 +68,8 @@ fn main() {
 }
 
 fn write_generated_files(out_dir: &Path, per_file: &HashMap<&'static str, String>) {
-    // Delete previous versions
     for filename in per_file.keys() {
-        let path = out_dir.join(filename);
+        let path = out_dir.join(engine_relative_path(filename));
         if path.exists() {
             let _ = fs::remove_file(&path);
         }
@@ -71,7 +77,10 @@ fn write_generated_files(out_dir: &Path, per_file: &HashMap<&'static str, String
 
     // Write (or append) each file
     for (filename, content) in per_file {
-        let path = out_dir.join(filename);
+        let path = out_dir.join(engine_relative_path(filename));
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent).unwrap();
+        }
 
         // If the file already exists append to it
         let mut file = OpenOptions::new()
@@ -94,21 +103,19 @@ fn write_generated_files(out_dir: &Path, per_file: &HashMap<&'static str, String
 }
 
 fn write_menu_constants_files(workspace_root: &Path) {
-    let menus_dir = workspace_root.join(paths::GAME_SAVE_ROOT).join("Demo").join(paths::RESOURCES_FOLDER).join(paths::MENUS_FOLDER);
-    let content = menus_lua::generate_menus_lua_from_dir(&menus_dir)
-        .unwrap_or_else(|err| panic!("{err}"));
-    let out_dirs = [
-        workspace_root.join("editor").join(paths::SCRIPTS_FOLDER).join(lua_dirs::ENGINE),
-        workspace_root
-            .join(paths::GAME_SAVE_ROOT)
-            .join("Demo")
-            .join(paths::RESOURCES_FOLDER)
-            .join(paths::SCRIPTS_FOLDER)
-            .join(lua_dirs::ENGINE),
-    ];
+    let menus_dir = workspace_root
+        .join(paths::GAME_SAVE_ROOT)
+        .join(paths::DEMO_GAME)
+        .join(paths::RESOURCES_FOLDER)
+        .join(paths::MENUS_FOLDER);
+    let content = generate_menus_lua_from_dir(&menus_dir).unwrap_or_else(|err| panic!("{err}"));
+    let out_dirs = [editor_engine_dir(workspace_root), demo_engine_dir(workspace_root)];
 
     for out_dir in out_dirs {
-        let path = out_dir.join(lua_files::MENUS);
+        let path = out_dir.join(engine_relative_path(lua_files::MENUS));
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent).unwrap();
+        }
         fs::write(&path, &content).unwrap();
         println!("Written to: {}", path.display());
     }

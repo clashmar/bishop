@@ -3,7 +3,7 @@ use crate::engine::Engine;
 use crate::game_global::drain_commands;
 use crate::scripting::modules::entity_module::lua_entity_handle;
 use engine_core::prelude::*;
-use engine_core::scripting::lua_constants::{lua_engine, lua_entity, lua_files, lua_globals};
+use engine_core::scripting::lua_constants::{lua_dirs, lua_engine, lua_entity, lua_files, lua_globals};
 use mlua::prelude::LuaResult;
 use mlua::Lua;
 use mlua::{Function, Table, Value};
@@ -25,6 +25,8 @@ impl ScriptSystem {
         if let Err(e) = Self::register_game_modules(lua) {
             onscreen_error!("Lua game module registration failed: {e}");
         }
+
+        ScriptManager::load_to_package(lua);
 
         // Run main.lua after all modules are registered
         if let Err(e) = Self::load_main(lua) {
@@ -51,8 +53,22 @@ impl ScriptSystem {
         Ok(())
     }
 
+    fn load_globals(lua: &Lua) -> LuaResult<()> {
+        let globals_path = scripts_folder()
+            .join(lua_dirs::ENGINE)
+            .join(lua_files::GLOBALS);
+        let src = match fs::read_to_string(globals_path) {
+            Ok(src) => src,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(()),
+            Err(error) => return Err(mlua::Error::ExternalError(Arc::new(error))),
+        };
+        lua.load(&src).exec()
+    }
+
     /// Loads and executes main.lua if present.
     fn load_main(lua: &Lua) -> LuaResult<()> {
+        Self::load_globals(lua)?;
+
         let main_path = scripts_folder().join(lua_files::MAIN);
         let src =
             fs::read_to_string(main_path).map_err(|e| mlua::Error::ExternalError(Arc::new(e)))?;
@@ -179,7 +195,7 @@ impl ScriptSystem {
             // Only setup entity handle and queue init for newly created instances
             if created {
                 let handle = lua_entity_handle(lua, *entity)?;
-                instance.set(lua_globals::ENTITY, handle)?;
+                instance.set(lua_globals::ENTITY_HANDLE, handle)?;
 
                 let has_init = instance.get::<Function>(lua_entity::INIT).is_ok();
 
@@ -230,7 +246,7 @@ impl ScriptSystem {
             }
 
             let handle = lua_entity_handle(lua, entity)?;
-            instance.set(lua_globals::ENTITY, handle)?;
+            instance.set(lua_globals::ENTITY_HANDLE, handle)?;
             script.sync_to_lua_with_instance(lua, instance)?;
 
             if let Ok(init_fn) = instance.get::<Function>(lua_entity::INIT) {
@@ -303,7 +319,11 @@ fn script_update_is_still_valid(ecs: &Ecs, entity: Entity, script_id: ScriptId) 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use engine_core::scripting::lua_constants::lua_fields;
+    use engine_core::constants::paths;
+    use engine_core::engine_global::set_game_name;
+    use engine_core::scripting::lua_constants::{lua_dirs, lua_fields, lua_files};
+    use engine_core::storage::test_utils::{game_fs_test_lock, TestGameFolder};
+    use std::fs;
 
     fn install_callback_module(lua: &Lua) {
         lua.load(
@@ -364,6 +384,37 @@ mod tests {
         invoke_menu_callback(&lua, "save_manager.nested.on_open").unwrap();
 
         assert_eq!(lua.globals().get::<i64>("callback_hits").unwrap(), 1);
+    }
+
+    #[test]
+    fn init_executes_globals_prelude_before_main() {
+        let _lock = game_fs_test_lock().lock().unwrap();
+        let test_game = TestGameFolder::new("script_system_globals_prelude");
+        set_game_name(test_game.name());
+
+        let scripts_dir = game_folder(test_game.name())
+            .join(paths::RESOURCES_FOLDER)
+            .join(paths::SCRIPTS_FOLDER);
+        let engine_dir = scripts_dir.join(lua_dirs::ENGINE);
+        fs::create_dir_all(&engine_dir).unwrap();
+        fs::write(
+            engine_dir.join(lua_files::GLOBALS),
+            "bootstrap_order = (bootstrap_order or \"\") .. \"g\"\nInput = { Space = \"space\" }\n",
+        )
+        .unwrap();
+        fs::write(
+            scripts_dir.join(lua_files::MAIN),
+            "bootstrap_order = bootstrap_order .. \"m\"\nsaw_input = Input.Space\n",
+        )
+        .unwrap();
+
+        set_game_name(test_game.name());
+        let lua = Lua::new();
+        let event_bus = EventBus::default();
+        ScriptSystem::init(&lua, &event_bus);
+
+        assert_eq!(lua.globals().get::<String>("bootstrap_order").unwrap(), "gm");
+        assert_eq!(lua.globals().get::<String>("saw_input").unwrap(), "space");
     }
 
     #[test]

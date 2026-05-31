@@ -1,5 +1,5 @@
-use engine_core::menu::{LayoutChild, MenuElement, MenuElementKind, MenuTemplate};
-use engine_core::scripting::lua_constants::lua_ownership;
+use crate::menu::{LayoutChild, MenuElement, MenuElementKind, MenuTemplate};
+use crate::scripting::lua_constants::lua_ownership;
 use std::collections::HashSet;
 use std::fs;
 use std::path::Path;
@@ -83,9 +83,7 @@ fn pascal_key(value: &str, prefix: &str, used: &mut HashSet<String>) -> String {
         .chars()
         .map(|c| if c.is_ascii_alphanumeric() || c == '_' { c } else { '_' })
         .collect::<String>();
-    let trimmed = sanitized
-        .trim_matches('_')
-        .replace("__", "_");
+    let trimmed = sanitized.trim_matches('_').replace("__", "_");
     let trimmed = trimmed.trim_matches('_');
 
     let mut result = String::new();
@@ -116,4 +114,91 @@ fn pascal_key(value: &str, prefix: &str, used: &mut HashSet<String>) -> String {
 fn escape(value: &str) -> String {
     let escaped = value.replace('\\', "\\\\").replace('"', "\\\"");
     format!("\"{escaped}\"")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::menu::{LayoutConfig, LayoutGroupElement, MenuAction, MenuBackground, MenuMode};
+    use bishop::prelude::Rect;
+
+    fn named_button(name: &str) -> MenuElement {
+        let mut element = MenuElement::button(
+            name.to_string(),
+            MenuAction::CloseMenu,
+            Rect::new(0.0, 0.0, 1.0, 1.0),
+        );
+        element.name = name.to_string();
+        element
+    }
+
+    #[test]
+    fn generate_menus_lua_emits_ids_and_nested_named_elements() {
+        let mut root = MenuElement::layout_group(
+            LayoutGroupElement {
+                layout: LayoutConfig::vertical(),
+                children: vec![
+                    LayoutChild {
+                        element: named_button("Load Game"),
+                        managed: true,
+                    },
+                    LayoutChild {
+                        element: named_button("Quit"),
+                        managed: true,
+                    },
+                ],
+                nav_targets: Default::default(),
+            },
+            Rect::new(0.0, 0.0, 1.0, 1.0),
+        );
+        root.name = "Menu Root".to_string();
+
+        let template = MenuTemplate {
+            id: "title".to_string(),
+            mode: MenuMode::FrontEnd,
+            background: MenuBackground::None,
+            elements: vec![root],
+            on_open: String::new(),
+        };
+
+        let lua = generate_menus_lua(&[template]);
+
+        assert!(lua.contains("Title = {"));
+        assert!(lua.contains("Id = \"title\""));
+        assert!(lua.contains("MenuRoot = \"Menu Root\""));
+        assert!(lua.contains("LoadGame = \"Load Game\""));
+        assert!(lua.contains("Quit = \"Quit\""));
+    }
+
+    #[test]
+    fn generate_menus_lua_sanitizes_duplicate_keys() {
+        let template = MenuTemplate {
+            id: "pause-menu".to_string(),
+            mode: MenuMode::Paused,
+            background: MenuBackground::None,
+            elements: vec![named_button("Resume Game"), named_button("Resume-Game")],
+            on_open: String::new(),
+        };
+
+        let lua = generate_menus_lua(&[template]);
+
+        assert!(lua.contains("PauseMenu = {"));
+        assert!(lua.contains("ResumeGame = \"Resume Game\""));
+        assert!(lua.contains("ResumeGame_2 = \"Resume-Game\""));
+    }
+
+    #[test]
+    fn generate_menus_lua_prefixes_digit_leading_keys() {
+        let template = MenuTemplate {
+            id: "1up".to_string(),
+            mode: MenuMode::FrontEnd,
+            background: MenuBackground::None,
+            elements: vec![],
+            on_open: String::new(),
+        };
+
+        let lua = generate_menus_lua(&[template]);
+
+        assert!(lua.contains("Menu1up = {"));
+    }
 }

@@ -17,6 +17,11 @@ pub fn game_folder(name: &str) -> PathBuf {
     absolute_save_root().join(sanitise_name(name))
 }
 
+/// Path to the editor-only metadata folder for a game.
+pub fn editor_metadata_folder(game_name: &str) -> PathBuf {
+    game_folder(game_name).join(paths::EDITOR_METADATA_FOLDER)
+}
+
 /// Path to the resources folder for a game (Editor/Game/Playtest).
 pub fn resources_folder(game_name: &str) -> PathBuf {
     match get_engine_mode() {

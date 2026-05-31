@@ -1,4 +1,4 @@
-use crate::menus_lua::generate_menus_lua;
+use engine_core::scripting::menus_lua::generate_menus_lua;
 use engine_core::menu::{
     ButtonElement, LayoutChild, LayoutConfig, LayoutGroupElement, MenuAction, MenuBackground,
     MenuElement, MenuElementKind, MenuMode, MenuTemplate,

@@ -1,18 +1,45 @@
 // editor/build.rs
+use engine_core::constants::paths;
 use engine_core::ecs::component_registry::public_lua_components;
 use engine_core::input::input_table::*;
-use engine_core::scripting::lua_constants::{lua_files, lua_ownership};
+use engine_core::scripting::lua_constants::{lua_dirs, lua_files, lua_ownership};
+use engine_core::scripting::lua_project::{engine_relative_path, generate_globals_lua};
 use std::collections::HashSet;
 use std::env;
 use std::fs;
 use std::path::Path;
 use std::path::PathBuf;
 
+const SRC_DIR: &str = "src";
+const EDITOR_ASSETS_DIR: &str = "editor_assets";
+
+fn shared_engine_dir(manifest_dir: &Path) -> PathBuf {
+    manifest_dir.join(paths::SCRIPTS_FOLDER).join(lua_dirs::ENGINE)
+}
+
+fn write_engine_file(out_dir: &Path, filename: &str, contents: &str) {
+    let target = out_dir.join(engine_relative_path(filename));
+    if let Some(parent) = target.parent() {
+        fs::create_dir_all(parent).expect("cannot create grouped _engine folder");
+    }
+    write_if_changed(&target, contents);
+}
+
+fn demo_engine_dir(workspace_root: &Path) -> PathBuf {
+    workspace_root
+        .join(paths::GAME_SAVE_ROOT)
+        .join(paths::DEMO_GAME)
+        .join(paths::RESOURCES_FOLDER)
+        .join(paths::SCRIPTS_FOLDER)
+        .join(lua_dirs::ENGINE)
+}
+
 fn main() -> std::io::Result<()> {
     generate_lua_script();
     generate_lua_components();
     generate_lua_direction();
     generate_lua_input();
+    generate_lua_globals();
     generate_engine_scripts_rs();
 
     if cfg!(target_os = "windows") {
@@ -50,11 +77,11 @@ fn write_if_changed(target: &Path, contents: &str) {
 }
 
 fn generate_lua_components() {
-    let out_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap())
-        .join("scripts")
-        .join("_engine");
-
-    fs::create_dir_all(&out_dir).expect("cannot create _engine folder");
+    let manifest_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap());
+    let workspace_root = manifest_dir
+        .parent()
+        .expect("CARGO_MANIFEST_DIR should have a parent")
+        .to_path_buf();
 
     let mut lua = format!(
         "-- Auto-generated. Do not edit.\n\
@@ -112,16 +139,19 @@ fn generate_lua_components() {
 
     lua.push_str("\nreturn C\n");
 
-    let target = out_dir.join(lua_files::COMPONENTS);
-    write_if_changed(&target, &lua);
+    let out_dirs = [shared_engine_dir(&manifest_dir), demo_engine_dir(&workspace_root)];
+    for out_dir in out_dirs {
+        fs::create_dir_all(&out_dir).expect("cannot create _engine folder");
+        write_engine_file(&out_dir, lua_files::COMPONENTS, &lua);
+    }
 }
 
 fn generate_lua_input() {
-    let out_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap())
-        .join("scripts")
-        .join("_engine");
-
-    fs::create_dir_all(&out_dir).expect("cannot create _engine folder");
+    let manifest_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap());
+    let workspace_root = manifest_dir
+        .parent()
+        .expect("CARGO_MANIFEST_DIR should have a parent")
+        .to_path_buf();
 
     let mut lua = format!(
         "-- Auto-generated. Do not edit.\n\
@@ -159,16 +189,19 @@ fn generate_lua_input() {
     lua.push_str("\nreturn Input\n");
 
     // Write the file
-    let target = out_dir.join("input.lua");
-    write_if_changed(&target, &lua);
+    let out_dirs = [shared_engine_dir(&manifest_dir), demo_engine_dir(&workspace_root)];
+    for out_dir in out_dirs {
+        fs::create_dir_all(&out_dir).expect("cannot create _engine folder");
+        write_engine_file(&out_dir, lua_files::INPUT, &lua);
+    }
 }
 
 fn generate_lua_direction() {
-    let out_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap())
-        .join("scripts")
-        .join("_engine");
-
-    fs::create_dir_all(&out_dir).expect("cannot create _engine folder");
+    let manifest_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap());
+    let workspace_root = manifest_dir
+        .parent()
+        .expect("CARGO_MANIFEST_DIR should have a parent")
+        .to_path_buf();
 
     let lua = format!(
         "-- Auto-generated. Do not edit.\n\
@@ -189,8 +222,27 @@ fn generate_lua_direction() {
         lua_ownership::LUA_OWNER_SHARED_ENGINE,
     );
 
-    let target = out_dir.join("direction.lua");
-    write_if_changed(&target, &lua);
+    let out_dirs = [shared_engine_dir(&manifest_dir), demo_engine_dir(&workspace_root)];
+    for out_dir in out_dirs {
+        fs::create_dir_all(&out_dir).expect("cannot create _engine folder");
+        write_engine_file(&out_dir, lua_files::DIRECTION, &lua);
+    }
+}
+
+fn generate_lua_globals() {
+    let manifest_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap());
+    let workspace_root = manifest_dir
+        .parent()
+        .expect("CARGO_MANIFEST_DIR should have a parent")
+        .to_path_buf();
+    let out_dirs = [shared_engine_dir(&manifest_dir), demo_engine_dir(&workspace_root)];
+    let lua = generate_globals_lua();
+
+    for out_dir in out_dirs {
+        fs::create_dir_all(&out_dir).expect("cannot create _engine folder");
+        let target = out_dir.join(lua_files::GLOBALS);
+        write_if_changed(&target, &lua);
+    }
 }
 
 fn generate_lua_script() {
@@ -199,15 +251,7 @@ fn generate_lua_script() {
         .parent()
         .expect("CARGO_MANIFEST_DIR should have a parent")
         .to_path_buf();
-    let out_dirs = [
-        manifest_dir.join("scripts").join("_engine"),
-        workspace_root
-            .join("games")
-            .join("Demo")
-            .join("Resources")
-            .join("scripts")
-            .join("_engine"),
-    ];
+    let out_dirs = [shared_engine_dir(&manifest_dir), demo_engine_dir(&workspace_root)];
 
     let lua = format!(
         "-- Auto-generated. Do not edit.\n\
@@ -227,29 +271,40 @@ fn generate_lua_script() {
 
     for out_dir in out_dirs {
         fs::create_dir_all(&out_dir).expect("cannot create _engine folder");
-        let target = out_dir.join("script.lua");
-        write_if_changed(&target, &lua);
+        write_engine_file(&out_dir, lua_files::SCRIPT, &lua);
+    }
+}
+
+fn collect_engine_script_entries(engine_dir: &Path, current_dir: &Path, entries: &mut Vec<String>) {
+    if let Ok(dir) = fs::read_dir(current_dir) {
+        for entry in dir.flatten() {
+            let path = entry.path();
+            if path.is_dir() {
+                collect_engine_script_entries(engine_dir, &path, entries);
+                continue;
+            }
+            if !path.extension().map(|e| e == "lua").unwrap_or(false) {
+                continue;
+            }
+            let relative = path
+                .strip_prefix(engine_dir)
+                .expect("engine script should live under _engine")
+                .to_string_lossy()
+                .replace('\\', "/");
+            entries.push(relative);
+        }
     }
 }
 
 /// Generates Rust code that embeds all .lua files from the _engine directory.
 fn generate_engine_scripts_rs() {
     let manifest_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap());
-    let engine_dir = manifest_dir.join("scripts").join("_engine");
-    let out_dir = manifest_dir.join("src").join("editor_assets");
+    let engine_dir = shared_engine_dir(&manifest_dir);
+    let out_dir = manifest_dir.join(SRC_DIR).join(EDITOR_ASSETS_DIR);
 
-    // Collect all .lua files
+    // Collect all .lua files recursively.
     let mut entries: Vec<String> = Vec::new();
-    if let Ok(dir) = fs::read_dir(&engine_dir) {
-        for entry in dir.flatten() {
-            let path = entry.path();
-            if path.extension().map(|e| e == "lua").unwrap_or(false) {
-                if let Some(filename) = path.file_name().and_then(|n| n.to_str()) {
-                    entries.push(filename.to_string());
-                }
-            }
-        }
-    }
+    collect_engine_script_entries(&engine_dir, &engine_dir, &mut entries);
     entries.sort();
 
     // Generate Rust code
@@ -259,10 +314,10 @@ fn generate_engine_scripts_rs() {
          pub static ENGINE_SCRIPTS: &[(&str, &str)] = &[\n",
     );
 
-    for filename in &entries {
+    for relative_path in &entries {
         rust.push_str(&format!(
             "    (\"{}\", include_str!(concat!(env!(\"CARGO_MANIFEST_DIR\"), \"/scripts/_engine/{}\"))),\n",
-            filename, filename
+            relative_path, relative_path
         ));
     }
 
@@ -272,11 +327,18 @@ fn generate_engine_scripts_rs() {
     write_if_changed(&target, &rust);
 
     // Rerun if _engine directory changes
-    println!("cargo:rerun-if-changed=scripts/_engine");
+    println!(
+        "cargo:rerun-if-changed={}/{}",
+        paths::SCRIPTS_FOLDER,
+        lua_dirs::ENGINE
+    );
 
     // Rerun if bishop theme file changes
-    println!(
-        "cargo:rerun-if-changed=../games/Demo/Resources/themes/{}",
-        lua_files::BISHOP_THEME
-    );
+    let demo_theme_path = PathBuf::from("..")
+        .join(paths::GAME_SAVE_ROOT)
+        .join(paths::DEMO_GAME)
+        .join(paths::RESOURCES_FOLDER)
+        .join(paths::THEMES_FOLDER)
+        .join(lua_files::BISHOP_THEME);
+    println!("cargo:rerun-if-changed={}", demo_theme_path.display());
 }

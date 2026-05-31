@@ -1,6 +1,40 @@
+use engine_core::constants::paths;
+use engine_core::scripting::lua_constants::lua_files;
+use engine_core::scripting::lua_project::{
+    scaffold_luacheckrc, scaffold_luarc_json, scaffold_stylua_toml, workspace_luacheckrc,
+    workspace_luarc_json, workspace_stylua_toml,
+};
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::{Command, ExitCode};
+
+fn demo_root(root: &Path) -> PathBuf {
+    root.join(paths::GAME_SAVE_ROOT).join(paths::DEMO_GAME)
+}
+
+fn demo_scripts_dir(root: &Path) -> PathBuf {
+    demo_root(root)
+        .join(paths::RESOURCES_FOLDER)
+        .join(paths::SCRIPTS_FOLDER)
+}
+
+fn write_if_changed(path: &Path, contents: &str) {
+    if fs::read_to_string(path).ok().as_deref() == Some(contents) {
+        return;
+    }
+    fs::write(path, contents).expect("failed to sync Lua config file");
+}
+
+fn sync_lua_project_files(root: &Path) {
+    write_if_changed(&root.join(lua_files::LUARC), &workspace_luarc_json());
+    write_if_changed(&root.join(lua_files::LUACHECK), &workspace_luacheckrc());
+    write_if_changed(&root.join(lua_files::STYLUA), &workspace_stylua_toml());
+
+    let demo_root = demo_root(root);
+    write_if_changed(&demo_root.join(lua_files::LUARC), &scaffold_luarc_json());
+    write_if_changed(&demo_root.join(lua_files::LUACHECK), &scaffold_luacheckrc());
+    write_if_changed(&demo_root.join(lua_files::STYLUA), &scaffold_stylua_toml());
+}
 
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().collect();
@@ -22,9 +56,15 @@ fn main() -> ExitCode {
 fn check_lua() -> ExitCode {
     let mut failed = false;
     let root = std::env::current_dir().expect("xtask must run from workspace root");
+    sync_lua_project_files(&root);
 
+    let luacheck_config = root.join(lua_files::LUACHECK);
+    let demo_scripts = demo_scripts_dir(&root);
     match Command::new("luacheck")
-        .args(["games/Demo/Resources/scripts/", "--no-color"])
+        .arg(demo_scripts)
+        .arg("--config")
+        .arg(&luacheck_config)
+        .arg("--no-color")
         .status()
     {
         Ok(status) if status.success() => println!("luacheck: PASS"),
@@ -40,6 +80,8 @@ fn check_lua() -> ExitCode {
 
     let stylua_files = demo_lua_files(&root);
     let mut stylua = Command::new("stylua");
+    stylua.arg("--config-path");
+    stylua.arg(root.join(lua_files::STYLUA));
     stylua.arg("--check");
     for file in &stylua_files {
         stylua.arg(file);
@@ -83,8 +125,8 @@ fn check_lua() -> ExitCode {
     }
 }
 
-fn demo_lua_files(root: &PathBuf) -> Vec<String> {
-    let scripts_dir = root.join("games/Demo/Resources/scripts");
+fn demo_lua_files(root: &Path) -> Vec<String> {
+    let scripts_dir = demo_scripts_dir(root);
     let mut files: Vec<String> = fs::read_dir(&scripts_dir)
         .expect("Demo scripts directory should exist")
         .filter_map(|entry| entry.ok())
