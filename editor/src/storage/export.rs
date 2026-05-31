@@ -1,4 +1,3 @@
-// editor\src\storage\export.rs
 #![allow(unused)]
 use crate::editor_assets::assets::*;
 use bishop::prelude::*;
@@ -77,6 +76,19 @@ pub fn export_target_path(dest_root: &Path, game: &Game) -> PathBuf {
     dest_root.join(&game.name)
 }
 
+fn export_game_copy(game: &Game) -> io::Result<Game> {
+    let game_ron = ron::to_string(game).map_err(|e| io::Error::other(e.to_string()))?;
+    let mut game_copy: Game =
+        ron::from_str(&game_ron).map_err(|e| io::Error::other(e.to_string()))?;
+
+    game_copy.rebuild_world_index();
+    for world in game_copy.worlds_mut() {
+        world.rebuild_room_grid();
+    }
+
+    Ok(game_copy)
+}
+
 #[cfg(windows)]
 fn export_for_windows(dest_root: &Path, game: &Game) -> io::Result<PathBuf> {
     let target_package = export_target_path(dest_root, game);
@@ -107,9 +119,7 @@ fn export_for_windows(dest_root: &Path, game: &Game) -> io::Result<PathBuf> {
     copy_dir_filtered(&src_resources, &target_resources, skip_extensions)?;
 
     // Overwrite game.ron purging player proxies
-    let game_ron = ron::to_string(game).map_err(|e| io::Error::other(e.to_string()))?;
-    let mut game_copy: Game =
-        ron::from_str(&game_ron).map_err(|e| io::Error::other(e.to_string()))?;
+    let mut game_copy = export_game_copy(game)?;
 
     // Set player spawn position from proxy before purging
     if let Some(start_room_id) = game_copy.current_world().starting_room_id {
@@ -166,9 +176,7 @@ fn export_for_mac(dest_root: &Path, game: &Game) -> io::Result<PathBuf> {
     copy_dir_filtered(&src_resources, &target_resources, skip_extensions)?;
 
     // Overwrite game.ron purging player proxies
-    let game_ron = ron::to_string(game).map_err(|e| io::Error::other(e.to_string()))?;
-    let mut game_copy: Game =
-        ron::from_str(&game_ron).map_err(|e| io::Error::other(e.to_string()))?;
+    let mut game_copy = export_game_copy(game)?;
 
     // Set player spawn position from proxy before purging
     if let Some(start_room_id) = game_copy.current_world().starting_room_id {
@@ -294,6 +302,51 @@ fn update_exe(exe_path: &PathBuf, game: &Game) -> Result<(), winres_edit::Error>
 mod tests {
     use super::*;
     use std::path::Path;
+
+    #[test]
+    fn export_game_copy_rebuilds_world_index_for_spawn_handoff() {
+        let room_id = RoomId(1);
+        let proxy_position = Vec2::new(28.0, 72.0);
+        let mut game = Game::with_name("Demo");
+
+        let mut world = World::new(WorldId(1), "new".to_string(), 8.0);
+        world.add_room(Room {
+            id: room_id,
+            ..Default::default()
+        });
+        world.starting_room_id = Some(room_id);
+        game.add_world(world);
+
+        let player = game.ecs.create_entity().with(Player).finish();
+        game.ecs
+            .create_entity()
+            .with(PlayerProxy)
+            .with(Transform {
+                position: proxy_position,
+                ..Default::default()
+            })
+            .with_current_room(room_id)
+            .finish();
+
+        let mut game_copy = export_game_copy(&game).expect("export round-trip should succeed");
+        let start_room_id = game_copy
+            .current_world()
+            .starting_room_id
+            .expect("world index should be rebuilt after export round-trip");
+
+        game_copy.ecs.set_player_spawn_from_proxy(start_room_id);
+        game_copy.ecs.purge_proxies();
+
+        assert_eq!(
+            game_copy.ecs.get::<Transform>(player).map(|transform| transform.position),
+            Some(proxy_position)
+        );
+        assert_eq!(
+            game_copy.ecs.get::<CurrentRoom>(player).map(|room| room.0),
+            Some(room_id)
+        );
+        assert!(game_copy.ecs.get_store::<PlayerProxy>().data.is_empty());
+    }
 
     #[cfg(unix)]
     #[test]
