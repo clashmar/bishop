@@ -1,4 +1,3 @@
-// editor/src/editor_global.rs
 use crate::commands::editor_command_manager::*;
 use crate::gui::panels::panel_manager::PanelManager;
 use crate::Editor;

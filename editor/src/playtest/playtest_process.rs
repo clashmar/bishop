@@ -1,4 +1,3 @@
-// editor/src/playtest/playtest_process.rs
 use engine_core::logging::{now_str, LOG_HISTORY};
 use std::io;
 use std::io::{BufRead, BufReader};

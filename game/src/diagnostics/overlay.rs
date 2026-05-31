@@ -1,4 +1,3 @@
-// game/src/diagnostics/overlay.rs
 //! In-game diagnostics overlay toggled with F3/F4.
 
 use crate::diagnostics::timing_trace::{TimingTraceLogger, TimingTraceSample};

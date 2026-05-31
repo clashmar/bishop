@@ -1,4 +1,3 @@
-// game/src/scripting/modules/input_module.rs
 use crate::game_global::*;
 use crate::input::input_snapshot::InputSnapshot;
 use crate::scripting::lua_ctx::LuaBishopCtx;

@@ -1,4 +1,3 @@
-// engine_core/src/storage/path_utils.rs
 use crate::constants::paths;
 use crate::engine_global::*;
 use crate::storage::editor_config::*;

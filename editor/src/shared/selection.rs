@@ -1,4 +1,3 @@
-// editor/src/shared/selection.rs
 use bishop::prelude::*;
 use engine_core::prelude::*;
 

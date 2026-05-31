@@ -1,4 +1,3 @@
-// editor/src/storage/editor_storage.rs
 #![allow(unused)]
 use crate::editor_assets::assets::write_sounds_lua;
 use crate::editor_assets::assets::{write_prefabs_lua, BISHOP_THEME_LUA};

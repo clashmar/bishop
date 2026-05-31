@@ -1,4 +1,3 @@
-// engine_core/src/ecs/inspector/generic_module.rs
 use crate::ecs::component::{comp_type_name, Component};
 use crate::ecs::ecs::Ecs;
 use crate::ecs::entity::Entity;

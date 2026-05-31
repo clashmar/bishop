@@ -1,4 +1,3 @@
-// editor/src/menu_editor/menu_properties_panel/common_properties.rs
 use super::{FIELD_HEIGHT, LABEL_WIDTH, ROW_HEIGHT};
 use crate::menu::MenuEditor;
 use bishop::prelude::*;

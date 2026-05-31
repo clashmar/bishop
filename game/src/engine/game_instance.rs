@@ -1,4 +1,3 @@
-// game/src/engine/game_instance.rs
 use crate::scripting::script_system::ScriptSystem;
 use engine_core::prelude::*;
 use mlua::Lua;

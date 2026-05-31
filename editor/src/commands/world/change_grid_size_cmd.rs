@@ -1,4 +1,3 @@
-// editor/src/commands/world/change_grid_size_cmd.rs
 use crate::app::EditorMode;
 use crate::commands::editor_command_manager::EditorCommand;
 use crate::editor_global::push_toast;

@@ -1,4 +1,3 @@
-// editor/src/menu/menu_canvas/selection.rs
 use crate::menu::menu_editor::*;
 use crate::menu::MenuEditor;
 use engine_core::prelude::*;

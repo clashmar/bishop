@@ -1,5 +1,3 @@
-// engine_core/src/text/dialogue/mod.rs
-
 pub mod dialogue_config;
 pub mod speech_renderer;
 pub mod speech_system;

@@ -1,4 +1,3 @@
-// editor/src/editor/camera_controller.rs
 use bishop::prelude::*;
 use engine_core::prelude::*;
 

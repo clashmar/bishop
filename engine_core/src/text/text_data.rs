@@ -1,4 +1,3 @@
-// engine_core/src/text/text_data.rs
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 

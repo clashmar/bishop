@@ -1,4 +1,3 @@
-// engine_core/src/rendering/render_room.rs
 // NOTE: Multi-pass rendering temporarily disabled while rewiring codebase.
 
 use crate::prelude::*;

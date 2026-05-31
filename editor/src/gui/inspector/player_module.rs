@@ -1,4 +1,3 @@
-// editor/src/gui/inspector/player_module.rs
 use bishop::prelude::*;
 use engine_core::prelude::*;
 use widgets::constants::colors;

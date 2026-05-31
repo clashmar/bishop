@@ -1,4 +1,3 @@
-// editor/build.rs
 use engine_core::constants::paths;
 use engine_core::ecs::component_registry::public_lua_components;
 use engine_core::input::input_table::*;

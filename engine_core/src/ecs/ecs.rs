@@ -1,4 +1,3 @@
-// engine_core/src/ecs/ecs.rs
 use crate::ecs::component::{Component, ComponentStore};
 use crate::ecs::component_registry::*;
 use crate::ecs::entity::*;

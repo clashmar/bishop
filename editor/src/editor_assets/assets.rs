@@ -1,4 +1,3 @@
-// editor/src/editor_assets/editor_assets.rs
 #![allow(unused)]
 use crate::editor_assets::prefabs_lua::generate_prefabs_lua;
 use crate::storage::sound_preset_storage::SoundPresetLibrary;

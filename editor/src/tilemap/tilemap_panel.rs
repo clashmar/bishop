@@ -1,4 +1,3 @@
-// editor/src/tilemap/tilemap_panel.rs
 use crate::gui::gui_constants::*;
 use crate::gui::panels::panel_manager::is_mouse_over_panel;
 use crate::tilemap::background_module::BackgroundModule;

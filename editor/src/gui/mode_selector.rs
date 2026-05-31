@@ -1,4 +1,3 @@
-// editor/src/gui/mode_selector.rs
 use crate::gui::gui_constants::*;
 use crate::gui::modals::is_modal_open;
 use bishop::prelude::*;

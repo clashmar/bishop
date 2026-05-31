@@ -1,4 +1,3 @@
-// editor/src/commands/asset/mod.rs
 mod batch_delete_cmd;
 mod batch_move_cmd;
 mod create_directory_cmd;

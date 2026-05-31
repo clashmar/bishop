@@ -1,4 +1,3 @@
-// editor/src/commands/asset/batch_move_cmd.rs
 use crate::app::EditorMode;
 use crate::commands::asset::{MoveDirectoryCmd, MoveFileCmd};
 use crate::commands::editor_command_manager::EditorCommand;

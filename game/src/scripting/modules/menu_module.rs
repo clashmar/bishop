@@ -1,4 +1,3 @@
-// game/src/scripting/modules/menu_module.rs
 use crate::game_global::{is_menu_active, push_command};
 use crate::scripting::commands::menu_commands::{CloseMenuCmd, OpenMenuCmd, SetElementEnabledCmd, SetElementVisibleCmd};
 use engine_core::register_lua_api;

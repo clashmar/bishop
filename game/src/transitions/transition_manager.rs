@@ -1,4 +1,3 @@
-// game/src/transitions/transition_manager.rs
 use crate::engine::game_instance::GameInstance;
 use engine_core::prelude::*;
 use engine_core::scripting::lua_constants::lua_events;

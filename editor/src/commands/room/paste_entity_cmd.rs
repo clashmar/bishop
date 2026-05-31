@@ -1,4 +1,3 @@
-// editor/src/commands/room/paste_entity_cmd.rs
 use crate::app::EditorMode;
 use crate::commands::editor_command_manager::EditorCommand;
 use crate::with_editor;

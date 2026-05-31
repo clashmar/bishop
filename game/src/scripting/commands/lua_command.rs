@@ -1,4 +1,3 @@
-// game/src/scripting/commands/lua_command.rs
 use crate::engine::Engine;
 
 /// All mutating Lua actions implement this.

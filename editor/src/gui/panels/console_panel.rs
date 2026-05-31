@@ -1,4 +1,3 @@
-// editor/src/gui/panels/console_panel.rs
 use crate::gui::panels::generic_panel::PanelDefinition;
 use crate::Editor;
 use bishop::prelude::*;

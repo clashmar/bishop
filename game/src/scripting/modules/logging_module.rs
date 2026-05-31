@@ -1,4 +1,3 @@
-// game/src/scripting/modules/logging_module.rs
 use engine_core::scripting::lua_constants::{lua_engine, lua_files};
 use engine_core::scripting::modules::lua_module::*;
 use engine_core::*;

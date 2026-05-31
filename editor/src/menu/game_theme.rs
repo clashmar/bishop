@@ -1,4 +1,3 @@
-// editor/src/menu/game_theme.rs
 use crate::with_lua;
 use engine_core::constants::extensions;
 use engine_core::prelude::*;

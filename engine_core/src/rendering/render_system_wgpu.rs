@@ -1,5 +1,3 @@
-// engine_core/src/rendering/render_system_wgpu.rs
-
 use crate::prelude::*;
 use bishop::prelude::*;
 

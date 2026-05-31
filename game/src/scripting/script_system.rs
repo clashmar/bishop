@@ -1,4 +1,3 @@
-// engine_core/src/script/script_system.rs
 use crate::engine::Engine;
 use crate::game_global::drain_commands;
 use crate::scripting::modules::entity_module::lua_entity_handle;

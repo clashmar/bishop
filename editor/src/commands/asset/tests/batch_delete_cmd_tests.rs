@@ -1,4 +1,3 @@
-// editor/src/commands/asset/tests/batch_delete_cmd_tests.rs
 use crate::app::EditorMode;
 use crate::commands::asset::{BatchDeleteCmd, DeleteTarget};
 use crate::commands::editor_command_manager::EditorCommand;

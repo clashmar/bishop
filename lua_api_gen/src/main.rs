@@ -1,4 +1,3 @@
-// lua_api_gen/src/main.rs
 use engine_core::constants::paths;
 use engine_core::scripting::lua_constants::{lua_dirs, lua_files, lua_ownership};
 use engine_core::scripting::lua_project::engine_relative_path;

@@ -1,4 +1,3 @@
-// editor/src/gui/generic_panel.rs
 use crate::gui::gui_constants::MENU_PANEL_HEIGHT;
 use crate::gui::panel_text_color;
 use crate::Editor;

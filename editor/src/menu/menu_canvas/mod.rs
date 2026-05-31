@@ -1,4 +1,3 @@
-// editor/src/menu/menu_canvas/mod.rs
 pub(crate) mod drawing;
 mod selection;
 

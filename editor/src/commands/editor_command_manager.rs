@@ -1,4 +1,3 @@
-// editor/src/controls/editor_command_manager.rs
 use crate::app::EditorMode;
 use crate::editor_global::with_editor;
 use std::fmt::Debug;

@@ -1,4 +1,3 @@
-// engine_core/src/controls/controls.rs
 use bishop::prelude::*;
 
 pub struct Controls;

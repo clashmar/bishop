@@ -1,5 +1,3 @@
-// engine_core/src/text/mod.rs
-
 pub mod dialogue;
 pub mod interpolation;
 pub mod text_data;

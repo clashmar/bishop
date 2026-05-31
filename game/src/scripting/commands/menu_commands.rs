@@ -1,4 +1,3 @@
-// game/src/scripting/commands/menu_commands.rs
 use crate::engine::Engine;
 use crate::scripting::commands::lua_command::LuaCommand;
 

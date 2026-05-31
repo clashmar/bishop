@@ -1,4 +1,3 @@
-// engine_core/src/script/script_manager.rs
 use crate::assets::asset_manager::{AssetManager, IdPathAssetManager};
 use crate::assets::asset_registry::AssetKey;
 use crate::assets::AssetRegistry;

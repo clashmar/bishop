@@ -1,4 +1,3 @@
-// game/src/input/input_snapshot.rs
 use bishop::prelude::*;
 use engine_core::input::input_table::*;
 use std::collections::HashMap;

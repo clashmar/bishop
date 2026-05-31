@@ -1,4 +1,3 @@
-// engine_core/src/scripting/event_bus.rs
 use crate::ecs::entity::Entity;
 use crate::*;
 use mlua::Function;

@@ -1,4 +1,3 @@
-// game/src/scripting/modules/text_module.rs
 use crate::game_global::push_command;
 use crate::scripting::commands::text_commands::SetLanguageCmd;
 use crate::scripting::lua_ctx::LuaGameCtx;

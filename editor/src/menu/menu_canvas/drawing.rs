@@ -1,4 +1,3 @@
-// editor/src/menu/menu_canvas/drawing.rs
 use crate::menu::resize_handle::*;
 use crate::menu::MenuEditor;
 use crate::menu::SnapLine;

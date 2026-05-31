@@ -1,4 +1,3 @@
-// editor/src/game/game_editor.rs
 use crate::app::EditorCameraController;
 use crate::app::SubEditor;
 use crate::commands::game::*;

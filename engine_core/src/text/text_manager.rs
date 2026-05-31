@@ -1,4 +1,3 @@
-// engine_core/src/text/text_manager.rs
 use crate::assets::{AssetKey, AssetRecord, AssetRegistry};
 use crate::constants::paths;
 use crate::ecs::TomlId;

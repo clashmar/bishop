@@ -1,4 +1,3 @@
-// editor/src/editor/actions.rs
 use crate::app::*;
 use crate::commands::scene::DeletePrefabCmd;
 use crate::editor_global::*;

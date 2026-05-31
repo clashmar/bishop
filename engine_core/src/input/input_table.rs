@@ -1,4 +1,3 @@
-// engine_core/src/input/key_table.rs
 use crate::input::input_constants::*;
 use bishop::prelude::*;
 

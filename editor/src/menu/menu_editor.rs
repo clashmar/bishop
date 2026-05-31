@@ -1,4 +1,3 @@
-// editor/src/menu_editor/menu_editor.rs
 use crate::app::SubEditor;
 use crate::gui::modals::is_modal_open;
 use crate::menu::resize_handle::ResizeHandleState;

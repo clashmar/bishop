@@ -1,4 +1,3 @@
-// editor/src/playtest/room_playtest.rs
 use crate::editor_assets::assets::*;
 use crate::storage::editor_storage::*;
 use engine_core::prelude::*;

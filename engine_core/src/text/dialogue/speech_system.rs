@@ -1,4 +1,3 @@
-// engine_core/src/text/dialogue/speech_system.rs
 use crate::ecs::ecs::Ecs;
 use crate::ecs::entity::Entity;
 use crate::ecs::speech_bubble::SpeechBubble;

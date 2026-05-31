@@ -1,4 +1,3 @@
-// editor/src/gui/prompts/helpers.rs
 use crate::gui::prompts::constants::*;
 use bishop::prelude::*;
 use engine_core::prelude::*;

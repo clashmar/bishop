@@ -1,4 +1,3 @@
-// game/src/scripting/modules/engine_module.rs
 use crate::scripting::lua_ctx::LuaGameCtx;
 use engine_core::prelude::*;
 use engine_core::register_lua_api;

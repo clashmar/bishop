@@ -1,4 +1,3 @@
-// engine_core/src/ecs/capture.rs
 use crate::ecs::component::comp_type_name;
 use crate::ecs::components::prefab_instance::PrefabInstanceNode;
 use crate::ecs::entity::{Children, Parent};

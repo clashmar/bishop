@@ -1,4 +1,3 @@
-// game/src/playtest_main.rs
 use bishop::prelude::*;
 use bishop::BishopApp;
 use engine_core::prelude::*;
