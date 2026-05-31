@@ -6,7 +6,8 @@ local menu = require("_engine.menus")
 require("save_manager")
 
 -- Activates listeners for audio setting sliders
-require("audio_settings")
+local AudioSettings = require("audio_settings")
+AudioSettings:init()
 
 -- Load and activate the game theme at startup
 engine.theme.activate(require("bishop_theme"))

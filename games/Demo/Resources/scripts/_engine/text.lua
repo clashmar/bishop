@@ -8,6 +8,7 @@ engine.text = {}
 
 --- Sets the current text display language.
 ---@param lang string The language code (e.g. "en", "es")
+---@return nil
 function engine.text.set_language(lang) end
 
 --- Gets the current text display language.

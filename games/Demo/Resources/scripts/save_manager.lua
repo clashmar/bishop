@@ -1,7 +1,6 @@
-local menu = require("_engine.menus")
-
 local autosave = require("autosave")
 
+---@class SaveManager
 local save_manager = {}
 
 local function player_state()
@@ -15,6 +14,7 @@ local function player_state()
     return player, transform, room_id
 end
 
+---@return nil
 function save_manager.register_provider()
     engine.save.register_provider({
         id = "demo.progress",
@@ -37,6 +37,9 @@ function save_manager.register_provider()
                 return
             end
             local progress = engine.save.from_string(data)
+            if not progress then
+                return
+            end
             engine.game_manager.public.score = progress.score
             engine.game_manager.public.level = progress.level
             player.public.health = progress.health
@@ -46,6 +49,7 @@ function save_manager.register_provider()
     })
 end
 
+---@return nil
 function save_manager.bind_menu_actions()
     engine.on("menu:load_latest", function()
         engine.save.load_latest()

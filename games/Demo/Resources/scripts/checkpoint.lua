@@ -1,5 +1,5 @@
----@class ScriptDef
-local checkpoint = {
+---@class Script
+local Checkpoint = {
     public = {
         name = "Checkpoint",
     },
@@ -10,4 +10,4 @@ local checkpoint = {
     end,
 }
 
-return checkpoint
+return Checkpoint

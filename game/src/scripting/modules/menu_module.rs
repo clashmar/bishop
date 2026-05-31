@@ -74,10 +74,12 @@ impl LuaApi for MenuModule {
             "---@param menu string|{} A menu id string or generated Menus table",
             lua_menu::MENUS_CLASS
         ));
+        out.line("---@return nil");
         out.line("function engine.menu.open(menu) end");
         out.line("");
 
         out.line("--- Closes the current menu.");
+        out.line("---@return nil");
         out.line("function engine.menu.close() end");
         out.line("");
 
@@ -90,6 +92,7 @@ impl LuaApi for MenuModule {
         out.line(&format!("---@param menu string|{}", lua_menu::MENUS_CLASS));
         out.line("---@param element_name string");
         out.line("---@param enabled boolean");
+        out.line("---@return nil");
         out.line(&format!(
             "function engine.menu.{}(menu, element_name, enabled) end",
             lua_menu::SET_ENABLED
@@ -100,6 +103,7 @@ impl LuaApi for MenuModule {
         out.line(&format!("---@param menu string|{}", lua_menu::MENUS_CLASS));
         out.line("---@param element_name string");
         out.line("---@param visible boolean");
+        out.line("---@return nil");
         out.line(&format!(
             "function engine.menu.{}(menu, element_name, visible) end",
             lua_menu::SET_VISIBLE

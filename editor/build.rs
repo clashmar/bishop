@@ -194,31 +194,42 @@ fn generate_lua_direction() {
 }
 
 fn generate_lua_script() {
-    let out_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap())
-        .join("scripts")
-        .join("_engine");
-
-    fs::create_dir_all(&out_dir).expect("cannot create _engine folder");
+    let manifest_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap());
+    let workspace_root = manifest_dir
+        .parent()
+        .expect("CARGO_MANIFEST_DIR should have a parent")
+        .to_path_buf();
+    let out_dirs = [
+        manifest_dir.join("scripts").join("_engine"),
+        workspace_root
+            .join("games")
+            .join("Demo")
+            .join("Resources")
+            .join("scripts")
+            .join("_engine"),
+    ];
 
     let lua = format!(
         "-- Auto-generated. Do not edit.\n\
         {}\n\
         ---@meta\n\
-        ---@class ScriptDef\n\
+        ---@class Script\n\
         ---@field public table\n\
+        ---@field entity Entity\n\
         ---@field update fun(self: Script, dt: number)\n\
         ---@field init fun(self: Script, init?: table)\n\
         ---@field interact fun(self: Script)\n\
         ---@field on_exit fun(self: Script)\n\
-        ---@class Script : ScriptDef\n\
-        ---@field entity Entity\n\
         local Script = {{}}\n\
         return Script\n",
         lua_ownership::LUA_OWNER_SHARED_ENGINE,
     );
 
-    let target = out_dir.join("script.lua");
-    write_if_changed(&target, &lua);
+    for out_dir in out_dirs {
+        fs::create_dir_all(&out_dir).expect("cannot create _engine folder");
+        let target = out_dir.join("script.lua");
+        write_if_changed(&target, &lua);
+    }
 }
 
 /// Generates Rust code that embeds all .lua files from the _engine directory.

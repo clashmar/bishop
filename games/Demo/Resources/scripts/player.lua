@@ -9,7 +9,7 @@ local sound = require("_engine.sounds")
 local primary_music_track = "music/Egobyte_CalmessPersonified"
 local secondary_music_track = "music/Across the Sea"
 
----@class ScriptDef
+---@class Script
 local Player = {
     public = {
         speed = 100,
@@ -36,11 +36,12 @@ local Player = {
             return
         end
 
-        local state = self._state or {
-            facing = direction.Right,
-            clip = nil,
-            spawned_bullets = {},
-        }
+        local state = self._state
+            or {
+                facing = direction.Right,
+                clip = nil,
+                spawned_bullets = {},
+            }
         self._state = state
 
         local horiz = 0
@@ -76,7 +77,7 @@ local Player = {
         ---@type Velocity
         local new_vel = {
             x = horiz * move_speed,
-            y = cur_vel.y
+            y = cur_vel.y,
         }
 
         -- Jump if grounded and space pressed
@@ -144,16 +145,12 @@ local Player = {
             local pos = transform.position
 
             local x_offset = state.facing == direction.Left and -12 or 12
-            local bullet = engine.prefab.spawn(
-                prefabs.Bullet,
-                {
-                    x = pos.x + x_offset,
-                    y = pos.y,
-                },
-                {
-                    direction = state.facing,
-                }
-            )
+            local bullet = engine.prefab.spawn(prefabs.Bullet, {
+                x = pos.x + x_offset,
+                y = pos.y,
+            }, {
+                direction = state.facing,
+            })
 
             state.spawned_bullets[#state.spawned_bullets + 1] = bullet
         end

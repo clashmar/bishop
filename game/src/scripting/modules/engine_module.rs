@@ -396,8 +396,6 @@ impl LuaApi for EngineModule {
 
         // engine.on
         out.line("--- Register an event handler");
-        out.line("--- Built-in events:");
-        out.line("---   room:entered(room_id: integer, ...string)  The entered room id followed by room tags");
         out.line("--- @param event string The name of the event to listen for");
         out.line("--- @param handler function The Lua function that will be called");
         out.line("--- @return nil");
@@ -410,6 +408,12 @@ impl LuaApi for EngineModule {
         out.line("--- @param ... any Arguments that will be passed to each handler");
         out.line("--- @return nil");
         out.line("function engine.emit(event, ...) end");
+        out.line("");
+
+        // engine.quit_to_title
+        out.line("--- Quit to the title screen.");
+        out.line("---@return nil");
+        out.line(&format!("function engine.{}() end", lua_engine::QUIT_TO_TITLE));
         out.line("");
     }
 }

@@ -93,6 +93,7 @@ impl LuaApi for TextModule {
 
         out.line("--- Sets the current text display language.");
         out.line("---@param lang string The language code (e.g. \"en\", \"es\")");
+        out.line("---@return nil");
         out.line("function engine.text.set_language(lang) end");
         out.line("");
 

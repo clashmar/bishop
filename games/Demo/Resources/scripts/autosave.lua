@@ -1,4 +1,5 @@
-local autosave = {
+---@class Autosave
+local Autosave = {
     configured_tag = nil,
     condition = nil,
     is_bound = false,
@@ -14,35 +15,40 @@ local function has_tag(tags, configured_tag)
 end
 
 local function bind_listener()
-    if autosave.is_bound then
+    if Autosave.is_bound then
         return
     end
 
     engine.on(engine.events.room_entered, function(_, ...)
-        if not autosave.configured_tag then
+        if not Autosave.configured_tag then
             return
         end
 
         local tags = { ... }
-        if has_tag(tags, autosave.configured_tag)
-            and (not autosave.condition or autosave.condition()) then
+        if
+            has_tag(tags, Autosave.configured_tag)
+            and (not Autosave.condition or Autosave.condition())
+        then
             engine.save.auto()
         end
     end)
 
-    autosave.is_bound = true
+    Autosave.is_bound = true
 end
 
-function autosave.configure(cfg)
-    assert(type(cfg) == "table", "autosave.configure expects a config table")
-    assert(type(cfg.tag) == "string", "autosave.configure requires a string tag")
+--- Configure autosave behavior.
+---@param cfg {tag: string, condition?: fun(): boolean}
+---@return nil
+function Autosave.configure(cfg)
+    assert(type(cfg) == "table", "Autosave.configure expects a config table")
+    assert(type(cfg.tag) == "string", "Autosave.configure requires a string tag")
     if cfg.condition ~= nil then
-        assert(type(cfg.condition) == "function", "autosave.configure condition must be a function")
+        assert(type(cfg.condition) == "function", "Autosave.configure condition must be a function")
     end
 
-    autosave.configured_tag = cfg.tag
-    autosave.condition = cfg.condition
+    Autosave.configured_tag = cfg.tag
+    Autosave.condition = cfg.condition
     bind_listener()
 end
 
-return autosave
+return Autosave

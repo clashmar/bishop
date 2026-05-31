@@ -1,5 +1,4 @@
 -- bullet.lua
-local comp = require("_engine.components")
 local direction = require("_engine.direction")
 
 ---@class BulletSpawnArgs
@@ -10,8 +9,8 @@ local direction = require("_engine.direction")
 ---@field direction Direction?
 ---@field dead boolean?
 
----@class ScriptDef
-local bullet = {
+---@class Script
+local Bullet = {
     public = {
         speed = 260,
         lifetime = 1.5,
@@ -58,8 +57,7 @@ local bullet = {
             self.entity:despawn()
             return
         end
-
     end,
 }
 
-return bullet
+return Bullet

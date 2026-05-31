@@ -36,5 +36,6 @@ function engine.theme.new() end
 
 --- Activates the given theme globally.
 ---@param theme Theme
+---@return nil
 function engine.theme.activate(theme) end
 

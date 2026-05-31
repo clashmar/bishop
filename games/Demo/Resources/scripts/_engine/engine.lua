@@ -45,8 +45,6 @@ function engine.player() end
 function engine.call(name, method, ...) end
 
 --- Register an event handler
---- Built-in events:
----   room:entered(room_id: integer, ...string)  The entered room id followed by room tags
 --- @param event string The name of the event to listen for
 --- @param handler function The Lua function that will be called
 --- @return nil
@@ -58,6 +56,10 @@ function engine.on(event, handler) end
 --- @return nil
 function engine.emit(event, ...) end
 
+--- Quit to the title screen.
+---@return nil
+function engine.quit_to_title() end
+
 engine.prefab = {}
 
 ---@param prefab_name PrefabId
@@ -67,19 +69,24 @@ engine.prefab = {}
 function engine.prefab.spawn(prefab_name, position, init) end
 
 ---@param input string
+---@return boolean
 function engine.input.is_down(input) end
 
 ---@param input string
+---@return boolean
 function engine.input.pressed(input) end
 
 ---@param input string
+---@return boolean
 function engine.input.released(input) end
 
 ---@param name string
 ---@param priority number
+---@return nil
 function engine.input.take_control(name, priority) end
 
 ---@param name string
+---@return nil
 function engine.input.release_control(name) end
 
 ---@param name string

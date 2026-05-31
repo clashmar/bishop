@@ -106,6 +106,14 @@ impl LuaModule for SaveModule {
                 Ok(crate::engine::SaveRuntime::has_latest_save())
             })?,
         )?;
+        engine_tbl.set(
+            lua_engine::QUIT_TO_TITLE,
+            lua.create_function(|lua, ()| {
+                let ctx = LuaSaveCtx::borrow_ctx(lua)?;
+                ctx.pending_quit_to_title.set(true);
+                Ok(())
+            })?,
+        )?;
 
         engine_tbl.set(lua_save::SAVE, save_tbl)?;
         Ok(())
