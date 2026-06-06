@@ -117,6 +117,10 @@ pub mod lua_events {
     pub const EVENTS: &str = "events";
     pub const ROOM_ENTERED_FIELD: &str = "room_entered";
     pub const ROOM_ENTERED: &str = "room:entered";
+    pub const SAVE_SUCCEEDED_FIELD: &str = "save_succeeded";
+    pub const SAVE_SUCCEEDED: &str = "save:succeeded";
+    pub const SAVE_FAILED_FIELD: &str = "save_failed";
+    pub const SAVE_FAILED: &str = "save:failed";
 }
 
 /// Animation Lua method names.
@@ -180,6 +184,7 @@ pub mod lua_audio {
 /// Save Lua names.
 pub mod lua_save {
     pub const SAVE: &str = "save";
+    pub const REQUEST: &str = "request";
     pub const MANUAL: &str = "manual";
     pub const AUTO: &str = "auto";
     pub const CHECKPOINT: &str = "checkpoint";
@@ -188,6 +193,9 @@ pub mod lua_save {
     pub const TO_STRING: &str = "to_string";
     pub const FROM_STRING: &str = "from_string";
     pub const HAS_LATEST: &str = "has_latest";
+    pub const TRIGGERS: &str = "triggers";
+    pub const LANE: &str = "lane";
+    pub const TRIGGER: &str = "trigger";
     pub const PROVIDER_VERSION: &str = "version";
     pub const PROVIDER_CAPTURE: &str = "capture";
     pub const PROVIDER_APPLY: &str = "apply";

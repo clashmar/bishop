@@ -1,4 +1,3 @@
-/src/commands/asset/tests/batch_move_cmd_tests.rs
 use crate::app::EditorMode;
 use crate::commands::asset::{BatchMoveCmd, MoveTarget};
 use crate::commands::editor_command_manager::EditorCommand;
