@@ -66,6 +66,7 @@ impl EngineBuilder {
         is_playtest: bool,
     ) -> Engine {
         let grid_size = game_instance.borrow().game.current_world().grid_size;
+        let render_system = RenderSystem::with_grid_size(grid_size);
         if let Err(e) = register_runtime_lua_contexts(
             &self.lua,
             game_instance.clone(),
@@ -80,11 +81,11 @@ impl EngineBuilder {
             EngineRuntimeConfig {
                 save_runtime,
                 camera_manager: self.camera_manager,
-                grid_size,
                 is_playtest,
                 quit_to_title_enabled: self.quit_to_title_enabled,
                 entry_mode: self.entry_mode,
             },
+            render_system,
         )
     }
 

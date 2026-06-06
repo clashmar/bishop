@@ -151,7 +151,6 @@ impl BishopApp for Engine {
 pub(crate) struct EngineRuntimeConfig {
     pub(crate) save_runtime: SaveRuntime,
     pub(crate) camera_manager: CameraManager,
-    pub(crate) grid_size: f32,
     pub(crate) is_playtest: bool,
     pub(crate) quit_to_title_enabled: bool,
     pub(crate) entry_mode: EngineEntryMode,
@@ -164,6 +163,7 @@ impl Engine {
         ctx: PlatformContext,
         lua: Lua,
         cfg: EngineRuntimeConfig,
+        render_system: RenderSystem,
     ) -> Self {
         let mut menu_manager = MenuManager::new();
         menu_manager.load_templates_from_disk();
@@ -178,7 +178,7 @@ impl Engine {
             lua,
             save_runtime: cfg.save_runtime,
             camera_manager: cfg.camera_manager,
-            render_system: RenderSystem::with_grid_size(cfg.grid_size),
+            render_system,
             diagnostics: DiagnosticsOverlay::new(),
             menu_manager,
             is_playtest: cfg.is_playtest,
