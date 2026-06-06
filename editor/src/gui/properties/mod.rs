@@ -1,5 +1,7 @@
 pub mod collapsible;
+pub mod game;
 pub mod room;
+pub mod world;
 
 use bishop::prelude::*;
 use engine_core::ecs::inspector::layout::InspectorBodyLayout;
@@ -35,10 +37,5 @@ pub trait PropertyModule<T> {
             .rsplit("::")
             .next()
             .unwrap_or("Module")
-    }
-
-    /// Whether any input in this module is actively being edited.
-    fn was_input_active(&self) -> bool {
-        false
     }
 }

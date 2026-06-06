@@ -5,47 +5,24 @@ use bishop::prelude::*;
 use engine_core::prelude::*;
 use widgets::constants::layout;
 
-/// Draw a label + text input row. Returns the committed value.
-pub(crate) fn draw_labeled_text_input(
-    ctx: &mut WgpuContext,
-    rect: Rect,
-    label: &str,
-    value: &str,
-    widget_id: WidgetId,
-) -> (String, InputCommit) {
-    let label_measure = measure_text(ctx, label, layout::DEFAULT_FONT_SIZE_16);
-    ctx.draw_text(
-        label,
-        rect.x,
-        rect.y + 20.0,
-        layout::DEFAULT_FONT_SIZE_16,
-        Color::WHITE,
-    );
-    let input_rect = Rect::new(
-        rect.x + label_measure.width + layout::WIDGET_SPACING,
-        rect.y,
-        rect.w - label_measure.width - layout::WIDGET_SPACING,
-        layout::DEFAULT_FIELD_HEIGHT,
-    );
-    TextInput::new(widget_id, input_rect, value).show(ctx)
-}
-
 use super::collapsible::CollapsiblePropertyModule;
 use super::PropertyModule;
-use crate::gui::gui_constants::{BTN_HEIGHT, INSPECTOR_HEADER_BUTTON_Y, INSPECTOR_HEADER_HEIGHT};
+use crate::gui::gui_constants::{self, BTN_HEIGHT};
 use crate::gui::menu_bar::menu_button;
 use crate::shared::scene_ui::inspector::InspectorContent;
 use crate::shared::scene_ui::inspector::{
-    SceneCreateRequest, SceneInspectorContext, SceneInspectorOutput,
+    CreateRequest, InspectorContext, InspectorOutput,
 };
 use engine_core::game::GameCtxMut;
 use engine_core::worlds::room::Room;
 
+/// Editable properties for the current room.
 pub struct RoomProperties {
     pub modules: Vec<Box<dyn PropertyModule<Room>>>,
 }
 
 impl RoomProperties {
+    /// Creates a new room properties pane.
     pub fn new() -> Self {
         Self {
             modules: vec![
@@ -58,7 +35,7 @@ impl RoomProperties {
 
 impl InspectorContent for RoomProperties {
     fn header_height(&self) -> f32 {
-        INSPECTOR_HEADER_HEIGHT
+        gui_constants::inspector::HEADER_HEIGHT
     }
 
     fn draw_header(
@@ -67,9 +44,9 @@ impl InspectorContent for RoomProperties {
         rect: Rect,
         blocked: bool,
         game_ctx: &mut GameCtxMut,
-        _scene_ctx: &SceneInspectorContext,
-    ) -> SceneInspectorOutput {
-        let mut output = SceneInspectorOutput::default();
+        _insp_ctx: &InspectorContext,
+    ) -> InspectorOutput {
+        let mut output = InspectorOutput::default();
 
         let create_label = "+ Entity";
         let cam_label = "+ Camera";
@@ -82,7 +59,7 @@ impl InspectorContent for RoomProperties {
         const BTN_MARGIN: f32 = 10.0;
         let create_btn = Rect::new(
             rect.x + rect.w - create_btn_w - BTN_MARGIN,
-            rect.y + INSPECTOR_HEADER_BUTTON_Y,
+            rect.y + gui_constants::inspector::HEADER_BUTTON_Y,
             create_btn_w,
             BTN_HEIGHT,
         );
@@ -97,13 +74,13 @@ impl InspectorContent for RoomProperties {
         if menu_button(ctx, cam_btn, cam_label, blocked) {
             if let Some(world) = game_ctx.world.as_deref() {
                 if let Some(room) = world.current_room() {
-                    room.create_room_camera(&mut game_ctx.ecs, room.id, world.grid_size);
+                    room.create_room_camera(game_ctx.ecs, room.id, world.grid_size);
                 }
             }
         }
 
         if menu_button(ctx, create_btn, create_label, blocked) {
-            output.create_request = Some(SceneCreateRequest { parent: None });
+            output.create_request = Some(CreateRequest { parent: None });
         }
 
         output
@@ -115,15 +92,15 @@ impl InspectorContent for RoomProperties {
         rect: Rect,
         _blocked: bool,
         game_ctx: &mut GameCtxMut,
-        _scene_ctx: &SceneInspectorContext,
-    ) -> SceneInspectorOutput {
+        _insp_ctx: &InspectorContext,
+    ) -> InspectorOutput {
         let Some(room) = game_ctx
             .world
             .as_deref()
             .and_then(|world| world.current_room())
             .cloned()
         else {
-            return SceneInspectorOutput::default();
+            return InspectorOutput::default();
         };
 
         let mut edited_room = room;
@@ -145,13 +122,13 @@ impl InspectorContent for RoomProperties {
             *room = edited_room;
         }
 
-        SceneInspectorOutput::default()
+        InspectorOutput::default()
     }
 
     fn total_content_height(
         &self,
         game_ctx: &mut GameCtxMut,
-        _scene_ctx: &SceneInspectorContext,
+        _insp_ctx: &InspectorContext,
     ) -> f32 {
         let Some(world) = game_ctx.world.as_deref() else {
             return 0.0;
@@ -170,9 +147,5 @@ impl InspectorContent for RoomProperties {
             h -= layout::WIDGET_SPACING;
         }
         h + 20.0
-    }
-
-    fn was_input_active(&self) -> bool {
-        self.modules.iter().any(|m| m.was_input_active())
     }
 }

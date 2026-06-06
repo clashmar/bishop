@@ -1,7 +1,7 @@
 use super::{
     is_scene_component_hidden_in_prefab, linked_prefab_instance_state_for_scene_inspector,
-    SceneCreateRequest, SceneInspectorContext, SceneInspectorOutput, ScenePrefabAction,
-    ScenePrefabActionRequest,
+    CreateRequest, InspectorContext, InspectorOutput, PrefabAction,
+    PrefabActionRequest,
 };
 use crate::app::EditorMode;
 use crate::commands::room::copy_entity;
@@ -10,7 +10,7 @@ use crate::commands::scene::{
     DeleteEntityCmd, RemoveComponentCmd, UpdateComponentCmd,
 };
 use crate::editor_global::push_command;
-use crate::gui::gui_constants::*;
+use crate::gui::gui_constants::{self, *};
 use crate::gui::inspector::player_module::PlayerModule;
 use crate::gui::inspector::room_camera_module::ROOM_CAMERA_MODULE_TITLE;
 use crate::gui::menu_bar::menu_button;
@@ -198,7 +198,7 @@ impl EntityInspector {
 
 impl InspectorContent for EntityInspector {
     fn header_height(&self) -> f32 {
-        INSPECTOR_HEADER_HEIGHT
+        gui_constants::inspector::HEADER_HEIGHT
     }
 
     fn draw_header(
@@ -207,11 +207,11 @@ impl InspectorContent for EntityInspector {
         header_rect: Rect,
         blocked: bool,
         game_ctx: &mut GameCtxMut,
-        scene_ctx: &SceneInspectorContext,
-    ) -> SceneInspectorOutput {
+        insp_ctx: &InspectorContext,
+    ) -> InspectorOutput {
         self.interactive_rects.clear();
-        let mut output = SceneInspectorOutput::default();
-        self.command_mode = Some(scene_ctx.command_mode);
+        let mut output = InspectorOutput::default();
+        self.command_mode = Some(insp_ctx.command_mode);
 
         let Some(entity) = self.target else {
             return output;
@@ -228,7 +228,7 @@ impl InspectorContent for EntityInspector {
             &mut self.interactive_rects,
             Rect::new(
                 ctx.screen_width() - INSET - btn_w_add,
-                header_rect.y + INSPECTOR_HEADER_BUTTON_Y,
+                header_rect.y + gui_constants::inspector::HEADER_BUTTON_Y,
                 btn_w_add,
                 BTN_HEIGHT,
             ),
@@ -247,7 +247,7 @@ impl InspectorContent for EntityInspector {
                 &mut self.interactive_rects,
                 Rect::new(
                     add_rect.x - layout::WIDGET_SPACING - btn_w_remove,
-                    header_rect.y + INSPECTOR_HEADER_BUTTON_Y,
+                    header_rect.y + gui_constants::inspector::HEADER_BUTTON_Y,
                     btn_w_remove,
                     BTN_HEIGHT,
                 ),
@@ -255,7 +255,7 @@ impl InspectorContent for EntityInspector {
             if menu_button(ctx, remove_rect, remove_label, blocked)
                 || Controls::delete(ctx) && !shortcuts_blocked()
             {
-                let command = DeleteEntityCmd::new(entity, scene_ctx.command_mode);
+                let command = DeleteEntityCmd::new(entity, insp_ctx.command_mode);
                 push_command(Box::new(command));
                 self.target = None;
                 return output;
@@ -263,7 +263,7 @@ impl InspectorContent for EntityInspector {
         }
 
         // +Entity button
-        if let Some(parent) = scene_ctx.selected_create_parent {
+        if let Some(parent) = insp_ctx.selected_create_parent {
             let create_rect = register_rect(
                 &mut self.interactive_rects,
                 Rect::new(
@@ -272,14 +272,14 @@ impl InspectorContent for EntityInspector {
                         - btn_w_remove
                         - layout::WIDGET_SPACING
                         - btn_w_create,
-                    header_rect.y + INSPECTOR_HEADER_BUTTON_Y,
+                    header_rect.y + gui_constants::inspector::HEADER_BUTTON_Y,
                     btn_w_create,
                     BTN_HEIGHT,
                 ),
             );
             if menu_button(ctx, create_rect, create_label, blocked) {
                 output.create_request =
-                    Some(SceneCreateRequest { parent: Some(parent) });
+                    Some(CreateRequest { parent: Some(parent) });
                 return output;
             }
         }
@@ -288,7 +288,7 @@ impl InspectorContent for EntityInspector {
         let options = self.build_addable_components(
             game_ctx.ecs,
             entity,
-            scene_ctx.hide_room_only_components,
+            insp_ctx.hide_room_only_components,
         );
         if let Some(component) = Dropdown::new(
             self.widget_ids.add_component_dropdown_id,
@@ -309,7 +309,7 @@ impl InspectorContent for EntityInspector {
             {
                 push_command(Box::new(AddComponentCmd::new(
                     target,
-                    scene_ctx.command_mode,
+                    insp_ctx.command_mode,
                     component.type_name,
                 )));
             } else {
@@ -326,15 +326,15 @@ impl InspectorContent for EntityInspector {
         content_rect: Rect,
         blocked: bool,
         game_ctx: &mut GameCtxMut,
-        scene_ctx: &SceneInspectorContext,
-    ) -> SceneInspectorOutput {
-        let mut output = SceneInspectorOutput::default();
+        insp_ctx: &InspectorContext,
+    ) -> InspectorOutput {
+        let mut output = InspectorOutput::default();
         let Some(entity) = self.target else {
             return output;
         };
         let comp_target = component_target(game_ctx.ecs, entity);
         let linked_prefab = linked_prefab_instance_state_for_scene_inspector(
-            scene_ctx.show_linked_prefab_metadata,
+            insp_ctx.show_linked_prefab_metadata,
             game_ctx.ecs,
             game_ctx.prefab_manager,
             entity,
@@ -370,8 +370,8 @@ impl InspectorContent for EntityInspector {
                 .blocked(blocked)
                 .show(ctx)
             {
-                output.prefab_action = Some(ScenePrefabActionRequest {
-                    action: ScenePrefabAction::OpenPrefabEditor,
+                output.prefab_action = Some(PrefabActionRequest {
+                    action: PrefabAction::OpenPrefabEditor,
                     selected_entity: prefab_state.selected_entity,
                     root_entity: prefab_state.root_entity,
                     prefab_id: prefab_state.prefab_id,
@@ -385,8 +385,8 @@ impl InspectorContent for EntityInspector {
                 .blocked(blocked)
                 .show(ctx)
             {
-                output.prefab_action = Some(ScenePrefabActionRequest {
-                    action: ScenePrefabAction::UnlinkInstance,
+                output.prefab_action = Some(PrefabActionRequest {
+                    action: PrefabAction::UnlinkInstance,
                     selected_entity: prefab_state.selected_entity,
                     root_entity: prefab_state.root_entity,
                     prefab_id: prefab_state.prefab_id,
@@ -399,8 +399,8 @@ impl InspectorContent for EntityInspector {
                 .blocked(blocked || actions_blocked)
                 .show(ctx)
             {
-                output.prefab_action = Some(ScenePrefabActionRequest {
-                    action: ScenePrefabAction::ApplyInstanceToPrefab,
+                output.prefab_action = Some(PrefabActionRequest {
+                    action: PrefabAction::ApplyInstanceToPrefab,
                     selected_entity: prefab_state.selected_entity,
                     root_entity: prefab_state.root_entity,
                     prefab_id: prefab_state.prefab_id,
@@ -413,8 +413,8 @@ impl InspectorContent for EntityInspector {
                 .blocked(blocked || actions_blocked)
                 .show(ctx)
             {
-                output.prefab_action = Some(ScenePrefabActionRequest {
-                    action: ScenePrefabAction::RevertInstanceToPrefab,
+                output.prefab_action = Some(PrefabActionRequest {
+                    action: PrefabAction::RevertInstanceToPrefab,
                     selected_entity: prefab_state.selected_entity,
                     root_entity: prefab_state.root_entity,
                     prefab_id: prefab_state.prefab_id,
@@ -461,7 +461,7 @@ impl InspectorContent for EntityInspector {
                         self.component_edits.remove(&(module_entity, type_name));
                         push_command(Box::new(RemoveComponentCmd::new(
                             module_entity,
-                            scene_ctx.command_mode,
+                            insp_ctx.command_mode,
                             type_name,
                             ron,
                         )));
@@ -538,7 +538,7 @@ impl InspectorContent for EntityInspector {
                 .remove(&(change.entity, change.type_name));
             push_command(Box::new(UpdateComponentCmd::new(
                 change.entity,
-                scene_ctx.command_mode,
+                insp_ctx.command_mode,
                 change.type_name,
                 change.old_ron,
                 change.new_ron,
@@ -553,26 +553,18 @@ impl InspectorContent for EntityInspector {
     fn total_content_height(
         &self,
         game_ctx: &mut GameCtxMut,
-        scene_ctx: &SceneInspectorContext,
+        insp_ctx: &InspectorContext,
     ) -> f32 {
         let Some(entity) = self.target else {
             return 0.0;
         };
         self.compute_module_height(
-            &mut game_ctx.ecs,
-            &game_ctx.prefab_manager,
+            game_ctx.ecs,
+            game_ctx.prefab_manager,
             entity,
-            scene_ctx.show_linked_prefab_metadata,
-            scene_ctx.hide_room_only_components,
+            insp_ctx.show_linked_prefab_metadata,
+            insp_ctx.hide_room_only_components,
         )
-    }
-
-    fn was_input_active(&self) -> bool {
-        false
-    }
-
-    fn target(&self) -> Option<Entity> {
-        self.target
     }
 
     fn interactive_rects(&self) -> Vec<Rect> {

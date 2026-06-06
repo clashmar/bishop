@@ -67,10 +67,6 @@ impl<T, M: PropertyModule<T>> PropertyModule<T> for CollapsiblePropertyModule<T,
     fn title(&self) -> &str {
         &self.title
     }
-
-    fn was_input_active(&self) -> bool {
-        self.inner.was_input_active()
-    }
 }
 
 #[cfg(test)]
@@ -121,15 +117,4 @@ mod tests {
         assert_eq!(module.title(), "FakeModule");
     }
 
-    #[test]
-    fn was_input_active_delegates_to_inner() {
-        struct InputActive;
-        impl PropertyModule<()> for InputActive {
-            fn draw(&mut self, _: &mut WgpuContext, _: Rect, _: &mut (), _: &mut GameCtxMut) {}
-            fn body_layout(&self) -> InspectorBodyLayout { InspectorBodyLayout::new() }
-            fn was_input_active(&self) -> bool { true }
-        }
-        let module = CollapsiblePropertyModule::<(), InputActive>::new(InputActive);
-        assert!(module.was_input_active());
-    }
 }

@@ -202,6 +202,6 @@ fn remove_prefab_and_linked_instances(
         return snapshots;
     }
 
-    room_editor.inspector.show_room_properties();
+    room_editor.inspector.select_room();
     snapshots
 }

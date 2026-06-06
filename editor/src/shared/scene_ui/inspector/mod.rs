@@ -26,9 +26,9 @@ pub trait InspectorContent {
         _rect: Rect,
         _blocked: bool,
         _game_ctx: &mut GameCtxMut,
-        _scene_ctx: &SceneInspectorContext,
-    ) -> SceneInspectorOutput {
-        SceneInspectorOutput::default()
+        _insp_ctx: &InspectorContext,
+    ) -> InspectorOutput {
+        InspectorOutput::default()
     }
 
     /// Draw the scrollable module list.
@@ -38,21 +38,11 @@ pub trait InspectorContent {
         rect: Rect,
         blocked: bool,
         game_ctx: &mut GameCtxMut,
-        scene_ctx: &SceneInspectorContext,
-    ) -> SceneInspectorOutput;
+        insp_ctx: &InspectorContext,
+    ) -> InspectorOutput;
 
     /// Total scrollable content height.
-    fn total_content_height(&self, game_ctx: &mut GameCtxMut, scene_ctx: &SceneInspectorContext) -> f32;
-
-    /// Whether any input widget in this content is actively being edited.
-    fn was_input_active(&self) -> bool {
-        false
-    }
-
-    /// The currently inspected entity, if this content is entity-scoped.
-    fn target(&self) -> Option<Entity> {
-        None
-    }
+    fn total_content_height(&self, game_ctx: &mut GameCtxMut, insp_ctx: &InspectorContext) -> f32;
 
     /// Interactive rects for hit-testing.
     fn interactive_rects(&self) -> Vec<Rect> {
@@ -62,7 +52,7 @@ pub trait InspectorContent {
 
 /// Supported linked-prefab actions emitted from the room inspector.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum ScenePrefabAction {
+pub enum PrefabAction {
     OpenPrefabEditor,
     UnlinkInstance,
     ApplyInstanceToPrefab,
@@ -71,16 +61,16 @@ pub enum ScenePrefabAction {
 
 /// Concrete linked-prefab action request emitted from the inspector UI.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct ScenePrefabActionRequest {
-    pub action: ScenePrefabAction,
+pub struct PrefabActionRequest {
+    pub action: PrefabAction,
     pub selected_entity: Entity,
     pub root_entity: Entity,
     pub prefab_id: PrefabId,
 }
 
 /// Per-frame scene-inspector behavior flags and host state.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct SceneInspectorContext {
+#[derive(Clone, Debug, PartialEq)]
+pub struct InspectorContext {
     /// Command scope used for inspector-triggered undoable actions.
     pub command_mode: EditorMode,
     /// Whether linked prefab metadata is visible in the inspector.
@@ -89,28 +79,42 @@ pub struct SceneInspectorContext {
     pub hide_room_only_components: bool,
     /// Parent to use for the selected-entity `+ Entity` affordance.
     pub selected_create_parent: Option<Entity>,
+    /// Name for the game being edited, when in Game mode.
+    pub game_name: Option<String>,
 }
 
 /// Per-frame output emitted by the shared inspector UI.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
-pub struct SceneInspectorOutput {
+pub struct InspectorOutput {
     /// Create request triggered by `+ Entity`, if any.
-    pub create_request: Option<SceneCreateRequest>,
+    pub create_request: Option<CreateRequest>,
     /// Linked-prefab action triggered from the inspector, if any.
-    pub prefab_action: Option<ScenePrefabActionRequest>,
+    pub prefab_action: Option<PrefabActionRequest>,
+    /// Host-level action emitted by Game/World inspector content.
+    pub host_action: Option<InspectorHostAction>,
     /// Whether the prefab-mode empty state requested the prefab picker.
     pub open_prefab_picker: bool,
     /// Whether the prefab-mode empty state requested prefab deletion.
     pub delete_prefab: bool,
 }
 
-impl SceneInspectorOutput {
+/// Host-level rename action emitted by Game/World property inspectors.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum InspectorHostAction {
+    RenameGame(String),
+    RenameWorld(String),
+}
+
+impl InspectorOutput {
     pub fn merge(&mut self, other: Self) {
         if self.create_request.is_none() {
             self.create_request = other.create_request;
         }
         if self.prefab_action.is_none() {
             self.prefab_action = other.prefab_action;
+        }
+        if self.host_action.is_none() {
+            self.host_action = other.host_action;
         }
         self.open_prefab_picker |= other.open_prefab_picker;
         self.delete_prefab |= other.delete_prefab;
@@ -120,7 +124,7 @@ impl SceneInspectorOutput {
 
 /// Scene entity creation request emitted by the inspector.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct SceneCreateRequest {
+pub struct CreateRequest {
     /// Parent for the new entity, if one should be assigned immediately.
     pub parent: Option<Entity>,
 }

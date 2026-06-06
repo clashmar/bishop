@@ -2,7 +2,6 @@ use crate::app::EditorMode;
 use crate::gui::gui_constants::*;
 use crate::gui::menu_widgets::menu_dropdown;
 pub(crate) use crate::gui::menu_widgets::{menu_button, menu_button_text_position};
-use crate::gui::panel_text_color;
 use crate::prefab::BLANK_PREFAB_ID;
 use bishop::prelude::*;
 use engine_core::prelude::*;
@@ -10,7 +9,6 @@ use engine_core::theme::with_theme;
 use std::fmt;
 use strum_macros::EnumIter;
 use widgets::constants::layout;
-use widgets::truncate_to_width;
 
 /// Holds the state of the top-level menu bar.
 pub struct MenuBar {
@@ -19,12 +17,12 @@ pub struct MenuBar {
     view_id: WidgetId,
     options_id: WidgetId,
     editors_id: WidgetId,
-    title_id: WidgetId,
     pub pending: Option<EditorAction>,
 }
 
 #[derive(EnumIter, Clone, Copy, PartialEq, Eq, Debug)]
 pub enum EditorAction {
+    NavigateBack,
     // Game actions
     Rename, // Rename Game/World/Room
     // File actions
@@ -126,11 +124,9 @@ impl EditorAction {
 
     pub(crate) fn is_available_in(self, editor_mode: EditorMode) -> bool {
         match self {
+            EditorAction::NavigateBack => back_action_for_mode(editor_mode).is_some(),
             EditorAction::Rename => {
-                matches!(
-                    editor_mode,
-                    EditorMode::Game | EditorMode::World(_)
-                ) || matches!(editor_mode, EditorMode::Prefab(prefab_id) if prefab_id != BLANK_PREFAB_ID)
+                matches!(editor_mode, EditorMode::Prefab(prefab_id) if prefab_id != BLANK_PREFAB_ID)
             }
             EditorAction::NewGame
             | EditorAction::Open
@@ -203,7 +199,6 @@ impl fmt::Display for EditorAction {
 impl MenuBar {
     pub fn new() -> Self {
         Self {
-            title_id: WidgetId::default(),
             file_id: WidgetId::default(),
             edit_id: WidgetId::default(),
             view_id: WidgetId::default(),
@@ -217,7 +212,7 @@ impl MenuBar {
     pub fn draw(
         &mut self,
         ctx: &mut WgpuContext,
-        title: &str,
+        _title: &str,
         editor_mode: EditorMode,
     ) -> Option<EditorAction> {
         // Height of each dropdown item
@@ -229,69 +224,19 @@ impl MenuBar {
         let mut x = panel_rect.x + PADDING;
         let y = panel_rect.y + PADDING / 2.0;
 
-        const MAX_TITLE_WIDTH: f32 = 250.0;
-
-        let title_rect = Rect::new(
-            x,
-            y,
-            rect_width_for_text(ctx, title, layout::HEADER_FONT_SIZE_20).min(MAX_TITLE_WIDTH),
-            HEIGHT,
-        );
-
-        let display_title = truncate_to_width(
-            ctx,
-            title,
-            title_rect.w - PADDING,
-            layout::HEADER_FONT_SIZE_20,
-        );
-
-        match editor_mode {
-            EditorMode::Game
-            | EditorMode::World(_)
-            | EditorMode::Room(_)
-            | EditorMode::Prefab(_) => {
-                if let Some(title_actions) = title_actions_for_mode(editor_mode) {
-                    if let Some(selected) = menu_dropdown(
-                        ctx,
-                        self.title_id,
-                        title_rect,
-                        &display_title,
-                        &title_actions,
-                        |a| a.ui_label(),
-                        |a| a.shortcut(),
-                    ) {
-                        self.pending = Some(selected);
-                    }
-                } else {
-                    let txt_dims = ctx.measure_text(&display_title, layout::HEADER_FONT_SIZE_20);
-                    let txt_x = title_rect.x + PADDING / 2.0;
-                    let txt_y =
-                        title_rect.y + (title_rect.h - txt_dims.height) / 2.0 + txt_dims.offset_y;
-                    ctx.draw_text(
-                        &display_title,
-                        txt_x,
-                        txt_y,
-                        layout::HEADER_FONT_SIZE_20,
-                        panel_text_color(),
-                    );
-                }
+        if let Some(back_action) = back_action_for_mode(editor_mode) {
+            let back_label = "< Back";
+            let back_rect = Rect::new(
+                x,
+                y,
+                rect_width_for_text(ctx, back_label, layout::HEADER_FONT_SIZE_20) + PADDING,
+                HEIGHT,
+            );
+            if menu_button(ctx, back_rect, back_label, false) {
+                self.pending = Some(back_action);
             }
-            _ => {
-                let txt_dims = ctx.measure_text(&display_title, layout::HEADER_FONT_SIZE_20);
-                let txt_x = title_rect.x + PADDING / 2.0;
-                let txt_y =
-                    title_rect.y + (title_rect.h - txt_dims.height) / 2.0 + txt_dims.offset_y;
-                ctx.draw_text(
-                    &display_title,
-                    txt_x,
-                    txt_y,
-                    layout::HEADER_FONT_SIZE_20,
-                    panel_text_color(),
-                );
-            }
+            x += back_rect.w + SPACING;
         }
-
-        x += title_rect.w + SPACING;
 
         // File dropdown
         let file_label = "File";
@@ -428,11 +373,12 @@ impl MenuBar {
     }
 }
 
-fn title_actions_for_mode(editor_mode: EditorMode) -> Option<Vec<EditorAction>> {
-    if matches!(editor_mode, EditorMode::Prefab(BLANK_PREFAB_ID) | EditorMode::Room(_)) {
-        None
-    } else {
-        Some(vec![EditorAction::Rename])
+fn back_action_for_mode(editor_mode: EditorMode) -> Option<EditorAction> {
+    match editor_mode {
+        EditorMode::Room(_) | EditorMode::World(_) | EditorMode::Menu | EditorMode::Prefab(_) => {
+            Some(EditorAction::NavigateBack)
+        }
+        EditorMode::Game => None,
     }
 }
 

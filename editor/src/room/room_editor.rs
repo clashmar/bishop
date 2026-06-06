@@ -7,13 +7,14 @@ use crate::commands::room::*;
 use crate::commands::scene::CreateSceneEntityCmd;
 use crate::editor_assets::assets::*;
 use crate::editor_global::*;
-use crate::gui::inspector::inspector::Inspector;
+use crate::gui::gui_constants::{self};
+use crate::gui::inspector::shell::Inspector;
 use crate::gui::mode_selector::*;
 use crate::prefab::reconcile_recent_prefab_ids;
 use crate::room::drawing::*;
 use crate::room::selection::DragState;
 use crate::shared::input::{canvas_blocked_by_global_ui, shortcuts_blocked};
-use crate::shared::scene_ui::inspector::{SceneCreateRequest, ScenePrefabActionRequest};
+use crate::shared::scene_ui::inspector::{CreateRequest, PrefabActionRequest};
 use crate::shared::selection::draw_selection_box;
 use crate::storage::editor_storage::{PrefabPaletteState, PREFAB_PALETTE_RECENT_CAP};
 use crate::tilemap::tilemap_editor::*;
@@ -108,8 +109,8 @@ pub struct RoomEditor {
     pub(crate) active_rects: Vec<Rect>,
     pub(crate) show_grid: bool,
     pub(crate) drag_state: DragState,
-    pub create_request: Option<SceneCreateRequest>,
-    pub prefab_action_request: Option<ScenePrefabActionRequest>,
+    pub create_request: Option<CreateRequest>,
+    pub prefab_action_request: Option<PrefabActionRequest>,
     pub request_play: bool,
     pub view_preview: bool,
     pub(crate) preview_camera_id: Option<usize>,
@@ -124,7 +125,7 @@ impl RoomEditor {
         let mode = RoomEditorMode::Scene;
 
         let mut inspector = Inspector::new();
-        inspector.show_room_properties();
+        inspector.select_room();
 
         Self {
             mode: RoomEditorMode::Scene,
@@ -399,11 +400,10 @@ impl RoomEditor {
             };
 
             // Panel rect for inspector and tilemap editor.
-            const INSPECTOR_W: f32 = 325.0;
             let inspector_rect = Rect::new(
-                ctx.screen_width() - INSPECTOR_W,
+                ctx.screen_width() - gui_constants::inspector::WIDTH,
                 0.0,
-                INSPECTOR_W,
+                gui_constants::inspector::WIDTH,
                 ctx.screen_height(),
             );
 
@@ -548,7 +548,7 @@ impl RoomEditor {
     }
 
     pub fn reset(&mut self) {
-        self.inspector.show_room_properties();
+        self.inspector.select_room();
         self.tilemap_editor.reset();
         self.reset_scene_sub_mode();
         self.mode = RoomEditorMode::Scene;

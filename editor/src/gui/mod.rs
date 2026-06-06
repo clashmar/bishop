@@ -7,6 +7,7 @@ pub mod mode_selector;
 pub mod panels;
 pub mod prompts;
 pub mod properties;
+pub mod text_input;
 
 use crate::constants::colors;
 use crate::gui::gui_constants::classes;

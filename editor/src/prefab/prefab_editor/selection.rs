@@ -4,7 +4,7 @@ use engine_core::prelude::*;
 impl PrefabEditor {
     pub(crate) fn sync_inspector_to_selection(&mut self) {
         if let Some(entity) = self.single_selected_entity() {
-            self.inspector.show_entity(entity);
+            self.inspector.select_entity(entity);
         } else {
             self.inspector.hide();
         }

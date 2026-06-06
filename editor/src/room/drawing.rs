@@ -8,7 +8,7 @@ use crate::gui::panel_text_color;
 use crate::room::prefab_preview::{build_prefab_preview, PrefabPreviewVisual};
 use crate::room::room_editor::*;
 use crate::room::selection::{entity_selection_rect, snap_room_drag_position};
-use crate::shared::scene_ui::inspector::{SceneInspectorContext};
+use crate::shared::scene_ui::inspector::{InspectorContext};
 use crate::tilemap::tilemap_editor::TILEMAP_SUB_MODES;
 use crate::world::coord;
 use bishop::prelude::*;
@@ -144,13 +144,14 @@ impl RoomEditor {
                 self.register_rect(draw_top_panel_full(ctx));
 
                 // Draw inspector
-                let inspector_ctx = SceneInspectorContext {
+                let inspector_ctx = InspectorContext {
                     command_mode: EditorMode::Room(current_room_id),
                     show_linked_prefab_metadata: true,
                     hide_room_only_components: false,
                     selected_create_parent: None,
+                    game_name: None,
                 };
-                let inspector_output = self.inspector.draw(ctx, game_ctx, &inspector_ctx);
+                let inspector_output = self.inspector.draw_active_pane(ctx, game_ctx, &inspector_ctx);
                 self.create_request = inspector_output.create_request;
                 self.prefab_action_request = inspector_output.prefab_action;
 

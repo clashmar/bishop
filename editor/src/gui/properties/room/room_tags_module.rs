@@ -1,16 +1,18 @@
 use super::super::PropertyModule;
-use super::draw_labeled_text_input;
+use crate::gui::text_input::draw_labeled_text_input;
 use bishop::prelude::*;
 use engine_core::ecs::inspector::layout::InspectorBodyLayout;
 use engine_core::game::GameCtxMut;
 use engine_core::prelude::*;
 use engine_core::worlds::room::Room;
 
+/// Edits the tags of a room.
 pub struct RoomTagsModule {
     input_id: WidgetId,
 }
 
 impl RoomTagsModule {
+    /// Creates a new room tags module.
     pub fn new() -> Self {
         Self {
             input_id: WidgetId::default(),

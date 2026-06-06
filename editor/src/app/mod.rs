@@ -5,6 +5,7 @@ pub(crate) mod escape;
 #[cfg(target_os = "macos")]
 pub(crate) mod macos_quit;
 mod modals;
+mod navigation;
 mod persistence;
 mod queries;
 pub mod sub_editor;
@@ -214,41 +215,10 @@ impl Editor {
 
         match self.mode {
             EditorMode::Menu => {
-                let was_viewing_preview = self.menu_editor.view_preview;
                 self.menu_editor.update(ctx, &self.camera);
 
-                if !was_viewing_preview
-                    && escape::escape_available_for_editor()
-                    && !input_is_focused()
-                {
-                    self.save_menus();
-                    let return_mode = self.return_mode.unwrap_or(EditorMode::Game);
-                    self.mode = return_mode;
-                    self.return_mode = None;
-
-                    match return_mode {
-                        EditorMode::Game => {
-                            self.game_editor
-                                .init_camera(ctx, &mut self.camera, &mut self.game);
-                        }
-                        EditorMode::World(id) => {
-                            if let Some(world) = self.game.get_world_mut(id) {
-                                self.world_editor.init_camera(ctx, &mut self.camera, world);
-                            }
-                        }
-                        EditorMode::Room(id) => {
-                            let current_world = self.game.current_world();
-                            if let Some(room) = current_world.get_room(id) {
-                                EditorCameraController::reset_room_editor_camera(
-                                    ctx,
-                                    &mut self.camera,
-                                    room,
-                                    current_world.grid_size,
-                                );
-                            }
-                        }
-                        EditorMode::Prefab(_) | EditorMode::Menu => {}
-                    }
+                if escape::escape_available_for_editor() && !input_is_focused() {
+                    self.navigate_back(ctx);
                 }
             }
             EditorMode::Prefab(_) => {
@@ -281,7 +251,7 @@ impl Editor {
                     && escape::escape_available_for_editor()
                     && !input_is_focused()
                 {
-                    self.request_exit_prefab_mode(ctx);
+                    self.navigate_back(ctx);
                 }
             }
             EditorMode::Game => {
@@ -340,16 +310,7 @@ impl Editor {
 
                 // Handle escape
                 if escape::escape_available_for_editor() && !input_is_focused() {
-                    self.game_editor
-                        .init_camera(ctx, &mut self.camera, &mut self.game);
-
-                    // Clean up
-                    self.cur_world_id = None;
-                    self.world_editor.reset();
-                    self.mode = EditorMode::Game;
-
-                    // Save everything
-                    self.save();
+                    self.navigate_back(ctx);
                 }
             }
             EditorMode::Room(room_id) => {
@@ -367,9 +328,6 @@ impl Editor {
                 }
 
                 let room_prefab_action;
-                let mut save_prefab_palette = false;
-                let mut save_after_room_exit = false;
-                let game_name = self.game.name.clone();
                 {
                     let active_prefab_stamp = room_editor::ActivePrefabStampState {
                         available: self.room_editor.active_prefab_id.is_some_and(|prefab_id| {
@@ -404,51 +362,10 @@ impl Editor {
                         game_ctx.ecs,
                         game_ctx.sprite_manager,
                     );
-
-                    if escape::escape_available_for_editor()
-                        && !input_is_focused()
-                        && self.room_editor.reset_scene_sub_mode()
-                    {
-                        save_prefab_palette = true;
-                    } else if escape::escape_available_for_editor() && !input_is_focused() {
-                        let palette =
-                            &mut self.room_editor.tilemap_editor.tilemap_panel.palette;
-
-                        if let Err(e) = editor_storage::save_palette(palette, &game_name) {
-                            onscreen_error!("Could not save tile palette: {e}")
-                        }
-
-                        // Find the room we just left for center_on_room
-                        let current_world = game_ctx
-                            .world
-                            .as_deref_mut()
-                            .expect("Current world id not present in game while in Room mode.");
-                        if let Some(room) =
-                            current_world.get_room(room_id)
-                        {
-                            self.world_editor.center_on_room(
-                                ctx,
-                                &mut self.camera,
-                                room,
-                                current_world.grid_size,
-                            );
-                        }
-
-                        // Clean up
-                        self.cur_room_id = None;
-                        self.room_editor.reset();
-                        self.mode = EditorMode::World(current_world.id);
-
-                        save_prefab_palette = true;
-                        save_after_room_exit = true;
-                    }
                 }
 
-                if save_prefab_palette {
-                    self.save_prefab_palette_state();
-                }
-                if save_after_room_exit {
-                    self.save();
+                if escape::escape_available_for_editor() && !input_is_focused() {
+                    self.navigate_back(ctx);
                 }
 
                 if let Some(request) = room_prefab_action {

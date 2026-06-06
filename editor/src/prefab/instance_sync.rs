@@ -1,4 +1,4 @@
-use crate::shared::scene_ui::inspector::ScenePrefabAction;
+use crate::shared::scene_ui::inspector::PrefabAction;
 use crate::shared::scene_ui::prefab_link::PrefabLinkSource;
 use engine_core::prelude::*;
 use std::collections::HashMap;
@@ -13,7 +13,7 @@ pub(crate) struct LinkedPrefabInstanceState {
     pub label: String,
     pub has_overrides: bool,
     pub has_local_changes: bool,
-    pub open_action: ScenePrefabAction,
+    pub open_action: PrefabAction,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -58,7 +58,7 @@ pub(crate) fn linked_prefab_instance_state(
         label: format!("Prefab: {}", prefab.name),
         has_overrides: subtree_has_prefab_overrides(ecs, reference.root_entity),
         has_local_changes,
-        open_action: ScenePrefabAction::OpenPrefabEditor,
+        open_action: PrefabAction::OpenPrefabEditor,
     })
 }
 

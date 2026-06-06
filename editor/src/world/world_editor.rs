@@ -1,11 +1,17 @@
 use crate::app::EditorCameraController;
+use crate::app::EditorMode;
 use crate::app::SubEditor;
 use crate::canvas::grid;
 use crate::canvas::grid_shader::GridRenderer;
+use crate::commands::game::EditWorldCmd;
 use crate::editor_assets::assets::*;
+use crate::editor_global::push_command;
+use crate::gui::gui_constants::{self};
+use crate::gui::inspector::shell::Inspector;
 use crate::gui::menu_bar::*;
 use crate::gui::mode_selector::*;
-use crate::shared::input::shortcuts_blocked;
+use crate::shared::input::{canvas_blocked_by_global_ui, shortcuts_blocked};
+use crate::shared::scene_ui::inspector::{InspectorHostAction, InspectorContext};
 use crate::world::coord::*;
 use bishop::prelude::*;
 use engine_core::prelude::*;
@@ -53,6 +59,7 @@ pub struct WorldEditor {
     mode: WorldEditorMode,
     mode_selector: ModeSelector<WorldEditorMode>,
     active_rects: Vec<Rect>,
+    inspector: Inspector,
     show_grid: bool,
     placing_start: Option<Vec2>,
     placing_end: Option<Vec2>,
@@ -62,6 +69,7 @@ impl WorldEditor {
     pub fn new() -> Self {
         let active_rects: Vec<Rect> = Vec::new();
         let mode = WorldEditorMode::Select;
+        let inspector = Inspector::new();
 
         Self {
             mode,
@@ -70,6 +78,7 @@ impl WorldEditor {
                 options: *ALL_MODES,
             },
             active_rects,
+            inspector,
             show_grid: true,
             placing_start: None,
             placing_end: None,
@@ -239,11 +248,10 @@ impl WorldEditor {
         }
 
         self.draw_room_names(ctx, camera, rooms, world.grid_size);
-        self.draw_ui(ctx, camera);
-
-        // Static UI camera
         ctx.set_default_camera();
         self.draw_coordinates(ctx, camera, world.grid_size);
+
+        self.draw_ui(ctx, camera, game, world_id);
     }
 
     pub fn draw_rooms(
@@ -458,22 +466,46 @@ impl WorldEditor {
         }
     }
 
-    fn draw_ui(&mut self, ctx: &mut WgpuContext, camera: &Camera2D) {
+    fn draw_ui(&mut self, ctx: &mut WgpuContext, camera: &Camera2D, game: &mut Game, world_id: WorldId) {
         self.active_rects.clear();
 
-        // Static camera
         ctx.set_default_camera();
 
-        // Top menu panel
         self.register_rect(draw_top_panel_full(ctx));
 
-        // Mode selector
         if self.mode_selector.draw(ctx).1 {
             self.mode = self.mode_selector.current;
         }
         self.mode_selector.draw_tooltips(ctx);
 
-        ctx.set_camera(camera); // Back to world camera
+        ctx.set_camera(camera);
+
+        let inspector_rect = Rect::new(
+            ctx.screen_width() - gui_constants::inspector::WIDTH,
+            0.0,
+            gui_constants::inspector::WIDTH,
+            ctx.screen_height(),
+        );
+        self.inspector.set_rect(inspector_rect);
+
+        let inspector_output = {
+            let mut game_ctx = game.ctx_mut();
+            self.inspector.draw_world_pane(
+                ctx,
+                &mut game_ctx,
+                &InspectorContext {
+                    command_mode: EditorMode::World(world_id),
+                    show_linked_prefab_metadata: false,
+                    hide_room_only_components: true,
+                    selected_create_parent: None,
+                    game_name: None,
+                },
+            )
+        };
+
+        if let Some(InspectorHostAction::RenameWorld(name)) = inspector_output.host_action {
+            push_command(Box::new(EditWorldCmd::new(world_id, Some(name), None)));
+        }
     }
 
     pub fn init_camera(&mut self, ctx: &WgpuContext, camera: &mut Camera2D, world: &World) {
@@ -550,6 +582,13 @@ impl WorldEditor {
 impl SubEditor for WorldEditor {
     fn active_rects(&self) -> &[Rect] {
         &self.active_rects
+    }
+
+    fn should_block_canvas(&self, ctx: &WgpuContext) -> bool {
+        let mouse_screen: Vec2 = ctx.mouse_position().into();
+        self.active_rects.iter().any(|r| r.contains(mouse_screen))
+            || self.inspector.is_mouse_over(ctx)
+            || canvas_blocked_by_global_ui(ctx)
     }
 }
 

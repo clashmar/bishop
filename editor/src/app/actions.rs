@@ -58,6 +58,9 @@ impl Editor {
 
     fn run_action(&mut self, ctx: &mut WgpuContext, action: EditorAction) {
         match action {
+            EditorAction::NavigateBack | EditorAction::ReturnToGameEditor => {
+                self.navigate_back(ctx);
+            }
             EditorAction::Rename => {
                 RenameModal.open(self, ctx);
             }
@@ -175,47 +178,6 @@ impl Editor {
                 self.mode = EditorMode::Menu;
                 self.load_menus();
                 self.menu_editor.init_camera(ctx, &mut self.camera);
-            }
-            EditorAction::ReturnToGameEditor => {
-                match self.mode {
-                    EditorMode::Menu => {
-                        self.save_menus();
-                    }
-                    EditorMode::Prefab(_) => {
-                        self.request_exit_prefab_mode(ctx);
-                        return;
-                    }
-                    _ => {}
-                }
-
-                let return_mode = self.return_mode.unwrap_or(EditorMode::Game);
-                self.mode = return_mode;
-                self.return_mode = None;
-
-                match return_mode {
-                    EditorMode::Game => {
-                        self.game_editor
-                            .init_camera(ctx, &mut self.camera, &mut self.game);
-                    }
-                    EditorMode::World(id) => {
-                        if let Some(world) = self.game.get_world_mut(id) {
-                            self.world_editor.init_camera(ctx, &mut self.camera, world);
-                        }
-                    }
-                    EditorMode::Room(id) => {
-                        let current_world = self.game.current_world();
-                        if let Some(room) = current_world.get_room(id) {
-                            EditorCameraController::reset_room_editor_camera(
-                                ctx,
-                                &mut self.camera,
-                                room,
-                                current_world.grid_size,
-                            );
-                        }
-                    }
-                    EditorMode::Prefab(_) => {}
-                    EditorMode::Menu => {}
-                }
             }
         }
     }

@@ -1,16 +1,19 @@
 use super::super::PropertyModule;
-use super::draw_labeled_text_input;
+use crate::gui::text_input::draw_labeled_text_input;
 use bishop::prelude::*;
+use engine_core::prelude::constants::layout;
 use engine_core::ecs::inspector::layout::InspectorBodyLayout;
 use engine_core::game::GameCtxMut;
 use engine_core::prelude::*;
 use engine_core::worlds::room::Room;
 
+/// Edits the name of a room.
 pub struct RoomNameModule {
     input_id: WidgetId,
 }
 
 impl RoomNameModule {
+    /// Creates a new room name module.
     pub fn new() -> Self {
         Self {
             input_id: WidgetId::default(),
@@ -40,7 +43,7 @@ impl PropertyModule<Room> for RoomNameModule {
     }
 
     fn body_layout(&self) -> InspectorBodyLayout {
-        InspectorBodyLayout::new().rows(1, widgets::constants::layout::WIDGET_SPACING)
+        InspectorBodyLayout::new().rows(1, layout::WIDGET_SPACING)
     }
 
     fn title(&self) -> &str {

@@ -6,7 +6,7 @@ use crate::editor_global::push_command;
 use crate::gui::modals::prefab_picker::PrefabPickerModal;
 use crate::gui::modals::ModalHandler;
 use crate::prefab::{PendingPrefabTransition, PrefabTransitionPrompt, BLANK_PREFAB_ID};
-use crate::shared::scene_ui::inspector::{ScenePrefabAction, ScenePrefabActionRequest};
+use crate::shared::scene_ui::inspector::{PrefabAction, PrefabActionRequest};
 use bishop::prelude::*;
 use engine_core::prelude::*;
 use std::path::PathBuf;
@@ -71,26 +71,26 @@ impl Editor {
     pub(crate) fn handle_room_prefab_action(
         &mut self,
         ctx: &WgpuContext,
-        request: ScenePrefabActionRequest,
+        request: PrefabActionRequest,
         room_id: RoomId,
     ) {
         match request.action {
-            ScenePrefabAction::OpenPrefabEditor => {
+            PrefabAction::OpenPrefabEditor => {
                 self.enter_prefab_transition(ctx, request.prefab_id);
             }
-            ScenePrefabAction::UnlinkInstance => {
+            PrefabAction::UnlinkInstance => {
                 push_command(Box::new(UnlinkPrefabInstanceCmd::new(
                     request.selected_entity,
                     EditorMode::Room(room_id),
                 )));
             }
-            ScenePrefabAction::ApplyInstanceToPrefab => {
+            PrefabAction::ApplyInstanceToPrefab => {
                 push_command(Box::new(ApplyInstanceToPrefabCmd::new(
                     request.selected_entity,
                     EditorMode::Room(room_id),
                 )));
             }
-            ScenePrefabAction::RevertInstanceToPrefab => {
+            PrefabAction::RevertInstanceToPrefab => {
                 push_command(Box::new(RevertPrefabInstanceCmd::new(
                     request.selected_entity,
                     EditorMode::Room(room_id),
