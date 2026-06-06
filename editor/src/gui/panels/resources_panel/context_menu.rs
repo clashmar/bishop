@@ -9,7 +9,7 @@ use crate::gui::modals::{
 use crate::Editor;
 use bishop::prelude::*;
 use engine_core::assets::*;
-use engine_core::constants::*;
+use engine_core::constants::extensions;
 use engine_core::ecs::*;
 use engine_core::storage::*;
 use engine_core::ui::*;

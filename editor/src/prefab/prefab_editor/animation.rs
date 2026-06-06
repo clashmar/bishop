@@ -1,7 +1,7 @@
 use super::selection::is_prefab_entity;
 use super::PrefabEditor;
 use bishop::prelude::*;
-use engine_core::animation::*;
+use engine_core::animation::{update_entity_animations};
 use engine_core::assets::*;
 use engine_core::ecs::*;
 

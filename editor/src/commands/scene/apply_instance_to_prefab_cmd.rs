@@ -7,7 +7,7 @@ use crate::prefab::instance_sync::{
 };
 use crate::with_editor;
 use engine_core::ecs::*;
-use engine_core::logging::*;
+use engine_core::logging::{onscreen_error};
 
 /// Undo-able command that commits a linked room instance back into its prefab asset.
 #[derive(Debug)]

@@ -8,6 +8,7 @@ use bishop::prelude::*;
 use engine_core::menu::*;
 use engine_core::ui::*;
 use engine_core::theme::with_theme;
+use engine_core::menu::elements::element_kind::ElementKind;
 
 impl MenuEditor {
     pub(crate) fn draw_layout_group(

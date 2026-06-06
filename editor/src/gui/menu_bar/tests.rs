@@ -1,7 +1,7 @@
 use super::*;
 use crate::prefab::BLANK_PREFAB_ID;
 use engine_core::worlds::*;
-use engine_core::prefab::*;
+use engine_core::prefab::PrefabId;
 
 #[test]
 fn hierarchy_panel_action_is_limited_to_room_and_prefab_modes() {

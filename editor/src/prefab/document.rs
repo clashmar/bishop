@@ -7,9 +7,9 @@ use crate::prefab::prefab_editor::{
 use crate::storage::editor_storage::load_game_by_name;
 use engine_core::assets::*;
 use engine_core::ecs::*;
-use engine_core::game::*;
-use engine_core::logging::*;
-use engine_core::scripting::*;
+use engine_core::game::{Game, GameCtxMut};
+use engine_core::logging::{onscreen_error};
+use engine_core::scripting::{ScriptManager, register_runtime_modules};
 use std::io;
 
 macro_rules! for_each_prefab_asset_manager {

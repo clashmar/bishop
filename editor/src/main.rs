@@ -6,8 +6,8 @@ use crate::editor_assets::assets::*;
 use crate::editor_global::*;
 use bishop::prelude::*;
 use bishop::BishopApp;
-use engine_core::constants::*;
-use engine_core::logging::*;
+use engine_core::constants::window;
+use engine_core::logging::{init_file_logger, onscreen_info, onscreen_warn};
 use engine_core::storage::*;
 use engine_core::ui::*;
 

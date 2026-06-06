@@ -1,6 +1,6 @@
 use engine_core::constants::paths;
 use engine_core::ecs::component_registry::public_lua_components;
-use engine_core::input::input_table::*;
+use engine_core::input::input_table::{KEY_TABLE, MOUSE_TABLE, lua_key_name};
 use engine_core::scripting::lua_constants::{lua_dirs, lua_files, lua_ownership};
 use engine_core::scripting::lua_project::{engine_relative_path, generate_globals_lua};
 use std::collections::HashSet;

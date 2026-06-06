@@ -2,16 +2,12 @@
 use crate::editor_assets::prefabs_lua::generate_prefabs_lua;
 use crate::storage::sound_preset_storage::SoundPresetLibrary;
 use bishop::prelude::*;
-use engine_core::animation::*;
+use engine_core::animation::{generate_animations_lua};
 use engine_core::assets::*;
-use engine_core::audio::*;
-use engine_core::controls::*;
 use engine_core::ecs::*;
-use engine_core::menu::*;
-use engine_core::scripting::*;
+use engine_core::menu::{MenuTemplate};
+use engine_core::scripting::generate_menus_lua;
 use engine_core::storage::*;
-use engine_core::theme::*;
-use engine_core::tiles::*;
 use engine_core::ui::*;
 use engine_core::scripting::lua_constants::{lua_dirs, lua_files};
 use engine_core::scripting::lua_project::{

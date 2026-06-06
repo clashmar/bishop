@@ -7,7 +7,7 @@ use crate::test_utils::{game_fs_test_lock, EditorServicesGuard, TestGameFolder};
 use crate::Editor;
 use engine_core::assets::*;
 use engine_core::ecs::*;
-use engine_core::engine_global::*;
+use engine_core::engine_global::{set_game_name};
 use engine_core::storage::*;
 use engine_core::worlds::*;
 use engine_core::scripting::lua_constants::{lua_dirs, lua_files};

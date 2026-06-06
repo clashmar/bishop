@@ -4,7 +4,7 @@ use crate::gui::menu_widgets::menu_dropdown;
 pub(crate) use crate::gui::menu_widgets::{menu_button, menu_button_text_position};
 use crate::prefab::BLANK_PREFAB_ID;
 use bishop::prelude::*;
-use engine_core::controls::*;
+use engine_core::controls::{Controls};
 use engine_core::ui::*;
 use engine_core::theme::with_theme;
 use std::fmt;

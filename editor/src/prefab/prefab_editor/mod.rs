@@ -25,8 +25,8 @@ use bishop::prelude::*;
 use engine_core::constants::world;
 use engine_core::assets::*;
 use engine_core::ecs::*;
-use engine_core::game::*;
-use engine_core::scripting::*;
+use engine_core::game::{GameCtxMut};
+use engine_core::scripting::{ScriptManager};
 use engine_core::ui::*;
 use std::collections::HashSet;
 

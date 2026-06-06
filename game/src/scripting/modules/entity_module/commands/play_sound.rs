@@ -1,8 +1,8 @@
 use crate::scripting::lua_ctx::LuaGameCtx;
 use crate::scripting::modules::entity_module::handle::{ensure_live_entity, EntityHandle};
-use engine_core::audio::*;
-use engine_core::ecs::*;
-use engine_core::scripting::*;
+use engine_core::audio::{AudioCommand, push_audio_command};
+use engine_core::ecs::{AudioSource, SoundGroupId, sound_command_ids};
+use engine_core::scripting::{LuaApiWriter, LuaMethod};
 use engine_core::scripting::lua_constants::lua_audio;
 use mlua::UserDataMethods;
 

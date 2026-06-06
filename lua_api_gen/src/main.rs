@@ -2,7 +2,7 @@ use engine_core::constants::paths;
 use engine_core::scripting::lua_constants::{lua_dirs, lua_files, lua_ownership};
 use engine_core::scripting::lua_project::engine_relative_path;
 use engine_core::scripting::menus_lua::generate_menus_lua_from_dir;
-use engine_core::scripting::modules::lua_module::*;
+use engine_core::scripting::modules::lua_module::{LuaApiWriter, LuaApiRegistry};
 use game_lib as _;
 use std::collections::HashMap;
 use std::env;

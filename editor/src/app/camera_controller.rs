@@ -1,5 +1,5 @@
 use bishop::prelude::*;
-use engine_core::constants::*;
+use engine_core::constants::editor_zoom_factor;
 use engine_core::worlds::*;
 
 pub const ZOOM_STEP_PERCENT: f32 = 0.5;

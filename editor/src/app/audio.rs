@@ -4,7 +4,7 @@ use crate::app::Editor;
 use bishop::audio::AudioBackend;
 #[cfg(not(test))]
 use bishop::prelude::PlatformAudioBackend;
-use engine_core::audio::*;
+use engine_core::audio::AudioManager;
 #[cfg(test)]
 use std::cell::Cell;
 

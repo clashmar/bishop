@@ -1,12 +1,9 @@
 // NOTE: Multi-pass rendering temporarily disabled while rewiring codebase.
-
 use bishop::prelude::*;
 use crate::ecs::*;
-use crate::ecs::components::text::TomlId;
 use crate::ecs::components::transform::Pivot;
 use crate::rendering::*;
 use crate::worlds::*;
-use crate::engine_global::*;
 use crate::assets::*;
 use crate::game::*;
 use std::collections::{BTreeMap, HashMap};

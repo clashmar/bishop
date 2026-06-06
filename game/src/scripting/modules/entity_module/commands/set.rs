@@ -3,7 +3,7 @@ use crate::scripting::commands::entity::SetComponentCmd;
 use crate::scripting::lua_ctx::LuaGameCtx;
 use crate::scripting::modules::entity_module::handle::{ensure_live_entity, EntityHandle};
 use engine_core::ecs::*;
-use engine_core::scripting::*;
+use engine_core::scripting::{LuaApiWriter, LuaMethod};
 use engine_core::scripting::lua_constants::lua_entity;
 use engine_core::scripting::to_snake_case;
 use mlua::{UserDataMethods, Value};

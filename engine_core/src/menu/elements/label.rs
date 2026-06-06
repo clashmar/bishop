@@ -5,7 +5,7 @@ use crate::menu::runtime::RenderEnv;
 use crate::menu::MenuAction;
 use bishop::prelude::*;
 use serde::{Deserialize, Serialize};
-use widgets::*;
+use widgets::{Label, LabelAlign, Widget};
 
 /// Label element displaying text resolved from a text key.
 #[derive(Debug, Clone, Serialize, Deserialize)]

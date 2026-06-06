@@ -1,6 +1,5 @@
 use super::*;
 use bishop::prelude::*;
-use crate::animation::*;
 use crate::ecs::*;
 use crate::assets::*;
 use std::collections::{HashMap, HashSet};

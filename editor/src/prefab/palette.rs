@@ -1,5 +1,5 @@
 use crate::storage::editor_storage::PREFAB_PALETTE_RECENT_CAP;
-use engine_core::prefab::*;
+use engine_core::prefab::{PrefabId, PrefabManager};
 
 pub(crate) fn reconcile_recent_prefab_ids(
     recent_prefab_ids: Vec<PrefabId>,

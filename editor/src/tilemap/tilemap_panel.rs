@@ -5,7 +5,7 @@ use crate::tilemap::tile_palette::TilePalette;
 use crate::tilemap::tile_palette::*;
 use bishop::prelude::*;
 use engine_core::assets::*;
-use engine_core::tiles::*;
+use engine_core::tiles::{TileMap};
 use engine_core::ui::*;
 use engine_core::theme::with_theme;
 

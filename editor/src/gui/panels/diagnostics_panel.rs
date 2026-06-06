@@ -2,7 +2,7 @@ use crate::editor_global::with_command_manager;
 use crate::gui::panels::generic_panel::PanelDefinition;
 use crate::Editor;
 use bishop::prelude::*;
-use engine_core::diagnostics::*;
+use engine_core::diagnostics::{AssetMetrics, CommandMetrics, DiagnosticsCollector, DiagnosticsSnapshot, EcsMetrics, ScriptMetrics};
 use engine_core::ecs::*;
 use engine_core::ui::*;
 

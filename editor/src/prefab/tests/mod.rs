@@ -19,11 +19,10 @@ pub(super) use crate::test_utils::{
     game_fs_test_lock, install_prefab_save_picker_result, linked_root_entities,
     make_prefab_session_editor, make_room_editor, EditorServicesGuard, TestGameFolder,
 };
-pub(super) use engine_core::constants::extensions;
 pub(super) use engine_core::assets::*;
-pub(super) use engine_core::constants::*;
+pub(super) use engine_core::constants::extensions;
 pub(super) use engine_core::ecs::*;
-pub(super) use engine_core::engine_global::*;
+pub(super) use engine_core::engine_global::{set_game_name};
 pub(super) use engine_core::scripting::*;
 pub(super) use engine_core::storage::*;
 pub(super) use engine_core::ui::*;

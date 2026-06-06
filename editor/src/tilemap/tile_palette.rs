@@ -3,7 +3,7 @@ use engine_core::constants::world as world_constants;
 use engine_core::assets::*;
 use engine_core::ecs::*;
 use engine_core::storage::*;
-use engine_core::tiles::*;
+use engine_core::tiles::{TileComponent, TileDef, TileDefId};
 use engine_core::ui::*;
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;

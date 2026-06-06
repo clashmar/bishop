@@ -132,7 +132,7 @@ fn collect_transition_tags(game_instance: &GameInstance, room_id: RoomId) -> Vec
 mod tests {
     use super::*;
     use bishop::prelude::Vec2;
-    use engine_core::game::*;
+    use engine_core::game::{Game};
     use engine_core::scripting::event_bus::EventBus;
     use std::collections::HashMap;
     use std::sync::{Arc, Mutex};

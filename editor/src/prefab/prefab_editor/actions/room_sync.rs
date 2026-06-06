@@ -1,7 +1,7 @@
 use crate::app::Editor;
 use crate::prefab::prefab_editor::{PrefabRoomSyncState, StagedPrefabState};
 use engine_core::ecs::*;
-use engine_core::game::*;
+use engine_core::game::{Game};
 use std::collections::HashSet;
 
 impl Editor {

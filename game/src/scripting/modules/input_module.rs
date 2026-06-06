@@ -1,9 +1,9 @@
 use crate::game_global::*;
 use crate::input::input_snapshot::InputSnapshot;
 use crate::scripting::lua_ctx::LuaBishopCtx;
+use engine_core::{register_lua_api, register_lua_module};
 use engine_core::scripting::lua_constants::{lua_engine, lua_files};
-use engine_core::scripting::modules::lua_module::*;
-use engine_core::*;
+use engine_core::scripting::modules::lua_module::{LuaApi, LuaModule, LuaApiWriter};
 use mlua::prelude::LuaResult;
 use mlua::Function;
 use mlua::Lua;

@@ -1,5 +1,5 @@
 use engine_core::ecs::*;
-use engine_core::engine_global::*;
+use engine_core::engine_global::{set_game_name};
 use engine_core::worlds::*;
 use super::*;
 use crate::editor_global::{reset_services, set_editor};

@@ -4,8 +4,8 @@ use crate::menu::resize_handle::ResizeHandleState;
 use crate::menu::*;
 use crate::shared::input::canvas_blocked_by_global_ui;
 use bishop::prelude::*;
-use engine_core::controls::*;
-use engine_core::menu::*;
+use engine_core::controls::{Controls};
+use engine_core::menu::{MenuElement, MenuElementKind, MenuTemplate, compute_canvas_rect, compute_preview_rect};
 use engine_core::ui::*;
 use std::collections::{HashMap, HashSet};
 

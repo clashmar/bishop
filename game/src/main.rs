@@ -1,6 +1,6 @@
 use bishop::prelude::*;
 use bishop::BishopApp;
-use engine_core::logging::*;
+use engine_core::logging::{init_runtime_telemetry, onscreen_info};
 use game_lib::engine::Engine;
 use game_lib::startup::{runtime_icon_for_current_exe, StartupController, StartupIntent, StartupRequest};
 use std::any::Any;

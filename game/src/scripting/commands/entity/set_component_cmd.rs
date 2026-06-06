@@ -2,7 +2,7 @@ use crate::engine::Engine;
 use crate::scripting::commands::lua_command::LuaCommand;
 use engine_core::ecs::component_registry::public_lua_component;
 use engine_core::ecs::entity::Entity;
-use engine_core::*;
+use engine_core::onscreen_error;
 use mlua::Value;
 
 /// Set a component on an entity.

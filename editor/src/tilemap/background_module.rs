@@ -1,5 +1,5 @@
 use bishop::prelude::*;
-use engine_core::tiles::*;
+use engine_core::tiles::{TileMap};
 use engine_core::ui::*;
 use widgets::constants::layout;
 

@@ -2,7 +2,7 @@ use crate::game_global::push_command;
 use crate::scripting::commands::entity::SetAnimSpeedCmd;
 use crate::scripting::lua_ctx::LuaGameCtx;
 use crate::scripting::modules::entity_module::handle::{ensure_live_entity, EntityHandle};
-use engine_core::scripting::*;
+use engine_core::scripting::{LuaApiWriter, LuaMethod};
 use engine_core::scripting::lua_constants::lua_animation;
 use mlua::UserDataMethods;
 

@@ -1,5 +1,5 @@
 use bishop::prelude::*;
-use engine_core::input::input_table::*;
+use engine_core::input::input_table::{KEY_TABLE, MOUSE_TABLE};
 use std::collections::HashMap;
 
 #[derive(Clone, Default)]

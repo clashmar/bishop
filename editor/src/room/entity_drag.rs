@@ -9,7 +9,7 @@ use crate::shared::selection::*;
 use crate::world::coord;
 use bishop::prelude::*;
 use engine_core::assets::*;
-use engine_core::controls::*;
+use engine_core::controls::{get_omni_input_pressed};
 use engine_core::ecs::*;
 use engine_core::worlds::*;
 use std::collections::{HashMap, HashSet};

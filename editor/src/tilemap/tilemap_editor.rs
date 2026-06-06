@@ -10,9 +10,9 @@ use crate::tilemap::resize_handle::*;
 use crate::tilemap::tilemap_panel::TilemapPanel;
 use bishop::prelude::*;
 use engine_core::assets::*;
-use engine_core::controls::*;
+use engine_core::controls::{Controls};
 use engine_core::ecs::*;
-use engine_core::tiles::*;
+use engine_core::tiles::{TileMap};
 use engine_core::worlds::*;
 
 fn thickness(grid_size: f32) -> f32 {

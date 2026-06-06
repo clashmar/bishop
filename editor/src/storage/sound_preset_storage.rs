@@ -94,11 +94,11 @@ pub fn collect_sound_group_names(ecs: &Ecs, library: &SoundPresetLibrary) -> Vec
 #[cfg(test)]
 mod tests {
     use super::*;
-    use engine_core::game::*;
+    use engine_core::game::{Game};
     use crate::storage::editor_storage::save_game;
     use engine_core::constants::paths;
     use engine_core::ecs::AudioGroup;
-    use engine_core::engine_global::*;
+    use engine_core::engine_global::set_game_name;
     use engine_core::scripting::lua_constants::{lua_dirs, lua_files};
     use engine_core::storage::test_utils::{game_fs_test_lock, TestGameFolder};
     use std::collections::HashMap;

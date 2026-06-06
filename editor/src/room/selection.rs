@@ -4,7 +4,7 @@ use crate::world::coord;
 use bishop::prelude::*;
 use engine_core::assets::*;
 use engine_core::ecs::*;
-use engine_core::rendering::*;
+use engine_core::rendering::{Renderable, pivot_adjusted_position, resolve_visual_entity};
 use engine_core::worlds::*;
 use std::collections::HashSet;
 

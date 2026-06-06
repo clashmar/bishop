@@ -3,7 +3,7 @@ use crate::menu::menu_properties_panel::common_properties::row_visible;
 use crate::menu::menu_properties_panel::{FIELD_HEIGHT, LABEL_WIDTH, ROW_HEIGHT};
 use crate::menu::MenuEditor;
 use bishop::prelude::*;
-use engine_core::menu::*;
+use engine_core::menu::{HorizontalAlign, MenuElement, MenuElementKind};
 use engine_core::ui::*;
 
 impl MenuEditor {

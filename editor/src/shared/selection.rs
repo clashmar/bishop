@@ -1,5 +1,5 @@
 use bishop::prelude::*;
-use engine_core::rendering::*;
+use engine_core::rendering::{outline_thickness};
 use engine_core::ui::*;
 
 /// Creates a Rect from two corner points, handling any orientation.

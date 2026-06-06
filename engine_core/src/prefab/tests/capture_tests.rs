@@ -1,6 +1,6 @@
 use super::*;
 use bishop::prelude::Vec2;
-use crate::ecs::{Ecs, set_parent};
+use crate::ecs::set_parent;
 use crate::animation::ClipId;
 use crate::ecs::components::sprite::SpriteId;
 

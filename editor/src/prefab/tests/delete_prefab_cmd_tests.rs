@@ -1,7 +1,7 @@
 use super::*;
 use crate::commands::editor_command_manager::EditorCommand;
 use crate::editor_assets::generate_prefabs_lua;
-use engine_core::scripting::lua_constants::{lua_dirs, lua_files};
+use engine_core::{constants::paths, scripting::lua_constants::{lua_dirs, lua_files}};
 
 #[test]
 fn delete_prefab_command_removes_prefab_record_from_asset_registry() {

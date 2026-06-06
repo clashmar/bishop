@@ -4,7 +4,7 @@ use crate::menu::runtime::RenderEnv;
 use crate::menu::MenuAction;
 use bishop::prelude::*;
 use serde::{Deserialize, Serialize};
-use widgets::*;
+use widgets::{Panel, Widget};
 
 /// Decorative panel element styled via theme.
 #[derive(Default, Debug, Clone, Serialize, Deserialize)]

@@ -1,6 +1,7 @@
+use engine_core::{onscreen_info, register_lua_api, register_lua_module};
+use engine_core::logging::*;
 use engine_core::scripting::lua_constants::{lua_engine, lua_files};
-use engine_core::scripting::modules::lua_module::*;
-use engine_core::*;
+use engine_core::scripting::modules::lua_module::{LuaApi, LuaModule, LuaApiWriter};
 use mlua::Function;
 use mlua::Lua;
 use mlua::Table;

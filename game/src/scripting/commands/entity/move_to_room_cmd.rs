@@ -1,7 +1,7 @@
 use crate::engine::Engine;
 use crate::scripting::commands::lua_command::LuaCommand;
 use engine_core::ecs::entity::Entity;
-use engine_core::game::*;
+use engine_core::game::{Game};
 use engine_core::worlds::*;
 
 /// Moves an entity to a specific room if that room exists.

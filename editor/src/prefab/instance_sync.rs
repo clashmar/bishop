@@ -1,7 +1,7 @@
 use crate::shared::scene_ui::inspector::PrefabAction;
 use crate::shared::scene_ui::prefab_link::PrefabLinkSource;
 use engine_core::ecs::*;
-use engine_core::game::*;
+use engine_core::game::{Game};
 use std::collections::HashMap;
 
 #[derive(Clone, Debug, PartialEq, Eq)]

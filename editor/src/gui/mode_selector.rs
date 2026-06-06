@@ -2,7 +2,7 @@ use crate::gui::gui_constants::*;
 use crate::gui::modals::is_modal_open;
 use bishop::prelude::*;
 use engine_core::theme::with_theme;
-use engine_core::ui::text::*;
+use engine_core::ui::text::{measure_text};
 use engine_core::ui::widgets::is_context_menu_open;
 
 /// A trait that each editor’s mode enum must implement.

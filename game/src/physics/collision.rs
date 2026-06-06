@@ -1,7 +1,7 @@
 use bishop::prelude::*;
 use engine_core::assets::*;
 use engine_core::ecs::*;
-use engine_core::tiles::*;
+use engine_core::tiles::{TileComponent, TileMap};
 use engine_core::worlds::*;
 use std::collections::HashSet;
 

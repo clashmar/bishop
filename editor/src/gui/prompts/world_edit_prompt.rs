@@ -3,7 +3,7 @@ use crate::gui::prompts::constants::*;
 use crate::gui::prompts::helpers::*;
 use bishop::prelude::*;
 use engine_core::assets::*;
-use engine_core::controls::*;
+use engine_core::controls::{Controls};
 use engine_core::ecs::*;
 use engine_core::ui::*;
 use engine_core::worlds::*;

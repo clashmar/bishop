@@ -1,7 +1,7 @@
 use crate::app::EditorMode;
 use crate::commands::editor_command_manager::EditorCommand;
 use crate::with_editor;
-use engine_core::menu::*;
+use engine_core::menu::{LayoutChild, MenuElement, MenuElementKind};
 
 /// Where the element was added.
 #[derive(Debug, Clone)]

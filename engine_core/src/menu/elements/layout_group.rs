@@ -3,7 +3,7 @@ use super::menu_element::{MenuElement, MenuElementKind};
 use crate::menu::*;
 use bishop::prelude::*;
 use serde::{Deserialize, Serialize};
-use widgets::*;
+use widgets::{Panel, Widget};
 
 /// Element that arranges its children using layout rules.
 #[derive(Default, Debug, Clone, Serialize, Deserialize)]

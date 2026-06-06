@@ -5,7 +5,7 @@ use crate::menu::runtime::RenderEnv;
 use crate::menu::{NavTargets, Navigable};
 use bishop::prelude::*;
 use serde::{Deserialize, Serialize};
-use widgets::*;
+use widgets::{Button, Widget};
 
 /// Button element that triggers an action when clicked.
 #[derive(Debug, Clone, Serialize, Deserialize)]

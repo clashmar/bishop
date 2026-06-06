@@ -3,7 +3,7 @@ use crate::scripting::commands::menu_commands::{CloseMenuCmd, OpenMenuCmd, SetEl
 use engine_core::register_lua_api;
 use engine_core::register_lua_module;
 use engine_core::scripting::lua_constants::{lua_engine, lua_files, lua_menu};
-use engine_core::scripting::modules::lua_module::*;
+use engine_core::scripting::modules::lua_module::{LuaApi, LuaModule, LuaApiWriter};
 use mlua::prelude::LuaResult;
 use mlua::{Lua, Table, Value};
 

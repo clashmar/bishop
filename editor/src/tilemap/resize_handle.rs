@@ -1,6 +1,6 @@
 use crate::world::coord::overlaps_existing_rooms;
 use bishop::prelude::*;
-use engine_core::tiles::*;
+use engine_core::tiles::{TileMap};
 use engine_core::worlds::*;
 
 /// Which side of the tilemap the handle controls.

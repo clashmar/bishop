@@ -4,8 +4,7 @@ use crate::menu::runtime::RenderEnv;
 use crate::menu::*;
 use bishop::prelude::*;
 use serde::{Deserialize, Serialize};
-use widgets::WidgetId;
-use widgets::*;
+use widgets::{Slider, SliderState, Widget, WidgetId};
 
 /// Slider element for adjusting a numeric value within a bounded range.
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]

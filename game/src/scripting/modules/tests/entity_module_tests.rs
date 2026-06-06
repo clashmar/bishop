@@ -4,7 +4,7 @@ use crate::scripting::commands::lua_command::LuaCommand;
 use crate::scripting::lua_ctx::LuaGameCtx;
 use crate::scripting::modules::entity_module::EntityHandle;
 use engine_core::ecs::*;
-use engine_core::game::*;
+use engine_core::game::{Game};
 use engine_core::worlds::*;
 use engine_core::scripting::to_snake_case;
 use mlua::Lua;
