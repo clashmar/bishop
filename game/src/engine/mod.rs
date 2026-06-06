@@ -147,37 +147,42 @@ impl BishopApp for Engine {
     }
 }
 
+/// Bundled runtime configuration assembled by EngineBuilder.
+pub(crate) struct EngineRuntimeConfig {
+    pub(crate) save_runtime: SaveRuntime,
+    pub(crate) camera_manager: CameraManager,
+    pub(crate) grid_size: f32,
+    pub(crate) is_playtest: bool,
+    pub(crate) quit_to_title_enabled: bool,
+    pub(crate) entry_mode: EngineEntryMode,
+}
+
 impl Engine {
     /// Creates a new Engine with the given configuration and session entry mode.
     fn new(
         game_instance: Rc<RefCell<GameInstance>>,
         ctx: PlatformContext,
         lua: Lua,
-        save_runtime: SaveRuntime,
-        camera_manager: CameraManager,
-        grid_size: f32,
-        is_playtest: bool,
-        quit_to_title_enabled: bool,
-        entry_mode: EngineEntryMode,
+        cfg: EngineRuntimeConfig,
     ) -> Self {
         let mut menu_manager = MenuManager::new();
         menu_manager.load_templates_from_disk();
         menu_manager.set_action_handler(GameMenuHandler);
 
-        let game_state = apply_entry_mode(&mut menu_manager, entry_mode);
+        let game_state = apply_entry_mode(&mut menu_manager, cfg.entry_mode);
 
         Self {
             game_instance,
             game_state,
             ctx,
             lua,
-            save_runtime,
-            camera_manager,
-            render_system: RenderSystem::with_grid_size(grid_size),
+            save_runtime: cfg.save_runtime,
+            camera_manager: cfg.camera_manager,
+            render_system: RenderSystem::with_grid_size(cfg.grid_size),
             diagnostics: DiagnosticsOverlay::new(),
             menu_manager,
-            is_playtest,
-            quit_to_title_enabled,
+            is_playtest: cfg.is_playtest,
+            quit_to_title_enabled: cfg.quit_to_title_enabled,
             accumulator: 0.0,
             smoothed_dt: None,
             audio_manager: AudioManager::new::<PlatformAudioBackend>(),

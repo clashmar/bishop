@@ -157,7 +157,7 @@ mod tests {
         let player = game.ecs.create_entity()
             .with(Transform { position: Vec2::new(40.0, 8.0), ..Default::default() })
             .with(Collider::default())
-            .with(Player::default())
+            .with(Player)
             .with_current_room(RoomId(1))
             .finish();
         let capt = received.clone();

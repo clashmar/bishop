@@ -86,7 +86,7 @@ mod tests {
         let player = game
             .ecs
             .create_entity()
-            .with(Player::default())
+            .with(Player)
             .with_current_room(RoomId(1))
             .finish();
 
