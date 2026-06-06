@@ -1,3 +1,5 @@
+local save_flow = require("save_flow")
+
 ---@class Autosave
 local Autosave = {
     configured_tag = nil,
@@ -29,7 +31,7 @@ local function bind_listener()
             has_tag(tags, Autosave.configured_tag)
             and (not Autosave.condition or Autosave.condition())
         then
-            engine.save.auto()
+            save_flow.request_autosave()
         end
     end)
 

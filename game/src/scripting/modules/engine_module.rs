@@ -193,6 +193,8 @@ impl LuaModule for EngineModule {
             }
         };
         events_tbl.set(lua_events::ROOM_ENTERED_FIELD, lua_events::ROOM_ENTERED)?;
+        events_tbl.set(lua_events::SAVE_SUCCEEDED_FIELD, lua_events::SAVE_SUCCEEDED)?;
+        events_tbl.set(lua_events::SAVE_FAILED_FIELD, lua_events::SAVE_FAILED)?;
 
         let asset_tbl = match engine_tbl.get::<Option<Table>>(lua_engine::ASSET)? {
             Some(table) => table,
@@ -376,6 +378,8 @@ impl LuaApi for EngineModule {
         out.line("--- Built-in event name constants.");
         out.line("engine.events = {}");
         out.line(&format!("engine.events.{} = \"{}\"", lua_events::ROOM_ENTERED_FIELD, lua_events::ROOM_ENTERED));
+        out.line(&format!("engine.events.{} = \"{}\"", lua_events::SAVE_SUCCEEDED_FIELD, lua_events::SAVE_SUCCEEDED));
+        out.line(&format!("engine.events.{} = \"{}\"", lua_events::SAVE_FAILED_FIELD, lua_events::SAVE_FAILED));
         out.line("");
 
         // engine.player

@@ -82,10 +82,11 @@ fn iter_providers_mixed_phases_returns_phase_then_id_order() {
 
 #[test]
 fn save_provider_id_accepts_runtime_owned_strings() {
-    let mut ids = vec![
+    let mut ids: Vec<_> = [
         SaveProviderId::new(format!("{}.player", "game")),
         SaveProviderId::new(format!("{}.resume", "engine")),
-    ];
+    ]
+    .into();
 
     ids.sort();
 

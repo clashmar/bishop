@@ -32,6 +32,8 @@ engine.tags.autosave = "autosave"
 --- Built-in event name constants.
 engine.events = {}
 engine.events.room_entered = "room:entered"
+engine.events.save_succeeded = "save:succeeded"
+engine.events.save_failed = "save:failed"
 
 --- Get the player entity's script instance table
 --- @return table|nil The player's script instance, or nil if not found

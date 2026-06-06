@@ -12,10 +12,7 @@ use mlua::Lua;
 use mlua::Table;
 use serde_json;
 
-/// Registers a save provider from a Lua table definition.
-///
-/// Validates that all required fields (`id`, `version`, `capture`, `apply`) are
-/// present and of the correct type before touching the save provider registry.
+/// Registers a save provider from a Lua table after validating its required fields.
 fn register_provider(lua: &Lua, def: Table) -> LuaResult<()> {
     let id: String = def
         .get(lua_fields::ID)
@@ -50,24 +47,40 @@ impl LuaModule for SaveModule {
         let engine_tbl: Table = lua.globals().get(lua_engine::ENGINE)?;
         let save_tbl = lua.create_table()?;
 
+        let triggers_tbl = lua.create_table()?;
+        triggers_tbl.set(lua_save::MANUAL, lua_save::MANUAL)?;
+        triggers_tbl.set(lua_save::AUTO, lua_save::AUTO)?;
+        triggers_tbl.set(lua_save::CHECKPOINT, lua_save::CHECKPOINT)?;
+        save_tbl.set(lua_save::TRIGGERS, triggers_tbl)?;
+
+        save_tbl.set(
+            lua_save::REQUEST,
+            lua.create_function(|_, def: Table| {
+                let lane_name: String = def.get(lua_save::LANE)?;
+                let trigger: String = def.get(lua_save::TRIGGER)?;
+                let lane = parse_save_lane(&lane_name)?;
+                queue_save_request(lane, trigger);
+                Ok(())
+            })?,
+        )?;
         save_tbl.set(
             lua_save::MANUAL,
             lua.create_function(|_, ()| {
-                push_command(Box::new(SaveToLaneCmd(SaveLane::Manual)));
+                queue_save_request(SaveLane::Manual, lua_save::MANUAL);
                 Ok(())
             })?,
         )?;
         save_tbl.set(
             lua_save::AUTO,
             lua.create_function(|_, ()| {
-                push_command(Box::new(SaveToLaneCmd(SaveLane::Autosave)));
+                queue_save_request(SaveLane::Autosave, lua_save::AUTO);
                 Ok(())
             })?,
         )?;
         save_tbl.set(
             lua_save::CHECKPOINT,
             lua.create_function(|_, ()| {
-                push_command(Box::new(SaveToLaneCmd(SaveLane::Autosave)));
+                queue_save_request(SaveLane::Autosave, lua_save::CHECKPOINT);
                 Ok(())
             })?,
         )?;
@@ -124,6 +137,15 @@ impl LuaApi for SaveModule {
     fn emit_api(&self, out: &mut LuaApiWriter) {
         out.line("--- Runtime save/load system.");
         out.line(&format!("engine.{} = {{}}", lua_save::SAVE));
+        out.line(&format!("engine.{}.{} = {{}}", lua_save::SAVE, lua_save::TRIGGERS));
+        out.line(&format!("engine.{}.{}.{} = \"{}\"", lua_save::SAVE, lua_save::TRIGGERS, lua_save::MANUAL, lua_save::MANUAL));
+        out.line(&format!("engine.{}.{}.{} = \"{}\"", lua_save::SAVE, lua_save::TRIGGERS, lua_save::AUTO, lua_save::AUTO));
+        out.line(&format!("engine.{}.{}.{} = \"{}\"", lua_save::SAVE, lua_save::TRIGGERS, lua_save::CHECKPOINT, lua_save::CHECKPOINT));
+        out.line("");
+        out.line("--- Request saving to a lane for a named trigger.");
+        out.line("---@param def table");
+        out.line("---@return nil");
+        out.line(&format!("function engine.{}.{}(def) end", lua_save::SAVE, lua_save::REQUEST));
         out.line("");
         out.line("--- Save the current game state to the manual save lane.");
         out.line("---@return nil");
@@ -205,4 +227,21 @@ fn json_to_lua(lua: &Lua, value: &serde_json::Value) -> mlua::Result<mlua::Value
             Ok(mlua::Value::Table(table))
         }
     }
+}
+
+fn parse_save_lane(name: &str) -> LuaResult<SaveLane> {
+    if name == SaveLane::Manual.file_stem() {
+        Ok(SaveLane::Manual)
+    } else if name == SaveLane::Autosave.file_stem() {
+        Ok(SaveLane::Autosave)
+    } else {
+        Err(mlua::Error::RuntimeError(format!("Unknown save lane '{name}'")))
+    }
+}
+
+fn queue_save_request(lane: SaveLane, trigger: impl Into<String>) {
+    push_command(Box::new(SaveToLaneCmd {
+        lane,
+        trigger: trigger.into(),
+    }));
 }

@@ -1,6 +1,6 @@
 use super::game_instance::GameInstance;
 use super::save_runtime::SaveRuntime;
-use super::{Engine, EngineEntryMode};
+use super::{Engine, EngineEntryMode, EngineRuntimeConfig};
 use crate::save_system::SaveProviderRegistry;
 use crate::scripting::lua_ctx::{register_runtime_lua_contexts, register_save_lua_context};
 use bishop::prelude::*;
@@ -66,6 +66,7 @@ impl EngineBuilder {
         is_playtest: bool,
     ) -> Engine {
         let grid_size = game_instance.borrow().game.current_world().grid_size;
+        let render_system = RenderSystem::with_grid_size(grid_size);
         if let Err(e) = register_runtime_lua_contexts(
             &self.lua,
             game_instance.clone(),
@@ -77,12 +78,14 @@ impl EngineBuilder {
             game_instance,
             ctx,
             self.lua,
-            save_runtime,
-            self.camera_manager,
-            grid_size,
-            is_playtest,
-            self.quit_to_title_enabled,
-            self.entry_mode,
+            EngineRuntimeConfig {
+                save_runtime,
+                camera_manager: self.camera_manager,
+                is_playtest,
+                quit_to_title_enabled: self.quit_to_title_enabled,
+                entry_mode: self.entry_mode,
+            },
+            render_system,
         )
     }
 

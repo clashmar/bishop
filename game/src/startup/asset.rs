@@ -4,22 +4,13 @@ use std::fs;
 use std::path::Path;
 
 /// Runtime-authored startup flow configuration.
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq)]
 #[serde(default)]
 pub struct StartupAsset {
     /// Loading-phase screens shown before entering the runtime session flow.
     pub loading: LoadingConfig,
     /// Menu id to open when entering the front-end start menu.
     pub title_menu_id: String,
-}
-
-impl Default for StartupAsset {
-    fn default() -> Self {
-        Self {
-            loading: LoadingConfig::default(),
-            title_menu_id: String::new(),
-        }
-    }
 }
 
 /// Startup screens shown before the runtime session is ready.

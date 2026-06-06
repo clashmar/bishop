@@ -1,6 +1,6 @@
 use crate::engine::GameInstance;
 use crate::game_global::drain_commands;
-use crate::save_system::SaveProviderRegistry;
+use crate::save_system::{SaveLane, SaveProviderRegistry};
 use crate::scripting::lua_ctx::{LuaGameCtx, LuaSaveCtx, register_save_lua_context};
 use crate::scripting::modules::save_module::SaveModule;
 use engine_core::prelude::*;
@@ -64,6 +64,51 @@ fn save_helpers_enqueue_four_commands() {
     .unwrap();
 
     assert_eq!(drain_commands().count(), 4);
+}
+
+#[test]
+fn save_request_api_when_called_queues_commands_and_registers_result_events() {
+    use crate::scripting::modules::engine_module::EngineModule;
+    use engine_core::scripting::EventBus;
+    use engine_core::scripting::lua_constants::{lua_events, lua_globals};
+
+    let (lua, _game_instance) = setup_save_lua();
+    lua.globals()
+        .set(lua_globals::LUA_EVENT_BUS, EventBus::default())
+        .unwrap();
+
+    EngineModule.register(&lua).unwrap();
+    SaveModule.register(&lua).unwrap();
+
+    let save_succeeded: String = lua.load("return engine.events.save_succeeded").eval().unwrap();
+    let save_failed: String = lua.load("return engine.events.save_failed").eval().unwrap();
+
+    assert_eq!(save_succeeded, lua_events::SAVE_SUCCEEDED);
+    assert_eq!(save_failed, lua_events::SAVE_FAILED);
+
+    lua.load(format!(
+        r#"
+        {}.{}.{}({{ {} = "{}", {} = "room_entered" }})
+        {}.{}.{}()
+        {}.{}.{}()
+        "#,
+        lua_globals::ENGINE,
+        lua_save::SAVE,
+        lua_save::REQUEST,
+        lua_save::LANE,
+        SaveLane::Autosave.file_stem(),
+        lua_save::TRIGGER,
+        lua_globals::ENGINE,
+        lua_save::SAVE,
+        lua_save::MANUAL,
+        lua_globals::ENGINE,
+        lua_save::SAVE,
+        lua_save::CHECKPOINT,
+    ))
+    .exec()
+    .unwrap();
+
+    assert_eq!(drain_commands().count(), 3);
 }
 
 #[test]
@@ -220,6 +265,7 @@ fn save_module_api_emits_all_public_helpers() {
     SaveModule.emit_api(&mut out);
 
     let engine_save = format!("engine.{} = {{}}", lua_save::SAVE);
+    let request = format!("function engine.{}.{}(def) end", lua_save::SAVE, lua_save::REQUEST);
     let manual = format!("function engine.{}.{}() end", lua_save::SAVE, lua_save::MANUAL);
     let auto = format!("function engine.{}.{}() end", lua_save::SAVE, lua_save::AUTO);
     let checkpoint = format!("function engine.{}.{}() end", lua_save::SAVE, lua_save::CHECKPOINT);
@@ -228,6 +274,7 @@ fn save_module_api_emits_all_public_helpers() {
     let register = format!("function engine.{}.{}(def) end", lua_save::SAVE, lua_save::REGISTER_PROVIDER);
 
     assert!(out.buf.contains(&engine_save), "missing: {}", engine_save);
+    assert!(out.buf.contains(&request), "missing: {}", request);
     assert!(out.buf.contains(&manual), "missing: {}", manual);
     assert!(out.buf.contains(&auto), "missing: {}", auto);
     assert!(out.buf.contains(&checkpoint), "missing: {}", checkpoint);
@@ -320,7 +367,15 @@ fn engine_tags_table_is_registered_with_autosave_constant() {
 
     EngineModule.register(&lua).unwrap();
 
-    let value: String = lua.load("return engine.tags.autosave").eval().unwrap();
+    let value: String = lua
+        .load(format!(
+            "return {}.{}.{}",
+            lua_globals::ENGINE,
+            lua_tags::TAGS,
+            lua_tags::AUTOSAVE,
+        ))
+        .eval()
+        .unwrap();
     assert_eq!(value, lua_tags::AUTOSAVE);
 }
 

@@ -4,6 +4,15 @@
 
 --- Runtime save/load system.
 engine.save = {}
+engine.save.triggers = {}
+engine.save.triggers.manual = "manual"
+engine.save.triggers.auto = "auto"
+engine.save.triggers.checkpoint = "checkpoint"
+
+--- Request saving to a lane for a named trigger.
+---@param def table
+---@return nil
+function engine.save.request(def) end
 
 --- Save the current game state to the manual save lane.
 ---@return nil
