@@ -20,7 +20,14 @@ pub(super) use crate::test_utils::{
     make_prefab_session_editor, make_room_editor, EditorServicesGuard, TestGameFolder,
 };
 pub(super) use engine_core::constants::extensions;
-pub(super) use engine_core::prelude::*;
+pub(super) use engine_core::assets::*;
+pub(super) use engine_core::constants::*;
+pub(super) use engine_core::ecs::*;
+pub(super) use engine_core::engine_global::*;
+pub(super) use engine_core::scripting::*;
+pub(super) use engine_core::storage::*;
+pub(super) use engine_core::ui::*;
+pub(super) use engine_core::worlds::*;
 pub(super) use engine_core::storage::path_utils::sanitise_name;
 pub(super) use std::path::PathBuf;
 

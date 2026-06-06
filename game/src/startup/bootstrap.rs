@@ -8,7 +8,14 @@ use crate::engine::{Engine, EngineBuilder, EngineEntryMode, GameInstance, SaveRu
 use crate::save_system::{apply_document_phase, RestorePhase};
 use crate::scripting::script_system::ScriptSystem;
 use bishop::prelude::*;
-use engine_core::prelude::*;
+use engine_core::constants::*;
+use engine_core::engine_global::*;
+use engine_core::game::*;
+use engine_core::logging::*;
+use engine_core::menu::*;
+use engine_core::storage::*;
+use engine_core::task::*;
+use engine_core::worlds::*;
 use ron::de::from_str;
 use std::cell::RefCell;
 use std::fs;

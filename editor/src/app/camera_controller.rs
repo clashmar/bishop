@@ -1,5 +1,6 @@
 use bishop::prelude::*;
-use engine_core::prelude::*;
+use engine_core::constants::*;
+use engine_core::worlds::*;
 
 pub const ZOOM_STEP_PERCENT: f32 = 0.5;
 pub const PIXEL_ZOOM_PERCENT_PER_DELTA: f32 = 0.01;

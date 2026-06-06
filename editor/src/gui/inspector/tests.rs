@@ -5,11 +5,13 @@ use crate::shared::scene_ui::inspector::{
     is_scene_component_hidden_in_prefab, linked_prefab_instance_state_for_scene_inspector,
     InspectorContext,
 };
-use engine_core::prelude::*;
+use engine_core::ecs::*;
+use engine_core::ui::*;
+use engine_core::worlds::*;
 use widgets::InputCommit;
 
 fn create_prefab(prefab_id: PrefabId, name: String) -> PrefabAsset {
-    engine_core::prelude::create_prefab(prefab_id, name)
+    engine_core::prefab::create_prefab(prefab_id, name)
 }
 
 #[test]

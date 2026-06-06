@@ -8,7 +8,7 @@ use crate::prefab::prefab_editor::{
 };
 use crate::prefab::{PendingPrefabTransition, PrefabTransitionPrompt, BLANK_PREFAB_ID};
 use bishop::prelude::*;
-use engine_core::prelude::*;
+use engine_core::ecs::*;
 use std::io;
 use std::path::Path;
 

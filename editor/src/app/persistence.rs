@@ -6,7 +6,9 @@ use crate::prefab::reconcile_recent_prefab_ids;
 use crate::storage::editor_storage::*;
 use crate::storage::export::{export_game, export_target_path, PendingExport};
 use bishop::prelude::*;
-use engine_core::prelude::*;
+use engine_core::ecs::*;
+use engine_core::logging::*;
+use engine_core::ui::*;
 
 #[derive(Clone, Copy)]
 enum PrefabPaletteRollbackMode {

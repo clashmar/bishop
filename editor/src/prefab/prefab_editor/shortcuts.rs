@@ -1,7 +1,7 @@
 use super::PrefabEditor;
 use crate::shared::input::shortcuts_blocked;
 use bishop::prelude::*;
-use engine_core::prelude::*;
+use engine_core::controls::*;
 
 impl PrefabEditor {
     pub(crate) fn handle_shortcuts(&mut self, ctx: &WgpuContext) {

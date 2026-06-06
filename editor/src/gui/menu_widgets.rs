@@ -2,7 +2,7 @@ use crate::gui::gui_constants::*;
 use crate::gui::modals::is_modal_open;
 use crate::gui::panel_text_color;
 use bishop::prelude::*;
-use engine_core::prelude::*;
+use engine_core::ui::*;
 use engine_core::theme::with_theme;
 use std::cell::RefCell;
 use std::collections::hash_map::DefaultHasher;

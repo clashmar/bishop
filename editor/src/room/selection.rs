@@ -2,7 +2,10 @@ use crate::app::SubEditor;
 use crate::room::room_editor::*;
 use crate::world::coord;
 use bishop::prelude::*;
-use engine_core::prelude::*;
+use engine_core::assets::*;
+use engine_core::ecs::*;
+use engine_core::rendering::*;
+use engine_core::worlds::*;
 use std::collections::HashSet;
 
 /// Stores the original drag state before switching to copy mode.

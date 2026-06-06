@@ -1,8 +1,13 @@
 use crate::assets::AssetRegistry;
 use crate::constants::paths;
-use crate::prelude::*;
 use crate::storage::test_utils::{game_fs_test_lock, TestGameFolder};
 use crate::text::{SelectionMode, TextEntry, TextFile};
+use bishop::prelude::*;
+use crate::assets::*;
+use crate::ecs::*;
+use crate::engine_global::*;
+use crate::storage::*;
+use crate::text::*;
 use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;

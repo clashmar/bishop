@@ -4,7 +4,9 @@ use crate::tilemap::background_module::BackgroundModule;
 use crate::tilemap::tile_palette::TilePalette;
 use crate::tilemap::tile_palette::*;
 use bishop::prelude::*;
-use engine_core::prelude::*;
+use engine_core::assets::*;
+use engine_core::tiles::*;
+use engine_core::ui::*;
 use engine_core::theme::with_theme;
 
 const INSET: f32 = 10.0;

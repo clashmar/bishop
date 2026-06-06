@@ -1,5 +1,7 @@
 use bishop::prelude::*;
-use engine_core::prelude::*;
+use engine_core::ecs::*;
+use engine_core::game::*;
+use engine_core::ui::*;
 use widgets::constants::colors;
 
 #[derive(Default)]

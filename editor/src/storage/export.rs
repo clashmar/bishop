@@ -1,7 +1,18 @@
 #![allow(unused)]
 use crate::editor_assets::assets::*;
 use bishop::prelude::*;
-use engine_core::prelude::*;
+use engine_core::constants::*;
+use engine_core::controls::*;
+use engine_core::ecs::*;
+use engine_core::engine_global::*;
+use engine_core::game::*;
+use engine_core::input::*;
+use engine_core::logging::*;
+use engine_core::scripting::*;
+use engine_core::storage::*;
+use engine_core::task::*;
+use engine_core::ui::*;
+use engine_core::worlds::*;
 use std::fs;
 use std::io;
 use std::io::Error;

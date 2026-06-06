@@ -32,7 +32,7 @@ impl LuaCommand for SetComponentCmd {
 mod tests {
     use super::*;
     use engine_core::ecs::component::comp_type_name;
-    use engine_core::prelude::{CurrentRoom, PrefabInstanceRoot};
+    use engine_core::ecs::*;
 
     #[test]
     fn set_component_command_rejects_private_components() {

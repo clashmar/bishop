@@ -1,6 +1,8 @@
 use crate::with_lua;
 use engine_core::constants::extensions;
-use engine_core::prelude::*;
+use engine_core::scripting::*;
+use engine_core::storage::*;
+use engine_core::ui::*;
 use widgets::theme::Theme;
 
 /// Returns a list of theme names discovered in `Resources/themes/`.

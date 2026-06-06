@@ -2,7 +2,7 @@ use std::collections::BTreeSet;
 
 use super::{context_menu::*, DragPayload, MarqueeSelectionState, ResourcesPanel};
 use bishop::prelude::*;
-use engine_core::prelude::*;
+use engine_core::assets::*;
 use std::path::PathBuf;
 
 impl ResourcesPanel {

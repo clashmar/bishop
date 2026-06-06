@@ -1,6 +1,7 @@
 use crate::scripting::lua_ctx::LuaGameCtx;
 use crate::scripting::modules::entity_module::handle::{lua_entity_handle, EntityHandle};
-use engine_core::prelude::*;
+use engine_core::ecs::*;
+use engine_core::scripting::*;
 use engine_core::scripting::lua_constants::lua_entity;
 use mlua::{UserDataMethods, Value};
 

@@ -1,7 +1,12 @@
 use super::editor_storage::*;
 use crate::editor_assets::write_prefabs_lua;
 use engine_core::constants::{extensions, paths};
-use engine_core::prelude::*;
+use engine_core::assets::*;
+use engine_core::ecs::*;
+use engine_core::engine_global::*;
+use engine_core::game::*;
+use engine_core::scripting::*;
+use engine_core::storage::*;
 use engine_core::scripting::lua_constants::{lua_dirs, lua_files};
 use engine_core::storage::path_utils::sanitise_name;
 use engine_core::storage::test_utils::{game_fs_test_lock, TestGameFolder};

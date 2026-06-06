@@ -1,7 +1,11 @@
 use crate::editor_global::push_toast;
 use crate::gui::gui_constants::*;
 use bishop::prelude::*;
-use engine_core::prelude::*;
+use engine_core::animation::*;
+use engine_core::ecs::*;
+use engine_core::game::*;
+use engine_core::storage::*;
+use engine_core::ui::*;
 use std::{
     borrow::Cow,
     collections::{HashMap, HashSet},

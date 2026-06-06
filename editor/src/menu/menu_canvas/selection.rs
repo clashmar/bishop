@@ -1,6 +1,7 @@
+use bishop::prelude::*;
 use crate::menu::menu_editor::*;
 use crate::menu::MenuEditor;
-use engine_core::prelude::*;
+use engine_core::menu::*;
 
 pub struct HitTestResult {
     pub element_index: usize,

@@ -5,7 +5,8 @@ use crate::menu::menu_properties_panel::{FIELD_HEIGHT, LABEL_WIDTH, ROW_HEIGHT};
 use crate::menu::MenuEditor;
 use crate::shared::input::canvas_blocked_by_global_ui;
 use bishop::prelude::*;
-use engine_core::prelude::*;
+use engine_core::menu::*;
+use engine_core::ui::*;
 
 impl MenuEditor {
     pub(crate) fn draw_button(

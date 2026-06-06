@@ -1,5 +1,8 @@
 use super::*;
-use crate::prelude::{set_parent, ClipId, SpriteId};
+use bishop::prelude::Vec2;
+use crate::ecs::{Ecs, set_parent};
+use crate::animation::ClipId;
+use crate::ecs::components::sprite::SpriteId;
 
 #[test]
 fn capture_prefab_normalizes_root_offset_and_instantiate_restores_world_positions() {

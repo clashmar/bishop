@@ -1,7 +1,9 @@
 use crate::app::EditorMode;
 use crate::commands::editor_command_manager::EditorCommand;
 use crate::with_editor;
-use engine_core::prelude::*;
+use engine_core::ecs::*;
+use engine_core::game::*;
+use engine_core::worlds::*;
 use std::collections::HashSet;
 
 /// Undo-able command for deleting a world.
@@ -92,6 +94,7 @@ impl EditorCommand for DeleteWorldCmd {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use engine_core::engine_global::*;
     use crate::app::Editor;
     use crate::editor_global::with_editor;
     use crate::storage::editor_storage::{create_new_game, create_new_world};

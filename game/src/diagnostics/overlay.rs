@@ -1,8 +1,12 @@
 //! In-game diagnostics overlay toggled with F3/F4.
 
+use bishop::prelude::*;
 use crate::diagnostics::timing_trace::{TimingTraceLogger, TimingTraceSample};
 use crate::engine::game_instance::GameInstance;
-use engine_core::prelude::*;
+use engine_core::assets::*;
+use engine_core::audio::*;
+use engine_core::diagnostics::*;
+use engine_core::ecs::*;
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
 

@@ -1,6 +1,9 @@
+use bishop::prelude::*;
 use crate::constants::GRAVITY;
 use crate::physics::collision::SweepContext;
-use engine_core::prelude::*;
+use engine_core::assets::*;
+use engine_core::ecs::*;
+use engine_core::worlds::*;
 
 /// Applies fixed-step movement to `MotionBody`s and full collision physics to `PhysicsBody`s.
 pub fn update_physics(

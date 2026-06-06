@@ -1,8 +1,12 @@
+use bishop::prelude::*;
 use crate::app::{Editor, EditorMode};
 use crate::editor_global::{reset_services, set_editor, EDITOR_SERVICES};
 use crate::storage::editor_storage::create_new_game;
 use engine_core::constants::extensions;
-use engine_core::prelude::*;
+use engine_core::ecs::*;
+use engine_core::engine_global::*;
+use engine_core::storage::*;
+use engine_core::worlds::*;
 pub use engine_core::storage::test_utils::{game_fs_test_lock, TestGameFolder};
 use std::path::PathBuf;
 use std::sync::{Mutex, MutexGuard};

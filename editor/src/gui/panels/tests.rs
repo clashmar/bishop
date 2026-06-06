@@ -7,7 +7,8 @@ use crate::gui::panels::hierarchy_panel::{
 use crate::gui::panels::prefab_browser_panel::prefab_browser_entries;
 use crate::room::room_editor::RoomEditor;
 use crate::shared::scene_ui::hierarchy::{SceneHierarchyHost, SceneHierarchySelectionAction};
-use engine_core::prelude::*;
+use engine_core::ecs::*;
+use engine_core::worlds::*;
 use engine_core::storage::test_utils::{game_fs_test_lock, TestGameFolder};
 use std::collections::HashSet;
 

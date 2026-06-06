@@ -13,7 +13,12 @@ use crate::gui::panels::*;
 use crate::prefab::{PendingPrefabTransition, PrefabTransitionPrompt};
 use crate::storage::editor_storage::*;
 use bishop::prelude::*;
-use engine_core::prelude::*;
+use engine_core::engine_global::*;
+use engine_core::game::*;
+use engine_core::logging::*;
+use engine_core::scripting::*;
+use engine_core::storage::*;
+use engine_core::ui::*;
 
 impl Editor {
     pub fn draw_menu_bar(&mut self, ctx: &mut WgpuContext) {

@@ -1,5 +1,8 @@
+use engine_core::{register_lua_api, register_lua_module};
 use engine_core::audio::runtime;
-use engine_core::prelude::*;
+use engine_core::audio::*;
+use engine_core::logging::*;
+use engine_core::scripting::*;
 use engine_core::scripting::lua_constants::{lua_audio, lua_engine, lua_files};
 use mlua::prelude::LuaResult;
 use mlua::Lua;

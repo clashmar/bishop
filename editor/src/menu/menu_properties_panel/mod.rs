@@ -4,7 +4,8 @@ pub(crate) mod nav_section;
 
 use crate::menu::MenuEditor;
 use bishop::prelude::*;
-use engine_core::prelude::*;
+use engine_core::menu::*;
+use engine_core::ui::*;
 
 pub(crate) const ROW_HEIGHT: f32 = 28.0;
 pub(crate) const LABEL_WIDTH: f32 = 80.0;

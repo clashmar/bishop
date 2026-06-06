@@ -12,7 +12,13 @@ use crate::shared::scene_ui::inspector::{InspectorContext};
 use crate::tilemap::tilemap_editor::TILEMAP_SUB_MODES;
 use crate::world::coord;
 use bishop::prelude::*;
-use engine_core::prelude::*;
+use engine_core::assets::*;
+use engine_core::ecs::*;
+use engine_core::game::*;
+use engine_core::rendering::*;
+use engine_core::storage::*;
+use engine_core::ui::*;
+use engine_core::worlds::*;
 use engine_core::theme::with_theme;
 use widgets::constants::layout;
 

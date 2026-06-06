@@ -1,5 +1,5 @@
 use bishop::prelude::*;
-use engine_core::prelude::*;
+use engine_core::ui::*;
 use widgets::constants::layout;
 use widgets::InputCommit;
 

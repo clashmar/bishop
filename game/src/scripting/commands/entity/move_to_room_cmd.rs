@@ -1,7 +1,8 @@
 use crate::engine::Engine;
 use crate::scripting::commands::lua_command::LuaCommand;
 use engine_core::ecs::entity::Entity;
-use engine_core::prelude::{Game, RoomId};
+use engine_core::game::*;
+use engine_core::worlds::*;
 
 /// Moves an entity to a specific room if that room exists.
 pub struct MoveToRoomCmd {
@@ -43,7 +44,7 @@ impl LuaCommand for MoveToRoomCmd {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use engine_core::prelude::{CurrentRoom, Player, Room, World};
+    use engine_core::ecs::*;
 
     fn game_with_room(room_id: RoomId) -> Game {
         let mut game = Game::default();

@@ -1,5 +1,12 @@
+use bishop::prelude::*;
 use crate::scripting::script_system::ScriptSystem;
-use engine_core::prelude::*;
+use engine_core::audio::*;
+use engine_core::camera::*;
+use engine_core::ecs::*;
+use engine_core::game::*;
+use engine_core::menu::*;
+use engine_core::rendering::*;
+use engine_core::worlds::*;
 use mlua::Lua;
 use mlua::Value;
 use mlua::Variadic;

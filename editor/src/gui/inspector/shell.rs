@@ -6,7 +6,8 @@ use crate::gui::properties::world::WorldProperties;
 use crate::shared::scene_ui::inspector::{EntityInspector, InspectorContent, InspectorContext, InspectorOutput};
 use bishop::prelude::*;
 use engine_core::game::GameCtxMut;
-use engine_core::prelude::*;
+use engine_core::ecs::*;
+use engine_core::ui::*;
 
 /// Shared inspector shell for all editor modes.
 pub struct Inspector {

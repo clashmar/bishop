@@ -1,5 +1,5 @@
-use crate::prelude::*;
 use bishop::prelude::*;
+use crate::ecs::*;
 
 /// Max lights per layer.
 pub const MAX_LIGHTS: usize = 10;

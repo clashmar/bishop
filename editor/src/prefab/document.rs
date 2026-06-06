@@ -1,10 +1,15 @@
+use bishop::prelude::*;
 use crate::editor_global::with_lua;
 use crate::prefab::prefab_editor::{
     PrefabEditor, PrefabRoomSyncState, PrefabStage, StagedPrefabState,
 };
 #[cfg(test)]
 use crate::storage::editor_storage::load_game_by_name;
-use engine_core::prelude::*;
+use engine_core::assets::*;
+use engine_core::ecs::*;
+use engine_core::game::*;
+use engine_core::logging::*;
+use engine_core::scripting::*;
 use std::io;
 
 macro_rules! for_each_prefab_asset_manager {

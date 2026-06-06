@@ -1,7 +1,8 @@
 use crate::commands::editor_command_manager::*;
 use crate::gui::panels::panel_manager::PanelManager;
 use crate::Editor;
-use engine_core::prelude::*;
+use engine_core::ecs::*;
+use engine_core::ui::*;
 use mlua::Lua;
 use std::cell::Cell;
 use std::cell::RefCell;

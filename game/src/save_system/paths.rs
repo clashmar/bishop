@@ -4,7 +4,7 @@ use super::{
 };
 use engine_core::constants::extensions;
 use engine_core::engine_global::{game_name, get_engine_mode};
-use engine_core::prelude::EngineMode;
+use engine_core::engine_global::*;
 use engine_core::storage::{absolute_save_root, sanitise_name};
 use std::path::PathBuf;
 

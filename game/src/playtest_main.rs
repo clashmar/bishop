@@ -1,6 +1,6 @@
 use bishop::prelude::*;
 use bishop::BishopApp;
-use engine_core::prelude::*;
+use engine_core::engine_global::*;
 use game_lib::engine::Engine;
 use game_lib::startup::{
     runtime_icon_for_playtest_payload, PlaytestLaunchArgs, StartupController, StartupIntent,

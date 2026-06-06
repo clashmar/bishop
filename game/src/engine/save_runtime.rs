@@ -268,7 +268,7 @@ mod tests {
     fn save_triggered_from_command_queue_writes_document_and_manifest() {
         use crate::scripting::lua_ctx::register_save_lua_context;
         use crate::scripting::modules::save_module::SaveModule;
-        use engine_core::prelude::World;
+        use engine_core::worlds::*;
         use engine_core::scripting::LuaModule;
         use engine_core::scripting::lua_constants::{lua_engine, lua_fields, lua_save};
         use mlua::Lua;

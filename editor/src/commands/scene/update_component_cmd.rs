@@ -3,7 +3,8 @@ use crate::commands::editor_command_manager::EditorCommand;
 use crate::commands::scene::context::with_scene_ctx;
 use crate::prefab::instance_sync::sync_prefab_overrides_for_entity;
 use crate::with_editor;
-use engine_core::prelude::*;
+use engine_core::animation::*;
+use engine_core::ecs::*;
 use std::any::Any;
 use std::collections::HashMap;
 

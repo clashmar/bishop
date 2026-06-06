@@ -1,7 +1,9 @@
 use super::{FIELD_HEIGHT, LABEL_WIDTH, ROW_HEIGHT};
 use crate::menu::MenuEditor;
 use bishop::prelude::*;
-use engine_core::prelude::*;
+use engine_core::constants::*;
+use engine_core::menu::*;
+use engine_core::ui::*;
 
 struct CommonState {
     name: String,

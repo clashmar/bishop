@@ -1,5 +1,8 @@
 use bishop::prelude::*;
-use engine_core::prelude::*;
+use engine_core::assets::*;
+use engine_core::ecs::*;
+use engine_core::tiles::*;
+use engine_core::worlds::*;
 use std::collections::HashSet;
 
 const OVERLAP_EPS: f32 = 0.0001;

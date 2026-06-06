@@ -1,3 +1,6 @@
+use engine_core::ecs::*;
+use engine_core::engine_global::*;
+use engine_core::ui::*;
 use super::*;
 
 #[test]

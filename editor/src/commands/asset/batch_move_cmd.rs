@@ -3,7 +3,8 @@ use crate::commands::asset::{MoveDirectoryCmd, MoveFileCmd};
 use crate::commands::editor_command_manager::EditorCommand;
 use crate::editor_global::push_toast;
 use crate::with_editor;
-use engine_core::prelude::*;
+use engine_core::assets::*;
+use engine_core::storage::*;
 use std::path::PathBuf;
 
 /// A single target to move, either a file or a directory.

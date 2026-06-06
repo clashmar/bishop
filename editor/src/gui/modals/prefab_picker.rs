@@ -3,7 +3,7 @@ use crate::gui::modals::{open_modal_with_prompt, Modal, ModalHandler, ModalResul
 use crate::gui::prompts::*;
 use crate::prefab::PrefabTransitionPrompt;
 use bishop::prelude::*;
-use engine_core::prelude::*;
+use engine_core::logging::*;
 use std::cell::RefCell;
 use std::thread::LocalKey;
 

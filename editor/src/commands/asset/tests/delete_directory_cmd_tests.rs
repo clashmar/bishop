@@ -3,7 +3,11 @@ use crate::commands::asset::DeleteDirectoryCmd;
 use crate::commands::editor_command_manager::EditorCommand;
 use crate::editor_global::with_editor;
 use crate::test_utils::{setup_editor, TestEditorContext};
-use engine_core::prelude::*;
+use engine_core::assets::*;
+use engine_core::constants::*;
+use engine_core::ecs::*;
+use engine_core::storage::*;
+use engine_core::worlds::*;
 use std::fs;
 use std::path::PathBuf;
 

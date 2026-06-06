@@ -1,4 +1,4 @@
-use engine_core::prelude::*;
+use engine_core::ecs::*;
 use mlua::prelude::LuaResult;
 use mlua::{Lua, Value};
 

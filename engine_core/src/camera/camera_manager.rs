@@ -2,7 +2,8 @@ use crate::camera::game_camera::{
     game_render_target, get_room_cameras, room_to_game_camera, GameCamera,
 };
 use crate::ecs::{CameraMode, FollowRestriction, RoomCamera, SubPixel, Transform};
-use crate::prelude::{Ecs, Entity, Room, RoomId};
+use crate::ecs::*;
+use crate::worlds::*;
 use crate::rendering::helpers::{lerp_position, visual_position};
 use bishop::prelude::*;
 

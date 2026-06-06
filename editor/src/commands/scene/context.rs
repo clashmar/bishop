@@ -1,6 +1,7 @@
 use crate::app::EditorMode;
 use crate::Editor;
-use engine_core::prelude::*;
+use engine_core::ecs::*;
+use engine_core::game::*;
 
 pub(super) fn uses_prefab_context(mode: EditorMode) -> bool {
     matches!(mode, EditorMode::Prefab(_))

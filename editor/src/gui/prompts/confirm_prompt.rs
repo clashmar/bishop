@@ -2,7 +2,8 @@ use crate::app::escape::modal_escape_requested;
 use crate::gui::prompts::constants::*;
 use crate::gui::prompts::helpers::*;
 use bishop::prelude::*;
-use engine_core::prelude::*;
+use engine_core::controls::*;
+use engine_core::ui::*;
 use widgets::constants::layout;
 
 /// Result of a confirm prompt.

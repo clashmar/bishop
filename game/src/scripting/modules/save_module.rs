@@ -2,7 +2,7 @@ use crate::game_global::push_command;
 use crate::save_system::{LuaSaveProvider, SaveLane};
 use crate::scripting::commands::save_commands::{LoadLatestSaveCmd, SaveToLaneCmd};
 use crate::scripting::lua_ctx::LuaSaveCtx;
-use engine_core::prelude::*;
+use engine_core::scripting::*;
 use engine_core::register_lua_api;
 use engine_core::register_lua_module;
 use engine_core::scripting::lua_constants::{lua_engine, lua_fields, lua_files, lua_save};

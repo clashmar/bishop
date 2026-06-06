@@ -3,7 +3,11 @@ use crate::commands::asset::{BatchMoveCmd, MoveTarget};
 use crate::commands::editor_command_manager::EditorCommand;
 use crate::editor_global::{take_pending_toast, with_editor};
 use crate::test_utils::{setup_editor, TestEditorContext};
-use engine_core::prelude::*;
+use engine_core::assets::*;
+use engine_core::constants::*;
+use engine_core::ecs::*;
+use engine_core::storage::*;
+use engine_core::worlds::*;
 use std::fs;
 use std::path::PathBuf;
 

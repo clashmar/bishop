@@ -6,7 +6,10 @@ use crate::gui::mode_selector::ModeInfo;
 use crate::room::room_editor::*;
 use crate::shared::input::shortcuts_blocked;
 use bishop::prelude::*;
-use engine_core::prelude::*;
+use engine_core::camera::*;
+use engine_core::controls::*;
+use engine_core::ecs::*;
+use engine_core::worlds::*;
 use strum::IntoEnumIterator;
 
 impl RoomEditor {

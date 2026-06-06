@@ -9,7 +9,12 @@ use self::preview::*;
 use crate::editor_global::push_toast;
 use crate::storage::sound_preset_storage::*;
 use bishop::prelude::*;
-use engine_core::prelude::*;
+use engine_core::assets::*;
+use engine_core::constants::*;
+use engine_core::ecs::*;
+use engine_core::game::*;
+use engine_core::storage::*;
+use engine_core::ui::*;
 use widgets::constants::colors;
 use widgets::constants::layout as widget_layout;
 

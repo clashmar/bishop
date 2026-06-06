@@ -1,8 +1,10 @@
+use bishop::prelude::*;
 use crate::app::EditorMode;
 use crate::commands::editor_command_manager::EditorCommand;
 use crate::editor_global::push_toast;
 use crate::with_editor;
-use engine_core::prelude::*;
+use engine_core::ecs::*;
+use engine_core::worlds::*;
 
 /// Undo-able command for changing a world's grid size.
 #[derive(Debug)]

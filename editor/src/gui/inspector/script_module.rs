@@ -1,7 +1,10 @@
 use crate::editor_assets::assets::refresh_icon;
 use crate::with_lua;
 use bishop::prelude::*;
-use engine_core::prelude::*;
+use engine_core::ecs::*;
+use engine_core::game::*;
+use engine_core::logging::*;
+use engine_core::ui::*;
 use std::collections::HashMap;
 use widgets::constants::{colors, layout};
 

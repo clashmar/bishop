@@ -3,7 +3,7 @@ use crate::gui::text_input::draw_labeled_text_input;
 use bishop::prelude::*;
 use engine_core::ecs::inspector::layout::InspectorBodyLayout;
 use engine_core::game::GameCtxMut;
-use engine_core::prelude::*;
+use engine_core::ui::*;
 use engine_core::worlds::room::Room;
 
 /// Edits the tags of a room.

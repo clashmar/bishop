@@ -1,5 +1,6 @@
 use crate::scripting::lua_ctx::LuaGameCtx;
-use engine_core::prelude::*;
+use engine_core::ecs::*;
+use engine_core::scripting::*;
 use engine_core::register_lua_api;
 use engine_core::register_lua_module;
 use engine_core::scripting::lua_constants::{lua_engine, lua_events, lua_fields, lua_files, lua_globals, lua_tags};

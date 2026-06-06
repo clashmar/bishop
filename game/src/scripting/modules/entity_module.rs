@@ -1,4 +1,6 @@
-use engine_core::prelude::*;
+use engine_core::{register_lua_api, register_lua_module};
+use engine_core::ecs::*;
+use engine_core::scripting::*;
 use engine_core::scripting::lua_constants::{lua_fields, lua_files, lua_globals};
 use mlua::prelude::LuaResult;
 use mlua::{Lua, UserData, UserDataMethods, UserDataRegistry};

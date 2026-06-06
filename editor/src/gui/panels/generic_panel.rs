@@ -2,7 +2,7 @@ use crate::gui::gui_constants::MENU_PANEL_HEIGHT;
 use crate::gui::panel_text_color;
 use crate::Editor;
 use bishop::prelude::*;
-use engine_core::prelude::*;
+use engine_core::ui::*;
 use widgets::{focused_panel, is_context_menu_open, set_focused_panel};
 
 /// Must be globally unique.

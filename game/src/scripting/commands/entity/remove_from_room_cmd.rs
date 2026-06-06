@@ -1,7 +1,7 @@
 use crate::engine::Engine;
 use crate::scripting::commands::lua_command::LuaCommand;
 use engine_core::ecs::entity::Entity;
-use engine_core::prelude::Game;
+use engine_core::game::*;
 
 /// Removes room membership from an entity.
 pub struct RemoveFromRoomCmd {
@@ -22,7 +22,8 @@ impl LuaCommand for RemoveFromRoomCmd {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use engine_core::prelude::{CurrentRoom, Room, RoomId, World};
+    use engine_core::ecs::*;
+use engine_core::worlds::*;
 
     fn game_with_room(room_id: RoomId) -> Game {
         let mut game = Game::default();

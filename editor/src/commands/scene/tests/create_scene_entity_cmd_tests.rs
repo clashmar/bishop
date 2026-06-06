@@ -1,10 +1,12 @@
+use bishop::prelude::*;
 use crate::app::EditorMode;
 use crate::commands::scene::CreateSceneEntityCmd;
 use crate::editor_global::{
     apply_pending_commands, push_command, request_redo, request_undo, with_editor,
 };
 use crate::test_utils::{EditorServicesGuard, TestGameFolder, game_fs_test_lock, make_room_editor};
-use engine_core::prelude::*;
+use engine_core::ecs::*;
+use engine_core::worlds::*;
 
 fn find_room_entity(ecs: &Ecs, room_id: RoomId, parent: Option<Entity>) -> Option<Entity> {
     ecs.get_store::<Name>()

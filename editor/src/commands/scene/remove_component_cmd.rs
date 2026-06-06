@@ -3,7 +3,7 @@ use crate::commands::editor_command_manager::EditorCommand;
 use crate::commands::scene::context::with_scene_ctx;
 use crate::prefab::instance_sync::sync_prefab_overrides_for_entity;
 use crate::with_editor;
-use engine_core::prelude::*;
+use engine_core::ecs::*;
 
 /// Undo-able command for removing a component from an entity via the inspector.
 #[derive(Debug)]
@@ -107,6 +107,7 @@ impl EditorCommand for RemoveComponentCmd {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use engine_core::worlds::*;
     use crate::app::Editor;
     use crate::editor_global::{reset_services, set_editor, with_editor};
 

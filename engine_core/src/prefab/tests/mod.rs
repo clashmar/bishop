@@ -1,11 +1,11 @@
 use super::*;
+use bishop::prelude::Vec2;
 use crate::ecs::capture::ComponentSnapshot;
 use crate::ecs::component::comp_type_name;
 use crate::ecs::entity::get_parent;
 use crate::ecs::{CurrentFrame, CurrentRoom, Ecs, Entity, Name, Pivot, Transform, Velocity};
 use crate::game::Game;
 use crate::prefab::{PrefabAsset, PrefabId, PrefabNode};
-use crate::prelude::Vec2;
 use crate::worlds::room::Room;
 use crate::worlds::room::RoomId;
 use crate::worlds::world::World;

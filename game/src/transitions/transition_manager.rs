@@ -1,5 +1,6 @@
 use crate::engine::game_instance::GameInstance;
-use engine_core::prelude::*;
+use engine_core::ecs::*;
+use engine_core::worlds::*;
 use engine_core::scripting::lua_constants::lua_events;
 use mlua::Lua;
 use mlua::Value;
@@ -130,6 +131,8 @@ fn collect_transition_tags(game_instance: &GameInstance, room_id: RoomId) -> Vec
 #[cfg(test)]
 mod tests {
     use super::*;
+    use bishop::prelude::Vec2;
+    use engine_core::game::*;
     use engine_core::scripting::event_bus::EventBus;
     use std::collections::HashMap;
     use std::sync::{Arc, Mutex};

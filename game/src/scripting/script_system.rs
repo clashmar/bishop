@@ -1,7 +1,10 @@
 use crate::engine::Engine;
 use crate::game_global::drain_commands;
 use crate::scripting::modules::entity_module::lua_entity_handle;
-use engine_core::prelude::*;
+use engine_core::ecs::*;
+use engine_core::logging::*;
+use engine_core::scripting::*;
+use engine_core::storage::*;
 use engine_core::scripting::lua_constants::{lua_dirs, lua_engine, lua_entity, lua_files, lua_globals};
 use mlua::prelude::LuaResult;
 use mlua::Lua;

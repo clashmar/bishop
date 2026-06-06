@@ -20,7 +20,15 @@ use crate::storage::editor_storage::{PrefabPaletteState, PREFAB_PALETTE_RECENT_C
 use crate::tilemap::tilemap_editor::*;
 use crate::world::coord;
 use bishop::prelude::*;
-use engine_core::prelude::*;
+use engine_core::animation::*;
+use engine_core::assets::*;
+use engine_core::camera::*;
+use engine_core::controls::*;
+use engine_core::ecs::*;
+use engine_core::game::*;
+use engine_core::rendering::*;
+use engine_core::ui::*;
+use engine_core::worlds::*;
 use once_cell::sync::Lazy;
 use std::collections::HashSet;
 use strum::IntoEnumIterator;

@@ -8,7 +8,10 @@ use crate::gui::modals::ModalHandler;
 use crate::prefab::{PendingPrefabTransition, PrefabTransitionPrompt, BLANK_PREFAB_ID};
 use crate::shared::scene_ui::inspector::{PrefabAction, PrefabActionRequest};
 use bishop::prelude::*;
-use engine_core::prelude::*;
+use engine_core::ecs::*;
+use engine_core::logging::*;
+use engine_core::ui::*;
+use engine_core::worlds::*;
 use std::path::PathBuf;
 
 mod room_sync;

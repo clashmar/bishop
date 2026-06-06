@@ -1,6 +1,9 @@
 use crate::engine::*;
 use bishop::prelude::*;
-use engine_core::prelude::*;
+use engine_core::camera::*;
+use engine_core::constants::*;
+use engine_core::rendering::*;
+use engine_core::text::*;
 
 fn gameplay_viewport_rect(screen_w: f32, screen_h: f32) -> Option<(i32, i32, i32, i32)> {
     if screen_w <= 0.0 || screen_h <= 0.0 {

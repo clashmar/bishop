@@ -1,5 +1,5 @@
 use crate::app::{Editor, EditorMode};
-use engine_core::prelude::*;
+use engine_core::worlds::*;
 
 impl Editor {
     /// Returns the display name of the currently active entity (game, world, room, or prefab).

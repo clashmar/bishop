@@ -1,6 +1,8 @@
 use super::selection::is_prefab_entity;
 use bishop::prelude::*;
-use engine_core::prelude::*;
+use engine_core::assets::*;
+use engine_core::ecs::*;
+use engine_core::rendering::*;
 use std::collections::BTreeMap;
 
 pub(crate) fn draw_prefab_entities<C: BishopContext>(

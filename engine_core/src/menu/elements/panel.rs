@@ -1,7 +1,7 @@
 use super::element_kind::ElementKind;
 use super::menu_element::{MenuElement, MenuElementKind};
 use crate::menu::runtime::RenderEnv;
-use crate::prelude::MenuAction;
+use crate::menu::MenuAction;
 use bishop::prelude::*;
 use serde::{Deserialize, Serialize};
 use widgets::*;

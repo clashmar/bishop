@@ -5,7 +5,10 @@ use crate::editor_global::with_editor;
 use crate::storage::editor_storage::collect_prefab_names;
 use crate::storage::editor_storage::save_game;
 use crate::storage::editor_storage::PrefabPaletteState;
-use engine_core::prelude::*;
+use engine_core::ecs::*;
+use engine_core::game::*;
+use engine_core::logging::*;
+use engine_core::storage::*;
 
 #[derive(Debug)]
 pub struct DeletePrefabCmd {

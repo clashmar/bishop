@@ -5,7 +5,8 @@ use crate::menu::menu_properties_panel::{FIELD_HEIGHT, LABEL_WIDTH, ROW_HEIGHT};
 use crate::menu::resize_handle::draw_resize_handles;
 use crate::menu::MenuEditor;
 use bishop::prelude::*;
-use engine_core::prelude::*;
+use engine_core::menu::*;
+use engine_core::ui::*;
 use engine_core::theme::with_theme;
 
 impl MenuEditor {

@@ -1,7 +1,7 @@
 use crate::app::EditorMode;
 use crate::commands::editor_command_manager::EditorCommand;
 use crate::with_editor;
-use engine_core::prelude::*;
+use engine_core::menu::*;
 
 /// Undo-able command for moving a top-level element into a layout group.
 #[derive(Debug)]

@@ -1,5 +1,9 @@
-use crate::prelude::*;
 use bishop::prelude::*;
+use crate::ecs::*;
+use crate::assets::*;
+use crate::game::*;
+use crate::worlds::*;
+use crate::rendering::renderable::Renderable;
 
 /// Resolves the entity to use for visual lookups. A `PlayerProxy` redirects
 /// to the actual player entity so the proxy renders with the player's visuals.

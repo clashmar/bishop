@@ -2,7 +2,7 @@ use crate::app::EditorMode;
 use crate::commands::editor_command_manager::EditorCommand;
 use crate::prefab::instance_sync::{clear_prefab_metadata_from_root, linked_prefab_reference};
 use crate::with_editor;
-use engine_core::prelude::*;
+use engine_core::ecs::*;
 
 /// Undo-able command that unlinks a realized prefab instance from its source asset.
 #[derive(Debug)]

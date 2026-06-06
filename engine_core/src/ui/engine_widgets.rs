@@ -2,7 +2,7 @@ use crate::assets::{sprite_manager::SpriteManager, AssetRegistry};
 use crate::constants::paths;
 use crate::ecs::entity::Entity;
 use crate::ecs::{ScriptId, SpriteId, TomlId};
-use crate::prelude::{assets_folder, scripts_folder, text_folder};
+use crate::storage::path_utils::{assets_folder, scripts_folder, text_folder};
 use crate::scripting::script_manager::ScriptManager;
 use crate::text::{TextManager, TextManifest};
 use crate::*;

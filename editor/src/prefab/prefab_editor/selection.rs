@@ -1,5 +1,5 @@
 use super::PrefabEditor;
-use engine_core::prelude::*;
+use engine_core::ecs::*;
 
 impl PrefabEditor {
     pub(crate) fn sync_inspector_to_selection(&mut self) {

@@ -1,6 +1,6 @@
 use crate::gui::panels::panel_manager::is_mouse_over_panel;
 use bishop::prelude::*;
-use engine_core::prelude::*;
+use engine_core::ui::*;
 
 /// Returns true when the canvas should not receive keyboard shortcuts.
 pub fn shortcuts_blocked() -> bool {

@@ -1,4 +1,4 @@
-use engine_core::prelude::*;
+use engine_core::ecs::*;
 use std::path::PathBuf;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
