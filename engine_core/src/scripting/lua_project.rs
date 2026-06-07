@@ -70,7 +70,8 @@ pub fn engine_relative_path(filename: &str) -> PathBuf {
         | lua_files::ANIMATIONS
         | lua_files::PREFABS
         | lua_files::SOUNDS
-        | lua_files::MENUS => PathBuf::from(lua_dirs::DATA).join(filename),
+        | lua_files::MENUS
+        | lua_files::EVENT_TAGS => PathBuf::from(lua_dirs::DATA).join(filename),
         lua_files::ENGINE
         | lua_files::ENTITY
         | lua_files::SCRIPT
@@ -96,7 +97,8 @@ pub fn engine_require_path(filename: &str) -> String {
         | lua_files::ANIMATIONS
         | lua_files::PREFABS
         | lua_files::SOUNDS
-        | lua_files::MENUS => format!("{}.{}.{}", lua_dirs::ENGINE, lua_dirs::DATA, stem),
+        | lua_files::MENUS
+        | lua_files::EVENT_TAGS => format!("{}.{}.{}", lua_dirs::ENGINE, lua_dirs::DATA, stem),
         lua_files::ENGINE
         | lua_files::ENTITY
         | lua_files::SCRIPT
@@ -216,7 +218,10 @@ mod tests {
             "Script = require(\"_engine.runtime.script\")",
             "Entity = require(\"_engine.runtime.entity\")",
         ] {
-            assert!(lua.contains(expected), "missing global line: {expected}\n{lua}");
+            assert!(
+                lua.contains(expected),
+                "missing global line: {expected}\n{lua}"
+            );
         }
     }
 

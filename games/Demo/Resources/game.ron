@@ -167,7 +167,7 @@
                     ],
                     adjacent_rooms: [],
                     tags: [
-                        /*[0]*/ "autosave",
+                        /*[0]*/ Autosave,
                     ],
                     variants: [
                         /*[0]*/ (
@@ -205,7 +205,7 @@
                     ],
                     adjacent_rooms: [],
                     tags: [
-                        /*[0]*/ "autosave",
+                        /*[0]*/ Autosave,
                     ],
                     variants: [
                         /*[0]*/ (
@@ -220,7 +220,7 @@
                     darkness: 0.0,
                 ),
             ],
-            current_room_id: Some((1)),
+            current_room_id: Some((2)),
             starting_room_id: Some((1)),
             starting_position: Some((0.0, 0.0)),
             meta: (

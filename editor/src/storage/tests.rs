@@ -6,6 +6,7 @@ use engine_core::ecs::*;
 use engine_core::engine_global::{set_game_name};
 use engine_core::game::{Game};
 use engine_core::scripting::ScriptManager;
+use engine_core::scripting::event_tags::event_tag::EventTag;
 use engine_core::storage::*;
 use engine_core::scripting::lua_constants::{lua_dirs, lua_files};
 use engine_core::storage::path_utils::sanitise_name;
@@ -430,6 +431,39 @@ fn save_game_writes_prefabs_lua() {
     assert!(prefabs_path.is_file());
     let contents = std::fs::read_to_string(prefabs_path).unwrap();
     assert!(contents.contains("BossAttack = \"Boss Attack\""));
+}
+
+#[test]
+fn save_game_writes_event_tags_lua_from_global_usage() {
+    let _lock = game_fs_test_lock()
+        .lock()
+        .unwrap_or_else(|poison| poison.into_inner());
+    let test_game = TestGameFolder::new("event_tags_lua_save");
+    set_game_name(test_game.name());
+
+    let mut game = create_new_game(test_game.name().to_string());
+    let world = game
+        .current_world_mut()
+        .expect("new game should have a current world");
+    world.rooms_mut()[0].tags = vec![
+        EventTag::Custom("Zebra".to_string()),
+        EventTag::Autosave,
+        EventTag::Custom("Alpha".to_string()),
+    ];
+
+    save_game(&game).unwrap();
+
+    let event_tags_path = scripts_folder()
+        .join(lua_dirs::ENGINE)
+        .join(engine_core::scripting::lua_project::engine_relative_path(
+            lua_files::EVENT_TAGS,
+        ));
+    let contents = std::fs::read_to_string(event_tags_path).unwrap();
+    let alpha_pos = contents.find("Alpha = \"Alpha\"").unwrap();
+    let zebra_pos = contents.find("Zebra = \"Zebra\"").unwrap();
+
+    assert!(contents.contains("Autosave = \"Autosave\""));
+    assert!(alpha_pos < zebra_pos);
 }
 
 #[test]

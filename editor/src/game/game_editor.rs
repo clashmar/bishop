@@ -368,6 +368,7 @@ impl GameEditor {
                     show_linked_prefab_metadata: false,
                     hide_room_only_components: true,
                     selected_create_parent: None,
+                    event_tags: Vec::new(),
                 },
             )
         };

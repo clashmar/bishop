@@ -1,9 +1,11 @@
 use crate::scripting::lua_ctx::LuaGameCtx;
 use engine_core::ecs::*;
-use engine_core::scripting::{EventBus, LuaApi, LuaApiWriter, LuaModule};
 use engine_core::register_lua_api;
 use engine_core::register_lua_module;
-use engine_core::scripting::lua_constants::{lua_engine, lua_events, lua_fields, lua_files, lua_globals, lua_tags};
+use engine_core::scripting::lua_constants::{
+    lua_engine, lua_event_tag, lua_events, lua_fields, lua_files, lua_globals,
+};
+use engine_core::scripting::{EventBus, LuaApi, LuaApiWriter, LuaModule};
 use mlua::prelude::LuaResult;
 use mlua::Function;
 use mlua::Lua;
@@ -175,15 +177,15 @@ impl LuaModule for EngineModule {
         })?;
         engine_tbl.set(lua_engine::GLOBAL, global_fn)?;
 
-        let tags_tbl = match engine_tbl.get::<Option<Table>>(lua_tags::TAGS)? {
+        let tags_tbl = match engine_tbl.get::<Option<Table>>(lua_event_tag::KIND)? {
             Some(table) => table,
             None => {
                 let table = lua.create_table()?;
-                engine_tbl.set(lua_tags::TAGS, table.clone())?;
+                engine_tbl.set(lua_event_tag::KIND, table.clone())?;
                 table
             }
         };
-        tags_tbl.set(lua_tags::AUTOSAVE, lua_tags::AUTOSAVE)?;
+        tags_tbl.set(lua_event_tag::AUTOSAVE, lua_event_tag::AUTOSAVE)?;
 
         let events_tbl = match engine_tbl.get::<Option<Table>>(lua_events::EVENTS)? {
             Some(table) => table,
@@ -373,14 +375,29 @@ impl LuaApi for EngineModule {
 
         out.line("--- Built-in tag constants.");
         out.line("engine.tags = {}");
-        out.line(&format!("engine.tags.autosave = \"{}\"", lua_tags::AUTOSAVE));
+        out.line(&format!(
+            "engine.tags.autosave = \"{}\"",
+            lua_event_tag::AUTOSAVE
+        ));
         out.line("");
 
         out.line("--- Built-in event name constants.");
         out.line("engine.events = {}");
-        out.line(&format!("engine.events.{} = \"{}\"", lua_events::ROOM_ENTERED_FIELD, lua_events::ROOM_ENTERED));
-        out.line(&format!("engine.events.{} = \"{}\"", lua_events::SAVE_SUCCEEDED_FIELD, lua_events::SAVE_SUCCEEDED));
-        out.line(&format!("engine.events.{} = \"{}\"", lua_events::SAVE_FAILED_FIELD, lua_events::SAVE_FAILED));
+        out.line(&format!(
+            "engine.events.{} = \"{}\"",
+            lua_events::ROOM_ENTERED_FIELD,
+            lua_events::ROOM_ENTERED
+        ));
+        out.line(&format!(
+            "engine.events.{} = \"{}\"",
+            lua_events::SAVE_SUCCEEDED_FIELD,
+            lua_events::SAVE_SUCCEEDED
+        ));
+        out.line(&format!(
+            "engine.events.{} = \"{}\"",
+            lua_events::SAVE_FAILED_FIELD,
+            lua_events::SAVE_FAILED
+        ));
         out.line("");
 
         // engine.player
@@ -417,7 +434,10 @@ impl LuaApi for EngineModule {
         // engine.quit_to_title
         out.line("--- Quit to the title screen.");
         out.line("---@return nil");
-        out.line(&format!("function engine.{}() end", lua_engine::QUIT_TO_TITLE));
+        out.line(&format!(
+            "function engine.{}() end",
+            lua_engine::QUIT_TO_TITLE
+        ));
         out.line("");
     }
 }

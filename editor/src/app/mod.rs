@@ -86,6 +86,7 @@ pub struct Editor {
     pub pending_playtest_build: Option<BackgroundTask<Result<(PathBuf, PathBuf), String>>>,
     pub grid_renderer: Option<GridRenderer>,
     pub audio_manager: AudioManager,
+    pub(crate) request_event_tags_refresh: bool,
     pub(crate) last_save_hash: u64,
     pub(crate) handling_close: bool,
 }
@@ -117,6 +118,7 @@ impl Default for Editor {
             pending_playtest_build: None,
             grid_renderer: None,
             audio_manager: default_audio_manager(),
+            request_event_tags_refresh: false,
             last_save_hash: 0,
             handling_close: false,
         }
@@ -487,8 +489,20 @@ impl Editor {
                         &mut self.render_system,
                         grid_renderer,
                     );
+
+                    if self.room_editor.request_event_tags_refresh {
+                        self.request_event_tags_refresh = true;
+                        self.room_editor.request_event_tags_refresh = false;
+                    }
                 }
             }
+        }
+
+        if self.request_event_tags_refresh {
+            if let Err(error) = refresh_event_tags_lua(&self.game) {
+                omni_error!("Could not refresh event_tags.lua: {error}");
+            }
+            self.request_event_tags_refresh = false;
         }
 
         // Draw global UI here

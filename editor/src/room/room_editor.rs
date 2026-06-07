@@ -16,7 +16,9 @@ use crate::room::selection::DragState;
 use crate::shared::input::{canvas_blocked_by_global_ui, shortcuts_blocked};
 use crate::shared::scene_ui::inspector::{CreateRequest, PrefabActionRequest};
 use crate::shared::selection::draw_selection_box;
-use crate::storage::editor_storage::{PrefabPaletteState, PREFAB_PALETTE_RECENT_CAP};
+use crate::storage::editor_storage::{
+    PrefabPaletteState, PREFAB_PALETTE_RECENT_CAP, collect_custom_event_tags,
+};
 use crate::tilemap::tilemap_editor::*;
 use crate::world::coord;
 use bishop::prelude::*;
@@ -120,6 +122,8 @@ pub struct RoomEditor {
     pub create_request: Option<CreateRequest>,
     pub prefab_action_request: Option<PrefabActionRequest>,
     pub create_camera_request: Option<f32>,
+    pub event_tags: Vec<String>,
+    pub request_event_tags_refresh: bool,
     pub request_play: bool,
     pub view_preview: bool,
     pub(crate) preview_camera_id: Option<usize>,
@@ -155,6 +159,8 @@ impl RoomEditor {
             create_request: None,
             prefab_action_request: None,
             create_camera_request: None,
+            event_tags: Vec::new(),
+            request_event_tags_refresh: false,
             request_play: false,
             view_preview: false,
             tilemap_sub_mode: TilemapEditorMode::Tiles,
@@ -407,6 +413,8 @@ impl RoomEditor {
         grid_renderer: &GridRenderer,
     ) {
         self.request_play = false; // This is very important
+        self.request_event_tags_refresh = false;
+        self.event_tags = collect_custom_event_tags(game);
         self.active_rects.clear();
         let active_prefab = self
             .active_prefab_id

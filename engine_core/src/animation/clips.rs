@@ -1,12 +1,12 @@
 use crate::animation::clip_id_helpers::{builtin_clip_ids, sprite_filename};
-use crate::assets::sprite_manager::SpriteManager;
 use crate::assets::AssetRegistry;
+use crate::assets::sprite_manager::SpriteManager;
 use crate::constants::world;
 use crate::ecs::SpriteId;
 use crate::scripting::lua_constants::lua_ownership;
 use bishop::prelude::*;
 use serde::{Deserialize, Serialize};
-use serde_with::{serde_as, FromInto};
+use serde_with::{FromInto, serde_as};
 use std::fmt;
 use std::{collections::HashMap, path::PathBuf};
 use strum_macros::EnumIter;
@@ -163,44 +163,12 @@ pub fn generate_animations_lua(custom_clips: &[String]) -> String {
     custom_sorted.dedup();
 
     for clip in custom_sorted {
-        let key = sanitize_lua_identifier(clip);
+        let key = crate::scripting::helpers::sanitize_lua_identifier(clip, "Clip");
         lua.push_str(&format!("    {} = \"{}\",\n", key, clip));
     }
 
     lua.push_str("}\n\nreturn ClipId\n");
     lua
-}
-
-/// Converts a clip name to a valid Lua identifier.
-fn sanitize_lua_identifier(s: &str) -> String {
-    let mut out = String::new();
-    let mut capitalize = true;
-    for ch in s.chars() {
-        if ch.is_ascii_alphanumeric() {
-            if capitalize {
-                out.push(ch.to_ascii_uppercase());
-                capitalize = false;
-            } else {
-                out.push(ch);
-            }
-        } else {
-            capitalize = true;
-        }
-    }
-    if out.is_empty()
-        || out
-            .chars()
-            .next()
-            .map(|c| c.is_ascii_digit())
-            .unwrap_or(false)
-    {
-        format!(
-            "Clip_{}",
-            s.replace(|c: char| !c.is_ascii_alphanumeric(), "_")
-        )
-    } else {
-        out
-    }
 }
 
 #[cfg(test)]

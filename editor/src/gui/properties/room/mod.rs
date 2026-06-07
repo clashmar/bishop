@@ -101,16 +101,19 @@ impl InspectorContent for RoomProperties {
             return InspectorOutput::default();
         };
 
+        let original_tags = room.tags.clone();
         let mut edited_room = room;
         let mut y = rect.y + 10.0;
         for module in &mut self.modules {
             if module.visible(&edited_room, game_ctx) {
                 let h = module.height();
                 let sub_rect = Rect::new(rect.x + 10.0, y, rect.w - 20.0, h);
-                module.draw(ctx, sub_rect, &mut edited_room, game_ctx);
+                module.draw(ctx, sub_rect, &mut edited_room, game_ctx, _insp_ctx);
                 y += h + layout::WIDGET_SPACING;
             }
         }
+
+        let refresh_event_tags = original_tags != edited_room.tags;
 
         if let Some(room) = game_ctx
             .world
@@ -120,7 +123,10 @@ impl InspectorContent for RoomProperties {
             *room = edited_room;
         }
 
-        InspectorOutput::default()
+        InspectorOutput {
+            refresh_event_tags,
+            ..InspectorOutput::default()
+        }
     }
 
     fn total_content_height(

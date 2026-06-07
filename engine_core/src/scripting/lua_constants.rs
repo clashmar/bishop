@@ -21,6 +21,7 @@ pub mod lua_files {
     pub const SAVE: &str = "save.lua";
     pub const THEME: &str = "theme.lua";
     pub const COLOR: &str = "color.lua";
+    pub const EVENT_TAGS: &str = "event_tags.lua";
     pub const BISHOP_THEME: &str = "bishop_theme.lua";
 }
 
@@ -47,6 +48,7 @@ pub mod lua_globals {
     pub const PREFABS: &str = "Prefabs";
     pub const SOUNDS: &str = "Sounds";
     pub const MENUS: &str = "Menus";
+    pub const EVENT_TAGS: &str = "EventTags";
     pub const SCRIPT: &str = "Script";
     pub const ENTITY: &str = "Entity";
 }
@@ -71,9 +73,11 @@ pub mod lua_fields {
 }
 
 /// Built-in tag constants.
-pub mod lua_tags {
-    pub const TAGS: &str = "tags";
-    pub const AUTOSAVE: &str = "autosave";
+pub mod lua_event_tag {
+    pub const TAG_FILE: &str = "event_tags.lua";
+    pub const AUTOSAVE: &str = "Autosave";
+    pub const CUSTOM: &str = "Custom";
+    pub const KIND: &str = "kind";
 }
 
 /// Root engine Lua table names.

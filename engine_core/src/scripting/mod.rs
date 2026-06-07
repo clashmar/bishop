@@ -1,5 +1,6 @@
 pub mod color_bootstrap;
 pub mod event_bus;
+pub mod event_tags;
 pub mod helpers;
 pub mod lua_constants;
 pub mod lua_project;

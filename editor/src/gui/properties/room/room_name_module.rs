@@ -1,5 +1,6 @@
 use super::super::PropertyModule;
 use crate::gui::text_input::draw_labeled_text_input;
+use crate::shared::scene_ui::inspector::InspectorContext;
 use bishop::prelude::*;
 use engine_core::ui::constants::layout;
 use engine_core::ecs::inspector::layout::InspectorBodyLayout;
@@ -34,6 +35,7 @@ impl PropertyModule<Room> for RoomNameModule {
         rect: Rect,
         room: &mut Room,
         _game_ctx: &mut GameCtxMut,
+        _insp_ctx: &InspectorContext,
     ) {
         let (new_val, _commit) =
             draw_labeled_text_input(ctx, rect, "Name:", &room.name, self.input_id);

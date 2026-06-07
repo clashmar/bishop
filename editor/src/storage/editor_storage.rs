@@ -1,6 +1,6 @@
 #![allow(unused)]
 use crate::editor_assets::assets::write_sounds_lua;
-use crate::editor_assets::assets::{write_prefabs_lua, BISHOP_THEME_LUA};
+use crate::editor_assets::assets::{write_event_tags_lua, write_prefabs_lua, BISHOP_THEME_LUA};
 use crate::editor_assets::{
     write_initial_generated_lua_files, write_lua_scaffold_configs, write_menus_lua_from_dir,
 };
@@ -22,6 +22,7 @@ use engine_core::prefab::{PrefabId, PrefabManager};
 use engine_core::storage::*;
 use engine_core::ui::*;
 use engine_core::worlds::*;
+use engine_core::scripting::event_tags::event_tag::EventTag;
 use engine_core::scripting::lua_constants::lua_files;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
@@ -300,8 +301,33 @@ pub fn save_game(game: &Game) -> io::Result<()> {
     let sound_names = collect_sound_group_names(&game.ecs, &sound_library);
     write_sounds_lua(&scripts_folder(), &sound_names)?;
 
+    refresh_event_tags_lua(game)?;
+
     omni_info!("Game saved to: {}", file_path.display());
     fs::write(file_path, ron_string)
+}
+
+/// Collects custom event tags used in the game.
+pub fn collect_custom_event_tags(game: &Game) -> Vec<String> {
+    let mut tags = std::collections::BTreeSet::new();
+
+    for world in game.worlds() {
+        for room in world.rooms() {
+            for tag in &room.tags {
+                if let EventTag::Custom(name) = tag {
+                    tags.insert(name.clone());
+                }
+            }
+        }
+    }
+
+    tags.into_iter().collect()
+}
+
+/// Regenerates the global `event_tags.lua` file from the live game state.
+pub fn refresh_event_tags_lua(game: &Game) -> io::Result<()> {
+    let custom_tags = collect_custom_event_tags(game);
+    write_event_tags_lua(&scripts_folder(), &custom_tags)
 }
 
 /// Collects all custom clip names from the ECS.

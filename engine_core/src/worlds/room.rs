@@ -1,7 +1,8 @@
 // engine_core/src/world/room.rs
 use crate::constants::world;
-use crate::ecs::{Entity, Name, Pivot, RoomCamera, Transform};
 use crate::ecs::ecs::Ecs;
+use crate::ecs::{Entity, Name, Pivot, RoomCamera, Transform};
+use crate::scripting::event_tags::event_tag::EventTag;
 use crate::tiles::tilemap::TileMap;
 use bishop::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -38,7 +39,7 @@ pub struct Room {
     pub size: Vec2,
     pub exits: Vec<Exit>,
     pub adjacent_rooms: Vec<RoomId>,
-    pub tags: Vec<String>,
+    pub tags: Vec<EventTag>,
     pub variants: Vec<RoomVariant>,
     pub darkness: f32,
 }
@@ -292,17 +293,47 @@ mod tests {
     fn room_tags_round_trip_through_ron() {
         let room = Room {
             id: RoomId(1),
-            tags: vec!["autosave".to_string(), "hazardous".to_string()],
+            tags: vec![EventTag::Autosave, EventTag::Custom("hazardous".into())],
             ..Default::default()
         };
         let ron = ron::ser::to_string_pretty(&room, ron::ser::PrettyConfig::new()).unwrap();
         let parsed: Room = ron::from_str(&ron).unwrap();
-        assert_eq!(parsed.tags, vec!["autosave", "hazardous"]);
+        assert_eq!(
+            parsed.tags,
+            vec![EventTag::Autosave, EventTag::Custom("hazardous".into())]
+        );
     }
 
     #[test]
     fn room_tags_default_to_empty() {
         let room = Room::default();
         assert!(room.tags.is_empty());
+    }
+
+    #[test]
+    fn old_vec_string_tags_migrate_to_event_tags() {
+        // Simulate deserializing old RON with Vec<String>, then building EventTags
+        let old_ron = r#"(id:2,name:"",position:[0.0,0.0],size:[0.0,0.0],tags:["autosave","MyTag",""],variants:[])"#;
+        #[derive(Deserialize)]
+        struct OldRoom {
+            tags: Vec<String>,
+        }
+        let old: OldRoom = ron::from_str(old_ron).unwrap();
+        let migrated: Vec<EventTag> = old
+            .tags
+            .into_iter()
+            .filter(|s| !s.is_empty())
+            .map(|s| match s.as_str() {
+                "Autosave" => EventTag::Autosave,
+                other => EventTag::Custom(other.to_string()),
+            })
+            .collect();
+        assert_eq!(
+            migrated,
+            vec![
+                EventTag::Custom("autosave".into()),
+                EventTag::Custom("MyTag".into())
+            ]
+        );
     }
 }

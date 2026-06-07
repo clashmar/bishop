@@ -1,4 +1,5 @@
 use super::PropertyModule;
+use crate::shared::scene_ui::inspector::InspectorContext;
 use bishop::prelude::*;
 use engine_core::ecs::inspector::collapsible_header::CollapsibleHeader;
 use engine_core::ecs::inspector::layout::InspectorBodyLayout;
@@ -38,6 +39,7 @@ impl<T, M: PropertyModule<T>> PropertyModule<T> for CollapsiblePropertyModule<T,
         rect: Rect,
         target: &mut T,
         game_ctx: &mut GameCtxMut,
+        insp_ctx: &InspectorContext,
     ) {
         self.header.draw(ctx, rect, &self.title, false);
 
@@ -48,7 +50,7 @@ impl<T, M: PropertyModule<T>> PropertyModule<T> for CollapsiblePropertyModule<T,
                 rect.w - 8.0,
                 rect.h - CollapsibleHeader::HEADER_HEIGHT - 8.0,
             );
-            self.inner.draw(ctx, body_rect, target, game_ctx);
+            self.inner.draw(ctx, body_rect, target, game_ctx, insp_ctx);
         }
     }
 
@@ -75,7 +77,14 @@ mod tests {
 
     struct FakeModule;
     impl PropertyModule<()> for FakeModule {
-        fn draw(&mut self, _ctx: &mut WgpuContext, _rect: Rect, _target: &mut (), _game_ctx: &mut GameCtxMut) {}
+        fn draw(
+            &mut self,
+            _ctx: &mut WgpuContext,
+            _rect: Rect,
+            _target: &mut (),
+            _game_ctx: &mut GameCtxMut,
+            _insp_ctx: &InspectorContext,
+        ) {}
         fn body_layout(&self) -> InspectorBodyLayout {
             InspectorBodyLayout::new().rows(1, 4.0)
         }
