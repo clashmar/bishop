@@ -1,5 +1,5 @@
 use engine_core::constants::{paths};
-use engine_core::logging::{onscreen_error};
+use engine_core::logging::{omni_error};
 use engine_core::storage::*;
 use serde::{Deserialize, Serialize};
 use std::fs;
@@ -80,7 +80,7 @@ pub fn load_startup_from_resources(resources_dir: &Path) -> StartupAsset {
     };
 
     ron::from_str(&ron_str).unwrap_or_else(|err| {
-        onscreen_error!("Failed to parse startup ron '{}': {}", path.display(), err);
+        omni_error!("Failed to parse startup ron '{}': {}", path.display(), err);
         StartupAsset::default()
     })
 }

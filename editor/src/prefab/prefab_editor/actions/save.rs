@@ -5,7 +5,7 @@ use crate::storage::editor_storage::{collect_prefab_names, save_game};
 use engine_core::constants::extensions;
 use engine_core::ecs::*;
 use engine_core::game::{Game};
-use engine_core::logging::{onscreen_error};
+use engine_core::logging::{omni_error};
 use engine_core::storage::*;
 use engine_core::ui::*;
 use std::fs;
@@ -132,7 +132,7 @@ impl Editor {
 
         if let Some(prefab_stage) = self.prefab_stage.as_ref() {
             if let Err(error) = prefab_stage.sync_editor_services(&mut self.game) {
-                onscreen_error!("Could not save prefab: {error}");
+                omni_error!("Could not save prefab: {error}");
                 return false;
             }
         }
@@ -145,13 +145,13 @@ impl Editor {
         ) {
             Ok(prefab) => prefab,
             Err(error) => {
-                onscreen_error!("Could not save prefab: {error}");
+                omni_error!("Could not save prefab: {error}");
                 return false;
             }
         };
 
         if let Err(error) = save_game(&self.game) {
-            onscreen_error!("Could not save prefab metadata: {error}");
+            omni_error!("Could not save prefab metadata: {error}");
             return false;
         }
 
@@ -188,17 +188,17 @@ impl Editor {
             &mut self.game.asset_registry,
             prefab_id,
         ) {
-            onscreen_error!("Could not delete prefab: {error}");
+            omni_error!("Could not delete prefab: {error}");
             return;
         }
 
         if let Err(error) = sync_prefabs_lua_file(&self.game) {
-            onscreen_error!("Could not write prefabs.lua: {error}");
+            omni_error!("Could not write prefabs.lua: {error}");
             return;
         }
 
         if let Err(error) = save_game(&self.game) {
-            onscreen_error!("Could not save prefab metadata: {error}");
+            omni_error!("Could not save prefab metadata: {error}");
             return;
         }
 

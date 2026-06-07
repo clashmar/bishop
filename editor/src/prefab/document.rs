@@ -8,7 +8,7 @@ use crate::storage::editor_storage::load_game_by_name;
 use engine_core::assets::*;
 use engine_core::ecs::*;
 use engine_core::game::{Game, GameCtxMut};
-use engine_core::logging::{onscreen_error};
+use engine_core::logging::{omni_error};
 use engine_core::scripting::{ScriptManager, register_runtime_modules};
 use std::io;
 
@@ -56,7 +56,7 @@ impl PrefabStage {
             SpriteManager::init_editor_metadata(&stage.asset_registry, &mut stage.sprite_manager);
             ScriptManager::init_editor_metadata(&stage.asset_registry, &mut stage.script_manager);
             if let Err(error) = register_runtime_modules(lua, &stage.script_manager.event_bus) {
-                onscreen_error!("Lua module registration failed: {error}");
+                omni_error!("Lua module registration failed: {error}");
             }
         });
 
@@ -70,7 +70,7 @@ impl PrefabStage {
         with_lua(|lua| {
             ScriptManager::init_editor_metadata(&game.asset_registry, &mut game.script_manager);
             if let Err(error) = register_runtime_modules(lua, &game.script_manager.event_bus) {
-                onscreen_error!("Lua module registration failed: {error}");
+                omni_error!("Lua module registration failed: {error}");
             }
         });
         Ok(())

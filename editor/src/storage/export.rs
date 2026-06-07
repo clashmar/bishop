@@ -5,7 +5,7 @@ use engine_core::constants::{paths, ui, world};
 use engine_core::ecs::*;
 use engine_core::engine_global::{game_name};
 use engine_core::game::{Game};
-use engine_core::logging::{onscreen_debug, onscreen_info, onscreen_warn};
+use engine_core::logging::{omni_debug, omni_info, omni_warn};
 use engine_core::storage::*;
 use engine_core::ui::*;
 use engine_core::worlds::*;
@@ -54,7 +54,7 @@ impl Drop for ExportGuard {
 pub fn export_game(dest_root: &Path, game: &Game) -> io::Result<PathBuf> {
     #[cfg(target_os = "windows")]
     {
-        onscreen_info!("Exporting for windows");
+        omni_info!("Exporting for windows");
         let exe_path = export_for_windows(dest_root, game)?;
         Ok(exe_path)
     }
@@ -107,13 +107,13 @@ fn export_for_windows(dest_root: &Path, game: &Game) -> io::Result<PathBuf> {
     fs::create_dir_all(&target_package)?;
     let exe_path = &target_package.join(format!("{}.exe", game.name));
 
-    onscreen_debug!("Creating new .exe at: {}", exe_path.display());
+    omni_debug!("Creating new .exe at: {}", exe_path.display());
     let mut exe_file = fs::File::create(&exe_path)?;
 
-    onscreen_debug!("Writing buffer into .exe");
+    omni_debug!("Writing buffer into .exe");
     exe_file.write_all(GAME_EXE)?;
 
-    onscreen_debug!("Updating .exe");
+    omni_debug!("Updating .exe");
     if let Err(e) = update_exe(&exe_path, game) {
         return Err(Error::other(format!("Could not update .exe: {e}")));
     }
@@ -159,21 +159,21 @@ fn export_for_mac(dest_root: &Path, game: &Game) -> io::Result<PathBuf> {
 
     let bin_path = &macos_dir.join(game.name.clone());
 
-    onscreen_debug!("Creating new binary at: {}", bin_path.display());
+    omni_debug!("Creating new binary at: {}", bin_path.display());
     let mut bin_file = fs::File::create(bin_path)?;
 
-    onscreen_debug!("Writing buffer into binary.");
+    omni_debug!("Writing buffer into binary.");
     bin_file.write_all(GAME_BIN)?;
     bin_file.flush()?;
 
     // Set executable permissions
-    onscreen_debug!("Writing binary permissions.");
+    omni_debug!("Writing binary permissions.");
     let mut permissions = fs::metadata(bin_path)?.permissions();
     permissions.set_mode(0o755);
     fs::set_permissions(bin_path, permissions)?;
 
     // Copy /Resources, skipping source files not needed for the final game
-    onscreen_debug!("Copying /Resources.");
+    omni_debug!("Copying /Resources.");
     let src_resources = resources_folder_current();
     let target_resources = bundle_path
         .join(paths::CONTENTS_FOLDER)
@@ -195,23 +195,23 @@ fn export_for_mac(dest_root: &Path, game: &Game) -> io::Result<PathBuf> {
     fs::write(target_resources.join(paths::GAME_RON), ron_string)?;
 
     // Copy Icon.icns
-    onscreen_debug!("Copying Icon.icns.");
+    omni_debug!("Copying Icon.icns.");
     let src_icns = mac_os_folder().join("Icon.icns");
     let target_icns = target_resources.join("Icon.icns");
 
     if src_icns.exists() {
         fs::copy(&src_icns, &target_icns)?;
     } else {
-        onscreen_debug!("Icon.icns not found, skipping.");
+        omni_debug!("Icon.icns not found, skipping.");
     }
 
     let target_plist = bundle_path.join(paths::CONTENTS_FOLDER).join("Info.plist");
-    onscreen_debug!("Writing Info.plist.");
+    omni_debug!("Writing Info.plist.");
     fs::write(&target_plist, mac_export_info_plist(game))?;
 
     // Tell the guard to keep the folder
     guard.success();
-    onscreen_debug!("Export successful.");
+    omni_debug!("Export successful.");
     Ok(bundle_path)
 }
 
@@ -268,16 +268,16 @@ fn update_exe(exe_path: &PathBuf, game: &Game) -> Result<(), winres_edit::Error>
 
     // Read the file and replace the icon
     if let Ok(png_bytes) = fs::read(&icon_path) {
-        onscreen_debug!("Replacing .ico from: {}", icon_path.display());
+        omni_debug!("Replacing .ico from: {}", icon_path.display());
         if let Some(icon_resource) = resources.find(resource_type::ICON, Id::Integer(1)) {
             icon_resource.replace(&png_bytes)?.update()?;
         }
     } else {
-        onscreen_warn!("Could not read .ico");
+        omni_warn!("Could not read .ico");
     }
 
     if let Some(mut version_info) = resources.get_version_info()? {
-        onscreen_debug!("Updating version info");
+        omni_debug!("Updating version info");
         // TODO: Update with actual version
         let version: [u16; 4] = [0, 1, 0, 0];
 
@@ -299,7 +299,7 @@ fn update_exe(exe_path: &PathBuf, game: &Game) -> Result<(), winres_edit::Error>
             ])
             .update()?;
     } else {
-        onscreen_warn!("Could not get version info");
+        omni_warn!("Could not get version info");
     }
 
     Ok(())

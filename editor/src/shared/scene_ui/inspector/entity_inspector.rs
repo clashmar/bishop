@@ -21,7 +21,7 @@ use bishop::prelude::*;
 use engine_core::controls::{Controls};
 use engine_core::ecs::*;
 use engine_core::game::{GameCtxMut};
-use engine_core::logging::{onscreen_error};
+use engine_core::logging::{omni_error};
 use engine_core::ui::*;
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter, Result as FmtResult};
@@ -147,7 +147,7 @@ impl EntityInspector {
                 continue;
             }
             let Some(reg) = COMPONENTS.iter().find(|r| r.type_name == type_name) else {
-                onscreen_error!("Module `{}` has no ComponentReg entry", type_name);
+                omni_error!("Module `{}` has no ComponentReg entry", type_name);
                 continue;
             };
             if entity_has_component(ecs, comp_target, reg) {
@@ -318,7 +318,7 @@ impl InspectorContent for EntityInspector {
                     component.type_name,
                 )));
             } else {
-                onscreen_error!("Component `{}` not found in registry", component.type_name);
+                omni_error!("Component `{}` not found in registry", component.type_name);
             }
         }
 

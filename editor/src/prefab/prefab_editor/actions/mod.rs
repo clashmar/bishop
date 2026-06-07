@@ -9,7 +9,7 @@ use crate::prefab::{PendingPrefabTransition, PrefabTransitionPrompt, BLANK_PREFA
 use crate::shared::scene_ui::inspector::{PrefabAction, PrefabActionRequest};
 use bishop::prelude::*;
 use engine_core::ecs::*;
-use engine_core::logging::{onscreen_error};
+use engine_core::logging::{omni_error};
 use engine_core::ui::*;
 use engine_core::worlds::*;
 use std::path::PathBuf;
@@ -164,13 +164,13 @@ impl Editor {
         ) {
             Ok(prefab) => prefab,
             Err(error) => {
-                onscreen_error!("Could not save prefab: {error}");
+                omni_error!("Could not save prefab: {error}");
                 return;
             }
         };
 
         if let Err(error) = save::sync_prefabs_lua_file(&self.game) {
-            onscreen_error!("Could not write prefabs.lua: {error}");
+            omni_error!("Could not write prefabs.lua: {error}");
             return;
         }
         let _ = self.reconcile_prefab_palette_after_library_change();
@@ -194,12 +194,12 @@ impl Editor {
             &prefab,
             Some(initial_path.as_path()),
         ) {
-            onscreen_error!("Could not save prefab: {error}");
+            omni_error!("Could not save prefab: {error}");
             return;
         }
 
         if let Err(error) = save::sync_prefabs_lua_file(&self.game) {
-            onscreen_error!("Could not write prefabs.lua: {error}");
+            omni_error!("Could not write prefabs.lua: {error}");
             return;
         }
         let _ = self.reconcile_prefab_palette_after_library_change();

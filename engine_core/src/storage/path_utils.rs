@@ -106,7 +106,7 @@ pub fn absolute_save_root() -> PathBuf {
     if get_engine_mode() == EngineMode::Game && !cfg!(debug_assertions) {
         let path = exe_dir().unwrap_or_else(|| {
             // If this isn't found then the game can't work
-            onscreen_error!("Could not find exe_dir in game mode");
+            omni_error!("Could not find exe_dir in game mode");
             panic!("Could not find exe_dir in game mode");
         });
         return path;
@@ -129,7 +129,7 @@ pub fn absolute_save_root() -> PathBuf {
     if let Some(user_path) = get_save_root() {
         // Ensure the folder still exists or recreate it
         if let Err(e) = fs::create_dir_all(&user_path) {
-            onscreen_error!(
+            omni_error!(
                 "Could not create user save root '{}': {e}",
                 user_path.display()
             );
@@ -137,21 +137,21 @@ pub fn absolute_save_root() -> PathBuf {
             return user_path;
         }
 
-        onscreen_error!("Stored save root is no longer valid, resetting.");
+        omni_error!("Stored save root is no longer valid, resetting.");
         {
             match EDITOR_CONFIG.write() {
                 Ok(mut cfg) => {
                     cfg.save_root = None;
                 }
                 Err(poison_err) => {
-                    onscreen_error!("Could not lock editor config for writing: {}", poison_err);
+                    omni_error!("Could not lock editor config for writing: {}", poison_err);
                 }
             }
         }
 
         // Update the .ron
         if let Err(e) = save_config() {
-            onscreen_error!("Error saving config: {e}.");
+            omni_error!("Error saving config: {e}.");
         }
     } else {
         // Save root needs to be set
@@ -163,7 +163,7 @@ pub fn absolute_save_root() -> PathBuf {
     // Fallback to the platform‑default location.
     let fallback_path = default_save_root();
     let _ = fs::create_dir_all(&fallback_path);
-    onscreen_error!("Using fallback save root: {}", fallback_path.display());
+    omni_error!("Using fallback save root: {}", fallback_path.display());
     fallback_path
 }
 
@@ -227,13 +227,13 @@ pub fn pick_save_root() -> Option<PathBuf> {
 
     // Make sure the directory chain exists
     if let Err(e) = fs::create_dir_all(&save_root) {
-        onscreen_error!("Cannot write to the selected folder: {e}");
+        omni_error!("Cannot write to the selected folder: {e}");
         return None;
     }
 
     update_config_root(&save_root)?;
 
-    onscreen_info!("Successfully created save root at: {:?}", save_root);
+    omni_info!("Successfully created save root at: {:?}", save_root);
     Some(save_root)
 }
 
@@ -272,7 +272,7 @@ pub fn apply_save_root_change(picked_folder: Option<PathBuf>) -> SaveRootResult 
 
     // Make sure the new folder can be created
     if let Err(e) = fs::create_dir_all(&new_root) {
-        onscreen_error!("Cannot create the selected folder: {e}");
+        omni_error!("Cannot create the selected folder: {e}");
         return SaveRootResult::Failed;
     }
 
@@ -287,10 +287,10 @@ pub fn apply_save_root_change(picked_folder: Option<PathBuf>) -> SaveRootResult 
             }
             Err(rename_err) => {
                 // If rename fails fall back to copy
-                onscreen_error!("Rename failed: {rename_err}.");
+                omni_error!("Rename failed: {rename_err}.");
                 if let Err(copy_err) = copy_dir_recursive(&old_root, &new_root) {
                     // Continue even if copy fails
-                    onscreen_error!("Failed to copy old games: {copy_err}.");
+                    omni_error!("Failed to copy old games: {copy_err}.");
                 } else {
                     delete_save_root();
                 }
@@ -302,7 +302,7 @@ pub fn apply_save_root_change(picked_folder: Option<PathBuf>) -> SaveRootResult 
         return SaveRootResult::Failed;
     }
 
-    onscreen_debug!("Save root changed to: {}", new_root.display());
+    omni_debug!("Save root changed to: {}", new_root.display());
     SaveRootResult::Changed(new_root)
 }
 
@@ -322,13 +322,13 @@ fn update_config_root(root_path: &Path) -> Option<()> {
     match EDITOR_CONFIG.write() {
         Ok(mut cfg) => cfg.save_root = Some(root_path.to_path_buf()),
         Err(poison) => {
-            onscreen_error!("Editor config lock poisoned: {poison}");
+            omni_error!("Editor config lock poisoned: {poison}");
             return None;
         }
     }
 
     if let Err(e) = save_config() {
-        onscreen_error!("Error saving  new save root: {e}");
+        omni_error!("Error saving  new save root: {e}");
         return None;
     }
 

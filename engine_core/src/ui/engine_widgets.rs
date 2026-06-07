@@ -62,7 +62,7 @@ pub fn gui_sprite_picker<C: BishopContext>(
                         changed = true;
                     }
                     None => {
-                        onscreen_error!("Failed to load sprite.");
+                        omni_error!("Failed to load sprite.");
                     }
                 }
             }
@@ -127,7 +127,7 @@ pub fn gui_script_picker<C: BishopContext>(
                         changed = true;
                     }
                     None => {
-                        onscreen_error!("Failed to load script.");
+                        omni_error!("Failed to load script.");
                     }
                 }
             }
@@ -191,7 +191,7 @@ pub fn gui_toml_picker<C: BishopContext>(
                         changed = true;
                     }
                     Err(error) => {
-                        onscreen_error!("Failed to register TOML asset: {error}");
+                        omni_error!("Failed to register TOML asset: {error}");
                     }
                 }
             }

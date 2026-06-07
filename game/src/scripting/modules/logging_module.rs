@@ -1,4 +1,4 @@
-use engine_core::{onscreen_info, register_lua_api, register_lua_module};
+use engine_core::{omni_info, register_lua_api, register_lua_module};
 use engine_core::logging::*;
 use engine_core::scripting::lua_constants::{lua_engine, lua_files};
 use engine_core::scripting::modules::lua_module::{LuaApi, LuaModule, LuaApiWriter};
@@ -35,11 +35,11 @@ impl LuaModule for LoggingModule {
                 };
 
                 match name.as_str() {
-                    LOG_INFO => onscreen_info!("[Lua] {}", msg),
-                    LOG_WARN => onscreen_warn!("[Lua] {}", msg),
-                    LOG_ERROR => onscreen_error!("[Lua] {}", msg),
-                    LOG_DEBUG => onscreen_debug!("[Lua] {}", msg),
-                    _ => onscreen_error!("[Lua] {}", "Log level from Lua was not recognised."),
+                    LOG_INFO => omni_info!("[Lua] {}", msg),
+                    LOG_WARN => omni_warn!("[Lua] {}", msg),
+                    LOG_ERROR => omni_error!("[Lua] {}", msg),
+                    LOG_DEBUG => omni_debug!("[Lua] {}", msg),
+                    _ => omni_error!("[Lua] {}", "Log level from Lua was not recognised."),
                 }
 
                 Ok(Value::Nil)

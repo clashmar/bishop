@@ -51,7 +51,7 @@ impl EventBus {
         if let Some(listeners) = map.get(&event) {
             for listener in listeners {
                 if let Err(e) = listener.handler.call::<()>(args.clone()) {
-                    onscreen_error!("Lua listener error for event '{}': {}", event, e);
+                    omni_error!("Lua listener error for event '{}': {}", event, e);
                 }
             }
         }

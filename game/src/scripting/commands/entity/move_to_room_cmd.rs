@@ -36,7 +36,7 @@ impl LuaCommand for MoveToRoomCmd {
     fn execute(&mut self, engine: &mut Engine) {
         let mut game_instance = engine.game_instance.borrow_mut();
         if !move_entity_to_room(&mut game_instance.game, self.entity, self.room_id) {
-            engine_core::onscreen_error!("Unknown room id {:?}", self.room_id);
+            engine_core::omni_error!("Unknown room id {:?}", self.room_id);
         }
     }
 }

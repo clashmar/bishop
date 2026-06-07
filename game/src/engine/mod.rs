@@ -26,7 +26,7 @@ use engine_core::animation::{update_animation_sytem};
 use engine_core::audio::{AudioManager};
 use engine_core::camera::CameraManager;
 use engine_core::constants::timing;
-use engine_core::logging::{onscreen_error};
+use engine_core::logging::{omni_error};
 use engine_core::menu::{GameMenuHandler, MenuInputPolicy, MenuManager, MenuSessionAction};
 use engine_core::rendering::{RenderSystem, smooth_dt, snap_dt};
 use engine_core::task::BackgroundService;
@@ -284,7 +284,7 @@ impl Engine {
             // Load scripts in this scope TODO: make this part of run_scripts when scope is finalized
             let ctx = game_instance.game.ctx_mut();
             if let Err(e) = ScriptSystem::load_scripts(&self.lua, ctx.ecs, ctx.script_manager) {
-                onscreen_error!("Error loading scripts: {}", e);
+                omni_error!("Error loading scripts: {}", e);
             }
         }
 
@@ -293,7 +293,7 @@ impl Engine {
 
         // Run scripts outside borrow_mut scope
         if let Err(e) = ScriptSystem::run_scripts(dt, self) {
-            onscreen_error!("Error running scripts: {}", e);
+            omni_error!("Error running scripts: {}", e);
         }
     }
 

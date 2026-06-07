@@ -1,6 +1,6 @@
 use super::Engine;
 use engine_core::audio::runtime;
-use engine_core::onscreen_error;
+use engine_core::omni_error;
 use mlua::{Value, Variadic};
 
 pub(super) fn emit_pending_audio_events(engine: &Engine) {
@@ -18,7 +18,7 @@ pub(super) fn emit_pending_audio_events(engine: &Engine) {
         .clone();
     for event in events {
         let Ok(payload) = engine.lua.create_table() else {
-            onscreen_error!("Failed to create audio event payload table");
+            omni_error!("Failed to create audio event payload table");
             continue;
         };
 
@@ -26,7 +26,7 @@ pub(super) fn emit_pending_audio_events(engine: &Engine) {
             || payload.set("reason", event.reason.as_str()).is_err()
             || payload.set("next_id", event.next_id).is_err()
         {
-            onscreen_error!("Failed to populate audio event payload table");
+            omni_error!("Failed to populate audio event payload table");
             continue;
         }
 

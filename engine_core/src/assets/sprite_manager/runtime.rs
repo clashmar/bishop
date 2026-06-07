@@ -76,11 +76,11 @@ impl SpriteManager {
                         }
                     }
                     Err(error) => {
-                        onscreen_error!("Failed to upload texture '{}': {}", path_display, error);
+                        omni_error!("Failed to upload texture '{}': {}", path_display, error);
                     }
                 },
                 Err(error) => {
-                    onscreen_error!("Failed to read texture '{}': {}", path_display, error);
+                    omni_error!("Failed to read texture '{}': {}", path_display, error);
                 }
             }
         }

@@ -1,6 +1,6 @@
 use bishop::prelude::*;
 use bishop::BishopApp;
-use engine_core::logging::{init_runtime_telemetry, onscreen_info};
+use engine_core::logging::{init_runtime_telemetry, omni_info};
 use game_lib::engine::Engine;
 use game_lib::startup::{runtime_icon_for_current_exe, StartupController, StartupIntent, StartupRequest};
 use std::any::Any;
@@ -27,7 +27,7 @@ impl GameApp {
 
 impl BishopApp for GameApp {
     async fn init(&mut self, ctx: PlatformContext) {
-        onscreen_info!("Initializing game.");
+        omni_info!("Initializing game.");
         let _ = ctx;
         let request = StartupRequest::game();
         self.current_startup_request = Some(request.clone());
@@ -87,11 +87,11 @@ fn main() -> Result<(), RunError> {
         .unwrap_or_else(|| "Game".to_string());
     let telemetry = init_runtime_telemetry(&window_title);
 
-    onscreen_info!("Launching game '{}'.", window_title);
-    onscreen_info!("Runtime logs: {}", telemetry.log_dir.display());
+    omni_info!("Launching game '{}'.", window_title);
+    omni_info!("Runtime logs: {}", telemetry.log_dir.display());
 
     if let Some(exe_path) = &exe_path {
-        onscreen_info!("Executable path: {}", exe_path.display());
+        omni_info!("Executable path: {}", exe_path.display());
     }
 
     let icon = runtime_icon_for_current_exe();

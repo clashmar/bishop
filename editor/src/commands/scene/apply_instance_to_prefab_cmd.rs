@@ -7,7 +7,7 @@ use crate::prefab::instance_sync::{
 };
 use crate::with_editor;
 use engine_core::ecs::*;
-use engine_core::logging::{onscreen_error};
+use engine_core::logging::{omni_error};
 
 /// Undo-able command that commits a linked room instance back into its prefab asset.
 #[derive(Debug)]
@@ -76,7 +76,7 @@ impl EditorCommand for ApplyInstanceToPrefabCmd {
                 &updated_prefab,
                 None,
             ) {
-                onscreen_error!("Could not save prefab: {error}");
+                omni_error!("Could not save prefab: {error}");
                 return;
             }
 
@@ -118,7 +118,7 @@ impl EditorCommand for ApplyInstanceToPrefabCmd {
                 previous_prefab,
                 None,
             ) {
-                onscreen_error!("Could not restore prefab: {error}");
+                omni_error!("Could not restore prefab: {error}");
                 return;
             }
 

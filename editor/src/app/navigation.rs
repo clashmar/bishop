@@ -91,7 +91,7 @@ impl Editor {
         let mut game_ctx = self.game.ctx_mut();
         let palette = &mut self.room_editor.tilemap_editor.tilemap_panel.palette;
         if let Err(e) = editor_storage::save_palette(palette, &game_name) {
-            engine_core::onscreen_error!("Could not save tile palette: {e}");
+            engine_core::omni_error!("Could not save tile palette: {e}");
         }
 
         let current_world = game_ctx

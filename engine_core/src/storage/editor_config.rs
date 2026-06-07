@@ -55,7 +55,7 @@ pub fn save_config() -> Result<(), Box<dyn Error>> {
 /// or if the field itself is `None`.
 pub fn get_save_root() -> Option<PathBuf> {
     if let Err(e) = EDITOR_CONFIG.read() {
-        onscreen_error!("Could not read config: {e}.");
+        omni_error!("Could not read config: {e}.");
         None
     } else {
         // Safe unwrap
@@ -68,7 +68,7 @@ pub fn get_startup_mode() -> StartupMode {
     match EDITOR_CONFIG.read() {
         Ok(cfg) => cfg.playtest_startup_mode,
         Err(poison) => {
-            onscreen_error!("Editor config lock poisoned: {poison}");
+            omni_error!("Editor config lock poisoned: {poison}");
             default_startup_mode()
         }
     }
@@ -82,13 +82,13 @@ pub fn set_startup_mode(startup_mode: StartupMode) {
             (cfg.clone(), config_path())
         }
         Err(poison) => {
-            onscreen_error!("Editor config lock poisoned: {poison}");
+            omni_error!("Editor config lock poisoned: {poison}");
             return;
         }
     };
 
     if let Err(e) = save_config_to_path(&snapshot, &path) {
-        onscreen_error!("Error saving playtest launch preference: {e}");
+        omni_error!("Error saving playtest launch preference: {e}");
     }
 }
 
@@ -97,7 +97,7 @@ pub fn get_inspector_module_expanded(title: &str) -> Option<bool> {
     match EDITOR_CONFIG.read() {
         Ok(cfg) => cfg.inspector_module_expanded.get(title).copied(),
         Err(poison) => {
-            onscreen_error!("Editor config lock poisoned: {poison}");
+            omni_error!("Editor config lock poisoned: {poison}");
             None
         }
     }
@@ -112,13 +112,13 @@ pub fn set_inspector_module_expanded(title: &str, expanded: bool) {
             (cfg.clone(), config_path())
         }
         Err(poison) => {
-            onscreen_error!("Editor config lock poisoned: {poison}");
+            omni_error!("Editor config lock poisoned: {poison}");
             return;
         }
     };
 
     if let Err(e) = save_config_to_path(&snapshot, &path) {
-        onscreen_error!("Error saving inspector module state: {e}");
+        omni_error!("Error saving inspector module state: {e}");
     }
 }
 
@@ -127,7 +127,7 @@ pub fn get_panel_position(id: &str) -> Option<PanelPosition> {
     match EDITOR_CONFIG.read() {
         Ok(cfg) => cfg.panel_positions.get(id).copied(),
         Err(poison) => {
-            onscreen_error!("Editor config lock poisoned: {poison}");
+            omni_error!("Editor config lock poisoned: {poison}");
             None
         }
     }
@@ -141,13 +141,13 @@ pub fn set_panel_position(id: &str, position: PanelPosition) {
             (cfg.clone(), config_path())
         }
         Err(poison) => {
-            onscreen_error!("Editor config lock poisoned: {poison}");
+            omni_error!("Editor config lock poisoned: {poison}");
             return;
         }
     };
 
     if let Err(e) = save_config_to_path(&snapshot, &path) {
-        onscreen_error!("Error saving panel position state: {e}");
+        omni_error!("Error saving panel position state: {e}");
     }
 }
 
@@ -157,7 +157,7 @@ pub fn app_dir() -> PathBuf {
     if let Some(project_dir) = ProjectDirs::from("com", "bishop", "engine") {
         project_dir.config_dir().to_path_buf()
     } else {
-        onscreen_error!("Could not resolve app directory.");
+        omni_error!("Could not resolve app directory.");
         panic!("Could not resolve app directory.");
     }
 }
@@ -185,7 +185,7 @@ fn load_config() -> EditorConfig {
     match fs::read_to_string(&path) {
         Ok(txt) => from_str(&txt).unwrap_or_default(),
         Err(e) => {
-            onscreen_error!("Error loading config: {e}.");
+            omni_error!("Error loading config: {e}.");
             EditorConfig::default()
         }
     }
@@ -197,7 +197,7 @@ pub fn apply_config_theme() {
     let preset_name = match EDITOR_CONFIG.read() {
         Ok(cfg) => cfg.theme_preset.clone(),
         Err(poison) => {
-            onscreen_error!("Editor config lock poisoned: {poison}");
+            omni_error!("Editor config lock poisoned: {poison}");
             return;
         }
     };

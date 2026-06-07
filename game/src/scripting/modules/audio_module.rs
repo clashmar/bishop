@@ -1,7 +1,7 @@
 use engine_core::{register_lua_api, register_lua_module};
 use engine_core::audio::runtime;
 use engine_core::audio::{AudioCommand, PlayMusicRequest, push_audio_command};
-use engine_core::logging::{onscreen_warn};
+use engine_core::logging::{omni_warn};
 use engine_core::scripting::{LuaApi, LuaApiWriter, LuaModule};
 use engine_core::scripting::lua_constants::{lua_audio, lua_engine, lua_files};
 use mlua::prelude::LuaResult;
@@ -103,7 +103,7 @@ impl LuaModule for AudioModule {
                 .filter_map(|r| r.ok())
                 .collect();
             if sounds.is_empty() {
-                onscreen_warn!("play_random_sfx: sounds table is empty or contains no strings");
+                omni_warn!("play_random_sfx: sounds table is empty or contains no strings");
                 return Ok(());
             }
             push_audio_command(AudioCommand::PlayVariedSfx {

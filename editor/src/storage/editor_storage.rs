@@ -16,7 +16,7 @@ use engine_core::constants::{paths, ui, world};
 use engine_core::ecs::*;
 use engine_core::engine_global::{set_game_name, game_name};
 use engine_core::game::{Game, IdAllocator, id_allocator};
-use engine_core::logging::{onscreen_debug, onscreen_error, onscreen_info};
+use engine_core::logging::{omni_debug, omni_error, omni_info};
 use engine_core::menu::{Alignment, LayoutConfig, MenuAction, MenuBackground, MenuBuilder, MenuMode, MenuTemplate, Padding, button, label, layout_group, slider};
 use engine_core::prefab::{PrefabId, PrefabManager};
 use engine_core::storage::*;
@@ -55,7 +55,7 @@ pub struct PrefabPaletteState {
 
 /// Create a brand-new game with a single empty world.
 pub fn create_new_game(name: String) -> Game {
-    onscreen_debug!("Creating new game.");
+    omni_debug!("Creating new game.");
 
     // Set game name globally
     set_game_name(&name);
@@ -80,11 +80,11 @@ pub fn create_new_game(name: String) -> Game {
 
     // Save the game.
     if let Err(e) = save_game(&game) {
-        onscreen_error!("Could not save the new game: {e}");
+        omni_error!("Could not save the new game: {e}");
     }
 
     if let Err(e) = save_default_front_end_menus() {
-        onscreen_error!("Could not scaffold default menus: {e}");
+        omni_error!("Could not scaffold default menus: {e}");
     }
 
     game
@@ -105,28 +105,28 @@ pub(super) fn create_game_folders(name: &str) {
 
     for (path, folder) in folders {
         if let Err(e) = fs::create_dir_all(&path) {
-            onscreen_error!("Could not create {folder} folder '{}': {e}", path.display());
+            omni_error!("Could not create {folder} folder '{}': {e}", path.display());
         }
     }
 
     // Extract embedded _engine scripts
     if let Err(e) = write_engine_scripts(&scripts_folder()) {
-        onscreen_error!("Could not write _engine scripts: {e}");
+        omni_error!("Could not write _engine scripts: {e}");
     }
 
     if let Err(e) = write_lua_scaffold_configs(&game_folder(name)) {
-        onscreen_error!("Could not write Lua scaffold configs: {e}");
+        omni_error!("Could not write Lua scaffold configs: {e}");
     }
 
     if let Err(e) = write_initial_generated_lua_files(&scripts_folder()) {
-        onscreen_error!("Could not write initial generated Lua files: {e}");
+        omni_error!("Could not write initial generated Lua files: {e}");
     }
 
     // Write sample theme file if it doesn't exist
     let theme_path = themes_folder().join(lua_files::BISHOP_THEME);
     if !theme_path.exists() {
         if let Err(e) = fs::write(&theme_path, BISHOP_THEME_LUA) {
-            onscreen_error!("Could not write sample theme: {e}");
+            omni_error!("Could not write sample theme: {e}");
         }
     }
 
@@ -134,14 +134,14 @@ pub(super) fn create_game_folders(name: &str) {
     let main_lua = scripts_folder().join("main.lua");
     if !main_lua.exists() {
         if let Err(e) = fs::write(&main_lua, "") {
-            onscreen_error!("Could not create main.lua: {e}");
+            omni_error!("Could not create main.lua: {e}");
         }
     }
 
     // Create audio subfolders
     for path in [sfx_folder(), music_folder()] {
         if let Err(e) = fs::create_dir_all(&path) {
-            onscreen_error!("Could not create audio folder '{}': {e}", path.display());
+            omni_error!("Could not create audio folder '{}': {e}", path.display());
         }
     }
 
@@ -160,7 +160,7 @@ fn create_default_text_files() {
 default_language = "en"
 "#;
         if let Err(e) = fs::write(&manifest_path, manifest_content) {
-            onscreen_error!("Could not create text manifest: {e}");
+            omni_error!("Could not create text manifest: {e}");
         }
     }
 
@@ -169,7 +169,7 @@ default_language = "en"
         .join(paths::TEXT_LANGUAGE_FOLDER)
         .join(paths::DIALOGUE_FOLDER);
     if let Err(e) = fs::create_dir_all(&en_dialogue) {
-        onscreen_error!(
+        omni_error!(
             "Could not create {}/{}/{} folder: {e}",
             paths::TEXT_FOLDER,
             paths::TEXT_LANGUAGE_FOLDER,
@@ -181,7 +181,7 @@ default_language = "en"
         .join(paths::TEXT_LANGUAGE_FOLDER)
         .join(paths::UI_TEXT_FOLDER);
     if let Err(e) = fs::create_dir_all(&en_ui) {
-        onscreen_error!(
+        omni_error!(
             "Could not create {}/{}/{} folder: {e}",
             paths::TEXT_FOLDER,
             paths::TEXT_LANGUAGE_FOLDER,
@@ -196,7 +196,7 @@ Start = "Start"
 Settings = "Settings"
 "#;
         if let Err(e) = fs::write(&start_ui_path, content) {
-            onscreen_error!(
+            omni_error!(
                 "Could not create {}/{}/start.toml: {e}",
                 paths::TEXT_LANGUAGE_FOLDER,
                 paths::UI_TEXT_FOLDER
@@ -213,7 +213,7 @@ SFX = "SFX Volume"
 Back = "Back"
 "#;
         if let Err(e) = fs::write(&settings_ui_path, content) {
-            onscreen_error!(
+            omni_error!(
                 "Could not create {}/{}/settings.toml: {e}",
                 paths::TEXT_LANGUAGE_FOLDER,
                 paths::UI_TEXT_FOLDER
@@ -289,7 +289,7 @@ pub fn save_game(game: &Game) -> io::Result<()> {
     // Regenerate animations.lua with custom clips
     let custom_clips = collect_custom_clip_names(&game.ecs);
     if let Err(e) = write_animations_lua(&scripts_folder(), &custom_clips) {
-        onscreen_error!("Could not write animations.lua: {e}");
+        omni_error!("Could not write animations.lua: {e}");
     }
 
     let prefab_names = collect_prefab_names(&game.prefab_manager)?;
@@ -300,7 +300,7 @@ pub fn save_game(game: &Game) -> io::Result<()> {
     let sound_names = collect_sound_group_names(&game.ecs, &sound_library);
     write_sounds_lua(&scripts_folder(), &sound_names)?;
 
-    onscreen_info!("Game saved to: {}", file_path.display());
+    omni_info!("Game saved to: {}", file_path.display());
     fs::write(file_path, ron_string)
 }
 
@@ -340,7 +340,7 @@ pub fn collect_prefab_names(prefab_manager: &PrefabManager) -> io::Result<Vec<St
 /// Load a `Game` from the folder that matches the supplied name.
 pub fn load_game_by_name(name: &str) -> io::Result<Game> {
     let path = resources_folder(name).join(paths::GAME_RON);
-    onscreen_debug!("Loading game from .ron: {}.", path.display());
+    omni_debug!("Loading game from .ron: {}.", path.display());
 
     // Try to read the file
     let ron_string = match fs::read_to_string(&path) {
@@ -517,7 +517,7 @@ pub fn write_to_app_dir(filename: &str, embedded: &[u8]) -> io::Result<PathBuf> 
     #[cfg(target_os = "macos")]
     {
         // Set executable permissions
-        onscreen_debug!("Writing binary permissions.");
+        omni_debug!("Writing binary permissions.");
         let mut permissions = fs::metadata(&path)?.permissions();
         permissions.set_mode(0o755);
         fs::set_permissions(&path, permissions)?;

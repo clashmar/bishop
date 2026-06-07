@@ -2,7 +2,7 @@ use crate::engine::Engine;
 use crate::game_global::drain_commands;
 use crate::scripting::modules::entity_module::lua_entity_handle;
 use engine_core::ecs::*;
-use engine_core::logging::{onscreen_error};
+use engine_core::logging::{omni_error};
 use engine_core::scripting::{EventBus, LuaModuleRegistry, ScriptManager, register_runtime_modules};
 use engine_core::storage::*;
 use engine_core::scripting::lua_constants::{lua_dirs, lua_engine, lua_entity, lua_files, lua_globals};
@@ -21,25 +21,25 @@ impl ScriptSystem {
     /// Initialize the script system.
     pub fn init(lua: &Lua, event_bus: &EventBus) {
         if let Err(e) = register_runtime_modules(lua, event_bus) {
-            onscreen_error!("Lua module registration failed: {e}");
+            omni_error!("Lua module registration failed: {e}");
         }
 
         if let Err(e) = Self::register_game_modules(lua) {
-            onscreen_error!("Lua game module registration failed: {e}");
+            omni_error!("Lua game module registration failed: {e}");
         }
 
         ScriptManager::load_to_package(lua);
 
         // Run main.lua after all modules are registered
         if let Err(e) = Self::load_main(lua) {
-            onscreen_error!("Main failed: {e}");
+            omni_error!("Main failed: {e}");
         }
 
         // Store the global update function if main.lua set engine.update
         if let Ok(engine_tbl) = lua.globals().get::<Table>(lua_engine::ENGINE) {
             if let Ok(update_fn) = engine_tbl.get::<Function>(lua_entity::UPDATE) {
                 if let Err(e) = lua.set_named_registry_value(GLOBAL_UPDATE_KEY, update_fn) {
-                    onscreen_error!("Failed to store global update: {e}");
+                    omni_error!("Failed to store global update: {e}");
                 }
             }
         }
@@ -167,7 +167,7 @@ impl ScriptSystem {
             if let Some(callback_path) = engine.menu_manager.take_pending_on_open() {
                 did_work = true;
                 if let Err(e) = invoke_menu_callback(&engine.lua, &callback_path) {
-                    onscreen_error!("menu on_open callback failed: {e}");
+                    omni_error!("menu on_open callback failed: {e}");
                 }
             }
 

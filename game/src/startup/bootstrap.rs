@@ -11,7 +11,7 @@ use bishop::prelude::*;
 use engine_core::constants::{paths};
 use engine_core::engine_global::{EngineMode, set_engine_mode, set_game_name};
 use engine_core::game::{Game, StartupMode};
-use engine_core::logging::{onscreen_error};
+use engine_core::logging::{omni_error};
 use engine_core::menu::MenuTemplate;
 use engine_core::storage::*;
 use engine_core::task::BackgroundTask;
@@ -316,7 +316,7 @@ fn parse_startup(startup_ron: Option<&str>, resources_dir: &Path) -> StartupAsse
     };
 
     ron::from_str(startup_ron).unwrap_or_else(|error| {
-        onscreen_error!(
+        omni_error!(
             "Failed to parse startup '{}': {}",
             resources_dir.join(paths::STARTUP_RON).display(),
             error
@@ -327,7 +327,7 @@ fn parse_startup(startup_ron: Option<&str>, resources_dir: &Path) -> StartupAsse
 
 fn parse_payload_startup(startup_ron: &str) -> StartupAsset {
     ron::from_str(startup_ron).unwrap_or_else(|error| {
-        onscreen_error!("Failed to parse embedded playtest startup: {}", error);
+        omni_error!("Failed to parse embedded playtest startup: {}", error);
         StartupAsset::default()
     })
 }
@@ -489,7 +489,7 @@ fn resolve_entry_mode(
     }
 
     if !menu_template_exists(menu_id) {
-        onscreen_error!(
+        omni_error!(
             "Startup menu '{}' is missing for game '{}'; falling back to Playing.",
             menu_id,
             game.name

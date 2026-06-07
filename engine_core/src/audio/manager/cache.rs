@@ -34,7 +34,7 @@ impl AudioManager {
 
     fn fail_sound_load(&mut self, id: String, error: String) {
         self.clear_pending_requests_for_sound(&id);
-        crate::onscreen_log!(
+        crate::omni_log!(
             log::Level::Error,
             "AudioManager: failed to load '{id}': {error}"
         );

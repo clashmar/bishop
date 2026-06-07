@@ -7,7 +7,7 @@ use crate::editor_global::*;
 use bishop::prelude::*;
 use bishop::BishopApp;
 use engine_core::constants::window;
-use engine_core::logging::{init_file_logger, onscreen_info, onscreen_warn};
+use engine_core::logging::{init_file_logger, omni_info, omni_warn};
 use engine_core::storage::*;
 use engine_core::ui::*;
 
@@ -45,20 +45,20 @@ impl EditorApp {
 
 impl BishopApp for EditorApp {
     async fn init(&mut self, ctx: PlatformContext) {
-        onscreen_info!("Starting editor.");
+        omni_info!("Starting editor.");
 
         // Initialize logging
         init_file_logger();
 
         if !ensure_save_root() {
             // User cancelled
-            onscreen_warn!("No save root selected. Exiting.");
+            omni_warn!("No save root selected. Exiting.");
             std::process::exit(0);
         }
 
         let games_path = absolute_save_root();
         if let Err(e) = std::fs::create_dir_all(&games_path) {
-            onscreen_warn!("Failed to create save root: {}", e);
+            omni_warn!("Failed to create save root: {}", e);
             std::process::exit(1);
         }
 
@@ -71,7 +71,7 @@ impl BishopApp for EditorApp {
                 crate::app::macos_quit::install(&ctx);
             }
             Err(e) => {
-                onscreen_warn!("Failed to initialize editor: {}", e);
+                omni_warn!("Failed to initialize editor: {}", e);
                 std::process::exit(1);
             }
         }

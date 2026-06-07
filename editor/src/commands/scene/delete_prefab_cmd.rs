@@ -7,7 +7,7 @@ use crate::storage::editor_storage::save_game;
 use crate::storage::editor_storage::PrefabPaletteState;
 use engine_core::ecs::*;
 use engine_core::game::{Game};
-use engine_core::logging::{onscreen_error};
+use engine_core::logging::{omni_error};
 use engine_core::storage::*;
 
 #[derive(Debug)]
@@ -52,16 +52,16 @@ impl EditorCommand for DeletePrefabCmd {
                 &mut editor.game.asset_registry,
                 self.prefab_id,
             ) {
-                onscreen_error!("Could not delete prefab: {error}");
+                omni_error!("Could not delete prefab: {error}");
                 return;
             }
 
             if let Err(error) = sync_prefabs_lua_file(&editor.game) {
-                onscreen_error!("Could not write prefabs.lua: {error}");
+                omni_error!("Could not write prefabs.lua: {error}");
                 return;
             }
             if let Err(error) = save_game(&editor.game) {
-                onscreen_error!("Could not save prefab metadata: {error}");
+                omni_error!("Could not save prefab metadata: {error}");
                 return;
             }
 
@@ -85,16 +85,16 @@ impl EditorCommand for DeletePrefabCmd {
                 prefab,
                 None,
             ) {
-                onscreen_error!("Could not restore prefab: {error}");
+                omni_error!("Could not restore prefab: {error}");
                 return;
             }
 
             if let Err(error) = sync_prefabs_lua_file(&editor.game) {
-                onscreen_error!("Could not write prefabs.lua: {error}");
+                omni_error!("Could not write prefabs.lua: {error}");
                 return;
             }
             if let Err(error) = save_game(&editor.game) {
-                onscreen_error!("Could not save prefab metadata: {error}");
+                omni_error!("Could not save prefab metadata: {error}");
                 return;
             }
             restore_linked_prefab_instances(editor, &self.deleted_snapshots);

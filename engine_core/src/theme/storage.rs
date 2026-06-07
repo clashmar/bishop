@@ -13,7 +13,7 @@ pub fn save_editor_preset(preset_name: &str) {
             (cfg.clone(), config_path())
         }
         Err(poison) => {
-            crate::logging::onscreen_error!("Editor config lock poisoned: {poison}");
+            crate::logging::omni_error!("Editor config lock poisoned: {poison}");
             return;
         }
     };
@@ -23,6 +23,6 @@ pub fn save_editor_preset(preset_name: &str) {
     }
 
     if let Err(e) = save_config_to_path(&snapshot, &path) {
-        crate::logging::onscreen_error!("Error saving theme: {e}");
+        crate::logging::omni_error!("Error saving theme: {e}");
     }
 }

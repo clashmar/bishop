@@ -15,7 +15,7 @@ use crate::storage::editor_storage::*;
 use bishop::prelude::*;
 use engine_core::engine_global::{set_game_name};
 use engine_core::game::{Game};
-use engine_core::logging::{onscreen_error};
+use engine_core::logging::{omni_error};
 use engine_core::scripting::{register_runtime_modules};
 use engine_core::storage::*;
 use engine_core::ui::*;
@@ -91,7 +91,7 @@ impl Editor {
                                                 Some(Toast::new(format!("Loaded '{}'", name), 2.5));
                                         }
                                         Err(e) => {
-                                            onscreen_error!("Failed to load game: {e}");
+                                            omni_error!("Failed to load game: {e}");
                                             self.toast = Some(Toast::new(
                                                 "Could not load selected game.",
                                                 2.5,
@@ -267,7 +267,7 @@ impl Editor {
         with_lua(|lua| {
             game.initialize(ctx, lua);
             if let Err(error) = register_runtime_modules(lua, &game.script_manager.event_bus) {
-                onscreen_error!("Lua module registration failed: {error}");
+                omni_error!("Lua module registration failed: {error}");
             }
         });
         self.game_editor

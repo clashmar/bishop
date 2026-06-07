@@ -1,6 +1,6 @@
 use crate::engine::Engine;
 use crate::scripting::commands::lua_command::LuaCommand;
-use engine_core::{ecs::{Entity, Script}, onscreen_error};
+use engine_core::{ecs::{Entity, Script}, omni_error};
 use mlua::{Function, MultiValue, Value};
 
 /// Calls a function on an entity.
@@ -41,7 +41,7 @@ impl LuaCommand for CallEntityFnCmd {
         call_args.extend(self.args.clone());
 
         if let Err(e) = func.call::<()>(MultiValue::from_vec(call_args)) {
-            onscreen_error!("Lua call failed: {}", e);
+            omni_error!("Lua call failed: {}", e);
         }
     }
 }

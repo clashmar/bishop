@@ -5,7 +5,7 @@ use crate::save_system::SaveProviderRegistry;
 use crate::scripting::lua_ctx::{register_runtime_lua_contexts, register_save_lua_context};
 use bishop::prelude::*;
 use engine_core::camera::CameraManager;
-use engine_core::logging::{onscreen_error};
+use engine_core::logging::{omni_error};
 use engine_core::rendering::{RenderSystem};
 use mlua::prelude::LuaResult;
 use mlua::Lua;
@@ -74,7 +74,7 @@ impl EngineBuilder {
             game_instance.clone(),
             ctx.clone(),
         ) {
-            onscreen_error!("Could not register lua contexts: {}", e);
+            omni_error!("Could not register lua contexts: {}", e);
         }
         Engine::new(
             game_instance,

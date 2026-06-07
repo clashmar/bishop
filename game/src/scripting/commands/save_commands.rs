@@ -31,7 +31,7 @@ impl LuaCommand for SaveToLaneCmd {
                 }
             }
             Err(err) => {
-                engine_core::onscreen_error!("Save to {:?} failed: {}", self.lane, err);
+                engine_core::omni_error!("Save to {:?} failed: {}", self.lane, err);
                 if let Some(args) = save_failed_event_args(
                     &engine.lua,
                     self.lane.file_stem(),

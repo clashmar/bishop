@@ -11,7 +11,7 @@ use crate::ecs::entity::remove_parent;
 #[cfg(feature = "editor")]
 use crate::ecs::Transform;
 use crate::game::GameCtxMut;
-use crate::onscreen_error;
+use crate::omni_error;
 use crate::prefab::{PrefabAsset, validate_prefab};
 use crate::worlds::room::RoomId;
 use bishop::prelude::*;
@@ -28,7 +28,7 @@ pub fn instantiate_prefab(
     room_id: Option<RoomId>,
 ) -> Entity {
     if let Err(error) = validate_prefab(prefab) {
-        onscreen_error!("Failed to instantiate prefab '{}': {error}", prefab.name);
+        omni_error!("Failed to instantiate prefab '{}': {error}", prefab.name);
         return Entity::null();
     }
 
@@ -42,7 +42,7 @@ pub fn instantiate_prefab(
     }
 
     let Some(root_entity) = entities.get(&prefab.root_node_id).copied() else {
-        onscreen_error!("Failed to instantiate prefab '{}': missing root node", prefab.name);
+        omni_error!("Failed to instantiate prefab '{}': missing root node", prefab.name);
         return Entity::null();
     };
 
@@ -99,7 +99,7 @@ pub fn refresh_prefab_instance(
     room_id: Option<RoomId>,
 ) {
     if let Err(error) = validate_prefab(prefab) {
-        onscreen_error!("Failed to refresh prefab '{}': {error}", prefab.name);
+        omni_error!("Failed to refresh prefab '{}': {error}", prefab.name);
         return;
     }
 

@@ -12,7 +12,7 @@ impl SpriteManager {
         let path = rel_path.as_ref().to_path_buf();
 
         if path.to_string_lossy().trim().is_empty() {
-            onscreen_info!("init_texture: empty path, returning error");
+            omni_info!("init_texture: empty path, returning error");
             return Err("Empty texture path".into());
         }
 
@@ -123,7 +123,7 @@ impl SpriteManager {
         match self.init_texture(asset_registry, loader, p) {
             Ok(id) => Some(id),
             Err(err) => {
-                onscreen_error!("{}", err);
+                omni_error!("{}", err);
                 None
             }
         }

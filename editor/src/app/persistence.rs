@@ -7,7 +7,7 @@ use crate::storage::editor_storage::*;
 use crate::storage::export::{export_game, export_target_path, PendingExport};
 use bishop::prelude::*;
 use engine_core::ecs::*;
-use engine_core::logging::{onscreen_error};
+use engine_core::logging::{omni_error};
 use engine_core::ui::*;
 
 #[derive(Clone, Copy)]
@@ -69,7 +69,7 @@ impl Editor {
                 .room_editor
                 .load_prefab_palette_state(&self.game.prefab_manager, state),
             Err(error) => {
-                onscreen_error!("Could not load prefab palette state: {error}");
+                omni_error!("Could not load prefab palette state: {error}");
                 self.room_editor.load_prefab_palette_state(
                     &self.game.prefab_manager,
                     PrefabPaletteState::default(),
@@ -82,7 +82,7 @@ impl Editor {
         if let Err(error) =
             save_prefab_palette_state(&self.game.name, &self.room_editor.prefab_palette_state())
         {
-            onscreen_error!("Could not save prefab palette state: {error}");
+            omni_error!("Could not save prefab palette state: {error}");
             return false;
         }
         true
@@ -139,7 +139,7 @@ impl Editor {
 
         let palette = &self.room_editor.tilemap_editor.tilemap_panel.palette;
         let palette_saved = if let Err(e) = save_palette(palette, &self.game.name) {
-            onscreen_error!("Could not save palette: {e}");
+            omni_error!("Could not save palette: {e}");
             false
         } else {
             true
@@ -147,7 +147,7 @@ impl Editor {
         let prefab_palette_saved = self.save_prefab_palette_state();
 
         if let Err(e) = save_game(&self.game) {
-            onscreen_error!("Could not save game: {}.", e)
+            omni_error!("Could not save game: {}.", e)
         } else if palette_saved && prefab_palette_saved {
             self.save_menus();
             self.toast = Some(Toast::new("Saved", 2.5));
@@ -160,7 +160,7 @@ impl Editor {
     pub fn save_menus(&self) {
         for template in &self.menu_editor.templates {
             if let Err(e) = save_menu(template) {
-                onscreen_error!("Could not save menu '{}': {}", template.id, e);
+                omni_error!("Could not save menu '{}': {}", template.id, e);
             }
         }
     }
@@ -211,7 +211,7 @@ impl Editor {
                 self.toast = Some(Toast::new(format!("Exported to: {}", path.display()), 2.5));
             }
             Err(e) => {
-                onscreen_error!("Export failed: {e}");
+                omni_error!("Export failed: {e}");
             }
         }
     }

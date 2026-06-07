@@ -1,5 +1,4 @@
 use super::*;
-use bishop::prelude::Vec2;
 use crate::ecs::capture::ComponentSnapshot;
 use crate::ecs::component::comp_type_name;
 use crate::ecs::entity::get_parent;

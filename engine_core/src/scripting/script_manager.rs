@@ -198,7 +198,7 @@ impl ScriptManager {
         match self.init_script(asset_registry, p) {
             Ok(id) => Some(id),
             Err(err) => {
-                onscreen_error!("{}", err);
+                omni_error!("{}", err);
                 None
             }
         }
@@ -272,7 +272,7 @@ impl ScriptManager {
         let scripts_dir = scripts_folder().to_string_lossy().replace('\\', "/");
         let themes_dir = themes_folder().to_string_lossy().replace('\\', "/");
 
-        onscreen_debug!("package.path loaded from: {} {}", scripts_dir, themes_dir);
+        omni_debug!("package.path loaded from: {} {}", scripts_dir, themes_dir);
 
         let add_path = format!(
             r#"

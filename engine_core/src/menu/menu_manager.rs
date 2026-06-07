@@ -1,6 +1,6 @@
 use crate::menu::runtime::*;
 use crate::menu::*;
-use crate::onscreen_error;
+use crate::omni_error;
 use crate::storage::path_utils::menus_folder;
 use crate::text::TextManager;
 use bishop::prelude::*;
@@ -474,14 +474,14 @@ impl MenuManager {
             let ron_str = match fs::read_to_string(&path) {
                 Ok(s) => s,
                 Err(e) => {
-                    onscreen_error!("Failed to read menu file {:?}: {}", path, e);
+                    omni_error!("Failed to read menu file {:?}: {}", path, e);
                     continue;
                 }
             };
 
             match ron::de::from_str::<MenuTemplate>(&ron_str) {
                 Ok(template) => self.register_template(template),
-                Err(e) => onscreen_error!("Failed to parse menu file {:?}: {}", path, e),
+                Err(e) => omni_error!("Failed to parse menu file {:?}: {}", path, e),
             }
         }
     }

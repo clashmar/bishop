@@ -41,7 +41,7 @@ use engine_core::audio::{AudioManager};
 use engine_core::controls::{Controls};
 use engine_core::ecs::*;
 use engine_core::game::{Game};
-use engine_core::logging::{onscreen_error, onscreen_info};
+use engine_core::logging::{omni_error, omni_info};
 use engine_core::physics::collider_system;
 use engine_core::rendering::{RenderSystem};
 use engine_core::task::BackgroundService;
@@ -135,7 +135,7 @@ impl Editor {
             create_new_game(name)
         } else {
             // User pressed Cancel
-            onscreen_info!("User cancelled new game dialogue.");
+            omni_info!("User cancelled new game dialogue.");
             std::process::exit(0);
         };
 
@@ -153,7 +153,7 @@ impl Editor {
         let palette = match load_palette(&game.name.clone()) {
             Ok(p) => p,
             Err(e) => {
-                onscreen_error!("Failed to load palette: {e}");
+                omni_error!("Failed to load palette: {e}");
                 // Fall back to a new palette
                 TilePalette::new()
             }
@@ -199,12 +199,12 @@ impl Editor {
                                 self.playtest_process = Some(process);
                             }
                             Err(e) => {
-                                onscreen_error!("Failed to launch playtest: {e}");
+                                omni_error!("Failed to launch playtest: {e}");
                             }
                         }
                     }
                     Err(e) => {
-                        onscreen_error!("Playtest build failed: {e}");
+                        omni_error!("Playtest build failed: {e}");
                     }
                 }
             }
@@ -389,7 +389,7 @@ impl Editor {
                         let payload_path = match write_playtest_payload(room, &self.game) {
                             Ok(p) => p,
                             Err(e) => {
-                                onscreen_error!("Could not write playtest payload: {e}");
+                                omni_error!("Could not write playtest payload: {e}");
                                 self.room_editor.request_play = false;
                                 return;
                             }
@@ -407,12 +407,12 @@ impl Editor {
                                             self.playtest_process = Some(process);
                                         }
                                         Err(e) => {
-                                            onscreen_error!("Failed to launch playtest: {e}");
+                                            omni_error!("Failed to launch playtest: {e}");
                                         }
                                     }
                                 }
                                 Err(e) => {
-                                    onscreen_error!("{e}");
+                                    omni_error!("{e}");
                                 }
                             }
                         } else {
