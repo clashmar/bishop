@@ -92,7 +92,11 @@ impl Controls {
     }
 
     pub fn cmd_r(ctx: &WgpuContext) -> bool {
-        ctx.is_key_pressed(KeyCode::R) && ctx.is_key_down(KeyCode::LeftSuper)
+        ctx.is_key_pressed(KeyCode::R) && command_held(ctx)
+    }
+
+    pub fn cmd_i(ctx: &WgpuContext) -> bool {
+        ctx.is_key_pressed(KeyCode::I) && command_held(ctx)
     }
 
     pub fn s(ctx: &WgpuContext) -> bool {
@@ -135,6 +139,10 @@ fn modifier_not_pressed(ctx: &WgpuContext) -> bool {
         && !ctx.is_key_down(KeyCode::RightAlt)
         && !ctx.is_key_down(KeyCode::LeftSuper)
         && !ctx.is_key_down(KeyCode::RightSuper)
+}
+
+fn command_held(ctx: &WgpuContext) -> bool {
+    ctx.is_key_down(KeyCode::LeftSuper) || ctx.is_key_down(KeyCode::RightSuper)
 }
 
 pub fn get_omni_input(ctx: &WgpuContext) -> Vec2 {

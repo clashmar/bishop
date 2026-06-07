@@ -14,8 +14,8 @@ use crate::shared::input::{canvas_blocked_by_global_ui, shortcuts_blocked};
 use crate::shared::scene_ui::inspector::{InspectorHostAction, InspectorContext};
 use crate::world::coord::*;
 use bishop::prelude::*;
-use engine_core::controls::{Controls};
-use engine_core::game::{Game};
+use engine_core::controls::Controls;
+use engine_core::game::Game;
 use engine_core::worlds::*;
 use engine_core::theme::with_theme;
 use once_cell::sync::Lazy;
@@ -480,8 +480,6 @@ impl WorldEditor {
         }
         self.mode_selector.draw_tooltips(ctx);
 
-        ctx.set_camera(camera);
-
         let inspector_rect = Rect::new(
             ctx.screen_width() - gui_constants::inspector::WIDTH,
             0.0,
@@ -508,6 +506,8 @@ impl WorldEditor {
         if let Some(InspectorHostAction::RenameWorld(name)) = inspector_output.host_action {
             push_command(Box::new(EditWorldCmd::new(world_id, Some(name), None)));
         }
+
+        ctx.set_camera(camera);
     }
 
     pub fn init_camera(&mut self, ctx: &WgpuContext, camera: &mut Camera2D, world: &World) {

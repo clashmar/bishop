@@ -17,7 +17,7 @@ use std::path::PathBuf;
 use std::sync::RwLock;
 pub static EDITOR_CONFIG: Lazy<RwLock<EditorConfig>> = Lazy::new(|| RwLock::new(load_config()));
 
-#[derive(Clone, Debug, Serialize, Deserialize, Default)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct EditorConfig {
     pub save_root: Option<PathBuf>,
     #[serde(default)]
@@ -26,6 +26,9 @@ pub struct EditorConfig {
     #[serde(default = "default_startup_mode")]
     pub playtest_startup_mode: StartupMode,
     #[cfg(feature = "editor")]
+    #[serde(default = "default_inspector_visible")]
+    pub inspector_visible: bool,
+    #[cfg(feature = "editor")]
     #[serde(default)]
     pub inspector_module_expanded: BTreeMap<String, bool>,
     #[cfg(feature = "editor")]
@@ -33,11 +36,33 @@ pub struct EditorConfig {
     pub panel_positions: BTreeMap<String, PanelPosition>,
 }
 
+impl Default for EditorConfig {
+    fn default() -> Self {
+        Self {
+            save_root: None,
+            theme_preset: None,
+            #[cfg(feature = "editor")]
+            playtest_startup_mode: default_startup_mode(),
+            #[cfg(feature = "editor")]
+            inspector_visible: default_inspector_visible(),
+            #[cfg(feature = "editor")]
+            inspector_module_expanded: BTreeMap::new(),
+            #[cfg(feature = "editor")]
+            panel_positions: BTreeMap::new(),
+        }
+    }
+}
+
 #[cfg(feature = "editor")]
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq)]
 pub struct PanelPosition {
     pub x: f32,
     pub y: f32,
+}
+
+#[cfg(feature = "editor")]
+fn default_inspector_visible() -> bool {
+    true
 }
 
 #[cfg(feature = "editor")]
@@ -89,6 +114,35 @@ pub fn set_startup_mode(startup_mode: StartupMode) {
 
     if let Err(e) = save_config_to_path(&snapshot, &path) {
         omni_error!("Error saving playtest launch preference: {e}");
+    }
+}
+
+#[cfg(feature = "editor")]
+pub fn get_inspector_visible() -> bool {
+    match EDITOR_CONFIG.read() {
+        Ok(cfg) => cfg.inspector_visible,
+        Err(poison) => {
+            omni_error!("Editor config lock poisoned: {poison}");
+            default_inspector_visible()
+        }
+    }
+}
+
+#[cfg(feature = "editor")]
+pub fn set_inspector_visible(visible: bool) {
+    let (snapshot, path) = match EDITOR_CONFIG.write() {
+        Ok(mut cfg) => {
+            cfg.inspector_visible = visible;
+            (cfg.clone(), config_path())
+        }
+        Err(poison) => {
+            omni_error!("Editor config lock poisoned: {poison}");
+            return;
+        }
+    };
+
+    if let Err(e) = save_config_to_path(&snapshot, &path) {
+        omni_error!("Error saving inspector visibility state: {e}");
     }
 }
 
@@ -291,8 +345,10 @@ mod tests {
 
     #[test]
     fn theme_preset_roundtrips_through_ron() {
-        let mut config = EditorConfig::default();
-        config.theme_preset = Some("Bishop".to_string());
+        let config = EditorConfig {
+            theme_preset: Some("Bishop".to_string()),
+            ..EditorConfig::default()
+        };
 
         let path = std::env::temp_dir().join(format!("bishop-theme-test-{}.ron", Uuid::new_v4()));
         save_config_to_path(&config, &path).unwrap();
@@ -308,5 +364,39 @@ mod tests {
         let ron = r#"(save_root: None)"#;
         let config: EditorConfig = ron::from_str(ron).unwrap();
         assert_eq!(config.theme_preset, None);
+    }
+
+    #[test]
+    fn inspector_visibility_defaults_to_visible() {
+        let config = EditorConfig::default();
+
+        assert!(config.inspector_visible);
+    }
+
+    #[test]
+    fn missing_inspector_visibility_defaults_to_visible() {
+        let config: EditorConfig = ron::from_str(r#"(save_root: None)"#).unwrap();
+
+        assert!(config.inspector_visible);
+    }
+
+    #[test]
+    fn inspector_visibility_round_trips_through_ron() {
+        let path = std::env::temp_dir().join(format!(
+            "editor-config-{}.ron",
+            Uuid::new_v4()
+        ));
+        let config = EditorConfig {
+            inspector_visible: false,
+            ..EditorConfig::default()
+        };
+
+        save_config_to_path(&config, &path).unwrap();
+
+        let loaded: EditorConfig =
+            ron::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+        assert!(!loaded.inspector_visible);
+
+        std::fs::remove_file(path).unwrap();
     }
 }

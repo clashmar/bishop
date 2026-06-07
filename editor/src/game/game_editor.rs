@@ -16,7 +16,7 @@ use crate::world::coord;
 use bishop::prelude::*;
 use engine_core::controls::{Controls};
 use engine_core::ecs::*;
-use engine_core::game::{Game};
+use engine_core::game::Game;
 use engine_core::ui::*;
 use engine_core::worlds::*;
 use engine_core::theme::with_theme;

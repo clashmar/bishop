@@ -1,11 +1,13 @@
 use crate::app::EditorMode;
-use crate::gui::inspector::shell::Inspector;
+use crate::gui::inspector::shell::{compose_pane_output, Inspector};
 use crate::gui::text_input::committed_name_change;
 use crate::shared::scene_ui::inspector::{
     is_scene_component_hidden_in_prefab, linked_prefab_instance_state_for_scene_inspector,
-    InspectorContext,
+    InspectorContext, InspectorOutput,
 };
+use bishop::prelude::*;
 use engine_core::ecs::*;
+use engine_core::storage::editor_config;
 use engine_core::ui::*;
 use engine_core::worlds::*;
 use widgets::InputCommit;
@@ -106,4 +108,84 @@ fn room_properties_does_not_create_entity_target() {
     let mut inspector = Inspector::new();
     inspector.select_room();
     assert!(!inspector.has_target());
+}
+
+#[test]
+fn selecting_room_does_not_unhide_hidden_inspector() {
+    let mut inspector = Inspector::new();
+    inspector.set_rect(Rect::new(100.0, 0.0, 325.0, 400.0));
+    editor_config::set_inspector_visible(false);
+
+    inspector.select_room();
+
+    assert!(!inspector.is_visible());
+}
+
+#[test]
+fn selecting_entity_does_not_unhide_hidden_inspector() {
+    let mut inspector = Inspector::new();
+    inspector.set_rect(Rect::new(100.0, 0.0, 325.0, 400.0));
+    editor_config::set_inspector_visible(false);
+
+    inspector.select_entity(Entity(7));
+
+    assert!(!inspector.is_visible());
+}
+
+#[test]
+fn hidden_inspector_only_hit_tests_the_strip() {
+    let mut inspector = Inspector::new();
+    inspector.set_rect(Rect::new(100.0, 0.0, 325.0, 400.0));
+    editor_config::set_inspector_visible(false);
+
+    let strip_rect = inspector.strip_rect();
+    let strip_center = vec2(
+        strip_rect.x + strip_rect.w / 2.0,
+        strip_rect.y + strip_rect.h / 2.0,
+    );
+
+    assert!(inspector.hit_test_point(strip_center));
+    assert!(!inspector.hit_test_point(vec2(110.0, strip_rect.y + 20.0)));
+}
+
+#[test]
+fn visible_shell_composes_body_before_header() {
+    let mut pane = ();
+    let order = std::cell::RefCell::new(Vec::new());
+
+    let _ = compose_pane_output(
+        &mut pane,
+        true,
+        |_| {
+            order.borrow_mut().push("body");
+            InspectorOutput::default()
+        },
+        |_| {
+            order.borrow_mut().push("header");
+            InspectorOutput::default()
+        },
+    );
+
+    assert_eq!(*order.borrow(), vec!["body", "header"]);
+}
+
+#[test]
+fn collapsed_shell_skips_body_and_still_draws_header() {
+    let mut pane = ();
+    let order = std::cell::RefCell::new(Vec::new());
+
+    let _ = compose_pane_output(
+        &mut pane,
+        false,
+        |_| {
+            order.borrow_mut().push("body");
+            InspectorOutput::default()
+        },
+        |_| {
+            order.borrow_mut().push("header");
+            InspectorOutput::default()
+        },
+    );
+
+    assert_eq!(*order.borrow(), vec!["header"]);
 }

@@ -37,6 +37,7 @@ pub enum EditorAction {
     Undo,
     Redo,
     // View actions
+    ViewInspectorPanel,
     ViewHierarchyPanel,
     ViewConsolePanel,
     ViewDiagnosticsPanel,
@@ -64,6 +65,7 @@ impl EditorAction {
             EditorAction::Redo => "Redo".to_string(),
             EditorAction::ChangeSaveRoot => "Change Save Root".to_string(),
             EditorAction::ViewHierarchyPanel => "Hierarchy".to_string(),
+            EditorAction::ViewInspectorPanel => "Inspector".to_string(),
             EditorAction::ViewConsolePanel => "Console".to_string(),
             EditorAction::ViewDiagnosticsPanel => "Diagnostics".to_string(),
             EditorAction::ViewPrefabBrowserPanel => "Prefab Browser".to_string(),
@@ -88,6 +90,7 @@ impl EditorAction {
                 EditorAction::SaveAs => Some("⇧ ^ S"),
                 EditorAction::Undo => Some("^ Z"),
                 EditorAction::Redo => Some("⇧ ^ Z"),
+                EditorAction::ViewInspectorPanel => Some("^ I"),
                 EditorAction::ViewHierarchyPanel => Some("H"),
                 EditorAction::ViewConsolePanel => Some("C"),
                 EditorAction::ViewDiagnosticsPanel => Some("F3"),
@@ -106,6 +109,7 @@ impl EditorAction {
                 EditorAction::SaveAs => Some("⇧ ^ S"),
                 EditorAction::Undo => Some("^ Z"),
                 EditorAction::Redo => Some("⇧ ^ Z"),
+                EditorAction::ViewInspectorPanel => Some("⌘ I"),
                 EditorAction::ViewHierarchyPanel => Some("H"),
                 EditorAction::ViewConsolePanel => Some("C"),
                 EditorAction::ViewDiagnosticsPanel => Some("F3"),
@@ -141,6 +145,15 @@ impl EditorAction {
             | EditorAction::EditorSettings => true,
             EditorAction::Save => !matches!(editor_mode, EditorMode::Prefab(BLANK_PREFAB_ID)),
             EditorAction::SaveAs => !matches!(editor_mode, EditorMode::Prefab(BLANK_PREFAB_ID)),
+            EditorAction::ViewInspectorPanel => {
+                matches!(
+                    editor_mode,
+                    EditorMode::Game
+                        | EditorMode::World(_)
+                        | EditorMode::Room(_)
+                        | EditorMode::Prefab(_)
+                )
+            }
             EditorAction::ViewHierarchyPanel => {
                 matches!(editor_mode, EditorMode::Room(_) | EditorMode::Prefab(_))
             }
@@ -164,6 +177,7 @@ impl EditorAction {
             EditorAction::SaveAs => Controls::save_as(ctx),
             EditorAction::Undo => Controls::undo(ctx),
             EditorAction::Redo => Controls::redo(ctx),
+            EditorAction::ViewInspectorPanel => Controls::cmd_i(ctx),
             EditorAction::ViewHierarchyPanel => Controls::h(ctx),
             EditorAction::ViewConsolePanel => Controls::c(ctx),
             EditorAction::ViewDiagnosticsPanel => Controls::f3(ctx),
@@ -177,7 +191,8 @@ impl EditorAction {
     pub(crate) fn blocked_by_focused_input(self) -> bool {
         matches!(
             self,
-            EditorAction::ViewHierarchyPanel
+            EditorAction::ViewInspectorPanel
+                | EditorAction::ViewHierarchyPanel
                 | EditorAction::ViewConsolePanel
                 | EditorAction::ViewDiagnosticsPanel
                 | EditorAction::ViewResourcesPanel
@@ -404,6 +419,7 @@ fn file_actions_for_mode(editor_mode: EditorMode) -> Vec<EditorAction> {
 
 fn view_actions_for_mode(editor_mode: EditorMode) -> Vec<EditorAction> {
     [
+        EditorAction::ViewInspectorPanel,
         EditorAction::ViewConsolePanel,
         EditorAction::ViewDiagnosticsPanel,
         EditorAction::ViewHierarchyPanel,

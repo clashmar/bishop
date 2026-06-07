@@ -42,6 +42,7 @@ impl Editor {
         let modal_blocked = [
             EditorAction::Save,
             EditorAction::SaveAs,
+            EditorAction::ViewInspectorPanel,
             EditorAction::ViewConsolePanel,
             EditorAction::ViewDiagnosticsPanel,
             EditorAction::ViewHierarchyPanel,
@@ -162,6 +163,9 @@ impl Editor {
                     panel_manager.toggle(PREFAB_PALETTE_PANEL);
                 });
             }
+            EditorAction::ViewInspectorPanel => {
+                self.toggle_inspector_visibility();
+            }
             EditorAction::ViewResourcesPanel => {
                 with_panel_manager(|panel_manager| {
                     panel_manager.toggle(RESOURCES_PANEL);
@@ -274,5 +278,9 @@ impl Editor {
             .init_camera(ctx, &mut self.camera, &mut game);
 
         game
+    }
+
+    fn toggle_inspector_visibility(&mut self) {
+        editor_config::set_inspector_visible(!editor_config::get_inspector_visible());
     }
 }
