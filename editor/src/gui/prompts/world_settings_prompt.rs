@@ -1,4 +1,4 @@
-use crate::app::escape::modal_escape_requested;
+use crate::app::control::escape::modal_escape_requested;
 use crate::gui::prompts::constants::*;
 use crate::gui::prompts::helpers::*;
 use bishop::prelude::*;

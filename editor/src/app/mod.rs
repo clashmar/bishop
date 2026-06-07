@@ -1,20 +1,16 @@
 mod actions;
 mod audio;
-pub mod camera_controller;
-pub(crate) mod escape;
-#[cfg(target_os = "macos")]
-pub(crate) mod macos_quit;
+pub(crate) mod control;
 mod modals;
-mod navigation;
 mod persistence;
 mod queries;
 pub mod sub_editor;
-mod validation;
 
-pub use camera_controller::EditorCameraController;
+pub use control::camera_controller::EditorCameraController;
 pub use sub_editor::SubEditor;
 
 use crate::app::audio::default_audio_manager;
+use crate::app::control::escape;
 use crate::canvas::grid_shader::GridRenderer;
 use crate::editor_global::{push_throbbing_toast, push_toast};
 use crate::game::game_editor::GameEditor;

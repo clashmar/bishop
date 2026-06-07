@@ -1,5 +1,5 @@
 use crate::app::*;
-use crate::app::escape::modal_escape_requested;
+use crate::app::control::escape::modal_escape_requested;
 use crate::gui::modals::{
     ModalRegistry, ModalResult, ModalHandler,
 };

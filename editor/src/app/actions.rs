@@ -23,7 +23,7 @@ use ::widgets::*;
 
 impl Editor {
     pub fn draw_menu_bar(&mut self, ctx: &mut WgpuContext) {
-        let menu_title = self.active_entity_name();
+        let menu_title = self.active_editor_entity_name();
 
         if let Some(action) = self.menu_bar.draw(ctx, &menu_title, self.mode) {
             self.run_action(ctx, action);

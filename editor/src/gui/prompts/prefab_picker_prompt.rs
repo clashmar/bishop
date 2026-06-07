@@ -1,4 +1,4 @@
-use crate::app::escape::modal_escape_requested;
+use crate::app::control::escape::modal_escape_requested;
 use crate::gui::prompts::constants::*;
 use crate::gui::prompts::helpers::{draw_prompt_label, prompt_content_rect, three_button_rects};
 use crate::prefab::prefab_editor::actions::pick_initial_prefab_save_path;

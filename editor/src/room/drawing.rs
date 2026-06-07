@@ -1,4 +1,4 @@
-use crate::app::camera_controller::*;
+use crate::app::control::camera_controller::*;
 use crate::app::EditorMode;
 use crate::editor_assets::assets::camera_icon;
 use crate::gui::gui_constants::*;
