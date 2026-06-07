@@ -25,8 +25,8 @@ use bishop::prelude::*;
 use engine_core::constants::world;
 use engine_core::assets::*;
 use engine_core::ecs::*;
-use engine_core::game::{GameCtxMut};
-use engine_core::scripting::{ScriptManager};
+use engine_core::game::GameCtxMut;
+use engine_core::scripting::ScriptManager;
 use engine_core::ui::*;
 use std::collections::HashSet;
 
@@ -88,7 +88,7 @@ impl PrefabEditor {
         last_room_synced_state: PrefabRoomSyncState,
     ) -> Self {
         let mut inspector = Inspector::new();
-        inspector.hide();
+        inspector.clear_target();
 
         Self {
             prefab_id,

@@ -26,7 +26,7 @@ use engine_core::camera::get_room_camera_by_id;
 use engine_core::controls::{Controls};
 use engine_core::ecs::*;
 use engine_core::game::{Game};
-use engine_core::rendering::{RenderSystem, render_room};
+use engine_core::rendering::{render_room, RenderSystem};
 use engine_core::ui::*;
 use engine_core::worlds::*;
 use once_cell::sync::Lazy;

@@ -93,3 +93,28 @@ fn back_action_is_available_for_room_world_menu_and_prefab_modes() {
 fn game_mode_has_no_back_action() {
     assert_eq!(back_action_for_mode(EditorMode::Game), None);
 }
+
+#[test]
+fn inspector_toggle_action_is_available_in_inspector_modes_only() {
+    assert!(EditorAction::ViewInspectorPanel.is_available_in(EditorMode::Game));
+    assert!(EditorAction::ViewInspectorPanel.is_available_in(EditorMode::World(WorldId(0))));
+    assert!(EditorAction::ViewInspectorPanel.is_available_in(EditorMode::Room(RoomId(1))));
+    assert!(EditorAction::ViewInspectorPanel.is_available_in(EditorMode::Prefab(PrefabId(7))));
+    assert!(!EditorAction::ViewInspectorPanel.is_available_in(EditorMode::Menu));
+}
+
+#[test]
+fn room_mode_view_menu_contains_inspector_toggle() {
+    let actions = view_actions_for_mode(EditorMode::Room(RoomId(1)));
+
+    assert!(actions.contains(&EditorAction::ViewInspectorPanel));
+}
+
+#[test]
+fn inspector_toggle_shortcut_matches_platform_convention() {
+    #[cfg(target_os = "macos")]
+    assert_eq!(EditorAction::ViewInspectorPanel.shortcut(), Some("⌘ I"));
+
+    #[cfg(any(target_os = "windows", target_os = "linux"))]
+    assert_eq!(EditorAction::ViewInspectorPanel.shortcut(), Some("^ I"));
+}

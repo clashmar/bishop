@@ -6,7 +6,7 @@ impl PrefabEditor {
         if let Some(entity) = self.single_selected_entity() {
             self.inspector.select_entity(entity);
         } else {
-            self.inspector.hide();
+            self.inspector.clear_target();
         }
     }
 

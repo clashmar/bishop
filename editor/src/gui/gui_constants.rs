@@ -12,7 +12,9 @@ pub mod inspector {
     pub const HEADER_BUTTON_Y: f32 = super::INSET;
     pub const HEADER_HEIGHT: f32 = super::BTN_HEIGHT + super::INSET * 2.0;
     pub const CONTENT_TOP_OFFSET: f32 = HEADER_HEIGHT + super::INSET;
-    pub const WIDTH: f32 = 325.0;
+    pub const WIDTH: f32 = 350.0;
+    pub const EDGE_GAP: f32 = 20.0;
+    pub const STRIP_WIDTH: f32 = 14.0;
 }
 
 /// Style class names used by editor widgets.
