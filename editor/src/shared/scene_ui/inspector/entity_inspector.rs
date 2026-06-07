@@ -14,6 +14,7 @@ use crate::gui::gui_constants::{self, *};
 use crate::gui::inspector::player_module::PlayerModule;
 use crate::gui::inspector::room_camera_module::ROOM_CAMERA_MODULE_TITLE;
 use crate::gui::menu_bar::menu_button;
+use crate::gui::panel_text_color;
 use crate::shared::input::shortcuts_blocked;
 use crate::shared::scene_ui::inspector::InspectorContent;
 use bishop::prelude::*;
@@ -213,7 +214,6 @@ impl InspectorContent for EntityInspector {
         game_ctx: &mut GameCtxMut,
         insp_ctx: &InspectorContext,
     ) -> InspectorOutput {
-        self.interactive_rects.clear();
         let mut output = InspectorOutput::default();
         self.command_mode = Some(insp_ctx.command_mode);
 
@@ -225,7 +225,7 @@ impl InspectorContent for EntityInspector {
             copy_entity(game_ctx.ecs, entity);
         }
 
-        let add_label = "Add Component";
+        let add_label = "+ Component";
         let txt_add = measure_text(ctx, add_label, layout::HEADER_FONT_SIZE_20);
         let btn_w_add = txt_add.width + layout::WIDGET_PADDING;
         let add_rect = register_rect(
@@ -303,6 +303,7 @@ impl InspectorContent for EntityInspector {
         )
         .filterable()
         .menu_style()
+        .button_text_color(panel_text_color())
         .blocked(options.is_empty() || blocked)
         .show(ctx)
         {
@@ -573,6 +574,10 @@ impl InspectorContent for EntityInspector {
 
     fn interactive_rects(&self) -> Vec<Rect> {
         self.interactive_rects.clone()
+    }
+
+    fn clear_interactive_rects(&mut self) {
+        self.interactive_rects.clear();
     }
 }
 

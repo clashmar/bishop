@@ -226,7 +226,7 @@ impl MenuBar {
         let y = panel_rect.y + PADDING / 2.0;
 
         if let Some(back_action) = back_action_for_mode(editor_mode) {
-            let back_label = "< Back";
+            let back_label = "←";
             let back_rect = Rect::new(
                 x,
                 y,

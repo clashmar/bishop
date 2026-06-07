@@ -48,6 +48,9 @@ pub trait InspectorContent {
     fn interactive_rects(&self) -> Vec<Rect> {
         vec![]
     }
+
+    /// Clears interactive rects for the current frame.
+    fn clear_interactive_rects(&mut self) {}
 }
 
 /// Supported linked-prefab actions emitted from the room inspector.

@@ -137,6 +137,16 @@ impl Inspector {
         self.interactive_rects.clear();
         let blocked = is_mouse_over_panel(ctx);
 
+        // Clear content interactive rects before module/header passes
+        match self.active {
+            ActivePane::Entity => {
+                if let Some(e) = &mut self.entity {
+                    e.clear_interactive_rects();
+                }
+            }
+            _ => {}
+        }
+
         let top_offset = inspector::CONTENT_TOP_OFFSET;
         let inner = Rect::new(
             self.rect.x,
@@ -145,28 +155,6 @@ impl Inspector {
             self.rect.h - top_offset - 20.0,
         );
         ctx.draw_rectangle(inner.x, inner.y, inner.w, inner.h, Color::new(0., 0., 0., 0.6));
-
-        let header_height = match self.active {
-            ActivePane::Game | ActivePane::World | ActivePane::Room => {
-                inspector::HEADER_HEIGHT
-            }
-            ActivePane::Entity => self.entity.as_ref().map_or(0.0, |e| e.header_height()),
-            ActivePane::Empty => 0.0,
-        };
-        let header_rect = Rect::new(self.rect.x, self.rect.y, self.rect.w, header_height);
-        let mut output = match self.active {
-            ActivePane::Game => self.game.draw_header(ctx, header_rect, blocked, game_ctx, insp_ctx),
-            ActivePane::World => self.world.draw_header(ctx, header_rect, blocked, game_ctx, insp_ctx),
-            ActivePane::Room => self.room.draw_header(ctx, header_rect, blocked, game_ctx, insp_ctx),
-            ActivePane::Entity => {
-                if let Some(e) = &mut self.entity {
-                    e.draw_header(ctx, header_rect, blocked, game_ctx, insp_ctx)
-                } else {
-                    InspectorOutput::default()
-                }
-            }
-            ActivePane::Empty => InspectorOutput::default(),
-        };
 
         let total = match self.active {
             ActivePane::Game => self.game.total_content_height(game_ctx, insp_ctx),
@@ -190,6 +178,7 @@ impl Inspector {
             content_rect.h,
         );
 
+        // Modules draw first so header dropdown lists render on top.
         ctx.push_clip_rect(inner);
         let module_output = match self.active {
             ActivePane::Game => self.game.draw_modules(ctx, scrolled_content_rect, blocked, game_ctx, insp_ctx),
@@ -208,6 +197,29 @@ impl Inspector {
 
         area.draw_scrollbar(ctx, &self.scroll_state);
         ctx.draw_rectangle_lines(inner.x, inner.y, inner.w, inner.h, 2., Color::WHITE);
+
+        // Header draws last so dropdown lists render on top of modules
+        let header_height = match self.active {
+            ActivePane::Game | ActivePane::World | ActivePane::Room => {
+                inspector::HEADER_HEIGHT
+            }
+            ActivePane::Entity => self.entity.as_ref().map_or(0.0, |e| e.header_height()),
+            ActivePane::Empty => 0.0,
+        };
+        let header_rect = Rect::new(self.rect.x, self.rect.y, self.rect.w, header_height);
+        let mut output = match self.active {
+            ActivePane::Game => self.game.draw_header(ctx, header_rect, blocked, game_ctx, insp_ctx),
+            ActivePane::World => self.world.draw_header(ctx, header_rect, blocked, game_ctx, insp_ctx),
+            ActivePane::Room => self.room.draw_header(ctx, header_rect, blocked, game_ctx, insp_ctx),
+            ActivePane::Entity => {
+                if let Some(e) = &mut self.entity {
+                    e.draw_header(ctx, header_rect, blocked, game_ctx, insp_ctx)
+                } else {
+                    InspectorOutput::default()
+                }
+            }
+            ActivePane::Empty => InspectorOutput::default(),
+        };
 
         output.merge(module_output);
         self.interactive_rects = match self.active {

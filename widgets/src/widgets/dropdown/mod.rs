@@ -194,6 +194,12 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
         self
     }
 
+    /// Sets the text color for the trigger button only.
+    pub fn button_text_color(mut self, color: impl Into<Color>) -> Self {
+        self.text_color = color.into();
+        self
+    }
+
     /// Sets the font size for the trigger button label.
     pub fn font_size(mut self, size: f32) -> Self {
         self.label_font_size = size;
@@ -293,10 +299,10 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
             DropDownStyle::Plain => {
                 Button::new(self.rect, display_label)
                     .plain()
-                    .text_color(self.text_color)
                     .font_size(self.label_font_size)
                     .text_offset(Vec2::new(0.0, -1.0))
                     .overrides(self.base.overrides)
+                    .text_color(self.text_color)
                     .blocked(self.base.blocked)
                     .suppressed(self.suppressed)
                     .show(ctx)
