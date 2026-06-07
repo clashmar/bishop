@@ -24,8 +24,8 @@ pub struct MenuBar {
 #[derive(EnumIter, Clone, Copy, PartialEq, Eq, Debug)]
 pub enum EditorAction {
     NavigateBack,
-    // Game actions
-    Rename, // Rename Game/World/Room
+    // Options
+    Rename,
     // File actions
     NewGame,
     Open,
@@ -71,6 +71,7 @@ impl EditorAction {
             EditorAction::ViewPrefabBrowserPanel => "Prefab Browser".to_string(),
             EditorAction::ViewPrefabPalettePanel => "Prefab Palette".to_string(),
             EditorAction::ViewResourcesPanel => "Resources".to_string(),
+            EditorAction::Rename => "Rename Prefab".to_string(),
             EditorAction::WorldSettings => "World Settings".to_string(),
             EditorAction::EditorSettings => "Editor Settings".to_string(),
             EditorAction::OpenMenuEditor => "Menu Editor".to_string(),
@@ -433,7 +434,7 @@ fn view_actions_for_mode(editor_mode: EditorMode) -> Vec<EditorAction> {
 }
 
 fn options_actions_for_mode(editor_mode: EditorMode) -> Vec<EditorAction> {
-    [EditorAction::EditorSettings, EditorAction::WorldSettings]
+    [EditorAction::EditorSettings, EditorAction::WorldSettings, EditorAction::Rename]
         .into_iter()
         .filter(|action| action.is_available_in(editor_mode))
         .collect()
