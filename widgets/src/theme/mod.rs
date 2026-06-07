@@ -1,10 +1,8 @@
-pub mod widget_theme;
 pub mod mappings;
+pub mod widget_theme;
 pub use mappings::generate_theme_reference_markdown;
 
-pub use widget_theme::{
-    resolve, resolve_with_theme, resolve_theme_for, WidgetTheme,
-};
+pub use widget_theme::{WidgetTheme, resolve, resolve_theme_for, resolve_with_theme};
 
 use crate::constants::colors;
 use bishop::Color;
@@ -75,8 +73,17 @@ impl Default for Theme {
 
 /// Identifies a widget type for style rule targeting.
 #[derive(
-    Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize,
-    strum_macros::EnumString, strum_macros::Display, strum_macros::VariantNames,
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    Hash,
+    Serialize,
+    Deserialize,
+    strum_macros::EnumString,
+    strum_macros::Display,
+    strum_macros::VariantNames,
 )]
 pub enum WidgetType {
     Button,
@@ -193,7 +200,10 @@ pub fn with_theme<R>(f: impl FnOnce(&Theme) -> R) -> R {
 
 /// Returns a clone of the active theme.
 pub fn get_theme() -> Theme {
-    ACTIVE_THEME.read().expect("ACTIVE_THEME lock poisoned").clone()
+    ACTIVE_THEME
+        .read()
+        .expect("ACTIVE_THEME lock poisoned")
+        .clone()
 }
 
 #[cfg(test)]
@@ -373,10 +383,17 @@ mod tests {
             base: WidgetBase,
         }
         impl crate::widgets::Widget for TestButton {
-            fn widget_type() -> WidgetType { WidgetType::Button }
-            fn base_mut(&mut self) -> &mut WidgetBase { &mut self.base }
+            fn widget_type() -> WidgetType {
+                WidgetType::Button
+            }
+            fn base_mut(&mut self) -> &mut WidgetBase {
+                &mut self.base
+            }
             fn map_theme(theme: &Theme) -> WidgetTheme {
-                WidgetTheme { background: Some(theme.background), ..Default::default() }
+                WidgetTheme {
+                    background: Some(theme.background),
+                    ..Default::default()
+                }
             }
         }
 
@@ -409,10 +426,17 @@ mod tests {
             base: WidgetBase,
         }
         impl crate::widgets::Widget for TestButton {
-            fn widget_type() -> WidgetType { WidgetType::Button }
-            fn base_mut(&mut self) -> &mut WidgetBase { &mut self.base }
+            fn widget_type() -> WidgetType {
+                WidgetType::Button
+            }
+            fn base_mut(&mut self) -> &mut WidgetBase {
+                &mut self.base
+            }
             fn map_theme(theme: &Theme) -> WidgetTheme {
-                WidgetTheme { background: Some(theme.background), ..Default::default() }
+                WidgetTheme {
+                    background: Some(theme.background),
+                    ..Default::default()
+                }
             }
         }
 
@@ -438,10 +462,17 @@ mod tests {
             base: WidgetBase,
         }
         impl crate::widgets::Widget for TestSlider {
-            fn widget_type() -> WidgetType { WidgetType::Slider }
-            fn base_mut(&mut self) -> &mut WidgetBase { &mut self.base }
+            fn widget_type() -> WidgetType {
+                WidgetType::Slider
+            }
+            fn base_mut(&mut self) -> &mut WidgetBase {
+                &mut self.base
+            }
             fn map_theme(theme: &Theme) -> WidgetTheme {
-                WidgetTheme { background: Some(theme.background), ..Default::default() }
+                WidgetTheme {
+                    background: Some(theme.background),
+                    ..Default::default()
+                }
             }
         }
 

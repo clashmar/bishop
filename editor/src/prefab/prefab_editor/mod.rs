@@ -220,7 +220,8 @@ impl PrefabEditor {
             show_linked_prefab_metadata: false,
             hide_room_only_components: true,
             selected_create_parent: self.single_selected_entity(),
-        game_name: None,
+            game_name: None,
+            event_tags: Vec::new(),
         };
         let inspector_output = self.inspector.draw_active_pane(ctx, game_ctx, &inspector_ctx);
         self.create_request = inspector_output.create_request;

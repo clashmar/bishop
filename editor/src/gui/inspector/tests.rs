@@ -60,6 +60,7 @@ fn prefab_selected_entity_create_request_uses_selected_parent() {
         hide_room_only_components: true,
         selected_create_parent: Some(selected),
         game_name: None,
+        event_tags: Vec::new(),
     };
 
     assert_eq!(ctx.selected_create_parent, Some(selected));
@@ -73,6 +74,7 @@ fn room_context_is_constructed() {
         hide_room_only_components: false,
         selected_create_parent: None,
         game_name: None,
+        event_tags: Vec::new(),
     };
 
     assert_eq!(ctx.selected_create_parent, None);

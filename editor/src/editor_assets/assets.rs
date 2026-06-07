@@ -2,18 +2,19 @@
 use crate::editor_assets::prefabs_lua::generate_prefabs_lua;
 use crate::storage::sound_preset_storage::SoundPresetLibrary;
 use bishop::prelude::*;
-use engine_core::animation::{generate_animations_lua};
+use engine_core::animation::generate_animations_lua;
 use engine_core::assets::*;
 use engine_core::ecs::*;
-use engine_core::menu::{MenuTemplate};
+use engine_core::menu::MenuTemplate;
+use engine_core::scripting::event_tags::event_tag::generate_event_tags_lua;
 use engine_core::scripting::generate_menus_lua;
-use engine_core::storage::*;
-use engine_core::ui::*;
 use engine_core::scripting::lua_constants::{lua_dirs, lua_files};
 use engine_core::scripting::lua_project::{
     engine_relative_path, scaffold_luacheckrc, scaffold_luarc_json, scaffold_stylua_toml,
 };
 use engine_core::scripting::menus_lua::generate_menus_lua_from_dir;
+use engine_core::storage::*;
+use engine_core::ui::*;
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 use std::sync::{LazyLock, OnceLock};
@@ -225,6 +226,7 @@ pub fn write_initial_generated_lua_files(scripts_folder: &Path) -> io::Result<()
     write_prefabs_lua(scripts_folder, &[])?;
     write_sounds_lua(scripts_folder, &[])?;
     write_menus_lua(scripts_folder, &[])?;
+    write_event_tags_lua(scripts_folder, &[])?;
     Ok(())
 }
 
@@ -280,4 +282,14 @@ pub fn write_menus_lua_from_dir(scripts_folder: &Path, menus_dir: &Path) -> io::
     }
     let content = generate_menus_lua_from_dir(menus_dir).map_err(io::Error::other)?;
     fs::write(path, content)
+}
+
+/// Writes the per-game `event_tags.lua` file with built-in and custom tags.
+pub fn write_event_tags_lua(scripts_folder: &Path, custom_tags: &[String]) -> io::Result<()> {
+    let engine_folder = scripts_folder.join(lua_dirs::ENGINE);
+    let path = engine_folder.join(engine_relative_path(lua_files::EVENT_TAGS));
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)?;
+    }
+    fs::write(path, generate_event_tags_lua(custom_tags))
 }

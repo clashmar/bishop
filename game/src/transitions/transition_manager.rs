@@ -1,7 +1,8 @@
 use crate::engine::game_instance::GameInstance;
 use engine_core::ecs::*;
-use engine_core::worlds::*;
+use engine_core::scripting::event_tags::event_tag::EventTag;
 use engine_core::scripting::lua_constants::lua_events;
+use engine_core::worlds::*;
 use mlua::Lua;
 use mlua::Value;
 use mlua::Variadic;
@@ -102,7 +103,7 @@ impl TransitionManager {
 
                         let mut args = vec![Value::Integer(target_id.0 as i64)];
                         for tag in room_tags {
-                            if let Ok(lua_tag) = lua.create_string(&tag) {
+                            if let Ok(lua_tag) = lua.create_string(tag.lua_name()) {
                                 args.push(Value::String(lua_tag));
                             }
                         }
@@ -119,7 +120,7 @@ impl TransitionManager {
 }
 
 /// Collects tags that should be emitted as part of a room-transition event.
-fn collect_transition_tags(game_instance: &GameInstance, room_id: RoomId) -> Vec<String> {
+fn collect_transition_tags(game_instance: &GameInstance, room_id: RoomId) -> Vec<EventTag> {
     game_instance
         .game
         .current_world()
@@ -132,14 +133,24 @@ fn collect_transition_tags(game_instance: &GameInstance, room_id: RoomId) -> Vec
 mod tests {
     use super::*;
     use bishop::prelude::Vec2;
-    use engine_core::game::{Game};
+    use engine_core::game::Game;
     use engine_core::scripting::event_bus::EventBus;
     use std::collections::HashMap;
     use std::sync::{Arc, Mutex};
 
     fn make_two_rooms() -> (Room, Room) {
-        let a = Room { id: RoomId(1), position: Vec2::ZERO, size: Vec2::new(32.0, 32.0), ..Default::default() };
-        let b = Room { id: RoomId(2), position: Vec2::new(32.0, 0.0), size: Vec2::new(32.0, 32.0), ..Default::default() };
+        let a = Room {
+            id: RoomId(1),
+            position: Vec2::ZERO,
+            size: Vec2::new(32.0, 32.0),
+            ..Default::default()
+        };
+        let b = Room {
+            id: RoomId(2),
+            position: Vec2::new(32.0, 0.0),
+            size: Vec2::new(32.0, 32.0),
+            ..Default::default()
+        };
         (a, b)
     }
 
@@ -148,7 +159,7 @@ mod tests {
         let event_bus = EventBus::default();
         let received = Arc::new(Mutex::new(Vec::<String>::new()));
         let (room_a, mut room_b) = make_two_rooms();
-        room_b.tags = tags;
+        room_b.tags = tags.into_iter().map(EventTag::Custom).collect();
         let mut world = World::default();
         world.add_room(room_a);
         world.add_room(room_b);
@@ -157,25 +168,32 @@ mod tests {
         let mut game = Game::default();
         game.script_manager.event_bus = event_bus.clone();
         game.add_world(world);
-        let player = game.ecs.create_entity()
-            .with(Transform { position: Vec2::new(40.0, 8.0), ..Default::default() })
+        let player = game
+            .ecs
+            .create_entity()
+            .with(Transform {
+                position: Vec2::new(40.0, 8.0),
+                ..Default::default()
+            })
             .with(Collider::default())
             .with(Player)
             .with_current_room(RoomId(1))
             .finish();
         let capt = received.clone();
-        let handler = lua.create_function(move |_lua, args: Variadic<Value>| {
-            let mut vals = capt.lock().unwrap();
-            vals.clear();
-            for arg in args {
-                match arg {
-                    Value::Integer(n) => vals.push(n.to_string()),
-                    Value::String(s) => vals.push(s.to_str().unwrap().to_string()),
-                    other => panic!("unexpected value: {other:?}"),
+        let handler = lua
+            .create_function(move |_lua, args: Variadic<Value>| {
+                let mut vals = capt.lock().unwrap();
+                vals.clear();
+                for arg in args {
+                    match arg {
+                        Value::Integer(n) => vals.push(n.to_string()),
+                        Value::String(s) => vals.push(s.to_str().unwrap().to_string()),
+                        other => panic!("unexpected value: {other:?}"),
+                    }
                 }
-            }
-            Ok(())
-        }).unwrap();
+                Ok(())
+            })
+            .unwrap();
         event_bus.on(lua_events::ROOM_ENTERED.to_string(), handler);
         (lua, game, player, received)
     }
@@ -228,7 +246,10 @@ mod tests {
     #[test]
     fn room_entered_event_carries_tags_when_room_has_tags() {
         let (lua, game, player, received) = setup_tagged_game(vec!["autosave".into()]);
-        let mut game_instance = GameInstance { game, prev_positions: HashMap::new() };
+        let mut game_instance = GameInstance {
+            game,
+            prev_positions: HashMap::new(),
+        };
         TransitionManager::handle_transitions(&lua, &mut game_instance);
         assert_eq!(game_instance.game.ecs.get_player_entity(), Some(player));
         assert_eq!(received.lock().unwrap().as_slice(), ["2", "autosave"]);
@@ -237,9 +258,11 @@ mod tests {
     #[test]
     fn room_entered_event_omits_extra_args_when_room_has_no_tags() {
         let (lua, game, _player, received) = setup_tagged_game(vec![]);
-        let mut game_instance = GameInstance { game, prev_positions: HashMap::new() };
+        let mut game_instance = GameInstance {
+            game,
+            prev_positions: HashMap::new(),
+        };
         TransitionManager::handle_transitions(&lua, &mut game_instance);
         assert_eq!(received.lock().unwrap().as_slice(), ["2"]);
     }
 }
-

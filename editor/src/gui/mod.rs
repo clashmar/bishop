@@ -1,21 +1,22 @@
 pub mod gui_constants;
 pub mod inspector;
 pub mod menu_bar;
-pub mod menu_widgets;
 pub mod modals;
 pub mod mode_selector;
 pub mod panels;
 pub mod prompts;
 pub mod properties;
 pub mod text_input;
+pub mod widgets;
 
 use crate::constants::colors;
 use crate::gui::gui_constants::classes;
 use bishop::Color;
-use engine_core::{theme::{WidgetTheme, with_theme}, ui::WidgetType};
+use engine_core::{
+    theme::{with_theme, WidgetTheme},
+    ui::WidgetType,
+};
 
-/// Returns the text color for text rendered on panel-colored surfaces,
-/// resolved through the `panel-text` class style rule.
 pub fn panel_text_color() -> Color {
     with_theme(|t| {
         let mut base = WidgetTheme {

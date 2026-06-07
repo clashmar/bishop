@@ -3,6 +3,7 @@ pub mod game;
 pub mod room;
 pub mod world;
 
+use crate::shared::scene_ui::inspector::InspectorContext;
 use bishop::prelude::*;
 use engine_core::ecs::inspector::layout::InspectorBodyLayout;
 use engine_core::game::GameCtxMut;
@@ -21,6 +22,7 @@ pub trait PropertyModule<T> {
         rect: Rect,
         target: &mut T,
         game_ctx: &mut GameCtxMut,
+        insp_ctx: &InspectorContext,
     );
 
     /// Layout describing expanded body height.

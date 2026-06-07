@@ -501,6 +501,7 @@ impl WorldEditor {
                     hide_room_only_components: true,
                     selected_create_parent: None,
                     game_name: None,
+                    event_tags: Vec::new(),
                 },
             )
         };

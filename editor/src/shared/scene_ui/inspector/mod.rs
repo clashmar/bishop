@@ -84,6 +84,8 @@ pub struct InspectorContext {
     pub selected_create_parent: Option<Entity>,
     /// Name for the game being edited, when in Game mode.
     pub game_name: Option<String>,
+    /// Event tags currently known to the editor.
+    pub event_tags: Vec<String>,
 }
 
 /// Per-frame output emitted by the shared inspector UI.
@@ -99,6 +101,8 @@ pub struct InspectorOutput {
     pub open_prefab_picker: bool,
     /// Whether the prefab-mode empty state requested prefab deletion.
     pub delete_prefab: bool,
+    /// Whether the host should regenerate global event-tag output.
+    pub refresh_event_tags: bool,
 }
 
 /// Host-level rename action emitted by Game/World property inspectors.
@@ -121,6 +125,7 @@ impl InspectorOutput {
         }
         self.open_prefab_picker |= other.open_prefab_picker;
         self.delete_prefab |= other.delete_prefab;
+        self.refresh_event_tags |= other.refresh_event_tags;
     }
 }
 
