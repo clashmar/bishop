@@ -119,6 +119,7 @@ pub struct RoomEditor {
     pub(crate) drag_state: DragState,
     pub create_request: Option<CreateRequest>,
     pub prefab_action_request: Option<PrefabActionRequest>,
+    pub create_camera_request: Option<f32>,
     pub request_play: bool,
     pub view_preview: bool,
     pub(crate) preview_camera_id: Option<usize>,
@@ -153,6 +154,7 @@ impl RoomEditor {
             preview_camera_id: None,
             create_request: None,
             prefab_action_request: None,
+            create_camera_request: None,
             request_play: false,
             view_preview: false,
             tilemap_sub_mode: TilemapEditorMode::Tiles,
@@ -267,6 +269,15 @@ impl RoomEditor {
                         room.id,
                         room.position,
                         create_request.parent,
+                    )));
+                }
+
+                // Create a new camera if create_camera_request was emitted
+                if let Some(cam_grid_size) = self.create_camera_request.take() {
+                    push_command(Box::new(CreateSceneEntityCmd::new_room_camera(
+                        room.id,
+                        room.position,
+                        cam_grid_size,
                     )));
                 }
 
@@ -564,6 +575,7 @@ impl RoomEditor {
         self.selected_entities.clear();
         self.create_request = None;
         self.prefab_action_request = None;
+        self.create_camera_request = None;
         self.request_play = false;
         self.view_preview = false;
         self.preview_camera_id = None;

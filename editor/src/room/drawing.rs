@@ -160,6 +160,7 @@ impl RoomEditor {
                 let inspector_output = self.inspector.draw_active_pane(ctx, game_ctx, &inspector_ctx);
                 self.create_request = inspector_output.create_request;
                 self.prefab_action_request = inspector_output.prefab_action;
+                self.create_camera_request = inspector_output.create_camera_request;
 
                 // Mode selector (menu bar)
                 let (mode_rect, changed) = self.mode_selector.draw(ctx);

@@ -87,10 +87,12 @@ pub struct InspectorContext {
 }
 
 /// Per-frame output emitted by the shared inspector UI.
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct InspectorOutput {
     /// Create request triggered by `+ Entity`, if any.
     pub create_request: Option<CreateRequest>,
+    /// Camera creation request triggered by `+ Camera`, carrying grid size.
+    pub create_camera_request: Option<f32>,
     /// Linked-prefab action triggered from the inspector, if any.
     pub prefab_action: Option<PrefabActionRequest>,
     /// Host-level action emitted by Game/World inspector content.
@@ -112,6 +114,9 @@ impl InspectorOutput {
     pub fn merge(&mut self, other: Self) {
         if self.create_request.is_none() {
             self.create_request = other.create_request;
+        }
+        if self.create_camera_request.is_none() {
+            self.create_camera_request = other.create_camera_request;
         }
         if self.prefab_action.is_none() {
             self.prefab_action = other.prefab_action;

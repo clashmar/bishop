@@ -17,6 +17,11 @@ enum CreateSceneEntityKind {
         room_id: RoomId,
         position: Vec2,
     },
+    RoomCamera {
+        room_id: RoomId,
+        position: Vec2,
+        grid_size: f32,
+    },
 }
 
 /// Undo-able command for creating a scene entity from editor UI actions.
@@ -56,6 +61,18 @@ impl CreateSceneEntityCmd {
         Self {
             mode: EditorMode::Room(room_id),
             kind: CreateSceneEntityKind::PlayerProxy { room_id, position },
+            created_entity: None,
+        }
+    }
+
+    pub fn new_room_camera(room_id: RoomId, position: Vec2, grid_size: f32) -> Self {
+        Self {
+            mode: EditorMode::Room(room_id),
+            kind: CreateSceneEntityKind::RoomCamera {
+                room_id,
+                position,
+                grid_size,
+            },
             created_entity: None,
         }
     }
@@ -112,6 +129,15 @@ impl EditorCommand for CreateSceneEntityCmd {
                     .with(Name(Self::PLAYER_PROXY_NAME.to_string()))
                     .with_current_room(room_id)
                     .finish(),
+                CreateSceneEntityKind::RoomCamera {
+                    room_id,
+                    position,
+                    grid_size,
+                } => {
+                    let entity = Room::create_camera_entity(ecs, room_id, position, grid_size);
+                    editor.room_editor.set_selected_entity(Some(entity));
+                    entity
+                }
             };
 
             self.created_entity = Some(entity);

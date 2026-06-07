@@ -1,5 +1,6 @@
 use bishop::prelude::*;
 use crate::app::EditorMode;
+use crate::commands::editor_command_manager::EditorCommand;
 use crate::commands::scene::CreateSceneEntityCmd;
 use crate::editor_global::{
     apply_pending_commands, push_command, request_redo, request_undo, with_editor,
@@ -260,4 +261,151 @@ fn player_proxy_create_command_supports_undo_redo() {
             Some(Vec2::new(64.0, 96.0))
         );
     });
+}
+
+fn find_room_camera(ecs: &Ecs, room_id: RoomId, position: Vec2) -> Option<Entity> {
+    ecs.get_store::<RoomCamera>()
+        .data
+        .iter()
+        .find_map(|(&entity, camera)| {
+            let in_room = ecs
+                .get::<CurrentRoom>(entity)
+                .is_some_and(|current_room| current_room.0 == room_id);
+            let named_camera = ecs
+                .get::<Name>(entity)
+                .is_some_and(|name| name.0.starts_with(Room::CAMERA_PREFIX));
+            let at_position = ecs
+                .get::<Transform>(entity)
+                .is_some_and(|t| t.position == position);
+            (in_room && named_camera && camera.room_id == room_id && at_position).then_some(entity)
+        })
+}
+
+#[test]
+fn create_room_camera_execute_creates_entity_with_correct_components() {
+    let _lock = game_fs_test_lock()
+        .lock()
+        .unwrap_or_else(|poison| poison.into_inner());
+    let test_game = TestGameFolder::new("create_scene_room_camera_cmd");
+    let (editor, room_id) = make_room_editor(&test_game);
+    let grid_size = editor.game.current_world().grid_size;
+    let _guard = EditorServicesGuard::install(editor);
+
+    push_command(Box::new(CreateSceneEntityCmd::new_room_camera(
+        room_id,
+        Vec2::new(100.0, 200.0),
+        grid_size,
+    )));
+    apply_pending_commands();
+
+    with_editor(|editor| {
+        let ecs = &editor.game.ecs;
+        let entity = find_room_camera(ecs, room_id, Vec2::new(100.0, 200.0))
+            .expect("camera should exist");
+
+        let transform = ecs.get::<Transform>(entity).expect("should have Transform");
+        assert_eq!(transform.position, Vec2::new(100.0, 200.0));
+        assert_eq!(transform.pivot, Pivot::CenterLeft);
+
+        let camera = ecs.get::<RoomCamera>(entity).expect("should have RoomCamera");
+        assert_eq!(camera.room_id, room_id);
+        assert_eq!(camera.zoom_mode, ZoomMode::Step);
+        assert_eq!(camera.camera_mode, CameraMode::Fixed);
+
+        let name = ecs.get::<Name>(entity).expect("should have Name");
+        assert!(name.0.starts_with(Room::CAMERA_PREFIX));
+
+        assert_eq!(editor.room_editor.single_selected_entity(), Some(entity));
+    });
+}
+
+#[test]
+fn create_room_camera_undo_removes_entity() {
+    let _lock = game_fs_test_lock()
+        .lock()
+        .unwrap_or_else(|poison| poison.into_inner());
+    let test_game = TestGameFolder::new("create_scene_room_camera_undo");
+    let (editor, room_id) = make_room_editor(&test_game);
+    let grid_size = editor.game.current_world().grid_size;
+    let _guard = EditorServicesGuard::install(editor);
+
+    push_command(Box::new(CreateSceneEntityCmd::new_room_camera(
+        room_id,
+        Vec2::new(100.0, 200.0),
+        grid_size,
+    )));
+    apply_pending_commands();
+
+    let created = with_editor(|editor| {
+        find_room_camera(&editor.game.ecs, room_id, Vec2::new(100.0, 200.0))
+            .expect("camera should exist after execute")
+    });
+
+    request_undo();
+    apply_pending_commands();
+
+    with_editor(|editor| {
+        assert!(
+            editor.game.ecs.get::<RoomCamera>(created).is_none(),
+            "undo should remove the camera entity"
+        );
+        assert_eq!(editor.room_editor.single_selected_entity(), None);
+    });
+}
+
+#[test]
+fn create_room_camera_redo_recreates_entity() {
+    let _lock = game_fs_test_lock()
+        .lock()
+        .unwrap_or_else(|poison| poison.into_inner());
+    let test_game = TestGameFolder::new("create_scene_room_camera_redo");
+    let (editor, room_id) = make_room_editor(&test_game);
+    let grid_size = editor.game.current_world().grid_size;
+    let _guard = EditorServicesGuard::install(editor);
+
+    push_command(Box::new(CreateSceneEntityCmd::new_room_camera(
+        room_id,
+        Vec2::new(100.0, 200.0),
+        grid_size,
+    )));
+    apply_pending_commands();
+
+    request_undo();
+    apply_pending_commands();
+
+    request_redo();
+    apply_pending_commands();
+
+    with_editor(|editor| {
+        let entity = find_room_camera(&editor.game.ecs, room_id, Vec2::new(100.0, 200.0))
+            .expect("camera should exist after redo");
+        assert_eq!(editor.room_editor.single_selected_entity(), Some(entity));
+    });
+}
+
+#[test]
+fn create_room_camera_applies_only_in_matching_room_mode() {
+    let _lock = game_fs_test_lock()
+        .lock()
+        .unwrap_or_else(|poison| poison.into_inner());
+    let test_game = TestGameFolder::new("create_scene_room_camera_mode");
+    let (mut editor, room_id) = make_room_editor(&test_game);
+    let grid_size = editor.game.current_world().grid_size;
+    let world_id = editor
+        .cur_world_id
+        .expect("room editor should have current world");
+    let second_room_id = editor.game.id_allocator.allocate_room_id();
+    let second_room = Room::new(&mut editor.game.ecs, second_room_id, grid_size);
+    editor
+        .game
+        .get_world_mut(world_id)
+        .expect("current world should exist")
+        .add_room(second_room);
+    let _guard = EditorServicesGuard::install(editor);
+
+    let cmd = CreateSceneEntityCmd::new_room_camera(room_id, Vec2::ZERO, grid_size);
+    assert!(cmd.applies_in_mode(EditorMode::Room(room_id)));
+    assert!(!cmd.applies_in_mode(EditorMode::Room(second_room_id)));
+    assert!(!cmd.applies_in_mode(EditorMode::Game));
+    assert!(!cmd.applies_in_mode(EditorMode::Menu));
 }

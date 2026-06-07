@@ -73,9 +73,7 @@ impl InspectorContent for RoomProperties {
 
         if menu_button(ctx, cam_btn, cam_label, blocked) {
             if let Some(world) = game_ctx.world.as_deref() {
-                if let Some(room) = world.current_room() {
-                    room.create_room_camera(game_ctx.ecs, room.id, world.grid_size);
-                }
+                output.create_camera_request = Some(world.grid_size);
             }
         }
 

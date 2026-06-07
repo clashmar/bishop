@@ -94,7 +94,7 @@ impl WorldEditor {
             darkness: 0.,
         };
 
-        room.create_room_camera(&mut game.ecs, id, grid_size);
+        Room::create_camera_entity(&mut game.ecs, room.id, room.position, grid_size);
 
         let cur_world = game
             .current_world_mut()

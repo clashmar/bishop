@@ -1,6 +1,6 @@
 // engine_core/src/world/room.rs
 use crate::constants::world;
-use crate::ecs::{Name, Pivot, RoomCamera, Transform};
+use crate::ecs::{Entity, Name, Pivot, RoomCamera, Transform};
 use crate::ecs::ecs::Ecs;
 use crate::tiles::tilemap::TileMap;
 use bishop::prelude::*;
@@ -44,6 +44,9 @@ pub struct Room {
 }
 
 impl Room {
+    /// Common prefix for auto-generated camera entity names.
+    pub const CAMERA_PREFIX: &'static str = "Camera ";
+
     /// Creates a new room with the given pre-allocated room ID.
     pub fn new(ecs: &mut Ecs, room_id: RoomId, grid_size: f32) -> Self {
         let first_variant = RoomVariant {
@@ -66,7 +69,7 @@ impl Room {
             darkness: 0.,
         };
 
-        room.create_room_camera(ecs, room_id, grid_size);
+        Room::create_camera_entity(ecs, room.id, room.position, grid_size);
         room
     }
 
@@ -172,15 +175,15 @@ impl Room {
             .collect()
     }
 
-    pub fn create_room_camera(&self, ecs: &mut Ecs, room_id: RoomId, grid_size: f32) {
-        const CAMERA_PREFIX: &str = "Camera ";
+    /// Returns the next available camera name for a room.
+    pub fn next_camera_name(ecs: &Ecs, room_id: RoomId) -> String {
         let name_store = ecs.get_store::<Name>();
 
         let mut used: HashSet<usize> = HashSet::new();
 
-        for &entity in ecs.entities_in_room(self.id) {
+        for &entity in ecs.entities_in_room(room_id) {
             if let Some(name) = name_store.get(entity)
-                && let Some(num_str) = name.strip_prefix(CAMERA_PREFIX)
+                && let Some(num_str) = name.strip_prefix(Self::CAMERA_PREFIX)
                 && let Ok(num) = num_str.parse::<usize>()
                 && num > 0
             {
@@ -193,17 +196,27 @@ impl Room {
             next_idx += 1;
         }
 
-        ecs
-            .create_entity()
+        format!("{}{}", Self::CAMERA_PREFIX, next_idx)
+    }
+
+    /// Creates a camera entity with the given room and position.
+    pub fn create_camera_entity(
+        ecs: &mut Ecs,
+        room_id: RoomId,
+        position: Vec2,
+        grid_size: f32,
+    ) -> Entity {
+        let name = Self::next_camera_name(ecs, room_id);
+        ecs.create_entity()
             .with(Transform {
-                position: self.position,
+                position,
                 pivot: Pivot::CenterLeft,
                 ..Default::default()
             })
             .with(RoomCamera::new(room_id, grid_size))
-            .with(Name(format!("{}{}", CAMERA_PREFIX, next_idx)))
-            .with_current_room(self.id)
-            .finish();
+            .with(Name(name))
+            .with_current_room(room_id)
+            .finish()
     }
 
     /// Returns the index of the current variant.
