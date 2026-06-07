@@ -6,7 +6,7 @@ use crate::menu::MenuEditor;
 use crate::shared::input::canvas_blocked_by_global_ui;
 use bishop::prelude::*;
 use engine_core::menu::{ButtonElement, MenuAction, MenuElement, MenuElementKind};
-use engine_core::ui::*;
+use widgets::*;
 
 impl MenuEditor {
     pub(crate) fn draw_button(

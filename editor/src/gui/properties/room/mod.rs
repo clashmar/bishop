@@ -2,8 +2,8 @@ pub mod room_name_module;
 pub mod room_tags_module;
 
 use bishop::prelude::*;
-use engine_core::ui::*;
-use widgets::constants::layout;
+use engine_core::ui::{measure_text};
+use ::widgets::constants::layout;
 
 use super::collapsible::CollapsiblePropertyModule;
 use super::PropertyModule;

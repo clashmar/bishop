@@ -29,7 +29,7 @@ use engine_core::controls::{Controls};
 use engine_core::ecs::*;
 use engine_core::game::{Game};
 use engine_core::rendering::{render_room, RenderSystem};
-use engine_core::ui::*;
+use widgets::*;
 use engine_core::worlds::*;
 use once_cell::sync::Lazy;
 use std::collections::HashSet;

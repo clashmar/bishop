@@ -5,14 +5,15 @@ use engine_core::animation::{AseExportResult, ClipDef, ClipId, ClipState, JsonIm
 use engine_core::ecs::*;
 use engine_core::game::{GameCtxMut};
 use engine_core::storage::*;
-use engine_core::ui::*;
+use engine_core::ui::{measure_text};
+use ::widgets::*;
 use std::{
     borrow::Cow,
     collections::{HashMap, HashSet},
     path::Path,
 };
 use strum::IntoEnumIterator;
-use widgets::constants::{colors, layout};
+use ::widgets::constants::{colors, layout};
 
 // Width of a three‑digit numeric field
 const NUM_FIELD_W: f32 = 40.0;

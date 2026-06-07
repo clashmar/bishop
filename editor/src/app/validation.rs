@@ -1,7 +1,7 @@
 use crate::app::Editor;
 use crate::storage::editor_storage::*;
 use engine_core::ecs::*;
-use engine_core::ui::*;
+use engine_core::ui::{Toast};
 
 impl Editor {
     pub(crate) fn duplicate_game_exists(&mut self, name: &str) -> bool {

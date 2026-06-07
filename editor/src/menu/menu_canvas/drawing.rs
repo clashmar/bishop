@@ -6,7 +6,7 @@ use bishop::prelude::*;
 use engine_core::constants::world;
 use engine_core::menu::*;
 use engine_core::text::TextManager;
-use engine_core::ui::*;
+use widgets::*;
 use std::collections::HashMap;
 
 pub(crate) struct MenuCanvasFrame<'a> {

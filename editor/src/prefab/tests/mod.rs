@@ -25,7 +25,7 @@ pub(super) use engine_core::ecs::*;
 pub(super) use engine_core::engine_global::{set_game_name};
 pub(super) use engine_core::scripting::*;
 pub(super) use engine_core::storage::*;
-pub(super) use engine_core::ui::*;
+use ::widgets::*;
 pub(super) use engine_core::worlds::*;
 pub(super) use engine_core::storage::path_utils::sanitise_name;
 pub(super) use std::path::PathBuf;

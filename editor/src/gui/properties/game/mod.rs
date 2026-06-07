@@ -5,7 +5,7 @@ use crate::shared::scene_ui::inspector::InspectorContent;
 use crate::shared::scene_ui::inspector::{InspectorContext, InspectorHostAction, InspectorOutput};
 use bishop::prelude::*;
 use engine_core::game::GameCtxMut;
-use engine_core::ui::*;
+use widgets::*;
 
 /// Editable properties for the current game.
 pub struct GameProperties {

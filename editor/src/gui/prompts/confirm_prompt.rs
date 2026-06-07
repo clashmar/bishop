@@ -3,8 +3,9 @@ use crate::gui::prompts::constants::*;
 use crate::gui::prompts::helpers::*;
 use bishop::prelude::*;
 use engine_core::controls::{Controls};
-use engine_core::ui::*;
-use widgets::constants::layout;
+use engine_core::ui::{measure_text, center_text};
+use ::widgets::*;
+use ::widgets::constants::layout;
 
 /// Result of a confirm prompt.
 pub enum ConfirmPromptResult {

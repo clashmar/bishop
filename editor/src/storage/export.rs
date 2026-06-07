@@ -7,7 +7,7 @@ use engine_core::engine_global::{game_name};
 use engine_core::game::{Game};
 use engine_core::logging::{omni_debug, omni_info, omni_warn};
 use engine_core::storage::*;
-use engine_core::ui::*;
+use ::widgets::*;
 use engine_core::worlds::*;
 use std::fs;
 use std::io;

@@ -12,9 +12,10 @@ use engine_core::assets::*;
 use engine_core::constants::extensions;
 use engine_core::ecs::*;
 use engine_core::storage::*;
-use engine_core::ui::*;
+use engine_core::ui::{Toast};
+use ::widgets::*;
 use std::path::PathBuf;
-use widgets::{ContextMenu, ContextMenuItem, WidgetId};
+use ::widgets::{ContextMenu, ContextMenuItem, WidgetId};
 
 use super::Entry;
 

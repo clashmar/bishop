@@ -5,10 +5,10 @@ use crate::prefab::prefab_editor::actions::pick_initial_prefab_save_path;
 use bishop::prelude::*;
 use engine_core::ecs::*;
 use engine_core::storage::*;
-use engine_core::ui::*;
+use widgets::*;
 use std::fmt::{Display, Formatter, Result as FmtResult};
 use std::path::PathBuf;
-use widgets::constants::layout;
+use ::widgets::constants::layout;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum PrefabPickerResult {

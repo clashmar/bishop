@@ -5,7 +5,7 @@ use bishop::prelude::*;
 use engine_core::ecs::inspector::layout::InspectorBodyLayout;
 use engine_core::game::GameCtxMut;
 use engine_core::scripting::event_tags::event_tag::EventTag;
-use engine_core::ui::*;
+use ::widgets::*;
 use engine_core::worlds::room::Room;
 
 /// Edits the tags of a room.

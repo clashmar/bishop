@@ -5,7 +5,7 @@ use crate::gui::modals::{open_modal_with_prompt, Modal, ModalHandler, ModalResul
 use crate::gui::prompts::*;
 use bishop::prelude::*;
 use engine_core::assets::*;
-use engine_core::ui::*;
+use engine_core::ui::{Toast};
 use std::cell::RefCell;
 use std::path::PathBuf;
 use std::thread::LocalKey;

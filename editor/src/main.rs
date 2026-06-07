@@ -9,7 +9,7 @@ use bishop::BishopApp;
 use engine_core::constants::window;
 use engine_core::logging::{init_file_logger, omni_info, omni_warn};
 use engine_core::storage::*;
-use engine_core::ui::*;
+use widgets::*;
 
 mod app;
 mod canvas;

@@ -14,8 +14,8 @@ use crate::gui::gui_constants::classes;
 use bishop::Color;
 use engine_core::{
     theme::{with_theme, WidgetTheme},
-    ui::WidgetType,
 };
+use ::widgets::WidgetType;
 
 pub fn panel_text_color() -> Color {
     with_theme(|t| {

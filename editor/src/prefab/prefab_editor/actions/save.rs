@@ -7,7 +7,7 @@ use engine_core::ecs::*;
 use engine_core::game::{Game};
 use engine_core::logging::{omni_error};
 use engine_core::storage::*;
-use engine_core::ui::*;
+use engine_core::ui::{Toast};
 use std::fs;
 use std::io;
 use std::io::{Error, ErrorKind};

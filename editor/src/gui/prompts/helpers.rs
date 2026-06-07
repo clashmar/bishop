@@ -1,7 +1,7 @@
 use crate::gui::prompts::constants::*;
 use bishop::prelude::*;
-use engine_core::ui::*;
-use widgets::constants::layout;
+use engine_core::ui::{measure_text};
+use ::widgets::constants::layout;
 
 /// Returns a centered content rect inside a modal for prompt widgets.
 pub fn prompt_content_rect(modal_rect: Rect, content_h: f32) -> Rect {

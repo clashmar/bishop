@@ -5,11 +5,11 @@ pub(crate) use crate::gui::widgets::menu_widgets::{menu_button, menu_button_text
 use crate::prefab::BLANK_PREFAB_ID;
 use bishop::prelude::*;
 use engine_core::controls::{Controls};
-use engine_core::ui::*;
+use widgets::*;
 use engine_core::theme::with_theme;
 use std::fmt;
 use strum_macros::EnumIter;
-use widgets::constants::layout;
+use ::widgets::constants::layout;
 
 /// Holds the state of the top-level menu bar.
 pub struct MenuBar {

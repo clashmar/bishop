@@ -5,9 +5,10 @@ use bishop::prelude::*;
 use engine_core::assets::*;
 use engine_core::controls::{Controls};
 use engine_core::ecs::*;
-use engine_core::ui::*;
+use engine_core::ui::{gui_sprite_picker};
+use ::widgets::*;
 use engine_core::worlds::*;
-use widgets::constants::layout;
+use ::widgets::constants::layout;
 
 /// Result an edit world prompt.
 pub struct WorldEditResult {

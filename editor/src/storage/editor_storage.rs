@@ -20,7 +20,7 @@ use engine_core::logging::{omni_debug, omni_error, omni_info};
 use engine_core::menu::{Alignment, LayoutConfig, MenuAction, MenuBackground, MenuBuilder, MenuMode, MenuTemplate, Padding, button, label, layout_group, slider};
 use engine_core::prefab::{PrefabId, PrefabManager};
 use engine_core::storage::*;
-use engine_core::ui::*;
+use ::widgets::*;
 use engine_core::worlds::*;
 use engine_core::scripting::event_tags::event_tag::EventTag;
 use engine_core::scripting::lua_constants::lua_files;

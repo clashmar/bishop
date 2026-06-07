@@ -1,7 +1,8 @@
 use bishop::prelude::*;
-use engine_core::ui::*;
-use widgets::constants::layout;
-use widgets::InputCommit;
+use engine_core::ui::{measure_text};
+use ::widgets::*;
+use ::widgets::constants::layout;
+use ::widgets::InputCommit;
 
 /// Draw a label + text input row. Returns the committed value.
 pub(crate) fn draw_labeled_text_input(

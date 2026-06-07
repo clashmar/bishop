@@ -18,7 +18,8 @@ use engine_core::game::{Game};
 use engine_core::logging::{omni_error};
 use engine_core::scripting::{register_runtime_modules};
 use engine_core::storage::*;
-use engine_core::ui::*;
+use engine_core::ui::{Toast};
+use ::widgets::*;
 
 impl Editor {
     pub fn draw_menu_bar(&mut self, ctx: &mut WgpuContext) {

@@ -14,9 +14,10 @@ use engine_core::constants::paths;
 use engine_core::ecs::*;
 use engine_core::game::{GameCtxMut};
 use engine_core::storage::*;
-use engine_core::ui::*;
-use widgets::constants::colors;
-use widgets::constants::layout as widget_layout;
+use engine_core::ui::{measure_text};
+use ::widgets::*;
+use ::widgets::constants::colors;
+use ::widgets::constants::layout as widget_layout;
 
 const TOP_PADDING: f32 = 10.0;
 const SPACING: f32 = 5.0;

@@ -8,7 +8,7 @@ use bishop::prelude::*;
 use engine_core::game::GameCtxMut;
 use engine_core::ecs::*;
 use engine_core::storage::editor_config;
-use engine_core::ui::*;
+use widgets::*;
 
 /// Shared inspector shell for all editor modes.
 pub struct Inspector {

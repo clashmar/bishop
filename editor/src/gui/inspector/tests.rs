@@ -8,9 +8,8 @@ use crate::shared::scene_ui::inspector::{
 use bishop::prelude::*;
 use engine_core::ecs::*;
 use engine_core::storage::editor_config;
-use engine_core::ui::*;
 use engine_core::worlds::*;
-use widgets::InputCommit;
+use ::widgets::InputCommit;
 
 fn create_prefab(prefab_id: PrefabId, name: String) -> PrefabAsset {
     engine_core::prefab::create_prefab(prefab_id, name)

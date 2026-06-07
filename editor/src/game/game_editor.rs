@@ -17,14 +17,15 @@ use bishop::prelude::*;
 use engine_core::controls::{Controls};
 use engine_core::ecs::*;
 use engine_core::game::Game;
-use engine_core::ui::*;
+use engine_core::ui::{measure_text};
+use ::widgets::*;
 use engine_core::worlds::*;
 use engine_core::theme::with_theme;
 use once_cell::sync::Lazy;
 use std::collections::HashMap;
 use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
-use widgets::constants::layout;
+use ::widgets::constants::layout;
 
 #[derive(Copy, Clone, PartialEq, EnumIter)]
 pub enum GameEditorMode {

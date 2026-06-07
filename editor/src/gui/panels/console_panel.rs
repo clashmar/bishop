@@ -3,7 +3,8 @@ use crate::Editor;
 use bishop::prelude::*;
 use engine_core::controls::{Controls};
 use engine_core::logging::{LOG_HISTORY};
-use engine_core::ui::*;
+use engine_core::ui::{measure_text};
+use ::widgets::*;
 use engine_core::theme::with_theme;
 
 const ROW_HEIGHT: f32 = 18.0;

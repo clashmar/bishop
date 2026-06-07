@@ -754,6 +754,7 @@ dependencies = [
  "strum_macros",
  "uuid",
  "wgpu",
+ "widgets",
  "winres",
  "winres-edit",
 ]

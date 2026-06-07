@@ -9,10 +9,9 @@ use crate::gui::panels::resources_panel::ResourcesPanel;
 use crate::with_panel_manager;
 use crate::Editor;
 use bishop::prelude::*;
-use engine_core::ui::*;
 use engine_core::storage::editor_config::{get_panel_position, set_panel_position, PanelPosition};
 use std::collections::HashMap;
-use widgets::{focused_panel, is_context_menu_open, is_modal_open, set_focused_panel};
+use ::widgets::{focused_panel, is_context_menu_open, is_modal_open, set_focused_panel};
 
 pub enum PanelMode {
     Room,

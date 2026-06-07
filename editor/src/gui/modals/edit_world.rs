@@ -5,11 +5,10 @@ use crate::gui::modals::{BoxedWidget, Modal, ModalHandler, ModalResult};
 use crate::gui::prompts::*;
 use bishop::prelude::*;
 use engine_core::ecs::*;
-use engine_core::ui::*;
+use widgets::*;
 use engine_core::worlds::*;
 use std::cell::RefCell;
 use std::thread::LocalKey;
-use widgets::WidgetId;
 
 thread_local! {
     pub static EDIT_WORLD_RESULT: RefCell<Option<WorldEditResult>> = const { RefCell::new(None) };

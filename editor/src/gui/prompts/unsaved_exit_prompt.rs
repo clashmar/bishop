@@ -4,8 +4,9 @@ use crate::gui::prompts::helpers::{draw_prompt_label, prompt_content_rect};
 use crate::gui::prompts::PromptFocus;
 use bishop::prelude::*;
 use engine_core::controls::{Controls};
-use engine_core::ui::*;
-use widgets::constants::layout;
+use engine_core::ui::{measure_text};
+use ::widgets::*;
+use ::widgets::constants::layout;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum UnsavedExitResult {

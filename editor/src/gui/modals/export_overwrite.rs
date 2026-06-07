@@ -3,7 +3,7 @@ use crate::gui::modals::confirm;
 use crate::gui::modals::{ModalHandler, ModalResult};
 use crate::gui::prompts::*;
 use bishop::prelude::*;
-use engine_core::ui::*;
+use engine_core::ui::{Toast};
 use std::cell::RefCell;
 use std::thread::LocalKey;
 

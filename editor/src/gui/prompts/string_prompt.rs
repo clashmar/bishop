@@ -3,9 +3,9 @@ use crate::gui::prompts::constants::*;
 use crate::gui::prompts::helpers::*;
 use bishop::prelude::*;
 use engine_core::controls::{Controls};
-use engine_core::ui::*;
-use widgets::constants::layout;
-use widgets::{input_is_focused, request_focus};
+use widgets::*;
+use ::widgets::constants::layout;
+use ::widgets::{input_is_focused, request_focus};
 
 /// Result of a string prompt.
 #[derive(Debug, PartialEq, Eq)]

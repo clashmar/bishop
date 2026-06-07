@@ -2,10 +2,10 @@ use super::super::PropertyModule;
 use crate::gui::text_input::draw_labeled_text_input;
 use crate::shared::scene_ui::inspector::InspectorContext;
 use bishop::prelude::*;
-use engine_core::ui::constants::layout;
+use ::widgets::constants::layout;
 use engine_core::ecs::inspector::layout::InspectorBodyLayout;
 use engine_core::game::GameCtxMut;
-use engine_core::ui::*;
+use widgets::*;
 use engine_core::worlds::room::Room;
 
 /// Edits the name of a room.

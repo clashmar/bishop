@@ -2,7 +2,7 @@ use crate::app::Editor;
 use crate::gui::modals::{open_modal_with_prompt, Modal, ModalHandler, ModalResult};
 use crate::gui::prompts::editor_settings_prompt::{EditorSettingsPrompt, EditorSettingsResult};
 use bishop::prelude::*;
-use engine_core::ui::*;
+use widgets::*;
 use engine_core::theme::set_theme;
 use engine_core::theme::storage::save_editor_preset;
 use std::cell::RefCell;

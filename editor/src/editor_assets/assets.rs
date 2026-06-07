@@ -14,7 +14,7 @@ use engine_core::scripting::lua_project::{
 };
 use engine_core::scripting::menus_lua::generate_menus_lua_from_dir;
 use engine_core::storage::*;
-use engine_core::ui::*;
+use ::widgets::*;
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 use std::sync::{LazyLock, OnceLock};

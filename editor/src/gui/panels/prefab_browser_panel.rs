@@ -3,9 +3,9 @@ use crate::gui::panels::generic_panel::PanelDefinition;
 use crate::Editor;
 use bishop::prelude::*;
 use engine_core::ecs::*;
-use engine_core::ui::*;
+use widgets::*;
 use std::cmp::Ordering;
-use widgets::constants::layout;
+use ::widgets::constants::layout;
 
 pub(crate) const PREFAB_BROWSER_PANEL: &str = "Prefab Browser";
 const CONTENT_PADDING: f32 = 8.0;
