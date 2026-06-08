@@ -1,7 +1,7 @@
 use crate::app::EditorMode;
 use crate::commands::editor_command_manager::EditorCommand;
 use crate::editor_global::push_toast;
-use crate::storage::editor_storage::rename_game;
+use crate::storage::game_io::rename_game;
 use crate::with_editor;
 
 /// Undo-able command for renaming a game.

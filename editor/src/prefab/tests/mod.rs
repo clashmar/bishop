@@ -12,9 +12,8 @@ pub(super) use crate::prefab::prefab_editor::{
 pub(super) use crate::prefab::BLANK_PREFAB_ID;
 pub(super) use crate::prefab::{PendingPrefabTransition, PrefabTransitionPrompt};
 pub(super) use crate::room::room_editor::{RoomEditorMode, RoomSceneSubMode};
-pub(super) use crate::storage::editor_storage::{
-    create_new_game, load_game_by_name, load_prefab_palette_state, save_game,
-};
+pub(super) use crate::storage::game_io::{create_new_game, load_game_by_name, save_game};
+pub(super) use crate::storage::prefab_palettes::load_prefab_palette_state;
 pub(super) use crate::test_utils::{
     game_fs_test_lock, install_prefab_save_picker_result, linked_root_entities,
     make_prefab_session_editor, make_room_editor, EditorServicesGuard, TestGameFolder,

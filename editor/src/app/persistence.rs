@@ -3,7 +3,11 @@ use crate::gui::modals::export_overwrite::{stage_export_overwrite_message, Expor
 use crate::gui::modals::unsaved_exit::UnsavedExitModal;
 use crate::gui::modals::ModalHandler;
 use crate::prefab::reconcile_recent_prefab_ids;
-use crate::storage::editor_storage::*;
+use crate::prefab::palette::{PrefabPaletteState, PREFAB_PALETTE_RECENT_CAP};
+use crate::storage::game_io::save_game;
+use crate::storage::menus::{load_menus, save_menu};
+use crate::storage::prefab_palettes::{load_prefab_palette_state, save_prefab_palette_state};
+use crate::storage::tile_palettes::save_palette;
 use crate::storage::export::{export_game, export_target_path, PendingExport};
 use bishop::prelude::*;
 use engine_core::ecs::*;
@@ -241,7 +245,7 @@ impl Editor {
         menu_rons.sort();
         menu_rons.hash(&mut hasher);
 
-        use crate::storage::sound_preset_storage::current_sound_preset_library;
+        use crate::storage::sound_presets::current_sound_preset_library;
         let sound_library = current_sound_preset_library();
         let sound_ron = ron::to_string(&sound_library).unwrap_or_default();
         sound_ron.hash(&mut hasher);

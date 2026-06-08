@@ -1,7 +1,7 @@
 use bishop::prelude::*;
 use crate::app::{Editor, EditorMode};
 use crate::editor_global::{reset_services, set_editor, EDITOR_SERVICES};
-use crate::storage::editor_storage::create_new_game;
+use crate::storage::game_io::create_new_game;
 use engine_core::constants::extensions;
 use engine_core::ecs::*;
 use engine_core::engine_global::{set_game_name};

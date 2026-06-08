@@ -95,7 +95,7 @@ pub fn collect_sound_group_names(ecs: &Ecs, library: &SoundPresetLibrary) -> Vec
 mod tests {
     use super::*;
     use engine_core::game::{Game};
-    use crate::storage::editor_storage::save_game;
+    use crate::storage::game_io::save_game;
     use engine_core::constants::paths;
     use engine_core::ecs::AudioGroup;
     use engine_core::engine_global::set_game_name;

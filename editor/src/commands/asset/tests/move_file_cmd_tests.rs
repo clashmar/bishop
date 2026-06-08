@@ -2,7 +2,7 @@ use crate::app::EditorMode;
 use crate::commands::asset::MoveFileCmd;
 use crate::commands::editor_command_manager::EditorCommand;
 use crate::editor_global::with_editor;
-use crate::storage::editor_storage::create_new_game;
+use crate::storage::game_io::create_new_game;
 use crate::test_utils::{game_fs_test_lock, EditorServicesGuard, TestGameFolder};
 use crate::Editor;
 use engine_core::assets::*;

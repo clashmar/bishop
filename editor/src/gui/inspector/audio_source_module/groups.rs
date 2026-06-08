@@ -1,6 +1,6 @@
 use bishop::prelude::*;
 use super::*;
-use crate::storage::sound_preset_storage::SoundPresetLibrary;
+use crate::storage::sound_presets::SoundPresetLibrary;
 use engine_core::assets::*;
 use engine_core::audio::{AudioCommand, push_audio_command};
 use engine_core::ecs::*;

@@ -1,7 +1,8 @@
 use crate::app::Editor;
-use crate::editor_assets::write_prefabs_lua;
+use crate::storage::lua_stub_gen::write_prefabs_lua;
 use crate::prefab::prefab_editor::StagedPrefabState;
-use crate::storage::editor_storage::{collect_prefab_names, save_game};
+use crate::storage::lua_stub_gen::collect_prefab_names;
+use crate::storage::game_io::save_game;
 use engine_core::constants::extensions;
 use engine_core::ecs::*;
 use engine_core::game::{Game};

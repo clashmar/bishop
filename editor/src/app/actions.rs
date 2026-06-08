@@ -11,7 +11,7 @@ use crate::gui::modals::{
 };
 use crate::gui::panels::*;
 use crate::prefab::{PendingPrefabTransition, PrefabTransitionPrompt};
-use crate::storage::editor_storage::*;
+use crate::storage::game_io::{load_game_by_name};
 use bishop::prelude::*;
 use engine_core::engine_global::{set_game_name};
 use engine_core::game::{Game};

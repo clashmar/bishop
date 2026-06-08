@@ -1,10 +1,10 @@
 use crate::app::EditorMode;
 use crate::commands::editor_command_manager::EditorCommand;
-use crate::editor_assets::write_prefabs_lua;
+use crate::storage::lua_stub_gen::write_prefabs_lua;
 use crate::editor_global::with_editor;
-use crate::storage::editor_storage::collect_prefab_names;
-use crate::storage::editor_storage::save_game;
-use crate::storage::editor_storage::PrefabPaletteState;
+use crate::storage::lua_stub_gen::collect_prefab_names;
+use crate::storage::game_io::save_game;
+use crate::prefab::palette::PrefabPaletteState;
 use engine_core::ecs::*;
 use engine_core::game::{Game};
 use engine_core::logging::{omni_error};

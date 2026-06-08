@@ -4,7 +4,7 @@ use crate::prefab::prefab_editor::{
     PrefabEditor, PrefabRoomSyncState, PrefabStage, StagedPrefabState,
 };
 #[cfg(test)]
-use crate::storage::editor_storage::load_game_by_name;
+use crate::storage::game_io::load_game_by_name;
 use engine_core::assets::*;
 use engine_core::ecs::*;
 use engine_core::game::{Game, GameCtxMut};

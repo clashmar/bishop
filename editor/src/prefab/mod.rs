@@ -1,6 +1,6 @@
 mod document;
 pub(crate) mod instance_sync;
-mod palette;
+pub mod palette;
 pub mod prefab_editor;
 mod session_state;
 

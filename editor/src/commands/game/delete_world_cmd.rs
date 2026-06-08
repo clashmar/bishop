@@ -97,7 +97,8 @@ mod tests {
     use engine_core::engine_global::{set_game_name};
     use crate::app::Editor;
     use crate::editor_global::with_editor;
-    use crate::storage::editor_storage::{create_new_game, create_new_world};
+    use crate::storage::game_io::create_new_game;
+use crate::world::world_creation::create_new_world;
     use crate::test_utils::{game_fs_test_lock, EditorServicesGuard, TestGameFolder};
 
     #[test]

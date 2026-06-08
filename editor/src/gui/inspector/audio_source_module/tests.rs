@@ -6,7 +6,7 @@ use super::preview::{
     active_preview_is_cleared_for_test, set_active_preview_for_test, ActivePreview,
 };
 use super::*;
-use crate::storage::sound_preset_storage::{set_current_sound_preset_library, SoundPresetLibrary};
+use crate::storage::sound_presets::{set_current_sound_preset_library, SoundPresetLibrary};
 use engine_core::assets::AssetRegistry;
 use engine_core::ecs::SoundPresetLink;
 

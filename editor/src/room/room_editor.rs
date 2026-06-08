@@ -16,9 +16,8 @@ use crate::room::selection::DragState;
 use crate::shared::input::{canvas_blocked_by_global_ui, shortcuts_blocked};
 use crate::shared::scene_ui::inspector::{CreateRequest, PrefabActionRequest};
 use crate::shared::selection::draw_selection_box;
-use crate::storage::editor_storage::{
-    PrefabPaletteState, PREFAB_PALETTE_RECENT_CAP, collect_custom_event_tags,
-};
+use crate::prefab::palette::{PrefabPaletteState, PREFAB_PALETTE_RECENT_CAP};
+use crate::storage::lua_stub_gen::collect_custom_event_tags;
 use crate::tilemap::tilemap_editor::*;
 use crate::world::coord;
 use bishop::prelude::*;
