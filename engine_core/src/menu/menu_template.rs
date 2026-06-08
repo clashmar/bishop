@@ -9,6 +9,8 @@ pub struct MenuTemplate {
     pub background: MenuBackground,
     pub elements: Vec<MenuElement>,
     pub mode: MenuMode,
+    #[serde(default)]
+    pub on_open: String,
 }
 
 impl MenuTemplate {
@@ -19,6 +21,7 @@ impl MenuTemplate {
             background: MenuBackground::default(),
             elements: Vec::new(),
             mode: MenuMode::Paused,
+            on_open: String::new(),
         }
     }
 

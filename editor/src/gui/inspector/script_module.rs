@@ -1,8 +1,10 @@
-// editor/src/gui/inspector/script_module.rs
 use crate::editor_assets::assets::refresh_icon;
 use crate::with_lua;
 use bishop::prelude::*;
-use engine_core::prelude::*;
+use engine_core::ecs::*;
+use engine_core::game::{GameCtxMut};
+use engine_core::logging::{omni_error};
+use engine_core::ui::*;
 use std::collections::HashMap;
 use widgets::constants::{colors, layout};
 
@@ -61,7 +63,7 @@ impl InspectorModule for ScriptModule {
         if script_comp.script_id != ScriptId(0) {
             with_lua(|lua| {
                 if let Err(e) = script_comp.load(lua, asset_registry, script_manager, entity) {
-                    onscreen_error!("Failed to load script: {}", e);
+                    omni_error!("Failed to load script: {}", e);
                 }
             });
         }
@@ -99,7 +101,7 @@ impl InspectorModule for ScriptModule {
         ) {
             with_lua(|lua| {
                 if let Err(e) = script_comp.load(lua, asset_registry, script_manager, entity) {
-                    onscreen_error!("Failed to load script: {}", e);
+                    omni_error!("Failed to load script: {}", e);
                 }
             })
         }
@@ -116,10 +118,10 @@ impl InspectorModule for ScriptModule {
 
             with_lua(|lua| {
                 if let Err(e) = script_manager.reload(lua, entity, script_comp.script_id) {
-                    onscreen_error!("Failed to reload script: {}", e);
+                    omni_error!("Failed to reload script: {}", e);
                 } else if let Err(e) = script_comp.load(lua, asset_registry, script_manager, entity)
                 {
-                    onscreen_error!("Failed to reload script data: {}", e);
+                    omni_error!("Failed to reload script data: {}", e);
                 }
             });
         }
@@ -176,7 +178,7 @@ impl InspectorModule for ScriptModule {
             let field = match script_comp.data.fields.get_mut(&name) {
                 Some(f) => f,
                 None => {
-                    onscreen_error!("Could not read field data from script component.");
+                    omni_error!("Could not read field data from script component.");
                     return;
                 }
             };
@@ -322,7 +324,7 @@ impl InspectorModule for ScriptModule {
             if changed {
                 with_lua(|lua| {
                     if let Err(e) = script_comp.sync_to_lua(lua, script_manager, entity) {
-                        onscreen_error!("Failed to sync script: {}", e);
+                        omni_error!("Failed to sync script: {}", e);
                     }
                 })
             }
@@ -344,7 +346,7 @@ inventory::submit! {
         title: <engine_core::ecs::Script>::TYPE_NAME,
         factory: || {
             Box::new(
-                CollapsibleModule::new(
+                CollapsibleComponentModule::new(
                     crate::gui::inspector::script_module::ScriptModule::default()
                 )
                 .with_title(<engine_core::ecs::Script>::TYPE_NAME)

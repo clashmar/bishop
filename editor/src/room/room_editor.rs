@@ -1,25 +1,36 @@
-// editor/src/room/room_editor.rs
 use crate::app::EditorCameraController;
 use crate::app::EditorMode;
 use crate::app::SubEditor;
 use crate::canvas::grid;
 use crate::canvas::grid_shader::GridRenderer;
 use crate::commands::room::*;
+use crate::commands::scene::CreateSceneEntityCmd;
 use crate::editor_assets::assets::*;
 use crate::editor_global::*;
-use crate::gui::inspector::inspector_panel::InspectorPanel;
+use crate::gui::gui_constants::{self};
+use crate::gui::inspector::shell::Inspector;
 use crate::gui::mode_selector::*;
 use crate::prefab::reconcile_recent_prefab_ids;
 use crate::room::drawing::*;
 use crate::room::selection::DragState;
 use crate::shared::input::{canvas_blocked_by_global_ui, shortcuts_blocked};
-use crate::shared::scene_ui::inspector::{SceneCreateRequest, ScenePrefabActionRequest};
+use crate::shared::scene_ui::inspector::{CreateRequest, PrefabActionRequest};
 use crate::shared::selection::draw_selection_box;
-use crate::storage::editor_storage::{PrefabPaletteState, PREFAB_PALETTE_RECENT_CAP};
+use crate::storage::editor_storage::{
+    PrefabPaletteState, PREFAB_PALETTE_RECENT_CAP, collect_custom_event_tags,
+};
 use crate::tilemap::tilemap_editor::*;
 use crate::world::coord;
 use bishop::prelude::*;
-use engine_core::prelude::*;
+use engine_core::animation::{update_animation_sytem};
+use engine_core::assets::*;
+use engine_core::camera::get_room_camera_by_id;
+use engine_core::controls::{Controls};
+use engine_core::ecs::*;
+use engine_core::game::{Game};
+use engine_core::rendering::{render_room, RenderSystem};
+use engine_core::ui::*;
+use engine_core::worlds::*;
 use once_cell::sync::Lazy;
 use std::collections::HashSet;
 use strum::IntoEnumIterator;
@@ -100,7 +111,7 @@ pub struct RoomEditor {
     pub mode: RoomEditorMode,
     pub mode_selector: ModeSelector<RoomEditorMode>,
     pub tilemap_editor: TileMapEditor,
-    pub inspector: InspectorPanel,
+    pub inspector: Inspector,
     pub selected_entities: HashSet<Entity>,
     pub active_prefab_id: Option<PrefabId>,
     pub recent_prefab_ids: Vec<PrefabId>,
@@ -108,8 +119,11 @@ pub struct RoomEditor {
     pub(crate) active_rects: Vec<Rect>,
     pub(crate) show_grid: bool,
     pub(crate) drag_state: DragState,
-    pub create_request: Option<SceneCreateRequest>,
-    pub prefab_action_request: Option<ScenePrefabActionRequest>,
+    pub create_request: Option<CreateRequest>,
+    pub prefab_action_request: Option<PrefabActionRequest>,
+    pub create_camera_request: Option<f32>,
+    pub event_tags: Vec<String>,
+    pub request_event_tags_refresh: bool,
     pub request_play: bool,
     pub view_preview: bool,
     pub(crate) preview_camera_id: Option<usize>,
@@ -123,6 +137,9 @@ impl RoomEditor {
     pub fn new() -> Self {
         let mode = RoomEditorMode::Scene;
 
+        let mut inspector = Inspector::new();
+        inspector.select_room();
+
         Self {
             mode: RoomEditorMode::Scene,
             mode_selector: ModeSelector {
@@ -130,7 +147,7 @@ impl RoomEditor {
                 options: *ALL_MODES,
             },
             tilemap_editor: TileMapEditor::new(),
-            inspector: InspectorPanel::new(),
+            inspector,
             selected_entities: HashSet::new(),
             active_prefab_id: None,
             recent_prefab_ids: Vec::new(),
@@ -141,6 +158,9 @@ impl RoomEditor {
             preview_camera_id: None,
             create_request: None,
             prefab_action_request: None,
+            create_camera_request: None,
+            event_tags: Vec::new(),
+            request_event_tags_refresh: false,
             request_play: false,
             view_preview: false,
             tilemap_sub_mode: TilemapEditorMode::Tiles,
@@ -251,37 +271,25 @@ impl RoomEditor {
 
                 // Create a new entity if create was pressed
                 if let Some(create_request) = self.create_request.take() {
-                    let parent = create_request.parent;
-                    // Build the entity
-                    let entity = ecs
-                        .create_entity()
-                        .with(Transform {
-                            position: room.position,
-                            ..Default::default()
-                        })
-                        .with(Name("Entity".to_string()))
-                        .with_current_room(room.id)
-                        .finish();
-
-                    if let Some(parent) = parent {
-                        set_parent(ecs, entity, parent);
-                    }
-
-                    // Immediately select it so the inspector shows the newly-created entity
-                    self.selected_entities.clear();
-                    self.selected_entities.insert(entity);
+                    push_command(Box::new(CreateSceneEntityCmd::new_room_entity(
+                        room.id,
+                        room.position,
+                        create_request.parent,
+                    )));
                 }
 
-                // If exactly one entity is selected, show the inspector
-                if let Some(entity) = self.single_selected_entity() {
-                    self.inspector.set_target(Some(entity));
-                } else {
-                    self.inspector.set_target(None);
+                // Create a new camera if create_camera_request was emitted
+                if let Some(cam_grid_size) = self.create_camera_request.take() {
+                    push_command(Box::new(CreateSceneEntityCmd::new_room_camera(
+                        room.id,
+                        room.position,
+                        cam_grid_size,
+                    )));
                 }
 
-                // If target was cleared by inspector, sync selection
-                if self.inspector.target.is_none() && self.selected_entities.len() == 1 {
-                    self.selected_entities.clear();
+                // If target was cleared by inspector, sync selection.
+                if !self.inspector.has_target() && self.selected_entities.len() == 1 {
+                    self.clear_selection();
                 }
             }
         }
@@ -405,6 +413,8 @@ impl RoomEditor {
         grid_renderer: &GridRenderer,
     ) {
         self.request_play = false; // This is very important
+        self.request_event_tags_refresh = false;
+        self.event_tags = collect_custom_event_tags(game);
         self.active_rects.clear();
         let active_prefab = self
             .active_prefab_id
@@ -417,11 +427,10 @@ impl RoomEditor {
             };
 
             // Panel rect for inspector and tilemap editor.
-            const INSPECTOR_W: f32 = 325.0;
             let inspector_rect = Rect::new(
-                ctx.screen_width() - INSPECTOR_W,
+                ctx.screen_width() - gui_constants::inspector::WIDTH,
                 0.0,
-                INSPECTOR_W,
+                gui_constants::inspector::WIDTH,
                 ctx.screen_height(),
             );
 
@@ -566,7 +575,7 @@ impl RoomEditor {
     }
 
     pub fn reset(&mut self) {
-        self.inspector.set_target(None);
+        self.inspector.select_room();
         self.tilemap_editor.reset();
         self.reset_scene_sub_mode();
         self.mode = RoomEditorMode::Scene;
@@ -574,6 +583,7 @@ impl RoomEditor {
         self.selected_entities.clear();
         self.create_request = None;
         self.prefab_action_request = None;
+        self.create_camera_request = None;
         self.request_play = false;
         self.view_preview = false;
         self.preview_camera_id = None;

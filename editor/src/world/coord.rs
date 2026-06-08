@@ -1,4 +1,3 @@
-// editor/src/world/coord.rs
 use bishop::prelude::*;
 
 /// Convert the current mouse position (screen pixels) to world

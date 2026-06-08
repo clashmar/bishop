@@ -3,7 +3,8 @@ use crate::commands::scene::{RemoveParentCmd, SetParentCmd};
 use crate::editor_global::push_command;
 use crate::shared::scene_ui::prefab_link::linked_prefab_display;
 use bishop::prelude::*;
-use engine_core::prelude::*;
+use engine_core::ecs::*;
+use engine_core::ui::*;
 use std::collections::HashSet;
 
 const ROW_HEIGHT: f32 = 22.0;

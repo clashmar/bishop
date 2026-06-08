@@ -1,7 +1,9 @@
-// game/src/engine/render.rs
 use crate::engine::*;
 use bishop::prelude::*;
-use engine_core::prelude::*;
+use engine_core::camera::CameraManager;
+use engine_core::constants::window;
+use engine_core::rendering::{RenderSystem, render_room};
+use engine_core::text::{collect_speech_bubbles, render_speech_bubbles};
 
 fn gameplay_viewport_rect(screen_w: f32, screen_h: f32) -> Option<(i32, i32, i32, i32)> {
     if screen_w <= 0.0 || screen_h <= 0.0 {

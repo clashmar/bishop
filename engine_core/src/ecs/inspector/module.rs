@@ -1,4 +1,3 @@
-// engine_core/src/ecs/inspector/module.rs
 use crate::ecs::ecs::Ecs;
 use crate::ecs::entity::Entity;
 use crate::ecs::inspector::layout::InspectorBodyLayout;
@@ -46,7 +45,7 @@ pub trait InspectorModule {
     fn undo_component_type(&self) -> Option<&'static str>;
 
     /// Returns `true` and clears the internal flag if a remove was requested this draw.
-    /// Default returns `false`. `CollapsibleModule` overrides this.
+    /// Default returns `false`. `CollapsibleComponentModule` overrides this.
     fn take_remove_request(&mut self) -> bool {
         false
     }
@@ -71,7 +70,7 @@ pub trait InspectorModule {
 /// Generic wrapper that adds a collapsible header around any concrete
 /// `InspectorModule`.  It stores the `expanded` flag, draws the “‑/＋” button,
 /// and forwards the actual drawing to the inner module when expanded.
-pub struct CollapsibleModule<T: InspectorModule> {
+pub struct CollapsibleComponentModule<T: InspectorModule> {
     inner: T,
     expanded: bool,
     /// Optional custom title. If `None`, ask the inner module for its
@@ -81,7 +80,7 @@ pub struct CollapsibleModule<T: InspectorModule> {
     remove_requested: bool,
 }
 
-impl<T: InspectorModule> CollapsibleModule<T> {
+impl<T: InspectorModule> CollapsibleComponentModule<T> {
     const HEADER_BUTTON_TEXT_OFFSET: Vec2 = Vec2::new(0.0, -1.0);
 
     pub fn new(inner: T) -> Self {
@@ -139,7 +138,7 @@ impl<T: InspectorModule> CollapsibleModule<T> {
     }
 }
 
-impl<T: InspectorModule> InspectorModule for CollapsibleModule<T> {
+impl<T: InspectorModule> InspectorModule for CollapsibleComponentModule<T> {
     fn visible(&self, ecs: &Ecs, entity: Entity) -> bool {
         self.inner.visible(ecs, entity)
     }

@@ -9,4 +9,5 @@ members = [
     "lua_api_gen",
     "ecs_component",
     "widgets",
+    "xtask",
     ]

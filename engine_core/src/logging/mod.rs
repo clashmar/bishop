@@ -1,4 +1,3 @@
-// engine_core/src/logging/mod.rs
 use crate::storage::editor_config::app_dir;
 use std::backtrace::Backtrace;
 use std::fs::{self, OpenOptions};
@@ -11,11 +10,11 @@ use log::Record;
 use once_cell::sync::Lazy;
 use std::io::*;
 
-pub use crate::onscreen_debug;
-pub use crate::onscreen_error;
-pub use crate::onscreen_info;
-pub use crate::onscreen_log;
-pub use crate::onscreen_warn;
+pub use crate::omni_debug;
+pub use crate::omni_error;
+pub use crate::omni_info;
+pub use crate::omni_log;
+pub use crate::omni_warn;
 
 const MAX_LOG_ENTRIES: usize = 500;
 
@@ -107,7 +106,7 @@ pub fn now_str() -> String {
 /// Helper macro that allow logs to be displayed by
 /// the program and printed to the console.
 #[macro_export]
-macro_rules! onscreen_log {
+macro_rules! omni_log {
     ($lvl:expr, $($arg:tt)*) => {{
         let msg = format!($($arg)*);
         let time = $crate::logging::now_str();
@@ -123,25 +122,25 @@ macro_rules! onscreen_log {
 
 /// Helper macro that allow logs to be displayed by the program.
 #[macro_export]
-macro_rules! onscreen_info  { ($($arg:tt)*) => { $crate::onscreen_log!(log::Level::Info,  $($arg)*) }; }
+macro_rules! omni_info  { ($($arg:tt)*) => { $crate::omni_log!(log::Level::Info,  $($arg)*) }; }
 
 /// Helper macro that allow logs to be displayed by the program.
 #[macro_export]
-macro_rules! onscreen_warn  { ($($arg:tt)*) => { $crate::onscreen_log!(log::Level::Warn,  $($arg)*) }; }
+macro_rules! omni_warn  { ($($arg:tt)*) => { $crate::omni_log!(log::Level::Warn,  $($arg)*) }; }
 
 /// Helper macro that allow logs to be displayed by the program.
 #[macro_export]
-macro_rules! onscreen_error { ($($arg:tt)*) => { $crate::onscreen_log!(log::Level::Error, $($arg)*) }; }
+macro_rules! omni_error { ($($arg:tt)*) => { $crate::omni_log!(log::Level::Error, $($arg)*) }; }
 
 /// Helper macro that allow logs to be displayed by the program.
 #[macro_export]
-macro_rules! onscreen_debug { ($($arg:tt)*) => { $crate::onscreen_log!(log::Level::Debug, $($arg)*) }; }
+macro_rules! omni_debug { ($($arg:tt)*) => { $crate::omni_log!(log::Level::Debug, $($arg)*) }; }
 
 /// Initializes the system logger.
 pub fn init_file_logger() {
     let log_dir = runtime_log_dir();
     init_logger_with_basename(&log_dir, "bishop_engine");
-    onscreen_info!("Log dir: {}.", log_dir.display());
+    omni_info!("Log dir: {}.", log_dir.display());
 }
 
 /// Returns the directory used for runtime log files.
@@ -165,8 +164,8 @@ pub fn init_runtime_telemetry(process_name: &str) -> RuntimeTelemetryPaths {
     let paths = runtime_telemetry_paths(runtime_log_dir(), process_name);
     init_logger_with_basename(&paths.log_dir, &paths.log_basename);
     install_panic_hook(paths.clone());
-    onscreen_info!("Log dir: {}.", paths.log_dir.display());
-    onscreen_info!("Crash report: {}.", paths.crash_report_path.display());
+    omni_info!("Log dir: {}.", paths.log_dir.display());
+    omni_info!("Crash report: {}.", paths.crash_report_path.display());
     paths
 }
 

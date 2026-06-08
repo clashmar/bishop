@@ -1,4 +1,3 @@
-// engine_core/src/ecs/reflect.rs
 use crate::ecs::{Pivot, SpriteId};
 use bishop::types::{Vec2, Vec3};
 use std::borrow::Cow;

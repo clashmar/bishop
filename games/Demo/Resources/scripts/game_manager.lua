@@ -4,7 +4,7 @@ local GameManager = {
     public = {
         score = 0,
         level = 1,
-    }
+    },
 }
 
 function GameManager:add_score(amount)
@@ -13,7 +13,11 @@ function GameManager:add_score(amount)
     return self.public.score
 end
 
-function GameManager:get_score() return self.public.score end
-function GameManager:set_level(l) self.public.level = l end
+function GameManager:get_score()
+    return self.public.score
+end
+function GameManager:set_level(l)
+    self.public.level = l
+end
 
 return GameManager

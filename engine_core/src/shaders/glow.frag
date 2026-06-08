@@ -1,4 +1,3 @@
-// engine_core/src/shaders/glow.frag
 #version 100
 precision mediump float;
 

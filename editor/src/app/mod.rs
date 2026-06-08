@@ -1,4 +1,3 @@
-// editor/src/editor/mod.rs
 mod actions;
 mod audio;
 pub mod camera_controller;
@@ -6,6 +5,7 @@ pub(crate) mod escape;
 #[cfg(target_os = "macos")]
 pub(crate) mod macos_quit;
 mod modals;
+mod navigation;
 mod persistence;
 mod queries;
 pub mod sub_editor;
@@ -37,7 +37,16 @@ use crate::tilemap::tile_palette::TilePalette;
 use crate::with_panel_manager;
 use crate::world::world_editor::WorldEditor;
 use bishop::prelude::*;
-use engine_core::prelude::*;
+use engine_core::audio::{AudioManager};
+use engine_core::controls::{Controls};
+use engine_core::ecs::*;
+use engine_core::game::{Game};
+use engine_core::logging::{omni_error, omni_info};
+use engine_core::physics::collider_system;
+use engine_core::rendering::{RenderSystem};
+use engine_core::task::BackgroundService;
+use engine_core::ui::*;
+use engine_core::worlds::*;
 use engine_core::storage::editor_config;
 use engine_core::task::BackgroundTask;
 use std::io;
@@ -77,6 +86,7 @@ pub struct Editor {
     pub pending_playtest_build: Option<BackgroundTask<Result<(PathBuf, PathBuf), String>>>,
     pub grid_renderer: Option<GridRenderer>,
     pub audio_manager: AudioManager,
+    pub(crate) request_event_tags_refresh: bool,
     pub(crate) last_save_hash: u64,
     pub(crate) handling_close: bool,
 }
@@ -108,6 +118,7 @@ impl Default for Editor {
             pending_playtest_build: None,
             grid_renderer: None,
             audio_manager: default_audio_manager(),
+            request_event_tags_refresh: false,
             last_save_hash: 0,
             handling_close: false,
         }
@@ -126,7 +137,7 @@ impl Editor {
             create_new_game(name)
         } else {
             // User pressed Cancel
-            onscreen_info!("User cancelled new game dialogue.");
+            omni_info!("User cancelled new game dialogue.");
             std::process::exit(0);
         };
 
@@ -144,7 +155,7 @@ impl Editor {
         let palette = match load_palette(&game.name.clone()) {
             Ok(p) => p,
             Err(e) => {
-                onscreen_error!("Failed to load palette: {e}");
+                omni_error!("Failed to load palette: {e}");
                 // Fall back to a new palette
                 TilePalette::new()
             }
@@ -190,12 +201,12 @@ impl Editor {
                                 self.playtest_process = Some(process);
                             }
                             Err(e) => {
-                                onscreen_error!("Failed to launch playtest: {e}");
+                                omni_error!("Failed to launch playtest: {e}");
                             }
                         }
                     }
                     Err(e) => {
-                        onscreen_error!("Playtest build failed: {e}");
+                        omni_error!("Playtest build failed: {e}");
                     }
                 }
             }
@@ -215,41 +226,10 @@ impl Editor {
 
         match self.mode {
             EditorMode::Menu => {
-                let was_viewing_preview = self.menu_editor.view_preview;
                 self.menu_editor.update(ctx, &self.camera);
 
-                if !was_viewing_preview
-                    && escape::escape_available_for_editor()
-                    && !input_is_focused()
-                {
-                    self.save_menus();
-                    let return_mode = self.return_mode.unwrap_or(EditorMode::Game);
-                    self.mode = return_mode;
-                    self.return_mode = None;
-
-                    match return_mode {
-                        EditorMode::Game => {
-                            self.game_editor
-                                .init_camera(ctx, &mut self.camera, &mut self.game);
-                        }
-                        EditorMode::World(id) => {
-                            if let Some(world) = self.game.get_world_mut(id) {
-                                self.world_editor.init_camera(ctx, &mut self.camera, world);
-                            }
-                        }
-                        EditorMode::Room(id) => {
-                            let current_world = self.game.current_world();
-                            if let Some(room) = current_world.get_room(id) {
-                                EditorCameraController::reset_room_editor_camera(
-                                    ctx,
-                                    &mut self.camera,
-                                    room,
-                                    current_world.grid_size,
-                                );
-                            }
-                        }
-                        EditorMode::Prefab(_) | EditorMode::Menu => {}
-                    }
+                if escape::escape_available_for_editor() && !input_is_focused() {
+                    self.navigate_back(ctx);
                 }
             }
             EditorMode::Prefab(_) => {
@@ -282,7 +262,7 @@ impl Editor {
                     && escape::escape_available_for_editor()
                     && !input_is_focused()
                 {
-                    self.request_exit_prefab_mode(ctx);
+                    self.navigate_back(ctx);
                 }
             }
             EditorMode::Game => {
@@ -341,16 +321,7 @@ impl Editor {
 
                 // Handle escape
                 if escape::escape_available_for_editor() && !input_is_focused() {
-                    self.game_editor
-                        .init_camera(ctx, &mut self.camera, &mut self.game);
-
-                    // Clean up
-                    self.cur_world_id = None;
-                    self.world_editor.reset();
-                    self.mode = EditorMode::Game;
-
-                    // Save everything
-                    self.save();
+                    self.navigate_back(ctx);
                 }
             }
             EditorMode::Room(room_id) => {
@@ -368,9 +339,6 @@ impl Editor {
                 }
 
                 let room_prefab_action;
-                let mut save_prefab_palette = false;
-                let mut save_after_room_exit = false;
-                let game_name = self.game.name.clone();
                 {
                     let active_prefab_stamp = room_editor::ActivePrefabStampState {
                         available: self.room_editor.active_prefab_id.is_some_and(|prefab_id| {
@@ -405,51 +373,10 @@ impl Editor {
                         game_ctx.ecs,
                         game_ctx.sprite_manager,
                     );
-
-                    if escape::escape_available_for_editor()
-                        && !input_is_focused()
-                        && self.room_editor.reset_scene_sub_mode()
-                    {
-                        save_prefab_palette = true;
-                    } else if escape::escape_available_for_editor() && !input_is_focused() {
-                        let palette =
-                            &mut self.room_editor.tilemap_editor.tilemap_panel.palette;
-
-                        if let Err(e) = editor_storage::save_palette(palette, &game_name) {
-                            onscreen_error!("Could not save tile palette: {e}")
-                        }
-
-                        // Find the room we just left for center_on_room
-                        let current_world = game_ctx
-                            .world
-                            .as_deref_mut()
-                            .expect("Current world id not present in game while in Room mode.");
-                        if let Some(room) =
-                            current_world.get_room(room_id)
-                        {
-                            self.world_editor.center_on_room(
-                                ctx,
-                                &mut self.camera,
-                                room,
-                                current_world.grid_size,
-                            );
-                        }
-
-                        // Clean up
-                        self.cur_room_id = None;
-                        self.room_editor.reset();
-                        self.mode = EditorMode::World(current_world.id);
-
-                        save_prefab_palette = true;
-                        save_after_room_exit = true;
-                    }
                 }
 
-                if save_prefab_palette {
-                    self.save_prefab_palette_state();
-                }
-                if save_after_room_exit {
-                    self.save();
+                if escape::escape_available_for_editor() && !input_is_focused() {
+                    self.navigate_back(ctx);
                 }
 
                 if let Some(request) = room_prefab_action {
@@ -464,7 +391,7 @@ impl Editor {
                         let payload_path = match write_playtest_payload(room, &self.game) {
                             Ok(p) => p,
                             Err(e) => {
-                                onscreen_error!("Could not write playtest payload: {e}");
+                                omni_error!("Could not write playtest payload: {e}");
                                 self.room_editor.request_play = false;
                                 return;
                             }
@@ -482,12 +409,12 @@ impl Editor {
                                             self.playtest_process = Some(process);
                                         }
                                         Err(e) => {
-                                            onscreen_error!("Failed to launch playtest: {e}");
+                                            omni_error!("Failed to launch playtest: {e}");
                                         }
                                     }
                                 }
                                 Err(e) => {
-                                    onscreen_error!("{e}");
+                                    omni_error!("{e}");
                                 }
                             }
                         } else {
@@ -562,8 +489,20 @@ impl Editor {
                         &mut self.render_system,
                         grid_renderer,
                     );
+
+                    if self.room_editor.request_event_tags_refresh {
+                        self.request_event_tags_refresh = true;
+                        self.room_editor.request_event_tags_refresh = false;
+                    }
                 }
             }
+        }
+
+        if self.request_event_tags_refresh {
+            if let Err(error) = refresh_event_tags_lua(&self.game) {
+                omni_error!("Could not refresh event_tags.lua: {error}");
+            }
+            self.request_event_tags_refresh = false;
         }
 
         // Draw global UI here

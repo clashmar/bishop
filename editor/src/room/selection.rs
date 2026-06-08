@@ -1,9 +1,11 @@
-// editor/src/room/selection.rs
 use crate::app::SubEditor;
 use crate::room::room_editor::*;
 use crate::world::coord;
 use bishop::prelude::*;
-use engine_core::prelude::*;
+use engine_core::assets::*;
+use engine_core::ecs::*;
+use engine_core::rendering::{Renderable, pivot_adjusted_position, resolve_visual_entity};
+use engine_core::worlds::*;
 use std::collections::HashSet;
 
 /// Stores the original drag state before switching to copy mode.
@@ -38,8 +40,12 @@ pub(crate) struct DragState {
 }
 
 impl RoomEditor {
-    fn sync_inspector_to_selection(&mut self) {
-        self.inspector.set_target(self.single_selected_entity());
+    pub(crate) fn sync_inspector_to_selection(&mut self) {
+        if let Some(entity) = self.single_selected_entity() {
+            self.inspector.select_entity(entity);
+        } else {
+            self.inspector.select_room();
+        }
     }
 
     /// Sets a single selected entity for the room editor, clearing any previous selection.

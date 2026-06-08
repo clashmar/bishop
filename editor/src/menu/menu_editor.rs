@@ -1,11 +1,12 @@
-// editor/src/menu_editor/menu_editor.rs
 use crate::app::SubEditor;
 use crate::gui::modals::is_modal_open;
 use crate::menu::resize_handle::ResizeHandleState;
 use crate::menu::*;
 use crate::shared::input::canvas_blocked_by_global_ui;
 use bishop::prelude::*;
-use engine_core::prelude::*;
+use engine_core::controls::{Controls};
+use engine_core::menu::{MenuElement, MenuElementKind, MenuTemplate, compute_canvas_rect, compute_preview_rect};
+use engine_core::ui::*;
 use std::collections::{HashMap, HashSet};
 
 /// Tracks an in-progress drag-to-reorder operation for managed layout children.

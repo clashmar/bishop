@@ -7,7 +7,8 @@ use crate::gui::panels::hierarchy_panel::{
 use crate::gui::panels::prefab_browser_panel::prefab_browser_entries;
 use crate::room::room_editor::RoomEditor;
 use crate::shared::scene_ui::hierarchy::{SceneHierarchyHost, SceneHierarchySelectionAction};
-use engine_core::prelude::*;
+use engine_core::ecs::*;
+use engine_core::worlds::*;
 use engine_core::storage::test_utils::{game_fs_test_lock, TestGameFolder};
 use std::collections::HashSet;
 
@@ -140,7 +141,7 @@ fn room_hierarchy_host_toggles_selection_additively() {
 
     host.apply_selection_action(entity, SceneHierarchySelectionAction::Toggle);
     assert!(!host.is_selected(entity));
-    assert_eq!(host.room_editor.inspector.target, None);
+    assert!(!host.room_editor.inspector.has_target());
 }
 
 #[test]
@@ -165,7 +166,7 @@ fn prefab_hierarchy_host_toggles_selection_additively() {
 
     host.apply_selection_action(entity, SceneHierarchySelectionAction::Toggle);
     assert!(!host.is_selected(entity));
-    assert_eq!(host.prefab_editor.inspector.target, None);
+    assert!(!host.prefab_editor.inspector.has_target());
 }
 
 #[test]

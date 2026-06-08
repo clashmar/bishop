@@ -1,11 +1,12 @@
-// editor/src/menu/menu_canvas/drawing.rs
 use crate::menu::resize_handle::*;
 use crate::menu::MenuEditor;
 use crate::menu::SnapLine;
 use crate::shared::selection::draw_selection_box;
 use bishop::prelude::*;
 use engine_core::constants::world;
-use engine_core::prelude::*;
+use engine_core::menu::*;
+use engine_core::text::TextManager;
+use engine_core::ui::*;
 use std::collections::HashMap;
 
 pub(crate) struct MenuCanvasFrame<'a> {

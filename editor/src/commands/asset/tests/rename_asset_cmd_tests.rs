@@ -1,4 +1,3 @@
-// editor/src/commands/asset/tests/rename_asset_cmd_tests.rs
 use crate::app::EditorMode;
 use crate::commands::asset::RenameAssetCmd;
 use crate::commands::editor_command_manager::EditorCommand;
@@ -6,7 +5,12 @@ use crate::editor_global::with_editor;
 use crate::storage::editor_storage::create_new_game;
 use crate::test_utils::{game_fs_test_lock, EditorServicesGuard, TestGameFolder};
 use crate::Editor;
-use engine_core::prelude::*;
+use engine_core::assets::*;
+use engine_core::constants::{paths};
+use engine_core::ecs::*;
+use engine_core::engine_global::{set_game_name};
+use engine_core::storage::*;
+use engine_core::worlds::*;
 use std::fs;
 use std::path::PathBuf;
 

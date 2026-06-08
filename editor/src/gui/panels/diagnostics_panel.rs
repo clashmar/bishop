@@ -1,9 +1,10 @@
-// editor/src/gui/panels/diagnostics_panel.rs
 use crate::editor_global::with_command_manager;
 use crate::gui::panels::generic_panel::PanelDefinition;
 use crate::Editor;
 use bishop::prelude::*;
-use engine_core::prelude::*;
+use engine_core::diagnostics::{AssetMetrics, CommandMetrics, DiagnosticsCollector, DiagnosticsSnapshot, EcsMetrics, ScriptMetrics};
+use engine_core::ecs::*;
+use engine_core::ui::*;
 
 const ROW_HEIGHT: f32 = 16.0;
 const SECTION_SPACING: f32 = 8.0;

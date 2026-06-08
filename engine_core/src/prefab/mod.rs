@@ -6,7 +6,7 @@ mod instance;
 use crate::assets::{AssetKey, AssetRecord, AssetRegistry};
 use crate::constants::{extensions, paths};
 use crate::ecs::capture::ComponentSnapshot;
-use crate::onscreen_error;
+use crate::omni_error;
 use crate::storage::path_utils::resources_folder;
 #[cfg(feature = "editor")]
 use crate::storage::path_utils::sanitise_name;
@@ -475,7 +475,7 @@ fn load_prefabs_for_game(game_name: &str) -> io::Result<Vec<(PathBuf, PrefabAsse
                 loaded_prefabs.push((path, prefab));
             }
             Err(error) => {
-                onscreen_error!("Failed to load prefab '{}': {error}", path.display());
+                omni_error!("Failed to load prefab '{}': {error}", path.display());
             }
         }
     }

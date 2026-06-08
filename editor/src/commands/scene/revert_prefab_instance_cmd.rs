@@ -2,7 +2,7 @@ use crate::app::EditorMode;
 use crate::commands::editor_command_manager::EditorCommand;
 use crate::prefab::instance_sync::{linked_prefab_reference, sync_prefab_overrides_for_root};
 use crate::with_editor;
-use engine_core::prelude::*;
+use engine_core::ecs::*;
 
 /// Undo-able command that restores a linked prefab instance from the saved prefab asset.
 #[derive(Debug)]

@@ -1,10 +1,11 @@
-// editor/src/menu_editor/menu_properties_panel/menu_properties.rs
 use super::{common_properties::row_visible, FIELD_HEIGHT, LABEL_WIDTH, ROW_HEIGHT};
 use crate::commands::menu::{TemplateProperty, UpdateTemplateCmd};
 use crate::editor_global::push_command;
 use crate::menu::MenuEditor;
 use bishop::prelude::*;
-use engine_core::prelude::*;
+use engine_core::menu::{MenuBackground, MenuElementKind, MenuMode};
+use engine_core::ui::*;
+use engine_core::menu::elements::element_kind::ElementKind;
 
 impl MenuEditor {
     pub(super) fn draw_menu_properties(

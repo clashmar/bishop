@@ -2,7 +2,8 @@ use crate::app::EditorMode;
 use crate::gui::panels::generic_panel::PanelDefinition;
 use crate::Editor;
 use bishop::prelude::*;
-use engine_core::prelude::*;
+use engine_core::ecs::*;
+use engine_core::ui::*;
 use std::cmp::Ordering;
 use widgets::constants::layout;
 

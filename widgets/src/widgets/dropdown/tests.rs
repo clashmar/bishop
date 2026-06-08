@@ -114,6 +114,43 @@ fn close_open_dropdowns_clears_filterable_state() {
 }
 
 #[test]
+fn filterable_dropdown_defers_filter_visuals() {
+    reset_click_consumed();
+
+    let id = WidgetId(92);
+    let rect = Rect::new(0.0, 0.0, 120.0, 30.0);
+    let options = ["Alpha"];
+
+    dropdown_state::set(
+        id,
+        dropdown_state::DropState {
+            open: true,
+            rect: Rect::default(),
+            scroll_offset: 0.0,
+        },
+    );
+    set_filter(id, "zzz".to_string());
+
+    let mut ctx = WidgetTestContext::new();
+    assert_eq!(
+        Dropdown::new(id, rect, "Pick", &options, |opt| opt.to_string())
+            .filterable()
+            .show(&mut ctx),
+        None
+    );
+
+    let fills_before_flush = ctx.rectangle_fills.len();
+    let lines_before_flush = ctx.rectangle_lines.len();
+    let text_before_flush = ctx.text_colors.len();
+
+    flush_dropdown_lists(&mut ctx);
+
+    assert!(ctx.rectangle_fills.len() >= fills_before_flush + 2);
+    assert!(ctx.rectangle_lines.len() >= lines_before_flush + 2);
+    assert!(ctx.text_colors.len() > text_before_flush);
+}
+
+#[test]
 fn empty_non_filterable_dropdown_does_not_open() {
     reset_click_consumed();
 

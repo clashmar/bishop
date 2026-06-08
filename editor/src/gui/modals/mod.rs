@@ -1,6 +1,7 @@
 use crate::app::Editor;
 use bishop::prelude::*;
-use engine_core::prelude::*;
+use engine_core::assets::*;
+use engine_core::ui::*;
 use engine_core::theme::with_theme;
 use std::cell::RefCell;
 use std::thread::LocalKey;

@@ -58,7 +58,7 @@ impl Ecs {
 
     /// Rebuild `room_entities` from scratch by scanning all `CurrentRoom`
     /// components.  Called by `finalize_after_load`.
-    pub(crate) fn rebuild_room_entities(&mut self) {
+    pub fn rebuild_room_entities(&mut self) {
         self.room_entities.clear();
         // Collect to avoid borrow conflicts with the store
         let pairs: Vec<(Entity, RoomId)> = {

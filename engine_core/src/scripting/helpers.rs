@@ -4,6 +4,40 @@ use bishop::prelude::{Vec2, Vec3};
 use mlua::prelude::LuaResult;
 use mlua::{Lua, Table, Value};
 
+/// Converts a string into a valid Lua identifier by removing non-alphanumeric
+/// characters and applying PascalCase. Uses `fallback_prefix` when the result
+/// would be empty or start with a digit.
+pub fn sanitize_lua_identifier(s: &str, fallback_prefix: &str) -> String {
+    let mut out = String::new();
+    let mut capitalize = true;
+    for ch in s.chars() {
+        if ch.is_ascii_alphanumeric() {
+            if capitalize {
+                out.push(ch.to_ascii_uppercase());
+                capitalize = false;
+            } else {
+                out.push(ch);
+            }
+        } else {
+            capitalize = true;
+        }
+    }
+    if out.is_empty()
+        || out
+            .chars()
+            .next()
+            .map(|c| c.is_ascii_digit())
+            .unwrap_or(false)
+    {
+        format!(
+            "{fallback_prefix}_{}",
+            s.replace(|c: char| !c.is_ascii_alphanumeric(), "_")
+        )
+    } else {
+        out
+    }
+}
+
 /// Converts a Rust-style type name into the snake_case Lua API form.
 pub fn to_snake_case(name: &str) -> String {
     let mut out = String::new();

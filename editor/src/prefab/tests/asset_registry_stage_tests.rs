@@ -1,4 +1,5 @@
 use super::*;
+use engine_core::constants::paths;
 use std::path::Path;
 
 const TREE_FILE: &str = "tree.png";

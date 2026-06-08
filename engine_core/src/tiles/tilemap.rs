@@ -1,4 +1,3 @@
-// engine_core/src/tiles/tilemap.rs
 use crate::assets::sprite_manager::SpriteManager;
 use crate::tiles::serialization::{deserialize_tiles, serialize_tiles};
 use crate::tiles::tile::TileDefId;

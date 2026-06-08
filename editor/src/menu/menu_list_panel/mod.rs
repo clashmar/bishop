@@ -1,9 +1,8 @@
-// editor/src/menu/menu_list_panel/mod.rs
 use crate::commands::menu::{CreateTemplateCmd, DeleteTemplateCmd};
 use crate::editor_global::push_command;
 use crate::menu::MenuEditor;
 use bishop::prelude::*;
-use engine_core::ui::widgets::*;
+use engine_core::ui::widgets::{Button, ScrollState, ScrollableArea, TextInput, Widget, WidgetId, text_input_reset, with_theme};
 
 const MENU_ITEM_HEIGHT: f32 = 24.0;
 const BUTTON_HEIGHT: f32 = 28.0;

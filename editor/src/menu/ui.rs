@@ -1,4 +1,3 @@
-// editor/src/menu_editor/ui.rs
 use crate::editor_assets::assets::refresh_icon;
 use crate::gui::menu_bar::{draw_top_panel_full, menu_panel_rect};
 use crate::menu::game_theme::{discover_themes, load_theme};

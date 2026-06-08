@@ -1,4 +1,3 @@
-// engine_core/src/tiles/tile.rs
 use crate::ecs::SpriteId;
 use serde::{Deserialize, Serialize};
 

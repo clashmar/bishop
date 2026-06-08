@@ -1,4 +1,3 @@
-// engine_core/src/shaders/spot.frag
 #version 100
 precision mediump float;
 

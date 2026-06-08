@@ -1,8 +1,11 @@
-// editor/src/gui/inspector/animation_module.rs
 use crate::editor_global::push_toast;
 use crate::gui::gui_constants::*;
 use bishop::prelude::*;
-use engine_core::prelude::*;
+use engine_core::animation::{AseExportResult, ClipDef, ClipId, ClipState, JsonImportResult, VariantFolder, export_aseprite_folder, import_aseprite_metadata, import_variant_folder, resolve_json_path};
+use engine_core::ecs::*;
+use engine_core::game::{GameCtxMut};
+use engine_core::storage::*;
+use engine_core::ui::*;
 use std::{
     borrow::Cow,
     collections::{HashMap, HashSet},
@@ -15,11 +18,13 @@ use widgets::constants::{colors, layout};
 const NUM_FIELD_W: f32 = 40.0;
 const LABEL_Y_OFFSET: f32 = 20.0;
 const LABEL_FONT_SIZE: f32 = layout::DEFAULT_FONT_SIZE_16;
-const COLON_GAP: f32 = 10.0;
-const FIELD_GAP: f32 = 20.0;
+const COLON_GAP: f32 = 8.0;
+const COLUMN_GAP: f32 = 8.0;
+const INLINE_GROUP_GAP: f32 = 8.0;
 const SECTION_SPACING: f32 = 10.0;
 const BUTTON_ROW_HEIGHT: f32 = MARGIN;
 const IMPORT_ROW_HEIGHT: f32 = MARGIN;
+const ROW_ADVANCE: f32 = MARGIN + layout::WIDGET_PADDING;
 
 #[derive(Default)]
 pub struct AnimationModule {
@@ -230,11 +235,11 @@ impl InspectorModule for AnimationModule {
 
             // FPS / Loop / Mirrored toggles
             draw_fps_loop_and_mirrored(ctx, self, y, rect, clip, blocked);
-            y += MARGIN + layout::WIDGET_PADDING;
+            y += ROW_ADVANCE;
 
             // Optional offset
             draw_offset_fields(ctx, self, y, rect, clip, blocked);
-            y += MARGIN + layout::WIDGET_PADDING;
+            y += ROW_ADVANCE;
 
             // Import buttons at the bottom: "Import: [JSON] [Variant]"
             const IMPORT_LABEL: &str = "Import:";
@@ -579,23 +584,54 @@ pub fn draw_fps_loop_and_mirrored(
     clip: &mut ClipDef,
     blocked: bool,
 ) {
-    const LABELS: [&str; 2] = ["FPS:", "Loop:"];
-    let (lbl_fps, inp_fps, lbl_loop, mut inp_loop) = layout_pair(ctx, y, rect, LABELS);
-    inp_loop.w = CHECKBOX_SIZE;
-    inp_loop.h = CHECKBOX_SIZE;
-    inp_loop.y += 5.;
+    let start_x = rect.x + layout::WIDGET_PADDING;
+    let fps_label = "FPS:";
+    let loop_label = "Loop:";
+    let mirror_label = "Mirror:";
+
+    let fps_label_w = measure_text(ctx, fps_label, LABEL_FONT_SIZE).width + COLON_GAP;
+    let loop_label_w = measure_text(ctx, loop_label, LABEL_FONT_SIZE).width + COLON_GAP;
+    let mirror_label_w = measure_text(ctx, mirror_label, LABEL_FONT_SIZE).width + COLON_GAP;
+
+    let lbl_fps = Rect::new(start_x, y + LABEL_Y_OFFSET, fps_label_w, INPUT_HEIGHT);
+    let inp_fps = Rect::new(lbl_fps.x + lbl_fps.w, y, NUM_FIELD_W, INPUT_HEIGHT);
+
+    let loop_label_x = inp_fps.x + inp_fps.w + INLINE_GROUP_GAP;
+    let lbl_loop = Rect::new(loop_label_x, y + LABEL_Y_OFFSET, loop_label_w, INPUT_HEIGHT);
+    let inp_loop = Rect::new(lbl_loop.x + lbl_loop.w, y + 5.0, CHECKBOX_SIZE, CHECKBOX_SIZE);
+
+    let mirror_label_x = inp_loop.x + inp_loop.w + INLINE_GROUP_GAP;
+    let lbl_mirror = Rect::new(
+        mirror_label_x,
+        y + LABEL_Y_OFFSET,
+        mirror_label_w,
+        INPUT_HEIGHT,
+    );
+    let inp_mirror = Rect::new(
+        lbl_mirror.x + lbl_mirror.w,
+        y + 5.0,
+        CHECKBOX_SIZE,
+        CHECKBOX_SIZE,
+    );
 
     ctx.draw_text(
-        LABELS[0],
+        fps_label,
         lbl_fps.x,
         lbl_fps.y,
         LABEL_FONT_SIZE,
         colors::DEFAULT_TEXT_COLOR,
     );
     ctx.draw_text(
-        LABELS[1],
+        loop_label,
         lbl_loop.x,
         lbl_loop.y,
+        LABEL_FONT_SIZE,
+        colors::DEFAULT_TEXT_COLOR,
+    );
+    ctx.draw_text(
+        mirror_label,
+        lbl_mirror.x,
+        lbl_mirror.y,
         LABEL_FONT_SIZE,
         colors::DEFAULT_TEXT_COLOR,
     );
@@ -607,26 +643,7 @@ pub fn draw_fps_loop_and_mirrored(
     Checkbox::new(inp_loop, &mut clip.looping)
         .blocked(blocked)
         .show(ctx);
-
-    // Mirrored checkbox
-    let mirrored_label = "Mirror:";
-    let mirrored_label_w = measure_text(ctx, mirrored_label, LABEL_FONT_SIZE).width + COLON_GAP;
-    let mirrored_lbl_x = inp_loop.x + inp_loop.w + FIELD_GAP;
-    ctx.draw_text(
-        mirrored_label,
-        mirrored_lbl_x,
-        lbl_loop.y,
-        LABEL_FONT_SIZE,
-        colors::DEFAULT_TEXT_COLOR,
-    );
-
-    let inp_mirrored = Rect::new(
-        mirrored_lbl_x + mirrored_label_w,
-        inp_loop.y,
-        CHECKBOX_SIZE,
-        CHECKBOX_SIZE,
-    );
-    Checkbox::new(inp_mirrored, &mut clip.mirrored)
+    Checkbox::new(inp_mirror, &mut clip.mirrored)
         .blocked(blocked)
         .show(ctx);
 }
@@ -728,31 +745,39 @@ fn layout_pair(
     rect: Rect,
     labels: [&'static str; 2],
 ) -> (Rect, Rect, Rect, Rect) {
-    // Width of each label
+    let start_x = rect.x + layout::WIDGET_PADDING;
+    let available_width = rect.w - 2.0 * layout::WIDGET_PADDING;
+    let column_width = (available_width - COLUMN_GAP) / 2.0;
+
     let width1 = measure_text(ctx, labels[0], LABEL_FONT_SIZE).width + COLON_GAP;
     let width2 = measure_text(ctx, labels[1], LABEL_FONT_SIZE).width + COLON_GAP;
 
-    // First label
     let label1 = Rect::new(
-        rect.x + layout::WIDGET_PADDING,
+        start_x,
         y + LABEL_Y_OFFSET,
-        width1,
+        width1.min(column_width - NUM_FIELD_W).max(0.0),
+        INPUT_HEIGHT,
+    );
+    let input0 = Rect::new(
+        start_x + column_width - NUM_FIELD_W,
+        y,
+        NUM_FIELD_W,
         INPUT_HEIGHT,
     );
 
-    // First input
-    let input0 = Rect::new(label1.x + width1, y, NUM_FIELD_W, INPUT_HEIGHT);
-
-    // Second label
+    let second_x = start_x + column_width + COLUMN_GAP;
     let label2 = Rect::new(
-        input0.x + NUM_FIELD_W + FIELD_GAP,
+        second_x,
         y + LABEL_Y_OFFSET,
-        width2,
+        width2.min(column_width - NUM_FIELD_W).max(0.0),
         INPUT_HEIGHT,
     );
-
-    // Second input
-    let input1 = Rect::new(label2.x + width2, y, NUM_FIELD_W, INPUT_HEIGHT);
+    let input1 = Rect::new(
+        second_x + column_width - NUM_FIELD_W,
+        y,
+        NUM_FIELD_W,
+        INPUT_HEIGHT,
+    );
 
     (label1, input0, label2, input1)
 }
@@ -762,7 +787,7 @@ inventory::submit! {
         title: <Animation>::TYPE_NAME,
         factory: || {
             Box::new(
-                CollapsibleModule::new(
+                CollapsibleComponentModule::new(
                     crate::gui::inspector::animation_module::AnimationModule::default()
                 )
                 .with_title(<Animation>::TYPE_NAME)

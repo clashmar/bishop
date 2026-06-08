@@ -1,10 +1,10 @@
-// editor/src/commands/asset/batch_delete_cmd.rs
 use crate::app::EditorMode;
 use crate::commands::asset::{DeleteAssetCmd, DeleteDirectoryCmd, DeleteUnregisteredFileCmd};
 use crate::commands::editor_command_manager::EditorCommand;
 use crate::editor_global::push_toast;
 use crate::with_editor;
-use engine_core::prelude::*;
+use engine_core::assets::*;
+use engine_core::storage::*;
 use std::path::PathBuf;
 
 /// A single resource selected for deletion.

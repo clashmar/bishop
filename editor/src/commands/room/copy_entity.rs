@@ -1,6 +1,5 @@
-// editor/src/commands/room/copy_entity.rs
 use crate::EDITOR_SERVICES;
-use engine_core::prelude::*;
+use engine_core::ecs::*;
 
 /// Copy a snapshot of the entity and its children to the global clipboard.
 /// Returns false if the entity is a Player (copying Player is not allowed).

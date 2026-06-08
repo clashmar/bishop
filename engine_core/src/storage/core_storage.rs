@@ -1,4 +1,3 @@
-// engine_core/src/storage/core_storage.rs
 use crate::constants::paths;
 use crate::game::Game;
 use crate::storage::path_utils::*;

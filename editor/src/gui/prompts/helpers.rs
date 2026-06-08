@@ -1,7 +1,6 @@
-// editor/src/gui/prompts/helpers.rs
 use crate::gui::prompts::constants::*;
 use bishop::prelude::*;
-use engine_core::prelude::*;
+use engine_core::ui::*;
 use widgets::constants::layout;
 
 /// Returns a centered content rect inside a modal for prompt widgets.

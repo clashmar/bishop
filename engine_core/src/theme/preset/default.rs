@@ -1,4 +1,4 @@
-use crate::prelude::constants::colors;
+use widgets::constants::colors;
 use bishop::Color;
 use widgets::{
     theme::{StyleRule, StyleSelector, Theme, WidgetTheme},

@@ -3,7 +3,8 @@ use crate::commands::editor_command_manager::EditorCommand;
 use crate::commands::scene::context::with_scene_ctx;
 use crate::prefab::instance_sync::sync_prefab_overrides_for_entity;
 use crate::with_editor;
-use engine_core::prelude::*;
+use engine_core::animation::ClipId;
+use engine_core::ecs::*;
 use std::any::Any;
 use std::collections::HashMap;
 
@@ -237,7 +238,9 @@ impl EditorCommand for UpdateComponentCmd {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use engine_core::animation::ClipDef;
+
+use super::*;
 
     #[test]
     fn skips_reapply_when_component_snapshot_is_identical() {

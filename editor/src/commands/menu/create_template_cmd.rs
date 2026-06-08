@@ -1,8 +1,7 @@
-// editor/src/commands/menu/create_template_cmd.rs
 use crate::app::EditorMode;
 use crate::commands::editor_command_manager::EditorCommand;
 use crate::with_editor;
-use engine_core::prelude::*;
+use engine_core::menu::{MenuTemplate};
 
 /// Undo-able command for creating a new menu template.
 #[derive(Debug)]

@@ -2,7 +2,7 @@ use crate::engine::Engine;
 use crate::scripting::commands::lua_command::LuaCommand;
 use engine_core::ecs::component_registry::public_lua_component;
 use engine_core::ecs::entity::Entity;
-use engine_core::*;
+use engine_core::omni_error;
 use mlua::Value;
 
 /// Set a component on an entity.
@@ -20,10 +20,10 @@ impl LuaCommand for SetComponentCmd {
                 if let Ok(boxed) = (reg.from_lua)(&engine.lua, self.value.clone()) {
                     (reg.inserter)(&mut game_instance.game.ecs, Entity(self.entity), boxed);
                 } else {
-                    onscreen_error!("Failed to convert value for component '{}'", self.comp_name);
+                    omni_error!("Failed to convert value for component '{}'", self.comp_name);
                 }
             }
-            Err(err) => onscreen_error!("{}", err),
+            Err(err) => omni_error!("{}", err),
         }
     }
 }
@@ -32,7 +32,7 @@ impl LuaCommand for SetComponentCmd {
 mod tests {
     use super::*;
     use engine_core::ecs::component::comp_type_name;
-    use engine_core::prelude::{CurrentRoom, PrefabInstanceRoot};
+    use engine_core::ecs::*;
 
     #[test]
     fn set_component_command_rejects_private_components() {

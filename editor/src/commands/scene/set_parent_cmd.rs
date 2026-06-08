@@ -2,7 +2,7 @@ use crate::app::EditorMode;
 use crate::commands::editor_command_manager::EditorCommand;
 use crate::commands::scene::context::with_scene_ecs;
 use crate::with_editor;
-use engine_core::ecs::entity::*;
+use engine_core::ecs::entity::{Entity, remove_parent, set_parent};
 
 /// Undo-able command for setting an entity's parent.
 #[derive(Debug)]

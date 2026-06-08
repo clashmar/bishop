@@ -1,5 +1,6 @@
-use crate::prelude::*;
 use bishop::prelude::*;
+use crate::assets::*;
+use crate::ecs::*;
 
 /// Parameters passed to a component's [`Renderable::draw`] method.
 pub struct EntityDrawParams {

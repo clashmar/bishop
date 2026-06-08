@@ -3,7 +3,7 @@ use crate::gui::modals::{open_modal_with_prompt, Modal, ModalHandler, ModalResul
 use crate::gui::prompts::*;
 use crate::prefab::PrefabTransitionPrompt;
 use bishop::prelude::*;
-use engine_core::prelude::*;
+use engine_core::logging::{omni_error};
 use std::cell::RefCell;
 use std::thread::LocalKey;
 
@@ -71,7 +71,7 @@ impl ModalHandler for PrefabPickerModal {
                         editor.present_prefab_transition_prompt(ctx, prompt);
                     }
                     Err(error) => {
-                        onscreen_error!("Could not open prefab: {error}");
+                        omni_error!("Could not open prefab: {error}");
                     }
                 }
             }

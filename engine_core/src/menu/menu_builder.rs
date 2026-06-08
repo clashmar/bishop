@@ -101,6 +101,7 @@ impl MenuBuilder {
             background: self.background,
             elements: self.elements,
             mode: self.mode,
+            on_open: String::new(),
         }
     }
 }

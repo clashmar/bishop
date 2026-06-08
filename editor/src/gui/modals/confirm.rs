@@ -2,7 +2,7 @@ use crate::gui::modals::{BoxedWidget, Modal};
 use crate::gui::prompts::confirm_prompt::*;
 use crate::gui::prompts::constants::*;
 use bishop::prelude::*;
-use engine_core::prelude::*;
+use engine_core::ui::*;
 use std::{cell::RefCell, thread::LocalKey};
 use widgets::constants::layout;
 

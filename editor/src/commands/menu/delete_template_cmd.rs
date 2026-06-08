@@ -1,9 +1,9 @@
-// editor/src/commands/menu/delete_template_cmd.rs
 use crate::app::EditorMode;
 use crate::commands::editor_command_manager::EditorCommand;
 use crate::storage::editor_storage::delete_menu;
 use crate::with_editor;
-use engine_core::prelude::*;
+use engine_core::logging::{omni_error};
+use engine_core::menu::{MenuTemplate};
 
 /// Undo-able command for deleting a menu template.
 #[derive(Debug)]
@@ -36,7 +36,7 @@ impl EditorCommand for DeleteTemplateCmd {
 
             let template = menu_editor.templates.remove(self.template_index);
             if let Err(err) = delete_menu(&template.id) {
-                onscreen_error!("Error deleting template file: {err}");
+                omni_error!("Error deleting template file: {err}");
             }
             self.saved_template = Some(template);
 

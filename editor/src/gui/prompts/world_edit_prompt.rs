@@ -1,9 +1,12 @@
-// editor/src/gui/prompts/world_edit_prompt.rs
 use crate::app::escape::modal_escape_requested;
 use crate::gui::prompts::constants::*;
 use crate::gui::prompts::helpers::*;
 use bishop::prelude::*;
-use engine_core::prelude::*;
+use engine_core::assets::*;
+use engine_core::controls::{Controls};
+use engine_core::ecs::*;
+use engine_core::ui::*;
+use engine_core::worlds::*;
 use widgets::constants::layout;
 
 /// Result an edit world prompt.

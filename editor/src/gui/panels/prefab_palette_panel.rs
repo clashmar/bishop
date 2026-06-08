@@ -5,7 +5,10 @@ use crate::room::prefab_preview::{build_prefab_preview, PrefabPreview, PrefabPre
 use crate::room::room_editor::RoomEditorMode;
 use crate::Editor;
 use bishop::prelude::*;
-use engine_core::prelude::*;
+use engine_core::assets::*;
+use engine_core::ecs::*;
+use engine_core::storage::*;
+use engine_core::ui::*;
 use engine_core::theme::with_theme;
 use std::cmp::Ordering;
 use std::fmt::{Display, Formatter, Result as FmtResult};

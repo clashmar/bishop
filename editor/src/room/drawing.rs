@@ -1,4 +1,3 @@
-// editor/src/room/drawing.rs
 use crate::app::camera_controller::*;
 use crate::app::EditorMode;
 use crate::editor_assets::assets::camera_icon;
@@ -9,11 +8,17 @@ use crate::gui::panel_text_color;
 use crate::room::prefab_preview::{build_prefab_preview, PrefabPreviewVisual};
 use crate::room::room_editor::*;
 use crate::room::selection::{entity_selection_rect, snap_room_drag_position};
-use crate::shared::scene_ui::inspector::{SceneEmptyInspectorBehavior, SceneInspectorContext};
+use crate::shared::scene_ui::inspector::{InspectorContext};
 use crate::tilemap::tilemap_editor::TILEMAP_SUB_MODES;
 use crate::world::coord;
 use bishop::prelude::*;
-use engine_core::prelude::*;
+use engine_core::assets::*;
+use engine_core::ecs::*;
+use engine_core::game::{GameCtxMut, StartupMode};
+use engine_core::rendering::{outline_thickness, pivot_adjusted_position};
+use engine_core::storage::*;
+use engine_core::ui::*;
+use engine_core::worlds::*;
 use engine_core::theme::with_theme;
 use widgets::constants::layout;
 
@@ -145,16 +150,19 @@ impl RoomEditor {
                 self.register_rect(draw_top_panel_full(ctx));
 
                 // Draw inspector
-                let inspector_ctx = SceneInspectorContext {
+                let inspector_ctx = InspectorContext {
                     command_mode: EditorMode::Room(current_room_id),
                     show_linked_prefab_metadata: true,
                     hide_room_only_components: false,
                     selected_create_parent: None,
-                    empty_state: SceneEmptyInspectorBehavior::Room,
+                    game_name: None,
+                    event_tags: self.event_tags.clone(),
                 };
-                let inspector_output = self.inspector.draw(ctx, game_ctx, &inspector_ctx);
+                let inspector_output = self.inspector.draw_active_pane(ctx, game_ctx, &inspector_ctx);
                 self.create_request = inspector_output.create_request;
                 self.prefab_action_request = inspector_output.prefab_action;
+                self.create_camera_request = inspector_output.create_camera_request;
+                self.request_event_tags_refresh = inspector_output.refresh_event_tags;
 
                 // Mode selector (menu bar)
                 let (mode_rect, changed) = self.mode_selector.draw(ctx);

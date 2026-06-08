@@ -1,4 +1,3 @@
-// game/game_global.rs
 use crate::input::input_snapshot::InputSnapshot;
 use crate::input::{focus_priority, InputFocusMap};
 use crate::scripting::commands::lua_command::LuaCommand;

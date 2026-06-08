@@ -1,7 +1,7 @@
-// editor/src/gui/resize_handle.rs
 use crate::world::coord::overlaps_existing_rooms;
 use bishop::prelude::*;
-use engine_core::prelude::*;
+use engine_core::tiles::{TileMap};
+use engine_core::worlds::*;
 
 /// Which side of the tilemap the handle controls.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

@@ -1,4 +1,3 @@
-// engine_core/src/engine_global.rs
 use crate::constants::window;
 use once_cell::sync::Lazy;
 use std::sync::Mutex;

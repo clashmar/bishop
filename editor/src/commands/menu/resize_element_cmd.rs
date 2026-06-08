@@ -1,9 +1,8 @@
-// editor/src/commands/menu/resize_element_cmd.rs
 use crate::app::EditorMode;
 use crate::commands::editor_command_manager::EditorCommand;
 use crate::with_editor;
 use bishop::prelude::*;
-use engine_core::prelude::*;
+use engine_core::menu::MenuElementKind;
 
 /// Undo-able command for resizing a menu element.
 #[derive(Debug)]

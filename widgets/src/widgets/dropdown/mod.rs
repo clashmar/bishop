@@ -14,6 +14,13 @@ const DROPDOWN_HOVER_BG: Color = Color::new(0.2, 0.2, 0.2, 0.9);
 const DROPDOWN_SCROLLBAR_TRACK: Color = Color::new(0.2, 0.2, 0.2, 0.5);
 const DROPDOWN_SCROLLBAR_THUMB: Color = Color::new(0.6, 0.6, 0.6, 0.9);
 
+struct DeferredFilterRender {
+    id: WidgetId,
+    rect: Rect,
+    current: String,
+    overrides: WidgetTheme,
+}
+
 /// Data for deferred dropdown rendering.
 struct DeferredDropdownRender {
     list_rect: Rect,
@@ -22,6 +29,11 @@ struct DeferredDropdownRender {
     labels: Vec<String>,
     option_count: usize,
     overrides: WidgetTheme,
+    /// Height of the filter TextInput (0 for non-filterable).
+    filter_h: f32,
+    filter: Option<DeferredFilterRender>,
+    /// Index of the currently hovered entry.
+    hovered_index: Option<usize>,
 }
 
 thread_local! {
@@ -90,15 +102,7 @@ fn dropdown_entry_click_target(id: WidgetId, index: usize, salt: u64) -> ClickTa
 pub fn flush_dropdown_lists<C: BishopContext>(ctx: &mut C) {
     DEFERRED_DROPDOWN_RENDERS.with(|renders| {
         for render in renders.borrow_mut().drain(..) {
-            render_dropdown_list(
-                ctx,
-                render.list_rect,
-                render.row_height,
-                render.scroll_offset,
-                &render.labels,
-                render.option_count,
-                render.overrides,
-            );
+            render_dropdown_list(ctx, render);
         }
     });
 }
@@ -138,8 +142,11 @@ pub struct Dropdown<'a, T> {
     alignment: DropDownAlignment,
     list_width: Option<f32>,
     truncate_trigger: bool,
+    create_new: Option<CreateNewFn<'a, T>>,
     base: WidgetBase,
 }
+
+pub(crate) type CreateNewFn<'a, T> = Box<dyn Fn(&str) -> T + 'a>;
 
 impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
     /// Creates a new dropdown with the given parameters.
@@ -166,6 +173,7 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
             alignment: DropDownAlignment::Left,
             list_width: None,
             truncate_trigger: false,
+            create_new: None,
             base: WidgetBase {
                 blocked: false,
                 overrides: WidgetTheme::default(),
@@ -194,6 +202,12 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
         self
     }
 
+    /// Sets the text color for the trigger button only.
+    pub fn button_text_color(mut self, color: impl Into<Color>) -> Self {
+        self.text_color = color.into();
+        self
+    }
+
     /// Sets the font size for the trigger button label.
     pub fn font_size(mut self, size: f32) -> Self {
         self.label_font_size = size;
@@ -219,7 +233,7 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
     }
 
     /// Shows a filter TextInput at the top of the dropdown list for case-insensitive search.
-    /// The list renders inline (non-deferred) when filtering is active.
+    /// The full popup, including the filter field, renders via the deferred dropdown pass.
     pub fn filterable(mut self) -> Self {
         self.filterable = true;
         self
@@ -234,6 +248,12 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
     /// Truncates the trigger button label to fit within the trigger width.
     pub fn truncate_trigger_text(mut self) -> Self {
         self.truncate_trigger = true;
+        self
+    }
+
+    /// Sets a callback to create a new item from filter text that doesn't match any option.
+    pub fn create_new(mut self, f: impl Fn(&str) -> T + 'a) -> Self {
+        self.create_new = Some(Box::new(f));
         self
     }
 
@@ -293,10 +313,10 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
             DropDownStyle::Plain => {
                 Button::new(self.rect, display_label)
                     .plain()
-                    .text_color(self.text_color)
                     .font_size(self.label_font_size)
                     .text_offset(Vec2::new(0.0, -1.0))
                     .overrides(self.base.overrides)
+                    .text_color(self.text_color)
                     .blocked(self.base.blocked)
                     .suppressed(self.suppressed)
                     .show(ctx)
@@ -317,8 +337,12 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
             } else {
                 state.open = !state.open;
             }
-            if self.filterable && !state.open {
-                clear_filter_state(self.id);
+            if self.filterable {
+                if state.open {
+                    request_focus(filter_input_id(self.id), true);
+                } else {
+                    clear_filter_state(self.id);
+                }
             }
         }
 
@@ -437,6 +461,9 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
                         labels,
                         option_count,
                         overrides: self.base.overrides.merge(widget_theme),
+                        filter_h: 0.0,
+                        filter: None,
+                        hovered_index: None,
                     });
                 });
             }
@@ -459,7 +486,7 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
         result
     }
 
-    /// Draws the filterable list inline (non-deferred) and returns a selected option if any.
+    /// Handles interaction for a filterable dropdown and defers popup rendering.
     fn show_filterable_list<C: BishopContext>(
         &self,
         ctx: &mut C,
@@ -501,20 +528,12 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
         let popup_rect = Rect::new(popup_x, popup_y, list_width, popup_h);
         state.rect = popup_rect;
 
-        // Background
-        ctx.draw_rectangle(
-            popup_rect.x,
-            popup_rect.y,
-            popup_rect.w,
-            popup_rect.h,
-            resolve(overrides.background, colors::DEFAULT_BACKGROUND_COLOR),
-        );
-
-        // Filter TextInput
+        // Filter TextInput handles interaction inline; its visuals render deferred.
         let filter_rect = Rect::new(popup_rect.x, popup_y, list_width, filter_h);
         let filter_id = WidgetId(self.id.0.wrapping_add(FILTER_ID_OFFSET));
-        let (new_filter, _) = TextInput::new(filter_id, filter_rect, &prev_filter)
+        let (new_filter, commit) = TextInput::new(filter_id, filter_rect, &prev_filter)
             .in_dropdown()
+            .deferred_visual()
             .overrides(self.base.overrides)
             .show(ctx);
 
@@ -522,10 +541,28 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
         if new_filter != prev_filter {
             state.scroll_offset = 0.0;
         }
-        set_filter(self.id, new_filter);
+        set_filter(self.id, new_filter.clone());
+
+        // Create new item when Enter is pressed and filter doesn't match any option
+        if matches!(commit, InputCommit::Committed) && !new_filter.is_empty() {
+            let filter_lower = new_filter.to_lowercase();
+            let exact_match = self
+                .options
+                .iter()
+                .any(|opt| (self.to_string)(opt).to_lowercase() == filter_lower);
+            if !exact_match && let Some(ref create) = self.create_new {
+                let created = create(&new_filter);
+                state.open = false;
+                clear_filter_state(self.id);
+                dropdown_state::set(self.id, *state);
+                update_global_dropdown_flag();
+                return Some(created);
+            }
+        }
 
         // Scroll offset
-        let total_entries_h = row_h * filtered.len() as f32;
+        let filtered_count = filtered.len();
+        let total_entries_h = row_h * filtered_count as f32;
         let max_offset = (total_entries_h - entries_h).max(0.0);
 
         let entries_y = popup_y + filter_h;
@@ -540,39 +577,19 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
             }
         }
 
-        // Entries
-        ctx.push_clip_rect(entries_rect);
+        // Handle interaction (clicks) inline, drawing deferred
         let mut result = None;
-
+        let mut hovered_index = None;
         for (i, opt) in filtered.iter().enumerate() {
             let draw_y = entries_y + i as f32 * row_h - state.scroll_offset;
-
             if draw_y + row_h <= entries_y || draw_y >= entries_y + entries_h {
                 continue;
             }
-
             let entry_rect = Rect::new(popup_rect.x, draw_y, list_width, row_h);
             let hovered = entry_rect.contains(mouse_pos);
-
             if hovered {
-                ctx.draw_rectangle(
-                    entry_rect.x,
-                    entry_rect.y,
-                    entry_rect.w,
-                    entry_rect.h,
-                    resolve(overrides.hover, DROPDOWN_HOVER_BG),
-                );
+                hovered_index = Some(i);
             }
-
-            draw_text_clipped(
-                ctx,
-                &(self.to_string)(opt),
-                entry_rect,
-                0.0,
-                layout::DEFAULT_FONT_SIZE_16,
-                resolve(overrides.text, colors::DEFAULT_TEXT_COLOR),
-            );
-
             if activate_on_release(
                 MouseButton::Left,
                 dropdown_entry_click_target(self.id, i, FILTERED_ENTRY_ID_SALT),
@@ -590,44 +607,25 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
             }
         }
 
-        ctx.pop_clip_rect();
-
-        // Scrollbar when content overflows visible area
-        if total_entries_h > entries_h {
-            let thumb_h = (entries_h / total_entries_h) * entries_h;
-            let thumb_y = entries_y + (state.scroll_offset / max_offset) * (entries_h - thumb_h);
-
-            let track_primary = resolve(overrides.primary, colors::DEFAULT_PRIMARY_COLOR);
-            let track_col = Color::new(
-                track_primary.r * 0.5,
-                track_primary.g * 0.5,
-                track_primary.b * 0.5,
-                DROPDOWN_SCROLLBAR_TRACK.a,
-            );
-            ctx.draw_rectangle(
-                popup_rect.x + popup_rect.w - 6.,
-                entries_y,
-                6.,
-                entries_h,
-                track_col,
-            );
-            ctx.draw_rectangle(
-                popup_rect.x + popup_rect.w - 6.,
-                thumb_y,
-                6.,
-                thumb_h,
-                resolve(overrides.primary, DROPDOWN_SCROLLBAR_THUMB),
-            );
-        }
-
-        ctx.draw_rectangle_lines(
-            popup_rect.x,
-            popup_rect.y,
-            popup_rect.w,
-            popup_rect.h,
-            2.,
-            resolve(overrides.border, colors::DEFAULT_BORDER_COLOR),
-        );
+        let labels: Vec<String> = filtered.iter().map(|o| (self.to_string)(o)).collect();
+        DEFERRED_DROPDOWN_RENDERS.with(|renders| {
+            renders.borrow_mut().push(DeferredDropdownRender {
+                list_rect: popup_rect,
+                row_height: row_h,
+                scroll_offset: state.scroll_offset,
+                labels,
+                option_count: filtered_count,
+                overrides: self.base.overrides.merge(*overrides),
+                filter_h,
+                filter: Some(DeferredFilterRender {
+                    id: filter_id,
+                    rect: filter_rect,
+                    current: new_filter,
+                    overrides: self.base.overrides,
+                }),
+                hovered_index,
+            });
+        });
 
         result
     }
@@ -641,39 +639,62 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
 }
 
 /// Renders the dropdown list (called from deferred queue).
-fn render_dropdown_list<C: BishopContext>(
-    ctx: &mut C,
-    list_rect: Rect,
-    row_height: f32,
-    scroll_offset: f32,
-    labels: &[String],
-    option_count: usize,
-    overrides: WidgetTheme,
-) {
+fn render_dropdown_list<C: BishopContext>(ctx: &mut C, render: DeferredDropdownRender) {
+    let DeferredDropdownRender {
+        list_rect,
+        row_height,
+        scroll_offset,
+        labels,
+        option_count,
+        overrides,
+        filter_h,
+        filter,
+        hovered_index,
+    } = render;
+
+    if let Some(filter) = filter {
+        super::text_input::draw_text_input_visual(
+            ctx,
+            filter.id,
+            filter.rect,
+            &filter.current,
+            filter.overrides,
+            None,
+            None,
+        );
+    }
+
+    let entries_y = list_rect.y + filter_h;
+    let entries_h = list_rect.h - filter_h;
+
     ctx.draw_rectangle(
         list_rect.x,
-        list_rect.y,
+        entries_y,
         list_rect.w,
-        list_rect.h,
+        entries_h,
         resolve(overrides.background, colors::DEFAULT_BACKGROUND_COLOR),
     );
 
     let mouse_pos = ctx.mouse_position();
     let mouse_vec = Vec2::new(mouse_pos.0, mouse_pos.1);
 
+    ctx.push_clip_rect(Rect::new(list_rect.x, entries_y, list_rect.w, entries_h));
+
     for (i, label) in labels.iter().enumerate() {
-        let entry_y = list_rect.y + i as f32 * row_height;
+        let entry_y = entries_y + i as f32 * row_height;
         let draw_y = entry_y - scroll_offset;
 
-        if draw_y + row_height < list_rect.y + row_height
-            || draw_y > list_rect.y + list_rect.h - row_height
-        {
+        if draw_y + row_height <= entries_y || draw_y >= entries_y + entries_h {
             continue;
         }
 
         let entry_rect = Rect::new(list_rect.x, draw_y, list_rect.w, row_height);
 
-        let hovered = entry_rect.contains(mouse_vec);
+        let hovered = if filter_h > 0.0 {
+            hovered_index == Some(i)
+        } else {
+            entry_rect.contains(mouse_vec)
+        };
         if hovered {
             ctx.draw_rectangle(
                 entry_rect.x,
@@ -694,11 +715,13 @@ fn render_dropdown_list<C: BishopContext>(
         );
     }
 
+    ctx.pop_clip_rect();
+
     let total_height = row_height * option_count as f32;
-    if total_height > list_rect.h {
-        let thumb_h = (list_rect.h / total_height) * list_rect.h;
+    if total_height > entries_h {
+        let thumb_h = (entries_h / total_height) * entries_h;
         let thumb_y =
-            list_rect.y + (scroll_offset / (total_height - list_rect.h)) * (list_rect.h - thumb_h);
+            entries_y + (scroll_offset / (total_height - entries_h)) * (entries_h - thumb_h);
 
         let track_primary = resolve(overrides.primary, colors::DEFAULT_PRIMARY_COLOR);
         let track_col = Color::new(
@@ -709,9 +732,9 @@ fn render_dropdown_list<C: BishopContext>(
         );
         ctx.draw_rectangle(
             list_rect.x + list_rect.w - 6.,
-            list_rect.y,
+            entries_y,
             6.,
-            list_rect.h,
+            entries_h,
             track_col,
         );
         ctx.draw_rectangle(

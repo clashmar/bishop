@@ -2,7 +2,7 @@ use crate::menu::*;
 use crate::text::TextManager;
 use bishop::prelude::*;
 use std::collections::HashMap;
-use widgets::*;
+use widgets::{widgets_frame_end, widgets_frame_start};
 
 /// Renders the currently active menu and returns a triggered button action.
 pub(crate) fn render_active_menu<C: BishopContext>(

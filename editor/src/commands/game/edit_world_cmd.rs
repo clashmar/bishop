@@ -1,8 +1,9 @@
-// editor/src/commands/game/edit_world_cmd.rs
 use crate::app::EditorMode;
 use crate::commands::editor_command_manager::EditorCommand;
 use crate::with_editor;
-use engine_core::prelude::*;
+use engine_core::ecs::*;
+use engine_core::game::{Game};
+use engine_core::worlds::*;
 
 /// Undo-able command for editing world properties.
 #[derive(Debug)]

@@ -1,11 +1,9 @@
--- event_test.lua
-local event_test = {
+---@class EventTest
+local EventTest = {
     init = function(self)
         engine.on("demo_event", function(arg1, arg2)
             engine.log.info(
-                "[event_test] demo_event received: "
-                .. tostring(arg1) .. ", "
-                .. tostring(arg2)
+                "[event_test] demo_event received: " .. tostring(arg1) .. ", " .. tostring(arg2)
             )
         end)
     end,
@@ -16,4 +14,4 @@ local event_test = {
     end,
 }
 
-return event_test
+return EventTest

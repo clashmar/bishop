@@ -1,8 +1,7 @@
-// editor/src/commands/room/batch_delete_entities_cmd.rs
 use crate::app::EditorMode;
 use crate::commands::editor_command_manager::EditorCommand;
 use crate::with_editor;
-use engine_core::prelude::*;
+use engine_core::ecs::*;
 
 /// Undo-able command for deleting multiple entities and their children.
 #[derive(Debug)]

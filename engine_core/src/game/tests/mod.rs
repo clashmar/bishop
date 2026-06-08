@@ -305,7 +305,7 @@ fn room_new_indexes_room_camera() {
         ..Default::default()
     };
 
-    room.create_room_camera(&mut ecs, room_id, grid_size);
+    Room::create_camera_entity(&mut ecs, room.id, room.position, grid_size);
 
     // Camera entity should be tracked in ecs.room_entities via the ECS index
     let camera_entities = ecs.entities_in_room(room_id);

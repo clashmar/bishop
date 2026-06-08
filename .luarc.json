@@ -1,13 +1,28 @@
 {
   "$schema": "https://raw.githubusercontent.com/LuaLS/vscode-lua/master/setting/schema.json",
+  "diagnostics": {
+    "globals": [
+      "engine",
+      "Color",
+      "Widget",
+      "private",
+      "local",
+      "Input",
+      "Direction",
+      "Components",
+      "Animations",
+      "Prefabs",
+      "Sounds",
+      "Menus",
+      "Script",
+      "Entity"
+    ]
+  },
   "workspace": {
     "ignoreDir": [
       "editor/scripts/_engine",
       "games/*/Resources/scripts/_engine",
       "!games/Demo/Resources/scripts/_engine"
     ]
-  },
-  "diagnostics": {
-    "globals": ["local", "engine", "private"]
   }
 }

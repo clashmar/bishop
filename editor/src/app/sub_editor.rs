@@ -1,4 +1,3 @@
-// editor/src/editor/sub_editor.rs
 use crate::shared::input::canvas_blocked_by_global_ui;
 use bishop::prelude::*;
 

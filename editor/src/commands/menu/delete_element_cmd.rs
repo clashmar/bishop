@@ -1,8 +1,7 @@
-// editor/src/commands/menu/delete_element_cmd.rs
 use crate::app::EditorMode;
 use crate::commands::editor_command_manager::EditorCommand;
 use crate::with_editor;
-use engine_core::prelude::*;
+use engine_core::menu::{LayoutChild, MenuElement, MenuElementKind};
 use std::collections::HashSet;
 
 /// Tracks what was deleted for restoration on undo.

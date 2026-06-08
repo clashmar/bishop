@@ -1,5 +1,5 @@
 use crate::prefab::instance_sync::{linked_prefab_instance_state, LinkedPrefabInstanceState};
-use engine_core::prelude::*;
+use engine_core::ecs::*;
 
 /// Returns room-inspector state for linked prefab instances when that metadata is enabled.
 pub fn linked_prefab_instance_state_for_scene_inspector(

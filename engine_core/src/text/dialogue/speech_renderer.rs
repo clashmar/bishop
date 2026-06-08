@@ -1,4 +1,3 @@
-// engine_core/src/text/dialogue/speech_renderer.rs
 use crate::assets::sprite_manager::SpriteManager;
 use crate::ecs::Pivot;
 use crate::ecs::ecs::Ecs;

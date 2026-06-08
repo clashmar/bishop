@@ -11,6 +11,7 @@ pub struct TextInput {
     max_len: Option<usize>,
     char_filter: Option<fn(char) -> Option<char>>,
     bypass_dropdown: bool,
+    defer_visual: bool,
     base: WidgetBase,
 }
 
@@ -26,6 +27,7 @@ impl TextInput {
             max_len: None,
             char_filter: None,
             bypass_dropdown: false,
+            defer_visual: false,
             base: WidgetBase {
                 blocked: false,
                 overrides: WidgetTheme::default(),
@@ -63,6 +65,12 @@ impl TextInput {
     /// Use for TextInputs that are embedded inside a dropdown list.
     pub fn in_dropdown(mut self) -> Self {
         self.bypass_dropdown = true;
+        self
+    }
+
+    /// Processes input now but leaves visual rendering to a later pass.
+    pub fn deferred_visual(mut self) -> Self {
+        self.defer_visual = true;
         self
     }
 
@@ -136,63 +144,22 @@ impl TextInput {
             scroll_offset_x = 0.0;
         }
 
-        let selection_color = resolve_with_theme(self.base.overrides.accent, widget_theme.accent, colors::DEFAULT_INPUT_SELECTION_COLOR);
-
-        ctx.draw_rectangle(
-            self.rect.x,
-            self.rect.y,
-            self.rect.w,
-            self.rect.h,
-            resolve_with_theme(self.base.overrides.background, widget_theme.background, colors::DEFAULT_BACKGROUND_COLOR),
-        );
-        ctx.draw_rectangle_lines(
-            self.rect.x,
-            self.rect.y,
-            self.rect.w,
-            self.rect.h,
-            2.,
-            resolve_with_theme(self.base.overrides.border, widget_theme.border, Color::WHITE),
-        );
-
-        let text_area_x = self.rect.x + layout::WIDGET_PADDING / 2.;
-
-        if let Some((start, end)) = selection_range(cursor_char, selection_anchor) {
-            let start_byte = byte_offset(&text, start);
-            let end_byte = byte_offset(&text, end);
-            let sel_start_x = text_area_x
-                + measure_text_ui(ctx, &text[..start_byte], layout::DEFAULT_FONT_SIZE_16).width
-                - scroll_offset_x;
-            let sel_end_x = text_area_x
-                + measure_text_ui(ctx, &text[..end_byte], layout::DEFAULT_FONT_SIZE_16).width
-                - scroll_offset_x;
-
-            let clipped_start = sel_start_x.max(text_area_x);
-            let clipped_end = sel_end_x.min(self.rect.x + self.rect.w - layout::WIDGET_PADDING / 2.);
-
-            if clipped_end > clipped_start {
-                ctx.draw_rectangle(
-                    clipped_start,
-                    self.rect.y + self.rect.h * 0.2,
-                    clipped_end - clipped_start,
-                    self.rect.h * 0.6,
-                    selection_color,
-                );
-            }
+        if !self.defer_visual {
+            let visual = TextInputVisualState {
+                text: &text,
+                cursor_char,
+                focused,
+                selection_anchor,
+                scroll_offset_x,
+            };
+            draw_text_input_visual_with_state(
+                ctx,
+                self.rect,
+                &visual,
+                self.base.overrides,
+                widget_theme,
+            );
         }
-
-        let display = if text.is_empty() {
-            crate::constants::PLACEHOLDER_TEXT
-        } else {
-            &text
-        };
-        draw_text_clipped(
-            ctx,
-            display,
-            self.rect,
-            scroll_offset_x,
-            layout::DEFAULT_FONT_SIZE_16,
-            resolve_with_theme(self.base.overrides.text, widget_theme.text, colors::DEFAULT_TEXT_COLOR),
-        );
 
         let mouse = ctx.mouse_position();
         let mouse_over = self.rect.contains(Vec2::new(mouse.0, mouse.1));
@@ -214,6 +181,7 @@ impl TextInput {
             }
 
             if focused && mouse_over {
+                consume_click();
                 if just_gained_focus {
                     clear_all_input_focus();
                 }
@@ -237,8 +205,8 @@ impl TextInput {
                 &text,
                 mouse.0,
                 self.rect.x,
-                    layout::DEFAULT_FONT_SIZE_16,
-                    scroll_offset_x,
+                layout::DEFAULT_FONT_SIZE_16,
+                scroll_offset_x,
             );
             cursor_char = drag_pos;
         }
@@ -261,7 +229,11 @@ impl TextInput {
         }
 
         if (is_dropdown_open() || is_context_menu_open()) && !self.bypass_dropdown {
-            let commit = if confirmed { InputCommit::Committed } else { InputCommit::Unchanged };
+            let commit = if confirmed {
+                InputCommit::Committed
+            } else {
+                InputCommit::Unchanged
+            };
             return (text, commit);
         }
 
@@ -511,26 +483,6 @@ impl TextInput {
             layout::DEFAULT_FONT_SIZE_16,
         );
 
-        let now = ctx.get_time();
-        if focused && ((now * 2.0) as i32 % 2 == 0) {
-            let byte_pos = byte_offset(&text, cursor_char);
-            let prefix = &text[..byte_pos];
-            let cursor_x = self.rect.x
-                + layout::WIDGET_PADDING / 2.
-                + measure_text_ui(ctx, prefix, layout::DEFAULT_FONT_SIZE_16).width
-                - scroll_offset_x;
-            if cursor_x >= self.rect.x && cursor_x <= self.rect.x + self.rect.w {
-                ctx.draw_line(
-                    cursor_x,
-                    self.rect.y + self.rect.h * 0.3,
-                    cursor_x,
-                    self.rect.y + self.rect.h * 0.8,
-                    2.,
-                    resolve_with_theme(self.base.overrides.border, widget_theme.border, colors::DEFAULT_BORDER_COLOR),
-                );
-            }
-        }
-
         let current_gen = current_widget_frame_generation();
         INPUT_TEXT_STATE.with(|s| {
             let mut map = s.borrow_mut();
@@ -569,9 +521,161 @@ impl TextInput {
     }
 }
 
+struct TextInputVisualState<'a> {
+    text: &'a str,
+    cursor_char: usize,
+    focused: bool,
+    selection_anchor: Option<usize>,
+    scroll_offset_x: f32,
+}
+
+fn draw_text_input_visual_with_state<C: BishopContext>(
+    ctx: &mut C,
+    rect: Rect,
+    visual: &TextInputVisualState<'_>,
+    overrides: WidgetTheme,
+    widget_theme: WidgetTheme,
+) {
+    let selection_color = resolve_with_theme(
+        overrides.accent,
+        widget_theme.accent,
+        colors::DEFAULT_INPUT_SELECTION_COLOR,
+    );
+
+    ctx.draw_rectangle(
+        rect.x,
+        rect.y,
+        rect.w,
+        rect.h,
+        resolve_with_theme(
+            overrides.background,
+            widget_theme.background,
+            colors::DEFAULT_BACKGROUND_COLOR,
+        ),
+    );
+    ctx.draw_rectangle_lines(
+        rect.x,
+        rect.y,
+        rect.w,
+        rect.h,
+        2.,
+        resolve_with_theme(overrides.border, widget_theme.border, Color::WHITE),
+    );
+
+    let text_area_x = rect.x + layout::WIDGET_PADDING / 2.;
+
+    if let Some((start, end)) = selection_range(visual.cursor_char, visual.selection_anchor) {
+        let start_byte = byte_offset(visual.text, start);
+        let end_byte = byte_offset(visual.text, end);
+        let sel_start_x = text_area_x
+            + measure_text_ui(ctx, &visual.text[..start_byte], layout::DEFAULT_FONT_SIZE_16).width
+            - visual.scroll_offset_x;
+        let sel_end_x = text_area_x
+            + measure_text_ui(ctx, &visual.text[..end_byte], layout::DEFAULT_FONT_SIZE_16).width
+            - visual.scroll_offset_x;
+
+        let clipped_start = sel_start_x.max(text_area_x);
+        let clipped_end = sel_end_x.min(rect.x + rect.w - layout::WIDGET_PADDING / 2.);
+
+        if clipped_end > clipped_start {
+            ctx.draw_rectangle(
+                clipped_start,
+                rect.y + rect.h * 0.2,
+                clipped_end - clipped_start,
+                rect.h * 0.6,
+                selection_color,
+            );
+        }
+    }
+
+    let display = if visual.text.is_empty() {
+        crate::constants::PLACEHOLDER_TEXT
+    } else {
+        visual.text
+    };
+    draw_text_clipped(
+        ctx,
+        display,
+        rect,
+        visual.scroll_offset_x,
+        layout::DEFAULT_FONT_SIZE_16,
+        resolve_with_theme(
+            overrides.text,
+            widget_theme.text,
+            colors::DEFAULT_TEXT_COLOR,
+        ),
+    );
+
+    let now = ctx.get_time();
+    if visual.focused && ((now * 2.0) as i32 % 2 == 0) {
+        let byte_pos = byte_offset(visual.text, visual.cursor_char);
+        let prefix = &visual.text[..byte_pos];
+        let cursor_x = rect.x
+            + layout::WIDGET_PADDING / 2.
+            + measure_text_ui(ctx, prefix, layout::DEFAULT_FONT_SIZE_16).width
+            - visual.scroll_offset_x;
+        if cursor_x >= rect.x && cursor_x <= rect.x + rect.w {
+            ctx.draw_line(
+                cursor_x,
+                rect.y + rect.h * 0.3,
+                cursor_x,
+                rect.y + rect.h * 0.8,
+                2.,
+                resolve_with_theme(
+                    overrides.border,
+                    widget_theme.border,
+                    colors::DEFAULT_BORDER_COLOR,
+                ),
+            );
+        }
+    }
+}
+
+pub(crate) fn draw_text_input_visual<C: BishopContext>(
+    ctx: &mut C,
+    id: WidgetId,
+    rect: Rect,
+    current: &str,
+    overrides: WidgetTheme,
+    class: Option<&str>,
+    style_id: Option<&str>,
+) {
+    let widget_theme = resolve_theme_for::<TextInput>(class, style_id);
+    let (text, cursor_char, focused, selection_anchor, scroll_offset_x) =
+        INPUT_TEXT_STATE.with(|s| {
+            if let Some(state) = s.borrow().get(&id) {
+                (
+                    state.text.clone(),
+                    state.cursor_char,
+                    state.focused,
+                    state.selection_anchor,
+                    state.scroll_offset_x,
+                )
+            } else {
+                let text = current.to_string();
+                let cursor_char = text.chars().count();
+                (text, cursor_char, false, None, 0.0)
+            }
+        });
+
+    let visual = TextInputVisualState {
+        text: &text,
+        cursor_char,
+        focused,
+        selection_anchor,
+        scroll_offset_x,
+    };
+
+    draw_text_input_visual_with_state(ctx, rect, &visual, overrides, widget_theme);
+}
+
 impl Widget for TextInput {
-    fn widget_type() -> WidgetType { WidgetType::TextInput }
-    fn base_mut(&mut self) -> &mut WidgetBase { &mut self.base }
+    fn widget_type() -> WidgetType {
+        WidgetType::TextInput
+    }
+    fn base_mut(&mut self) -> &mut WidgetBase {
+        &mut self.base
+    }
 }
 
 /// Resets the text input state for the given widget id.

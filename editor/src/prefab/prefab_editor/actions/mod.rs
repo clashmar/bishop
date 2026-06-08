@@ -6,9 +6,12 @@ use crate::editor_global::push_command;
 use crate::gui::modals::prefab_picker::PrefabPickerModal;
 use crate::gui::modals::ModalHandler;
 use crate::prefab::{PendingPrefabTransition, PrefabTransitionPrompt, BLANK_PREFAB_ID};
-use crate::shared::scene_ui::inspector::{ScenePrefabAction, ScenePrefabActionRequest};
+use crate::shared::scene_ui::inspector::{PrefabAction, PrefabActionRequest};
 use bishop::prelude::*;
-use engine_core::prelude::*;
+use engine_core::ecs::*;
+use engine_core::logging::{omni_error};
+use engine_core::ui::*;
+use engine_core::worlds::*;
 use std::path::PathBuf;
 
 mod room_sync;
@@ -71,26 +74,26 @@ impl Editor {
     pub(crate) fn handle_room_prefab_action(
         &mut self,
         ctx: &WgpuContext,
-        request: ScenePrefabActionRequest,
+        request: PrefabActionRequest,
         room_id: RoomId,
     ) {
         match request.action {
-            ScenePrefabAction::OpenPrefabEditor => {
+            PrefabAction::OpenPrefabEditor => {
                 self.enter_prefab_transition(ctx, request.prefab_id);
             }
-            ScenePrefabAction::UnlinkInstance => {
+            PrefabAction::UnlinkInstance => {
                 push_command(Box::new(UnlinkPrefabInstanceCmd::new(
                     request.selected_entity,
                     EditorMode::Room(room_id),
                 )));
             }
-            ScenePrefabAction::ApplyInstanceToPrefab => {
+            PrefabAction::ApplyInstanceToPrefab => {
                 push_command(Box::new(ApplyInstanceToPrefabCmd::new(
                     request.selected_entity,
                     EditorMode::Room(room_id),
                 )));
             }
-            ScenePrefabAction::RevertInstanceToPrefab => {
+            PrefabAction::RevertInstanceToPrefab => {
                 push_command(Box::new(RevertPrefabInstanceCmd::new(
                     request.selected_entity,
                     EditorMode::Room(room_id),
@@ -161,13 +164,13 @@ impl Editor {
         ) {
             Ok(prefab) => prefab,
             Err(error) => {
-                onscreen_error!("Could not save prefab: {error}");
+                omni_error!("Could not save prefab: {error}");
                 return;
             }
         };
 
         if let Err(error) = save::sync_prefabs_lua_file(&self.game) {
-            onscreen_error!("Could not write prefabs.lua: {error}");
+            omni_error!("Could not write prefabs.lua: {error}");
             return;
         }
         let _ = self.reconcile_prefab_palette_after_library_change();
@@ -191,12 +194,12 @@ impl Editor {
             &prefab,
             Some(initial_path.as_path()),
         ) {
-            onscreen_error!("Could not save prefab: {error}");
+            omni_error!("Could not save prefab: {error}");
             return;
         }
 
         if let Err(error) = save::sync_prefabs_lua_file(&self.game) {
-            onscreen_error!("Could not write prefabs.lua: {error}");
+            omni_error!("Could not write prefabs.lua: {error}");
             return;
         }
         let _ = self.reconcile_prefab_palette_after_library_change();

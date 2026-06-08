@@ -1,4 +1,3 @@
-// game/src/input/input_focus.rs
 use std::collections::HashMap;
 
 /// Priority constants for the input focus system.

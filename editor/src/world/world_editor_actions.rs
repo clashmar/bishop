@@ -1,8 +1,11 @@
-// editor/src/world/world_editor_actions.rs
 use crate::world::coord;
 use crate::world::world_editor::WorldEditor;
 use bishop::prelude::*;
-use engine_core::prelude::*;
+use engine_core::ecs::*;
+use engine_core::game::{Game, GameCtxMut};
+use engine_core::tiles::{TileMap};
+use engine_core::ui::*;
+use engine_core::worlds::*;
 use widgets::constants::layout;
 
 impl WorldEditor {
@@ -86,11 +89,12 @@ impl WorldEditor {
             size,
             exits: vec![],
             adjacent_rooms: vec![],
+            tags: vec![],
             variants: vec![variant],
             darkness: 0.,
         };
 
-        room.create_room_camera(&mut game.ecs, id, grid_size);
+        Room::create_camera_entity(&mut game.ecs, room.id, room.position, grid_size);
 
         let cur_world = game
             .current_world_mut()

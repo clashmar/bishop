@@ -1,9 +1,14 @@
-// editor\src\storage\export.rs
 #![allow(unused)]
 use crate::editor_assets::assets::*;
-use crate::storage::sound_preset_storage::SOUND_PRESETS_RON;
 use bishop::prelude::*;
-use engine_core::prelude::*;
+use engine_core::constants::{paths, ui, world};
+use engine_core::ecs::*;
+use engine_core::engine_global::{game_name};
+use engine_core::game::{Game};
+use engine_core::logging::{omni_debug, omni_info, omni_warn};
+use engine_core::storage::*;
+use engine_core::ui::*;
+use engine_core::worlds::*;
 use std::fs;
 use std::io;
 use std::io::Error;
@@ -49,7 +54,7 @@ impl Drop for ExportGuard {
 pub fn export_game(dest_root: &Path, game: &Game) -> io::Result<PathBuf> {
     #[cfg(target_os = "windows")]
     {
-        onscreen_info!("Exporting for windows");
+        omni_info!("Exporting for windows");
         let exe_path = export_for_windows(dest_root, game)?;
         Ok(exe_path)
     }
@@ -78,6 +83,19 @@ pub fn export_target_path(dest_root: &Path, game: &Game) -> PathBuf {
     dest_root.join(&game.name)
 }
 
+fn export_game_copy(game: &Game) -> io::Result<Game> {
+    let game_ron = ron::to_string(game).map_err(|e| io::Error::other(e.to_string()))?;
+    let mut game_copy: Game =
+        ron::from_str(&game_ron).map_err(|e| io::Error::other(e.to_string()))?;
+
+    game_copy.rebuild_world_index();
+    for world in game_copy.worlds_mut() {
+        world.rebuild_room_grid();
+    }
+
+    Ok(game_copy)
+}
+
 #[cfg(windows)]
 fn export_for_windows(dest_root: &Path, game: &Game) -> io::Result<PathBuf> {
     let target_package = export_target_path(dest_root, game);
@@ -89,13 +107,13 @@ fn export_for_windows(dest_root: &Path, game: &Game) -> io::Result<PathBuf> {
     fs::create_dir_all(&target_package)?;
     let exe_path = &target_package.join(format!("{}.exe", game.name));
 
-    onscreen_debug!("Creating new .exe at: {}", exe_path.display());
+    omni_debug!("Creating new .exe at: {}", exe_path.display());
     let mut exe_file = fs::File::create(&exe_path)?;
 
-    onscreen_debug!("Writing buffer into .exe");
+    omni_debug!("Writing buffer into .exe");
     exe_file.write_all(GAME_EXE)?;
 
-    onscreen_debug!("Updating .exe");
+    omni_debug!("Updating .exe");
     if let Err(e) = update_exe(&exe_path, game) {
         return Err(Error::other(format!("Could not update .exe: {e}")));
     }
@@ -106,12 +124,9 @@ fn export_for_windows(dest_root: &Path, game: &Game) -> io::Result<PathBuf> {
     let target_resources = target_package.join(paths::RESOURCES_FOLDER);
     let skip_extensions = &["json", "aseprite", "ase"];
     copy_dir_filtered(&src_resources, &target_resources, skip_extensions)?;
-    let _ = fs::remove_file(target_resources.join(SOUND_PRESETS_RON));
 
     // Overwrite game.ron purging player proxies
-    let game_ron = ron::to_string(game).map_err(|e| io::Error::other(e.to_string()))?;
-    let mut game_copy: Game =
-        ron::from_str(&game_ron).map_err(|e| io::Error::other(e.to_string()))?;
+    let mut game_copy = export_game_copy(game)?;
 
     // Set player spawn position from proxy before purging
     if let Some(start_room_id) = game_copy.current_world().starting_room_id {
@@ -144,21 +159,21 @@ fn export_for_mac(dest_root: &Path, game: &Game) -> io::Result<PathBuf> {
 
     let bin_path = &macos_dir.join(game.name.clone());
 
-    onscreen_debug!("Creating new binary at: {}", bin_path.display());
+    omni_debug!("Creating new binary at: {}", bin_path.display());
     let mut bin_file = fs::File::create(bin_path)?;
 
-    onscreen_debug!("Writing buffer into binary.");
+    omni_debug!("Writing buffer into binary.");
     bin_file.write_all(GAME_BIN)?;
     bin_file.flush()?;
 
     // Set executable permissions
-    onscreen_debug!("Writing binary permissions.");
+    omni_debug!("Writing binary permissions.");
     let mut permissions = fs::metadata(bin_path)?.permissions();
     permissions.set_mode(0o755);
     fs::set_permissions(bin_path, permissions)?;
 
     // Copy /Resources, skipping source files not needed for the final game
-    onscreen_debug!("Copying /Resources.");
+    omni_debug!("Copying /Resources.");
     let src_resources = resources_folder_current();
     let target_resources = bundle_path
         .join(paths::CONTENTS_FOLDER)
@@ -166,12 +181,9 @@ fn export_for_mac(dest_root: &Path, game: &Game) -> io::Result<PathBuf> {
 
     let skip_extensions = &["json", "aseprite", "ase"];
     copy_dir_filtered(&src_resources, &target_resources, skip_extensions)?;
-    let _ = fs::remove_file(target_resources.join(SOUND_PRESETS_RON));
 
     // Overwrite game.ron purging player proxies
-    let game_ron = ron::to_string(game).map_err(|e| io::Error::other(e.to_string()))?;
-    let mut game_copy: Game =
-        ron::from_str(&game_ron).map_err(|e| io::Error::other(e.to_string()))?;
+    let mut game_copy = export_game_copy(game)?;
 
     // Set player spawn position from proxy before purging
     if let Some(start_room_id) = game_copy.current_world().starting_room_id {
@@ -183,23 +195,23 @@ fn export_for_mac(dest_root: &Path, game: &Game) -> io::Result<PathBuf> {
     fs::write(target_resources.join(paths::GAME_RON), ron_string)?;
 
     // Copy Icon.icns
-    onscreen_debug!("Copying Icon.icns.");
+    omni_debug!("Copying Icon.icns.");
     let src_icns = mac_os_folder().join("Icon.icns");
     let target_icns = target_resources.join("Icon.icns");
 
     if src_icns.exists() {
         fs::copy(&src_icns, &target_icns)?;
     } else {
-        onscreen_debug!("Icon.icns not found, skipping.");
+        omni_debug!("Icon.icns not found, skipping.");
     }
 
     let target_plist = bundle_path.join(paths::CONTENTS_FOLDER).join("Info.plist");
-    onscreen_debug!("Writing Info.plist.");
+    omni_debug!("Writing Info.plist.");
     fs::write(&target_plist, mac_export_info_plist(game))?;
 
     // Tell the guard to keep the folder
     guard.success();
-    onscreen_debug!("Export successful.");
+    omni_debug!("Export successful.");
     Ok(bundle_path)
 }
 
@@ -256,16 +268,16 @@ fn update_exe(exe_path: &PathBuf, game: &Game) -> Result<(), winres_edit::Error>
 
     // Read the file and replace the icon
     if let Ok(png_bytes) = fs::read(&icon_path) {
-        onscreen_debug!("Replacing .ico from: {}", icon_path.display());
+        omni_debug!("Replacing .ico from: {}", icon_path.display());
         if let Some(icon_resource) = resources.find(resource_type::ICON, Id::Integer(1)) {
             icon_resource.replace(&png_bytes)?.update()?;
         }
     } else {
-        onscreen_warn!("Could not read .ico");
+        omni_warn!("Could not read .ico");
     }
 
     if let Some(mut version_info) = resources.get_version_info()? {
-        onscreen_debug!("Updating version info");
+        omni_debug!("Updating version info");
         // TODO: Update with actual version
         let version: [u16; 4] = [0, 1, 0, 0];
 
@@ -287,7 +299,7 @@ fn update_exe(exe_path: &PathBuf, game: &Game) -> Result<(), winres_edit::Error>
             ])
             .update()?;
     } else {
-        onscreen_warn!("Could not get version info");
+        omni_warn!("Could not get version info");
     }
 
     Ok(())
@@ -297,6 +309,51 @@ fn update_exe(exe_path: &PathBuf, game: &Game) -> Result<(), winres_edit::Error>
 mod tests {
     use super::*;
     use std::path::Path;
+
+    #[test]
+    fn export_game_copy_rebuilds_world_index_for_spawn_handoff() {
+        let room_id = RoomId(1);
+        let proxy_position = Vec2::new(28.0, 72.0);
+        let mut game = Game::with_name("Demo");
+
+        let mut world = World::new(WorldId(1), "new".to_string(), 8.0);
+        world.add_room(Room {
+            id: room_id,
+            ..Default::default()
+        });
+        world.starting_room_id = Some(room_id);
+        game.add_world(world);
+
+        let player = game.ecs.create_entity().with(Player).finish();
+        game.ecs
+            .create_entity()
+            .with(PlayerProxy)
+            .with(Transform {
+                position: proxy_position,
+                ..Default::default()
+            })
+            .with_current_room(room_id)
+            .finish();
+
+        let mut game_copy = export_game_copy(&game).expect("export round-trip should succeed");
+        let start_room_id = game_copy
+            .current_world()
+            .starting_room_id
+            .expect("world index should be rebuilt after export round-trip");
+
+        game_copy.ecs.set_player_spawn_from_proxy(start_room_id);
+        game_copy.ecs.purge_proxies();
+
+        assert_eq!(
+            game_copy.ecs.get::<Transform>(player).map(|transform| transform.position),
+            Some(proxy_position)
+        );
+        assert_eq!(
+            game_copy.ecs.get::<CurrentRoom>(player).map(|room| room.0),
+            Some(room_id)
+        );
+        assert!(game_copy.ecs.get_store::<PlayerProxy>().data.is_empty());
+    }
 
     #[cfg(unix)]
     #[test]

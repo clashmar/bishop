@@ -1,4 +1,3 @@
-// editor/src/editor/actions.rs
 use crate::app::*;
 use crate::commands::scene::DeletePrefabCmd;
 use crate::editor_global::*;
@@ -14,7 +13,12 @@ use crate::gui::panels::*;
 use crate::prefab::{PendingPrefabTransition, PrefabTransitionPrompt};
 use crate::storage::editor_storage::*;
 use bishop::prelude::*;
-use engine_core::prelude::*;
+use engine_core::engine_global::{set_game_name};
+use engine_core::game::{Game};
+use engine_core::logging::{omni_error};
+use engine_core::scripting::{register_runtime_modules};
+use engine_core::storage::*;
+use engine_core::ui::*;
 
 impl Editor {
     pub fn draw_menu_bar(&mut self, ctx: &mut WgpuContext) {
@@ -38,6 +42,7 @@ impl Editor {
         let modal_blocked = [
             EditorAction::Save,
             EditorAction::SaveAs,
+            EditorAction::ViewInspectorPanel,
             EditorAction::ViewConsolePanel,
             EditorAction::ViewDiagnosticsPanel,
             EditorAction::ViewHierarchyPanel,
@@ -59,6 +64,9 @@ impl Editor {
 
     fn run_action(&mut self, ctx: &mut WgpuContext, action: EditorAction) {
         match action {
+            EditorAction::NavigateBack | EditorAction::ReturnToGameEditor => {
+                self.navigate_back(ctx);
+            }
             EditorAction::Rename => {
                 RenameModal.open(self, ctx);
             }
@@ -84,7 +92,7 @@ impl Editor {
                                                 Some(Toast::new(format!("Loaded '{}'", name), 2.5));
                                         }
                                         Err(e) => {
-                                            onscreen_error!("Failed to load game: {e}");
+                                            omni_error!("Failed to load game: {e}");
                                             self.toast = Some(Toast::new(
                                                 "Could not load selected game.",
                                                 2.5,
@@ -155,6 +163,9 @@ impl Editor {
                     panel_manager.toggle(PREFAB_PALETTE_PANEL);
                 });
             }
+            EditorAction::ViewInspectorPanel => {
+                self.toggle_inspector_visibility();
+            }
             EditorAction::ViewResourcesPanel => {
                 with_panel_manager(|panel_manager| {
                     panel_manager.toggle(RESOURCES_PANEL);
@@ -176,47 +187,6 @@ impl Editor {
                 self.mode = EditorMode::Menu;
                 self.load_menus();
                 self.menu_editor.init_camera(ctx, &mut self.camera);
-            }
-            EditorAction::ReturnToGameEditor => {
-                match self.mode {
-                    EditorMode::Menu => {
-                        self.save_menus();
-                    }
-                    EditorMode::Prefab(_) => {
-                        self.request_exit_prefab_mode(ctx);
-                        return;
-                    }
-                    _ => {}
-                }
-
-                let return_mode = self.return_mode.unwrap_or(EditorMode::Game);
-                self.mode = return_mode;
-                self.return_mode = None;
-
-                match return_mode {
-                    EditorMode::Game => {
-                        self.game_editor
-                            .init_camera(ctx, &mut self.camera, &mut self.game);
-                    }
-                    EditorMode::World(id) => {
-                        if let Some(world) = self.game.get_world_mut(id) {
-                            self.world_editor.init_camera(ctx, &mut self.camera, world);
-                        }
-                    }
-                    EditorMode::Room(id) => {
-                        let current_world = self.game.current_world();
-                        if let Some(room) = current_world.get_room(id) {
-                            EditorCameraController::reset_room_editor_camera(
-                                ctx,
-                                &mut self.camera,
-                                room,
-                                current_world.grid_size,
-                            );
-                        }
-                    }
-                    EditorMode::Prefab(_) => {}
-                    EditorMode::Menu => {}
-                }
             }
         }
     }
@@ -301,12 +271,16 @@ impl Editor {
         with_lua(|lua| {
             game.initialize(ctx, lua);
             if let Err(error) = register_runtime_modules(lua, &game.script_manager.event_bus) {
-                onscreen_error!("Lua module registration failed: {error}");
+                omni_error!("Lua module registration failed: {error}");
             }
         });
         self.game_editor
             .init_camera(ctx, &mut self.camera, &mut game);
 
         game
+    }
+
+    fn toggle_inspector_visibility(&mut self) {
+        editor_config::set_inspector_visible(!editor_config::get_inspector_visible());
     }
 }

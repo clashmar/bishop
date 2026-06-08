@@ -236,10 +236,7 @@ fn load_prefab_manager_removes_stale_prefab_records_after_successful_reload() {
     let stale_prefab_id = PrefabId(9);
     let stale_path =
         PathBuf::from(paths::PREFABS_FOLDER).join(format!("stale_prefab.{}", extensions::PREFAB));
-    let mut game = Game {
-        name: test_folder.name().to_string(),
-        ..Default::default()
-    };
+    let mut game = Game::with_name(test_folder.name());
 
     persist_prefab(test_folder.name(), &prefab, &AssetRegistry::default(), None).unwrap();
     game.asset_registry
@@ -282,10 +279,7 @@ fn load_prefab_manager_reuses_paths_owned_by_stale_prefab_records() {
     ));
     let expected_path = PathBuf::from(paths::PREFABS_FOLDER).join(&prefab_relative_path);
     let stale_prefab_id = PrefabId(9);
-    let mut game = Game {
-        name: test_folder.name().to_string(),
-        ..Default::default()
-    };
+    let mut game = Game::with_name(test_folder.name());
 
     persist_prefab(test_folder.name(), &prefab, &AssetRegistry::default(), None).unwrap();
     game.asset_registry

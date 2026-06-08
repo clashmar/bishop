@@ -9,7 +9,12 @@ use self::preview::*;
 use crate::editor_global::push_toast;
 use crate::storage::sound_preset_storage::*;
 use bishop::prelude::*;
-use engine_core::prelude::*;
+use engine_core::assets::*;
+use engine_core::constants::paths;
+use engine_core::ecs::*;
+use engine_core::game::{GameCtxMut};
+use engine_core::storage::*;
+use engine_core::ui::*;
 use widgets::constants::colors;
 use widgets::constants::layout as widget_layout;
 
@@ -479,7 +484,7 @@ inventory::submit! {
         title: <AudioSource>::TYPE_NAME,
         factory: || {
             Box::new(
-                CollapsibleModule::new(
+                CollapsibleComponentModule::new(
                     crate::gui::inspector::audio_source_module::AudioSourceModule::default()
                 )
                 .with_title("Audio Source")

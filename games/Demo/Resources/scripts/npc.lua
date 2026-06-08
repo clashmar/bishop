@@ -1,6 +1,6 @@
 -- npc.lua
----@class ScriptDef
-local npc = {
+---@class Script
+local NPC = {
     public = {
         name = "NPC",
         dialogue = engine.asset.toml(),
@@ -15,12 +15,12 @@ local npc = {
             if player then
                 self.entity:say(self.public.dialogue, "greeting", {
                     vars = {
-                        player_name = player.public.name
-                    }
+                        player_name = player.public.name,
+                    },
                 })
             end
         end
     end,
 }
 
-return npc
+return NPC

@@ -1,4 +1,4 @@
-use engine_core::prelude::*;
+use engine_core::ecs::*;
 
 /// Identifies whether a linked prefab reference came from a root or child node component.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -52,7 +52,7 @@ mod tests {
     use super::*;
 
     fn create_prefab(prefab_id: PrefabId, name: String) -> PrefabAsset {
-        engine_core::prelude::create_prefab(prefab_id, name)
+        engine_core::prefab::create_prefab(prefab_id, name)
     }
 
     #[test]

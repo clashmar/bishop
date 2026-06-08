@@ -2,7 +2,8 @@ use crate::game_global::push_command;
 use crate::scripting::commands::entity::MoveToRoomCmd;
 use crate::scripting::lua_ctx::LuaGameCtx;
 use crate::scripting::modules::entity_module::handle::{ensure_live_entity, EntityHandle};
-use engine_core::prelude::*;
+use engine_core::scripting::{LuaApiWriter, LuaMethod};
+use engine_core::worlds::*;
 use engine_core::scripting::lua_constants::lua_entity;
 use mlua::UserDataMethods;
 

@@ -1,5 +1,5 @@
 use crate::gui::modals::is_modal_open;
-use engine_core::prelude::*;
+use engine_core::ui::*;
 use std::cell::RefCell;
 use widgets::{close_open_context_menus, is_context_menu_open};
 

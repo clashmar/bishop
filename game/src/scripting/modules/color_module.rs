@@ -1,7 +1,7 @@
 use engine_core::register_lua_api;
 use engine_core::register_lua_module;
 use engine_core::scripting::lua_constants::{lua_color, lua_files, lua_theme};
-use engine_core::scripting::modules::lua_module::*;
+use engine_core::scripting::modules::lua_module::{LuaApi, LuaModule, LuaApiWriter};
 use mlua::prelude::LuaResult;
 use mlua::Lua;
 

@@ -1,4 +1,3 @@
-// engine_core/src/ecs/has_any.rs
 use crate::ecs::{ecs::Ecs, entity::Entity};
 
 /// Trait that can test if an entity has any given component types.

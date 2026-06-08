@@ -1,4 +1,3 @@
-// editor/src/tilemap/tilemap_editor.rs
 use crate::commands::room::*;
 use crate::editor_assets::assets::*;
 use crate::editor_global::{push_command, push_toast};
@@ -10,7 +9,11 @@ use crate::shared::input::canvas_blocked_by_global_ui;
 use crate::tilemap::resize_handle::*;
 use crate::tilemap::tilemap_panel::TilemapPanel;
 use bishop::prelude::*;
-use engine_core::prelude::*;
+use engine_core::assets::*;
+use engine_core::controls::{Controls};
+use engine_core::ecs::*;
+use engine_core::tiles::{TileMap};
+use engine_core::worlds::*;
 
 fn thickness(grid_size: f32) -> f32 {
     (grid_size * 0.1).max(1.0)

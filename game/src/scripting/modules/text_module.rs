@@ -1,11 +1,10 @@
-// game/src/scripting/modules/text_module.rs
 use crate::game_global::push_command;
 use crate::scripting::commands::text_commands::SetLanguageCmd;
 use crate::scripting::lua_ctx::LuaGameCtx;
 use engine_core::register_lua_api;
 use engine_core::register_lua_module;
 use engine_core::scripting::lua_constants::{lua_engine, lua_files, lua_text};
-use engine_core::scripting::modules::lua_module::*;
+use engine_core::scripting::modules::lua_module::{LuaApi, LuaModule, LuaApiWriter};
 use mlua::prelude::LuaResult;
 use mlua::Lua;
 use mlua::Table;
@@ -93,6 +92,7 @@ impl LuaApi for TextModule {
 
         out.line("--- Sets the current text display language.");
         out.line("---@param lang string The language code (e.g. \"en\", \"es\")");
+        out.line("---@return nil");
         out.line("function engine.text.set_language(lang) end");
         out.line("");
 

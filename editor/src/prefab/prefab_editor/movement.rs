@@ -9,7 +9,9 @@ use crate::shared::input::shortcuts_blocked;
 use crate::shared::selection::{rect_from_two_points, rects_intersect};
 use crate::world::coord;
 use bishop::prelude::*;
-use engine_core::prelude::*;
+use engine_core::assets::*;
+use engine_core::controls::{get_omni_input_pressed};
+use engine_core::ecs::*;
 
 impl PrefabEditor {
     pub(crate) fn handle_canvas_move(

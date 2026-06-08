@@ -1,24 +1,30 @@
-// editor/src/game/game_editor.rs
 use crate::app::EditorCameraController;
+use crate::app::EditorMode;
 use crate::app::SubEditor;
 use crate::commands::game::*;
 use crate::editor_assets::assets::*;
-use crate::gui::gui_constants::*;
+use crate::gui::gui_constants::{self, *};
+use crate::gui::inspector::shell::Inspector;
 use crate::gui::menu_bar::*;
 use crate::gui::modals::edit_world::EditWorldData;
 use crate::gui::mode_selector::ModeInfo;
 use crate::gui::mode_selector::ModeSelector;
 use crate::push_command;
+use crate::shared::input::canvas_blocked_by_global_ui;
+use crate::shared::scene_ui::inspector::{InspectorHostAction, InspectorContext};
 use crate::world::coord;
 use bishop::prelude::*;
-use engine_core::prelude::*;
+use engine_core::controls::{Controls};
+use engine_core::ecs::*;
+use engine_core::game::Game;
+use engine_core::ui::*;
+use engine_core::worlds::*;
 use engine_core::theme::with_theme;
 use once_cell::sync::Lazy;
-use widgets::constants::layout;
-
 use std::collections::HashMap;
 use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
+use widgets::constants::layout;
 
 #[derive(Copy, Clone, PartialEq, EnumIter)]
 pub enum GameEditorMode {
@@ -59,6 +65,7 @@ pub struct GameEditor {
     mode: GameEditorMode,
     mode_selector: ModeSelector<GameEditorMode>,
     active_rects: Vec<Rect>,
+    inspector: Inspector,
     dragged_world: Option<WorldId>,
     dragging: bool,
     drag_offset: Vec2,
@@ -72,6 +79,7 @@ pub struct GameEditor {
 impl GameEditor {
     pub fn new() -> Self {
         let mode = GameEditorMode::Select;
+        let inspector = Inspector::new();
         Self {
             mode,
             mode_selector: ModeSelector {
@@ -79,6 +87,7 @@ impl GameEditor {
                 options: *ALL_MODES,
             },
             active_rects: Vec::new(),
+            inspector,
             dragged_world: None,
             dragging: false,
             drag_offset: Vec2::ZERO,
@@ -207,7 +216,7 @@ impl GameEditor {
         ctx.clear_background(Color::BLACK);
 
         self.draw_worlds(ctx, camera, game);
-        self.draw_ui(ctx);
+        self.draw_ui(ctx, game);
     }
 
     fn draw_worlds(&mut self, ctx: &mut WgpuContext, camera: &Camera2D, game: &mut Game) {
@@ -326,7 +335,7 @@ impl GameEditor {
         }
     }
 
-    fn draw_ui(&mut self, ctx: &mut WgpuContext) {
+    fn draw_ui(&mut self, ctx: &mut WgpuContext, game: &mut Game) {
         ctx.set_default_camera();
 
         self.active_rects.clear();
@@ -338,6 +347,35 @@ impl GameEditor {
         self.mode_selector.draw_tooltips(ctx);
 
         self.draw_menu_buttons(ctx);
+
+        let inspector_rect = Rect::new(
+            ctx.screen_width() - gui_constants::inspector::WIDTH,
+            0.0,
+            gui_constants::inspector::WIDTH,
+            ctx.screen_height(),
+        );
+        self.inspector.set_rect(inspector_rect);
+
+        let game_name = game.name.clone();
+        let inspector_output = {
+            let mut game_ctx = game.ctx_mut();
+            self.inspector.draw_game_pane(
+                ctx,
+                &mut game_ctx,
+                &InspectorContext {
+                    command_mode: EditorMode::Game,
+                    game_name: Some(game_name),
+                    show_linked_prefab_metadata: false,
+                    hide_room_only_components: true,
+                    selected_create_parent: None,
+                    event_tags: Vec::new(),
+                },
+            )
+        };
+
+        if let Some(InspectorHostAction::RenameGame(name)) = inspector_output.host_action {
+            push_command(Box::new(RenameGameCmd::new(name, game.name.clone())));
+        }
     }
 
     fn draw_menu_buttons(&mut self, ctx: &mut WgpuContext) {
@@ -468,6 +506,13 @@ impl GameEditor {
 impl SubEditor for GameEditor {
     fn active_rects(&self) -> &[Rect] {
         &self.active_rects
+    }
+
+    fn should_block_canvas(&self, ctx: &WgpuContext) -> bool {
+        let mouse_screen: Vec2 = ctx.mouse_position().into();
+        self.active_rects.iter().any(|r| r.contains(mouse_screen))
+            || self.inspector.is_mouse_over(ctx)
+            || canvas_blocked_by_global_ui(ctx)
     }
 }
 

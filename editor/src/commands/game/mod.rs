@@ -1,4 +1,3 @@
-// editor/src/commands/game/mod.rs
 mod create_world_cmd;
 mod delete_world_cmd;
 mod edit_world_cmd;

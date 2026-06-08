@@ -14,9 +14,9 @@ pub(super) use crate::test_utils::{
     game_fs_test_lock, linked_root_entities, make_prefab_session_editor, EditorServicesGuard,
     TestGameFolder,
 };
-pub(super) use engine_core::prelude::*;
 
 mod apply_instance_to_prefab_cmd_tests;
+mod create_scene_entity_cmd_tests;
 mod delete_entity_cmd_tests;
 mod revert_prefab_instance_cmd_tests;
 mod unlink_prefab_instance_cmd_tests;

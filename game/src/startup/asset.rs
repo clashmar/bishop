@@ -1,25 +1,18 @@
-use engine_core::prelude::*;
+use engine_core::constants::{paths};
+use engine_core::logging::{omni_error};
+use engine_core::storage::*;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::Path;
 
 /// Runtime-authored startup flow configuration.
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq)]
 #[serde(default)]
 pub struct StartupAsset {
     /// Loading-phase screens shown before entering the runtime session flow.
     pub loading: LoadingConfig,
     /// Menu id to open when entering the front-end start menu.
-    pub start_menu_id: String,
-}
-
-impl Default for StartupAsset {
-    fn default() -> Self {
-        Self {
-            loading: LoadingConfig::default(),
-            start_menu_id: "start".to_string(),
-        }
-    }
+    pub title_menu_id: String,
 }
 
 /// Startup screens shown before the runtime session is ready.
@@ -87,7 +80,7 @@ pub fn load_startup_from_resources(resources_dir: &Path) -> StartupAsset {
     };
 
     ron::from_str(&ron_str).unwrap_or_else(|err| {
-        onscreen_error!("Failed to parse startup ron '{}': {}", path.display(), err);
+        omni_error!("Failed to parse startup ron '{}': {}", path.display(), err);
         StartupAsset::default()
     })
 }
@@ -116,7 +109,7 @@ mod tests {
         let asset = StartupAsset::default();
 
         assert!(asset.loading.splash_screens.is_empty());
-        assert_eq!(asset.start_menu_id, "start");
+        assert!(asset.title_menu_id.is_empty());
         assert_eq!(
             asset.loading.fallback_screen.content,
             StartupScreenContent::Text {

@@ -1,6 +1,4 @@
 -- bullet.lua
-local comp = require("_engine.components")
-local direction = require("_engine.direction")
 
 ---@class BulletSpawnArgs
 ---@field direction Direction?
@@ -10,8 +8,8 @@ local direction = require("_engine.direction")
 ---@field direction Direction?
 ---@field dead boolean?
 
----@class ScriptDef
-local bullet = {
+---@class Script
+local Bullet = {
     public = {
         speed = 260,
         lifetime = 1.5,
@@ -19,14 +17,14 @@ local bullet = {
     ---@param self BulletInstance
     ---@param spawn_args BulletSpawnArgs?
     init = function(self, spawn_args)
-        local launch_direction = (spawn_args and spawn_args.direction) or direction.Right
+        local launch_direction = (spawn_args and spawn_args.direction) or Direction.Right
         local velocity = { x = 0, y = 0 }
 
-        if launch_direction == direction.Left then
+        if launch_direction == Direction.Left then
             velocity.x = -self.public.speed
-        elseif launch_direction == direction.Up then
+        elseif launch_direction == Direction.Up then
             velocity.y = -self.public.speed
-        elseif launch_direction == direction.Down then
+        elseif launch_direction == Direction.Down then
             velocity.y = self.public.speed
         else
             velocity.x = self.public.speed
@@ -58,8 +56,7 @@ local bullet = {
             self.entity:despawn()
             return
         end
-
     end,
 }
 
-return bullet
+return Bullet

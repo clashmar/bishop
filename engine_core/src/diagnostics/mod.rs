@@ -1,4 +1,3 @@
-// engine_core/src/diagnostics/mod.rs
 //! Diagnostics infrastructure for engine metrics and performance monitoring.
 
 pub mod collector;

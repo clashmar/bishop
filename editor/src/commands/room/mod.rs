@@ -1,4 +1,3 @@
-// editor/src/commands/room/mod.rs
 mod alt_drag_copy_cmd;
 mod batch_delete_entities_cmd;
 mod batch_move_entities_cmd;

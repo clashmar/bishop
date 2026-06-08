@@ -1,4 +1,3 @@
-// editor/src/room/shortcuts.rs
 use crate::app::EditorCameraController;
 use crate::app::EditorMode;
 use crate::commands::room::*;
@@ -7,7 +6,10 @@ use crate::gui::mode_selector::ModeInfo;
 use crate::room::room_editor::*;
 use crate::shared::input::shortcuts_blocked;
 use bishop::prelude::*;
-use engine_core::prelude::*;
+use engine_core::camera::get_next_room_camera;
+use engine_core::controls::{Controls};
+use engine_core::ecs::*;
+use engine_core::worlds::*;
 use strum::IntoEnumIterator;
 
 impl RoomEditor {

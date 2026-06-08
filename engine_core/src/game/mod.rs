@@ -11,7 +11,7 @@ use crate::ecs::ecs::Ecs;
 #[cfg(feature = "editor")]
 use crate::ecs::{get_root_entities_in_set, Entity, SpriteId};
 use crate::engine_global::set_game_name;
-use crate::onscreen_error;
+use crate::omni_error;
 use crate::prefab::{load_prefab_manager, PrefabManager};
 use crate::scripting::script_manager::ScriptManager;
 #[cfg(feature = "editor")]
@@ -106,6 +106,14 @@ pub struct GameCtxMut<'a> {
 }
 
 impl Game {
+    /// Creates a default `Game` with the given name.
+    pub fn with_name(name: impl Into<String>) -> Self {
+        Self {
+            name: name.into(),
+            ..Default::default()
+        }
+    }
+
     /// Returns an immutable slice of all worlds for read-only iteration.
     pub fn worlds(&self) -> &[World] {
         &self.worlds
@@ -306,7 +314,7 @@ impl Game {
                 self.prefab_manager = prefab_manager;
             }
             Err(error) => {
-                onscreen_error!("Failed to load prefabs: {error}");
+                omni_error!("Failed to load prefabs: {error}");
             }
         }
     }

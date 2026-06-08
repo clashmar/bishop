@@ -5,7 +5,10 @@ use crate::editor_global::with_editor;
 use crate::storage::editor_storage::collect_prefab_names;
 use crate::storage::editor_storage::save_game;
 use crate::storage::editor_storage::PrefabPaletteState;
-use engine_core::prelude::*;
+use engine_core::ecs::*;
+use engine_core::game::{Game};
+use engine_core::logging::{omni_error};
+use engine_core::storage::*;
 
 #[derive(Debug)]
 pub struct DeletePrefabCmd {
@@ -49,16 +52,16 @@ impl EditorCommand for DeletePrefabCmd {
                 &mut editor.game.asset_registry,
                 self.prefab_id,
             ) {
-                onscreen_error!("Could not delete prefab: {error}");
+                omni_error!("Could not delete prefab: {error}");
                 return;
             }
 
             if let Err(error) = sync_prefabs_lua_file(&editor.game) {
-                onscreen_error!("Could not write prefabs.lua: {error}");
+                omni_error!("Could not write prefabs.lua: {error}");
                 return;
             }
             if let Err(error) = save_game(&editor.game) {
-                onscreen_error!("Could not save prefab metadata: {error}");
+                omni_error!("Could not save prefab metadata: {error}");
                 return;
             }
 
@@ -82,16 +85,16 @@ impl EditorCommand for DeletePrefabCmd {
                 prefab,
                 None,
             ) {
-                onscreen_error!("Could not restore prefab: {error}");
+                omni_error!("Could not restore prefab: {error}");
                 return;
             }
 
             if let Err(error) = sync_prefabs_lua_file(&editor.game) {
-                onscreen_error!("Could not write prefabs.lua: {error}");
+                omni_error!("Could not write prefabs.lua: {error}");
                 return;
             }
             if let Err(error) = save_game(&editor.game) {
-                onscreen_error!("Could not save prefab metadata: {error}");
+                omni_error!("Could not save prefab metadata: {error}");
                 return;
             }
             restore_linked_prefab_instances(editor, &self.deleted_snapshots);
@@ -151,13 +154,8 @@ fn remove_linked_prefab_instances(editor: &mut crate::Editor, snapshots: &[Group
         .room_editor
         .selected_entities
         .retain(|entity| !removed_entities.contains(entity));
-    if editor
-        .room_editor
-        .inspector
-        .target
-        .is_some_and(|entity| removed_entities.contains(&entity))
-    {
-        editor.room_editor.inspector.set_target(None);
+    if editor.room_editor.inspector.has_target() {
+        editor.room_editor.inspector.select_room();
     }
 }
 

@@ -1,7 +1,8 @@
 // engine_core/src/world/room.rs
 use crate::constants::world;
-use crate::ecs::{Name, Pivot, RoomCamera, Transform};
 use crate::ecs::ecs::Ecs;
+use crate::ecs::{Entity, Name, Pivot, RoomCamera, Transform};
+use crate::scripting::event_tags::event_tag::EventTag;
 use crate::tiles::tilemap::TileMap;
 use bishop::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -38,11 +39,15 @@ pub struct Room {
     pub size: Vec2,
     pub exits: Vec<Exit>,
     pub adjacent_rooms: Vec<RoomId>,
+    pub tags: Vec<EventTag>,
     pub variants: Vec<RoomVariant>,
     pub darkness: f32,
 }
 
 impl Room {
+    /// Common prefix for auto-generated camera entity names.
+    pub const CAMERA_PREFIX: &'static str = "Camera ";
+
     /// Creates a new room with the given pre-allocated room ID.
     pub fn new(ecs: &mut Ecs, room_id: RoomId, grid_size: f32) -> Self {
         let first_variant = RoomVariant {
@@ -60,11 +65,12 @@ impl Room {
             size: world::DEFAULT_ROOM_SIZE,
             exits: vec![],
             adjacent_rooms: vec![],
+            tags: vec![],
             variants: vec![first_variant],
             darkness: 0.,
         };
 
-        room.create_room_camera(ecs, room_id, grid_size);
+        Room::create_camera_entity(ecs, room.id, room.position, grid_size);
         room
     }
 
@@ -170,20 +176,19 @@ impl Room {
             .collect()
     }
 
-    pub fn create_room_camera(&self, ecs: &mut Ecs, room_id: RoomId, grid_size: f32) {
-        const CAMERA_PREFIX: &str = "Camera ";
+    /// Returns the next available camera name for a room.
+    pub fn next_camera_name(ecs: &Ecs, room_id: RoomId) -> String {
         let name_store = ecs.get_store::<Name>();
 
         let mut used: HashSet<usize> = HashSet::new();
 
-        for &entity in ecs.entities_in_room(self.id) {
-            if let Some(name) = name_store.get(entity) {
-                if let Some(num_str) = name.strip_prefix(CAMERA_PREFIX)
-                    && let Ok(num) = num_str.parse::<usize>()
-                    && num > 0
-                {
-                    used.insert(num);
-                }
+        for &entity in ecs.entities_in_room(room_id) {
+            if let Some(name) = name_store.get(entity)
+                && let Some(num_str) = name.strip_prefix(Self::CAMERA_PREFIX)
+                && let Ok(num) = num_str.parse::<usize>()
+                && num > 0
+            {
+                used.insert(num);
             }
         }
 
@@ -192,17 +197,27 @@ impl Room {
             next_idx += 1;
         }
 
-        ecs
-            .create_entity()
+        format!("{}{}", Self::CAMERA_PREFIX, next_idx)
+    }
+
+    /// Creates a camera entity with the given room and position.
+    pub fn create_camera_entity(
+        ecs: &mut Ecs,
+        room_id: RoomId,
+        position: Vec2,
+        grid_size: f32,
+    ) -> Entity {
+        let name = Self::next_camera_name(ecs, room_id);
+        ecs.create_entity()
             .with(Transform {
-                position: self.position,
+                position,
                 pivot: Pivot::CenterLeft,
                 ..Default::default()
             })
             .with(RoomCamera::new(room_id, grid_size))
-            .with(Name(format!("{}{}", CAMERA_PREFIX, next_idx)))
-            .with_current_room(self.id)
-            .finish();
+            .with(Name(name))
+            .with_current_room(room_id)
+            .finish()
     }
 
     /// Returns the index of the current variant.
@@ -268,4 +283,57 @@ pub struct Exit {
     pub position: Vec2,
     pub direction: ExitDirection,
     pub target_room_id: Option<RoomId>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn room_tags_round_trip_through_ron() {
+        let room = Room {
+            id: RoomId(1),
+            tags: vec![EventTag::Autosave, EventTag::Custom("hazardous".into())],
+            ..Default::default()
+        };
+        let ron = ron::ser::to_string_pretty(&room, ron::ser::PrettyConfig::new()).unwrap();
+        let parsed: Room = ron::from_str(&ron).unwrap();
+        assert_eq!(
+            parsed.tags,
+            vec![EventTag::Autosave, EventTag::Custom("hazardous".into())]
+        );
+    }
+
+    #[test]
+    fn room_tags_default_to_empty() {
+        let room = Room::default();
+        assert!(room.tags.is_empty());
+    }
+
+    #[test]
+    fn old_vec_string_tags_migrate_to_event_tags() {
+        // Simulate deserializing old RON with Vec<String>, then building EventTags
+        let old_ron = r#"(id:2,name:"",position:[0.0,0.0],size:[0.0,0.0],tags:["autosave","MyTag",""],variants:[])"#;
+        #[derive(Deserialize)]
+        struct OldRoom {
+            tags: Vec<String>,
+        }
+        let old: OldRoom = ron::from_str(old_ron).unwrap();
+        let migrated: Vec<EventTag> = old
+            .tags
+            .into_iter()
+            .filter(|s| !s.is_empty())
+            .map(|s| match s.as_str() {
+                "Autosave" => EventTag::Autosave,
+                other => EventTag::Custom(other.to_string()),
+            })
+            .collect();
+        assert_eq!(
+            migrated,
+            vec![
+                EventTag::Custom("autosave".into()),
+                EventTag::Custom("MyTag".into())
+            ]
+        );
+    }
 }

@@ -1,4 +1,3 @@
-// editor/src/commands/asset/tests/delete_asset_cmd_tests.rs
 use crate::app::EditorMode;
 use crate::commands::asset::DeleteAssetCmd;
 use crate::commands::editor_command_manager::EditorCommand;
@@ -6,7 +5,11 @@ use crate::editor_global::with_editor;
 use crate::storage::editor_storage::create_new_game;
 use crate::test_utils::{game_fs_test_lock, EditorServicesGuard, TestGameFolder};
 use crate::Editor;
-use engine_core::prelude::*;
+use engine_core::assets::*;
+use engine_core::ecs::*;
+use engine_core::engine_global::{set_game_name};
+use engine_core::storage::*;
+use engine_core::worlds::*;
 use engine_core::scripting::lua_constants::{lua_dirs, lua_files};
 use std::fs;
 
@@ -160,9 +163,9 @@ fn delete_prefab_asset_undo_restores_prefabs_lua() {
     with_editor(|e| {
         assert!(!e.game.prefab_manager.prefabs.contains_key(&PrefabId(1)));
         let prefabs_lua = fs::read_to_string(
-            scripts_folder()
-                .join(lua_dirs::ENGINE)
-                .join(lua_files::PREFABS),
+            scripts_folder().join(lua_dirs::ENGINE).join(
+                engine_core::scripting::lua_project::engine_relative_path(lua_files::PREFABS),
+            ),
         )
         .unwrap();
         assert!(!prefabs_lua.contains("Crate"));
@@ -173,9 +176,9 @@ fn delete_prefab_asset_undo_restores_prefabs_lua() {
     with_editor(|e| {
         assert!(e.game.prefab_manager.prefabs.contains_key(&PrefabId(1)));
         let prefabs_lua = fs::read_to_string(
-            scripts_folder()
-                .join(lua_dirs::ENGINE)
-                .join(lua_files::PREFABS),
+            scripts_folder().join(lua_dirs::ENGINE).join(
+                engine_core::scripting::lua_project::engine_relative_path(lua_files::PREFABS),
+            ),
         )
         .unwrap();
         assert!(prefabs_lua.contains("Crate"));

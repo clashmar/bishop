@@ -1,6 +1,9 @@
 use bishop::prelude::*;
 use engine_core::constants::world as world_constants;
-use engine_core::prelude::*;
+use engine_core::animation::{ClipDef, ClipId, VariantFolder, resolve_sprite_id};
+use engine_core::assets::*;
+use engine_core::ecs::*;
+use engine_core::rendering::{pivot_adjusted_position};
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(crate) enum PrefabPreviewVisual {

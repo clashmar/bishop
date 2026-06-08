@@ -1,4 +1,6 @@
-use engine_core::prelude::*;
+use engine_core::{register_lua_api, register_lua_module};
+use engine_core::ecs::*;
+use engine_core::scripting::{LuaApi, LuaApiWriter, LuaMethod, LuaModule};
 use engine_core::scripting::lua_constants::{lua_fields, lua_files, lua_globals};
 use mlua::prelude::LuaResult;
 use mlua::{Lua, UserData, UserDataMethods, UserDataRegistry};
@@ -54,6 +56,7 @@ entity_handle_methods! {
     MoveBy => MoveByMethod,
     MoveToRoom => MoveToRoomMethod,
     RemoveFromRoom => RemoveFromRoomMethod,
+    CurrentRoom => CurrentRoomMethod,
     GetCurrentFrame => GetCurrentFrameMethod,
     IsClipFinished => IsClipFinishedMethod,
     Say => SayMethod,
@@ -73,7 +76,7 @@ impl LuaModule for EntityModule {
     fn register(&self, lua: &Lua) -> LuaResult<()> {
         let factory =
             lua.create_function(|_, id: usize| Ok(EntityHandle { entity: Entity(id) }))?;
-        lua.globals().set(lua_globals::ENTITY, factory)?;
+        lua.globals().set(lua_globals::ENTITY_HANDLE, factory)?;
         Ok(())
     }
 }

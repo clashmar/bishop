@@ -1,6 +1,7 @@
 use super::*;
 use crate::prefab::BLANK_PREFAB_ID;
-use engine_core::prelude::PrefabId;
+use engine_core::worlds::*;
+use engine_core::prefab::PrefabId;
 
 #[test]
 fn hierarchy_panel_action_is_limited_to_room_and_prefab_modes() {
@@ -29,8 +30,8 @@ fn prefab_browser_action_is_limited_to_prefab_modes() {
 }
 
 #[test]
-fn blank_prefab_mode_uses_plain_title_text() {
-    assert!(title_actions_for_mode(EditorMode::Prefab(BLANK_PREFAB_ID)).is_none());
+fn blank_prefab_mode_has_back_action() {
+    assert_eq!(back_action_for_mode(EditorMode::Prefab(BLANK_PREFAB_ID)), Some(EditorAction::NavigateBack));
 }
 
 #[cfg(debug_assertions)]
@@ -45,11 +46,10 @@ fn file_menu_hides_change_save_root_in_debug_builds() {
 fn blank_prefab_mode_hides_save_and_rename_actions() {
     assert!(!EditorAction::Save.is_available_in(EditorMode::Prefab(BLANK_PREFAB_ID)));
     let file_actions = file_actions_for_mode(EditorMode::Prefab(BLANK_PREFAB_ID));
-    let title_actions = title_actions_for_mode(EditorMode::Prefab(BLANK_PREFAB_ID));
 
     assert!(!file_actions.contains(&EditorAction::Save));
     assert!(!file_actions.contains(&EditorAction::SaveAs));
-    assert!(title_actions.is_none());
+    assert!(!EditorAction::Rename.is_available_in(EditorMode::Prefab(BLANK_PREFAB_ID)));
 }
 
 #[test]
@@ -79,4 +79,42 @@ fn file_menu_shows_change_save_root_in_release_builds() {
     let actions = file_actions_for_mode(EditorMode::Game);
 
     assert!(actions.contains(&EditorAction::ChangeSaveRoot));
+}
+
+#[test]
+fn back_action_is_available_for_room_world_menu_and_prefab_modes() {
+    assert_eq!(back_action_for_mode(EditorMode::Room(RoomId(1))), Some(EditorAction::NavigateBack));
+    assert_eq!(back_action_for_mode(EditorMode::World(WorldId(1))), Some(EditorAction::NavigateBack));
+    assert_eq!(back_action_for_mode(EditorMode::Menu), Some(EditorAction::NavigateBack));
+    assert_eq!(back_action_for_mode(EditorMode::Prefab(PrefabId(7))), Some(EditorAction::NavigateBack));
+}
+
+#[test]
+fn game_mode_has_no_back_action() {
+    assert_eq!(back_action_for_mode(EditorMode::Game), None);
+}
+
+#[test]
+fn inspector_toggle_action_is_available_in_inspector_modes_only() {
+    assert!(EditorAction::ViewInspectorPanel.is_available_in(EditorMode::Game));
+    assert!(EditorAction::ViewInspectorPanel.is_available_in(EditorMode::World(WorldId(0))));
+    assert!(EditorAction::ViewInspectorPanel.is_available_in(EditorMode::Room(RoomId(1))));
+    assert!(EditorAction::ViewInspectorPanel.is_available_in(EditorMode::Prefab(PrefabId(7))));
+    assert!(!EditorAction::ViewInspectorPanel.is_available_in(EditorMode::Menu));
+}
+
+#[test]
+fn room_mode_view_menu_contains_inspector_toggle() {
+    let actions = view_actions_for_mode(EditorMode::Room(RoomId(1)));
+
+    assert!(actions.contains(&EditorAction::ViewInspectorPanel));
+}
+
+#[test]
+fn inspector_toggle_shortcut_matches_platform_convention() {
+    #[cfg(target_os = "macos")]
+    assert_eq!(EditorAction::ViewInspectorPanel.shortcut(), Some("⌘ I"));
+
+    #[cfg(any(target_os = "windows", target_os = "linux"))]
+    assert_eq!(EditorAction::ViewInspectorPanel.shortcut(), Some("^ I"));
 }

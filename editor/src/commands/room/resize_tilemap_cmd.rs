@@ -1,9 +1,10 @@
-// editor/src/commands/room/resize_tilemap_cmd.rs
+use bishop::prelude::*;
 use crate::app::EditorMode;
 use crate::commands::editor_command_manager::EditorCommand;
 use crate::tilemap::resize_handle::HandleSide;
 use crate::with_editor;
-use engine_core::prelude::*;
+use engine_core::tiles::{TileDefId, shift_tiles};
+use engine_core::worlds::*;
 use std::collections::HashMap;
 
 /// Undoable command for resizing a tilemap via drag handles.

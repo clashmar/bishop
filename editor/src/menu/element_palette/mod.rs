@@ -1,6 +1,5 @@
-// editor/src/menu/element_palette/mod.rs
 use bishop::prelude::*;
-use engine_core::prelude::*;
+use engine_core::menu::*;
 
 const PALETTE_ITEM_HEIGHT: f32 = 32.0;
 const PALETTE_SPACING: f32 = 4.0;

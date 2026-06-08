@@ -1,4 +1,5 @@
 use super::*;
+use bishop::prelude::Vec2;
 
 #[test]
 fn refresh_prefab_instance_preserves_added_local_components() {

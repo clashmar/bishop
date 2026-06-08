@@ -1,14 +1,28 @@
-// editor/src/storage/editor_storage.rs
 #![allow(unused)]
 use crate::editor_assets::assets::write_sounds_lua;
-use crate::editor_assets::assets::{write_prefabs_lua, BISHOP_THEME_LUA};
+use crate::editor_assets::assets::{write_event_tags_lua, write_prefabs_lua, BISHOP_THEME_LUA};
+use crate::editor_assets::{
+    write_initial_generated_lua_files, write_lua_scaffold_configs, write_menus_lua_from_dir,
+};
 use crate::storage::sound_preset_storage::*;
 use crate::tilemap::tile_palette::TilePalette;
 use crate::write_animations_lua;
 use crate::write_engine_scripts;
 use bishop::prelude::*;
 use engine_core::constants::world as world_constants;
-use engine_core::prelude::*;
+use engine_core::animation::{ClipId};
+use engine_core::assets::*;
+use engine_core::constants::{paths, ui, world};
+use engine_core::ecs::*;
+use engine_core::engine_global::{set_game_name, game_name};
+use engine_core::game::{Game, IdAllocator, id_allocator};
+use engine_core::logging::{omni_debug, omni_error, omni_info};
+use engine_core::menu::{Alignment, LayoutConfig, MenuAction, MenuBackground, MenuBuilder, MenuMode, MenuTemplate, Padding, button, label, layout_group, slider};
+use engine_core::prefab::{PrefabId, PrefabManager};
+use engine_core::storage::*;
+use engine_core::ui::*;
+use engine_core::worlds::*;
+use engine_core::scripting::event_tags::event_tag::EventTag;
 use engine_core::scripting::lua_constants::lua_files;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
@@ -19,12 +33,13 @@ use std::io::ErrorKind;
 use std::io::Write;
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::sync::Mutex;
 use std::time::SystemTime;
 use uuid::Uuid;
 
+const TILE_PALETTE_RON: &str = "palette.ron";
 const PREFAB_PALETTE_RON: &str = "prefab_palette.ron";
 /// Maximum number of recent prefabs persisted for the room palette.
 pub(crate) const PREFAB_PALETTE_RECENT_CAP: usize = 10;
@@ -41,7 +56,7 @@ pub struct PrefabPaletteState {
 
 /// Create a brand-new game with a single empty world.
 pub fn create_new_game(name: String) -> Game {
-    onscreen_debug!("Creating new game.");
+    omni_debug!("Creating new game.");
 
     // Set game name globally
     set_game_name(&name);
@@ -66,18 +81,18 @@ pub fn create_new_game(name: String) -> Game {
 
     // Save the game.
     if let Err(e) = save_game(&game) {
-        onscreen_error!("Could not save the new game: {e}");
+        omni_error!("Could not save the new game: {e}");
     }
 
     if let Err(e) = save_default_front_end_menus() {
-        onscreen_error!("Could not scaffold default menus: {e}");
+        omni_error!("Could not scaffold default menus: {e}");
     }
 
     game
 }
 
 pub(super) fn create_game_folders(name: &str) {
-    let folders: [(PathBuf, &str); 8] = [
+    let folders: [(PathBuf, &str); 9] = [
         (resources_folder_current(), paths::RESOURCES_FOLDER),
         (assets_folder(), paths::ASSETS_FOLDER),
         (scripts_folder(), paths::SCRIPTS_FOLDER),
@@ -86,24 +101,33 @@ pub(super) fn create_game_folders(name: &str) {
         (themes_folder(), paths::THEMES_FOLDER),
         (windows_folder(), paths::WINDOWS_FOLDER),
         (mac_os_folder(), paths::MAC_OS_FOLDER),
+        (editor_metadata_folder(name), paths::EDITOR_METADATA_FOLDER),
     ];
 
     for (path, folder) in folders {
         if let Err(e) = fs::create_dir_all(&path) {
-            onscreen_error!("Could not create {folder} folder '{}': {e}", path.display());
+            omni_error!("Could not create {folder} folder '{}': {e}", path.display());
         }
     }
 
     // Extract embedded _engine scripts
     if let Err(e) = write_engine_scripts(&scripts_folder()) {
-        onscreen_error!("Could not write _engine scripts: {e}");
+        omni_error!("Could not write _engine scripts: {e}");
+    }
+
+    if let Err(e) = write_lua_scaffold_configs(&game_folder(name)) {
+        omni_error!("Could not write Lua scaffold configs: {e}");
+    }
+
+    if let Err(e) = write_initial_generated_lua_files(&scripts_folder()) {
+        omni_error!("Could not write initial generated Lua files: {e}");
     }
 
     // Write sample theme file if it doesn't exist
     let theme_path = themes_folder().join(lua_files::BISHOP_THEME);
     if !theme_path.exists() {
         if let Err(e) = fs::write(&theme_path, BISHOP_THEME_LUA) {
-            onscreen_error!("Could not write sample theme: {e}");
+            omni_error!("Could not write sample theme: {e}");
         }
     }
 
@@ -111,14 +135,14 @@ pub(super) fn create_game_folders(name: &str) {
     let main_lua = scripts_folder().join("main.lua");
     if !main_lua.exists() {
         if let Err(e) = fs::write(&main_lua, "") {
-            onscreen_error!("Could not create main.lua: {e}");
+            omni_error!("Could not create main.lua: {e}");
         }
     }
 
     // Create audio subfolders
     for path in [sfx_folder(), music_folder()] {
         if let Err(e) = fs::create_dir_all(&path) {
-            onscreen_error!("Could not create audio folder '{}': {e}", path.display());
+            omni_error!("Could not create audio folder '{}': {e}", path.display());
         }
     }
 
@@ -137,7 +161,7 @@ fn create_default_text_files() {
 default_language = "en"
 "#;
         if let Err(e) = fs::write(&manifest_path, manifest_content) {
-            onscreen_error!("Could not create text manifest: {e}");
+            omni_error!("Could not create text manifest: {e}");
         }
     }
 
@@ -146,7 +170,7 @@ default_language = "en"
         .join(paths::TEXT_LANGUAGE_FOLDER)
         .join(paths::DIALOGUE_FOLDER);
     if let Err(e) = fs::create_dir_all(&en_dialogue) {
-        onscreen_error!(
+        omni_error!(
             "Could not create {}/{}/{} folder: {e}",
             paths::TEXT_FOLDER,
             paths::TEXT_LANGUAGE_FOLDER,
@@ -158,7 +182,7 @@ default_language = "en"
         .join(paths::TEXT_LANGUAGE_FOLDER)
         .join(paths::UI_TEXT_FOLDER);
     if let Err(e) = fs::create_dir_all(&en_ui) {
-        onscreen_error!(
+        omni_error!(
             "Could not create {}/{}/{} folder: {e}",
             paths::TEXT_FOLDER,
             paths::TEXT_LANGUAGE_FOLDER,
@@ -173,7 +197,7 @@ Start = "Start"
 Settings = "Settings"
 "#;
         if let Err(e) = fs::write(&start_ui_path, content) {
-            onscreen_error!(
+            omni_error!(
                 "Could not create {}/{}/start.toml: {e}",
                 paths::TEXT_LANGUAGE_FOLDER,
                 paths::UI_TEXT_FOLDER
@@ -190,7 +214,7 @@ SFX = "SFX Volume"
 Back = "Back"
 "#;
         if let Err(e) = fs::write(&settings_ui_path, content) {
-            onscreen_error!(
+            omni_error!(
                 "Could not create {}/{}/settings.toml: {e}",
                 paths::TEXT_LANGUAGE_FOLDER,
                 paths::UI_TEXT_FOLDER
@@ -266,7 +290,7 @@ pub fn save_game(game: &Game) -> io::Result<()> {
     // Regenerate animations.lua with custom clips
     let custom_clips = collect_custom_clip_names(&game.ecs);
     if let Err(e) = write_animations_lua(&scripts_folder(), &custom_clips) {
-        onscreen_error!("Could not write animations.lua: {e}");
+        omni_error!("Could not write animations.lua: {e}");
     }
 
     let prefab_names = collect_prefab_names(&game.prefab_manager)?;
@@ -277,8 +301,33 @@ pub fn save_game(game: &Game) -> io::Result<()> {
     let sound_names = collect_sound_group_names(&game.ecs, &sound_library);
     write_sounds_lua(&scripts_folder(), &sound_names)?;
 
-    onscreen_info!("Game saved to: {}", file_path.display());
+    refresh_event_tags_lua(game)?;
+
+    omni_info!("Game saved to: {}", file_path.display());
     fs::write(file_path, ron_string)
+}
+
+/// Collects custom event tags used in the game.
+pub fn collect_custom_event_tags(game: &Game) -> Vec<String> {
+    let mut tags = std::collections::BTreeSet::new();
+
+    for world in game.worlds() {
+        for room in world.rooms() {
+            for tag in &room.tags {
+                if let EventTag::Custom(name) = tag {
+                    tags.insert(name.clone());
+                }
+            }
+        }
+    }
+
+    tags.into_iter().collect()
+}
+
+/// Regenerates the global `event_tags.lua` file from the live game state.
+pub fn refresh_event_tags_lua(game: &Game) -> io::Result<()> {
+    let custom_tags = collect_custom_event_tags(game);
+    write_event_tags_lua(&scripts_folder(), &custom_tags)
 }
 
 /// Collects all custom clip names from the ECS.
@@ -317,7 +366,7 @@ pub fn collect_prefab_names(prefab_manager: &PrefabManager) -> io::Result<Vec<St
 /// Load a `Game` from the folder that matches the supplied name.
 pub fn load_game_by_name(name: &str) -> io::Result<Game> {
     let path = resources_folder(name).join(paths::GAME_RON);
-    onscreen_debug!("Loading game from .ron: {}.", path.display());
+    omni_debug!("Loading game from .ron: {}.", path.display());
 
     // Try to read the file
     let ron_string = match fs::read_to_string(&path) {
@@ -348,18 +397,17 @@ pub fn load_game_by_name(name: &str) -> io::Result<Game> {
     Ok(game)
 }
 
+fn editor_metadata_path(game_name: &str, file_name: &str) -> PathBuf {
+    editor_metadata_folder(game_name).join(file_name)
+}
+
 /// Return the name of the most recently modified game folder.
 pub fn most_recent_game_name() -> Option<String> {
-    let root = absolute_save_root();
     let mut best: Option<(String, SystemTime)> = None;
 
-    for entry in fs::read_dir(root).ok()? {
-        let entry = entry.ok()?;
-        if !entry.path().is_dir() {
-            continue;
-        }
-        let name = entry.file_name().to_string_lossy().into_owned();
-        if let Ok(mod_time) = entry.metadata().ok()?.modified() {
+    for path in list_game_folders().ok()? {
+        let name = path.file_name()?.to_string_lossy().into_owned();
+        if let Ok(mod_time) = fs::metadata(&path).ok()?.modified() {
             match best {
                 None => best = Some((name, mod_time)),
                 Some((_, t)) if mod_time > t => best = Some((name, mod_time)),
@@ -367,31 +415,32 @@ pub fn most_recent_game_name() -> Option<String> {
             }
         }
     }
+
     best.map(|(name, _)| name)
 }
 
 /// Save the palette for the game.
 pub fn save_palette(palette: &TilePalette, game_name: &str) -> io::Result<()> {
-    let dir = game_folder(game_name);
+    let dir = editor_metadata_folder(game_name);
     fs::create_dir_all(&dir)?;
-    let path = dir.join("palette.ron");
+    let path = dir.join(TILE_PALETTE_RON);
     let ron = ron::ser::to_string(palette).map_err(Error::other)?;
     fs::write(path, ron)
 }
 
 /// Load the palette from the game folder.
 pub fn load_palette(game_name: &str) -> io::Result<TilePalette> {
-    let path = game_folder(game_name).join("palette.ron");
-    if !path.exists() {
-        return Ok(TilePalette::new());
+    let path = editor_metadata_path(game_name, TILE_PALETTE_RON);
+    match fs::read_to_string(path) {
+        Ok(ron) => ron::de::from_str(&ron).map_err(Error::other),
+        Err(error) if error.kind() == ErrorKind::NotFound => Ok(TilePalette::new()),
+        Err(error) => Err(error),
     }
-    let ron = fs::read_to_string(path)?;
-    ron::de::from_str(&ron).map_err(Error::other)
 }
 
 /// Saves the room prefab palette state for the game.
 pub fn save_prefab_palette_state(game_name: &str, state: &PrefabPaletteState) -> io::Result<()> {
-    let dir = game_folder(game_name);
+    let dir = editor_metadata_folder(game_name);
     fs::create_dir_all(&dir)?;
     let path = dir.join(PREFAB_PALETTE_RON);
     let ron =
@@ -401,7 +450,7 @@ pub fn save_prefab_palette_state(game_name: &str, state: &PrefabPaletteState) ->
 
 /// Loads the room prefab palette state for the game.
 pub fn load_prefab_palette_state(game_name: &str) -> io::Result<PrefabPaletteState> {
-    let path = game_folder(game_name).join(PREFAB_PALETTE_RON);
+    let path = editor_metadata_path(game_name, PREFAB_PALETTE_RON);
 
     match fs::read_to_string(&path) {
         Ok(ron) => ron::from_str(&ron).map_err(|error| {
@@ -494,13 +543,21 @@ pub fn write_to_app_dir(filename: &str, embedded: &[u8]) -> io::Result<PathBuf> 
     #[cfg(target_os = "macos")]
     {
         // Set executable permissions
-        onscreen_debug!("Writing binary permissions.");
+        omni_debug!("Writing binary permissions.");
         let mut permissions = fs::metadata(&path)?.permissions();
         permissions.set_mode(0o755);
         fs::set_permissions(&path, permissions)?;
     }
 
     Ok(path)
+}
+
+fn is_game_folder(path: &Path) -> bool {
+    path.is_dir()
+        && path
+            .join(paths::RESOURCES_FOLDER)
+            .join(paths::GAME_RON)
+            .exists()
 }
 
 /// Find all game folders in `games/`.
@@ -515,7 +572,7 @@ pub fn list_game_folders() -> io::Result<Vec<PathBuf>> {
     for entry in fs::read_dir(root)? {
         let entry = entry?;
         let path = entry.path();
-        if path.is_dir() && path.join(paths::GAME_RON).exists() {
+        if is_game_folder(&path) {
             folders.push(path);
         }
     }
@@ -544,12 +601,10 @@ pub fn most_recent_game_folder() -> Option<PathBuf> {
 
 /// Returns a Vec of all game names in the absolute save root.
 pub fn list_game_names() -> Vec<String> {
-    std::fs::read_dir(absolute_save_root())
+    list_game_folders()
         .into_iter()
         .flatten()
-        .filter_map(|e| e.ok())
-        .filter(|e| e.path().is_dir())
-        .filter_map(|e| e.file_name().into_string().ok())
+        .filter_map(|path| path.file_name().and_then(|name| name.to_str()).map(str::to_string))
         .collect()
 }
 
@@ -565,7 +620,8 @@ pub fn save_menu(template: &MenuTemplate) -> io::Result<()> {
 
     let ron = ron::ser::to_string_pretty(template, pretty).map_err(Error::other)?;
 
-    fs::write(path, ron)
+    fs::write(path, ron)?;
+    write_menus_lua_from_dir(&scripts_folder(), &dir)
 }
 
 /// Loads all menu templates from disk.
@@ -591,9 +647,10 @@ pub fn load_menus() -> Vec<MenuTemplate> {
 
 /// Deletes a menu template from disk.
 pub fn delete_menu(id: &str) -> io::Result<()> {
-    let path = menus_folder().join(format!("{}.ron", id));
+    let dir = menus_folder();
+    let path = dir.join(format!("{}.ron", id));
     if path.exists() {
         fs::remove_file(path)?;
     }
-    Ok(())
+    write_menus_lua_from_dir(&scripts_folder(), &dir)
 }

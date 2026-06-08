@@ -1,8 +1,8 @@
-// editor/src/menu_editor/menu_properties_panel/nav_helpers.rs
 use super::{common_properties::row_visible, FIELD_HEIGHT, LABEL_WIDTH, ROW_HEIGHT};
 use crate::menu::{MenuEditor, NavWidgetIds};
 use bishop::prelude::*;
-use engine_core::prelude::*;
+use engine_core::menu::{LayoutGroupElement, MenuElement, MenuElementKind, NavDirection, Navigable};
+use engine_core::ui::*;
 
 pub struct NavMeta<T> {
     pub(crate) label: &'static str,

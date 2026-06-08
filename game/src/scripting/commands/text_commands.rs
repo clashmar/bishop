@@ -1,7 +1,6 @@
-// game/src/scripting/commands/text_commands.rs
 use crate::engine::Engine;
 use crate::scripting::commands::lua_command::LuaCommand;
-use engine_core::prelude::*;
+use engine_core::ecs::*;
 
 /// Command to show a speech bubble on an entity.
 pub struct ShowSpeechCmd {

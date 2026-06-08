@@ -1,4 +1,3 @@
-// editor/src/controls/editor_command_manager.rs
 use crate::app::EditorMode;
 use crate::editor_global::with_editor;
 use std::fmt::Debug;
@@ -123,7 +122,7 @@ mod tests {
     use crate::app::Editor;
     use crate::editor_global::{reset_services, set_editor};
     use crate::prefab::prefab_editor::{PrefabEditor, PrefabRoomSyncState, StagedPrefabState};
-    use engine_core::prelude::*;
+    use engine_core::ecs::*;
     use std::cell::RefCell;
     use std::rc::Rc;
 

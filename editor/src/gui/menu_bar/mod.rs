@@ -1,12 +1,11 @@
-// editor/src/gui/menu_bar.rs
 use crate::app::EditorMode;
 use crate::gui::gui_constants::*;
-use crate::gui::menu_widgets::menu_dropdown;
-pub(crate) use crate::gui::menu_widgets::{menu_button, menu_button_text_position};
-use crate::gui::panel_text_color;
+use crate::gui::widgets::menu_widgets::menu_dropdown;
+pub(crate) use crate::gui::widgets::menu_widgets::{menu_button, menu_button_text_position};
 use crate::prefab::BLANK_PREFAB_ID;
 use bishop::prelude::*;
-use engine_core::prelude::*;
+use engine_core::controls::{Controls};
+use engine_core::ui::*;
 use engine_core::theme::with_theme;
 use std::fmt;
 use strum_macros::EnumIter;
@@ -19,12 +18,12 @@ pub struct MenuBar {
     view_id: WidgetId,
     options_id: WidgetId,
     editors_id: WidgetId,
-    title_id: WidgetId,
     pub pending: Option<EditorAction>,
 }
 
 #[derive(EnumIter, Clone, Copy, PartialEq, Eq, Debug)]
 pub enum EditorAction {
+    NavigateBack,
     // Game actions
     Rename, // Rename Game/World/Room
     // File actions
@@ -38,6 +37,7 @@ pub enum EditorAction {
     Undo,
     Redo,
     // View actions
+    ViewInspectorPanel,
     ViewHierarchyPanel,
     ViewConsolePanel,
     ViewDiagnosticsPanel,
@@ -65,6 +65,7 @@ impl EditorAction {
             EditorAction::Redo => "Redo".to_string(),
             EditorAction::ChangeSaveRoot => "Change Save Root".to_string(),
             EditorAction::ViewHierarchyPanel => "Hierarchy".to_string(),
+            EditorAction::ViewInspectorPanel => "Inspector".to_string(),
             EditorAction::ViewConsolePanel => "Console".to_string(),
             EditorAction::ViewDiagnosticsPanel => "Diagnostics".to_string(),
             EditorAction::ViewPrefabBrowserPanel => "Prefab Browser".to_string(),
@@ -89,6 +90,7 @@ impl EditorAction {
                 EditorAction::SaveAs => Some("⇧ ^ S"),
                 EditorAction::Undo => Some("^ Z"),
                 EditorAction::Redo => Some("⇧ ^ Z"),
+                EditorAction::ViewInspectorPanel => Some("^ I"),
                 EditorAction::ViewHierarchyPanel => Some("H"),
                 EditorAction::ViewConsolePanel => Some("C"),
                 EditorAction::ViewDiagnosticsPanel => Some("F3"),
@@ -107,6 +109,7 @@ impl EditorAction {
                 EditorAction::SaveAs => Some("⇧ ^ S"),
                 EditorAction::Undo => Some("^ Z"),
                 EditorAction::Redo => Some("⇧ ^ Z"),
+                EditorAction::ViewInspectorPanel => Some("⌘ I"),
                 EditorAction::ViewHierarchyPanel => Some("H"),
                 EditorAction::ViewConsolePanel => Some("C"),
                 EditorAction::ViewDiagnosticsPanel => Some("F3"),
@@ -126,11 +129,9 @@ impl EditorAction {
 
     pub(crate) fn is_available_in(self, editor_mode: EditorMode) -> bool {
         match self {
+            EditorAction::NavigateBack => back_action_for_mode(editor_mode).is_some(),
             EditorAction::Rename => {
-                matches!(
-                    editor_mode,
-                    EditorMode::Game | EditorMode::World(_) | EditorMode::Room(_)
-                ) || matches!(editor_mode, EditorMode::Prefab(prefab_id) if prefab_id != BLANK_PREFAB_ID)
+                matches!(editor_mode, EditorMode::Prefab(prefab_id) if prefab_id != BLANK_PREFAB_ID)
             }
             EditorAction::NewGame
             | EditorAction::Open
@@ -144,6 +145,15 @@ impl EditorAction {
             | EditorAction::EditorSettings => true,
             EditorAction::Save => !matches!(editor_mode, EditorMode::Prefab(BLANK_PREFAB_ID)),
             EditorAction::SaveAs => !matches!(editor_mode, EditorMode::Prefab(BLANK_PREFAB_ID)),
+            EditorAction::ViewInspectorPanel => {
+                matches!(
+                    editor_mode,
+                    EditorMode::Game
+                        | EditorMode::World(_)
+                        | EditorMode::Room(_)
+                        | EditorMode::Prefab(_)
+                )
+            }
             EditorAction::ViewHierarchyPanel => {
                 matches!(editor_mode, EditorMode::Room(_) | EditorMode::Prefab(_))
             }
@@ -167,6 +177,7 @@ impl EditorAction {
             EditorAction::SaveAs => Controls::save_as(ctx),
             EditorAction::Undo => Controls::undo(ctx),
             EditorAction::Redo => Controls::redo(ctx),
+            EditorAction::ViewInspectorPanel => Controls::cmd_i(ctx),
             EditorAction::ViewHierarchyPanel => Controls::h(ctx),
             EditorAction::ViewConsolePanel => Controls::c(ctx),
             EditorAction::ViewDiagnosticsPanel => Controls::f3(ctx),
@@ -180,7 +191,8 @@ impl EditorAction {
     pub(crate) fn blocked_by_focused_input(self) -> bool {
         matches!(
             self,
-            EditorAction::ViewHierarchyPanel
+            EditorAction::ViewInspectorPanel
+                | EditorAction::ViewHierarchyPanel
                 | EditorAction::ViewConsolePanel
                 | EditorAction::ViewDiagnosticsPanel
                 | EditorAction::ViewResourcesPanel
@@ -203,7 +215,6 @@ impl fmt::Display for EditorAction {
 impl MenuBar {
     pub fn new() -> Self {
         Self {
-            title_id: WidgetId::default(),
             file_id: WidgetId::default(),
             edit_id: WidgetId::default(),
             view_id: WidgetId::default(),
@@ -217,7 +228,7 @@ impl MenuBar {
     pub fn draw(
         &mut self,
         ctx: &mut WgpuContext,
-        title: &str,
+        _title: &str,
         editor_mode: EditorMode,
     ) -> Option<EditorAction> {
         // Height of each dropdown item
@@ -229,60 +240,19 @@ impl MenuBar {
         let mut x = panel_rect.x + PADDING;
         let y = panel_rect.y + PADDING / 2.0;
 
-        let title_rect = Rect::new(
-            x,
-            y,
-            rect_width_for_text(ctx, title, layout::HEADER_FONT_SIZE_20),
-            HEIGHT,
-        );
-
-        match editor_mode {
-            EditorMode::Game
-            | EditorMode::World(_)
-            | EditorMode::Room(_)
-            | EditorMode::Prefab(_) => {
-                if let Some(title_actions) = title_actions_for_mode(editor_mode) {
-                    if let Some(selected) = menu_dropdown(
-                        ctx,
-                        self.title_id,
-                        title_rect,
-                        title,
-                        &title_actions,
-                        |a| a.ui_label(),
-                        |a| a.shortcut(),
-                    ) {
-                        self.pending = Some(selected);
-                    }
-                } else {
-                    let txt_dims = ctx.measure_text(title, layout::HEADER_FONT_SIZE_20);
-                    let txt_x = title_rect.x + PADDING / 2.0;
-                    let txt_y =
-                        title_rect.y + (title_rect.h - txt_dims.height) / 2.0 + txt_dims.offset_y;
-                    ctx.draw_text(
-                        title,
-                        txt_x,
-                        txt_y,
-                        layout::HEADER_FONT_SIZE_20,
-                        panel_text_color(),
-                    );
-                }
+        if let Some(back_action) = back_action_for_mode(editor_mode) {
+            let back_label = "←";
+            let back_rect = Rect::new(
+                x,
+                y,
+                rect_width_for_text(ctx, back_label, layout::HEADER_FONT_SIZE_20) + PADDING,
+                HEIGHT,
+            );
+            if menu_button(ctx, back_rect, back_label, false) {
+                self.pending = Some(back_action);
             }
-            _ => {
-                let txt_dims = ctx.measure_text(title, layout::HEADER_FONT_SIZE_20);
-                let txt_x = title_rect.x + PADDING / 2.0;
-                let txt_y =
-                    title_rect.y + (title_rect.h - txt_dims.height) / 2.0 + txt_dims.offset_y;
-                ctx.draw_text(
-                    title,
-                    txt_x,
-                    txt_y,
-                    layout::HEADER_FONT_SIZE_20,
-                    panel_text_color(),
-                );
-            }
+            x += back_rect.w + SPACING;
         }
-
-        x += title_rect.w + SPACING;
 
         // File dropdown
         let file_label = "File";
@@ -419,11 +389,12 @@ impl MenuBar {
     }
 }
 
-fn title_actions_for_mode(editor_mode: EditorMode) -> Option<Vec<EditorAction>> {
-    if matches!(editor_mode, EditorMode::Prefab(BLANK_PREFAB_ID)) {
-        None
-    } else {
-        Some(vec![EditorAction::Rename])
+fn back_action_for_mode(editor_mode: EditorMode) -> Option<EditorAction> {
+    match editor_mode {
+        EditorMode::Room(_) | EditorMode::World(_) | EditorMode::Menu | EditorMode::Prefab(_) => {
+            Some(EditorAction::NavigateBack)
+        }
+        EditorMode::Game => None,
     }
 }
 
@@ -448,6 +419,7 @@ fn file_actions_for_mode(editor_mode: EditorMode) -> Vec<EditorAction> {
 
 fn view_actions_for_mode(editor_mode: EditorMode) -> Vec<EditorAction> {
     [
+        EditorAction::ViewInspectorPanel,
         EditorAction::ViewConsolePanel,
         EditorAction::ViewDiagnosticsPanel,
         EditorAction::ViewHierarchyPanel,

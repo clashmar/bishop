@@ -1,4 +1,3 @@
-// editor/src/commands/game/create_world_cmd.rs
 use crate::app::EditorMode;
 use crate::commands::editor_command_manager::EditorCommand;
 use crate::storage::editor_storage::create_new_world;

@@ -1,10 +1,9 @@
-// game/src/scripting/modules/input_module.rs
 use crate::game_global::*;
 use crate::input::input_snapshot::InputSnapshot;
 use crate::scripting::lua_ctx::LuaBishopCtx;
+use engine_core::{register_lua_api, register_lua_module};
 use engine_core::scripting::lua_constants::{lua_engine, lua_files};
-use engine_core::scripting::modules::lua_module::*;
-use engine_core::*;
+use engine_core::scripting::modules::lua_module::{LuaApi, LuaModule, LuaApiWriter};
 use mlua::prelude::LuaResult;
 use mlua::Function;
 use mlua::Lua;
@@ -83,6 +82,7 @@ impl LuaApi for InputModule {
     fn emit_api(&self, out: &mut LuaApiWriter) {
         // input.is_down()
         out.line("---@param input string");
+        out.line("---@return boolean");
         out.line(&format!(
             "function {}.{}.{}(input) end",
             lua_engine::ENGINE,
@@ -93,6 +93,7 @@ impl LuaApi for InputModule {
 
         // input.is_pressed()
         out.line("---@param input string");
+        out.line("---@return boolean");
         out.line(&format!(
             "function {}.{}.{}(input) end",
             lua_engine::ENGINE,
@@ -103,6 +104,7 @@ impl LuaApi for InputModule {
 
         // input.is_released()
         out.line("---@param input string");
+        out.line("---@return boolean");
         out.line(&format!(
             "function {}.{}.{}(input) end",
             lua_engine::ENGINE,
@@ -114,6 +116,7 @@ impl LuaApi for InputModule {
         // input.take_control()
         out.line("---@param name string");
         out.line("---@param priority number");
+        out.line("---@return nil");
         out.line(&format!(
             "function {}.{}.{}(name, priority) end",
             lua_engine::ENGINE,
@@ -124,6 +127,7 @@ impl LuaApi for InputModule {
 
         // input.release_control()
         out.line("---@param name string");
+        out.line("---@return nil");
         out.line(&format!(
             "function {}.{}.{}(name) end",
             lua_engine::ENGINE,

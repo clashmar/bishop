@@ -1,8 +1,10 @@
-// editor/src/menu_editor/menu_properties_panel/common_properties.rs
 use super::{FIELD_HEIGHT, LABEL_WIDTH, ROW_HEIGHT};
 use crate::menu::MenuEditor;
 use bishop::prelude::*;
-use engine_core::prelude::*;
+use engine_core::constants::{ui};
+use engine_core::menu::MenuElement;
+use engine_core::ui::*;
+use engine_core::menu::elements::element_kind::ElementKind;
 
 struct CommonState {
     name: String,

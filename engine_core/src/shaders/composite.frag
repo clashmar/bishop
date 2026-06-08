@@ -1,4 +1,3 @@
-// engine_core/src/shaders/composite.frag
 #version 100
 precision mediump float;
 

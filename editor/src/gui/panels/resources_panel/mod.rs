@@ -21,7 +21,9 @@ use context_menu::{
     ResourceMenuAction, ResourceOpenResult,
 };
 use engine_core::constants::world;
-use engine_core::prelude::*;
+use engine_core::assets::*;
+use engine_core::storage::*;
+use engine_core::ui::*;
 use icon_mapper::{IconMapper, IconType};
 use navigation::Navigation;
 use path_filter::PathFilter;

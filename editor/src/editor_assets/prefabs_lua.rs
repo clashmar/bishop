@@ -1,3 +1,4 @@
+use engine_core::scripting::helpers::sanitize_lua_identifier;
 use engine_core::scripting::lua_constants::lua_ownership;
 use std::collections::HashSet;
 
@@ -26,36 +27,8 @@ pub fn generate_prefabs_lua(prefab_names: &[String]) -> String {
     lua
 }
 
-fn sanitize_lua_identifier_with_prefix(s: &str, prefix: &str) -> String {
-    let mut out = String::new();
-    let mut capitalize = true;
-
-    for ch in s.chars() {
-        if ch.is_ascii_alphanumeric() {
-            if capitalize {
-                out.push(ch.to_ascii_uppercase());
-                capitalize = false;
-            } else {
-                out.push(ch);
-            }
-        } else {
-            capitalize = true;
-        }
-    }
-
-    if out.is_empty() || out.chars().next().is_some_and(|c| c.is_ascii_digit()) {
-        format!(
-            "{}_{}",
-            prefix,
-            s.replace(|c: char| !c.is_ascii_alphanumeric(), "_")
-        )
-    } else {
-        out
-    }
-}
-
 fn unique_lua_identifier(s: &str, prefix: &str, used_keys: &mut HashSet<String>) -> String {
-    let base = sanitize_lua_identifier_with_prefix(s, prefix);
+    let base = sanitize_lua_identifier(s, prefix);
     if used_keys.insert(base.clone()) {
         return base;
     }

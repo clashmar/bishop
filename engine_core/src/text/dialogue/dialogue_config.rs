@@ -1,4 +1,3 @@
-// engine_core/src/text/dialogue/dialogue_config.rs
 use serde::{Deserialize, Serialize};
 
 /// Global configuration for the dialogue system.

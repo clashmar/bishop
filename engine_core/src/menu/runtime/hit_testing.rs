@@ -173,6 +173,7 @@ mod tests {
             background: MenuBackground::None,
             elements: vec![back, front],
             mode: MenuMode::Paused,
+            on_open: String::new(),
         };
 
         let focus = focus_target_at(

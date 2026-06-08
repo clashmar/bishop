@@ -1,4 +1,3 @@
-// editor/src/canvas/grid_shader.rs
 use bishop::prelude::*;
 use bishop::wgpu::{FullscreenQuadRenderer, GridMaterial, GridUniforms, ModelUniforms};
 

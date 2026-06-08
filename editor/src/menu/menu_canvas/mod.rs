@@ -1,4 +1,3 @@
-// editor/src/menu/menu_canvas/mod.rs
 pub(crate) mod drawing;
 mod selection;
 
@@ -9,8 +8,10 @@ use crate::menu::resize_handle::*;
 use crate::menu::MenuEditor;
 use crate::shared::selection::*;
 use bishop::prelude::*;
+use engine_core::controls::{get_omni_input_pressed};
+use engine_core::menu::*;
 use engine_core::menu::elements::layout_group::is_background_panel;
-use engine_core::prelude::*;
+use engine_core::ui::*;
 
 const SNAP_FRACTIONS: [f32; 7] = [0.0, 0.25, 1.0 / 3.0, 0.5, 2.0 / 3.0, 0.75, 1.0];
 const SNAP_THRESHOLD: f32 = 0.02;

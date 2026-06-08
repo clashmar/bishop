@@ -1,7 +1,7 @@
 use super::*;
 use crate::commands::editor_command_manager::EditorCommand;
 use crate::editor_assets::generate_prefabs_lua;
-use engine_core::scripting::lua_constants::{lua_dirs, lua_files};
+use engine_core::{constants::paths, scripting::lua_constants::{lua_dirs, lua_files}};
 
 #[test]
 fn delete_prefab_command_removes_prefab_record_from_asset_registry() {
@@ -181,9 +181,9 @@ fn delete_prefab_command_restores_asset_instances_palette_and_session_on_undo_re
         );
         assert!(editor.game.prefab_manager.prefabs.contains_key(&prefab_id));
         let prefabs_lua = std::fs::read_to_string(
-            scripts_folder()
-                .join(lua_dirs::ENGINE)
-                .join(lua_files::PREFABS),
+            scripts_folder().join(lua_dirs::ENGINE).join(
+                engine_core::scripting::lua_project::engine_relative_path(lua_files::PREFABS),
+            ),
         )
         .unwrap();
         let prefab_names = editor
@@ -211,9 +211,9 @@ fn delete_prefab_command_restores_asset_instances_palette_and_session_on_undo_re
         assert!(editor.prefab_state.require_picker());
         assert!(!editor.game.prefab_manager.prefabs.contains_key(&prefab_id));
         let prefabs_lua = std::fs::read_to_string(
-            scripts_folder()
-                .join(lua_dirs::ENGINE)
-                .join(lua_files::PREFABS),
+            scripts_folder().join(lua_dirs::ENGINE).join(
+                engine_core::scripting::lua_project::engine_relative_path(lua_files::PREFABS),
+            ),
         )
         .unwrap();
         let prefab_names = editor

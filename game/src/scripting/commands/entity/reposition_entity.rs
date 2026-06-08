@@ -43,7 +43,8 @@ fn collect_subtree_entities(ecs: &Ecs, entity: Entity) -> Vec<Entity> {
 mod tests {
     use super::*;
     use bishop::prelude::Vec2;
-    use engine_core::prelude::*;
+    use engine_core::ecs::*;
+    use engine_core::game::{Game};
 
     #[test]
     fn reposition_entity_moves_entity_clears_subpixel_and_preserves_velocity() {

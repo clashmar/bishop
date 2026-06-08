@@ -1,5 +1,3 @@
-// engine_core/src/shaders/mod.rs
-
 pub const VERTEX_SHADER: &str = include_str!("vertex.vert");
 pub const GLOW_FRAGMENT_SHADER: &str = include_str!("glow.frag");
 pub const AMB_FRAGMENT_SHADER: &str = include_str!("amb.frag");

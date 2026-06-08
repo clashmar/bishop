@@ -2,7 +2,7 @@ use crate::app::EditorMode;
 use crate::commands::editor_command_manager::EditorCommand;
 use crate::commands::scene::context::{uses_prefab_context, with_scene_ctx};
 use crate::with_editor;
-use engine_core::prelude::*;
+use engine_core::ecs::*;
 /// Undo-able command for deleting an entity and its children.
 #[derive(Debug)]
 pub struct DeleteEntityCmd {

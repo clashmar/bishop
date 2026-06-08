@@ -1,5 +1,5 @@
 use bishop::prelude::*;
-use engine_core::prelude::*;
+use engine_core::ui::*;
 use engine_core::theme::with_theme;
 use engine_core::ui::text::measure_text;
 use widgets::constants::layout;
