@@ -1,6 +1,6 @@
 use bishop::prelude::*;
 use engine_core::rendering::{outline_thickness};
-use engine_core::ui::*;
+use widgets::*;
 
 /// Creates a Rect from two corner points, handling any orientation.
 pub fn rect_from_two_points(a: Vec2, b: Vec2) -> Rect {

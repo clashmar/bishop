@@ -1,9 +1,9 @@
 use crate::app::Editor;
 use crate::gui::modals::{open_modal_with_prompt, Modal, ModalHandler, ModalResult};
 use crate::gui::prompts::*;
-use crate::storage::editor_storage::*;
+use crate::storage::game_io::create_new_game;
 use bishop::prelude::*;
-use engine_core::ui::*;
+use engine_core::ui::{Toast};
 use std::cell::RefCell;
 use std::thread::LocalKey;
 

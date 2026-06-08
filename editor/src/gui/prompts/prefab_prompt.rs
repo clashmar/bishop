@@ -1,10 +1,11 @@
-use crate::app::escape::modal_escape_requested;
+use crate::app::control::escape::modal_escape_requested;
 use crate::gui::prompts::constants::*;
 use crate::gui::prompts::helpers::{draw_prompt_label, prompt_content_rect};
 use bishop::prelude::*;
 use engine_core::controls::{Controls};
-use engine_core::ui::*;
-use widgets::constants::layout;
+use engine_core::ui::{measure_text};
+use ::widgets::*;
+use ::widgets::constants::layout;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum EmptyPrefabSaveConfirmResult {

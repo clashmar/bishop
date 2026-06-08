@@ -4,9 +4,10 @@ use bishop::prelude::*;
 use engine_core::ecs::*;
 use engine_core::game::{GameCtxMut};
 use engine_core::logging::{omni_error};
-use engine_core::ui::*;
+use engine_core::ui::{measure_text, gui_script_picker, gui_toml_picker};
+use ::widgets::*;
 use std::collections::HashMap;
-use widgets::constants::{colors, layout};
+use ::widgets::constants::{colors, layout};
 
 #[derive(Default)]
 pub struct ScriptModule {

@@ -5,11 +5,11 @@ pub(crate) use crate::gui::widgets::menu_widgets::{menu_button, menu_button_text
 use crate::prefab::BLANK_PREFAB_ID;
 use bishop::prelude::*;
 use engine_core::controls::{Controls};
-use engine_core::ui::*;
+use widgets::*;
 use engine_core::theme::with_theme;
 use std::fmt;
 use strum_macros::EnumIter;
-use widgets::constants::layout;
+use ::widgets::constants::layout;
 
 /// Holds the state of the top-level menu bar.
 pub struct MenuBar {
@@ -24,8 +24,8 @@ pub struct MenuBar {
 #[derive(EnumIter, Clone, Copy, PartialEq, Eq, Debug)]
 pub enum EditorAction {
     NavigateBack,
-    // Game actions
-    Rename, // Rename Game/World/Room
+    // Options
+    Rename,
     // File actions
     NewGame,
     Open,
@@ -71,6 +71,7 @@ impl EditorAction {
             EditorAction::ViewPrefabBrowserPanel => "Prefab Browser".to_string(),
             EditorAction::ViewPrefabPalettePanel => "Prefab Palette".to_string(),
             EditorAction::ViewResourcesPanel => "Resources".to_string(),
+            EditorAction::Rename => "Rename Prefab".to_string(),
             EditorAction::WorldSettings => "World Settings".to_string(),
             EditorAction::EditorSettings => "Editor Settings".to_string(),
             EditorAction::OpenMenuEditor => "Menu Editor".to_string(),
@@ -433,7 +434,7 @@ fn view_actions_for_mode(editor_mode: EditorMode) -> Vec<EditorAction> {
 }
 
 fn options_actions_for_mode(editor_mode: EditorMode) -> Vec<EditorAction> {
-    [EditorAction::EditorSettings, EditorAction::WorldSettings]
+    [EditorAction::EditorSettings, EditorAction::WorldSettings, EditorAction::Rename]
         .into_iter()
         .filter(|action| action.is_available_in(editor_mode))
         .collect()

@@ -2,7 +2,7 @@ use super::{common_properties::row_visible, FIELD_HEIGHT, LABEL_WIDTH, ROW_HEIGH
 use crate::menu::{MenuEditor, NavWidgetIds};
 use bishop::prelude::*;
 use engine_core::menu::{LayoutGroupElement, MenuElement, MenuElementKind, NavDirection, Navigable};
-use engine_core::ui::*;
+use widgets::*;
 
 pub struct NavMeta<T> {
     pub(crate) label: &'static str,

@@ -84,7 +84,7 @@ mod tests {
     use super::*;
     use crate::app::Editor;
     use crate::editor_global::{reset_services, set_editor};
-    use crate::storage::editor_storage::create_new_game;
+    use crate::storage::game_io::create_new_game;
     use engine_core::storage::test_utils::{game_fs_test_lock, TestGameFolder};
 
     fn test_prefab(prefab_id: PrefabId) -> PrefabAsset {

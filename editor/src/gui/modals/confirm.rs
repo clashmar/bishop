@@ -2,9 +2,9 @@ use crate::gui::modals::{BoxedWidget, Modal};
 use crate::gui::prompts::confirm_prompt::*;
 use crate::gui::prompts::constants::*;
 use bishop::prelude::*;
-use engine_core::ui::*;
+use engine_core::ui::{measure_text};
 use std::{cell::RefCell, thread::LocalKey};
-use widgets::constants::layout;
+use ::widgets::constants::layout;
 
 pub fn open_confirm_modal(
     ctx: &WgpuContext,

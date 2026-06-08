@@ -11,18 +11,19 @@ use crate::gui::modals::{
 };
 use crate::gui::panels::*;
 use crate::prefab::{PendingPrefabTransition, PrefabTransitionPrompt};
-use crate::storage::editor_storage::*;
+use crate::storage::game_io::{load_game_by_name};
 use bishop::prelude::*;
 use engine_core::engine_global::{set_game_name};
 use engine_core::game::{Game};
 use engine_core::logging::{omni_error};
 use engine_core::scripting::{register_runtime_modules};
 use engine_core::storage::*;
-use engine_core::ui::*;
+use engine_core::ui::{Toast};
+use ::widgets::*;
 
 impl Editor {
     pub fn draw_menu_bar(&mut self, ctx: &mut WgpuContext) {
-        let menu_title = self.active_entity_name();
+        let menu_title = self.active_editor_entity_name();
 
         if let Some(action) = self.menu_bar.draw(ctx, &menu_title, self.mode) {
             self.run_action(ctx, action);

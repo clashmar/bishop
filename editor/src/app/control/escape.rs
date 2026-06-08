@@ -1,7 +1,7 @@
 use crate::gui::modals::is_modal_open;
-use engine_core::ui::*;
+use widgets::*;
 use std::cell::RefCell;
-use widgets::{close_open_context_menus, is_context_menu_open};
+use ::widgets::{close_open_context_menus, is_context_menu_open};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum EscapeOwner {

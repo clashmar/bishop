@@ -3,7 +3,7 @@ use crate::menu::MenuEditor;
 use bishop::prelude::*;
 use engine_core::constants::{ui};
 use engine_core::menu::MenuElement;
-use engine_core::ui::*;
+use widgets::*;
 use engine_core::menu::elements::element_kind::ElementKind;
 
 struct CommonState {

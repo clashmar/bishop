@@ -23,13 +23,13 @@ use context_menu::{
 use engine_core::constants::world;
 use engine_core::assets::*;
 use engine_core::storage::*;
-use engine_core::ui::*;
+use engine_core::ui::{measure_text};
+use ::widgets::*;
 use icon_mapper::{IconMapper, IconType};
 use navigation::Navigation;
 use path_filter::PathFilter;
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
-use widgets::WidgetId;
 
 pub const RESOURCES_PANEL: &str = "Resources";
 

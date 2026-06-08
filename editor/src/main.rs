@@ -9,7 +9,7 @@ use bishop::BishopApp;
 use engine_core::constants::window;
 use engine_core::logging::{init_file_logger, omni_info, omni_warn};
 use engine_core::storage::*;
-use engine_core::ui::*;
+use widgets::*;
 
 mod app;
 mod canvas;
@@ -68,7 +68,7 @@ impl BishopApp for EditorApp {
                 set_editor(editor);
 
                 #[cfg(target_os = "macos")]
-                crate::app::macos_quit::install(&ctx);
+                crate::app::control::macos_quit::install(&ctx);
             }
             Err(e) => {
                 omni_warn!("Failed to initialize editor: {}", e);
@@ -79,7 +79,7 @@ impl BishopApp for EditorApp {
 
     fn on_exit(&mut self) {
         #[cfg(target_os = "macos")]
-        crate::app::macos_quit::uninstall();
+        crate::app::control::macos_quit::uninstall();
     }
 
     async fn frame(&mut self, ctx: PlatformContext) {

@@ -1,6 +1,6 @@
 use crate::app::EditorMode;
 use crate::commands::editor_command_manager::EditorCommand;
-use crate::storage::editor_storage::create_new_world;
+use crate::world::world_creation::create_new_world;
 use crate::with_editor;
 use engine_core::worlds::world::WorldId;
 

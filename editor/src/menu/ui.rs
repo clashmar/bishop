@@ -3,10 +3,10 @@ use crate::gui::menu_bar::{draw_top_panel_full, menu_panel_rect};
 use crate::menu::game_theme::{discover_themes, load_theme};
 use crate::menu::MenuEditor;
 use bishop::prelude::*;
-use engine_core::ui::constants::layout;
-use engine_core::ui::truncate_to_width;
-use engine_core::ui::with_theme;
-use engine_core::ui::Button;
+use ::widgets::constants::layout;
+use ::widgets::truncate_to_width;
+use ::widgets::with_theme;
+use ::widgets::Button;
 
 impl MenuEditor {
     /// Draws the menu editor ui.

@@ -55,7 +55,7 @@ fn loading_palette_state_restores_active_prefab_without_restoring_stamp_mode() {
 
     editor.load_prefab_palette_state(
         &prefab_manager(&[2, 4, 6, 8, 10, 12]),
-        crate::storage::editor_storage::PrefabPaletteState {
+        crate::prefab::palette::PrefabPaletteState {
             active_prefab_id: Some(PrefabId(4)),
             recent_prefab_ids: vec![
                 PrefabId(12),
@@ -89,7 +89,7 @@ fn loading_palette_state_filters_missing_prefabs_and_caps_recent_entries() {
 
     editor.load_prefab_palette_state(
         &prefab_manager(&[1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23]),
-        crate::storage::editor_storage::PrefabPaletteState {
+        crate::prefab::palette::PrefabPaletteState {
             active_prefab_id: Some(PrefabId(999)),
             recent_prefab_ids: vec![
                 PrefabId(999),

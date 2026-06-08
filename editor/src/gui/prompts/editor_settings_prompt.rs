@@ -1,12 +1,12 @@
-use crate::app::escape::modal_escape_requested;
+use crate::app::control::escape::modal_escape_requested;
 use crate::gui::prompts::constants::*;
 use crate::gui::prompts::helpers::*;
 use bishop::prelude::*;
 use engine_core::controls::{Controls};
-use engine_core::ui::*;
+use widgets::*;
 use engine_core::theme::preset::all_presets;
 use engine_core::theme::{set_theme, with_theme, Theme};
-use widgets::constants::layout;
+use ::widgets::constants::layout;
 
 pub struct EditorSettingsResult {
     pub preset_name: Option<String>,

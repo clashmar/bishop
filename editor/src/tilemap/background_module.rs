@@ -1,7 +1,8 @@
 use bishop::prelude::*;
 use engine_core::tiles::{TileMap};
-use engine_core::ui::*;
-use widgets::constants::layout;
+use engine_core::ui::{measure_text};
+use ::widgets::*;
+use ::widgets::constants::layout;
 
 // TODO: Add more complex backgrounds
 /// Responsible for editing the background of a tilemap.

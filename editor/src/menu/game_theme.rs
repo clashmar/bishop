@@ -2,8 +2,7 @@ use crate::with_lua;
 use engine_core::constants::extensions;
 use engine_core::scripting::lua_table_to_theme;
 use engine_core::storage::*;
-use engine_core::ui::*;
-use widgets::theme::Theme;
+use ::widgets::theme::Theme;
 
 /// Returns a list of theme names discovered in `Resources/themes/`.
 pub fn discover_themes() -> Vec<String> {

@@ -1,20 +1,16 @@
 mod actions;
 mod audio;
-pub mod camera_controller;
-pub(crate) mod escape;
-#[cfg(target_os = "macos")]
-pub(crate) mod macos_quit;
+pub(crate) mod control;
 mod modals;
-mod navigation;
 mod persistence;
 mod queries;
 pub mod sub_editor;
-mod validation;
 
-pub use camera_controller::EditorCameraController;
+pub use control::camera_controller::EditorCameraController;
 pub use sub_editor::SubEditor;
 
 use crate::app::audio::default_audio_manager;
+use crate::app::control::escape;
 use crate::canvas::grid_shader::GridRenderer;
 use crate::editor_global::{push_throbbing_toast, push_toast};
 use crate::game::game_editor::GameEditor;
@@ -30,8 +26,9 @@ use crate::playtest::room_playtest::*;
 use crate::prefab::prefab_editor::{PrefabEditor, PrefabStage};
 use crate::prefab::PrefabSessionState;
 use crate::room::room_editor::{self, RoomEditor};
-use crate::storage::editor_storage;
-use crate::storage::editor_storage::*;
+use crate::storage::game_io::{create_new_game, load_game_by_name, most_recent_game_name};
+use crate::storage::lua_stub_gen::refresh_event_tags_lua;
+use crate::storage::tile_palettes::load_palette;
 use crate::storage::export::PendingExport;
 use crate::tilemap::tile_palette::TilePalette;
 use crate::with_panel_manager;
@@ -45,7 +42,8 @@ use engine_core::logging::{omni_error, omni_info};
 use engine_core::physics::collider_system;
 use engine_core::rendering::{RenderSystem};
 use engine_core::task::BackgroundService;
-use engine_core::ui::*;
+use engine_core::ui::{Toast};
+use ::widgets::*;
 use engine_core::worlds::*;
 use engine_core::storage::editor_config;
 use engine_core::task::BackgroundTask;

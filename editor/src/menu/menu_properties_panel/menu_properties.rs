@@ -4,7 +4,7 @@ use crate::editor_global::push_command;
 use crate::menu::MenuEditor;
 use bishop::prelude::*;
 use engine_core::menu::{MenuBackground, MenuElementKind, MenuMode};
-use engine_core::ui::*;
+use widgets::*;
 use engine_core::menu::elements::element_kind::ElementKind;
 
 impl MenuEditor {

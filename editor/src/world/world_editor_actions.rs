@@ -4,9 +4,9 @@ use bishop::prelude::*;
 use engine_core::ecs::*;
 use engine_core::game::{Game, GameCtxMut};
 use engine_core::tiles::{TileMap};
-use engine_core::ui::*;
+use engine_core::ui::{measure_text};
 use engine_core::worlds::*;
-use widgets::constants::layout;
+use ::widgets::constants::layout;
 
 impl WorldEditor {
     /// Delete a room by its RoomId.

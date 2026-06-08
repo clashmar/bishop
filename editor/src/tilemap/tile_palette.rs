@@ -4,7 +4,7 @@ use engine_core::assets::*;
 use engine_core::ecs::*;
 use engine_core::storage::*;
 use engine_core::tiles::{TileComponent, TileDef, TileDefId};
-use engine_core::ui::*;
+use widgets::*;
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
 use std::collections::VecDeque;

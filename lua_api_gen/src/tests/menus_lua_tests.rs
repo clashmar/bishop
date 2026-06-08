@@ -3,8 +3,8 @@ use engine_core::menu::{
     ButtonElement, LayoutChild, LayoutConfig, LayoutGroupElement, MenuAction, MenuBackground,
     MenuElement, MenuElementKind, MenuMode, MenuTemplate,
 };
-use engine_core::ui::Rect;
 use engine_core::scripting::lua_constants::lua_ownership;
+use engine_core::ui::widgets::Rect;
 
 fn button(name: &str) -> MenuElement {
     MenuElement {

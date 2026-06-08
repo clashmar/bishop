@@ -1,10 +1,8 @@
-use crate::app::{Editor, EditorMode};
-use crate::commands::game::*;
-use crate::editor_global::*;
+use crate::app::Editor;
 use crate::gui::modals::{open_modal_with_prompt, Modal, ModalHandler, ModalResult};
 use crate::gui::prompts::*;
 use bishop::prelude::*;
-use engine_core::ui::*;
+use engine_core::ui::Toast;
 use std::cell::RefCell;
 use std::thread::LocalKey;
 
@@ -29,17 +27,11 @@ impl ModalHandler for RenameModal {
             return;
         }
 
-        let prompt_message = match editor.mode {
-            EditorMode::Game => "Rename game: ",
-            EditorMode::World(_) => "Rename world: ",
-            EditorMode::Room(_) => "Rename room: ",
-            EditorMode::Prefab(_) => "Rename prefab: ",
-            EditorMode::Menu => "Rename menu: ",
-        };
+        let prompt_message = "Rename prefab: ";
 
         editor.modal = Modal::new(ctx, 400.0, 180.0);
         let mut prompt = StringPrompt::new(editor.modal.rect, prompt_message)
-            .with_initial_value(editor.active_entity_name())
+            .with_initial_value(editor.active_editor_entity_name())
             .select_all_on_open();
         open_modal_with_prompt(
             &mut editor.modal,
@@ -55,39 +47,16 @@ impl ModalHandler for RenameModal {
         result: Self::Result,
     ) -> Option<ModalResult> {
         match result {
-            StringPromptResult::Confirmed(name) => match editor.mode {
-                EditorMode::Game => {
-                    if !editor.duplicate_game_exists(&name) {
-                        push_command(Box::new(RenameGameCmd::new(name, editor.game.name.clone())));
-                    }
-                }
-                EditorMode::World(_) => {
-                    if let Some(world) = editor.game.current_world_mut() {
-                        world.name = name;
-                    }
-                }
-                EditorMode::Room(id) => {
-                    if let Some(world) = editor.game.current_world_mut() {
-                        if let Some(room) = world.get_room_mut(id) {
-                            room.name = name;
+            StringPromptResult::Confirmed(name) => {
+                if let Some(prefab_id) = editor.active_persisted_prefab_id() {
+                    if !editor.duplicate_prefab_name_exists_excluding(&name, prefab_id) {
+                        if let Some(prefab_editor) = editor.prefab_editor.as_mut() {
+                            prefab_editor.set_name(name);
                         }
                     }
                 }
-                EditorMode::Prefab(_) => {
-                    if let Some(prefab_id) = editor.active_persisted_prefab_id() {
-                        if !editor.duplicate_prefab_name_exists_excluding(&name, prefab_id) {
-                            if let Some(prefab_editor) = editor.prefab_editor.as_mut() {
-                                prefab_editor.set_name(name);
-                            }
-                        }
-                    }
-                }
-                EditorMode::Menu => {}
-            },
-            StringPromptResult::Cancelled => {
-                editor.modal.close();
-                return None;
             }
+            StringPromptResult::Cancelled => {}
         }
         editor.modal.close();
         None

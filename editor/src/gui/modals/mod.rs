@@ -1,7 +1,7 @@
 use crate::app::Editor;
 use bishop::prelude::*;
 use engine_core::assets::*;
-use engine_core::ui::*;
+use ::widgets::*;
 use engine_core::theme::with_theme;
 use std::cell::RefCell;
 use std::thread::LocalKey;
@@ -34,7 +34,7 @@ pub struct Modal {
     just_opened: bool,
 }
 
-pub use widgets::is_modal_open;
+pub use ::widgets::is_modal_open;
 
 pub type BoxedWidget =
     Box<dyn FnMut(&mut WgpuContext, &mut AssetRegistry, &mut SpriteManager) + 'static>;

@@ -1,8 +1,7 @@
 use bishop::prelude::*;
-use engine_core::ui::*;
 use engine_core::theme::with_theme;
 use engine_core::ui::text::measure_text;
-use widgets::constants::layout;
+use ::widgets::constants::layout;
 
 use super::navigation::Navigation;
 use crate::gui::panel_text_color;

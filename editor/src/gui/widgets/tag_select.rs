@@ -1,8 +1,8 @@
 use bishop::prelude::*;
 use engine_core::scripting::event_tags::event_tag::{builtin_event_tags, EventTag};
 use engine_core::scripting::lua_constants::lua_event_tag;
-use engine_core::ui::constants::layout;
-use engine_core::ui::{MultiSelect, MultiSelectDelta, WidgetId};
+use ::widgets::constants::layout;
+use ::widgets::{MultiSelect, MultiSelectDelta, WidgetId};
 
 pub struct TagSelect;
 

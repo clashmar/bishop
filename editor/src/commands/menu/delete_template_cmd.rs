@@ -1,6 +1,6 @@
 use crate::app::EditorMode;
 use crate::commands::editor_command_manager::EditorCommand;
-use crate::storage::editor_storage::delete_menu;
+use crate::storage::menus::delete_menu;
 use crate::with_editor;
 use engine_core::logging::{omni_error};
 use engine_core::menu::{MenuTemplate};

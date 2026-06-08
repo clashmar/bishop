@@ -2,13 +2,14 @@ use crate::gui::gui_constants::*;
 use crate::gui::modals::is_modal_open;
 use crate::gui::panel_text_color;
 use bishop::prelude::*;
-use engine_core::ui::*;
+use engine_core::ui::{measure_text};
+use ::widgets::*;
 use engine_core::theme::with_theme;
 use std::cell::RefCell;
 use std::collections::hash_map::DefaultHasher;
 use std::fmt::Display;
 use std::hash::{Hash, Hasher};
-use widgets::constants::layout;
+use ::widgets::constants::layout;
 
 const MENU_BUTTON_TARGET_SALT: u64 = 0x4D45_4E55_4254_4E31;
 const MENU_ENTRY_TARGET_SALT: u64 = 0x4D45_4E55_454E_5452;

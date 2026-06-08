@@ -27,7 +27,7 @@ use engine_core::assets::*;
 use engine_core::ecs::*;
 use engine_core::game::GameCtxMut;
 use engine_core::scripting::ScriptManager;
-use engine_core::ui::*;
+use widgets::*;
 use std::collections::HashSet;
 
 pub const PREFAB_EDITOR_GRID_SIZE: f32 = 16.0;

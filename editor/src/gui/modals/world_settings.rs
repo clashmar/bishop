@@ -4,7 +4,7 @@ use crate::editor_global::*;
 use crate::gui::modals::{open_modal_with_prompt, Modal, ModalHandler, ModalResult};
 use crate::gui::prompts::*;
 use bishop::prelude::*;
-use engine_core::ui::*;
+use widgets::*;
 use std::cell::RefCell;
 use std::thread::LocalKey;
 

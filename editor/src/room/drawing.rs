@@ -1,4 +1,4 @@
-use crate::app::camera_controller::*;
+use crate::app::control::camera_controller::*;
 use crate::app::EditorMode;
 use crate::editor_assets::assets::camera_icon;
 use crate::gui::gui_constants::*;
@@ -17,10 +17,11 @@ use engine_core::ecs::*;
 use engine_core::game::{GameCtxMut, StartupMode};
 use engine_core::rendering::{outline_thickness, pivot_adjusted_position};
 use engine_core::storage::*;
-use engine_core::ui::*;
+use engine_core::ui::{measure_text};
+use ::widgets::*;
 use engine_core::worlds::*;
 use engine_core::theme::with_theme;
-use widgets::constants::layout;
+use ::widgets::constants::layout;
 
 const PLACEHOLDER_OPACITY: f32 = 0.5;
 const MODE_SELECTOR_PADDING: f32 = 8.0;

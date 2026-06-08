@@ -1,11 +1,11 @@
-use crate::app::escape::modal_escape_requested;
+use crate::app::control::escape::modal_escape_requested;
 use crate::gui::prompts::constants::*;
 use crate::gui::prompts::helpers::*;
 use bishop::prelude::*;
 use engine_core::controls::{Controls};
-use engine_core::ui::*;
+use widgets::*;
 use engine_core::worlds::*;
-use widgets::constants::layout;
+use ::widgets::constants::layout;
 
 /// Result of a world settings prompt.
 pub struct WorldSettingsResult {

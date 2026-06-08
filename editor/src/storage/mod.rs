@@ -1,6 +1,11 @@
-pub mod editor_storage;
 pub mod export;
-pub mod sound_preset_storage;
+pub mod game_io;
+pub mod lua_stub_gen;
+pub mod menus;
+pub mod prefab_palettes;
+pub mod scaffolding;
+pub mod sound_presets;
+pub mod tile_palettes;
 
 #[cfg(test)]
 mod tests;

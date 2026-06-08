@@ -11,7 +11,7 @@ use crate::shared::scene_ui::hierarchy::{
 use crate::Editor;
 use bishop::prelude::*;
 use engine_core::ecs::*;
-use engine_core::ui::*;
+use widgets::*;
 use engine_core::worlds::*;
 use engine_core::theme::with_theme;
 use std::collections::HashSet;
