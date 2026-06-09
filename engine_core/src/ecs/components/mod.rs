@@ -1,3 +1,4 @@
+pub mod active;
 pub mod animation;
 pub mod audio_source;
 pub mod collider;
@@ -30,6 +31,7 @@ pub mod transform;
 pub mod velocity;
 pub mod walkable;
 
+pub use active::*;
 pub use animation::*;
 pub use audio_source::*;
 pub use collider::*;

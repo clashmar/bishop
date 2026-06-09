@@ -170,12 +170,13 @@ mod tests {
     use crate::ecs::components::prefab_instance::{
         PrefabInstanceNode, PrefabInstanceRoot, PrefabOverrides,
     };
-    use crate::ecs::MotionBody;
-    use crate::ecs::{CurrentRoom, Grounded, PhysicsBody};
+    use crate::ecs::{
+        Active, Collider, CurrentRoom, Grounded, MotionBody, PhysicsBody, Transform, Velocity,
+    };
 
     #[test]
     fn registry_has_on_insert_field() {
-        // Construct a minimal registry entry — will fail because fields don't exist yet
+        // Construct a minimal registry entry and verify the lifecycle noops don't panic.
         let entry = ComponentRegistry {
             type_name: "Test",
             type_id: std::any::TypeId::of::<u32>(),
@@ -251,6 +252,21 @@ mod tests {
             .unwrap_or_else(|| panic!("missing registry entry for {type_name}"));
 
         assert!(!reg.is_public_lua_api, "{type_name} should be private");
+    }
+
+    #[test]
+    fn physics_body_inserter_adds_all_dependencies() {
+        let mut ecs = Ecs::default();
+        let entity = Entity(7);
+
+        generic_inserter::<PhysicsBody>(&mut ecs, entity, Box::new(PhysicsBody));
+
+        assert_eq!(ecs.get::<Active>(entity).map(|active| active.0), Some(true));
+        assert!(ecs.has::<Collider>(entity));
+        assert!(ecs.has::<Grounded>(entity));
+        assert!(ecs.has::<MotionBody>(entity));
+        assert!(ecs.has::<Transform>(entity));
+        assert!(ecs.has::<Velocity>(entity));
     }
 
     #[test]

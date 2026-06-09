@@ -1,0 +1,4 @@
+mod support;
+mod transition_manager_event_tests;
+mod transition_manager_physics_tests;
+mod transition_manager_room_tests;

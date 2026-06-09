@@ -4,6 +4,8 @@
 ---@alias vec2 { x: number, y: number }
 ---@alias vec3 { x: number, y: number, z: number }
 
+---@alias Active boolean
+
 ---@class Animation
 ---@field clips table
 ---@field variant table
@@ -123,6 +125,7 @@
 ---@alias Walkable boolean
 
 ---@class ComponentId
+---@field Active "Active"
 ---@field Animation "Animation"
 ---@field AudioSource "AudioSource"
 ---@field Children "Children"
@@ -154,6 +157,7 @@
 
 local C = {}
 
+C.Active = "Active"
 C.Animation = "Animation"
 C.AudioSource = "AudioSource"
 C.Children = "Children"

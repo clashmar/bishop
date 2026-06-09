@@ -228,16 +228,7 @@ impl Engine {
             let Some(world) = game_ctx.world.as_deref() else {
                 return;
             };
-            let Some(current_room) = world.current_room() else {
-                return;
-            };
-            update_physics(
-                game_ctx.sprite_manager,
-                game_ctx.ecs,
-                current_room,
-                dt,
-                world.grid_size,
-            );
+            update_physics(game_ctx.sprite_manager, game_ctx.ecs, world, dt);
         }
 
         // Resolve room transitions before updating the camera

@@ -73,6 +73,7 @@ pub fn create_new_game(name: String) -> Game {
         .with(Player)
         .with(Global {})
         .with(PhysicsBody)
+        .with(Active::default())
         .with(Name("Player".to_string()));
 
     if let Err(e) = save_game(&game) {

@@ -606,6 +606,7 @@ fn entity_has_component(ecs: &Ecs, entity: Entity, reg: &ComponentRegistry) -> b
 fn prettify_component_label(type_name: &str) -> String {
     match type_name {
         "AudioSource" => "Audio Source".to_string(),
+        "PhysicsBody" => "Physics Body".to_string(),
         _ => type_name.to_string(),
     }
 }
