@@ -5,7 +5,7 @@ use engine_core::ecs::*;
 use engine_core::logging::{omni_error};
 use engine_core::scripting::{EventBus, LuaModuleRegistry, ScriptManager, register_runtime_modules};
 use engine_core::storage::*;
-use engine_core::scripting::lua_constants::{lua_dirs, lua_engine, lua_entity, lua_files, lua_globals};
+use engine_core::scripting::lua_constants::{lua_engine, lua_entity, lua_files, lua_globals};
 use mlua::prelude::LuaResult;
 use mlua::Lua;
 use mlua::{Function, Table, Value};
@@ -55,21 +55,9 @@ impl ScriptSystem {
         Ok(())
     }
 
-    fn load_globals(lua: &Lua) -> LuaResult<()> {
-        let globals_path = scripts_folder()
-            .join(lua_dirs::ENGINE)
-            .join(lua_files::GLOBALS);
-        let src = match fs::read_to_string(globals_path) {
-            Ok(src) => src,
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(()),
-            Err(error) => return Err(mlua::Error::ExternalError(Arc::new(error))),
-        };
-        lua.load(&src).exec()
-    }
-
     /// Loads and executes main.lua if present.
     fn load_main(lua: &Lua) -> LuaResult<()> {
-        Self::load_globals(lua)?;
+        ScriptManager::load_globals_prelude(lua)?;
 
         let main_path = scripts_folder().join(lua_files::MAIN);
         let src =

@@ -58,6 +58,9 @@ impl PrefabStage {
             if let Err(error) = register_runtime_modules(lua, &stage.script_manager.event_bus) {
                 omni_error!("Lua module registration failed: {error}");
             }
+            if let Err(error) = ScriptManager::load_globals_prelude(lua) {
+                omni_error!("Lua globals prelude failed: {error}");
+            }
         });
 
         stage
@@ -71,6 +74,9 @@ impl PrefabStage {
             ScriptManager::init_editor_metadata(&game.asset_registry, &mut game.script_manager);
             if let Err(error) = register_runtime_modules(lua, &game.script_manager.event_bus) {
                 omni_error!("Lua module registration failed: {error}");
+            }
+            if let Err(error) = ScriptManager::load_globals_prelude(lua) {
+                omni_error!("Lua globals prelude failed: {error}");
             }
         });
         Ok(())

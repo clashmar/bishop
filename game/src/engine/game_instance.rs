@@ -182,7 +182,14 @@ impl GameInstance {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::scripting::script_system::ScriptSystem;
+    use engine_core::constants::paths;
+    use engine_core::engine_global::set_game_name;
+    use engine_core::scripting::lua_constants::{lua_dirs, lua_files};
+    use engine_core::storage::game_folder;
+    use engine_core::storage::test_utils::{TestGameFolder, game_fs_test_lock};
     use mlua::Lua;
+    use std::fs;
 
     #[test]
     fn prepare_loaded_game_sets_current_world_room_to_start_room() {
@@ -231,6 +238,46 @@ mod tests {
 
         assert_eq!(prepared.room_id, RoomId(2));
         assert_eq!(prepared.game.current_world().current_room_id, Some(RoomId(2)));
+    }
+
+    #[test]
+    fn full_runtime_init_executes_globals_prelude_once_before_main() {
+        let _lock = game_fs_test_lock().lock().unwrap();
+        let test_game = TestGameFolder::new("game_instance_globals_once");
+        set_game_name(test_game.name());
+
+        let scripts_dir = game_folder(test_game.name())
+            .join(paths::RESOURCES_FOLDER)
+            .join(paths::SCRIPTS_FOLDER);
+        let engine_dir = scripts_dir.join(lua_dirs::ENGINE);
+        fs::create_dir_all(&engine_dir).unwrap();
+        fs::write(
+            engine_dir.join(lua_files::GLOBALS),
+            "bootstrap_order = (bootstrap_order or \"\") .. \"g\"\nInput = { Space = \"space\" }\n",
+        )
+        .unwrap();
+        fs::write(
+            scripts_dir.join(lua_files::MAIN),
+            "bootstrap_order = bootstrap_order .. \"m\"\nsaw_input = Input.Space\n",
+        )
+        .unwrap();
+
+        let mut world = World::default();
+        world.starting_room_id = Some(RoomId(1));
+        world.add_room(Room {
+            id: RoomId(1),
+            ..Default::default()
+        });
+        let mut game = Game::default();
+        game.name = test_game.name().to_string();
+        game.add_world(world);
+
+        let lua = Lua::new();
+        let prepared = GameInstance::prepare_loaded_game(&lua, game);
+        ScriptSystem::init(&lua, &prepared.game.script_manager.event_bus);
+
+        assert_eq!(lua.globals().get::<String>("bootstrap_order").unwrap(), "gm");
+        assert_eq!(lua.globals().get::<String>("saw_input").unwrap(), "space");
     }
 
     #[test]

@@ -5,134 +5,138 @@
     ecs: (
         components: [
             /*[0]*/ (
+                type_name: "Active",
+                data: "{\n    (3): (true),\n    (37): (true),\n}",
+            ),
+            /*[1]*/ (
                 type_name: "Animation",
                 data: "{\n    (3): (\n        clips: {\n            Idle: (\n                frame_size: (6.0, 16.0),\n                cols: 5,\n                rows: 1,\n                fps: 10.0,\n                frame_durations: [],\n                looping: true,\n                offset: (0.0, 0.0),\n                mirrored: true,\n            ),\n            Walk: (\n                frame_size: (10.0, 16.0),\n                cols: 4,\n                rows: 1,\n                fps: 10.0,\n                frame_durations: [],\n                looping: true,\n                offset: (0.0, 0.0),\n                mirrored: true,\n            ),\n            Run: (\n                frame_size: (12.0, 16.0),\n                cols: 8,\n                rows: 1,\n                fps: 10.0,\n                frame_durations: [],\n                looping: true,\n                offset: (0.0, 0.0),\n                mirrored: true,\n            ),\n            Jump: (\n                frame_size: (10.0, 16.0),\n                cols: 4,\n                rows: 1,\n                fps: 10.0,\n                frame_durations: [],\n                looping: true,\n                offset: (0.0, 0.0),\n                mirrored: true,\n            ),\n            Fall: (\n                frame_size: (6.0, 14.0),\n                cols: 1,\n                rows: 1,\n                fps: 10.0,\n                frame_durations: [],\n                looping: true,\n                offset: (0.0, 0.0),\n                mirrored: true,\n            ),\n            Custom(\"Fidget\"): (\n                frame_size: (6.0, 15.0),\n                cols: 8,\n                rows: 1,\n                fps: 10.0,\n                frame_durations: [],\n                looping: true,\n                offset: (0.0, 0.0),\n                mirrored: true,\n            ),\n        },\n        variant: (\"animations/player/male\"),\n    ),\n}",
             ),
-            /*[1]*/ (
+            /*[2]*/ (
                 type_name: "AudioSource",
                 data: "{\n    (3): (\n        groups: {\n            Custom(\"Jump\"): (\n                sounds: [\n                    (1),\n                ],\n                volume: 1.0,\n                pitch_variation: 0.0,\n                volume_variation: 0.0,\n                looping: false,\n                preset_link: Some((\n                    preset_name: \"Jump\",\n                )),\n            ),\n        },\n    ),\n}",
             ),
-            /*[2]*/ (
+            /*[3]*/ (
                 type_name: "Children",
                 data: "{}",
             ),
-            /*[3]*/ (
+            /*[4]*/ (
                 type_name: "Collider",
                 data: "{\n    (3): (\n        width: 6.0,\n        height: 16.0,\n    ),\n    (37): (\n        width: 18.0,\n        height: 19.0,\n    ),\n}",
             ),
-            /*[4]*/ (
+            /*[5]*/ (
                 type_name: "CurrentFrame",
                 data: "{\n    (3): (),\n}",
             ),
-            /*[5]*/ (
+            /*[6]*/ (
                 type_name: "CurrentRoom",
                 data: "{\n    (1): ((1)),\n    (2): ((1)),\n    (24): ((2)),\n    (37): ((1)),\n    (38): ((2)),\n}",
             ),
-            /*[6]*/ (
+            /*[7]*/ (
                 type_name: "Damage",
                 data: "{}",
             ),
-            /*[7]*/ (
+            /*[8]*/ (
                 type_name: "FacingDirection",
                 data: "{}",
             ),
-            /*[8]*/ (
+            /*[9]*/ (
                 type_name: "Global",
                 data: "{\n    (3): (),\n}",
             ),
-            /*[9]*/ (
+            /*[10]*/ (
                 type_name: "Glow",
                 data: "{}",
             ),
-            /*[10]*/ (
-                type_name: "Grounded",
-                data: "{\n    (3): (false),\n}",
-            ),
             /*[11]*/ (
+                type_name: "Grounded",
+                data: "{\n    (3): (false),\n    (37): (false),\n}",
+            ),
+            /*[12]*/ (
                 type_name: "Interactable",
                 data: "{\n    (37): (\n        range: 20.0,\n    ),\n    (38): (\n        range: 20.0,\n    ),\n}",
             ),
-            /*[12]*/ (
+            /*[13]*/ (
                 type_name: "Kinematic",
                 data: "{}",
             ),
-            /*[13]*/ (
+            /*[14]*/ (
                 type_name: "Layer",
                 data: "{}",
             ),
-            /*[14]*/ (
+            /*[15]*/ (
                 type_name: "Light",
                 data: "{}",
             ),
-            /*[15]*/ (
-                type_name: "MotionBody",
-                data: "{\n    (3): (),\n}",
-            ),
             /*[16]*/ (
+                type_name: "MotionBody",
+                data: "{\n    (3): (),\n    (37): (),\n}",
+            ),
+            /*[17]*/ (
                 type_name: "Name",
                 data: "{\n    (1): (\"Camera 1\"),\n    (2): (\"Player Proxy\"),\n    (3): (\"Player\"),\n    (24): (\"Camera 1\"),\n    (37): (\"Cat\"),\n    (38): (\"Checkpoint\"),\n}",
             ),
-            /*[17]*/ (
+            /*[18]*/ (
                 type_name: "Parent",
                 data: "{}",
             ),
-            /*[18]*/ (
-                type_name: "PhysicsBody",
-                data: "{\n    (3): (),\n}",
-            ),
             /*[19]*/ (
+                type_name: "PhysicsBody",
+                data: "{\n    (3): (),\n    (37): (),\n}",
+            ),
+            /*[20]*/ (
                 type_name: "Player",
                 data: "{\n    (3): (),\n}",
             ),
-            /*[20]*/ (
+            /*[21]*/ (
                 type_name: "PlayerProxy",
                 data: "{\n    (2): (),\n}",
             ),
-            /*[21]*/ (
+            /*[22]*/ (
                 type_name: "PrefabInstanceNode",
                 data: "{\n    (37): (\n        prefab_id: (1),\n        node_id: 1,\n        root_entity: (37),\n    ),\n}",
             ),
-            /*[22]*/ (
+            /*[23]*/ (
                 type_name: "PrefabInstanceRoot",
                 data: "{\n    (37): (\n        prefab_id: (1),\n    ),\n}",
             ),
-            /*[23]*/ (
-                type_name: "PrefabOverrides",
-                data: "{\n    (37): (\n        modified_components: [],\n        removed_components: [],\n        added_components: [\n            (\n                type_name: \"Interactable\",\n                ron: \"(\\n    range: 20.0,\\n)\",\n            ),\n            (\n                type_name: \"Script\",\n                ron: \"(\\n    script_id: (3),\\n    data: (\\n        fields: {\\n            \\\"dialogue\\\": Toml((1)),\\n            \\\"name\\\": Text(\\\"NPC\\\"),\\n        },\\n    ),\\n)\",\n            ),\n        ],\n    ),\n}",
-            ),
             /*[24]*/ (
+                type_name: "PrefabOverrides",
+                data: "{\n    (37): (\n        modified_components: [\n            \"Script\",\n        ],\n        removed_components: [],\n        added_components: [\n            (\n                type_name: \"Active\",\n                ron: \"(true)\",\n            ),\n            (\n                type_name: \"Grounded\",\n                ron: \"(false)\",\n            ),\n            (\n                type_name: \"MotionBody\",\n                ron: \"()\",\n            ),\n            (\n                type_name: \"PhysicsBody\",\n                ron: \"()\",\n            ),\n            (\n                type_name: \"SubPixel\",\n                ron: \"()\",\n            ),\n            (\n                type_name: \"Velocity\",\n                ron: \"(\\n    x: 0.0,\\n    y: 0.0,\\n)\",\n            ),\n        ],\n    ),\n}",
+            ),
+            /*[25]*/ (
                 type_name: "RoomCamera",
                 data: "{\n    (1): (\n        zoom: (0.0078125, 0.013888889),\n        room_id: (1),\n        zoom_mode: Step,\n        camera_mode: Fixed,\n    ),\n    (24): (\n        zoom: (0.015625, 0.027777778),\n        room_id: (2),\n        zoom_mode: Step,\n        camera_mode: Fixed,\n    ),\n}",
             ),
-            /*[25]*/ (
-                type_name: "Script",
-                data: "{\n    (3): (\n        script_id: (2),\n        data: (\n            fields: {\n                \"health\": Int(100),\n                \"jump_speed\": Int(200),\n                \"name\": Text(\"Player\"),\n                \"run_speed\": Int(180),\n                \"speed\": Int(100),\n            },\n        ),\n    ),\n    (37): (\n        script_id: (3),\n        data: (\n            fields: {\n                \"dialogue\": Toml((1)),\n                \"name\": Text(\"NPC\"),\n            },\n        ),\n    ),\n    (38): (\n        script_id: (4),\n        data: (\n            fields: {\n                \"name\": Text(\"Checkpoint\"),\n            },\n        ),\n    ),\n}",
-            ),
             /*[26]*/ (
+                type_name: "Script",
+                data: "{\n    (3): (\n        script_id: (2),\n        data: (\n            fields: {\n                \"health\": Int(100),\n                \"jump_speed\": Int(200),\n                \"name\": Text(\"Player\"),\n                \"run_speed\": Int(180),\n                \"speed\": Int(100),\n            },\n        ),\n    ),\n    (37): (\n        script_id: (5),\n        data: (\n            fields: {\n                \"facing\": Text(\"right\"),\n                \"speed\": Int(80),\n            },\n        ),\n    ),\n    (38): (\n        script_id: (4),\n        data: (\n            fields: {\n                \"name\": Text(\"Checkpoint\"),\n            },\n        ),\n    ),\n}",
+            ),
+            /*[27]*/ (
                 type_name: "Solid",
                 data: "{\n    (37): (true),\n}",
             ),
-            /*[27]*/ (
+            /*[28]*/ (
                 type_name: "SpeechBubble",
                 data: "{}",
             ),
-            /*[28]*/ (
+            /*[29]*/ (
                 type_name: "Sprite",
                 data: "{\n    (37): (\n        sprite: (9),\n    ),\n    (38): (\n        sprite: (9),\n    ),\n}",
             ),
-            /*[29]*/ (
-                type_name: "SubPixel",
-                data: "{\n    (3): (),\n}",
-            ),
             /*[30]*/ (
-                type_name: "Transform",
-                data: "{\n    (1): (\n        visible: true,\n        position: (128.0, 0.0),\n        pivot: TopLeft,\n    ),\n    (2): (\n        visible: true,\n        position: (28.0, 72.0),\n        pivot: BottomCenter,\n    ),\n    (24): (\n        visible: true,\n        position: (-64.0, 36.0),\n        pivot: CenterLeft,\n    ),\n    (37): (\n        visible: true,\n        position: (164.0, 72.0),\n        pivot: BottomCenter,\n    ),\n    (38): (\n        visible: true,\n        position: (-84.0, 72.0),\n        pivot: BottomCenter,\n    ),\n}",
+                type_name: "SubPixel",
+                data: "{\n    (3): (),\n    (37): (),\n}",
             ),
             /*[31]*/ (
-                type_name: "Velocity",
-                data: "{\n    (3): (\n        x: 0.0,\n        y: 0.0,\n    ),\n}",
+                type_name: "Transform",
+                data: "{\n    (1): (\n        visible: true,\n        position: (128.0, 0.0),\n        pivot: TopLeft,\n    ),\n    (2): (\n        visible: true,\n        position: (28.0, 72.0),\n        pivot: BottomCenter,\n    ),\n    (3): (\n        visible: true,\n        position: (0.0, 0.0),\n        pivot: BottomCenter,\n    ),\n    (24): (\n        visible: true,\n        position: (-64.0, 36.0),\n        pivot: CenterLeft,\n    ),\n    (37): (\n        visible: true,\n        position: (164.0, 72.0),\n        pivot: BottomCenter,\n    ),\n    (38): (\n        visible: true,\n        position: (-84.0, 72.0),\n        pivot: BottomCenter,\n    ),\n}",
             ),
             /*[32]*/ (
+                type_name: "Velocity",
+                data: "{\n    (3): (\n        x: 0.0,\n        y: 0.0,\n    ),\n    (37): (\n        x: 0.0,\n        y: 0.0,\n    ),\n}",
+            ),
+            /*[33]*/ (
                 type_name: "Walkable",
                 data: "{}",
             ),
@@ -220,7 +224,7 @@
                     darkness: 0.0,
                 ),
             ],
-            current_room_id: Some((2)),
+            current_room_id: Some((1)),
             starting_room_id: Some((1)),
             starting_position: Some((0.0, 0.0)),
             meta: (
@@ -270,6 +274,9 @@
             ),
             Script((4)): (
                 path: "scripts/checkpoint.lua",
+            ),
+            Script((5)): (
+                path: "scripts/room_traversal_probe.lua",
             ),
             Prefab((1)): (
                 path: "prefabs/Cat.prefab",
