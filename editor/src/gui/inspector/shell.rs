@@ -205,6 +205,9 @@ impl Inspector {
 
         let (output, interactive_rects) = match self.active {
             ActivePane::Game => {
+                let mut output = self
+                    .game
+                    .draw_header(ctx, header_rect, blocked, game_ctx, insp_ctx);
                 let body_output = if visible {
                     draw_pane_body(
                         &mut self.game,
@@ -218,13 +221,13 @@ impl Inspector {
                 } else {
                     InspectorOutput::default()
                 };
-                let mut output = self
-                    .game
-                    .draw_header(ctx, header_rect, blocked, game_ctx, insp_ctx);
                 output.merge(body_output);
                 (output, self.game.interactive_rects())
             }
             ActivePane::World => {
+                let mut output = self
+                    .world
+                    .draw_header(ctx, header_rect, blocked, game_ctx, insp_ctx);
                 let body_output = if visible {
                     draw_pane_body(
                         &mut self.world,
@@ -238,13 +241,13 @@ impl Inspector {
                 } else {
                     InspectorOutput::default()
                 };
-                let mut output = self
-                    .world
-                    .draw_header(ctx, header_rect, blocked, game_ctx, insp_ctx);
                 output.merge(body_output);
                 (output, self.world.interactive_rects())
             }
             ActivePane::Room => {
+                let mut output = self
+                    .room
+                    .draw_header(ctx, header_rect, blocked, game_ctx, insp_ctx);
                 let body_output = if visible {
                     draw_pane_body(
                         &mut self.room,
@@ -258,14 +261,13 @@ impl Inspector {
                 } else {
                     InspectorOutput::default()
                 };
-                let mut output = self
-                    .room
-                    .draw_header(ctx, header_rect, blocked, game_ctx, insp_ctx);
                 output.merge(body_output);
                 (output, self.room.interactive_rects())
             }
             ActivePane::Entity => {
                 let output = if let Some(entity) = &mut self.entity {
+                    let mut output =
+                        entity.draw_header(ctx, header_rect, blocked, game_ctx, insp_ctx);
                     let body_output = if visible {
                         draw_pane_body(
                             entity,
@@ -279,8 +281,6 @@ impl Inspector {
                     } else {
                         InspectorOutput::default()
                     };
-                    let mut output =
-                        entity.draw_header(ctx, header_rect, blocked, game_ctx, insp_ctx);
                     output.merge(body_output);
                     output
                 } else {
@@ -311,12 +311,12 @@ where
     FBody: FnOnce(&mut T) -> InspectorOutput,
     FHeader: FnOnce(&mut T) -> InspectorOutput,
 {
+    let mut output = draw_header(pane);
     let body_output = if visible {
         draw_body(pane)
     } else {
         InspectorOutput::default()
     };
-    let mut output = draw_header(pane);
     output.merge(body_output);
     output
 }

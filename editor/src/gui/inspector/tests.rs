@@ -150,7 +150,7 @@ fn hidden_inspector_only_hit_tests_the_strip() {
 }
 
 #[test]
-fn visible_shell_composes_body_before_header() {
+fn visible_shell_composes_header_before_body() {
     let mut pane = ();
     let order = std::cell::RefCell::new(Vec::new());
 
@@ -167,7 +167,7 @@ fn visible_shell_composes_body_before_header() {
         },
     );
 
-    assert_eq!(*order.borrow(), vec!["body", "header"]);
+    assert_eq!(*order.borrow(), vec!["header", "body"]);
 }
 
 #[test]
