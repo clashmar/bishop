@@ -77,7 +77,7 @@ pub mod lua_event_tag {
     pub const TAG_FILE: &str = "event_tags.lua";
     pub const AUTOSAVE: &str = "Autosave";
     pub const CUSTOM: &str = "Custom";
-    pub const KIND: &str = "kind";
+    pub const TAGS: &str = "tags";
 }
 
 /// Root engine Lua table names.

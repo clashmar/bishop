@@ -79,6 +79,6 @@ end
 save_flow.bind_runtime_handlers()
 save_manager.register_provider()
 save_manager.bind_menu_actions()
-autosave.configure({ tag = engine.tags.autosave })
+autosave.configure({ tag = engine.tags.Autosave })
 
 return save_manager

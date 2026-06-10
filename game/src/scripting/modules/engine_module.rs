@@ -177,11 +177,11 @@ impl LuaModule for EngineModule {
         })?;
         engine_tbl.set(lua_engine::GLOBAL, global_fn)?;
 
-        let tags_tbl = match engine_tbl.get::<Option<Table>>(lua_event_tag::KIND)? {
+        let tags_tbl = match engine_tbl.get::<Option<Table>>(lua_event_tag::TAGS)? {
             Some(table) => table,
             None => {
                 let table = lua.create_table()?;
-                engine_tbl.set(lua_event_tag::KIND, table.clone())?;
+                engine_tbl.set(lua_event_tag::TAGS, table.clone())?;
                 table
             }
         };
@@ -374,9 +374,11 @@ impl LuaApi for EngineModule {
         out.line("");
 
         out.line("--- Built-in tag constants.");
-        out.line("engine.tags = {}");
+        out.line(&format!("engine.{} = {{}}", lua_event_tag::TAGS));
         out.line(&format!(
-            "engine.tags.autosave = \"{}\"",
+            "engine.{}.{} = \"{}\"",
+            lua_event_tag::TAGS,
+            lua_event_tag::AUTOSAVE,
             lua_event_tag::AUTOSAVE
         ));
         out.line("");

@@ -27,7 +27,7 @@ function engine.asset.toml() end
 
 --- Built-in tag constants.
 engine.tags = {}
-engine.tags.autosave = "autosave"
+engine.tags.Autosave = "Autosave"
 
 --- Built-in event name constants.
 engine.events = {}
