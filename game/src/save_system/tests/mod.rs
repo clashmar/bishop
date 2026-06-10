@@ -12,47 +12,62 @@ use std::sync::MutexGuard;
 
 use crate::save_system::runtime_saves_root;
 
+pub(crate) fn cleanup_runtime_saves() {
+    let runtime_saves = runtime_saves_root();
+    let runtime_saves_root = runtime_saves.parent().map(|path| path.to_path_buf());
+    let _ = fs::remove_dir_all(&runtime_saves);
+    if let Some(root) = runtime_saves_root {
+        if root.exists()
+            && root
+                .read_dir()
+                .is_ok_and(|mut entries| entries.next().is_none())
+        {
+            let _ = fs::remove_dir_all(root);
+        }
+    }
+}
+
 /// Acquires the global test lock and drops `runtime_saves_root()` on cleanup.
-pub(super) struct CleanSaveRoot {
+pub(crate) struct CleanSaveRoot {
     _lock: MutexGuard<'static, ()>,
 }
 
 impl CleanSaveRoot {
-    pub(super) fn new() -> Self {
+    pub(crate) fn new() -> Self {
         let lock = game_fs_test_lock().lock().unwrap();
         set_game_name("clean_save_root");
-        let _ = fs::remove_dir_all(runtime_saves_root());
+        cleanup_runtime_saves();
         Self { _lock: lock }
     }
 }
 
 impl Drop for CleanSaveRoot {
     fn drop(&mut self) {
-        let _ = fs::remove_dir_all(runtime_saves_root());
+        cleanup_runtime_saves();
     }
 }
 
-pub(super) struct RuntimeSaveTestContext {
+pub(crate) struct RuntimeSaveTestContext {
     _lock: MutexGuard<'static, ()>,
     game: TestGameFolder,
 }
 
 impl RuntimeSaveTestContext {
-    pub(super) fn new(prefix: &str) -> Self {
+    pub(crate) fn new(prefix: &str) -> Self {
         let lock = game_fs_test_lock().lock().unwrap();
         let game = TestGameFolder::new(prefix);
         set_game_name(game.name());
-        let _ = fs::remove_dir_all(runtime_saves_root());
+        cleanup_runtime_saves();
         Self { _lock: lock, game }
     }
 
-    pub(super) fn game_name(&self) -> &str {
+    pub(crate) fn game_name(&self) -> &str {
         self.game.name()
     }
 }
 
 impl Drop for RuntimeSaveTestContext {
     fn drop(&mut self) {
-        let _ = fs::remove_dir_all(runtime_saves_root());
+        cleanup_runtime_saves();
     }
 }

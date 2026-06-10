@@ -1,11 +1,11 @@
+use super::game_instance::GameInstance;
 use crate::save_system::{
-    capture_document, runtime_latest_save_manifest_path, runtime_save_file, SaveCoordinatorError,
-    SaveLane, SaveProviderRegistry, SaveSlotKey, LatestRuntimeSaveManifest, RonPersist,
-    RUNTIME_SAVE_SCHEMA_VERSION, RuntimeSaveDocument, RuntimeSaveMetadata,
+    capture_document, runtime_latest_save_manifest_path, runtime_save_file,
+    LatestRuntimeSaveManifest, RonPersist, RuntimeSaveDocument, RuntimeSaveMetadata,
+    SaveCoordinatorError, SaveLane, SaveProviderRegistry, SaveSlotKey, RUNTIME_SAVE_SCHEMA_VERSION,
 };
 #[cfg(test)]
 use crate::save_system::{SaveProvider, SaveProviderId};
-use super::game_instance::GameInstance;
 use std::cell::{Cell, RefCell};
 use std::io;
 use std::rc::Rc;
@@ -26,7 +26,10 @@ pub struct SaveRuntime {
 }
 
 impl SaveRuntime {
-    pub fn new(providers: Rc<RefCell<SaveProviderRegistry<'static>>>, pending_quit_to_title: Rc<Cell<bool>>) -> Self {
+    pub fn new(
+        providers: Rc<RefCell<SaveProviderRegistry<'static>>>,
+        pending_quit_to_title: Rc<Cell<bool>>,
+    ) -> Self {
         Self {
             providers,
             pending_runtime_load_request: None,
@@ -121,9 +124,8 @@ fn coordinator_to_io_error(error: SaveCoordinatorError) -> io::Error {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::save_system::tests::RuntimeSaveTestContext;
     use crate::save_system::{RestorePhase, SavedSection};
-    use engine_core::engine_global::set_game_name;
-    use engine_core::storage::test_utils::{game_fs_test_lock, TestGameFolder};
     use engine_core::game::Game;
     use std::collections::HashMap;
 
@@ -153,12 +155,11 @@ mod tests {
     fn setup_save_runtime(
         prefix: &str,
     ) -> (
-        TestGameFolder,
+        RuntimeSaveTestContext,
         Rc<RefCell<GameInstance>>,
         SaveRuntime,
     ) {
-        let folder = TestGameFolder::new(prefix);
-        set_game_name(folder.name());
+        let ctx = RuntimeSaveTestContext::new(prefix);
 
         let save_providers = Rc::new(RefCell::new(SaveProviderRegistry::new()));
         save_providers
@@ -166,20 +167,22 @@ mod tests {
             .register(Box::new(StubSaveProvider))
             .unwrap();
 
-        let game = Game::with_name(folder.name());
+        let game = Game::with_name(ctx.game_name());
         let game_instance = Rc::new(RefCell::new(GameInstance {
             game,
             prev_positions: HashMap::new(),
         }));
 
-        (folder, game_instance, SaveRuntime::new(save_providers, Rc::new(Cell::new(false))))
+        (
+            ctx,
+            game_instance,
+            SaveRuntime::new(save_providers, Rc::new(Cell::new(false))),
+        )
     }
 
     #[test]
     fn save_to_lane_writes_document_and_latest_manifest() {
-        let _lock = game_fs_test_lock().lock().unwrap();
-        let (_folder, game_instance, mut save_runtime) =
-            setup_save_runtime("save_runtime_manual");
+        let (_ctx, game_instance, mut save_runtime) = setup_save_runtime("save_runtime_manual");
 
         save_runtime
             .save_to_lane(&game_instance, SaveLane::Manual)
@@ -193,9 +196,7 @@ mod tests {
 
     #[test]
     fn request_latest_runtime_load_sets_pending_request() {
-        let _lock = game_fs_test_lock().lock().unwrap();
-        let (_folder, _game_instance, mut save_runtime) =
-            setup_save_runtime("save_runtime_latest");
+        let (_ctx, _game_instance, mut save_runtime) = setup_save_runtime("save_runtime_latest");
 
         save_runtime.request_latest_runtime_load();
 
@@ -207,9 +208,7 @@ mod tests {
 
     #[test]
     fn take_pending_runtime_load_request_clears_request() {
-        let _lock = game_fs_test_lock().lock().unwrap();
-        let (_folder, _game_instance, mut save_runtime) =
-            setup_save_runtime("save_runtime_take");
+        let (_ctx, _game_instance, mut save_runtime) = setup_save_runtime("save_runtime_take");
 
         save_runtime.request_latest_runtime_load();
 
@@ -221,8 +220,7 @@ mod tests {
 
     #[test]
     fn load_latest_document_reads_manifest_target() {
-        let _lock = game_fs_test_lock().lock().unwrap();
-        let (_folder, game_instance, mut save_runtime) =
+        let (_ctx, game_instance, mut save_runtime) =
             setup_save_runtime("save_runtime_load_latest");
 
         save_runtime
@@ -241,15 +239,13 @@ mod tests {
 
     #[test]
     fn load_latest_document_errors_on_manifest_with_missing_target() {
-        let _lock = game_fs_test_lock().lock().unwrap();
-        let folder = TestGameFolder::new("save_runtime_bad_manifest");
-        set_game_name(folder.name());
+        let ctx = RuntimeSaveTestContext::new("save_runtime_bad_manifest");
 
         // Write a manifest that points to a lane that has no save file.
         let manifest = LatestRuntimeSaveManifest {
             lane: SaveLane::Autosave,
             slot: SaveSlotKey::Default,
-            game_name: folder.name().to_string(),
+            game_name: ctx.game_name().to_string(),
             saved_at_unix_ms: 42,
         };
         manifest
@@ -261,21 +257,22 @@ mod tests {
         let save_runtime = SaveRuntime::new(save_providers, Rc::new(Cell::new(false)));
         let result = save_runtime.load_latest_document();
 
-        assert!(result.is_err(), "expected error for manifest with missing target");
+        assert!(
+            result.is_err(),
+            "expected error for manifest with missing target"
+        );
     }
 
     #[test]
     fn save_triggered_from_command_queue_writes_document_and_manifest() {
         use crate::scripting::lua_ctx::register_save_lua_context;
         use crate::scripting::modules::save_module::SaveModule;
-        use engine_core::worlds::*;
-        use engine_core::scripting::LuaModule;
         use engine_core::scripting::lua_constants::{lua_engine, lua_fields, lua_save};
+        use engine_core::scripting::LuaModule;
+        use engine_core::worlds::*;
         use mlua::Lua;
 
-        let _lock = game_fs_test_lock().lock().unwrap();
-        let folder = TestGameFolder::new("save_runtime_cmd_queue");
-        set_game_name(folder.name());
+        let ctx = RuntimeSaveTestContext::new("save_runtime_cmd_queue");
 
         // Set up Lua with save context and module
         let lua = Lua::new();
@@ -295,7 +292,7 @@ mod tests {
             lua_save::PROVIDER_CAPTURE, lua_save::PROVIDER_APPLY,
         )).exec().unwrap();
 
-        let mut game = Game::with_name(folder.name());
+        let mut game = Game::with_name(ctx.game_name());
         game.add_world(World::default());
         let game_instance = Rc::new(RefCell::new(GameInstance {
             game,
@@ -309,13 +306,21 @@ mod tests {
 
         let save_path = runtime_save_file(&SaveSlotKey::Default, SaveLane::Manual);
         let manifest_path = runtime_latest_save_manifest_path();
-        assert!(save_path.exists(), "save file should exist at {:?}", save_path);
-        assert!(manifest_path.exists(), "manifest should exist at {:?}", manifest_path);
+        assert!(
+            save_path.exists(),
+            "save file should exist at {:?}",
+            save_path
+        );
+        assert!(
+            manifest_path.exists(),
+            "manifest should exist at {:?}",
+            manifest_path
+        );
     }
 
     #[test]
     fn quit_to_title_flag_is_shared_between_lua_and_save_runtime() {
-        use crate::scripting::lua_ctx::{LuaSaveCtx, register_save_lua_context};
+        use crate::scripting::lua_ctx::{register_save_lua_context, LuaSaveCtx};
         use engine_core::scripting::lua_constants::lua_engine;
         use mlua::Lua;
 
