@@ -69,4 +69,63 @@ impl Rect {
     pub const fn size(&self) -> Vec2 {
         Vec2::new(self.w, self.h)
     }
+
+    /// Returns true if this rect overlaps another rect.
+    pub fn overlaps(&self, other: &Self) -> bool {
+        self.x < other.x + other.w
+            && self.x + self.w > other.x
+            && self.y < other.y + other.h
+            && self.y + self.h > other.y
+    }
+
+    /// Returns the overlapping area between two rects.
+    pub fn intersection(&self, other: &Self) -> Option<Self> {
+        let min_x = self.x.max(other.x);
+        let min_y = self.y.max(other.y);
+        let max_x = (self.x + self.w).min(other.x + other.w);
+        let max_y = (self.y + self.h).min(other.y + other.h);
+
+        if min_x >= max_x || min_y >= max_y {
+            return None;
+        }
+
+        Some(Self::new(min_x, min_y, max_x - min_x, max_y - min_y))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn overlaps_returns_true_for_intersecting_rects() {
+        let a = Rect::new(0.0, 0.0, 10.0, 10.0);
+        let b = Rect::new(5.0, 5.0, 10.0, 10.0);
+
+        assert!(a.overlaps(&b));
+    }
+
+    #[test]
+    fn overlaps_returns_false_for_touching_edges() {
+        let a = Rect::new(0.0, 0.0, 10.0, 10.0);
+        let b = Rect::new(10.0, 0.0, 5.0, 5.0);
+
+        assert!(!a.overlaps(&b));
+    }
+
+    #[test]
+    fn intersection_returns_overlap_rect() {
+        let a = Rect::new(0.0, 0.0, 10.0, 10.0);
+        let b = Rect::new(4.0, 6.0, 10.0, 10.0);
+
+        assert_eq!(a.intersection(&b), Some(Rect::new(4.0, 6.0, 6.0, 4.0)));
+    }
+
+    #[test]
+    fn intersection_returns_none_for_touching_edges() {
+        let a = Rect::new(0.0, 0.0, 10.0, 10.0);
+        let b = Rect::new(10.0, 0.0, 5.0, 5.0);
+
+        assert_eq!(a.intersection(&b), None);
+    }
 }

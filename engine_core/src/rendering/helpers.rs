@@ -2,6 +2,8 @@ use bishop::prelude::*;
 use crate::ecs::*;
 use crate::assets::*;
 use crate::rendering::renderable::Renderable;
+use crate::worlds::{ExitDirection, Room, RoomBounds, RoomId, World};
+use std::collections::HashMap;
 
 /// Resolves the entity to use for visual lookups. A `PlayerProxy` redirects
 /// to the actual player entity so the proxy renders with the player's visuals.
@@ -56,6 +58,23 @@ pub fn lerp_position(prev_pos: Vec2, current_pos: Vec2, alpha: f32) -> Vec2 {
     prev_pos * (1.0 - alpha) + current_pos * alpha
 }
 
+/// Returns the interpolated render position or the current position.
+#[inline]
+pub fn interpolate_position(
+    entity: Entity,
+    current_pos: Vec2,
+    alpha: f32,
+    prev_positions: Option<&HashMap<Entity, Vec2>>,
+) -> Vec2 {
+    if let Some(prev_map) = prev_positions
+        && let Some(prev_pos) = prev_map.get(&entity)
+    {
+        return lerp_position(*prev_pos, current_pos, alpha);
+    }
+
+    current_pos
+}
+
 /// Mitigates erratic dt by smoothing `raw_dt`, initializing from the first sample.
 /// `alpha` is the weight of the previous smoothed value (higher = smoother but slower to react).
 #[inline]
@@ -81,70 +100,141 @@ pub fn snap_dt(raw_dt: f32) -> f32 {
     raw_dt
 }
 
+/// Returns the outline thickness for the given grid size.
 pub fn outline_thickness(grid_size: f32) -> f32 {
     (grid_size * 0.2).max(1.0)
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+/// Draws a placeholder for an entity that has no sprite or current frame.
+pub fn draw_entity_placeholder<C: BishopContext>(ctx: &mut C, pos: Vec2, grid_size: f32) {
+    ctx.draw_rectangle(pos.x, pos.y, grid_size, grid_size, Color::GREEN);
+}
 
-    #[test]
-    fn visual_position_returns_transform_position_without_subpixel() {
-        let position = Vec2::new(10.0, 12.0);
+/// Returns the top-left draw position after applying the entity pivot offset.
+#[inline]
+pub fn pivot_adjusted_position(entity_pos: Vec2, texture_size: Vec2, pivot: Pivot) -> Vec2 {
+    let offset = pivot.as_normalized();
+    vec2(
+        entity_pos.x - texture_size.x * offset.x,
+        entity_pos.y - texture_size.y * offset.y,
+    )
+}
 
-        assert_eq!(visual_position(position, None), position);
+/// Returns the rendered room plus neighboring rooms relevant to spillover visibility.
+pub fn spillover_candidate_room_ids(world: &World, room: &Room) -> Vec<RoomId> {
+    let bounds = RoomBounds::from_room(room, world.grid_size);
+    let mut ids = vec![room.id];
+    ids.extend(world.room_grid.neighboring_rooms(&bounds, room.id));
+    ids
+}
+
+/// Checks whether an entity should be visible in a room.
+pub fn entity_visible_in_room(
+    ecs: &Ecs,
+    sprite_manager: &SpriteManager,
+    world: &World,
+    entity: Entity,
+    entity_room_id: RoomId,
+    visual_pos: Vec2,
+    room: &Room,
+    grid_size: f32,
+) -> bool {
+    if entity_room_id == room.id {
+        return true;
     }
 
-    #[test]
-    fn visual_position_adds_positive_subpixel_remainder() {
-        let position = Vec2::new(10.0, 12.0);
-        let sub_pixel = SubPixel { x: 0.25, y: 0.5 };
+    let Some(other_room) = world.get_room(entity_room_id) else {
+        return false;
+    };
 
-        assert_eq!(
-            visual_position(position, Some(&sub_pixel)),
-            Vec2::new(10.25, 12.5)
-        );
-    }
+    let entity_rect = entity_visual_rect(ecs, sprite_manager, entity, visual_pos, grid_size);
+    let Some(overlap_rect) = entity_rect.intersection(&room.world_rect(grid_size)) else {
+        return false;
+    };
 
-    #[test]
-    fn visual_position_adds_negative_subpixel_remainder() {
-        let position = Vec2::new(10.0, 12.0);
-        let sub_pixel = SubPixel { x: -0.5, y: -0.25 };
+    room
+        .exits_facing_room(other_room, grid_size)
+        .into_iter()
+        .any(|(world_pos, direction)| {
+            let exit_rect = projected_exit_cell_rect(room, world_pos, direction, grid_size);
+            overlap_rect.overlaps(&exit_rect)
+        })
+}
 
-        assert_eq!(
-            visual_position(position, Some(&sub_pixel)),
-            Vec2::new(9.5, 11.75)
-        );
-    }
+/// Checks whether an entity's visual body overlaps a room's world-space rectangle.
+pub fn entity_visual_overlaps_room(
+    ecs: &Ecs,
+    sprite_manager: &SpriteManager,
+    entity: Entity,
+    visual_pos: Vec2,
+    room: &Room,
+    grid_size: f32,
+) -> bool {
+    entity_visual_rect(ecs, sprite_manager, entity, visual_pos, grid_size)
+        .overlaps(&room.world_rect(grid_size))
+}
 
-    #[test]
-    fn resolve_visual_entity_returns_player_for_proxy() {
-        let mut ecs = Ecs::default();
-        let player = ecs.create_entity().with(Player).finish();
-        let proxy = ecs.create_entity().with(PlayerProxy).finish();
+fn entity_visual_rect(
+    ecs: &Ecs,
+    sprite_manager: &SpriteManager,
+    entity: Entity,
+    visual_pos: Vec2,
+    grid_size: f32,
+) -> Rect {
+    let pivot = ecs
+        .get_store::<Transform>()
+        .get(entity)
+        .map(|transform| transform.pivot)
+        .unwrap_or(Pivot::BottomCenter)
+        .as_normalized();
+    let size = entity_dimensions(ecs, sprite_manager, entity, grid_size);
 
-        assert_eq!(resolve_visual_entity(&ecs, proxy), player);
-    }
+    Rect::new(
+        visual_pos.x - size.x * pivot.x,
+        visual_pos.y - size.y * pivot.y,
+        size.x,
+        size.y,
+    )
+}
 
-    #[test]
-    fn entity_dimensions_use_player_visuals_for_proxy() {
-        let mut ecs = Ecs::default();
-        let player = ecs
-            .create_entity()
-            .with(Player)
-            .with(CurrentFrame {
-                frame_size: vec2(6.0, 16.0),
-                ..Default::default()
-            })
-            .finish();
-        let proxy = ecs.create_entity().with(PlayerProxy).finish();
-        let sprite_manager = SpriteManager::default();
+fn projected_exit_cell_rect(
+    room: &Room,
+    world_pos: Vec2,
+    direction: ExitDirection,
+    grid_size: f32,
+) -> Rect {
+    let local_pos = world_pos - room.position / grid_size;
+    let width = room.size.x * grid_size;
+    let height = room.size.y * grid_size;
 
-        assert_eq!(resolve_visual_entity(&ecs, proxy), player);
-        assert_eq!(
-            entity_dimensions(&ecs, &sprite_manager, proxy, 8.0),
-            vec2(6.0, 16.0),
-        );
+    match direction {
+        ExitDirection::Up => Rect::new(
+            room.position.x + local_pos.x * grid_size,
+            room.position.y,
+            grid_size,
+            grid_size,
+        ),
+        ExitDirection::Down => Rect::new(
+            room.position.x + local_pos.x * grid_size,
+            room.position.y + height - grid_size,
+            grid_size,
+            grid_size,
+        ),
+        ExitDirection::Left => Rect::new(
+            room.position.x,
+            room.position.y + local_pos.y * grid_size,
+            grid_size,
+            grid_size,
+        ),
+        ExitDirection::Right => Rect::new(
+            room.position.x + width - grid_size,
+            room.position.y + local_pos.y * grid_size,
+            grid_size,
+            grid_size,
+        ),
     }
 }
+
+#[cfg(test)]
+#[path = "helpers_tests.rs"]
+mod helpers_tests;

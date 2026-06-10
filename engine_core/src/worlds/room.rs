@@ -1,4 +1,3 @@
-// engine_core/src/world/room.rs
 use crate::constants::world;
 use crate::ecs::ecs::Ecs;
 use crate::ecs::{Entity, Name, Pivot, RoomCamera, Transform};
@@ -72,6 +71,16 @@ impl Room {
 
         Room::create_camera_entity(ecs, room.id, room.position, grid_size);
         room
+    }
+
+    /// Returns the room rectangle in world space.
+    pub fn world_rect(&self, grid_size: f32) -> Rect {
+        Rect::new(
+            self.position.x,
+            self.position.y,
+            self.size.x * grid_size,
+            self.size.y * grid_size,
+        )
     }
 
     /// Link exits to adjacent rooms based on their positions.

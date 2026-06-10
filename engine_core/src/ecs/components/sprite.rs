@@ -1,6 +1,6 @@
 use crate::assets::sprite_manager::SpriteManager;
 use crate::inspector_module;
-use crate::rendering::render_room::pivot_adjusted_position;
+use crate::rendering::helpers::pivot_adjusted_position;
 use crate::rendering::renderable::{EntityDrawParams, Renderable};
 use bishop::prelude::*;
 use ecs_component::ecs_component;
