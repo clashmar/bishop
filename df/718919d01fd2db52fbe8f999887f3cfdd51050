@@ -1,0 +1,57 @@
+engine_core/src/worlds/room.rs
+  s_fed747eacbd3a5::t_99653e70967ab1 44,71
+engine_core/src/worlds/world.rs
+  s_fed747eacbd3a5::t_99653e70967ab1 3,5,30-31,38
+games/Demo/Resources/scripts/pacman_world.lua
+  s_fed747eacbd3a5::t_99653e70967ab1 1-16
+editor/src/gui/properties/room/room_tags_module.rs
+  s_fed747eacbd3a5::t_99653e70967ab1 1,5,8-9
+editor/src/gui/properties/world/mod.rs
+  s_fed747eacbd3a5::t_99653e70967ab1 1-10,12,20,28-31,50-51,53,55-58,60,64-80,87,90-101
+editor/src/world/world_creation.rs
+  s_fed747eacbd3a5::t_99653e70967ab1 2,33-60
+editor/src/gui/widgets/script_picker_row.rs
+  s_fed747eacbd3a5::t_99653e70967ab1 1-115
+editor/src/gui/properties/tags_module.rs
+  s_fed747eacbd3a5::t_99653e70967ab1 1-61
+editor/src/gui/properties/world/world_script_module.rs
+  s_fed747eacbd3a5::t_99653e70967ab1 1-73
+editor/src/gui/properties/world/world_tags_module.rs
+  s_fed747eacbd3a5::t_99653e70967ab1 1-11
+games/Demo/Resources/game.ron
+  s_fed747eacbd3a5::t_99653e70967ab1 33,113,116-119,123,127,131,135,139,143,147,151,274,318,328-330,332,357,367,369,394,404,406,453-454
+editor/src/gui/panels/hierarchy_panel.rs
+  s_fed747eacbd3a5::t_99653e70967ab1 161-164
+editor/src/gui/properties/room/room_script_module.rs
+  s_fed747eacbd3a5::t_99653e70967ab1 1-69
+editor/src/gui/widgets/mod.rs
+  s_fed747eacbd3a5::t_99653e70967ab1 2
+engine_core/src/ecs/components/mod.rs
+  s_fed747eacbd3a5::t_99653e70967ab1 35,71
+editor/src/gui/inspector/script_module.rs
+  s_fed747eacbd3a5::t_99653e70967ab1 1,5-7,50,58,61,65,67,69-72,74,76-79,82,89,186,281
+engine_core/src/ecs/components/singleton.rs
+  s_fed747eacbd3a5::t_99653e70967ab1 1-8
+editor/src/gui/properties/mod.rs
+  s_fed747eacbd3a5::t_99653e70967ab1 4
+editor/src/gui/properties/room/mod.rs
+  s_fed747eacbd3a5::t_99653e70967ab1 2,31-32
+editor/src/world/world_editor_actions.rs
+  s_fed747eacbd3a5::t_99653e70967ab1 95
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "df718919d01fd2db52fbe8f999887f3cfdd51050",
+  "prompts": {},
+  "sessions": {
+    "s_fed747eacbd3a5": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019ec1ec-4cea-7513-a86b-92c5f720573b",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": "Charlie Lashmar <c.lashmar08@gmail.com>"
+    }
+  }
+}
