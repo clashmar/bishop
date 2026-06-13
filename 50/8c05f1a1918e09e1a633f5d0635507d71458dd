@@ -1,0 +1,112 @@
+game/src/transitions/tests/mod.rs
+  s_df58c006df53b7::t_41dc9c6edbf801 5
+engine_core/src/ecs/components/mod.rs
+  s_df58c006df53b7::t_7404d182b4ed30 33,67
+engine_core/src/worlds/world.rs
+  s_df58c006df53b7::t_c265745d7f0719 146-153
+game/src/transitions/tests/world_transition_tests.rs
+  s_df58c006df53b7::t_eb42a21a5b0ffd 1-15,18-31,35-79,81-140,142-159,161-178,180-211,213-228,230-237,239-273,275
+  s_df58c006df53b7::t_0b77ff5f1b9372 16-17,32-34,274
+  s_df58c006df53b7::t_5a1899892f3a7a 80,141,160,179,212,229,238
+game/src/scripting/modules/entity_module/commands/mod.rs
+  s_df58c006df53b7::t_a4dba77d7b6766 16,36
+games/Demo/Resources/scripts/arcade_machine.lua
+  s_df58c006df53b7::t_2d8b5b722b0a68 1-18
+editor/scripts/_engine/runtime/entity.lua
+  s_df58c006df53b7::t_125c3938b3c626 13,42,53-56,169-172,232-234
+  s_df58c006df53b7::t_388d8e4c46c1bf 231,235
+game/src/transitions/tests/room_transition_manager_room_tests.rs
+  s_df58c006df53b7::t_2598f75fe65220 7-100
+game/src/scripting/modules/engine_module.rs
+  s_df58c006df53b7::t_d32a48c5b41d88 3,359-362,369-383,477-490
+  s_df58c006df53b7::t_860ba693cf54e3 1,201,363-368,421-424
+engine_core/src/game/tests/active_world_tests.rs
+  s_df58c006df53b7::t_17801fe91f2536 2,5-7,16-52
+  s_df58c006df53b7::t_60d68119ec79e3 1,3,8-15
+  s_df58c006df53b7::t_e15c1f3d05e90d 4
+games/Demo/Resources/scripts/world_door.lua
+  s_df58c006df53b7::t_f75d1a89917ff6 1-24,26-29
+  s_df58c006df53b7::t_bc43770cba2299 25
+game/src/transitions/mod.rs
+  s_df58c006df53b7::t_84a24079008698 2
+game/src/engine/mod.rs
+  s_df58c006df53b7::t_ea2a16a805055a 356-361
+  s_df58c006df53b7::t_7524822ed2fd1a 19,22-23,132
+  s_df58c006df53b7::t_d8a1071d8fca25 263
+game/src/game_global.rs
+  s_df58c006df53b7::t_73d4d422573e47 5,17,38-55
+game/src/transitions/room_transition_manager.rs
+  s_df58c006df53b7::t_249580f3c4b82d 30-33
+engine_core/src/scripting/lua_constants.rs
+  s_df58c006df53b7::t_9c48a4c5b38ecd 128-129
+  s_df58c006df53b7::t_4aa2f281afafb8 68,99-100
+  s_df58c006df53b7::t_b841c337f17799 118
+editor/scripts/_engine/runtime/engine.lua
+  s_df58c006df53b7::t_125c3938b3c626 54-74
+  s_df58c006df53b7::t_388d8e4c46c1bf 23
+games/Demo/Resources/scripts/transport_zone.lua
+  s_df58c006df53b7::t_a787f6272e464c 1-37,39-42
+  s_df58c006df53b7::t_bc43770cba2299 38
+game/src/scripting/script_system.rs
+  s_df58c006df53b7::t_fe6b76b3001c75 316
+  s_df58c006df53b7::t_10c21943bb25bc 5,104,305-307
+engine_core/src/game/tests/mod.rs
+  s_df58c006df53b7::t_8b6376d09a0ea1 1-2
+games/Demo/Resources/scripts/_engine/runtime/engine.lua
+  s_df58c006df53b7::t_388d8e4c46c1bf 23
+  s_df58c006df53b7::t_125c3938b3c626 54-74
+engine_core/src/ecs/components/world_entry.rs
+  s_df58c006df53b7::t_87dbc375fc3992 1-13
+game/src/scripting/modules/entity_module.rs
+  s_df58c006df53b7::t_52590bf3f0a590 58
+engine_core/src/text/dialogue/speech_system.rs
+  s_df58c006df53b7::t_546281da3f88ec 37
+  s_df58c006df53b7::t_64cb439de692df 4,6-9,11-13,16-24
+  s_df58c006df53b7::t_fc391fe80b31af 38-99
+games/Demo/Resources/scripts/arcade_exit.lua
+  s_df58c006df53b7::t_d5c29d03c6f91a 1-19
+game/src/physics/physics_system.rs
+  s_df58c006df53b7::t_0529d2f6122493 15,96,102
+  s_df58c006df53b7::t_3b258b34edddf9 170-216
+engine_core/src/game/mod.rs
+  s_df58c006df53b7::t_0a092a6db7a7b2 12,222
+  s_df58c006df53b7::t_3562e6417d4e59 223
+  s_df58c006df53b7::t_71e130b3b63cd5 13
+  s_df58c006df53b7::t_421753a1263c52 221
+game/src/scripting/script_system/tests.rs
+  s_df58c006df53b7::t_fe6b76b3001c75 1-186
+game/src/transitions/world_transitions.rs
+  s_df58c006df53b7::t_3a64931a4f0625 5
+  s_df58c006df53b7::t_faa9ce4d7dcffb 1-4,6-38,40-42,44-59,61-98,100-102,107-132,139-143,145-164
+  s_df58c006df53b7::t_7ce169dddc21b3 60,99,103-106,133-138,144
+game/src/scripting/modules/entity_module/commands/move_to_world.rs
+  s_df58c006df53b7::t_0d863c91b4fe6b 1,10-38
+games/Demo/Resources/scripts/main.lua
+  s_df58c006df53b7::t_1ecd0a165a2986 13-16
+games/Demo/Resources/scripts/_engine/runtime/entity.lua
+  s_df58c006df53b7::t_125c3938b3c626 13,42,53-56,169-172,232-234
+  s_df58c006df53b7::t_388d8e4c46c1bf 231,235
+games/Demo/Resources/scripts/_engine/data/components.lua
+  s_df58c006df53b7::t_86216504dfc12a 127-129,160,193
+game/src/scripting/modules/tests/entity_module_tests.rs
+  s_df58c006df53b7::t_0dfe570818eb2e 9,184,186-188,191-193
+  s_df58c006df53b7::t_21b2dd0e9ab35b 2,185,189-190,195-198
+editor/scripts/_engine/data/components.lua
+  s_df58c006df53b7::t_86216504dfc12a 127-129,160,193
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "508c05f1a1918e09e1a633f5d0635507d71458dd",
+  "prompts": {},
+  "sessions": {
+    "s_df58c006df53b7": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019ebd49-b476-79c3-aec5-4ce89348c290",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Charlie Lashmar <c.lashmar08@gmail.com>"
+    }
+  }
+}
