@@ -20,6 +20,7 @@ use crate::game_global::{set_menu_active, take_pending_world_transition};
 use crate::physics::physics_system::*;
 use crate::scripting::script_system::ScriptSystem;
 use crate::transitions::room_transition_manager::RoomTransitionManager;
+use crate::transitions::world_exit_manager::WorldExitManager;
 use crate::transitions::world_transitions::WorldTransitionManager;
 use bishop::prelude::*;
 use bishop::BishopApp;
@@ -235,6 +236,9 @@ impl Engine {
 
         // Resolve room transitions before updating the camera
         RoomTransitionManager::handle_transitions(&self.lua, &mut game_instance);
+
+        // Fire proximity WorldExits before camera update.
+        WorldExitManager::handle_proximity_exits(&game_instance);
 
         let game_ctx = game_instance.game.ctx_mut();
         if let Some(world) = game_ctx.world.as_deref() {

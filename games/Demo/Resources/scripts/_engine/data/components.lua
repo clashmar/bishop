@@ -127,6 +127,12 @@
 ---@class WorldEntry
 ---@field name string
 
+---@class WorldExit
+---@field destination_world table
+---@field entry table
+---@field mode table
+---@field trigger table
+
 ---@class ComponentId
 ---@field Active "Active"
 ---@field Animation "Animation"
@@ -158,6 +164,7 @@
 ---@field Velocity "Velocity"
 ---@field Walkable "Walkable"
 ---@field WorldEntry "WorldEntry"
+---@field WorldExit "WorldExit"
 
 local C = {}
 
@@ -191,5 +198,6 @@ C.Transform = "Transform"
 C.Velocity = "Velocity"
 C.Walkable = "Walkable"
 C.WorldEntry = "WorldEntry"
+C.WorldExit = "WorldExit"
 
 return C

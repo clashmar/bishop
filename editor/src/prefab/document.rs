@@ -86,6 +86,8 @@ impl PrefabStage {
         GameCtxMut {
             ecs: &mut self.ecs,
             world: None,
+            world_directory: Vec::new(),
+            room_world_map: std::collections::HashMap::new(),
             asset_registry: &mut self.asset_registry,
             sprite_manager: &mut self.sprite_manager,
             script_manager: &mut self.script_manager,

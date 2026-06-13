@@ -2,17 +2,15 @@ use crate::app::EditorMode;
 use crate::commands::editor_command_manager::EditorCommand;
 use crate::with_editor;
 use engine_core::ecs::*;
-use engine_core::game::{Game};
+use engine_core::game::Game;
 use engine_core::worlds::*;
 
 /// Undo-able command for editing world properties.
 #[derive(Debug)]
 pub struct EditWorldCmd {
     world_id: WorldId,
-    /// Values before the edit
     old_name: String,
     old_sprite: Option<SpriteId>,
-    /// Values after the edit
     new_name: Option<String>,
     new_sprite: Option<Option<SpriteId>>,
 }
@@ -73,14 +71,10 @@ impl EditorCommand for EditWorldCmd {
                 self.new_name.as_deref(),
                 self.new_sprite,
             );
-
-            // Persist the change
-            editor.save();
         });
     }
 
     fn undo(&mut self) {
-        // Restore the old values
         with_editor(|editor| {
             let game = &mut editor.game;
             Self::apply(
@@ -89,7 +83,6 @@ impl EditorCommand for EditWorldCmd {
                 Some(&self.old_name),
                 Some(self.old_sprite),
             );
-            editor.save();
         });
     }
 

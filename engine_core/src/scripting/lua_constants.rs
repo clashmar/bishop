@@ -116,6 +116,7 @@ pub mod lua_entity {
     pub const MOVE_BY: &str = "move_by";
     pub const MOVE_TO_ROOM: &str = "move_to_room";
     pub const MOVE_TO_WORLD: &str = "move_to_world";
+    pub const TRIGGER_WORLD_EXIT: &str = "trigger_world_exit";
     pub const REMOVE_FROM_ROOM: &str = "remove_from_room";
     pub const CURRENT_ROOM: &str = "current_room";
 }

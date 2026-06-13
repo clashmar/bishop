@@ -1,7 +1,8 @@
 use crate::game_global::set_pending_world_transition;
 use crate::scripting::lua_ctx::LuaGameCtx;
 use crate::scripting::modules::entity_module::handle::{ensure_live_entity, EntityHandle};
-use crate::transitions::world_transitions::{WorldTransitionMode, WorldTransitionRequest};
+use crate::transitions::world_transitions::{WorldSelector, WorldTransitionRequest};
+use engine_core::worlds::WorldTransitionMode;
 use engine_core::scripting::lua_constants::lua_entity;
 use engine_core::scripting::{LuaApiWriter, LuaMethod};
 use mlua::UserDataMethods;
@@ -19,7 +20,7 @@ impl LuaMethod<EntityHandle> for MoveToWorldMethod {
                 ensure_live_entity(&game_instance.game.ecs, this.entity)?;
                 set_pending_world_transition(WorldTransitionRequest {
                     entity: Some(this.entity),
-                    world_name,
+                    world: WorldSelector::ByName(world_name),
                     entry_name,
                     mode: WorldTransitionMode::Transport,
                 });

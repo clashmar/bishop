@@ -56,6 +56,7 @@ entity_handle_methods! {
     MoveBy => MoveByMethod,
     MoveToRoom => MoveToRoomMethod,
     MoveToWorld => MoveToWorldMethod,
+    TriggerWorldExit => TriggerWorldExitMethod,
     RemoveFromRoom => RemoveFromRoomMethod,
     CurrentRoom => CurrentRoomMethod,
     GetCurrentFrame => GetCurrentFrameMethod,

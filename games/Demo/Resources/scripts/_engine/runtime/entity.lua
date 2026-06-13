@@ -40,6 +40,7 @@ function Entity:despawn() end
 ---@overload fun(self: Entity, component: "Velocity"): Velocity
 ---@overload fun(self: Entity, component: "Walkable"): Walkable
 ---@overload fun(self: Entity, component: "WorldEntry"): WorldEntry
+---@overload fun(self: Entity, component: "WorldExit"): WorldExit
 ---@param component ComponentId
 ---@return table|nil
 function Entity:get(component) end
@@ -170,6 +171,10 @@ function Entity:set_walkable(v) end
 ---@param v WorldEntry
 function Entity:set_world_entry(v) end
 
+---@param self Entity
+---@param v WorldExit
+function Entity:set_world_exit(v) end
+
 ---@param component ComponentId
 ---@return boolean
 function Entity:has(component) end
@@ -233,6 +238,9 @@ function Entity:move_to_room(room_id) end
 ---@param world_name string
 ---@param entry_name string|nil
 function Entity:move_to_world(world_name, entry_name) end
+
+--- Executes this entity's WorldExit component (transport the player or activate a world).
+function Entity:trigger_world_exit() end
 
 --- Removes this entity from its current room membership.
 function Entity:remove_from_room() end

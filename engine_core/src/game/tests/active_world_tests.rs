@@ -50,3 +50,29 @@ fn entity_in_active_world_accepts_entity_without_current_room() {
 
     assert!(game.entity_in_active_world(entity));
 }
+
+#[test]
+fn world_of_room_returns_owning_world() {
+    let game = game_with_two_worlds();
+
+    assert_eq!(game.world_of_room(RoomId(2)).map(|w| w.id), Some(WorldId(2)));
+    assert!(game.world_of_room(RoomId(99)).is_none());
+}
+
+#[test]
+fn world_name_is_available_only_when_unused() {
+    const WORLD_A: &str = "Main";
+    const WORLD_B: &str = "Arcade";
+    const UNUSED: &str = "Fresh";
+
+    let mut game = Game::default();
+    game.add_world(World::new(WorldId(1), WORLD_A.to_string(), 16.0));
+    game.add_world(World::new(WorldId(2), WORLD_B.to_string(), 16.0));
+
+    assert!(!game.world_name_available(WORLD_A, None));
+    assert!(game.world_name_available(UNUSED, None));
+    // Renaming world 1 to its own name is allowed.
+    assert!(game.world_name_available(WORLD_A, Some(WorldId(1))));
+    // Renaming world 1 to world 2's name is not.
+    assert!(!game.world_name_available(WORLD_B, Some(WorldId(1))));
+}

@@ -13,6 +13,9 @@ use std::sync::{Arc, Mutex};
 const OVERWORLD: &str = "Overworld";
 const ARCADE: &str = "Arcade";
 const ARCADE_ENTRY: &str = "FromOverworld";
+const NONEXISTENT_WORLD: &str = "Nowhere";
+const NONEXISTENT_ENTRY: &str = "NoSuchEntry";
+const BARE_WORLD: &str = "Bare";
 const OVERWORLD_ID: WorldId = WorldId(1);
 const ARCADE_ID: WorldId = WorldId(2);
 
@@ -50,7 +53,7 @@ fn spawn_player(game: &mut Game, room: RoomId) -> Entity {
 fn transport_request(entity: Entity, world: &str, entry: Option<&str>) -> WorldTransitionRequest {
     WorldTransitionRequest {
         entity: Some(entity),
-        world_name: world.to_string(),
+        world: WorldSelector::ByName(world.to_string()),
         entry_name: entry.map(str::to_string),
         mode: WorldTransitionMode::Transport,
     }
@@ -59,10 +62,50 @@ fn transport_request(entity: Entity, world: &str, entry: Option<&str>) -> WorldT
 fn activate_request(world: &str) -> WorldTransitionRequest {
     WorldTransitionRequest {
         entity: None,
-        world_name: world.to_string(),
+        world: WorldSelector::ByName(world.to_string()),
         entry_name: None,
         mode: WorldTransitionMode::Activate,
     }
+}
+
+#[test]
+fn transport_by_id_resolves_destination_world() {
+    let mut instance = two_world_instance();
+    let player = spawn_player(&mut instance.game, RoomId(1));
+
+    let ok = WorldTransitionManager::execute(
+        &Lua::new(),
+        &mut instance,
+        &WorldTransitionRequest {
+            entity: Some(player),
+            world: WorldSelector::ById(ARCADE_ID),
+            entry_name: None,
+            mode: WorldTransitionMode::Transport,
+        },
+    );
+
+    assert!(ok);
+    assert_eq!(instance.game.current_world().id, ARCADE_ID);
+}
+
+#[test]
+fn transport_by_unknown_id_returns_false_without_state_change() {
+    let mut instance = two_world_instance();
+    let player = spawn_player(&mut instance.game, RoomId(1));
+
+    let ok = WorldTransitionManager::execute(
+        &Lua::new(),
+        &mut instance,
+        &WorldTransitionRequest {
+            entity: Some(player),
+            world: WorldSelector::ById(WorldId(99)),
+            entry_name: None,
+            mode: WorldTransitionMode::Transport,
+        },
+    );
+
+    assert!(!ok);
+    assert_eq!(instance.game.current_world().id, OVERWORLD_ID);
 }
 
 #[test]
@@ -153,7 +196,7 @@ fn transport_rejects_unknown_world_without_state_change() {
     let ok = WorldTransitionManager::execute(
         &Lua::new(),
         &mut instance,
-        &transport_request(player, "Nowhere", None),
+        &transport_request(player, NONEXISTENT_WORLD, None),
     );
 
     assert!(!ok);
@@ -172,7 +215,7 @@ fn transport_rejects_unknown_entry_without_state_change() {
     let ok = WorldTransitionManager::execute(
         &Lua::new(),
         &mut instance,
-        &transport_request(player, ARCADE, Some("NoSuchEntry")),
+        &transport_request(player, ARCADE, Some(NONEXISTENT_ENTRY)),
     );
 
     assert!(!ok);
@@ -188,7 +231,7 @@ fn transport_requires_a_subject_entity() {
         &mut instance,
         &WorldTransitionRequest {
             entity: None,
-            world_name: ARCADE.to_string(),
+            world: WorldSelector::ByName(ARCADE.to_string()),
             entry_name: None,
             mode: WorldTransitionMode::Transport,
         },
@@ -220,7 +263,7 @@ fn activate_switches_world_without_moving_player() {
 #[test]
 fn activate_rejects_world_with_no_start_and_no_entry() {
     let mut instance = two_world_instance();
-    let mut bare = World::new(WorldId(3), "Bare".to_string(), 16.0);
+    let mut bare = World::new(WorldId(3), BARE_WORLD.to_string(), 16.0);
     bare.add_room(Room {
         id: RoomId(9),
         ..Default::default()
@@ -231,7 +274,7 @@ fn activate_rejects_world_with_no_start_and_no_entry() {
     let ok = WorldTransitionManager::execute(
         &Lua::new(),
         &mut instance,
-        &activate_request("Bare"),
+        &activate_request(BARE_WORLD),
     );
 
     assert!(!ok);

@@ -607,6 +607,8 @@ fn prettify_component_label(type_name: &str) -> String {
     match type_name {
         "AudioSource" => "Audio Source".to_string(),
         "PhysicsBody" => "Physics Body".to_string(),
+        "WorldEntry" => "World Entry".to_string(),
+        "WorldExit" => "World Exit".to_string(),
         _ => type_name.to_string(),
     }
 }

@@ -5,7 +5,7 @@ use crate::canvas::grid;
 use crate::canvas::grid_shader::GridRenderer;
 use crate::commands::game::EditWorldCmd;
 use crate::editor_assets::assets::*;
-use crate::editor_global::push_command;
+use crate::editor_global::{push_command, push_toast};
 use crate::gui::gui_constants::{self};
 use crate::gui::inspector::shell::Inspector;
 use crate::gui::menu_bar::*;
@@ -505,7 +505,11 @@ impl WorldEditor {
         };
 
         if let Some(InspectorHostAction::RenameWorld(name)) = inspector_output.host_action {
-            push_command(Box::new(EditWorldCmd::new(world_id, Some(name), None)));
+            let unique = game.unique_world_name(&name, Some(world_id));
+            if unique != name {
+                push_toast(format!("'{}' is already taken — renamed to '{}'", name, unique), 3.0);
+            }
+            push_command(Box::new(EditWorldCmd::new(world_id, Some(unique), None)));
         }
 
         ctx.set_camera(camera);

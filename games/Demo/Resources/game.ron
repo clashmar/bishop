@@ -30,7 +30,7 @@
             ),
             /*[6]*/ (
                 type_name: "CurrentRoom",
-                data: "{\n    (1): ((1)),\n    (2): ((1)),\n    (24): ((2)),\n    (37): ((1)),\n    (38): ((2)),\n    (39): ((3)),\n    (41): ((4)),\n    (42): ((4)),\n    (43): ((3)),\n    (44): ((4)),\n    (46): ((2)),\n}",
+                data: "{\n    (1): ((1)),\n    (2): ((1)),\n    (24): ((2)),\n    (37): ((1)),\n    (38): ((2)),\n    (39): ((3)),\n    (41): ((4)),\n    (43): ((3)),\n    (46): ((2)),\n    (47): ((4)),\n    (51): ((1)),\n    (52): ((4)),\n}",
             ),
             /*[7]*/ (
                 type_name: "Damage",
@@ -54,7 +54,7 @@
             ),
             /*[12]*/ (
                 type_name: "Interactable",
-                data: "{\n    (37): (\n        range: 20.0,\n    ),\n    (38): (\n        range: 20.0,\n    ),\n    (46): (\n        range: 20.0,\n    ),\n}",
+                data: "{\n    (37): (\n        range: 20.0,\n    ),\n    (38): (\n        range: 20.0,\n    ),\n    (46): (\n        range: 20.0,\n    ),\n    (52): (\n        range: 20.0,\n    ),\n}",
             ),
             /*[13]*/ (
                 type_name: "Kinematic",
@@ -74,7 +74,7 @@
             ),
             /*[17]*/ (
                 type_name: "Name",
-                data: "{\n    (1): (\"Camera 1\"),\n    (2): (\"Player Proxy\"),\n    (3): (\"Player\"),\n    (24): (\"Camera 1\"),\n    (37): (\"Cat\"),\n    (38): (\"Checkpoint\"),\n    (39): (\"Camera 1\"),\n    (41): (\"Camera 1\"),\n    (42): (\"Player Proxy\"),\n    (43): (\"Entity\"),\n    (44): (\"Entity\"),\n    (46): (\"Entity\"),\n}",
+                data: "{\n    (1): (\"Camera 1\"),\n    (2): (\"Player Proxy\"),\n    (3): (\"Player\"),\n    (24): (\"Camera 1\"),\n    (37): (\"Cat\"),\n    (38): (\"Checkpoint\"),\n    (39): (\"Camera 1\"),\n    (41): (\"Camera 1\"),\n    (43): (\"Entity\"),\n    (46): (\"Entity\"),\n    (47): (\"Entity\"),\n    (51): (\"Entity\"),\n    (52): (\"Entity\"),\n}",
             ),
             /*[18]*/ (
                 type_name: "Parent",
@@ -90,7 +90,7 @@
             ),
             /*[21]*/ (
                 type_name: "PlayerProxy",
-                data: "{\n    (2): (),\n    (42): (),\n}",
+                data: "{\n    (2): (),\n}",
             ),
             /*[22]*/ (
                 type_name: "PrefabInstanceNode",
@@ -110,7 +110,7 @@
             ),
             /*[26]*/ (
                 type_name: "Script",
-                data: "{\n    (3): (\n        script_id: (2),\n        data: (\n            fields: {\n                \"health\": Int(100),\n                \"jump_speed\": Int(200),\n                \"name\": Text(\"Player\"),\n                \"run_speed\": Int(180),\n                \"speed\": Int(100),\n            },\n        ),\n    ),\n    (37): (\n        script_id: (3),\n        data: (\n            fields: {\n                \"dialogue\": Toml((1)),\n                \"name\": Text(\"NPC\"),\n            },\n        ),\n    ),\n    (38): (\n        script_id: (4),\n        data: (\n            fields: {\n                \"name\": Text(\"Checkpoint\"),\n            },\n        ),\n    ),\n    (43): (\n        script_id: (9),\n        data: (\n            fields: {\n                \"name\": Text(\"ArcadeExit\"),\n                \"world\": Text(\"Main World\"),\n            },\n        ),\n    ),\n    (46): (\n        script_id: (8),\n        data: (\n            fields: {\n                \"name\": Text(\"WorldDoor\"),\n                \"world\": Text(\"Pacman\"),\n            },\n        ),\n    ),\n}",
+                data: "{\n    (3): (\n        script_id: (2),\n        data: (\n            fields: {\n                \"health\": Int(100),\n                \"jump_speed\": Int(200),\n                \"name\": Text(\"Player\"),\n                \"run_speed\": Int(180),\n                \"speed\": Int(100),\n            },\n        ),\n    ),\n    (37): (\n        script_id: (3),\n        data: (\n            fields: {\n                \"dialogue\": Toml((1)),\n                \"name\": Text(\"NPC\"),\n            },\n        ),\n    ),\n    (38): (\n        script_id: (4),\n        data: (\n            fields: {\n                \"name\": Text(\"Checkpoint\"),\n            },\n        ),\n    ),\n}",
             ),
             /*[27]*/ (
                 type_name: "Solid",
@@ -130,7 +130,7 @@
             ),
             /*[31]*/ (
                 type_name: "Transform",
-                data: "{\n    (1): (\n        visible: true,\n        position: (128.0, 0.0),\n        pivot: TopLeft,\n    ),\n    (2): (\n        visible: true,\n        position: (28.0, 72.0),\n        pivot: BottomCenter,\n    ),\n    (3): (\n        visible: true,\n        position: (0.0, 0.0),\n        pivot: BottomCenter,\n    ),\n    (24): (\n        visible: true,\n        position: (-64.0, 36.0),\n        pivot: CenterLeft,\n    ),\n    (37): (\n        visible: true,\n        position: (164.0, 72.0),\n        pivot: BottomCenter,\n    ),\n    (38): (\n        visible: true,\n        position: (-84.0, 72.0),\n        pivot: BottomCenter,\n    ),\n    (39): (\n        visible: true,\n        position: (128.0, 72.0),\n        pivot: CenterLeft,\n    ),\n    (41): (\n        visible: true,\n        position: (128.0, 72.0),\n        pivot: CenterLeft,\n    ),\n    (42): (\n        visible: true,\n        position: (40.0, 144.0),\n        pivot: BottomCenter,\n    ),\n    (43): (\n        visible: true,\n        position: (88.0, 112.0),\n        pivot: BottomCenter,\n    ),\n    (44): (\n        visible: false,\n        position: (24.0, 144.0),\n        pivot: BottomCenter,\n    ),\n    (46): (\n        visible: true,\n        position: (-44.0, 72.0),\n        pivot: BottomCenter,\n    ),\n}",
+                data: "{\n    (1): (\n        visible: true,\n        position: (128.0, 0.0),\n        pivot: TopLeft,\n    ),\n    (2): (\n        visible: true,\n        position: (28.0, 72.0),\n        pivot: BottomCenter,\n    ),\n    (3): (\n        visible: true,\n        position: (0.0, 0.0),\n        pivot: BottomCenter,\n    ),\n    (24): (\n        visible: true,\n        position: (-64.0, 36.0),\n        pivot: CenterLeft,\n    ),\n    (37): (\n        visible: true,\n        position: (164.0, 72.0),\n        pivot: BottomCenter,\n    ),\n    (38): (\n        visible: true,\n        position: (-84.0, 72.0),\n        pivot: BottomCenter,\n    ),\n    (39): (\n        visible: true,\n        position: (128.0, 72.0),\n        pivot: CenterLeft,\n    ),\n    (41): (\n        visible: true,\n        position: (128.0, 72.0),\n        pivot: CenterLeft,\n    ),\n    (43): (\n        visible: true,\n        position: (88.0, 112.0),\n        pivot: BottomCenter,\n    ),\n    (46): (\n        visible: true,\n        position: (-44.0, 72.0),\n        pivot: BottomCenter,\n    ),\n    (47): (\n        visible: true,\n        position: (56.0, 64.0),\n        pivot: BottomCenter,\n    ),\n    (51): (\n        visible: true,\n        position: (76.0, 72.0),\n        pivot: BottomCenter,\n    ),\n    (52): (\n        visible: true,\n        position: (152.0, 144.0),\n        pivot: BottomCenter,\n    ),\n}",
             ),
             /*[32]*/ (
                 type_name: "Velocity",
@@ -142,7 +142,11 @@
             ),
             /*[34]*/ (
                 type_name: "WorldEntry",
-                data: "{\n    (44): (\n        name: \"entry\",\n    ),\n}",
+                data: "{\n    (47): (\n        name: \"Main Entry\",\n    ),\n    (51): (\n        name: \"Main Entry\",\n    ),\n}",
+            ),
+            /*[35]*/ (
+                type_name: "WorldExit",
+                data: "{\n    (46): (\n        destination_world: Some((3)),\n        entry: Some(\"Main Entry\"),\n        mode: Transport,\n        trigger: OnInteract,\n    ),\n    (52): (\n        destination_world: Some((1)),\n        entry: Some(\"Main Entry\"),\n        mode: Transport,\n        trigger: OnInteract,\n    ),\n}",
             ),
         ],
     ),
@@ -429,18 +433,6 @@
             ),
             Script((5)): (
                 path: "scripts/room_traversal_probe.lua",
-            ),
-            Script((6)): (
-                path: "scripts/world_door.lua",
-            ),
-            Script((7)): (
-                path: "scripts/transport_zone.lua",
-            ),
-            Script((8)): (
-                path: "scripts/arcade_machine.lua",
-            ),
-            Script((9)): (
-                path: "scripts/arcade_exit.lua",
             ),
             Prefab((1)): (
                 path: "prefabs/Cat.prefab",

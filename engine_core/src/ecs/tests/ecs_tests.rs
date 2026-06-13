@@ -18,6 +18,8 @@ macro_rules! make_game_ctx {
         let mut $ctx = GameCtxMut {
             ecs: $ecs,
             world: None,
+            world_directory: Vec::new(),
+            room_world_map: std::collections::HashMap::new(),
             asset_registry: &mut _mgc_ar,
             sprite_manager: &mut _mgc_sm,
             script_manager: &mut _mgc_scm,

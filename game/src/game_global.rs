@@ -41,8 +41,8 @@ pub fn set_pending_world_transition(request: WorldTransitionRequest) {
         let mut pending = services.pending_world_transition.borrow_mut();
         if pending.is_some() {
             engine_core::omni_warn!(
-                "Ignoring world transition to '{}': another transition is already pending this frame",
-                request.world_name
+                "Ignoring world transition to '{:?}': another transition is already pending this frame",
+                request.world
             );
             return;
         }

@@ -7,13 +7,11 @@ use engine_core::scripting::lua_constants::lua_events;
 use engine_core::worlds::*;
 use mlua::{Lua, Value, Variadic};
 
-/// How a world transition affects the subject entity.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum WorldTransitionMode {
-    /// Move the subject entity to the destination world.
-    Transport,
-    /// Switch the active world without moving any entity.
-    Activate,
+/// Selects the destination world by display name (Lua string API) or stable id (WorldExit component).
+#[derive(Debug, Clone)]
+pub enum WorldSelector {
+    ByName(String),
+    ById(WorldId),
 }
 
 /// An explicit, one-shot request to transition between worlds.
@@ -21,8 +19,8 @@ pub enum WorldTransitionMode {
 pub struct WorldTransitionRequest {
     /// Subject entity. Required for `Transport`; ignored for `Activate`.
     pub entity: Option<Entity>,
-    /// Destination world name.
-    pub world_name: String,
+    /// Destination world.
+    pub world: WorldSelector,
     /// Destination `WorldEntry` name. `None` uses the world's start.
     pub entry_name: Option<String>,
     /// Transition mode.
@@ -68,12 +66,12 @@ impl WorldTransitionManager {
 }
 
 fn resolve_destination(game: &Game, request: &WorldTransitionRequest) -> Option<Destination> {
-    let Some(world) = game
-        .worlds()
-        .iter()
-        .find(|world| world.name == request.world_name)
-    else {
-        omni_error!("Unknown world '{}'", request.world_name);
+    let world = match &request.world {
+        WorldSelector::ByName(name) => game.worlds().iter().find(|w| &w.name == name),
+        WorldSelector::ById(id) => game.get_world(*id),
+    };
+    let Some(world) = world else {
+        omni_error!("Unknown world {:?}", request.world);
         return None;
     };
 

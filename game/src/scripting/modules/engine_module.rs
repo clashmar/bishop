@@ -1,6 +1,7 @@
 use crate::game_global::set_pending_world_transition;
 use crate::scripting::lua_ctx::LuaGameCtx;
-use crate::transitions::world_transitions::{WorldTransitionMode, WorldTransitionRequest};
+use crate::transitions::world_transitions::{WorldSelector, WorldTransitionRequest};
+use engine_core::worlds::WorldTransitionMode;
 use engine_core::ecs::*;
 use engine_core::register_lua_api;
 use engine_core::register_lua_module;
@@ -362,7 +363,7 @@ impl LuaModule for EngineModule {
             lua.create_function(|_lua, (world_name, entry_name): (String, Option<String>)| {
                 set_pending_world_transition(WorldTransitionRequest {
                     entity: None,
-                    world_name,
+                    world: WorldSelector::ByName(world_name),
                     entry_name,
                     mode: WorldTransitionMode::Activate,
                 });

@@ -16,6 +16,7 @@ mod set_sound_volume;
 mod move_to_world;
 mod stop_sound;
 mod teleport;
+mod trigger_world_exit;
 
 pub(super) use clear_speech::ClearSpeechMethod;
 pub(super) use despawn::DespawnMethod;
@@ -35,3 +36,4 @@ pub(super) use set_sound_volume::SetSoundVolumeMethod;
 pub(super) use stop_sound::StopSoundMethod;
 pub(super) use move_to_world::MoveToWorldMethod;
 pub(super) use teleport::TeleportMethod;
+pub(super) use trigger_world_exit::TriggerWorldExitMethod;

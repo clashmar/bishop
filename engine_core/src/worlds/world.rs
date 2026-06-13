@@ -9,6 +9,7 @@ use bishop::prelude::*;
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
 use serde_with::FromInto;
+use strum_macros::EnumIter;
 
 /// Identifier for a world.
 #[derive(Default, Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -141,6 +142,42 @@ pub struct WorldMeta {
     pub position: Vec2,
     /// Sprite of the world or None.
     pub sprite_id: Option<SpriteId>,
+}
+
+/// How a world transition is triggered by an entity.
+#[derive(EnumIter, Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+pub enum WorldExitTrigger {
+    /// Fire when the entity receives an interact event.
+    #[default]
+    OnInteract,
+    /// Fire when the player comes within this distance (world units).
+    OnProximity(f32),
+}
+
+impl std::fmt::Display for WorldExitTrigger {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            WorldExitTrigger::OnInteract => write!(f, "On Interact"),
+            WorldExitTrigger::OnProximity(_) => write!(f, "On Proximity"),
+        }
+    }
+}
+
+/// How a world transition affects the subject entity.
+#[derive(EnumIter, Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub enum WorldTransitionMode {
+    #[default]
+    Transport,
+    Activate,
+}
+
+impl std::fmt::Display for WorldTransitionMode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            WorldTransitionMode::Transport => write!(f, "Transport"),
+            WorldTransitionMode::Activate => write!(f, "Activate"),
+        }
+    }
 }
 
 /// Returns true if `entity` is roomed in `world`; entities without a `CurrentRoom` always count as in-world.

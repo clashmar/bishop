@@ -132,3 +132,4 @@ impl EditorCommand for DuplicateEntitiesCmd {
         self.mode == current_mode
     }
 }
+

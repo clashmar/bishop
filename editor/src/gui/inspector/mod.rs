@@ -4,6 +4,8 @@ pub mod shell;
 pub mod player_module;
 pub mod room_camera_module;
 pub mod script_module;
+pub mod world_entry_module;
+pub mod world_exit_module;
 
 #[cfg(test)]
 mod tests;
