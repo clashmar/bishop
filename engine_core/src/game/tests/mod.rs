@@ -1,3 +1,5 @@
+mod active_world_tests;
+
 use super::*;
 use crate::ecs::Ecs;
 #[cfg(feature = "editor")]

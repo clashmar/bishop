@@ -124,6 +124,9 @@
 
 ---@alias Walkable boolean
 
+---@class WorldEntry
+---@field name string
+
 ---@class ComponentId
 ---@field Active "Active"
 ---@field Animation "Animation"
@@ -154,6 +157,7 @@
 ---@field Transform "Transform"
 ---@field Velocity "Velocity"
 ---@field Walkable "Walkable"
+---@field WorldEntry "WorldEntry"
 
 local C = {}
 
@@ -186,5 +190,6 @@ C.SubPixel = "SubPixel"
 C.Transform = "Transform"
 C.Velocity = "Velocity"
 C.Walkable = "Walkable"
+C.WorldEntry = "WorldEntry"
 
 return C

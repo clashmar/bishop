@@ -2,18 +2,6 @@
 -- bishop-owner: shared-engine
 ---@meta
 
----@param msg string
-function engine.log.info(msg) end
-
----@param msg string
-function engine.log.warn(msg) end
-
----@param msg string
-function engine.log.error(msg) end
-
----@param msg string
-function engine.log.debug(msg) end
-
 --- Constructors for asset-backed script values.
 engine.asset = {}
 
@@ -32,6 +20,7 @@ engine.tags.Autosave = "Autosave"
 --- Built-in event name constants.
 engine.events = {}
 engine.events.room_entered = "room:entered"
+engine.events.world_entered = "world:entered"
 engine.events.save_succeeded = "save:succeeded"
 engine.events.save_failed = "save:failed"
 
@@ -61,6 +50,28 @@ function engine.emit(event, ...) end
 --- Quit to the title screen.
 ---@return nil
 function engine.quit_to_title() end
+
+--- Activates another world without moving any entity.
+--- The world resumes at the named entry's room, or its start when omitted.
+---@param world_name string
+---@param entry_name string|nil
+function engine.activate_world(world_name, entry_name) end
+
+--- Returns the active world.
+---@return { id: integer, name: string }
+function engine.current_world() end
+
+---@param msg string
+function engine.log.info(msg) end
+
+---@param msg string
+function engine.log.warn(msg) end
+
+---@param msg string
+function engine.log.error(msg) end
+
+---@param msg string
+function engine.log.debug(msg) end
 
 engine.prefab = {}
 

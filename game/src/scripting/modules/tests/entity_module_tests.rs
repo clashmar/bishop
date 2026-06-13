@@ -1,11 +1,12 @@
 use crate::engine::game_instance::GameInstance;
-use crate::game_global::drain_commands;
+use crate::game_global::{drain_commands, take_pending_world_transition};
 use crate::scripting::commands::lua_command::LuaCommand;
 use crate::scripting::lua_ctx::LuaGameCtx;
 use crate::scripting::modules::entity_module::EntityHandle;
 use engine_core::ecs::*;
 use engine_core::game::{Game};
 use engine_core::worlds::*;
+use engine_core::scripting::lua_constants::lua_entity;
 use engine_core::scripting::to_snake_case;
 use mlua::Lua;
 use std::cell::RefCell;
@@ -178,6 +179,23 @@ fn move_to_room_and_remove_from_room_queue_commands() {
 
     let commands: Vec<Box<dyn LuaCommand>> = drain_commands().collect();
     assert_eq!(commands.len(), 2);
+}
+
+#[test]
+fn move_to_world_records_pending_transition() {
+    let (lua, _game_instance, _entity) = setup_entity_lua();
+
+    lua.load(format!(
+        "entity:{}(\"Arcade\", \"FromMain\")",
+        lua_entity::MOVE_TO_WORLD
+    ))
+    .exec()
+    .unwrap();
+
+    assert_eq!(
+        take_pending_world_transition().map(|request| request.world_name),
+        Some("Arcade".to_string())
+    );
 }
 
 #[test]

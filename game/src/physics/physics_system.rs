@@ -12,7 +12,7 @@ pub fn update_physics(
     world: &World,
     dt: f32,
 ) {
-    update_motion_bodies(ecs, dt);
+    update_motion_bodies(ecs, world, dt);
 
     let entities: Vec<_> = ecs
         .get_store::<PhysicsBody>()
@@ -93,12 +93,13 @@ pub fn update_physics(
     }
 }
 
-fn update_motion_bodies(ecs: &mut Ecs, dt: f32) {
+fn update_motion_bodies(ecs: &mut Ecs, world: &World, dt: f32) {
     let entities: Vec<_> = ecs
         .get_store::<MotionBody>()
         .data
         .keys()
         .filter(|entity| !ecs.has::<PhysicsBody>(**entity))
+        .filter(|entity| entity_in_world(ecs, world, **entity))
         .copied()
         .collect();
 
@@ -163,6 +164,54 @@ mod tests {
         world.current_room_id = Some(room.id);
         world.add_room(room);
         world
+    }
+
+    #[test]
+    fn motion_bodies_in_inactive_worlds_do_not_move() {
+        let mut ecs = Ecs::default();
+        let parked = ecs
+            .create_entity()
+            .with(Transform {
+                position: Vec2::new(10.0, 12.0),
+                ..Default::default()
+            })
+            .with(Velocity { x: 120.0, y: 0.0 })
+            .with(MotionBody)
+            .with(SubPixel::default())
+            .with_current_room(RoomId(99))
+            .finish();
+
+        update_physics(&SpriteManager::default(), &mut ecs, &empty_world(), 1.0 / 60.0);
+
+        assert_eq!(
+            ecs.get::<Transform>(parked)
+                .map(|transform| transform.position),
+            Some(Vec2::new(10.0, 12.0))
+        );
+    }
+
+    #[test]
+    fn motion_bodies_roomed_in_the_active_world_still_move() {
+        let mut ecs = Ecs::default();
+        let roomed = ecs
+            .create_entity()
+            .with(Transform {
+                position: Vec2::new(10.0, 12.0),
+                ..Default::default()
+            })
+            .with(Velocity { x: 120.0, y: 0.0 })
+            .with(MotionBody)
+            .with(SubPixel::default())
+            .with_current_room(RoomId(1))
+            .finish();
+
+        update_physics(&SpriteManager::default(), &mut ecs, &empty_world(), 1.0 / 60.0);
+
+        assert_eq!(
+            ecs.get::<Transform>(roomed)
+                .map(|transform| transform.position),
+            Some(Vec2::new(12.0, 12.0))
+        );
     }
 
     #[test]

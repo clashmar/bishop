@@ -10,6 +10,10 @@ AudioSettings:init()
 -- Load and activate the game theme at startup
 engine.theme.activate(require("bishop_theme"))
 
+engine.on(engine.events.world_entered, function(id, name)
+    engine.log.info("entered world: " .. name .. " (" .. id .. ")")
+end)
+
 engine.update = function(dt)
     if engine.input.pressed(Input.M) then
         engine.menu.open(Menus.Pause)

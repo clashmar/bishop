@@ -1,4 +1,6 @@
+use crate::game_global::set_pending_world_transition;
 use crate::scripting::lua_ctx::LuaGameCtx;
+use crate::transitions::world_transitions::{WorldTransitionMode, WorldTransitionRequest};
 use engine_core::ecs::*;
 use engine_core::register_lua_api;
 use engine_core::register_lua_module;
@@ -196,6 +198,7 @@ impl LuaModule for EngineModule {
             }
         };
         events_tbl.set(lua_events::ROOM_ENTERED_FIELD, lua_events::ROOM_ENTERED)?;
+        events_tbl.set(lua_events::WORLD_ENTERED_FIELD, lua_events::WORLD_ENTERED)?;
         events_tbl.set(lua_events::SAVE_SUCCEEDED_FIELD, lua_events::SAVE_SUCCEEDED)?;
         events_tbl.set(lua_events::SAVE_FAILED_FIELD, lua_events::SAVE_FAILED)?;
 
@@ -353,6 +356,31 @@ impl LuaModule for EngineModule {
             Ok(())
         })?;
         engine_tbl.set(lua_engine::EMIT, emit_fn)?;
+
+        // engine.activate_world(world_name, entry_name?)
+        let activate_world_fn =
+            lua.create_function(|_lua, (world_name, entry_name): (String, Option<String>)| {
+                set_pending_world_transition(WorldTransitionRequest {
+                    entity: None,
+                    world_name,
+                    entry_name,
+                    mode: WorldTransitionMode::Activate,
+                });
+                Ok(())
+            })?;
+        engine_tbl.set(lua_engine::ACTIVATE_WORLD, activate_world_fn)?;
+
+        // engine.current_world() -> { id, name }
+        let current_world_fn = lua.create_function(|lua, ()| {
+            let ctx = LuaGameCtx::borrow_ctx(lua)?;
+            let game_instance = ctx.game_instance.borrow();
+            let world = game_instance.game.current_world();
+            let tbl = lua.create_table()?;
+            tbl.set(lua_fields::ID, world.id.0)?;
+            tbl.set(lua_fields::NAME, world.name.clone())?;
+            Ok(tbl)
+        })?;
+        engine_tbl.set(lua_engine::CURRENT_WORLD, current_world_fn)?;
         Ok(())
     }
 }
@@ -389,6 +417,11 @@ impl LuaApi for EngineModule {
             "engine.events.{} = \"{}\"",
             lua_events::ROOM_ENTERED_FIELD,
             lua_events::ROOM_ENTERED
+        ));
+        out.line(&format!(
+            "engine.events.{} = \"{}\"",
+            lua_events::WORLD_ENTERED_FIELD,
+            lua_events::WORLD_ENTERED
         ));
         out.line(&format!(
             "engine.events.{} = \"{}\"",
@@ -440,6 +473,21 @@ impl LuaApi for EngineModule {
             "function engine.{}() end",
             lua_engine::QUIT_TO_TITLE
         ));
+        out.line("");
+
+        out.line("--- Activates another world without moving any entity.");
+        out.line("--- The world resumes at the named entry's room, or its start when omitted.");
+        out.line("---@param world_name string");
+        out.line("---@param entry_name string|nil");
+        out.line(&format!(
+            "function engine.{}(world_name, entry_name) end",
+            lua_engine::ACTIVATE_WORLD
+        ));
+        out.line("");
+
+        out.line("--- Returns the active world.");
+        out.line("---@return { id: integer, name: string }");
+        out.line(&format!("function engine.{}() end", lua_engine::CURRENT_WORLD));
         out.line("");
     }
 }

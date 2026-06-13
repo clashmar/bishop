@@ -30,6 +30,7 @@ pub mod text;
 pub mod transform;
 pub mod velocity;
 pub mod walkable;
+pub mod world_entry;
 
 pub use active::*;
 pub use animation::*;
@@ -63,3 +64,4 @@ pub use text::*;
 pub use transform::*;
 pub use velocity::*;
 pub use walkable::*;
+pub use world_entry::*;

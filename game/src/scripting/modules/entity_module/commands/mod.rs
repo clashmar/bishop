@@ -13,6 +13,7 @@ mod set_clip;
 mod set_facing;
 mod set_flip_x;
 mod set_sound_volume;
+mod move_to_world;
 mod stop_sound;
 mod teleport;
 
@@ -32,4 +33,5 @@ pub(super) use set_facing::SetFacingMethod;
 pub(super) use set_flip_x::SetFlipXMethod;
 pub(super) use set_sound_volume::SetSoundVolumeMethod;
 pub(super) use stop_sound::StopSoundMethod;
+pub(super) use move_to_world::MoveToWorldMethod;
 pub(super) use teleport::TeleportMethod;

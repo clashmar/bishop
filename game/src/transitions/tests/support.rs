@@ -1,6 +1,6 @@
 use crate::engine::game_instance::GameInstance;
 use crate::physics::physics_system::update_physics;
-use crate::transitions::transition_manager::TransitionManager;
+use crate::transitions::room_transition_manager::RoomTransitionManager;
 use bishop::prelude::{Vec2, vec2};
 use engine_core::assets::SpriteManager;
 use engine_core::ecs::{
@@ -253,7 +253,7 @@ pub(super) fn step_physics_and_transitions(
         1.0 / 60.0,
     );
 
-    TransitionManager::handle_transitions(lua, game_instance);
+    RoomTransitionManager::handle_transitions(lua, game_instance);
 
     let transform = game_instance.game.ecs.get::<Transform>(entity).unwrap();
     visual_position(

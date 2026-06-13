@@ -2,6 +2,7 @@ use crate::engine::Engine;
 use crate::game_global::drain_commands;
 use crate::scripting::modules::entity_module::lua_entity_handle;
 use engine_core::ecs::*;
+use engine_core::game::Game;
 use engine_core::logging::{omni_error};
 use engine_core::scripting::{EventBus, LuaModuleRegistry, ScriptManager, register_runtime_modules};
 use engine_core::storage::*;
@@ -100,7 +101,7 @@ impl ScriptSystem {
                 .data
                 .iter()
                 .filter_map(|(entity, script)| {
-                    if script.script_id == ScriptId(0) {
+                    if !update_eligible(&game_instance.game, *entity, script) {
                         return None;
                     }
 
@@ -301,143 +302,15 @@ fn collect_prefab_subtree(ecs: &Ecs, root_entity: Entity, entities: &mut Vec<Ent
     }
 }
 
+/// An entity's script updates only when it has a real script and the entity is in the active world.
+fn update_eligible(game: &Game, entity: Entity, script: &Script) -> bool {
+    script.script_id != ScriptId(0) && game.entity_in_active_world(entity)
+}
+
 fn script_update_is_still_valid(ecs: &Ecs, entity: Entity, script_id: ScriptId) -> bool {
     ecs.get::<Script>(entity)
         .is_some_and(|script| script.script_id == script_id)
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use engine_core::constants::paths;
-    use engine_core::engine_global::set_game_name;
-    use engine_core::scripting::lua_constants::{lua_dirs, lua_fields, lua_files};
-    use engine_core::storage::test_utils::{game_fs_test_lock, TestGameFolder};
-    use std::fs;
-
-    fn install_callback_module(lua: &Lua) {
-        lua.load(
-            r#"
-            callback_hits = 0
-            package.preload["save_manager"] = function()
-                return {
-                    on_title_menu_open = function()
-                        callback_hits = callback_hits + 1
-                    end,
-                    nested = {
-                        on_open = function()
-                            callback_hits = callback_hits + 1
-                        end,
-                    },
-                }
-            end
-            "#,
-        )
-        .exec()
-        .unwrap();
-    }
-
-    #[test]
-    fn script_update_eligibility_rejects_entities_without_the_same_script_component() {
-        let mut ecs = Ecs::default();
-        let entity = ecs.create_entity().finish();
-
-        assert!(!script_update_is_still_valid(&ecs, entity, ScriptId(7)));
-
-        ecs.add_component_to_entity(
-            entity,
-            Script {
-                script_id: ScriptId(3),
-                ..Default::default()
-            },
-        );
-
-        assert!(!script_update_is_still_valid(&ecs, entity, ScriptId(7)));
-        assert!(script_update_is_still_valid(&ecs, entity, ScriptId(3)));
-    }
-
-    #[test]
-    fn invoke_menu_callback_calls_exported_function() {
-        let lua = Lua::new();
-        install_callback_module(&lua);
-
-        invoke_menu_callback(&lua, "save_manager.on_title_menu_open").unwrap();
-
-        assert_eq!(lua.globals().get::<i64>("callback_hits").unwrap(), 1);
-    }
-
-    #[test]
-    fn invoke_menu_callback_supports_nested_table_paths() {
-        let lua = Lua::new();
-        install_callback_module(&lua);
-
-        invoke_menu_callback(&lua, "save_manager.nested.on_open").unwrap();
-
-        assert_eq!(lua.globals().get::<i64>("callback_hits").unwrap(), 1);
-    }
-
-    #[test]
-    fn init_executes_globals_prelude_before_main() {
-        let _lock = game_fs_test_lock().lock().unwrap();
-        let test_game = TestGameFolder::new("script_system_globals_prelude");
-        set_game_name(test_game.name());
-
-        let scripts_dir = game_folder(test_game.name())
-            .join(paths::RESOURCES_FOLDER)
-            .join(paths::SCRIPTS_FOLDER);
-        let engine_dir = scripts_dir.join(lua_dirs::ENGINE);
-        fs::create_dir_all(&engine_dir).unwrap();
-        fs::write(
-            engine_dir.join(lua_files::GLOBALS),
-            "bootstrap_order = (bootstrap_order or \"\") .. \"g\"\nInput = { Space = \"space\" }\n",
-        )
-        .unwrap();
-        fs::write(
-            scripts_dir.join(lua_files::MAIN),
-            "bootstrap_order = bootstrap_order .. \"m\"\nsaw_input = Input.Space\n",
-        )
-        .unwrap();
-
-        set_game_name(test_game.name());
-        let lua = Lua::new();
-        let event_bus = EventBus::default();
-        ScriptSystem::init(&lua, &event_bus);
-
-        assert_eq!(lua.globals().get::<String>("bootstrap_order").unwrap(), "gm");
-        assert_eq!(lua.globals().get::<String>("saw_input").unwrap(), "space");
-    }
-
-    #[test]
-    fn prepare_spawned_script_inits_rejects_root_args_without_root_init() {
-        let lua = Lua::new();
-        let mut ecs = Ecs::default();
-        let root = ecs.create_entity().finish();
-        let mut script_manager = ScriptManager::default();
-        let def = lua.create_table().unwrap();
-        let public = lua.create_table().unwrap();
-        let init_args = lua.create_table().unwrap();
-
-        public.set("speed", 120).unwrap();
-        def.set(lua_fields::PUBLIC, public).unwrap();
-        init_args.set("direction", "left").unwrap();
-        script_manager.table_defs.insert(ScriptId(1), def);
-        ecs.add_component_to_entity(
-            root,
-            Script {
-                script_id: ScriptId(1),
-                ..Default::default()
-            },
-        );
-
-        let error = ScriptSystem::prepare_spawned_script_inits(
-            &lua,
-            &mut ecs,
-            &mut script_manager,
-            root,
-            Some(Value::Table(init_args)),
-        )
-        .unwrap_err();
-
-        assert!(error.to_string().contains("root script init"));
-    }
-}
+mod tests;

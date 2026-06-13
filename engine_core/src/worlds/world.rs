@@ -143,6 +143,14 @@ pub struct WorldMeta {
     pub sprite_id: Option<SpriteId>,
 }
 
+/// Returns true if `entity` is roomed in `world`; entities without a `CurrentRoom` always count as in-world.
+pub fn entity_in_world(ecs: &crate::ecs::Ecs, world: &World, entity: crate::ecs::Entity) -> bool {
+    match ecs.get::<crate::ecs::CurrentRoom>(entity) {
+        Some(room) => world.get_room(room.0).is_some(),
+        None => true,
+    }
+}
+
 impl WorldMeta {
     /// Sets the sprite.
     pub fn set_sprite(&mut self, new_id: Option<SpriteId>, sprite_manager: &mut SpriteManager) {

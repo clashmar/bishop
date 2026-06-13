@@ -11,9 +11,10 @@ use mlua::Variadic;
 
 const ROOM_PROBE_EPS: f32 = 0.01;
 
-pub struct TransitionManager;
+/// Observes ands handles room transitions through exits within the world.
+pub struct RoomTransitionManager;
 
-impl TransitionManager {
+impl RoomTransitionManager {
     /// Handles entity transitions between rooms.
     pub fn handle_transitions(lua: &Lua, game_instance: &mut GameInstance) {
         let entities: Vec<_> = game_instance
@@ -26,6 +27,10 @@ impl TransitionManager {
             .collect();
 
         for entity in entities {
+            if !game_instance.game.entity_in_active_world(entity) {
+                continue;
+            }
+
             let pos = {
                 let Some(transform) = game_instance.game.ecs.get::<Transform>(entity).copied() else {
                     continue;

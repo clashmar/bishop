@@ -9,7 +9,8 @@ pub use startup_mode::*;
 use crate::assets::{sprite_manager::SpriteManager, AssetRegistry};
 use crate::ecs::ecs::Ecs;
 #[cfg(feature = "editor")]
-use crate::ecs::{get_root_entities_in_set, Entity, SpriteId};
+use crate::ecs::{get_root_entities_in_set, SpriteId};
+use crate::ecs::Entity;
 use crate::engine_global::set_game_name;
 use crate::omni_error;
 use crate::prefab::{load_prefab_manager, PrefabManager};
@@ -215,6 +216,11 @@ impl Game {
         if self.world_index.contains_key(&id) {
             self.current_world_id = Some(id);
         }
+    }
+
+    /// Returns true if `entity` is roomed in the active world; entities without a `CurrentRoom` always count as active.
+    pub fn entity_in_active_world(&self, entity: Entity) -> bool {
+        entity_in_world(&self.ecs, self.current_world(), entity)
     }
 
     /// Deletes the world from the game.
