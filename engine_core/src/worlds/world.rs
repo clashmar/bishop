@@ -1,7 +1,8 @@
 use std::collections::HashMap;
 use crate::assets::sprite_manager::SpriteManager;
-use crate::ecs::SpriteId;
+use crate::ecs::{Entity, SpriteId};
 use crate::constants::world;
+use crate::scripting::event_tags::event_tag::EventTag;
 use crate::tiles::tilemap::TileMap;
 use crate::worlds::room::*;
 use crate::worlds::room_grid::RoomGrid;
@@ -26,12 +27,15 @@ pub struct World {
     #[serde_as(as = "Option<FromInto<[f32; 2]>>")]
     pub starting_position: Option<Vec2>,
     pub meta: WorldMeta,
+    #[serde(default)]
+    pub tags: Vec<EventTag>,
     #[serde(default = "default_grid_size")]
     pub grid_size: f32,
     #[serde(skip)]
     pub room_grid: RoomGrid,
     #[serde(skip)]
     room_index: HashMap<RoomId, usize>,
+    pub singleton: Option<Entity>,
 }
 
 fn default_grid_size() -> f32 {

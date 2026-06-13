@@ -1,6 +1,7 @@
 pub mod collapsible;
 pub mod game;
 pub mod room;
+pub mod tags_module;
 pub mod world;
 
 use crate::shared::scene_ui::inspector::InspectorContext;

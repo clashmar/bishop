@@ -158,7 +158,10 @@ impl PanelDefinition for HierarchyPanel {
 
         let room_entities = if let Some(room_id) = cur_room_id {
             let entities = ecs.entities_in_room(room_id).clone();
-            let entities: Vec<Entity> = entities.into_iter().collect();
+            let entities: Vec<Entity> = entities
+                .into_iter()
+                .filter(|e| !ecs.has::<Singleton>(*e))
+                .collect();
             get_root_entities(ecs, &entities)
         } else {
             Vec::new()

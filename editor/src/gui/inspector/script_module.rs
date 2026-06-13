@@ -1,10 +1,10 @@
-use crate::editor_assets::assets::refresh_icon;
+use crate::gui::widgets::script_picker_row::draw_script_picker_row;
 use crate::with_lua;
 use bishop::prelude::*;
 use engine_core::ecs::*;
-use engine_core::game::{GameCtxMut};
-use engine_core::logging::{omni_error};
-use engine_core::ui::{measure_text, gui_script_picker, gui_toml_picker};
+use engine_core::game::GameCtxMut;
+use engine_core::logging::omni_error;
+use engine_core::ui::{measure_text, gui_toml_picker};
 use ::widgets::*;
 use std::collections::HashMap;
 use ::widgets::constants::{colors, layout};
@@ -47,92 +47,46 @@ impl InspectorModule for ScriptModule {
         game_ctx: &mut GameCtxMut,
         entity: Entity,
     ) {
-        let GameCtxMut {
-            ecs,
-            asset_registry,
-            script_manager,
-            ..
-        } = game_ctx;
-
-        let script_comp = if let Some(comp) = ecs.get_mut::<Script>(entity) {
-            comp
-        } else {
+        if game_ctx.ecs.get::<Script>(entity).is_none() {
             return;
-        };
-
-        // Ensure ScriptData is loaded if it exists
-        if script_comp.script_id != ScriptId(0) {
-            with_lua(|lua| {
-                if let Err(e) = script_comp.load(lua, asset_registry, script_manager, entity) {
-                    omni_error!("Failed to load script: {}", e);
-                }
-            });
         }
 
         // Layout
         let mut y = rect.y + layout::WIDGET_SPACING;
         let full_w = rect.w - 2.0 * layout::WIDGET_PADDING;
 
-        // Picker
-        let button_size = layout::DEFAULT_FIELD_HEIGHT;
-
-        let picker_rect = Rect::new(
+        let picker_row_rect = Rect::new(
             rect.x + layout::WIDGET_PADDING,
             y,
-            full_w - button_size - SPACING,
+            full_w,
             layout::DEFAULT_FIELD_HEIGHT,
         );
 
-        let refresh_rect = Rect::new(
-            picker_rect.x + picker_rect.w + SPACING,
-            y,
-            button_size,
-            button_size,
+        draw_script_picker_row(
+            ctx,
+            picker_row_rect,
+            self.picker_id,
+            entity,
+            game_ctx.ecs,
+            game_ctx.asset_registry,
+            game_ctx.script_manager,
+            blocked,
         );
 
-        // Script picker
-        if gui_script_picker(
-            ctx,
-            picker_rect,
-            self.picker_id,
-            (entity, &mut script_comp.script_id),
-            asset_registry,
-            script_manager,
-            blocked,
-        ) {
-            with_lua(|lua| {
-                if let Err(e) = script_comp.load(lua, asset_registry, script_manager, entity) {
-                    omni_error!("Failed to load script: {}", e);
-                }
-            })
-        }
-
-        // Refresh button
-        if Button::icon(refresh_rect, refresh_icon(), "refresh_script")
-            .icon_padding(5.0)
-            .suppressed(blocked)
-            .show(ctx)
-        {
-            if script_comp.script_id == ScriptId(0) {
+        let script_comp = match game_ctx.ecs.get_mut::<Script>(entity) {
+            Some(comp) => comp,
+            None => {
+                self.fields_len = 1;
                 return;
             }
-
-            with_lua(|lua| {
-                if let Err(e) = script_manager.reload(lua, entity, script_comp.script_id) {
-                    omni_error!("Failed to reload script: {}", e);
-                } else if let Err(e) = script_comp.load(lua, asset_registry, script_manager, entity)
-                {
-                    omni_error!("Failed to reload script data: {}", e);
-                }
-            });
-        }
+        };
 
         if script_comp.data.fields.is_empty() {
             self.fields_len = 1;
             return;
         }
 
-        y += picker_rect.h + SPACING * 2.0;
+        y += picker_row_rect.h + SPACING * 2.0;
 
         let mut field_names: Vec<_> = script_comp.data.fields.keys().cloned().collect();
 
@@ -229,7 +183,7 @@ impl InspectorModule for ScriptModule {
                     }
                 }
                 ScriptField::Toml(ref mut toml_id) => {
-                    if gui_toml_picker(ctx, widget_rect, base_id, toml_id, asset_registry, blocked)
+                    if gui_toml_picker(ctx, widget_rect, base_id, toml_id, game_ctx.asset_registry, blocked)
                     {
                         changed = true;
                     }
@@ -324,7 +278,7 @@ impl InspectorModule for ScriptModule {
             // Write back to Lua
             if changed {
                 with_lua(|lua| {
-                    if let Err(e) = script_comp.sync_to_lua(lua, script_manager, entity) {
+                    if let Err(e) = script_comp.sync_to_lua(lua, game_ctx.script_manager, entity) {
                         omni_error!("Failed to sync script: {}", e);
                     }
                 })

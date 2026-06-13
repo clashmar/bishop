@@ -92,6 +92,7 @@ impl WorldEditor {
             tags: vec![],
             variants: vec![variant],
             darkness: 0.,
+            singleton: None,
         };
 
         Room::create_camera_entity(&mut game.ecs, room.id, room.position, grid_size);

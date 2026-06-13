@@ -32,6 +32,7 @@ pub mod velocity;
 pub mod walkable;
 pub mod world_entry;
 pub mod world_exit;
+pub mod singleton;
 
 pub use active::*;
 pub use animation::*;
@@ -67,3 +68,4 @@ pub use velocity::*;
 pub use walkable::*;
 pub use world_entry::*;
 pub use world_exit::*;
+pub use singleton::*;

@@ -41,6 +41,7 @@ pub struct Room {
     pub tags: Vec<EventTag>,
     pub variants: Vec<RoomVariant>,
     pub darkness: f32,
+    pub singleton: Option<Entity>,
 }
 
 impl Room {
@@ -67,6 +68,7 @@ impl Room {
             tags: vec![],
             variants: vec![first_variant],
             darkness: 0.,
+            singleton: None,
         };
 
         Room::create_camera_entity(ecs, room.id, room.position, grid_size);
