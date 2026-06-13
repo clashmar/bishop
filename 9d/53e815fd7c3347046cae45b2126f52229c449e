@@ -1,0 +1,172 @@
+game/src/game_global.rs
+  s_df58c006df53b7::t_09090815e96ced 44-45
+editor/src/gui/inspector/world_exit_module.rs
+  s_df58c006df53b7::t_adebee21c8f748 14,40-44
+  s_df58c006df53b7::t_b9365f50e2e3e2 173
+  s_df58c006df53b7::t_078fce5d9c62db 98,121,135,157
+  s_df58c006df53b7::t_5cc1b4e64352e8 182
+  s_df58c006df53b7::t_11361006031e80 1,5,8-12,16,18-22,25-36,38,45-59,75,88,95-97,99,101,116,119-120,122-123,136,144-145,174-180,188-189
+  s_df58c006df53b7::t_8b2e1b6d61dd38 67,71-73,181
+  s_df58c006df53b7::t_731458e0a7db1e 15,82,85,106,109,125,127,139,141
+  s_df58c006df53b7::t_d479cf209232ad 90,93-94
+  s_df58c006df53b7::t_b40eaef2c2bafd 4,7,17,23-24,76,78,81,83,86-87,91-92,104-105,107,110-111,114,124,128-134,137-138,142-143,146-156,158,183-187
+  s_df58c006df53b7::t_98539e600111b5 6,37,39,60-66,68-70,74,77,79-80,89,100,103,118,159-161,163-172
+  s_df58c006df53b7::t_cedcca29b558d0 102,112-113,115,117
+  s_df58c006df53b7::t_11e64d0c1b69b4 84,108,126,140
+  s_df58c006df53b7::t_f831820a6e1fc7 162
+engine_core/src/game/tests/active_world_tests.rs
+  s_df58c006df53b7::t_261a92b248179c 64-67,69-70,72-77
+  s_df58c006df53b7::t_2152f24053572f 61-63,68,71,78
+  s_df58c006df53b7::t_6362c85a044b4c 53-60
+editor/scripts/_engine/runtime/entity.lua
+  s_df58c006df53b7::t_4382a9ab3e409c 43,174-177,242-243
+editor/src/commands/game/edit_world_cmd.rs
+  s_df58c006df53b7::t_d561d60a7976f3 5
+editor/src/prefab/document.rs
+  s_df58c006df53b7::t_efbc737fcbdd53 89
+  s_df58c006df53b7::t_5d0ca18369456c 90
+engine_core/src/game/mod.rs
+  s_df58c006df53b7::t_0eb67ae4ed7db4 385-388
+  s_df58c006df53b7::t_e02f5fbb2841df 235-244
+  s_df58c006df53b7::t_69e51d38659633 13
+  s_df58c006df53b7::t_8fd58257764d90 103,180-183,194
+  s_df58c006df53b7::t_db2e00b535d4c7 178-179,193
+  s_df58c006df53b7::t_4b5f735984cfaf 245-255
+  s_df58c006df53b7::t_a9e2ce85579dd7 102
+editor/scripts/_engine/data/components.lua
+  s_df58c006df53b7::t_f5771171702975 131,134
+  s_df58c006df53b7::t_80baf7a7fe0e45 130,132-133,135,167,201
+game/src/scripting/modules/entity_module/commands/mod.rs
+  s_df58c006df53b7::t_263c1ea788feb4 19,39
+editor/src/gui/inspector/world_entry_module.rs
+  s_df58c006df53b7::t_157a649d48cd38 6
+  s_df58c006df53b7::t_ada45acb0572d4 104
+  s_df58c006df53b7::t_1b83c58b6a330a 63-65
+  s_df58c006df53b7::t_3326d169ca50f8 61
+  s_df58c006df53b7::t_d96d98ba67aa4f 106-107
+  s_df58c006df53b7::t_698c7122e61bef 16
+  s_df58c006df53b7::t_c247d5670c64ae 116
+  s_df58c006df53b7::t_6bf0987ba0c5fc 3-4,60,62,66-67,70-95,115,119
+  s_df58c006df53b7::t_1881bf06dac955 7
+  s_df58c006df53b7::t_e0ebe50b3138d9 1-2,5,9-15,17-59,68-69,96-103,105,108-114,117-118,120-126
+  s_df58c006df53b7::t_bbaa5afbf56088 8
+game/src/scripting/interact/world_exit.rs
+  s_df58c006df53b7::t_7527bec173bf79 1-7,9-25,28-33
+engine_core/src/ecs/components/mod.rs
+  s_df58c006df53b7::t_4e44b5884428d3 34,69
+engine_core/src/worlds/world.rs
+  s_df58c006df53b7::t_e58ecf4e881ee1 12,151,155-156,159,162-163
+  s_df58c006df53b7::t_3399864df93337 147-150,152-154,157-158,160-161,164-171,176-179
+  s_df58c006df53b7::t_b942652e038ec0 174-175,180-182
+game/src/transitions/tests/world_transition_tests.rs
+  s_df58c006df53b7::t_a0f0162e89b6f7 234
+  s_df58c006df53b7::t_ac3298bc448f17 92-110
+  s_df58c006df53b7::t_aee91b143fabe6 16-18,199,218,266,277
+  s_df58c006df53b7::t_296cecc16475a2 56,65
+  s_df58c006df53b7::t_5e36286e2d0067 72-91
+game/src/scripting/modules/tests/entity_module_tests.rs
+  s_df58c006df53b7::t_9f2c2a011e7444 188-190,194,201
+  s_df58c006df53b7::t_1fac4849e4450b 230,232-234,236-238,240-241,243-264
+  s_df58c006df53b7::t_16b5208d806cad 10
+  s_df58c006df53b7::t_0c2c3cac95e2da 206,226,231,235
+  s_df58c006df53b7::t_c53d197897d435 239,242
+  s_df58c006df53b7::t_79ae44939caeac 213,216
+  s_df58c006df53b7::t_4fb53793862803 8
+  s_df58c006df53b7::t_fb5fb931dc77b6 200
+  s_df58c006df53b7::t_d8a9e148ae4949 3
+  s_df58c006df53b7::t_ca00690507eb38 205,207-212,214-215,217-225,227-229
+game/src/scripting/commands/entity/call_entity_fn_cmd.rs
+  s_df58c006df53b7::t_8ba196d9088d0e 3
+  s_df58c006df53b7::t_f9a10d5754ce85 4
+  s_df58c006df53b7::t_f7003471d7bf6d 5-6,21-40,42
+  s_df58c006df53b7::t_2eae8eb44dfd3d 43
+game/src/scripting/modules/entity_module/commands/move_to_world.rs
+  s_df58c006df53b7::t_b32e0bfcca9d9d 4,23
+  s_df58c006df53b7::t_1217906bd044df 5
+game/src/scripting/modules/entity_module/commands/trigger_world_exit.rs
+  s_df58c006df53b7::t_c39285452e9a76 1-11,13-26,32-39,41-53
+  s_df58c006df53b7::t_56516c3d99b7db 40
+  s_df58c006df53b7::t_ad3229634ec0ec 12
+  s_df58c006df53b7::t_9f7f1629cf0361 27-31
+game/src/transitions/world_exit_manager.rs
+  s_df58c006df53b7::t_f2186380d12fbc 5,11,55-56
+  s_df58c006df53b7::t_5b42d9e52b3100 1-4,6-10,12-54,57-67
+engine_core/src/scripting/lua_constants.rs
+  s_df58c006df53b7::t_3c5d8f0ef400f5 119
+editor/src/commands/world/rename_world_entry_cmd.rs
+  s_df58c006df53b7::t_712db2e9a3ac9b 1-123
+editor/src/world/world_editor.rs
+  s_df58c006df53b7::t_2798a4c93b24fe 508
+  s_df58c006df53b7::t_fdd03e7a2cd9ad 8,509-512
+game/src/scripting/modules/entity_module.rs
+  s_df58c006df53b7::t_962dce2249240b 59
+editor/src/gui/modals/edit_world.rs
+  s_df58c006df53b7::t_0c5ee8dc8fd201 71,75
+  s_df58c006df53b7::t_dde3c9927a5b71 72,74
+  s_df58c006df53b7::t_4a8504acf57963 73
+game/src/transitions/world_transitions.rs
+  s_df58c006df53b7::t_af2db643467123 10-14,22-23,69-74
+game/src/scripting/interact/mod.rs
+  s_df58c006df53b7::t_66c28637e6865e 11
+  s_df58c006df53b7::t_4184359e8cd80d 1-10,12-29
+engine_core/src/ecs/components/world_entry.rs
+  s_df58c006df53b7::t_003527878af0a0 36-44,47-51,54-65,67,69-74,76-81
+  s_df58c006df53b7::t_2e4e27c8105d16 17,19,26
+  s_df58c006df53b7::t_23ee75a62cb036 2
+  s_df58c006df53b7::t_6371796ad3b4a7 45-46,52-53,66,75
+  s_df58c006df53b7::t_9331f7ab0d3af8 16
+  s_df58c006df53b7::t_1edbaab607ff25 1
+  s_df58c006df53b7::t_77392bf96db433 6,20
+  s_df58c006df53b7::t_99ad3c82737390 68
+  s_df58c006df53b7::t_52caf2d6b0ff45 9,15,18,21-25,27-34
+game/src/scripting/modules/engine_module.rs
+  s_df58c006df53b7::t_8e178806b5196f 4
+  s_df58c006df53b7::t_5288395107cd1a 3,366
+games/Demo/Resources/scripts/_engine/runtime/entity.lua
+  s_df58c006df53b7::t_4382a9ab3e409c 43,174-177,242-243
+game/src/engine/mod.rs
+  s_df58c006df53b7::t_7f64838dd9ef85 23,240-241
+editor/src/commands/room/duplicate_entities_cmd.rs
+  s_df58c006df53b7::t_56b19c162bc427 135
+game/src/scripting/mod.rs
+  s_df58c006df53b7::t_da5602037e240a 3
+engine_core/src/ecs/tests/ecs_tests.rs
+  s_df58c006df53b7::t_d48ca01ebe87cb 21
+  s_df58c006df53b7::t_b6de0f6ffd1b13 22
+game/src/transitions/mod.rs
+  s_df58c006df53b7::t_b366a5937d0aca 2
+engine_core/src/ecs/components/world_exit.rs
+  s_df58c006df53b7::t_416f42ce635760 1,5,10-11,16-17
+  s_df58c006df53b7::t_79228e8b1d6ec3 2-4,6-9,12-15,18
+games/Demo/Resources/scripts/_engine/data/components.lua
+  s_df58c006df53b7::t_f5771171702975 131,134
+  s_df58c006df53b7::t_80baf7a7fe0e45 130,132-133,135,167,201
+editor/src/shared/scene_ui/inspector/entity_inspector.rs
+  s_df58c006df53b7::t_fab58a97de3aa4 610-611
+editor/src/gui/inspector/mod.rs
+  s_df58c006df53b7::t_f7e16efea2a58c 8
+  s_df58c006df53b7::t_cb518da0a23317 7
+games/Demo/Resources/game.ron
+  s_df58c006df53b7::t_46a4fa3383a90c 113
+editor/src/commands/world/mod.rs
+  s_df58c006df53b7::t_137137a60fdaa2 2,5
+engine_core/src/game/tests/mod.rs
+  s_df58c006df53b7::t_8d8b3faa3215c6 21
+  s_df58c006df53b7::t_2ad9124475d5e4 20
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "9d53e815fd7c3347046cae45b2126f52229c449e",
+  "prompts": {},
+  "sessions": {
+    "s_df58c006df53b7": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019ebd49-b476-79c3-aec5-4ce89348c290",
+        "model": "claude-sonnet-4.6"
+      },
+      "human_author": "Charlie Lashmar <c.lashmar08@gmail.com>"
+    }
+  }
+}
