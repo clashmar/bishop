@@ -1,22 +1,21 @@
 use super::super::PropertyModule;
-use crate::gui::widgets::script_picker_row::draw_script_picker_row;
+use crate::gui::widgets::script_module_core::ScriptModuleCore;
 use crate::shared::scene_ui::inspector::InspectorContext;
 use bishop::prelude::*;
 use engine_core::ecs::inspector::layout::InspectorBodyLayout;
 use engine_core::game::GameCtxMut;
 use engine_core::worlds::world::World;
-use widgets::*;
-use ::widgets::constants::layout;
 
-/// Assigns a script to the world's singleton entity.
+/// Assigns and edits a script on the world's singleton entity.
 pub struct WorldScriptModule {
-    picker_id: WidgetId,
+    core: ScriptModuleCore,
 }
 
 impl WorldScriptModule {
+    /// Creates a new world script module.
     pub fn new() -> Self {
         Self {
-            picker_id: WidgetId::default(),
+            core: ScriptModuleCore::new(),
         }
     }
 }
@@ -28,6 +27,14 @@ impl Default for WorldScriptModule {
 }
 
 impl PropertyModule<World> for WorldScriptModule {
+    fn visible(&self, _world: &World, game_ctx: &GameCtxMut) -> bool {
+        game_ctx
+            .world
+            .as_deref()
+            .and_then(|w| w.singleton)
+            .is_some()
+    }
+
     fn draw(
         &mut self,
         ctx: &mut WgpuContext,
@@ -36,35 +43,14 @@ impl PropertyModule<World> for WorldScriptModule {
         game_ctx: &mut GameCtxMut,
         _insp_ctx: &InspectorContext,
     ) {
-        let Some(entity) = game_ctx
-            .world
-            .as_deref()
-            .and_then(|w| w.singleton)
-        else {
+        let Some(entity) = game_ctx.world.as_deref().and_then(|w| w.singleton) else {
             return;
         };
-
-        let row_rect = Rect::new(
-            rect.x,
-            rect.y + layout::WIDGET_SPACING,
-            rect.w,
-            layout::DEFAULT_FIELD_HEIGHT,
-        );
-
-        draw_script_picker_row(
-            ctx,
-            row_rect,
-            self.picker_id,
-            entity,
-            game_ctx.ecs,
-            game_ctx.asset_registry,
-            game_ctx.script_manager,
-            false,
-        );
+        self.core.draw(ctx, rect, entity, game_ctx, false);
     }
 
     fn body_layout(&self) -> InspectorBodyLayout {
-        InspectorBodyLayout::new().rows(1, layout::WIDGET_SPACING)
+        self.core.body_layout()
     }
 
     fn title(&self) -> &str {
