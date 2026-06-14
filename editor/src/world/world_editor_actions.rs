@@ -1,12 +1,9 @@
-use crate::world::coord;
 use crate::world::world_editor::WorldEditor;
 use bishop::prelude::*;
 use engine_core::ecs::*;
 use engine_core::game::{Game, GameCtxMut};
 use engine_core::tiles::{TileMap};
-use engine_core::ui::{measure_text};
 use engine_core::worlds::*;
-use ::widgets::constants::layout;
 
 impl WorldEditor {
     /// Delete a room by its RoomId.
@@ -136,20 +133,5 @@ impl WorldEditor {
             && (a_rect.x + a_rect.w == b_rect.x || b_rect.x + b_rect.w == a_rect.x);
 
         horizontal_touch || vertical_touch
-    }
-
-    /// Draws the coordinates of the grid square the mouse is over.
-    pub fn draw_coordinates(&self, ctx: &mut WgpuContext, camera: &Camera2D, grid_size: f32) {
-        let world_grid = coord::mouse_world_grid(ctx, camera, grid_size);
-
-        let txt = format!("({:.0}, {:.0})", world_grid.x, world_grid.y,);
-
-        let txt_metrics = measure_text(ctx, &txt, layout::DEFAULT_FONT_SIZE_16);
-        let margin = 10.0;
-
-        let x = (ctx.screen_width() - txt_metrics.width) / 2.0;
-        let y = ctx.screen_height() - margin;
-
-        ctx.draw_text(&txt, x, y, layout::DEFAULT_FONT_SIZE_16, Color::BLACK);
     }
 }

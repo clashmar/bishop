@@ -26,6 +26,10 @@ impl<T, M: PropertyModule<T>> CollapsiblePropertyModule<T, M> {
         }
     }
 
+    /// Returns a reference to the inner module.
+    pub fn inner(&self) -> &M {
+        &self.inner
+    }
 }
 
 impl<T, M: PropertyModule<T>> PropertyModule<T> for CollapsiblePropertyModule<T, M> {

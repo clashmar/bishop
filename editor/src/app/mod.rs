@@ -395,7 +395,7 @@ impl Editor {
                             }
                         };
 
-                        // In release mode, binary extraction is instant — launch synchronously
+                        // In release mode, binary extraction is instant; launch synchronously
                         if !cfg!(debug_assertions) {
                             match resolve_playtest_binary() {
                                 Ok(exe_path) => {
@@ -470,6 +470,9 @@ impl Editor {
                         &mut self.game,
                         grid_renderer,
                     );
+                    if let Some(pos) = self.world_editor.pending_camera_focus.take() {
+                        self.world_editor.center_on_position(&mut self.camera, pos);
+                    }
                 }
             }
             EditorMode::Room(room_id) => {

@@ -15,10 +15,10 @@ pub struct Inspector {
     pub rect: Rect,
     scroll_state: ScrollState,
 
-    game: GameProperties,
-    world: WorldProperties,
-    room: RoomProperties,
-    entity: Option<EntityInspector>,
+    pub game: GameProperties,
+    pub world: WorldProperties,
+    pub room: RoomProperties,
+    pub entity: Option<EntityInspector>,
 
     active: ActivePane,
     interactive_rects: Vec<Rect>,

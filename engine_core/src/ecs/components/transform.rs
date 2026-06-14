@@ -15,6 +15,7 @@ use serde_with::serde_as;
 pub struct Transform {
     /// Whether the entity is visible when rendering.
     pub visible: bool,
+    /// Entity position in absolute world-space pixels.
     #[serde_as(as = "serde_with::FromInto<[f32; 2]>")]
     pub position: Vec2,
     /// Pivot point for rendering. Defaults to BottomCenter.

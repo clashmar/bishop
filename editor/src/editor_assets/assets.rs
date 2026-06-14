@@ -73,6 +73,8 @@ static LUA_ICON: OnceLock<Texture2D> = OnceLock::new();
 static IMAGE_ICON: OnceLock<Texture2D> = OnceLock::new();
 static AUDIO_ICON: OnceLock<Texture2D> = OnceLock::new();
 static TEXT_ICON: OnceLock<Texture2D> = OnceLock::new();
+static WORLD_ENTRY_ICON: OnceLock<Texture2D> = OnceLock::new();
+static WORLD_EXIT_ICON: OnceLock<Texture2D> = OnceLock::new();
 static FILE_ICON: OnceLock<Texture2D> = OnceLock::new();
 
 /// Loads all editor icon textures. Must be called once after the graphics context is ready.
@@ -101,6 +103,8 @@ pub fn init_editor_icons(loader: &impl TextureLoader) {
     let _ = AUDIO_ICON.set(load(include_bytes!("icons/audio.png")));
     let _ = TEXT_ICON.set(load(include_bytes!("icons/text.png")));
     let _ = FILE_ICON.set(load(include_bytes!("icons/file.png")));
+    let _ = WORLD_ENTRY_ICON.set(load(include_bytes!("icons/entity.png")));
+    let _ = WORLD_EXIT_ICON.set(load(include_bytes!("icons/entity.png")));
 }
 
 pub fn select_icon() -> &'static Texture2D {
@@ -161,6 +165,14 @@ pub fn text_icon() -> &'static Texture2D {
 }
 pub fn file_icon() -> &'static Texture2D {
     FILE_ICON.get().expect("Editor icons not initialized")
+}
+/// Returns the world entry point icon texture.
+pub fn world_entry_icon() -> &'static Texture2D {
+    WORLD_ENTRY_ICON.get().expect("Editor icons not initialized")
+}
+/// Returns the world exit icon texture.
+pub fn world_exit_icon() -> &'static Texture2D {
+    WORLD_EXIT_ICON.get().expect("Editor icons not initialized")
 }
 
 // Include the auto-generated ENGINE_SCRIPTS array from build.rs

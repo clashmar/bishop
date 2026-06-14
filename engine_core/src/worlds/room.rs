@@ -32,8 +32,10 @@ impl std::ops::DerefMut for RoomId {
 pub struct Room {
     pub id: RoomId,
     pub name: String,
+    /// Top-left corner of the room in absolute world-space pixels.
     #[serde_as(as = "FromInto<[f32; 2]>")]
-    pub position: Vec2, // Top-left origin in pixels
+    pub position: Vec2,
+    /// Room dimensions in grid units.
     #[serde_as(as = "FromInto<[f32; 2]>")]
     pub size: Vec2,
     pub exits: Vec<Exit>,
