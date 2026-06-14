@@ -12,7 +12,6 @@ use crate::commands::scene::{
 use crate::editor_global::push_command;
 use crate::gui::gui_constants::{self, *};
 use crate::gui::inspector::player_module::PlayerModule;
-use crate::gui::inspector::room_camera_module::ROOM_CAMERA_MODULE_TITLE;
 use crate::gui::menu_bar::menu_button;
 use crate::gui::panel_text_color;
 use crate::shared::input::shortcuts_blocked;
@@ -137,8 +136,8 @@ impl EntityInspector {
         let is_proxy = ecs.has::<PlayerProxy>(entity);
         let mut result = Vec::new();
         for entry in MODULES.iter() {
-            let type_name = entry.title;
-            if type_name == ROOM_CAMERA_MODULE_TITLE {
+            let type_name = entry.type_name;
+            if type_name == RoomCamera::TYPE_NAME {
                 continue;
             }
             if hide_room_only_components && is_scene_component_hidden_in_prefab(type_name) {
@@ -161,7 +160,7 @@ impl EntityInspector {
             }
             result.push(AddableComponent {
                 type_name,
-                label: prettify_component_label(type_name),
+                label: entry.title.to_string(),
             });
         }
         result
@@ -608,15 +607,6 @@ fn entity_has_component(ecs: &Ecs, entity: Entity, reg: &ComponentRegistry) -> b
     (reg.has)(ecs, entity)
 }
 
-fn prettify_component_label(type_name: &str) -> String {
-    match type_name {
-        "AudioSource" => "Audio Source".to_string(),
-        "PhysicsBody" => "Physics Body".to_string(),
-        "WorldEntry" => "World Entry".to_string(),
-        "WorldExit" => "World Exit".to_string(),
-        _ => type_name.to_string(),
-    }
-}
 
 fn prefab_open_button_label<C: BishopContext>(
     ctx: &mut C,

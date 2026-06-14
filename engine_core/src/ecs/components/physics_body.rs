@@ -9,4 +9,4 @@ use serde::{Deserialize, Serialize};
 #[derive(Default, Clone, Copy, Serialize, Deserialize, Reflect)]
 pub struct PhysicsBody;
 
-inspector_module!(PhysicsBody);
+inspector_module!(PhysicsBody, removable = true, title = "Physics Body");

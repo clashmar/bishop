@@ -20,6 +20,7 @@ use ::widgets::constants::colors;
 use ::widgets::constants::layout as widget_layout;
 
 const TOP_PADDING: f32 = 10.0;
+const TITLE: &str = "Audio Source";
 const SPACING: f32 = 5.0;
 const SECTION_GAP: f32 = 12.0;
 const EDIT_SECTION_SPACING: f32 = 9.0;
@@ -482,13 +483,14 @@ fn format_volume_label(volume: f32) -> String {
 
 inventory::submit! {
     ModuleFactoryEntry {
-        title: <AudioSource>::TYPE_NAME,
+        type_name: <AudioSource>::TYPE_NAME,
+        title: TITLE,
         factory: || {
             Box::new(
                 CollapsibleComponentModule::new(
                     crate::gui::inspector::audio_source_module::AudioSourceModule::default()
                 )
-                .with_title("Audio Source")
+                .with_title(TITLE)
             )
         },
         allowed_for: None,

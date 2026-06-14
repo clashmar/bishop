@@ -113,7 +113,8 @@ impl InspectorModule for WorldEntryModule {
 
 inventory::submit! {
     ModuleFactoryEntry {
-        title: WorldEntry::TYPE_NAME,
+        type_name: WorldEntry::TYPE_NAME,
+        title: TITLE,
         factory: || {
             Box::new(
                 CollapsibleComponentModule::new(

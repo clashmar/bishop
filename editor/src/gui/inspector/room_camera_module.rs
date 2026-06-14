@@ -307,6 +307,7 @@ impl RoomCameraModule {
 
 inventory::submit! {
     ModuleFactoryEntry {
+        type_name: RoomCamera::TYPE_NAME,
         title: ROOM_CAMERA_MODULE_TITLE,
         factory: || {
             Box::new(

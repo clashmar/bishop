@@ -298,6 +298,7 @@ impl InspectorModule for ScriptModule {
 
 inventory::submit! {
     ModuleFactoryEntry {
+        type_name: <engine_core::ecs::Script>::TYPE_NAME,
         title: <engine_core::ecs::Script>::TYPE_NAME,
         factory: || {
             Box::new(

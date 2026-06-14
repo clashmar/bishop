@@ -218,7 +218,8 @@ impl InspectorModule for WorldExitModule {
 
 inventory::submit! {
     ModuleFactoryEntry {
-        title: WorldExit::TYPE_NAME,
+        type_name: WorldExit::TYPE_NAME,
+        title: TITLE,
         factory: || Box::new(
             CollapsibleComponentModule::new(
                 crate::gui::inspector::world_exit_module::WorldExitModule::default()
