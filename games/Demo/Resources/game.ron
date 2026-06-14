@@ -30,7 +30,7 @@
             ),
             /*[6]*/ (
                 type_name: "CurrentRoom",
-                data: "{\n    (1): ((1)),\n    (2): ((1)),\n    (24): ((2)),\n    (37): ((1)),\n    (38): ((2)),\n    (39): ((3)),\n    (41): ((4)),\n    (43): ((3)),\n    (46): ((2)),\n    (47): ((4)),\n    (51): ((1)),\n    (52): ((4)),\n    (53): ((1)),\n    (54): ((1)),\n    (55): ((2)),\n    (56): ((3)),\n    (57): ((3)),\n    (58): ((4)),\n    (59): ((4)),\n}",
+                data: "{\n    (1): ((1)),\n    (2): ((1)),\n    (24): ((2)),\n    (37): ((1)),\n    (38): ((2)),\n    (39): ((3)),\n    (41): ((4)),\n    (43): ((3)),\n    (46): ((2)),\n    (47): ((4)),\n    (51): ((1)),\n    (52): ((4)),\n    (53): ((1)),\n    (54): ((1)),\n    (55): ((2)),\n    (56): ((3)),\n    (57): ((3)),\n    (58): ((4)),\n    (59): ((4)),\n    (62): ((4)),\n}",
             ),
             /*[7]*/ (
                 type_name: "Damage",
@@ -110,7 +110,7 @@
             ),
             /*[26]*/ (
                 type_name: "Script",
-                data: "{\n    (3): (\n        script_id: (2),\n        data: (\n            fields: {\n                \"health\": Int(100),\n                \"jump_speed\": Int(200),\n                \"name\": Text(\"Player\"),\n                \"run_speed\": Int(180),\n                \"speed\": Int(100),\n            },\n        ),\n    ),\n    (37): (\n        script_id: (3),\n        data: (\n            fields: {\n                \"dialogue\": Toml((1)),\n                \"name\": Text(\"NPC\"),\n            },\n        ),\n    ),\n    (38): (\n        script_id: (4),\n        data: (\n            fields: {\n                \"name\": Text(\"Checkpoint\"),\n            },\n        ),\n    ),\n    (56): (\n        script_id: (6),\n        data: (\n            fields: {},\n        ),\n    ),\n}",
+                data: "{\n    (3): (\n        script_id: (2),\n        data: (\n            fields: {\n                \"health\": Int(100),\n                \"jump_speed\": Int(200),\n                \"name\": Text(\"Player\"),\n                \"run_speed\": Int(180),\n                \"speed\": Int(100),\n            },\n        ),\n    ),\n    (37): (\n        script_id: (3),\n        data: (\n            fields: {\n                \"dialogue\": Toml((1)),\n                \"name\": Text(\"NPC\"),\n            },\n        ),\n    ),\n    (38): (\n        script_id: (4),\n        data: (\n            fields: {\n                \"name\": Text(\"Checkpoint\"),\n            },\n        ),\n    ),\n    (56): (\n        script_id: (6),\n        data: (\n            fields: {},\n        ),\n    ),\n    (57): (\n        script_id: (6),\n        data: (\n            fields: {},\n        ),\n    ),\n}",
             ),
             /*[27]*/ (
                 type_name: "Singleton",
@@ -134,7 +134,7 @@
             ),
             /*[32]*/ (
                 type_name: "Transform",
-                data: "{\n    (1): (\n        visible: true,\n        position: (128.0, 0.0),\n        pivot: TopLeft,\n    ),\n    (2): (\n        visible: true,\n        position: (28.0, 72.0),\n        pivot: BottomCenter,\n    ),\n    (3): (\n        visible: true,\n        position: (0.0, 0.0),\n        pivot: BottomCenter,\n    ),\n    (24): (\n        visible: true,\n        position: (-64.0, 36.0),\n        pivot: CenterLeft,\n    ),\n    (37): (\n        visible: true,\n        position: (164.0, 72.0),\n        pivot: BottomCenter,\n    ),\n    (38): (\n        visible: true,\n        position: (-84.0, 72.0),\n        pivot: BottomCenter,\n    ),\n    (39): (\n        visible: true,\n        position: (128.0, 72.0),\n        pivot: CenterLeft,\n    ),\n    (41): (\n        visible: true,\n        position: (128.0, 72.0),\n        pivot: CenterLeft,\n    ),\n    (43): (\n        visible: true,\n        position: (88.0, 112.0),\n        pivot: BottomCenter,\n    ),\n    (46): (\n        visible: true,\n        position: (-44.0, 72.0),\n        pivot: BottomCenter,\n    ),\n    (47): (\n        visible: true,\n        position: (56.0, 64.0),\n        pivot: BottomCenter,\n    ),\n    (51): (\n        visible: true,\n        position: (76.0, 72.0),\n        pivot: BottomCenter,\n    ),\n    (52): (\n        visible: true,\n        position: (152.0, 144.0),\n        pivot: BottomCenter,\n    ),\n}",
+                data: "{\n    (1): (\n        visible: true,\n        position: (128.0, 0.0),\n        pivot: TopLeft,\n    ),\n    (2): (\n        visible: true,\n        position: (28.0, 72.0),\n        pivot: BottomCenter,\n    ),\n    (3): (\n        visible: true,\n        position: (0.0, 0.0),\n        pivot: BottomCenter,\n    ),\n    (24): (\n        visible: true,\n        position: (-64.0, 36.0),\n        pivot: CenterLeft,\n    ),\n    (37): (\n        visible: true,\n        position: (164.0, 72.0),\n        pivot: BottomCenter,\n    ),\n    (38): (\n        visible: true,\n        position: (-84.0, 72.0),\n        pivot: BottomCenter,\n    ),\n    (39): (\n        visible: true,\n        position: (128.0, 72.0),\n        pivot: CenterLeft,\n    ),\n    (41): (\n        visible: true,\n        position: (128.0, 72.0),\n        pivot: CenterLeft,\n    ),\n    (43): (\n        visible: true,\n        position: (88.0, 112.0),\n        pivot: BottomCenter,\n    ),\n    (46): (\n        visible: true,\n        position: (-44.0, 72.0),\n        pivot: BottomCenter,\n    ),\n    (47): (\n        visible: true,\n        position: (56.0, 64.0),\n        pivot: BottomCenter,\n    ),\n    (51): (\n        visible: true,\n        position: (76.0, 72.0),\n        pivot: BottomCenter,\n    ),\n    (52): (\n        visible: true,\n        position: (152.0, 144.0),\n        pivot: BottomCenter,\n    ),\n    (62): (\n        visible: true,\n        position: (40.0, 112.0),\n        pivot: BottomCenter,\n    ),\n}",
             ),
             /*[33]*/ (
                 type_name: "Velocity",
@@ -146,11 +146,11 @@
             ),
             /*[35]*/ (
                 type_name: "WorldEntry",
-                data: "{\n    (47): (\n        name: \"Main Entry\",\n    ),\n    (51): (\n        name: \"Main Entry\",\n    ),\n}",
+                data: "{\n    (47): (\n        name: \"Main Entry\",\n    ),\n    (51): (\n        name: \"Start\",\n    ),\n    (62): (\n        name: \"Start\",\n    ),\n}",
             ),
             /*[36]*/ (
                 type_name: "WorldExit",
-                data: "{\n    (46): (\n        destination_world: Some((3)),\n        entry: Some(\"Main Entry\"),\n        mode: Transport,\n        trigger: OnInteract,\n    ),\n    (52): (\n        destination_world: Some((1)),\n        entry: Some(\"Main Entry\"),\n        mode: Transport,\n        trigger: OnInteract,\n    ),\n}",
+                data: "{\n    (46): (\n        destination: Some(World((3))),\n        entry: Some(\"Start\"),\n        trigger: OnInteract,\n    ),\n    (52): (\n        destination: Some(World((1))),\n        entry: Some(\"Start\"),\n        trigger: OnInteract,\n    ),\n}",
             ),
         ],
     ),
@@ -319,8 +319,6 @@
                 ),
             ],
             current_room_id: Some((1)),
-            starting_room_id: Some((1)),
-            starting_position: Some((0.0, 0.0)),
             meta: (
                 position: (-129.64679, -183.89914),
                 sprite_id: None,
@@ -328,12 +326,13 @@
             tags: [
                 /*[0]*/ Autosave,
             ],
+            overlay: false,
             grid_size: 8.0,
             singleton: Some((53)),
         ),
         /*[1]*/ (
             id: (2),
-            name: "Pacman",
+            name: "Arcade",
             rooms: [
                 /*[0]*/ (
                     id: (3),
@@ -358,13 +357,12 @@
                 ),
             ],
             current_room_id: Some((3)),
-            starting_room_id: Some((3)),
-            starting_position: Some((0.0, 0.0)),
             meta: (
                 position: (-249.23828, -2.542984),
                 sprite_id: None,
             ),
             tags: [],
+            overlay: true,
             grid_size: 16.0,
             singleton: Some((56)),
         ),
@@ -395,13 +393,14 @@
                 ),
             ],
             current_room_id: Some((4)),
-            starting_room_id: Some((4)),
-            starting_position: Some((0.0, 0.0)),
             meta: (
                 position: (0.0, 0.0),
                 sprite_id: None,
             ),
-            tags: [],
+            tags: [
+                /*[0]*/ Autosave,
+            ],
+            overlay: false,
             grid_size: 16.0,
             singleton: Some((58)),
         ),
@@ -451,7 +450,7 @@
                 path: "scripts/room_traversal_probe.lua",
             ),
             Script((6)): (
-                path: "scripts/pacman_world.lua",
+                path: "scripts/arcade_world.lua",
             ),
             Prefab((1)): (
                 path: "prefabs/Cat.prefab",

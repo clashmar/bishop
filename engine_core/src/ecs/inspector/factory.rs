@@ -1,6 +1,10 @@
 #[cfg(feature = "editor")]
 use crate::ecs::component::Component;
 #[cfg(feature = "editor")]
+use crate::ecs::ecs::Ecs;
+#[cfg(feature = "editor")]
+use crate::ecs::entity::Entity;
+#[cfg(feature = "editor")]
 use crate::ecs::inspector::generic_module::GenericModule;
 #[cfg(feature = "editor")]
 use crate::ecs::inspector::module::*;
@@ -27,6 +31,8 @@ pub struct ModuleFactoryEntry {
     pub title: &'static str,
     /// Factory that builds the concrete UI module.
     pub factory: fn() -> Box<dyn InspectorModule>,
+    /// Optional predicate; when `Some`, the component is excluded from Add Component for entities that return `false`.
+    pub allowed_for: Option<fn(Entity, &Ecs) -> bool>,
 }
 
 #[cfg(feature = "editor")]
@@ -53,6 +59,7 @@ macro_rules! inspector_module {
             $crate::ecs::inspector::factory::ModuleFactoryEntry {
                 title: <$ty>::TYPE_NAME,
                 factory: || $crate::ecs::inspector::factory::make_module::<$ty>(<$ty>::TYPE_NAME, $removable),
+                allowed_for: None,
             }
         }
     };

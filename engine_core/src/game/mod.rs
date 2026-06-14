@@ -16,7 +16,8 @@ use crate::omni_error;
 use crate::prefab::{load_prefab_manager, PrefabManager};
 use crate::scripting::script_manager::ScriptManager;
 use crate::worlds::room::RoomId;
-use crate::worlds::world::*;
+use crate::worlds::{WorldDirectorySnapshot, world::*};
+use crate::worlds::transition::OverlayFrame;
 use crate::{storage::text_folder, text::TextManager};
 use bishop::prelude::TextureLoader;
 use mlua::Lua;
@@ -62,6 +63,9 @@ pub struct Game {
     pub game_map: GameMap,
     #[serde(skip)]
     pub id_allocator: IdAllocator,
+    /// Stack of overlay frames for returning from overlay worlds.
+    #[serde(skip)]
+    pub overlay_stack: Vec<OverlayFrame>,
 }
 
 impl Default for Game {
@@ -81,6 +85,7 @@ impl Default for Game {
             current_world_id: Some(WorldId(1)),
             game_map: GameMap::default(),
             id_allocator: IdAllocator::default(),
+            overlay_stack: Vec::new(),
         }
     }
 }
@@ -99,7 +104,7 @@ pub struct GameCtx<'a> {
 pub struct GameCtxMut<'a> {
     pub ecs: &'a mut Ecs,
     pub world: Option<&'a mut World>,
-    pub world_directory: Vec<(WorldId, String)>,
+    pub world_directory: Vec<WorldDirectorySnapshot>,
     pub room_world_map: HashMap<RoomId, WorldId>,
     pub asset_registry: &'a mut AssetRegistry,
     pub sprite_manager: &'a mut SpriteManager,
@@ -119,6 +124,14 @@ impl Game {
     /// Returns an immutable slice of all worlds for read-only iteration.
     pub fn worlds(&self) -> &[World] {
         &self.worlds
+    }
+
+    /// Returns a map from each room's id to the world that contains it.
+    pub fn room_world_map(&self) -> HashMap<RoomId, WorldId> {
+        self.worlds
+            .iter()
+            .flat_map(|w| w.rooms().iter().map(move |r| (r.id, w.id)))
+            .collect()
     }
 
     /// Returns a mutable slice of all worlds for non-resizing mutation.
@@ -175,8 +188,8 @@ impl Game {
     /// Returns a mutable game context.
     pub fn ctx_mut<'a>(&'a mut self) -> GameCtxMut<'a> {
         let current_id = self.current_world_id.unwrap_or_default();
-        let world_directory: Vec<(WorldId, String)> =
-            self.worlds.iter().map(|w| (w.id, w.name.clone())).collect();
+        let world_directory: Vec<WorldDirectorySnapshot> =
+            self.worlds.iter().map(|w| WorldDirectorySnapshot { id: w.id, name: w.name.clone(), overlay: w.overlay }).collect();
         let room_world_map: HashMap<RoomId, WorldId> = self.worlds
             .iter()
             .flat_map(|w| w.rooms().iter().map(move |r| (r.id, w.id)))

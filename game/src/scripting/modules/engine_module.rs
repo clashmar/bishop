@@ -2,7 +2,9 @@ use crate::game_global::set_pending_world_transition;
 use crate::scripting::lua_ctx::LuaGameCtx;
 use crate::transitions::world_transitions::{WorldSelector, WorldTransitionRequest};
 use engine_core::worlds::WorldTransitionMode;
+use engine_core::worlds::{WorldId, RoomId};
 use engine_core::ecs::*;
+use bishop::prelude::Vec2;
 use engine_core::register_lua_api;
 use engine_core::register_lua_module;
 use engine_core::scripting::lua_constants::{
@@ -358,18 +360,49 @@ impl LuaModule for EngineModule {
         })?;
         engine_tbl.set(lua_engine::EMIT, emit_fn)?;
 
-        // engine.activate_world(world_name, entry_name?)
-        let activate_world_fn =
+        // engine.overlay_world(world_name, entry_name?)
+        let overlay_world_fn =
             lua.create_function(|_lua, (world_name, entry_name): (String, Option<String>)| {
                 set_pending_world_transition(WorldTransitionRequest {
                     entity: None,
                     world: WorldSelector::ByName(world_name),
                     entry_name,
-                    mode: WorldTransitionMode::Activate,
+                    mode: WorldTransitionMode::Overlay,
                 });
                 Ok(())
             })?;
-        engine_tbl.set(lua_engine::ACTIVATE_WORLD, activate_world_fn)?;
+        engine_tbl.set(lua_engine::OVERLAY_WORLD, overlay_world_fn)?;
+
+        // engine.return_from_world()
+        let return_from_world_fn = lua.create_function(|_lua, ()| {
+            set_pending_world_transition(WorldTransitionRequest {
+                entity: None,
+                world: WorldSelector::Return,
+                entry_name: None,
+                mode: WorldTransitionMode::Overlay,
+            });
+            Ok(())
+        })?;
+        engine_tbl.set(lua_engine::RETURN_FROM_WORLD, return_from_world_fn)?;
+
+        // engine.restore_location(world_id, room_id, x, y)
+        let restore_location_fn = lua.create_function(|lua, (world_id, room_id, x, y): (usize, usize, f32, f32)| {
+            let ctx = LuaGameCtx::borrow_ctx(lua)?;
+            let mut gi = ctx.game_instance.borrow_mut();
+            let game = &mut gi.game;
+            game.select_world(WorldId(world_id));
+            if let Some(world) = game.current_world_mut() {
+                world.current_room_id = Some(RoomId(room_id));
+            }
+            if let Some(player) = game.ecs.get_player_entity() {
+                game.ecs.set_current_room(player, RoomId(room_id));
+                if let Some(t) = game.ecs.get_mut::<Transform>(player) {
+                    t.position = Vec2::new(x, y);
+                }
+            }
+            Ok(())
+        })?;
+        engine_tbl.set(lua_engine::RESTORE_LOCATION, restore_location_fn)?;
 
         // engine.current_world() -> { id, name }
         let current_world_fn = lua.create_function(|lua, ()| {
@@ -476,19 +509,28 @@ impl LuaApi for EngineModule {
         ));
         out.line("");
 
-        out.line("--- Activates another world without moving any entity.");
+        out.line("--- Overlays another world without moving any entity.");
         out.line("--- The world resumes at the named entry's room, or its start when omitted.");
         out.line("---@param world_name string");
         out.line("---@param entry_name string|nil");
         out.line(&format!(
             "function engine.{}(world_name, entry_name) end",
-            lua_engine::ACTIVATE_WORLD
+            lua_engine::OVERLAY_WORLD
         ));
         out.line("");
 
         out.line("--- Returns the active world.");
         out.line("---@return { id: integer, name: string }");
         out.line(&format!("function engine.{}() end", lua_engine::CURRENT_WORLD));
+        out.line("");
+
+        out.line("--- Restores the player to a specific world, room, and position.");
+        out.line("---@param world_id integer");
+        out.line("---@param room_id integer");
+        out.line("---@param x number");
+        out.line("---@param y number");
+        out.line("---@return nil");
+        out.line(&format!("function engine.{}(world_id, room_id, x, y) end", lua_engine::RESTORE_LOCATION));
         out.line("");
     }
 }

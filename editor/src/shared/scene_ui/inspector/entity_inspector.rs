@@ -154,6 +154,11 @@ impl EntityInspector {
             if entity_has_component(ecs, comp_target, reg) {
                 continue;
             }
+            if let Some(predicate) = entry.allowed_for {
+                if !predicate(entity, ecs) {
+                    continue;
+                }
+            }
             result.push(AddableComponent {
                 type_name,
                 label: prettify_component_label(type_name),

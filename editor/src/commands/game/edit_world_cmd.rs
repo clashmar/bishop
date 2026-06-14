@@ -11,8 +11,10 @@ pub struct EditWorldCmd {
     world_id: WorldId,
     old_name: String,
     old_sprite: Option<SpriteId>,
+    old_overlay: bool,
     new_name: Option<String>,
     new_sprite: Option<Option<SpriteId>>,
+    new_overlay: Option<bool>,
 }
 
 impl EditWorldCmd {
@@ -25,21 +27,32 @@ impl EditWorldCmd {
             world_id,
             old_name: String::new(),
             old_sprite: None,
+            old_overlay: false,
             new_name,
             new_sprite,
+            new_overlay: None,
         }
     }
 
-    /// Helper that writes the supplied values into the world.
+    /// Sets the `overlay` flag to change.
+    pub fn with_overlay(mut self, overlay: bool) -> Self {
+        self.new_overlay = Some(overlay);
+        self
+    }
+
     fn apply(
         game: &mut Game,
         world_id: WorldId,
         name: Option<&str>,
         sprite: Option<Option<SpriteId>>,
+        overlay: Option<bool>,
     ) {
-        if let Some(name) = name {
-            if let Some(world) = game.get_world_mut(world_id) {
+        if let Some(world) = game.get_world_mut(world_id) {
+            if let Some(name) = name {
                 world.name = name.to_owned();
+            }
+            if let Some(o) = overlay {
+                world.overlay = o;
             }
         }
         if let Some(sprite_opt) = sprite {
@@ -47,11 +60,11 @@ impl EditWorldCmd {
         }
     }
 
-    /// Capture the current state of the world.
     fn capture_original_state(&mut self, game: &Game) {
         if let Some(world) = game.get_world(self.world_id) {
             self.old_name = world.name.clone();
             self.old_sprite = world.meta.sprite_id;
+            self.old_overlay = world.overlay;
         }
     }
 }
@@ -62,31 +75,30 @@ impl EditorCommand for EditWorldCmd {
             self.capture_original_state(&editor.game);
         });
 
-        // Apply the new values
         with_editor(|editor| {
-            let game = &mut editor.game;
             Self::apply(
-                game,
+                &mut editor.game,
                 self.world_id,
                 self.new_name.as_deref(),
                 self.new_sprite,
+                self.new_overlay,
             );
         });
     }
 
     fn undo(&mut self) {
         with_editor(|editor| {
-            let game = &mut editor.game;
             Self::apply(
-                game,
+                &mut editor.game,
                 self.world_id,
                 Some(&self.old_name),
                 Some(self.old_sprite),
+                Some(self.old_overlay),
             );
         });
     }
 
     fn applies_in_mode(&self, current_mode: EditorMode) -> bool {
-        current_mode == EditorMode::Game
+        matches!(current_mode, EditorMode::Game | EditorMode::World(_))
     }
 }

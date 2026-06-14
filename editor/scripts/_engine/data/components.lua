@@ -128,9 +128,8 @@
 ---@field name string
 
 ---@class WorldExit
----@field destination_world table
+---@field destination table
 ---@field entry table
----@field mode table
 ---@field trigger table
 
 ---@class ComponentId

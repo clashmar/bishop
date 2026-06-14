@@ -13,6 +13,11 @@ pub struct WorldEntry {
     pub name: String,
 }
 
+impl WorldEntry {
+    /// The reserved name for the default world entry point.
+    pub const START: &'static str = "Start";
+}
+
 fn world_entry_post_create(entry: &mut WorldEntry, entity: &Entity, ctx: &mut GameCtxMut<'_>) {
     let Some(world) = ctx.world.as_deref() else {
         return;

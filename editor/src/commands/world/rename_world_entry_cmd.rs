@@ -3,7 +3,7 @@ use crate::commands::editor_command_manager::EditorCommand;
 use crate::with_editor;
 use engine_core::ecs::*;
 use engine_core::game::Game;
-use engine_core::worlds::WorldId;
+use engine_core::worlds::{WorldId, ExitDestination};
 
 /// Undoable rename of a `WorldEntry` that cascades to every referencing `WorldExit`.
 #[derive(Debug)]
@@ -37,7 +37,7 @@ impl RenameWorldEntryCmd {
             game.ecs.get_store::<WorldExit>().data.keys().copied().collect();
         for exit_entity in exits {
             let matches = game.ecs.get::<WorldExit>(exit_entity).is_some_and(|exit| {
-                exit.destination_world == Some(owning_world) && exit.entry.as_deref() == Some(from)
+                exit.destination == Some(ExitDestination::World(owning_world)) && exit.entry.as_deref() == Some(from)
             });
             if matches {
                 if let Some(exit) = game.ecs.get_mut::<WorldExit>(exit_entity) {
@@ -98,18 +98,16 @@ mod tests {
         // Points at (world 1, ORIGINAL_NAME) — should be rewritten.
         let exit_a = game.ecs.create_entity()
             .with(WorldExit {
-                destination_world: Some(WorldId(1)),
+                destination: Some(ExitDestination::World(WorldId(1))),
                 entry: Some(ORIGINAL_NAME.to_string()),
-                mode: WorldTransitionMode::Transport,
                 trigger: WorldExitTrigger::OnInteract,
             })
             .finish();
         // Points at (world 2, ORIGINAL_NAME) — different world, must NOT change.
         let exit_b = game.ecs.create_entity()
             .with(WorldExit {
-                destination_world: Some(WorldId(2)),
+                destination: Some(ExitDestination::World(WorldId(2))),
                 entry: Some(ORIGINAL_NAME.to_string()),
-                mode: WorldTransitionMode::Transport,
                 trigger: WorldExitTrigger::OnInteract,
             })
             .finish();

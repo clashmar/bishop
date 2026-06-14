@@ -23,12 +23,11 @@ pub struct World {
     pub name: String,
     rooms: Vec<Room>,
     pub current_room_id: Option<RoomId>,
-    pub starting_room_id: Option<RoomId>,
-    #[serde_as(as = "Option<FromInto<[f32; 2]>>")]
-    pub starting_position: Option<Vec2>,
     pub meta: WorldMeta,
     #[serde(default)]
     pub tags: Vec<EventTag>,
+    #[serde(default)]
+    pub overlay: bool,
     #[serde(default = "default_grid_size")]
     pub grid_size: f32,
     #[serde(skip)]
@@ -148,6 +147,14 @@ pub struct WorldMeta {
     pub sprite_id: Option<SpriteId>,
 }
 
+/// Snapshot of a world's key properties for display in editor panels and dropdowns.
+#[derive(Clone, Debug)]
+pub struct WorldDirectorySnapshot {
+    pub id: WorldId,
+    pub name: String,
+    pub overlay: bool,
+}
+
 /// How a world transition is triggered by an entity.
 #[derive(EnumIter, Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
 pub enum WorldExitTrigger {
@@ -172,14 +179,14 @@ impl std::fmt::Display for WorldExitTrigger {
 pub enum WorldTransitionMode {
     #[default]
     Transport,
-    Activate,
+    Overlay,
 }
 
 impl std::fmt::Display for WorldTransitionMode {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             WorldTransitionMode::Transport => write!(f, "Transport"),
-            WorldTransitionMode::Activate => write!(f, "Activate"),
+            WorldTransitionMode::Overlay => write!(f, "Overlay"),
         }
     }
 }

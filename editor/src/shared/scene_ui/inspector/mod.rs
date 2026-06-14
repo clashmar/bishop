@@ -107,11 +107,12 @@ pub struct InspectorOutput {
     pub refresh_event_tags: bool,
 }
 
-/// Host-level rename action emitted by Game/World property inspectors.
+/// Host-level rename action emitted by Game/World/Room property inspectors.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum InspectorHostAction {
     RenameGame(String),
     RenameWorld(String),
+    SelectEntity(Entity),
 }
 
 impl InspectorOutput {

@@ -96,7 +96,9 @@ pub mod lua_engine {
     pub const TOML: &str = "toml";
     pub const THEME: &str = "theme";
     pub const QUIT_TO_TITLE: &str = "quit_to_title";
-    pub const ACTIVATE_WORLD: &str = "activate_world";
+    pub const OVERLAY_WORLD: &str = "overlay_world";
+    pub const RETURN_FROM_WORLD: &str = "return_from_world";
+    pub const RESTORE_LOCATION: &str = "restore_location";
     pub const CURRENT_WORLD: &str = "current_world";
 }
 

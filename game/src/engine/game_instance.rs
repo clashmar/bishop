@@ -114,14 +114,24 @@ impl GameInstance {
     }
 
     fn start_room_id(game: &Game) -> RoomId {
-        game.current_world()
-            .starting_room_id
-            .or_else(|| {
-                game.worlds()
-                    .first()
-                    .map(|world| world.starting_room_id.expect("Game has no starting room."))
-            })
-            .expect("Game has no starting room nor any rooms")
+        let world = game.current_world();
+        // Prefer the "Start" WorldEntry's room; fall back to the world's first room
+        let entries = game.ecs.get_store::<WorldEntry>();
+        for (&entity, entry) in entries.data.iter() {
+            if entry.name != "Start" {
+                continue;
+            }
+            if let Some(room_id) = game.ecs.get::<CurrentRoom>(entity).map(|r| r.0) {
+                if world.get_room(room_id).is_some() {
+                    return room_id;
+                }
+            }
+        }
+        world
+            .rooms()
+            .first()
+            .map(|r| r.id)
+            .unwrap_or_default()
     }
 
     /// Drains events generated during UI rendering and forwards them to the event bus.
@@ -194,7 +204,6 @@ mod tests {
     #[test]
     fn prepare_loaded_game_sets_current_world_room_to_start_room() {
         let mut world = World::default();
-        world.starting_room_id = Some(RoomId(1));
         world.current_room_id = Some(RoomId(2));
         world.add_room(Room {
             id: RoomId(1),
@@ -223,7 +232,6 @@ mod tests {
             ..Default::default()
         };
         let mut world = World::default();
-        world.starting_room_id = Some(RoomId(1));
         world.current_room_id = Some(RoomId(1));
         world.add_room(Room {
             id: RoomId(1),
@@ -263,7 +271,6 @@ mod tests {
         .unwrap();
 
         let mut world = World::default();
-        world.starting_room_id = Some(RoomId(1));
         world.add_room(Room {
             id: RoomId(1),
             ..Default::default()

@@ -210,9 +210,8 @@ fn trigger_world_exit_records_transition_by_id() {
         gi.game.ecs.add_component_to_entity(
             entity,
             WorldExit {
-                destination_world: Some(DEST),
+                destination: Some(ExitDestination::World(DEST)),
                 entry: None,
-                mode: WorldTransitionMode::Activate,
                 trigger: WorldExitTrigger::OnInteract,
             },
         );
@@ -236,9 +235,8 @@ fn trigger_world_exit_transport_targets_the_player() {
         gi.game.ecs.add_component_to_entity(
             entity,
             WorldExit {
-                destination_world: Some(DEST),
+                destination: Some(ExitDestination::World(DEST)),
                 entry: None,
-                mode: WorldTransitionMode::Transport,
                 trigger: WorldExitTrigger::OnInteract,
             },
         );

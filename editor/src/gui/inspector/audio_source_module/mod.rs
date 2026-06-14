@@ -491,6 +491,7 @@ inventory::submit! {
                 .with_title("Audio Source")
             )
         },
+        allowed_for: None,
     }
 }
 

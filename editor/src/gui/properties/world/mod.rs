@@ -1,4 +1,6 @@
+pub mod world_entries_module;
 pub mod world_script_module;
+pub mod world_settings_module;
 pub mod world_tags_module;
 
 use bishop::prelude::*;
@@ -8,6 +10,8 @@ use ::widgets::constants::layout;
 
 use super::collapsible::CollapsiblePropertyModule;
 use super::PropertyModule;
+use crate::commands::world::EditWorldTagsCmd;
+use crate::editor_global::push_command;
 use crate::gui::gui_constants;
 use crate::gui::text_input::{committed_name_change, draw_labeled_text_input};
 use crate::shared::scene_ui::inspector::InspectorContent;
@@ -26,8 +30,10 @@ impl WorldProperties {
         Self {
             input_id: WidgetId::default(),
             modules: vec![
+                Box::new(CollapsiblePropertyModule::new(world_settings_module::WorldSettingsModule::new())),
                 Box::new(CollapsiblePropertyModule::new(world_script_module::WorldScriptModule::new())),
                 Box::new(CollapsiblePropertyModule::new(world_tags_module::WorldTagsModule::for_world())),
+                Box::new(CollapsiblePropertyModule::new(world_entries_module::WorldEntriesModule::new())),
             ],
         }
     }
@@ -55,6 +61,7 @@ impl InspectorContent for WorldProperties {
         let mut y = rect.y + 10.0;
         let content_w = rect.w - 20.0;
 
+        // Name input (inline — uses InspectorHostAction for undo support)
         let name_rect = Rect::new(rect.x + 10.0, y, content_w, 30.0);
         let (edited, commit) =
             draw_labeled_text_input(ctx, name_rect, "Name:", name, self.input_id);
@@ -64,19 +71,27 @@ impl InspectorContent for WorldProperties {
         y += 30.0 + layout::WIDGET_SPACING;
 
         // Collapsible modules
+        let original_tags = world.tags.clone();
         let mut world_clone = world.clone();
         for module in &mut self.modules {
             if module.visible(&world_clone, game_ctx) {
                 let h = module.height();
                 let sub_rect = Rect::new(rect.x + 10.0, y, content_w, h);
                 module.draw(ctx, sub_rect, &mut world_clone, game_ctx, _insp_ctx);
+                if output.host_action.is_none() {
+                    output.host_action = module.take_host_action();
+                }
                 y += h + layout::WIDGET_SPACING;
             }
         }
 
-        // Write back changes from modules
-        if let Some(w) = game_ctx.world.as_deref_mut() {
-            w.tags = world_clone.tags;
+        if original_tags != world_clone.tags {
+            let world_id = world_clone.id;
+            push_command(Box::new(EditWorldTagsCmd::new(
+                world_id,
+                original_tags,
+                world_clone.tags,
+            )));
         }
 
         output

@@ -504,22 +504,27 @@ impl WorldEditor {
             )
         };
 
-        if let Some(InspectorHostAction::RenameWorld(name)) = inspector_output.host_action {
-            let unique = game.unique_world_name(&name, Some(world_id));
-            if unique != name {
-                push_toast(format!("'{}' is already taken — renamed to '{}'", name, unique), 3.0);
+        if let Some(host_action) = inspector_output.host_action {
+            match host_action {
+                InspectorHostAction::RenameWorld(name) => {
+                    let unique = game.unique_world_name(&name, Some(world_id));
+                    if unique != name {
+                        push_toast(format!("'{}' is already taken, renamed to '{}'", name, unique), 3.0);
+                    }
+                    push_command(Box::new(EditWorldCmd::new(world_id, Some(unique), None)));
+                }
+                InspectorHostAction::SelectEntity(entity) => {
+                    self.inspector.select_entity(entity);
+                }
+                _ => {}
             }
-            push_command(Box::new(EditWorldCmd::new(world_id, Some(unique), None)));
         }
 
         ctx.set_camera(camera);
     }
 
     pub fn init_camera(&mut self, ctx: &WgpuContext, camera: &mut Camera2D, world: &World) {
-        let target_room = world
-            .starting_room_id
-            .and_then(|id| world.get_room(id))
-            .or_else(|| world.rooms().first());
+        let target_room = world.rooms().first();
 
         if let Some(room) = target_room {
             self.center_on_room(ctx, camera, room, world.grid_size);

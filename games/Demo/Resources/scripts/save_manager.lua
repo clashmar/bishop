@@ -17,6 +17,7 @@ end
 
 local function capture_snapshot(transform, room_id)
     return {
+        world_id = engine.current_world().id,
         room_id = room_id,
         x = transform.position.x,
         y = transform.position.y,
@@ -52,8 +53,12 @@ function save_manager.register_provider()
             save_flow.set_active_anchor(saved.active_anchor)
             local restore = save_flow.resolve_restore_target(saved)
             if restore ~= nil then
-                player.entity:move_to_room(restore.room_id)
-                player.entity:teleport({ x = restore.x, y = restore.y })
+                engine.restore_location(
+                    restore.world_id or engine.current_world().id,
+                    restore.room_id,
+                    restore.x,
+                    restore.y
+                )
             end
         end,
     })

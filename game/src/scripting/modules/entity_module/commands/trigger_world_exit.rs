@@ -3,6 +3,7 @@ use crate::scripting::lua_ctx::LuaGameCtx;
 use crate::scripting::modules::entity_module::handle::{ensure_live_entity, EntityHandle};
 use crate::transitions::world_transitions::{WorldSelector, WorldTransitionRequest};
 use engine_core::ecs::WorldExit;
+use engine_core::worlds::ExitDestination;
 use engine_core::omni_error;
 use engine_core::scripting::lua_constants::lua_entity;
 use engine_core::scripting::{LuaApiWriter, LuaMethod};
@@ -24,22 +25,32 @@ impl LuaMethod<EntityHandle> for TriggerWorldExitMethod {
                 return Ok(());
             };
 
-            let Some(dest) = world_exit.destination_world else {
-                omni_error!("trigger_world_exit called on unconfigured WorldExit (no destination set)");
-                return Ok(());
+            let dest = match world_exit.destination {
+                Some(ExitDestination::World(id)) => id,
+                Some(ExitDestination::Return) => {
+                    set_pending_world_transition(WorldTransitionRequest {
+                        entity: None,
+                        world: WorldSelector::Return,
+                        entry_name: None,
+                        mode: WorldTransitionMode::Overlay,
+                    });
+                    return Ok(());
+                }
+                None => {
+                    omni_error!("trigger_world_exit called on unconfigured WorldExit (no destination set)");
+                    return Ok(());
+                }
             };
 
-            // Transport moves the player; Activate moves no entity.
-            let entity = match world_exit.mode {
-                WorldTransitionMode::Transport => game_instance.game.ecs.get_player_entity(),
-                WorldTransitionMode::Activate => None,
-            };
+            let is_overlay = game_instance.game.get_world(dest)
+                .is_some_and(|w| w.overlay);
+            let mode = if is_overlay { WorldTransitionMode::Overlay } else { WorldTransitionMode::Transport };
 
             set_pending_world_transition(WorldTransitionRequest {
-                entity,
+                entity: if is_overlay { None } else { game_instance.game.ecs.get_player_entity() },
                 world: WorldSelector::ById(dest),
                 entry_name: world_exit.entry.clone(),
-                mode: world_exit.mode,
+                mode,
             });
             Ok(())
         });

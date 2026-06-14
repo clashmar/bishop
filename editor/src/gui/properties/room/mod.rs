@@ -6,6 +6,8 @@ use bishop::prelude::*;
 use engine_core::ui::{measure_text};
 use ::widgets::constants::layout;
 
+use crate::commands::room::EditRoomTagsCmd;
+use crate::editor_global::push_command;
 use super::collapsible::CollapsiblePropertyModule;
 use super::PropertyModule;
 use crate::gui::gui_constants::{self, BTN_HEIGHT};
@@ -94,11 +96,10 @@ impl InspectorContent for RoomProperties {
         game_ctx: &mut GameCtxMut,
         _insp_ctx: &InspectorContext,
     ) -> InspectorOutput {
-        let Some(room) = game_ctx
+        let Some((world_id, room)) = game_ctx
             .world
             .as_deref()
-            .and_then(|world| world.current_room())
-            .cloned()
+            .and_then(|world| world.current_room().map(|r| (world.id, r.clone())))
         else {
             return InspectorOutput::default();
         };
@@ -115,18 +116,28 @@ impl InspectorContent for RoomProperties {
             }
         }
 
-        let refresh_event_tags = original_tags != edited_room.tags;
+        let tags_changed = original_tags != edited_room.tags;
 
         if let Some(room) = game_ctx
             .world
             .as_deref_mut()
             .and_then(|world| world.current_room_mut())
         {
-            *room = edited_room;
+            room.name = edited_room.name.clone();
+        }
+
+        if tags_changed {
+            let room_id = edited_room.id;
+            push_command(Box::new(EditRoomTagsCmd::new(
+                world_id,
+                room_id,
+                original_tags,
+                edited_room.tags,
+            )));
         }
 
         InspectorOutput {
-            refresh_event_tags,
+            refresh_event_tags: tags_changed,
             ..InspectorOutput::default()
         }
     }

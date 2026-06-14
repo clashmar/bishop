@@ -14,8 +14,6 @@ pub fn create_new_world(game: &mut Game) -> World {
     let mut world = World::new(id, name.clone(), world_constants::DEFAULT_GRID_SIZE);
     world.add_room(first_room);
     world.current_room_id = None;
-    world.starting_room_id = Some(room_id);
-    world.starting_position = Some(room_origin);
     world.meta = WorldMeta::default();
 
     let _spawn_point = game
@@ -53,7 +51,7 @@ pub fn create_new_world(game: &mut Game) -> World {
     // Default "Start" entry point
     game.ecs
         .create_entity()
-        .with(WorldEntry { name: "Start".into() })
+        .with(WorldEntry { name: WorldEntry::START.into() })
         .with(Transform {
             position: room_origin,
             ..Default::default()

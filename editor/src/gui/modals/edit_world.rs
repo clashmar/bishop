@@ -70,7 +70,7 @@ impl ModalHandler for EditWorldModal {
                 if world.name != *name {
                     let unique = editor.game.unique_world_name(name, Some(result.id));
                     if &unique != name {
-                        push_toast(format!("'{}' is already taken — renamed to '{}'", name, unique), 3.0);
+                        push_toast(format!("'{}' is already taken, renamed to '{}'", name, unique), 3.0);
                     }
                     new_name = Some(unique);
                 }

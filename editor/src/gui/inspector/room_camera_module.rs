@@ -316,6 +316,7 @@ inventory::submit! {
                 .with_title(ROOM_CAMERA_MODULE_TITLE)
             )
         },
+        allowed_for: None,
     }
 }
 

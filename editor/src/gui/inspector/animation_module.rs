@@ -794,6 +794,7 @@ inventory::submit! {
                 .with_title(<Animation>::TYPE_NAME)
             )
         },
+        allowed_for: None,
     }
 }
 

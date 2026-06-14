@@ -122,5 +122,6 @@ inventory::submit! {
                 .with_title(TITLE)
             )
         },
+        allowed_for: Some(|entity, ecs| ecs.has::<engine_core::ecs::CurrentRoom>(entity)),
     }
 }

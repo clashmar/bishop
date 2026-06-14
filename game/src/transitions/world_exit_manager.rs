@@ -2,9 +2,10 @@ use crate::engine::game_instance::GameInstance;
 use crate::game_global::set_pending_world_transition;
 use crate::transitions::world_transitions::{WorldSelector, WorldTransitionRequest};
 use engine_core::ecs::*;
+use engine_core::worlds::ExitDestination;
 use engine_core::worlds::world::{WorldExitTrigger, WorldTransitionMode};
 
-/// Per-frame system that fires `WorldExit { OnProximity }` components when the player is in range.
+/// Per-frame system that fires pending world transitions triggered by `WorldExit` components.
 pub struct WorldExitManager;
 
 impl WorldExitManager {
@@ -48,20 +49,28 @@ impl WorldExitManager {
             let Some(exit) = game.ecs.get::<WorldExit>(entity) else {
                 continue;
             };
-            let Some(dest) = exit.destination_world else {
-                continue;
+            let dest = match exit.destination {
+                Some(ExitDestination::World(id)) => id,
+                Some(ExitDestination::Return) => {
+                    set_pending_world_transition(WorldTransitionRequest {
+                        entity: None,
+                        world: WorldSelector::Return,
+                        entry_name: None,
+                        mode: WorldTransitionMode::Overlay,
+                    });
+                    break;
+                }
+                _ => continue,
             };
-            let subject = match exit.mode {
-                WorldTransitionMode::Transport => game.ecs.get_player_entity(),
-                WorldTransitionMode::Activate => None,
-            };
+            let is_overlay = game.get_world(dest).is_some_and(|w| w.overlay);
+            let mode = if is_overlay { WorldTransitionMode::Overlay } else { WorldTransitionMode::Transport };
             set_pending_world_transition(WorldTransitionRequest {
-                entity: subject,
+                entity: if is_overlay { None } else { game.ecs.get_player_entity() },
                 world: WorldSelector::ById(dest),
                 entry_name: exit.entry.clone(),
-                mode: exit.mode,
+                mode,
             });
-            break; // at most one exit fires per frame
+            break;
         }
     }
 }

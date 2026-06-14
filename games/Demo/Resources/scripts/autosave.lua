@@ -16,23 +16,26 @@ local function has_tag(tags, configured_tag)
     return false
 end
 
+local function check_and_save(tags)
+    if Autosave.configured_tag
+        and has_tag(tags, Autosave.configured_tag)
+        and (not Autosave.condition or Autosave.condition())
+    then
+        save_flow.request_autosave()
+    end
+end
+
 local function bind_listener()
     if Autosave.is_bound then
         return
     end
 
     engine.on(engine.events.room_entered, function(_, ...)
-        if not Autosave.configured_tag then
-            return
-        end
+        check_and_save({ ... })
+    end)
 
-        local tags = { ... }
-        if
-            has_tag(tags, Autosave.configured_tag)
-            and (not Autosave.condition or Autosave.condition())
-        then
-            save_flow.request_autosave()
-        end
+    engine.on(engine.events.world_entered, function(_, _, tags)
+        check_and_save(tags or {})
     end)
 
     Autosave.is_bound = true

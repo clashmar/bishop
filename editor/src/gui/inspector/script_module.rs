@@ -307,6 +307,7 @@ inventory::submit! {
                 .with_title(<engine_core::ecs::Script>::TYPE_NAME)
             )
         },
+        allowed_for: None,
     }
 }
 
