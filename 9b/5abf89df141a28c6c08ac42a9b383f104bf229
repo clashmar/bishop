@@ -1,0 +1,24 @@
+editor/src/gui/inspector/world_exit_module.rs
+  s_df58c006df53b7::t_9f3f4a0948d1fc 24,58,62,64,175-176,184-185,200
+  s_df58c006df53b7::t_9a5755a0670e74 23,25-39,53,59-61,65,227,229,239-241,249,255
+  s_df58c006df53b7::t_18a14b2fbfba80 252
+  s_df58c006df53b7::t_3d62c1fadb38b8 162,246-247,251,253-254,256
+bishop/src/text/mod.rs
+  s_df58c006df53b7::t_3ffff2fa4eaf7b 28-67
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "9b5abf89df141a28c6c08ac42a9b383f104bf229",
+  "prompts": {},
+  "sessions": {
+    "s_df58c006df53b7": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019ebd49-b476-79c3-aec5-4ce89348c290",
+        "model": "claude-sonnet-4.6"
+      },
+      "human_author": "Charlie Lashmar <c.lashmar08@gmail.com>"
+    }
+  }
+}
