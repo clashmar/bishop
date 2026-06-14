@@ -1,0 +1,235 @@
+engine_core/src/worlds/transition/mod.rs
+  s_df58c006df53b7::t_09618e17f99aa8 1-5
+game/src/scripting/modules/entity_module/commands/trigger_world_exit.rs
+  s_df58c006df53b7::t_e976607b8cba68 46
+  s_df58c006df53b7::t_6f646cba537f50 28-29,40-42
+  s_df58c006df53b7::t_d17b824a825423 6
+  s_df58c006df53b7::t_6fda9d99aa1a86 30-34,36-39,53
+  s_df58c006df53b7::t_6528450b1fd2e7 35,47
+  s_df58c006df53b7::t_f15a499f8c5993 45,50
+game/src/transitions/world_exit_manager.rs
+  s_df58c006df53b7::t_15c6000e75a393 54-58,60-62,71,73
+  s_df58c006df53b7::t_8650840d663bc8 5
+  s_df58c006df53b7::t_6528450b1fd2e7 59,66
+  s_df58c006df53b7::t_b6685bacccb6dd 52-53,63
+  s_df58c006df53b7::t_4fe262e8d16962 8
+  s_df58c006df53b7::t_17600c67994c76 65,68
+games/Demo/Resources/scripts/_engine/data/components.lua
+  s_df58c006df53b7::t_798ce5e84599f4 131
+game/src/transitions/world_transitions.rs
+  s_df58c006df53b7::t_863a2a58688baf 49-51
+  s_df58c006df53b7::t_f0bd5d1009f137 92,222,227
+  s_df58c006df53b7::t_e2265ee8e9fd7f 127
+  s_df58c006df53b7::t_d8ce47a54e2080 16
+  s_df58c006df53b7::t_2312f63f767e39 144
+  s_df58c006df53b7::t_af57f657b45643 73,96
+  s_df58c006df53b7::t_90630f73aca255 180-182,184-205,209
+  s_df58c006df53b7::t_fa22ab6fe38a24 122-126
+  s_df58c006df53b7::t_2f1bbbfefdaddc 6
+  s_df58c006df53b7::t_f0985651dac9d6 77,80
+  s_df58c006df53b7::t_390c040e983e56 128
+  s_df58c006df53b7::t_a2ab3a1941a040 83,88,90
+  s_df58c006df53b7::t_593843d8869402 76,79
+  s_df58c006df53b7::t_8b93ecd304f2bc 236,238,241-243,245-249
+  s_df58c006df53b7::t_dd232d1b78296a 78
+  s_df58c006df53b7::t_9cca9adcc0d42d 7
+  s_df58c006df53b7::t_44724ca4d7ce52 66,72,74-75,81-82,84-86,91,93-95,97-104,108,110-113,115-117
+  s_df58c006df53b7::t_4fbb2aac6aff35 114
+  s_df58c006df53b7::t_6528450b1fd2e7 65,107
+  s_df58c006df53b7::t_bd9ac3c714cc2e 135
+  s_df58c006df53b7::t_56659fd050af25 87,89
+  s_df58c006df53b7::t_f6a41185d97be6 11
+  s_df58c006df53b7::t_b6489fea7f7aba 106
+  s_df58c006df53b7::t_4bea9bce295593 67
+  s_df58c006df53b7::t_a3737a307aead1 183
+  s_df58c006df53b7::t_256f28835fdbd5 244
+  s_df58c006df53b7::t_bc074797a11e14 105,109
+game/src/scripting/modules/engine_module.rs
+  s_df58c006df53b7::t_3616530cb7dbe5 363-364,374
+  s_df58c006df53b7::t_09618e17f99aa8 527
+  s_df58c006df53b7::t_ddede2db442bdb 512,526,528-533
+  s_df58c006df53b7::t_952b33ff383661 518
+  s_df58c006df53b7::t_93b8e6593ff900 5,7
+  s_df58c006df53b7::t_6528450b1fd2e7 370,376,382
+  s_df58c006df53b7::t_3ddb5c3df1c1db 389-405
+  s_df58c006df53b7::t_0872293254f8cf 388
+  s_df58c006df53b7::t_900892a4a39a85 377-381,383-387
+editor/src/commands/world/rename_world_entry_cmd.rs
+  s_df58c006df53b7::t_36d1e4422ae5bc 40
+  s_df58c006df53b7::t_1509d9492f60ab 101,109
+  s_df58c006df53b7::t_c74a0948eae9c6 6
+engine_core/src/worlds/transition/overlay_frame.rs
+  s_df58c006df53b7::t_09618e17f99aa8 1-11
+editor/src/gui/properties/world/mod.rs
+  s_df58c006df53b7::t_425c096e9a6abd 36
+  s_df58c006df53b7::t_716e444777a80c 74,88-94
+  s_df58c006df53b7::t_94de23957da04a 1
+  s_df58c006df53b7::t_47f764a57049c4 81-83
+  s_df58c006df53b7::t_c8b0cc53efa24e 3,33,64
+  s_df58c006df53b7::t_a9fd3e2b14c793 14
+  s_df58c006df53b7::t_9f2432a24fa52e 13
+editor/src/gui/inspector/world_exit_module.rs
+  s_df58c006df53b7::t_c707b31cba76ce 7
+  s_df58c006df53b7::t_1b4a41b19e13fd 94-106
+  s_df58c006df53b7::t_45d4fcfade7dde 91
+  s_df58c006df53b7::t_3fe21565f74d29 8
+  s_df58c006df53b7::t_6ef4d350931d8d 70-74,76-81,83-84,90,121,125,130-137,142,150-158,161,169
+  s_df58c006df53b7::t_1577019d00e287 13
+  s_df58c006df53b7::t_162841830c611e 64,69,75,86-89,92-93,109,116,118-120,140-141,143-149,159-160
+  s_df58c006df53b7::t_6ae793fdcefbbb 85
+  s_df58c006df53b7::t_e99ba280ba4a5d 227
+  s_df58c006df53b7::t_c8d68fff5df438 65-68,123-124
+  s_df58c006df53b7::t_eae503c8f6128f 39-43
+  s_df58c006df53b7::t_cda8b17d1c4ad7 82
+games/Demo/Resources/scripts/arcade_world.lua
+  s_df58c006df53b7::t_6f679de48802a7 1-2,5,9,13-15,19
+engine_core/src/worlds/transition/exit_destination.rs
+  s_df58c006df53b7::t_fe7ceb36e08c7f 13,16-22
+  s_df58c006df53b7::t_88276974f88032 14
+editor/src/gui/inspector/audio_source_module/mod.rs
+  s_df58c006df53b7::t_c69c40a3c53b55 494
+editor/src/gui/properties/mod.rs
+  s_df58c006df53b7::t_34e97abc274dcf 7,29-32
+editor/src/gui/properties/room/mod.rs
+  s_df58c006df53b7::t_ffb225e93fc578 119,126-131,133-136,140
+  s_df58c006df53b7::t_91d3099e724506 9-10
+  s_df58c006df53b7::t_42d50c227e88ac 132
+  s_df58c006df53b7::t_f0597c30edf1f7 99,102
+game/src/scripting/modules/tests/entity_module_tests.rs
+  s_df58c006df53b7::t_4c2291336c4420 213,238
+engine_core/src/worlds/mod.rs
+  s_df58c006df53b7::t_e48223900a0463 1,9
+games/Demo/Resources/scripts/save_manager.lua
+  s_df58c006df53b7::t_c1d0fcd4cea37a 20,56-61
+editor/src/commands/game/edit_world_cmd.rs
+  s_df58c006df53b7::t_64fb3aafd14aee 40-42,50-51,80,92
+  s_df58c006df53b7::t_18376e9f6a74ef 14,17,30,33,37-39,48,54-56,67,84,96
+  s_df58c006df53b7::t_90a55c4deeded0 102
+editor/src/gui/inspector/script_module.rs
+  s_df58c006df53b7::t_ce7d541d511401 310
+editor/src/gui/properties/tags_module.rs
+  s_df58c006df53b7::t_149dc66d4d9563 11-14,20,29,44,62-65
+  s_df58c006df53b7::t_53248d3817c78e 58
+editor/src/world/world_creation.rs
+  s_df58c006df53b7::t_5f158c4578c6e5 54
+editor/src/gui/inspector/room_camera_module.rs
+  s_df58c006df53b7::t_77dcebe08eafc8 319
+game/src/transitions/tests/world_transition_tests.rs
+  s_df58c006df53b7::t_aa555ed97429e5 195
+  s_df58c006df53b7::t_15e9cda33dea2a 8,14-15,525,540-541
+  s_df58c006df53b7::t_be0572ced443ae 363
+  s_df58c006df53b7::t_670a6d4d3a0592 26-27,37-46,51-52,60-62,71-73,76-79,81-106
+  s_df58c006df53b7::t_1eabb8e507bab4 386-387,389-393,395-396,399-411,413-418,420-422,424-431,433-457,459,461,463-465,467-469,471-476,479-493,495
+  s_df58c006df53b7::t_214ca1afd9455d 419,477
+  s_df58c006df53b7::t_6cfe17c54ad5cc 345-347
+  s_df58c006df53b7::t_5090d88016b704 496-524,526-533,535-539,542
+  s_df58c006df53b7::t_6bc8d0a932afd5 397-398,412,432,462,466,470,494
+  s_df58c006df53b7::t_914e5021aa1345 25
+  s_df58c006df53b7::t_82fb3d61e8c5c9 127,309,316,329,342,388,394,423,478,534
+  s_df58c006df53b7::t_52bba58d16faff 63-70,74-75,80
+  s_df58c006df53b7::t_6528450b1fd2e7 132,458,460
+editor/src/gui/inspector/world_entry_module.rs
+  s_df58c006df53b7::t_53aa6dd0a150ae 125
+editor/src/shared/scene_ui/inspector/mod.rs
+  s_df58c006df53b7::t_805ec93faf5911 115
+engine_core/src/worlds/world.rs
+  s_df58c006df53b7::t_8ab6facdc72077 29
+  s_df58c006df53b7::t_09618e17f99aa8 152
+  s_df58c006df53b7::t_c1266ae63bffa8 30
+  s_df58c006df53b7::t_883b80bee094b6 150
+  s_df58c006df53b7::t_0632e86f850334 151,153-157
+  s_df58c006df53b7::t_f518f10b5be136 182,189
+engine_core/src/ecs/components/world_entry.rs
+  s_df58c006df53b7::t_38ccc2fbedc455 16-20
+editor/scripts/_engine/data/components.lua
+  s_df58c006df53b7::t_798ce5e84599f4 131
+editor/src/commands/room/place_prefab_instance_cmd.rs
+  s_df58c006df53b7::t_6d20fc8e316044 123
+editor/src/storage/export.rs
+  s_df58c006df53b7::t_0f1e88871253fc 132-136
+  s_df58c006df53b7::t_beaad5477520e0 193-197
+  s_df58c006df53b7::t_b8d000b9a557eb 346-349,352
+game/src/scripting/interact/world_exit.rs
+  s_df58c006df53b7::t_cba63a942c8d2a 28,33
+  s_df58c006df53b7::t_7189a106e50659 7
+  s_df58c006df53b7::t_3b25ee13afe78e 29
+  s_df58c006df53b7::t_294edb1fe118cc 16-20,22-24,36
+  s_df58c006df53b7::t_6528450b1fd2e7 21,30
+  s_df58c006df53b7::t_bc587a87bce7d7 14-15,25
+editor/src/commands/room/edit_room_tags_cmd.rs
+  s_df58c006df53b7::t_12b7e15f470d4f 10,17-18,21,23,34,38
+  s_df58c006df53b7::t_2128acb465c5d0 1-9,11-16,19-20,22,24-33,35-37,39-44
+editor/src/gui/properties/world/world_entries_module.rs
+  s_df58c006df53b7::t_48b53bf651024a 17,22
+  s_df58c006df53b7::t_3c625c6107fefe 1,3-7,9-15,18-21,23-63,65-73,75-77,84-86,89-94
+  s_df58c006df53b7::t_ed5b18cc6c5208 2,16,74,78-83
+  s_df58c006df53b7::t_2c9d717fcf5699 64
+  s_df58c006df53b7::t_4c19abd07e943a 8
+  s_df58c006df53b7::t_eb05fa34af6b27 87-88
+editor/src/gui/properties/world/world_settings_module.rs
+  s_df58c006df53b7::t_1fd966581b06e8 1,3-32,34-53
+  s_df58c006df53b7::t_326fcc5ba62ef2 2
+  s_df58c006df53b7::t_35966d4566d02f 33
+games/Demo/Resources/game.ron
+  s_df58c006df53b7::t_09618e17f99aa8 33,113,137,149,153,329,335,365,400-403,453
+engine_core/src/scripting/lua_constants.rs
+  s_df58c006df53b7::t_098a252a2a3580 99
+  s_df58c006df53b7::t_2c9af3788c1e9e 100
+  s_df58c006df53b7::t_f55823009b9ddd 101
+editor/src/commands/room/mod.rs
+  s_df58c006df53b7::t_e2c1902b1e6b43 18
+  s_df58c006df53b7::t_f0b935dc0c1899 6
+editor/src/gui/inspector/animation_module.rs
+  s_df58c006df53b7::t_607b6fa1bf3187 797
+editor/src/shared/scene_ui/inspector/entity_inspector.rs
+  s_df58c006df53b7::t_b66d5e64ab619b 157-161
+editor/src/test_utils.rs
+  s_df58c006df53b7::t_1076e033ae42c2 98-100
+editor/src/commands/world/edit_world_tags_cmd.rs
+  s_df58c006df53b7::t_3dde1f17d184b7 1-41
+editor/src/gui/modals/edit_world.rs
+  s_df58c006df53b7::t_926cabb68b9895 73
+games/Demo/Resources/scripts/autosave.lua
+  s_df58c006df53b7::t_12b4480f1555e7 19-27,34-35,37-38
+editor/src/world/world_editor.rs
+  s_df58c006df53b7::t_42ded3eb68bece 507-511,513-515
+  s_df58c006df53b7::t_dbfbca66969bf0 527
+  s_df58c006df53b7::t_a7d3c85aa6b52f 512
+  s_df58c006df53b7::t_8570d74e994a7c 516-519
+engine_core/src/ecs/inspector/factory.rs
+  s_df58c006df53b7::t_9bd2a0a7d98f3f 62
+  s_df58c006df53b7::t_c0853be967dbf7 4-7
+  s_df58c006df53b7::t_34f8d302cf4fa3 34-35
+engine_core/src/ecs/components/world_exit.rs
+  s_df58c006df53b7::t_9a7f830f136c32 1,11-12
+  s_df58c006df53b7::t_2faf43152fd61a 2
+editor/src/commands/world/mod.rs
+  s_df58c006df53b7::t_edd13ff69d3b0c 2,6
+game/src/engine/game_instance.rs
+  s_df58c006df53b7::t_2678a6eddeb2a2 117-134
+engine_core/src/game/mod.rs
+  s_df58c006df53b7::t_faf5a8eaaf60d9 20
+  s_df58c006df53b7::t_41b38e05a95283 67
+  s_df58c006df53b7::t_f35f31865f7b3b 129,131-136
+  s_df58c006df53b7::t_09618e17f99aa8 19,107,191-192
+  s_df58c006df53b7::t_0d209961464ef1 66,68,88
+editor/src/gui/properties/collapsible.rs
+  s_df58c006df53b7::t_3a21d58237ee3a 2
+  s_df58c006df53b7::t_37512f87492024 57-60
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "3d81875ed73c1cb59613fc9091f470723c679881",
+  "prompts": {},
+  "sessions": {
+    "s_df58c006df53b7": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019ebd49-b476-79c3-aec5-4ce89348c290",
+        "model": "claude-sonnet-4.6"
+      },
+      "human_author": "Charlie Lashmar <c.lashmar08@gmail.com>"
+    }
+  }
+}
