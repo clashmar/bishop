@@ -1,0 +1,28 @@
+editor/src/prefab/prefab_editor/mod.rs
+  s_bd2049d9bb0e39::t_d8c9fb11d1a903 18,198
+editor/src/room/drawing.rs
+  s_bd2049d9bb0e39::t_a8dfa4a306b4eb 674-675,678
+  s_bd2049d9bb0e39::t_9014b2e2729917 646-652,655-670
+  s_bd2049d9bb0e39::t_41aab0f584dbd4 637-645,653-654,671
+editor/src/room/room_editor.rs
+  s_bd2049d9bb0e39::t_9ec02995bf60ea 520
+bishop/src/wgpu/render/primitive.rs
+  s_bd2049d9bb0e39::t_3a996f630f10a8 11
+  s_bd2049d9bb0e39::t_c74379d393147e 10
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "a5613ab88b5dca584f5fd9f70b9fa813eae93183",
+  "prompts": {},
+  "sessions": {
+    "s_bd2049d9bb0e39": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019ec7bb-2090-7b7f-8638-ee40aeaeeabd",
+        "model": "claude-sonnet-4.6"
+      },
+      "human_author": "Charlie Lashmar <c.lashmar08@gmail.com>"
+    }
+  }
+}
