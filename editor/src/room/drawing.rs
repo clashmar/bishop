@@ -628,39 +628,54 @@ pub fn draw_pivot_marker(ctx: &mut WgpuContext, ecs: &Ecs, entity: Entity) {
     );
 }
 
-/// Returns true if the entity is a pure placeholder (Camera or Light without visible sprites).
+/// Returns true if the entity is a pure placeholder.
 pub fn is_pure_placeholder(ecs: &Ecs, entity: Entity) -> bool {
     ecs.has::<RoomCamera>(entity)
         || (ecs.has::<Light>(entity) && !ecs.has_any::<(Sprite, Animation, CurrentFrame)>(entity))
 }
 
-/// Draw a thin circle showing the interaction range for an `Interactable` entity.
-pub fn draw_interactable_range(ctx: &mut WgpuContext, ecs: &Ecs, entity: Entity, grid_size: f32) {
-    let interactable = match ecs.get_store::<Interactable>().get(entity) {
-        Some(i) => i,
-        None => return,
-    };
-    let transform = match ecs.get_store::<Transform>().get(entity) {
-        Some(t) => t,
-        None => return,
-    };
-    let violet = Color::new(0.75, 0.25, 1.0, 0.55);
-    ctx.draw_circle_lines(
-        transform.position.x,
-        transform.position.y,
-        interactable.range,
-        outline_thickness(grid_size) * 0.25,
-        violet,
-    );
+/// Draw range circles for an entity.
+pub fn draw_entity_range_circles(ctx: &mut WgpuContext, ecs: &Ecs, entity: Entity, grid_size: f32) {
+    let Some(transform) = ecs.get_store::<Transform>().get(entity) else { return };
+    let thickness = outline_thickness(grid_size) * 0.25;
+    let cx = transform.position.x;
+    let cy = transform.position.y;
+
+    if let Some(interactable) = ecs.get_store::<Interactable>().get(entity) {
+        let violet = Color::new(0.75, 0.25, 1.0, 0.55);
+        ctx.draw_circle_lines(
+            cx,
+            cy,
+            interactable.range,
+            thickness,
+            violet,
+        );
+    }
+
+    let exit_range = ecs
+        .get_store::<WorldExit>()
+        .get(entity)
+        .and_then(|e| match &e.trigger {
+            WorldExitTrigger::OnProximity(r) => Some(*r),
+            _ => None,
+        });
+    if let Some(range) = exit_range {
+        let orange = Color::new(1.0, 0.55, 0.1, 0.55);
+        ctx.draw_circle_lines(
+            cx,
+            cy,
+            range,
+            thickness,
+            orange,
+        );
+    }
 }
 
-/// Draw a thin circle showing the interaction range for each `Interactable` entity in the room.
-pub fn draw_interactable_ranges(ctx: &mut WgpuContext, ecs: &Ecs, room_id: RoomId, grid_size: f32) {
+/// Draw range circles for each entity in the room.
+pub fn draw_entity_range_circles_in_room(ctx: &mut WgpuContext, ecs: &Ecs, room_id: RoomId, grid_size: f32) {
     for &entity in ecs.entities_in_room(room_id) {
         ecs.assert_room_membership(room_id, entity);
-        if ecs.has::<Interactable>(entity) {
-            draw_interactable_range(ctx, ecs, entity, grid_size);
-        }
+        draw_entity_range_circles(ctx, ecs, entity, grid_size);
     }
 }
 
