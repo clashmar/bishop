@@ -1,0 +1,25 @@
+editor/src/world/drawing.rs
+  s_9c88b25ed76ae5::t_82a97645e6e853 103-104
+  s_9c88b25ed76ae5::t_8a5e2b23f3cbc7 341
+bishop/src/wgpu/render/text.rs
+  s_9c88b25ed76ae5::t_2c8e7585f32c14 14
+  s_9c88b25ed76ae5::t_55f34dbd174fca 270
+bishop/src/text/params.rs
+  s_9c88b25ed76ae5::t_8f56fb29cca0a9 36-49
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "cbc47f9f9612ea8df5087100636ecd4fdc6c398a",
+  "prompts": {},
+  "sessions": {
+    "s_9c88b25ed76ae5": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019ec763-10a6-7751-91b8-590d109c20c6",
+        "model": "claude-sonnet-4.6"
+      },
+      "human_author": "Charlie Lashmar <c.lashmar08@gmail.com>"
+    }
+  }
+}
