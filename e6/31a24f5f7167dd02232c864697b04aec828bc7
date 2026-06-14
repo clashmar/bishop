@@ -1,0 +1,92 @@
+editor/src/world/drawing.rs
+  s_df58c006df53b7::t_5a668480d828eb 232
+  s_df58c006df53b7::t_46d235ace06cda 63
+  s_df58c006df53b7::t_bd99bc058ae176 10,13-17,20-62,64-141,143-168,170,172-177,287-298
+  s_df58c006df53b7::t_b8f41987d3d0a1 243-285
+  s_df58c006df53b7::t_ef2e4e7f49736c 18-19,142,169,178-179
+  s_df58c006df53b7::t_7fd9c75cc650eb 1-2,4-7,12
+  s_df58c006df53b7::t_26b9e512ad67c2 180-231,233-242,286
+  s_df58c006df53b7::t_1b2a37fe2b3cdc 299,301-331
+  s_df58c006df53b7::t_96bcc92cbfa75c 300
+  s_df58c006df53b7::t_154bfd52e0d52c 8-9
+  s_df58c006df53b7::t_073edf66d0800e 332-339
+  s_df58c006df53b7::t_40c5e308546eff 3
+  s_df58c006df53b7::t_f71c0b87352634 11
+  s_df58c006df53b7::t_b05983a8642dc1 171
+editor/src/gui/inspector/shell.rs
+  s_df58c006df53b7::t_6d8a868a43c3cd 19
+editor/src/world/mod.rs
+  s_df58c006df53b7::t_8ec806c283ec28 4
+editor/src/app/mod.rs
+  s_df58c006df53b7::t_3a80396770103d 398
+  s_df58c006df53b7::t_66f9b57204d68b 473-475
+engine_core/src/ecs/components/transform.rs
+  s_df58c006df53b7::t_62ac4aaf50c5db 18
+engine_core/src/worlds/room.rs
+  s_df58c006df53b7::t_62ac4aaf50c5db 35,38
+  s_df58c006df53b7::t_e09f1c37258273 37
+editor/src/gui/properties/world/world_navigation_module.rs
+  s_df58c006df53b7::t_8fbf3852e934b0 1-14,16,18-26,28-55,58-59,61-69,73,75-88,91-93,95,98-113,115-122,124-126,128-130,133-141,143-145,147-149,152-164,167-175
+  s_df58c006df53b7::t_82ac52eefc3370 131,150
+  s_df58c006df53b7::t_4c7cfa3b4a0cb3 56-57
+  s_df58c006df53b7::t_0529757dbf15ed 15
+  s_df58c006df53b7::t_54683f3f363c82 71,96
+  s_df58c006df53b7::t_676142208b77b5 72,97
+  s_df58c006df53b7::t_090960afa70930 165-166
+  s_df58c006df53b7::t_55188c1b7c1446 70,94
+  s_df58c006df53b7::t_0b96e2459390c3 89-90
+  s_df58c006df53b7::t_532f65d127c54b 17,27
+  s_df58c006df53b7::t_d8ed838e43cc45 60,74
+  s_df58c006df53b7::t_aee4eba743f675 123,127,132,142,146,151
+editor/src/editor_assets/assets.rs
+  s_df58c006df53b7::t_b9e22930d8e201 169,173
+  s_df58c006df53b7::t_1fbaaa4ed7b476 76-77,106-107
+  s_df58c006df53b7::t_16774db8d2bc11 170-172,174-176
+editor/src/gui/properties/world/mod.rs
+  s_df58c006df53b7::t_c463cb257d9719 26
+  s_df58c006df53b7::t_e16cdb4a09e3fa 1
+  s_df58c006df53b7::t_bb3ca331fb73ff 19,25,27,40,43-44,46,95-101,123,130
+  s_df58c006df53b7::t_a8778aced218c2 47
+  s_df58c006df53b7::t_f43c3beece9265 72
+  s_df58c006df53b7::t_bfd0fcff570ad6 45
+editor/src/shared/scene_ui/inspector/mod.rs
+  s_df58c006df53b7::t_0c13ce4fc7ef90 115
+  s_df58c006df53b7::t_bf850e928276d3 110,116
+editor/src/world/world_editor.rs
+  s_df58c006df53b7::t_da08361edf590a 10
+  s_df58c006df53b7::t_1b62b191f127b7 285
+  s_df58c006df53b7::t_962775c29e7157 223
+  s_df58c006df53b7::t_392a42cbed415f 315-318
+  s_df58c006df53b7::t_80f62d41ae71ae 21
+  s_df58c006df53b7::t_d48307da40e2fb 195
+  s_df58c006df53b7::t_15b7290b29a58a 82
+  s_df58c006df53b7::t_ca6aa277730547 13
+  s_df58c006df53b7::t_5b4b4722e5640a 56-58,336
+  s_df58c006df53b7::t_b162276c2b01df 242-244,253-255
+  s_df58c006df53b7::t_79e6d674de2998 62
+  s_df58c006df53b7::t_a64a10a406d00e 224,236-241,245-252,256-258,265,267-268,273,276,279,284,288,290
+  s_df58c006df53b7::t_94fc93d30afee1 225,230,234
+  s_df58c006df53b7::t_c3789dbf426eb8 55,60-61
+  s_df58c006df53b7::t_bf81c8711a3d90 226-229,231-233,235
+editor/src/world/coord.rs
+  s_df58c006df53b7::t_8eb89de32f0f9a 37-38
+  s_df58c006df53b7::t_471f231cd9778b 28-36
+editor/src/gui/properties/collapsible.rs
+  s_df58c006df53b7::t_3c6157d7143b4a 29-32
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "e631a24f5f7167dd02232c864697b04aec828bc7",
+  "prompts": {},
+  "sessions": {
+    "s_df58c006df53b7": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019ebd49-b476-79c3-aec5-4ce89348c290",
+        "model": "claude-sonnet-4.6"
+      },
+      "human_author": "Charlie Lashmar <c.lashmar08@gmail.com>"
+    }
+  }
+}
