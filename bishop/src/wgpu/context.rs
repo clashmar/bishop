@@ -14,6 +14,7 @@ use super::render::{
     PrimitiveRenderer, TextRenderer, TextureRenderer,
 };
 use super::state::{GraphicsState, GraphicsStateError, InputState, TimeState};
+use crate::Rect;
 use crate::camera::Camera2D;
 use crate::input::MouseWheelKind;
 use crate::types::Color;
@@ -57,6 +58,7 @@ pub struct WgpuContext {
     saved_surface_view: Option<wgpu::TextureView>,
     render_target_dims: Option<(f32, f32)>,
     clip_rect: Option<[u32; 4]>,
+    logical_clip_rect: Option<Rect>,
     draw_segments: Vec<DrawSegment>,
     pub(crate) close_requested: bool,
     pub(crate) exit_confirmed: bool,
@@ -99,6 +101,7 @@ impl WgpuContext {
             saved_surface_view: None,
             render_target_dims: None,
             clip_rect: None,
+            logical_clip_rect: None,
             draw_segments: Vec::new(),
             close_requested: false,
             exit_confirmed: false,
@@ -171,6 +174,7 @@ impl WgpuContext {
         self.current_camera = None;
         self.has_cleared_this_frame = false;
         self.clip_rect = None;
+        self.logical_clip_rect = None;
     }
 
     /// Processes a winit WindowEvent and updates internal state.
@@ -343,12 +347,19 @@ impl WgpuContext {
             (rect.w * sf).max(0.0) as u32,
             (rect.h * sf).max(0.0) as u32,
         ]);
+        self.logical_clip_rect = Some(rect);
     }
 
     /// Flushes pending draws with the active scissor applied, then removes the clip rect.
     pub fn pop_clip_rect(&mut self) {
         self.flush_if_needed();
         self.clip_rect = None;
+        self.logical_clip_rect = None;
+    }
+
+    /// Returns the active logical-pixel clip rect, or `None` when rendering is unclipped.
+    pub(crate) fn logical_clip_rect(&self) -> Option<Rect> {
+        self.logical_clip_rect
     }
 
     /// Returns the texture bind group layout for creating textures.

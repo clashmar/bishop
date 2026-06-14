@@ -209,10 +209,9 @@ impl Slider {
         }
 
         let mouse = ctx.mouse_position();
-        let mouse_vec = Vec2::new(mouse.0, mouse.1);
         let mouse_over_handle =
-            Rect::new(handle_x, track_rect.y, handle_sz, track_rect.h).contains(mouse_vec);
-        let mouse_over_track = track_rect.contains(mouse_vec);
+            ctx.is_mouse_over(Rect::new(handle_x, track_rect.y, handle_sz, track_rect.h));
+        let mouse_over_track = ctx.is_mouse_over(track_rect);
 
         let mut dragging = was_dragging;
 

@@ -165,7 +165,7 @@ where
         }
 
         let mouse = ctx.mouse_position();
-        let mouse_over = self.rect.contains(Vec2::new(mouse.0, mouse.1));
+        let mouse_over = ctx.is_mouse_over(self.rect);
 
         if ctx.is_mouse_button_pressed(MouseButton::Left) && !is_click_consumed() {
             let was_focused = focused;

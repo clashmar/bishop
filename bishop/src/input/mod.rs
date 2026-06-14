@@ -4,6 +4,9 @@ mod gamepad;
 mod keycode;
 mod mouse;
 
+use crate::types::Rect;
+use glam::Vec2;
+
 use std::cell::RefCell;
 
 pub use gamepad::*;
@@ -70,4 +73,19 @@ pub trait Input {
 
     /// Returns the time in seconds since the application started.
     fn get_time(&self) -> f64;
+
+    /// Returns the active logical-pixel clip rect, or `None` when rendering is unclipped.
+    fn logical_clip_rect(&self) -> Option<Rect> {
+        None
+    }
+
+    /// Returns true if the mouse is within `rect`, intersected with the active clip rect.
+    fn is_mouse_over(&self, rect: Rect) -> bool {
+        let (mx, my) = self.mouse_position();
+        let mouse = Vec2::new(mx, my);
+        match self.logical_clip_rect() {
+            Some(clip) => rect.intersection(&clip).is_some_and(|r| r.contains(mouse)),
+            None => rect.contains(mouse),
+        }
+    }
 }
