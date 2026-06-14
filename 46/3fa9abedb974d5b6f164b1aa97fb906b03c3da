@@ -1,0 +1,43 @@
+widgets/src/widgets/checkbox.rs
+  s_7866ee244a525e::t_33417fd2453c87 82
+widgets/src/widgets/text_input.rs
+  s_7866ee244a525e::t_c41c7a64442527 165
+widgets/src/widgets/number_input.rs
+  s_7866ee244a525e::t_be950863cb0c88 168
+widgets/src/widgets/button/mod.rs
+  s_7866ee244a525e::t_57487744e99f18 202-203
+bishop/src/input/mod.rs
+  s_7866ee244a525e::t_d94ad0c9473bf2 7-9,76-90
+widgets/src/widgets/slider.rs
+  s_7866ee244a525e::t_ea60cdc444fa4c 213-214
+widgets/src/widgets/scrollable_area/mod.rs
+  s_7866ee244a525e::t_9d3fa4b976db2b 295
+  s_7866ee244a525e::t_f7612a50a533eb 97,106,114-115,231
+bishop/src/wgpu/context.rs
+  s_7866ee244a525e::t_72fef32eb75a85 17,61,361
+  s_7866ee244a525e::t_4bbf0d9227e9c3 357-358
+  s_7866ee244a525e::t_ffdc79431b2597 362
+  s_7866ee244a525e::t_7577dc6a85b565 104,350
+  s_7866ee244a525e::t_a61cdafde8b2d0 360
+  s_7866ee244a525e::t_d09fcbc314eb9a 177
+bishop/src/wgpu/impls.rs
+  s_7866ee244a525e::t_72fef32eb75a85 8,76
+  s_7866ee244a525e::t_6c37895e01ff4b 75,78
+  s_7866ee244a525e::t_6c674625301988 77
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "463fa9abedb974d5b6f164b1aa97fb906b03c3da",
+  "prompts": {},
+  "sessions": {
+    "s_7866ee244a525e": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019ec70d-256b-7639-a9f5-e97304314d27",
+        "model": "claude-sonnet-4.6"
+      },
+      "human_author": "Charlie Lashmar <c.lashmar08@gmail.com>"
+    }
+  }
+}
