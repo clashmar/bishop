@@ -7,10 +7,11 @@ use wgpu::util::DeviceExt;
 use super::sampler::create_nearest_sampler;
 use super::uniforms::CameraUniforms;
 use super::vertex::TexturedVertex;
+use crate::FONT_SIZES;
 use crate::text::TextDimensions;
 use crate::types::Color;
 
-const ATLAS_SIZE: u32 = 1024;
+const ATLAS_SIZE: u32 = 2048;
 const MAX_VERTICES: usize = 65536;
 
 static GNF_FONT_DATA: &[u8] = include_bytes!("../../fonts/gnf.regular.ttf");
@@ -266,9 +267,7 @@ impl FontAtlas {
         let chars: Vec<char> = (32u8..=126).map(|c| c as char).collect();
         let extra_chars = ['⌘', '⌥', '⇧', '↓', '→'];
 
-        for size in [
-            12.0, 14.0, 15.0, 16.0, 18.0, 20.0, 24.0, 28.0, 32.0, 36.0, 48.0,
-        ] {
+        for &size in FONT_SIZES.iter().filter(|&&s| s <= 48.0) {
             for &ch in &chars {
                 self.get_glyph(ch, size);
             }

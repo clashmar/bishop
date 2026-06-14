@@ -33,3 +33,18 @@ impl Default for TextParams {
         }
     }
 }
+
+/// The canonical set of font sizes used for atlas-efficient text rendering.
+pub const FONT_SIZES: &[f32] = &[
+    10.0, 12.0, 14.0, 16.0, 18.0, 20.0, 24.0, 28.0, 32.0, 36.0, 48.0, 64.0, 96.0, 128.0,
+    192.0,
+];
+
+/// Snaps a font size to the nearest value in `FONT_SIZES`.
+pub fn snap_font_size(raw: f32) -> f32 {
+    FONT_SIZES
+        .iter()
+        .copied()
+        .min_by(|a, b| (a - raw).abs().partial_cmp(&(b - raw).abs()).unwrap_or(std::cmp::Ordering::Equal))
+        .unwrap_or(raw)
+}

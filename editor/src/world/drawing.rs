@@ -100,7 +100,8 @@ impl WorldEditor {
             let base_font_size: f32 = 40.0;
             let room_scale = (rect.w + rect.h) / 2.0 / 60.0;
             let zoom_factor = camera.zoom.x * 100.0;
-            let font_size = (base_font_size * room_scale * zoom_factor).clamp(10.0, 200.0);
+            let raw_size = (base_font_size * room_scale * zoom_factor).clamp(10.0, 200.0);
+            let font_size = snap_font_size(raw_size);
             let rotation = if rect.h > rect.w {
                 std::f32::consts::FRAC_PI_2
             } else {
@@ -337,3 +338,4 @@ pub(super) fn snap_to_tile(pos: Vec2, grid_size: f32) -> Vec2 {
         ((pos.y - 1.0) / grid_size).floor() * grid_size,
     )
 }
+
