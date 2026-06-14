@@ -15,12 +15,28 @@ const ROW_H: f32 = 30.0;
 const DROP_W_REDUCTION: f32 = 10.0;
 
 /// Inspector module for the `WorldExit` component.
-#[derive(Default)]
 pub struct WorldExitModule {
     dest_id: WidgetId,
     entry_id: WidgetId,
     trigger_id: WidgetId,
     range_id: WidgetId,
+    show_bottom_row: bool,
+    show_start_warning: bool,
+    warning_height: f32,
+}
+
+impl Default for WorldExitModule {
+    fn default() -> Self {
+        Self {
+            dest_id: WidgetId::default(),
+            entry_id: WidgetId::default(),
+            trigger_id: WidgetId::default(),
+            range_id: WidgetId::default(),
+            show_bottom_row: true,
+            show_start_warning: false,
+            warning_height: 0.0,
+        }
+    }
 }
 
 impl InspectorModule for WorldExitModule {
@@ -34,13 +50,19 @@ impl InspectorModule for WorldExitModule {
 
     fn body_layout(&self) -> InspectorBodyLayout {
         let gap = layout::WIDGET_SPACING;
-        InspectorBodyLayout::new()
+        let mut layout = InspectorBodyLayout::new()
             .top_padding(gap)
             .block(ROW_H).gap(gap)
             .block(ROW_H).gap(gap)
             .block(ROW_H).gap(gap)
-            .block(ROW_H).gap(gap)
-            .block(ROW_H)
+            .block(ROW_H);
+        if self.show_bottom_row {
+            layout = layout.gap(gap).block(ROW_H);
+        }
+        if self.show_start_warning {
+            layout = layout.gap(gap).block(self.warning_height);
+        }
+        layout
     }
 
     fn draw(
@@ -137,6 +159,7 @@ impl InspectorModule for WorldExitModule {
 
         y += ROW_H + gap;
 
+        let mut start_missing = false;
         if !is_return {
             if let Some(dest_world_id) = current_dest_world {
                 let mut entry_names: Vec<String> = game_ctx.ecs.get_store::<WorldEntry>().data.iter()
@@ -149,13 +172,16 @@ impl InspectorModule for WorldExitModule {
                     .collect();
 
                 // Ensure "Start" is always present
-                if !entry_names.contains(&WorldEntry::START.to_string()) {
+                let real_start_exists = entry_names.contains(&WorldEntry::START.to_string());
+                if !real_start_exists {
                     entry_names.insert(0, WorldEntry::START.to_string());
                 }
 
                 let current_entry = current_exit.entry
                     .clone()
                     .unwrap_or_else(|| WorldEntry::START.to_string());
+
+                start_missing = current_entry == WorldEntry::START && !real_start_exists;
 
                 ctx.draw_text("Entry:", rect.x, y + 20.0, layout::FIELD_TEXT_SIZE_16, colors::DEFAULT_TEXT_COLOR);
                 if let Some(sel) = Dropdown::new(self.entry_id, Rect::new(rect.x + label_w, y, rect.w - label_w - DROP_W_REDUCTION, ROW_H), &current_entry, &entry_names, |s| s.clone())
@@ -171,6 +197,7 @@ impl InspectorModule for WorldExitModule {
                 }
             }
         }
+        self.show_start_warning = start_missing;
         y += ROW_H + gap;
 
         ctx.draw_text("Trigger:", rect.x, y + 20.0, layout::FIELD_TEXT_SIZE_16, colors::DEFAULT_TEXT_COLOR);
@@ -197,8 +224,9 @@ impl InspectorModule for WorldExitModule {
 
         match &current_exit.trigger {
             WorldExitTrigger::OnProximity(range) => {
+                self.show_bottom_row = true;
                 ctx.draw_text("Range:", rect.x, y + 20.0, layout::FIELD_TEXT_SIZE_16, colors::DEFAULT_TEXT_COLOR);
-                let (typed, _) = NumberInput::new(self.range_id, Rect::new(rect.x + label_w, y, rect.w - label_w, ROW_H), *range)
+                let (typed, _) = NumberInput::new(self.range_id, Rect::new(rect.x + label_w, y, rect.w - label_w - DROP_W_REDUCTION, ROW_H), *range)
                     .blocked(blocked)
                     .show(ctx);
                 if typed != *range {
@@ -208,10 +236,24 @@ impl InspectorModule for WorldExitModule {
                 }
             }
             WorldExitTrigger::OnInteract => {
-                if !game_ctx.ecs.has::<Interactable>(entity) {
+                let has_interactable = game_ctx.ecs.has::<Interactable>(entity);
+                self.show_bottom_row = !has_interactable;
+                if !has_interactable {
                     ctx.draw_text("Add Interactable to enable", rect.x, y + 20.0, layout::FIELD_TEXT_SIZE_16 - 2.0, Color::RED);
                 }
             }
+        }
+
+        if self.show_start_warning {
+            y += if self.show_bottom_row { ROW_H + (2. * gap) } else { gap };
+            self.warning_height = ctx.draw_text_wrapped(
+                "No Start entry in destination.",
+                rect.x,
+                y,
+                layout::FIELD_TEXT_SIZE_16 - 2.0,
+                Color::GOLD,
+                rect.w,
+            );
         }
     }
 }
