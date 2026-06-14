@@ -1,0 +1,38 @@
+editor/src/gui/inspector/animation_module.rs
+  s_7866ee244a525e::t_d2ef45eff36f1f 788
+editor/src/gui/inspector/audio_source_module/mod.rs
+  s_7866ee244a525e::t_97c478867a2cbc 23,487,493
+  s_7866ee244a525e::t_b164575af637e9 486
+editor/src/gui/inspector/world_exit_module.rs
+  s_7866ee244a525e::t_7bb280d8fc7c69 221-222
+editor/src/gui/inspector/script_module.rs
+  s_7866ee244a525e::t_7d45e391b80bcb 301
+editor/src/shared/scene_ui/inspector/entity_inspector.rs
+  s_7866ee244a525e::t_f9461e528f81ba 139-140,163
+editor/src/gui/inspector/world_entry_module.rs
+  s_7866ee244a525e::t_320ad6de53360a 116-117
+engine_core/src/ecs/inspector/factory.rs
+  s_7866ee244a525e::t_e8618bd81a3575 59-62,66-67
+  s_7866ee244a525e::t_b79642fe3c31d4 31,65
+  s_7866ee244a525e::t_570c27b4c8e414 80
+engine_core/src/ecs/components/physics_body.rs
+  s_7866ee244a525e::t_0c663690f8e246 12
+editor/src/gui/inspector/room_camera_module.rs
+  s_7866ee244a525e::t_7fa110a6bb5dd1 310
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "0da61f887e88506f3a7e15da407dac46df2b6a15",
+  "prompts": {},
+  "sessions": {
+    "s_7866ee244a525e": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019ec70d-256b-7639-a9f5-e97304314d27",
+        "model": "claude-sonnet-4.6"
+      },
+      "human_author": "Charlie Lashmar <c.lashmar08@gmail.com>"
+    }
+  }
+}
