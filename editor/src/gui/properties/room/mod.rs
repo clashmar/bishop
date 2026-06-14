@@ -52,8 +52,8 @@ impl InspectorContent for RoomProperties {
     ) -> InspectorOutput {
         let mut output = InspectorOutput::default();
 
-        let create_label = "+ Entity";
-        let cam_label = "+ Camera";
+        let create_label = "+Entity";
+        let cam_label = "+Cam";
 
         let txt_create = measure_text(ctx, create_label, layout::HEADER_FONT_SIZE_20);
         let txt_cam = measure_text(ctx, cam_label, layout::HEADER_FONT_SIZE_20);

@@ -231,7 +231,7 @@ impl InspectorContent for EntityInspector {
             copy_entity(game_ctx.ecs, entity);
         }
 
-        let add_label = "+ Component";
+        let add_label = "+Component";
         let txt_add = measure_text(ctx, add_label, layout::HEADER_FONT_SIZE_20);
         let btn_w_add = txt_add.width + layout::WIDGET_PADDING;
         let add_rect = register_rect(
@@ -244,10 +244,10 @@ impl InspectorContent for EntityInspector {
             ),
         );
 
-        let remove_label = "Remove";
+        let remove_label = "-Entity";
         let txt_remove = measure_text(ctx, remove_label, layout::HEADER_FONT_SIZE_20);
         let btn_w_remove = txt_remove.width + layout::WIDGET_PADDING;
-        let create_label = "+ Entity";
+        let create_label = "+Entity";
         let txt_create = measure_text(ctx, create_label, layout::HEADER_FONT_SIZE_20);
         let btn_w_create = txt_create.width + layout::WIDGET_PADDING;
 
