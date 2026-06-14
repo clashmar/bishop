@@ -1,0 +1,36 @@
+editor/src/gui/widgets/script_module_core.rs
+  s_df58c006df53b7::t_ef6a059a16ff98 23-28
+  s_df58c006df53b7::t_65a5a15e99fdb8 280-377
+  s_df58c006df53b7::t_ecd7f149919b4d 213,216-217,243,246-247,257,260-261
+  s_df58c006df53b7::t_7de0124f1442a5 2-3,6,8-9,12-17,19-22,29-30,33-36,38-41,43-48,50-212,214-215,218-242,244-245,248-256,258-259,262-279,378-390
+  s_df58c006df53b7::t_b5c5a49f7c94db 1,4-5,7,10-11
+  s_df58c006df53b7::t_2e1996f7f36e9e 18,31-32,37,42,49
+editor/src/gui/widgets/mod.rs
+  s_df58c006df53b7::t_3c719f70eb5925 1,3,5
+  s_df58c006df53b7::t_82025e9bb3c2d1 4
+editor/src/gui/properties/world/world_script_module.rs
+  s_df58c006df53b7::t_81026b1d77ef7b 15
+  s_df58c006df53b7::t_198fbc19c0a2cb 2,9,11,18,30-37,46,49,53
+editor/src/gui/properties/room/room_script_module.rs
+  s_df58c006df53b7::t_88dc6264edae7f 2,9,11,18,30-33,45,49
+  s_df58c006df53b7::t_1442b6fd5be82b 15
+editor/src/gui/inspector/script_module.rs
+  s_df58c006df53b7::t_2bde1ba3bc589a 7
+  s_df58c006df53b7::t_09b347da600e4a 1,3,10,15,38,42
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "5936666c18a9bad5b3c4fa80fa18e52f2053bca6",
+  "prompts": {},
+  "sessions": {
+    "s_df58c006df53b7": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019ebd49-b476-79c3-aec5-4ce89348c290",
+        "model": "claude-sonnet-4.6"
+      },
+      "human_author": "Charlie Lashmar <c.lashmar08@gmail.com>"
+    }
+  }
+}
