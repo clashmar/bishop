@@ -1,0 +1,21 @@
+editor/src/gui/inspector/world_entry_module.rs
+  s_df58c006df53b7::t_bbe367b445a59d 126-130
+editor/src/gui/inspector/world_exit_module.rs
+  s_df58c006df53b7::t_776e007aad9098 270-274
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.7",
+  "base_commit_sha": "6ac9bf9823ef2b2a7c1505a9e5f6dd5fb4ff1137",
+  "prompts": {},
+  "sessions": {
+    "s_df58c006df53b7": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019ebd49-b476-79c3-aec5-4ce89348c290",
+        "model": "claude-sonnet-4.6"
+      },
+      "human_author": "Charlie Lashmar <c.lashmar08@gmail.com>"
+    }
+  }
+}
