@@ -1,0 +1,37 @@
+editor/src/prefab/prefab_editor/selection.rs
+  s_befa97653d52f6::t_37c55a2b7aace8 108
+editor/src/prefab/prefab_editor/actions/room_sync.rs
+  s_befa97653d52f6::t_d825821a1caac9 4
+engine_core/src/prefab/component_sync.rs
+  s_befa97653d52f6::t_1129264a648aa5 143,145-159,175-177
+  s_befa97653d52f6::t_a69b90b5c5768c 14-15
+  s_befa97653d52f6::t_c8b72a518abe56 48
+  s_befa97653d52f6::t_6d9d8bf2683e74 47,164
+  s_befa97653d52f6::t_5ff94c4af4870b 144
+  s_befa97653d52f6::t_385a9c90d09024 160-163,165-174
+editor/src/gui/inspector/room_camera_module.rs
+  s_befa97653d52f6::t_0fdb715dbd5043 2,4-5,56-58
+engine_core/src/prefab/capture.rs
+  s_befa97653d52f6::t_771e6977c44385 1,100
+editor/src/room/drawing.rs
+  s_befa97653d52f6::t_294927c88f27ac 494,498-510
+editor/src/prefab/prefab_editor/canvas.rs
+  s_befa97653d52f6::t_d04cdb5c43b989 3,78
+  s_befa97653d52f6::t_2a1fb8e90b5cca 76-77,79-81
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.7",
+  "base_commit_sha": "4a083e1e3992ae4238d4e66dacecc11838fe3981",
+  "prompts": {},
+  "sessions": {
+    "s_befa97653d52f6": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019ecc45-d238-7bce-b9fd-98bd86653305",
+        "model": "claude-opus-4.6"
+      },
+      "human_author": "Charlie Lashmar <c.lashmar08@gmail.com>"
+    }
+  }
+}
