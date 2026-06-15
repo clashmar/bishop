@@ -105,8 +105,7 @@ impl PrefabEditor {
 }
 
 pub fn is_prefab_entity(ecs: &Ecs, entity: Entity) -> bool {
-    !ecs.has::<RoomCamera>(entity)
-        && !ecs.has::<PlayerProxy>(entity)
+    !ecs.has::<PlayerProxy>(entity)
         && !ecs.has::<Player>(entity)
         && !ecs.has::<Global>(entity)
 }

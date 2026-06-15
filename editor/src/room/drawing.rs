@@ -491,20 +491,23 @@ pub fn draw_camera_placeholders(ctx: &mut WgpuContext, ecs: &Ecs, room_id: RoomI
         .collect();
 
     for pos in positions {
-        let half_tile = grid_size * 0.5;
-        let body = Rect::new(pos.x - half_tile, pos.y - half_tile, grid_size, grid_size);
-
-        ctx.draw_texture_ex(
-            camera_icon(),
-            body.x,
-            body.y,
-            Color::new(1.0, 1.0, 1.0, PLACEHOLDER_OPACITY),
-            DrawTextureParams {
-                dest_size: Some(vec2(grid_size, grid_size)),
-                ..Default::default()
-            },
-        );
+        draw_camera_icon(ctx, pos, grid_size);
     }
+}
+
+/// Draws a camera icon centered on the given position.
+pub fn draw_camera_icon<C: BishopContext>(ctx: &mut C, pos: Vec2, grid_size: f32) {
+    let half = grid_size * 0.5;
+    ctx.draw_texture_ex(
+        camera_icon(),
+        pos.x - half,
+        pos.y - half,
+        Color::new(1.0, 1.0, 1.0, PLACEHOLDER_OPACITY),
+        DrawTextureParams {
+            dest_size: Some(vec2(grid_size, grid_size)),
+            ..Default::default()
+        },
+    );
 }
 
 /// Draw an icon for a `Light` that has no other visual component.

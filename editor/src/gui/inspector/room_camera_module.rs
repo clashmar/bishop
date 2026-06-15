@@ -1,7 +1,8 @@
 use bishop::prelude::*;
+use engine_core::constants::world;
 use engine_core::ecs::*;
-use engine_core::game::{GameCtxMut};
-use engine_core::ui::{measure_text};
+use engine_core::game::GameCtxMut;
+use engine_core::ui::measure_text;
 use ::widgets::*;
 use strum::IntoEnumIterator;
 use ::widgets::constants::{colors, layout};
@@ -52,10 +53,9 @@ impl InspectorModule for RoomCameraModule {
         game_ctx: &mut GameCtxMut,
         entity: Entity,
     ) {
-        let Some(cur_world) = game_ctx.world.as_deref() else {
-            return;
-        };
-        let grid_size = cur_world.grid_size;
+        let grid_size = game_ctx.world.as_deref()
+            .map(|w| w.grid_size)
+            .unwrap_or(world::DEFAULT_GRID_SIZE);
         let ecs = &mut game_ctx.ecs;
 
         // Track pivot change to apply after cam borrow ends

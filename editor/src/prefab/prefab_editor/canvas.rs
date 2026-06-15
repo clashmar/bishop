@@ -1,5 +1,6 @@
 use super::selection::is_prefab_entity;
 use bishop::prelude::*;
+use crate::room::drawing::draw_camera_icon;
 use engine_core::assets::*;
 use engine_core::ecs::*;
 use engine_core::rendering::{EntityDrawParams, Renderable, draw_entity_placeholder, pivot_adjusted_position, resolve_visual_entity};
@@ -72,5 +73,11 @@ fn draw_prefab_entity<C: BishopContext>(
     }
 
     let draw_pos = pivot_adjusted_position(pos, Vec2::splat(grid_size), pivot);
+
+    if ecs.has::<RoomCamera>(entity) {
+        draw_camera_icon(ctx, pos, grid_size);
+        return;
+    }
+
     draw_entity_placeholder(ctx, draw_pos, grid_size);
 }
