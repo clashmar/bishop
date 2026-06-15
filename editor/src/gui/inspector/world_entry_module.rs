@@ -123,6 +123,10 @@ inventory::submit! {
                 .with_title(TITLE)
             )
         },
-        allowed_for: Some(|entity, ecs| ecs.has::<engine_core::ecs::CurrentRoom>(entity)),
+        allowed_for: Some(|entity, ecs| {
+            ecs.has::<engine_core::ecs::CurrentRoom>(entity)
+                && !ecs.has::<engine_core::ecs::Player>(entity)
+                && !ecs.has::<engine_core::ecs::PlayerProxy>(entity)
+        }),
     }
 }
