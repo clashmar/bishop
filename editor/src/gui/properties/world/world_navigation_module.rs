@@ -21,6 +21,8 @@ pub struct WorldNavigationModule {
     entry_count: usize,
     exit_count: usize,
     pending_focus: Option<Entity>,
+    show_start_warning: bool,
+    warning_height: f32,
 }
 
 impl WorldNavigationModule {
@@ -33,6 +35,8 @@ impl WorldNavigationModule {
             entry_count: 0,
             exit_count: 0,
             pending_focus: None,
+            show_start_warning: false,
+            warning_height: 0.0,
         }
     }
 }
@@ -70,6 +74,9 @@ impl PropertyModule<World> for WorldNavigationModule {
             .map(|(entity, entry)| (*entity, entry.name.clone()))
             .collect();
         entries.sort_by(|a, b| a.1.cmp(&b.1));
+
+        let has_start = entries.iter().any(|(_, name)| name == WorldEntry::START);
+        self.show_start_warning = !has_start;
 
         let mut exits: Vec<(Entity, String)> = game_ctx
             .ecs
@@ -156,6 +163,20 @@ impl PropertyModule<World> for WorldNavigationModule {
             }
             y += ROW_H + ROW_GAP;
         }
+
+        if self.show_start_warning {
+            y += ROW_GAP;
+            self.warning_height = ctx.draw_text_wrapped(
+                "No 'Start' entry in this world.",
+                rect.x,
+                y,
+                layout::FIELD_TEXT_SIZE_16 - 2.0,
+                Color::GOLD,
+                rect.w,
+            );
+        } else {
+            self.warning_height = 0.0;
+        }
     }
 
     fn take_host_action(&mut self) -> Option<InspectorHostAction> {
@@ -166,7 +187,9 @@ impl PropertyModule<World> for WorldNavigationModule {
 
     fn body_layout(&self) -> InspectorBodyLayout {
         let rows = 1 + 1 + self.entry_count + 1 + self.exit_count;
-        InspectorBodyLayout::new().rows(rows.max(3), ROW_GAP)
+        InspectorBodyLayout::new()
+            .rows(rows.max(3), ROW_GAP)
+            .block(self.warning_height)
     }
 
     fn title(&self) -> &str {
