@@ -1,0 +1,20 @@
+editor/src/gui/properties/world/world_navigation_module.rs
+  s_befa97653d52f6::t_9f61539053e84b 169,171,173-175
+  s_befa97653d52f6::t_b1c4414f294f86 24-25,38-39,78-80,166-168,170,172,176-179,190-192
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.7",
+  "base_commit_sha": "c3beac08482db9ac499031498abe41b25e61a7ce",
+  "prompts": {},
+  "sessions": {
+    "s_befa97653d52f6": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019ecc45-d238-7bce-b9fd-98bd86653305",
+        "model": "claude-sonnet-4.6"
+      },
+      "human_author": "Charlie Lashmar <c.lashmar08@gmail.com>"
+    }
+  }
+}
