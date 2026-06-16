@@ -30,7 +30,7 @@
             ),
             /*[6]*/ (
                 type_name: "CurrentRoom",
-                data: "{\n    (1): ((1)),\n    (2): ((1)),\n    (24): ((2)),\n    (37): ((1)),\n    (38): ((2)),\n    (39): ((3)),\n    (41): ((4)),\n    (43): ((3)),\n    (46): ((2)),\n    (47): ((4)),\n    (51): ((1)),\n    (52): ((4)),\n    (53): ((1)),\n    (54): ((1)),\n    (55): ((2)),\n    (56): ((3)),\n    (57): ((3)),\n    (58): ((4)),\n    (59): ((4)),\n    (62): ((4)),\n}",
+                data: "{\n    (2): ((1)),\n    (24): ((2)),\n    (37): ((1)),\n    (38): ((2)),\n    (39): ((3)),\n    (41): ((4)),\n    (43): ((3)),\n    (46): ((2)),\n    (47): ((4)),\n    (52): ((4)),\n    (53): ((1)),\n    (54): ((1)),\n    (55): ((2)),\n    (56): ((3)),\n    (57): ((3)),\n    (58): ((4)),\n    (59): ((4)),\n    (62): ((4)),\n    (63): ((1)),\n    (65): ((1)),\n    (66): ((1)),\n}",
             ),
             /*[7]*/ (
                 type_name: "Damage",
@@ -74,7 +74,7 @@
             ),
             /*[17]*/ (
                 type_name: "Name",
-                data: "{\n    (1): (\"Camera 1\"),\n    (2): (\"Player Proxy\"),\n    (3): (\"Player\"),\n    (24): (\"Camera 1\"),\n    (37): (\"Cat\"),\n    (38): (\"Checkpoint\"),\n    (39): (\"Camera 1\"),\n    (41): (\"Camera 1\"),\n    (43): (\"Entity\"),\n    (46): (\"Entity\"),\n    (47): (\"Entity\"),\n    (51): (\"Entity\"),\n    (52): (\"Entity\"),\n}",
+                data: "{\n    (2): (\"Player Proxy\"),\n    (3): (\"Player\"),\n    (24): (\"Camera 1\"),\n    (37): (\"Cat\"),\n    (38): (\"Checkpoint\"),\n    (39): (\"Camera 1\"),\n    (41): (\"Camera 1\"),\n    (43): (\"Entity\"),\n    (46): (\"Entity\"),\n    (47): (\"Entity\"),\n    (52): (\"Entity\"),\n    (63): (\"Entity\"),\n    (65): (\"Camera 1\"),\n    (66): (\"Entity\"),\n}",
             ),
             /*[18]*/ (
                 type_name: "Parent",
@@ -94,19 +94,19 @@
             ),
             /*[22]*/ (
                 type_name: "PrefabInstanceNode",
-                data: "{\n    (37): (\n        prefab_id: (1),\n        node_id: 1,\n        root_entity: (37),\n    ),\n}",
+                data: "{\n    (37): (\n        prefab_id: (1),\n        node_id: 1,\n        root_entity: (37),\n    ),\n    (63): (\n        prefab_id: (4),\n        node_id: 1,\n        root_entity: (63),\n    ),\n    (65): (\n        prefab_id: (5),\n        node_id: 1,\n        root_entity: (65),\n    ),\n}",
             ),
             /*[23]*/ (
                 type_name: "PrefabInstanceRoot",
-                data: "{\n    (37): (\n        prefab_id: (1),\n    ),\n}",
+                data: "{\n    (37): (\n        prefab_id: (1),\n    ),\n    (63): (\n        prefab_id: (4),\n    ),\n    (65): (\n        prefab_id: (5),\n    ),\n}",
             ),
             /*[24]*/ (
                 type_name: "PrefabOverrides",
-                data: "{\n    (37): (\n        modified_components: [],\n        removed_components: [],\n        added_components: [\n            (\n                type_name: \"Active\",\n                ron: \"(true)\",\n            ),\n            (\n                type_name: \"Grounded\",\n                ron: \"(false)\",\n            ),\n            (\n                type_name: \"MotionBody\",\n                ron: \"()\",\n            ),\n            (\n                type_name: \"PhysicsBody\",\n                ron: \"()\",\n            ),\n            (\n                type_name: \"SubPixel\",\n                ron: \"()\",\n            ),\n            (\n                type_name: \"Velocity\",\n                ron: \"(\\n    x: 0.0,\\n    y: 0.0,\\n)\",\n            ),\n        ],\n    ),\n}",
+                data: "{\n    (37): (\n        modified_components: [],\n        removed_components: [],\n        added_components: [\n            (\n                type_name: \"Active\",\n                ron: \"(true)\",\n            ),\n            (\n                type_name: \"Grounded\",\n                ron: \"(false)\",\n            ),\n            (\n                type_name: \"MotionBody\",\n                ron: \"()\",\n            ),\n            (\n                type_name: \"PhysicsBody\",\n                ron: \"()\",\n            ),\n            (\n                type_name: \"SubPixel\",\n                ron: \"()\",\n            ),\n            (\n                type_name: \"Velocity\",\n                ron: \"(\\n    x: 0.0,\\n    y: 0.0,\\n)\",\n            ),\n        ],\n    ),\n    (63): (\n        modified_components: [\n            \"WorldEntry\",\n            \"WorldExit\",\n        ],\n        removed_components: [],\n        added_components: [],\n    ),\n}",
             ),
             /*[25]*/ (
                 type_name: "RoomCamera",
-                data: "{\n    (1): (\n        zoom: (0.0078125, 0.013888889),\n        room_id: (1),\n        zoom_mode: Step,\n        camera_mode: Fixed,\n    ),\n    (24): (\n        zoom: (0.015625, 0.027777778),\n        room_id: (2),\n        zoom_mode: Step,\n        camera_mode: Fixed,\n    ),\n    (39): (\n        zoom: (0.0078125, 0.013888889),\n        room_id: (3),\n        zoom_mode: Step,\n        camera_mode: Fixed,\n    ),\n    (41): (\n        zoom: (0.0078125, 0.013888889),\n        room_id: (4),\n        zoom_mode: Step,\n        camera_mode: Fixed,\n    ),\n}",
+                data: "{\n    (24): (\n        zoom: (0.015625, 0.027777778),\n        room_id: (2),\n        zoom_mode: Step,\n        camera_mode: Fixed,\n    ),\n    (39): (\n        zoom: (0.0078125, 0.013888889),\n        room_id: (3),\n        zoom_mode: Step,\n        camera_mode: Fixed,\n    ),\n    (41): (\n        zoom: (0.0078125, 0.013888889),\n        room_id: (4),\n        zoom_mode: Step,\n        camera_mode: Fixed,\n    ),\n    (65): (\n        zoom: (0.0078125, 0.013888889),\n        room_id: (1),\n        zoom_mode: Step,\n        camera_mode: Fixed,\n    ),\n}",
             ),
             /*[26]*/ (
                 type_name: "Script",
@@ -134,7 +134,7 @@
             ),
             /*[32]*/ (
                 type_name: "Transform",
-                data: "{\n    (1): (\n        visible: true,\n        position: (128.0, 0.0),\n        pivot: TopLeft,\n    ),\n    (2): (\n        visible: true,\n        position: (28.0, 72.0),\n        pivot: BottomCenter,\n    ),\n    (3): (\n        visible: true,\n        position: (0.0, 0.0),\n        pivot: BottomCenter,\n    ),\n    (24): (\n        visible: true,\n        position: (-64.0, 36.0),\n        pivot: CenterLeft,\n    ),\n    (37): (\n        visible: true,\n        position: (164.0, 72.0),\n        pivot: BottomCenter,\n    ),\n    (38): (\n        visible: true,\n        position: (-84.0, 72.0),\n        pivot: BottomCenter,\n    ),\n    (39): (\n        visible: true,\n        position: (128.0, 72.0),\n        pivot: CenterLeft,\n    ),\n    (41): (\n        visible: true,\n        position: (128.0, 72.0),\n        pivot: CenterLeft,\n    ),\n    (43): (\n        visible: true,\n        position: (88.0, 112.0),\n        pivot: BottomCenter,\n    ),\n    (46): (\n        visible: true,\n        position: (-44.0, 72.0),\n        pivot: BottomCenter,\n    ),\n    (47): (\n        visible: true,\n        position: (56.0, 64.0),\n        pivot: BottomCenter,\n    ),\n    (51): (\n        visible: true,\n        position: (76.0, 72.0),\n        pivot: BottomCenter,\n    ),\n    (52): (\n        visible: true,\n        position: (152.0, 144.0),\n        pivot: BottomCenter,\n    ),\n    (62): (\n        visible: true,\n        position: (40.0, 112.0),\n        pivot: BottomCenter,\n    ),\n}",
+                data: "{\n    (2): (\n        visible: true,\n        position: (36.0, 72.0),\n        pivot: BottomCenter,\n    ),\n    (3): (\n        visible: true,\n        position: (0.0, 0.0),\n        pivot: BottomCenter,\n    ),\n    (24): (\n        visible: true,\n        position: (-64.0, 36.0),\n        pivot: CenterLeft,\n    ),\n    (37): (\n        visible: true,\n        position: (164.0, 72.0),\n        pivot: BottomCenter,\n    ),\n    (38): (\n        visible: true,\n        position: (-84.0, 72.0),\n        pivot: BottomCenter,\n    ),\n    (39): (\n        visible: true,\n        position: (128.0, 72.0),\n        pivot: CenterLeft,\n    ),\n    (41): (\n        visible: true,\n        position: (128.0, 72.0),\n        pivot: CenterLeft,\n    ),\n    (43): (\n        visible: true,\n        position: (88.0, 112.0),\n        pivot: BottomCenter,\n    ),\n    (46): (\n        visible: true,\n        position: (-44.0, 72.0),\n        pivot: BottomCenter,\n    ),\n    (47): (\n        visible: true,\n        position: (56.0, 64.0),\n        pivot: BottomCenter,\n    ),\n    (52): (\n        visible: true,\n        position: (152.0, 144.0),\n        pivot: BottomCenter,\n    ),\n    (62): (\n        visible: true,\n        position: (40.0, 112.0),\n        pivot: BottomCenter,\n    ),\n    (63): (\n        visible: true,\n        position: (76.0, 72.0),\n        pivot: BottomCenter,\n    ),\n    (65): (\n        visible: true,\n        position: (128.0, 0.0),\n        pivot: TopLeft,\n    ),\n    (66): (\n        visible: true,\n        position: (44.0, 24.0),\n        pivot: BottomCenter,\n    ),\n}",
             ),
             /*[33]*/ (
                 type_name: "Velocity",
@@ -146,11 +146,11 @@
             ),
             /*[35]*/ (
                 type_name: "WorldEntry",
-                data: "{\n    (47): (\n        name: \"Main Entry\",\n    ),\n    (51): (\n        name: \"Start\",\n    ),\n    (62): (\n        name: \"Start\",\n    ),\n}",
+                data: "{\n    (47): (\n        name: \"Main Entry\",\n    ),\n    (62): (\n        name: \"Start\",\n    ),\n    (63): (\n        name: \"Start\",\n    ),\n}",
             ),
             /*[36]*/ (
                 type_name: "WorldExit",
-                data: "{\n    (46): (\n        destination: Some(World((3))),\n        entry: Some(\"Start\"),\n        trigger: OnInteract,\n    ),\n    (52): (\n        destination: Some(World((1))),\n        entry: Some(\"Start\"),\n        trigger: OnInteract,\n    ),\n}",
+                data: "{\n    (46): (\n        destination: Some(World((3))),\n        entry: Some(\"Start\"),\n        trigger: OnInteract,\n    ),\n    (52): (\n        destination: Some(World((1))),\n        entry: Some(\"Start\"),\n        trigger: OnInteract,\n    ),\n    (63): (\n        destination: Some(World((1))),\n        entry: Some(\"Start\"),\n        trigger: OnProximity(16.0),\n    ),\n}",
             ),
         ],
     ),
@@ -434,6 +434,9 @@
             Sprite((9)): (
                 path: "assets/sprites/cat.png",
             ),
+            Sprite((10)): (
+                path: "assets/sprites/tiles/Tile24.png",
+            ),
             Script((1)): (
                 path: "scripts/bullet.lua",
             ),
@@ -461,6 +464,12 @@
             Prefab((3)): (
                 path: "prefabs/Bullet.prefab",
             ),
+            Prefab((4)): (
+                path: "prefabs/Portal.prefab",
+            ),
+            Prefab((5)): (
+                path: "prefabs/Camera 1.prefab",
+            ),
             Sound((1)): (
                 path: "audio/sfx/jump.wav",
             ),
@@ -474,6 +483,6 @@
         next_tile_def_id: 1,
     ),
     script_manager: (),
-    current_world_id: Some((3)),
+    current_world_id: Some((1)),
     game_map: (),
 )

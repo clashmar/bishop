@@ -514,15 +514,7 @@ impl RoomEditor {
                         let sprite_manager = &mut *game_ctx.sprite_manager;
 
                         draw_exit_placeholders(ctx, &room.exits, room.position, grid_size);
-                        draw_camera_placeholders(ctx, ecs, room_id, grid_size);
-                        draw_light_placeholders(ctx, ecs, room_id, grid_size);
-                        draw_glow_placeholders(ctx, ecs, sprite_manager, room_id, grid_size);
-                        draw_navigation_placeholders(
-                            ctx,
-                            ecs,
-                            room_id,
-                            grid_size,
-                        );
+                        draw_entity_placeholders(ctx, ecs, sprite_manager, room_id, grid_size);
                         draw_entity_range_circles_in_room(ctx, ecs, room_id, grid_size);
                         if self.scene_sub_mode == RoomSceneSubMode::Stamp
                             && !self.should_block_canvas(ctx)

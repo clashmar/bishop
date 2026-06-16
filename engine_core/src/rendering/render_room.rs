@@ -80,7 +80,6 @@ pub fn render_room<C: BishopContext>(
     // let lights = collect_lights(ecs, room, alpha, prev_positions);
     // render_system.run_spotlight_pass(ctx, render_cam, lights, room.darkness);
     // render_system.run_final_pass(ctx);
-
 }
 
 fn draw_entity<C: BishopContext>(
@@ -116,13 +115,6 @@ fn draw_entity<C: BishopContext>(
     {
         return;
     }
-
-    if ecs.has_any::<(Light, Glow, WorldEntry, WorldExit)>(visual_entity) {
-        return;
-    }
-
-    let base = pivot_adjusted_position(pos, Vec2::splat(grid_size), pivot);
-    draw_entity_placeholder(ctx, base, grid_size);
 }
 
 /// Collects current-room entities plus neighboring spillover entities whose visual

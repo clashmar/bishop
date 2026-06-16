@@ -1,0 +1,30 @@
+(
+    id: (4),
+    name: "Portal",
+    next_node_id: 2,
+    root_node_id: 1,
+    nodes: [
+        (
+            node_id: 1,
+            parent_node_id: None,
+            components: [
+                (
+                    type_name: "Name",
+                    ron: "(\"Entity\")",
+                ),
+                (
+                    type_name: "Transform",
+                    ron: "(visible:true,position:(0.0,0.0),pivot:BottomCenter)",
+                ),
+                (
+                    type_name: "WorldEntry",
+                    ron: "(\n    name: \"Start 2 2\",\n)",
+                ),
+                (
+                    type_name: "WorldExit",
+                    ron: "(\n    destination: Some(World((1))),\n    entry: Some(\"Start\"),\n    trigger: OnInteract,\n)",
+                ),
+            ],
+        ),
+    ],
+)

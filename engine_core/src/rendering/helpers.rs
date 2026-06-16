@@ -105,11 +105,6 @@ pub fn outline_thickness(grid_size: f32) -> f32 {
     (grid_size * 0.2).max(1.0)
 }
 
-/// Draws a placeholder for an entity that has no sprite or current frame.
-pub fn draw_entity_placeholder<C: BishopContext>(ctx: &mut C, pos: Vec2, grid_size: f32) {
-    ctx.draw_rectangle(pos.x, pos.y, grid_size, grid_size, Color::GREEN);
-}
-
 /// Returns the top-left draw position after applying the entity pivot offset.
 #[inline]
 pub fn pivot_adjusted_position(entity_pos: Vec2, texture_size: Vec2, pivot: Pivot) -> Vec2 {

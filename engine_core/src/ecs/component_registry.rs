@@ -1,5 +1,5 @@
 use crate::ecs::component::Component;
-use crate::ecs::components::{Animation, RoomCamera, Sprite};
+use crate::ecs::components::{Animation, RoomCamera, Sprite, WorldEntry, WorldExit};
 use crate::ecs::ComponentStore;
 use crate::ecs::{ecs::Ecs, entity::Entity};
 use crate::game::GameCtxMut;
@@ -19,6 +19,8 @@ pub static COMPONENTS: Lazy<Vec<&'static ComponentRegistry>> = Lazy::new(|| {
 /// Mutual-exclusion groups; no two components from the same group can coexist on an entity.
 pub static COMPONENT_CONFLICT_GROUPS: &[&[&str]] = &[
     &[RoomCamera::TYPE_NAME, Sprite::TYPE_NAME, Animation::TYPE_NAME],
+    &[RoomCamera::TYPE_NAME, WorldEntry::TYPE_NAME],
+    &[RoomCamera::TYPE_NAME, WorldExit::TYPE_NAME],
 ];
 
 inventory::collect!(ComponentRegistry);

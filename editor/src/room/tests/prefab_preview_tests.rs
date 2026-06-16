@@ -362,3 +362,192 @@ fn current_frame_preview_uses_typed_snapshot_ron() {
     assert_eq!(preview.items[0].palette_position, Vec2::new(11.0, 17.0));
     assert_eq!(preview.items[0].size, Vec2::new(16.0, 12.0));
 }
+
+fn component_snapshot(type_name: &str, ron: &str) -> ComponentSnapshot {
+    ComponentSnapshot {
+        type_name: type_name.to_string(),
+        ron: ron.to_string(),
+    }
+}
+
+fn node_with_components(node_id: usize, components: Vec<ComponentSnapshot>) -> PrefabNode {
+    PrefabNode {
+        node_id,
+        parent_node_id: None,
+        components,
+    }
+}
+
+#[test]
+fn placeholder_entity_visual_camera_returns_camera_icon() {
+    let node = node_with_components(1, vec![
+        component_snapshot(comp_type_name::<Transform>(), "Transform(visible: true, position: (0,0), pivot: BottomCenter)"),
+        component_snapshot(comp_type_name::<RoomCamera>(), "RoomCamera(zoom: (1,1))"),
+    ]);
+    assert!(matches!(placeholder_entity_visual(&node), EntityVisual::CameraIcon));
+}
+
+#[test]
+fn placeholder_entity_visual_entry_and_exit_returns_portal_icon() {
+    let node = node_with_components(1, vec![
+        component_snapshot(comp_type_name::<Transform>(), "Transform(visible: true, position: (0,0), pivot: BottomCenter)"),
+        component_snapshot(comp_type_name::<WorldEntry>(), "WorldEntry()"),
+        component_snapshot(comp_type_name::<WorldExit>(), "WorldExit(trigger: OnInteract)"),
+    ]);
+    assert!(matches!(placeholder_entity_visual(&node), EntityVisual::PortalIcon));
+}
+
+#[test]
+fn placeholder_entity_visual_entry_only_returns_entry_icon() {
+    let node = node_with_components(1, vec![
+        component_snapshot(comp_type_name::<Transform>(), "Transform(visible: true, position: (0,0), pivot: BottomCenter)"),
+        component_snapshot(comp_type_name::<WorldEntry>(), "WorldEntry()"),
+    ]);
+    assert!(matches!(placeholder_entity_visual(&node), EntityVisual::EntryIcon));
+}
+
+#[test]
+fn placeholder_entity_visual_exit_only_returns_exit_icon() {
+    let node = node_with_components(1, vec![
+        component_snapshot(comp_type_name::<Transform>(), "Transform(visible: true, position: (0,0), pivot: BottomCenter)"),
+        component_snapshot(comp_type_name::<WorldExit>(), "WorldExit(trigger: OnInteract)"),
+    ]);
+    assert!(matches!(placeholder_entity_visual(&node), EntityVisual::ExitIcon));
+}
+
+#[test]
+fn placeholder_entity_visual_light_returns_light_placeholder() {
+    let node = node_with_components(1, vec![
+        component_snapshot(comp_type_name::<Transform>(), "Transform(visible: true, position: (0,0), pivot: BottomCenter)"),
+        component_snapshot(comp_type_name::<Light>(), "Light()"),
+    ]);
+    assert!(matches!(placeholder_entity_visual(&node), EntityVisual::LightPlaceholder));
+}
+
+#[test]
+fn placeholder_entity_visual_glow_returns_glow_placeholder() {
+    let node = node_with_components(1, vec![
+        component_snapshot(comp_type_name::<Transform>(), "Transform(visible: true, position: (0,0), pivot: BottomCenter)"),
+        component_snapshot(comp_type_name::<Glow>(), "Glow(sprite_id: SpriteId(1))"),
+    ]);
+    assert!(matches!(placeholder_entity_visual(&node), EntityVisual::GlowPlaceholder));
+}
+
+#[test]
+fn placeholder_entity_visual_no_special_components_returns_generic() {
+    let node = node_with_components(1, vec![
+        component_snapshot(comp_type_name::<Transform>(), "Transform(visible: true, position: (0,0), pivot: BottomCenter)"),
+    ]);
+    assert!(matches!(placeholder_entity_visual(&node), EntityVisual::GenericPlaceholder));
+}
+
+#[test]
+fn node_has_valid_visual_true_for_valid_sprite() {
+    let node = node_with_components(1, vec![
+        component_snapshot(comp_type_name::<Transform>(), "Transform(visible: true, position: (0,0), pivot: BottomCenter)"),
+        component_snapshot(comp_type_name::<Sprite>(), &sprite_ron(1)),
+    ]);
+    assert!(node_has_valid_visual(&node));
+}
+
+#[test]
+fn node_has_valid_visual_false_for_invalid_sprite() {
+    let node = node_with_components(1, vec![
+        component_snapshot(comp_type_name::<Transform>(), "Transform(visible: true, position: (0,0), pivot: BottomCenter)"),
+        component_snapshot(comp_type_name::<Sprite>(), &sprite_ron(0)),
+    ]);
+    assert!(!node_has_valid_visual(&node));
+}
+
+#[test]
+fn node_has_valid_visual_false_for_animation_with_only_new_clip() {
+    let node = animation_node(
+        1,
+        (0.0, 0.0),
+        Pivot::TopLeft,
+        animation_component(
+            vec![(
+                ClipId::New,
+                ClipDef {
+                    frame_size: Vec2::new(16.0, 12.0),
+                    ..Default::default()
+                },
+            )],
+            "animations/player/male",
+        ),
+    );
+    assert!(!node_has_valid_visual(&node));
+}
+
+#[test]
+fn collect_fallback_visuals_excludes_nodes_with_valid_visuals() {
+    let prefab = PrefabAsset {
+        id: PrefabId(1),
+        name: "test".into(),
+        next_node_id: 2,
+        root_node_id: 1,
+        nodes: vec![
+            node_with_components(1, vec![
+                component_snapshot(comp_type_name::<Transform>(), "Transform(visible: true, position: (0,0), pivot: BottomCenter)"),
+                component_snapshot(comp_type_name::<Sprite>(), &sprite_ron(1)),
+            ]),
+        ],
+    };
+    let visuals = collect_fallback_visuals(&prefab);
+    assert!(visuals.is_empty());
+}
+
+#[test]
+fn collect_fallback_visuals_excludes_generic_placeholder_nodes() {
+    let prefab = PrefabAsset {
+        id: PrefabId(1),
+        name: "test".into(),
+        next_node_id: 2,
+        root_node_id: 1,
+        nodes: vec![node_with_components(1, vec![
+            component_snapshot(
+                comp_type_name::<Transform>(),
+                "Transform(visible: true, position: (10,20), pivot: BottomCenter)",
+            ),
+        ])],
+    };
+    let visuals = collect_fallback_visuals(&prefab);
+    assert!(visuals.is_empty());
+}
+
+#[test]
+fn collect_fallback_visuals_includes_camera_node() {
+    let prefab = PrefabAsset {
+        id: PrefabId(1),
+        name: "test".into(),
+        next_node_id: 2,
+        root_node_id: 1,
+        nodes: vec![
+            node_with_components(1, vec![
+                component_snapshot(comp_type_name::<Transform>(), "Transform(visible: true, position: (10,20), pivot: BottomCenter)"),
+                component_snapshot(comp_type_name::<RoomCamera>(), "RoomCamera(zoom: (1,1))"),
+            ]),
+        ],
+    };
+    let visuals = collect_fallback_visuals(&prefab);
+    assert_eq!(visuals.len(), 1);
+    assert!(matches!(visuals[0].2, EntityVisual::CameraIcon));
+}
+
+#[test]
+fn collect_fallback_visuals_excludes_invisible_nodes() {
+    let prefab = PrefabAsset {
+        id: PrefabId(1),
+        name: "test".into(),
+        next_node_id: 2,
+        root_node_id: 1,
+        nodes: vec![
+            node_with_components(1, vec![
+                component_snapshot(comp_type_name::<Transform>(), "Transform(visible: false, position: (0,0), pivot: BottomCenter)"),
+                component_snapshot(comp_type_name::<RoomCamera>(), "RoomCamera(zoom: (1,1))"),
+            ]),
+        ],
+    };
+    let visuals = collect_fallback_visuals(&prefab);
+    assert!(visuals.is_empty());
+}

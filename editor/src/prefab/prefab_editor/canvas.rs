@@ -1,11 +1,16 @@
 use super::selection::is_prefab_entity;
 use bishop::prelude::*;
-use crate::room::drawing::{draw_camera_icon, draw_navigation_placeholder};
+use crate::editor_assets::assets::{entity_icon, entry_icon, exit_icon, portal_icon};
+use crate::shared::entity_icon::{
+    draw_camera_icon, draw_glow_placeholder, draw_light_placeholder, resolve_entity_visual,
+    EntityVisual, PLACEHOLDER_OPACITY,
+};
 use engine_core::assets::*;
 use engine_core::ecs::*;
-use engine_core::rendering::{EntityDrawParams, Renderable, draw_entity_placeholder, pivot_adjusted_position, resolve_visual_entity};
+use engine_core::rendering::{EntityDrawParams, Renderable, pivot_adjusted_position, resolve_visual_entity};
 use std::collections::BTreeMap;
 
+/// Draws all visible prefab entities sorted by layer z-order.
 pub(crate) fn draw_prefab_entities<C: BishopContext>(
     ctx: &mut C,
     ecs: &Ecs,
@@ -33,26 +38,6 @@ pub(crate) fn draw_prefab_entities<C: BishopContext>(
         for (entity, position) in entities {
             draw_prefab_entity(ctx, ecs, sprite_manager, entity, position, grid_size);
         }
-    }
-}
-
-/// Draw placeholder icons for WorldEntry, WorldExit, and portal prefab entities with no visual.
-pub(crate) fn draw_prefab_navigation_placeholders(
-    ctx: &mut WgpuContext,
-    ecs: &Ecs,
-    grid_size: f32,
-) {
-    for (entity, transform) in ecs.get_store::<Transform>().data.iter() {
-        if !is_prefab_entity(ecs, *entity) {
-            continue;
-        }
-        draw_navigation_placeholder(
-            ctx,
-            ecs,
-            *entity,
-            transform.position,
-            grid_size,
-        );
     }
 }
 
@@ -88,16 +73,48 @@ fn draw_prefab_entity<C: BishopContext>(
         }
     }
 
-    if ecs.has_any::<(Light, Glow, WorldEntry, WorldExit)>(visual_entity) {
-        return;
-    }
-
     let draw_pos = pivot_adjusted_position(pos, Vec2::splat(grid_size), pivot);
 
-    if ecs.has::<RoomCamera>(entity) {
-        draw_camera_icon(ctx, pos, grid_size);
-        return;
+    match resolve_entity_visual(ecs, entity) {
+        EntityVisual::SpriteOrAnimation => {}
+        EntityVisual::CameraIcon => {
+            draw_camera_icon(ctx, pos, grid_size);
+        }
+        visual @ (EntityVisual::PortalIcon | EntityVisual::EntryIcon | EntityVisual::ExitIcon) => {
+            let icon = match visual {
+                EntityVisual::PortalIcon => portal_icon(),
+                EntityVisual::EntryIcon => entry_icon(),
+                EntityVisual::ExitIcon => exit_icon(),
+                _ => unreachable!(),
+            };
+            ctx.draw_texture_ex(
+                icon,
+                draw_pos.x,
+                draw_pos.y,
+                Color::new(1.0, 1.0, 1.0, PLACEHOLDER_OPACITY),
+                DrawTextureParams {
+                    dest_size: Some(vec2(grid_size, grid_size)),
+                    ..Default::default()
+                },
+            );
+        }
+        EntityVisual::LightPlaceholder => {
+            draw_light_placeholder(ctx, pos, grid_size);
+        }
+        EntityVisual::GlowPlaceholder => {
+            draw_glow_placeholder(ctx, sprite_manager, ecs, entity, pos, grid_size);
+        }
+        EntityVisual::GenericPlaceholder => {
+            ctx.draw_texture_ex(
+                entity_icon(),
+                draw_pos.x,
+                draw_pos.y,
+                Color::new(1.0, 1.0, 1.0, PLACEHOLDER_OPACITY),
+                DrawTextureParams {
+                    dest_size: Some(vec2(grid_size, grid_size)),
+                    ..Default::default()
+                },
+            );
+        }
     }
-
-    draw_entity_placeholder(ctx, draw_pos, grid_size);
 }

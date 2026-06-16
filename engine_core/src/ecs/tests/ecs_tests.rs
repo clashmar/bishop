@@ -318,3 +318,36 @@ fn roundtrip_serde_empty_ecs() {
     let deserialized: Ecs = ron::de::from_str(&ron).unwrap();
     assert_eq!(deserialized.next_entity_id, 1);
 }
+
+#[test]
+fn room_camera_conflicts_with_world_entry() {
+    let group = COMPONENT_CONFLICT_GROUPS
+        .iter()
+        .find(|g| g.contains(&RoomCamera::TYPE_NAME) && g.contains(&WorldEntry::TYPE_NAME));
+    assert!(
+        group.is_some(),
+        "RoomCamera and WorldEntry must be in a conflict group together"
+    );
+}
+
+#[test]
+fn room_camera_conflicts_with_world_exit() {
+    let group = COMPONENT_CONFLICT_GROUPS
+        .iter()
+        .find(|g| g.contains(&RoomCamera::TYPE_NAME) && g.contains(&WorldExit::TYPE_NAME));
+    assert!(
+        group.is_some(),
+        "RoomCamera and WorldExit must be in a conflict group together"
+    );
+}
+
+#[test]
+fn world_entry_and_world_exit_are_not_in_conflict() {
+    let group = COMPONENT_CONFLICT_GROUPS
+        .iter()
+        .find(|g| g.contains(&WorldEntry::TYPE_NAME) && g.contains(&WorldExit::TYPE_NAME));
+    assert!(
+        group.is_none(),
+        "WorldEntry and WorldExit must NOT be in a conflict group (portals need both)"
+    );
+}

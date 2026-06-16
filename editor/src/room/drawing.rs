@@ -1,6 +1,6 @@
 use crate::app::control::camera_controller::*;
 use crate::app::EditorMode;
-use crate::editor_assets::assets::{camera_icon, entry_icon, exit_icon, portal_icon};
+use crate::editor_assets::assets::{camera_icon, entity_icon, entry_icon, exit_icon, portal_icon};
 use crate::gui::gui_constants::*;
 use crate::gui::menu_bar::*;
 use crate::gui::mode_selector::*;
@@ -8,11 +8,16 @@ use crate::gui::panel_text_color;
 use crate::room::prefab_preview::{build_prefab_preview, PrefabPreviewVisual};
 use crate::room::room_editor::*;
 use crate::room::selection::{entity_selection_rect, snap_room_drag_position};
+use crate::shared::entity_icon::{
+    draw_camera_icon, draw_glow_placeholder, draw_light_placeholder, resolve_entity_visual,
+    EntityVisual, PLACEHOLDER_OPACITY,
+};
 use crate::shared::scene_ui::inspector::{InspectorContext};
 use crate::tilemap::tilemap_editor::TILEMAP_SUB_MODES;
 use crate::world::coord;
 use bishop::prelude::*;
 use engine_core::assets::*;
+use engine_core::constants::world as world_constants;
 use engine_core::ecs::*;
 use engine_core::game::{GameCtxMut, StartupMode};
 use engine_core::rendering::{outline_thickness, pivot_adjusted_position};
@@ -23,8 +28,6 @@ use engine_core::worlds::*;
 use engine_core::theme::with_theme;
 use ::widgets::constants::layout;
 
-/// Semi-transparent opacity for editor placeholder overlays.
-pub(crate) const PLACEHOLDER_OPACITY: f32 = 0.5;
 const MODE_SELECTOR_PADDING: f32 = 8.0;
 const PREFAB_GHOST_OPACITY: f32 = 0.55;
 
@@ -418,41 +421,34 @@ pub(crate) fn draw_prefab_stamp_ghost(
                     },
                 );
             }
-            PrefabPreviewVisual::Placeholder => {
-                draw_prefab_stamp_placeholder(ctx, draw_pos, item.size);
-            }
+            PrefabPreviewVisual::Placeholder => {}
         }
     }
-}
 
-fn draw_prefab_stamp_placeholder(ctx: &mut WgpuContext, draw_pos: Vec2, size: Vec2) {
-    let fill = with_theme(|t| t.placeholder);
-    let outline = with_theme(|t| {
-        Color::new(
-            t.placeholder.r,
-            t.placeholder.g + 0.10,
-            t.placeholder.b + 0.10,
-            PREFAB_GHOST_OPACITY,
-        )
-    });
-    ctx.draw_rectangle(draw_pos.x, draw_pos.y, size.x, size.y, fill);
-    ctx.draw_rectangle_lines(draw_pos.x, draw_pos.y, size.x, size.y, 1.0, outline);
-    ctx.draw_line(
-        draw_pos.x,
-        draw_pos.y,
-        draw_pos.x + size.x,
-        draw_pos.y + size.y,
-        1.0,
-        outline,
-    );
-    ctx.draw_line(
-        draw_pos.x + size.x,
-        draw_pos.y,
-        draw_pos.x,
-        draw_pos.y + size.y,
-        1.0,
-        outline,
-    );
+    let ghost_scale = grid_size / world_constants::DEFAULT_GRID_SIZE;
+    for &(_palette_pos, stamp_pos, ref visual) in &preview.fallback_visuals {
+        let draw_pos = snapped_position + stamp_pos * ghost_scale;
+        let icon = match visual {
+            EntityVisual::CameraIcon => camera_icon(),
+            EntityVisual::PortalIcon => portal_icon(),
+            EntityVisual::EntryIcon => entry_icon(),
+            EntityVisual::ExitIcon => exit_icon(),
+            EntityVisual::LightPlaceholder | EntityVisual::GlowPlaceholder => entity_icon(),
+            EntityVisual::GenericPlaceholder => entity_icon(),
+            EntityVisual::SpriteOrAnimation => continue,
+        };
+        let size = Vec2::splat(grid_size);
+        ctx.draw_texture_ex(
+            icon,
+            draw_pos.x,
+            draw_pos.y,
+            Color::new(1.0, 1.0, 1.0, PREFAB_GHOST_OPACITY),
+            DrawTextureParams {
+                dest_size: Some(size),
+                ..Default::default()
+            },
+        );
+    }
 }
 
 /// Draw the outline of the collider for an entity if it has one.
@@ -475,151 +471,11 @@ pub fn draw_collider(ctx: &mut WgpuContext, ecs: &Ecs, entity: Entity) {
     }
 }
 
-/// Draw an icon for a `RoomCamera`.
-pub fn draw_camera_placeholders(ctx: &mut WgpuContext, ecs: &Ecs, room_id: RoomId, grid_size: f32) {
-    let cam_store = ecs.get_store::<RoomCamera>();
-    let pos_store = ecs.get_store::<Transform>();
-
-    let positions: Vec<Vec2> = ecs
-        .entities_in_room(room_id)
-        .iter()
-        .filter_map(|entity| {
-            ecs.assert_room_membership(room_id, *entity);
-            cam_store.get(*entity)?;
-            let pos = pos_store.get(*entity)?;
-            Some(pos.position)
-        })
-        .collect();
-
-    for pos in positions {
-        draw_camera_icon(ctx, pos, grid_size);
-    }
-}
-
-/// Draws a camera icon centered on the given position.
-pub fn draw_camera_icon<C: BishopContext>(ctx: &mut C, pos: Vec2, grid_size: f32) {
-    let half = grid_size * 0.5;
-    ctx.draw_texture_ex(
-        camera_icon(),
-        pos.x - half,
-        pos.y - half,
-        Color::new(1.0, 1.0, 1.0, PLACEHOLDER_OPACITY),
-        DrawTextureParams {
-            dest_size: Some(vec2(grid_size, grid_size)),
-            ..Default::default()
-        },
-    );
-}
-
-/// Draw an icon for a `Light` that has no other visual component.
-pub fn draw_light_placeholders(ctx: &mut WgpuContext, ecs: &Ecs, room_id: RoomId, grid_size: f32) {
-    for &entity in ecs.entities_in_room(room_id) {
-        ecs.assert_room_membership(room_id, entity);
-
-        if !ecs.has::<Light>(entity) {
-            continue;
-        }
-
-        if ecs.has_any::<(Sprite, Animation)>(entity) {
-            continue;
-        }
-
-        if let Some(position) = ecs.get_store::<Transform>().get(entity) {
-            let pos = position.position;
-
-            let half_tile = grid_size * 0.5;
-            let body = Rect::new(pos.x - half_tile, pos.y - half_tile, grid_size, grid_size);
-
-            let cyan = Color::new(0.0, 0.78, 0.78, PLACEHOLDER_OPACITY);
-            let yellow = Color::new(0.94, 0.86, 0.0, PLACEHOLDER_OPACITY);
-
-            // Outer square
-            ctx.draw_rectangle_lines(
-                body.x,
-                body.y,
-                body.w,
-                body.h,
-                outline_thickness(grid_size),
-                cyan,
-            );
-
-            // Lens
-            let lens_radius = grid_size * 0.2;
-            let lens_center = vec2(body.x + body.w / 2., body.y + body.h / 2.);
-
-            ctx.draw_circle_lines(
-                lens_center.x,
-                lens_center.y,
-                lens_radius,
-                outline_thickness(grid_size) * 0.75,
-                yellow,
-            );
-        }
-    }
-}
-
-/// Draw a placeholder for a `Glow` that has no other visual component.
-pub fn draw_glow_placeholders(
+/// Draw placeholder icons for entities that lack a visual component.
+pub fn draw_entity_placeholders(
     ctx: &mut WgpuContext,
     ecs: &Ecs,
     sprite_manager: &mut SpriteManager,
-    room_id: RoomId,
-    grid_size: f32,
-) {
-    let glow_store = ecs.get_store::<Glow>();
-
-    for &entity in ecs.entities_in_room(room_id) {
-        ecs.assert_room_membership(room_id, entity);
-
-        let Some(glow) = glow_store.get(entity) else {
-            continue;
-        };
-
-        if ecs.has_any::<(Sprite, Animation)>(entity) {
-            continue;
-        }
-
-        if let Some(position) = ecs.get_store::<Transform>().get(entity) {
-            let mut pos = position.position;
-
-            if let Some((w, h)) = sprite_manager.texture_size(glow.sprite_id) {
-                pos += vec2((w / 2.) - grid_size / 2., (h / 2.) - grid_size / 2.);
-            }
-
-            let body = Rect::new(pos.x, pos.y, grid_size, grid_size);
-
-            let cyan = Color::new(0.0, 0.78, 0.78, PLACEHOLDER_OPACITY);
-            let yellow = Color::new(0.94, 0.86, 0.0, PLACEHOLDER_OPACITY);
-
-            // Outer square
-            ctx.draw_rectangle_lines(
-                body.x,
-                body.y,
-                body.w,
-                body.h,
-                outline_thickness(grid_size),
-                cyan,
-            );
-
-            // Lens
-            let lens_radius = grid_size * 0.2;
-            let lens_center = vec2(body.x + body.w / 2., body.y + body.h / 2.);
-
-            ctx.draw_circle_lines(
-                lens_center.x,
-                lens_center.y,
-                lens_radius,
-                outline_thickness(grid_size) * 0.75,
-                yellow,
-            );
-        }
-    }
-}
-
-/// Draw a placeholder icon for WorldEntry, WorldExit, or portal entities with no visual.
-pub fn draw_navigation_placeholders(
-    ctx: &mut WgpuContext,
-    ecs: &Ecs,
     room_id: RoomId,
     grid_size: f32,
 ) {
@@ -628,57 +484,61 @@ pub fn draw_navigation_placeholders(
         let Some(transform) = ecs.get_store::<Transform>().get(entity) else {
             continue;
         };
-        draw_navigation_placeholder(
-            ctx,
-            ecs,
-            entity,
-            transform.position,
-            grid_size,
-        );
+        let pos = transform.position;
+
+        match resolve_entity_visual(ecs, entity) {
+            EntityVisual::SpriteOrAnimation => {}
+            EntityVisual::CameraIcon => {
+                draw_camera_icon(ctx, pos, grid_size);
+            }
+            visual @ (EntityVisual::PortalIcon | EntityVisual::EntryIcon | EntityVisual::ExitIcon) => {
+                let icon = match visual {
+                    EntityVisual::PortalIcon => portal_icon(),
+                    EntityVisual::EntryIcon => entry_icon(),
+                    EntityVisual::ExitIcon => exit_icon(),
+                    _ => unreachable!(),
+                };
+                let draw_pos = pivot_adjusted_position(
+                    pos,
+                    Vec2::splat(grid_size),
+                    transform.pivot,
+                );
+                ctx.draw_texture_ex(
+                    icon,
+                    draw_pos.x,
+                    draw_pos.y,
+                    Color::new(1.0, 1.0, 1.0, PLACEHOLDER_OPACITY),
+                    DrawTextureParams {
+                        dest_size: Some(vec2(grid_size, grid_size)),
+                        ..Default::default()
+                    },
+                );
+            }
+            EntityVisual::LightPlaceholder => {
+                draw_light_placeholder(ctx, pos, grid_size);
+            }
+            EntityVisual::GlowPlaceholder => {
+                draw_glow_placeholder(ctx, sprite_manager, ecs, entity, pos, grid_size);
+            }
+            EntityVisual::GenericPlaceholder => {
+                let draw_pos = pivot_adjusted_position(
+                    pos,
+                    Vec2::splat(grid_size),
+                    transform.pivot,
+                );
+                ctx.draw_texture_ex(
+                    entity_icon(),
+                    draw_pos.x,
+                    draw_pos.y,
+                    Color::new(1.0, 1.0, 1.0, PLACEHOLDER_OPACITY),
+                    DrawTextureParams {
+                        dest_size: Some(vec2(grid_size, grid_size)),
+                        ..Default::default()
+                    },
+                );
+            }
+        }
     }
-}
-
-/// Draw a navigation placeholder icon for a single entity if it qualifies.
-pub(crate) fn draw_navigation_placeholder(
-    ctx: &mut WgpuContext,
-    ecs: &Ecs,
-    entity: Entity,
-    pos: Vec2,
-    grid_size: f32,
-) {
-    if ecs.get_store::<CurrentFrame>().get(entity).is_some_and(|f| f.has_valid_asset())
-        || ecs.get_store::<Sprite>().get(entity).is_some_and(|s| s.has_valid_asset())
-    {
-        return;
-    }
-
-    let has_entry = ecs.has::<WorldEntry>(entity);
-    let has_exit = ecs.has::<WorldExit>(entity);
-
-    let icon = match (has_entry, has_exit) {
-        (true, true) => portal_icon(),
-        (true, false) => entry_icon(),
-        (false, true) => exit_icon(),
-        (false, false) => return,
-    };
-
-    let pivot = ecs
-        .get_store::<Transform>()
-        .get(entity)
-        .map(|t| t.pivot)
-        .unwrap_or(Pivot::BottomCenter);
-    let draw_pos = pivot_adjusted_position(pos, Vec2::splat(grid_size), pivot);
-
-    ctx.draw_texture_ex(
-        icon,
-        draw_pos.x,
-        draw_pos.y,
-        Color::new(1.0, 1.0, 1.0, PLACEHOLDER_OPACITY),
-        DrawTextureParams {
-            dest_size: Some(vec2(grid_size, grid_size)),
-            ..Default::default()
-        },
-    );
 }
 
 /// Draws a small white dot at the pivot point of the selected entity.
@@ -697,10 +557,12 @@ pub fn draw_pivot_marker(ctx: &mut WgpuContext, ecs: &Ecs, entity: Entity) {
     );
 }
 
-/// Returns true if the entity is a pure placeholder.
+/// Returns true if the entity is a pure placeholder (no visual component).
 pub fn is_pure_placeholder(ecs: &Ecs, entity: Entity) -> bool {
-    ecs.has::<RoomCamera>(entity)
-        || (ecs.has::<Light>(entity) && !ecs.has_any::<(Sprite, Animation, CurrentFrame)>(entity))
+    matches!(
+        resolve_entity_visual(ecs, entity),
+        EntityVisual::CameraIcon | EntityVisual::LightPlaceholder
+    )
 }
 
 /// Draw range circles for an entity.
