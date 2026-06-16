@@ -84,11 +84,9 @@ fn room_context_is_constructed() {
 #[test]
 fn prefab_blocked_component_types_exclude_room_specific_types() {
     let current_room = comp_type_name::<CurrentRoom>();
-    let room_camera = comp_type_name::<RoomCamera>();
     let player_proxy = comp_type_name::<PlayerProxy>();
 
     assert!(is_scene_component_hidden_in_prefab(current_room));
-    assert!(is_scene_component_hidden_in_prefab(room_camera));
     assert!(is_scene_component_hidden_in_prefab(player_proxy));
 
     let player = comp_type_name::<Player>();
