@@ -9,7 +9,7 @@ use crate::commands::scene::{
     capture_component_transient_state, AddComponentCmd, ComponentTransientState,
     DeleteEntityCmd, RemoveComponentCmd, UpdateComponentCmd,
 };
-use crate::editor_global::push_command;
+use crate::editor_global::{push_command, push_toast};
 use crate::gui::gui_constants::{self, *};
 use crate::gui::inspector::player_module::PlayerModule;
 use crate::gui::menu_bar::menu_button;
@@ -19,6 +19,7 @@ use crate::shared::scene_ui::inspector::InspectorContent;
 use bishop::prelude::*;
 use engine_core::controls::{Controls};
 use engine_core::ecs::*;
+use engine_core::ecs::component_registry::component_removal_blocked_by;
 use engine_core::game::{GameCtxMut};
 use engine_core::logging::{omni_error};
 use engine_core::ui::{measure_text};
@@ -473,13 +474,21 @@ impl InspectorContent for EntityInspector {
                 }
                 if module.take_remove_request() {
                     if let Some((type_name, ron, _)) = pre_snapshot {
-                        self.component_edits.remove(&(module_entity, type_name));
-                        push_command(Box::new(RemoveComponentCmd::new(
-                            module_entity,
-                            insp_ctx.command_mode,
-                            type_name,
-                            ron,
-                        )));
+                        let blocker = component_removal_blocked_by(type_name, module_entity, game_ctx.ecs);
+                        if let Some(blocker) = blocker {
+                            let display_name = MODULES.iter().find(|m| m.type_name == type_name).map_or(type_name, |m| m.title);
+                            let blocker_name = MODULES.iter().find(|m| m.type_name == blocker).map_or(blocker, |m| m.title);
+                            push_toast(format!("Cannot remove {display_name}: required by {blocker_name}"), 3.0);
+                        }
+                        if blocker.is_none() {
+                            self.component_edits.remove(&(module_entity, type_name));
+                            push_command(Box::new(RemoveComponentCmd::new(
+                                module_entity,
+                                insp_ctx.command_mode,
+                                type_name,
+                                ron,
+                            )));
+                        }
                     }
                 } else if let Some((type_name, pre_ron, pre_transient_state)) = pre_snapshot {
                     if let Some(reg) =

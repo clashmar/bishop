@@ -412,6 +412,7 @@ pub fn ecs_component(args: TokenStream, input: TokenStream) -> TokenStream {
                 on_insert: #on_insert_fn,
                 on_remove: #on_remove_fn,
                 guarded: #guarded,
+                deps: &[#(<#deps>::TYPE_NAME),*],
             }
         }
     };
