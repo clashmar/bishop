@@ -75,13 +75,13 @@ impl InspectorContent for RoomProperties {
             30.0,
         );
 
-        if menu_button(ctx, cam_btn, cam_label, blocked) {
+        if menu_button(ctx, cam_btn, cam_label, false, blocked) {
             if let Some(world) = game_ctx.world.as_deref() {
                 output.create_camera_request = Some(world.grid_size);
             }
         }
 
-        if menu_button(ctx, create_btn, create_label, blocked) {
+        if menu_button(ctx, create_btn, create_label, false, blocked) {
             output.create_request = Some(CreateRequest { parent: None });
         }
 

@@ -267,7 +267,7 @@ impl InspectorContent for EntityInspector {
                     BTN_HEIGHT,
                 ),
             );
-            if menu_button(ctx, remove_rect, remove_label, blocked)
+            if menu_button(ctx, remove_rect, remove_label, false, blocked)
                 || Controls::delete(ctx) && !shortcuts_blocked()
             {
                 let command = DeleteEntityCmd::new(entity, insp_ctx.command_mode);
@@ -292,7 +292,7 @@ impl InspectorContent for EntityInspector {
                     BTN_HEIGHT,
                 ),
             );
-            if menu_button(ctx, create_rect, create_label, blocked) {
+            if menu_button(ctx, create_rect, create_label, false, blocked) {
                 output.create_request =
                     Some(CreateRequest { parent: Some(parent) });
                 return output;
@@ -315,7 +315,8 @@ impl InspectorContent for EntityInspector {
         .filterable()
         .menu_style()
         .button_text_color(panel_text_color())
-        .blocked(options.is_empty() || blocked)
+        .suppressed(blocked)
+        .blocked(options.is_empty())
         .show(ctx)
         {
             let target = component_target(game_ctx.ecs, entity);
@@ -383,7 +384,7 @@ impl InspectorContent for EntityInspector {
             );
             register_rect(&mut self.interactive_rects, layout.open_button_rect);
             if Button::new(layout.open_button_rect, &open_button_label)
-                .blocked(blocked)
+                .suppressed(blocked)
                 .show(ctx)
             {
                 output.prefab_action = Some(PrefabActionRequest {
@@ -398,7 +399,7 @@ impl InspectorContent for EntityInspector {
             let actions_blocked = !prefab_state.has_local_changes;
             register_rect(&mut self.interactive_rects, layout.unlink_rect);
             if Button::new(layout.unlink_rect, "Unlink")
-                .blocked(blocked)
+                .suppressed(blocked)
                 .show(ctx)
             {
                 output.prefab_action = Some(PrefabActionRequest {
@@ -412,7 +413,8 @@ impl InspectorContent for EntityInspector {
 
             register_rect(&mut self.interactive_rects, layout.sync_rect);
             if Button::new(layout.sync_rect, "Sync")
-                .blocked(blocked || actions_blocked)
+                .suppressed(blocked)
+                .blocked(actions_blocked)
                 .show(ctx)
             {
                 output.prefab_action = Some(PrefabActionRequest {
@@ -426,7 +428,8 @@ impl InspectorContent for EntityInspector {
 
             register_rect(&mut self.interactive_rects, layout.revert_rect);
             if Button::new(layout.revert_rect, "Revert")
-                .blocked(blocked || actions_blocked)
+                .suppressed(blocked)
+                .blocked(actions_blocked)
                 .show(ctx)
             {
                 output.prefab_action = Some(PrefabActionRequest {

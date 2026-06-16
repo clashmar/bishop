@@ -391,7 +391,7 @@ impl GameEditor {
             BTN_HEIGHT,
         );
 
-        if menu_button(ctx, create_btn, create_label, false) {
+        if menu_button(ctx, create_btn, create_label, false, false) {
             push_command(Box::new(CreateWorldCmd::new()));
             self.pending_camera_init = true;
         }
