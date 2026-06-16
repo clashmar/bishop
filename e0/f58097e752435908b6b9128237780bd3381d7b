@@ -1,0 +1,57 @@
+engine_core/src/ecs/component_registry.rs
+  s_29152818a1684f::t_1e21a330ed791a 20-21
+  s_29152818a1684f::t_d0067afb184f7a 2
+  s_29152818a1684f::t_b7ace9afc9a2bc 19
+  s_29152818a1684f::t_735dfb62185db7 22-23
+engine_core/src/ecs/components/current_frame.rs
+  s_29152818a1684f::t_ef3794a5b4d797 74-91
+  s_29152818a1684f::t_9dde2b1270ec4a 44-48
+editor/src/prefab/prefab_editor/canvas.rs
+  s_29152818a1684f::t_12e00b5163a707 3
+  s_29152818a1684f::t_0e5aa1003bf99c 49-55
+  s_29152818a1684f::t_157109df09c668 91
+  s_29152818a1684f::t_fc7db0b9c722c6 39
+  s_29152818a1684f::t_297db3c1da14e9 40-48,56-58
+editor/src/room/room_editor.rs
+  s_29152818a1684f::t_63a7ac6791fa5a 520-525
+editor/src/shared/scene_ui/inspector/entity_inspector.rs
+  s_29152818a1684f::t_b0b5f6eeb9e7fd 163-165
+  s_29152818a1684f::t_cfaf7406970466 615-621
+  s_29152818a1684f::t_65790b2d7ecd03 158-162
+editor/src/room/drawing.rs
+  s_29152818a1684f::t_c4c21200eafc7c 665-670,674-675
+  s_29152818a1684f::t_72e089ce2c1c32 631-637
+  s_29152818a1684f::t_f55e1b76adbd24 659-661
+  s_29152818a1684f::t_426f342590c859 26
+  s_29152818a1684f::t_e507f117b8d6d8 619-627,629,640,654,657,664,671,682-683
+  s_29152818a1684f::t_3fa70a04ade106 3
+  s_29152818a1684f::t_e4896c5071cbf5 628,630,638-639,641-653,655-656,658,662-663,672-673,676-681
+  s_29152818a1684f::t_3b9b07b7db721b 27
+engine_core/src/ecs/components/sprite.rs
+  s_29152818a1684f::t_7e56e4365926af 73-90
+  s_29152818a1684f::t_30fa1cc250ccf1 53
+  s_29152818a1684f::t_37d8607511bf2c 33-39
+editor/src/prefab/prefab_editor/mod.rs
+  s_29152818a1684f::t_8773d5d9cc3f06 185-186
+  s_29152818a1684f::t_91e350fc4181d9 8
+engine_core/src/rendering/render_room.rs
+  s_29152818a1684f::t_b2125f792e3dc2 120
+editor/src/editor_assets/assets.rs
+  s_29152818a1684f::t_ba3dbec11f3863 66,68,97,99,138-141,145-147
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.7",
+  "base_commit_sha": "e0f58097e752435908b6b9128237780bd3381d7b",
+  "prompts": {},
+  "sessions": {
+    "s_29152818a1684f": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019ecc48-0061-74c8-938b-a1ac46eccc47",
+        "model": "claude-sonnet-4.6"
+      },
+      "human_author": "Charlie Lashmar <c.lashmar08@gmail.com>"
+    }
+  }
+}
