@@ -112,6 +112,7 @@ impl EntityInspector {
         if let Some(transform_mod) = transform_module {
             modules.insert(2, transform_mod);
         }
+        other_modules.sort_by(|a, b| a.title().cmp(b.title()));
         modules.extend(other_modules);
 
         Self {
@@ -169,6 +170,7 @@ impl EntityInspector {
                 label: entry.title.to_string(),
             });
         }
+        result.sort_by(|a, b| a.type_name.cmp(b.type_name));
         result
     }
 
