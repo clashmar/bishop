@@ -1,11 +1,12 @@
 #![allow(unused)]
+pub use crate::editor_assets::sounds_lua::generate_sounds_lua;
 use crate::editor_assets::prefabs_lua::generate_prefabs_lua;
 use crate::storage::sound_presets::SoundPresetLibrary;
 use bishop::prelude::*;
-use engine_core::animation::generate_animations_lua;
 use engine_core::assets::*;
 use engine_core::ecs::*;
 use engine_core::menu::MenuTemplate;
+use engine_core::animation::generate_animations_lua;
 use engine_core::scripting::event_tags::event_tag::generate_event_tags_lua;
 use engine_core::scripting::generate_menus_lua;
 use engine_core::scripting::lua_constants::{lua_dirs, lua_files};
@@ -75,9 +76,9 @@ static LUA_ICON: OnceLock<Texture2D> = OnceLock::new();
 static IMAGE_ICON: OnceLock<Texture2D> = OnceLock::new();
 static AUDIO_ICON: OnceLock<Texture2D> = OnceLock::new();
 static TEXT_ICON: OnceLock<Texture2D> = OnceLock::new();
-static WORLD_ENTRY_ICON: OnceLock<Texture2D> = OnceLock::new();
-static WORLD_EXIT_ICON: OnceLock<Texture2D> = OnceLock::new();
 static FILE_ICON: OnceLock<Texture2D> = OnceLock::new();
+
+pub const ICON_PANIC_MESSAGE: &str = "Editor icons not initialized";
 
 /// Loads all editor icon textures. Must be called once after the graphics context is ready.
 pub fn init_editor_icons(loader: &impl TextureLoader) {
@@ -94,9 +95,9 @@ pub fn init_editor_icons(loader: &impl TextureLoader) {
     let _ = TILE_ICON.set(load(include_bytes!("icons/tile.png")));
     let _ = ENTITY_ICON.set(load(include_bytes!("icons/entity.png")));
     let _ = GRID_ICON.set(load(include_bytes!("icons/grid.png")));
-    let _ = ENTRY_ICON.set(load(include_bytes!("icons/entity.png")));
+    let _ = ENTRY_ICON.set(load(include_bytes!("icons/entry.png")));
     let _ = EXIT_ICON.set(load(include_bytes!("icons/exit.png")));
-    let _ = PORTAL_ICON.set(load(include_bytes!("icons/entity.png")));
+    let _ = PORTAL_ICON.set(load(include_bytes!("icons/portal.png")));
     let _ = REFRESH_ICON.set(load(include_bytes!("icons/refresh.png")));
     let _ = CAMERA_ICON.set(load(include_bytes!("icons/camera.png")));
     let _ = CIRCLE_120PX.set(load(include_bytes!("textures/circle120px.png")));
@@ -107,90 +108,74 @@ pub fn init_editor_icons(loader: &impl TextureLoader) {
     let _ = AUDIO_ICON.set(load(include_bytes!("icons/audio.png")));
     let _ = TEXT_ICON.set(load(include_bytes!("icons/text.png")));
     let _ = FILE_ICON.set(load(include_bytes!("icons/file.png")));
-    let _ = WORLD_ENTRY_ICON.set(load(include_bytes!("icons/entity.png")));
-    let _ = WORLD_EXIT_ICON.set(load(include_bytes!("icons/entity.png")));
 }
 
 pub fn select_icon() -> &'static Texture2D {
-    SELECT_ICON.get().expect("Editor icons not initialized")
+    SELECT_ICON.get().expect(ICON_PANIC_MESSAGE)
 }
 pub fn edit_icon() -> &'static Texture2D {
-    EDIT_ICON.get().expect("Editor icons not initialized")
+    EDIT_ICON.get().expect(ICON_PANIC_MESSAGE)
 }
 pub fn create_icon() -> &'static Texture2D {
-    CREATE_ICON.get().expect("Editor icons not initialized")
+    CREATE_ICON.get().expect(ICON_PANIC_MESSAGE)
 }
 pub fn delete_icon() -> &'static Texture2D {
-    DELETE_ICON.get().expect("Editor icons not initialized")
+    DELETE_ICON.get().expect(ICON_PANIC_MESSAGE)
 }
 pub fn move_icon() -> &'static Texture2D {
-    MOVE_ICON.get().expect("Editor icons not initialized")
+    MOVE_ICON.get().expect(ICON_PANIC_MESSAGE)
 }
 pub fn tile_icon() -> &'static Texture2D {
-    TILE_ICON.get().expect("Editor icons not initialized")
+    TILE_ICON.get().expect(ICON_PANIC_MESSAGE)
 }
 pub fn entity_icon() -> &'static Texture2D {
-    ENTITY_ICON.get().expect("Editor icons not initialized")
+    ENTITY_ICON.get().expect(ICON_PANIC_MESSAGE)
 }
 pub fn grid_icon() -> &'static Texture2D {
-    GRID_ICON.get().expect("Editor icons not initialized")
+    GRID_ICON.get().expect(ICON_PANIC_MESSAGE)
 }
-/// Returns the entry point placeholder icon.
 pub fn entry_icon() -> &'static Texture2D {
-    ENTRY_ICON.get().expect("Editor icons not initialized")
+    ENTRY_ICON.get().expect(ICON_PANIC_MESSAGE)
 }
 pub fn exit_icon() -> &'static Texture2D {
-    EXIT_ICON.get().expect("Editor icons not initialized")
+    EXIT_ICON.get().expect(ICON_PANIC_MESSAGE)
 }
-/// Returns the portal placeholder icon.
 pub fn portal_icon() -> &'static Texture2D {
-    PORTAL_ICON.get().expect("Editor icons not initialized")
+    PORTAL_ICON.get().expect(ICON_PANIC_MESSAGE)
 }
 pub fn refresh_icon() -> &'static Texture2D {
-    REFRESH_ICON.get().expect("Editor icons not initialized")
+    REFRESH_ICON.get().expect(ICON_PANIC_MESSAGE)
 }
 pub fn camera_icon() -> &'static Texture2D {
-    CAMERA_ICON.get().expect("Editor icons not initialized")
+    CAMERA_ICON.get().expect(ICON_PANIC_MESSAGE)
 }
 pub fn circle_120px() -> &'static Texture2D {
-    CIRCLE_120PX.get().expect("Editor icons not initialized")
+    CIRCLE_120PX.get().expect(ICON_PANIC_MESSAGE)
 }
 pub fn folder_icon() -> &'static Texture2D {
-    FOLDER_ICON.get().expect("Editor icons not initialized")
+    FOLDER_ICON.get().expect(ICON_PANIC_MESSAGE)
 }
 pub fn system_folder_icon() -> &'static Texture2D {
-    SYSTEM_FOLDER_ICON
-        .get()
-        .expect("Editor icons not initialized")
+    SYSTEM_FOLDER_ICON.get().expect(ICON_PANIC_MESSAGE)
 }
 pub fn lua_icon() -> &'static Texture2D {
-    LUA_ICON.get().expect("Editor icons not initialized")
+    LUA_ICON.get().expect(ICON_PANIC_MESSAGE)
 }
 pub fn image_icon() -> &'static Texture2D {
-    IMAGE_ICON.get().expect("Editor icons not initialized")
+    IMAGE_ICON.get().expect(ICON_PANIC_MESSAGE)
 }
 pub fn audio_icon() -> &'static Texture2D {
-    AUDIO_ICON.get().expect("Editor icons not initialized")
+    AUDIO_ICON.get().expect(ICON_PANIC_MESSAGE)
 }
 pub fn text_icon() -> &'static Texture2D {
-    TEXT_ICON.get().expect("Editor icons not initialized")
+    TEXT_ICON.get().expect(ICON_PANIC_MESSAGE)
 }
 pub fn file_icon() -> &'static Texture2D {
-    FILE_ICON.get().expect("Editor icons not initialized")
-}
-/// Returns the world entry point icon texture.
-pub fn world_entry_icon() -> &'static Texture2D {
-    WORLD_ENTRY_ICON.get().expect("Editor icons not initialized")
-}
-/// Returns the world exit icon texture.
-pub fn world_exit_icon() -> &'static Texture2D {
-    WORLD_EXIT_ICON.get().expect("Editor icons not initialized")
+    FILE_ICON.get().expect(ICON_PANIC_MESSAGE)
 }
 
 // Include the auto-generated ENGINE_SCRIPTS array from build.rs
 include!("engine_scripts.rs");
-
-pub use crate::editor_assets::sounds_lua::generate_sounds_lua;
 
 /// Writes standalone Lua tooling config files for a scaffolded game root.
 pub fn write_lua_scaffold_configs(game_root: &Path) -> io::Result<()> {
