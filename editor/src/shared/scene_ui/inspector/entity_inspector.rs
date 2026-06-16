@@ -137,9 +137,6 @@ impl EntityInspector {
         let mut result = Vec::new();
         for entry in MODULES.iter() {
             let type_name = entry.type_name;
-            if type_name == RoomCamera::TYPE_NAME {
-                continue;
-            }
             if hide_room_only_components && is_scene_component_hidden_in_prefab(type_name) {
                 continue;
             }
@@ -157,6 +154,14 @@ impl EntityInspector {
                 if !predicate(entity, ecs) {
                     continue;
                 }
+            }
+            if COMPONENT_CONFLICT_GROUPS.iter().any(|group| {
+                group.contains(&entry.type_name)
+                    && group.iter().any(|&other| {
+                        other != entry.type_name && entity_has_type(ecs, comp_target, other)
+                    })
+            }) {
+                continue;
             }
             result.push(AddableComponent {
                 type_name,
@@ -605,6 +610,13 @@ fn register_rect(active_rects: &mut Vec<Rect>, rect: Rect) -> Rect {
 
 fn entity_has_component(ecs: &Ecs, entity: Entity, reg: &ComponentRegistry) -> bool {
     (reg.has)(ecs, entity)
+}
+
+fn entity_has_type(ecs: &Ecs, entity: Entity, type_name: &str) -> bool {
+    COMPONENTS
+        .iter()
+        .find(|reg| reg.type_name == type_name)
+        .is_some_and(|reg| (reg.has)(ecs, entity))
 }
 
 

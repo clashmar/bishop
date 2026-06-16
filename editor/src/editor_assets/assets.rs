@@ -63,7 +63,9 @@ static MOVE_ICON: OnceLock<Texture2D> = OnceLock::new();
 static TILE_ICON: OnceLock<Texture2D> = OnceLock::new();
 static ENTITY_ICON: OnceLock<Texture2D> = OnceLock::new();
 static GRID_ICON: OnceLock<Texture2D> = OnceLock::new();
+static ENTRY_ICON: OnceLock<Texture2D> = OnceLock::new();
 static EXIT_ICON: OnceLock<Texture2D> = OnceLock::new();
+static PORTAL_ICON: OnceLock<Texture2D> = OnceLock::new();
 static REFRESH_ICON: OnceLock<Texture2D> = OnceLock::new();
 static CAMERA_ICON: OnceLock<Texture2D> = OnceLock::new();
 static CIRCLE_120PX: OnceLock<Texture2D> = OnceLock::new();
@@ -92,7 +94,9 @@ pub fn init_editor_icons(loader: &impl TextureLoader) {
     let _ = TILE_ICON.set(load(include_bytes!("icons/tile.png")));
     let _ = ENTITY_ICON.set(load(include_bytes!("icons/entity.png")));
     let _ = GRID_ICON.set(load(include_bytes!("icons/grid.png")));
+    let _ = ENTRY_ICON.set(load(include_bytes!("icons/entity.png")));
     let _ = EXIT_ICON.set(load(include_bytes!("icons/exit.png")));
+    let _ = PORTAL_ICON.set(load(include_bytes!("icons/entity.png")));
     let _ = REFRESH_ICON.set(load(include_bytes!("icons/refresh.png")));
     let _ = CAMERA_ICON.set(load(include_bytes!("icons/camera.png")));
     let _ = CIRCLE_120PX.set(load(include_bytes!("textures/circle120px.png")));
@@ -131,8 +135,16 @@ pub fn entity_icon() -> &'static Texture2D {
 pub fn grid_icon() -> &'static Texture2D {
     GRID_ICON.get().expect("Editor icons not initialized")
 }
+/// Returns the entry point placeholder icon.
+pub fn entry_icon() -> &'static Texture2D {
+    ENTRY_ICON.get().expect("Editor icons not initialized")
+}
 pub fn exit_icon() -> &'static Texture2D {
     EXIT_ICON.get().expect("Editor icons not initialized")
+}
+/// Returns the portal placeholder icon.
+pub fn portal_icon() -> &'static Texture2D {
+    PORTAL_ICON.get().expect("Editor icons not initialized")
 }
 pub fn refresh_icon() -> &'static Texture2D {
     REFRESH_ICON.get().expect("Editor icons not initialized")

@@ -1,6 +1,6 @@
 use crate::app::control::camera_controller::*;
 use crate::app::EditorMode;
-use crate::editor_assets::assets::camera_icon;
+use crate::editor_assets::assets::{camera_icon, entry_icon, exit_icon, portal_icon};
 use crate::gui::gui_constants::*;
 use crate::gui::menu_bar::*;
 use crate::gui::mode_selector::*;
@@ -23,7 +23,8 @@ use engine_core::worlds::*;
 use engine_core::theme::with_theme;
 use ::widgets::constants::layout;
 
-const PLACEHOLDER_OPACITY: f32 = 0.5;
+/// Semi-transparent opacity for editor placeholder overlays.
+pub(crate) const PLACEHOLDER_OPACITY: f32 = 0.5;
 const MODE_SELECTOR_PADDING: f32 = 8.0;
 const PREFAB_GHOST_OPACITY: f32 = 0.55;
 
@@ -613,6 +614,71 @@ pub fn draw_glow_placeholders(
             );
         }
     }
+}
+
+/// Draw a placeholder icon for WorldEntry, WorldExit, or portal entities with no visual.
+pub fn draw_navigation_placeholders(
+    ctx: &mut WgpuContext,
+    ecs: &Ecs,
+    room_id: RoomId,
+    grid_size: f32,
+) {
+    for &entity in ecs.entities_in_room(room_id) {
+        ecs.assert_room_membership(room_id, entity);
+        let Some(transform) = ecs.get_store::<Transform>().get(entity) else {
+            continue;
+        };
+        draw_navigation_placeholder(
+            ctx,
+            ecs,
+            entity,
+            transform.position,
+            grid_size,
+        );
+    }
+}
+
+/// Draw a navigation placeholder icon for a single entity if it qualifies.
+pub(crate) fn draw_navigation_placeholder(
+    ctx: &mut WgpuContext,
+    ecs: &Ecs,
+    entity: Entity,
+    pos: Vec2,
+    grid_size: f32,
+) {
+    if ecs.get_store::<CurrentFrame>().get(entity).is_some_and(|f| f.has_valid_asset())
+        || ecs.get_store::<Sprite>().get(entity).is_some_and(|s| s.has_valid_asset())
+    {
+        return;
+    }
+
+    let has_entry = ecs.has::<WorldEntry>(entity);
+    let has_exit = ecs.has::<WorldExit>(entity);
+
+    let icon = match (has_entry, has_exit) {
+        (true, true) => portal_icon(),
+        (true, false) => entry_icon(),
+        (false, true) => exit_icon(),
+        (false, false) => return,
+    };
+
+    let pivot = ecs
+        .get_store::<Transform>()
+        .get(entity)
+        .map(|t| t.pivot)
+        .unwrap_or(Pivot::BottomCenter);
+    let draw_pos = pivot_adjusted_position(pos, Vec2::splat(grid_size), pivot);
+
+    ctx.draw_texture_ex(
+        icon,
+        draw_pos.x,
+        draw_pos.y,
+        Color::new(1.0, 1.0, 1.0, PLACEHOLDER_OPACITY),
+        DrawTextureParams {
+            dest_size: Some(vec2(grid_size, grid_size)),
+            ..Default::default()
+        },
+    );
 }
 
 /// Draws a small white dot at the pivot point of the selected entity.

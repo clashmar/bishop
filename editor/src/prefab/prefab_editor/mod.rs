@@ -5,7 +5,7 @@ mod movement;
 pub(crate) mod selection;
 mod shortcuts;
 
-use self::canvas::draw_prefab_entities;
+use self::canvas::{draw_prefab_entities, draw_prefab_navigation_placeholders};
 use crate::app::EditorCameraController;
 use crate::app::EditorMode;
 use crate::app::SubEditor;
@@ -181,6 +181,8 @@ impl PrefabEditor {
             game_ctx.sprite_manager,
             PREFAB_EDITOR_GRID_SIZE,
         );
+
+        draw_prefab_navigation_placeholders(ctx, game_ctx.ecs, PREFAB_EDITOR_GRID_SIZE);
 
         for &selected_entity in &self.selected_entities {
             highlight_selected_entity(

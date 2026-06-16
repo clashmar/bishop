@@ -1,6 +1,6 @@
 use super::selection::is_prefab_entity;
 use bishop::prelude::*;
-use crate::room::drawing::draw_camera_icon;
+use crate::room::drawing::{draw_camera_icon, draw_navigation_placeholder};
 use engine_core::assets::*;
 use engine_core::ecs::*;
 use engine_core::rendering::{EntityDrawParams, Renderable, draw_entity_placeholder, pivot_adjusted_position, resolve_visual_entity};
@@ -36,6 +36,26 @@ pub(crate) fn draw_prefab_entities<C: BishopContext>(
     }
 }
 
+/// Draw placeholder icons for WorldEntry, WorldExit, and portal prefab entities with no visual.
+pub(crate) fn draw_prefab_navigation_placeholders(
+    ctx: &mut WgpuContext,
+    ecs: &Ecs,
+    grid_size: f32,
+) {
+    for (entity, transform) in ecs.get_store::<Transform>().data.iter() {
+        if !is_prefab_entity(ecs, *entity) {
+            continue;
+        }
+        draw_navigation_placeholder(
+            ctx,
+            ecs,
+            *entity,
+            transform.position,
+            grid_size,
+        );
+    }
+}
+
 fn draw_prefab_entity<C: BishopContext>(
     ctx: &mut C,
     ecs: &Ecs,
@@ -68,7 +88,7 @@ fn draw_prefab_entity<C: BishopContext>(
         }
     }
 
-    if ecs.has_any::<(Light, Glow)>(visual_entity) {
+    if ecs.has_any::<(Light, Glow, WorldEntry, WorldExit)>(visual_entity) {
         return;
     }
 

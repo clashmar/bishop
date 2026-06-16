@@ -117,7 +117,7 @@ fn draw_entity<C: BishopContext>(
         return;
     }
 
-    if ecs.has_any::<(Light, Glow)>(visual_entity) {
+    if ecs.has_any::<(Light, Glow, WorldEntry, WorldExit)>(visual_entity) {
         return;
     }
 
