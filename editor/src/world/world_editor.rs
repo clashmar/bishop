@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use crate::app::EditorCameraController;
 use crate::app::SubEditor;
 use crate::canvas::grid;
@@ -7,10 +9,9 @@ use crate::gui::inspector::shell::Inspector;
 use crate::gui::mode_selector::*;
 use crate::shared::input::{canvas_blocked_by_global_ui, shortcuts_blocked};
 use crate::world::coord::*;
-use crate::world::drawing::{draw_navigation_icons, scaled_room_rect, snap_to_tile};
+use crate::world::drawing::{collect_nav_icons, draw_navigation_icons, scaled_room_rect};
 use bishop::prelude::*;
 use engine_core::controls::Controls;
-use engine_core::ecs::{CurrentRoom, Transform, WorldEntry, WorldExit};
 use engine_core::game::Game;
 use engine_core::worlds::*;
 use once_cell::sync::Lazy;
@@ -227,34 +228,14 @@ impl WorldEditor {
                 .get_world_mut(world_id)
                 .expect("World editor requires a world");
             let grid_size = world.grid_size;
-            let room_map: std::collections::HashMap<RoomId, Vec2> = world.rooms()
+            let room_map: HashMap<RoomId, Vec2> = world.rooms()
                 .iter()
                 .map(|r| (r.id, r.position))
                 .collect();
             (grid_size, room_map)
         };
 
-        let entry_positions: Vec<Vec2> = game.ecs
-            .get_store::<WorldEntry>()
-            .data
-            .iter()
-            .filter_map(|(entity, _)| {
-                game.ecs.get::<CurrentRoom>(*entity).and_then(|r| room_map.get(&r.0))?;
-                let t = game.ecs.get::<Transform>(*entity).map(|t| t.position).unwrap_or_default();
-                Some(snap_to_tile(t, grid_size))
-            })
-            .collect();
-
-        let exit_positions: Vec<Vec2> = game.ecs
-            .get_store::<WorldExit>()
-            .data
-            .iter()
-            .filter_map(|(entity, _)| {
-                game.ecs.get::<CurrentRoom>(*entity).and_then(|r| room_map.get(&r.0))?;
-                let t = game.ecs.get::<Transform>(*entity).map(|t| t.position).unwrap_or_default();
-                Some(snap_to_tile(t, grid_size))
-            })
-            .collect();
+        let nav_icons = collect_nav_icons(&game.ecs, &room_map, grid_size);
 
         let world = game
             .get_world_mut(world_id)
@@ -282,7 +263,7 @@ impl WorldEditor {
         }
 
         if nav_icons_visible {
-            draw_navigation_icons(ctx, &entry_positions, &exit_positions, grid_size);
+            draw_navigation_icons(ctx, &nav_icons, grid_size);
         }
 
         self.draw_room_names(ctx, camera, rooms, grid_size);

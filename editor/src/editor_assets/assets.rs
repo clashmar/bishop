@@ -78,6 +78,14 @@ static AUDIO_ICON: OnceLock<Texture2D> = OnceLock::new();
 static TEXT_ICON: OnceLock<Texture2D> = OnceLock::new();
 static FILE_ICON: OnceLock<Texture2D> = OnceLock::new();
 
+/// Icon variant for navigation entities: entry, exit, or portal (both).
+#[derive(Clone, Copy)]
+pub enum NavIconType {
+    Entry,
+    Exit,
+    Portal,
+}
+
 pub const ICON_PANIC_MESSAGE: &str = "Editor icons not initialized";
 
 /// Loads all editor icon textures. Must be called once after the graphics context is ready.

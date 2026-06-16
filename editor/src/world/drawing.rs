@@ -1,6 +1,6 @@
 use crate::app::EditorMode;
 use crate::commands::game::EditWorldCmd;
-use crate::editor_assets::assets::{world_entry_icon, world_exit_icon};
+use crate::editor_assets::assets::{entry_icon, exit_icon, portal_icon, NavIconType};
 use crate::editor_global::{push_command, push_toast};
 use crate::gui::gui_constants;
 use crate::gui::menu_bar::draw_top_panel_full;
@@ -8,7 +8,8 @@ use crate::shared::scene_ui::inspector::{InspectorContext, InspectorHostAction};
 use crate::world::coord::{mouse_world_grid, mouse_world_pos, rect_from_points, snap_to_grid};
 use crate::world::world_editor::{HOVER_LINE_THICKNESS, LINE_THICKNESS_MULTIPLIER, WorldEditor, WorldEditorMode};
 use bishop::prelude::*;
-use engine_core::ecs::Transform;
+use engine_core::ecs::{CurrentRoom, Ecs, Entity, Transform, WorldEntry, WorldExit};
+use std::collections::HashMap;
 use engine_core::game::Game;
 use engine_core::theme::with_theme;
 use engine_core::ui::measure_text;
@@ -298,28 +299,56 @@ pub(super) fn scaled_room_rect(room: &Room, grid_size: f32) -> Rect {
     )
 }
 
-/// Draws entry and exit icons at their world-canvas positions, sized one grid square.
+/// Collects navigation icon positions from the ECS.
+pub(super) fn collect_nav_icons(
+    ecs: &Ecs,
+    room_map: &HashMap<RoomId, Vec2>,
+    grid_size: f32,
+) -> Vec<(Vec2, NavIconType)> {
+    let mut entities: Vec<(Entity, NavIconType)> = Vec::new();
+
+    for (entity, _) in ecs.get_store::<WorldEntry>().data.iter() {
+        let icon_type = if ecs.has::<WorldExit>(*entity) {
+            NavIconType::Portal
+        } else {
+            NavIconType::Entry
+        };
+        entities.push((*entity, icon_type));
+    }
+
+    for (entity, _) in ecs.get_store::<WorldExit>().data.iter() {
+        if !ecs.has::<WorldEntry>(*entity) {
+            entities.push((*entity, NavIconType::Exit));
+        }
+    }
+
+    entities
+        .iter()
+        .filter_map(|(entity, icon_type)| {
+            ecs.get::<CurrentRoom>(*entity).and_then(|r| room_map.get(&r.0))?;
+            let t = ecs
+                .get::<Transform>(*entity)
+                .map(|t| t.position)
+                .unwrap_or_default();
+            Some((snap_to_tile(t, grid_size), *icon_type))
+        })
+        .collect()
+}
+
+/// Draws navigation icons at their world-canvas positions, sized one grid square.
 pub(super) fn draw_navigation_icons(
     ctx: &mut WgpuContext,
-    entry_positions: &[Vec2],
-    exit_positions: &[Vec2],
+    nav_icons: &[(Vec2, NavIconType)],
     grid_size: f32,
 ) {
-    for &pos in entry_positions {
+    for &(pos, icon_type) in nav_icons {
+        let icon = match icon_type {
+            NavIconType::Entry => entry_icon(),
+            NavIconType::Exit => exit_icon(),
+            NavIconType::Portal => portal_icon(),
+        };
         ctx.draw_texture_ex(
-            world_entry_icon(),
-            pos.x,
-            pos.y,
-            Color::WHITE,
-            DrawTextureParams {
-                dest_size: Some(vec2(grid_size, grid_size)),
-                ..Default::default()
-            },
-        );
-    }
-    for &pos in exit_positions {
-        ctx.draw_texture_ex(
-            world_exit_icon(),
+            icon,
             pos.x,
             pos.y,
             Color::WHITE,
