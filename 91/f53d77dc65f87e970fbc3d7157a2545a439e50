@@ -1,0 +1,26 @@
+editor/src/shared/scene_ui/inspector/entity_inspector.rs
+  s_b59978c63eb99c::t_a4af9f5429fd8b 479-481
+  s_b59978c63eb99c::t_b703e0f3b7dc3c 12,22,477-478,482-491
+ecs_component/src/lib.rs
+  s_b59978c63eb99c::t_b703e0f3b7dc3c 415
+engine_core/src/ecs/component_registry.rs
+  s_b59978c63eb99c::t_539bda338d3dd8 341-342
+  s_b59978c63eb99c::t_b703e0f3b7dc3c 78-79,132-138,192-193,198,220,290-302,319-340
+  s_b59978c63eb99c::t_37e977b66f8ed6 303-304
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.7",
+  "base_commit_sha": "91f53d77dc65f87e970fbc3d7157a2545a439e50",
+  "prompts": {},
+  "sessions": {
+    "s_b59978c63eb99c": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019ed125-6105-714a-9158-0a4488b67564",
+        "model": "claude-sonnet-4.6"
+      },
+      "human_author": "Charlie Lashmar <c.lashmar08@gmail.com>"
+    }
+  }
+}
