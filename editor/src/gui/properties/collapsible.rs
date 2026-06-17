@@ -1,5 +1,5 @@
 use super::PropertyModule;
-use crate::shared::scene_ui::inspector::InspectorContext;
+use crate::shared::scene_ui::inspector::{InspectorContext, InspectorHostAction};
 use bishop::prelude::*;
 use engine_core::ecs::inspector::collapsible_header::CollapsibleHeader;
 use engine_core::ecs::inspector::layout::InspectorBodyLayout;
@@ -26,6 +26,10 @@ impl<T, M: PropertyModule<T>> CollapsiblePropertyModule<T, M> {
         }
     }
 
+    /// Returns a reference to the inner module.
+    pub fn inner(&self) -> &M {
+        &self.inner
+    }
 }
 
 impl<T, M: PropertyModule<T>> PropertyModule<T> for CollapsiblePropertyModule<T, M> {
@@ -52,6 +56,10 @@ impl<T, M: PropertyModule<T>> PropertyModule<T> for CollapsiblePropertyModule<T,
             );
             self.inner.draw(ctx, body_rect, target, game_ctx, insp_ctx);
         }
+    }
+
+    fn take_host_action(&mut self) -> Option<InspectorHostAction> {
+        self.inner.take_host_action()
     }
 
     fn body_layout(&self) -> InspectorBodyLayout {

@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use bishop::prelude::*;
 use crate::worlds::room::*;
 use crate::worlds::room_bounds::*;
@@ -28,6 +28,34 @@ impl RoomGrid {
         let cx = (pos.x / grid_size).floor() as i32;
         let cy = (pos.y / grid_size).floor() as i32;
         self.cells.get(&(cx, cy)).copied()
+    }
+
+    /// Returns rooms touching the one-cell perimeter around the given bounds.
+    pub fn neighboring_rooms(&self, bounds: &RoomBounds, exclude: RoomId) -> Vec<RoomId> {
+        let mut room_ids = HashSet::new();
+        let min_x = bounds.min.x as i32 - 1;
+        let min_y = bounds.min.y as i32 - 1;
+        let max_x = bounds.max.x as i32 + 1;
+        let max_y = bounds.max.y as i32 + 1;
+
+        for x in min_x..=max_x {
+            for y in min_y..=max_y {
+                let on_perimeter = x == min_x || x == max_x || y == min_y || y == max_y;
+                if !on_perimeter {
+                    continue;
+                }
+
+                if let Some(room_id) = self.cells.get(&(x, y)).copied()
+                    && room_id != exclude
+                {
+                    room_ids.insert(room_id);
+                }
+            }
+        }
+
+        let mut room_ids: Vec<_> = room_ids.into_iter().collect();
+        room_ids.sort_by_key(|room_id| room_id.0);
+        room_ids
     }
 }
 
@@ -100,5 +128,24 @@ mod tests {
         assert_eq!(grid.room_at(Vec2::new(2.9, 1.0), 1.0), Some(RoomId(1)));
         // Exactly at room 1 max-x = 3.0 — exclusive, should be room 2
         assert_eq!(grid.room_at(Vec2::new(3.0, 1.0), 1.0), Some(RoomId(2)));
+    }
+
+    #[test]
+    fn cross_room_visibility_neighboring_rooms_returns_only_perimeter_neighbors() {
+        let world = make_world(
+            vec![
+                make_room(Some(1), 0.0, 0.0, 3.0, 3.0),
+                make_room(Some(2), 3.0, 0.0, 3.0, 3.0),
+                make_room(Some(3), 12.0, 0.0, 3.0, 3.0),
+            ],
+            1.0,
+        );
+
+        let bounds = RoomBounds::from_room(&world.rooms()[0], world.grid_size);
+
+        assert_eq!(
+            world.room_grid.neighboring_rooms(&bounds, RoomId(1)),
+            vec![RoomId(2)],
+        );
     }
 }

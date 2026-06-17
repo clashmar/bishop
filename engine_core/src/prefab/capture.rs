@@ -1,4 +1,4 @@
-use super::component_sync::{excluded_from_prefab_asset, translate_transform_snapshot};
+use super::component_sync::{excluded_from_prefab_asset, neutralize_room_camera_snapshot, translate_transform_snapshot};
 use super::{PrefabInstanceNode, PrefabInstanceRoot};
 use crate::ecs::capture::{capture_subtree, ComponentSnapshot};
 use crate::ecs::entity::{get_parent, Entity};
@@ -97,5 +97,6 @@ fn prefab_components_from_snapshot(
         .into_iter()
         .filter(|component| !excluded_from_prefab_asset(&component.type_name))
         .map(|component| translate_transform_snapshot(&component, -root_position))
+        .map(|component| neutralize_room_camera_snapshot(component))
         .collect()
 }

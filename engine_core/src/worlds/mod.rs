@@ -1,3 +1,4 @@
+pub mod transition;
 pub mod room;
 pub mod room_bounds;
 pub mod room_grid;
@@ -5,6 +6,7 @@ pub mod room_grid;
 pub mod test_utils;
 pub mod world;
 
+pub use transition::*;
 pub use room::*;
 pub use room_bounds::*;
 pub use room_grid::*;

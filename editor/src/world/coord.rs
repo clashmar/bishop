@@ -25,9 +25,17 @@ pub fn world_to_screen(ctx: &WgpuContext, camera: &Camera2D, world_pos: Vec2) ->
     camera.world_to_screen(world_pos, ctx.screen_width(), ctx.screen_height())
 }
 
-/// Check if a room overlaps with existing rooms.
-/// pos and size should be in tile coordinates.
-/// other_bounds contains (position in pixels, size in tiles).
+/// Computes the bounding rect top-left and size from any two corner points.
+pub fn rect_from_points(p1: Vec2, p2: Vec2) -> (Vec2, Vec2) {
+    let top_left = vec2(p1.x.min(p2.x), p1.y.min(p2.y));
+    let size = vec2(
+        (p1.x - p2.x).abs().floor() + 1.0,
+        (p1.y - p2.y).abs().floor() + 1.0,
+    );
+    (top_left, size)
+}
+
+/// Checks if a room overlaps any of the provided existing rooms.
 pub fn overlaps_existing_rooms(
     pos: Vec2,
     size: Vec2,

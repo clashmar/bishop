@@ -95,7 +95,9 @@ pub fn make_room_editor(test_game: &TestGameFolder) -> (Editor, RoomId) {
         .expect("new game should have a current world");
     let room_id = game
         .current_world()
-        .starting_room_id
+        .rooms()
+        .first()
+        .map(|r| r.id)
         .expect("new game should have a starting room");
     game.get_world_mut(cur_world_id)
         .expect("new game should have world")

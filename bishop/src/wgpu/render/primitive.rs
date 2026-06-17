@@ -7,8 +7,8 @@ use super::uniforms::CameraUniforms;
 use super::vertex::PrimitiveVertex;
 use crate::types::Color;
 
-const MAX_VERTICES: usize = 65536;
-const CIRCLE_SEGMENTS: usize = 32;
+const MAX_VERTICES: usize = 262144;
+const CIRCLE_SEGMENTS: usize = 128;
 
 /// Batched renderer for 2D primitives (rectangles, circles, lines, triangles).
 pub struct PrimitiveRenderer {

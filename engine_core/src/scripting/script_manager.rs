@@ -4,7 +4,7 @@ use crate::assets::AssetRegistry;
 use crate::ecs::ScriptId;
 use crate::ecs::entity::Entity;
 use crate::scripting::event_bus::EventBus;
-use crate::scripting::lua_constants::{lua_entity, lua_fields};
+use crate::scripting::lua_constants::{lua_dirs, lua_entity, lua_fields, lua_files};
 use crate::storage::path_utils::{scripts_folder, themes_folder};
 use crate::*;
 use mlua::Function;
@@ -267,6 +267,19 @@ impl ScriptManager {
         script_manager.restore_next_script_id();
     }
 
+    /// Loads the shared globals prelude if the current game provides one.
+    pub fn load_globals_prelude(lua: &Lua) -> LuaResult<()> {
+        let globals_path = scripts_folder()
+            .join(lua_dirs::ENGINE)
+            .join(lua_files::GLOBALS);
+        let src = match fs::read_to_string(globals_path) {
+            Ok(src) => src,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(()),
+            Err(error) => return Err(mlua::Error::ExternalError(Arc::new(error))),
+        };
+        lua.load(&src).exec()
+    }
+
     /// Load all .lua files to the package.path.
     pub fn load_to_package(lua: &Lua) {
         let scripts_dir = scripts_folder().to_string_lossy().replace('\\', "/");
@@ -413,6 +426,10 @@ mod tests {
     use super::*;
     use crate::assets::asset_registry::AssetKey;
     use crate::constants::paths;
+    use crate::engine_global::set_game_name;
+    use crate::scripting::lua_constants::{lua_dirs, lua_files, lua_globals};
+    use crate::scripting::lua_project::engine_require_path;
+    use crate::storage::test_utils::{TestGameFolder, game_fs_test_lock};
 
     #[test]
     fn get_or_load_registers_new_script_path_in_asset_registry() {
@@ -428,5 +445,52 @@ mod tests {
             Some(AssetKey::Script(ScriptId(1)))
         );
         assert_eq!(script_manager.path_to_script_id.get(&path), Some(&ScriptId(1)));
+    }
+
+    #[test]
+    fn load_globals_prelude_bootstraps_globals_for_editor_style_script_loads() {
+        let _lock = game_fs_test_lock().lock().unwrap();
+        let folder = TestGameFolder::new("script_manager_editor_globals");
+        set_game_name(folder.name());
+
+        let engine_data_dir = scripts_folder().join(lua_dirs::ENGINE).join(lua_dirs::DATA);
+        fs::create_dir_all(&engine_data_dir).unwrap();
+        fs::write(
+            scripts_folder().join(lua_dirs::ENGINE).join(lua_files::GLOBALS),
+            format!(
+                "{} = require(\"{}\")\n",
+                lua_globals::DIRECTION,
+                engine_require_path(lua_files::DIRECTION)
+            ),
+        )
+        .unwrap();
+        fs::write(
+            engine_data_dir.join(lua_files::DIRECTION),
+            "return { Right = \"right\" }\n",
+        )
+        .unwrap();
+        fs::write(
+            scripts_folder().join("probe.lua"),
+            format!(
+                "return {{ public = {{ facing = {}.Right }} }}\n",
+                lua_globals::DIRECTION
+            ),
+        )
+        .unwrap();
+
+        let mut registry = AssetRegistry::default();
+        let mut script_manager = ScriptManager::default();
+        let script_id = script_manager
+            .get_or_load(&mut registry, PathBuf::from("probe.lua"))
+            .unwrap();
+        let lua = Lua::new();
+
+        ScriptManager::load_to_package(&lua);
+        ScriptManager::load_globals_prelude(&lua).unwrap();
+
+        let table = script_manager.get_table_from_id(&lua, script_id).unwrap();
+        let public: Table = table.get(lua_fields::PUBLIC).unwrap();
+
+        assert!(public.get::<String>("facing").is_ok());
     }
 }

@@ -1,3 +1,4 @@
+pub mod active;
 pub mod animation;
 pub mod audio_source;
 pub mod collider;
@@ -29,7 +30,11 @@ pub mod text;
 pub mod transform;
 pub mod velocity;
 pub mod walkable;
+pub mod world_entry;
+pub mod world_exit;
+pub mod singleton;
 
+pub use active::*;
 pub use animation::*;
 pub use audio_source::*;
 pub use collider::*;
@@ -61,3 +66,6 @@ pub use text::*;
 pub use transform::*;
 pub use velocity::*;
 pub use walkable::*;
+pub use world_entry::*;
+pub use world_exit::*;
+pub use singleton::*;

@@ -68,7 +68,11 @@ impl ModalHandler for EditWorldModal {
         if let Some(ref name) = result.name {
             if let Some(world) = editor.game.get_world(result.id) {
                 if world.name != *name {
-                    new_name = Some(name.clone());
+                    let unique = editor.game.unique_world_name(name, Some(result.id));
+                    if &unique != name {
+                        push_toast(format!("'{}' is already taken, renamed to '{}'", name, unique), 3.0);
+                    }
+                    new_name = Some(unique);
                 }
             }
         }

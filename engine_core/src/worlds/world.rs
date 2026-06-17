@@ -1,7 +1,8 @@
 use std::collections::HashMap;
 use crate::assets::sprite_manager::SpriteManager;
-use crate::ecs::SpriteId;
+use crate::ecs::{Entity, SpriteId};
 use crate::constants::world;
+use crate::scripting::event_tags::event_tag::EventTag;
 use crate::tiles::tilemap::TileMap;
 use crate::worlds::room::*;
 use crate::worlds::room_grid::RoomGrid;
@@ -9,6 +10,7 @@ use bishop::prelude::*;
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
 use serde_with::FromInto;
+use strum_macros::EnumIter;
 
 /// Identifier for a world.
 #[derive(Default, Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -21,16 +23,18 @@ pub struct World {
     pub name: String,
     rooms: Vec<Room>,
     pub current_room_id: Option<RoomId>,
-    pub starting_room_id: Option<RoomId>,
-    #[serde_as(as = "Option<FromInto<[f32; 2]>>")]
-    pub starting_position: Option<Vec2>,
     pub meta: WorldMeta,
+    #[serde(default)]
+    pub tags: Vec<EventTag>,
+    #[serde(default)]
+    pub overlay: bool,
     #[serde(default = "default_grid_size")]
     pub grid_size: f32,
     #[serde(skip)]
     pub room_grid: RoomGrid,
     #[serde(skip)]
     room_index: HashMap<RoomId, usize>,
+    pub singleton: Option<Entity>,
 }
 
 fn default_grid_size() -> f32 {
@@ -141,6 +145,58 @@ pub struct WorldMeta {
     pub position: Vec2,
     /// Sprite of the world or None.
     pub sprite_id: Option<SpriteId>,
+}
+
+/// Snapshot of a world's key properties for display in editor panels and dropdowns.
+#[derive(Clone, Debug)]
+pub struct WorldDirectorySnapshot {
+    pub id: WorldId,
+    pub name: String,
+    pub overlay: bool,
+}
+
+/// How a world transition is triggered by an entity.
+#[derive(EnumIter, Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+pub enum WorldExitTrigger {
+    /// Fire when the entity receives an interact event.
+    #[default]
+    OnInteract,
+    /// Fire when the player comes within this distance (world units).
+    OnProximity(f32),
+}
+
+impl std::fmt::Display for WorldExitTrigger {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            WorldExitTrigger::OnInteract => write!(f, "On Interact"),
+            WorldExitTrigger::OnProximity(_) => write!(f, "On Proximity"),
+        }
+    }
+}
+
+/// How a world transition affects the subject entity.
+#[derive(EnumIter, Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub enum WorldTransitionMode {
+    #[default]
+    Transport,
+    Overlay,
+}
+
+impl std::fmt::Display for WorldTransitionMode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            WorldTransitionMode::Transport => write!(f, "Transport"),
+            WorldTransitionMode::Overlay => write!(f, "Overlay"),
+        }
+    }
+}
+
+/// Returns true if `entity` is roomed in `world`; entities without a `CurrentRoom` always count as in-world.
+pub fn entity_in_world(ecs: &crate::ecs::Ecs, world: &World, entity: crate::ecs::Entity) -> bool {
+    match ecs.get::<crate::ecs::CurrentRoom>(entity) {
+        Some(room) => world.get_room(room.0).is_some(),
+        None => true,
+    }
 }
 
 impl WorldMeta {

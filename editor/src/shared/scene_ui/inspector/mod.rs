@@ -107,11 +107,13 @@ pub struct InspectorOutput {
     pub refresh_event_tags: bool,
 }
 
-/// Host-level rename action emitted by Game/World property inspectors.
+/// Actions that require host-level coordination.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum InspectorHostAction {
     RenameGame(String),
     RenameWorld(String),
+    /// Requests the world editor to centre its camera on the given entity.
+    FocusWorldEditor(Entity),
 }
 
 impl InspectorOutput {

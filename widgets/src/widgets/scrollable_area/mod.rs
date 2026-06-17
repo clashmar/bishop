@@ -94,7 +94,7 @@ impl ScrollableArea {
 
         if !self.base.blocked && scroll_range > 0.0 {
             // Wheel scroll
-            if self.rect.contains(mouse) {
+            if ctx.is_mouse_over(self.rect) {
                 let (_, wheel_y) = ctx.mouse_wheel();
                 if wheel_y.abs() > 0.0 {
                     state.scroll_y += wheel_y * self.scroll_speed;
@@ -103,7 +103,7 @@ impl ScrollableArea {
             }
 
             // Thumb press
-            if ctx.is_mouse_button_pressed(MouseButton::Left) && thumb_rect.contains(mouse) {
+            if ctx.is_mouse_button_pressed(MouseButton::Left) && ctx.is_mouse_over(thumb_rect) {
                 state.dragging_thumb = true;
                 state.thumb_drag_offset = mouse.y - thumb_y;
                 state.auto_scroll = false;
@@ -111,8 +111,8 @@ impl ScrollableArea {
 
             // Track press (outside thumb)
             if ctx.is_mouse_button_pressed(MouseButton::Left)
-                && track_rect.contains(mouse)
-                && !thumb_rect.contains(mouse)
+                && ctx.is_mouse_over(track_rect)
+                && !ctx.is_mouse_over(thumb_rect)
             {
                 let t =
                     ((mouse.y - self.rect.y - bar_h / 2.0) / (self.rect.h - bar_h)).clamp(0.0, 1.0);
@@ -227,9 +227,8 @@ impl ActiveScrollArea {
         let bar_x = self.rect.x + self.rect.w - self.scrollbar_w - SCROLLBAR_MARGIN;
         let bar_y = self.rect.y + t * (self.rect.h - bar_h);
 
-        let mouse: Vec2 = ctx.mouse_position().into();
         let thumb_rect = Rect::new(bar_x, bar_y, self.scrollbar_w, bar_h);
-        let mouse_over_thumb = thumb_rect.contains(mouse);
+        let mouse_over_thumb = ctx.is_mouse_over(thumb_rect);
 
         const TRACK_ALPHA: f32 = 0.6;
         const THUMB_IDLE: Color = Color::new(0.7, 0.7, 0.7, 0.9);
@@ -293,7 +292,7 @@ impl ActiveScrollArea {
         }
 
         let mouse: Vec2 = ctx.mouse_position().into();
-        if !self.rect.contains(mouse) {
+        if !ctx.is_mouse_over(self.rect) {
             return false;
         }
 

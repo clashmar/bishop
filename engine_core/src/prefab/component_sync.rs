@@ -11,8 +11,8 @@ use crate::ecs::components::hierarchy::{Children, Parent};
 #[cfg(feature = "editor")]
 use crate::ecs::entity::Entity;
 #[cfg(feature = "editor")]
-use crate::ecs::{CurrentFrame, Global, Player, PlayerProxy, RoomCamera};
-use crate::ecs::{CurrentRoom, Transform};
+use crate::ecs::{CurrentFrame, Global, Player, PlayerProxy};
+use crate::ecs::{CurrentRoom, RoomCamera, Transform};
 #[cfg(feature = "editor")]
 use crate::game::GameCtxMut;
 use crate::prefab::PrefabNode;
@@ -43,6 +43,8 @@ pub(super) fn instantiate_prefab_components(
             ron,
         });
     }
+
+    apply_room_id_to_camera_snapshot(&mut components, room_id);
 
     components
 }
@@ -108,7 +110,6 @@ pub(super) fn excluded_from_prefab_asset(type_name: &str) -> bool {
         || type_name == comp_type_name::<Parent>()
         || type_name == comp_type_name::<CurrentRoom>()
         || type_name == comp_type_name::<CurrentFrame>()
-        || type_name == comp_type_name::<RoomCamera>()
         || type_name == comp_type_name::<PlayerProxy>()
         || type_name == comp_type_name::<Player>()
         || type_name == comp_type_name::<Global>()
@@ -136,6 +137,41 @@ pub(super) fn translate_transform_snapshot(
             ron,
         },
         Err(_) => component.clone(),
+    }
+}
+
+/// Strips `room_id` to the sentinel value when capturing a RoomCamera into a prefab asset.
+#[cfg(feature = "editor")]
+pub(super) fn neutralize_room_camera_snapshot(component: ComponentSnapshot) -> ComponentSnapshot {
+    if component.type_name != comp_type_name::<RoomCamera>() {
+        return component;
+    }
+
+    let Ok(camera) = ron::from_str::<RoomCamera>(&component.ron) else {
+        return component;
+    };
+
+    match ron::to_string(&RoomCamera { room_id: RoomId(0), ..camera }) {
+        Ok(ron) => ComponentSnapshot {
+            type_name: component.type_name,
+            ron,
+        },
+        Err(_) => component,
+    }
+}
+
+/// Updates the `room_id` on any RoomCamera snapshot to the target room, or sentinel 0 if none.
+fn apply_room_id_to_camera_snapshot(components: &mut [ComponentSnapshot], room_id: Option<RoomId>) {
+    let effective_room_id = room_id.unwrap_or(RoomId(0));
+    if let Some(camera_snapshot) = components
+        .iter_mut()
+        .find(|c| c.type_name == comp_type_name::<RoomCamera>())
+    {
+        if let Ok(camera) = ron::from_str::<RoomCamera>(&camera_snapshot.ron)
+            && let Ok(ron) = ron::to_string(&RoomCamera { room_id: effective_room_id, ..camera })
+        {
+            camera_snapshot.ron = ron;
+        }
     }
 }
 

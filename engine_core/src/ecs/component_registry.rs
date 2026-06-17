@@ -1,4 +1,5 @@
 use crate::ecs::component::Component;
+use crate::ecs::components::{Animation, RoomCamera, Sprite, WorldEntry, WorldExit};
 use crate::ecs::ComponentStore;
 use crate::ecs::{ecs::Ecs, entity::Entity};
 use crate::game::GameCtxMut;
@@ -14,6 +15,13 @@ pub static COMPONENTS: Lazy<Vec<&'static ComponentRegistry>> = Lazy::new(|| {
     components.sort_by(|left, right| left.type_name.cmp(right.type_name));
     components
 });
+
+/// Mutual-exclusion groups; no two components from the same group can coexist on an entity.
+pub static COMPONENT_CONFLICT_GROUPS: &[&[&str]] = &[
+    &[RoomCamera::TYPE_NAME, Sprite::TYPE_NAME, Animation::TYPE_NAME],
+    &[RoomCamera::TYPE_NAME, WorldEntry::TYPE_NAME],
+    &[RoomCamera::TYPE_NAME, WorldExit::TYPE_NAME],
+];
 
 inventory::collect!(ComponentRegistry);
 
@@ -69,6 +77,8 @@ pub struct ComponentRegistry {
     /// When true, this component's mutation should go through replace_component
     /// rather than raw get_mut field edits.
     pub guarded: bool,
+    /// Type names of all components this component depends on.
+    pub deps: &'static [&'static str],
 }
 
 /// Factory that works for any component that implements `Component + Default`.
@@ -121,6 +131,13 @@ where
     ecs.get_store_mut::<T>().insert(entity, concrete);
 }
 
+/// Returns the type name of the first component on `entity` that declares `type_name` as a dependency.
+pub fn component_removal_blocked_by(type_name: &str, entity: Entity, ecs: &Ecs) -> Option<&'static str> {
+    COMPONENTS.iter().find_map(|reg| {
+        (reg.deps.contains(&type_name) && (reg.has)(ecs, entity)).then_some(reg.type_name)
+    })
+}
+
 #[derive(Serialize, Deserialize, Clone)]
 pub struct StoredComponent {
     pub type_name: String,
@@ -170,14 +187,17 @@ mod tests {
     use crate::ecs::components::prefab_instance::{
         PrefabInstanceNode, PrefabInstanceRoot, PrefabOverrides,
     };
-    use crate::ecs::MotionBody;
-    use crate::ecs::{CurrentRoom, Grounded, PhysicsBody};
+    use crate::ecs::{
+        Active, Collider, CurrentRoom, Grounded, MotionBody, PhysicsBody, Transform, Velocity,
+    };
+
+    const DUMMY_TYPE_NAME: &str = "DummyComponent";
 
     #[test]
     fn registry_has_on_insert_field() {
-        // Construct a minimal registry entry — will fail because fields don't exist yet
+        // Construct a minimal registry entry and verify the lifecycle noops don't panic.
         let entry = ComponentRegistry {
-            type_name: "Test",
+            type_name: DUMMY_TYPE_NAME,
             type_id: std::any::TypeId::of::<u32>(),
             to_ron: |_: &dyn Any| String::new(),
             from_ron: |_: String| Box::new(()) as Box<dyn Any + Send + Sync>,
@@ -199,6 +219,7 @@ mod tests {
             on_insert: noop_on_insert,
             on_remove: noop_on_remove,
             guarded: false,
+            deps: &[],
         };
         // Verify noops don't panic
         let mut val: Box<dyn Any> = Box::new(42u32);
@@ -254,6 +275,36 @@ mod tests {
     }
 
     #[test]
+    fn physics_body_inserter_adds_all_dependencies() {
+        let mut ecs = Ecs::default();
+        let entity = Entity(7);
+
+        generic_inserter::<PhysicsBody>(&mut ecs, entity, Box::new(PhysicsBody));
+
+        assert_eq!(ecs.get::<Active>(entity).map(|active| active.0), Some(true));
+        assert!(ecs.has::<Collider>(entity));
+        assert!(ecs.has::<Grounded>(entity));
+        assert!(ecs.has::<MotionBody>(entity));
+        assert!(ecs.has::<Transform>(entity));
+        assert!(ecs.has::<Velocity>(entity));
+    }
+
+    #[test]
+    fn physics_body_registry_deps_include_all_dependencies() {
+        let reg = COMPONENTS
+            .iter()
+            .find(|r| r.type_name == PhysicsBody::TYPE_NAME)
+            .unwrap_or_else(|| panic!("{} must be registered", PhysicsBody::TYPE_NAME));
+
+        assert!(reg.deps.contains(&Active::TYPE_NAME));
+        assert!(reg.deps.contains(&Collider::TYPE_NAME));
+        assert!(reg.deps.contains(&Grounded::TYPE_NAME));
+        assert!(reg.deps.contains(&MotionBody::TYPE_NAME));
+        assert!(reg.deps.contains(&Transform::TYPE_NAME));
+        assert!(reg.deps.contains(&Velocity::TYPE_NAME));
+    }
+
+    #[test]
     fn inserter_preserves_existing_dependency_state() {
         let mut ecs = Ecs::default();
         let entity = Entity(1);
@@ -265,6 +316,30 @@ mod tests {
         assert_eq!(
             ecs.get::<Grounded>(entity).map(|grounded| grounded.0),
             Some(true)
+        );
+    }
+
+    #[test]
+    fn component_removal_blocked_by_returns_blocker_when_dependent_present() {
+        let mut ecs = Ecs::default();
+        let entity = Entity(1);
+        generic_inserter::<PhysicsBody>(&mut ecs, entity, Box::new(PhysicsBody));
+
+        assert_eq!(
+            component_removal_blocked_by(Collider::TYPE_NAME, entity, &ecs),
+            Some(PhysicsBody::TYPE_NAME),
+        );
+    }
+
+    #[test]
+    fn component_removal_blocked_by_returns_none_when_dependent_absent() {
+        let mut ecs = Ecs::default();
+        let entity = Entity(1);
+        generic_inserter::<Collider>(&mut ecs, entity, Box::new(Collider::default()));
+
+        assert_eq!(
+            component_removal_blocked_by(Collider::TYPE_NAME, entity, &ecs),
+            None,
         );
     }
 }

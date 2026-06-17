@@ -1,9 +1,10 @@
 pub mod collapsible;
 pub mod game;
 pub mod room;
+pub mod tags_module;
 pub mod world;
 
-use crate::shared::scene_ui::inspector::InspectorContext;
+use crate::shared::scene_ui::inspector::{InspectorContext, InspectorHostAction};
 use bishop::prelude::*;
 use engine_core::ecs::inspector::layout::InspectorBodyLayout;
 use engine_core::game::GameCtxMut;
@@ -24,6 +25,11 @@ pub trait PropertyModule<T> {
         game_ctx: &mut GameCtxMut,
         insp_ctx: &InspectorContext,
     );
+
+    /// Optional host action produced during the last `draw` call.
+    fn take_host_action(&mut self) -> Option<InspectorHostAction> {
+        None
+    }
 
     /// Layout describing expanded body height.
     fn body_layout(&self) -> InspectorBodyLayout;

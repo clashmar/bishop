@@ -1,9 +1,15 @@
 use bishop::prelude::*;
-use engine_core::constants::world as world_constants;
 use engine_core::animation::{ClipDef, ClipId, VariantFolder, resolve_sprite_id};
 use engine_core::assets::*;
+use engine_core::constants::world as world_constants;
+use engine_core::ecs::component::comp_type_name;
+use engine_core::ecs::components::{
+    Animation, CurrentFrame, Glow, Light, RoomCamera, Sprite, WorldEntry, WorldExit,
+};
 use engine_core::ecs::*;
-use engine_core::rendering::{pivot_adjusted_position};
+use engine_core::rendering::pivot_adjusted_position;
+use serde::de::DeserializeOwned;
+use crate::shared::entity_icon::EntityVisual;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(crate) enum PrefabPreviewVisual {
@@ -33,6 +39,7 @@ pub(crate) struct PrefabPreview {
     pub(crate) palette_bounds: Rect,
     pub(crate) stamp_bounds: Rect,
     pub(crate) has_drawable_visual: bool,
+    pub(crate) fallback_visuals: Vec<(Vec2, Vec2, EntityVisual)>,
 }
 
 pub(crate) fn build_prefab_preview(
@@ -82,7 +89,7 @@ pub(crate) fn build_prefab_preview_with(
         })
         .collect::<Vec<_>>();
 
-    if items.is_empty() {
+    let fallback_visuals = if items.is_empty() {
         items.push(PrefabPreviewItem {
             z: 0,
             palette_position: Vec2::ZERO,
@@ -94,7 +101,18 @@ pub(crate) fn build_prefab_preview_with(
             size: Vec2::splat(world_constants::DEFAULT_GRID_SIZE),
             visual: PrefabPreviewVisual::Placeholder,
         });
-    }
+        vec![(
+            Vec2::ZERO,
+            pivot_adjusted_position(
+                Vec2::ZERO,
+                Vec2::splat(world_constants::DEFAULT_GRID_SIZE),
+                Pivot::default(),
+            ),
+            EntityVisual::GenericPlaceholder,
+        )]
+    } else {
+        collect_fallback_visuals(prefab)
+    };
 
     items.sort_by_key(|item| item.z);
 
@@ -128,7 +146,69 @@ pub(crate) fn build_prefab_preview_with(
         palette_bounds,
         stamp_bounds,
         has_drawable_visual,
+        fallback_visuals,
     }
+}
+
+fn collect_fallback_visuals(prefab: &PrefabAsset) -> Vec<(Vec2, Vec2, EntityVisual)> {
+    prefab
+        .nodes
+        .iter()
+        .filter_map(|node| {
+            let transform = parse_node_component::<Transform>(node).unwrap_or_default();
+            if !transform.visible {
+                return None;
+            }
+            if node_has_valid_visual(node) {
+                return None;
+            }
+            let visual = placeholder_entity_visual(node);
+            if matches!(visual, EntityVisual::GenericPlaceholder) {
+                return None;
+            }
+            let size = Vec2::splat(world_constants::DEFAULT_GRID_SIZE);
+            Some((
+                transform.position,
+                pivot_adjusted_position(transform.position, size, transform.pivot),
+                visual,
+            ))
+        })
+        .collect()
+}
+
+fn node_has_valid_visual(node: &PrefabNode) -> bool {
+    parse_node_current_frame(node).is_some_and(|frame| frame.has_valid_asset())
+        || parse_node_component::<Sprite>(node).is_some_and(|sprite| sprite.has_valid_asset())
+        || parse_node_component::<Animation>(node)
+            .is_some_and(|animation| preferred_animation_preview_clip(&animation).is_some())
+}
+
+fn placeholder_entity_visual(node: &PrefabNode) -> EntityVisual {
+    let type_names: Vec<&str> = node.components.iter().map(|c| c.type_name.as_str()).collect();
+
+    if type_names.contains(&comp_type_name::<RoomCamera>()) {
+        return EntityVisual::CameraIcon;
+    }
+
+    let has_entry = type_names.contains(&comp_type_name::<WorldEntry>());
+    let has_exit = type_names.contains(&comp_type_name::<WorldExit>());
+
+    match (has_entry, has_exit) {
+        (true, true) => return EntityVisual::PortalIcon,
+        (true, false) => return EntityVisual::EntryIcon,
+        (false, true) => return EntityVisual::ExitIcon,
+        (false, false) => {}
+    }
+
+    if type_names.contains(&comp_type_name::<Light>()) {
+        return EntityVisual::LightPlaceholder;
+    }
+
+    if type_names.contains(&comp_type_name::<Glow>()) {
+        return EntityVisual::GlowPlaceholder;
+    }
+
+    EntityVisual::GenericPlaceholder
 }
 
 fn preview_item_from_node(
@@ -136,30 +216,15 @@ fn preview_item_from_node(
     resolve_sprite_size: &mut impl FnMut(SpriteId) -> Option<Vec2>,
     resolve_animation_sprite: &mut impl FnMut(&VariantFolder, &ClipId) -> Option<SpriteId>,
 ) -> Option<PrefabPreviewItem> {
-    let transform = node
-        .components
-        .iter()
-        .find(|component| component.type_name == comp_type_name::<Transform>())
-        .and_then(|component| ron::from_str::<Transform>(&component.ron).ok())
-        .unwrap_or_default();
+    let transform = parse_node_component::<Transform>(node).unwrap_or_default();
     if !transform.visible {
         return None;
     }
 
-    let z = node
-        .components
-        .iter()
-        .find(|component| component.type_name == comp_type_name::<Layer>())
-        .and_then(|component| ron::from_str::<Layer>(&component.ron).ok())
-        .map_or(0, |layer| layer.z);
+    let z = parse_node_component::<Layer>(node).map_or(0, |layer| layer.z);
 
-    if let Some(frame) = node
-        .components
-        .iter()
-        .find(|component| component.type_name == comp_type_name::<CurrentFrame>())
-        .and_then(|component| parse_preview_current_frame(&component.ron))
-    {
-        if frame.sprite_id.0 != 0 {
+    if let Some(frame) = parse_node_current_frame(node) {
+        if frame.has_valid_asset() {
             let frame_size = vec2(frame.frame_size[0], frame.frame_size[1]);
             let offset = vec2(frame.offset[0], frame.offset[1]);
             let source = Rect::new(
@@ -186,13 +251,8 @@ fn preview_item_from_node(
         }
     }
 
-    if let Some(sprite) = node
-        .components
-        .iter()
-        .find(|component| component.type_name == comp_type_name::<Sprite>())
-        .and_then(|component| ron::from_str::<Sprite>(&component.ron).ok())
-    {
-        if sprite.sprite.0 != 0 {
+    if let Some(sprite) = parse_node_component::<Sprite>(node) {
+        if sprite.has_valid_asset() {
             if let Some(size) = resolve_sprite_size(sprite.sprite) {
                 return Some(PrefabPreviewItem {
                     z,
@@ -211,12 +271,7 @@ fn preview_item_from_node(
         }
     }
 
-    if let Some(animation) = node
-        .components
-        .iter()
-        .find(|component| component.type_name == comp_type_name::<Animation>())
-        .and_then(|component| ron::from_str::<Animation>(&component.ron).ok())
-    {
+    if let Some(animation) = parse_node_component::<Animation>(node) {
         if let Some((clip_id, clip)) = preferred_animation_preview_clip(&animation) {
             if let Some(sprite_id) = resolve_animation_sprite(&animation.variant, clip_id) {
                 let frame_size = clip.frame_size;
@@ -270,8 +325,23 @@ fn union_rect(a: Rect, b: Rect) -> Rect {
     Rect::new(min_x, min_y, max_x - min_x, max_y - min_y)
 }
 
-fn parse_preview_current_frame(ron: &str) -> Option<CurrentFrameSnapshot> {
-    ron::from_str(ron).ok()
+fn parse_node_component<T: DeserializeOwned>(node: &PrefabNode) -> Option<T> {
+    parse_node_component_with_type_name(node, comp_type_name::<T>())
+}
+
+fn parse_node_component_with_type_name<T: DeserializeOwned>(
+    node: &PrefabNode,
+    type_name: &str,
+) -> Option<T> {
+    node
+        .components
+        .iter()
+        .find(|component| component.type_name == type_name)
+        .and_then(|component| ron::from_str::<T>(&component.ron).ok())
+}
+
+fn parse_node_current_frame(node: &PrefabNode) -> Option<CurrentFrameSnapshot> {
+    parse_node_component_with_type_name(node, comp_type_name::<CurrentFrame>())
 }
 
 fn preview_sprite_size(

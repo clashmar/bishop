@@ -249,7 +249,7 @@ impl MenuBar {
                 rect_width_for_text(ctx, back_label, layout::HEADER_FONT_SIZE_20) + PADDING,
                 HEIGHT,
             );
-            if menu_button(ctx, back_rect, back_label, false) {
+            if menu_button(ctx, back_rect, back_label, false, false) {
                 self.pending = Some(back_action);
             }
             x += back_rect.w + SPACING;

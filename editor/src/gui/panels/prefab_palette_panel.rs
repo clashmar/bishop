@@ -1,11 +1,13 @@
-use crate::editor_assets::assets::entity_icon;
+use crate::editor_assets::assets::{camera_icon, entity_icon, entry_icon, exit_icon, portal_icon};
 use crate::gui::gui_constants::BTN_HEIGHT;
 use crate::gui::panels::generic_panel::PanelDefinition;
 use crate::room::prefab_preview::{build_prefab_preview, PrefabPreview, PrefabPreviewVisual};
 use crate::room::room_editor::RoomEditorMode;
+use crate::shared::entity_icon::EntityVisual;
 use crate::Editor;
 use bishop::prelude::*;
 use engine_core::assets::*;
+use engine_core::constants::world as world_constants;
 use engine_core::ecs::*;
 use engine_core::storage::*;
 use engine_core::ui::{measure_text, Toast};
@@ -322,11 +324,7 @@ fn draw_recent_prefab_card(
         &mut editor.game.asset_registry,
         &mut editor.game.sprite_manager,
     );
-    if preview.has_drawable_visual {
-        draw_prefab_preview(ctx, &mut editor.game.sprite_manager, preview_rect, &preview);
-    } else {
-        draw_prefab_fallback(ctx, preview_rect);
-    }
+    draw_prefab_preview(ctx, &mut editor.game.sprite_manager, preview_rect, &preview);
 
     ctx.draw_rectangle(
         footer_rect.x,
@@ -369,22 +367,6 @@ fn draw_recent_prefab_card(
     if clicked {
         let _ = editor.activate_prefab(prefab.id);
     }
-}
-
-fn draw_prefab_fallback(ctx: &mut WgpuContext, rect: Rect) {
-    let size = rect.w.min(rect.h).min(72.0);
-    let x = rect.x + (rect.w - size) * 0.5;
-    let y = rect.y + (rect.h - size) * 0.5;
-    ctx.draw_texture_ex(
-        entity_icon(),
-        x,
-        y,
-        Color::WHITE,
-        DrawTextureParams {
-            dest_size: Some(Vec2::splat(size)),
-            ..Default::default()
-        },
-    );
 }
 
 fn draw_prefab_preview(
@@ -441,16 +423,32 @@ fn draw_prefab_preview(
                     },
                 );
             }
-            PrefabPreviewVisual::Placeholder => {
-                ctx.draw_rectangle(
-                    draw_pos.x,
-                    draw_pos.y,
-                    item.size.x * scale,
-                    item.size.y * scale,
-                    Color::GREEN,
-                );
-            }
+            PrefabPreviewVisual::Placeholder => {}
         }
+    }
+
+    for &(_palette_pos, stamp_pos, ref visual) in &preview.fallback_visuals {
+        let icon = match visual {
+            EntityVisual::CameraIcon => camera_icon(),
+            EntityVisual::PortalIcon => portal_icon(),
+            EntityVisual::EntryIcon => entry_icon(),
+            EntityVisual::ExitIcon => exit_icon(),
+            EntityVisual::LightPlaceholder | EntityVisual::GlowPlaceholder => entity_icon(),
+            EntityVisual::GenericPlaceholder => entity_icon(),
+            EntityVisual::SpriteOrAnimation => continue,
+        };
+        let draw_pos = origin + (stamp_pos - bounds_origin) * scale;
+        let icon_size = Vec2::splat(world_constants::DEFAULT_GRID_SIZE) * scale;
+        ctx.draw_texture_ex(
+            icon,
+            draw_pos.x,
+            draw_pos.y,
+            Color::WHITE,
+            DrawTextureParams {
+                dest_size: Some(icon_size),
+                ..Default::default()
+            },
+        );
     }
 }
 

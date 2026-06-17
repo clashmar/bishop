@@ -84,11 +84,9 @@ fn room_context_is_constructed() {
 #[test]
 fn prefab_blocked_component_types_exclude_room_specific_types() {
     let current_room = comp_type_name::<CurrentRoom>();
-    let room_camera = comp_type_name::<RoomCamera>();
     let player_proxy = comp_type_name::<PlayerProxy>();
 
     assert!(is_scene_component_hidden_in_prefab(current_room));
-    assert!(is_scene_component_hidden_in_prefab(room_camera));
     assert!(is_scene_component_hidden_in_prefab(player_proxy));
 
     let player = comp_type_name::<Player>();
@@ -150,7 +148,7 @@ fn hidden_inspector_only_hit_tests_the_strip() {
 }
 
 #[test]
-fn visible_shell_composes_body_before_header() {
+fn visible_shell_composes_header_before_body() {
     let mut pane = ();
     let order = std::cell::RefCell::new(Vec::new());
 
@@ -167,7 +165,7 @@ fn visible_shell_composes_body_before_header() {
         },
     );
 
-    assert_eq!(*order.borrow(), vec!["body", "header"]);
+    assert_eq!(*order.borrow(), vec!["header", "body"]);
 }
 
 #[test]

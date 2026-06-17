@@ -24,7 +24,7 @@ pub struct PreparedGameInstance {
 /// Top-level orchestrator of the game and systems.
 pub struct GameInstance {
     pub game: Game,
-    /// Holds the Transform of every entity rendered in the previous frame.
+    /// Holds the visual position of every active entity from the previous frame.
     pub prev_positions: HashMap<Entity, Vec2>,
 }
 
@@ -59,6 +59,9 @@ impl GameInstance {
     pub fn prepare_loaded_game(lua: &Lua, mut game: Game) -> PreparedGameInstance {
         game.initialize_runtime(lua);
         let room_id = Self::start_room_id(&game);
+        if let Some(world) = game.current_world_mut() {
+            world.current_room_id = Some(room_id);
+        }
         game.ecs.finalize_after_load();
         PreparedGameInstance { game, room_id }
     }
@@ -67,6 +70,9 @@ impl GameInstance {
     /// audio wiring, camera setup, or script initialization.
     pub fn prepare_loaded_room(lua: &Lua, room: Room, mut game: Game) -> PreparedGameInstance {
         game.initialize_runtime(lua);
+        if let Some(world) = game.current_world_mut() {
+            world.current_room_id = Some(room.id);
+        }
         game.ecs.finalize_after_load();
         PreparedGameInstance {
             room_id: room.id,
@@ -108,14 +114,24 @@ impl GameInstance {
     }
 
     fn start_room_id(game: &Game) -> RoomId {
-        game.current_world()
-            .starting_room_id
-            .or_else(|| {
-                game.worlds()
-                    .first()
-                    .map(|world| world.starting_room_id.expect("Game has no starting room."))
-            })
-            .expect("Game has no starting room nor any rooms")
+        let world = game.current_world();
+        // Prefer the "Start" WorldEntry's room; fall back to the world's first room
+        let entries = game.ecs.get_store::<WorldEntry>();
+        for (&entity, entry) in entries.data.iter() {
+            if entry.name != "Start" {
+                continue;
+            }
+            if let Some(room_id) = game.ecs.get::<CurrentRoom>(entity).map(|r| r.0) {
+                if world.get_room(room_id).is_some() {
+                    return room_id;
+                }
+            }
+        }
+        world
+            .rooms()
+            .first()
+            .map(|r| r.id)
+            .unwrap_or_default()
     }
 
     /// Drains events generated during UI rendering and forwards them to the event bus.
@@ -146,27 +162,23 @@ impl GameInstance {
         }
     }
 
-    /// Updates the previous position for all entities in the active room.
+    /// Updates the previous position for all active entities.
     pub fn store_previous_positions(&mut self, camera_manager: &mut CameraManager) {
         let ecs = &self.game.ecs;
 
         // Store the camera target
         camera_manager.previous_position = Some(camera_manager.active.camera.target);
 
-        let Some(current_room_id) = self.game.current_world().current_room_id else {
-            self.prev_positions.clear();
-            return;
-        };
-
         let trans_store = ecs.get_store::<Transform>();
         let sub_pixel_store = ecs.get_store::<SubPixel>();
 
         self.prev_positions.clear();
         self.prev_positions.extend(
-            ecs.entities_in_room(current_room_id)
-                .iter()
+            trans_store
+                .data
+                .keys()
+                .filter(|entity| ecs.get::<Active>(**entity).is_some_and(|active| active.0))
                 .filter_map(|entity| {
-                    ecs.assert_room_membership(current_room_id, *entity);
                     let transform = trans_store.get(*entity)?;
                     Some((
                         *entity,
@@ -180,6 +192,108 @@ impl GameInstance {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::scripting::script_system::ScriptSystem;
+    use engine_core::constants::paths;
+    use engine_core::engine_global::set_game_name;
+    use engine_core::scripting::lua_constants::{lua_dirs, lua_files};
+    use engine_core::storage::game_folder;
+    use engine_core::storage::test_utils::{TestGameFolder, game_fs_test_lock};
+    use mlua::Lua;
+    use std::fs;
+
+    #[test]
+    fn prepare_loaded_game_sets_current_world_room_to_start_room() {
+        let _lock = game_fs_test_lock().lock().unwrap();
+        let test_game = TestGameFolder::new("prepare_loaded_game_start_room");
+        set_game_name(test_game.name());
+
+        let mut world = World::default();
+        world.current_room_id = Some(RoomId(2));
+        world.add_room(Room {
+            id: RoomId(1),
+            ..Default::default()
+        });
+        world.add_room(Room {
+            id: RoomId(2),
+            position: Vec2::new(32.0, 0.0),
+            ..Default::default()
+        });
+
+        let mut game = Game::with_name(test_game.name());
+        game.add_world(world);
+
+        let prepared = GameInstance::prepare_loaded_game(&Lua::new(), game);
+
+        assert_eq!(prepared.room_id, RoomId(1));
+        assert_eq!(prepared.game.current_world().current_room_id, Some(RoomId(1)));
+    }
+
+    #[test]
+    fn prepare_loaded_room_sets_current_world_room_to_selected_room() {
+        let _lock = game_fs_test_lock().lock().unwrap();
+        let test_game = TestGameFolder::new("prepare_loaded_room_selected_room");
+        set_game_name(test_game.name());
+
+        let room = Room {
+            id: RoomId(2),
+            position: Vec2::new(32.0, 0.0),
+            ..Default::default()
+        };
+        let mut world = World::default();
+        world.current_room_id = Some(RoomId(1));
+        world.add_room(Room {
+            id: RoomId(1),
+            ..Default::default()
+        });
+        world.add_room(room.clone());
+
+        let mut game = Game::with_name(test_game.name());
+        game.add_world(world);
+
+        let prepared = GameInstance::prepare_loaded_room(&Lua::new(), room, game);
+
+        assert_eq!(prepared.room_id, RoomId(2));
+        assert_eq!(prepared.game.current_world().current_room_id, Some(RoomId(2)));
+    }
+
+    #[test]
+    fn full_runtime_init_executes_globals_prelude_once_before_main() {
+        let _lock = game_fs_test_lock().lock().unwrap();
+        let test_game = TestGameFolder::new("game_instance_globals_once");
+        set_game_name(test_game.name());
+
+        let scripts_dir = game_folder(test_game.name())
+            .join(paths::RESOURCES_FOLDER)
+            .join(paths::SCRIPTS_FOLDER);
+        let engine_dir = scripts_dir.join(lua_dirs::ENGINE);
+        fs::create_dir_all(&engine_dir).unwrap();
+        fs::write(
+            engine_dir.join(lua_files::GLOBALS),
+            "bootstrap_order = (bootstrap_order or \"\") .. \"g\"\nInput = { Space = \"space\" }\n",
+        )
+        .unwrap();
+        fs::write(
+            scripts_dir.join(lua_files::MAIN),
+            "bootstrap_order = bootstrap_order .. \"m\"\nsaw_input = Input.Space\n",
+        )
+        .unwrap();
+
+        let mut world = World::default();
+        world.add_room(Room {
+            id: RoomId(1),
+            ..Default::default()
+        });
+        let mut game = Game::default();
+        game.name = test_game.name().to_string();
+        game.add_world(world);
+
+        let lua = Lua::new();
+        let prepared = GameInstance::prepare_loaded_game(&lua, game);
+        ScriptSystem::init(&lua, &prepared.game.script_manager.event_bus);
+
+        assert_eq!(lua.globals().get::<String>("bootstrap_order").unwrap(), "gm");
+        assert_eq!(lua.globals().get::<String>("saw_input").unwrap(), "space");
+    }
 
     #[test]
     fn store_previous_positions_uses_visual_position_with_subpixel_remainder() {
@@ -202,6 +316,7 @@ mod tests {
                 position: Vec2::new(10.0, 12.0),
                 ..Default::default()
             })
+            .with(Active::default())
             .with(SubPixel { x: 0.25, y: -0.5 })
             .with_current_room(room_id)
             .finish();

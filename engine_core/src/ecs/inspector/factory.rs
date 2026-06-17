@@ -1,6 +1,10 @@
 #[cfg(feature = "editor")]
 use crate::ecs::component::Component;
 #[cfg(feature = "editor")]
+use crate::ecs::ecs::Ecs;
+#[cfg(feature = "editor")]
+use crate::ecs::entity::Entity;
+#[cfg(feature = "editor")]
 use crate::ecs::inspector::generic_module::GenericModule;
 #[cfg(feature = "editor")]
 use crate::ecs::inspector::module::*;
@@ -24,9 +28,12 @@ pub trait InspectorModuleFactory {
 
 #[cfg(feature = "editor")]
 pub struct ModuleFactoryEntry {
+    pub type_name: &'static str,
     pub title: &'static str,
     /// Factory that builds the concrete UI module.
     pub factory: fn() -> Box<dyn InspectorModule>,
+    /// Optional predicate; when `Some`, the component is excluded from Add Component for entities that return `false`.
+    pub allowed_for: Option<fn(Entity, &Ecs) -> bool>,
 }
 
 #[cfg(feature = "editor")]
@@ -49,10 +56,16 @@ macro_rules! inspector_module {
     };
 
     ($ty:ty, removable = $removable:expr) => {
+        inspector_module!($ty, removable = $removable, title = <$ty>::TYPE_NAME);
+    };
+
+    ($ty:ty, removable = $removable:expr, title = $title:expr) => {
         inventory::submit! {
             $crate::ecs::inspector::factory::ModuleFactoryEntry {
-                title: <$ty>::TYPE_NAME,
-                factory: || $crate::ecs::inspector::factory::make_module::<$ty>(<$ty>::TYPE_NAME, $removable),
+                type_name: <$ty>::TYPE_NAME,
+                title: $title,
+                factory: || $crate::ecs::inspector::factory::make_module::<$ty>($title, $removable),
+                allowed_for: None,
             }
         }
     };
@@ -64,4 +77,5 @@ macro_rules! inspector_module {
 macro_rules! inspector_module {
     ($ty:ty) => {};
     ($ty:ty, removable = $removable:expr) => {};
+    ($ty:ty, removable = $removable:expr, title = $title:expr) => {};
 }

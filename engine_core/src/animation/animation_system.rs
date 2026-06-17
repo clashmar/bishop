@@ -5,7 +5,7 @@ use crate::ecs::{Animation, CurrentFrame, SpriteId};
 use crate::ecs::ecs::Ecs;
 use crate::ecs::entity::Entity;
 use crate::ecs::PlayerProxy;
-use crate::rendering::render_room::pivot_adjusted_position;
+use crate::rendering::helpers::pivot_adjusted_position;
 use crate::rendering::renderable::{EntityDrawParams, Renderable};
 use crate::worlds::room::RoomId;
 use bishop::prelude::*;

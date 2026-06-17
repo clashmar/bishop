@@ -1,4 +1,3 @@
-// engine_core/src/world/room.rs
 use crate::constants::world;
 use crate::ecs::ecs::Ecs;
 use crate::ecs::{Entity, Name, Pivot, RoomCamera, Transform};
@@ -33,8 +32,10 @@ impl std::ops::DerefMut for RoomId {
 pub struct Room {
     pub id: RoomId,
     pub name: String,
+    /// Top-left corner of the room in absolute world-space pixels.
     #[serde_as(as = "FromInto<[f32; 2]>")]
-    pub position: Vec2, // Top-left origin in pixels
+    pub position: Vec2,
+    /// Room dimensions in grid units.
     #[serde_as(as = "FromInto<[f32; 2]>")]
     pub size: Vec2,
     pub exits: Vec<Exit>,
@@ -42,6 +43,7 @@ pub struct Room {
     pub tags: Vec<EventTag>,
     pub variants: Vec<RoomVariant>,
     pub darkness: f32,
+    pub singleton: Option<Entity>,
 }
 
 impl Room {
@@ -68,10 +70,21 @@ impl Room {
             tags: vec![],
             variants: vec![first_variant],
             darkness: 0.,
+            singleton: None,
         };
 
         Room::create_camera_entity(ecs, room.id, room.position, grid_size);
         room
+    }
+
+    /// Returns the room rectangle in world space.
+    pub fn world_rect(&self, grid_size: f32) -> Rect {
+        Rect::new(
+            self.position.x,
+            self.position.y,
+            self.size.x * grid_size,
+            self.size.y * grid_size,
+        )
     }
 
     /// Link exits to adjacent rooms based on their positions.

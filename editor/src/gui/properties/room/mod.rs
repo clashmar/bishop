@@ -1,10 +1,13 @@
 pub mod room_name_module;
+pub mod room_script_module;
 pub mod room_tags_module;
 
 use bishop::prelude::*;
 use engine_core::ui::{measure_text};
 use ::widgets::constants::layout;
 
+use crate::commands::room::EditRoomTagsCmd;
+use crate::editor_global::push_command;
 use super::collapsible::CollapsiblePropertyModule;
 use super::PropertyModule;
 use crate::gui::gui_constants::{self, BTN_HEIGHT};
@@ -27,7 +30,8 @@ impl RoomProperties {
         Self {
             modules: vec![
                 Box::new(CollapsiblePropertyModule::new(room_name_module::RoomNameModule::new())),
-                Box::new(CollapsiblePropertyModule::new(room_tags_module::RoomTagsModule::new())),
+                Box::new(CollapsiblePropertyModule::new(room_script_module::RoomScriptModule::new())),
+                Box::new(CollapsiblePropertyModule::new(room_tags_module::RoomTagsModule::for_room())),
             ],
         }
     }
@@ -48,8 +52,8 @@ impl InspectorContent for RoomProperties {
     ) -> InspectorOutput {
         let mut output = InspectorOutput::default();
 
-        let create_label = "+ Entity";
-        let cam_label = "+ Camera";
+        let create_label = "+Entity";
+        let cam_label = "+Cam";
 
         let txt_create = measure_text(ctx, create_label, layout::HEADER_FONT_SIZE_20);
         let txt_cam = measure_text(ctx, cam_label, layout::HEADER_FONT_SIZE_20);
@@ -71,13 +75,13 @@ impl InspectorContent for RoomProperties {
             30.0,
         );
 
-        if menu_button(ctx, cam_btn, cam_label, blocked) {
+        if menu_button(ctx, cam_btn, cam_label, false, blocked) {
             if let Some(world) = game_ctx.world.as_deref() {
                 output.create_camera_request = Some(world.grid_size);
             }
         }
 
-        if menu_button(ctx, create_btn, create_label, blocked) {
+        if menu_button(ctx, create_btn, create_label, false, blocked) {
             output.create_request = Some(CreateRequest { parent: None });
         }
 
@@ -92,11 +96,10 @@ impl InspectorContent for RoomProperties {
         game_ctx: &mut GameCtxMut,
         _insp_ctx: &InspectorContext,
     ) -> InspectorOutput {
-        let Some(room) = game_ctx
+        let Some((world_id, room)) = game_ctx
             .world
             .as_deref()
-            .and_then(|world| world.current_room())
-            .cloned()
+            .and_then(|world| world.current_room().map(|r| (world.id, r.clone())))
         else {
             return InspectorOutput::default();
         };
@@ -113,18 +116,28 @@ impl InspectorContent for RoomProperties {
             }
         }
 
-        let refresh_event_tags = original_tags != edited_room.tags;
+        let tags_changed = original_tags != edited_room.tags;
 
         if let Some(room) = game_ctx
             .world
             .as_deref_mut()
             .and_then(|world| world.current_room_mut())
         {
-            *room = edited_room;
+            room.name = edited_room.name.clone();
+        }
+
+        if tags_changed {
+            let room_id = edited_room.id;
+            push_command(Box::new(EditRoomTagsCmd::new(
+                world_id,
+                room_id,
+                original_tags,
+                edited_room.tags,
+            )));
         }
 
         InspectorOutput {
-            refresh_event_tags,
+            refresh_event_tags: tags_changed,
             ..InspectorOutput::default()
         }
     }

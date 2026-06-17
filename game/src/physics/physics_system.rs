@@ -9,28 +9,38 @@ use engine_core::worlds::*;
 pub fn update_physics(
     sprite_manager: &SpriteManager,
     ecs: &mut Ecs,
-    room: &Room,
+    world: &World,
     dt: f32,
-    grid_size: f32,
 ) {
-    let tilemap = &room.variants[room.current_variant_index()].tilemap;
-
-    update_motion_bodies(ecs, dt);
+    update_motion_bodies(ecs, world, dt);
 
     let entities: Vec<_> = ecs
         .get_store::<PhysicsBody>()
         .data
         .keys()
-        .cloned()
+        .filter(|entity| ecs.get::<Active>(**entity).is_some_and(|active| active.0))
+        .copied()
         .collect();
 
     for entity in entities {
         let (pos_cur, pivot, mut vel_cur, collider) = {
-            let t = ecs.get::<Transform>(entity).unwrap();
-            let v = ecs.get::<Velocity>(entity).unwrap();
-            let c = ecs.get::<Collider>(entity).cloned().unwrap_or_default();
-            (t.position, t.pivot, *v, c)
+            let Some(transform) = ecs.get::<Transform>(entity).copied() else {
+                continue;
+            };
+            let Some(velocity) = ecs.get::<Velocity>(entity).copied() else {
+                continue;
+            };
+            let collider = ecs.get::<Collider>(entity).copied().unwrap_or_default();
+            (transform.position, transform.pivot, velocity, collider)
         };
+
+        let Some(room_id) = ecs.get::<CurrentRoom>(entity).map(|room| room.0) else {
+            continue;
+        };
+        let Some(room) = world.get_room(room_id) else {
+            continue;
+        };
+        let tilemap = &room.variants[room.current_variant_index()].tilemap;
 
         let mut sub_pixel = ecs.get::<SubPixel>(entity).copied().unwrap_or_default();
 
@@ -45,12 +55,13 @@ pub fn update_physics(
         let collision_world = SweepContext::new(
             sprite_manager,
             ecs,
+            room_id,
             tilemap,
             room.position,
             &room.exits,
-            grid_size,
+            world.grid_size,
         );
-        let sweep = collision_world.sweep_move(true_pos, delta, collider, pivot);
+        let sweep = collision_world.sweep_move(entity, true_pos, delta, collider, pivot);
 
         // Snap to integer positions, storing the fractional part for next frame
         let (new_int_pos, new_sub_pixel) = quantize_motion(pos_cur, sub_pixel, sweep.allowed_delta);
@@ -69,7 +80,9 @@ pub fn update_physics(
         }
 
         update_entity_position(ecs, entity, new_int_pos);
-        *ecs.get_mut::<Velocity>(entity).unwrap() = vel_cur;
+        if let Some(velocity) = ecs.get_mut::<Velocity>(entity) {
+            *velocity = vel_cur;
+        }
 
         if let Some(sp) = ecs.get_mut::<SubPixel>(entity) {
             *sp = sub_pixel;
@@ -80,12 +93,13 @@ pub fn update_physics(
     }
 }
 
-fn update_motion_bodies(ecs: &mut Ecs, dt: f32) {
+fn update_motion_bodies(ecs: &mut Ecs, world: &World, dt: f32) {
     let entities: Vec<_> = ecs
         .get_store::<MotionBody>()
         .data
         .keys()
         .filter(|entity| !ecs.has::<PhysicsBody>(**entity))
+        .filter(|entity| entity_in_world(ecs, world, **entity))
         .copied()
         .collect();
 
@@ -134,12 +148,70 @@ fn store_sub_pixel(ecs: &mut Ecs, entity: Entity, sub_pixel: SubPixel) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use engine_core::tiles::TileMap;
 
     fn empty_room() -> Room {
         Room {
+            id: RoomId(1),
             variants: vec![RoomVariant::default()],
             ..Default::default()
         }
+    }
+
+    fn empty_world() -> World {
+        let room = empty_room();
+        let mut world = World::default();
+        world.current_room_id = Some(room.id);
+        world.add_room(room);
+        world
+    }
+
+    #[test]
+    fn motion_bodies_in_inactive_worlds_do_not_move() {
+        let mut ecs = Ecs::default();
+        let parked = ecs
+            .create_entity()
+            .with(Transform {
+                position: Vec2::new(10.0, 12.0),
+                ..Default::default()
+            })
+            .with(Velocity { x: 120.0, y: 0.0 })
+            .with(MotionBody)
+            .with(SubPixel::default())
+            .with_current_room(RoomId(99))
+            .finish();
+
+        update_physics(&SpriteManager::default(), &mut ecs, &empty_world(), 1.0 / 60.0);
+
+        assert_eq!(
+            ecs.get::<Transform>(parked)
+                .map(|transform| transform.position),
+            Some(Vec2::new(10.0, 12.0))
+        );
+    }
+
+    #[test]
+    fn motion_bodies_roomed_in_the_active_world_still_move() {
+        let mut ecs = Ecs::default();
+        let roomed = ecs
+            .create_entity()
+            .with(Transform {
+                position: Vec2::new(10.0, 12.0),
+                ..Default::default()
+            })
+            .with(Velocity { x: 120.0, y: 0.0 })
+            .with(MotionBody)
+            .with(SubPixel::default())
+            .with_current_room(RoomId(1))
+            .finish();
+
+        update_physics(&SpriteManager::default(), &mut ecs, &empty_world(), 1.0 / 60.0);
+
+        assert_eq!(
+            ecs.get::<Transform>(roomed)
+                .map(|transform| transform.position),
+            Some(Vec2::new(12.0, 12.0))
+        );
     }
 
     #[test]
@@ -155,13 +227,7 @@ mod tests {
             .with(SubPixel::default())
             .finish();
 
-        update_physics(
-            &SpriteManager::default(),
-            &mut ecs,
-            &empty_room(),
-            1.0 / 60.0,
-            16.0,
-        );
+        update_physics(&SpriteManager::default(), &mut ecs, &empty_world(), 1.0 / 60.0);
 
         assert_eq!(
             ecs.get::<Transform>(entity)
@@ -189,13 +255,7 @@ mod tests {
             .with(SubPixel::default())
             .finish();
 
-        update_physics(
-            &SpriteManager::default(),
-            &mut ecs,
-            &empty_room(),
-            1.0 / 60.0,
-            16.0,
-        );
+        update_physics(&SpriteManager::default(), &mut ecs, &empty_world(), 1.0 / 60.0);
 
         assert_eq!(
             ecs.get::<Transform>(entity)
@@ -217,16 +277,12 @@ mod tests {
             .with(Transform::default())
             .with(Velocity { x: 30.0, y: 0.0 })
             .with(PhysicsBody)
+            .with_current_room(RoomId(1))
+            .with(Active::default())
             .with(SubPixel::default())
             .finish();
 
-        update_physics(
-            &SpriteManager::default(),
-            &mut ecs,
-            &empty_room(),
-            1.0 / 60.0,
-            16.0,
-        );
+        update_physics(&SpriteManager::default(), &mut ecs, &empty_world(), 1.0 / 60.0);
 
         assert_eq!(
             ecs.get::<Transform>(entity)
@@ -237,6 +293,129 @@ mod tests {
             ecs.get::<SubPixel>(entity)
                 .map(|sub_pixel| (sub_pixel.x, sub_pixel.y)),
             Some((-0.5, 0.0))
+        );
+    }
+
+    #[test]
+    fn inactive_physics_body_is_not_simulated() {
+        let mut ecs = Ecs::default();
+        let entity = ecs
+            .create_entity()
+            .with(Transform::default())
+            .with(Velocity { x: 30.0, y: 0.0 })
+            .with(Collider::default())
+            .with(PhysicsBody)
+            .with_current_room(RoomId(1))
+            .with(Active(false))
+            .finish();
+
+        let world = empty_world();
+
+        update_physics(&SpriteManager::default(), &mut ecs, &world, 1.0 / 60.0);
+
+        assert_eq!(
+            ecs.get::<Transform>(entity).map(|transform| transform.position),
+            Some(Vec2::ZERO)
+        );
+    }
+
+    #[test]
+    fn physics_body_without_current_room_is_not_simulated() {
+        let mut ecs = Ecs::default();
+        let entity = ecs
+            .create_entity()
+            .with(Transform::default())
+            .with(Velocity { x: 30.0, y: 0.0 })
+            .with(Collider::default())
+            .with(PhysicsBody)
+            .with(Active::default())
+            .finish();
+
+        let world = empty_world();
+
+        update_physics(&SpriteManager::default(), &mut ecs, &world, 1.0 / 60.0);
+
+        assert_eq!(
+            ecs.get::<Transform>(entity).map(|transform| transform.position),
+            Some(Vec2::ZERO)
+        );
+    }
+
+    #[test]
+    fn physics_body_uses_its_current_room_instead_of_world_current_room() {
+        let room_a = Room {
+            id: RoomId(1),
+            position: Vec2::ZERO,
+            size: Vec2::new(32.0, 32.0),
+            variants: vec![RoomVariant {
+                tilemap: TileMap::new(2, 2),
+                ..Default::default()
+            }],
+            ..Default::default()
+        };
+        let room_b = Room {
+            id: RoomId(2),
+            position: Vec2::new(128.0, 0.0),
+            size: Vec2::new(32.0, 32.0),
+            variants: vec![RoomVariant {
+                tilemap: TileMap::new(2, 2),
+                ..Default::default()
+            }],
+            ..Default::default()
+        };
+
+        let mut world = World::default();
+        world.grid_size = 16.0;
+        world.current_room_id = Some(room_a.id);
+        world.add_room(room_a);
+        world.add_room(room_b);
+
+        let mut ecs = Ecs::default();
+        let entity = ecs
+            .create_entity()
+            .with(Transform {
+                position: Vec2::new(152.0, 16.0),
+                pivot: Pivot::TopLeft,
+                ..Default::default()
+            })
+            .with_current_room(RoomId(2))
+            .with(Active::default())
+            .with(PhysicsBody)
+            .with(Collider {
+                width: 8.0,
+                height: 8.0,
+            })
+            .with(Velocity { x: 60.0, y: 0.0 })
+            .finish();
+
+        update_physics(&SpriteManager::default(), &mut ecs, &world, 1.0 / 60.0);
+
+        assert_eq!(
+            ecs.get::<Transform>(entity).map(|transform| transform.position.x),
+            Some(152.0)
+        );
+    }
+
+    #[test]
+    fn active_physics_body_is_simulated() {
+        let mut ecs = Ecs::default();
+        let entity = ecs
+            .create_entity()
+            .with(Transform::default())
+            .with(Velocity { x: 30.0, y: 0.0 })
+            .with(Collider::default())
+            .with(PhysicsBody)
+            .with_current_room(RoomId(1))
+            .with(Active::default())
+            .finish();
+
+        let world = empty_world();
+
+        update_physics(&SpriteManager::default(), &mut ecs, &world, 1.0 / 60.0);
+
+        assert_eq!(
+            ecs.get::<Transform>(entity).map(|transform| transform.position),
+            Some(Vec2::new(1.0, 0.0))
         );
     }
 }

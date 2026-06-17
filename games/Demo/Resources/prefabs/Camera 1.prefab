@@ -1,0 +1,26 @@
+(
+    id: (5),
+    name: "Camera 1",
+    next_node_id: 2,
+    root_node_id: 1,
+    nodes: [
+        (
+            node_id: 1,
+            parent_node_id: None,
+            components: [
+                (
+                    type_name: "Name",
+                    ron: "(\"Camera 1\")",
+                ),
+                (
+                    type_name: "RoomCamera",
+                    ron: "(zoom:(0.0078125,0.013888889),room_id:(0),zoom_mode:Step,camera_mode:Fixed)",
+                ),
+                (
+                    type_name: "Transform",
+                    ron: "(visible:true,position:(0.0,0.0),pivot:TopLeft)",
+                ),
+            ],
+        ),
+    ],
+)

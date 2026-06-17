@@ -1,3 +1,5 @@
+mod active_world_tests;
+
 use super::*;
 use crate::ecs::Ecs;
 #[cfg(feature = "editor")]
@@ -15,6 +17,8 @@ fn game_ctx_mut_can_exist_without_a_current_world() {
     let ctx = GameCtxMut {
         ecs: &mut ecs,
         world: None,
+        world_directory: Vec::new(),
+        room_world_map: std::collections::HashMap::new(),
         asset_registry: &mut asset_registry,
         sprite_manager: &mut sprite_manager,
         script_manager: &mut script_manager,

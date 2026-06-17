@@ -16,10 +16,12 @@ pub use game_instance::{GameInstance, PreparedGameInstance};
 pub use save_runtime::{RuntimeLoadRequest, SaveRuntime};
 
 use crate::diagnostics::{DiagnosticsOverlay, TimingTraceSample};
-use crate::game_global::set_menu_active;
+use crate::game_global::{set_menu_active, take_pending_world_transition};
 use crate::physics::physics_system::*;
 use crate::scripting::script_system::ScriptSystem;
-use crate::transitions::transition_manager::TransitionManager;
+use crate::transitions::room_transition_manager::RoomTransitionManager;
+use crate::transitions::world_exit_manager::WorldExitManager;
+use crate::transitions::world_transitions::WorldTransitionManager;
 use bishop::prelude::*;
 use bishop::BishopApp;
 use engine_core::animation::{update_animation_sytem};
@@ -128,6 +130,7 @@ impl BishopApp for Engine {
             }
 
             self.update(raw_dt);
+            self.apply_pending_world_transition();
         }
 
         // Drain audio commands pushed by scripts this frame
@@ -228,20 +231,14 @@ impl Engine {
             let Some(world) = game_ctx.world.as_deref() else {
                 return;
             };
-            let Some(current_room) = world.current_room() else {
-                return;
-            };
-            update_physics(
-                game_ctx.sprite_manager,
-                game_ctx.ecs,
-                current_room,
-                dt,
-                world.grid_size,
-            );
+            update_physics(game_ctx.sprite_manager, game_ctx.ecs, world, dt);
         }
 
         // Resolve room transitions before updating the camera
-        TransitionManager::handle_transitions(&self.lua, &mut game_instance);
+        RoomTransitionManager::handle_transitions(&self.lua, &mut game_instance);
+
+        // Fire proximity WorldExits before camera update.
+        WorldExitManager::handle_proximity_exits(&game_instance);
 
         let game_ctx = game_instance.game.ctx_mut();
         if let Some(world) = game_ctx.world.as_deref() {
@@ -260,7 +257,6 @@ impl Engine {
         {
             // Keep borrow_mut in this scope
             let mut game_instance = self.game_instance.borrow_mut();
-            update_speech_timers(&mut game_instance.game.ecs, dt);
 
             let game_ctx = game_instance.game.ctx_mut();
             let asset_registry = game_ctx.asset_registry;
@@ -268,6 +264,7 @@ impl Engine {
             let ecs = game_ctx.ecs;
 
             if let Some(world) = game_ctx.world.as_deref() {
+                update_speech_timers(ecs, world, dt);
                 if let Some(current_room) = world.current_room() {
                     let loader = self.ctx.borrow();
                     update_animation_sytem(
@@ -358,6 +355,14 @@ impl Engine {
         }
 
         true
+    }
+
+    fn apply_pending_world_transition(&mut self) {
+        let Some(request) = take_pending_world_transition() else {
+            return;
+        };
+        let mut game_instance = self.game_instance.borrow_mut();
+        WorldTransitionManager::execute(&self.lua, &mut game_instance, &request);
     }
 }
 

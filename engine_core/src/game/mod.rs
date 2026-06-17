@@ -9,14 +9,15 @@ pub use startup_mode::*;
 use crate::assets::{sprite_manager::SpriteManager, AssetRegistry};
 use crate::ecs::ecs::Ecs;
 #[cfg(feature = "editor")]
-use crate::ecs::{get_root_entities_in_set, Entity, SpriteId};
+use crate::ecs::{get_root_entities_in_set, SpriteId};
+use crate::ecs::{CurrentRoom, Entity};
 use crate::engine_global::set_game_name;
 use crate::omni_error;
 use crate::prefab::{load_prefab_manager, PrefabManager};
 use crate::scripting::script_manager::ScriptManager;
-#[cfg(feature = "editor")]
 use crate::worlds::room::RoomId;
-use crate::worlds::world::*;
+use crate::worlds::{WorldDirectorySnapshot, world::*};
+use crate::worlds::transition::OverlayFrame;
 use crate::{storage::text_folder, text::TextManager};
 use bishop::prelude::TextureLoader;
 use mlua::Lua;
@@ -62,6 +63,9 @@ pub struct Game {
     pub game_map: GameMap,
     #[serde(skip)]
     pub id_allocator: IdAllocator,
+    /// Stack of overlay frames for returning from overlay worlds.
+    #[serde(skip)]
+    pub overlay_stack: Vec<OverlayFrame>,
 }
 
 impl Default for Game {
@@ -81,6 +85,7 @@ impl Default for Game {
             current_world_id: Some(WorldId(1)),
             game_map: GameMap::default(),
             id_allocator: IdAllocator::default(),
+            overlay_stack: Vec::new(),
         }
     }
 }
@@ -99,6 +104,8 @@ pub struct GameCtx<'a> {
 pub struct GameCtxMut<'a> {
     pub ecs: &'a mut Ecs,
     pub world: Option<&'a mut World>,
+    pub world_directory: Vec<WorldDirectorySnapshot>,
+    pub room_world_map: HashMap<RoomId, WorldId>,
     pub asset_registry: &'a mut AssetRegistry,
     pub sprite_manager: &'a mut SpriteManager,
     pub script_manager: &'a mut ScriptManager,
@@ -117,6 +124,14 @@ impl Game {
     /// Returns an immutable slice of all worlds for read-only iteration.
     pub fn worlds(&self) -> &[World] {
         &self.worlds
+    }
+
+    /// Returns a map from each room's id to the world that contains it.
+    pub fn room_world_map(&self) -> HashMap<RoomId, WorldId> {
+        self.worlds
+            .iter()
+            .flat_map(|w| w.rooms().iter().map(move |r| (r.id, w.id)))
+            .collect()
     }
 
     /// Returns a mutable slice of all worlds for non-resizing mutation.
@@ -173,6 +188,12 @@ impl Game {
     /// Returns a mutable game context.
     pub fn ctx_mut<'a>(&'a mut self) -> GameCtxMut<'a> {
         let current_id = self.current_world_id.unwrap_or_default();
+        let world_directory: Vec<WorldDirectorySnapshot> =
+            self.worlds.iter().map(|w| WorldDirectorySnapshot { id: w.id, name: w.name.clone(), overlay: w.overlay }).collect();
+        let room_world_map: HashMap<RoomId, WorldId> = self.worlds
+            .iter()
+            .flat_map(|w| w.rooms().iter().map(move |r| (r.id, w.id)))
+            .collect();
         let world = self
             .world_index
             .get(&current_id)
@@ -182,6 +203,8 @@ impl Game {
         GameCtxMut {
             ecs: &mut self.ecs,
             world,
+            world_directory,
+            room_world_map,
             asset_registry: &mut self.asset_registry,
             sprite_manager: &mut self.sprite_manager,
             script_manager: &mut self.script_manager,
@@ -215,6 +238,32 @@ impl Game {
         if self.world_index.contains_key(&id) {
             self.current_world_id = Some(id);
         }
+    }
+
+    /// Returns true if `entity` is roomed in the active world; entities without a `CurrentRoom` always count as active.
+    pub fn entity_in_active_world(&self, entity: Entity) -> bool {
+        entity_in_world(&self.ecs, self.current_world(), entity)
+    }
+
+    /// Returns the world that contains `room_id`, if any.
+    pub fn world_of_room(&self, room_id: RoomId) -> Option<&World> {
+        self.worlds().iter().find(|world| world.get_room(room_id).is_some())
+    }
+
+    /// True if `name` is free for a world, ignoring `except_id` (used when renaming in place).
+    pub fn world_name_available(&self, name: &str, except_id: Option<WorldId>) -> bool {
+        !self.worlds().iter().any(|world| world.name == name && Some(world.id) != except_id)
+    }
+
+    /// Returns `desired` if available, otherwise appends " 2", " 3", … until unique.
+    pub fn unique_world_name(&self, desired: &str, except_id: Option<WorldId>) -> String {
+        if self.world_name_available(desired, except_id) {
+            return desired.to_string();
+        }
+        (2..)
+            .map(|n| format!("{desired} {n}"))
+            .find(|candidate| self.world_name_available(candidate, except_id))
+            .unwrap()
     }
 
     /// Deletes the world from the game.
@@ -344,6 +393,12 @@ impl GameCtxMut<'_> {
     /// Mutable world access when this context is world-backed.
     pub fn current_world(&mut self) -> Option<&mut World> {
         self.world.as_deref_mut()
+    }
+
+    /// Returns the `WorldId` of the world that contains `entity`, if any.
+    pub fn world_of_entity(&self, entity: Entity) -> Option<WorldId> {
+        let room = self.ecs.get::<CurrentRoom>(entity)?;
+        self.room_world_map.get(&room.0).copied()
     }
 }
 

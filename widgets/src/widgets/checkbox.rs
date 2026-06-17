@@ -78,9 +78,8 @@ impl<'a> Checkbox<'a> {
             return false;
         }
 
-        let mouse = ctx.mouse_position();
         if ctx.is_mouse_button_pressed(MouseButton::Left)
-            && rect.contains(Vec2::new(mouse.0, mouse.1))
+            && ctx.is_mouse_over(rect)
         {
             *self.value = !*self.value;
             true

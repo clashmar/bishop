@@ -65,6 +65,7 @@ pub mod lua_dirs {
 /// Shared Lua field names.
 pub mod lua_fields {
     pub const ID: &str = "id";
+    pub const NAME: &str = "name";
     pub const PUBLIC: &str = "public";
     pub const POSITION: &str = "position";
     pub const X: &str = "x";
@@ -77,7 +78,7 @@ pub mod lua_event_tag {
     pub const TAG_FILE: &str = "event_tags.lua";
     pub const AUTOSAVE: &str = "Autosave";
     pub const CUSTOM: &str = "Custom";
-    pub const KIND: &str = "kind";
+    pub const TAGS: &str = "tags";
 }
 
 /// Root engine Lua table names.
@@ -95,6 +96,10 @@ pub mod lua_engine {
     pub const TOML: &str = "toml";
     pub const THEME: &str = "theme";
     pub const QUIT_TO_TITLE: &str = "quit_to_title";
+    pub const OVERLAY_WORLD: &str = "overlay_world";
+    pub const RETURN_FROM_WORLD: &str = "return_from_world";
+    pub const RESTORE_LOCATION: &str = "restore_location";
+    pub const CURRENT_WORLD: &str = "current_world";
 }
 
 /// Entity Lua method names.
@@ -112,6 +117,8 @@ pub mod lua_entity {
     pub const TELEPORT: &str = "teleport";
     pub const MOVE_BY: &str = "move_by";
     pub const MOVE_TO_ROOM: &str = "move_to_room";
+    pub const MOVE_TO_WORLD: &str = "move_to_world";
+    pub const TRIGGER_WORLD_EXIT: &str = "trigger_world_exit";
     pub const REMOVE_FROM_ROOM: &str = "remove_from_room";
     pub const CURRENT_ROOM: &str = "current_room";
 }
@@ -121,6 +128,8 @@ pub mod lua_events {
     pub const EVENTS: &str = "events";
     pub const ROOM_ENTERED_FIELD: &str = "room_entered";
     pub const ROOM_ENTERED: &str = "room:entered";
+    pub const WORLD_ENTERED_FIELD: &str = "world_entered";
+    pub const WORLD_ENTERED: &str = "world:entered";
     pub const SAVE_SUCCEEDED_FIELD: &str = "save_succeeded";
     pub const SAVE_SUCCEEDED: &str = "save:succeeded";
     pub const SAVE_FAILED_FIELD: &str = "save_failed";

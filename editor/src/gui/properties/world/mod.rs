@@ -1,15 +1,30 @@
-use crate::gui::gui_constants;
-use crate::gui::text_input::committed_name_change;
-use crate::gui::text_input::draw_labeled_text_input;
-use crate::shared::scene_ui::inspector::InspectorContent;
-use crate::shared::scene_ui::inspector::{InspectorContext, InspectorHostAction, InspectorOutput};
+pub mod world_navigation_module;
+pub mod world_script_module;
+pub mod world_settings_module;
+pub mod world_tags_module;
+
 use bishop::prelude::*;
 use engine_core::game::GameCtxMut;
+use engine_core::worlds::world::World;
+use ::widgets::constants::layout;
+
+use super::collapsible::CollapsiblePropertyModule;
+use super::PropertyModule;
+use crate::commands::world::EditWorldTagsCmd;
+use crate::editor_global::push_command;
+use crate::gui::gui_constants;
+use crate::gui::text_input::{committed_name_change, draw_labeled_text_input};
+use crate::shared::scene_ui::inspector::InspectorContent;
+use crate::shared::scene_ui::inspector::{InspectorContext, InspectorHostAction, InspectorOutput};
+use world_navigation_module::WorldNavigationModule;
 use widgets::*;
 
 /// Editable properties for the current world.
 pub struct WorldProperties {
     input_id: WidgetId,
+    modules: Vec<Box<dyn PropertyModule<World>>>,
+    /// Navigation entries/exits module.
+    pub navigation: CollapsiblePropertyModule<World, WorldNavigationModule>,
 }
 
 impl WorldProperties {
@@ -17,7 +32,18 @@ impl WorldProperties {
     pub fn new() -> Self {
         Self {
             input_id: WidgetId::default(),
+            modules: vec![
+                Box::new(CollapsiblePropertyModule::new(world_settings_module::WorldSettingsModule::new())),
+                Box::new(CollapsiblePropertyModule::new(world_script_module::WorldScriptModule::new())),
+                Box::new(CollapsiblePropertyModule::new(world_tags_module::WorldTagsModule::for_world())),
+            ],
+            navigation: CollapsiblePropertyModule::new(WorldNavigationModule::new()),
         }
+    }
+
+    /// Whether navigation icons should be shown in the world editor.
+    pub fn show_navigation_icons(&self) -> bool {
+        self.navigation.inner().show_icons
     }
 }
 
@@ -35,16 +61,51 @@ impl InspectorContent for WorldProperties {
         _insp_ctx: &InspectorContext,
     ) -> InspectorOutput {
         let mut output = InspectorOutput::default();
-        let name = match game_ctx.world.as_ref() {
-            Some(w) => &w.name,
-            None => return output,
+        let Some(world) = game_ctx.world.as_deref() else {
+            return output;
         };
+        let name = &world.name;
 
-        let sub_rect = Rect::new(rect.x + 10.0, rect.y + 10.0, rect.w - 20.0, 30.0);
+        let mut y = rect.y + 10.0;
+        let content_w = rect.w - 20.0;
+
+        // Name input
+        let name_rect = Rect::new(rect.x + 10.0, y, content_w, 30.0);
         let (edited, commit) =
-            draw_labeled_text_input(ctx, sub_rect, "Name:", name, self.input_id);
+            draw_labeled_text_input(ctx, name_rect, "Name:", name, self.input_id);
         if let Some(new_name) = committed_name_change(name, &edited, commit) {
             output.host_action = Some(InspectorHostAction::RenameWorld(new_name));
+        }
+        y += 30.0 + layout::WIDGET_SPACING;
+
+        let original_tags = world.tags.clone();
+        let mut world_clone = world.clone();
+        for module in &mut self.modules {
+            if module.visible(&world_clone, game_ctx) {
+                let h = module.height();
+                let sub_rect = Rect::new(rect.x + 10.0, y, content_w, h);
+                module.draw(ctx, sub_rect, &mut world_clone, game_ctx, _insp_ctx);
+                if output.host_action.is_none() {
+                    output.host_action = module.take_host_action();
+                }
+                y += h + layout::WIDGET_SPACING;
+            }
+        }
+
+        let nav_h = self.navigation.height();
+        let nav_rect = Rect::new(rect.x + 10.0, y, content_w, nav_h);
+        self.navigation.draw(ctx, nav_rect, &mut world_clone, game_ctx, _insp_ctx);
+        if output.host_action.is_none() {
+            output.host_action = self.navigation.take_host_action();
+        }
+
+        if original_tags != world_clone.tags {
+            let world_id = world_clone.id;
+            push_command(Box::new(EditWorldTagsCmd::new(
+                world_id,
+                original_tags,
+                world_clone.tags,
+            )));
         }
 
         output
@@ -52,9 +113,21 @@ impl InspectorContent for WorldProperties {
 
     fn total_content_height(
         &self,
-        _game_ctx: &mut GameCtxMut,
+        game_ctx: &mut GameCtxMut,
         _insp_ctx: &InspectorContext,
     ) -> f32 {
-        30.0 + 20.0
+        let Some(world) = game_ctx.world.as_deref() else {
+            return 0.0;
+        };
+
+        let mut h = 30.0 + layout::WIDGET_SPACING;
+
+        for module in &self.modules {
+            if module.visible(world, game_ctx) {
+                h += module.height() + layout::WIDGET_SPACING;
+            }
+        }
+        h += self.navigation.height() + layout::WIDGET_SPACING;
+        h + 20.0
     }
 }

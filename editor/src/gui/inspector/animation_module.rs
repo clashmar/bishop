@@ -785,6 +785,7 @@ fn layout_pair(
 
 inventory::submit! {
     ModuleFactoryEntry {
+        type_name: <Animation>::TYPE_NAME,
         title: <Animation>::TYPE_NAME,
         factory: || {
             Box::new(
@@ -794,6 +795,7 @@ inventory::submit! {
                 .with_title(<Animation>::TYPE_NAME)
             )
         },
+        allowed_for: None,
     }
 }
 

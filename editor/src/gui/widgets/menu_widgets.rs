@@ -56,7 +56,7 @@ pub(crate) fn menu_dropdown<T: Clone + PartialEq + Display>(
         }
     }
 
-    let button_clicked = menu_button(ctx, rect, label, state.open);
+    let button_clicked = menu_button(ctx, rect, label, state.open, false);
 
     if button_clicked {
         state.open = !state.open;
@@ -186,7 +186,7 @@ pub(crate) fn menu_dropdown<T: Clone + PartialEq + Display>(
 }
 
 /// Draws a menu-styled button and returns `true` when clicked.
-pub fn menu_button(ctx: &mut WgpuContext, rect: Rect, label: &str, is_dropdown_open: bool) -> bool {
+pub fn menu_button(ctx: &mut WgpuContext, rect: Rect, label: &str, is_dropdown_open: bool, suppressed: bool) -> bool {
     let txt_dims = ctx.measure_text(label, layout::HEADER_FONT_SIZE_20);
     let (txt_x, txt_y) = menu_button_text_position(rect, txt_dims);
 
@@ -194,6 +194,7 @@ pub fn menu_button(ctx: &mut WgpuContext, rect: Rect, label: &str, is_dropdown_o
     let hovered = rect.contains(vec2(mouse.0, mouse.1));
 
     if (hovered || is_dropdown_open)
+        && !suppressed
         && !is_modal_open()
         && !is_context_menu_open()
         && !ctx.is_mouse_button_down(MouseButton::Left)
@@ -219,7 +220,7 @@ pub fn menu_button(ctx: &mut WgpuContext, rect: Rect, label: &str, is_dropdown_o
         MouseButton::Left,
         menu_button_click_target(rect, label),
         hovered,
-        !is_modal_open() && !is_context_menu_open(),
+        !is_modal_open() && !is_context_menu_open() && !suppressed,
         ctx.is_mouse_button_pressed(MouseButton::Left),
         ctx.is_mouse_button_released(MouseButton::Left),
     )

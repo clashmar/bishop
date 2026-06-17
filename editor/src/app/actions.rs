@@ -16,7 +16,7 @@ use bishop::prelude::*;
 use engine_core::engine_global::{set_game_name};
 use engine_core::game::{Game};
 use engine_core::logging::{omni_error};
-use engine_core::scripting::{register_runtime_modules};
+use engine_core::scripting::{ScriptManager, register_runtime_modules};
 use engine_core::storage::*;
 use engine_core::ui::{Toast};
 use ::widgets::*;
@@ -273,6 +273,9 @@ impl Editor {
             game.initialize(ctx, lua);
             if let Err(error) = register_runtime_modules(lua, &game.script_manager.event_bus) {
                 omni_error!("Lua module registration failed: {error}");
+            }
+            if let Err(error) = ScriptManager::load_globals_prelude(lua) {
+                omni_error!("Lua globals prelude failed: {error}");
             }
         });
         self.game_editor

@@ -129,7 +129,11 @@ fn export_for_windows(dest_root: &Path, game: &Game) -> io::Result<PathBuf> {
     let mut game_copy = export_game_copy(game)?;
 
     // Set player spawn position from proxy before purging
-    if let Some(start_room_id) = game_copy.current_world().starting_room_id {
+    let proxy_room = game_copy.ecs.get_store::<PlayerProxy>()
+        .data
+        .keys()
+        .find_map(|&e| game_copy.ecs.get::<CurrentRoom>(e).map(|r| r.0));
+    if let Some(start_room_id) = proxy_room {
         game_copy.ecs.set_player_spawn_from_proxy(start_room_id);
     }
     game_copy.ecs.purge_proxies();
@@ -186,7 +190,11 @@ fn export_for_mac(dest_root: &Path, game: &Game) -> io::Result<PathBuf> {
     let mut game_copy = export_game_copy(game)?;
 
     // Set player spawn position from proxy before purging
-    if let Some(start_room_id) = game_copy.current_world().starting_room_id {
+    let proxy_room = game_copy.ecs.get_store::<PlayerProxy>()
+        .data
+        .keys()
+        .find_map(|&e| game_copy.ecs.get::<CurrentRoom>(e).map(|r| r.0));
+    if let Some(start_room_id) = proxy_room {
         game_copy.ecs.set_player_spawn_from_proxy(start_room_id);
     }
     game_copy.ecs.purge_proxies();
@@ -321,7 +329,6 @@ mod tests {
             id: room_id,
             ..Default::default()
         });
-        world.starting_room_id = Some(room_id);
         game.add_world(world);
 
         let player = game.ecs.create_entity().with(Player).finish();
@@ -336,12 +343,13 @@ mod tests {
             .finish();
 
         let mut game_copy = export_game_copy(&game).expect("export round-trip should succeed");
-        let start_room_id = game_copy
-            .current_world()
-            .starting_room_id
+        let proxy_room = game_copy.ecs.get_store::<PlayerProxy>()
+            .data
+            .keys()
+            .find_map(|&e| game_copy.ecs.get::<CurrentRoom>(e).map(|r| r.0))
             .expect("world index should be rebuilt after export round-trip");
 
-        game_copy.ecs.set_player_spawn_from_proxy(start_room_id);
+        game_copy.ecs.set_player_spawn_from_proxy(proxy_room);
         game_copy.ecs.purge_proxies();
 
         assert_eq!(

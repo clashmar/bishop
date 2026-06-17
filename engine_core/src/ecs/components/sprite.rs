@@ -1,6 +1,6 @@
 use crate::assets::sprite_manager::SpriteManager;
 use crate::inspector_module;
-use crate::rendering::render_room::pivot_adjusted_position;
+use crate::rendering::helpers::pivot_adjusted_position;
 use crate::rendering::renderable::{EntityDrawParams, Renderable};
 use bishop::prelude::*;
 use ecs_component::ecs_component;
@@ -30,6 +30,13 @@ impl Default for Sprite {
 
 inspector_module!(Sprite);
 
+impl Sprite {
+    /// Returns true if a texture has been assigned to this sprite.
+    pub fn has_valid_asset(&self) -> bool {
+        self.sprite.0 != 0
+    }
+}
+
 impl Renderable for Sprite {
     fn dimensions(&self, sprite_manager: &SpriteManager) -> Option<Vec2> {
         sprite_manager
@@ -43,7 +50,7 @@ impl Renderable for Sprite {
         sprite_manager: &mut SpriteManager,
         params: &EntityDrawParams,
     ) -> bool {
-        if self.sprite.0 == 0 {
+        if !self.has_valid_asset() {
             return false;
         }
 
@@ -61,5 +68,23 @@ impl Renderable for Sprite {
             },
         );
         true
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn has_valid_asset_false_when_sprite_id_is_zero() {
+        let sprite = Sprite::default();
+        assert!(!sprite.has_valid_asset());
+    }
+
+    #[test]
+    fn has_valid_asset_true_when_sprite_id_is_nonzero() {
+        let mut sprite = Sprite::default();
+        sprite.sprite = SpriteId(42);
+        assert!(sprite.has_valid_asset());
     }
 }

@@ -2,15 +2,19 @@ use crate::assets::sprite_manager::SpriteManager;
 use crate::ecs::Pivot;
 use crate::ecs::ecs::Ecs;
 use crate::ecs::entity::Entity;
-use crate::ecs::{SpeechBubble, SubPixel, Transform};
-use crate::rendering::helpers::entity_dimensions;
-use crate::rendering::helpers::lerp_position;
-use crate::rendering::helpers::visual_position;
+use crate::ecs::{RoomCamera, SpeechBubble, SubPixel, Transform};
+use crate::rendering::{
+    entity_dimensions,
+    entity_visible_in_room,
+    interpolate_position,
+    spillover_candidate_room_ids,
+    visual_position,
+};
 use crate::text::*;
 use crate::ui::text::*;
-use crate::worlds::room::RoomId;
+use crate::worlds::{Room, World};
 use bishop::prelude::*;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 /// Collected data for rendering a speech bubble in screen space.
 pub struct SpeechBubbleRenderData {
@@ -26,52 +30,72 @@ pub struct SpeechBubbleRenderData {
     pub background_color: [f32; 4],
 }
 
-/// Collects speech bubble data for entities in the current room.
-/// Returns data needed for screen-space rendering.
+/// Collects speech bubbles from the rendered room and overlapping spillover entities.
 pub fn collect_speech_bubbles(
     ecs: &Ecs,
     sprite_manager: &SpriteManager,
-    current_room: RoomId,
+    world: &World,
+    rendered_room: &Room,
     alpha: f32,
     prev_positions: Option<&HashMap<Entity, Vec2>>,
     grid_size: f32,
 ) -> Vec<SpeechBubbleRenderData> {
     let mut bubbles = Vec::new();
+    let mut seen = HashSet::new();
     let bubble_store = ecs.get_store::<SpeechBubble>();
     let transform_store = ecs.get_store::<Transform>();
     let sub_pixel_store = ecs.get_store::<SubPixel>();
+    let cam_store = ecs.get_store::<RoomCamera>();
 
-    for &entity in ecs.entities_in_room(current_room) {
-        ecs.assert_room_membership(current_room, entity);
+    for candidate_room_id in spillover_candidate_room_ids(world, rendered_room) {
+        for &entity in ecs.entities_in_room(candidate_room_id) {
+            ecs.assert_room_membership(candidate_room_id, entity);
 
-        let Some(bubble) = bubble_store.get(entity) else {
-            continue;
-        };
-        let Some(transform) = transform_store.get(entity) else {
-            continue;
-        };
+            if !seen.insert(entity) {
+                continue;
+            }
 
-        let current_pos = visual_position(transform.position, sub_pixel_store.get(entity));
-        let world_pos = interpolate_position(
-            entity,
-            current_pos,
-            alpha,
-            prev_positions,
-        );
-        let entity_size = entity_dimensions(ecs, sprite_manager, entity, grid_size);
+            let Some(bubble) = bubble_store.get(entity) else {
+                continue;
+            };
+            let Some(transform) = transform_store.get(entity) else {
+                continue;
+            };
+            if !transform.visible || cam_store.get(entity).is_some() {
+                continue;
+            }
 
-        bubbles.push(SpeechBubbleRenderData {
-            text: bubble.text.clone(),
-            world_pos,
-            entity_size,
-            pivot: transform.pivot,
-            color: bubble.color,
-            offset: bubble.offset,
-            font_size: bubble.font_size,
-            max_width: bubble.max_width,
-            show_background: bubble.show_background,
-            background_color: bubble.background_color,
-        });
+            let current_pos = visual_position(transform.position, sub_pixel_store.get(entity));
+            let world_pos = interpolate_position(entity, current_pos, alpha, prev_positions);
+
+            if !entity_visible_in_room(
+                ecs,
+                sprite_manager,
+                world,
+                entity,
+                candidate_room_id,
+                world_pos,
+                rendered_room,
+                grid_size,
+            ) {
+                continue;
+            }
+
+            let entity_size = entity_dimensions(ecs, sprite_manager, entity, grid_size);
+
+            bubbles.push(SpeechBubbleRenderData {
+                text: bubble.text.clone(),
+                world_pos,
+                entity_size,
+                pivot: transform.pivot,
+                color: bubble.color,
+                offset: bubble.offset,
+                font_size: bubble.font_size,
+                max_width: bubble.max_width,
+                show_background: bubble.show_background,
+                background_color: bubble.background_color,
+            });
+        }
     }
 
     bubbles
@@ -229,24 +253,12 @@ fn wrap_text<C: BishopContext>(
     lines
 }
 
-/// Interpolates position for smooth rendering.
-fn interpolate_position(
-    entity: Entity,
-    current_pos: Vec2,
-    alpha: f32,
-    prev_positions: Option<&HashMap<Entity, Vec2>>,
-) -> Vec2 {
-    if let Some(prev_map) = prev_positions
-        && let Some(prev_pos) = prev_map.get(&entity)
-    {
-        return lerp_position(*prev_pos, current_pos, alpha);
-    }
-    current_pos
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::rendering::test_support::make_vertical_spillover_fixture;
+    use crate::worlds::test_utils::make_room;
+    use crate::worlds::{Exit, ExitDirection, RoomId, WorldId};
 
     #[test]
     fn speech_bubble_projection_uses_camera_viewport_dimensions() {
@@ -263,9 +275,19 @@ mod tests {
     }
 
     #[test]
-    fn collect_speech_bubbles_only_returns_entities_in_current_room() {
+    fn collect_speech_bubbles_excludes_non_overlapping_other_room_entity() {
         let room_a = RoomId(1);
         let room_b = RoomId(2);
+        let world = World::from_rooms(
+            WorldId(0),
+            String::new(),
+            vec![
+                make_room(Some(1), 0.0, 0.0, 4.0, 4.0),
+                make_room(Some(2), 80.0, 0.0, 4.0, 4.0),
+            ],
+            16.0,
+        );
+        let rendered_room = world.get_room(room_a).unwrap();
         let mut ecs = Ecs::default();
 
         let in_room = ecs.create_entity()
@@ -283,7 +305,8 @@ mod tests {
         let bubbles = collect_speech_bubbles(
             &ecs,
             &SpriteManager::default(),
-            room_a,
+            &world,
+            rendered_room,
             1.0,
             None,
             16.0,
@@ -291,5 +314,76 @@ mod tests {
 
         assert_eq!(bubbles.len(), 1);
         assert_eq!(ecs.get::<crate::ecs::CurrentRoom>(in_room).map(|room| room.0), Some(room_a));
+    }
+
+    fn make_vertical_speech_fixture(
+        entity_pos: Vec2,
+        exit: Option<Exit>,
+    ) -> (World, Ecs, RoomId) {
+        let (world, mut ecs, entity, room_a) = make_vertical_spillover_fixture(entity_pos, exit);
+        ecs.insert_component(entity, SpeechBubble::default());
+
+        (world, ecs, room_a)
+    }
+
+    #[test]
+    fn cross_room_visibility_collect_speech_bubbles_excludes_other_room_entity_at_non_exit_boundary() {
+        let (world, ecs, room_a) = make_vertical_speech_fixture(vec2(32.0, 64.0), None);
+        let rendered_room = world.get_room(room_a).unwrap();
+
+        let bubbles = collect_speech_bubbles(
+            &ecs,
+            &SpriteManager::default(),
+            &world,
+            rendered_room,
+            1.0,
+            None,
+            16.0,
+        );
+
+        assert!(bubbles.is_empty());
+    }
+
+    #[test]
+    fn cross_room_visibility_collect_speech_bubbles_includes_other_room_entity_through_exit_cell() {
+        let (world, ecs, room_a) = make_vertical_speech_fixture(
+            vec2(32.0, 64.0),
+            Some(Exit {
+                position: vec2(1.0, 4.0),
+                direction: ExitDirection::Down,
+                target_room_id: Some(RoomId(2)),
+            }),
+        );
+        let rendered_room = world.get_room(room_a).unwrap();
+
+        let bubbles = collect_speech_bubbles(
+            &ecs,
+            &SpriteManager::default(),
+            &world,
+            rendered_room,
+            1.0,
+            None,
+            16.0,
+        );
+
+        assert_eq!(bubbles.len(), 1);
+    }
+
+    #[test]
+    fn cross_room_visibility_collect_speech_bubbles_excludes_other_room_entity_once_fully_outside() {
+        let (world, ecs, room_a) = make_vertical_speech_fixture(vec2(32.0, 96.0), None);
+        let rendered_room = world.get_room(room_a).unwrap();
+
+        let bubbles = collect_speech_bubbles(
+            &ecs,
+            &SpriteManager::default(),
+            &world,
+            rendered_room,
+            1.0,
+            None,
+            16.0,
+        );
+
+        assert!(bubbles.is_empty());
     }
 }

@@ -1,11 +1,14 @@
 use crate::engine::game_instance::GameInstance;
-use crate::game_global::drain_commands;
+use crate::game_global::{drain_commands, take_pending_world_transition};
+use crate::transitions::world_transitions::WorldSelector;
 use crate::scripting::commands::lua_command::LuaCommand;
 use crate::scripting::lua_ctx::LuaGameCtx;
 use crate::scripting::modules::entity_module::EntityHandle;
 use engine_core::ecs::*;
-use engine_core::game::{Game};
+use engine_core::game::Game;
 use engine_core::worlds::*;
+use engine_core::worlds::world::WorldExitTrigger;
+use engine_core::scripting::lua_constants::lua_entity;
 use engine_core::scripting::to_snake_case;
 use mlua::Lua;
 use std::cell::RefCell;
@@ -178,6 +181,85 @@ fn move_to_room_and_remove_from_room_queue_commands() {
 
     let commands: Vec<Box<dyn LuaCommand>> = drain_commands().collect();
     assert_eq!(commands.len(), 2);
+}
+
+#[test]
+fn move_to_world_records_pending_transition() {
+    const DEST_WORLD: &str = "Arcade";
+    const DEST_ENTRY: &str = "FromMain";
+
+    let (lua, _game_instance, _entity) = setup_entity_lua();
+
+    lua.load(format!(
+        "entity:{}(\"{DEST_WORLD}\", \"{DEST_ENTRY}\")",
+        lua_entity::MOVE_TO_WORLD
+    ))
+    .exec()
+    .unwrap();
+
+    let recorded = take_pending_world_transition().expect("transition should be recorded");
+    assert!(matches!(&recorded.world, WorldSelector::ByName(n) if n == DEST_WORLD));
+}
+
+#[test]
+fn trigger_world_exit_records_transition_by_id() {
+    const DEST: WorldId = WorldId(1);
+    let (lua, game_instance, entity) = setup_entity_lua();
+    {
+        let mut gi = game_instance.borrow_mut();
+        gi.game.ecs.add_component_to_entity(
+            entity,
+            WorldExit {
+                destination: Some(ExitDestination::World(DEST)),
+                entry: None,
+                trigger: WorldExitTrigger::OnInteract,
+            },
+        );
+    }
+
+    lua.load(format!("entity:{}()", lua_entity::TRIGGER_WORLD_EXIT))
+        .exec()
+        .unwrap();
+
+    let recorded = take_pending_world_transition().expect("a transition should be recorded");
+    assert!(matches!(recorded.world, WorldSelector::ById(id) if id == DEST));
+}
+
+#[test]
+fn trigger_world_exit_transport_targets_the_player() {
+    const DEST: WorldId = WorldId(1);
+    let (lua, game_instance, entity) = setup_entity_lua();
+    {
+        let mut gi = game_instance.borrow_mut();
+        gi.game.ecs.create_entity().with(Player).finish();
+        gi.game.ecs.add_component_to_entity(
+            entity,
+            WorldExit {
+                destination: Some(ExitDestination::World(DEST)),
+                entry: None,
+                trigger: WorldExitTrigger::OnInteract,
+            },
+        );
+    }
+
+    lua.load(format!("entity:{}()", lua_entity::TRIGGER_WORLD_EXIT))
+        .exec()
+        .unwrap();
+
+    let recorded = take_pending_world_transition().expect("a transition should be recorded");
+    let expected_player = game_instance.borrow().game.ecs.get_player_entity();
+    assert_eq!(recorded.entity, expected_player);
+}
+
+#[test]
+fn trigger_world_exit_without_component_records_nothing() {
+    let (lua, _game_instance, _entity) = setup_entity_lua();
+    // entity has NO WorldExit component.
+    lua.load(format!("entity:{}()", lua_entity::TRIGGER_WORLD_EXIT))
+        .exec()
+        .unwrap();
+
+    assert!(take_pending_world_transition().is_none());
 }
 
 #[test]

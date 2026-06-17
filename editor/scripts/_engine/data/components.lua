@@ -4,6 +4,8 @@
 ---@alias vec2 { x: number, y: number }
 ---@alias vec3 { x: number, y: number, z: number }
 
+---@alias Active boolean
+
 ---@class Animation
 ---@field clips table
 ---@field variant table
@@ -122,7 +124,16 @@
 
 ---@alias Walkable boolean
 
+---@class WorldEntry
+---@field name string
+
+---@class WorldExit
+---@field destination table
+---@field entry table
+---@field trigger table
+
 ---@class ComponentId
+---@field Active "Active"
 ---@field Animation "Animation"
 ---@field AudioSource "AudioSource"
 ---@field Children "Children"
@@ -151,9 +162,12 @@
 ---@field Transform "Transform"
 ---@field Velocity "Velocity"
 ---@field Walkable "Walkable"
+---@field WorldEntry "WorldEntry"
+---@field WorldExit "WorldExit"
 
 local C = {}
 
+C.Active = "Active"
 C.Animation = "Animation"
 C.AudioSource = "AudioSource"
 C.Children = "Children"
@@ -182,5 +196,7 @@ C.SubPixel = "SubPixel"
 C.Transform = "Transform"
 C.Velocity = "Velocity"
 C.Walkable = "Walkable"
+C.WorldEntry = "WorldEntry"
+C.WorldExit = "WorldExit"
 
 return C

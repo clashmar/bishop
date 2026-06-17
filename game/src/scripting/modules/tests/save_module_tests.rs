@@ -403,7 +403,7 @@ fn engine_tags_table_is_registered_with_autosave_constant() {
         .load(format!(
             "return {}.{}.{}",
             lua_globals::ENGINE,
-            lua_event_tag::KIND,
+            lua_event_tag::TAGS,
             lua_event_tag::AUTOSAVE,
         ))
         .eval()

@@ -9,10 +9,9 @@ use crate::commands::scene::{
     capture_component_transient_state, AddComponentCmd, ComponentTransientState,
     DeleteEntityCmd, RemoveComponentCmd, UpdateComponentCmd,
 };
-use crate::editor_global::push_command;
+use crate::editor_global::{push_command, push_toast};
 use crate::gui::gui_constants::{self, *};
 use crate::gui::inspector::player_module::PlayerModule;
-use crate::gui::inspector::room_camera_module::ROOM_CAMERA_MODULE_TITLE;
 use crate::gui::menu_bar::menu_button;
 use crate::gui::panel_text_color;
 use crate::shared::input::shortcuts_blocked;
@@ -20,6 +19,7 @@ use crate::shared::scene_ui::inspector::InspectorContent;
 use bishop::prelude::*;
 use engine_core::controls::{Controls};
 use engine_core::ecs::*;
+use engine_core::ecs::component_registry::component_removal_blocked_by;
 use engine_core::game::{GameCtxMut};
 use engine_core::logging::{omni_error};
 use engine_core::ui::{measure_text};
@@ -112,6 +112,7 @@ impl EntityInspector {
         if let Some(transform_mod) = transform_module {
             modules.insert(2, transform_mod);
         }
+        other_modules.sort_by(|a, b| a.title().cmp(b.title()));
         modules.extend(other_modules);
 
         Self {
@@ -137,10 +138,7 @@ impl EntityInspector {
         let is_proxy = ecs.has::<PlayerProxy>(entity);
         let mut result = Vec::new();
         for entry in MODULES.iter() {
-            let type_name = entry.title;
-            if type_name == ROOM_CAMERA_MODULE_TITLE {
-                continue;
-            }
+            let type_name = entry.type_name;
             if hide_room_only_components && is_scene_component_hidden_in_prefab(type_name) {
                 continue;
             }
@@ -154,11 +152,25 @@ impl EntityInspector {
             if entity_has_component(ecs, comp_target, reg) {
                 continue;
             }
+            if let Some(predicate) = entry.allowed_for {
+                if !predicate(entity, ecs) {
+                    continue;
+                }
+            }
+            if COMPONENT_CONFLICT_GROUPS.iter().any(|group| {
+                group.contains(&entry.type_name)
+                    && group.iter().any(|&other| {
+                        other != entry.type_name && entity_has_type(ecs, comp_target, other)
+                    })
+            }) {
+                continue;
+            }
             result.push(AddableComponent {
                 type_name,
-                label: prettify_component_label(type_name),
+                label: entry.title.to_string(),
             });
         }
+        result.sort_by(|a, b| a.type_name.cmp(b.type_name));
         result
     }
 
@@ -226,7 +238,7 @@ impl InspectorContent for EntityInspector {
             copy_entity(game_ctx.ecs, entity);
         }
 
-        let add_label = "+ Component";
+        let add_label = "+Component";
         let txt_add = measure_text(ctx, add_label, layout::HEADER_FONT_SIZE_20);
         let btn_w_add = txt_add.width + layout::WIDGET_PADDING;
         let add_rect = register_rect(
@@ -239,10 +251,10 @@ impl InspectorContent for EntityInspector {
             ),
         );
 
-        let remove_label = "Remove";
+        let remove_label = "-Entity";
         let txt_remove = measure_text(ctx, remove_label, layout::HEADER_FONT_SIZE_20);
         let btn_w_remove = txt_remove.width + layout::WIDGET_PADDING;
-        let create_label = "+ Entity";
+        let create_label = "+Entity";
         let txt_create = measure_text(ctx, create_label, layout::HEADER_FONT_SIZE_20);
         let btn_w_create = txt_create.width + layout::WIDGET_PADDING;
 
@@ -257,7 +269,7 @@ impl InspectorContent for EntityInspector {
                     BTN_HEIGHT,
                 ),
             );
-            if menu_button(ctx, remove_rect, remove_label, blocked)
+            if menu_button(ctx, remove_rect, remove_label, false, blocked)
                 || Controls::delete(ctx) && !shortcuts_blocked()
             {
                 let command = DeleteEntityCmd::new(entity, insp_ctx.command_mode);
@@ -282,7 +294,7 @@ impl InspectorContent for EntityInspector {
                     BTN_HEIGHT,
                 ),
             );
-            if menu_button(ctx, create_rect, create_label, blocked) {
+            if menu_button(ctx, create_rect, create_label, false, blocked) {
                 output.create_request =
                     Some(CreateRequest { parent: Some(parent) });
                 return output;
@@ -305,7 +317,8 @@ impl InspectorContent for EntityInspector {
         .filterable()
         .menu_style()
         .button_text_color(panel_text_color())
-        .blocked(options.is_empty() || blocked)
+        .suppressed(blocked)
+        .blocked(options.is_empty())
         .show(ctx)
         {
             let target = component_target(game_ctx.ecs, entity);
@@ -373,7 +386,7 @@ impl InspectorContent for EntityInspector {
             );
             register_rect(&mut self.interactive_rects, layout.open_button_rect);
             if Button::new(layout.open_button_rect, &open_button_label)
-                .blocked(blocked)
+                .suppressed(blocked)
                 .show(ctx)
             {
                 output.prefab_action = Some(PrefabActionRequest {
@@ -388,7 +401,7 @@ impl InspectorContent for EntityInspector {
             let actions_blocked = !prefab_state.has_local_changes;
             register_rect(&mut self.interactive_rects, layout.unlink_rect);
             if Button::new(layout.unlink_rect, "Unlink")
-                .blocked(blocked)
+                .suppressed(blocked)
                 .show(ctx)
             {
                 output.prefab_action = Some(PrefabActionRequest {
@@ -402,7 +415,8 @@ impl InspectorContent for EntityInspector {
 
             register_rect(&mut self.interactive_rects, layout.sync_rect);
             if Button::new(layout.sync_rect, "Sync")
-                .blocked(blocked || actions_blocked)
+                .suppressed(blocked)
+                .blocked(actions_blocked)
                 .show(ctx)
             {
                 output.prefab_action = Some(PrefabActionRequest {
@@ -416,7 +430,8 @@ impl InspectorContent for EntityInspector {
 
             register_rect(&mut self.interactive_rects, layout.revert_rect);
             if Button::new(layout.revert_rect, "Revert")
-                .blocked(blocked || actions_blocked)
+                .suppressed(blocked)
+                .blocked(actions_blocked)
                 .show(ctx)
             {
                 output.prefab_action = Some(PrefabActionRequest {
@@ -464,13 +479,21 @@ impl InspectorContent for EntityInspector {
                 }
                 if module.take_remove_request() {
                     if let Some((type_name, ron, _)) = pre_snapshot {
-                        self.component_edits.remove(&(module_entity, type_name));
-                        push_command(Box::new(RemoveComponentCmd::new(
-                            module_entity,
-                            insp_ctx.command_mode,
-                            type_name,
-                            ron,
-                        )));
+                        let blocker = component_removal_blocked_by(type_name, module_entity, game_ctx.ecs);
+                        if let Some(blocker) = blocker {
+                            let display_name = MODULES.iter().find(|m| m.type_name == type_name).map_or(type_name, |m| m.title);
+                            let blocker_name = MODULES.iter().find(|m| m.type_name == blocker).map_or(blocker, |m| m.title);
+                            push_toast(format!("Cannot remove {display_name}: required by {blocker_name}"), 3.0);
+                        }
+                        if blocker.is_none() {
+                            self.component_edits.remove(&(module_entity, type_name));
+                            push_command(Box::new(RemoveComponentCmd::new(
+                                module_entity,
+                                insp_ctx.command_mode,
+                                type_name,
+                                ron,
+                            )));
+                        }
                     }
                 } else if let Some((type_name, pre_ron, pre_transient_state)) = pre_snapshot {
                     if let Some(reg) =
@@ -603,12 +626,13 @@ fn entity_has_component(ecs: &Ecs, entity: Entity, reg: &ComponentRegistry) -> b
     (reg.has)(ecs, entity)
 }
 
-fn prettify_component_label(type_name: &str) -> String {
-    match type_name {
-        "AudioSource" => "Audio Source".to_string(),
-        _ => type_name.to_string(),
-    }
+fn entity_has_type(ecs: &Ecs, entity: Entity, type_name: &str) -> bool {
+    COMPONENTS
+        .iter()
+        .find(|reg| reg.type_name == type_name)
+        .is_some_and(|reg| (reg.has)(ecs, entity))
 }
+
 
 fn prefab_open_button_label<C: BishopContext>(
     ctx: &mut C,

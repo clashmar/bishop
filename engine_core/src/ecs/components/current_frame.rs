@@ -41,6 +41,20 @@ pub struct CurrentFrameSnapshot {
     pub flip_x: bool,
 }
 
+impl CurrentFrame {
+    /// Returns true if a texture has been assigned to this frame.
+    pub fn has_valid_asset(&self) -> bool {
+        self.sprite_id.0 != 0
+    }
+}
+
+impl CurrentFrameSnapshot {
+    /// Returns true if a texture has been assigned to this frame snapshot.
+    pub fn has_valid_asset(&self) -> bool {
+        self.sprite_id.0 != 0
+    }
+}
+
 impl From<CurrentFrame> for CurrentFrameSnapshot {
     fn from(value: CurrentFrame) -> Self {
         let CurrentFrame {
@@ -62,5 +76,51 @@ impl From<CurrentFrame> for CurrentFrameSnapshot {
             frame_size,
             flip_x,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn has_valid_asset_false_when_sprite_id_is_zero() {
+        let frame = CurrentFrame::default();
+        assert!(!frame.has_valid_asset());
+    }
+
+    #[test]
+    fn has_valid_asset_true_when_sprite_id_is_nonzero() {
+        let mut frame = CurrentFrame::default();
+        frame.sprite_id = SpriteId(1);
+        assert!(frame.has_valid_asset());
+    }
+
+    #[test]
+    fn snapshot_has_valid_asset_false_when_sprite_id_is_zero() {
+        let frame = CurrentFrameSnapshot {
+            clip_id: ClipId::Idle,
+            col: 0,
+            row: 0,
+            offset: Vec2::ZERO,
+            sprite_id: SpriteId(0),
+            frame_size: Vec2::ZERO,
+            flip_x: false,
+        };
+        assert!(!frame.has_valid_asset());
+    }
+
+    #[test]
+    fn snapshot_has_valid_asset_true_when_sprite_id_is_nonzero() {
+        let frame = CurrentFrameSnapshot {
+            clip_id: ClipId::Idle,
+            col: 0,
+            row: 0,
+            offset: Vec2::ZERO,
+            sprite_id: SpriteId(1),
+            frame_size: Vec2::ZERO,
+            flip_x: false,
+        };
+        assert!(frame.has_valid_asset());
     }
 }

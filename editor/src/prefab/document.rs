@@ -58,6 +58,9 @@ impl PrefabStage {
             if let Err(error) = register_runtime_modules(lua, &stage.script_manager.event_bus) {
                 omni_error!("Lua module registration failed: {error}");
             }
+            if let Err(error) = ScriptManager::load_globals_prelude(lua) {
+                omni_error!("Lua globals prelude failed: {error}");
+            }
         });
 
         stage
@@ -72,6 +75,9 @@ impl PrefabStage {
             if let Err(error) = register_runtime_modules(lua, &game.script_manager.event_bus) {
                 omni_error!("Lua module registration failed: {error}");
             }
+            if let Err(error) = ScriptManager::load_globals_prelude(lua) {
+                omni_error!("Lua globals prelude failed: {error}");
+            }
         });
         Ok(())
     }
@@ -80,6 +86,8 @@ impl PrefabStage {
         GameCtxMut {
             ecs: &mut self.ecs,
             world: None,
+            world_directory: Vec::new(),
+            room_world_map: std::collections::HashMap::new(),
             asset_registry: &mut self.asset_registry,
             sprite_manager: &mut self.sprite_manager,
             script_manager: &mut self.script_manager,

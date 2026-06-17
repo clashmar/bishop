@@ -10,7 +10,7 @@ use bishop::prelude::*;
 use std::borrow::Cow;
 use std::fs;
 use std::path::{Path, PathBuf};
-use widgets::constants::layout::{DEFAULT_FONT_SIZE_16, WIDGET_SPACING};
+use widgets::constants::layout::{DEFAULT_FONT_SIZE_16, WIDGET_PADDING, WIDGET_SPACING};
 use widgets::{truncate_to_width, Button, WidgetId};
 
 pub fn gui_sprite_picker<C: BishopContext>(
@@ -22,6 +22,9 @@ pub fn gui_sprite_picker<C: BishopContext>(
     sprite_manager: &mut SpriteManager,
     blocked: bool,
 ) -> bool {
+    let remove_w = rect.h;
+    let picker_w = rect.w - remove_w - WIDGET_SPACING;
+
     let btn_label: Cow<str> = if id.0 == 0 {
         Cow::Borrowed("[Pick File]")
     } else {
@@ -32,11 +35,8 @@ pub fn gui_sprite_picker<C: BishopContext>(
             .map(|n| n.to_string_lossy().into_owned())
             .unwrap_or_else(|| "???".to_string());
 
-        Cow::Owned(format!("[/{}]", filename))
+        Cow::Owned(truncate_to_width(ctx, &filename, (picker_w - WIDGET_PADDING).max(0.0), DEFAULT_FONT_SIZE_16))
     };
-
-    let remove_w = rect.h;
-    let picker_w = rect.w - remove_w - WIDGET_SPACING;
 
     let picker_rect = Rect::new(rect.x, rect.y, picker_w, rect.h);
     let remove_rect = Rect::new(rect.x + rect.w - remove_w, rect.y, remove_w, rect.h);
@@ -87,6 +87,9 @@ pub fn gui_script_picker<C: BishopContext>(
     blocked: bool,
 ) -> bool {
     let (entity, script_id) = selection;
+    let remove_w = rect.h;
+    let picker_w = rect.w - remove_w - WIDGET_SPACING;
+
     let btn_label: Cow<str> = if script_id.0 == 0 {
         Cow::Borrowed("[Pick File]")
     } else {
@@ -97,11 +100,8 @@ pub fn gui_script_picker<C: BishopContext>(
             .map(|n| n.to_string_lossy().into_owned())
             .unwrap_or_else(|| "???".to_string());
 
-        Cow::Owned(format!("[/{}]", filename))
+        Cow::Owned(truncate_to_width(ctx, &filename, (picker_w - WIDGET_PADDING).max(0.0), DEFAULT_FONT_SIZE_16))
     };
-
-    let remove_w = rect.h;
-    let picker_w = rect.w - remove_w - WIDGET_SPACING;
 
     let picker_rect = Rect::new(rect.x, rect.y, picker_w, rect.h);
     let remove_rect = Rect::new(rect.x + rect.w - remove_w, rect.y, remove_w, rect.h);
@@ -162,7 +162,7 @@ pub fn gui_toml_picker<C: BishopContext>(
         Cow::Owned(truncate_to_width(
             ctx,
             &toml_label(asset_registry, *id),
-            picker_rect.w.max(0.0),
+            (picker_rect.w - WIDGET_PADDING).max(0.0),
             DEFAULT_FONT_SIZE_16,
         ))
     };
@@ -213,8 +213,7 @@ fn toml_label(asset_registry: &AssetRegistry, toml_id: TomlId) -> String {
             path.file_name()
                 .map(|name| name.to_string_lossy().into_owned())
         })
-        .map(|filename| format!("[/{}]", filename))
-        .unwrap_or_else(|| "[/???]".to_string())
+        .unwrap_or_else(|| "???".to_string())
 }
 
 fn picked_toml_relative_path(text_root: &Path, picked_path: &Path) -> Result<PathBuf, String> {

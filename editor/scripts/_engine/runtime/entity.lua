@@ -10,6 +10,7 @@ local Entity = {}
 function Entity:despawn() end
 
 -- Component getters
+---@overload fun(self: Entity, component: "Active"): Active
 ---@overload fun(self: Entity, component: "Animation"): Animation
 ---@overload fun(self: Entity, component: "AudioSource"): AudioSource
 ---@overload fun(self: Entity, component: "Children"): Children
@@ -38,6 +39,8 @@ function Entity:despawn() end
 ---@overload fun(self: Entity, component: "Transform"): Transform
 ---@overload fun(self: Entity, component: "Velocity"): Velocity
 ---@overload fun(self: Entity, component: "Walkable"): Walkable
+---@overload fun(self: Entity, component: "WorldEntry"): WorldEntry
+---@overload fun(self: Entity, component: "WorldExit"): WorldExit
 ---@param component ComponentId
 ---@return table|nil
 function Entity:get(component) end
@@ -48,6 +51,10 @@ function Entity:get(component) end
 function Entity:set(component, value) end
 
 -- Typed component setters
+---@param self Entity
+---@param v Active
+function Entity:set_active(v) end
+
 ---@param self Entity
 ---@param v Animation
 function Entity:set_animation(v) end
@@ -160,6 +167,14 @@ function Entity:set_velocity(v) end
 ---@param v Walkable
 function Entity:set_walkable(v) end
 
+---@param self Entity
+---@param v WorldEntry
+function Entity:set_world_entry(v) end
+
+---@param self Entity
+---@param v WorldExit
+function Entity:set_world_exit(v) end
+
 ---@param component ComponentId
 ---@return boolean
 function Entity:has(component) end
@@ -217,6 +232,15 @@ function Entity:move_by(delta) end
 --- Moves this entity to the target room.
 ---@param room_id integer
 function Entity:move_to_room(room_id) end
+
+--- Moves this entity to another world.
+--- Arrives at the named entry point, or the world's start when omitted.
+---@param world_name string
+---@param entry_name string|nil
+function Entity:move_to_world(world_name, entry_name) end
+
+--- Executes this entity's WorldExit component (transport the player or activate a world).
+function Entity:trigger_world_exit() end
 
 --- Removes this entity from its current room membership.
 function Entity:remove_from_room() end

@@ -5,6 +5,7 @@ use std::cell::RefCell;
 use super::context::WgpuContext;
 use super::render::FontAtlas;
 use super::render::WgpuTexture;
+use crate::Rect;
 use crate::camera::{Camera, Camera2D};
 use crate::draw::{Draw, DrawTextureParams};
 use crate::input::{Input, KeyCode, MouseButton};
@@ -70,6 +71,10 @@ impl Input for WgpuContext {
 
     fn get_time(&self) -> f64 {
         self.time.elapsed()
+    }
+
+    fn logical_clip_rect(&self) -> Option<Rect> {
+        self.logical_clip_rect()
     }
 }
 
