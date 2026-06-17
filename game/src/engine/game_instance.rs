@@ -203,6 +203,10 @@ mod tests {
 
     #[test]
     fn prepare_loaded_game_sets_current_world_room_to_start_room() {
+        let _lock = game_fs_test_lock().lock().unwrap();
+        let test_game = TestGameFolder::new("prepare_loaded_game_start_room");
+        set_game_name(test_game.name());
+
         let mut world = World::default();
         world.current_room_id = Some(RoomId(2));
         world.add_room(Room {
@@ -215,7 +219,7 @@ mod tests {
             ..Default::default()
         });
 
-        let mut game = Game::default();
+        let mut game = Game::with_name(test_game.name());
         game.add_world(world);
 
         let prepared = GameInstance::prepare_loaded_game(&Lua::new(), game);
@@ -226,6 +230,10 @@ mod tests {
 
     #[test]
     fn prepare_loaded_room_sets_current_world_room_to_selected_room() {
+        let _lock = game_fs_test_lock().lock().unwrap();
+        let test_game = TestGameFolder::new("prepare_loaded_room_selected_room");
+        set_game_name(test_game.name());
+
         let room = Room {
             id: RoomId(2),
             position: Vec2::new(32.0, 0.0),
@@ -239,7 +247,7 @@ mod tests {
         });
         world.add_room(room.clone());
 
-        let mut game = Game::default();
+        let mut game = Game::with_name(test_game.name());
         game.add_world(world);
 
         let prepared = GameInstance::prepare_loaded_room(&Lua::new(), room, game);

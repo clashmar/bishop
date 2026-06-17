@@ -17,7 +17,8 @@ local function has_tag(tags, configured_tag)
 end
 
 local function check_and_save(tags)
-    if Autosave.configured_tag
+    if
+        Autosave.configured_tag
         and has_tag(tags, Autosave.configured_tag)
         and (not Autosave.condition or Autosave.condition())
     then

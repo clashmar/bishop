@@ -7,9 +7,12 @@ local Probe = {
 
     update = function(self, dt)
         local current = self.entity:get(Components.Velocity) or { x = 0, y = 0 }
-        local horizontal = self.public.facing == Direction.Left
-            and -self.public.speed
-            or self.public.speed
+        local horizontal
+        if self.public.facing == Direction.Left then
+            horizontal = -self.public.speed
+        else
+            horizontal = self.public.speed
+        end
 
         self.entity:set_velocity({
             x = horizontal,
