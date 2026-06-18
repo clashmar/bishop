@@ -8,6 +8,7 @@ pub mod diagnostics;
 pub mod ecs;
 pub mod engine_global;
 pub mod game;
+pub mod hydration;
 pub mod input;
 pub mod logging;
 pub mod menu;

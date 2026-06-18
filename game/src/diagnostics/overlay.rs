@@ -7,6 +7,7 @@ use engine_core::assets::*;
 use engine_core::audio::{AudioDiagnosticsSnapshot, AudioManager};
 use engine_core::diagnostics::{DiagnosticsCollector, ResourceResidencySnapshot, RuntimeResidencySnapshot};
 use engine_core::ecs::*;
+use engine_core::hydration::{CoordinatorSnapshot, HydrationScope, ResourceClaim, ResourceClass};
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
 
@@ -57,6 +58,7 @@ pub struct DiagnosticsOverlay {
     cached_audio_checked_refs: usize,
     cached_audio_rows: Vec<AudioDiagnosticsRow>,
     cached_residency: RuntimeResidencySnapshot,
+    cached_coordinator: CoordinatorSnapshot,
     timing_trace: TimingTraceLogger,
 }
 
@@ -121,6 +123,7 @@ impl DiagnosticsOverlay {
             cached_audio_checked_refs: 0,
             cached_audio_rows: Vec::new(),
             cached_residency: RuntimeResidencySnapshot::default(),
+            cached_coordinator: CoordinatorSnapshot::default(),
             timing_trace: TimingTraceLogger::from_env(),
         }
     }
@@ -245,6 +248,7 @@ impl DiagnosticsOverlay {
                 self.cached_audio_matching_refs, self.cached_audio_checked_refs
             ));
             lines.extend(residency_summary_lines(&self.cached_residency));
+            lines.extend(coordinator_summary_lines(&self.cached_coordinator));
             lines.extend(
                 self.cached_audio_rows
                     .iter()
@@ -310,6 +314,36 @@ fn residency_summary_lines(snapshot: &RuntimeResidencySnapshot) -> Vec<String> {
         residency_summary_line(&snapshot.scripts),
         residency_summary_line(&snapshot.audio),
     ]
+}
+
+fn coordinator_summary_line(scope: &HydrationScope, claims: &[&ResourceClaim]) -> String {
+    let mut parts = vec![format!("{:?}", scope)];
+    for claim in claims {
+        let class_abbr = match claim.class {
+            ResourceClass::Texture => "T",
+            ResourceClass::Script => "S",
+            ResourceClass::Audio => "A",
+            ResourceClass::Prefab => "P",
+        };
+        parts.push(format!("{}={}", class_abbr, claim.count));
+    }
+    parts.join(" ")
+}
+
+fn coordinator_summary_lines(snapshot: &CoordinatorSnapshot) -> Vec<String> {
+    let mut lines: Vec<String> = Vec::new();
+    for scope in &snapshot.active_scopes {
+        let scope_claims: Vec<&ResourceClaim> = snapshot
+            .claims
+            .iter()
+            .filter(|c| c.scope == *scope)
+            .collect();
+        lines.push(coordinator_summary_line(scope, &scope_claims));
+    }
+    if lines.is_empty() {
+        lines.push("Coordinator: no active scopes".to_string());
+    }
+    lines
 }
 
 fn expected_audio_ref_counts<'a>(
@@ -454,5 +488,43 @@ mod tests {
                 AUDIO_RESIDENCY_LABEL,
             )
         );
+    }
+
+    #[test]
+    fn coordinator_summary_line_formats_scope_and_claims() {
+        use engine_core::worlds::RoomId;
+
+        let snapshot = CoordinatorSnapshot {
+            active_scopes: vec![
+                HydrationScope::Boot,
+                HydrationScope::Room(RoomId(3)),
+            ],
+            claims: vec![
+                ResourceClaim {
+                    scope: HydrationScope::Boot,
+                    class: ResourceClass::Texture,
+                    count: 2,
+                },
+                ResourceClaim {
+                    scope: HydrationScope::Room(RoomId(3)),
+                    class: ResourceClass::Script,
+                    count: 1,
+                },
+                ResourceClaim {
+                    scope: HydrationScope::Room(RoomId(3)),
+                    class: ResourceClass::Texture,
+                    count: 4,
+                },
+            ],
+        };
+
+        let lines = coordinator_summary_lines(&snapshot);
+
+        assert_eq!(lines.len(), 2);
+        assert!(lines[0].contains("Boot"));
+        assert!(lines[0].contains("T=2"));
+        assert!(lines[1].contains("Room(RoomId(3))"));
+        assert!(lines[1].contains("S=1"));
+        assert!(lines[1].contains("T=4"));
     }
 }
