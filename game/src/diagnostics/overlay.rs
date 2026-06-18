@@ -5,7 +5,7 @@ use crate::diagnostics::timing_trace::{TimingTraceLogger, TimingTraceSample};
 use crate::engine::game_instance::GameInstance;
 use engine_core::assets::*;
 use engine_core::audio::{AudioDiagnosticsSnapshot, AudioManager};
-use engine_core::diagnostics::DiagnosticsCollector;
+use engine_core::diagnostics::{DiagnosticsCollector, ResourceResidencySnapshot, RuntimeResidencySnapshot};
 use engine_core::ecs::*;
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
@@ -50,18 +50,13 @@ pub struct DiagnosticsOverlay {
     cached_render_time: f32,
     cached_entity_count: usize,
     cached_texture_count: usize,
-    cached_script_instances: usize,
     cached_listener_count: usize,
-    cached_script_id_count: usize,
-    cached_sprite_id_count: usize,
     cached_audio_working_set_resident: usize,
     cached_audio_working_set_total: usize,
-    cached_audio_count: usize,
-    cached_audio_loading_count: usize,
-    cached_audio_pinned_count: usize,
     cached_audio_matching_refs: usize,
     cached_audio_checked_refs: usize,
     cached_audio_rows: Vec<AudioDiagnosticsRow>,
+    cached_residency: RuntimeResidencySnapshot,
     timing_trace: TimingTraceLogger,
 }
 
@@ -119,18 +114,13 @@ impl DiagnosticsOverlay {
             cached_render_time: 0.0,
             cached_entity_count: 0,
             cached_texture_count: 0,
-            cached_script_instances: 0,
             cached_listener_count: 0,
-            cached_script_id_count: 0,
-            cached_sprite_id_count: 0,
             cached_audio_working_set_resident: 0,
             cached_audio_working_set_total: 0,
-            cached_audio_count: 0,
-            cached_audio_loading_count: 0,
-            cached_audio_pinned_count: 0,
             cached_audio_matching_refs: 0,
             cached_audio_checked_refs: 0,
             cached_audio_rows: Vec::new(),
+            cached_residency: RuntimeResidencySnapshot::default(),
             timing_trace: TimingTraceLogger::from_env(),
         }
     }
@@ -181,10 +171,7 @@ impl DiagnosticsOverlay {
         let audio_snapshot = audio_manager.diagnostics_snapshot();
         self.cached_entity_count = game.ecs.get_store::<Transform>().data.len();
         self.cached_texture_count = game.sprite_manager.texture_count();
-        self.cached_script_instances = game.script_manager.instance_count();
         self.cached_listener_count = game.script_manager.event_listener_count();
-        self.cached_script_id_count = game.script_manager.registered_id_count();
-        self.cached_sprite_id_count = game.sprite_manager.registered_id_count();
         self.cached_render_time = render_time_ms;
 
         let audio_sources = AudioSource::store(&game.ecs);
@@ -197,13 +184,17 @@ impl DiagnosticsOverlay {
             .filter(|row| row.ecs_count > 0 && (row.cached || row.loading))
             .count();
         self.cached_audio_working_set_total = expected_audio_refs.len();
-        self.cached_audio_count = audio_snapshot.cached_sound_count;
-        self.cached_audio_loading_count = audio_snapshot.loading_sound_count;
-        self.cached_audio_pinned_count = audio_snapshot.pinned_sound_count;
         let (matching_refs, checked_refs) = audio_ref_summary(&audio_rows);
         self.cached_audio_matching_refs = matching_refs;
         self.cached_audio_checked_refs = checked_refs;
         self.cached_audio_rows = audio_diagnostics_rows(&expected_audio_refs, &audio_snapshot);
+        self.cached_residency = RuntimeResidencySnapshot::from_sources(
+            &game.sprite_manager,
+            &game.script_manager,
+            &audio_snapshot,
+            expected_audio_refs.len(),
+            audio_rows.iter().filter(|row| row.ecs_count > 0).count(),
+        );
     }
 
     /// Handle input for toggling the overlay.
@@ -244,27 +235,16 @@ impl DiagnosticsOverlay {
             lines.push(format!("Render: {:.2} ms", self.cached_render_time));
             lines.push(format!("Entities: {}", self.cached_entity_count));
             lines.push(format!("Textures: {}", self.cached_texture_count));
-            lines.push(format!("Sprite IDs: {}", self.cached_sprite_id_count));
-            lines.push(format!("Script IDs: {}", self.cached_script_id_count));
-            lines.push(format!(
-                "Script Instances: {}",
-                self.cached_script_instances
-            ));
             lines.push(format!("Listeners: {}", self.cached_listener_count));
             lines.push(format!(
                 "Audio Working Set: {}/{}",
                 self.cached_audio_working_set_resident, self.cached_audio_working_set_total
             ));
             lines.push(format!(
-                "Audio Cache: {} cached, {} loading, {} pinned",
-                self.cached_audio_count,
-                self.cached_audio_loading_count,
-                self.cached_audio_pinned_count
-            ));
-            lines.push(format!(
                 "Audio Refs: {}/{} IDs match ECS",
                 self.cached_audio_matching_refs, self.cached_audio_checked_refs
             ));
+            lines.extend(residency_summary_lines(&self.cached_residency));
             lines.extend(
                 self.cached_audio_rows
                     .iter()
@@ -309,6 +289,27 @@ impl DiagnosticsOverlay {
             Color::RED
         }
     }
+}
+
+fn residency_summary_line(resource: &ResourceResidencySnapshot) -> String {
+    format!(
+        "{} known={} resident={} pending={} pinned={} active={} cold={}",
+        resource.label,
+        resource.counts.known,
+        resource.counts.resident,
+        resource.counts.pending,
+        resource.counts.pinned,
+        resource.counts.active,
+        resource.counts.cold(),
+    )
+}
+
+fn residency_summary_lines(snapshot: &RuntimeResidencySnapshot) -> Vec<String> {
+    vec![
+        residency_summary_line(&snapshot.textures),
+        residency_summary_line(&snapshot.scripts),
+        residency_summary_line(&snapshot.audio),
+    ]
 }
 
 fn expected_audio_ref_counts<'a>(
@@ -384,4 +385,74 @@ fn audio_ref_summary(rows: &[AudioDiagnosticsRow]) -> (usize, usize) {
         .count();
 
     (matching, relevant_rows.len())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use engine_core::diagnostics::{
+        AUDIO_RESIDENCY_LABEL, ResidencyCounts, SCRIPTS_RESIDENCY_LABEL,
+        TEXTURES_RESIDENCY_LABEL,
+    };
+
+    #[test]
+    fn residency_summary_lines_include_known_pending_and_active_counts() {
+        let snapshot = RuntimeResidencySnapshot {
+            textures: ResourceResidencySnapshot::new(
+                TEXTURES_RESIDENCY_LABEL,
+                ResidencyCounts {
+                    known: 8,
+                    resident: 5,
+                    pending: 1,
+                    pinned: 0,
+                    active: 0,
+                },
+            ),
+            scripts: ResourceResidencySnapshot::new(
+                SCRIPTS_RESIDENCY_LABEL,
+                ResidencyCounts {
+                    known: 4,
+                    resident: 2,
+                    pending: 1,
+                    pinned: 0,
+                    active: 3,
+                },
+            ),
+            audio: ResourceResidencySnapshot::new(
+                AUDIO_RESIDENCY_LABEL,
+                ResidencyCounts {
+                    known: 6,
+                    resident: 4,
+                    pending: 1,
+                    pinned: 2,
+                    active: 5,
+                },
+            ),
+        };
+
+        let lines = residency_summary_lines(&snapshot);
+
+        assert_eq!(lines.len(), 3);
+        assert_eq!(
+            lines[0],
+            format!(
+                "{} known=8 resident=5 pending=1 pinned=0 active=0 cold=2",
+                TEXTURES_RESIDENCY_LABEL,
+            )
+        );
+        assert_eq!(
+            lines[1],
+            format!(
+                "{} known=4 resident=2 pending=1 pinned=0 active=3 cold=1",
+                SCRIPTS_RESIDENCY_LABEL,
+            )
+        );
+        assert_eq!(
+            lines[2],
+            format!(
+                "{} known=6 resident=4 pending=1 pinned=2 active=5 cold=1",
+                AUDIO_RESIDENCY_LABEL,
+            )
+        );
+    }
 }

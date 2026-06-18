@@ -86,6 +86,11 @@ impl SpriteManager {
         }
     }
 
+    /// Returns the number of runtime texture reads still in flight.
+    pub fn pending_texture_count(&self) -> usize {
+        self.pending_texture_reads.len()
+    }
+
     #[cfg(test)]
     pub(super) fn enable_runtime_texture_loading_for_test(&mut self) {
         self.runtime_texture_loading = true;

@@ -39,6 +39,40 @@ impl TextureLoader for CountingFailingLoader {
     }
 }
 
+fn queue_runtime_read_test_case(
+    test_name: &str,
+    file_name: &str,
+) -> (TestGameFolder, SpriteManager, SpriteId) {
+    let test_folder = TestGameFolder::new(test_name);
+    set_game_name(test_folder.name());
+
+    let mut sprite_manager = SpriteManager::default();
+    let file_read_pool = FileReadPool::new();
+    let path = PathBuf::from(file_name);
+    let sprite_id = SpriteId(7);
+    let full_path = assets_folder().join(&path);
+
+    fs::create_dir_all(
+        full_path
+            .parent()
+            .expect("runtime test path should have a parent"),
+    )
+    .expect("runtime test directory should be writable");
+    fs::write(&full_path, [1_u8, 2, 3, 4]).expect("runtime test file should be writable");
+
+    sprite_manager
+        .path_to_sprite_id
+        .insert(path.clone(), sprite_id);
+    sprite_manager
+        .sprite_id_to_path
+        .insert(sprite_id, path.clone());
+    sprite_manager.attach_runtime_file_read_pool_for_test(&file_read_pool);
+    sprite_manager.enable_runtime_texture_loading_for_test();
+    sprite_manager.queue_runtime_texture_read(sprite_id);
+
+    (test_folder, sprite_manager, sprite_id)
+}
+
 #[test]
 fn get_or_load_registers_new_sprite_path_in_asset_registry() {
     let loader = CountingFailingLoader::new();
@@ -120,34 +154,19 @@ fn ensure_loaded_retries_loader_for_registered_sprite_id_with_missing_texture() 
 }
 
 #[test]
+fn pending_texture_count_tracks_queued_runtime_reads() {
+    let _lock = game_fs_test_lock().lock().unwrap();
+    let (_folder, sprite_manager, _sprite_id) =
+        queue_runtime_read_test_case("asset_mgr_pending_count", "textures/runtime-pending-count.bin");
+
+    assert_eq!(sprite_manager.pending_texture_count(), 1);
+}
+
+#[test]
 fn queue_runtime_texture_read_tracks_pending_sprite_id() {
     let _lock = game_fs_test_lock().lock().unwrap();
-    let test_folder = TestGameFolder::new("asset_mgr_queue");
-    set_game_name(test_folder.name());
-
-    let mut sprite_manager = SpriteManager::default();
-    let file_read_pool = FileReadPool::new();
-    let path = PathBuf::from("textures/runtime-queue.bin");
-    let sprite_id = SpriteId(7);
-    let full_path = assets_folder().join(&path);
-
-    fs::create_dir_all(
-        full_path
-            .parent()
-            .expect("runtime queue test path should have a parent"),
-    )
-    .expect("runtime queue test directory should be writable");
-    fs::write(&full_path, [1_u8, 2, 3, 4]).expect("runtime queue test file should be writable");
-
-    sprite_manager
-        .path_to_sprite_id
-        .insert(path.clone(), sprite_id);
-    sprite_manager
-        .sprite_id_to_path
-        .insert(sprite_id, path.clone());
-    sprite_manager.attach_runtime_file_read_pool_for_test(&file_read_pool);
-    sprite_manager.enable_runtime_texture_loading_for_test();
-    sprite_manager.queue_runtime_texture_read(sprite_id);
+    let (_folder, sprite_manager, sprite_id) =
+        queue_runtime_read_test_case("asset_mgr_queue", "textures/runtime-queue.bin");
 
     assert!(sprite_manager.has_pending_texture_read(sprite_id));
     assert_eq!(sprite_manager.texture_count(), 0);

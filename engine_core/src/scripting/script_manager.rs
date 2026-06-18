@@ -320,6 +320,11 @@ impl ScriptManager {
         self.script_id_to_path.len()
     }
 
+    /// Returns the number of pending script inits.
+    pub fn pending_init_count(&self) -> usize {
+        self.pending_inits.len()
+    }
+
     /// Returns the registered relative path for a script id.
     pub fn path_for_id(&self, script_id: ScriptId) -> Option<&Path> {
         self.script_id_to_path.get(&script_id).map(PathBuf::as_path)
@@ -338,7 +343,7 @@ impl ScriptManager {
 
         self.instances
             .retain(|(ent, _script_id), _table| *ent != entity);
-        
+
         if script_id.0 != 0 && !self.instances.keys().any(|(_, id)| *id == script_id) {
             self.table_defs.remove(&script_id);
             self.update_fns.remove(&script_id);
@@ -379,7 +384,6 @@ impl ScriptManager {
             self.script_id_to_path.insert(script_id, relative_path);
         }
     }
-
 }
 
 impl AssetManager for ScriptManager {
@@ -445,6 +449,15 @@ mod tests {
             Some(AssetKey::Script(ScriptId(1)))
         );
         assert_eq!(script_manager.path_to_script_id.get(&path), Some(&ScriptId(1)));
+    }
+
+    #[test]
+    fn pending_init_count_returns_pending_queue_length() {
+        let mut manager = ScriptManager::default();
+        manager.pending_inits.push((Entity(1), ScriptId(9)));
+        manager.pending_inits.push((Entity(2), ScriptId(9)));
+
+        assert_eq!(manager.pending_init_count(), 2);
     }
 
     #[test]

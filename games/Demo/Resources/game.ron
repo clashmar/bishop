@@ -54,7 +54,7 @@
             ),
             /*[12]*/ (
                 type_name: "Interactable",
-                data: "{\n    (37): (\n        range: 20.0,\n    ),\n    (38): (\n        range: 20.0,\n    ),\n    (46): (\n        range: 20.0,\n    ),\n    (52): (\n        range: 20.0,\n    ),\n}",
+                data: "{\n    (37): (\n        range: 20.0,\n    ),\n    (38): (\n        range: 20.0,\n    ),\n    (46): (\n        range: 20.0,\n    ),\n    (52): (\n        range: 20.0,\n    ),\n    (63): (\n        range: 20.0,\n    ),\n}",
             ),
             /*[13]*/ (
                 type_name: "Kinematic",
@@ -102,7 +102,7 @@
             ),
             /*[24]*/ (
                 type_name: "PrefabOverrides",
-                data: "{\n    (37): (\n        modified_components: [],\n        removed_components: [],\n        added_components: [\n            (\n                type_name: \"Active\",\n                ron: \"(true)\",\n            ),\n            (\n                type_name: \"Grounded\",\n                ron: \"(false)\",\n            ),\n            (\n                type_name: \"MotionBody\",\n                ron: \"()\",\n            ),\n            (\n                type_name: \"PhysicsBody\",\n                ron: \"()\",\n            ),\n            (\n                type_name: \"SubPixel\",\n                ron: \"()\",\n            ),\n            (\n                type_name: \"Velocity\",\n                ron: \"(\\n    x: 0.0,\\n    y: 0.0,\\n)\",\n            ),\n        ],\n    ),\n    (63): (\n        modified_components: [\n            \"WorldEntry\",\n            \"WorldExit\",\n        ],\n        removed_components: [],\n        added_components: [],\n    ),\n}",
+                data: "{\n    (37): (\n        modified_components: [],\n        removed_components: [],\n        added_components: [\n            (\n                type_name: \"Active\",\n                ron: \"(true)\",\n            ),\n            (\n                type_name: \"Grounded\",\n                ron: \"(false)\",\n            ),\n            (\n                type_name: \"MotionBody\",\n                ron: \"()\",\n            ),\n            (\n                type_name: \"PhysicsBody\",\n                ron: \"()\",\n            ),\n            (\n                type_name: \"SubPixel\",\n                ron: \"()\",\n            ),\n            (\n                type_name: \"Velocity\",\n                ron: \"(\\n    x: 0.0,\\n    y: 0.0,\\n)\",\n            ),\n        ],\n    ),\n    (63): (\n        modified_components: [\n            \"WorldEntry\",\n            \"WorldExit\",\n        ],\n        removed_components: [],\n        added_components: [\n            (\n                type_name: \"Interactable\",\n                ron: \"(\\n    range: 20.0,\\n)\",\n            ),\n        ],\n    ),\n}",
             ),
             /*[25]*/ (
                 type_name: "RoomCamera",
@@ -150,7 +150,7 @@
             ),
             /*[36]*/ (
                 type_name: "WorldExit",
-                data: "{\n    (46): (\n        destination: Some(World((3))),\n        entry: Some(\"Start\"),\n        trigger: OnInteract,\n    ),\n    (52): (\n        destination: Some(World((1))),\n        entry: Some(\"Start\"),\n        trigger: OnInteract,\n    ),\n    (63): (\n        destination: Some(World((1))),\n        entry: Some(\"Start\"),\n        trigger: OnProximity(16.0),\n    ),\n}",
+                data: "{\n    (46): (\n        destination: Some(World((3))),\n        entry: Some(\"Start\"),\n        trigger: OnInteract,\n    ),\n    (52): (\n        destination: Some(World((1))),\n        entry: Some(\"Start\"),\n        trigger: OnInteract,\n    ),\n    (63): (\n        destination: Some(World((3))),\n        entry: Some(\"Start\"),\n        trigger: OnInteract,\n    ),\n}",
             ),
         ],
     ),

@@ -4,6 +4,7 @@ use super::{
     runtime_icon::playtest_game_name_from_payload as parse_playtest_game_name, StartupAsset,
     StartupScreenContent, StartupScreenSpec,
 };
+use crate::diagnostics::{StartupTelemetryRecorder, StartupTelemetryStage};
 use crate::engine::{Engine, EngineBuilder, EngineEntryMode, GameInstance, SaveRuntime};
 use crate::save_system::{apply_document_phase, RestorePhase};
 use crate::scripting::script_system::ScriptSystem;
@@ -11,7 +12,7 @@ use bishop::prelude::*;
 use engine_core::constants::{paths};
 use engine_core::engine_global::{EngineMode, set_engine_mode, set_game_name};
 use engine_core::game::{Game, StartupMode};
-use engine_core::logging::{omni_error};
+use engine_core::logging::{omni_debug, omni_error};
 use engine_core::menu::MenuTemplate;
 use engine_core::storage::*;
 use engine_core::task::BackgroundTask;
@@ -64,10 +65,15 @@ pub(crate) enum LoadedStartupFiles {
     },
 }
 
+struct LoadedStartupBatch {
+    files: Result<LoadedStartupFiles, String>,
+    telemetry: StartupTelemetryRecorder,
+}
+
 /// Bootstrap controller that renders startup screens until the runtime `Engine` is ready.
 pub struct StartupController {
     startup_asset: StartupAsset,
-    load_task: BackgroundTask<Result<LoadedStartupFiles, String>>,
+    load_task: BackgroundTask<LoadedStartupBatch>,
     loaded: Option<LoadedStartupData>,
     intent: StartupIntent,
     source: StartupSource,
@@ -75,6 +81,7 @@ pub struct StartupController {
     splash_started_at_secs: Option<f64>,
     fallback_started_at_secs: Option<f64>,
     error: Option<String>,
+    startup_telemetry: Option<StartupTelemetryRecorder>,
 }
 
 impl StartupController {
@@ -90,7 +97,13 @@ impl StartupController {
         let source_for_task = source.clone();
         Self {
             startup_asset,
-            load_task: BackgroundTask::spawn(move || load_startup_data(source_for_task)),
+            load_task: BackgroundTask::spawn(move || {
+                let mut telemetry = StartupTelemetryRecorder::default();
+                let files = telemetry.measure(StartupTelemetryStage::ReadFiles, || {
+                    load_startup_data(source_for_task)
+                });
+                LoadedStartupBatch { files, telemetry }
+            }),
             loaded: None,
             intent,
             source,
@@ -98,6 +111,7 @@ impl StartupController {
             splash_started_at_secs: None,
             fallback_started_at_secs: None,
             error: None,
+            startup_telemetry: None,
         }
     }
 
@@ -115,15 +129,24 @@ impl StartupController {
 
         if self.loaded.is_none() {
             if let Some(result) = self.load_task.poll() {
-                match result {
-                    Ok(files) => match parse_startup_data(files) {
+                let mut telemetry = result.telemetry;
+                match result.files {
+                    Ok(files) => match telemetry.measure(
+                        StartupTelemetryStage::ParseData,
+                        || parse_startup_data(files),
+                    ) {
                         Ok(loaded) => {
                             self.startup_asset = loaded.startup_asset().clone();
                             self.loaded = Some(loaded);
+                            self.startup_telemetry = Some(telemetry);
                         }
-                        Err(error) => self.error = Some(error),
+                        Err(error) => {
+                            emit_startup_telemetry(&telemetry);
+                            self.error = Some(error);
+                        }
                     },
                     Err(error) => {
+                        emit_startup_telemetry(&telemetry);
                         self.error = Some(error);
                     }
                 }
@@ -147,7 +170,7 @@ impl StartupController {
                 source: self.source.clone(),
                 intent: self.intent.clone(),
             };
-            match try_build_engine(ctx, request, loaded) {
+            match self.build_engine_with_telemetry(ctx, request, loaded) {
                 Ok(engine) => return Some(engine),
                 Err(error) => {
                     self.error = Some(error);
@@ -190,7 +213,7 @@ impl StartupController {
             source: self.source.clone(),
             intent: self.intent.clone(),
         };
-        let result = try_build_engine(ctx, request, loaded);
+        let result = self.build_engine_with_telemetry(ctx, request, loaded);
         match result {
             Ok(engine) => Some(engine),
             Err(error) => {
@@ -198,6 +221,23 @@ impl StartupController {
                 None
             }
         }
+    }
+
+    fn build_engine_with_telemetry(
+        &mut self,
+        ctx: PlatformContext,
+        request: StartupRequest,
+        loaded: LoadedStartupData,
+    ) -> Result<Engine, String> {
+        let mut startup_telemetry = self.startup_telemetry.take().unwrap_or_default();
+        let result = startup_telemetry.measure(StartupTelemetryStage::BuildEngine, || {
+            try_build_engine(ctx, request, loaded)
+        });
+        emit_startup_telemetry(&startup_telemetry);
+        if result.is_err() {
+            self.startup_telemetry = Some(startup_telemetry);
+        }
+        result
     }
 }
 
@@ -330,6 +370,16 @@ fn parse_payload_startup(startup_ron: &str) -> StartupAsset {
         omni_error!("Failed to parse embedded playtest startup: {}", error);
         StartupAsset::default()
     })
+}
+
+fn emit_startup_telemetry(recorder: &StartupTelemetryRecorder) {
+    for row in recorder.rows() {
+        omni_debug!(
+            "startup telemetry stage={} ms={}",
+            row.stage.label(),
+            row.duration.as_millis()
+        );
+    }
 }
 
 fn try_build_engine(
