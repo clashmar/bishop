@@ -6,7 +6,7 @@ local ArcadeWorld = {
     public = {},
 
     init = function(self)
-        engine.log("Arcade world entered")
+        engine.log.info("Arcade world entered")
     end,
 
     update = function(self, dt)

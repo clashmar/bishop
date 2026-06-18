@@ -1,7 +1,4 @@
 -- player.lua
-local primary_music_track = "music/Egobyte_CalmessPersonified"
-local secondary_music_track = "music/Across the Sea"
-
 ---@return Velocity
 local function current_velocity(entity)
     return entity:get(Components.Velocity) or { x = 0, y = 0 }
@@ -113,29 +110,6 @@ local Player = {
         -- Debug event
         if engine.input.pressed(Input.F) then
             engine.call("EventTest", "fire")
-        end
-
-        if engine.input.pressed(Input.Enter) then
-            engine.audio.play_music(primary_music_track, {
-                looping = true,
-            })
-        end
-
-        if engine.input.pressed(Input.C) then
-            engine.audio.play_music(secondary_music_track, {
-                looping = true,
-                fade_out = 6.0,
-                gap = 5.0,
-                fade_in = 5.0,
-            })
-        end
-
-        if engine.input.pressed(Input.Q) and engine.audio.is_playing() then
-            engine.audio.fade_music(2.0)
-        end
-
-        if engine.input.pressed(Input.S) and engine.audio.is_playing() then
-            engine.audio.stop_music()
         end
 
         if engine.input.pressed(Input.K) then
