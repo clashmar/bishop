@@ -1,6 +1,9 @@
+use crate::assets::AssetKey;
 use crate::hydration::scope::{HydrationScope, ResourceClaim, ResourceClass};
 use crate::omni_debug;
 use std::collections::{HashMap, HashSet};
+
+type ClaimMap = HashMap<(HydrationScope, ResourceClass), HashSet<AssetKey>>;
 
 /// Point-in-time picture of coordinator state.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -15,7 +18,7 @@ pub struct CoordinatorSnapshot {
 #[derive(Clone, Debug, Default)]
 pub struct HydrationCoordinator {
     active_scopes: HashSet<HydrationScope>,
-    claims: HashMap<(HydrationScope, ResourceClass), usize>,
+    claims: ClaimMap,
 }
 
 impl HydrationCoordinator {
@@ -29,7 +32,7 @@ impl HydrationCoordinator {
     pub fn deactivate_scope(&mut self, scope: HydrationScope) {
         omni_debug!("hydration coordinator deactivate scope={:?}", scope);
         self.active_scopes.remove(&scope);
-        self.claims.retain(|(s, _), _| *s != scope);
+        self.claims.retain(|(claimed_scope, _), _| *claimed_scope != scope);
     }
 
     /// Returns true if the scope is currently active.
@@ -37,52 +40,104 @@ impl HydrationCoordinator {
         self.active_scopes.contains(scope)
     }
 
-    /// Returns all currently active scopes.
+    /// Returns all currently active scopes in stable order.
     pub fn active_scopes(&self) -> Vec<HydrationScope> {
         let mut scopes: Vec<HydrationScope> = self.active_scopes.iter().cloned().collect();
-        scopes.sort_by_key(|s| format!("{:?}", s));
+        scopes.sort_by_key(|scope| format!("{:?}", scope));
         scopes
     }
 
-    /// Record a resource claim for a scope.
-    pub fn claim(&mut self, scope: HydrationScope, class: ResourceClass, count: usize) {
+    /// Record ownership of an asset for a scope.
+    pub fn claim_asset(&mut self, scope: HydrationScope, asset: AssetKey) {
+        let Some(class) = ResourceClass::for_asset_key(asset) else {
+            return;
+        };
         omni_debug!(
-            "hydration coordinator claim scope={:?} class={:?} count={}",
+            "hydration coordinator claim scope={:?} asset={:?}",
             scope,
-            class,
-            count
+            asset
         );
-        *self.claims.entry((scope, class)).or_insert(0) += count;
+        self.claims.entry((scope, class)).or_default().insert(asset);
     }
 
-    /// Reduce a resource claim for a scope. Saturates at zero.
-    pub fn release(&mut self, scope: HydrationScope, class: ResourceClass, count: usize) {
+    /// Release ownership of an asset for a scope.
+    pub fn release_asset(&mut self, scope: HydrationScope, asset: AssetKey) {
+        let Some(class) = ResourceClass::for_asset_key(asset) else {
+            return;
+        };
         omni_debug!(
-            "hydration coordinator release scope={:?} class={:?} count={}",
+            "hydration coordinator release scope={:?} asset={:?}",
             scope,
-            class,
-            count
+            asset
         );
+
+        let mut remove_entry = false;
+        if let Some(assets) = self.claims.get_mut(&(scope.clone(), class)) {
+            assets.remove(&asset);
+            remove_entry = assets.is_empty();
+        }
+        if remove_entry {
+            self.claims.remove(&(scope, class));
+        }
+    }
+
+    /// Returns all claimed assets for a scope in stable order.
+    pub fn claimed_assets(&self, scope: &HydrationScope) -> Vec<AssetKey> {
+        let mut assets = self
+            .claims
+            .iter()
+            .filter(|((claimed_scope, _), _)| claimed_scope == scope)
+            .flat_map(|(_, assets)| assets.iter().copied())
+            .collect::<Vec<_>>();
+        assets.sort();
+        assets
+    }
+
+    /// Returns all claimed assets for a scope/class pair in stable order.
+    pub fn claimed_assets_by_class(
+        &self,
+        scope: &HydrationScope,
+        class: ResourceClass,
+    ) -> Vec<AssetKey> {
+        let mut assets = self
+            .claims
+            .get(&(scope.clone(), class))
+            .map(|assets| assets.iter().copied().collect::<Vec<_>>())
+            .unwrap_or_default();
+        assets.sort();
+        assets
+    }
+
+    /// Returns the number of claimed assets for a scope/class pair.
+    pub fn claim_count(&self, scope: &HydrationScope, class: ResourceClass) -> usize {
         self.claims
-            .entry((scope, class))
-            .and_modify(|c| *c = c.saturating_sub(count));
+            .get(&(scope.clone(), class))
+            .map(HashSet::len)
+            .unwrap_or(0)
     }
 
     /// Returns a point-in-time snapshot of coordinator state.
     pub fn snapshot(&self) -> CoordinatorSnapshot {
-        let mut scopes: Vec<HydrationScope> = self.active_scopes.iter().cloned().collect();
-        scopes.sort_by_key(|s| format!("{:?}", s));
-        CoordinatorSnapshot {
-            active_scopes: scopes,
-            claims: self
-                .claims
-                .iter()
-                .map(|((scope, class), count)| ResourceClaim {
+        let scopes = self.active_scopes();
+
+        let mut claims = self
+            .claims
+            .iter()
+            .map(|((scope, class), assets)| {
+                let mut assets = assets.iter().copied().collect::<Vec<_>>();
+                assets.sort();
+                ResourceClaim {
                     scope: scope.clone(),
                     class: *class,
-                    count: *count,
-                })
-                .collect(),
+                    assets,
+                }
+            })
+            .collect::<Vec<_>>();
+        claims.sort_by_key(|claim| (format!("{:?}", claim.scope), claim.class));
+
+        CoordinatorSnapshot {
+            active_scopes: scopes,
+            claims,
         }
     }
 }
@@ -90,7 +145,7 @@ impl HydrationCoordinator {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ecs::Entity;
+    use crate::ecs::{Entity, ScriptId, SoundId, SpriteId};
     use crate::worlds::{RoomId, WorldId};
 
     #[test]
@@ -123,7 +178,7 @@ mod tests {
         let mut coordinator = HydrationCoordinator::default();
         let scope = HydrationScope::Room(RoomId(5));
         coordinator.activate_scope(scope.clone());
-        coordinator.claim(scope.clone(), ResourceClass::Texture, 3);
+        coordinator.claim_asset(scope.clone(), AssetKey::Sprite(SpriteId(3)));
         coordinator.deactivate_scope(scope.clone());
         assert!(!coordinator.is_active(&scope));
         assert!(coordinator.active_scopes().is_empty());
@@ -141,86 +196,68 @@ mod tests {
     }
 
     #[test]
-    fn claim_adds_to_snapshot() {
+    fn claim_asset_tracks_specific_assets() {
         let mut coordinator = HydrationCoordinator::default();
-        let scope = HydrationScope::World(WorldId(2));
+        let scope = HydrationScope::Room(RoomId(3));
         coordinator.activate_scope(scope.clone());
-        coordinator.claim(scope.clone(), ResourceClass::Script, 5);
-        coordinator.claim(scope.clone(), ResourceClass::Texture, 3);
+        coordinator.claim_asset(scope.clone(), AssetKey::Sprite(SpriteId(1)));
+        coordinator.claim_asset(scope.clone(), AssetKey::Sprite(SpriteId(2)));
 
-        let snapshot = coordinator.snapshot();
-        assert_eq!(snapshot.active_scopes.len(), 1);
-        assert_eq!(snapshot.claims.len(), 2);
-        assert!(snapshot.claims.contains(&ResourceClaim {
-            scope: scope.clone(),
-            class: ResourceClass::Script,
-            count: 5,
-        }));
-        assert!(snapshot.claims.contains(&ResourceClaim {
-            scope: scope.clone(),
-            class: ResourceClass::Texture,
-            count: 3,
-        }));
+        assert_eq!(coordinator.claim_count(&scope, ResourceClass::Texture), 2);
+        assert_eq!(
+            coordinator.claimed_assets_by_class(&scope, ResourceClass::Texture),
+            vec![AssetKey::Sprite(SpriteId(1)), AssetKey::Sprite(SpriteId(2))]
+        );
     }
 
     #[test]
-    fn claim_is_additive_for_same_scope_and_class() {
+    fn claim_asset_is_idempotent_for_duplicates() {
         let mut coordinator = HydrationCoordinator::default();
-        let scope = HydrationScope::Room(RoomId(1));
+        let scope = HydrationScope::Boot;
         coordinator.activate_scope(scope.clone());
-        coordinator.claim(scope.clone(), ResourceClass::Texture, 2);
-        coordinator.claim(scope.clone(), ResourceClass::Texture, 3);
+        coordinator.claim_asset(scope.clone(), AssetKey::Script(ScriptId(5)));
+        coordinator.claim_asset(scope.clone(), AssetKey::Script(ScriptId(5)));
 
-        let snapshot = coordinator.snapshot();
-        let texture_claim = snapshot
-            .claims
-            .iter()
-            .find(|c| c.scope == scope && c.class == ResourceClass::Texture)
-            .unwrap();
-        assert_eq!(texture_claim.count, 5);
+        assert_eq!(coordinator.claim_count(&scope, ResourceClass::Script), 1);
     }
 
     #[test]
-    fn release_reduces_claim_count() {
+    fn release_asset_removes_only_requested_asset() {
         let mut coordinator = HydrationCoordinator::default();
         let scope = HydrationScope::Room(RoomId(4));
         coordinator.activate_scope(scope.clone());
-        coordinator.claim(scope.clone(), ResourceClass::Audio, 8);
-        coordinator.release(scope.clone(), ResourceClass::Audio, 3);
+        coordinator.claim_asset(scope.clone(), AssetKey::Sound(SoundId(2)));
+        coordinator.claim_asset(scope.clone(), AssetKey::Sound(SoundId(3)));
+        coordinator.release_asset(scope.clone(), AssetKey::Sound(SoundId(2)));
 
-        let snapshot = coordinator.snapshot();
-        let audio_claim = snapshot
-            .claims
-            .iter()
-            .find(|c| c.scope == scope && c.class == ResourceClass::Audio)
-            .unwrap();
-        assert_eq!(audio_claim.count, 5);
-    }
-
-    #[test]
-    fn release_saturates_at_zero() {
-        let mut coordinator = HydrationCoordinator::default();
-        let scope = HydrationScope::Room(RoomId(6));
-        coordinator.activate_scope(scope.clone());
-        coordinator.claim(scope.clone(), ResourceClass::Prefab, 1);
-        coordinator.release(scope.clone(), ResourceClass::Prefab, 5);
-
-        let snapshot = coordinator.snapshot();
-        let prefab_claim = snapshot
-            .claims
-            .iter()
-            .find(|c| c.scope == scope && c.class == ResourceClass::Prefab)
-            .unwrap();
-        assert_eq!(prefab_claim.count, 0);
+        assert_eq!(coordinator.claim_count(&scope, ResourceClass::Audio), 1);
+        assert_eq!(
+            coordinator.claimed_assets_by_class(&scope, ResourceClass::Audio),
+            vec![AssetKey::Sound(SoundId(3))]
+        );
     }
 
     #[test]
     fn release_on_nonexistent_claim_is_noop() {
         let mut coordinator = HydrationCoordinator::default();
         let scope = HydrationScope::Room(RoomId(7));
-        coordinator.release(scope.clone(), ResourceClass::Texture, 3);
+        coordinator.release_asset(scope.clone(), AssetKey::Sprite(SpriteId(3)));
         let snapshot = coordinator.snapshot();
         assert!(snapshot.claims.is_empty());
+    }
+
+    #[test]
+    fn claimed_assets_merges_classes_for_scope() {
+        let mut coordinator = HydrationCoordinator::default();
+        let scope = HydrationScope::World(WorldId(2));
+        coordinator.activate_scope(scope.clone());
+        coordinator.claim_asset(scope.clone(), AssetKey::Script(ScriptId(5)));
+        coordinator.claim_asset(scope.clone(), AssetKey::Sprite(SpriteId(3)));
+
+        assert_eq!(
+            coordinator.claimed_assets(&scope),
+            vec![AssetKey::Sprite(SpriteId(3)), AssetKey::Script(ScriptId(5))]
+        );
     }
 
     #[test]
@@ -231,17 +268,20 @@ mod tests {
         let room_b = HydrationScope::Room(RoomId(3));
 
         coordinator.activate_scope(world.clone());
-        coordinator.claim(world.clone(), ResourceClass::Script, 2);
+        coordinator.claim_asset(world.clone(), AssetKey::Script(ScriptId(2)));
 
         coordinator.activate_scope(room_a.clone());
-        coordinator.claim(room_a.clone(), ResourceClass::Texture, 4);
-        coordinator.claim(room_a.clone(), ResourceClass::Audio, 1);
+        coordinator.claim_asset(room_a.clone(), AssetKey::Sprite(SpriteId(4)));
+        coordinator.claim_asset(room_a.clone(), AssetKey::Sound(SoundId(1)));
 
         coordinator.activate_scope(room_b.clone());
-        coordinator.claim(room_b.clone(), ResourceClass::Texture, 6);
+        coordinator.claim_asset(room_b.clone(), AssetKey::Sprite(SpriteId(6)));
 
         let snapshot = coordinator.snapshot();
         assert_eq!(snapshot.active_scopes.len(), 3);
         assert_eq!(snapshot.claims.len(), 4);
+        assert_eq!(snapshot.active_scopes[0], HydrationScope::Room(RoomId(2)));
+        assert_eq!(snapshot.active_scopes[1], HydrationScope::Room(RoomId(3)));
+        assert_eq!(snapshot.active_scopes[2], HydrationScope::World(WorldId(1)));
     }
 }

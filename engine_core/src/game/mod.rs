@@ -12,6 +12,7 @@ use crate::ecs::ecs::Ecs;
 use crate::ecs::{get_root_entities_in_set, SpriteId};
 use crate::ecs::{CurrentRoom, Entity};
 use crate::engine_global::set_game_name;
+use crate::hydration::HydrationCoordinator;
 use crate::omni_error;
 use crate::prefab::{load_prefab_manager, PrefabManager};
 use crate::scripting::script_manager::ScriptManager;
@@ -46,6 +47,9 @@ pub struct Game {
     world_index: HashMap<WorldId, usize>,
     /// Project-scoped authored asset registry.
     pub asset_registry: AssetRegistry,
+    /// Hydration coordinator tracking scope-level asset residency.
+    #[serde(skip)]
+    pub hydration_coordinator: HydrationCoordinator,
     /// Asset manager for the game.
     pub sprite_manager: SpriteManager,
     /// Script manager for the game.
@@ -78,6 +82,7 @@ impl Default for Game {
             worlds: Vec::new(),
             world_index: HashMap::new(),
             asset_registry: AssetRegistry::default(),
+            hydration_coordinator: HydrationCoordinator::default(),
             sprite_manager: SpriteManager::default(),
             script_manager: ScriptManager::default(),
             text_manager: TextManager::default(),

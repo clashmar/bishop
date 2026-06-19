@@ -3,19 +3,8 @@ use crate::audio::command_queue::{drain_audio_commands, push_audio_command};
 use crate::audio::runtime;
 use crate::audio::{AudioCommand, AudioDiagnosticsEntry, PlayMusicRequest};
 use crate::task::BackgroundService;
-use bishop::audio::AudioBackend;
+use crate::audio::test_utils::TestBackend;
 use oddio::Frames;
-
-struct TestBackend;
-
-impl AudioBackend for TestBackend {
-    fn start<F: FnMut(&mut [[f32; 2]]) + Send + 'static>(_render_fn: F) -> Self
-    where
-        Self: Sized,
-    {
-        Self
-    }
-}
 
 fn seeded_manager() -> AudioManager {
     runtime::reset_for_tests();
@@ -177,6 +166,18 @@ fn diagnostics_snapshot_entries_are_sorted_by_sound_id() {
             "zeta".to_string(),
         ]
     );
+}
+
+#[test]
+fn release_claimed_sound_unpins_and_evicts_unrefd_audio() {
+    let mut manager = seeded_manager();
+    manager.claim_sound("music/intro");
+    assert_eq!(manager.diagnostics_snapshot().pinned_sound_count, 1);
+
+    manager.release_claimed_sound("music/intro");
+    let snapshot = manager.diagnostics_snapshot();
+    assert_eq!(snapshot.pinned_sound_count, 0);
+    assert_eq!(snapshot.cached_sound_count, 2);
 }
 
 #[test]

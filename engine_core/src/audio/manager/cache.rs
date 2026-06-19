@@ -28,18 +28,6 @@ impl AudioManager {
         self.file_read_pool.queue_read(id.to_owned(), path);
     }
 
-    fn finish_sound_load(&mut self, id: String, frames: Arc<Frames<[f32; 2]>>) {
-        self.sound_cache.insert(id, frames);
-    }
-
-    fn fail_sound_load(&mut self, id: String, error: String) {
-        self.clear_pending_requests_for_sound(&id);
-        crate::omni_log!(
-            log::Level::Error,
-            "AudioManager: failed to load '{id}': {error}"
-        );
-    }
-
     pub(super) fn poll_pending_loads(&mut self) {
         while let Some(completed) = self.file_read_pool.try_recv_completed() {
             let crate::task::FileReadCompleted { id, path, result } = completed;
@@ -75,6 +63,19 @@ impl AudioManager {
         self.pinned.insert(id.to_owned());
     }
 
+    /// Claims a sound for hydration-managed residency.
+    pub(crate) fn claim_sound(&mut self, id: &str) {
+        self.preload(id);
+    }
+
+    /// Releases a hydration-managed sound claim.
+    pub(crate) fn release_claimed_sound(&mut self, id: &str) {
+        self.pinned.remove(id);
+        if !self.ref_counts.contains_key(id) {
+            self.evict(id);
+        }
+    }
+
     /// Evicts a sound from the cache if it is not pinned.
     pub(super) fn evict(&mut self, id: &str) {
         if !self.pinned.contains(id) {
@@ -104,5 +105,17 @@ impl AudioManager {
                 self.evict(id);
             }
         }
+    }
+
+    fn finish_sound_load(&mut self, id: String, frames: Arc<Frames<[f32; 2]>>) {
+        self.sound_cache.insert(id, frames);
+    }
+
+    fn fail_sound_load(&mut self, id: String, error: String) {
+        self.clear_pending_requests_for_sound(&id);
+        crate::omni_log!(
+            log::Level::Error,
+            "AudioManager: failed to load '{id}': {error}"
+        );
     }
 }

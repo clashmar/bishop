@@ -168,6 +168,12 @@ impl SpriteManager {
         self.textures.len()
     }
 
+    /// Clears runtime texture state for a sprite id.
+    pub fn evict_texture(&mut self, id: SpriteId) {
+        self.textures.remove(&id);
+        self.pending_texture_reads.remove(&id);
+    }
+
     /// Returns the registered relative path for a sprite id.
     pub fn path_for_id(&self, sprite_id: SpriteId) -> Option<&Path> {
         self.sprite_id_to_path.get(&sprite_id).map(PathBuf::as_path)

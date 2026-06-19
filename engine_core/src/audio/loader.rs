@@ -1,7 +1,9 @@
+use crate::constants::extensions::WAV;
+use crate::constants::paths::AUDIO_FOLDER;
 use crate::storage::path_utils::audio_folder;
 use oddio::Frames;
 use std::io::Cursor;
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 use std::sync::Arc;
 
 /// Loads a WAV file by sound ID and decodes it to stereo f32 PCM frames
@@ -18,7 +20,22 @@ pub fn load_wav(id: &str) -> Result<Arc<Frames<[f32; 2]>>, String> {
 
 /// Returns the WAV path for the given sound ID.
 pub fn wav_path(id: &str) -> PathBuf {
-    audio_folder().join(id).with_extension("wav")
+    audio_folder().join(id).with_extension(WAV)
+}
+
+/// Returns the runtime sound ID for an audio asset path.
+pub fn sound_id_from_asset_path(path: &Path) -> Option<String> {
+    if path.extension().is_none_or(|ext| ext != WAV) {
+        return None;
+    }
+
+    let stemless = path.with_extension("");
+    let relative = match stemless.components().next() {
+        Some(Component::Normal(segment)) if segment == AUDIO_FOLDER => stemless.strip_prefix(AUDIO_FOLDER).ok()?,
+        _ => stemless.as_path(),
+    };
+
+    Some(relative.to_string_lossy().trim_start_matches('/').replace('\\', "/"))
 }
 
 /// Decodes WAV bytes from `path` into stereo f32 PCM frames.
@@ -65,4 +82,27 @@ fn decode_wav_reader<R: std::io::Read + std::io::Seek>(
     };
 
     Ok(Frames::from_slice(sample_rate, &frames))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn sound_id_from_asset_path_strips_wav_extension() {
+        let path = Path::new("music/intro.wav");
+        assert_eq!(
+            sound_id_from_asset_path(path),
+            Some("music/intro".to_string())
+        );
+    }
+
+    #[test]
+    fn sound_id_from_asset_path_strips_audio_prefix() {
+        let path = Path::new("audio/music/intro.wav");
+        assert_eq!(
+            sound_id_from_asset_path(path),
+            Some("music/intro".to_string())
+        );
+    }
 }

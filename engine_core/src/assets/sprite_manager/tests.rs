@@ -1,43 +1,12 @@
 use super::*;
 use crate::assets::asset_registry::AssetKey;
 use crate::assets::AssetRegistry;
+use crate::audio::test_utils::CountingFailingLoader;
 use crate::constants::paths;
 use crate::engine_global::set_game_name;
 use crate::storage::test_utils::{game_fs_test_lock, TestGameFolder};
-use std::cell::Cell;
 use std::fs;
 use std::time::Duration;
-
-struct CountingFailingLoader {
-    bytes_load_calls: Cell<usize>,
-    load_calls: Cell<usize>,
-}
-
-impl CountingFailingLoader {
-    fn new() -> Self {
-        Self {
-            bytes_load_calls: Cell::new(0),
-            load_calls: Cell::new(0),
-        }
-    }
-}
-
-impl TextureLoader for CountingFailingLoader {
-    fn load_texture_from_bytes(&self, _data: &[u8]) -> Result<Texture2D, String> {
-        self.bytes_load_calls
-            .set(self.bytes_load_calls.get().saturating_add(1));
-        Err("expected test byte load failure".to_string())
-    }
-
-    fn load_texture_from_path(&self, _path: &str) -> Result<Texture2D, String> {
-        self.load_calls.set(self.load_calls.get() + 1);
-        Err("expected test load failure".to_string())
-    }
-
-    fn empty_texture(&self) -> Texture2D {
-        panic!("empty_texture is not used in asset manager tests")
-    }
-}
 
 fn queue_runtime_read_test_case(
     test_name: &str,
@@ -151,6 +120,31 @@ fn ensure_loaded_retries_loader_for_registered_sprite_id_with_missing_texture() 
 
     assert!(result.is_err());
     assert_eq!(loader.load_calls.get(), 1);
+}
+
+#[test]
+fn evict_texture_clears_runtime_texture_state_without_touching_metadata() {
+    let mut sprite_manager = SpriteManager::default();
+    // `CountingFailingLoader` cannot satisfy `init_texture`, so set up the runtime state directly.
+    let sprite_id = SpriteId(7);
+    let path = PathBuf::from("sprites/player.png");
+
+    sprite_manager
+        .path_to_sprite_id
+        .insert(path.clone(), sprite_id);
+    sprite_manager
+        .sprite_id_to_path
+        .insert(sprite_id, path.clone());
+    sprite_manager
+        .pending_texture_reads
+        .insert(sprite_id, path.clone());
+
+    sprite_manager.evict_texture(sprite_id);
+
+    assert_eq!(sprite_manager.texture_count(), 0);
+    assert!(!sprite_manager.has_pending_texture_read(sprite_id));
+    assert_eq!(sprite_manager.get_or_none(&path), Some(sprite_id));
+    assert_eq!(sprite_manager.path_for_id(sprite_id), Some(path.as_path()));
 }
 
 #[test]

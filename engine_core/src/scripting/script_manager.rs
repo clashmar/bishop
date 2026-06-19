@@ -330,6 +330,14 @@ impl ScriptManager {
         self.script_id_to_path.get(&script_id).map(PathBuf::as_path)
     }
 
+    /// Evicts a cached script definition when no live entity instances still reference this script.
+    pub fn evict_script(&mut self, id: ScriptId) {
+        if !self.instances.keys().any(|(_, script_id)| *script_id == id) {
+            self.table_defs.remove(&id);
+            self.update_fns.remove(&id);
+        }
+    }
+
     pub fn reload(&mut self, lua: &Lua, entity: Entity, id: ScriptId) -> LuaResult<&Table> {
         self.table_defs.remove(&id);
         self.instances.remove(&(entity, id));
@@ -337,16 +345,37 @@ impl ScriptManager {
         self.load_script_table(lua, id)
     }
 
+    /// Unloads one script instance from an entity.
     pub fn unload(&mut self, entity: Entity, script_id: ScriptId) {
-        // Remove any event listeners registered by this entity's script
+        self.instances.remove(&(entity, script_id));
+
+        // Only clean up event listeners if this was the entity's last script instance
+        if !self.instances.keys().any(|(ent, _)| *ent == entity) {
+            self.event_bus.remove_entity_listeners(entity);
+        }
+
+        if script_id.0 != 0 {
+            self.evict_script(script_id);
+        }
+    }
+
+    /// Removes all script instances for an entity and cleans up their definitions.
+    pub fn unload_all_for_entity(&mut self, entity: Entity) {
         self.event_bus.remove_entity_listeners(entity);
 
-        self.instances
-            .retain(|(ent, _script_id), _table| *ent != entity);
+        let removed_ids: Vec<ScriptId> = self
+            .instances
+            .keys()
+            .filter(|(ent, _)| *ent == entity)
+            .map(|(_, script_id)| *script_id)
+            .collect();
 
-        if script_id.0 != 0 && !self.instances.keys().any(|(_, id)| *id == script_id) {
-            self.table_defs.remove(&script_id);
-            self.update_fns.remove(&script_id);
+        self.instances.retain(|(ent, _), _| *ent != entity);
+
+        for script_id in removed_ids {
+            if script_id.0 != 0 {
+                self.evict_script(script_id);
+            }
         }
     }
 
@@ -359,10 +388,7 @@ impl ScriptManager {
         // Update old script counter
         if old_id.0 != 0 {
             self.instances.remove(&(entity, *old_id));
-            if !self.instances.keys().any(|(_, id)| *id == *old_id) {
-                self.table_defs.remove(old_id);
-                self.update_fns.remove(old_id);
-            }
+            self.evict_script(*old_id);
         }
 
         *old_id = new_id;
@@ -461,6 +487,31 @@ mod tests {
     }
 
     #[test]
+    fn evict_script_removes_cached_definition_when_no_instances_reference_it() {
+        let _lock = game_fs_test_lock().lock().unwrap();
+        let folder = TestGameFolder::new("script_manager_evict_script");
+        set_game_name(folder.name());
+
+        let lua = Lua::new();
+        let mut registry = AssetRegistry::default();
+        let mut manager = ScriptManager::default();
+
+        fs::create_dir_all(scripts_folder()).unwrap();
+        fs::write(
+            scripts_folder().join("enemy.lua"),
+            "return { update = function() end }",
+        )
+        .unwrap();
+
+        let script_id = manager.init_script(&mut registry, "enemy.lua").unwrap();
+        let _ = manager.load_script_table(&lua, script_id).unwrap();
+        assert_eq!(manager.loaded_script_count(), 1);
+
+        manager.evict_script(script_id);
+        assert_eq!(manager.loaded_script_count(), 0);
+    }
+
+    #[test]
     fn load_globals_prelude_bootstraps_globals_for_editor_style_script_loads() {
         let _lock = game_fs_test_lock().lock().unwrap();
         let folder = TestGameFolder::new("script_manager_editor_globals");
@@ -505,5 +556,77 @@ mod tests {
         let public: Table = table.get(lua_fields::PUBLIC).unwrap();
 
         assert!(public.get::<String>("facing").is_ok());
+    }
+
+    #[test]
+    fn unload_removes_only_specific_instance() {
+        let _lock = game_fs_test_lock().lock().unwrap();
+        let folder = TestGameFolder::new("script_manager_unload_one");
+        set_game_name(folder.name());
+
+        let lua = Lua::new();
+        let mut registry = AssetRegistry::default();
+        let mut manager = ScriptManager::default();
+
+        fs::create_dir_all(scripts_folder()).unwrap();
+        fs::write(
+            scripts_folder().join("a.lua"),
+            "return { update = function() end }",
+        )
+        .unwrap();
+        fs::write(
+            scripts_folder().join("b.lua"),
+            "return { update = function() end }",
+        )
+        .unwrap();
+
+        let a_id = manager.init_script(&mut registry, "a.lua").unwrap();
+        let b_id = manager.init_script(&mut registry, "b.lua").unwrap();
+        let entity = Entity(1);
+
+        let _ = manager.get_or_create_instance(&lua, entity, a_id).unwrap();
+        let _ = manager.get_or_create_instance(&lua, entity, b_id).unwrap();
+        assert_eq!(manager.instance_count(), 2);
+
+        manager.unload(entity, a_id);
+
+        assert_eq!(manager.instance_count(), 1);
+        assert!(manager.instances.contains_key(&(entity, b_id)));
+        assert!(!manager.instances.contains_key(&(entity, a_id)));
+    }
+
+    #[test]
+    fn unload_all_for_entity_removes_all_instances() {
+        let _lock = game_fs_test_lock().lock().unwrap();
+        let folder = TestGameFolder::new("script_manager_unload_all");
+        set_game_name(folder.name());
+
+        let lua = Lua::new();
+        let mut registry = AssetRegistry::default();
+        let mut manager = ScriptManager::default();
+
+        fs::create_dir_all(scripts_folder()).unwrap();
+        fs::write(
+            scripts_folder().join("a.lua"),
+            "return { update = function() end }",
+        )
+        .unwrap();
+        fs::write(
+            scripts_folder().join("b.lua"),
+            "return { update = function() end }",
+        )
+        .unwrap();
+
+        let a_id = manager.init_script(&mut registry, "a.lua").unwrap();
+        let b_id = manager.init_script(&mut registry, "b.lua").unwrap();
+        let entity = Entity(1);
+
+        let _ = manager.get_or_create_instance(&lua, entity, a_id).unwrap();
+        let _ = manager.get_or_create_instance(&lua, entity, b_id).unwrap();
+        assert_eq!(manager.instance_count(), 2);
+
+        manager.unload_all_for_entity(entity);
+
+        assert_eq!(manager.instance_count(), 0);
     }
 }

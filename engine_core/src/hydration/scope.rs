@@ -1,3 +1,4 @@
+use crate::assets::AssetKey;
 use crate::ecs::Entity;
 use crate::worlds::{RoomId, WorldId};
 
@@ -17,7 +18,7 @@ pub enum HydrationScope {
 }
 
 /// What kind of hydrated resource is being tracked.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum ResourceClass {
     Texture,
     Script,
@@ -25,17 +26,42 @@ pub enum ResourceClass {
     Prefab,
 }
 
-/// Summary of what a scope claims. Per-scope per-class counts only.
+impl ResourceClass {
+    /// Classifies a concrete asset key into its hydration resource class.
+    pub fn for_asset_key(asset: AssetKey) -> Option<Self> {
+        match asset {
+            AssetKey::Sprite(_) => Some(Self::Texture),
+            AssetKey::Script(_) => Some(Self::Script),
+            AssetKey::Sound(_) => Some(Self::Audio),
+            AssetKey::Prefab(_) => Some(Self::Prefab),
+            AssetKey::Toml(_) => None,
+        }
+    }
+
+    /// Returns the short overlay label for this resource class.
+    pub fn display_abbreviation(self) -> &'static str {
+        match self {
+            Self::Texture => "T",
+            Self::Script => "S",
+            Self::Audio => "A",
+            Self::Prefab => "P",
+        }
+    }
+}
+
+/// Summary of what a scope claims. Per-scope per-class owned assets.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ResourceClaim {
     pub scope: HydrationScope,
     pub class: ResourceClass,
-    pub count: usize,
+    pub assets: Vec<AssetKey>,
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::ecs::{ScriptId, SoundId, SpriteId, TomlId};
+    use crate::prefab::PrefabId;
 
     #[test]
     fn hydration_scope_variants_are_distinct() {
@@ -46,15 +72,12 @@ mod tests {
         let room_a = HydrationScope::Room(RoomId(3));
         let entity_a = HydrationScope::Entity(Entity(4));
 
-        // Same variant, same data → equal
         assert_eq!(HydrationScope::Boot, HydrationScope::Boot);
         assert_eq!(HydrationScope::Global, HydrationScope::Global);
         assert_eq!(world_a, HydrationScope::World(WorldId(1)));
 
-        // Same variant, different data → not equal
         assert_ne!(world_a, world_b);
 
-        // Different variants → not equal
         assert_ne!(boot, global);
         assert_ne!(boot, world_a);
         assert_ne!(global, room_a);
@@ -63,15 +86,39 @@ mod tests {
     }
 
     #[test]
-    fn resource_claim_stores_scope_class_and_count() {
+    fn resource_class_maps_hydratable_asset_keys() {
+        assert_eq!(
+            ResourceClass::for_asset_key(AssetKey::Sprite(SpriteId(1))),
+            Some(ResourceClass::Texture)
+        );
+        assert_eq!(
+            ResourceClass::for_asset_key(AssetKey::Script(ScriptId(2))),
+            Some(ResourceClass::Script)
+        );
+        assert_eq!(
+            ResourceClass::for_asset_key(AssetKey::Sound(SoundId(3))),
+            Some(ResourceClass::Audio)
+        );
+        assert_eq!(
+            ResourceClass::for_asset_key(AssetKey::Prefab(PrefabId(4))),
+            Some(ResourceClass::Prefab)
+        );
+        assert_eq!(
+            ResourceClass::for_asset_key(AssetKey::Toml(TomlId(5))),
+            None
+        );
+    }
+
+    #[test]
+    fn resource_claim_stores_scope_class_and_assets() {
         let claim = ResourceClaim {
             scope: HydrationScope::Room(RoomId(7)),
             class: ResourceClass::Texture,
-            count: 12,
+            assets: vec![AssetKey::Sprite(SpriteId(12))],
         };
 
         assert_eq!(claim.scope, HydrationScope::Room(RoomId(7)));
         assert_eq!(claim.class, ResourceClass::Texture);
-        assert_eq!(claim.count, 12);
+        assert_eq!(claim.assets, vec![AssetKey::Sprite(SpriteId(12))]);
     }
 }

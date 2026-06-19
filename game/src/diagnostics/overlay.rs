@@ -7,7 +7,7 @@ use engine_core::assets::*;
 use engine_core::audio::{AudioDiagnosticsSnapshot, AudioManager};
 use engine_core::diagnostics::{DiagnosticsCollector, ResourceResidencySnapshot, RuntimeResidencySnapshot};
 use engine_core::ecs::*;
-use engine_core::hydration::{CoordinatorSnapshot, HydrationScope, ResourceClaim, ResourceClass};
+use engine_core::hydration::{CoordinatorSnapshot, HydrationScope, ResourceClaim};
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
 
@@ -198,6 +198,7 @@ impl DiagnosticsOverlay {
             expected_audio_refs.len(),
             audio_rows.iter().filter(|row| row.ecs_count > 0).count(),
         );
+        self.cached_coordinator = game.hydration_coordinator.snapshot();
     }
 
     /// Handle input for toggling the overlay.
@@ -319,13 +320,11 @@ fn residency_summary_lines(snapshot: &RuntimeResidencySnapshot) -> Vec<String> {
 fn coordinator_summary_line(scope: &HydrationScope, claims: &[&ResourceClaim]) -> String {
     let mut parts = vec![format!("{:?}", scope)];
     for claim in claims {
-        let class_abbr = match claim.class {
-            ResourceClass::Texture => "T",
-            ResourceClass::Script => "S",
-            ResourceClass::Audio => "A",
-            ResourceClass::Prefab => "P",
-        };
-        parts.push(format!("{}={}", class_abbr, claim.count));
+        parts.push(format!(
+            "{}={}",
+            claim.class.display_abbreviation(),
+            claim.assets.len()
+        ));
     }
     parts.join(" ")
 }
@@ -424,10 +423,14 @@ fn audio_ref_summary(rows: &[AudioDiagnosticsRow]) -> (usize, usize) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use engine_core::assets::AssetKey;
     use engine_core::diagnostics::{
         AUDIO_RESIDENCY_LABEL, ResidencyCounts, SCRIPTS_RESIDENCY_LABEL,
         TEXTURES_RESIDENCY_LABEL,
     };
+    use engine_core::ecs::SpriteId;
+    use engine_core::hydration::ResourceClass;
+    use engine_core::worlds::RoomId;
 
     #[test]
     fn residency_summary_lines_include_known_pending_and_active_counts() {
@@ -491,40 +494,65 @@ mod tests {
     }
 
     #[test]
-    fn coordinator_summary_line_formats_scope_and_claims() {
-        use engine_core::worlds::RoomId;
-
+    fn coordinator_summary_line_formats_scope_and_claim_counts_from_assets() {
         let snapshot = CoordinatorSnapshot {
-            active_scopes: vec![
-                HydrationScope::Boot,
-                HydrationScope::Room(RoomId(3)),
-            ],
-            claims: vec![
-                ResourceClaim {
-                    scope: HydrationScope::Boot,
-                    class: ResourceClass::Texture,
-                    count: 2,
-                },
-                ResourceClaim {
-                    scope: HydrationScope::Room(RoomId(3)),
-                    class: ResourceClass::Script,
-                    count: 1,
-                },
-                ResourceClaim {
-                    scope: HydrationScope::Room(RoomId(3)),
-                    class: ResourceClass::Texture,
-                    count: 4,
-                },
-            ],
+            active_scopes: vec![HydrationScope::Room(RoomId(3))],
+            claims: vec![ResourceClaim {
+                scope: HydrationScope::Room(RoomId(3)),
+                class: ResourceClass::Texture,
+                assets: vec![
+                    AssetKey::Sprite(SpriteId(1)),
+                    AssetKey::Sprite(SpriteId(2)),
+                ],
+            }],
         };
 
         let lines = coordinator_summary_lines(&snapshot);
 
-        assert_eq!(lines.len(), 2);
-        assert!(lines[0].contains("Boot"));
-        assert!(lines[0].contains("T=2"));
-        assert!(lines[1].contains("Room(RoomId(3))"));
-        assert!(lines[1].contains("S=1"));
-        assert!(lines[1].contains("T=4"));
+        assert_eq!(lines.len(), 1);
+        assert!(lines[0].contains(&format!(
+            "{}={}",
+            ResourceClass::Texture.display_abbreviation(),
+            2
+        )));
+    }
+
+    #[test]
+    fn update_from_game_caches_real_coordinator_snapshot() {
+        use bishop::audio::AudioBackend;
+        use engine_core::assets::AssetKey;
+        use engine_core::ecs::SpriteId;
+        use engine_core::game::Game;
+        use engine_core::hydration::HydrationScope;
+        use std::collections::HashMap;
+
+        struct TestBackend;
+        impl AudioBackend for TestBackend {
+            fn start<F: FnMut(&mut [[f32; 2]]) + Send + 'static>(_render_fn: F) -> Self {
+                Self
+            }
+        }
+
+        let mut game = Game::default();
+        game.hydration_coordinator
+            .activate_scope(HydrationScope::Boot);
+        game.hydration_coordinator
+            .claim_asset(HydrationScope::Boot, AssetKey::Sprite(SpriteId(1)));
+
+        let instance = GameInstance {
+            game,
+            prev_positions: HashMap::new(),
+        };
+        let audio_manager = AudioManager::new::<TestBackend>();
+        let mut overlay = DiagnosticsOverlay::new();
+
+        overlay.update_from_game(&instance, 0.0, &audio_manager);
+
+        assert_eq!(
+            overlay.cached_coordinator.active_scopes,
+            vec![HydrationScope::Boot]
+        );
+        assert_eq!(overlay.cached_coordinator.claims.len(), 1);
+        assert_eq!(overlay.cached_coordinator.claims[0].assets.len(), 1);
     }
 }

@@ -550,11 +550,11 @@ mod tests {
 
     #[test]
     fn prefabs_folder_lives_under_resources() {
-        let _lock = test_lock().lock().unwrap();
+        let _lock = crate::storage::test_utils::game_fs_test_lock().lock().unwrap();
         let _restore = SaveRootRestoreGuard::new();
 
-        let game_name = format!("prefab_paths_{}", uuid::Uuid::new_v4());
-        set_game_name(&game_name);
+        let folder = crate::storage::test_utils::TestGameFolder::new("prefab_paths");
+        set_game_name(folder.name());
 
         assert_eq!(
             prefabs_folder(),
