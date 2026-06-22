@@ -1,4 +1,5 @@
 use crate::app::EditorMode;
+use crate::game::GameEditorSubmode;
 use crate::commands::asset::{BatchMoveCmd, MoveTarget};
 use crate::commands::editor_command_manager::EditorCommand;
 use crate::editor_global::{take_pending_toast, with_editor};
@@ -236,7 +237,7 @@ fn batch_move_cmd_redo_moves_again() {
 #[test]
 fn applies_in_all_modes() {
     let cmd = BatchMoveCmd::new(Vec::new());
-    assert!(cmd.applies_in_mode(EditorMode::Game));
+    assert!(cmd.applies_in_mode(EditorMode::Game(GameEditorSubmode::Worlds)));
     assert!(cmd.applies_in_mode(EditorMode::Room(RoomId(1))));
     assert!(cmd.applies_in_mode(EditorMode::Prefab(PrefabId(5))));
     assert!(cmd.applies_in_mode(EditorMode::Menu));

@@ -1,4 +1,5 @@
 use crate::app::EditorMode;
+use crate::game::GameEditorSubmode;
 use crate::commands::scene::CreateSceneEntityCmd;
 use crate::editor_global::push_command;
 use crate::gui::panels::generic_panel::PanelDefinition;
@@ -203,7 +204,7 @@ impl PanelDefinition for HierarchyPanel {
         let mut y = rect.y + self.scroll_state.scroll_y + TOP_PADDING;
         let mut room_host = RoomHierarchyHost {
             room_editor,
-            mode: EditorMode::Game,
+            mode: EditorMode::Game(GameEditorSubmode::Worlds),
             prefab_manager: room_mode_prefab_manager,
         };
 
@@ -292,7 +293,7 @@ impl PanelDefinition for HierarchyPanel {
         // Room entities use EditorMode::Room for undo scope
         let room_mode = cur_room_id
             .map(EditorMode::Room)
-            .unwrap_or(EditorMode::Game);
+            .unwrap_or(EditorMode::Game(GameEditorSubmode::Worlds));
         room_host.mode = room_mode;
 
         {

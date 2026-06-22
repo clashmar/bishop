@@ -10,7 +10,7 @@ use serde_with::serde_as;
 use std::collections::HashSet;
 
 /// Identifier for a room, globally unique across all worlds.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, Default)]
 pub struct RoomId(pub usize);
 
 impl std::ops::Deref for RoomId {

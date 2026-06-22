@@ -1,4 +1,5 @@
 use crate::engine::game_instance::GameInstance;
+use crate::transitions::traversal_residency;
 use bishop::prelude::Vec2;
 use engine_core::ecs::*;
 use engine_core::rendering::visual_position;
@@ -78,6 +79,8 @@ impl RoomTransitionManager {
                     lua_events::ROOM_ENTERED.to_string(),
                     Variadic::from_iter(args),
                 );
+
+                traversal_residency::refresh_after_traversal(game_instance);
             }
         }
     }

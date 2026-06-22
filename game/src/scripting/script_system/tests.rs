@@ -53,16 +53,23 @@ fn update_eligibility_rejects_entities_in_inactive_worlds() {
     let in_active = game
         .ecs
         .create_entity()
+        .with(Active::default())
         .with(script.clone())
         .with_current_room(RoomId(1))
         .finish();
     let in_inactive = game
         .ecs
         .create_entity()
+        .with(Active::default())
         .with(script.clone())
         .with_current_room(RoomId(2))
         .finish();
-    let unroomed = game.ecs.create_entity().with(script.clone()).finish();
+    let unroomed = game
+        .ecs
+        .create_entity()
+        .with(Active::default())
+        .with(script.clone())
+        .finish();
 
     assert!(update_eligible(&game, in_active, &script));
     assert!(!update_eligible(&game, in_inactive, &script));
@@ -77,6 +84,21 @@ fn update_eligibility_rejects_empty_script_ids() {
         script_id: ScriptId(0),
         ..Default::default()
     };
+
+    assert!(!update_eligible(&game, entity, &script));
+}
+
+#[test]
+fn scripted_entity_must_be_active_to_update() {
+    let mut game = Game::default();
+    let script = Script {
+        script_id: ScriptId(7),
+        ..Default::default()
+    };
+    let entity = game.ecs.create_entity()
+        .with(Active::new(false))
+        .with(script.clone())
+        .finish();
 
     assert!(!update_eligible(&game, entity, &script));
 }

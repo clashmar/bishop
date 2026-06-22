@@ -1,5 +1,6 @@
 use bishop::prelude::*;
 use crate::app::EditorMode;
+use crate::game::GameEditorSubmode;
 use crate::commands::editor_command_manager::EditorCommand;
 use crate::commands::scene::CreateSceneEntityCmd;
 use crate::editor_global::{
@@ -406,6 +407,6 @@ fn create_room_camera_applies_only_in_matching_room_mode() {
     let cmd = CreateSceneEntityCmd::new_room_camera(room_id, Vec2::ZERO, grid_size);
     assert!(cmd.applies_in_mode(EditorMode::Room(room_id)));
     assert!(!cmd.applies_in_mode(EditorMode::Room(second_room_id)));
-    assert!(!cmd.applies_in_mode(EditorMode::Game));
+    assert!(!cmd.applies_in_mode(EditorMode::Game(GameEditorSubmode::Worlds)));
     assert!(!cmd.applies_in_mode(EditorMode::Menu));
 }

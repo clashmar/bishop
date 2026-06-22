@@ -1,4 +1,5 @@
 use crate::engine::game_instance::GameInstance;
+use crate::transitions::traversal_residency;
 use bishop::prelude::Vec2;
 use engine_core::ecs::*;
 use engine_core::game::Game;
@@ -60,11 +61,16 @@ impl WorldTransitionManager {
                     omni_error!("World transport requires a subject entity");
                     return false;
                 };
-                transport(lua, game, entity, &destination)
+                let result = transport(lua, game, entity, &destination);
+                if result {
+                    traversal_residency::refresh_after_traversal(game_instance);
+                }
+                result
             }
             WorldTransitionMode::Overlay => {
                 push_activation_frame(game, destination.world_id);
                 switch_to_overlay(lua, game, &destination);
+                traversal_residency::refresh_after_traversal(game_instance);
                 true
             }
         }
@@ -90,6 +96,7 @@ impl WorldTransitionManager {
             position: Vec2::ZERO,
         };
         switch_to_overlay(lua, game, &destination);
+        traversal_residency::refresh_after_traversal(game_instance);
         true
     }
 

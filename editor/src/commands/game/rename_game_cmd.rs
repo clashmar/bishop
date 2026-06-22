@@ -1,4 +1,5 @@
 use crate::app::EditorMode;
+use crate::game::GameEditorSubmode;
 use crate::commands::editor_command_manager::EditorCommand;
 use crate::editor_global::push_toast;
 use crate::storage::game_io::rename_game;
@@ -45,6 +46,6 @@ impl EditorCommand for RenameGameCmd {
     }
 
     fn applies_in_mode(&self, current_mode: EditorMode) -> bool {
-        current_mode == EditorMode::Game
+        current_mode == EditorMode::Game(GameEditorSubmode::Worlds)
     }
 }

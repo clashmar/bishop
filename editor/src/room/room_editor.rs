@@ -243,17 +243,26 @@ impl RoomEditor {
                 );
             }
             RoomEditorMode::Scene => {
-                let stamp_handled =
-                    self.handle_prefab_stamp(ctx, camera, room.id, grid_size, active_prefab_stamp);
+                let stamp_handled = self
+                    .handle_prefab_stamp(ctx, camera, room.id, grid_size, active_prefab_stamp);
                 let drag_handled = stamp_handled
-                    || self.handle_selection(ctx, room.id, camera, ecs, sprite_manager, grid_size);
+                    || self.handle_selection(
+                        ctx,
+                        room.id,
+                        camera,
+                        ecs,
+                        sprite_manager,
+                        grid_size,
+                    );
 
                 if !drag_handled {
                     self.handle_keyboard_move(ctx, ecs, room.id);
                 }
 
                 // Handle batch delete when multiple entities selected
-                if self.selected_entities.len() > 1 && Controls::delete(ctx) && !shortcuts_blocked()
+                if self.selected_entities.len() > 1
+                    && Controls::delete(ctx)
+                    && !shortcuts_blocked()
                 {
                     let entities: Vec<Entity> = self.selected_entities.iter().copied().collect();
                     push_command(Box::new(BatchDeleteEntitiesCmd::new(
@@ -263,7 +272,10 @@ impl RoomEditor {
                 }
 
                 // Copy multiple selected entities
-                if Controls::copy(ctx) && self.selected_entities.len() > 1 && !shortcuts_blocked() {
+                if Controls::copy(ctx)
+                    && self.selected_entities.len() > 1
+                    && !shortcuts_blocked()
+                {
                     let entities: Vec<Entity> = self.selected_entities.iter().copied().collect();
                     copy_entities(ecs, &entities);
                 }
@@ -294,6 +306,8 @@ impl RoomEditor {
         }
 
         self.handle_shortcuts(ctx, camera, room, grid_size, ecs);
+
+        current_world.link_all_exits();
     }
 
     pub(crate) fn prefab_palette_state(&self) -> PrefabPaletteState {

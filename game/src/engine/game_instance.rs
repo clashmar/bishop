@@ -177,7 +177,7 @@ impl GameInstance {
             trans_store
                 .data
                 .keys()
-                .filter(|entity| ecs.get::<Active>(**entity).is_some_and(|active| active.0))
+                .filter(|entity| ecs.get::<Active>(**entity).is_some_and(Active::is_enabled))
                 .filter_map(|entity| {
                     let transform = trans_store.get(*entity)?;
                     Some((
@@ -321,7 +321,6 @@ mod tests {
             .with_current_room(room_id)
             .finish();
 
-
         let mut game_instance = GameInstance {
             game,
             prev_positions: HashMap::new(),
@@ -332,6 +331,45 @@ mod tests {
         assert_eq!(
             game_instance.prev_positions.get(&entity).copied(),
             Some(Vec2::new(10.25, 11.5))
+        );
+    }
+
+    #[test]
+    fn store_previous_positions_keeps_pinned_inactive_entities() {
+        let room_id = RoomId(1);
+        let room = Room {
+            id: room_id,
+            ..Default::default()
+        };
+
+        let mut world = World::default();
+        world.current_room_id = Some(room_id);
+        world.add_room(room);
+
+        let mut game = Game::default();
+        game.add_world(world);
+
+        let entity = game.ecs
+            .create_entity()
+            .with(Transform {
+                position: Vec2::new(20.0, 24.0),
+                ..Default::default()
+            })
+            .with(Active::new(false))
+            .with_current_room(room_id)
+            .finish();
+        game.ecs.get_mut::<Active>(entity).unwrap().pin();
+
+        let mut game_instance = GameInstance {
+            game,
+            prev_positions: HashMap::new(),
+        };
+
+        game_instance.store_previous_positions(&mut CameraManager::default());
+
+        assert_eq!(
+            game_instance.prev_positions.get(&entity).copied(),
+            Some(Vec2::new(20.0, 24.0))
         );
     }
 }

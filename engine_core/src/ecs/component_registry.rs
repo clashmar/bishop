@@ -281,7 +281,7 @@ mod tests {
 
         generic_inserter::<PhysicsBody>(&mut ecs, entity, Box::new(PhysicsBody));
 
-        assert_eq!(ecs.get::<Active>(entity).map(|active| active.0), Some(true));
+        assert_eq!(ecs.get::<Active>(entity).map(Active::is_enabled), Some(true));
         assert!(ecs.has::<Collider>(entity));
         assert!(ecs.has::<Grounded>(entity));
         assert!(ecs.has::<MotionBody>(entity));

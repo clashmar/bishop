@@ -24,8 +24,9 @@ use ::widgets::*;
 impl Editor {
     pub fn draw_menu_bar(&mut self, ctx: &mut WgpuContext) {
         let menu_title = self.active_editor_entity_name();
+        let back_action = back_action_for_mode(self.mode);
 
-        if let Some(action) = self.menu_bar.draw(ctx, &menu_title, self.mode) {
+        if let Some(action) = self.menu_bar.draw(ctx, &menu_title, self.mode, back_action) {
             self.run_action(ctx, action);
         }
     }
@@ -50,6 +51,7 @@ impl Editor {
             EditorAction::ViewPrefabBrowserPanel,
             EditorAction::ViewPrefabPalettePanel,
             EditorAction::ViewResourcesPanel,
+            EditorAction::ViewWorldArrows,
         ];
 
         always_available
@@ -171,6 +173,9 @@ impl Editor {
                 with_panel_manager(|panel_manager| {
                     panel_manager.toggle(RESOURCES_PANEL);
                 });
+            }
+            EditorAction::ViewWorldArrows => {
+                self.game_editor.toggle_world_arrows();
             }
             EditorAction::WorldSettings => {
                 WorldSettingsModal.open(self, ctx);

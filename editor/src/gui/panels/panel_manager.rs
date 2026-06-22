@@ -25,7 +25,7 @@ impl PanelMode {
     fn matches(&self, mode: &EditorMode) -> bool {
         matches!(
             (self, mode),
-            (PanelMode::Game, EditorMode::Game)
+            (PanelMode::Game, EditorMode::Game(_))
                 | (PanelMode::World, EditorMode::World(_))
                 | (PanelMode::Room, EditorMode::Room(_))
                 | (PanelMode::Prefab, EditorMode::Prefab(_))

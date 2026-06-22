@@ -13,7 +13,7 @@ use serde_with::FromInto;
 use strum_macros::EnumIter;
 
 /// Identifier for a world.
-#[derive(Default, Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Default, Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct WorldId(pub usize);
 
 #[serde_as]

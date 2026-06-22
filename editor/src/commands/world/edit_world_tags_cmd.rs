@@ -1,4 +1,5 @@
 use crate::app::EditorMode;
+use crate::game::GameEditorSubmode;
 use crate::commands::editor_command_manager::EditorCommand;
 use crate::with_editor;
 use engine_core::scripting::event_tags::event_tag::EventTag;
@@ -36,6 +37,6 @@ impl EditorCommand for EditWorldTagsCmd {
     }
 
     fn applies_in_mode(&self, current_mode: EditorMode) -> bool {
-        matches!(current_mode, EditorMode::Game | EditorMode::World(_))
+        matches!(current_mode, EditorMode::Game(GameEditorSubmode::Worlds) | EditorMode::World(_))
     }
 }

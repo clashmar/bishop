@@ -103,6 +103,11 @@ fn spawn_prefab(
             .prefab_named(prefab_name)
             .cloned()
             .ok_or_else(|| mlua::Error::RuntimeError(format!("Unknown prefab '{prefab_name}'")))?;
+        game_instance
+            .game
+            .prefab_manager
+            .runtime_recency_mut()
+            .touch(prefab.id);
         if spawn_args.is_some() && !prefab_root_supports_spawn_args(&prefab) {
             return Err(mlua::Error::RuntimeError(
                 "engine.prefab.spawn init requires a Script on the prefab root".into(),

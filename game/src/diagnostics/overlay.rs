@@ -59,6 +59,9 @@ pub struct DiagnosticsOverlay {
     cached_audio_rows: Vec<AudioDiagnosticsRow>,
     cached_residency: RuntimeResidencySnapshot,
     cached_coordinator: CoordinatorSnapshot,
+    cached_room_frontier: usize,
+    cached_world_frontier: usize,
+    cached_pinned_entities: usize,
     timing_trace: TimingTraceLogger,
 }
 
@@ -124,6 +127,9 @@ impl DiagnosticsOverlay {
             cached_audio_rows: Vec::new(),
             cached_residency: RuntimeResidencySnapshot::default(),
             cached_coordinator: CoordinatorSnapshot::default(),
+            cached_room_frontier: 0,
+            cached_world_frontier: 0,
+            cached_pinned_entities: 0,
             timing_trace: TimingTraceLogger::from_env(),
         }
     }
@@ -199,6 +205,24 @@ impl DiagnosticsOverlay {
             audio_rows.iter().filter(|row| row.ecs_count > 0).count(),
         );
         self.cached_coordinator = game.hydration_coordinator.snapshot();
+        self.cached_room_frontier = self
+            .cached_coordinator
+            .active_scopes
+            .iter()
+            .filter(|s| matches!(s, HydrationScope::Room(_)))
+            .count();
+        self.cached_world_frontier = self
+            .cached_coordinator
+            .active_scopes
+            .iter()
+            .filter(|s| matches!(s, HydrationScope::World(_)))
+            .count();
+        self.cached_pinned_entities = self
+            .cached_coordinator
+            .active_scopes
+            .iter()
+            .filter(|s| matches!(s, HydrationScope::Entity(_)))
+            .count();
     }
 
     /// Handle input for toggling the overlay.
@@ -250,6 +274,18 @@ impl DiagnosticsOverlay {
             ));
             lines.extend(residency_summary_lines(&self.cached_residency));
             lines.extend(coordinator_summary_lines(&self.cached_coordinator));
+            lines.push(format!(
+                "Room frontier: {} rooms",
+                self.cached_room_frontier
+            ));
+            lines.push(format!(
+                "World frontier: {} worlds",
+                self.cached_world_frontier
+            ));
+            lines.push(format!(
+                "Pinned entities: {}",
+                self.cached_pinned_entities
+            ));
             lines.extend(
                 self.cached_audio_rows
                     .iter()

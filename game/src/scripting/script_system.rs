@@ -302,9 +302,11 @@ fn collect_prefab_subtree(ecs: &Ecs, root_entity: Entity, entities: &mut Vec<Ent
     }
 }
 
-/// An entity's script updates only when it has a real script and the entity is in the active world.
+/// An entity's script updates only when it has a real script, is active, and is in the active world.
 fn update_eligible(game: &Game, entity: Entity, script: &Script) -> bool {
-    script.script_id != ScriptId(0) && game.entity_in_active_world(entity)
+    script.script_id != ScriptId(0)
+        && game.entity_in_active_world(entity)
+        && game.ecs.get::<Active>(entity).is_some_and(Active::is_enabled)
 }
 
 fn script_update_is_still_valid(ecs: &Ecs, entity: Entity, script_id: ScriptId) -> bool {

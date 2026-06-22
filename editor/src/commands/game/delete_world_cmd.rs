@@ -1,4 +1,5 @@
 use crate::app::EditorMode;
+use crate::game::GameEditorSubmode;
 use crate::commands::editor_command_manager::EditorCommand;
 use crate::with_editor;
 use engine_core::ecs::*;
@@ -87,7 +88,7 @@ impl EditorCommand for DeleteWorldCmd {
     }
 
     fn applies_in_mode(&self, current_mode: EditorMode) -> bool {
-        current_mode == EditorMode::Game
+        current_mode == EditorMode::Game(GameEditorSubmode::Worlds)
     }
 }
 
@@ -98,8 +99,8 @@ mod tests {
     use crate::app::Editor;
     use crate::editor_global::with_editor;
     use crate::storage::game_io::create_new_game;
-use crate::world::world_creation::create_new_world;
     use crate::test_utils::{game_fs_test_lock, EditorServicesGuard, TestGameFolder};
+    use crate::world::world_creation::create_new_world;
 
     #[test]
     fn delete_world_cmd_deletes_and_restores_world_entities() {
@@ -139,7 +140,7 @@ use crate::world::world_creation::create_new_world;
 
         let editor = Editor {
             game,
-            mode: EditorMode::Game,
+            mode: EditorMode::Game(GameEditorSubmode::Worlds),
             ..Default::default()
         };
         let _guard = EditorServicesGuard::install(editor);
@@ -219,7 +220,7 @@ use crate::world::world_creation::create_new_world;
 
         let editor = Editor {
             game,
-            mode: EditorMode::Game,
+            mode: EditorMode::Game(GameEditorSubmode::Worlds),
             ..Default::default()
         };
         let _guard = EditorServicesGuard::install(editor);

@@ -29,3 +29,7 @@ mod menu_module_tests;
 #[cfg(test)]
 #[path = "tests/toml_asset_tests.rs"]
 mod toml_asset_tests;
+
+#[cfg(test)]
+#[path = "tests/prefab_module_tests.rs"]
+mod prefab_module_tests;

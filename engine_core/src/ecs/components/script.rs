@@ -1,6 +1,6 @@
 use crate::assets::AssetRegistry;
 use crate::ecs::entity::Entity;
-use crate::ecs::TomlId;
+use crate::ecs::{Active, TomlId};
 use crate::game::GameCtxMut;
 use crate::scripting::helpers::{read_script_field, write_script_field};
 use crate::scripting::lua_constants::lua_fields;
@@ -43,7 +43,7 @@ pub struct ScriptData {
 }
 
 /// The script component that lives on an entity.
-#[ecs_component(post_remove = post_remove)]
+#[ecs_component(deps = [Active], post_remove = post_remove)]
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct Script {
     /// Id stored by the script manager.
