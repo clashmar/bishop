@@ -23,7 +23,8 @@ fn setup_entity_lua() -> (Lua, Rc<RefCell<GameInstance>>, Entity) {
     let entity = game.ecs.create_entity().with(Transform::default()).finish();
     let game_instance = Rc::new(RefCell::new(GameInstance {
         game,
-        prev_positions: HashMap::new(),
+        prev_positions: HashMap::new(), 
+        traversal_residency_diagnostics: None,
     }));
 
     LuaGameCtx {

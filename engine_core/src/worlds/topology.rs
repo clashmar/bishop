@@ -1,5 +1,6 @@
 use crate::ecs::{CurrentRoom, WorldEntry, WorldExit};
 use crate::game::Game;
+use crate::logging::omni_error;
 use crate::worlds::{ExitDestination, RoomId, WorldId};
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 
@@ -186,7 +187,27 @@ pub fn extract_topology(game: &Game) -> TraversalTopology {
                 let Some(target_room) = exit.target_room_id else {
                     continue;
                 };
-                if room_worlds.get(&room.id) != room_worlds.get(&target_room) {
+                let Some(source_world) = room_worlds.get(&room.id).copied() else {
+                    omni_error!(
+                        "Skipping room exit from Room({}): source world missing",
+                        room.id.0
+                    );
+                    continue;
+                };
+                let Some(target_world) = room_worlds.get(&target_room).copied() else {
+                    omni_error!(
+                        "Skipping room exit from Room({}) to Room({}): target room missing",
+                        room.id.0,
+                        target_room.0
+                    );
+                    continue;
+                };
+                if source_world != target_world {
+                    omni_error!(
+                        "Skipping room exit from Room({}) to Room({}): cross-world room exits are unsupported",
+                        room.id.0,
+                        target_room.0
+                    );
                     continue;
                 }
                 room_graph.insert_edge(room.id, target_room, RoomEdgeKind::Exit);
@@ -196,19 +217,45 @@ pub fn extract_topology(game: &Game) -> TraversalTopology {
 
     for (&entity, exit) in &game.ecs.get_store::<WorldExit>().data {
         let Some(CurrentRoom(source_room)) = game.ecs.get::<CurrentRoom>(entity).copied() else {
+            omni_error!(
+                "Skipping WorldExit entity {:?}: missing CurrentRoom",
+                entity
+            );
             continue;
         };
         let Some(source_world) = room_worlds.get(&source_room).copied() else {
+            omni_error!(
+                "Skipping WorldExit entity {:?}: source Room({}) has no owning world",
+                entity,
+                source_room.0
+            );
             continue;
         };
         let Some(ExitDestination::World(target_world)) = exit.destination.as_ref() else {
             continue;
         };
+        if game.get_world(*target_world).is_none() {
+            omni_error!(
+                "Skipping WorldExit entity {:?}: target World({}) is missing",
+                entity,
+                target_world.0
+            );
+            continue;
+        }
         if source_world == *target_world {
-            if let Some(target_room) = resolve_world_exit_target_room(game, *target_world, exit.entry.as_deref()) {
+            if let Some(target_room) =
+                resolve_world_exit_target_room(game, *target_world, exit.entry.as_deref())
+            {
                 if target_room != source_room {
                     room_graph.insert_edge(source_room, target_room, RoomEdgeKind::Portal);
                 }
+            } else {
+                omni_error!(
+                    "Skipping same-world WorldExit entity {:?}: entry {:?} in World({}) could not be resolved",
+                    entity,
+                    exit.entry,
+                    target_world.0
+                );
             }
             continue;
         }

@@ -2,6 +2,7 @@ use bishop::prelude::*;
 use crate::scripting::script_system::ScriptSystem;
 use engine_core::audio::{AudioCommand, push_audio_command};
 use engine_core::camera::CameraManager;
+use engine_core::diagnostics::TraversalResidencyDiagnostics;
 use engine_core::ecs::*;
 use engine_core::game::{Game};
 use engine_core::menu::{drain_menu_events, drain_slider_events};
@@ -26,6 +27,8 @@ pub struct GameInstance {
     pub game: Game,
     /// Holds the visual position of every active entity from the previous frame.
     pub prev_positions: HashMap<Entity, Vec2>,
+    /// Runtime traversal-residency diagnostics (playtest only).
+    pub traversal_residency_diagnostics: Option<TraversalResidencyDiagnostics>,
 }
 
 impl GameInstance {
@@ -110,6 +113,7 @@ impl GameInstance {
         Self {
             game,
             prev_positions: HashMap::new(),
+            traversal_residency_diagnostics: None,
         }
     }
 
@@ -324,6 +328,7 @@ mod tests {
         let mut game_instance = GameInstance {
             game,
             prev_positions: HashMap::new(),
+            traversal_residency_diagnostics: None,
         };
 
         game_instance.store_previous_positions(&mut CameraManager::default());
@@ -363,6 +368,7 @@ mod tests {
         let mut game_instance = GameInstance {
             game,
             prev_positions: HashMap::new(),
+            traversal_residency_diagnostics: None,
         };
 
         game_instance.store_previous_positions(&mut CameraManager::default());

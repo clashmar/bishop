@@ -39,7 +39,8 @@ fn setup_game_lua() -> (Lua, Rc<RefCell<GameInstance>>) {
 
     let game_instance = Rc::new(RefCell::new(GameInstance {
         game,
-        prev_positions: HashMap::new(),
+        prev_positions: HashMap::new(), 
+        traversal_residency_diagnostics: None,
     }));
 
     LuaGameCtx {

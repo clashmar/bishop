@@ -48,7 +48,8 @@ fn prefab_test_instance(prefab_name: &str) -> (Lua, Rc<RefCell<GameInstance>>) {
 
     let game_instance = Rc::new(RefCell::new(GameInstance {
         game,
-        prev_positions: HashMap::new(),
+        prev_positions: HashMap::new(), 
+        traversal_residency_diagnostics: None,
     }));
     LuaGameCtx {
         game_instance: game_instance.clone(),

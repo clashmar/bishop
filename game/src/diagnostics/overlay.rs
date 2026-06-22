@@ -5,7 +5,11 @@ use crate::diagnostics::timing_trace::{TimingTraceLogger, TimingTraceSample};
 use crate::engine::game_instance::GameInstance;
 use engine_core::assets::*;
 use engine_core::audio::{AudioDiagnosticsSnapshot, AudioManager};
-use engine_core::diagnostics::{DiagnosticsCollector, ResourceResidencySnapshot, RuntimeResidencySnapshot};
+use engine_core::diagnostics::{
+    DiagnosticsCollector, PinnedEntitySnapshot, ResourceResidencySnapshot,
+    RuntimeResidencySnapshot, TraversalClassCount, TraversalOutcomeSnapshot,
+    TraversalResidencySnapshot, TraversalThrashSnapshot, WarmRoomSnapshot, WarmWorldSnapshot,
+};
 use engine_core::ecs::*;
 use engine_core::hydration::{CoordinatorSnapshot, HydrationScope, ResourceClaim};
 use std::collections::{HashMap, HashSet};
@@ -59,6 +63,7 @@ pub struct DiagnosticsOverlay {
     cached_audio_rows: Vec<AudioDiagnosticsRow>,
     cached_residency: RuntimeResidencySnapshot,
     cached_coordinator: CoordinatorSnapshot,
+    cached_traversal: TraversalResidencySnapshot,
     cached_room_frontier: usize,
     cached_world_frontier: usize,
     cached_pinned_entities: usize,
@@ -127,6 +132,7 @@ impl DiagnosticsOverlay {
             cached_audio_rows: Vec::new(),
             cached_residency: RuntimeResidencySnapshot::default(),
             cached_coordinator: CoordinatorSnapshot::default(),
+            cached_traversal: TraversalResidencySnapshot::default(),
             cached_room_frontier: 0,
             cached_world_frontier: 0,
             cached_pinned_entities: 0,
@@ -205,24 +211,14 @@ impl DiagnosticsOverlay {
             audio_rows.iter().filter(|row| row.ecs_count > 0).count(),
         );
         self.cached_coordinator = game.hydration_coordinator.snapshot();
-        self.cached_room_frontier = self
-            .cached_coordinator
-            .active_scopes
-            .iter()
-            .filter(|s| matches!(s, HydrationScope::Room(_)))
-            .count();
-        self.cached_world_frontier = self
-            .cached_coordinator
-            .active_scopes
-            .iter()
-            .filter(|s| matches!(s, HydrationScope::World(_)))
-            .count();
-        self.cached_pinned_entities = self
-            .cached_coordinator
-            .active_scopes
-            .iter()
-            .filter(|s| matches!(s, HydrationScope::Entity(_)))
-            .count();
+        self.cached_traversal = game_instance
+            .traversal_residency_diagnostics
+            .as_ref()
+            .map(|d| d.snapshot.clone())
+            .unwrap_or_default();
+        self.cached_room_frontier = self.cached_traversal.rooms.len();
+        self.cached_world_frontier = self.cached_traversal.worlds.len();
+        self.cached_pinned_entities = self.cached_traversal.pinned_entities.len();
     }
 
     /// Handle input for toggling the overlay.
@@ -286,6 +282,12 @@ impl DiagnosticsOverlay {
                 "Pinned entities: {}",
                 self.cached_pinned_entities
             ));
+            lines.extend(traversal_room_lines(&self.cached_traversal));
+            lines.extend(traversal_world_lines(&self.cached_traversal));
+            lines.extend(traversal_pinned_lines(&self.cached_traversal));
+            lines.extend(traversal_global_lines(&self.cached_traversal));
+            lines.extend(traversal_outcome_lines(&self.cached_traversal));
+            lines.extend(traversal_thrash_lines(&self.cached_traversal));
             lines.extend(
                 self.cached_audio_rows
                     .iter()
@@ -379,6 +381,106 @@ fn coordinator_summary_lines(snapshot: &CoordinatorSnapshot) -> Vec<String> {
         lines.push("Coordinator: no active scopes".to_string());
     }
     lines
+}
+
+fn class_counts_line(counts: &[engine_core::diagnostics::TraversalClassCount]) -> String {
+    if counts.is_empty() {
+        return "none".to_string();
+    }
+
+    counts
+        .iter()
+        .map(|count| format!("{}={}", count.class.display_abbreviation(), count.count))
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+fn traversal_room_line(room: &WarmRoomSnapshot) -> String {
+    format!(
+        "Warm room {} why={} claims {}",
+        room.room_id.0,
+        room.reasons.join(", "),
+        class_counts_line(&room.claims)
+    )
+}
+
+fn traversal_room_lines(snapshot: &TraversalResidencySnapshot) -> Vec<String> {
+    snapshot.rooms.iter().map(traversal_room_line).collect()
+}
+
+fn traversal_world_line(world: &WarmWorldSnapshot) -> String {
+    format!(
+        "Warm world {} why={} claims {}",
+        world.world_id.0,
+        world.reasons.join(", "),
+        class_counts_line(&world.claims)
+    )
+}
+
+fn traversal_world_lines(snapshot: &TraversalResidencySnapshot) -> Vec<String> {
+    snapshot.worlds.iter().map(traversal_world_line).collect()
+}
+
+fn traversal_pinned_line(entity: &PinnedEntitySnapshot) -> String {
+    let room = entity
+        .room_id
+        .map(|room_id| format!("Room({})", room_id.0))
+        .unwrap_or_else(|| "roomless".to_string());
+    format!(
+        "Pinned entity {} {} why={} claims {}",
+        entity.entity.0,
+        room,
+        entity.reasons.join(", "),
+        class_counts_line(&entity.claims)
+    )
+}
+
+fn traversal_pinned_lines(snapshot: &TraversalResidencySnapshot) -> Vec<String> {
+    snapshot
+        .pinned_entities
+        .iter()
+        .map(traversal_pinned_line)
+        .collect()
+}
+
+fn traversal_global_line(counts: &[TraversalClassCount]) -> String {
+    format!("Global claims {}", class_counts_line(counts))
+}
+
+fn traversal_global_lines(snapshot: &TraversalResidencySnapshot) -> Vec<String> {
+    if snapshot.global_claims.is_empty() {
+        return Vec::new();
+    }
+    vec![traversal_global_line(&snapshot.global_claims)]
+}
+
+fn traversal_outcome_line(outcome: &TraversalOutcomeSnapshot) -> String {
+    format!(
+        "Outcome {} claim {} hydrate {} evict {} failures={}",
+        outcome.label,
+        class_counts_line(&outcome.claimed),
+        class_counts_line(&outcome.hydrated),
+        class_counts_line(&outcome.evicted),
+        outcome.failures
+    )
+}
+
+fn traversal_outcome_lines(snapshot: &TraversalResidencySnapshot) -> Vec<String> {
+    snapshot.outcomes.iter().map(traversal_outcome_line).collect()
+}
+
+fn traversal_thrash_line(thrash: &TraversalThrashSnapshot) -> String {
+    format!(
+        "Thrash {:?} events={} hydrates={} evicts={}",
+        thrash.asset,
+        thrash.events,
+        thrash.hydrates,
+        thrash.evictions
+    )
+}
+
+fn traversal_thrash_lines(snapshot: &TraversalResidencySnapshot) -> Vec<String> {
+    snapshot.thrash.iter().map(traversal_thrash_line).collect()
 }
 
 fn expected_audio_ref_counts<'a>(
@@ -577,7 +679,7 @@ mod tests {
 
         let instance = GameInstance {
             game,
-            prev_positions: HashMap::new(),
+            prev_positions: HashMap::new(), traversal_residency_diagnostics: None,
         };
         let audio_manager = AudioManager::new::<TestBackend>();
         let mut overlay = DiagnosticsOverlay::new();
@@ -590,5 +692,21 @@ mod tests {
         );
         assert_eq!(overlay.cached_coordinator.claims.len(), 1);
         assert_eq!(overlay.cached_coordinator.claims[0].assets.len(), 1);
+    }
+
+    #[test]
+    fn traversal_room_line_includes_reasons_and_claim_counts() {
+        let line = traversal_room_line(&WarmRoomSnapshot {
+            room_id: RoomId(4),
+            reasons: vec!["current room".to_string(), "exit from Room(2)".to_string()],
+            claims: vec![engine_core::diagnostics::TraversalClassCount {
+                class: ResourceClass::Texture,
+                count: 3,
+            }],
+        });
+
+        assert!(line.contains("Warm room 4"));
+        assert!(line.contains("current room"));
+        assert!(line.contains("T=3"));
     }
 }

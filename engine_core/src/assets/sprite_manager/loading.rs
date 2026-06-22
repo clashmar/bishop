@@ -90,7 +90,7 @@ impl SpriteManager {
         }
 
         if self.runtime_texture_loading {
-            self.queue_runtime_texture_read(id);
+            self.prewarm_runtime_texture(id);
             self.poll_pending_texture_reads(loader);
 
             if self.textures.contains_key(&id) {

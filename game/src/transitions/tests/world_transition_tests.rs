@@ -53,7 +53,8 @@ fn two_world_instance() -> GameInstance {
     game.select_world(OVERWORLD_ID);
     GameInstance {
         game,
-        prev_positions: HashMap::new(),
+        prev_positions: HashMap::new(), 
+        traversal_residency_diagnostics: None,
     }
 }
 
@@ -67,7 +68,11 @@ fn transport_uses_start_entry_position_when_present() {
     add_start_entry(&mut game, RoomId(2), specific_pos);
     game.select_world(OVERWORLD_ID);
     let player = spawn_player(&mut game, RoomId(1));
-    let mut instance = GameInstance { game, prev_positions: HashMap::new() };
+    let mut instance = GameInstance { 
+        game, 
+        prev_positions: HashMap::new(), 
+        traversal_residency_diagnostics: None 
+    };
 
     let ok = WorldTransitionManager::execute(
         &Lua::new(),
@@ -91,7 +96,7 @@ fn transport_falls_back_to_first_room_at_origin_when_no_start_entry() {
     add_start_entry(&mut game, RoomId(1), START_POS);
     game.select_world(OVERWORLD_ID);
     let player = spawn_player(&mut game, RoomId(1));
-    let mut instance = GameInstance { game, prev_positions: HashMap::new() };
+    let mut instance = GameInstance { game, prev_positions: HashMap::new(), traversal_residency_diagnostics: None };
 
     let ok = WorldTransitionManager::execute(
         &Lua::new(),
@@ -452,7 +457,7 @@ fn nested_activation_pops_correctly() {
     add_start_entry(&mut game, RoomId(2), START_POS);
     add_start_entry(&mut game, RoomId(3), START_POS);
     game.select_world(WorldId(1));
-    let mut instance = GameInstance { game, prev_positions: HashMap::new() };
+    let mut instance = GameInstance { game, prev_positions: HashMap::new(), traversal_residency_diagnostics: None };
 
     WorldTransitionManager::execute(&Lua::new(), &mut instance,
         &WorldTransitionRequest { entity: None, world: WorldSelector::ById(WorldId(2)), entry_name: None, mode: WorldTransitionMode::Overlay });
@@ -529,7 +534,7 @@ fn world_entered_event_includes_world_tags() {
     add_start_entry(&mut game, RoomId(2), START_POS);
     game.select_world(OVERWORLD_ID);
     game.script_manager.event_bus = event_bus;
-    let mut instance = GameInstance { game, prev_positions: HashMap::new() };
+    let mut instance = GameInstance { game, prev_positions: HashMap::new(), traversal_residency_diagnostics: None };
 
     WorldTransitionManager::execute(&lua, &mut instance, &overlay_request(ARCADE));
 

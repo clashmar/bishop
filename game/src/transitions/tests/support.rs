@@ -163,7 +163,8 @@ pub(super) fn setup_physics_transition_game(
         lua,
         GameInstance {
             game,
-            prev_positions: HashMap::new(),
+            prev_positions: HashMap::new(), 
+            traversal_residency_diagnostics: None,
         },
         entity,
     )
@@ -234,7 +235,8 @@ pub(super) fn setup_physics_down_transition_game() -> (Lua, GameInstance, Entity
         lua,
         GameInstance {
             game,
-            prev_positions: HashMap::new(),
+            prev_positions: HashMap::new(), 
+            traversal_residency_diagnostics: None,
         },
         entity,
     )

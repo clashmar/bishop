@@ -8,7 +8,7 @@ use crate::storage::test_utils::{game_fs_test_lock, TestGameFolder};
 use std::fs;
 use std::time::Duration;
 
-fn queue_runtime_read_test_case(
+fn prewarm_runtime_read_test_case(
     test_name: &str,
     file_name: &str,
 ) -> (TestGameFolder, SpriteManager, SpriteId) {
@@ -37,7 +37,7 @@ fn queue_runtime_read_test_case(
         .insert(sprite_id, path.clone());
     sprite_manager.attach_runtime_file_read_pool_for_test(&file_read_pool);
     sprite_manager.enable_runtime_texture_loading_for_test();
-    sprite_manager.queue_runtime_texture_read(sprite_id);
+    sprite_manager.prewarm_runtime_texture(sprite_id);
 
     (test_folder, sprite_manager, sprite_id)
 }
@@ -151,16 +151,16 @@ fn evict_texture_clears_runtime_texture_state_without_touching_metadata() {
 fn pending_texture_count_tracks_queued_runtime_reads() {
     let _lock = game_fs_test_lock().lock().unwrap();
     let (_folder, sprite_manager, _sprite_id) =
-        queue_runtime_read_test_case("asset_mgr_pending_count", "textures/runtime-pending-count.bin");
+        prewarm_runtime_read_test_case("asset_mgr_pending_count", "textures/runtime-pending-count.bin");
 
     assert_eq!(sprite_manager.pending_texture_count(), 1);
 }
 
 #[test]
-fn queue_runtime_texture_read_tracks_pending_sprite_id() {
+fn prewarm_runtime_texture_tracks_pending_sprite_id() {
     let _lock = game_fs_test_lock().lock().unwrap();
     let (_folder, sprite_manager, sprite_id) =
-        queue_runtime_read_test_case("asset_mgr_queue", "textures/runtime-queue.bin");
+        prewarm_runtime_read_test_case("asset_mgr_queue", "textures/runtime-queue.bin");
 
     assert!(sprite_manager.has_pending_texture_read(sprite_id));
     assert_eq!(sprite_manager.texture_count(), 0);
@@ -195,7 +195,7 @@ fn poll_pending_runtime_texture_reads_uploads_bytes_on_the_main_thread() {
         .insert(sprite_id, path.clone());
     sprite_manager.attach_runtime_file_read_pool_for_test(&file_read_pool);
     sprite_manager.enable_runtime_texture_loading_for_test();
-    sprite_manager.queue_runtime_texture_read(sprite_id);
+    sprite_manager.prewarm_runtime_texture(sprite_id);
 
     // Drain until the read completes and the upload path is hit.
     for _ in 0..100 {

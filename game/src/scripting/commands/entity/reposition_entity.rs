@@ -50,7 +50,8 @@ mod tests {
     fn reposition_entity_moves_entity_clears_subpixel_and_preserves_velocity() {
         let mut game_instance = crate::engine::game_instance::GameInstance {
             game: Game::default(),
-            prev_positions: std::collections::HashMap::new(),
+            prev_positions: std::collections::HashMap::new(), 
+            traversal_residency_diagnostics: None,
         };
         let entity = game_instance
             .game
@@ -103,7 +104,8 @@ mod tests {
     fn reposition_entity_moves_children_with_parent() {
         let mut game_instance = crate::engine::game_instance::GameInstance {
             game: Game::default(),
-            prev_positions: std::collections::HashMap::new(),
+            prev_positions: std::collections::HashMap::new(), 
+            traversal_residency_diagnostics: None,
         };
         let parent = game_instance
             .game

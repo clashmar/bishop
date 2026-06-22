@@ -54,7 +54,8 @@ fn room_transition_activates_current_room_and_deactivates_unpinned_previous_room
 
     let mut instance = GameInstance {
         game,
-        prev_positions: HashMap::new(),
+        prev_positions: HashMap::new(), 
+        traversal_residency_diagnostics: None,
     };
     traversal_residency::refresh_after_traversal(&mut instance);
 
@@ -71,7 +72,8 @@ fn pinned_entity_is_not_deactivated_or_unclaimed_when_player_leaves_its_room() {
 
     let mut instance = GameInstance {
         game,
-        prev_positions: HashMap::new(),
+        prev_positions: HashMap::new(), 
+        traversal_residency_diagnostics: None,
     };
     traversal_residency::refresh_after_traversal(&mut instance);
 

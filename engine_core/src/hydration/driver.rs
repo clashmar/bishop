@@ -25,6 +25,79 @@ pub struct HydrationDriver<'a> {
 }
 
 impl<'a> HydrationDriver<'a> {
+    /// Hydrates one asset immediately using an explicit texture loader.
+    pub fn hydrate_asset(
+        &mut self,
+        asset: AssetKey,
+        texture_loader: &impl TextureLoader,
+        lua: &Lua,
+    ) -> Result<(), HydrationError> {
+        match asset {
+            AssetKey::Sprite(id) => self
+                .sprite_manager
+                .ensure_loaded(texture_loader, id)
+                .map_err(HydrationError::TextureLoad),
+            AssetKey::Script(id) => self
+                .script_manager
+                .load_script_table(lua, id)
+                .map(|_| ())
+                .map_err(HydrationError::ScriptLoad),
+            AssetKey::Sound(_) => {
+                let Some(path) = self.asset_registry.record(asset).map(|record| &record.path) else {
+                    return Err(HydrationError::UnknownAudioAssetPath(asset));
+                };
+                let Some(sound_id) = sound_id_from_asset_path(path) else {
+                    return Err(HydrationError::UnknownAudioAssetPath(asset));
+                };
+                self.audio_manager.claim_sound(&sound_id);
+                Ok(())
+            }
+            AssetKey::Prefab(_) | AssetKey::Toml(_) => Ok(()),
+        }
+    }
+
+    /// Hydrates one asset for runtime traversal warming.
+    pub fn hydrate_asset_runtime(&mut self, asset: AssetKey, lua: &Lua) -> Result<(), HydrationError> {
+        match asset {
+            AssetKey::Sprite(id) => {
+                self.sprite_manager.prewarm_runtime_texture(id);
+                Ok(())
+            }
+            AssetKey::Script(id) => self
+                .script_manager
+                .load_script_table(lua, id)
+                .map(|_| ())
+                .map_err(HydrationError::ScriptLoad),
+            AssetKey::Sound(_) => {
+                let Some(path) = self.asset_registry.record(asset).map(|record| &record.path) else {
+                    return Err(HydrationError::UnknownAudioAssetPath(asset));
+                };
+                let Some(sound_id) = sound_id_from_asset_path(path) else {
+                    return Err(HydrationError::UnknownAudioAssetPath(asset));
+                };
+                self.audio_manager.claim_sound(&sound_id);
+                Ok(())
+            }
+            AssetKey::Prefab(_) | AssetKey::Toml(_) => Ok(()),
+        }
+    }
+
+    /// Releases one hydrated asset.
+    pub fn dehydrate_asset(&mut self, asset: AssetKey) {
+        match asset {
+            AssetKey::Sprite(id) => self.sprite_manager.evict_texture(id),
+            AssetKey::Script(id) => self.script_manager.evict_script(id),
+            AssetKey::Sound(_) => {
+                if let Some(path) = self.asset_registry.record(asset).map(|record| &record.path)
+                    && let Some(sound_id) = sound_id_from_asset_path(path)
+                {
+                    self.audio_manager.release_claimed_sound(&sound_id);
+                }
+            }
+            AssetKey::Prefab(_) | AssetKey::Toml(_) => {}
+        }
+    }
+
     /// Hydrates all claimed assets for one scope.
     pub fn hydrate_scope(
         &mut self,
@@ -33,27 +106,7 @@ impl<'a> HydrationDriver<'a> {
         lua: &Lua,
     ) -> Result<(), HydrationError> {
         for asset in self.coordinator.claimed_assets(scope) {
-            match asset {
-                AssetKey::Sprite(id) => self
-                    .sprite_manager
-                    .ensure_loaded(texture_loader, id)
-                    .map_err(HydrationError::TextureLoad)?,
-                AssetKey::Script(id) => {
-                    self.script_manager
-                        .load_script_table(lua, id)
-                        .map_err(HydrationError::ScriptLoad)?;
-                }
-                AssetKey::Sound(_) => {
-                    let Some(path) = self.asset_registry.record(asset).map(|record| &record.path) else {
-                        return Err(HydrationError::UnknownAudioAssetPath(asset));
-                    };
-                    let Some(sound_id) = sound_id_from_asset_path(path) else {
-                        return Err(HydrationError::UnknownAudioAssetPath(asset));
-                    };
-                    self.audio_manager.claim_sound(&sound_id);
-                }
-                AssetKey::Prefab(_) | AssetKey::Toml(_) => {}
-            }
+            self.hydrate_asset(asset, texture_loader, lua)?;
         }
         Ok(())
     }
@@ -61,18 +114,7 @@ impl<'a> HydrationDriver<'a> {
     /// Releases all claimed assets for one scope.
     pub fn dehydrate_scope(&mut self, scope: &HydrationScope) {
         for asset in self.coordinator.claimed_assets(scope) {
-            match asset {
-                AssetKey::Sprite(id) => self.sprite_manager.evict_texture(id),
-                AssetKey::Script(id) => self.script_manager.evict_script(id),
-                AssetKey::Sound(_) => {
-                    if let Some(path) = self.asset_registry.record(asset).map(|record| &record.path)
-                        && let Some(sound_id) = sound_id_from_asset_path(path)
-                    {
-                        self.audio_manager.release_claimed_sound(&sound_id);
-                    }
-                }
-                AssetKey::Prefab(_) | AssetKey::Toml(_) => {}
-            }
+            self.dehydrate_asset(asset);
         }
     }
 }
@@ -86,6 +128,7 @@ mod tests {
     use crate::ecs::{SoundId, SpriteId};
     use crate::engine_global::set_game_name;
     use crate::storage::test_utils::{game_fs_test_lock, TestGameFolder};
+    use crate::task::FileReadPool;
     use crate::worlds::RoomId;
     use mlua::Lua;
     use std::fs;
@@ -165,6 +208,36 @@ mod tests {
             .hydrate_scope(&scope, &CountingFailingLoader::new(), &lua)
             .unwrap();
         assert_eq!(driver.script_manager.loaded_script_count(), 1);
+    }
+
+    #[test]
+    fn hydrate_asset_runtime_queues_runtime_sprite_reads() {
+        let mut registry = AssetRegistry::default();
+        registry
+            .register_asset_relative_path(SpriteId(8), "sprites/warm.png")
+            .unwrap();
+
+        let mut sprite_manager = SpriteManager::default();
+        SpriteManager::init_editor_metadata(&registry, &mut sprite_manager);
+        sprite_manager.enable_runtime_texture_loading_for_test();
+        sprite_manager.attach_runtime_file_read_pool_for_test(&FileReadPool::new());
+        let mut script_manager = crate::scripting::ScriptManager::default();
+        let mut audio_manager = AudioManager::new::<TestBackend>();
+        let coordinator = HydrationCoordinator::default();
+
+        let mut driver = HydrationDriver {
+            coordinator: &coordinator,
+            asset_registry: &registry,
+            sprite_manager: &mut sprite_manager,
+            script_manager: &mut script_manager,
+            audio_manager: &mut audio_manager,
+        };
+
+        driver
+            .hydrate_asset_runtime(AssetKey::Sprite(SpriteId(8)), &Lua::new())
+            .unwrap();
+
+        assert!(driver.sprite_manager.has_pending_texture_read(SpriteId(8)));
     }
 
     #[test]

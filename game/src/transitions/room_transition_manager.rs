@@ -1,5 +1,4 @@
 use crate::engine::game_instance::GameInstance;
-use crate::transitions::traversal_residency;
 use bishop::prelude::Vec2;
 use engine_core::ecs::*;
 use engine_core::rendering::visual_position;
@@ -17,7 +16,7 @@ pub struct RoomTransitionManager;
 
 impl RoomTransitionManager {
     /// Handles entity transitions between rooms.
-    pub fn handle_transitions(lua: &Lua, game_instance: &mut GameInstance) {
+    pub fn handle_transitions(lua: &Lua, game_instance: &mut GameInstance) -> bool {
         let entities: Vec<_> = game_instance
             .game
             .ecs
@@ -26,6 +25,8 @@ impl RoomTransitionManager {
             .keys()
             .copied()
             .collect();
+
+        let mut player_transitioned = false;
 
         for entity in entities {
             if !game_instance.game.entity_in_active_world(entity) {
@@ -80,9 +81,11 @@ impl RoomTransitionManager {
                     Variadic::from_iter(args),
                 );
 
-                traversal_residency::refresh_after_traversal(game_instance);
+                player_transitioned = true;
             }
         }
+
+        player_transitioned
     }
 }
 
