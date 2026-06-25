@@ -1,8 +1,6 @@
 use bishop::prelude::*;
 use super::*;
 use crate::storage::sound_presets::SoundPresetLibrary;
-use engine_core::assets::*;
-use engine_core::audio::{AudioCommand, push_audio_command};
 use engine_core::ecs::*;
 use ::widgets::*;
 use std::collections::BTreeSet;
@@ -66,7 +64,6 @@ pub(super) fn draw_group_dropdowns(
     rect: Rect,
     module: &mut AudioSourceModule,
     source: &mut AudioSource,
-    asset_registry: &AssetRegistry,
 ) -> Option<String> {
     let library = current_sound_preset_library();
     let current_group_label = source
@@ -120,7 +117,7 @@ pub(super) fn draw_group_dropdowns(
     .suppressed(blocked)
     .show(ctx)
     {
-        if let Some(message) = handle_assign_option(source, choice, module, asset_registry) {
+        if let Some(message) = handle_assign_option(source, choice, module) {
             return Some(message);
         }
     }
@@ -130,7 +127,7 @@ pub(super) fn draw_group_dropdowns(
         .blocked(source.current.is_none())
         .show(ctx)
     {
-        apply_source_edit(source, asset_registry, |source| {
+        apply_source_edit(source, |source| {
             if let Some(current) = source.current.take() {
                 source.groups.remove(&current);
                 source.current = first_group_id(source);
@@ -147,7 +144,6 @@ pub(super) fn render_preset_picker(
     module: &mut AudioSourceModule,
     source: &mut AudioSource,
     library: &SoundPresetLibrary,
-    asset_registry: &AssetRegistry,
     pending_sync_all: &mut Option<(String, AudioGroup)>,
 ) -> Option<String> {
     let rect = module.preset_picker_rect?;
@@ -168,13 +164,8 @@ pub(super) fn render_preset_picker(
     .show(ctx)
     {
         module.show_preset_picker = false;
-        if let Some(message) = assign_preset_by_name(
-            source,
-            &preset_name,
-            library,
-            pending_sync_all,
-            asset_registry,
-        ) {
+        if let Some(message) = assign_preset_by_name(source, &preset_name, library, pending_sync_all)
+        {
             return Some(message);
         }
     }
@@ -266,13 +257,12 @@ pub(super) fn handle_assign_option(
     source: &mut AudioSource,
     choice: AssignOption,
     module: &mut AudioSourceModule,
-    asset_registry: &AssetRegistry,
 ) -> Option<String> {
     match choice {
         AssignOption::AddEmpty => {
             let new_name = next_group_name(source);
             let new_group_id = SoundGroupId::Custom(new_name.clone());
-            apply_source_edit(source, asset_registry, |source| {
+            apply_source_edit(source, |source| {
                 source
                     .groups
                     .insert(new_group_id.clone(), AudioGroup::default());
@@ -306,7 +296,7 @@ pub(super) fn handle_assign_option(
             let new_name = unique_group_name(source, &base_name);
             let new_group_id = SoundGroupId::Custom(new_name.clone());
 
-            apply_source_edit(source, asset_registry, |source| {
+            apply_source_edit(source, |source| {
                 let mut detached_group = group.clone();
                 detached_group.preset_link = None;
                 source.groups.insert(new_group_id.clone(), detached_group);
@@ -336,7 +326,6 @@ pub(super) fn assign_preset_by_name(
     preset_name: &str,
     library: &SoundPresetLibrary,
     pending_sync_all: &mut Option<(String, AudioGroup)>,
-    asset_registry: &AssetRegistry,
 ) -> Option<String> {
     if let Some(existing_group_id) = find_group_linked_to_preset(source, preset_name) {
         source.current = Some(existing_group_id);
@@ -354,7 +343,7 @@ pub(super) fn assign_preset_by_name(
     };
     let group_name = unique_group_name(source, preset_name);
 
-    apply_source_edit(source, asset_registry, |source| {
+    apply_source_edit(source, |source| {
         let new_id = SoundGroupId::Custom(group_name.clone());
         let mut group = AudioGroup::default();
         group.apply_preset(preset_name, &preset);
@@ -398,7 +387,6 @@ pub(super) fn handle_preset_action(
     source: &mut AudioSource,
     action: PresetAction,
     pending_sync_all: &mut Option<(String, AudioGroup)>,
-    asset_registry: &AssetRegistry,
 ) -> Option<String> {
     let Some(current_group_id) = source.current.clone() else {
         return Some("Select a sound group first".to_string());
@@ -415,7 +403,7 @@ pub(super) fn handle_preset_action(
             with_sound_preset_library_mut(|library| {
                 library.presets.insert(preset_name.clone(), preset.clone());
             });
-            apply_source_edit(source, asset_registry, |source| {
+            apply_source_edit(source, |source| {
                 if let Some(group) = source.groups.get_mut(&current_group_id) {
                     group.preset_link = Some(SoundPresetLink {
                         preset_name: preset_name.clone(),
@@ -434,7 +422,7 @@ pub(super) fn handle_preset_action(
                 return Some(format!("Missing preset: {preset_name}"));
             };
 
-            apply_source_edit(source, asset_registry, |source| {
+            apply_source_edit(source, |source| {
                 if let Some(group) = source.groups.get_mut(&current_group_id) {
                     group.apply_preset(&preset_name, &preset);
                 }
@@ -446,7 +434,7 @@ pub(super) fn handle_preset_action(
                 return Some(format!("Missing preset: {preset_name}"));
             }
 
-            apply_source_edit(source, asset_registry, |source| {
+            apply_source_edit(source, |source| {
                 if let Some(group) = source.groups.get_mut(&current_group_id) {
                     group.preset_link = None;
                 }
@@ -455,7 +443,7 @@ pub(super) fn handle_preset_action(
             None
         }
         PresetAction::Detach => {
-            apply_source_edit(source, asset_registry, |source| {
+            apply_source_edit(source, |source| {
                 if let Some(group) = source.groups.get_mut(&current_group_id) {
                     group.preset_link = None;
                 }
@@ -471,7 +459,7 @@ pub(super) fn handle_preset_action(
                 return Some(format!("Missing preset: {preset_name}"));
             };
 
-            apply_source_edit(source, asset_registry, |source| {
+            apply_source_edit(source, |source| {
                 if let Some(group) = source.groups.get_mut(&current_group_id) {
                     group.apply_preset(&preset_name, &preset);
                 }
@@ -531,28 +519,18 @@ pub(super) fn rename_target_group(
     Ok(link_rename)
 }
 
-pub(super) fn apply_source_edit(
-    source: &mut AudioSource,
-    asset_registry: &AssetRegistry,
-    edit: impl FnOnce(&mut AudioSource),
-) {
-    let before = source.all_sound_ids();
+pub(super) fn apply_source_edit(source: &mut AudioSource, edit: impl FnOnce(&mut AudioSource)) {
     edit(source);
-    sync_sound_refs(&before, &source.all_sound_ids(), asset_registry);
 }
 
 pub(super) fn sync_linked_groups_from_preset(
     ecs: &mut Ecs,
-    asset_registry: &AssetRegistry,
     preset_name: &str,
     preset: &AudioGroup,
 ) {
     let store = ecs.get_store_mut::<AudioSource>();
 
     for source in store.data.values_mut() {
-        let before = source.all_sound_ids();
-        let mut changed = false;
-
         for group in source.groups.values_mut() {
             if group
                 .preset_link
@@ -560,12 +538,7 @@ pub(super) fn sync_linked_groups_from_preset(
                 .is_some_and(|link| link.preset_name == preset_name)
             {
                 group.apply_preset(preset_name, preset);
-                changed = true;
             }
-        }
-
-        if changed {
-            sync_sound_refs(&before, &source.all_sound_ids(), asset_registry);
         }
     }
 }
@@ -617,31 +590,6 @@ fn rename_linked_preset_for_group(
         link.preset_name = new_preset_name.to_string();
         Ok(Some((old_preset_name.clone(), new_preset_name.to_string())))
     })
-}
-
-fn sync_sound_refs(before: &[SoundId], after: &[SoundId], asset_registry: &AssetRegistry) {
-    let before_set = sound_command_ids(asset_registry, before.iter().copied())
-        .into_iter()
-        .collect::<BTreeSet<_>>();
-    let after_set = sound_command_ids(asset_registry, after.iter().copied())
-        .into_iter()
-        .collect::<BTreeSet<_>>();
-
-    let added = after_set
-        .difference(&before_set)
-        .cloned()
-        .collect::<Vec<_>>();
-    if !added.is_empty() {
-        push_audio_command(AudioCommand::IncrementRefs(added));
-    }
-
-    let removed = before_set
-        .difference(&after_set)
-        .cloned()
-        .collect::<Vec<_>>();
-    if !removed.is_empty() {
-        push_audio_command(AudioCommand::DecrementRefs(removed));
-    }
 }
 
 pub(super) fn ensure_selected_group(source: &mut AudioSource) {

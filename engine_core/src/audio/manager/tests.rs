@@ -41,7 +41,6 @@ fn diagnostics_snapshot_includes_cached_only_entries() {
 
     assert_eq!(snapshot.cached_sound_count, 3);
     assert_eq!(snapshot.loading_sound_count, 0);
-    assert_eq!(snapshot.pinned_sound_count, 0);
     assert_eq!(snapshot.ref_count_entry_count, 0);
     assert_eq!(snapshot.entries.len(), 3);
     assert_eq!(
@@ -51,21 +50,18 @@ fn diagnostics_snapshot_includes_cached_only_entries() {
                 id: "music/intro".to_string(),
                 cached: true,
                 loading: false,
-                pinned: false,
                 ref_count: 0,
             },
             AudioDiagnosticsEntry {
                 id: "music/next".to_string(),
                 cached: true,
                 loading: false,
-                pinned: false,
                 ref_count: 0,
             },
             AudioDiagnosticsEntry {
                 id: "preview/click".to_string(),
                 cached: true,
                 loading: false,
-                pinned: false,
                 ref_count: 0,
             },
         ]
@@ -73,9 +69,8 @@ fn diagnostics_snapshot_includes_cached_only_entries() {
 }
 
 #[test]
-fn diagnostics_snapshot_includes_pinned_and_ref_counted_entries() {
+fn diagnostics_snapshot_includes_ref_counted_entries() {
     let mut manager = seeded_manager();
-    manager.pinned.insert("pinned/only".to_string());
     manager.ref_counts.insert("ref/only".to_string(), 2);
     manager.ref_counts.insert("shared".to_string(), 1);
     manager.sound_cache.insert(
@@ -87,9 +82,8 @@ fn diagnostics_snapshot_includes_pinned_and_ref_counted_entries() {
 
     assert_eq!(snapshot.cached_sound_count, 4);
     assert_eq!(snapshot.loading_sound_count, 0);
-    assert_eq!(snapshot.pinned_sound_count, 1);
     assert_eq!(snapshot.ref_count_entry_count, 2);
-    assert_eq!(snapshot.entries.len(), 6);
+    assert_eq!(snapshot.entries.len(), 5);
     assert_eq!(
         snapshot.entries,
         vec![
@@ -97,42 +91,30 @@ fn diagnostics_snapshot_includes_pinned_and_ref_counted_entries() {
                 id: "music/intro".to_string(),
                 cached: true,
                 loading: false,
-                pinned: false,
                 ref_count: 0,
             },
             AudioDiagnosticsEntry {
                 id: "music/next".to_string(),
                 cached: true,
                 loading: false,
-                pinned: false,
-                ref_count: 0,
-            },
-            AudioDiagnosticsEntry {
-                id: "pinned/only".to_string(),
-                cached: false,
-                loading: false,
-                pinned: true,
                 ref_count: 0,
             },
             AudioDiagnosticsEntry {
                 id: "preview/click".to_string(),
                 cached: true,
                 loading: false,
-                pinned: false,
                 ref_count: 0,
             },
             AudioDiagnosticsEntry {
                 id: "ref/only".to_string(),
                 cached: false,
                 loading: false,
-                pinned: false,
                 ref_count: 2,
             },
             AudioDiagnosticsEntry {
                 id: "shared".to_string(),
                 cached: true,
                 loading: false,
-                pinned: false,
                 ref_count: 1,
             },
         ]
@@ -151,7 +133,7 @@ fn diagnostics_snapshot_entries_are_sorted_by_sound_id() {
         "alpha".to_string(),
         Frames::from_slice(44_100, &[[0.0, 0.0]]),
     );
-    manager.pinned.insert("middle".to_string());
+    manager.ref_counts.insert("middle".to_string(), 1);
     manager.ref_counts.insert("beta".to_string(), 1);
 
     let snapshot = manager.diagnostics_snapshot();
@@ -169,14 +151,14 @@ fn diagnostics_snapshot_entries_are_sorted_by_sound_id() {
 }
 
 #[test]
-fn release_claimed_sound_unpins_and_evicts_unrefd_audio() {
+fn release_claimed_sound_decrements_and_evicts_unrefd_audio() {
     let mut manager = seeded_manager();
     manager.claim_sound("music/intro");
-    assert_eq!(manager.diagnostics_snapshot().pinned_sound_count, 1);
+    assert_eq!(manager.diagnostics_snapshot().ref_count_entry_count, 1);
 
     manager.release_claimed_sound("music/intro");
     let snapshot = manager.diagnostics_snapshot();
-    assert_eq!(snapshot.pinned_sound_count, 0);
+    assert_eq!(snapshot.ref_count_entry_count, 0);
     assert_eq!(snapshot.cached_sound_count, 2);
 }
 
@@ -190,7 +172,6 @@ fn diagnostics_snapshot_includes_loading_entries() {
 
     assert_eq!(snapshot.cached_sound_count, 2);
     assert_eq!(snapshot.loading_sound_count, 1);
-    assert_eq!(snapshot.pinned_sound_count, 0);
     assert_eq!(snapshot.ref_count_entry_count, 0);
     assert_eq!(
         snapshot.entries,
@@ -199,21 +180,18 @@ fn diagnostics_snapshot_includes_loading_entries() {
                 id: "music/intro".to_string(),
                 cached: true,
                 loading: false,
-                pinned: false,
                 ref_count: 0,
             },
             AudioDiagnosticsEntry {
                 id: "music/next".to_string(),
                 cached: false,
                 loading: true,
-                pinned: false,
                 ref_count: 0,
             },
             AudioDiagnosticsEntry {
                 id: "preview/click".to_string(),
                 cached: true,
                 loading: false,
-                pinned: false,
                 ref_count: 0,
             },
         ]

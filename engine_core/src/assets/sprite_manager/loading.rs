@@ -1,4 +1,5 @@
 use super::*;
+use crate::hydration::{EvictError, Hydratable};
 
 impl SpriteManager {
     /// Load and initialize a texture from the assets folder.
@@ -170,8 +171,8 @@ impl SpriteManager {
 
     /// Clears runtime texture state for a sprite id.
     pub fn evict_texture(&mut self, id: SpriteId) {
-        self.textures.remove(&id);
-        self.pending_texture_reads.remove(&id);
+        self.decrement_ref(id);
+        let _ = self.evict(&id);
     }
 
     /// Returns the registered relative path for a sprite id.
@@ -201,6 +202,7 @@ impl SpriteManager {
         let texture = Self::load_texture_from_game(loader, &path)?;
         self.textures.insert(id, texture);
         self.path_to_sprite_id.insert(path, id);
+        self.increment_ref(id);
         Ok(())
     }
 
@@ -219,5 +221,43 @@ impl SpriteManager {
                     e
                 )
             })
+    }
+}
+
+impl Hydratable for SpriteManager {
+    type Id = SpriteId;
+
+    /// Returns the reference count for a sprite.
+    fn ref_count(&self, id: &Self::Id) -> usize {
+        self.ref_counts.get(id).copied().unwrap_or(0)
+    }
+
+    /// Increments the reference count.
+    fn increment_ref(&mut self, id: Self::Id) {
+        *self.ref_counts.entry(id).or_insert(0) += 1;
+    }
+
+    /// Decrements the reference count.
+    fn decrement_ref(&mut self, id: Self::Id) {
+        debug_assert!(
+            self.ref_counts.get(&id).copied().unwrap_or(0) > 0,
+            "decrement_ref on SpriteId({}) with zero ref-count",
+            id.0
+        );
+        if let Some(count) = self.ref_counts.get_mut(&id) {
+            *count = count.saturating_sub(1);
+        }
+    }
+
+    /// Attempts eviction. Fails if the ref-count is above zero.
+    fn evict(&mut self, id: &Self::Id) -> Result<(), EvictError> {
+        let count = self.ref_count(id);
+        if count > 0 {
+            return Err(EvictError::StillReferenced { count });
+        }
+        self.textures.remove(id);
+        self.pending_texture_reads.remove(id);
+        self.ref_counts.remove(id);
+        Ok(())
     }
 }

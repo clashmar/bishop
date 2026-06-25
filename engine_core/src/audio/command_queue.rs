@@ -26,10 +26,6 @@ pub enum AudioCommand {
     SetMasterVolume(f32),
     SetMusicVolume(f32),
     SetSfxVolume(f32),
-    /// Increment reference counts for a batch of sound IDs, loading each if not cached.
-    IncrementRefs(Vec<String>),
-    /// Decrement reference counts for a batch of sound IDs, evicting unpinned sounds that reach zero.
-    DecrementRefs(Vec<String>),
     /// Explicitly unpin and evict a sound from the cache if its reference count is zero.
     Unload(String),
     /// Play a one-shot sound with random selection from the list and optional pitch/volume variation.

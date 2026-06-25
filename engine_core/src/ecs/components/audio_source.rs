@@ -148,7 +148,7 @@ impl Default for AudioGroup {
 ///
 /// Sounds are organized into local groups so gameplay can reference
 /// `entity:play_sound(sound.GroupName)`.
-#[ecs_component(post_create = post_create, post_remove = post_remove)]
+#[ecs_component(post_remove = post_remove)]
 #[derive(Clone, Debug, PartialEq)]
 pub struct AudioSource {
     /// Grouped sounds keyed by local group name.
@@ -256,28 +256,8 @@ struct AudioSourceSerde {
     groups: HashMap<SoundGroupId, AudioGroup>,
 }
 
-fn post_create(source: &mut AudioSource, _entity: &Entity, _ctx: &mut GameCtxMut<'_>) {
-    push_audio_command(AudioCommand::IncrementRefs(sound_command_ids(
-        _ctx.asset_registry,
-        source.all_sound_ids(),
-    )));
-}
-
-fn post_remove(source: &mut AudioSource, entity: &Entity, _ctx: &mut GameCtxMut<'_>) {
+fn post_remove(_source: &mut AudioSource, entity: &Entity, _ctx: &mut GameCtxMut<'_>) {
     push_audio_command(AudioCommand::StopLoop(**entity as u64));
-    push_audio_command(AudioCommand::DecrementRefs(sound_command_ids(
-        _ctx.asset_registry,
-        source.all_sound_ids(),
-    )));
-}
-
-#[cfg(test)]
-pub(crate) fn test_post_create(
-    source: &mut AudioSource,
-    entity: &Entity,
-    ctx: &mut GameCtxMut<'_>,
-) {
-    post_create(source, entity, ctx);
 }
 
 #[cfg(test)]

@@ -4,6 +4,7 @@ use crate::assets::AssetRegistry;
 use crate::audio::test_utils::CountingFailingLoader;
 use crate::constants::paths;
 use crate::engine_global::set_game_name;
+use crate::hydration::Hydratable;
 use crate::storage::test_utils::{game_fs_test_lock, TestGameFolder};
 use std::fs;
 use std::time::Duration;
@@ -138,6 +139,7 @@ fn evict_texture_clears_runtime_texture_state_without_touching_metadata() {
     sprite_manager
         .pending_texture_reads
         .insert(sprite_id, path.clone());
+    sprite_manager.increment_ref(sprite_id);
 
     sprite_manager.evict_texture(sprite_id);
 
@@ -208,4 +210,31 @@ fn poll_pending_runtime_texture_reads_uploads_bytes_on_the_main_thread() {
 
     assert_eq!(loader.bytes_load_calls.get(), 1);
     assert!(!sprite_manager.has_pending_texture_read(sprite_id));
+}
+
+#[test]
+fn evict_texture_refuses_when_ref_count_positive() {
+    let mut sm = SpriteManager::default();
+    sm.increment_ref(SpriteId(1));
+    sm.increment_ref(SpriteId(1));
+    sm.evict_texture(SpriteId(1));
+    assert_eq!(sm.ref_count(&SpriteId(1)), 1);
+}
+
+#[test]
+fn evict_texture_succeeds_when_ref_count_zero() {
+    let mut sm = SpriteManager::default();
+    let result = sm.evict(&SpriteId(1));
+    assert_eq!(result, Ok(()));
+}
+
+#[test]
+fn ref_count_increments_and_decrements_correctly() {
+    let mut sm = SpriteManager::default();
+    sm.increment_ref(SpriteId(1));
+    assert_eq!(sm.ref_count(&SpriteId(1)), 1);
+    sm.increment_ref(SpriteId(1));
+    assert_eq!(sm.ref_count(&SpriteId(1)), 2);
+    sm.decrement_ref(SpriteId(1));
+    assert_eq!(sm.ref_count(&SpriteId(1)), 1);
 }

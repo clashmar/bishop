@@ -75,7 +75,6 @@ struct AudioDiagnosticsRow {
     id: String,
     cached: bool,
     loading: bool,
-    pinned: bool,
     ref_count: usize,
     ecs_count: usize,
 }
@@ -95,9 +94,6 @@ impl AudioDiagnosticsRow {
         }
         if self.loading {
             line.push_str(" loading");
-        }
-        if self.pinned {
-            line.push_str(" pinned");
         }
         line
     }
@@ -527,7 +523,6 @@ fn all_audio_diagnostics_rows(
             AudioDiagnosticsRow {
                 cached: snapshot_entry.is_some_and(|entry| entry.cached),
                 loading: snapshot_entry.is_some_and(|entry| entry.loading),
-                pinned: snapshot_entry.is_some_and(|entry| entry.pinned),
                 ref_count: snapshot_entry.map(|entry| entry.ref_count).unwrap_or(0),
                 ecs_count: ecs_counts.get(&id).copied().unwrap_or(0),
                 id,

@@ -151,8 +151,6 @@ pub struct AudioManager {
     test_state: AudioManagerTestState,
     /// Reference counts tracking how many `AudioSource` components reference each sound ID.
     ref_counts: HashMap<String, usize>,
-    /// Sound IDs loaded via `preload()` from Lua; pinned sounds are never auto-evicted.
-    pinned: HashSet<String>,
     /// Active looping sound handles, keyed by a caller-supplied u64 handle ID.
     active_loops: HashMap<u64, LoopHandle>,
     #[cfg(feature = "editor")]
@@ -211,7 +209,6 @@ impl AudioManager {
             #[cfg(test)]
             test_state: AudioManagerTestState::default(),
             ref_counts: HashMap::new(),
-            pinned: HashSet::new(),
             active_loops: HashMap::new(),
             #[cfg(feature = "editor")]
             pending_previews: HashMap::new(),
@@ -225,13 +222,12 @@ impl AudioManager {
         }
     }
 
-    /// Returns a snapshot of cached, pinned, and referenced audio IDs.
+    /// Returns a snapshot of cached and referenced audio IDs.
     pub fn diagnostics_snapshot(&self) -> AudioDiagnosticsSnapshot {
         let loading = self.pending_loads.keys().cloned().collect::<HashSet<_>>();
         diagnostics::snapshot_from_state(
             &self.sound_cache,
             &self.ref_counts,
-            &self.pinned,
             &loading,
         )
     }
@@ -288,10 +284,7 @@ impl AudioManager {
                 self.sfx_volume = v.clamp(0.0, 1.0);
                 self.apply_sfx_gain();
             }
-            AudioCommand::IncrementRefs(ids) => self.increment_refs(&ids),
-            AudioCommand::DecrementRefs(ids) => self.decrement_refs(&ids),
             AudioCommand::Unload(id) => {
-                self.pinned.remove(&id);
                 if !self.ref_counts.contains_key(&id) {
                     self.evict(&id);
                 }

@@ -1,6 +1,5 @@
 use bishop::prelude::*;
 use crate::scripting::script_system::ScriptSystem;
-use engine_core::audio::{AudioCommand, push_audio_command};
 use engine_core::camera::CameraManager;
 use engine_core::diagnostics::TraversalResidencyDiagnostics;
 use engine_core::ecs::*;
@@ -93,13 +92,6 @@ impl GameInstance {
             game,
             room_id,
         } = prepared;
-
-        for source in AudioSource::store(&game.ecs).data.values() {
-            push_audio_command(AudioCommand::IncrementRefs(sound_command_ids(
-                &game.asset_registry,
-                source.all_sound_ids(),
-            )));
-        }
 
         let ecs = &game.ecs;
         let player_pos = ecs

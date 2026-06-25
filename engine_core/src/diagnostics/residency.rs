@@ -85,7 +85,7 @@ impl RuntimeResidencySnapshot {
                     known: audio_known,
                     resident: audio.cached_sound_count,
                     pending: audio.loading_sound_count,
-                    pinned: audio.pinned_sound_count,
+                    pinned: 0,
                     active: audio_active,
                 },
             ),
@@ -145,7 +145,6 @@ mod tests {
         let audio = AudioDiagnosticsSnapshot {
             cached_sound_count: 2,
             loading_sound_count: 1,
-            pinned_sound_count: 1,
             ref_count_entry_count: 0,
             entries: Vec::new(),
         };
@@ -171,7 +170,7 @@ mod tests {
         assert_eq!(snapshot.audio.counts.known, 4);
         assert_eq!(snapshot.audio.counts.resident, 2);
         assert_eq!(snapshot.audio.counts.pending, 1);
-        assert_eq!(snapshot.audio.counts.pinned, 1);
+        assert_eq!(snapshot.audio.counts.pinned, 0);
         assert_eq!(snapshot.audio.counts.active, 3);
     }
 }

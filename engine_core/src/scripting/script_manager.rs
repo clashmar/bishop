@@ -3,6 +3,7 @@ use crate::assets::asset_registry::AssetKey;
 use crate::assets::AssetRegistry;
 use crate::ecs::ScriptId;
 use crate::ecs::entity::Entity;
+use crate::hydration::{EvictError, Hydratable};
 use crate::scripting::event_bus::EventBus;
 use crate::scripting::lua_constants::{lua_dirs, lua_entity, lua_fields, lua_files};
 use crate::storage::path_utils::{scripts_folder, themes_folder};
@@ -49,6 +50,8 @@ pub struct ScriptManager {
     #[serde(skip)]
     /// Counter for script ids. Starts from 1.
     pub next_script_id: usize,
+    #[serde(skip)]
+    coordinator_refs: HashMap<ScriptId, usize>,
 }
 
 impl ScriptManager {
@@ -63,6 +66,7 @@ impl ScriptManager {
             script_id_to_path: HashMap::new(),
             path_to_script_id: HashMap::new(),
             next_script_id: 1,
+            coordinator_refs: HashMap::new(),
         }
     }
 
@@ -96,6 +100,7 @@ impl ScriptManager {
             self.update_fns.insert(id, update);
         }
 
+        self.increment_ref(id);
         Ok(self.table_defs.entry(id).or_insert(table))
     }
 
@@ -330,12 +335,10 @@ impl ScriptManager {
         self.script_id_to_path.get(&script_id).map(PathBuf::as_path)
     }
 
-    /// Evicts a cached script definition when no live entity instances still reference this script.
+    /// Attempts to evict a cached script definition.
     pub fn evict_script(&mut self, id: ScriptId) {
-        if !self.instances.keys().any(|(_, script_id)| *script_id == id) {
-            self.table_defs.remove(&id);
-            self.update_fns.remove(&id);
-        }
+        self.decrement_ref(id);
+        let _ = self.evict(&id);
     }
 
     pub fn reload(&mut self, lua: &Lua, entity: Entity, id: ScriptId) -> LuaResult<&Table> {
@@ -448,6 +451,51 @@ impl IdPathAssetManager for ScriptManager {
 
     fn rebuild_editor_metadata(&mut self) {
         self.restore_next_script_id();
+    }
+}
+
+impl Hydratable for ScriptManager {
+    type Id = ScriptId;
+
+    /// Returns the coordinator reference count for a script.
+    fn ref_count(&self, id: &Self::Id) -> usize {
+        self.coordinator_refs.get(id).copied().unwrap_or(0)
+    }
+
+    /// Increments the coordinator reference count.
+    fn increment_ref(&mut self, id: Self::Id) {
+        *self.coordinator_refs.entry(id).or_insert(0) += 1;
+    }
+
+    /// Decrements the coordinator reference count.
+    fn decrement_ref(&mut self, id: Self::Id) {
+        debug_assert!(
+            self.coordinator_refs.get(&id).copied().unwrap_or(0) > 0,
+            "decrement_ref on ScriptId({}) with zero ref-count",
+            id.0
+        );
+        if let Some(count) = self.coordinator_refs.get_mut(&id) {
+            *count = count.saturating_sub(1);
+        }
+    }
+
+    /// Attempts eviction. Fails if the ref-count is above zero or live instances exist.
+    fn evict(&mut self, id: &Self::Id) -> Result<(), EvictError> {
+        let count = self.ref_count(id);
+        if count > 0 {
+            return Err(EvictError::StillReferenced { count });
+        }
+        let has_instances = self
+            .instances
+            .keys()
+            .any(|(_, script_id)| script_id == id);
+        if has_instances {
+            return Err(EvictError::HasLiveConsumers);
+        }
+        self.table_defs.remove(id);
+        self.update_fns.remove(id);
+        self.coordinator_refs.remove(id);
+        Ok(())
     }
 }
 
@@ -628,5 +676,50 @@ mod tests {
         manager.unload_all_for_entity(entity);
 
         assert_eq!(manager.instance_count(), 0);
+    }
+
+    #[test]
+    fn evict_script_refuses_when_coordinator_ref_count_positive() {
+        let _lock = game_fs_test_lock().lock().unwrap();
+        let folder = TestGameFolder::new("script_manager_hydratable");
+        set_game_name(folder.name());
+        fs::create_dir_all(scripts_folder()).unwrap();
+        fs::write(scripts_folder().join("test.lua"), "return {}").unwrap();
+
+        let lua = Lua::new();
+        let mut registry = AssetRegistry::default();
+        let mut sm = ScriptManager::default();
+        let id = sm.init_script(&mut registry, "test.lua").unwrap();
+        sm.load_script_table(&lua, id).unwrap();
+
+        sm.increment_ref(id);
+        let result = sm.evict(&id);
+        assert_eq!(
+            result,
+            Err(crate::hydration::EvictError::StillReferenced { count: 2 })
+        );
+        assert_eq!(sm.loaded_script_count(), 1);
+    }
+
+    #[test]
+    fn evict_script_refuses_when_instances_exist_even_if_ref_count_zero() {
+        let _lock = game_fs_test_lock().lock().unwrap();
+        let folder = TestGameFolder::new("script_manager_instances");
+        set_game_name(folder.name());
+        fs::create_dir_all(scripts_folder()).unwrap();
+        fs::write(scripts_folder().join("test.lua"), "return {}").unwrap();
+
+        let lua = Lua::new();
+        let mut registry = AssetRegistry::default();
+        let mut sm = ScriptManager::default();
+        let id = sm.init_script(&mut registry, "test.lua").unwrap();
+        sm.load_script_table(&lua, id).unwrap();
+
+        let entity = Entity(1);
+        sm.get_or_create_instance(&lua, entity, id).unwrap();
+
+        sm.decrement_ref(id);
+        let result = sm.evict(&id);
+        assert_eq!(result, Err(crate::hydration::EvictError::HasLiveConsumers));
     }
 }

@@ -127,6 +127,7 @@ mod tests {
     use crate::audio::AudioManager;
     use crate::ecs::{SoundId, SpriteId};
     use crate::engine_global::set_game_name;
+    use crate::hydration::Hydratable;
     use crate::storage::test_utils::{game_fs_test_lock, TestGameFolder};
     use crate::task::FileReadPool;
     use crate::worlds::RoomId;
@@ -267,6 +268,31 @@ mod tests {
 
         driver.dehydrate_scope(&scope);
         let snapshot = driver.audio_manager.diagnostics_snapshot();
-        assert_eq!(snapshot.pinned_sound_count, 0);
+        assert_eq!(snapshot.ref_count_entry_count, 0);
+    }
+
+    #[test]
+    fn dehydrate_asset_decrements_sprite_ref_count() {
+        let mut registry = AssetRegistry::default();
+        registry.register_asset_relative_path(SpriteId(1), "sprites/test.png").unwrap();
+
+        let mut sprite_manager = SpriteManager::default();
+        SpriteManager::init_editor_metadata(&registry, &mut sprite_manager);
+        sprite_manager.increment_ref(SpriteId(1));
+
+        let mut script_manager = crate::scripting::ScriptManager::default();
+        let mut audio_manager = AudioManager::new::<TestBackend>();
+        let coordinator = HydrationCoordinator::default();
+
+        let mut driver = HydrationDriver {
+            coordinator: &coordinator,
+            asset_registry: &registry,
+            sprite_manager: &mut sprite_manager,
+            script_manager: &mut script_manager,
+            audio_manager: &mut audio_manager,
+        };
+
+        driver.dehydrate_asset(AssetKey::Sprite(SpriteId(1)));
+        assert_eq!(driver.sprite_manager.ref_count(&SpriteId(1)), 0);
     }
 }

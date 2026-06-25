@@ -1,6 +1,10 @@
 use crate::assets::AssetKey;
+use crate::ecs::Entity;
 use crate::hydration::scope::{HydrationScope, ResourceClaim, ResourceClass};
+use crate::hydration::traversal_residency::collect_entity_assets;
 use crate::omni_debug;
+use crate::worlds::RoomId;
+use crate::ecs::Ecs;
 use std::collections::{HashMap, HashSet};
 
 type ClaimMap = HashMap<(HydrationScope, ResourceClass), HashSet<AssetKey>>;
@@ -53,8 +57,9 @@ impl HydrationCoordinator {
             return;
         };
         omni_debug!(
-            "hydration coordinator claim scope={:?} asset={:?}",
+            "hydration coordinator claim scope={:?} class={:?} asset={:?}",
             scope,
+            class,
             asset
         );
         self.claims.entry((scope, class)).or_default().insert(asset);
@@ -66,8 +71,9 @@ impl HydrationCoordinator {
             return;
         };
         omni_debug!(
-            "hydration coordinator release scope={:?} asset={:?}",
+            "hydration coordinator release scope={:?} class={:?} asset={:?}",
             scope,
+            class,
             asset
         );
 
@@ -140,12 +146,40 @@ impl HydrationCoordinator {
             claims,
         }
     }
+
+    /// Claims all hydratable assets referenced by an entity's components
+    /// under the given room scope. The scope must already be active.
+    pub fn claim_entity_assets(&mut self, ecs: &Ecs, entity: Entity, room_id: RoomId) {
+        let scope = HydrationScope::Room(room_id);
+        debug_assert!(
+            self.is_active(&scope),
+            "claim_entity_assets called for inactive scope {:?}",
+            scope
+        );
+        for asset in collect_entity_assets(ecs, entity) {
+            self.claim_asset(scope.clone(), asset);
+        }
+    }
+
+    /// Releases all hydratable assets previously claimed for an entity
+    /// under the given room scope. The scope must already be active.
+    pub fn release_entity_assets(&mut self, ecs: &Ecs, entity: Entity, room_id: RoomId) {
+        let scope = HydrationScope::Room(room_id);
+        debug_assert!(
+            self.is_active(&scope),
+            "release_entity_assets called for inactive scope {:?}",
+            scope
+        );
+        for asset in collect_entity_assets(ecs, entity) {
+            self.release_asset(scope.clone(), asset);
+        }
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ecs::{Entity, ScriptId, SoundId, SpriteId};
+    use crate::ecs::{Entity, Script, ScriptId, SoundId, Sprite, SpriteId};
     use crate::worlds::{RoomId, WorldId};
 
     #[test]
@@ -283,5 +317,96 @@ mod tests {
         assert_eq!(snapshot.active_scopes[0], HydrationScope::Room(RoomId(2)));
         assert_eq!(snapshot.active_scopes[1], HydrationScope::Room(RoomId(3)));
         assert_eq!(snapshot.active_scopes[2], HydrationScope::World(WorldId(1)));
+    }
+
+    #[test]
+    fn claim_entity_assets_claims_all_asset_referencing_components() {
+        let mut ecs = Ecs::default();
+        let entity = ecs
+            .create_entity()
+            .with(Sprite { sprite: SpriteId(5) })
+            .with(Script { script_id: ScriptId(3), ..Default::default() })
+            .with_current_room(RoomId(1))
+            .finish();
+
+        let mut coordinator = HydrationCoordinator::default();
+        let scope = HydrationScope::Room(RoomId(1));
+        coordinator.activate_scope(scope.clone());
+
+        coordinator.claim_entity_assets(&ecs, entity, RoomId(1));
+
+        let claims = coordinator.claimed_assets(&scope);
+        assert!(claims.contains(&AssetKey::Sprite(SpriteId(5))));
+        assert!(claims.contains(&AssetKey::Script(ScriptId(3))));
+    }
+
+    #[test]
+    fn release_entity_assets_releases_all_asset_claims() {
+        let mut ecs = Ecs::default();
+        let entity = ecs
+            .create_entity()
+            .with(Sprite { sprite: SpriteId(5) })
+            .with_current_room(RoomId(1))
+            .finish();
+
+        let mut coordinator = HydrationCoordinator::default();
+        let scope = HydrationScope::Room(RoomId(1));
+        coordinator.activate_scope(scope.clone());
+        coordinator.claim_entity_assets(&ecs, entity, RoomId(1));
+
+        coordinator.release_entity_assets(&ecs, entity, RoomId(1));
+
+        let claims = coordinator.claimed_assets(&scope);
+        assert!(!claims.contains(&AssetKey::Sprite(SpriteId(5))));
+    }
+
+    #[test]
+    fn cross_scope_claims_accumulate_for_same_entity() {
+        let mut ecs = Ecs::default();
+        let entity = ecs
+            .create_entity()
+            .with(Sprite { sprite: SpriteId(5) })
+            .with_current_room(RoomId(1))
+            .finish();
+
+        let mut coordinator = HydrationCoordinator::default();
+        let scope_a = HydrationScope::Room(RoomId(1));
+        let scope_b = HydrationScope::Room(RoomId(2));
+        coordinator.activate_scope(scope_a.clone());
+        coordinator.activate_scope(scope_b.clone());
+
+        coordinator.claim_entity_assets(&ecs, entity, RoomId(1));
+        coordinator.claim_entity_assets(&ecs, entity, RoomId(2));
+
+        let claims_a = coordinator.claimed_assets(&scope_a);
+        let claims_b = coordinator.claimed_assets(&scope_b);
+        assert!(claims_a.contains(&AssetKey::Sprite(SpriteId(5))));
+        assert!(claims_b.contains(&AssetKey::Sprite(SpriteId(5))));
+    }
+
+    #[test]
+    fn snapshot_includes_claims_by_resource_class() {
+        let mut coordinator = HydrationCoordinator::default();
+        let scope = HydrationScope::Room(RoomId(1));
+        coordinator.activate_scope(scope.clone());
+        coordinator.claim_asset(scope.clone(), AssetKey::Sprite(SpriteId(1)));
+        coordinator.claim_asset(scope.clone(), AssetKey::Sprite(SpriteId(2)));
+        coordinator.claim_asset(scope.clone(), AssetKey::Script(ScriptId(3)));
+
+        let snapshot = coordinator.snapshot();
+        let room_claims = &snapshot.claims;
+        let sprite_count = room_claims
+            .iter()
+            .filter(|c| c.class == ResourceClass::Texture)
+            .map(|c| c.assets.len())
+            .sum::<usize>();
+        let script_count = room_claims
+            .iter()
+            .filter(|c| c.class == ResourceClass::Script)
+            .map(|c| c.assets.len())
+            .sum::<usize>();
+
+        assert_eq!(sprite_count, 2);
+        assert_eq!(script_count, 1);
     }
 }

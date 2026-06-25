@@ -113,7 +113,6 @@ impl InspectorModule for AudioSourceModule {
                 Rect::new(x, y, w, ROW_HEIGHT),
                 self,
                 source,
-                game_ctx.asset_registry,
             ) {
                 warning_message = Some(message);
             }
@@ -152,7 +151,6 @@ impl InspectorModule for AudioSourceModule {
                     self,
                     source,
                     &library,
-                    game_ctx.asset_registry,
                     &mut pending_sync_all,
                 ) {
                     warning_message = Some(message);
@@ -191,7 +189,6 @@ impl InspectorModule for AudioSourceModule {
                         source,
                         action,
                         &mut pending_sync_all,
-                        game_ctx.asset_registry,
                     ) {
                         warning_message = Some(message);
                     }
@@ -219,7 +216,7 @@ impl InspectorModule for AudioSourceModule {
                     let relative = path.strip_prefix(&base).unwrap_or(&path);
                     match register_sound_id(game_ctx.asset_registry, relative) {
                         Ok(sound_id) => {
-                            apply_source_edit(source, game_ctx.asset_registry, |source| {
+                            apply_source_edit(source, |source| {
                                 if let Some(group) = source.groups.get_mut(&current_group_id) {
                                     group.sounds.push(sound_id);
                                 }
@@ -310,7 +307,7 @@ impl InspectorModule for AudioSourceModule {
             }
 
             if let Some(index) = remove_idx {
-                apply_source_edit(source, game_ctx.asset_registry, |source| {
+                apply_source_edit(source, |source| {
                     if let Some(group) = source.groups.get_mut(&current_group_id) {
                         group.sounds.remove(index);
                     }
@@ -412,7 +409,6 @@ impl InspectorModule for AudioSourceModule {
                 self,
                 source,
                 &library,
-                game_ctx.asset_registry,
                 &mut pending_sync_all,
             ) {
                 warning_message = Some(message);
@@ -420,12 +416,7 @@ impl InspectorModule for AudioSourceModule {
         }
 
         if let Some((preset_name, preset)) = pending_sync_all {
-            sync_linked_groups_from_preset(
-                game_ctx.ecs,
-                game_ctx.asset_registry,
-                &preset_name,
-                &preset,
-            );
+            sync_linked_groups_from_preset(game_ctx.ecs, &preset_name, &preset);
         }
         if let Some((old_preset_name, new_preset_name)) = pending_link_rename {
             rename_preset_links_in_ecs(game_ctx.ecs, &old_preset_name, &new_preset_name);

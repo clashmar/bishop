@@ -105,7 +105,8 @@ pub fn derive_traversal_claims(
     }
 }
 
-fn collect_entity_assets(ecs: &Ecs, entity: Entity) -> BTreeSet<AssetKey> {
+/// Collects hydratable asset keys from an entity's components.
+pub(crate) fn collect_entity_assets(ecs: &Ecs, entity: Entity) -> BTreeSet<AssetKey> {
     let mut assets = BTreeSet::new();
 
     if let Some(sprite) = ecs.get::<Sprite>(entity) {
