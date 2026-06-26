@@ -1,6 +1,7 @@
 use super::*;
 use engine_core::constants::paths;
 use engine_core::engine_global::set_game_name;
+use engine_core::hydration::Hydratable;
 use engine_core::scripting::lua_constants::{lua_dirs, lua_fields, lua_files};
 use engine_core::storage::test_utils::{game_fs_test_lock, TestGameFolder};
 use engine_core::worlds::*;
@@ -40,6 +41,51 @@ fn game_with_two_worlds() -> Game {
     }
     game.select_world(WorldId(1));
     game
+}
+
+fn script_fixture(script_source: &str) -> (Lua, Ecs, ScriptManager, Entity, ScriptId) {
+    let lua = Lua::new();
+    let mut ecs = Ecs::default();
+    let entity = ecs.create_entity().with(Active::default()).finish();
+    let script_id = ScriptId(1);
+    let mut script_manager = ScriptManager::default();
+    let def: Table = lua.load(script_source).eval().unwrap();
+    script_manager.table_defs.insert(script_id, def);
+    script_manager.increment_ref(script_id);
+    ecs.add_component_to_entity(
+        entity,
+        Script {
+            script_id,
+            ..Default::default()
+        },
+    );
+    (lua, ecs, script_manager, entity, script_id)
+}
+
+#[test]
+fn activate_entity_scripts_skips_inactive_entities() {
+    let (lua, mut ecs, mut script_manager, entity, script_id) =
+        script_fixture("return { init = function(self) end }");
+    ecs.get_mut::<Active>(entity).unwrap().value = false;
+
+    ScriptSystem::activate_entity_scripts(&lua, &mut ecs, &mut script_manager).unwrap();
+
+    assert!(!script_manager.instances.contains_key(&(entity, script_id)));
+    assert!(!script_manager.pending_inits.contains(&(entity, script_id)));
+}
+
+#[test]
+fn activate_entity_scripts_keeps_pinned_inactive_entities_resident() {
+    let (lua, mut ecs, mut script_manager, entity, script_id) =
+        script_fixture("return { init = function(self) end }");
+    let active = ecs.get_mut::<Active>(entity).unwrap();
+    active.value = false;
+    active.pin();
+
+    ScriptSystem::activate_entity_scripts(&lua, &mut ecs, &mut script_manager).unwrap();
+
+    assert!(script_manager.instances.contains_key(&(entity, script_id)));
+    assert!(script_manager.pending_inits.contains(&(entity, script_id)));
 }
 
 #[test]
@@ -205,4 +251,46 @@ fn prepare_spawned_script_inits_rejects_root_args_without_root_init() {
     .unwrap_err();
 
     assert!(error.to_string().contains("root script init"));
+}
+
+#[test]
+fn deactivate_payload_scripts_removes_instances_pending_inits_and_entity_listeners() {
+    let (lua, mut ecs, mut script_manager, entity, script_id) =
+        script_fixture("return { init = function(self) end }");
+
+    ScriptSystem::activate_payload_scripts(&lua, &mut ecs, &mut script_manager, &[entity])
+        .unwrap();
+    let listener = lua.create_function(|_, ()| Ok(())).unwrap();
+    script_manager
+        .event_bus
+        .on_for_entity("tick".to_string(), entity, listener);
+
+    assert!(script_manager.instances.contains_key(&(entity, script_id)));
+    assert!(script_manager.pending_inits.contains(&(entity, script_id)));
+    assert_eq!(script_manager.event_bus.listener_count_for_entity(entity), 1);
+
+    ScriptSystem::deactivate_payload_scripts(&ecs, &mut script_manager, &[entity]);
+
+    assert!(!script_manager.instances.contains_key(&(entity, script_id)));
+    assert_eq!(script_manager.event_bus.listener_count_for_entity(entity), 0);
+    assert!(!script_manager.pending_inits.iter().any(|(queued, _)| *queued == entity));
+}
+
+#[test]
+fn activate_payload_scripts_requeues_init_exactly_once_after_rehydrate() {
+    let (lua, mut ecs, mut script_manager, entity, script_id) = script_fixture(
+        "return { init = function(self) self.public = self.public or {} end }",
+    );
+
+    ScriptSystem::activate_payload_scripts(&lua, &mut ecs, &mut script_manager, &[entity])
+        .unwrap();
+    ScriptSystem::activate_payload_scripts(&lua, &mut ecs, &mut script_manager, &[entity])
+        .unwrap();
+
+    let queued = script_manager
+        .pending_inits
+        .iter()
+        .filter(|(queued, id)| *queued == entity && *id == script_id)
+        .count();
+    assert_eq!(queued, 1);
 }

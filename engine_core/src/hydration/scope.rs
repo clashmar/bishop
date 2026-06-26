@@ -1,5 +1,6 @@
 use crate::assets::AssetKey;
 use crate::ecs::Entity;
+use crate::hydration::residency_key::{PayloadKey, ResidencyKey};
 use crate::worlds::{RoomId, WorldId};
 
 /// Which scope owns hydrated resources.
@@ -20,6 +21,9 @@ pub enum HydrationScope {
 /// What kind of hydrated resource is being tracked.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum ResourceClass {
+    GlobalPayload,
+    WorldPayload,
+    RoomPayload,
     Texture,
     Script,
     Audio,
@@ -38,23 +42,62 @@ impl ResourceClass {
         }
     }
 
+    /// Classifies a residency key into its hydration resource class.
+    pub fn for_residency_key(key: ResidencyKey) -> Option<Self> {
+        match key {
+            ResidencyKey::Asset(asset) => Self::for_asset_key(asset),
+            ResidencyKey::Payload(PayloadKey::Global) => Some(Self::GlobalPayload),
+            ResidencyKey::Payload(PayloadKey::World(_)) => Some(Self::WorldPayload),
+            ResidencyKey::Payload(PayloadKey::Room(_)) => Some(Self::RoomPayload),
+        }
+    }
+
     /// Returns the short overlay label for this resource class.
     pub fn display_abbreviation(self) -> &'static str {
         match self {
+            Self::GlobalPayload => "PG",
+            Self::WorldPayload => "PW",
+            Self::RoomPayload => "PR",
             Self::Texture => "T",
             Self::Script => "S",
             Self::Audio => "A",
             Self::Prefab => "P",
         }
     }
+
+    /// Returns the load ordering priority for this resource class.
+    pub fn hydration_priority(self) -> u8 {
+        match self {
+            Self::GlobalPayload => 0,
+            Self::WorldPayload => 1,
+            Self::RoomPayload => 2,
+            Self::Texture => 3,
+            Self::Script => 4,
+            Self::Audio => 5,
+            Self::Prefab => 6,
+        }
+    }
+
+    /// Returns the unload ordering priority for this resource class.
+    pub fn dehydration_priority(self) -> u8 {
+        match self {
+            Self::Texture => 0,
+            Self::Script => 1,
+            Self::Audio => 2,
+            Self::Prefab => 3,
+            Self::RoomPayload => 4,
+            Self::WorldPayload => 5,
+            Self::GlobalPayload => 6,
+        }
+    }
 }
 
-/// Summary of what a scope claims. Per-scope per-class owned assets.
+/// Summary of what a scope claims. Per-scope per-class owned residency keys.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ResourceClaim {
     pub scope: HydrationScope,
     pub class: ResourceClass,
-    pub assets: Vec<AssetKey>,
+    pub keys: Vec<ResidencyKey>,
 }
 
 #[cfg(test)]
@@ -110,15 +153,34 @@ mod tests {
     }
 
     #[test]
-    fn resource_claim_stores_scope_class_and_assets() {
+    fn resource_class_maps_payload_keys() {
+        assert_eq!(
+            ResourceClass::for_residency_key(ResidencyKey::Payload(PayloadKey::Global)),
+            Some(ResourceClass::GlobalPayload)
+        );
+        assert_eq!(
+            ResourceClass::for_residency_key(ResidencyKey::Payload(PayloadKey::World(WorldId(2)))),
+            Some(ResourceClass::WorldPayload)
+        );
+        assert_eq!(
+            ResourceClass::for_residency_key(ResidencyKey::Payload(PayloadKey::Room(RoomId(3)))),
+            Some(ResourceClass::RoomPayload)
+        );
+    }
+
+    #[test]
+    fn resource_claim_stores_scope_class_and_keys() {
         let claim = ResourceClaim {
             scope: HydrationScope::Room(RoomId(7)),
             class: ResourceClass::Texture,
-            assets: vec![AssetKey::Sprite(SpriteId(12))],
+            keys: vec![ResidencyKey::Asset(AssetKey::Sprite(SpriteId(12)))],
         };
 
         assert_eq!(claim.scope, HydrationScope::Room(RoomId(7)));
         assert_eq!(claim.class, ResourceClass::Texture);
-        assert_eq!(claim.assets, vec![AssetKey::Sprite(SpriteId(12))]);
+        assert_eq!(
+            claim.keys,
+            vec![ResidencyKey::Asset(AssetKey::Sprite(SpriteId(12)))]
+        );
     }
 }

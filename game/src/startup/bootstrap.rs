@@ -58,7 +58,6 @@ pub(crate) enum LoadedStartupFiles {
     Game {
         resources_dir: PathBuf,
         startup_ron: Option<String>,
-        game_ron: String,
     },
     Playtest {
         payload_ron: String,
@@ -269,12 +268,12 @@ fn load_startup_data(source: StartupSource) -> Result<LoadedStartupFiles, String
             let startup_path = resources_dir.join(paths::STARTUP_RON);
             let startup_ron = fs::read_to_string(&startup_path).ok();
             let game_path = resources_dir.join(paths::GAME_RON);
-            let game_ron = fs::read_to_string(&game_path)
-                .map_err(|error| format!("Could not read '{}': {error}", game_path.display()))?;
+            if !game_path.is_file() {
+                return Err(format!("Could not read '{}': file not found", game_path.display()));
+            }
             Ok(LoadedStartupFiles::Game {
                 resources_dir,
                 startup_ron,
-                game_ron,
             })
         }
         StartupSource::Playtest { payload_path } => {
@@ -318,11 +317,11 @@ pub(crate) fn parse_startup_data(files: LoadedStartupFiles) -> Result<LoadedStar
         LoadedStartupFiles::Game {
             resources_dir,
             startup_ron,
-            game_ron,
+            ..
         } => {
             let startup_asset = parse_startup(startup_ron.as_deref(), &resources_dir);
-            let game = from_str::<Game>(&game_ron)
-                .map_err(|error| format!("Failed to parse game.ron: {error}"))?;
+            let game = load_game_shell_from_folder(&resources_dir)
+                .map_err(|error| format!("Failed to load game data: {error}"))?;
             Ok(LoadedStartupData::Game {
                 startup_asset,
                 game,
@@ -506,8 +505,12 @@ fn try_build_engine(
             {
                 let mut game_ref = engine.game_instance.borrow_mut();
                 let game_ctx = game_ref.game.ctx_mut();
-                ScriptSystem::load_scripts(&engine.lua, game_ctx.ecs, game_ctx.script_manager)
-                    .map_err(|e| format!("Failed to prime scripts for runtime restore: {e}"))?;
+                ScriptSystem::activate_entity_scripts(
+                    &engine.lua,
+                    game_ctx.ecs,
+                    game_ctx.script_manager,
+                )
+                .map_err(|e| format!("Failed to prime scripts for runtime restore: {e}"))?;
             }
 
             apply_document_phase(

@@ -1,18 +1,18 @@
 use crate::engine::game_instance::GameInstance;
-use engine_core::assets::AssetKey;
+use crate::scripting::script_system::ScriptSystem;
 use engine_core::audio::AudioManager;
 use engine_core::diagnostics::{
     PinnedEntitySnapshot, TraversalAssetEvent, TraversalClassCount, TraversalOutcomeSnapshot,
     TraversalResidencySnapshot, WarmRoomSnapshot, WarmWorldSnapshot,
 };
-use engine_core::ecs::{Active, CurrentRoom, Entity};
+use engine_core::ecs::{Active, CurrentRoom, Entity, Global};
 use engine_core::game::Game;
 use engine_core::hydration::{
     self, DerivedTraversalClaims, HydrationCoordinator, HydrationDriver, HydrationError,
-    HydrationScope, ResourceClass,
+    HydrationScope, PayloadKey, ResourceClass, ResidencyKey,
 };
 use engine_core::logging::omni_error;
-use engine_core::worlds::topology::{RoomEdgeKind, TraversalTopology, extract_topology};
+use engine_core::worlds::topology::{extract_topology, RoomEdgeKind, TraversalTopology};
 use engine_core::worlds::{RoomId, WorldId};
 use mlua::Lua;
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
@@ -87,14 +87,16 @@ fn refresh_after_traversal_impl(
         .map(|d| scope_labels_from_snapshot(&d.snapshot))
         .unwrap_or_default();
     let desired_scope_labels = scope_labels_from_reasons(&claims, &reasons);
-    let previous_assets = current_traversal_scope_assets(&game_instance.game.hydration_coordinator);
-    let desired_assets = desired_traversal_scope_assets(&claims);
+    let previous_keys = current_traversal_scope_keys(&game_instance.game.hydration_coordinator);
+    let desired_keys = desired_traversal_scope_keys(&claims);
+    let previous_owner_counts = key_owner_counts(&previous_keys);
+    let desired_owner_counts = key_owner_counts(&desired_keys);
 
     let mut events: Vec<TraversalAssetEvent> = Vec::new();
     let mut outcomes: BTreeMap<String, ScopeOutcomeAccumulator> = BTreeMap::new();
-    let mut all_scopes: Vec<HydrationScope> = previous_assets
+    let mut all_scopes: Vec<HydrationScope> = previous_keys
         .keys()
-        .chain(desired_assets.keys())
+        .chain(desired_keys.keys())
         .cloned()
         .collect::<HashSet<_>>()
         .into_iter()
@@ -102,8 +104,8 @@ fn refresh_after_traversal_impl(
     all_scopes.sort_by_key(|scope| format!("{:?}", scope));
 
     for scope in all_scopes {
-        let old_set = previous_assets.get(&scope);
-        let new_set = desired_assets.get(&scope);
+        let old_set = previous_keys.get(&scope);
+        let new_set = desired_keys.get(&scope);
         let previous_label = previous_scope_labels
             .get(&scope)
             .cloned()
@@ -113,47 +115,59 @@ fn refresh_after_traversal_impl(
             .cloned()
             .unwrap_or_else(|| previous_label.clone());
 
-        let sets_identical =
-            old_set.is_some_and(|old| new_set.is_some_and(|new| old == new));
+        let sets_identical = old_set.is_some_and(|old| new_set.is_some_and(|new| old == new));
         if sets_identical && game_instance.game.hydration_coordinator.is_active(&scope) {
             continue;
         }
 
         if !sets_identical {
-            let removed: Vec<AssetKey> = match (old_set, new_set) {
-                (Some(old), Some(new)) => {
-                    old.iter().filter(|k| !new.contains(k)).copied().collect()
-                }
+            let removed: Vec<ResidencyKey> = match (old_set, new_set) {
+                (Some(old), Some(new)) => old.iter().filter(|k| !new.contains(k)).copied().collect(),
                 (Some(old), None) => old.iter().copied().collect(),
                 (None, _) => Vec::new(),
             };
             if !removed.is_empty() {
                 let bucket = outcomes.entry(previous_label.clone()).or_default();
-                for asset in removed {
-                    if let Some(audio_manager) = audio_manager.as_deref_mut() {
-                        let mut driver = HydrationDriver {
-                            coordinator: &game_instance.game.hydration_coordinator,
-                            asset_registry: &game_instance.game.asset_registry,
-                            sprite_manager: &mut game_instance.game.sprite_manager,
-                            script_manager: &mut game_instance.game.script_manager,
-                            audio_manager,
-                        };
-                        driver.dehydrate_asset(asset);
+                for key in removed {
+                    let should_dehydrate_payload = matches!(key, ResidencyKey::Payload(_))
+                        && desired_owner_counts.get(&key).copied().unwrap_or(0) == 0
+                        && is_primary_scope_for_key(&previous_keys, &scope, key);
+
+                    if should_dehydrate_payload {
+                        if let ResidencyKey::Payload(payload) = key {
+                            let entities = payload_entities_for_key(&game_instance.game, payload);
+                            ScriptSystem::deactivate_payload_scripts(
+                                &game_instance.game.ecs,
+                                &mut game_instance.game.script_manager,
+                                &entities,
+                            );
+                        }
+                    }
+                    if matches!(key, ResidencyKey::Asset(_)) || should_dehydrate_payload {
+                        if let Some(audio_manager) = audio_manager.as_deref_mut() {
+                            let mut driver = HydrationDriver {
+                                game: &mut game_instance.game,
+                                audio_manager,
+                            };
+                            driver.dehydrate_key(key);
+                        }
                     }
                     game_instance
                         .game
                         .hydration_coordinator
-                        .release_asset(scope.clone(), asset);
-                    events.push(TraversalAssetEvent {
-                        asset,
-                        hydrated: false,
-                    });
-                    increment_asset_count(&mut bucket.evicted, asset);
+                        .release(scope.clone(), key);
+                    if let ResidencyKey::Asset(asset) = key {
+                        events.push(TraversalAssetEvent {
+                            asset,
+                            hydrated: false,
+                        });
+                    }
+                    increment_key_count(&mut bucket.evicted, key);
                 }
             }
         }
 
-        if desired_assets.contains_key(&scope) {
+        if desired_keys.contains_key(&scope) {
             if !game_instance.game.hydration_coordinator.is_active(&scope) {
                 game_instance
                     .game
@@ -162,45 +176,70 @@ fn refresh_after_traversal_impl(
             }
 
             if !sets_identical {
-                let added: Vec<AssetKey> = match (old_set, new_set) {
-                    (Some(old), Some(new)) => {
-                        new.iter().filter(|k| !old.contains(k)).copied().collect()
-                    }
+                let added: Vec<ResidencyKey> = match (old_set, new_set) {
+                    (Some(old), Some(new)) => new.iter().filter(|k| !old.contains(k)).copied().collect(),
                     (None, Some(new)) => new.iter().copied().collect(),
                     (Some(_), None) | (None, None) => Vec::new(),
                 };
                 if !added.is_empty() {
                     let bucket = outcomes.entry(desired_label.clone()).or_default();
-                    for asset in added {
+                    for key in added {
                         game_instance
                             .game
                             .hydration_coordinator
-                            .claim_asset(scope.clone(), asset);
-                        if let (Some(lua), Some(audio_manager)) =
-                            (lua, audio_manager.as_deref_mut())
-                        {
+                            .claim(scope.clone(), key);
+
+                        let should_hydrate_payload = matches!(key, ResidencyKey::Payload(_))
+                            && previous_owner_counts.get(&key).copied().unwrap_or(0) == 0
+                            && is_primary_scope_for_key(&desired_keys, &scope, key);
+
+                        if let (Some(lua), Some(audio_manager)) = (lua, audio_manager.as_deref_mut()) {
+                            if !matches!(key, ResidencyKey::Asset(_)) && !should_hydrate_payload {
+                                continue;
+                            }
+
                             let result = {
                                 let mut driver = HydrationDriver {
-                                    coordinator: &game_instance.game.hydration_coordinator,
-                                    asset_registry: &game_instance.game.asset_registry,
-                                    sprite_manager: &mut game_instance.game.sprite_manager,
-                                    script_manager: &mut game_instance.game.script_manager,
+                                    game: &mut game_instance.game,
                                     audio_manager,
                                 };
-                                driver.hydrate_asset_runtime(asset, lua)
+                                driver.hydrate_key_runtime(key, lua)
                             };
 
                             match result {
                                 Ok(()) => {
-                                    events.push(TraversalAssetEvent {
-                                        asset,
-                                        hydrated: true,
-                                    });
-                                    increment_asset_count(&mut bucket.hydrated, asset);
+                                    if should_hydrate_payload {
+                                        if let ResidencyKey::Payload(payload) = key {
+                                            let entities =
+                                                payload_entities_for_key(&game_instance.game, payload);
+                                            let game_ctx = game_instance.game.ctx_mut();
+                                            if let Err(error) = ScriptSystem::activate_payload_scripts(
+                                                lua,
+                                                game_ctx.ecs,
+                                                game_ctx.script_manager,
+                                                &entities,
+                                            ) {
+                                                bucket.failures += 1;
+                                                omni_error!(
+                                                    "Traversal script activation failed for {:?}: {}",
+                                                    payload,
+                                                    error
+                                                );
+                                                continue;
+                                            }
+                                        }
+                                    }
+                                    if let ResidencyKey::Asset(asset) = key {
+                                        events.push(TraversalAssetEvent {
+                                            asset,
+                                            hydrated: true,
+                                        });
+                                    }
+                                    increment_key_count(&mut bucket.hydrated, key);
                                 }
                                 Err(error) => {
                                     bucket.failures += 1;
-                                    log_hydration_error(&scope, asset, &error);
+                                    log_hydration_error(&scope, key, &error);
                                 }
                             }
                         }
@@ -216,16 +255,15 @@ fn refresh_after_traversal_impl(
     }
 
     if let Some(diagnostics) = &mut game_instance.traversal_residency_diagnostics {
-        for (scope, assets) in &desired_assets {
+        for (scope, keys) in &desired_keys {
             let label = desired_scope_labels
                 .get(scope)
                 .cloned()
                 .unwrap_or_else(|| fallback_scope_label(scope));
             let bucket = outcomes.entry(label).or_default();
-            bucket.claimed = class_count_map(assets);
+            bucket.claimed = class_count_map(keys);
         }
-        let snapshot =
-            build_traversal_snapshot(&game_instance.game, &claims, &reasons, outcomes);
+        let snapshot = build_traversal_snapshot(&game_instance.game, &claims, &reasons, outcomes);
         diagnostics.record_refresh(snapshot, events);
     }
 }
@@ -239,10 +277,10 @@ fn build_traversal_snapshot(
     let mut rooms: Vec<WarmRoomSnapshot> = claims
         .room_claims
         .iter()
-        .map(|(&room_id, assets)| WarmRoomSnapshot {
+        .map(|(&room_id, keys)| WarmRoomSnapshot {
             room_id,
             reasons: reasons.room_reasons.get(&room_id).cloned().unwrap_or_default(),
-            claims: class_counts_from_map(class_count_map(assets)),
+            claims: class_counts_from_map(class_count_map(keys)),
         })
         .collect();
     rooms.sort_by_key(|room| room.room_id);
@@ -250,10 +288,10 @@ fn build_traversal_snapshot(
     let mut worlds: Vec<WarmWorldSnapshot> = claims
         .world_claims
         .iter()
-        .map(|(&world_id, assets)| WarmWorldSnapshot {
+        .map(|(&world_id, keys)| WarmWorldSnapshot {
             world_id,
             reasons: reasons.world_reasons.get(&world_id).cloned().unwrap_or_default(),
-            claims: class_counts_from_map(class_count_map(assets)),
+            claims: class_counts_from_map(class_count_map(keys)),
         })
         .collect();
     worlds.sort_by_key(|world| world.world_id);
@@ -261,17 +299,17 @@ fn build_traversal_snapshot(
     let mut pinned_entities: Vec<PinnedEntitySnapshot> = claims
         .pinned_entity_claims
         .iter()
-        .filter_map(|(&entity, assets)| {
+        .filter_map(|(&entity, keys)| {
             let active = game.ecs.get::<Active>(entity)?;
             Some(PinnedEntitySnapshot {
                 entity,
                 room_id: game.ecs.get::<CurrentRoom>(entity).map(|room| room.0),
                 pin_count: active.pin_count,
                 reasons: vec![format!(
-                    "pin_count={} blocks traversal deactivation",
+                    "pin_count={} keeps payload resident",
                     active.pin_count
                 )],
-                claims: class_counts_from_map(class_count_map(assets)),
+                claims: class_counts_from_map(class_count_map(keys)),
             })
         })
         .collect();
@@ -341,19 +379,19 @@ fn collect_warm_scope_reasons(game: &Game, topology: &TraversalTopology) -> Warm
     }
 }
 
-fn desired_traversal_scope_assets(
+fn desired_traversal_scope_keys(
     claims: &DerivedTraversalClaims,
-) -> HashMap<HydrationScope, BTreeSet<AssetKey>> {
+) -> HashMap<HydrationScope, BTreeSet<ResidencyKey>> {
     let mut scopes = HashMap::new();
 
-    for (&room_id, assets) in &claims.room_claims {
-        scopes.insert(HydrationScope::Room(room_id), assets.clone());
+    for (&room_id, keys) in &claims.room_claims {
+        scopes.insert(HydrationScope::Room(room_id), keys.clone());
     }
-    for (&world_id, assets) in &claims.world_claims {
-        scopes.insert(HydrationScope::World(world_id), assets.clone());
+    for (&world_id, keys) in &claims.world_claims {
+        scopes.insert(HydrationScope::World(world_id), keys.clone());
     }
-    for (&entity, assets) in &claims.pinned_entity_claims {
-        scopes.insert(HydrationScope::Entity(entity), assets.clone());
+    for (&entity, keys) in &claims.pinned_entity_claims {
+        scopes.insert(HydrationScope::Entity(entity), keys.clone());
     }
     if !claims.global_claims.is_empty() {
         scopes.insert(HydrationScope::Global, claims.global_claims.clone());
@@ -362,18 +400,62 @@ fn desired_traversal_scope_assets(
     scopes
 }
 
-fn current_traversal_scope_assets(
+fn current_traversal_scope_keys(
     coordinator: &HydrationCoordinator,
-) -> HashMap<HydrationScope, BTreeSet<AssetKey>> {
+) -> HashMap<HydrationScope, BTreeSet<ResidencyKey>> {
     coordinator
         .active_scopes()
         .into_iter()
-        .filter(|scope| is_traversal_scope(scope))
+        .filter(is_traversal_scope)
         .map(|scope| {
-            let assets = coordinator.claimed_assets(&scope).into_iter().collect();
-            (scope, assets)
+            let keys = coordinator.claimed_keys(&scope).into_iter().collect();
+            (scope, keys)
         })
         .collect()
+}
+
+fn payload_entities_for_key(game: &Game, payload: PayloadKey) -> Vec<Entity> {
+    match payload {
+        PayloadKey::Global => game
+            .ecs
+            .get_store::<Global>()
+            .data
+            .keys()
+            .copied()
+            .collect(),
+        PayloadKey::World(world_id) => game
+            .get_world(world_id)
+            .and_then(|world| world.singleton)
+            .into_iter()
+            .collect(),
+        PayloadKey::Room(room_id) => game.ecs.entities_in_room(room_id).iter().copied().collect(),
+    }
+}
+
+fn key_owner_counts(
+    scopes: &HashMap<HydrationScope, BTreeSet<ResidencyKey>>,
+) -> HashMap<ResidencyKey, usize> {
+    let mut counts = HashMap::new();
+    for keys in scopes.values() {
+        for &key in keys {
+            *counts.entry(key).or_default() += 1;
+        }
+    }
+    counts
+}
+
+fn is_primary_scope_for_key(
+    scopes: &HashMap<HydrationScope, BTreeSet<ResidencyKey>>,
+    scope: &HydrationScope,
+    key: ResidencyKey,
+) -> bool {
+    let mut owners = scopes
+        .iter()
+        .filter(|(_, keys)| keys.contains(&key))
+        .map(|(scope, _)| scope.clone())
+        .collect::<Vec<_>>();
+    owners.sort_by_key(|scope| format!("{:?}", scope));
+    owners.first().is_some_and(|owner| owner == scope)
 }
 
 fn scope_labels_from_snapshot(
@@ -429,9 +511,9 @@ fn scope_labels_from_reasons(
             .unwrap_or_default();
         labels.insert(scope.clone(), scope_label(&scope, &scope_reasons));
     }
-    for (&entity, assets) in &claims.pinned_entity_claims {
+    for (&entity, keys) in &claims.pinned_entity_claims {
         let scope = HydrationScope::Entity(entity);
-        let reasons = vec![format!("pinned entity ({} assets)", assets.len())];
+        let reasons = vec![format!("pinned entity ({} claims)", keys.len())];
         labels.insert(scope.clone(), scope_label(&scope, &reasons));
     }
     if !claims.global_claims.is_empty() {
@@ -464,7 +546,10 @@ fn fallback_scope_label(scope: &HydrationScope) -> String {
 fn is_traversal_scope(scope: &HydrationScope) -> bool {
     matches!(
         scope,
-        HydrationScope::Room(_) | HydrationScope::World(_) | HydrationScope::Entity(_) | HydrationScope::Global
+        HydrationScope::Room(_)
+            | HydrationScope::World(_)
+            | HydrationScope::Entity(_)
+            | HydrationScope::Global
     )
 }
 
@@ -475,26 +560,26 @@ fn class_counts_from_map(counts: BTreeMap<ResourceClass, usize>) -> Vec<Traversa
         .collect()
 }
 
-fn class_count_map(assets: &BTreeSet<AssetKey>) -> BTreeMap<ResourceClass, usize> {
+fn class_count_map(keys: &BTreeSet<ResidencyKey>) -> BTreeMap<ResourceClass, usize> {
     let mut counts = BTreeMap::new();
-    for &asset in assets {
-        increment_asset_count(&mut counts, asset);
+    for &key in keys {
+        increment_key_count(&mut counts, key);
     }
     counts
 }
 
-fn increment_asset_count(counts: &mut BTreeMap<ResourceClass, usize>, asset: AssetKey) {
-    let Some(class) = ResourceClass::for_asset_key(asset) else {
+fn increment_key_count(counts: &mut BTreeMap<ResourceClass, usize>, key: ResidencyKey) {
+    let Some(class) = ResourceClass::for_residency_key(key) else {
         return;
     };
     *counts.entry(class).or_default() += 1;
 }
 
-fn log_hydration_error(scope: &HydrationScope, asset: AssetKey, error: &HydrationError) {
+fn log_hydration_error(scope: &HydrationScope, key: ResidencyKey, error: &HydrationError) {
     omni_error!(
-        "Traversal hydration failed for {:?} asset {:?}: {:?}",
+        "Traversal hydration failed for {:?} key {:?}: {:?}",
         scope,
-        asset,
+        key,
         error
     );
 }

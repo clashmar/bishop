@@ -2,6 +2,7 @@ use crate::constants::paths;
 use crate::engine_global::*;
 use crate::storage::editor_config::*;
 use crate::*;
+use crate::worlds::{RoomId, WorldId};
 use rfd::FileDialog;
 use std::ffi::OsStr;
 use std::fs;
@@ -441,6 +442,42 @@ pub fn copy_dir_filtered(
 /// [`apply_save_root_change`], separated for testability.
 pub fn build_save_root(base_folder: &Path) -> PathBuf {
     base_folder.join(paths::SAVE_ROOT).join(paths::GAME_SAVE_ROOT)
+}
+
+const WORLD_LAYOUT_FILE_STEM: &str = "world";
+const ROOM_LAYOUT_FILE_STEM: &str = "room";
+
+fn layout_ron_file_name(stem: &str, id: usize) -> String {
+    format!("{stem}-{id}.ron")
+}
+
+fn world_layout_file_name(world_id: WorldId) -> String {
+    layout_ron_file_name(WORLD_LAYOUT_FILE_STEM, world_id.0)
+}
+
+fn room_layout_file_name(room_id: RoomId) -> String {
+    layout_ron_file_name(ROOM_LAYOUT_FILE_STEM, room_id.0)
+}
+
+/// Returns the path to a world descriptor file inside a resources folder.
+pub fn world_descriptor_path(resources: &Path, world_id: WorldId) -> PathBuf {
+    resources
+        .join(paths::WORLDS_FOLDER)
+        .join(world_layout_file_name(world_id))
+}
+
+/// Returns the path to a room payload file inside a resources folder.
+pub fn room_payload_path(resources: &Path, room_id: RoomId) -> PathBuf {
+    resources
+        .join(paths::PAYLOADS_FOLDER)
+        .join(room_layout_file_name(room_id))
+}
+
+/// Returns the path to a world payload file inside a resources folder.
+pub fn world_payload_path(resources: &Path, world_id: WorldId) -> PathBuf {
+    resources
+        .join(paths::PAYLOADS_FOLDER)
+        .join(world_layout_file_name(world_id))
 }
 
 /// Platform-default location used when the user has not chosen a folder.

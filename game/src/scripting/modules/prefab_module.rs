@@ -132,6 +132,11 @@ fn spawn_prefab(
         ));
     }
 
+    {
+        let mut game_instance = ctx.game_instance.borrow_mut();
+        ensure_active_subtree(&mut game_instance.game.ecs, root_entity);
+    }
+
     let inits_to_run_result = {
         let mut game_instance = ctx.game_instance.borrow_mut();
         let game = &mut game_instance.game;
@@ -168,6 +173,16 @@ fn spawn_prefab(
     }
 
     Ok(root_entity)
+}
+
+fn ensure_active_subtree(ecs: &mut Ecs, root_entity: Entity) {
+    let mut stack = vec![root_entity];
+    while let Some(entity) = stack.pop() {
+        if ecs.get::<Active>(entity).is_none() {
+            ecs.add_component_to_entity(entity, Active::default());
+        }
+        stack.extend(get_children(ecs, entity));
+    }
 }
 
 #[cfg(test)]
@@ -227,5 +242,18 @@ mod tests {
 
         assert!(!prefab_root_supports_spawn_args(&prefab));
         assert!(prefab_root_supports_spawn_args(&scripted_prefab));
+    }
+
+    #[test]
+    fn ensure_active_subtree_adds_active_to_every_spawned_entity() {
+        let mut ecs = Ecs::default();
+        let root = ecs.create_entity().finish();
+        let child = ecs.create_entity().finish();
+        set_parent(&mut ecs, child, root);
+
+        ensure_active_subtree(&mut ecs, root);
+
+        assert_eq!(ecs.get::<Active>(root).map(Active::is_enabled), Some(true));
+        assert_eq!(ecs.get::<Active>(child).map(Active::is_enabled), Some(true));
     }
 }

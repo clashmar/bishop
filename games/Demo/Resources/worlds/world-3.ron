@@ -1,0 +1,25 @@
+(
+    id: (3),
+    name: "Second World",
+    current_room_id: Some((4)),
+    meta: (
+        position: (0.0, 0.0),
+        sprite_id: None,
+    ),
+    tags: [
+        Autosave,
+    ],
+    overlay: false,
+    grid_size: 16.0,
+    rooms: [
+        (
+            id: (4),
+            name: "untitled",
+            position: (0.0, 0.0),
+            size: (16.0, 9.0),
+            exits: [],
+            adjacent_rooms: [],
+            tags: [],
+        ),
+    ],
+)

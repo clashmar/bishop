@@ -13,7 +13,7 @@ use engine_core::logging::{omni_debug, omni_error, omni_info};
 use engine_core::storage::*;
 use std::fs;
 use std::io;
-use std::io::{Error, ErrorKind, Write};
+use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 
@@ -89,15 +89,7 @@ pub fn create_new_game(name: String) -> Game {
 
 /// Save a `Game` and all its contents.
 pub fn save_game(game: &Game) -> io::Result<()> {
-    let pretty = ron::ser::PrettyConfig::new()
-        .separate_tuple_members(false)
-        .enumerate_arrays(true);
-
-    let ron_string = ron::ser::to_string_pretty(game, pretty).map_err(Error::other)?;
-
     let resources_folder = resources_folder_current();
-    let file_path = resources_folder.join(paths::GAME_RON);
-
     fs::create_dir_all(&resources_folder)?;
 
     let custom_clips = collect_custom_clip_names(&game.ecs);
@@ -115,33 +107,21 @@ pub fn save_game(game: &Game) -> io::Result<()> {
 
     refresh_event_tags_lua(game)?;
 
-    omni_info!("Game saved to: {}", file_path.display());
-    fs::write(file_path, ron_string)
+    omni_info!("Game saved to: {}", resources_folder.display());
+    save_game_to_folder(game, &resources_folder)
 }
 
 /// Load a `Game` from the folder that matches the supplied name.
 pub fn load_game_by_name(name: &str) -> io::Result<Game> {
-    let path = resources_folder(name).join(paths::GAME_RON);
-    omni_debug!("Loading game from .ron: {}.", path.display());
+    let resources = resources_folder(name);
+    omni_debug!("Loading game from: {}.", resources.display());
 
-    let ron_string = match fs::read_to_string(&path) {
-        Ok(s) => s,
-        Err(ref e) if e.kind() == ErrorKind::NotFound => {
-            return Ok(create_new_game(name.to_string()))
-        }
-        Err(e) => return Err(e),
-    };
-
-    let mut game = match ron::from_str::<Game>(&ron_string) {
-        Ok(game) => game,
-        Err(_) => return Ok(create_new_game(name.to_string())),
-    };
-    game.rebuild_world_index();
-    for world in game.worlds_mut() {
-        world.rebuild_room_grid();
+    if !resources.join(paths::GAME_RON).exists() {
+        return Ok(create_new_game(name.to_string()));
     }
+
+    let mut game = load_full_game_from_folder(&resources)?;
     game.id_allocator = IdAllocator::from_game(&game);
-    game.ecs.finalize_after_load();
     game.asset_registry.try_init_editor_metadata()?;
 
     set_current_sound_preset_library(load_sound_preset_library(name)?);

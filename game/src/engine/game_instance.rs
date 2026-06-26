@@ -6,6 +6,7 @@ use engine_core::ecs::*;
 use engine_core::game::{Game};
 use engine_core::menu::{drain_menu_events, drain_slider_events};
 use engine_core::rendering::{visual_position};
+use engine_core::storage::hydrate_initial_payloads_for_runtime;
 use engine_core::worlds::*;
 use mlua::Lua;
 use mlua::Value;
@@ -56,14 +57,16 @@ impl GameInstance {
         instance
     }
 
-    /// Loads a game and determines the starting room, without finalizing
-    /// audio wiring, camera setup, or script initialization.
+    /// Loads a game, determines the starting room, and hydrates the startup payloads
+    /// without finalizing audio wiring, camera setup, or script initialization.
     pub fn prepare_loaded_game(lua: &Lua, mut game: Game) -> PreparedGameInstance {
         game.initialize_runtime(lua);
         let room_id = Self::start_room_id(&game);
         if let Some(world) = game.current_world_mut() {
             world.current_room_id = Some(room_id);
         }
+        hydrate_initial_payloads_for_runtime(&mut game)
+            .expect("initial payload hydration should succeed during startup");
         game.ecs.finalize_after_load();
         PreparedGameInstance { game, room_id }
     }
@@ -109,53 +112,10 @@ impl GameInstance {
         }
     }
 
-    fn start_room_id(game: &Game) -> RoomId {
-        let world = game.current_world();
-        // Prefer the "Start" WorldEntry's room; fall back to the world's first room
-        let entries = game.ecs.get_store::<WorldEntry>();
-        for (&entity, entry) in entries.data.iter() {
-            if entry.name != "Start" {
-                continue;
-            }
-            if let Some(room_id) = game.ecs.get::<CurrentRoom>(entity).map(|r| r.0) {
-                if world.get_room(room_id).is_some() {
-                    return room_id;
-                }
-            }
-        }
-        world
-            .rooms()
-            .first()
-            .map(|r| r.id)
-            .unwrap_or_default()
-    }
-
     /// Drains events generated during UI rendering and forwards them to the event bus.
     pub fn drain_ui_events(&self) {
         self.emit_slider_events();
         self.emit_menu_events();
-    }
-
-    /// Drains pending menu action events and emits them to the Lua event bus.
-    fn emit_menu_events(&self) {
-        let events = drain_menu_events();
-        for action in events {
-            self.game
-                .script_manager
-                .event_bus
-                .emit(format!("menu:{}", action), Variadic::new());
-        }
-    }
-
-    /// Drains pending slider events and emits them to the Lua event bus.
-    fn emit_slider_events(&self) {
-        let events = drain_slider_events();
-        for (key, value) in events {
-            self.game.script_manager.event_bus.emit(
-                format!("slider:{key}"),
-                Variadic::from_iter([Value::Number(value as f64)]),
-            );
-        }
     }
 
     /// Updates the previous position for all active entities.
@@ -183,19 +143,73 @@ impl GameInstance {
                 }),
         );
     }
+
+    fn start_room_id(game: &Game) -> RoomId {
+        let world = game.current_world();
+        // Prefer the "Start" WorldEntry's room; fall back to the world's first room
+        let entries = game.ecs.get_store::<WorldEntry>();
+        for (&entity, entry) in entries.data.iter() {
+            if entry.name != "Start" {
+                continue;
+            }
+            if let Some(room_id) = game.ecs.get::<CurrentRoom>(entity).map(|r| r.0) {
+                if world.get_room(room_id).is_some() {
+                    return room_id;
+                }
+            }
+        }
+        world
+            .rooms()
+            .first()
+            .map(|r| r.id)
+            .unwrap_or_default()
+    }
+
+    /// Drains pending menu action events and emits them to the Lua event bus.
+    fn emit_menu_events(&self) {
+        let events = drain_menu_events();
+        for action in events {
+            self.game
+                .script_manager
+                .event_bus
+                .emit(format!("menu:{}", action), Variadic::new());
+        }
+    }
+
+    /// Drains pending slider events and emits them to the Lua event bus.
+    fn emit_slider_events(&self) {
+        let events = drain_slider_events();
+        for (key, value) in events {
+            self.game.script_manager.event_bus.emit(
+                format!("slider:{key}"),
+                Variadic::from_iter([Value::Number(value as f64)]),
+            );
+        }
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::save_system::SaveProviderRegistry;
+    use crate::scripting::lua_ctx::register_save_lua_context;
     use crate::scripting::script_system::ScriptSystem;
     use engine_core::constants::paths;
     use engine_core::engine_global::set_game_name;
     use engine_core::scripting::lua_constants::{lua_dirs, lua_files};
-    use engine_core::storage::game_folder;
+    use engine_core::storage::{game_folder, load_game_shell_from_folder};
     use engine_core::storage::test_utils::{TestGameFolder, game_fs_test_lock};
     use mlua::Lua;
     use std::fs;
+
+    fn register_demo_save_ctx(lua: &Lua) {
+        register_save_lua_context(
+            lua,
+            std::rc::Rc::new(std::cell::RefCell::new(SaveProviderRegistry::new())),
+            std::rc::Rc::new(std::cell::Cell::new(false)),
+        )
+        .unwrap();
+    }
 
     #[test]
     fn prepare_loaded_game_sets_current_world_room_to_start_room() {
@@ -329,6 +343,54 @@ mod tests {
             game_instance.prev_positions.get(&entity).copied(),
             Some(Vec2::new(10.25, 11.5))
         );
+    }
+
+    #[test]
+    fn prepare_loaded_game_can_activate_demo_runtime_scripts() {
+        let _lock = game_fs_test_lock().lock().unwrap();
+        let resources_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../games/Demo/Resources");
+        let lua = Lua::new();
+        let game = load_game_shell_from_folder(&resources_dir).unwrap();
+        let mut prepared = GameInstance::prepare_loaded_game(&lua, game);
+
+        register_demo_save_ctx(&lua);
+        ScriptSystem::init(&lua, &prepared.game.script_manager.event_bus);
+        ScriptSystem::activate_entity_scripts(
+            &lua,
+            &mut prepared.game.ecs,
+            &mut prepared.game.script_manager,
+        )
+        .unwrap();
+
+        let scripted_active_entities = prepared
+            .game
+            .ecs
+            .get_store::<Script>()
+            .data
+            .iter()
+            .filter_map(|(&entity, script)| {
+                (script.script_id != ScriptId(0)
+                    && prepared
+                        .game
+                        .ecs
+                        .get::<Active>(entity)
+                        .is_some_and(Active::is_enabled))
+                .then_some((entity, script.script_id))
+            })
+            .collect::<Vec<_>>();
+
+        assert!(!scripted_active_entities.is_empty());
+        for (entity, script_id) in scripted_active_entities {
+            assert!(
+                prepared
+                    .game
+                    .script_manager
+                    .instances
+                    .contains_key(&(entity, script_id)),
+                "missing Lua instance for entity {entity:?} script {script_id:?}"
+            );
+        }
     }
 
     #[test]

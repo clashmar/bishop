@@ -66,6 +66,18 @@ pub mod paths {
     /// Name of the `Resources` folder.
     pub const RESOURCES_FOLDER: &str = "Resources";
 
+    /// Name of the worlds descriptor subfolder inside Resources.
+    pub const WORLDS_FOLDER: &str = "worlds";
+
+    /// Name of the payloads subfolder inside Resources.
+    pub const PAYLOADS_FOLDER: &str = "payloads";
+
+    /// Name of the asset registry file.
+    pub const ASSET_REGISTRY_RON: &str = "asset_registry.ron";
+
+    /// Name of the shared ECS snapshot file.
+    pub const ECS_RON: &str = "ecs.ron";
+
     /// Name of the assets folder.
     pub const ASSETS_FOLDER: &str = "assets";
 

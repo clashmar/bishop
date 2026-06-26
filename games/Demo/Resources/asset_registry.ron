@@ -1,0 +1,73 @@
+(
+    records: {
+        Sprite((1)): (
+            path: "assets/animations/player/male/Jump.png",
+        ),
+        Sprite((2)): (
+            path: "assets/animations/player/male/Fall.png",
+        ),
+        Sprite((3)): (
+            path: "assets/animations/player/male/Idle.png",
+        ),
+        Sprite((4)): (
+            path: "assets/animations/player/male/Walk.png",
+        ),
+        Sprite((5)): (
+            path: "assets/animations/player/male/Fidget.png",
+        ),
+        Sprite((6)): (
+            path: "assets/animations/player/male/Run.png",
+        ),
+        Sprite((7)): (
+            path: "assets/animations/player/female/Idle.png",
+        ),
+        Sprite((8)): (
+            path: "assets/sprites/Bullet.png",
+        ),
+        Sprite((9)): (
+            path: "assets/sprites/cat.png",
+        ),
+        Sprite((10)): (
+            path: "assets/sprites/tiles/Tile24.png",
+        ),
+        Script((1)): (
+            path: "scripts/bullet.lua",
+        ),
+        Script((2)): (
+            path: "scripts/player.lua",
+        ),
+        Script((3)): (
+            path: "scripts/npc.lua",
+        ),
+        Script((4)): (
+            path: "scripts/checkpoint.lua",
+        ),
+        Script((5)): (
+            path: "scripts/room_traversal_probe.lua",
+        ),
+        Script((6)): (
+            path: "scripts/arcade_world.lua",
+        ),
+        Prefab((1)): (
+            path: "prefabs/Cat.prefab",
+        ),
+        Prefab((2)): (
+            path: "prefabs/Female.prefab",
+        ),
+        Prefab((3)): (
+            path: "prefabs/Bullet.prefab",
+        ),
+        Prefab((4)): (
+            path: "prefabs/Portal.prefab",
+        ),
+        Prefab((5)): (
+            path: "prefabs/Camera 1.prefab",
+        ),
+        Sound((1)): (
+            path: "audio/sfx/jump.wav",
+        ),
+        Toml((1)): (
+            path: "text/dialogue/npcs/npc.toml",
+        ),
+    },
+)

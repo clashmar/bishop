@@ -1,7 +1,9 @@
+pub mod game_data_manifest;
 pub mod game_map;
 pub mod id_allocator;
 pub mod startup_mode;
 
+pub use game_data_manifest::*;
 pub use game_map::*;
 pub use id_allocator::*;
 pub use startup_mode::*;

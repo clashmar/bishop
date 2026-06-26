@@ -200,7 +200,7 @@ impl DiagnosticsOverlay {
         self.cached_audio_checked_refs = checked_refs;
         self.cached_audio_rows = audio_diagnostics_rows(&expected_audio_refs, &audio_snapshot);
         self.cached_residency = RuntimeResidencySnapshot::from_sources(
-            &game.sprite_manager,
+            game,
             &game.script_manager,
             &audio_snapshot,
             expected_audio_refs.len(),
@@ -348,6 +348,9 @@ fn residency_summary_lines(snapshot: &RuntimeResidencySnapshot) -> Vec<String> {
         residency_summary_line(&snapshot.textures),
         residency_summary_line(&snapshot.scripts),
         residency_summary_line(&snapshot.audio),
+        residency_summary_line(&snapshot.global_payloads),
+        residency_summary_line(&snapshot.world_payloads),
+        residency_summary_line(&snapshot.room_payloads),
     ]
 }
 
@@ -357,7 +360,7 @@ fn coordinator_summary_line(scope: &HydrationScope, claims: &[&ResourceClaim]) -
         parts.push(format!(
             "{}={}",
             claim.class.display_abbreviation(),
-            claim.assets.len()
+            claim.keys.len()
         ));
     }
     parts.join(" ")
@@ -558,8 +561,9 @@ mod tests {
     use super::*;
     use engine_core::assets::AssetKey;
     use engine_core::diagnostics::{
-        AUDIO_RESIDENCY_LABEL, ResidencyCounts, SCRIPTS_RESIDENCY_LABEL,
-        TEXTURES_RESIDENCY_LABEL,
+        AUDIO_RESIDENCY_LABEL, GLOBAL_PAYLOADS_RESIDENCY_LABEL, ResidencyCounts,
+        ROOM_PAYLOADS_RESIDENCY_LABEL, SCRIPTS_RESIDENCY_LABEL,
+        TEXTURES_RESIDENCY_LABEL, WORLD_PAYLOADS_RESIDENCY_LABEL,
     };
     use engine_core::ecs::SpriteId;
     use engine_core::hydration::ResourceClass;
@@ -598,11 +602,23 @@ mod tests {
                     active: 5,
                 },
             ),
+            global_payloads: ResourceResidencySnapshot::new(
+                GLOBAL_PAYLOADS_RESIDENCY_LABEL,
+                ResidencyCounts::default(),
+            ),
+            world_payloads: ResourceResidencySnapshot::new(
+                WORLD_PAYLOADS_RESIDENCY_LABEL,
+                ResidencyCounts::default(),
+            ),
+            room_payloads: ResourceResidencySnapshot::new(
+                ROOM_PAYLOADS_RESIDENCY_LABEL,
+                ResidencyCounts::default(),
+            ),
         };
 
         let lines = residency_summary_lines(&snapshot);
 
-        assert_eq!(lines.len(), 3);
+        assert_eq!(lines.len(), 6);
         assert_eq!(
             lines[0],
             format!(
@@ -633,9 +649,9 @@ mod tests {
             claims: vec![ResourceClaim {
                 scope: HydrationScope::Room(RoomId(3)),
                 class: ResourceClass::Texture,
-                assets: vec![
-                    AssetKey::Sprite(SpriteId(1)),
-                    AssetKey::Sprite(SpriteId(2)),
+                keys: vec![
+                    engine_core::hydration::ResidencyKey::Asset(AssetKey::Sprite(SpriteId(1))),
+                    engine_core::hydration::ResidencyKey::Asset(AssetKey::Sprite(SpriteId(2))),
                 ],
             }],
         };
@@ -656,7 +672,7 @@ mod tests {
         use engine_core::assets::AssetKey;
         use engine_core::ecs::SpriteId;
         use engine_core::game::Game;
-        use engine_core::hydration::HydrationScope;
+        use engine_core::hydration::{HydrationScope, ResidencyKey};
         use std::collections::HashMap;
 
         struct TestBackend;
@@ -669,8 +685,10 @@ mod tests {
         let mut game = Game::default();
         game.hydration_coordinator
             .activate_scope(HydrationScope::Boot);
-        game.hydration_coordinator
-            .claim_asset(HydrationScope::Boot, AssetKey::Sprite(SpriteId(1)));
+        game.hydration_coordinator.claim(
+            HydrationScope::Boot,
+            ResidencyKey::Asset(AssetKey::Sprite(SpriteId(1))),
+        );
 
         let instance = GameInstance {
             game,
@@ -686,7 +704,7 @@ mod tests {
             vec![HydrationScope::Boot]
         );
         assert_eq!(overlay.cached_coordinator.claims.len(), 1);
-        assert_eq!(overlay.cached_coordinator.claims[0].assets.len(), 1);
+        assert_eq!(overlay.cached_coordinator.claims[0].keys.len(), 1);
     }
 
     #[test]

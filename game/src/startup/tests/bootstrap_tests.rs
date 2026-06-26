@@ -4,11 +4,12 @@ use super::super::bootstrap::{
 };
 use super::super::{LoadingConfig, StartupAsset, StartupScreenContent, StartupScreenSpec};
 use super::super::runtime_icon::playtest_game_name_from_payload as parse_playtest_game_name;
-use engine_core::constants::{paths};
+use engine_core::constants::paths;
 use engine_core::game::{Game, StartupMode};
 use engine_core::storage::*;
 use engine_core::worlds::*;
 use std::fs;
+use std::path::Path;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 fn unique_name(prefix: &str) -> String {
@@ -17,6 +18,18 @@ fn unique_name(prefix: &str) -> String {
         .unwrap()
         .as_nanos();
     format!("{prefix}-{nanos}")
+}
+
+fn write_split_startup_game(resources_dir: &Path, game_name: &str) {
+    fs::create_dir_all(resources_dir).unwrap();
+
+    let mut game = Game::with_name(game_name);
+    let mut world = World::new(WorldId(1), "Overworld".to_string(), 16.0);
+    world.current_room_id = Some(RoomId(1));
+    world.add_room(Room::new(&mut game.ecs, RoomId(1), 16.0));
+    game.add_world(world);
+
+    save_game_to_folder(&game, resources_dir).unwrap();
 }
 
 #[test]
@@ -198,4 +211,48 @@ fn playtest_game_name_reads_name_from_payload() {
     let game_name = parse_playtest_game_name(payload).unwrap();
 
     assert_eq!(game_name, "Demo");
+}
+
+#[test]
+fn parse_startup_data_loads_game_manifest_and_descriptor_shells() {
+    let resources_dir = std::env::temp_dir().join(unique_name("bishop_startup_shells"));
+    write_split_startup_game(&resources_dir, "Demo");
+
+    let startup_ron = ron::ser::to_string_pretty(
+        &StartupAsset::default(),
+        ron::ser::PrettyConfig::new(),
+    )
+    .unwrap();
+
+    let files = LoadedStartupFiles::Game {
+        resources_dir,
+        startup_ron: Some(startup_ron),
+    };
+
+    let loaded = parse_startup_data(files).unwrap();
+
+    match loaded {
+        LoadedStartupData::Game { game, .. } => {
+            let room = &game.current_world().rooms()[0];
+            assert!(room.variants.is_empty());
+        }
+        LoadedStartupData::Playtest { .. } => panic!("expected game startup data"),
+    }
+}
+
+#[test]
+fn hydrate_initial_payloads_for_runtime_hydrates_current_room_after_descriptor_boot() {
+    let game_name = unique_name("startup_hydration");
+    let game_dir = game_folder(&game_name);
+    let resources_dir = game_dir.join(paths::RESOURCES_FOLDER);
+    write_split_startup_game(&resources_dir, &game_name);
+
+    let mut game = load_game_shell_from_folder(&resources_dir).unwrap();
+    assert!(game.current_world().get_room(RoomId(1)).unwrap().variants.is_empty());
+
+    hydrate_initial_payloads_for_runtime(&mut game).unwrap();
+
+    assert!(!game.current_world().get_room(RoomId(1)).unwrap().variants.is_empty());
+
+    let _ = fs::remove_dir_all(&game_dir);
 }

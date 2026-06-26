@@ -54,7 +54,7 @@ fn room_transition_activates_current_room_and_deactivates_unpinned_previous_room
 
     let mut instance = GameInstance {
         game,
-        prev_positions: HashMap::new(), 
+        prev_positions: HashMap::new(),
         traversal_residency_diagnostics: None,
     };
     traversal_residency::refresh_after_traversal(&mut instance);
@@ -72,7 +72,7 @@ fn pinned_entity_is_not_deactivated_or_unclaimed_when_player_leaves_its_room() {
 
     let mut instance = GameInstance {
         game,
-        prev_positions: HashMap::new(), 
+        prev_positions: HashMap::new(),
         traversal_residency_diagnostics: None,
     };
     traversal_residency::refresh_after_traversal(&mut instance);
@@ -84,5 +84,51 @@ fn pinned_entity_is_not_deactivated_or_unclaimed_when_player_leaves_its_room() {
             .hydration_coordinator
             .claim_count(&HydrationScope::Entity(hunter), ResourceClass::Script)
             > 0
+    );
+}
+
+#[test]
+fn pinned_room_payload_stays_claimed_outside_the_frontier() {
+    let mut game = two_room_game();
+    let hunter = room_bound_entity(&mut game, RoomId(2), true);
+    game.current_world_mut().unwrap().current_room_id = Some(RoomId(1));
+
+    let mut instance = GameInstance {
+        game,
+        prev_positions: HashMap::new(),
+        traversal_residency_diagnostics: None,
+    };
+    traversal_residency::refresh_after_traversal(&mut instance);
+
+    assert!(
+        instance
+            .game
+            .hydration_coordinator
+            .claim_count(&HydrationScope::Entity(hunter), ResourceClass::RoomPayload)
+            > 0
+    );
+}
+
+#[test]
+fn unpin_releases_room_payload_on_the_next_refresh_when_no_other_claim_remains() {
+    let mut game = two_room_game();
+    let hunter = room_bound_entity(&mut game, RoomId(2), true);
+    game.current_world_mut().unwrap().current_room_id = Some(RoomId(1));
+
+    let mut instance = GameInstance {
+        game,
+        prev_positions: HashMap::new(),
+        traversal_residency_diagnostics: None,
+    };
+    traversal_residency::refresh_after_traversal(&mut instance);
+    instance.game.ecs.get_mut::<Active>(hunter).unwrap().unpin();
+    traversal_residency::refresh_after_traversal(&mut instance);
+
+    assert_eq!(
+        instance
+            .game
+            .hydration_coordinator
+            .claim_count(&HydrationScope::Entity(hunter), ResourceClass::RoomPayload),
+        0
     );
 }

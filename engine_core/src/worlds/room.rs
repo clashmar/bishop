@@ -288,7 +288,7 @@ impl ExitDirection {
 }
 
 #[serde_as]
-#[derive(Serialize, Deserialize, Clone, Debug, Copy, Default)]
+#[derive(Serialize, Deserialize, Clone, Debug, Copy, Default, PartialEq)]
 #[serde(default)]
 pub struct Exit {
     #[serde_as(as = "FromInto<[f32; 2]>")]

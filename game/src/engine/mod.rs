@@ -301,10 +301,12 @@ impl Engine {
                 }
             }
 
-            // Load scripts in this scope TODO: make this part of run_scripts when scope is finalized
+            // Activate scripts in this scope TODO: make this part of run_scripts when scope is finalized?
             let ctx = game_instance.game.ctx_mut();
-            if let Err(e) = ScriptSystem::load_scripts(&self.lua, ctx.ecs, ctx.script_manager) {
-                omni_error!("Error loading scripts: {}", e);
+            if let Err(e) =
+                ScriptSystem::activate_entity_scripts(&self.lua, ctx.ecs, ctx.script_manager)
+            {
+                omni_error!("Error activating scripts: {}", e);
             }
         }
 

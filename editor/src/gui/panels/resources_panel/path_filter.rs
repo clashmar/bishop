@@ -6,6 +6,8 @@ pub const HIDDEN_DIRS: &[&str] = &[
     paths::WINDOWS_FOLDER,
     paths::MAC_OS_FOLDER,
     paths::MENUS_FOLDER,
+    paths::WORLDS_FOLDER,
+    paths::PAYLOADS_FOLDER,
     lua_dirs::ENGINE,
 ];
 
@@ -13,6 +15,8 @@ pub const HIDDEN_FILENAMES: &[&str] = &[
     paths::GAME_RON,
     paths::STARTUP_RON,
     paths::LANGUAGE_MANIFEST,
+    paths::ASSET_REGISTRY_RON,
+    paths::ECS_RON,
 ];
 
 pub const HIDDEN_EXTENSIONS: &[&str] = &[extensions::ASEPRITE, extensions::ASE, extensions::JSON];
@@ -22,13 +26,11 @@ pub struct PathFilter;
 
 impl PathFilter {
     /// Returns true if a directory name should be shown.
-    /// Hides: `_engine`, `windows`, `mac_os`, `menus`.
     pub fn dir_visible(name: &str) -> bool {
         !HIDDEN_DIRS.contains(&name)
     }
 
     /// Returns true if a file name (with extension) should be shown.
-    /// Hides: dotfiles, `game.ron`, `startup.ron`, any `.aseprite`/`.ase`/`.json` file.
     pub fn file_visible(name: &str) -> bool {
         if name.starts_with('.') {
             return false;

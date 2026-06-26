@@ -330,6 +330,12 @@ impl ScriptManager {
         self.pending_inits.len()
     }
 
+    /// Removes any queued init callbacks for the supplied entities.
+    pub fn discard_pending_inits_for_entities(&mut self, entities: &[Entity]) {
+        self.pending_inits
+            .retain(|(entity, _)| !entities.contains(entity));
+    }
+
     /// Returns the registered relative path for a script id.
     pub fn path_for_id(&self, script_id: ScriptId) -> Option<&Path> {
         self.script_id_to_path.get(&script_id).map(PathBuf::as_path)

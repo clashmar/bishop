@@ -1,0 +1,21 @@
+(
+    variants: [
+        (
+            id: "default",
+            tilemap: (
+                width: 16,
+                height: 9,
+                background: (0.78, 0.78, 0.78, 1.0),
+            ),
+        ),
+    ],
+    entities: [
+        (62),
+        (47),
+        (41),
+        (52),
+        (59),
+        (58),
+    ],
+    darkness: 0.0,
+)

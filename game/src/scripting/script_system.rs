@@ -166,41 +166,51 @@ impl ScriptSystem {
         }
     }
 
-    /// Initializes all needed scripts in the game.
-    /// Only creates entity handles and queues init for newly created instances.
-    pub fn load_scripts(
+    /// Activates scripts for every eligible entity in the game.
+    /// Only active entities create instances and queue init work.
+    pub fn activate_entity_scripts(
         lua: &Lua,
         ecs: &mut Ecs,
         script_manager: &mut ScriptManager,
     ) -> LuaResult<()> {
-        let script_store = ecs.get_store_mut::<Script>();
+        let entities = ecs
+            .get_store::<Script>()
+            .data
+            .keys()
+            .copied()
+            .collect::<Vec<_>>();
 
-        for (entity, script) in script_store.data.iter_mut() {
-            if script.script_id == ScriptId(0) {
-                continue;
-            }
-
-            let (instance, created) =
-                script_manager.get_or_create_instance(lua, *entity, script.script_id)?;
-
-            // Only setup entity handle and queue init for newly created instances
-            if created {
-                let handle = lua_entity_handle(lua, *entity)?;
-                instance.set(lua_globals::ENTITY_HANDLE, handle)?;
-
-                let has_init = instance.get::<Function>(lua_entity::INIT).is_ok();
-
-                // Use sync_to_lua_with_instance to avoid redundant lookup
-                script.sync_to_lua_with_instance(lua, instance)?;
-
-                if has_init {
-                    script_manager
-                        .pending_inits
-                        .push((*entity, script.script_id));
-                }
-            }
+        for entity in entities {
+            Self::activate_entity_script(lua, ecs, script_manager, entity)?;
         }
 
+        Ok(())
+    }
+
+    /// Tears down payload-scoped script instances, queued init work, and entity listeners.
+    pub fn deactivate_payload_scripts(
+        ecs: &Ecs,
+        script_manager: &mut ScriptManager,
+        entities: &[Entity],
+    ) {
+        script_manager.discard_pending_inits_for_entities(entities);
+        for &entity in entities {
+            if ecs.get::<Script>(entity).is_some() {
+                script_manager.unload_all_for_entity(entity);
+            }
+        }
+    }
+
+    /// Activates payload-scoped script instances for the supplied resident entities.
+    pub fn activate_payload_scripts(
+        lua: &Lua,
+        ecs: &mut Ecs,
+        script_manager: &mut ScriptManager,
+        entities: &[Entity],
+    ) -> LuaResult<()> {
+        for &entity in entities {
+            Self::activate_entity_script(lua, ecs, script_manager, entity)?;
+        }
         Ok(())
     }
 
@@ -264,6 +274,41 @@ impl ScriptSystem {
         }
 
         Ok(inits)
+    }
+
+    fn activate_entity_script(
+        lua: &Lua,
+        ecs: &mut Ecs,
+        script_manager: &mut ScriptManager,
+        entity: Entity,
+    ) -> LuaResult<()> {
+        let Some(script) = ecs.get::<Script>(entity).cloned() else {
+            return Ok(());
+        };
+        if script.script_id == ScriptId(0) {
+            return Ok(());
+        }
+        if !ecs.get::<Active>(entity).is_some_and(Active::is_enabled) {
+            return Ok(());
+        }
+
+        let (instance, created) =
+            script_manager.get_or_create_instance(lua, entity, script.script_id)?;
+        if !created {
+            return Ok(());
+        }
+
+        let handle = lua_entity_handle(lua, entity)?;
+        instance.set(lua_globals::ENTITY_HANDLE, handle)?;
+
+        let has_init = instance.get::<Function>(lua_entity::INIT).is_ok();
+        script.sync_to_lua_with_instance(lua, instance)?;
+
+        if has_init && !script_manager.pending_inits.contains(&(entity, script.script_id)) {
+            script_manager.pending_inits.push((entity, script.script_id));
+        }
+
+        Ok(())
     }
 }
 

@@ -186,11 +186,11 @@ fn load_game_by_name_returns_invalid_data_for_corrupt_asset_registry() {
 
     save_game(&game).unwrap();
 
-    let game_ron_path = resources_folder(test_game.name()).join(paths::GAME_RON);
-    let corrupt_ron = fs::read_to_string(&game_ron_path)
+    let registry_path = resources_folder(test_game.name()).join(paths::ASSET_REGISTRY_RON);
+    let corrupt_ron = fs::read_to_string(&registry_path)
         .unwrap()
         .replacen("villain.png", "hero.png", 1);
-    fs::write(&game_ron_path, corrupt_ron).unwrap();
+    fs::write(&registry_path, corrupt_ron).unwrap();
 
     let error = match load_game_by_name(test_game.name()) {
         Ok(_) => panic!("corrupt asset registry should fail"),

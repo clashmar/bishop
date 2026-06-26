@@ -1,5 +1,6 @@
-use crate::assets::SpriteManager;
 use crate::audio::AudioDiagnosticsSnapshot;
+use crate::game::Game;
+use crate::hydration::{HydrationScope, ResourceClass, ResidencyKey};
 use crate::scripting::ScriptManager;
 
 /// Label for texture residency summaries.
@@ -8,6 +9,12 @@ pub const TEXTURES_RESIDENCY_LABEL: &str = "Textures";
 pub const SCRIPTS_RESIDENCY_LABEL: &str = "Scripts";
 /// Label for audio residency summaries.
 pub const AUDIO_RESIDENCY_LABEL: &str = "Audio";
+/// Label for global payload residency summaries.
+pub const GLOBAL_PAYLOADS_RESIDENCY_LABEL: &str = "Global Payloads";
+/// Label for world payload residency summaries.
+pub const WORLD_PAYLOADS_RESIDENCY_LABEL: &str = "World Payloads";
+/// Label for room payload residency summaries.
+pub const ROOM_PAYLOADS_RESIDENCY_LABEL: &str = "Room Payloads";
 
 /// Counts residency state for one resource class.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -47,12 +54,15 @@ pub struct RuntimeResidencySnapshot {
     pub textures: ResourceResidencySnapshot,
     pub scripts: ResourceResidencySnapshot,
     pub audio: ResourceResidencySnapshot,
+    pub global_payloads: ResourceResidencySnapshot,
+    pub world_payloads: ResourceResidencySnapshot,
+    pub room_payloads: ResourceResidencySnapshot,
 }
 
 impl RuntimeResidencySnapshot {
     /// Builds a residency snapshot from the active runtime managers.
     pub fn from_sources(
-        sprite_manager: &SpriteManager,
+        game: &Game,
         script_manager: &ScriptManager,
         audio: &AudioDiagnosticsSnapshot,
         audio_known: usize,
@@ -62,9 +72,9 @@ impl RuntimeResidencySnapshot {
             textures: ResourceResidencySnapshot::new(
                 TEXTURES_RESIDENCY_LABEL,
                 ResidencyCounts {
-                    known: sprite_manager.registered_id_count(),
-                    resident: sprite_manager.texture_count(),
-                    pending: sprite_manager.pending_texture_count(),
+                    known: game.sprite_manager.registered_id_count(),
+                    resident: game.sprite_manager.texture_count(),
+                    pending: game.sprite_manager.pending_texture_count(),
                     pinned: 0,
                     active: 0,
                 },
@@ -89,7 +99,55 @@ impl RuntimeResidencySnapshot {
                     active: audio_active,
                 },
             ),
+            global_payloads: ResourceResidencySnapshot::new(
+                GLOBAL_PAYLOADS_RESIDENCY_LABEL,
+                payload_counts(game, ResourceClass::GlobalPayload),
+            ),
+            world_payloads: ResourceResidencySnapshot::new(
+                WORLD_PAYLOADS_RESIDENCY_LABEL,
+                payload_counts(game, ResourceClass::WorldPayload),
+            ),
+            room_payloads: ResourceResidencySnapshot::new(
+                ROOM_PAYLOADS_RESIDENCY_LABEL,
+                payload_counts(game, ResourceClass::RoomPayload),
+            ),
         }
+    }
+}
+
+fn payload_counts(game: &Game, class: ResourceClass) -> ResidencyCounts {
+    let known = match class {
+        ResourceClass::GlobalPayload => 0,
+        ResourceClass::WorldPayload => game.worlds().len(),
+        ResourceClass::RoomPayload => game
+            .worlds()
+            .iter()
+            .map(|world| world.rooms().len())
+            .sum(),
+        ResourceClass::Texture
+        | ResourceClass::Script
+        | ResourceClass::Audio
+        | ResourceClass::Prefab => 0,
+    };
+
+    let snapshot = game.hydration_coordinator.snapshot();
+    let mut resident = std::collections::BTreeSet::<ResidencyKey>::new();
+    let mut pinned = std::collections::BTreeSet::<ResidencyKey>::new();
+    for claim in snapshot.claims.into_iter().filter(|claim| claim.class == class) {
+        for key in claim.keys {
+            resident.insert(key);
+            if matches!(claim.scope, HydrationScope::Entity(_)) {
+                pinned.insert(key);
+            }
+        }
+    }
+
+    ResidencyCounts {
+        known,
+        resident: resident.len(),
+        pending: 0,
+        pinned: pinned.len(),
+        active: resident.len(),
     }
 }
 
@@ -98,6 +156,8 @@ mod tests {
     use super::*;
     use crate::assets::AssetRegistry;
     use crate::ecs::{Entity, ScriptId, SpriteId};
+    use crate::hydration::{HydrationScope, PayloadKey};
+    use crate::worlds::{Room, RoomId, World, WorldId};
     use std::path::PathBuf;
 
     #[test]
@@ -133,8 +193,12 @@ mod tests {
             .register_asset_relative_path(SpriteId(1), "sprites/player.png")
             .unwrap();
 
-        let mut sprite_manager = SpriteManager::default();
-        SpriteManager::init_editor_metadata(&registry, &mut sprite_manager);
+        let mut game = Game::default();
+        game.asset_registry = registry;
+        crate::assets::SpriteManager::init_editor_metadata(
+            &game.asset_registry,
+            &mut game.sprite_manager,
+        );
 
         let mut script_manager = ScriptManager::default();
         script_manager
@@ -149,13 +213,7 @@ mod tests {
             entries: Vec::new(),
         };
 
-        let snapshot = RuntimeResidencySnapshot::from_sources(
-            &sprite_manager,
-            &script_manager,
-            &audio,
-            4,
-            3,
-        );
+        let snapshot = RuntimeResidencySnapshot::from_sources(&game, &script_manager, &audio, 4, 3);
 
         assert_eq!(snapshot.textures.label, TEXTURES_RESIDENCY_LABEL);
         assert_eq!(snapshot.textures.counts.known, 1);
@@ -172,5 +230,44 @@ mod tests {
         assert_eq!(snapshot.audio.counts.pending, 1);
         assert_eq!(snapshot.audio.counts.pinned, 0);
         assert_eq!(snapshot.audio.counts.active, 3);
+        assert_eq!(snapshot.global_payloads.counts.known, 0);
+        assert_eq!(snapshot.world_payloads.counts.known, 0);
+        assert_eq!(snapshot.room_payloads.counts.known, 0);
+    }
+
+    #[test]
+    fn runtime_residency_snapshot_reports_payload_counts() {
+        let mut game = Game::default();
+        let mut world = World::new(WorldId(1), "Demo".to_string(), 16.0);
+        world.add_room(Room {
+            id: RoomId(2),
+            ..Default::default()
+        });
+        game.add_world(world);
+        game.hydration_coordinator
+            .activate_scope(HydrationScope::World(WorldId(1)));
+        game.hydration_coordinator.claim(
+            HydrationScope::World(WorldId(1)),
+            ResidencyKey::Payload(PayloadKey::World(WorldId(1))),
+        );
+        game.hydration_coordinator
+            .activate_scope(HydrationScope::Room(RoomId(2)));
+        game.hydration_coordinator.claim(
+            HydrationScope::Room(RoomId(2)),
+            ResidencyKey::Payload(PayloadKey::Room(RoomId(2))),
+        );
+
+        let snapshot = RuntimeResidencySnapshot::from_sources(
+            &game,
+            &ScriptManager::default(),
+            &AudioDiagnosticsSnapshot::default(),
+            0,
+            0,
+        );
+
+        assert_eq!(snapshot.room_payloads.counts.known, 1);
+        assert_eq!(snapshot.room_payloads.counts.resident, 1);
+        assert_eq!(snapshot.world_payloads.counts.known, 1);
+        assert_eq!(snapshot.world_payloads.counts.resident, 1);
     }
 }

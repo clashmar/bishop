@@ -149,3 +149,43 @@ fn most_recent_game_name_ignores_reserved_runtime_save_folder() {
     let expected = sanitise_name(test_game.name());
     assert_eq!(most_recent_game_name().as_deref(), Some(expected.as_str()));
 }
+
+#[test]
+fn save_game_writes_split_layout() {
+    let _lock = game_fs_test_lock()
+        .lock()
+        .unwrap_or_else(|poison| poison.into_inner());
+    let test_game = TestGameFolder::new("split_layout_save");
+    set_game_name(test_game.name());
+
+    let game = create_new_game(test_game.name().to_string());
+    save_game(&game).unwrap();
+
+    let resources = resources_folder(test_game.name());
+    assert!(resources.join(paths::GAME_RON).is_file());
+    assert!(resources.join(paths::WORLDS_FOLDER).join("world-1.ron").is_file());
+    assert!(resources.join(paths::PAYLOADS_FOLDER).join("room-1.ron").is_file());
+}
+
+#[test]
+fn load_game_by_name_restores_room_entities_from_split_layout() {
+    let _lock = game_fs_test_lock()
+        .lock()
+        .unwrap_or_else(|poison| poison.into_inner());
+    let test_game = TestGameFolder::new("split_layout_load");
+    set_game_name(test_game.name());
+
+    let mut game = create_new_game(test_game.name().to_string());
+    let room_id = game.current_world().rooms()[0].id;
+    let entity = game
+        .ecs
+        .create_entity()
+        .with(Animation::default())
+        .with_current_room(room_id)
+        .finish();
+
+    save_game(&game).unwrap();
+    let loaded = load_game_by_name(&game.name).unwrap();
+
+    assert!(loaded.ecs.entities_in_room(room_id).contains(&entity));
+}
