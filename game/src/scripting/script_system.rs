@@ -15,6 +15,7 @@ use std::sync::Arc;
 
 /// Registry key for the global update function from main.lua.
 const GLOBAL_UPDATE_KEY: &str = "__global_update";
+type ScriptCallback = (Entity, ScriptId, Option<String>, Function, Table);
 
 pub struct ScriptSystem;
 
@@ -69,7 +70,7 @@ impl ScriptSystem {
     /// Runs all lua scripts in the game.
     pub fn run_scripts(dt: f32, engine: &mut Engine) -> LuaResult<()> {
         // Collect all pending inits and their functions in a single borrow
-        let inits_to_run: Vec<(Function, Table)> = {
+        let inits_to_run: Vec<ScriptCallback> = {
             let mut game_instance = engine.game_instance.borrow_mut();
             let script_manager = &mut game_instance.game.script_manager;
 
@@ -80,18 +81,24 @@ impl ScriptSystem {
                 .filter_map(|(entity, script_id)| {
                     let instance = script_manager.instances.get(&(entity, script_id))?;
                     let init_fn = instance.get::<Function>(lua_entity::INIT).ok()?;
-                    Some((init_fn.clone(), instance.clone()))
+                    let script_path = script_manager
+                        .path_for_id(script_id)
+                        .map(|path| path.display().to_string());
+                    Some((
+                        entity,
+                        script_id,
+                        script_path,
+                        init_fn.clone(),
+                        instance.clone(),
+                    ))
                 })
                 .collect()
         };
 
-        for (init_fn, instance) in inits_to_run {
-            init_fn.call::<()>(&instance)?;
-            Self::process_commands(engine);
-        }
+        Self::run_entity_init_callbacks(inits_to_run, || Self::process_commands(engine));
 
         // Collect all scripts to run in a single borrow
-        let scripts_to_run: Vec<(Entity, ScriptId, Function, Table)> = {
+        let scripts_to_run: Vec<ScriptCallback> = {
             let game_instance = engine.game_instance.borrow();
             let ctx = game_instance.game.ctx();
             let script_manager = &game_instance.game.script_manager;
@@ -107,10 +114,14 @@ impl ScriptSystem {
 
                     let update_fn = script_manager.update_fns.get(&script.script_id)?;
                     let instance = script_manager.instances.get(&(*entity, script.script_id))?;
+                    let script_path = script_manager
+                        .path_for_id(script.script_id)
+                        .map(|path| path.display().to_string());
 
                     Some((
                         *entity,
                         script.script_id,
+                        script_path,
                         update_fn.clone(),
                         instance.clone(),
                     ))
@@ -119,7 +130,7 @@ impl ScriptSystem {
         };
 
         // Execute without holding any borrows
-        for (entity, script_id, update_fn, instance) in scripts_to_run {
+        for (entity, script_id, script_path, update_fn, instance) in scripts_to_run {
             {
                 let game_instance = engine.game_instance.borrow();
                 if !script_update_is_still_valid(&game_instance.game.ecs, entity, script_id) {
@@ -127,17 +138,20 @@ impl ScriptSystem {
                 }
             }
 
-            update_fn.call::<()>((instance, dt))?;
-            Self::process_commands(engine);
+            Self::run_entity_update_callback(
+                entity,
+                script_id,
+                script_path.as_deref(),
+                &update_fn,
+                &instance,
+                dt,
+                || Self::process_commands(engine),
+            );
         }
 
         // Call the global update function from main.lua if one was defined
-        if let Ok(global_update) = engine
-            .lua
-            .named_registry_value::<Function>(GLOBAL_UPDATE_KEY)
-        {
-            global_update.call::<()>(dt)?;
-            Self::process_commands(engine);
+        if let Ok(global_update) = engine.lua.named_registry_value::<Function>(GLOBAL_UPDATE_KEY) {
+            Self::run_global_update_callback(&global_update, dt, || Self::process_commands(engine));
         }
 
         Ok(())
@@ -276,6 +290,50 @@ impl ScriptSystem {
         Ok(inits)
     }
 
+    fn run_entity_init_callbacks(
+        callbacks: Vec<ScriptCallback>,
+        mut after_each: impl FnMut(),
+    ) {
+        for (entity, script_id, script_path, init_fn, instance) in callbacks {
+            if let Err(error) = init_fn.call::<()>(&instance) {
+                log_entity_script_error(
+                    "init",
+                    entity,
+                    script_id,
+                    script_path.as_deref(),
+                    &error,
+                );
+            }
+            after_each();
+        }
+    }
+
+    fn run_entity_update_callback(
+        entity: Entity,
+        script_id: ScriptId,
+        script_path: Option<&str>,
+        update_fn: &Function,
+        instance: &Table,
+        dt: f32,
+        mut after_each: impl FnMut(),
+    ) {
+        if let Err(error) = update_fn.call::<()>((instance.clone(), dt)) {
+            log_entity_script_error("update", entity, script_id, script_path, &error);
+        }
+        after_each();
+    }
+
+    fn run_global_update_callback(
+        global_update: &Function,
+        dt: f32,
+        mut after_each: impl FnMut(),
+    ) {
+        if let Err(error) = global_update.call::<()>(dt) {
+            omni_error!("global engine.update failed: {error}");
+        }
+        after_each();
+    }
+
     fn activate_entity_script(
         lua: &Lua,
         ecs: &mut Ecs,
@@ -357,6 +415,30 @@ fn update_eligible(game: &Game, entity: Entity, script: &Script) -> bool {
 fn script_update_is_still_valid(ecs: &Ecs, entity: Entity, script_id: ScriptId) -> bool {
     ecs.get::<Script>(entity)
         .is_some_and(|script| script.script_id == script_id)
+}
+
+fn log_entity_script_error(
+    phase: &str,
+    entity: Entity,
+    script_id: ScriptId,
+    script_path: Option<&str>,
+    error: &mlua::Error,
+) {
+    match script_path {
+        Some(path) => omni_error!(
+            "script {phase} failed for entity {:?}, script {:?} ({}): {}",
+            entity,
+            script_id,
+            path,
+            error
+        ),
+        None => omni_error!(
+            "script {phase} failed for entity {:?}, script {:?}: {}",
+            entity,
+            script_id,
+            error
+        ),
+    }
 }
 
 #[cfg(test)]

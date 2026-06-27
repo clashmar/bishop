@@ -294,3 +294,92 @@ fn activate_payload_scripts_requeues_init_exactly_once_after_rehydrate() {
         .count();
     assert_eq!(queued, 1);
 }
+
+#[test]
+fn failing_init_does_not_abort_later_inits() {
+    let lua = Lua::new();
+    lua.globals().set("init_hits", 0).unwrap();
+
+    let failing_init: Function = lua
+        .load("return function(self) error('boom from init') end")
+        .eval()
+        .unwrap();
+    let succeeding_init: Function = lua
+        .load("return function(self) init_hits = init_hits + 1 end")
+        .eval()
+        .unwrap();
+
+    ScriptSystem::run_entity_init_callbacks(
+        vec![
+            (
+                Entity(1),
+                ScriptId(1),
+                Some("scripts/failing.lua".to_string()),
+                failing_init,
+                lua.create_table().unwrap(),
+            ),
+            (
+                Entity(2),
+                ScriptId(2),
+                Some("scripts/ok.lua".to_string()),
+                succeeding_init,
+                lua.create_table().unwrap(),
+            ),
+        ],
+        || {},
+    );
+
+    assert_eq!(lua.globals().get::<i64>("init_hits").unwrap(), 1);
+}
+
+#[test]
+fn failing_update_does_not_abort_later_updates() {
+    let lua = Lua::new();
+    lua.globals().set("update_hits", 0.0).unwrap();
+
+    let failing_update: Function = lua
+        .load("return function(self, dt) error('boom from update') end")
+        .eval()
+        .unwrap();
+    let succeeding_update: Function = lua
+        .load("return function(self, dt) update_hits = update_hits + dt end")
+        .eval()
+        .unwrap();
+
+    ScriptSystem::run_entity_update_callback(
+        Entity(1),
+        ScriptId(1),
+        Some("scripts/failing.lua"),
+        &failing_update,
+        &lua.create_table().unwrap(),
+        0.25,
+        || {},
+    );
+    ScriptSystem::run_entity_update_callback(
+        Entity(2),
+        ScriptId(2),
+        Some("scripts/ok.lua"),
+        &succeeding_update,
+        &lua.create_table().unwrap(),
+        0.25,
+        || {},
+    );
+
+    assert_eq!(lua.globals().get::<f64>("update_hits").unwrap(), 0.25);
+}
+
+#[test]
+fn failing_global_update_still_runs_followup_processing() {
+    let lua = Lua::new();
+    let failing_global_update: Function = lua
+        .load("return function(dt) error('boom from global update') end")
+        .eval()
+        .unwrap();
+    let mut followup_calls = 0;
+
+    ScriptSystem::run_global_update_callback(&failing_global_update, 0.25, || {
+        followup_calls += 1;
+    });
+
+    assert_eq!(followup_calls, 1);
+}
