@@ -1,6 +1,113 @@
 use super::*;
 
 impl AudioManager {
+    /// Begins playing music, optionally after fading out the current track.
+    pub(super) fn play_music(&mut self, request: PlayMusicRequest) {
+        self.pending_music = None;
+        let request = PlayMusicRequest {
+            fade_out: request.fade_out.max(0.0),
+            gap: request.gap.max(0.0),
+            fade_in: request.fade_in.max(0.0),
+            ..request
+        };
+
+        if !self.sound_cache.contains_key(&request.id) {
+            if self.active_music.is_none() {
+                self.active_transition = None;
+                self.queue_pending_music(PlayMusicRequest {
+                    fade_out: 0.0,
+                    ..request
+                });
+            } else {
+                self.queue_pending_music(request);
+            }
+            return;
+        }
+
+        if self.active_music.is_none() {
+            self.active_transition = None;
+            self.queue_music_start(PlayMusicRequest {
+                fade_out: 0.0,
+                ..request
+            });
+            return;
+        }
+
+        if request.fade_out > 0.0 {
+            self.begin_fade_out(
+                request.fade_out,
+                Some(PlayMusicRequest {
+                    fade_out: 0.0,
+                    ..request
+                }),
+            );
+            return;
+        }
+
+        self.replace_music_now(request);
+    }
+
+    /// Stops the active music track immediately.
+    pub(super) fn stop_music(&mut self) {
+        self.pending_music = None;
+        if self.active_music.is_some() {
+            self.finish_music(MusicStopReason::Stopped, None);
+            return;
+        }
+
+        self.active_transition = None;
+        self.set_music_ratio(1.0);
+    }
+
+    /// Begins a fade-out of the active music over `duration` seconds.
+    pub(super) fn fade_music(&mut self, duration: f32) {
+        self.pending_music = None;
+        if self.active_music.is_some() {
+            self.begin_fade_out(duration.max(0.0), None);
+            return;
+        }
+
+        self.active_transition = None;
+        self.set_music_ratio(1.0);
+    }
+
+    pub(super) fn resolve_pending_music(&mut self) {
+        let Some(pending) = self.pending_music.clone() else {
+            return;
+        };
+        if pending.token
+            != self
+                .pending_music
+                .as_ref()
+                .map(|pending| pending.token)
+                .unwrap_or_default()
+        {
+            return;
+        }
+        if self.pending_loads.contains_key(&pending.request.id) {
+            return;
+        }
+        if !self.sound_cache.contains_key(&pending.request.id) {
+            self.pending_music = None;
+            return;
+        }
+
+        self.pending_music = None;
+        self.play_music(pending.request);
+    }
+
+    pub(super) fn publish_runtime_state(&self) {
+        runtime::set_music_playing(self.active_music.is_some() || self.has_pending_music());
+    }
+
+    pub(super) fn tick_playback_state(&mut self, dt: f32) {
+        self.tick_music_completion(dt);
+        self.tick_loop_fades(dt);
+        if self.active_music.is_some() || self.has_pending_music() {
+            self.tick_transition(dt);
+        }
+    }
+
     fn queue_pending_music(&mut self, request: PlayMusicRequest) {
         self.queue_sound_load(&request.id);
         let token = self.next_music_token;
@@ -102,52 +209,6 @@ impl AudioManager {
         self.queue_music_start(request);
     }
 
-    /// Begins playing music, optionally after fading out the current track.
-    pub(super) fn play_music(&mut self, request: PlayMusicRequest) {
-        self.pending_music = None;
-        let request = PlayMusicRequest {
-            fade_out: request.fade_out.max(0.0),
-            gap: request.gap.max(0.0),
-            fade_in: request.fade_in.max(0.0),
-            ..request
-        };
-
-        if !self.sound_cache.contains_key(&request.id) {
-            if self.active_music.is_none() {
-                self.active_transition = None;
-                self.queue_pending_music(PlayMusicRequest {
-                    fade_out: 0.0,
-                    ..request
-                });
-            } else {
-                self.queue_pending_music(request);
-            }
-            return;
-        }
-
-        if self.active_music.is_none() {
-            self.active_transition = None;
-            self.queue_music_start(PlayMusicRequest {
-                fade_out: 0.0,
-                ..request
-            });
-            return;
-        }
-
-        if request.fade_out > 0.0 {
-            self.begin_fade_out(
-                request.fade_out,
-                Some(PlayMusicRequest {
-                    fade_out: 0.0,
-                    ..request
-                }),
-            );
-            return;
-        }
-
-        self.replace_music_now(request);
-    }
-
     fn finish_music(&mut self, reason: MusicStopReason, next_id: Option<String>) {
         let Some(mut music) = self.active_music.take() else {
             self.active_transition = None;
@@ -164,30 +225,6 @@ impl AudioManager {
             reason,
             next_id,
         });
-    }
-
-    /// Stops the active music track immediately.
-    pub(super) fn stop_music(&mut self) {
-        self.pending_music = None;
-        if self.active_music.is_some() {
-            self.finish_music(MusicStopReason::Stopped, None);
-            return;
-        }
-
-        self.active_transition = None;
-        self.set_music_ratio(1.0);
-    }
-
-    /// Begins a fade-out of the active music over `duration` seconds.
-    pub(super) fn fade_music(&mut self, duration: f32) {
-        self.pending_music = None;
-        if self.active_music.is_some() {
-            self.begin_fade_out(duration.max(0.0), None);
-            return;
-        }
-
-        self.active_transition = None;
-        self.set_music_ratio(1.0);
     }
 
     fn tick_music_completion(&mut self, dt: f32) {
@@ -307,41 +344,5 @@ impl AudioManager {
                 self.active_transition,
                 Some(MusicTransition::Gap { .. }) | Some(MusicTransition::FadeIn { .. })
             )
-    }
-
-    pub(super) fn resolve_pending_music(&mut self) {
-        let Some(pending) = self.pending_music.clone() else {
-            return;
-        };
-        if pending.token
-            != self
-                .pending_music
-                .as_ref()
-                .map(|pending| pending.token)
-                .unwrap_or_default()
-        {
-            return;
-        }
-        if self.pending_loads.contains_key(&pending.request.id) {
-            return;
-        }
-        if !self.sound_cache.contains_key(&pending.request.id) {
-            self.pending_music = None;
-            return;
-        }
-
-        self.pending_music = None;
-        self.play_music(pending.request);
-    }
-
-    pub(super) fn publish_runtime_state(&self) {
-        runtime::set_music_playing(self.active_music.is_some() || self.has_pending_music());
-    }
-
-    pub(super) fn tick_playback_state(&mut self, dt: f32) {
-        self.tick_music_completion(dt);
-        if self.active_music.is_some() || self.has_pending_music() {
-            self.tick_transition(dt);
-        }
     }
 }

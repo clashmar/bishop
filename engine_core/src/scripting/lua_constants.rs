@@ -192,6 +192,8 @@ pub mod lua_audio {
     pub const ENTITY_PLAY_SOUND: &str = "play_sound";
     pub const ENTITY_STOP_SOUND: &str = "stop_sound";
     pub const ENTITY_SET_SOUND_VOLUME: &str = "set_sound_volume";
+    pub const STOP_IMMEDIATE: &str = "immediate";
+    pub const STOP_FADE_OUT: &str = "fade_out";
 }
 
 /// Save Lua names.

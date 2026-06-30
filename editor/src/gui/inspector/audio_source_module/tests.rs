@@ -5,10 +5,16 @@ use super::groups::{
     preset_actions_for_group, rename_target_group, AssignOption, PresetAction,
 };
 use super::preview::{
-    active_preview_is_cleared_for_test, set_active_preview_for_test, ActivePreview,
+    active_preview_is_cleared_for_test, set_active_preview_for_test, tick_active_audio_preview,
+    ActivePreview, PreviewRequest,
 };
 use super::*;
-use crate::storage::sound_presets::{set_current_sound_preset_library, SoundPresetLibrary};
+use crate::gui::widgets::audio_source_module_core::{
+    format_volume_label, EDIT_SECTION_SPACING, ROW_HEIGHT, SECTION_GAP, SPACING, TOP_PADDING,
+};
+use crate::storage::sound_presets::{
+    current_sound_preset_library, set_current_sound_preset_library, SoundPresetLibrary,
+};
 use engine_core::ecs::SoundPresetLink;
 
 #[test]
@@ -140,10 +146,10 @@ fn load_preset_action_opens_picker() {
     let mut source = AudioSource::default();
     let mut module = AudioSourceModule::default();
 
-    let warning = handle_assign_option(&mut source, AssignOption::LoadPreset, &mut module);
+    let warning = handle_assign_option(&mut source, AssignOption::LoadPreset, &mut module.core);
 
     assert_eq!(warning, None);
-    assert!(module.show_preset_picker);
+    assert!(module.core.show_preset_picker);
 }
 
 #[test]
@@ -189,6 +195,7 @@ fn reattach_action_applies_preset_and_restores_link() {
                 volume_variation: 0.1,
                 looping: true,
                 preset_link: None,
+                ..Default::default()
             },
         )]),
     });
@@ -204,6 +211,7 @@ fn reattach_action_applies_preset_and_restores_link() {
             volume_variation: 0.0,
             looping: false,
             preset_link: None,
+            ..Default::default()
         },
     );
     source.current = Some(jump.clone());
@@ -270,8 +278,10 @@ fn height_matches_single_visible_row_when_source_has_no_groups() {
 #[test]
 fn height_adds_only_rename_row_when_no_groups_and_rename_is_active() {
     let module = AudioSourceModule {
-        pending_rename_target: Some(SoundGroupId::Custom("Group 1".to_string())),
-        ..Default::default()
+        core: AudioSourceModuleCore {
+            pending_rename_target: Some(SoundGroupId::Custom("Group 1".to_string())),
+            ..Default::default()
+        },
     };
 
     assert_eq!(
@@ -283,15 +293,21 @@ fn height_adds_only_rename_row_when_no_groups_and_rename_is_active() {
 #[test]
 fn height_matches_minimal_group_editor_without_sound_rows() {
     let module = AudioSourceModule {
-        has_groups: true,
-        sounds_len: 0,
-        ..Default::default()
+        core: AudioSourceModuleCore {
+            has_groups: true,
+            sounds_len: 0,
+            ..Default::default()
+        },
     };
 
     let expected = TOP_PADDING
         + ROW_HEIGHT
         + SPACING
         + SECTION_GAP
+        + ROW_HEIGHT
+        + EDIT_SECTION_SPACING
+        + ROW_HEIGHT
+        + EDIT_SECTION_SPACING
         + ROW_HEIGHT
         + EDIT_SECTION_SPACING
         + ROW_HEIGHT
@@ -309,15 +325,19 @@ fn height_matches_minimal_group_editor_without_sound_rows() {
 #[test]
 fn height_includes_preset_actions_row_only_when_cached_as_visible() {
     let without_preset_actions = AudioSourceModule {
-        has_groups: true,
-        sounds_len: 0,
-        ..Default::default()
+        core: AudioSourceModuleCore {
+            has_groups: true,
+            sounds_len: 0,
+            ..Default::default()
+        },
     };
     let with_preset_actions = AudioSourceModule {
-        has_groups: true,
-        has_preset_actions: true,
-        sounds_len: 0,
-        ..Default::default()
+        core: AudioSourceModuleCore {
+            has_groups: true,
+            has_preset_actions: true,
+            sounds_len: 0,
+            ..Default::default()
+        },
     };
 
     assert_eq!(

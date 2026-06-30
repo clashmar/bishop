@@ -4,6 +4,8 @@ use crate::transitions::world_transitions::WorldSelector;
 use crate::scripting::commands::lua_command::LuaCommand;
 use crate::scripting::lua_ctx::LuaGameCtx;
 use crate::scripting::modules::entity_module::EntityHandle;
+use engine_core::audio::command_queue::drain_audio_commands;
+use engine_core::audio::{AudioCommand, AudioPlaybackOwner};
 use engine_core::ecs::*;
 use engine_core::game::Game;
 use engine_core::worlds::*;
@@ -281,4 +283,58 @@ fn teleport_and_move_by_reject_indexed_vec_tables() {
 
     assert!(lua.load("entity:teleport({ 10, 20 })").exec().is_err());
     assert!(lua.load("entity:move_by({ 3, -2 })").exec().is_err());
+}
+
+fn setup_entity_with_looping_audio(stop_behavior: AudioStopBehavior) -> (Lua, Rc<RefCell<GameInstance>>, Entity) {
+    let (lua, game_instance, entity) = setup_entity_lua();
+    {
+        let mut gi = game_instance.borrow_mut();
+        gi.game.ecs.insert_component(
+            entity,
+            AudioSource {
+                groups: HashMap::from([(
+                    SoundGroupId::Custom("Ambience".to_string()),
+                    AudioGroup {
+                        sounds: vec![SoundId(1)],
+                        looping: true,
+                        stop_behavior,
+                        ..Default::default()
+                    },
+                )]),
+                ..Default::default()
+            },
+        );
+    }
+    (lua, game_instance, entity)
+}
+
+#[test]
+fn entity_stop_sound_without_opts_uses_authored_stop_behavior() {
+    let (lua, _game_instance, entity) =
+        setup_entity_with_looping_audio(AudioStopBehavior::FadeOut { duration: 0.75 });
+
+    lua.load("entity:stop_sound()").exec().unwrap();
+    let commands = drain_audio_commands();
+
+    match &commands[0] {
+        AudioCommand::StopLoops { owner, fade_out } => {
+            assert_eq!(owner, &AudioPlaybackOwner::Entity(entity));
+            assert_eq!(*fade_out, Some(0.75));
+        }
+        _other => panic!("unexpected command: expected StopLoops"),
+    }
+}
+
+#[test]
+fn entity_stop_sound_with_override_can_force_immediate_stop() {
+    let (lua, _game_instance, _entity) =
+        setup_entity_with_looping_audio(AudioStopBehavior::FadeOut { duration: 0.75 });
+
+    lua.load("entity:stop_sound({ immediate = true })").exec().unwrap();
+    let commands = drain_audio_commands();
+
+    match &commands[0] {
+        AudioCommand::StopLoops { fade_out, .. } => assert_eq!(*fade_out, None),
+        other => panic!("unexpected command: expected StopLoops, got {:?}", std::mem::discriminant(other)),
+    }
 }

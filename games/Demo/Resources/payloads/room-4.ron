@@ -17,5 +17,6 @@
         (59),
         (62),
     ],
+    singleton: Some((59)),
     darkness: 0.0,
 )

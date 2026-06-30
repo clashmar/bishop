@@ -1,5 +1,7 @@
 use crate::assets::AssetRegistry;
-use crate::audio::command_queue::{push_audio_command, AudioCommand};
+use crate::audio::command_queue::{
+    push_audio_command, AudioCommand, AudioPlaybackOwner,
+};
 use crate::ecs::entity::Entity;
 use crate::game::GameCtxMut;
 use ecs_component::ecs_component;
@@ -48,6 +50,26 @@ pub struct SoundPresetLink {
     pub preset_name: String,
 }
 
+/// Controls when an authored audio group should start.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub enum AudioTrigger {
+    /// Only starts when explicitly requested.
+    #[default]
+    Manual,
+    /// Starts automatically when the owning scope becomes active.
+    OnOwnerActivate,
+}
+
+/// Controls how an authored audio group should stop.
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+pub enum AudioStopBehavior {
+    /// Stops immediately with no fade.
+    #[default]
+    Immediate,
+    /// Fades out over the authored duration in seconds.
+    FadeOut { duration: f32 },
+}
+
 /// A single grouped audio definition attached to an entity.
 #[derive(Clone, Debug, PartialEq, Serialize)]
 #[serde(default)]
@@ -64,6 +86,10 @@ pub struct AudioGroup {
     pub looping: bool,
     /// Optional link to a shared preset.
     pub preset_link: Option<SoundPresetLink>,
+    /// Controls whether the group starts manually or on owner activation.
+    pub trigger: AudioTrigger,
+    /// Controls whether the group stops immediately or fades out.
+    pub stop_behavior: AudioStopBehavior,
 }
 
 fn default_audio_group_volume() -> f32 {
@@ -85,6 +111,10 @@ struct AudioGroupSerde {
     looping: bool,
     #[serde(default)]
     preset_link: Option<SoundPresetLink>,
+    #[serde(default)]
+    trigger: AudioTrigger,
+    #[serde(default)]
+    stop_behavior: AudioStopBehavior,
 }
 
 impl From<AudioGroupSerde> for AudioGroup {
@@ -96,6 +126,8 @@ impl From<AudioGroupSerde> for AudioGroup {
             volume_variation: value.volume_variation,
             looping: value.looping,
             preset_link: value.preset_link,
+            trigger: value.trigger,
+            stop_behavior: value.stop_behavior,
         };
         group.sanitize();
         group
@@ -111,12 +143,17 @@ impl<'de> Deserialize<'de> for AudioGroup {
     }
 }
 
-impl AudioGroup {
-    fn sanitize(&mut self) {
-        self.pitch_variation = self.pitch_variation.max(0.0);
-        self.volume_variation = self.volume_variation.max(0.0);
+impl AudioStopBehavior {
+    /// Returns the authored fade duration for loop teardown.
+    pub fn fade_duration(&self) -> Option<f32> {
+        match self {
+            Self::Immediate => None,
+            Self::FadeOut { duration } => Some(*duration),
+        }
     }
+}
 
+impl AudioGroup {
     /// Overwrites the group's local settings from a preset and stores the active link.
     pub fn apply_preset(&mut self, preset_name: &str, preset: &AudioGroup) {
         self.sounds = preset.sounds.clone();
@@ -124,10 +161,20 @@ impl AudioGroup {
         self.pitch_variation = preset.pitch_variation;
         self.volume_variation = preset.volume_variation;
         self.looping = preset.looping;
+        self.trigger = preset.trigger.clone();
+        self.stop_behavior = preset.stop_behavior.clone();
         self.preset_link = Some(SoundPresetLink {
             preset_name: preset_name.to_string(),
         });
         self.sanitize();
+    }
+
+    fn sanitize(&mut self) {
+        self.pitch_variation = self.pitch_variation.max(0.0);
+        self.volume_variation = self.volume_variation.max(0.0);
+        if let AudioStopBehavior::FadeOut { duration } = &mut self.stop_behavior {
+            *duration = duration.max(0.0);
+        }
     }
 }
 
@@ -140,6 +187,8 @@ impl Default for AudioGroup {
             volume_variation: 0.0,
             looping: false,
             preset_link: None,
+            trigger: AudioTrigger::default(),
+            stop_behavior: AudioStopBehavior::default(),
         }
     }
 }
@@ -257,7 +306,10 @@ struct AudioSourceSerde {
 }
 
 fn post_remove(_source: &mut AudioSource, entity: &Entity, _ctx: &mut GameCtxMut<'_>) {
-    push_audio_command(AudioCommand::StopLoop(**entity as u64));
+    push_audio_command(AudioCommand::StopLoops {
+        owner: AudioPlaybackOwner::Entity(*entity),
+        fade_out: None,
+    });
 }
 
 #[cfg(test)]

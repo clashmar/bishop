@@ -1,6 +1,8 @@
 use crate::scripting::lua_ctx::LuaGameCtx;
 use crate::scripting::modules::entity_module::handle::{ensure_live_entity, EntityHandle};
-use engine_core::audio::{AudioCommand, push_audio_command};
+use engine_core::audio::{
+    AudioCommand, AudioLoopKey, AudioPlaybackOwner, push_audio_command,
+};
 use engine_core::ecs::{AudioSource, SoundGroupId, sound_command_ids};
 use engine_core::scripting::{LuaApiWriter, LuaMethod};
 use engine_core::scripting::lua_constants::lua_audio;
@@ -38,7 +40,10 @@ impl LuaMethod<EntityHandle> for PlaySoundMethod {
 
                 if group.looping {
                     push_audio_command(AudioCommand::PlayLoop {
-                        handle: *this.entity as u64,
+                        key: AudioLoopKey::new(
+                            AudioPlaybackOwner::Entity(this.entity),
+                            group_id.clone(),
+                        ),
                         sounds,
                         volume,
                         pitch_variation: group.pitch_variation,
@@ -61,7 +66,7 @@ impl LuaMethod<EntityHandle> for PlaySoundMethod {
         out.line(
             "--- Plays the named sound group configured on this entity's AudioSource component.",
         );
-        out.line("--- If the group is looping, starts a loop tracked by the entity ID.");
+        out.line("--- If the group is looping, starts a loop owned by this entity.");
         out.line("--- If one-shot, plays with the group's pitch and volume variation.");
         out.line("---@param group_name SoundGroupId");
         out.line(&format!(

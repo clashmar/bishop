@@ -145,7 +145,7 @@ fn save_game_round_trips_sound_asset_registry_records() {
     let loaded_source = AudioSource::store(&loaded.ecs)
         .data
         .values()
-        .next()
+        .find(|s| s.groups.contains_key(&SoundGroupId::Custom("Jump".to_string())))
         .unwrap();
 
     assert_eq!(

@@ -1,3 +1,4 @@
+use crate::audio::scoped_playback::reconcile_scoped_audio;
 use crate::engine::game_instance::GameInstance;
 use crate::scripting::script_system::ScriptSystem;
 use engine_core::audio::AudioManager;
@@ -252,6 +253,10 @@ fn refresh_after_traversal_impl(
                 .hydration_coordinator
                 .deactivate_scope(scope.clone());
         }
+    }
+
+    if let Some(audio_manager) = audio_manager.as_deref_mut() {
+        reconcile_scoped_audio(&game_instance.game, audio_manager);
     }
 
     if let Some(diagnostics) = &mut game_instance.traversal_residency_diagnostics {

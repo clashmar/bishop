@@ -1,10 +1,11 @@
-use super::{EDIT_SECTION_SPACING, SECTION_GAP, SPACING};
+use crate::gui::widgets::audio_source_module_core::{EDIT_SECTION_SPACING, SECTION_GAP, SPACING};
 use engine_core::ecs::inspector::InspectorBodyLayout;
 
-pub(super) fn body_layout(
+pub(crate) fn body_layout(
     has_groups: bool,
     rename_active: bool,
     preset_actions_visible: bool,
+    has_fade_duration: bool,
     sounds_len: usize,
 ) -> InspectorBodyLayout {
     let mut layout = InspectorBodyLayout::new().rows(1, SPACING);
@@ -21,7 +22,12 @@ pub(super) fn body_layout(
         layout = layout.gap(SPACING).rows(1, SPACING);
     }
 
+    let mut fixed_rows = 7;
+    if has_fade_duration {
+        fixed_rows += 1;
+    }
+
     layout
         .gap(SECTION_GAP)
-        .rows(sounds_len + 5, EDIT_SECTION_SPACING)
+        .rows(sounds_len + fixed_rows, EDIT_SECTION_SPACING)
 }

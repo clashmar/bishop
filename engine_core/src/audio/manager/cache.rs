@@ -46,7 +46,7 @@ impl AudioManager {
         }
     }
 
-    #[cfg(test)]
+    #[cfg(any(test, feature = "test-utils"))]
     pub(crate) fn complete_load_for_test(&mut self, id: &str, frames: Arc<Frames<[f32; 2]>>) {
         self.pending_loads.remove(id);
         self.finish_sound_load(id.to_owned(), frames);
@@ -56,6 +56,13 @@ impl AudioManager {
     pub(crate) fn fail_load_for_test(&mut self, id: &str, error: &str) {
         self.pending_loads.remove(id);
         self.fail_sound_load(id.to_owned(), error.to_owned());
+    }
+
+    /// Seeds a silent sound into the cache for testing, bypassing file I/O.
+    #[cfg(any(test, feature = "test-utils"))]
+    pub fn seed_silent_sound_for_test(&mut self, id: &str) {
+        let frames = oddio::Frames::from_slice(44_100, &[[0.0, 0.0]]);
+        self.complete_load_for_test(id, frames);
     }
 
     /// Preloads a sound into the cache without playing it.
