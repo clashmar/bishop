@@ -235,7 +235,9 @@ pub fn sound_command_ids(
             asset_registry.relative_path(sound_id).map(|path| {
                 let mut path_without_extension = path;
                 path_without_extension.set_extension("");
-                path_without_extension.to_string_lossy().into_owned()
+                path_without_extension
+                    .to_string_lossy()
+                    .replace('\\', "/")
             })
         })
         .collect()
@@ -273,6 +275,24 @@ impl Serialize for AudioSource {
         let mut state = serializer.serialize_struct("AudioSource", 1)?;
         state.serialize_field("groups", &groups)?;
         state.end()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{sound_command_ids, SoundId};
+    use crate::assets::AssetRegistry;
+    use crate::constants::paths::SFX_FOLDER;
+    use std::path::PathBuf;
+
+    #[test]
+    fn sound_command_ids_use_forward_slashes_for_audio_paths() {
+        let mut registry = AssetRegistry::default();
+        registry
+            .register_asset_relative_path(SoundId(4), PathBuf::from(SFX_FOLDER).join("room_fade.wav"))
+            .unwrap();
+
+        assert_eq!(sound_command_ids(&registry, [SoundId(4)]), vec!["sfx/room_fade".to_string()]);
     }
 }
 
