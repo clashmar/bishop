@@ -61,6 +61,17 @@ function engine.activate_world(world_name, entry_name) end
 ---@return { id: integer, name: string }
 function engine.current_world() end
 
+---@class RestoreLocation
+---@field world_id integer
+---@field room_id integer
+---@field x number
+---@field y number
+
+--- Restores the player to a specific world, room, and position.
+---@param location RestoreLocation
+---@return nil
+function engine.restore_location(location) end
+
 ---@param msg string
 function engine.log.info(msg) end
 

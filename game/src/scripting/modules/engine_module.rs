@@ -385,8 +385,13 @@ impl LuaModule for EngineModule {
         })?;
         engine_tbl.set(lua_engine::RETURN_FROM_WORLD, return_from_world_fn)?;
 
-        // engine.restore_location(world_id, room_id, x, y)
-        let restore_location_fn = lua.create_function(|lua, (world_id, room_id, x, y): (usize, usize, f32, f32)| {
+        // engine.restore_location(location)
+        let restore_location_fn = lua.create_function(|lua, location: Table| {
+            let world_id = location.get::<usize>(lua_fields::WORLD_ID)?;
+            let room_id = location.get::<usize>(lua_fields::ROOM_ID)?;
+            let x = location.get::<f32>(lua_fields::X)?;
+            let y = location.get::<f32>(lua_fields::Y)?;
+
             let ctx = LuaGameCtx::borrow_ctx(lua)?;
             let mut gi = ctx.game_instance.borrow_mut();
             let game = &mut gi.game;
@@ -524,13 +529,17 @@ impl LuaApi for EngineModule {
         out.line(&format!("function engine.{}() end", lua_engine::CURRENT_WORLD));
         out.line("");
 
+        out.line("---@class RestoreLocation");
+        out.line(&format!("---@field {} integer", lua_fields::WORLD_ID));
+        out.line(&format!("---@field {} integer", lua_fields::ROOM_ID));
+        out.line(&format!("---@field {} number", lua_fields::X));
+        out.line(&format!("---@field {} number", lua_fields::Y));
+        out.line("");
+
         out.line("--- Restores the player to a specific world, room, and position.");
-        out.line("---@param world_id integer");
-        out.line("---@param room_id integer");
-        out.line("---@param x number");
-        out.line("---@param y number");
+        out.line("---@param location RestoreLocation");
         out.line("---@return nil");
-        out.line(&format!("function engine.{}(world_id, room_id, x, y) end", lua_engine::RESTORE_LOCATION));
+        out.line(&format!("function engine.{}(location) end", lua_engine::RESTORE_LOCATION));
         out.line("");
     }
 }

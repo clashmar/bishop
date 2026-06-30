@@ -13,12 +13,7 @@ local Checkpoint = {
             return
         end
 
-        save_flow.request_checkpoint({
-            kind = "checkpoint",
-            room_id = room_id,
-            x = transform.position.x,
-            y = transform.position.y,
-        })
+        save_flow.request_checkpoint(save_flow.capture_location(transform, room_id))
         engine.log.info("Checkpoint save requested")
     end,
 }

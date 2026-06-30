@@ -68,6 +68,8 @@ pub mod lua_fields {
     pub const NAME: &str = "name";
     pub const PUBLIC: &str = "public";
     pub const POSITION: &str = "position";
+    pub const WORLD_ID: &str = "world_id";
+    pub const ROOM_ID: &str = "room_id";
     pub const X: &str = "x";
     pub const Y: &str = "y";
     pub const Z: &str = "z";
