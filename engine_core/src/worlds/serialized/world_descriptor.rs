@@ -1,3 +1,4 @@
+use crate::ecs::Entity;
 use crate::scripting::event_tags::event_tag::EventTag;
 use crate::worlds::room::{Exit, Room, RoomId};
 use crate::worlds::world::{World, WorldId, WorldMeta};
@@ -19,6 +20,7 @@ pub struct RoomDirectoryEntry {
     pub exits: Vec<Exit>,
     pub adjacent_rooms: Vec<RoomId>,
     pub tags: Vec<EventTag>,
+    pub singleton: Entity,
 }
 
 /// Lightweight world descriptor loaded at boot for topology and traversal planning.
@@ -31,6 +33,7 @@ pub struct WorldDescriptor {
     pub tags: Vec<EventTag>,
     pub overlay: bool,
     pub grid_size: f32,
+    pub singleton: Entity,
     pub rooms: Vec<RoomDirectoryEntry>,
 }
 
@@ -43,6 +46,7 @@ impl World {
         world.meta = descriptor.meta;
         world.tags = descriptor.tags;
         world.overlay = descriptor.overlay;
+        world.singleton = descriptor.singleton;
         for entry in descriptor.rooms {
             let room = Room {
                 id: entry.id,
@@ -54,7 +58,7 @@ impl World {
                 tags: entry.tags,
                 variants: vec![],
                 darkness: 0.0,
-                singleton: None,
+                singleton: entry.singleton,
             };
             world.add_room(room);
         }
@@ -76,6 +80,7 @@ mod tests {
             tags: vec![],
             overlay: false,
             grid_size: 16.0,
+            singleton: Entity(9),
             rooms: vec![RoomDirectoryEntry {
                 id: RoomId(7),
                 name: "Spawn".to_string(),
@@ -84,6 +89,7 @@ mod tests {
                 exits: vec![],
                 adjacent_rooms: vec![],
                 tags: vec![],
+                singleton: Entity(7),
             }],
         };
 
@@ -91,6 +97,8 @@ mod tests {
         let room = world.get_room(RoomId(7)).unwrap();
 
         assert_eq!(world.id, descriptor.id);
+        assert_eq!(world.singleton, descriptor.singleton);
+        assert_eq!(room.singleton, Entity(7));
         assert!(room.variants.is_empty());
     }
 }

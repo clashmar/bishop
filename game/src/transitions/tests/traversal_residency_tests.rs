@@ -113,7 +113,7 @@ fn attach_room_singleton_auto_loop(
         .unwrap()
         .get_room_mut(room_id)
         .unwrap()
-        .singleton = Some(entity);
+        .singleton = entity;
 }
 
 fn write_silent_wav(path: &Path) {

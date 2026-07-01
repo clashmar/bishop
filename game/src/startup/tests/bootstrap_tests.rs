@@ -161,7 +161,16 @@ fn parse_startup_data_uses_startup_mode_from_payload() {
     let payload = r#"
 (
     room: (
+        id: (1),
         name: "Room",
+        position: (0.0, 0.0),
+        size: (16.0, 9.0),
+        exits: [],
+        adjacent_rooms: [],
+        tags: [],
+        variants: [],
+        darkness: 0.0,
+        singleton: (1),
     ),
     game: (
         name: "Demo",
@@ -200,7 +209,16 @@ fn playtest_game_name_reads_name_from_payload() {
     let payload = r#"
 (
     room: (
+        id: (1),
         name: "Room",
+        position: (0.0, 0.0),
+        size: (16.0, 9.0),
+        exits: [],
+        adjacent_rooms: [],
+        tags: [],
+        variants: [],
+        darkness: 0.0,
+        singleton: (1),
     ),
     game: (
         name: "Demo",

@@ -34,7 +34,7 @@ pub struct World {
     pub room_grid: RoomGrid,
     #[serde(skip)]
     room_index: HashMap<RoomId, usize>,
-    pub singleton: Option<Entity>,
+    pub singleton: Entity,
 }
 
 fn default_grid_size() -> f32 {
@@ -291,6 +291,7 @@ mod tests {
     fn room(id: usize) -> Room {
         Room {
             id: RoomId(id),
+            singleton: Entity(id),
             ..Default::default()
         }
     }

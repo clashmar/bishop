@@ -38,8 +38,8 @@ impl PropertyModule<World> for WorldAudioSourceModule {
         let entity = game_ctx
             .world
             .as_deref()
-            .and_then(|w| w.singleton)
-            .expect("world singleton must exist");
+            .expect("world must exist")
+            .singleton;
         self.core.draw(ctx, false, rect, game_ctx, entity);
     }
 

@@ -27,10 +27,6 @@ impl Default for RoomScriptModule {
 }
 
 impl PropertyModule<Room> for RoomScriptModule {
-    fn visible(&self, room: &Room, _game_ctx: &GameCtxMut) -> bool {
-        room.singleton.is_some()
-    }
-
     fn draw(
         &mut self,
         ctx: &mut WgpuContext,
@@ -39,10 +35,7 @@ impl PropertyModule<Room> for RoomScriptModule {
         game_ctx: &mut GameCtxMut,
         _insp_ctx: &InspectorContext,
     ) {
-        let Some(entity) = room.singleton else {
-            return;
-        };
-        self.core.draw(ctx, rect, entity, game_ctx, false);
+        self.core.draw(ctx, rect, room.singleton, game_ctx, false);
     }
 
     fn body_layout(&self) -> InspectorBodyLayout {

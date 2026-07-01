@@ -27,14 +27,6 @@ impl Default for WorldScriptModule {
 }
 
 impl PropertyModule<World> for WorldScriptModule {
-    fn visible(&self, _world: &World, game_ctx: &GameCtxMut) -> bool {
-        game_ctx
-            .world
-            .as_deref()
-            .and_then(|w| w.singleton)
-            .is_some()
-    }
-
     fn draw(
         &mut self,
         ctx: &mut WgpuContext,
@@ -43,9 +35,7 @@ impl PropertyModule<World> for WorldScriptModule {
         game_ctx: &mut GameCtxMut,
         _insp_ctx: &InspectorContext,
     ) {
-        let Some(entity) = game_ctx.world.as_deref().and_then(|w| w.singleton) else {
-            return;
-        };
+        let entity = game_ctx.world.as_deref().expect("world must exist").singleton;
         self.core.draw(ctx, rect, entity, game_ctx, false);
     }
 

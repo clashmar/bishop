@@ -2,8 +2,9 @@ use crate::world::world_editor::WorldEditor;
 use bishop::prelude::*;
 use engine_core::ecs::*;
 use engine_core::game::{Game, GameCtxMut};
-use engine_core::tiles::{TileMap};
+use engine_core::tiles::TileMap;
 use engine_core::worlds::*;
+use std::collections::HashSet;
 
 impl WorldEditor {
     /// Delete a room by its RoomId.
@@ -12,11 +13,9 @@ impl WorldEditor {
             return;
         };
 
-        // Remove the room from the world
-        let removed = world.remove_room(room_id);
-        if removed.is_none() {
-            return; // nothing to delete
-        }
+        let Some(removed) = world.remove_room(room_id) else {
+            return;
+        };
 
         // Re‑compute adjacency for the remaining rooms
         let len = world.rooms().len();
@@ -40,8 +39,9 @@ impl WorldEditor {
 
         world.rebuild_room_grid();
 
-        let entities_to_remove: Vec<Entity> =
+        let mut entities_to_remove: HashSet<Entity> =
             ctx.ecs.entities_in_room(room_id).iter().copied().collect();
+        entities_to_remove.insert(removed.singleton);
 
         for entity in entities_to_remove {
             Ecs::remove_entity(ctx, entity);
@@ -89,7 +89,7 @@ impl WorldEditor {
             tags: vec![],
             variants: vec![variant],
             darkness: 0.,
-            singleton: None,
+            singleton: Room::create_room_singleton_entity(&mut game.ecs, id),
         };
 
         Room::create_camera_entity(&mut game.ecs, room.id, room.position, grid_size);
@@ -123,7 +123,6 @@ impl WorldEditor {
         let a_rect = Rect::new(a.position.x, a.position.y, a.size.x, a.size.y);
         let b_rect = Rect::new(b.position.x, b.position.y, b.size.x, b.size.y);
 
-        // Rooms are adjacent if they share an edge
         let horizontal_touch = a_rect.x < b_rect.x + b_rect.w
             && a_rect.x + a_rect.w > b_rect.x
             && (a_rect.y + a_rect.h == b_rect.y || b_rect.y + b_rect.h == a_rect.y);
@@ -133,5 +132,56 @@ impl WorldEditor {
             && (a_rect.x + a_rect.w == b_rect.x || b_rect.x + b_rect.w == a_rect.x);
 
         horizontal_touch || vertical_touch
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use engine_core::ecs::{CurrentRoom, Singleton};
+
+    #[test]
+    fn create_new_room_when_called_assigns_room_singleton() {
+        let mut game = Game::default();
+        game.add_world(World::new(WorldId(1), "test".to_string(), 16.0));
+        let mut editor = WorldEditor::new();
+
+        let room_id = editor.create_new_room(
+            &mut game,
+            "Room",
+            Vec2::new(32.0, 48.0),
+            Vec2::new(4.0, 3.0),
+        );
+
+        let room = game.current_world().get_room(room_id).unwrap();
+        let singleton = room.singleton;
+
+        assert!(game.ecs.has::<Singleton>(singleton));
+        assert_eq!(
+            game.ecs.get::<CurrentRoom>(singleton).map(|current| current.0),
+            Some(room_id)
+        );
+    }
+
+    #[test]
+    fn delete_room_when_called_removes_room_singleton() {
+        let mut game = Game::default();
+        game.add_world(World::new(WorldId(1), "test".to_string(), 16.0));
+        let mut editor = WorldEditor::new();
+        let room_id = editor.create_new_room(
+            &mut game,
+            "Room",
+            Vec2::new(32.0, 48.0),
+            Vec2::new(4.0, 3.0),
+        );
+        let singleton = game.current_world().get_room(room_id).unwrap().singleton;
+
+        {
+            let mut ctx = game.ctx_mut();
+            editor.delete_room(&mut ctx, room_id);
+        }
+
+        assert!(game.current_world().get_room(room_id).is_none());
+        assert!(!game.ecs.has::<Singleton>(singleton));
     }
 }

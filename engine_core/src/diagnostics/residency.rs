@@ -11,8 +11,8 @@ pub const SCRIPTS_RESIDENCY_LABEL: &str = "Scripts";
 pub const AUDIO_RESIDENCY_LABEL: &str = "Audio";
 /// Label for global payload residency summaries.
 pub const GLOBAL_PAYLOADS_RESIDENCY_LABEL: &str = "Global Payloads";
-/// Label for world payload residency summaries.
-pub const WORLD_PAYLOADS_RESIDENCY_LABEL: &str = "World Payloads";
+/// Label for world residency summaries.
+pub const WORLD_RESIDENCY_LABEL: &str = "World Residency";
 /// Label for room payload residency summaries.
 pub const ROOM_PAYLOADS_RESIDENCY_LABEL: &str = "Room Payloads";
 
@@ -101,24 +101,24 @@ impl RuntimeResidencySnapshot {
             ),
             global_payloads: ResourceResidencySnapshot::new(
                 GLOBAL_PAYLOADS_RESIDENCY_LABEL,
-                payload_counts(game, ResourceClass::GlobalPayload),
+                scope_counts(game, ResourceClass::GlobalPayload),
             ),
             world_payloads: ResourceResidencySnapshot::new(
-                WORLD_PAYLOADS_RESIDENCY_LABEL,
-                payload_counts(game, ResourceClass::WorldPayload),
+                WORLD_RESIDENCY_LABEL,
+                scope_counts(game, ResourceClass::World),
             ),
             room_payloads: ResourceResidencySnapshot::new(
                 ROOM_PAYLOADS_RESIDENCY_LABEL,
-                payload_counts(game, ResourceClass::RoomPayload),
+                scope_counts(game, ResourceClass::RoomPayload),
             ),
         }
     }
 }
 
-fn payload_counts(game: &Game, class: ResourceClass) -> ResidencyCounts {
+fn scope_counts(game: &Game, class: ResourceClass) -> ResidencyCounts {
     let known = match class {
         ResourceClass::GlobalPayload => 0,
-        ResourceClass::WorldPayload => game.worlds().len(),
+        ResourceClass::World => game.worlds().len(),
         ResourceClass::RoomPayload => game
             .worlds()
             .iter()
@@ -156,7 +156,7 @@ mod tests {
     use super::*;
     use crate::assets::AssetRegistry;
     use crate::ecs::{Entity, ScriptId, SpriteId};
-    use crate::hydration::{HydrationScope, PayloadKey};
+    use crate::hydration::{HydrationScope, ScopeKey};
     use crate::worlds::{Room, RoomId, World, WorldId};
     use std::path::PathBuf;
 
@@ -236,7 +236,7 @@ mod tests {
     }
 
     #[test]
-    fn runtime_residency_snapshot_reports_payload_counts() {
+    fn runtime_residency_snapshot_reports_scope_counts() {
         let mut game = Game::default();
         let mut world = World::new(WorldId(1), "Demo".to_string(), 16.0);
         world.add_room(Room {
@@ -248,13 +248,13 @@ mod tests {
             .activate_scope(HydrationScope::World(WorldId(1)));
         game.hydration_coordinator.claim(
             HydrationScope::World(WorldId(1)),
-            ResidencyKey::Payload(PayloadKey::World(WorldId(1))),
+            ResidencyKey::Scope(ScopeKey::World(WorldId(1))),
         );
         game.hydration_coordinator
             .activate_scope(HydrationScope::Room(RoomId(2)));
         game.hydration_coordinator.claim(
             HydrationScope::Room(RoomId(2)),
-            ResidencyKey::Payload(PayloadKey::Room(RoomId(2))),
+            ResidencyKey::Scope(ScopeKey::Room(RoomId(2))),
         );
 
         let snapshot = RuntimeResidencySnapshot::from_sources(

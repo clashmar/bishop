@@ -473,13 +473,6 @@ pub fn room_payload_path(resources: &Path, room_id: RoomId) -> PathBuf {
         .join(room_layout_file_name(room_id))
 }
 
-/// Returns the path to a world payload file inside a resources folder.
-pub fn world_payload_path(resources: &Path, world_id: WorldId) -> PathBuf {
-    resources
-        .join(paths::PAYLOADS_FOLDER)
-        .join(world_layout_file_name(world_id))
-}
-
 /// Platform-default location used when the user has not chosen a folder.
 fn default_save_root() -> PathBuf {
     #[cfg(target_os = "macos")]

@@ -3,7 +3,7 @@ use crate::ecs::{
     Active, AudioSource, CurrentFrame, Ecs, Entity, Global, Glow, Script, ScriptId, Sprite,
 };
 use crate::game::Game;
-use crate::hydration::{PayloadKey, ResidencyKey};
+use crate::hydration::{ScopeKey, ResidencyKey};
 use crate::worlds::{RoomId, TraversalTopology, WorldId};
 use std::collections::{BTreeSet, HashMap};
 
@@ -28,7 +28,7 @@ pub struct DerivedTraversalClaims {
 /// Global entities are excluded — their assets are claimed under the Global scope.
 pub fn collect_room_claims(game: &Game, room_id: RoomId) -> BTreeSet<ResidencyKey> {
     let mut claims = BTreeSet::new();
-    claims.insert(ResidencyKey::Payload(PayloadKey::Room(room_id)));
+    claims.insert(ResidencyKey::Scope(ScopeKey::Room(room_id)));
 
     for &entity in game.ecs.entities_in_room(room_id) {
         if game.ecs.has::<Global>(entity) {
@@ -71,14 +71,12 @@ pub fn collect_world_claims(
     for world_id in topology.world_frontier(current_world) {
         let mut world_claims = BTreeSet::new();
         if let Some(world) = game.get_world(world_id) {
-            world_claims.insert(ResidencyKey::Payload(PayloadKey::World(world_id)));
-            if let Some(entity) = world.singleton {
-                world_claims.extend(
-                    collect_entity_assets(&game.ecs, entity)
-                        .into_iter()
-                        .map(ResidencyKey::Asset),
-                );
-            }
+            world_claims.insert(ResidencyKey::Scope(ScopeKey::World(world_id)));
+            world_claims.extend(
+                collect_entity_assets(&game.ecs, world.singleton)
+                    .into_iter()
+                    .map(ResidencyKey::Asset),
+            );
         }
         claims.insert(world_id, world_claims);
     }
@@ -101,7 +99,7 @@ pub fn collect_pinned_entity_claims(game: &Game) -> HashMap<Entity, BTreeSet<Res
 
         if let Some(room_id) = game.ecs.get::<crate::ecs::CurrentRoom>(entity).map(|room| room.0)
         {
-            entity_claims.insert(ResidencyKey::Payload(PayloadKey::Room(room_id)));
+            entity_claims.insert(ResidencyKey::Scope(ScopeKey::Room(room_id)));
         }
 
         if !entity_claims.is_empty() {
@@ -195,13 +193,13 @@ mod tests {
             .finish();
 
         let claims = collect_room_claims(&game, RoomId(1));
-        assert!(claims.contains(&ResidencyKey::Payload(PayloadKey::Room(RoomId(1)))));
+        assert!(claims.contains(&ResidencyKey::Scope(ScopeKey::Room(RoomId(1)))));
         assert!(claims.contains(&ResidencyKey::Asset(AssetKey::Sprite(SpriteId(7)))));
         assert!(claims.contains(&ResidencyKey::Asset(AssetKey::Script(ScriptId(3)))));
     }
 
     #[test]
-    fn world_claims_include_payloads_and_world_singleton_assets_in_the_frontier() {
+    fn world_claims_include_scopes_and_world_singleton_assets_in_the_frontier() {
         let mut game = Game::default();
 
         let mut world_a = World::new(WorldId(1), "Overworld".to_string(), 16.0);
@@ -221,7 +219,7 @@ mod tests {
             })
             .with_current_room(RoomId(1))
             .finish();
-        world_a.singleton = Some(world_a_singleton);
+        world_a.singleton = world_a_singleton;
 
         let mut world_b = World::new(WorldId(2), "Dungeon".to_string(), 16.0);
         world_b.add_room(Room {
@@ -246,7 +244,7 @@ mod tests {
             })
             .with_current_room(RoomId(2))
             .finish();
-        world_b.singleton = Some(world_b_singleton);
+        world_b.singleton = world_b_singleton;
 
         game.add_world(world_a);
         game.add_world(world_b);
@@ -266,9 +264,9 @@ mod tests {
         let topology = crate::worlds::extract_topology(&game);
         let claims = collect_world_claims(&game, &topology, RoomId(1));
 
-        assert!(claims[&WorldId(1)].contains(&ResidencyKey::Payload(PayloadKey::World(WorldId(1)))));
+        assert!(claims[&WorldId(1)].contains(&ResidencyKey::Scope(ScopeKey::World(WorldId(1)))));
         assert!(claims[&WorldId(1)].contains(&ResidencyKey::Asset(AssetKey::Script(ScriptId(11)))));
-        assert!(claims[&WorldId(2)].contains(&ResidencyKey::Payload(PayloadKey::World(WorldId(2)))));
+        assert!(claims[&WorldId(2)].contains(&ResidencyKey::Scope(ScopeKey::World(WorldId(2)))));
         assert!(claims[&WorldId(2)].contains(&ResidencyKey::Asset(AssetKey::Sound(SoundId(9)))));
     }
 
@@ -356,7 +354,7 @@ mod tests {
     }
 
     #[test]
-    fn pinned_active_entity_keeps_required_payloads_outside_warm_window() {
+    fn pinned_active_entity_keeps_required_scopes_outside_warm_window() {
         let mut game = Game::default();
         let mut world = World::new(WorldId(1), "Test".to_string(), 16.0);
         world.add_room(Room {
@@ -391,7 +389,7 @@ mod tests {
         game.ecs.get_mut::<Active>(entity).unwrap().pin();
 
         let pinned = collect_pinned_entity_claims(&game);
-        assert!(pinned[&entity].contains(&ResidencyKey::Payload(PayloadKey::Room(RoomId(2)))));
+        assert!(pinned[&entity].contains(&ResidencyKey::Scope(ScopeKey::Room(RoomId(2)))));
         assert!(pinned[&entity].contains(&ResidencyKey::Asset(AssetKey::Script(ScriptId(9)))));
         assert!(pinned[&entity].contains(&ResidencyKey::Asset(AssetKey::Sprite(SpriteId(6)))));
         assert!(pinned[&entity].contains(&ResidencyKey::Asset(AssetKey::Sound(SoundId(4)))));

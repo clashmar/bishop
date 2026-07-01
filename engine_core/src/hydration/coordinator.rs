@@ -122,7 +122,7 @@ impl HydrationCoordinator {
             .into_iter()
             .filter_map(|key| match key {
                 ResidencyKey::Asset(asset) => Some(asset),
-                ResidencyKey::Payload(_) => None,
+                ResidencyKey::Scope(_) => None,
             })
             .collect::<Vec<_>>();
         assets.sort();
@@ -140,7 +140,7 @@ impl HydrationCoordinator {
             .into_iter()
             .filter_map(|key| match key {
                 ResidencyKey::Asset(asset) => Some(asset),
-                ResidencyKey::Payload(_) => None,
+                ResidencyKey::Scope(_) => None,
             })
             .collect::<Vec<_>>();
         assets.sort();
@@ -213,7 +213,7 @@ impl HydrationCoordinator {
 mod tests {
     use super::*;
     use crate::ecs::{Entity, Script, ScriptId, SoundId, Sprite, SpriteId};
-    use crate::hydration::PayloadKey;
+    use crate::hydration::ScopeKey;
     use crate::worlds::{RoomId, WorldId};
 
     #[test]
@@ -290,11 +290,11 @@ mod tests {
     }
 
     #[test]
-    fn payload_claims_accumulate_by_scope_and_class() {
+    fn scope_claims_accumulate_by_scope_and_class() {
         let mut coordinator = HydrationCoordinator::default();
         let scope = HydrationScope::Room(RoomId(2));
         coordinator.activate_scope(scope.clone());
-        coordinator.claim(scope.clone(), ResidencyKey::Payload(PayloadKey::Room(RoomId(2))));
+        coordinator.claim(scope.clone(), ResidencyKey::Scope(ScopeKey::Room(RoomId(2))));
 
         assert_eq!(coordinator.claim_count(&scope, ResourceClass::RoomPayload), 1);
     }

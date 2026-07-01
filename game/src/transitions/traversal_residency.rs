@@ -10,7 +10,7 @@ use engine_core::ecs::{Active, CurrentRoom, Entity, Global};
 use engine_core::game::Game;
 use engine_core::hydration::{
     self, DerivedTraversalClaims, HydrationCoordinator, HydrationDriver, HydrationError,
-    HydrationScope, PayloadKey, ResourceClass, ResidencyKey,
+    HydrationScope, ScopeKey, ResourceClass, ResidencyKey,
 };
 use engine_core::logging::omni_error;
 use engine_core::worlds::topology::{extract_topology, RoomEdgeKind, TraversalTopology};
@@ -130,13 +130,13 @@ fn refresh_after_traversal_impl(
             if !removed.is_empty() {
                 let bucket = outcomes.entry(previous_label.clone()).or_default();
                 for key in removed {
-                    let should_dehydrate_payload = matches!(key, ResidencyKey::Payload(_))
+                    let should_dehydrate_payload = matches!(key, ResidencyKey::Scope(_))
                         && desired_owner_counts.get(&key).copied().unwrap_or(0) == 0
                         && is_primary_scope_for_key(&previous_keys, &scope, key);
 
                     if should_dehydrate_payload {
-                        if let ResidencyKey::Payload(payload) = key {
-                            let entities = payload_entities_for_key(&game_instance.game, payload);
+                        if let ResidencyKey::Scope(scope) = key {
+                            let entities = scope_entities_for_key(&game_instance.game, scope);
                             ScriptSystem::deactivate_payload_scripts(
                                 &game_instance.game.ecs,
                                 &mut game_instance.game.script_manager,
@@ -190,7 +190,7 @@ fn refresh_after_traversal_impl(
                             .hydration_coordinator
                             .claim(scope.clone(), key);
 
-                        let should_hydrate_payload = matches!(key, ResidencyKey::Payload(_))
+                        let should_hydrate_payload = matches!(key, ResidencyKey::Scope(_))
                             && previous_owner_counts.get(&key).copied().unwrap_or(0) == 0
                             && is_primary_scope_for_key(&desired_keys, &scope, key);
 
@@ -210,9 +210,9 @@ fn refresh_after_traversal_impl(
                             match result {
                                 Ok(()) => {
                                     if should_hydrate_payload {
-                                        if let ResidencyKey::Payload(payload) = key {
+                                        if let ResidencyKey::Scope(scope) = key {
                                             let entities =
-                                                payload_entities_for_key(&game_instance.game, payload);
+                                                scope_entities_for_key(&game_instance.game, scope);
                                             let game_ctx = game_instance.game.ctx_mut();
                                             if let Err(error) = ScriptSystem::activate_payload_scripts(
                                                 lua,
@@ -223,7 +223,7 @@ fn refresh_after_traversal_impl(
                                                 bucket.failures += 1;
                                                 omni_error!(
                                                     "Traversal script activation failed for {:?}: {}",
-                                                    payload,
+                                                    scope,
                                                     error
                                                 );
                                                 continue;
@@ -419,21 +419,21 @@ fn current_traversal_scope_keys(
         .collect()
 }
 
-fn payload_entities_for_key(game: &Game, payload: PayloadKey) -> Vec<Entity> {
-    match payload {
-        PayloadKey::Global => game
+fn scope_entities_for_key(game: &Game, scope: ScopeKey) -> Vec<Entity> {
+    match scope {
+        ScopeKey::Global => game
             .ecs
             .get_store::<Global>()
             .data
             .keys()
             .copied()
             .collect(),
-        PayloadKey::World(world_id) => game
+        ScopeKey::World(world_id) => game
             .get_world(world_id)
-            .and_then(|world| world.singleton)
+            .map(|world| world.singleton)
             .into_iter()
             .collect(),
-        PayloadKey::Room(room_id) => game.ecs.entities_in_room(room_id).iter().copied().collect(),
+        ScopeKey::Room(room_id) => game.ecs.entities_in_room(room_id).iter().copied().collect(),
     }
 }
 

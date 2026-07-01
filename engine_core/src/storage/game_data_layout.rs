@@ -1,9 +1,9 @@
 use crate::constants::paths;
 use crate::game::{Game, GameDataManifest};
 use crate::storage::path_utils::{
-    resources_folder, room_payload_path, world_descriptor_path, world_payload_path,
+    resources_folder, room_payload_path, world_descriptor_path,
 };
-use crate::worlds::{RoomPayload, World, WorldDescriptor, WorldPayload};
+use crate::worlds::{RoomPayload, World, WorldDescriptor};
 use std::fs;
 use std::io;
 use std::path::Path;
@@ -47,15 +47,9 @@ pub fn save_game_to_folder(game: &Game, folder: &Path) -> io::Result<()> {
                 exits: room.exits.clone(),
                 adjacent_rooms: room.adjacent_rooms.clone(),
                 tags: room.tags.clone(),
+                singleton: room.singleton,
             });
         }
-
-        let payload_ron = ron::ser::to_string_pretty(
-            &WorldPayload::capture(world),
-            ron::ser::PrettyConfig::new(),
-        )
-        .map_err(io::Error::other)?;
-        fs::write(world_payload_path(folder, world.id), payload_ron)?;
 
         let descriptor = WorldDescriptor {
             id: world.id,
@@ -65,6 +59,7 @@ pub fn save_game_to_folder(game: &Game, folder: &Path) -> io::Result<()> {
             tags: world.tags.clone(),
             overlay: world.overlay,
             grid_size: world.grid_size,
+            singleton: world.singleton,
             rooms: room_entries,
         };
         let descriptor_ron =
@@ -89,7 +84,7 @@ pub fn save_game_to_folder(game: &Game, folder: &Path) -> io::Result<()> {
 }
 
 /// Loads descriptor shells plus shared ECS/registry state from a game folder.
-/// Room and world payload data remain unloaded until a later hydration step.
+/// Room payload data remain unloaded until a later hydration step.
 pub fn load_game_shell_from_folder(folder: &Path) -> io::Result<Game> {
     let manifest_path = folder.join(paths::GAME_RON);
     let manifest_ron = fs::read_to_string(&manifest_path)?;
@@ -108,7 +103,6 @@ pub fn load_full_game_from_folder(folder: &Path) -> io::Result<Game> {
 
 /// Hydrates the current world's startup-critical payloads after descriptor-shell boot.
 pub fn hydrate_current_payloads_from_folder(folder: &Path, game: &mut Game) -> io::Result<()> {
-    hydrate_current_world_payload(folder, game)?;
     hydrate_current_room_payload(folder, game)?;
     Ok(())
 }
@@ -163,19 +157,11 @@ fn load_shell_from_split_layout(folder: &Path, manifest: GameDataManifest) -> io
 
 fn hydrate_all_payloads_from_folder(folder: &Path, game: &mut Game) -> io::Result<()> {
     for world in game.worlds_mut() {
-        hydrate_world_payload(folder, world)?;
         for room in world.rooms_mut() {
             hydrate_room_payload(folder, room)?;
         }
     }
     Ok(())
-}
-
-fn hydrate_current_world_payload(folder: &Path, game: &mut Game) -> io::Result<()> {
-    let Some(world) = game.current_world_mut() else {
-        return Ok(());
-    };
-    hydrate_world_payload(folder, world)
 }
 
 fn hydrate_current_room_payload(folder: &Path, game: &mut Game) -> io::Result<()> {
@@ -186,13 +172,6 @@ fn hydrate_current_room_payload(folder: &Path, game: &mut Game) -> io::Result<()
         return Ok(());
     };
     hydrate_room_payload(folder, room)
-}
-
-fn hydrate_world_payload(folder: &Path, world: &mut World) -> io::Result<()> {
-    let payload_ron = fs::read_to_string(world_payload_path(folder, world.id))?;
-    let payload: WorldPayload = ron::from_str(&payload_ron).map_err(io::Error::other)?;
-    payload.apply(world);
-    Ok(())
 }
 
 fn hydrate_room_payload(folder: &Path, room: &mut crate::worlds::Room) -> io::Result<()> {
@@ -237,6 +216,12 @@ mod tests {
         world.current_room_id = Some(RoomId(1));
         let room = Room::new(&mut game.ecs, RoomId(1), 16.0);
         world.add_room(room);
+        world.singleton = game
+            .ecs
+            .create_entity()
+            .with(Animation::default())
+            .with_current_room(RoomId(1))
+            .finish();
         game.add_world(world);
         game.ecs
             .create_entity()
@@ -333,6 +318,21 @@ mod tests {
     }
 
     #[test]
+    fn load_game_shell_from_folder_preserves_world_and_room_singletons() {
+        let folder = TempSplitLayoutDir::new();
+        let original = fully_loaded_test_game();
+        let room_id = original.current_world().rooms()[0].id;
+        let room_singleton = original.current_world().get_room(room_id).unwrap().singleton;
+        let world_singleton = original.current_world().singleton;
+        save_game_to_folder(&original, folder.path()).unwrap();
+
+        let loaded = load_game_shell_from_folder(folder.path()).unwrap();
+
+        assert_eq!(loaded.current_world().singleton, world_singleton);
+        assert_eq!(loaded.current_world().get_room(room_id).unwrap().singleton, room_singleton);
+    }
+
+    #[test]
     fn save_game_to_folder_writes_deterministic_ecs_and_sorted_room_payload_entities() {
         let folder = TempSplitLayoutDir::new();
         let (game, expected_room_entities) = deterministic_save_test_game();
@@ -354,5 +354,22 @@ mod tests {
         let room_payload: RoomPayload = ron::from_str(&room_payload_ron).unwrap();
 
         assert_eq!(room_payload.entities, expected_room_entities);
+    }
+
+    #[test]
+    fn load_demo_resources_from_repo_preserves_required_singletons() {
+        let resources = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("..")
+            .join("games")
+            .join("Demo")
+            .join("Resources");
+
+        let loaded = load_full_game_from_folder(&resources).unwrap();
+        let world = loaded.current_world();
+        let room = world.current_room().unwrap();
+
+        assert_eq!(loaded.worlds().len(), 4);
+        assert_ne!(world.singleton, Entity::default());
+        assert_ne!(room.singleton, Entity::default());
     }
 }

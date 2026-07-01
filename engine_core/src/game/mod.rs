@@ -276,17 +276,17 @@ impl Game {
     /// Deletes the world from the game.
     #[cfg(feature = "editor")]
     pub fn delete_world(&mut self, id: WorldId) {
-        let room_ids: HashSet<RoomId> = self
-            .worlds()
-            .iter()
-            .find(|w| w.id == id)
-            .map(|w| w.rooms().iter().map(|r| r.id).collect())
-            .unwrap_or_default();
+        let Some(world) = self.worlds().iter().find(|world| world.id == id) else {
+            return;
+        };
 
-        let entity_ids: HashSet<Entity> = room_ids
+        let room_ids: HashSet<RoomId> = world.rooms().iter().map(|room| room.id).collect();
+        let mut entity_ids: HashSet<Entity> = room_ids
             .iter()
             .flat_map(|room_id| self.ecs.entities_in_room(*room_id).iter().copied())
             .collect();
+        entity_ids.extend(world.rooms().iter().map(|room| room.singleton));
+        entity_ids.insert(world.singleton);
 
         let root_entities = get_root_entities_in_set(&self.ecs, &entity_ids);
 

@@ -1,9 +1,9 @@
 use crate::assets::AssetKey;
 use crate::worlds::{RoomId, WorldId};
 
-/// Payload residency keys tracked alongside asset residency.
+/// Scope-level residency keys tracked alongside asset residency.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub enum PayloadKey {
+pub enum ScopeKey {
     Global,
     World(WorldId),
     Room(RoomId),
@@ -13,5 +13,5 @@ pub enum PayloadKey {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum ResidencyKey {
     Asset(AssetKey),
-    Payload(PayloadKey),
+    Scope(ScopeKey),
 }

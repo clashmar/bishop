@@ -35,8 +35,7 @@ impl PropertyModule<Room> for RoomAudioSourceModule {
         game_ctx: &mut GameCtxMut,
         _insp_ctx: &InspectorContext,
     ) {
-        let entity = room.singleton.expect("room singleton must exist");
-        self.core.draw(ctx, false, rect, game_ctx, entity);
+        self.core.draw(ctx, false, rect, game_ctx, room.singleton);
     }
 
     fn body_layout(&self) -> InspectorBodyLayout {

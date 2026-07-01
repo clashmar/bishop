@@ -563,7 +563,7 @@ mod tests {
     use engine_core::diagnostics::{
         AUDIO_RESIDENCY_LABEL, GLOBAL_PAYLOADS_RESIDENCY_LABEL, ResidencyCounts,
         ROOM_PAYLOADS_RESIDENCY_LABEL, SCRIPTS_RESIDENCY_LABEL,
-        TEXTURES_RESIDENCY_LABEL, WORLD_PAYLOADS_RESIDENCY_LABEL,
+        TEXTURES_RESIDENCY_LABEL, WORLD_RESIDENCY_LABEL,
     };
     use engine_core::ecs::SpriteId;
     use engine_core::hydration::ResourceClass;
@@ -607,7 +607,7 @@ mod tests {
                 ResidencyCounts::default(),
             ),
             world_payloads: ResourceResidencySnapshot::new(
-                WORLD_PAYLOADS_RESIDENCY_LABEL,
+                WORLD_RESIDENCY_LABEL,
                 ResidencyCounts::default(),
             ),
             room_payloads: ResourceResidencySnapshot::new(

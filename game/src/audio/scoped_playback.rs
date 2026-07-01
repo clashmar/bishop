@@ -28,14 +28,10 @@ pub struct DesiredLoopSpec {
 /// Returns the authored gameplay owner for an entity-based loop source.
 pub fn classify_audio_owner(game: &Game, entity: Entity) -> AudioPlaybackOwner {
     let current_world = game.current_world();
-    if current_world.singleton == Some(entity) {
+    if current_world.singleton == entity {
         return AudioPlaybackOwner::World(current_world.id);
     }
-    if let Some(room) = current_world
-        .rooms()
-        .iter()
-        .find(|room| room.singleton == Some(entity))
-    {
+    if let Some(room) = current_world.rooms().iter().find(|room| room.singleton == entity) {
         return AudioPlaybackOwner::Room(room.id);
     }
 
@@ -43,10 +39,10 @@ pub fn classify_audio_owner(game: &Game, entity: Entity) -> AudioPlaybackOwner {
         if world.id == current_world.id {
             continue;
         }
-        if world.singleton == Some(entity) {
+        if world.singleton == entity {
             return AudioPlaybackOwner::World(world.id);
         }
-        if let Some(room) = world.rooms().iter().find(|room| room.singleton == Some(entity)) {
+        if let Some(room) = world.rooms().iter().find(|room| room.singleton == entity) {
             return AudioPlaybackOwner::Room(room.id);
         }
     }
@@ -128,20 +124,14 @@ pub fn reconcile_scoped_audio(game: &Game, audio_manager: &mut AudioManager) {
 
 fn collect_current_world_singleton_loops(game: &Game, specs: &mut Vec<DesiredLoopSpec>) {
     let world = game.current_world();
-    let Some(entity) = world.singleton else {
-        return;
-    };
-    collect_entity_loops(game, entity, AudioPlaybackOwner::World(world.id), specs);
+    collect_entity_loops(game, world.singleton, AudioPlaybackOwner::World(world.id), specs);
 }
 
 fn collect_current_room_singleton_loops(game: &Game, specs: &mut Vec<DesiredLoopSpec>) {
     let Some(room) = game.current_world().current_room() else {
         return;
     };
-    let Some(entity) = room.singleton else {
-        return;
-    };
-    collect_entity_loops(game, entity, AudioPlaybackOwner::Room(room.id), specs);
+    collect_entity_loops(game, room.singleton, AudioPlaybackOwner::Room(room.id), specs);
 }
 
 fn collect_active_entity_loops(game: &Game, specs: &mut Vec<DesiredLoopSpec>) {
@@ -209,8 +199,8 @@ fn entity_for_owner(game: &Game, owner: &AudioPlaybackOwner) -> Option<Entity> {
         AudioPlaybackOwner::Room(room_id) => game
             .world_of_room(*room_id)
             .and_then(|world| world.get_room(*room_id))
-            .and_then(|room| room.singleton),
-        AudioPlaybackOwner::World(world_id) => game.get_world(*world_id).and_then(|world| world.singleton),
+            .map(|room| room.singleton),
+        AudioPlaybackOwner::World(world_id) => game.get_world(*world_id).map(|world| world.singleton),
     }
 }
 
@@ -295,7 +285,7 @@ mod tests {
             .unwrap()
             .get_room_mut(room_id)
             .unwrap()
-            .singleton = Some(entity);
+            .singleton = entity;
     }
 
     fn attach_world_singleton_auto_loop(
@@ -313,7 +303,7 @@ mod tests {
             AudioStopBehavior::Immediate,
         );
         register_sound(game, sound_id, sound_name);
-        game.current_world_mut().unwrap().singleton = Some(entity);
+        game.current_world_mut().unwrap().singleton = entity;
     }
 
     #[test]

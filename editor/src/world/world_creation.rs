@@ -35,18 +35,7 @@ pub fn create_new_world(game: &mut Game) -> World {
         .with(AudioSource::default())
         .with_current_room(room_id)
         .finish();
-    world.singleton = Some(world_singleton);
-
-    let room_singleton = game
-        .ecs
-        .create_entity()
-        .with(Singleton)
-        .with(AudioSource::default())
-        .with_current_room(room_id)
-        .finish();
-    if let Some(room) = world.get_room_mut(room_id) {
-        room.singleton = Some(room_singleton);
-    }
+    world.singleton = world_singleton;
 
     // Default "Start" entry point
     game.ecs

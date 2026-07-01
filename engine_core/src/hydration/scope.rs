@@ -1,6 +1,6 @@
 use crate::assets::AssetKey;
 use crate::ecs::Entity;
-use crate::hydration::residency_key::{PayloadKey, ResidencyKey};
+use crate::hydration::residency_key::{ScopeKey, ResidencyKey};
 use crate::worlds::{RoomId, WorldId};
 
 /// Which scope owns hydrated resources.
@@ -22,7 +22,7 @@ pub enum HydrationScope {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum ResourceClass {
     GlobalPayload,
-    WorldPayload,
+    World,
     RoomPayload,
     Texture,
     Script,
@@ -46,9 +46,9 @@ impl ResourceClass {
     pub fn for_residency_key(key: ResidencyKey) -> Option<Self> {
         match key {
             ResidencyKey::Asset(asset) => Self::for_asset_key(asset),
-            ResidencyKey::Payload(PayloadKey::Global) => Some(Self::GlobalPayload),
-            ResidencyKey::Payload(PayloadKey::World(_)) => Some(Self::WorldPayload),
-            ResidencyKey::Payload(PayloadKey::Room(_)) => Some(Self::RoomPayload),
+            ResidencyKey::Scope(ScopeKey::Global) => Some(Self::GlobalPayload),
+            ResidencyKey::Scope(ScopeKey::World(_)) => Some(Self::World),
+            ResidencyKey::Scope(ScopeKey::Room(_)) => Some(Self::RoomPayload),
         }
     }
 
@@ -56,7 +56,7 @@ impl ResourceClass {
     pub fn display_abbreviation(self) -> &'static str {
         match self {
             Self::GlobalPayload => "PG",
-            Self::WorldPayload => "PW",
+            Self::World => "W",
             Self::RoomPayload => "PR",
             Self::Texture => "T",
             Self::Script => "S",
@@ -69,7 +69,7 @@ impl ResourceClass {
     pub fn hydration_priority(self) -> u8 {
         match self {
             Self::GlobalPayload => 0,
-            Self::WorldPayload => 1,
+            Self::World => 1,
             Self::RoomPayload => 2,
             Self::Texture => 3,
             Self::Script => 4,
@@ -86,7 +86,7 @@ impl ResourceClass {
             Self::Audio => 2,
             Self::Prefab => 3,
             Self::RoomPayload => 4,
-            Self::WorldPayload => 5,
+            Self::World => 5,
             Self::GlobalPayload => 6,
         }
     }
@@ -153,17 +153,17 @@ mod tests {
     }
 
     #[test]
-    fn resource_class_maps_payload_keys() {
+    fn resource_class_maps_scope_keys() {
         assert_eq!(
-            ResourceClass::for_residency_key(ResidencyKey::Payload(PayloadKey::Global)),
+            ResourceClass::for_residency_key(ResidencyKey::Scope(ScopeKey::Global)),
             Some(ResourceClass::GlobalPayload)
         );
         assert_eq!(
-            ResourceClass::for_residency_key(ResidencyKey::Payload(PayloadKey::World(WorldId(2)))),
-            Some(ResourceClass::WorldPayload)
+            ResourceClass::for_residency_key(ResidencyKey::Scope(ScopeKey::World(WorldId(2)))),
+            Some(ResourceClass::World)
         );
         assert_eq!(
-            ResourceClass::for_residency_key(ResidencyKey::Payload(PayloadKey::Room(RoomId(3)))),
+            ResourceClass::for_residency_key(ResidencyKey::Scope(ScopeKey::Room(RoomId(3)))),
             Some(ResourceClass::RoomPayload)
         );
     }

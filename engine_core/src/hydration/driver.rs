@@ -3,10 +3,10 @@ use crate::audio::loader::sound_id_from_asset_path;
 use crate::audio::AudioManager;
 use crate::game::Game;
 use crate::hydration::coordinator::HydrationCoordinator;
-use crate::hydration::residency_key::{PayloadKey, ResidencyKey};
+use crate::hydration::residency_key::{ScopeKey, ResidencyKey};
 use crate::hydration::scope::{HydrationScope, ResourceClass};
-use crate::storage::path_utils::{resources_folder, room_payload_path, world_payload_path};
-use crate::worlds::{RoomPayload, WorldPayload};
+use crate::storage::path_utils::{resources_folder, room_payload_path};
+use crate::worlds::RoomPayload;
 use bishop::prelude::TextureLoader;
 use mlua::Lua;
 use std::fs;
@@ -20,7 +20,7 @@ pub enum HydrationError {
     PayloadLoad(String),
 }
 
-/// Bridges coordinator residency claims into payload and asset load/release APIs.
+/// Bridges coordinator residency claims into scope and asset load/release APIs.
 pub struct HydrationDriver<'a> {
     pub game: &'a mut Game,
     pub audio_manager: &'a mut AudioManager,
@@ -36,7 +36,7 @@ impl<'a> HydrationDriver<'a> {
     ) -> Result<(), HydrationError> {
         match key {
             ResidencyKey::Asset(asset) => self.hydrate_asset(asset, texture_loader, lua),
-            ResidencyKey::Payload(payload) => self.hydrate_payload(payload),
+            ResidencyKey::Scope(scope) => self.hydrate_scope_key(scope),
         }
     }
 
@@ -82,7 +82,7 @@ impl<'a> HydrationDriver<'a> {
     pub fn hydrate_key_runtime(&mut self, key: ResidencyKey, lua: &Lua) -> Result<(), HydrationError> {
         match key {
             ResidencyKey::Asset(asset) => self.hydrate_asset_runtime(asset, lua),
-            ResidencyKey::Payload(payload) => self.hydrate_payload(payload),
+            ResidencyKey::Scope(scope) => self.hydrate_scope_key(scope),
         }
     }
 
@@ -122,7 +122,7 @@ impl<'a> HydrationDriver<'a> {
     pub fn dehydrate_key(&mut self, key: ResidencyKey) {
         match key {
             ResidencyKey::Asset(asset) => self.dehydrate_asset(asset),
-            ResidencyKey::Payload(payload) => self.dehydrate_payload(payload),
+            ResidencyKey::Scope(scope) => self.dehydrate_scope_key(scope),
         }
     }
 
@@ -179,31 +179,11 @@ impl<'a> HydrationDriver<'a> {
         }
     }
 
-    fn hydrate_payload(&mut self, payload: PayloadKey) -> Result<(), HydrationError> {
-        match payload {
-            PayloadKey::Global => Ok(()),
-            PayloadKey::World(world_id) => {
-                let payload_path = world_payload_path(&resources_folder(&self.game.name), world_id);
-                let payload_ron = fs::read_to_string(&payload_path)
-                    .map_err(|error| {
-                        HydrationError::PayloadLoad(format!(
-                            "failed to read world payload '{}': {error}",
-                            payload_path.display()
-                        ))
-                    })?;
-                let payload: WorldPayload = ron::from_str(&payload_ron).map_err(|error| {
-                    HydrationError::PayloadLoad(format!(
-                        "failed to parse world payload '{}': {error}",
-                        payload_path.display()
-                    ))
-                })?;
-
-                if let Some(world) = self.game.get_world_mut(world_id) {
-                    payload.apply(world);
-                }
-                Ok(())
-            }
-            PayloadKey::Room(room_id) => {
+    fn hydrate_scope_key(&mut self, scope: ScopeKey) -> Result<(), HydrationError> {
+        match scope {
+            ScopeKey::Global => Ok(()),
+            ScopeKey::World(_) => Ok(()),
+            ScopeKey::Room(room_id) => {
                 let room_world_map = self.game.room_world_map();
                 let Some(world_id) = room_world_map.get(&room_id).copied() else {
                     return Err(HydrationError::PayloadLoad(format!(
@@ -236,15 +216,11 @@ impl<'a> HydrationDriver<'a> {
         }
     }
 
-    fn dehydrate_payload(&mut self, payload: PayloadKey) {
-        match payload {
-            PayloadKey::Global => {}
-            PayloadKey::World(world_id) => {
-                if let Some(world) = self.game.get_world_mut(world_id) {
-                    WorldPayload::clear(world);
-                }
-            }
-            PayloadKey::Room(room_id) => {
+    fn dehydrate_scope_key(&mut self, scope: ScopeKey) {
+        match scope {
+            ScopeKey::Global => {}
+            ScopeKey::World(_) => {}
+            ScopeKey::Room(room_id) => {
                 let room_world_map = self.game.room_world_map();
                 let Some(world_id) = room_world_map.get(&room_id).copied() else {
                     return;
@@ -348,7 +324,7 @@ mod tests {
         let mut coordinator = HydrationCoordinator::default();
         let scope = HydrationScope::Room(RoomId(1));
         coordinator.activate_scope(scope.clone());
-        coordinator.claim(scope.clone(), ResidencyKey::Payload(PayloadKey::Room(RoomId(1))));
+        coordinator.claim(scope.clone(), ResidencyKey::Scope(ScopeKey::Room(RoomId(1))));
         coordinator.claim(scope.clone(), ResidencyKey::Asset(AssetKey::Sprite(SpriteId(1))));
 
         let mut driver = HydrationDriver {

@@ -3,7 +3,7 @@ mod active_world_tests;
 use super::*;
 use crate::ecs::Ecs;
 #[cfg(feature = "editor")]
-use crate::ecs::{CurrentRoom, Name};
+use crate::ecs::{CurrentRoom, Name, Singleton};
 use crate::worlds::room::{Room, RoomId};
 
 #[test]
@@ -136,6 +136,44 @@ fn delete_world_collects_entities_from_room_index_only_for_target_world() {
 
     assert!(!game.ecs.has::<CurrentRoom>(entity_a));
     assert!(game.ecs.has::<CurrentRoom>(entity_b));
+}
+
+#[cfg(feature = "editor")]
+#[test]
+fn delete_world_removes_world_and_room_singletons() {
+    let mut game = Game::default();
+    let world_id = game.id_allocator.allocate_world_id();
+    let room_id = game.id_allocator.allocate_room_id();
+    let room_singleton = game
+        .ecs
+        .create_entity()
+        .with(Singleton)
+        .with_current_room(room_id)
+        .finish();
+    let world_singleton = game
+        .ecs
+        .create_entity()
+        .with(Singleton)
+        .with_current_room(room_id)
+        .finish();
+
+    game.add_world(World::from_rooms(
+        world_id,
+        String::new(),
+        vec![Room {
+            id: room_id,
+            singleton: room_singleton,
+            ..Default::default()
+        }],
+        16.0,
+    ));
+    let world = game.get_world_mut(world_id).unwrap();
+    world.singleton = world_singleton;
+
+    game.delete_world(world_id);
+
+    assert!(!game.ecs.has::<Singleton>(room_singleton));
+    assert!(!game.ecs.has::<Singleton>(world_singleton));
 }
 
 #[cfg(feature = "editor")]
