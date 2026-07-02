@@ -119,7 +119,7 @@ pub(crate) fn draw_directed_arrow(ctx: &mut WgpuContext, from: Vec2, to: Vec2, c
     ctx.draw_triangle(tip, shaft_end + normal, shaft_end - normal, color);
 }
 
-fn rect_edge_point(bounds: Rect, center: Vec2, direction: Vec2) -> Vec2 {
+pub(crate) fn rect_edge_point(bounds: Rect, center: Vec2, direction: Vec2) -> Vec2 {
     let half = vec2(bounds.w * 0.5, bounds.h * 0.5);
     let scale_x = if direction.x.abs() > f32::EPSILON {
         half.x / direction.x.abs()

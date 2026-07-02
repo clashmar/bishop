@@ -1,3 +1,4 @@
+use super::drawing::rect_edge_point;
 use bishop::prelude::*;
 use engine_core::ecs::{CurrentRoom, WorldExit};
 use engine_core::game::Game;
@@ -506,22 +507,6 @@ fn apply_pan(pan: Vec2, view: &mut TopologyView) {
         stub.tip += pan;
         stub.anchor += pan;
     }
-}
-
-fn rect_edge_point(bounds: Rect, center: Vec2, direction: Vec2) -> Vec2 {
-    let half = vec2(bounds.w * 0.5, bounds.h * 0.5);
-    let scale_x = if direction.x.abs() > f32::EPSILON {
-        half.x / direction.x.abs()
-    } else {
-        f32::INFINITY
-    };
-    let scale_y = if direction.y.abs() > f32::EPSILON {
-        half.y / direction.y.abs()
-    } else {
-        f32::INFINITY
-    };
-    let scale = scale_x.min(scale_y);
-    center + direction * scale
 }
 
 fn draw_arrow(ctx: &mut WgpuContext, from: Vec2, to: Vec2, color: Color) {
