@@ -149,7 +149,7 @@ fn reconcile_prefab_palette_promotes_first_valid_recent_when_active_is_missing()
 }
 
 #[test]
-fn relink_world_exits_populates_new_room_exit_targets() {
+fn relink_room_exits_populates_new_room_exit_targets() {
     let grid_size = 16.0;
     let mut world = World::new(WorldId(1), "Main".to_string(), grid_size);
     world.add_room(Room {
@@ -175,7 +175,7 @@ fn relink_world_exits_populates_new_room_exit_targets() {
         ..Default::default()
     });
 
-    world.link_all_exits();
+    world.link_all_room_exits();
 
     assert_eq!(
         world.get_room(RoomId(1)).unwrap().exits[0].target_room_id,

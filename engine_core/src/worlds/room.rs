@@ -86,8 +86,8 @@ impl Room {
         )
     }
 
-    /// Link exits to adjacent rooms based on their positions.
-    pub fn link_exits(&mut self, other_rooms: &[&Room], grid_size: f32) {
+    /// Links this room's exits to adjacent rooms based on exit positions.
+    pub fn link_room_exits(&mut self, other_rooms: &[&Room], grid_size: f32) {
         let epsilon = 0.01; // tolerance for floating-point comparisons
 
         for exit in self.exits.iter_mut() {

@@ -307,7 +307,7 @@ impl RoomEditor {
 
         self.handle_shortcuts(ctx, camera, room, grid_size, ecs);
 
-        current_world.link_all_exits();
+        current_world.link_all_room_exits();
     }
 
     pub(crate) fn prefab_palette_state(&self) -> PrefabPaletteState {

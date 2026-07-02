@@ -207,8 +207,8 @@ impl WorldMeta {
 }
 
 impl World {
-    /// Links all exits in all rooms of this world.
-    pub fn link_all_exits(&mut self) {
+    /// Links all room exits in this world to adjacent rooms.
+    pub fn link_all_room_exits(&mut self) {
         let len = self.rooms().len();
         let grid_size = self.grid_size;
 
@@ -220,7 +220,7 @@ impl World {
             // Create a slice of immutable references to all other rooms
             let other_rooms: Vec<&Room> = left.iter().chain(right.iter()).collect();
 
-            room.link_exits(&other_rooms, grid_size);
+            room.link_room_exits(&other_rooms, grid_size);
         }
     }
 }
