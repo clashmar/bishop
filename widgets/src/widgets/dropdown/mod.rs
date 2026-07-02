@@ -396,6 +396,7 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
 
                 let total_height = self.rect.h * self.options.len() as f32;
                 let max_offset = (total_height - list_rect.h).max(0.0);
+                state.scroll_offset = state.scroll_offset.clamp(0.0, max_offset);
 
                 let mouse_pos = ctx.mouse_position();
                 let mouse_vec = Vec2::new(mouse_pos.0, mouse_pos.1);
@@ -564,6 +565,7 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
         let filtered_count = filtered.len();
         let total_entries_h = row_h * filtered_count as f32;
         let max_offset = (total_entries_h - entries_h).max(0.0);
+        state.scroll_offset = state.scroll_offset.clamp(0.0, max_offset);
 
         let entries_y = popup_y + filter_h;
         let mouse_pos: Vec2 = ctx.mouse_position().into();
