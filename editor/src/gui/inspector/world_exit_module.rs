@@ -48,6 +48,10 @@ impl InspectorModule for WorldExitModule {
         ecs.get::<WorldExit>(entity).is_some()
     }
 
+    fn removable(&self) -> bool {
+        true
+    }
+
     fn body_layout(&self) -> InspectorBodyLayout {
         let gap = layout::WIDGET_SPACING;
         let mut layout = InspectorBodyLayout::new()

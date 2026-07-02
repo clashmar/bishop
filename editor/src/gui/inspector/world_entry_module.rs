@@ -21,12 +21,15 @@ pub struct WorldEntryModule {
 
 impl InspectorModule for WorldEntryModule {
     fn undo_component_type(&self) -> Option<&'static str> {
-        // Undo is handled by RenameWorldEntryCmd, not snapshot diffing.
-        None
+        Some(WorldEntry::TYPE_NAME)
     }
 
     fn visible(&self, ecs: &Ecs, entity: Entity) -> bool {
         ecs.get::<WorldEntry>(entity).is_some()
+    }
+
+    fn removable(&self) -> bool {
+        true
     }
 
     fn body_layout(&self) -> InspectorBodyLayout {

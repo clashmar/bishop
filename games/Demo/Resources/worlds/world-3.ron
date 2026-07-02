@@ -3,7 +3,7 @@
     name: "Second World",
     current_room_id: Some((4)),
     meta: (
-        position: (0.0, 0.0),
+        position: (123.757515, -166.39137),
         sprite_id: None,
     ),
     tags: [
@@ -18,10 +18,10 @@
             name: "untitled",
             position: (0.0, 0.0),
             size: (16.0, 9.0),
-            singleton: (59),
             exits: [],
             adjacent_rooms: [],
             tags: [],
+            singleton: (59),
         ),
     ],
 )
