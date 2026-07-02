@@ -127,6 +127,10 @@ impl EntityInspector {
         }
     }
 
+    /// Returns the entity currently shown by the inspector.
+    pub fn target(&self) -> Option<Entity> {
+        self.target
+    }
 
     fn build_addable_components(
         &self,
