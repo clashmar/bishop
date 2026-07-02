@@ -6,6 +6,9 @@ use widgets::{center_text_field, draw_input_field_text, with_theme};
 
 use crate::{app::SubEditor, editor_assets::assets::circle_120px, game::game_editor::{GameEditor, GameEditorMode}, gui::gui_constants::SPACING, world::coord};
 
+const WORLD_ARROW_HEAD_LENGTH: f32 = 12.0;
+const WORLD_ARROW_HEAD_HALF_WIDTH: f32 = 5.0;
+
 impl GameEditor {
     pub(crate) fn draw_worlds(&mut self, ctx: &mut WgpuContext, camera: &Camera2D, game: &mut Game) {
         let world_data: Vec<(WorldId, Vec2, Option<SpriteId>, String)> = game
@@ -98,25 +101,17 @@ impl GameEditor {
                 let direction = delta.normalize();
                 let from = rect_edge_point(*from_bounds, from_center, direction);
                 let to = rect_edge_point(*to_bounds, to_center, -direction);
-                draw_directed_arrow(ctx, from, to, with_theme(|theme| theme.accent));
+                draw_arrow(
+                    ctx,
+                    from,
+                    to,
+                    with_theme(|theme| theme.accent),
+                    WORLD_ARROW_HEAD_LENGTH,
+                    WORLD_ARROW_HEAD_HALF_WIDTH,
+                );
             }
         }
     }
-}
-
-pub(crate) fn draw_directed_arrow(ctx: &mut WgpuContext, from: Vec2, to: Vec2, color: Color) {
-    let delta = to - from;
-    if delta.length_squared() == 0.0 {
-        return;
-    }
-
-    let direction = delta.normalize();
-    let tip = to;
-    let shaft_end = to - direction * 12.0;
-    let normal = vec2(-direction.y, direction.x) * 5.0;
-
-    ctx.draw_line(from.x, from.y, shaft_end.x, shaft_end.y, 2.0, color);
-    ctx.draw_triangle(tip, shaft_end + normal, shaft_end - normal, color);
 }
 
 pub(crate) fn rect_edge_point(bounds: Rect, center: Vec2, direction: Vec2) -> Vec2 {

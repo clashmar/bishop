@@ -10,6 +10,8 @@ use widgets::constants::layout;
 
 const ROOM_LABEL_PREFIX: &str = "Room ";
 const WORLD_LABEL_PREFIX: &str = "World ";
+const TOPOLOGY_ARROW_HEAD_LENGTH: f32 = 10.0;
+const TOPOLOGY_ARROW_HEAD_HALF_WIDTH: f32 = 4.0;
 const STUB_OFFSET: f32 = 56.0;
 const STUB_SPACING: f32 = 18.0;
 const LABEL_ROW_HEIGHT: f32 = 24.0;
@@ -246,13 +248,27 @@ pub fn draw_links(ctx: &mut WgpuContext, view: &TopologyView) {
 
     for edge in &view.same_world_exits {
         if let Some((from, to)) = edge_centers(view, *edge) {
-            draw_arrow(ctx, from, to, with_theme(|theme| theme.accent));
+            draw_arrow(
+                ctx,
+                from,
+                to,
+                with_theme(|theme| theme.accent),
+                TOPOLOGY_ARROW_HEAD_LENGTH,
+                TOPOLOGY_ARROW_HEAD_HALF_WIDTH,
+            );
         }
     }
 
     for edge in &view.same_world_portals {
         if let Some((from, to)) = edge_centers(view, *edge) {
-            draw_arrow(ctx, from, to, PORTAL_COLOR);
+            draw_arrow(
+                ctx,
+                from,
+                to,
+                PORTAL_COLOR,
+                TOPOLOGY_ARROW_HEAD_LENGTH,
+                TOPOLOGY_ARROW_HEAD_HALF_WIDTH,
+            );
         }
     }
 }
@@ -260,7 +276,14 @@ pub fn draw_links(ctx: &mut WgpuContext, view: &TopologyView) {
 /// Draws cross-world stubs above the room nodes.
 pub fn draw_cross_world_stubs(ctx: &mut WgpuContext, view: &TopologyView) {
     for stub in &view.cross_world_stubs {
-        draw_arrow(ctx, stub.from, stub.tip, with_theme(|theme| theme.danger));
+        draw_arrow(
+            ctx,
+            stub.from,
+            stub.tip,
+            with_theme(|theme| theme.danger),
+            TOPOLOGY_ARROW_HEAD_LENGTH,
+            TOPOLOGY_ARROW_HEAD_HALF_WIDTH,
+        );
         ctx.draw_text(
             &stub.label,
             stub.anchor.x + LABEL_OFFSET_X,
@@ -323,6 +346,8 @@ pub fn draw_stub_legend(ctx: &mut WgpuContext, world: &World) {
         vec2(LEGEND_MARGIN, base_y),
         vec2(LEGEND_MARGIN + 24.0, base_y),
         with_theme(|theme| theme.accent),
+        TOPOLOGY_ARROW_HEAD_LENGTH,
+        TOPOLOGY_ARROW_HEAD_HALF_WIDTH,
     );
     ctx.draw_text(
         "Exit",
@@ -337,6 +362,8 @@ pub fn draw_stub_legend(ctx: &mut WgpuContext, world: &World) {
         vec2(LEGEND_MARGIN, base_y + LEGEND_LINE),
         vec2(LEGEND_MARGIN + 24.0, base_y + LEGEND_LINE),
         PORTAL_COLOR,
+        TOPOLOGY_ARROW_HEAD_LENGTH,
+        TOPOLOGY_ARROW_HEAD_HALF_WIDTH,
     );
     ctx.draw_text(
         "Portal",
@@ -351,6 +378,8 @@ pub fn draw_stub_legend(ctx: &mut WgpuContext, world: &World) {
         vec2(LEGEND_MARGIN, base_y + LEGEND_LINE * 2.0),
         vec2(LEGEND_MARGIN + 24.0, base_y + LEGEND_LINE * 2.0),
         with_theme(|theme| theme.danger),
+        TOPOLOGY_ARROW_HEAD_LENGTH,
+        TOPOLOGY_ARROW_HEAD_HALF_WIDTH,
     );
     ctx.draw_text(
         "Cross-world",
@@ -507,21 +536,6 @@ fn apply_pan(pan: Vec2, view: &mut TopologyView) {
         stub.tip += pan;
         stub.anchor += pan;
     }
-}
-
-fn draw_arrow(ctx: &mut WgpuContext, from: Vec2, to: Vec2, color: Color) {
-    let delta = to - from;
-    if delta.length_squared() == 0.0 {
-        return;
-    }
-
-    let direction = delta.normalize();
-    let tip = to;
-    let shaft_end = to - direction * 10.0;
-    let normal = vec2(-direction.y, direction.x) * 4.0;
-
-    ctx.draw_line(from.x, from.y, shaft_end.x, shaft_end.y, 2.0, color);
-    ctx.draw_triangle(tip, shaft_end + normal, shaft_end - normal, color);
 }
 
 fn display_room_label(room_id: RoomId, name: &str) -> String {
