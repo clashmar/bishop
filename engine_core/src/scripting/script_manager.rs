@@ -343,7 +343,9 @@ impl ScriptManager {
 
     /// Attempts to evict a cached script definition.
     pub fn evict_script(&mut self, id: ScriptId) {
-        self.decrement_ref(id);
+        if self.ref_count(&id) > 0 {
+            self.decrement_ref(id);
+        }
         let _ = self.evict(&id);
     }
 
@@ -363,7 +365,7 @@ impl ScriptManager {
             self.event_bus.remove_entity_listeners(entity);
         }
 
-        if script_id.0 != 0 {
+        if script_id.0 != 0 && !self.instances.keys().any(|(_, sid)| *sid == script_id) {
             self.evict_script(script_id);
         }
     }
@@ -382,7 +384,7 @@ impl ScriptManager {
         self.instances.retain(|(ent, _), _| *ent != entity);
 
         for script_id in removed_ids {
-            if script_id.0 != 0 {
+            if script_id.0 != 0 && !self.instances.keys().any(|(_, sid)| *sid == script_id) {
                 self.evict_script(script_id);
             }
         }
@@ -397,7 +399,9 @@ impl ScriptManager {
         // Update old script counter
         if old_id.0 != 0 {
             self.instances.remove(&(entity, *old_id));
-            self.evict_script(*old_id);
+            if !self.instances.keys().any(|(_, sid)| *sid == *old_id) {
+                self.evict_script(*old_id);
+            }
         }
 
         *old_id = new_id;
@@ -682,6 +686,30 @@ mod tests {
         manager.unload_all_for_entity(entity);
 
         assert_eq!(manager.instance_count(), 0);
+    }
+
+    #[test]
+    fn unload_never_loaded_script_leaves_cache_empty() {
+        let _lock = game_fs_test_lock().lock().unwrap();
+        let folder = TestGameFolder::new("script_manager_unload_never_loaded");
+        set_game_name(folder.name());
+
+        let mut registry = AssetRegistry::default();
+        let mut manager = ScriptManager::default();
+
+        fs::create_dir_all(scripts_folder()).unwrap();
+        fs::write(
+            scripts_folder().join("a.lua"),
+            "return { update = function() end }",
+        )
+        .unwrap();
+
+        let a_id = manager.init_script(&mut registry, "a.lua").unwrap();
+
+        manager.unload(Entity(1), a_id);
+
+        assert_eq!(manager.loaded_script_count(), 0);
+        assert_eq!(manager.ref_count(&a_id), 0);
     }
 
     #[test]
