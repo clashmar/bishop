@@ -182,7 +182,7 @@ fn on_remove_fires_on_remove_entity() {
 }
 
 #[test]
-fn on_remove_fires_on_remove_component() {
+fn remove_component_removes_component() {
     let mut ecs = Ecs::default();
 
     let entity = ecs.create_entity().with(Transform::default()).finish();
@@ -191,6 +191,20 @@ fn on_remove_fires_on_remove_component() {
     make_game_ctx!(&mut ecs, ctx);
 
     Ecs::remove_component::<LifecycleMarker>(&mut ctx, entity);
+
+    assert!(!ecs.get_store::<LifecycleMarker>().contains(entity));
+}
+
+#[test]
+fn remove_component_by_type_name_removes_component() {
+    let mut ecs = Ecs::default();
+
+    let entity = ecs.create_entity().with(Transform::default()).finish();
+    ecs.insert_component(entity, LifecycleMarker::default());
+
+    make_game_ctx!(&mut ecs, ctx);
+
+    Ecs::remove_component_by_type_name(&mut ctx, entity, LifecycleMarker::TYPE_NAME);
 
     assert!(!ecs.get_store::<LifecycleMarker>().contains(entity));
 }
@@ -230,6 +244,18 @@ fn proc_macro_wires_on_insert_on_remove_and_guarded_into_registry() {
 
     (reg.on_remove)(&mut comp, &Entity(1), &mut Ecs::default());
     assert_eq!(comp.remove_count, 1);
+}
+
+#[test]
+fn component_has_dependents_grounded_after_physics_body_removed_returns_false() {
+    let mut ecs = Ecs::default();
+    let entity = ecs.create_entity().finish();
+    generic_inserter::<PhysicsBody>(&mut ecs, entity, Box::new(PhysicsBody));
+
+    make_game_ctx!(&mut ecs, ctx);
+    Ecs::remove_component_by_type_name(&mut ctx, entity, PhysicsBody::TYPE_NAME);
+
+    assert!(!component_has_dependents(Grounded::TYPE_NAME, entity, &ecs));
 }
 
 #[test]

@@ -1,5 +1,7 @@
 use crate::ecs::component::Component;
 use crate::ecs::components::{Animation, RoomCamera, Sprite, WorldEntry, WorldExit};
+#[cfg(feature = "editor")]
+use crate::ecs::inspector::factory::MODULES;
 use crate::ecs::ComponentStore;
 use crate::ecs::{ecs::Ecs, entity::Entity};
 use crate::game::GameCtxMut;
@@ -131,10 +133,26 @@ where
     ecs.get_store_mut::<T>().insert(entity, concrete);
 }
 
+/// Returns true when any present component on `entity` declares `type_name` as a dependency.
+pub fn component_has_dependents(type_name: &str, entity: Entity, ecs: &Ecs) -> bool {
+    COMPONENTS.iter().any(|reg| {
+        reg.type_name != type_name
+            && reg.deps.contains(&type_name)
+            && (reg.has)(ecs, entity)
+    })
+}
+
+/// Returns true when a component is directly manageable in the inspector.
+#[cfg(feature = "editor")]
+pub fn component_is_first_class(type_name: &str) -> bool {
+    MODULES.iter().any(|module| module.type_name == type_name)
+}
+
 /// Returns the type name of the first component on `entity` that declares `type_name` as a dependency.
 pub fn component_removal_blocked_by(type_name: &str, entity: Entity, ecs: &Ecs) -> Option<&'static str> {
     COMPONENTS.iter().find_map(|reg| {
-        (reg.deps.contains(&type_name) && (reg.has)(ecs, entity)).then_some(reg.type_name)
+        (reg.type_name != type_name && reg.deps.contains(&type_name) && (reg.has)(ecs, entity))
+            .then_some(reg.type_name)
     })
 }
 
@@ -341,5 +359,26 @@ mod tests {
             component_removal_blocked_by(Collider::TYPE_NAME, entity, &ecs),
             None,
         );
+    }
+
+    #[test]
+    fn component_removal_blocked_by_returns_velocity_when_motion_body_has_velocity_dependent() {
+        let mut ecs = Ecs::default();
+        let entity = Entity(1);
+        generic_inserter::<Velocity>(&mut ecs, entity, Box::new(Velocity::default()));
+
+        assert_eq!(
+            component_removal_blocked_by(MotionBody::TYPE_NAME, entity, &ecs),
+            Some(Velocity::TYPE_NAME),
+        );
+    }
+
+    #[test]
+    fn component_has_dependents_returns_true_when_motion_body_has_velocity_dependent() {
+        let mut ecs = Ecs::default();
+        let entity = Entity(1);
+        generic_inserter::<Velocity>(&mut ecs, entity, Box::new(Velocity::default()));
+
+        assert!(component_has_dependents(MotionBody::TYPE_NAME, entity, &ecs));
     }
 }

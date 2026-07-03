@@ -1,5 +1,6 @@
 mod add_component_cmd;
 mod apply_instance_to_prefab_cmd;
+mod component_dependency_cleanup;
 mod context;
 mod create_scene_entity_cmd;
 mod delete_entity_cmd;

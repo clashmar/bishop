@@ -114,13 +114,18 @@ impl Ecs {
         T: Component + 'static,
     {
         let type_name = std::any::type_name::<T>().rsplit("::").next().unwrap_or("");
+        Self::remove_component_by_type_name(ctx, entity, type_name);
+    }
 
-        // Find the registry entry for this component type
-        let reg = inventory::iter::<ComponentRegistry>
+    /// Remove a single component by its registered type name, calling its post_remove hook.
+    pub fn remove_component_by_type_name(
+        ctx: &mut GameCtxMut<'_>,
+        entity: Entity,
+        type_name: &str,
+    ) {
+        if let Some(reg) = inventory::iter::<ComponentRegistry>
             .into_iter()
-            .find(|r| r.type_name == type_name);
-
-        if let Some(reg) = reg
+            .find(|r| r.type_name == type_name)
             && (reg.has)(ctx.ecs(), entity)
         {
             let mut boxed = (reg.clone)(ctx.ecs(), entity);
