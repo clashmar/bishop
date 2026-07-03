@@ -66,7 +66,7 @@ fn script_fixture(script_source: &str) -> (Lua, Ecs, ScriptManager, Entity, Scri
 fn activate_entity_scripts_skips_inactive_entities() {
     let (lua, mut ecs, mut script_manager, entity, script_id) =
         script_fixture("return { init = function(self) end }");
-    ecs.get_mut::<Active>(entity).unwrap().value = false;
+    ecs.get_mut::<Active>(entity).unwrap().active = false;
 
     ScriptSystem::activate_entity_scripts(&lua, &mut ecs, &mut script_manager).unwrap();
 
@@ -79,7 +79,7 @@ fn activate_entity_scripts_keeps_pinned_inactive_entities_resident() {
     let (lua, mut ecs, mut script_manager, entity, script_id) =
         script_fixture("return { init = function(self) end }");
     let active = ecs.get_mut::<Active>(entity).unwrap();
-    active.value = false;
+    active.active = false;
     active.pin();
 
     ScriptSystem::activate_entity_scripts(&lua, &mut ecs, &mut script_manager).unwrap();

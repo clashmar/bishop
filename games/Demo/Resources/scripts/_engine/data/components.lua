@@ -5,7 +5,7 @@
 ---@alias vec3 { x: number, y: number, z: number }
 
 ---@class Active
----@field value boolean
+---@field active boolean
 ---@field pin_count number
 
 ---@class Animation

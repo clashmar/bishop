@@ -34,7 +34,7 @@ pub(crate) fn apply_current_room_default_activation(game: &mut Game) {
         for entity in entities {
             if let Some(active) = game.ecs.get_mut::<Active>(entity) {
                 if active.pin_count == 0 {
-                    active.value = room_id == current_room;
+                    active.active = room_id == current_room;
                 }
             }
         }

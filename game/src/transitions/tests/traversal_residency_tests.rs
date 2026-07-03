@@ -195,8 +195,8 @@ fn room_transition_activates_current_room_and_deactivates_unpinned_previous_room
     };
     traversal_residency::refresh_after_traversal(&mut instance);
 
-    assert!(instance.game.ecs.get::<Active>(new_room_entity).unwrap().value);
-    assert!(!instance.game.ecs.get::<Active>(old_room_entity).unwrap().value);
+    assert!(instance.game.ecs.get::<Active>(new_room_entity).unwrap().active);
+    assert!(!instance.game.ecs.get::<Active>(old_room_entity).unwrap().active);
 }
 
 #[test]

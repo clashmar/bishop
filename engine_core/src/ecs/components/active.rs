@@ -8,15 +8,15 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 #[derive(Debug, Clone, Copy)]
 pub struct Active {
     /// Authored activation state.
-    pub value: bool,
+    pub active: bool,
     /// Runtime pin count preventing deactivation.
     pub pin_count: u16,
 }
 
 impl Active {
     /// Creates an `Active` component with the given authored state.
-    pub const fn new(value: bool) -> Self {
-        Self { value, pin_count: 0 }
+    pub const fn new(active: bool) -> Self {
+        Self { active, pin_count: 0 }
     }
 
     /// Increments the runtime pin count.
@@ -32,7 +32,7 @@ impl Active {
 
     /// Returns true when authored active or runtime-pinned.
     pub fn is_enabled(&self) -> bool {
-        self.value || self.pin_count > 0
+        self.active || self.pin_count > 0
     }
 }
 
@@ -47,7 +47,7 @@ impl Serialize for Active {
     where
         S: Serializer,
     {
-        self.value.serialize(serializer)
+        self.active.serialize(serializer)
     }
 }
 
@@ -72,7 +72,7 @@ impl<'de> Deserialize<'de> for Active {
 
 impl Reflect for Active {
     fn fields(&mut self) -> Vec<FieldInfo<'_>> {
-        vec![bool::field_info(&mut self.value, "value")]
+        vec![bool::field_info(&mut self.active, "value")]
     }
 }
 
@@ -107,7 +107,7 @@ mod tests {
     fn active_deserializes_legacy_tuple_bool_shape() {
         let active: Active = ron::from_str("(true)").unwrap();
 
-        assert!(active.value);
+        assert!(active.active);
         assert_eq!(active.pin_count, 0);
     }
 }
