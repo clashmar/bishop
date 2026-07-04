@@ -51,11 +51,21 @@ function engine.emit(event, ...) end
 ---@return nil
 function engine.quit_to_title() end
 
---- Activates another world without moving any entity.
+--- Overlays another world without moving any entity.
 --- The world resumes at the named entry's room, or its start when omitted.
 ---@param world_name string
 ---@param entry_name string|nil
-function engine.activate_world(world_name, entry_name) end
+---@return nil
+function engine.overlay_world(world_name, entry_name) end
+
+--- Overlays another world at a generated entry handle destination.
+---@param entry table
+---@return nil
+function engine.overlay_entry(entry) end
+
+--- Returns from the current overlay world.
+---@return nil
+function engine.return_from_world() end
 
 --- Returns the active world.
 ---@return { id: integer, name: string }

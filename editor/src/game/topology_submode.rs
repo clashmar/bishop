@@ -1,10 +1,9 @@
 use super::drawing::rect_edge_point;
 use bishop::prelude::*;
-use engine_core::ecs::{CurrentRoom, WorldExit};
 use engine_core::game::Game;
 use engine_core::theme::with_theme;
 use engine_core::worlds::topology::{extract_topology, RoomEdgeKind, TraversalTopology};
-use engine_core::worlds::{ExitDestination, RoomId, World, WorldId};
+use engine_core::worlds::{RoomId, World, WorldId};
 use std::collections::{BTreeMap, BTreeSet};
 use widgets::constants::layout;
 
@@ -21,6 +20,7 @@ const LEGEND_LINE: f32 = 20.0;
 const LABEL_OFFSET_X: f32 = 8.0;
 const LABEL_OFFSET_Y: f32 = 18.0;
 const PORTAL_COLOR: Color = Color::ORANGE;
+const SCRIPTED_COLOR: Color = Color::LIME;
 
 type RoomEdgeList = Vec<TopologyRoomEdge>;
 
@@ -57,6 +57,8 @@ pub struct CrossWorldStub {
     pub from_room: RoomId,
     /// Destination world identifier.
     pub to_world: WorldId,
+    /// Source edge kind.
+    pub kind: RoomEdgeKind,
     /// Stub start point on the source room edge.
     pub from: Vec2,
     /// Stub arrow tip.
@@ -78,10 +80,12 @@ pub struct TopologyView {
     pub warm: BTreeSet<RoomId>,
     /// Same-world adjacency links.
     pub same_world_adjacency: RoomEdgeList,
-    /// Same-world directed exit links.
-    pub same_world_exits: RoomEdgeList,
-    /// Same-world portal links.
-    pub same_world_portals: RoomEdgeList,
+    /// Same-world directed room-exit links.
+    pub same_world_room_exits: RoomEdgeList,
+    /// Same-world world-exit links.
+    pub same_world_world_exits: RoomEdgeList,
+    /// Same-world scripted traversal links.
+    pub same_world_scripted: RoomEdgeList,
     /// Cross-world edge stubs from this world.
     pub cross_world_stubs: Vec<CrossWorldStub>,
 }
@@ -103,8 +107,10 @@ impl TopologySubmode {
     ) -> TopologyView {
         let mut rooms = Vec::new();
         let mut same_world_adjacency = Vec::new();
-        let mut same_world_exits = Vec::new();
-        let mut same_world_portals = Vec::new();
+        let mut same_world_room_exits = Vec::new();
+        let mut same_world_world_exits = Vec::new();
+        let mut same_world_scripted = Vec::new();
+        let mut cross_world_stubs = Vec::new();
         let selected_world = game.get_world(world_id);
 
         for room_id in topology.rooms_in_world(world_id) {
@@ -120,18 +126,36 @@ impl TopologySubmode {
             });
 
             for edge in topology.room_graph.edges_from(room_id) {
-                if topology.world_for_room(edge.to) != Some(world_id) {
+                let Some(target_world) = topology.world_for_room(edge.to) else {
                     continue;
-                }
+                };
                 let entry = TopologyRoomEdge {
                     from: room_id,
                     to: edge.to,
                 };
-                match edge.kind {
-                    RoomEdgeKind::Adjacency => same_world_adjacency.push(entry),
-                    RoomEdgeKind::Exit => same_world_exits.push(entry),
-                    RoomEdgeKind::Portal => same_world_portals.push(entry),
+                if target_world == world_id {
+                    match edge.kind {
+                        RoomEdgeKind::Adjacency => same_world_adjacency.push(entry),
+                        RoomEdgeKind::RoomExit => same_world_room_exits.push(entry),
+                        RoomEdgeKind::WorldExit => same_world_world_exits.push(entry),
+                        RoomEdgeKind::ScriptedTraversal => same_world_scripted.push(entry),
+                    }
+                    continue;
                 }
+
+                cross_world_stubs.push(CrossWorldStub {
+                    from_world: world_id,
+                    from_room: room_id,
+                    to_world: target_world,
+                    kind: edge.kind,
+                    from: Vec2::ZERO,
+                    tip: Vec2::ZERO,
+                    anchor: Vec2::ZERO,
+                    label: game
+                        .get_world(target_world)
+                        .map(|world| display_world_label(world.id, &world.name))
+                        .unwrap_or_else(|| format!("{WORLD_LABEL_PREFIX}{}", target_world.0)),
+                });
             }
         }
 
@@ -151,43 +175,16 @@ impl TopologySubmode {
             None => (BTreeSet::new(), BTreeSet::new()),
         };
 
-        let mut cross_world_stubs = Vec::new();
-        for (&entity, exit) in &game.ecs.get_store::<WorldExit>().data {
-            let Some(CurrentRoom(source_room)) = game.ecs.get::<CurrentRoom>(entity).copied() else {
-                continue;
-            };
-            if topology.world_for_room(source_room) != Some(world_id) {
-                continue;
-            }
-            let Some(ExitDestination::World(target_world)) = exit.destination.as_ref() else {
-                continue;
-            };
-            if *target_world == world_id {
-                continue;
-            }
-            cross_world_stubs.push(CrossWorldStub {
-                from_world: world_id,
-                from_room: source_room,
-                to_world: *target_world,
-                from: Vec2::ZERO,
-                tip: Vec2::ZERO,
-                anchor: Vec2::ZERO,
-                label: game
-                    .get_world(*target_world)
-                    .map(|world| display_world_label(world.id, &world.name))
-                    .unwrap_or_else(|| format!("{WORLD_LABEL_PREFIX}{}", target_world.0)),
-            });
-        }
-
-        cross_world_stubs.sort_by_key(|stub| (stub.to_world, stub.from_room));
+        cross_world_stubs.sort_by_key(|stub| (stub.to_world, stub.from_room, stub.kind));
 
         TopologyView {
             rooms,
             current,
             warm,
             same_world_adjacency,
-            same_world_exits,
-            same_world_portals,
+            same_world_room_exits,
+            same_world_world_exits,
+            same_world_scripted,
             cross_world_stubs,
         }
     }
@@ -246,7 +243,7 @@ pub fn draw_links(ctx: &mut WgpuContext, view: &TopologyView) {
         }
     }
 
-    for edge in &view.same_world_exits {
+    for edge in &view.same_world_room_exits {
         if let Some((from, to)) = edge_centers(view, *edge) {
             draw_arrow(
                 ctx,
@@ -259,13 +256,26 @@ pub fn draw_links(ctx: &mut WgpuContext, view: &TopologyView) {
         }
     }
 
-    for edge in &view.same_world_portals {
+    for edge in &view.same_world_world_exits {
         if let Some((from, to)) = edge_centers(view, *edge) {
             draw_arrow(
                 ctx,
                 from,
                 to,
                 PORTAL_COLOR,
+                TOPOLOGY_ARROW_HEAD_LENGTH,
+                TOPOLOGY_ARROW_HEAD_HALF_WIDTH,
+            );
+        }
+    }
+
+    for edge in &view.same_world_scripted {
+        if let Some((from, to)) = edge_centers(view, *edge) {
+            draw_arrow(
+                ctx,
+                from,
+                to,
+                SCRIPTED_COLOR,
                 TOPOLOGY_ARROW_HEAD_LENGTH,
                 TOPOLOGY_ARROW_HEAD_HALF_WIDTH,
             );
@@ -558,8 +568,10 @@ fn display_world_label(world_id: WorldId, name: &str) -> String {
 mod tests {
     use super::*;
     use engine_core::ecs::{WorldEntry, WorldExit};
+    use engine_core::worlds::topology::{RoomGraph, WorldGraph};
     use engine_core::worlds::world::WorldExitTrigger;
     use engine_core::worlds::{ExitDestination, Room, World};
+    use std::collections::HashMap;
 
     fn sample_game() -> Game {
         let mut main_world = World::new(WorldId(2), "Main World".to_string(), 16.0);
@@ -764,16 +776,59 @@ mod tests {
             .all(|stub| (stub.tip.x - stub.anchor.x).abs() < f32::EPSILON));
     }
 
+    fn manual_topology(edges: &[(RoomId, RoomId, RoomEdgeKind)]) -> TraversalTopology {
+        let mut room_graph = RoomGraph::default();
+        let world_graph = WorldGraph::default();
+        let room_worlds = HashMap::from([
+            (RoomId(9), WorldId(2)),
+            (RoomId(10), WorldId(2)),
+            (RoomId(20), WorldId(3)),
+        ]);
+
+        for &(from, to, kind) in edges {
+            room_graph.insert_edge(from, to, kind);
+        }
+
+        TraversalTopology::from_parts(room_graph, world_graph, room_worlds)
+    }
+
     #[test]
     fn same_world_portal_builds_distinct_portal_link() {
         let game = sample_game();
         let topology = extract_topology(&game);
         let world_view = TopologySubmode::build_view(&game, &topology, WorldId(2), Some(RoomId(9)));
 
-        assert_eq!(world_view.same_world_portals, vec![TopologyRoomEdge {
+        assert_eq!(world_view.same_world_world_exits, vec![TopologyRoomEdge {
             from: RoomId(9),
             to: RoomId(10),
         }]);
-        assert!(world_view.same_world_exits.is_empty());
+        assert!(world_view.same_world_room_exits.is_empty());
+    }
+
+    #[test]
+    fn same_world_scripted_traversal_builds_distinct_scripted_link() {
+        let game = sample_game();
+        let topology = manual_topology(&[(RoomId(9), RoomId(10), RoomEdgeKind::ScriptedTraversal)]);
+        let world_view = TopologySubmode::build_view(&game, &topology, WorldId(2), Some(RoomId(9)));
+
+        assert_eq!(world_view.same_world_scripted, vec![TopologyRoomEdge {
+            from: RoomId(9),
+            to: RoomId(10),
+        }]);
+        assert!(world_view.same_world_world_exits.is_empty());
+        assert!(world_view.cross_world_stubs.is_empty());
+    }
+
+    #[test]
+    fn cross_world_scripted_traversal_builds_cross_world_stub_from_topology_edge() {
+        let game = sample_game();
+        let topology = manual_topology(&[(RoomId(9), RoomId(20), RoomEdgeKind::ScriptedTraversal)]);
+        let world_view = TopologySubmode::build_view(&game, &topology, WorldId(2), Some(RoomId(9)));
+
+        assert_eq!(world_view.cross_world_stubs.len(), 1);
+        assert_eq!(world_view.cross_world_stubs[0].from_room, RoomId(9));
+        assert_eq!(world_view.cross_world_stubs[0].to_world, WorldId(3));
+        assert_eq!(world_view.cross_world_stubs[0].kind, RoomEdgeKind::ScriptedTraversal);
+        assert_eq!(world_view.cross_world_stubs[0].label, "Other World");
     }
 }

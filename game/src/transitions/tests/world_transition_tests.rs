@@ -120,22 +120,16 @@ fn spawn_player(game: &mut Game, room: RoomId) -> Entity {
         .finish()
 }
 
-fn transport_request(entity: Entity, world: &str, entry: Option<&str>) -> WorldTransitionRequest {
-    WorldTransitionRequest {
-        entity: Some(entity),
-        world: WorldSelector::ByName(world.to_string()),
-        entry_name: entry.map(str::to_string),
-        mode: WorldTransitionMode::Transport,
-    }
+fn transport_request(entity: Entity, world: &str, entry: Option<&str>) -> TraversalRequest {
+    TraversalRequest::transport(
+        entity,
+        WorldSelector::ByName(world.to_string()),
+        entry.map(str::to_string),
+    )
 }
 
-fn overlay_request(world: &str) -> WorldTransitionRequest {
-    WorldTransitionRequest {
-        entity: None,
-        world: WorldSelector::ByName(world.to_string()),
-        entry_name: None,
-        mode: WorldTransitionMode::Overlay,
-    }
+fn overlay_request(world: &str) -> TraversalRequest {
+    TraversalRequest::overlay_world(WorldSelector::ByName(world.to_string()), None)
 }
 
 #[test]
@@ -146,12 +140,7 @@ fn transport_by_id_resolves_destination_world() {
     let ok = WorldTransitionManager::execute(
         &Lua::new(),
         &mut instance,
-        &WorldTransitionRequest {
-            entity: Some(player),
-            world: WorldSelector::ById(ARCADE_ID),
-            entry_name: None,
-            mode: WorldTransitionMode::Transport,
-        },
+        &TraversalRequest::transport(player, WorldSelector::ById(ARCADE_ID), None),
     );
 
     assert!(ok);
@@ -166,12 +155,7 @@ fn transport_by_unknown_id_returns_false_without_state_change() {
     let ok = WorldTransitionManager::execute(
         &Lua::new(),
         &mut instance,
-        &WorldTransitionRequest {
-            entity: Some(player),
-            world: WorldSelector::ById(WorldId(99)),
-            entry_name: None,
-            mode: WorldTransitionMode::Transport,
-        },
+        &TraversalRequest::transport(player, WorldSelector::ById(WorldId(99)), None),
     );
 
     assert!(!ok);
@@ -299,10 +283,12 @@ fn transport_requires_a_subject_entity() {
     let ok = WorldTransitionManager::execute(
         &Lua::new(),
         &mut instance,
-        &WorldTransitionRequest {
+        &TraversalRequest {
             entity: None,
-            world: WorldSelector::ByName(ARCADE.to_string()),
-            entry_name: None,
+            destination: DestinationSelector::World {
+                selector: WorldSelector::ByName(ARCADE.to_string()),
+                entry_name: None,
+            },
             mode: WorldTransitionMode::Transport,
         },
     );
@@ -459,10 +445,16 @@ fn nested_activation_pops_correctly() {
     game.select_world(WorldId(1));
     let mut instance = GameInstance { game, prev_positions: HashMap::new(), traversal_residency_diagnostics: None };
 
-    WorldTransitionManager::execute(&Lua::new(), &mut instance,
-        &WorldTransitionRequest { entity: None, world: WorldSelector::ById(WorldId(2)), entry_name: None, mode: WorldTransitionMode::Overlay });
-    WorldTransitionManager::execute(&Lua::new(), &mut instance,
-        &WorldTransitionRequest { entity: None, world: WorldSelector::ById(WorldId(3)), entry_name: None, mode: WorldTransitionMode::Overlay });
+    WorldTransitionManager::execute(
+        &Lua::new(),
+        &mut instance,
+        &TraversalRequest::overlay_world(WorldSelector::ById(WorldId(2)), None),
+    );
+    WorldTransitionManager::execute(
+        &Lua::new(),
+        &mut instance,
+        &TraversalRequest::overlay_world(WorldSelector::ById(WorldId(3)), None),
+    );
 
     assert_eq!(instance.game.overlay_stack.len(), 2);
 

@@ -1,6 +1,6 @@
 use crate::engine::game_instance::GameInstance;
 use crate::game_global::set_pending_world_transition;
-use crate::transitions::world_transitions::{WorldSelector, WorldTransitionRequest};
+use crate::transitions::world_transitions::{TraversalRequest, WorldSelector};
 use engine_core::ecs::*;
 use engine_core::worlds::ExitDestination;
 use engine_core::worlds::world::{WorldExitTrigger, WorldTransitionMode};
@@ -52,24 +52,23 @@ impl WorldExitManager {
             let dest = match exit.destination {
                 Some(ExitDestination::World(id)) => id,
                 Some(ExitDestination::Return) => {
-                    set_pending_world_transition(WorldTransitionRequest {
-                        entity: None,
-                        world: WorldSelector::Return,
-                        entry_name: None,
-                        mode: WorldTransitionMode::Overlay,
-                    });
+                    set_pending_world_transition(TraversalRequest::return_from_world());
                     break;
                 }
                 _ => continue,
             };
             let is_overlay = game.get_world(dest).is_some_and(|w| w.overlay);
             let mode = if is_overlay { WorldTransitionMode::Overlay } else { WorldTransitionMode::Transport };
-            set_pending_world_transition(WorldTransitionRequest {
-                entity: if is_overlay { None } else { game.ecs.get_player_entity() },
-                world: WorldSelector::ById(dest),
-                entry_name: exit.entry.clone(),
+            set_pending_world_transition(TraversalRequest::to_world(
+                if is_overlay {
+                    None
+                } else {
+                    game.ecs.get_player_entity()
+                },
+                WorldSelector::ById(dest),
+                exit.entry.clone(),
                 mode,
-            });
+            ));
             break;
         }
     }

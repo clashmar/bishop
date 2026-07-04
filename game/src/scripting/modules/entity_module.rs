@@ -54,6 +54,7 @@ entity_handle_methods! {
     SetAnimSpeed => SetAnimSpeedMethod,
     Teleport => TeleportMethod,
     MoveBy => MoveByMethod,
+    MoveToEntry => MoveToEntryMethod,
     MoveToRoom => MoveToRoomMethod,
     MoveToWorld => MoveToWorldMethod,
     TriggerWorldExit => TriggerWorldExitMethod,

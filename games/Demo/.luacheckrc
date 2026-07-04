@@ -13,6 +13,8 @@ globals = {
     "Prefabs",
     "Sounds",
     "Menus",
+    "Worlds",
+    "Entries",
     "Script",
     "Entity",
 }
@@ -33,6 +35,8 @@ files["Resources/scripts/_engine/**/*.lua"] = {
         "Prefabs",
         "Sounds",
         "Menus",
+        "Worlds",
+        "Entries",
         "Script",
         "Entity",
     },

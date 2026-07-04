@@ -1,13 +1,12 @@
 use crate::game_global::set_pending_world_transition;
 use crate::scripting::lua_ctx::LuaGameCtx;
 use crate::scripting::modules::entity_module::handle::{ensure_live_entity, EntityHandle};
-use crate::transitions::world_transitions::{WorldSelector, WorldTransitionRequest};
+use crate::transitions::world_transitions::{TraversalRequest, WorldSelector};
 use engine_core::ecs::WorldExit;
-use engine_core::worlds::ExitDestination;
+use engine_core::worlds::{ExitDestination, WorldTransitionMode};
 use engine_core::omni_error;
 use engine_core::scripting::lua_constants::lua_entity;
 use engine_core::scripting::{LuaApiWriter, LuaMethod};
-use engine_core::worlds::WorldTransitionMode;
 use mlua::UserDataMethods;
 
 /// Lua method executing the entity's `WorldExit` component.
@@ -28,12 +27,7 @@ impl LuaMethod<EntityHandle> for TriggerWorldExitMethod {
             let dest = match world_exit.destination {
                 Some(ExitDestination::World(id)) => id,
                 Some(ExitDestination::Return) => {
-                    set_pending_world_transition(WorldTransitionRequest {
-                        entity: None,
-                        world: WorldSelector::Return,
-                        entry_name: None,
-                        mode: WorldTransitionMode::Overlay,
-                    });
+                    set_pending_world_transition(TraversalRequest::return_from_world());
                     return Ok(());
                 }
                 None => {
@@ -46,18 +40,23 @@ impl LuaMethod<EntityHandle> for TriggerWorldExitMethod {
                 .is_some_and(|w| w.overlay);
             let mode = if is_overlay { WorldTransitionMode::Overlay } else { WorldTransitionMode::Transport };
 
-            set_pending_world_transition(WorldTransitionRequest {
-                entity: if is_overlay { None } else { game_instance.game.ecs.get_player_entity() },
-                world: WorldSelector::ById(dest),
-                entry_name: world_exit.entry.clone(),
+            set_pending_world_transition(TraversalRequest::to_world(
+                if is_overlay {
+                    None
+                } else {
+                    game_instance.game.ecs.get_player_entity()
+                },
+                WorldSelector::ById(dest),
+                world_exit.entry.clone(),
                 mode,
-            });
+            ));
             Ok(())
         });
     }
 
     fn emit_api(&self, out: &mut LuaApiWriter) {
         out.line("--- Executes this entity's WorldExit component (transport the player or activate a world).");
+        out.line("---@return nil");
         out.line(&format!("function Entity:{}() end", lua_entity::TRIGGER_WORLD_EXIT));
         out.line("");
     }

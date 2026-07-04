@@ -48,6 +48,9 @@
         Script((6)): (
             path: "scripts/arcade_world.lua",
         ),
+        Script((7)): (
+            path: "scripts/world_exit_scripted.lua",
+        ),
         Prefab((1)): (
             path: "prefabs/Cat.prefab",
         ),

@@ -354,8 +354,11 @@ fn collect_warm_scope_reasons(game: &Game, topology: &TraversalTopology) -> Warm
     for edge in topology.room_graph.edges_from(current_room) {
         let reason = match edge.kind {
             RoomEdgeKind::Adjacency => format!("adjacent to Room({})", current_room.0),
-            RoomEdgeKind::Exit => format!("exit from Room({})", current_room.0),
-            RoomEdgeKind::Portal => format!("portal from Room({})", current_room.0),
+            RoomEdgeKind::RoomExit => format!("exit from Room({})", current_room.0),
+            RoomEdgeKind::WorldExit => format!("portal from Room({})", current_room.0),
+            RoomEdgeKind::ScriptedTraversal => {
+                format!("scripted traversal from Room({})", current_room.0)
+            }
         };
         room_reasons.entry(edge.to).or_default().insert(reason);
     }

@@ -9,6 +9,10 @@ use engine_core::scripting::generate_menus_lua;
 use engine_core::scripting::lua_constants::{lua_dirs, lua_files};
 use engine_core::scripting::lua_project::engine_relative_path;
 use engine_core::scripting::menus_lua::generate_menus_lua_from_dir;
+use engine_core::scripting::{
+    collect_entry_handles, collect_world_handles, generate_entries_lua, generate_worlds_lua,
+    EntryHandle, WorldHandle,
+};
 use engine_core::storage::scripts_folder;
 use std::collections::{BTreeSet, HashSet};
 use std::fs;
@@ -23,6 +27,8 @@ pub fn write_initial_generated_lua_files(scripts_folder: &Path) -> io::Result<()
     write_prefabs_lua(scripts_folder, &[])?;
     write_sounds_lua(scripts_folder, &[])?;
     write_menus_lua(scripts_folder, &[])?;
+    write_worlds_lua(scripts_folder, &[])?;
+    write_entries_lua(scripts_folder, &[])?;
     write_event_tags_lua(scripts_folder, &[])?;
     Ok(())
 }
@@ -76,6 +82,26 @@ pub fn write_menus_lua_from_dir(scripts_folder: &Path, menus_dir: &Path) -> io::
     }
     let content = generate_menus_lua_from_dir(menus_dir).map_err(io::Error::other)?;
     fs::write(path, content)
+}
+
+/// Writes the per-game `worlds.lua` file with the supplied world handles.
+pub fn write_worlds_lua(scripts_folder: &Path, worlds: &[WorldHandle]) -> io::Result<()> {
+    let engine_folder = scripts_folder.join(lua_dirs::ENGINE);
+    let path = engine_folder.join(engine_relative_path(lua_files::WORLDS));
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)?;
+    }
+    fs::write(path, generate_worlds_lua(worlds))
+}
+
+/// Writes the per-game `entries.lua` file with the supplied entry handles.
+pub fn write_entries_lua(scripts_folder: &Path, entries: &[EntryHandle]) -> io::Result<()> {
+    let engine_folder = scripts_folder.join(lua_dirs::ENGINE);
+    let path = engine_folder.join(engine_relative_path(lua_files::ENTRIES));
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)?;
+    }
+    fs::write(path, generate_entries_lua(entries))
 }
 
 /// Writes the per-game `event_tags.lua` file with built-in and custom tags.
@@ -142,4 +168,12 @@ pub fn collect_custom_event_tags(game: &engine_core::game::Game) -> Vec<String> 
 pub fn refresh_event_tags_lua(game: &engine_core::game::Game) -> io::Result<()> {
     let custom_tags = collect_custom_event_tags(game);
     write_event_tags_lua(&scripts_folder(), &custom_tags)
+}
+
+/// Regenerates `worlds.lua` and `entries.lua` from the live game state.
+pub fn refresh_world_navigation_lua(game: &engine_core::game::Game) -> io::Result<()> {
+    let worlds = collect_world_handles(game);
+    let entries = collect_entry_handles(game);
+    write_worlds_lua(&scripts_folder(), &worlds)?;
+    write_entries_lua(&scripts_folder(), &entries)
 }

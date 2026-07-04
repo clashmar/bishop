@@ -16,7 +16,7 @@ type EntityResidencyClaims = HashMap<Entity, BTreeSet<ResidencyKey>>;
 pub struct DerivedTraversalClaims {
     /// Per-room residency claims for the current room frontier.
     pub room_claims: RoomResidencyClaims,
-    /// Per-world residency claims for the current world frontier.
+    /// Per-world residency claims implied by the current room frontier.
     pub world_claims: WorldResidencyClaims,
     /// Per-entity residency claims for pinned-active entities.
     pub pinned_entity_claims: EntityResidencyClaims,
@@ -62,26 +62,12 @@ pub fn collect_world_claims(
     topology: &TraversalTopology,
     current_room: RoomId,
 ) -> HashMap<WorldId, BTreeSet<ResidencyKey>> {
-    let mut claims = HashMap::new();
     let room_worlds = game.room_world_map();
     let Some(&current_world) = room_worlds.get(&current_room) else {
-        return claims;
+        return HashMap::new();
     };
 
-    for world_id in topology.world_frontier(current_world) {
-        let mut world_claims = BTreeSet::new();
-        if let Some(world) = game.get_world(world_id) {
-            world_claims.insert(ResidencyKey::Scope(ScopeKey::World(world_id)));
-            world_claims.extend(
-                collect_entity_assets(&game.ecs, world.singleton)
-                    .into_iter()
-                    .map(ResidencyKey::Asset),
-            );
-        }
-        claims.insert(world_id, world_claims);
-    }
-
-    claims
+    collect_world_claims_for_ids(game, topology.world_frontier(current_world))
 }
 
 /// Collects residency claims for entities that are pinned active.
@@ -120,7 +106,11 @@ pub fn derive_traversal_claims(
         .iter()
         .map(|room_id| (*room_id, collect_room_claims(game, *room_id)))
         .collect();
-    let world_claims = collect_world_claims(game, topology, current_room);
+    let world_ids = frontier
+        .iter()
+        .filter_map(|room_id| topology.world_for_room(*room_id))
+        .collect::<BTreeSet<_>>();
+    let world_claims = collect_world_claims_for_ids(game, world_ids);
     let pinned_entity_claims = collect_pinned_entity_claims(game);
     let global_claims = collect_global_claims(&game.ecs);
 
@@ -130,6 +120,28 @@ pub fn derive_traversal_claims(
         pinned_entity_claims,
         global_claims,
     }
+}
+
+fn collect_world_claims_for_ids(
+    game: &Game,
+    world_ids: BTreeSet<WorldId>,
+) -> HashMap<WorldId, BTreeSet<ResidencyKey>> {
+    let mut claims = HashMap::new();
+
+    for world_id in world_ids {
+        let mut world_claims = BTreeSet::new();
+        if let Some(world) = game.get_world(world_id) {
+            world_claims.insert(ResidencyKey::Scope(ScopeKey::World(world_id)));
+            world_claims.extend(
+                collect_entity_assets(&game.ecs, world.singleton)
+                    .into_iter()
+                    .map(ResidencyKey::Asset),
+            );
+        }
+        claims.insert(world_id, world_claims);
+    }
+
+    claims
 }
 
 /// Collects hydratable asset keys from an entity's components.
@@ -165,7 +177,7 @@ mod tests {
     use crate::assets::AssetKey;
     use crate::ecs::{
         Active, AudioGroup, AudioSource, Ecs, Global, Script, ScriptId, SoundGroupId, SoundId,
-        Sprite, SpriteId, WorldExit,
+        Sprite, SpriteId, WorldEntry, WorldExit,
     };
     use crate::worlds::{ExitDestination, Room, RoomId, World, WorldExitTrigger, WorldId};
 
@@ -324,6 +336,61 @@ mod tests {
         let claims = collect_global_claims(&ecs);
         assert!(claims.contains(&ResidencyKey::Asset(AssetKey::Script(ScriptId(2)))));
         assert!(claims.contains(&ResidencyKey::Asset(AssetKey::Sprite(SpriteId(9)))));
+    }
+
+    fn game_with_cross_world_world_exit() -> Game {
+        let mut game = Game::default();
+
+        let mut world_a = World::new(WorldId(1), "Overworld".to_string(), 16.0);
+        world_a.add_room(Room {
+            id: RoomId(1),
+            ..Default::default()
+        });
+        world_a.current_room_id = Some(RoomId(1));
+
+        let mut world_b = World::new(WorldId(2), "Dungeon".to_string(), 16.0);
+        world_b.add_room(Room {
+            id: RoomId(2),
+            ..Default::default()
+        });
+
+        game.add_world(world_a);
+        game.add_world(world_b);
+        game.current_world_id = Some(WorldId(1));
+
+        game.ecs
+            .create_entity()
+            .with(WorldEntry {
+                name: WorldEntry::START.to_string(),
+            })
+            .with_current_room(RoomId(2))
+            .finish();
+
+        game.ecs
+            .create_entity()
+            .with(WorldExit {
+                destination: Some(ExitDestination::World(WorldId(2))),
+                entry: None,
+                trigger: WorldExitTrigger::OnInteract,
+            })
+            .with_current_room(RoomId(1))
+            .finish();
+
+        game
+    }
+
+    #[test]
+    fn derive_traversal_claims_when_cross_world_world_exit_exists_includes_destination_room_scope() {
+        let game = game_with_cross_world_world_exit();
+        let topology = crate::worlds::extract_topology(&game);
+        let claims = derive_traversal_claims(&game, &topology);
+
+        assert!(claims.room_claims.contains_key(&RoomId(1)));
+        assert!(claims.room_claims.contains_key(&RoomId(2)));
+        assert!(claims.world_claims.contains_key(&WorldId(1)));
+        assert!(claims.world_claims.contains_key(&WorldId(2)));
+        assert!(claims.world_claims[&WorldId(2)]
+            .contains(&ResidencyKey::Scope(ScopeKey::World(WorldId(2)))));
     }
 
     #[test]

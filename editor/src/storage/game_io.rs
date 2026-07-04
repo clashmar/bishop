@@ -1,6 +1,6 @@
 use crate::storage::lua_stub_gen::{
     collect_custom_clip_names, collect_prefab_names, refresh_event_tags_lua,
-    write_animations_lua, write_prefabs_lua, write_sounds_lua,
+    refresh_world_navigation_lua, write_animations_lua, write_prefabs_lua, write_sounds_lua,
 };
 use crate::storage::menus::save_default_front_end_menus;
 use crate::storage::scaffolding::create_game_folders;
@@ -43,14 +43,6 @@ pub fn write_to_app_dir(filename: &str, embedded: &[u8]) -> io::Result<PathBuf> 
     }
 
     Ok(path)
-}
-
-fn is_game_folder(path: &Path) -> bool {
-    path.is_dir()
-        && path
-            .join(paths::RESOURCES_FOLDER)
-            .join(paths::GAME_RON)
-            .exists()
 }
 
 /// Create a brand-new game with a single empty world.
@@ -106,6 +98,7 @@ pub fn save_game(game: &Game) -> io::Result<()> {
     write_sounds_lua(&scripts_folder(), &sound_names)?;
 
     refresh_event_tags_lua(game)?;
+    refresh_world_navigation_lua(game)?;
 
     omni_info!("Game saved to: {}", resources_folder.display());
     save_game_to_folder(game, &resources_folder)
@@ -121,6 +114,10 @@ pub fn load_game_by_name(name: &str) -> io::Result<Game> {
     }
 
     let mut game = load_full_game_from_folder(&resources)?;
+    game.rebuild_world_index();
+    if let Some(world) = game.current_world_mut() {
+        world.rebuild_room_grid();
+    }
     game.id_allocator = IdAllocator::from_game(&game);
     game.asset_registry.try_init_editor_metadata()?;
 
@@ -204,4 +201,12 @@ pub fn list_game_names() -> Vec<String> {
         .flatten()
         .filter_map(|path| path.file_name().and_then(|name| name.to_str()).map(str::to_string))
         .collect()
+}
+
+fn is_game_folder(path: &Path) -> bool {
+    path.is_dir()
+        && path
+            .join(paths::RESOURCES_FOLDER)
+            .join(paths::GAME_RON)
+            .exists()
 }

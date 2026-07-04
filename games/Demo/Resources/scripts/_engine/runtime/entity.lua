@@ -229,17 +229,25 @@ function Entity:teleport(position) end
 ---@param delta vec2
 function Entity:move_by(delta) end
 
+--- Moves this entity to a generated entry handle destination.
+---@param entry table
+---@return nil
+function Entity:move_to_entry(entry) end
+
 --- Moves this entity to the target room.
 ---@param room_id integer
+---@return nil
 function Entity:move_to_room(room_id) end
 
 --- Moves this entity to another world.
 --- Arrives at the named entry point, or the world's start when omitted.
 ---@param world_name string
 ---@param entry_name string|nil
+---@return nil
 function Entity:move_to_world(world_name, entry_name) end
 
 --- Executes this entity's WorldExit component (transport the player or activate a world).
+---@return nil
 function Entity:trigger_world_exit() end
 
 --- Removes this entity from its current room membership.
@@ -271,13 +279,15 @@ function Entity:clear_speech() end
 function Entity:is_speaking() end
 
 --- Plays the named sound group configured on this entity's AudioSource component.
---- If the group is looping, starts a loop tracked by the entity ID.
+--- If the group is looping, starts a loop owned by this entity.
 --- If one-shot, plays with the group's pitch and volume variation.
 ---@param group_name SoundGroupId
 function Entity:play_sound(group_name) end
 
 --- Stops a looping sound started by this entity's AudioSource.
-function Entity:stop_sound() end
+--- Accepts an optional table with 'immediate' (bool) or 'fade_out' (number) overrides.
+--- When called without options, uses the authored stop behavior from the AudioSource.
+function Entity:stop_sound(opts) end
 
 --- Sets a runtime gain multiplier on this entity's AudioSource groups (0.0–1.0).
 --- Takes effect on the next play_sound() call.

@@ -1,9 +1,13 @@
 use engine_core::constants::paths;
-use engine_core::scripting::lua_constants::lua_files;
+use engine_core::scripting::lua_constants::{lua_dirs, lua_files};
 use engine_core::scripting::lua_project::{
-    scaffold_luacheckrc, scaffold_luarc_json, scaffold_stylua_toml, workspace_luacheckrc,
-    workspace_luarc_json, workspace_stylua_toml,
+    engine_relative_path, scaffold_luacheckrc, scaffold_luarc_json, scaffold_stylua_toml,
+    workspace_luacheckrc, workspace_luarc_json, workspace_stylua_toml,
 };
+use engine_core::scripting::{
+    collect_entry_handles, collect_world_handles, generate_entries_lua, generate_worlds_lua,
+};
+use engine_core::storage::load_full_game_from_folder;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::{Command, ExitCode};
@@ -12,13 +16,18 @@ fn demo_root(root: &Path) -> PathBuf {
     root.join(paths::GAME_SAVE_ROOT).join(paths::DEMO_GAME)
 }
 
+fn demo_resources_dir(root: &Path) -> PathBuf {
+    demo_root(root).join(paths::RESOURCES_FOLDER)
+}
+
 fn demo_scripts_dir(root: &Path) -> PathBuf {
-    demo_root(root)
-        .join(paths::RESOURCES_FOLDER)
-        .join(paths::SCRIPTS_FOLDER)
+    demo_resources_dir(root).join(paths::SCRIPTS_FOLDER)
 }
 
 fn write_if_changed(path: &Path, contents: &str) {
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent).expect("failed to create parent directories");
+    }
     if fs::read_to_string(path).ok().as_deref() == Some(contents) {
         return;
     }
@@ -45,12 +54,42 @@ fn main() -> ExitCode {
 
     match args[1].as_str() {
         "check-lua" => check_lua(),
+        "regen-demo-data" => regen_demo_data(),
         other => {
             eprintln!("Unknown subcommand: {other}");
-            eprintln!("Available: check-lua");
+            eprintln!("Available: check-lua, regen-demo-data");
             ExitCode::FAILURE
         }
     }
+}
+
+fn regen_demo_data() -> ExitCode {
+    let root = std::env::current_dir().expect("xtask must run from workspace root");
+    let resources_dir = demo_resources_dir(&root);
+
+    let game = match load_full_game_from_folder(&resources_dir) {
+        Ok(game) => game,
+        Err(error) => {
+            eprintln!("Failed to load Demo game from {}: {error}", resources_dir.display());
+            return ExitCode::FAILURE;
+        }
+    };
+
+    let worlds = collect_world_handles(&game);
+    let entries = collect_entry_handles(&game);
+    let scripts_dir = demo_scripts_dir(&root);
+
+    write_if_changed(
+        &scripts_dir.join(lua_dirs::ENGINE).join(engine_relative_path(lua_files::WORLDS)),
+        &generate_worlds_lua(&worlds),
+    );
+    write_if_changed(
+        &scripts_dir.join(lua_dirs::ENGINE).join(engine_relative_path(lua_files::ENTRIES)),
+        &generate_entries_lua(&entries),
+    );
+
+    println!("Regenerated Demo worlds.lua and entries.lua.");
+    ExitCode::SUCCESS
 }
 
 fn check_lua() -> ExitCode {

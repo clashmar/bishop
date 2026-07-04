@@ -783,6 +783,7 @@ dependencies = [
  "once_cell",
  "rand",
  "reflect_derive",
+ "regex",
  "rfd",
  "ron",
  "serde",

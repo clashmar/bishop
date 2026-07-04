@@ -1,6 +1,7 @@
 use crate::ecs::{CurrentRoom, WorldEntry, WorldExit};
 use crate::game::Game;
 use crate::logging::omni_error;
+use crate::worlds::scripted_traversal::collect_scripted_traversal_edges;
 use crate::worlds::{ExitDestination, RoomId, WorldId};
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 
@@ -9,10 +10,12 @@ use std::collections::{BTreeMap, BTreeSet, HashMap};
 pub enum RoomEdgeKind {
     /// Links rooms that touch in the same world.
     Adjacency,
-    /// Links a room to an authored exit target.
-    Exit,
-    /// Links a room to a same-world `WorldExit` destination.
-    Portal,
+    /// Links a room to an authored room-exit target.
+    RoomExit,
+    /// Links a room to a resolved `WorldExit` destination room.
+    WorldExit,
+    /// Links a room to a literal scripted `move_to_entry` destination room.
+    ScriptedTraversal,
 }
 
 /// Stores a directed room neighbor and its edge class.
@@ -168,7 +171,7 @@ impl TraversalTopology {
     }
 }
 
-/// Extracts traversal graphs from authored worlds and ECS transitions.
+/// Extracts traversal graphs from authored worlds, world exits, and literal scripted traversal.
 pub fn extract_topology(game: &Game) -> TraversalTopology {
     let room_worlds = game.room_world_map();
     let mut room_graph = RoomGraph::default();
@@ -210,17 +213,14 @@ pub fn extract_topology(game: &Game) -> TraversalTopology {
                     );
                     continue;
                 }
-                room_graph.insert_edge(room.id, target_room, RoomEdgeKind::Exit);
+                room_graph.insert_edge(room.id, target_room, RoomEdgeKind::RoomExit);
             }
         }
     }
 
     for (&entity, exit) in &game.ecs.get_store::<WorldExit>().data {
         let Some(CurrentRoom(source_room)) = game.ecs.get::<CurrentRoom>(entity).copied() else {
-            omni_error!(
-                "Skipping WorldExit entity {:?}: missing CurrentRoom",
-                entity
-            );
+            omni_error!("Skipping WorldExit entity {:?}: missing CurrentRoom", entity);
             continue;
         };
         let Some(source_world) = room_worlds.get(&source_room).copied() else {
@@ -242,24 +242,29 @@ pub fn extract_topology(game: &Game) -> TraversalTopology {
             );
             continue;
         }
-        if source_world == *target_world {
-            if let Some(target_room) =
-                resolve_world_exit_target_room(game, *target_world, exit.entry.as_deref())
-            {
-                if target_room != source_room {
-                    room_graph.insert_edge(source_room, target_room, RoomEdgeKind::Portal);
-                }
-            } else {
+
+        match resolve_world_exit_target_room(game, *target_world, exit.entry.as_deref()) {
+            Some(target_room) if target_room != source_room => {
+                room_graph.insert_edge(source_room, target_room, RoomEdgeKind::WorldExit);
+            }
+            Some(_) => {}
+            None => {
                 omni_error!(
-                    "Skipping same-world WorldExit entity {:?}: entry {:?} in World({}) could not be resolved",
+                    "Skipping WorldExit entity {:?}: entry {:?} in World({}) could not be resolved",
                     entity,
                     exit.entry,
                     target_world.0
                 );
             }
-            continue;
         }
-        world_graph.insert_edge(source_world, *target_world, WorldEdgeKind::WorldExit);
+
+        if source_world != *target_world {
+            world_graph.insert_edge(source_world, *target_world, WorldEdgeKind::WorldExit);
+        }
+    }
+
+    for edge in collect_scripted_traversal_edges(game) {
+        room_graph.insert_edge(edge.from, edge.to, RoomEdgeKind::ScriptedTraversal);
     }
 
     TraversalTopology {
@@ -298,13 +303,16 @@ fn resolve_world_exit_target_room(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ecs::WorldExit;
+    use crate::ecs::{Active, Script, WorldExit};
+    use crate::engine_global::set_game_name;
     use crate::game::Game;
-    use crate::worlds::{Exit, ExitDestination, Room, RoomId, World, WorldExitTrigger, WorldId};
+    use crate::storage::path_utils::scripts_folder;
+    use crate::storage::test_utils::{TestGameFolder, game_fs_test_lock};
+    use crate::worlds::{Exit, ExitDestination, Room, World, WorldExitTrigger};
+    use std::fs;
 
     fn topology_test_game() -> Game {
-        let mut world_a = World::default();
-        world_a.id = WorldId(1);
+        let mut world_a = World::new(WorldId(1), "World A".to_string(), 16.0);
         world_a.current_room_id = Some(RoomId(1));
         world_a.add_room(Room {
             id: RoomId(1),
@@ -324,8 +332,7 @@ mod tests {
             ..Default::default()
         });
 
-        let mut world_b = World::default();
-        world_b.id = WorldId(2);
+        let mut world_b = World::new(WorldId(2), "World B".to_string(), 16.0);
         world_b.add_room(Room {
             id: RoomId(9),
             adjacent_rooms: vec![RoomId(10)],
@@ -347,6 +354,14 @@ mod tests {
                 name: "Portal".to_string(),
             })
             .with_current_room(RoomId(3))
+            .finish();
+
+        game.ecs
+            .create_entity()
+            .with(WorldEntry {
+                name: WorldEntry::START.to_string(),
+            })
+            .with_current_room(RoomId(9))
             .finish();
 
         game.ecs
@@ -374,27 +389,21 @@ mod tests {
     }
 
     #[test]
-    fn room_graph_includes_adjacency_exits_and_portals() {
+    fn room_graph_includes_adjacency_room_exits_and_world_exits() {
         let game = topology_test_game();
         let topology = extract_topology(&game);
 
-        assert!(topology.room_graph.neighbors(RoomId(1)).contains(&RoomId(2)));
-        assert!(topology.room_graph.neighbors(RoomId(1)).contains(&RoomId(3)));
         assert!(topology.room_graph.edges_from(RoomId(1)).contains(&RoomEdge {
             to: RoomId(2),
             kind: RoomEdgeKind::Adjacency,
         }));
         assert!(topology.room_graph.edges_from(RoomId(1)).contains(&RoomEdge {
             to: RoomId(3),
-            kind: RoomEdgeKind::Exit,
+            kind: RoomEdgeKind::RoomExit,
         }));
         assert!(topology.room_graph.edges_from(RoomId(2)).contains(&RoomEdge {
             to: RoomId(3),
-            kind: RoomEdgeKind::Portal,
-        }));
-        assert!(topology.world_graph.edges_from(WorldId(1)).contains(&WorldEdge {
-            to: WorldId(2),
-            kind: WorldEdgeKind::WorldExit,
+            kind: RoomEdgeKind::WorldExit,
         }));
     }
 
@@ -412,8 +421,7 @@ mod tests {
 
     #[test]
     fn cross_world_room_exit_targets_do_not_create_room_edges() {
-        let mut world_a = World::default();
-        world_a.id = WorldId(1);
+        let mut world_a = World::new(WorldId(1), "World A".to_string(), 16.0);
         world_a.add_room(Room {
             id: RoomId(1),
             exits: vec![Exit {
@@ -423,8 +431,7 @@ mod tests {
             ..Default::default()
         });
 
-        let mut world_b = World::default();
-        world_b.id = WorldId(2);
+        let mut world_b = World::new(WorldId(2), "World B".to_string(), 16.0);
         world_b.add_room(Room {
             id: RoomId(9),
             ..Default::default()
@@ -440,12 +447,75 @@ mod tests {
     }
 
     #[test]
-    fn world_exit_components_contribute_world_edges() {
+    fn extract_topology_when_cross_world_world_exit_resolves_entry_adds_room_edge_and_world_summary() {
         let topology = extract_topology(&topology_test_game());
 
+        assert!(topology.room_graph.edges_from(RoomId(2)).contains(&RoomEdge {
+            to: RoomId(9),
+            kind: RoomEdgeKind::WorldExit,
+        }));
         assert!(topology.world_graph.edges_from(WorldId(1)).contains(&WorldEdge {
             to: WorldId(2),
             kind: WorldEdgeKind::WorldExit,
+        }));
+    }
+
+    #[test]
+    fn extract_topology_when_script_moves_to_literal_entry_adds_scripted_room_edge() {
+        let _lock = game_fs_test_lock().lock().unwrap();
+        let folder = TestGameFolder::new("topology_scripted_traversal");
+        set_game_name(folder.name());
+        fs::create_dir_all(scripts_folder()).unwrap();
+        fs::write(
+            scripts_folder().join("scripted.lua"),
+            "return { init = function(self) self.entity:move_to_entry(Entries.SecondWorld.Start) end }",
+        )
+        .unwrap();
+
+        let mut game = Game::with_name(folder.name());
+        let mut source_world = World::new(WorldId(1), "Main World".to_string(), 16.0);
+        source_world.current_room_id = Some(RoomId(1));
+        source_world.add_room(Room {
+            id: RoomId(1),
+            ..Default::default()
+        });
+        let mut target_world = World::new(WorldId(2), "Second World".to_string(), 16.0);
+        target_world.add_room(Room {
+            id: RoomId(9),
+            ..Default::default()
+        });
+        game.add_world(source_world);
+        game.add_world(target_world);
+        game.current_world_id = Some(WorldId(1));
+
+        game.ecs
+            .create_entity()
+            .with(WorldEntry {
+                name: WorldEntry::START.to_string(),
+            })
+            .with_current_room(RoomId(9))
+            .finish();
+
+        let script_id = game
+            .script_manager
+            .get_or_load(&mut game.asset_registry, "scripted.lua")
+            .expect("script should register");
+
+        game.ecs
+            .create_entity()
+            .with(Active::default())
+            .with(Script {
+                script_id,
+                ..Default::default()
+            })
+            .with_current_room(RoomId(1))
+            .finish();
+
+        let topology = extract_topology(&game);
+
+        assert!(topology.room_graph.edges_from(RoomId(1)).contains(&RoomEdge {
+            to: RoomId(9),
+            kind: RoomEdgeKind::ScriptedTraversal,
         }));
     }
 }

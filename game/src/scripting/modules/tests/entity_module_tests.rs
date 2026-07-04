@@ -1,6 +1,6 @@
 use crate::engine::game_instance::GameInstance;
 use crate::game_global::{drain_commands, take_pending_world_transition};
-use crate::transitions::world_transitions::WorldSelector;
+use crate::transitions::world_transitions::{DestinationSelector, WorldSelector};
 use crate::scripting::commands::lua_command::LuaCommand;
 use crate::scripting::lua_ctx::LuaGameCtx;
 use crate::scripting::modules::entity_module::EntityHandle;
@@ -20,9 +20,24 @@ use std::rc::Rc;
 fn setup_entity_lua() -> (Lua, Rc<RefCell<GameInstance>>, Entity) {
     let lua = Lua::new();
     let mut game = Game::default();
-    game.add_world(World::default());
+    let mut world = World::new(WorldId(1), "Overworld".to_string(), 16.0);
+    world.add_room(Room {
+        id: RoomId(1),
+        ..Default::default()
+    });
+    world.add_room(Room {
+        id: RoomId(2),
+        ..Default::default()
+    });
+    world.current_room_id = Some(RoomId(1));
+    game.add_world(world);
 
-    let entity = game.ecs.create_entity().with(Transform::default()).finish();
+    let entity = game
+        .ecs
+        .create_entity()
+        .with(Transform::default())
+        .with_current_room(RoomId(1))
+        .finish();
     let game_instance = Rc::new(RefCell::new(GameInstance {
         game,
         prev_positions: HashMap::new(), 
@@ -175,15 +190,56 @@ fn typed_setter_is_not_registered_for_private_components() {
 }
 
 #[test]
-fn move_to_room_and_remove_from_room_queue_commands() {
+fn move_to_room_records_restore_location_and_remove_from_room_still_queues_command() {
     let (lua, _game_instance, _entity) = setup_entity_lua();
 
     lua.load("entity:move_to_room(2); entity:remove_from_room()")
         .exec()
         .unwrap();
 
+    let recorded = take_pending_world_transition().expect("transition should be recorded");
+    assert!(matches!(
+        recorded.destination,
+        DestinationSelector::RestoreLocation {
+            world_id,
+            room_id,
+            x,
+            y,
+        } if world_id == WorldId(1) && room_id == RoomId(2) && x == 0.0 && y == 0.0
+    ));
+
     let commands: Vec<Box<dyn LuaCommand>> = drain_commands().collect();
-    assert_eq!(commands.len(), 2);
+    assert_eq!(commands.len(), 1);
+}
+
+#[test]
+fn move_to_entry_when_called_records_entry_target_request() {
+    let (lua, _game_instance, _entity) = setup_entity_lua();
+    let entries = lua.create_table().unwrap();
+    let arcade = lua.create_table().unwrap();
+    let from_main = lua.create_table().unwrap();
+    from_main.set("WorldId", 2).unwrap();
+    from_main.set("RoomId", 20).unwrap();
+    from_main.set("EntryName", "FromMain").unwrap();
+    arcade.set("FromMain", from_main).unwrap();
+    entries.set("Arcade", arcade).unwrap();
+    lua.globals().set("Entries", entries).unwrap();
+
+    lua.load(format!(
+        "entity:{}(Entries.Arcade.FromMain)",
+        lua_entity::MOVE_TO_ENTRY
+    ))
+    .exec()
+    .unwrap();
+
+    let recorded = take_pending_world_transition().expect("transition should be recorded");
+    assert!(matches!(
+        recorded.destination,
+        DestinationSelector::Entry(handle)
+            if handle.world_id == WorldId(2)
+                && handle.room_id == RoomId(20)
+                && handle.entry_name == "FromMain"
+    ));
 }
 
 #[test]
@@ -201,7 +257,13 @@ fn move_to_world_records_pending_transition() {
     .unwrap();
 
     let recorded = take_pending_world_transition().expect("transition should be recorded");
-    assert!(matches!(&recorded.world, WorldSelector::ByName(n) if n == DEST_WORLD));
+    assert!(matches!(
+        &recorded.destination,
+        DestinationSelector::World {
+            selector: WorldSelector::ByName(name),
+            entry_name: Some(entry_name),
+        } if name == DEST_WORLD && entry_name == DEST_ENTRY
+    ));
 }
 
 #[test]
@@ -225,7 +287,13 @@ fn trigger_world_exit_records_transition_by_id() {
         .unwrap();
 
     let recorded = take_pending_world_transition().expect("a transition should be recorded");
-    assert!(matches!(recorded.world, WorldSelector::ById(id) if id == DEST));
+    assert!(matches!(
+        recorded.destination,
+        DestinationSelector::World {
+            selector: WorldSelector::ById(id),
+            entry_name: None,
+        } if id == DEST
+    ));
 }
 
 #[test]

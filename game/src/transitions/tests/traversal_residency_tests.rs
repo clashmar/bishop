@@ -1,10 +1,13 @@
 use crate::engine::game_instance::GameInstance;
 use crate::transitions::traversal_residency;
+use crate::transitions::world_transitions::{TraversalRequest, WorldTransitionManager};
+use bishop::prelude::Vec2;
 use bishop::audio::AudioBackend;
 use engine_core::audio::AudioManager;
 use engine_core::constants::paths::SFX_FOLDER;
 use engine_core::ecs::{
-    Active, AudioGroup, AudioSource, AudioStopBehavior, AudioTrigger, Entity, Script, ScriptId, SoundGroupId, SoundId
+    Active, AudioGroup, AudioSource, AudioStopBehavior, AudioTrigger, Entity, Player, Script,
+    ScriptId, SoundGroupId, SoundId, Transform,
 };
 use engine_core::game::Game;
 use engine_core::hydration::{HydrationScope, Hydratable, ResourceClass};
@@ -116,6 +119,34 @@ fn attach_room_singleton_auto_loop(
         .singleton = entity;
 }
 
+fn scripted_restore_location_instance() -> (GameInstance, Entity) {
+    let mut game = two_room_game();
+    let player = game
+        .ecs
+        .create_entity()
+        .with(Active::new(false))
+        .with(Player)
+        .with(Transform::default())
+        .with_current_room(RoomId(1))
+        .finish();
+
+    let room_two_singleton = game.ecs.create_entity().finish();
+    game.current_world_mut()
+        .unwrap()
+        .get_room_mut(RoomId(2))
+        .unwrap()
+        .singleton = room_two_singleton;
+
+    (
+        GameInstance {
+            game,
+            prev_positions: HashMap::new(),
+            traversal_residency_diagnostics: None,
+        },
+        player,
+    )
+}
+
 fn write_silent_wav(path: &Path) {
     let mut bytes = Vec::new();
     bytes.extend_from_slice(b"RIFF");
@@ -178,6 +209,31 @@ fn traversal_refresh_fades_room_owned_loop_when_leaving_room() {
     assert_eq!(audio.ref_count(&"sfx/room_fade".to_string()), 1);
     audio.poll(0.5);
     assert_eq!(audio.ref_count(&"sfx/room_fade".to_string()), 0);
+}
+
+#[test]
+fn refresh_after_traversal_runtime_when_restore_location_executes_reclaims_destination_room_payload() {
+    let lua = Lua::new();
+    let mut audio = AudioManager::new::<TestBackend>();
+    let (mut instance, player) = scripted_restore_location_instance();
+
+    let executed = WorldTransitionManager::execute(
+        &lua,
+        &mut instance,
+        &TraversalRequest::restore_location(player, WorldId(1), RoomId(2), Vec2::ZERO),
+    );
+    assert!(executed);
+
+    traversal_residency::refresh_after_traversal_runtime(&lua, &mut audio, &mut instance);
+
+    assert_eq!(instance.game.current_world().current_room_id, Some(RoomId(2)));
+    assert!(
+        instance
+            .game
+            .hydration_coordinator
+            .claim_count(&HydrationScope::Room(RoomId(2)), ResourceClass::RoomPayload)
+            > 0
+    );
 }
 
 #[test]

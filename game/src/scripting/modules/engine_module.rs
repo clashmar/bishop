@@ -1,7 +1,6 @@
 use crate::game_global::set_pending_world_transition;
 use crate::scripting::lua_ctx::LuaGameCtx;
-use crate::transitions::world_transitions::{WorldSelector, WorldTransitionRequest};
-use engine_core::worlds::WorldTransitionMode;
+use crate::transitions::world_transitions::{EntryHandleData, TraversalRequest, WorldSelector};
 use engine_core::worlds::{WorldId, RoomId};
 use engine_core::ecs::*;
 use bishop::prelude::Vec2;
@@ -363,48 +362,48 @@ impl LuaModule for EngineModule {
         // engine.overlay_world(world_name, entry_name?)
         let overlay_world_fn =
             lua.create_function(|_lua, (world_name, entry_name): (String, Option<String>)| {
-                set_pending_world_transition(WorldTransitionRequest {
-                    entity: None,
-                    world: WorldSelector::ByName(world_name),
+                set_pending_world_transition(TraversalRequest::overlay_world(
+                    WorldSelector::ByName(world_name),
                     entry_name,
-                    mode: WorldTransitionMode::Overlay,
-                });
+                ));
                 Ok(())
             })?;
         engine_tbl.set(lua_engine::OVERLAY_WORLD, overlay_world_fn)?;
 
+        // engine.overlay_entry(entry)
+        let overlay_entry_fn = lua.create_function(|lua, entry: Table| {
+            let entry = EntryHandleData::from_lua(lua, entry)?;
+            set_pending_world_transition(TraversalRequest::overlay_entry(entry));
+            Ok(())
+        })?;
+        engine_tbl.set(lua_engine::OVERLAY_ENTRY, overlay_entry_fn)?;
+
         // engine.return_from_world()
         let return_from_world_fn = lua.create_function(|_lua, ()| {
-            set_pending_world_transition(WorldTransitionRequest {
-                entity: None,
-                world: WorldSelector::Return,
-                entry_name: None,
-                mode: WorldTransitionMode::Overlay,
-            });
+            set_pending_world_transition(TraversalRequest::return_from_world());
             Ok(())
         })?;
         engine_tbl.set(lua_engine::RETURN_FROM_WORLD, return_from_world_fn)?;
 
         // engine.restore_location(location)
         let restore_location_fn = lua.create_function(|lua, location: Table| {
-            let world_id = location.get::<usize>(lua_fields::WORLD_ID)?;
-            let room_id = location.get::<usize>(lua_fields::ROOM_ID)?;
+            let world_id = WorldId(location.get::<usize>(lua_fields::WORLD_ID)?);
+            let room_id = RoomId(location.get::<usize>(lua_fields::ROOM_ID)?);
             let x = location.get::<f32>(lua_fields::X)?;
             let y = location.get::<f32>(lua_fields::Y)?;
 
             let ctx = LuaGameCtx::borrow_ctx(lua)?;
-            let mut gi = ctx.game_instance.borrow_mut();
-            let game = &mut gi.game;
-            game.select_world(WorldId(world_id));
-            if let Some(world) = game.current_world_mut() {
-                world.current_room_id = Some(RoomId(room_id));
-            }
-            if let Some(player) = game.ecs.get_player_entity() {
-                game.ecs.set_current_room(player, RoomId(room_id));
-                if let Some(t) = game.ecs.get_mut::<Transform>(player) {
-                    t.position = Vec2::new(x, y);
-                }
-            }
+            let gi = ctx.game_instance.borrow();
+            let Some(player) = gi.game.ecs.get_player_entity() else {
+                return Ok(());
+            };
+
+            set_pending_world_transition(TraversalRequest::restore_location(
+                player,
+                world_id,
+                room_id,
+                Vec2::new(x, y),
+            ));
             Ok(())
         })?;
         engine_tbl.set(lua_engine::RESTORE_LOCATION, restore_location_fn)?;
@@ -476,7 +475,7 @@ impl LuaApi for EngineModule {
 
         // engine.player
         out.line("--- Get the player entity's script instance table");
-        out.line("--- @return table|nil The player's script instance, or nil if not found");
+        out.line("--- @return table|nil -- The player's script instance, or nil if not found");
         out.line("function engine.player() end");
         out.line("");
 
@@ -518,9 +517,24 @@ impl LuaApi for EngineModule {
         out.line("--- The world resumes at the named entry's room, or its start when omitted.");
         out.line("---@param world_name string");
         out.line("---@param entry_name string|nil");
+        out.line("---@return nil");
         out.line(&format!(
             "function engine.{}(world_name, entry_name) end",
             lua_engine::OVERLAY_WORLD
+        ));
+        out.line("");
+
+        out.line("--- Overlays another world at a generated entry handle destination.");
+        out.line("---@param entry table");
+        out.line("---@return nil");
+        out.line(&format!("function engine.{}(entry) end", lua_engine::OVERLAY_ENTRY));
+        out.line("");
+
+        out.line("--- Returns from the current overlay world.");
+        out.line("---@return nil");
+        out.line(&format!(
+            "function engine.{}() end",
+            lua_engine::RETURN_FROM_WORLD
         ));
         out.line("");
 
