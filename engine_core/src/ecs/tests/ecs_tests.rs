@@ -338,6 +338,23 @@ fn roundtrip_serde_derives_next_entity_id() {
 }
 
 #[test]
+fn serialize_pretty_with_transform_store_embeds_nested_component_data() {
+    let mut ecs = Ecs::default();
+    ecs.create_entity().with(Transform::default()).finish();
+
+    let ron = ron::ser::to_string_pretty(&ecs, ron::ser::PrettyConfig::new()).unwrap();
+    let normalized_ron = ron.replace("\r\n", "\n");
+
+    assert!(normalized_ron.contains("type_name: \"Transform\""));
+    assert!(normalized_ron.contains("data: {\n                (1): ("));
+    assert!(normalized_ron.contains("position: (0.0, 0.0)"));
+    assert!(!normalized_ron.contains("data: \"{\\n"));
+
+    let deserialized: Ecs = ron::de::from_str(&ron).unwrap();
+    assert!(deserialized.has::<Transform>(Entity(1)));
+}
+
+#[test]
 fn roundtrip_serde_empty_ecs() {
     let ecs = Ecs::default();
     let ron = ron::ser::to_string(&ecs).unwrap();

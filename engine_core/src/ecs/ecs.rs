@@ -6,6 +6,7 @@ use crate::ecs::{CurrentRoom, Player, PlayerProxy, Transform};
 use crate::game::GameCtxMut;
 use crate::worlds::room::RoomId;
 use once_cell::sync::Lazy;
+use ron::value::RawValue;
 use serde::de::Deserializer;
 use serde::ser::{SerializeStruct, Serializer};
 use serde::{Deserialize, Serialize};
@@ -387,11 +388,13 @@ impl Serialize for Ecs {
                 .find(|r| r.type_name == *type_name)
                 .expect("registry entry missing");
 
-            // Convert the concrete store (`any_box`) into a RON value
-            let ron_string = (reg.to_ron)(&**any_box);
+            // Convert the concrete store (`any_box`) into nested RON data.
+            let ron_string = indent_nested_ron((reg.to_ron)(&**any_box));
+            let data = RawValue::from_boxed_ron(ron_string.into_boxed_str())
+                .expect("component store serialization must produce valid RON");
             components.push(StoredComponent {
                 type_name: reg.type_name.to_string(),
-                data: ron_string,
+                data,
             });
         }
 
@@ -434,7 +437,7 @@ impl<'de> Deserialize<'de> for Ecs {
                     continue;
                 }
             };
-            let any_box = (reg.from_ron)(stored.data.clone());
+            let any_box = (reg.from_ron)(stored.data.get_ron().to_owned());
             let type_id = reg.type_id;
             stores.insert(type_id, any_box);
         }
@@ -447,6 +450,24 @@ impl<'de> Deserialize<'de> for Ecs {
         ecs.restore_next_entity_id();
         Ok(ecs)
     }
+}
+
+const STORED_COMPONENT_INDENT: &str = "            ";
+
+fn indent_nested_ron(ron: String) -> String {
+    if !ron.contains('\n') {
+        return ron;
+    }
+
+    let mut lines = ron.split('\n');
+    let first = lines.next().unwrap_or_default();
+    let mut indented = String::from(first);
+    for line in lines {
+        indented.push('\n');
+        indented.push_str(STORED_COMPONENT_INDENT);
+        indented.push_str(line);
+    }
+    indented
 }
 
 static TYPE_NAME_FOR_ID: Lazy<HashMap<TypeId, &'static str>> = Lazy::new(|| {

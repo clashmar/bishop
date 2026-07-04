@@ -8,6 +8,7 @@ use crate::game::GameCtxMut;
 use mlua::Lua;
 use mlua::Value;
 use once_cell::sync::Lazy;
+use ron::value::RawValue;
 use serde::{Deserialize, Serialize};
 use std::any::{Any, TypeId};
 
@@ -156,10 +157,13 @@ pub fn component_removal_blocked_by(type_name: &str, entity: Entity, ecs: &Ecs) 
     })
 }
 
+/// Serialized ECS component store entry.
 #[derive(Serialize, Deserialize, Clone)]
 pub struct StoredComponent {
+    /// Registered component type name.
     pub type_name: String,
-    pub data: String,
+    /// Serialized component store as raw RON.
+    pub data: Box<RawValue>,
 }
 
 /// Default implementation used when a component does not need any post-create work.
