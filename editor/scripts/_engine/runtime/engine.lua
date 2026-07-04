@@ -25,7 +25,7 @@ engine.events.save_succeeded = "save:succeeded"
 engine.events.save_failed = "save:failed"
 
 --- Get the player entity's script instance table
---- @return table|nil The player's script instance, or nil if not found
+--- @return table|nil -- The player's script instance, or nil if not found
 function engine.player() end
 
 --- Call a method on a global entity script
@@ -82,26 +82,6 @@ function engine.current_world() end
 ---@return nil
 function engine.restore_location(location) end
 
----@param msg string
-function engine.log.info(msg) end
-
----@param msg string
-function engine.log.warn(msg) end
-
----@param msg string
-function engine.log.error(msg) end
-
----@param msg string
-function engine.log.debug(msg) end
-
-engine.prefab = {}
-
----@param prefab_name PrefabId
----@param position vec2
----@param init? table
----@return Entity
-function engine.prefab.spawn(prefab_name, position, init) end
-
 ---@param input string
 ---@return boolean
 function engine.input.is_down(input) end
@@ -126,4 +106,24 @@ function engine.input.release_control(name) end
 ---@param name string
 ---@return boolean
 function engine.input.in_control(name) end
+
+---@param msg string
+function engine.log.info(msg) end
+
+---@param msg string
+function engine.log.warn(msg) end
+
+---@param msg string
+function engine.log.error(msg) end
+
+---@param msg string
+function engine.log.debug(msg) end
+
+engine.prefab = {}
+
+---@param prefab_name PrefabId
+---@param position vec2
+---@param init? table
+---@return Entity
+function engine.prefab.spawn(prefab_name, position, init) end
 
