@@ -1,7 +1,7 @@
 (
     version: 1,
     name: "Demo",
-    current_world_id: Some((4)),
+    current_world_id: Some((1)),
     world_ids: [
         (1),
         (3),

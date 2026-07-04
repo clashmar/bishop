@@ -4,9 +4,10 @@ use crate::storage::path_utils::{
     resources_folder, room_payload_path, world_descriptor_path,
 };
 use crate::worlds::{RoomPayload, World, WorldDescriptor};
+use std::collections::HashSet;
 use std::fs;
 use std::io;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 /// Saves a `Game` into the split-layout format under `folder`.
 pub fn save_game_to_folder(game: &Game, folder: &Path) -> io::Result<()> {
@@ -24,20 +25,27 @@ pub fn save_game_to_folder(game: &Game, folder: &Path) -> io::Result<()> {
 
     // Build and write the game-data manifest
     let mut world_ids = Vec::new();
-    fs::create_dir_all(folder.join(paths::WORLDS_FOLDER))?;
-    fs::create_dir_all(folder.join(paths::PAYLOADS_FOLDER))?;
+    let worlds_folder = folder.join(paths::WORLDS_FOLDER);
+    let payloads_folder = folder.join(paths::PAYLOADS_FOLDER);
+    let mut expected_world_files = Vec::new();
+    let mut expected_payload_files = Vec::new();
+    fs::create_dir_all(&worlds_folder)?;
+    fs::create_dir_all(&payloads_folder)?;
 
     for world in game.worlds() {
         let descriptor_path = world_descriptor_path(folder, world.id);
+        expected_world_files.push(descriptor_path.clone());
 
         let mut room_entries = Vec::new();
         for room in world.rooms() {
+            let payload_path = room_payload_path(folder, room.id);
             let payload_ron = ron::ser::to_string_pretty(
                 &RoomPayload::capture(game, room),
                 ron::ser::PrettyConfig::new(),
             )
             .map_err(io::Error::other)?;
-            fs::write(room_payload_path(folder, room.id), payload_ron)?;
+            fs::write(&payload_path, payload_ron)?;
+            expected_payload_files.push(payload_path);
 
             room_entries.push(crate::worlds::RoomDirectoryEntry {
                 id: room.id,
@@ -79,6 +87,24 @@ pub fn save_game_to_folder(game: &Game, folder: &Path) -> io::Result<()> {
         ron::ser::to_string_pretty(&manifest, ron::ser::PrettyConfig::new())
             .map_err(io::Error::other)?;
     fs::write(folder.join(paths::GAME_RON), manifest_ron)?;
+    remove_stale_split_layout_files(&worlds_folder, &expected_world_files)?;
+    remove_stale_split_layout_files(&payloads_folder, &expected_payload_files)?;
+
+    Ok(())
+}
+
+fn remove_stale_split_layout_files(layout_dir: &Path, expected_files: &[PathBuf]) -> io::Result<()> {
+    let expected_paths: HashSet<_> = expected_files.iter().cloned().collect();
+
+    for entry in fs::read_dir(layout_dir)? {
+        let path = entry?.path();
+        if path.is_file()
+            && path.extension().is_some_and(|extension| extension == "ron")
+            && !expected_paths.contains(&path)
+        {
+            fs::remove_file(path)?;
+        }
+    }
 
     Ok(())
 }
@@ -256,6 +282,51 @@ mod tests {
         (game, expected_room_entities)
     }
 
+    fn fully_loaded_multi_world_test_game() -> Game {
+        let mut game = Game::default();
+
+        let mut first_world = World::new(WorldId(1), "First".to_string(), 16.0);
+        first_world.current_room_id = Some(RoomId(1));
+        first_world.add_room(Room::new(&mut game.ecs, RoomId(1), 16.0));
+        first_world.singleton = game
+            .ecs
+            .create_entity()
+            .with(Animation::default())
+            .with_current_room(RoomId(1))
+            .finish();
+        game.add_world(first_world);
+
+        let mut second_world = World::new(WorldId(2), "Second".to_string(), 16.0);
+        second_world.current_room_id = Some(RoomId(2));
+        second_world.add_room(Room::new(&mut game.ecs, RoomId(2), 16.0));
+        second_world.singleton = game
+            .ecs
+            .create_entity()
+            .with(Animation::default())
+            .with_current_room(RoomId(2))
+            .finish();
+        game.add_world(second_world);
+        game.current_world_id = Some(WorldId(2));
+
+        game
+    }
+
+    fn fully_loaded_two_room_test_game() -> Game {
+        let mut game = Game::default();
+        let mut world = World::new(WorldId(1), "Demo".to_string(), 16.0);
+        world.current_room_id = Some(RoomId(1));
+        world.add_room(Room::new(&mut game.ecs, RoomId(1), 16.0));
+        world.add_room(Room::new(&mut game.ecs, RoomId(2), 16.0));
+        world.singleton = game
+            .ecs
+            .create_entity()
+            .with(Animation::default())
+            .with_current_room(RoomId(1))
+            .finish();
+        game.add_world(world);
+        game
+    }
+
     #[test]
     fn save_game_to_folder_writes_manifest_descriptors_and_payloads() {
         let folder = TempSplitLayoutDir::new();
@@ -357,18 +428,50 @@ mod tests {
     }
 
     #[test]
-    fn load_demo_resources_from_repo_preserves_required_singletons() {
-        let resources = Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("..")
-            .join("games")
-            .join("Demo")
-            .join("Resources");
+    fn save_game_to_folder_when_worlds_removed_deletes_stale_world_and_room_files() {
+        let folder = TempSplitLayoutDir::new();
+        let original = fully_loaded_multi_world_test_game();
+        save_game_to_folder(&original, folder.path()).unwrap();
 
-        let loaded = load_full_game_from_folder(&resources).unwrap();
+        assert!(folder.path().join(paths::WORLDS_FOLDER).join("world-2.ron").is_file());
+        assert!(folder.path().join(paths::PAYLOADS_FOLDER).join("room-2.ron").is_file());
+
+        let trimmed = fully_loaded_test_game();
+        save_game_to_folder(&trimmed, folder.path()).unwrap();
+
+        assert!(!folder.path().join(paths::WORLDS_FOLDER).join("world-2.ron").exists());
+        assert!(!folder.path().join(paths::PAYLOADS_FOLDER).join("room-2.ron").exists());
+    }
+
+    #[test]
+    fn save_game_to_folder_when_rooms_removed_deletes_stale_room_payload_files() {
+        let folder = TempSplitLayoutDir::new();
+        let original = fully_loaded_two_room_test_game();
+        save_game_to_folder(&original, folder.path()).unwrap();
+
+        assert!(folder.path().join(paths::PAYLOADS_FOLDER).join("room-2.ron").is_file());
+
+        let trimmed = fully_loaded_test_game();
+        save_game_to_folder(&trimmed, folder.path()).unwrap();
+
+        assert!(!folder.path().join(paths::PAYLOADS_FOLDER).join("room-2.ron").exists());
+    }
+
+    #[test]
+    fn load_full_game_from_folder_preserves_current_world_and_room_singletons() {
+        let folder = TempSplitLayoutDir::new();
+        let original = fully_loaded_multi_world_test_game();
+        let world_singleton = original.current_world().singleton;
+        let room_singleton = original.current_world().current_room().unwrap().singleton;
+        save_game_to_folder(&original, folder.path()).unwrap();
+
+        let loaded = load_full_game_from_folder(folder.path()).unwrap();
         let world = loaded.current_world();
         let room = world.current_room().unwrap();
 
-        assert_eq!(loaded.worlds().len(), 4);
+        assert_eq!(loaded.current_world_id, Some(WorldId(2)));
+        assert_eq!(world.singleton, world_singleton);
+        assert_eq!(room.singleton, room_singleton);
         assert_ne!(world.singleton, Entity::default());
         assert_ne!(room.singleton, Entity::default());
     }
