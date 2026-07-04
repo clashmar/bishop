@@ -4,7 +4,6 @@
     current_world_id: Some((4)),
     world_ids: [
         (1),
-        (2),
         (3),
         (4),
     ],

@@ -1,13 +1,13 @@
 (
     id: (4),
-    name: "new",
+    name: "Arcade",
     current_room_id: Some((5)),
     meta: (
-        position: (0.0, 0.0),
+        position: (-286.61145, -6.5337086),
         sprite_id: None,
     ),
     tags: [],
-    overlay: false,
+    overlay: true,
     grid_size: 16.0,
     singleton: (72),
     rooms: [

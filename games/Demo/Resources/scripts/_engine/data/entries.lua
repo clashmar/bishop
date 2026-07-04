@@ -12,7 +12,7 @@ local Entries = {
         MainEntry = { WorldId = 3, RoomId = 4, EntryName = "Main Entry" },
         Start = { WorldId = 3, RoomId = 4, EntryName = "Start" },
     },
-    New = {
+    Arcade = {
         Start = { WorldId = 4, RoomId = 5, EntryName = "Start" },
     },
 }
