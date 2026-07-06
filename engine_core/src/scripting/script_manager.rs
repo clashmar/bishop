@@ -39,6 +39,9 @@ pub struct ScriptManager {
     #[serde(skip)]
     /// Maps ScriptId to optional update(dt) function.
     pub update_fns: HashMap<ScriptId, Function>,
+    #[serde(skip)]
+    /// Maps ScriptId to optional interact function.
+    pub interact_fns: HashMap<ScriptId, Function>,
     /// Init functions that need to be executed.
     #[serde(skip)]
     pub pending_inits: Vec<(Entity, ScriptId)>,
@@ -62,6 +65,7 @@ impl ScriptManager {
             table_defs: HashMap::new(),
             instances: HashMap::new(),
             update_fns: HashMap::new(),
+            interact_fns: HashMap::new(),
             pending_inits: Vec::new(),
             script_id_to_path: HashMap::new(),
             path_to_script_id: HashMap::new(),
@@ -85,6 +89,11 @@ impl ScriptManager {
         self.event_bus.listener_count()
     }
 
+    /// Returns true if the given script defines an `interact` method.
+    pub fn script_has_interact(&self, script_id: ScriptId) -> bool {
+        self.interact_fns.contains_key(&script_id)
+    }
+
     /// Load the Lua table by id and return a reference to it.
     pub fn load_script_table(&mut self, lua: &Lua, id: ScriptId) -> LuaResult<&Table> {
         if self.table_defs.contains_key(&id) {
@@ -98,6 +107,10 @@ impl ScriptManager {
 
         if let Ok(update) = table.get::<_>(lua_entity::UPDATE) {
             self.update_fns.insert(id, update);
+        }
+
+        if let Ok(interact) = table.get::<_>(lua_entity::INTERACT) {
+            self.interact_fns.insert(id, interact);
         }
 
         self.increment_ref(id);
@@ -353,6 +366,7 @@ impl ScriptManager {
         self.table_defs.remove(&id);
         self.instances.remove(&(entity, id));
         self.update_fns.remove(&id);
+        self.interact_fns.remove(&id);
         self.load_script_table(lua, id)
     }
 
@@ -504,6 +518,7 @@ impl Hydratable for ScriptManager {
         }
         self.table_defs.remove(id);
         self.update_fns.remove(id);
+        self.interact_fns.remove(id);
         self.coordinator_refs.remove(id);
         Ok(())
     }
@@ -755,5 +770,102 @@ mod tests {
         sm.decrement_ref(id);
         let result = sm.evict(&id);
         assert_eq!(result, Err(crate::hydration::EvictError::HasLiveConsumers));
+    }
+
+    #[test]
+    fn interact_fns_populated_on_load() {
+        let _lock = game_fs_test_lock().lock().unwrap();
+        let folder = TestGameFolder::new("script_manager_interact_load");
+        set_game_name(folder.name());
+        fs::create_dir_all(scripts_folder()).unwrap();
+        fs::write(
+            scripts_folder().join("npc.lua"),
+            "return { interact = function() end }",
+        )
+        .unwrap();
+
+        let lua = Lua::new();
+        let mut registry = AssetRegistry::default();
+        let mut manager = ScriptManager::default();
+        let id = manager.init_script(&mut registry, "npc.lua").unwrap();
+        manager.load_script_table(&lua, id).unwrap();
+
+        assert!(manager.interact_fns.contains_key(&id), "interact_fns should contain script with interact method");
+    }
+
+    #[test]
+    fn interact_fns_empty_when_no_interact() {
+        let _lock = game_fs_test_lock().lock().unwrap();
+        let folder = TestGameFolder::new("script_manager_no_interact");
+        set_game_name(folder.name());
+        fs::create_dir_all(scripts_folder()).unwrap();
+        fs::write(
+            scripts_folder().join("prop.lua"),
+            "return { update = function() end }",
+        )
+        .unwrap();
+
+        let lua = Lua::new();
+        let mut registry = AssetRegistry::default();
+        let mut manager = ScriptManager::default();
+        let id = manager.init_script(&mut registry, "prop.lua").unwrap();
+        manager.load_script_table(&lua, id).unwrap();
+
+        assert!(!manager.interact_fns.contains_key(&id), "interact_fns should not contain script without interact method");
+    }
+
+    #[test]
+    fn script_has_interact_returns_correct_bool() {
+        let _lock = game_fs_test_lock().lock().unwrap();
+        let folder = TestGameFolder::new("script_manager_has_interact");
+        set_game_name(folder.name());
+        fs::create_dir_all(scripts_folder()).unwrap();
+        fs::write(
+            scripts_folder().join("npc.lua"),
+            "return { interact = function() end }",
+        )
+        .unwrap();
+        fs::write(
+            scripts_folder().join("prop.lua"),
+            "return { update = function() end }",
+        )
+        .unwrap();
+
+        let lua = Lua::new();
+        let mut registry = AssetRegistry::default();
+        let mut manager = ScriptManager::default();
+        let npc_id = manager.init_script(&mut registry, "npc.lua").unwrap();
+        let prop_id = manager.init_script(&mut registry, "prop.lua").unwrap();
+        manager.load_script_table(&lua, npc_id).unwrap();
+        manager.load_script_table(&lua, prop_id).unwrap();
+
+        assert!(manager.script_has_interact(npc_id), "npc script should report having interact");
+        assert!(!manager.script_has_interact(prop_id), "prop script should not report having interact");
+        assert!(!manager.script_has_interact(ScriptId(999)), "non-existent script id should not report having interact");
+    }
+
+    #[test]
+    fn interact_fns_cleaned_on_evict() {
+        let _lock = game_fs_test_lock().lock().unwrap();
+        let folder = TestGameFolder::new("script_manager_interact_evict");
+        set_game_name(folder.name());
+        fs::create_dir_all(scripts_folder()).unwrap();
+        fs::write(
+            scripts_folder().join("npc.lua"),
+            "return { interact = function() end }",
+        )
+        .unwrap();
+
+        let lua = Lua::new();
+        let mut registry = AssetRegistry::default();
+        let mut manager = ScriptManager::default();
+        let id = manager.init_script(&mut registry, "npc.lua").unwrap();
+        manager.load_script_table(&lua, id).unwrap();
+
+        assert!(manager.interact_fns.contains_key(&id));
+
+        manager.evict_script(id);
+
+        assert!(!manager.interact_fns.contains_key(&id), "interact_fns entry should be removed after evict");
     }
 }

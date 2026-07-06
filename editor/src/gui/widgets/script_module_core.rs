@@ -4,7 +4,7 @@ use bishop::prelude::*;
 use engine_core::assets::AssetRegistry;
 use engine_core::ecs::ecs::Ecs;
 use engine_core::ecs::inspector::layout::InspectorBodyLayout;
-use engine_core::ecs::{parse_field_name, Entity, Script, ScriptField, ScriptId};
+use engine_core::ecs::{parse_field_name, Entity, Interactable, Script, ScriptField, ScriptId};
 use engine_core::game::GameCtxMut;
 use engine_core::logging::omni_error;
 use engine_core::scripting::script_manager::ScriptManager;
@@ -19,6 +19,8 @@ pub(crate) struct ScriptModuleCore {
     picker_id: WidgetId,
     field_ids: HashMap<String, WidgetId>,
     fields_len: usize,
+    show_interact_warning: bool,
+    interact_warning_height: f32,
 }
 
 const SPACING: f32 = 5.0;
@@ -40,9 +42,19 @@ impl ScriptModuleCore {
 
     /// Layout for the picker row and all field editors, based on the cached field count.
     pub(crate) fn body_layout(&self) -> InspectorBodyLayout {
-        InspectorBodyLayout::new()
+        let mut layout = InspectorBodyLayout::new()
             .top_padding(10.0)
-            .rows(self.fields_len.max(1), SPACING)
+            .rows(self.fields_len.max(1), SPACING);
+
+        if self.show_interact_warning {
+            layout = layout
+                .gap(SPACING * 3.0)
+                .block(self.interact_warning_height)
+                .gap(SPACING)
+                .block(layout::DEFAULT_FIELD_HEIGHT);
+        }
+
+        layout
     }
 
     /// Renders the script picker row and all field editors for the given entity.
@@ -79,200 +91,231 @@ impl ScriptModuleCore {
             Some(comp) => comp,
             None => {
                 self.fields_len = 1;
+                self.show_interact_warning = false;
                 return;
             }
         };
 
-        if script_comp.data.fields.is_empty() {
-            self.fields_len = 1;
-            return;
-        }
+        let script_id = script_comp.script_id;
 
         y += picker_row_rect.h + SPACING * 2.0;
 
-        let mut field_names: Vec<_> = script_comp.data.fields.keys().cloned().collect();
-        field_names.sort();
-        self.fields_len = field_names.len() + 1;
+        if script_comp.data.fields.is_empty() {
+            self.fields_len = 1;
+        } else {
 
-        for name in field_names {
-            let base_key = name.to_string();
-            let base_id = *self.field_ids.entry(base_key.clone()).or_default();
+            let mut field_names: Vec<_> = script_comp.data.fields.keys().cloned().collect();
+            field_names.sort();
+            self.fields_len = field_names.len() + 1;
 
-            let display_name = parse_field_name(&name);
-            let label = format!("{} :", display_name);
-            let label_w = measure_text(ctx, &label, FONT_SIZE)
-                .width
-                .max(MIN_LABEL_WIDTH);
-            let widget_x = rect.x + label_w + LABEL_PADDING;
-            ctx.draw_text(
-                &label,
+            for name in field_names {
+                let base_key = name.to_string();
+                let base_id = *self.field_ids.entry(base_key.clone()).or_default();
+
+                let display_name = parse_field_name(&name);
+                let label = format!("{} :", display_name);
+                let label_w = measure_text(ctx, &label, FONT_SIZE)
+                    .width
+                    .max(MIN_LABEL_WIDTH);
+                let widget_x = rect.x + label_w + LABEL_PADDING;
+                ctx.draw_text(
+                    &label,
+                    rect.x,
+                    y + 22.0,
+                    FONT_SIZE,
+                    colors::DEFAULT_TEXT_COLOR,
+                );
+
+                let widget_x = if widget_x > rect.x + rect.w - MIN_WIDGET_WIDTH {
+                    rect.x + rect.w - MIN_WIDGET_WIDTH
+                } else {
+                    widget_x
+                };
+
+                let widget_w = (rect.x + rect.w) - widget_x - 10.0;
+                let widget_rect = Rect::new(
+                    widget_x,
+                    y,
+                    widget_w.max(MIN_WIDGET_WIDTH),
+                    layout::DEFAULT_FIELD_HEIGHT,
+                );
+
+                let field = match script_comp.data.fields.get_mut(&name) {
+                    Some(f) => f,
+                    None => {
+                        omni_error!("Could not read field data from script component.");
+                        return;
+                    }
+                };
+
+                let mut changed = false;
+
+                match field {
+                    ScriptField::Bool(ref mut v) => {
+                        let cb_rect = Rect::new(
+                            widget_rect.x,
+                            widget_rect.y + 6.0,
+                            layout::DEFAULT_CHECKBOX_DIMS,
+                            layout::DEFAULT_CHECKBOX_DIMS,
+                        );
+                        if Checkbox::new(cb_rect, v).blocked(blocked).show(ctx) {
+                            changed = true;
+                        }
+                    }
+                    ScriptField::Int(ref mut v) => {
+                        let (new, _) = NumberInput::new(base_id, widget_rect, *v as i32)
+                            .blocked(blocked)
+                            .show(ctx);
+                        let new = new as i64;
+                        if new != *v {
+                            *v = new;
+                            changed = true;
+                        }
+                    }
+                    ScriptField::Float(ref mut v) => {
+                        let (new, _) = NumberInput::new(base_id, widget_rect, *v as f32)
+                            .blocked(blocked)
+                            .show(ctx);
+                        let new = new as f64;
+                        if new != *v {
+                            *v = new;
+                            changed = true;
+                        }
+                    }
+                    ScriptField::Text(ref mut s) => {
+                        let (txt, _) = TextInput::new(base_id, widget_rect, s)
+                            .blocked(blocked)
+                            .show(ctx);
+                        if txt != *s {
+                            *s = txt;
+                            changed = true;
+                        }
+                    }
+                    ScriptField::Toml(ref mut toml_id) => {
+                        if gui_toml_picker(
+                            ctx,
+                            widget_rect,
+                            base_id,
+                            toml_id,
+                            game_ctx.asset_registry,
+                            blocked,
+                        ) {
+                            changed = true;
+                        }
+                    }
+                    ScriptField::Vec2(ref mut v) => {
+                        let id_x = *self.field_ids.entry(format!("{}.x", name)).or_default();
+                        let id_y = *self.field_ids.entry(format!("{}.y", name)).or_default();
+                        let half = widget_rect.w / 2.0;
+
+                        let rect_x =
+                            Rect::new(widget_rect.x, widget_rect.y, half - 2.0, widget_rect.h);
+                        let (new_x, _) = NumberInput::new(id_x, rect_x, v[0])
+                            .blocked(blocked)
+                            .show(ctx);
+                        if (new_x - v[0]).abs() > f32::EPSILON {
+                            v[0] = new_x;
+                            changed = true;
+                        }
+
+                        let rect_y = Rect::new(
+                            widget_rect.x + half + 2.0,
+                            widget_rect.y,
+                            half - 2.0,
+                            widget_rect.h,
+                        );
+                        let (new_y, _) = NumberInput::new(id_y, rect_y, v[1])
+                            .blocked(blocked)
+                            .show(ctx);
+                        if (new_y - v[1]).abs() > f32::EPSILON {
+                            v[1] = new_y;
+                            changed = true;
+                        }
+                    }
+                    ScriptField::Vec3(ref mut v) => {
+                        let id_x = *self.field_ids.entry(format!("{}.x", name)).or_default();
+                        let id_y = *self.field_ids.entry(format!("{}.y", name)).or_default();
+                        let id_z = *self.field_ids.entry(format!("{}.z", name)).or_default();
+                        let third = widget_rect.w / 3.0 - SPACING / 3.0;
+
+                        let rect_x =
+                            Rect::new(widget_rect.x, widget_rect.y, third - 2.0, widget_rect.h);
+                        let (new_x, _) = NumberInput::new(id_x, rect_x, v[0])
+                            .blocked(blocked)
+                            .show(ctx);
+                        if (new_x - v[0]).abs() > f32::EPSILON {
+                            v[0] = new_x;
+                            changed = true;
+                        }
+
+                        let rect_y = Rect::new(
+                            widget_rect.x + third + 2.0,
+                            widget_rect.y,
+                            third - 2.0,
+                            widget_rect.h,
+                        );
+                        let (new_y, _) = NumberInput::new(id_y, rect_y, v[1])
+                            .blocked(blocked)
+                            .show(ctx);
+                        if (new_y - v[1]).abs() > f32::EPSILON {
+                            v[1] = new_y;
+                            changed = true;
+                        }
+
+                        let rect_z = Rect::new(
+                            widget_rect.x + 2.0 * third + 4.0,
+                            widget_rect.y,
+                            third - 2.0,
+                            widget_rect.h,
+                        );
+                        let (new_z, _) = NumberInput::new(id_z, rect_z, v[2])
+                            .blocked(blocked)
+                            .show(ctx);
+                        if (new_z - v[2]).abs() > f32::EPSILON {
+                            v[2] = new_z;
+                            changed = true;
+                        }
+                    }
+                }
+
+                if changed {
+                    with_lua(|lua| {
+                        if let Err(e) = script_comp.sync_to_lua(lua, game_ctx.script_manager, entity) {
+                            omni_error!("Failed to sync script: {}", e);
+                        }
+                    })
+                }
+
+                y += widget_rect.h + SPACING;
+            }
+        }
+
+        self.show_interact_warning = script_id != ScriptId(0)
+            && game_ctx.script_manager.script_has_interact(script_id)
+            && !game_ctx.ecs.has::<Interactable>(entity);
+
+        if self.show_interact_warning {
+            y += SPACING * 3.0;
+            self.interact_warning_height = ctx.draw_text_wrapped(
+                "Missing Interactable component",
                 rect.x,
-                y + 22.0,
-                FONT_SIZE,
-                colors::DEFAULT_TEXT_COLOR,
-            );
-
-            let widget_x = if widget_x > rect.x + rect.w - MIN_WIDGET_WIDTH {
-                rect.x + rect.w - MIN_WIDGET_WIDTH
-            } else {
-                widget_x
-            };
-
-            let widget_w = (rect.x + rect.w) - widget_x - 10.0;
-            let widget_rect = Rect::new(
-                widget_x,
                 y,
-                widget_w.max(MIN_WIDGET_WIDTH),
-                layout::DEFAULT_FIELD_HEIGHT,
+                layout::FIELD_TEXT_SIZE_16 - 2.0,
+                Color::GOLD,
+                rect.w,
             );
 
-            let field = match script_comp.data.fields.get_mut(&name) {
-                Some(f) => f,
-                None => {
-                    omni_error!("Could not read field data from script component.");
-                    return;
-                }
-            };
+            y += self.interact_warning_height + SPACING;
 
-            let mut changed = false;
-
-            match field {
-                ScriptField::Bool(ref mut v) => {
-                    let cb_rect = Rect::new(
-                        widget_rect.x,
-                        widget_rect.y + 6.0,
-                        layout::DEFAULT_CHECKBOX_DIMS,
-                        layout::DEFAULT_CHECKBOX_DIMS,
-                    );
-                    if Checkbox::new(cb_rect, v).blocked(blocked).show(ctx) {
-                        changed = true;
-                    }
-                }
-                ScriptField::Int(ref mut v) => {
-                    let (new, _) = NumberInput::new(base_id, widget_rect, *v as i32)
-                        .blocked(blocked)
-                        .show(ctx);
-                    let new = new as i64;
-                    if new != *v {
-                        *v = new;
-                        changed = true;
-                    }
-                }
-                ScriptField::Float(ref mut v) => {
-                    let (new, _) = NumberInput::new(base_id, widget_rect, *v as f32)
-                        .blocked(blocked)
-                        .show(ctx);
-                    let new = new as f64;
-                    if new != *v {
-                        *v = new;
-                        changed = true;
-                    }
-                }
-                ScriptField::Text(ref mut s) => {
-                    let (txt, _) = TextInput::new(base_id, widget_rect, s)
-                        .blocked(blocked)
-                        .show(ctx);
-                    if txt != *s {
-                        *s = txt;
-                        changed = true;
-                    }
-                }
-                ScriptField::Toml(ref mut toml_id) => {
-                    if gui_toml_picker(
-                        ctx,
-                        widget_rect,
-                        base_id,
-                        toml_id,
-                        game_ctx.asset_registry,
-                        blocked,
-                    ) {
-                        changed = true;
-                    }
-                }
-                ScriptField::Vec2(ref mut v) => {
-                    let id_x = *self.field_ids.entry(format!("{}.x", name)).or_default();
-                    let id_y = *self.field_ids.entry(format!("{}.y", name)).or_default();
-                    let half = widget_rect.w / 2.0;
-
-                    let rect_x =
-                        Rect::new(widget_rect.x, widget_rect.y, half - 2.0, widget_rect.h);
-                    let (new_x, _) = NumberInput::new(id_x, rect_x, v[0])
-                        .blocked(blocked)
-                        .show(ctx);
-                    if (new_x - v[0]).abs() > f32::EPSILON {
-                        v[0] = new_x;
-                        changed = true;
-                    }
-
-                    let rect_y = Rect::new(
-                        widget_rect.x + half + 2.0,
-                        widget_rect.y,
-                        half - 2.0,
-                        widget_rect.h,
-                    );
-                    let (new_y, _) = NumberInput::new(id_y, rect_y, v[1])
-                        .blocked(blocked)
-                        .show(ctx);
-                    if (new_y - v[1]).abs() > f32::EPSILON {
-                        v[1] = new_y;
-                        changed = true;
-                    }
-                }
-                ScriptField::Vec3(ref mut v) => {
-                    let id_x = *self.field_ids.entry(format!("{}.x", name)).or_default();
-                    let id_y = *self.field_ids.entry(format!("{}.y", name)).or_default();
-                    let id_z = *self.field_ids.entry(format!("{}.z", name)).or_default();
-                    let third = widget_rect.w / 3.0 - SPACING / 3.0;
-
-                    let rect_x =
-                        Rect::new(widget_rect.x, widget_rect.y, third - 2.0, widget_rect.h);
-                    let (new_x, _) = NumberInput::new(id_x, rect_x, v[0])
-                        .blocked(blocked)
-                        .show(ctx);
-                    if (new_x - v[0]).abs() > f32::EPSILON {
-                        v[0] = new_x;
-                        changed = true;
-                    }
-
-                    let rect_y = Rect::new(
-                        widget_rect.x + third + 2.0,
-                        widget_rect.y,
-                        third - 2.0,
-                        widget_rect.h,
-                    );
-                    let (new_y, _) = NumberInput::new(id_y, rect_y, v[1])
-                        .blocked(blocked)
-                        .show(ctx);
-                    if (new_y - v[1]).abs() > f32::EPSILON {
-                        v[1] = new_y;
-                        changed = true;
-                    }
-
-                    let rect_z = Rect::new(
-                        widget_rect.x + 2.0 * third + 4.0,
-                        widget_rect.y,
-                        third - 2.0,
-                        widget_rect.h,
-                    );
-                    let (new_z, _) = NumberInput::new(id_z, rect_z, v[2])
-                        .blocked(blocked)
-                        .show(ctx);
-                    if (new_z - v[2]).abs() > f32::EPSILON {
-                        v[2] = new_z;
-                        changed = true;
-                    }
-                }
+            if Button::new(
+                Rect::new(rect.x, y, rect.w, layout::DEFAULT_FIELD_HEIGHT),
+                "Add Interactable",
+            )
+            .suppressed(blocked)
+            .show(ctx)
+            {
+                game_ctx.ecs.add_component_to_entity(entity, Interactable::default());
             }
-
-            if changed {
-                with_lua(|lua| {
-                    if let Err(e) = script_comp.sync_to_lua(lua, game_ctx.script_manager, entity) {
-                        omni_error!("Failed to sync script: {}", e);
-                    }
-                })
-            }
-
-            y += widget_rect.h + SPACING;
         }
     }
 }
