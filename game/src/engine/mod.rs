@@ -32,7 +32,7 @@ use engine_core::constants::timing;
 use engine_core::diagnostics::TraversalResidencyDiagnostics;
 use engine_core::logging::{omni_error};
 use engine_core::menu::{GameMenuHandler, MenuInputPolicy, MenuManager, MenuSessionAction};
-use engine_core::rendering::{RenderSystem, smooth_dt, snap_dt};
+use engine_core::rendering::{RenderSystem, SmoothedDtState, smooth_dt, snap_dt};
 use engine_core::task::BackgroundService;
 use engine_core::text::update_speech_timers;
 use mlua::Lua;
@@ -64,8 +64,8 @@ pub struct Engine {
     quit_to_title_enabled: bool,
     /// Accumulator for fixed timestep updates.
     pub accumulator: f32,
-    /// Exponential moving average of frame time, used to smooth accumulator input.
-    pub smoothed_dt: Option<f32>,
+    /// Exponential moving average state for accumulator input.
+    pub smoothed_dt: SmoothedDtState,
     /// Background audio service, polled once per frame.
     pub audio_manager: AudioManager,
 }
@@ -197,7 +197,7 @@ impl Engine {
             is_playtest: cfg.is_playtest,
             quit_to_title_enabled: cfg.quit_to_title_enabled,
             accumulator: 0.0,
-            smoothed_dt: None,
+            smoothed_dt: SmoothedDtState::default(),
             audio_manager: AudioManager::new::<PlatformAudioBackend>(),
         };
 
