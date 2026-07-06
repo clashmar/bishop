@@ -10,8 +10,8 @@ use ::widgets::*;
 
 const TITLE: &str = "World Entry";
 const BODY_TOP_PADDING: f32 = layout::WIDGET_SPACING;
+const BOTTOM_PADDING: f32 = layout::WIDGET_SPACING + 4.0;
 const ROW_H: f32 = 30.0;
-const ERROR_ROW_H: f32 = 20.0;
 
 /// Inspector module for the `WorldEntry` component.
 #[derive(Default)]
@@ -41,9 +41,12 @@ impl InspectorModule for WorldEntryModule {
             layout = layout.block(ROW_H);
         }
         if !self.is_start {
+            if self.show_checkbox {
+                layout = layout.gap(layout::WIDGET_SPACING);
+            }
             layout = layout.block(ROW_H);
         }
-        layout.block(ERROR_ROW_H)
+        layout.bottom_gutter(BOTTOM_PADDING)
     }
 
     fn draw(
@@ -117,14 +120,6 @@ impl InspectorModule for WorldEntryModule {
 
             if commit == InputCommit::Committed && typed != entry.name {
                 if typed.eq_ignore_ascii_case(WorldEntry::START_NAME) {
-                    let msg = format!("{} is a reserved term", WorldEntry::START_NAME);
-                    ctx.draw_text(
-                        &msg,
-                        rect.x,
-                        y + ROW_H + 4.0,
-                        layout::FIELD_TEXT_SIZE_16 - 2.0,
-                        Color::RED,
-                    );
                     push_toast(format!("'{}' is a reserved term", WorldEntry::START_NAME), 3.0);
                 } else {
                     let collides = match owning_world_id {
@@ -154,13 +149,6 @@ impl InspectorModule for WorldEntryModule {
                     };
 
                     if collides {
-                        ctx.draw_text(
-                            "Name already used in this world",
-                            rect.x,
-                            y + ROW_H + 4.0,
-                            layout::FIELD_TEXT_SIZE_16 - 2.0,
-                            Color::RED,
-                        );
                         push_toast(format!("'{}' is already used in this world", typed), 3.0);
                     } else {
                         push_command(Box::new(
