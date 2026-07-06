@@ -396,7 +396,10 @@ fn draw_script_picker_row(
     }
 
     if script_id == ScriptId(0) {
-        ecs.get_store_mut::<Script>().remove(entity);
+        if let Some(comp) = ecs.get_mut::<Script>(entity) {
+            comp.script_id = ScriptId(0);
+            comp.data.fields.clear();
+        }
     } else if let Some(comp) = ecs.get_mut::<Script>(entity) {
         comp.script_id = script_id;
         with_lua(|lua| {
