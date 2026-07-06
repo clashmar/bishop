@@ -92,7 +92,7 @@ mod tests {
         let entry = game
             .ecs
             .create_entity()
-            .with(WorldEntry { name: ORIGINAL_NAME.to_string() })
+            .with(WorldEntry { name: ORIGINAL_NAME.to_string(), ..Default::default() })
             .with_current_room(RoomId(1))
             .finish();
 

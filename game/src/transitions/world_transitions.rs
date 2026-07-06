@@ -167,10 +167,10 @@ impl TraversalRequest {
 }
 
 /// Resolved arrival point inside the destination world.
-struct Destination {
-    world_id: WorldId,
-    room_id: RoomId,
-    position: Vec2,
+pub(crate) struct Destination {
+    pub(crate) world_id: WorldId,
+    pub(crate) room_id: RoomId,
+    pub(crate) position: Vec2,
 }
 
 /// Executes canonical traversal requests.
@@ -366,7 +366,7 @@ fn resolve_entry(game: &Game, world: &World, entry_name: &str) -> Option<Destina
     let entries = game.ecs.get_store::<WorldEntry>();
 
     for (&entity, entry) in entries.data.iter() {
-        if entry.name != entry_name {
+        if entry.name != entry_name && !(entry_name == WorldEntry::START_NAME && entry.is_start) {
             continue;
         }
         let Some(room) = game.ecs.get::<CurrentRoom>(entity).map(|current_room| current_room.0) else {
@@ -394,10 +394,10 @@ fn resolve_entry(game: &Game, world: &World, entry_name: &str) -> Option<Destina
     None
 }
 
-fn resolve_world_start(game: &Game, world: &World) -> Option<Destination> {
+pub(crate) fn resolve_world_start(game: &Game, world: &World) -> Option<Destination> {
     let entries = game.ecs.get_store::<WorldEntry>();
     for (&entity, entry) in entries.data.iter() {
-        if entry.name != WorldEntry::START {
+        if !entry.is_start {
             continue;
         }
         let Some(room_id) = game.ecs.get::<CurrentRoom>(entity).map(|room| room.0) else {

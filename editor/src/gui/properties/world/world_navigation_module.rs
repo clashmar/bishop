@@ -61,7 +61,7 @@ impl PropertyModule<World> for WorldNavigationModule {
         let world_directory = &game_ctx.world_directory;
         let world_id = world.id;
 
-        let mut entries: Vec<(Entity, String)> = game_ctx
+        let mut entries: Vec<(Entity, String, bool)> = game_ctx
             .ecs
             .get_store::<WorldEntry>()
             .data
@@ -71,11 +71,11 @@ impl PropertyModule<World> for WorldNavigationModule {
                     .and_then(|r| room_world_map.get(&r.0).copied())
                     .is_some_and(|wid| wid == world_id)
             })
-            .map(|(entity, entry)| (*entity, entry.name.clone()))
+            .map(|(entity, entry)| (*entity, entry.name.clone(), entry.is_start))
             .collect();
         entries.sort_by(|a, b| a.1.cmp(&b.1));
 
-        let has_start = entries.iter().any(|(_, name)| name == WorldEntry::START);
+        let has_start = entries.iter().any(|(_, _, is_start)| *is_start);
         self.show_start_warning = !has_start;
 
         let mut exits: Vec<(Entity, String)> = game_ctx
@@ -135,8 +135,8 @@ impl PropertyModule<World> for WorldNavigationModule {
         );
         y += ROW_H + ROW_GAP;
 
-        for (i, (entity, name)) in entries.iter().enumerate() {
-            if Button::new(Rect::new(rect.x, y, rect.w, ROW_H), name)
+        for (i, (entity, name, is_start)) in entries.iter().enumerate() {
+            if Button::new(Rect::new(rect.x, y, rect.w, ROW_H), WorldEntry::display_name(name, *is_start))
                 .interaction_id(self.entry_ids[i])
                 .show(ctx)
             {
@@ -166,8 +166,9 @@ impl PropertyModule<World> for WorldNavigationModule {
 
         if self.show_start_warning {
             y += ROW_GAP;
+            let msg = format!("No '{}' entry in this world.", WorldEntry::START_NAME);
             self.warning_height = ctx.draw_text_wrapped(
-                "No 'Start' entry in this world.",
+                &msg,
                 rect.x,
                 y,
                 layout::FIELD_TEXT_SIZE_16 - 2.0,

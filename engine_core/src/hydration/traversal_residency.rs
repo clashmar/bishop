@@ -361,7 +361,8 @@ mod tests {
         game.ecs
             .create_entity()
             .with(WorldEntry {
-                name: WorldEntry::START.to_string(),
+                name: WorldEntry::START_NAME.to_string(),
+                is_start: true,
             })
             .with_current_room(RoomId(2))
             .finish();

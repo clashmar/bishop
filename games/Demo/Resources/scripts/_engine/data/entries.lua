@@ -6,10 +6,9 @@
 local Entries = {
     MainWorld = {
         Entry_ = { WorldId = 1, RoomId = 1, EntryName = "" },
-        Start = { WorldId = 1, RoomId = 1, EntryName = "Start" },
+        Portal = { WorldId = 1, RoomId = 1, EntryName = "Portal" },
     },
     SecondWorld = {
-        MainEntry = { WorldId = 3, RoomId = 4, EntryName = "Main Entry" },
         Start = { WorldId = 3, RoomId = 4, EntryName = "Start" },
     },
     Arcade = {

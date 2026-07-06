@@ -186,6 +186,7 @@ fn save_game_when_worlds_and_entries_exist_regenerates_world_navigation_lua_file
         .create_entity()
         .with(WorldEntry {
             name: "Main Entry".to_string(),
+            ..Default::default()
         })
         .with_current_room(extra_room_id)
         .finish();

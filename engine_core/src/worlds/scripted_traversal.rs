@@ -127,7 +127,7 @@ mod tests {
     #[test]
     fn scripted_traversal_extractor_when_source_uses_literal_entry_handle_emits_room_edge() {
         let lookup = HashMap::from([(
-            ("SecondWorld".to_string(), "Start".to_string()),
+            ("SecondWorld".to_string(), WorldEntry::START_NAME.to_string()),
             RoomId(9),
         )]);
 
@@ -149,7 +149,7 @@ mod tests {
     #[test]
     fn scripted_traversal_extractor_when_destination_is_dynamic_emits_no_room_edge() {
         let lookup = HashMap::from([(
-            ("SecondWorld".to_string(), "Start".to_string()),
+            ("SecondWorld".to_string(), WorldEntry::START_NAME.to_string()),
             RoomId(9),
         )]);
 
@@ -192,7 +192,8 @@ mod tests {
         game.ecs
             .create_entity()
             .with(WorldEntry {
-                name: "Start".to_string(),
+                name: WorldEntry::START_NAME.to_string(),
+                ..Default::default()
             })
             .with_current_room(RoomId(9))
             .finish();

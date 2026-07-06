@@ -146,10 +146,10 @@ impl GameInstance {
 
     fn start_room_id(game: &Game) -> RoomId {
         let world = game.current_world();
-        // Prefer the "Start" WorldEntry's room; fall back to the world's first room
+        // Prefer the start WorldEntry's room; fall back to the world's first room
         let entries = game.ecs.get_store::<WorldEntry>();
         for (&entity, entry) in entries.data.iter() {
-            if entry.name != "Start" {
+            if !entry.is_start {
                 continue;
             }
             if let Some(room_id) = game.ecs.get::<CurrentRoom>(entity).map(|r| r.0) {

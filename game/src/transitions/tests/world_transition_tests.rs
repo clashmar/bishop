@@ -22,7 +22,7 @@ const BARE_WORLD: &str = "Bare";
 const OVERWORLD_ID: WorldId = WorldId(1);
 const ARCADE_ID: WorldId = WorldId(2);
 
-const START_ENTRY: &str = WorldEntry::START;
+const START_ENTRY: &str = WorldEntry::START_NAME;
 const START_POS: Vec2 = Vec2::new(8.0, 8.0);
 
 fn named_world(id: usize, name: &str, room_id: usize) -> World {
@@ -38,7 +38,7 @@ fn named_world(id: usize, name: &str, room_id: usize) -> World {
 fn add_start_entry(game: &mut Game, room_id: RoomId, pos: Vec2) {
     game.ecs
         .create_entity()
-        .with(WorldEntry { name: START_ENTRY.to_string() })
+        .with(WorldEntry { name: START_ENTRY.to_string(), is_start: true })
         .with(Transform { position: pos, ..Default::default() })
         .with_current_room(room_id)
         .finish();
@@ -200,6 +200,7 @@ fn transport_uses_named_entry_room_and_position() {
         })
         .with(WorldEntry {
             name: ARCADE_ENTRY.to_string(),
+            ..Default::default()
         })
         .with_current_room(RoomId(2))
         .finish();
@@ -536,4 +537,49 @@ fn world_entered_event_includes_world_tags() {
     assert!(values.contains(&ARCADE.to_string()));
     assert!(values.contains(&lua_event_tag::AUTOSAVE.to_string()));
     assert!(values.contains(&ARCADE_WORLD_TAG.to_string()));
+}
+
+#[test]
+fn resolve_world_start_finds_is_start_entry() {
+    let mut game = Game::default();
+    let mut world = named_world(1, "TestWorld", 1);
+    world.add_room(Room { id: RoomId(2), ..Default::default() });
+    game.add_world(world);
+
+    game.ecs
+        .create_entity()
+        .with(WorldEntry { name: "Side".to_string(), is_start: false })
+        .with(Transform { position: Vec2::new(4.0, 4.0), ..Default::default() })
+        .with_current_room(RoomId(1))
+        .finish();
+
+    game.ecs
+        .create_entity()
+        .with(WorldEntry { name: "Main".to_string(), is_start: true })
+        .with(Transform { position: Vec2::new(8.0, 8.0), ..Default::default() })
+        .with_current_room(RoomId(2))
+        .finish();
+
+    let world_ref = game.get_world(WorldId(1)).unwrap();
+    let dest = resolve_world_start(&game, world_ref);
+    assert!(dest.is_some());
+    assert_eq!(dest.unwrap().room_id, RoomId(2));
+}
+
+#[test]
+fn resolve_world_start_falls_back_to_first_room_when_no_is_start_entry() {
+    let mut game = Game::default();
+    let world = named_world(1, "TestWorld", 1);
+    game.add_world(world);
+
+    game.ecs
+        .create_entity()
+        .with(WorldEntry { name: "Side".to_string(), is_start: false })
+        .with_current_room(RoomId(1))
+        .finish();
+
+    let world_ref = game.get_world(WorldId(1)).unwrap();
+    let dest = resolve_world_start(&game, world_ref);
+    assert!(dest.is_some());
+    assert_eq!(dest.unwrap().room_id, RoomId(1));
 }

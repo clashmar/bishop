@@ -37,10 +37,10 @@ pub fn create_new_world(game: &mut Game) -> World {
         .finish();
     world.singleton = world_singleton;
 
-    // Default "Start" entry point
+    // Default start entry point
     game.ecs
         .create_entity()
-        .with(WorldEntry { name: WorldEntry::START.into() })
+        .with(WorldEntry { name: String::new(), is_start: true })
         .with(Transform {
             position: room_origin,
             ..Default::default()

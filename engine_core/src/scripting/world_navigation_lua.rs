@@ -202,7 +202,7 @@ mod tests {
                 world_key: "Overworld".to_string(),
                 world_name: "Overworld".to_string(),
                 room_id: RoomId(9),
-                entry_name: "Start".to_string(),
+                entry_name: WorldEntry::START_NAME.to_string(),
             },
             EntryHandle {
                 world_id: WorldId(2),

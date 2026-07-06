@@ -182,7 +182,6 @@
                 (38): ((2)),
                 (41): ((4)),
                 (46): ((2)),
-                (47): ((4)),
                 (52): ((4)),
                 (53): ((1)),
                 (54): ((1)),
@@ -192,7 +191,6 @@
                 (62): ((4)),
                 (63): ((1)),
                 (65): ((1)),
-                (66): ((1)),
                 (68): ((1)),
                 (69): ((1)),
                 (70): ((5)),
@@ -201,6 +199,7 @@
                 (73): ((5)),
                 (74): ((5)),
                 (75): ((5)),
+                (78): ((1)),
             },
         ),
         (
@@ -282,15 +281,14 @@
                 (38): ("Checkpoint"),
                 (41): ("Camera 1"),
                 (46): ("Entity"),
-                (47): ("Entity"),
                 (52): ("Entity"),
                 (63): ("Entity"),
                 (65): ("Camera 1"),
-                (66): ("Entity"),
                 (68): ("Entity"),
                 (70): ("Camera 1"),
                 (71): ("Player Proxy"),
                 (75): ("Entity"),
+                (78): ("Entity"),
             },
         ),
         (
@@ -564,11 +562,6 @@
                     position: (-44.0, 72.0),
                     pivot: BottomCenter,
                 ),
-                (47): (
-                    visible: true,
-                    position: (56.0, 64.0),
-                    pivot: BottomCenter,
-                ),
                 (52): (
                     visible: true,
                     position: (152.0, 144.0),
@@ -576,7 +569,7 @@
                 ),
                 (62): (
                     visible: true,
-                    position: (40.0, 112.0),
+                    position: (24.0, 64.0),
                     pivot: BottomCenter,
                 ),
                 (63): (
@@ -588,11 +581,6 @@
                     visible: true,
                     position: (128.0, 0.0),
                     pivot: TopLeft,
-                ),
-                (66): (
-                    visible: true,
-                    position: (44.0, 24.0),
-                    pivot: BottomCenter,
                 ),
                 (68): (
                     visible: true,
@@ -617,6 +605,11 @@
                 (75): (
                     visible: true,
                     position: (168.0, 144.0),
+                    pivot: BottomCenter,
+                ),
+                (78): (
+                    visible: true,
+                    position: (228.0, 24.0),
                     pivot: BottomCenter,
                 ),
             },
@@ -645,20 +638,21 @@
         (
             type_name: "WorldEntry",
             data: {
-                (47): (
-                    name: "Main Entry",
-                ),
                 (62): (
                     name: "Start",
+                    is_start: true,
                 ),
                 (63): (
-                    name: "Start",
-                ),
-                (66): (
-                    name: "",
+                    name: "Portal",
+                    is_start: false,
                 ),
                 (74): (
                     name: "Start",
+                    is_start: false,
+                ),
+                (78): (
+                    name: "",
+                    is_start: true,
                 ),
             },
         ),
@@ -672,7 +666,7 @@
                 ),
                 (52): (
                     destination: Some(World((1))),
-                    entry: Some("Start"),
+                    entry: None,
                     trigger: OnInteract,
                 ),
                 (63): (

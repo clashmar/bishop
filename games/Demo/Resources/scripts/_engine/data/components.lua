@@ -128,6 +128,7 @@
 
 ---@class WorldEntry
 ---@field name string
+---@field is_start boolean
 
 ---@class WorldExit
 ---@field destination table

@@ -148,7 +148,7 @@ impl InspectorModule for WorldExitModule {
                 if let Some(exit) = game_ctx.ecs.get_mut::<WorldExit>(entity) {
                     if exit.destination != Some(ExitDestination::World(new_id)) {
                         exit.destination = Some(ExitDestination::World(new_id));
-                        exit.entry = Some(WorldEntry::START.to_string());
+                        exit.entry = None;
                     }
                 }
             }
@@ -166,37 +166,52 @@ impl InspectorModule for WorldExitModule {
         let mut start_missing = false;
         if !is_return {
             if let Some(dest_world_id) = current_dest_world {
-                let mut entry_names: Vec<String> = game_ctx.ecs.get_store::<WorldEntry>().data.iter()
+                let entry_data: Vec<(String, bool)> = game_ctx.ecs.get_store::<WorldEntry>().data.iter()
                     .filter(|(entry_entity, _)| {
                         game_ctx.ecs.get::<CurrentRoom>(**entry_entity)
                             .and_then(|r| game_ctx.room_world_map.get(&r.0).copied())
                             .is_some_and(|wid| wid == dest_world_id)
                     })
-                    .map(|(_, entry)| entry.name.clone())
+                    .map(|(_, entry)| (entry.name.clone(), entry.is_start))
                     .collect();
 
-                // Ensure "Start" is always present
-                let real_start_exists = entry_names.contains(&WorldEntry::START.to_string());
-                if !real_start_exists {
-                    entry_names.insert(0, WorldEntry::START.to_string());
-                }
+                let display_names: Vec<String> = entry_data.iter().map(|(name, is_start)| {
+                    WorldEntry::display_name(name, *is_start).to_string()
+                }).collect();
 
-                let current_entry = current_exit.entry
-                    .clone()
-                    .unwrap_or_else(|| WorldEntry::START.to_string());
+                let start_idx = entry_data.iter().position(|(_, is_start)| *is_start);
+                let default_display = start_idx
+                    .map(|idx| display_names[idx].clone())
+                    .or_else(|| display_names.first().cloned())
+                    .unwrap_or_default();
 
-                start_missing = current_entry == WorldEntry::START && !real_start_exists;
+                let current_display = match current_exit.entry.as_deref() {
+                    None | Some("") | Some(WorldEntry::START_NAME) => default_display.clone(),
+                    Some(name) => entry_data.iter()
+                        .position(|(entry_name, _)| entry_name == name)
+                        .map(|idx| display_names[idx].clone())
+                        .unwrap_or_else(|| name.to_string()),
+                };
+
+                start_missing = !entry_data.iter().any(|(_, is_start)| *is_start);
 
                 ctx.draw_text("Entry:", rect.x, y + 20.0, layout::FIELD_TEXT_SIZE_16, colors::DEFAULT_TEXT_COLOR);
-                if let Some(sel) = Dropdown::new(self.entry_id, Rect::new(rect.x + label_w, y, rect.w - label_w - DROP_W_REDUCTION, ROW_H), &current_entry, &entry_names, |s| s.clone())
+                if let Some(sel) = Dropdown::new(self.entry_id, Rect::new(rect.x + label_w, y, rect.w - label_w - DROP_W_REDUCTION, ROW_H), &current_display, &display_names, |s| s.clone())
                     .filterable()
                     .truncate_trigger_text()
                     .list_width(rect.w - label_w - DROP_W_REDUCTION)
                     .suppressed(blocked)
                     .show(ctx)
                 {
-                    if let Some(exit) = game_ctx.ecs.get_mut::<WorldExit>(entity) {
-                        exit.entry = Some(sel);
+                    if let Some(idx) = display_names.iter().position(|n| n == &sel) {
+                        let (actual_name, is_start) = &entry_data[idx];
+                        if let Some(exit) = game_ctx.ecs.get_mut::<WorldExit>(entity) {
+                            exit.entry = if *is_start && actual_name.is_empty() {
+                                None
+                            } else {
+                                Some(actual_name.clone())
+                            };
+                        }
                     }
                 }
             }
@@ -250,8 +265,9 @@ impl InspectorModule for WorldExitModule {
 
         if self.show_start_warning {
             y += if self.show_bottom_row { ROW_H + (2. * gap) } else { gap };
+            let msg = format!("No {} entry in destination.", WorldEntry::START_NAME);
             self.warning_height = ctx.draw_text_wrapped(
-                "No Start entry in destination.",
+                &msg,
                 rect.x,
                 y,
                 layout::FIELD_TEXT_SIZE_16 - 2.0,

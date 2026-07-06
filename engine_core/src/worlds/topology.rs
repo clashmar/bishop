@@ -280,8 +280,23 @@ fn resolve_world_exit_target_room(
     entry_name: Option<&str>,
 ) -> Option<RoomId> {
     let target_world_ref = game.get_world(target_world)?;
-    let sought_name = entry_name.unwrap_or(WorldEntry::START);
 
+    if entry_name.is_none() || entry_name == Some(WorldEntry::START_NAME) {
+        for (&entity, entry) in &game.ecs.get_store::<WorldEntry>().data {
+            if !entry.is_start {
+                continue;
+            }
+            let Some(CurrentRoom(room_id)) = game.ecs.get::<CurrentRoom>(entity).copied() else {
+                continue;
+            };
+            if target_world_ref.get_room(room_id).is_some() {
+                return Some(room_id);
+            }
+        }
+        return target_world_ref.rooms().first().map(|room| room.id);
+    }
+
+    let sought_name = entry_name.unwrap();
     for (&entity, entry) in &game.ecs.get_store::<WorldEntry>().data {
         if entry.name != sought_name {
             continue;
@@ -294,10 +309,7 @@ fn resolve_world_exit_target_room(
         }
     }
 
-    entry_name
-        .is_none()
-        .then(|| target_world_ref.rooms().first().map(|room| room.id))
-        .flatten()
+    None
 }
 
 #[cfg(test)]
@@ -352,6 +364,7 @@ mod tests {
             .create_entity()
             .with(WorldEntry {
                 name: "Portal".to_string(),
+                ..Default::default()
             })
             .with_current_room(RoomId(3))
             .finish();
@@ -359,7 +372,8 @@ mod tests {
         game.ecs
             .create_entity()
             .with(WorldEntry {
-                name: WorldEntry::START.to_string(),
+                name: WorldEntry::START_NAME.to_string(),
+                is_start: true,
             })
             .with_current_room(RoomId(9))
             .finish();
@@ -491,7 +505,8 @@ mod tests {
         game.ecs
             .create_entity()
             .with(WorldEntry {
-                name: WorldEntry::START.to_string(),
+                name: WorldEntry::START_NAME.to_string(),
+                is_start: true,
             })
             .with_current_room(RoomId(9))
             .finish();
@@ -517,5 +532,28 @@ mod tests {
             to: RoomId(9),
             kind: RoomEdgeKind::ScriptedTraversal,
         }));
+    }
+
+    #[test]
+    fn resolve_world_exit_target_room_finds_is_start_when_no_entry_name() {
+        let mut game = Game::default();
+        let mut world = World::new(WorldId(1), "Test".to_string(), 16.0);
+        world.add_room(Room { id: RoomId(5), ..Default::default() });
+        game.add_world(world);
+
+        game.ecs
+            .create_entity()
+            .with(WorldEntry { name: "Main".to_string(), is_start: true })
+            .with_current_room(RoomId(5))
+            .finish();
+
+        game.ecs
+            .create_entity()
+            .with(WorldEntry { name: "Side".to_string(), is_start: false })
+            .with_current_room(RoomId(5))
+            .finish();
+
+        let result = resolve_world_exit_target_room(&game, WorldId(1), None);
+        assert_eq!(result, Some(RoomId(5)));
     }
 }

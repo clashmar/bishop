@@ -3,7 +3,7 @@
     name: "Second World",
     current_room_id: Some((4)),
     meta: (
-        position: (30.107117, -193.9572),
+        position: (27.867004, -17.166084),
         sprite_id: None,
     ),
     tags: [

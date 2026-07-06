@@ -603,6 +603,7 @@ mod tests {
             .create_entity()
             .with(WorldEntry {
                 name: "Portal".to_string(),
+                ..Default::default()
             })
             .with_current_room(RoomId(10))
             .finish();
