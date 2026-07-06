@@ -56,17 +56,7 @@ impl<'de> Deserialize<'de> for Active {
     where
         D: Deserializer<'de>,
     {
-        #[derive(Deserialize)]
-        #[serde(untagged)]
-        enum ActiveRepr {
-            Bool(bool),
-            Tuple((bool,)),
-        }
-
-        ActiveRepr::deserialize(deserializer).map(|repr| match repr {
-            ActiveRepr::Bool(value) => Self::new(value),
-            ActiveRepr::Tuple((value,)) => Self::new(value),
-        })
+        bool::deserialize(deserializer).map(Self::new)
     }
 }
 
@@ -103,11 +93,4 @@ mod tests {
         assert!(!active.is_enabled());
     }
 
-    #[test]
-    fn active_deserializes_legacy_tuple_bool_shape() {
-        let active: Active = ron::from_str("(true)").unwrap();
-
-        assert!(active.active);
-        assert_eq!(active.pin_count, 0);
-    }
 }

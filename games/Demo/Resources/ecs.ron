@@ -361,7 +361,7 @@
                     added_components: [
                         (
                             type_name: "Active",
-                            ron: "(true)",
+                            ron: "true",
                         ),
                         (
                             type_name: "Grounded",

@@ -82,39 +82,6 @@ fn save_game_persists_asset_identities_in_asset_registry() {
 }
 
 #[test]
-fn load_game_accepts_legacy_asset_registry_records_with_kind_field() {
-    let _lock = game_fs_test_lock()
-        .lock()
-        .unwrap_or_else(|poison| poison.into_inner());
-    let test_game = TestGameFolder::new("asset_registry_legacy_kind_load");
-    set_game_name(test_game.name());
-
-    let mut game = create_new_game(test_game.name().to_string());
-    game.asset_registry
-        .register_asset_relative_path(SpriteId(1), "sprites/player.png")
-        .expect("sprite path should register");
-
-    save_game(&game).expect("game should save");
-
-    let game_ron_path = resources_folder(test_game.name()).join(paths::GAME_RON);
-    let legacy_ron = fs::read_to_string(&game_ron_path)
-        .expect("saved game.ron should be readable")
-        .replacen(
-            "path: \"assets/sprites/player.png\"",
-            "kind: Sprite,\n                path: \"assets/sprites/player.png\"",
-            1,
-        );
-    fs::write(&game_ron_path, legacy_ron).expect("legacy schema should be writable");
-
-    let loaded = load_game_by_name(test_game.name()).expect("legacy asset registry should load");
-
-    assert_eq!(
-        loaded.asset_registry.relative_path(SpriteId(1)),
-        Some(PathBuf::from("sprites/player.png"))
-    );
-}
-
-#[test]
 fn save_game_round_trips_sound_asset_registry_records() {
     let _lock = game_fs_test_lock()
         .lock()

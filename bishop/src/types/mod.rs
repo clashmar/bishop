@@ -43,14 +43,3 @@ impl Texture2D {
         self.0.height() as f32
     }
 }
-
-/// Filter mode for texture sampling.
-/// Note: This is a legacy type kept for API compatibility. The wgpu backend
-/// hardcodes Nearest filtering for pixel art and ignores this setting.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum FilterMode {
-    /// Linear interpolation (not used in pixel art engine).
-    Linear,
-    /// Nearest neighbor filtering (default for pixel art).
-    Nearest,
-}
