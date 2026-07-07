@@ -1,7 +1,14 @@
-use crate::app::EditorMode;
-use crate::app::SubEditor;
+use crate::app::{EditorMode, SubEditor};
 use crate::commands::room::*;
 use crate::editor_global::*;
+use crate::gui::inspector::collider_module::edit::is_collider_edit_active_for;
+use crate::room::collider_drag::{
+    apply_collider_edit_nudge,
+    collider_update_command,
+    step_active_collider_drag,
+    try_intercept_collider_handle,
+    try_start_collider_handle_on_click,
+};
 use crate::room::room_editor::*;
 use crate::room::selection::*;
 use crate::shared::input::shortcuts_blocked;
@@ -9,7 +16,7 @@ use crate::shared::selection::*;
 use crate::world::coord;
 use bishop::prelude::*;
 use engine_core::assets::*;
-use engine_core::controls::{get_omni_input_pressed};
+use engine_core::controls::get_omni_input_pressed;
 use engine_core::ecs::*;
 use engine_core::worlds::*;
 use std::collections::{HashMap, HashSet};
@@ -74,6 +81,17 @@ impl RoomEditor {
             && !self.drag_state.dragging
             && !self.drag_state.box_select_active
         {
+            if let Some((entity, action, collider)) = try_intercept_collider_handle(
+                self.single_selected_entity(),
+                ecs,
+                mouse_world,
+            ) {
+                self.drag_state
+                    .collider_drag
+                    .begin(entity, action, collider, mouse_world);
+                return true;
+            }
+
             // Find ALL entities under cursor and select topmost by z-order
             // Tuple: (entity, z, is_camera) - cameras always on top
             let mut candidates: Vec<(Entity, i32, bool)> = Vec::new();
@@ -126,83 +144,94 @@ impl RoomEditor {
                         selection_changed = true;
                     }
 
-                    // Start normal drag
-                    self.drag_state.dragging = true;
-                    self.drag_state.drag_anchor_entity = Some(entity);
-                    self.drag_state.drag_offset = ecs
-                        .get_store::<Transform>()
-                        .get(entity)
-                        .map(|t| t.position - mouse_world)
-                        .unwrap_or(Vec2::ZERO);
-
-                    // Store start positions for all selected entities
-                    self.drag_state.drag_start_positions.clear();
-                    for &e in &self.selected_entities {
-                        if let Some(pos) = ecs.get_store::<Transform>().get(e).map(|t| t.position) {
-                            self.drag_state.drag_start_positions.push((e, pos));
+                    // In collider edit mode, try handle drag instead of entity drag
+                    if self.single_selected_entity().is_some_and(is_collider_edit_active_for) {
+                        if let Some((e, action, c)) = try_start_collider_handle_on_click(
+                            entity,
+                            ecs,
+                            mouse_world,
+                        ) {
+                            self.drag_state.collider_drag.begin(e, action, c, mouse_world);
                         }
-                    }
+                    } else {
+                        // Start normal drag
+                        self.drag_state.dragging = true;
+                        self.drag_state.drag_anchor_entity = Some(entity);
+                        self.drag_state.drag_offset = ecs
+                            .get_store::<Transform>()
+                            .get(entity)
+                            .map(|t| t.position - mouse_world)
+                            .unwrap_or(Vec2::ZERO);
 
-                    // Store initial positions for undo command
-                    self.drag_state.drag_initial_start_positions =
-                        self.drag_state.drag_start_positions.clone();
-
-                    // If alt is already held, immediately enter copy mode
-                    let alt_held =
-                        ctx.is_key_down(KeyCode::LeftAlt) || ctx.is_key_down(KeyCode::RightAlt);
-                    if alt_held {
-                        // Store original drag state for reverting on alt release
-                        self.drag_state.pre_copy_drag_state = Some(PreCopyDragState {
-                            anchor_entity: self.drag_state.drag_anchor_entity,
-                            selected_entities: self.selected_entities.clone(),
-                        });
-
-                        // Create duplicates at current positions
-                        let duplicates = self.duplicate_entities_for_drag(ecs, room_id);
-                        if !duplicates.is_empty() {
-                            // Position duplicates where originals are
-                            for (orig, dup) in &duplicates {
-                                if let Some((_, pos)) = self
-                                    .drag_state
-                                    .drag_start_positions
-                                    .iter()
-                                    .find(|(e, _)| e == orig)
-                                {
-                                    update_entity_position(ecs, *dup, *pos);
-                                }
+                        // Store start positions for all selected entities
+                        self.drag_state.drag_start_positions.clear();
+                        for &e in &self.selected_entities {
+                            if let Some(pos) = ecs.get_store::<Transform>().get(e).map(|t| t.position) {
+                                self.drag_state.drag_start_positions.push((e, pos));
                             }
+                        }
 
-                            // Find the duplicate corresponding to the anchor
-                            let new_anchor = self
-                                .drag_state
-                                .drag_anchor_entity
-                                .and_then(|anchor| duplicates.iter().find(|(o, _)| *o == anchor))
-                                .map(|(_, d)| *d)
-                                .unwrap_or(duplicates[0].1);
+                        // Store initial positions for undo command
+                        self.drag_state.drag_initial_start_positions =
+                            self.drag_state.drag_start_positions.clone();
 
-                            // Update selection to duplicates
-                            self.selected_entities.clear();
-                            for (_, dup) in &duplicates {
-                                self.selected_entities.insert(*dup);
-                            }
-                            selection_changed = true;
+                        // If alt is already held, immediately enter copy mode
+                        let alt_held =
+                            ctx.is_key_down(KeyCode::LeftAlt) || ctx.is_key_down(KeyCode::RightAlt);
+                        if alt_held {
+                            // Store original drag state for reverting on alt release
+                            self.drag_state.pre_copy_drag_state = Some(PreCopyDragState {
+                                anchor_entity: self.drag_state.drag_anchor_entity,
+                                selected_entities: self.selected_entities.clone(),
+                            });
 
-                            // Update drag tracking to use duplicates
-                            self.drag_state.drag_start_positions = duplicates
-                                .iter()
-                                .filter_map(|(orig, dup)| {
-                                    self.drag_state
-                                        .drag_initial_start_positions
+                            // Create duplicates at current positions
+                            let duplicates = self.duplicate_entities_for_drag(ecs, room_id);
+                            if !duplicates.is_empty() {
+                                // Position duplicates where originals are
+                                for (orig, dup) in &duplicates {
+                                    if let Some((_, pos)) = self
+                                        .drag_state
+                                        .drag_start_positions
                                         .iter()
                                         .find(|(e, _)| e == orig)
-                                        .map(|(_, pos)| (*dup, *pos))
-                                })
-                                .collect();
+                                    {
+                                        update_entity_position(ecs, *dup, *pos);
+                                    }
+                                }
 
-                            self.drag_state.drag_anchor_entity = Some(new_anchor);
-                            self.drag_state.alt_copied_entities =
-                                duplicates.iter().map(|(_, d)| *d).collect();
-                            self.drag_state.alt_copy_mode = true;
+                                // Find the duplicate corresponding to the anchor
+                                let new_anchor = self
+                                    .drag_state
+                                    .drag_anchor_entity
+                                    .and_then(|anchor| duplicates.iter().find(|(o, _)| *o == anchor))
+                                    .map(|(_, d)| *d)
+                                    .unwrap_or(duplicates[0].1);
+
+                                // Update selection to duplicates
+                                self.selected_entities.clear();
+                                for (_, dup) in &duplicates {
+                                    self.selected_entities.insert(*dup);
+                                }
+                                selection_changed = true;
+
+                                // Update drag tracking to use duplicates
+                                self.drag_state.drag_start_positions = duplicates
+                                    .iter()
+                                    .filter_map(|(orig, dup)| {
+                                        self.drag_state
+                                            .drag_initial_start_positions
+                                            .iter()
+                                            .find(|(e, _)| e == orig)
+                                            .map(|(_, pos)| (*dup, *pos))
+                                    })
+                                    .collect();
+
+                                self.drag_state.drag_anchor_entity = Some(new_anchor);
+                                self.drag_state.alt_copied_entities =
+                                    duplicates.iter().map(|(_, d)| *d).collect();
+                                self.drag_state.alt_copy_mode = true;
+                            }
                         }
                     }
                 }
@@ -477,10 +506,30 @@ impl RoomEditor {
             }
             return true;
         }
+
+        let result = step_active_collider_drag(
+            &mut self.drag_state.collider_drag,
+            ecs,
+            coord::mouse_world_pos(ctx, camera),
+            ctx.is_mouse_button_down(MouseButton::Left),
+            ctx.is_mouse_button_released(MouseButton::Left),
+        );
+        if result.consumed {
+            if let Some((entity, old_collider, new_collider)) = result.commit {
+                push_command(collider_update_command(
+                    entity,
+                    old_collider,
+                    new_collider,
+                    room_id,
+                ));
+            }
+            return true;
+        }
+
         false
     }
 
-    /// Moves all selected entities by one pixel using arrow keys.
+    /// Nudges the selected collider offset in edit mode, otherwise moves selected entities.
     pub(crate) fn handle_keyboard_move(
         &mut self,
         ctx: &WgpuContext,
@@ -497,6 +546,16 @@ impl RoomEditor {
         }
 
         let step = dir;
+        if let Some(cmd) = apply_collider_edit_nudge(
+            self.single_selected_entity(),
+            ecs,
+            room_id,
+            step,
+        ) {
+            push_command(cmd);
+            return;
+        }
+
         let mut moves = Vec::new();
 
         for &entity in &self.selected_entities {

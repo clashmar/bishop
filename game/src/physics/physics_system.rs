@@ -382,8 +382,11 @@ mod tests {
             .with(Active::default())
             .with(PhysicsBody)
             .with(Collider {
-                width: 8.0,
-                height: 8.0,
+                shape: ColliderShape::Aabb {
+                    width: 8.0,
+                    height: 8.0,
+                },
+                ..Default::default()
             })
             .with(Velocity { x: 60.0, y: 0.0 })
             .finish();

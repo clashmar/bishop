@@ -26,8 +26,8 @@
 ---@field entities table
 
 ---@class Collider
----@field width number
----@field height number
+---@field shape table
+---@field offset vec2
 
 ---@class CurrentFrame
 ---@field clip_id number

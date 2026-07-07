@@ -1,4 +1,5 @@
 use crate::app::SubEditor;
+use crate::room::collider_drag::ColliderHandleDragState;
 use crate::room::room_editor::*;
 use crate::world::coord;
 use bishop::prelude::*;
@@ -37,6 +38,8 @@ pub(crate) struct DragState {
     pub alt_copied_entities: Vec<Entity>,
     /// Original drag state before entering copy mode, used to revert on alt release.
     pub pre_copy_drag_state: Option<PreCopyDragState>,
+    /// Collider handle drag state.
+    pub collider_drag: ColliderHandleDragState,
 }
 
 impl RoomEditor {

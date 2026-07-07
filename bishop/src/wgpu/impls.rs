@@ -158,6 +158,26 @@ impl Draw for WgpuContext {
     fn pop_clip_rect(&mut self) {
         self.pop_clip_rect();
     }
+
+    fn draw_arc_lines(
+        &mut self,
+        center: Vec2,
+        radius: f32,
+        start_angle: f32,
+        end_angle: f32,
+        thickness: f32,
+        color: Color,
+    ) {
+        const SEGMENTS: usize = 16;
+        let mut previous = center + Vec2::new(start_angle.cos(), start_angle.sin()) * radius;
+        for index in 1..=SEGMENTS {
+            let t = index as f32 / SEGMENTS as f32;
+            let angle = start_angle + (end_angle - start_angle) * t;
+            let current = center + Vec2::new(angle.cos(), angle.sin()) * radius;
+            self.draw_line(previous.x, previous.y, current.x, current.y, thickness, color);
+            previous = current;
+        }
+    }
 }
 
 impl Text for WgpuContext {

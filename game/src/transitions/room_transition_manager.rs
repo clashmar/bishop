@@ -91,8 +91,9 @@ impl RoomTransitionManager {
 
 /// Collects tags that should be emitted as part of a room-transition event.
 fn room_probe_position(transform: Transform, collider: Collider, sub_pixel: Option<&SubPixel>) -> Vec2 {
-    let pos = visual_position(transform.position, sub_pixel);
-    let size = Vec2::new(collider.width, collider.height);
+    let pos = visual_position(transform.position, sub_pixel) + collider.offset;
+    let (sw, sh) = collider.shape.size();
+    let size = Vec2::new(sw, sh);
     let top_left = pivot_offset(pos, size, transform.pivot);
     let to_center = (top_left + size * 0.5) - pos;
     let inward = if to_center.length_squared() > 0.0 {

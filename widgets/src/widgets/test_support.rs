@@ -162,6 +162,17 @@ impl Draw for WidgetTestContext {
     fn push_clip_rect(&mut self, _rect: Rect) {}
 
     fn pop_clip_rect(&mut self) {}
+
+    fn draw_arc_lines(
+        &mut self,
+        _center: Vec2,
+        _radius: f32,
+        _start_angle: f32,
+        _end_angle: f32,
+        _thickness: f32,
+        _color: Color,
+    ) {
+    }
 }
 
 impl Text for WidgetTestContext {

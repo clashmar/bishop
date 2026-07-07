@@ -5,6 +5,7 @@ use engine_core::tiles::{TileComponent, TileMap};
 use engine_core::worlds::*;
 use std::collections::HashSet;
 
+
 const OVERLAP_EPS: f32 = 0.0001;
 
 /// Information returned by the sweep test.
@@ -67,15 +68,16 @@ impl SweepContext<'_> {
     ) -> SweepResult {
         let obstacles = self.collect_obstacles(moving_entity);
 
-        let collider_size = Vec2::new(collider.width, collider.height);
-        let collider_pos = pivot_offset(entity_position, collider_size, pivot);
+        let (sw, sh) = collider.shape.size();
+        let size = Vec2::new(sw, sh);
+        let collider_pos = pivot_offset(entity_position + collider.offset, size, pivot);
 
         let (allowed_x, blocked_x) =
-            resolve_axis(collider_pos, desired_delta.x, 0, collider_size, &obstacles);
+            resolve_axis(collider_pos, desired_delta.x, 0, size, &obstacles);
 
         let pos_after_x = collider_pos + Vec2::new(allowed_x, 0.0);
         let (allowed_y, blocked_y) =
-            resolve_axis(pos_after_x, desired_delta.y, 1, collider_size, &obstacles);
+            resolve_axis(pos_after_x, desired_delta.y, 1, size, &obstacles);
 
         SweepResult {
             allowed_delta: Vec2::new(allowed_x, allowed_y),
@@ -133,8 +135,9 @@ impl SweepContext<'_> {
 /// The pivot determines which point on the collider aligns with the position.
 #[inline]
 fn aabb(position: Vec2, collider: Collider, pivot: Pivot) -> (Vec2, Vec2) {
-    let size = Vec2::new(collider.width, collider.height);
-    let top_left = pivot_offset(position, size, pivot);
+    let (sw, sh) = collider.shape.size();
+    let size = Vec2::new(sw, sh);
+    let top_left = pivot_offset(position + collider.offset, size, pivot);
     (top_left, top_left + size)
 }
 
@@ -260,6 +263,27 @@ fn add_border_obstacles(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use engine_core::ecs::Collider;
+
+    #[test]
+    fn aabb_includes_collider_offset() {
+        let pos = Vec2::new(10.0, 20.0);
+        let collider = Collider {
+            shape: ColliderShape::Aabb { width: 8.0, height: 8.0 },
+            ..Default::default()
+        };
+        let (min, max) = aabb(pos, collider, Pivot::TopLeft);
+        assert_eq!(min, Vec2::new(10.0, 20.0));
+        assert_eq!(max, Vec2::new(18.0, 28.0));
+
+        let offset_collider = Collider {
+            shape: ColliderShape::Aabb { width: 8.0, height: 8.0 },
+            offset: Vec2::new(3.0, -2.0),
+        };
+        let (min_off, max_off) = aabb(pos, offset_collider, Pivot::TopLeft);
+        assert_eq!(min_off, Vec2::new(13.0, 18.0));
+        assert_eq!(max_off, Vec2::new(21.0, 26.0));
+    }
 
     #[test]
     fn border_obstacles_include_all_four_corners() {
@@ -315,8 +339,11 @@ mod tests {
                 ..Default::default()
             })
             .with(Collider {
-                width: 8.0,
-                height: 8.0,
+                shape: ColliderShape::Aabb {
+                    width: 8.0,
+                    height: 8.0,
+                },
+                ..Default::default()
             })
             .with(Solid(true))
             .finish();
@@ -336,8 +363,11 @@ mod tests {
             Vec2::ZERO,
             Vec2::new(16.0, 0.0),
             Collider {
-                width: 8.0,
-                height: 8.0,
+                shape: ColliderShape::Aabb {
+                    width: 8.0,
+                    height: 8.0,
+                },
+                ..Default::default()
             },
             Pivot::TopLeft,
         );
@@ -364,8 +394,11 @@ mod tests {
                 ..Default::default()
             })
             .with(Collider {
-                width: 8.0,
-                height: 8.0,
+                shape: ColliderShape::Aabb {
+                    width: 8.0,
+                    height: 8.0,
+                },
+                ..Default::default()
             })
             .with(Solid(true))
             .finish();
@@ -385,8 +418,11 @@ mod tests {
             Vec2::ZERO,
             Vec2::new(16.0, 0.0),
             Collider {
-                width: 8.0,
-                height: 8.0,
+                shape: ColliderShape::Aabb {
+                    width: 8.0,
+                    height: 8.0,
+                },
+                ..Default::default()
             },
             Pivot::TopLeft,
         );

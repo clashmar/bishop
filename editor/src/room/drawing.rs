@@ -1,7 +1,21 @@
-use crate::app::control::camera_controller::*;
+use bishop::prelude::*;
+use engine_core::assets::*;
+use engine_core::constants::world as world_constants;
+use engine_core::ecs::*;
+use engine_core::game::{GameCtxMut, StartupMode};
+use engine_core::rendering::{outline_thickness, pivot_adjusted_position};
+use engine_core::storage::*;
+use engine_core::theme::with_theme;
+use engine_core::ui::measure_text;
+use engine_core::worlds::*;
+use widgets::constants::layout;
+use widgets::*;
+
+use crate::app::control::camera_controller::EditorCameraController;
 use crate::app::EditorMode;
 use crate::editor_assets::assets::{camera_icon, entity_icon, entry_icon, exit_icon, portal_icon};
 use crate::gui::gui_constants::*;
+use crate::gui::inspector::collider_module::edit::{compute_handles, is_collider_edit_active_for};
 use crate::gui::menu_bar::*;
 use crate::gui::mode_selector::*;
 use crate::gui::panel_text_color;
@@ -12,21 +26,9 @@ use crate::shared::entity_icon::{
     draw_camera_icon, draw_glow_placeholder, draw_light_placeholder, resolve_entity_visual,
     EntityVisual, PLACEHOLDER_OPACITY,
 };
-use crate::shared::scene_ui::inspector::{InspectorContext};
+use crate::shared::scene_ui::inspector::InspectorContext;
 use crate::tilemap::tilemap_editor::TILEMAP_SUB_MODES;
 use crate::world::coord;
-use bishop::prelude::*;
-use engine_core::assets::*;
-use engine_core::constants::world as world_constants;
-use engine_core::ecs::*;
-use engine_core::game::{GameCtxMut, StartupMode};
-use engine_core::rendering::{outline_thickness, pivot_adjusted_position};
-use engine_core::storage::*;
-use engine_core::ui::{measure_text};
-use ::widgets::*;
-use engine_core::worlds::*;
-use engine_core::theme::with_theme;
-use ::widgets::constants::layout;
 
 const MODE_SELECTOR_PADDING: f32 = 8.0;
 const PREFAB_GHOST_OPACITY: f32 = 0.55;
@@ -453,22 +455,133 @@ pub(crate) fn draw_prefab_stamp_ghost(
 
 /// Draw the outline of the collider for an entity if it has one.
 pub fn draw_collider(ctx: &mut WgpuContext, ecs: &Ecs, entity: Entity) {
-    if let Some((width, height)) = ecs
-        .get_store::<Collider>()
-        .get(entity)
-        .filter(|c| c.width > 0.0 && c.height > 0.0)
-        .map(|c| (c.width, c.height))
-    {
-        let transform = match ecs.get_store::<Transform>().get(entity) {
-            Some(t) => t,
-            None => return,
-        };
+    let Some(collider) = ecs.get_store::<Collider>().get(entity) else {
+        return;
+    };
+    let transform = match ecs.get_store::<Transform>().get(entity) {
+        Some(t) => t,
+        None => return,
+    };
 
-        // Apply pivot offset to collider position
-        let draw_pos =
-            pivot_adjusted_position(transform.position, vec2(width, height), transform.pivot);
-        ctx.draw_rectangle_lines(draw_pos.x, draw_pos.y, width, height, 1.0, Color::PINK);
+    let edit_active = is_collider_edit_active_for(entity);
+    let color = if edit_active {
+        Color::new(0.0, 1.0, 1.0, 0.8)
+    } else {
+        Color::PINK
+    };
+
+    match collider.shape {
+        ColliderShape::Aabb { width, height } => {
+            if width <= 0.0 || height <= 0.0 {
+                return;
+            }
+            let draw_pos = pivot_adjusted_position(
+                transform.position + collider.offset,
+                vec2(width, height),
+                transform.pivot,
+            );
+            ctx.draw_rectangle_lines(draw_pos.x, draw_pos.y, width, height, 1.0, color);
+        }
+        ColliderShape::Circle { radius } => {
+            if radius <= 0.0 {
+                return;
+            }
+            let size = Vec2::splat(radius * 2.0);
+            let draw_pos = pivot_adjusted_position(
+                transform.position + collider.offset,
+                size,
+                transform.pivot,
+            );
+            ctx.draw_circle_lines(
+                draw_pos.x + radius,
+                draw_pos.y + radius,
+                radius,
+                1.0,
+                color,
+            );
+        }
+        ColliderShape::Capsule { radius, height } => {
+            if radius <= 0.0 {
+                return;
+            }
+            let size = vec2(radius * 2.0, height + radius * 2.0);
+            let draw_pos = pivot_adjusted_position(
+                transform.position + collider.offset,
+                size,
+                transform.pivot,
+            );
+            draw_capsule_outline(ctx, draw_pos, radius, height, color);
+        }
+        ColliderShape::Point => {
+            let point = transform.position + collider.offset;
+            ctx.draw_circle_lines(point.x, point.y, 2.0, 1.0, color);
+        }
     }
+
+    if edit_active {
+        let handles = compute_handles(transform.position, transform.pivot, collider);
+        for handle in &handles {
+            ctx.draw_rectangle(
+                handle.rect.x,
+                handle.rect.y,
+                handle.rect.w,
+                handle.rect.h,
+                Color::WHITE,
+            );
+            ctx.draw_rectangle_lines(
+                handle.rect.x,
+                handle.rect.y,
+                handle.rect.w,
+                handle.rect.h,
+                1.0,
+                Color::BLACK,
+            );
+        }
+    }
+}
+
+fn draw_capsule_outline(
+    ctx: &mut WgpuContext,
+    top_left: Vec2,
+    radius: f32,
+    height: f32,
+    color: Color,
+) {
+    let top_center = vec2(top_left.x + radius, top_left.y + radius);
+    let bottom_center = vec2(top_left.x + radius, top_left.y + radius + height);
+
+    ctx.draw_line(
+        top_center.x - radius,
+        top_center.y,
+        bottom_center.x - radius,
+        bottom_center.y,
+        1.0,
+        color,
+    );
+    ctx.draw_line(
+        top_center.x + radius,
+        top_center.y,
+        bottom_center.x + radius,
+        bottom_center.y,
+        1.0,
+        color,
+    );
+    ctx.draw_arc_lines(
+        top_center,
+        radius,
+        std::f32::consts::PI,
+        std::f32::consts::PI * 2.0,
+        1.0,
+        color,
+    );
+    ctx.draw_arc_lines(
+        bottom_center,
+        radius,
+        0.0,
+        std::f32::consts::PI,
+        1.0,
+        color,
+    );
 }
 
 /// Draw placeholder icons for entities that lack a visual component.
