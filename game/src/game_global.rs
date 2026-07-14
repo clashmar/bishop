@@ -2,7 +2,7 @@ use crate::input::input_snapshot::InputSnapshot;
 use crate::input::{focus_priority, InputFocusMap};
 use crate::scripting::commands::lua_command::LuaCommand;
 use crate::scripting::commands::lua_command_manager::LuaCommandManager;
-use crate::transitions::world_transitions::WorldTransitionRequest;
+use crate::transitions::world_transitions::TraversalRequest;
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 use std::vec::IntoIter;
@@ -14,7 +14,7 @@ pub struct GameServices {
     pub input_snapshot: RefCell<InputSnapshot>,
     pub menu_active: Cell<bool>,
     pub input_focus: RefCell<InputFocusMap>,
-    pub pending_world_transition: RefCell<Option<WorldTransitionRequest>>,
+    pub pending_world_transition: RefCell<Option<TraversalRequest>>,
 }
 
 thread_local! {
@@ -36,13 +36,13 @@ pub fn drain_commands() -> IntoIter<Box<dyn LuaCommand>> {
 }
 
 /// Records a world transition to apply at end of frame. First request per frame wins.
-pub fn set_pending_world_transition(request: WorldTransitionRequest) {
+pub fn set_pending_world_transition(request: TraversalRequest) {
     GAME_SERVICES.with(|services| {
         let mut pending = services.pending_world_transition.borrow_mut();
         if pending.is_some() {
             engine_core::omni_warn!(
                 "Ignoring world transition to '{:?}': another transition is already pending this frame",
-                request.world
+                request.destination
             );
             return;
         }
@@ -51,7 +51,7 @@ pub fn set_pending_world_transition(request: WorldTransitionRequest) {
 }
 
 /// Takes the pending world transition, if any.
-pub fn take_pending_world_transition() -> Option<WorldTransitionRequest> {
+pub fn take_pending_world_transition() -> Option<TraversalRequest> {
     GAME_SERVICES.with(|services| services.pending_world_transition.borrow_mut().take())
 }
 

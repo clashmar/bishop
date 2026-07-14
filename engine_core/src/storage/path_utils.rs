@@ -2,6 +2,7 @@ use crate::constants::paths;
 use crate::engine_global::*;
 use crate::storage::editor_config::*;
 use crate::*;
+use crate::worlds::{RoomId, WorldId};
 use rfd::FileDialog;
 use std::ffi::OsStr;
 use std::fs;
@@ -443,6 +444,35 @@ pub fn build_save_root(base_folder: &Path) -> PathBuf {
     base_folder.join(paths::SAVE_ROOT).join(paths::GAME_SAVE_ROOT)
 }
 
+const WORLD_LAYOUT_FILE_STEM: &str = "world";
+const ROOM_LAYOUT_FILE_STEM: &str = "room";
+
+fn layout_ron_file_name(stem: &str, id: usize) -> String {
+    format!("{stem}-{id}.ron")
+}
+
+fn world_layout_file_name(world_id: WorldId) -> String {
+    layout_ron_file_name(WORLD_LAYOUT_FILE_STEM, world_id.0)
+}
+
+fn room_layout_file_name(room_id: RoomId) -> String {
+    layout_ron_file_name(ROOM_LAYOUT_FILE_STEM, room_id.0)
+}
+
+/// Returns the path to a world descriptor file inside a resources folder.
+pub fn world_descriptor_path(resources: &Path, world_id: WorldId) -> PathBuf {
+    resources
+        .join(paths::WORLDS_FOLDER)
+        .join(world_layout_file_name(world_id))
+}
+
+/// Returns the path to a room payload file inside a resources folder.
+pub fn room_payload_path(resources: &Path, room_id: RoomId) -> PathBuf {
+    resources
+        .join(paths::PAYLOADS_FOLDER)
+        .join(room_layout_file_name(room_id))
+}
+
 /// Platform-default location used when the user has not chosen a folder.
 fn default_save_root() -> PathBuf {
     #[cfg(target_os = "macos")]
@@ -550,11 +580,11 @@ mod tests {
 
     #[test]
     fn prefabs_folder_lives_under_resources() {
-        let _lock = test_lock().lock().unwrap();
+        let _lock = crate::storage::test_utils::game_fs_test_lock().lock().unwrap();
         let _restore = SaveRootRestoreGuard::new();
 
-        let game_name = format!("prefab_paths_{}", uuid::Uuid::new_v4());
-        set_game_name(&game_name);
+        let folder = crate::storage::test_utils::TestGameFolder::new("prefab_paths");
+        set_game_name(folder.name());
 
         assert_eq!(
             prefabs_folder(),

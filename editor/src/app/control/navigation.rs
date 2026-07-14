@@ -1,4 +1,5 @@
 use crate::app::*;
+use crate::game::GameEditorSubmode;
 use crate::storage::tile_palettes::save_palette;
 use bishop::prelude::*;
 use engine_core::worlds::*;
@@ -6,6 +7,7 @@ use engine_core::worlds::*;
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum BackRoute {
     None,
+    ExitTopology,
     ExitWorld,
     ExitRoom,
     ExitMenu,
@@ -14,7 +16,8 @@ pub(crate) enum BackRoute {
 
 pub(crate) fn back_route_for_mode(mode: EditorMode) -> BackRoute {
     match mode {
-        EditorMode::Game => BackRoute::None,
+        EditorMode::Game(GameEditorSubmode::Worlds) => BackRoute::None,
+        EditorMode::Game(GameEditorSubmode::Topology(_)) => BackRoute::ExitTopology,
         EditorMode::World(_) => BackRoute::ExitWorld,
         EditorMode::Room(_) => BackRoute::ExitRoom,
         EditorMode::Menu => BackRoute::ExitMenu,
@@ -30,6 +33,7 @@ impl Editor {
     pub(crate) fn navigate_back(&mut self, ctx: &mut WgpuContext) {
         match back_route_for_mode(self.mode) {
             BackRoute::None => {}
+            BackRoute::ExitTopology => self.exit_topology_mode(),
             BackRoute::ExitWorld => self.exit_world_mode(ctx),
             BackRoute::ExitRoom => {
                 if let EditorMode::Room(room_id) = self.mode {
@@ -48,12 +52,21 @@ impl Editor {
         }
 
         self.save_menus();
-        let return_mode = self.return_mode.unwrap_or(EditorMode::Game);
+        let return_mode = self
+            .return_mode
+            .unwrap_or(EditorMode::Game(GameEditorSubmode::Worlds));
         self.mode = return_mode;
         self.return_mode = None;
 
         match return_mode {
-            EditorMode::Game => self.game_editor.init_camera(ctx, &mut self.camera, &mut self.game),
+            EditorMode::Game(GameEditorSubmode::Worlds) => {
+                self.game_editor.init_camera(ctx, &mut self.camera, &mut self.game)
+            }
+            EditorMode::Game(GameEditorSubmode::Topology(world_id)) => {
+                if let Some(world) = self.game.get_world(world_id) {
+                    self.game_editor.center_topology_on_world(ctx, world);
+                }
+            }
             EditorMode::World(id) => {
                 if let Some(world) = self.game.get_world_mut(id) {
                     self.world_editor.init_camera(ctx, &mut self.camera, world);
@@ -74,11 +87,15 @@ impl Editor {
         }
     }
 
+    fn exit_topology_mode(&mut self) {
+        self.mode = EditorMode::Game(GameEditorSubmode::Worlds);
+    }
+
     fn exit_world_mode(&mut self, ctx: &WgpuContext) {
         self.game_editor.init_camera(ctx, &mut self.camera, &mut self.game);
         self.cur_world_id = None;
         self.world_editor.reset();
-        self.mode = EditorMode::Game;
+        self.mode = EditorMode::Game(GameEditorSubmode::Worlds);
         self.save();
     }
 
@@ -118,7 +135,14 @@ mod tests {
 
     #[test]
     fn back_route_maps_editor_modes_to_expected_navigation_paths() {
-        assert_eq!(back_route_for_mode(EditorMode::Game), BackRoute::None);
+        assert_eq!(
+            back_route_for_mode(EditorMode::Game(GameEditorSubmode::Worlds)),
+            BackRoute::None
+        );
+        assert_eq!(
+            back_route_for_mode(EditorMode::Game(GameEditorSubmode::Topology(WorldId(1)))),
+            BackRoute::ExitTopology
+        );
         assert_eq!(back_route_for_mode(EditorMode::World(WorldId(1))), BackRoute::ExitWorld);
         assert_eq!(back_route_for_mode(EditorMode::Room(RoomId(1))), BackRoute::ExitRoom);
         assert_eq!(back_route_for_mode(EditorMode::Menu), BackRoute::ExitMenu);

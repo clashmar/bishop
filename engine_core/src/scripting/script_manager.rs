@@ -3,6 +3,7 @@ use crate::assets::asset_registry::AssetKey;
 use crate::assets::AssetRegistry;
 use crate::ecs::ScriptId;
 use crate::ecs::entity::Entity;
+use crate::hydration::{EvictError, Hydratable};
 use crate::scripting::event_bus::EventBus;
 use crate::scripting::lua_constants::{lua_dirs, lua_entity, lua_fields, lua_files};
 use crate::storage::path_utils::{scripts_folder, themes_folder};
@@ -38,6 +39,9 @@ pub struct ScriptManager {
     #[serde(skip)]
     /// Maps ScriptId to optional update(dt) function.
     pub update_fns: HashMap<ScriptId, Function>,
+    #[serde(skip)]
+    /// Maps ScriptId to optional interact function.
+    pub interact_fns: HashMap<ScriptId, Function>,
     /// Init functions that need to be executed.
     #[serde(skip)]
     pub pending_inits: Vec<(Entity, ScriptId)>,
@@ -49,6 +53,8 @@ pub struct ScriptManager {
     #[serde(skip)]
     /// Counter for script ids. Starts from 1.
     pub next_script_id: usize,
+    #[serde(skip)]
+    coordinator_refs: HashMap<ScriptId, usize>,
 }
 
 impl ScriptManager {
@@ -59,10 +65,12 @@ impl ScriptManager {
             table_defs: HashMap::new(),
             instances: HashMap::new(),
             update_fns: HashMap::new(),
+            interact_fns: HashMap::new(),
             pending_inits: Vec::new(),
             script_id_to_path: HashMap::new(),
             path_to_script_id: HashMap::new(),
             next_script_id: 1,
+            coordinator_refs: HashMap::new(),
         }
     }
 
@@ -81,6 +89,11 @@ impl ScriptManager {
         self.event_bus.listener_count()
     }
 
+    /// Returns true if the given script defines an `interact` method.
+    pub fn script_has_interact(&self, script_id: ScriptId) -> bool {
+        self.interact_fns.contains_key(&script_id)
+    }
+
     /// Load the Lua table by id and return a reference to it.
     pub fn load_script_table(&mut self, lua: &Lua, id: ScriptId) -> LuaResult<&Table> {
         if self.table_defs.contains_key(&id) {
@@ -96,6 +109,11 @@ impl ScriptManager {
             self.update_fns.insert(id, update);
         }
 
+        if let Ok(interact) = table.get::<_>(lua_entity::INTERACT) {
+            self.interact_fns.insert(id, interact);
+        }
+
+        self.increment_ref(id);
         Ok(self.table_defs.entry(id).or_insert(table))
     }
 
@@ -320,28 +338,69 @@ impl ScriptManager {
         self.script_id_to_path.len()
     }
 
+    /// Returns the number of pending script inits.
+    pub fn pending_init_count(&self) -> usize {
+        self.pending_inits.len()
+    }
+
+    /// Removes any queued init callbacks for the supplied entities.
+    pub fn discard_pending_inits_for_entities(&mut self, entities: &[Entity]) {
+        self.pending_inits
+            .retain(|(entity, _)| !entities.contains(entity));
+    }
+
     /// Returns the registered relative path for a script id.
     pub fn path_for_id(&self, script_id: ScriptId) -> Option<&Path> {
         self.script_id_to_path.get(&script_id).map(PathBuf::as_path)
+    }
+
+    /// Attempts to evict a cached script definition.
+    pub fn evict_script(&mut self, id: ScriptId) {
+        if self.ref_count(&id) > 0 {
+            self.decrement_ref(id);
+        }
+        let _ = self.evict(&id);
     }
 
     pub fn reload(&mut self, lua: &Lua, entity: Entity, id: ScriptId) -> LuaResult<&Table> {
         self.table_defs.remove(&id);
         self.instances.remove(&(entity, id));
         self.update_fns.remove(&id);
+        self.interact_fns.remove(&id);
         self.load_script_table(lua, id)
     }
 
+    /// Unloads one script instance from an entity.
     pub fn unload(&mut self, entity: Entity, script_id: ScriptId) {
-        // Remove any event listeners registered by this entity's script
+        self.instances.remove(&(entity, script_id));
+
+        // Only clean up event listeners if this was the entity's last script instance
+        if !self.instances.keys().any(|(ent, _)| *ent == entity) {
+            self.event_bus.remove_entity_listeners(entity);
+        }
+
+        if script_id.0 != 0 && !self.instances.keys().any(|(_, sid)| *sid == script_id) {
+            self.evict_script(script_id);
+        }
+    }
+
+    /// Removes all script instances for an entity and cleans up their definitions.
+    pub fn unload_all_for_entity(&mut self, entity: Entity) {
         self.event_bus.remove_entity_listeners(entity);
 
-        self.instances
-            .retain(|(ent, _script_id), _table| *ent != entity);
-        
-        if script_id.0 != 0 && !self.instances.keys().any(|(_, id)| *id == script_id) {
-            self.table_defs.remove(&script_id);
-            self.update_fns.remove(&script_id);
+        let removed_ids: Vec<ScriptId> = self
+            .instances
+            .keys()
+            .filter(|(ent, _)| *ent == entity)
+            .map(|(_, script_id)| *script_id)
+            .collect();
+
+        self.instances.retain(|(ent, _), _| *ent != entity);
+
+        for script_id in removed_ids {
+            if script_id.0 != 0 && !self.instances.keys().any(|(_, sid)| *sid == script_id) {
+                self.evict_script(script_id);
+            }
         }
     }
 
@@ -354,9 +413,8 @@ impl ScriptManager {
         // Update old script counter
         if old_id.0 != 0 {
             self.instances.remove(&(entity, *old_id));
-            if !self.instances.keys().any(|(_, id)| *id == *old_id) {
-                self.table_defs.remove(old_id);
-                self.update_fns.remove(old_id);
+            if !self.instances.keys().any(|(_, sid)| *sid == *old_id) {
+                self.evict_script(*old_id);
             }
         }
 
@@ -379,7 +437,6 @@ impl ScriptManager {
             self.script_id_to_path.insert(script_id, relative_path);
         }
     }
-
 }
 
 impl AssetManager for ScriptManager {
@@ -421,76 +478,52 @@ impl IdPathAssetManager for ScriptManager {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::assets::asset_registry::AssetKey;
-    use crate::constants::paths;
-    use crate::engine_global::set_game_name;
-    use crate::scripting::lua_constants::{lua_dirs, lua_files, lua_globals};
-    use crate::scripting::lua_project::engine_require_path;
-    use crate::storage::test_utils::{TestGameFolder, game_fs_test_lock};
+impl Hydratable for ScriptManager {
+    type Id = ScriptId;
 
-    #[test]
-    fn get_or_load_registers_new_script_path_in_asset_registry() {
-        let mut registry = AssetRegistry::default();
-        let mut script_manager = ScriptManager::default();
-        let path = PathBuf::from("player.lua");
-
-        let result = script_manager.get_or_load(&mut registry, &path);
-
-        assert_eq!(result, Some(ScriptId(1)));
-        assert_eq!(
-            registry.key_for_path(PathBuf::from(paths::SCRIPTS_FOLDER).join(&path)),
-            Some(AssetKey::Script(ScriptId(1)))
-        );
-        assert_eq!(script_manager.path_to_script_id.get(&path), Some(&ScriptId(1)));
+    /// Returns the coordinator reference count for a script.
+    fn ref_count(&self, id: &Self::Id) -> usize {
+        self.coordinator_refs.get(id).copied().unwrap_or(0)
     }
 
-    #[test]
-    fn load_globals_prelude_bootstraps_globals_for_editor_style_script_loads() {
-        let _lock = game_fs_test_lock().lock().unwrap();
-        let folder = TestGameFolder::new("script_manager_editor_globals");
-        set_game_name(folder.name());
+    /// Increments the coordinator reference count.
+    fn increment_ref(&mut self, id: Self::Id) {
+        *self.coordinator_refs.entry(id).or_insert(0) += 1;
+    }
 
-        let engine_data_dir = scripts_folder().join(lua_dirs::ENGINE).join(lua_dirs::DATA);
-        fs::create_dir_all(&engine_data_dir).unwrap();
-        fs::write(
-            scripts_folder().join(lua_dirs::ENGINE).join(lua_files::GLOBALS),
-            format!(
-                "{} = require(\"{}\")\n",
-                lua_globals::DIRECTION,
-                engine_require_path(lua_files::DIRECTION)
-            ),
-        )
-        .unwrap();
-        fs::write(
-            engine_data_dir.join(lua_files::DIRECTION),
-            "return { Right = \"right\" }\n",
-        )
-        .unwrap();
-        fs::write(
-            scripts_folder().join("probe.lua"),
-            format!(
-                "return {{ public = {{ facing = {}.Right }} }}\n",
-                lua_globals::DIRECTION
-            ),
-        )
-        .unwrap();
+    /// Decrements the coordinator reference count.
+    fn decrement_ref(&mut self, id: Self::Id) {
+        debug_assert!(
+            self.coordinator_refs.get(&id).copied().unwrap_or(0) > 0,
+            "decrement_ref on ScriptId({}) with zero ref-count",
+            id.0
+        );
+        if let Some(count) = self.coordinator_refs.get_mut(&id) {
+            *count = count.saturating_sub(1);
+        }
+    }
 
-        let mut registry = AssetRegistry::default();
-        let mut script_manager = ScriptManager::default();
-        let script_id = script_manager
-            .get_or_load(&mut registry, PathBuf::from("probe.lua"))
-            .unwrap();
-        let lua = Lua::new();
-
-        ScriptManager::load_to_package(&lua);
-        ScriptManager::load_globals_prelude(&lua).unwrap();
-
-        let table = script_manager.get_table_from_id(&lua, script_id).unwrap();
-        let public: Table = table.get(lua_fields::PUBLIC).unwrap();
-
-        assert!(public.get::<String>("facing").is_ok());
+    /// Attempts eviction. Fails if the ref-count is above zero or live instances exist.
+    fn evict(&mut self, id: &Self::Id) -> Result<(), EvictError> {
+        let count = self.ref_count(id);
+        if count > 0 {
+            return Err(EvictError::StillReferenced { count });
+        }
+        let has_instances = self
+            .instances
+            .keys()
+            .any(|(_, script_id)| script_id == id);
+        if has_instances {
+            return Err(EvictError::HasLiveConsumers);
+        }
+        self.table_defs.remove(id);
+        self.update_fns.remove(id);
+        self.interact_fns.remove(id);
+        self.coordinator_refs.remove(id);
+        Ok(())
     }
 }
+
+#[cfg(test)]
+#[path = "script_manager_tests.rs"]
+mod tests;

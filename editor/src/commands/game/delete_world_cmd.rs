@@ -1,4 +1,5 @@
 use crate::app::EditorMode;
+use crate::game::GameEditorSubmode;
 use crate::commands::editor_command_manager::EditorCommand;
 use crate::with_editor;
 use engine_core::ecs::*;
@@ -42,12 +43,12 @@ impl EditorCommand for DeleteWorldCmd {
             {
                 self.deleted_world_index = Some(world_index);
                 let room_ids: HashSet<RoomId> = world.rooms().iter().map(|room| room.id).collect();
-                let entity_ids: HashSet<Entity> = room_ids
+                let mut entity_ids: HashSet<Entity> = room_ids
                     .iter()
-                    .flat_map(|room_id| {
-                        game.ecs.entities_in_room(*room_id).iter().copied()
-                    })
+                    .flat_map(|room_id| game.ecs.entities_in_room(*room_id).iter().copied())
                     .collect();
+                entity_ids.extend(world.rooms().iter().map(|room| room.singleton));
+                entity_ids.insert(world.singleton);
 
                 let root_entities = get_root_entities_in_set(&game.ecs, &entity_ids);
 
@@ -87,19 +88,19 @@ impl EditorCommand for DeleteWorldCmd {
     }
 
     fn applies_in_mode(&self, current_mode: EditorMode) -> bool {
-        current_mode == EditorMode::Game
+        current_mode == EditorMode::Game(GameEditorSubmode::Worlds)
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use engine_core::engine_global::{set_game_name};
     use crate::app::Editor;
+    use engine_core::engine_global::set_game_name;
     use crate::editor_global::with_editor;
     use crate::storage::game_io::create_new_game;
-use crate::world::world_creation::create_new_world;
     use crate::test_utils::{game_fs_test_lock, EditorServicesGuard, TestGameFolder};
+    use crate::world::world_creation::create_new_world;
 
     #[test]
     fn delete_world_cmd_deletes_and_restores_world_entities() {
@@ -139,7 +140,7 @@ use crate::world::world_creation::create_new_world;
 
         let editor = Editor {
             game,
-            mode: EditorMode::Game,
+            mode: EditorMode::Game(GameEditorSubmode::Worlds),
             ..Default::default()
         };
         let _guard = EditorServicesGuard::install(editor);
@@ -219,7 +220,7 @@ use crate::world::world_creation::create_new_world;
 
         let editor = Editor {
             game,
-            mode: EditorMode::Game,
+            mode: EditorMode::Game(GameEditorSubmode::Worlds),
             ..Default::default()
         };
         let _guard = EditorServicesGuard::install(editor);
@@ -259,18 +260,57 @@ use crate::world::world_creation::create_new_world;
                 Some(&child_name)
             );
 
-            // Verify room_entities tracking after restore
             let room_entities = editor.game.ecs.entities_in_room(room_id);
             assert!(
                 room_entities.contains(&root),
                 "root should be tracked in room_entities after undo"
             );
-            // child was in extra_room_id (world 1), not world 0's room
             let extra_room_entities = editor.game.ecs.entities_in_room(extra_room_id);
             assert!(
                 extra_room_entities.contains(&child),
                 "child should be tracked in extra_room_entities after undo"
             );
+        });
+    }
+
+    #[test]
+    fn delete_world_cmd_removes_and_restores_singletons() {
+        let _lock = game_fs_test_lock()
+            .lock()
+            .unwrap_or_else(|poison| poison.into_inner());
+        let test_game = TestGameFolder::new("delete_world_cmd_singletons");
+        set_game_name(test_game.name());
+
+        let mut game = create_new_game(test_game.name().to_string());
+        let world_id = game.worlds()[0].id;
+        let room_id = game.worlds()[0].rooms()[0].id;
+        let room_singleton = game.worlds()[0].rooms()[0].singleton;
+        let world_singleton = game.worlds()[0].singleton;
+
+        let mut cmd = DeleteWorldCmd::new(&mut game, world_id);
+        let editor = Editor {
+            game,
+            mode: EditorMode::Game(GameEditorSubmode::Worlds),
+            ..Default::default()
+        };
+        let _guard = EditorServicesGuard::install(editor);
+
+        cmd.execute();
+
+        with_editor(|editor| {
+            assert!(!editor.game.ecs.has::<Singleton>(room_singleton));
+            assert!(!editor.game.ecs.has::<Singleton>(world_singleton));
+        });
+
+        cmd.undo();
+
+        with_editor(|editor| {
+            let world = editor.game.get_world(world_id).unwrap();
+            assert_eq!(world.rooms()[0].id, room_id);
+            assert_eq!(world.rooms()[0].singleton, room_singleton);
+            assert_eq!(world.singleton, world_singleton);
+            assert!(editor.game.ecs.has::<Singleton>(room_singleton));
+            assert!(editor.game.ecs.has::<Singleton>(world_singleton));
         });
     }
 }

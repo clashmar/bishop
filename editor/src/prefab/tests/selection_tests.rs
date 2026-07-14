@@ -37,3 +37,22 @@ fn creating_entity_replaces_stale_root_with_new_root() {
     assert_eq!(editor.root_entity, Some(new_entity));
     assert_eq!(get_parent(&stage.ecs, new_entity), None);
 }
+
+#[test]
+fn selected_create_parent_prefers_inspector_target_during_transient_deselect() {
+    let mut editor = PrefabEditor::new(
+        PrefabId(1),
+        "Prefab".to_string(),
+        StagedPrefabState::Empty,
+        PrefabRoomSyncState {
+            staged_prefab: StagedPrefabState::Empty,
+            linked_instance_snapshots: Vec::new(),
+        },
+    );
+    let entity = Entity(22);
+
+    editor.set_selected_entity(Some(entity));
+    editor.selected_entities.clear();
+
+    assert_eq!(editor.selected_create_parent(), Some(entity));
+}

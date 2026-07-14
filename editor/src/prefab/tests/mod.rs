@@ -1,4 +1,5 @@
 pub(super) use crate::app::{Editor, EditorMode};
+use crate::game::GameEditorSubmode;
 pub(super) use crate::commands::scene::DeleteEntityCmd;
 pub(super) use crate::editor_global::{
     apply_pending_commands, push_command, request_redo, request_undo, with_command_manager,

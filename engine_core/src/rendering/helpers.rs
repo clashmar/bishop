@@ -5,6 +5,21 @@ use crate::rendering::renderable::Renderable;
 use crate::worlds::{ExitDirection, Room, RoomBounds, RoomId, World};
 use std::collections::HashMap;
 
+/// Common display refresh rates to snap frame times to (checked in order).
+const SNAP_FREQUENCIES: [f32; 5] = [60.0, 120.0, 144.0, 240.0, 30.0];
+
+/// Tracks whether the frame-time EMA has been seeded from a reliable sample.
+#[derive(Debug, Default)]
+pub enum SmoothedDtState {
+    /// No frame processed yet.
+    #[default]
+    AwaitingFirstFrame,
+    /// First frame discarded; EMA seeds from the next call.
+    AwaitingSeed,
+    /// EMA is seeded and actively smoothing.
+    Active(f32),
+}
+
 /// Resolves the entity to use for visual lookups. A `PlayerProxy` redirects
 /// to the actual player entity so the proxy renders with the player's visuals.
 pub fn resolve_visual_entity(ecs: &Ecs, entity: Entity) -> Entity {
@@ -75,17 +90,25 @@ pub fn interpolate_position(
     current_pos
 }
 
-/// Mitigates erratic dt by smoothing `raw_dt`, initializing from the first sample.
-/// `alpha` is the weight of the previous smoothed value (higher = smoother but slower to react).
+/// Smooths `raw_dt` using an exponential moving average with the given `alpha`.
 #[inline]
-pub fn smooth_dt(smoothed_dt: &mut Option<f32>, raw_dt: f32, alpha: f32) -> f32 {
-    let s = smoothed_dt.get_or_insert(raw_dt);
-    *s = *s * alpha + raw_dt * (1.0 - alpha);
-    *s
+pub fn smooth_dt(state: &mut SmoothedDtState, raw_dt: f32, alpha: f32) -> f32 {
+    match state {
+        SmoothedDtState::AwaitingFirstFrame => {
+            *state = SmoothedDtState::AwaitingSeed;
+            snap_dt(raw_dt)
+        }
+        SmoothedDtState::AwaitingSeed => {
+            let snapped = snap_dt(raw_dt);
+            *state = SmoothedDtState::Active(snapped);
+            snapped
+        }
+        SmoothedDtState::Active(s) => {
+            *s = *s * alpha + raw_dt * (1.0 - alpha);
+            *s
+        }
+    }
 }
-
-/// Common display refresh rates to snap frame times to (checked in order).
-const SNAP_FREQUENCIES: [f32; 5] = [60.0, 120.0, 144.0, 240.0, 30.0];
 
 /// Snaps raw_dt to the nearest common display interval if within 10% of it.
 /// Eliminates accumulator drift that causes periodic stutter.

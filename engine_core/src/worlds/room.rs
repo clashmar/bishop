@@ -1,6 +1,6 @@
 use crate::constants::world;
 use crate::ecs::ecs::Ecs;
-use crate::ecs::{Entity, Name, Pivot, RoomCamera, Transform};
+use crate::ecs::{AudioSource, Entity, Name, Pivot, RoomCamera, Singleton, Transform};
 use crate::scripting::event_tags::event_tag::EventTag;
 use crate::tiles::tilemap::TileMap;
 use bishop::prelude::*;
@@ -10,7 +10,7 @@ use serde_with::serde_as;
 use std::collections::HashSet;
 
 /// Identifier for a room, globally unique across all worlds.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, Default)]
 pub struct RoomId(pub usize);
 
 impl std::ops::Deref for RoomId {
@@ -28,7 +28,6 @@ impl std::ops::DerefMut for RoomId {
 
 #[serde_as]
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
-#[serde(default)]
 pub struct Room {
     pub id: RoomId,
     pub name: String,
@@ -43,7 +42,7 @@ pub struct Room {
     pub tags: Vec<EventTag>,
     pub variants: Vec<RoomVariant>,
     pub darkness: f32,
-    pub singleton: Option<Entity>,
+    pub singleton: Entity,
 }
 
 impl Room {
@@ -70,7 +69,7 @@ impl Room {
             tags: vec![],
             variants: vec![first_variant],
             darkness: 0.,
-            singleton: None,
+            singleton: Self::create_room_singleton_entity(ecs, room_id),
         };
 
         Room::create_camera_entity(ecs, room.id, room.position, grid_size);
@@ -87,8 +86,8 @@ impl Room {
         )
     }
 
-    /// Link exits to adjacent rooms based on their positions.
-    pub fn link_exits(&mut self, other_rooms: &[&Room], grid_size: f32) {
+    /// Links this room's exits to adjacent rooms based on exit positions.
+    pub fn link_room_exits(&mut self, other_rooms: &[&Room], grid_size: f32) {
         let epsilon = 0.01; // tolerance for floating-point comparisons
 
         for exit in self.exits.iter_mut() {
@@ -233,6 +232,15 @@ impl Room {
             .finish()
     }
 
+    /// Creates the engine-managed singleton entity for a room.
+    pub fn create_room_singleton_entity(ecs: &mut Ecs, room_id: RoomId) -> Entity {
+        ecs.create_entity()
+            .with(Singleton)
+            .with(AudioSource::default())
+            .with_current_room(room_id)
+            .finish()
+    }
+
     /// Returns the index of the current variant.
     pub fn current_variant_index(&self) -> usize {
         0
@@ -288,7 +296,7 @@ impl ExitDirection {
 }
 
 #[serde_as]
-#[derive(Serialize, Deserialize, Clone, Debug, Copy, Default)]
+#[derive(Serialize, Deserialize, Clone, Debug, Copy, Default, PartialEq)]
 #[serde(default)]
 pub struct Exit {
     #[serde_as(as = "FromInto<[f32; 2]>")]
@@ -307,6 +315,7 @@ mod tests {
         let room = Room {
             id: RoomId(1),
             tags: vec![EventTag::Autosave, EventTag::Custom("hazardous".into())],
+            singleton: Entity(7),
             ..Default::default()
         };
         let ron = ron::ser::to_string_pretty(&room, ron::ser::PrettyConfig::new()).unwrap();
@@ -324,29 +333,31 @@ mod tests {
     }
 
     #[test]
-    fn old_vec_string_tags_migrate_to_event_tags() {
-        // Simulate deserializing old RON with Vec<String>, then building EventTags
-        let old_ron = r#"(id:2,name:"",position:[0.0,0.0],size:[0.0,0.0],tags:["autosave","MyTag",""],variants:[])"#;
-        #[derive(Deserialize)]
-        struct OldRoom {
-            tags: Vec<String>,
-        }
-        let old: OldRoom = ron::from_str(old_ron).unwrap();
-        let migrated: Vec<EventTag> = old
-            .tags
-            .into_iter()
-            .filter(|s| !s.is_empty())
-            .map(|s| match s.as_str() {
-                "Autosave" => EventTag::Autosave,
-                other => EventTag::Custom(other.to_string()),
-            })
-            .collect();
-        assert_eq!(
-            migrated,
-            vec![
-                EventTag::Custom("autosave".into()),
-                EventTag::Custom("MyTag".into())
-            ]
-        );
+    fn new_when_creating_room_assigns_singleton() {
+        let mut ecs = Ecs::default();
+        let room = Room::new(&mut ecs, RoomId(1), 16.0);
+        let singleton = room.singleton;
+
+        assert!(ecs.has::<Singleton>(singleton));
+        assert!(ecs.has::<AudioSource>(singleton));
+    }
+
+    #[test]
+    fn deserialize_when_singleton_is_missing_returns_error() {
+        let ron = r#"(
+            id: (1),
+            name: "test",
+            position: [0.0, 0.0],
+            size: [1.0, 1.0],
+            exits: [],
+            adjacent_rooms: [],
+            tags: [],
+            variants: [],
+            darkness: 0.0,
+        )"#;
+
+        let result: Result<Room, _> = ron::from_str(ron);
+
+        assert!(result.is_err());
     }
 }

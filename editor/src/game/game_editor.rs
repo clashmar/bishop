@@ -6,11 +6,14 @@ use crate::editor_assets::assets::*;
 use crate::gui::gui_constants::{self, *};
 use crate::gui::inspector::shell::Inspector;
 use crate::gui::menu_bar::*;
+use crate::game::topology_submode::TopologySubmode;
 use crate::gui::modals::edit_world::EditWorldData;
+use crate::gui::modals::is_modal_open;
 use crate::gui::mode_selector::ModeInfo;
 use crate::gui::mode_selector::ModeSelector;
 use crate::push_command;
 use crate::shared::input::canvas_blocked_by_global_ui;
+use crate::shared::input::shortcuts_blocked;
 use crate::shared::scene_ui::inspector::{InspectorHostAction, InspectorContext};
 use crate::world::coord;
 use bishop::prelude::*;
@@ -20,12 +23,17 @@ use engine_core::game::Game;
 use engine_core::ui::{measure_text};
 use ::widgets::*;
 use engine_core::worlds::*;
-use engine_core::theme::with_theme;
 use once_cell::sync::Lazy;
 use std::collections::HashMap;
 use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
 use ::widgets::constants::layout;
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum GameEditorSubmode {
+    Worlds,
+    Topology(WorldId),
+}
 
 #[derive(Copy, Clone, PartialEq, EnumIter)]
 pub enum GameEditorMode {
@@ -63,11 +71,14 @@ impl ModeInfo for GameEditorMode {
 }
 
 pub struct GameEditor {
-    mode: GameEditorMode,
+    pub(crate) mode: GameEditorMode,
+    requested_submode: Option<GameEditorSubmode>,
     mode_selector: ModeSelector<GameEditorMode>,
+    topology_submode: TopologySubmode,
+    pub(crate) show_world_arrows: bool,
     active_rects: Vec<Rect>,
     inspector: Inspector,
-    dragged_world: Option<WorldId>,
+    pub(crate) dragged_world: Option<WorldId>,
     dragging: bool,
     drag_offset: Vec2,
     drag_start_position: Option<Vec2>,
@@ -83,10 +94,13 @@ impl GameEditor {
         let inspector = Inspector::new();
         Self {
             mode,
+            requested_submode: None,
             mode_selector: ModeSelector {
                 current: mode,
                 options: *ALL_MODES,
             },
+            topology_submode: TopologySubmode::default(),
+            show_world_arrows: false,
             active_rects: Vec::new(),
             inspector,
             dragged_world: None,
@@ -100,17 +114,16 @@ impl GameEditor {
         }
     }
 
-    pub fn update(
+    pub fn update_worlds(
         &mut self,
         ctx: &mut WgpuContext,
         camera: &Camera2D,
         game: &mut Game,
     ) -> Option<WorldId> {
-        self.handle_mouse_cursor(ctx);
+        self.handle_mouse_cursor(ctx, false);
 
         match self.mode {
             GameEditorMode::Select => {
-                // Select world
                 if ctx.is_mouse_button_pressed(MouseButton::Left) && !self.should_block_canvas(ctx)
                 {
                     let world_data: Vec<(WorldId, Vec2, Option<SpriteId>)> = game.worlds().iter()
@@ -139,7 +152,9 @@ impl GameEditor {
                     && !self.should_block_canvas(ctx)
                     && !is_modal_open()
                 {
-                    let world_data: Vec<(WorldId, Vec2, String, Option<SpriteId>)> = game.worlds().iter()
+                    let world_data: Vec<(WorldId, Vec2, String, Option<SpriteId>)> = game
+                        .worlds()
+                        .iter()
                         .map(|w| (w.id, w.meta.position, w.name.clone(), w.meta.sprite_id))
                         .collect();
                     for (world_id, position, name, sprite_id) in world_data {
@@ -171,7 +186,6 @@ impl GameEditor {
             }
             GameEditorMode::Move => {
                 if !self.should_block_canvas(ctx) {
-                    // Drag world
                     self.handle_drag(ctx, camera, game);
                 }
             }
@@ -202,12 +216,17 @@ impl GameEditor {
             }
         }
 
-        self.handle_shortcuts(ctx);
+        self.handle_shortcuts(ctx, game);
 
         None
     }
 
-    pub fn draw(&mut self, ctx: &mut WgpuContext, camera: &mut Camera2D, game: &mut Game) {
+    pub fn update_topology(&mut self, ctx: &mut WgpuContext) {
+        self.handle_mouse_cursor(ctx, true);
+        self.topology_submode.update(ctx);
+    }
+
+    pub fn draw_worlds_view(&mut self, ctx: &mut WgpuContext, camera: &mut Camera2D, game: &mut Game) {
         if self.pending_camera_init && !game.worlds().is_empty() {
             GameEditor::init_camera(self, ctx, camera, game);
             self.pending_camera_init = false;
@@ -215,62 +234,51 @@ impl GameEditor {
 
         ctx.set_camera(camera);
         ctx.clear_background(Color::BLACK);
-
         self.draw_worlds(ctx, camera, game);
-        self.draw_ui(ctx, game);
+        self.draw_ui(ctx, game, GameEditorSubmode::Worlds);
     }
 
-    fn draw_worlds(&mut self, ctx: &mut WgpuContext, camera: &Camera2D, game: &mut Game) {
-        // Collect world data first (immutable borrow of worlds only)
-        let world_data: Vec<(Vec2, Option<SpriteId>, String)> = game.worlds().iter()
-            .map(|w| (w.meta.position, w.meta.sprite_id, w.name.clone()))
-            .collect();
-
-        // Draw worlds (mutable borrow of sprite_manager in the loop)
-        for (position, sprite_id, name) in world_data {
-            let texture = match sprite_id {
-                Some(id) => game.sprite_manager.get_texture_from_id(ctx, id),
-                None => circle_120px(),
-            };
-
-            // Hover tint — inline the bounds check
-            let world_mouse = coord::mouse_world_pos(ctx, camera);
-            let bounds = Rect::new(
-                position.x,
-                position.y,
-                texture.width(),
-                texture.height(),
-            );
-            let is_hovered = bounds.contains(world_mouse)
-                && !self.should_block_canvas(ctx)
-                && self.dragged_world.is_none();
-
-            let tint = if is_hovered {
-                match self.mode {
-                    GameEditorMode::Delete => with_theme(|t| t.danger),
-                    _ => with_theme(|t| t.primary),
-                }
-            } else {
-                Color::WHITE
-            };
-
-            // Default is a circle
-            ctx.draw_texture(texture, position.x, position.y, tint);
-
-            // Display name
-            const NAME_HEIGHT: f32 = 24.0;
-            let center = position.x + (texture.width() / 2.);
-            let (x, width) = center_text_field(ctx, center, &name);
-
-            let name_rect = Rect::new(
-                x,
-                position.y - SPACING - NAME_HEIGHT,
-                width,
-                NAME_HEIGHT,
-            );
-
-            draw_input_field_text(ctx, &name, name_rect);
+    pub fn draw_topology_view(
+        &mut self,
+        ctx: &mut WgpuContext,
+        camera: &mut Camera2D,
+        game: &mut Game,
+        world_id: WorldId,
+    ) {
+        if self.pending_camera_init && !game.worlds().is_empty() {
+            GameEditor::init_camera(self, ctx, camera, game);
+            self.pending_camera_init = false;
         }
+
+        ctx.set_camera(camera);
+        ctx.clear_background(Color::BLACK);
+        self.topology_submode.draw(ctx, game, world_id);
+        self.draw_ui(ctx, game, GameEditorSubmode::Topology(world_id));
+    }
+
+    pub(crate) fn take_requested_submode(&mut self) -> Option<GameEditorSubmode> {
+        self.requested_submode.take()
+    }
+
+    pub(crate) fn toggle_world_arrows(&mut self) {
+        self.show_world_arrows = !self.show_world_arrows;
+    }
+
+    /// Sets the default camera for the game editor.
+    pub fn init_camera(&self, ctx: &WgpuContext, camera: &mut Camera2D, game: &mut Game) {
+        let (min, max) = self.world_bounds(ctx, game);
+        let center = (min + max) * 0.5;
+        let size = max - min;
+
+        let zoom =
+            EditorCameraController::zoom_for_size(ctx, size, 2.0, game.current_world().grid_size);
+
+        camera.target = center;
+        camera.zoom = zoom;
+    }
+
+    pub(crate) fn center_topology_on_world(&mut self, ctx: &WgpuContext, world: &World) {
+        self.topology_submode.center_on_world(ctx, world);
     }
 
     fn handle_drag(&mut self, ctx: &WgpuContext, camera: &Camera2D, game: &mut Game) {
@@ -336,18 +344,20 @@ impl GameEditor {
         }
     }
 
-    fn draw_ui(&mut self, ctx: &mut WgpuContext, game: &mut Game) {
+    fn draw_ui(&mut self, ctx: &mut WgpuContext, game: &mut Game, submode: GameEditorSubmode) {
         ctx.set_default_camera();
 
         self.active_rects.clear();
         self.register_rect(draw_top_panel_full(ctx));
 
-        if self.mode_selector.draw(ctx).1 {
-            self.mode = self.mode_selector.current;
+        if matches!(submode, GameEditorSubmode::Worlds) {
+            if self.mode_selector.draw(ctx).1 {
+                self.mode = self.mode_selector.current;
+            }
+            self.mode_selector.draw_tooltips(ctx);
         }
-        self.mode_selector.draw_tooltips(ctx);
 
-        self.draw_menu_buttons(ctx);
+        self.draw_menu_buttons(ctx, game, submode);
 
         let inspector_rect = Rect::new(
             ctx.screen_width() - gui_constants::inspector::WIDTH,
@@ -364,7 +374,7 @@ impl GameEditor {
                 ctx,
                 &mut game_ctx,
                 &InspectorContext {
-                    command_mode: EditorMode::Game,
+                    command_mode: EditorMode::Game(submode),
                     game_name: Some(game_name),
                     show_linked_prefab_metadata: false,
                     hide_room_only_components: true,
@@ -379,32 +389,56 @@ impl GameEditor {
         }
     }
 
-    fn draw_menu_buttons(&mut self, ctx: &mut WgpuContext) {
+    fn draw_menu_buttons(&mut self, ctx: &mut WgpuContext, game: &mut Game, submode: GameEditorSubmode) {
         const BTN_MARGIN: f32 = 10.0;
 
+        let mut next_right = ctx.screen_width() - BTN_MARGIN;
+
+        if matches!(submode, GameEditorSubmode::Topology(_)) {
+            return;
+        }
+
         let create_label = "New World";
-        let txt_create = measure_text(ctx, create_label, layout::HEADER_FONT_SIZE_20);
+        let create_size = measure_text(ctx, create_label, layout::HEADER_FONT_SIZE_20);
         let create_btn = Rect::new(
-            ctx.screen_width() - txt_create.width - BTN_MARGIN - PADDING,
+            next_right - create_size.width - PADDING,
             BTN_MARGIN,
-            txt_create.width + PADDING,
+            create_size.width + PADDING,
+            BTN_HEIGHT,
+        );
+        next_right = create_btn.x - BTN_MARGIN;
+
+        let topology_label = "Topology";
+        let topology_size = measure_text(ctx, topology_label, layout::HEADER_FONT_SIZE_20);
+        let topology_btn = Rect::new(
+            next_right - topology_size.width - PADDING,
+            BTN_MARGIN,
+            topology_size.width + PADDING,
             BTN_HEIGHT,
         );
 
+        if menu_button(ctx, topology_btn, topology_label, false, false) {
+            self.request_topology_submode(ctx, game);
+        }
         if menu_button(ctx, create_btn, create_label, false, false) {
             push_command(Box::new(CreateWorldCmd::new()));
             self.pending_camera_init = true;
         }
     }
 
-    fn handle_shortcuts(&mut self, ctx: &WgpuContext) {
+    fn handle_shortcuts(&mut self, ctx: &WgpuContext, game: &mut Game) {
+        if shortcuts_blocked() {
+            return;
+        }
+
+        if Controls::t(ctx) {
+            self.request_topology_submode(ctx, game);
+            return;
+        }
+
         for mode in GameEditorMode::iter() {
             if let Some(shortcut) = mode.shortcut() {
-                if shortcut(ctx)
-                    && !input_is_focused()
-                    && !is_modal_open()
-                    && !is_context_menu_open()
-                {
+                if shortcut(ctx) {
                     self.mode = mode;
                     self.mode_selector.current = mode;
                     break;
@@ -423,7 +457,12 @@ impl GameEditor {
         rect
     }
 
-    fn handle_mouse_cursor(&self, ctx: &mut WgpuContext) {
+    fn handle_mouse_cursor(&self, ctx: &mut WgpuContext, topology_active: bool) {
+        if topology_active {
+            ctx.set_cursor_icon(CursorIcon::Default);
+            return;
+        }
+
         if self.should_block_canvas(ctx) {
             ctx.set_cursor_icon(CursorIcon::Default);
         } else {
@@ -445,19 +484,16 @@ impl GameEditor {
     }
 
 
-    /// Sets the default camera for the game editor.
-    pub fn init_camera(&self, ctx: &WgpuContext, camera: &mut Camera2D, game: &mut Game) {
-        let (min, max) = self.world_bounds(ctx, game);
-        let center = (min + max) * 0.5;
-        let size = max - min;
-
-        // Get the zoom for the whole area
-        let zoom =
-            EditorCameraController::zoom_for_size(ctx, size, 2.0, game.current_world().grid_size);
-
-        // Apply the results
-        camera.target = center;
-        camera.zoom = zoom;
+    fn request_topology_submode(&mut self, ctx: &WgpuContext, game: &mut Game) {
+        if game.get_world(game.current_world_id.unwrap_or_default()).is_none() {
+            if let Some(first_world) = game.worlds().first() {
+                game.current_world_id = Some(first_world.id);
+            }
+        }
+        if let Some(world) = game.current_world_mut() {
+            self.center_topology_on_world(ctx, world);
+            self.requested_submode = Some(GameEditorSubmode::Topology(world.id));
+        }
     }
 
     /// Returns the (min, max) world‑space corners that contain all worlds.
@@ -520,3 +556,20 @@ impl SubEditor for GameEditor {
 /// A slice of all the modes.
 static ALL_MODES: Lazy<&'static [GameEditorMode]> =
     Lazy::new(|| Box::leak(Box::new(GameEditorMode::iter().collect::<Vec<_>>())));
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn toggle_world_arrows_flips_visibility() {
+        let mut editor = GameEditor::new();
+
+        assert!(!editor.show_world_arrows);
+        editor.toggle_world_arrows();
+        assert!(editor.show_world_arrows);
+        editor.toggle_world_arrows();
+        assert!(!editor.show_world_arrows);
+    }
+
+}

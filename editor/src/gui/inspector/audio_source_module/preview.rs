@@ -1,15 +1,17 @@
 use super::*;
+use crate::gui::widgets::audio_source_module_core::{PREVIEW_HANDLE, PREVIEW_TIMEOUT_SECONDS};
+use engine_core::assets::AssetRegistry;
 use engine_core::audio::command_queue::{push_audio_command, AudioCommand};
 use std::cell::RefCell;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub(super) struct PreviewRequest {
+pub(crate) struct PreviewRequest {
     row_index: usize,
     sound_id: SoundId,
 }
 
 impl PreviewRequest {
-    pub(super) fn new(row_index: usize, sound_id: SoundId) -> Self {
+    pub(crate) fn new(row_index: usize, sound_id: SoundId) -> Self {
         Self {
             row_index,
             sound_id,
@@ -18,7 +20,7 @@ impl PreviewRequest {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub(super) struct ActivePreview {
+pub(crate) struct ActivePreview {
     pub(super) entity: Entity,
     pub(super) group_id: SoundGroupId,
     pub(super) request: PreviewRequest,
@@ -37,7 +39,7 @@ pub fn clear_active_audio_preview() {
     });
 }
 
-pub(super) fn tick_active_audio_preview(dt: f32) {
+pub(crate) fn tick_active_audio_preview(dt: f32) {
     let expired = ACTIVE_AUDIO_PREVIEW.with(|active| {
         let mut active = active.borrow_mut();
         let Some(preview) = active.as_mut() else {
@@ -53,7 +55,7 @@ pub(super) fn tick_active_audio_preview(dt: f32) {
     }
 }
 
-pub(super) fn sync_active_preview(entity: Entity, group_id: &SoundGroupId, sounds: &[SoundId]) {
+pub(crate) fn sync_active_preview(entity: Entity, group_id: &SoundGroupId, sounds: &[SoundId]) {
     let should_clear = ACTIVE_AUDIO_PREVIEW.with(|active| {
         active.borrow().as_ref().is_some_and(|preview| {
             preview.entity == entity
@@ -69,7 +71,7 @@ pub(super) fn sync_active_preview(entity: Entity, group_id: &SoundGroupId, sound
     }
 }
 
-pub(super) fn apply_preview_request(
+pub(crate) fn apply_preview_request(
     entity: Entity,
     group_id: &SoundGroupId,
     next_preview: Option<PreviewRequest>,
@@ -101,13 +103,13 @@ pub(super) fn apply_preview_request(
 }
 
 #[cfg(test)]
-pub(super) fn set_active_preview_for_test(preview: Option<ActivePreview>) {
+pub(crate) fn set_active_preview_for_test(preview: Option<ActivePreview>) {
     ACTIVE_AUDIO_PREVIEW.with(|active| {
         *active.borrow_mut() = preview;
     });
 }
 
 #[cfg(test)]
-pub(super) fn active_preview_is_cleared_for_test() -> bool {
+pub(crate) fn active_preview_is_cleared_for_test() -> bool {
     ACTIVE_AUDIO_PREVIEW.with(|active| active.borrow().is_none())
 }

@@ -1,7 +1,9 @@
+pub mod game_data_manifest;
 pub mod game_map;
 pub mod id_allocator;
 pub mod startup_mode;
 
+pub use game_data_manifest::*;
 pub use game_map::*;
 pub use id_allocator::*;
 pub use startup_mode::*;
@@ -12,6 +14,7 @@ use crate::ecs::ecs::Ecs;
 use crate::ecs::{get_root_entities_in_set, SpriteId};
 use crate::ecs::{CurrentRoom, Entity};
 use crate::engine_global::set_game_name;
+use crate::hydration::HydrationCoordinator;
 use crate::omni_error;
 use crate::prefab::{load_prefab_manager, PrefabManager};
 use crate::scripting::script_manager::ScriptManager;
@@ -46,6 +49,9 @@ pub struct Game {
     world_index: HashMap<WorldId, usize>,
     /// Project-scoped authored asset registry.
     pub asset_registry: AssetRegistry,
+    /// Hydration coordinator tracking scope-level asset residency.
+    #[serde(skip)]
+    pub hydration_coordinator: HydrationCoordinator,
     /// Asset manager for the game.
     pub sprite_manager: SpriteManager,
     /// Script manager for the game.
@@ -78,6 +84,7 @@ impl Default for Game {
             worlds: Vec::new(),
             world_index: HashMap::new(),
             asset_registry: AssetRegistry::default(),
+            hydration_coordinator: HydrationCoordinator::default(),
             sprite_manager: SpriteManager::default(),
             script_manager: ScriptManager::default(),
             text_manager: TextManager::default(),
@@ -269,17 +276,17 @@ impl Game {
     /// Deletes the world from the game.
     #[cfg(feature = "editor")]
     pub fn delete_world(&mut self, id: WorldId) {
-        let room_ids: HashSet<RoomId> = self
-            .worlds()
-            .iter()
-            .find(|w| w.id == id)
-            .map(|w| w.rooms().iter().map(|r| r.id).collect())
-            .unwrap_or_default();
+        let Some(world) = self.worlds().iter().find(|world| world.id == id) else {
+            return;
+        };
 
-        let entity_ids: HashSet<Entity> = room_ids
+        let room_ids: HashSet<RoomId> = world.rooms().iter().map(|room| room.id).collect();
+        let mut entity_ids: HashSet<Entity> = room_ids
             .iter()
             .flat_map(|room_id| self.ecs.entities_in_room(*room_id).iter().copied())
             .collect();
+        entity_ids.extend(world.rooms().iter().map(|room| room.singleton));
+        entity_ids.insert(world.singleton);
 
         let root_entities = get_root_entities_in_set(&self.ecs, &entity_ids);
 

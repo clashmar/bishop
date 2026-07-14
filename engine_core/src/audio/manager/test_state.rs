@@ -1,3 +1,4 @@
+use crate::audio::AudioLoopKey;
 use std::collections::HashMap;
 
 #[derive(Clone, Debug, PartialEq)]
@@ -26,8 +27,8 @@ pub(super) struct StartedTrackedPreviewPlayback {
 #[derive(Default)]
 pub(super) struct AudioManagerTestState {
     pub(super) started_one_shot_playbacks: Vec<StartedOneShotPlayback>,
-    pub(super) active_loop_sound_ids: HashMap<u64, String>,
-    pub(super) started_loop_playbacks: HashMap<u64, StartedLoopPlayback>,
+    pub(super) active_loop_sound_ids: HashMap<AudioLoopKey, String>,
+    pub(super) started_loop_playbacks: HashMap<AudioLoopKey, StartedLoopPlayback>,
     #[cfg(feature = "editor")]
     pub(super) started_tracked_preview_playbacks: HashMap<u64, StartedTrackedPreviewPlayback>,
 }

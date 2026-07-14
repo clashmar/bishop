@@ -59,6 +59,37 @@ fn create_new_game_seeds_generated_lua_tables_for_globals_prelude() {
             "{filename} should exist for globals prelude consumers"
         );
     }
+
+    for relative_path in ["data/worlds.lua", "data/entries.lua"] {
+        assert!(
+            engine_folder.join(relative_path).exists(),
+            "{relative_path} should exist for globals prelude consumers"
+        );
+    }
+}
+
+#[test]
+fn scaffolding_when_called_writes_empty_world_navigation_lua_files() {
+    let _lock = game_fs_test_lock()
+        .lock()
+        .unwrap_or_else(|poison| poison.into_inner());
+    let test_game = TestGameFolder::new("empty_world_navigation_lua");
+    set_game_name(test_game.name());
+
+    create_game_folders(test_game.name());
+
+    let engine_folder = scripts_folder().join(lua_dirs::ENGINE);
+    let worlds = fs::read_to_string(engine_folder.join("data/worlds.lua")).unwrap();
+    let entries = fs::read_to_string(engine_folder.join("data/entries.lua")).unwrap();
+
+    assert_eq!(
+        worlds,
+        "-- Auto-generated. Do not edit.\n-- bishop-owner: game-generated\n---@meta\n\n---@class Worlds\nlocal Worlds = {\n}\n\nreturn Worlds\n"
+    );
+    assert_eq!(
+        entries,
+        "-- Auto-generated. Do not edit.\n-- bishop-owner: game-generated\n---@meta\n\n---@class Entries\nlocal Entries = {\n}\n\nreturn Entries\n"
+    );
 }
 
 #[test]

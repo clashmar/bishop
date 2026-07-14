@@ -101,6 +101,14 @@ impl Inspector {
         matches!(self.active, ActivePane::Entity)
     }
 
+    /// Returns the entity currently shown in the inspector.
+    pub fn selected_entity(&self) -> Option<Entity> {
+        match self.active {
+            ActivePane::Entity => self.entity.as_ref().and_then(EntityInspector::target),
+            _ => None,
+        }
+    }
+
     /// Toggles the inspector visibility globally.
     pub fn toggle_visible(&mut self) {
         let visible = !editor_config::get_inspector_visible();

@@ -310,7 +310,7 @@ fn opening_prefab_editor_seeds_stage_metadata_from_live_game_services() {
     let prefab = create_prefab(PrefabId(1), "Building".to_string());
     let mut editor = Editor {
         game: create_new_game(test_game.name().to_string()),
-        mode: EditorMode::Game,
+        mode: EditorMode::Game(GameEditorSubmode::Worlds),
         ..Default::default()
     };
     editor

@@ -1,0 +1,153 @@
+(
+    id: (1),
+    name: "Main World",
+    current_room_id: Some((1)),
+    meta: (
+        position: (-129.64679, -183.89914),
+        sprite_id: None,
+    ),
+    tags: [
+        Autosave,
+    ],
+    overlay: false,
+    grid_size: 8.0,
+    singleton: (53),
+    rooms: [
+        (
+            id: (1),
+            name: "Main Room",
+            position: (0.0, 0.0),
+            size: (32.0, 9.0),
+            exits: [
+                (
+                    position: (-1.0, 7.0),
+                    direction: Left,
+                    target_room_id: Some((2)),
+                ),
+                (
+                    position: (-1.0, 6.0),
+                    direction: Left,
+                    target_room_id: Some((2)),
+                ),
+                (
+                    position: (-1.0, 5.0),
+                    direction: Left,
+                    target_room_id: Some((2)),
+                ),
+                (
+                    position: (-1.0, 8.0),
+                    direction: Left,
+                    target_room_id: Some((2)),
+                ),
+                (
+                    position: (-1.0, 5.0),
+                    direction: Left,
+                    target_room_id: Some((2)),
+                ),
+                (
+                    position: (-1.0, 5.0),
+                    direction: Left,
+                    target_room_id: Some((2)),
+                ),
+                (
+                    position: (-1.0, 5.0),
+                    direction: Left,
+                    target_room_id: Some((2)),
+                ),
+                (
+                    position: (-1.0, 5.0),
+                    direction: Left,
+                    target_room_id: Some((2)),
+                ),
+                (
+                    position: (-1.0, 5.0),
+                    direction: Left,
+                    target_room_id: Some((2)),
+                ),
+                (
+                    position: (-1.0, 5.0),
+                    direction: Left,
+                    target_room_id: Some((2)),
+                ),
+                (
+                    position: (-1.0, 5.0),
+                    direction: Left,
+                    target_room_id: Some((2)),
+                ),
+                (
+                    position: (-1.0, 5.0),
+                    direction: Left,
+                    target_room_id: Some((2)),
+                ),
+                (
+                    position: (-1.0, 5.0),
+                    direction: Left,
+                    target_room_id: Some((2)),
+                ),
+                (
+                    position: (-1.0, 5.0),
+                    direction: Left,
+                    target_room_id: Some((2)),
+                ),
+                (
+                    position: (-1.0, 5.0),
+                    direction: Left,
+                    target_room_id: Some((2)),
+                ),
+                (
+                    position: (-1.0, 5.0),
+                    direction: Left,
+                    target_room_id: Some((2)),
+                ),
+                (
+                    position: (-1.0, 5.0),
+                    direction: Left,
+                    target_room_id: Some((2)),
+                ),
+                (
+                    position: (-1.0, 5.0),
+                    direction: Left,
+                    target_room_id: Some((2)),
+                ),
+            ],
+            adjacent_rooms: [],
+            tags: [
+                Autosave,
+            ],
+            singleton: (54),
+        ),
+        (
+            id: (2),
+            name: "Left Room",
+            position: (-104.0, 0.0),
+            size: (13.0, 9.0),
+            exits: [
+                (
+                    position: (13.0, 7.0),
+                    direction: Right,
+                    target_room_id: Some((1)),
+                ),
+                (
+                    position: (13.0, 6.0),
+                    direction: Right,
+                    target_room_id: Some((1)),
+                ),
+                (
+                    position: (13.0, 5.0),
+                    direction: Right,
+                    target_room_id: Some((1)),
+                ),
+                (
+                    position: (13.0, 8.0),
+                    direction: Right,
+                    target_room_id: Some((1)),
+                ),
+            ],
+            adjacent_rooms: [],
+            tags: [
+                Autosave,
+            ],
+            singleton: (55),
+        ),
+    ],
+)

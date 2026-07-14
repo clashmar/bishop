@@ -22,7 +22,7 @@ const BARE_WORLD: &str = "Bare";
 const OVERWORLD_ID: WorldId = WorldId(1);
 const ARCADE_ID: WorldId = WorldId(2);
 
-const START_ENTRY: &str = WorldEntry::START;
+const START_ENTRY: &str = WorldEntry::START_NAME;
 const START_POS: Vec2 = Vec2::new(8.0, 8.0);
 
 fn named_world(id: usize, name: &str, room_id: usize) -> World {
@@ -38,7 +38,7 @@ fn named_world(id: usize, name: &str, room_id: usize) -> World {
 fn add_start_entry(game: &mut Game, room_id: RoomId, pos: Vec2) {
     game.ecs
         .create_entity()
-        .with(WorldEntry { name: START_ENTRY.to_string() })
+        .with(WorldEntry { name: START_ENTRY.to_string(), is_start: true })
         .with(Transform { position: pos, ..Default::default() })
         .with_current_room(room_id)
         .finish();
@@ -53,7 +53,8 @@ fn two_world_instance() -> GameInstance {
     game.select_world(OVERWORLD_ID);
     GameInstance {
         game,
-        prev_positions: HashMap::new(),
+        prev_positions: HashMap::new(), 
+        traversal_residency_diagnostics: None,
     }
 }
 
@@ -67,7 +68,11 @@ fn transport_uses_start_entry_position_when_present() {
     add_start_entry(&mut game, RoomId(2), specific_pos);
     game.select_world(OVERWORLD_ID);
     let player = spawn_player(&mut game, RoomId(1));
-    let mut instance = GameInstance { game, prev_positions: HashMap::new() };
+    let mut instance = GameInstance { 
+        game, 
+        prev_positions: HashMap::new(), 
+        traversal_residency_diagnostics: None 
+    };
 
     let ok = WorldTransitionManager::execute(
         &Lua::new(),
@@ -91,7 +96,7 @@ fn transport_falls_back_to_first_room_at_origin_when_no_start_entry() {
     add_start_entry(&mut game, RoomId(1), START_POS);
     game.select_world(OVERWORLD_ID);
     let player = spawn_player(&mut game, RoomId(1));
-    let mut instance = GameInstance { game, prev_positions: HashMap::new() };
+    let mut instance = GameInstance { game, prev_positions: HashMap::new(), traversal_residency_diagnostics: None };
 
     let ok = WorldTransitionManager::execute(
         &Lua::new(),
@@ -115,22 +120,16 @@ fn spawn_player(game: &mut Game, room: RoomId) -> Entity {
         .finish()
 }
 
-fn transport_request(entity: Entity, world: &str, entry: Option<&str>) -> WorldTransitionRequest {
-    WorldTransitionRequest {
-        entity: Some(entity),
-        world: WorldSelector::ByName(world.to_string()),
-        entry_name: entry.map(str::to_string),
-        mode: WorldTransitionMode::Transport,
-    }
+fn transport_request(entity: Entity, world: &str, entry: Option<&str>) -> TraversalRequest {
+    TraversalRequest::transport(
+        entity,
+        WorldSelector::ByName(world.to_string()),
+        entry.map(str::to_string),
+    )
 }
 
-fn overlay_request(world: &str) -> WorldTransitionRequest {
-    WorldTransitionRequest {
-        entity: None,
-        world: WorldSelector::ByName(world.to_string()),
-        entry_name: None,
-        mode: WorldTransitionMode::Overlay,
-    }
+fn overlay_request(world: &str) -> TraversalRequest {
+    TraversalRequest::overlay_world(WorldSelector::ByName(world.to_string()), None)
 }
 
 #[test]
@@ -141,12 +140,7 @@ fn transport_by_id_resolves_destination_world() {
     let ok = WorldTransitionManager::execute(
         &Lua::new(),
         &mut instance,
-        &WorldTransitionRequest {
-            entity: Some(player),
-            world: WorldSelector::ById(ARCADE_ID),
-            entry_name: None,
-            mode: WorldTransitionMode::Transport,
-        },
+        &TraversalRequest::transport(player, WorldSelector::ById(ARCADE_ID), None),
     );
 
     assert!(ok);
@@ -161,12 +155,7 @@ fn transport_by_unknown_id_returns_false_without_state_change() {
     let ok = WorldTransitionManager::execute(
         &Lua::new(),
         &mut instance,
-        &WorldTransitionRequest {
-            entity: Some(player),
-            world: WorldSelector::ById(WorldId(99)),
-            entry_name: None,
-            mode: WorldTransitionMode::Transport,
-        },
+        &TraversalRequest::transport(player, WorldSelector::ById(WorldId(99)), None),
     );
 
     assert!(!ok);
@@ -211,6 +200,7 @@ fn transport_uses_named_entry_room_and_position() {
         })
         .with(WorldEntry {
             name: ARCADE_ENTRY.to_string(),
+            ..Default::default()
         })
         .with_current_room(RoomId(2))
         .finish();
@@ -294,10 +284,12 @@ fn transport_requires_a_subject_entity() {
     let ok = WorldTransitionManager::execute(
         &Lua::new(),
         &mut instance,
-        &WorldTransitionRequest {
+        &TraversalRequest {
             entity: None,
-            world: WorldSelector::ByName(ARCADE.to_string()),
-            entry_name: None,
+            destination: DestinationSelector::World {
+                selector: WorldSelector::ByName(ARCADE.to_string()),
+                entry_name: None,
+            },
             mode: WorldTransitionMode::Transport,
         },
     );
@@ -452,12 +444,18 @@ fn nested_activation_pops_correctly() {
     add_start_entry(&mut game, RoomId(2), START_POS);
     add_start_entry(&mut game, RoomId(3), START_POS);
     game.select_world(WorldId(1));
-    let mut instance = GameInstance { game, prev_positions: HashMap::new() };
+    let mut instance = GameInstance { game, prev_positions: HashMap::new(), traversal_residency_diagnostics: None };
 
-    WorldTransitionManager::execute(&Lua::new(), &mut instance,
-        &WorldTransitionRequest { entity: None, world: WorldSelector::ById(WorldId(2)), entry_name: None, mode: WorldTransitionMode::Overlay });
-    WorldTransitionManager::execute(&Lua::new(), &mut instance,
-        &WorldTransitionRequest { entity: None, world: WorldSelector::ById(WorldId(3)), entry_name: None, mode: WorldTransitionMode::Overlay });
+    WorldTransitionManager::execute(
+        &Lua::new(),
+        &mut instance,
+        &TraversalRequest::overlay_world(WorldSelector::ById(WorldId(2)), None),
+    );
+    WorldTransitionManager::execute(
+        &Lua::new(),
+        &mut instance,
+        &TraversalRequest::overlay_world(WorldSelector::ById(WorldId(3)), None),
+    );
 
     assert_eq!(instance.game.overlay_stack.len(), 2);
 
@@ -529,7 +527,7 @@ fn world_entered_event_includes_world_tags() {
     add_start_entry(&mut game, RoomId(2), START_POS);
     game.select_world(OVERWORLD_ID);
     game.script_manager.event_bus = event_bus;
-    let mut instance = GameInstance { game, prev_positions: HashMap::new() };
+    let mut instance = GameInstance { game, prev_positions: HashMap::new(), traversal_residency_diagnostics: None };
 
     WorldTransitionManager::execute(&lua, &mut instance, &overlay_request(ARCADE));
 
@@ -539,4 +537,49 @@ fn world_entered_event_includes_world_tags() {
     assert!(values.contains(&ARCADE.to_string()));
     assert!(values.contains(&lua_event_tag::AUTOSAVE.to_string()));
     assert!(values.contains(&ARCADE_WORLD_TAG.to_string()));
+}
+
+#[test]
+fn resolve_world_start_finds_is_start_entry() {
+    let mut game = Game::default();
+    let mut world = named_world(1, "TestWorld", 1);
+    world.add_room(Room { id: RoomId(2), ..Default::default() });
+    game.add_world(world);
+
+    game.ecs
+        .create_entity()
+        .with(WorldEntry { name: "Side".to_string(), is_start: false })
+        .with(Transform { position: Vec2::new(4.0, 4.0), ..Default::default() })
+        .with_current_room(RoomId(1))
+        .finish();
+
+    game.ecs
+        .create_entity()
+        .with(WorldEntry { name: "Main".to_string(), is_start: true })
+        .with(Transform { position: Vec2::new(8.0, 8.0), ..Default::default() })
+        .with_current_room(RoomId(2))
+        .finish();
+
+    let world_ref = game.get_world(WorldId(1)).unwrap();
+    let dest = resolve_world_start(&game, world_ref);
+    assert!(dest.is_some());
+    assert_eq!(dest.unwrap().room_id, RoomId(2));
+}
+
+#[test]
+fn resolve_world_start_falls_back_to_first_room_when_no_is_start_entry() {
+    let mut game = Game::default();
+    let world = named_world(1, "TestWorld", 1);
+    game.add_world(world);
+
+    game.ecs
+        .create_entity()
+        .with(WorldEntry { name: "Side".to_string(), is_start: false })
+        .with_current_room(RoomId(1))
+        .finish();
+
+    let world_ref = game.get_world(WorldId(1)).unwrap();
+    let dest = resolve_world_start(&game, world_ref);
+    assert!(dest.is_some());
+    assert_eq!(dest.unwrap().room_id, RoomId(1));
 }

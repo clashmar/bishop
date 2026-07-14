@@ -170,7 +170,8 @@ mod tests {
         let game = Game::with_name(ctx.game_name());
         let game_instance = Rc::new(RefCell::new(GameInstance {
             game,
-            prev_positions: HashMap::new(),
+            prev_positions: HashMap::new(), 
+            traversal_residency_diagnostics: None,
         }));
 
         (
@@ -296,7 +297,7 @@ mod tests {
         game.add_world(World::default());
         let game_instance = Rc::new(RefCell::new(GameInstance {
             game,
-            prev_positions: HashMap::new(),
+            prev_positions: HashMap::new(), traversal_residency_diagnostics: None,
         }));
 
         let mut save_runtime = SaveRuntime::new(save_providers, Rc::new(Cell::new(false)));

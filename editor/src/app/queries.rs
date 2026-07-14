@@ -1,4 +1,5 @@
 use crate::app::{Editor, EditorMode};
+use crate::game::GameEditorSubmode;
 use crate::storage::game_io::list_game_names;
 use engine_core::ecs::*;
 use engine_core::ui::Toast;
@@ -8,7 +9,12 @@ impl Editor {
     /// Returns the display name of the currently active game/world/entity etc (if any).
     pub fn active_editor_entity_name(&self) -> String {
         match self.mode {
-            EditorMode::Game => self.game.name.clone(),
+            EditorMode::Game(GameEditorSubmode::Worlds) => self.game.name.clone(),
+            EditorMode::Game(GameEditorSubmode::Topology(world_id)) => self
+                .game
+                .get_world(world_id)
+                .map(|world| world.name.clone())
+                .unwrap_or_else(|| self.game.name.clone()),
             EditorMode::World(_) => self.game.current_world().name.clone(),
             EditorMode::Room(id) => self
                 .game

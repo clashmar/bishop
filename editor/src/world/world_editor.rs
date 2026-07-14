@@ -92,7 +92,7 @@ impl WorldEditor {
         game: &mut Game,
     ) -> Option<RoomId> {
         if let Some(world) = game.current_world_mut() {
-            world.link_all_exits();
+            world.link_all_room_exits();
         }
 
         self.handle_mouse_cursor(ctx);

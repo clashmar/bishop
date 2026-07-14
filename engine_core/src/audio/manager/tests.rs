@@ -1,21 +1,15 @@
 use super::*;
 use crate::audio::command_queue::{drain_audio_commands, push_audio_command};
 use crate::audio::runtime;
-use crate::audio::{AudioCommand, AudioDiagnosticsEntry, PlayMusicRequest};
+use crate::audio::{
+    AudioCommand, AudioDiagnosticsEntry, AudioLoopKey, AudioPlaybackOwner, PlayMusicRequest,
+};
+use crate::audio::test_utils::TestBackend;
+use crate::ecs::{Entity, SoundGroupId};
+use crate::hydration::Hydratable;
 use crate::task::BackgroundService;
-use bishop::audio::AudioBackend;
+use crate::worlds::{RoomId, WorldId};
 use oddio::Frames;
-
-struct TestBackend;
-
-impl AudioBackend for TestBackend {
-    fn start<F: FnMut(&mut [[f32; 2]]) + Send + 'static>(_render_fn: F) -> Self
-    where
-        Self: Sized,
-    {
-        Self
-    }
-}
 
 fn seeded_manager() -> AudioManager {
     runtime::reset_for_tests();
@@ -44,6 +38,13 @@ fn assert_approx_eq(actual: f32, expected: f32) {
     );
 }
 
+fn entity_loop_key(entity_id: usize, group_name: &str) -> AudioLoopKey {
+    AudioLoopKey::new(
+        AudioPlaybackOwner::Entity(Entity(entity_id)),
+        SoundGroupId::Custom(group_name.to_string()),
+    )
+}
+
 #[test]
 fn diagnostics_snapshot_includes_cached_only_entries() {
     let manager = seeded_manager();
@@ -52,7 +53,6 @@ fn diagnostics_snapshot_includes_cached_only_entries() {
 
     assert_eq!(snapshot.cached_sound_count, 3);
     assert_eq!(snapshot.loading_sound_count, 0);
-    assert_eq!(snapshot.pinned_sound_count, 0);
     assert_eq!(snapshot.ref_count_entry_count, 0);
     assert_eq!(snapshot.entries.len(), 3);
     assert_eq!(
@@ -62,21 +62,18 @@ fn diagnostics_snapshot_includes_cached_only_entries() {
                 id: "music/intro".to_string(),
                 cached: true,
                 loading: false,
-                pinned: false,
                 ref_count: 0,
             },
             AudioDiagnosticsEntry {
                 id: "music/next".to_string(),
                 cached: true,
                 loading: false,
-                pinned: false,
                 ref_count: 0,
             },
             AudioDiagnosticsEntry {
                 id: "preview/click".to_string(),
                 cached: true,
                 loading: false,
-                pinned: false,
                 ref_count: 0,
             },
         ]
@@ -84,9 +81,8 @@ fn diagnostics_snapshot_includes_cached_only_entries() {
 }
 
 #[test]
-fn diagnostics_snapshot_includes_pinned_and_ref_counted_entries() {
+fn diagnostics_snapshot_includes_ref_counted_entries() {
     let mut manager = seeded_manager();
-    manager.pinned.insert("pinned/only".to_string());
     manager.ref_counts.insert("ref/only".to_string(), 2);
     manager.ref_counts.insert("shared".to_string(), 1);
     manager.sound_cache.insert(
@@ -98,9 +94,8 @@ fn diagnostics_snapshot_includes_pinned_and_ref_counted_entries() {
 
     assert_eq!(snapshot.cached_sound_count, 4);
     assert_eq!(snapshot.loading_sound_count, 0);
-    assert_eq!(snapshot.pinned_sound_count, 1);
     assert_eq!(snapshot.ref_count_entry_count, 2);
-    assert_eq!(snapshot.entries.len(), 6);
+    assert_eq!(snapshot.entries.len(), 5);
     assert_eq!(
         snapshot.entries,
         vec![
@@ -108,42 +103,30 @@ fn diagnostics_snapshot_includes_pinned_and_ref_counted_entries() {
                 id: "music/intro".to_string(),
                 cached: true,
                 loading: false,
-                pinned: false,
                 ref_count: 0,
             },
             AudioDiagnosticsEntry {
                 id: "music/next".to_string(),
                 cached: true,
                 loading: false,
-                pinned: false,
-                ref_count: 0,
-            },
-            AudioDiagnosticsEntry {
-                id: "pinned/only".to_string(),
-                cached: false,
-                loading: false,
-                pinned: true,
                 ref_count: 0,
             },
             AudioDiagnosticsEntry {
                 id: "preview/click".to_string(),
                 cached: true,
                 loading: false,
-                pinned: false,
                 ref_count: 0,
             },
             AudioDiagnosticsEntry {
                 id: "ref/only".to_string(),
                 cached: false,
                 loading: false,
-                pinned: false,
                 ref_count: 2,
             },
             AudioDiagnosticsEntry {
                 id: "shared".to_string(),
                 cached: true,
                 loading: false,
-                pinned: false,
                 ref_count: 1,
             },
         ]
@@ -162,7 +145,7 @@ fn diagnostics_snapshot_entries_are_sorted_by_sound_id() {
         "alpha".to_string(),
         Frames::from_slice(44_100, &[[0.0, 0.0]]),
     );
-    manager.pinned.insert("middle".to_string());
+    manager.ref_counts.insert("middle".to_string(), 1);
     manager.ref_counts.insert("beta".to_string(), 1);
 
     let snapshot = manager.diagnostics_snapshot();
@@ -180,6 +163,18 @@ fn diagnostics_snapshot_entries_are_sorted_by_sound_id() {
 }
 
 #[test]
+fn release_claimed_sound_decrements_and_evicts_unrefd_audio() {
+    let mut manager = seeded_manager();
+    manager.claim_sound("music/intro");
+    assert_eq!(manager.diagnostics_snapshot().ref_count_entry_count, 1);
+
+    manager.release_claimed_sound("music/intro");
+    let snapshot = manager.diagnostics_snapshot();
+    assert_eq!(snapshot.ref_count_entry_count, 0);
+    assert_eq!(snapshot.cached_sound_count, 2);
+}
+
+#[test]
 fn diagnostics_snapshot_includes_loading_entries() {
     let mut manager = seeded_manager();
     manager.sound_cache.remove("music/next");
@@ -189,7 +184,6 @@ fn diagnostics_snapshot_includes_loading_entries() {
 
     assert_eq!(snapshot.cached_sound_count, 2);
     assert_eq!(snapshot.loading_sound_count, 1);
-    assert_eq!(snapshot.pinned_sound_count, 0);
     assert_eq!(snapshot.ref_count_entry_count, 0);
     assert_eq!(
         snapshot.entries,
@@ -198,21 +192,18 @@ fn diagnostics_snapshot_includes_loading_entries() {
                 id: "music/intro".to_string(),
                 cached: true,
                 loading: false,
-                pinned: false,
                 ref_count: 0,
             },
             AudioDiagnosticsEntry {
                 id: "music/next".to_string(),
                 cached: false,
                 loading: true,
-                pinned: false,
                 ref_count: 0,
             },
             AudioDiagnosticsEntry {
                 id: "preview/click".to_string(),
                 cached: true,
                 loading: false,
-                pinned: false,
                 ref_count: 0,
             },
         ]
@@ -699,11 +690,70 @@ fn deferred_varied_sfx_preserves_captured_playback_parameters() {
 }
 
 #[test]
-fn stop_loop_cancels_pending_cold_loop_before_playback_starts() {
-    let mut manager = seeded_manager();
+fn stop_loops_with_fade_keeps_sound_referenced_until_fade_completes() {
+    runtime::reset_for_tests();
+    let _ = drain_audio_commands();
+    let mut manager = AudioManager::new::<TestBackend>();
+    manager.complete_load_for_test("sfx/wind", Frames::from_slice(44_100, &[[0.0, 0.0]]));
 
     push_audio_command(AudioCommand::PlayLoop {
-        handle: 41,
+        key: AudioLoopKey::new(
+            AudioPlaybackOwner::Room(RoomId(4)),
+            SoundGroupId::Custom("Ambience".to_string()),
+        ),
+        sounds: vec!["sfx/wind".to_string()],
+        volume: 1.0,
+        pitch_variation: 0.0,
+        volume_variation: 0.0,
+    });
+    manager.poll(0.0);
+
+    push_audio_command(AudioCommand::StopLoops {
+        owner: AudioPlaybackOwner::Room(RoomId(4)),
+        fade_out: Some(0.5),
+    });
+    manager.poll(0.1);
+    assert_eq!(manager.ref_count(&"sfx/wind".to_string()), 1);
+
+    manager.poll(0.5);
+    assert_eq!(manager.ref_count(&"sfx/wind".to_string()), 0);
+}
+
+#[test]
+fn stop_loops_immediately_releases_owner_playback() {
+    runtime::reset_for_tests();
+    let _ = drain_audio_commands();
+    let mut manager = AudioManager::new::<TestBackend>();
+    manager.complete_load_for_test("sfx/hum", Frames::from_slice(44_100, &[[0.0, 0.0]]));
+
+    push_audio_command(AudioCommand::PlayLoop {
+        key: AudioLoopKey::new(
+            AudioPlaybackOwner::World(WorldId(2)),
+            SoundGroupId::Custom("Hum".to_string()),
+        ),
+        sounds: vec!["sfx/hum".to_string()],
+        volume: 1.0,
+        pitch_variation: 0.0,
+        volume_variation: 0.0,
+    });
+    manager.poll(0.0);
+
+    push_audio_command(AudioCommand::StopLoops {
+        owner: AudioPlaybackOwner::World(WorldId(2)),
+        fade_out: None,
+    });
+    manager.poll(0.0);
+
+    assert_eq!(manager.ref_count(&"sfx/hum".to_string()), 0);
+}
+
+#[test]
+fn stop_loops_cancel_pending_cold_loop_before_playback_starts() {
+    let mut manager = seeded_manager();
+    let key = entity_loop_key(41, "ColdLoop");
+
+    push_audio_command(AudioCommand::PlayLoop {
+        key: key.clone(),
         sounds: vec!["loop/cold".to_string()],
         volume: 0.5,
         pitch_variation: 0.0,
@@ -711,18 +761,21 @@ fn stop_loop_cancels_pending_cold_loop_before_playback_starts() {
     });
     manager.poll(0.0);
 
-    assert!(manager.pending_loops.contains_key(&41));
+    assert!(manager.pending_loops.contains_key(&key));
     assert!(manager.active_loops.is_empty());
 
-    push_audio_command(AudioCommand::StopLoop(41));
+    push_audio_command(AudioCommand::StopLoops {
+        owner: AudioPlaybackOwner::Entity(Entity(41)),
+        fade_out: None,
+    });
     manager.poll(0.0);
 
-    assert!(!manager.pending_loops.contains_key(&41));
+    assert!(!manager.pending_loops.contains_key(&key));
 
     manager.complete_load_for_test("loop/cold", Frames::from_slice(44_100, &[[0.0, 0.0]]));
     manager.poll(0.0);
 
-    assert!(!manager.active_loops.contains_key(&41));
+    assert!(!manager.active_loops.contains_key(&key));
 }
 
 #[test]
@@ -746,10 +799,11 @@ fn failed_cold_one_shot_load_clears_pending_state_without_playback() {
 #[test]
 fn failed_load_clears_pending_runtime_requests() {
     let mut manager = seeded_manager();
+    let key = entity_loop_key(61, "MissingLoop");
 
     push_audio_command(AudioCommand::PlaySfx("sfx/missing".to_string()));
     push_audio_command(AudioCommand::PlayLoop {
-        handle: 61,
+        key: key.clone(),
         sounds: vec!["sfx/missing".to_string()],
         volume: 0.5,
         pitch_variation: 0.0,
@@ -758,14 +812,14 @@ fn failed_load_clears_pending_runtime_requests() {
     manager.poll(0.0);
 
     assert!(manager.pending_one_shots.contains_key("sfx/missing"));
-    assert!(manager.pending_loops.contains_key(&61));
+    assert!(manager.pending_loops.contains_key(&key));
     assert!(manager.pending_loads.contains_key("sfx/missing"));
 
     manager.fail_load_for_test("sfx/missing", "synthetic failure");
     manager.poll(0.0);
 
     assert!(!manager.pending_one_shots.contains_key("sfx/missing"));
-    assert!(!manager.pending_loops.contains_key(&61));
+    assert!(!manager.pending_loops.contains_key(&key));
     assert!(!manager.pending_loads.contains_key("sfx/missing"));
     assert!(manager.test_state.started_one_shot_playbacks.is_empty());
     assert!(manager.test_state.started_loop_playbacks.is_empty());
@@ -773,11 +827,12 @@ fn failed_load_clears_pending_runtime_requests() {
 }
 
 #[test]
-fn newer_pending_loop_request_replaces_older_request_for_same_handle() {
+fn newer_pending_loop_request_replaces_older_request_for_same_key() {
     let mut manager = seeded_manager();
+    let key = entity_loop_key(43, "ScopedLoop");
 
     push_audio_command(AudioCommand::PlayLoop {
-        handle: 43,
+        key: key.clone(),
         sounds: vec!["loop/first".to_string()],
         volume: 0.5,
         pitch_variation: 0.0,
@@ -786,7 +841,7 @@ fn newer_pending_loop_request_replaces_older_request_for_same_handle() {
     manager.poll(0.0);
 
     push_audio_command(AudioCommand::PlayLoop {
-        handle: 43,
+        key: key.clone(),
         sounds: vec!["loop/second".to_string()],
         volume: 0.75,
         pitch_variation: 0.0,
@@ -797,21 +852,21 @@ fn newer_pending_loop_request_replaces_older_request_for_same_handle() {
     assert_eq!(
         manager
             .pending_loops
-            .get(&43)
+            .get(&key)
             .map(|pending| pending.sound_id.as_str()),
         Some("loop/second")
     );
-    assert_eq!(manager.test_state.active_loop_sound_ids.get(&43), None);
+    assert_eq!(manager.test_state.active_loop_sound_ids.get(&key), None);
     assert!(manager.test_state.started_loop_playbacks.is_empty());
 
-    let pending = manager.pending_loops.get(&43).unwrap();
+    let pending = manager.pending_loops.get(&key).unwrap();
     let expected_volume = pending.volume;
     let expected_pitch = pending.pitch;
 
     manager.complete_load_for_test("loop/first", Frames::from_slice(44_100, &[[0.0, 0.0]]));
     manager.poll(0.0);
 
-    assert_eq!(manager.test_state.active_loop_sound_ids.get(&43), None);
+    assert_eq!(manager.test_state.active_loop_sound_ids.get(&key), None);
     assert!(manager.test_state.started_loop_playbacks.is_empty());
 
     manager.complete_load_for_test("loop/second", Frames::from_slice(44_100, &[[0.0, 0.0]]));
@@ -821,12 +876,12 @@ fn newer_pending_loop_request_replaces_older_request_for_same_handle() {
         manager
             .test_state
             .active_loop_sound_ids
-            .get(&43)
+            .get(&key)
             .map(String::as_str),
         Some("loop/second")
     );
     assert_eq!(
-        manager.test_state.started_loop_playbacks.get(&43),
+        manager.test_state.started_loop_playbacks.get(&key),
         Some(&StartedLoopPlayback {
             id: "loop/second".to_string(),
             volume: expected_volume,
@@ -838,9 +893,10 @@ fn newer_pending_loop_request_replaces_older_request_for_same_handle() {
 #[test]
 fn failed_cold_loop_load_clears_pending_state_without_playback() {
     let mut manager = seeded_manager();
+    let key = entity_loop_key(51, "FailLoop");
 
     push_audio_command(AudioCommand::PlayLoop {
-        handle: 51,
+        key: key.clone(),
         sounds: vec!["loop/fail".to_string()],
         volume: 0.5,
         pitch_variation: 0.0,
@@ -848,16 +904,16 @@ fn failed_cold_loop_load_clears_pending_state_without_playback() {
     });
     manager.poll(0.0);
 
-    assert!(manager.pending_loops.contains_key(&51));
+    assert!(manager.pending_loops.contains_key(&key));
     assert!(manager.pending_loads.contains_key("loop/fail"));
 
     manager.fail_load_for_test("loop/fail", "boom");
     manager.poll(0.0);
 
-    assert!(!manager.pending_loops.contains_key(&51));
+    assert!(!manager.pending_loops.contains_key(&key));
     assert!(!manager.pending_loads.contains_key("loop/fail"));
-    assert!(!manager.active_loops.contains_key(&51));
-    assert!(!manager.test_state.active_loop_sound_ids.contains_key(&51));
+    assert!(!manager.active_loops.contains_key(&key));
+    assert!(!manager.test_state.active_loop_sound_ids.contains_key(&key));
 }
 
 #[cfg(feature = "editor")]

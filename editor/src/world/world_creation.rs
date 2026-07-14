@@ -1,5 +1,5 @@
 use engine_core::constants::world as world_constants;
-use engine_core::ecs::{Name, PlayerProxy, Singleton, Transform, WorldEntry};
+use engine_core::ecs::{AudioSource, Name, PlayerProxy, Singleton, Transform, WorldEntry};
 use engine_core::game::Game;
 use engine_core::worlds::{Room, World, WorldMeta};
 
@@ -28,30 +28,19 @@ pub fn create_new_world(game: &mut Game) -> World {
         .with_current_room(room_id)
         .finish();
 
-    // World singleton entity (hosts the world script)
     let world_singleton = game
         .ecs
         .create_entity()
         .with(Singleton)
+        .with(AudioSource::default())
         .with_current_room(room_id)
         .finish();
-    world.singleton = Some(world_singleton);
+    world.singleton = world_singleton;
 
-    // Room singleton entity (hosts the room script)
-    let room_singleton = game
-        .ecs
-        .create_entity()
-        .with(Singleton)
-        .with_current_room(room_id)
-        .finish();
-    if let Some(room) = world.get_room_mut(room_id) {
-        room.singleton = Some(room_singleton);
-    }
-
-    // Default "Start" entry point
+    // Default start entry point
     game.ecs
         .create_entity()
-        .with(WorldEntry { name: WorldEntry::START.into() })
+        .with(WorldEntry { name: String::new(), is_start: true })
         .with(Transform {
             position: room_origin,
             ..Default::default()

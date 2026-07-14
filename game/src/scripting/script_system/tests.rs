@@ -1,6 +1,7 @@
 use super::*;
 use engine_core::constants::paths;
 use engine_core::engine_global::set_game_name;
+use engine_core::hydration::Hydratable;
 use engine_core::scripting::lua_constants::{lua_dirs, lua_fields, lua_files};
 use engine_core::storage::test_utils::{game_fs_test_lock, TestGameFolder};
 use engine_core::worlds::*;
@@ -42,6 +43,51 @@ fn game_with_two_worlds() -> Game {
     game
 }
 
+fn script_fixture(script_source: &str) -> (Lua, Ecs, ScriptManager, Entity, ScriptId) {
+    let lua = Lua::new();
+    let mut ecs = Ecs::default();
+    let entity = ecs.create_entity().with(Active::default()).finish();
+    let script_id = ScriptId(1);
+    let mut script_manager = ScriptManager::default();
+    let def: Table = lua.load(script_source).eval().unwrap();
+    script_manager.table_defs.insert(script_id, def);
+    script_manager.increment_ref(script_id);
+    ecs.add_component_to_entity(
+        entity,
+        Script {
+            script_id,
+            ..Default::default()
+        },
+    );
+    (lua, ecs, script_manager, entity, script_id)
+}
+
+#[test]
+fn activate_entity_scripts_skips_inactive_entities() {
+    let (lua, mut ecs, mut script_manager, entity, script_id) =
+        script_fixture("return { init = function(self) end }");
+    ecs.get_mut::<Active>(entity).unwrap().active = false;
+
+    ScriptSystem::activate_entity_scripts(&lua, &mut ecs, &mut script_manager).unwrap();
+
+    assert!(!script_manager.instances.contains_key(&(entity, script_id)));
+    assert!(!script_manager.pending_inits.contains(&(entity, script_id)));
+}
+
+#[test]
+fn activate_entity_scripts_keeps_pinned_inactive_entities_resident() {
+    let (lua, mut ecs, mut script_manager, entity, script_id) =
+        script_fixture("return { init = function(self) end }");
+    let active = ecs.get_mut::<Active>(entity).unwrap();
+    active.active = false;
+    active.pin();
+
+    ScriptSystem::activate_entity_scripts(&lua, &mut ecs, &mut script_manager).unwrap();
+
+    assert!(script_manager.instances.contains_key(&(entity, script_id)));
+    assert!(script_manager.pending_inits.contains(&(entity, script_id)));
+}
+
 #[test]
 fn update_eligibility_rejects_entities_in_inactive_worlds() {
     let mut game = game_with_two_worlds();
@@ -53,16 +99,23 @@ fn update_eligibility_rejects_entities_in_inactive_worlds() {
     let in_active = game
         .ecs
         .create_entity()
+        .with(Active::default())
         .with(script.clone())
         .with_current_room(RoomId(1))
         .finish();
     let in_inactive = game
         .ecs
         .create_entity()
+        .with(Active::default())
         .with(script.clone())
         .with_current_room(RoomId(2))
         .finish();
-    let unroomed = game.ecs.create_entity().with(script.clone()).finish();
+    let unroomed = game
+        .ecs
+        .create_entity()
+        .with(Active::default())
+        .with(script.clone())
+        .finish();
 
     assert!(update_eligible(&game, in_active, &script));
     assert!(!update_eligible(&game, in_inactive, &script));
@@ -77,6 +130,21 @@ fn update_eligibility_rejects_empty_script_ids() {
         script_id: ScriptId(0),
         ..Default::default()
     };
+
+    assert!(!update_eligible(&game, entity, &script));
+}
+
+#[test]
+fn scripted_entity_must_be_active_to_update() {
+    let mut game = Game::default();
+    let script = Script {
+        script_id: ScriptId(7),
+        ..Default::default()
+    };
+    let entity = game.ecs.create_entity()
+        .with(Active::new(false))
+        .with(script.clone())
+        .finish();
 
     assert!(!update_eligible(&game, entity, &script));
 }
@@ -183,4 +251,135 @@ fn prepare_spawned_script_inits_rejects_root_args_without_root_init() {
     .unwrap_err();
 
     assert!(error.to_string().contains("root script init"));
+}
+
+#[test]
+fn deactivate_payload_scripts_removes_instances_pending_inits_and_entity_listeners() {
+    let (lua, mut ecs, mut script_manager, entity, script_id) =
+        script_fixture("return { init = function(self) end }");
+
+    ScriptSystem::activate_payload_scripts(&lua, &mut ecs, &mut script_manager, &[entity])
+        .unwrap();
+    let listener = lua.create_function(|_, ()| Ok(())).unwrap();
+    script_manager
+        .event_bus
+        .on_for_entity("tick".to_string(), entity, listener);
+
+    assert!(script_manager.instances.contains_key(&(entity, script_id)));
+    assert!(script_manager.pending_inits.contains(&(entity, script_id)));
+    assert_eq!(script_manager.event_bus.listener_count_for_entity(entity), 1);
+
+    ScriptSystem::deactivate_payload_scripts(&ecs, &mut script_manager, &[entity]);
+
+    assert!(!script_manager.instances.contains_key(&(entity, script_id)));
+    assert_eq!(script_manager.event_bus.listener_count_for_entity(entity), 0);
+    assert!(!script_manager.pending_inits.iter().any(|(queued, _)| *queued == entity));
+}
+
+#[test]
+fn activate_payload_scripts_requeues_init_exactly_once_after_rehydrate() {
+    let (lua, mut ecs, mut script_manager, entity, script_id) = script_fixture(
+        "return { init = function(self) self.public = self.public or {} end }",
+    );
+
+    ScriptSystem::activate_payload_scripts(&lua, &mut ecs, &mut script_manager, &[entity])
+        .unwrap();
+    ScriptSystem::activate_payload_scripts(&lua, &mut ecs, &mut script_manager, &[entity])
+        .unwrap();
+
+    let queued = script_manager
+        .pending_inits
+        .iter()
+        .filter(|(queued, id)| *queued == entity && *id == script_id)
+        .count();
+    assert_eq!(queued, 1);
+}
+
+#[test]
+fn failing_init_does_not_abort_later_inits() {
+    let lua = Lua::new();
+    lua.globals().set("init_hits", 0).unwrap();
+
+    let failing_init: Function = lua
+        .load("return function(self) error('boom from init') end")
+        .eval()
+        .unwrap();
+    let succeeding_init: Function = lua
+        .load("return function(self) init_hits = init_hits + 1 end")
+        .eval()
+        .unwrap();
+
+    ScriptSystem::run_entity_init_callbacks(
+        vec![
+            (
+                Entity(1),
+                ScriptId(1),
+                Some("scripts/failing.lua".to_string()),
+                failing_init,
+                lua.create_table().unwrap(),
+            ),
+            (
+                Entity(2),
+                ScriptId(2),
+                Some("scripts/ok.lua".to_string()),
+                succeeding_init,
+                lua.create_table().unwrap(),
+            ),
+        ],
+        || {},
+    );
+
+    assert_eq!(lua.globals().get::<i64>("init_hits").unwrap(), 1);
+}
+
+#[test]
+fn failing_update_does_not_abort_later_updates() {
+    let lua = Lua::new();
+    lua.globals().set("update_hits", 0.0).unwrap();
+
+    let failing_update: Function = lua
+        .load("return function(self, dt) error('boom from update') end")
+        .eval()
+        .unwrap();
+    let succeeding_update: Function = lua
+        .load("return function(self, dt) update_hits = update_hits + dt end")
+        .eval()
+        .unwrap();
+
+    ScriptSystem::run_entity_update_callback(
+        Entity(1),
+        ScriptId(1),
+        Some("scripts/failing.lua"),
+        &failing_update,
+        &lua.create_table().unwrap(),
+        0.25,
+        || {},
+    );
+    ScriptSystem::run_entity_update_callback(
+        Entity(2),
+        ScriptId(2),
+        Some("scripts/ok.lua"),
+        &succeeding_update,
+        &lua.create_table().unwrap(),
+        0.25,
+        || {},
+    );
+
+    assert_eq!(lua.globals().get::<f64>("update_hits").unwrap(), 0.25);
+}
+
+#[test]
+fn failing_global_update_still_runs_followup_processing() {
+    let lua = Lua::new();
+    let failing_global_update: Function = lua
+        .load("return function(dt) error('boom from global update') end")
+        .eval()
+        .unwrap();
+    let mut followup_calls = 0;
+
+    ScriptSystem::run_global_update_callback(&failing_global_update, 0.25, || {
+        followup_calls += 1;
+    });
+
+    assert_eq!(followup_calls, 1);
 }

@@ -211,6 +211,17 @@ fn load_prefab_manager_rejects_duplicate_prefab_names() {
 }
 
 #[test]
+fn touching_prefabs_keeps_only_the_most_recent_ids_within_capacity() {
+    let mut cache = PrefabRecency::new(2);
+    cache.touch(PrefabId(1));
+    cache.touch(PrefabId(2));
+    cache.touch(PrefabId(1));
+    cache.touch(PrefabId(3));
+
+    assert_eq!(cache.ids(), vec![PrefabId(1), PrefabId(3)]);
+}
+
+#[test]
 fn load_prefab_manager_supports_lookup_by_name() {
     let _lock = game_fs_test_lock()
         .lock()

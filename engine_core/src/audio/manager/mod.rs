@@ -13,7 +13,9 @@ use self::preview::{PendingPreview, TrackedPreview, TrackedPreviewSpec};
 use self::test_state::StartedTrackedPreviewPlayback;
 #[cfg(test)]
 use self::test_state::{AudioManagerTestState, StartedLoopPlayback, StartedOneShotPlayback};
-use super::command_queue::{self, AudioCommand, PlayMusicRequest};
+use super::command_queue::{
+    self, AudioCommand, AudioLoopKey, AudioPlaybackOwner, PlayMusicRequest,
+};
 use super::diagnostics::{self, AudioDiagnosticsSnapshot};
 use super::runtime::{self, MusicStopReason, MusicStoppedEvent};
 use crate::task::{BackgroundService, FileReadPool};
@@ -47,6 +49,18 @@ struct PendingLoop {
     sound_id: String,
     volume: f32,
     pitch: f32,
+}
+
+struct ActiveLoopPlayback {
+    sound_id: String,
+    handle: LoopHandle,
+    volume: f32,
+    fade: Option<LoopFade>,
+}
+
+struct LoopFade {
+    remaining: f32,
+    duration: f32,
 }
 
 enum ActiveMusic {
@@ -146,15 +160,13 @@ pub struct AudioManager {
     /// Pending one-shot playback requests waiting on a cold load.
     pending_one_shots: HashMap<String, Vec<PendingOneShot>>,
     /// Pending loop playback requests waiting on a cold load.
-    pending_loops: HashMap<u64, PendingLoop>,
+    pending_loops: HashMap<AudioLoopKey, PendingLoop>,
     #[cfg(test)]
     test_state: AudioManagerTestState,
     /// Reference counts tracking how many `AudioSource` components reference each sound ID.
     ref_counts: HashMap<String, usize>,
-    /// Sound IDs loaded via `preload()` from Lua; pinned sounds are never auto-evicted.
-    pinned: HashSet<String>,
-    /// Active looping sound handles, keyed by a caller-supplied u64 handle ID.
-    active_loops: HashMap<u64, LoopHandle>,
+    /// Active looping sound handles, keyed by gameplay owner and authored group.
+    active_loops: HashMap<AudioLoopKey, ActiveLoopPlayback>,
     #[cfg(feature = "editor")]
     /// Pending editor preview requests waiting on a background load.
     pending_previews: HashMap<u64, PendingPreview>,
@@ -211,7 +223,6 @@ impl AudioManager {
             #[cfg(test)]
             test_state: AudioManagerTestState::default(),
             ref_counts: HashMap::new(),
-            pinned: HashSet::new(),
             active_loops: HashMap::new(),
             #[cfg(feature = "editor")]
             pending_previews: HashMap::new(),
@@ -225,15 +236,19 @@ impl AudioManager {
         }
     }
 
-    /// Returns a snapshot of cached, pinned, and referenced audio IDs.
+    /// Returns a snapshot of cached and referenced audio IDs.
     pub fn diagnostics_snapshot(&self) -> AudioDiagnosticsSnapshot {
         let loading = self.pending_loads.keys().cloned().collect::<HashSet<_>>();
         diagnostics::snapshot_from_state(
             &self.sound_cache,
             &self.ref_counts,
-            &self.pinned,
             &loading,
         )
+    }
+
+    /// Returns the currently active scoped loop keys.
+    pub fn active_loop_keys(&self) -> HashSet<AudioLoopKey> {
+        self.active_loops.keys().cloned().collect()
     }
 
     fn set_music_ratio(&mut self, ratio: f32) {
@@ -288,10 +303,7 @@ impl AudioManager {
                 self.sfx_volume = v.clamp(0.0, 1.0);
                 self.apply_sfx_gain();
             }
-            AudioCommand::IncrementRefs(ids) => self.increment_refs(&ids),
-            AudioCommand::DecrementRefs(ids) => self.decrement_refs(&ids),
             AudioCommand::Unload(id) => {
-                self.pinned.remove(&id);
                 if !self.ref_counts.contains_key(&id) {
                     self.evict(&id);
                 }
@@ -323,15 +335,15 @@ impl AudioManager {
                 self.play_tracked_preview(handle, preview);
             }
             AudioCommand::PlayLoop {
-                handle,
+                key,
                 sounds,
                 volume,
                 pitch_variation,
                 volume_variation,
-            } => self.play_loop(handle, &sounds, volume, pitch_variation, volume_variation),
+            } => self.play_loop(key, &sounds, volume, pitch_variation, volume_variation),
             #[cfg(feature = "editor")]
             AudioCommand::StopTrackedPreview(handle) => self.stop_tracked_preview(handle),
-            AudioCommand::StopLoop(handle) => self.stop_loop(handle),
+            AudioCommand::StopLoops { owner, fade_out } => self.stop_loops(owner, fade_out),
         }
     }
 }

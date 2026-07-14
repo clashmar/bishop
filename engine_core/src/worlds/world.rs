@@ -13,7 +13,7 @@ use serde_with::FromInto;
 use strum_macros::EnumIter;
 
 /// Identifier for a world.
-#[derive(Default, Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Default, Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct WorldId(pub usize);
 
 #[serde_as]
@@ -34,7 +34,7 @@ pub struct World {
     pub room_grid: RoomGrid,
     #[serde(skip)]
     room_index: HashMap<RoomId, usize>,
-    pub singleton: Option<Entity>,
+    pub singleton: Entity,
 }
 
 fn default_grid_size() -> f32 {
@@ -138,7 +138,7 @@ impl World {
 }
 
 #[serde_as]
-#[derive(Clone, Serialize, Deserialize, Default, Debug)]
+#[derive(Clone, Serialize, Deserialize, Default, Debug, PartialEq)]
 pub struct WorldMeta {
     /// Position on the game map.
     #[serde_as(as = "FromInto<[f32; 2]>")]
@@ -207,8 +207,8 @@ impl WorldMeta {
 }
 
 impl World {
-    /// Links all exits in all rooms of this world.
-    pub fn link_all_exits(&mut self) {
+    /// Links all room exits in this world to adjacent rooms.
+    pub fn link_all_room_exits(&mut self) {
         let len = self.rooms().len();
         let grid_size = self.grid_size;
 
@@ -220,7 +220,7 @@ impl World {
             // Create a slice of immutable references to all other rooms
             let other_rooms: Vec<&Room> = left.iter().chain(right.iter()).collect();
 
-            room.link_exits(&other_rooms, grid_size);
+            room.link_room_exits(&other_rooms, grid_size);
         }
     }
 }
@@ -291,6 +291,7 @@ mod tests {
     fn room(id: usize) -> Room {
         Room {
             id: RoomId(id),
+            singleton: Entity(id),
             ..Default::default()
         }
     }

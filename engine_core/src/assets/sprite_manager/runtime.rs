@@ -23,7 +23,8 @@ impl SpriteManager {
         }
     }
 
-    pub(super) fn queue_runtime_texture_read(&mut self, id: SpriteId) {
+    /// Queues a runtime texture read for traversal warming.
+    pub fn prewarm_runtime_texture(&mut self, id: SpriteId) {
         if !self.runtime_texture_loading || id.0 == 0 {
             return;
         }
@@ -86,18 +87,23 @@ impl SpriteManager {
         }
     }
 
+    /// Returns the number of runtime texture reads still in flight.
+    pub fn pending_texture_count(&self) -> usize {
+        self.pending_texture_reads.len()
+    }
+
     #[cfg(test)]
-    pub(super) fn enable_runtime_texture_loading_for_test(&mut self) {
+    pub(crate) fn enable_runtime_texture_loading_for_test(&mut self) {
         self.runtime_texture_loading = true;
     }
 
     #[cfg(test)]
-    pub(super) fn attach_runtime_file_read_pool_for_test(&mut self, file_read_pool: &FileReadPool) {
+    pub(crate) fn attach_runtime_file_read_pool_for_test(&mut self, file_read_pool: &FileReadPool) {
         self.runtime_file_read_pool = Some(file_read_pool.clone());
     }
 
     #[cfg(test)]
-    pub(super) fn has_pending_texture_read(&self, id: SpriteId) -> bool {
+    pub(crate) fn has_pending_texture_read(&self, id: SpriteId) -> bool {
         self.pending_texture_reads.contains_key(&id)
     }
 }

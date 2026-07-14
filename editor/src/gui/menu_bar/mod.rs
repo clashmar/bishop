@@ -1,4 +1,5 @@
 use crate::app::EditorMode;
+use crate::game::GameEditorSubmode;
 use crate::gui::gui_constants::*;
 use crate::gui::widgets::menu_widgets::menu_dropdown;
 pub(crate) use crate::gui::widgets::menu_widgets::{menu_button, menu_button_text_position};
@@ -44,6 +45,7 @@ pub enum EditorAction {
     ViewPrefabBrowserPanel,
     ViewPrefabPalettePanel,
     ViewResourcesPanel,
+    ViewWorldArrows,
     // Options actions
     WorldSettings,
     EditorSettings,
@@ -71,6 +73,7 @@ impl EditorAction {
             EditorAction::ViewPrefabBrowserPanel => "Prefab Browser".to_string(),
             EditorAction::ViewPrefabPalettePanel => "Prefab Palette".to_string(),
             EditorAction::ViewResourcesPanel => "Resources".to_string(),
+            EditorAction::ViewWorldArrows => "World Arrows".to_string(),
             EditorAction::Rename => "Rename Prefab".to_string(),
             EditorAction::WorldSettings => "World Settings".to_string(),
             EditorAction::EditorSettings => "Editor Settings".to_string(),
@@ -98,6 +101,7 @@ impl EditorAction {
                 EditorAction::ViewPrefabBrowserPanel => Some("P"),
                 EditorAction::ViewPrefabPalettePanel => Some("P"),
                 EditorAction::ViewResourcesPanel => Some("^ R"),
+                EditorAction::ViewWorldArrows => Some("A"),
                 _ => None,
             }
         }
@@ -117,6 +121,7 @@ impl EditorAction {
                 EditorAction::ViewPrefabBrowserPanel => Some("P"),
                 EditorAction::ViewPrefabPalettePanel => Some("P"),
                 EditorAction::ViewResourcesPanel => Some("⌘ R"),
+                EditorAction::ViewWorldArrows => Some("A"),
                 _ => None,
             }
         }
@@ -144,12 +149,15 @@ impl EditorAction {
             | EditorAction::ViewDiagnosticsPanel
             | EditorAction::ViewResourcesPanel
             | EditorAction::EditorSettings => true,
+            EditorAction::ViewWorldArrows => {
+                matches!(editor_mode, EditorMode::Game(GameEditorSubmode::Worlds))
+            }
             EditorAction::Save => !matches!(editor_mode, EditorMode::Prefab(BLANK_PREFAB_ID)),
             EditorAction::SaveAs => !matches!(editor_mode, EditorMode::Prefab(BLANK_PREFAB_ID)),
             EditorAction::ViewInspectorPanel => {
                 matches!(
                     editor_mode,
-                    EditorMode::Game
+                    EditorMode::Game(_)
                         | EditorMode::World(_)
                         | EditorMode::Room(_)
                         | EditorMode::Prefab(_)
@@ -185,6 +193,7 @@ impl EditorAction {
             EditorAction::ViewPrefabBrowserPanel => Controls::p(ctx),
             EditorAction::ViewPrefabPalettePanel => Controls::p(ctx),
             EditorAction::ViewResourcesPanel => Controls::cmd_r(ctx),
+            EditorAction::ViewWorldArrows => Controls::a(ctx),
             _ => false,
         }
     }
@@ -197,6 +206,7 @@ impl EditorAction {
                 | EditorAction::ViewConsolePanel
                 | EditorAction::ViewDiagnosticsPanel
                 | EditorAction::ViewResourcesPanel
+                | EditorAction::ViewWorldArrows
                 | EditorAction::ViewPrefabBrowserPanel
                 | EditorAction::ViewPrefabPalettePanel
         )
@@ -231,6 +241,7 @@ impl MenuBar {
         ctx: &mut WgpuContext,
         _title: &str,
         editor_mode: EditorMode,
+        back_action: Option<EditorAction>,
     ) -> Option<EditorAction> {
         // Height of each dropdown item
         const HEIGHT: f32 = 30.0;
@@ -241,7 +252,7 @@ impl MenuBar {
         let mut x = panel_rect.x + PADDING;
         let y = panel_rect.y + PADDING / 2.0;
 
-        if let Some(back_action) = back_action_for_mode(editor_mode) {
+        if let Some(back_action) = back_action {
             let back_label = "←";
             let back_rect = Rect::new(
                 x,
@@ -390,12 +401,14 @@ impl MenuBar {
     }
 }
 
-fn back_action_for_mode(editor_mode: EditorMode) -> Option<EditorAction> {
+pub(crate) fn back_action_for_mode(editor_mode: EditorMode) -> Option<EditorAction> {
     match editor_mode {
-        EditorMode::Room(_) | EditorMode::World(_) | EditorMode::Menu | EditorMode::Prefab(_) => {
-            Some(EditorAction::NavigateBack)
-        }
-        EditorMode::Game => None,
+        EditorMode::Game(GameEditorSubmode::Topology(_))
+        | EditorMode::Room(_)
+        | EditorMode::World(_)
+        | EditorMode::Menu
+        | EditorMode::Prefab(_) => Some(EditorAction::NavigateBack),
+        EditorMode::Game(GameEditorSubmode::Worlds) => None,
     }
 }
 
@@ -427,6 +440,7 @@ fn view_actions_for_mode(editor_mode: EditorMode) -> Vec<EditorAction> {
         EditorAction::ViewPrefabBrowserPanel,
         EditorAction::ViewPrefabPalettePanel,
         EditorAction::ViewResourcesPanel,
+        EditorAction::ViewWorldArrows,
     ]
     .into_iter()
     .filter(|action| action.is_available_in(editor_mode))

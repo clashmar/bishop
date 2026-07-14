@@ -18,7 +18,7 @@ pub fn update_physics(
         .get_store::<PhysicsBody>()
         .data
         .keys()
-        .filter(|entity| ecs.get::<Active>(**entity).is_some_and(|active| active.0))
+        .filter(|entity| ecs.get::<Active>(**entity).is_some_and(Active::is_enabled))
         .copied()
         .collect();
 
@@ -306,7 +306,7 @@ mod tests {
             .with(Collider::default())
             .with(PhysicsBody)
             .with_current_room(RoomId(1))
-            .with(Active(false))
+            .with(Active::new(false))
             .finish();
 
         let world = empty_world();
@@ -408,6 +408,30 @@ mod tests {
             .with_current_room(RoomId(1))
             .with(Active::default())
             .finish();
+
+        let world = empty_world();
+
+        update_physics(&SpriteManager::default(), &mut ecs, &world, 1.0 / 60.0);
+
+        assert_eq!(
+            ecs.get::<Transform>(entity).map(|transform| transform.position),
+            Some(Vec2::new(1.0, 0.0))
+        );
+    }
+
+    #[test]
+    fn pinned_inactive_physics_body_is_simulated() {
+        let mut ecs = Ecs::default();
+        let entity = ecs
+            .create_entity()
+            .with(Transform::default())
+            .with(Velocity { x: 30.0, y: 0.0 })
+            .with(Collider::default())
+            .with(PhysicsBody)
+            .with_current_room(RoomId(1))
+            .with(Active::new(false))
+            .finish();
+        ecs.get_mut::<Active>(entity).unwrap().pin();
 
         let world = empty_world();
 

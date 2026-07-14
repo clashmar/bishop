@@ -17,6 +17,8 @@ pub mod lua_files {
     pub const TEXT: &str = "text.lua";
     pub const MENU: &str = "menu.lua";
     pub const MENUS: &str = "menus.lua";
+    pub const WORLDS: &str = "worlds.lua";
+    pub const ENTRIES: &str = "entries.lua";
     pub const AUDIO: &str = "audio.lua";
     pub const SAVE: &str = "save.lua";
     pub const THEME: &str = "theme.lua";
@@ -48,6 +50,8 @@ pub mod lua_globals {
     pub const PREFABS: &str = "Prefabs";
     pub const SOUNDS: &str = "Sounds";
     pub const MENUS: &str = "Menus";
+    pub const WORLDS: &str = "Worlds";
+    pub const ENTRIES: &str = "Entries";
     pub const EVENT_TAGS: &str = "EventTags";
     pub const SCRIPT: &str = "Script";
     pub const ENTITY: &str = "Entity";
@@ -68,6 +72,8 @@ pub mod lua_fields {
     pub const NAME: &str = "name";
     pub const PUBLIC: &str = "public";
     pub const POSITION: &str = "position";
+    pub const WORLD_ID: &str = "world_id";
+    pub const ROOM_ID: &str = "room_id";
     pub const X: &str = "x";
     pub const Y: &str = "y";
     pub const Z: &str = "z";
@@ -97,6 +103,7 @@ pub mod lua_engine {
     pub const THEME: &str = "theme";
     pub const QUIT_TO_TITLE: &str = "quit_to_title";
     pub const OVERLAY_WORLD: &str = "overlay_world";
+    pub const OVERLAY_ENTRY: &str = "overlay_entry";
     pub const RETURN_FROM_WORLD: &str = "return_from_world";
     pub const RESTORE_LOCATION: &str = "restore_location";
     pub const CURRENT_WORLD: &str = "current_world";
@@ -118,6 +125,7 @@ pub mod lua_entity {
     pub const MOVE_BY: &str = "move_by";
     pub const MOVE_TO_ROOM: &str = "move_to_room";
     pub const MOVE_TO_WORLD: &str = "move_to_world";
+    pub const MOVE_TO_ENTRY: &str = "move_to_entry";
     pub const TRIGGER_WORLD_EXIT: &str = "trigger_world_exit";
     pub const REMOVE_FROM_ROOM: &str = "remove_from_room";
     pub const CURRENT_ROOM: &str = "current_room";
@@ -192,6 +200,8 @@ pub mod lua_audio {
     pub const ENTITY_PLAY_SOUND: &str = "play_sound";
     pub const ENTITY_STOP_SOUND: &str = "stop_sound";
     pub const ENTITY_SET_SOUND_VOLUME: &str = "set_sound_volume";
+    pub const STOP_IMMEDIATE: &str = "immediate";
+    pub const STOP_FADE_OUT: &str = "fade_out";
 }
 
 /// Save Lua names.

@@ -1,5 +1,6 @@
 use crate::app::EditorMode;
 use crate::commands::editor_command_manager::EditorCommand;
+use crate::commands::scene::component_dependency_cleanup::prune_hidden_dependency_components;
 use crate::commands::scene::context::with_scene_ctx;
 use crate::prefab::instance_sync::sync_prefab_overrides_for_entity;
 use crate::with_editor;
@@ -45,17 +46,13 @@ impl EditorCommand for RemoveComponentCmd {
                     return;
                 }
 
-                if let Some(reg) = COMPONENTS.iter().find(|r| r.type_name == type_name) {
-                    if (reg.has)(ctx.ecs(), entity) {
-                        let mut boxed = (reg.clone)(ctx.ecs(), entity);
-                        (reg.post_remove)(&mut *boxed, &entity, ctx);
-                        (reg.remove)(ctx.ecs(), entity);
-                    }
-                }
+                Ecs::remove_component_by_type_name(ctx, entity, type_name);
 
                 if type_name == Animation::TYPE_NAME {
                     Ecs::remove_component::<CurrentFrame>(ctx, entity);
                 }
+
+                prune_hidden_dependency_components(ctx, entity, type_name);
             });
             if matches!(mode, EditorMode::Room(_)) {
                 sync_prefab_overrides_for_entity(
@@ -107,9 +104,9 @@ impl EditorCommand for RemoveComponentCmd {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use engine_core::worlds::*;
     use crate::app::Editor;
     use crate::editor_global::{reset_services, set_editor, with_editor};
+    use engine_core::worlds::*;
 
     #[test]
     fn removing_animation_component_also_removes_current_frame() {
@@ -155,6 +152,54 @@ mod tests {
         with_editor(|editor| {
             assert!(!editor.game.ecs.has::<Animation>(entity));
             assert!(!editor.game.ecs.has::<CurrentFrame>(entity));
+        });
+    }
+
+    #[test]
+    fn removing_component_keeps_first_class_dependencies_and_prunes_hidden_orphans() {
+        reset_services();
+
+        let mut editor = Editor::default();
+        editor.game.add_world(Default::default());
+        set_editor(editor);
+
+        let entity = with_editor(|editor| {
+            let entity = editor.game.ecs.create_entity().finish();
+            generic_inserter::<PhysicsBody>(&mut editor.game.ecs, entity, Box::new(PhysicsBody));
+            entity
+        });
+
+        let snapshot = with_editor(|editor| {
+            let reg = COMPONENTS
+                .iter()
+                .find(|r| r.type_name == PhysicsBody::TYPE_NAME)
+                .expect("PhysicsBody component must be registered");
+            let boxed = (reg.clone)(&editor.game.ecs, entity);
+            (reg.to_ron_component)(boxed.as_ref())
+        });
+
+        let mut cmd = RemoveComponentCmd::new(
+            entity,
+            EditorMode::Room(RoomId(1)),
+            PhysicsBody::TYPE_NAME,
+            snapshot,
+        );
+        cmd.execute();
+
+        with_editor(|editor| {
+            assert!(!editor.game.ecs.has::<PhysicsBody>(entity));
+            assert!(editor.game.ecs.has::<MotionBody>(entity));
+            assert!(!editor.game.ecs.has::<Grounded>(entity));
+            assert!(editor.game.ecs.has::<SubPixel>(entity));
+        });
+
+        cmd.undo();
+
+        with_editor(|editor| {
+            assert!(editor.game.ecs.has::<PhysicsBody>(entity));
+            assert!(editor.game.ecs.has::<MotionBody>(entity));
+            assert!(editor.game.ecs.has::<Grounded>(entity));
+            assert!(editor.game.ecs.has::<SubPixel>(entity));
         });
     }
 

@@ -1,13 +1,20 @@
+use std::collections::HashMap;
+
 use super::groups::{
     assign_preset_by_name, available_preset_names, handle_assign_option, handle_preset_action,
     preset_actions_for_group, rename_target_group, AssignOption, PresetAction,
 };
 use super::preview::{
-    active_preview_is_cleared_for_test, set_active_preview_for_test, ActivePreview,
+    active_preview_is_cleared_for_test, set_active_preview_for_test, tick_active_audio_preview,
+    ActivePreview, PreviewRequest,
 };
 use super::*;
-use crate::storage::sound_presets::{set_current_sound_preset_library, SoundPresetLibrary};
-use engine_core::assets::AssetRegistry;
+use crate::gui::widgets::audio_source_module_core::{
+    format_volume_label, EDIT_SECTION_SPACING, ROW_HEIGHT, SECTION_GAP, SPACING, TOP_PADDING,
+};
+use crate::storage::sound_presets::{
+    current_sound_preset_library, set_current_sound_preset_library, SoundPresetLibrary,
+};
 use engine_core::ecs::SoundPresetLink;
 
 #[test]
@@ -43,7 +50,7 @@ fn rename_target_group_errors_when_target_group_was_removed() {
 #[test]
 fn rename_target_group_renames_linked_preset_and_returns_link_update() {
     set_current_sound_preset_library(SoundPresetLibrary {
-        presets: std::collections::HashMap::from([("Jump".to_string(), AudioGroup::default())]),
+        presets: HashMap::from([("Jump".to_string(), AudioGroup::default())]),
     });
 
     let mut source = AudioSource::default();
@@ -88,7 +95,7 @@ fn available_preset_names_omit_presets_already_linked_on_entity() {
     );
 
     let library = SoundPresetLibrary {
-        presets: std::collections::HashMap::from([
+        presets: HashMap::from([
             ("Jump".to_string(), AudioGroup::default()),
             ("Land".to_string(), AudioGroup::default()),
         ]),
@@ -109,7 +116,7 @@ fn available_preset_names_keep_matching_preset_visible_for_detached_group() {
     );
 
     let library = SoundPresetLibrary {
-        presets: std::collections::HashMap::from([("Jump".to_string(), AudioGroup::default())]),
+        presets: HashMap::from([("Jump".to_string(), AudioGroup::default())]),
     };
 
     assert_eq!(
@@ -123,7 +130,7 @@ fn preset_actions_offer_reattach_for_detached_group_matching_preset() {
     let group_id = SoundGroupId::Custom("Jump".to_string());
     let group = AudioGroup::default();
     let library = SoundPresetLibrary {
-        presets: std::collections::HashMap::from([("Jump".to_string(), AudioGroup::default())]),
+        presets: HashMap::from([("Jump".to_string(), AudioGroup::default())]),
     };
 
     let labels = preset_actions_for_group(&group_id, &group, &library)
@@ -138,17 +145,11 @@ fn preset_actions_offer_reattach_for_detached_group_matching_preset() {
 fn load_preset_action_opens_picker() {
     let mut source = AudioSource::default();
     let mut module = AudioSourceModule::default();
-    let asset_registry = AssetRegistry::default();
 
-    let warning = handle_assign_option(
-        &mut source,
-        AssignOption::LoadPreset,
-        &mut module,
-        &asset_registry,
-    );
+    let warning = handle_assign_option(&mut source, AssignOption::LoadPreset, &mut module.core);
 
     assert_eq!(warning, None);
-    assert!(module.show_preset_picker);
+    assert!(module.core.show_preset_picker);
 }
 
 #[test]
@@ -161,18 +162,11 @@ fn assigning_matching_preset_warns_when_component_already_has_group_with_same_na
     source.current = Some(land.clone());
 
     let library = SoundPresetLibrary {
-        presets: std::collections::HashMap::from([("Jump".to_string(), AudioGroup::default())]),
+        presets: HashMap::from([("Jump".to_string(), AudioGroup::default())]),
     };
     let mut pending_sync_all = None;
-    let asset_registry = AssetRegistry::default();
 
-    let warning = assign_preset_by_name(
-        &mut source,
-        "Jump",
-        &library,
-        &mut pending_sync_all,
-        &asset_registry,
-    );
+    let warning = assign_preset_by_name(&mut source, "Jump", &library, &mut pending_sync_all);
 
     assert_eq!(
         warning,
@@ -192,7 +186,7 @@ fn assigning_matching_preset_warns_when_component_already_has_group_with_same_na
 #[test]
 fn reattach_action_applies_preset_and_restores_link() {
     set_current_sound_preset_library(SoundPresetLibrary {
-        presets: std::collections::HashMap::from([(
+        presets: HashMap::from([(
             "Jump".to_string(),
             AudioGroup {
                 sounds: vec![SoundId(1)],
@@ -201,6 +195,7 @@ fn reattach_action_applies_preset_and_restores_link() {
                 volume_variation: 0.1,
                 looping: true,
                 preset_link: None,
+                ..Default::default()
             },
         )]),
     });
@@ -216,17 +211,16 @@ fn reattach_action_applies_preset_and_restores_link() {
             volume_variation: 0.0,
             looping: false,
             preset_link: None,
+            ..Default::default()
         },
     );
     source.current = Some(jump.clone());
 
     let mut pending_sync_all = None;
-    let asset_registry = AssetRegistry::default();
     let warning = handle_preset_action(
         &mut source,
         PresetAction::Reattach("Jump".to_string()),
         &mut pending_sync_all,
-        &asset_registry,
     );
 
     assert_eq!(warning, None);
@@ -284,8 +278,10 @@ fn height_matches_single_visible_row_when_source_has_no_groups() {
 #[test]
 fn height_adds_only_rename_row_when_no_groups_and_rename_is_active() {
     let module = AudioSourceModule {
-        pending_rename_target: Some(SoundGroupId::Custom("Group 1".to_string())),
-        ..Default::default()
+        core: AudioSourceModuleCore {
+            pending_rename_target: Some(SoundGroupId::Custom("Group 1".to_string())),
+            ..Default::default()
+        },
     };
 
     assert_eq!(
@@ -297,15 +293,21 @@ fn height_adds_only_rename_row_when_no_groups_and_rename_is_active() {
 #[test]
 fn height_matches_minimal_group_editor_without_sound_rows() {
     let module = AudioSourceModule {
-        has_groups: true,
-        sounds_len: 0,
-        ..Default::default()
+        core: AudioSourceModuleCore {
+            has_groups: true,
+            sounds_len: 0,
+            ..Default::default()
+        },
     };
 
     let expected = TOP_PADDING
         + ROW_HEIGHT
         + SPACING
         + SECTION_GAP
+        + ROW_HEIGHT
+        + EDIT_SECTION_SPACING
+        + ROW_HEIGHT
+        + EDIT_SECTION_SPACING
         + ROW_HEIGHT
         + EDIT_SECTION_SPACING
         + ROW_HEIGHT
@@ -323,15 +325,19 @@ fn height_matches_minimal_group_editor_without_sound_rows() {
 #[test]
 fn height_includes_preset_actions_row_only_when_cached_as_visible() {
     let without_preset_actions = AudioSourceModule {
-        has_groups: true,
-        sounds_len: 0,
-        ..Default::default()
+        core: AudioSourceModuleCore {
+            has_groups: true,
+            sounds_len: 0,
+            ..Default::default()
+        },
     };
     let with_preset_actions = AudioSourceModule {
-        has_groups: true,
-        has_preset_actions: true,
-        sounds_len: 0,
-        ..Default::default()
+        core: AudioSourceModuleCore {
+            has_groups: true,
+            has_preset_actions: true,
+            sounds_len: 0,
+            ..Default::default()
+        },
     };
 
     assert_eq!(

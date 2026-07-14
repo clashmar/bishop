@@ -1,11 +1,16 @@
 use super::*;
+use crate::game::GameEditorSubmode;
 use crate::prefab::BLANK_PREFAB_ID;
-use engine_core::worlds::*;
 use engine_core::prefab::PrefabId;
+use engine_core::worlds::*;
+
+fn game_mode() -> EditorMode {
+    EditorMode::Game(GameEditorSubmode::Worlds)
+}
 
 #[test]
 fn hierarchy_panel_action_is_limited_to_room_and_prefab_modes() {
-    assert!(!EditorAction::ViewHierarchyPanel.is_available_in(EditorMode::Game));
+    assert!(!EditorAction::ViewHierarchyPanel.is_available_in(game_mode()));
     assert!(!EditorAction::ViewHierarchyPanel.is_available_in(EditorMode::World(WorldId(0))));
     assert!(EditorAction::ViewHierarchyPanel.is_available_in(EditorMode::Room(RoomId(2))));
     assert!(EditorAction::ViewHierarchyPanel.is_available_in(EditorMode::Prefab(PrefabId(7))));
@@ -15,7 +20,7 @@ fn hierarchy_panel_action_is_limited_to_room_and_prefab_modes() {
 #[test]
 fn prefab_palette_action_is_limited_to_room_mode() {
     assert!(EditorAction::ViewPrefabPalettePanel.is_available_in(EditorMode::Room(RoomId(2))));
-    assert!(!EditorAction::ViewPrefabPalettePanel.is_available_in(EditorMode::Game));
+    assert!(!EditorAction::ViewPrefabPalettePanel.is_available_in(game_mode()));
     assert!(!EditorAction::ViewPrefabPalettePanel.is_available_in(EditorMode::Prefab(PrefabId(7))));
 }
 
@@ -37,7 +42,7 @@ fn blank_prefab_mode_has_back_action() {
 #[cfg(debug_assertions)]
 #[test]
 fn file_menu_hides_change_save_root_in_debug_builds() {
-    let actions = file_actions_for_mode(EditorMode::Game);
+    let actions = file_actions_for_mode(game_mode());
 
     assert!(!actions.contains(&EditorAction::ChangeSaveRoot));
 }
@@ -76,7 +81,7 @@ fn prefab_mode_shows_return_game_editor_in_editors_menu() {
 #[cfg(not(debug_assertions))]
 #[test]
 fn file_menu_shows_change_save_root_in_release_builds() {
-    let actions = file_actions_for_mode(EditorMode::Game);
+    let actions = file_actions_for_mode(game_mode());
 
     assert!(actions.contains(&EditorAction::ChangeSaveRoot));
 }
@@ -91,12 +96,12 @@ fn back_action_is_available_for_room_world_menu_and_prefab_modes() {
 
 #[test]
 fn game_mode_has_no_back_action() {
-    assert_eq!(back_action_for_mode(EditorMode::Game), None);
+    assert_eq!(back_action_for_mode(game_mode()), None);
 }
 
 #[test]
 fn inspector_toggle_action_is_available_in_inspector_modes_only() {
-    assert!(EditorAction::ViewInspectorPanel.is_available_in(EditorMode::Game));
+    assert!(EditorAction::ViewInspectorPanel.is_available_in(game_mode()));
     assert!(EditorAction::ViewInspectorPanel.is_available_in(EditorMode::World(WorldId(0))));
     assert!(EditorAction::ViewInspectorPanel.is_available_in(EditorMode::Room(RoomId(1))));
     assert!(EditorAction::ViewInspectorPanel.is_available_in(EditorMode::Prefab(PrefabId(7))));
@@ -108,6 +113,26 @@ fn room_mode_view_menu_contains_inspector_toggle() {
     let actions = view_actions_for_mode(EditorMode::Room(RoomId(1)));
 
     assert!(actions.contains(&EditorAction::ViewInspectorPanel));
+}
+
+#[test]
+fn game_mode_view_menu_contains_world_arrows() {
+    let actions = view_actions_for_mode(game_mode());
+
+    assert!(actions.contains(&EditorAction::ViewWorldArrows));
+}
+
+#[test]
+fn world_arrows_action_is_limited_to_game_mode() {
+    assert!(EditorAction::ViewWorldArrows.is_available_in(game_mode()));
+    assert!(!EditorAction::ViewWorldArrows.is_available_in(EditorMode::World(WorldId(1))));
+    assert!(!EditorAction::ViewWorldArrows.is_available_in(EditorMode::Room(RoomId(1))));
+    assert!(!EditorAction::ViewWorldArrows.is_available_in(EditorMode::Menu));
+}
+
+#[test]
+fn world_arrows_shortcut_is_plain_a() {
+    assert_eq!(EditorAction::ViewWorldArrows.shortcut(), Some("A"));
 }
 
 #[test]

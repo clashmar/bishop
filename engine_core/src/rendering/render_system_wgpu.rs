@@ -104,11 +104,7 @@ impl RenderSystem {
         // self.rt_width = width as f32;
         // self.rt_height = height as f32;
 
-        // let make = || {
-        //     let rt = render_target(width, height);
-        //     rt.texture.set_filter(FilterMode::Nearest);
-        //     rt
-        // };
+
 
         // self.scene_rt = make();
         // self.ambient_rt = make();

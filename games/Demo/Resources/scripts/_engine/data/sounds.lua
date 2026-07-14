@@ -4,6 +4,7 @@
 
 ---@enum SoundGroupId
 local SoundGroupId = {
+    Group1 = "Group 1",
     Jump = "Jump",
 }
 

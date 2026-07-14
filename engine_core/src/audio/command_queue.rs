@@ -1,3 +1,5 @@
+use crate::ecs::{Entity, SoundGroupId};
+use crate::worlds::{RoomId, WorldId};
 use std::cell::RefCell;
 
 /// Parameters for starting a music track.
@@ -15,6 +17,33 @@ pub struct PlayMusicRequest {
     pub fade_in: f32,
 }
 
+/// Identifies the gameplay owner for a looping audio playback.
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum AudioPlaybackOwner {
+    /// A loop owned by an entity.
+    Entity(Entity),
+    /// A loop owned by a room singleton.
+    Room(RoomId),
+    /// A loop owned by a world singleton.
+    World(WorldId),
+}
+
+/// Identifies a looping audio playback by owner and authored sound group.
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct AudioLoopKey {
+    /// The gameplay scope that owns this loop.
+    pub owner: AudioPlaybackOwner,
+    /// The authored sound group being played for that owner.
+    pub group: SoundGroupId,
+}
+
+impl AudioLoopKey {
+    /// Creates a loop key from an owner and authored group.
+    pub fn new(owner: AudioPlaybackOwner, group: SoundGroupId) -> Self {
+        Self { owner, group }
+    }
+}
+
 /// Commands that Lua scripts can issue to the audio system.
 /// Queued on the main thread, drained by `AudioManager::poll` each frame.
 pub enum AudioCommand {
@@ -26,10 +55,6 @@ pub enum AudioCommand {
     SetMasterVolume(f32),
     SetMusicVolume(f32),
     SetSfxVolume(f32),
-    /// Increment reference counts for a batch of sound IDs, loading each if not cached.
-    IncrementRefs(Vec<String>),
-    /// Decrement reference counts for a batch of sound IDs, evicting unpinned sounds that reach zero.
-    DecrementRefs(Vec<String>),
     /// Explicitly unpin and evict a sound from the cache if its reference count is zero.
     Unload(String),
     /// Play a one-shot sound with random selection from the list and optional pitch/volume variation.
@@ -50,9 +75,9 @@ pub enum AudioCommand {
         looping: bool,
         timeout: f32,
     },
-    /// Start a looping sound tracked by a u64 handle key. If a loop already exists for the handle, it is stopped first.
+    /// Start a looping sound tracked by owner and group key. If a loop already exists for the key, it is stopped first.
     PlayLoop {
-        handle: u64,
+        key: AudioLoopKey,
         sounds: Vec<String>,
         volume: f32,
         pitch_variation: f32,
@@ -61,8 +86,11 @@ pub enum AudioCommand {
     #[cfg(feature = "editor")]
     /// Stop a tracked editor preview by handle.
     StopTrackedPreview(u64),
-    /// Stop a looping sound by its handle key.
-    StopLoop(u64),
+    /// Stop looping sounds owned by the given gameplay scope.
+    StopLoops {
+        owner: AudioPlaybackOwner,
+        fade_out: Option<f32>,
+    },
 }
 
 thread_local! {
@@ -75,6 +103,16 @@ pub fn push_audio_command(cmd: AudioCommand) {
 }
 
 /// Drain all queued commands. Called once per frame by `AudioManager::poll`.
+#[cfg(any(test, feature = "test-utils"))]
+pub fn drain_audio_commands() -> Vec<AudioCommand> {
+    AUDIO_COMMANDS.with(|q| {
+        let mut v = q.borrow_mut();
+        std::mem::take(&mut *v)
+    })
+}
+
+/// Drain all queued commands. Called once per frame by `AudioManager::poll`.
+#[cfg(not(any(test, feature = "test-utils")))]
 pub(crate) fn drain_audio_commands() -> Vec<AudioCommand> {
     AUDIO_COMMANDS.with(|q| {
         let mut v = q.borrow_mut();

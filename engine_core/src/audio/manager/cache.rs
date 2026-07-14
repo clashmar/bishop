@@ -1,5 +1,6 @@
 use super::*;
 use crate::audio::loader::{decode_wav_bytes, wav_path};
+use crate::hydration::{EvictError, Hydratable};
 
 impl AudioManager {
     pub(super) fn cached_frames(&self, id: &str) -> Option<Arc<Frames<[f32; 2]>>> {
@@ -28,18 +29,6 @@ impl AudioManager {
         self.file_read_pool.queue_read(id.to_owned(), path);
     }
 
-    fn finish_sound_load(&mut self, id: String, frames: Arc<Frames<[f32; 2]>>) {
-        self.sound_cache.insert(id, frames);
-    }
-
-    fn fail_sound_load(&mut self, id: String, error: String) {
-        self.clear_pending_requests_for_sound(&id);
-        crate::omni_log!(
-            log::Level::Error,
-            "AudioManager: failed to load '{id}': {error}"
-        );
-    }
-
     pub(super) fn poll_pending_loads(&mut self) {
         while let Some(completed) = self.file_read_pool.try_recv_completed() {
             let crate::task::FileReadCompleted { id, path, result } = completed;
@@ -57,7 +46,7 @@ impl AudioManager {
         }
     }
 
-    #[cfg(test)]
+    #[cfg(any(test, feature = "test-utils"))]
     pub(crate) fn complete_load_for_test(&mut self, id: &str, frames: Arc<Frames<[f32; 2]>>) {
         self.pending_loads.remove(id);
         self.finish_sound_load(id.to_owned(), frames);
@@ -69,15 +58,32 @@ impl AudioManager {
         self.fail_sound_load(id.to_owned(), error.to_owned());
     }
 
-    /// Preloads a sound into the cache without playing it and pins it against auto-eviction.
-    pub(super) fn preload(&mut self, id: &str) {
-        self.queue_sound_load(id);
-        self.pinned.insert(id.to_owned());
+    /// Seeds a silent sound into the cache for testing, bypassing file I/O.
+    #[cfg(any(test, feature = "test-utils"))]
+    pub fn seed_silent_sound_for_test(&mut self, id: &str) {
+        let frames = oddio::Frames::from_slice(44_100, &[[0.0, 0.0]]);
+        self.complete_load_for_test(id, frames);
     }
 
-    /// Evicts a sound from the cache if it is not pinned.
+    /// Preloads a sound into the cache without playing it.
+    pub(super) fn preload(&mut self, id: &str) {
+        self.queue_sound_load(id);
+        self.increment_refs(&[id.to_owned()]);
+    }
+
+    /// Claims a sound for hydration-managed residency.
+    pub(crate) fn claim_sound(&mut self, id: &str) {
+        self.increment_refs(&[id.to_owned()]);
+    }
+
+    /// Releases a hydration-managed sound claim.
+    pub(crate) fn release_claimed_sound(&mut self, id: &str) {
+        self.decrement_refs(&[id.to_owned()]);
+    }
+
+    /// Evicts a sound from the cache if it has no active references.
     pub(super) fn evict(&mut self, id: &str) {
-        if !self.pinned.contains(id) {
+        if self.ref_counts.get(id).copied().unwrap_or(0) == 0 {
             self.sound_cache.remove(id);
         }
     }
@@ -90,7 +96,7 @@ impl AudioManager {
         }
     }
 
-    /// Decrements reference counts for the given IDs. Evicts unpinned sounds whose count reaches zero.
+    /// Decrements reference counts for the given IDs. Evicts sounds whose count reaches zero.
     pub(crate) fn decrement_refs(&mut self, ids: &[String]) {
         for id in ids {
             let reached_zero = if let Some(count) = self.ref_counts.get_mut(id.as_str()) {
@@ -104,5 +110,46 @@ impl AudioManager {
                 self.evict(id);
             }
         }
+    }
+
+    fn finish_sound_load(&mut self, id: String, frames: Arc<Frames<[f32; 2]>>) {
+        self.sound_cache.insert(id, frames);
+    }
+
+    fn fail_sound_load(&mut self, id: String, error: String) {
+        self.clear_pending_requests_for_sound(&id);
+        crate::omni_log!(
+            log::Level::Error,
+            "AudioManager: failed to load '{id}': {error}"
+        );
+    }
+}
+
+impl Hydratable for AudioManager {
+    type Id = String;
+
+    /// Returns the reference count for a sound.
+    fn ref_count(&self, id: &Self::Id) -> usize {
+        self.ref_counts.get(id).copied().unwrap_or(0)
+    }
+
+    /// Increments the reference count.
+    fn increment_ref(&mut self, id: Self::Id) {
+        self.increment_refs(&[id]);
+    }
+
+    /// Decrements the reference count.
+    fn decrement_ref(&mut self, id: Self::Id) {
+        self.decrement_refs(&[id]);
+    }
+
+    /// Attempts eviction. Fails if the ref-count is above zero.
+    fn evict(&mut self, id: &Self::Id) -> Result<(), EvictError> {
+        let count = self.ref_count(id);
+        if count > 0 {
+            return Err(EvictError::StillReferenced { count });
+        }
+        self.evict(id);
+        Ok(())
     }
 }

@@ -4,25 +4,7 @@ local save_flow = require("save_flow")
 ---@class SaveManager
 local save_manager = {}
 
-local function player_state()
-    local player = engine.player()
-    if not player then
-        return nil, nil, nil
-    end
-
-    local transform = player.entity:get(Components.Transform)
-    local room_id = player.entity:current_room()
-    return player, transform, room_id
-end
-
-local function capture_snapshot(transform, room_id)
-    return {
-        world_id = engine.current_world().id,
-        room_id = room_id,
-        x = transform.position.x,
-        y = transform.position.y,
-    }
-end
+local player_state
 
 ---@return nil
 function save_manager.register_provider()
@@ -36,7 +18,7 @@ function save_manager.register_provider()
                 score = engine.game_manager:get_score(),
                 level = engine.game_manager.public.level,
                 health = player.public.health,
-            }, capture_snapshot(transform, room_id)))
+            }, save_flow.capture_location(transform, room_id)))
         end,
         apply = function(data)
             local player = engine.player()
@@ -53,12 +35,7 @@ function save_manager.register_provider()
             save_flow.set_active_anchor(saved.active_anchor)
             local restore = save_flow.resolve_restore_target(saved)
             if restore ~= nil then
-                engine.restore_location(
-                    restore.world_id or engine.current_world().id,
-                    restore.room_id,
-                    restore.x,
-                    restore.y
-                )
+                save_flow.apply_restore_target(restore)
             end
         end,
     })
@@ -79,6 +56,17 @@ function save_manager.bind_menu_actions()
     engine.on("menu:quit_title", function()
         engine.quit_to_title()
     end)
+end
+
+player_state = function()
+    local player = engine.player()
+    if not player then
+        return nil, nil, nil
+    end
+
+    local transform = player.entity:get(Components.Transform)
+    local room_id = player.entity:current_room()
+    return player, transform, room_id
 end
 
 save_flow.bind_runtime_handlers()

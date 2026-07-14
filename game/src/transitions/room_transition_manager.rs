@@ -16,7 +16,7 @@ pub struct RoomTransitionManager;
 
 impl RoomTransitionManager {
     /// Handles entity transitions between rooms.
-    pub fn handle_transitions(lua: &Lua, game_instance: &mut GameInstance) {
+    pub fn handle_transitions(lua: &Lua, game_instance: &mut GameInstance) -> bool {
         let entities: Vec<_> = game_instance
             .game
             .ecs
@@ -25,6 +25,8 @@ impl RoomTransitionManager {
             .keys()
             .copied()
             .collect();
+
+        let mut player_transitioned = false;
 
         for entity in entities {
             if !game_instance.game.entity_in_active_world(entity) {
@@ -78,8 +80,12 @@ impl RoomTransitionManager {
                     lua_events::ROOM_ENTERED.to_string(),
                     Variadic::from_iter(args),
                 );
+
+                player_transitioned = true;
             }
         }
+
+        player_transitioned
     }
 }
 

@@ -26,6 +26,8 @@ const SPRITE_ASSET_KIND: &str = "Sprite";
 pub struct SpriteManager {
     #[serde(skip)]
     textures: HashMap<SpriteId, Texture2D>,
+    #[serde(skip)]
+    ref_counts: HashMap<SpriteId, usize>,
     /// Derived cache of all sprite ids to their paths.
     #[serde(skip)]
     pub sprite_id_to_path: HashMap<SpriteId, PathBuf>,

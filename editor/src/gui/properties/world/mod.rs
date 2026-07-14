@@ -1,3 +1,4 @@
+pub mod world_audio_source_module;
 pub mod world_navigation_module;
 pub mod world_script_module;
 pub mod world_settings_module;
@@ -35,6 +36,7 @@ impl WorldProperties {
             modules: vec![
                 Box::new(CollapsiblePropertyModule::new(world_settings_module::WorldSettingsModule::new())),
                 Box::new(CollapsiblePropertyModule::new(world_script_module::WorldScriptModule::new())),
+                Box::new(CollapsiblePropertyModule::new(world_audio_source_module::WorldAudioSourceModule::new())),
                 Box::new(CollapsiblePropertyModule::new(world_tags_module::WorldTagsModule::for_world())),
             ],
             navigation: CollapsiblePropertyModule::new(WorldNavigationModule::new()),

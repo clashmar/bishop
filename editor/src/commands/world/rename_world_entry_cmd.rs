@@ -1,4 +1,5 @@
 use crate::app::EditorMode;
+use crate::game::GameEditorSubmode;
 use crate::commands::editor_command_manager::EditorCommand;
 use crate::with_editor;
 use engine_core::ecs::*;
@@ -62,7 +63,7 @@ impl EditorCommand for RenameWorldEntryCmd {
     }
 
     fn applies_in_mode(&self, current_mode: EditorMode) -> bool {
-        current_mode == EditorMode::Game
+        matches!(current_mode, EditorMode::Game(GameEditorSubmode::Worlds) | EditorMode::Room(_))
     }
 }
 
@@ -91,7 +92,7 @@ mod tests {
         let entry = game
             .ecs
             .create_entity()
-            .with(WorldEntry { name: ORIGINAL_NAME.to_string() })
+            .with(WorldEntry { name: ORIGINAL_NAME.to_string(), ..Default::default() })
             .with_current_room(RoomId(1))
             .finish();
 

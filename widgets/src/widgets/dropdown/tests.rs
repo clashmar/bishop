@@ -179,3 +179,57 @@ fn empty_non_filterable_dropdown_does_not_open() {
     );
     assert!(!dropdown_state::get(id).open);
 }
+
+#[test]
+fn dropdown_show_when_scroll_offset_exceeds_max_clamps_non_filterable_offset() {
+    reset_click_consumed();
+
+    let id = WidgetId(93);
+    let rect = Rect::new(0.0, 0.0, 120.0, 30.0);
+    let options = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"];
+
+    dropdown_state::set(
+        id,
+        dropdown_state::DropState {
+            open: true,
+            rect: Rect::default(),
+            scroll_offset: 999.0,
+        },
+    );
+
+    let mut ctx = WidgetTestContext::new();
+    assert_eq!(
+        Dropdown::new(id, rect, "Pick", &options, |opt| opt.to_string()).show(&mut ctx),
+        None
+    );
+
+    assert_eq!(dropdown_state::get(id).scroll_offset, 60.0);
+}
+
+#[test]
+fn dropdown_show_when_scroll_offset_exceeds_max_clamps_filterable_offset() {
+    reset_click_consumed();
+
+    let id = WidgetId(94);
+    let rect = Rect::new(0.0, 0.0, 120.0, 30.0);
+    let options = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"];
+
+    dropdown_state::set(
+        id,
+        dropdown_state::DropState {
+            open: true,
+            rect: Rect::default(),
+            scroll_offset: 999.0,
+        },
+    );
+
+    let mut ctx = WidgetTestContext::new();
+    assert_eq!(
+        Dropdown::new(id, rect, "Pick", &options, |opt| opt.to_string())
+            .filterable()
+            .show(&mut ctx),
+        None
+    );
+
+    assert_eq!(dropdown_state::get(id).scroll_offset, 60.0);
+}

@@ -55,6 +55,29 @@ pub trait Draw {
     /// Must be paired with [`pop_clip_rect`](Self::pop_clip_rect).
     fn push_clip_rect(&mut self, rect: crate::types::Rect);
 
-    /// Removes the active clip rectangle set by [`push_clip_rect`](Self::push_clip_rect).
+    /// Removes the active clip rectangle set by [`push_clip_rect`](Self::pop_clip_rect).
     fn pop_clip_rect(&mut self);
+}
+
+/// Draws an arrow from one point to another.
+pub fn draw_arrow(
+    ctx: &mut impl Draw,
+    from: Vec2,
+    to: Vec2,
+    color: Color,
+    head_length: f32,
+    head_half_width: f32,
+) {
+    let delta = to - from;
+    if delta.length_squared() == 0.0 {
+        return;
+    }
+
+    let direction = delta.normalize();
+    let tip = to;
+    let shaft_end = to - direction * head_length;
+    let normal = Vec2::new(-direction.y, direction.x) * head_half_width;
+
+    ctx.draw_line(from.x, from.y, shaft_end.x, shaft_end.y, 2.0, color);
+    ctx.draw_triangle(tip, shaft_end + normal, shaft_end - normal, color);
 }

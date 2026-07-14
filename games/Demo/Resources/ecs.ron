@@ -1,0 +1,680 @@
+(
+    components: [
+        (
+            type_name: "Active",
+            data: {
+                (3): true,
+                (37): true,
+                (38): true,
+                (68): true,
+                (75): true,
+            },
+        ),
+        (
+            type_name: "Animation",
+            data: {
+                (3): (
+                    clips: {
+                        Idle: (
+                            frame_size: (6.0, 16.0),
+                            cols: 5,
+                            rows: 1,
+                            fps: 10.0,
+                            frame_durations: [],
+                            looping: true,
+                            offset: (0.0, 0.0),
+                            mirrored: true,
+                        ),
+                        Walk: (
+                            frame_size: (10.0, 16.0),
+                            cols: 4,
+                            rows: 1,
+                            fps: 10.0,
+                            frame_durations: [],
+                            looping: true,
+                            offset: (0.0, 0.0),
+                            mirrored: true,
+                        ),
+                        Run: (
+                            frame_size: (12.0, 16.0),
+                            cols: 8,
+                            rows: 1,
+                            fps: 10.0,
+                            frame_durations: [],
+                            looping: true,
+                            offset: (0.0, 0.0),
+                            mirrored: true,
+                        ),
+                        Jump: (
+                            frame_size: (10.0, 16.0),
+                            cols: 4,
+                            rows: 1,
+                            fps: 10.0,
+                            frame_durations: [],
+                            looping: true,
+                            offset: (0.0, 0.0),
+                            mirrored: true,
+                        ),
+                        Fall: (
+                            frame_size: (6.0, 14.0),
+                            cols: 1,
+                            rows: 1,
+                            fps: 10.0,
+                            frame_durations: [],
+                            looping: true,
+                            offset: (0.0, 0.0),
+                            mirrored: true,
+                        ),
+                        Custom("Fidget"): (
+                            frame_size: (6.0, 15.0),
+                            cols: 8,
+                            rows: 1,
+                            fps: 10.0,
+                            frame_durations: [],
+                            looping: true,
+                            offset: (0.0, 0.0),
+                            mirrored: true,
+                        ),
+                    },
+                    variant: ("animations/player/male"),
+                ),
+            },
+        ),
+        (
+            type_name: "AudioSource",
+            data: {
+                (3): (
+                    groups: {
+                        Custom("Jump"): (
+                            sounds: [
+                                (1),
+                            ],
+                            volume: 1.0,
+                            pitch_variation: 0.0,
+                            volume_variation: 0.0,
+                            looping: false,
+                            preset_link: Some((
+                                preset_name: "Jump",
+                            )),
+                            trigger: Manual,
+                            stop_behavior: Immediate,
+                        ),
+                    },
+                ),
+                (53): (
+                    groups: {
+                        Custom("Group 1"): (
+                            sounds: [],
+                            volume: 1.0,
+                            pitch_variation: 0.0,
+                            volume_variation: 0.0,
+                            looping: false,
+                            preset_link: None,
+                            trigger: Manual,
+                            stop_behavior: Immediate,
+                        ),
+                    },
+                ),
+                (54): (
+                    groups: {},
+                ),
+                (55): (
+                    groups: {},
+                ),
+                (59): (
+                    groups: {},
+                ),
+                (69): (
+                    groups: {
+                        Custom("Group 1"): (
+                            sounds: [],
+                            volume: 1.0,
+                            pitch_variation: 0.0,
+                            volume_variation: 0.0,
+                            looping: false,
+                            preset_link: None,
+                            trigger: Manual,
+                            stop_behavior: Immediate,
+                        ),
+                    },
+                ),
+                (72): (
+                    groups: {},
+                ),
+                (73): (
+                    groups: {},
+                ),
+            },
+        ),
+        (
+            type_name: "Children",
+            data: {},
+        ),
+        (
+            type_name: "Collider",
+            data: {
+                (3): (
+                    width: 6.0,
+                    height: 16.0,
+                ),
+                (37): (
+                    width: 18.0,
+                    height: 19.0,
+                ),
+                (68): (
+                    width: 16.0,
+                    height: 16.0,
+                ),
+            },
+        ),
+        (
+            type_name: "CurrentFrame",
+            data: {
+                (3): (),
+            },
+        ),
+        (
+            type_name: "CurrentRoom",
+            data: {
+                (2): ((1)),
+                (24): ((2)),
+                (37): ((1)),
+                (38): ((2)),
+                (41): ((4)),
+                (46): ((2)),
+                (52): ((4)),
+                (53): ((1)),
+                (54): ((1)),
+                (55): ((2)),
+                (58): ((4)),
+                (59): ((4)),
+                (62): ((4)),
+                (63): ((1)),
+                (65): ((1)),
+                (68): ((1)),
+                (69): ((1)),
+                (70): ((5)),
+                (71): ((5)),
+                (72): ((5)),
+                (73): ((5)),
+                (74): ((5)),
+                (75): ((5)),
+                (78): ((1)),
+            },
+        ),
+        (
+            type_name: "Damage",
+            data: {},
+        ),
+        (
+            type_name: "FacingDirection",
+            data: {},
+        ),
+        (
+            type_name: "Global",
+            data: {
+                (3): (),
+            },
+        ),
+        (
+            type_name: "Glow",
+            data: {},
+        ),
+        (
+            type_name: "Grounded",
+            data: {
+                (3): (false),
+                (37): (false),
+                (68): (false),
+            },
+        ),
+        (
+            type_name: "Interactable",
+            data: {
+                (37): (
+                    range: 20.0,
+                ),
+                (38): (
+                    range: 20.0,
+                ),
+                (46): (
+                    range: 20.0,
+                ),
+                (52): (
+                    range: 20.0,
+                ),
+                (63): (
+                    range: 20.0,
+                ),
+                (75): (
+                    range: 20.0,
+                ),
+            },
+        ),
+        (
+            type_name: "Kinematic",
+            data: {},
+        ),
+        (
+            type_name: "Layer",
+            data: {},
+        ),
+        (
+            type_name: "Light",
+            data: {},
+        ),
+        (
+            type_name: "MotionBody",
+            data: {
+                (3): (),
+                (37): (),
+                (68): (),
+            },
+        ),
+        (
+            type_name: "Name",
+            data: {
+                (2): ("Player Proxy"),
+                (3): ("Player"),
+                (24): ("Camera 1"),
+                (37): ("Cat"),
+                (38): ("Checkpoint"),
+                (41): ("Camera 1"),
+                (46): ("Entity"),
+                (52): ("Entity"),
+                (63): ("Entity"),
+                (65): ("Camera 1"),
+                (68): ("Entity"),
+                (70): ("Camera 1"),
+                (71): ("Player Proxy"),
+                (75): ("Entity"),
+                (78): ("Entity"),
+            },
+        ),
+        (
+            type_name: "Parent",
+            data: {},
+        ),
+        (
+            type_name: "PhysicsBody",
+            data: {
+                (3): (),
+                (37): (),
+                (68): (),
+            },
+        ),
+        (
+            type_name: "Player",
+            data: {
+                (3): (),
+            },
+        ),
+        (
+            type_name: "PlayerProxy",
+            data: {
+                (2): (),
+                (71): (),
+            },
+        ),
+        (
+            type_name: "PrefabInstanceNode",
+            data: {
+                (37): (
+                    prefab_id: (1),
+                    node_id: 1,
+                    root_entity: (37),
+                ),
+                (63): (
+                    prefab_id: (4),
+                    node_id: 1,
+                    root_entity: (63),
+                ),
+                (65): (
+                    prefab_id: (5),
+                    node_id: 1,
+                    root_entity: (65),
+                ),
+            },
+        ),
+        (
+            type_name: "PrefabInstanceRoot",
+            data: {
+                (37): (
+                    prefab_id: (1),
+                ),
+                (63): (
+                    prefab_id: (4),
+                ),
+                (65): (
+                    prefab_id: (5),
+                ),
+            },
+        ),
+        (
+            type_name: "PrefabOverrides",
+            data: {
+                (37): (
+                    modified_components: [],
+                    removed_components: [],
+                    added_components: [
+                        (
+                            type_name: "Active",
+                            ron: "true",
+                        ),
+                        (
+                            type_name: "Grounded",
+                            ron: "(false)",
+                        ),
+                        (
+                            type_name: "MotionBody",
+                            ron: "()",
+                        ),
+                        (
+                            type_name: "PhysicsBody",
+                            ron: "()",
+                        ),
+                        (
+                            type_name: "SubPixel",
+                            ron: "()",
+                        ),
+                        (
+                            type_name: "Velocity",
+                            ron: "(\n    x: 0.0,\n    y: 0.0,\n)",
+                        ),
+                    ],
+                ),
+                (63): (
+                    modified_components: [
+                        "WorldEntry",
+                        "WorldExit",
+                    ],
+                    removed_components: [],
+                    added_components: [
+                        (
+                            type_name: "Interactable",
+                            ron: "(\n    range: 20.0,\n)",
+                        ),
+                    ],
+                ),
+            },
+        ),
+        (
+            type_name: "RoomCamera",
+            data: {
+                (24): (
+                    zoom: (0.015625, 0.027777778),
+                    room_id: (2),
+                    zoom_mode: Step,
+                    camera_mode: Fixed,
+                ),
+                (41): (
+                    zoom: (0.0078125, 0.013888889),
+                    room_id: (4),
+                    zoom_mode: Step,
+                    camera_mode: Fixed,
+                ),
+                (65): (
+                    zoom: (0.0078125, 0.013888889),
+                    room_id: (1),
+                    zoom_mode: Step,
+                    camera_mode: Fixed,
+                ),
+                (70): (
+                    zoom: (0.0078125, 0.013888889),
+                    room_id: (5),
+                    zoom_mode: Step,
+                    camera_mode: Fixed,
+                ),
+            },
+        ),
+        (
+            type_name: "Script",
+            data: {
+                (3): (
+                    script_id: (2),
+                    data: (
+                        fields: {
+                            "health": Int(100),
+                            "jump_speed": Int(200),
+                            "name": Text("Player"),
+                            "run_speed": Int(180),
+                            "speed": Int(100),
+                        },
+                    ),
+                ),
+                (37): (
+                    script_id: (3),
+                    data: (
+                        fields: {
+                            "dialogue": Toml((1)),
+                            "name": Text("NPC"),
+                        },
+                    ),
+                ),
+                (38): (
+                    script_id: (4),
+                    data: (
+                        fields: {
+                            "name": Text("Checkpoint"),
+                        },
+                    ),
+                ),
+                (68): (
+                    script_id: (5),
+                    data: (
+                        fields: {
+                            "facing": Text("right"),
+                            "speed": Int(80),
+                        },
+                    ),
+                ),
+                (75): (
+                    script_id: (7),
+                    data: (
+                        fields: {},
+                    ),
+                ),
+            },
+        ),
+        (
+            type_name: "Singleton",
+            data: {
+                (53): (),
+                (54): (),
+                (55): (),
+                (58): (),
+                (59): (),
+                (69): (),
+                (72): (),
+                (73): (),
+            },
+        ),
+        (
+            type_name: "Solid",
+            data: {
+                (37): (true),
+            },
+        ),
+        (
+            type_name: "SpeechBubble",
+            data: {},
+        ),
+        (
+            type_name: "Sprite",
+            data: {
+                (37): (
+                    sprite: (9),
+                ),
+                (38): (
+                    sprite: (9),
+                ),
+                (68): (
+                    sprite: (9),
+                ),
+                (75): (
+                    sprite: (9),
+                ),
+            },
+        ),
+        (
+            type_name: "SubPixel",
+            data: {
+                (3): (),
+                (37): (),
+                (68): (),
+            },
+        ),
+        (
+            type_name: "Transform",
+            data: {
+                (2): (
+                    visible: true,
+                    position: (36.0, 72.0),
+                    pivot: BottomCenter,
+                ),
+                (3): (
+                    visible: true,
+                    position: (0.0, 0.0),
+                    pivot: BottomCenter,
+                ),
+                (24): (
+                    visible: true,
+                    position: (-64.0, 36.0),
+                    pivot: CenterLeft,
+                ),
+                (37): (
+                    visible: true,
+                    position: (164.0, 72.0),
+                    pivot: BottomCenter,
+                ),
+                (38): (
+                    visible: true,
+                    position: (-84.0, 72.0),
+                    pivot: BottomCenter,
+                ),
+                (41): (
+                    visible: true,
+                    position: (128.0, 72.0),
+                    pivot: CenterLeft,
+                ),
+                (46): (
+                    visible: true,
+                    position: (-44.0, 72.0),
+                    pivot: BottomCenter,
+                ),
+                (52): (
+                    visible: true,
+                    position: (152.0, 144.0),
+                    pivot: BottomCenter,
+                ),
+                (62): (
+                    visible: true,
+                    position: (24.0, 64.0),
+                    pivot: BottomCenter,
+                ),
+                (63): (
+                    visible: true,
+                    position: (76.0, 72.0),
+                    pivot: BottomCenter,
+                ),
+                (65): (
+                    visible: true,
+                    position: (128.0, 0.0),
+                    pivot: TopLeft,
+                ),
+                (68): (
+                    visible: true,
+                    position: (12.0, 72.0),
+                    pivot: BottomCenter,
+                ),
+                (70): (
+                    visible: true,
+                    position: (128.0, 72.0),
+                    pivot: CenterLeft,
+                ),
+                (71): (
+                    visible: true,
+                    position: (24.0, 144.0),
+                    pivot: BottomCenter,
+                ),
+                (74): (
+                    visible: true,
+                    position: (72.0, 144.0),
+                    pivot: BottomCenter,
+                ),
+                (75): (
+                    visible: true,
+                    position: (168.0, 144.0),
+                    pivot: BottomCenter,
+                ),
+                (78): (
+                    visible: true,
+                    position: (228.0, 24.0),
+                    pivot: BottomCenter,
+                ),
+            },
+        ),
+        (
+            type_name: "Velocity",
+            data: {
+                (3): (
+                    x: 0.0,
+                    y: 0.0,
+                ),
+                (37): (
+                    x: 0.0,
+                    y: 0.0,
+                ),
+                (68): (
+                    x: 0.0,
+                    y: 0.0,
+                ),
+            },
+        ),
+        (
+            type_name: "Walkable",
+            data: {},
+        ),
+        (
+            type_name: "WorldEntry",
+            data: {
+                (62): (
+                    name: "Start",
+                    is_start: true,
+                ),
+                (63): (
+                    name: "Portal",
+                    is_start: false,
+                ),
+                (74): (
+                    name: "Start",
+                    is_start: false,
+                ),
+                (78): (
+                    name: "",
+                    is_start: true,
+                ),
+            },
+        ),
+        (
+            type_name: "WorldExit",
+            data: {
+                (46): (
+                    destination: Some(World((3))),
+                    entry: Some("Start"),
+                    trigger: OnInteract,
+                ),
+                (52): (
+                    destination: Some(World((1))),
+                    entry: None,
+                    trigger: OnInteract,
+                ),
+                (63): (
+                    destination: Some(World((3))),
+                    entry: Some("Start"),
+                    trigger: OnInteract,
+                ),
+            },
+        ),
+    ],
+)

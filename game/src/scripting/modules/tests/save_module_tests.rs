@@ -27,7 +27,8 @@ fn setup_save_lua() -> (Lua, Rc<RefCell<GameInstance>>) {
     game.add_world(World::default());
     let game_instance = Rc::new(RefCell::new(GameInstance {
         game,
-        prev_positions: HashMap::new(),
+        prev_positions: HashMap::new(), 
+        traversal_residency_diagnostics: None,
     }));
 
     LuaGameCtx {

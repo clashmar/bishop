@@ -4,7 +4,9 @@
 ---@alias vec2 { x: number, y: number }
 ---@alias vec3 { x: number, y: number, z: number }
 
----@alias Active boolean
+---@class Active
+---@field active boolean
+---@field pin_count number
 
 ---@class Animation
 ---@field clips table
@@ -126,6 +128,7 @@
 
 ---@class WorldEntry
 ---@field name string
+---@field is_start boolean
 
 ---@class WorldExit
 ---@field destination table

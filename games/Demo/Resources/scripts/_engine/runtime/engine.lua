@@ -25,7 +25,7 @@ engine.events.save_succeeded = "save:succeeded"
 engine.events.save_failed = "save:failed"
 
 --- Get the player entity's script instance table
---- @return table|nil The player's script instance, or nil if not found
+--- @return table|nil -- The player's script instance, or nil if not found
 function engine.player() end
 
 --- Call a method on a global entity script
@@ -51,35 +51,36 @@ function engine.emit(event, ...) end
 ---@return nil
 function engine.quit_to_title() end
 
---- Activates another world without moving any entity.
+--- Overlays another world without moving any entity.
 --- The world resumes at the named entry's room, or its start when omitted.
 ---@param world_name string
 ---@param entry_name string|nil
-function engine.activate_world(world_name, entry_name) end
+---@return nil
+function engine.overlay_world(world_name, entry_name) end
+
+--- Overlays another world at a generated entry handle destination.
+---@param entry table
+---@return nil
+function engine.overlay_entry(entry) end
+
+--- Returns from the current overlay world.
+---@return nil
+function engine.return_from_world() end
 
 --- Returns the active world.
 ---@return { id: integer, name: string }
 function engine.current_world() end
 
----@param msg string
-function engine.log.info(msg) end
+---@class RestoreLocation
+---@field world_id integer
+---@field room_id integer
+---@field x number
+---@field y number
 
----@param msg string
-function engine.log.warn(msg) end
-
----@param msg string
-function engine.log.error(msg) end
-
----@param msg string
-function engine.log.debug(msg) end
-
-engine.prefab = {}
-
----@param prefab_name PrefabId
----@param position vec2
----@param init? table
----@return Entity
-function engine.prefab.spawn(prefab_name, position, init) end
+--- Restores the player to a specific world, room, and position.
+---@param location RestoreLocation
+---@return nil
+function engine.restore_location(location) end
 
 ---@param input string
 ---@return boolean
@@ -105,4 +106,24 @@ function engine.input.release_control(name) end
 ---@param name string
 ---@return boolean
 function engine.input.in_control(name) end
+
+---@param msg string
+function engine.log.info(msg) end
+
+---@param msg string
+function engine.log.warn(msg) end
+
+---@param msg string
+function engine.log.error(msg) end
+
+---@param msg string
+function engine.log.debug(msg) end
+
+engine.prefab = {}
+
+---@param prefab_name PrefabId
+---@param position vec2
+---@param init? table
+---@return Entity
+function engine.prefab.spawn(prefab_name, position, init) end
 

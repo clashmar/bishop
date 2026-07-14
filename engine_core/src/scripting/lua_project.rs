@@ -46,6 +46,14 @@ pub const LUA_GLOBAL_MODULES: &[LuaGlobalModule] = &[
         global_name: lua_globals::MENUS,
     },
     LuaGlobalModule {
+        filename: lua_files::WORLDS,
+        global_name: lua_globals::WORLDS,
+    },
+    LuaGlobalModule {
+        filename: lua_files::ENTRIES,
+        global_name: lua_globals::ENTRIES,
+    },
+    LuaGlobalModule {
         filename: lua_files::SCRIPT,
         global_name: lua_globals::SCRIPT,
     },
@@ -71,6 +79,8 @@ pub fn engine_relative_path(filename: &str) -> PathBuf {
         | lua_files::PREFABS
         | lua_files::SOUNDS
         | lua_files::MENUS
+        | lua_files::WORLDS
+        | lua_files::ENTRIES
         | lua_files::EVENT_TAGS => PathBuf::from(lua_dirs::DATA).join(filename),
         lua_files::ENGINE
         | lua_files::ENTITY
@@ -98,6 +108,8 @@ pub fn engine_require_path(filename: &str) -> String {
         | lua_files::PREFABS
         | lua_files::SOUNDS
         | lua_files::MENUS
+        | lua_files::WORLDS
+        | lua_files::ENTRIES
         | lua_files::EVENT_TAGS => format!("{}.{}.{}", lua_dirs::ENGINE, lua_dirs::DATA, stem),
         lua_files::ENGINE
         | lua_files::ENTITY
@@ -166,6 +178,22 @@ pub fn workspace_luacheckrc() -> String {
     generate_luacheckrc("games/Demo/Resources/scripts/_engine/**/*.lua")
 }
 
+pub fn scaffold_stylua_toml() -> String {
+    [
+        "column_width = 100",
+        "indent_type = \"Spaces\"",
+        "indent_width = 4",
+        "quote_style = \"AutoPreferDouble\"",
+        "call_parentheses = \"Always\"",
+        "",
+    ]
+    .join("\n")
+}
+
+pub fn workspace_stylua_toml() -> String {
+    scaffold_stylua_toml()
+}
+
 fn generate_luacheckrc(engine_glob: &str) -> String {
     let top_level_globals = all_known_globals()
         .into_iter()
@@ -183,28 +211,27 @@ fn generate_luacheckrc(engine_glob: &str) -> String {
     )
 }
 
-pub fn scaffold_stylua_toml() -> String {
-    [
-        "column_width = 100",
-        "indent_type = \"Spaces\"",
-        "indent_width = 4",
-        "quote_style = \"AutoPreferDouble\"",
-        "call_parentheses = \"Always\"",
-        "",
-    ]
-    .join("\n")
-}
-
-pub fn workspace_stylua_toml() -> String {
-    scaffold_stylua_toml()
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
-    fn globals_prelude_exports_agreed_namespace_tables() {
+    fn globals_prelude_exports_worlds_and_entries_tables() {
+        let lua = generate_globals_lua();
+
+        for expected in [
+            "Worlds = require(\"_engine.data.worlds\")",
+            "Entries = require(\"_engine.data.entries\")",
+        ] {
+            assert!(
+                lua.contains(expected),
+                "missing global line: {expected}\n{lua}"
+            );
+        }
+    }
+
+    #[test]
+    fn globals_prelude_exports_core_data_and_runtime_tables() {
         let lua = generate_globals_lua();
 
         for expected in [
@@ -240,6 +267,8 @@ mod tests {
             "Prefabs",
             "Sounds",
             "Menus",
+            "Worlds",
+            "Entries",
             "Script",
             "Entity",
         ] {
@@ -265,6 +294,8 @@ mod tests {
             "\"Prefabs\"",
             "\"Sounds\"",
             "\"Menus\"",
+            "\"Worlds\"",
+            "\"Entries\"",
             "\"Script\"",
             "\"Entity\"",
         ] {

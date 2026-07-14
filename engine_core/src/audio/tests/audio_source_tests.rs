@@ -1,21 +1,19 @@
 use crate::audio::command_queue::drain_audio_commands;
-use crate::audio::AudioCommand;
+use crate::audio::{AudioCommand, AudioPlaybackOwner};
 use crate::constants::paths::SFX_FOLDER;
-use crate::ecs::components::audio_source::{test_post_create, test_post_remove};
+use crate::ecs::components::audio_source::test_post_remove;
 use crate::ecs::entity::Entity;
-use crate::ecs::{AudioGroup, AudioSource, SoundGroupId, SoundId, SoundPresetLink};
+use crate::ecs::{
+    AudioGroup, AudioSource, AudioStopBehavior, AudioTrigger, SoundGroupId, SoundId,
+    SoundPresetLink,
+};
 use crate::game::Game;
 use crate::worlds::World;
 use serde::Deserialize;
+use std::collections::HashMap;
 
 fn sound_ids(ids: &[usize]) -> Vec<SoundId> {
     ids.iter().copied().map(SoundId).collect()
-}
-
-fn expected_talk_command_id() -> String {
-    let mut path = std::path::PathBuf::from(SFX_FOLDER).join("talk_1.wav");
-    path.set_extension("");
-    path.to_string_lossy().into_owned()
 }
 
 #[test]
@@ -72,6 +70,7 @@ fn apply_preset_to_linked_group_overwrites_local_fields() {
         volume_variation: 0.2,
         looping: false,
         preset_link: None,
+        ..Default::default()
     };
 
     let mut group = AudioGroup {
@@ -83,6 +82,7 @@ fn apply_preset_to_linked_group_overwrites_local_fields() {
         preset_link: Some(SoundPresetLink {
             preset_name: "OldPreset".to_string(),
         }),
+        ..Default::default()
     };
 
     group.apply_preset("Talk", &preset);
@@ -318,6 +318,44 @@ fn serializing_audio_source_round_trips_structurally() {
 }
 
 #[test]
+fn audio_group_defaults_to_manual_trigger_and_immediate_stop() {
+    let group = AudioGroup::default();
+
+    assert_eq!(group.trigger, AudioTrigger::Manual);
+    assert_eq!(group.stop_behavior, AudioStopBehavior::Immediate);
+}
+
+#[test]
+fn audio_group_round_trips_trigger_and_fade_stop_behavior() {
+    let source = AudioSource {
+        groups: HashMap::from([(
+            SoundGroupId::Custom("Ambience".to_string()),
+            AudioGroup {
+                sounds: sound_ids(&[7]),
+                looping: true,
+                trigger: AudioTrigger::OnOwnerActivate,
+                stop_behavior: AudioStopBehavior::FadeOut { duration: 0.5 },
+                ..Default::default()
+            },
+        )]),
+        ..Default::default()
+    };
+
+    let ron = ron::ser::to_string(&source).unwrap();
+    let parsed: AudioSource = ron::from_str(&ron).unwrap();
+    let group = parsed
+        .groups
+        .get(&SoundGroupId::Custom("Ambience".to_string()))
+        .unwrap();
+
+    assert_eq!(group.trigger, AudioTrigger::OnOwnerActivate);
+    assert_eq!(
+        group.stop_behavior,
+        AudioStopBehavior::FadeOut { duration: 0.5 }
+    );
+}
+
+#[test]
 fn deserializing_audio_source_drops_new_group_key() {
     #[derive(Deserialize)]
     struct Wrapper {
@@ -366,49 +404,7 @@ fn deserializing_audio_source_rejects_unknown_fields() {
 }
 
 #[test]
-fn post_create_ignores_new_group_when_incrementing_refs() {
-    let _ = drain_audio_commands();
-
-    let mut source = AudioSource::default();
-    source.groups.insert(
-        SoundGroupId::New,
-        AudioGroup {
-            sounds: sound_ids(&[99]),
-            ..Default::default()
-        },
-    );
-    source.groups.insert(
-        SoundGroupId::Custom("Talk".to_string()),
-        AudioGroup {
-            sounds: sound_ids(&[1, 1]),
-            ..Default::default()
-        },
-    );
-
-    let mut game = Game::default();
-    game.add_world(World::default());
-    game.asset_registry
-        .register_asset_relative_path(
-            SoundId(1),
-            std::path::PathBuf::from(SFX_FOLDER).join("talk_1.wav"),
-        )
-        .unwrap();
-    let mut ctx = game.ctx_mut();
-
-    test_post_create(&mut source, &Entity(7), &mut ctx);
-
-    let commands = drain_audio_commands();
-    assert_eq!(commands.len(), 1);
-    match &commands[0] {
-        AudioCommand::IncrementRefs(ids) => {
-            assert_eq!(ids, &vec![expected_talk_command_id()]);
-        }
-        _ => panic!("expected IncrementRefs"),
-    }
-}
-
-#[test]
-fn post_remove_ignores_new_group_when_decrementing_refs() {
+fn post_remove_only_stops_loops() {
     let _ = drain_audio_commands();
 
     let mut source = AudioSource::default();
@@ -441,15 +437,12 @@ fn post_remove_ignores_new_group_when_decrementing_refs() {
     test_post_remove(&mut source, &entity, &mut ctx);
 
     let commands = drain_audio_commands();
-    assert_eq!(commands.len(), 2);
+    assert_eq!(commands.len(), 1);
     match &commands[0] {
-        AudioCommand::StopLoop(handle) => assert_eq!(*handle, 9),
-        _ => panic!("expected StopLoop"),
-    }
-    match &commands[1] {
-        AudioCommand::DecrementRefs(ids) => {
-            assert_eq!(ids, &vec![expected_talk_command_id()]);
+        AudioCommand::StopLoops { owner, fade_out } => {
+            assert_eq!(owner, &AudioPlaybackOwner::Entity(Entity(9)));
+            assert_eq!(*fade_out, None);
         }
-        _ => panic!("expected DecrementRefs"),
+        _ => panic!("expected StopLoops"),
     }
 }

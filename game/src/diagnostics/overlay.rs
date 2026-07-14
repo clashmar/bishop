@@ -5,8 +5,13 @@ use crate::diagnostics::timing_trace::{TimingTraceLogger, TimingTraceSample};
 use crate::engine::game_instance::GameInstance;
 use engine_core::assets::*;
 use engine_core::audio::{AudioDiagnosticsSnapshot, AudioManager};
-use engine_core::diagnostics::DiagnosticsCollector;
+use engine_core::diagnostics::{
+    DiagnosticsCollector, PinnedEntitySnapshot, ResourceResidencySnapshot,
+    RuntimeResidencySnapshot, TraversalClassCount, TraversalOutcomeSnapshot,
+    TraversalResidencySnapshot, TraversalThrashSnapshot, WarmRoomSnapshot, WarmWorldSnapshot,
+};
 use engine_core::ecs::*;
+use engine_core::hydration::{CoordinatorSnapshot, HydrationScope, ResourceClaim};
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
 
@@ -50,18 +55,18 @@ pub struct DiagnosticsOverlay {
     cached_render_time: f32,
     cached_entity_count: usize,
     cached_texture_count: usize,
-    cached_script_instances: usize,
     cached_listener_count: usize,
-    cached_script_id_count: usize,
-    cached_sprite_id_count: usize,
     cached_audio_working_set_resident: usize,
     cached_audio_working_set_total: usize,
-    cached_audio_count: usize,
-    cached_audio_loading_count: usize,
-    cached_audio_pinned_count: usize,
     cached_audio_matching_refs: usize,
     cached_audio_checked_refs: usize,
     cached_audio_rows: Vec<AudioDiagnosticsRow>,
+    cached_residency: RuntimeResidencySnapshot,
+    cached_coordinator: CoordinatorSnapshot,
+    cached_traversal: TraversalResidencySnapshot,
+    cached_room_frontier: usize,
+    cached_world_frontier: usize,
+    cached_pinned_entities: usize,
     timing_trace: TimingTraceLogger,
 }
 
@@ -70,7 +75,6 @@ struct AudioDiagnosticsRow {
     id: String,
     cached: bool,
     loading: bool,
-    pinned: bool,
     ref_count: usize,
     ecs_count: usize,
 }
@@ -90,9 +94,6 @@ impl AudioDiagnosticsRow {
         }
         if self.loading {
             line.push_str(" loading");
-        }
-        if self.pinned {
-            line.push_str(" pinned");
         }
         line
     }
@@ -119,18 +120,18 @@ impl DiagnosticsOverlay {
             cached_render_time: 0.0,
             cached_entity_count: 0,
             cached_texture_count: 0,
-            cached_script_instances: 0,
             cached_listener_count: 0,
-            cached_script_id_count: 0,
-            cached_sprite_id_count: 0,
             cached_audio_working_set_resident: 0,
             cached_audio_working_set_total: 0,
-            cached_audio_count: 0,
-            cached_audio_loading_count: 0,
-            cached_audio_pinned_count: 0,
             cached_audio_matching_refs: 0,
             cached_audio_checked_refs: 0,
             cached_audio_rows: Vec::new(),
+            cached_residency: RuntimeResidencySnapshot::default(),
+            cached_coordinator: CoordinatorSnapshot::default(),
+            cached_traversal: TraversalResidencySnapshot::default(),
+            cached_room_frontier: 0,
+            cached_world_frontier: 0,
+            cached_pinned_entities: 0,
             timing_trace: TimingTraceLogger::from_env(),
         }
     }
@@ -181,10 +182,7 @@ impl DiagnosticsOverlay {
         let audio_snapshot = audio_manager.diagnostics_snapshot();
         self.cached_entity_count = game.ecs.get_store::<Transform>().data.len();
         self.cached_texture_count = game.sprite_manager.texture_count();
-        self.cached_script_instances = game.script_manager.instance_count();
         self.cached_listener_count = game.script_manager.event_listener_count();
-        self.cached_script_id_count = game.script_manager.registered_id_count();
-        self.cached_sprite_id_count = game.sprite_manager.registered_id_count();
         self.cached_render_time = render_time_ms;
 
         let audio_sources = AudioSource::store(&game.ecs);
@@ -197,13 +195,26 @@ impl DiagnosticsOverlay {
             .filter(|row| row.ecs_count > 0 && (row.cached || row.loading))
             .count();
         self.cached_audio_working_set_total = expected_audio_refs.len();
-        self.cached_audio_count = audio_snapshot.cached_sound_count;
-        self.cached_audio_loading_count = audio_snapshot.loading_sound_count;
-        self.cached_audio_pinned_count = audio_snapshot.pinned_sound_count;
         let (matching_refs, checked_refs) = audio_ref_summary(&audio_rows);
         self.cached_audio_matching_refs = matching_refs;
         self.cached_audio_checked_refs = checked_refs;
         self.cached_audio_rows = audio_diagnostics_rows(&expected_audio_refs, &audio_snapshot);
+        self.cached_residency = RuntimeResidencySnapshot::from_sources(
+            game,
+            &game.script_manager,
+            &audio_snapshot,
+            expected_audio_refs.len(),
+            audio_rows.iter().filter(|row| row.ecs_count > 0).count(),
+        );
+        self.cached_coordinator = game.hydration_coordinator.snapshot();
+        self.cached_traversal = game_instance
+            .traversal_residency_diagnostics
+            .as_ref()
+            .map(|d| d.snapshot.clone())
+            .unwrap_or_default();
+        self.cached_room_frontier = self.cached_traversal.rooms.len();
+        self.cached_world_frontier = self.cached_traversal.worlds.len();
+        self.cached_pinned_entities = self.cached_traversal.pinned_entities.len();
     }
 
     /// Handle input for toggling the overlay.
@@ -244,27 +255,35 @@ impl DiagnosticsOverlay {
             lines.push(format!("Render: {:.2} ms", self.cached_render_time));
             lines.push(format!("Entities: {}", self.cached_entity_count));
             lines.push(format!("Textures: {}", self.cached_texture_count));
-            lines.push(format!("Sprite IDs: {}", self.cached_sprite_id_count));
-            lines.push(format!("Script IDs: {}", self.cached_script_id_count));
-            lines.push(format!(
-                "Script Instances: {}",
-                self.cached_script_instances
-            ));
             lines.push(format!("Listeners: {}", self.cached_listener_count));
             lines.push(format!(
                 "Audio Working Set: {}/{}",
                 self.cached_audio_working_set_resident, self.cached_audio_working_set_total
             ));
             lines.push(format!(
-                "Audio Cache: {} cached, {} loading, {} pinned",
-                self.cached_audio_count,
-                self.cached_audio_loading_count,
-                self.cached_audio_pinned_count
-            ));
-            lines.push(format!(
                 "Audio Refs: {}/{} IDs match ECS",
                 self.cached_audio_matching_refs, self.cached_audio_checked_refs
             ));
+            lines.extend(residency_summary_lines(&self.cached_residency));
+            lines.extend(coordinator_summary_lines(&self.cached_coordinator));
+            lines.push(format!(
+                "Room frontier: {} rooms",
+                self.cached_room_frontier
+            ));
+            lines.push(format!(
+                "World frontier: {} worlds",
+                self.cached_world_frontier
+            ));
+            lines.push(format!(
+                "Pinned entities: {}",
+                self.cached_pinned_entities
+            ));
+            lines.extend(traversal_room_lines(&self.cached_traversal));
+            lines.extend(traversal_world_lines(&self.cached_traversal));
+            lines.extend(traversal_pinned_lines(&self.cached_traversal));
+            lines.extend(traversal_global_lines(&self.cached_traversal));
+            lines.extend(traversal_outcome_lines(&self.cached_traversal));
+            lines.extend(traversal_thrash_lines(&self.cached_traversal));
             lines.extend(
                 self.cached_audio_rows
                     .iter()
@@ -311,6 +330,158 @@ impl DiagnosticsOverlay {
     }
 }
 
+fn residency_summary_line(resource: &ResourceResidencySnapshot) -> String {
+    format!(
+        "{} known={} resident={} pending={} pinned={} active={} cold={}",
+        resource.label,
+        resource.counts.known,
+        resource.counts.resident,
+        resource.counts.pending,
+        resource.counts.pinned,
+        resource.counts.active,
+        resource.counts.cold(),
+    )
+}
+
+fn residency_summary_lines(snapshot: &RuntimeResidencySnapshot) -> Vec<String> {
+    vec![
+        residency_summary_line(&snapshot.textures),
+        residency_summary_line(&snapshot.scripts),
+        residency_summary_line(&snapshot.audio),
+        residency_summary_line(&snapshot.global_payloads),
+        residency_summary_line(&snapshot.world_payloads),
+        residency_summary_line(&snapshot.room_payloads),
+    ]
+}
+
+fn coordinator_summary_line(scope: &HydrationScope, claims: &[&ResourceClaim]) -> String {
+    let mut parts = vec![format!("{:?}", scope)];
+    for claim in claims {
+        parts.push(format!(
+            "{}={}",
+            claim.class.display_abbreviation(),
+            claim.keys.len()
+        ));
+    }
+    parts.join(" ")
+}
+
+fn coordinator_summary_lines(snapshot: &CoordinatorSnapshot) -> Vec<String> {
+    let mut lines: Vec<String> = Vec::new();
+    for scope in &snapshot.active_scopes {
+        let scope_claims: Vec<&ResourceClaim> = snapshot
+            .claims
+            .iter()
+            .filter(|c| c.scope == *scope)
+            .collect();
+        lines.push(coordinator_summary_line(scope, &scope_claims));
+    }
+    if lines.is_empty() {
+        lines.push("Coordinator: no active scopes".to_string());
+    }
+    lines
+}
+
+fn class_counts_line(counts: &[engine_core::diagnostics::TraversalClassCount]) -> String {
+    if counts.is_empty() {
+        return "none".to_string();
+    }
+
+    counts
+        .iter()
+        .map(|count| format!("{}={}", count.class.display_abbreviation(), count.count))
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+fn traversal_room_line(room: &WarmRoomSnapshot) -> String {
+    format!(
+        "Warm room {} why={} claims {}",
+        room.room_id.0,
+        room.reasons.join(", "),
+        class_counts_line(&room.claims)
+    )
+}
+
+fn traversal_room_lines(snapshot: &TraversalResidencySnapshot) -> Vec<String> {
+    snapshot.rooms.iter().map(traversal_room_line).collect()
+}
+
+fn traversal_world_line(world: &WarmWorldSnapshot) -> String {
+    format!(
+        "Warm world {} why={} claims {}",
+        world.world_id.0,
+        world.reasons.join(", "),
+        class_counts_line(&world.claims)
+    )
+}
+
+fn traversal_world_lines(snapshot: &TraversalResidencySnapshot) -> Vec<String> {
+    snapshot.worlds.iter().map(traversal_world_line).collect()
+}
+
+fn traversal_pinned_line(entity: &PinnedEntitySnapshot) -> String {
+    let room = entity
+        .room_id
+        .map(|room_id| format!("Room({})", room_id.0))
+        .unwrap_or_else(|| "roomless".to_string());
+    format!(
+        "Pinned entity {} {} why={} claims {}",
+        entity.entity.0,
+        room,
+        entity.reasons.join(", "),
+        class_counts_line(&entity.claims)
+    )
+}
+
+fn traversal_pinned_lines(snapshot: &TraversalResidencySnapshot) -> Vec<String> {
+    snapshot
+        .pinned_entities
+        .iter()
+        .map(traversal_pinned_line)
+        .collect()
+}
+
+fn traversal_global_line(counts: &[TraversalClassCount]) -> String {
+    format!("Global claims {}", class_counts_line(counts))
+}
+
+fn traversal_global_lines(snapshot: &TraversalResidencySnapshot) -> Vec<String> {
+    if snapshot.global_claims.is_empty() {
+        return Vec::new();
+    }
+    vec![traversal_global_line(&snapshot.global_claims)]
+}
+
+fn traversal_outcome_line(outcome: &TraversalOutcomeSnapshot) -> String {
+    format!(
+        "Outcome {} claim {} hydrate {} evict {} failures={}",
+        outcome.label,
+        class_counts_line(&outcome.claimed),
+        class_counts_line(&outcome.hydrated),
+        class_counts_line(&outcome.evicted),
+        outcome.failures
+    )
+}
+
+fn traversal_outcome_lines(snapshot: &TraversalResidencySnapshot) -> Vec<String> {
+    snapshot.outcomes.iter().map(traversal_outcome_line).collect()
+}
+
+fn traversal_thrash_line(thrash: &TraversalThrashSnapshot) -> String {
+    format!(
+        "Thrash {:?} events={} hydrates={} evicts={}",
+        thrash.asset,
+        thrash.events,
+        thrash.hydrates,
+        thrash.evictions
+    )
+}
+
+fn traversal_thrash_lines(snapshot: &TraversalResidencySnapshot) -> Vec<String> {
+    snapshot.thrash.iter().map(traversal_thrash_line).collect()
+}
+
 fn expected_audio_ref_counts<'a>(
     asset_registry: &AssetRegistry,
     sources: impl IntoIterator<Item = &'a AudioSource>,
@@ -355,7 +526,6 @@ fn all_audio_diagnostics_rows(
             AudioDiagnosticsRow {
                 cached: snapshot_entry.is_some_and(|entry| entry.cached),
                 loading: snapshot_entry.is_some_and(|entry| entry.loading),
-                pinned: snapshot_entry.is_some_and(|entry| entry.pinned),
                 ref_count: snapshot_entry.map(|entry| entry.ref_count).unwrap_or(0),
                 ecs_count: ecs_counts.get(&id).copied().unwrap_or(0),
                 id,
@@ -384,4 +554,172 @@ fn audio_ref_summary(rows: &[AudioDiagnosticsRow]) -> (usize, usize) {
         .count();
 
     (matching, relevant_rows.len())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use engine_core::assets::AssetKey;
+    use engine_core::diagnostics::{
+        AUDIO_RESIDENCY_LABEL, GLOBAL_PAYLOADS_RESIDENCY_LABEL, ResidencyCounts,
+        ROOM_PAYLOADS_RESIDENCY_LABEL, SCRIPTS_RESIDENCY_LABEL,
+        TEXTURES_RESIDENCY_LABEL, WORLD_RESIDENCY_LABEL,
+    };
+    use engine_core::ecs::SpriteId;
+    use engine_core::hydration::ResourceClass;
+    use engine_core::worlds::RoomId;
+
+    #[test]
+    fn residency_summary_lines_include_known_pending_and_active_counts() {
+        let snapshot = RuntimeResidencySnapshot {
+            textures: ResourceResidencySnapshot::new(
+                TEXTURES_RESIDENCY_LABEL,
+                ResidencyCounts {
+                    known: 8,
+                    resident: 5,
+                    pending: 1,
+                    pinned: 0,
+                    active: 0,
+                },
+            ),
+            scripts: ResourceResidencySnapshot::new(
+                SCRIPTS_RESIDENCY_LABEL,
+                ResidencyCounts {
+                    known: 4,
+                    resident: 2,
+                    pending: 1,
+                    pinned: 0,
+                    active: 3,
+                },
+            ),
+            audio: ResourceResidencySnapshot::new(
+                AUDIO_RESIDENCY_LABEL,
+                ResidencyCounts {
+                    known: 6,
+                    resident: 4,
+                    pending: 1,
+                    pinned: 2,
+                    active: 5,
+                },
+            ),
+            global_payloads: ResourceResidencySnapshot::new(
+                GLOBAL_PAYLOADS_RESIDENCY_LABEL,
+                ResidencyCounts::default(),
+            ),
+            world_payloads: ResourceResidencySnapshot::new(
+                WORLD_RESIDENCY_LABEL,
+                ResidencyCounts::default(),
+            ),
+            room_payloads: ResourceResidencySnapshot::new(
+                ROOM_PAYLOADS_RESIDENCY_LABEL,
+                ResidencyCounts::default(),
+            ),
+        };
+
+        let lines = residency_summary_lines(&snapshot);
+
+        assert_eq!(lines.len(), 6);
+        assert_eq!(
+            lines[0],
+            format!(
+                "{} known=8 resident=5 pending=1 pinned=0 active=0 cold=2",
+                TEXTURES_RESIDENCY_LABEL,
+            )
+        );
+        assert_eq!(
+            lines[1],
+            format!(
+                "{} known=4 resident=2 pending=1 pinned=0 active=3 cold=1",
+                SCRIPTS_RESIDENCY_LABEL,
+            )
+        );
+        assert_eq!(
+            lines[2],
+            format!(
+                "{} known=6 resident=4 pending=1 pinned=2 active=5 cold=1",
+                AUDIO_RESIDENCY_LABEL,
+            )
+        );
+    }
+
+    #[test]
+    fn coordinator_summary_line_formats_scope_and_claim_counts_from_assets() {
+        let snapshot = CoordinatorSnapshot {
+            active_scopes: vec![HydrationScope::Room(RoomId(3))],
+            claims: vec![ResourceClaim {
+                scope: HydrationScope::Room(RoomId(3)),
+                class: ResourceClass::Texture,
+                keys: vec![
+                    engine_core::hydration::ResidencyKey::Asset(AssetKey::Sprite(SpriteId(1))),
+                    engine_core::hydration::ResidencyKey::Asset(AssetKey::Sprite(SpriteId(2))),
+                ],
+            }],
+        };
+
+        let lines = coordinator_summary_lines(&snapshot);
+
+        assert_eq!(lines.len(), 1);
+        assert!(lines[0].contains(&format!(
+            "{}={}",
+            ResourceClass::Texture.display_abbreviation(),
+            2
+        )));
+    }
+
+    #[test]
+    fn update_from_game_caches_real_coordinator_snapshot() {
+        use bishop::audio::AudioBackend;
+        use engine_core::assets::AssetKey;
+        use engine_core::ecs::SpriteId;
+        use engine_core::game::Game;
+        use engine_core::hydration::{HydrationScope, ResidencyKey};
+        use std::collections::HashMap;
+
+        struct TestBackend;
+        impl AudioBackend for TestBackend {
+            fn start<F: FnMut(&mut [[f32; 2]]) + Send + 'static>(_render_fn: F) -> Self {
+                Self
+            }
+        }
+
+        let mut game = Game::default();
+        game.hydration_coordinator
+            .activate_scope(HydrationScope::Boot);
+        game.hydration_coordinator.claim(
+            HydrationScope::Boot,
+            ResidencyKey::Asset(AssetKey::Sprite(SpriteId(1))),
+        );
+
+        let instance = GameInstance {
+            game,
+            prev_positions: HashMap::new(), traversal_residency_diagnostics: None,
+        };
+        let audio_manager = AudioManager::new::<TestBackend>();
+        let mut overlay = DiagnosticsOverlay::new();
+
+        overlay.update_from_game(&instance, 0.0, &audio_manager);
+
+        assert_eq!(
+            overlay.cached_coordinator.active_scopes,
+            vec![HydrationScope::Boot]
+        );
+        assert_eq!(overlay.cached_coordinator.claims.len(), 1);
+        assert_eq!(overlay.cached_coordinator.claims[0].keys.len(), 1);
+    }
+
+    #[test]
+    fn traversal_room_line_includes_reasons_and_claim_counts() {
+        let line = traversal_room_line(&WarmRoomSnapshot {
+            room_id: RoomId(4),
+            reasons: vec!["current room".to_string(), "exit from Room(2)".to_string()],
+            claims: vec![engine_core::diagnostics::TraversalClassCount {
+                class: ResourceClass::Texture,
+                count: 3,
+            }],
+        });
+
+        assert!(line.contains("Warm room 4"));
+        assert!(line.contains("current room"));
+        assert!(line.contains("T=3"));
+    }
 }

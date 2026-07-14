@@ -219,7 +219,7 @@ impl PrefabEditor {
             command_mode: EditorMode::Prefab(self.prefab_id),
             show_linked_prefab_metadata: false,
             hide_room_only_components: true,
-            selected_create_parent: self.single_selected_entity(),
+            selected_create_parent: self.selected_create_parent(),
             game_name: None,
             event_tags: Vec::new(),
         };
@@ -227,6 +227,12 @@ impl PrefabEditor {
         self.create_request = inspector_output.create_request;
         self.open_prefab_picker_requested = inspector_output.open_prefab_picker;
         self.delete_prefab_requested = inspector_output.delete_prefab;
+    }
+
+    pub(crate) fn selected_create_parent(&self) -> Option<Entity> {
+        self.inspector
+            .selected_entity()
+            .or_else(|| self.single_selected_entity())
     }
 
     pub(crate) fn committed_prefab_asset(&self) -> Option<&PrefabAsset> {

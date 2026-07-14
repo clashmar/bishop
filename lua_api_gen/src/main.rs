@@ -4,7 +4,7 @@ use engine_core::scripting::lua_project::engine_relative_path;
 use engine_core::scripting::menus_lua::generate_menus_lua_from_dir;
 use engine_core::scripting::modules::lua_module::{LuaApiWriter, LuaApiRegistry};
 use game_lib as _;
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use std::env;
 use std::fs;
 use std::fs::OpenOptions;
@@ -41,20 +41,7 @@ fn main() {
         fs::create_dir_all(out_dir).unwrap();
     }
 
-    // Collect all generated snippets per target file
-    let mut per_file: HashMap<&'static str, String> = HashMap::new();
-
-    for reg in inventory::iter::<LuaApiRegistry> {
-        let module = (reg.ctor)();
-        let mut writer = LuaApiWriter::default();
-        module.emit_api(&mut writer);
-
-        // Append the snippet to the buffer for this file
-        per_file
-            .entry(reg.filename)
-            .and_modify(|buf| buf.push_str(&writer.buf))
-            .or_insert_with(|| writer.buf);
-    }
+    let per_file = collect_generated_files();
 
     for out_dir in out_dirs {
         write_generated_files(&out_dir, &per_file);
@@ -66,7 +53,30 @@ fn main() {
     write_theme_reference(&workspace_root);
 }
 
-fn write_generated_files(out_dir: &Path, per_file: &HashMap<&'static str, String>) {
+fn collect_generated_files() -> BTreeMap<&'static str, String> {
+    let mut snippets = Vec::new();
+
+    for reg in inventory::iter::<LuaApiRegistry> {
+        let module = (reg.ctor)();
+        let mut writer = LuaApiWriter::default();
+        module.emit_api(&mut writer);
+        snippets.push((reg.filename, reg.name, writer.buf));
+    }
+
+    snippets.sort_by(|a, b| a.0.cmp(b.0).then(a.1.cmp(b.1)));
+
+    let mut per_file = BTreeMap::new();
+    for (filename, _module_name, content) in snippets {
+        per_file
+            .entry(filename)
+            .and_modify(|buf: &mut String| buf.push_str(&content))
+            .or_insert(content);
+    }
+
+    per_file
+}
+
+fn write_generated_files(out_dir: &Path, per_file: &BTreeMap<&'static str, String>) {
     for filename in per_file.keys() {
         let path = out_dir.join(engine_relative_path(filename));
         if path.exists() {
@@ -137,3 +147,7 @@ fn write_theme_reference(workspace_root: &Path) {
 #[cfg(test)]
 #[path = "tests/menus_lua_tests.rs"]
 mod menus_lua_tests;
+
+#[cfg(test)]
+#[path = "tests/generated_files_tests.rs"]
+mod generated_files_tests;

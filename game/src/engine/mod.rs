@@ -20,6 +20,7 @@ use crate::game_global::{set_menu_active, take_pending_world_transition};
 use crate::physics::physics_system::*;
 use crate::scripting::script_system::ScriptSystem;
 use crate::transitions::room_transition_manager::RoomTransitionManager;
+use crate::transitions::traversal_residency;
 use crate::transitions::world_exit_manager::WorldExitManager;
 use crate::transitions::world_transitions::WorldTransitionManager;
 use bishop::prelude::*;
@@ -28,9 +29,10 @@ use engine_core::animation::{update_animation_sytem};
 use engine_core::audio::{AudioManager};
 use engine_core::camera::CameraManager;
 use engine_core::constants::timing;
+use engine_core::diagnostics::TraversalResidencyDiagnostics;
 use engine_core::logging::{omni_error};
 use engine_core::menu::{GameMenuHandler, MenuInputPolicy, MenuManager, MenuSessionAction};
-use engine_core::rendering::{RenderSystem, smooth_dt, snap_dt};
+use engine_core::rendering::{RenderSystem, SmoothedDtState, smooth_dt, snap_dt};
 use engine_core::task::BackgroundService;
 use engine_core::text::update_speech_timers;
 use mlua::Lua;
@@ -62,8 +64,8 @@ pub struct Engine {
     quit_to_title_enabled: bool,
     /// Accumulator for fixed timestep updates.
     pub accumulator: f32,
-    /// Exponential moving average of frame time, used to smooth accumulator input.
-    pub smoothed_dt: Option<f32>,
+    /// Exponential moving average state for accumulator input.
+    pub smoothed_dt: SmoothedDtState,
     /// Background audio service, polled once per frame.
     pub audio_manager: AudioManager,
 }
@@ -182,7 +184,7 @@ impl Engine {
 
         let game_state = apply_entry_mode(&mut menu_manager, cfg.entry_mode);
 
-        Self {
+        let mut engine = Self {
             game_instance,
             game_state,
             ctx,
@@ -195,9 +197,24 @@ impl Engine {
             is_playtest: cfg.is_playtest,
             quit_to_title_enabled: cfg.quit_to_title_enabled,
             accumulator: 0.0,
-            smoothed_dt: None,
+            smoothed_dt: SmoothedDtState::default(),
             audio_manager: AudioManager::new::<PlatformAudioBackend>(),
+        };
+
+        {
+            let mut game_instance = engine.game_instance.borrow_mut();
+            if engine.is_playtest {
+                game_instance.traversal_residency_diagnostics =
+                    Some(TraversalResidencyDiagnostics::default());
+            }
+            traversal_residency::refresh_after_traversal_runtime(
+                &engine.lua,
+                &mut engine.audio_manager,
+                &mut game_instance,
+            );
         }
+
+        engine
     }
 
     /// Rebuilds the active camera from the current player position after a save is loaded.
@@ -235,7 +252,13 @@ impl Engine {
         }
 
         // Resolve room transitions before updating the camera
-        RoomTransitionManager::handle_transitions(&self.lua, &mut game_instance);
+        if RoomTransitionManager::handle_transitions(&self.lua, &mut game_instance) {
+            traversal_residency::refresh_after_traversal_runtime(
+                &self.lua,
+                &mut self.audio_manager,
+                &mut game_instance,
+            );
+        }
 
         // Fire proximity WorldExits before camera update.
         WorldExitManager::handle_proximity_exits(&game_instance);
@@ -278,10 +301,12 @@ impl Engine {
                 }
             }
 
-            // Load scripts in this scope TODO: make this part of run_scripts when scope is finalized
+            // Activate scripts in this scope TODO: make this part of run_scripts when scope is finalized?
             let ctx = game_instance.game.ctx_mut();
-            if let Err(e) = ScriptSystem::load_scripts(&self.lua, ctx.ecs, ctx.script_manager) {
-                omni_error!("Error loading scripts: {}", e);
+            if let Err(e) =
+                ScriptSystem::activate_entity_scripts(&self.lua, ctx.ecs, ctx.script_manager)
+            {
+                omni_error!("Error activating scripts: {}", e);
             }
         }
 
@@ -362,7 +387,13 @@ impl Engine {
             return;
         };
         let mut game_instance = self.game_instance.borrow_mut();
-        WorldTransitionManager::execute(&self.lua, &mut game_instance, &request);
+        if WorldTransitionManager::execute(&self.lua, &mut game_instance, &request) {
+            traversal_residency::refresh_after_traversal_runtime(
+                &self.lua,
+                &mut self.audio_manager,
+                &mut game_instance,
+            );
+        }
     }
 }
 

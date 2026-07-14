@@ -14,6 +14,7 @@ use crate::app::control::escape;
 use crate::canvas::grid_shader::GridRenderer;
 use crate::editor_global::{push_throbbing_toast, push_toast};
 use crate::game::game_editor::GameEditor;
+use crate::game::GameEditorSubmode;
 use crate::gui::menu_bar::MenuBar;
 use crate::gui::modals::delete_world::DeleteWorldModal;
 use crate::gui::modals::edit_world::EditWorldModal;
@@ -50,9 +51,9 @@ use engine_core::task::BackgroundTask;
 use std::io;
 use std::path::PathBuf;
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum EditorMode {
-    Game,
+    Game(GameEditorSubmode),
     World(WorldId),
     Room(RoomId),
     Prefab(PrefabId),
@@ -94,7 +95,7 @@ impl Default for Editor {
         Self {
             game: Game::default(),
             camera: Camera2D::default(),
-            mode: EditorMode::Game,
+            mode: EditorMode::Game(GameEditorSubmode::Worlds),
             return_mode: None,
             game_editor: GameEditor::new(),
             world_editor: WorldEditor::new(),
@@ -263,9 +264,9 @@ impl Editor {
                     self.navigate_back(ctx);
                 }
             }
-            EditorMode::Game => {
+            EditorMode::Game(GameEditorSubmode::Worlds) => {
                 // Returns the id of the world that was clicked on or None
-                if let Some(world_id) = self.game_editor.update(ctx, &self.camera, &mut self.game) {
+                if let Some(world_id) = self.game_editor.update_worlds(ctx, &self.camera, &mut self.game) {
                     if let Some(world) = self.game.get_world_mut(world_id) {
                         self.world_editor.init_camera(
                             ctx,
@@ -278,11 +279,26 @@ impl Editor {
                     self.mode = EditorMode::World(world_id);
                 }
 
+                if let Some(submode) = self.game_editor.take_requested_submode() {
+                    self.mode = EditorMode::Game(submode);
+                }
                 if self.game_editor.pending_edit_world.is_some() {
                     EditWorldModal.open(self, ctx);
                 }
                 if self.game_editor.pending_delete_world.is_some() {
                     DeleteWorldModal.open(self, ctx);
+                }
+            }
+            EditorMode::Game(GameEditorSubmode::Topology(world_id)) => {
+                if self.game.get_world(world_id).is_none() {
+                    self.mode = EditorMode::Game(GameEditorSubmode::Worlds);
+                    self.pending_camera_reset = true;
+                } else {
+                    self.game.current_world_id = Some(world_id);
+                    self.game_editor.update_topology(ctx);
+                    if escape::escape_available_for_editor() && !input_is_focused() {
+                        self.navigate_back(ctx);
+                    }
                 }
             }
             EditorMode::World(world_id) => {
@@ -453,8 +469,18 @@ impl Editor {
                     prefab_editor.draw(ctx, &self.camera, &mut prefab_ctx, grid_renderer);
                 }
             }
-            EditorMode::Game => {
-                self.game_editor.draw(ctx, &mut self.camera, &mut self.game);
+            EditorMode::Game(GameEditorSubmode::Worlds) => {
+                self.game_editor.draw_worlds_view(ctx, &mut self.camera, &mut self.game);
+                if let Some(submode) = self.game_editor.take_requested_submode() {
+                    self.mode = EditorMode::Game(submode);
+                }
+            }
+            EditorMode::Game(GameEditorSubmode::Topology(world_id)) => {
+                if self.game.get_world(world_id).is_some() {
+                    self.game.current_world_id = Some(world_id);
+                    self.game_editor
+                        .draw_topology_view(ctx, &mut self.camera, &mut self.game, world_id);
+                }
             }
             EditorMode::World(world_id) => {
                 // World id should already be set
@@ -543,7 +569,7 @@ impl Editor {
                 .as_ref()
                 .map(|editor| editor as &dyn SubEditor)
                 .unwrap_or(&self.room_editor),
-            EditorMode::Game => &self.game_editor,
+            EditorMode::Game(_) => &self.game_editor,
             EditorMode::World(_) => &self.world_editor,
             EditorMode::Room(_) => &self.room_editor,
         }

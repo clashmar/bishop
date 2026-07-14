@@ -62,7 +62,6 @@
 
 //         let make_render_target = || {
 //             let rt = render_target(width, height);
-//             rt.texture.set_filter(FilterMode::Nearest);
 //             rt
 //         };
 
@@ -532,7 +531,6 @@
 
 //         let make = || {
 //             let rt = render_target(width, height);
-//             rt.texture.set_filter(FilterMode::Nearest);
 //             rt
 //         };
 

@@ -9,6 +9,8 @@
             volume_variation: 0.0,
             looping: false,
             preset_link: None,
+            trigger: Manual,
+            stop_behavior: Immediate,
         ),
     },
 )

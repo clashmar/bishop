@@ -1,42 +1,46 @@
 use super::*;
 use crate::assets::asset_registry::AssetKey;
 use crate::assets::AssetRegistry;
+use crate::audio::test_utils::CountingFailingLoader;
 use crate::constants::paths;
 use crate::engine_global::set_game_name;
+use crate::hydration::Hydratable;
 use crate::storage::test_utils::{game_fs_test_lock, TestGameFolder};
-use std::cell::Cell;
 use std::fs;
 use std::time::Duration;
 
-struct CountingFailingLoader {
-    bytes_load_calls: Cell<usize>,
-    load_calls: Cell<usize>,
-}
+fn prewarm_runtime_read_test_case(
+    test_name: &str,
+    file_name: &str,
+) -> (TestGameFolder, SpriteManager, SpriteId) {
+    let test_folder = TestGameFolder::new(test_name);
+    set_game_name(test_folder.name());
 
-impl CountingFailingLoader {
-    fn new() -> Self {
-        Self {
-            bytes_load_calls: Cell::new(0),
-            load_calls: Cell::new(0),
-        }
-    }
-}
+    let mut sprite_manager = SpriteManager::default();
+    let file_read_pool = FileReadPool::new();
+    let path = PathBuf::from(file_name);
+    let sprite_id = SpriteId(7);
+    let full_path = assets_folder().join(&path);
 
-impl TextureLoader for CountingFailingLoader {
-    fn load_texture_from_bytes(&self, _data: &[u8]) -> Result<Texture2D, String> {
-        self.bytes_load_calls
-            .set(self.bytes_load_calls.get().saturating_add(1));
-        Err("expected test byte load failure".to_string())
-    }
+    fs::create_dir_all(
+        full_path
+            .parent()
+            .expect("runtime test path should have a parent"),
+    )
+    .expect("runtime test directory should be writable");
+    fs::write(&full_path, [1_u8, 2, 3, 4]).expect("runtime test file should be writable");
 
-    fn load_texture_from_path(&self, _path: &str) -> Result<Texture2D, String> {
-        self.load_calls.set(self.load_calls.get() + 1);
-        Err("expected test load failure".to_string())
-    }
+    sprite_manager
+        .path_to_sprite_id
+        .insert(path.clone(), sprite_id);
+    sprite_manager
+        .sprite_id_to_path
+        .insert(sprite_id, path.clone());
+    sprite_manager.attach_runtime_file_read_pool_for_test(&file_read_pool);
+    sprite_manager.enable_runtime_texture_loading_for_test();
+    sprite_manager.prewarm_runtime_texture(sprite_id);
 
-    fn empty_texture(&self) -> Texture2D {
-        panic!("empty_texture is not used in asset manager tests")
-    }
+    (test_folder, sprite_manager, sprite_id)
 }
 
 #[test]
@@ -120,24 +124,11 @@ fn ensure_loaded_retries_loader_for_registered_sprite_id_with_missing_texture() 
 }
 
 #[test]
-fn queue_runtime_texture_read_tracks_pending_sprite_id() {
-    let _lock = game_fs_test_lock().lock().unwrap();
-    let test_folder = TestGameFolder::new("asset_mgr_queue");
-    set_game_name(test_folder.name());
-
+fn evict_texture_clears_runtime_texture_state_without_touching_metadata() {
     let mut sprite_manager = SpriteManager::default();
-    let file_read_pool = FileReadPool::new();
-    let path = PathBuf::from("textures/runtime-queue.bin");
+    // `CountingFailingLoader` cannot satisfy `init_texture`, so set up the runtime state directly.
     let sprite_id = SpriteId(7);
-    let full_path = assets_folder().join(&path);
-
-    fs::create_dir_all(
-        full_path
-            .parent()
-            .expect("runtime queue test path should have a parent"),
-    )
-    .expect("runtime queue test directory should be writable");
-    fs::write(&full_path, [1_u8, 2, 3, 4]).expect("runtime queue test file should be writable");
+    let path = PathBuf::from("sprites/player.png");
 
     sprite_manager
         .path_to_sprite_id
@@ -145,9 +136,33 @@ fn queue_runtime_texture_read_tracks_pending_sprite_id() {
     sprite_manager
         .sprite_id_to_path
         .insert(sprite_id, path.clone());
-    sprite_manager.attach_runtime_file_read_pool_for_test(&file_read_pool);
-    sprite_manager.enable_runtime_texture_loading_for_test();
-    sprite_manager.queue_runtime_texture_read(sprite_id);
+    sprite_manager
+        .pending_texture_reads
+        .insert(sprite_id, path.clone());
+    sprite_manager.increment_ref(sprite_id);
+
+    sprite_manager.evict_texture(sprite_id);
+
+    assert_eq!(sprite_manager.texture_count(), 0);
+    assert!(!sprite_manager.has_pending_texture_read(sprite_id));
+    assert_eq!(sprite_manager.get_or_none(&path), Some(sprite_id));
+    assert_eq!(sprite_manager.path_for_id(sprite_id), Some(path.as_path()));
+}
+
+#[test]
+fn pending_texture_count_tracks_queued_runtime_reads() {
+    let _lock = game_fs_test_lock().lock().unwrap();
+    let (_folder, sprite_manager, _sprite_id) =
+        prewarm_runtime_read_test_case("asset_mgr_pending_count", "textures/runtime-pending-count.bin");
+
+    assert_eq!(sprite_manager.pending_texture_count(), 1);
+}
+
+#[test]
+fn prewarm_runtime_texture_tracks_pending_sprite_id() {
+    let _lock = game_fs_test_lock().lock().unwrap();
+    let (_folder, sprite_manager, sprite_id) =
+        prewarm_runtime_read_test_case("asset_mgr_queue", "textures/runtime-queue.bin");
 
     assert!(sprite_manager.has_pending_texture_read(sprite_id));
     assert_eq!(sprite_manager.texture_count(), 0);
@@ -182,7 +197,7 @@ fn poll_pending_runtime_texture_reads_uploads_bytes_on_the_main_thread() {
         .insert(sprite_id, path.clone());
     sprite_manager.attach_runtime_file_read_pool_for_test(&file_read_pool);
     sprite_manager.enable_runtime_texture_loading_for_test();
-    sprite_manager.queue_runtime_texture_read(sprite_id);
+    sprite_manager.prewarm_runtime_texture(sprite_id);
 
     // Drain until the read completes and the upload path is hit.
     for _ in 0..100 {
@@ -195,4 +210,31 @@ fn poll_pending_runtime_texture_reads_uploads_bytes_on_the_main_thread() {
 
     assert_eq!(loader.bytes_load_calls.get(), 1);
     assert!(!sprite_manager.has_pending_texture_read(sprite_id));
+}
+
+#[test]
+fn evict_texture_refuses_when_ref_count_positive() {
+    let mut sm = SpriteManager::default();
+    sm.increment_ref(SpriteId(1));
+    sm.increment_ref(SpriteId(1));
+    sm.evict_texture(SpriteId(1));
+    assert_eq!(sm.ref_count(&SpriteId(1)), 1);
+}
+
+#[test]
+fn evict_texture_succeeds_when_ref_count_zero() {
+    let mut sm = SpriteManager::default();
+    let result = sm.evict(&SpriteId(1));
+    assert_eq!(result, Ok(()));
+}
+
+#[test]
+fn ref_count_increments_and_decrements_correctly() {
+    let mut sm = SpriteManager::default();
+    sm.increment_ref(SpriteId(1));
+    assert_eq!(sm.ref_count(&SpriteId(1)), 1);
+    sm.increment_ref(SpriteId(1));
+    assert_eq!(sm.ref_count(&SpriteId(1)), 2);
+    sm.decrement_ref(SpriteId(1));
+    assert_eq!(sm.ref_count(&SpriteId(1)), 1);
 }

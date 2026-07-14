@@ -149,3 +149,89 @@ fn most_recent_game_name_ignores_reserved_runtime_save_folder() {
     let expected = sanitise_name(test_game.name());
     assert_eq!(most_recent_game_name().as_deref(), Some(expected.as_str()));
 }
+
+#[test]
+fn save_game_writes_split_layout() {
+    let _lock = game_fs_test_lock()
+        .lock()
+        .unwrap_or_else(|poison| poison.into_inner());
+    let test_game = TestGameFolder::new("split_layout_save");
+    set_game_name(test_game.name());
+
+    let game = create_new_game(test_game.name().to_string());
+    save_game(&game).unwrap();
+
+    let resources = resources_folder(test_game.name());
+    assert!(resources.join(paths::GAME_RON).is_file());
+    assert!(resources.join(paths::WORLDS_FOLDER).join("world-1.ron").is_file());
+    assert!(resources.join(paths::PAYLOADS_FOLDER).join("room-1.ron").is_file());
+}
+
+#[test]
+fn save_game_when_worlds_and_entries_exist_regenerates_world_navigation_lua_files() {
+    let _lock = game_fs_test_lock()
+        .lock()
+        .unwrap_or_else(|poison| poison.into_inner());
+    let test_game = TestGameFolder::new("world_navigation_lua_save");
+    set_game_name(test_game.name());
+
+    let mut game = create_new_game(test_game.name().to_string());
+    let mut extra_world = crate::world::world_creation::create_new_world(&mut game);
+    extra_world.name = "Second World".to_string();
+    let extra_world_id = extra_world.id;
+    let extra_room_id = extra_world.rooms()[0].id;
+    game.add_world(extra_world);
+
+    game.ecs
+        .create_entity()
+        .with(WorldEntry {
+            name: "Main Entry".to_string(),
+            ..Default::default()
+        })
+        .with_current_room(extra_room_id)
+        .finish();
+
+    save_game(&game).unwrap();
+
+    let engine_folder = scripts_folder().join(lua_dirs::ENGINE);
+    let worlds =
+        fs::read_to_string(engine_folder.join("data/worlds.lua")).expect("worlds.lua should exist");
+    let entries = fs::read_to_string(engine_folder.join("data/entries.lua"))
+        .expect("entries.lua should exist");
+
+    assert!(
+        worlds.contains("SecondWorld = { Id = 2, Name = \"Second World\" }"),
+        "{worlds}"
+    );
+    assert!(entries.contains("SecondWorld = {"), "{entries}");
+    assert!(
+        entries.contains(&format!(
+            "MainEntry = {{ WorldId = {}, RoomId = {}, EntryName = \"Main Entry\" }}",
+            extra_world_id.0, extra_room_id.0
+        )),
+        "{entries}"
+    );
+}
+
+#[test]
+fn load_game_by_name_restores_room_entities_from_split_layout() {
+    let _lock = game_fs_test_lock()
+        .lock()
+        .unwrap_or_else(|poison| poison.into_inner());
+    let test_game = TestGameFolder::new("split_layout_load");
+    set_game_name(test_game.name());
+
+    let mut game = create_new_game(test_game.name().to_string());
+    let room_id = game.current_world().rooms()[0].id;
+    let entity = game
+        .ecs
+        .create_entity()
+        .with(Animation::default())
+        .with_current_room(room_id)
+        .finish();
+
+    save_game(&game).unwrap();
+    let loaded = load_game_by_name(&game.name).unwrap();
+
+    assert!(loaded.ecs.entities_in_room(room_id).contains(&entity));
+}

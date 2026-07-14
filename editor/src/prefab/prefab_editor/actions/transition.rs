@@ -1,4 +1,5 @@
 use crate::app::{Editor, EditorMode};
+use crate::game::GameEditorSubmode;
 use crate::gui::modals::dirty_prefab_exit::DirtyPrefabExitModal;
 use crate::gui::modals::empty_prefab_exit::EmptyPrefabExitModal;
 use crate::gui::modals::ModalHandler;
@@ -150,12 +151,14 @@ impl Editor {
     pub(crate) fn close_active_prefab_editor(&mut self) {
         self.prefab_editor = None;
         self.prefab_stage = None;
-        self.mode = self.return_mode.unwrap_or(EditorMode::Game);
+        self.mode = self
+            .return_mode
+            .unwrap_or(EditorMode::Game(GameEditorSubmode::Worlds));
         self.return_mode = None;
         self.prefab_state.clear_pending_transition();
         self.prefab_state.set_require_picker(false);
         match self.mode {
-            EditorMode::Room(_) | EditorMode::World(_) | EditorMode::Game => {
+            EditorMode::Room(_) | EditorMode::World(_) | EditorMode::Game(_) => {
                 self.pending_camera_reset = true;
             }
             _ => {}

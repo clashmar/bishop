@@ -1,4 +1,5 @@
 use crate::app::EditorMode;
+use crate::game::GameEditorSubmode;
 use crate::commands::editor_command_manager::EditorCommand;
 use crate::world::world_creation::create_new_world;
 use crate::with_editor;
@@ -37,6 +38,6 @@ impl EditorCommand for CreateWorldCmd {
     }
 
     fn applies_in_mode(&self, current_mode: EditorMode) -> bool {
-        current_mode == EditorMode::Game
+        current_mode == EditorMode::Game(GameEditorSubmode::Worlds)
     }
 }

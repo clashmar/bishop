@@ -11,7 +11,7 @@ use crate::storage::path_utils::resources_folder;
 #[cfg(feature = "editor")]
 use crate::storage::path_utils::sanitise_name;
 use serde::{Deserialize, Serialize};
-use std::collections::{HashMap, HashSet};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::fmt::{Display, Formatter, Result as FmtResult};
 use std::fs;
 use std::io;
@@ -27,6 +27,7 @@ pub use instance::instantiate_prefab;
 #[cfg(feature = "editor")]
 pub use instance::refresh_prefab_instance;
 
+const PREFAB_RUNTIME_RECENCY_CAP: usize = 32;
 
 /// Opaque handle for a persisted prefab asset.
 #[derive(
@@ -37,6 +38,48 @@ pub struct PrefabId(pub usize);
 impl Display for PrefabId {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         self.0.fmt(f)
+    }
+}
+
+/// Tracks recent runtime prefab-definition use.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PrefabRecency {
+    capacity: usize,
+    recent: VecDeque<PrefabId>,
+}
+
+impl Default for PrefabRecency {
+    fn default() -> Self {
+        Self::new(PREFAB_RUNTIME_RECENCY_CAP)
+    }
+}
+
+impl PrefabRecency {
+    /// Creates a bounded recency tracker.
+    pub fn new(capacity: usize) -> Self {
+        Self {
+            capacity,
+            recent: VecDeque::with_capacity(capacity),
+        }
+    }
+
+    /// Marks a prefab definition as recently used.
+    pub fn touch(&mut self, id: PrefabId) {
+        self.recent.retain(|existing| *existing != id);
+        self.recent.push_back(id);
+        while self.recent.len() > self.capacity {
+            self.recent.pop_front();
+        }
+    }
+
+    /// Returns true when a prefab id is still retained.
+    pub fn contains(&self, id: &PrefabId) -> bool {
+        self.recent.iter().any(|existing| existing == id)
+    }
+
+    /// Returns retained ids from oldest to newest.
+    pub fn ids(&self) -> Vec<PrefabId> {
+        self.recent.iter().copied().collect()
     }
 }
 
@@ -51,6 +94,9 @@ pub struct PrefabManager {
     pub prefab_ids_by_name: HashMap<String, PrefabId>,
     /// Next available prefab id for this game.
     pub next_prefab_id: usize,
+    /// Runtime-only bounded recency for spawned prefab definitions.
+    #[serde(skip, default)]
+    runtime_recency: PrefabRecency,
 }
 
 impl Default for PrefabManager {
@@ -59,6 +105,7 @@ impl Default for PrefabManager {
             prefabs: HashMap::new(),
             prefab_ids_by_name: HashMap::new(),
             next_prefab_id: 1,
+            runtime_recency: PrefabRecency::default(),
         }
     }
 }
@@ -69,6 +116,16 @@ impl PrefabManager {
         self.prefab_ids_by_name
             .get(name)
             .and_then(|id| self.prefabs.get(id))
+    }
+
+    /// Returns the runtime prefab-definition recency tracker.
+    pub fn runtime_recency(&self) -> &PrefabRecency {
+        &self.runtime_recency
+    }
+
+    /// Returns the mutable runtime prefab-definition recency tracker.
+    pub fn runtime_recency_mut(&mut self) -> &mut PrefabRecency {
+        &mut self.runtime_recency
     }
 
     /// Returns all prefabs sorted by name then id.

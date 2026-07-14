@@ -1,4 +1,5 @@
 use crate::app::EditorMode;
+use crate::game::GameEditorSubmode;
 use crate::commands::asset::DeleteUnregisteredFileCmd;
 use crate::commands::editor_command_manager::EditorCommand;
 use crate::editor_global::with_editor;
@@ -69,7 +70,7 @@ fn delete_unregistered_file_cmd_failed_execute_leaves_no_undo_payload() {
 #[test]
 fn applies_in_all_modes() {
     let cmd = DeleteUnregisteredFileCmd::new(PathBuf::from(NOTES_FILE_NAME));
-    assert!(cmd.applies_in_mode(EditorMode::Game));
+    assert!(cmd.applies_in_mode(EditorMode::Game(GameEditorSubmode::Worlds)));
     assert!(cmd.applies_in_mode(EditorMode::Room(RoomId(1))));
     assert!(cmd.applies_in_mode(EditorMode::Prefab(PrefabId(5))));
     assert!(cmd.applies_in_mode(EditorMode::Menu));

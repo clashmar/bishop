@@ -15,6 +15,10 @@ pub mod theme_module;
 mod entity_module_tests;
 
 #[cfg(test)]
+#[path = "tests/engine_module_tests.rs"]
+mod engine_module_tests;
+
+#[cfg(test)]
 #[path = "tests/save_module_tests.rs"]
 mod save_module_tests;
 
@@ -29,3 +33,7 @@ mod menu_module_tests;
 #[cfg(test)]
 #[path = "tests/toml_asset_tests.rs"]
 mod toml_asset_tests;
+
+#[cfg(test)]
+#[path = "tests/prefab_module_tests.rs"]
+mod prefab_module_tests;

@@ -42,7 +42,9 @@ impl EditorCommand for RemoveParentCmd {
     fn applies_in_mode(&self, current_mode: EditorMode) -> bool {
         match self.mode {
             // Global entities can be undone from Game mode or any Room mode
-            EditorMode::Game => matches!(current_mode, EditorMode::Game | EditorMode::Room(_)),
+            EditorMode::Game(_) => {
+                matches!(current_mode, EditorMode::Game(_) | EditorMode::Room(_))
+            }
             other => other == current_mode,
         }
     }
