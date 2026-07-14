@@ -3,7 +3,7 @@ use engine_core::assets::*;
 use engine_core::constants::world as world_constants;
 use engine_core::ecs::*;
 use engine_core::game::{GameCtxMut, StartupMode};
-use engine_core::rendering::{outline_thickness, pivot_adjusted_position};
+use engine_core::rendering::{outline_thickness, pivot_adjusted_position, resolve_visual_entity};
 use engine_core::storage::*;
 use engine_core::theme::with_theme;
 use engine_core::ui::measure_text;
@@ -455,7 +455,8 @@ pub(crate) fn draw_prefab_stamp_ghost(
 
 /// Draw the outline of the collider for an entity if it has one.
 pub fn draw_collider(ctx: &mut WgpuContext, ecs: &Ecs, entity: Entity) {
-    let Some(collider) = ecs.get_store::<Collider>().get(entity) else {
+    let visual_entity = resolve_visual_entity(ecs, entity);
+    let Some(collider) = ecs.get_store::<Collider>().get(visual_entity) else {
         return;
     };
     let transform = match ecs.get_store::<Transform>().get(entity) {
@@ -463,7 +464,7 @@ pub fn draw_collider(ctx: &mut WgpuContext, ecs: &Ecs, entity: Entity) {
         None => return,
     };
 
-    let edit_active = is_collider_edit_active_for(entity);
+    let edit_active = is_collider_edit_active_for(visual_entity);
     let color = if edit_active {
         Color::new(0.0, 1.0, 1.0, 0.8)
     } else {

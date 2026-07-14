@@ -1,9 +1,12 @@
 use bishop::prelude::*;
 use crate::constants::GRAVITY;
-use crate::physics::collision::SweepContext;
+use crate::physics::collision_world::CollisionWorld;
 use engine_core::assets::*;
 use engine_core::ecs::*;
 use engine_core::worlds::*;
+use std::collections::HashMap;
+
+const SUPPORT_SNAP_DISTANCE: f32 = 0.5;
 
 /// Applies fixed-step movement to `MotionBody`s and full collision physics to `PhysicsBody`s.
 pub fn update_physics(
@@ -22,75 +25,101 @@ pub fn update_physics(
         .copied()
         .collect();
 
-    for entity in entities {
-        let (pos_cur, pivot, mut vel_cur, collider) = {
-            let Some(transform) = ecs.get::<Transform>(entity).copied() else {
-                continue;
-            };
-            let Some(velocity) = ecs.get::<Velocity>(entity).copied() else {
-                continue;
-            };
-            let collider = ecs.get::<Collider>(entity).copied().unwrap_or_default();
-            (transform.position, transform.pivot, velocity, collider)
-        };
-
-        let Some(room_id) = ecs.get::<CurrentRoom>(entity).map(|room| room.0) else {
-            continue;
-        };
-        let Some(room) = world.get_room(room_id) else {
-            continue;
-        };
-        let tilemap = &room.variants[room.current_variant_index()].tilemap;
-
-        let mut sub_pixel = ecs.get::<SubPixel>(entity).copied().unwrap_or_default();
-
-        vel_cur.y += GRAVITY * dt;
-
-        let delta = Vec2::new(vel_cur.x * dt, vel_cur.y * dt);
-
-        // Sweep from the true float position (integer + sub-pixel remainder)
-        // so collision detection measures distances correctly.
-        let true_pos = pos_cur + Vec2::new(sub_pixel.x, sub_pixel.y);
-
-        let collision_world = SweepContext::new(
-            sprite_manager,
-            ecs,
-            room_id,
-            tilemap,
-            room.position,
-            &room.exits,
-            world.grid_size,
-        );
-        let sweep = collision_world.sweep_move(entity, true_pos, delta, collider, pivot);
-
-        // Snap to integer positions, storing the fractional part for next frame
-        let (new_int_pos, new_sub_pixel) = quantize_motion(pos_cur, sub_pixel, sweep.allowed_delta);
-        sub_pixel = new_sub_pixel;
-
-        let was_falling = vel_cur.y >= 0.0;
-
-        // On collision, zero out velocity and discard sub-pixel remainder
-        if sweep.blocked_x {
-            vel_cur.x = 0.0;
-            sub_pixel.x = 0.0;
-        }
-        if sweep.blocked_y {
-            vel_cur.y = 0.0;
-            sub_pixel.y = 0.0;
-        }
-
-        update_entity_position(ecs, entity, new_int_pos);
-        if let Some(velocity) = ecs.get_mut::<Velocity>(entity) {
-            *velocity = vel_cur;
-        }
-
-        if let Some(sp) = ecs.get_mut::<SubPixel>(entity) {
-            *sp = sub_pixel;
-        }
-        if let Some(grounded) = ecs.get_mut::<Grounded>(entity) {
-            grounded.0 = sweep.blocked_y && was_falling;
+    let mut entities_by_room: HashMap<RoomId, Vec<Entity>> = HashMap::new();
+    for entity in &entities {
+        if let Some(room) = ecs.get::<CurrentRoom>(*entity) {
+            entities_by_room.entry(room.0).or_default().push(*entity);
         }
     }
+
+    for (room_id, room_entities) in &entities_by_room {
+        let Some(room) = world.get_room(*room_id) else {
+            continue;
+        };
+        let collision_world = CollisionWorld::new(sprite_manager, ecs, room, world);
+
+        for &entity in room_entities {
+            let was_grounded = ecs.get::<Grounded>(entity).is_some_and(|grounded| grounded.0);
+            let (pos_cur, pivot, mut vel_cur, collider) = {
+                let Some(transform) = ecs.get::<Transform>(entity).copied() else {
+                    continue;
+                };
+                let Some(velocity) = ecs.get::<Velocity>(entity).copied() else {
+                    continue;
+                };
+                let collider = ecs.get::<Collider>(entity).copied().unwrap_or_default();
+                (transform.position, transform.pivot, velocity, collider)
+            };
+
+            let mut sub_pixel = ecs.get::<SubPixel>(entity).copied().unwrap_or_default();
+
+            vel_cur.y += GRAVITY * dt;
+
+            let delta = Vec2::new(vel_cur.x * dt, vel_cur.y * dt);
+
+            let true_pos = pos_cur + Vec2::new(sub_pixel.x, sub_pixel.y);
+
+            let sweep = collision_world.sweep_move(entity, true_pos, delta, collider, pivot);
+
+            // Snap to integer positions, storing the fractional part for next frame
+            let (new_int_pos, new_sub_pixel) =
+                quantize_motion(pos_cur, sub_pixel, sweep.allowed_delta);
+            sub_pixel = new_sub_pixel;
+
+            let was_falling = vel_cur.y >= 0.0;
+            let new_true_pos = new_int_pos + Vec2::new(sub_pixel.x, sub_pixel.y);
+            let blocked_y = sweep.blocked_y
+                || (was_falling
+                    && was_grounded
+                    && is_supported_within_snap_distance(
+                        &collision_world,
+                        entity,
+                        new_true_pos,
+                        collider,
+                        pivot,
+                    ));
+
+            // On collision, zero out velocity and discard sub-pixel remainder
+            if sweep.blocked_x {
+                vel_cur.x = 0.0;
+                sub_pixel.x = 0.0;
+            }
+            if blocked_y {
+                vel_cur.y = 0.0;
+                sub_pixel.y = 0.0;
+            }
+
+            update_entity_position(ecs, entity, new_int_pos);
+            if let Some(velocity) = ecs.get_mut::<Velocity>(entity) {
+                *velocity = vel_cur;
+            }
+
+            if let Some(sp) = ecs.get_mut::<SubPixel>(entity) {
+                *sp = sub_pixel;
+            }
+            if let Some(grounded) = ecs.get_mut::<Grounded>(entity) {
+                grounded.0 = blocked_y && was_falling;
+            }
+        }
+    }
+}
+
+fn is_supported_within_snap_distance(
+    collision_world: &CollisionWorld,
+    entity: Entity,
+    position: Vec2,
+    collider: Collider,
+    pivot: Pivot,
+) -> bool {
+    collision_world
+        .sweep_move(
+            entity,
+            position,
+            Vec2::new(0.0, SUPPORT_SNAP_DISTANCE),
+            collider,
+            pivot,
+        )
+        .blocked_y
 }
 
 fn update_motion_bodies(ecs: &mut Ecs, world: &World, dt: f32) {
@@ -396,6 +425,59 @@ mod tests {
         assert_eq!(
             ecs.get::<Transform>(entity).map(|transform| transform.position.x),
             Some(152.0)
+        );
+    }
+
+    #[test]
+    fn grounded_capsule_stays_grounded_on_corner_support_with_subpixel_gap() {
+        let mut ecs = Ecs::default();
+        let room_id = RoomId(1);
+        let entity = ecs
+            .create_entity()
+            .with(Transform {
+                position: Vec2::new(12.0, 14.0),
+                pivot: Pivot::TopLeft,
+                ..Default::default()
+            })
+            .with(Velocity::default())
+            .with(Collider {
+                shape: ColliderShape::Capsule {
+                    radius: 4.0,
+                    height: 10.0,
+                },
+                ..Default::default()
+            })
+            .with(PhysicsBody)
+            .with(Grounded(true))
+            .with(SubPixel { x: 0.0, y: -0.3 })
+            .with_current_room(room_id)
+            .with(Active::default())
+            .finish();
+        ecs.create_entity()
+            .with(Transform {
+                position: Vec2::new(0.0, 32.0),
+                pivot: Pivot::TopLeft,
+                ..Default::default()
+            })
+            .with(Collider {
+                shape: ColliderShape::Aabb {
+                    width: 16.0,
+                    height: 16.0,
+                },
+                ..Default::default()
+            })
+            .with(Solid(true))
+            .with_current_room(room_id)
+            .finish();
+
+        let world = empty_world();
+
+        update_physics(&SpriteManager::default(), &mut ecs, &world, 1.0 / 60.0);
+
+        assert_eq!(ecs.get::<Grounded>(entity).map(|grounded| grounded.0), Some(true));
+        assert_eq!(
+            ecs.get::<Transform>(entity).map(|transform| transform.position),
+            Some(Vec2::new(12.0, 14.0))
         );
     }
 

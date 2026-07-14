@@ -1,0 +1,622 @@
+use bishop::prelude::*;
+use engine_core::assets::SpriteManager;
+use engine_core::ecs::*;
+use engine_core::tiles::TileComponent;
+use engine_core::worlds::*;
+use std::collections::HashSet;
+
+use crate::physics::shapes;
+
+/// Information returned by a sweep-move query.
+pub struct SweepResult {
+    pub allowed_delta: Vec2,
+    pub blocked_x: bool,
+    pub blocked_y: bool,
+}
+
+#[derive(Clone, Copy)]
+struct SweepData {
+    t_x: f32,
+    t_y: f32,
+    push_x: f32,
+    push_y: f32,
+    blocked_x: bool,
+    blocked_y: bool,
+}
+
+impl SweepData {
+    fn finish(self, desired_delta: Vec2) -> SweepResult {
+        SweepResult {
+            allowed_delta: Vec2::new(
+                desired_delta.x * self.t_x + self.push_x,
+                desired_delta.y * self.t_y + self.push_y,
+            ),
+            blocked_x: self.blocked_x,
+            blocked_y: self.blocked_y,
+        }
+    }
+}
+
+struct SolidObj {
+    aabb: (Vec2, Vec2),
+    entity: Option<Entity>,
+}
+
+/// Collision world built once per frame per room. Owns its obstacle data.
+pub struct CollisionWorld {
+    solids: Vec<SolidObj>,
+}
+
+impl CollisionWorld {
+    /// Collects solid tiles, room borders, and solid ECS entities into a
+    /// collision world for the given room.
+    pub fn new(
+        sprite_manager: &SpriteManager,
+        ecs: &Ecs,
+        room: &Room,
+        world: &World,
+    ) -> Self {
+        let tilemap = &room.variants[room.current_variant_index()].tilemap;
+        let mut solids = Vec::new();
+
+        // Solid tiles
+        for ((x, y), tile_def_id) in tilemap.tiles.iter() {
+            let Some(tile_def) = sprite_manager.tile_defs.get(tile_def_id) else {
+                continue;
+            };
+            if tile_def.components.contains(&TileComponent::Solid(true)) {
+                let tile_pos = room.position
+                    + vec2(*x as f32 * world.grid_size, *y as f32 * world.grid_size);
+                let tile_aabb = (
+                    tile_pos,
+                    tile_pos + vec2(world.grid_size, world.grid_size),
+                );
+                solids.push(SolidObj {
+                    aabb: tile_aabb,
+                    entity: None,
+                });
+            }
+        }
+
+        // Border obstacles
+        add_border_obstacles(&mut solids, room, world.grid_size);
+
+        // Solid ECS entities
+        for &entity in ecs.entities_in_room(room.id) {
+            if !ecs.get::<Solid>(entity).is_some_and(|solid| solid.0) {
+                continue;
+            }
+            let Some(transform) = ecs.get::<Transform>(entity) else {
+                continue;
+            };
+            let collider = ecs.get::<Collider>(entity).copied().unwrap_or_default();
+            let entity_aabb =
+                shapes::collider_aabb(transform.position, collider, transform.pivot);
+            solids.push(SolidObj {
+                aabb: entity_aabb,
+                entity: Some(entity),
+            });
+        }
+
+        CollisionWorld {
+            solids,
+        }
+    }
+
+    /// Sweep the moving entity's collider from `entity_position` by `desired_delta`,
+    /// resolving collisions against all solids in this world.
+    pub fn sweep_move(
+        &self,
+        moving_entity: Entity,
+        entity_position: Vec2,
+        desired_delta: Vec2,
+        collider: Collider,
+        pivot: Pivot,
+    ) -> SweepResult {
+        let collider_pos = shapes::collider_aabb(entity_position, collider, pivot).0;
+
+        if let ColliderShape::Circle { radius } = collider.shape {
+            let center = Vec2::new(collider_pos.x + radius, collider_pos.y + radius);
+            return self
+                .sweep_circle(center, radius, desired_delta, moving_entity)
+                .finish(desired_delta);
+        }
+
+        if let ColliderShape::Capsule { radius, height } = collider.shape {
+            let center = Vec2::new(
+                collider_pos.x + radius,
+                collider_pos.y + radius + height * 0.5,
+            );
+            return self
+                .sweep_capsule(center, radius, height, desired_delta, moving_entity)
+                .finish(desired_delta);
+        }
+
+        let (allowed_x, blocked_x) = self.resolve_axis(
+            collider.shape,
+            collider_pos,
+            desired_delta.x,
+            0,
+            moving_entity,
+        );
+
+        let pos_after_x = Vec2::new(collider_pos.x + allowed_x, collider_pos.y);
+        let (allowed_y, blocked_y) = self.resolve_axis(
+            collider.shape,
+            pos_after_x,
+            desired_delta.y,
+            1,
+            moving_entity,
+        );
+
+        SweepResult {
+            allowed_delta: Vec2::new(allowed_x, allowed_y),
+            blocked_x,
+            blocked_y,
+        }
+    }
+
+    /// 2D sweep for circle colliders.
+    fn sweep_circle(
+        &self,
+        center: Vec2,
+        radius: f32,
+        desired_delta: Vec2,
+        moving_entity: Entity,
+    ) -> SweepData {
+        let mut t_x = 1.0f32;
+        let mut t_y = 1.0f32;
+        let mut blocked_x = false;
+        let mut blocked_y = false;
+        let mut push_x = 0.0f32;
+        let mut push_y = 0.0f32;
+
+        for solid in &self.solids {
+            if solid.entity == Some(moving_entity) {
+                continue;
+            }
+
+            let (obs_min, obs_max) = solid.aabb;
+            let expanded_min = obs_min - Vec2::splat(radius);
+            let expanded_max = obs_max + Vec2::splat(radius);
+
+            let (tx_min, tx_max) = ray_axis(
+                center.x, desired_delta.x, expanded_min.x, expanded_max.x,
+            );
+            let (ty_min, ty_max) = ray_axis(
+                center.y, desired_delta.y, expanded_min.y, expanded_max.y,
+            );
+
+            let t_enter = tx_min.max(ty_min);
+            let t_exit = tx_max.min(ty_max);
+
+            if t_enter > t_exit || t_exit < 0.0 || t_enter > 1.0 {
+                continue;
+            }
+
+            if t_enter <= 0.0 {
+                let closest = Vec2::new(
+                    center.x.clamp(obs_min.x, obs_max.x),
+                    center.y.clamp(obs_min.y, obs_max.y),
+                );
+                let diff = center - closest;
+                let dist_sq = diff.length_squared();
+
+                if !circle_touches_rect(center, radius, obs_min, obs_max) {
+                    // False positive: aligned on one axis but not touching.
+                    continue;
+                }
+
+                if dist_sq < 0.0001 {
+                    let dx_min = center.x - obs_min.x;
+                    let dx_max = obs_max.x - center.x;
+                    let dy_min = center.y - obs_min.y;
+                    let dy_max = obs_max.y - center.y;
+                    let min_dx = dx_min.min(dx_max);
+                    let min_dy = dy_min.min(dy_max);
+
+                    if min_dx < min_dy {
+                        push_x += if dx_min < dx_max {
+                            -(dx_min + radius)
+                        } else {
+                            dx_max + radius
+                        };
+                        blocked_x = true;
+                        t_x = 0.0;
+                    } else {
+                        push_y += if dy_min < dy_max {
+                            -(dy_min + radius)
+                        } else {
+                            dy_max + radius
+                        };
+                        blocked_y = true;
+                        t_y = 0.0;
+                    }
+                    continue;
+                }
+
+                let dist = dist_sq.sqrt();
+                let normal = diff / dist;
+
+                // Depenetration
+                if dist < radius - shapes::OVERLAP_EPS {
+                    let penetration = radius - dist;
+                    push_x += normal.x * penetration;
+                    push_y += normal.y * penetration;
+                }
+
+                // Block movement that would go deeper into the obstacle
+                if desired_delta.x * normal.x < -shapes::OVERLAP_EPS {
+                    blocked_x = true;
+                    t_x = 0.0;
+                }
+                if desired_delta.y * normal.y < -shapes::OVERLAP_EPS {
+                    blocked_y = true;
+                    t_y = 0.0;
+                }
+
+                // Limit sliding along the surface to the obstacle extents
+                if !blocked_x && desired_delta.x != 0.0 {
+                    let t_exit_x = if desired_delta.x > 0.0 {
+                        (expanded_max.x - center.x) / desired_delta.x
+                    } else {
+                        (expanded_min.x - center.x) / desired_delta.x
+                    };
+                    if t_exit_x > 0.0 && t_exit_x < t_x {
+                        t_x = t_exit_x;
+                    }
+                }
+                if !blocked_y && desired_delta.y != 0.0 {
+                    let t_exit_y = if desired_delta.y > 0.0 {
+                        (expanded_max.y - center.y) / desired_delta.y
+                    } else {
+                        (expanded_min.y - center.y) / desired_delta.y
+                    };
+                    if t_exit_y > 0.0 && t_exit_y < t_y {
+                        t_y = t_exit_y;
+                    }
+                }
+                continue;
+            }
+
+            let contact_center = center + desired_delta * t_enter;
+            if !circle_touches_rect(contact_center, radius, obs_min, obs_max) {
+                continue;
+            }
+
+            if t_enter < t_x && tx_min >= ty_min {
+                t_x = t_enter;
+                blocked_x = true;
+            }
+            if t_enter < t_y && ty_min >= tx_min {
+                t_y = t_enter;
+                blocked_y = true;
+            }
+        }
+
+        SweepData {
+            t_x,
+            t_y,
+            push_x,
+            push_y,
+            blocked_x,
+            blocked_y,
+        }
+    }
+
+    /// 2D sweep for capsule colliders.
+    fn sweep_capsule(
+        &self,
+        center: Vec2,
+        radius: f32,
+        height: f32,
+        desired_delta: Vec2,
+        moving_entity: Entity,
+    ) -> SweepData {
+        let half = height * 0.5;
+        let top_center = Vec2::new(center.x, center.y - half);
+        let bot_center = Vec2::new(center.x, center.y + half);
+
+        let top = self.sweep_circle(top_center, radius, desired_delta, moving_entity);
+        let bot = self.sweep_circle(bot_center, radius, desired_delta, moving_entity);
+        let body = self.sweep_aabb_2d(center, radius, half, desired_delta, moving_entity);
+
+        SweepData {
+            t_x: top.t_x.min(bot.t_x).min(body.t_x),
+            t_y: top.t_y.min(bot.t_y).min(body.t_y),
+            push_x: select_stronger_push([top.push_x, bot.push_x, body.push_x]),
+            push_y: select_stronger_push([top.push_y, bot.push_y, body.push_y]),
+            blocked_x: top.blocked_x || bot.blocked_x || body.blocked_x,
+            blocked_y: top.blocked_y || bot.blocked_y || body.blocked_y,
+        }
+    }
+
+    /// 2D sweep for an AABB centred at `center` with half-extents `(hw, hh)`.
+    fn sweep_aabb_2d(
+        &self,
+        center: Vec2,
+        hw: f32,
+        hh: f32,
+        desired_delta: Vec2,
+        moving_entity: Entity,
+    ) -> SweepData {
+        let mut t_x = 1.0f32;
+        let mut t_y = 1.0f32;
+        let mut blocked_x = false;
+        let mut blocked_y = false;
+        let mut push_x = 0.0f32;
+        let mut push_y = 0.0f32;
+
+        for solid in &self.solids {
+            if solid.entity == Some(moving_entity) {
+                continue;
+            }
+
+            let (obs_min, obs_max) = solid.aabb;
+            let expanded_min = Vec2::new(obs_min.x - hw, obs_min.y - hh);
+            let expanded_max = Vec2::new(obs_max.x + hw, obs_max.y + hh);
+
+            // Ray vs expanded rect.
+            let (tx_min, tx_max) = ray_axis(
+                center.x, desired_delta.x, expanded_min.x, expanded_max.x,
+            );
+            let (ty_min, ty_max) = ray_axis(
+                center.y, desired_delta.y, expanded_min.y, expanded_max.y,
+            );
+
+            let t_enter = tx_min.max(ty_min);
+            let t_exit = tx_max.min(ty_max);
+
+            if t_enter > t_exit || t_exit < 0.0 || t_enter > 1.0 {
+                continue;
+            }
+
+            if t_enter <= 0.0 {
+                if !aabb_overlaps(center, hw, hh, obs_min, obs_max) {
+                    continue;
+                }
+
+                // Compute penetration on each axis
+                let overlap_x = (center.x + hw).min(obs_max.x) - (center.x - hw).max(obs_min.x);
+                let overlap_y = (center.y + hh).min(obs_max.y) - (center.y - hh).max(obs_min.y);
+
+                if overlap_x <= 0.0 && overlap_y <= 0.0 {
+                    continue;
+                }
+
+                // Push out along the axis with the larger overlap
+                if overlap_x > overlap_y {
+                    let push_left = (center.x + hw) - obs_min.x;
+                    let push_right = obs_max.x - (center.x - hw);
+                    push_x += if push_left < push_right {
+                        -push_left
+                    } else {
+                        push_right
+                    };
+                    blocked_x = true;
+                    t_x = 0.0;
+                } else {
+                    let push_up = (center.y + hh) - obs_min.y;
+                    let push_down = obs_max.y - (center.y - hh);
+                    push_y += if push_up < push_down {
+                        -push_up
+                    } else {
+                        push_down
+                    };
+                    blocked_y = true;
+                    t_y = 0.0;
+                }
+
+                // Block movement into the obstacle on the other axis too
+                if !blocked_x {
+                    let body_left = center.x - hw;
+                    let body_right = center.x + hw;
+                    if desired_delta.x < 0.0
+                        && body_left <= obs_max.x + shapes::OVERLAP_EPS
+                        && body_left + desired_delta.x < obs_max.x
+                    {
+                        blocked_x = true;
+                        t_x = 0.0;
+                    }
+                    if desired_delta.x > 0.0
+                        && body_right >= obs_min.x - shapes::OVERLAP_EPS
+                        && body_right + desired_delta.x > obs_min.x
+                    {
+                        blocked_x = true;
+                        t_x = 0.0;
+                    }
+                }
+                if !blocked_y {
+                    let body_top = center.y - hh;
+                    let body_bottom = center.y + hh;
+                    if desired_delta.y < 0.0
+                        && body_top <= obs_max.y + shapes::OVERLAP_EPS
+                        && body_top + desired_delta.y < obs_max.y
+                    {
+                        blocked_y = true;
+                        t_y = 0.0;
+                    }
+                    if desired_delta.y > 0.0
+                        && body_bottom >= obs_min.y - shapes::OVERLAP_EPS
+                        && body_bottom + desired_delta.y > obs_min.y
+                    {
+                        blocked_y = true;
+                        t_y = 0.0;
+                    }
+                }
+                continue;
+            }
+
+            let contact_center = center + desired_delta * t_enter;
+            if !aabb_overlaps(contact_center, hw, hh, obs_min, obs_max) {
+                continue;
+            }
+
+            if t_enter < t_x && tx_min >= ty_min {
+                t_x = t_enter;
+                blocked_x = true;
+            }
+            if t_enter < t_y && ty_min >= tx_min {
+                t_y = t_enter;
+                blocked_y = true;
+            }
+        }
+
+        SweepData {
+            t_x,
+            t_y,
+            push_x,
+            push_y,
+            blocked_x,
+            blocked_y,
+        }
+    }
+
+    fn resolve_axis(
+        &self,
+        shape: ColliderShape,
+        shape_pos: Vec2,
+        delta: f32,
+        axis: usize,
+        moving_entity: Entity,
+    ) -> (f32, bool) {
+        if delta == 0.0 {
+            return (0.0, false);
+        }
+
+        let mut allowed = delta;
+        let mut blocked = false;
+
+        for solid in &self.solids {
+            if solid.entity == Some(moving_entity) {
+                continue;
+            }
+            if let Some(limit) =
+                shapes::sweep_axis(shape, shape_pos, delta, axis, solid.aabb)
+            {
+                if (delta > 0.0 && limit < allowed) || (delta < 0.0 && limit > allowed) {
+                    allowed = limit;
+                    blocked = true;
+                }
+            }
+        }
+
+        (allowed, blocked)
+    }
+
+    /// Returns sensor entities whose AABB overlaps the query collider's AABB.
+    pub fn check_overlaps(
+        &self,
+        _position: Vec2,
+        _collider: Collider,
+        _pivot: Pivot,
+    ) -> Vec<Entity> {
+        Vec::new()
+    }
+}
+
+fn ray_axis(start: f32, dir: f32, lo: f32, hi: f32) -> (f32, f32) {
+    if dir > 0.0 {
+        ((lo - start) / dir, (hi - start) / dir)
+    } else if dir < 0.0 {
+        ((hi - start) / dir, (lo - start) / dir)
+    } else if start >= lo && start <= hi {
+        (f32::NEG_INFINITY, f32::INFINITY)
+    } else {
+        (f32::INFINITY, f32::NEG_INFINITY)
+    }
+}
+
+fn circle_touches_rect(c: Vec2, r: f32, obs_min: Vec2, obs_max: Vec2) -> bool {
+    let closest = Vec2::new(
+        c.x.clamp(obs_min.x, obs_max.x),
+        c.y.clamp(obs_min.y, obs_max.y),
+    );
+    let dist_sq = (c.x - closest.x).powi(2) + (c.y - closest.y).powi(2);
+    dist_sq <= r.powi(2) + shapes::OVERLAP_EPS
+}
+
+fn aabb_overlaps(c: Vec2, hw: f32, hh: f32, obs_min: Vec2, obs_max: Vec2) -> bool {
+    c.x + hw >= obs_min.x - shapes::OVERLAP_EPS
+        && c.x - hw <= obs_max.x + shapes::OVERLAP_EPS
+        && c.y + hh >= obs_min.y - shapes::OVERLAP_EPS
+        && c.y - hh <= obs_max.y + shapes::OVERLAP_EPS
+}
+
+fn select_stronger_push(pushes: [f32; 3]) -> f32 {
+    let mut selected = 0.0f32;
+    for push in pushes {
+        if push.abs() > selected.abs() {
+            selected = push;
+        }
+    }
+    selected
+}
+
+fn add_border_obstacles(solids: &mut Vec<SolidObj>, room: &Room, grid_size: f32) {
+    let tilemap = &room.variants[room.current_variant_index()].tilemap;
+    let ts = grid_size;
+    let w = tilemap.width as i32;
+    let h = tilemap.height as i32;
+
+    let mut outer_exits: HashSet<(i32, i32)> =
+        HashSet::with_capacity(room.exits.len());
+    for e in &room.exits {
+        outer_exits.insert((e.position.x as i32, e.position.y as i32));
+    }
+
+    // Top border (y = -1)
+    for gx in 0..w {
+        if !outer_exits.contains(&(gx, -1)) {
+            let min = room.position + vec2(gx as f32 * ts, -ts);
+            solids.push(SolidObj {
+                aabb: (min, min + vec2(ts, ts)),
+                entity: None,
+            });
+        }
+    }
+
+    // Bottom border (y = h)
+    for gx in 0..w {
+        if !outer_exits.contains(&(gx, h)) {
+            let min = room.position + vec2(gx as f32 * ts, h as f32 * ts);
+            solids.push(SolidObj {
+                aabb: (min, min + vec2(ts, ts)),
+                entity: None,
+            });
+        }
+    }
+
+    // Left border (x = -1)
+    for gy in 0..h {
+        if !outer_exits.contains(&(-1, gy)) {
+            let min = room.position + vec2(-ts, gy as f32 * ts);
+            solids.push(SolidObj {
+                aabb: (min, min + vec2(ts, ts)),
+                entity: None,
+            });
+        }
+    }
+
+    // Right border (x = w)
+    for gy in 0..h {
+        if !outer_exits.contains(&(w, gy)) {
+            let min = room.position + vec2(w as f32 * ts, gy as f32 * ts);
+            solids.push(SolidObj {
+                aabb: (min, min + vec2(ts, ts)),
+                entity: None,
+            });
+        }
+    }
+
+    // Corners
+    for (gx, gy) in [(-1, -1), (w, -1), (-1, h), (w, h)] {
+        if !outer_exits.contains(&(gx, gy)) {
+            let min = room.position + vec2(gx as f32 * ts, gy as f32 * ts);
+            solids.push(SolidObj {
+                aabb: (min, min + vec2(ts, ts)),
+                entity: None,
+            });
+        }
+    }
+}

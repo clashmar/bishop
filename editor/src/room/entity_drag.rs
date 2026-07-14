@@ -18,6 +18,7 @@ use bishop::prelude::*;
 use engine_core::assets::*;
 use engine_core::controls::get_omni_input_pressed;
 use engine_core::ecs::*;
+use engine_core::rendering::resolve_visual_entity;
 use engine_core::worlds::*;
 use std::collections::{HashMap, HashSet};
 
@@ -81,14 +82,15 @@ impl RoomEditor {
             && !self.drag_state.dragging
             && !self.drag_state.box_select_active
         {
-            if let Some((entity, action, collider)) = try_intercept_collider_handle(
+            if let Some((visual_entity, action, collider)) = try_intercept_collider_handle(
                 self.single_selected_entity(),
                 ecs,
                 mouse_world,
             ) {
+                let transform_entity = self.single_selected_entity().unwrap_or(visual_entity);
                 self.drag_state
                     .collider_drag
-                    .begin(entity, action, collider, mouse_world);
+                    .begin(visual_entity, transform_entity, action, collider, mouse_world);
                 return true;
             }
 
@@ -145,13 +147,13 @@ impl RoomEditor {
                     }
 
                     // In collider edit mode, try handle drag instead of entity drag
-                    if self.single_selected_entity().is_some_and(is_collider_edit_active_for) {
-                        if let Some((e, action, c)) = try_start_collider_handle_on_click(
+                    if self.single_selected_entity().is_some_and(|e| is_collider_edit_active_for(resolve_visual_entity(ecs, e))) {
+                        if let Some((visual_entity, action, c)) = try_start_collider_handle_on_click(
                             entity,
                             ecs,
                             mouse_world,
                         ) {
-                            self.drag_state.collider_drag.begin(e, action, c, mouse_world);
+                            self.drag_state.collider_drag.begin(visual_entity, entity, action, c, mouse_world);
                         }
                     } else {
                         // Start normal drag

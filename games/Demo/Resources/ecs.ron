@@ -6,7 +6,6 @@
                 (3): true,
                 (37): true,
                 (38): true,
-                (68): true,
                 (75): true,
             },
         ),
@@ -154,16 +153,16 @@
             type_name: "Collider",
             data: {
                 (3): (
-                    width: 6.0,
-                    height: 16.0,
+                    shape: Circle(
+                        radius: 7.527791,
+                    ),
+                    offset: (-0.10292721, -0.6898327),
                 ),
                 (37): (
-                    width: 18.0,
-                    height: 19.0,
-                ),
-                (68): (
-                    width: 16.0,
-                    height: 16.0,
+                    shape: Circle(
+                        radius: 7.4078255,
+                    ),
+                    offset: (1.3428688, -0.63303757),
                 ),
             },
         ),
@@ -191,7 +190,6 @@
                 (62): ((4)),
                 (63): ((1)),
                 (65): ((1)),
-                (68): ((1)),
                 (69): ((1)),
                 (70): ((5)),
                 (71): ((5)),
@@ -225,7 +223,6 @@
             data: {
                 (3): (false),
                 (37): (false),
-                (68): (false),
             },
         ),
         (
@@ -268,7 +265,6 @@
             data: {
                 (3): (),
                 (37): (),
-                (68): (),
             },
         ),
         (
@@ -284,7 +280,6 @@
                 (52): ("Entity"),
                 (63): ("Entity"),
                 (65): ("Camera 1"),
-                (68): ("Entity"),
                 (70): ("Camera 1"),
                 (71): ("Player Proxy"),
                 (75): ("Entity"),
@@ -300,7 +295,6 @@
             data: {
                 (3): (),
                 (37): (),
-                (68): (),
             },
         ),
         (
@@ -354,7 +348,9 @@
             type_name: "PrefabOverrides",
             data: {
                 (37): (
-                    modified_components: [],
+                    modified_components: [
+                        "Collider",
+                    ],
                     removed_components: [],
                     added_components: [
                         (
@@ -459,15 +455,6 @@
                         },
                     ),
                 ),
-                (68): (
-                    script_id: (5),
-                    data: (
-                        fields: {
-                            "facing": Text("right"),
-                            "speed": Int(80),
-                        },
-                    ),
-                ),
                 (75): (
                     script_id: (7),
                     data: (
@@ -508,9 +495,6 @@
                 (38): (
                     sprite: (9),
                 ),
-                (68): (
-                    sprite: (9),
-                ),
                 (75): (
                     sprite: (9),
                 ),
@@ -521,7 +505,6 @@
             data: {
                 (3): (),
                 (37): (),
-                (68): (),
             },
         ),
         (
@@ -544,7 +527,7 @@
                 ),
                 (37): (
                     visible: true,
-                    position: (164.0, 72.0),
+                    position: (188.0, 72.0),
                     pivot: BottomCenter,
                 ),
                 (38): (
@@ -574,18 +557,13 @@
                 ),
                 (63): (
                     visible: true,
-                    position: (76.0, 72.0),
+                    position: (244.0, 72.0),
                     pivot: BottomCenter,
                 ),
                 (65): (
                     visible: true,
                     position: (128.0, 0.0),
                     pivot: TopLeft,
-                ),
-                (68): (
-                    visible: true,
-                    position: (12.0, 72.0),
-                    pivot: BottomCenter,
                 ),
                 (70): (
                     visible: true,
@@ -622,10 +600,6 @@
                     y: 0.0,
                 ),
                 (37): (
-                    x: 0.0,
-                    y: 0.0,
-                ),
-                (68): (
                     x: 0.0,
                     y: 0.0,
                 ),

@@ -1,3 +1,6 @@
+mod shapes_tests;
+mod sweep_tests;
+
 use engine_core::ecs::ColliderShape;
 
 #[test]
