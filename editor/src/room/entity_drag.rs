@@ -1,7 +1,7 @@
 use crate::app::{EditorMode, SubEditor};
 use crate::commands::room::*;
 use crate::editor_global::*;
-use crate::gui::inspector::collider_module::edit::is_collider_edit_active_for;
+use crate::gui::inspector::collider_module::edit::{is_collider_edit_active_for, ColliderEditConfig};
 use crate::room::collider_drag::{
     apply_collider_edit_nudge,
     collider_update_command,
@@ -86,6 +86,7 @@ impl RoomEditor {
                 self.single_selected_entity(),
                 ecs,
                 mouse_world,
+                grid_size,
             ) {
                 let transform_entity = self.single_selected_entity().unwrap_or(visual_entity);
                 self.drag_state
@@ -152,6 +153,7 @@ impl RoomEditor {
                             entity,
                             ecs,
                             mouse_world,
+                            grid_size,
                         ) {
                             self.drag_state.collider_drag.begin(visual_entity, entity, action, c, mouse_world);
                         }
@@ -509,12 +511,21 @@ impl RoomEditor {
             return true;
         }
 
+        let snap_held = ctx.is_key_down(KeyCode::S);
+        let shift_held = ctx.is_key_down(KeyCode::LeftShift) || ctx.is_key_down(KeyCode::RightShift);
+        let config = ColliderEditConfig {
+            grid_size,
+            snap_enabled: snap_held,
+            shift_held,
+        };
+
         let result = step_active_collider_drag(
             &mut self.drag_state.collider_drag,
             ecs,
             coord::mouse_world_pos(ctx, camera),
             ctx.is_mouse_button_down(MouseButton::Left),
             ctx.is_mouse_button_released(MouseButton::Left),
+            config,
         );
         if result.consumed {
             if let Some((entity, old_collider, new_collider)) = result.commit {

@@ -2,15 +2,16 @@ use bishop::prelude::*;
 use engine_core::ecs::inspector::factory::ModuleFactoryEntry;
 use engine_core::ecs::inspector::layout::InspectorBodyLayout;
 use engine_core::ecs::inspector::module::CollapsibleComponentModule;
-use engine_core::ecs::{Collider, ColliderShape, Ecs, Entity, InspectorModule};
+use engine_core::ecs::{Collider, ColliderShape, CurrentFrame, Ecs, Entity, InspectorModule, Sprite};
 use engine_core::game::GameCtxMut;
+use engine_core::physics::collider_system;
 use engine_core::ui::measure_text;
 use strum::IntoEnumIterator;
 use widgets::constants::colors;
 use widgets::constants::layout as layout_constants;
 use widgets::{Button, Color, Dropdown, NumberInput, Rect, Widget, WidgetId};
 
-use crate::editor_assets::assets::move_icon;
+use crate::editor_assets::assets::{move_icon, refresh_icon};
 
 pub mod edit;
 
@@ -25,6 +26,7 @@ const COLUMN_GAP: f32 = 8.0;
 const ROW_LABEL_INPUT_GAP: f32 = 10.0;
 const EDIT_BTN_SIZE: f32 = 24.0;
 const EDIT_BTN_GAP: f32 = 8.0;
+const RESET_BTN_GAP: f32 = 4.0;
 
 /// Inspector module for the `Collider` component.
 pub struct ColliderModule {
@@ -83,23 +85,59 @@ impl InspectorModule for ColliderModule {
         game_ctx: &mut GameCtxMut,
         entity: Entity,
     ) {
-        let collider = match game_ctx.ecs.get_mut::<Collider>(entity) {
-            Some(collider) => collider,
-            None => return,
-        };
         let edit_mode_active = edit::is_collider_edit_active_for(entity);
-        let current_shape_label = collider.shape.ui_label();
         let mut y = rect.y + layout_constants::WIDGET_SPACING;
         let full_w = rect.w - 2.0 * layout_constants::WIDGET_PADDING;
 
         let shape_label_w =
             measure_text(ctx, "Shape:", layout_constants::FIELD_TEXT_SIZE_16).width + COLON_GAP;
-        let edit_btn_x = rect.x + full_w - EDIT_BTN_SIZE + layout_constants::WIDGET_PADDING;
+        let edit_btn_x = rect.x + full_w - EDIT_BTN_SIZE * 2.0 - RESET_BTN_GAP + layout_constants::WIDGET_PADDING;
+        let reset_btn_x = edit_btn_x + EDIT_BTN_SIZE + RESET_BTN_GAP;
         let dropdown_w = edit_btn_x
             - rect.x
             - shape_label_w
             - layout_constants::WIDGET_PADDING
             - EDIT_BTN_GAP;
+
+        let reset_btn_rect = Rect::new(
+            reset_btn_x,
+            y + (ROW_H - EDIT_BTN_SIZE) / 2.0,
+            EDIT_BTN_SIZE,
+            EDIT_BTN_SIZE,
+        );
+        let reset_clicked = Button::icon(reset_btn_rect, refresh_icon(), "Reset Collider")
+            .suppressed(blocked)
+            .show(ctx);
+        if reset_clicked {
+            let default_collider = {
+                let current_frame_store = game_ctx.ecs.get_store::<CurrentFrame>();
+                if let Some(col) = collider_system::collider_from_animation_component(
+                    current_frame_store,
+                    entity,
+                    &mut game_ctx.sprite_manager,
+                ) {
+                    col
+                } else if let Some(sprite) = game_ctx.ecs.get_store::<Sprite>().get(entity) {
+                    collider_system::collider_from_sprite(
+                        &mut game_ctx.sprite_manager,
+                        sprite.sprite,
+                    )
+                    .unwrap_or_default()
+                } else {
+                    Collider::default()
+                }
+            };
+            if let Some(collider) = game_ctx.ecs.get_mut::<Collider>(entity) {
+                *collider = default_collider;
+            }
+            return;
+        }
+
+        let collider = match game_ctx.ecs.get_mut::<Collider>(entity) {
+            Some(collider) => collider,
+            None => return,
+        };
+        let current_shape_label = collider.shape.ui_label();
 
         ctx.draw_text(
             "Shape:",

@@ -474,7 +474,7 @@ pub fn draw_editor_collider(ctx: &mut WgpuContext, ecs: &Ecs, entity: Entity, gr
     draw_collider(ctx, transform.position, collider, transform.pivot, color, thickness);
 
     if edit_active {
-        let handles = compute_handles(transform.position, transform.pivot, collider);
+        let handles = compute_handles(transform.position, transform.pivot, collider, grid_size);
         for handle in &handles {
             ctx.draw_rectangle(
                 handle.rect.x,
@@ -488,7 +488,7 @@ pub fn draw_editor_collider(ctx: &mut WgpuContext, ecs: &Ecs, entity: Entity, gr
                 handle.rect.y,
                 handle.rect.w,
                 handle.rect.h,
-                1.0,
+                0.5,
                 Color::BLACK,
             );
         }

@@ -7,7 +7,13 @@ thread_local! {
     static EDIT_ENTITY: Cell<Entity> = const { Cell::new(Entity(0)) };
 }
 
-const HANDLE_SIZE: f32 = 2.0;
+/// Configuration passed through the collider drag pipeline.
+#[derive(Clone, Copy)]
+pub(crate) struct ColliderEditConfig {
+    pub grid_size: f32,
+    pub snap_enabled: bool,
+    pub shift_held: bool,
+}
 
 /// An interaction handle on the collider outline.
 pub struct Handle {
@@ -27,6 +33,10 @@ pub enum HandleAction {
     ResizeCapsuleRadiusRight,
     ResizeCapsuleHeightTop,
     ResizeCapsuleHeightBottom,
+    ResizeTop,
+    ResizeBottom,
+    ResizeLeft,
+    ResizeRight,
     MoveOffset,
 }
 
@@ -70,15 +80,17 @@ pub fn compute_handles(
     transform_position: Vec2,
     pivot: Pivot,
     collider: &Collider,
+    grid_size: f32,
 ) -> Vec<Handle> {
     let (w, h) = collider.shape.size();
     let size = vec2(w, h);
     let top_left = pivot_adjusted_position(transform_position + collider.offset, size, pivot);
-    let hs = HANDLE_SIZE;
+    let hs = grid_size * 0.1;
 
     match collider.shape {
         ColliderShape::Aabb { .. } => {
             vec![
+                // Corners
                 Handle {
                     rect: Rect::new(top_left.x - hs, top_left.y - hs, hs * 2.0, hs * 2.0),
                     action: HandleAction::ResizeAabbTopLeft,
@@ -94,6 +106,23 @@ pub fn compute_handles(
                 Handle {
                     rect: Rect::new(top_left.x + w - hs, top_left.y + h - hs, hs * 2.0, hs * 2.0),
                     action: HandleAction::ResizeAabbBottomRight,
+                },
+                // Edges
+                Handle {
+                    rect: Rect::new(top_left.x + w / 2.0 - hs, top_left.y - hs, hs * 2.0, hs * 2.0),
+                    action: HandleAction::ResizeTop,
+                },
+                Handle {
+                    rect: Rect::new(top_left.x + w / 2.0 - hs, top_left.y + h - hs, hs * 2.0, hs * 2.0),
+                    action: HandleAction::ResizeBottom,
+                },
+                Handle {
+                    rect: Rect::new(top_left.x - hs, top_left.y + h / 2.0 - hs, hs * 2.0, hs * 2.0),
+                    action: HandleAction::ResizeLeft,
+                },
+                Handle {
+                    rect: Rect::new(top_left.x + w - hs, top_left.y + h / 2.0 - hs, hs * 2.0, hs * 2.0),
+                    action: HandleAction::ResizeRight,
                 },
                 Handle {
                     rect: Rect::new(

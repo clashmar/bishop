@@ -1,6 +1,6 @@
 use bishop::prelude::{vec2, Vec2};
 use engine_core::ecs::{Collider, ColliderShape, Ecs, Entity, Transform};
-use engine_core::rendering::resolve_visual_entity;
+use engine_core::rendering::{pivot_adjusted_position, resolve_visual_entity};
 use engine_core::worlds::RoomId;
 
 use crate::app::EditorMode;
@@ -9,9 +9,11 @@ use crate::gui::inspector::collider_module::edit::{
     compute_handles,
     hit_test_handles,
     is_collider_edit_active_for,
+    ColliderEditConfig,
     HandleAction,
 };
 use crate::room::selection::can_select_entity_in_room;
+use crate::world::coord::round_to_grid;
 
 #[derive(Default)]
 pub(crate) struct ColliderHandleDragState {
@@ -56,12 +58,13 @@ pub(crate) fn selected_collider_handle_hit(
     selected_entity: Option<Entity>,
     ecs: &Ecs,
     mouse_world: Vec2,
+    grid_size: f32,
 ) -> Option<(Entity, HandleAction, Collider)> {
     let entity = selected_entity?;
     let visual_entity = resolve_visual_entity(ecs, entity);
     let collider = *ecs.get_store::<Collider>().get(visual_entity)?;
     let transform = ecs.get_store::<Transform>().get(entity)?;
-    let handles = compute_handles(transform.position, transform.pivot, &collider);
+    let handles = compute_handles(transform.position, transform.pivot, &collider, grid_size);
     let index = hit_test_handles(mouse_world, &handles)?;
 
     Some((visual_entity, handles[index].action, collider))
@@ -90,6 +93,7 @@ pub(crate) fn apply_handle_drag(
     drag: &ColliderHandleDragState,
     ecs: &mut Ecs,
     mouse_world: Vec2,
+    config: ColliderEditConfig,
 ) {
     let delta = mouse_world - drag.drag_start;
     let (Some(entity), Some(transform_entity), Some(initial), Some(action)) = (
@@ -111,19 +115,48 @@ pub(crate) fn apply_handle_drag(
         *collider = initial;
         match action {
             HandleAction::MoveOffset => {
-                collider.offset = initial.offset + delta;
+                let target = initial.offset + delta;
+                if config.snap_enabled {
+                    let world_x = transform.position.x + target.x;
+                    let world_y = transform.position.y + target.y;
+                    collider.offset.x = round_to_grid(world_x, config.grid_size) - transform.position.x;
+                    collider.offset.y = round_to_grid(world_y, config.grid_size) - transform.position.y;
+                } else {
+                    collider.offset = target;
+                }
             }
             HandleAction::ResizeAabbTopLeft
             | HandleAction::ResizeAabbTopRight
             | HandleAction::ResizeAabbBottomLeft
-            | HandleAction::ResizeAabbBottomRight => {
-                if let Some(resized) = resized_aabb_collider(initial, transform, action, delta) {
+            | HandleAction::ResizeAabbBottomRight
+            | HandleAction::ResizeTop
+            | HandleAction::ResizeBottom
+            | HandleAction::ResizeLeft
+            | HandleAction::ResizeRight => {
+                let snapped_delta = if config.snap_enabled {
+                    snap_aabb_delta(&initial, &transform, action, delta, config.grid_size)
+                } else {
+                    delta
+                };
+                if config.shift_held {
+                    if let Some(resized) = resized_aabb_collider_uniform(initial, transform, action, snapped_delta) {
+                        *collider = resized;
+                    }
+                } else if let Some(resized) = resized_aabb_collider(initial, transform, action, snapped_delta) {
                     *collider = resized;
                 }
             }
             HandleAction::ResizeCircleRadius => {
+                let snapped_mouse = if config.snap_enabled {
+                    vec2(
+                        round_to_grid(mouse_world.x, config.grid_size),
+                        round_to_grid(mouse_world.y, config.grid_size),
+                    )
+                } else {
+                    mouse_world
+                };
                 if let Some(resized) =
-                    resized_circle_collider(initial, transform, drag.drag_start, mouse_world)
+                    resized_circle_collider(initial, transform, drag.drag_start, snapped_mouse)
                 {
                     *collider = resized;
                 }
@@ -132,7 +165,12 @@ pub(crate) fn apply_handle_drag(
             | HandleAction::ResizeCapsuleRadiusRight
             | HandleAction::ResizeCapsuleHeightTop
             | HandleAction::ResizeCapsuleHeightBottom => {
-                if let Some(resized) = resized_capsule_collider(initial, transform, action, delta)
+                let snapped_delta = if config.snap_enabled {
+                    snap_capsule_delta(&initial, &transform, action, delta, config.grid_size)
+                } else {
+                    delta
+                };
+                if let Some(resized) = resized_capsule_collider(initial, transform, action, snapped_delta)
                 {
                     *collider = resized;
                 }
@@ -170,13 +208,14 @@ pub(crate) fn step_active_collider_drag(
     mouse_world: Vec2,
     mouse_down: bool,
     mouse_released: bool,
+    config: ColliderEditConfig,
 ) -> ColliderDragStep {
     if !drag.dragging {
         return ColliderDragStep { consumed: false, commit: None };
     }
 
     if mouse_down {
-        apply_handle_drag(drag, ecs, mouse_world);
+        apply_handle_drag(drag, ecs, mouse_world, config);
     }
 
     let commit = if mouse_released {
@@ -195,9 +234,10 @@ pub(crate) fn try_intercept_collider_handle(
     selected_entity: Option<Entity>,
     ecs: &Ecs,
     mouse_world: Vec2,
+    grid_size: f32,
 ) -> Option<(Entity, HandleAction, Collider)> {
     if selected_entity.is_some_and(|e| is_collider_edit_active_for(resolve_visual_entity(ecs, e))) {
-        selected_collider_handle_hit(selected_entity, ecs, mouse_world)
+        selected_collider_handle_hit(selected_entity, ecs, mouse_world, grid_size)
     } else {
         None
     }
@@ -208,11 +248,12 @@ pub(crate) fn try_start_collider_handle_on_click(
     entity: Entity,
     ecs: &Ecs,
     mouse_world: Vec2,
+    grid_size: f32,
 ) -> Option<(Entity, HandleAction, Collider)> {
     let visual_entity = resolve_visual_entity(ecs, entity);
     let collider = ecs.get_store::<Collider>().get(visual_entity)?;
     let transform = ecs.get_store::<Transform>().get(entity)?;
-    let handles = compute_handles(transform.position, transform.pivot, collider);
+    let handles = compute_handles(transform.position, transform.pivot, collider, grid_size);
     let index = hit_test_handles(mouse_world, &handles)?;
     Some((visual_entity, handles[index].action, *collider))
 }
@@ -299,6 +340,30 @@ pub(crate) fn resized_aabb_collider(
             (right + delta.x).max(left + min_size),
             (bottom + delta.y).max(top + min_size),
         ),
+        HandleAction::ResizeTop => (
+            left,
+            (top + delta.y).min(bottom - min_size),
+            right,
+            bottom,
+        ),
+        HandleAction::ResizeBottom => (
+            left,
+            top,
+            right,
+            (bottom + delta.y).max(top + min_size),
+        ),
+        HandleAction::ResizeLeft => (
+            (left + delta.x).min(right - min_size),
+            top,
+            right,
+            bottom,
+        ),
+        HandleAction::ResizeRight => (
+            left,
+            top,
+            (right + delta.x).max(left + min_size),
+            bottom,
+        ),
         _ => return None,
     };
 
@@ -312,6 +377,53 @@ pub(crate) fn resized_aabb_collider(
         shape: ColliderShape::Aabb {
             width: new_width,
             height: new_height,
+        },
+        offset: new_offset,
+    })
+}
+
+/// Resizes an AABB collider uniformly from center (square aspect ratio).
+pub(crate) fn resized_aabb_collider_uniform(
+    initial: Collider,
+    transform: Transform,
+    action: HandleAction,
+    delta: Vec2,
+) -> Option<Collider> {
+    let ColliderShape::Aabb { width, height } = initial.shape else {
+        return None;
+    };
+
+    let size = vec2(width, height);
+    let top_left = engine_core::rendering::pivot_adjusted_position(
+        transform.position + initial.offset,
+        size,
+        transform.pivot,
+    );
+    let center = top_left + size * 0.5;
+    let min_size = 1.0;
+
+    let delta_magnitude = match action {
+        HandleAction::ResizeAabbTopLeft => (-delta.x).max(-delta.y),
+        HandleAction::ResizeAabbTopRight => delta.x.max(-delta.y),
+        HandleAction::ResizeAabbBottomLeft => (-delta.x).max(delta.y),
+        HandleAction::ResizeAabbBottomRight => delta.x.max(delta.y),
+        HandleAction::ResizeTop => -delta.y,
+        HandleAction::ResizeBottom => delta.y,
+        HandleAction::ResizeLeft => -delta.x,
+        HandleAction::ResizeRight => delta.x,
+        _ => return None,
+    };
+
+    let new_half = (size.x.max(size.y) * 0.5 + delta_magnitude).max(min_size * 0.5);
+    let new_size = new_half * 2.0;
+    let new_top_left = center - Vec2::splat(new_half);
+    let pivot = transform.pivot.as_normalized();
+    let new_offset = new_top_left - transform.position + vec2(new_size * pivot.x, new_size * pivot.y);
+
+    Some(Collider {
+        shape: ColliderShape::Aabb {
+            width: new_size,
+            height: new_size,
         },
         offset: new_offset,
     })
@@ -405,6 +517,112 @@ pub(crate) fn resized_capsule_collider(
         },
         offset: new_offset,
     })
+}
+
+fn aabb_edges(initial: &Collider, transform: &Transform) -> Option<(f32, f32, f32, f32)> {
+    let ColliderShape::Aabb { width, height } = initial.shape else {
+        return None;
+    };
+    let size = vec2(width, height);
+    let top_left = pivot_adjusted_position(
+        transform.position + initial.offset,
+        size,
+        transform.pivot,
+    );
+    Some((top_left.x, top_left.y, top_left.x + width, top_left.y + height))
+}
+
+fn snap_aabb_delta(
+    initial: &Collider,
+    transform: &Transform,
+    action: HandleAction,
+    delta: Vec2,
+    grid_size: f32,
+) -> Vec2 {
+    let Some((left, top, right, bottom)) = aabb_edges(initial, transform) else {
+        return delta;
+    };
+    match action {
+        HandleAction::ResizeAabbTopLeft => vec2(
+            round_to_grid(left + delta.x, grid_size) - left,
+            round_to_grid(top + delta.y, grid_size) - top,
+        ),
+        HandleAction::ResizeAabbTopRight => vec2(
+            round_to_grid(right + delta.x, grid_size) - right,
+            round_to_grid(top + delta.y, grid_size) - top,
+        ),
+        HandleAction::ResizeAabbBottomLeft => vec2(
+            round_to_grid(left + delta.x, grid_size) - left,
+            round_to_grid(bottom + delta.y, grid_size) - bottom,
+        ),
+        HandleAction::ResizeAabbBottomRight => vec2(
+            round_to_grid(right + delta.x, grid_size) - right,
+            round_to_grid(bottom + delta.y, grid_size) - bottom,
+        ),
+        HandleAction::ResizeTop => vec2(
+            delta.x,
+            round_to_grid(top + delta.y, grid_size) - top,
+        ),
+        HandleAction::ResizeBottom => vec2(
+            delta.x,
+            round_to_grid(bottom + delta.y, grid_size) - bottom,
+        ),
+        HandleAction::ResizeLeft => vec2(
+            round_to_grid(left + delta.x, grid_size) - left,
+            delta.y,
+        ),
+        HandleAction::ResizeRight => vec2(
+            round_to_grid(right + delta.x, grid_size) - right,
+            delta.y,
+        ),
+        _ => delta,
+    }
+}
+
+fn capsule_edges(initial: &Collider, transform: &Transform) -> Option<(f32, f32, f32, f32)> {
+    let ColliderShape::Capsule { radius, height } = initial.shape else {
+        return None;
+    };
+    let width = radius * 2.0;
+    let total_height = height + width;
+    let size = vec2(width, total_height);
+    let top_left = pivot_adjusted_position(
+        transform.position + initial.offset,
+        size,
+        transform.pivot,
+    );
+    Some((top_left.x, top_left.y, top_left.x + width, top_left.y + total_height))
+}
+
+fn snap_capsule_delta(
+    initial: &Collider,
+    transform: &Transform,
+    action: HandleAction,
+    delta: Vec2,
+    grid_size: f32,
+) -> Vec2 {
+    let Some((left, top, right, bottom)) = capsule_edges(initial, transform) else {
+        return delta;
+    };
+    match action {
+        HandleAction::ResizeCapsuleRadiusLeft => vec2(
+            round_to_grid(left + delta.x, grid_size) - left,
+            delta.y,
+        ),
+        HandleAction::ResizeCapsuleRadiusRight => vec2(
+            round_to_grid(right + delta.x, grid_size) - right,
+            delta.y,
+        ),
+        HandleAction::ResizeCapsuleHeightTop => vec2(
+            delta.x,
+            round_to_grid(top + delta.y, grid_size) - top,
+        ),
+        HandleAction::ResizeCapsuleHeightBottom => vec2(
+            delta.x,
+            round_to_grid(bottom + delta.y, grid_size) - bottom,
+        ),
+        _ => delta,
+    }
 }
 
 #[cfg(test)]

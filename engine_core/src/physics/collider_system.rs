@@ -65,7 +65,7 @@ pub fn collider_from_sprite(
 }
 
 /// Try to build a collider from an Animation component.
-fn collider_from_animation_component(
+pub fn collider_from_animation_component(
     current_frame_store: &ComponentStore<CurrentFrame>,
     entity: Entity,
     sprite_manager: &mut SpriteManager,

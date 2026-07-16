@@ -4,6 +4,7 @@ use engine_core::worlds::RoomId;
 
 use super::{
     resized_aabb_collider,
+    resized_aabb_collider_uniform,
     resized_capsule_collider,
     resized_circle_collider,
     selected_collider_edit_nudge,
@@ -66,6 +67,7 @@ fn selected_collider_handle_hit_mouse_over_handle_returns_selected_entity_action
         Vec2::ZERO,
         Pivot::TopLeft,
         &collider,
+        16.0,
     );
     let mouse_world = match handles.last() {
         Some(handle) => vec2(
@@ -75,7 +77,7 @@ fn selected_collider_handle_hit_mouse_over_handle_returns_selected_entity_action
         None => panic!("expected collider handles for default collider"),
     };
 
-    let hit = selected_collider_handle_hit(Some(entity), &ecs, mouse_world);
+    let hit = selected_collider_handle_hit(Some(entity), &ecs, mouse_world, 16.0);
 
     match hit {
         Some((hit_entity, action, initial_collider)) => {
@@ -95,7 +97,7 @@ fn selected_collider_handle_hit_missing_collider_returns_none() {
     let mut ecs = Ecs::default();
     let entity = ecs.create_entity().with(Transform::default()).finish();
 
-    let hit = selected_collider_handle_hit(Some(entity), &ecs, Vec2::ZERO);
+    let hit = selected_collider_handle_hit(Some(entity), &ecs, Vec2::ZERO, 16.0);
 
     assert!(hit.is_none());
 }
@@ -257,5 +259,94 @@ fn resized_capsule_collider_right_drag_preserves_total_height() {
             );
         }
         None => panic!("expected resized capsule collider"),
+    }
+}
+
+#[test]
+fn resized_aabb_collider_top_edge_drag_resizes_height_top_anchored() {
+    let initial = Collider {
+        shape: ColliderShape::Aabb { width: 10.0, height: 20.0 },
+        ..Default::default()
+    };
+    let transform = Transform { pivot: Pivot::TopLeft, ..Default::default() };
+    let initial_rect = aabb_rect(initial, transform);
+
+    let resized = resized_aabb_collider(
+        initial,
+        transform,
+        crate::gui::inspector::collider_module::edit::HandleAction::ResizeTop,
+        vec2(0.0, -5.0),
+    );
+
+    match resized {
+        Some(collider) => {
+            let resized_rect = aabb_rect(collider, transform);
+            // Bottom edge stays fixed
+            assert_eq!(resized_rect.y + resized_rect.h, initial_rect.y + initial_rect.h);
+            assert_eq!(resized_rect.w, 10.0); // width unchanged
+            assert_eq!(resized_rect.h, 25.0);
+        }
+        None => panic!("expected resized collider"),
+    }
+}
+
+#[test]
+fn resized_aabb_collider_left_edge_drag_resizes_width_left_anchored() {
+    let initial = Collider {
+        shape: ColliderShape::Aabb { width: 10.0, height: 20.0 },
+        ..Default::default()
+    };
+    let transform = Transform { pivot: Pivot::TopLeft, ..Default::default() };
+    let initial_rect = aabb_rect(initial, transform);
+
+    let resized = resized_aabb_collider(
+        initial,
+        transform,
+        crate::gui::inspector::collider_module::edit::HandleAction::ResizeLeft,
+        vec2(-3.0, 0.0),
+    );
+
+    match resized {
+        Some(collider) => {
+            let resized_rect = aabb_rect(collider, transform);
+            // Right edge stays fixed
+            assert_eq!(resized_rect.x + resized_rect.w, initial_rect.x + initial_rect.w);
+            assert_eq!(resized_rect.h, 20.0); // height unchanged
+            assert_eq!(resized_rect.w, 13.0);
+        }
+        None => panic!("expected resized collider"),
+    }
+}
+
+#[test]
+fn resized_aabb_collider_uniform_resize_keeps_center_fixed_and_makes_square() {
+    let initial = Collider {
+        shape: ColliderShape::Aabb { width: 10.0, height: 20.0 },
+        ..Default::default()
+    };
+    let transform = Transform { pivot: Pivot::TopLeft, ..Default::default() };
+    let initial_rect = aabb_rect(initial, transform);
+    let initial_center_x = initial_rect.x + initial_rect.w / 2.0;
+    let initial_center_y = initial_rect.y + initial_rect.h / 2.0;
+
+    let resized = resized_aabb_collider_uniform(
+        initial,
+        transform,
+        crate::gui::inspector::collider_module::edit::HandleAction::ResizeAabbTopRight,
+        vec2(4.0, -4.0),
+    );
+
+    match resized {
+        Some(collider) => {
+            let resized_rect = aabb_rect(collider, transform);
+            let new_center_x = resized_rect.x + resized_rect.w / 2.0;
+            let new_center_y = resized_rect.y + resized_rect.h / 2.0;
+            // Center stays fixed
+            assert!((new_center_x - initial_center_x).abs() < 0.01);
+            assert!((new_center_y - initial_center_y).abs() < 0.01);
+            // Both dimensions change equally (square)
+            assert!((resized_rect.w - resized_rect.h).abs() < 0.01);
+        }
+        None => panic!("expected resized collider"),
     }
 }
