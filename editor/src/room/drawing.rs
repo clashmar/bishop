@@ -3,7 +3,7 @@ use engine_core::assets::*;
 use engine_core::constants::world as world_constants;
 use engine_core::ecs::*;
 use engine_core::game::{GameCtxMut, StartupMode};
-use engine_core::rendering::{outline_thickness, pivot_adjusted_position, resolve_visual_entity};
+use engine_core::rendering::{draw_collider, outline_thickness, pivot_adjusted_position, resolve_visual_entity, ENTITY_OUTLINE_SCALE};
 use engine_core::storage::*;
 use engine_core::theme::with_theme;
 use engine_core::ui::measure_text;
@@ -370,7 +370,7 @@ pub fn highlight_selected_entity<C: BishopContext>(
         draw_pos.y,
         size.x,
         size.y,
-        outline_thickness(grid_size) * 0.25,
+        outline_thickness(grid_size) * ENTITY_OUTLINE_SCALE,
         color,
     );
 }
@@ -454,7 +454,7 @@ pub(crate) fn draw_prefab_stamp_ghost(
 }
 
 /// Draw the outline of the collider for an entity if it has one.
-pub fn draw_collider(ctx: &mut WgpuContext, ecs: &Ecs, entity: Entity) {
+pub fn draw_editor_collider(ctx: &mut WgpuContext, ecs: &Ecs, entity: Entity, grid_size: f32) {
     let visual_entity = resolve_visual_entity(ecs, entity);
     let Some(collider) = ecs.get_store::<Collider>().get(visual_entity) else {
         return;
@@ -470,54 +470,8 @@ pub fn draw_collider(ctx: &mut WgpuContext, ecs: &Ecs, entity: Entity) {
     } else {
         Color::PINK
     };
-
-    match collider.shape {
-        ColliderShape::Aabb { width, height } => {
-            if width <= 0.0 || height <= 0.0 {
-                return;
-            }
-            let draw_pos = pivot_adjusted_position(
-                transform.position + collider.offset,
-                vec2(width, height),
-                transform.pivot,
-            );
-            ctx.draw_rectangle_lines(draw_pos.x, draw_pos.y, width, height, 1.0, color);
-        }
-        ColliderShape::Circle { radius } => {
-            if radius <= 0.0 {
-                return;
-            }
-            let size = Vec2::splat(radius * 2.0);
-            let draw_pos = pivot_adjusted_position(
-                transform.position + collider.offset,
-                size,
-                transform.pivot,
-            );
-            ctx.draw_circle_lines(
-                draw_pos.x + radius,
-                draw_pos.y + radius,
-                radius,
-                1.0,
-                color,
-            );
-        }
-        ColliderShape::Capsule { radius, height } => {
-            if radius <= 0.0 {
-                return;
-            }
-            let size = vec2(radius * 2.0, height + radius * 2.0);
-            let draw_pos = pivot_adjusted_position(
-                transform.position + collider.offset,
-                size,
-                transform.pivot,
-            );
-            draw_capsule_outline(ctx, draw_pos, radius, height, color);
-        }
-        ColliderShape::Point => {
-            let point = transform.position + collider.offset;
-            ctx.draw_circle_lines(point.x, point.y, 2.0, 1.0, color);
-        }
-    }
+    let thickness = outline_thickness(grid_size) * ENTITY_OUTLINE_SCALE;
+    draw_collider(ctx, transform.position, collider, transform.pivot, color, thickness);
 
     if edit_active {
         let handles = compute_handles(transform.position, transform.pivot, collider);
@@ -539,50 +493,6 @@ pub fn draw_collider(ctx: &mut WgpuContext, ecs: &Ecs, entity: Entity) {
             );
         }
     }
-}
-
-fn draw_capsule_outline(
-    ctx: &mut WgpuContext,
-    top_left: Vec2,
-    radius: f32,
-    height: f32,
-    color: Color,
-) {
-    let top_center = vec2(top_left.x + radius, top_left.y + radius);
-    let bottom_center = vec2(top_left.x + radius, top_left.y + radius + height);
-
-    ctx.draw_line(
-        top_center.x - radius,
-        top_center.y,
-        bottom_center.x - radius,
-        bottom_center.y,
-        1.0,
-        color,
-    );
-    ctx.draw_line(
-        top_center.x + radius,
-        top_center.y,
-        bottom_center.x + radius,
-        bottom_center.y,
-        1.0,
-        color,
-    );
-    ctx.draw_arc_lines(
-        top_center,
-        radius,
-        std::f32::consts::PI,
-        std::f32::consts::PI * 2.0,
-        1.0,
-        color,
-    );
-    ctx.draw_arc_lines(
-        bottom_center,
-        radius,
-        0.0,
-        std::f32::consts::PI,
-        1.0,
-        color,
-    );
 }
 
 /// Draw placeholder icons for entities that lack a visual component.
@@ -682,7 +592,7 @@ pub fn is_pure_placeholder(ecs: &Ecs, entity: Entity) -> bool {
 /// Draw range circles for an entity.
 pub fn draw_entity_range_circles(ctx: &mut WgpuContext, ecs: &Ecs, entity: Entity, grid_size: f32) {
     let Some(transform) = ecs.get_store::<Transform>().get(entity) else { return };
-    let thickness = outline_thickness(grid_size) * 0.25;
+    let thickness = outline_thickness(grid_size) * ENTITY_OUTLINE_SCALE;
     let cx = transform.position.x;
     let cy = transform.position.y;
 

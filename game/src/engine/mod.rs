@@ -15,6 +15,7 @@ pub use game_instance::{GameInstance, PreparedGameInstance};
 
 pub use save_runtime::{RuntimeLoadRequest, SaveRuntime};
 
+use crate::dev_tools::{DevTools, draw::draw_colliders, overlay::draw_dev_tools_overlay};
 use crate::diagnostics::{DiagnosticsOverlay, TimingTraceSample};
 use crate::game_global::{set_menu_active, take_pending_world_transition};
 use crate::physics::physics_system::*;
@@ -56,6 +57,8 @@ pub struct Engine {
     pub render_system: RenderSystem,
     /// Runtime diagnostics overlay (playtest only).
     pub diagnostics: DiagnosticsOverlay,
+    /// Dev tools for playtest debugging.
+    pub dev_tools: DevTools,
     /// Menu system for pause and overlay menus.
     pub menu_manager: MenuManager,
     /// Whether the engine is running in playtest mode.
@@ -120,6 +123,12 @@ impl BishopApp for Engine {
         if let Some(sample) = timing_sample {
             self.diagnostics.update(sample);
             self.diagnostics.handle_input(&mut *ctx.borrow_mut());
+        }
+
+        if self.is_playtest {
+            if ctx.borrow().is_key_pressed(KeyCode::F1) {
+                self.dev_tools.colliders_visible = !self.dev_tools.colliders_visible;
+            }
         }
 
         if self.game_state == GameState::Playing {
@@ -193,6 +202,7 @@ impl Engine {
             camera_manager: cfg.camera_manager,
             render_system,
             diagnostics: DiagnosticsOverlay::new(),
+            dev_tools: DevTools::new(),
             menu_manager,
             is_playtest: cfg.is_playtest,
             quit_to_title_enabled: cfg.quit_to_title_enabled,
@@ -341,9 +351,15 @@ impl Engine {
             );
 
             render_screen_space(platform_ctx, game_instance, &render_cam, alpha);
+            drop(game_borrow);
 
             if self.is_playtest {
+                let game_borrow = self.game_instance.borrow();
+                draw_colliders(platform_ctx, &game_borrow, &self.dev_tools, &render_cam);
+                drop(game_borrow);
+
                 self.diagnostics.draw(platform_ctx);
+                draw_dev_tools_overlay(platform_ctx, &self.dev_tools);
             }
         } else {
             ctx.borrow_mut().clear_background(Color::BLACK);

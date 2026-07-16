@@ -561,7 +561,7 @@ impl RoomEditor {
                         }
 
                         if let Some(selected_entity) = self.single_selected_entity() {
-                            draw_collider(ctx, ecs, selected_entity);
+                            draw_editor_collider(ctx, ecs, selected_entity, grid_size);
                         }
 
                         if self.drag_state.box_select_active {

@@ -15,7 +15,7 @@ use crate::gui::gui_constants::{self};
 use crate::gui::inspector::shell::Inspector;
 use crate::gui::menu_bar::draw_top_panel_full;
 use crate::room::drawing::{
-    draw_collider, draw_entity_range_circles, draw_pivot_marker, highlight_selected_entity,
+    draw_editor_collider, draw_entity_range_circles, draw_pivot_marker, highlight_selected_entity,
 };
 use crate::shared::input::canvas_blocked_by_global_ui;
 use crate::shared::scene_ui::inspector::{CreateRequest, InspectorContext};
@@ -194,7 +194,7 @@ impl PrefabEditor {
         }
 
         if let Some(selected_entity) = self.single_selected_entity() {
-            draw_collider(ctx, game_ctx.ecs, selected_entity);
+            draw_editor_collider(ctx, game_ctx.ecs, selected_entity, PREFAB_EDITOR_GRID_SIZE);
             draw_entity_range_circles(ctx, game_ctx.ecs, selected_entity, PREFAB_EDITOR_GRID_SIZE);
         }
 

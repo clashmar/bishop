@@ -8,6 +8,9 @@ use std::collections::HashMap;
 /// Common display refresh rates to snap frame times to (checked in order).
 const SNAP_FREQUENCIES: [f32; 5] = [60.0, 120.0, 144.0, 240.0, 30.0];
 
+/// Scale factor applied to outline_thickness for entity outlines.
+pub const ENTITY_OUTLINE_SCALE: f32 = 0.25;
+
 /// Tracks whether the frame-time EMA has been seeded from a reliable sample.
 #[derive(Debug, Default)]
 pub enum SmoothedDtState {
