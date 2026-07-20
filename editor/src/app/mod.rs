@@ -400,6 +400,7 @@ impl Editor {
                 // Launch play‑test if the play button was pressed
                 if self.room_editor.request_play {
                     if self.pending_playtest_build.is_none() {
+                        self.save();
                         // Serialize payload synchronously (needs &self.game which isn't Send)
                         let room = self.get_room_from_id(&room_id);
                         let payload_path = match write_playtest_payload(room, &self.game) {
