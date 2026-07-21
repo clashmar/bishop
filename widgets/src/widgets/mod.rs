@@ -14,9 +14,6 @@ mod stepper;
 mod text_input;
 mod widget;
 
-#[cfg(test)]
-mod test_support;
-
 pub use button::*;
 pub use checkbox::*;
 pub use color_input::*;

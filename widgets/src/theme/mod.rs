@@ -186,7 +186,7 @@ impl Theme {
 
 pub static ACTIVE_THEME: Lazy<RwLock<Theme>> = Lazy::new(|| RwLock::new(Theme::default()));
 
-#[cfg(test)]
+#[cfg(any(test, feature = "test-utils"))]
 pub(crate) static THEME_TEST_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
 pub fn set_theme(theme: Theme) {

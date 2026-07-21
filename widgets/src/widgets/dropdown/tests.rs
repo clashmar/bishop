@@ -1,5 +1,5 @@
 use super::*;
-use crate::widgets::test_support::WidgetTestContext;
+use crate::test_utils::WidgetTestContext;
 
 #[test]
 fn suppressed_dropdown_trigger_does_not_open() {

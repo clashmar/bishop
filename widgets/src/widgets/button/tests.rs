@@ -1,5 +1,5 @@
 use super::*;
-use crate::widgets::test_support::WidgetTestContext;
+use crate::test_utils::WidgetTestContext;
 
 #[test]
 fn primary_click_requires_matching_press_and_release() {

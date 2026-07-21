@@ -6,6 +6,7 @@ edition = "2024"
 [features]
 default = ["wgpu"]
 wgpu = ["bishop/wgpu"]
+test-utils = []
 
 [dependencies]
 bishop = { path = "../bishop", default-features = false }

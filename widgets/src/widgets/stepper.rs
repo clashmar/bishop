@@ -147,7 +147,7 @@ impl Widget for Stepper<'_> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::widgets::test_support::WidgetTestContext;
+    use crate::test_utils::WidgetTestContext;
 
     #[test]
     fn stepper_builder_overrides_text_color() {

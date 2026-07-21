@@ -2,7 +2,20 @@ use crate::theme::{set_theme, Theme, THEME_TEST_LOCK};
 use bishop::material::BishopRenderTarget;
 use bishop::prelude::*;
 
-pub(super) struct WidgetTestContext {
+/// Captured text draw call for test assertions.
+pub struct DrawTextCall {
+    pub text: String,
+    pub x: f32,
+    pub y: f32,
+    pub font_size: f32,
+    pub color: Color,
+}
+
+/// Shared test context implementing all bishop UI traits.
+///
+/// Captures draw operations and provides controllable input state
+/// so widgets and UI components can be exercised in isolation.
+pub struct WidgetTestContext {
     pub mouse_pos: (f32, f32),
     pub mouse_wheel_delta: (f32, f32),
     pub left_pressed: bool,
@@ -11,13 +24,19 @@ pub(super) struct WidgetTestContext {
     pub right_pressed: bool,
     pub right_down: bool,
     pub right_released: bool,
+    pub chars: Vec<char>,
+    pub screen_width: f32,
+    pub screen_height: f32,
+    pub text_dims: Option<TextDimensions>,
     pub rectangle_fills: Vec<Color>,
     pub rectangle_lines: Vec<Color>,
     pub text_colors: Vec<Color>,
+    pub rect_calls: Vec<Rect>,
+    pub draw_text_calls: Vec<DrawTextCall>,
 }
 
 impl WidgetTestContext {
-    pub(super) fn new() -> Self {
+    pub fn new() -> Self {
         let _guard = THEME_TEST_LOCK.lock().unwrap();
         set_theme(Theme::default());
         drop(_guard);
@@ -30,9 +49,15 @@ impl WidgetTestContext {
             right_pressed: false,
             right_down: false,
             right_released: false,
+            chars: Vec::new(),
+            screen_width: 800.0,
+            screen_height: 600.0,
+            text_dims: None,
             rectangle_fills: Vec::new(),
             rectangle_lines: Vec::new(),
             text_colors: Vec::new(),
+            rect_calls: Vec::new(),
+            draw_text_calls: Vec::new(),
         }
     }
 }
@@ -95,7 +120,7 @@ impl Input for WidgetTestContext {
     }
 
     fn chars_pressed(&self) -> Vec<char> {
-        Vec::new()
+        self.chars.clone()
     }
 
     fn get_time(&self) -> f64 {
@@ -104,8 +129,9 @@ impl Input for WidgetTestContext {
 }
 
 impl Draw for WidgetTestContext {
-    fn draw_rectangle(&mut self, _x: f32, _y: f32, _w: f32, _h: f32, color: Color) {
+    fn draw_rectangle(&mut self, x: f32, y: f32, w: f32, h: f32, color: Color) {
         self.rectangle_fills.push(color);
+        self.rect_calls.push(Rect::new(x, y, w, h));
     }
 
     fn draw_rectangle_lines(
@@ -196,12 +222,22 @@ impl Text for WidgetTestContext {
         )
     }
 
-    fn draw_text_ex(&mut self, text: &str, _x: f32, _y: f32, params: TextParams) -> TextDimensions {
+    fn draw_text_ex(&mut self, text: &str, x: f32, y: f32, params: TextParams) -> TextDimensions {
         self.text_colors.push(params.color);
+        self.draw_text_calls.push(DrawTextCall {
+            text: text.to_string(),
+            x,
+            y,
+            font_size: params.font_size as f32,
+            color: params.color,
+        });
         self.measure_text(text, params.font_size as f32)
     }
 
     fn measure_text(&self, text: &str, font_size: f32) -> TextDimensions {
+        if let Some(dims) = self.text_dims {
+            return dims;
+        }
         TextDimensions {
             width: text.len() as f32 * font_size * 0.5,
             height: font_size,
@@ -226,11 +262,11 @@ impl Camera for WidgetTestContext {
 
 impl Window for WidgetTestContext {
     fn screen_width(&self) -> f32 {
-        320.0
+        self.screen_width
     }
 
     fn screen_height(&self) -> f32 {
-        240.0
+        self.screen_height
     }
 
     fn set_cursor_icon(&mut self, _icon: CursorIcon) {}

@@ -102,7 +102,7 @@ impl Widget for Checkbox<'_> {
 mod tests {
     use super::*;
     use crate::constants::layout;
-    use crate::widgets::test_support::WidgetTestContext;
+    use crate::test_utils::WidgetTestContext;
 
     fn checkbox_rect() -> Rect {
         Rect::new(

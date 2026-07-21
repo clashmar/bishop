@@ -41,6 +41,7 @@ engine_core = { path = "../engine_core" }
 
 [dev-dependencies]
 engine_core = { path = "../engine_core", default-features = false, features = ["wgpu", "editor", "test-utils"] }
+widgets = { path = "../widgets", features = ["test-utils"] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2 = { version = "0.5.2", features = ["relax-sign-encoding"] }
