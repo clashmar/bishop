@@ -1,4 +1,5 @@
 use super::PrefabEditor;
+use crate::gui::inspector::collider_module::edit::clear_active_collider_edit;
 use engine_core::ecs::*;
 
 impl PrefabEditor {
@@ -11,6 +12,16 @@ impl PrefabEditor {
     }
 
     pub fn set_selected_entity(&mut self, entity: Option<Entity>) {
+        let selection_changed = match entity {
+            Some(entity) => {
+                self.selected_entities.len() != 1 || !self.selected_entities.contains(&entity)
+            }
+            None => !self.selected_entities.is_empty(),
+        };
+        if selection_changed {
+            self.disable_active_edit_modes();
+        }
+
         self.selected_entities.clear();
         if let Some(entity) = entity {
             self.selected_entities.insert(entity);
@@ -19,17 +30,28 @@ impl PrefabEditor {
     }
 
     pub fn add_to_selection(&mut self, entity: Entity) {
-        self.selected_entities.insert(entity);
+        if self.selected_entities.insert(entity) {
+            self.disable_active_edit_modes();
+        }
         self.sync_inspector_to_selection();
     }
 
     pub fn toggle_entity_selection(&mut self, entity: Entity) {
         if self.selected_entities.contains(&entity) {
+            self.disable_active_edit_modes();
             self.selected_entities.remove(&entity);
             self.sync_inspector_to_selection();
         } else {
             self.add_to_selection(entity);
         }
+    }
+
+    pub fn clear_selection(&mut self) {
+        if !self.selected_entities.is_empty() {
+            self.disable_active_edit_modes();
+        }
+        self.selected_entities.clear();
+        self.sync_inspector_to_selection();
     }
 
     pub fn is_selected(&self, entity: Entity) -> bool {
@@ -50,8 +72,12 @@ impl PrefabEditor {
             self.root_entity = None;
         }
 
+        let selected_count = self.selected_entities.len();
         self.selected_entities
             .retain(|entity| !deleted_entities.contains(entity));
+        if self.selected_entities.len() != selected_count {
+            self.disable_active_edit_modes();
+        }
         self.sync_inspector_to_selection();
     }
 
@@ -98,9 +124,16 @@ impl PrefabEditor {
         let selected_count = self.selected_entities.len();
         self.selected_entities
             .retain(|entity| is_live_prefab_entity(ecs, *entity));
+        if self.selected_entities.len() != selected_count {
+            self.disable_active_edit_modes();
+        }
         if self.root_entity != root_entity || self.selected_entities.len() != selected_count {
             self.sync_inspector_to_selection();
         }
+    }
+
+    pub(crate) fn disable_active_edit_modes(&mut self) {
+        clear_active_collider_edit();
     }
 }
 

@@ -133,6 +133,7 @@ impl RoomEditor {
                 // Clicked on an entity
                 if shift_held {
                     // Toggle entity in selection
+                    self.disable_active_edit_modes();
                     if self.selected_entities.contains(&entity) {
                         self.selected_entities.remove(&entity);
                     } else {
@@ -142,6 +143,7 @@ impl RoomEditor {
                 } else {
                     // Clear and select single, start drag
                     if !self.selected_entities.contains(&entity) {
+                        self.disable_active_edit_modes();
                         self.selected_entities.clear();
                         self.selected_entities.insert(entity);
                         selection_changed = true;
@@ -213,6 +215,7 @@ impl RoomEditor {
                                     .unwrap_or(duplicates[0].1);
 
                                 // Update selection to duplicates
+                                self.disable_active_edit_modes();
                                 self.selected_entities.clear();
                                 for (_, dup) in &duplicates {
                                     self.selected_entities.insert(*dup);
@@ -247,6 +250,7 @@ impl RoomEditor {
                     self.drag_state.box_select_active = true;
                 } else {
                     // Clear selection and start box selection
+                    self.disable_active_edit_modes();
                     self.selected_entities.clear();
                     self.drag_state.box_select_start = Some(mouse_world);
                     self.drag_state.box_select_active = true;
@@ -266,6 +270,7 @@ impl RoomEditor {
                 if let Some(start) = self.drag_state.box_select_start.take() {
                     let start_screen = coord::world_to_screen(ctx, camera, start);
                     if box_selection_drag_started(start_screen, mouse_screen) {
+                        self.disable_active_edit_modes();
                         let box_rect = rect_from_two_points(start, mouse_world);
 
                         // Find all entities within the box
@@ -343,6 +348,7 @@ impl RoomEditor {
                         .unwrap_or(duplicates[0].1);
 
                     // Update selection to duplicates
+                    self.disable_active_edit_modes();
                     self.selected_entities.clear();
                     for (_, dup) in &duplicates {
                         self.selected_entities.insert(*dup);

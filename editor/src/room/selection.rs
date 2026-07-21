@@ -1,4 +1,5 @@
 use crate::app::SubEditor;
+use crate::gui::inspector::collider_module::edit::clear_active_collider_edit;
 use crate::room::collider_drag::ColliderHandleDragState;
 use crate::room::room_editor::*;
 use crate::world::coord;
@@ -53,6 +54,16 @@ impl RoomEditor {
 
     /// Sets a single selected entity for the room editor, clearing any previous selection.
     pub fn set_selected_entity(&mut self, entity: Option<Entity>) {
+        let selection_changed = match entity {
+            Some(entity) => {
+                self.selected_entities.len() != 1 || !self.selected_entities.contains(&entity)
+            }
+            None => !self.selected_entities.is_empty(),
+        };
+        if selection_changed {
+            self.disable_active_edit_modes();
+        }
+
         self.selected_entities.clear();
         if let Some(e) = entity {
             self.selected_entities.insert(e);
@@ -62,12 +73,15 @@ impl RoomEditor {
 
     /// Adds an entity to the current selection.
     pub fn add_to_selection(&mut self, entity: Entity) {
-        self.selected_entities.insert(entity);
+        if self.selected_entities.insert(entity) {
+            self.disable_active_edit_modes();
+        }
         self.sync_inspector_to_selection();
     }
 
     /// Toggles whether an entity is part of the current selection.
     pub fn toggle_entity_selection(&mut self, entity: Entity) {
+        self.disable_active_edit_modes();
         if self.selected_entities.contains(&entity) {
             self.selected_entities.remove(&entity);
         } else {
@@ -78,6 +92,9 @@ impl RoomEditor {
 
     /// Clears the entire selection.
     pub fn clear_selection(&mut self) {
+        if !self.selected_entities.is_empty() {
+            self.disable_active_edit_modes();
+        }
         self.selected_entities.clear();
         self.sync_inspector_to_selection();
     }
@@ -98,6 +115,7 @@ impl RoomEditor {
 
     /// Selects all entities in the specified room.
     pub fn select_all_in_room(&mut self, ecs: &Ecs, room_id: RoomId) {
+        self.disable_active_edit_modes();
         self.selected_entities.clear();
         for (entity, _) in ecs.get_store::<Transform>().data.iter() {
             if can_select_entity_in_room(ecs, *entity, room_id) {
@@ -105,6 +123,11 @@ impl RoomEditor {
             }
         }
         self.sync_inspector_to_selection();
+    }
+
+    pub(crate) fn disable_active_edit_modes(&mut self) {
+        clear_active_collider_edit();
+        self.drag_state.collider_drag = ColliderHandleDragState::default();
     }
 
     #[inline]

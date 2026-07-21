@@ -56,6 +56,7 @@ impl PrefabEditor {
             if ctx.is_mouse_button_released(MouseButton::Left) {
                 if let Some(start) = self.drag_state.box_select_start.take() {
                     let box_rect = rect_from_two_points(start, mouse_world);
+                    let selection_len = self.selected_entities.len();
                     for (entity, transform) in ecs.get_store::<Transform>().data.iter() {
                         if !is_prefab_entity(ecs, *entity) {
                             continue;
@@ -70,6 +71,9 @@ impl PrefabEditor {
                         if rects_intersect(box_rect, entity_rect) {
                             self.selected_entities.insert(*entity);
                         }
+                    }
+                    if self.selected_entities.len() != selection_len {
+                        self.disable_active_edit_modes();
                     }
                 }
                 self.drag_state.box_select_active = false;
@@ -119,7 +123,7 @@ impl PrefabEditor {
                 self.start_drag(ecs, entity, mouse_world);
             }
             (false, None) => {
-                self.selected_entities.clear();
+                self.clear_selection();
                 self.drag_state.box_select_start = Some(mouse_world);
                 self.drag_state.box_select_active = true;
             }

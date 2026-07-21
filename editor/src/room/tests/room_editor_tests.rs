@@ -1,4 +1,9 @@
 use super::*;
+use crate::gui::inspector::collider_module::edit::{
+    clear_collider_edit,
+    collider_edit_entity,
+    toggle_collider_edit,
+};
 use crate::room::selection::selection_render_rect;
 
 fn prefab_manager(ids: &[usize]) -> PrefabManager {
@@ -294,4 +299,45 @@ fn placeholder_selection_keeps_grid_centering_behavior() {
 
     assert_eq!(top_left, vec2(-4.0, -4.0));
     assert_eq!(size, vec2(8.0, 8.0));
+}
+
+#[test]
+fn clearing_room_selection_disables_collider_edit_mode() {
+    let mut editor = RoomEditor::new();
+    let entity = Entity(7);
+    clear_collider_edit(entity);
+    editor.set_selected_entity(Some(entity));
+    assert!(toggle_collider_edit(entity));
+
+    editor.clear_selection();
+
+    assert_eq!(collider_edit_entity(), None);
+}
+
+#[test]
+fn toggling_last_room_selection_off_disables_collider_edit_mode() {
+    let mut editor = RoomEditor::new();
+    let entity = Entity(7);
+    clear_collider_edit(entity);
+    editor.set_selected_entity(Some(entity));
+    assert!(toggle_collider_edit(entity));
+
+    editor.toggle_entity_selection(entity);
+
+    assert_eq!(collider_edit_entity(), None);
+}
+
+#[test]
+fn selecting_different_room_entity_disables_previous_collider_edit_mode() {
+    let mut editor = RoomEditor::new();
+    let first = Entity(7);
+    let second = Entity(8);
+    clear_collider_edit(first);
+    clear_collider_edit(second);
+    editor.set_selected_entity(Some(first));
+    assert!(toggle_collider_edit(first));
+
+    editor.set_selected_entity(Some(second));
+
+    assert_eq!(collider_edit_entity(), None);
 }

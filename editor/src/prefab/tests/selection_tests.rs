@@ -1,4 +1,9 @@
 use super::*;
+use crate::gui::inspector::collider_module::edit::{
+    clear_collider_edit,
+    collider_edit_entity,
+    toggle_collider_edit,
+};
 
 #[test]
 fn creating_entity_replaces_stale_root_with_new_root() {
@@ -55,4 +60,69 @@ fn selected_create_parent_prefers_inspector_target_during_transient_deselect() {
     editor.selected_entities.clear();
 
     assert_eq!(editor.selected_create_parent(), Some(entity));
+}
+
+#[test]
+fn clearing_prefab_selection_disables_collider_edit_mode() {
+    let mut editor = PrefabEditor::new(
+        PrefabId(1),
+        "Prefab".to_string(),
+        StagedPrefabState::Empty,
+        PrefabRoomSyncState {
+            staged_prefab: StagedPrefabState::Empty,
+            linked_instance_snapshots: Vec::new(),
+        },
+    );
+    let entity = Entity(7);
+    clear_collider_edit(entity);
+    editor.set_selected_entity(Some(entity));
+    assert!(toggle_collider_edit(entity));
+
+    editor.clear_selection();
+
+    assert_eq!(collider_edit_entity(), None);
+}
+
+#[test]
+fn toggling_last_prefab_selection_off_disables_collider_edit_mode() {
+    let mut editor = PrefabEditor::new(
+        PrefabId(1),
+        "Prefab".to_string(),
+        StagedPrefabState::Empty,
+        PrefabRoomSyncState {
+            staged_prefab: StagedPrefabState::Empty,
+            linked_instance_snapshots: Vec::new(),
+        },
+    );
+    let entity = Entity(7);
+    clear_collider_edit(entity);
+    editor.set_selected_entity(Some(entity));
+    assert!(toggle_collider_edit(entity));
+
+    editor.toggle_entity_selection(entity);
+
+    assert_eq!(collider_edit_entity(), None);
+}
+
+#[test]
+fn selecting_different_prefab_entity_disables_previous_collider_edit_mode() {
+    let mut editor = PrefabEditor::new(
+        PrefabId(1),
+        "Prefab".to_string(),
+        StagedPrefabState::Empty,
+        PrefabRoomSyncState {
+            staged_prefab: StagedPrefabState::Empty,
+            linked_instance_snapshots: Vec::new(),
+        },
+    );
+    let first = Entity(7);
+    let second = Entity(8);
+    clear_collider_edit(first);
+    clear_collider_edit(second);
+    editor.set_selected_entity(Some(first));
+    assert!(toggle_collider_edit(first));
+
+    editor.set_selected_entity(Some(second));
+
+    assert_eq!(collider_edit_entity(), None);
 }

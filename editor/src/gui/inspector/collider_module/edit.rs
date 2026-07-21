@@ -75,6 +75,11 @@ pub fn clear_collider_edit(entity: Entity) {
     });
 }
 
+/// Clears collider edit mode regardless of which entity owns it.
+pub fn clear_active_collider_edit() {
+    EDIT_ENTITY.with(|active| active.set(Entity::null()));
+}
+
 /// Computes handle positions for the given collider shape.
 pub fn compute_handles(
     transform_position: Vec2,
