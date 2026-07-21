@@ -4,6 +4,9 @@ use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
 use strum_macros::EnumIter;
 
+/// Default width and height for colliders without a sprite or animation reference.
+pub const DEFAULT_COLLIDER_DIMENSION: f32 = 16.0;
+
 #[ecs_component]
 #[serde_as]
 #[derive(Clone, Copy, Serialize, Deserialize, Default)]
@@ -67,7 +70,7 @@ impl ColliderShape {
                 },
                 Self::Circle { .. } => self,
                 Self::Capsule { radius, .. } => Self::Circle { radius },
-                Self::Point => Self::Circle { radius: 8.0 },
+                Self::Point => Self::Circle { radius: DEFAULT_COLLIDER_DIMENSION / 2.0 },
             },
             Self::Capsule { .. } => match self {
                 Self::Aabb { width, height } => {
@@ -83,8 +86,8 @@ impl ColliderShape {
                 },
                 Self::Capsule { .. } => self,
                 Self::Point => Self::Capsule {
-                    radius: 4.0,
-                    height: 16.0,
+                    radius: DEFAULT_COLLIDER_DIMENSION / 4.0,
+                    height: DEFAULT_COLLIDER_DIMENSION,
                 },
             },
             Self::Point => Self::Point,
@@ -119,8 +122,8 @@ impl ColliderShape {
 impl Default for ColliderShape {
     fn default() -> Self {
         Self::Aabb {
-            width: 16.0,
-            height: 16.0,
+            width: DEFAULT_COLLIDER_DIMENSION,
+            height: DEFAULT_COLLIDER_DIMENSION,
         }
     }
 }
@@ -158,12 +161,12 @@ mod tests {
     }
 
     #[test]
-    fn collider_default_is_aabb_16x16() {
+    fn collider_default_is_aabb_with_default_dimension() {
         let collider = Collider::default();
         match collider.shape {
             ColliderShape::Aabb { width, height } => {
-                assert_eq!(width, 16.0);
-                assert_eq!(height, 16.0);
+                assert_eq!(width, DEFAULT_COLLIDER_DIMENSION);
+                assert_eq!(height, DEFAULT_COLLIDER_DIMENSION);
             }
             _ => panic!("default Collider should be Aabb"),
         }
@@ -227,7 +230,7 @@ mod tests {
     fn collider_shape_convert_to_circle_from_point_uses_default() {
         assert_eq!(
             ColliderShape::Point.convert_to(ColliderShape::Circle { radius: 0.0 }),
-            ColliderShape::Circle { radius: 8.0 },
+            ColliderShape::Circle { radius: DEFAULT_COLLIDER_DIMENSION / 2.0 },
         );
     }
 
@@ -298,8 +301,8 @@ mod tests {
                 height: 0.0,
             }),
             ColliderShape::Capsule {
-                radius: 4.0,
-                height: 16.0,
+                radius: DEFAULT_COLLIDER_DIMENSION / 4.0,
+                height: DEFAULT_COLLIDER_DIMENSION,
             },
         );
     }

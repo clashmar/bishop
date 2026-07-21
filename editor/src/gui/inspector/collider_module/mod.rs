@@ -128,7 +128,7 @@ impl InspectorModule for ColliderModule {
                 }
             };
             if let Some(collider) = game_ctx.ecs.get_mut::<Collider>(entity) {
-                *collider = default_collider;
+                reset_collider_to_default(collider, &default_collider);
             }
             return;
         }
@@ -253,6 +253,13 @@ impl InspectorModule for ColliderModule {
         collider.offset.x = new_ox;
         collider.offset.y = new_oy;
     }
+}
+
+/// Resets a collider to default dimensions while preserving the current shape variant.
+pub fn reset_collider_to_default(collider: &mut Collider, default_collider: &Collider) {
+    let current_shape = collider.shape;
+    collider.shape = default_collider.shape.convert_to(current_shape);
+    collider.offset = default_collider.offset;
 }
 
 fn body_layout() -> InspectorBodyLayout {

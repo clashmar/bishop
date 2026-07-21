@@ -1,9 +1,10 @@
 use bishop::prelude::*;
-use engine_core::ecs::{Collider, ColliderShape, Pivot};
+use engine_core::ecs::{Collider, ColliderShape, DEFAULT_COLLIDER_DIMENSION, Pivot};
 use widgets::constants::layout as layout_constants;
 
 use super::body_layout;
 use super::edit::{compute_handles, HandleAction};
+use super::reset_collider_to_default;
 use crate::world::coord::round_to_grid;
 
 #[test]
@@ -99,4 +100,120 @@ fn aabb_handles_include_edge_midpoints() {
     assert!(actions.contains(&HandleAction::ResizeBottom));
     assert!(actions.contains(&HandleAction::ResizeLeft));
     assert!(actions.contains(&HandleAction::ResizeRight));
+}
+
+#[test]
+fn reset_collider_preserves_aabb_shape_variant() {
+    let default = Collider {
+        shape: ColliderShape::Aabb {
+            width: 32.0,
+            height: 48.0,
+        },
+        offset: Vec2::ZERO,
+    };
+    let mut collider = Collider {
+        shape: ColliderShape::Aabb {
+            width: 100.0,
+            height: 200.0,
+        },
+        offset: vec2(5.0, -3.0),
+    };
+
+    reset_collider_to_default(&mut collider, &default);
+
+    let ColliderShape::Aabb { width, height } = collider.shape else {
+        panic!("expected Aabb, got {:?}", collider.shape);
+    };
+    assert_eq!(width, 32.0);
+    assert_eq!(height, 48.0);
+    assert_eq!(collider.offset, Vec2::ZERO);
+}
+
+#[test]
+fn reset_collider_preserves_circle_shape_variant() {
+    let default_width = 20.0_f32;
+    let default_height = 40.0_f32;
+    let default = Collider {
+        shape: ColliderShape::Aabb {
+            width: default_width,
+            height: default_height,
+        },
+        offset: Vec2::ZERO,
+    };
+    let mut collider = Collider {
+        shape: ColliderShape::Circle { radius: 50.0 },
+        offset: vec2(1.0, 2.0),
+    };
+
+    reset_collider_to_default(&mut collider, &default);
+
+    let expected_radius = default_width.min(default_height) / 2.0;
+    let ColliderShape::Circle { radius } = collider.shape else {
+        panic!("expected Circle, got {:?}", collider.shape);
+    };
+    assert_eq!(radius, expected_radius);
+    assert_eq!(collider.offset, Vec2::ZERO);
+}
+
+#[test]
+fn reset_collider_preserves_capsule_shape_variant() {
+    let default_width = 10.0_f32;
+    let default_height = 24.0_f32;
+    let default = Collider {
+        shape: ColliderShape::Aabb {
+            width: default_width,
+            height: default_height,
+        },
+        offset: Vec2::ZERO,
+    };
+    let mut collider = Collider {
+        shape: ColliderShape::Capsule {
+            radius: 15.0,
+            height: 30.0,
+        },
+        offset: vec2(-4.0, 7.0),
+    };
+
+    reset_collider_to_default(&mut collider, &default);
+
+    let expected_radius = default_width.min(default_height) / 2.0;
+    let expected_height = default_height - expected_radius * 2.0;
+    let ColliderShape::Capsule { radius, height } = collider.shape else {
+        panic!("expected Capsule, got {:?}", collider.shape);
+    };
+    assert_eq!(radius, expected_radius);
+    assert_eq!(height, expected_height);
+    assert_eq!(collider.offset, Vec2::ZERO);
+}
+
+#[test]
+fn reset_collider_preserves_point_shape_variant() {
+    let mut collider = Collider {
+        shape: ColliderShape::Point,
+        offset: vec2(10.0, -20.0),
+    };
+    let default = Collider::default();
+
+    reset_collider_to_default(&mut collider, &default);
+
+    assert_eq!(collider.shape, ColliderShape::Point);
+    assert_eq!(collider.offset, Vec2::ZERO);
+}
+
+#[test]
+fn reset_collider_with_default_fallback_preserves_circle() {
+    let mut collider = Collider {
+        shape: ColliderShape::Circle { radius: 99.0 },
+        offset: vec2(3.0, 4.0),
+    };
+    let default = Collider::default();
+
+    reset_collider_to_default(&mut collider, &default);
+
+    let expected_radius = DEFAULT_COLLIDER_DIMENSION.min(DEFAULT_COLLIDER_DIMENSION) / 2.0;
+    let ColliderShape::Circle { radius } = collider.shape else {
+        panic!("expected Circle, got {:?}", collider.shape);
+    };
+    assert_eq!(radius, expected_radius);
+    assert_eq!(collider.offset, Vec2::ZERO);
 }
