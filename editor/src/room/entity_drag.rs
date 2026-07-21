@@ -264,25 +264,28 @@ impl RoomEditor {
             if ctx.is_mouse_button_released(MouseButton::Left) {
                 // Finish box selection
                 if let Some(start) = self.drag_state.box_select_start.take() {
-                    let box_rect = rect_from_two_points(start, mouse_world);
+                    let start_screen = coord::world_to_screen(ctx, camera, start);
+                    if box_selection_drag_started(start_screen, mouse_screen) {
+                        let box_rect = rect_from_two_points(start, mouse_world);
 
-                    // Find all entities within the box
-                    for (entity, pos) in ecs.get_store::<Transform>().data.iter() {
-                        if !can_select_entity_in_room(ecs, *entity, room_id) {
-                            continue;
+                        // Find all entities within the box
+                        for (entity, pos) in ecs.get_store::<Transform>().data.iter() {
+                            if !can_select_entity_in_room(ecs, *entity, room_id) {
+                                continue;
+                            }
+                            let entity_rect = entity_world_rect(
+                                *entity,
+                                pos.position,
+                                ecs,
+                                sprite_manager,
+                                grid_size,
+                            );
+                            if rects_intersect(box_rect, entity_rect) {
+                                self.selected_entities.insert(*entity);
+                            }
                         }
-                        let entity_rect = entity_world_rect(
-                            *entity,
-                            pos.position,
-                            ecs,
-                            sprite_manager,
-                            grid_size,
-                        );
-                        if rects_intersect(box_rect, entity_rect) {
-                            self.selected_entities.insert(*entity);
-                        }
+                        selection_changed = true;
                     }
-                    selection_changed = true;
                 }
                 self.drag_state.box_select_active = false;
                 if selection_changed {
