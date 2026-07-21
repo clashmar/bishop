@@ -202,8 +202,7 @@ impl CollisionWorld {
                 let diff = center - closest;
                 let dist_sq = diff.length_squared();
 
-                if !circle_touches_rect(center, radius, obs_min, obs_max) {
-                    // False positive: aligned on one axis but not touching.
+                if dist_sq > radius * radius + shapes::OVERLAP_EPS {
                     continue;
                 }
 
@@ -238,11 +237,14 @@ impl CollisionWorld {
                 let dist = dist_sq.sqrt();
                 let normal = diff / dist;
 
-                // Depenetration
+                // Push along the dominant axis so corner normals don't lift the shape
                 if dist < radius - shapes::OVERLAP_EPS {
                     let penetration = radius - dist;
-                    push_x += normal.x * penetration;
-                    push_y += normal.y * penetration;
+                    if normal.x.abs() > normal.y.abs() {
+                        push_x += normal.x * penetration;
+                    } else {
+                        push_y += normal.y * penetration;
+                    }
                 }
 
                 // Block movement that would go deeper into the obstacle
@@ -281,6 +283,26 @@ impl CollisionWorld {
 
             let contact_center = center + desired_delta * t_enter;
             if !circle_touches_rect(contact_center, radius, obs_min, obs_max) {
+                let corners = [
+                    obs_min,
+                    Vec2::new(obs_max.x, obs_min.y),
+                    Vec2::new(obs_min.x, obs_max.y),
+                    obs_max,
+                ];
+                for &corner in &corners {
+                    if let Some(t) = circle_cast_corner(center, desired_delta, radius, corner) {
+                        let contact_center = center + desired_delta * t;
+                        let normal = (contact_center - corner).normalize();
+                        if t < t_x && desired_delta.x * normal.x < -shapes::OVERLAP_EPS {
+                            t_x = t;
+                            blocked_x = true;
+                        }
+                        if t < t_y && desired_delta.y * normal.y < -shapes::OVERLAP_EPS {
+                            t_y = t;
+                            blocked_y = true;
+                        }
+                    }
+                }
                 continue;
             }
 
@@ -356,7 +378,7 @@ impl CollisionWorld {
             let expanded_min = Vec2::new(obs_min.x - hw, obs_min.y - hh);
             let expanded_max = Vec2::new(obs_max.x + hw, obs_max.y + hh);
 
-            // Ray vs expanded rect.
+            // Ray vs expanded rect
             let (tx_min, tx_max) = ray_axis(
                 center.x, desired_delta.x, expanded_min.x, expanded_max.x,
             );
@@ -380,48 +402,50 @@ impl CollisionWorld {
                 let overlap_x = (center.x + hw).min(obs_max.x) - (center.x - hw).max(obs_min.x);
                 let overlap_y = (center.y + hh).min(obs_max.y) - (center.y - hh).max(obs_min.y);
 
-                if overlap_x <= 0.0 && overlap_y <= 0.0 {
+                let penetrating_x = overlap_x > 0.0;
+                let penetrating_y = overlap_y > 0.0;
+
+                if !penetrating_x && !penetrating_y {
                     continue;
                 }
 
-                // Push out along the axis with the larger overlap
-                if overlap_x > overlap_y {
-                    let push_left = (center.x + hw) - obs_min.x;
-                    let push_right = obs_max.x - (center.x - hw);
-                    push_x += if push_left < push_right {
-                        -push_left
+                if penetrating_x && penetrating_y {
+                    if overlap_x < overlap_y {
+                        let push_left = (center.x + hw) - obs_min.x;
+                        let push_right = obs_max.x - (center.x - hw);
+                        push_x += if push_left < push_right {
+                            -push_left
+                        } else {
+                            push_right
+                        };
+                        blocked_x = true;
+                        t_x = 0.0;
                     } else {
-                        push_right
-                    };
-                    blocked_x = true;
-                    t_x = 0.0;
-                } else {
-                    let push_up = (center.y + hh) - obs_min.y;
-                    let push_down = obs_max.y - (center.y - hh);
-                    push_y += if push_up < push_down {
-                        -push_up
-                    } else {
-                        push_down
-                    };
-                    blocked_y = true;
-                    t_y = 0.0;
+                        let push_up = (center.y + hh) - obs_min.y;
+                        let push_down = obs_max.y - (center.y - hh);
+                        push_y += if push_up < push_down {
+                            -push_up
+                        } else {
+                            push_down
+                        };
+                        blocked_y = true;
+                        t_y = 0.0;
+                    }
                 }
 
                 // Block movement into the obstacle on the other axis too
                 if !blocked_x {
                     let body_left = center.x - hw;
                     let body_right = center.x + hw;
-                    if desired_delta.x < 0.0
-                        && body_left <= obs_max.x + shapes::OVERLAP_EPS
-                        && body_left + desired_delta.x < obs_max.x
-                    {
-                        blocked_x = true;
-                        t_x = 0.0;
-                    }
-                    if desired_delta.x > 0.0
+                    let moving_into_right_face = desired_delta.x > 0.0
+                        && center.x <= obs_min.x + shapes::OVERLAP_EPS
                         && body_right >= obs_min.x - shapes::OVERLAP_EPS
-                        && body_right + desired_delta.x > obs_min.x
-                    {
+                        && body_right + desired_delta.x > obs_min.x;
+                    let moving_into_left_face = desired_delta.x < 0.0
+                        && center.x >= obs_max.x - shapes::OVERLAP_EPS
+                        && body_left <= obs_max.x + shapes::OVERLAP_EPS
+                        && body_left + desired_delta.x < obs_max.x;
+                    if moving_into_right_face || moving_into_left_face {
                         blocked_x = true;
                         t_x = 0.0;
                     }
@@ -429,17 +453,15 @@ impl CollisionWorld {
                 if !blocked_y {
                     let body_top = center.y - hh;
                     let body_bottom = center.y + hh;
-                    if desired_delta.y < 0.0
-                        && body_top <= obs_max.y + shapes::OVERLAP_EPS
-                        && body_top + desired_delta.y < obs_max.y
-                    {
-                        blocked_y = true;
-                        t_y = 0.0;
-                    }
-                    if desired_delta.y > 0.0
+                    let moving_into_bottom_face = desired_delta.y > 0.0
+                        && center.y <= obs_min.y + shapes::OVERLAP_EPS
                         && body_bottom >= obs_min.y - shapes::OVERLAP_EPS
-                        && body_bottom + desired_delta.y > obs_min.y
-                    {
+                        && body_bottom + desired_delta.y > obs_min.y;
+                    let moving_into_top_face = desired_delta.y < 0.0
+                        && center.y >= obs_max.y - shapes::OVERLAP_EPS
+                        && body_top <= obs_max.y + shapes::OVERLAP_EPS
+                        && body_top + desired_delta.y < obs_max.y;
+                    if moving_into_bottom_face || moving_into_top_face {
                         blocked_y = true;
                         t_y = 0.0;
                     }
@@ -536,6 +558,29 @@ fn circle_touches_rect(c: Vec2, r: f32, obs_min: Vec2, obs_max: Vec2) -> bool {
     dist_sq <= r.powi(2) + shapes::OVERLAP_EPS
 }
 
+/// Solves for the earliest t in [0, 1] where a sweeping circle touches a point.
+fn circle_cast_corner(center: Vec2, delta: Vec2, radius: f32, corner: Vec2) -> Option<f32> {
+    let to_corner = center - corner;
+    let a = delta.length_squared();
+    if a < shapes::OVERLAP_EPS {
+        return None;
+    }
+    let b = 2.0 * delta.dot(to_corner);
+    let c = to_corner.length_squared() - radius * radius;
+    let discriminant = b * b - 4.0 * a * c;
+    if discriminant < 0.0 {
+        return None;
+    }
+    let sqrt_d = discriminant.sqrt();
+    // t1 is the entry time; t2 = (-b + sqrt_d) / (2a) is the exit
+    let t1 = (-b - sqrt_d) / (2.0 * a);
+    if (0.0..=1.0).contains(&t1) {
+        Some(t1)
+    } else {
+        None
+    }
+}
+
 fn aabb_overlaps(c: Vec2, hw: f32, hh: f32, obs_min: Vec2, obs_max: Vec2) -> bool {
     c.x + hw >= obs_min.x - shapes::OVERLAP_EPS
         && c.x - hw <= obs_max.x + shapes::OVERLAP_EPS
@@ -620,3 +665,7 @@ fn add_border_obstacles(solids: &mut Vec<SolidObj>, room: &Room, grid_size: f32)
         }
     }
 }
+
+#[cfg(test)]
+#[path = "tests/collision_world_tests.rs"]
+mod tests;

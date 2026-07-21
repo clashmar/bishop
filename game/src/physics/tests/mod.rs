@@ -1,3 +1,4 @@
+mod physics_body_tests;
 mod shapes_tests;
 mod sweep_tests;
 
