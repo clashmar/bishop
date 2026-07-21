@@ -79,14 +79,12 @@ pub fn update_physics(
                         pivot,
                     ));
 
-            // On collision, zero out velocity and discard sub-pixel remainder
             if sweep.blocked_x {
                 vel_cur.x = 0.0;
                 sub_pixel.x = 0.0;
             }
             if blocked_y {
                 vel_cur.y = 0.0;
-                sub_pixel.y = 0.0;
             }
 
             update_entity_position(ecs, entity, new_int_pos);

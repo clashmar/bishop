@@ -154,15 +154,22 @@
             data: {
                 (3): (
                     shape: Circle(
-                        radius: 7.527791,
+                        radius: 7.8043838,
                     ),
-                    offset: (-0.10292721, -0.6898327),
+                    offset: (0.083100796, -0.108174324),
                 ),
                 (37): (
                     shape: Circle(
                         radius: 7.4078255,
                     ),
                     offset: (1.3428688, -0.63303757),
+                ),
+                (80): (
+                    shape: Aabb(
+                        width: 8.0,
+                        height: 8.0,
+                    ),
+                    offset: (0.0, 0.0),
                 ),
             },
         ),
@@ -198,6 +205,7 @@
                 (74): ((5)),
                 (75): ((5)),
                 (78): ((1)),
+                (80): ((1)),
             },
         ),
         (
@@ -284,6 +292,7 @@
                 (71): ("Player Proxy"),
                 (75): ("Entity"),
                 (78): ("Entity"),
+                (80): ("Entity"),
             },
         ),
         (
@@ -480,6 +489,7 @@
             type_name: "Solid",
             data: {
                 (37): (true),
+                (80): (true),
             },
         ),
         (
@@ -498,6 +508,9 @@
                 (75): (
                     sprite: (9),
                 ),
+                (80): (
+                    sprite: (11),
+                ),
             },
         ),
         (
@@ -512,7 +525,7 @@
             data: {
                 (2): (
                     visible: true,
-                    position: (36.0, 72.0),
+                    position: (148.0, 72.0),
                     pivot: BottomCenter,
                 ),
                 (3): (
@@ -588,6 +601,11 @@
                 (78): (
                     visible: true,
                     position: (228.0, 24.0),
+                    pivot: BottomCenter,
+                ),
+                (80): (
+                    visible: true,
+                    position: (84.0, 72.0),
                     pivot: BottomCenter,
                 ),
             },

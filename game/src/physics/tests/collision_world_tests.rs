@@ -1,8 +1,17 @@
 use super::*;
 
 fn world_with_solid(aabb: (Vec2, Vec2)) -> CollisionWorld {
+    let shape = ColliderShape::Aabb {
+        width: aabb.1.x - aabb.0.x,
+        height: aabb.1.y - aabb.0.y,
+    };
     CollisionWorld {
-        solids: vec![SolidObj { aabb, entity: None }],
+        solids: vec![SolidObj {
+            aabb,
+            shape,
+            shape_pos: aabb.0,
+            entity: None,
+        }],
     }
 }
 
@@ -128,8 +137,24 @@ fn circle_depenetration_pushes_along_dominant_axis_only() {
 fn capsule_walking_into_wall_multi_frame_no_climb() {
     let world = CollisionWorld {
         solids: vec![
-            SolidObj { aabb: (Vec2::new(16.0, -8.0), Vec2::new(24.0, 0.0)), entity: None },
-            SolidObj { aabb: (Vec2::new(0.0, 0.0), Vec2::new(32.0, 16.0)), entity: None },
+            SolidObj {
+                aabb: (Vec2::new(16.0, -8.0), Vec2::new(24.0, 0.0)),
+                shape: ColliderShape::Aabb {
+                    width: 8.0,
+                    height: 8.0,
+                },
+                shape_pos: Vec2::new(16.0, -8.0),
+                entity: None,
+            },
+            SolidObj {
+                aabb: (Vec2::new(0.0, 0.0), Vec2::new(32.0, 16.0)),
+                shape: ColliderShape::Aabb {
+                    width: 32.0,
+                    height: 16.0,
+                },
+                shape_pos: Vec2::new(0.0, 0.0),
+                entity: None,
+            },
         ],
     };
     let mut center = Vec2::new(0.0, -16.0);
