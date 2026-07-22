@@ -21,7 +21,7 @@ use crate::scripting::script_manager::ScriptManager;
 use crate::worlds::room::RoomId;
 use crate::worlds::{WorldDirectorySnapshot, world::*};
 use crate::worlds::transition::OverlayFrame;
-use crate::{storage::text_folder, text::TextManager};
+use crate::{storage::text_folder, text::TextManager, tiles::TileRegistry};
 use bishop::prelude::TextureLoader;
 use mlua::Lua;
 use serde::{Deserialize, Serialize};
@@ -52,7 +52,10 @@ pub struct Game {
     /// Hydration coordinator tracking scope-level asset residency.
     #[serde(skip)]
     pub hydration_coordinator: HydrationCoordinator,
+    /// Authored tile definitions for the game.
+    pub tile_registry: TileRegistry,
     /// Asset manager for the game.
+    #[serde(skip)]
     pub sprite_manager: SpriteManager,
     /// Script manager for the game.
     pub script_manager: ScriptManager,
@@ -85,6 +88,7 @@ impl Default for Game {
             world_index: HashMap::new(),
             asset_registry: AssetRegistry::default(),
             hydration_coordinator: HydrationCoordinator::default(),
+            tile_registry: TileRegistry::default(),
             sprite_manager: SpriteManager::default(),
             script_manager: ScriptManager::default(),
             text_manager: TextManager::default(),
@@ -102,6 +106,7 @@ pub struct GameCtx<'a> {
     pub ecs: &'a Ecs,
     pub world: &'a World,
     pub asset_registry: &'a AssetRegistry,
+    pub tile_registry: &'a TileRegistry,
     pub sprite_manager: &'a SpriteManager,
     pub script_manager: &'a ScriptManager,
     pub prefab_manager: &'a PrefabManager,
@@ -114,6 +119,7 @@ pub struct GameCtxMut<'a> {
     pub world_directory: Vec<WorldDirectorySnapshot>,
     pub room_world_map: HashMap<RoomId, WorldId>,
     pub asset_registry: &'a mut AssetRegistry,
+    pub tile_registry: &'a mut TileRegistry,
     pub sprite_manager: &'a mut SpriteManager,
     pub script_manager: &'a mut ScriptManager,
     pub prefab_manager: &'a PrefabManager,
@@ -186,6 +192,7 @@ impl Game {
             ecs: &self.ecs,
             world,
             asset_registry: &self.asset_registry,
+            tile_registry: &self.tile_registry,
             sprite_manager: &self.sprite_manager,
             script_manager: &self.script_manager,
             prefab_manager: &self.prefab_manager,
@@ -213,6 +220,7 @@ impl Game {
             world_directory,
             room_world_map,
             asset_registry: &mut self.asset_registry,
+            tile_registry: &mut self.tile_registry,
             sprite_manager: &mut self.sprite_manager,
             script_manager: &mut self.script_manager,
             prefab_manager: &self.prefab_manager,
@@ -385,6 +393,11 @@ impl GameCtxMut<'_> {
     /// Mutable asset-manager access.
     pub fn sprite_manager(&mut self) -> &mut SpriteManager {
         self.sprite_manager
+    }
+
+    /// Mutable tile-registry access.
+    pub fn tile_registry(&mut self) -> &mut TileRegistry {
+        self.tile_registry
     }
 
     /// Mutable asset-registry access.

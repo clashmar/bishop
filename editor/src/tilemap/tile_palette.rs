@@ -1,13 +1,13 @@
 use bishop::prelude::*;
-use engine_core::constants::world as world_constants;
 use engine_core::assets::*;
+use engine_core::constants::world as world_constants;
 use engine_core::ecs::*;
 use engine_core::storage::*;
-use engine_core::tiles::{TileComponent, TileDef, TileDefId};
-use widgets::*;
+use engine_core::tiles::{TileComponent, TileDef, TileDefId, TileRegistry};
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
 use std::collections::VecDeque;
+use widgets::*;
 
 #[serde_as]
 #[derive(Serialize, Deserialize)]
@@ -62,12 +62,12 @@ impl TilePalette {
         }
     }
 
-    pub fn update(&mut self, sprite_manager: &mut SpriteManager) {
+    pub fn update(&mut self, tile_registry: &mut TileRegistry) {
         while let Some(cmd) = self.command_queue.pop_front() {
             match cmd {
-                PaletteCmd::Create => self.create_tile(sprite_manager),
-                PaletteCmd::Edit => self.edit_tile(sprite_manager),
-                PaletteCmd::Delete(i) => self.delete_tile(i, sprite_manager),
+                PaletteCmd::Create => self.create_tile(tile_registry),
+                PaletteCmd::Edit => self.edit_tile(tile_registry),
+                PaletteCmd::Delete(i) => self.delete_tile(i, tile_registry),
             }
         }
     }
@@ -84,13 +84,14 @@ impl TilePalette {
         ctx: &mut WgpuContext,
         rect: Rect,
         asset_registry: &mut AssetRegistry,
+        tile_registry: &TileRegistry,
         sprite_manager: &mut SpriteManager,
     ) {
         // Draw grid
         for i in 0..self.entries.len() {
             let col = i % self.columns;
             let row = i / self.columns;
-            let y = rect.y + (row as f32 * self.tile_size);
+            let y = rect.y + row as f32 * self.tile_size;
 
             // Skip rows that are completely outside the visible area
             if y + self.tile_size < rect.y || y > rect.y + self.tile_size * 5.0 {
@@ -99,9 +100,8 @@ impl TilePalette {
 
             let x = rect.x + col as f32 * self.tile_size;
 
-            let sprite_id = sprite_manager
-                .tile_defs
-                .get(&self.entries[i])
+            let sprite_id = tile_registry
+                .get(self.entries[i])
                 .expect("Could not find tile definition.")
                 .sprite_id;
 
@@ -122,7 +122,7 @@ impl TilePalette {
             }
         }
 
-        self.draw_tile_dialog(ctx, asset_registry, sprite_manager);
+        self.draw_tile_dialog(ctx, asset_registry, tile_registry, sprite_manager);
     }
 
     /// Called from `TileMapEditor::handle_ui_click` when the mouse
@@ -152,10 +152,90 @@ impl TilePalette {
         false
     }
 
+    pub fn create_tile(&mut self, tile_registry: &mut TileRegistry) {
+        // Build TileDef
+        let mut comps = vec![
+            TileComponent::Walkable(self.ui.walkable),
+            TileComponent::Solid(self.ui.solid),
+        ];
+
+        if self.ui.damage > 0.0 {
+            comps.push(TileComponent::Damage(self.ui.damage));
+        }
+
+        let tile_def = TileDef {
+            sprite_id: self.ui.sprite_id,
+            components: comps,
+        };
+
+        // Insert the definition into the authored tile registry
+        let def_id = tile_registry.insert(tile_def);
+
+        // Persist the palette entry
+        self.entries.push(def_id);
+
+        // Auto‑select the newly created tile
+        self.selected_index = self.entries.len() - 1;
+
+        // Grow the UI grid
+        let needed = self.entries.len();
+        self.rows = needed.div_ceil(self.columns)
+    }
+
+    pub fn edit_tile(&mut self, tile_registry: &mut TileRegistry) {
+        // Build TileDef components
+        let mut comps = vec![
+            TileComponent::Walkable(self.ui.walkable),
+            TileComponent::Solid(self.ui.solid),
+        ];
+        if self.ui.damage > 0.0 {
+            comps.push(TileComponent::Damage(self.ui.damage));
+        }
+
+        // Get the existing entry id
+        let entry = self.entries[self.ui.edit_index];
+
+        tile_registry.replace(
+            entry,
+            TileDef {
+                sprite_id: self.ui.sprite_id,
+                components: comps,
+            },
+        );
+    }
+
+    pub fn delete_tile(&mut self, idx: usize, tile_registry: &mut TileRegistry) {
+        // Remove the definition from authored game data
+        let def_id = self.entries[idx];
+        tile_registry.remove(def_id);
+
+        // Remove palette entry
+        self.entries.remove(idx);
+
+        // Adjust selected index safely
+        self.selected_index = self.entries.len().saturating_sub(1);
+
+        // Re-compute rows
+        self.rows = self.entries.len().div_ceil(self.columns);
+    }
+
+    /// The current height of the palette.
+    pub fn height(&self) -> f32 {
+        self.rows as f32 * self.tile_size
+    }
+
+    /// Set the column count based on an available width.
+    pub fn set_columns_for_width(&mut self, available_width: f32) {
+        let cols = (available_width / self.tile_size).floor() as usize;
+        self.columns = cols.max(1); // at least one column
+        self.recompute_rows();
+    }
+
     fn draw_tile_dialog(
         &mut self,
         ctx: &mut WgpuContext,
         asset_registry: &mut AssetRegistry,
+        tile_registry: &TileRegistry,
         sprite_manager: &mut SpriteManager,
     ) {
         if !self.ui.open {
@@ -165,12 +245,14 @@ impl TilePalette {
         if self.ui.edit_initialized {
             let entry = &self.entries[self.ui.edit_index];
 
-            let tile_def = sprite_manager
-                .tile_defs
-                .get(entry)
+            let tile_def = tile_registry
+                .get(*entry)
                 .expect("Could not find tile definition.");
 
             self.ui.sprite_id = tile_def.sprite_id;
+            self.ui.walkable = false;
+            self.ui.solid = false;
+            self.ui.damage = 0.0;
 
             // Walk through the component specs
             for spec in &tile_def.components {
@@ -214,7 +296,7 @@ impl TilePalette {
         }
 
         // Preview
-        if !self.ui.sprite_id.0 != 0 {
+        if self.ui.sprite_id.0 != 0 {
             let tex = sprite_manager.get_texture_from_id(ctx, self.ui.sprite_id);
             ctx.draw_texture_ex(
                 tex,
@@ -264,7 +346,7 @@ impl TilePalette {
         // Create/Update
         let btn_ok = Rect::new(panel.x + 30., panel.y + 220., 100., 30.);
         if Button::new(btn_ok, btn_label).show(ctx) {
-            // Add the request to the queue, it will be excecuted next frame
+            // Add the request to the queue, it will be executed next frame
             let cmd = match self.ui.mode {
                 TilePaletteUiMode::Create => PaletteCmd::Create,
                 TilePaletteUiMode::Edit => PaletteCmd::Edit,
@@ -283,7 +365,7 @@ impl TilePalette {
         if self.ui.mode == TilePaletteUiMode::Edit {
             let btn_del = Rect::new(panel.x + 30., panel.y + 260., 240., 30.);
             if Button::new(btn_del, "Delete").show(ctx) {
-                //Add the request to the queue
+                // Add the request to the queue
                 let cmd = PaletteCmd::Delete(self.ui.edit_index);
                 self.command_queue.push_back(cmd);
                 self.ui.open = false;
@@ -291,91 +373,11 @@ impl TilePalette {
         }
     }
 
-    pub fn create_tile(&mut self, sprite_manager: &mut SpriteManager) {
-        // Build TileDef
-        let mut comps = vec![
-            TileComponent::Walkable(self.ui.walkable),
-            TileComponent::Solid(self.ui.solid),
-        ];
-
-        if self.ui.damage > 0.0 {
-            comps.push(TileComponent::Damage(self.ui.damage));
-        }
-
-        let tile_def = TileDef {
-            sprite_id: self.ui.sprite_id,
-            components: comps,
-        };
-
-        // Insert the definition into the world ecs tile_def map
-        let def_id = sprite_manager.insert_tile_def(tile_def);
-
-        // Persist the palette entry
-        self.entries.push(def_id);
-
-        // Auto‑select the newly created tile
-        self.selected_index = self.entries.len() - 1;
-
-        // Grow the UI grid
-        let needed = self.entries.len();
-        self.rows = needed.div_ceil(self.columns)
-    }
-
-    pub fn edit_tile(&mut self, sprite_manager: &mut SpriteManager) {
-        // Build TileDef components
-        let mut comps = vec![
-            TileComponent::Walkable(self.ui.walkable),
-            TileComponent::Solid(self.ui.solid),
-        ];
-        if self.ui.damage > 0.0 {
-            comps.push(TileComponent::Damage(self.ui.damage));
-        }
-
-        // Get the existing entry id
-        let entry = self.entries[self.ui.edit_index];
-
-        // Update sprite ref if it changed
-        sprite_manager.update_tile_def_sprite(entry, self.ui.sprite_id);
-
-        // Update non-sprite fields
-        if let Some(def) = sprite_manager.tile_defs.get_mut(&entry) {
-            def.components = comps;
-        }
-    }
-
-    pub fn delete_tile(&mut self, idx: usize, sprite_manager: &mut SpriteManager) {
-        // Remove the definition and decrement sprite ref
-        let def_id = self.entries[idx];
-        sprite_manager.delete_tile_def(def_id);
-
-        // Remove palette entry
-        self.entries.remove(idx);
-
-        // Adjust selected index safely
-        self.selected_index = self.entries.len().saturating_sub(1);
-
-        // Re-compute rows
-        self.rows = self.entries.len().div_ceil(self.columns);
-    }
-
-    /// The current height of the palette.
-    pub fn height(&self) -> f32 {
-        self.rows as f32 * self.tile_size
-    }
-
-    /// Called after self.columns changes.
     fn recompute_rows(&mut self) {
         self.rows = if self.columns == 0 {
             0
         } else {
             self.entries.len().div_ceil(self.columns)
         };
-    }
-
-    /// Set the column count based on an available width.
-    pub fn set_columns_for_width(&mut self, available_width: f32) {
-        let cols = (available_width / self.tile_size).floor() as usize;
-        self.columns = cols.max(1); // at least one column
-        self.recompute_rows();
     }
 }

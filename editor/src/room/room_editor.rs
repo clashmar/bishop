@@ -26,10 +26,11 @@ use engine_core::assets::*;
 use engine_core::camera::get_room_camera_by_id;
 use engine_core::controls::{Controls};
 use engine_core::ecs::*;
-use engine_core::game::{Game};
+use engine_core::game::Game;
 use engine_core::rendering::{render_room, RenderSystem};
-use widgets::*;
+use engine_core::tiles::TileRegistry;
 use engine_core::worlds::*;
+use widgets::*;
 use once_cell::sync::Lazy;
 use std::collections::HashSet;
 use strum::IntoEnumIterator;
@@ -61,6 +62,7 @@ pub(crate) struct RoomEditorUpdateState<'a> {
     pub(crate) ecs: &'a mut Ecs,
     pub(crate) current_world: &'a mut World,
     pub(crate) asset_registry: &'a mut AssetRegistry,
+    pub(crate) tile_registry: &'a mut TileRegistry,
     pub(crate) sprite_manager: &'a mut SpriteManager,
     pub(crate) active_prefab_stamp: ActivePrefabStampState,
 }
@@ -178,6 +180,7 @@ impl RoomEditor {
             ecs,
             current_world,
             asset_registry,
+            tile_registry,
             sprite_manager,
             active_prefab_stamp,
         } = state;
@@ -235,7 +238,7 @@ impl RoomEditor {
                 self.tilemap_editor.sync_adjacent_exits(&adjacent_exits);
                 self.tilemap_editor.update(
                     ctx,
-                    sprite_manager,
+                    tile_registry,
                     camera,
                     room,
                     &other_bounds,
@@ -459,6 +462,7 @@ impl RoomEditor {
 
                     let ecs = &mut *game_ctx.ecs;
                     let asset_registry = &mut *game_ctx.asset_registry;
+                    let tile_registry = &*game_ctx.tile_registry;
                     let sprite_manager = &mut *game_ctx.sprite_manager;
 
                     self.tilemap_editor.tilemap_panel.set_rect(inspector_rect);
@@ -466,7 +470,7 @@ impl RoomEditor {
                         ctx,
                         camera,
                         room,
-                        (asset_registry, sprite_manager),
+                        (asset_registry, tile_registry, sprite_manager),
                         ecs,
                         grid_size,
                     );

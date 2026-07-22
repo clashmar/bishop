@@ -114,6 +114,57 @@ fn load_game_by_name_rebuilds_world_and_room_indexes_after_deserialize() {
 }
 
 #[test]
+fn game_save_load_when_tile_registry_exists_then_loaded_registry_preserves_next_id() {
+    let _lock = game_fs_test_lock()
+        .lock()
+        .unwrap_or_else(|poison| poison.into_inner());
+    let test_game = TestGameFolder::new("tile_registry_roundtrip");
+    set_game_name(test_game.name());
+
+    let mut game = create_new_game(test_game.name().to_string());
+    let tile_id = game.tile_registry.insert(TileDef {
+        sprite_id: SpriteId(3),
+        components: vec![TileComponent::Walkable(false)],
+    });
+
+    save_game(&game).expect("save should succeed");
+    let mut loaded = load_game_by_name(test_game.name()).expect("load should succeed");
+
+    assert!(loaded.tile_registry.get(tile_id).is_some());
+
+    let next_id = loaded.tile_registry.insert(TileDef {
+        sprite_id: SpriteId(4),
+        components: vec![TileComponent::Solid(true)],
+    });
+    assert!(next_id.0 > tile_id.0);
+}
+
+#[test]
+fn game_save_load_when_tile_registry_has_multiple_defs_then_all_defs_persist() {
+    let _lock = game_fs_test_lock()
+        .lock()
+        .unwrap_or_else(|poison| poison.into_inner());
+    let test_game = TestGameFolder::new("tile_registry_multiple_defs");
+    set_game_name(test_game.name());
+
+    let mut game = create_new_game(test_game.name().to_string());
+    let walkable_id = game.tile_registry.insert(TileDef {
+        sprite_id: SpriteId(4),
+        components: vec![TileComponent::Walkable(true)],
+    });
+    let solid_id = game.tile_registry.insert(TileDef {
+        sprite_id: SpriteId(5),
+        components: vec![TileComponent::Solid(true)],
+    });
+
+    save_game(&game).expect("save should succeed");
+    let loaded = load_game_by_name(test_game.name()).expect("load should succeed");
+
+    assert!(loaded.tile_registry.get(walkable_id).is_some());
+    assert!(loaded.tile_registry.get(solid_id).is_some());
+}
+
+#[test]
 fn list_game_names_ignores_non_game_directories() {
     let _lock = game_fs_test_lock()
         .lock()
@@ -163,6 +214,8 @@ fn save_game_writes_split_layout() {
 
     let resources = resources_folder(test_game.name());
     assert!(resources.join(paths::GAME_RON).is_file());
+    assert!(resources.join(paths::ASSET_REGISTRY_RON).is_file());
+    assert!(resources.join(paths::TILE_REGISTRY_RON).is_file());
     assert!(resources.join(paths::WORLDS_FOLDER).join("world-1.ron").is_file());
     assert!(resources.join(paths::PAYLOADS_FOLDER).join("room-1.ron").is_file());
 }

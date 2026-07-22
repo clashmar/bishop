@@ -75,6 +75,9 @@ pub mod paths {
     /// Name of the asset registry file.
     pub const ASSET_REGISTRY_RON: &str = "asset_registry.ron";
 
+    /// Name of the tile registry file.
+    pub const TILE_REGISTRY_RON: &str = "tile_registry.ron";
+
     /// Name of the shared ECS snapshot file.
     pub const ECS_RON: &str = "ecs.ron";
 

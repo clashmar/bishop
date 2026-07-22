@@ -33,8 +33,9 @@ fn creating_entity_replaces_stale_root_with_new_root() {
     editor.set_selected_entity(Some(stale_root));
 
     {
-        let mut ctx = stage.ctx_mut();
-        Ecs::remove_entity(&mut ctx, stale_root);
+        stage.with_game_ctx_mut(|ctx| {
+            Ecs::remove_entity(ctx, stale_root);
+        });
     }
 
     let new_entity = editor.create_prefab_entity(&mut stage.ecs, None);

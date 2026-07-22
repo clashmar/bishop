@@ -18,15 +18,15 @@ fn prefab_stage_uses_project_sprite_paths_without_room_state() {
     save_game(&game).unwrap();
 
     let mut stage = PrefabStage::new(test_game.name());
-    let prefab_ctx = stage.ctx_mut();
-
-    assert_eq!(
-        prefab_ctx.sprite_manager.path_for_id(SpriteId(7)),
-        Some(Path::new(CAT_SPRITE_PATH))
-    );
-    assert!(prefab_ctx.ecs.get_store::<RoomCamera>().data.is_empty());
-    assert!(prefab_ctx.ecs.get_store::<CurrentRoom>().data.is_empty());
-    assert!(prefab_ctx.world.is_none());
+    stage.with_game_ctx_mut(|prefab_ctx| {
+        assert_eq!(
+            prefab_ctx.sprite_manager.path_for_id(SpriteId(7)),
+            Some(Path::new(CAT_SPRITE_PATH))
+        );
+        assert!(prefab_ctx.ecs.get_store::<RoomCamera>().data.is_empty());
+        assert!(prefab_ctx.ecs.get_store::<CurrentRoom>().data.is_empty());
+        assert!(prefab_ctx.world.is_none());
+    });
 }
 
 #[test]

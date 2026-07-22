@@ -1,7 +1,6 @@
 use bishop::prelude::*;
-use engine_core::assets::SpriteManager;
 use engine_core::ecs::*;
-use engine_core::tiles::TileMap;
+use engine_core::tiles::{TileMap, TileRegistry};
 use engine_core::worlds::*;
 
 use crate::physics::collision_world::*;
@@ -74,7 +73,7 @@ fn assert_capsule_pressing_into_circle_jump_keeps_vertical_motion(
 
     let world = world_with_bottom_border();
     let room = world.get_room(room_id).unwrap();
-    let cw = CollisionWorld::new(&SpriteManager::default(), &ecs, room, &world);
+    let cw = CollisionWorld::new(&TileRegistry::default(), &ecs, room, &world);
     let sweep = cw.sweep_move(
         mover,
         Vec2::new(start_x, 60.88889),
@@ -132,7 +131,7 @@ fn collision_world_sweep_move_aabb_blocked_by_solid_entity() {
 
     let world = empty_world();
     let room = world.get_room(room_id).unwrap();
-    let cw = CollisionWorld::new(&SpriteManager::default(), &ecs, room, &world);
+    let cw = CollisionWorld::new(&TileRegistry::default(), &ecs, room, &world);
     let sweep = cw.sweep_move(
         mover,
         Vec2::ZERO,
@@ -180,7 +179,7 @@ fn collision_world_sweep_move_other_room_entity_does_not_block() {
 
     let world = empty_world();
     let room = world.get_room(RoomId(1)).unwrap();
-    let cw = CollisionWorld::new(&SpriteManager::default(), &ecs, room, &world);
+    let cw = CollisionWorld::new(&TileRegistry::default(), &ecs, room, &world);
     let sweep = cw.sweep_move(
         mover,
         Vec2::ZERO,
@@ -229,7 +228,7 @@ fn collision_world_sweep_move_circle_blocked_by_solid_entity() {
 
     let world = empty_world();
     let room = world.get_room(room_id).unwrap();
-    let cw = CollisionWorld::new(&SpriteManager::default(), &ecs, room, &world);
+    let cw = CollisionWorld::new(&TileRegistry::default(), &ecs, room, &world);
     let sweep = cw.sweep_move(
         mover,
         Vec2::ZERO,
@@ -273,7 +272,7 @@ fn collision_world_sweep_move_circle_vs_solid_circle_uses_true_arc_boundary() {
 
     let world = empty_world();
     let room = world.get_room(room_id).unwrap();
-    let cw = CollisionWorld::new(&SpriteManager::default(), &ecs, room, &world);
+    let cw = CollisionWorld::new(&TileRegistry::default(), &ecs, room, &world);
     let sweep = cw.sweep_move(
         mover,
         Vec2::new(0.0, 12.0),
@@ -321,7 +320,7 @@ fn collision_world_sweep_move_capsule_vs_solid_circle_uses_true_arc_boundary() {
 
     let world = empty_world();
     let room = world.get_room(room_id).unwrap();
-    let cw = CollisionWorld::new(&SpriteManager::default(), &ecs, room, &world);
+    let cw = CollisionWorld::new(&TileRegistry::default(), &ecs, room, &world);
     let sweep = cw.sweep_move(
         mover,
         Vec2::new(0.0, 2.0),
@@ -372,7 +371,7 @@ fn collision_world_sweep_move_aabb_vs_solid_circle_blocks_on_arc() {
 
     let world = empty_world();
     let room = world.get_room(room_id).unwrap();
-    let cw = CollisionWorld::new(&SpriteManager::default(), &ecs, room, &world);
+    let cw = CollisionWorld::new(&TileRegistry::default(), &ecs, room, &world);
     let sweep = cw.sweep_move(
         mover,
         Vec2::new(8.0, 0.0),
@@ -423,7 +422,7 @@ fn collision_world_sweep_move_circle_beside_solid_circle_keeps_vertical_motion()
 
     let world = empty_world();
     let room = world.get_room(room_id).unwrap();
-    let cw = CollisionWorld::new(&SpriteManager::default(), &ecs, room, &world);
+    let cw = CollisionWorld::new(&TileRegistry::default(), &ecs, room, &world);
     let sweep = cw.sweep_move(
         mover,
         Vec2::new(38.0, 58.0),
@@ -476,7 +475,7 @@ fn collision_world_sweep_move_capsule_walk_state_beside_circle_keeps_vertical_mo
 
     let world = empty_world();
     let room = world.get_room(room_id).unwrap();
-    let cw = CollisionWorld::new(&SpriteManager::default(), &ecs, room, &world);
+    let cw = CollisionWorld::new(&TileRegistry::default(), &ecs, room, &world);
     let sweep = cw.sweep_move(
         mover,
         Vec2::new(38.0, 48.0),
@@ -532,7 +531,7 @@ fn collision_world_sweep_move_capsule_second_jump_frame_beside_circle_keeps_vert
 
     let world = empty_world();
     let room = world.get_room(room_id).unwrap();
-    let cw = CollisionWorld::new(&SpriteManager::default(), &ecs, room, &world);
+    let cw = CollisionWorld::new(&TileRegistry::default(), &ecs, room, &world);
     let sweep = cw.sweep_move(
         mover,
         Vec2::new(38.0, 45.0),
@@ -588,7 +587,7 @@ fn collision_world_sweep_move_capsule_subpixel_second_jump_frame_beside_circle_k
 
     let world = empty_world();
     let room = world.get_room(room_id).unwrap();
-    let cw = CollisionWorld::new(&SpriteManager::default(), &ecs, room, &world);
+    let cw = CollisionWorld::new(&TileRegistry::default(), &ecs, room, &world);
     let sweep = cw.sweep_move(
         mover,
         Vec2::new(38.0, 44.88889),
@@ -644,7 +643,7 @@ fn collision_world_sweep_move_capsule_subpixel_second_jump_frame_with_floor_and_
 
     let world = world_with_bottom_border();
     let room = world.get_room(room_id).unwrap();
-    let cw = CollisionWorld::new(&SpriteManager::default(), &ecs, room, &world);
+    let cw = CollisionWorld::new(&TileRegistry::default(), &ecs, room, &world);
     let sweep = cw.sweep_move(
         mover,
         Vec2::new(41.0, 60.88889),
@@ -716,7 +715,7 @@ fn collision_world_sweep_move_aabb_beside_circle_keeps_vertical_motion() {
 
     let world = empty_world();
     let room = world.get_room(room_id).unwrap();
-    let cw = CollisionWorld::new(&SpriteManager::default(), &ecs, room, &world);
+    let cw = CollisionWorld::new(&TileRegistry::default(), &ecs, room, &world);
     let sweep = cw.sweep_move(
         mover,
         Vec2::new(8.0, 20.0),
@@ -764,7 +763,7 @@ fn collision_world_sweep_move_capsule_beside_circle_keeps_vertical_motion() {
 
     let world = empty_world();
     let room = world.get_room(room_id).unwrap();
-    let cw = CollisionWorld::new(&SpriteManager::default(), &ecs, room, &world);
+    let cw = CollisionWorld::new(&TileRegistry::default(), &ecs, room, &world);
     let sweep = cw.sweep_move(
         mover,
         Vec2::new(8.0, 19.0),
@@ -812,7 +811,7 @@ fn collision_world_sweep_move_aabb_on_circle_keeps_horizontal_motion() {
 
     let world = empty_world();
     let room = world.get_room(room_id).unwrap();
-    let cw = CollisionWorld::new(&SpriteManager::default(), &ecs, room, &world);
+    let cw = CollisionWorld::new(&TileRegistry::default(), &ecs, room, &world);
     let sweep = cw.sweep_move(
         mover,
         Vec2::new(20.0, 8.0),
@@ -860,7 +859,7 @@ fn collision_world_sweep_move_capsule_on_circle_keeps_horizontal_motion() {
 
     let world = empty_world();
     let room = world.get_room(room_id).unwrap();
-    let cw = CollisionWorld::new(&SpriteManager::default(), &ecs, room, &world);
+    let cw = CollisionWorld::new(&TileRegistry::default(), &ecs, room, &world);
     let sweep = cw.sweep_move(
         mover,
         Vec2::new(20.0, -2.0),
@@ -911,7 +910,7 @@ fn collision_world_sweep_move_aabb_corner_touch_does_not_block_perpendicular_axi
 
     let world = empty_world();
     let room = world.get_room(room_id).unwrap();
-    let cw = CollisionWorld::new(&SpriteManager::default(), &ecs, room, &world);
+    let cw = CollisionWorld::new(&TileRegistry::default(), &ecs, room, &world);
     let sweep = cw.sweep_move(
         mover,
         Vec2::ZERO,
@@ -962,7 +961,7 @@ fn collision_world_sweep_move_capsule_left_contact_does_not_slide_through_tile()
 
     let world = empty_world();
     let room = world.get_room(room_id).unwrap();
-    let cw = CollisionWorld::new(&SpriteManager::default(), &ecs, room, &world);
+    let cw = CollisionWorld::new(&TileRegistry::default(), &ecs, room, &world);
     let sweep = cw.sweep_move(
         mover,
         Vec2::new(12.0, 0.0),
@@ -1012,7 +1011,7 @@ fn collision_world_sweep_move_capsule_embedded_in_tile_can_move_outward() {
 
     let world = empty_world();
     let room = world.get_room(room_id).unwrap();
-    let cw = CollisionWorld::new(&SpriteManager::default(), &ecs, room, &world);
+    let cw = CollisionWorld::new(&TileRegistry::default(), &ecs, room, &world);
     let sweep = cw.sweep_move(
         mover,
         Vec2::new(12.0, 0.0),
@@ -1062,7 +1061,7 @@ fn collision_world_sweep_move_capsule_corner_support_blocks_downward_motion() {
 
     let world = empty_world();
     let room = world.get_room(room_id).unwrap();
-    let cw = CollisionWorld::new(&SpriteManager::default(), &ecs, room, &world);
+    let cw = CollisionWorld::new(&TileRegistry::default(), &ecs, room, &world);
     let sweep = cw.sweep_move(
         mover,
         Vec2::new(12.0, 14.0),
@@ -1086,7 +1085,7 @@ fn collision_world_check_overlaps_returns_empty_when_no_sensors() {
     let ecs = Ecs::default();
     let world = empty_world();
     let room = world.get_room(RoomId(1)).unwrap();
-    let cw = CollisionWorld::new(&SpriteManager::default(), &ecs, room, &world);
+    let cw = CollisionWorld::new(&TileRegistry::default(), &ecs, room, &world);
     let overlaps = cw.check_overlaps(
         Vec2::ZERO,
         Collider::default(),

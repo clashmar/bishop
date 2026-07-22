@@ -28,11 +28,13 @@ fn prefab_child_keyboard_move_updates_position_and_supports_undo_redo() {
             Some(Vec2::new(13.0, 18.0))
         );
 
-        let staged_prefab = editor
-            .prefab_editor
-            .as_mut()
-            .unwrap()
-            .staged_prefab_state(&mut stage.ctx_mut());
+        let staged_prefab = stage.with_game_ctx_mut(|prefab_ctx| {
+            editor
+                .prefab_editor
+                .as_mut()
+                .unwrap()
+                .staged_prefab_state(prefab_ctx)
+        });
         let StagedPrefabState::PrefabAsset(prefab) = staged_prefab else {
             panic!("expected prefab asset state");
         };

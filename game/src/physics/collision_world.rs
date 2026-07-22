@@ -1,7 +1,6 @@
 use bishop::prelude::*;
-use engine_core::assets::SpriteManager;
 use engine_core::ecs::*;
-use engine_core::tiles::TileComponent;
+use engine_core::tiles::{TileComponent, TileRegistry};
 use engine_core::worlds::*;
 use std::collections::HashSet;
 
@@ -53,7 +52,7 @@ impl CollisionWorld {
     /// Collects solid tiles, room borders, and solid ECS entities into a
     /// collision world for the given room.
     pub fn new(
-        sprite_manager: &SpriteManager,
+        tile_registry: &TileRegistry,
         ecs: &Ecs,
         room: &Room,
         world: &World,
@@ -63,7 +62,7 @@ impl CollisionWorld {
 
         // Solid tiles
         for ((x, y), tile_def_id) in tilemap.tiles.iter() {
-            let Some(tile_def) = sprite_manager.tile_defs.get(tile_def_id) else {
+            let Some(tile_def) = tile_registry.get(*tile_def_id) else {
                 continue;
             };
             if tile_def.components.contains(&TileComponent::Solid(true)) {

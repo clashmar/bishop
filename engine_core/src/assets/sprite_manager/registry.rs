@@ -29,7 +29,6 @@ impl SpriteManager {
     ) {
         sprite_manager.rebuild_path_cache_from_registry(asset_registry);
         sprite_manager.restore_next_sprite_id();
-        sprite_manager.restore_next_tile_def_id();
         sprite_manager.runtime_texture_loading = false;
         sprite_manager.runtime_file_read_pool = None;
         sprite_manager.pending_texture_reads.clear();
@@ -76,14 +75,6 @@ impl SpriteManager {
             self.path_to_sprite_id
                 .insert(relative_path.clone(), sprite_id);
             self.sprite_id_to_path.insert(sprite_id, relative_path);
-        }
-    }
-
-    pub(super) fn restore_next_tile_def_id(&mut self) {
-        if let Some(max_id) = self.tile_defs.keys().map(|id| id.0).max() {
-            self.next_tile_def_id = max_id + 1;
-        } else {
-            self.next_tile_def_id = 1;
         }
     }
 }

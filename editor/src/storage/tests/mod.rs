@@ -16,6 +16,7 @@ use engine_core::scripting::ScriptManager;
 use engine_core::storage::path_utils::sanitise_name;
 use engine_core::storage::test_utils::{game_fs_test_lock, TestGameFolder};
 use engine_core::storage::*;
+use engine_core::tiles::{TileComponent, TileDef};
 use std::fs;
 use std::io::ErrorKind;
 use std::path::{Path, PathBuf};

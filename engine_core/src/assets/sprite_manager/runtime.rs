@@ -12,7 +12,6 @@ impl SpriteManager {
         game.sprite_manager
             .rebuild_path_cache_from_registry(&game.asset_registry);
         game.sprite_manager.restore_next_sprite_id();
-        game.sprite_manager.restore_next_tile_def_id();
         game.sprite_manager.runtime_texture_loading = true;
         game.sprite_manager.runtime_file_read_pool = Some(file_read_pool.clone());
         game.sprite_manager.pending_texture_reads.clear();

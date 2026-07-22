@@ -51,6 +51,7 @@ pub fn render_room<C: BishopContext>(
     let tilemap = &current_room.current_variant().tilemap;
     tilemap.draw(
         ctx,
+        game_ctx.tile_registry,
         game_ctx.sprite_manager,
         current_room.position,
         grid_size,

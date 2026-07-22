@@ -1,14 +1,13 @@
 use crate::gui::gui_constants::*;
 use crate::gui::panels::panel_manager::is_mouse_over_panel;
 use crate::tilemap::background_module::BackgroundModule;
-use crate::tilemap::tile_palette::TilePalette;
-use crate::tilemap::tile_palette::*;
+use crate::tilemap::tile_palette::{TilePalette, TilePaletteUi, TilePaletteUiMode};
+use ::widgets::*;
 use bishop::prelude::*;
 use engine_core::assets::*;
-use engine_core::tiles::{TileMap};
-use engine_core::ui::{measure_text};
-use ::widgets::*;
 use engine_core::theme::with_theme;
+use engine_core::tiles::{TileMap, TileRegistry};
+use engine_core::ui::measure_text;
 
 const INSET: f32 = 10.0;
 const BTN_HEIGHT: f32 = 30.0;
@@ -41,8 +40,8 @@ impl TilemapPanel {
         }
     }
 
-    pub fn update(&mut self, sprite_manager: &mut SpriteManager) {
-        self.palette.update(sprite_manager);
+    pub fn update(&mut self, tile_registry: &mut TileRegistry) {
+        self.palette.update(tile_registry);
     }
 
     /// Called by the editor each frame to place the panel
@@ -55,6 +54,7 @@ impl TilemapPanel {
         &mut self,
         ctx: &mut WgpuContext,
         asset_registry: &mut AssetRegistry,
+        tile_registry: &TileRegistry,
         sprite_manager: &mut SpriteManager,
         tilemap: &mut TileMap,
     ) {
@@ -113,7 +113,7 @@ impl TilemapPanel {
         let height = self.palette.height();
         let palette_rect = Rect::new(inner.x + 10.0, y, inner.w, height);
         self.palette
-            .draw(ctx, palette_rect, asset_registry, sprite_manager);
+            .draw(ctx, palette_rect, asset_registry, tile_registry, sprite_manager);
 
         y += height + 20.0; // Create gap for next module
 
@@ -175,14 +175,14 @@ impl TilemapPanel {
         was_clicked
     }
 
+    pub fn is_mouse_over(&self, mouse_screen: Vec2) -> bool {
+        self.active_rects.iter().any(|r| r.contains(mouse_screen))
+    }
+
     #[inline]
     fn register_rect(&mut self, rect: Rect) -> Rect {
         self.active_rects.push(rect);
         rect
-    }
-
-    pub fn is_mouse_over(&self, mouse_screen: Vec2) -> bool {
-        self.active_rects.iter().any(|r| r.contains(mouse_screen))
     }
 
     /// Draw the four solid‑grey mask rectangles which hide anything

@@ -236,8 +236,9 @@ impl Editor {
                     if let (Some(prefab_editor), Some(prefab_stage)) =
                         (self.prefab_editor.as_mut(), self.prefab_stage.as_mut())
                     {
-                        let mut prefab_ctx = prefab_stage.ctx_mut();
-                        prefab_editor.update(ctx, &mut self.camera, &mut prefab_ctx);
+                        prefab_stage.with_game_ctx_mut(|prefab_ctx| {
+                            prefab_editor.update(ctx, &mut self.camera, prefab_ctx);
+                        });
                         std::mem::take(&mut prefab_editor.open_prefab_picker_requested)
                     } else {
                         false
@@ -377,6 +378,7 @@ impl Editor {
                             ecs: game_ctx.ecs,
                             current_world,
                             asset_registry: game_ctx.asset_registry,
+                            tile_registry: game_ctx.tile_registry,
                             sprite_manager: game_ctx.sprite_manager,
                             active_prefab_stamp,
                         },
@@ -466,8 +468,9 @@ impl Editor {
                     self.prefab_stage.as_mut(),
                     &self.grid_renderer,
                 ) {
-                    let mut prefab_ctx = prefab_stage.ctx_mut();
-                    prefab_editor.draw(ctx, &self.camera, &mut prefab_ctx, grid_renderer);
+                    prefab_stage.with_game_ctx_mut(|prefab_ctx| {
+                        prefab_editor.draw(ctx, &self.camera, prefab_ctx, grid_renderer);
+                    });
                 }
             }
             EditorMode::Game(GameEditorSubmode::Worlds) => {
