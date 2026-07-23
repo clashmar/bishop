@@ -5,8 +5,8 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Ord, PartialOrd, Hash, Serialize, Deserialize)]
 pub struct TileDefId(pub usize);
 
-/// A list of component adding closures.
-#[derive(Clone, Serialize, Deserialize, Debug)]
+/// Authored tile definition.
+#[derive(Clone, PartialEq, Serialize, Deserialize, Debug)]
 pub struct TileDef {
     /// SpriteId for the tile.
     pub sprite_id: SpriteId,

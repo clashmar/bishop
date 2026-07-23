@@ -29,9 +29,7 @@ use crate::prefab::PrefabSessionState;
 use crate::room::room_editor::{self, RoomEditor};
 use crate::storage::game_io::{create_new_game, load_game_by_name, most_recent_game_name};
 use crate::storage::lua_stub_gen::refresh_event_tags_lua;
-use crate::storage::tile_palettes::load_palette;
 use crate::storage::export::PendingExport;
-use crate::tilemap::tile_palette::TilePalette;
 use crate::with_panel_manager;
 use crate::world::world_editor::WorldEditor;
 use bishop::prelude::*;
@@ -151,19 +149,7 @@ impl Editor {
             panel_manager.register_all_panels(&ctx.borrow());
         });
 
-        let palette = match load_palette(&game.name.clone()) {
-            Ok(p) => p,
-            Err(e) => {
-                omni_error!("Failed to load palette: {e}");
-                // Fall back to a new palette
-                TilePalette::new()
-            }
-        };
-
         editor.game = editor.init_game_for_editor(&ctx.borrow(), game);
-
-        // Give the palette to the tilemap editor
-        editor.room_editor.tilemap_editor.tilemap_panel.palette = palette;
         editor.load_prefab_palette_state();
 
         // Initialize the grid renderer
@@ -378,7 +364,6 @@ impl Editor {
                             ecs: game_ctx.ecs,
                             current_world,
                             asset_registry: game_ctx.asset_registry,
-                            tile_registry: game_ctx.tile_registry,
                             sprite_manager: game_ctx.sprite_manager,
                             active_prefab_stamp,
                         },

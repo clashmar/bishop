@@ -34,6 +34,11 @@ impl TileRegistry {
         self.next_tile_def_id = self.next_tile_def_id.max(id.0 + 1);
     }
 
+    /// Returns an iterator over stored tile definitions.
+    pub fn iter(&self) -> impl Iterator<Item = (TileDefId, &TileDef)> {
+        self.definitions.iter().map(|(&id, def)| (id, def))
+    }
+
     /// Removes the tile definition stored at `id`.
     pub fn remove(&mut self, id: TileDefId) -> Option<TileDef> {
         self.definitions.remove(&id)

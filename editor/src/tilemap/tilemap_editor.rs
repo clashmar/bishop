@@ -2,17 +2,15 @@ use crate::commands::room::*;
 use crate::editor_assets::assets::*;
 use crate::editor_global::{push_command, push_toast};
 use crate::gui::gui_constants::MENU_PANEL_HEIGHT;
-use crate::gui::menu_bar::draw_top_panel_full;
 use crate::gui::mode_selector::ModeInfo;
 use crate::room::drawing::*;
 use crate::shared::input::canvas_blocked_by_global_ui;
 use crate::tilemap::resize_handle::*;
-use crate::tilemap::tilemap_panel::TilemapPanel;
 use bishop::prelude::*;
-use engine_core::assets::*;
-use engine_core::controls::{Controls};
-use engine_core::ecs::*;
-use engine_core::tiles::{TileMap, TileRegistry};
+use engine_core::assets::SpriteManager;
+use engine_core::controls::Controls;
+use engine_core::ecs::Ecs;
+use engine_core::tiles::{TileDefId, TileMap, TileRegistry};
 use engine_core::worlds::*;
 
 fn thickness(grid_size: f32) -> f32 {
@@ -57,7 +55,8 @@ pub struct TileMapEditor {
     resize_handles: Vec<ResizeHandle>,
     active_handle_index: Option<usize>,
     preview_valid: bool,
-    pub tilemap_panel: TilemapPanel,
+    selected_tile_def: Option<TileDefId>,
+    external_ui_blocked: bool,
     ui_was_clicked: bool,
     initialized: bool,
     adjacent_exits: Vec<(Vec2, ExitDirection)>,
@@ -72,12 +71,17 @@ impl TileMapEditor {
             resize_handles: Vec::new(),
             active_handle_index: None,
             preview_valid: true,
-            tilemap_panel: TilemapPanel::new(),
+            selected_tile_def: None,
+            external_ui_blocked: false,
             ui_was_clicked: false,
             initialized: false,
             adjacent_exits: Vec::new(),
             sub_mode_rect: None,
         }
+    }
+
+    pub fn set_selected_tile(&mut self, selected_tile_def: Option<TileDefId>) {
+        self.selected_tile_def = selected_tile_def;
     }
 
     pub fn sync_adjacent_exits(&mut self, adjacent_exits: &[(Vec2, ExitDirection)]) {
@@ -88,18 +92,18 @@ impl TileMapEditor {
     pub fn update(
         &mut self,
         ctx: &WgpuContext,
-        tile_registry: &mut TileRegistry,
-        camera: &mut Camera2D,
+        inspector_blocked: bool,
+        camera: &Camera2D,
         room: &mut Room,
         other_bounds: &[(Vec2, Vec2)],
         grid_size: f32,
     ) {
         if !self.initialized {
-            self.ui_was_clicked = true; // Stop any initial tile placements
+            self.ui_was_clicked = true;
             self.initialized = true;
         }
 
-        self.tilemap_panel.update(tile_registry);
+        self.external_ui_blocked = inspector_blocked;
 
         // Only rebuild handles when not dragging (to preserve drag state)
         if self.active_handle_index.is_none() {
@@ -113,12 +117,10 @@ impl TileMapEditor {
         let screen_h = ctx.screen_height();
         let mouse_world = camera.screen_to_world(mouse_screen, screen_w, screen_h);
 
-        // Handle resize drag before tile placement
         let drag_active =
             self.handle_resize_drag(ctx, mouse_world, room, other_bounds, grid_size, room.id);
 
-        // Consume UI clicks
-        self.consume_ui_click(ctx, mouse_screen);
+        self.consume_ui_click(ctx, camera);
 
         if !self.ui_was_clicked && !drag_active {
             let room_position = room.position;
@@ -141,6 +143,53 @@ impl TileMapEditor {
                 ),
             }
         }
+    }
+
+    pub fn draw(
+        &mut self,
+        ctx: &mut WgpuContext,
+        camera: &Camera2D,
+        room: &mut Room,
+        assets: (&TileRegistry, &mut SpriteManager),
+        ecs: &Ecs,
+        grid_size: f32,
+    ) {
+        let (tile_registry, sprite_manager) = assets;
+        let variant_index = room.current_variant_index();
+        let tilemap = &mut room.variants[variant_index].tilemap;
+        let room_position = room.position;
+        let room_id = room.id;
+        let room_size = room.size;
+
+        ctx.clear_background(Color::BLACK);
+        ctx.set_camera(camera);
+        tilemap.draw(ctx, tile_registry, sprite_manager, room_position, grid_size);
+        draw_exit_placeholders(ctx, &room.exits, room_position, grid_size);
+        self.draw_adjacent_exits(ctx, grid_size);
+        self.draw_hover_highlight(ctx, camera, tilemap, room_position, grid_size);
+
+        if self.active_handle_index.is_some() {
+            draw_all_camera_viewports(ctx, camera, ecs, room_id);
+        }
+
+        self.draw_resize_handles(
+            ctx,
+            camera,
+            Rect::new(room_position.x, room_position.y, room_size.x, room_size.y),
+            grid_size,
+        );
+    }
+
+    pub fn reset(&mut self) {
+        self.mode = TilemapEditorMode::Tiles;
+        self.initialized = false;
+        self.selected_tile_def = None;
+        self.external_ui_blocked = false;
+        self.ui_was_clicked = false;
+        self.active_handle_index = None;
+        self.resize_handles.clear();
+        self.adjacent_exits.clear();
+        self.sub_mode_rect = None;
     }
 
     /// Handle resize handle drag operations.
@@ -220,18 +269,15 @@ impl TileMapEditor {
         false
     }
 
-    fn consume_ui_click(&mut self, ctx: &WgpuContext, mouse_pos: Vec2) {
+    fn consume_ui_click(&mut self, ctx: &WgpuContext, camera: &Camera2D) {
         if (ctx.is_mouse_button_pressed(MouseButton::Left)
             || ctx.is_mouse_button_pressed(MouseButton::Right))
-            && self
-                .tilemap_panel
-                .handle_click(mouse_pos, self.tilemap_panel.rect)
+            && self.is_mouse_over_ui(ctx, camera)
         {
             self.ui_was_clicked = true;
             return;
         }
 
-        // Unblock UI
         if ctx.is_mouse_button_released(MouseButton::Left)
             || !ctx.is_mouse_button_down(MouseButton::Left) && self.active_handle_index.is_none()
         {
@@ -264,9 +310,8 @@ impl TileMapEditor {
             return;
         }
 
-        let def_id = match self.tilemap_panel.palette.selected_def_opt() {
-            Some(d) => d,
-            _ => return, // There is no tile to place
+        let Some(def_id) = self.selected_tile_def else {
+            return;
         };
 
         // Place
@@ -304,43 +349,6 @@ impl TileMapEditor {
                 exits.retain(|exit| exit.position != exit_vec);
             }
         }
-    }
-
-    pub fn draw(
-        &mut self,
-        ctx: &mut WgpuContext,
-        camera: &Camera2D,
-        room: &mut Room,
-        assets: (&mut AssetRegistry, &TileRegistry, &mut SpriteManager),
-        ecs: &Ecs,
-        grid_size: f32,
-    ) {
-        let (registry, tile_registry, sprite_manager) = assets;
-        let variant_index = room.current_variant_index();
-        let tilemap = &mut room.variants[variant_index].tilemap;
-        let room_position = room.position;
-        let room_id = room.id;
-        let room_size = room.size;
-
-        ctx.clear_background(Color::BLACK);
-        ctx.set_camera(camera);
-        tilemap.draw(ctx, tile_registry, sprite_manager, room_position, grid_size);
-        draw_exit_placeholders(ctx, &room.exits, room_position, grid_size);
-        self.draw_adjacent_exits(ctx, grid_size);
-        self.draw_hover_highlight(ctx, camera, tilemap, room_position, grid_size);
-
-        if self.active_handle_index.is_some() {
-            draw_all_camera_viewports(ctx, camera, ecs, room_id);
-        }
-
-        self.draw_ui(
-            ctx,
-            camera,
-            (registry, tile_registry, sprite_manager),
-            tilemap,
-            Rect::new(room_position.x, room_position.y, room_size.x, room_size.y),
-            grid_size,
-        );
     }
 
     /// Draws exits from adjacent rooms that face toward this room (only in Exits mode).
@@ -394,22 +402,17 @@ impl TileMapEditor {
         }
     }
 
-    fn draw_ui(
+    fn draw_resize_handles(
         &mut self,
         ctx: &mut WgpuContext,
         camera: &Camera2D,
-        assets: (&mut AssetRegistry, &TileRegistry, &mut SpriteManager),
-        tilemap: &mut TileMap,
         room_rect: Rect,
         grid_size: f32,
     ) {
-        let (registry, tile_registry, sprite_manager) = assets;
-        // Draw resize handles and preview
         for (i, handle) in self.resize_handles.iter().enumerate() {
             let is_active = self.active_handle_index == Some(i);
             handle.draw(ctx, camera, is_active, self.preview_valid, grid_size);
 
-            // Draw preview if this handle is being dragged
             if is_active {
                 handle.draw_preview(
                     ctx,
@@ -420,16 +423,6 @@ impl TileMapEditor {
                 );
             }
         }
-
-        // Static UI cam
-        ctx.set_default_camera();
-
-        // Top menu background
-        draw_top_panel_full(ctx);
-
-        // Draw inspector panel
-        self.tilemap_panel
-            .draw(ctx, registry, tile_registry, sprite_manager, tilemap);
     }
 
     fn get_hovered_tile(
@@ -489,7 +482,7 @@ impl TileMapEditor {
 
         over_menu_bar
             || over_sub_mode
-            || self.tilemap_panel.is_mouse_over(mouse_screen)
+            || self.external_ui_blocked
             || self
                 .resize_handles
                 .iter()
@@ -512,15 +505,6 @@ impl TileMapEditor {
         }
     }
 
-    pub fn reset(&mut self) {
-        self.mode = TilemapEditorMode::Tiles;
-        self.initialized = false;
-        self.ui_was_clicked = false;
-        self.active_handle_index = None;
-        self.resize_handles.clear();
-        self.adjacent_exits.clear();
-        self.sub_mode_rect = None;
-    }
 }
 
 fn resize_result_message(result: ResizeResult) -> Option<&'static str> {

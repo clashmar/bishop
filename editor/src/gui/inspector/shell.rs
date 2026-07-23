@@ -2,11 +2,13 @@ use crate::gui::gui_constants::inspector;
 use crate::gui::panels::panel_manager::is_mouse_over_panel;
 use crate::gui::properties::game::GameProperties;
 use crate::gui::properties::room::RoomProperties;
+use crate::gui::properties::tilemap::TilemapProperties;
 use crate::gui::properties::world::WorldProperties;
 use crate::shared::scene_ui::inspector::{EntityInspector, InspectorContent, InspectorContext, InspectorOutput};
 use bishop::prelude::*;
 use engine_core::game::GameCtxMut;
 use engine_core::ecs::*;
+use engine_core::tiles::TileDefId;
 use engine_core::storage::editor_config;
 use widgets::*;
 
@@ -18,6 +20,7 @@ pub struct Inspector {
     pub game: GameProperties,
     pub world: WorldProperties,
     pub room: RoomProperties,
+    pub tilemap: TilemapProperties,
     pub entity: Option<EntityInspector>,
 
     active: ActivePane,
@@ -30,6 +33,7 @@ enum ActivePane {
     Game,
     World,
     Room,
+    Tilemap,
     Entity,
 }
 
@@ -42,6 +46,7 @@ impl Inspector {
             game: GameProperties::new(),
             world: WorldProperties::new(),
             room: RoomProperties::new(),
+            tilemap: TilemapProperties::new(),
             entity: None,
             active: ActivePane::Empty,
             interactive_rects: Vec::new(),
@@ -56,6 +61,11 @@ impl Inspector {
     /// Selects the room-properties pane for the next draw.
     pub fn select_room(&mut self) {
         self.active = ActivePane::Room;
+    }
+
+    /// Selects the tilemap pane for the next draw.
+    pub fn select_tilemap(&mut self) {
+        self.active = ActivePane::Tilemap;
     }
 
     /// Selects the entity-inspector pane for the next draw.
@@ -101,6 +111,11 @@ impl Inspector {
         matches!(self.active, ActivePane::Entity)
     }
 
+    /// Returns the active tile brush, if one is selected.
+    pub fn selected_tile_brush(&self) -> Option<TileDefId> {
+        self.tilemap.selected_brush_id()
+    }
+
     /// Returns the entity currently shown in the inspector.
     pub fn selected_entity(&self) -> Option<Entity> {
         match self.active {
@@ -142,6 +157,7 @@ impl Inspector {
             ActivePane::Game | ActivePane::World | ActivePane::Room => {
                 inspector::HEADER_HEIGHT
             }
+            ActivePane::Tilemap => 0.0,
             ActivePane::Entity => self.entity.as_ref().map_or(0.0, |e| e.header_height()),
             ActivePane::Empty => 0.0,
         }
@@ -271,6 +287,26 @@ impl Inspector {
                 };
                 output.merge(body_output);
                 (output, self.room.interactive_rects())
+            }
+            ActivePane::Tilemap => {
+                let mut output = self
+                    .tilemap
+                    .draw_header(ctx, header_rect, blocked, game_ctx, insp_ctx);
+                let body_output = if visible {
+                    draw_pane_body(
+                        &mut self.tilemap,
+                        ctx,
+                        blocked,
+                        game_ctx,
+                        insp_ctx,
+                        body_rect,
+                        &mut self.scroll_state,
+                    )
+                } else {
+                    InspectorOutput::default()
+                };
+                output.merge(body_output);
+                (output, self.tilemap.interactive_rects())
             }
             ActivePane::Entity => {
                 let output = if let Some(entity) = &mut self.entity {

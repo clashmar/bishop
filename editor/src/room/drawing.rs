@@ -87,7 +87,7 @@ fn parent_mode_icon_x(
 }
 
 impl RoomEditor {
-    /// Draw static UI for the scene editor
+    /// Draw static UI for the active room editor.
     pub fn draw_ui(&mut self, ctx: &mut WgpuContext, game_ctx: &mut GameCtxMut, camera: &Camera2D) {
         // Reset to static camera
         ctx.set_default_camera();
@@ -105,12 +105,23 @@ impl RoomEditor {
 
         match self.mode {
             RoomEditorMode::Tilemap => {
+                self.register_rect(draw_top_panel_full(ctx));
+
+                let inspector_ctx = InspectorContext {
+                    command_mode: EditorMode::Room(current_room_id),
+                    show_linked_prefab_metadata: false,
+                    hide_room_only_components: false,
+                    selected_create_parent: None,
+                    game_name: None,
+                    event_tags: self.event_tags.clone(),
+                };
+                let _ = self.inspector.draw_active_pane(ctx, game_ctx, &inspector_ctx);
+
                 let tilemap_icon_x =
                     parent_mode_icon_x(ctx, &self.mode_selector, RoomEditorMode::Tilemap);
                 let icon_size = MENU_PANEL_HEIGHT - 2.0 * MODE_SELECTOR_PADDING;
                 let sub_strip_y = MODE_SELECTOR_PADDING + icon_size + 4.0;
 
-                // Draw sub-mode strip background first so tooltips appear on top
                 let bg_rect = draw_sub_mode_strip_background(
                     ctx,
                     tilemap_icon_x,
@@ -119,13 +130,11 @@ impl RoomEditor {
                 );
                 self.sub_mode_rect = Some(bg_rect);
 
-                // Mode selector
                 let (_mode_rect, changed) = self.mode_selector.draw(ctx);
                 if changed {
                     self.set_mode(self.mode_selector.current);
                 }
 
-                // Draw sub-mode strip icons
                 let (sub_rect, sub_changed) = draw_sub_mode_strip(
                     ctx,
                     tilemap_icon_x,
@@ -133,17 +142,14 @@ impl RoomEditor {
                     TILEMAP_SUB_MODES,
                     &mut self.tilemap_sub_mode,
                 );
-
                 self.sub_mode_rect = Some(sub_rect);
 
-                // Draw tooltips last so they appear on top of everything
                 self.mode_selector.draw_tooltips(ctx);
 
                 if sub_changed {
                     self.set_tilemap_sub_mode(self.tilemap_sub_mode);
                 }
 
-                // Handle sub-mode keyboard shortcuts
                 for sub_mode in TILEMAP_SUB_MODES.iter() {
                     if let Some(shortcut_fn) = sub_mode.shortcut() {
                         if shortcut_fn(ctx) && *sub_mode != self.tilemap_sub_mode {

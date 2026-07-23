@@ -1,6 +1,5 @@
 use crate::app::*;
 use crate::game::GameEditorSubmode;
-use crate::storage::tile_palettes::save_palette;
 use bishop::prelude::*;
 use engine_core::worlds::*;
 
@@ -105,12 +104,7 @@ impl Editor {
             return;
         }
 
-        let game_name = self.game.name.clone();
         let mut game_ctx = self.game.ctx_mut();
-        let palette = &mut self.room_editor.tilemap_editor.tilemap_panel.palette;
-        if let Err(e) = save_palette(palette, &game_name) {
-            engine_core::omni_error!("Could not save tile palette: {e}");
-        }
 
         let current_world = game_ctx
             .world

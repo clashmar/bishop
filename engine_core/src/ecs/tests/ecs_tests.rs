@@ -4,6 +4,7 @@ use crate::assets::sprite_manager::SpriteManager;
 use crate::game::GameCtxMut;
 use crate::prefab::PrefabManager;
 use crate::scripting::script_manager::ScriptManager;
+use crate::tiles::TileRegistry;
 use crate::worlds::room::RoomId;
 use std::collections::HashMap;
 
@@ -12,6 +13,7 @@ use std::collections::HashMap;
 macro_rules! make_game_ctx {
     ($ecs:expr, $ctx:ident) => {
         let mut _mgc_ar = AssetRegistry::default();
+        let mut _mgc_tr = TileRegistry::default();
         let mut _mgc_sm = SpriteManager::default();
         let mut _mgc_scm = ScriptManager::default();
         let _mgc_pm = PrefabManager::default();
@@ -21,6 +23,7 @@ macro_rules! make_game_ctx {
             world_directory: Vec::new(),
             room_world_map: std::collections::HashMap::new(),
             asset_registry: &mut _mgc_ar,
+            tile_registry: &mut _mgc_tr,
             sprite_manager: &mut _mgc_sm,
             script_manager: &mut _mgc_scm,
             prefab_manager: &_mgc_pm,

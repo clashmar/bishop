@@ -77,6 +77,7 @@ mod tests {
     use crate::game::GameCtxMut;
     use crate::prefab::PrefabManager;
     use crate::scripting::script_manager::ScriptManager;
+    use crate::tiles::TileRegistry;
     use crate::worlds::world::{World, WorldId};
     use crate::worlds::{Room, RoomId};
 
@@ -94,6 +95,7 @@ mod tests {
 
         let mut sm = SpriteManager::default();
         let mut ar = AssetRegistry::default();
+        let mut tr = TileRegistry::default();
         let mut scm = ScriptManager::default();
         let pm = PrefabManager::default();
         let mut ctx = GameCtxMut {
@@ -102,6 +104,7 @@ mod tests {
             world_directory: Vec::new(),
             room_world_map: [(RoomId(1), WorldId(1))].into_iter().collect(),
             asset_registry: &mut ar,
+            tile_registry: &mut tr,
             sprite_manager: &mut sm,
             script_manager: &mut scm,
             prefab_manager: &pm,
@@ -140,6 +143,7 @@ mod tests {
 
         let mut sm = SpriteManager::default();
         let mut ar = AssetRegistry::default();
+        let mut tr = TileRegistry::default();
         let mut scm = ScriptManager::default();
         let pm = PrefabManager::default();
         let mut ctx = GameCtxMut {
@@ -148,6 +152,7 @@ mod tests {
             world_directory: Vec::new(),
             room_world_map: [(RoomId(1), WorldId(1))].into_iter().collect(),
             asset_registry: &mut ar,
+            tile_registry: &mut tr,
             sprite_manager: &mut sm,
             script_manager: &mut scm,
             prefab_manager: &pm,
@@ -181,6 +186,7 @@ mod tests {
 
         let mut sm = SpriteManager::default();
         let mut ar = AssetRegistry::default();
+        let mut tr = TileRegistry::default();
         let mut scm = ScriptManager::default();
         let pm = PrefabManager::default();
         let mut ctx = GameCtxMut {
@@ -189,6 +195,7 @@ mod tests {
             world_directory: Vec::new(),
             room_world_map: [(RoomId(1), WorldId(1))].into_iter().collect(),
             asset_registry: &mut ar,
+            tile_registry: &mut tr,
             sprite_manager: &mut sm,
             script_manager: &mut scm,
             prefab_manager: &pm,

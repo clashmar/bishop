@@ -28,7 +28,6 @@ use engine_core::controls::{Controls};
 use engine_core::ecs::*;
 use engine_core::game::Game;
 use engine_core::rendering::{render_room, RenderSystem};
-use engine_core::tiles::TileRegistry;
 use engine_core::worlds::*;
 use widgets::*;
 use once_cell::sync::Lazy;
@@ -62,7 +61,6 @@ pub(crate) struct RoomEditorUpdateState<'a> {
     pub(crate) ecs: &'a mut Ecs,
     pub(crate) current_world: &'a mut World,
     pub(crate) asset_registry: &'a mut AssetRegistry,
-    pub(crate) tile_registry: &'a mut TileRegistry,
     pub(crate) sprite_manager: &'a mut SpriteManager,
     pub(crate) active_prefab_stamp: ActivePrefabStampState,
 }
@@ -180,7 +178,6 @@ impl RoomEditor {
             ecs,
             current_world,
             asset_registry,
-            tile_registry,
             sprite_manager,
             active_prefab_stamp,
         } = state;
@@ -232,13 +229,15 @@ impl RoomEditor {
 
         match self.mode {
             RoomEditorMode::Tilemap => {
-                // Sync sub-mode and UI rect to tilemap editor
+                self.inspector.select_tilemap();
                 self.tilemap_editor.mode = self.tilemap_sub_mode;
                 self.tilemap_editor.sub_mode_rect = self.sub_mode_rect;
+                self.tilemap_editor
+                    .set_selected_tile(self.inspector.selected_tile_brush());
                 self.tilemap_editor.sync_adjacent_exits(&adjacent_exits);
                 self.tilemap_editor.update(
                     ctx,
-                    tile_registry,
+                    self.inspector.is_mouse_over(ctx),
                     camera,
                     room,
                     &other_bounds,
@@ -372,6 +371,11 @@ impl RoomEditor {
         }
         self.mode = mode;
         self.mode_selector.current = mode;
+
+        match mode {
+            RoomEditorMode::Tilemap => self.inspector.select_tilemap(),
+            RoomEditorMode::Scene => self.sync_inspector_to_selection(),
+        }
     }
 
     pub(crate) fn set_preview_enabled(&mut self, enabled: bool) {
@@ -442,7 +446,7 @@ impl RoomEditor {
                 return;
             };
 
-            // Panel rect for inspector and tilemap editor.
+            // Right-side inspector rect
             let inspector_rect = Rect::new(
                 ctx.screen_width() - gui_constants::inspector::WIDTH,
                 0.0,
@@ -452,6 +456,9 @@ impl RoomEditor {
 
             match self.mode {
                 RoomEditorMode::Tilemap => {
+                    self.inspector.set_rect(inspector_rect);
+                    self.inspector.select_tilemap();
+
                     let Some(room) = game_ctx
                         .world
                         .as_deref_mut()
@@ -461,16 +468,14 @@ impl RoomEditor {
                     };
 
                     let ecs = &mut *game_ctx.ecs;
-                    let asset_registry = &mut *game_ctx.asset_registry;
                     let tile_registry = &*game_ctx.tile_registry;
                     let sprite_manager = &mut *game_ctx.sprite_manager;
 
-                    self.tilemap_editor.tilemap_panel.set_rect(inspector_rect);
                     self.tilemap_editor.draw(
                         ctx,
                         camera,
                         room,
-                        (asset_registry, tile_registry, sprite_manager),
+                        (tile_registry, sprite_manager),
                         ecs,
                         grid_size,
                     );
