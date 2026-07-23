@@ -8,6 +8,7 @@ mod move_entity_cmd;
 mod paste_entity_cmd;
 mod place_prefab_instance_cmd;
 mod resize_tilemap_cmd;
+mod set_tile_placement_cmd;
 
 pub use alt_drag_copy_cmd::*;
 pub use batch_delete_entities_cmd::*;
@@ -19,3 +20,7 @@ pub use edit_room_tags_cmd::*;
 pub use paste_entity_cmd::*;
 pub use place_prefab_instance_cmd::*;
 pub use resize_tilemap_cmd::*;
+pub use set_tile_placement_cmd::*;
+
+#[cfg(test)]
+mod tests;

@@ -9,8 +9,8 @@ use crate::tilemap::resize_handle::*;
 use bishop::prelude::*;
 use engine_core::assets::SpriteManager;
 use engine_core::controls::Controls;
-use engine_core::ecs::Ecs;
-use engine_core::tiles::{TileDefId, TileMap, TileRegistry};
+use engine_core::ecs::{Ecs, TilePlacement};
+use engine_core::tiles::{draw_room_tile_placements, TileDefId, TileMap, TileRegistry};
 use engine_core::worlds::*;
 
 fn thickness(grid_size: f32) -> f32 {
@@ -95,6 +95,7 @@ impl TileMapEditor {
         inspector_blocked: bool,
         camera: &Camera2D,
         room: &mut Room,
+        ecs: &Ecs,
         other_bounds: &[(Vec2, Vec2)],
         grid_size: f32,
     ) {
@@ -129,7 +130,9 @@ impl TileMapEditor {
                 TilemapEditorMode::Tiles => self.handle_tile_placement(
                     ctx,
                     camera,
-                    &mut room.variants[idx].tilemap,
+                    &room.variants[idx].tilemap,
+                    room.id,
+                    ecs,
                     room_position,
                     grid_size,
                 ),
@@ -156,14 +159,23 @@ impl TileMapEditor {
     ) {
         let (tile_registry, sprite_manager) = assets;
         let variant_index = room.current_variant_index();
-        let tilemap = &mut room.variants[variant_index].tilemap;
+        let tilemap = &room.variants[variant_index].tilemap;
         let room_position = room.position;
         let room_id = room.id;
         let room_size = room.size;
 
         ctx.clear_background(Color::BLACK);
         ctx.set_camera(camera);
-        tilemap.draw(ctx, tile_registry, sprite_manager, room_position, grid_size);
+        tilemap.draw_background(ctx, room_position, grid_size);
+        draw_room_tile_placements(
+            ctx,
+            ecs,
+            room_id,
+            tile_registry,
+            sprite_manager,
+            room_position,
+            grid_size,
+        );
         draw_exit_placeholders(ctx, &room.exits, room_position, grid_size);
         self.draw_adjacent_exits(ctx, grid_size);
         self.draw_hover_highlight(ctx, camera, tilemap, room_position, grid_size);
@@ -289,7 +301,9 @@ impl TileMapEditor {
         &mut self,
         ctx: &WgpuContext,
         camera: &Camera2D,
-        map: &mut TileMap,
+        map: &TileMap,
+        room_id: RoomId,
+        ecs: &Ecs,
         room_position: Vec2,
         grid_size: f32,
     ) {
@@ -304,9 +318,17 @@ impl TileMapEditor {
             None => return,
         };
 
-        // Remove
+        let existing = ecs
+            .entities_in_room(room_id)
+            .iter()
+            .copied()
+            .filter_map(|entity| ecs.get::<TilePlacement>(entity).copied())
+            .find(|tile| (tile.grid_x, tile.grid_y) == (x, y));
+
         if ctx.is_mouse_button_down(MouseButton::Left) && ctx.is_key_down(KeyCode::LeftAlt) {
-            map.tiles.remove(&(x, y));
+            if existing.is_some() {
+                push_command(Box::new(SetTilePlacementCmd::clear(room_id, (x, y))));
+            }
             return;
         }
 
@@ -314,9 +336,10 @@ impl TileMapEditor {
             return;
         };
 
-        // Place
-        if ctx.is_mouse_button_down(MouseButton::Left) {
-            map.tiles.insert((x, y), def_id);
+        if ctx.is_mouse_button_down(MouseButton::Left)
+            && existing.is_none_or(|tile| tile.definition != def_id)
+        {
+            push_command(Box::new(SetTilePlacementCmd::place(room_id, (x, y), def_id)));
         }
     }
 

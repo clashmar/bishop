@@ -115,6 +115,11 @@
 ---@field x number
 ---@field y number
 
+---@class TilePlacement
+---@field definition number
+---@field grid_x number
+---@field grid_y number
+
 ---@class Transform
 ---@field visible boolean
 ---@field position vec2
@@ -162,6 +167,7 @@
 ---@field SpeechBubble "SpeechBubble"
 ---@field Sprite "Sprite"
 ---@field SubPixel "SubPixel"
+---@field TilePlacement "TilePlacement"
 ---@field Transform "Transform"
 ---@field Velocity "Velocity"
 ---@field Walkable "Walkable"
@@ -196,6 +202,7 @@ C.Solid = "Solid"
 C.SpeechBubble = "SpeechBubble"
 C.Sprite = "Sprite"
 C.SubPixel = "SubPixel"
+C.TilePlacement = "TilePlacement"
 C.Transform = "Transform"
 C.Velocity = "Velocity"
 C.Walkable = "Walkable"

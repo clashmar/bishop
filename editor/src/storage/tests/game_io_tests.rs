@@ -140,6 +140,40 @@ fn game_save_load_when_tile_registry_exists_then_loaded_registry_preserves_next_
 }
 
 #[test]
+fn room_save_load_when_tile_placements_are_entities_then_tile_links_persist() {
+    let _lock = game_fs_test_lock()
+        .lock()
+        .unwrap_or_else(|poison| poison.into_inner());
+    let test_game = TestGameFolder::new("tile_placement_roundtrip");
+    set_game_name(test_game.name());
+
+    let mut game = create_new_game(test_game.name().to_string());
+    let room_id = game.current_world().rooms()[0].id;
+    let tile_id = game.tile_registry.insert(TileDef {
+        sprite_id: SpriteId(13),
+        components: vec![TileComponent::Walkable(false)],
+    });
+    let entity = game
+        .ecs
+        .create_entity()
+        .with(TilePlacement::new(tile_id, 4, 1))
+        .with_current_room(room_id)
+        .finish();
+
+    save_game(&game).expect("save should succeed");
+    let loaded = load_game_by_name(test_game.name()).expect("load should succeed");
+
+    assert!(loaded.ecs.entities_in_room(room_id).contains(&entity));
+
+    let loaded_tile = loaded
+        .ecs
+        .get::<TilePlacement>(entity)
+        .expect("tile placement should load");
+    assert_eq!(loaded_tile.definition, tile_id);
+    assert_eq!((loaded_tile.grid_x, loaded_tile.grid_y), (4, 1));
+}
+
+#[test]
 fn game_save_load_when_tile_registry_has_multiple_defs_then_all_defs_persist() {
     let _lock = game_fs_test_lock()
         .lock()

@@ -1,4 +1,5 @@
 use super::*;
+use engine_core::tiles::TileMap;
 
 fn world_with_solid(aabb: (Vec2, Vec2)) -> CollisionWorld {
     let shape = ColliderShape::Aabb {
@@ -17,6 +18,71 @@ fn world_with_solid(aabb: (Vec2, Vec2)) -> CollisionWorld {
 
 fn dummy_entity() -> Entity {
     Entity::null()
+}
+
+fn empty_room() -> Room {
+    Room {
+        id: RoomId(1),
+        position: Vec2::ZERO,
+        variants: vec![RoomVariant {
+            tilemap: TileMap::new(8, 8),
+            ..Default::default()
+        }],
+        ..Default::default()
+    }
+}
+
+fn empty_world() -> World {
+    let room = empty_room();
+    let mut world = World::default();
+    world.grid_size = 16.0;
+    world.current_room_id = Some(room.id);
+    world.add_room(room);
+    world
+}
+
+#[test]
+fn collision_world_sweep_move_aabb_blocked_by_solid_tile_placement_entity() {
+    let mut ecs = Ecs::default();
+    let room_id = RoomId(1);
+    let mover = ecs
+        .create_entity()
+        .with_current_room(room_id)
+        .with(Transform {
+            pivot: Pivot::TopLeft,
+            ..Default::default()
+        })
+        .finish();
+
+    let mut tile_registry = TileRegistry::default();
+    let tile_id = tile_registry.insert(engine_core::tiles::TileDef {
+        sprite_id: SpriteId(1),
+        components: vec![TileComponent::Solid(true)],
+    });
+
+    ecs.create_entity()
+        .with(TilePlacement::new(tile_id, 1, 0))
+        .with_current_room(room_id)
+        .finish();
+
+    let world = empty_world();
+    let room = world.get_room(room_id).unwrap();
+    let cw = CollisionWorld::new(&tile_registry, &ecs, room, &world);
+    let sweep = cw.sweep_move(
+        mover,
+        Vec2::ZERO,
+        Vec2::new(16.0, 0.0),
+        Collider {
+            shape: ColliderShape::Aabb {
+                width: 8.0,
+                height: 8.0,
+            },
+            ..Default::default()
+        },
+        Pivot::TopLeft,
+    );
+
+    assert!(sweep.blocked_x);
 }
 
 #[test]

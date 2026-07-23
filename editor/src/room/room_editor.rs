@@ -240,6 +240,7 @@ impl RoomEditor {
                     self.inspector.is_mouse_over(ctx),
                     camera,
                     room,
+                    ecs,
                     &other_bounds,
                     grid_size,
                 );
@@ -467,7 +468,7 @@ impl RoomEditor {
                         return;
                     };
 
-                    let ecs = &mut *game_ctx.ecs;
+                    let ecs = &*game_ctx.ecs;
                     let tile_registry = &*game_ctx.tile_registry;
                     let sprite_manager = &mut *game_ctx.sprite_manager;
 

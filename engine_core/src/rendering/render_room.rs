@@ -3,6 +3,7 @@ use bishop::prelude::*;
 use crate::ecs::*;
 use crate::ecs::components::transform::Pivot;
 use crate::rendering::*;
+use crate::tiles::draw_room_tile_placements;
 use crate::worlds::*;
 use crate::assets::*;
 use crate::game::*;
@@ -49,8 +50,11 @@ pub fn render_room<C: BishopContext>(
 
     // Draw tilemap first
     let tilemap = &current_room.current_variant().tilemap;
-    tilemap.draw(
+    tilemap.draw_background(ctx, current_room.position, grid_size);
+    draw_room_tile_placements(
         ctx,
+        game_ctx.ecs,
+        current_room.id,
         game_ctx.tile_registry,
         game_ctx.sprite_manager,
         current_room.position,

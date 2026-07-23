@@ -3,9 +3,9 @@ use crate::app::EditorMode;
 use crate::commands::editor_command_manager::EditorCommand;
 use crate::tilemap::resize_handle::HandleSide;
 use crate::with_editor;
-use engine_core::tiles::{TileDefId, shift_tiles};
+use engine_core::ecs::{Ecs, TilePlacement};
+use engine_core::game::GameCtxMut;
 use engine_core::worlds::*;
-use std::collections::HashMap;
 
 /// Undoable command for resizing a tilemap via drag handles.
 #[derive(Debug)]
@@ -14,14 +14,12 @@ pub struct ResizeTilemapCmd {
     variant_index: usize,
     side: HandleSide,
     delta: i32,
-    // Old state for undo
     old_width: usize,
     old_height: usize,
     old_position: Vec2,
     old_size: Vec2,
-    old_tiles: HashMap<(usize, usize), TileDefId>,
+    old_placements: Vec<TilePlacement>,
     old_exits: Vec<Exit>,
-    // Track if we've captured the old state
     state_captured: bool,
 }
 
@@ -37,13 +35,13 @@ impl ResizeTilemapCmd {
             old_height: 0,
             old_position: Vec2::ZERO,
             old_size: Vec2::ZERO,
-            old_tiles: HashMap::new(),
+            old_placements: Vec::new(),
             old_exits: Vec::new(),
             state_captured: false,
         }
     }
 
-    /// Capture the current state before making changes (for undo).
+    /// Capture the current state before making changes for undo.
     fn capture_state(&mut self) {
         if self.state_captured {
             return;
@@ -57,7 +55,7 @@ impl ResizeTilemapCmd {
                 self.old_height = map.height;
                 self.old_position = room.position;
                 self.old_size = room.size;
-                self.old_tiles = map.tiles.clone();
+                self.old_placements = room_tile_placements(&editor.game.ecs, self.room_id);
                 self.old_exits = room.exits.clone();
             }
         });
@@ -68,211 +66,284 @@ impl ResizeTilemapCmd {
 
 impl EditorCommand for ResizeTilemapCmd {
     fn execute(&mut self) {
-        // Capture state on first execution
         self.capture_state();
+        let next_placements = resized_placements(
+            &self.old_placements,
+            self.side,
+            self.delta,
+            self.old_width,
+            self.old_height,
+        );
 
         with_editor(|editor| {
             let grid_size = editor.game.current_world().grid_size;
-            let Some(current_world) = editor.game.current_world_mut() else {
-                return;
-            };
-            
-            let room = current_world
-                .rooms_mut()
-                .iter_mut()
-                .find(|r| r.id == self.room_id);
 
-            let room = match room {
-                Some(r) => r,
-                None => return,
-            };
+            {
+                let Some(current_world) = editor.game.current_world_mut() else {
+                    return;
+                };
+                let Some(room) = current_world
+                    .rooms_mut()
+                    .iter_mut()
+                    .find(|room| room.id == self.room_id)
+                else {
+                    return;
+                };
 
-            let map = &mut room.variants[self.variant_index].tilemap;
-            let room_position = &mut room.position;
-            let room_size = &mut room.size;
-            let exits = &mut room.exits;
+                let map = &mut room.variants[self.variant_index].tilemap;
+                let room_position = &mut room.position;
+                let room_size = &mut room.size;
+                let exits = &mut room.exits;
 
-            match self.side {
-                HandleSide::Top => {
-                    if self.delta > 0 {
-                        // Expand top
-                        map.height += self.delta as usize;
-                        shift_tiles(map, 0, self.delta as isize);
-                        for exit in exits.iter_mut() {
-                            let on_bottom = (exit.position.y - room_size.y).abs() < f32::EPSILON;
-                            let on_left = (exit.position.x + 1.0).abs() < f32::EPSILON;
-                            let on_right = (exit.position.x - room_size.x).abs() < f32::EPSILON;
-                            if on_bottom || on_left || on_right {
-                                exit.position.y += self.delta as f32;
-                            }
-                        }
-                        room_size.y += self.delta as f32;
-                        room_position.y -= self.delta as f32 * grid_size;
-                    } else if self.delta < 0 {
-                        // Shrink top
-                        let shrink = (-self.delta) as usize;
-                        if map.height > shrink {
-                            // Remove tiles in top rows
-                            for dy in 0..shrink {
-                                for x in 0..map.width {
-                                    map.tiles.remove(&(x, dy));
-                                }
-                            }
-                            map.height -= shrink;
-                            shift_tiles(map, 0, -(shrink as isize));
+                match self.side {
+                    HandleSide::Top => {
+                        if self.delta > 0 {
+                            map.height += self.delta as usize;
                             for exit in exits.iter_mut() {
-                                let on_bottom =
-                                    (exit.position.y - room_size.y).abs() < f32::EPSILON;
+                                let on_bottom = (exit.position.y - room_size.y).abs() < f32::EPSILON;
                                 let on_left = (exit.position.x + 1.0).abs() < f32::EPSILON;
                                 let on_right = (exit.position.x - room_size.x).abs() < f32::EPSILON;
                                 if on_bottom || on_left || on_right {
-                                    exit.position.y -= shrink as f32;
+                                    exit.position.y += self.delta as f32;
                                 }
                             }
-                            room_size.y -= shrink as f32;
-                            room_position.y += shrink as f32 * grid_size;
+                            room_size.y += self.delta as f32;
+                            room_position.y -= self.delta as f32 * grid_size;
+                        } else if self.delta < 0 {
+                            let shrink = (-self.delta) as usize;
+                            if map.height > shrink {
+                                map.height -= shrink;
+                                for exit in exits.iter_mut() {
+                                    let on_bottom = (exit.position.y - room_size.y).abs() < f32::EPSILON;
+                                    let on_left = (exit.position.x + 1.0).abs() < f32::EPSILON;
+                                    let on_right = (exit.position.x - room_size.x).abs() < f32::EPSILON;
+                                    if on_bottom || on_left || on_right {
+                                        exit.position.y -= shrink as f32;
+                                    }
+                                }
+                                room_size.y -= shrink as f32;
+                                room_position.y += shrink as f32 * grid_size;
+                            }
                         }
                     }
-                }
-                HandleSide::Bottom => {
-                    if self.delta > 0 {
-                        // Expand bottom
-                        map.height += self.delta as usize;
-                        for exit in exits.iter_mut() {
-                            if (exit.position.y - room_size.y).abs() < f32::EPSILON {
-                                exit.position.y += self.delta as f32;
-                            }
-                        }
-                        room_size.y += self.delta as f32;
-                    } else if self.delta < 0 {
-                        // Shrink bottom
-                        let shrink = (-self.delta) as usize;
-                        if map.height > shrink {
-                            // Remove tiles in bottom rows
-                            for dy in 0..shrink {
-                                let y = map.height - 1 - dy;
-                                for x in 0..map.width {
-                                    map.tiles.remove(&(x, y));
-                                }
-                            }
-                            map.height -= shrink;
+                    HandleSide::Bottom => {
+                        if self.delta > 0 {
+                            map.height += self.delta as usize;
                             for exit in exits.iter_mut() {
                                 if (exit.position.y - room_size.y).abs() < f32::EPSILON {
-                                    exit.position.y -= shrink as f32;
+                                    exit.position.y += self.delta as f32;
                                 }
                             }
-                            room_size.y -= shrink as f32;
+                            room_size.y += self.delta as f32;
+                        } else if self.delta < 0 {
+                            let shrink = (-self.delta) as usize;
+                            if map.height > shrink {
+                                map.height -= shrink;
+                                for exit in exits.iter_mut() {
+                                    if (exit.position.y - room_size.y).abs() < f32::EPSILON {
+                                        exit.position.y -= shrink as f32;
+                                    }
+                                }
+                                room_size.y -= shrink as f32;
+                            }
                         }
                     }
-                }
-                HandleSide::Left => {
-                    if self.delta > 0 {
-                        // Expand left
-                        map.width += self.delta as usize;
-                        shift_tiles(map, self.delta as isize, 0);
-                        for exit in exits.iter_mut() {
-                            let on_right = (exit.position.x - room_size.x).abs() < f32::EPSILON;
-                            let on_top = (exit.position.y + 1.0).abs() < f32::EPSILON;
-                            let on_bottom = (exit.position.y - room_size.y).abs() < f32::EPSILON;
-                            if on_right || on_top || on_bottom {
-                                exit.position.x += self.delta as f32;
-                            }
-                        }
-                        room_size.x += self.delta as f32;
-                        room_position.x -= self.delta as f32 * grid_size;
-                    } else if self.delta < 0 {
-                        // Shrink left
-                        let shrink = (-self.delta) as usize;
-                        if map.width > shrink {
-                            // Remove tiles in left columns
-                            for dx in 0..shrink {
-                                for y in 0..map.height {
-                                    map.tiles.remove(&(dx, y));
-                                }
-                            }
-                            map.width -= shrink;
-                            shift_tiles(map, -(shrink as isize), 0);
+                    HandleSide::Left => {
+                        if self.delta > 0 {
+                            map.width += self.delta as usize;
                             for exit in exits.iter_mut() {
                                 let on_right = (exit.position.x - room_size.x).abs() < f32::EPSILON;
                                 let on_top = (exit.position.y + 1.0).abs() < f32::EPSILON;
-                                let on_bottom =
-                                    (exit.position.y - room_size.y).abs() < f32::EPSILON;
+                                let on_bottom = (exit.position.y - room_size.y).abs() < f32::EPSILON;
                                 if on_right || on_top || on_bottom {
-                                    exit.position.x -= shrink as f32;
+                                    exit.position.x += self.delta as f32;
                                 }
                             }
-                            room_size.x -= shrink as f32;
-                            room_position.x += shrink as f32 * grid_size;
+                            room_size.x += self.delta as f32;
+                            room_position.x -= self.delta as f32 * grid_size;
+                        } else if self.delta < 0 {
+                            let shrink = (-self.delta) as usize;
+                            if map.width > shrink {
+                                map.width -= shrink;
+                                for exit in exits.iter_mut() {
+                                    let on_right = (exit.position.x - room_size.x).abs() < f32::EPSILON;
+                                    let on_top = (exit.position.y + 1.0).abs() < f32::EPSILON;
+                                    let on_bottom = (exit.position.y - room_size.y).abs() < f32::EPSILON;
+                                    if on_right || on_top || on_bottom {
+                                        exit.position.x -= shrink as f32;
+                                    }
+                                }
+                                room_size.x -= shrink as f32;
+                                room_position.x += shrink as f32 * grid_size;
+                            }
                         }
                     }
-                }
-                HandleSide::Right => {
-                    if self.delta > 0 {
-                        // Expand right
-                        map.width += self.delta as usize;
-                        for exit in exits.iter_mut() {
-                            if (exit.position.x - room_size.x).abs() < f32::EPSILON {
-                                exit.position.x += self.delta as f32;
-                            }
-                        }
-                        room_size.x += self.delta as f32;
-                    } else if self.delta < 0 {
-                        // Shrink right
-                        let shrink = (-self.delta) as usize;
-                        if map.width > shrink {
-                            // Remove tiles in right columns
-                            for dx in 0..shrink {
-                                let x = map.width - 1 - dx;
-                                for y in 0..map.height {
-                                    map.tiles.remove(&(x, y));
-                                }
-                            }
-                            map.width -= shrink;
+                    HandleSide::Right => {
+                        if self.delta > 0 {
+                            map.width += self.delta as usize;
                             for exit in exits.iter_mut() {
                                 if (exit.position.x - room_size.x).abs() < f32::EPSILON {
-                                    exit.position.x -= shrink as f32;
+                                    exit.position.x += self.delta as f32;
                                 }
                             }
-                            room_size.x -= shrink as f32;
+                            room_size.x += self.delta as f32;
+                        } else if self.delta < 0 {
+                            let shrink = (-self.delta) as usize;
+                            if map.width > shrink {
+                                map.width -= shrink;
+                                for exit in exits.iter_mut() {
+                                    if (exit.position.x - room_size.x).abs() < f32::EPSILON {
+                                        exit.position.x -= shrink as f32;
+                                    }
+                                }
+                                room_size.x -= shrink as f32;
+                            }
                         }
                     }
                 }
+
+                current_world.rebuild_room_grid();
             }
 
-            current_world.rebuild_room_grid();
+            let ctx = &mut editor.game.ctx_mut();
+            replace_room_tile_placements(ctx, self.room_id, &next_placements);
         });
     }
 
     fn undo(&mut self) {
         with_editor(|editor| {
-            let Some(current_world) = editor.game.current_world_mut() else {
-                return;
-            };
-            let room = current_world
-                .rooms_mut()
-                .iter_mut()
-                .find(|r| r.id == self.room_id);
+            {
+                let Some(current_world) = editor.game.current_world_mut() else {
+                    return;
+                };
+                let Some(room) = current_world
+                    .rooms_mut()
+                    .iter_mut()
+                    .find(|room| room.id == self.room_id)
+                else {
+                    return;
+                };
 
-            let room = match room {
-                Some(r) => r,
-                None => return,
-            };
+                room.position = self.old_position;
+                room.size = self.old_size;
+                room.exits = self.old_exits.clone();
 
-            // Restore all captured state
-            room.position = self.old_position;
-            room.size = self.old_size;
-            room.exits = self.old_exits.clone();
+                let map = &mut room.variants[self.variant_index].tilemap;
+                map.width = self.old_width;
+                map.height = self.old_height;
 
-            let map = &mut room.variants[self.variant_index].tilemap;
-            map.width = self.old_width;
-            map.height = self.old_height;
-            map.tiles = self.old_tiles.clone();
+                current_world.rebuild_room_grid();
+            }
 
-            current_world.rebuild_room_grid();
+            let ctx = &mut editor.game.ctx_mut();
+            replace_room_tile_placements(ctx, self.room_id, &self.old_placements);
         });
     }
 
     fn applies_in_mode(&self, current_mode: EditorMode) -> bool {
         current_mode == EditorMode::Room(self.room_id)
     }
+}
+
+fn room_tile_placements(ecs: &Ecs, room_id: RoomId) -> Vec<TilePlacement> {
+    ecs.entities_in_room(room_id)
+        .iter()
+        .copied()
+        .filter_map(|entity| ecs.get::<TilePlacement>(entity).copied())
+        .collect()
+}
+
+fn replace_room_tile_placements(
+    ctx: &mut GameCtxMut<'_>,
+    room_id: RoomId,
+    placements: &[TilePlacement],
+) {
+    let existing_entities: Vec<_> = ctx
+        .ecs
+        .entities_in_room(room_id)
+        .iter()
+        .copied()
+        .filter(|entity| ctx.ecs.get::<TilePlacement>(*entity).is_some())
+        .collect();
+
+    for entity in existing_entities {
+        Ecs::remove_entity(ctx, entity);
+    }
+
+    for &placement in placements {
+        ctx.ecs
+            .create_entity()
+            .with(placement)
+            .with_current_room(room_id)
+            .finish();
+    }
+}
+
+fn resized_placements(
+    placements: &[TilePlacement],
+    side: HandleSide,
+    delta: i32,
+    old_width: usize,
+    old_height: usize,
+) -> Vec<TilePlacement> {
+    let mut next = placements.to_vec();
+
+    match side {
+        HandleSide::Top => {
+            if delta > 0 {
+                let shift = delta as usize;
+                for placement in &mut next {
+                    placement.grid_y += shift;
+                }
+            } else if delta < 0 {
+                let shrink = (-delta) as usize;
+                if shrink >= old_height {
+                    return next;
+                }
+                next.retain(|placement| placement.grid_y >= shrink);
+                for placement in &mut next {
+                    placement.grid_y -= shrink;
+                }
+            }
+        }
+        HandleSide::Bottom => {
+            if delta < 0 {
+                let shrink = (-delta) as usize;
+                if shrink >= old_height {
+                    return next;
+                }
+                let new_height = old_height - shrink;
+                next.retain(|placement| placement.grid_y < new_height);
+            }
+        }
+        HandleSide::Left => {
+            if delta > 0 {
+                let shift = delta as usize;
+                for placement in &mut next {
+                    placement.grid_x += shift;
+                }
+            } else if delta < 0 {
+                let shrink = (-delta) as usize;
+                if shrink >= old_width {
+                    return next;
+                }
+                next.retain(|placement| placement.grid_x >= shrink);
+                for placement in &mut next {
+                    placement.grid_x -= shrink;
+                }
+            }
+        }
+        HandleSide::Right => {
+            if delta < 0 {
+                let shrink = (-delta) as usize;
+                if shrink >= old_width {
+                    return next;
+                }
+                let new_width = old_width - shrink;
+                next.retain(|placement| placement.grid_x < new_width);
+            }
+        }
+    }
+
+    next
 }

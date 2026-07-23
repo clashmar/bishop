@@ -49,7 +49,7 @@ pub struct CollisionWorld {
 }
 
 impl CollisionWorld {
-    /// Collects solid tiles, room borders, and solid ECS entities into a
+    /// Collects solid tile placements, room borders, and solid ECS entities into a
     /// collision world for the given room.
     pub fn new(
         tile_registry: &TileRegistry,
@@ -57,30 +57,31 @@ impl CollisionWorld {
         room: &Room,
         world: &World,
     ) -> Self {
-        let tilemap = &room.variants[room.current_variant_index()].tilemap;
         let mut solids = Vec::new();
 
-        // Solid tiles
-        for ((x, y), tile_def_id) in tilemap.tiles.iter() {
-            let Some(tile_def) = tile_registry.get(*tile_def_id) else {
+        for &entity in ecs.entities_in_room(room.id) {
+            if let Some(tile) = ecs.get::<TilePlacement>(entity) {
+                let Some(tile_def) = tile_registry.get(tile.definition) else {
+                    continue;
+                };
+                if tile_def.components.contains(&TileComponent::Solid(true)) {
+                    let tile_pos = room.position
+                        + vec2(tile.grid_x as f32 * world.grid_size, tile.grid_y as f32 * world.grid_size);
+                    let tile_aabb = (
+                        tile_pos,
+                        tile_pos + vec2(world.grid_size, world.grid_size),
+                    );
+                    solids.push(SolidObj {
+                        aabb: tile_aabb,
+                        shape: ColliderShape::Aabb {
+                            width: world.grid_size,
+                            height: world.grid_size,
+                        },
+                        shape_pos: tile_pos,
+                        entity: Some(entity),
+                    });
+                }
                 continue;
-            };
-            if tile_def.components.contains(&TileComponent::Solid(true)) {
-                let tile_pos = room.position
-                    + vec2(*x as f32 * world.grid_size, *y as f32 * world.grid_size);
-                let tile_aabb = (
-                    tile_pos,
-                    tile_pos + vec2(world.grid_size, world.grid_size),
-                );
-                solids.push(SolidObj {
-                    aabb: tile_aabb,
-                    shape: ColliderShape::Aabb {
-                        width: world.grid_size,
-                        height: world.grid_size,
-                    },
-                    shape_pos: tile_pos,
-                    entity: None,
-                });
             }
         }
 
@@ -89,6 +90,9 @@ impl CollisionWorld {
 
         // Solid ECS entities
         for &entity in ecs.entities_in_room(room.id) {
+            if ecs.get::<TilePlacement>(entity).is_some() {
+                continue;
+            }
             if !ecs.get::<Solid>(entity).is_some_and(|solid| solid.0) {
                 continue;
             }
