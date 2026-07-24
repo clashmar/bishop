@@ -25,7 +25,7 @@ fn enter_room_mode() {
 }
 
 #[test]
-fn set_tile_placement_cmd_when_undone_then_room_cell_returns_to_previous_state() {
+fn set_tile_placement_cmd_when_placed_then_runtime_components_apply_and_undo_restores_previous_state() {
     let _ctx = setup_editor("tile_placement_cmd");
     enter_room_mode();
 
@@ -33,7 +33,7 @@ fn set_tile_placement_cmd_when_undone_then_room_cell_returns_to_previous_state()
         let room_id = editor.cur_room_id.expect("room mode should select a room");
         let tile_id = editor.game.tile_registry.insert(TileDef {
             sprite_id: SpriteId(5),
-            components: vec![TileComponent::Solid(true)],
+            components: vec![tile_definition_component_snapshot(Solid(true))],
         });
         (room_id, tile_id)
     });
@@ -42,7 +42,7 @@ fn set_tile_placement_cmd_when_undone_then_room_cell_returns_to_previous_state()
     apply_pending_commands();
 
     with_editor(|editor| {
-        let (_entity, placed) = editor
+        let (entity, placed) = editor
             .game
             .ecs
             .entities_in_room(room_id)
@@ -59,6 +59,7 @@ fn set_tile_placement_cmd_when_undone_then_room_cell_returns_to_previous_state()
 
         assert_eq!(placed.definition, tile_id);
         assert_eq!((placed.grid_x, placed.grid_y), (2, 3));
+        assert!(editor.game.ecs.get::<Solid>(entity).is_some_and(|solid| solid.0));
     });
 
     request_undo();

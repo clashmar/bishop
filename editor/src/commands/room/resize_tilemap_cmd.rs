@@ -5,6 +5,7 @@ use crate::tilemap::resize_handle::HandleSide;
 use crate::with_editor;
 use engine_core::ecs::{Ecs, TilePlacement};
 use engine_core::game::GameCtxMut;
+use engine_core::tiles::apply_tile_placement_definition;
 use engine_core::worlds::*;
 
 /// Undoable command for resizing a tilemap via drag handles.
@@ -100,10 +101,11 @@ impl EditorCommand for ResizeTilemapCmd {
                         if self.delta > 0 {
                             map.height += self.delta as usize;
                             for exit in exits.iter_mut() {
+                                let on_top = (exit.position.y + 1.0).abs() < f32::EPSILON;
                                 let on_bottom = (exit.position.y - room_size.y).abs() < f32::EPSILON;
-                                let on_left = (exit.position.x + 1.0).abs() < f32::EPSILON;
-                                let on_right = (exit.position.x - room_size.x).abs() < f32::EPSILON;
-                                if on_bottom || on_left || on_right {
+                                if on_top {
+                                    exit.position.y -= self.delta as f32;
+                                } else if on_bottom {
                                     exit.position.y += self.delta as f32;
                                 }
                             }
@@ -114,10 +116,11 @@ impl EditorCommand for ResizeTilemapCmd {
                             if map.height > shrink {
                                 map.height -= shrink;
                                 for exit in exits.iter_mut() {
+                                    let on_top = (exit.position.y + 1.0).abs() < f32::EPSILON;
                                     let on_bottom = (exit.position.y - room_size.y).abs() < f32::EPSILON;
-                                    let on_left = (exit.position.x + 1.0).abs() < f32::EPSILON;
-                                    let on_right = (exit.position.x - room_size.x).abs() < f32::EPSILON;
-                                    if on_bottom || on_left || on_right {
+                                    if on_top {
+                                        exit.position.y += shrink as f32;
+                                    } else if on_bottom {
                                         exit.position.y -= shrink as f32;
                                     }
                                 }
@@ -152,10 +155,11 @@ impl EditorCommand for ResizeTilemapCmd {
                         if self.delta > 0 {
                             map.width += self.delta as usize;
                             for exit in exits.iter_mut() {
+                                let on_left = (exit.position.x + 1.0).abs() < f32::EPSILON;
                                 let on_right = (exit.position.x - room_size.x).abs() < f32::EPSILON;
-                                let on_top = (exit.position.y + 1.0).abs() < f32::EPSILON;
-                                let on_bottom = (exit.position.y - room_size.y).abs() < f32::EPSILON;
-                                if on_right || on_top || on_bottom {
+                                if on_left {
+                                    exit.position.x -= self.delta as f32;
+                                } else if on_right {
                                     exit.position.x += self.delta as f32;
                                 }
                             }
@@ -166,10 +170,11 @@ impl EditorCommand for ResizeTilemapCmd {
                             if map.width > shrink {
                                 map.width -= shrink;
                                 for exit in exits.iter_mut() {
+                                    let on_left = (exit.position.x + 1.0).abs() < f32::EPSILON;
                                     let on_right = (exit.position.x - room_size.x).abs() < f32::EPSILON;
-                                    let on_top = (exit.position.y + 1.0).abs() < f32::EPSILON;
-                                    let on_bottom = (exit.position.y - room_size.y).abs() < f32::EPSILON;
-                                    if on_right || on_top || on_bottom {
+                                    if on_left {
+                                        exit.position.x += shrink as f32;
+                                    } else if on_right {
                                         exit.position.x -= shrink as f32;
                                     }
                                 }
@@ -271,11 +276,13 @@ fn replace_room_tile_placements(
     }
 
     for &placement in placements {
-        ctx.ecs
+        let entity = ctx
+            .ecs
             .create_entity()
             .with(placement)
             .with_current_room(room_id)
             .finish();
+        apply_tile_placement_definition(ctx, entity);
     }
 }
 

@@ -53,15 +53,15 @@ impl TileRegistry {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ecs::SpriteId;
-    use crate::tiles::TileComponent;
+    use crate::ecs::{Solid, SpriteId};
+    use crate::tiles::tile_definition_component_snapshot;
 
     #[test]
     fn tile_registry_round_trip_when_serialized_then_tile_definitions_persist() {
         let mut registry = TileRegistry::default();
         let tile_id = registry.insert(TileDef {
             sprite_id: SpriteId(7),
-            components: vec![TileComponent::Solid(true)],
+            components: vec![tile_definition_component_snapshot(Solid(true))],
         });
 
         let ron = ron::to_string(&registry).expect("tile registry should serialize");
@@ -69,6 +69,6 @@ mod tests {
 
         let def = loaded.get(tile_id).expect("tile definition should survive round-trip");
         assert_eq!(def.sprite_id, SpriteId(7));
-        assert_eq!(def.components, vec![TileComponent::Solid(true)]);
+        assert_eq!(def.components, vec![tile_definition_component_snapshot(Solid(true))]);
     }
 }

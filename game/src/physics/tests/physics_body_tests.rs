@@ -1,5 +1,4 @@
 use bishop::prelude::*;
-use engine_core::tiles::TileRegistry;
 use engine_core::ecs::*;
 use engine_core::rendering::visual_position;
 use engine_core::tiles::TileMap;
@@ -198,7 +197,6 @@ fn assert_capsule_jump_while_pressing_into_circle_matches_clear(
     circle_x: f32,
     walk_velocity_x: f32,
 ) {
-    let tile_registry = TileRegistry::default();
     let room_id = RoomId(1);
     let world = world_with_bottom_border();
 
@@ -235,7 +233,7 @@ fn assert_capsule_jump_while_pressing_into_circle_matches_clear(
 
     for _ in 0..6 {
         blocked_ecs.get_mut::<Velocity>(blocked_player).unwrap().x = walk_velocity_x;
-        update_physics(&tile_registry, &mut blocked_ecs, &world, DT);
+        update_physics(&mut blocked_ecs, &world, DT);
     }
 
     let blocked_transform = blocked_ecs.get::<Transform>(blocked_player).copied().unwrap();
@@ -273,8 +271,8 @@ fn assert_capsule_jump_while_pressing_into_circle_matches_clear(
         let blocked_pre_sub_pixel = blocked_ecs.get::<SubPixel>(blocked_player).copied().unwrap();
         let blocked_pre_velocity = blocked_ecs.get::<Velocity>(blocked_player).copied().unwrap();
 
-        update_physics(&tile_registry, &mut clear_ecs, &world, DT);
-        update_physics(&tile_registry, &mut blocked_ecs, &world, DT);
+        update_physics(&mut clear_ecs, &world, DT);
+        update_physics(&mut blocked_ecs, &world, DT);
 
         let clear_position = player_position(&clear_ecs, clear_player);
         let blocked_position = player_position(&blocked_ecs, blocked_player);
@@ -305,7 +303,6 @@ fn assert_capsule_jump_while_pressing_into_circle_matches_clear(
 
 #[test]
 fn physics_body_walking_into_same_floor_box_does_not_climb() {
-    let tile_registry = TileRegistry::default();
     let room_id = RoomId(1);
     let world = world_with_bottom_border();
     let mut ecs = Ecs::default();
@@ -319,7 +316,7 @@ fn physics_body_walking_into_same_floor_box_does_not_climb() {
             velocity.x = PLAYER_WALK_SPEED;
         }
 
-        update_physics(&tile_registry, &mut ecs, &world, DT);
+        update_physics(&mut ecs, &world, DT);
 
         let position = player_position(&ecs, player);
         positions.push(position);
@@ -349,7 +346,6 @@ fn physics_body_walking_into_same_floor_box_does_not_climb() {
 
 #[test]
 fn physics_body_can_walk_away_after_being_blocked_by_same_floor_box() {
-    let tile_registry = TileRegistry::default();
     let room_id = RoomId(1);
     let world = world_with_bottom_border();
     let mut ecs = Ecs::default();
@@ -360,7 +356,7 @@ fn physics_body_can_walk_away_after_being_blocked_by_same_floor_box() {
         if let Some(velocity) = ecs.get_mut::<Velocity>(player) {
             velocity.x = PLAYER_WALK_SPEED;
         }
-        update_physics(&tile_registry, &mut ecs, &world, DT);
+        update_physics(&mut ecs, &world, DT);
     }
 
     let blocked_position = player_position(&ecs, player);
@@ -369,7 +365,7 @@ fn physics_body_can_walk_away_after_being_blocked_by_same_floor_box() {
         if let Some(velocity) = ecs.get_mut::<Velocity>(player) {
             velocity.x = -PLAYER_WALK_SPEED;
         }
-        update_physics(&tile_registry, &mut ecs, &world, DT);
+        update_physics(&mut ecs, &world, DT);
 
         let position = player_position(&ecs, player);
         assert_eq!(
@@ -387,7 +383,6 @@ fn physics_body_can_walk_away_after_being_blocked_by_same_floor_box() {
 
 #[test]
 fn physics_body_can_walk_right_away_after_being_blocked_from_right_by_same_floor_box() {
-    let tile_registry = TileRegistry::default();
     let room_id = RoomId(1);
     let world = world_with_bottom_border();
     let mut ecs = Ecs::default();
@@ -419,7 +414,7 @@ fn physics_body_can_walk_right_away_after_being_blocked_from_right_by_same_floor
         if let Some(velocity) = ecs.get_mut::<Velocity>(player) {
             velocity.x = -PLAYER_WALK_SPEED;
         }
-        update_physics(&tile_registry, &mut ecs, &world, DT);
+        update_physics(&mut ecs, &world, DT);
     }
 
     let blocked_position = player_position(&ecs, player);
@@ -428,7 +423,7 @@ fn physics_body_can_walk_right_away_after_being_blocked_from_right_by_same_floor
         if let Some(velocity) = ecs.get_mut::<Velocity>(player) {
             velocity.x = PLAYER_WALK_SPEED;
         }
-        update_physics(&tile_registry, &mut ecs, &world, DT);
+        update_physics(&mut ecs, &world, DT);
 
         let position = player_position(&ecs, player);
         assert_eq!(
@@ -446,7 +441,6 @@ fn physics_body_can_walk_right_away_after_being_blocked_from_right_by_same_floor
 
 #[test]
 fn physics_body_can_walk_right_away_after_being_blocked_from_right_by_tall_box() {
-    let tile_registry = TileRegistry::default();
     let room_id = RoomId(1);
     let world = world_with_bottom_border();
     let mut ecs = Ecs::default();
@@ -485,7 +479,7 @@ fn physics_body_can_walk_right_away_after_being_blocked_from_right_by_tall_box()
         if let Some(velocity) = ecs.get_mut::<Velocity>(player) {
             velocity.x = -PLAYER_WALK_SPEED;
         }
-        update_physics(&tile_registry, &mut ecs, &world, DT);
+        update_physics(&mut ecs, &world, DT);
     }
 
     let blocked_position = player_position(&ecs, player);
@@ -494,7 +488,7 @@ fn physics_body_can_walk_right_away_after_being_blocked_from_right_by_tall_box()
         if let Some(velocity) = ecs.get_mut::<Velocity>(player) {
             velocity.x = PLAYER_WALK_SPEED;
         }
-        update_physics(&tile_registry, &mut ecs, &world, DT);
+        update_physics(&mut ecs, &world, DT);
 
         let position = player_position(&ecs, player);
         assert_eq!(
@@ -512,7 +506,6 @@ fn physics_body_can_walk_right_away_after_being_blocked_from_right_by_tall_box()
 
 #[test]
 fn physics_body_aabb_moves_horizontally_on_flat_floor_with_solid_circle_in_room() {
-    let tile_registry = TileRegistry::default();
     let room_id = RoomId(1);
     let world = world_with_bottom_border();
     let mut ecs = Ecs::default();
@@ -532,7 +525,7 @@ fn physics_body_aabb_moves_horizontally_on_flat_floor_with_solid_circle_in_room(
         if let Some(velocity) = ecs.get_mut::<Velocity>(player) {
             velocity.x = PLAYER_WALK_SPEED;
         }
-        update_physics(&tile_registry, &mut ecs, &world, DT);
+        update_physics(&mut ecs, &world, DT);
 
         let position = player_position(&ecs, player);
         assert!(
@@ -550,7 +543,6 @@ fn physics_body_aabb_moves_horizontally_on_flat_floor_with_solid_circle_in_room(
 
 #[test]
 fn physics_body_aabb_can_jump_beside_solid_circle() {
-    let tile_registry = TileRegistry::default();
     let room_id = RoomId(1);
     let world = world_with_bottom_border();
     let mut ecs = Ecs::default();
@@ -569,7 +561,7 @@ fn physics_body_aabb_can_jump_beside_solid_circle() {
         velocity.y = -JUMP_SPEED;
     }
 
-    update_physics(&tile_registry, &mut ecs, &world, DT);
+    update_physics(&mut ecs, &world, DT);
 
     let final_position = player_position(&ecs, player);
     let final_velocity = ecs.get::<Velocity>(player).copied().unwrap();
@@ -586,7 +578,6 @@ fn physics_body_aabb_can_jump_beside_solid_circle() {
 
 #[test]
 fn physics_body_capsule_can_jump_beside_solid_circle() {
-    let tile_registry = TileRegistry::default();
     let room_id = RoomId(1);
     let world = world_with_bottom_border();
 
@@ -623,7 +614,7 @@ fn physics_body_capsule_can_jump_beside_solid_circle() {
 
     for _ in 0..6 {
         blocked_ecs.get_mut::<Velocity>(blocked_player).unwrap().x = PLAYER_WALK_SPEED;
-        update_physics(&tile_registry, &mut blocked_ecs, &world, DT);
+        update_physics(&mut blocked_ecs, &world, DT);
     }
 
     let blocked_transform = blocked_ecs.get::<Transform>(blocked_player).copied().unwrap();
@@ -660,8 +651,8 @@ fn physics_body_capsule_can_jump_beside_solid_circle() {
         let blocked_pre_sub_pixel = blocked_ecs.get::<SubPixel>(blocked_player).copied().unwrap();
         let blocked_pre_velocity = blocked_ecs.get::<Velocity>(blocked_player).copied().unwrap();
 
-        update_physics(&tile_registry, &mut clear_ecs, &world, DT);
-        update_physics(&tile_registry, &mut blocked_ecs, &world, DT);
+        update_physics(&mut clear_ecs, &world, DT);
+        update_physics(&mut blocked_ecs, &world, DT);
 
         let clear_position = player_position(&clear_ecs, clear_player);
         let blocked_position = player_position(&blocked_ecs, blocked_player);
@@ -706,7 +697,6 @@ fn physics_body_capsule_can_jump_while_pressing_left_into_solid_circle() {
 
 #[test]
 fn physics_body_capsule_stays_on_floor_between_bottom_exits() {
-    let tile_registry = TileRegistry::default();
     let room_id = RoomId(1);
     let world = world_with_bottom_exit_bridge();
     let mut ecs = Ecs::default();
@@ -736,7 +726,7 @@ fn physics_body_capsule_stays_on_floor_between_bottom_exits() {
         if let Some(velocity) = ecs.get_mut::<Velocity>(player) {
             velocity.x = PLAYER_WALK_SPEED;
         }
-        update_physics(&tile_registry, &mut ecs, &world, DT);
+        update_physics(&mut ecs, &world, DT);
 
         let position = player_position(&ecs, player);
         assert!(
@@ -748,7 +738,6 @@ fn physics_body_capsule_stays_on_floor_between_bottom_exits() {
 
 #[test]
 fn physics_body_demo_circle_resting_on_flat_floor_keeps_exact_contact_height() {
-    let tile_registry = TileRegistry::default();
     let room_id = RoomId(1);
     let world = world_with_bottom_border();
     let mut ecs = Ecs::default();
@@ -773,7 +762,7 @@ fn physics_body_demo_circle_resting_on_flat_floor_keeps_exact_contact_height() {
         .with(Active::default())
         .finish();
 
-    update_physics(&tile_registry, &mut ecs, &world, DT);
+    update_physics(&mut ecs, &world, DT);
 
     let bottom = collider_bottom(&ecs, player);
     assert!(
@@ -785,7 +774,6 @@ fn physics_body_demo_circle_resting_on_flat_floor_keeps_exact_contact_height() {
 
 #[test]
 fn physics_body_demo_circle_moves_horizontally_on_flat_floor() {
-    let tile_registry = TileRegistry::default();
     let room_id = RoomId(1);
     let world = world_with_bottom_border();
     let mut ecs = Ecs::default();
@@ -816,7 +804,7 @@ fn physics_body_demo_circle_moves_horizontally_on_flat_floor() {
         if let Some(velocity) = ecs.get_mut::<Velocity>(player) {
             velocity.x = PLAYER_WALK_SPEED;
         }
-        update_physics(&tile_registry, &mut ecs, &world, DT);
+        update_physics(&mut ecs, &world, DT);
 
         let position = player_position(&ecs, player);
         let bottom = collider_bottom(&ecs, player);
@@ -835,7 +823,6 @@ fn physics_body_demo_circle_moves_horizontally_on_flat_floor() {
 
 #[test]
 fn physics_body_demo_circle_moves_left_on_flat_floor() {
-    let tile_registry = TileRegistry::default();
     let room_id = RoomId(1);
     let world = world_with_bottom_border();
     let mut ecs = Ecs::default();
@@ -867,7 +854,7 @@ fn physics_body_demo_circle_moves_left_on_flat_floor() {
         if let Some(velocity) = ecs.get_mut::<Velocity>(player) {
             velocity.x = -PLAYER_WALK_SPEED;
         }
-        update_physics(&tile_registry, &mut ecs, &world, DT);
+        update_physics(&mut ecs, &world, DT);
 
         let position = player_position(&ecs, player);
         let bottom = collider_bottom(&ecs, player);

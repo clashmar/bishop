@@ -21,7 +21,16 @@ use crate::scripting::script_manager::ScriptManager;
 use crate::worlds::room::RoomId;
 use crate::worlds::{WorldDirectorySnapshot, world::*};
 use crate::worlds::transition::OverlayFrame;
-use crate::{storage::text_folder, text::TextManager, tiles::TileRegistry};
+use crate::{
+    storage::text_folder,
+    text::TextManager,
+    tiles::{
+        TileDefId,
+        TileRegistry,
+        sync_all_tile_placements_in_ctx,
+        sync_tile_definition_in_ctx,
+    },
+};
 use bishop::prelude::TextureLoader;
 use mlua::Lua;
 use serde::{Deserialize, Serialize};
@@ -225,6 +234,18 @@ impl Game {
             script_manager: &mut self.script_manager,
             prefab_manager: &self.prefab_manager,
         }
+    }
+
+    /// Rebuilds definition-owned ECS components for every loaded tile placement.
+    pub fn sync_all_tile_placements(&mut self) {
+        let mut ctx = self.ctx_mut();
+        sync_all_tile_placements_in_ctx(&mut ctx);
+    }
+
+    /// Rebuilds definition-owned ECS components for one tile definition.
+    pub fn sync_tile_definition(&mut self, tile_id: TileDefId) {
+        let mut ctx = self.ctx_mut();
+        sync_tile_definition_in_ctx(&mut ctx, tile_id);
     }
 
     /// Mutable reference to the current world, or `None` if no worlds exist.

@@ -3,7 +3,7 @@ use crate::commands::editor_command_manager::EditorCommand;
 use crate::with_editor;
 use engine_core::ecs::{Ecs, Entity, TilePlacement};
 use engine_core::game::GameCtxMut;
-use engine_core::tiles::TileDefId;
+use engine_core::tiles::{TileDefId, apply_tile_placement_definition};
 use engine_core::worlds::RoomId;
 
 #[derive(Debug)]
@@ -71,11 +71,13 @@ impl SetTilePlacementCmd {
             remove_entities(ctx, &existing_entities);
 
             if let Some(placement) = placement {
-                ctx.ecs
+                let entity = ctx
+                    .ecs
                     .create_entity()
                     .with(placement)
                     .with_current_room(self.room_id)
                     .finish();
+                apply_tile_placement_definition(ctx, entity);
             }
         });
     }

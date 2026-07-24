@@ -1,5 +1,6 @@
 use crate::assets::sprite_manager::SpriteManager;
-use crate::ecs::{Ecs, TilePlacement};
+use crate::ecs::{CurrentFrame, Ecs, Pivot, Sprite, TilePlacement};
+use crate::rendering::{EntityDrawParams, Renderable};
 use crate::tiles::TileRegistry;
 use crate::worlds::RoomId;
 use bishop::prelude::*;
@@ -59,6 +60,24 @@ pub fn draw_room_tile_placements<C: BishopContext>(
 
         let tile_pos = Vec2::new(tile.grid_x as f32 * grid_size, tile.grid_y as f32 * grid_size)
             + room_position;
+        let params = EntityDrawParams {
+            pos: tile_pos,
+            pivot: Pivot::TopLeft,
+            grid_size,
+        };
+
+        if let Some(current_frame) = ecs.get::<CurrentFrame>(entity)
+            && current_frame.draw(ctx, sprite_manager, &params)
+        {
+            continue;
+        }
+
+        if let Some(sprite) = ecs.get::<Sprite>(entity)
+            && sprite.draw(ctx, sprite_manager, &params)
+        {
+            continue;
+        }
+
         let tex = sprite_manager.get_texture_from_id(ctx, tile_def.sprite_id);
         ctx.draw_texture_ex(
             tex,

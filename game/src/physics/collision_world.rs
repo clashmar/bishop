@@ -1,6 +1,5 @@
 use bishop::prelude::*;
 use engine_core::ecs::*;
-use engine_core::tiles::{TileComponent, TileRegistry};
 use engine_core::worlds::*;
 use std::collections::HashSet;
 
@@ -52,7 +51,6 @@ impl CollisionWorld {
     /// Collects solid tile placements, room borders, and solid ECS entities into a
     /// collision world for the given room.
     pub fn new(
-        tile_registry: &TileRegistry,
         ecs: &Ecs,
         room: &Room,
         world: &World,
@@ -61,10 +59,7 @@ impl CollisionWorld {
 
         for &entity in ecs.entities_in_room(room.id) {
             if let Some(tile) = ecs.get::<TilePlacement>(entity) {
-                let Some(tile_def) = tile_registry.get(tile.definition) else {
-                    continue;
-                };
-                if tile_def.components.contains(&TileComponent::Solid(true)) {
+                if ecs.get::<Solid>(entity).is_some_and(|solid| solid.0) {
                     let tile_pos = room.position
                         + vec2(tile.grid_x as f32 * world.grid_size, tile.grid_y as f32 * world.grid_size);
                     let tile_aabb = (

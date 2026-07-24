@@ -5,7 +5,7 @@ use engine_core::diagnostics::TraversalResidencyDiagnostics;
 use engine_core::ecs::*;
 use engine_core::game::{Game};
 use engine_core::menu::{drain_menu_events, drain_slider_events};
-use engine_core::rendering::{visual_position};
+use engine_core::rendering::visual_position;
 use engine_core::storage::hydrate_initial_payloads_for_runtime;
 use engine_core::worlds::*;
 use mlua::Lua;
@@ -68,6 +68,7 @@ impl GameInstance {
         hydrate_initial_payloads_for_runtime(&mut game)
             .expect("initial payload hydration should succeed during startup");
         game.ecs.finalize_after_load();
+        game.sync_all_tile_placements();
         PreparedGameInstance { game, room_id }
     }
 
@@ -79,6 +80,7 @@ impl GameInstance {
             world.current_room_id = Some(room.id);
         }
         game.ecs.finalize_after_load();
+        game.sync_all_tile_placements();
         PreparedGameInstance {
             room_id: room.id,
             game,

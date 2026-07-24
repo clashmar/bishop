@@ -129,6 +129,7 @@ pub fn load_full_game_from_folder(folder: &Path) -> io::Result<Game> {
     let mut game = load_game_shell_from_folder(folder)?;
     hydrate_all_payloads_from_folder(folder, &mut game)?;
     game.ecs.finalize_after_load();
+    game.sync_all_tile_placements();
     Ok(game)
 }
 

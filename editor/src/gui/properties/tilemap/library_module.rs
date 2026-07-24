@@ -7,7 +7,7 @@ use engine_core::ecs::inspector::layout::InspectorBodyLayout;
 use engine_core::ecs::SpriteId;
 use engine_core::game::GameCtxMut;
 use engine_core::theme::with_theme;
-use engine_core::tiles::{TileComponent, TileDef};
+use engine_core::tiles::TileDef;
 use widgets::constants::{colors, layout};
 use widgets::*;
 
@@ -45,10 +45,7 @@ impl super::super::PropertyModule<TilemapPaneState> for TilemapLibraryModule {
         if Button::new(create_rect, "Create Tile").show(ctx) {
             push_command(Box::new(CreateTileDefinitionCmd::new(TileDef {
                 sprite_id: SpriteId(0),
-                components: vec![
-                    TileComponent::Walkable(false),
-                    TileComponent::Solid(false),
-                ],
+                components: Vec::new(),
             })));
             state.pending_select_newest = true;
         }

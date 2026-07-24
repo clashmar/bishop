@@ -2,7 +2,6 @@ use bishop::prelude::*;
 use crate::constants::GRAVITY;
 use crate::physics::collision_world::CollisionWorld;
 use engine_core::ecs::*;
-use engine_core::tiles::TileRegistry;
 use engine_core::worlds::*;
 use std::collections::HashMap;
 
@@ -10,7 +9,6 @@ const SUPPORT_SNAP_DISTANCE: f32 = 0.5;
 
 /// Applies fixed-step movement to `MotionBody`s and full collision physics to `PhysicsBody`s.
 pub fn update_physics(
-    tile_registry: &TileRegistry,
     ecs: &mut Ecs,
     world: &World,
     dt: f32,
@@ -36,7 +34,7 @@ pub fn update_physics(
         let Some(room) = world.get_room(*room_id) else {
             continue;
         };
-        let collision_world = CollisionWorld::new(tile_registry, ecs, room, world);
+        let collision_world = CollisionWorld::new(ecs, room, world);
 
         for &entity in room_entities {
             let was_grounded = ecs.get::<Grounded>(entity).is_some_and(|grounded| grounded.0);
@@ -175,7 +173,7 @@ fn store_sub_pixel(ecs: &mut Ecs, entity: Entity, sub_pixel: SubPixel) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use engine_core::tiles::{TileMap, TileRegistry};
+    use engine_core::tiles::TileMap;
 
     fn empty_room() -> Room {
         Room {
@@ -208,7 +206,7 @@ mod tests {
             .with_current_room(RoomId(99))
             .finish();
 
-        update_physics(&TileRegistry::default(), &mut ecs, &empty_world(), 1.0 / 60.0);
+        update_physics(&mut ecs, &empty_world(), 1.0 / 60.0);
 
         assert_eq!(
             ecs.get::<Transform>(parked)
@@ -232,7 +230,7 @@ mod tests {
             .with_current_room(RoomId(1))
             .finish();
 
-        update_physics(&TileRegistry::default(), &mut ecs, &empty_world(), 1.0 / 60.0);
+        update_physics(&mut ecs, &empty_world(), 1.0 / 60.0);
 
         assert_eq!(
             ecs.get::<Transform>(roomed)
@@ -254,7 +252,7 @@ mod tests {
             .with(SubPixel::default())
             .finish();
 
-        update_physics(&TileRegistry::default(), &mut ecs, &empty_world(), 1.0 / 60.0);
+        update_physics(&mut ecs, &empty_world(), 1.0 / 60.0);
 
         assert_eq!(
             ecs.get::<Transform>(entity)
@@ -282,7 +280,7 @@ mod tests {
             .with(SubPixel::default())
             .finish();
 
-        update_physics(&TileRegistry::default(), &mut ecs, &empty_world(), 1.0 / 60.0);
+        update_physics(&mut ecs, &empty_world(), 1.0 / 60.0);
 
         assert_eq!(
             ecs.get::<Transform>(entity)
@@ -309,7 +307,7 @@ mod tests {
             .with(SubPixel::default())
             .finish();
 
-        update_physics(&TileRegistry::default(), &mut ecs, &empty_world(), 1.0 / 60.0);
+        update_physics(&mut ecs, &empty_world(), 1.0 / 60.0);
 
         assert_eq!(
             ecs.get::<Transform>(entity)
@@ -338,7 +336,7 @@ mod tests {
 
         let world = empty_world();
 
-        update_physics(&TileRegistry::default(), &mut ecs, &world, 1.0 / 60.0);
+        update_physics(&mut ecs, &world, 1.0 / 60.0);
 
         assert_eq!(
             ecs.get::<Transform>(entity).map(|transform| transform.position),
@@ -360,7 +358,7 @@ mod tests {
 
         let world = empty_world();
 
-        update_physics(&TileRegistry::default(), &mut ecs, &world, 1.0 / 60.0);
+        update_physics(&mut ecs, &world, 1.0 / 60.0);
 
         assert_eq!(
             ecs.get::<Transform>(entity).map(|transform| transform.position),
@@ -418,7 +416,7 @@ mod tests {
             .with(Velocity { x: 60.0, y: 0.0 })
             .finish();
 
-        update_physics(&TileRegistry::default(), &mut ecs, &world, 1.0 / 60.0);
+        update_physics(&mut ecs, &world, 1.0 / 60.0);
 
         assert_eq!(
             ecs.get::<Transform>(entity).map(|transform| transform.position.x),
@@ -470,7 +468,7 @@ mod tests {
 
         let world = empty_world();
 
-        update_physics(&TileRegistry::default(), &mut ecs, &world, 1.0 / 60.0);
+        update_physics(&mut ecs, &world, 1.0 / 60.0);
 
         assert_eq!(ecs.get::<Grounded>(entity).map(|grounded| grounded.0), Some(true));
         assert_eq!(
@@ -494,7 +492,7 @@ mod tests {
 
         let world = empty_world();
 
-        update_physics(&TileRegistry::default(), &mut ecs, &world, 1.0 / 60.0);
+        update_physics(&mut ecs, &world, 1.0 / 60.0);
 
         assert_eq!(
             ecs.get::<Transform>(entity).map(|transform| transform.position),
@@ -518,7 +516,7 @@ mod tests {
 
         let world = empty_world();
 
-        update_physics(&TileRegistry::default(), &mut ecs, &world, 1.0 / 60.0);
+        update_physics(&mut ecs, &world, 1.0 / 60.0);
 
         assert_eq!(
             ecs.get::<Transform>(entity).map(|transform| transform.position),

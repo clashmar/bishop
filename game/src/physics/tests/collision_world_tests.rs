@@ -1,5 +1,6 @@
 use super::*;
-use engine_core::tiles::TileMap;
+use engine_core::game::Game;
+use engine_core::tiles::{TileMap, TileRegistry, apply_tile_definition_to_entity, tile_definition_component_snapshot};
 
 fn world_with_solid(aabb: (Vec2, Vec2)) -> CollisionWorld {
     let shape = ColliderShape::Aabb {
@@ -42,7 +43,7 @@ fn empty_world() -> World {
 }
 
 #[test]
-fn collision_world_sweep_move_aabb_blocked_by_solid_tile_placement_entity() {
+fn collision_world_sweep_move_aabb_blocked_by_tile_entity_solid_component() {
     let mut ecs = Ecs::default();
     let room_id = RoomId(1);
     let mover = ecs
@@ -57,17 +58,68 @@ fn collision_world_sweep_move_aabb_blocked_by_solid_tile_placement_entity() {
     let mut tile_registry = TileRegistry::default();
     let tile_id = tile_registry.insert(engine_core::tiles::TileDef {
         sprite_id: SpriteId(1),
-        components: vec![TileComponent::Solid(true)],
+        components: vec![],
     });
 
     ecs.create_entity()
         .with(TilePlacement::new(tile_id, 1, 0))
+        .with(Solid(true))
         .with_current_room(room_id)
         .finish();
 
     let world = empty_world();
     let room = world.get_room(room_id).unwrap();
-    let cw = CollisionWorld::new(&tile_registry, &ecs, room, &world);
+    let cw = CollisionWorld::new(&ecs, room, &world);
+    let sweep = cw.sweep_move(
+        mover,
+        Vec2::ZERO,
+        Vec2::new(16.0, 0.0),
+        Collider {
+            shape: ColliderShape::Aabb {
+                width: 8.0,
+                height: 8.0,
+            },
+            ..Default::default()
+        },
+        Pivot::TopLeft,
+    );
+
+    assert!(sweep.blocked_x);
+}
+
+#[test]
+fn collision_world_sweep_move_aabb_blocked_by_definition_owned_solid_component() {
+    let room_id = RoomId(1);
+    let mut game = Game::default();
+    let mover = game
+        .ecs
+        .create_entity()
+        .with_current_room(room_id)
+        .with(Transform {
+            pivot: Pivot::TopLeft,
+            ..Default::default()
+        })
+        .finish();
+
+    let tile_id = game.tile_registry.insert(engine_core::tiles::TileDef {
+        sprite_id: SpriteId(1),
+        components: vec![tile_definition_component_snapshot(Solid(true))],
+    });
+
+    let entity = game
+        .ecs
+        .create_entity()
+        .with(TilePlacement::new(tile_id, 1, 0))
+        .with_current_room(room_id)
+        .finish();
+    {
+        let mut ctx = game.ctx_mut();
+        apply_tile_definition_to_entity(&mut ctx, entity, tile_id);
+    }
+
+    let world = empty_world();
+    let room = world.get_room(room_id).unwrap();
+    let cw = CollisionWorld::new(&game.ecs, room, &world);
     let sweep = cw.sweep_move(
         mover,
         Vec2::ZERO,

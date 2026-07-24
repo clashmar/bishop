@@ -40,6 +40,15 @@ pub struct ModuleFactoryEntry {
 inventory::collect!(ModuleFactoryEntry);
 
 #[cfg(feature = "editor")]
+pub fn module_title(type_name: &str) -> &str {
+    MODULES
+        .iter()
+        .find(|entry| entry.type_name == type_name)
+        .map(|entry| entry.title)
+        .unwrap_or(type_name)
+}
+
+#[cfg(feature = "editor")]
 pub fn make_module<T>(title: &str, removable: bool) -> Box<dyn InspectorModule>
 where
     T: Component + Reflect + Default + 'static,

@@ -124,7 +124,7 @@ fn game_save_load_when_tile_registry_exists_then_loaded_registry_preserves_next_
     let mut game = create_new_game(test_game.name().to_string());
     let tile_id = game.tile_registry.insert(TileDef {
         sprite_id: SpriteId(3),
-        components: vec![TileComponent::Walkable(false)],
+        components: Vec::new(),
     });
 
     save_game(&game).expect("save should succeed");
@@ -134,13 +134,13 @@ fn game_save_load_when_tile_registry_exists_then_loaded_registry_preserves_next_
 
     let next_id = loaded.tile_registry.insert(TileDef {
         sprite_id: SpriteId(4),
-        components: vec![TileComponent::Solid(true)],
+        components: vec![tile_definition_component_snapshot(Solid(true))],
     });
     assert!(next_id.0 > tile_id.0);
 }
 
 #[test]
-fn room_save_load_when_tile_placements_are_entities_then_tile_links_persist() {
+fn room_save_load_when_tile_placements_are_entities_then_tile_links_and_runtime_components_persist() {
     let _lock = game_fs_test_lock()
         .lock()
         .unwrap_or_else(|poison| poison.into_inner());
@@ -151,7 +151,7 @@ fn room_save_load_when_tile_placements_are_entities_then_tile_links_persist() {
     let room_id = game.current_world().rooms()[0].id;
     let tile_id = game.tile_registry.insert(TileDef {
         sprite_id: SpriteId(13),
-        components: vec![TileComponent::Walkable(false)],
+        components: vec![tile_definition_component_snapshot(Solid(true))],
     });
     let entity = game
         .ecs
@@ -171,6 +171,7 @@ fn room_save_load_when_tile_placements_are_entities_then_tile_links_persist() {
         .expect("tile placement should load");
     assert_eq!(loaded_tile.definition, tile_id);
     assert_eq!((loaded_tile.grid_x, loaded_tile.grid_y), (4, 1));
+    assert!(loaded.ecs.get::<Solid>(entity).is_some_and(|solid| solid.0));
 }
 
 #[test]
@@ -184,11 +185,11 @@ fn game_save_load_when_tile_registry_has_multiple_defs_then_all_defs_persist() {
     let mut game = create_new_game(test_game.name().to_string());
     let walkable_id = game.tile_registry.insert(TileDef {
         sprite_id: SpriteId(4),
-        components: vec![TileComponent::Walkable(true)],
+        components: Vec::new(),
     });
     let solid_id = game.tile_registry.insert(TileDef {
         sprite_id: SpriteId(5),
-        components: vec![TileComponent::Solid(true)],
+        components: vec![tile_definition_component_snapshot(Solid(true))],
     });
 
     save_game(&game).expect("save should succeed");

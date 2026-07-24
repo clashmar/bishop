@@ -23,6 +23,7 @@ impl UpdateTileDefinitionCmd {
     fn apply(tile_id: TileDefId, tile_def: TileDef) {
         with_editor(|editor| {
             editor.game.tile_registry.replace(tile_id, tile_def);
+            editor.game.sync_tile_definition(tile_id);
         });
     }
 }

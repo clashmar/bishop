@@ -2,7 +2,6 @@ use crate::engine::game_instance::GameInstance;
 use crate::physics::physics_system::update_physics;
 use crate::transitions::room_transition_manager::RoomTransitionManager;
 use bishop::prelude::{Vec2, vec2};
-use engine_core::tiles::TileRegistry;
 use engine_core::ecs::{
     Active, Collider, Entity, PhysicsBody, Player, SubPixel, Transform, Velocity,
 };
@@ -249,7 +248,6 @@ pub(super) fn step_physics_and_transitions(
 ) -> Vec2 {
     let world = game_instance.game.current_world().clone();
     update_physics(
-        &TileRegistry::default(),
         &mut game_instance.game.ecs,
         &world,
         1.0 / 60.0,

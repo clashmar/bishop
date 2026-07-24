@@ -26,6 +26,7 @@ impl EditorCommand for DeleteTileDefinitionCmd {
             if self.deleted_def.is_none() {
                 self.deleted_def = removed;
             }
+            editor.game.sync_tile_definition(self.tile_id);
         });
     }
 
@@ -33,6 +34,7 @@ impl EditorCommand for DeleteTileDefinitionCmd {
         with_editor(|editor| {
             if let Some(tile_def) = self.deleted_def.clone() {
                 editor.game.tile_registry.replace(self.tile_id, tile_def);
+                editor.game.sync_tile_definition(self.tile_id);
             }
         });
     }
