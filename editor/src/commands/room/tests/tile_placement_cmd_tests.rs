@@ -42,20 +42,16 @@ fn set_tile_placement_cmd_when_placed_then_runtime_components_apply_and_undo_res
     apply_pending_commands();
 
     with_editor(|editor| {
-        let (entity, placed) = editor
+        let entity = editor
             .game
             .ecs
-            .entities_in_room(room_id)
-            .iter()
-            .copied()
-            .find_map(|entity| {
-                editor
-                    .game
-                    .ecs
-                    .get::<TilePlacement>(entity)
-                    .map(|tile| (entity, *tile))
-            })
+            .tile_entity_at(room_id, 2, 3)
             .expect("tile placement should exist after execute");
+        let placed = editor
+            .game
+            .ecs
+            .tile_placement_at(room_id, 2, 3)
+            .expect("tile placement should resolve through the room and cell index");
 
         assert_eq!(placed.definition, tile_id);
         assert_eq!((placed.grid_x, placed.grid_y), (2, 3));
@@ -66,13 +62,6 @@ fn set_tile_placement_cmd_when_placed_then_runtime_components_apply_and_undo_res
     apply_pending_commands();
 
     with_editor(|editor| {
-        let after_undo = editor
-            .game
-            .ecs
-            .entities_in_room(room_id)
-            .iter()
-            .copied()
-            .find(|entity| editor.game.ecs.get::<TilePlacement>(*entity).is_some());
-        assert!(after_undo.is_none());
+        assert_eq!(editor.game.ecs.tile_entity_at(room_id, 2, 3), None);
     });
 }

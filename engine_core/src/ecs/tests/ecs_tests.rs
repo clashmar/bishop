@@ -4,7 +4,7 @@ use crate::assets::sprite_manager::SpriteManager;
 use crate::game::GameCtxMut;
 use crate::prefab::PrefabManager;
 use crate::scripting::script_manager::ScriptManager;
-use crate::tiles::TileRegistry;
+use crate::tiles::{TileDefId, TileRegistry};
 use crate::worlds::room::RoomId;
 use std::collections::HashMap;
 
@@ -100,6 +100,34 @@ fn set_current_room_rehomes_entity_without_leaving_stale_membership() {
 }
 
 #[test]
+fn tile_placement_insert_tracks_room_tile_entities() {
+    let mut ecs = Ecs::default();
+    let entity = ecs.create_entity().finish();
+    let room_id = RoomId(5);
+
+    ecs.insert_component(entity, TilePlacement::new(TileDefId(3), 2, 4));
+    ecs.insert_component(entity, CurrentRoom(room_id));
+
+    assert_eq!(ecs.tile_entity_at(room_id, 2, 4), Some(entity));
+    assert_eq!(ecs.tile_placement_at(room_id, 2, 4).map(|tile| tile.definition), Some(TileDefId(3)));
+}
+
+#[test]
+fn tile_placement_remove_untracks_room_tile_entities() {
+    let mut ecs = Ecs::default();
+    let entity = ecs.create_entity().finish();
+    let room_id = RoomId(6);
+
+    ecs.insert_component(entity, CurrentRoom(room_id));
+    ecs.insert_component(entity, TilePlacement::new(TileDefId(4), 1, 3));
+
+    make_game_ctx!(&mut ecs, ctx);
+    Ecs::remove_component::<TilePlacement>(&mut ctx, entity);
+
+    assert_eq!(ecs.tile_entity_at(room_id, 1, 3), None);
+}
+
+#[test]
 fn set_current_room_tracks_entity_in_room_entities() {
     let mut ecs = Ecs::default();
     let entity = ecs.create_entity().finish();
@@ -117,6 +145,22 @@ fn set_current_room_tracks_entity_in_room_entities() {
         "entity should be removed from old room");
     assert!(ecs.entities_in_room(room_b).contains(&entity),
         "entity should be added to new room");
+}
+
+#[test]
+fn set_current_room_rehomes_tile_indexed_entity() {
+    let mut ecs = Ecs::default();
+    let entity = ecs.create_entity().finish();
+    let room_a = RoomId(7);
+    let room_b = RoomId(8);
+
+    ecs.insert_component(entity, TilePlacement::new(TileDefId(9), 4, 5));
+    ecs.set_current_room(entity, room_a);
+    assert_eq!(ecs.tile_entity_at(room_a, 4, 5), Some(entity));
+
+    ecs.set_current_room(entity, room_b);
+    assert_eq!(ecs.tile_entity_at(room_a, 4, 5), None);
+    assert_eq!(ecs.tile_entity_at(room_b, 4, 5), Some(entity));
 }
 
 #[test]
@@ -138,6 +182,23 @@ fn finalize_after_load_rebuilds_room_entities_for_current_room() {
     let entities = ecs.entities_in_room(room_id);
     assert_eq!(entities.len(), 1, "exactly one entity in room after finalize");
     assert!(entities.contains(&entity), "entity should be tracked after finalize");
+}
+
+#[test]
+fn finalize_after_load_rebuilds_room_tile_entities_for_tile_placements() {
+    let mut ecs = Ecs::default();
+    let entity = ecs.create_entity().finish();
+    let room_id = RoomId(43);
+
+    ecs.get_store_mut::<TilePlacement>()
+        .insert(entity, TilePlacement::new(TileDefId(2), 3, 1));
+    ecs.get_store_mut::<CurrentRoom>().insert(entity, CurrentRoom(room_id));
+
+    assert_eq!(ecs.tile_entity_at(room_id, 3, 1), None);
+
+    ecs.finalize_after_load();
+
+    assert_eq!(ecs.tile_entity_at(room_id, 3, 1), Some(entity));
 }
 
 #[test]
@@ -323,6 +384,7 @@ fn restore_next_entity_id_empty_ecs_defaults_to_1() {
         stores: HashMap::new(),
         next_entity_id: 42,
         room_entities: HashMap::new(),
+        room_tile_entities: HashMap::new(),
     };
     ecs.restore_next_entity_id();
     assert_eq!(ecs.next_entity_id, 1);

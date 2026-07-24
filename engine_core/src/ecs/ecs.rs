@@ -20,6 +20,8 @@ pub struct Ecs {
     pub(crate) next_entity_id: usize,
     /// Room-index: maps RoomId -> set of Entities in that room.
     pub(crate) room_entities: HashMap<RoomId, HashSet<Entity>>,
+    /// Room/cell tile index: maps RoomId -> cell -> tile placement Entity.
+    pub(crate) room_tile_entities: HashMap<RoomId, HashMap<(usize, usize), Entity>>,
 }
 
 impl Default for Ecs {
@@ -28,6 +30,7 @@ impl Default for Ecs {
             stores: HashMap::new(),
             next_entity_id: 1,
             room_entities: HashMap::new(),
+            room_tile_entities: HashMap::new(),
         }
     }
 }
@@ -446,6 +449,7 @@ impl<'de> Deserialize<'de> for Ecs {
             stores,
             next_entity_id: 1,
             room_entities: HashMap::new(),
+            room_tile_entities: HashMap::new(),
         };
         ecs.restore_next_entity_id();
         Ok(ecs)
@@ -509,7 +513,8 @@ impl Ecs {
             }
         }
 
-        // Rebuild room membership from CurrentRoom components
+        // Rebuild room and tile membership indexes from derived components
         self.rebuild_room_entities();
+        self.rebuild_room_tile_entities();
     }
 }

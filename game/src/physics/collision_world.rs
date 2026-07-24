@@ -57,26 +57,26 @@ impl CollisionWorld {
     ) -> Self {
         let mut solids = Vec::new();
 
-        for &entity in ecs.entities_in_room(room.id) {
-            if let Some(tile) = ecs.get::<TilePlacement>(entity) {
-                if ecs.get::<Solid>(entity).is_some_and(|solid| solid.0) {
-                    let tile_pos = room.position
-                        + vec2(tile.grid_x as f32 * world.grid_size, tile.grid_y as f32 * world.grid_size);
-                    let tile_aabb = (
-                        tile_pos,
-                        tile_pos + vec2(world.grid_size, world.grid_size),
-                    );
-                    solids.push(SolidObj {
-                        aabb: tile_aabb,
-                        shape: ColliderShape::Aabb {
-                            width: world.grid_size,
-                            height: world.grid_size,
-                        },
-                        shape_pos: tile_pos,
-                        entity: Some(entity),
-                    });
-                }
+        for &entity in ecs.tile_entities_in_room(room.id).values() {
+            let Some(tile) = ecs.get::<TilePlacement>(entity) else {
                 continue;
+            };
+            if ecs.get::<Solid>(entity).is_some_and(|solid| solid.0) {
+                let tile_pos = room.position
+                    + vec2(tile.grid_x as f32 * world.grid_size, tile.grid_y as f32 * world.grid_size);
+                let tile_aabb = (
+                    tile_pos,
+                    tile_pos + vec2(world.grid_size, world.grid_size),
+                );
+                solids.push(SolidObj {
+                    aabb: tile_aabb,
+                    shape: ColliderShape::Aabb {
+                        width: world.grid_size,
+                        height: world.grid_size,
+                    },
+                    shape_pos: tile_pos,
+                    entity: Some(entity),
+                });
             }
         }
 

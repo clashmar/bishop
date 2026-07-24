@@ -9,7 +9,7 @@ use crate::tilemap::resize_handle::*;
 use bishop::prelude::*;
 use engine_core::assets::SpriteManager;
 use engine_core::controls::Controls;
-use engine_core::ecs::{Ecs, TilePlacement};
+use engine_core::ecs::Ecs;
 use engine_core::tiles::{draw_room_tile_placements, TileDefId, TileMap, TileRegistry};
 use engine_core::worlds::*;
 
@@ -318,12 +318,7 @@ impl TileMapEditor {
             None => return,
         };
 
-        let existing = ecs
-            .entities_in_room(room_id)
-            .iter()
-            .copied()
-            .filter_map(|entity| ecs.get::<TilePlacement>(entity).copied())
-            .find(|tile| (tile.grid_x, tile.grid_y) == (x, y));
+        let existing = ecs.tile_placement_at(room_id, x, y);
 
         if ctx.is_mouse_button_down(MouseButton::Left) && ctx.is_key_down(KeyCode::LeftAlt) {
             if existing.is_some() {

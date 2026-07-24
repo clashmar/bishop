@@ -1,8 +1,7 @@
 use crate::app::EditorMode;
 use crate::commands::editor_command_manager::EditorCommand;
 use crate::with_editor;
-use engine_core::ecs::{Ecs, Entity, TilePlacement};
-use engine_core::game::GameCtxMut;
+use engine_core::ecs::{Ecs, TilePlacement};
 use engine_core::tiles::{TileDefId, apply_tile_placement_definition};
 use engine_core::worlds::RoomId;
 
@@ -42,9 +41,10 @@ impl SetTilePlacementCmd {
         }
 
         with_editor(|editor| {
-            self.before = room_tile_placements(&editor.game.ecs, self.room_id)
-                .into_iter()
-                .find(|placement| (placement.grid_x, placement.grid_y) == self.cell);
+            self.before = editor
+                .game
+                .ecs
+                .tile_placement_at(self.room_id, self.cell.0, self.cell.1);
         });
 
         self.state_captured = true;
@@ -52,23 +52,15 @@ impl SetTilePlacementCmd {
 
     fn apply(&self, placement: Option<TilePlacement>) {
         with_editor(|editor| {
-            let existing_entities: Vec<_> = editor
+            let existing_entity = editor
                 .game
                 .ecs
-                .entities_in_room(self.room_id)
-                .iter()
-                .copied()
-                .filter(|entity| {
-                    editor
-                        .game
-                        .ecs
-                        .get::<TilePlacement>(*entity)
-                        .is_some_and(|tile| (tile.grid_x, tile.grid_y) == self.cell)
-                })
-                .collect();
+                .tile_entity_at(self.room_id, self.cell.0, self.cell.1);
 
             let ctx = &mut editor.game.ctx_mut();
-            remove_entities(ctx, &existing_entities);
+            if let Some(entity) = existing_entity {
+                Ecs::remove_entity(ctx, entity);
+            }
 
             if let Some(placement) = placement {
                 let entity = ctx
@@ -95,19 +87,5 @@ impl EditorCommand for SetTilePlacementCmd {
 
     fn applies_in_mode(&self, current_mode: EditorMode) -> bool {
         current_mode == EditorMode::Room(self.room_id)
-    }
-}
-
-fn room_tile_placements(ecs: &Ecs, room_id: RoomId) -> Vec<TilePlacement> {
-    ecs.entities_in_room(room_id)
-        .iter()
-        .copied()
-        .filter_map(|entity| ecs.get::<TilePlacement>(entity).copied())
-        .collect()
-}
-
-fn remove_entities(ctx: &mut GameCtxMut<'_>, entities: &[Entity]) {
-    for &entity in entities {
-        Ecs::remove_entity(ctx, entity);
     }
 }
