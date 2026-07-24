@@ -1,11 +1,14 @@
 use crate::ecs::{CurrentRoom, Ecs, TilePlacement};
 use crate::ecs::entity::Entity;
+use crate::tiles::{TileDefId, TileRegistry};
 use crate::worlds::room::RoomId;
 use once_cell::sync::Lazy;
 use std::collections::{HashMap, HashSet};
 
 /// Empty set returned when a room has no tracked entities.
 static EMPTY_ROOM: Lazy<HashSet<Entity>> = Lazy::new(HashSet::new);
+/// Empty set returned when a tile definition has no linked placements.
+static EMPTY_TILE_DEF_SET: Lazy<HashSet<Entity>> = Lazy::new(HashSet::new);
 /// Empty tile map returned when a room has no tracked tile entities.
 static EMPTY_TILE_MAP: Lazy<HashMap<(usize, usize), Entity>> = Lazy::new(HashMap::new);
 
@@ -14,6 +17,11 @@ impl Ecs {
     /// Returns an empty set if the room has no tracked entities.
     pub fn entities_in_room(&self, room_id: RoomId) -> &HashSet<Entity> {
         self.room_entities.get(&room_id).unwrap_or(&EMPTY_ROOM)
+    }
+
+    /// Returns a reference to the linked tile-placement set for `tile_id`.
+    pub fn tile_entities_for_definition(&self, tile_id: TileDefId) -> &HashSet<Entity> {
+        self.tile_definition_entities.get(&tile_id).unwrap_or(&EMPTY_TILE_DEF_SET)
     }
 
     /// Returns a reference to the room/cell tile index for `room_id`.
@@ -37,6 +45,33 @@ impl Ecs {
     ) -> Option<TilePlacement> {
         let entity = self.tile_entity_at(room_id, grid_x, grid_y)?;
         self.get::<TilePlacement>(entity).copied()
+    }
+
+    /// Returns the number of tile placements referencing missing tile definitions.
+    pub fn missing_tile_definition_count(&self, tile_registry: &TileRegistry) -> usize {
+        self.get_store::<TilePlacement>()
+            .data
+            .values()
+            .filter(|placement| tile_registry.get(placement.definition).is_none())
+            .count()
+    }
+
+    /// Returns the number of duplicate tile placements sharing one room/cell.
+    pub fn duplicate_tile_occupancy_count(&self) -> usize {
+        let mut seen = HashSet::new();
+        let mut duplicates = 0;
+
+        for (&entity, placement) in &self.get_store::<TilePlacement>().data {
+            let Some(room_id) = self.get::<CurrentRoom>(entity).map(|room| room.0) else {
+                continue;
+            };
+
+            if !seen.insert((room_id, placement.grid_x, placement.grid_y)) {
+                duplicates += 1;
+            }
+        }
+
+        duplicates
     }
 
     /// Removes room membership for an entity if it has one.
@@ -117,6 +152,23 @@ impl Ecs {
         }
     }
 
+    /// Rebuild `tile_definition_entities` from scratch by scanning `TilePlacement` components.
+    pub fn rebuild_tile_definition_entities(&mut self) {
+        self.tile_definition_entities.clear();
+        let placements: Vec<(Entity, TilePlacement)> = {
+            let tile_store = self.get_store::<TilePlacement>();
+            tile_store.data.iter().map(|(&entity, placement)| (entity, *placement)).collect()
+        };
+
+        for (entity, placement) in placements {
+            self.index_tile_definition_entity(placement.definition, entity);
+        }
+    }
+
+    pub(crate) fn index_tile_definition_entity(&mut self, tile_id: TileDefId, entity: Entity) {
+        self.tile_definition_entities.entry(tile_id).or_default().insert(entity);
+    }
+
     pub(crate) fn index_tile_placement(
         &mut self,
         room_id: RoomId,
@@ -151,6 +203,15 @@ impl Ecs {
             }
             if tiles.is_empty() {
                 self.room_tile_entities.remove(&room_id);
+            }
+        }
+    }
+
+    pub(crate) fn unindex_tile_definition_entity(&mut self, tile_id: TileDefId, entity: Entity) {
+        if let Some(entities) = self.tile_definition_entities.get_mut(&tile_id) {
+            entities.remove(&entity);
+            if entities.is_empty() {
+                self.tile_definition_entities.remove(&tile_id);
             }
         }
     }

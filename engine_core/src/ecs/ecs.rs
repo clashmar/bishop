@@ -4,6 +4,7 @@ use crate::ecs::entity::*;
 use crate::ecs::has_any::HasAny;
 use crate::ecs::{CurrentRoom, Player, PlayerProxy, Transform};
 use crate::game::GameCtxMut;
+use crate::tiles::TileDefId;
 use crate::worlds::room::RoomId;
 use once_cell::sync::Lazy;
 use ron::value::RawValue;
@@ -22,6 +23,8 @@ pub struct Ecs {
     pub(crate) room_entities: HashMap<RoomId, HashSet<Entity>>,
     /// Room/cell tile index: maps RoomId -> cell -> tile placement Entity.
     pub(crate) room_tile_entities: HashMap<RoomId, HashMap<(usize, usize), Entity>>,
+    /// Reverse tile-definition index: maps TileDefId -> linked tile placement Entities.
+    pub(crate) tile_definition_entities: HashMap<TileDefId, HashSet<Entity>>,
 }
 
 impl Default for Ecs {
@@ -31,6 +34,7 @@ impl Default for Ecs {
             next_entity_id: 1,
             room_entities: HashMap::new(),
             room_tile_entities: HashMap::new(),
+            tile_definition_entities: HashMap::new(),
         }
     }
 }
@@ -450,6 +454,7 @@ impl<'de> Deserialize<'de> for Ecs {
             next_entity_id: 1,
             room_entities: HashMap::new(),
             room_tile_entities: HashMap::new(),
+            tile_definition_entities: HashMap::new(),
         };
         ecs.restore_next_entity_id();
         Ok(ecs)
@@ -516,5 +521,6 @@ impl Ecs {
         // Rebuild room and tile membership indexes from derived components
         self.rebuild_room_entities();
         self.rebuild_room_tile_entities();
+        self.rebuild_tile_definition_entities();
     }
 }

@@ -65,3 +65,36 @@ fn set_tile_placement_cmd_when_placed_then_runtime_components_apply_and_undo_res
         assert_eq!(editor.game.ecs.tile_entity_at(room_id, 2, 3), None);
     });
 }
+
+#[test]
+fn set_tile_placement_cmd_when_one_linked_tile_is_cleared_then_sibling_placement_stays_intact() {
+    let _ctx = setup_editor("tile_placement_sibling_independence");
+    enter_room_mode();
+
+    let (room_id, tile_id) = with_editor(|editor| {
+        let room_id = editor.cur_room_id.expect("room mode should select a room");
+        let tile_id = editor.game.tile_registry.insert(TileDef {
+            sprite_id: SpriteId(6),
+            components: vec![tile_definition_component_snapshot(Solid(true))],
+        });
+        (room_id, tile_id)
+    });
+
+    push_command(Box::new(SetTilePlacementCmd::place(room_id, (1, 1), tile_id)));
+    push_command(Box::new(SetTilePlacementCmd::place(room_id, (2, 1), tile_id)));
+    apply_pending_commands();
+
+    push_command(Box::new(SetTilePlacementCmd::clear(room_id, (1, 1))));
+    apply_pending_commands();
+
+    with_editor(|editor| {
+        assert_eq!(editor.game.ecs.tile_entity_at(room_id, 1, 1), None);
+
+        let sibling = editor
+            .game
+            .ecs
+            .tile_entity_at(room_id, 2, 1)
+            .expect("sibling placement should remain after clearing one linked tile");
+        assert!(editor.game.ecs.get::<Solid>(sibling).is_some_and(|solid| solid.0));
+    });
+}

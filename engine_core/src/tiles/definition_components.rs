@@ -116,13 +116,7 @@ pub fn apply_tile_placement_definition(ctx: &mut GameCtxMut<'_>, entity: Entity)
 
 /// Re-applies one tile definition to every linked placement.
 pub(crate) fn sync_tile_definition_in_ctx(ctx: &mut GameCtxMut<'_>, tile_id: TileDefId) {
-    let linked_entities: Vec<_> = ctx
-        .ecs
-        .get_store::<TilePlacement>()
-        .data
-        .iter()
-        .filter_map(|(&entity, placement)| (placement.definition == tile_id).then_some(entity))
-        .collect();
+    let linked_entities: Vec<_> = ctx.ecs.tile_entities_for_definition(tile_id).iter().copied().collect();
 
     for entity in linked_entities {
         apply_tile_definition_to_entity(ctx, entity, tile_id);
@@ -314,5 +308,126 @@ mod tests {
 
         assert_eq!(game.ecs.get::<Name>(entity).map(|name| name.0.as_str()), Some("Cracked"));
         assert!(game.ecs.get::<Solid>(entity).is_some_and(|solid| solid.0));
+    }
+
+    #[test]
+    fn tile_definition_reflow_when_definition_changes_then_only_linked_placements_refresh() {
+        let mut game = Game::default();
+        let refreshed_tile_id = game.tile_registry.insert(TileDef {
+            sprite_id: SpriteId(1),
+            components: vec![tile_definition_component_snapshot(Solid(true))],
+        });
+        let untouched_tile_id = game.tile_registry.insert(TileDef {
+            sprite_id: SpriteId(2),
+            components: vec![tile_definition_component_snapshot(Solid(true))],
+        });
+        let refreshed = game
+            .ecs
+            .create_entity()
+            .with(TilePlacement::new(refreshed_tile_id, 0, 0))
+            .with_current_room(RoomId(1))
+            .finish();
+        let untouched = game
+            .ecs
+            .create_entity()
+            .with(TilePlacement::new(untouched_tile_id, 1, 0))
+            .with_current_room(RoomId(1))
+            .finish();
+
+        {
+            let mut ctx = game.ctx_mut();
+            apply_tile_definition_to_entity(&mut ctx, refreshed, refreshed_tile_id);
+            apply_tile_definition_to_entity(&mut ctx, untouched, untouched_tile_id);
+        }
+
+        game.tile_registry.replace(
+            refreshed_tile_id,
+            TileDef {
+                sprite_id: SpriteId(1),
+                components: Vec::new(),
+            },
+        );
+        {
+            let mut ctx = game.ctx_mut();
+            sync_tile_definition_in_ctx(&mut ctx, refreshed_tile_id);
+        }
+
+        assert!(!game.ecs.has::<Solid>(refreshed));
+        assert!(game.ecs.get::<Solid>(untouched).is_some_and(|solid| solid.0));
+    }
+
+    #[test]
+    fn tile_definition_reflow_when_many_linked_placements_exist_then_only_target_definition_updates() {
+        let mut game = Game::default();
+        let refreshed_tile_id = game.tile_registry.insert(TileDef {
+            sprite_id: SpriteId(1),
+            components: vec![tile_definition_component_snapshot(Solid(true))],
+        });
+        let untouched_tile_id = game.tile_registry.insert(TileDef {
+            sprite_id: SpriteId(2),
+            components: vec![tile_definition_component_snapshot(Solid(true))],
+        });
+        let mut refreshed_entities = Vec::new();
+        let mut untouched_entities = Vec::new();
+
+        for index in 0..128 {
+            let (tile_id, store) = if index % 2 == 0 {
+                (refreshed_tile_id, &mut refreshed_entities)
+            } else {
+                (untouched_tile_id, &mut untouched_entities)
+            };
+            let entity = game
+                .ecs
+                .create_entity()
+                .with(TilePlacement::new(tile_id, index, 0))
+                .with_current_room(RoomId(1))
+                .finish();
+            store.push(entity);
+        }
+
+        {
+            let mut ctx = game.ctx_mut();
+            for &entity in refreshed_entities.iter().chain(untouched_entities.iter()) {
+                let tile_id = ctx
+                    .ecs
+                    .get::<TilePlacement>(entity)
+                    .map(|placement| placement.definition)
+                    .expect("large-room sanity tile should keep its placement link");
+                apply_tile_definition_to_entity(&mut ctx, entity, tile_id);
+            }
+        }
+
+        assert_eq!(
+            game.ecs.tile_entities_for_definition(refreshed_tile_id).len(),
+            refreshed_entities.len(),
+        );
+        assert_eq!(
+            game.ecs.tile_entities_for_definition(untouched_tile_id).len(),
+            untouched_entities.len(),
+        );
+
+        game.tile_registry.replace(
+            refreshed_tile_id,
+            TileDef {
+                sprite_id: SpriteId(1),
+                components: Vec::new(),
+            },
+        );
+        game.sync_tile_definition(refreshed_tile_id);
+
+        assert_eq!(
+            game.ecs.tile_entities_for_definition(refreshed_tile_id).len(),
+            refreshed_entities.len(),
+        );
+        assert_eq!(
+            game.ecs.tile_entities_for_definition(untouched_tile_id).len(),
+            untouched_entities.len(),
+        );
+        assert!(refreshed_entities
+            .iter()
+            .all(|&entity| !game.ecs.has::<Solid>(entity)));
+        assert!(untouched_entities
+            .iter()
+            .all(|&entity| game.ecs.get::<Solid>(entity).is_some_and(|solid| solid.0)));
     }
 }

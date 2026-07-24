@@ -50,7 +50,7 @@ pub fn draw_room_tile_placements<C: BishopContext>(
     room_position: Vec2,
     grid_size: f32,
 ) {
-    for &entity in ecs.entities_in_room(room_id) {
+    for &entity in ecs.tile_entities_in_room(room_id).values() {
         let Some(tile) = ecs.get::<TilePlacement>(entity) else {
             continue;
         };
@@ -89,5 +89,30 @@ pub fn draw_room_tile_placements<C: BishopContext>(
                 ..Default::default()
             },
         );
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::ecs::CurrentRoom;
+    use crate::tiles::TileDefId;
+
+    #[test]
+    fn room_tile_draw_entities_when_room_contains_non_tile_entity_then_returns_only_tiles() {
+        let mut ecs = Ecs::default();
+        let room_id = RoomId(1);
+        let tile_entity = ecs.create_entity().finish();
+        let non_tile_entity = ecs.create_entity().finish();
+
+        ecs.insert_component(tile_entity, TilePlacement::new(TileDefId(1), 2, 3));
+        ecs.insert_component(tile_entity, CurrentRoom(room_id));
+        ecs.insert_component(non_tile_entity, CurrentRoom(room_id));
+
+        ecs.room_entities.insert(room_id, std::iter::once(non_tile_entity).collect());
+
+        let draw_entities: Vec<_> = ecs.tile_entities_in_room(room_id).values().copied().collect();
+
+        assert_eq!(draw_entities, vec![tile_entity]);
     }
 }

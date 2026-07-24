@@ -56,6 +56,8 @@ impl DiagnosticsPanel {
             entity_count,
             component_store_count: ecs.stores.len(),
             components_by_type: std::collections::HashMap::new(),
+            missing_tile_definition_count: ecs.missing_tile_definition_count(&game.tile_registry),
+            duplicate_tile_occupancy_count: ecs.duplicate_tile_occupancy_count(),
         };
 
         // Command metrics

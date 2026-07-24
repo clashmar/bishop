@@ -1,10 +1,11 @@
 use super::*;
 use crate::assets::asset_registry::AssetRegistry;
 use crate::assets::sprite_manager::SpriteManager;
+use crate::ecs::SpriteId;
 use crate::game::GameCtxMut;
 use crate::prefab::PrefabManager;
 use crate::scripting::script_manager::ScriptManager;
-use crate::tiles::{TileDefId, TileRegistry};
+use crate::tiles::{TileDef, TileDefId, TileRegistry};
 use crate::worlds::room::RoomId;
 use std::collections::HashMap;
 
@@ -113,6 +114,22 @@ fn tile_placement_insert_tracks_room_tile_entities() {
 }
 
 #[test]
+fn tile_placement_insert_tracks_definition_link_entities() {
+    let mut ecs = Ecs::default();
+    let first = ecs.create_entity().finish();
+    let second = ecs.create_entity().finish();
+    let tile_id = TileDefId(12);
+
+    ecs.insert_component(first, TilePlacement::new(tile_id, 2, 4));
+    ecs.insert_component(second, TilePlacement::new(tile_id, 3, 4));
+
+    let linked = ecs.tile_entities_for_definition(tile_id);
+    assert_eq!(linked.len(), 2);
+    assert!(linked.contains(&first));
+    assert!(linked.contains(&second));
+}
+
+#[test]
 fn tile_placement_remove_untracks_room_tile_entities() {
     let mut ecs = Ecs::default();
     let entity = ecs.create_entity().finish();
@@ -125,6 +142,34 @@ fn tile_placement_remove_untracks_room_tile_entities() {
     Ecs::remove_component::<TilePlacement>(&mut ctx, entity);
 
     assert_eq!(ecs.tile_entity_at(room_id, 1, 3), None);
+}
+
+#[test]
+fn tile_placement_remove_untracks_definition_link_entities() {
+    let mut ecs = Ecs::default();
+    let entity = ecs.create_entity().finish();
+    let tile_id = TileDefId(13);
+
+    ecs.insert_component(entity, TilePlacement::new(tile_id, 1, 3));
+
+    make_game_ctx!(&mut ecs, ctx);
+    Ecs::remove_component::<TilePlacement>(&mut ctx, entity);
+
+    assert!(!ecs.tile_entities_for_definition(tile_id).contains(&entity));
+}
+
+#[test]
+fn remove_entity_when_tile_placement_exists_then_definition_link_index_is_cleared() {
+    let mut ecs = Ecs::default();
+    let entity = ecs.create_entity().finish();
+    let tile_id = TileDefId(15);
+
+    ecs.insert_component(entity, TilePlacement::new(tile_id, 1, 3));
+
+    make_game_ctx!(&mut ecs, ctx);
+    Ecs::remove_entity(&mut ctx, entity);
+
+    assert!(!ecs.tile_entities_for_definition(tile_id).contains(&entity));
 }
 
 #[test]
@@ -199,6 +244,72 @@ fn finalize_after_load_rebuilds_room_tile_entities_for_tile_placements() {
     ecs.finalize_after_load();
 
     assert_eq!(ecs.tile_entity_at(room_id, 3, 1), Some(entity));
+}
+
+#[test]
+fn finalize_after_load_rebuilds_definition_link_entities_for_tile_placements() {
+    let mut ecs = Ecs::default();
+    let first = ecs.create_entity().finish();
+    let second = ecs.create_entity().finish();
+    let tile_id = TileDefId(14);
+
+    ecs.get_store_mut::<TilePlacement>()
+        .insert(first, TilePlacement::new(tile_id, 3, 1));
+    ecs.get_store_mut::<TilePlacement>()
+        .insert(second, TilePlacement::new(tile_id, 4, 1));
+
+    assert!(ecs.tile_entities_for_definition(tile_id).is_empty());
+
+    ecs.finalize_after_load();
+
+    let linked = ecs.tile_entities_for_definition(tile_id);
+    assert_eq!(linked.len(), 2);
+    assert!(linked.contains(&first));
+    assert!(linked.contains(&second));
+}
+
+#[test]
+fn missing_tile_definition_count_when_some_references_are_unknown_then_counts_each_missing_placement() {
+    let mut ecs = Ecs::default();
+    let first = ecs.create_entity().finish();
+    let second = ecs.create_entity().finish();
+    let known = ecs.create_entity().finish();
+    let mut tile_registry = TileRegistry::default();
+    let known_tile_id = tile_registry.insert(TileDef {
+        sprite_id: SpriteId(1),
+        components: Vec::new(),
+    });
+
+    ecs.insert_component(first, TilePlacement::new(TileDefId(99), 0, 0));
+    ecs.insert_component(second, TilePlacement::new(TileDefId(99), 1, 0));
+    ecs.insert_component(known, TilePlacement::new(known_tile_id, 2, 0));
+
+    assert_eq!(ecs.missing_tile_definition_count(&tile_registry), 2);
+}
+
+#[test]
+fn duplicate_tile_occupancy_count_when_multiple_placements_share_room_cell_then_counts_each_extra_placement() {
+    let mut ecs = Ecs::default();
+    let first = ecs.create_entity().finish();
+    let second = ecs.create_entity().finish();
+    let third = ecs.create_entity().finish();
+    let different_cell = ecs.create_entity().finish();
+    let room_id = RoomId(44);
+
+    ecs.get_store_mut::<TilePlacement>()
+        .insert(first, TilePlacement::new(TileDefId(1), 2, 3));
+    ecs.get_store_mut::<CurrentRoom>().insert(first, CurrentRoom(room_id));
+    ecs.get_store_mut::<TilePlacement>()
+        .insert(second, TilePlacement::new(TileDefId(2), 2, 3));
+    ecs.get_store_mut::<CurrentRoom>().insert(second, CurrentRoom(room_id));
+    ecs.get_store_mut::<TilePlacement>()
+        .insert(third, TilePlacement::new(TileDefId(3), 2, 3));
+    ecs.get_store_mut::<CurrentRoom>().insert(third, CurrentRoom(room_id));
+    ecs.get_store_mut::<TilePlacement>()
+        .insert(different_cell, TilePlacement::new(TileDefId(4), 3, 3));
+    ecs.get_store_mut::<CurrentRoom>().insert(different_cell, CurrentRoom(room_id));
+
+    assert_eq!(ecs.duplicate_tile_occupancy_count(), 2);
 }
 
 #[test]
@@ -385,6 +496,7 @@ fn restore_next_entity_id_empty_ecs_defaults_to_1() {
         next_entity_id: 42,
         room_entities: HashMap::new(),
         room_tile_entities: HashMap::new(),
+        tile_definition_entities: HashMap::new(),
     };
     ecs.restore_next_entity_id();
     assert_eq!(ecs.next_entity_id, 1);
