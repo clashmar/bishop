@@ -117,7 +117,7 @@ impl Toast {
 mod tests {
     use super::*;
     use bishop::prelude::*;
-    use widgets::test_utils::{DrawTextCall, WidgetTestContext};
+    use widgets::test_utils::WidgetTestContext;
 
     #[test]
     fn toast_centers_text_using_baseline_offset() {
