@@ -70,6 +70,7 @@ fn room_entity_create_command_assigns_parent_and_supports_undo_redo() {
 
     push_command(Box::new(CreateSceneEntityCmd::new_room_entity(
         room_id,
+        RoomLayer::Front,
         Vec2::new(32.0, 48.0),
         Some(parent),
     )));
@@ -111,6 +112,42 @@ fn room_entity_create_command_assigns_parent_and_supports_undo_redo() {
             Some(Vec2::new(32.0, 48.0))
         );
         assert_eq!(editor.room_editor.single_selected_entity(), Some(recreated));
+    });
+}
+
+#[test]
+fn create_scene_entity_command_uses_requested_layer() {
+    let _lock = game_fs_test_lock()
+        .lock()
+        .unwrap_or_else(|poison| poison.into_inner());
+    let test_game = TestGameFolder::new("create_scene_room_entity_requested_layer");
+    let (mut editor, room_id) = make_room_editor(&test_game);
+    editor
+        .game
+        .current_world_mut()
+        .expect("world should exist")
+        .get_room_mut(room_id)
+        .expect("room should exist")
+        .current_variant_mut()
+        .layers
+        .back = Some(BackRoomLayer::default());
+    let _guard = EditorServicesGuard::install(editor);
+
+    push_command(Box::new(CreateSceneEntityCmd::new_room_entity(
+        room_id,
+        RoomLayer::Back,
+        Vec2::new(32.0, 48.0),
+        None,
+    )));
+    apply_pending_commands();
+
+    with_editor(|editor| {
+        let created = find_room_entity(&editor.game.ecs, room_id, None)
+            .expect("room entity should exist");
+        assert_eq!(
+            editor.game.ecs.get::<CurrentRoom>(created).map(|room| room.layer),
+            Some(RoomLayer::Back)
+        );
     });
 }
 
@@ -225,6 +262,7 @@ fn player_proxy_create_command_supports_undo_redo() {
 
     push_command(Box::new(CreateSceneEntityCmd::new_player_proxy(
         room_id,
+        RoomLayer::Front,
         Vec2::new(64.0, 96.0),
     )));
     apply_pending_commands();
@@ -294,6 +332,7 @@ fn create_room_camera_execute_creates_entity_with_correct_components() {
 
     push_command(Box::new(CreateSceneEntityCmd::new_room_camera(
         room_id,
+        RoomLayer::Front,
         Vec2::new(100.0, 200.0),
         grid_size,
     )));
@@ -332,6 +371,7 @@ fn create_room_camera_undo_removes_entity() {
 
     push_command(Box::new(CreateSceneEntityCmd::new_room_camera(
         room_id,
+        RoomLayer::Front,
         Vec2::new(100.0, 200.0),
         grid_size,
     )));
@@ -366,6 +406,7 @@ fn create_room_camera_redo_recreates_entity() {
 
     push_command(Box::new(CreateSceneEntityCmd::new_room_camera(
         room_id,
+        RoomLayer::Front,
         Vec2::new(100.0, 200.0),
         grid_size,
     )));
@@ -404,7 +445,12 @@ fn create_room_camera_applies_only_in_matching_room_mode() {
         .add_room(second_room);
     let _guard = EditorServicesGuard::install(editor);
 
-    let cmd = CreateSceneEntityCmd::new_room_camera(room_id, Vec2::ZERO, grid_size);
+    let cmd = CreateSceneEntityCmd::new_room_camera(
+        room_id,
+        RoomLayer::Front,
+        Vec2::ZERO,
+        grid_size,
+    );
     assert!(cmd.applies_in_mode(EditorMode::Room(room_id)));
     assert!(!cmd.applies_in_mode(EditorMode::Room(second_room_id)));
     assert!(!cmd.applies_in_mode(EditorMode::Game(GameEditorSubmode::Worlds)));

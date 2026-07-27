@@ -53,6 +53,7 @@ impl RoomEditor {
         push_command(Box::new(PlacePrefabInstanceCmd::new(
             prefab_id,
             room_id,
+            self.active_layer_state.active_layer,
             snapped_position,
             EditorMode::Room(room_id),
         )));
@@ -98,11 +99,12 @@ impl RoomEditor {
             // Find ALL entities under cursor and select topmost by z-order
             // Tuple: (entity, z, is_camera) - cameras always on top
             let mut candidates: Vec<(Entity, i32, bool)> = Vec::new();
+            let active_layer = self.active_layer_state.active_layer;
             let layer_store = ecs.get_store::<Layer>();
             let camera_store = ecs.get_store::<RoomCamera>();
 
             for (entity, pos) in ecs.get_store::<Transform>().data.iter() {
-                if !can_select_entity_in_room(ecs, *entity, room_id) {
+                if !can_select_entity_in_room_layer(ecs, *entity, room_id, active_layer) {
                     continue;
                 }
                 let hitbox = entity_hitbox(
@@ -274,8 +276,9 @@ impl RoomEditor {
                         let box_rect = rect_from_two_points(start, mouse_world);
 
                         // Find all entities within the box
+                        let active_layer = self.active_layer_state.active_layer;
                         for (entity, pos) in ecs.get_store::<Transform>().data.iter() {
-                            if !can_select_entity_in_room(ecs, *entity, room_id) {
+                            if !can_select_entity_in_room_layer(ecs, *entity, room_id, active_layer) {
                                 continue;
                             }
                             let entity_rect = entity_world_rect(
@@ -579,9 +582,10 @@ impl RoomEditor {
         }
 
         let mut moves = Vec::new();
+        let active_layer = self.active_layer_state.active_layer;
 
         for &entity in &self.selected_entities {
-            if !can_select_entity_in_room(ecs, entity, room_id) {
+            if !can_select_entity_in_room_layer(ecs, entity, room_id, active_layer) {
                 continue;
             }
 

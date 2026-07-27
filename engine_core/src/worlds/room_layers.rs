@@ -17,6 +17,17 @@ pub enum LayerCompositionMode {
     DollsHouse,
 }
 
+impl LayerCompositionMode {
+    pub const ALL: [Self; 2] = [Self::Hidden, Self::DollsHouse];
+
+    pub fn ui_label(self) -> &'static str {
+        match self {
+            Self::Hidden => "Hidden",
+            Self::DollsHouse => "Dolls House",
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct InteriorZoneId(pub u64);
 

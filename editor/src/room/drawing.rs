@@ -92,11 +92,21 @@ impl RoomEditor {
         // Reset to static camera
         ctx.set_default_camera();
 
-        let Some(world) = game_ctx.world.as_deref() else {
+        let Some((grid_size, current_room_id, room_has_back_layer)) = game_ctx
+            .world
+            .as_deref()
+            .and_then(|world| {
+                world.current_room().map(|room| {
+                    (
+                        world.grid_size,
+                        room.id,
+                        room.current_variant().layers.back.is_some(),
+                    )
+                })
+            })
+        else {
             return;
         };
-        let grid_size = world.grid_size;
-        let current_room_id = world.current_room_id.unwrap_or_default();
 
         self.draw_coordinates(ctx, camera, grid_size);
 
@@ -130,10 +140,17 @@ impl RoomEditor {
                 );
                 self.sub_mode_rect = Some(bg_rect);
 
-                let (_mode_rect, changed) = self.mode_selector.draw(ctx);
+                let (mode_rect, changed) = self.mode_selector.draw(ctx);
                 if changed {
                     self.set_mode(self.mode_selector.current);
                 }
+                self.draw_layer_toggle_button(
+                    ctx,
+                    &*game_ctx.ecs,
+                    current_room_id,
+                    room_has_back_layer,
+                    mode_rect,
+                );
 
                 let (sub_rect, sub_changed) = draw_sub_mode_strip(
                     ctx,
@@ -182,6 +199,13 @@ impl RoomEditor {
                 if changed {
                     self.set_mode(self.mode_selector.current);
                 }
+                self.draw_layer_toggle_button(
+                    ctx,
+                    &*game_ctx.ecs,
+                    current_room_id,
+                    room_has_back_layer,
+                    mode_rect,
+                );
 
                 let scene_icon_x =
                     parent_mode_icon_x(ctx, &self.mode_selector, RoomEditorMode::Scene);
@@ -260,7 +284,7 @@ impl RoomEditor {
     }
 
     /// Draw viewport rectangles for all cameras in the room when a camera is selected.
-    pub fn draw_camera_viewport(
+    pub fn draw_camera_viewports(
         &self,
         ctx: &mut WgpuContext,
         editor_cam: &Camera2D,
@@ -317,6 +341,38 @@ impl RoomEditor {
                 top_left.x, top_left.y, viewport_w, viewport_h, thickness, color,
             );
         }
+    }
+
+    fn draw_layer_toggle_button(
+        &mut self,
+        ctx: &mut WgpuContext,
+        ecs: &Ecs,
+        room_id: RoomId,
+        has_back_layer: bool,
+        mode_rect: Rect,
+    ) {
+        if !has_back_layer {
+            return;
+        }
+
+        let front_dims = measure_text(ctx, "Front", layout::HEADER_FONT_SIZE_20);
+        let back_dims = measure_text(ctx, "Back", layout::HEADER_FONT_SIZE_20);
+        let width = front_dims.width.max(back_dims.width) + layout::WIDGET_PADDING * 2.0;
+        let rect = Rect::new(
+            mode_rect.x - layout::WIDGET_SPACING - width,
+            INSET,
+            width,
+            BTN_HEIGHT,
+        );
+        let label = match self.active_layer_state.active_layer {
+            RoomLayer::Front => "Front",
+            RoomLayer::Back => "Back",
+        };
+
+        if menu_button(ctx, rect, label, false, false) {
+            self.toggle_active_layer(ecs, room_id, has_back_layer);
+        }
+        self.register_rect(rect);
     }
 }
 

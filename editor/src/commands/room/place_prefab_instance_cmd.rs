@@ -11,17 +11,25 @@ pub struct PlacePrefabInstanceCmd {
     mode: EditorMode,
     prefab_id: PrefabId,
     room_id: RoomId,
+    layer: RoomLayer,
     position: Vec2,
     placed_root: Option<Entity>,
     snapshot: Option<GroupSnapshot>,
 }
 
 impl PlacePrefabInstanceCmd {
-    pub fn new(prefab_id: PrefabId, room_id: RoomId, position: Vec2, mode: EditorMode) -> Self {
+    pub fn new(
+        prefab_id: PrefabId,
+        room_id: RoomId,
+        layer: RoomLayer,
+        position: Vec2,
+        mode: EditorMode,
+    ) -> Self {
         Self {
             mode,
             prefab_id,
             room_id,
+            layer,
             position,
             placed_root: None,
             snapshot: None,
@@ -54,6 +62,13 @@ impl EditorCommand for PlacePrefabInstanceCmd {
                     return;
                 }
 
+                if self.layer != RoomLayer::Front {
+                    let entities = collect_subtree_entities(&editor.game.ecs, root);
+                    for entity in entities {
+                        editor.game.ecs.set_entity_layer(entity, self.layer);
+                    }
+                }
+
                 self.snapshot = Some(capture_subtree(&mut editor.game.ecs, root));
                 self.placed_root = Some(root);
             }
@@ -77,6 +92,23 @@ impl EditorCommand for PlacePrefabInstanceCmd {
     fn applies_in_mode(&self, current_mode: EditorMode) -> bool {
         self.mode == current_mode
     }
+}
+
+fn collect_subtree_entities(ecs: &Ecs, root: Entity) -> Vec<Entity> {
+    let mut entities = Vec::new();
+    let mut stack = vec![root];
+
+    while let Some(entity) = stack.pop() {
+        entities.push(entity);
+
+        if let Some(children) = ecs.get::<Children>(entity) {
+            for &child in &children.entities {
+                stack.push(child);
+            }
+        }
+    }
+
+    entities
 }
 
 #[cfg(test)]
@@ -141,6 +173,7 @@ mod tests {
         let mut cmd = PlacePrefabInstanceCmd::new(
             prefab_id,
             room_id,
+            RoomLayer::Front,
             Vec2::new(32.0, 64.0),
             EditorMode::Room(room_id),
         );
@@ -180,6 +213,10 @@ mod tests {
             assert!(editor.game.ecs.has::<PrefabInstanceRoot>(first_root));
             let root = editor.game.ecs.get::<PrefabInstanceRoot>(first_root);
             assert!(root.is_some_and(|root| root.prefab_id == prefab_id));
+            assert_eq!(
+                editor.game.ecs.get::<Name>(first_root).map(|name| name.0.as_str()),
+                Some("Crate")
+            );
             assert_eq!(
                 editor.room_editor.single_selected_entity(),
                 Some(first_root)

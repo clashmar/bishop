@@ -43,6 +43,17 @@ impl RoomEditor {
             }
         }
 
+        let has_back_layer = room.current_variant().layers.back.is_some();
+        if Controls::tab(ctx) {
+            if self.view_preview {
+                let next_camera =
+                    get_next_room_camera(ctx, ecs, room.id, grid_size, self.preview_camera_id);
+                self.preview_camera_id = next_camera.map(|c| c.id);
+            } else {
+                self.toggle_active_layer(ecs, room.id, has_back_layer);
+            }
+        }
+
         match self.mode {
             RoomEditorMode::Tilemap => {}
             RoomEditorMode::Scene => {
@@ -68,11 +79,6 @@ impl RoomEditor {
                     }
                 }
 
-                if self.view_preview && Controls::tab(ctx) {
-                    let next_camera =
-                        get_next_room_camera(ctx, ecs, room.id, grid_size, self.preview_camera_id);
-                    self.preview_camera_id = next_camera.map(|c| c.id);
-                }
 
                 if Controls::paste(ctx) {
                     push_command(Box::new(PasteEntityCmd::new(EditorMode::Room(room.id))));
@@ -80,7 +86,11 @@ impl RoomEditor {
 
                 // Select all entities in room
                 if Controls::select_all(ctx) {
-                    self.select_all_in_room(ecs, room.id);
+                    self.select_all_in_room_layer(
+                        ecs,
+                        room.id,
+                        self.active_layer_state.active_layer,
+                    );
                 }
 
                 // Duplicate selected entities

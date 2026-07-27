@@ -1,5 +1,5 @@
 use super::*;
-use engine_core::worlds::RoomLayer;
+use engine_core::worlds::{BackRoomLayer, RoomLayer};
 
 fn enter_room_mode() {
     with_editor(|editor| {
@@ -39,7 +39,12 @@ fn set_tile_placement_cmd_when_placed_then_runtime_components_apply_and_undo_res
         (room_id, tile_id)
     });
 
-    push_command(Box::new(SetTilePlacementCmd::place(room_id, (2, 3), tile_id)));
+    push_command(Box::new(SetTilePlacementCmd::place(
+        room_id,
+        RoomLayer::Front,
+        (2, 3),
+        tile_id,
+    )));
     apply_pending_commands();
 
     with_editor(|editor| {
@@ -68,6 +73,47 @@ fn set_tile_placement_cmd_when_placed_then_runtime_components_apply_and_undo_res
 }
 
 #[test]
+fn set_tile_placement_cmd_targets_the_requested_layer() {
+    let _ctx = setup_editor("tile_placement_cmd_requested_layer");
+    enter_room_mode();
+
+    let (room_id, tile_id) = with_editor(|editor| {
+        let room_id = editor.cur_room_id.expect("room mode should select a room");
+        editor
+            .game
+            .current_world_mut()
+            .expect("world should exist")
+            .get_room_mut(room_id)
+            .expect("room should exist")
+            .current_variant_mut()
+            .layers
+            .back = Some(BackRoomLayer::default());
+        let tile_id = editor.game.tile_registry.insert(TileDef {
+            sprite_id: SpriteId(8),
+            components: Vec::new(),
+        });
+        (room_id, tile_id)
+    });
+
+    push_command(Box::new(SetTilePlacementCmd::place(
+        room_id,
+        RoomLayer::Back,
+        (4, 5),
+        tile_id,
+    )));
+    apply_pending_commands();
+
+    with_editor(|editor| {
+        assert!(editor
+            .game
+            .ecs
+            .tile_entity_at(room_id, RoomLayer::Back, 4, 5)
+            .is_some());
+        assert_eq!(editor.game.ecs.tile_entity_at(room_id, RoomLayer::Front, 4, 5), None);
+    });
+}
+
+#[test]
 fn set_tile_placement_cmd_when_one_linked_tile_is_cleared_then_sibling_placement_stays_intact() {
     let _ctx = setup_editor("tile_placement_sibling_independence");
     enter_room_mode();
@@ -81,11 +127,25 @@ fn set_tile_placement_cmd_when_one_linked_tile_is_cleared_then_sibling_placement
         (room_id, tile_id)
     });
 
-    push_command(Box::new(SetTilePlacementCmd::place(room_id, (1, 1), tile_id)));
-    push_command(Box::new(SetTilePlacementCmd::place(room_id, (2, 1), tile_id)));
+    push_command(Box::new(SetTilePlacementCmd::place(
+        room_id,
+        RoomLayer::Front,
+        (1, 1),
+        tile_id,
+    )));
+    push_command(Box::new(SetTilePlacementCmd::place(
+        room_id,
+        RoomLayer::Front,
+        (2, 1),
+        tile_id,
+    )));
     apply_pending_commands();
 
-    push_command(Box::new(SetTilePlacementCmd::clear(room_id, (1, 1))));
+    push_command(Box::new(SetTilePlacementCmd::clear(
+        room_id,
+        RoomLayer::Front,
+        (1, 1),
+    )));
     apply_pending_commands();
 
     with_editor(|editor| {

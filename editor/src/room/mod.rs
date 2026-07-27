@@ -1,9 +1,14 @@
 pub(crate) mod collider_drag;
 pub mod drawing;
 mod entity_drag;
+pub mod layer_state;
 pub(crate) mod prefab_preview;
 pub mod room_editor;
 mod selection;
 mod shortcuts;
 
-pub use selection::{entity_hitbox, entity_world_rect};
+pub use selection::{
+    can_select_entity_in_room_layer,
+    entity_hitbox,
+    entity_world_rect,
+};

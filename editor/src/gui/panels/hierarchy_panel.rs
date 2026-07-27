@@ -157,8 +157,9 @@ impl PanelDefinition for HierarchyPanel {
             get_root_entities(ecs, &all)
         };
 
+        let active_room_layer = room_editor.active_layer_state.active_layer;
         let room_entities = if let Some(room_id) = cur_room_id {
-            let entities = ecs.entities_in_room(room_id).clone();
+            let entities = ecs.entities_in_room_layer(room_id, active_room_layer).clone();
             let entities: Vec<Entity> = entities
                 .into_iter()
                 .filter(|e| !ecs.has::<Singleton>(*e))
@@ -282,7 +283,9 @@ impl PanelDefinition for HierarchyPanel {
                     .show(ctx);
                     if !blocked && clicked {
                         push_command(Box::new(CreateSceneEntityCmd::new_player_proxy(
-                            room_id, spawn_pos,
+                            room_id,
+                            active_room_layer,
+                            spawn_pos,
                         )));
                     }
                 }

@@ -12,7 +12,8 @@ use crate::gui::inspector::shell::Inspector;
 use crate::gui::mode_selector::*;
 use crate::prefab::reconcile_recent_prefab_ids;
 use crate::room::drawing::*;
-use crate::room::selection::DragState;
+use crate::room::layer_state::RoomLayerState;
+use crate::room::selection::{DragState, can_select_entity_in_room_layer};
 use crate::shared::input::{canvas_blocked_by_global_ui, shortcuts_blocked};
 use crate::shared::scene_ui::inspector::{CreateRequest, PrefabActionRequest};
 use crate::shared::selection::draw_selection_box;
@@ -111,6 +112,7 @@ pub struct RoomEditor {
     pub mode_selector: ModeSelector<RoomEditorMode>,
     pub tilemap_editor: TileMapEditor,
     pub inspector: Inspector,
+    pub active_layer_state: RoomLayerState,
     pub selected_entities: HashSet<Entity>,
     pub active_prefab_id: Option<PrefabId>,
     pub recent_prefab_ids: Vec<PrefabId>,
@@ -147,6 +149,7 @@ impl RoomEditor {
             },
             tilemap_editor: TileMapEditor::new(),
             inspector,
+            active_layer_state: RoomLayerState::default(),
             selected_entities: HashSet::new(),
             active_prefab_id: None,
             recent_prefab_ids: Vec::new(),
@@ -203,6 +206,11 @@ impl RoomEditor {
                 None => vec![],
             }
         };
+
+        let room_has_back_layer = current_world
+            .get_room(room_id)
+            .is_some_and(|room| room.current_variant().layers.back.is_some());
+        self.sync_active_layer_for_room(ecs, room_id, room_has_back_layer);
 
         let room = current_world
             .rooms_mut()
@@ -287,6 +295,7 @@ impl RoomEditor {
                 if let Some(create_request) = self.create_request.take() {
                     push_command(Box::new(CreateSceneEntityCmd::new_room_entity(
                         room.id,
+                        self.active_layer_state.active_layer,
                         room.position,
                         create_request.parent,
                     )));
@@ -296,6 +305,7 @@ impl RoomEditor {
                 if let Some(cam_grid_size) = self.create_camera_request.take() {
                     push_command(Box::new(CreateSceneEntityCmd::new_room_camera(
                         room.id,
+                        self.active_layer_state.active_layer,
                         room.position,
                         cam_grid_size,
                     )));
@@ -376,6 +386,52 @@ impl RoomEditor {
         match mode {
             RoomEditorMode::Tilemap => self.inspector.select_tilemap(),
             RoomEditorMode::Scene => self.sync_inspector_to_selection(),
+        }
+    }
+
+    pub(crate) fn prune_selection_to_active_layer(&mut self, ecs: &Ecs, room_id: RoomId) {
+        let active_layer = self.active_layer_state.active_layer;
+        self.selected_entities
+            .retain(|entity| can_select_entity_in_room_layer(ecs, *entity, room_id, active_layer));
+        self.sync_inspector_to_selection();
+    }
+
+    pub(crate) fn set_active_layer(&mut self, ecs: &Ecs, room_id: RoomId, layer: RoomLayer) {
+        if self.active_layer_state.active_layer != layer {
+            self.disable_active_edit_modes();
+            self.active_layer_state.active_layer = layer;
+        }
+        self.tilemap_editor.active_layer = self.active_layer_state.active_layer;
+        self.prune_selection_to_active_layer(ecs, room_id);
+    }
+
+    pub(crate) fn toggle_active_layer(
+        &mut self,
+        ecs: &Ecs,
+        room_id: RoomId,
+        has_back_layer: bool,
+    ) {
+        if !has_back_layer {
+            self.set_active_layer(ecs, room_id, RoomLayer::Front);
+            return;
+        }
+
+        let mut next_state = self.active_layer_state;
+        next_state.toggle();
+        self.set_active_layer(ecs, room_id, next_state.active_layer);
+    }
+
+    pub(crate) fn sync_active_layer_for_room(
+        &mut self,
+        ecs: &Ecs,
+        room_id: RoomId,
+        has_back_layer: bool,
+    ) {
+        if has_back_layer {
+            self.tilemap_editor.active_layer = self.active_layer_state.active_layer;
+            self.prune_selection_to_active_layer(ecs, room_id);
+        } else {
+            self.set_active_layer(ecs, room_id, RoomLayer::Front);
         }
     }
 
@@ -566,7 +622,7 @@ impl RoomEditor {
                                     grid_size,
                                 );
                             }
-                            self.draw_camera_viewport(ctx, camera, ecs, selected_entity, room_id);
+                            self.draw_camera_viewports(ctx, camera, ecs, selected_entity, room_id);
                             draw_pivot_marker(ctx, ecs, selected_entity);
                         }
 
@@ -602,6 +658,7 @@ impl RoomEditor {
         self.mode = RoomEditorMode::Scene;
         self.mode_selector.current = RoomEditorMode::Scene;
         self.selected_entities.clear();
+        self.active_layer_state = RoomLayerState::default();
         self.create_request = None;
         self.prefab_action_request = None;
         self.create_camera_request = None;

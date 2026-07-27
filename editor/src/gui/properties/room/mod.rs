@@ -1,4 +1,5 @@
 pub mod room_audio_source_module;
+pub mod room_layers_module;
 pub mod room_name_module;
 pub mod room_script_module;
 pub mod room_tags_module;
@@ -33,6 +34,7 @@ impl RoomProperties {
                 Box::new(CollapsiblePropertyModule::new(room_name_module::RoomNameModule::new())),
                 Box::new(CollapsiblePropertyModule::new(room_script_module::RoomScriptModule::new())),
                 Box::new(CollapsiblePropertyModule::new(room_audio_source_module::RoomAudioSourceModule::new())),
+                Box::new(CollapsiblePropertyModule::new(room_layers_module::RoomLayersModule::new())),
                 Box::new(CollapsiblePropertyModule::new(room_tags_module::RoomTagsModule::for_room())),
             ],
         }

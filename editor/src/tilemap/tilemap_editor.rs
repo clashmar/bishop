@@ -52,6 +52,7 @@ impl ModeInfo for TilemapEditorMode {
 
 pub struct TileMapEditor {
     pub mode: TilemapEditorMode,
+    pub active_layer: RoomLayer,
     resize_handles: Vec<ResizeHandle>,
     active_handle_index: Option<usize>,
     preview_valid: bool,
@@ -68,6 +69,7 @@ impl TileMapEditor {
     pub fn new() -> Self {
         Self {
             mode: TilemapEditorMode::Tiles,
+            active_layer: RoomLayer::Front,
             resize_handles: Vec::new(),
             active_handle_index: None,
             preview_valid: true,
@@ -194,6 +196,7 @@ impl TileMapEditor {
 
     pub fn reset(&mut self) {
         self.mode = TilemapEditorMode::Tiles;
+        self.active_layer = RoomLayer::Front;
         self.initialized = false;
         self.selected_tile_def = None;
         self.external_ui_blocked = false;
@@ -318,11 +321,11 @@ impl TileMapEditor {
             None => return,
         };
 
-        let existing = ecs.tile_placement_at(room_id, RoomLayer::Front, x, y);
+        let existing = ecs.tile_placement_at(room_id, self.active_layer, x, y);
 
         if ctx.is_mouse_button_down(MouseButton::Left) && ctx.is_key_down(KeyCode::LeftAlt) {
             if existing.is_some() {
-                push_command(Box::new(SetTilePlacementCmd::clear(room_id, (x, y))));
+                push_command(Box::new(SetTilePlacementCmd::clear(room_id, self.active_layer, (x, y))));
             }
             return;
         }
@@ -334,7 +337,7 @@ impl TileMapEditor {
         if ctx.is_mouse_button_down(MouseButton::Left)
             && existing.is_none_or(|tile| tile.definition != def_id)
         {
-            push_command(Box::new(SetTilePlacementCmd::place(room_id, (x, y), def_id)));
+            push_command(Box::new(SetTilePlacementCmd::place(room_id, self.active_layer, (x, y), def_id)));
         }
     }
 
@@ -519,7 +522,7 @@ impl TileMapEditor {
             GridPos(p) if p.y as usize == map.height - 1 => ExitDirection::Down,
             GridPos(p) if p.x == 0 => ExitDirection::Left,
             GridPos(p) if p.x as usize == map.width - 1 => ExitDirection::Right,
-            _ => ExitDirection::Up, // default for safety
+            _ => unreachable!("Hovered edge positions should always map to one exit direction"),
         }
     }
 

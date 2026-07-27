@@ -113,12 +113,12 @@ impl RoomEditor {
         }
     }
 
-    /// Selects all entities in the specified room.
-    pub fn select_all_in_room(&mut self, ecs: &Ecs, room_id: RoomId) {
+    /// Selects all entities in one room/layer pair.
+    pub fn select_all_in_room_layer(&mut self, ecs: &Ecs, room_id: RoomId, layer: RoomLayer) {
         self.disable_active_edit_modes();
         self.selected_entities.clear();
         for (entity, _) in ecs.get_store::<Transform>().data.iter() {
-            if can_select_entity_in_room(ecs, *entity, room_id) {
+            if can_select_entity_in_room_layer(ecs, *entity, room_id, layer) {
                 self.selected_entities.insert(*entity);
             }
         }
@@ -199,9 +199,24 @@ pub fn entity_world_rect(
 
 /// Returns true if an entity can be selected in a room (is in the room).
 pub fn can_select_entity_in_room(ecs: &Ecs, entity: Entity, room_id: RoomId) -> bool {
-    // Make sure the entity is in the requested room
     match ecs.get_store::<CurrentRoom>().get(entity) {
         Some(CurrentRoom { room_id: id, .. }) => *id == room_id,
+        None => false,
+    }
+}
+
+/// Returns true if an entity can be selected in one room/layer pair.
+pub fn can_select_entity_in_room_layer(
+    ecs: &Ecs,
+    entity: Entity,
+    room_id: RoomId,
+    layer: RoomLayer,
+) -> bool {
+    match ecs.get_store::<CurrentRoom>().get(entity) {
+        Some(CurrentRoom {
+            room_id: id,
+            layer: entity_layer,
+        }) => *id == room_id && *entity_layer == layer,
         None => false,
     }
 }

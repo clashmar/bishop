@@ -8,6 +8,7 @@ use engine_core::worlds::{RoomId, RoomLayer};
 #[derive(Debug)]
 pub struct SetTilePlacementCmd {
     room_id: RoomId,
+    layer: RoomLayer,
     cell: (usize, usize),
     before: Option<TilePlacement>,
     after: Option<TilePlacement>,
@@ -15,9 +16,10 @@ pub struct SetTilePlacementCmd {
 }
 
 impl SetTilePlacementCmd {
-    pub fn place(room_id: RoomId, cell: (usize, usize), definition: TileDefId) -> Self {
+    pub fn place(room_id: RoomId, layer: RoomLayer, cell: (usize, usize), definition: TileDefId) -> Self {
         Self {
             room_id,
+            layer,
             cell,
             before: None,
             after: Some(TilePlacement::new(definition, cell.0, cell.1)),
@@ -25,9 +27,10 @@ impl SetTilePlacementCmd {
         }
     }
 
-    pub fn clear(room_id: RoomId, cell: (usize, usize)) -> Self {
+    pub fn clear(room_id: RoomId, layer: RoomLayer, cell: (usize, usize)) -> Self {
         Self {
             room_id,
+            layer,
             cell,
             before: None,
             after: None,
@@ -44,7 +47,7 @@ impl SetTilePlacementCmd {
             self.before = editor
                 .game
                 .ecs
-                .tile_placement_at(self.room_id, RoomLayer::Front, self.cell.0, self.cell.1);
+                .tile_placement_at(self.room_id, self.layer, self.cell.0, self.cell.1);
         });
 
         self.state_captured = true;
@@ -55,7 +58,7 @@ impl SetTilePlacementCmd {
             let existing_entity = editor
                 .game
                 .ecs
-                .tile_entity_at(self.room_id, RoomLayer::Front, self.cell.0, self.cell.1);
+                .tile_entity_at(self.room_id, self.layer, self.cell.0, self.cell.1);
 
             let ctx = &mut editor.game.ctx_mut();
             if let Some(entity) = existing_entity {
@@ -67,7 +70,7 @@ impl SetTilePlacementCmd {
                     .ecs
                     .create_entity()
                     .with(placement)
-                    .with_current_room(self.room_id)
+                    .with_current_room_layer(self.room_id, self.layer)
                     .finish();
                 apply_tile_placement_definition(ctx, entity);
             }
