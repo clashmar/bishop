@@ -28,7 +28,7 @@ use engine_core::camera::get_room_camera_by_id;
 use engine_core::controls::{Controls};
 use engine_core::ecs::*;
 use engine_core::game::Game;
-use engine_core::rendering::{render_room, RenderSystem};
+use engine_core::rendering::{render_room, RenderSystem, RoomRenderState};
 use engine_core::worlds::*;
 use widgets::*;
 use once_cell::sync::Lazy;
@@ -567,7 +567,16 @@ impl RoomEditor {
                         render_system.resize_to_window(ctx);
                     }
 
-                    render_room(ctx, &mut game_ctx, render_cam, 0.0, None);
+                    render_room(
+                        ctx,
+                        &mut game_ctx,
+                        render_cam,
+                        RoomRenderState {
+                            current_layer: self.active_layer_state.active_layer,
+                        },
+                        0.0,
+                        None,
+                    );
 
                     if view_preview {
                         render_system.end_scene(ctx);
@@ -594,8 +603,21 @@ impl RoomEditor {
                         let sprite_manager = &mut *game_ctx.sprite_manager;
 
                         draw_exit_placeholders(ctx, &room.exits, room.position, grid_size);
-                        draw_entity_placeholders(ctx, ecs, sprite_manager, room_id, grid_size);
-                        draw_entity_range_circles_in_room(ctx, ecs, room_id, grid_size);
+                        draw_entity_placeholders(
+                            ctx,
+                            ecs,
+                            sprite_manager,
+                            room_id,
+                            self.active_layer_state.active_layer,
+                            grid_size,
+                        );
+                        draw_entity_range_circles_in_room(
+                            ctx,
+                            ecs,
+                            room_id,
+                            self.active_layer_state.active_layer,
+                            grid_size,
+                        );
                         if self.scene_sub_mode == RoomSceneSubMode::Stamp
                             && !self.should_block_canvas(ctx)
                         {
@@ -622,7 +644,14 @@ impl RoomEditor {
                                     grid_size,
                                 );
                             }
-                            self.draw_camera_viewports(ctx, camera, ecs, selected_entity, room_id);
+                            self.draw_camera_viewports(
+                                ctx,
+                                camera,
+                                ecs,
+                                selected_entity,
+                                room_id,
+                                self.active_layer_state.active_layer,
+                            );
                             draw_pivot_marker(ctx, ecs, selected_entity);
                         }
 

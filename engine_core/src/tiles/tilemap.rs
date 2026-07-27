@@ -24,36 +24,19 @@ impl TileMap {
             background: Color::LIGHTGREY,
         }
     }
-
-    pub fn draw_background<C: BishopContext>(
-        &self,
-        ctx: &mut C,
-        room_position: Vec2,
-        grid_size: f32,
-    ) {
-        ctx.draw_rectangle(
-            room_position.x,
-            room_position.y,
-            self.width as f32 * grid_size,
-            self.height as f32 * grid_size,
-            self.background,
-        );
-    }
 }
 
 pub fn draw_room_tile_placements<C: BishopContext>(
     ctx: &mut C,
     ecs: &Ecs,
     room_id: RoomId,
+    layer: RoomLayer,
     tile_registry: &TileRegistry,
     sprite_manager: &mut SpriteManager,
     room_position: Vec2,
     grid_size: f32,
 ) {
-    for &entity in ecs
-        .tile_entities_in_room_layer(room_id, RoomLayer::Front)
-        .values()
-    {
+    for &entity in ecs.tile_entities_in_room_layer(room_id, layer).values() {
         let Some(tile) = ecs.get::<TilePlacement>(entity) else {
             continue;
         };
@@ -100,6 +83,22 @@ mod tests {
     use super::*;
     use crate::ecs::CurrentRoom;
     use crate::tiles::TileDefId;
+    use crate::worlds::room::RoomVariant;
+
+    #[test]
+    fn room_variant_background_is_read_from_room_variant_not_tilemap() {
+        let variant = RoomVariant {
+            background: Color::MAGENTA,
+            tilemap: TileMap {
+                background: Color::GREEN,
+                ..TileMap::new(4, 4)
+            },
+            ..Default::default()
+        };
+
+        assert_eq!(variant.background, Color::MAGENTA);
+        assert_eq!(variant.tilemap.background, Color::GREEN);
+    }
 
     #[test]
     fn room_tile_draw_entities_when_room_contains_non_tile_entity_then_returns_only_tiles() {
@@ -121,5 +120,26 @@ mod tests {
             .collect();
 
         assert_eq!(draw_entities, vec![tile_entity]);
+    }
+
+    #[test]
+    fn room_tile_draw_entities_when_layer_is_back_then_returns_only_back_tiles() {
+        let mut ecs = Ecs::default();
+        let room_id = RoomId(1);
+        let front_tile = ecs.create_entity().finish();
+        let back_tile = ecs.create_entity().finish();
+
+        ecs.insert_component(front_tile, TilePlacement::new(TileDefId(1), 2, 3));
+        ecs.insert_component(front_tile, CurrentRoom::front(room_id));
+        ecs.insert_component(back_tile, TilePlacement::new(TileDefId(2), 4, 5));
+        ecs.insert_component(back_tile, CurrentRoom::new(room_id, RoomLayer::Back));
+
+        let draw_entities: Vec<_> = ecs
+            .tile_entities_in_room_layer(room_id, RoomLayer::Back)
+            .values()
+            .copied()
+            .collect();
+
+        assert_eq!(draw_entities, vec![back_tile]);
     }
 }

@@ -1,12 +1,12 @@
 // NOTE: Multi-pass rendering temporarily disabled while rewiring codebase.
-use bishop::prelude::*;
-use crate::ecs::*;
+use crate::assets::*;
 use crate::ecs::components::transform::Pivot;
+use crate::ecs::*;
+use crate::game::*;
 use crate::rendering::*;
 use crate::tiles::draw_room_tile_placements;
 use crate::worlds::*;
-use crate::assets::*;
-use crate::game::*;
+use bishop::prelude::*;
 use std::collections::{BTreeMap, HashMap, HashSet};
 
 #[derive(Default)]
@@ -15,12 +15,44 @@ pub struct LayerData<'a> {
     pub glows: Vec<(&'a Glow, Vec2)>,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct RoomRenderState {
+    pub current_layer: RoomLayer,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct VisibleRoomLayers {
+    pub ordered_layers: Vec<RoomLayer>,
+}
+
+pub fn visible_layers_for_state(
+    layers: &RoomLayers,
+    state: RoomRenderState,
+) -> VisibleRoomLayers {
+    let ordered_layers = match &layers.back {
+        None => vec![RoomLayer::Front],
+        Some(back) => match (back.composition_mode, state.current_layer) {
+            (LayerCompositionMode::Hidden, RoomLayer::Front) => vec![RoomLayer::Front],
+            (LayerCompositionMode::Hidden, RoomLayer::Back) => vec![RoomLayer::Back],
+            (LayerCompositionMode::DollsHouse, RoomLayer::Front) => {
+                vec![RoomLayer::Back, RoomLayer::Front]
+            }
+            (LayerCompositionMode::DollsHouse, RoomLayer::Back) => {
+                vec![RoomLayer::Back, RoomLayer::Front]
+            }
+        },
+    };
+
+    VisibleRoomLayers { ordered_layers }
+}
+
 /// Draws everything needed for the given room.
 /// Currently uses simplified single-pass rendering.
 pub fn render_room<C: BishopContext>(
     ctx: &mut C,
     game_ctx: &mut GameCtxMut<'_>,
     render_cam: &Camera2D,
+    state: RoomRenderState,
     alpha: f32,
     prev_positions: Option<&HashMap<Entity, Vec2>>,
 ) {
@@ -33,52 +65,57 @@ pub fn render_room<C: BishopContext>(
 
     let grid_size = world.grid_size;
 
-    // Organize entities by layer
-    let layer_map = collect_interpolated_layer_map(
-        game_ctx.ecs,
-        world,
-        current_room,
-        game_ctx.sprite_manager,
-        alpha,
-        prev_positions,
-        grid_size,
-    );
-
     // Set up camera and clear background
     ctx.set_camera(render_cam);
     ctx.clear_background(Color::BLACK);
 
-    // Draw tilemap first
-    let tilemap = &current_room.current_variant().tilemap;
-    tilemap.draw_background(ctx, current_room.position, grid_size);
-    draw_room_tile_placements(
-        ctx,
-        game_ctx.ecs,
-        current_room.id,
-        game_ctx.tile_registry,
-        game_ctx.sprite_manager,
-        current_room.position,
-        grid_size,
-    );
+    let variant = current_room.current_variant();
+    let visible_layers = visible_layers_for_state(&variant.layers, state);
 
-    // Draw all entities sorted by layer
-    for (_z, layer) in layer_map {
-        for (entity, pos) in layer.entities {
-            draw_entity(
-                ctx,
-                game_ctx.ecs,
-                game_ctx.sprite_manager,
-                entity,
-                pos,
-                grid_size,
-            );
+    variant.draw_background(ctx, current_room.position, current_room.size, grid_size);
+
+    for room_layer in visible_layers.ordered_layers {
+        draw_room_tile_placements(
+            ctx,
+            game_ctx.ecs,
+            current_room.id,
+            room_layer,
+            game_ctx.tile_registry,
+            game_ctx.sprite_manager,
+            current_room.position,
+            grid_size,
+        );
+
+        let layer_map = collect_interpolated_layer_map(
+            game_ctx.ecs,
+            world,
+            current_room,
+            room_layer,
+            game_ctx.sprite_manager,
+            alpha,
+            prev_positions,
+            grid_size,
+        );
+
+        // Draw all entities sorted by layer
+        for (_z, layer) in layer_map {
+            for (entity, pos) in layer.entities {
+                draw_entity(
+                    ctx,
+                    game_ctx.ecs,
+                    game_ctx.sprite_manager,
+                    entity,
+                    pos,
+                    grid_size,
+                );
+            }
+
+            // TODO: Re-enable multi-pass rendering
+            // render_system.run_ambient_pass(ctx, room.darkness);
+            // render_system.run_glow_pass(ctx, render_cam, glows, sprite_manager);
+            // render_system.run_undarkened_pass(ctx);
+            // render_system.run_scene_pass(ctx);
         }
-
-        // TODO: Re-enable multi-pass rendering
-        // render_system.run_ambient_pass(ctx, room.darkness);
-        // render_system.run_glow_pass(ctx, render_cam, glows, sprite_manager);
-        // render_system.run_undarkened_pass(ctx);
-        // render_system.run_scene_pass(ctx);
     }
 
     // TODO: Re-enable multi-pass rendering
@@ -128,6 +165,7 @@ fn collect_interpolated_layer_map<'a>(
     ecs: &'a Ecs,
     world: &World,
     room: &Room,
+    room_layer: RoomLayer,
     sprite_manager: &SpriteManager,
     alpha: f32,
     prev_positions: Option<&HashMap<Entity, Vec2>>,
@@ -147,6 +185,13 @@ fn collect_interpolated_layer_map<'a>(
             ecs.assert_room_membership(candidate_room_id, entity);
 
             if !seen.insert(entity) {
+                continue;
+            }
+
+            if ecs
+                .get::<CurrentRoom>(entity)
+                .is_some_and(|current_room| current_room.layer != room_layer)
+            {
                 continue;
             }
 
@@ -216,7 +261,69 @@ mod tests {
     use super::*;
     use crate::rendering::test_support::make_vertical_spillover_fixture;
     use crate::worlds::test_utils::make_room;
-    use crate::worlds::WorldId;
+    use crate::worlds::{BackRoomLayer, LayerCompositionMode, RoomLayer, RoomLayers, WorldId};
+
+    #[test]
+    fn current_layer_front_when_hidden_then_renders_front_only() {
+        let visible = visible_layers_for_state(
+            &RoomLayers {
+                back: Some(BackRoomLayer::default()),
+            },
+            RoomRenderState {
+                current_layer: RoomLayer::Front,
+            },
+        );
+
+        assert_eq!(visible.ordered_layers, vec![RoomLayer::Front]);
+    }
+
+    #[test]
+    fn current_layer_back_when_hidden_then_renders_back_only() {
+        let visible = visible_layers_for_state(
+            &RoomLayers {
+                back: Some(BackRoomLayer::default()),
+            },
+            RoomRenderState {
+                current_layer: RoomLayer::Back,
+            },
+        );
+
+        assert_eq!(visible.ordered_layers, vec![RoomLayer::Back]);
+    }
+
+    #[test]
+    fn current_layer_front_when_dolls_house_then_renders_back_then_front() {
+        let visible = visible_layers_for_state(
+            &RoomLayers {
+                back: Some(BackRoomLayer {
+                    composition_mode: LayerCompositionMode::DollsHouse,
+                    ..Default::default()
+                }),
+            },
+            RoomRenderState {
+                current_layer: RoomLayer::Front,
+            },
+        );
+
+        assert_eq!(visible.ordered_layers, vec![RoomLayer::Back, RoomLayer::Front]);
+    }
+
+    #[test]
+    fn current_layer_back_when_dolls_house_then_renders_back_then_front() {
+        let visible = visible_layers_for_state(
+            &RoomLayers {
+                back: Some(BackRoomLayer {
+                    composition_mode: LayerCompositionMode::DollsHouse,
+                    ..Default::default()
+                }),
+            },
+            RoomRenderState {
+                current_layer: RoomLayer::Back,
+            },
+        );
+
+        assert_eq!(visible.ordered_layers, vec![RoomLayer::Back, RoomLayer::Front]);
+    }
 
     #[test]
     fn collect_interpolated_layer_map_skips_entities_outside_the_room_index() {
@@ -247,6 +354,7 @@ mod tests {
             &ecs,
             &world,
             world.get_room(room_id).unwrap(),
+            RoomLayer::Front,
             &SpriteManager::default(),
             1.0,
             None,
@@ -267,6 +375,7 @@ mod tests {
             &ecs,
             &world,
             world.get_room(room_id).unwrap(),
+            RoomLayer::Front,
             &SpriteManager::default(),
             1.0,
             None,
@@ -291,6 +400,7 @@ mod tests {
             &ecs,
             &world,
             world.get_room(room_id).unwrap(),
+            RoomLayer::Front,
             &SpriteManager::default(),
             1.0,
             None,
@@ -308,6 +418,7 @@ mod tests {
             &ecs,
             &world,
             world.get_room(room_id).unwrap(),
+            RoomLayer::Front,
             &SpriteManager::default(),
             1.0,
             None,

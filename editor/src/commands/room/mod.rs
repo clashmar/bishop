@@ -8,6 +8,7 @@ mod move_entity_cmd;
 mod paste_entity_cmd;
 mod place_prefab_instance_cmd;
 mod resize_tilemap_cmd;
+mod set_back_layer_composition_mode_cmd;
 mod set_back_layer_enabled_cmd;
 mod set_tile_placement_cmd;
 
@@ -21,6 +22,7 @@ pub use edit_room_tags_cmd::*;
 pub use paste_entity_cmd::*;
 pub use place_prefab_instance_cmd::*;
 pub use resize_tilemap_cmd::*;
+pub use set_back_layer_composition_mode_cmd::*;
 pub use set_back_layer_enabled_cmd::*;
 pub use set_tile_placement_cmd::*;
 

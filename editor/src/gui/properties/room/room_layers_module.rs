@@ -1,12 +1,13 @@
 use super::super::PropertyModule;
-use crate::commands::room::SetBackLayerEnabledCmd;
+use crate::commands::room::{SetBackLayerCompositionModeCmd, SetBackLayerEnabledCmd};
 use crate::editor_global::push_command;
 use crate::shared::scene_ui::inspector::InspectorContext;
 use bishop::prelude::*;
 use engine_core::ecs::inspector::layout::InspectorBodyLayout;
 use engine_core::game::GameCtxMut;
 use engine_core::worlds::room::Room;
-use engine_core::worlds::{BackRoomLayer, LayerCompositionMode};
+use engine_core::worlds::LayerCompositionMode;
+use std::cell::Cell;
 use widgets::constants::{colors, layout};
 use widgets::{Button, Dropdown, WidgetId};
 
@@ -15,14 +16,14 @@ const GAP: f32 = layout::WIDGET_SPACING;
 
 pub struct RoomLayersModule {
     composition_id: WidgetId,
-    show_composition_mode: bool,
+    show_composition_mode: Cell<bool>,
 }
 
 impl RoomLayersModule {
     pub fn new() -> Self {
         Self {
             composition_id: WidgetId::default(),
-            show_composition_mode: false,
+            show_composition_mode: Cell::new(false),
         }
     }
 }
@@ -34,6 +35,12 @@ impl Default for RoomLayersModule {
 }
 
 impl PropertyModule<Room> for RoomLayersModule {
+    fn visible(&self, room: &Room, _game_ctx: &GameCtxMut) -> bool {
+        self.show_composition_mode
+            .set(room.current_variant().layers.back.is_some());
+        true
+    }
+
     fn draw(
         &mut self,
         ctx: &mut WgpuContext,
@@ -43,8 +50,10 @@ impl PropertyModule<Room> for RoomLayersModule {
         _insp_ctx: &InspectorContext,
     ) {
         let room_id = room.id;
-        let mut back_enabled = room.current_variant().layers.back.is_some();
-        self.show_composition_mode = back_enabled;
+        let Some(world_id) = game_ctx.world.as_deref().map(|world| world.id) else {
+            return;
+        };
+        let back_enabled = room.current_variant().layers.back.is_some();
 
         let button_label = if back_enabled {
             "- Back Layer"
@@ -53,13 +62,11 @@ impl PropertyModule<Room> for RoomLayersModule {
         };
         let button_rect = Rect::new(rect.x, rect.y, rect.w, ROW_H);
         if Button::new(button_rect, button_label).show(ctx) {
-            back_enabled = !back_enabled;
-            push_command(Box::new(SetBackLayerEnabledCmd::new(room_id, back_enabled)));
-            room.current_variant_mut().layers.back = back_enabled.then_some(BackRoomLayer::default());
-            self.show_composition_mode = back_enabled;
+            push_command(Box::new(SetBackLayerEnabledCmd::new(room_id, !back_enabled)));
+            return;
         }
 
-        if !self.show_composition_mode {
+        if !self.show_composition_mode.get() {
             return;
         }
 
@@ -100,30 +107,18 @@ impl PropertyModule<Room> for RoomLayersModule {
                 .find(|mode| mode.ui_label() == selection)
                 .expect("composition dropdown should emit a known mode");
 
-            room.current_variant_mut()
-                .layers
-                .back
-                .get_or_insert_with(BackRoomLayer::default)
-                .composition_mode = selected_mode;
-
-            if let Some(actual_room) = game_ctx
-                .world
-                .as_deref_mut()
-                .and_then(|world| world.get_room_mut(room_id))
-            {
-                actual_room
-                    .current_variant_mut()
-                    .layers
-                    .back
-                    .get_or_insert_with(BackRoomLayer::default)
-                    .composition_mode = selected_mode;
-            }
+            push_command(Box::new(SetBackLayerCompositionModeCmd::new(
+                world_id,
+                room_id,
+                current_mode,
+                selected_mode,
+            )));
         }
     }
 
     fn body_layout(&self) -> InspectorBodyLayout {
         let mut layout = InspectorBodyLayout::new().rows(1, GAP);
-        if self.show_composition_mode {
+        if self.show_composition_mode.get() {
             layout = layout.gap(GAP).rows(1, GAP);
         }
         layout

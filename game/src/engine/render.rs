@@ -74,10 +74,18 @@ pub(super) fn render_scene<C: BishopContext>(
     alpha: f32,
 ) {
     let render_start = std::time::Instant::now();
+    let render_state = game_instance.current_render_state();
     let mut game_ctx = game_instance.game.ctx_mut();
     let prev_positions = &game_instance.prev_positions;
 
-    render_room(ctx, &mut game_ctx, render_cam, alpha, Some(prev_positions));
+    render_room(
+        ctx,
+        &mut game_ctx,
+        render_cam,
+        render_state,
+        alpha,
+        Some(prev_positions),
+    );
 
     render_system.render_time_ms = render_start.elapsed().as_secs_f32() * 1000.0;
     ctx.set_default_camera();

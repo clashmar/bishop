@@ -171,3 +171,32 @@ pub fn get_next_room_camera(
         origin,
     })
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::worlds::RoomLayer;
+
+    #[test]
+    fn room_camera_queries_filter_to_the_requested_layer() {
+        let mut ecs = Ecs::default();
+        let room_id = RoomId(7);
+
+        ecs.create_entity()
+            .with(Transform::default())
+            .with(RoomCamera::new(room_id, 16.0))
+            .with_current_room(room_id)
+            .finish();
+
+        let back_camera = ecs.create_entity()
+            .with(Transform::default())
+            .with(RoomCamera::new(room_id, 16.0))
+            .with_current_room_layer(room_id, RoomLayer::Back)
+            .finish();
+
+        let cameras = get_room_cameras(&ecs, room_id, RoomLayer::Back);
+
+        assert_eq!(cameras.len(), 1);
+        assert_eq!(cameras[0].0, back_camera);
+    }
+}

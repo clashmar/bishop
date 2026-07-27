@@ -1,11 +1,11 @@
 use bishop::prelude::*;
 use crate::scripting::script_system::ScriptSystem;
-use engine_core::camera::CameraManager;
+use engine_core::camera::{CameraManager, get_room_cameras};
 use engine_core::diagnostics::TraversalResidencyDiagnostics;
 use engine_core::ecs::*;
 use engine_core::game::{Game};
 use engine_core::menu::{drain_menu_events, drain_slider_events};
-use engine_core::rendering::visual_position;
+use engine_core::rendering::{visual_position, RoomRenderState};
 use engine_core::storage::hydrate_initial_payloads_for_runtime;
 use engine_core::worlds::*;
 use mlua::Lua;
@@ -112,6 +112,25 @@ impl GameInstance {
             prev_positions: HashMap::new(),
             traversal_residency_diagnostics: None,
         }
+    }
+
+    pub fn current_render_state(&self) -> RoomRenderState {
+        let current_layer = self
+            .game
+            .ecs
+            .get_player_entity()
+            .and_then(|entity| self.game.ecs.get::<CurrentRoom>(entity).copied())
+            .map(|room| room.layer)
+            .or_else(|| {
+                let room_id = self.game.current_world().current_room_id?;
+                get_room_cameras(&self.game.ecs, room_id)
+                    .into_iter()
+                    .find_map(|(entity, _)| self.game.ecs.get::<CurrentRoom>(entity).copied())
+                    .map(|room| room.layer)
+            })
+            .unwrap_or(RoomLayer::Front);
+
+        RoomRenderState { current_layer }
     }
 
     /// Drains events generated during UI rendering and forwards them to the event bus.

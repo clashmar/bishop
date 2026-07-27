@@ -260,10 +260,13 @@ impl Room {
     }
 }
 
+#[serde_as]
 #[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(default)]
 pub struct RoomVariant {
     pub id: String,
+    #[serde_as(as = "FromInto<[f32; 4]>")]
+    pub background: Color,
     pub tilemap: TileMap,
     pub layers: RoomLayers,
 }
@@ -272,9 +275,28 @@ impl Default for RoomVariant {
     fn default() -> Self {
         Self {
             id: String::new(),
+            background: Color::LIGHTGREY,
             tilemap: TileMap::new(10, 10),
             layers: RoomLayers::default(),
         }
+    }
+}
+
+impl RoomVariant {
+    pub fn draw_background<C: BishopContext>(
+        &self,
+        ctx: &mut C,
+        room_position: Vec2,
+        room_size: Vec2,
+        grid_size: f32,
+    ) {
+        ctx.draw_rectangle(
+            room_position.x,
+            room_position.y,
+            room_size.x * grid_size,
+            room_size.y * grid_size,
+            self.background,
+        );
     }
 }
 

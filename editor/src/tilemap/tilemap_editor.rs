@@ -10,6 +10,7 @@ use bishop::prelude::*;
 use engine_core::assets::SpriteManager;
 use engine_core::controls::Controls;
 use engine_core::ecs::Ecs;
+use engine_core::rendering::{visible_layers_for_state, RoomRenderState};
 use engine_core::tiles::{draw_room_tile_placements, TileDefId, TileMap, TileRegistry};
 use engine_core::worlds::*;
 
@@ -161,29 +162,39 @@ impl TileMapEditor {
     ) {
         let (tile_registry, sprite_manager) = assets;
         let variant_index = room.current_variant_index();
-        let tilemap = &room.variants[variant_index].tilemap;
+        let variant = &room.variants[variant_index];
+        let tilemap = &variant.tilemap;
         let room_position = room.position;
         let room_id = room.id;
         let room_size = room.size;
+        let visible_layers = visible_layers_for_state(
+            &variant.layers,
+            RoomRenderState {
+                current_layer: self.active_layer,
+            },
+        );
 
         ctx.clear_background(Color::BLACK);
         ctx.set_camera(camera);
-        tilemap.draw_background(ctx, room_position, grid_size);
-        draw_room_tile_placements(
-            ctx,
-            ecs,
-            room_id,
-            tile_registry,
-            sprite_manager,
-            room_position,
-            grid_size,
-        );
+        variant.draw_background(ctx, room_position, room_size, grid_size);
+        for layer in visible_layers.ordered_layers {
+            draw_room_tile_placements(
+                ctx,
+                ecs,
+                room_id,
+                layer,
+                tile_registry,
+                sprite_manager,
+                room_position,
+                grid_size,
+            );
+        }
         draw_exit_placeholders(ctx, &room.exits, room_position, grid_size);
         self.draw_adjacent_exits(ctx, grid_size);
         self.draw_hover_highlight(ctx, camera, tilemap, room_position, grid_size);
 
         if self.active_handle_index.is_some() {
-            draw_all_camera_viewports(ctx, camera, ecs, room_id);
+            draw_all_camera_viewports(ctx, camera, ecs, room_id, self.active_layer);
         }
 
         self.draw_resize_handles(

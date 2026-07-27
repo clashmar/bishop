@@ -1,5 +1,9 @@
 pub(super) use crate::app::EditorMode;
-pub(super) use crate::commands::room::{SetBackLayerEnabledCmd, SetTilePlacementCmd};
+pub(super) use crate::commands::room::{
+    SetBackLayerCompositionModeCmd,
+    SetBackLayerEnabledCmd,
+    SetTilePlacementCmd,
+};
 pub(super) use crate::editor_global::{
     apply_pending_commands, push_command, request_undo, with_editor,
 };

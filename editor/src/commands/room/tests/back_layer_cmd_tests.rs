@@ -1,6 +1,6 @@
 use super::*;
 use engine_core::ecs::{Name, TilePlacement, Transform};
-use engine_core::worlds::{BackRoomLayer, RoomLayer};
+use engine_core::worlds::{BackRoomLayer, LayerCompositionMode, RoomLayer};
 
 fn enter_room_mode() {
     with_editor(|editor| {
@@ -23,6 +23,110 @@ fn enter_room_mode() {
         editor.mode = EditorMode::Room(room_id);
         editor.cur_world_id = Some(world_id);
         editor.cur_room_id = Some(room_id);
+    });
+}
+
+#[test]
+fn set_back_layer_composition_mode_cmd_is_undoable() {
+    let _ctx = setup_editor("back_layer_composition_cmd");
+    enter_room_mode();
+
+    let (world_id, room_id) = with_editor(|editor| {
+        let world_id = editor
+            .game
+            .current_world_id
+            .expect("test editor should have a current world");
+        let room_id = editor.cur_room_id.expect("room mode should select a room");
+        editor
+            .game
+            .current_world_mut()
+            .expect("world should exist")
+            .get_room_mut(room_id)
+            .expect("room should exist")
+            .current_variant_mut()
+            .layers
+            .back = Some(BackRoomLayer::default());
+        (world_id, room_id)
+    });
+
+    push_command(Box::new(SetBackLayerCompositionModeCmd::new(
+        world_id,
+        room_id,
+        LayerCompositionMode::Hidden,
+        LayerCompositionMode::DollsHouse,
+    )));
+    apply_pending_commands();
+
+    with_editor(|editor| {
+        let room = editor
+            .game
+            .current_world()
+            .get_room(room_id)
+            .expect("room should exist");
+        assert_eq!(
+            room.current_variant()
+                .layers
+                .back
+                .as_ref()
+                .expect("back layer should exist")
+                .composition_mode,
+            LayerCompositionMode::DollsHouse
+        );
+    });
+
+    request_undo();
+    apply_pending_commands();
+
+    with_editor(|editor| {
+        let room = editor
+            .game
+            .current_world()
+            .get_room(room_id)
+            .expect("room should exist");
+        assert_eq!(
+            room.current_variant()
+                .layers
+                .back
+                .as_ref()
+                .expect("back layer should exist")
+                .composition_mode,
+            LayerCompositionMode::Hidden
+        );
+    });
+}
+
+#[test]
+fn set_back_layer_enabled_cmd_when_back_is_active_then_editor_returns_to_front() {
+    let _ctx = setup_editor("back_layer_active_reset_cmd");
+    enter_room_mode();
+
+    let room_id = with_editor(|editor| {
+        let room_id = editor.cur_room_id.expect("room mode should select a room");
+        editor
+            .game
+            .current_world_mut()
+            .expect("world should exist")
+            .get_room_mut(room_id)
+            .expect("room should exist")
+            .current_variant_mut()
+            .layers
+            .back = Some(BackRoomLayer::default());
+        editor.room_editor.active_layer_state.active_layer = RoomLayer::Back;
+        room_id
+    });
+
+    push_command(Box::new(SetBackLayerEnabledCmd::new(room_id, false)));
+    apply_pending_commands();
+
+    with_editor(|editor| {
+        assert_eq!(editor.room_editor.active_layer_state.active_layer, RoomLayer::Front);
+    });
+
+    request_undo();
+    apply_pending_commands();
+
+    with_editor(|editor| {
+        assert_eq!(editor.room_editor.active_layer_state.active_layer, RoomLayer::Back);
     });
 }
 

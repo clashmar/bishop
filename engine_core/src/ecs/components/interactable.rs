@@ -67,8 +67,44 @@ pub fn find_best_interactable(ecs: &Ecs) -> Option<Entity> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::worlds::room::RoomId;
+    use crate::worlds::{RoomId, RoomLayer};
     use bishop::prelude::Vec2;
+
+    #[test]
+    fn find_best_interactable_ignores_other_layers_in_the_same_room() {
+        let mut ecs = Ecs::default();
+        let room_id = RoomId(3);
+
+        let front_entity = ecs.create_entity()
+            .with(Transform {
+                position: Vec2::new(8.0, 0.0),
+                ..Default::default()
+            })
+            .with(Interactable { range: 100.0 })
+            .with_current_room(room_id)
+            .finish();
+
+        let player = ecs.create_entity()
+            .with(Transform {
+                position: Vec2::new(0.0, 0.0),
+                ..Default::default()
+            })
+            .with(crate::ecs::Player::default())
+            .with_current_room(room_id)
+            .finish();
+
+        ecs.create_entity()
+            .with(Transform {
+                position: Vec2::new(1.0, 0.0),
+                ..Default::default()
+            })
+            .with(Interactable { range: 100.0 })
+            .with_current_room_layer(room_id, RoomLayer::Back)
+            .finish();
+
+        assert_eq!(ecs.get_player_entity(), Some(player));
+        assert_eq!(find_best_interactable(&ecs), Some(front_entity));
+    }
 
     #[test]
     fn find_best_interactable_ignores_other_rooms() {

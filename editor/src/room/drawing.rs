@@ -291,6 +291,7 @@ impl RoomEditor {
         ecs: &Ecs,
         selected: Entity,
         room_id: RoomId,
+        layer: RoomLayer,
     ) {
         // Only draw viewports if the selected entity is a camera
         if !ecs.has::<RoomCamera>(selected) {
@@ -312,7 +313,7 @@ impl RoomEditor {
         let editor_w = (tr.x - bl.x).abs();
         let editor_h = (tr.y - bl.y).abs();
 
-        for &entity in ecs.entities_in_room(room_id) {
+        for &entity in ecs.entities_in_room_layer(room_id, layer) {
             ecs.assert_room_membership(room_id, entity);
 
             let Some(room_cam) = cam_store.get(entity) else {
@@ -563,9 +564,10 @@ pub fn draw_entity_placeholders(
     ecs: &Ecs,
     sprite_manager: &mut SpriteManager,
     room_id: RoomId,
+    layer: RoomLayer,
     grid_size: f32,
 ) {
-    for &entity in ecs.entities_in_room(room_id) {
+    for &entity in ecs.entities_in_room_layer(room_id, layer) {
         ecs.assert_room_membership(room_id, entity);
         let Some(transform) = ecs.get_store::<Transform>().get(entity) else {
             continue;
@@ -689,8 +691,14 @@ pub fn draw_entity_range_circles(ctx: &mut WgpuContext, ecs: &Ecs, entity: Entit
 }
 
 /// Draw range circles for each entity in the room.
-pub fn draw_entity_range_circles_in_room(ctx: &mut WgpuContext, ecs: &Ecs, room_id: RoomId, grid_size: f32) {
-    for &entity in ecs.entities_in_room(room_id) {
+pub fn draw_entity_range_circles_in_room(
+    ctx: &mut WgpuContext,
+    ecs: &Ecs,
+    room_id: RoomId,
+    layer: RoomLayer,
+    grid_size: f32,
+) {
+    for &entity in ecs.entities_in_room_layer(room_id, layer) {
         ecs.assert_room_membership(room_id, entity);
         draw_entity_range_circles(ctx, ecs, entity, grid_size);
     }
@@ -715,6 +723,7 @@ pub fn draw_all_camera_viewports(
     editor_cam: &Camera2D,
     ecs: &Ecs,
     room_id: RoomId,
+    layer: RoomLayer,
 ) {
     let cam_store = ecs.get_store::<RoomCamera>();
     let pos_store = ecs.get_store::<Transform>();
@@ -731,7 +740,7 @@ pub fn draw_all_camera_viewports(
     let editor_w = (tr.x - bl.x).abs();
     let editor_h = (tr.y - bl.y).abs();
 
-    for &entity in ecs.entities_in_room(room_id) {
+    for &entity in ecs.entities_in_room_layer(room_id, layer) {
         ecs.assert_room_membership(room_id, entity);
 
         let Some(room_cam) = cam_store.get(entity) else {

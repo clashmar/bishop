@@ -256,6 +256,7 @@ fn wrap_text<C: BishopContext>(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::ecs::CurrentRoom;
     use crate::rendering::test_support::make_vertical_spillover_fixture;
     use crate::worlds::test_utils::make_room;
     use crate::worlds::{Exit, ExitDirection, RoomId, WorldId};
