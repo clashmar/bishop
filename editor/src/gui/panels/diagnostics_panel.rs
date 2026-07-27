@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use crate::editor_global::with_command_manager;
 use crate::gui::panels::generic_panel::PanelDefinition;
 use crate::Editor;
@@ -55,7 +57,7 @@ impl DiagnosticsPanel {
         let ecs_metrics = EcsMetrics {
             entity_count,
             component_store_count: ecs.stores.len(),
-            components_by_type: std::collections::HashMap::new(),
+            components_by_type: HashMap::new(),
             missing_tile_definition_count: ecs.missing_tile_definition_count(&game.tile_registry),
             duplicate_tile_occupancy_count: ecs.duplicate_tile_occupancy_count(),
         };

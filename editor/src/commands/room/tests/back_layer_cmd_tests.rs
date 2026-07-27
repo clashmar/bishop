@@ -131,6 +131,97 @@ fn set_back_layer_enabled_cmd_when_back_is_active_then_editor_returns_to_front()
 }
 
 #[test]
+fn update_interior_zones_cmd_is_undoable() {
+    let _ctx = setup_editor("update_interior_zones_cmd");
+    enter_room_mode();
+
+    let (world_id, room_id, old_zones, new_zones) = with_editor(|editor| {
+        let world_id = editor
+            .game
+            .current_world_id
+            .expect("test editor should have a current world");
+        let room_id = editor.cur_room_id.expect("room mode should select a room");
+        let room = editor
+            .game
+            .current_world_mut()
+            .expect("world should exist")
+            .get_room_mut(room_id)
+            .expect("room should exist");
+        room.current_variant_mut().layers.back = Some(BackRoomLayer {
+            interior_zones: vec![InteriorZone {
+                id: InteriorZoneId(1),
+                bounds: Rect::new(0.0, 0.0, 16.0, 16.0),
+            }],
+            ..Default::default()
+        });
+        let old_zones = room
+            .current_variant()
+            .layers
+            .back
+            .as_ref()
+            .expect("back layer should exist")
+            .interior_zones
+            .clone();
+        let new_zones = vec![
+            InteriorZone {
+                id: InteriorZoneId(1),
+                bounds: Rect::new(16.0, 0.0, 16.0, 16.0),
+            },
+            InteriorZone {
+                id: InteriorZoneId(2),
+                bounds: Rect::new(32.0, 0.0, 16.0, 16.0),
+            },
+        ];
+        (world_id, room_id, old_zones, new_zones)
+    });
+
+    push_command(Box::new(UpdateInteriorZonesCmd::new(
+        world_id,
+        room_id,
+        old_zones.clone(),
+        new_zones.clone(),
+    )));
+    apply_pending_commands();
+
+    with_editor(|editor| {
+        let room = editor
+            .game
+            .current_world()
+            .get_room(room_id)
+            .expect("room should exist");
+        assert_eq!(
+            room.current_variant()
+                .layers
+                .back
+                .as_ref()
+                .expect("back layer should exist")
+                .interior_zones,
+            new_zones
+        );
+    });
+
+    request_undo();
+    apply_pending_commands();
+
+    with_editor(|editor| {
+        let room = editor
+            .game
+            .current_world()
+            .get_room(room_id)
+            .expect("room should exist");
+        assert_eq!(
+            room.current_variant()
+                .layers
+                .back
+                .as_ref()
+                .expect("back layer should exist")
+                .interior_zones,
+            old_zones
+        );
+    });
+}
+
+#[test]
 fn set_back_layer_enabled_cmd_is_undoable_and_destructive() {
     let _ctx = setup_editor("back_layer_enable_cmd");
     enter_room_mode();

@@ -2,15 +2,16 @@ use std::collections::HashSet;
 
 use crate::ecs::capture::{ComponentSnapshot, capture_entity};
 use crate::ecs::component_registry::{COMPONENTS, component_has_dependents};
-use crate::ecs::{Animation, CurrentFrame, Ecs, Entity, Script, Solid, TilePlacement};
+use crate::ecs::{Animation, Cover, CurrentFrame, Ecs, Entity, Script, Solid, TilePlacement};
 use crate::game::GameCtxMut;
 use crate::tiles::TileDefId;
 
-/// First-class ECS component types legal on tile definitions in Phase 1.
+/// First-class ECS component types legal on tile definitions.
 pub const TILE_DEFINITION_COMPONENT_TYPES: &[&str] = &[
     Solid::TYPE_NAME,
     Animation::TYPE_NAME,
     Script::TYPE_NAME,
+    Cover::TYPE_NAME,
 ];
 
 /// Returns true when `type_name` is authored directly on tile definitions.

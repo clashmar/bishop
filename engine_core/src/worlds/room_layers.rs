@@ -62,6 +62,7 @@ pub struct RoomLayers {
 }
 
 impl RoomLayers {
+    /// Returns the authored back-layer bounds, or full-room fallback when no zones exist.
     pub fn effective_back_bounds(&self, room_bounds: Rect) -> Vec<Rect> {
         match &self.back {
             Some(back) if !back.interior_zones.is_empty() => {
@@ -116,5 +117,35 @@ mod tests {
         let parsed_zone = back.interior_zones[0];
         assert_eq!(parsed_zone.id, InteriorZoneId(7));
         assert_eq!(parsed_zone.bounds, zone.bounds);
+    }
+
+    #[test]
+    fn interior_zones_round_trip_with_stable_ids() {
+        let zones = vec![
+            InteriorZone {
+                id: InteriorZoneId(3),
+                bounds: Rect::new(0.0, 0.0, 32.0, 32.0),
+            },
+            InteriorZone {
+                id: InteriorZoneId(9),
+                bounds: Rect::new(32.0, 0.0, 32.0, 32.0),
+            },
+        ];
+        let variant = RoomVariant {
+            id: "default".to_string(),
+            layers: RoomLayers {
+                back: Some(BackRoomLayer {
+                    composition_mode: LayerCompositionMode::Hidden,
+                    interior_zones: zones.clone(),
+                }),
+            },
+            ..Default::default()
+        };
+
+        let ron = ron::ser::to_string_pretty(&variant, ron::ser::PrettyConfig::new()).unwrap();
+        let parsed: RoomVariant = ron::from_str(&ron).unwrap();
+
+        let back = parsed.layers.back.unwrap();
+        assert_eq!(back.interior_zones, zones);
     }
 }

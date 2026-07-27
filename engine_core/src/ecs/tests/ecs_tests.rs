@@ -5,8 +5,21 @@ use crate::ecs::SpriteId;
 use crate::game::GameCtxMut;
 use crate::prefab::PrefabManager;
 use crate::scripting::script_manager::ScriptManager;
-use crate::tiles::{TileDef, TileDefId, TileRegistry};
-use crate::worlds::{RoomId, RoomLayer};
+use crate::tiles::{TileDef, TileDefId, TileMap, TileRegistry};
+use crate::worlds::{
+    BackRoomLayer,
+    InteriorZone,
+    InteriorZoneId,
+    LayerCompositionMode,
+    Room,
+    RoomId,
+    RoomLayer,
+    RoomLayers,
+    RoomVariant,
+    World,
+    WorldId,
+};
+use bishop::prelude::{Rect, Vec2};
 use std::collections::HashMap;
 
 /// Declare a minimal GameCtxMut for tests that need remove_entity/remove_component.
@@ -672,5 +685,72 @@ fn world_entry_and_world_exit_are_not_in_conflict() {
     assert!(
         group.is_none(),
         "WorldEntry and WorldExit must NOT be in a conflict group (portals need both)"
+    );
+}
+
+#[test]
+fn layer_door_conflicts_with_cover() {
+    let group = COMPONENT_CONFLICT_GROUPS
+        .iter()
+        .find(|g| g.contains(&LayerDoor::TYPE_NAME) && g.contains(&Cover::TYPE_NAME));
+    assert!(
+        group.is_some(),
+        "LayerDoor and Cover must be in a conflict group together"
+    );
+}
+
+#[test]
+fn layer_door_conflicts_with_tile_placement() {
+    let group = COMPONENT_CONFLICT_GROUPS
+        .iter()
+        .find(|g| g.contains(&LayerDoor::TYPE_NAME) && g.contains(&TilePlacement::TYPE_NAME));
+    assert!(
+        group.is_some(),
+        "LayerDoor and TilePlacement must be in a conflict group together"
+    );
+}
+
+#[test]
+fn validate_layer_door_when_interactable_area_extends_outside_back_zone_union_then_reports_issue() {
+    let room_id = RoomId(7);
+    let world = World::from_rooms(
+        WorldId(1),
+        "Test".to_string(),
+        vec![Room {
+            id: room_id,
+            position: Vec2::ZERO,
+            size: Vec2::new(4.0, 4.0),
+            variants: vec![RoomVariant {
+                tilemap: TileMap::new(4, 4),
+                layers: RoomLayers {
+                    back: Some(BackRoomLayer {
+                        composition_mode: LayerCompositionMode::Hidden,
+                        interior_zones: vec![InteriorZone {
+                            id: InteriorZoneId(1),
+                            bounds: Rect::new(0.0, 0.0, 32.0, 32.0),
+                        }],
+                    }),
+                },
+                ..Default::default()
+            }],
+            ..Default::default()
+        }],
+        16.0,
+    );
+
+    let mut ecs = Ecs::default();
+    let entity = ecs.create_entity()
+        .with(Transform {
+            position: Vec2::new(28.0, 8.0),
+            ..Default::default()
+        })
+        .with(Interactable::rect(100.0, Vec2::ZERO, Vec2::new(16.0, 16.0)))
+        .with(LayerDoor::default())
+        .with_current_room(room_id)
+        .finish();
+
+    assert_eq!(
+        validate_layer_door(&ecs, &world, entity).err(),
+        Some(LayerDoorValidationIssue::InteractableOutsideBackBounds)
     );
 }

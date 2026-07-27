@@ -1,5 +1,6 @@
 use super::*;
 use bishop::prelude::Rect;
+use engine_core::ecs::{Cover, CoverMode};
 use engine_core::worlds::{BackRoomLayer, InteriorZone, InteriorZoneId, LayerCompositionMode};
 
 const RESERVED_RUNTIME_SAVES_FOLDER: &str = "_runtime_saves";
@@ -211,6 +212,43 @@ fn game_save_load_when_room_variant_has_back_layer_then_layers_round_trip() {
     let loaded_zone = loaded_back.interior_zones[0];
     assert_eq!(loaded_zone.id, InteriorZoneId(5));
     assert_eq!(loaded_zone.bounds, Rect::new(16.0, 32.0, 48.0, 64.0));
+}
+
+#[test]
+fn cover_component_round_trips_through_tile_definition_sync() {
+    let _lock = game_fs_test_lock()
+        .lock()
+        .unwrap_or_else(|poison| poison.into_inner());
+    let test_game = TestGameFolder::new("tile_definition_cover_roundtrip");
+    set_game_name(test_game.name());
+
+    let mut game = create_new_game(test_game.name().to_string());
+    let room_id = game.current_world().rooms()[0].id;
+    let tile_id = game.tile_registry.insert(TileDef {
+        sprite_id: SpriteId(23),
+        components: vec![tile_definition_component_snapshot(Cover::hide())],
+    });
+    let entity = game
+        .ecs
+        .create_entity()
+        .with(TilePlacement::new(tile_id, 2, 3))
+        .with_current_room(room_id)
+        .finish();
+    game.sync_tile_definition(tile_id);
+
+    save_game(&game).expect("save should succeed");
+    let loaded = load_game_by_name(test_game.name()).expect("load should succeed");
+
+    let loaded_def = loaded
+        .tile_registry
+        .get(tile_id)
+        .expect("tile definition should load");
+    assert_eq!(loaded_def.components.len(), 1);
+    assert_eq!(loaded_def.components[0].type_name, Cover::TYPE_NAME);
+    assert_eq!(
+        loaded.ecs.get::<Cover>(entity).map(|cover| cover.mode()),
+        Some(CoverMode::Hide),
+    );
 }
 
 #[test]

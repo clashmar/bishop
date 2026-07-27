@@ -13,6 +13,8 @@ pub struct Rect {
 }
 
 impl Rect {
+    const UNION_EPS: f32 = 0.0001;
+
     /// Creates a new rectangle.
     pub const fn new(x: f32, y: f32, w: f32, h: f32) -> Self {
         Self { x, y, w, h }
@@ -91,6 +93,55 @@ impl Rect {
 
         Some(Self::new(min_x, min_y, max_x - min_x, max_y - min_y))
     }
+
+    /// Returns true when any rect in `bounds` contains the point.
+    pub fn point_in_union(point: Vec2, bounds: &[Self]) -> bool {
+        bounds.iter().any(|rect| rect.contains(point))
+    }
+
+    /// Returns true when every positive-area part of this rect lies within `bounds`.
+    pub fn contained_in_union(&self, bounds: &[Self]) -> bool {
+        if bounds.is_empty() {
+            return false;
+        }
+
+        let mut xs = vec![self.x, self.x + self.w];
+        let mut ys = vec![self.y, self.y + self.h];
+        for rect in bounds {
+            xs.push(rect.x.max(self.x));
+            xs.push((rect.x + rect.w).min(self.x + self.w));
+            ys.push(rect.y.max(self.y));
+            ys.push((rect.y + rect.h).min(self.y + self.h));
+        }
+        xs.sort_by(f32::total_cmp);
+        ys.sort_by(f32::total_cmp);
+        xs.dedup_by(|a, b| (*a - *b).abs() <= Self::UNION_EPS);
+        ys.dedup_by(|a, b| (*a - *b).abs() <= Self::UNION_EPS);
+
+        for x_pair in xs.windows(2) {
+            for y_pair in ys.windows(2) {
+                let cell = Self::new(
+                    x_pair[0],
+                    y_pair[0],
+                    x_pair[1] - x_pair[0],
+                    y_pair[1] - y_pair[0],
+                );
+                if cell.w <= Self::UNION_EPS || cell.h <= Self::UNION_EPS {
+                    continue;
+                }
+
+                let center = cell.center();
+                if !self.contains(center) {
+                    continue;
+                }
+                if !Self::point_in_union(center, bounds) {
+                    return false;
+                }
+            }
+        }
+
+        true
+    }
 }
 
 #[cfg(test)]
@@ -127,5 +178,30 @@ mod tests {
         let b = Rect::new(10.0, 0.0, 5.0, 5.0);
 
         assert_eq!(a.intersection(&b), None);
+    }
+
+    #[test]
+    fn point_in_union_returns_true_when_any_rect_contains_point() {
+        let bounds = [Rect::new(0.0, 0.0, 10.0, 10.0), Rect::new(20.0, 0.0, 10.0, 10.0)];
+
+        assert!(Rect::point_in_union(Vec2::new(5.0, 5.0), &bounds));
+        assert!(Rect::point_in_union(Vec2::new(25.0, 5.0), &bounds));
+        assert!(!Rect::point_in_union(Vec2::new(15.0, 5.0), &bounds));
+    }
+
+    #[test]
+    fn contained_in_union_returns_true_for_rect_split_across_multiple_bounds() {
+        let target = Rect::new(0.0, 0.0, 20.0, 10.0);
+        let bounds = [Rect::new(0.0, 0.0, 10.0, 10.0), Rect::new(10.0, 0.0, 10.0, 10.0)];
+
+        assert!(target.contained_in_union(&bounds));
+    }
+
+    #[test]
+    fn contained_in_union_returns_false_when_union_has_gaps() {
+        let target = Rect::new(0.0, 0.0, 20.0, 10.0);
+        let bounds = [Rect::new(0.0, 0.0, 9.0, 10.0), Rect::new(11.0, 0.0, 9.0, 10.0)];
+
+        assert!(!target.contained_in_union(&bounds));
     }
 }

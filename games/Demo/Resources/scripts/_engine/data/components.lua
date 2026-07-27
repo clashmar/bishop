@@ -29,6 +29,10 @@
 ---@field shape table
 ---@field offset vec2
 
+---@class Cover
+---@field hide boolean
+---@field fade_alpha number
+
 ---@class CurrentFrame
 ---@field clip_id number
 ---@field col number
@@ -57,12 +61,20 @@
 
 ---@class Interactable
 ---@field range number
+---@field use_rect boolean
+---@field offset vec2
+---@field radius number
+---@field rect_size vec2
 
 --- Marker component
 ---@class Kinematic
 
 ---@class Layer
 ---@field z number
+
+---@class LayerDoor
+---@field usable boolean
+---@field alpha number
 
 ---@class Light
 ---@field pos vec2
@@ -146,6 +158,7 @@
 ---@field AudioSource "AudioSource"
 ---@field Children "Children"
 ---@field Collider "Collider"
+---@field Cover "Cover"
 ---@field CurrentFrame "CurrentFrame"
 ---@field Damage "Damage"
 ---@field FacingDirection "FacingDirection"
@@ -155,6 +168,7 @@
 ---@field Interactable "Interactable"
 ---@field Kinematic "Kinematic"
 ---@field Layer "Layer"
+---@field LayerDoor "LayerDoor"
 ---@field Light "Light"
 ---@field Name "Name"
 ---@field Parent "Parent"
@@ -181,6 +195,7 @@ C.Animation = "Animation"
 C.AudioSource = "AudioSource"
 C.Children = "Children"
 C.Collider = "Collider"
+C.Cover = "Cover"
 C.CurrentFrame = "CurrentFrame"
 C.Damage = "Damage"
 C.FacingDirection = "FacingDirection"
@@ -190,6 +205,7 @@ C.Grounded = "Grounded"
 C.Interactable = "Interactable"
 C.Kinematic = "Kinematic"
 C.Layer = "Layer"
+C.LayerDoor = "LayerDoor"
 C.Light = "Light"
 C.Name = "Name"
 C.Parent = "Parent"
