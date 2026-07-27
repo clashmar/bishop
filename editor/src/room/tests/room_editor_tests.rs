@@ -341,3 +341,26 @@ fn selecting_different_room_entity_disables_previous_collider_edit_mode() {
 
     assert_eq!(collider_edit_entity(), None);
 }
+
+#[test]
+fn pruning_selection_in_active_layer_keeps_existing_entity_inspector() {
+    let mut editor = RoomEditor::new();
+    let mut ecs = Ecs::default();
+    let room_id = RoomId(7);
+    let entity = ecs
+        .create_entity()
+        .with(Transform::default())
+        .with(Name("Entity".to_string()))
+        .with_current_room_layer(room_id, RoomLayer::Front)
+        .finish();
+
+    editor.set_selected_entity(Some(entity));
+    editor.active_layer_state.active_layer = RoomLayer::Front;
+    let first_addr = editor.inspector.entity_inspector_addr();
+
+    editor.prune_selection_to_active_layer(&ecs, room_id);
+
+    assert_eq!(editor.single_selected_entity(), Some(entity));
+    assert_eq!(editor.inspector.selected_entity(), Some(entity));
+    assert_eq!(editor.inspector.entity_inspector_addr(), first_addr);
+}

@@ -70,7 +70,14 @@ impl Inspector {
 
     /// Selects the entity-inspector pane for the next draw.
     pub fn select_entity(&mut self, entity: Entity) {
-        self.entity = Some(EntityInspector::new(entity));
+        let needs_rebuild = self
+            .entity
+            .as_ref()
+            .and_then(EntityInspector::target)
+            != Some(entity);
+        if needs_rebuild {
+            self.entity = Some(EntityInspector::new(entity));
+        }
         self.active = ActivePane::Entity;
     }
 
@@ -139,6 +146,13 @@ impl Inspector {
     pub fn clear_target(&mut self) {
         self.active = ActivePane::Empty;
         self.entity = None;
+    }
+
+    #[cfg(test)]
+    pub(crate) fn entity_inspector_addr(&self) -> Option<usize> {
+        self.entity
+            .as_ref()
+            .map(|entity| entity as *const EntityInspector as usize)
     }
 
     /// Returns the on-screen rectangle for the toggle strip.

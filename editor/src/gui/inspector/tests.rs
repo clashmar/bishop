@@ -132,6 +132,19 @@ fn selecting_entity_does_not_unhide_hidden_inspector() {
 }
 
 #[test]
+fn selecting_same_entity_reuses_existing_entity_inspector() {
+    let mut inspector = Inspector::new();
+
+    inspector.select_entity(Entity(7));
+    let first_addr = inspector.entity_inspector_addr();
+
+    inspector.select_entity(Entity(7));
+
+    assert_eq!(inspector.selected_entity(), Some(Entity(7)));
+    assert_eq!(inspector.entity_inspector_addr(), first_addr);
+}
+
+#[test]
 fn hidden_inspector_only_hit_tests_the_strip() {
     let mut inspector = Inspector::new();
     inspector.set_rect(Rect::new(100.0, 0.0, 325.0, 400.0));
