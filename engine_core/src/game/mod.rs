@@ -439,7 +439,7 @@ impl GameCtxMut<'_> {
     /// Returns the `WorldId` of the world that contains `entity`, if any.
     pub fn world_of_entity(&self, entity: Entity) -> Option<WorldId> {
         let room = self.ecs.get::<CurrentRoom>(entity)?;
-        self.room_world_map.get(&room.0).copied()
+        self.room_world_map.get(&room.room_id).copied()
     }
 }
 

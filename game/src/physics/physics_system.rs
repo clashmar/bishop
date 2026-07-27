@@ -26,7 +26,7 @@ pub fn update_physics(
     let mut entities_by_room: HashMap<RoomId, Vec<Entity>> = HashMap::new();
     for entity in &entities {
         if let Some(room) = ecs.get::<CurrentRoom>(*entity) {
-            entities_by_room.entry(room.0).or_default().push(*entity);
+            entities_by_room.entry(room.room_id).or_default().push(*entity);
         }
     }
 

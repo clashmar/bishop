@@ -308,7 +308,7 @@ fn build_traversal_snapshot(
             let active = game.ecs.get::<Active>(entity)?;
             Some(PinnedEntitySnapshot {
                 entity,
-                room_id: game.ecs.get::<CurrentRoom>(entity).map(|room| room.0),
+                room_id: game.ecs.get::<CurrentRoom>(entity).map(|room| room.room_id),
                 pin_count: active.pin_count,
                 reasons: vec![format!(
                     "pin_count={} keeps payload resident",
@@ -342,22 +342,22 @@ fn build_traversal_snapshot(
 }
 
 fn collect_warm_scope_reasons(game: &Game, topology: &TraversalTopology) -> WarmScopeReasons {
-    let current_room = game.current_world().current_room_id.unwrap_or_default();
+    let current_room_id = game.current_world().current_room_id.unwrap_or_default();
     let current_world = game.current_world().id;
 
     let mut room_reasons: HashMap<RoomId, BTreeSet<String>> = HashMap::new();
     room_reasons
-        .entry(current_room)
+        .entry(current_room_id)
         .or_default()
         .insert("current room".to_string());
 
-    for edge in topology.room_graph.edges_from(current_room) {
+    for edge in topology.room_graph.edges_from(current_room_id) {
         let reason = match edge.kind {
-            RoomEdgeKind::Adjacency => format!("adjacent to Room({})", current_room.0),
-            RoomEdgeKind::RoomExit => format!("exit from Room({})", current_room.0),
-            RoomEdgeKind::WorldExit => format!("portal from Room({})", current_room.0),
+            RoomEdgeKind::Adjacency => format!("adjacent to Room({})", current_room_id.0),
+            RoomEdgeKind::RoomExit => format!("exit from Room({})", current_room_id.0),
+            RoomEdgeKind::WorldExit => format!("portal from Room({})", current_room_id.0),
             RoomEdgeKind::ScriptedTraversal => {
-                format!("scripted traversal from Room({})", current_room.0)
+                format!("scripted traversal from Room({})", current_room_id.0)
             }
         };
         room_reasons.entry(edge.to).or_default().insert(reason);

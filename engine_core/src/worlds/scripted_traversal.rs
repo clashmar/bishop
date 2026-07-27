@@ -57,7 +57,7 @@ pub fn collect_scripted_traversal_edges(game: &Game) -> Vec<ScriptedTraversalEdg
         if script.script_id.0 == 0 {
             continue;
         }
-        let Some(CurrentRoom(from)) = game.ecs.get::<CurrentRoom>(entity).copied() else {
+        let Some(CurrentRoom { room_id: from, .. }) = game.ecs.get::<CurrentRoom>(entity).copied() else {
             continue;
         };
         let Some(relative_path) = game.script_manager.path_for_id(script.script_id) else {

@@ -152,12 +152,12 @@ impl UpdateComponentCmd {
             // FLAG: If we start adding more special cases
             // consider defining this behaviour on the component
             if type_name == CurrentRoom::TYPE_NAME {
-                let CurrentRoom(room_id) =
+                let CurrentRoom { room_id, .. } =
                     ron::from_str::<CurrentRoom>(&ron).expect("CurrentRoom RON should deserialize");
                 if ctx
                     .ecs()
                     .get::<CurrentRoom>(entity)
-                    .is_some_and(|current_room| current_room.0 == room_id)
+                    .is_some_and(|current_room| current_room.room_id == room_id)
                 {
                     return;
                 }

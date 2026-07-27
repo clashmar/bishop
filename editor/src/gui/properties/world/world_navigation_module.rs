@@ -68,7 +68,7 @@ impl PropertyModule<World> for WorldNavigationModule {
             .iter()
             .filter(|(entity, _)| {
                 game_ctx.ecs.get::<CurrentRoom>(**entity)
-                    .and_then(|r| room_world_map.get(&r.0).copied())
+                    .and_then(|room| room_world_map.get(&room.room_id).copied())
                     .is_some_and(|wid| wid == world_id)
             })
             .map(|(entity, entry)| (*entity, entry.name.clone(), entry.is_start))
@@ -85,7 +85,7 @@ impl PropertyModule<World> for WorldNavigationModule {
             .iter()
             .filter(|(entity, _)| {
                 game_ctx.ecs.get::<CurrentRoom>(**entity)
-                    .and_then(|r| room_world_map.get(&r.0).copied())
+                    .and_then(|room| room_world_map.get(&room.room_id).copied())
                     .is_some_and(|wid| wid == world_id)
             })
             .map(|(entity, exit)| {

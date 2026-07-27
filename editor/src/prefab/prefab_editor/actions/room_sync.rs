@@ -68,7 +68,7 @@ pub(super) fn relink_room_subtree_to_prefab(
         .map(|transform| transform.position)
         .unwrap_or_default();
     let parent_entity = get_parent(&game.ecs, root_entity);
-    let room_id = game.ecs.get::<CurrentRoom>(root_entity).map(|room| room.0);
+    let room_id = game.ecs.get::<CurrentRoom>(root_entity).map(|room| room.room_id);
 
     let replacement_root = {
         let mut ctx = game.ctx_mut();
@@ -92,7 +92,7 @@ fn refresh_linked_prefab_instances(game: &mut Game, prefab: &PrefabAsset) {
     let roots = linked_prefab_instance_roots(&game.ecs, prefab.id);
 
     for root_entity in roots {
-        let room_id = game.ecs.get::<CurrentRoom>(root_entity).map(|room| room.0);
+        let room_id = game.ecs.get::<CurrentRoom>(root_entity).map(|room| room.room_id);
         let mut ctx = game.ctx_mut();
         refresh_prefab_instance(&mut ctx, root_entity, prefab, room_id);
     }

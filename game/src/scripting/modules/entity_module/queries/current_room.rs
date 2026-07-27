@@ -17,7 +17,7 @@ impl LuaMethod<EntityHandle> for CurrentRoomMethod {
 
             Ok(ecs
                 .get::<CurrentRoom>(this.entity)
-                .map(|room| mlua::Value::Integer(room.0 .0 as i64)))
+                .map(|room| mlua::Value::Integer(room.room_id.0 as i64)))
         });
     }
 

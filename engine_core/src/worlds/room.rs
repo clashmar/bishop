@@ -3,6 +3,7 @@ use crate::ecs::ecs::Ecs;
 use crate::ecs::{AudioSource, Entity, Name, Pivot, RoomCamera, Singleton, Transform};
 use crate::scripting::event_tags::event_tag::EventTag;
 use crate::tiles::tilemap::TileMap;
+use crate::worlds::room_layers::RoomLayers;
 use bishop::prelude::*;
 use serde::{Deserialize, Serialize};
 use serde_with::FromInto;
@@ -57,6 +58,7 @@ impl Room {
                 world::DEFAULT_ROOM_SIZE.x as usize,
                 world::DEFAULT_ROOM_SIZE.y as usize,
             ),
+            ..Default::default()
         };
 
         let room = Room {
@@ -263,6 +265,7 @@ impl Room {
 pub struct RoomVariant {
     pub id: String,
     pub tilemap: TileMap,
+    pub layers: RoomLayers,
 }
 
 impl Default for RoomVariant {
@@ -270,6 +273,7 @@ impl Default for RoomVariant {
         Self {
             id: String::new(),
             tilemap: TileMap::new(10, 10),
+            layers: RoomLayers::default(),
         }
     }
 }

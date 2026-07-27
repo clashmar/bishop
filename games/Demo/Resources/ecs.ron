@@ -182,30 +182,102 @@
         (
             type_name: "CurrentRoom",
             data: {
-                (2): ((1)),
-                (24): ((2)),
-                (37): ((1)),
-                (38): ((2)),
-                (41): ((4)),
-                (46): ((2)),
-                (52): ((4)),
-                (53): ((1)),
-                (54): ((1)),
-                (55): ((2)),
-                (58): ((4)),
-                (59): ((4)),
-                (62): ((4)),
-                (63): ((1)),
-                (65): ((1)),
-                (69): ((1)),
-                (70): ((5)),
-                (71): ((5)),
-                (72): ((5)),
-                (73): ((5)),
-                (74): ((5)),
-                (75): ((5)),
-                (78): ((1)),
-                (80): ((1)),
+                (2): (
+                    room_id: (1),
+                    layer: front,
+                ),
+                (24): (
+                    room_id: (2),
+                    layer: front,
+                ),
+                (37): (
+                    room_id: (1),
+                    layer: front,
+                ),
+                (38): (
+                    room_id: (2),
+                    layer: front,
+                ),
+                (41): (
+                    room_id: (4),
+                    layer: front,
+                ),
+                (46): (
+                    room_id: (2),
+                    layer: front,
+                ),
+                (52): (
+                    room_id: (4),
+                    layer: front,
+                ),
+                (53): (
+                    room_id: (1),
+                    layer: front,
+                ),
+                (54): (
+                    room_id: (1),
+                    layer: front,
+                ),
+                (55): (
+                    room_id: (2),
+                    layer: front,
+                ),
+                (58): (
+                    room_id: (4),
+                    layer: front,
+                ),
+                (59): (
+                    room_id: (4),
+                    layer: front,
+                ),
+                (62): (
+                    room_id: (4),
+                    layer: front,
+                ),
+                (63): (
+                    room_id: (1),
+                    layer: front,
+                ),
+                (65): (
+                    room_id: (1),
+                    layer: front,
+                ),
+                (69): (
+                    room_id: (1),
+                    layer: front,
+                ),
+                (70): (
+                    room_id: (5),
+                    layer: front,
+                ),
+                (71): (
+                    room_id: (5),
+                    layer: front,
+                ),
+                (72): (
+                    room_id: (5),
+                    layer: front,
+                ),
+                (73): (
+                    room_id: (5),
+                    layer: front,
+                ),
+                (74): (
+                    room_id: (5),
+                    layer: front,
+                ),
+                (75): (
+                    room_id: (5),
+                    layer: front,
+                ),
+                (78): (
+                    room_id: (1),
+                    layer: front,
+                ),
+                (80): (
+                    room_id: (1),
+                    layer: front,
+                ),
             },
         ),
         (
@@ -519,6 +591,10 @@
                 (3): (),
                 (37): (),
             },
+        ),
+        (
+            type_name: "TilePlacement",
+            data: {},
         ),
         (
             type_name: "Transform",

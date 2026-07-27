@@ -201,7 +201,7 @@ pub fn entity_world_rect(
 pub fn can_select_entity_in_room(ecs: &Ecs, entity: Entity, room_id: RoomId) -> bool {
     // Make sure the entity is in the requested room
     match ecs.get_store::<CurrentRoom>().get(entity) {
-        Some(CurrentRoom(id)) => *id == room_id,
+        Some(CurrentRoom { room_id: id, .. }) => *id == room_id,
         None => false,
     }
 }

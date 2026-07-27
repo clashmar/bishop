@@ -3,6 +3,7 @@ use crate::ecs::component_registry::ComponentRegistry;
 pub use crate::ecs::components::hierarchy::{Children, Parent};
 use crate::ecs::ecs::Ecs;
 use crate::worlds::room::RoomId;
+use crate::worlds::RoomLayer;
 use inventory::iter;
 use serde::{Deserialize, Serialize};
 use std::any::TypeId;
@@ -14,7 +15,7 @@ use std::collections::HashSet;
 pub struct Entity(pub usize);
 
 impl Entity {
-    /// A sentinal value that can be used for optionals.
+    /// A sentinel value that can be used for optionals.
     pub fn null() -> Self {
         Entity(0)
     }
@@ -64,9 +65,15 @@ impl<'a> EntityBuilder<'a> {
         self
     }
 
-    /// Attach this entity to a room.
+    /// Attach this entity to a room on the front layer.
     pub fn with_current_room(self, room_id: RoomId) -> Self {
         self.ecs.set_current_room(self.id, room_id);
+        self
+    }
+
+    /// Attach this entity to one room/layer pair.
+    pub fn with_current_room_layer(self, room_id: RoomId, layer: RoomLayer) -> Self {
+        self.ecs.set_current_room_layer(self.id, room_id, layer);
         self
     }
 

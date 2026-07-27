@@ -1,4 +1,5 @@
 use super::*;
+use engine_core::worlds::RoomLayer;
 
 fn enter_room_mode() {
     with_editor(|editor| {
@@ -45,12 +46,12 @@ fn set_tile_placement_cmd_when_placed_then_runtime_components_apply_and_undo_res
         let entity = editor
             .game
             .ecs
-            .tile_entity_at(room_id, 2, 3)
+            .tile_entity_at(room_id, RoomLayer::Front, 2, 3)
             .expect("tile placement should exist after execute");
         let placed = editor
             .game
             .ecs
-            .tile_placement_at(room_id, 2, 3)
+            .tile_placement_at(room_id, RoomLayer::Front, 2, 3)
             .expect("tile placement should resolve through the room and cell index");
 
         assert_eq!(placed.definition, tile_id);
@@ -62,7 +63,7 @@ fn set_tile_placement_cmd_when_placed_then_runtime_components_apply_and_undo_res
     apply_pending_commands();
 
     with_editor(|editor| {
-        assert_eq!(editor.game.ecs.tile_entity_at(room_id, 2, 3), None);
+        assert_eq!(editor.game.ecs.tile_entity_at(room_id, RoomLayer::Front, 2, 3), None);
     });
 }
 
@@ -88,12 +89,12 @@ fn set_tile_placement_cmd_when_one_linked_tile_is_cleared_then_sibling_placement
     apply_pending_commands();
 
     with_editor(|editor| {
-        assert_eq!(editor.game.ecs.tile_entity_at(room_id, 1, 1), None);
+        assert_eq!(editor.game.ecs.tile_entity_at(room_id, RoomLayer::Front, 1, 1), None);
 
         let sibling = editor
             .game
             .ecs
-            .tile_entity_at(room_id, 2, 1)
+            .tile_entity_at(room_id, RoomLayer::Front, 2, 1)
             .expect("sibling placement should remain after clearing one linked tile");
         assert!(editor.game.ecs.get::<Solid>(sibling).is_some_and(|solid| solid.0));
     });

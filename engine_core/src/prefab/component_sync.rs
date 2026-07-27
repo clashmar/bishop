@@ -36,7 +36,7 @@ pub(super) fn instantiate_prefab_components(
         && !components
             .iter()
             .any(|component| component.type_name == comp_type_name::<CurrentRoom>())
-        && let Ok(ron) = ron::to_string(&CurrentRoom(room_id))
+        && let Ok(ron) = ron::to_string(&CurrentRoom::front(room_id))
     {
         components.push(ComponentSnapshot {
             type_name: comp_type_name::<CurrentRoom>().to_string(),

@@ -18,8 +18,10 @@ fn room_component_updates_move_membership_between_rooms() {
         .finish();
     set_editor(editor);
 
-    let old_ron = ron::to_string(&CurrentRoom(RoomId(1))).expect("CurrentRoom should serialize");
-    let new_ron = ron::to_string(&CurrentRoom(RoomId(2))).expect("CurrentRoom should serialize");
+    let old_ron = ron::to_string(&CurrentRoom::front(RoomId(1)))
+        .expect("CurrentRoom should serialize");
+    let new_ron = ron::to_string(&CurrentRoom::front(RoomId(2)))
+        .expect("CurrentRoom should serialize");
 
     let mut cmd = UpdateComponentCmd::new(
         entity,
@@ -33,7 +35,10 @@ fn room_component_updates_move_membership_between_rooms() {
     cmd.execute();
 
     with_editor(|editor| {
-        assert_eq!(editor.game.ecs.get::<CurrentRoom>(entity).map(|room| room.0), Some(RoomId(2)));
+        assert_eq!(
+            editor.game.ecs.get::<CurrentRoom>(entity).map(|room| room.room_id),
+            Some(RoomId(2))
+        );
         assert!(!editor.game.ecs.entities_in_room(RoomId(1)).contains(&entity));
         assert!(editor.game.ecs.entities_in_room(RoomId(2)).contains(&entity));
     });
@@ -41,7 +46,10 @@ fn room_component_updates_move_membership_between_rooms() {
     cmd.undo();
 
     with_editor(|editor| {
-        assert_eq!(editor.game.ecs.get::<CurrentRoom>(entity).map(|room| room.0), Some(RoomId(1)));
+        assert_eq!(
+            editor.game.ecs.get::<CurrentRoom>(entity).map(|room| room.room_id),
+            Some(RoomId(1))
+        );
         assert!(editor.game.ecs.entities_in_room(RoomId(1)).contains(&entity));
         assert!(!editor.game.ecs.entities_in_room(RoomId(2)).contains(&entity));
     });

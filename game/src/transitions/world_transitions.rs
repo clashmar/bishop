@@ -369,7 +369,11 @@ fn resolve_entry(game: &Game, world: &World, entry_name: &str) -> Option<Destina
         if entry.name != entry_name && !(entry_name == WorldEntry::START_NAME && entry.is_start) {
             continue;
         }
-        let Some(room) = game.ecs.get::<CurrentRoom>(entity).map(|current_room| current_room.0) else {
+        let Some(room) = game
+            .ecs
+            .get::<CurrentRoom>(entity)
+            .map(|current_room| current_room.room_id)
+        else {
             continue;
         };
         if world.get_room(room).is_none() {
@@ -400,7 +404,11 @@ pub(crate) fn resolve_world_start(game: &Game, world: &World) -> Option<Destinat
         if !entry.is_start {
             continue;
         }
-        let Some(room_id) = game.ecs.get::<CurrentRoom>(entity).map(|room| room.0) else {
+        let Some(room_id) = game
+            .ecs
+            .get::<CurrentRoom>(entity)
+            .map(|room| room.room_id)
+        else {
             continue;
         };
         if world.get_room(room_id).is_none() {

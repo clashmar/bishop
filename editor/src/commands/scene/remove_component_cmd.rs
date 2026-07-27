@@ -74,7 +74,7 @@ impl EditorCommand for RemoveComponentCmd {
                 // FLAG: If we start adding more special cases
                 // consider defining this behaviour on the component
                 if type_name == CurrentRoom::TYPE_NAME {
-                    let CurrentRoom(room_id) = ron::from_str::<CurrentRoom>(&snapshot)
+                    let CurrentRoom { room_id, .. } = ron::from_str::<CurrentRoom>(&snapshot)
                         .expect("CurrentRoom snapshot should deserialize");
                     ctx.ecs().set_current_room(entity, room_id);
                     return;
@@ -220,7 +220,8 @@ mod tests {
                 .finish()
         });
 
-        let snapshot = ron::to_string(&CurrentRoom(RoomId(3))).expect("CurrentRoom should serialize");
+        let snapshot = ron::to_string(&CurrentRoom::front(RoomId(3)))
+            .expect("CurrentRoom should serialize");
         let mut cmd = RemoveComponentCmd::new(
             entity,
             EditorMode::Room(RoomId(3)),
@@ -238,7 +239,10 @@ mod tests {
         cmd.undo();
 
         with_editor(|editor| {
-            assert_eq!(editor.game.ecs.get::<CurrentRoom>(entity).map(|room| room.0), Some(RoomId(3)));
+            assert_eq!(
+                editor.game.ecs.get::<CurrentRoom>(entity).map(|room| room.room_id),
+                Some(RoomId(3))
+            );
             assert!(editor.game.ecs.entities_in_room(RoomId(3)).contains(&entity));
         });
     }

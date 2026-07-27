@@ -17,7 +17,7 @@ fn find_room_entity(ecs: &Ecs, room_id: RoomId, parent: Option<Entity>) -> Optio
         .find_map(|(&entity, name)| {
             let in_room = ecs
                 .get::<CurrentRoom>(entity)
-                .is_some_and(|current_room| current_room.0 == room_id);
+                .is_some_and(|current_room| current_room.room_id == room_id);
             let named_entity = name.0 == CreateSceneEntityCmd::ROOM_ENTITY_NAME;
             let matching_parent =
                 ecs.get::<Parent>(entity).map(|parent_comp| parent_comp.0) == parent;
@@ -43,7 +43,7 @@ fn find_player_proxy(ecs: &Ecs, room_id: RoomId) -> Option<Entity> {
         .find_map(|(&entity, _)| {
             let in_room = ecs
                 .get::<CurrentRoom>(entity)
-                .is_some_and(|current_room| current_room.0 == room_id);
+                .is_some_and(|current_room| current_room.room_id == room_id);
             let named_proxy = ecs
                 .get::<Name>(entity)
                 .is_some_and(|name| name.0 == CreateSceneEntityCmd::PLAYER_PROXY_NAME);
@@ -271,7 +271,7 @@ fn find_room_camera(ecs: &Ecs, room_id: RoomId, position: Vec2) -> Option<Entity
         .find_map(|(&entity, camera)| {
             let in_room = ecs
                 .get::<CurrentRoom>(entity)
-                .is_some_and(|current_room| current_room.0 == room_id);
+                .is_some_and(|current_room| current_room.room_id == room_id);
             let named_camera = ecs
                 .get::<Name>(entity)
                 .is_some_and(|name| name.0.starts_with(Room::CAMERA_PREFIX));

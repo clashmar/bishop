@@ -318,7 +318,7 @@ impl TileMapEditor {
             None => return,
         };
 
-        let existing = ecs.tile_placement_at(room_id, x, y);
+        let existing = ecs.tile_placement_at(room_id, RoomLayer::Front, x, y);
 
         if ctx.is_mouse_button_down(MouseButton::Left) && ctx.is_key_down(KeyCode::LeftAlt) {
             if existing.is_some() {

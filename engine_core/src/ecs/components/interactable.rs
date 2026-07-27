@@ -31,7 +31,7 @@ pub fn find_best_interactable(ecs: &Ecs) -> Option<Entity> {
     let player = ecs.get_player_entity()?;
     let player_pos = ecs.get_player_transform()?.position;
 
-    let player_room = ecs.get::<CurrentRoom>(player).map(|r| r.0)?;
+    let player_room = ecs.get::<CurrentRoom>(player).map(|room| room.room_id)?;
 
     let interactables = ecs.get_store::<Interactable>();
     let positions = ecs.get_store::<Transform>();

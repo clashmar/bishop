@@ -25,7 +25,7 @@ impl RenameWorldEntryCmd {
         let owning_world: Option<WorldId> = game
             .ecs
             .get::<CurrentRoom>(entity)
-            .and_then(|room| game.world_of_room(room.0))
+            .and_then(|room| game.world_of_room(room.room_id))
             .map(|world| world.id);
 
         if let Some(entry) = game.ecs.get_mut::<WorldEntry>(entity) {

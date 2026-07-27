@@ -3,7 +3,7 @@ use crate::commands::editor_command_manager::EditorCommand;
 use crate::with_editor;
 use engine_core::ecs::{Ecs, TilePlacement};
 use engine_core::tiles::{TileDefId, apply_tile_placement_definition};
-use engine_core::worlds::RoomId;
+use engine_core::worlds::{RoomId, RoomLayer};
 
 #[derive(Debug)]
 pub struct SetTilePlacementCmd {
@@ -44,7 +44,7 @@ impl SetTilePlacementCmd {
             self.before = editor
                 .game
                 .ecs
-                .tile_placement_at(self.room_id, self.cell.0, self.cell.1);
+                .tile_placement_at(self.room_id, RoomLayer::Front, self.cell.0, self.cell.1);
         });
 
         self.state_captured = true;
@@ -55,7 +55,7 @@ impl SetTilePlacementCmd {
             let existing_entity = editor
                 .game
                 .ecs
-                .tile_entity_at(self.room_id, self.cell.0, self.cell.1);
+                .tile_entity_at(self.room_id, RoomLayer::Front, self.cell.0, self.cell.1);
 
             let ctx = &mut editor.game.ctx_mut();
             if let Some(entity) = existing_entity {

@@ -11,7 +11,7 @@ use mlua::Variadic;
 
 const ROOM_PROBE_EPS: f32 = 0.01;
 
-/// Observes ands handles room transitions through exits within the world.
+/// Observes and handles room transitions through exits within the world.
 pub struct RoomTransitionManager;
 
 impl RoomTransitionManager {
@@ -53,7 +53,7 @@ impl RoomTransitionManager {
                 .game
                 .ecs
                 .get::<CurrentRoom>(entity)
-                .map(|room| room.0)
+                .map(|room| room.room_id)
             else {
                 continue;
             };

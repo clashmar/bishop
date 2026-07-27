@@ -2,7 +2,7 @@ use crate::assets::sprite_manager::SpriteManager;
 use crate::ecs::{CurrentFrame, Ecs, Pivot, Sprite, TilePlacement};
 use crate::rendering::{EntityDrawParams, Renderable};
 use crate::tiles::TileRegistry;
-use crate::worlds::RoomId;
+use crate::worlds::{RoomId, RoomLayer};
 use bishop::prelude::*;
 use serde::{Deserialize, Serialize};
 use serde_with::{FromInto, serde_as};
@@ -50,7 +50,10 @@ pub fn draw_room_tile_placements<C: BishopContext>(
     room_position: Vec2,
     grid_size: f32,
 ) {
-    for &entity in ecs.tile_entities_in_room(room_id).values() {
+    for &entity in ecs
+        .tile_entities_in_room_layer(room_id, RoomLayer::Front)
+        .values()
+    {
         let Some(tile) = ecs.get::<TilePlacement>(entity) else {
             continue;
         };
@@ -106,12 +109,16 @@ mod tests {
         let non_tile_entity = ecs.create_entity().finish();
 
         ecs.insert_component(tile_entity, TilePlacement::new(TileDefId(1), 2, 3));
-        ecs.insert_component(tile_entity, CurrentRoom(room_id));
-        ecs.insert_component(non_tile_entity, CurrentRoom(room_id));
+        ecs.insert_component(tile_entity, CurrentRoom::front(room_id));
+        ecs.insert_component(non_tile_entity, CurrentRoom::front(room_id));
 
         ecs.room_entities.insert(room_id, std::iter::once(non_tile_entity).collect());
 
-        let draw_entities: Vec<_> = ecs.tile_entities_in_room(room_id).values().copied().collect();
+        let draw_entities: Vec<_> = ecs
+            .tile_entities_in_room_layer(room_id, RoomLayer::Front)
+            .values()
+            .copied()
+            .collect();
 
         assert_eq!(draw_entities, vec![tile_entity]);
     }

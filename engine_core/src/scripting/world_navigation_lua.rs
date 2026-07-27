@@ -50,7 +50,7 @@ pub fn collect_entry_handles(game: &Game) -> Vec<EntryHandle> {
         .data
         .iter()
         .filter_map(|(&entity, entry)| {
-            let room_id = game.ecs.get::<CurrentRoom>(entity)?.0;
+            let room_id = game.ecs.get::<CurrentRoom>(entity)?.room_id;
             let world_id = room_world_map.get(&room_id).copied()?;
             let world_name = game.get_world(world_id)?.name.clone();
             let world_key = world_keys.get(&world_id)?.clone();

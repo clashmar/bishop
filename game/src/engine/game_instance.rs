@@ -154,7 +154,7 @@ impl GameInstance {
             if !entry.is_start {
                 continue;
             }
-            if let Some(room_id) = game.ecs.get::<CurrentRoom>(entity).map(|r| r.0) {
+            if let Some(room_id) = game.ecs.get::<CurrentRoom>(entity).map(|room| room.room_id) {
                 if world.get_room(room_id).is_some() {
                     return room_id;
                 }

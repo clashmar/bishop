@@ -34,14 +34,14 @@ impl TilePlacement {
 
 fn on_insert(comp: &mut TilePlacement, entity: &Entity, ecs: &mut Ecs) {
     ecs.index_tile_definition_entity(comp.definition, *entity);
-    if let Some(room_id) = ecs.get::<CurrentRoom>(*entity).map(|room| room.0) {
-        ecs.index_tile_placement(room_id, *entity, *comp);
+    if let Some(current_room) = ecs.get::<CurrentRoom>(*entity).copied() {
+        ecs.index_tile_placement(current_room.room_id, current_room.layer, *entity, *comp);
     }
 }
 
 fn on_remove(comp: &mut TilePlacement, entity: &Entity, ecs: &mut Ecs) {
     ecs.unindex_tile_definition_entity(comp.definition, *entity);
-    if let Some(room_id) = ecs.get::<CurrentRoom>(*entity).map(|room| room.0) {
-        ecs.unindex_tile_placement(room_id, *entity, *comp);
+    if let Some(current_room) = ecs.get::<CurrentRoom>(*entity).copied() {
+        ecs.unindex_tile_placement(current_room.room_id, current_room.layer, *entity, *comp);
     }
 }

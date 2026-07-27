@@ -46,7 +46,7 @@ fn staged_prefab_edits_preview_sync_to_linked_room_instances() {
                 .game
                 .ecs
                 .get::<CurrentRoom>(linked_roots[0])
-                .map(|room| room.0),
+                .map(|room| room.room_id),
             Some(room_id)
         );
 

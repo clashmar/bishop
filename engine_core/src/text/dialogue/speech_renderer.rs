@@ -313,7 +313,10 @@ mod tests {
         );
 
         assert_eq!(bubbles.len(), 1);
-        assert_eq!(ecs.get::<crate::ecs::CurrentRoom>(in_room).map(|room| room.0), Some(room_a));
+        assert_eq!(
+            ecs.get::<CurrentRoom>(in_room).map(|room| room.room_id),
+            Some(room_a)
+        );
     }
 
     fn make_vertical_speech_fixture(

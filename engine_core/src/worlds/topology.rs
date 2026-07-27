@@ -219,7 +219,7 @@ pub fn extract_topology(game: &Game) -> TraversalTopology {
     }
 
     for (&entity, exit) in &game.ecs.get_store::<WorldExit>().data {
-        let Some(CurrentRoom(source_room)) = game.ecs.get::<CurrentRoom>(entity).copied() else {
+        let Some(CurrentRoom { room_id: source_room, .. }) = game.ecs.get::<CurrentRoom>(entity).copied() else {
             omni_error!("Skipping WorldExit entity {:?}: missing CurrentRoom", entity);
             continue;
         };
@@ -286,7 +286,7 @@ fn resolve_world_exit_target_room(
             if !entry.is_start {
                 continue;
             }
-            let Some(CurrentRoom(room_id)) = game.ecs.get::<CurrentRoom>(entity).copied() else {
+            let Some(CurrentRoom { room_id, .. }) = game.ecs.get::<CurrentRoom>(entity).copied() else {
                 continue;
             };
             if target_world_ref.get_room(room_id).is_some() {
@@ -301,7 +301,7 @@ fn resolve_world_exit_target_room(
         if entry.name != sought_name {
             continue;
         }
-        let Some(CurrentRoom(room_id)) = game.ecs.get::<CurrentRoom>(entity).copied() else {
+        let Some(CurrentRoom { room_id, .. }) = game.ecs.get::<CurrentRoom>(entity).copied() else {
             continue;
         };
         if target_world_ref.get_room(room_id).is_some() {

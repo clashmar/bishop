@@ -1,4 +1,6 @@
 use super::*;
+use bishop::prelude::Rect;
+use engine_core::worlds::{BackRoomLayer, InteriorZone, InteriorZoneId, LayerCompositionMode};
 
 const RESERVED_RUNTIME_SAVES_FOLDER: &str = "_runtime_saves";
 
@@ -172,6 +174,43 @@ fn room_save_load_when_tile_placements_are_entities_then_tile_links_and_runtime_
     assert_eq!(loaded_tile.definition, tile_id);
     assert_eq!((loaded_tile.grid_x, loaded_tile.grid_y), (4, 1));
     assert!(loaded.ecs.get::<Solid>(entity).is_some_and(|solid| solid.0));
+}
+
+#[test]
+fn game_save_load_when_room_variant_has_back_layer_then_layers_round_trip() {
+    let _lock = game_fs_test_lock()
+        .lock()
+        .unwrap_or_else(|poison| poison.into_inner());
+    let test_game = TestGameFolder::new("room_layers_roundtrip");
+    set_game_name(test_game.name());
+
+    let mut game = create_new_game(test_game.name().to_string());
+    let room_id = game.current_world().rooms()[0].id;
+    let room = game
+        .current_world_mut()
+        .expect("new game should have one world")
+        .get_room_mut(room_id)
+        .expect("new game should have one room");
+    room.current_variant_mut().layers.back = Some(BackRoomLayer {
+        composition_mode: LayerCompositionMode::DollsHouse,
+        interior_zones: vec![InteriorZone {
+            id: InteriorZoneId(5),
+            bounds: Rect::new(16.0, 32.0, 48.0, 64.0),
+        }],
+    });
+
+    save_game(&game).expect("save should succeed");
+    let loaded = load_game_by_name(test_game.name()).expect("load should succeed");
+    let loaded_room = loaded
+        .current_world()
+        .get_room(room_id)
+        .expect("loaded game should keep its room data");
+
+    let loaded_back = loaded_room.current_variant().layers.back.as_ref().unwrap();
+    assert_eq!(loaded_back.composition_mode, LayerCompositionMode::DollsHouse);
+    let loaded_zone = loaded_back.interior_zones[0];
+    assert_eq!(loaded_zone.id, InteriorZoneId(5));
+    assert_eq!(loaded_zone.bounds, Rect::new(16.0, 32.0, 48.0, 64.0));
 }
 
 #[test]

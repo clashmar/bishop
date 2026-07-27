@@ -154,7 +154,7 @@ fn create_prefab_from_selection_relinks_selected_room_subtree() {
             .game
             .ecs
             .get::<CurrentRoom>(linked_root)
-            .map(|room| room.0),
+            .map(|room| room.room_id),
         Some(room_id)
     );
     assert_eq!(

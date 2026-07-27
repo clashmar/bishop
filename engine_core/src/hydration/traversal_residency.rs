@@ -1,6 +1,6 @@
 use crate::assets::AssetKey;
 use crate::ecs::{
-    Active, AudioSource, CurrentFrame, Ecs, Entity, Global, Glow, Script, ScriptId, Sprite,
+    Active, AudioSource, CurrentFrame, CurrentRoom, Ecs, Entity, Global, Glow, Script, ScriptId, Sprite,
 };
 use crate::game::Game;
 use crate::hydration::{ScopeKey, ResidencyKey};
@@ -83,7 +83,10 @@ pub fn collect_pinned_entity_claims(game: &Game) -> HashMap<Entity, BTreeSet<Res
             .map(ResidencyKey::Asset)
             .collect::<BTreeSet<_>>();
 
-        if let Some(room_id) = game.ecs.get::<crate::ecs::CurrentRoom>(entity).map(|room| room.0)
+        if let Some(room_id) = game
+            .ecs
+            .get::<CurrentRoom>(entity)
+            .map(|room| room.room_id)
         {
             entity_claims.insert(ResidencyKey::Scope(ScopeKey::Room(room_id)));
         }

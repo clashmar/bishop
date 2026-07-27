@@ -64,7 +64,7 @@ impl InspectorModule for WorldEntryModule {
 
         self.is_start = entry.is_start;
 
-        let owning_room_id = game_ctx.ecs.get::<CurrentRoom>(entity).map(|r| r.0);
+        let owning_room_id = game_ctx.ecs.get::<CurrentRoom>(entity).map(|room| room.room_id);
         let owning_world_id = owning_room_id.and_then(|room_id| {
             if game_ctx.world.as_deref().is_some_and(|w| w.get_room(room_id).is_some()) {
                 game_ctx.world.as_deref().map(|w| w.id)
@@ -81,9 +81,9 @@ impl InspectorModule for WorldEntryModule {
                         && game_ctx
                             .ecs
                             .get::<CurrentRoom>(*other)
-                            .and_then(|r| game_ctx.world.as_deref().map(|w| (r, w)))
-                            .is_some_and(|(r, w)| {
-                                w.get_room(r.0).is_some() && w.id == world_id
+                            .and_then(|room| game_ctx.world.as_deref().map(|world| (room, world)))
+                            .is_some_and(|(room, world)| {
+                                world.get_room(room.room_id).is_some() && world.id == world_id
                             })
                 })
             }
@@ -130,9 +130,9 @@ impl InspectorModule for WorldEntryModule {
                                     && game_ctx
                                         .ecs
                                         .get::<CurrentRoom>(*other)
-                                        .and_then(|r| game_ctx.world.as_deref().map(|w| (r, w)))
-                                        .is_some_and(|(r, w)| {
-                                            w.get_room(r.0).is_some() && w.id == world_id
+                                        .and_then(|room| game_ctx.world.as_deref().map(|world| (room, world)))
+                                        .is_some_and(|(room, world)| {
+                                            world.get_room(room.room_id).is_some() && world.id == world_id
                                         })
                             })
                         }
@@ -141,7 +141,7 @@ impl InspectorModule for WorldEntryModule {
                                 game_ctx.ecs.get_store::<WorldEntry>().data.iter().any(|(other, e)| {
                                     *other != entity
                                         && e.name == typed
-                                        && game_ctx.ecs.get::<CurrentRoom>(*other).map(|r| r.0)
+                                        && game_ctx.ecs.get::<CurrentRoom>(*other).map(|room| room.room_id)
                                             == Some(room_id)
                                 })
                             })

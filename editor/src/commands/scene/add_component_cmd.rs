@@ -160,7 +160,10 @@ mod tests {
         cmd.execute();
 
         with_editor(|editor| {
-            assert_eq!(editor.game.ecs.get::<CurrentRoom>(entity).map(|room| room.0), Some(RoomId(7)));
+            assert_eq!(
+                editor.game.ecs.get::<CurrentRoom>(entity).map(|room| room.room_id),
+                Some(RoomId(7))
+            );
             assert!(editor.game.ecs.entities_in_room(RoomId(7)).contains(&entity));
         });
 

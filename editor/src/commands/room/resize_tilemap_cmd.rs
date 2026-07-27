@@ -251,7 +251,7 @@ impl EditorCommand for ResizeTilemapCmd {
 }
 
 fn room_tile_placements(ecs: &Ecs, room_id: RoomId) -> Vec<TilePlacement> {
-    ecs.tile_entities_in_room(room_id)
+    ecs.tile_entities_in_room_layer(room_id, RoomLayer::Front)
         .values()
         .copied()
         .filter_map(|entity| ecs.get::<TilePlacement>(entity).copied())
@@ -265,7 +265,7 @@ fn replace_room_tile_placements(
 ) {
     let existing_entities: Vec<_> = ctx
         .ecs
-        .tile_entities_in_room(room_id)
+        .tile_entities_in_room_layer(room_id, RoomLayer::Front)
         .values()
         .copied()
         .collect();

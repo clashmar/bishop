@@ -57,7 +57,10 @@ impl CollisionWorld {
     ) -> Self {
         let mut solids = Vec::new();
 
-        for &entity in ecs.tile_entities_in_room(room.id).values() {
+        for &entity in ecs
+            .tile_entities_in_room_layer(room.id, RoomLayer::Front)
+            .values()
+        {
             let Some(tile) = ecs.get::<TilePlacement>(entity) else {
                 continue;
             };

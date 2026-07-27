@@ -6,7 +6,7 @@ use crate::game::GameCtxMut;
 use crate::prefab::PrefabManager;
 use crate::scripting::script_manager::ScriptManager;
 use crate::tiles::{TileDef, TileDefId, TileRegistry};
-use crate::worlds::room::RoomId;
+use crate::worlds::{RoomId, RoomLayer};
 use std::collections::HashMap;
 
 /// Declare a minimal GameCtxMut for tests that need remove_entity/remove_component.
@@ -35,12 +35,26 @@ macro_rules! make_game_ctx {
 // ---- room_entities tests ----
 
 #[test]
+fn current_room_round_trip_preserves_room_and_layer() {
+    let current_room = CurrentRoom {
+        room_id: RoomId(42),
+        layer: RoomLayer::Back,
+    };
+
+    let ron = ron::ser::to_string_pretty(&current_room, ron::ser::PrettyConfig::new()).unwrap();
+    let parsed: CurrentRoom = ron::from_str(&ron).unwrap();
+
+    assert_eq!(parsed.room_id, RoomId(42));
+    assert_eq!(parsed.layer, RoomLayer::Back);
+}
+
+#[test]
 fn current_room_insert_tracks_room_entities() {
     let mut ecs = Ecs::default();
     let entity = ecs.create_entity().finish();
     let room_id = RoomId(42);
 
-    ecs.insert_component(entity, CurrentRoom(room_id));
+    ecs.insert_component(entity, CurrentRoom::front(room_id));
 
     let entities = ecs.entities_in_room(room_id);
     assert_eq!(entities.len(), 1, "exactly one entity in room");
@@ -53,7 +67,7 @@ fn current_room_remove_untracks_room_entities() {
     let entity = ecs.create_entity().finish();
     let room_id = RoomId(42);
 
-    ecs.insert_component(entity, CurrentRoom(room_id));
+    ecs.insert_component(entity, CurrentRoom::front(room_id));
 
     make_game_ctx!(&mut ecs, ctx);
     Ecs::remove_component::<CurrentRoom>(&mut ctx, entity);
@@ -101,16 +115,20 @@ fn set_current_room_rehomes_entity_without_leaving_stale_membership() {
 }
 
 #[test]
-fn tile_placement_insert_tracks_room_tile_entities() {
+fn tile_placement_insert_tracks_room_layer_tile_entities() {
     let mut ecs = Ecs::default();
     let entity = ecs.create_entity().finish();
     let room_id = RoomId(5);
 
     ecs.insert_component(entity, TilePlacement::new(TileDefId(3), 2, 4));
-    ecs.insert_component(entity, CurrentRoom(room_id));
+    ecs.insert_component(entity, CurrentRoom::front(room_id));
 
-    assert_eq!(ecs.tile_entity_at(room_id, 2, 4), Some(entity));
-    assert_eq!(ecs.tile_placement_at(room_id, 2, 4).map(|tile| tile.definition), Some(TileDefId(3)));
+    assert_eq!(ecs.tile_entity_at(room_id, RoomLayer::Front, 2, 4), Some(entity));
+    assert_eq!(
+        ecs.tile_placement_at(room_id, RoomLayer::Front, 2, 4)
+            .map(|tile| tile.definition),
+        Some(TileDefId(3))
+    );
 }
 
 #[test]
@@ -130,18 +148,18 @@ fn tile_placement_insert_tracks_definition_link_entities() {
 }
 
 #[test]
-fn tile_placement_remove_untracks_room_tile_entities() {
+fn tile_placement_remove_untracks_room_layer_tile_entities() {
     let mut ecs = Ecs::default();
     let entity = ecs.create_entity().finish();
     let room_id = RoomId(6);
 
-    ecs.insert_component(entity, CurrentRoom(room_id));
+    ecs.insert_component(entity, CurrentRoom::front(room_id));
     ecs.insert_component(entity, TilePlacement::new(TileDefId(4), 1, 3));
 
     make_game_ctx!(&mut ecs, ctx);
     Ecs::remove_component::<TilePlacement>(&mut ctx, entity);
 
-    assert_eq!(ecs.tile_entity_at(room_id, 1, 3), None);
+    assert_eq!(ecs.tile_entity_at(room_id, RoomLayer::Front, 1, 3), None);
 }
 
 #[test]
@@ -201,11 +219,50 @@ fn set_current_room_rehomes_tile_indexed_entity() {
 
     ecs.insert_component(entity, TilePlacement::new(TileDefId(9), 4, 5));
     ecs.set_current_room(entity, room_a);
-    assert_eq!(ecs.tile_entity_at(room_a, 4, 5), Some(entity));
+    assert_eq!(ecs.tile_entity_at(room_a, RoomLayer::Front, 4, 5), Some(entity));
 
     ecs.set_current_room(entity, room_b);
-    assert_eq!(ecs.tile_entity_at(room_a, 4, 5), None);
-    assert_eq!(ecs.tile_entity_at(room_b, 4, 5), Some(entity));
+    assert_eq!(ecs.tile_entity_at(room_a, RoomLayer::Front, 4, 5), None);
+    assert_eq!(ecs.tile_entity_at(room_b, RoomLayer::Front, 4, 5), Some(entity));
+}
+
+#[test]
+fn tile_entity_at_filters_by_room_layer_and_cell() {
+    let mut ecs = Ecs::default();
+    let room_id = RoomId(70);
+    let front = ecs.create_entity().finish();
+    let back = ecs.create_entity().finish();
+
+    ecs.insert_component(front, TilePlacement::new(TileDefId(1), 2, 3));
+    ecs.insert_component(
+        front,
+        CurrentRoom {
+            room_id,
+            layer: RoomLayer::Front,
+        },
+    );
+
+    ecs.insert_component(back, TilePlacement::new(TileDefId(2), 2, 3));
+    ecs.insert_component(
+        back,
+        CurrentRoom {
+            room_id,
+            layer: RoomLayer::Back,
+        },
+    );
+
+    assert_eq!(ecs.tile_entity_at(room_id, RoomLayer::Front, 2, 3), Some(front));
+    assert_eq!(ecs.tile_entity_at(room_id, RoomLayer::Back, 2, 3), Some(back));
+    assert_eq!(
+        ecs.tile_placement_at(room_id, RoomLayer::Front, 2, 3)
+            .map(|placement| placement.definition),
+        Some(TileDefId(1))
+    );
+    assert_eq!(
+        ecs.tile_placement_at(room_id, RoomLayer::Back, 2, 3)
+            .map(|placement| placement.definition),
+        Some(TileDefId(2))
+    );
 }
 
 #[test]
@@ -217,7 +274,7 @@ fn finalize_after_load_rebuilds_room_entities_for_current_room() {
     let room_id = RoomId(42);
 
     // Bypass lifecycle hooks: insert directly into the store
-    ecs.get_store_mut::<CurrentRoom>().insert(entity, CurrentRoom(room_id));
+    ecs.get_store_mut::<CurrentRoom>().insert(entity, CurrentRoom::front(room_id));
 
     // room_entities should be empty since on_insert didn't fire
     assert!(ecs.entities_in_room(room_id).is_empty(), "room_entities should be empty before finalize");
@@ -230,20 +287,65 @@ fn finalize_after_load_rebuilds_room_entities_for_current_room() {
 }
 
 #[test]
-fn finalize_after_load_rebuilds_room_tile_entities_for_tile_placements() {
+fn finalize_after_load_rebuilds_room_layer_tile_entities_for_tile_placements() {
     let mut ecs = Ecs::default();
     let entity = ecs.create_entity().finish();
     let room_id = RoomId(43);
 
     ecs.get_store_mut::<TilePlacement>()
         .insert(entity, TilePlacement::new(TileDefId(2), 3, 1));
-    ecs.get_store_mut::<CurrentRoom>().insert(entity, CurrentRoom(room_id));
+    ecs.get_store_mut::<CurrentRoom>().insert(
+        entity,
+        CurrentRoom {
+            room_id,
+            layer: RoomLayer::Front,
+        },
+    );
 
-    assert_eq!(ecs.tile_entity_at(room_id, 3, 1), None);
+    assert_eq!(ecs.tile_entity_at(room_id, RoomLayer::Front, 3, 1), None);
 
     ecs.finalize_after_load();
 
-    assert_eq!(ecs.tile_entity_at(room_id, 3, 1), Some(entity));
+    assert_eq!(ecs.tile_entity_at(room_id, RoomLayer::Front, 3, 1), Some(entity));
+}
+
+#[test]
+fn finalize_after_load_rebuilds_room_layer_indexes() {
+    let mut ecs = Ecs::default();
+    let front = ecs.create_entity().finish();
+    let back = ecs.create_entity().finish();
+    let room_id = RoomId(71);
+
+    ecs.get_store_mut::<TilePlacement>()
+        .insert(front, TilePlacement::new(TileDefId(8), 1, 2));
+    ecs.get_store_mut::<CurrentRoom>().insert(
+        front,
+        CurrentRoom {
+            room_id,
+            layer: RoomLayer::Front,
+        },
+    );
+    ecs.get_store_mut::<TilePlacement>()
+        .insert(back, TilePlacement::new(TileDefId(9), 1, 2));
+    ecs.get_store_mut::<CurrentRoom>().insert(
+        back,
+        CurrentRoom {
+            room_id,
+            layer: RoomLayer::Back,
+        },
+    );
+
+    assert!(ecs.entities_in_room_layer(room_id, RoomLayer::Front).is_empty());
+    assert!(ecs.entities_in_room_layer(room_id, RoomLayer::Back).is_empty());
+    assert_eq!(ecs.tile_entity_at(room_id, RoomLayer::Front, 1, 2), None);
+    assert_eq!(ecs.tile_entity_at(room_id, RoomLayer::Back, 1, 2), None);
+
+    ecs.finalize_after_load();
+
+    assert!(ecs.entities_in_room_layer(room_id, RoomLayer::Front).contains(&front));
+    assert!(ecs.entities_in_room_layer(room_id, RoomLayer::Back).contains(&back));
+    assert_eq!(ecs.tile_entity_at(room_id, RoomLayer::Front, 1, 2), Some(front));
+    assert_eq!(ecs.tile_entity_at(room_id, RoomLayer::Back, 1, 2), Some(back));
 }
 
 #[test]
@@ -288,7 +390,7 @@ fn missing_tile_definition_count_when_some_references_are_unknown_then_counts_ea
 }
 
 #[test]
-fn duplicate_tile_occupancy_count_when_multiple_placements_share_room_cell_then_counts_each_extra_placement() {
+fn duplicate_tile_occupancy_count_when_multiple_placements_share_room_layer_cell_then_counts_each_extra_placement() {
     let mut ecs = Ecs::default();
     let first = ecs.create_entity().finish();
     let second = ecs.create_entity().finish();
@@ -298,16 +400,16 @@ fn duplicate_tile_occupancy_count_when_multiple_placements_share_room_cell_then_
 
     ecs.get_store_mut::<TilePlacement>()
         .insert(first, TilePlacement::new(TileDefId(1), 2, 3));
-    ecs.get_store_mut::<CurrentRoom>().insert(first, CurrentRoom(room_id));
+    ecs.get_store_mut::<CurrentRoom>().insert(first, CurrentRoom::front(room_id));
     ecs.get_store_mut::<TilePlacement>()
         .insert(second, TilePlacement::new(TileDefId(2), 2, 3));
-    ecs.get_store_mut::<CurrentRoom>().insert(second, CurrentRoom(room_id));
+    ecs.get_store_mut::<CurrentRoom>().insert(second, CurrentRoom::front(room_id));
     ecs.get_store_mut::<TilePlacement>()
         .insert(third, TilePlacement::new(TileDefId(3), 2, 3));
-    ecs.get_store_mut::<CurrentRoom>().insert(third, CurrentRoom(room_id));
+    ecs.get_store_mut::<CurrentRoom>().insert(third, CurrentRoom::front(room_id));
     ecs.get_store_mut::<TilePlacement>()
         .insert(different_cell, TilePlacement::new(TileDefId(4), 3, 3));
-    ecs.get_store_mut::<CurrentRoom>().insert(different_cell, CurrentRoom(room_id));
+    ecs.get_store_mut::<CurrentRoom>().insert(different_cell, CurrentRoom::front(room_id));
 
     assert_eq!(ecs.duplicate_tile_occupancy_count(), 2);
 }
@@ -495,6 +597,7 @@ fn restore_next_entity_id_empty_ecs_defaults_to_1() {
         stores: HashMap::new(),
         next_entity_id: 42,
         room_entities: HashMap::new(),
+        room_layer_entities: HashMap::new(),
         room_tile_entities: HashMap::new(),
         tile_definition_entities: HashMap::new(),
     };

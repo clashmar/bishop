@@ -65,7 +65,7 @@ impl EditorCommand for RevertPrefabInstanceCmd {
                     .game
                     .ecs
                     .get::<CurrentRoom>(reference.root_entity)
-                    .map(|room| room.0);
+                    .map(|room| room.room_id);
                 let mut ctx = editor.game.ctx_mut();
                 refresh_prefab_instance(&mut ctx, reference.root_entity, &prefab, room_id);
             }

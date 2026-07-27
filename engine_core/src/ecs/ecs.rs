@@ -6,6 +6,7 @@ use crate::ecs::{CurrentRoom, Player, PlayerProxy, Transform};
 use crate::game::GameCtxMut;
 use crate::tiles::TileDefId;
 use crate::worlds::room::RoomId;
+use crate::worlds::RoomLayer;
 use once_cell::sync::Lazy;
 use ron::value::RawValue;
 use serde::de::Deserializer;
@@ -21,8 +22,10 @@ pub struct Ecs {
     pub(crate) next_entity_id: usize,
     /// Room-index: maps RoomId -> set of Entities in that room.
     pub(crate) room_entities: HashMap<RoomId, HashSet<Entity>>,
-    /// Room/cell tile index: maps RoomId -> cell -> tile placement Entity.
-    pub(crate) room_tile_entities: HashMap<RoomId, HashMap<(usize, usize), Entity>>,
+    /// Room/layer index: maps one authored room layer to the entities in it.
+    pub(crate) room_layer_entities: HashMap<(RoomId, RoomLayer), HashSet<Entity>>,
+    /// Room/layer/cell tile index: maps one room layer cell to the tile placement Entity.
+    pub(crate) room_tile_entities: HashMap<(RoomId, RoomLayer), HashMap<(usize, usize), Entity>>,
     /// Reverse tile-definition index: maps TileDefId -> linked tile placement Entities.
     pub(crate) tile_definition_entities: HashMap<TileDefId, HashSet<Entity>>,
 }
@@ -33,6 +36,7 @@ impl Default for Ecs {
             stores: HashMap::new(),
             next_entity_id: 1,
             room_entities: HashMap::new(),
+            room_layer_entities: HashMap::new(),
             room_tile_entities: HashMap::new(),
             tile_definition_entities: HashMap::new(),
         }
@@ -257,7 +261,7 @@ impl Ecs {
         proxy_store
             .data
             .keys()
-            .find(|e| room_store.get(**e).is_some_and(|r| r.0 == room_id))
+            .find(|e| room_store.get(**e).is_some_and(|r| r.room_id == room_id))
             .copied()
     }
 
@@ -283,7 +287,7 @@ impl Ecs {
                     },
                 );
             }
-            self.add_component_to_entity(player_entity, CurrentRoom(room_id));
+            self.add_component_to_entity(player_entity, CurrentRoom::front(room_id));
         }
     }
 
@@ -453,6 +457,7 @@ impl<'de> Deserialize<'de> for Ecs {
             stores,
             next_entity_id: 1,
             room_entities: HashMap::new(),
+            room_layer_entities: HashMap::new(),
             room_tile_entities: HashMap::new(),
             tile_definition_entities: HashMap::new(),
         };
@@ -520,6 +525,7 @@ impl Ecs {
 
         // Rebuild room and tile membership indexes from derived components
         self.rebuild_room_entities();
+        self.rebuild_room_layer_entities();
         self.rebuild_room_tile_entities();
         self.rebuild_tile_definition_entities();
     }
