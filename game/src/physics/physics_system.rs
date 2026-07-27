@@ -191,6 +191,24 @@ mod tests {
         world
     }
 
+    fn room_with_back_zones(room_id: RoomId, interior_zones: Vec<InteriorZone>) -> Room {
+        Room {
+            id: room_id,
+            size: Vec2::new(4.0, 4.0),
+            variants: vec![RoomVariant {
+                tilemap: TileMap::new(4, 4),
+                layers: RoomLayers {
+                    back: Some(BackRoomLayer {
+                        interior_zones,
+                        ..Default::default()
+                    }),
+                },
+                ..Default::default()
+            }],
+            ..Default::default()
+        }
+    }
+
     #[test]
     fn motion_bodies_in_inactive_worlds_do_not_move() {
         let mut ecs = Ecs::default();
@@ -474,6 +492,83 @@ mod tests {
         assert_eq!(
             ecs.get::<Transform>(entity).map(|transform| transform.position),
             Some(Vec2::new(12.0, 14.0))
+        );
+    }
+
+    #[test]
+    fn back_layer_physics_body_stays_within_effective_back_bounds_even_when_player_is_elsewhere() {
+        let player_room = Room {
+            id: RoomId(1),
+            variants: vec![RoomVariant {
+                tilemap: TileMap::new(4, 4),
+                ..Default::default()
+            }],
+            ..Default::default()
+        };
+        let npc_room = room_with_back_zones(
+            RoomId(2),
+            vec![InteriorZone {
+                id: InteriorZoneId(1),
+                bounds: Rect::new(0.0, 0.0, 32.0, 64.0),
+            }],
+        );
+
+        let mut world = World::default();
+        world.grid_size = 16.0;
+        world.current_room_id = Some(player_room.id);
+        world.add_room(player_room);
+        world.add_room(npc_room.clone());
+
+        let mut ecs = Ecs::default();
+        ecs.create_entity()
+            .with(Player::default())
+            .with(Transform::default())
+            .with_current_room(RoomId(1))
+            .finish();
+
+        let npc = ecs
+            .create_entity()
+            .with(Transform {
+                position: Vec2::new(24.0, 24.0),
+                pivot: Pivot::TopLeft,
+                ..Default::default()
+            })
+            .with(Collider {
+                shape: ColliderShape::Aabb {
+                    width: 8.0,
+                    height: 8.0,
+                },
+                ..Default::default()
+            })
+            .with(PhysicsBody)
+            .with(Velocity { x: 60.0, y: 0.0 })
+            .with(Grounded(true))
+            .with_current_room_layer(RoomId(2), RoomLayer::Back)
+            .with(Active::default())
+            .finish();
+
+        ecs.create_entity()
+            .with(Transform {
+                position: Vec2::new(0.0, 32.0),
+                pivot: Pivot::TopLeft,
+                ..Default::default()
+            })
+            .with(Collider {
+                shape: ColliderShape::Aabb {
+                    width: 32.0,
+                    height: 16.0,
+                },
+                ..Default::default()
+            })
+            .with(Solid(true))
+            .with_current_room_layer(RoomId(2), RoomLayer::Back)
+            .finish();
+
+        update_physics(&mut ecs, &world, 1.0 / 60.0);
+
+        assert_eq!(
+            ecs.get::<Transform>(npc).map(|transform| transform.position),
+            Some(Vec2::new(24.0, 24.0))
         );
     }
 

@@ -547,6 +547,7 @@ impl RoomEditor {
                         ctx,
                         &*game_ctx.ecs,
                         room_id,
+                        self.active_layer_state.active_layer,
                         grid_size,
                         self.preview_camera_id,
                     );

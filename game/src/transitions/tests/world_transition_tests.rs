@@ -176,7 +176,7 @@ fn transport_moves_player_and_switches_active_world() {
     assert!(ok);
     assert_eq!(instance.game.current_world().id, ARCADE_ID);
     assert_eq!(
-        instance.game.ecs.get::<CurrentRoom>(player).map(|r| r.0),
+        instance.game.ecs.get::<CurrentRoom>(player).map(|r| r.room_id),
         Some(RoomId(2))
     );
     assert_eq!(
@@ -238,7 +238,7 @@ fn transport_of_non_player_does_not_switch_active_world() {
     assert!(ok);
     assert_eq!(instance.game.current_world().id, OVERWORLD_ID);
     assert_eq!(
-        instance.game.ecs.get::<CurrentRoom>(npc).map(|r| r.0),
+        instance.game.ecs.get::<CurrentRoom>(npc).map(|r| r.room_id),
         Some(RoomId(2))
     );
 }
@@ -257,7 +257,7 @@ fn transport_rejects_unknown_world_without_state_change() {
     assert!(!ok);
     assert_eq!(instance.game.current_world().id, OVERWORLD_ID);
     assert_eq!(
-        instance.game.ecs.get::<CurrentRoom>(player).map(|r| r.0),
+        instance.game.ecs.get::<CurrentRoom>(player).map(|r| r.room_id),
         Some(RoomId(1))
     );
 }
@@ -312,7 +312,7 @@ fn overlay_switches_world_without_moving_player() {
     assert_eq!(instance.game.current_world().id, ARCADE_ID);
     assert_eq!(instance.game.current_world().current_room_id, Some(RoomId(2)));
     assert_eq!(
-        instance.game.ecs.get::<CurrentRoom>(player).map(|r| r.0),
+        instance.game.ecs.get::<CurrentRoom>(player).map(|r| r.room_id),
         Some(RoomId(1))
     );
 }

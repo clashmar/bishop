@@ -1,6 +1,6 @@
 use bishop::prelude::{vec2, Rect, Vec2};
 use engine_core::ecs::*;
-use engine_core::worlds::RoomId;
+use engine_core::worlds::{RoomId, RoomLayer};
 
 use super::{
     resized_aabb_collider,
@@ -112,7 +112,13 @@ fn selected_collider_edit_nudge_in_room_returns_updated_offset() {
         .with_current_room(RoomId(7))
         .finish();
 
-    let nudged = selected_collider_edit_nudge(Some(entity), &ecs, RoomId(7), vec2(1.0, -1.0));
+    let nudged = selected_collider_edit_nudge(
+        Some(entity),
+        &ecs,
+        RoomId(7),
+        RoomLayer::Front,
+        vec2(1.0, -1.0),
+    );
 
     match nudged {
         Some((nudged_entity, old_collider, new_collider)) => {
@@ -123,6 +129,27 @@ fn selected_collider_edit_nudge_in_room_returns_updated_offset() {
         }
         None => panic!("expected collider edit nudge"),
     }
+}
+
+#[test]
+fn selected_collider_edit_nudge_other_layer_returns_none() {
+    let mut ecs = Ecs::default();
+    let entity = ecs
+        .create_entity()
+        .with(Transform::default())
+        .with(Collider::default())
+        .with_current_room_layer(RoomId(7), RoomLayer::Back)
+        .finish();
+
+    let nudged = selected_collider_edit_nudge(
+        Some(entity),
+        &ecs,
+        RoomId(7),
+        RoomLayer::Front,
+        vec2(1.0, -1.0),
+    );
+
+    assert!(nudged.is_none());
 }
 
 #[test]

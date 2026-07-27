@@ -123,9 +123,11 @@ impl GameInstance {
             .map(|room| room.layer)
             .or_else(|| {
                 let room_id = self.game.current_world().current_room_id?;
-                get_room_cameras(&self.game.ecs, room_id)
+                let ecs = &self.game.ecs;
+                get_room_cameras(ecs, room_id, RoomLayer::Front)
                     .into_iter()
-                    .find_map(|(entity, _)| self.game.ecs.get::<CurrentRoom>(entity).copied())
+                    .chain(get_room_cameras(ecs, room_id, RoomLayer::Back))
+                    .find_map(|(entity, _)| ecs.get::<CurrentRoom>(entity).copied())
                     .map(|room| room.layer)
             })
             .unwrap_or(RoomLayer::Front);

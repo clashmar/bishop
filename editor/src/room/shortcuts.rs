@@ -46,8 +46,14 @@ impl RoomEditor {
         let has_back_layer = room.current_variant().layers.back.is_some();
         if Controls::tab(ctx) {
             if self.view_preview {
-                let next_camera =
-                    get_next_room_camera(ctx, ecs, room.id, grid_size, self.preview_camera_id);
+                let next_camera = get_next_room_camera(
+                    ctx,
+                    ecs,
+                    room.id,
+                    self.active_layer_state.active_layer,
+                    grid_size,
+                    self.preview_camera_id,
+                );
                 self.preview_camera_id = next_camera.map(|c| c.id);
             } else {
                 self.toggle_active_layer(ecs, room.id, has_back_layer);
@@ -70,8 +76,14 @@ impl RoomEditor {
                         if camera_id.is_some() {
                             self.preview_camera_id = camera_id;
                         } else {
-                            let first_camera =
-                                get_next_room_camera(ctx, ecs, room.id, grid_size, None);
+                            let first_camera = get_next_room_camera(
+                                ctx,
+                                ecs,
+                                room.id,
+                                self.active_layer_state.active_layer,
+                                grid_size,
+                                None,
+                            );
                             self.preview_camera_id = first_camera.map(|c| c.id);
                         }
                     } else {

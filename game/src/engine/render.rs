@@ -2,7 +2,7 @@ use crate::engine::*;
 use bishop::prelude::*;
 use engine_core::camera::CameraManager;
 use engine_core::constants::window;
-use engine_core::rendering::{RenderSystem, render_room};
+use engine_core::rendering::{RenderSystem, RoomRenderState, render_room};
 use engine_core::text::{collect_speech_bubbles, render_speech_bubbles};
 
 fn gameplay_viewport_rect(screen_w: f32, screen_h: f32) -> Option<(i32, i32, i32, i32)> {
@@ -98,7 +98,13 @@ pub fn render_screen_space<C: BishopContext>(
     render_cam: &Camera2D,
     alpha: f32,
 ) {
-    render_speech(ctx, game_instance, render_cam, alpha);
+    render_speech(
+        ctx,
+        game_instance,
+        render_cam,
+        game_instance.current_render_state(),
+        alpha,
+    );
 }
 
 /// Renders speech bubbles in screen space above the game world.
@@ -106,6 +112,7 @@ fn render_speech<C: BishopContext>(
     ctx: &mut C,
     game_instance: &GameInstance,
     render_cam: &Camera2D,
+    render_state: RoomRenderState,
     alpha: f32,
 ) {
     let game_ctx = game_instance.game.ctx();
@@ -119,6 +126,7 @@ fn render_speech<C: BishopContext>(
         game_ctx.sprite_manager,
         game_ctx.world,
         current_room,
+        render_state,
         alpha,
         Some(&game_instance.prev_positions),
         grid_size,

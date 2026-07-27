@@ -1,7 +1,7 @@
 use bishop::prelude::*;
 use engine_core::ecs::*;
 use engine_core::worlds::*;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 use crate::physics::shapes;
 
@@ -40,11 +40,15 @@ struct SolidObj {
     shape: ColliderShape,
     shape_pos: Vec2,
     entity: Option<Entity>,
+    layer: Option<RoomLayer>,
+    interior_zone: Option<InteriorZoneId>,
 }
 
 /// Collision world built once per frame per room. Owns its obstacle data.
 pub struct CollisionWorld {
     solids: Vec<SolidObj>,
+    entity_layers: HashMap<Entity, RoomLayer>,
+    back_interior_zones: Vec<InteriorZone>,
 }
 
 impl CollisionWorld {
@@ -56,11 +60,17 @@ impl CollisionWorld {
         world: &World,
     ) -> Self {
         let mut solids = Vec::new();
+        let back_interior_zones = clamped_back_interior_zones(room, world.grid_size);
+        let entity_layers = ecs
+            .entities_in_room(room.id)
+            .iter()
+            .filter_map(|&entity| {
+                ecs.get::<CurrentRoom>(entity)
+                    .map(|current_room| (entity, current_room.layer))
+            })
+            .collect::<HashMap<_, _>>();
 
-        for &entity in ecs
-            .tile_entities_in_room_layer(room.id, RoomLayer::Front)
-            .values()
-        {
+        for (&entity, &layer) in &entity_layers {
             let Some(tile) = ecs.get::<TilePlacement>(entity) else {
                 continue;
             };
@@ -79,15 +89,20 @@ impl CollisionWorld {
                     },
                     shape_pos: tile_pos,
                     entity: Some(entity),
+                    layer: Some(layer),
+                    interior_zone: None,
                 });
             }
         }
 
-        // Border obstacles
         add_border_obstacles(&mut solids, room, world.grid_size);
+        add_back_layer_bound_obstacles(
+            &mut solids,
+            room.world_rect(world.grid_size),
+            &back_interior_zones,
+        );
 
-        // Solid ECS entities
-        for &entity in ecs.entities_in_room(room.id) {
+        for (&entity, &layer) in &entity_layers {
             if ecs.get::<TilePlacement>(entity).is_some() {
                 continue;
             }
@@ -105,11 +120,15 @@ impl CollisionWorld {
                 shape: collider.shape,
                 shape_pos: entity_aabb.0,
                 entity: Some(entity),
+                layer: Some(layer),
+                interior_zone: None,
             });
         }
 
         CollisionWorld {
             solids,
+            entity_layers,
+            back_interior_zones,
         }
     }
 
@@ -123,12 +142,26 @@ impl CollisionWorld {
         collider: Collider,
         pivot: Pivot,
     ) -> SweepResult {
-        let collider_pos = shapes::collider_aabb(entity_position, collider, pivot).0;
+        let collider_aabb = shapes::collider_aabb(entity_position, collider, pivot);
+        let collider_pos = collider_aabb.0;
+        let moving_layer = self
+            .entity_layers
+            .get(&moving_entity)
+            .copied()
+            .unwrap_or(RoomLayer::Front);
+        let active_back_zone = self.active_back_zone(collider_aabb);
 
         if let ColliderShape::Circle { radius } = collider.shape {
             let center = Vec2::new(collider_pos.x + radius, collider_pos.y + radius);
             return self
-                .sweep_circle(center, radius, desired_delta, moving_entity)
+                .sweep_circle(
+                    center,
+                    radius,
+                    desired_delta,
+                    moving_entity,
+                    moving_layer,
+                    active_back_zone,
+                )
                 .finish(desired_delta);
         }
 
@@ -138,12 +171,27 @@ impl CollisionWorld {
                 collider_pos.y + radius + height * 0.5,
             );
             return self
-                .sweep_capsule(center, radius, height, desired_delta, moving_entity)
+                .sweep_capsule(
+                    center,
+                    radius,
+                    height,
+                    desired_delta,
+                    moving_entity,
+                    moving_layer,
+                    active_back_zone,
+                )
                 .finish(desired_delta);
         }
 
         if let ColliderShape::Aabb { width, height } = collider.shape {
-            if self.solids.iter().any(|solid| matches!(solid.shape, ColliderShape::Circle { .. })) {
+            if self
+                .solids
+                .iter()
+                .any(|solid| {
+                    self.solid_affects_layer(solid, moving_layer, active_back_zone)
+                        && matches!(solid.shape, ColliderShape::Circle { .. })
+                })
+            {
                 let center = Vec2::new(
                     collider_pos.x + width * 0.5,
                     collider_pos.y + height * 0.5,
@@ -155,6 +203,8 @@ impl CollisionWorld {
                         height * 0.5,
                         desired_delta,
                         moving_entity,
+                        moving_layer,
+                        active_back_zone,
                     )
                     .finish(desired_delta);
             }
@@ -166,6 +216,8 @@ impl CollisionWorld {
             desired_delta.x,
             0,
             moving_entity,
+            moving_layer,
+            active_back_zone,
         );
 
         let pos_after_x = Vec2::new(collider_pos.x + allowed_x, collider_pos.y);
@@ -175,6 +227,8 @@ impl CollisionWorld {
             desired_delta.y,
             1,
             moving_entity,
+            moving_layer,
+            active_back_zone,
         );
 
         SweepResult {
@@ -201,6 +255,8 @@ impl CollisionWorld {
         radius: f32,
         desired_delta: Vec2,
         moving_entity: Entity,
+        moving_layer: RoomLayer,
+        active_back_zone: Option<InteriorZoneId>,
     ) -> SweepData {
         let mut t_x = 1.0f32;
         let mut t_y = 1.0f32;
@@ -210,7 +266,9 @@ impl CollisionWorld {
         let mut push_y = 0.0f32;
 
         for solid in &self.solids {
-            if solid.entity == Some(moving_entity) {
+            if solid.entity == Some(moving_entity)
+                || !self.solid_affects_layer(solid, moving_layer, active_back_zone)
+            {
                 continue;
             }
 
@@ -267,14 +325,38 @@ impl CollisionWorld {
         height: f32,
         desired_delta: Vec2,
         moving_entity: Entity,
+        moving_layer: RoomLayer,
+        active_back_zone: Option<InteriorZoneId>,
     ) -> SweepData {
         let half = height * 0.5;
         let top_center = Vec2::new(center.x, center.y - half);
         let bot_center = Vec2::new(center.x, center.y + half);
 
-        let top = self.sweep_circle(top_center, radius, desired_delta, moving_entity);
-        let bot = self.sweep_circle(bot_center, radius, desired_delta, moving_entity);
-        let body = self.sweep_aabb_2d(center, radius, half, desired_delta, moving_entity);
+        let top = self.sweep_circle(
+            top_center,
+            radius,
+            desired_delta,
+            moving_entity,
+            moving_layer,
+            active_back_zone,
+        );
+        let bot = self.sweep_circle(
+            bot_center,
+            radius,
+            desired_delta,
+            moving_entity,
+            moving_layer,
+            active_back_zone,
+        );
+        let body = self.sweep_aabb_2d(
+            center,
+            radius,
+            half,
+            desired_delta,
+            moving_entity,
+            moving_layer,
+            active_back_zone,
+        );
 
         SweepData {
             t_x: top.t_x.min(bot.t_x).min(body.t_x),
@@ -294,6 +376,8 @@ impl CollisionWorld {
         hh: f32,
         desired_delta: Vec2,
         moving_entity: Entity,
+        moving_layer: RoomLayer,
+        active_back_zone: Option<InteriorZoneId>,
     ) -> SweepData {
         let mut t_x = 1.0f32;
         let mut t_y = 1.0f32;
@@ -303,7 +387,9 @@ impl CollisionWorld {
         let mut push_y = 0.0f32;
 
         for solid in &self.solids {
-            if solid.entity == Some(moving_entity) {
+            if solid.entity == Some(moving_entity)
+                || !self.solid_affects_layer(solid, moving_layer, active_back_zone)
+            {
                 continue;
             }
 
@@ -411,7 +497,7 @@ impl CollisionWorld {
                 };
             }
 
-            if dist_sq < 0.0001 {
+            if dist_sq < shapes::OVERLAP_EPS {
                 let dx_min = center.x - obs_min.x;
                 let dx_max = obs_max.x - center.x;
                 let dy_min = center.y - obs_min.y;
@@ -612,7 +698,7 @@ impl CollisionWorld {
         let dist_sq = diff.length_squared();
 
         if dist_sq <= combined_radius * combined_radius + shapes::OVERLAP_EPS {
-            if dist_sq < 0.0001 {
+            if dist_sq < shapes::OVERLAP_EPS {
                 if desired_delta.x.abs() > desired_delta.y.abs() {
                     push_x = if desired_delta.x >= 0.0 {
                         -combined_radius
@@ -932,6 +1018,8 @@ impl CollisionWorld {
         delta: f32,
         axis: usize,
         moving_entity: Entity,
+        moving_layer: RoomLayer,
+        active_back_zone: Option<InteriorZoneId>,
     ) -> (f32, bool) {
         if delta == 0.0 {
             return (0.0, false);
@@ -941,7 +1029,9 @@ impl CollisionWorld {
         let mut blocked = false;
 
         for solid in &self.solids {
-            if solid.entity == Some(moving_entity) {
+            if solid.entity == Some(moving_entity)
+                || !self.solid_affects_layer(solid, moving_layer, active_back_zone)
+            {
                 continue;
             }
             if let Some(limit) =
@@ -957,6 +1047,49 @@ impl CollisionWorld {
         (allowed, blocked)
     }
 
+    fn solid_affects_layer(
+        &self,
+        solid: &SolidObj,
+        moving_layer: RoomLayer,
+        active_back_zone: Option<InteriorZoneId>,
+    ) -> bool {
+        if !solid.layer.is_none_or(|layer| layer == moving_layer) {
+            return false;
+        }
+
+        let Some(zone_id) = solid.interior_zone else {
+            return true;
+        };
+
+        moving_layer == RoomLayer::Back
+            && active_back_zone.is_none_or(|active_zone| active_zone == zone_id)
+    }
+
+    fn active_back_zone(&self, collider_aabb: (Vec2, Vec2)) -> Option<InteriorZoneId> {
+        if self.back_interior_zones.is_empty() {
+            return None;
+        }
+
+        let collider_bounds = Rect::new(
+            collider_aabb.0.x,
+            collider_aabb.0.y,
+            collider_aabb.1.x - collider_aabb.0.x,
+            collider_aabb.1.y - collider_aabb.0.y,
+        );
+        if let Some(zone) = self
+            .back_interior_zones
+            .iter()
+            .find(|zone| rect_contains_rect(zone.bounds, collider_bounds))
+        {
+            return Some(zone.id);
+        }
+
+        let center = collider_bounds.center();
+        self.back_interior_zones
+            .iter()
+            .find(|zone| zone.bounds.contains(center))
+            .map(|zone| zone.id)
+    }
 }
 
 fn ray_axis(start: f32, dir: f32, lo: f32, hi: f32) -> (f32, f32) {
@@ -1031,6 +1164,121 @@ fn select_stronger_push(pushes: [f32; 3]) -> f32 {
     selected
 }
 
+
+fn add_back_layer_bound_obstacles(
+    solids: &mut Vec<SolidObj>,
+    room_bounds: Rect,
+    back_interior_zones: &[InteriorZone],
+) {
+    for zone in back_interior_zones {
+        let forbidden_bounds = subtract_allowed_bounds(room_bounds, &[zone.bounds]);
+
+        for bounds in forbidden_bounds {
+            let min = vec2(bounds.x, bounds.y);
+            solids.push(SolidObj {
+                aabb: (min, min + vec2(bounds.w, bounds.h)),
+                shape: ColliderShape::Aabb {
+                    width: bounds.w,
+                    height: bounds.h,
+                },
+                shape_pos: min,
+                entity: None,
+                layer: Some(RoomLayer::Back),
+                interior_zone: Some(zone.id),
+            });
+        }
+    }
+}
+
+fn clamped_back_interior_zones(room: &Room, grid_size: f32) -> Vec<InteriorZone> {
+    let room_bounds = room.world_rect(grid_size);
+    room.current_variant()
+        .layers
+        .back
+        .as_ref()
+        .map(|back| {
+            back.interior_zones
+                .iter()
+                .copied()
+                .map(|zone| InteriorZone {
+                    bounds: clamp_rect_to_room(zone.bounds, room_bounds),
+                    ..zone
+                })
+                .filter(|zone| !rect_is_empty(zone.bounds))
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+fn subtract_allowed_bounds(room_bounds: Rect, allowed_bounds: &[Rect]) -> Vec<Rect> {
+    let allowed = allowed_bounds
+        .iter()
+        .map(|rect| clamp_rect_to_room(*rect, room_bounds))
+        .filter(|rect| !rect_is_empty(*rect))
+        .collect::<Vec<_>>();
+    if allowed.is_empty() {
+        return vec![room_bounds];
+    }
+
+    let mut xs = vec![room_bounds.x, room_bounds.x + room_bounds.w];
+    let mut ys = vec![room_bounds.y, room_bounds.y + room_bounds.h];
+    for rect in &allowed {
+        xs.push(rect.x);
+        xs.push(rect.x + rect.w);
+        ys.push(rect.y);
+        ys.push(rect.y + rect.h);
+    }
+    xs.sort_by(f32::total_cmp);
+    ys.sort_by(f32::total_cmp);
+    xs.dedup_by(|a, b| (*a - *b).abs() <= shapes::OVERLAP_EPS);
+    ys.dedup_by(|a, b| (*a - *b).abs() <= shapes::OVERLAP_EPS);
+
+    let mut forbidden = Vec::new();
+    for x_pair in xs.windows(2) {
+        for y_pair in ys.windows(2) {
+            let x0 = x_pair[0];
+            let x1 = x_pair[1];
+            let y0 = y_pair[0];
+            let y1 = y_pair[1];
+            let cell = Rect::new(x0, y0, x1 - x0, y1 - y0);
+            if rect_is_empty(cell) {
+                continue;
+            }
+
+            let center = vec2(cell.x + cell.w * 0.5, cell.y + cell.h * 0.5);
+            if !room_bounds.contains(center) {
+                continue;
+            }
+            if allowed.iter().any(|rect| rect.contains(center)) {
+                continue;
+            }
+
+            forbidden.push(cell);
+        }
+    }
+
+    forbidden
+}
+
+fn rect_contains_rect(outer: Rect, inner: Rect) -> bool {
+    inner.x >= outer.x - shapes::OVERLAP_EPS
+        && inner.y >= outer.y - shapes::OVERLAP_EPS
+        && inner.x + inner.w <= outer.x + outer.w + shapes::OVERLAP_EPS
+        && inner.y + inner.h <= outer.y + outer.h + shapes::OVERLAP_EPS
+}
+
+fn clamp_rect_to_room(rect: Rect, room_bounds: Rect) -> Rect {
+    let x0 = rect.x.max(room_bounds.x);
+    let y0 = rect.y.max(room_bounds.y);
+    let x1 = (rect.x + rect.w).min(room_bounds.x + room_bounds.w);
+    let y1 = (rect.y + rect.h).min(room_bounds.y + room_bounds.h);
+    Rect::new(x0, y0, (x1 - x0).max(0.0), (y1 - y0).max(0.0))
+}
+
+fn rect_is_empty(rect: Rect) -> bool {
+    rect.w <= shapes::OVERLAP_EPS || rect.h <= shapes::OVERLAP_EPS
+}
+
 fn add_border_obstacles(solids: &mut Vec<SolidObj>, room: &Room, grid_size: f32) {
     let tilemap = &room.variants[room.current_variant_index()].tilemap;
     let ts = grid_size;
@@ -1055,6 +1303,8 @@ fn add_border_obstacles(solids: &mut Vec<SolidObj>, room: &Room, grid_size: f32)
                 },
                 shape_pos: min,
                 entity: None,
+                layer: None,
+                interior_zone: None,
             });
         }
     }
@@ -1071,6 +1321,8 @@ fn add_border_obstacles(solids: &mut Vec<SolidObj>, room: &Room, grid_size: f32)
                 },
                 shape_pos: min,
                 entity: None,
+                layer: None,
+                interior_zone: None,
             });
         }
     }
@@ -1087,6 +1339,8 @@ fn add_border_obstacles(solids: &mut Vec<SolidObj>, room: &Room, grid_size: f32)
                 },
                 shape_pos: min,
                 entity: None,
+                layer: None,
+                interior_zone: None,
             });
         }
     }
@@ -1103,6 +1357,8 @@ fn add_border_obstacles(solids: &mut Vec<SolidObj>, room: &Room, grid_size: f32)
                 },
                 shape_pos: min,
                 entity: None,
+                layer: None,
+                interior_zone: None,
             });
         }
     }
@@ -1119,6 +1375,8 @@ fn add_border_obstacles(solids: &mut Vec<SolidObj>, room: &Room, grid_size: f32)
                 },
                 shape_pos: min,
                 entity: None,
+                layer: None,
+                interior_zone: None,
             });
         }
     }

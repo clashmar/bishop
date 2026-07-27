@@ -11,10 +11,10 @@ use bishop::prelude::*;
 pub struct CameraManager {
     /// The game camera that is fed to the renderer.
     pub active: GameCamera,
-    /// A Vec<(Entity, RoomCamera) for the currently active room.
+    /// A Vec<(Entity, RoomCamera) for the currently active room/layer.
     room_cameras: Vec<(Entity, RoomCamera)>,
-    /// The id of the room we are currently tracking or `None`.
-    current_room: Option<RoomId>,
+    /// The room/layer pair we are currently tracking or `None`.
+    current_room_layer: Option<(RoomId, RoomLayer)>,
     /// The stored previous position of the active game camera.
     pub previous_position: Option<Vec2>,
 }
@@ -28,7 +28,8 @@ impl CameraManager {
         player_pos: Vec2,
         grid_size: f32,
     ) -> Self {
-        let room_cameras = get_room_cameras(ecs, room_id);
+        let room_layer = active_camera_layer(ecs, room_id);
+        let room_cameras = get_room_cameras(ecs, room_id, room_layer);
         let (mut active_camera, _) =
             Self::find_best_camera_for_room(ecs, &room_cameras, player_pos)
                 .expect("Room must contain at least one camera.");
@@ -38,7 +39,7 @@ impl CameraManager {
         Self {
             active: active_camera,
             room_cameras,
-            current_room: Some(room_id),
+            current_room_layer: Some((room_id, room_layer)),
             previous_position: None,
         }
     }
@@ -52,9 +53,10 @@ impl CameraManager {
         grid_size: f32,
     ) {
         // If the player moved to another room get the new cameras
-        if self.current_room != Some(room.id) {
-            self.current_room = Some(room.id);
-            self.room_cameras = get_room_cameras(ecs, self.current_room.unwrap());
+        let room_layer = active_camera_layer(ecs, room.id);
+        if self.current_room_layer != Some((room.id, room_layer)) {
+            self.current_room_layer = Some((room.id, room_layer));
+            self.room_cameras = get_room_cameras(ecs, room.id, room_layer);
         }
 
         // Pick the best camera
@@ -148,6 +150,23 @@ impl CameraManager {
     pub fn interpolated_target(&self, alpha: f32) -> Vec2 {
         let prev = self.previous_position.unwrap_or(self.active.camera.target);
         lerp_position(prev, self.active.camera.target, alpha)
+    }
+}
+
+fn active_camera_layer(ecs: &Ecs, room_id: RoomId) -> RoomLayer {
+    let preferred = ecs
+        .get_player_entity()
+        .and_then(|entity| ecs.get::<CurrentRoom>(entity).copied())
+        .filter(|current_room| current_room.room_id == room_id)
+        .map(|current_room| current_room.layer)
+        .unwrap_or(RoomLayer::Front);
+
+    if !get_room_cameras(ecs, room_id, preferred).is_empty() {
+        preferred
+    } else if !get_room_cameras(ecs, room_id, RoomLayer::Front).is_empty() {
+        RoomLayer::Front
+    } else {
+        RoomLayer::Back
     }
 }
 

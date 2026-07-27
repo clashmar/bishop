@@ -26,20 +26,28 @@ impl Default for Interactable {
     }
 }
 
-/// Returns the best interactable entity candidate for the player in the current room.
+/// Returns the best interactable entity candidate for the player in the current room/layer.
 pub fn find_best_interactable(ecs: &Ecs) -> Option<Entity> {
     let player = ecs.get_player_entity()?;
     let player_pos = ecs.get_player_transform()?.position;
+    let player_room = ecs.get::<CurrentRoom>(player).copied()?;
 
-    let player_room = ecs.get::<CurrentRoom>(player).map(|room| room.room_id)?;
+    find_best_interactable_in_layer(ecs, player_room.room_id, player_room.layer, player_pos)
+}
 
+pub fn find_best_interactable_in_layer(
+    ecs: &Ecs,
+    room_id: crate::worlds::RoomId,
+    layer: crate::worlds::RoomLayer,
+    source_pos: bishop::prelude::Vec2,
+) -> Option<Entity> {
     let interactables = ecs.get_store::<Interactable>();
     let positions = ecs.get_store::<Transform>();
 
     let mut best: Option<(Entity, f32)> = None;
 
-    for &entity in ecs.entities_in_room(player_room) {
-        ecs.assert_room_membership(player_room, entity);
+    for &entity in ecs.entities_in_room_layer(room_id, layer) {
+        ecs.assert_room_membership(room_id, entity);
 
         let Some(interactable) = interactables.get(entity) else {
             continue;
@@ -49,7 +57,7 @@ pub fn find_best_interactable(ecs: &Ecs) -> Option<Entity> {
             continue;
         };
 
-        let dist = player_pos.distance(pos);
+        let dist = source_pos.distance(pos);
         if dist > interactable.range {
             continue;
         }

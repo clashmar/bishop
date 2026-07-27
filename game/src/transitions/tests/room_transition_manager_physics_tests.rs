@@ -14,7 +14,7 @@ fn physics_driven_down_transition_changes_room_when_falling_through_exit() {
             .game
             .ecs
             .get::<CurrentRoom>(entity)
-            .map(|room| room.0),
+            .map(|room| room.room_id),
         Some(RoomId(2))
     );
 }
@@ -30,7 +30,7 @@ fn physics_driven_horizontal_transitions_wait_for_visual_boundary_crossing() {
             .game
             .ecs
             .get::<CurrentRoom>(right_entity)
-            .map(|room| room.0),
+            .map(|room| room.room_id),
         Some(RoomId(1))
     );
     let right_after_two = step_physics_and_transitions(&lua, &mut right_game, right_entity);
@@ -40,7 +40,7 @@ fn physics_driven_horizontal_transitions_wait_for_visual_boundary_crossing() {
             .game
             .ecs
             .get::<CurrentRoom>(right_entity)
-            .map(|room| room.0),
+            .map(|room| room.room_id),
         Some(RoomId(2))
     );
 
@@ -53,7 +53,7 @@ fn physics_driven_horizontal_transitions_wait_for_visual_boundary_crossing() {
             .game
             .ecs
             .get::<CurrentRoom>(left_entity)
-            .map(|room| room.0),
+            .map(|room| room.room_id),
         Some(RoomId(2))
     );
     let left_after_two = step_physics_and_transitions(&lua, &mut left_game, left_entity);
@@ -63,7 +63,7 @@ fn physics_driven_horizontal_transitions_wait_for_visual_boundary_crossing() {
             .game
             .ecs
             .get::<CurrentRoom>(left_entity)
-            .map(|room| room.0),
+            .map(|room| room.room_id),
         Some(RoomId(1))
     );
 }

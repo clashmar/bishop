@@ -44,7 +44,7 @@ fn handle_transitions_tracks_spatial_room_change() {
             .game
             .ecs
             .get::<CurrentRoom>(entity)
-            .map(|room| room.0),
+            .map(|room| room.room_id),
         Some(RoomId(2))
     );
     let room_b_entities = game_instance.game.ecs.entities_in_room(RoomId(2));
@@ -95,7 +95,7 @@ fn handle_transitions_ignores_entities_parked_in_inactive_worlds() {
             .game
             .ecs
             .get::<CurrentRoom>(parked)
-            .map(|room| room.0),
+            .map(|room| room.room_id),
         Some(RoomId(3))
     );
 }
@@ -137,7 +137,7 @@ fn handle_transitions_uses_visual_position_instead_of_rounded_transform_position
             .game
             .ecs
             .get::<CurrentRoom>(entity)
-            .map(|room| room.0),
+            .map(|room| room.room_id),
         Some(RoomId(1))
     );
 }

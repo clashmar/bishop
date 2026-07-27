@@ -197,14 +197,6 @@ pub fn entity_world_rect(
     Rect::new(corrected_pos.x, corrected_pos.y, size.x, size.y)
 }
 
-/// Returns true if an entity can be selected in a room (is in the room).
-pub fn can_select_entity_in_room(ecs: &Ecs, entity: Entity, room_id: RoomId) -> bool {
-    match ecs.get_store::<CurrentRoom>().get(entity) {
-        Some(CurrentRoom { room_id: id, .. }) => *id == room_id,
-        None => false,
-    }
-}
-
 /// Returns true if an entity can be selected in one room/layer pair.
 pub fn can_select_entity_in_room_layer(
     ecs: &Ecs,

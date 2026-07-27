@@ -575,6 +575,7 @@ impl RoomEditor {
             self.single_selected_entity(),
             ecs,
             room_id,
+            self.active_layer_state.active_layer,
             step,
         ) {
             push_command(cmd);

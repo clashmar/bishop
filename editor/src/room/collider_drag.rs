@@ -1,7 +1,7 @@
 use bishop::prelude::{vec2, Vec2};
 use engine_core::ecs::{Collider, ColliderShape, Ecs, Entity, Transform};
 use engine_core::rendering::{pivot_adjusted_position, resolve_visual_entity};
-use engine_core::worlds::RoomId;
+use engine_core::worlds::{RoomId, RoomLayer};
 
 use crate::app::EditorMode;
 use crate::commands::scene::{ComponentTransientState, UpdateComponentCmd};
@@ -12,7 +12,7 @@ use crate::gui::inspector::collider_module::edit::{
     ColliderEditConfig,
     HandleAction,
 };
-use crate::room::selection::can_select_entity_in_room;
+use crate::room::selection::can_select_entity_in_room_layer;
 use crate::world::coord::round_to_grid;
 
 #[derive(Default)]
@@ -75,10 +75,11 @@ pub(crate) fn selected_collider_edit_nudge(
     selected_entity: Option<Entity>,
     ecs: &Ecs,
     room_id: RoomId,
+    layer: RoomLayer,
     step: Vec2,
 ) -> Option<(Entity, Collider, Collider)> {
     let entity = selected_entity?;
-    if !can_select_entity_in_room(ecs, entity, room_id) {
+    if !can_select_entity_in_room_layer(ecs, entity, room_id, layer) {
         return None;
     }
 
@@ -283,10 +284,11 @@ pub(crate) fn apply_collider_edit_nudge(
     selected_entity: Option<Entity>,
     ecs: &mut Ecs,
     room_id: RoomId,
+    layer: RoomLayer,
     step: Vec2,
 ) -> Option<Box<UpdateComponentCmd>> {
     let (entity, old_collider, new_collider) =
-        selected_collider_edit_nudge(selected_entity, ecs, room_id, step)?;
+        selected_collider_edit_nudge(selected_entity, ecs, room_id, layer, step)?;
     if let Some(collider) = ecs.get_store_mut::<Collider>().get_mut(entity) {
         *collider = new_collider;
     }
