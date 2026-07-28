@@ -11,7 +11,6 @@ mod resize_tilemap_cmd;
 mod set_back_layer_composition_mode_cmd;
 mod set_back_layer_enabled_cmd;
 mod set_tile_placement_cmd;
-#[cfg(test)]
 mod update_interior_zones_cmd;
 
 pub use alt_drag_copy_cmd::*;
@@ -27,7 +26,6 @@ pub use resize_tilemap_cmd::*;
 pub use set_back_layer_composition_mode_cmd::*;
 pub use set_back_layer_enabled_cmd::*;
 pub use set_tile_placement_cmd::*;
-#[cfg(test)]
 pub use update_interior_zones_cmd::*;
 
 #[cfg(test)]

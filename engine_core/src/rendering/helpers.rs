@@ -195,27 +195,30 @@ pub fn entity_visual_overlaps_room(
         .overlaps(&room.world_rect(grid_size))
 }
 
-fn entity_visual_rect(
+/// Returns the world-space rectangle occupied by the entity's rendered visual.
+pub fn entity_visual_rect(
     ecs: &Ecs,
     sprite_manager: &SpriteManager,
     entity: Entity,
     visual_pos: Vec2,
     grid_size: f32,
 ) -> Rect {
+    let visual_entity = resolve_visual_entity(ecs, entity);
     let pivot = ecs
         .get_store::<Transform>()
         .get(entity)
         .map(|transform| transform.pivot)
-        .unwrap_or(Pivot::BottomCenter)
-        .as_normalized();
-    let size = entity_dimensions(ecs, sprite_manager, entity, grid_size);
+        .unwrap_or(Pivot::BottomCenter);
 
-    Rect::new(
-        visual_pos.x - size.x * pivot.x,
-        visual_pos.y - size.y * pivot.y,
-        size.x,
-        size.y,
-    )
+    if let Some(current_frame) = ecs.get_store::<CurrentFrame>().get(visual_entity) {
+        let size = current_frame.frame_size;
+        let draw_base = pivot_adjusted_position(visual_pos, size, pivot) + current_frame.offset;
+        return Rect::new(draw_base.x, draw_base.y, size.x, size.y);
+    }
+
+    let size = entity_dimensions(ecs, sprite_manager, entity, grid_size);
+    let draw_base = pivot_adjusted_position(visual_pos, size, pivot);
+    Rect::new(draw_base.x, draw_base.y, size.x, size.y)
 }
 
 fn projected_exit_cell_rect(

@@ -59,6 +59,7 @@ fn draw_prefab_entity<C: BishopContext>(
         pos,
         pivot,
         grid_size,
+        color: Color::WHITE,
     };
 
     if let Some(current_frame) = ecs.get_store::<CurrentFrame>().get(visual_entity) {

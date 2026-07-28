@@ -1,29 +1,53 @@
 use super::super::PropertyModule;
-use crate::commands::room::{SetBackLayerCompositionModeCmd, SetBackLayerEnabledCmd};
+use crate::commands::room::{
+    SetBackLayerCompositionModeCmd,
+    SetBackLayerEnabledCmd,
+    UpdateInteriorZonesCmd,
+};
+use crate::editor_assets::assets::edit_icon;
 use crate::editor_global::push_command;
 use crate::shared::scene_ui::inspector::InspectorContext;
 use bishop::prelude::*;
 use engine_core::ecs::inspector::layout::InspectorBodyLayout;
 use engine_core::game::GameCtxMut;
+use engine_core::theme::with_theme;
 use engine_core::worlds::room::Room;
 use engine_core::worlds::LayerCompositionMode;
 use std::cell::Cell;
 use widgets::constants::{colors, layout};
-use widgets::{Button, Dropdown, WidgetId};
+use widgets::{Button, Dropdown, InputCommit, NumberInput, WidgetId};
 
 const ROW_H: f32 = 30.0;
 const GAP: f32 = layout::WIDGET_SPACING;
+const ICON_BUTTON_SIZE: f32 = ROW_H;
+const WARNING_TOP_GAP: f32 = 8.0;
+const WARNING_HEIGHT: f32 = 28.0;
+
+#[derive(Clone, Copy, Default)]
+struct ZoneWidgetIds {
+    delete_id: WidgetId,
+    x_id: WidgetId,
+    y_id: WidgetId,
+    w_id: WidgetId,
+    h_id: WidgetId,
+}
 
 pub struct RoomLayersModule {
     composition_id: WidgetId,
+    zone_widget_ids: Vec<ZoneWidgetIds>,
+    pending_toggle_room_zone_tool: bool,
     show_composition_mode: Cell<bool>,
+    zone_count: Cell<usize>,
 }
 
 impl RoomLayersModule {
     pub fn new() -> Self {
         Self {
             composition_id: WidgetId::default(),
+            zone_widget_ids: Vec::new(),
+            pending_toggle_room_zone_tool: false,
             show_composition_mode: Cell::new(false),
+            zone_count: Cell::new(0),
         }
     }
 }
@@ -34,10 +58,21 @@ impl Default for RoomLayersModule {
     }
 }
 
+impl RoomLayersModule {
+    fn sync_zone_widget_ids(&mut self, zone_count: usize) {
+        while self.zone_widget_ids.len() < zone_count {
+            self.zone_widget_ids.push(ZoneWidgetIds::default());
+        }
+        self.zone_widget_ids.truncate(zone_count);
+    }
+}
+
 impl PropertyModule<Room> for RoomLayersModule {
     fn visible(&self, room: &Room, _game_ctx: &GameCtxMut) -> bool {
-        self.show_composition_mode
-            .set(room.current_variant().layers.back.is_some());
+        let back = room.current_variant().layers.back.as_ref();
+        self.show_composition_mode.set(back.is_some());
+        self.zone_count
+            .set(back.map(|back| back.interior_zones.len()).unwrap_or(0));
         true
     }
 
@@ -47,10 +82,14 @@ impl PropertyModule<Room> for RoomLayersModule {
         rect: Rect,
         room: &mut Room,
         game_ctx: &mut GameCtxMut,
-        _insp_ctx: &InspectorContext,
+        insp_ctx: &InspectorContext,
     ) {
         let room_id = room.id;
-        let Some(world_id) = game_ctx.world.as_deref().map(|world| world.id) else {
+        let Some(world_id) = game_ctx
+            .world
+            .as_deref()
+            .map(|world| world.id)
+        else {
             return;
         };
         let back_enabled = room.current_variant().layers.back.is_some();
@@ -70,6 +109,15 @@ impl PropertyModule<Room> for RoomLayersModule {
             return;
         }
 
+        let current_zones = room
+            .current_variant()
+            .layers
+            .back
+            .as_ref()
+            .map(|back| back.interior_zones.clone())
+            .unwrap_or_default();
+        self.sync_zone_widget_ids(current_zones.len());
+
         let y = rect.y + ROW_H + GAP;
         let current_mode = room
             .current_variant()
@@ -84,6 +132,15 @@ impl PropertyModule<Room> for RoomLayersModule {
             .collect::<Vec<_>>();
         let current_label = current_mode.ui_label();
 
+        let composition_label_w = 110.0;
+        let icon_rect = Rect::new(rect.x + rect.w - ICON_BUTTON_SIZE, y, ICON_BUTTON_SIZE, ICON_BUTTON_SIZE);
+        let dropdown_rect = Rect::new(
+            rect.x + composition_label_w,
+            y,
+            icon_rect.x - rect.x - composition_label_w - GAP,
+            ROW_H,
+        );
+
         ctx.draw_text(
             "Composition:",
             rect.x,
@@ -93,7 +150,7 @@ impl PropertyModule<Room> for RoomLayersModule {
         );
         if let Some(selection) = Dropdown::new(
             self.composition_id,
-            Rect::new(rect.x + 110.0, y, rect.w - 120.0, ROW_H),
+            dropdown_rect,
             current_label,
             &options,
             |value| value.clone(),
@@ -113,18 +170,173 @@ impl PropertyModule<Room> for RoomLayersModule {
                 current_mode,
                 selected_mode,
             )));
+            return;
         }
+
+        if insp_ctx.room_zone_tool_active {
+            ctx.draw_rectangle(
+                icon_rect.x - 2.0,
+                icon_rect.y - 2.0,
+                icon_rect.w + 4.0,
+                icon_rect.h + 4.0,
+                with_theme(|theme| theme.highlight.with_alpha(0.31)),
+            );
+        }
+        if Button::icon(icon_rect, edit_icon(), "Edit Interior Zones")
+            .icon_padding(5.0)
+            .show(ctx)
+        {
+            self.pending_toggle_room_zone_tool = true;
+            return;
+        }
+
+        let mut zone_y = y + ROW_H + GAP;
+        if self.zone_widget_ids.is_empty() {
+            zone_y += WARNING_TOP_GAP;
+            ctx.draw_text_wrapped(
+                "No interior zones yet. Use the zone tool to drag them on the canvas. Back bounds currently use the full room.",
+                rect.x,
+                zone_y,
+                layout::FIELD_TEXT_SIZE_16 - 2.0,
+                Color::GOLD,
+                rect.w,
+            );
+            return;
+        }
+
+        for (index, zone) in current_zones.iter().enumerate() {
+            let ids = self.zone_widget_ids[index];
+            let title = format!("Zone {}", zone.id.0);
+            ctx.draw_text(
+                &title,
+                rect.x,
+                zone_y + 20.0,
+                layout::FIELD_TEXT_SIZE_16,
+                colors::DEFAULT_TEXT_COLOR,
+            );
+            let delete_rect = Rect::new(rect.x + rect.w - 90.0, zone_y, 90.0, ROW_H);
+            if Button::new(delete_rect, "Delete")
+                .interaction_id(ids.delete_id)
+                .show(ctx)
+            {
+                let mut new_zones = current_zones.clone();
+                new_zones.remove(index);
+                push_command(Box::new(UpdateInteriorZonesCmd::new(
+                    world_id,
+                    room_id,
+                    current_zones.clone(),
+                    new_zones,
+                )));
+                return;
+            }
+            zone_y += ROW_H + GAP;
+
+            let half_w = (rect.w - GAP) * 0.5;
+            let label_w = 18.0;
+            ctx.draw_text("X", rect.x, zone_y + 20.0, layout::FIELD_TEXT_SIZE_16, colors::DEFAULT_TEXT_COLOR);
+            ctx.draw_text(
+                "Y",
+                rect.x + half_w + GAP,
+                zone_y + 20.0,
+                layout::FIELD_TEXT_SIZE_16,
+                colors::DEFAULT_TEXT_COLOR,
+            );
+            let x_rect = Rect::new(rect.x + label_w, zone_y, half_w - label_w, ROW_H);
+            let y_rect = Rect::new(rect.x + half_w + GAP + label_w, zone_y, half_w - label_w, ROW_H);
+            let (new_x, commit_x) = NumberInput::new(ids.x_id, x_rect, zone.bounds.x).show(ctx);
+            let (new_y, commit_y) = NumberInput::new(ids.y_id, y_rect, zone.bounds.y).show(ctx);
+            zone_y += ROW_H + GAP;
+
+            ctx.draw_text("W", rect.x, zone_y + 20.0, layout::FIELD_TEXT_SIZE_16, colors::DEFAULT_TEXT_COLOR);
+            ctx.draw_text(
+                "H",
+                rect.x + half_w + GAP,
+                zone_y + 20.0,
+                layout::FIELD_TEXT_SIZE_16,
+                colors::DEFAULT_TEXT_COLOR,
+            );
+            let w_rect = Rect::new(rect.x + label_w, zone_y, half_w - label_w, ROW_H);
+            let h_rect = Rect::new(rect.x + half_w + GAP + label_w, zone_y, half_w - label_w, ROW_H);
+            let (new_w, commit_w) = NumberInput::new(ids.w_id, w_rect, zone.bounds.w)
+                .min(1.0)
+                .show(ctx);
+            let (new_h, commit_h) = NumberInput::new(ids.h_id, h_rect, zone.bounds.h)
+                .min(1.0)
+                .show(ctx);
+            zone_y += ROW_H + GAP;
+
+            let committed = matches!(commit_x, InputCommit::Committed)
+                || matches!(commit_y, InputCommit::Committed)
+                || matches!(commit_w, InputCommit::Committed)
+                || matches!(commit_h, InputCommit::Committed);
+            let edited_bounds = Rect::new(new_x, new_y, new_w.max(1.0), new_h.max(1.0));
+            if committed && edited_bounds != zone.bounds {
+                let mut new_zones = current_zones.clone();
+                new_zones[index].bounds = edited_bounds;
+                push_command(Box::new(UpdateInteriorZonesCmd::new(
+                    world_id,
+                    room_id,
+                    current_zones.clone(),
+                    new_zones,
+                )));
+                return;
+            }
+        }
+    }
+
+    fn take_toggle_room_zone_tool(&mut self) -> bool {
+        std::mem::take(&mut self.pending_toggle_room_zone_tool)
     }
 
     fn body_layout(&self) -> InspectorBodyLayout {
         let mut layout = InspectorBodyLayout::new().rows(1, GAP);
         if self.show_composition_mode.get() {
             layout = layout.gap(GAP).rows(1, GAP);
+            if self.zone_count.get() == 0 {
+                layout = layout.gap(GAP + WARNING_TOP_GAP).block(WARNING_HEIGHT);
+            } else {
+                for _ in 0..self.zone_count.get() {
+                    layout = layout.gap(GAP).rows(3, GAP);
+                }
+            }
         }
         layout
     }
 
     fn title(&self) -> &str {
         "Layers"
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use engine_core::worlds::{InteriorZone, InteriorZoneId};
+
+    fn next_interior_zone_id(zones: &[InteriorZone]) -> InteriorZoneId {
+        InteriorZoneId(
+            zones
+                .iter()
+                .map(|zone| zone.id.0)
+                .max()
+                .unwrap_or(0)
+                .saturating_add(1),
+        )
+    }
+
+    #[test]
+    fn next_interior_zone_id_returns_max_plus_one() {
+        let zones = vec![
+            InteriorZone {
+                id: InteriorZoneId(3),
+                bounds: Rect::new(0.0, 0.0, 16.0, 16.0),
+            },
+            InteriorZone {
+                id: InteriorZoneId(8),
+                bounds: Rect::new(16.0, 0.0, 16.0, 16.0),
+            },
+        ];
+
+        assert_eq!(next_interior_zone_id(&zones), InteriorZoneId(9));
     }
 }

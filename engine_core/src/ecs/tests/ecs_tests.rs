@@ -744,7 +744,7 @@ fn validate_layer_door_when_interactable_area_extends_outside_back_zone_union_th
             position: Vec2::new(28.0, 8.0),
             ..Default::default()
         })
-        .with(Interactable::rect(100.0, Vec2::ZERO, Vec2::new(16.0, 16.0)))
+        .with(Interactable::rect(Vec2::ZERO, Vec2::new(16.0, 16.0)))
         .with(LayerDoor::default())
         .with_current_room(room_id)
         .finish();

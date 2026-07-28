@@ -61,7 +61,7 @@ impl Renderable for Sprite {
             tex,
             draw_base.x,
             draw_base.y,
-            Color::WHITE,
+            params.color,
             DrawTextureParams {
                 dest_size: Some(size),
                 ..Default::default()

@@ -380,6 +380,7 @@ impl GameEditor {
                     hide_room_only_components: true,
                     selected_create_parent: None,
                     event_tags: Vec::new(),
+                    room_zone_tool_active: false,
                 },
             )
         };

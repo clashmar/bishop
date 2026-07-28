@@ -1,5 +1,6 @@
 use crate::app::Editor;
 use crate::prefab::prefab_editor::{PrefabRoomSyncState, StagedPrefabState};
+use crate::room::room_editor::RoomEditor;
 use engine_core::ecs::*;
 use engine_core::game::Game;
 use std::collections::HashSet;
@@ -180,7 +181,7 @@ fn restore_prefab_instance_snapshots(
 
 fn remove_prefab_and_linked_instances(
     game: &mut Game,
-    room_editor: &mut crate::room::room_editor::RoomEditor,
+    room_editor: &mut RoomEditor,
     prefab_id: PrefabId,
 ) -> Vec<GroupSnapshot> {
     let roots = linked_prefab_instance_roots(&game.ecs, prefab_id);

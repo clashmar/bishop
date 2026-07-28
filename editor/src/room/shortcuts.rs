@@ -17,7 +17,8 @@ impl RoomEditor {
         &mut self,
         ctx: &mut WgpuContext,
         camera: &mut Camera2D,
-        room: &Room,
+        room: &mut Room,
+        world_id: WorldId,
         grid_size: f32,
         ecs: &Ecs,
     ) {
@@ -63,6 +64,12 @@ impl RoomEditor {
         match self.mode {
             RoomEditorMode::Tilemap => {}
             RoomEditorMode::Scene => {
+                if self.scene_sub_mode == RoomSceneSubMode::Zones {
+                    if Controls::delete(ctx) {
+                        self.delete_selected_interior_zone(room, world_id);
+                    }
+                }
+
                 if Controls::v(ctx) {
                     let next_preview = !self.view_preview;
                     self.set_preview_enabled(next_preview);
@@ -91,6 +98,9 @@ impl RoomEditor {
                     }
                 }
 
+                if self.scene_sub_mode == RoomSceneSubMode::Zones {
+                    return;
+                }
 
                 if Controls::paste(ctx) {
                     push_command(Box::new(PasteEntityCmd::new(EditorMode::Room(room.id))));

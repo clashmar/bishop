@@ -12,6 +12,7 @@ use crate::gui::inspector::shell::Inspector;
 use crate::gui::mode_selector::*;
 use crate::prefab::reconcile_recent_prefab_ids;
 use crate::room::drawing::*;
+use crate::room::interior_zone_edit::InteriorZoneEditorState;
 use crate::room::layer_state::RoomLayerState;
 use crate::room::selection::{DragState, can_select_entity_in_room_layer};
 use crate::shared::input::{canvas_blocked_by_global_ui, shortcuts_blocked};
@@ -46,10 +47,11 @@ pub enum RoomEditorMode {
 pub(crate) enum RoomSceneSubMode {
     Scene,
     Stamp,
+    Zones,
 }
 
 pub(crate) static ROOM_SCENE_SUB_MODES: &[RoomSceneSubMode] =
-    &[RoomSceneSubMode::Scene, RoomSceneSubMode::Stamp];
+    &[RoomSceneSubMode::Scene, RoomSceneSubMode::Stamp, RoomSceneSubMode::Zones];
 
 #[derive(Clone, Copy)]
 pub(crate) struct ActivePrefabStampState {
@@ -92,6 +94,7 @@ impl ModeInfo for RoomSceneSubMode {
         match self {
             RoomSceneSubMode::Scene => "Scene",
             RoomSceneSubMode::Stamp => "Stamp",
+            RoomSceneSubMode::Zones => "Zones",
         }
     }
 
@@ -99,6 +102,7 @@ impl ModeInfo for RoomSceneSubMode {
         match self {
             RoomSceneSubMode::Scene => edit_icon(),
             RoomSceneSubMode::Stamp => select_icon(),
+            RoomSceneSubMode::Zones => create_icon(),
         }
     }
 
@@ -120,6 +124,7 @@ pub struct RoomEditor {
     pub(crate) active_rects: Vec<Rect>,
     pub(crate) show_grid: bool,
     pub(crate) drag_state: DragState,
+    pub(crate) interior_zone_editor: InteriorZoneEditorState,
     pub create_request: Option<CreateRequest>,
     pub prefab_action_request: Option<PrefabActionRequest>,
     pub create_camera_request: Option<f32>,
@@ -157,6 +162,7 @@ impl RoomEditor {
             active_rects: Vec::new(),
             show_grid: true,
             drag_state: DragState::default(),
+            interior_zone_editor: InteriorZoneEditorState::default(),
             preview_camera_id: None,
             create_request: None,
             prefab_action_request: None,
@@ -210,8 +216,12 @@ impl RoomEditor {
         let room_has_back_layer = current_world
             .get_room(room_id)
             .is_some_and(|room| room.current_variant().layers.back.is_some());
+        if !room_has_back_layer && self.scene_sub_mode == RoomSceneSubMode::Zones {
+            self.reset_scene_sub_mode();
+        }
         self.sync_active_layer_for_room(ecs, room_id, room_has_back_layer);
 
+        let world_id = current_world.id;
         let room = current_world
             .rooms_mut()
             .iter_mut()
@@ -254,41 +264,52 @@ impl RoomEditor {
                 );
             }
             RoomEditorMode::Scene => {
-                let stamp_handled = self
-                    .handle_prefab_stamp(ctx, camera, room.id, grid_size, active_prefab_stamp);
-                let drag_handled = stamp_handled
-                    || self.handle_selection(
-                        ctx,
-                        room.id,
-                        camera,
-                        ecs,
-                        sprite_manager,
-                        grid_size,
-                    );
+                let zone_handled = self.handle_interior_zones(
+                    ctx,
+                    camera,
+                    world_id,
+                    room,
+                    grid_size,
+                );
+                if self.scene_sub_mode != RoomSceneSubMode::Zones {
+                    let stamp_handled = self
+                        .handle_prefab_stamp(ctx, camera, room.id, grid_size, active_prefab_stamp);
+                    let drag_handled = stamp_handled
+                        || self.handle_selection(
+                            ctx,
+                            room.id,
+                            camera,
+                            ecs,
+                            sprite_manager,
+                            grid_size,
+                        );
 
-                if !drag_handled {
-                    self.handle_keyboard_move(ctx, ecs, room.id);
-                }
+                    if !drag_handled {
+                        self.handle_keyboard_move(ctx, ecs, room.id);
+                    }
 
-                // Handle batch delete when multiple entities selected
-                if self.selected_entities.len() > 1
-                    && Controls::delete(ctx)
-                    && !shortcuts_blocked()
-                {
-                    let entities: Vec<Entity> = self.selected_entities.iter().copied().collect();
-                    push_command(Box::new(BatchDeleteEntitiesCmd::new(
-                        entities,
-                        EditorMode::Room(room_id),
-                    )));
-                }
+                    // Handle batch delete when multiple entities selected
+                    if self.selected_entities.len() > 1
+                        && Controls::delete(ctx)
+                        && !shortcuts_blocked()
+                    {
+                        let entities: Vec<Entity> = self.selected_entities.iter().copied().collect();
+                        push_command(Box::new(BatchDeleteEntitiesCmd::new(
+                            entities,
+                            EditorMode::Room(room_id),
+                        )));
+                    }
 
-                // Copy multiple selected entities
-                if Controls::copy(ctx)
-                    && self.selected_entities.len() > 1
-                    && !shortcuts_blocked()
-                {
-                    let entities: Vec<Entity> = self.selected_entities.iter().copied().collect();
-                    copy_entities(ecs, &entities);
+                    // Copy multiple selected entities
+                    if Controls::copy(ctx)
+                        && self.selected_entities.len() > 1
+                        && !shortcuts_blocked()
+                    {
+                        let entities: Vec<Entity> = self.selected_entities.iter().copied().collect();
+                        copy_entities(ecs, &entities);
+                    }
+                } else if !zone_handled {
+                    self.inspector.select_room();
                 }
 
                 // Create a new entity if create was pressed
@@ -312,13 +333,16 @@ impl RoomEditor {
                 }
 
                 // If target was cleared by inspector, sync selection.
-                if !self.inspector.has_target() && self.selected_entities.len() == 1 {
+                if self.scene_sub_mode != RoomSceneSubMode::Zones
+                    && !self.inspector.has_target()
+                    && self.selected_entities.len() == 1
+                {
                     self.clear_selection();
                 }
             }
         }
 
-        self.handle_shortcuts(ctx, camera, room, grid_size, ecs);
+        self.handle_shortcuts(ctx, camera, room, world_id, grid_size, ecs);
 
         current_world.link_all_room_exits();
     }
@@ -340,7 +364,7 @@ impl RoomEditor {
             .filter(|prefab_id| prefab_manager.prefabs.contains_key(prefab_id));
         self.recent_prefab_ids =
             reconcile_recent_prefab_ids(state.recent_prefab_ids, prefab_manager);
-        self.scene_sub_mode = RoomSceneSubMode::Scene;
+        self.set_scene_sub_mode(RoomSceneSubMode::Scene);
     }
 
     pub(crate) fn reconcile_prefab_palette(&mut self, prefab_manager: &PrefabManager) {
@@ -361,7 +385,7 @@ impl RoomEditor {
         self.mode = RoomEditorMode::Scene;
         self.mode_selector.current = RoomEditorMode::Scene;
         self.set_preview_enabled(false);
-        self.scene_sub_mode = RoomSceneSubMode::Stamp;
+        self.set_scene_sub_mode(RoomSceneSubMode::Stamp);
     }
 
     pub(crate) fn record_recent_prefab(&mut self, prefab_id: PrefabId) {
@@ -373,6 +397,7 @@ impl RoomEditor {
     pub(crate) fn reset_scene_sub_mode(&mut self) -> bool {
         let was_active = self.scene_sub_mode != RoomSceneSubMode::Scene;
         self.scene_sub_mode = RoomSceneSubMode::Scene;
+        self.interior_zone_editor.clear();
         was_active
     }
 
@@ -458,6 +483,23 @@ impl RoomEditor {
 
     pub(crate) fn set_scene_sub_mode(&mut self, mode: RoomSceneSubMode) {
         self.scene_sub_mode = mode;
+        if mode == RoomSceneSubMode::Zones {
+            self.disable_active_edit_modes();
+            self.drag_state = DragState::default();
+            self.inspector.select_room();
+        } else {
+            self.interior_zone_editor.clear();
+            self.sync_inspector_to_selection();
+        }
+    }
+
+    pub(crate) fn toggle_zone_sub_mode(&mut self) {
+        self.set_mode(RoomEditorMode::Scene);
+        if self.scene_sub_mode == RoomSceneSubMode::Zones {
+            self.set_scene_sub_mode(RoomSceneSubMode::Scene);
+        } else {
+            self.set_scene_sub_mode(RoomSceneSubMode::Zones);
+        }
     }
 
     pub(crate) fn active_prefab_snap_pivot(&self, prefab_manager: &PrefabManager) -> Pivot {
@@ -577,6 +619,7 @@ impl RoomEditor {
                         render_cam,
                         RoomRenderState {
                             current_layer: self.active_layer_state.active_layer,
+                            viewpoint_position: Some(render_cam.target),
                         },
                         0.0,
                         None,
@@ -615,13 +658,14 @@ impl RoomEditor {
                             self.active_layer_state.active_layer,
                             grid_size,
                         );
-                        draw_entity_range_circles_in_room(
+                        draw_entity_interaction_guides_in_room(
                             ctx,
                             ecs,
                             room_id,
                             self.active_layer_state.active_layer,
                             grid_size,
                         );
+                        self.draw_interior_zones_overlay(ctx, room, grid_size);
                         if self.scene_sub_mode == RoomSceneSubMode::Stamp
                             && !self.should_block_canvas(ctx)
                         {
@@ -638,35 +682,37 @@ impl RoomEditor {
                             }
                         }
 
-                        for &selected_entity in &self.selected_entities {
-                            if !is_pure_placeholder(ecs, selected_entity) {
-                                highlight_selected_entity(
+                        if self.scene_sub_mode != RoomSceneSubMode::Zones {
+                            for &selected_entity in &self.selected_entities {
+                                if !is_pure_placeholder(ecs, selected_entity) {
+                                    highlight_selected_entity(
+                                        ctx,
+                                        ecs,
+                                        selected_entity,
+                                        sprite_manager,
+                                        grid_size,
+                                    );
+                                }
+                                self.draw_camera_viewports(
                                     ctx,
+                                    camera,
                                     ecs,
                                     selected_entity,
-                                    sprite_manager,
-                                    grid_size,
+                                    room_id,
+                                    self.active_layer_state.active_layer,
                                 );
+                                draw_pivot_marker(ctx, ecs, selected_entity);
                             }
-                            self.draw_camera_viewports(
-                                ctx,
-                                camera,
-                                ecs,
-                                selected_entity,
-                                room_id,
-                                self.active_layer_state.active_layer,
-                            );
-                            draw_pivot_marker(ctx, ecs, selected_entity);
-                        }
 
-                        if let Some(selected_entity) = self.single_selected_entity() {
-                            draw_editor_collider(ctx, ecs, selected_entity, grid_size);
-                        }
+                            if let Some(selected_entity) = self.single_selected_entity() {
+                                draw_editor_collider(ctx, ecs, selected_entity, grid_size);
+                            }
 
-                        if self.drag_state.box_select_active {
-                            if let Some(start) = self.drag_state.box_select_start {
-                                let mouse_world = coord::mouse_world_pos(ctx, camera);
-                                draw_selection_box(ctx, start, mouse_world, grid_size);
+                            if self.drag_state.box_select_active {
+                                if let Some(start) = self.drag_state.box_select_start {
+                                    let mouse_world = coord::mouse_world_pos(ctx, camera);
+                                    draw_selection_box(ctx, start, mouse_world, grid_size);
+                                }
                             }
                         }
                     }
@@ -699,6 +745,7 @@ impl RoomEditor {
         self.view_preview = false;
         self.preview_camera_id = None;
         self.drag_state = DragState::default();
+        self.interior_zone_editor.clear();
         self.tilemap_sub_mode = TilemapEditorMode::Tiles;
         self.sub_mode_rect = None;
     }

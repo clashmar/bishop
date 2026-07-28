@@ -60,7 +60,6 @@
 ---@alias Grounded boolean
 
 ---@class Interactable
----@field range number
 ---@field use_rect boolean
 ---@field offset vec2
 ---@field radius number

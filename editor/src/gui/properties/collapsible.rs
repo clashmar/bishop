@@ -62,6 +62,10 @@ impl<T, M: PropertyModule<T>> PropertyModule<T> for CollapsiblePropertyModule<T,
         self.inner.take_host_action()
     }
 
+    fn take_toggle_room_zone_tool(&mut self) -> bool {
+        self.inner.take_toggle_room_zone_tool()
+    }
+
     fn body_layout(&self) -> InspectorBodyLayout {
         self.inner.body_layout()
     }

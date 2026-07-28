@@ -71,6 +71,36 @@ impl RoomLayers {
             Some(_) | None => vec![room_bounds],
         }
     }
+
+    /// Returns the currently active back-layer bounds for one viewpoint.
+    pub fn active_back_bounds(
+        &self,
+        room_bounds: Rect,
+        current_layer: RoomLayer,
+        viewpoint_position: Option<Vec2>,
+    ) -> Vec<Rect> {
+        if current_layer != RoomLayer::Back {
+            return vec![];
+        }
+
+        let Some(back) = &self.back else {
+            return vec![];
+        };
+
+        if back.interior_zones.is_empty() {
+            return vec![room_bounds];
+        }
+
+        let Some(viewpoint_position) = viewpoint_position else {
+            return vec![];
+        };
+
+        back.interior_zones
+            .iter()
+            .filter(|zone| zone.bounds.contains(viewpoint_position))
+            .map(|zone| zone.bounds)
+            .collect()
+    }
 }
 
 #[cfg(test)]
@@ -147,5 +177,48 @@ mod tests {
 
         let back = parsed.layers.back.unwrap();
         assert_eq!(back.interior_zones, zones);
+    }
+
+    #[test]
+    fn active_back_bounds_when_back_has_no_zones_then_uses_room_bounds() {
+        let room_bounds = Rect::new(0.0, 0.0, 128.0, 128.0);
+        let layers = RoomLayers {
+            back: Some(BackRoomLayer::default()),
+        };
+
+        assert_eq!(
+            layers.active_back_bounds(room_bounds, RoomLayer::Back, Some(Vec2::new(8.0, 8.0))),
+            vec![room_bounds],
+        );
+    }
+
+    #[test]
+    fn active_back_bounds_when_zones_exist_then_returns_only_matching_zones() {
+        let room_bounds = Rect::new(0.0, 0.0, 128.0, 128.0);
+        let zone_a = InteriorZone {
+            id: InteriorZoneId(1),
+            bounds: Rect::new(0.0, 0.0, 32.0, 32.0),
+        };
+        let zone_b = InteriorZone {
+            id: InteriorZoneId(2),
+            bounds: Rect::new(64.0, 0.0, 32.0, 32.0),
+        };
+        let layers = RoomLayers {
+            back: Some(BackRoomLayer {
+                composition_mode: LayerCompositionMode::Hidden,
+                interior_zones: vec![zone_a, zone_b],
+            }),
+        };
+
+        assert_eq!(
+            layers.active_back_bounds(room_bounds, RoomLayer::Back, Some(Vec2::new(8.0, 8.0))),
+            vec![zone_a.bounds],
+        );
+        assert!(layers
+            .active_back_bounds(room_bounds, RoomLayer::Front, Some(Vec2::new(8.0, 8.0)))
+            .is_empty());
+        assert!(layers
+            .active_back_bounds(room_bounds, RoomLayer::Back, Some(Vec2::new(48.0, 8.0)))
+            .is_empty());
     }
 }

@@ -124,6 +124,7 @@ impl RoomEditor {
                     selected_create_parent: None,
                     game_name: None,
                     event_tags: self.event_tags.clone(),
+                    room_zone_tool_active: false,
                 };
                 let _ = self.inspector.draw_active_pane(ctx, game_ctx, &inspector_ctx);
 
@@ -187,12 +188,16 @@ impl RoomEditor {
                     selected_create_parent: None,
                     game_name: None,
                     event_tags: self.event_tags.clone(),
+                    room_zone_tool_active: self.scene_sub_mode == RoomSceneSubMode::Zones,
                 };
                 let inspector_output = self.inspector.draw_active_pane(ctx, game_ctx, &inspector_ctx);
                 self.create_request = inspector_output.create_request;
                 self.prefab_action_request = inspector_output.prefab_action;
                 self.create_camera_request = inspector_output.create_camera_request;
                 self.request_event_tags_refresh = inspector_output.refresh_event_tags;
+                if inspector_output.toggle_room_zone_tool {
+                    self.toggle_zone_sub_mode();
+                }
 
                 // Mode selector (menu bar)
                 let (mode_rect, changed) = self.mode_selector.draw(ctx);
@@ -211,11 +216,16 @@ impl RoomEditor {
                     parent_mode_icon_x(ctx, &self.mode_selector, RoomEditorMode::Scene);
                 let icon_size = MENU_PANEL_HEIGHT - 2.0 * MODE_SELECTOR_PADDING;
                 let sub_strip_y = MODE_SELECTOR_PADDING + icon_size + 4.0;
+                let scene_sub_modes = if room_has_back_layer {
+                    ROOM_SCENE_SUB_MODES
+                } else {
+                    &ROOM_SCENE_SUB_MODES[..2]
+                };
                 let bg_rect = draw_sub_mode_strip_background(
                     ctx,
                     scene_icon_x,
                     sub_strip_y,
-                    ROOM_SCENE_SUB_MODES.len(),
+                    scene_sub_modes.len(),
                 );
                 self.sub_mode_rect = Some(bg_rect);
 
@@ -223,7 +233,7 @@ impl RoomEditor {
                     ctx,
                     scene_icon_x,
                     sub_strip_y,
-                    ROOM_SCENE_SUB_MODES,
+                    scene_sub_modes,
                     &mut self.scene_sub_mode,
                 );
                 self.sub_mode_rect = Some(sub_rect);
@@ -653,8 +663,8 @@ pub fn is_pure_placeholder(ecs: &Ecs, entity: Entity) -> bool {
     )
 }
 
-/// Draw range circles for an entity.
-pub fn draw_entity_range_circles(ctx: &mut WgpuContext, ecs: &Ecs, entity: Entity, grid_size: f32) {
+/// Draw interaction guides for an entity.
+pub fn draw_entity_interaction_guides(ctx: &mut WgpuContext, ecs: &Ecs, entity: Entity, grid_size: f32) {
     let Some(transform) = ecs.get_store::<Transform>().get(entity) else { return };
     let thickness = outline_thickness(grid_size) * ENTITY_OUTLINE_SCALE;
     let cx = transform.position.x;
@@ -662,13 +672,29 @@ pub fn draw_entity_range_circles(ctx: &mut WgpuContext, ecs: &Ecs, entity: Entit
 
     if let Some(interactable) = ecs.get_store::<Interactable>().get(entity) {
         let violet = Color::new(0.75, 0.25, 1.0, 0.55);
-        ctx.draw_circle_lines(
-            cx,
-            cy,
-            interactable.range,
-            thickness,
-            violet,
-        );
+        match interactable.shape() {
+            InteractableShape::Circle => {
+                let center = interactable.center_at(transform.position);
+                ctx.draw_circle_lines(
+                    center.x,
+                    center.y,
+                    interactable.radius,
+                    thickness,
+                    violet,
+                );
+            }
+            InteractableShape::Rect => {
+                let bounds = interactable.bounds_at(transform.position);
+                ctx.draw_rectangle_lines(
+                    bounds.x,
+                    bounds.y,
+                    bounds.w,
+                    bounds.h,
+                    thickness,
+                    violet,
+                );
+            }
+        }
     }
 
     let exit_range = ecs
@@ -690,8 +716,8 @@ pub fn draw_entity_range_circles(ctx: &mut WgpuContext, ecs: &Ecs, entity: Entit
     }
 }
 
-/// Draw range circles for each entity in the room.
-pub fn draw_entity_range_circles_in_room(
+/// Draw interaction guides for each entity in the room.
+pub fn draw_entity_interaction_guides_in_room(
     ctx: &mut WgpuContext,
     ecs: &Ecs,
     room_id: RoomId,
@@ -700,7 +726,7 @@ pub fn draw_entity_range_circles_in_room(
 ) {
     for &entity in ecs.entities_in_room_layer(room_id, layer) {
         ecs.assert_room_membership(room_id, entity);
-        draw_entity_range_circles(ctx, ecs, entity, grid_size);
+        draw_entity_interaction_guides(ctx, ecs, entity, grid_size);
     }
 }
 

@@ -5,6 +5,7 @@ use crate::ecs::*;
 use crate::game::*;
 use crate::rendering::*;
 use crate::tiles::draw_room_tile_placements;
+use crate::worlds::room::Room;
 use crate::worlds::*;
 use bishop::prelude::*;
 use std::collections::{BTreeMap, HashMap, HashSet};
@@ -15,14 +16,24 @@ pub struct LayerData<'a> {
     pub glows: Vec<(&'a Glow, Vec2)>,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct RoomRenderState {
-    pub current_layer: RoomLayer,
-}
-
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct VisibleRoomLayers {
     pub ordered_layers: Vec<RoomLayer>,
+}
+
+#[derive(Default)]
+struct CollectedRoomLayerMaps<'a> {
+    front: BTreeMap<i32, LayerData<'a>>,
+    back: BTreeMap<i32, LayerData<'a>>,
+}
+
+impl<'a> CollectedRoomLayerMaps<'a> {
+    fn for_layer(&self, room_layer: RoomLayer) -> &BTreeMap<i32, LayerData<'a>> {
+        match room_layer {
+            RoomLayer::Front => &self.front,
+            RoomLayer::Back => &self.back,
+        }
+    }
 }
 
 pub fn visible_layers_for_state(
@@ -64,6 +75,7 @@ pub fn render_room<C: BishopContext>(
     };
 
     let grid_size = world.grid_size;
+    let composition = RoomCompositionContext::resolve(current_room, state, grid_size);
 
     // Set up camera and clear background
     ctx.set_camera(render_cam);
@@ -71,6 +83,15 @@ pub fn render_room<C: BishopContext>(
 
     let variant = current_room.current_variant();
     let visible_layers = visible_layers_for_state(&variant.layers, state);
+    let layer_maps = collect_interpolated_room_layer_maps(
+        game_ctx.ecs,
+        world,
+        current_room,
+        game_ctx.sprite_manager,
+        alpha,
+        prev_positions,
+        grid_size,
+    );
 
     variant.draw_background(ctx, current_room.position, current_room.size, grid_size);
 
@@ -78,50 +99,76 @@ pub fn render_room<C: BishopContext>(
         draw_room_tile_placements(
             ctx,
             game_ctx.ecs,
-            current_room.id,
-            room_layer,
-            game_ctx.tile_registry,
-            game_ctx.sprite_manager,
-            current_room.position,
-            grid_size,
-        );
-
-        let layer_map = collect_interpolated_layer_map(
-            game_ctx.ecs,
-            world,
             current_room,
             room_layer,
+            &composition,
+            game_ctx.tile_registry,
             game_ctx.sprite_manager,
-            alpha,
-            prev_positions,
             grid_size,
         );
+        draw_layer_entities(
+            ctx,
+            game_ctx.ecs,
+            game_ctx.sprite_manager,
+            layer_maps.for_layer(room_layer),
+            grid_size,
+            &composition,
+            |_, _| true,
+        );
+    }
 
-        // Draw all entities sorted by layer
-        for (_z, layer) in layer_map {
-            for (entity, pos) in layer.entities {
-                draw_entity(
-                    ctx,
-                    game_ctx.ecs,
-                    game_ctx.sprite_manager,
-                    entity,
-                    pos,
-                    grid_size,
-                );
-            }
-
-            // TODO: Re-enable multi-pass rendering
-            // render_system.run_ambient_pass(ctx, room.darkness);
-            // render_system.run_glow_pass(ctx, render_cam, glows, sprite_manager);
-            // render_system.run_undarkened_pass(ctx);
-            // render_system.run_scene_pass(ctx);
-        }
+    if composition.should_draw_hidden_back_layer_door_ghosts() {
+        draw_layer_entities(
+            ctx,
+            game_ctx.ecs,
+            game_ctx.sprite_manager,
+            layer_maps.for_layer(RoomLayer::Front),
+            grid_size,
+            &composition,
+            |ecs, entity| ecs.has::<LayerDoor>(entity),
+        );
     }
 
     // TODO: Re-enable multi-pass rendering
     // let lights = collect_lights(ecs, room, alpha, prev_positions);
     // render_system.run_spotlight_pass(ctx, render_cam, lights, room.darkness);
     // render_system.run_final_pass(ctx);
+}
+
+fn draw_layer_entities<C: BishopContext, F>(
+    ctx: &mut C,
+    ecs: &Ecs,
+    sprite_manager: &mut SpriteManager,
+    layer_map: &BTreeMap<i32, LayerData<'_>>,
+    grid_size: f32,
+    composition: &RoomCompositionContext,
+    include_entity: F,
+) where
+    F: Fn(&Ecs, Entity) -> bool,
+{
+    for layer in layer_map.values() {
+        for &(entity, pos) in &layer.entities {
+            if !include_entity(ecs, entity) {
+                continue;
+            }
+
+            draw_entity(
+                ctx,
+                ecs,
+                sprite_manager,
+                entity,
+                pos,
+                grid_size,
+                composition,
+            );
+        }
+
+        // TODO: Re-enable multi-pass rendering
+        // render_system.run_ambient_pass(ctx, room.darkness);
+        // render_system.run_glow_pass(ctx, render_cam, glows, sprite_manager);
+        // render_system.run_undarkened_pass(ctx);
+        // render_system.run_scene_pass(ctx);
+    }
 }
 
 fn draw_entity<C: BishopContext>(
@@ -131,19 +178,42 @@ fn draw_entity<C: BishopContext>(
     entity: Entity,
     pos: Vec2,
     grid_size: f32,
+    composition: &RoomCompositionContext,
 ) {
     let visual_entity = resolve_visual_entity(ecs, entity);
-
     let pivot = ecs
         .get_store::<Transform>()
         .get(entity)
-        .map(|t| t.pivot)
+        .map(|transform| transform.pivot)
         .unwrap_or(Pivot::BottomCenter);
+
+    let color = if ecs
+        .get::<CurrentRoom>(entity)
+        .is_some_and(|current_room| current_room.layer == RoomLayer::Front)
+    {
+        let visual_bounds = if ecs.has::<Cover>(entity) || ecs.has::<LayerDoor>(entity) {
+            Some(entity_visual_rect(ecs, sprite_manager, entity, pos, grid_size))
+        } else {
+            None
+        };
+
+        let Some(color) = composition
+            .front_layer_composition(ecs, entity, visual_bounds)
+            .tint()
+        else {
+            return;
+        };
+
+        color
+    } else {
+        Color::WHITE
+    };
 
     let params = EntityDrawParams {
         pos,
         pivot,
         grid_size,
+        color,
     };
 
     if let Some(cf) = ecs.get_store::<CurrentFrame>().get(visual_entity)
@@ -159,19 +229,16 @@ fn draw_entity<C: BishopContext>(
     }
 }
 
-/// Collects current-room entities plus neighboring spillover entities whose visual
-/// bounds still overlap, sorted by z-layer with interpolated draw positions.
-fn collect_interpolated_layer_map<'a>(
+fn collect_interpolated_room_layer_maps<'a>(
     ecs: &'a Ecs,
     world: &World,
     room: &Room,
-    room_layer: RoomLayer,
     sprite_manager: &SpriteManager,
     alpha: f32,
     prev_positions: Option<&HashMap<Entity, Vec2>>,
     grid_size: f32,
-) -> BTreeMap<i32, LayerData<'a>> {
-    let mut map: BTreeMap<i32, LayerData<'a>> = BTreeMap::new();
+) -> CollectedRoomLayerMaps<'a> {
+    let mut maps = CollectedRoomLayerMaps::default();
     let mut seen = HashSet::new();
 
     let trans_store = ecs.get_store::<Transform>();
@@ -188,21 +255,12 @@ fn collect_interpolated_layer_map<'a>(
                 continue;
             }
 
-            if ecs
-                .get::<CurrentRoom>(entity)
-                .is_some_and(|current_room| current_room.layer != room_layer)
-            {
-                continue;
-            }
-
             let Some(transform) = trans_store.get(entity) else {
                 continue;
             };
-
             if !transform.visible {
                 continue;
             }
-
             if cam_store.get(entity).is_some() {
                 continue;
             }
@@ -223,9 +281,15 @@ fn collect_interpolated_layer_map<'a>(
                 continue;
             }
 
+            let room_layer = ecs
+                .get::<CurrentRoom>(entity)
+                .map_or(RoomLayer::Front, |current_room| current_room.layer);
             let z = layer_store.get(entity).map_or(0, |layer| layer.z);
-
-            let entry = map.entry(z).or_default();
+            let layer_map = match room_layer {
+                RoomLayer::Front => &mut maps.front,
+                RoomLayer::Back => &mut maps.back,
+            };
+            let entry = layer_map.entry(z).or_default();
             entry.entities.push((entity, draw_pos));
 
             if let Some(glow) = glow_store.get(entity) {
@@ -233,19 +297,13 @@ fn collect_interpolated_layer_map<'a>(
                     .texture_size(glow.sprite_id)
                     .map(|(w, h)| Vec2::new(w, h))
                     .unwrap_or(Vec2::new(grid_size, grid_size));
-
                 let glow_draw_pos = pivot_adjusted_position(draw_pos, glow_size, transform.pivot);
                 entry.glows.push((glow, glow_draw_pos));
             }
         }
     }
 
-    // There always needs to be at least one layer otherwise nothing will be drawn
-    if map.is_empty() {
-        map.insert(0, LayerData::default());
-    }
-
-    map
+    maps
 }
 
 // TODO: Re-enable for multi-pass rendering
@@ -257,174 +315,5 @@ fn collect_interpolated_layer_map<'a>(
 // ) -> Vec<(Vec2, Light)> { ... }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::rendering::test_support::make_vertical_spillover_fixture;
-    use crate::worlds::test_utils::make_room;
-    use crate::worlds::{BackRoomLayer, LayerCompositionMode, RoomLayer, RoomLayers, WorldId};
-
-    #[test]
-    fn current_layer_front_when_hidden_then_renders_front_only() {
-        let visible = visible_layers_for_state(
-            &RoomLayers {
-                back: Some(BackRoomLayer::default()),
-            },
-            RoomRenderState {
-                current_layer: RoomLayer::Front,
-            },
-        );
-
-        assert_eq!(visible.ordered_layers, vec![RoomLayer::Front]);
-    }
-
-    #[test]
-    fn current_layer_back_when_hidden_then_renders_back_only() {
-        let visible = visible_layers_for_state(
-            &RoomLayers {
-                back: Some(BackRoomLayer::default()),
-            },
-            RoomRenderState {
-                current_layer: RoomLayer::Back,
-            },
-        );
-
-        assert_eq!(visible.ordered_layers, vec![RoomLayer::Back]);
-    }
-
-    #[test]
-    fn current_layer_front_when_dolls_house_then_renders_back_then_front() {
-        let visible = visible_layers_for_state(
-            &RoomLayers {
-                back: Some(BackRoomLayer {
-                    composition_mode: LayerCompositionMode::DollsHouse,
-                    ..Default::default()
-                }),
-            },
-            RoomRenderState {
-                current_layer: RoomLayer::Front,
-            },
-        );
-
-        assert_eq!(visible.ordered_layers, vec![RoomLayer::Back, RoomLayer::Front]);
-    }
-
-    #[test]
-    fn current_layer_back_when_dolls_house_then_renders_back_then_front() {
-        let visible = visible_layers_for_state(
-            &RoomLayers {
-                back: Some(BackRoomLayer {
-                    composition_mode: LayerCompositionMode::DollsHouse,
-                    ..Default::default()
-                }),
-            },
-            RoomRenderState {
-                current_layer: RoomLayer::Back,
-            },
-        );
-
-        assert_eq!(visible.ordered_layers, vec![RoomLayer::Back, RoomLayer::Front]);
-    }
-
-    #[test]
-    fn collect_interpolated_layer_map_skips_entities_outside_the_room_index() {
-        let room_id = RoomId(1);
-        let other_room = RoomId(2);
-        let world = World::from_rooms(
-            WorldId(0),
-            String::new(),
-            vec![
-                make_room(Some(1), 0.0, 0.0, 4.0, 4.0),
-                make_room(Some(2), 80.0, 0.0, 4.0, 4.0),
-            ],
-            16.0,
-        );
-        let mut ecs = Ecs::default();
-
-        let visible = ecs.create_entity()
-            .with(Transform::default())
-            .with_current_room(room_id)
-            .finish();
-
-        ecs.create_entity()
-            .with(Transform::default())
-            .with_current_room(other_room)
-            .finish();
-
-        let layers = collect_interpolated_layer_map(
-            &ecs,
-            &world,
-            world.get_room(room_id).unwrap(),
-            RoomLayer::Front,
-            &SpriteManager::default(),
-            1.0,
-            None,
-            16.0,
-        );
-
-        assert!(layers
-            .values()
-            .flat_map(|layer| layer.entities.iter())
-            .any(|(entity, _)| *entity == visible));
-    }
-
-    #[test]
-    fn cross_room_visibility_collect_interpolated_layer_map_excludes_other_room_entity_at_non_exit_boundary() {
-        let (world, ecs, entity, room_id) = make_vertical_spillover_fixture(vec2(32.0, 64.0), None);
-
-        let layers = collect_interpolated_layer_map(
-            &ecs,
-            &world,
-            world.get_room(room_id).unwrap(),
-            RoomLayer::Front,
-            &SpriteManager::default(),
-            1.0,
-            None,
-            16.0,
-        );
-
-        assert!(!layers.values().flat_map(|layer| layer.entities.iter()).any(|(id, _)| *id == entity));
-    }
-
-    #[test]
-    fn cross_room_visibility_collect_interpolated_layer_map_includes_other_room_entity_through_exit_cell() {
-        let (world, ecs, entity, room_id) = make_vertical_spillover_fixture(
-            vec2(32.0, 64.0),
-            Some(Exit {
-                position: vec2(1.0, 4.0),
-                direction: ExitDirection::Down,
-                target_room_id: Some(RoomId(2)),
-            }),
-        );
-
-        let layers = collect_interpolated_layer_map(
-            &ecs,
-            &world,
-            world.get_room(room_id).unwrap(),
-            RoomLayer::Front,
-            &SpriteManager::default(),
-            1.0,
-            None,
-            16.0,
-        );
-
-        assert!(layers.values().flat_map(|layer| layer.entities.iter()).any(|(id, _)| *id == entity));
-    }
-
-    #[test]
-    fn cross_room_visibility_collect_interpolated_layer_map_excludes_other_room_entity_once_fully_outside() {
-        let (world, ecs, entity, room_id) = make_vertical_spillover_fixture(vec2(32.0, 96.0), None);
-
-        let layers = collect_interpolated_layer_map(
-            &ecs,
-            &world,
-            world.get_room(room_id).unwrap(),
-            RoomLayer::Front,
-            &SpriteManager::default(),
-            1.0,
-            None,
-            16.0,
-        );
-
-        assert!(!layers.values().flat_map(|layer| layer.entities.iter()).any(|(id, _)| *id == entity));
-    }
-}
+#[path = "render_room_tests.rs"]
+mod render_room_tests;

@@ -1,8 +1,9 @@
 use crate::assets::sprite_manager::SpriteManager;
 use crate::ecs::{CurrentFrame, Ecs, Pivot, Sprite, TilePlacement};
-use crate::rendering::{EntityDrawParams, Renderable};
+use crate::rendering::{EntityDrawParams, Renderable, RoomCompositionContext};
 use crate::tiles::TileRegistry;
-use crate::worlds::{RoomId, RoomLayer};
+use crate::worlds::room::Room;
+use crate::worlds::RoomLayer;
 use bishop::prelude::*;
 use serde::{Deserialize, Serialize};
 use serde_with::{FromInto, serde_as};
@@ -29,13 +30,16 @@ impl TileMap {
 pub fn draw_room_tile_placements<C: BishopContext>(
     ctx: &mut C,
     ecs: &Ecs,
-    room_id: RoomId,
+    room: &Room,
     layer: RoomLayer,
+    composition: &RoomCompositionContext,
     tile_registry: &TileRegistry,
     sprite_manager: &mut SpriteManager,
-    room_position: Vec2,
     grid_size: f32,
 ) {
+    let room_id = room.id;
+    let room_position = room.position;
+
     for &entity in ecs.tile_entities_in_room_layer(room_id, layer).values() {
         let Some(tile) = ecs.get::<TilePlacement>(entity) else {
             continue;
@@ -46,10 +50,23 @@ pub fn draw_room_tile_placements<C: BishopContext>(
 
         let tile_pos = Vec2::new(tile.grid_x as f32 * grid_size, tile.grid_y as f32 * grid_size)
             + room_position;
+        let tile_bounds = Rect::new(tile_pos.x, tile_pos.y, grid_size, grid_size);
+        let color = if layer == RoomLayer::Front {
+            let Some(color) = composition
+                .front_layer_composition(ecs, entity, Some(tile_bounds))
+                .tint()
+            else {
+                continue;
+            };
+            color
+        } else {
+            Color::WHITE
+        };
         let params = EntityDrawParams {
             pos: tile_pos,
             pivot: Pivot::TopLeft,
             grid_size,
+            color,
         };
 
         if let Some(current_frame) = ecs.get::<CurrentFrame>(entity)
@@ -69,7 +86,7 @@ pub fn draw_room_tile_placements<C: BishopContext>(
             tex,
             tile_pos.x,
             tile_pos.y,
-            Color::WHITE,
+            color,
             DrawTextureParams {
                 dest_size: Some(Vec2::new(grid_size, grid_size)),
                 ..Default::default()
@@ -84,6 +101,7 @@ mod tests {
     use crate::ecs::CurrentRoom;
     use crate::tiles::TileDefId;
     use crate::worlds::room::RoomVariant;
+    use crate::worlds::RoomId;
 
     #[test]
     fn room_variant_background_is_read_from_room_variant_not_tilemap() {

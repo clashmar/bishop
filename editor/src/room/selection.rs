@@ -146,7 +146,11 @@ impl RoomEditor {
         } else {
             match self.mode {
                 RoomEditorMode::Scene => {
-                    ctx.set_cursor_icon(CursorIcon::Default);
+                    if self.scene_sub_mode == RoomSceneSubMode::Zones {
+                        ctx.set_cursor_icon(CursorIcon::Crosshair);
+                    } else {
+                        ctx.set_cursor_icon(CursorIcon::Default);
+                    }
                 }
                 RoomEditorMode::Tilemap => {
                     ctx.set_cursor_icon(CursorIcon::Crosshair);

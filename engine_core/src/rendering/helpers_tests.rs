@@ -179,6 +179,28 @@ fn entity_dimensions_use_player_visuals_for_proxy() {
 }
 
 #[test]
+fn entity_visual_rect_includes_current_frame_offset() {
+    let mut ecs = Ecs::default();
+    let entity = ecs.create_entity()
+        .with(Transform {
+            position: vec2(16.0, 16.0),
+            pivot: Pivot::TopLeft,
+            ..Default::default()
+        })
+        .with(CurrentFrame {
+            frame_size: vec2(8.0, 8.0),
+            offset: vec2(2.0, 3.0),
+            ..Default::default()
+        })
+        .finish();
+
+    assert_eq!(
+        entity_visual_rect(&ecs, &SpriteManager::default(), entity, vec2(16.0, 16.0), 16.0),
+        Rect::new(18.0, 19.0, 8.0, 8.0),
+    );
+}
+
+#[test]
 fn cross_room_visibility_candidate_room_ids_include_current_and_neighbors() {
     let world = World::from_rooms(
         WorldId(0),

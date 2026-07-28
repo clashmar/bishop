@@ -269,8 +269,10 @@ mod tests {
     use super::*;
     use crate::ecs::CurrentRoom;
     use crate::rendering::test_support::make_vertical_spillover_fixture;
+    use crate::tiles::tilemap::TileMap;
+    use crate::worlds::room::RoomVariant;
     use crate::worlds::test_utils::make_room;
-    use crate::worlds::{Exit, ExitDirection, RoomId, WorldId};
+    use crate::worlds::{BackRoomLayer, Exit, ExitDirection, RoomId, RoomLayer, RoomLayers, WorldId};
 
     #[test]
     fn speech_bubble_projection_uses_camera_viewport_dimensions() {
@@ -295,11 +297,11 @@ mod tests {
             String::new(),
             vec![
                 Room {
-                    variants: vec![crate::worlds::room::RoomVariant::default()],
+                    variants: vec![RoomVariant::default()],
                     ..make_room(Some(1), 0.0, 0.0, 4.0, 4.0)
                 },
                 Room {
-                    variants: vec![crate::worlds::room::RoomVariant::default()],
+                    variants: vec![RoomVariant::default()],
                     ..make_room(Some(2), 80.0, 0.0, 4.0, 4.0)
                 },
             ],
@@ -326,7 +328,8 @@ mod tests {
             &world,
             rendered_room,
             RoomRenderState {
-                current_layer: crate::worlds::RoomLayer::Front,
+                current_layer: RoomLayer::Front,
+                viewpoint_position: None,
             },
             1.0,
             None,
@@ -345,10 +348,10 @@ mod tests {
         let room = Room {
             id: RoomId(1),
             size: Vec2::new(4.0, 4.0),
-            variants: vec![crate::worlds::room::RoomVariant {
-                tilemap: crate::tiles::tilemap::TileMap::new(4, 4),
-                layers: crate::worlds::RoomLayers {
-                    back: Some(crate::worlds::BackRoomLayer::default()),
+            variants: vec![RoomVariant {
+                tilemap: TileMap::new(4, 4),
+                layers: RoomLayers {
+                    back: Some(BackRoomLayer::default()),
                 },
                 ..Default::default()
             }],
@@ -367,7 +370,7 @@ mod tests {
         ecs.create_entity()
             .with(Transform::default())
             .with(SpeechBubble::default())
-            .with_current_room_layer(RoomId(1), crate::worlds::RoomLayer::Back)
+            .with_current_room_layer(RoomId(1), RoomLayer::Back)
             .finish();
 
         let bubbles = collect_speech_bubbles(
@@ -376,7 +379,8 @@ mod tests {
             &world,
             rendered_room,
             RoomRenderState {
-                current_layer: crate::worlds::RoomLayer::Front,
+                current_layer: RoomLayer::Front,
+                viewpoint_position: None,
             },
             1.0,
             None,
@@ -407,7 +411,8 @@ mod tests {
             &world,
             rendered_room,
             RoomRenderState {
-                current_layer: crate::worlds::RoomLayer::Front,
+                current_layer: RoomLayer::Front,
+                viewpoint_position: None,
             },
             1.0,
             None,
@@ -435,7 +440,8 @@ mod tests {
             &world,
             rendered_room,
             RoomRenderState {
-                current_layer: crate::worlds::RoomLayer::Front,
+                current_layer: RoomLayer::Front,
+                viewpoint_position: None,
             },
             1.0,
             None,
@@ -456,7 +462,8 @@ mod tests {
             &world,
             rendered_room,
             RoomRenderState {
-                current_layer: crate::worlds::RoomLayer::Front,
+                current_layer: RoomLayer::Front,
+                viewpoint_position: None,
             },
             1.0,
             None,

@@ -5,6 +5,7 @@ use crate::gui::inspector::collider_module::edit::{
     toggle_collider_edit,
 };
 use crate::room::selection::selection_render_rect;
+use engine_core::worlds::InteriorZoneId;
 
 fn prefab_manager(ids: &[usize]) -> PrefabManager {
     let mut manager = PrefabManager::default();
@@ -299,6 +300,52 @@ fn placeholder_selection_keeps_grid_centering_behavior() {
 
     assert_eq!(top_left, vec2(-4.0, -4.0));
     assert_eq!(size, vec2(8.0, 8.0));
+}
+
+#[test]
+fn entering_zone_sub_mode_selects_room_and_preserves_zone_selection() {
+    let mut editor = RoomEditor::new();
+    editor.set_selected_entity(Some(Entity(7)));
+    editor.drag_state.box_select_active = true;
+    editor.interior_zone_editor.selected_zone_id = Some(InteriorZoneId(3));
+
+    editor.set_scene_sub_mode(RoomSceneSubMode::Zones);
+
+    assert_eq!(editor.scene_sub_mode, RoomSceneSubMode::Zones);
+    assert!(!editor.inspector.has_target());
+    assert!(!editor.drag_state.box_select_active);
+    assert_eq!(editor.interior_zone_editor.selected_zone_id, Some(InteriorZoneId(3)));
+}
+
+#[test]
+fn leaving_zone_sub_mode_clears_zone_state_and_restores_entity_target() {
+    let mut editor = RoomEditor::new();
+    editor.set_selected_entity(Some(Entity(9)));
+    editor.interior_zone_editor.selected_zone_id = Some(InteriorZoneId(5));
+
+    editor.set_scene_sub_mode(RoomSceneSubMode::Zones);
+    editor.set_scene_sub_mode(RoomSceneSubMode::Scene);
+
+    assert_eq!(editor.scene_sub_mode, RoomSceneSubMode::Scene);
+    assert_eq!(editor.interior_zone_editor.selected_zone_id, None);
+    assert!(editor.inspector.has_target());
+}
+
+#[test]
+fn toggling_zone_sub_mode_twice_exits_and_restores_entity_target() {
+    let mut editor = RoomEditor::new();
+    editor.set_selected_entity(Some(Entity(11)));
+    editor.interior_zone_editor.selected_zone_id = Some(InteriorZoneId(6));
+
+    editor.toggle_zone_sub_mode();
+    assert_eq!(editor.scene_sub_mode, RoomSceneSubMode::Zones);
+    assert!(!editor.inspector.has_target());
+    assert_eq!(editor.interior_zone_editor.selected_zone_id, Some(InteriorZoneId(6)));
+
+    editor.toggle_zone_sub_mode();
+    assert_eq!(editor.scene_sub_mode, RoomSceneSubMode::Scene);
+    assert_eq!(editor.interior_zone_editor.selected_zone_id, None);
+    assert!(editor.inspector.has_target());
 }
 
 #[test]

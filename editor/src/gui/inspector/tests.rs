@@ -62,6 +62,7 @@ fn prefab_selected_entity_create_request_uses_selected_parent() {
         selected_create_parent: Some(selected),
         game_name: None,
         event_tags: Vec::new(),
+        room_zone_tool_active: false,
     };
 
     assert_eq!(ctx.selected_create_parent, Some(selected));
@@ -76,6 +77,7 @@ fn room_context_is_constructed() {
         selected_create_parent: None,
         game_name: None,
         event_tags: Vec::new(),
+        room_zone_tool_active: false,
     };
 
     assert_eq!(ctx.selected_create_parent, None);

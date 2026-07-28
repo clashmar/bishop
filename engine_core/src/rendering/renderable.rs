@@ -8,6 +8,7 @@ pub struct EntityDrawParams {
     pub pos: Vec2,
     pub pivot: Pivot,
     pub grid_size: f32,
+    pub color: Color,
 }
 
 /// Trait for visual components that can draw themselves.

@@ -10,7 +10,7 @@ use bishop::prelude::*;
 use engine_core::assets::SpriteManager;
 use engine_core::controls::Controls;
 use engine_core::ecs::Ecs;
-use engine_core::rendering::{visible_layers_for_state, RoomRenderState};
+use engine_core::rendering::{visible_layers_for_state, RoomCompositionContext, RoomRenderState};
 use engine_core::tiles::{draw_room_tile_placements, TileDefId, TileMap, TileRegistry};
 use engine_core::worlds::*;
 
@@ -167,12 +167,12 @@ impl TileMapEditor {
         let room_position = room.position;
         let room_id = room.id;
         let room_size = room.size;
-        let visible_layers = visible_layers_for_state(
-            &variant.layers,
-            RoomRenderState {
-                current_layer: self.active_layer,
-            },
-        );
+        let render_state = RoomRenderState {
+            current_layer: self.active_layer,
+            viewpoint_position: Some(camera.target),
+        };
+        let visible_layers = visible_layers_for_state(&variant.layers, render_state);
+        let composition = RoomCompositionContext::resolve(room, render_state, grid_size);
 
         ctx.clear_background(Color::BLACK);
         ctx.set_camera(camera);
@@ -181,11 +181,11 @@ impl TileMapEditor {
             draw_room_tile_placements(
                 ctx,
                 ecs,
-                room_id,
+                room,
                 layer,
+                &composition,
                 tile_registry,
                 sprite_manager,
-                room_position,
                 grid_size,
             );
         }

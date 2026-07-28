@@ -1,4 +1,5 @@
 use crate::inspector_module;
+use bishop::prelude::Rect;
 use ecs_component::ecs_component;
 use reflect_derive::Reflect;
 use serde::{Deserialize, Serialize};
@@ -20,6 +21,7 @@ pub struct Cover {
     /// Alpha applied when `hide == false`.
     pub fade_alpha: f32,
 }
+
 inspector_module!(Cover);
 
 impl Cover {
@@ -49,4 +51,9 @@ impl Cover {
             }
         }
     }
+}
+
+/// Returns true when a cover visual overlaps any active bounds.
+pub(crate) fn cover_overlaps_bounds(bounds: Rect, bounds_union: &[Rect]) -> bool {
+    bounds_union.iter().any(|zone_bounds| bounds.overlaps(zone_bounds))
 }

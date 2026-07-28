@@ -115,24 +115,34 @@ impl GameInstance {
     }
 
     pub fn current_render_state(&self) -> RoomRenderState {
-        let current_layer = self
-            .game
-            .ecs
-            .get_player_entity()
-            .and_then(|entity| self.game.ecs.get::<CurrentRoom>(entity).copied())
-            .map(|room| room.layer)
-            .or_else(|| {
-                let room_id = self.game.current_world().current_room_id?;
-                let ecs = &self.game.ecs;
-                get_room_cameras(ecs, room_id, RoomLayer::Front)
-                    .into_iter()
-                    .chain(get_room_cameras(ecs, room_id, RoomLayer::Back))
-                    .find_map(|(entity, _)| ecs.get::<CurrentRoom>(entity).copied())
-                    .map(|room| room.layer)
-            })
-            .unwrap_or(RoomLayer::Front);
+        if let Some(player) = self.game.ecs.get_player_entity() {
+            if let Some(current_room) = self.game.ecs.get::<CurrentRoom>(player).copied() {
+                return RoomRenderState {
+                    current_layer: current_room.layer,
+                    viewpoint_position: self.game.ecs.get::<Transform>(player).map(|transform| transform.position),
+                };
+            }
+        }
 
-        RoomRenderState { current_layer }
+        let fallback = self.game.current_world().current_room_id.and_then(|room_id| {
+            let ecs = &self.game.ecs;
+            get_room_cameras(ecs, room_id, RoomLayer::Front)
+                .into_iter()
+                .chain(get_room_cameras(ecs, room_id, RoomLayer::Back))
+                .find_map(|(entity, _)| {
+                    let current_room = ecs.get::<CurrentRoom>(entity).copied()?;
+                    let viewpoint_position = ecs.get::<Transform>(entity).map(|transform| transform.position);
+                    Some((current_room.layer, viewpoint_position))
+                })
+        });
+
+        let (current_layer, viewpoint_position) =
+            fallback.unwrap_or((RoomLayer::Front, None));
+
+        RoomRenderState {
+            current_layer,
+            viewpoint_position,
+        }
     }
 
     /// Drains events generated during UI rendering and forwards them to the event bus.
@@ -326,6 +336,45 @@ mod tests {
 
         assert_eq!(lua.globals().get::<String>("bootstrap_order").unwrap(), "gm");
         assert_eq!(lua.globals().get::<String>("saw_input").unwrap(), "space");
+    }
+
+    #[test]
+    fn current_render_state_falls_back_to_room_camera_layer_and_position() {
+        let room_id = RoomId(1);
+        let room = Room {
+            id: room_id,
+            ..Default::default()
+        };
+
+        let mut world = World::default();
+        world.current_room_id = Some(room_id);
+        world.add_room(room);
+
+        let mut game = Game::default();
+        game.add_world(world);
+
+        game.ecs.create_entity()
+            .with(Transform {
+                position: Vec2::new(48.0, 64.0),
+                ..Default::default()
+            })
+            .with(RoomCamera::default())
+            .with_current_room_layer(room_id, RoomLayer::Back)
+            .finish();
+
+        let game_instance = GameInstance {
+            game,
+            prev_positions: HashMap::new(),
+            traversal_residency_diagnostics: None,
+        };
+
+        assert_eq!(
+            game_instance.current_render_state(),
+            RoomRenderState {
+                current_layer: RoomLayer::Back,
+                viewpoint_position: Some(Vec2::new(48.0, 64.0)),
+            }
+        );
     }
 
     #[test]
