@@ -61,7 +61,7 @@ pub struct TileMapEditor {
     external_ui_blocked: bool,
     ui_was_clicked: bool,
     initialized: bool,
-    adjacent_exits: Vec<(Vec2, ExitDirection)>,
+    adjacent_exits: Vec<RoomFacingExit>,
     /// Rect of the sub-mode strip for UI blocking.
     pub sub_mode_rect: Option<Rect>,
 }
@@ -87,7 +87,7 @@ impl TileMapEditor {
         self.selected_tile_def = selected_tile_def;
     }
 
-    pub fn sync_adjacent_exits(&mut self, adjacent_exits: &[(Vec2, ExitDirection)]) {
+    pub fn sync_adjacent_exits(&mut self, adjacent_exits: &[RoomFacingExit]) {
         self.adjacent_exits.clear();
         self.adjacent_exits.extend_from_slice(adjacent_exits);
     }
@@ -189,7 +189,7 @@ impl TileMapEditor {
                 grid_size,
             );
         }
-        draw_exit_placeholders(ctx, &room.exits, room_position, grid_size);
+        draw_exit_placeholders(ctx, &room.exits, room_position, self.active_layer, grid_size);
         self.draw_adjacent_exits(ctx, grid_size);
         self.draw_hover_highlight(ctx, camera, tilemap, room_position, grid_size);
 
@@ -370,15 +370,19 @@ impl TileMapEditor {
             let exit_vec = vec2(tile_pos.x() as f32, tile_pos.y() as f32);
 
             if ctx.is_mouse_button_pressed(MouseButton::Left) {
-                exits.push(Exit {
-                    position: exit_vec,
-                    direction: exit_direction,
-                    target_room_id: None,
-                });
+                upsert_exit(
+                    exits,
+                    Exit {
+                        position: exit_vec,
+                        direction: exit_direction,
+                        layer: self.active_layer,
+                        target_room_id: None,
+                    },
+                );
             }
 
             if ctx.is_mouse_button_pressed(MouseButton::Right) {
-                exits.retain(|exit| exit.position != exit_vec);
+                exits.retain(|exit| !(exit.position == exit_vec && exit.layer == self.active_layer));
             }
         }
     }
@@ -389,9 +393,20 @@ impl TileMapEditor {
             return;
         }
 
-        for (world_grid_pos, direction) in &self.adjacent_exits {
-            let world_pixel_pos = *world_grid_pos * grid_size;
-            draw_adjacent_exit_arrow(ctx, world_pixel_pos, *direction, grid_size);
+        for exit in self
+            .adjacent_exits
+            .iter()
+            .filter(|exit| exit.layer == self.active_layer)
+        {
+            let world_pixel_pos = exit.world_grid_position * grid_size;
+            draw_adjacent_exit_arrow(
+                ctx,
+                world_pixel_pos,
+                exit.direction,
+                exit.layer,
+                self.active_layer,
+                grid_size,
+            );
         }
     }
 
@@ -428,7 +443,14 @@ impl TileMapEditor {
                 }
                 TilemapEditorMode::Exits => {
                     let exit_direction = self.exit_direction_from_position(tile_pos, map);
-                    draw_exit_arrow(ctx, vec2(x, y), exit_direction, grid_size);
+                    draw_exit_arrow(
+                        ctx,
+                        vec2(x, y),
+                        exit_direction,
+                        self.active_layer,
+                        self.active_layer,
+                        grid_size,
+                    );
                 }
             }
         }
@@ -539,11 +561,115 @@ impl TileMapEditor {
 
 }
 
+fn upsert_exit(exits: &mut Vec<Exit>, new_exit: Exit) {
+    exits.retain(|exit| !(exit.position == new_exit.position && exit.layer == new_exit.layer));
+    exits.push(new_exit);
+}
+
 fn resize_result_message(result: ResizeResult) -> Option<&'static str> {
     match result {
         ResizeResult::InvalidDimensions => Some("Invalid resize dimensions"),
         ResizeResult::Overlap => Some("Resize can not overlap rooms"),
         ResizeResult::StrandedExit => Some("Resize can not strand exits"),
         ResizeResult::Success => None,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn upsert_exit_replaces_same_layer_exit_without_touching_other_layer() {
+        let position = vec2(4.0, 1.0);
+        let mut exits = vec![
+            Exit {
+                position,
+                direction: ExitDirection::Right,
+                layer: RoomLayer::Front,
+                target_room_id: Some(RoomId(9)),
+            },
+            Exit {
+                position,
+                direction: ExitDirection::Right,
+                layer: RoomLayer::Back,
+                target_room_id: Some(RoomId(7)),
+            },
+        ];
+
+        upsert_exit(
+            &mut exits,
+            Exit {
+                position,
+                direction: ExitDirection::Right,
+                layer: RoomLayer::Front,
+                target_room_id: None,
+            },
+        );
+
+        assert_eq!(
+            exits,
+            vec![
+                Exit {
+                    position,
+                    direction: ExitDirection::Right,
+                    layer: RoomLayer::Back,
+                    target_room_id: Some(RoomId(7)),
+                },
+                Exit {
+                    position,
+                    direction: ExitDirection::Right,
+                    layer: RoomLayer::Front,
+                    target_room_id: None,
+                },
+            ]
+        );
+    }
+
+    #[test]
+    fn sync_adjacent_exits_preserves_layer_metadata() {
+        let adjacent = [RoomFacingExit {
+            world_grid_position: vec2(4.0, 1.0),
+            direction: ExitDirection::Right,
+            layer: RoomLayer::Back,
+        }];
+        let mut editor = TileMapEditor::new();
+
+        editor.sync_adjacent_exits(&adjacent);
+
+        assert_eq!(editor.adjacent_exits, adjacent.to_vec());
+    }
+
+    #[test]
+    fn active_layer_filters_adjacent_exit_visibility() {
+        let mut editor = TileMapEditor::new();
+        editor.sync_adjacent_exits(&[
+            RoomFacingExit {
+                world_grid_position: vec2(4.0, 1.0),
+                direction: ExitDirection::Right,
+                layer: RoomLayer::Front,
+            },
+            RoomFacingExit {
+                world_grid_position: vec2(5.0, 1.0),
+                direction: ExitDirection::Right,
+                layer: RoomLayer::Back,
+            },
+        ]);
+
+        editor.active_layer = RoomLayer::Back;
+
+        assert_eq!(
+            editor
+                .adjacent_exits
+                .iter()
+                .filter(|exit| exit.layer == editor.active_layer)
+                .copied()
+                .collect::<Vec<_>>(),
+            vec![RoomFacingExit {
+                world_grid_position: vec2(5.0, 1.0),
+                direction: ExitDirection::Right,
+                layer: RoomLayer::Back,
+            }]
+        );
     }
 }

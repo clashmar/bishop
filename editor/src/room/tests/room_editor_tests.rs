@@ -165,6 +165,7 @@ fn relink_room_exits_populates_new_room_exit_targets() {
         exits: vec![Exit {
             position: vec2(4.0, 1.0),
             direction: ExitDirection::Right,
+            layer: RoomLayer::Front,
             target_room_id: None,
         }],
         ..Default::default()
@@ -176,6 +177,7 @@ fn relink_room_exits_populates_new_room_exit_targets() {
         exits: vec![Exit {
             position: vec2(-1.0, 1.0),
             direction: ExitDirection::Left,
+            layer: RoomLayer::Front,
             target_room_id: None,
         }],
         ..Default::default()

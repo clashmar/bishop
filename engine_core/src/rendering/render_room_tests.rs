@@ -383,6 +383,7 @@ fn cross_room_visibility_collect_interpolated_room_layer_maps_front_includes_oth
         Some(Exit {
             position: vec2(1.0, 4.0),
             direction: ExitDirection::Down,
+            layer: RoomLayer::Front,
             target_room_id: Some(RoomId(2)),
         }),
     );

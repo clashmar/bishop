@@ -371,7 +371,7 @@ fn save_game_when_worlds_and_entries_exist_regenerates_world_navigation_lua_file
     assert!(entries.contains("SecondWorld = {"), "{entries}");
     assert!(
         entries.contains(&format!(
-            "MainEntry = {{ WorldId = {}, RoomId = {}, EntryName = \"Main Entry\" }}",
+            "MainEntry = {{ WorldId = {}, RoomId = {}, Layer = \"Front\", EntryName = \"Main Entry\" }}",
             extra_world_id.0, extra_room_id.0
         )),
         "{entries}"

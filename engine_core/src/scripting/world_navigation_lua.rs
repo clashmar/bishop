@@ -2,7 +2,7 @@ use crate::ecs::{CurrentRoom, WorldEntry};
 use crate::game::Game;
 use crate::scripting::helpers::sanitize_lua_identifier;
 use crate::scripting::lua_constants::lua_ownership;
-use crate::worlds::{RoomId, WorldId};
+use crate::worlds::{RoomId, RoomLayer, WorldId};
 use std::collections::{BTreeMap, HashMap, HashSet};
 
 /// Generated handle for a world table entry.
@@ -25,6 +25,8 @@ pub struct EntryHandle {
     pub world_name: String,
     /// Destination room id.
     pub room_id: RoomId,
+    /// Destination authored room layer.
+    pub layer: RoomLayer,
     /// Authored entry name.
     pub entry_name: String,
 }
@@ -50,15 +52,16 @@ pub fn collect_entry_handles(game: &Game) -> Vec<EntryHandle> {
         .data
         .iter()
         .filter_map(|(&entity, entry)| {
-            let room_id = game.ecs.get::<CurrentRoom>(entity)?.room_id;
-            let world_id = room_world_map.get(&room_id).copied()?;
+            let current_room = game.ecs.get::<CurrentRoom>(entity)?;
+            let world_id = room_world_map.get(&current_room.room_id).copied()?;
             let world_name = game.get_world(world_id)?.name.clone();
             let world_key = world_keys.get(&world_id)?.clone();
             Some(EntryHandle {
                 world_id,
                 world_key,
                 world_name,
-                room_id,
+                room_id: current_room.room_id,
+                layer: current_room.layer,
                 entry_name: entry.name.clone(),
             })
         })
@@ -124,10 +127,11 @@ pub fn generate_entries_lua(entries: &[EntryHandle]) -> String {
         for entry in world_entries {
             let entry_key = unique_lua_key(&entry.entry_name, "Entry", &mut used_entry_keys);
             out.push_str(&format!(
-                "        {} = {{ WorldId = {}, RoomId = {}, EntryName = {} }},\n",
+                "        {} = {{ WorldId = {}, RoomId = {}, Layer = {}, EntryName = {} }},\n",
                 entry_key,
                 entry.world_id.0,
                 entry.room_id.0,
+                lua_string_literal(entry.layer.script_name()),
                 lua_string_literal(&entry.entry_name),
             ));
         }
@@ -202,6 +206,7 @@ mod tests {
                 world_key: "Overworld".to_string(),
                 world_name: "Overworld".to_string(),
                 room_id: RoomId(9),
+                layer: RoomLayer::Front,
                 entry_name: WorldEntry::START_NAME.to_string(),
             },
             EntryHandle {
@@ -209,14 +214,15 @@ mod tests {
                 world_key: "Arcade".to_string(),
                 world_name: "Arcade".to_string(),
                 room_id: RoomId(20),
+                layer: RoomLayer::Back,
                 entry_name: "FromMain".to_string(),
             },
         ]);
 
         assert!(lua.contains("---@class Entries"));
         assert!(lua.contains("Overworld = {"));
-        assert!(lua.contains("Start = { WorldId = 1, RoomId = 9, EntryName = \"Start\" }"));
+        assert!(lua.contains("Start = { WorldId = 1, RoomId = 9, Layer = \"Front\", EntryName = \"Start\" }"));
         assert!(lua.contains("Arcade = {"));
-        assert!(lua.contains("FromMain = { WorldId = 2, RoomId = 20, EntryName = \"FromMain\" }"));
+        assert!(lua.contains("FromMain = { WorldId = 2, RoomId = 20, Layer = \"Back\", EntryName = \"FromMain\" }"));
     }
 }

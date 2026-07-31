@@ -1164,7 +1164,6 @@ fn select_stronger_push(pushes: [f32; 3]) -> f32 {
     selected
 }
 
-
 fn add_back_layer_bound_obstacles(
     solids: &mut Vec<SolidObj>,
     room_bounds: Rect,
@@ -1285,99 +1284,100 @@ fn add_border_obstacles(solids: &mut Vec<SolidObj>, room: &Room, grid_size: f32)
     let w = tilemap.width as i32;
     let h = tilemap.height as i32;
 
-    let mut outer_exits: HashSet<(i32, i32)> =
-        HashSet::with_capacity(room.exits.len());
-    for e in &room.exits {
-        outer_exits.insert((e.position.x as i32, e.position.y as i32));
-    }
-
-    // Top border (y = -1)
-    for gx in 0..w {
-        if !outer_exits.contains(&(gx, -1)) {
-            let min = room.position + vec2(gx as f32 * ts, -ts);
-            solids.push(SolidObj {
-                aabb: (min, min + vec2(ts, ts)),
-                shape: ColliderShape::Aabb {
-                    width: ts,
-                    height: ts,
-                },
-                shape_pos: min,
-                entity: None,
-                layer: None,
-                interior_zone: None,
-            });
+    for layer in [RoomLayer::Front, RoomLayer::Back] {
+        let mut outer_exits: HashSet<(i32, i32)> = HashSet::new();
+        for exit in room.exits.iter().filter(|exit| exit.layer == layer) {
+            outer_exits.insert((exit.position.x as i32, exit.position.y as i32));
         }
-    }
 
-    // Bottom border (y = h)
-    for gx in 0..w {
-        if !outer_exits.contains(&(gx, h)) {
-            let min = room.position + vec2(gx as f32 * ts, h as f32 * ts);
-            solids.push(SolidObj {
-                aabb: (min, min + vec2(ts, ts)),
-                shape: ColliderShape::Aabb {
-                    width: ts,
-                    height: ts,
-                },
-                shape_pos: min,
-                entity: None,
-                layer: None,
-                interior_zone: None,
-            });
+        // Top border (y = -1)
+        for gx in 0..w {
+            if !outer_exits.contains(&(gx, -1)) {
+                let min = room.position + vec2(gx as f32 * ts, -ts);
+                solids.push(SolidObj {
+                    aabb: (min, min + vec2(ts, ts)),
+                    shape: ColliderShape::Aabb {
+                        width: ts,
+                        height: ts,
+                    },
+                    shape_pos: min,
+                    entity: None,
+                    layer: Some(layer),
+                    interior_zone: None,
+                });
+            }
         }
-    }
 
-    // Left border (x = -1)
-    for gy in 0..h {
-        if !outer_exits.contains(&(-1, gy)) {
-            let min = room.position + vec2(-ts, gy as f32 * ts);
-            solids.push(SolidObj {
-                aabb: (min, min + vec2(ts, ts)),
-                shape: ColliderShape::Aabb {
-                    width: ts,
-                    height: ts,
-                },
-                shape_pos: min,
-                entity: None,
-                layer: None,
-                interior_zone: None,
-            });
+        // Bottom border (y = h)
+        for gx in 0..w {
+            if !outer_exits.contains(&(gx, h)) {
+                let min = room.position + vec2(gx as f32 * ts, h as f32 * ts);
+                solids.push(SolidObj {
+                    aabb: (min, min + vec2(ts, ts)),
+                    shape: ColliderShape::Aabb {
+                        width: ts,
+                        height: ts,
+                    },
+                    shape_pos: min,
+                    entity: None,
+                    layer: Some(layer),
+                    interior_zone: None,
+                });
+            }
         }
-    }
 
-    // Right border (x = w)
-    for gy in 0..h {
-        if !outer_exits.contains(&(w, gy)) {
-            let min = room.position + vec2(w as f32 * ts, gy as f32 * ts);
-            solids.push(SolidObj {
-                aabb: (min, min + vec2(ts, ts)),
-                shape: ColliderShape::Aabb {
-                    width: ts,
-                    height: ts,
-                },
-                shape_pos: min,
-                entity: None,
-                layer: None,
-                interior_zone: None,
-            });
+        // Left border (x = -1)
+        for gy in 0..h {
+            if !outer_exits.contains(&(-1, gy)) {
+                let min = room.position + vec2(-ts, gy as f32 * ts);
+                solids.push(SolidObj {
+                    aabb: (min, min + vec2(ts, ts)),
+                    shape: ColliderShape::Aabb {
+                        width: ts,
+                        height: ts,
+                    },
+                    shape_pos: min,
+                    entity: None,
+                    layer: Some(layer),
+                    interior_zone: None,
+                });
+            }
         }
-    }
 
-    // Corners
-    for (gx, gy) in [(-1, -1), (w, -1), (-1, h), (w, h)] {
-        if !outer_exits.contains(&(gx, gy)) {
-            let min = room.position + vec2(gx as f32 * ts, gy as f32 * ts);
-            solids.push(SolidObj {
-                aabb: (min, min + vec2(ts, ts)),
-                shape: ColliderShape::Aabb {
-                    width: ts,
-                    height: ts,
-                },
-                shape_pos: min,
-                entity: None,
-                layer: None,
-                interior_zone: None,
-            });
+        // Right border (x = w)
+        for gy in 0..h {
+            if !outer_exits.contains(&(w, gy)) {
+                let min = room.position + vec2(w as f32 * ts, gy as f32 * ts);
+                solids.push(SolidObj {
+                    aabb: (min, min + vec2(ts, ts)),
+                    shape: ColliderShape::Aabb {
+                        width: ts,
+                        height: ts,
+                    },
+                    shape_pos: min,
+                    entity: None,
+                    layer: Some(layer),
+                    interior_zone: None,
+                });
+            }
+        }
+
+        // Corners
+        for (gx, gy) in [(-1, -1), (w, -1), (-1, h), (w, h)] {
+            if !outer_exits.contains(&(gx, gy)) {
+                let min = room.position + vec2(gx as f32 * ts, gy as f32 * ts);
+                solids.push(SolidObj {
+                    aabb: (min, min + vec2(ts, ts)),
+                    shape: ColliderShape::Aabb {
+                        width: ts,
+                        height: ts,
+                    },
+                    shape_pos: min,
+                    entity: None,
+                    layer: Some(layer),
+                    interior_zone: None,
+                });
+            }
         }
     }
 }

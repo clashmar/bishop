@@ -11,7 +11,7 @@ use engine_core::scripting::event_bus::EventBus;
 use engine_core::scripting::event_tags::event_tag::EventTag;
 use engine_core::scripting::lua_constants::lua_events;
 use engine_core::tiles::TileMap;
-use engine_core::worlds::{Exit, ExitDirection, Room, RoomId, RoomVariant, World};
+use engine_core::worlds::{Exit, ExitDirection, Room, RoomId, RoomLayer, RoomVariant, World};
 use mlua::{Lua, Value, Variadic};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
@@ -49,12 +49,25 @@ fn make_room_pair(
 }
 
 pub(super) fn make_two_rooms() -> (Room, Room) {
-    make_room_pair(
+    let (mut left, mut right) = make_room_pair(
         Vec2::new(32.0, 32.0),
         Vec2::new(32.0, 32.0),
         Vec2::new(32.0, 0.0),
         None,
-    )
+    );
+    left.exits.push(Exit {
+        position: vec2(32.0, 8.0),
+        direction: ExitDirection::Right,
+        layer: RoomLayer::Front,
+        target_room_id: Some(right.id),
+    });
+    right.exits.push(Exit {
+        position: vec2(-1.0, 8.0),
+        direction: ExitDirection::Left,
+        layer: RoomLayer::Front,
+        target_room_id: Some(left.id),
+    });
+    (left, right)
 }
 
 fn make_two_physics_rooms() -> (Room, Room) {
@@ -126,11 +139,13 @@ pub(super) fn setup_physics_transition_game(
     room_a.exits.push(Exit {
         position: vec2(2.0, 1.0),
         direction: ExitDirection::Right,
+        layer: RoomLayer::Front,
         target_room_id: Some(room_b.id),
     });
     room_b.exits.push(Exit {
         position: vec2(-1.0, 1.0),
         direction: ExitDirection::Left,
+        layer: RoomLayer::Front,
         target_room_id: Some(room_a.id),
     });
 
@@ -162,7 +177,7 @@ pub(super) fn setup_physics_transition_game(
         lua,
         GameInstance {
             game,
-            prev_positions: HashMap::new(), 
+            prev_positions: HashMap::new(),
             traversal_residency_diagnostics: None,
         },
         entity,
@@ -195,6 +210,7 @@ pub(super) fn setup_physics_down_transition_game() -> (Lua, GameInstance, Entity
         room_a.exits.push(Exit {
             position: vec2(x, 9.0),
             direction: ExitDirection::Down,
+            layer: RoomLayer::Front,
             target_room_id: Some(room_b.id),
         });
     }
@@ -202,6 +218,7 @@ pub(super) fn setup_physics_down_transition_game() -> (Lua, GameInstance, Entity
         room_b.exits.push(Exit {
             position: vec2(x, -1.0),
             direction: ExitDirection::Up,
+            layer: RoomLayer::Front,
             target_room_id: Some(room_a.id),
         });
     }
@@ -234,7 +251,7 @@ pub(super) fn setup_physics_down_transition_game() -> (Lua, GameInstance, Entity
         lua,
         GameInstance {
             game,
-            prev_positions: HashMap::new(), 
+            prev_positions: HashMap::new(),
             traversal_residency_diagnostics: None,
         },
         entity,

@@ -730,16 +730,17 @@ pub fn draw_entity_interaction_guides_in_room(
     }
 }
 
-/// Draw exit arrows for all exits in the room.
+/// Draw exit arrows for the active authored layer in the room.
 pub fn draw_exit_placeholders(
     ctx: &mut WgpuContext,
     exits: &[Exit],
     room_position: Vec2,
+    active_layer: RoomLayer,
     grid_size: f32,
 ) {
-    for exit in exits {
+    for exit in exits.iter().filter(|exit| exit.layer == active_layer) {
         let position = exit.position * grid_size + room_position;
-        draw_exit_arrow(ctx, position, exit.direction, grid_size);
+        draw_exit_arrow(ctx, position, exit.direction, exit.layer, active_layer, grid_size);
     }
 }
 
@@ -798,44 +799,71 @@ pub fn draw_all_camera_viewports(
     }
 }
 
-/// Draw a semi-transparent arrow at the given position indicating exit direction.
+/// Draw an exit arrow at the given position.
 pub fn draw_exit_arrow(
     ctx: &mut WgpuContext,
     position: Vec2,
     direction: ExitDirection,
+    layer: RoomLayer,
+    active_layer: RoomLayer,
     grid_size: f32,
 ) {
-    draw_exit_arrow_colored(
+    draw_exit_arrow_styled(
         ctx,
         position,
         direction,
+        exit_arrow_style(layer, active_layer, false),
         grid_size,
-        with_theme(|t| t.accent),
     );
 }
 
-/// Draw an arrow for an adjacent room's exit (pink color to distinguish from current room).
+/// Draw an adjacent room's exit arrow.
 pub fn draw_adjacent_exit_arrow(
     ctx: &mut WgpuContext,
     position: Vec2,
     direction: ExitDirection,
+    layer: RoomLayer,
+    active_layer: RoomLayer,
     grid_size: f32,
 ) {
-    draw_exit_arrow_colored(ctx, position, direction, grid_size, Color::YELLOW);
+    draw_exit_arrow_styled(
+        ctx,
+        position,
+        direction,
+        exit_arrow_style(layer, active_layer, true),
+        grid_size,
+    );
 }
 
-/// Draw an exit arrow with a specified color.
-fn draw_exit_arrow_colored(
+#[derive(Clone, Copy)]
+struct ExitArrowStyle {
+    color: Color,
+}
+
+fn exit_arrow_style(layer: RoomLayer, active_layer: RoomLayer, adjacent: bool) -> ExitArrowStyle {
+    let base_color = match layer {
+        RoomLayer::Front => Color::new(1.0, 0.75, 0.25, 1.0),
+        RoomLayer::Back => Color::new(0.35, 0.82, 1.0, 1.0),
+    };
+    let alpha = if adjacent { 0.85 } else { 1.0 };
+
+    ExitArrowStyle {
+        color: base_color.with_alpha(if layer == active_layer { alpha } else { 0.0 }),
+    }
+}
+
+fn draw_exit_arrow_styled(
     ctx: &mut WgpuContext,
     position: Vec2,
     direction: ExitDirection,
+    style: ExitArrowStyle,
     grid_size: f32,
-    color: Color,
 ) {
-    let x = position.x;
-    let y = position.y;
+    if style.color.a <= 0.0 {
+        return;
+    }
 
-    let arrow_center = vec2(x + grid_size / 2.0, y + grid_size / 2.0);
+    let arrow_center = position + vec2(grid_size / 2.0, grid_size / 2.0);
 
     let offsets = match direction {
         ExitDirection::Up => [vec2(0.0, -1.0), vec2(-1.0, 1.0), vec2(1.0, 1.0)],
@@ -843,11 +871,12 @@ fn draw_exit_arrow_colored(
         ExitDirection::Left => [vec2(-1.0, 0.0), vec2(1.0, -1.0), vec2(1.0, 1.0)],
         ExitDirection::Right => [vec2(1.0, 0.0), vec2(-1.0, -1.0), vec2(-1.0, 1.0)],
     };
+    let arrow_scale = grid_size / 3.0;
 
     ctx.draw_triangle(
-        arrow_center + offsets[0] * grid_size / 3.0,
-        arrow_center + offsets[1] * grid_size / 3.0,
-        arrow_center + offsets[2] * grid_size / 3.0,
-        color,
+        arrow_center + offsets[0] * arrow_scale,
+        arrow_center + offsets[1] * arrow_scale,
+        arrow_center + offsets[2] * arrow_scale,
+        style.color,
     );
 }

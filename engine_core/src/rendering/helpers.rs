@@ -176,8 +176,13 @@ pub fn entity_visible_in_room(
     room
         .exits_facing_room(other_room, grid_size)
         .into_iter()
-        .any(|(world_pos, direction)| {
-            let exit_rect = projected_exit_cell_rect(room, world_pos, direction, grid_size);
+        .any(|exit| {
+            let exit_rect = projected_exit_cell_rect(
+                room,
+                exit.world_grid_position,
+                exit.direction,
+                grid_size,
+            );
             overlap_rect.overlaps(&exit_rect)
         })
 }

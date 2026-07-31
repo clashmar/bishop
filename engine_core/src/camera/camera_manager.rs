@@ -20,15 +20,16 @@ pub struct CameraManager {
 }
 
 impl CameraManager {
-    /// Initialise with the player's starting room.
+    /// Initialises with the active room.
     pub fn new<C: BishopContext>(
         ctx: &mut C,
         ecs: &Ecs,
         room_id: RoomId,
+        preferred_layer: RoomLayer,
         player_pos: Vec2,
         grid_size: f32,
     ) -> Self {
-        let room_layer = active_camera_layer(ecs, room_id);
+        let room_layer = active_camera_layer(ecs, room_id, preferred_layer);
         let room_cameras = get_room_cameras(ecs, room_id, room_layer);
         let (mut active_camera, _) =
             Self::find_best_camera_for_room(ecs, &room_cameras, player_pos)
@@ -53,7 +54,12 @@ impl CameraManager {
         grid_size: f32,
     ) {
         // If the player moved to another room get the new cameras
-        let room_layer = active_camera_layer(ecs, room.id);
+        let preferred_layer = self
+            .current_room_layer
+            .filter(|(tracked_room_id, _)| *tracked_room_id == room.id)
+            .map(|(_, layer)| layer)
+            .unwrap_or(RoomLayer::Front);
+        let room_layer = active_camera_layer(ecs, room.id, preferred_layer);
         if self.current_room_layer != Some((room.id, room_layer)) {
             self.current_room_layer = Some((room.id, room_layer));
             self.room_cameras = get_room_cameras(ecs, room.id, room_layer);
@@ -153,13 +159,13 @@ impl CameraManager {
     }
 }
 
-fn active_camera_layer(ecs: &Ecs, room_id: RoomId) -> RoomLayer {
+fn active_camera_layer(ecs: &Ecs, room_id: RoomId, preferred_layer: RoomLayer) -> RoomLayer {
     let preferred = ecs
         .get_player_entity()
         .and_then(|entity| ecs.get::<CurrentRoom>(entity).copied())
         .filter(|current_room| current_room.room_id == room_id)
         .map(|current_room| current_room.layer)
-        .unwrap_or(RoomLayer::Front);
+        .unwrap_or(preferred_layer);
 
     if !get_room_cameras(ecs, room_id, preferred).is_empty() {
         preferred

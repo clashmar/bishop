@@ -9,6 +9,36 @@ pub enum RoomLayer {
     Back,
 }
 
+impl RoomLayer {
+    pub fn script_name(self) -> &'static str {
+        match self {
+            Self::Front => "Front",
+            Self::Back => "Back",
+        }
+    }
+
+    pub fn opposite(self) -> Self {
+        match self {
+            Self::Front => Self::Back,
+            Self::Back => Self::Front,
+        }
+    }
+
+    pub fn from_script_name(value: &str) -> Option<Self> {
+        match value {
+            "Front" | "front" => Some(Self::Front),
+            "Back" | "back" => Some(Self::Back),
+            _ => None,
+        }
+    }
+}
+
+impl std::fmt::Display for RoomLayer {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.script_name())
+    }
+}
+
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum LayerCompositionMode {

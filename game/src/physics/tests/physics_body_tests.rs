@@ -53,11 +53,13 @@ fn world_with_bottom_exit_bridge() -> World {
         Exit {
             position: Vec2::new(2.0, ROOM_HEIGHT_TILES as f32),
             direction: ExitDirection::Down,
+            layer: RoomLayer::Front,
             target_room_id: Some(RoomId(2)),
         },
         Exit {
             position: Vec2::new(4.0, ROOM_HEIGHT_TILES as f32),
             direction: ExitDirection::Down,
+            layer: RoomLayer::Front,
             target_room_id: Some(RoomId(3)),
         },
     ];

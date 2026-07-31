@@ -126,9 +126,11 @@ pub mod lua_entity {
     pub const MOVE_TO_ROOM: &str = "move_to_room";
     pub const MOVE_TO_WORLD: &str = "move_to_world";
     pub const MOVE_TO_ENTRY: &str = "move_to_entry";
+    pub const MOVE_TO_LAYER: &str = "move_to_layer";
     pub const TRIGGER_WORLD_EXIT: &str = "trigger_world_exit";
     pub const REMOVE_FROM_ROOM: &str = "remove_from_room";
     pub const CURRENT_ROOM: &str = "current_room";
+    pub const CURRENT_LAYER: &str = "current_layer";
 }
 
 /// Lua event names passed to `engine.on` / `engine.emit`.

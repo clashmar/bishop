@@ -20,6 +20,7 @@ use std::collections::HashMap;
 pub struct PreparedGameInstance {
     pub game: Game,
     pub room_id: RoomId,
+    pub room_layer: RoomLayer,
 }
 
 /// Top-level orchestrator of the game and systems.
@@ -61,7 +62,7 @@ impl GameInstance {
     /// without finalizing audio wiring, camera setup, or script initialization.
     pub fn prepare_loaded_game(lua: &Lua, mut game: Game) -> PreparedGameInstance {
         game.initialize_runtime(lua);
-        let room_id = Self::start_room_id(&game);
+        let (room_id, room_layer) = Self::start_room_and_layer(&game);
         if let Some(world) = game.current_world_mut() {
             world.current_room_id = Some(room_id);
         }
@@ -69,7 +70,11 @@ impl GameInstance {
             .expect("initial payload hydration should succeed during startup");
         game.ecs.finalize_after_load();
         game.sync_all_tile_placements();
-        PreparedGameInstance { game, room_id }
+        PreparedGameInstance {
+            game,
+            room_id,
+            room_layer,
+        }
     }
 
     /// Loads a specific room into a game, without finalizing
@@ -83,6 +88,7 @@ impl GameInstance {
         game.sync_all_tile_placements();
         PreparedGameInstance {
             room_id: room.id,
+            room_layer: RoomLayer::Front,
             game,
         }
     }
@@ -96,6 +102,7 @@ impl GameInstance {
         let PreparedGameInstance {
             game,
             room_id,
+            room_layer,
         } = prepared;
 
         let ecs = &game.ecs;
@@ -105,7 +112,7 @@ impl GameInstance {
             .unwrap_or_default();
         let grid_size = game.current_world().grid_size;
 
-        *camera_manager = CameraManager::new(ctx, ecs, room_id, player_pos, grid_size);
+        *camera_manager = CameraManager::new(ctx, ecs, room_id, room_layer, player_pos, grid_size);
 
         Self {
             game,
@@ -126,9 +133,10 @@ impl GameInstance {
 
         let fallback = self.game.current_world().current_room_id.and_then(|room_id| {
             let ecs = &self.game.ecs;
-            get_room_cameras(ecs, room_id, RoomLayer::Front)
+            let preferred_layer = Self::preferred_room_layer(&self.game, room_id);
+            get_room_cameras(ecs, room_id, preferred_layer)
                 .into_iter()
-                .chain(get_room_cameras(ecs, room_id, RoomLayer::Back))
+                .chain(get_room_cameras(ecs, room_id, preferred_layer.opposite()))
                 .find_map(|(entity, _)| {
                     let current_room = ecs.get::<CurrentRoom>(entity).copied()?;
                     let viewpoint_position = ecs.get::<Transform>(entity).map(|transform| transform.position);
@@ -177,25 +185,44 @@ impl GameInstance {
         );
     }
 
-    fn start_room_id(game: &Game) -> RoomId {
+    fn start_room_and_layer(game: &Game) -> (RoomId, RoomLayer) {
         let world = game.current_world();
-        // Prefer the start WorldEntry's room; fall back to the world's first room
+        // Prefer the start WorldEntry's authored room/layer, then fall back to the first room on Front
         let entries = game.ecs.get_store::<WorldEntry>();
         for (&entity, entry) in entries.data.iter() {
             if !entry.is_start {
                 continue;
             }
-            if let Some(room_id) = game.ecs.get::<CurrentRoom>(entity).map(|room| room.room_id) {
-                if world.get_room(room_id).is_some() {
-                    return room_id;
-                }
+            let Some(current_room) = game.ecs.get::<CurrentRoom>(entity).copied() else {
+                continue;
+            };
+            if world.get_room(current_room.room_id).is_some() {
+                return (current_room.room_id, current_room.layer);
             }
         }
-        world
-            .rooms()
-            .first()
-            .map(|r| r.id)
-            .unwrap_or_default()
+        (
+            world.rooms().first().map(|r| r.id).unwrap_or_default(),
+            RoomLayer::Front,
+        )
+    }
+
+    fn preferred_room_layer(game: &Game, room_id: RoomId) -> RoomLayer {
+        let world = game.current_world();
+        let entries = game.ecs.get_store::<WorldEntry>();
+
+        for (&entity, entry) in entries.data.iter() {
+            if !entry.is_start {
+                continue;
+            }
+            let Some(current_room) = game.ecs.get::<CurrentRoom>(entity).copied() else {
+                continue;
+            };
+            if current_room.room_id == room_id && world.get_room(current_room.room_id).is_some() {
+                return current_room.layer;
+            }
+        }
+
+        RoomLayer::Front
     }
 
     /// Drains pending menu action events and emits them to the Lua event bus.
@@ -269,6 +296,42 @@ mod tests {
 
         assert_eq!(prepared.room_id, RoomId(1));
         assert_eq!(prepared.game.current_world().current_room_id, Some(RoomId(1)));
+    }
+
+    #[test]
+    fn startup_room_and_layer_follow_the_start_entry() {
+        let _lock = game_fs_test_lock().lock().unwrap();
+        let test_game = TestGameFolder::new("prepare_loaded_game_start_layer");
+        set_game_name(test_game.name());
+
+        let mut world = World::default();
+        world.current_room_id = Some(RoomId(1));
+        world.add_room(Room {
+            id: RoomId(1),
+            ..Default::default()
+        });
+        world.add_room(Room {
+            id: RoomId(2),
+            position: Vec2::new(32.0, 0.0),
+            ..Default::default()
+        });
+
+        let mut game = Game::with_name(test_game.name());
+        game.add_world(world);
+        game.ecs
+            .create_entity()
+            .with(WorldEntry {
+                name: WorldEntry::START_NAME.to_string(),
+                is_start: true,
+            })
+            .with_current_room_layer(RoomId(2), RoomLayer::Back)
+            .finish();
+
+        let prepared = GameInstance::prepare_loaded_game(&Lua::new(), game);
+
+        assert_eq!(prepared.room_id, RoomId(2));
+        assert_eq!(prepared.room_layer, RoomLayer::Back);
+        assert_eq!(prepared.game.current_world().current_room_id, Some(RoomId(2)));
     }
 
     #[test]

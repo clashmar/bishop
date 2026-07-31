@@ -1,7 +1,7 @@
 use super::*;
 use crate::rendering::test_support::make_spillover_entity;
 use crate::worlds::test_utils::make_room;
-use crate::worlds::{Exit, WorldId};
+use crate::worlds::{Exit, RoomLayer, WorldId};
 
 // --- smooth_dt tests ---
 
@@ -268,6 +268,7 @@ fn cross_room_visibility_allows_vertical_exit_cell_spillover() {
     room_a.exits.push(Exit {
         position: vec2(1.0, 4.0),
         direction: ExitDirection::Down,
+        layer: RoomLayer::Front,
         target_room_id: Some(RoomId(2)),
     });
     let room_b = make_room(Some(2), 0.0, 64.0, 4.0, 4.0);
@@ -294,6 +295,7 @@ fn cross_room_visibility_rejects_overlap_away_from_exit_cell() {
     room_a.exits.push(Exit {
         position: vec2(3.0, 4.0),
         direction: ExitDirection::Down,
+        layer: RoomLayer::Front,
         target_room_id: Some(RoomId(2)),
     });
     let room_b = make_room(Some(2), 0.0, 64.0, 4.0, 4.0);
@@ -320,6 +322,7 @@ fn cross_room_visibility_allows_horizontal_exit_cell_spillover() {
     room_a.exits.push(Exit {
         position: vec2(4.0, 1.0),
         direction: ExitDirection::Right,
+        layer: RoomLayer::Front,
         target_room_id: Some(RoomId(2)),
     });
     let room_b = make_room(Some(2), 64.0, 0.0, 4.0, 4.0);

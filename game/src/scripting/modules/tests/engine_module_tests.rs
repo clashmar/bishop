@@ -8,7 +8,7 @@ use engine_core::game::Game;
 use engine_core::scripting::lua_constants::{lua_engine, lua_fields};
 use engine_core::scripting::modules::lua_module::{LuaApi, LuaApiWriter};
 use engine_core::scripting::LuaModule;
-use engine_core::worlds::{RoomId, World, WorldId, WorldTransitionMode};
+use engine_core::worlds::{RoomId, RoomLayer, World, WorldId, WorldTransitionMode};
 use mlua::Lua;
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -24,6 +24,7 @@ fn overlay_entry_when_called_records_entry_target_request() {
             engine.{}({{
               WorldId = 2,
               RoomId = 9,
+              Layer = "Back",
               EntryName = "UnderworldStart",
               X = 3.5,
               Y = -4.5,
@@ -42,6 +43,7 @@ fn overlay_entry_when_called_records_entry_target_request() {
         DestinationSelector::Entry(handle)
             if handle.world_id == WorldId(2)
                 && handle.room_id == RoomId(9)
+                && handle.layer == RoomLayer::Back
                 && handle.entry_name == "UnderworldStart"
                 && handle.x == Some(3.5)
                 && handle.y == Some(-4.5)
@@ -79,10 +81,12 @@ fn restore_location_when_called_records_restore_location_request() {
         DestinationSelector::RestoreLocation {
             world_id,
             room_id,
+            layer,
             x,
             y,
         } if world_id == WorldId(2)
             && room_id == RoomId(9)
+            && layer == RoomLayer::Front
             && x == 3.5
             && y == -4.5
     ));

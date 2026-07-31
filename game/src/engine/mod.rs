@@ -27,6 +27,7 @@ use crate::transitions::world_transitions::WorldTransitionManager;
 use bishop::prelude::*;
 use bishop::BishopApp;
 use engine_core::animation::{update_animation_sytem};
+use engine_core::ecs::CurrentRoom;
 use engine_core::audio::{AudioManager};
 use engine_core::camera::CameraManager;
 use engine_core::constants::timing;
@@ -36,6 +37,7 @@ use engine_core::menu::{GameMenuHandler, MenuInputPolicy, MenuManager, MenuSessi
 use engine_core::rendering::{RenderSystem, SmoothedDtState, smooth_dt, snap_dt};
 use engine_core::task::BackgroundService;
 use engine_core::text::update_speech_timers;
+use engine_core::worlds::RoomLayer;
 use mlua::Lua;
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -239,10 +241,17 @@ impl Engine {
             .unwrap_or_default();
 
         if let Some(current_room) = world.current_room() {
+            let preferred_layer = ecs
+                .get_player_entity()
+                .and_then(|entity| ecs.get::<CurrentRoom>(entity).copied())
+                .filter(|current_room_membership| current_room_membership.room_id == current_room.id)
+                .map(|current_room_membership| current_room_membership.layer)
+                .unwrap_or(RoomLayer::Front);
             self.camera_manager = CameraManager::new(
                 &mut *ctx_ref,
                 ecs,
                 current_room.id,
+                preferred_layer,
                 player_pos,
                 world.grid_size,
             );

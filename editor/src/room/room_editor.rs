@@ -199,7 +199,7 @@ impl RoomEditor {
             .map(|r| (r.position, r.size))
             .collect();
 
-        let adjacent_exits: Vec<(Vec2, ExitDirection)> = {
+        let adjacent_exits: Vec<RoomFacingExit> = {
             let current_room = current_world.get_room(room_id);
 
             match current_room {
@@ -649,7 +649,13 @@ impl RoomEditor {
                         let asset_registry = &mut *game_ctx.asset_registry;
                         let sprite_manager = &mut *game_ctx.sprite_manager;
 
-                        draw_exit_placeholders(ctx, &room.exits, room.position, grid_size);
+                        draw_exit_placeholders(
+                            ctx,
+                            &room.exits,
+                            room.position,
+                            self.active_layer_state.active_layer,
+                            grid_size,
+                        );
                         draw_entity_placeholders(
                             ctx,
                             ecs,

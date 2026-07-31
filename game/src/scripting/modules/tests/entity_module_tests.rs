@@ -203,9 +203,14 @@ fn move_to_room_records_restore_location_and_remove_from_room_still_queues_comma
         DestinationSelector::RestoreLocation {
             world_id,
             room_id,
+            layer,
             x,
             y,
-        } if world_id == WorldId(1) && room_id == RoomId(2) && x == 0.0 && y == 0.0
+        } if world_id == WorldId(1)
+            && room_id == RoomId(2)
+            && layer == RoomLayer::Front
+            && x == 0.0
+            && y == 0.0
     ));
 
     let commands: Vec<Box<dyn LuaCommand>> = drain_commands().collect();
@@ -220,6 +225,7 @@ fn move_to_entry_when_called_records_entry_target_request() {
     let from_main = lua.create_table().unwrap();
     from_main.set("WorldId", 2).unwrap();
     from_main.set("RoomId", 20).unwrap();
+    from_main.set("Layer", "Back").unwrap();
     from_main.set("EntryName", "FromMain").unwrap();
     arcade.set("FromMain", from_main).unwrap();
     entries.set("Arcade", arcade).unwrap();
@@ -238,8 +244,34 @@ fn move_to_entry_when_called_records_entry_target_request() {
         DestinationSelector::Entry(handle)
             if handle.world_id == WorldId(2)
                 && handle.room_id == RoomId(20)
+                && handle.layer == RoomLayer::Back
                 && handle.entry_name == "FromMain"
     ));
+}
+
+#[test]
+fn lua_entity_current_layer_and_move_to_layer_follow_room_layer_rules() {
+    let (lua, game_instance, entity) = setup_entity_lua();
+
+    assert_eq!(
+        lua.load("return entity:current_layer()")
+            .eval::<String>()
+            .unwrap(),
+        "Front"
+    );
+
+    lua.load("entity:move_to_layer('Back')").exec().unwrap();
+
+    assert_eq!(
+        lua.load("return entity:current_layer()")
+            .eval::<String>()
+            .unwrap(),
+        "Back"
+    );
+    assert_eq!(
+        game_instance.borrow().game.ecs.get::<CurrentRoom>(entity).map(|room| room.layer),
+        Some(RoomLayer::Back)
+    );
 }
 
 #[test]

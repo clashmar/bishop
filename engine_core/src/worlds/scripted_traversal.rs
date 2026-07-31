@@ -120,9 +120,10 @@ mod tests {
     use crate::ecs::{Active, Script, WorldEntry};
     use crate::engine_global::set_game_name;
     use crate::game::Game;
+    use crate::scripting::world_navigation_lua::{collect_entry_handles, EntryHandle};
     use crate::storage::path_utils::scripts_folder;
     use crate::storage::test_utils::{TestGameFolder, game_fs_test_lock};
-    use crate::worlds::{Room, World, WorldId};
+    use crate::worlds::{Room, RoomLayer, World, WorldId};
 
     #[test]
     fn scripted_traversal_extractor_when_source_uses_literal_entry_handle_emits_room_edge() {
@@ -220,6 +221,38 @@ mod tests {
             vec![ScriptedTraversalEdge {
                 from: RoomId(1),
                 to: RoomId(9),
+            }]
+        );
+    }
+
+    #[test]
+    fn generated_lua_entry_handles_include_layer_metadata() {
+        let mut game = Game::default();
+        let mut world = World::new(WorldId(1), "Overworld".to_string(), 16.0);
+        world.add_room(Room {
+            id: RoomId(9),
+            ..Default::default()
+        });
+        game.add_world(world);
+
+        game.ecs
+            .create_entity()
+            .with(WorldEntry {
+                name: "BackDoor".to_string(),
+                ..Default::default()
+            })
+            .with_current_room_layer(RoomId(9), RoomLayer::Back)
+            .finish();
+
+        assert_eq!(
+            collect_entry_handles(&game),
+            vec![EntryHandle {
+                world_id: WorldId(1),
+                world_key: "Overworld".to_string(),
+                world_name: "Overworld".to_string(),
+                room_id: RoomId(9),
+                layer: RoomLayer::Back,
+                entry_name: "BackDoor".to_string(),
             }]
         );
     }

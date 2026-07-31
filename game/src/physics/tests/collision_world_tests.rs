@@ -240,6 +240,45 @@ fn collision_world_front_layer_entity_is_not_constrained_by_back_layer_interior_
 }
 
 #[test]
+fn collision_world_front_layer_exit_does_not_open_back_layer_border_gap() {
+    let mut room = empty_room();
+    room.exits.push(Exit {
+        position: vec2(room.current_variant().tilemap.width as f32, 1.0),
+        direction: ExitDirection::Right,
+        layer: RoomLayer::Front,
+        target_room_id: Some(RoomId(2)),
+    });
+    let world = world_with_room(room.clone());
+    let mut ecs = Ecs::default();
+    let mover = ecs
+        .create_entity()
+        .with_current_room_layer(room.id, RoomLayer::Back)
+        .with(Transform {
+            position: Vec2::new(112.0, 16.0),
+            pivot: Pivot::TopLeft,
+            ..Default::default()
+        })
+        .finish();
+
+    let sweep = CollisionWorld::new(&ecs, &room, &world).sweep_move(
+        mover,
+        Vec2::new(112.0, 16.0),
+        Vec2::new(16.0, 0.0),
+        Collider {
+            shape: ColliderShape::Aabb {
+                width: 8.0,
+                height: 8.0,
+            },
+            ..Default::default()
+        },
+        Pivot::TopLeft,
+    );
+
+    assert!(sweep.blocked_x);
+    assert!(sweep.allowed_delta.x < 16.0);
+}
+
+#[test]
 fn collision_world_adjacent_back_zones_do_not_allow_crossing_shared_edge() {
     let room = room_with_back_zones(vec![
         InteriorZone {

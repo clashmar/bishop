@@ -26,6 +26,8 @@ pub struct EntryHandleData {
     pub world_id: WorldId,
     /// Destination room id.
     pub room_id: RoomId,
+    /// Destination authored room layer.
+    pub layer: RoomLayer,
     /// Authored entry name.
     pub entry_name: String,
     /// Optional override x position.
@@ -39,6 +41,7 @@ pub struct EntryHandleData {
 struct LuaEntryHandleData {
     world_id: usize,
     room_id: usize,
+    layer: String,
     entry_name: String,
     x: Option<f32>,
     y: Option<f32>,
@@ -48,9 +51,16 @@ impl EntryHandleData {
     /// Parses a typed generated Lua entry handle table.
     pub fn from_lua(lua: &Lua, entry: Table) -> LuaResult<Self> {
         let entry: LuaEntryHandleData = lua.from_value(Value::Table(entry))?;
+        let Some(layer) = RoomLayer::from_script_name(&entry.layer) else {
+            return Err(mlua::Error::RuntimeError(format!(
+                "Unknown room layer '{}'",
+                entry.layer
+            )));
+        };
         Ok(Self {
             world_id: WorldId(entry.world_id),
             room_id: RoomId(entry.room_id),
+            layer,
             entry_name: entry.entry_name,
             x: entry.x,
             y: entry.y,
@@ -80,6 +90,8 @@ pub enum DestinationSelector {
         world_id: WorldId,
         /// Destination room id.
         room_id: RoomId,
+        /// Destination authored room layer.
+        layer: RoomLayer,
         /// Destination x position.
         x: f32,
         /// Destination y position.
@@ -151,6 +163,7 @@ impl TraversalRequest {
         entity: Entity,
         world_id: WorldId,
         room_id: RoomId,
+        layer: RoomLayer,
         position: Vec2,
     ) -> Self {
         Self {
@@ -158,6 +171,7 @@ impl TraversalRequest {
             destination: DestinationSelector::RestoreLocation {
                 world_id,
                 room_id,
+                layer,
                 x: position.x,
                 y: position.y,
             },
@@ -170,6 +184,7 @@ impl TraversalRequest {
 pub(crate) struct Destination {
     pub(crate) world_id: WorldId,
     pub(crate) room_id: RoomId,
+    pub(crate) layer: RoomLayer,
     pub(crate) position: Vec2,
 }
 
@@ -221,6 +236,7 @@ impl WorldTransitionManager {
         let destination = Destination {
             world_id: frame.world,
             room_id: frame.room,
+            layer: frame.layer,
             position: Vec2::ZERO,
         };
         switch_to_overlay(lua, game, &destination);
@@ -262,9 +278,17 @@ fn push_activation_frame(game: &mut Game, destination_world_id: WorldId) {
         return;
     }
     let room = game.current_world().current_room_id.unwrap_or_default();
+    let layer = game
+        .ecs
+        .get_player_entity()
+        .and_then(|entity| game.ecs.get::<CurrentRoom>(entity).copied())
+        .filter(|current_room| current_room.room_id == room)
+        .map(|current_room| current_room.layer)
+        .unwrap_or(RoomLayer::Front);
     game.overlay_stack.push(OverlayFrame {
         world: current_world_id,
         room,
+        layer,
     });
 }
 
@@ -278,9 +302,10 @@ fn resolve_destination(game: &Game, request: &TraversalRequest) -> Option<Destin
         DestinationSelector::RestoreLocation {
             world_id,
             room_id,
+            layer,
             x,
             y,
-        } => resolve_restore_location_destination(game, *world_id, *room_id, *x, *y),
+        } => resolve_restore_location_destination(game, *world_id, *room_id, *layer, *x, *y),
         DestinationSelector::Return => None,
     }
 }
@@ -303,6 +328,7 @@ fn resolve_entry_handle_destination(game: &Game, entry: &EntryHandleData) -> Opt
         return Some(Destination {
             world_id: entry.world_id,
             room_id: entry.room_id,
+            layer: entry.layer,
             position,
         });
     }
@@ -311,6 +337,7 @@ fn resolve_entry_handle_destination(game: &Game, entry: &EntryHandleData) -> Opt
         world.get_room(entry.room_id).map(|_| Destination {
             world_id: entry.world_id,
             room_id: entry.room_id,
+            layer: entry.layer,
             position: Vec2::ZERO,
         })
     })
@@ -340,6 +367,7 @@ fn resolve_restore_location_destination(
     game: &Game,
     world_id: WorldId,
     room_id: RoomId,
+    layer: RoomLayer,
     x: f32,
     y: f32,
 ) -> Option<Destination> {
@@ -358,6 +386,7 @@ fn resolve_restore_location_destination(
     Some(Destination {
         world_id,
         room_id,
+        layer,
         position: Vec2::new(x, y),
     })
 }
@@ -369,14 +398,10 @@ fn resolve_entry(game: &Game, world: &World, entry_name: &str) -> Option<Destina
         if entry.name != entry_name && !(entry_name == WorldEntry::START_NAME && entry.is_start) {
             continue;
         }
-        let Some(room) = game
-            .ecs
-            .get::<CurrentRoom>(entity)
-            .map(|current_room| current_room.room_id)
-        else {
+        let Some(current_room) = game.ecs.get::<CurrentRoom>(entity).copied() else {
             continue;
         };
-        if world.get_room(room).is_none() {
+        if world.get_room(current_room.room_id).is_none() {
             continue;
         }
         let Some(position) = game
@@ -389,7 +414,8 @@ fn resolve_entry(game: &Game, world: &World, entry_name: &str) -> Option<Destina
         };
         return Some(Destination {
             world_id: world.id,
-            room_id: room,
+            room_id: current_room.room_id,
+            layer: current_room.layer,
             position,
         });
     }
@@ -404,14 +430,10 @@ pub(crate) fn resolve_world_start(game: &Game, world: &World) -> Option<Destinat
         if !entry.is_start {
             continue;
         }
-        let Some(room_id) = game
-            .ecs
-            .get::<CurrentRoom>(entity)
-            .map(|room| room.room_id)
-        else {
+        let Some(current_room) = game.ecs.get::<CurrentRoom>(entity).copied() else {
             continue;
         };
-        if world.get_room(room_id).is_none() {
+        if world.get_room(current_room.room_id).is_none() {
             continue;
         }
         let position = game
@@ -421,7 +443,8 @@ pub(crate) fn resolve_world_start(game: &Game, world: &World) -> Option<Destinat
             .unwrap_or(Vec2::ZERO);
         return Some(Destination {
             world_id: world.id,
-            room_id,
+            room_id: current_room.room_id,
+            layer: current_room.layer,
             position,
         });
     }
@@ -430,6 +453,7 @@ pub(crate) fn resolve_world_start(game: &Game, world: &World) -> Option<Destinat
     Some(Destination {
         world_id: world.id,
         room_id,
+        layer: RoomLayer::Front,
         position: Vec2::ZERO,
     })
 }
@@ -440,7 +464,8 @@ fn transport(lua: &Lua, game: &mut Game, entity: Entity, destination: &Destinati
         return false;
     };
     transform.position = destination.position;
-    game.ecs.set_current_room(entity, destination.room_id);
+    game.ecs
+        .set_current_room_layer(entity, destination.room_id, destination.layer);
 
     if game.ecs.get_player_entity() == Some(entity) {
         switch_to_overlay(lua, game, destination);
