@@ -58,6 +58,52 @@ fn front_layer_alpha(
 }
 
 #[test]
+fn collect_interpolated_room_layer_maps_same_z_orders_lower_entity_id_first() {
+    let room_id = RoomId(1);
+    let world = World::from_rooms(
+        WorldId(0),
+        String::new(),
+        vec![make_room(Some(1), 0.0, 0.0, 4.0, 4.0)],
+        16.0,
+    );
+    let mut ecs = Ecs::default();
+
+    let lower = ecs.create_entity()
+        .with(Transform::default())
+        .with(Layer { z: 3 })
+        .with_current_room_layer(room_id, RoomLayer::Front)
+        .finish();
+    let higher = ecs.create_entity()
+        .with(Transform {
+            position: vec2(16.0, 0.0),
+            ..Default::default()
+        })
+        .with(Layer { z: 3 })
+        .with_current_room_layer(room_id, RoomLayer::Front)
+        .finish();
+
+    let layer_maps = collect_interpolated_room_layer_maps(
+        &ecs,
+        &world,
+        world.get_room(room_id).unwrap(),
+        &SpriteManager::default(),
+        1.0,
+        None,
+        16.0,
+    );
+    let entities = layer_maps
+        .for_layer(RoomLayer::Front)
+        .get(&3)
+        .unwrap()
+        .entities
+        .iter()
+        .map(|(entity, _)| *entity)
+        .collect::<Vec<_>>();
+
+    assert_eq!(entities, vec![lower, higher]);
+}
+
+#[test]
 fn current_layer_front_when_hidden_then_renders_front_only() {
     let visible = visible_layers_for_state(
         &RoomLayers {

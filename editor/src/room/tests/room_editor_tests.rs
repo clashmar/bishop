@@ -9,7 +9,7 @@ use crate::gui::inspector::interactable_module::edit::{
     interactable_edit_entity,
     toggle_interactable_edit,
 };
-use crate::room::selection::selection_render_rect;
+use crate::room::selection::{selection_render_rect, topmost_entity_from_click_candidates};
 use engine_core::worlds::InteriorZoneId;
 
 fn prefab_manager(ids: &[usize]) -> PrefabManager {
@@ -445,4 +445,30 @@ fn pruning_selection_in_active_layer_keeps_existing_entity_inspector() {
     assert_eq!(editor.single_selected_entity(), Some(entity));
     assert_eq!(editor.inspector.selected_entity(), Some(entity));
     assert_eq!(editor.inspector.entity_inspector_addr(), first_addr);
+}
+
+#[test]
+fn overlapping_entity_selection_same_z_prefers_higher_entity_id() {
+    let lower = Entity(4);
+    let higher = Entity(9);
+
+    let selected = topmost_entity_from_click_candidates(&[
+        (lower, 3, false),
+        (higher, 3, false),
+    ]);
+
+    assert_eq!(selected, Some(higher));
+}
+
+#[test]
+fn overlapping_entity_selection_camera_wins_over_non_camera() {
+    let camera = Entity(4);
+    let other = Entity(99);
+
+    let selected = topmost_entity_from_click_candidates(&[
+        (other, 50, false),
+        (camera, -10, true),
+    ]);
+
+    assert_eq!(selected, Some(camera));
 }

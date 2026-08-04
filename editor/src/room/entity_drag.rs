@@ -148,13 +148,7 @@ impl RoomEditor {
                 }
             }
 
-            // Sort: cameras first, then by z descending (highest z = visually on top)
-            candidates.sort_by(|a, b| match (a.2, b.2) {
-                (true, false) => std::cmp::Ordering::Less,
-                (false, true) => std::cmp::Ordering::Greater,
-                _ => b.1.cmp(&a.1),
-            });
-            let clicked_entity = candidates.first().map(|(e, _, _)| *e);
+            let clicked_entity = topmost_entity_from_click_candidates(&candidates);
 
             if let Some(entity) = clicked_entity {
                 // Clicked on an entity

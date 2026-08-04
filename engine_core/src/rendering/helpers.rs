@@ -33,6 +33,16 @@ pub fn resolve_visual_entity(ecs: &Ecs, entity: Entity) -> Entity {
     }
 }
 
+/// Compares two entities in deterministic draw order.
+pub fn compare_entity_draw_order(
+    a_entity: Entity,
+    a_z: i32,
+    b_entity: Entity,
+    b_z: i32,
+) -> std::cmp::Ordering {
+    a_z.cmp(&b_z).then_with(|| a_entity.cmp(&b_entity))
+}
+
 /// Returns the pixel dimensions of an entity for rendering.
 pub fn entity_dimensions(
     ecs: &Ecs,

@@ -8,7 +8,12 @@ use crate::world::coord;
 use bishop::prelude::*;
 use engine_core::assets::*;
 use engine_core::ecs::*;
-use engine_core::rendering::{Renderable, pivot_adjusted_position, resolve_visual_entity};
+use engine_core::rendering::{
+    Renderable,
+    compare_entity_draw_order,
+    pivot_adjusted_position,
+    resolve_visual_entity,
+};
 use engine_core::worlds::*;
 use std::collections::HashSet;
 
@@ -220,6 +225,28 @@ pub fn can_select_entity_in_room_layer(
             layer: entity_layer,
         }) => *id == room_id && *entity_layer == layer,
         None => false,
+    }
+}
+
+/// Returns the topmost click candidate by camera priority and draw order.
+pub(crate) fn topmost_entity_from_click_candidates(
+    candidates: &[(Entity, i32, bool)],
+) -> Option<Entity> {
+    candidates
+        .iter()
+        .copied()
+        .max_by(|a, b| compare_click_candidate_priority(*a, *b))
+        .map(|(entity, _, _)| entity)
+}
+
+fn compare_click_candidate_priority(
+    a: (Entity, i32, bool),
+    b: (Entity, i32, bool),
+) -> std::cmp::Ordering {
+    match (a.2, b.2) {
+        (true, false) => std::cmp::Ordering::Greater,
+        (false, true) => std::cmp::Ordering::Less,
+        _ => compare_entity_draw_order(a.0, a.1, b.0, b.1),
     }
 }
 

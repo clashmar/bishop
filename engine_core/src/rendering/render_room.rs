@@ -303,6 +303,13 @@ fn collect_interpolated_room_layer_maps<'a>(
         }
     }
 
+    for (&z, layer) in &mut maps.front {
+        layer.entities.sort_by(|(a, _), (b, _)| compare_entity_draw_order(*a, z, *b, z));
+    }
+    for (&z, layer) in &mut maps.back {
+        layer.entities.sort_by(|(a, _), (b, _)| compare_entity_draw_order(*a, z, *b, z));
+    }
+
     maps
 }
 
