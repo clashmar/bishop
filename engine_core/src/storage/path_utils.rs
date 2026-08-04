@@ -495,12 +495,6 @@ fn default_save_root() -> PathBuf {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::{Mutex, OnceLock};
-
-    fn test_lock() -> &'static Mutex<()> {
-        static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
-        LOCK.get_or_init(|| Mutex::new(()))
-    }
 
     fn set_test_save_root(path: Option<PathBuf>) {
         match EDITOR_CONFIG.write() {
@@ -525,7 +519,9 @@ mod tests {
 
     #[test]
     fn cancel_returns_cancelled() {
-        let _lock = test_lock().lock().unwrap();
+        let _lock = crate::storage::test_utils::game_fs_test_lock()
+            .lock()
+            .unwrap();
         let _restore = SaveRootRestoreGuard::new();
 
         assert_eq!(apply_save_root_change(None), SaveRootResult::Cancelled);
@@ -533,7 +529,9 @@ mod tests {
 
     #[test]
     fn cancel_leaves_config_unchanged() {
-        let _lock = test_lock().lock().unwrap();
+        let _lock = crate::storage::test_utils::game_fs_test_lock()
+            .lock()
+            .unwrap();
         let _restore = SaveRootRestoreGuard::new();
 
         let known = std::env::temp_dir().join(format!(
@@ -553,7 +551,9 @@ mod tests {
 
     #[test]
     fn happy_path_returns_changed_and_updates_config() {
-        let _lock = test_lock().lock().unwrap();
+        let _lock = crate::storage::test_utils::game_fs_test_lock()
+            .lock()
+            .unwrap();
         let _restore = SaveRootRestoreGuard::new();
 
         let tmp =
@@ -571,8 +571,6 @@ mod tests {
 
     #[test]
     fn build_save_root_appends_correct_segments() {
-        let _lock = test_lock().lock().unwrap();
-
         let base = PathBuf::from("/some/folder");
         let result = build_save_root(&base);
         assert_eq!(result, base.join(paths::SAVE_ROOT).join(paths::GAME_SAVE_ROOT));
