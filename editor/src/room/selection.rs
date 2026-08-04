@@ -1,6 +1,8 @@
 use crate::app::SubEditor;
 use crate::gui::inspector::collider_module::edit::clear_active_collider_edit;
+use crate::gui::inspector::interactable_module::edit::clear_active_interactable_edit;
 use crate::room::collider_drag::ColliderHandleDragState;
+use crate::room::interactable_drag::InteractableHandleDragState;
 use crate::room::room_editor::*;
 use crate::world::coord;
 use bishop::prelude::*;
@@ -41,6 +43,8 @@ pub(crate) struct DragState {
     pub pre_copy_drag_state: Option<PreCopyDragState>,
     /// Collider handle drag state.
     pub collider_drag: ColliderHandleDragState,
+    /// Interactable handle drag state.
+    pub interactable_drag: InteractableHandleDragState,
 }
 
 impl RoomEditor {
@@ -127,7 +131,9 @@ impl RoomEditor {
 
     pub(crate) fn disable_active_edit_modes(&mut self) {
         clear_active_collider_edit();
+        clear_active_interactable_edit();
         self.drag_state.collider_drag = ColliderHandleDragState::default();
+        self.drag_state.interactable_drag = InteractableHandleDragState::default();
     }
 
     #[inline]

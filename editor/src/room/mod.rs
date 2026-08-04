@@ -2,6 +2,7 @@ pub(crate) mod bounds_edit;
 pub(crate) mod collider_drag;
 pub mod drawing;
 mod entity_drag;
+pub(crate) mod interactable_drag;
 pub(crate) mod interior_zone_edit;
 pub mod layer_state;
 pub(crate) mod prefab_preview;

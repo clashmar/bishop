@@ -2,12 +2,20 @@ use crate::app::{EditorMode, SubEditor};
 use crate::commands::room::*;
 use crate::editor_global::*;
 use crate::gui::inspector::collider_module::edit::{is_collider_edit_active_for, ColliderEditConfig};
+use crate::gui::inspector::interactable_module::edit::is_interactable_edit_active_for;
 use crate::room::collider_drag::{
     apply_collider_edit_nudge,
     collider_update_command,
     step_active_collider_drag,
     try_intercept_collider_handle,
     try_start_collider_handle_on_click,
+};
+use crate::room::interactable_drag::{
+    apply_interactable_edit_nudge,
+    interactable_update_command,
+    step_active_interactable_drag,
+    try_intercept_interactable_handle,
+    try_start_interactable_handle_on_click,
 };
 use crate::room::room_editor::*;
 use crate::room::selection::*;
@@ -83,6 +91,23 @@ impl RoomEditor {
             && !self.drag_state.dragging
             && !self.drag_state.box_select_active
         {
+            if let Some((entity, action, interactable)) = try_intercept_interactable_handle(
+                self.single_selected_entity(),
+                ecs,
+                mouse_world,
+                grid_size,
+            ) {
+                let transform_entity = self.single_selected_entity().unwrap_or(entity);
+                self.drag_state.interactable_drag.begin(
+                    entity,
+                    transform_entity,
+                    action,
+                    interactable,
+                    mouse_world,
+                );
+                return true;
+            }
+
             if let Some((visual_entity, action, collider)) = try_intercept_collider_handle(
                 self.single_selected_entity(),
                 ecs,
@@ -151,8 +176,23 @@ impl RoomEditor {
                         selection_changed = true;
                     }
 
-                    // In collider edit mode, try handle drag instead of entity drag
-                    if self.single_selected_entity().is_some_and(|e| is_collider_edit_active_for(resolve_visual_entity(ecs, e))) {
+                    // In interactable/collider edit mode, try handle drag instead of entity drag
+                    if self.single_selected_entity().is_some_and(is_interactable_edit_active_for) {
+                        if let Some((interactable_entity, action, interactable)) = try_start_interactable_handle_on_click(
+                            entity,
+                            ecs,
+                            mouse_world,
+                            grid_size,
+                        ) {
+                            self.drag_state.interactable_drag.begin(
+                                interactable_entity,
+                                entity,
+                                action,
+                                interactable,
+                                mouse_world,
+                            );
+                        }
+                    } else if self.single_selected_entity().is_some_and(|e| is_collider_edit_active_for(resolve_visual_entity(ecs, e))) {
                         if let Some((visual_entity, action, c)) = try_start_collider_handle_on_click(
                             entity,
                             ecs,
@@ -531,6 +571,26 @@ impl RoomEditor {
             shift_held,
         };
 
+        let interactable_result = step_active_interactable_drag(
+            &mut self.drag_state.interactable_drag,
+            ecs,
+            coord::mouse_world_pos(ctx, camera),
+            ctx.is_mouse_button_down(MouseButton::Left),
+            ctx.is_mouse_button_released(MouseButton::Left),
+            config,
+        );
+        if interactable_result.consumed {
+            if let Some((entity, old_interactable, new_interactable)) = interactable_result.commit {
+                push_command(interactable_update_command(
+                    entity,
+                    old_interactable,
+                    new_interactable,
+                    room_id,
+                ));
+            }
+            return true;
+        }
+
         let result = step_active_collider_drag(
             &mut self.drag_state.collider_drag,
             ecs,
@@ -571,6 +631,17 @@ impl RoomEditor {
         }
 
         let step = dir;
+        if let Some(cmd) = apply_interactable_edit_nudge(
+            self.single_selected_entity(),
+            ecs,
+            room_id,
+            self.active_layer_state.active_layer,
+            step,
+        ) {
+            push_command(cmd);
+            return;
+        }
+
         if let Some(cmd) = apply_collider_edit_nudge(
             self.single_selected_entity(),
             ecs,

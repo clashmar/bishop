@@ -16,6 +16,10 @@ use crate::app::EditorMode;
 use crate::editor_assets::assets::{camera_icon, entity_icon, entry_icon, exit_icon, portal_icon};
 use crate::gui::gui_constants::*;
 use crate::gui::inspector::collider_module::edit::{compute_handles, is_collider_edit_active_for};
+use crate::gui::inspector::interactable_module::edit::{
+    compute_handles as compute_interactable_handles,
+    is_interactable_edit_active_for,
+};
 use crate::room::bounds_edit::draw_handles;
 use crate::gui::menu_bar::*;
 use crate::gui::mode_selector::*;
@@ -656,7 +660,12 @@ pub fn draw_entity_interaction_guides(ctx: &mut WgpuContext, ecs: &Ecs, entity: 
     let cy = transform.position.y;
 
     if let Some(interactable) = ecs.get_store::<Interactable>().get(entity) {
-        let violet = Color::new(0.75, 0.25, 1.0, 0.55);
+        let edit_active = is_interactable_edit_active_for(entity);
+        let violet = if edit_active {
+            Color::new(0.85, 0.35, 1.0, 0.85)
+        } else {
+            Color::new(0.75, 0.25, 1.0, 0.55)
+        };
         match interactable.shape() {
             InteractableShape::Circle => {
                 let center = interactable.center_at(transform.position);
@@ -679,6 +688,10 @@ pub fn draw_entity_interaction_guides(ctx: &mut WgpuContext, ecs: &Ecs, entity: 
                     violet,
                 );
             }
+        }
+        if edit_active {
+            let handles = compute_interactable_handles(transform.position, interactable, grid_size);
+            draw_handles(ctx, &handles);
         }
     }
 
