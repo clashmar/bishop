@@ -12,6 +12,7 @@ use widgets::constants::layout as layout_constants;
 use widgets::{Button, Color, Dropdown, NumberInput, Rect, Widget, WidgetId};
 
 use crate::editor_assets::assets::{move_icon, refresh_icon};
+use crate::gui::inspector::interactable_module::edit::clear_interactable_edit;
 
 pub mod edit;
 
@@ -69,6 +70,7 @@ impl InspectorModule for ColliderModule {
     }
 
     fn remove(&mut self, game_ctx: &mut GameCtxMut, entity: Entity) {
+        clear_interactable_edit(entity);
         edit::clear_collider_edit(entity);
         Ecs::remove_component::<Collider>(game_ctx, entity);
     }

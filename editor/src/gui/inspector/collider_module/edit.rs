@@ -3,6 +3,7 @@ use engine_core::ecs::{Collider, ColliderShape, Entity, Pivot};
 use engine_core::rendering::pivot_adjusted_position;
 use std::cell::Cell;
 
+use crate::gui::inspector::interactable_module::edit::clear_interactable_edit;
 pub(crate) use crate::room::bounds_edit::BoundsEditConfig as ColliderEditConfig;
 pub(crate) use crate::room::bounds_edit::{Handle, HandleAction, hit_test_handles};
 use crate::room::bounds_edit::{compute_circle_handles, compute_rect_handles};
@@ -26,6 +27,7 @@ pub fn is_collider_edit_active_for(entity: Entity) -> bool {
 
 /// Toggles collider edit mode ownership for an entity.
 pub fn toggle_collider_edit(entity: Entity) -> bool {
+    clear_interactable_edit(entity);
     EDIT_ENTITY.with(|active| {
         let next = if active.get() == entity {
             Entity::null()
