@@ -113,7 +113,7 @@ impl Toast {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "test-utils"))]
 mod tests {
     use super::*;
     use bishop::prelude::*;

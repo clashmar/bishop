@@ -76,11 +76,11 @@ fn capture_prefab_normalizes_root_offset_and_instantiate_restores_world_position
     assert_eq!(instantiated_root.position, Vec2::new(100.0, 200.0));
     assert_eq!(instantiated_child.position, Vec2::new(104.0, 203.0));
     assert_eq!(
-        game.ecs.get::<CurrentRoom>(root_entity).map(|room| room.0),
+        game.ecs.get::<CurrentRoom>(root_entity).map(|room| room.room_id),
         Some(room_id)
     );
     assert_eq!(
-        game.ecs.get::<CurrentRoom>(child_entity).map(|room| room.0),
+        game.ecs.get::<CurrentRoom>(child_entity).map(|room| room.room_id),
         Some(room_id)
     );
 
