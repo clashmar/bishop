@@ -1,7 +1,8 @@
 use super::*;
-use bishop::prelude::Rect;
 use engine_core::ecs::{Cover, CoverMode};
-use engine_core::worlds::{BackRoomLayer, InteriorZone, InteriorZoneId, LayerCompositionMode};
+use engine_core::worlds::{
+    BackRoomLayer, InteriorZone, InteriorZoneBounds, InteriorZoneId, LayerCompositionMode,
+};
 
 const RESERVED_RUNTIME_SAVES_FOLDER: &str = "_runtime_saves";
 
@@ -196,7 +197,7 @@ fn game_save_load_when_room_variant_has_back_layer_then_layers_round_trip() {
         composition_mode: LayerCompositionMode::DollsHouse,
         interior_zones: vec![InteriorZone {
             id: InteriorZoneId(5),
-            bounds: Rect::new(16.0, 32.0, 48.0, 64.0),
+            bounds: InteriorZoneBounds::new(16, 32, 48, 64),
         }],
     });
 
@@ -211,7 +212,7 @@ fn game_save_load_when_room_variant_has_back_layer_then_layers_round_trip() {
     assert_eq!(loaded_back.composition_mode, LayerCompositionMode::DollsHouse);
     let loaded_zone = loaded_back.interior_zones[0];
     assert_eq!(loaded_zone.id, InteriorZoneId(5));
-    assert_eq!(loaded_zone.bounds, Rect::new(16.0, 32.0, 48.0, 64.0));
+    assert_eq!(loaded_zone.bounds, InteriorZoneBounds::new(16, 32, 48, 64));
 }
 
 #[test]

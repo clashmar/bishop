@@ -207,7 +207,7 @@ fn collision_world_front_layer_mover_does_not_collide_with_back_layer_tile() {
 fn collision_world_front_layer_entity_is_not_constrained_by_back_layer_interior_bounds() {
     let room = room_with_back_zones(vec![InteriorZone {
         id: InteriorZoneId(1),
-        bounds: Rect::new(0.0, 0.0, 32.0, 64.0),
+        bounds: InteriorZoneBounds::new(0, 0, 32, 64),
     }]);
     let world = world_with_room(room.clone());
     let mut ecs = Ecs::default();
@@ -283,11 +283,11 @@ fn collision_world_adjacent_back_zones_do_not_allow_crossing_shared_edge() {
     let room = room_with_back_zones(vec![
         InteriorZone {
             id: InteriorZoneId(1),
-            bounds: Rect::new(0.0, 0.0, 32.0, 64.0),
+            bounds: InteriorZoneBounds::new(0, 0, 32, 64),
         },
         InteriorZone {
             id: InteriorZoneId(2),
-            bounds: Rect::new(32.0, 0.0, 32.0, 64.0),
+            bounds: InteriorZoneBounds::new(32, 0, 32, 64),
         },
     ]);
     let world = world_with_room(room.clone());

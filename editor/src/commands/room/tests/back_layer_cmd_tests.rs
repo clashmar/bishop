@@ -1,6 +1,6 @@
 use super::*;
 use engine_core::ecs::{Name, TilePlacement, Transform};
-use engine_core::worlds::{BackRoomLayer, LayerCompositionMode, RoomLayer};
+use engine_core::worlds::{BackRoomLayer, InteriorZoneBounds, LayerCompositionMode, RoomLayer};
 
 fn enter_room_mode() {
     with_editor(|editor| {
@@ -150,7 +150,7 @@ fn update_interior_zones_cmd_is_undoable() {
         room.current_variant_mut().layers.back = Some(BackRoomLayer {
             interior_zones: vec![InteriorZone {
                 id: InteriorZoneId(1),
-                bounds: Rect::new(0.0, 0.0, 16.0, 16.0),
+                bounds: InteriorZoneBounds::new(0, 0, 16, 16),
             }],
             ..Default::default()
         });
@@ -165,11 +165,11 @@ fn update_interior_zones_cmd_is_undoable() {
         let new_zones = vec![
             InteriorZone {
                 id: InteriorZoneId(1),
-                bounds: Rect::new(16.0, 0.0, 16.0, 16.0),
+                bounds: InteriorZoneBounds::new(16, 0, 16, 16),
             },
             InteriorZone {
                 id: InteriorZoneId(2),
-                bounds: Rect::new(32.0, 0.0, 16.0, 16.0),
+                bounds: InteriorZoneBounds::new(32, 0, 16, 16),
             },
         ];
         (world_id, room_id, old_zones, new_zones)

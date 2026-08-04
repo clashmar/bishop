@@ -509,7 +509,7 @@ mod tests {
             RoomId(2),
             vec![InteriorZone {
                 id: InteriorZoneId(1),
-                bounds: Rect::new(0.0, 0.0, 32.0, 64.0),
+                bounds: InteriorZoneBounds::new(0, 0, 32, 64),
             }],
         );
 

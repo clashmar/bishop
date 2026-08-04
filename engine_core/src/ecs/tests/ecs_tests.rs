@@ -9,6 +9,7 @@ use crate::tiles::{TileDef, TileDefId, TileMap, TileRegistry};
 use crate::worlds::{
     BackRoomLayer,
     InteriorZone,
+    InteriorZoneBounds,
     InteriorZoneId,
     LayerCompositionMode,
     Room,
@@ -19,7 +20,7 @@ use crate::worlds::{
     World,
     WorldId,
 };
-use bishop::prelude::{Rect, Vec2};
+use bishop::prelude::Vec2;
 use std::collections::HashMap;
 
 /// Declare a minimal GameCtxMut for tests that need remove_entity/remove_component.
@@ -727,7 +728,7 @@ fn validate_layer_door_when_interactable_area_extends_outside_back_zone_union_th
                         composition_mode: LayerCompositionMode::Hidden,
                         interior_zones: vec![InteriorZone {
                             id: InteriorZoneId(1),
-                            bounds: Rect::new(0.0, 0.0, 32.0, 32.0),
+                            bounds: InteriorZoneBounds::new(0, 0, 32, 32),
                         }],
                     }),
                 },

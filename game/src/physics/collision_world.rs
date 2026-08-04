@@ -1079,7 +1079,7 @@ impl CollisionWorld {
         if let Some(zone) = self
             .back_interior_zones
             .iter()
-            .find(|zone| rect_contains_rect(zone.bounds, collider_bounds))
+            .find(|zone| rect_contains_rect(zone.bounds.to_rect(), collider_bounds))
         {
             return Some(zone.id);
         }
@@ -1170,7 +1170,7 @@ fn add_back_layer_bound_obstacles(
     back_interior_zones: &[InteriorZone],
 ) {
     for zone in back_interior_zones {
-        let forbidden_bounds = subtract_allowed_bounds(room_bounds, &[zone.bounds]);
+        let forbidden_bounds = subtract_allowed_bounds(room_bounds, &[zone.bounds.to_rect()]);
 
         for bounds in forbidden_bounds {
             let min = vec2(bounds.x, bounds.y);
@@ -1200,10 +1200,13 @@ fn clamped_back_interior_zones(room: &Room, grid_size: f32) -> Vec<InteriorZone>
                 .iter()
                 .copied()
                 .map(|zone| InteriorZone {
-                    bounds: clamp_rect_to_room(zone.bounds, room_bounds),
+                    bounds: InteriorZoneBounds::from_rect(clamp_rect_to_room(
+                        zone.bounds.to_rect(),
+                        room_bounds,
+                    )),
                     ..zone
                 })
-                .filter(|zone| !rect_is_empty(zone.bounds))
+                .filter(|zone| !rect_is_empty(zone.bounds.to_rect()))
                 .collect()
         })
         .unwrap_or_default()

@@ -4,8 +4,8 @@ use crate::rendering::{RoomCompositionContext, RoomRenderState};
 use crate::worlds::room::RoomVariant;
 use crate::worlds::test_utils::make_room;
 use crate::worlds::{
-    BackRoomLayer, Exit, ExitDirection, InteriorZone, InteriorZoneId, LayerCompositionMode,
-    RoomLayer, RoomLayers, WorldId,
+    BackRoomLayer, Exit, ExitDirection, InteriorZone, InteriorZoneBounds, InteriorZoneId,
+    LayerCompositionMode, RoomLayer, RoomLayers, WorldId,
 };
 
 fn render_state(current_layer: RoomLayer) -> RoomRenderState {
@@ -118,11 +118,11 @@ fn dolls_house_back_view_hides_cover_over_active_zone() {
         vec![
             InteriorZone {
                 id: InteriorZoneId(1),
-                bounds: Rect::new(0.0, 0.0, 32.0, 32.0),
+                bounds: InteriorZoneBounds::new(0, 0, 32, 32),
             },
             InteriorZone {
                 id: InteriorZoneId(2),
-                bounds: Rect::new(64.0, 0.0, 32.0, 32.0),
+                bounds: InteriorZoneBounds::new(64, 0, 32, 32),
             },
         ],
     );
@@ -152,11 +152,11 @@ fn dolls_house_back_view_keeps_other_zone_cover_opaque() {
         vec![
             InteriorZone {
                 id: InteriorZoneId(1),
-                bounds: Rect::new(0.0, 0.0, 32.0, 32.0),
+                bounds: InteriorZoneBounds::new(0, 0, 32, 32),
             },
             InteriorZone {
                 id: InteriorZoneId(2),
-                bounds: Rect::new(64.0, 0.0, 32.0, 32.0),
+                bounds: InteriorZoneBounds::new(64, 0, 32, 32),
             },
         ],
     );
@@ -185,7 +185,7 @@ fn dolls_house_back_view_fades_cover_over_active_zone() {
         LayerCompositionMode::DollsHouse,
         vec![InteriorZone {
             id: InteriorZoneId(1),
-            bounds: Rect::new(0.0, 0.0, 32.0, 32.0),
+            bounds: InteriorZoneBounds::new(0, 0, 32, 32),
         }],
     );
     let mut ecs = Ecs::default();
@@ -239,11 +239,11 @@ fn hidden_back_view_hides_layer_door_outside_active_zone() {
         vec![
             InteriorZone {
                 id: InteriorZoneId(1),
-                bounds: Rect::new(0.0, 0.0, 32.0, 32.0),
+                bounds: InteriorZoneBounds::new(0, 0, 32, 32),
             },
             InteriorZone {
                 id: InteriorZoneId(2),
-                bounds: Rect::new(64.0, 0.0, 32.0, 32.0),
+                bounds: InteriorZoneBounds::new(64, 0, 32, 32),
             },
         ],
     );
@@ -281,11 +281,11 @@ fn dolls_house_back_view_keeps_other_zone_layer_door_opaque() {
         vec![
             InteriorZone {
                 id: InteriorZoneId(1),
-                bounds: Rect::new(0.0, 0.0, 32.0, 32.0),
+                bounds: InteriorZoneBounds::new(0, 0, 32, 32),
             },
             InteriorZone {
                 id: InteriorZoneId(2),
-                bounds: Rect::new(64.0, 0.0, 32.0, 32.0),
+                bounds: InteriorZoneBounds::new(64, 0, 32, 32),
             },
         ],
     );

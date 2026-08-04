@@ -61,20 +61,43 @@ impl LayerCompositionMode {
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct InteriorZoneId(pub u64);
 
-#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct InteriorZoneBounds {
+    pub x: i32,
+    pub y: i32,
+    pub w: i32,
+    pub h: i32,
+}
+
+impl InteriorZoneBounds {
+    pub const fn new(x: i32, y: i32, w: i32, h: i32) -> Self {
+        Self { x, y, w, h }
+    }
+
+    pub fn from_rect(rect: Rect) -> Self {
+        Self::new(
+            rect.x.round() as i32,
+            rect.y.round() as i32,
+            rect.w.max(1.0).round() as i32,
+            rect.h.max(1.0).round() as i32,
+        )
+    }
+
+    pub fn to_rect(self) -> Rect {
+        Rect::new(self.x as f32, self.y as f32, self.w as f32, self.h as f32)
+    }
+
+    pub fn contains(self, point: Vec2) -> bool {
+        self.to_rect().contains(point)
+    }
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct InteriorZone {
     pub id: InteriorZoneId,
-    pub bounds: Rect,
-}
-
-impl Default for InteriorZone {
-    fn default() -> Self {
-        Self {
-            id: InteriorZoneId::default(),
-            bounds: Rect::default(),
-        }
-    }
+    pub bounds: InteriorZoneBounds,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
@@ -96,7 +119,7 @@ impl RoomLayers {
     pub fn effective_back_bounds(&self, room_bounds: Rect) -> Vec<Rect> {
         match &self.back {
             Some(back) if !back.interior_zones.is_empty() => {
-                back.interior_zones.iter().map(|zone| zone.bounds).collect()
+                back.interior_zones.iter().map(|zone| zone.bounds.to_rect()).collect()
             }
             Some(_) | None => vec![room_bounds],
         }
@@ -128,7 +151,7 @@ impl RoomLayers {
         back.interior_zones
             .iter()
             .filter(|zone| zone.bounds.contains(viewpoint_position))
-            .map(|zone| zone.bounds)
+            .map(|zone| zone.bounds.to_rect())
             .collect()
     }
 }
@@ -156,7 +179,7 @@ mod tests {
     fn room_with_back_layer_round_trips_through_ron() {
         let zone = InteriorZone {
             id: InteriorZoneId(7),
-            bounds: Rect::new(16.0, 32.0, 48.0, 64.0),
+            bounds: InteriorZoneBounds::new(16, 32, 48, 64),
         };
         let variant = RoomVariant {
             id: "default".to_string(),
@@ -184,11 +207,11 @@ mod tests {
         let zones = vec![
             InteriorZone {
                 id: InteriorZoneId(3),
-                bounds: Rect::new(0.0, 0.0, 32.0, 32.0),
+                bounds: InteriorZoneBounds::new(0, 0, 32, 32),
             },
             InteriorZone {
                 id: InteriorZoneId(9),
-                bounds: Rect::new(32.0, 0.0, 32.0, 32.0),
+                bounds: InteriorZoneBounds::new(32, 0, 32, 32),
             },
         ];
         let variant = RoomVariant {
@@ -227,11 +250,11 @@ mod tests {
         let room_bounds = Rect::new(0.0, 0.0, 128.0, 128.0);
         let zone_a = InteriorZone {
             id: InteriorZoneId(1),
-            bounds: Rect::new(0.0, 0.0, 32.0, 32.0),
+            bounds: InteriorZoneBounds::new(0, 0, 32, 32),
         };
         let zone_b = InteriorZone {
             id: InteriorZoneId(2),
-            bounds: Rect::new(64.0, 0.0, 32.0, 32.0),
+            bounds: InteriorZoneBounds::new(64, 0, 32, 32),
         };
         let layers = RoomLayers {
             back: Some(BackRoomLayer {
@@ -242,7 +265,7 @@ mod tests {
 
         assert_eq!(
             layers.active_back_bounds(room_bounds, RoomLayer::Back, Some(Vec2::new(8.0, 8.0))),
-            vec![zone_a.bounds],
+            vec![zone_a.bounds.to_rect()],
         );
         assert!(layers
             .active_back_bounds(room_bounds, RoomLayer::Front, Some(Vec2::new(8.0, 8.0)))
@@ -250,5 +273,12 @@ mod tests {
         assert!(layers
             .active_back_bounds(room_bounds, RoomLayer::Back, Some(Vec2::new(48.0, 8.0)))
             .is_empty());
+    }
+
+    #[test]
+    fn interior_zone_bounds_from_rect_rounds_to_integers() {
+        let bounds = InteriorZoneBounds::from_rect(Rect::new(16.4, 31.6, 47.5, 63.5));
+
+        assert_eq!(bounds, InteriorZoneBounds::new(16, 32, 48, 64));
     }
 }

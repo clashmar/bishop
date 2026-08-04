@@ -12,7 +12,7 @@ use engine_core::ecs::inspector::layout::InspectorBodyLayout;
 use engine_core::game::GameCtxMut;
 use engine_core::theme::with_theme;
 use engine_core::worlds::room::Room;
-use engine_core::worlds::LayerCompositionMode;
+use engine_core::worlds::{InteriorZoneBounds, LayerCompositionMode};
 use std::cell::Cell;
 use widgets::constants::{colors, layout};
 use widgets::{Button, Dropdown, InputCommit, NumberInput, WidgetId};
@@ -258,10 +258,10 @@ impl PropertyModule<Room> for RoomLayersModule {
             let w_rect = Rect::new(rect.x + label_w, zone_y, half_w - label_w, ROW_H);
             let h_rect = Rect::new(rect.x + half_w + GAP + label_w, zone_y, half_w - label_w, ROW_H);
             let (new_w, commit_w) = NumberInput::new(ids.w_id, w_rect, zone.bounds.w)
-                .min(1.0)
+                .min(1)
                 .show(ctx);
             let (new_h, commit_h) = NumberInput::new(ids.h_id, h_rect, zone.bounds.h)
-                .min(1.0)
+                .min(1)
                 .show(ctx);
             zone_y += ROW_H + GAP;
 
@@ -269,7 +269,7 @@ impl PropertyModule<Room> for RoomLayersModule {
                 || matches!(commit_y, InputCommit::Committed)
                 || matches!(commit_w, InputCommit::Committed)
                 || matches!(commit_h, InputCommit::Committed);
-            let edited_bounds = Rect::new(new_x, new_y, new_w.max(1.0), new_h.max(1.0));
+            let edited_bounds = committed_zone_bounds(new_x, new_y, new_w, new_h);
             if committed && edited_bounds != zone.bounds {
                 let mut new_zones = current_zones.clone();
                 new_zones[index].bounds = edited_bounds;
@@ -308,10 +308,14 @@ impl PropertyModule<Room> for RoomLayersModule {
     }
 }
 
+fn committed_zone_bounds(x: i32, y: i32, w: i32, h: i32) -> InteriorZoneBounds {
+    InteriorZoneBounds::new(x, y, w.max(1), h.max(1))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use engine_core::worlds::{InteriorZone, InteriorZoneId};
+    use engine_core::worlds::{InteriorZone, InteriorZoneBounds, InteriorZoneId};
 
     fn next_interior_zone_id(zones: &[InteriorZone]) -> InteriorZoneId {
         InteriorZoneId(
@@ -329,14 +333,22 @@ mod tests {
         let zones = vec![
             InteriorZone {
                 id: InteriorZoneId(3),
-                bounds: Rect::new(0.0, 0.0, 16.0, 16.0),
+                bounds: InteriorZoneBounds::new(0, 0, 16, 16),
             },
             InteriorZone {
                 id: InteriorZoneId(8),
-                bounds: Rect::new(16.0, 0.0, 16.0, 16.0),
+                bounds: InteriorZoneBounds::new(16, 0, 16, 16),
             },
         ];
 
         assert_eq!(next_interior_zone_id(&zones), InteriorZoneId(9));
+    }
+
+    #[test]
+    fn committed_zone_bounds_clamps_width_and_height_to_one() {
+        assert_eq!(
+            committed_zone_bounds(4, 5, 0, -2),
+            InteriorZoneBounds::new(4, 5, 1, 1),
+        );
     }
 }

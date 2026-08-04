@@ -5,7 +5,7 @@ use crate::room::room_editor::{RoomEditor, RoomEditorMode, RoomSceneSubMode};
 use crate::world::coord;
 use bishop::prelude::*;
 use engine_core::theme::with_theme;
-use engine_core::worlds::{InteriorZone, InteriorZoneId, Room, WorldId};
+use engine_core::worlds::{InteriorZone, InteriorZoneBounds, InteriorZoneId, Room, WorldId};
 use widgets::constants::layout;
 use widgets::MouseButton;
 
@@ -179,6 +179,7 @@ impl RoomEditor {
 
         let zone_mode_active = self.scene_sub_mode == RoomSceneSubMode::Zones;
         for zone in &back.interior_zones {
+            let bounds = zone.bounds.to_rect();
             let selected = self.interior_zone_editor.selected_zone_id == Some(zone.id);
             let fill = if selected {
                 with_theme(|theme| theme.highlight.with_alpha(SELECTED_FILL_ALPHA))
@@ -192,30 +193,30 @@ impl RoomEditor {
             };
 
             ctx.draw_rectangle(
-                zone.bounds.x,
-                zone.bounds.y,
-                zone.bounds.w,
-                zone.bounds.h,
+                bounds.x,
+                bounds.y,
+                bounds.w,
+                bounds.h,
                 fill,
             );
             ctx.draw_rectangle_lines(
-                zone.bounds.x,
-                zone.bounds.y,
-                zone.bounds.w,
-                zone.bounds.h,
+                bounds.x,
+                bounds.y,
+                bounds.w,
+                bounds.h,
                 outline_thickness(grid_size),
                 outline,
             );
             ctx.draw_text(
                 &format!("Zone {}", zone.id.0),
-                zone.bounds.x + 4.0,
-                zone.bounds.y + 14.0,
+                bounds.x + 4.0,
+                bounds.y + 14.0,
                 ZONE_LABEL_FONT_SIZE,
                 outline,
             );
 
             if zone_mode_active && selected {
-                for (handle_rect, _) in handle_rects(zone.bounds, grid_size) {
+                for (handle_rect, _) in handle_rects(bounds, grid_size) {
                     ctx.draw_rectangle(
                         handle_rect.x,
                         handle_rect.y,
@@ -248,7 +249,12 @@ fn step_zone_interaction(
                 ..
             } => {
                 if let Some(zone) = zone_by_id_mut(zones, *zone_id) {
-                    zone.bounds = dragged_creation_rect(*anchor, mouse_world, room_rect, grid_size);
+                    zone.bounds = InteriorZoneBounds::from_rect(dragged_creation_rect(
+                        *anchor,
+                        mouse_world,
+                        room_rect,
+                        grid_size,
+                    ));
                 }
             }
             ZoneInteraction::Moving {
@@ -258,12 +264,12 @@ fn step_zone_interaction(
                 ..
             } => {
                 if let Some(zone) = zone_by_id_mut(zones, *zone_id) {
-                    zone.bounds = move_zone_rect(
+                    zone.bounds = InteriorZoneBounds::from_rect(move_zone_rect(
                         *original_bounds,
                         mouse_world - *drag_start,
                         room_rect,
                         grid_size,
-                    );
+                    ));
                 }
             }
             ZoneInteraction::Resizing {
@@ -273,13 +279,13 @@ fn step_zone_interaction(
                 ..
             } => {
                 if let Some(zone) = zone_by_id_mut(zones, *zone_id) {
-                    zone.bounds = resize_zone_rect(
+                    zone.bounds = InteriorZoneBounds::from_rect(resize_zone_rect(
                         *original_bounds,
                         *handle,
                         mouse_world,
                         room_rect,
                         grid_size,
-                    );
+                    ));
                 }
             }
         }
@@ -310,11 +316,12 @@ fn begin_zone_interaction(
 
     if let Some(selected_zone_id) = state.selected_zone_id {
         if let Some(selected_zone) = zone_by_id(zones, selected_zone_id) {
-            if let Some(handle) = hit_test_handle(mouse_world, selected_zone.bounds, grid_size) {
+            let selected_bounds = selected_zone.bounds.to_rect();
+            if let Some(handle) = hit_test_handle(mouse_world, selected_bounds, grid_size) {
                 state.interaction = Some(ZoneInteraction::Resizing {
                     zone_id: selected_zone_id,
                     handle,
-                    original_bounds: selected_zone.bounds,
+                    original_bounds: selected_bounds,
                     old_zones: zones.clone(),
                 });
                 return;
@@ -327,7 +334,7 @@ fn begin_zone_interaction(
         state.interaction = Some(ZoneInteraction::Moving {
             zone_id: zone.id,
             drag_start: mouse_world,
-            original_bounds: zone.bounds,
+            original_bounds: zone.bounds.to_rect(),
             old_zones: zones.clone(),
         });
         return;
@@ -337,7 +344,7 @@ fn begin_zone_interaction(
     let anchor = snap_point_to_grid(mouse_world, grid_size);
     zones.push(InteriorZone {
         id: zone_id,
-        bounds: Rect::new(anchor.x, anchor.y, grid_size, grid_size),
+        bounds: InteriorZoneBounds::from_rect(Rect::new(anchor.x, anchor.y, grid_size, grid_size)),
     });
     state.selected_zone_id = Some(zone_id);
     state.interaction = Some(ZoneInteraction::Creating {
