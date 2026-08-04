@@ -171,7 +171,18 @@
                     ),
                     offset: (0.0, 0.0),
                 ),
+                (84): (
+                    shape: Aabb(
+                        width: 8.0,
+                        height: 8.0,
+                    ),
+                    offset: (0.0, 0.0),
+                ),
             },
+        ),
+        (
+            type_name: "Cover",
+            data: {},
         ),
         (
             type_name: "CurrentFrame",
@@ -278,6 +289,10 @@
                     room_id: (1),
                     layer: front,
                 ),
+                (84): (
+                    room_id: (1),
+                    layer: front,
+                ),
             },
         ),
         (
@@ -309,22 +324,40 @@
             type_name: "Interactable",
             data: {
                 (37): (
-                    range: 20.0,
+                    use_rect: false,
+                    offset: (0.0, 0.0),
+                    radius: 20.0,
+                    rect_size: (16.0, 16.0),
                 ),
                 (38): (
-                    range: 20.0,
+                    use_rect: false,
+                    offset: (0.0, 0.0),
+                    radius: 20.0,
+                    rect_size: (16.0, 16.0),
                 ),
                 (46): (
-                    range: 20.0,
+                    use_rect: false,
+                    offset: (0.0, 0.0),
+                    radius: 20.0,
+                    rect_size: (16.0, 16.0),
                 ),
                 (52): (
-                    range: 20.0,
+                    use_rect: false,
+                    offset: (0.0, 0.0),
+                    radius: 20.0,
+                    rect_size: (16.0, 16.0),
                 ),
                 (63): (
-                    range: 20.0,
+                    use_rect: false,
+                    offset: (0.0, 0.0),
+                    radius: 20.0,
+                    rect_size: (16.0, 16.0),
                 ),
                 (75): (
-                    range: 20.0,
+                    use_rect: false,
+                    offset: (0.0, 0.0),
+                    radius: 20.0,
+                    rect_size: (16.0, 16.0),
                 ),
             },
         ),
@@ -334,6 +367,14 @@
         ),
         (
             type_name: "Layer",
+            data: {
+                (37): (
+                    z: 1,
+                ),
+            },
+        ),
+        (
+            type_name: "LayerDoor",
             data: {},
         ),
         (
@@ -365,6 +406,7 @@
                 (75): ("Entity"),
                 (78): ("Entity"),
                 (80): ("Entity"),
+                (84): ("Entity"),
             },
         ),
         (
@@ -431,6 +473,7 @@
                 (37): (
                     modified_components: [
                         "Collider",
+                        "Interactable",
                     ],
                     removed_components: [],
                     added_components: [
@@ -441,6 +484,10 @@
                         (
                             type_name: "Grounded",
                             ron: "(false)",
+                        ),
+                        (
+                            type_name: "Layer",
+                            ron: "(\n    z: 1,\n)",
                         ),
                         (
                             type_name: "MotionBody",
@@ -562,6 +609,7 @@
             data: {
                 (37): (true),
                 (80): (true),
+                (84): (true),
             },
         ),
         (
@@ -583,6 +631,9 @@
                 (80): (
                     sprite: (11),
                 ),
+                (84): (
+                    sprite: (11),
+                ),
             },
         ),
         (
@@ -601,7 +652,7 @@
             data: {
                 (2): (
                     visible: true,
-                    position: (148.0, 72.0),
+                    position: (140.0, 72.0),
                     pivot: BottomCenter,
                 ),
                 (3): (
@@ -616,7 +667,7 @@
                 ),
                 (37): (
                     visible: true,
-                    position: (188.0, 72.0),
+                    position: (164.0, 72.0),
                     pivot: BottomCenter,
                 ),
                 (38): (
@@ -680,6 +731,11 @@
                     pivot: BottomCenter,
                 ),
                 (80): (
+                    visible: true,
+                    position: (84.0, 72.0),
+                    pivot: BottomCenter,
+                ),
+                (84): (
                     visible: true,
                     position: (84.0, 72.0),
                     pivot: BottomCenter,

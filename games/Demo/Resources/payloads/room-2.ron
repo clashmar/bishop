@@ -2,6 +2,7 @@
     variants: [
         (
             id: "default",
+            background: (0.78, 0.78, 0.78, 1.0),
             tilemap: (
                 width: 13,
                 height: 9,
