@@ -3,12 +3,14 @@ use engine_core::ecs::{Ecs, Interactable, Pivot, Transform};
 use engine_core::worlds::{RoomId, RoomLayer};
 
 use super::{
+    apply_handle_drag,
     resized_circle_interactable,
     resized_rect_interactable,
     selected_interactable_edit_nudge,
     selected_interactable_handle_hit,
+    InteractableHandleDragState,
 };
-use crate::room::bounds_edit::HandleAction;
+use crate::room::bounds_edit::{BoundsEditConfig, HandleAction};
 
 fn interactable_rect(interactable: &Interactable, transform: Transform) -> Rect {
     interactable.bounds_at(transform.position)
@@ -66,6 +68,46 @@ fn selected_interactable_edit_nudge_in_room_returns_updated_offset() {
         if nudged_entity == entity
         && old_interactable.offset == Vec2::ZERO
         && new_interactable.offset == vec2(1.0, -1.0)));
+}
+
+#[test]
+fn interactable_right_edge_snap_uses_half_grid_steps() {
+    let mut ecs = Ecs::default();
+    let entity = ecs
+        .create_entity()
+        .with(Transform {
+            position: vec2(8.0, 0.0),
+            pivot: Pivot::TopLeft,
+            ..Default::default()
+        })
+        .with(Interactable::rect(Vec2::ZERO, vec2(16.0, 16.0)))
+        .finish();
+    let initial = match ecs.get::<Interactable>(entity) {
+        Some(interactable) => interactable.clone(),
+        None => panic!("expected interactable on test entity"),
+    };
+    let mut drag = InteractableHandleDragState::default();
+    drag.begin(entity, entity, HandleAction::ResizeRight, initial, Vec2::ZERO);
+
+    apply_handle_drag(
+        &drag,
+        &mut ecs,
+        vec2(5.0, 0.0),
+        BoundsEditConfig {
+            grid_size: 16.0,
+            snap_enabled: true,
+            shift_held: false,
+        },
+    );
+
+    let transform = ecs.get::<Transform>(entity).copied().expect("expected transform");
+    let interactable = ecs
+        .get::<Interactable>(entity)
+        .cloned()
+        .expect("expected interactable after snapped handle drag");
+    let bounds = interactable.bounds_at(transform.position);
+    assert_eq!(bounds.x, 0.0);
+    assert_eq!(bounds.w, 24.0);
 }
 
 #[test]

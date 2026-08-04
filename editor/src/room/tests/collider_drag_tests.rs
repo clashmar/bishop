@@ -3,13 +3,16 @@ use engine_core::ecs::*;
 use engine_core::worlds::{RoomId, RoomLayer};
 
 use super::{
+    apply_handle_drag,
     resized_aabb_collider,
     resized_aabb_collider_uniform,
     resized_capsule_collider,
     resized_circle_collider,
     selected_collider_edit_nudge,
     selected_collider_handle_hit,
+    ColliderHandleDragState,
 };
+use crate::gui::inspector::collider_module::edit::{ColliderEditConfig, HandleAction};
 
 fn aabb_rect(collider: Collider, transform: Transform) -> Rect {
     let ColliderShape::Aabb { width, height } = collider.shape else {
@@ -150,6 +153,41 @@ fn selected_collider_edit_nudge_other_layer_returns_none() {
     );
 
     assert!(nudged.is_none());
+}
+
+#[test]
+fn collider_move_handle_snap_uses_half_grid_steps() {
+    let mut ecs = Ecs::default();
+    let entity = ecs
+        .create_entity()
+        .with(Transform {
+            pivot: Pivot::TopLeft,
+            ..Default::default()
+        })
+        .with(Collider::default())
+        .finish();
+    let initial = match ecs.get::<Collider>(entity) {
+        Some(collider) => *collider,
+        None => panic!("expected collider on test entity"),
+    };
+    let mut drag = ColliderHandleDragState::default();
+    drag.begin(entity, entity, HandleAction::MoveOffset, initial, Vec2::ZERO);
+
+    apply_handle_drag(
+        &drag,
+        &mut ecs,
+        vec2(5.0, 5.0),
+        ColliderEditConfig {
+            grid_size: 16.0,
+            snap_enabled: true,
+            shift_held: false,
+        },
+    );
+
+    match ecs.get::<Collider>(entity) {
+        Some(collider) => assert_eq!(collider.offset, vec2(8.0, 8.0)),
+        None => panic!("expected collider after snapped handle drag"),
+    }
 }
 
 #[test]

@@ -1,4 +1,8 @@
 use super::*;
+use bishop::prelude::vec2;
+use crate::gui::inspector::collider_module::edit::{clear_collider_edit, toggle_collider_edit};
+use crate::gui::inspector::interactable_module::edit::{clear_interactable_edit, toggle_interactable_edit};
+use crate::prefab::prefab_editor::PREFAB_EDITOR_GRID_SIZE;
 
 #[test]
 fn prefab_child_keyboard_move_updates_position_and_supports_undo_redo() {
@@ -79,6 +83,85 @@ fn prefab_child_keyboard_move_updates_position_and_supports_undo_redo() {
         );
         assert_eq!(editor.mode, EditorMode::Prefab(prefab_id));
     });
+}
+
+#[test]
+fn prefab_collider_handle_click_starts_handle_drag() {
+    let mut editor = PrefabEditor::new(
+        PrefabId(1),
+        "Prefab".to_string(),
+        StagedPrefabState::Empty,
+        PrefabRoomSyncState {
+            staged_prefab: StagedPrefabState::Empty,
+            linked_instance_snapshots: Vec::new(),
+        },
+    );
+    let mut ecs = Ecs::default();
+    let entity = ecs
+        .create_entity()
+        .with(Transform {
+            pivot: Pivot::TopLeft,
+            ..Default::default()
+        })
+        .with(Collider::default())
+        .finish();
+    editor.set_selected_entity(Some(entity));
+    clear_collider_edit(entity);
+    assert!(toggle_collider_edit(entity));
+
+    let collider = ecs.get::<Collider>(entity).unwrap();
+    let handle = crate::gui::inspector::collider_module::edit::compute_handles(
+        Vec2::ZERO,
+        Pivot::TopLeft,
+        collider,
+        PREFAB_EDITOR_GRID_SIZE,
+    )
+    .last()
+    .unwrap()
+    .rect;
+    let mouse_world = vec2(handle.x + handle.w * 0.5, handle.y + handle.h * 0.5);
+
+    assert!(editor.try_begin_active_bounds_drag(&ecs, mouse_world));
+    assert!(editor.drag_state.collider_drag.dragging);
+    assert!(!editor.drag_state.dragging);
+}
+
+#[test]
+fn prefab_interactable_handle_click_outside_hitbox_starts_handle_drag() {
+    let mut editor = PrefabEditor::new(
+        PrefabId(1),
+        "Prefab".to_string(),
+        StagedPrefabState::Empty,
+        PrefabRoomSyncState {
+            staged_prefab: StagedPrefabState::Empty,
+            linked_instance_snapshots: Vec::new(),
+        },
+    );
+    let mut ecs = Ecs::default();
+    let entity = ecs
+        .create_entity()
+        .with(Transform::default())
+        .with(Interactable::circle(Vec2::ZERO, 40.0))
+        .finish();
+    editor.set_selected_entity(Some(entity));
+    clear_interactable_edit(entity);
+    assert!(toggle_interactable_edit(entity));
+
+    let interactable = ecs.get::<Interactable>(entity).unwrap();
+    let handle = crate::gui::inspector::interactable_module::edit::compute_handles(
+        Vec2::ZERO,
+        interactable,
+        PREFAB_EDITOR_GRID_SIZE,
+    )
+    .iter()
+    .find(|handle| handle.action == crate::room::bounds_edit::HandleAction::ResizeCircleRadius)
+    .unwrap()
+    .rect;
+    let mouse_world = vec2(handle.x + handle.w * 0.5, handle.y + handle.h * 0.5);
+
+    assert!(editor.try_begin_active_bounds_drag(&ecs, mouse_world));
+    assert!(editor.drag_state.interactable_drag.dragging);
+    assert!(!editor.drag_state.dragging);
 }
 
 #[test]

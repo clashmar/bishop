@@ -585,7 +585,7 @@ impl RoomEditor {
                     entity,
                     old_interactable,
                     new_interactable,
-                    room_id,
+                    EditorMode::Room(room_id),
                 ));
             }
             return true;
@@ -605,7 +605,7 @@ impl RoomEditor {
                     entity,
                     old_collider,
                     new_collider,
-                    room_id,
+                    EditorMode::Room(room_id),
                 ));
             }
             return true;

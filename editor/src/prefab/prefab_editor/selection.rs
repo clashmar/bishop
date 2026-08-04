@@ -1,5 +1,8 @@
 use super::PrefabEditor;
 use crate::gui::inspector::collider_module::edit::clear_active_collider_edit;
+use crate::gui::inspector::interactable_module::edit::clear_active_interactable_edit;
+use crate::room::collider_drag::ColliderHandleDragState;
+use crate::room::interactable_drag::InteractableHandleDragState;
 use engine_core::ecs::*;
 
 impl PrefabEditor {
@@ -134,6 +137,9 @@ impl PrefabEditor {
 
     pub(crate) fn disable_active_edit_modes(&mut self) {
         clear_active_collider_edit();
+        clear_active_interactable_edit();
+        self.drag_state.collider_drag = ColliderHandleDragState::default();
+        self.drag_state.interactable_drag = InteractableHandleDragState::default();
     }
 }
 

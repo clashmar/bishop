@@ -4,6 +4,11 @@ use crate::gui::inspector::collider_module::edit::{
     collider_edit_entity,
     toggle_collider_edit,
 };
+use crate::gui::inspector::interactable_module::edit::{
+    clear_interactable_edit,
+    interactable_edit_entity,
+    toggle_interactable_edit,
+};
 use crate::room::selection::selection_render_rect;
 use engine_core::worlds::InteriorZoneId;
 
@@ -389,6 +394,34 @@ fn selecting_different_room_entity_disables_previous_collider_edit_mode() {
     editor.set_selected_entity(Some(second));
 
     assert_eq!(collider_edit_entity(), None);
+}
+
+#[test]
+fn clearing_room_selection_disables_interactable_edit_mode() {
+    let mut editor = RoomEditor::new();
+    let entity = Entity(7);
+    clear_interactable_edit(entity);
+    editor.set_selected_entity(Some(entity));
+    assert!(toggle_interactable_edit(entity));
+
+    editor.clear_selection();
+
+    assert_eq!(interactable_edit_entity(), None);
+}
+
+#[test]
+fn selecting_different_room_entity_disables_previous_interactable_edit_mode() {
+    let mut editor = RoomEditor::new();
+    let first = Entity(7);
+    let second = Entity(8);
+    clear_interactable_edit(first);
+    clear_interactable_edit(second);
+    editor.set_selected_entity(Some(first));
+    assert!(toggle_interactable_edit(first));
+
+    editor.set_selected_entity(Some(second));
+
+    assert_eq!(interactable_edit_entity(), None);
 }
 
 #[test]

@@ -106,15 +106,17 @@ pub(crate) fn apply_handle_drag(
         transform,
         ecs.get_store_mut::<Interactable>().get_mut(entity),
     ) {
-        *interactable = initial.clone();
+        let snap_step = config.snap_step();
+
         match action {
             HandleAction::MoveOffset => {
+                *interactable = initial.clone();
                 let target = initial.offset + delta;
                 if config.snap_enabled {
                     let world_x = transform.position.x + target.x;
                     let world_y = transform.position.y + target.y;
-                    interactable.offset.x = round_to_grid(world_x, config.grid_size) - transform.position.x;
-                    interactable.offset.y = round_to_grid(world_y, config.grid_size) - transform.position.y;
+                    interactable.offset.x = round_to_grid(world_x, snap_step) - transform.position.x;
+                    interactable.offset.y = round_to_grid(world_y, snap_step) - transform.position.y;
                 } else {
                     interactable.offset = target;
                 }
@@ -128,30 +130,33 @@ pub(crate) fn apply_handle_drag(
             | HandleAction::ResizeLeft
             | HandleAction::ResizeRight => {
                 let snapped_delta = if config.snap_enabled {
-                    snap_rect_delta(initial.bounds_at(transform.position), action, delta, config.grid_size)
+                    snap_rect_delta(initial.bounds_at(transform.position), action, delta, snap_step)
                 } else {
                     delta
                 };
-                let resized = if config.shift_held {
-                    resized_rect_interactable_uniform(initial.clone(), transform, action, snapped_delta)
-                } else {
-                    resized_rect_interactable(initial.clone(), transform, action, snapped_delta)
-                };
-                if let Some(resized) = resized {
+                if config.shift_held {
+                    if let Some(resized) =
+                        resized_rect_interactable_uniform(initial, transform, action, snapped_delta)
+                    {
+                        *interactable = resized;
+                    }
+                } else if let Some(resized) =
+                    resized_rect_interactable(initial, transform, action, snapped_delta)
+                {
                     *interactable = resized;
                 }
             }
             HandleAction::ResizeCircleRadius => {
                 let snapped_mouse = if config.snap_enabled {
                     vec2(
-                        round_to_grid(mouse_world.x, config.grid_size),
-                        round_to_grid(mouse_world.y, config.grid_size),
+                        round_to_grid(mouse_world.x, snap_step),
+                        round_to_grid(mouse_world.y, snap_step),
                     )
                 } else {
                     mouse_world
                 };
                 if let Some(resized) =
-                    resized_circle_interactable(initial.clone(), transform, drag.drag_start, snapped_mouse)
+                    resized_circle_interactable(initial, transform, drag.drag_start, snapped_mouse)
                 {
                     *interactable = resized;
                 }
@@ -253,13 +258,13 @@ pub(crate) fn interactable_update_command(
     entity: Entity,
     old_interactable: Interactable,
     new_interactable: Interactable,
-    room_id: RoomId,
+    mode: EditorMode,
 ) -> Box<UpdateComponentCmd> {
     let old_ron = ron::to_string(&old_interactable).expect("Interactable RON serialize");
     let new_ron = ron::to_string(&new_interactable).expect("Interactable RON serialize");
     Box::new(UpdateComponentCmd::new(
         entity,
-        EditorMode::Room(room_id),
+        mode,
         Interactable::TYPE_NAME,
         old_ron,
         new_ron,
@@ -285,7 +290,7 @@ pub(crate) fn apply_interactable_edit_nudge(
         entity,
         old_interactable,
         new_interactable,
-        room_id,
+        EditorMode::Room(room_id),
     ))
 }
 

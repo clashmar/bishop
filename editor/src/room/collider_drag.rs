@@ -113,6 +113,7 @@ pub(crate) fn apply_handle_drag(
         transform,
         ecs.get_store_mut::<Collider>().get_mut(entity),
     ) {
+        let snap_step = config.snap_step();
 
         *collider = initial;
         match action {
@@ -121,8 +122,8 @@ pub(crate) fn apply_handle_drag(
                 if config.snap_enabled {
                     let world_x = transform.position.x + target.x;
                     let world_y = transform.position.y + target.y;
-                    collider.offset.x = round_to_grid(world_x, config.grid_size) - transform.position.x;
-                    collider.offset.y = round_to_grid(world_y, config.grid_size) - transform.position.y;
+                    collider.offset.x = round_to_grid(world_x, snap_step) - transform.position.x;
+                    collider.offset.y = round_to_grid(world_y, snap_step) - transform.position.y;
                 } else {
                     collider.offset = target;
                 }
@@ -136,7 +137,7 @@ pub(crate) fn apply_handle_drag(
             | HandleAction::ResizeLeft
             | HandleAction::ResizeRight => {
                 let snapped_delta = if config.snap_enabled {
-                    snap_aabb_delta(&initial, &transform, action, delta, config.grid_size)
+                    snap_aabb_delta(&initial, &transform, action, delta, snap_step)
                 } else {
                     delta
                 };
@@ -151,8 +152,8 @@ pub(crate) fn apply_handle_drag(
             HandleAction::ResizeCircleRadius => {
                 let snapped_mouse = if config.snap_enabled {
                     vec2(
-                        round_to_grid(mouse_world.x, config.grid_size),
-                        round_to_grid(mouse_world.y, config.grid_size),
+                        round_to_grid(mouse_world.x, snap_step),
+                        round_to_grid(mouse_world.y, snap_step),
                     )
                 } else {
                     mouse_world
@@ -168,7 +169,7 @@ pub(crate) fn apply_handle_drag(
             | HandleAction::ResizeCapsuleHeightTop
             | HandleAction::ResizeCapsuleHeightBottom => {
                 let snapped_delta = if config.snap_enabled {
-                    snap_capsule_delta(&initial, &transform, action, delta, config.grid_size)
+                    snap_capsule_delta(&initial, &transform, action, delta, snap_step)
                 } else {
                     delta
                 };
@@ -265,13 +266,13 @@ pub(crate) fn collider_update_command(
     entity: Entity,
     old_collider: Collider,
     new_collider: Collider,
-    room_id: RoomId,
+    mode: EditorMode,
 ) -> Box<UpdateComponentCmd> {
     let old_ron = ron::to_string(&old_collider).expect("Collider RON serialize");
     let new_ron = ron::to_string(&new_collider).expect("Collider RON serialize");
     Box::new(UpdateComponentCmd::new(
         entity,
-        EditorMode::Room(room_id),
+        mode,
         Collider::TYPE_NAME,
         old_ron,
         new_ron,
@@ -293,7 +294,12 @@ pub(crate) fn apply_collider_edit_nudge(
     if let Some(collider) = ecs.get_store_mut::<Collider>().get_mut(entity) {
         *collider = new_collider;
     }
-    Some(collider_update_command(entity, old_collider, new_collider, room_id))
+    Some(collider_update_command(
+        entity,
+        old_collider,
+        new_collider,
+        EditorMode::Room(room_id),
+    ))
 }
 
 pub(crate) fn resized_aabb_collider(
@@ -540,7 +546,7 @@ fn snap_aabb_delta(
     transform: &Transform,
     action: HandleAction,
     delta: Vec2,
-    grid_size: f32,
+    snap_step: f32,
 ) -> Vec2 {
     let Some((left, top, right, bottom)) = aabb_edges(initial, transform) else {
         return delta;
@@ -550,7 +556,7 @@ fn snap_aabb_delta(
         Rect::new(left, top, right - left, bottom - top),
         action,
         delta,
-        grid_size,
+        snap_step,
     )
 }
 
@@ -574,27 +580,27 @@ fn snap_capsule_delta(
     transform: &Transform,
     action: HandleAction,
     delta: Vec2,
-    grid_size: f32,
+    snap_step: f32,
 ) -> Vec2 {
     let Some((left, top, right, bottom)) = capsule_edges(initial, transform) else {
         return delta;
     };
     match action {
         HandleAction::ResizeCapsuleRadiusLeft => vec2(
-            round_to_grid(left + delta.x, grid_size) - left,
+            round_to_grid(left + delta.x, snap_step) - left,
             delta.y,
         ),
         HandleAction::ResizeCapsuleRadiusRight => vec2(
-            round_to_grid(right + delta.x, grid_size) - right,
+            round_to_grid(right + delta.x, snap_step) - right,
             delta.y,
         ),
         HandleAction::ResizeCapsuleHeightTop => vec2(
             delta.x,
-            round_to_grid(top + delta.y, grid_size) - top,
+            round_to_grid(top + delta.y, snap_step) - top,
         ),
         HandleAction::ResizeCapsuleHeightBottom => vec2(
             delta.x,
-            round_to_grid(bottom + delta.y, grid_size) - bottom,
+            round_to_grid(bottom + delta.y, snap_step) - bottom,
         ),
         _ => delta,
     }

@@ -2,9 +2,26 @@ use super::selection::is_prefab_entity;
 use super::{PrefabDragState, PrefabEditor, PREFAB_EDITOR_GRID_SIZE};
 use crate::app::EditorMode;
 use crate::commands::room::{BatchMoveEntitiesCmd, MoveEntityCmd};
+use crate::commands::scene::UpdateComponentCmd;
 use crate::editor_global::push_command;
+use crate::gui::inspector::collider_module::edit::{ColliderEditConfig, is_collider_edit_active_for};
+use crate::gui::inspector::interactable_module::edit::is_interactable_edit_active_for;
+use crate::room::collider_drag::{
+    ColliderDragStep,
+    collider_update_command,
+    step_active_collider_drag,
+    try_intercept_collider_handle,
+    try_start_collider_handle_on_click,
+};
 use crate::room::entity_hitbox;
 use crate::room::entity_world_rect;
+use crate::room::interactable_drag::{
+    InteractableDragStep,
+    interactable_update_command,
+    step_active_interactable_drag,
+    try_intercept_interactable_handle,
+    try_start_interactable_handle_on_click,
+};
 use crate::shared::input::shortcuts_blocked;
 use crate::shared::selection::{rect_from_two_points, rects_intersect};
 use crate::world::coord;
@@ -12,6 +29,7 @@ use bishop::prelude::*;
 use engine_core::assets::*;
 use engine_core::controls::{get_omni_input_pressed};
 use engine_core::ecs::*;
+use engine_core::rendering::resolve_visual_entity;
 
 impl PrefabEditor {
     pub(crate) fn handle_canvas_move(
@@ -25,6 +43,10 @@ impl PrefabEditor {
             ctx.is_key_down(KeyCode::LeftShift) || ctx.is_key_down(KeyCode::RightShift);
         let mouse_screen: Vec2 = ctx.mouse_position().into();
         let mouse_world = coord::mouse_world_pos(ctx, camera);
+
+        if self.step_active_bounds_drag(ctx, ecs, mouse_world) {
+            return true;
+        }
 
         if self.drag_state.dragging {
             let anchor_start = self.drag_state.drag_anchor_entity.and_then(|anchor| {
@@ -86,6 +108,10 @@ impl PrefabEditor {
             return false;
         }
 
+        if self.try_begin_active_bounds_drag(ecs, mouse_world) {
+            return true;
+        }
+
         let mut candidates = Vec::new();
         for (entity, transform) in ecs.get_store::<Transform>().data.iter() {
             if !is_prefab_entity(ecs, *entity) {
@@ -120,6 +146,9 @@ impl PrefabEditor {
                 if !self.selected_entities.contains(&entity) {
                     self.set_selected_entity(Some(entity));
                 }
+                if self.try_begin_bounds_drag_on_clicked_entity(ecs, entity, mouse_world) {
+                    return true;
+                }
                 self.start_drag(ecs, entity, mouse_world);
             }
             (false, None) => {
@@ -146,6 +175,11 @@ impl PrefabEditor {
             return;
         }
 
+        if let Some(cmd) = self.try_nudge_active_bounds(ecs, delta) {
+            push_command(cmd);
+            return;
+        }
+
         self.move_selected_entities_by(ecs, delta);
     }
 
@@ -164,6 +198,204 @@ impl PrefabEditor {
         }
 
         self.push_move_command(moves);
+    }
+
+    /// Begins an active bounds-handle drag when the mouse hits a prefab edit handle.
+    pub(crate) fn try_begin_active_bounds_drag(&mut self, ecs: &Ecs, mouse_world: Vec2) -> bool {
+        if let Some((entity, action, interactable)) = try_intercept_interactable_handle(
+            self.single_selected_entity(),
+            ecs,
+            mouse_world,
+            PREFAB_EDITOR_GRID_SIZE,
+        ) {
+            let transform_entity = self.single_selected_entity().unwrap_or(entity);
+            self.drag_state.interactable_drag.begin(
+                entity,
+                transform_entity,
+                action,
+                interactable,
+                mouse_world,
+            );
+            return true;
+        }
+
+        if let Some((entity, action, collider)) = try_intercept_collider_handle(
+            self.single_selected_entity(),
+            ecs,
+            mouse_world,
+            PREFAB_EDITOR_GRID_SIZE,
+        ) {
+            let transform_entity = self.single_selected_entity().unwrap_or(entity);
+            self.drag_state.collider_drag.begin(
+                entity,
+                transform_entity,
+                action,
+                collider,
+                mouse_world,
+            );
+            return true;
+        }
+
+        false
+    }
+
+    fn step_active_bounds_drag(
+        &mut self,
+        ctx: &WgpuContext,
+        ecs: &mut Ecs,
+        mouse_world: Vec2,
+    ) -> bool {
+        let config = ColliderEditConfig {
+            grid_size: PREFAB_EDITOR_GRID_SIZE,
+            snap_enabled: ctx.is_key_down(KeyCode::S),
+            shift_held: ctx.is_key_down(KeyCode::LeftShift)
+                || ctx.is_key_down(KeyCode::RightShift),
+        };
+
+        let interactable_result = step_active_interactable_drag(
+            &mut self.drag_state.interactable_drag,
+            ecs,
+            mouse_world,
+            ctx.is_mouse_button_down(MouseButton::Left),
+            ctx.is_mouse_button_released(MouseButton::Left),
+            config,
+        );
+        if self.finish_interactable_drag(interactable_result) {
+            return true;
+        }
+
+        let collider_result = step_active_collider_drag(
+            &mut self.drag_state.collider_drag,
+            ecs,
+            mouse_world,
+            ctx.is_mouse_button_down(MouseButton::Left),
+            ctx.is_mouse_button_released(MouseButton::Left),
+            config,
+        );
+        self.finish_collider_drag(collider_result)
+    }
+
+    fn finish_interactable_drag(&self, result: InteractableDragStep) -> bool {
+        if !result.consumed {
+            return false;
+        }
+
+        if let Some((entity, old_interactable, new_interactable)) = result.commit {
+            push_command(interactable_update_command(
+                entity,
+                old_interactable,
+                new_interactable,
+                EditorMode::Prefab(self.prefab_id),
+            ));
+        }
+        true
+    }
+
+    fn finish_collider_drag(&self, result: ColliderDragStep) -> bool {
+        if !result.consumed {
+            return false;
+        }
+
+        if let Some((entity, old_collider, new_collider)) = result.commit {
+            push_command(collider_update_command(
+                entity,
+                old_collider,
+                new_collider,
+                EditorMode::Prefab(self.prefab_id),
+            ));
+        }
+        true
+    }
+
+    fn try_begin_bounds_drag_on_clicked_entity(
+        &mut self,
+        ecs: &Ecs,
+        entity: Entity,
+        mouse_world: Vec2,
+    ) -> bool {
+        if self.single_selected_entity().is_some_and(is_interactable_edit_active_for) {
+            if let Some((interactable_entity, action, interactable)) =
+                try_start_interactable_handle_on_click(
+                    entity,
+                    ecs,
+                    mouse_world,
+                    PREFAB_EDITOR_GRID_SIZE,
+                )
+            {
+                self.drag_state.interactable_drag.begin(
+                    interactable_entity,
+                    entity,
+                    action,
+                    interactable,
+                    mouse_world,
+                );
+                return true;
+            }
+        }
+
+        if self
+            .single_selected_entity()
+            .is_some_and(|selected| is_collider_edit_active_for(resolve_visual_entity(ecs, selected)))
+        {
+            if let Some((collider_entity, action, collider)) = try_start_collider_handle_on_click(
+                entity,
+                ecs,
+                mouse_world,
+                PREFAB_EDITOR_GRID_SIZE,
+            ) {
+                self.drag_state.collider_drag.begin(
+                    collider_entity,
+                    entity,
+                    action,
+                    collider,
+                    mouse_world,
+                );
+                return true;
+            }
+        }
+
+        false
+    }
+
+    fn try_nudge_active_bounds(
+        &self,
+        ecs: &mut Ecs,
+        delta: Vec2,
+    ) -> Option<Box<UpdateComponentCmd>> {
+        let entity = self.single_selected_entity()?;
+
+        if is_interactable_edit_active_for(entity) {
+            let old_interactable = ecs.get::<Interactable>(entity)?.clone();
+            let mut new_interactable = old_interactable.clone();
+            new_interactable.offset += delta;
+            if let Some(interactable) = ecs.get_store_mut::<Interactable>().get_mut(entity) {
+                *interactable = new_interactable.clone();
+            }
+            return Some(interactable_update_command(
+                entity,
+                old_interactable,
+                new_interactable,
+                EditorMode::Prefab(self.prefab_id),
+            ));
+        }
+
+        let visual_entity = resolve_visual_entity(ecs, entity);
+        if is_collider_edit_active_for(visual_entity) {
+            let old_collider = *ecs.get::<Collider>(visual_entity)?;
+            let mut new_collider = old_collider;
+            new_collider.offset += delta;
+            if let Some(collider) = ecs.get_store_mut::<Collider>().get_mut(visual_entity) {
+                *collider = new_collider;
+            }
+            return Some(collider_update_command(
+                visual_entity,
+                old_collider,
+                new_collider,
+                EditorMode::Prefab(self.prefab_id),
+            ));
+        }
+
+        None
     }
 
     fn movable_selected_entities(&self) -> Vec<Entity> {

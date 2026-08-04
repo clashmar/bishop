@@ -9,6 +9,12 @@ pub(crate) struct BoundsEditConfig {
     pub shift_held: bool,
 }
 
+impl BoundsEditConfig {
+    pub(crate) fn snap_step(self) -> f32 {
+        self.grid_size * 0.5
+    }
+}
+
 #[derive(Clone, Copy)]
 pub(crate) struct Handle {
     pub rect: Rect,
@@ -137,7 +143,7 @@ pub(crate) fn snap_rect_delta(
     bounds: Rect,
     action: HandleAction,
     delta: Vec2,
-    grid_size: f32,
+    snap_step: f32,
 ) -> Vec2 {
     let left = bounds.x;
     let top = bounds.y;
@@ -146,35 +152,35 @@ pub(crate) fn snap_rect_delta(
 
     match action {
         HandleAction::ResizeAabbTopLeft => vec2(
-            round_to_grid(left + delta.x, grid_size) - left,
-            round_to_grid(top + delta.y, grid_size) - top,
+            round_to_grid(left + delta.x, snap_step) - left,
+            round_to_grid(top + delta.y, snap_step) - top,
         ),
         HandleAction::ResizeAabbTopRight => vec2(
-            round_to_grid(right + delta.x, grid_size) - right,
-            round_to_grid(top + delta.y, grid_size) - top,
+            round_to_grid(right + delta.x, snap_step) - right,
+            round_to_grid(top + delta.y, snap_step) - top,
         ),
         HandleAction::ResizeAabbBottomLeft => vec2(
-            round_to_grid(left + delta.x, grid_size) - left,
-            round_to_grid(bottom + delta.y, grid_size) - bottom,
+            round_to_grid(left + delta.x, snap_step) - left,
+            round_to_grid(bottom + delta.y, snap_step) - bottom,
         ),
         HandleAction::ResizeAabbBottomRight => vec2(
-            round_to_grid(right + delta.x, grid_size) - right,
-            round_to_grid(bottom + delta.y, grid_size) - bottom,
+            round_to_grid(right + delta.x, snap_step) - right,
+            round_to_grid(bottom + delta.y, snap_step) - bottom,
         ),
         HandleAction::ResizeTop => vec2(
             delta.x,
-            round_to_grid(top + delta.y, grid_size) - top,
+            round_to_grid(top + delta.y, snap_step) - top,
         ),
         HandleAction::ResizeBottom => vec2(
             delta.x,
-            round_to_grid(bottom + delta.y, grid_size) - bottom,
+            round_to_grid(bottom + delta.y, snap_step) - bottom,
         ),
         HandleAction::ResizeLeft => vec2(
-            round_to_grid(left + delta.x, grid_size) - left,
+            round_to_grid(left + delta.x, snap_step) - left,
             delta.y,
         ),
         HandleAction::ResizeRight => vec2(
-            round_to_grid(right + delta.x, grid_size) - right,
+            round_to_grid(right + delta.x, snap_step) - right,
             delta.y,
         ),
         _ => delta,

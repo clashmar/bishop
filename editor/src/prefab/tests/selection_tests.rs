@@ -4,6 +4,11 @@ use crate::gui::inspector::collider_module::edit::{
     collider_edit_entity,
     toggle_collider_edit,
 };
+use crate::gui::inspector::interactable_module::edit::{
+    clear_interactable_edit,
+    interactable_edit_entity,
+    toggle_interactable_edit,
+};
 
 #[test]
 fn creating_entity_replaces_stale_root_with_new_root() {
@@ -126,4 +131,25 @@ fn selecting_different_prefab_entity_disables_previous_collider_edit_mode() {
     editor.set_selected_entity(Some(second));
 
     assert_eq!(collider_edit_entity(), None);
+}
+
+#[test]
+fn clearing_prefab_selection_disables_interactable_edit_mode() {
+    let mut editor = PrefabEditor::new(
+        PrefabId(1),
+        "Prefab".to_string(),
+        StagedPrefabState::Empty,
+        PrefabRoomSyncState {
+            staged_prefab: StagedPrefabState::Empty,
+            linked_instance_snapshots: Vec::new(),
+        },
+    );
+    let entity = Entity(7);
+    clear_interactable_edit(entity);
+    editor.set_selected_entity(Some(entity));
+    assert!(toggle_interactable_edit(entity));
+
+    editor.clear_selection();
+
+    assert_eq!(interactable_edit_entity(), None);
 }

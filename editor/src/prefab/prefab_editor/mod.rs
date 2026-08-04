@@ -14,9 +14,11 @@ use crate::canvas::grid_shader::GridRenderer;
 use crate::gui::gui_constants::{self};
 use crate::gui::inspector::shell::Inspector;
 use crate::gui::menu_bar::draw_top_panel_full;
+use crate::room::collider_drag::ColliderHandleDragState;
 use crate::room::drawing::{
     draw_editor_collider, draw_entity_interaction_guides, draw_pivot_marker, highlight_selected_entity,
 };
+use crate::room::interactable_drag::InteractableHandleDragState;
 use crate::shared::input::canvas_blocked_by_global_ui;
 use crate::shared::scene_ui::inspector::{CreateRequest, InspectorContext};
 use crate::shared::selection::draw_selection_box;
@@ -61,6 +63,8 @@ pub(crate) struct PrefabDragState {
     pub drag_initial_start_positions: Vec<(Entity, Vec2)>,
     pub box_select_start: Option<Vec2>,
     pub box_select_active: bool,
+    pub collider_drag: ColliderHandleDragState,
+    pub interactable_drag: InteractableHandleDragState,
 }
 
 pub struct PrefabEditor {
