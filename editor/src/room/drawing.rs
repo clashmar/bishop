@@ -16,6 +16,7 @@ use crate::app::EditorMode;
 use crate::editor_assets::assets::{camera_icon, entity_icon, entry_icon, exit_icon, portal_icon};
 use crate::gui::gui_constants::*;
 use crate::gui::inspector::collider_module::edit::{compute_handles, is_collider_edit_active_for};
+use crate::room::bounds_edit::draw_handles;
 use crate::gui::menu_bar::*;
 use crate::gui::mode_selector::*;
 use crate::gui::panel_text_color;
@@ -548,23 +549,7 @@ pub fn draw_editor_collider(ctx: &mut WgpuContext, ecs: &Ecs, entity: Entity, gr
 
     if edit_active {
         let handles = compute_handles(transform.position, transform.pivot, collider, grid_size);
-        for handle in &handles {
-            ctx.draw_rectangle(
-                handle.rect.x,
-                handle.rect.y,
-                handle.rect.w,
-                handle.rect.h,
-                Color::WHITE,
-            );
-            ctx.draw_rectangle_lines(
-                handle.rect.x,
-                handle.rect.y,
-                handle.rect.w,
-                handle.rect.h,
-                0.5,
-                Color::BLACK,
-            );
-        }
+        draw_handles(ctx, &handles);
     }
 }
 

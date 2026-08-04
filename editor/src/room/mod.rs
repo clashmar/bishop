@@ -1,3 +1,4 @@
+pub(crate) mod bounds_edit;
 pub(crate) mod collider_drag;
 pub mod drawing;
 mod entity_drag;

@@ -1,4 +1,4 @@
-use bishop::prelude::{vec2, Vec2};
+use bishop::prelude::{Rect, Vec2, vec2};
 use engine_core::ecs::{Collider, ColliderShape, Ecs, Entity, Transform};
 use engine_core::rendering::{pivot_adjusted_position, resolve_visual_entity};
 use engine_core::worlds::{RoomId, RoomLayer};
@@ -12,6 +12,7 @@ use crate::gui::inspector::collider_module::edit::{
     ColliderEditConfig,
     HandleAction,
 };
+use crate::room::bounds_edit::snap_rect_delta;
 use crate::room::selection::can_select_entity_in_room_layer;
 use crate::world::coord::round_to_grid;
 
@@ -544,41 +545,13 @@ fn snap_aabb_delta(
     let Some((left, top, right, bottom)) = aabb_edges(initial, transform) else {
         return delta;
     };
-    match action {
-        HandleAction::ResizeAabbTopLeft => vec2(
-            round_to_grid(left + delta.x, grid_size) - left,
-            round_to_grid(top + delta.y, grid_size) - top,
-        ),
-        HandleAction::ResizeAabbTopRight => vec2(
-            round_to_grid(right + delta.x, grid_size) - right,
-            round_to_grid(top + delta.y, grid_size) - top,
-        ),
-        HandleAction::ResizeAabbBottomLeft => vec2(
-            round_to_grid(left + delta.x, grid_size) - left,
-            round_to_grid(bottom + delta.y, grid_size) - bottom,
-        ),
-        HandleAction::ResizeAabbBottomRight => vec2(
-            round_to_grid(right + delta.x, grid_size) - right,
-            round_to_grid(bottom + delta.y, grid_size) - bottom,
-        ),
-        HandleAction::ResizeTop => vec2(
-            delta.x,
-            round_to_grid(top + delta.y, grid_size) - top,
-        ),
-        HandleAction::ResizeBottom => vec2(
-            delta.x,
-            round_to_grid(bottom + delta.y, grid_size) - bottom,
-        ),
-        HandleAction::ResizeLeft => vec2(
-            round_to_grid(left + delta.x, grid_size) - left,
-            delta.y,
-        ),
-        HandleAction::ResizeRight => vec2(
-            round_to_grid(right + delta.x, grid_size) - right,
-            delta.y,
-        ),
-        _ => delta,
-    }
+
+    snap_rect_delta(
+        Rect::new(left, top, right - left, bottom - top),
+        action,
+        delta,
+        grid_size,
+    )
 }
 
 fn capsule_edges(initial: &Collider, transform: &Transform) -> Option<(f32, f32, f32, f32)> {

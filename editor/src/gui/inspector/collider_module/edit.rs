@@ -3,41 +3,12 @@ use engine_core::ecs::{Collider, ColliderShape, Entity, Pivot};
 use engine_core::rendering::pivot_adjusted_position;
 use std::cell::Cell;
 
+pub(crate) use crate::room::bounds_edit::BoundsEditConfig as ColliderEditConfig;
+pub(crate) use crate::room::bounds_edit::{Handle, HandleAction, hit_test_handles};
+use crate::room::bounds_edit::{compute_circle_handles, compute_rect_handles};
+
 thread_local! {
     static EDIT_ENTITY: Cell<Entity> = const { Cell::new(Entity(0)) };
-}
-
-/// Configuration passed through the collider drag pipeline.
-#[derive(Clone, Copy)]
-pub(crate) struct ColliderEditConfig {
-    pub grid_size: f32,
-    pub snap_enabled: bool,
-    pub shift_held: bool,
-}
-
-/// An interaction handle on the collider outline.
-pub struct Handle {
-    pub rect: Rect,
-    pub action: HandleAction,
-}
-
-/// Actions that can be performed by dragging a handle.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum HandleAction {
-    ResizeAabbTopLeft,
-    ResizeAabbTopRight,
-    ResizeAabbBottomLeft,
-    ResizeAabbBottomRight,
-    ResizeCircleRadius,
-    ResizeCapsuleRadiusLeft,
-    ResizeCapsuleRadiusRight,
-    ResizeCapsuleHeightTop,
-    ResizeCapsuleHeightBottom,
-    ResizeTop,
-    ResizeBottom,
-    ResizeLeft,
-    ResizeRight,
-    MoveOffset,
 }
 
 /// Returns the entity currently using collider edit mode.
@@ -90,85 +61,19 @@ pub fn compute_handles(
     let (w, h) = collider.shape.size();
     let size = vec2(w, h);
     let top_left = pivot_adjusted_position(transform_position + collider.offset, size, pivot);
-    let hs = grid_size * 0.1;
-
     match collider.shape {
         ColliderShape::Aabb { .. } => {
-            vec![
-                // Corners
-                Handle {
-                    rect: Rect::new(top_left.x - hs, top_left.y - hs, hs * 2.0, hs * 2.0),
-                    action: HandleAction::ResizeAabbTopLeft,
-                },
-                Handle {
-                    rect: Rect::new(top_left.x + w - hs, top_left.y - hs, hs * 2.0, hs * 2.0),
-                    action: HandleAction::ResizeAabbTopRight,
-                },
-                Handle {
-                    rect: Rect::new(top_left.x - hs, top_left.y + h - hs, hs * 2.0, hs * 2.0),
-                    action: HandleAction::ResizeAabbBottomLeft,
-                },
-                Handle {
-                    rect: Rect::new(top_left.x + w - hs, top_left.y + h - hs, hs * 2.0, hs * 2.0),
-                    action: HandleAction::ResizeAabbBottomRight,
-                },
-                // Edges
-                Handle {
-                    rect: Rect::new(top_left.x + w / 2.0 - hs, top_left.y - hs, hs * 2.0, hs * 2.0),
-                    action: HandleAction::ResizeTop,
-                },
-                Handle {
-                    rect: Rect::new(top_left.x + w / 2.0 - hs, top_left.y + h - hs, hs * 2.0, hs * 2.0),
-                    action: HandleAction::ResizeBottom,
-                },
-                Handle {
-                    rect: Rect::new(top_left.x - hs, top_left.y + h / 2.0 - hs, hs * 2.0, hs * 2.0),
-                    action: HandleAction::ResizeLeft,
-                },
-                Handle {
-                    rect: Rect::new(top_left.x + w - hs, top_left.y + h / 2.0 - hs, hs * 2.0, hs * 2.0),
-                    action: HandleAction::ResizeRight,
-                },
-                Handle {
-                    rect: Rect::new(
-                        top_left.x + w / 2.0 - hs,
-                        top_left.y + h / 2.0 - hs,
-                        hs * 2.0,
-                        hs * 2.0,
-                    ),
-                    action: HandleAction::MoveOffset,
-                },
-            ]
+            compute_rect_handles(Rect::new(top_left.x, top_left.y, w, h), grid_size)
         }
         ColliderShape::Circle { radius } => {
             let center = vec2(top_left.x + radius, top_left.y + radius);
-            vec![
-                Handle {
-                    rect: Rect::new(center.x + radius - hs, center.y - hs, hs * 2.0, hs * 2.0),
-                    action: HandleAction::ResizeCircleRadius,
-                },
-                Handle {
-                    rect: Rect::new(center.x - radius - hs, center.y - hs, hs * 2.0, hs * 2.0),
-                    action: HandleAction::ResizeCircleRadius,
-                },
-                Handle {
-                    rect: Rect::new(center.x - hs, center.y + radius - hs, hs * 2.0, hs * 2.0),
-                    action: HandleAction::ResizeCircleRadius,
-                },
-                Handle {
-                    rect: Rect::new(center.x - hs, center.y - radius - hs, hs * 2.0, hs * 2.0),
-                    action: HandleAction::ResizeCircleRadius,
-                },
-                Handle {
-                    rect: Rect::new(center.x - hs, center.y - hs, hs * 2.0, hs * 2.0),
-                    action: HandleAction::MoveOffset,
-                },
-            ]
+            compute_circle_handles(center, radius, grid_size)
         }
         ColliderShape::Capsule { radius, height } => {
+            let hs = grid_size * 0.1;
             let top_center_y = top_left.y + radius;
             let bottom_center_y = top_left.y + radius + height;
-            let center_x = top_left.x + w / 2.0;
+            let center_x = top_left.x + w * 0.5;
             let center_y = (top_center_y + bottom_center_y) * 0.5;
             vec![
                 Handle {
@@ -198,24 +103,17 @@ pub fn compute_handles(
                 },
             ]
         }
-        ColliderShape::Point => vec![Handle {
-            rect: Rect::new(
-                transform_position.x + collider.offset.x - hs,
-                transform_position.y + collider.offset.y - hs,
-                hs * 2.0,
-                hs * 2.0,
-            ),
-            action: HandleAction::MoveOffset,
-        }],
+        ColliderShape::Point => {
+            let hs = grid_size * 0.1;
+            vec![Handle {
+                rect: Rect::new(
+                    transform_position.x + collider.offset.x - hs,
+                    transform_position.y + collider.offset.y - hs,
+                    hs * 2.0,
+                    hs * 2.0,
+                ),
+                action: HandleAction::MoveOffset,
+            }]
+        }
     }
-}
-
-/// Returns the index of the handle under the given mouse position, if any.
-pub fn hit_test_handles(mouse_pos: Vec2, handles: &[Handle]) -> Option<usize> {
-    handles.iter().position(|h| {
-        mouse_pos.x >= h.rect.x
-            && mouse_pos.x <= h.rect.x + h.rect.w
-            && mouse_pos.y >= h.rect.y
-            && mouse_pos.y <= h.rect.y + h.rect.h
-    })
 }
