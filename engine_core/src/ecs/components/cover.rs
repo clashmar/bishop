@@ -1,4 +1,3 @@
-use crate::inspector_module;
 use bishop::prelude::Rect;
 use ecs_component::ecs_component;
 use reflect_derive::Reflect;
@@ -13,7 +12,7 @@ pub enum CoverMode {
 
 /// Shared cover behavior component for entities and tile definitions.
 #[ecs_component]
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, Reflect, PartialEq, Default)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Reflect, PartialEq)]
 #[serde(default)]
 pub struct Cover {
     /// When true, front content is hidden instead of faded while the back layer is active.
@@ -22,7 +21,11 @@ pub struct Cover {
     pub fade_alpha: f32,
 }
 
-inspector_module!(Cover);
+impl Default for Cover {
+    fn default() -> Self {
+        Self::hide()
+    }
+}
 
 impl Cover {
     /// Creates a fully hidden cover.
