@@ -117,7 +117,7 @@ fn sweep_circle_axis(
     }
 }
 
-fn circle_touches_rect(c: Vec2, r: f32, obs_min: Vec2, obs_max: Vec2) -> bool {
+pub(super) fn circle_touches_rect(c: Vec2, r: f32, obs_min: Vec2, obs_max: Vec2) -> bool {
     let closest = Vec2::new(
         c.x.clamp(obs_min.x, obs_max.x),
         c.y.clamp(obs_min.y, obs_max.y),
