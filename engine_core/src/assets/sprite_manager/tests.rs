@@ -1,4 +1,5 @@
 use super::*;
+use super::loading::FallbackTextureKind;
 use crate::assets::asset_registry::AssetKey;
 use crate::assets::AssetRegistry;
 use crate::audio::test_utils::CountingFailingLoader;
@@ -6,8 +7,49 @@ use crate::constants::paths;
 use crate::engine_global::set_game_name;
 use crate::hydration::Hydratable;
 use crate::storage::test_utils::{game_fs_test_lock, TestGameFolder};
+use bishop::prelude::{Texture2D, TextureLoader};
 use std::fs;
 use std::time::Duration;
+
+struct BranchPanicLoader;
+
+impl TextureLoader for BranchPanicLoader {
+    fn load_texture_from_bytes(&self, _data: &[u8]) -> Result<Texture2D, String> {
+        panic!("missing_texture")
+    }
+
+    fn load_texture_from_path(&self, _path: &str) -> Result<Texture2D, String> {
+        panic!("path_load")
+    }
+
+    fn empty_texture(&self) -> Texture2D {
+        panic!("empty_texture")
+    }
+}
+
+fn panic_message(payload: Box<dyn std::any::Any + Send>) -> String {
+    if let Some(message) = payload.downcast_ref::<&'static str>() {
+        return (*message).to_string();
+    }
+
+    if let Some(message) = payload.downcast_ref::<String>() {
+        return message.clone();
+    }
+
+    "non-string panic".to_string()
+}
+
+fn fallback_branch_message(sprite_id: SpriteId) -> String {
+    let loader = BranchPanicLoader;
+    let mut sprite_manager = SpriteManager::default();
+
+    let panic = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        let _ = sprite_manager.get_texture_from_id(&loader, sprite_id);
+    }))
+    .expect_err("sprite lookup should reach a fallback branch");
+
+    panic_message(panic)
+}
 
 fn prewarm_runtime_read_test_case(
     test_name: &str,
@@ -121,6 +163,32 @@ fn ensure_loaded_retries_loader_for_registered_sprite_id_with_missing_texture() 
 
     assert!(result.is_err());
     assert_eq!(loader.load_calls.get(), 1);
+}
+
+#[test]
+fn fallback_kind_for_unavailable_sprite_returns_empty_for_zero_id() {
+    assert_eq!(
+        SpriteManager::fallback_kind_for_unavailable_sprite(SpriteId(0)),
+        FallbackTextureKind::Empty
+    );
+}
+
+#[test]
+fn fallback_kind_for_unavailable_sprite_returns_missing_for_nonzero_id() {
+    assert_eq!(
+        SpriteManager::fallback_kind_for_unavailable_sprite(SpriteId(7)),
+        FallbackTextureKind::Missing
+    );
+}
+
+#[test]
+fn get_texture_from_id_uses_empty_fallback_for_zero_id() {
+    assert_eq!(fallback_branch_message(SpriteId(0)), "empty_texture");
+}
+
+#[test]
+fn get_texture_from_id_uses_missing_fallback_for_unknown_nonzero_sprite_id() {
+    assert_eq!(fallback_branch_message(SpriteId(9)), "missing_texture");
 }
 
 #[test]

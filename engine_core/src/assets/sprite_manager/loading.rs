@@ -1,6 +1,20 @@
 use super::*;
 use crate::hydration::{EvictError, Hydratable};
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) enum FallbackTextureKind {
+    Empty,
+    Missing,
+}
+
+const MISSING_TEXTURE_PNG: &[u8] = &[
+    137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 13, 73, 72, 68, 82, 0, 0, 0, 2,
+    0, 0, 0, 2, 8, 6, 0, 0, 0, 114, 182, 13, 36, 0, 0, 0, 22, 73, 68, 65, 84,
+    120, 156, 99, 248, 207, 240, 255, 63, 3, 3, 3, 8, 131, 88, 255, 255, 3, 0,
+    67, 206, 7, 249, 135, 141, 77, 109, 0, 0, 0, 0, 73, 69, 78, 68, 174, 66,
+    96, 130,
+];
+
 impl SpriteManager {
     /// Load and initialize a texture from the assets folder.
     /// Returns the `SpriteId` for the texture.
@@ -74,9 +88,7 @@ impl SpriteManager {
     /// Returns a texture from a `SpriteId`.
     pub fn get_texture_from_id(&mut self, loader: &impl TextureLoader, id: SpriteId) -> &Texture2D {
         if id.0 == 0 {
-            return self
-                .empty_texture
-                .get_or_insert_with(|| loader.empty_texture());
+            return self.fallback_texture(loader, id);
         }
 
         if self.textures.contains_key(&id) {
@@ -85,9 +97,7 @@ impl SpriteManager {
 
         // Look up the original path and load lazily.
         if !self.sprite_id_to_path.contains_key(&id) {
-            return self
-                .empty_texture
-                .get_or_insert_with(|| loader.empty_texture());
+            return self.fallback_texture(loader, id);
         }
 
         if self.runtime_texture_loading {
@@ -105,8 +115,35 @@ impl SpriteManager {
             }
         }
 
-        self.empty_texture
-            .get_or_insert_with(|| loader.empty_texture())
+        self.fallback_texture(loader, id)
+    }
+
+    pub(super) fn fallback_kind_for_unavailable_sprite(id: SpriteId) -> FallbackTextureKind {
+        if id.0 == 0 {
+            FallbackTextureKind::Empty
+        } else {
+            FallbackTextureKind::Missing
+        }
+    }
+
+    fn fallback_texture<'a>(
+        &'a mut self,
+        loader: &impl TextureLoader,
+        id: SpriteId,
+    ) -> &'a Texture2D {
+        match Self::fallback_kind_for_unavailable_sprite(id) {
+            FallbackTextureKind::Empty => self
+                .empty_texture
+                .get_or_insert_with(|| loader.empty_texture()),
+            FallbackTextureKind::Missing => self.missing_texture.get_or_insert_with(|| {
+                loader
+                    .load_texture_from_bytes(MISSING_TEXTURE_PNG)
+                    .unwrap_or_else(|error| {
+                        omni_error!("Failed to build missing texture: {}", error);
+                        loader.empty_texture()
+                    })
+            }),
+        }
     }
 
     /// Returns the id for `path`, loading it if necessary.
