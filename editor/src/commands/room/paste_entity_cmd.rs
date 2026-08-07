@@ -3,12 +3,15 @@ use crate::commands::editor_command_manager::EditorCommand;
 use crate::with_editor;
 use crate::EDITOR_SERVICES;
 use engine_core::ecs::*;
+use engine_core::worlds::{RoomId, RoomLayer};
 use std::collections::{HashMap, HashSet};
 
 /// Undo-able command for pasting entities from the clipboard.
 #[derive(Debug)]
 pub struct PasteEntityCmd {
     mode: EditorMode,
+    destination_room_id: RoomId,
+    destination_layer: RoomLayer,
     /// Maps old entity IDs to newly created ones.
     id_map: Option<HashMap<Entity, Entity>>,
     /// The component snapshot taken the first time the command ran.
@@ -18,9 +21,11 @@ pub struct PasteEntityCmd {
 }
 
 impl PasteEntityCmd {
-    pub fn new(mode: EditorMode) -> Self {
+    pub fn new(mode: EditorMode, destination_room_id: RoomId, destination_layer: RoomLayer) -> Self {
         Self {
             mode,
+            destination_room_id,
+            destination_layer,
             id_map: None,
             snapshot: None,
             root_entities: Vec::new(),
@@ -87,6 +92,14 @@ impl EditorCommand for PasteEntityCmd {
                     };
                     (reg.post_create)(&mut *boxed, &new_id, ctx);
                     ctx.ecs.insert_component_dyn(reg, new_id, boxed);
+                }
+
+                if ctx.ecs.has::<CurrentRoom>(new_id) {
+                    ctx.ecs.set_current_room_layer(
+                        new_id,
+                        self.destination_room_id,
+                        self.destination_layer,
+                    );
                 }
             }
 

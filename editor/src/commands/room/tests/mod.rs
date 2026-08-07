@@ -1,6 +1,8 @@
 pub(super) use crate::app::EditorMode;
 pub(super) use crate::commands::room::{
+    copy_entity,
     AltDragCopyCmd,
+    PasteEntityCmd,
     SetBackLayerCompositionModeCmd,
     SetBackLayerEnabledCmd,
     SetTilePlacementCmd,
@@ -11,10 +13,13 @@ pub(super) use crate::editor_global::{
 };
 pub(super) use crate::test_utils::setup_editor;
 pub(super) use bishop::prelude::Vec2;
-pub(super) use engine_core::ecs::{Solid, SpriteId, Transform};
+pub(super) use engine_core::ecs::{CurrentRoom, Entity, Name, Solid, SpriteId, Transform};
 pub(super) use engine_core::tiles::{TileDef, tile_definition_component_snapshot};
-pub(super) use engine_core::worlds::{InteriorZone, InteriorZoneId, RoomLayer};
+pub(super) use engine_core::worlds::{
+    BackRoomLayer, InteriorZone, InteriorZoneId, Room, RoomId, RoomLayer,
+};
 
 mod alt_drag_copy_cmd_tests;
 mod back_layer_cmd_tests;
+mod paste_cmd_tests;
 mod tile_placement_cmd_tests;

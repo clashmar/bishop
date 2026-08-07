@@ -103,7 +103,11 @@ impl RoomEditor {
                 }
 
                 if Controls::paste(ctx) {
-                    push_command(Box::new(PasteEntityCmd::new(EditorMode::Room(room.id))));
+                    push_command(Box::new(PasteEntityCmd::new(
+                        EditorMode::Room(room.id),
+                        room.id,
+                        self.active_layer_state.active_layer,
+                    )));
                 }
 
                 // Select all entities in room
