@@ -31,7 +31,7 @@ use crate::shared::entity_icon::{
     draw_camera_icon, draw_glow_placeholder, draw_light_placeholder, resolve_entity_visual,
     EntityVisual, PLACEHOLDER_OPACITY,
 };
-use crate::shared::scene_ui::inspector::InspectorContext;
+use crate::shared::scene_ui::inspector::{InspectorContext, InspectorHostAction};
 use crate::tilemap::tilemap_editor::TILEMAP_SUB_MODES;
 use crate::world::coord;
 
@@ -130,6 +130,7 @@ impl RoomEditor {
                     game_name: None,
                     event_tags: self.event_tags.clone(),
                     room_zone_tool_active: false,
+                    room_zones_visible: self.show_interior_zones,
                 };
                 let _ = self.inspector.draw_active_pane(ctx, game_ctx, &inspector_ctx);
 
@@ -194,14 +195,21 @@ impl RoomEditor {
                     game_name: None,
                     event_tags: self.event_tags.clone(),
                     room_zone_tool_active: self.scene_sub_mode == RoomSceneSubMode::Zones,
+                    room_zones_visible: self.show_interior_zones,
                 };
                 let inspector_output = self.inspector.draw_active_pane(ctx, game_ctx, &inspector_ctx);
                 self.create_request = inspector_output.create_request;
                 self.prefab_action_request = inspector_output.prefab_action;
                 self.create_camera_request = inspector_output.create_camera_request;
                 self.request_event_tags_refresh = inspector_output.refresh_event_tags;
-                if inspector_output.toggle_room_zone_tool {
-                    self.toggle_zone_sub_mode();
+                if let Some(host_action) = inspector_output.host_action {
+                    match host_action {
+                        InspectorHostAction::ToggleRoomZoneTool => self.toggle_zone_sub_mode(),
+                        InspectorHostAction::ToggleRoomZoneVisibility => {
+                            self.toggle_interior_zone_visibility();
+                        }
+                        _ => {}
+                    }
                 }
 
                 // Mode selector (menu bar)

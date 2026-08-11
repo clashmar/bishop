@@ -120,7 +120,6 @@ impl InspectorContent for RoomProperties {
                 if output.host_action.is_none() {
                     output.host_action = module.take_host_action();
                 }
-                output.toggle_room_zone_tool |= module.take_toggle_room_zone_tool();
                 y += h + layout::WIDGET_SPACING;
             }
         }

@@ -227,6 +227,7 @@ impl PrefabEditor {
             game_name: None,
             event_tags: Vec::new(),
             room_zone_tool_active: false,
+            room_zones_visible: false,
         };
         let inspector_output = self.inspector.draw_active_pane(ctx, game_ctx, &inspector_ctx);
         self.create_request = inspector_output.create_request;

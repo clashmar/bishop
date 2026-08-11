@@ -3,7 +3,7 @@ use crate::gui::inspector::shell::{compose_pane_output, Inspector};
 use crate::gui::text_input::committed_name_change;
 use crate::shared::scene_ui::inspector::{
     is_scene_component_hidden_in_prefab, linked_prefab_instance_state_for_scene_inspector,
-    InspectorContext, InspectorOutput,
+    InspectorContext, InspectorHostAction, InspectorOutput,
 };
 use bishop::prelude::*;
 use engine_core::ecs::*;
@@ -63,6 +63,7 @@ fn prefab_selected_entity_create_request_uses_selected_parent() {
         game_name: None,
         event_tags: Vec::new(),
         room_zone_tool_active: false,
+        room_zones_visible: false,
     };
 
     assert_eq!(ctx.selected_create_parent, Some(selected));
@@ -78,9 +79,40 @@ fn room_context_is_constructed() {
         game_name: None,
         event_tags: Vec::new(),
         room_zone_tool_active: false,
+        room_zones_visible: false,
     };
 
     assert_eq!(ctx.selected_create_parent, None);
+}
+
+#[test]
+fn room_zone_visibility_output_merge_preserves_host_action() {
+    let mut output = InspectorOutput::default();
+    output.merge(InspectorOutput {
+        host_action: Some(InspectorHostAction::ToggleRoomZoneVisibility),
+        ..InspectorOutput::default()
+    });
+
+    assert_eq!(
+        output.host_action,
+        Some(InspectorHostAction::ToggleRoomZoneVisibility)
+    );
+}
+
+#[test]
+fn room_zone_visibility_context_carries_flag() {
+    let ctx = InspectorContext {
+        command_mode: EditorMode::Room(RoomId(1)),
+        show_linked_prefab_metadata: true,
+        hide_room_only_components: false,
+        selected_create_parent: None,
+        game_name: None,
+        event_tags: Vec::new(),
+        room_zone_tool_active: false,
+        room_zones_visible: true,
+    };
+
+    assert!(ctx.room_zones_visible);
 }
 
 #[test]

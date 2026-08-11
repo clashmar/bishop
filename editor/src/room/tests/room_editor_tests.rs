@@ -356,6 +356,40 @@ fn toggling_zone_sub_mode_twice_exits_and_restores_entity_target() {
 }
 
 #[test]
+fn interior_zone_visibility_toggle_flips_flag() {
+    let mut editor = RoomEditor::new();
+
+    editor.toggle_interior_zone_visibility();
+    assert!(!editor.show_interior_zones);
+
+    editor.toggle_interior_zone_visibility();
+    assert!(editor.show_interior_zones);
+}
+
+#[test]
+fn interior_zone_visibility_hiding_exits_zone_sub_mode() {
+    let mut editor = RoomEditor::new();
+    editor.interior_zone_editor.selected_zone_id = Some(InteriorZoneId(12));
+    editor.set_scene_sub_mode(RoomSceneSubMode::Zones);
+
+    editor.set_interior_zone_visibility(false);
+
+    assert_eq!(editor.scene_sub_mode, RoomSceneSubMode::Scene);
+    assert_eq!(editor.interior_zone_editor.selected_zone_id, None);
+    assert!(!editor.show_interior_zones);
+}
+
+#[test]
+fn entering_zone_sub_mode_forces_interior_zone_visibility_on() {
+    let mut editor = RoomEditor::new();
+    editor.show_interior_zones = false;
+
+    editor.set_scene_sub_mode(RoomSceneSubMode::Zones);
+
+    assert!(editor.show_interior_zones);
+}
+
+#[test]
 fn clearing_room_selection_disables_collider_edit_mode() {
     let mut editor = RoomEditor::new();
     let entity = Entity(7);

@@ -381,6 +381,7 @@ impl GameEditor {
                     selected_create_parent: None,
                     event_tags: Vec::new(),
                     room_zone_tool_active: false,
+                    room_zones_visible: false,
                 },
             )
         };

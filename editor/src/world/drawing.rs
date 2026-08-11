@@ -218,6 +218,7 @@ impl WorldEditor {
                     game_name: None,
                     event_tags: Vec::new(),
                     room_zone_tool_active: false,
+                    room_zones_visible: false,
                 },
             )
         };

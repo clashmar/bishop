@@ -35,6 +35,10 @@ impl RoomEditor {
             EditorCameraController::reset_room_editor_camera(ctx, camera, room, grid_size);
         }
 
+        if Controls::z(ctx) {
+            self.toggle_interior_zone_visibility();
+        }
+
         for mode in RoomEditorMode::iter() {
             if let Some(shortcut) = mode.shortcut() {
                 if shortcut(ctx) {

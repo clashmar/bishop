@@ -4,13 +4,12 @@ use crate::commands::room::{
     SetBackLayerEnabledCmd,
     UpdateInteriorZonesCmd,
 };
-use crate::editor_assets::assets::edit_icon;
+use crate::editor_assets::assets::{edit_icon, eye_icon};
 use crate::editor_global::push_command;
-use crate::shared::scene_ui::inspector::InspectorContext;
+use crate::shared::scene_ui::inspector::{InspectorContext, InspectorHostAction};
 use bishop::prelude::*;
 use engine_core::ecs::inspector::layout::InspectorBodyLayout;
 use engine_core::game::GameCtxMut;
-use engine_core::theme::with_theme;
 use engine_core::worlds::room::Room;
 use engine_core::worlds::{InteriorZoneBounds, LayerCompositionMode};
 use std::cell::Cell;
@@ -35,7 +34,7 @@ struct ZoneWidgetIds {
 pub struct RoomLayersModule {
     composition_id: WidgetId,
     zone_widget_ids: Vec<ZoneWidgetIds>,
-    pending_toggle_room_zone_tool: bool,
+    pending_host_action: Option<InspectorHostAction>,
     show_composition_mode: Cell<bool>,
     zone_count: Cell<usize>,
 }
@@ -45,7 +44,7 @@ impl RoomLayersModule {
         Self {
             composition_id: WidgetId::default(),
             zone_widget_ids: Vec::new(),
-            pending_toggle_room_zone_tool: false,
+            pending_host_action: None,
             show_composition_mode: Cell::new(false),
             zone_count: Cell::new(0),
         }
@@ -99,10 +98,34 @@ impl PropertyModule<Room> for RoomLayersModule {
         } else {
             "+ Back Layer"
         };
-        let button_rect = Rect::new(rect.x, rect.y, rect.w, ROW_H);
+        let visibility_icon_rect = Rect::new(
+            rect.x + rect.w - ICON_BUTTON_SIZE,
+            rect.y,
+            ICON_BUTTON_SIZE,
+            ICON_BUTTON_SIZE,
+        );
+        let button_rect = if back_enabled {
+            Rect::new(rect.x, rect.y, rect.w - ICON_BUTTON_SIZE - GAP, ROW_H)
+        } else {
+            Rect::new(rect.x, rect.y, rect.w, ROW_H)
+        };
         if Button::new(button_rect, button_label).show(ctx) {
             push_command(Box::new(SetBackLayerEnabledCmd::new(room_id, !back_enabled)));
             return;
+        }
+        if back_enabled {
+            let tooltip = if insp_ctx.room_zones_visible {
+                "Hide Interior Zones"
+            } else {
+                "Show Interior Zones"
+            };
+            if Button::icon(visibility_icon_rect, eye_icon(), tooltip)
+                .active(insp_ctx.room_zones_visible)
+                .icon_padding(5.0)
+                .show(ctx)
+            {
+                self.pending_host_action = Some(InspectorHostAction::ToggleRoomZoneVisibility);
+            }
         }
 
         if !self.show_composition_mode.get() {
@@ -173,21 +196,12 @@ impl PropertyModule<Room> for RoomLayersModule {
             return;
         }
 
-        if insp_ctx.room_zone_tool_active {
-            ctx.draw_rectangle(
-                icon_rect.x - 2.0,
-                icon_rect.y - 2.0,
-                icon_rect.w + 4.0,
-                icon_rect.h + 4.0,
-                with_theme(|theme| theme.highlight.with_alpha(0.31)),
-            );
-        }
         if Button::icon(icon_rect, edit_icon(), "Edit Interior Zones")
+            .active(insp_ctx.room_zone_tool_active)
             .icon_padding(5.0)
             .show(ctx)
         {
-            self.pending_toggle_room_zone_tool = true;
-            return;
+            self.pending_host_action = Some(InspectorHostAction::ToggleRoomZoneTool);
         }
 
         let mut zone_y = y + ROW_H + GAP;
@@ -284,8 +298,8 @@ impl PropertyModule<Room> for RoomLayersModule {
         }
     }
 
-    fn take_toggle_room_zone_tool(&mut self) -> bool {
-        std::mem::take(&mut self.pending_toggle_room_zone_tool)
+    fn take_host_action(&mut self) -> Option<InspectorHostAction> {
+        self.pending_host_action.take()
     }
 
     fn body_layout(&self) -> InspectorBodyLayout {

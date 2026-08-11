@@ -32,11 +32,6 @@ pub trait PropertyModule<T> {
         None
     }
 
-    /// Whether this room-only module requested the interior-zone tool toggle.
-    fn take_toggle_room_zone_tool(&mut self) -> bool {
-        false
-    }
-
     /// Layout describing expanded body height.
     fn body_layout(&self) -> InspectorBodyLayout;
 

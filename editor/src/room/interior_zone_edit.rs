@@ -13,7 +13,12 @@ const HANDLE_SIZE_FACTOR: f32 = 0.5;
 const FILL_ALPHA: f32 = 0.18;
 const SELECTED_FILL_ALPHA: f32 = 0.28;
 const OUTLINE_ALPHA: f32 = 0.85;
-const ZONE_LABEL_FONT_SIZE: f32 = layout::FIELD_TEXT_SIZE_16 - 4.0;
+const ZONE_LABEL_BASE_FONT_SIZE: f32 = layout::FIELD_TEXT_SIZE_16;
+const ZONE_LABEL_MAX_FONT_SIZE: f32 = 128.0;
+const ZONE_LABEL_MIN_FONT_SIZE: f32 = 12.0;
+const ZONE_LABEL_TARGET_HEIGHT_RATIO: f32 = 0.5;
+const ZONE_LABEL_TARGET_WIDTH_RATIO: f32 = 0.5;
+const ZONE_LABEL_TOP_PADDING: f32 = 4.0;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum ZoneHandle {
@@ -170,6 +175,7 @@ impl RoomEditor {
     pub(crate) fn draw_interior_zones_overlay(
         &self,
         ctx: &mut WgpuContext,
+        camera: &Camera2D,
         room: &Room,
         grid_size: f32,
     ) {
@@ -178,6 +184,7 @@ impl RoomEditor {
         };
 
         let zone_mode_active = self.scene_sub_mode == RoomSceneSubMode::Zones;
+        let mut labels = Vec::new();
         for zone in &back.interior_zones {
             let bounds = zone.bounds.to_rect();
             let selected = self.interior_zone_editor.selected_zone_id == Some(zone.id);
@@ -207,13 +214,46 @@ impl RoomEditor {
                 outline_thickness(grid_size),
                 outline,
             );
-            ctx.draw_text(
-                &format!("Zone {}", zone.id.0),
-                bounds.x + 4.0,
-                bounds.y + 14.0,
-                ZONE_LABEL_FONT_SIZE,
-                outline,
-            );
+
+            let label = format!("Zone {}", zone.id.0);
+            let screen_top_left = coord::world_to_screen(ctx, camera, vec2(bounds.x, bounds.y));
+            let screen_top_right = coord::world_to_screen(ctx, camera, vec2(bounds.x + bounds.w, bounds.y));
+            let screen_bottom_left = coord::world_to_screen(ctx, camera, vec2(bounds.x, bounds.y + bounds.h));
+            let screen_zone_width = (screen_top_right.x - screen_top_left.x).abs();
+            let screen_zone_height = (screen_bottom_left.y - screen_top_left.y).abs();
+            let base_dims = ctx.measure_text(&label, ZONE_LABEL_BASE_FONT_SIZE);
+            if base_dims.width > 0.0 && base_dims.height > 0.0 {
+                let target_width = screen_zone_width * ZONE_LABEL_TARGET_WIDTH_RATIO;
+                let target_height = screen_zone_height * ZONE_LABEL_TARGET_HEIGHT_RATIO;
+                let width_scale = target_width / base_dims.width;
+                let height_scale = target_height / base_dims.height;
+                let raw_font_size = (ZONE_LABEL_BASE_FONT_SIZE * width_scale.min(height_scale))
+                    .clamp(ZONE_LABEL_MIN_FONT_SIZE, ZONE_LABEL_MAX_FONT_SIZE);
+                let snapped_font_size = snap_font_size(raw_font_size);
+                let snapped_dims = ctx.measure_text(&label, snapped_font_size);
+                let font_scale = if snapped_dims.width > 0.0 && snapped_dims.height > 0.0 {
+                    (target_width / snapped_dims.width)
+                        .min(target_height / snapped_dims.height)
+                        .max(0.1)
+                } else {
+                    1.0
+                };
+                let scaled_width = snapped_dims.width * font_scale;
+                let scaled_height = snapped_dims.height * font_scale;
+                let x = screen_top_left.x + (screen_zone_width - scaled_width) * 0.5;
+                let y = screen_top_left.y + ZONE_LABEL_TOP_PADDING + scaled_height;
+                labels.push((
+                    label,
+                    x,
+                    y,
+                    TextParams {
+                        font_size: snapped_font_size as u16,
+                        font_scale,
+                        color: outline,
+                        ..Default::default()
+                    },
+                ));
+            }
 
             if zone_mode_active && selected {
                 for (handle_rect, _) in handle_rects(bounds, grid_size) {
@@ -228,6 +268,11 @@ impl RoomEditor {
             }
         }
 
+        ctx.set_default_camera();
+        for (label, x, y, params) in labels {
+            ctx.draw_text_ex(&label, x, y, params);
+        }
+        ctx.set_camera(camera);
     }
 }
 

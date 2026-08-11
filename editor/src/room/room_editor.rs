@@ -133,6 +133,7 @@ pub struct RoomEditor {
     pub request_event_tags_refresh: bool,
     pub request_play: bool,
     pub view_preview: bool,
+    pub(crate) show_interior_zones: bool,
     pub(crate) preview_camera_id: Option<usize>,
     /// Current sub-mode for tilemap editing.
     pub(crate) tilemap_sub_mode: TilemapEditorMode,
@@ -172,6 +173,7 @@ impl RoomEditor {
             request_event_tags_refresh: false,
             request_play: false,
             view_preview: false,
+            show_interior_zones: true,
             tilemap_sub_mode: TilemapEditorMode::Tiles,
             sub_mode_rect: None,
         }
@@ -485,6 +487,7 @@ impl RoomEditor {
     pub(crate) fn set_scene_sub_mode(&mut self, mode: RoomSceneSubMode) {
         self.scene_sub_mode = mode;
         if mode == RoomSceneSubMode::Zones {
+            self.show_interior_zones = true;
             self.disable_active_edit_modes();
             self.drag_state = DragState::default();
             self.inspector.select_room();
@@ -492,6 +495,17 @@ impl RoomEditor {
             self.interior_zone_editor.clear();
             self.sync_inspector_to_selection();
         }
+    }
+
+    pub(crate) fn set_interior_zone_visibility(&mut self, visible: bool) {
+        self.show_interior_zones = visible;
+        if !visible && self.scene_sub_mode == RoomSceneSubMode::Zones {
+            self.set_scene_sub_mode(RoomSceneSubMode::Scene);
+        }
+    }
+
+    pub(crate) fn toggle_interior_zone_visibility(&mut self) {
+        self.set_interior_zone_visibility(!self.show_interior_zones);
     }
 
     pub(crate) fn toggle_zone_sub_mode(&mut self) {
@@ -587,6 +601,9 @@ impl RoomEditor {
                     if self.show_grid {
                         grid::draw_grid(ctx, grid_renderer, camera, grid_size);
                     }
+                    if self.show_interior_zones {
+                        self.draw_interior_zones_overlay(ctx, camera, room, grid_size);
+                    }
                 }
                 RoomEditorMode::Scene => {
                     let room_camera = get_room_camera_by_id(
@@ -672,7 +689,9 @@ impl RoomEditor {
                             self.active_layer_state.active_layer,
                             grid_size,
                         );
-                        self.draw_interior_zones_overlay(ctx, room, grid_size);
+                        if self.show_interior_zones {
+                            self.draw_interior_zones_overlay(ctx, camera, room, grid_size);
+                        }
                         if self.scene_sub_mode == RoomSceneSubMode::Stamp
                             && !self.should_block_canvas(ctx)
                         {

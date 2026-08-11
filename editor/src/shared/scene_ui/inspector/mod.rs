@@ -88,6 +88,8 @@ pub struct InspectorContext {
     pub event_tags: Vec<String>,
     /// Whether the room inspector is currently driving the interior-zone canvas tool.
     pub room_zone_tool_active: bool,
+    /// Whether interior-zone overlays are currently visible on the room canvas.
+    pub room_zones_visible: bool,
 }
 
 /// Per-frame output emitted by the shared inspector UI.
@@ -99,10 +101,8 @@ pub struct InspectorOutput {
     pub create_camera_request: Option<f32>,
     /// Linked-prefab action triggered from the inspector, if any.
     pub prefab_action: Option<PrefabActionRequest>,
-    /// Host-level action emitted by Game/World inspector content.
+    /// Host-level action emitted by shared inspector content.
     pub host_action: Option<InspectorHostAction>,
-    /// Whether the room inspector requested the interior-zone canvas tool toggle.
-    pub toggle_room_zone_tool: bool,
     /// Whether the prefab-mode empty state requested the prefab picker.
     pub open_prefab_picker: bool,
     /// Whether the prefab-mode empty state requested prefab deletion.
@@ -118,6 +118,8 @@ pub enum InspectorHostAction {
     RenameWorld(String),
     /// Requests the world editor to centre its camera on the given entity.
     FocusWorldEditor(Entity),
+    ToggleRoomZoneTool,
+    ToggleRoomZoneVisibility,
 }
 
 impl InspectorOutput {
@@ -134,7 +136,6 @@ impl InspectorOutput {
         if self.host_action.is_none() {
             self.host_action = other.host_action;
         }
-        self.toggle_room_zone_tool |= other.toggle_room_zone_tool;
         self.open_prefab_picker |= other.open_prefab_picker;
         self.delete_prefab |= other.delete_prefab;
         self.refresh_event_tags |= other.refresh_event_tags;
