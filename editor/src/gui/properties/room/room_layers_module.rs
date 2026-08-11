@@ -2,6 +2,7 @@ use super::super::PropertyModule;
 use crate::commands::room::{
     SetBackLayerCompositionModeCmd,
     SetBackLayerEnabledCmd,
+    SetBackLayerZoneScopeCmd,
     UpdateInteriorZonesCmd,
 };
 use crate::editor_assets::assets::{edit_icon, eye_icon};
@@ -11,7 +12,7 @@ use bishop::prelude::*;
 use engine_core::ecs::inspector::layout::InspectorBodyLayout;
 use engine_core::game::GameCtxMut;
 use engine_core::worlds::room::Room;
-use engine_core::worlds::{InteriorZoneBounds, LayerCompositionMode};
+use engine_core::worlds::{InteriorZoneBounds, InteriorZoneScope, LayerCompositionMode};
 use std::cell::Cell;
 use widgets::constants::{colors, layout};
 use widgets::{Button, Dropdown, InputCommit, NumberInput, WidgetId};
@@ -33,6 +34,7 @@ struct ZoneWidgetIds {
 
 pub struct RoomLayersModule {
     composition_id: WidgetId,
+    zone_scope_id: WidgetId,
     zone_widget_ids: Vec<ZoneWidgetIds>,
     pending_host_action: Option<InspectorHostAction>,
     show_composition_mode: Cell<bool>,
@@ -43,6 +45,7 @@ impl RoomLayersModule {
     pub fn new() -> Self {
         Self {
             composition_id: WidgetId::default(),
+            zone_scope_id: WidgetId::default(),
             zone_widget_ids: Vec::new(),
             pending_host_action: None,
             show_composition_mode: Cell::new(false),
@@ -149,11 +152,23 @@ impl PropertyModule<Room> for RoomLayersModule {
             .as_ref()
             .map(|back| back.composition_mode)
             .unwrap_or_default();
+        let current_scope = room
+            .current_variant()
+            .layers
+            .back
+            .as_ref()
+            .map(|back| back.zone_scope)
+            .unwrap_or_default();
         let options = LayerCompositionMode::ALL
             .into_iter()
             .map(|mode| mode.ui_label().to_string())
             .collect::<Vec<_>>();
+        let scope_options = InteriorZoneScope::ALL
+            .into_iter()
+            .map(|scope| scope.ui_label().to_string())
+            .collect::<Vec<_>>();
         let current_label = current_mode.ui_label();
+        let current_scope_label = current_scope.ui_label();
 
         let composition_label_w = 110.0;
         let icon_rect = Rect::new(rect.x + rect.w - ICON_BUTTON_SIZE, y, ICON_BUTTON_SIZE, ICON_BUTTON_SIZE);
@@ -161,6 +176,13 @@ impl PropertyModule<Room> for RoomLayersModule {
             rect.x + composition_label_w,
             y,
             icon_rect.x - rect.x - composition_label_w - GAP,
+            ROW_H,
+        );
+        let scope_y = y + ROW_H + GAP;
+        let scope_dropdown_rect = Rect::new(
+            rect.x + composition_label_w,
+            scope_y,
+            rect.w - composition_label_w,
             ROW_H,
         );
 
@@ -193,7 +215,6 @@ impl PropertyModule<Room> for RoomLayersModule {
                 current_mode,
                 selected_mode,
             )));
-            return;
         }
 
         if Button::icon(icon_rect, edit_icon(), "Edit Interior Zones")
@@ -204,7 +225,38 @@ impl PropertyModule<Room> for RoomLayersModule {
             self.pending_host_action = Some(InspectorHostAction::ToggleRoomZoneTool);
         }
 
-        let mut zone_y = y + ROW_H + GAP;
+        ctx.draw_text(
+            "Visible Zones:",
+            rect.x,
+            scope_y + 20.0,
+            layout::FIELD_TEXT_SIZE_16,
+            colors::DEFAULT_TEXT_COLOR,
+        );
+        if let Some(selection) = Dropdown::new(
+            self.zone_scope_id,
+            scope_dropdown_rect,
+            current_scope_label,
+            &scope_options,
+            |value| value.clone(),
+        )
+        .truncate_trigger_text()
+        .suppressed(false)
+        .show(ctx)
+        {
+            let selected_scope = InteriorZoneScope::ALL
+                .into_iter()
+                .find(|scope| scope.ui_label() == selection)
+                .expect("zone-scope dropdown should emit a known scope");
+
+            push_command(Box::new(SetBackLayerZoneScopeCmd::new(
+                world_id,
+                room_id,
+                current_scope,
+                selected_scope,
+            )));
+        }
+
+        let mut zone_y = scope_y + ROW_H + GAP;
         if self.zone_widget_ids.is_empty() {
             zone_y += WARNING_TOP_GAP;
             ctx.draw_text_wrapped(
@@ -305,7 +357,7 @@ impl PropertyModule<Room> for RoomLayersModule {
     fn body_layout(&self) -> InspectorBodyLayout {
         let mut layout = InspectorBodyLayout::new().rows(1, GAP);
         if self.show_composition_mode.get() {
-            layout = layout.gap(GAP).rows(1, GAP);
+            layout = layout.gap(GAP).rows(2, GAP);
             if self.zone_count.get() == 0 {
                 layout = layout.gap(GAP + WARNING_TOP_GAP).block(WARNING_HEIGHT);
             } else {

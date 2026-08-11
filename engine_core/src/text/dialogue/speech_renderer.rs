@@ -330,6 +330,7 @@ mod tests {
             RoomRenderState {
                 current_layer: RoomLayer::Front,
                 viewpoint_position: None,
+                show_all_back_bounds: false,
             },
             1.0,
             None,
@@ -381,6 +382,7 @@ mod tests {
             RoomRenderState {
                 current_layer: RoomLayer::Front,
                 viewpoint_position: None,
+                show_all_back_bounds: false,
             },
             1.0,
             None,
@@ -413,6 +415,7 @@ mod tests {
             RoomRenderState {
                 current_layer: RoomLayer::Front,
                 viewpoint_position: None,
+                show_all_back_bounds: false,
             },
             1.0,
             None,
@@ -443,6 +446,7 @@ mod tests {
             RoomRenderState {
                 current_layer: RoomLayer::Front,
                 viewpoint_position: None,
+                show_all_back_bounds: false,
             },
             1.0,
             None,
@@ -465,6 +469,7 @@ mod tests {
             RoomRenderState {
                 current_layer: RoomLayer::Front,
                 viewpoint_position: None,
+                show_all_back_bounds: false,
             },
             1.0,
             None,

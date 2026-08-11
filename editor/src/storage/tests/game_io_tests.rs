@@ -1,7 +1,8 @@
 use super::*;
 use engine_core::ecs::{Cover, CoverMode};
 use engine_core::worlds::{
-    BackRoomLayer, InteriorZone, InteriorZoneBounds, InteriorZoneId, LayerCompositionMode,
+    BackRoomLayer, InteriorZone, InteriorZoneBounds, InteriorZoneId, InteriorZoneScope,
+    LayerCompositionMode,
 };
 
 const RESERVED_RUNTIME_SAVES_FOLDER: &str = "_runtime_saves";
@@ -195,6 +196,7 @@ fn game_save_load_when_room_variant_has_back_layer_then_layers_round_trip() {
         .expect("new game should have one room");
     room.current_variant_mut().layers.back = Some(BackRoomLayer {
         composition_mode: LayerCompositionMode::DollsHouse,
+        zone_scope: InteriorZoneScope::Occupied,
         interior_zones: vec![InteriorZone {
             id: InteriorZoneId(5),
             bounds: InteriorZoneBounds::new(16, 32, 48, 64),
@@ -210,6 +212,7 @@ fn game_save_load_when_room_variant_has_back_layer_then_layers_round_trip() {
 
     let loaded_back = loaded_room.current_variant().layers.back.as_ref().unwrap();
     assert_eq!(loaded_back.composition_mode, LayerCompositionMode::DollsHouse);
+    assert_eq!(loaded_back.zone_scope, InteriorZoneScope::Occupied);
     let loaded_zone = loaded_back.interior_zones[0];
     assert_eq!(loaded_zone.id, InteriorZoneId(5));
     assert_eq!(loaded_zone.bounds, InteriorZoneBounds::new(16, 32, 48, 64));

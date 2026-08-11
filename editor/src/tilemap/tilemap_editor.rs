@@ -170,6 +170,7 @@ impl TileMapEditor {
         let render_state = RoomRenderState {
             current_layer: self.active_layer,
             viewpoint_position: Some(camera.target),
+            show_all_back_bounds: true,
         };
         let visible_layers = visible_layers_for_state(&variant.layers, render_state);
         let composition = RoomCompositionContext::resolve(room, render_state, grid_size);

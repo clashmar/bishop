@@ -9,6 +9,7 @@ use bishop::prelude::*;
 pub struct RoomRenderState {
     pub current_layer: RoomLayer,
     pub viewpoint_position: Option<Vec2>,
+    pub show_all_back_bounds: bool,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -40,20 +41,36 @@ impl RoomCompositionContext {
         let layers = &room.current_variant().layers;
         let room_bounds = room.world_rect(grid_size);
 
+        let active_back_bounds = if state.show_all_back_bounds {
+            vec![room_bounds]
+        } else {
+            layers.active_back_bounds(room_bounds, state.current_layer, state.viewpoint_position)
+        };
+
         Self {
             current_layer: state.current_layer,
             composition_mode: layers.back.as_ref().map(|back| back.composition_mode),
-            active_back_bounds: layers.active_back_bounds(
-                room_bounds,
-                state.current_layer,
-                state.viewpoint_position,
-            ),
+            active_back_bounds,
         }
     }
 
     pub(crate) fn should_draw_hidden_back_layer_door_ghosts(&self) -> bool {
         self.current_layer == RoomLayer::Back
             && self.composition_mode == Some(LayerCompositionMode::Hidden)
+    }
+
+    pub(crate) fn back_layer_bounds_visible(&self, bounds: Rect) -> bool {
+        if self.current_layer != RoomLayer::Back {
+            return true;
+        }
+
+        if self.active_back_bounds.is_empty() {
+            return false;
+        }
+
+        self.active_back_bounds
+            .iter()
+            .any(|active_bounds| active_bounds.overlaps(&bounds))
     }
 
     /// Returns the composition to use for one front-layer drawable in the current room view.

@@ -127,6 +127,7 @@ impl GameInstance {
                 return RoomRenderState {
                     current_layer: current_room.layer,
                     viewpoint_position: self.game.ecs.get::<Transform>(player).map(|transform| transform.position),
+                    show_all_back_bounds: false,
                 };
             }
         }
@@ -150,6 +151,7 @@ impl GameInstance {
         RoomRenderState {
             current_layer,
             viewpoint_position,
+            show_all_back_bounds: false,
         }
     }
 
@@ -436,6 +438,7 @@ mod tests {
             RoomRenderState {
                 current_layer: RoomLayer::Back,
                 viewpoint_position: Some(Vec2::new(48.0, 64.0)),
+                show_all_back_bounds: false,
             }
         );
     }

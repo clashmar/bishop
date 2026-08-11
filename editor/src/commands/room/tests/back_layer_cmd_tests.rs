@@ -1,6 +1,8 @@
 use super::*;
 use engine_core::ecs::{Name, TilePlacement, Transform};
-use engine_core::worlds::{BackRoomLayer, InteriorZoneBounds, LayerCompositionMode, RoomLayer};
+use engine_core::worlds::{
+    BackRoomLayer, InteriorZoneBounds, InteriorZoneScope, LayerCompositionMode, RoomLayer,
+};
 
 fn enter_room_mode() {
     with_editor(|editor| {
@@ -91,6 +93,75 @@ fn set_back_layer_composition_mode_cmd_is_undoable() {
                 .expect("back layer should exist")
                 .composition_mode,
             LayerCompositionMode::Hidden
+        );
+    });
+}
+
+#[test]
+fn set_back_layer_zone_scope_cmd_is_undoable() {
+    let _ctx = setup_editor("back_layer_zone_scope_cmd");
+    enter_room_mode();
+
+    let (world_id, room_id) = with_editor(|editor| {
+        let world_id = editor
+            .game
+            .current_world_id
+            .expect("test editor should have a current world");
+        let room_id = editor.cur_room_id.expect("room mode should select a room");
+        editor
+            .game
+            .current_world_mut()
+            .expect("world should exist")
+            .get_room_mut(room_id)
+            .expect("room should exist")
+            .current_variant_mut()
+            .layers
+            .back = Some(BackRoomLayer::default());
+        (world_id, room_id)
+    });
+
+    push_command(Box::new(SetBackLayerZoneScopeCmd::new(
+        world_id,
+        room_id,
+        InteriorZoneScope::Occupied,
+        InteriorZoneScope::All,
+    )));
+    apply_pending_commands();
+
+    with_editor(|editor| {
+        let room = editor
+            .game
+            .current_world()
+            .get_room(room_id)
+            .expect("room should exist");
+        assert_eq!(
+            room.current_variant()
+                .layers
+                .back
+                .as_ref()
+                .expect("back layer should exist")
+                .zone_scope,
+            InteriorZoneScope::All
+        );
+    });
+
+    request_undo();
+    apply_pending_commands();
+
+    with_editor(|editor| {
+        let room = editor
+            .game
+            .current_world()
+            .get_room(room_id)
+            .expect("room should exist");
+        assert_eq!(
+            room.current_variant()
+                .layers
+                .back
+                .as_ref()
+                .expect("back layer should exist")
+                .zone_scope,
+            InteriorZoneScope::Occupied
         );
     });
 }

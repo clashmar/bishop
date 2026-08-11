@@ -60,6 +60,9 @@ pub fn draw_room_tile_placements<C: BishopContext>(
             };
             color
         } else {
+            if !composition.back_layer_bounds_visible(tile_bounds) {
+                continue;
+            }
             Color::WHITE
         };
         let params = EntityDrawParams {

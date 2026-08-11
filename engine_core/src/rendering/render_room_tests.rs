@@ -5,13 +5,14 @@ use crate::worlds::room::RoomVariant;
 use crate::worlds::test_utils::make_room;
 use crate::worlds::{
     BackRoomLayer, Exit, ExitDirection, InteriorZone, InteriorZoneBounds, InteriorZoneId,
-    LayerCompositionMode, RoomLayer, RoomLayers, WorldId,
+    InteriorZoneScope, LayerCompositionMode, RoomLayer, RoomLayers, WorldId,
 };
 
 fn render_state(current_layer: RoomLayer) -> RoomRenderState {
     RoomRenderState {
         current_layer,
         viewpoint_position: None,
+        show_all_back_bounds: false,
     }
 }
 
@@ -19,11 +20,13 @@ fn back_view_state(viewpoint_position: Vec2) -> RoomRenderState {
     RoomRenderState {
         current_layer: RoomLayer::Back,
         viewpoint_position: Some(viewpoint_position),
+        show_all_back_bounds: false,
     }
 }
 
 fn make_composition_test_room(
     composition_mode: LayerCompositionMode,
+    zone_scope: InteriorZoneScope,
     interior_zones: Vec<InteriorZone>,
 ) -> Room {
     Room {
@@ -34,6 +37,7 @@ fn make_composition_test_room(
             layers: RoomLayers {
                 back: Some(BackRoomLayer {
                     composition_mode,
+                    zone_scope,
                     interior_zones,
                 }),
             },
@@ -133,6 +137,7 @@ fn current_layer_front_when_dolls_house_then_renders_back_then_front() {
         &RoomLayers {
             back: Some(BackRoomLayer {
                 composition_mode: LayerCompositionMode::DollsHouse,
+                zone_scope: InteriorZoneScope::Occupied,
                 ..Default::default()
             }),
         },
@@ -148,6 +153,7 @@ fn current_layer_back_when_dolls_house_then_renders_back_then_front() {
         &RoomLayers {
             back: Some(BackRoomLayer {
                 composition_mode: LayerCompositionMode::DollsHouse,
+                zone_scope: InteriorZoneScope::Occupied,
                 ..Default::default()
             }),
         },
@@ -158,9 +164,139 @@ fn current_layer_back_when_dolls_house_then_renders_back_then_front() {
 }
 
 #[test]
+fn back_view_when_show_all_back_bounds_then_other_zone_bounds_are_visible() {
+    let room = make_composition_test_room(
+        LayerCompositionMode::DollsHouse,
+        InteriorZoneScope::Occupied,
+        vec![
+            InteriorZone {
+                id: InteriorZoneId(1),
+                bounds: InteriorZoneBounds::new(0, 0, 32, 32),
+            },
+            InteriorZone {
+                id: InteriorZoneId(2),
+                bounds: InteriorZoneBounds::new(64, 0, 32, 32),
+            },
+        ],
+    );
+    let composition = RoomCompositionContext::resolve(
+        &room,
+        RoomRenderState {
+            current_layer: RoomLayer::Back,
+            viewpoint_position: Some(Vec2::new(8.0, 8.0)),
+            show_all_back_bounds: true,
+        },
+        16.0,
+    );
+
+    assert!(composition.back_layer_bounds_visible(Rect::new(0.0, 0.0, 32.0, 32.0)));
+    assert!(composition.back_layer_bounds_visible(Rect::new(64.0, 0.0, 32.0, 32.0)));
+}
+
+#[test]
+fn back_view_when_show_all_back_bounds_then_content_outside_zones_is_visible() {
+    let room = make_composition_test_room(
+        LayerCompositionMode::DollsHouse,
+        InteriorZoneScope::Occupied,
+        vec![InteriorZone {
+            id: InteriorZoneId(1),
+            bounds: InteriorZoneBounds::new(0, 0, 32, 32),
+        }],
+    );
+    let composition = RoomCompositionContext::resolve(
+        &room,
+        RoomRenderState {
+            current_layer: RoomLayer::Back,
+            viewpoint_position: Some(Vec2::new(8.0, 8.0)),
+            show_all_back_bounds: true,
+        },
+        16.0,
+    );
+
+    assert!(composition.back_layer_bounds_visible(Rect::new(96.0, 0.0, 16.0, 16.0)));
+}
+
+#[test]
+fn back_view_when_zone_scope_is_occupied_then_other_zone_bounds_are_not_visible() {
+    let room = make_composition_test_room(
+        LayerCompositionMode::DollsHouse,
+        InteriorZoneScope::Occupied,
+        vec![
+            InteriorZone {
+                id: InteriorZoneId(1),
+                bounds: InteriorZoneBounds::new(0, 0, 32, 32),
+            },
+            InteriorZone {
+                id: InteriorZoneId(2),
+                bounds: InteriorZoneBounds::new(64, 0, 32, 32),
+            },
+        ],
+    );
+    let composition = RoomCompositionContext::resolve(
+        &room,
+        back_view_state(Vec2::new(8.0, 8.0)),
+        16.0,
+    );
+
+    assert!(composition.back_layer_bounds_visible(Rect::new(0.0, 0.0, 32.0, 32.0)));
+    assert!(!composition.back_layer_bounds_visible(Rect::new(64.0, 0.0, 32.0, 32.0)));
+}
+
+#[test]
+fn hidden_back_view_when_zone_scope_is_all_then_other_zone_layer_door_stays_visible() {
+    let room = make_composition_test_room(
+        LayerCompositionMode::Hidden,
+        InteriorZoneScope::All,
+        vec![
+            InteriorZone {
+                id: InteriorZoneId(1),
+                bounds: InteriorZoneBounds::new(0, 0, 32, 32),
+            },
+            InteriorZone {
+                id: InteriorZoneId(2),
+                bounds: InteriorZoneBounds::new(64, 0, 32, 32),
+            },
+        ],
+    );
+    let composition = RoomCompositionContext::resolve(
+        &room,
+        back_view_state(Vec2::new(8.0, 8.0)),
+        16.0,
+    );
+    assert!(composition.back_layer_bounds_visible(Rect::new(64.0, 0.0, 32.0, 32.0)));
+
+    let mut ecs = Ecs::default();
+    let entity = ecs.create_entity()
+        .with(LayerDoor {
+            usable: true,
+            alpha: 0.25,
+        })
+        .with(Transform {
+            position: Vec2::new(72.0, 8.0),
+            ..Default::default()
+        })
+        .with(Interactable::rect(Vec2::ZERO, Vec2::new(16.0, 16.0)))
+        .with_current_room(room.id)
+        .finish();
+
+    assert_eq!(
+        front_layer_alpha(
+            &ecs,
+            &room,
+            entity,
+            Rect::new(64.0, 0.0, 32.0, 32.0),
+            back_view_state(Vec2::new(8.0, 8.0)),
+            16.0,
+        ),
+        Some(0.25),
+    );
+}
+
+#[test]
 fn dolls_house_back_view_hides_cover_over_active_zone() {
     let room = make_composition_test_room(
         LayerCompositionMode::DollsHouse,
+        InteriorZoneScope::Occupied,
         vec![
             InteriorZone {
                 id: InteriorZoneId(1),
@@ -195,6 +331,7 @@ fn dolls_house_back_view_hides_cover_over_active_zone() {
 fn dolls_house_back_view_keeps_other_zone_cover_opaque() {
     let room = make_composition_test_room(
         LayerCompositionMode::DollsHouse,
+        InteriorZoneScope::Occupied,
         vec![
             InteriorZone {
                 id: InteriorZoneId(1),
@@ -229,6 +366,7 @@ fn dolls_house_back_view_keeps_other_zone_cover_opaque() {
 fn dolls_house_back_view_fades_cover_over_active_zone() {
     let room = make_composition_test_room(
         LayerCompositionMode::DollsHouse,
+        InteriorZoneScope::Occupied,
         vec![InteriorZone {
             id: InteriorZoneId(1),
             bounds: InteriorZoneBounds::new(0, 0, 32, 32),
@@ -255,7 +393,11 @@ fn dolls_house_back_view_fades_cover_over_active_zone() {
 
 #[test]
 fn hidden_back_view_keeps_layer_door_visible_with_ghost_alpha() {
-    let room = make_composition_test_room(LayerCompositionMode::Hidden, vec![]);
+    let room = make_composition_test_room(
+        LayerCompositionMode::Hidden,
+        InteriorZoneScope::Occupied,
+        vec![],
+    );
     let mut ecs = Ecs::default();
     let entity = ecs.create_entity()
         .with(LayerDoor {
@@ -282,6 +424,7 @@ fn hidden_back_view_keeps_layer_door_visible_with_ghost_alpha() {
 fn hidden_back_view_hides_layer_door_outside_active_zone() {
     let room = make_composition_test_room(
         LayerCompositionMode::Hidden,
+        InteriorZoneScope::Occupied,
         vec![
             InteriorZone {
                 id: InteriorZoneId(1),
@@ -324,6 +467,7 @@ fn hidden_back_view_hides_layer_door_outside_active_zone() {
 fn dolls_house_back_view_keeps_other_zone_layer_door_opaque() {
     let room = make_composition_test_room(
         LayerCompositionMode::DollsHouse,
+        InteriorZoneScope::Occupied,
         vec![
             InteriorZone {
                 id: InteriorZoneId(1),

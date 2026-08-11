@@ -638,6 +638,7 @@ impl RoomEditor {
                         RoomRenderState {
                             current_layer: self.active_layer_state.active_layer,
                             viewpoint_position: Some(render_cam.target),
+                            show_all_back_bounds: !view_preview,
                         },
                         0.0,
                         None,

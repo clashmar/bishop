@@ -58,6 +58,25 @@ impl LayerCompositionMode {
     }
 }
 
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum InteriorZoneScope {
+    #[default]
+    Occupied,
+    All,
+}
+
+impl InteriorZoneScope {
+    pub const ALL: [Self; 2] = [Self::Occupied, Self::All];
+
+    pub fn ui_label(self) -> &'static str {
+        match self {
+            Self::Occupied => "Occupied",
+            Self::All => "All",
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct InteriorZoneId(pub u64);
 
@@ -104,6 +123,7 @@ pub struct InteriorZone {
 #[serde(default)]
 pub struct BackRoomLayer {
     pub composition_mode: LayerCompositionMode,
+    pub zone_scope: InteriorZoneScope,
     pub interior_zones: Vec<InteriorZone>,
 }
 
@@ -144,15 +164,20 @@ impl RoomLayers {
             return vec![room_bounds];
         }
 
-        let Some(viewpoint_position) = viewpoint_position else {
-            return vec![];
-        };
+        match back.zone_scope {
+            InteriorZoneScope::All => self.effective_back_bounds(room_bounds),
+            InteriorZoneScope::Occupied => {
+                let Some(viewpoint_position) = viewpoint_position else {
+                    return vec![];
+                };
 
-        back.interior_zones
-            .iter()
-            .filter(|zone| zone.bounds.contains(viewpoint_position))
-            .map(|zone| zone.bounds.to_rect())
-            .collect()
+                back.interior_zones
+                    .iter()
+                    .filter(|zone| zone.bounds.contains(viewpoint_position))
+                    .map(|zone| zone.bounds.to_rect())
+                    .collect()
+            }
+        }
     }
 }
 
@@ -186,6 +211,7 @@ mod tests {
             layers: RoomLayers {
                 back: Some(BackRoomLayer {
                     composition_mode: LayerCompositionMode::DollsHouse,
+                    zone_scope: InteriorZoneScope::Occupied,
                     interior_zones: vec![zone],
                 }),
             },
@@ -200,6 +226,29 @@ mod tests {
         let parsed_zone = back.interior_zones[0];
         assert_eq!(parsed_zone.id, InteriorZoneId(7));
         assert_eq!(parsed_zone.bounds, zone.bounds);
+    }
+
+    #[test]
+    fn room_with_back_layer_round_trips_zone_scope() {
+        let variant = RoomVariant {
+            id: "default".to_string(),
+            layers: RoomLayers {
+                back: Some(BackRoomLayer {
+                    composition_mode: LayerCompositionMode::DollsHouse,
+                    zone_scope: InteriorZoneScope::All,
+                    interior_zones: vec![InteriorZone {
+                        id: InteriorZoneId(7),
+                        bounds: InteriorZoneBounds::new(16, 32, 48, 64),
+                    }],
+                }),
+            },
+            ..Default::default()
+        };
+
+        let ron = ron::ser::to_string_pretty(&variant, ron::ser::PrettyConfig::new()).unwrap();
+        let parsed: RoomVariant = ron::from_str(&ron).unwrap();
+
+        assert_eq!(parsed.layers.back.unwrap().zone_scope, InteriorZoneScope::All);
     }
 
     #[test]
@@ -219,6 +268,7 @@ mod tests {
             layers: RoomLayers {
                 back: Some(BackRoomLayer {
                     composition_mode: LayerCompositionMode::Hidden,
+                    zone_scope: InteriorZoneScope::Occupied,
                     interior_zones: zones.clone(),
                 }),
             },
@@ -259,6 +309,7 @@ mod tests {
         let layers = RoomLayers {
             back: Some(BackRoomLayer {
                 composition_mode: LayerCompositionMode::Hidden,
+                zone_scope: InteriorZoneScope::Occupied,
                 interior_zones: vec![zone_a, zone_b],
             }),
         };
@@ -273,6 +324,31 @@ mod tests {
         assert!(layers
             .active_back_bounds(room_bounds, RoomLayer::Back, Some(Vec2::new(48.0, 8.0)))
             .is_empty());
+    }
+
+    #[test]
+    fn active_back_bounds_when_zone_scope_is_all_then_returns_every_zone() {
+        let room_bounds = Rect::new(0.0, 0.0, 128.0, 128.0);
+        let zone_a = InteriorZone {
+            id: InteriorZoneId(1),
+            bounds: InteriorZoneBounds::new(0, 0, 32, 32),
+        };
+        let zone_b = InteriorZone {
+            id: InteriorZoneId(2),
+            bounds: InteriorZoneBounds::new(64, 0, 32, 32),
+        };
+        let layers = RoomLayers {
+            back: Some(BackRoomLayer {
+                composition_mode: LayerCompositionMode::Hidden,
+                zone_scope: InteriorZoneScope::All,
+                interior_zones: vec![zone_a, zone_b],
+            }),
+        };
+
+        assert_eq!(
+            layers.active_back_bounds(room_bounds, RoomLayer::Back, Some(Vec2::new(8.0, 8.0))),
+            vec![zone_a.bounds.to_rect(), zone_b.bounds.to_rect()],
+        );
     }
 
     #[test]

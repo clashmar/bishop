@@ -11,6 +11,7 @@ use crate::worlds::{
     InteriorZone,
     InteriorZoneBounds,
     InteriorZoneId,
+    InteriorZoneScope,
     LayerCompositionMode,
     Room,
     RoomId,
@@ -726,6 +727,7 @@ fn validate_layer_door_when_interactable_area_extends_outside_back_zone_union_th
                 layers: RoomLayers {
                     back: Some(BackRoomLayer {
                         composition_mode: LayerCompositionMode::Hidden,
+                        zone_scope: InteriorZoneScope::Occupied,
                         interior_zones: vec![InteriorZone {
                             id: InteriorZoneId(1),
                             bounds: InteriorZoneBounds::new(0, 0, 32, 32),

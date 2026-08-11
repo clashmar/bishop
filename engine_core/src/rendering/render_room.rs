@@ -187,10 +187,9 @@ fn draw_entity<C: BishopContext>(
         .map(|transform| transform.pivot)
         .unwrap_or(Pivot::BottomCenter);
 
-    let color = if ecs
-        .get::<CurrentRoom>(entity)
-        .is_some_and(|current_room| current_room.layer == RoomLayer::Front)
-    {
+    let room_layer = ecs.get::<CurrentRoom>(entity).map(|current_room| current_room.layer);
+
+    let color = if room_layer == Some(RoomLayer::Front) {
         let visual_bounds = if ecs.has::<Cover>(entity) || ecs.has::<LayerDoor>(entity) {
             Some(entity_visual_rect(ecs, sprite_manager, entity, pos, grid_size))
         } else {
@@ -205,6 +204,12 @@ fn draw_entity<C: BishopContext>(
         };
 
         color
+    } else if room_layer == Some(RoomLayer::Back) {
+        let visual_bounds = entity_visual_rect(ecs, sprite_manager, entity, pos, grid_size);
+        if !composition.back_layer_bounds_visible(visual_bounds) {
+            return;
+        }
+        Color::WHITE
     } else {
         Color::WHITE
     };

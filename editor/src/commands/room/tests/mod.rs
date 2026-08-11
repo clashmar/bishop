@@ -5,6 +5,7 @@ pub(super) use crate::commands::room::{
     PasteEntityCmd,
     SetBackLayerCompositionModeCmd,
     SetBackLayerEnabledCmd,
+    SetBackLayerZoneScopeCmd,
     SetTilePlacementCmd,
     UpdateInteriorZonesCmd,
 };

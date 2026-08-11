@@ -1,4 +1,9 @@
 (
-    definitions: {},
-    next_tile_def_id: 0,
+    definitions: {
+        (1): (
+            sprite_id: (10),
+            components: [],
+        ),
+    },
+    next_tile_def_id: 2,
 )
