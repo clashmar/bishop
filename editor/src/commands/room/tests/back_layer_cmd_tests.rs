@@ -348,7 +348,7 @@ fn update_interior_zones_cmd_when_new_zones_overlap_then_room_is_unchanged_and_t
         );
     });
 
-    let toast = crate::editor_global::take_pending_toast().expect("toast should be queued");
+    let toast = take_pending_toast().expect("toast should be queued");
     assert!(toast
         .msg
         .contains(zone_constraint_message(InteriorZoneConstraintViolation::Overlap)));

@@ -108,112 +108,82 @@ impl EditorCommand for ResizeTilemapCmd {
 
                 match self.side {
                     HandleSide::Top => {
-                        if self.delta > 0 {
-                            map.height += self.delta as usize;
-                            for exit in exits.iter_mut() {
-                                let on_top = (exit.position.y + 1.0).abs() < f32::EPSILON;
-                                let on_bottom = (exit.position.y - room_size.y).abs() < f32::EPSILON;
-                                if on_top {
-                                    exit.position.y -= self.delta as f32;
-                                } else if on_bottom {
-                                    exit.position.y += self.delta as f32;
-                                }
-                            }
-                            room_size.y += self.delta as f32;
-                            room_position.y -= self.delta as f32 * grid_size;
-                        } else if self.delta < 0 {
-                            let shrink = (-self.delta) as usize;
-                            if map.height > shrink {
-                                map.height -= shrink;
-                                for exit in exits.iter_mut() {
-                                    let on_top = (exit.position.y + 1.0).abs() < f32::EPSILON;
-                                    let on_bottom = (exit.position.y - room_size.y).abs() < f32::EPSILON;
-                                    if on_top {
-                                        exit.position.y += shrink as f32;
-                                    } else if on_bottom {
-                                        exit.position.y -= shrink as f32;
-                                    }
-                                }
-                                room_size.y -= shrink as f32;
-                                room_position.y += shrink as f32 * grid_size;
-                            }
+                        if self.delta < 0 && map.height <= (-self.delta) as usize {
+                            return;
                         }
+
+                        let old_width = map.width;
+                        let old_height = map.height;
+                        map.height = (map.height as i32 + self.delta) as usize;
+                        remap_exits_for_resize(
+                            exits,
+                            self.side,
+                            self.delta,
+                            old_width,
+                            old_height,
+                            map.width,
+                            map.height,
+                        );
+                        room_size.y += self.delta as f32;
+                        room_position.y -= self.delta as f32 * grid_size;
                     }
                     HandleSide::Bottom => {
-                        if self.delta > 0 {
-                            map.height += self.delta as usize;
-                            for exit in exits.iter_mut() {
-                                if (exit.position.y - room_size.y).abs() < f32::EPSILON {
-                                    exit.position.y += self.delta as f32;
-                                }
-                            }
-                            room_size.y += self.delta as f32;
-                        } else if self.delta < 0 {
-                            let shrink = (-self.delta) as usize;
-                            if map.height > shrink {
-                                map.height -= shrink;
-                                for exit in exits.iter_mut() {
-                                    if (exit.position.y - room_size.y).abs() < f32::EPSILON {
-                                        exit.position.y -= shrink as f32;
-                                    }
-                                }
-                                room_size.y -= shrink as f32;
-                            }
+                        if self.delta < 0 && map.height <= (-self.delta) as usize {
+                            return;
                         }
+
+                        let old_width = map.width;
+                        let old_height = map.height;
+                        map.height = (map.height as i32 + self.delta) as usize;
+                        remap_exits_for_resize(
+                            exits,
+                            self.side,
+                            self.delta,
+                            old_width,
+                            old_height,
+                            map.width,
+                            map.height,
+                        );
+                        room_size.y += self.delta as f32;
                     }
                     HandleSide::Left => {
-                        if self.delta > 0 {
-                            map.width += self.delta as usize;
-                            for exit in exits.iter_mut() {
-                                let on_left = (exit.position.x + 1.0).abs() < f32::EPSILON;
-                                let on_right = (exit.position.x - room_size.x).abs() < f32::EPSILON;
-                                if on_left {
-                                    exit.position.x -= self.delta as f32;
-                                } else if on_right {
-                                    exit.position.x += self.delta as f32;
-                                }
-                            }
-                            room_size.x += self.delta as f32;
-                            room_position.x -= self.delta as f32 * grid_size;
-                        } else if self.delta < 0 {
-                            let shrink = (-self.delta) as usize;
-                            if map.width > shrink {
-                                map.width -= shrink;
-                                for exit in exits.iter_mut() {
-                                    let on_left = (exit.position.x + 1.0).abs() < f32::EPSILON;
-                                    let on_right = (exit.position.x - room_size.x).abs() < f32::EPSILON;
-                                    if on_left {
-                                        exit.position.x += shrink as f32;
-                                    } else if on_right {
-                                        exit.position.x -= shrink as f32;
-                                    }
-                                }
-                                room_size.x -= shrink as f32;
-                                room_position.x += shrink as f32 * grid_size;
-                            }
+                        if self.delta < 0 && map.width <= (-self.delta) as usize {
+                            return;
                         }
+
+                        let old_width = map.width;
+                        let old_height = map.height;
+                        map.width = (map.width as i32 + self.delta) as usize;
+                        remap_exits_for_resize(
+                            exits,
+                            self.side,
+                            self.delta,
+                            old_width,
+                            old_height,
+                            map.width,
+                            map.height,
+                        );
+                        room_size.x += self.delta as f32;
+                        room_position.x -= self.delta as f32 * grid_size;
                     }
                     HandleSide::Right => {
-                        if self.delta > 0 {
-                            map.width += self.delta as usize;
-                            for exit in exits.iter_mut() {
-                                if (exit.position.x - room_size.x).abs() < f32::EPSILON {
-                                    exit.position.x += self.delta as f32;
-                                }
-                            }
-                            room_size.x += self.delta as f32;
-                        } else if self.delta < 0 {
-                            let shrink = (-self.delta) as usize;
-                            if map.width > shrink {
-                                map.width -= shrink;
-                                for exit in exits.iter_mut() {
-                                    if (exit.position.x - room_size.x).abs() < f32::EPSILON {
-                                        exit.position.x -= shrink as f32;
-                                    }
-                                }
-                                room_size.x -= shrink as f32;
-                            }
+                        if self.delta < 0 && map.width <= (-self.delta) as usize {
+                            return;
                         }
+
+                        let old_width = map.width;
+                        let old_height = map.height;
+                        map.width = (map.width as i32 + self.delta) as usize;
+                        remap_exits_for_resize(
+                            exits,
+                            self.side,
+                            self.delta,
+                            old_width,
+                            old_height,
+                            map.width,
+                            map.height,
+                        );
+                        room_size.x += self.delta as f32;
                     }
                 }
 
@@ -292,6 +262,66 @@ fn replace_room_tile_placements(
             .with_current_room(room_id)
             .finish();
         apply_tile_placement_definition(ctx, entity);
+    }
+}
+
+fn remap_exits_for_resize(
+    exits: &mut [Exit],
+    side: HandleSide,
+    delta: i32,
+    old_width: usize,
+    old_height: usize,
+    new_width: usize,
+    new_height: usize,
+) {
+    for exit in exits.iter_mut() {
+        let Some(exit_side) = exit_side(exit, old_width, old_height) else {
+            continue;
+        };
+
+        match exit_side {
+            HandleSide::Top => {
+                exit.position.y = -1.0;
+                if side == HandleSide::Left {
+                    exit.position.x += delta as f32;
+                }
+            }
+            HandleSide::Bottom => {
+                exit.position.y = new_height as f32;
+                if side == HandleSide::Left {
+                    exit.position.x += delta as f32;
+                }
+            }
+            HandleSide::Left => {
+                exit.position.x = -1.0;
+                if side == HandleSide::Top {
+                    exit.position.y += delta as f32;
+                }
+            }
+            HandleSide::Right => {
+                exit.position.x = new_width as f32;
+                if side == HandleSide::Top {
+                    exit.position.y += delta as f32;
+                }
+            }
+        }
+    }
+}
+
+fn exit_side(exit: &Exit, width: usize, height: usize) -> Option<HandleSide> {
+    let x = exit.position.x as i32;
+    let y = exit.position.y as i32;
+
+    if y == -1 {
+        Some(HandleSide::Top)
+    } else if y == height as i32 {
+        Some(HandleSide::Bottom)
+    } else if x == -1 {
+        Some(HandleSide::Left)
+    } else if x == width as i32 {
+        Some(HandleSide::Right)
+    } else {
+        None
     }
 }
 
