@@ -1,32 +1,12 @@
 use super::*;
+use crate::room::layers::interior_zone_constraints::{
+    zone_constraint_message,
+    InteriorZoneConstraintViolation,
+};
 use engine_core::ecs::{Name, TilePlacement, Transform};
 use engine_core::worlds::{
     BackRoomLayer, InteriorZoneBounds, InteriorZoneScope, LayerCompositionMode, RoomLayer,
 };
-
-fn enter_room_mode() {
-    with_editor(|editor| {
-        let world_id = editor
-            .game
-            .current_world_id
-            .expect("test editor should have a current world");
-        let room_id = editor
-            .game
-            .current_world()
-            .rooms()
-            .first()
-            .map(|room| room.id)
-            .expect("test editor should have a room");
-        editor
-            .game
-            .get_world_mut(world_id)
-            .expect("test editor should resolve current world")
-            .current_room_id = Some(room_id);
-        editor.mode = EditorMode::Room(room_id);
-        editor.cur_world_id = Some(world_id);
-        editor.cur_room_id = Some(room_id);
-    });
-}
 
 #[test]
 fn set_back_layer_composition_mode_cmd_is_undoable() {
@@ -290,6 +270,88 @@ fn update_interior_zones_cmd_is_undoable() {
             old_zones
         );
     });
+}
+
+#[test]
+fn update_interior_zones_cmd_when_new_zones_overlap_then_room_is_unchanged_and_toast_is_queued() {
+    let _ctx = setup_editor("update_interior_zones_cmd_overlap");
+    enter_room_mode();
+
+    let (world_id, room_id, old_zones, overlapping_zones) = with_editor(|editor| {
+        let world_id = editor
+            .game
+            .current_world_id
+            .expect("world should exist");
+        let room_id = editor.cur_room_id.expect("room mode should select a room");
+        let room = editor
+            .game
+            .current_world_mut()
+            .expect("world should exist")
+            .get_room_mut(room_id)
+            .expect("room should exist");
+        room.current_variant_mut().layers.back = Some(BackRoomLayer {
+            interior_zones: vec![
+                InteriorZone {
+                    id: InteriorZoneId(1),
+                    bounds: InteriorZoneBounds::new(0, 0, 16, 16),
+                },
+                InteriorZone {
+                    id: InteriorZoneId(2),
+                    bounds: InteriorZoneBounds::new(32, 0, 16, 16),
+                },
+            ],
+            ..Default::default()
+        });
+        let old_zones = room
+            .current_variant()
+            .layers
+            .back
+            .as_ref()
+            .expect("back layer should exist")
+            .interior_zones
+            .clone();
+        let overlapping_zones = vec![
+            InteriorZone {
+                id: InteriorZoneId(1),
+                bounds: InteriorZoneBounds::new(0, 0, 16, 16),
+            },
+            InteriorZone {
+                id: InteriorZoneId(2),
+                bounds: InteriorZoneBounds::new(8, 0, 16, 16),
+            },
+        ];
+        (world_id, room_id, old_zones, overlapping_zones)
+    });
+
+    push_command(Box::new(UpdateInteriorZonesCmd::new(
+        world_id,
+        room_id,
+        old_zones.clone(),
+        overlapping_zones,
+    )));
+    apply_pending_commands();
+
+    with_editor(|editor| {
+        let room = editor
+            .game
+            .current_world()
+            .get_room(room_id)
+            .expect("room should exist");
+        assert_eq!(
+            room.current_variant()
+                .layers
+                .back
+                .as_ref()
+                .expect("back layer should exist")
+                .interior_zones,
+            old_zones
+        );
+    });
+
+    let toast = crate::editor_global::take_pending_toast().expect("toast should be queued");
+    assert!(toast
+        .msg
+        .contains(zone_constraint_message(InteriorZoneConstraintViolation::Overlap)));
 }
 
 #[test]

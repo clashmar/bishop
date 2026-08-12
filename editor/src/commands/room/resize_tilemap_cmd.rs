@@ -1,7 +1,9 @@
 use bishop::prelude::*;
 use crate::app::EditorMode;
 use crate::commands::editor_command_manager::EditorCommand;
-use crate::tilemap::resize_handle::HandleSide;
+use crate::editor_global::push_toast;
+use crate::room::layers::interior_zone_constraints::{all_zones_fit_room, interior_zones_for_variant};
+use crate::tilemap::resize_handle::{resized_room_rect, HandleSide};
 use crate::with_editor;
 use engine_core::ecs::{Ecs, TilePlacement};
 use engine_core::game::GameCtxMut;
@@ -90,6 +92,14 @@ impl EditorCommand for ResizeTilemapCmd {
                 else {
                     return;
                 };
+
+                let interior_zones = interior_zones_for_variant(room, self.variant_index);
+                let next_room_rect =
+                    resized_room_rect(room.position, room.size, self.side, self.delta, grid_size);
+                if !all_zones_fit_room(interior_zones, next_room_rect) {
+                    push_toast("Cannot leave interior zones out of bounds", 2.5);
+                    return;
+                }
 
                 let map = &mut room.variants[self.variant_index].tilemap;
                 let room_position = &mut room.position;

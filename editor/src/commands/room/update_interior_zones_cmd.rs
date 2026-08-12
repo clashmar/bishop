@@ -1,5 +1,7 @@
 use crate::app::EditorMode;
 use crate::commands::editor_command_manager::EditorCommand;
+use crate::editor_global::push_toast;
+use crate::room::layers::interior_zone_constraints::{validate_zone_set, zone_constraint_message};
 use crate::with_editor;
 use engine_core::worlds::{InteriorZone, RoomId, WorldId};
 
@@ -33,9 +35,15 @@ impl UpdateInteriorZonesCmd {
             let Some(world) = editor.game.get_world_mut(self.world_id) else {
                 return;
             };
+            let grid_size = world.grid_size;
             let Some(room) = world.get_room_mut(self.room_id) else {
                 return;
             };
+            let room_rect = room.world_rect(grid_size);
+            if let Some(violation) = validate_zone_set(zones, room_rect) {
+                push_toast(zone_constraint_message(violation), 2.5);
+                return;
+            }
             let Some(back) = room.current_variant_mut().layers.back.as_mut() else {
                 return;
             };

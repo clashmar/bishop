@@ -1,6 +1,7 @@
 use crate::app::SubEditor;
 use crate::commands::room::UpdateInteriorZonesCmd;
 use crate::editor_global::push_command;
+use crate::room::layers::interior_zone_constraints::try_set_zone_bounds;
 use crate::room::room_editor::{RoomEditor, RoomEditorMode, RoomSceneSubMode};
 use crate::world::coord;
 use bishop::prelude::*;
@@ -293,14 +294,13 @@ fn step_zone_interaction(
                 anchor,
                 ..
             } => {
-                if let Some(zone) = zone_by_id_mut(zones, *zone_id) {
-                    zone.bounds = InteriorZoneBounds::from_rect(dragged_creation_rect(
-                        *anchor,
-                        mouse_world,
-                        room_rect,
-                        grid_size,
-                    ));
-                }
+                let candidate_bounds = InteriorZoneBounds::from_rect(dragged_creation_rect(
+                    *anchor,
+                    mouse_world,
+                    room_rect,
+                    grid_size,
+                ));
+                let _ = try_set_zone_bounds(zones, *zone_id, candidate_bounds, room_rect);
             }
             ZoneInteraction::Moving {
                 zone_id,
@@ -308,14 +308,13 @@ fn step_zone_interaction(
                 original_bounds,
                 ..
             } => {
-                if let Some(zone) = zone_by_id_mut(zones, *zone_id) {
-                    zone.bounds = InteriorZoneBounds::from_rect(move_zone_rect(
-                        *original_bounds,
-                        mouse_world - *drag_start,
-                        room_rect,
-                        grid_size,
-                    ));
-                }
+                let candidate_bounds = InteriorZoneBounds::from_rect(move_zone_rect(
+                    *original_bounds,
+                    mouse_world - *drag_start,
+                    room_rect,
+                    grid_size,
+                ));
+                let _ = try_set_zone_bounds(zones, *zone_id, candidate_bounds, room_rect);
             }
             ZoneInteraction::Resizing {
                 zone_id,
@@ -323,15 +322,14 @@ fn step_zone_interaction(
                 original_bounds,
                 ..
             } => {
-                if let Some(zone) = zone_by_id_mut(zones, *zone_id) {
-                    zone.bounds = InteriorZoneBounds::from_rect(resize_zone_rect(
-                        *original_bounds,
-                        *handle,
-                        mouse_world,
-                        room_rect,
-                        grid_size,
-                    ));
-                }
+                let candidate_bounds = InteriorZoneBounds::from_rect(resize_zone_rect(
+                    *original_bounds,
+                    *handle,
+                    mouse_world,
+                    room_rect,
+                    grid_size,
+                ));
+                let _ = try_set_zone_bounds(zones, *zone_id, candidate_bounds, room_rect);
             }
         }
     }
@@ -405,11 +403,6 @@ fn zone_index(zones: &[InteriorZone], id: InteriorZoneId) -> Option<usize> {
 
 fn zone_by_id(zones: &[InteriorZone], id: InteriorZoneId) -> Option<InteriorZone> {
     zone_index(zones, id).map(|index| zones[index])
-}
-
-fn zone_by_id_mut(zones: &mut [InteriorZone], id: InteriorZoneId) -> Option<&mut InteriorZone> {
-    let index = zone_index(zones, id)?;
-    Some(&mut zones[index])
 }
 
 fn zone_at_point(zones: &[InteriorZone], point: Vec2) -> Option<InteriorZone> {

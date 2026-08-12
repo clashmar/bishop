@@ -6,13 +6,18 @@ use crate::commands::room::{
     UpdateInteriorZonesCmd,
 };
 use crate::editor_assets::assets::{edit_icon, eye_icon};
-use crate::editor_global::push_command;
+use crate::editor_global::{push_command, push_toast};
+use crate::room::layers::interior_zone_constraints::{
+    validate_zone_set,
+    zone_constraint_message,
+    InteriorZoneConstraintViolation,
+};
 use crate::shared::scene_ui::inspector::{InspectorContext, InspectorHostAction};
 use bishop::prelude::*;
 use engine_core::ecs::inspector::layout::InspectorBodyLayout;
 use engine_core::game::GameCtxMut;
 use engine_core::worlds::room::Room;
-use engine_core::worlds::{InteriorZoneBounds, InteriorZoneScope, LayerCompositionMode};
+use engine_core::worlds::{InteriorZone, InteriorZoneBounds, InteriorZoneScope, LayerCompositionMode};
 use std::cell::Cell;
 use widgets::constants::{colors, layout};
 use widgets::{Button, Dropdown, InputCommit, NumberInput, WidgetId};
@@ -87,13 +92,11 @@ impl PropertyModule<Room> for RoomLayersModule {
         insp_ctx: &InspectorContext,
     ) {
         let room_id = room.id;
-        let Some(world_id) = game_ctx
-            .world
-            .as_deref()
-            .map(|world| world.id)
-        else {
+        let Some(world) = game_ctx.world.as_deref() else {
             return;
         };
+        let world_id = world.id;
+        let grid_size = world.grid_size;
         let back_enabled = room.current_variant().layers.back.is_some();
 
         let button_label = if back_enabled {
@@ -337,14 +340,20 @@ impl PropertyModule<Room> for RoomLayersModule {
                 || matches!(commit_h, InputCommit::Committed);
             let edited_bounds = committed_zone_bounds(new_x, new_y, new_w, new_h);
             if committed && edited_bounds != zone.bounds {
-                let mut new_zones = current_zones.clone();
-                new_zones[index].bounds = edited_bounds;
-                push_command(Box::new(UpdateInteriorZonesCmd::new(
-                    world_id,
-                    room_id,
-                    current_zones.clone(),
-                    new_zones,
-                )));
+                let room_rect = room.world_rect(grid_size);
+                match edited_zones_after_commit(&current_zones, index, edited_bounds, room_rect) {
+                    Ok(new_zones) => {
+                        push_command(Box::new(UpdateInteriorZonesCmd::new(
+                            world_id,
+                            room_id,
+                            current_zones.clone(),
+                            new_zones,
+                        )));
+                    }
+                    Err(violation) => {
+                        push_toast(zone_constraint_message(violation), 2.5);
+                    }
+                }
                 return;
             }
         }
@@ -376,6 +385,22 @@ impl PropertyModule<Room> for RoomLayersModule {
 
 fn committed_zone_bounds(x: i32, y: i32, w: i32, h: i32) -> InteriorZoneBounds {
     InteriorZoneBounds::new(x, y, w.max(1), h.max(1))
+}
+
+fn edited_zones_after_commit(
+    current_zones: &[InteriorZone],
+    index: usize,
+    edited_bounds: InteriorZoneBounds,
+    room_rect: Rect,
+) -> Result<Vec<InteriorZone>, InteriorZoneConstraintViolation> {
+    let mut new_zones = current_zones.to_vec();
+    new_zones[index].bounds = edited_bounds;
+
+    if let Some(violation) = validate_zone_set(&new_zones, room_rect) {
+        return Err(violation);
+    }
+
+    Ok(new_zones)
 }
 
 #[cfg(test)]
@@ -415,6 +440,50 @@ mod tests {
         assert_eq!(
             committed_zone_bounds(4, 5, 0, -2),
             InteriorZoneBounds::new(4, 5, 1, 1),
+        );
+    }
+
+    #[test]
+    fn edited_zones_after_commit_rejects_overlap() {
+        let room_rect = Rect::new(0.0, 0.0, 64.0, 64.0);
+        let current_zones = vec![
+            InteriorZone {
+                id: InteriorZoneId(1),
+                bounds: InteriorZoneBounds::new(0, 0, 16, 16),
+            },
+            InteriorZone {
+                id: InteriorZoneId(2),
+                bounds: InteriorZoneBounds::new(32, 0, 16, 16),
+            },
+        ];
+
+        assert_eq!(
+            edited_zones_after_commit(
+                &current_zones,
+                1,
+                InteriorZoneBounds::new(8, 0, 16, 16),
+                room_rect,
+            ),
+            Err(InteriorZoneConstraintViolation::Overlap),
+        );
+    }
+
+    #[test]
+    fn edited_zones_after_commit_rejects_out_of_bounds_bounds() {
+        let room_rect = Rect::new(0.0, 0.0, 32.0, 32.0);
+        let current_zones = vec![InteriorZone {
+            id: InteriorZoneId(1),
+            bounds: InteriorZoneBounds::new(0, 0, 16, 16),
+        }];
+
+        assert_eq!(
+            edited_zones_after_commit(
+                &current_zones,
+                0,
+                InteriorZoneBounds::new(24, 0, 16, 16),
+                room_rect,
+            ),
+            Err(InteriorZoneConstraintViolation::OutOfBounds),
         );
     }
 }

@@ -4,6 +4,7 @@ use crate::editor_global::{push_command, push_toast};
 use crate::gui::gui_constants::MENU_PANEL_HEIGHT;
 use crate::gui::mode_selector::ModeInfo;
 use crate::room::drawing::*;
+use crate::room::layers::interior_zone_constraints::interior_zones_for_variant;
 use crate::shared::input::canvas_blocked_by_global_ui;
 use crate::tilemap::resize_handle::*;
 use bishop::prelude::*;
@@ -259,6 +260,7 @@ impl TileMapEditor {
 
             let preview_data = handle.compute_preview_bounds(room.position, room.size, grid_size);
 
+            let interior_zones = interior_zones_for_variant(room, idx);
             let resize_result = validate_resize(
                 map,
                 &room.exits,
@@ -267,6 +269,7 @@ impl TileMapEditor {
                 other_bounds,
                 preview_data,
                 grid_size,
+                interior_zones,
             );
 
             self.preview_valid = matches!(resize_result, ResizeResult::Success);
@@ -572,6 +575,7 @@ fn resize_result_message(result: ResizeResult) -> Option<&'static str> {
         ResizeResult::InvalidDimensions => Some("Invalid resize dimensions"),
         ResizeResult::Overlap => Some("Resize can not overlap rooms"),
         ResizeResult::StrandedExit => Some("Resize can not strand exits"),
+        ResizeResult::InteriorZonesOutOfBounds => Some("Cannot leave interior zones out of bounds"),
         ResizeResult::Success => None,
     }
 }
