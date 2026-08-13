@@ -129,10 +129,7 @@ impl PrefabEditor {
             );
 
             if hitbox.contains(mouse_screen) {
-                let z = ecs
-                    .get_store::<Layer>()
-                    .get(*entity)
-                    .map_or(0, |layer| layer.z);
+                let z = transform.z;
                 candidates.push((*entity, z));
             }
         }

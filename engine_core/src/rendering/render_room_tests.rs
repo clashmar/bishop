@@ -62,6 +62,22 @@ fn front_layer_alpha(
 }
 
 #[test]
+fn transform_ron_round_trip_preserves_z() {
+    let ron = ron::to_string(&Transform {
+        visible: true,
+        position: Vec2::new(12.0, 34.0),
+        pivot: Pivot::BottomCenter,
+        z: 7,
+    })
+    .unwrap();
+
+    let restored: Transform = ron::from_str(&ron).unwrap();
+
+    assert_eq!(Transform::default().z, 0);
+    assert_eq!(restored.z, 7);
+}
+
+#[test]
 fn collect_interpolated_room_layer_maps_same_z_orders_lower_entity_id_first() {
     let room_id = RoomId(1);
     let world = World::from_rooms(
@@ -73,16 +89,18 @@ fn collect_interpolated_room_layer_maps_same_z_orders_lower_entity_id_first() {
     let mut ecs = Ecs::default();
 
     let lower = ecs.create_entity()
-        .with(Transform::default())
-        .with(Layer { z: 3 })
+        .with(Transform {
+            z: 3,
+            ..Default::default()
+        })
         .with_current_room_layer(room_id, RoomLayer::Front)
         .finish();
     let higher = ecs.create_entity()
         .with(Transform {
             position: vec2(16.0, 0.0),
+            z: 3,
             ..Default::default()
         })
-        .with(Layer { z: 3 })
         .with_current_room_layer(room_id, RoomLayer::Front)
         .finish();
 

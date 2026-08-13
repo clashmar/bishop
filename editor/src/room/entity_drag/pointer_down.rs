@@ -16,7 +16,7 @@ use crate::world::coord;
 use bishop::prelude::{Camera2D, KeyCode, MouseButton, Vec2, WgpuContext};
 use bishop::Input;
 use engine_core::assets::SpriteManager;
-use engine_core::ecs::{Ecs, Entity, Layer, RoomCamera, Transform};
+use engine_core::ecs::{Ecs, Entity, RoomCamera, Transform};
 use engine_core::rendering::resolve_visual_entity;
 use engine_core::worlds::RoomId;
 
@@ -94,7 +94,6 @@ pub(crate) fn try_begin_pointer_interaction(
     }
 
     let active_layer = editor.active_layer_state.active_layer;
-    let layer_store = ecs.get_store::<Layer>();
     let camera_store = ecs.get_store::<RoomCamera>();
     let mut candidates = Vec::new();
     for &entity in ecs.entities_in_room_layer(room_id, active_layer) {
@@ -111,7 +110,7 @@ pub(crate) fn try_begin_pointer_interaction(
             grid_size,
         );
         if hitbox.contains(mouse_screen) {
-            let z = layer_store.get(entity).map_or(0, |layer| layer.z);
+            let z = transform.z;
             let is_camera = camera_store.get(entity).is_some();
             candidates.push((entity, z, is_camera));
         }

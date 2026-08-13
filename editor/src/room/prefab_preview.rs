@@ -221,7 +221,7 @@ fn preview_item_from_node(
         return None;
     }
 
-    let z = parse_node_component::<Layer>(node).map_or(0, |layer| layer.z);
+    let z = transform.z;
 
     if let Some(frame) = parse_node_current_frame(node) {
         if frame.has_valid_asset() {

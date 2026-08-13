@@ -20,6 +20,8 @@ pub struct Transform {
     pub position: Vec2,
     /// Pivot point for rendering. Defaults to BottomCenter.
     pub pivot: Pivot,
+    /// Z order used for rendering and selection.
+    pub z: i32,
 }
 
 impl Default for Transform {
@@ -28,6 +30,7 @@ impl Default for Transform {
             visible: true,
             position: Vec2::ZERO,
             pivot: Pivot::default(),
+            z: 0,
         }
     }
 }

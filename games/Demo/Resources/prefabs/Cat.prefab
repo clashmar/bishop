@@ -34,7 +34,7 @@
                 ),
                 (
                     type_name: "Transform",
-                    ron: "(visible:true,position:(0.0,0.0),pivot:BottomCenter)",
+                    ron: "(visible:true,position:(0.0,0.0),pivot:BottomCenter,z:1)",
                 ),
             ],
         ),

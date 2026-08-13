@@ -68,9 +68,6 @@
 --- Marker component
 ---@class Kinematic
 
----@class Layer
----@field z number
-
 ---@class LayerDoor
 ---@field usable boolean
 ---@field alpha number
@@ -135,6 +132,7 @@
 ---@field visible boolean
 ---@field position vec2
 ---@field pivot table
+---@field z number
 
 ---@class Velocity
 ---@field x number
@@ -166,7 +164,6 @@
 ---@field Grounded "Grounded"
 ---@field Interactable "Interactable"
 ---@field Kinematic "Kinematic"
----@field Layer "Layer"
 ---@field LayerDoor "LayerDoor"
 ---@field Light "Light"
 ---@field Name "Name"
@@ -203,7 +200,6 @@ C.Glow = "Glow"
 C.Grounded = "Grounded"
 C.Interactable = "Interactable"
 C.Kinematic = "Kinematic"
-C.Layer = "Layer"
 C.LayerDoor = "LayerDoor"
 C.Light = "Light"
 C.Name = "Name"

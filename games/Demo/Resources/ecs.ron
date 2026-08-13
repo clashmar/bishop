@@ -581,23 +581,6 @@
             data: {},
         ),
         (
-            type_name: "Layer",
-            data: {
-                (3): (
-                    z: 1,
-                ),
-                (37): (
-                    z: 1,
-                ),
-                (194): (
-                    z: -1,
-                ),
-                (197): (
-                    z: -1,
-                ),
-            },
-        ),
-        (
             type_name: "LayerDoor",
             data: {
                 (191): (
@@ -719,10 +702,6 @@
                         (
                             type_name: "Grounded",
                             ron: "(false)",
-                        ),
-                        (
-                            type_name: "Layer",
-                            ron: "(\n    z: 1,\n)",
                         ),
                         (
                             type_name: "MotionBody",
@@ -1142,103 +1121,123 @@
             data: {
                 (2): (
                     visible: true,
-                    position: (140.0, 72.0),
+                    position: (140.0, 72.000015),
                     pivot: BottomCenter,
+                    z: 0,
                 ),
                 (3): (
                     visible: true,
                     position: (0.0, 0.0),
                     pivot: BottomCenter,
+                    z: 1,
                 ),
                 (24): (
                     visible: true,
                     position: (-64.0, 36.0),
                     pivot: CenterLeft,
+                    z: 0,
                 ),
                 (37): (
                     visible: true,
                     position: (164.0, 72.0),
                     pivot: BottomCenter,
+                    z: 1,
                 ),
                 (38): (
                     visible: true,
                     position: (-84.0, 72.0),
                     pivot: BottomCenter,
+                    z: 0,
                 ),
                 (41): (
                     visible: true,
                     position: (128.0, 72.0),
                     pivot: CenterLeft,
+                    z: 0,
                 ),
                 (46): (
                     visible: true,
                     position: (-44.0, 72.0),
                     pivot: BottomCenter,
+                    z: 0,
                 ),
                 (52): (
                     visible: true,
                     position: (152.0, 144.0),
                     pivot: BottomCenter,
+                    z: 0,
                 ),
                 (62): (
                     visible: true,
                     position: (24.0, 64.0),
                     pivot: BottomCenter,
+                    z: 0,
                 ),
                 (63): (
                     visible: true,
                     position: (244.0, 72.0),
                     pivot: BottomCenter,
+                    z: 0,
                 ),
                 (65): (
                     visible: true,
                     position: (128.0, 0.0),
                     pivot: TopLeft,
+                    z: 0,
                 ),
                 (70): (
                     visible: true,
                     position: (128.0, 72.0),
                     pivot: CenterLeft,
+                    z: 0,
                 ),
                 (71): (
                     visible: true,
                     position: (24.0, 144.0),
                     pivot: BottomCenter,
+                    z: 0,
                 ),
                 (74): (
                     visible: true,
                     position: (72.0, 144.0),
                     pivot: BottomCenter,
+                    z: 0,
                 ),
                 (75): (
                     visible: true,
                     position: (168.0, 144.0),
                     pivot: BottomCenter,
+                    z: 0,
                 ),
                 (78): (
                     visible: true,
                     position: (228.0, 24.0),
                     pivot: BottomCenter,
+                    z: 0,
                 ),
                 (191): (
                     visible: true,
                     position: (36.0, 72.0),
                     pivot: BottomCenter,
+                    z: 0,
                 ),
                 (192): (
                     visible: true,
-                    position: (100.0, 72.0),
+                    position: (100.0, 71.999985),
                     pivot: BottomCenter,
+                    z: 0,
                 ),
                 (194): (
                     visible: true,
                     position: (36.0, 72.0),
                     pivot: BottomCenter,
+                    z: -1,
                 ),
                 (197): (
                     visible: true,
-                    position: (100.0, 72.0),
+                    position: (100.0, 71.99999),
                     pivot: BottomCenter,
+                    z: -1,
                 ),
             },
         ),

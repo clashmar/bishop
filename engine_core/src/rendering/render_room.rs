@@ -248,7 +248,6 @@ fn collect_interpolated_room_layer_maps<'a>(
 
     let trans_store = ecs.get_store::<Transform>();
     let cam_store = ecs.get_store::<RoomCamera>();
-    let layer_store = ecs.get_store::<Layer>();
     let glow_store = ecs.get_store::<Glow>();
     let sub_pixel_store = ecs.get_store::<SubPixel>();
 
@@ -289,7 +288,7 @@ fn collect_interpolated_room_layer_maps<'a>(
             let room_layer = ecs
                 .get::<CurrentRoom>(entity)
                 .map_or(RoomLayer::Front, |current_room| current_room.layer);
-            let z = layer_store.get(entity).map_or(0, |layer| layer.z);
+            let z = transform.z;
             let layer_map = match room_layer {
                 RoomLayer::Front => &mut maps.front,
                 RoomLayer::Back => &mut maps.back,

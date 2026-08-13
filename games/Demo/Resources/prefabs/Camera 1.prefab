@@ -18,7 +18,7 @@
                 ),
                 (
                     type_name: "Transform",
-                    ron: "(visible:true,position:(0.0,0.0),pivot:TopLeft)",
+                    ron: "(visible:true,position:(0.0,0.0),pivot:TopLeft,z:0)",
                 ),
             ],
         ),

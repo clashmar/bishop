@@ -15,6 +15,7 @@ function Entity:despawn() end
 ---@overload fun(self: Entity, component: "AudioSource"): AudioSource
 ---@overload fun(self: Entity, component: "Children"): Children
 ---@overload fun(self: Entity, component: "Collider"): Collider
+---@overload fun(self: Entity, component: "Cover"): Cover
 ---@overload fun(self: Entity, component: "CurrentFrame"): CurrentFrame
 ---@overload fun(self: Entity, component: "Damage"): Damage
 ---@overload fun(self: Entity, component: "FacingDirection"): FacingDirection
@@ -23,7 +24,7 @@ function Entity:despawn() end
 ---@overload fun(self: Entity, component: "Grounded"): Grounded
 ---@overload fun(self: Entity, component: "Interactable"): Interactable
 ---@overload fun(self: Entity, component: "Kinematic"): Kinematic
----@overload fun(self: Entity, component: "Layer"): Layer
+---@overload fun(self: Entity, component: "LayerDoor"): LayerDoor
 ---@overload fun(self: Entity, component: "Light"): Light
 ---@overload fun(self: Entity, component: "Name"): Name
 ---@overload fun(self: Entity, component: "Parent"): Parent
@@ -36,6 +37,7 @@ function Entity:despawn() end
 ---@overload fun(self: Entity, component: "SpeechBubble"): SpeechBubble
 ---@overload fun(self: Entity, component: "Sprite"): Sprite
 ---@overload fun(self: Entity, component: "SubPixel"): SubPixel
+---@overload fun(self: Entity, component: "TilePlacement"): TilePlacement
 ---@overload fun(self: Entity, component: "Transform"): Transform
 ---@overload fun(self: Entity, component: "Velocity"): Velocity
 ---@overload fun(self: Entity, component: "Walkable"): Walkable
@@ -72,6 +74,10 @@ function Entity:set_children(v) end
 function Entity:set_collider(v) end
 
 ---@param self Entity
+---@param v Cover
+function Entity:set_cover(v) end
+
+---@param self Entity
 ---@param v CurrentFrame
 function Entity:set_current_frame(v) end
 
@@ -104,8 +110,8 @@ function Entity:set_interactable(v) end
 function Entity:set_kinematic(v) end
 
 ---@param self Entity
----@param v Layer
-function Entity:set_layer(v) end
+---@param v LayerDoor
+function Entity:set_layer_door(v) end
 
 ---@param self Entity
 ---@param v Light
@@ -154,6 +160,10 @@ function Entity:set_sprite(v) end
 ---@param self Entity
 ---@param v SubPixel
 function Entity:set_sub_pixel(v) end
+
+---@param self Entity
+---@param v TilePlacement
+function Entity:set_tile_placement(v) end
 
 ---@param self Entity
 ---@param v Transform
@@ -234,6 +244,11 @@ function Entity:move_by(delta) end
 ---@return nil
 function Entity:move_to_entry(entry) end
 
+--- Moves this entity between the Front and Back layers in its current room.
+---@param layer string
+---@return nil
+function Entity:move_to_layer(layer) end
+
 --- Moves this entity to the target room.
 ---@param room_id integer
 ---@return nil
@@ -252,6 +267,10 @@ function Entity:trigger_world_exit() end
 
 --- Removes this entity from its current room membership.
 function Entity:remove_from_room() end
+
+--- Returns the authored room layer this entity belongs to.
+---@return string|nil
+function Entity:current_layer() end
 
 --- Returns the room this entity belongs to.
 ---@return integer|nil

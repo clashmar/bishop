@@ -6,11 +6,29 @@ fn sprite_ron(sprite_id: usize) -> String {
     format!("Sprite(sprite: SpriteId({sprite_id}))")
 }
 
-fn transform_ron(position: (f32, f32), pivot: Pivot) -> String {
+fn transform_ron(position: (f32, f32), pivot: Pivot, z: i32) -> String {
     format!(
-        "Transform(visible: true, position: ({:.1}, {:.1}), pivot: {:?})",
-        position.0, position.1, pivot
+        "Transform(visible: true, position: ({:.1}, {:.1}), pivot: {:?}, z: {})",
+        position.0, position.1, pivot, z
     )
+}
+
+fn transform_component(
+    visible: bool,
+    position: (f32, f32),
+    pivot: Pivot,
+    z: i32,
+) -> ComponentSnapshot {
+    ComponentSnapshot {
+        type_name: comp_type_name::<Transform>().to_string(),
+        ron: ron::to_string(&Transform {
+            visible,
+            position: Vec2::new(position.0, position.1),
+            pivot,
+            z,
+        })
+        .unwrap(),
+    }
 }
 
 fn node(node_id: usize, transform_ron: String, sprite_ron: String) -> PrefabNode {
@@ -65,7 +83,7 @@ fn animation_node(
         components: vec![
             ComponentSnapshot {
                 type_name: comp_type_name::<Transform>().to_string(),
-                ron: transform_ron(position, pivot),
+                ron: transform_ron(position, pivot, 0),
             },
             animation,
         ],
@@ -108,7 +126,7 @@ fn current_frame_node(
         components: vec![
             ComponentSnapshot {
                 type_name: comp_type_name::<Transform>().to_string(),
-                ron: transform_ron(position, pivot),
+                ron: transform_ron(position, pivot, 0),
             },
             current_frame,
         ],
@@ -137,7 +155,7 @@ fn sprite_size(_: SpriteId) -> Option<Vec2> {
 fn stamp_position_applies_pivot_offset() {
     let prefab = make_prefab(vec![node(
         1,
-        transform_ron((0.0, 0.0), Pivot::BottomCenter),
+        transform_ron((0.0, 0.0), Pivot::BottomCenter, 0),
         sprite_ron(1),
     )]);
     let preview = build_prefab_preview_with(&prefab, sprite_size, |_, _| None);
@@ -151,10 +169,10 @@ fn stamp_position_applies_pivot_offset() {
 #[test]
 fn stamp_bounds_union_covers_all_pivot_adjusted_rects() {
     let prefab = make_prefab(vec![
-        node(1, transform_ron((0.0, 0.0), Pivot::TopLeft), sprite_ron(1)),
+        node(1, transform_ron((0.0, 0.0), Pivot::TopLeft, 0), sprite_ron(1)),
         node(
             2,
-            transform_ron((64.0, 0.0), Pivot::BottomCenter),
+            transform_ron((64.0, 0.0), Pivot::BottomCenter, 0),
             sprite_ron(2),
         ),
     ]);
@@ -191,15 +209,11 @@ fn items_sorted_by_z_ascending() {
         components: vec![
             ComponentSnapshot {
                 type_name: comp_type_name::<Transform>().to_string(),
-                ron: transform_ron((0.0, 0.0), Pivot::TopLeft),
+                ron: transform_ron((0.0, 0.0), Pivot::TopLeft, 5),
             },
             ComponentSnapshot {
                 type_name: comp_type_name::<Sprite>().to_string(),
                 ron: sprite_ron(1),
-            },
-            ComponentSnapshot {
-                type_name: comp_type_name::<Layer>().to_string(),
-                ron: "Layer(z: 5)".to_string(),
             },
         ],
     };
@@ -209,15 +223,11 @@ fn items_sorted_by_z_ascending() {
         components: vec![
             ComponentSnapshot {
                 type_name: comp_type_name::<Transform>().to_string(),
-                ron: transform_ron((0.0, 0.0), Pivot::TopLeft),
+                ron: transform_ron((0.0, 0.0), Pivot::TopLeft, -2),
             },
             ComponentSnapshot {
                 type_name: comp_type_name::<Sprite>().to_string(),
                 ron: sprite_ron(2),
-            },
-            ComponentSnapshot {
-                type_name: comp_type_name::<Layer>().to_string(),
-                ron: "Layer(z: -2)".to_string(),
             },
         ],
     };
@@ -233,7 +243,7 @@ fn items_sorted_by_z_ascending() {
 fn palette_bounds_differ_from_stamp_bounds_when_pivot_requires_it() {
     let prefab = make_prefab(vec![node(
         1,
-        transform_ron((0.0, 0.0), Pivot::BottomCenter),
+        transform_ron((0.0, 0.0), Pivot::BottomCenter, 0),
         sprite_ron(1),
     )]);
     let preview = build_prefab_preview_with(&prefab, sprite_size, |_, _| None);
@@ -381,7 +391,7 @@ fn node_with_components(node_id: usize, components: Vec<ComponentSnapshot>) -> P
 #[test]
 fn placeholder_entity_visual_camera_returns_camera_icon() {
     let node = node_with_components(1, vec![
-        component_snapshot(comp_type_name::<Transform>(), "Transform(visible: true, position: (0,0), pivot: BottomCenter)"),
+        transform_component(true, (0.0, 0.0), Pivot::BottomCenter, 0),
         component_snapshot(comp_type_name::<RoomCamera>(), "RoomCamera(zoom: (1,1))"),
     ]);
     assert!(matches!(placeholder_entity_visual(&node), EntityVisual::CameraIcon));
@@ -390,7 +400,7 @@ fn placeholder_entity_visual_camera_returns_camera_icon() {
 #[test]
 fn placeholder_entity_visual_entry_and_exit_returns_portal_icon() {
     let node = node_with_components(1, vec![
-        component_snapshot(comp_type_name::<Transform>(), "Transform(visible: true, position: (0,0), pivot: BottomCenter)"),
+        transform_component(true, (0.0, 0.0), Pivot::BottomCenter, 0),
         component_snapshot(comp_type_name::<WorldEntry>(), "WorldEntry()"),
         component_snapshot(comp_type_name::<WorldExit>(), "WorldExit(trigger: OnInteract)"),
     ]);
@@ -400,7 +410,7 @@ fn placeholder_entity_visual_entry_and_exit_returns_portal_icon() {
 #[test]
 fn placeholder_entity_visual_entry_only_returns_entry_icon() {
     let node = node_with_components(1, vec![
-        component_snapshot(comp_type_name::<Transform>(), "Transform(visible: true, position: (0,0), pivot: BottomCenter)"),
+        transform_component(true, (0.0, 0.0), Pivot::BottomCenter, 0),
         component_snapshot(comp_type_name::<WorldEntry>(), "WorldEntry()"),
     ]);
     assert!(matches!(placeholder_entity_visual(&node), EntityVisual::EntryIcon));
@@ -409,7 +419,7 @@ fn placeholder_entity_visual_entry_only_returns_entry_icon() {
 #[test]
 fn placeholder_entity_visual_exit_only_returns_exit_icon() {
     let node = node_with_components(1, vec![
-        component_snapshot(comp_type_name::<Transform>(), "Transform(visible: true, position: (0,0), pivot: BottomCenter)"),
+        transform_component(true, (0.0, 0.0), Pivot::BottomCenter, 0),
         component_snapshot(comp_type_name::<WorldExit>(), "WorldExit(trigger: OnInteract)"),
     ]);
     assert!(matches!(placeholder_entity_visual(&node), EntityVisual::ExitIcon));
@@ -418,7 +428,7 @@ fn placeholder_entity_visual_exit_only_returns_exit_icon() {
 #[test]
 fn placeholder_entity_visual_light_returns_light_placeholder() {
     let node = node_with_components(1, vec![
-        component_snapshot(comp_type_name::<Transform>(), "Transform(visible: true, position: (0,0), pivot: BottomCenter)"),
+        transform_component(true, (0.0, 0.0), Pivot::BottomCenter, 0),
         component_snapshot(comp_type_name::<Light>(), "Light()"),
     ]);
     assert!(matches!(placeholder_entity_visual(&node), EntityVisual::LightPlaceholder));
@@ -427,7 +437,7 @@ fn placeholder_entity_visual_light_returns_light_placeholder() {
 #[test]
 fn placeholder_entity_visual_glow_returns_glow_placeholder() {
     let node = node_with_components(1, vec![
-        component_snapshot(comp_type_name::<Transform>(), "Transform(visible: true, position: (0,0), pivot: BottomCenter)"),
+        transform_component(true, (0.0, 0.0), Pivot::BottomCenter, 0),
         component_snapshot(comp_type_name::<Glow>(), "Glow(sprite_id: SpriteId(1))"),
     ]);
     assert!(matches!(placeholder_entity_visual(&node), EntityVisual::GlowPlaceholder));
@@ -436,7 +446,7 @@ fn placeholder_entity_visual_glow_returns_glow_placeholder() {
 #[test]
 fn placeholder_entity_visual_no_special_components_returns_generic() {
     let node = node_with_components(1, vec![
-        component_snapshot(comp_type_name::<Transform>(), "Transform(visible: true, position: (0,0), pivot: BottomCenter)"),
+        transform_component(true, (0.0, 0.0), Pivot::BottomCenter, 0),
     ]);
     assert!(matches!(placeholder_entity_visual(&node), EntityVisual::GenericPlaceholder));
 }
@@ -444,7 +454,7 @@ fn placeholder_entity_visual_no_special_components_returns_generic() {
 #[test]
 fn node_has_valid_visual_true_for_valid_sprite() {
     let node = node_with_components(1, vec![
-        component_snapshot(comp_type_name::<Transform>(), "Transform(visible: true, position: (0,0), pivot: BottomCenter)"),
+        transform_component(true, (0.0, 0.0), Pivot::BottomCenter, 0),
         component_snapshot(comp_type_name::<Sprite>(), &sprite_ron(1)),
     ]);
     assert!(node_has_valid_visual(&node));
@@ -453,7 +463,7 @@ fn node_has_valid_visual_true_for_valid_sprite() {
 #[test]
 fn node_has_valid_visual_false_for_invalid_sprite() {
     let node = node_with_components(1, vec![
-        component_snapshot(comp_type_name::<Transform>(), "Transform(visible: true, position: (0,0), pivot: BottomCenter)"),
+        transform_component(true, (0.0, 0.0), Pivot::BottomCenter, 0),
         component_snapshot(comp_type_name::<Sprite>(), &sprite_ron(0)),
     ]);
     assert!(!node_has_valid_visual(&node));
@@ -488,7 +498,7 @@ fn collect_fallback_visuals_excludes_nodes_with_valid_visuals() {
         root_node_id: 1,
         nodes: vec![
             node_with_components(1, vec![
-                component_snapshot(comp_type_name::<Transform>(), "Transform(visible: true, position: (0,0), pivot: BottomCenter)"),
+                transform_component(true, (0.0, 0.0), Pivot::BottomCenter, 0),
                 component_snapshot(comp_type_name::<Sprite>(), &sprite_ron(1)),
             ]),
         ],
@@ -507,7 +517,7 @@ fn collect_fallback_visuals_excludes_generic_placeholder_nodes() {
         nodes: vec![node_with_components(1, vec![
             component_snapshot(
                 comp_type_name::<Transform>(),
-                "Transform(visible: true, position: (10,20), pivot: BottomCenter)",
+                "Transform(visible: true, position: (10,20), pivot: BottomCenter, z: 0)",
             ),
         ])],
     };
@@ -524,7 +534,7 @@ fn collect_fallback_visuals_includes_camera_node() {
         root_node_id: 1,
         nodes: vec![
             node_with_components(1, vec![
-                component_snapshot(comp_type_name::<Transform>(), "Transform(visible: true, position: (10,20), pivot: BottomCenter)"),
+                transform_component(true, (10.0, 20.0), Pivot::BottomCenter, 0),
                 component_snapshot(comp_type_name::<RoomCamera>(), "RoomCamera(zoom: (1,1))"),
             ]),
         ],
@@ -543,7 +553,7 @@ fn collect_fallback_visuals_excludes_invisible_nodes() {
         root_node_id: 1,
         nodes: vec![
             node_with_components(1, vec![
-                component_snapshot(comp_type_name::<Transform>(), "Transform(visible: false, position: (0,0), pivot: BottomCenter)"),
+                transform_component(false, (0.0, 0.0), Pivot::BottomCenter, 0),
                 component_snapshot(comp_type_name::<RoomCamera>(), "RoomCamera(zoom: (1,1))"),
             ]),
         ],
