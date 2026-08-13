@@ -39,7 +39,6 @@ impl DiagnosticsPanel {
         // Asset metrics
         let asset_metrics = AssetMetrics {
             texture_count: game.sprite_manager.texture_count(),
-            tile_def_count: game.tile_registry.len(),
             sprite_id_count: game.sprite_manager.registered_id_count(),
             script_id_count: game.script_manager.registered_id_count(),
         };
@@ -58,8 +57,6 @@ impl DiagnosticsPanel {
             entity_count,
             component_store_count: ecs.stores.len(),
             components_by_type: HashMap::new(),
-            missing_tile_definition_count: ecs.missing_tile_definition_count(&game.tile_registry),
-            duplicate_tile_occupancy_count: ecs.duplicate_tile_occupancy_count(),
         };
 
         // Command metrics
@@ -173,7 +170,7 @@ impl PanelDefinition for DiagnosticsPanel {
         content_height += SECTION_SPACING;
 
         content_height += ROW_HEIGHT + SECTION_SPACING; // Assets
-        content_height += 3.0 * ROW_HEIGHT; // Textures, Tile Defs, Sprite IDs
+        content_height += 2.0 * ROW_HEIGHT; // Textures, Sprite IDs
         content_height += SECTION_SPACING;
 
         content_height += ROW_HEIGHT + SECTION_SPACING; // Scripts
@@ -270,15 +267,6 @@ impl PanelDefinition for DiagnosticsPanel {
             &area,
             "Textures",
             &snapshot.assets.texture_count.to_string(),
-            y,
-            &rect,
-            Color::WHITE,
-        );
-        y = Self::draw_row(
-            ctx,
-            &area,
-            "Tile Defs",
-            &snapshot.assets.tile_def_count.to_string(),
             y,
             &rect,
             Color::WHITE,

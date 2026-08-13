@@ -1,6 +1,6 @@
 use crate::ecs::entity::Entity;
 use crate::ecs::{CurrentRoom, Ecs, TilePlacement};
-use crate::tiles::{TileDefId, TileRegistry};
+use crate::tiles::TileDefId;
 use crate::worlds::{RoomId, RoomLayer};
 use once_cell::sync::Lazy;
 use std::collections::{HashMap, HashSet};
@@ -69,33 +69,6 @@ impl Ecs {
     ) -> Option<TilePlacement> {
         let entity = self.tile_entity_at(room_id, layer, grid_x, grid_y)?;
         self.get::<TilePlacement>(entity).copied()
-    }
-
-    /// Returns the number of tile placements referencing missing tile definitions.
-    pub fn missing_tile_definition_count(&self, tile_registry: &TileRegistry) -> usize {
-        self.get_store::<TilePlacement>()
-            .data
-            .values()
-            .filter(|placement| tile_registry.get(placement.definition).is_none())
-            .count()
-    }
-
-    /// Returns the number of duplicate tile placements sharing one room/layer/cell.
-    pub fn duplicate_tile_occupancy_count(&self) -> usize {
-        let mut seen = HashSet::new();
-        let mut duplicates = 0;
-
-        for (&entity, placement) in &self.get_store::<TilePlacement>().data {
-            let Some(current_room) = self.get::<CurrentRoom>(entity).copied() else {
-                continue;
-            };
-
-            if !seen.insert((current_room.room_id, current_room.layer, placement.grid_x, placement.grid_y)) {
-                duplicates += 1;
-            }
-        }
-
-        duplicates
     }
 
     /// Removes room membership for an entity if it has one.

@@ -98,18 +98,6 @@ impl DiagnosticsCollector {
             ));
         }
 
-        if current.ecs.missing_tile_definition_count > 0 {
-            warnings.push(DiagnosticWarning::MissingTileDefinitions(
-                current.ecs.missing_tile_definition_count,
-            ));
-        }
-
-        if current.ecs.duplicate_tile_occupancy_count > 0 {
-            warnings.push(DiagnosticWarning::DuplicateTileOccupancy(
-                current.ecs.duplicate_tile_occupancy_count,
-            ));
-        }
-
         // Event listener growth warning
         if let Some(prev) = &self.previous_snapshot {
             let prev_count = prev.scripts.event_listener_count;
@@ -140,34 +128,18 @@ mod tests {
     use super::*;
 
     #[test]
-    fn generate_warnings_when_tile_definition_references_missing_then_reports_warning() {
+    fn generate_warnings_when_fps_drops_below_threshold_then_reports_warning() {
         let collector = DiagnosticsCollector::new();
+        let mut frame = FrameMetrics::default();
+        frame.record_frame(1.0 / 24.0);
         let snapshot = DiagnosticsSnapshot {
-            ecs: EcsMetrics {
-                missing_tile_definition_count: 2,
-                ..Default::default()
-            },
+            frame,
             ..Default::default()
         };
 
         let warnings = collector.generate_warnings(&snapshot);
 
-        assert!(warnings.contains(&DiagnosticWarning::MissingTileDefinitions(2)));
-    }
-
-    #[test]
-    fn generate_warnings_when_duplicate_tile_occupancy_exists_then_reports_warning() {
-        let collector = DiagnosticsCollector::new();
-        let snapshot = DiagnosticsSnapshot {
-            ecs: EcsMetrics {
-                duplicate_tile_occupancy_count: 1,
-                ..Default::default()
-            },
-            ..Default::default()
-        };
-
-        let warnings = collector.generate_warnings(&snapshot);
-
-        assert!(warnings.contains(&DiagnosticWarning::DuplicateTileOccupancy(1)));
+        assert!(warnings.contains(&DiagnosticWarning::LowFps(24.0)));
     }
 }
+

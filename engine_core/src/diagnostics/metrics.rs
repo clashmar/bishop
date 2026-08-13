@@ -64,8 +64,6 @@ impl FrameMetrics {
 pub struct AssetMetrics {
     /// Number of loaded textures.
     pub texture_count: usize,
-    /// Number of tile definitions.
-    pub tile_def_count: usize,
     /// Number of sprite ID mappings.
     pub sprite_id_count: usize,
     /// Number of script ID mappings.
@@ -92,10 +90,6 @@ pub struct EcsMetrics {
     pub component_store_count: usize,
     /// Component counts by type name.
     pub components_by_type: HashMap<String, usize>,
-    /// Number of tile placements referencing missing tile definitions.
-    pub missing_tile_definition_count: usize,
-    /// Number of duplicate tile placements sharing one room/cell.
-    pub duplicate_tile_occupancy_count: usize,
 }
 
 /// Editor command stack metrics.
@@ -132,10 +126,6 @@ pub enum DiagnosticWarning {
     LargeUndoStack(usize),
     /// Script instance leak detected (instances without matching entities).
     ScriptInstanceLeak { orphaned: usize },
-    /// Tile placements reference missing tile definitions.
-    MissingTileDefinitions(usize),
-    /// Multiple tile placements occupy the same room/cell.
-    DuplicateTileOccupancy(usize),
 }
 
 impl DiagnosticWarning {
@@ -156,12 +146,6 @@ impl DiagnosticWarning {
             }
             DiagnosticWarning::ScriptInstanceLeak { orphaned } => {
                 format!("Script instance leak: {} orphaned", orphaned)
-            }
-            DiagnosticWarning::MissingTileDefinitions(count) => {
-                format!("Missing tile definitions: {} placements", count)
-            }
-            DiagnosticWarning::DuplicateTileOccupancy(count) => {
-                format!("Duplicate tile occupancy: {} extra placements", count)
             }
         }
     }

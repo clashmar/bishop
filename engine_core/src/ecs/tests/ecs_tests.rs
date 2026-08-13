@@ -1,11 +1,10 @@
 use super::*;
 use crate::assets::asset_registry::AssetRegistry;
 use crate::assets::sprite_manager::SpriteManager;
-use crate::ecs::SpriteId;
 use crate::game::GameCtxMut;
 use crate::prefab::PrefabManager;
 use crate::scripting::script_manager::ScriptManager;
-use crate::tiles::{TileDef, TileDefId, TileMap, TileRegistry};
+use crate::tiles::{TileDefId, TileMap, TileRegistry};
 use crate::worlds::{
     BackRoomLayer,
     InteriorZone,
@@ -383,50 +382,6 @@ fn finalize_after_load_rebuilds_definition_link_entities_for_tile_placements() {
     assert_eq!(linked.len(), 2);
     assert!(linked.contains(&first));
     assert!(linked.contains(&second));
-}
-
-#[test]
-fn missing_tile_definition_count_when_some_references_are_unknown_then_counts_each_missing_placement() {
-    let mut ecs = Ecs::default();
-    let first = ecs.create_entity().finish();
-    let second = ecs.create_entity().finish();
-    let known = ecs.create_entity().finish();
-    let mut tile_registry = TileRegistry::default();
-    let known_tile_id = tile_registry.insert(TileDef {
-        sprite_id: SpriteId(1),
-        components: Vec::new(),
-    });
-
-    ecs.insert_component(first, TilePlacement::new(TileDefId(99), 0, 0));
-    ecs.insert_component(second, TilePlacement::new(TileDefId(99), 1, 0));
-    ecs.insert_component(known, TilePlacement::new(known_tile_id, 2, 0));
-
-    assert_eq!(ecs.missing_tile_definition_count(&tile_registry), 2);
-}
-
-#[test]
-fn duplicate_tile_occupancy_count_when_multiple_placements_share_room_layer_cell_then_counts_each_extra_placement() {
-    let mut ecs = Ecs::default();
-    let first = ecs.create_entity().finish();
-    let second = ecs.create_entity().finish();
-    let third = ecs.create_entity().finish();
-    let different_cell = ecs.create_entity().finish();
-    let room_id = RoomId(44);
-
-    ecs.get_store_mut::<TilePlacement>()
-        .insert(first, TilePlacement::new(TileDefId(1), 2, 3));
-    ecs.get_store_mut::<CurrentRoom>().insert(first, CurrentRoom::front(room_id));
-    ecs.get_store_mut::<TilePlacement>()
-        .insert(second, TilePlacement::new(TileDefId(2), 2, 3));
-    ecs.get_store_mut::<CurrentRoom>().insert(second, CurrentRoom::front(room_id));
-    ecs.get_store_mut::<TilePlacement>()
-        .insert(third, TilePlacement::new(TileDefId(3), 2, 3));
-    ecs.get_store_mut::<CurrentRoom>().insert(third, CurrentRoom::front(room_id));
-    ecs.get_store_mut::<TilePlacement>()
-        .insert(different_cell, TilePlacement::new(TileDefId(4), 3, 3));
-    ecs.get_store_mut::<CurrentRoom>().insert(different_cell, CurrentRoom::front(room_id));
-
-    assert_eq!(ecs.duplicate_tile_occupancy_count(), 2);
 }
 
 #[test]
