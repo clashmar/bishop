@@ -13,7 +13,8 @@ pub(crate) use self::state::DragState;
 use crate::app::{EditorMode, SubEditor};
 use crate::commands::room::*;
 use crate::editor_global::*;
-use crate::gui::inspector::collider_module::edit::ColliderEditConfig;
+use crate::gui::inspector::collider_module::edit::{is_collider_edit_active_for, ColliderEditConfig};
+use crate::gui::inspector::interactable_module::edit::is_interactable_edit_active_for;
 use crate::room::collider_drag::{
     apply_collider_edit_nudge,
     collider_update_command,
@@ -28,6 +29,7 @@ use crate::room::room_editor::*;
 use crate::room::selection::*;
 use crate::shared::input::shortcuts_blocked;
 use crate::world::coord;
+use engine_core::rendering::resolve_visual_entity;
 use bishop::prelude::*;
 use engine_core::assets::*;
 use engine_core::controls::get_omni_input_pressed;
@@ -206,26 +208,31 @@ impl RoomEditor {
         }
 
         let step = dir;
-        if let Some(cmd) = apply_interactable_edit_nudge(
-            self.single_selected_entity(),
-            ecs,
-            room_id,
-            self.active_layer_state.active_layer,
-            step,
-        ) {
-            push_command(cmd);
-            return;
+        let selected = self.single_selected_entity();
+        if selected.is_some_and(is_interactable_edit_active_for) {
+            if let Some(cmd) = apply_interactable_edit_nudge(
+                selected,
+                ecs,
+                room_id,
+                self.active_layer_state.active_layer,
+                step,
+            ) {
+                push_command(cmd);
+                return;
+            }
         }
 
-        if let Some(cmd) = apply_collider_edit_nudge(
-            self.single_selected_entity(),
-            ecs,
-            room_id,
-            self.active_layer_state.active_layer,
-            step,
-        ) {
-            push_command(cmd);
-            return;
+        if selected.is_some_and(|e| is_collider_edit_active_for(resolve_visual_entity(ecs, e))) {
+            if let Some(cmd) = apply_collider_edit_nudge(
+                selected,
+                ecs,
+                room_id,
+                self.active_layer_state.active_layer,
+                step,
+            ) {
+                push_command(cmd);
+                return;
+            }
         }
 
         let mut moves = Vec::new();

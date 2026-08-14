@@ -1,5 +1,4 @@
 use bishop::{
-    Draw,
     Text,
     prelude::{Rect, Vec2, WgpuContext, vec2},
 };
@@ -10,7 +9,7 @@ use engine_core::ecs::{Ecs, Entity, Interactable, InteractableShape};
 use engine_core::game::GameCtxMut;
 use engine_core::ui::measure_text;
 use widgets::constants::{colors, layout};
-use widgets::{Button, Color, Dropdown, InputCommit, NumberInput, Widget, WidgetId};
+use widgets::{Button, Dropdown, InputCommit, NumberInput, Widget, WidgetId};
 
 use crate::editor_assets::assets::move_icon;
 
@@ -126,16 +125,8 @@ impl InspectorModule for InteractableModule {
             EDIT_BTN_SIZE,
             EDIT_BTN_SIZE,
         );
-        if edit_mode_active {
-            ctx.draw_rectangle(
-                edit_btn_rect.x - 2.0,
-                edit_btn_rect.y - 2.0,
-                edit_btn_rect.w + 4.0,
-                edit_btn_rect.h + 4.0,
-                Color::new(0.39, 0.78, 1.0, 0.31),
-            );
-        }
         if Button::icon(edit_btn_rect, move_icon(), "Edit Interactable")
+            .active(edit_mode_active)
             .suppressed(blocked)
             .show(ctx)
         {

@@ -9,7 +9,7 @@ use engine_core::ui::measure_text;
 use strum::IntoEnumIterator;
 use widgets::constants::colors;
 use widgets::constants::layout as layout_constants;
-use widgets::{Button, Color, Dropdown, NumberInput, Rect, Widget, WidgetId};
+use widgets::{Button, Dropdown, NumberInput, Rect, Widget, WidgetId};
 
 use crate::editor_assets::assets::{move_icon, refresh_icon};
 use crate::gui::inspector::interactable_module::edit::clear_interactable_edit;
@@ -174,16 +174,8 @@ impl InspectorModule for ColliderModule {
             EDIT_BTN_SIZE,
             EDIT_BTN_SIZE,
         );
-        if edit_mode_active {
-            ctx.draw_rectangle(
-                edit_btn_rect.x - 2.0,
-                edit_btn_rect.y - 2.0,
-                edit_btn_rect.w + 4.0,
-                edit_btn_rect.h + 4.0,
-                Color::new(0.39, 0.78, 1.0, 0.31),
-            );
-        }
         if Button::icon(edit_btn_rect, move_icon(), "Edit Collider")
+            .active(edit_mode_active)
             .suppressed(blocked)
             .show(ctx)
         {
