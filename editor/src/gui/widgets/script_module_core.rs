@@ -1,13 +1,10 @@
 use crate::editor_assets::assets::refresh_icon;
 use crate::with_lua;
 use bishop::prelude::*;
-use engine_core::assets::AssetRegistry;
-use engine_core::ecs::ecs::Ecs;
 use engine_core::ecs::inspector::layout::InspectorBodyLayout;
 use engine_core::ecs::{parse_field_name, Entity, Interactable, Script, ScriptField, ScriptId};
 use engine_core::game::GameCtxMut;
 use engine_core::logging::omni_error;
-use engine_core::scripting::script_manager::ScriptManager;
 use engine_core::ui::{gui_script_picker, gui_toml_picker, measure_text};
 use std::collections::HashMap;
 use ::widgets::constants::{colors, layout};
@@ -81,9 +78,7 @@ impl ScriptModuleCore {
             picker_row_rect,
             self.picker_id,
             entity,
-            game_ctx.ecs,
-            game_ctx.asset_registry,
-            game_ctx.script_manager,
+            game_ctx,
             blocked,
         );
 
@@ -325,9 +320,7 @@ fn draw_script_picker_row(
     rect: Rect,
     picker_id: WidgetId,
     entity: Entity,
-    ecs: &mut Ecs,
-    asset_registry: &mut AssetRegistry,
-    script_manager: &mut ScriptManager,
+    game_ctx: &mut GameCtxMut<'_>,
     blocked: bool,
 ) -> bool {
     let full_w = rect.w;
@@ -346,6 +339,10 @@ fn draw_script_picker_row(
         button_size,
         button_size,
     );
+
+    let ecs = &mut *game_ctx.ecs;
+    let asset_registry = &mut *game_ctx.asset_registry;
+    let script_manager = &mut *game_ctx.script_manager;
 
     let had_script = ecs.has::<Script>(entity);
     let mut script_id = ecs
@@ -377,18 +374,17 @@ fn draw_script_picker_row(
         .icon_padding(5.0)
         .suppressed(blocked)
         .show(ctx)
+        && script_id != ScriptId(0)
     {
-        if script_id != ScriptId(0) {
-            with_lua(|lua| {
-                if let Err(e) = script_manager.reload(lua, entity, script_id) {
-                    omni_error!("Failed to reload script: {}", e);
-                } else if let Some(comp) = ecs.get_mut::<Script>(entity) {
-                    if let Err(e) = comp.load(lua, asset_registry, script_manager, entity) {
-                        omni_error!("Failed to reload script data: {}", e);
-                    }
+        with_lua(|lua| {
+            if let Err(e) = script_manager.reload(lua, entity, script_id) {
+                omni_error!("Failed to reload script: {}", e);
+            } else if let Some(comp) = ecs.get_mut::<Script>(entity) {
+                if let Err(e) = comp.load(lua, asset_registry, script_manager, entity) {
+                    omni_error!("Failed to reload script data: {}", e);
                 }
-            });
-        }
+            }
+        });
     }
 
     if !picked {

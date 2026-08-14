@@ -668,6 +668,18 @@ fn layer_door_conflicts_with_tile_placement() {
 }
 
 #[test]
+fn entity_builder_with_layer_door_auto_adds_interactable_dependency() {
+    let mut ecs = Ecs::default();
+
+    let entity = ecs.create_entity()
+        .with(LayerDoor::default())
+        .finish();
+
+    assert!(ecs.has::<LayerDoor>(entity));
+    assert!(ecs.has::<Interactable>(entity));
+}
+
+#[test]
 fn validate_layer_door_when_interactable_area_extends_outside_back_zone_union_then_reports_issue() {
     let room_id = RoomId(7);
     let world = World::from_rooms(

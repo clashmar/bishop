@@ -68,10 +68,10 @@ impl RoomEditor {
         match self.mode {
             RoomEditorMode::Tilemap => {}
             RoomEditorMode::Scene => {
-                if self.scene_sub_mode == RoomSceneSubMode::Zones {
-                    if Controls::delete(ctx) {
-                        self.delete_selected_interior_zone(room, world_id);
-                    }
+                if self.scene_sub_mode == RoomSceneSubMode::Zones
+                    && Controls::delete(ctx)
+                {
+                    self.delete_selected_interior_zone(room, world_id);
                 }
 
                 if Controls::v(ctx) {

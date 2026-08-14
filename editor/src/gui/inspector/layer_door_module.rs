@@ -58,7 +58,7 @@ impl InspectorModule for LayerDoorModule {
             return;
         };
 
-        let Err(issue) = validate_layer_door(&game_ctx.ecs, world, entity) else {
+        let Err(issue) = validate_layer_door(game_ctx.ecs, world, entity) else {
             return;
         };
 

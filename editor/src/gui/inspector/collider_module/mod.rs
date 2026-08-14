@@ -116,12 +116,12 @@ impl InspectorModule for ColliderModule {
                 if let Some(col) = collider_system::collider_from_animation_component(
                     current_frame_store,
                     entity,
-                    &mut game_ctx.sprite_manager,
+                    game_ctx.sprite_manager,
                 ) {
                     col
                 } else if let Some(sprite) = game_ctx.ecs.get_store::<Sprite>().get(entity) {
                     collider_system::collider_from_sprite(
-                        &mut game_ctx.sprite_manager,
+                        game_ctx.sprite_manager,
                         sprite.sprite,
                     )
                     .unwrap_or_default()
@@ -158,7 +158,7 @@ impl InspectorModule for ColliderModule {
         if let Some(selected) = Dropdown::new(
             self.shape_dropdown_id,
             dropdown_rect,
-            &current_shape_label,
+            current_shape_label,
             self.shape_options.as_slice(),
             |shape| shape.ui_label().to_string(),
         )

@@ -218,7 +218,7 @@ impl<'a> Button<'a> {
             .mouse_position
             .unwrap_or_else(|| ctx.mouse_position().into());
         let hovered = self.rect.contains(mouse)
-            && ctx.logical_clip_rect().map_or(true, |clip| clip.contains(mouse));
+            && ctx.logical_clip_rect().is_none_or(|clip| clip.contains(mouse));
         let primary_held = hovered && ctx.is_mouse_button_down(MouseButton::Left);
         let secondary_held =
             self.allow_secondary_click && hovered && ctx.is_mouse_button_down(MouseButton::Right);

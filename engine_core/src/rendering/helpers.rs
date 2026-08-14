@@ -159,39 +159,51 @@ pub fn spillover_candidate_room_ids(world: &World, room: &Room) -> Vec<RoomId> {
     ids
 }
 
+/// Shared room visibility inputs for spillover checks.
+pub struct RoomVisibilityContext<'a> {
+    pub world: &'a World,
+    pub room: &'a Room,
+    pub grid_size: f32,
+}
+
 /// Checks whether an entity should be visible in a room.
 pub fn entity_visible_in_room(
     ecs: &Ecs,
     sprite_manager: &SpriteManager,
-    world: &World,
     entity: Entity,
     entity_room_id: RoomId,
     visual_pos: Vec2,
-    room: &Room,
-    grid_size: f32,
+    room_ctx: &RoomVisibilityContext<'_>,
 ) -> bool {
-    if entity_room_id == room.id {
+    if entity_room_id == room_ctx.room.id {
         return true;
     }
 
-    let Some(other_room) = world.get_room(entity_room_id) else {
+    let Some(other_room) = room_ctx.world.get_room(entity_room_id) else {
         return false;
     };
 
-    let entity_rect = entity_visual_rect(ecs, sprite_manager, entity, visual_pos, grid_size);
-    let Some(overlap_rect) = entity_rect.intersection(&room.world_rect(grid_size)) else {
+    let entity_rect = entity_visual_rect(
+        ecs,
+        sprite_manager,
+        entity,
+        visual_pos,
+        room_ctx.grid_size,
+    );
+    let Some(overlap_rect) = entity_rect.intersection(&room_ctx.room.world_rect(room_ctx.grid_size)) else {
         return false;
     };
 
-    room
-        .exits_facing_room(other_room, grid_size)
+    room_ctx
+        .room
+        .exits_facing_room(other_room, room_ctx.grid_size)
         .into_iter()
         .any(|exit| {
             let exit_rect = projected_exit_cell_rect(
-                room,
+                room_ctx.room,
                 exit.world_grid_position,
                 exit.direction,
-                grid_size,
+                room_ctx.grid_size,
             );
             overlap_rect.overlaps(&exit_rect)
         })

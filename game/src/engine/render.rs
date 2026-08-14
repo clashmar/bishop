@@ -2,7 +2,7 @@ use crate::engine::*;
 use bishop::prelude::*;
 use engine_core::camera::CameraManager;
 use engine_core::constants::window;
-use engine_core::rendering::{RenderSystem, RoomRenderState, render_room};
+use engine_core::rendering::{RenderSystem, RoomRenderState, RoomVisibilityContext, render_room};
 use engine_core::text::{collect_speech_bubbles, render_speech_bubbles};
 
 fn gameplay_viewport_rect(screen_w: f32, screen_h: f32) -> Option<(i32, i32, i32, i32)> {
@@ -121,15 +121,19 @@ fn render_speech<C: BishopContext>(
     };
     let grid_size = game_ctx.world.grid_size;
 
+    let room_ctx = RoomVisibilityContext {
+        world: game_ctx.world,
+        room: current_room,
+        grid_size,
+    };
+    
     let bubbles = collect_speech_bubbles(
         game_ctx.ecs,
         game_ctx.sprite_manager,
-        game_ctx.world,
-        current_room,
+        &room_ctx,
         render_state,
         alpha,
         Some(&game_instance.prev_positions),
-        grid_size,
     );
 
     render_speech_bubbles(

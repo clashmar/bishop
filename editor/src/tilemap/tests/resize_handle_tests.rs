@@ -1,4 +1,10 @@
-use crate::tilemap::resize_handle::{validate_resize, HandleSide, PreviewData, ResizeResult};
+use crate::tilemap::resize_handle::{
+    validate_resize,
+    HandleSide,
+    PreviewData,
+    ResizeResult,
+    ResizeValidationParams,
+};
 use bishop::prelude::*;
 use engine_core::tiles::TileMap;
 use engine_core::worlds::{InteriorZone, InteriorZoneBounds, InteriorZoneId};
@@ -14,11 +20,13 @@ fn validate_resize_when_shrink_would_cut_into_interior_zone_then_returns_zone_bo
     let result = validate_resize(
         &map,
         &[],
-        HandleSide::Right,
-        -3,
+        ResizeValidationParams {
+            side: HandleSide::Right,
+            delta: -3,
+            grid_size: 16.0,
+        },
         &[],
         PreviewData::new(Vec2::ZERO, vec2(16.0, 64.0)),
-        16.0,
         &zones,
     );
 
@@ -36,11 +44,13 @@ fn validate_resize_when_all_zones_stay_inside_preview_then_succeeds() {
     let result = validate_resize(
         &map,
         &[],
-        HandleSide::Right,
-        -2,
+        ResizeValidationParams {
+            side: HandleSide::Right,
+            delta: -2,
+            grid_size: 16.0,
+        },
         &[],
         PreviewData::new(Vec2::ZERO, vec2(32.0, 64.0)),
-        16.0,
         &zones,
     );
 

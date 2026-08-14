@@ -2,7 +2,6 @@ use crate::assets::sprite_manager::SpriteManager;
 use crate::ecs::{CurrentFrame, Ecs, Pivot, Sprite, TilePlacement};
 use crate::rendering::{EntityDrawParams, Renderable, RoomCompositionContext};
 use crate::tiles::TileRegistry;
-use crate::worlds::room::Room;
 use crate::worlds::RoomLayer;
 use bishop::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -30,15 +29,14 @@ impl TileMap {
 pub fn draw_room_tile_placements<C: BishopContext>(
     ctx: &mut C,
     ecs: &Ecs,
-    room: &Room,
     layer: RoomLayer,
     composition: &RoomCompositionContext,
     tile_registry: &TileRegistry,
     sprite_manager: &mut SpriteManager,
-    grid_size: f32,
 ) {
-    let room_id = room.id;
-    let room_position = room.position;
+    let room_id = composition.room_id;
+    let room_position = composition.room_position;
+    let grid_size = composition.grid_size;
 
     for &entity in ecs.tile_entities_in_room_layer(room_id, layer).values() {
         let Some(tile) = ecs.get::<TilePlacement>(entity) else {

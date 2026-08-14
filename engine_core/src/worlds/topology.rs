@@ -400,7 +400,6 @@ mod tests {
                 destination: Some(ExitDestination::World(WorldId(1))),
                 entry: Some("Portal".to_string()),
                 trigger: WorldExitTrigger::OnInteract,
-                ..Default::default()
             })
             .with_current_room(RoomId(2))
             .finish();
@@ -409,8 +408,8 @@ mod tests {
             .create_entity()
             .with(WorldExit {
                 destination: Some(ExitDestination::World(WorldId(2))),
+                entry: None,
                 trigger: WorldExitTrigger::OnInteract,
-                ..Default::default()
             })
             .with_current_room(RoomId(2))
             .finish();

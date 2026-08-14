@@ -62,6 +62,12 @@ impl WidgetTestContext {
     }
 }
 
+impl Default for WidgetTestContext {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Input for WidgetTestContext {
     fn is_key_down(&self, _key: KeyCode) -> bool {
         false

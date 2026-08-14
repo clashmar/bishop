@@ -254,8 +254,10 @@ impl RoomEditor {
                     camera,
                     room,
                     ecs,
-                    &other_bounds,
-                    grid_size,
+                    TilemapUpdateContext {
+                        other_bounds: &other_bounds,
+                        grid_size,
+                    },
                 );
             }
             RoomEditorMode::Scene => {

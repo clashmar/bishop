@@ -93,8 +93,9 @@ mod tests {
 
     #[test]
     fn has_valid_asset_true_when_sprite_id_is_nonzero() {
-        let mut sprite = Sprite::default();
-        sprite.sprite = SpriteId(42);
+        let sprite = Sprite {
+            sprite: SpriteId(42),
+        };
         assert!(sprite.has_valid_asset());
     }
 

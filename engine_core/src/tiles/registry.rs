@@ -48,6 +48,11 @@ impl TileRegistry {
     pub fn len(&self) -> usize {
         self.definitions.len()
     }
+
+    /// Returns true when no tile definitions are stored.
+    pub fn is_empty(&self) -> bool {
+        self.definitions.is_empty()
+    }
 }
 
 #[cfg(test)]

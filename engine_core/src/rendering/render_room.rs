@@ -99,12 +99,10 @@ pub fn render_room<C: BishopContext>(
         draw_room_tile_placements(
             ctx,
             game_ctx.ecs,
-            current_room,
             room_layer,
             &composition,
             game_ctx.tile_registry,
             game_ctx.sprite_manager,
-            grid_size,
         );
         draw_layer_entities(
             ctx,
@@ -227,10 +225,8 @@ fn draw_entity<C: BishopContext>(
         return;
     }
 
-    if let Some(sprite) = ecs.get_store::<Sprite>().get(visual_entity)
-        && sprite.draw(ctx, sprite_manager, &params)
-    {
-        return;
+    if let Some(sprite) = ecs.get_store::<Sprite>().get(visual_entity) {
+        sprite.draw(ctx, sprite_manager, &params);
     }
 }
 
@@ -245,6 +241,11 @@ fn collect_interpolated_room_layer_maps<'a>(
 ) -> CollectedRoomLayerMaps<'a> {
     let mut maps = CollectedRoomLayerMaps::default();
     let mut seen = HashSet::new();
+    let room_ctx = RoomVisibilityContext {
+        world,
+        room,
+        grid_size,
+    };
 
     let trans_store = ecs.get_store::<Transform>();
     let cam_store = ecs.get_store::<RoomCamera>();
@@ -275,12 +276,10 @@ fn collect_interpolated_room_layer_maps<'a>(
             if !entity_visible_in_room(
                 ecs,
                 sprite_manager,
-                world,
                 entity,
                 candidate_room_id,
                 draw_pos,
-                room,
-                grid_size,
+                &room_ctx,
             ) {
                 continue;
             }

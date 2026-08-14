@@ -52,6 +52,18 @@ impl ModeInfo for TilemapEditorMode {
     }
 }
 
+pub(crate) struct TilemapUpdateContext<'a> {
+    pub(crate) other_bounds: &'a [(Vec2, Vec2)],
+    pub(crate) grid_size: f32,
+}
+
+#[derive(Clone, Copy)]
+struct TilePlacementContext {
+    room_id: RoomId,
+    room_position: Vec2,
+    grid_size: f32,
+}
+
 pub struct TileMapEditor {
     pub mode: TilemapEditorMode,
     pub active_layer: RoomLayer,
@@ -100,8 +112,7 @@ impl TileMapEditor {
         camera: &Camera2D,
         room: &mut Room,
         ecs: &Ecs,
-        other_bounds: &[(Vec2, Vec2)],
-        grid_size: f32,
+        update_ctx: TilemapUpdateContext<'_>,
     ) {
         if !self.initialized {
             self.ui_was_clicked = true;
@@ -114,7 +125,7 @@ impl TileMapEditor {
         if self.active_handle_index.is_none() {
             let idx = room.current_variant_index();
             self.resize_handles =
-                ResizeHandle::build_all(&room.variants[idx].tilemap, room.position, grid_size);
+                ResizeHandle::build_all(&room.variants[idx].tilemap, room.position, update_ctx.grid_size);
         }
 
         let mouse_screen: Vec2 = ctx.mouse_position().into();
@@ -123,7 +134,14 @@ impl TileMapEditor {
         let mouse_world = camera.screen_to_world(mouse_screen, screen_w, screen_h);
 
         let drag_active =
-            self.handle_resize_drag(ctx, mouse_world, room, other_bounds, grid_size, room.id);
+            self.handle_resize_drag(
+                ctx,
+                mouse_world,
+                room,
+                update_ctx.other_bounds,
+                update_ctx.grid_size,
+                room.id,
+            );
 
         self.consume_ui_click(ctx, camera);
 
@@ -135,10 +153,12 @@ impl TileMapEditor {
                     ctx,
                     camera,
                     &room.variants[idx].tilemap,
-                    room.id,
                     ecs,
-                    room_position,
-                    grid_size,
+                    TilePlacementContext {
+                        room_id: room.id,
+                        room_position,
+                        grid_size: update_ctx.grid_size,
+                    },
                 ),
                 TilemapEditorMode::Exits => self.handle_exit_placement(
                     ctx,
@@ -146,7 +166,7 @@ impl TileMapEditor {
                     &room.variants[idx].tilemap,
                     &mut room.exits,
                     room_position,
-                    grid_size,
+                    update_ctx.grid_size,
                 ),
             }
         }
@@ -183,12 +203,10 @@ impl TileMapEditor {
             draw_room_tile_placements(
                 ctx,
                 ecs,
-                room,
                 layer,
                 &composition,
                 tile_registry,
                 sprite_manager,
-                grid_size,
             );
         }
         draw_exit_placeholders(ctx, &room.exits, room_position, self.active_layer, grid_size);
@@ -264,11 +282,13 @@ impl TileMapEditor {
             let resize_result = validate_resize(
                 map,
                 &room.exits,
-                handle.side,
-                delta,
+                ResizeValidationParams {
+                    side: handle.side,
+                    delta,
+                    grid_size,
+                },
                 other_bounds,
                 preview_data,
-                grid_size,
                 interior_zones,
             );
 
@@ -320,13 +340,17 @@ impl TileMapEditor {
         ctx: &WgpuContext,
         camera: &Camera2D,
         map: &TileMap,
-        room_id: RoomId,
         ecs: &Ecs,
-        room_position: Vec2,
-        grid_size: f32,
+        room_ctx: TilePlacementContext,
     ) {
         let mouse_over_ui = self.is_mouse_over_ui(ctx, camera);
-        let hover = self.get_hovered_tile(ctx, camera, map, room_position, grid_size);
+        let hover = self.get_hovered_tile(
+            ctx,
+            camera,
+            map,
+            room_ctx.room_position,
+            room_ctx.grid_size,
+        );
         if mouse_over_ui || hover.is_none() {
             return;
         }
@@ -336,11 +360,15 @@ impl TileMapEditor {
             None => return,
         };
 
-        let existing = ecs.tile_placement_at(room_id, self.active_layer, x, y);
+        let existing = ecs.tile_placement_at(room_ctx.room_id, self.active_layer, x, y);
 
         if ctx.is_mouse_button_down(MouseButton::Left) && ctx.is_key_down(KeyCode::LeftAlt) {
             if existing.is_some() {
-                push_command(Box::new(SetTilePlacementCmd::clear(room_id, self.active_layer, (x, y))));
+                push_command(Box::new(SetTilePlacementCmd::clear(
+                    room_ctx.room_id,
+                    self.active_layer,
+                    (x, y),
+                )));
             }
             return;
         }
@@ -352,7 +380,12 @@ impl TileMapEditor {
         if ctx.is_mouse_button_down(MouseButton::Left)
             && existing.is_none_or(|tile| tile.definition != def_id)
         {
-            push_command(Box::new(SetTilePlacementCmd::place(room_id, self.active_layer, (x, y), def_id)));
+            push_command(Box::new(SetTilePlacementCmd::place(
+                room_ctx.room_id,
+                self.active_layer,
+                (x, y),
+                def_id,
+            )));
         }
     }
 

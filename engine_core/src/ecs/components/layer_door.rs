@@ -8,7 +8,7 @@ use reflect_derive::Reflect;
 use serde::{Deserialize, Serialize};
 
 /// Same-position doorway that swaps between front and back room layers.
-#[ecs_component]
+#[ecs_component(deps = [Interactable])]
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, Reflect, PartialEq)]
 #[serde(default)]
 pub struct LayerDoor {

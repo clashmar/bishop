@@ -2,7 +2,7 @@ use crate::ecs::components::cover::cover_overlaps_bounds;
 use crate::ecs::components::layer_door::layer_door_overlaps_bounds;
 use crate::ecs::*;
 use crate::worlds::room::Room;
-use crate::worlds::{LayerCompositionMode, RoomLayer};
+use crate::worlds::{LayerCompositionMode, RoomId, RoomLayer};
 use bishop::prelude::*;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -31,6 +31,9 @@ impl FrontLayerComposition {
 
 /// Room-wide composition state resolved once before drawing front-layer content.
 pub struct RoomCompositionContext {
+    pub(crate) room_id: RoomId,
+    pub(crate) room_position: Vec2,
+    pub(crate) grid_size: f32,
     current_layer: RoomLayer,
     composition_mode: Option<LayerCompositionMode>,
     active_back_bounds: Vec<Rect>,
@@ -48,6 +51,9 @@ impl RoomCompositionContext {
         };
 
         Self {
+            room_id: room.id,
+            room_position: room.position,
+            grid_size,
             current_layer: state.current_layer,
             composition_mode: layers.back.as_ref().map(|back| back.composition_mode),
             active_back_bounds,

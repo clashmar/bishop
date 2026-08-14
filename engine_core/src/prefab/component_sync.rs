@@ -166,12 +166,10 @@ fn apply_room_id_to_camera_snapshot(components: &mut [ComponentSnapshot], room_i
     if let Some(camera_snapshot) = components
         .iter_mut()
         .find(|c| c.type_name == comp_type_name::<RoomCamera>())
+        && let Ok(camera) = ron::from_str::<RoomCamera>(&camera_snapshot.ron)
+        && let Ok(ron) = ron::to_string(&RoomCamera { room_id: effective_room_id, ..camera })
     {
-        if let Ok(camera) = ron::from_str::<RoomCamera>(&camera_snapshot.ron)
-            && let Ok(ron) = ron::to_string(&RoomCamera { room_id: effective_room_id, ..camera })
-        {
-            camera_snapshot.ron = ron;
-        }
+        camera_snapshot.ron = ron;
     }
 }
 

@@ -91,8 +91,10 @@ mod tests {
 
     #[test]
     fn has_valid_asset_true_when_sprite_id_is_nonzero() {
-        let mut frame = CurrentFrame::default();
-        frame.sprite_id = SpriteId(1);
+        let frame = CurrentFrame {
+            sprite_id: SpriteId(1),
+            ..Default::default()
+        };
         assert!(frame.has_valid_asset());
     }
 

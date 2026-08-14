@@ -244,7 +244,7 @@ mod tests {
                 position: Vec2::new(0.0, 0.0),
                 ..Default::default()
             })
-            .with(crate::ecs::Player::default())
+            .with(crate::ecs::Player)
             .with_current_room(room_id)
             .finish();
 
@@ -272,7 +272,7 @@ mod tests {
                 position: Vec2::new(0.0, 0.0),
                 ..Default::default()
             })
-            .with(crate::ecs::Player::default())
+            .with(crate::ecs::Player)
             .with_current_room(player_room)
             .finish();
 
@@ -305,7 +305,7 @@ mod tests {
                 position: Vec2::new(32.0, 0.0),
                 ..Default::default()
             })
-            .with(crate::ecs::Player::default())
+            .with(crate::ecs::Player)
             .with_current_room(room_id)
             .finish();
 
@@ -330,7 +330,7 @@ mod tests {
                 position: Vec2::new(0.0, 0.0),
                 ..Default::default()
             })
-            .with(crate::ecs::Player::default())
+            .with(crate::ecs::Player)
             .with_current_room_layer(room_id, RoomLayer::Back)
             .finish();
 

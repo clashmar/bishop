@@ -45,6 +45,13 @@ pub(crate) struct PreviewData {
     size: Vec2,
 }
 
+#[derive(Clone, Copy)]
+pub struct ResizeValidationParams {
+    pub side: HandleSide,
+    pub delta: i32,
+    pub grid_size: f32,
+}
+
 impl PreviewData {
     pub(crate) fn new(position: Vec2, size: Vec2) -> Self {
         Self { position, size }
@@ -323,26 +330,24 @@ pub(crate) fn resized_room_rect(
 pub fn validate_resize(
     map: &TileMap,
     exits: &[Exit],
-    side: HandleSide,
-    delta: i32,
+    params: ResizeValidationParams,
     other_bounds: &[(Vec2, Vec2)],
     preview_data: PreviewData,
-    grid_size: f32,
     interior_zones: &[InteriorZone],
 ) -> ResizeResult {
-    let (new_w, new_h) = compute_new_dims(map, side, delta);
+    let (new_w, new_h) = compute_new_dims(map, params.side, params.delta);
 
-    if !size_valid(map.width, map.height, side, delta) {
+    if !size_valid(map.width, map.height, params.side, params.delta) {
         return ResizeResult::InvalidDimensions;
     }
-    if !exits_valid(map, exits, side, delta, new_w, new_h) {
+    if !exits_valid(map, exits, params.side, params.delta, new_w, new_h) {
         return ResizeResult::StrandedExit;
     }
     if !overlap_valid(
         preview_data.position,
         preview_data.size,
         other_bounds,
-        grid_size,
+        params.grid_size,
     ) {
         return ResizeResult::Overlap;
     }

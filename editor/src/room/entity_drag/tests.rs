@@ -217,12 +217,14 @@ fn finish_entity_drag_returns_move_many_when_multiple_entities_moved() {
             ..Default::default()
         })
         .finish();
-    let mut drag = EntityDragState::default();
-    drag.dragging = true;
-    drag.drag_initial_start_positions = vec![
-        (first, vec2(10.0, 10.0)),
-        (second, vec2(20.0, 10.0)),
-    ];
+    let mut drag = EntityDragState {
+        dragging: true,
+        drag_initial_start_positions: vec![
+            (first, vec2(10.0, 10.0)),
+            (second, vec2(20.0, 10.0)),
+        ],
+        ..Default::default()
+    };
 
     let commit = finish_entity_drag(&mut drag, &ecs);
 
@@ -312,7 +314,7 @@ fn enter_alt_copy_mode_without_duplicates_keeps_normal_drag() {
     let mut ecs = Ecs::default();
     let anchor = ecs
         .create_entity()
-        .with(Player::default())
+        .with(Player)
         .with_current_room_layer(room_id, RoomLayer::Front)
         .finish();
     let mut editor = RoomEditor::new();
