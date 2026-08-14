@@ -6,6 +6,7 @@ pub(crate) mod interactable_drag;
 pub(crate) mod layers;
 pub(crate) mod prefab_preview;
 pub mod room_editor;
+pub(crate) mod scene_mode;
 mod selection;
 mod shortcuts;
 
