@@ -29,9 +29,7 @@ use crate::prefab::PrefabSessionState;
 use crate::room::room_editor::{self, RoomEditor};
 use crate::storage::game_io::{create_new_game, load_game_by_name, most_recent_game_name};
 use crate::storage::lua_stub_gen::refresh_event_tags_lua;
-use crate::storage::tile_palettes::load_palette;
 use crate::storage::export::PendingExport;
-use crate::tilemap::tile_palette::TilePalette;
 use crate::with_panel_manager;
 use crate::world::world_editor::WorldEditor;
 use bishop::prelude::*;
@@ -151,19 +149,7 @@ impl Editor {
             panel_manager.register_all_panels(&ctx.borrow());
         });
 
-        let palette = match load_palette(&game.name.clone()) {
-            Ok(p) => p,
-            Err(e) => {
-                omni_error!("Failed to load palette: {e}");
-                // Fall back to a new palette
-                TilePalette::new()
-            }
-        };
-
         editor.game = editor.init_game_for_editor(&ctx.borrow(), game);
-
-        // Give the palette to the tilemap editor
-        editor.room_editor.tilemap_editor.tilemap_panel.palette = palette;
         editor.load_prefab_palette_state();
 
         // Initialize the grid renderer
@@ -236,8 +222,9 @@ impl Editor {
                     if let (Some(prefab_editor), Some(prefab_stage)) =
                         (self.prefab_editor.as_mut(), self.prefab_stage.as_mut())
                     {
-                        let mut prefab_ctx = prefab_stage.ctx_mut();
-                        prefab_editor.update(ctx, &mut self.camera, &mut prefab_ctx);
+                        prefab_stage.with_game_ctx_mut(|prefab_ctx| {
+                            prefab_editor.update(ctx, &mut self.camera, prefab_ctx);
+                        });
                         std::mem::take(&mut prefab_editor.open_prefab_picker_requested)
                     } else {
                         false
@@ -400,6 +387,7 @@ impl Editor {
                 // Launch play‑test if the play button was pressed
                 if self.room_editor.request_play {
                     if self.pending_playtest_build.is_none() {
+                        self.save();
                         // Serialize payload synchronously (needs &self.game which isn't Send)
                         let room = self.get_room_from_id(&room_id);
                         let payload_path = match write_playtest_payload(room, &self.game) {
@@ -465,8 +453,9 @@ impl Editor {
                     self.prefab_stage.as_mut(),
                     &self.grid_renderer,
                 ) {
-                    let mut prefab_ctx = prefab_stage.ctx_mut();
-                    prefab_editor.draw(ctx, &self.camera, &mut prefab_ctx, grid_renderer);
+                    prefab_stage.with_game_ctx_mut(|prefab_ctx| {
+                        prefab_editor.draw(ctx, &self.camera, prefab_ctx, grid_renderer);
+                    });
                 }
             }
             EditorMode::Game(GameEditorSubmode::Worlds) => {

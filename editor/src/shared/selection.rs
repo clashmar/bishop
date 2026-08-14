@@ -2,6 +2,8 @@ use bishop::prelude::*;
 use engine_core::rendering::{outline_thickness};
 use widgets::*;
 
+const BOX_SELECTION_DRAG_THRESHOLD_PX: f32 = 6.0;
+
 /// Creates a Rect from two corner points, handling any orientation.
 pub fn rect_from_two_points(a: Vec2, b: Vec2) -> Rect {
     let min_x = a.x.min(b.x);
@@ -14,6 +16,12 @@ pub fn rect_from_two_points(a: Vec2, b: Vec2) -> Rect {
 /// Returns true if two rectangles intersect.
 pub fn rects_intersect(a: Rect, b: Rect) -> bool {
     a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y
+}
+
+/// Returns true when a marquee gesture moved far enough to count as a drag.
+pub fn box_selection_drag_started(start_screen: Vec2, end_screen: Vec2) -> bool {
+    (end_screen - start_screen).length_squared()
+        >= BOX_SELECTION_DRAG_THRESHOLD_PX * BOX_SELECTION_DRAG_THRESHOLD_PX
 }
 
 /// Draws a selection box rectangle in world space.
@@ -75,5 +83,17 @@ mod tests {
         assert_eq!(r.y, 50.0);
         assert_eq!(r.w, 100.0);
         assert_eq!(r.h, 100.0);
+    }
+
+    #[test]
+    fn box_selection_requires_drag_threshold() {
+        assert!(!box_selection_drag_started(
+            Vec2::new(100.0, 100.0),
+            Vec2::new(102.0, 101.0),
+        ));
+        assert!(box_selection_drag_started(
+            Vec2::new(100.0, 100.0),
+            Vec2::new(108.0, 100.0),
+        ));
     }
 }

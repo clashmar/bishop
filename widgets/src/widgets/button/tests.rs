@@ -1,5 +1,5 @@
 use super::*;
-use crate::widgets::test_support::WidgetTestContext;
+use crate::test_utils::WidgetTestContext;
 
 #[test]
 fn primary_click_requires_matching_press_and_release() {
@@ -70,6 +70,51 @@ fn secondary_clicks_are_reported_when_opted_in() {
 
     assert!(!clicks.primary);
     assert!(clicks.secondary);
+}
+
+#[test]
+fn active_default_buttons_use_opaque_hover_fill_without_hover() {
+    let button = Rect::new(0.0, 0.0, 80.0, 30.0);
+    let mut ctx = WidgetTestContext::new();
+
+    Button::new(button, "Play")
+        .active(true)
+        .show_clicks(
+            &mut ctx,
+            WidgetTheme {
+                primary: Some(Color::BLUE),
+                hover: Some(Color::new(1.0, 0.0, 0.0, 0.25)),
+                ..WidgetTheme::default()
+            },
+        );
+
+    assert_eq!(
+        ctx.rectangle_fills.last().copied(),
+        Some(Color::new(1.0, 0.0, 0.0, 1.0))
+    );
+}
+
+#[test]
+fn active_plain_buttons_draw_opaque_hover_fill_without_hover() {
+    let button = Rect::new(0.0, 0.0, 80.0, 30.0);
+    let mut ctx = WidgetTestContext::new();
+
+    Button::new(button, "Play")
+        .plain()
+        .active(true)
+        .show_clicks(
+            &mut ctx,
+            WidgetTheme {
+                primary: Some(Color::BLUE),
+                hover: Some(Color::new(1.0, 0.0, 0.0, 0.25)),
+                ..WidgetTheme::default()
+            },
+        );
+
+    assert_eq!(
+        ctx.rectangle_fills.last().copied(),
+        Some(Color::new(1.0, 0.0, 0.0, 1.0))
+    );
 }
 
 #[test]

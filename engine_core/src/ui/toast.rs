@@ -113,243 +113,11 @@ impl Toast {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "test-utils"))]
 mod tests {
     use super::*;
     use bishop::prelude::*;
-
-    struct DrawTextCall {
-        text: String,
-        x: f32,
-        y: f32,
-        font_size: f32,
-        color: Color,
-    }
-
-    struct TestContext {
-        screen_height: f32,
-        text_dims: TextDimensions,
-        draw_text_calls: Vec<DrawTextCall>,
-        rect_calls: Vec<Rect>,
-    }
-
-    impl TestContext {
-        fn new(screen_height: f32, text_dims: TextDimensions) -> Self {
-            Self {
-                screen_height,
-                text_dims,
-                draw_text_calls: Vec::new(),
-                rect_calls: Vec::new(),
-            }
-        }
-    }
-
-    impl Input for TestContext {
-        fn is_key_down(&self, _key: KeyCode) -> bool {
-            false
-        }
-        fn is_key_pressed(&self, _key: KeyCode) -> bool {
-            false
-        }
-        fn is_key_released(&self, _key: KeyCode) -> bool {
-            false
-        }
-        fn any_key_pressed(&self) -> bool {
-            false
-        }
-        fn is_mouse_button_down(&self, _button: MouseButton) -> bool {
-            false
-        }
-        fn is_mouse_button_pressed(&self, _button: MouseButton) -> bool {
-            false
-        }
-        fn is_mouse_button_released(&self, _button: MouseButton) -> bool {
-            false
-        }
-        fn is_mouse_button_double_clicked(&self, _button: MouseButton) -> bool {
-            false
-        }
-        fn mouse_position(&self) -> (f32, f32) {
-            (0.0, 0.0)
-        }
-        fn mouse_delta_position(&self) -> (f32, f32) {
-            (0.0, 0.0)
-        }
-        fn mouse_wheel(&self) -> (f32, f32) {
-            (0.0, 0.0)
-        }
-        fn chars_pressed(&self) -> Vec<char> {
-            Vec::new()
-        }
-        fn get_time(&self) -> f64 {
-            0.0
-        }
-    }
-
-    impl Draw for TestContext {
-        fn draw_rectangle(&mut self, x: f32, y: f32, w: f32, h: f32, _color: Color) {
-            self.rect_calls.push(Rect::new(x, y, w, h));
-        }
-
-        fn draw_rectangle_lines(
-            &mut self,
-            _x: f32,
-            _y: f32,
-            _w: f32,
-            _h: f32,
-            _thickness: f32,
-            _color: Color,
-        ) {
-        }
-
-        fn draw_line(
-            &mut self,
-            _x1: f32,
-            _y1: f32,
-            _x2: f32,
-            _y2: f32,
-            _thickness: f32,
-            _color: Color,
-        ) {
-        }
-
-        fn draw_circle(&mut self, _x: f32, _y: f32, _radius: f32, _color: Color) {}
-
-        fn draw_circle_lines(
-            &mut self,
-            _x: f32,
-            _y: f32,
-            _radius: f32,
-            _thickness: f32,
-            _color: Color,
-        ) {
-        }
-
-        fn draw_triangle(&mut self, _v1: Vec2, _v2: Vec2, _v3: Vec2, _color: Color) {}
-
-        fn clear_background(&mut self, _color: Color) {}
-
-        fn draw_texture(&mut self, _texture: &Texture2D, _x: f32, _y: f32, _color: Color) {}
-
-        fn draw_texture_ex(
-            &mut self,
-            _texture: &Texture2D,
-            _x: f32,
-            _y: f32,
-            _color: Color,
-            _params: DrawTextureParams,
-        ) {
-        }
-
-        fn push_clip_rect(&mut self, _rect: Rect) {}
-
-        fn pop_clip_rect(&mut self) {}
-    }
-
-    impl Text for TestContext {
-        fn draw_text(
-            &mut self,
-            text: &str,
-            x: f32,
-            y: f32,
-            font_size: f32,
-            color: Color,
-        ) -> TextDimensions {
-            self.draw_text_calls.push(DrawTextCall {
-                text: text.to_string(),
-                x,
-                y,
-                font_size,
-                color,
-            });
-            self.text_dims
-        }
-
-        fn draw_text_ex(
-            &mut self,
-            _text: &str,
-            _x: f32,
-            _y: f32,
-            _params: TextParams,
-        ) -> TextDimensions {
-            self.text_dims
-        }
-
-        fn measure_text(&self, _text: &str, _font_size: f32) -> TextDimensions {
-            self.text_dims
-        }
-    }
-
-    impl Camera for TestContext {
-        fn set_camera(&mut self, _camera: &Camera2D) {}
-        fn set_default_camera(&mut self) {}
-        fn screen_to_world(&self, _camera: &Camera2D, screen_pos: Vec2) -> Vec2 {
-            screen_pos
-        }
-        fn create_render_target(&self, _width: u32, _height: u32) -> BishopRenderTarget {
-            panic!("not used in toast tests")
-        }
-    }
-
-    impl Window for TestContext {
-        fn screen_width(&self) -> f32 {
-            800.0
-        }
-        fn screen_height(&self) -> f32 {
-            self.screen_height
-        }
-        fn set_cursor_icon(&mut self, _icon: CursorIcon) {}
-        fn toggle_fullscreen(&mut self) -> bool {
-            false
-        }
-        fn is_fullscreen(&self) -> bool {
-            false
-        }
-        fn scale_factor(&self) -> f32 {
-            1.0
-        }
-    }
-
-    impl Time for TestContext {
-        fn get_frame_time(&self) -> f32 {
-            0.016
-        }
-        fn get_frame_spike_ms(&self) -> f32 {
-            0.0
-        }
-        fn update(&mut self) {}
-    }
-
-    impl RenderOps for TestContext {
-        fn begin_render_to_target(&mut self, _rt: &BishopRenderTarget) {}
-        fn end_render_to_target(&mut self) {}
-        fn draw_render_target(
-            &mut self,
-            _rt: &BishopRenderTarget,
-            _x: f32,
-            _y: f32,
-            _w: f32,
-            _h: f32,
-        ) {
-        }
-        fn create_drawable_render_target(&self, _width: u32, _height: u32) -> BishopRenderTarget {
-            panic!("not used in toast tests")
-        }
-    }
-
-    impl TextureLoader for TestContext {
-        fn load_texture_from_bytes(&self, _data: &[u8]) -> Result<Texture2D, String> {
-            panic!("not used in toast tests")
-        }
-
-        fn load_texture_from_path(&self, _path: &str) -> Result<Texture2D, String> {
-            panic!("not used in toast tests")
-        }
-
-        fn empty_texture(&self) -> Texture2D {
-            panic!("not used in toast tests")
-        }
-    }
+    use widgets::test_utils::WidgetTestContext;
 
     #[test]
     fn toast_centers_text_using_baseline_offset() {
@@ -358,7 +126,9 @@ mod tests {
             height: 16.0,
             offset_y: 12.0,
         };
-        let mut ctx = TestContext::new(200.0, text_dims);
+        let mut ctx = WidgetTestContext::new();
+        ctx.screen_height = 200.0;
+        ctx.text_dims = Some(text_dims);
         let mut toast = Toast::new("Saved", 5.0);
 
         toast.update(&mut ctx);
@@ -389,7 +159,9 @@ mod tests {
             height: 16.0,
             offset_y: 12.0,
         };
-        let mut ctx = TestContext::new(200.0, text_dims);
+        let mut ctx = WidgetTestContext::new();
+        ctx.screen_height = 200.0;
+        ctx.text_dims = Some(text_dims);
         let mut toast = Toast::new_throbbing("Working");
         std::thread::sleep(std::time::Duration::from_millis(10));
         toast.update(&mut ctx);
@@ -431,7 +203,9 @@ mod tests {
             height: 16.0,
             offset_y: 12.0,
         };
-        let mut ctx = TestContext::new(200.0, text_dims);
+        let mut ctx = WidgetTestContext::new();
+        ctx.screen_height = 200.0;
+        ctx.text_dims = Some(text_dims);
         toast.update(&mut ctx);
         assert!(toast.active, "refreshed toast should still be active");
     }

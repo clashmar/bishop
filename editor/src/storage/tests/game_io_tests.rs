@@ -1,4 +1,9 @@
 use super::*;
+use engine_core::ecs::{Cover, CoverMode};
+use engine_core::worlds::{
+    BackRoomLayer, InteriorZone, InteriorZoneBounds, InteriorZoneId, InteriorZoneScope,
+    LayerCompositionMode,
+};
 
 const RESERVED_RUNTIME_SAVES_FOLDER: &str = "_runtime_saves";
 
@@ -114,6 +119,168 @@ fn load_game_by_name_rebuilds_world_and_room_indexes_after_deserialize() {
 }
 
 #[test]
+fn game_save_load_when_tile_registry_exists_then_loaded_registry_preserves_next_id() {
+    let _lock = game_fs_test_lock()
+        .lock()
+        .unwrap_or_else(|poison| poison.into_inner());
+    let test_game = TestGameFolder::new("tile_registry_roundtrip");
+    set_game_name(test_game.name());
+
+    let mut game = create_new_game(test_game.name().to_string());
+    let tile_id = game.tile_registry.insert(TileDef {
+        sprite_id: SpriteId(3),
+        components: Vec::new(),
+    });
+
+    save_game(&game).expect("save should succeed");
+    let mut loaded = load_game_by_name(test_game.name()).expect("load should succeed");
+
+    assert!(loaded.tile_registry.get(tile_id).is_some());
+
+    let next_id = loaded.tile_registry.insert(TileDef {
+        sprite_id: SpriteId(4),
+        components: vec![tile_definition_component_snapshot(Solid(true))],
+    });
+    assert!(next_id.0 > tile_id.0);
+}
+
+#[test]
+fn room_save_load_when_tile_placements_are_entities_then_tile_links_and_runtime_components_persist() {
+    let _lock = game_fs_test_lock()
+        .lock()
+        .unwrap_or_else(|poison| poison.into_inner());
+    let test_game = TestGameFolder::new("tile_placement_roundtrip");
+    set_game_name(test_game.name());
+
+    let mut game = create_new_game(test_game.name().to_string());
+    let room_id = game.current_world().rooms()[0].id;
+    let tile_id = game.tile_registry.insert(TileDef {
+        sprite_id: SpriteId(13),
+        components: vec![tile_definition_component_snapshot(Solid(true))],
+    });
+    let entity = game
+        .ecs
+        .create_entity()
+        .with(TilePlacement::new(tile_id, 4, 1))
+        .with_current_room(room_id)
+        .finish();
+
+    save_game(&game).expect("save should succeed");
+    let loaded = load_game_by_name(test_game.name()).expect("load should succeed");
+
+    assert!(loaded.ecs.entities_in_room(room_id).contains(&entity));
+
+    let loaded_tile = loaded
+        .ecs
+        .get::<TilePlacement>(entity)
+        .expect("tile placement should load");
+    assert_eq!(loaded_tile.definition, tile_id);
+    assert_eq!((loaded_tile.grid_x, loaded_tile.grid_y), (4, 1));
+    assert!(loaded.ecs.get::<Solid>(entity).is_some_and(|solid| solid.0));
+}
+
+#[test]
+fn game_save_load_when_room_variant_has_back_layer_then_layers_round_trip() {
+    let _lock = game_fs_test_lock()
+        .lock()
+        .unwrap_or_else(|poison| poison.into_inner());
+    let test_game = TestGameFolder::new("room_layers_roundtrip");
+    set_game_name(test_game.name());
+
+    let mut game = create_new_game(test_game.name().to_string());
+    let room_id = game.current_world().rooms()[0].id;
+    let room = game
+        .current_world_mut()
+        .expect("new game should have one world")
+        .get_room_mut(room_id)
+        .expect("new game should have one room");
+    room.current_variant_mut().layers.back = Some(BackRoomLayer {
+        composition_mode: LayerCompositionMode::DollsHouse,
+        zone_scope: InteriorZoneScope::Occupied,
+        interior_zones: vec![InteriorZone {
+            id: InteriorZoneId(5),
+            bounds: InteriorZoneBounds::new(16, 32, 48, 64),
+        }],
+    });
+
+    save_game(&game).expect("save should succeed");
+    let loaded = load_game_by_name(test_game.name()).expect("load should succeed");
+    let loaded_room = loaded
+        .current_world()
+        .get_room(room_id)
+        .expect("loaded game should keep its room data");
+
+    let loaded_back = loaded_room.current_variant().layers.back.as_ref().unwrap();
+    assert_eq!(loaded_back.composition_mode, LayerCompositionMode::DollsHouse);
+    assert_eq!(loaded_back.zone_scope, InteriorZoneScope::Occupied);
+    let loaded_zone = loaded_back.interior_zones[0];
+    assert_eq!(loaded_zone.id, InteriorZoneId(5));
+    assert_eq!(loaded_zone.bounds, InteriorZoneBounds::new(16, 32, 48, 64));
+}
+
+#[test]
+fn cover_component_round_trips_through_tile_definition_sync() {
+    let _lock = game_fs_test_lock()
+        .lock()
+        .unwrap_or_else(|poison| poison.into_inner());
+    let test_game = TestGameFolder::new("tile_definition_cover_roundtrip");
+    set_game_name(test_game.name());
+
+    let mut game = create_new_game(test_game.name().to_string());
+    let room_id = game.current_world().rooms()[0].id;
+    let tile_id = game.tile_registry.insert(TileDef {
+        sprite_id: SpriteId(23),
+        components: vec![tile_definition_component_snapshot(Cover::hide())],
+    });
+    let entity = game
+        .ecs
+        .create_entity()
+        .with(TilePlacement::new(tile_id, 2, 3))
+        .with_current_room(room_id)
+        .finish();
+    game.sync_tile_definition(tile_id);
+
+    save_game(&game).expect("save should succeed");
+    let loaded = load_game_by_name(test_game.name()).expect("load should succeed");
+
+    let loaded_def = loaded
+        .tile_registry
+        .get(tile_id)
+        .expect("tile definition should load");
+    assert_eq!(loaded_def.components.len(), 1);
+    assert_eq!(loaded_def.components[0].type_name, Cover::TYPE_NAME);
+    assert_eq!(
+        loaded.ecs.get::<Cover>(entity).map(|cover| cover.mode()),
+        Some(CoverMode::Hide),
+    );
+}
+
+#[test]
+fn game_save_load_when_tile_registry_has_multiple_defs_then_all_defs_persist() {
+    let _lock = game_fs_test_lock()
+        .lock()
+        .unwrap_or_else(|poison| poison.into_inner());
+    let test_game = TestGameFolder::new("tile_registry_multiple_defs");
+    set_game_name(test_game.name());
+
+    let mut game = create_new_game(test_game.name().to_string());
+    let walkable_id = game.tile_registry.insert(TileDef {
+        sprite_id: SpriteId(4),
+        components: Vec::new(),
+    });
+    let solid_id = game.tile_registry.insert(TileDef {
+        sprite_id: SpriteId(5),
+        components: vec![tile_definition_component_snapshot(Solid(true))],
+    });
+
+    save_game(&game).expect("save should succeed");
+    let loaded = load_game_by_name(test_game.name()).expect("load should succeed");
+
+    assert!(loaded.tile_registry.get(walkable_id).is_some());
+    assert!(loaded.tile_registry.get(solid_id).is_some());
+}
+
+#[test]
 fn list_game_names_ignores_non_game_directories() {
     let _lock = game_fs_test_lock()
         .lock()
@@ -163,6 +330,8 @@ fn save_game_writes_split_layout() {
 
     let resources = resources_folder(test_game.name());
     assert!(resources.join(paths::GAME_RON).is_file());
+    assert!(resources.join(paths::ASSET_REGISTRY_RON).is_file());
+    assert!(resources.join(paths::TILE_REGISTRY_RON).is_file());
     assert!(resources.join(paths::WORLDS_FOLDER).join("world-1.ron").is_file());
     assert!(resources.join(paths::PAYLOADS_FOLDER).join("room-1.ron").is_file());
 }
@@ -206,7 +375,7 @@ fn save_game_when_worlds_and_entries_exist_regenerates_world_navigation_lua_file
     assert!(entries.contains("SecondWorld = {"), "{entries}");
     assert!(
         entries.contains(&format!(
-            "MainEntry = {{ WorldId = {}, RoomId = {}, EntryName = \"Main Entry\" }}",
+            "MainEntry = {{ WorldId = {}, RoomId = {}, Layer = \"Front\", EntryName = \"Main Entry\" }}",
             extra_world_id.0, extra_room_id.0
         )),
         "{entries}"

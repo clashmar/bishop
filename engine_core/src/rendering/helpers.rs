@@ -8,6 +8,9 @@ use std::collections::HashMap;
 /// Common display refresh rates to snap frame times to (checked in order).
 const SNAP_FREQUENCIES: [f32; 5] = [60.0, 120.0, 144.0, 240.0, 30.0];
 
+/// Scale factor applied to outline_thickness for entity outlines.
+pub const ENTITY_OUTLINE_SCALE: f32 = 0.25;
+
 /// Tracks whether the frame-time EMA has been seeded from a reliable sample.
 #[derive(Debug, Default)]
 pub enum SmoothedDtState {
@@ -28,6 +31,16 @@ pub fn resolve_visual_entity(ecs: &Ecs, entity: Entity) -> Entity {
     } else {
         entity
     }
+}
+
+/// Compares two entities in deterministic draw order.
+pub fn compare_entity_draw_order(
+    a_entity: Entity,
+    a_z: i32,
+    b_entity: Entity,
+    b_z: i32,
+) -> std::cmp::Ordering {
+    a_z.cmp(&b_z).then_with(|| a_entity.cmp(&b_entity))
 }
 
 /// Returns the pixel dimensions of an entity for rendering.
@@ -146,35 +159,52 @@ pub fn spillover_candidate_room_ids(world: &World, room: &Room) -> Vec<RoomId> {
     ids
 }
 
+/// Shared room visibility inputs for spillover checks.
+pub struct RoomVisibilityContext<'a> {
+    pub world: &'a World,
+    pub room: &'a Room,
+    pub grid_size: f32,
+}
+
 /// Checks whether an entity should be visible in a room.
 pub fn entity_visible_in_room(
     ecs: &Ecs,
     sprite_manager: &SpriteManager,
-    world: &World,
     entity: Entity,
     entity_room_id: RoomId,
     visual_pos: Vec2,
-    room: &Room,
-    grid_size: f32,
+    room_ctx: &RoomVisibilityContext<'_>,
 ) -> bool {
-    if entity_room_id == room.id {
+    if entity_room_id == room_ctx.room.id {
         return true;
     }
 
-    let Some(other_room) = world.get_room(entity_room_id) else {
+    let Some(other_room) = room_ctx.world.get_room(entity_room_id) else {
         return false;
     };
 
-    let entity_rect = entity_visual_rect(ecs, sprite_manager, entity, visual_pos, grid_size);
-    let Some(overlap_rect) = entity_rect.intersection(&room.world_rect(grid_size)) else {
+    let entity_rect = entity_visual_rect(
+        ecs,
+        sprite_manager,
+        entity,
+        visual_pos,
+        room_ctx.grid_size,
+    );
+    let Some(overlap_rect) = entity_rect.intersection(&room_ctx.room.world_rect(room_ctx.grid_size)) else {
         return false;
     };
 
-    room
-        .exits_facing_room(other_room, grid_size)
+    room_ctx
+        .room
+        .exits_facing_room(other_room, room_ctx.grid_size)
         .into_iter()
-        .any(|(world_pos, direction)| {
-            let exit_rect = projected_exit_cell_rect(room, world_pos, direction, grid_size);
+        .any(|exit| {
+            let exit_rect = projected_exit_cell_rect(
+                room_ctx.room,
+                exit.world_grid_position,
+                exit.direction,
+                room_ctx.grid_size,
+            );
             overlap_rect.overlaps(&exit_rect)
         })
 }
@@ -192,27 +222,30 @@ pub fn entity_visual_overlaps_room(
         .overlaps(&room.world_rect(grid_size))
 }
 
-fn entity_visual_rect(
+/// Returns the world-space rectangle occupied by the entity's rendered visual.
+pub fn entity_visual_rect(
     ecs: &Ecs,
     sprite_manager: &SpriteManager,
     entity: Entity,
     visual_pos: Vec2,
     grid_size: f32,
 ) -> Rect {
+    let visual_entity = resolve_visual_entity(ecs, entity);
     let pivot = ecs
         .get_store::<Transform>()
         .get(entity)
         .map(|transform| transform.pivot)
-        .unwrap_or(Pivot::BottomCenter)
-        .as_normalized();
-    let size = entity_dimensions(ecs, sprite_manager, entity, grid_size);
+        .unwrap_or(Pivot::BottomCenter);
 
-    Rect::new(
-        visual_pos.x - size.x * pivot.x,
-        visual_pos.y - size.y * pivot.y,
-        size.x,
-        size.y,
-    )
+    if let Some(current_frame) = ecs.get_store::<CurrentFrame>().get(visual_entity) {
+        let size = current_frame.frame_size;
+        let draw_base = pivot_adjusted_position(visual_pos, size, pivot) + current_frame.offset;
+        return Rect::new(draw_base.x, draw_base.y, size.x, size.y);
+    }
+
+    let size = entity_dimensions(ecs, sprite_manager, entity, grid_size);
+    let draw_base = pivot_adjusted_position(visual_pos, size, pivot);
+    Rect::new(draw_base.x, draw_base.y, size.x, size.y)
 }
 
 fn projected_exit_cell_rect(

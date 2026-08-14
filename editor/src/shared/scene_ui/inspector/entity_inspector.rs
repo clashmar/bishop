@@ -20,7 +20,8 @@ use bishop::prelude::*;
 use engine_core::controls::{Controls};
 use engine_core::ecs::*;
 use engine_core::ecs::component_registry::component_removal_blocked_by;
-use engine_core::game::{GameCtxMut};
+use engine_core::ecs::inspector::factory::module_title;
+use engine_core::game::GameCtxMut;
 use engine_core::logging::{omni_error};
 use engine_core::ui::{measure_text};
 use ::widgets::*;
@@ -485,8 +486,8 @@ impl InspectorContent for EntityInspector {
                     if let Some((type_name, ron, _)) = pre_snapshot {
                         let blocker = component_removal_blocked_by(type_name, module_entity, game_ctx.ecs);
                         if let Some(blocker) = blocker {
-                            let display_name = MODULES.iter().find(|m| m.type_name == type_name).map_or(type_name, |m| m.title);
-                            let blocker_name = MODULES.iter().find(|m| m.type_name == blocker).map_or(blocker, |m| m.title);
+                            let display_name = module_title(type_name);
+                            let blocker_name = module_title(blocker);
                             push_toast(format!("Cannot remove {display_name}: required by {blocker_name}"), 3.0);
                         }
                         if blocker.is_none() {

@@ -2,7 +2,7 @@ use crate::assets::sprite_manager::SpriteManager;
 use crate::ecs::component::ComponentStore;
 use crate::ecs::ecs::Ecs;
 use crate::ecs::entity::Entity;
-use crate::ecs::{Collider, CurrentFrame, Sprite, SpriteId};
+use crate::ecs::{Collider, ColliderShape, CurrentFrame, Sprite, SpriteId};
 
 /// Set the collider for every entity that has a sprite and an unset collider
 pub fn update_colliders_from_sprites(ecs: &mut Ecs, assets: &mut SpriteManager) {
@@ -16,7 +16,7 @@ pub fn update_colliders_from_sprites(ecs: &mut Ecs, assets: &mut SpriteManager) 
 
         // Only update entities with colliders
         for (entity, collider) in collider_store.data.iter() {
-            if collider.width != 0.0 || collider.height != 0.0 {
+            if !collider.shape.is_default_size() {
                 continue;
             }
 
@@ -59,13 +59,13 @@ pub fn collider_from_sprite(
     sprite_manager
         .texture_size(sprite_id)
         .map(|(w, h)| Collider {
-            width: w,
-            height: h,
+            shape: ColliderShape::Aabb { width: w, height: h },
+            ..Default::default()
         })
 }
 
 /// Try to build a collider from an Animation component.
-fn collider_from_animation_component(
+pub fn collider_from_animation_component(
     current_frame_store: &ComponentStore<CurrentFrame>,
     entity: Entity,
     sprite_manager: &mut SpriteManager,
@@ -76,7 +76,10 @@ fn collider_from_animation_component(
     sprite_manager
         .texture_size(current_frame.sprite_id)
         .map(|(_, h)| Collider {
-            width: current_frame.frame_size.x,
-            height: h,
+            shape: ColliderShape::Aabb {
+                width: current_frame.frame_size.x,
+                height: h,
+            },
+            ..Default::default()
         })
 }

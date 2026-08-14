@@ -17,7 +17,8 @@ impl RoomEditor {
         &mut self,
         ctx: &mut WgpuContext,
         camera: &mut Camera2D,
-        room: &Room,
+        room: &mut Room,
+        world_id: WorldId,
         grid_size: f32,
         ecs: &Ecs,
     ) {
@@ -34,6 +35,10 @@ impl RoomEditor {
             EditorCameraController::reset_room_editor_camera(ctx, camera, room, grid_size);
         }
 
+        if Controls::z(ctx) {
+            self.toggle_interior_zone_visibility();
+        }
+
         for mode in RoomEditorMode::iter() {
             if let Some(shortcut) = mode.shortcut() {
                 if shortcut(ctx) {
@@ -43,9 +48,32 @@ impl RoomEditor {
             }
         }
 
+        let has_back_layer = room.current_variant().layers.back.is_some();
+        if Controls::tab(ctx) {
+            if self.view_preview {
+                let next_camera = get_next_room_camera(
+                    ctx,
+                    ecs,
+                    room.id,
+                    self.active_layer_state.active_layer,
+                    grid_size,
+                    self.preview_camera_id,
+                );
+                self.preview_camera_id = next_camera.map(|c| c.id);
+            } else {
+                self.toggle_active_layer(ecs, room.id, has_back_layer);
+            }
+        }
+
         match self.mode {
             RoomEditorMode::Tilemap => {}
             RoomEditorMode::Scene => {
+                if self.scene_sub_mode == RoomSceneSubMode::Zones
+                    && Controls::delete(ctx)
+                {
+                    self.delete_selected_interior_zone(room, world_id);
+                }
+
                 if Controls::v(ctx) {
                     let next_preview = !self.view_preview;
                     self.set_preview_enabled(next_preview);
@@ -59,8 +87,14 @@ impl RoomEditor {
                         if camera_id.is_some() {
                             self.preview_camera_id = camera_id;
                         } else {
-                            let first_camera =
-                                get_next_room_camera(ctx, ecs, room.id, grid_size, None);
+                            let first_camera = get_next_room_camera(
+                                ctx,
+                                ecs,
+                                room.id,
+                                self.active_layer_state.active_layer,
+                                grid_size,
+                                None,
+                            );
                             self.preview_camera_id = first_camera.map(|c| c.id);
                         }
                     } else {
@@ -68,19 +102,25 @@ impl RoomEditor {
                     }
                 }
 
-                if self.view_preview && Controls::tab(ctx) {
-                    let next_camera =
-                        get_next_room_camera(ctx, ecs, room.id, grid_size, self.preview_camera_id);
-                    self.preview_camera_id = next_camera.map(|c| c.id);
+                if self.scene_sub_mode == RoomSceneSubMode::Zones {
+                    return;
                 }
 
                 if Controls::paste(ctx) {
-                    push_command(Box::new(PasteEntityCmd::new(EditorMode::Room(room.id))));
+                    push_command(Box::new(PasteEntityCmd::new(
+                        EditorMode::Room(room.id),
+                        room.id,
+                        self.active_layer_state.active_layer,
+                    )));
                 }
 
                 // Select all entities in room
                 if Controls::select_all(ctx) {
-                    self.select_all_in_room(ecs, room.id);
+                    self.select_all_in_room_layer(
+                        ecs,
+                        room.id,
+                        self.active_layer_state.active_layer,
+                    );
                 }
 
                 // Duplicate selected entities

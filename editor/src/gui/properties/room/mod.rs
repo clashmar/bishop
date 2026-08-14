@@ -1,4 +1,5 @@
 pub mod room_audio_source_module;
+pub mod room_layers_module;
 pub mod room_name_module;
 pub mod room_script_module;
 pub mod room_tags_module;
@@ -33,6 +34,7 @@ impl RoomProperties {
                 Box::new(CollapsiblePropertyModule::new(room_name_module::RoomNameModule::new())),
                 Box::new(CollapsiblePropertyModule::new(room_script_module::RoomScriptModule::new())),
                 Box::new(CollapsiblePropertyModule::new(room_audio_source_module::RoomAudioSourceModule::new())),
+                Box::new(CollapsiblePropertyModule::new(room_layers_module::RoomLayersModule::new())),
                 Box::new(CollapsiblePropertyModule::new(room_tags_module::RoomTagsModule::for_room())),
             ],
         }
@@ -98,12 +100,13 @@ impl InspectorContent for RoomProperties {
         game_ctx: &mut GameCtxMut,
         _insp_ctx: &InspectorContext,
     ) -> InspectorOutput {
+        let mut output = InspectorOutput::default();
         let Some((world_id, room)) = game_ctx
             .world
             .as_deref()
             .and_then(|world| world.current_room().map(|r| (world.id, r.clone())))
         else {
-            return InspectorOutput::default();
+            return output;
         };
 
         let original_tags = room.tags.clone();
@@ -114,6 +117,9 @@ impl InspectorContent for RoomProperties {
                 let h = module.height();
                 let sub_rect = Rect::new(rect.x + 10.0, y, rect.w - 20.0, h);
                 module.draw(ctx, sub_rect, &mut edited_room, game_ctx, _insp_ctx);
+                if output.host_action.is_none() {
+                    output.host_action = module.take_host_action();
+                }
                 y += h + layout::WIDGET_SPACING;
             }
         }
@@ -138,10 +144,8 @@ impl InspectorContent for RoomProperties {
             )));
         }
 
-        InspectorOutput {
-            refresh_event_tags: tags_changed,
-            ..InspectorOutput::default()
-        }
+        output.refresh_event_tags = tags_changed;
+        output
     }
 
     fn total_content_height(

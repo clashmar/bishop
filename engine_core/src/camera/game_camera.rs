@@ -4,7 +4,7 @@ use crate::ecs::components::room_camera::{
 use crate::ecs::ecs::Ecs;
 use crate::ecs::entity::Entity;
 use crate::ecs::Transform;
-use crate::worlds::room::RoomId;
+use crate::worlds::{RoomId, RoomLayer};
 use bishop::prelude::*;
 
 #[derive(Debug, Default)]
@@ -39,11 +39,15 @@ pub fn game_render_target<C: BishopContext>(ctx: &mut C, grid_size: f32) -> Bish
     ctx.create_render_target(width, height)
 }
 
-/// Returns every `GameCamera` for a room from its id.
-pub fn get_room_cameras(ecs: &Ecs, room_id: RoomId) -> Vec<(Entity, RoomCamera)> {
+/// Returns every `GameCamera` for one room/layer pair.
+pub fn get_room_cameras(
+    ecs: &Ecs,
+    room_id: RoomId,
+    layer: RoomLayer,
+) -> Vec<(Entity, RoomCamera)> {
     let cam_store = ecs.get_store::<RoomCamera>();
 
-    ecs.entities_in_room(room_id)
+    ecs.entities_in_room_layer(room_id, layer)
         .iter()
         .filter_map(|entity| {
             ecs.assert_room_membership(room_id, *entity);
@@ -93,11 +97,12 @@ pub fn get_room_camera_by_id<C: BishopContext>(
     ctx: &mut C,
     ecs: &Ecs,
     room_id: RoomId,
+    layer: RoomLayer,
     grid_size: f32,
     camera_id: Option<usize>,
 ) -> Option<GameCamera> {
     let trans_store = ecs.get_store::<Transform>();
-    let room_cameras = get_room_cameras(ecs, room_id);
+    let room_cameras = get_room_cameras(ecs, room_id, layer);
 
     if room_cameras.is_empty() {
         return None;
@@ -134,11 +139,12 @@ pub fn get_next_room_camera(
     ctx: &mut impl BishopContext,
     ecs: &Ecs,
     room_id: RoomId,
+    layer: RoomLayer,
     grid_size: f32,
     current_id: Option<usize>,
 ) -> Option<GameCamera> {
     let trans_store = ecs.get_store::<Transform>();
-    let room_cameras = get_room_cameras(ecs, room_id);
+    let room_cameras = get_room_cameras(ecs, room_id, layer);
 
     if room_cameras.is_empty() {
         return None;
@@ -170,4 +176,33 @@ pub fn get_next_room_camera(
         id: entity.0,
         origin,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::worlds::RoomLayer;
+
+    #[test]
+    fn room_camera_queries_filter_to_the_requested_layer() {
+        let mut ecs = Ecs::default();
+        let room_id = RoomId(7);
+
+        ecs.create_entity()
+            .with(Transform::default())
+            .with(RoomCamera::new(room_id, 16.0))
+            .with_current_room(room_id)
+            .finish();
+
+        let back_camera = ecs.create_entity()
+            .with(Transform::default())
+            .with(RoomCamera::new(room_id, 16.0))
+            .with_current_room_layer(room_id, RoomLayer::Back)
+            .finish();
+
+        let cameras = get_room_cameras(&ecs, room_id, RoomLayer::Back);
+
+        assert_eq!(cameras.len(), 1);
+        assert_eq!(cameras[0].0, back_camera);
+    }
 }

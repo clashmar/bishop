@@ -10,7 +10,7 @@ use engine_core::ecs::*;
 use engine_core::rendering::{EntityDrawParams, Renderable, pivot_adjusted_position, resolve_visual_entity};
 use std::collections::BTreeMap;
 
-/// Draws all visible prefab entities sorted by layer z-order.
+/// Draws all visible prefab entities sorted by z-order.
 pub(crate) fn draw_prefab_entities<C: BishopContext>(
     ctx: &mut C,
     ecs: &Ecs,
@@ -24,10 +24,7 @@ pub(crate) fn draw_prefab_entities<C: BishopContext>(
             continue;
         }
 
-        let z = ecs
-            .get_store::<Layer>()
-            .get(*entity)
-            .map_or(0, |layer| layer.z);
+        let z = transform.z;
         layer_map
             .entry(z)
             .or_default()
@@ -59,6 +56,7 @@ fn draw_prefab_entity<C: BishopContext>(
         pos,
         pivot,
         grid_size,
+        color: Color::WHITE,
     };
 
     if let Some(current_frame) = ecs.get_store::<CurrentFrame>().get(visual_entity) {

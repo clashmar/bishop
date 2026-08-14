@@ -21,7 +21,16 @@ use crate::scripting::script_manager::ScriptManager;
 use crate::worlds::room::RoomId;
 use crate::worlds::{WorldDirectorySnapshot, world::*};
 use crate::worlds::transition::OverlayFrame;
-use crate::{storage::text_folder, text::TextManager};
+use crate::{
+    storage::text_folder,
+    text::TextManager,
+    tiles::{
+        TileDefId,
+        TileRegistry,
+        sync_all_tile_placements_in_ctx,
+        sync_tile_definition_in_ctx,
+    },
+};
 use bishop::prelude::TextureLoader;
 use mlua::Lua;
 use serde::{Deserialize, Serialize};
@@ -52,7 +61,10 @@ pub struct Game {
     /// Hydration coordinator tracking scope-level asset residency.
     #[serde(skip)]
     pub hydration_coordinator: HydrationCoordinator,
+    /// Authored tile definitions for the game.
+    pub tile_registry: TileRegistry,
     /// Asset manager for the game.
+    #[serde(skip)]
     pub sprite_manager: SpriteManager,
     /// Script manager for the game.
     pub script_manager: ScriptManager,
@@ -85,6 +97,7 @@ impl Default for Game {
             world_index: HashMap::new(),
             asset_registry: AssetRegistry::default(),
             hydration_coordinator: HydrationCoordinator::default(),
+            tile_registry: TileRegistry::default(),
             sprite_manager: SpriteManager::default(),
             script_manager: ScriptManager::default(),
             text_manager: TextManager::default(),
@@ -102,6 +115,7 @@ pub struct GameCtx<'a> {
     pub ecs: &'a Ecs,
     pub world: &'a World,
     pub asset_registry: &'a AssetRegistry,
+    pub tile_registry: &'a TileRegistry,
     pub sprite_manager: &'a SpriteManager,
     pub script_manager: &'a ScriptManager,
     pub prefab_manager: &'a PrefabManager,
@@ -114,6 +128,7 @@ pub struct GameCtxMut<'a> {
     pub world_directory: Vec<WorldDirectorySnapshot>,
     pub room_world_map: HashMap<RoomId, WorldId>,
     pub asset_registry: &'a mut AssetRegistry,
+    pub tile_registry: &'a mut TileRegistry,
     pub sprite_manager: &'a mut SpriteManager,
     pub script_manager: &'a mut ScriptManager,
     pub prefab_manager: &'a PrefabManager,
@@ -186,6 +201,7 @@ impl Game {
             ecs: &self.ecs,
             world,
             asset_registry: &self.asset_registry,
+            tile_registry: &self.tile_registry,
             sprite_manager: &self.sprite_manager,
             script_manager: &self.script_manager,
             prefab_manager: &self.prefab_manager,
@@ -213,10 +229,23 @@ impl Game {
             world_directory,
             room_world_map,
             asset_registry: &mut self.asset_registry,
+            tile_registry: &mut self.tile_registry,
             sprite_manager: &mut self.sprite_manager,
             script_manager: &mut self.script_manager,
             prefab_manager: &self.prefab_manager,
         }
+    }
+
+    /// Rebuilds definition-owned ECS components for every loaded tile placement.
+    pub fn sync_all_tile_placements(&mut self) {
+        let mut ctx = self.ctx_mut();
+        sync_all_tile_placements_in_ctx(&mut ctx);
+    }
+
+    /// Rebuilds definition-owned ECS components for one tile definition.
+    pub fn sync_tile_definition(&mut self, tile_id: TileDefId) {
+        let mut ctx = self.ctx_mut();
+        sync_tile_definition_in_ctx(&mut ctx, tile_id);
     }
 
     /// Mutable reference to the current world, or `None` if no worlds exist.
@@ -387,6 +416,11 @@ impl GameCtxMut<'_> {
         self.sprite_manager
     }
 
+    /// Mutable tile-registry access.
+    pub fn tile_registry(&mut self) -> &mut TileRegistry {
+        self.tile_registry
+    }
+
     /// Mutable asset-registry access.
     pub fn asset_registry(&mut self) -> &mut AssetRegistry {
         self.asset_registry
@@ -405,7 +439,7 @@ impl GameCtxMut<'_> {
     /// Returns the `WorldId` of the world that contains `entity`, if any.
     pub fn world_of_entity(&self, entity: Entity) -> Option<WorldId> {
         let room = self.ecs.get::<CurrentRoom>(entity)?;
-        self.room_world_map.get(&room.0).copied()
+        self.room_world_map.get(&room.room_id).copied()
     }
 }
 

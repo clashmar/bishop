@@ -33,8 +33,9 @@ fn prune_dead_hierarchy_state_removes_deleted_entities() {
         .finish();
 
     {
-        let mut ctx = stage.ctx_mut();
-        Ecs::remove_entity(&mut ctx, dead);
+        stage.with_game_ctx_mut(|ctx| {
+            Ecs::remove_entity(ctx, dead);
+        });
     }
 
     let mut expanded = HashSet::from([live, dead]);

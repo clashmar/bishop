@@ -6,7 +6,6 @@
                 (3): true,
                 (37): true,
                 (38): true,
-                (68): true,
                 (75): true,
             },
         ),
@@ -154,16 +153,29 @@
             type_name: "Collider",
             data: {
                 (3): (
-                    width: 6.0,
-                    height: 16.0,
+                    shape: Circle(
+                        radius: 7.8043838,
+                    ),
+                    offset: (0.083100796, -0.108174324),
                 ),
                 (37): (
-                    width: 18.0,
-                    height: 19.0,
+                    shape: Circle(
+                        radius: 7.4078255,
+                    ),
+                    offset: (1.3428688, -0.63303757),
                 ),
-                (68): (
-                    width: 16.0,
-                    height: 16.0,
+            },
+        ),
+        (
+            type_name: "Cover",
+            data: {
+                (194): (
+                    hide: true,
+                    fade_alpha: 0.0,
+                ),
+                (197): (
+                    hide: true,
+                    fade_alpha: 0.0,
                 ),
             },
         ),
@@ -176,30 +188,314 @@
         (
             type_name: "CurrentRoom",
             data: {
-                (2): ((1)),
-                (24): ((2)),
-                (37): ((1)),
-                (38): ((2)),
-                (41): ((4)),
-                (46): ((2)),
-                (52): ((4)),
-                (53): ((1)),
-                (54): ((1)),
-                (55): ((2)),
-                (58): ((4)),
-                (59): ((4)),
-                (62): ((4)),
-                (63): ((1)),
-                (65): ((1)),
-                (68): ((1)),
-                (69): ((1)),
-                (70): ((5)),
-                (71): ((5)),
-                (72): ((5)),
-                (73): ((5)),
-                (74): ((5)),
-                (75): ((5)),
-                (78): ((1)),
+                (2): (
+                    room_id: (1),
+                    layer: front,
+                ),
+                (24): (
+                    room_id: (2),
+                    layer: front,
+                ),
+                (37): (
+                    room_id: (1),
+                    layer: front,
+                ),
+                (38): (
+                    room_id: (2),
+                    layer: front,
+                ),
+                (41): (
+                    room_id: (4),
+                    layer: front,
+                ),
+                (46): (
+                    room_id: (2),
+                    layer: front,
+                ),
+                (52): (
+                    room_id: (4),
+                    layer: front,
+                ),
+                (53): (
+                    room_id: (1),
+                    layer: front,
+                ),
+                (54): (
+                    room_id: (1),
+                    layer: front,
+                ),
+                (55): (
+                    room_id: (2),
+                    layer: front,
+                ),
+                (58): (
+                    room_id: (4),
+                    layer: front,
+                ),
+                (59): (
+                    room_id: (4),
+                    layer: front,
+                ),
+                (62): (
+                    room_id: (4),
+                    layer: front,
+                ),
+                (63): (
+                    room_id: (1),
+                    layer: front,
+                ),
+                (65): (
+                    room_id: (1),
+                    layer: front,
+                ),
+                (69): (
+                    room_id: (1),
+                    layer: front,
+                ),
+                (70): (
+                    room_id: (5),
+                    layer: front,
+                ),
+                (71): (
+                    room_id: (5),
+                    layer: front,
+                ),
+                (72): (
+                    room_id: (5),
+                    layer: front,
+                ),
+                (73): (
+                    room_id: (5),
+                    layer: front,
+                ),
+                (74): (
+                    room_id: (5),
+                    layer: front,
+                ),
+                (75): (
+                    room_id: (5),
+                    layer: front,
+                ),
+                (78): (
+                    room_id: (1),
+                    layer: front,
+                ),
+                (191): (
+                    room_id: (1),
+                    layer: front,
+                ),
+                (192): (
+                    room_id: (1),
+                    layer: front,
+                ),
+                (194): (
+                    room_id: (1),
+                    layer: front,
+                ),
+                (197): (
+                    room_id: (1),
+                    layer: front,
+                ),
+                (273): (
+                    room_id: (1),
+                    layer: back,
+                ),
+                (274): (
+                    room_id: (1),
+                    layer: back,
+                ),
+                (275): (
+                    room_id: (1),
+                    layer: back,
+                ),
+                (276): (
+                    room_id: (1),
+                    layer: back,
+                ),
+                (277): (
+                    room_id: (1),
+                    layer: back,
+                ),
+                (278): (
+                    room_id: (1),
+                    layer: back,
+                ),
+                (279): (
+                    room_id: (1),
+                    layer: back,
+                ),
+                (280): (
+                    room_id: (1),
+                    layer: back,
+                ),
+                (281): (
+                    room_id: (1),
+                    layer: back,
+                ),
+                (282): (
+                    room_id: (1),
+                    layer: back,
+                ),
+                (283): (
+                    room_id: (1),
+                    layer: back,
+                ),
+                (284): (
+                    room_id: (1),
+                    layer: back,
+                ),
+                (285): (
+                    room_id: (1),
+                    layer: back,
+                ),
+                (286): (
+                    room_id: (1),
+                    layer: back,
+                ),
+                (287): (
+                    room_id: (1),
+                    layer: back,
+                ),
+                (288): (
+                    room_id: (1),
+                    layer: back,
+                ),
+                (289): (
+                    room_id: (1),
+                    layer: back,
+                ),
+                (290): (
+                    room_id: (1),
+                    layer: back,
+                ),
+                (291): (
+                    room_id: (1),
+                    layer: back,
+                ),
+                (292): (
+                    room_id: (1),
+                    layer: back,
+                ),
+                (293): (
+                    room_id: (1),
+                    layer: back,
+                ),
+                (294): (
+                    room_id: (1),
+                    layer: back,
+                ),
+                (295): (
+                    room_id: (1),
+                    layer: back,
+                ),
+                (296): (
+                    room_id: (1),
+                    layer: back,
+                ),
+                (297): (
+                    room_id: (1),
+                    layer: back,
+                ),
+                (298): (
+                    room_id: (1),
+                    layer: back,
+                ),
+                (299): (
+                    room_id: (1),
+                    layer: back,
+                ),
+                (300): (
+                    room_id: (1),
+                    layer: back,
+                ),
+                (301): (
+                    room_id: (1),
+                    layer: back,
+                ),
+                (302): (
+                    room_id: (1),
+                    layer: back,
+                ),
+                (303): (
+                    room_id: (1),
+                    layer: back,
+                ),
+                (304): (
+                    room_id: (1),
+                    layer: back,
+                ),
+                (305): (
+                    room_id: (1),
+                    layer: back,
+                ),
+                (306): (
+                    room_id: (1),
+                    layer: back,
+                ),
+                (307): (
+                    room_id: (1),
+                    layer: back,
+                ),
+                (308): (
+                    room_id: (1),
+                    layer: back,
+                ),
+                (309): (
+                    room_id: (1),
+                    layer: back,
+                ),
+                (310): (
+                    room_id: (1),
+                    layer: back,
+                ),
+                (311): (
+                    room_id: (1),
+                    layer: back,
+                ),
+                (312): (
+                    room_id: (1),
+                    layer: back,
+                ),
+                (313): (
+                    room_id: (1),
+                    layer: back,
+                ),
+                (314): (
+                    room_id: (1),
+                    layer: back,
+                ),
+                (315): (
+                    room_id: (1),
+                    layer: back,
+                ),
+                (316): (
+                    room_id: (1),
+                    layer: back,
+                ),
+                (317): (
+                    room_id: (1),
+                    layer: back,
+                ),
+                (318): (
+                    room_id: (1),
+                    layer: back,
+                ),
+                (319): (
+                    room_id: (1),
+                    layer: back,
+                ),
+                (320): (
+                    room_id: (1),
+                    layer: back,
+                ),
+                (321): (
+                    room_id: (1),
+                    layer: back,
+                ),
+                (322): (
+                    room_id: (1),
+                    layer: back,
+                ),
             },
         ),
         (
@@ -225,29 +521,58 @@
             data: {
                 (3): (false),
                 (37): (false),
-                (68): (false),
             },
         ),
         (
             type_name: "Interactable",
             data: {
                 (37): (
-                    range: 20.0,
+                    use_rect: false,
+                    offset: (0.0, 0.0),
+                    radius: 20.0,
+                    rect_size: (16.0, 16.0),
                 ),
                 (38): (
-                    range: 20.0,
+                    use_rect: false,
+                    offset: (0.0, 0.0),
+                    radius: 20.0,
+                    rect_size: (16.0, 16.0),
                 ),
                 (46): (
-                    range: 20.0,
+                    use_rect: false,
+                    offset: (0.0, 0.0),
+                    radius: 20.0,
+                    rect_size: (16.0, 16.0),
                 ),
                 (52): (
-                    range: 20.0,
+                    use_rect: false,
+                    offset: (0.0, 0.0),
+                    radius: 20.0,
+                    rect_size: (16.0, 16.0),
                 ),
                 (63): (
-                    range: 20.0,
+                    use_rect: false,
+                    offset: (0.0, 0.0),
+                    radius: 20.0,
+                    rect_size: (16.0, 16.0),
                 ),
                 (75): (
-                    range: 20.0,
+                    use_rect: false,
+                    offset: (0.0, 0.0),
+                    radius: 20.0,
+                    rect_size: (16.0, 16.0),
+                ),
+                (191): (
+                    use_rect: true,
+                    offset: (0.0, -16.0),
+                    radius: 20.0,
+                    rect_size: (16.0, 32.0),
+                ),
+                (192): (
+                    use_rect: true,
+                    offset: (0.0, -16.0),
+                    radius: 20.0,
+                    rect_size: (16.0, 32.0),
                 ),
             },
         ),
@@ -256,8 +581,17 @@
             data: {},
         ),
         (
-            type_name: "Layer",
-            data: {},
+            type_name: "LayerDoor",
+            data: {
+                (191): (
+                    usable: true,
+                    alpha: 0.4,
+                ),
+                (192): (
+                    usable: true,
+                    alpha: 0.4,
+                ),
+            },
         ),
         (
             type_name: "Light",
@@ -268,7 +602,6 @@
             data: {
                 (3): (),
                 (37): (),
-                (68): (),
             },
         ),
         (
@@ -284,11 +617,14 @@
                 (52): ("Entity"),
                 (63): ("Entity"),
                 (65): ("Camera 1"),
-                (68): ("Entity"),
                 (70): ("Camera 1"),
                 (71): ("Player Proxy"),
                 (75): ("Entity"),
                 (78): ("Entity"),
+                (191): ("Entity"),
+                (192): ("Entity"),
+                (194): ("Entity"),
+                (197): ("Entity"),
             },
         ),
         (
@@ -300,7 +636,6 @@
             data: {
                 (3): (),
                 (37): (),
-                (68): (),
             },
         ),
         (
@@ -354,7 +689,10 @@
             type_name: "PrefabOverrides",
             data: {
                 (37): (
-                    modified_components: [],
+                    modified_components: [
+                        "Collider",
+                        "Interactable",
+                    ],
                     removed_components: [],
                     added_components: [
                         (
@@ -459,15 +797,6 @@
                         },
                     ),
                 ),
-                (68): (
-                    script_id: (5),
-                    data: (
-                        fields: {
-                            "facing": Text("right"),
-                            "speed": Int(80),
-                        },
-                    ),
-                ),
                 (75): (
                     script_id: (7),
                     data: (
@@ -508,11 +837,20 @@
                 (38): (
                     sprite: (9),
                 ),
-                (68): (
-                    sprite: (9),
-                ),
                 (75): (
                     sprite: (9),
+                ),
+                (191): (
+                    sprite: (12),
+                ),
+                (192): (
+                    sprite: (12),
+                ),
+                (194): (
+                    sprite: (13),
+                ),
+                (197): (
+                    sprite: (13),
                 ),
             },
         ),
@@ -521,7 +859,261 @@
             data: {
                 (3): (),
                 (37): (),
-                (68): (),
+            },
+        ),
+        (
+            type_name: "TilePlacement",
+            data: {
+                (273): (
+                    definition: (1),
+                    grid_x: 10,
+                    grid_y: 4,
+                ),
+                (274): (
+                    definition: (1),
+                    grid_x: 11,
+                    grid_y: 4,
+                ),
+                (275): (
+                    definition: (1),
+                    grid_x: 12,
+                    grid_y: 4,
+                ),
+                (276): (
+                    definition: (1),
+                    grid_x: 13,
+                    grid_y: 4,
+                ),
+                (277): (
+                    definition: (1),
+                    grid_x: 14,
+                    grid_y: 4,
+                ),
+                (278): (
+                    definition: (1),
+                    grid_x: 14,
+                    grid_y: 5,
+                ),
+                (279): (
+                    definition: (1),
+                    grid_x: 14,
+                    grid_y: 6,
+                ),
+                (280): (
+                    definition: (1),
+                    grid_x: 14,
+                    grid_y: 7,
+                ),
+                (281): (
+                    definition: (1),
+                    grid_x: 14,
+                    grid_y: 8,
+                ),
+                (282): (
+                    definition: (1),
+                    grid_x: 13,
+                    grid_y: 8,
+                ),
+                (283): (
+                    definition: (1),
+                    grid_x: 13,
+                    grid_y: 7,
+                ),
+                (284): (
+                    definition: (1),
+                    grid_x: 13,
+                    grid_y: 6,
+                ),
+                (285): (
+                    definition: (1),
+                    grid_x: 13,
+                    grid_y: 5,
+                ),
+                (286): (
+                    definition: (1),
+                    grid_x: 12,
+                    grid_y: 5,
+                ),
+                (287): (
+                    definition: (1),
+                    grid_x: 11,
+                    grid_y: 5,
+                ),
+                (288): (
+                    definition: (1),
+                    grid_x: 10,
+                    grid_y: 5,
+                ),
+                (289): (
+                    definition: (1),
+                    grid_x: 10,
+                    grid_y: 6,
+                ),
+                (290): (
+                    definition: (1),
+                    grid_x: 10,
+                    grid_y: 7,
+                ),
+                (291): (
+                    definition: (1),
+                    grid_x: 10,
+                    grid_y: 8,
+                ),
+                (292): (
+                    definition: (1),
+                    grid_x: 11,
+                    grid_y: 8,
+                ),
+                (293): (
+                    definition: (1),
+                    grid_x: 12,
+                    grid_y: 8,
+                ),
+                (294): (
+                    definition: (1),
+                    grid_x: 12,
+                    grid_y: 7,
+                ),
+                (295): (
+                    definition: (1),
+                    grid_x: 12,
+                    grid_y: 6,
+                ),
+                (296): (
+                    definition: (1),
+                    grid_x: 11,
+                    grid_y: 6,
+                ),
+                (297): (
+                    definition: (1),
+                    grid_x: 11,
+                    grid_y: 7,
+                ),
+                (298): (
+                    definition: (1),
+                    grid_x: 6,
+                    grid_y: 4,
+                ),
+                (299): (
+                    definition: (1),
+                    grid_x: 5,
+                    grid_y: 4,
+                ),
+                (300): (
+                    definition: (1),
+                    grid_x: 4,
+                    grid_y: 4,
+                ),
+                (301): (
+                    definition: (1),
+                    grid_x: 3,
+                    grid_y: 4,
+                ),
+                (302): (
+                    definition: (1),
+                    grid_x: 2,
+                    grid_y: 4,
+                ),
+                (303): (
+                    definition: (1),
+                    grid_x: 2,
+                    grid_y: 5,
+                ),
+                (304): (
+                    definition: (1),
+                    grid_x: 2,
+                    grid_y: 6,
+                ),
+                (305): (
+                    definition: (1),
+                    grid_x: 2,
+                    grid_y: 7,
+                ),
+                (306): (
+                    definition: (1),
+                    grid_x: 2,
+                    grid_y: 8,
+                ),
+                (307): (
+                    definition: (1),
+                    grid_x: 3,
+                    grid_y: 8,
+                ),
+                (308): (
+                    definition: (1),
+                    grid_x: 4,
+                    grid_y: 8,
+                ),
+                (309): (
+                    definition: (1),
+                    grid_x: 5,
+                    grid_y: 8,
+                ),
+                (310): (
+                    definition: (1),
+                    grid_x: 6,
+                    grid_y: 8,
+                ),
+                (311): (
+                    definition: (1),
+                    grid_x: 6,
+                    grid_y: 7,
+                ),
+                (312): (
+                    definition: (1),
+                    grid_x: 6,
+                    grid_y: 6,
+                ),
+                (313): (
+                    definition: (1),
+                    grid_x: 6,
+                    grid_y: 5,
+                ),
+                (314): (
+                    definition: (1),
+                    grid_x: 5,
+                    grid_y: 5,
+                ),
+                (315): (
+                    definition: (1),
+                    grid_x: 4,
+                    grid_y: 5,
+                ),
+                (316): (
+                    definition: (1),
+                    grid_x: 3,
+                    grid_y: 5,
+                ),
+                (317): (
+                    definition: (1),
+                    grid_x: 3,
+                    grid_y: 6,
+                ),
+                (318): (
+                    definition: (1),
+                    grid_x: 3,
+                    grid_y: 7,
+                ),
+                (319): (
+                    definition: (1),
+                    grid_x: 4,
+                    grid_y: 7,
+                ),
+                (320): (
+                    definition: (1),
+                    grid_x: 5,
+                    grid_y: 7,
+                ),
+                (321): (
+                    definition: (1),
+                    grid_x: 5,
+                    grid_y: 6,
+                ),
+                (322): (
+                    definition: (1),
+                    grid_x: 4,
+                    grid_y: 6,
+                ),
             },
         ),
         (
@@ -529,88 +1121,123 @@
             data: {
                 (2): (
                     visible: true,
-                    position: (36.0, 72.0),
+                    position: (140.0, 72.000015),
                     pivot: BottomCenter,
+                    z: 0,
                 ),
                 (3): (
                     visible: true,
                     position: (0.0, 0.0),
                     pivot: BottomCenter,
+                    z: 1,
                 ),
                 (24): (
                     visible: true,
                     position: (-64.0, 36.0),
                     pivot: CenterLeft,
+                    z: 0,
                 ),
                 (37): (
                     visible: true,
                     position: (164.0, 72.0),
                     pivot: BottomCenter,
+                    z: 1,
                 ),
                 (38): (
                     visible: true,
                     position: (-84.0, 72.0),
                     pivot: BottomCenter,
+                    z: 0,
                 ),
                 (41): (
                     visible: true,
                     position: (128.0, 72.0),
                     pivot: CenterLeft,
+                    z: 0,
                 ),
                 (46): (
                     visible: true,
                     position: (-44.0, 72.0),
                     pivot: BottomCenter,
+                    z: 0,
                 ),
                 (52): (
                     visible: true,
                     position: (152.0, 144.0),
                     pivot: BottomCenter,
+                    z: 0,
                 ),
                 (62): (
                     visible: true,
                     position: (24.0, 64.0),
                     pivot: BottomCenter,
+                    z: 0,
                 ),
                 (63): (
                     visible: true,
-                    position: (76.0, 72.0),
+                    position: (244.0, 72.0),
                     pivot: BottomCenter,
+                    z: 0,
                 ),
                 (65): (
                     visible: true,
                     position: (128.0, 0.0),
                     pivot: TopLeft,
-                ),
-                (68): (
-                    visible: true,
-                    position: (12.0, 72.0),
-                    pivot: BottomCenter,
+                    z: 0,
                 ),
                 (70): (
                     visible: true,
                     position: (128.0, 72.0),
                     pivot: CenterLeft,
+                    z: 0,
                 ),
                 (71): (
                     visible: true,
                     position: (24.0, 144.0),
                     pivot: BottomCenter,
+                    z: 0,
                 ),
                 (74): (
                     visible: true,
                     position: (72.0, 144.0),
                     pivot: BottomCenter,
+                    z: 0,
                 ),
                 (75): (
                     visible: true,
                     position: (168.0, 144.0),
                     pivot: BottomCenter,
+                    z: 0,
                 ),
                 (78): (
                     visible: true,
                     position: (228.0, 24.0),
                     pivot: BottomCenter,
+                    z: 0,
+                ),
+                (191): (
+                    visible: true,
+                    position: (36.0, 72.0),
+                    pivot: BottomCenter,
+                    z: 0,
+                ),
+                (192): (
+                    visible: true,
+                    position: (100.0, 71.999985),
+                    pivot: BottomCenter,
+                    z: 0,
+                ),
+                (194): (
+                    visible: true,
+                    position: (36.0, 72.0),
+                    pivot: BottomCenter,
+                    z: -1,
+                ),
+                (197): (
+                    visible: true,
+                    position: (100.0, 71.99999),
+                    pivot: BottomCenter,
+                    z: -1,
                 ),
             },
         ),
@@ -622,10 +1249,6 @@
                     y: 0.0,
                 ),
                 (37): (
-                    x: 0.0,
-                    y: 0.0,
-                ),
-                (68): (
                     x: 0.0,
                     y: 0.0,
                 ),

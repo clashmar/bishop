@@ -10,7 +10,6 @@ use crate::ecs::{Animation, SpriteId};
 use crate::game::Game;
 use crate::storage::path_utils::assets_folder;
 use crate::task::FileReadPool;
-use crate::tiles::tile::*;
 use crate::*;
 use bishop::prelude::*;
 use log::info;
@@ -36,35 +35,28 @@ pub struct SpriteManager {
     #[serde(skip)]
     /// Counter for sprite ids. Starts from 1.
     next_sprite_id: usize,
-    /// Maps `TileDefIds` to `TileDef`.
-    #[serde(
-        serialize_with = "crate::storage::ordered_map::serialize",
-        deserialize_with = "crate::storage::ordered_map::deserialize"
-    )]
-    pub tile_defs: HashMap<TileDefId, TileDef>,
-    /// Counter for tile def ids. Starts from 1.
-    next_tile_def_id: usize,
     #[serde(skip)]
     runtime_texture_loading: bool,
     #[serde(skip)]
     runtime_file_read_pool: Option<FileReadPool>,
     #[serde(skip)]
     pending_texture_reads: HashMap<SpriteId, PathBuf>,
-    /// Placeholder texture returned for unset or missing sprite ids.
+    #[serde(skip)]
+    failed_texture_reads: HashSet<SpriteId>,
+    /// Placeholder texture returned for intentionally unset sprite ids.
     #[serde(skip)]
     empty_texture: Option<Texture2D>,
+    /// Visible fallback texture returned for missing nonzero sprite ids.
+    #[serde(skip)]
+    missing_texture: Option<Texture2D>,
 }
 
 impl AssetManager for SpriteManager {
     fn editor_metadata_snapshot(&self) -> Self {
-        Self {
-            tile_defs: self.tile_defs.clone(),
-            ..Default::default()
-        }
+        Self::default()
     }
 
-    fn merge_editor_metadata_from(&mut self, source: &Self) -> std::io::Result<()> {
-        self.tile_defs = source.tile_defs.clone();
+    fn merge_editor_metadata_from(&mut self, _source: &Self) -> std::io::Result<()> {
         Ok(())
     }
 }

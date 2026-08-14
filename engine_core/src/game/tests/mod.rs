@@ -4,12 +4,14 @@ use super::*;
 use crate::ecs::Ecs;
 #[cfg(feature = "editor")]
 use crate::ecs::{CurrentRoom, Name, Singleton};
+use crate::tiles::TileRegistry;
 use crate::worlds::room::{Room, RoomId};
 
 #[test]
 fn game_ctx_mut_can_exist_without_a_current_world() {
     let mut ecs = Ecs::default();
     let mut asset_registry = AssetRegistry::default();
+    let mut tile_registry = TileRegistry::default();
     let mut sprite_manager = SpriteManager::default();
     let mut script_manager = ScriptManager::default();
     let prefab_manager = PrefabManager::default();
@@ -20,6 +22,7 @@ fn game_ctx_mut_can_exist_without_a_current_world() {
         world_directory: Vec::new(),
         room_world_map: std::collections::HashMap::new(),
         asset_registry: &mut asset_registry,
+        tile_registry: &mut tile_registry,
         sprite_manager: &mut sprite_manager,
         script_manager: &mut script_manager,
         prefab_manager: &prefab_manager,

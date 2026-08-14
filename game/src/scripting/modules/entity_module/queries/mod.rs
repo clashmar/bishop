@@ -1,3 +1,4 @@
+mod current_layer;
 mod current_room;
 mod find_best_interactable;
 mod get;
@@ -8,6 +9,7 @@ mod has;
 mod is_clip_finished;
 mod is_speaking;
 
+pub(super) use current_layer::CurrentLayerMethod;
 pub(super) use current_room::CurrentRoomMethod;
 pub(super) use find_best_interactable::FindBestInteractableMethod;
 pub(super) use get::GetMethod;

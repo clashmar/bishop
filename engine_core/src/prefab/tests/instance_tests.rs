@@ -277,6 +277,7 @@ fn refresh_prefab_instance_updates_root_transform_fields_but_keeps_position() {
                     visible: false,
                     position: Vec2::ZERO,
                     pivot: Pivot::TopLeft,
+                    z: 11,
                 })
                 .unwrap(),
             }],
@@ -293,4 +294,5 @@ fn refresh_prefab_instance_updates_root_transform_fields_but_keeps_position() {
     assert_eq!(transform.position, Vec2::new(12.0, 34.0));
     assert!(!transform.visible);
     assert_eq!(transform.pivot, Pivot::TopLeft);
+    assert_eq!(transform.z, 11);
 }

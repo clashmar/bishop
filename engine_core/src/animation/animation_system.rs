@@ -164,7 +164,7 @@ impl Renderable for CurrentFrame {
             tex,
             draw_x,
             draw_y,
-            Color::WHITE,
+            params.color,
             DrawTextureParams {
                 dest_size: Some(Vec2::new(frame_w, frame_h)),
                 source: Some(src),

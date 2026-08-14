@@ -7,7 +7,7 @@ edition = "2024"
 default = ["wgpu"]
 wgpu = ["bishop/wgpu", "widgets/wgpu"]
 editor = []
-test-utils = []
+test-utils = ["widgets/test-utils"]
 
 [dependencies]
 widgets = { path = "../widgets", default-features = false }

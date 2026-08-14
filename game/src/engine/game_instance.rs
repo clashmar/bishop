@@ -1,11 +1,11 @@
 use bishop::prelude::*;
 use crate::scripting::script_system::ScriptSystem;
-use engine_core::camera::CameraManager;
+use engine_core::camera::{CameraManager, get_room_cameras};
 use engine_core::diagnostics::TraversalResidencyDiagnostics;
 use engine_core::ecs::*;
 use engine_core::game::{Game};
 use engine_core::menu::{drain_menu_events, drain_slider_events};
-use engine_core::rendering::{visual_position};
+use engine_core::rendering::{visual_position, RoomRenderState};
 use engine_core::storage::hydrate_initial_payloads_for_runtime;
 use engine_core::worlds::*;
 use mlua::Lua;
@@ -20,6 +20,7 @@ use std::collections::HashMap;
 pub struct PreparedGameInstance {
     pub game: Game,
     pub room_id: RoomId,
+    pub room_layer: RoomLayer,
 }
 
 /// Top-level orchestrator of the game and systems.
@@ -61,14 +62,19 @@ impl GameInstance {
     /// without finalizing audio wiring, camera setup, or script initialization.
     pub fn prepare_loaded_game(lua: &Lua, mut game: Game) -> PreparedGameInstance {
         game.initialize_runtime(lua);
-        let room_id = Self::start_room_id(&game);
+        let (room_id, room_layer) = Self::start_room_and_layer(&game);
         if let Some(world) = game.current_world_mut() {
             world.current_room_id = Some(room_id);
         }
         hydrate_initial_payloads_for_runtime(&mut game)
             .expect("initial payload hydration should succeed during startup");
         game.ecs.finalize_after_load();
-        PreparedGameInstance { game, room_id }
+        game.sync_all_tile_placements();
+        PreparedGameInstance {
+            game,
+            room_id,
+            room_layer,
+        }
     }
 
     /// Loads a specific room into a game, without finalizing
@@ -79,8 +85,10 @@ impl GameInstance {
             world.current_room_id = Some(room.id);
         }
         game.ecs.finalize_after_load();
+        game.sync_all_tile_placements();
         PreparedGameInstance {
             room_id: room.id,
+            room_layer: RoomLayer::Front,
             game,
         }
     }
@@ -94,6 +102,7 @@ impl GameInstance {
         let PreparedGameInstance {
             game,
             room_id,
+            room_layer,
         } = prepared;
 
         let ecs = &game.ecs;
@@ -103,12 +112,46 @@ impl GameInstance {
             .unwrap_or_default();
         let grid_size = game.current_world().grid_size;
 
-        *camera_manager = CameraManager::new(ctx, ecs, room_id, player_pos, grid_size);
+        *camera_manager = CameraManager::new(ctx, ecs, room_id, room_layer, player_pos, grid_size);
 
         Self {
             game,
             prev_positions: HashMap::new(),
             traversal_residency_diagnostics: None,
+        }
+    }
+
+    pub fn current_render_state(&self) -> RoomRenderState {
+        if let Some(player) = self.game.ecs.get_player_entity() {
+            if let Some(current_room) = self.game.ecs.get::<CurrentRoom>(player).copied() {
+                return RoomRenderState {
+                    current_layer: current_room.layer,
+                    viewpoint_position: self.game.ecs.get::<Transform>(player).map(|transform| transform.position),
+                    show_all_back_bounds: false,
+                };
+            }
+        }
+
+        let fallback = self.game.current_world().current_room_id.and_then(|room_id| {
+            let ecs = &self.game.ecs;
+            let preferred_layer = Self::preferred_room_layer(&self.game, room_id);
+            get_room_cameras(ecs, room_id, preferred_layer)
+                .into_iter()
+                .chain(get_room_cameras(ecs, room_id, preferred_layer.opposite()))
+                .find_map(|(entity, _)| {
+                    let current_room = ecs.get::<CurrentRoom>(entity).copied()?;
+                    let viewpoint_position = ecs.get::<Transform>(entity).map(|transform| transform.position);
+                    Some((current_room.layer, viewpoint_position))
+                })
+        });
+
+        let (current_layer, viewpoint_position) =
+            fallback.unwrap_or((RoomLayer::Front, None));
+
+        RoomRenderState {
+            current_layer,
+            viewpoint_position,
+            show_all_back_bounds: false,
         }
     }
 
@@ -144,25 +187,44 @@ impl GameInstance {
         );
     }
 
-    fn start_room_id(game: &Game) -> RoomId {
+    fn start_room_and_layer(game: &Game) -> (RoomId, RoomLayer) {
         let world = game.current_world();
-        // Prefer the start WorldEntry's room; fall back to the world's first room
+        // Prefer the start WorldEntry's authored room/layer, then fall back to the first room on Front
         let entries = game.ecs.get_store::<WorldEntry>();
         for (&entity, entry) in entries.data.iter() {
             if !entry.is_start {
                 continue;
             }
-            if let Some(room_id) = game.ecs.get::<CurrentRoom>(entity).map(|r| r.0) {
-                if world.get_room(room_id).is_some() {
-                    return room_id;
-                }
+            let Some(current_room) = game.ecs.get::<CurrentRoom>(entity).copied() else {
+                continue;
+            };
+            if world.get_room(current_room.room_id).is_some() {
+                return (current_room.room_id, current_room.layer);
             }
         }
-        world
-            .rooms()
-            .first()
-            .map(|r| r.id)
-            .unwrap_or_default()
+        (
+            world.rooms().first().map(|r| r.id).unwrap_or_default(),
+            RoomLayer::Front,
+        )
+    }
+
+    fn preferred_room_layer(game: &Game, room_id: RoomId) -> RoomLayer {
+        let world = game.current_world();
+        let entries = game.ecs.get_store::<WorldEntry>();
+
+        for (&entity, entry) in entries.data.iter() {
+            if !entry.is_start {
+                continue;
+            }
+            let Some(current_room) = game.ecs.get::<CurrentRoom>(entity).copied() else {
+                continue;
+            };
+            if current_room.room_id == room_id && world.get_room(current_room.room_id).is_some() {
+                return current_room.layer;
+            }
+        }
+
+        RoomLayer::Front
     }
 
     /// Drains pending menu action events and emits them to the Lua event bus.
@@ -239,6 +301,42 @@ mod tests {
     }
 
     #[test]
+    fn startup_room_and_layer_follow_the_start_entry() {
+        let _lock = game_fs_test_lock().lock().unwrap();
+        let test_game = TestGameFolder::new("prepare_loaded_game_start_layer");
+        set_game_name(test_game.name());
+
+        let mut world = World::default();
+        world.current_room_id = Some(RoomId(1));
+        world.add_room(Room {
+            id: RoomId(1),
+            ..Default::default()
+        });
+        world.add_room(Room {
+            id: RoomId(2),
+            position: Vec2::new(32.0, 0.0),
+            ..Default::default()
+        });
+
+        let mut game = Game::with_name(test_game.name());
+        game.add_world(world);
+        game.ecs
+            .create_entity()
+            .with(WorldEntry {
+                name: WorldEntry::START_NAME.to_string(),
+                is_start: true,
+            })
+            .with_current_room_layer(RoomId(2), RoomLayer::Back)
+            .finish();
+
+        let prepared = GameInstance::prepare_loaded_game(&Lua::new(), game);
+
+        assert_eq!(prepared.room_id, RoomId(2));
+        assert_eq!(prepared.room_layer, RoomLayer::Back);
+        assert_eq!(prepared.game.current_world().current_room_id, Some(RoomId(2)));
+    }
+
+    #[test]
     fn prepare_loaded_room_sets_current_world_room_to_selected_room() {
         let _lock = game_fs_test_lock().lock().unwrap();
         let test_game = TestGameFolder::new("prepare_loaded_room_selected_room");
@@ -303,6 +401,46 @@ mod tests {
 
         assert_eq!(lua.globals().get::<String>("bootstrap_order").unwrap(), "gm");
         assert_eq!(lua.globals().get::<String>("saw_input").unwrap(), "space");
+    }
+
+    #[test]
+    fn current_render_state_falls_back_to_room_camera_layer_and_position() {
+        let room_id = RoomId(1);
+        let room = Room {
+            id: room_id,
+            ..Default::default()
+        };
+
+        let mut world = World::default();
+        world.current_room_id = Some(room_id);
+        world.add_room(room);
+
+        let mut game = Game::default();
+        game.add_world(world);
+
+        game.ecs.create_entity()
+            .with(Transform {
+                position: Vec2::new(48.0, 64.0),
+                ..Default::default()
+            })
+            .with(RoomCamera::default())
+            .with_current_room_layer(room_id, RoomLayer::Back)
+            .finish();
+
+        let game_instance = GameInstance {
+            game,
+            prev_positions: HashMap::new(),
+            traversal_residency_diagnostics: None,
+        };
+
+        assert_eq!(
+            game_instance.current_render_state(),
+            RoomRenderState {
+                current_layer: RoomLayer::Back,
+                viewpoint_position: Some(Vec2::new(48.0, 64.0)),
+                show_all_back_bounds: false,
+            }
+        );
     }
 
     #[test]

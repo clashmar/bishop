@@ -9,16 +9,19 @@ use engine_core::worlds::*;
 enum CreateSceneEntityKind {
     RoomEntity {
         room_id: RoomId,
+        layer: RoomLayer,
         position: Vec2,
         parent: Option<Entity>,
     },
     GlobalEntity,
     PlayerProxy {
         room_id: RoomId,
+        layer: RoomLayer,
         position: Vec2,
     },
     RoomCamera {
         room_id: RoomId,
+        layer: RoomLayer,
         position: Vec2,
         grid_size: f32,
     },
@@ -37,11 +40,12 @@ impl CreateSceneEntityCmd {
     pub const GLOBAL_ENTITY_NAME: &'static str = "Global Entity";
     pub const PLAYER_PROXY_NAME: &'static str = "Player Proxy";
 
-    pub fn new_room_entity(room_id: RoomId, position: Vec2, parent: Option<Entity>) -> Self {
+    pub fn new_room_entity(room_id: RoomId, layer: RoomLayer, position: Vec2, parent: Option<Entity>) -> Self {
         Self {
             mode: EditorMode::Room(room_id),
             kind: CreateSceneEntityKind::RoomEntity {
                 room_id,
+                layer,
                 position,
                 parent,
             },
@@ -57,19 +61,20 @@ impl CreateSceneEntityCmd {
         }
     }
 
-    pub fn new_player_proxy(room_id: RoomId, position: Vec2) -> Self {
+    pub fn new_player_proxy(room_id: RoomId, layer: RoomLayer, position: Vec2) -> Self {
         Self {
             mode: EditorMode::Room(room_id),
-            kind: CreateSceneEntityKind::PlayerProxy { room_id, position },
+            kind: CreateSceneEntityKind::PlayerProxy { room_id, layer, position },
             created_entity: None,
         }
     }
 
-    pub fn new_room_camera(room_id: RoomId, position: Vec2, grid_size: f32) -> Self {
+    pub fn new_room_camera(room_id: RoomId, layer: RoomLayer, position: Vec2, grid_size: f32) -> Self {
         Self {
             mode: EditorMode::Room(room_id),
             kind: CreateSceneEntityKind::RoomCamera {
                 room_id,
+                layer,
                 position,
                 grid_size,
             },
@@ -94,6 +99,7 @@ impl EditorCommand for CreateSceneEntityCmd {
             let entity = match self.kind {
                 CreateSceneEntityKind::RoomEntity {
                     room_id,
+                    layer,
                     position,
                     parent,
                 } => {
@@ -104,7 +110,7 @@ impl EditorCommand for CreateSceneEntityCmd {
                             ..Default::default()
                         })
                         .with(Name(Self::ROOM_ENTITY_NAME.to_string()))
-                        .with_current_room(room_id)
+                        .with_current_room_layer(room_id, layer)
                         .finish();
 
                     if let Some(parent) = parent {
@@ -119,7 +125,7 @@ impl EditorCommand for CreateSceneEntityCmd {
                     .with(Global::default())
                     .with(Name(Self::GLOBAL_ENTITY_NAME.to_string()))
                     .finish(),
-                CreateSceneEntityKind::PlayerProxy { room_id, position } => ecs
+                CreateSceneEntityKind::PlayerProxy { room_id, layer, position } => ecs
                     .create_entity()
                     .with(PlayerProxy)
                     .with(Transform {
@@ -127,14 +133,16 @@ impl EditorCommand for CreateSceneEntityCmd {
                         ..Default::default()
                     })
                     .with(Name(Self::PLAYER_PROXY_NAME.to_string()))
-                    .with_current_room(room_id)
+                    .with_current_room_layer(room_id, layer)
                     .finish(),
                 CreateSceneEntityKind::RoomCamera {
                     room_id,
+                    layer,
                     position,
                     grid_size,
                 } => {
                     let entity = Room::create_camera_entity(ecs, room_id, position, grid_size);
+                    ecs.set_entity_layer(entity, layer);
                     editor.room_editor.set_selected_entity(Some(entity));
                     entity
                 }

@@ -1,24 +1,17 @@
 use crate::assets::sprite_manager::SpriteManager;
-use crate::tiles::serialization::{deserialize_tiles, serialize_tiles};
-use crate::tiles::tile::TileDefId;
-use crate::worlds::world::GridPos;
+use crate::ecs::{CurrentFrame, Ecs, Pivot, Sprite, TilePlacement};
+use crate::rendering::{EntityDrawParams, Renderable, RoomCompositionContext};
+use crate::tiles::TileRegistry;
+use crate::worlds::RoomLayer;
 use bishop::prelude::*;
 use serde::{Deserialize, Serialize};
 use serde_with::{FromInto, serde_as};
-use std::collections::HashMap;
 
 #[serde_as]
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct TileMap {
     pub width: usize,
     pub height: usize,
-    #[serde(
-        default,
-        skip_serializing_if = "HashMap::is_empty",
-        serialize_with = "serialize_tiles",
-        deserialize_with = "deserialize_tiles"
-    )]
-    pub tiles: HashMap<(usize, usize), TileDefId>,
     #[serde_as(as = "FromInto<[f32; 4]>")]
     pub background: Color,
 }
@@ -28,121 +21,144 @@ impl TileMap {
         Self {
             width,
             height,
-            tiles: HashMap::new(),
             background: Color::LIGHTGREY,
         }
     }
+}
 
-    /// Draw the tilemap.
-    pub fn draw<C: BishopContext>(
-        &self,
-        ctx: &mut C,
-        sprite_manager: &mut SpriteManager,
-        room_position: Vec2,
-        grid_size: f32,
-    ) {
-        // Background
-        ctx.draw_rectangle(
-            room_position.x,
-            room_position.y,
-            self.width as f32 * grid_size,
-            self.height as f32 * grid_size,
-            self.background,
+pub fn draw_room_tile_placements<C: BishopContext>(
+    ctx: &mut C,
+    ecs: &Ecs,
+    layer: RoomLayer,
+    composition: &RoomCompositionContext,
+    tile_registry: &TileRegistry,
+    sprite_manager: &mut SpriteManager,
+) {
+    let room_id = composition.room_id;
+    let room_position = composition.room_position;
+    let grid_size = composition.grid_size;
+
+    for &entity in ecs.tile_entities_in_room_layer(room_id, layer).values() {
+        let Some(tile) = ecs.get::<TilePlacement>(entity) else {
+            continue;
+        };
+        let Some(tile_def) = tile_registry.get(tile.definition) else {
+            continue;
+        };
+
+        let tile_pos = Vec2::new(tile.grid_x as f32 * grid_size, tile.grid_y as f32 * grid_size)
+            + room_position;
+        let tile_bounds = Rect::new(tile_pos.x, tile_pos.y, grid_size, grid_size);
+        let color = if layer == RoomLayer::Front {
+            let Some(color) = composition
+                .front_layer_composition(ecs, entity, Some(tile_bounds))
+                .tint()
+            else {
+                continue;
+            };
+            color
+        } else {
+            if !composition.back_layer_bounds_visible(tile_bounds) {
+                continue;
+            }
+            Color::WHITE
+        };
+        let params = EntityDrawParams {
+            pos: tile_pos,
+            pivot: Pivot::TopLeft,
+            grid_size,
+            color,
+        };
+
+        if let Some(current_frame) = ecs.get::<CurrentFrame>(entity)
+            && current_frame.draw(ctx, sprite_manager, &params)
+        {
+            continue;
+        }
+
+        if let Some(sprite) = ecs.get::<Sprite>(entity)
+            && sprite.draw(ctx, sprite_manager, &params)
+        {
+            continue;
+        }
+
+        let tex = sprite_manager.get_texture_from_id(ctx, tile_def.sprite_id);
+        ctx.draw_texture_ex(
+            tex,
+            tile_pos.x,
+            tile_pos.y,
+            color,
+            DrawTextureParams {
+                dest_size: Some(Vec2::new(grid_size, grid_size)),
+                ..Default::default()
+            },
         );
-
-        for ((x, y), tile_def_id) in &self.tiles {
-            let tile_pos = Vec2::new(*x as f32 * grid_size, *y as f32 * grid_size) + room_position;
-
-            if let Some(tile_def) = sprite_manager.tile_defs.get(tile_def_id) {
-                let tex = sprite_manager.get_texture_from_id(ctx, tile_def.sprite_id);
-                ctx.draw_texture_ex(
-                    tex,
-                    tile_pos.x,
-                    tile_pos.y,
-                    Color::WHITE,
-                    DrawTextureParams {
-                        dest_size: Some(Vec2::new(grid_size, grid_size)),
-                        ..Default::default()
-                    },
-                );
-            }
-        }
-    }
-
-    /// Insert a tile at a grid coordinate.
-    pub fn set_tile(&mut self, x: usize, y: usize, tile_def_id: TileDefId) {
-        self.tiles.insert((x, y), tile_def_id);
-    }
-
-    /// Retrieve a tile, returning `None` for empty cells.
-    pub fn get_tile(&self, pos: GridPos) -> Option<&TileDefId> {
-        let (x, y) = pos.as_usize()?;
-        self.tiles.get(&(x, y))
-    }
-
-    /// Convert a pixel coordinate to a grid coordinate.
-    pub fn pixel_to_grid(pixel: f32, grid_size: f32) -> i32 {
-        (pixel / grid_size).floor() as i32
-    }
-
-    pub fn any_tiles_in_range<F>(
-        map: &TileMap,
-        x_range: std::ops::RangeInclusive<i32>,
-        y_range: std::ops::RangeInclusive<i32>,
-        predicate: F,
-    ) -> bool
-    where
-        F: Fn(&TileDefId) -> bool,
-    {
-        let y_start = *y_range.start();
-        let y_end = *y_range.end();
-
-        for x in x_range {
-            for y in y_start..=y_end {
-                let pos = GridPos::new(x, y);
-                if pos.is_in_bounds(map.width, map.height)
-                    && let Some(tile) = map.get_tile(pos)
-                    && predicate(tile)
-                {
-                    return true;
-                }
-            }
-        }
-        false
-    }
-
-    /// Remove a tile from the map.
-    pub fn remove_tile(&mut self, grid_position: (usize, usize)) {
-        if let Some(_tile_def_id) = self.tiles.remove(&grid_position) {
-            // TODO: Handle sprite and ecs
-        }
     }
 }
 
-/// Convert a grid position to world coordinates.
-pub fn tile_to_world(grid_position: GridPos, grid_size: f32) -> Vec2 {
-    Vec2::new(
-        grid_position.x() as f32 * grid_size,
-        grid_position.y() as f32 * grid_size,
-    )
-}
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::ecs::CurrentRoom;
+    use crate::tiles::TileDefId;
+    use crate::worlds::room::RoomVariant;
+    use crate::worlds::RoomId;
 
-/// Shift every tile in a tilemap by (dx, dy).
-pub fn shift_tiles(map: &mut TileMap, dx: isize, dy: isize) {
-    // Nothing to do if the offset is zero
-    if dx == 0 && dy == 0 {
-        return;
+    #[test]
+    fn room_variant_background_is_read_from_room_variant_not_tilemap() {
+        let variant = RoomVariant {
+            background: Color::MAGENTA,
+            tilemap: TileMap {
+                background: Color::GREEN,
+                ..TileMap::new(4, 4)
+            },
+            ..Default::default()
+        };
+
+        assert_eq!(variant.background, Color::MAGENTA);
+        assert_eq!(variant.tilemap.background, Color::GREEN);
     }
 
-    // Take the current tiles out of the map, then re‑insert them with the offset
-    let old_tiles = std::mem::take(&mut map.tiles);
+    #[test]
+    fn room_tile_draw_entities_when_room_contains_non_tile_entity_then_returns_only_tiles() {
+        let mut ecs = Ecs::default();
+        let room_id = RoomId(1);
+        let tile_entity = ecs.create_entity().finish();
+        let non_tile_entity = ecs.create_entity().finish();
 
-    for ((x, y), tile) in old_tiles {
-        // New grid coordinates.
-        let nx = (x as isize + dx) as usize;
-        let ny = (y as isize + dy) as usize;
+        ecs.insert_component(tile_entity, TilePlacement::new(TileDefId(1), 2, 3));
+        ecs.insert_component(tile_entity, CurrentRoom::front(room_id));
+        ecs.insert_component(non_tile_entity, CurrentRoom::front(room_id));
 
-        // Re‑insert the tile at its new grid location
-        map.tiles.insert((nx, ny), tile);
+        ecs.room_entities.insert(room_id, std::iter::once(non_tile_entity).collect());
+
+        let draw_entities: Vec<_> = ecs
+            .tile_entities_in_room_layer(room_id, RoomLayer::Front)
+            .values()
+            .copied()
+            .collect();
+
+        assert_eq!(draw_entities, vec![tile_entity]);
+    }
+
+    #[test]
+    fn room_tile_draw_entities_when_layer_is_back_then_returns_only_back_tiles() {
+        let mut ecs = Ecs::default();
+        let room_id = RoomId(1);
+        let front_tile = ecs.create_entity().finish();
+        let back_tile = ecs.create_entity().finish();
+
+        ecs.insert_component(front_tile, TilePlacement::new(TileDefId(1), 2, 3));
+        ecs.insert_component(front_tile, CurrentRoom::front(room_id));
+        ecs.insert_component(back_tile, TilePlacement::new(TileDefId(2), 4, 5));
+        ecs.insert_component(back_tile, CurrentRoom::new(room_id, RoomLayer::Back));
+
+        let draw_entities: Vec<_> = ecs
+            .tile_entities_in_room_layer(room_id, RoomLayer::Back)
+            .values()
+            .copied()
+            .collect();
+
+        assert_eq!(draw_entities, vec![back_tile]);
     }
 }

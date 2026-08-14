@@ -1,6 +1,7 @@
 pub mod audio;
 pub mod constants;
 pub mod diagnostics;
+pub mod dev_tools;
 pub mod engine;
 pub mod game_global;
 pub mod input;

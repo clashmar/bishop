@@ -34,14 +34,18 @@ fn named_world(id: usize, name: &str, room_id: usize) -> World {
     world
 }
 
-/// Adds a "Start" WorldEntry entity to the ECS for the given world and room.
-fn add_start_entry(game: &mut Game, room_id: RoomId, pos: Vec2) {
+/// Adds a "Start" WorldEntry entity to the ECS for the given world, room, and layer.
+fn add_start_entry_in_layer(game: &mut Game, room_id: RoomId, layer: RoomLayer, pos: Vec2) {
     game.ecs
         .create_entity()
         .with(WorldEntry { name: START_ENTRY.to_string(), is_start: true })
         .with(Transform { position: pos, ..Default::default() })
-        .with_current_room(room_id)
+        .with_current_room_layer(room_id, layer)
         .finish();
+}
+
+fn add_start_entry(game: &mut Game, room_id: RoomId, pos: Vec2) {
+    add_start_entry_in_layer(game, room_id, RoomLayer::Front, pos);
 }
 
 fn two_world_instance() -> GameInstance {
@@ -84,6 +88,34 @@ fn transport_uses_start_entry_position_when_present() {
     assert_eq!(
         instance.game.ecs.get::<Transform>(player).map(|t| t.position),
         Some(specific_pos)
+    );
+}
+
+#[test]
+fn transport_uses_start_entry_layer_when_present() {
+    let mut game = Game::default();
+    game.add_world(named_world(OVERWORLD_ID.0, OVERWORLD, 1));
+    game.add_world(named_world(ARCADE_ID.0, ARCADE, 2));
+    add_start_entry(&mut game, RoomId(1), START_POS);
+    add_start_entry_in_layer(&mut game, RoomId(2), RoomLayer::Back, START_POS);
+    game.select_world(OVERWORLD_ID);
+    let player = spawn_player(&mut game, RoomId(1));
+    let mut instance = GameInstance {
+        game,
+        prev_positions: HashMap::new(),
+        traversal_residency_diagnostics: None,
+    };
+
+    let ok = WorldTransitionManager::execute(
+        &Lua::new(),
+        &mut instance,
+        &transport_request(player, ARCADE, None),
+    );
+
+    assert!(ok);
+    assert_eq!(
+        instance.game.ecs.get::<CurrentRoom>(player).map(|r| (r.room_id, r.layer)),
+        Some((RoomId(2), RoomLayer::Back))
     );
 }
 
@@ -176,8 +208,8 @@ fn transport_moves_player_and_switches_active_world() {
     assert!(ok);
     assert_eq!(instance.game.current_world().id, ARCADE_ID);
     assert_eq!(
-        instance.game.ecs.get::<CurrentRoom>(player).map(|r| r.0),
-        Some(RoomId(2))
+        instance.game.ecs.get::<CurrentRoom>(player).map(|r| (r.room_id, r.layer)),
+        Some((RoomId(2), RoomLayer::Front))
     );
     assert_eq!(
         instance.game.ecs.get::<Transform>(player).map(|t| t.position),
@@ -202,7 +234,7 @@ fn transport_uses_named_entry_room_and_position() {
             name: ARCADE_ENTRY.to_string(),
             ..Default::default()
         })
-        .with_current_room(RoomId(2))
+        .with_current_room_layer(RoomId(2), RoomLayer::Back)
         .finish();
 
     let ok = WorldTransitionManager::execute(
@@ -215,6 +247,10 @@ fn transport_uses_named_entry_room_and_position() {
     assert_eq!(
         instance.game.ecs.get::<Transform>(player).map(|t| t.position),
         Some(Vec2::new(42.0, 17.0))
+    );
+    assert_eq!(
+        instance.game.ecs.get::<CurrentRoom>(player).map(|r| r.layer),
+        Some(RoomLayer::Back)
     );
 }
 
@@ -238,7 +274,7 @@ fn transport_of_non_player_does_not_switch_active_world() {
     assert!(ok);
     assert_eq!(instance.game.current_world().id, OVERWORLD_ID);
     assert_eq!(
-        instance.game.ecs.get::<CurrentRoom>(npc).map(|r| r.0),
+        instance.game.ecs.get::<CurrentRoom>(npc).map(|r| r.room_id),
         Some(RoomId(2))
     );
 }
@@ -257,7 +293,7 @@ fn transport_rejects_unknown_world_without_state_change() {
     assert!(!ok);
     assert_eq!(instance.game.current_world().id, OVERWORLD_ID);
     assert_eq!(
-        instance.game.ecs.get::<CurrentRoom>(player).map(|r| r.0),
+        instance.game.ecs.get::<CurrentRoom>(player).map(|r| r.room_id),
         Some(RoomId(1))
     );
 }
@@ -312,7 +348,7 @@ fn overlay_switches_world_without_moving_player() {
     assert_eq!(instance.game.current_world().id, ARCADE_ID);
     assert_eq!(instance.game.current_world().current_room_id, Some(RoomId(2)));
     assert_eq!(
-        instance.game.ecs.get::<CurrentRoom>(player).map(|r| r.0),
+        instance.game.ecs.get::<CurrentRoom>(player).map(|r| r.room_id),
         Some(RoomId(1))
     );
 }

@@ -1,6 +1,6 @@
 use super::*;
 use crate::set_modal_open;
-use crate::widgets::test_support::WidgetTestContext;
+use crate::test_utils::WidgetTestContext;
 
 fn make_items() -> Vec<ContextMenuItem<String>> {
     vec![

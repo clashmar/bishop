@@ -3,6 +3,7 @@ use crate::ecs::ecs::Ecs;
 use crate::ecs::{AudioSource, Entity, Name, Pivot, RoomCamera, Singleton, Transform};
 use crate::scripting::event_tags::event_tag::EventTag;
 use crate::tiles::tilemap::TileMap;
+use crate::worlds::room_layers::{RoomLayer, RoomLayers};
 use bishop::prelude::*;
 use serde::{Deserialize, Serialize};
 use serde_with::FromInto;
@@ -45,6 +46,14 @@ pub struct Room {
     pub singleton: Entity,
 }
 
+/// Layer-aware exit marker facing a neighboring room.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct RoomFacingExit {
+    pub world_grid_position: Vec2,
+    pub direction: ExitDirection,
+    pub layer: RoomLayer,
+}
+
 impl Room {
     /// Common prefix for auto-generated camera entity names.
     pub const CAMERA_PREFIX: &'static str = "Camera ";
@@ -57,6 +66,7 @@ impl Room {
                 world::DEFAULT_ROOM_SIZE.x as usize,
                 world::DEFAULT_ROOM_SIZE.y as usize,
             ),
+            ..Default::default()
         };
 
         let room = Room {
@@ -101,7 +111,7 @@ impl Room {
                     // World position of the other room's exit
                     let other_world_pos = (other_room.position / grid_size) + other_exit.position;
 
-                    let linked = match exit.direction {
+                    let linked = exit.layer == other_exit.layer && match exit.direction {
                         ExitDirection::Up => {
                             other_exit.direction == ExitDirection::Down
                                 && (exit_world_pos.y - (other_world_pos.y - 1.0)).abs() < epsilon
@@ -143,7 +153,7 @@ impl Room {
 
     /// Returns exits from this room that face toward the target room.
     /// Only returns exits if the rooms are truly adjacent (sharing an edge).
-    pub fn exits_facing_room(&self, target: &Room, grid_size: f32) -> Vec<(Vec2, ExitDirection)> {
+    pub fn exits_facing_room(&self, target: &Room, grid_size: f32) -> Vec<RoomFacingExit> {
         let self_min = self.position;
         let self_max = self.position + self.size * grid_size;
         let target_min = target.position;
@@ -181,9 +191,10 @@ impl Room {
         self.exits
             .iter()
             .filter(|exit| exit.direction == facing)
-            .map(|exit| {
-                let world_pos = self.position / grid_size + exit.position;
-                (world_pos, exit.direction)
+            .map(|exit| RoomFacingExit {
+                world_grid_position: self.position / grid_size + exit.position,
+                direction: exit.direction,
+                layer: exit.layer,
             })
             .collect()
     }
@@ -258,19 +269,43 @@ impl Room {
     }
 }
 
+#[serde_as]
 #[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(default)]
 pub struct RoomVariant {
     pub id: String,
+    #[serde_as(as = "FromInto<[f32; 4]>")]
+    pub background: Color,
     pub tilemap: TileMap,
+    pub layers: RoomLayers,
 }
 
 impl Default for RoomVariant {
     fn default() -> Self {
         Self {
             id: String::new(),
+            background: Color::LIGHTGREY,
             tilemap: TileMap::new(10, 10),
+            layers: RoomLayers::default(),
         }
+    }
+}
+
+impl RoomVariant {
+    pub fn draw_background<C: BishopContext>(
+        &self,
+        ctx: &mut C,
+        room_position: Vec2,
+        room_size: Vec2,
+        grid_size: f32,
+    ) {
+        ctx.draw_rectangle(
+            room_position.x,
+            room_position.y,
+            room_size.x * grid_size,
+            room_size.y * grid_size,
+            self.background,
+        );
     }
 }
 
@@ -303,6 +338,7 @@ pub struct Exit {
     // Local grid coordinate
     pub position: Vec2,
     pub direction: ExitDirection,
+    pub layer: RoomLayer,
     pub target_room_id: Option<RoomId>,
 }
 
@@ -359,5 +395,52 @@ mod tests {
         let result: Result<Room, _> = ron::from_str(ron);
 
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn exits_facing_room_preserves_layer_metadata() {
+        let grid_size = 16.0;
+        let room_a = Room {
+            id: RoomId(1),
+            position: Vec2::ZERO,
+            size: Vec2::new(4.0, 4.0),
+            exits: vec![
+                Exit {
+                    position: Vec2::new(4.0, 1.0),
+                    direction: ExitDirection::Right,
+                    layer: RoomLayer::Front,
+                    target_room_id: Some(RoomId(2)),
+                },
+                Exit {
+                    position: Vec2::new(4.0, 1.0),
+                    direction: ExitDirection::Right,
+                    layer: RoomLayer::Back,
+                    target_room_id: Some(RoomId(2)),
+                },
+            ],
+            ..Default::default()
+        };
+        let room_b = Room {
+            id: RoomId(2),
+            position: Vec2::new(64.0, 0.0),
+            size: Vec2::new(4.0, 4.0),
+            ..Default::default()
+        };
+
+        assert_eq!(
+            room_a.exits_facing_room(&room_b, grid_size),
+            vec![
+                RoomFacingExit {
+                    world_grid_position: Vec2::new(4.0, 1.0),
+                    direction: ExitDirection::Right,
+                    layer: RoomLayer::Front,
+                },
+                RoomFacingExit {
+                    world_grid_position: Vec2::new(4.0, 1.0),
+                    direction: ExitDirection::Right,
+                    layer: RoomLayer::Back,
+                },
+            ]
+        );
     }
 }

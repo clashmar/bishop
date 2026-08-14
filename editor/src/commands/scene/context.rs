@@ -13,12 +13,11 @@ pub(super) fn with_scene_ctx<T>(
     f: impl for<'a> FnOnce(&mut GameCtxMut<'a>) -> T,
 ) -> T {
     if uses_prefab_context(mode) {
-        let mut prefab_ctx = editor
+        editor
             .prefab_stage
             .as_mut()
             .expect("Prefab stage missing")
-            .ctx_mut();
-        f(&mut prefab_ctx)
+            .with_game_ctx_mut(|prefab_ctx| f(prefab_ctx))
     } else {
         let mut game_ctx = editor.game.ctx_mut();
         f(&mut game_ctx)

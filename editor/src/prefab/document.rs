@@ -8,8 +8,9 @@ use crate::storage::game_io::load_game_by_name;
 use engine_core::assets::*;
 use engine_core::ecs::*;
 use engine_core::game::{Game, GameCtxMut};
-use engine_core::logging::{omni_error};
+use engine_core::logging::omni_error;
 use engine_core::scripting::{ScriptManager, register_runtime_modules};
+use engine_core::tiles::TileRegistry;
 use std::io;
 
 macro_rules! for_each_prefab_asset_manager {
@@ -82,17 +83,20 @@ impl PrefabStage {
         Ok(())
     }
 
-    pub fn ctx_mut(&mut self) -> GameCtxMut<'_> {
-        GameCtxMut {
+    pub fn with_game_ctx_mut<R>(&mut self, f: impl FnOnce(&mut GameCtxMut<'_>) -> R) -> R {
+        let mut tile_registry = TileRegistry::default();
+        let mut game_ctx = GameCtxMut {
             ecs: &mut self.ecs,
             world: None,
             world_directory: Vec::new(),
             room_world_map: std::collections::HashMap::new(),
             asset_registry: &mut self.asset_registry,
+            tile_registry: &mut tile_registry,
             sprite_manager: &mut self.sprite_manager,
             script_manager: &mut self.script_manager,
             prefab_manager: &self.prefab_manager,
-        }
+        };
+        f(&mut game_ctx)
     }
 }
 
@@ -104,10 +108,9 @@ impl PrefabEditor {
         last_room_synced_state: PrefabRoomSyncState,
     ) -> (Self, PrefabStage) {
         let mut stage = PrefabStage::from_editor_services(game);
-        let root = {
-            let mut game_ctx = stage.ctx_mut();
-            instantiate_prefab(&mut game_ctx, &prefab, Vec2::ZERO, None)
-        };
+        let root = stage.with_game_ctx_mut(|game_ctx| {
+            instantiate_prefab(game_ctx, &prefab, Vec2::ZERO, None)
+        });
 
         let mut editor = Self::new(
             prefab.id,

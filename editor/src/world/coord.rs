@@ -13,6 +13,11 @@ pub fn snap_to_grid(pos: Vec2) -> Vec2 {
     vec2(pos.x.floor(), pos.y.floor())
 }
 
+/// Rounds a scalar value to the nearest multiple of grid_size.
+pub fn round_to_grid(value: f32, grid_size: f32) -> f32 {
+    (value / grid_size).round() * grid_size
+}
+
 /// Return the grid cell (integer coordinates) that the mouse is
 /// hovering over.
 pub fn mouse_world_grid(ctx: &WgpuContext, camera: &Camera2D, grid_size: f32) -> Vec2 {

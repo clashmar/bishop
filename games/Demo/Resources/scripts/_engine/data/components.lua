@@ -26,8 +26,12 @@
 ---@field entities table
 
 ---@class Collider
----@field width number
----@field height number
+---@field shape table
+---@field offset vec2
+
+---@class Cover
+---@field hide boolean
+---@field fade_alpha number
 
 ---@class CurrentFrame
 ---@field clip_id number
@@ -56,13 +60,17 @@
 ---@alias Grounded boolean
 
 ---@class Interactable
----@field range number
+---@field use_rect boolean
+---@field offset vec2
+---@field radius number
+---@field rect_size vec2
 
 --- Marker component
 ---@class Kinematic
 
----@class Layer
----@field z number
+---@class LayerDoor
+---@field usable boolean
+---@field alpha number
 
 ---@class Light
 ---@field pos vec2
@@ -115,10 +123,16 @@
 ---@field x number
 ---@field y number
 
+---@class TilePlacement
+---@field definition number
+---@field grid_x number
+---@field grid_y number
+
 ---@class Transform
 ---@field visible boolean
 ---@field position vec2
 ---@field pivot table
+---@field z number
 
 ---@class Velocity
 ---@field x number
@@ -141,6 +155,7 @@
 ---@field AudioSource "AudioSource"
 ---@field Children "Children"
 ---@field Collider "Collider"
+---@field Cover "Cover"
 ---@field CurrentFrame "CurrentFrame"
 ---@field Damage "Damage"
 ---@field FacingDirection "FacingDirection"
@@ -149,7 +164,7 @@
 ---@field Grounded "Grounded"
 ---@field Interactable "Interactable"
 ---@field Kinematic "Kinematic"
----@field Layer "Layer"
+---@field LayerDoor "LayerDoor"
 ---@field Light "Light"
 ---@field Name "Name"
 ---@field Parent "Parent"
@@ -162,6 +177,7 @@
 ---@field SpeechBubble "SpeechBubble"
 ---@field Sprite "Sprite"
 ---@field SubPixel "SubPixel"
+---@field TilePlacement "TilePlacement"
 ---@field Transform "Transform"
 ---@field Velocity "Velocity"
 ---@field Walkable "Walkable"
@@ -175,6 +191,7 @@ C.Animation = "Animation"
 C.AudioSource = "AudioSource"
 C.Children = "Children"
 C.Collider = "Collider"
+C.Cover = "Cover"
 C.CurrentFrame = "CurrentFrame"
 C.Damage = "Damage"
 C.FacingDirection = "FacingDirection"
@@ -183,7 +200,7 @@ C.Glow = "Glow"
 C.Grounded = "Grounded"
 C.Interactable = "Interactable"
 C.Kinematic = "Kinematic"
-C.Layer = "Layer"
+C.LayerDoor = "LayerDoor"
 C.Light = "Light"
 C.Name = "Name"
 C.Parent = "Parent"
@@ -196,6 +213,7 @@ C.Solid = "Solid"
 C.SpeechBubble = "SpeechBubble"
 C.Sprite = "Sprite"
 C.SubPixel = "SubPixel"
+C.TilePlacement = "TilePlacement"
 C.Transform = "Transform"
 C.Velocity = "Velocity"
 C.Walkable = "Walkable"

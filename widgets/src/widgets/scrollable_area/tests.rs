@@ -1,5 +1,5 @@
 use super::*;
-use crate::widgets::test_support::WidgetTestContext;
+use crate::test_utils::WidgetTestContext;
 
 fn active_area(
     rect: Rect,

@@ -1,5 +1,16 @@
 use super::*;
-use crate::room::selection::selection_render_rect;
+use crate::gui::inspector::collider_module::edit::{
+    clear_collider_edit,
+    collider_edit_entity,
+    toggle_collider_edit,
+};
+use crate::gui::inspector::interactable_module::edit::{
+    clear_interactable_edit,
+    interactable_edit_entity,
+    toggle_interactable_edit,
+};
+use crate::room::selection::{selection_render_rect, topmost_entity_from_click_candidates};
+use engine_core::worlds::InteriorZoneId;
 
 fn prefab_manager(ids: &[usize]) -> PrefabManager {
     let mut manager = PrefabManager::default();
@@ -159,6 +170,7 @@ fn relink_room_exits_populates_new_room_exit_targets() {
         exits: vec![Exit {
             position: vec2(4.0, 1.0),
             direction: ExitDirection::Right,
+            layer: RoomLayer::Front,
             target_room_id: None,
         }],
         ..Default::default()
@@ -170,6 +182,7 @@ fn relink_room_exits_populates_new_room_exit_targets() {
         exits: vec![Exit {
             position: vec2(-1.0, 1.0),
             direction: ExitDirection::Left,
+            layer: RoomLayer::Front,
             target_room_id: None,
         }],
         ..Default::default()
@@ -294,4 +307,202 @@ fn placeholder_selection_keeps_grid_centering_behavior() {
 
     assert_eq!(top_left, vec2(-4.0, -4.0));
     assert_eq!(size, vec2(8.0, 8.0));
+}
+
+#[test]
+fn entering_zone_sub_mode_selects_room_and_preserves_zone_selection() {
+    let mut editor = RoomEditor::new();
+    editor.set_selected_entity(Some(Entity(7)));
+    editor.drag_state.box_select_active = true;
+    editor.interior_zone_editor.selected_zone_id = Some(InteriorZoneId(3));
+
+    editor.set_scene_sub_mode(RoomSceneSubMode::Zones);
+
+    assert_eq!(editor.scene_sub_mode, RoomSceneSubMode::Zones);
+    assert!(!editor.inspector.has_target());
+    assert!(!editor.drag_state.box_select_active);
+    assert_eq!(editor.interior_zone_editor.selected_zone_id, Some(InteriorZoneId(3)));
+}
+
+#[test]
+fn leaving_zone_sub_mode_clears_zone_state_and_restores_entity_target() {
+    let mut editor = RoomEditor::new();
+    editor.set_selected_entity(Some(Entity(9)));
+    editor.interior_zone_editor.selected_zone_id = Some(InteriorZoneId(5));
+
+    editor.set_scene_sub_mode(RoomSceneSubMode::Zones);
+    editor.set_scene_sub_mode(RoomSceneSubMode::Scene);
+
+    assert_eq!(editor.scene_sub_mode, RoomSceneSubMode::Scene);
+    assert_eq!(editor.interior_zone_editor.selected_zone_id, None);
+    assert!(editor.inspector.has_target());
+}
+
+#[test]
+fn toggling_zone_sub_mode_twice_exits_and_restores_entity_target() {
+    let mut editor = RoomEditor::new();
+    editor.set_selected_entity(Some(Entity(11)));
+    editor.interior_zone_editor.selected_zone_id = Some(InteriorZoneId(6));
+
+    editor.toggle_zone_sub_mode();
+    assert_eq!(editor.scene_sub_mode, RoomSceneSubMode::Zones);
+    assert!(!editor.inspector.has_target());
+    assert_eq!(editor.interior_zone_editor.selected_zone_id, Some(InteriorZoneId(6)));
+
+    editor.toggle_zone_sub_mode();
+    assert_eq!(editor.scene_sub_mode, RoomSceneSubMode::Scene);
+    assert_eq!(editor.interior_zone_editor.selected_zone_id, None);
+    assert!(editor.inspector.has_target());
+}
+
+#[test]
+fn interior_zone_visibility_toggle_flips_flag() {
+    let mut editor = RoomEditor::new();
+
+    editor.toggle_interior_zone_visibility();
+    assert!(!editor.show_interior_zones);
+
+    editor.toggle_interior_zone_visibility();
+    assert!(editor.show_interior_zones);
+}
+
+#[test]
+fn interior_zone_visibility_hiding_exits_zone_sub_mode() {
+    let mut editor = RoomEditor::new();
+    editor.interior_zone_editor.selected_zone_id = Some(InteriorZoneId(12));
+    editor.set_scene_sub_mode(RoomSceneSubMode::Zones);
+
+    editor.set_interior_zone_visibility(false);
+
+    assert_eq!(editor.scene_sub_mode, RoomSceneSubMode::Scene);
+    assert_eq!(editor.interior_zone_editor.selected_zone_id, None);
+    assert!(!editor.show_interior_zones);
+}
+
+#[test]
+fn entering_zone_sub_mode_forces_interior_zone_visibility_on() {
+    let mut editor = RoomEditor::new();
+    editor.show_interior_zones = false;
+
+    editor.set_scene_sub_mode(RoomSceneSubMode::Zones);
+
+    assert!(editor.show_interior_zones);
+}
+
+#[test]
+fn clearing_room_selection_disables_collider_edit_mode() {
+    let mut editor = RoomEditor::new();
+    let entity = Entity(7);
+    clear_collider_edit(entity);
+    editor.set_selected_entity(Some(entity));
+    assert!(toggle_collider_edit(entity));
+
+    editor.clear_selection();
+
+    assert_eq!(collider_edit_entity(), None);
+}
+
+#[test]
+fn toggling_last_room_selection_off_disables_collider_edit_mode() {
+    let mut editor = RoomEditor::new();
+    let entity = Entity(7);
+    clear_collider_edit(entity);
+    editor.set_selected_entity(Some(entity));
+    assert!(toggle_collider_edit(entity));
+
+    editor.toggle_entity_selection(entity);
+
+    assert_eq!(collider_edit_entity(), None);
+}
+
+#[test]
+fn selecting_different_room_entity_disables_previous_collider_edit_mode() {
+    let mut editor = RoomEditor::new();
+    let first = Entity(7);
+    let second = Entity(8);
+    clear_collider_edit(first);
+    clear_collider_edit(second);
+    editor.set_selected_entity(Some(first));
+    assert!(toggle_collider_edit(first));
+
+    editor.set_selected_entity(Some(second));
+
+    assert_eq!(collider_edit_entity(), None);
+}
+
+#[test]
+fn clearing_room_selection_disables_interactable_edit_mode() {
+    let mut editor = RoomEditor::new();
+    let entity = Entity(7);
+    clear_interactable_edit(entity);
+    editor.set_selected_entity(Some(entity));
+    assert!(toggle_interactable_edit(entity));
+
+    editor.clear_selection();
+
+    assert_eq!(interactable_edit_entity(), None);
+}
+
+#[test]
+fn selecting_different_room_entity_disables_previous_interactable_edit_mode() {
+    let mut editor = RoomEditor::new();
+    let first = Entity(7);
+    let second = Entity(8);
+    clear_interactable_edit(first);
+    clear_interactable_edit(second);
+    editor.set_selected_entity(Some(first));
+    assert!(toggle_interactable_edit(first));
+
+    editor.set_selected_entity(Some(second));
+
+    assert_eq!(interactable_edit_entity(), None);
+}
+
+#[test]
+fn pruning_selection_in_active_layer_keeps_existing_entity_inspector() {
+    let mut editor = RoomEditor::new();
+    let mut ecs = Ecs::default();
+    let room_id = RoomId(7);
+    let entity = ecs
+        .create_entity()
+        .with(Transform::default())
+        .with(Name("Entity".to_string()))
+        .with_current_room_layer(room_id, RoomLayer::Front)
+        .finish();
+
+    editor.set_selected_entity(Some(entity));
+    editor.active_layer_state.active_layer = RoomLayer::Front;
+    let first_addr = editor.inspector.entity_inspector_addr();
+
+    editor.prune_selection_to_active_layer(&ecs, room_id);
+
+    assert_eq!(editor.single_selected_entity(), Some(entity));
+    assert_eq!(editor.inspector.selected_entity(), Some(entity));
+    assert_eq!(editor.inspector.entity_inspector_addr(), first_addr);
+}
+
+#[test]
+fn overlapping_entity_selection_same_z_prefers_higher_entity_id() {
+    let lower = Entity(4);
+    let higher = Entity(9);
+
+    let selected = topmost_entity_from_click_candidates(&[
+        (lower, 3, false),
+        (higher, 3, false),
+    ]);
+
+    assert_eq!(selected, Some(higher));
+}
+
+#[test]
+fn overlapping_entity_selection_camera_wins_over_non_camera() {
+    let camera = Entity(4);
+    let other = Entity(99);
+
+    let selected = topmost_entity_from_click_candidates(&[
+        (other, 50, false),
+        (camera, -10, true),
+    ]);
+
+    assert_eq!(selected, Some(camera));
 }

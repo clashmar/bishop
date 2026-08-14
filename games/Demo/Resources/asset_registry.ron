@@ -30,6 +30,15 @@
         Sprite((10)): (
             path: "assets/sprites/tiles/Tile24.png",
         ),
+        Sprite((11)): (
+            path: "assets/sprites/tiles/Black8.png",
+        ),
+        Sprite((12)): (
+            path: "assets/sprites/pink_door.png",
+        ),
+        Sprite((13)): (
+            path: "assets/sprites/40x40brown.png",
+        ),
         Script((1)): (
             path: "scripts/bullet.lua",
         ),

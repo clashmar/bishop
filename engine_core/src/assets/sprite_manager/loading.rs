@@ -1,6 +1,28 @@
 use super::*;
 use crate::hydration::{EvictError, Hydratable};
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) enum FallbackTextureKind {
+    Empty,
+    Missing,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum SpriteTextureState {
+    Loaded,
+    Empty,
+    Pending,
+    Missing,
+}
+
+const MISSING_TEXTURE_PNG: &[u8] = &[
+    137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 13, 73, 72, 68, 82, 0, 0, 0, 2,
+    0, 0, 0, 2, 8, 6, 0, 0, 0, 114, 182, 13, 36, 0, 0, 0, 22, 73, 68, 65, 84,
+    120, 156, 99, 248, 207, 240, 255, 63, 3, 3, 3, 8, 131, 88, 255, 255, 3, 0,
+    67, 206, 7, 249, 135, 141, 77, 109, 0, 0, 0, 0, 73, 69, 78, 68, 174, 66,
+    96, 130,
+];
+
 impl SpriteManager {
     /// Load and initialize a texture from the assets folder.
     /// Returns the `SpriteId` for the texture.
@@ -22,6 +44,7 @@ impl SpriteManager {
             if let std::collections::hash_map::Entry::Vacant(entry) = self.textures.entry(id) {
                 self.pending_texture_reads.remove(&id);
                 let texture = Self::load_texture_from_game(loader, &path)?;
+                self.failed_texture_reads.remove(&id);
                 entry.insert(texture);
             }
             return Ok(id);
@@ -47,6 +70,7 @@ impl SpriteManager {
         self.restore_next_sprite_id();
 
         let texture = Self::load_texture_from_game(loader, &path)?;
+        self.failed_texture_reads.remove(&id);
         self.textures.insert(id, texture);
 
         info!(
@@ -65,6 +89,7 @@ impl SpriteManager {
         path: &Path,
     ) -> Result<(), String> {
         let texture = Self::load_texture_from_game(loader, path)?;
+        self.failed_texture_reads.remove(id);
         self.textures.insert(*id, texture);
         self.path_to_sprite_id.insert(path.to_path_buf(), *id);
         self.pending_texture_reads.remove(id);
@@ -73,40 +98,67 @@ impl SpriteManager {
 
     /// Returns a texture from a `SpriteId`.
     pub fn get_texture_from_id(&mut self, loader: &impl TextureLoader, id: SpriteId) -> &Texture2D {
+        if id.0 != 0 && !self.textures.contains_key(&id) && self.sprite_id_to_path.contains_key(&id) {
+            if self.runtime_texture_loading {
+                self.prewarm_runtime_texture(id);
+                self.poll_pending_texture_reads(loader);
+            } else {
+                let _ = self.ensure_loaded(loader, id);
+            }
+        }
+
+        let fallback_id = match self.texture_state(id) {
+            SpriteTextureState::Loaded => {
+                return self
+                    .textures
+                    .get(&id)
+                    .unwrap_or_else(|| unreachable!("loaded textures should return early"));
+            }
+            SpriteTextureState::Empty | SpriteTextureState::Pending => SpriteId(0),
+            SpriteTextureState::Missing => id,
+        };
+
+        self.fallback_texture(loader, fallback_id)
+    }
+
+    pub(super) fn fallback_kind_for_unavailable_sprite(id: SpriteId) -> FallbackTextureKind {
         if id.0 == 0 {
-            return self
-                .empty_texture
-                .get_or_insert_with(|| loader.empty_texture());
-        }
-
-        if self.textures.contains_key(&id) {
-            return self.textures.get(&id).unwrap();
-        }
-
-        // Look up the original path and load lazily.
-        if !self.sprite_id_to_path.contains_key(&id) {
-            return self
-                .empty_texture
-                .get_or_insert_with(|| loader.empty_texture());
-        }
-
-        if self.runtime_texture_loading {
-            self.prewarm_runtime_texture(id);
-            self.poll_pending_texture_reads(loader);
-
-            if self.textures.contains_key(&id) {
-                return self.textures.get(&id).unwrap();
-            }
+            FallbackTextureKind::Empty
         } else {
-            let _ = self.ensure_loaded(loader, id);
-
-            if self.textures.contains_key(&id) {
-                return self.textures.get(&id).unwrap();
-            }
+            FallbackTextureKind::Missing
         }
+    }
 
-        self.empty_texture
-            .get_or_insert_with(|| loader.empty_texture())
+    fn texture_state(&self, id: SpriteId) -> SpriteTextureState {
+        if self.textures.contains_key(&id) {
+            SpriteTextureState::Loaded
+        } else if id.0 == 0 {
+            SpriteTextureState::Empty
+        } else if self.pending_texture_reads.contains_key(&id) {
+            SpriteTextureState::Pending
+        } else {
+            SpriteTextureState::Missing
+        }
+    }
+
+    fn fallback_texture<'a>(
+        &'a mut self,
+        loader: &impl TextureLoader,
+        id: SpriteId,
+    ) -> &'a Texture2D {
+        match Self::fallback_kind_for_unavailable_sprite(id) {
+            FallbackTextureKind::Empty => self
+                .empty_texture
+                .get_or_insert_with(|| loader.empty_texture()),
+            FallbackTextureKind::Missing => self.missing_texture.get_or_insert_with(|| {
+                loader
+                    .load_texture_from_bytes(MISSING_TEXTURE_PNG)
+                    .unwrap_or_else(|error| {
+                        omni_error!("Failed to build missing texture: {}", error);
+                        loader.empty_texture()
+                    })
+            }),
+        }
     }
 
     /// Returns the id for `path`, loading it if necessary.
@@ -200,6 +252,7 @@ impl SpriteManager {
         };
 
         let texture = Self::load_texture_from_game(loader, &path)?;
+        self.failed_texture_reads.remove(&id);
         self.textures.insert(id, texture);
         self.path_to_sprite_id.insert(path, id);
         self.increment_ref(id);
@@ -257,6 +310,7 @@ impl Hydratable for SpriteManager {
         }
         self.textures.remove(id);
         self.pending_texture_reads.remove(id);
+        self.failed_texture_reads.remove(id);
         self.ref_counts.remove(id);
         Ok(())
     }

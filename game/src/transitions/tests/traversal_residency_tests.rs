@@ -14,7 +14,7 @@ use engine_core::hydration::{HydrationScope, Hydratable, ResourceClass};
 use engine_core::engine_global::set_game_name;
 use engine_core::storage::{save_game_to_folder, test_utils::{game_fs_test_lock, TestGameFolder}};
 use engine_core::task::BackgroundService;
-use engine_core::worlds::{Room, RoomId, World, WorldId};
+use engine_core::worlds::{Room, RoomId, RoomLayer, World, WorldId};
 use mlua::Lua;
 use std::collections::HashMap;
 use std::fs;
@@ -220,7 +220,13 @@ fn refresh_after_traversal_runtime_when_restore_location_executes_reclaims_desti
     let executed = WorldTransitionManager::execute(
         &lua,
         &mut instance,
-        &TraversalRequest::restore_location(player, WorldId(1), RoomId(2), Vec2::ZERO),
+        &TraversalRequest::restore_location(
+            player,
+            WorldId(1),
+            RoomId(2),
+            RoomLayer::Front,
+            Vec2::ZERO,
+        ),
     );
     assert!(executed);
 

@@ -132,7 +132,7 @@ fn export_for_windows(dest_root: &Path, game: &Game) -> io::Result<PathBuf> {
     let proxy_room = game_copy.ecs.get_store::<PlayerProxy>()
         .data
         .keys()
-        .find_map(|&e| game_copy.ecs.get::<CurrentRoom>(e).map(|r| r.0));
+        .find_map(|&entity| game_copy.ecs.get::<CurrentRoom>(entity).map(|room| room.room_id));
     if let Some(start_room_id) = proxy_room {
         game_copy.ecs.set_player_spawn_from_proxy(start_room_id);
     }
@@ -193,7 +193,7 @@ fn export_for_mac(dest_root: &Path, game: &Game) -> io::Result<PathBuf> {
     let proxy_room = game_copy.ecs.get_store::<PlayerProxy>()
         .data
         .keys()
-        .find_map(|&e| game_copy.ecs.get::<CurrentRoom>(e).map(|r| r.0));
+        .find_map(|&entity| game_copy.ecs.get::<CurrentRoom>(entity).map(|room| room.room_id));
     if let Some(start_room_id) = proxy_room {
         game_copy.ecs.set_player_spawn_from_proxy(start_room_id);
     }
@@ -346,7 +346,7 @@ mod tests {
         let proxy_room = game_copy.ecs.get_store::<PlayerProxy>()
             .data
             .keys()
-            .find_map(|&e| game_copy.ecs.get::<CurrentRoom>(e).map(|r| r.0))
+            .find_map(|&entity| game_copy.ecs.get::<CurrentRoom>(entity).map(|room| room.room_id))
             .expect("world index should be rebuilt after export round-trip");
 
         game_copy.ecs.set_player_spawn_from_proxy(proxy_room);
@@ -357,7 +357,7 @@ mod tests {
             Some(proxy_position)
         );
         assert_eq!(
-            game_copy.ecs.get::<CurrentRoom>(player).map(|room| room.0),
+            game_copy.ecs.get::<CurrentRoom>(player).map(|room| room.room_id),
             Some(room_id)
         );
         assert!(game_copy.ecs.get_store::<PlayerProxy>().data.is_empty());

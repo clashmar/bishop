@@ -64,8 +64,6 @@ impl FrameMetrics {
 pub struct AssetMetrics {
     /// Number of loaded textures.
     pub texture_count: usize,
-    /// Number of tile definitions.
-    pub tile_def_count: usize,
     /// Number of sprite ID mappings.
     pub sprite_id_count: usize,
     /// Number of script ID mappings.

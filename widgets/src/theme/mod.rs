@@ -120,7 +120,7 @@ impl Default for StyleSelector {
     }
 }
 
-#[allow(dead_code)]
+#[cfg(test)]
 impl StyleSelector {
     pub(crate) fn specificity_tier(&self) -> u8 {
         match self {
@@ -186,7 +186,7 @@ impl Theme {
 
 pub static ACTIVE_THEME: Lazy<RwLock<Theme>> = Lazy::new(|| RwLock::new(Theme::default()));
 
-#[cfg(test)]
+#[cfg(any(test, feature = "test-utils"))]
 pub(crate) static THEME_TEST_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
 pub fn set_theme(theme: Theme) {
@@ -368,8 +368,10 @@ mod tests {
     #[test]
     fn themed_overrides_respects_type_rule() {
         let _guard = THEME_TEST_LOCK.lock().unwrap();
-        let mut theme = Theme::default();
-        theme.background = Color::RED;
+        let mut theme = Theme {
+            background: Color::RED,
+            ..Theme::default()
+        };
         theme.rules.push(StyleRule {
             selector: StyleSelector::Type(WidgetType::Button),
             properties: WidgetTheme {
@@ -447,8 +449,10 @@ mod tests {
     #[test]
     fn themed_visuals_non_matching_type_skips_rule() {
         let _guard = THEME_TEST_LOCK.lock().unwrap();
-        let mut theme = Theme::default();
-        theme.background = Color::GREEN;
+        let mut theme = Theme {
+            background: Color::GREEN,
+            ..Theme::default()
+        };
         theme.rules.push(StyleRule {
             selector: StyleSelector::Type(WidgetType::Button),
             properties: WidgetTheme {

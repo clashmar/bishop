@@ -1,7 +1,7 @@
 use crate::game_global::set_pending_world_transition;
 use crate::scripting::lua_ctx::LuaGameCtx;
 use crate::transitions::world_transitions::{EntryHandleData, TraversalRequest, WorldSelector};
-use engine_core::worlds::{WorldId, RoomId};
+use engine_core::worlds::{RoomId, RoomLayer, WorldId};
 use engine_core::ecs::*;
 use bishop::prelude::Vec2;
 use engine_core::register_lua_api;
@@ -393,15 +393,22 @@ impl LuaModule for EngineModule {
             let y = location.get::<f32>(lua_fields::Y)?;
 
             let ctx = LuaGameCtx::borrow_ctx(lua)?;
-            let gi = ctx.game_instance.borrow();
-            let Some(player) = gi.game.ecs.get_player_entity() else {
+            let game_instance = ctx.game_instance.borrow();
+            let Some(player) = game_instance.game.ecs.get_player_entity() else {
                 return Ok(());
             };
 
+            let layer = game_instance
+                .game
+                .ecs
+                .get::<CurrentRoom>(player)
+                .map(|current_room| current_room.layer)
+                .unwrap_or(RoomLayer::Front);
             set_pending_world_transition(TraversalRequest::restore_location(
                 player,
                 world_id,
                 room_id,
+                layer,
                 Vec2::new(x, y),
             ));
             Ok(())

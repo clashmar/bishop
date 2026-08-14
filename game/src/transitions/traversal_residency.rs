@@ -145,7 +145,7 @@ fn refresh_after_traversal_impl(
                         }
                     }
                     if matches!(key, ResidencyKey::Asset(_)) || should_dehydrate_payload {
-                        if let Some(audio_manager) = audio_manager.as_deref_mut() {
+                        if let Some(audio_manager) = &mut audio_manager {
                             let mut driver = HydrationDriver {
                                 game: &mut game_instance.game,
                                 audio_manager,
@@ -194,10 +194,11 @@ fn refresh_after_traversal_impl(
                             && previous_owner_counts.get(&key).copied().unwrap_or(0) == 0
                             && is_primary_scope_for_key(&desired_keys, &scope, key);
 
-                        if let (Some(lua), Some(audio_manager)) = (lua, audio_manager.as_deref_mut()) {
-                            if !matches!(key, ResidencyKey::Asset(_)) && !should_hydrate_payload {
-                                continue;
-                            }
+                        if let Some(lua) = lua {
+                            if let Some(audio_manager) = &mut audio_manager {
+                                if !matches!(key, ResidencyKey::Asset(_)) && !should_hydrate_payload {
+                                    continue;
+                                }
 
                             let result = {
                                 let mut driver = HydrationDriver {
@@ -207,40 +208,41 @@ fn refresh_after_traversal_impl(
                                 driver.hydrate_key_runtime(key, lua)
                             };
 
-                            match result {
-                                Ok(()) => {
-                                    if should_hydrate_payload {
-                                        if let ResidencyKey::Scope(scope) = key {
-                                            let entities =
-                                                scope_entities_for_key(&game_instance.game, scope);
-                                            let game_ctx = game_instance.game.ctx_mut();
-                                            if let Err(error) = ScriptSystem::activate_payload_scripts(
-                                                lua,
-                                                game_ctx.ecs,
-                                                game_ctx.script_manager,
-                                                &entities,
-                                            ) {
-                                                bucket.failures += 1;
-                                                omni_error!(
-                                                    "Traversal script activation failed for {:?}: {}",
-                                                    scope,
-                                                    error
-                                                );
-                                                continue;
+                                match result {
+                                    Ok(()) => {
+                                        if should_hydrate_payload {
+                                            if let ResidencyKey::Scope(scope) = key {
+                                                let entities =
+                                                    scope_entities_for_key(&game_instance.game, scope);
+                                                let game_ctx = game_instance.game.ctx_mut();
+                                                if let Err(error) = ScriptSystem::activate_payload_scripts(
+                                                    lua,
+                                                    game_ctx.ecs,
+                                                    game_ctx.script_manager,
+                                                    &entities,
+                                                ) {
+                                                    bucket.failures += 1;
+                                                    omni_error!(
+                                                        "Traversal script activation failed for {:?}: {}",
+                                                        scope,
+                                                        error
+                                                    );
+                                                    continue;
+                                                }
                                             }
                                         }
+                                        if let ResidencyKey::Asset(asset) = key {
+                                            events.push(TraversalAssetEvent {
+                                                asset,
+                                                hydrated: true,
+                                            });
+                                        }
+                                        increment_key_count(&mut bucket.hydrated, key);
                                     }
-                                    if let ResidencyKey::Asset(asset) = key {
-                                        events.push(TraversalAssetEvent {
-                                            asset,
-                                            hydrated: true,
-                                        });
+                                    Err(error) => {
+                                        bucket.failures += 1;
+                                        log_hydration_error(&scope, key, &error);
                                     }
-                                    increment_key_count(&mut bucket.hydrated, key);
-                                }
-                                Err(error) => {
-                                    bucket.failures += 1;
-                                    log_hydration_error(&scope, key, &error);
                                 }
                             }
                         }
@@ -255,7 +257,7 @@ fn refresh_after_traversal_impl(
         }
     }
 
-    if let Some(audio_manager) = audio_manager.as_deref_mut() {
+    if let Some(audio_manager) = &mut audio_manager {
         reconcile_scoped_audio(&game_instance.game, audio_manager);
     }
 
@@ -308,7 +310,7 @@ fn build_traversal_snapshot(
             let active = game.ecs.get::<Active>(entity)?;
             Some(PinnedEntitySnapshot {
                 entity,
-                room_id: game.ecs.get::<CurrentRoom>(entity).map(|room| room.0),
+                room_id: game.ecs.get::<CurrentRoom>(entity).map(|room| room.room_id),
                 pin_count: active.pin_count,
                 reasons: vec![format!(
                     "pin_count={} keeps payload resident",
@@ -342,22 +344,22 @@ fn build_traversal_snapshot(
 }
 
 fn collect_warm_scope_reasons(game: &Game, topology: &TraversalTopology) -> WarmScopeReasons {
-    let current_room = game.current_world().current_room_id.unwrap_or_default();
+    let current_room_id = game.current_world().current_room_id.unwrap_or_default();
     let current_world = game.current_world().id;
 
     let mut room_reasons: HashMap<RoomId, BTreeSet<String>> = HashMap::new();
     room_reasons
-        .entry(current_room)
+        .entry(current_room_id)
         .or_default()
         .insert("current room".to_string());
 
-    for edge in topology.room_graph.edges_from(current_room) {
+    for edge in topology.room_graph.edges_from(current_room_id) {
         let reason = match edge.kind {
-            RoomEdgeKind::Adjacency => format!("adjacent to Room({})", current_room.0),
-            RoomEdgeKind::RoomExit => format!("exit from Room({})", current_room.0),
-            RoomEdgeKind::WorldExit => format!("portal from Room({})", current_room.0),
+            RoomEdgeKind::Adjacency => format!("adjacent to Room({})", current_room_id.0),
+            RoomEdgeKind::RoomExit => format!("exit from Room({})", current_room_id.0),
+            RoomEdgeKind::WorldExit => format!("portal from Room({})", current_room_id.0),
             RoomEdgeKind::ScriptedTraversal => {
-                format!("scripted traversal from Room({})", current_room.0)
+                format!("scripted traversal from Room({})", current_room_id.0)
             }
         };
         room_reasons.entry(edge.to).or_default().insert(reason);

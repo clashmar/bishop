@@ -74,6 +74,7 @@ impl WorldEditor {
         let variant = RoomVariant {
             id: "default".to_string(),
             tilemap,
+            ..Default::default()
         };
 
         let id = game.id_allocator.allocate_room_id();
@@ -158,7 +159,7 @@ mod tests {
 
         assert!(game.ecs.has::<Singleton>(singleton));
         assert_eq!(
-            game.ecs.get::<CurrentRoom>(singleton).map(|current| current.0),
+            game.ecs.get::<CurrentRoom>(singleton).map(|current| current.room_id),
             Some(room_id)
         );
     }

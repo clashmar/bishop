@@ -26,6 +26,7 @@ fn capture_prefab_normalizes_root_offset_and_instantiate_restores_world_position
         .with(Name("Child".to_string()))
         .with(Transform {
             position: Vec2::new(14.0, 18.0),
+            z: 7,
             ..Default::default()
         })
         .finish();
@@ -55,7 +56,9 @@ fn capture_prefab_normalizes_root_offset_and_instantiate_restores_world_position
         .unwrap();
 
     assert!(root_transform.ron.contains("position:(0.0,0.0)"));
+    assert!(root_transform.ron.contains("z:0"));
     assert!(child_transform.ron.contains("position:(4.0,3.0)"));
+    assert!(child_transform.ron.contains("z:7"));
     assert!(!saved_root
         .components
         .iter()
@@ -74,13 +77,15 @@ fn capture_prefab_normalizes_root_offset_and_instantiate_restores_world_position
     let instantiated_child = game.ecs.get::<Transform>(child_entity).unwrap();
 
     assert_eq!(instantiated_root.position, Vec2::new(100.0, 200.0));
+    assert_eq!(instantiated_root.z, 0);
     assert_eq!(instantiated_child.position, Vec2::new(104.0, 203.0));
+    assert_eq!(instantiated_child.z, 7);
     assert_eq!(
-        game.ecs.get::<CurrentRoom>(root_entity).map(|room| room.0),
+        game.ecs.get::<CurrentRoom>(root_entity).map(|room| room.room_id),
         Some(room_id)
     );
     assert_eq!(
-        game.ecs.get::<CurrentRoom>(child_entity).map(|room| room.0),
+        game.ecs.get::<CurrentRoom>(child_entity).map(|room| room.room_id),
         Some(room_id)
     );
 

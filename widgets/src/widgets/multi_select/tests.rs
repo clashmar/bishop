@@ -2,10 +2,7 @@ use super::*;
 
 #[test]
 fn multi_select_returns_added_item_when_selected() {
-    let _options = vec!["Alice", "Bob", "Charlie"];
-    let mut selected: Vec<&str> = vec![];
-
-    selected.push("Bob");
+    let selected: Vec<&str> = vec!["Bob"];
 
     assert_eq!(selected.len(), 1);
     assert!(selected.contains(&"Bob"));
@@ -13,11 +10,15 @@ fn multi_select_returns_added_item_when_selected() {
 
 #[test]
 fn multi_select_excludes_already_selected_from_options() {
-    let options = vec!["Alice", "Bob"];
-    let selected = vec!["Alice"];
+    let options = ["Alice", "Bob"];
+    let selected = ["Alice"];
 
-    let available: Vec<&&str> = options.iter().filter(|o| !selected.contains(o)).collect();
-    assert_eq!(available, vec![&"Bob"]);
+    let available: Vec<&str> = options
+        .iter()
+        .copied()
+        .filter(|option| !selected.contains(option))
+        .collect();
+    assert_eq!(available, vec!["Bob"]);
 }
 
 #[test]

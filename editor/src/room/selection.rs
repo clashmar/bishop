@@ -1,43 +1,20 @@
 use crate::app::SubEditor;
+use crate::gui::inspector::collider_module::edit::clear_active_collider_edit;
+use crate::gui::inspector::interactable_module::edit::clear_active_interactable_edit;
+use crate::room::collider_drag::ColliderHandleDragState;
+use crate::room::interactable_drag::InteractableHandleDragState;
 use crate::room::room_editor::*;
 use crate::world::coord;
 use bishop::prelude::*;
 use engine_core::assets::*;
 use engine_core::ecs::*;
-use engine_core::rendering::{Renderable, pivot_adjusted_position, resolve_visual_entity};
+use engine_core::rendering::{
+    Renderable,
+    compare_entity_draw_order,
+    pivot_adjusted_position,
+    resolve_visual_entity,
+};
 use engine_core::worlds::*;
-use std::collections::HashSet;
-
-/// Stores the original drag state before switching to copy mode.
-pub(crate) struct PreCopyDragState {
-    pub anchor_entity: Option<Entity>,
-    pub selected_entities: HashSet<Entity>,
-}
-
-/// All transient mouse-interaction state for entity dragging and box selection.
-#[derive(Default)]
-pub(crate) struct DragState {
-    /// Whether an entity drag is currently active.
-    pub dragging: bool,
-    /// The entity that was clicked to start the drag.
-    pub drag_anchor_entity: Option<Entity>,
-    /// Offset from the anchor entity's position to the mouse at drag start.
-    pub drag_offset: Vec2,
-    /// Start positions of all dragged entities at the moment dragging began.
-    pub drag_start_positions: Vec<(Entity, Vec2)>,
-    /// The very first start positions when the drag began, used for undo commands.
-    pub drag_initial_start_positions: Vec<(Entity, Vec2)>,
-    /// Start position of a box selection in world coordinates.
-    pub box_select_start: Option<Vec2>,
-    /// Whether a box selection drag is currently active.
-    pub box_select_active: bool,
-    /// Whether the current drag is an alt+drag copy operation.
-    pub alt_copy_mode: bool,
-    /// Entities created during an alt+drag copy, for the undo command.
-    pub alt_copied_entities: Vec<Entity>,
-    /// Original drag state before entering copy mode, used to revert on alt release.
-    pub pre_copy_drag_state: Option<PreCopyDragState>,
-}
 
 impl RoomEditor {
     pub(crate) fn sync_inspector_to_selection(&mut self) {
@@ -50,6 +27,16 @@ impl RoomEditor {
 
     /// Sets a single selected entity for the room editor, clearing any previous selection.
     pub fn set_selected_entity(&mut self, entity: Option<Entity>) {
+        let selection_changed = match entity {
+            Some(entity) => {
+                self.selected_entities.len() != 1 || !self.selected_entities.contains(&entity)
+            }
+            None => !self.selected_entities.is_empty(),
+        };
+        if selection_changed {
+            self.disable_active_edit_modes();
+        }
+
         self.selected_entities.clear();
         if let Some(e) = entity {
             self.selected_entities.insert(e);
@@ -59,12 +46,15 @@ impl RoomEditor {
 
     /// Adds an entity to the current selection.
     pub fn add_to_selection(&mut self, entity: Entity) {
-        self.selected_entities.insert(entity);
+        if self.selected_entities.insert(entity) {
+            self.disable_active_edit_modes();
+        }
         self.sync_inspector_to_selection();
     }
 
     /// Toggles whether an entity is part of the current selection.
     pub fn toggle_entity_selection(&mut self, entity: Entity) {
+        self.disable_active_edit_modes();
         if self.selected_entities.contains(&entity) {
             self.selected_entities.remove(&entity);
         } else {
@@ -75,6 +65,9 @@ impl RoomEditor {
 
     /// Clears the entire selection.
     pub fn clear_selection(&mut self) {
+        if !self.selected_entities.is_empty() {
+            self.disable_active_edit_modes();
+        }
         self.selected_entities.clear();
         self.sync_inspector_to_selection();
     }
@@ -93,15 +86,23 @@ impl RoomEditor {
         }
     }
 
-    /// Selects all entities in the specified room.
-    pub fn select_all_in_room(&mut self, ecs: &Ecs, room_id: RoomId) {
+    /// Selects all entities in one room/layer pair.
+    pub fn select_all_in_room_layer(&mut self, ecs: &Ecs, room_id: RoomId, layer: RoomLayer) {
+        self.disable_active_edit_modes();
         self.selected_entities.clear();
         for (entity, _) in ecs.get_store::<Transform>().data.iter() {
-            if can_select_entity_in_room(ecs, *entity, room_id) {
+            if can_select_entity_in_room_layer(ecs, *entity, room_id, layer) {
                 self.selected_entities.insert(*entity);
             }
         }
         self.sync_inspector_to_selection();
+    }
+
+    pub(crate) fn disable_active_edit_modes(&mut self) {
+        clear_active_collider_edit();
+        clear_active_interactable_edit();
+        self.drag_state.collider_drag = ColliderHandleDragState::default();
+        self.drag_state.interactable_drag = InteractableHandleDragState::default();
     }
 
     #[inline]
@@ -120,7 +121,11 @@ impl RoomEditor {
         } else {
             match self.mode {
                 RoomEditorMode::Scene => {
-                    ctx.set_cursor_icon(CursorIcon::Default);
+                    if self.scene_sub_mode == RoomSceneSubMode::Zones {
+                        ctx.set_cursor_icon(CursorIcon::Crosshair);
+                    } else {
+                        ctx.set_cursor_icon(CursorIcon::Default);
+                    }
                 }
                 RoomEditorMode::Tilemap => {
                     ctx.set_cursor_icon(CursorIcon::Crosshair);
@@ -171,12 +176,41 @@ pub fn entity_world_rect(
     Rect::new(corrected_pos.x, corrected_pos.y, size.x, size.y)
 }
 
-/// Returns true if an entity can be selected in a room (is in the room).
-pub fn can_select_entity_in_room(ecs: &Ecs, entity: Entity, room_id: RoomId) -> bool {
-    // Make sure the entity is in the requested room
+/// Returns true if an entity can be selected in one room/layer pair.
+pub fn can_select_entity_in_room_layer(
+    ecs: &Ecs,
+    entity: Entity,
+    room_id: RoomId,
+    layer: RoomLayer,
+) -> bool {
     match ecs.get_store::<CurrentRoom>().get(entity) {
-        Some(CurrentRoom(id)) => *id == room_id,
+        Some(CurrentRoom {
+            room_id: id,
+            layer: entity_layer,
+        }) => *id == room_id && *entity_layer == layer,
         None => false,
+    }
+}
+
+/// Returns the topmost click candidate by camera priority and draw order.
+pub(crate) fn topmost_entity_from_click_candidates(
+    candidates: &[(Entity, i32, bool)],
+) -> Option<Entity> {
+    candidates
+        .iter()
+        .copied()
+        .max_by(|a, b| compare_click_candidate_priority(*a, *b))
+        .map(|(entity, _, _)| entity)
+}
+
+fn compare_click_candidate_priority(
+    a: (Entity, i32, bool),
+    b: (Entity, i32, bool),
+) -> std::cmp::Ordering {
+    match (a.2, b.2) {
+        (true, false) => std::cmp::Ordering::Greater,
+        (false, true) => std::cmp::Ordering::Less,
+        _ => compare_entity_draw_order(a.0, a.1, b.0, b.1),
     }
 }
 

@@ -23,6 +23,11 @@ pub fn save_game_to_folder(game: &Game, folder: &Path) -> io::Result<()> {
         .map_err(io::Error::other)?;
     fs::write(folder.join(paths::ASSET_REGISTRY_RON), registry_ron)?;
 
+    // Save the tile registry
+    let tile_registry_ron = ron::ser::to_string_pretty(&game.tile_registry, ron::ser::PrettyConfig::new())
+        .map_err(io::Error::other)?;
+    fs::write(folder.join(paths::TILE_REGISTRY_RON), tile_registry_ron)?;
+
     // Build and write the game-data manifest
     let mut world_ids = Vec::new();
     let worlds_folder = folder.join(paths::WORLDS_FOLDER);
@@ -124,6 +129,7 @@ pub fn load_full_game_from_folder(folder: &Path) -> io::Result<Game> {
     let mut game = load_game_shell_from_folder(folder)?;
     hydrate_all_payloads_from_folder(folder, &mut game)?;
     game.ecs.finalize_after_load();
+    game.sync_all_tile_placements();
     Ok(game)
 }
 
@@ -176,6 +182,12 @@ fn load_shell_from_split_layout(folder: &Path, manifest: GameDataManifest) -> io
     if registry_path.exists() {
         let registry_ron = fs::read_to_string(&registry_path)?;
         game.asset_registry = ron::from_str(&registry_ron).map_err(io::Error::other)?;
+    }
+
+    let tile_registry_path = folder.join(paths::TILE_REGISTRY_RON);
+    if tile_registry_path.exists() {
+        let tile_registry_ron = fs::read_to_string(&tile_registry_path)?;
+        game.tile_registry = ron::from_str(&tile_registry_ron).map_err(io::Error::other)?;
     }
 
     Ok(game)

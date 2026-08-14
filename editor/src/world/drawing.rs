@@ -217,6 +217,8 @@ impl WorldEditor {
                     selected_create_parent: None,
                     game_name: None,
                     event_tags: Vec::new(),
+                    room_zone_tool_active: false,
+                    room_zones_visible: false,
                 },
             )
         };
@@ -325,7 +327,8 @@ pub(super) fn collect_nav_icons(
     entities
         .iter()
         .filter_map(|(entity, icon_type)| {
-            ecs.get::<CurrentRoom>(*entity).and_then(|r| room_map.get(&r.0))?;
+            ecs.get::<CurrentRoom>(*entity)
+                .and_then(|room| room_map.get(&room.room_id))?;
             let t = ecs
                 .get::<Transform>(*entity)
                 .map(|t| t.position)

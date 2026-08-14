@@ -68,6 +68,7 @@ static ENTRY_ICON: OnceLock<Texture2D> = OnceLock::new();
 static EXIT_ICON: OnceLock<Texture2D> = OnceLock::new();
 static PORTAL_ICON: OnceLock<Texture2D> = OnceLock::new();
 static REFRESH_ICON: OnceLock<Texture2D> = OnceLock::new();
+static EYE_ICON: OnceLock<Texture2D> = OnceLock::new();
 static CAMERA_ICON: OnceLock<Texture2D> = OnceLock::new();
 static CIRCLE_120PX: OnceLock<Texture2D> = OnceLock::new();
 static FOLDER_ICON: OnceLock<Texture2D> = OnceLock::new();
@@ -107,6 +108,7 @@ pub fn init_editor_icons(loader: &impl TextureLoader) {
     let _ = EXIT_ICON.set(load(include_bytes!("icons/exit.png")));
     let _ = PORTAL_ICON.set(load(include_bytes!("icons/portal.png")));
     let _ = REFRESH_ICON.set(load(include_bytes!("icons/refresh.png")));
+    let _ = EYE_ICON.set(load(include_bytes!("icons/eye.png")));
     let _ = CAMERA_ICON.set(load(include_bytes!("icons/camera.png")));
     let _ = CIRCLE_120PX.set(load(include_bytes!("textures/circle120px.png")));
     let _ = FOLDER_ICON.set(load(include_bytes!("icons/folder.png")));
@@ -153,6 +155,9 @@ pub fn portal_icon() -> &'static Texture2D {
 }
 pub fn refresh_icon() -> &'static Texture2D {
     REFRESH_ICON.get().expect(ICON_PANIC_MESSAGE)
+}
+pub fn eye_icon() -> &'static Texture2D {
+    EYE_ICON.get().expect(ICON_PANIC_MESSAGE)
 }
 pub fn camera_icon() -> &'static Texture2D {
     CAMERA_ICON.get().expect(ICON_PANIC_MESSAGE)

@@ -1,7 +1,8 @@
+use crate::room::layers::interior_zone_constraints::all_zones_fit_room;
 use crate::world::coord::overlaps_existing_rooms;
 use bishop::prelude::*;
-use engine_core::tiles::{TileMap};
-use engine_core::worlds::*;
+use engine_core::tiles::TileMap;
+use engine_core::worlds::{Exit, InteriorZone};
 
 /// Which side of the tilemap the handle controls.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -35,12 +36,26 @@ pub enum ResizeResult {
     InvalidDimensions,
     StrandedExit,
     Overlap,
+    InteriorZonesOutOfBounds,
 }
 
 /// Data needed for resize preview.
 pub(crate) struct PreviewData {
     position: Vec2,
     size: Vec2,
+}
+
+#[derive(Clone, Copy)]
+pub struct ResizeValidationParams {
+    pub side: HandleSide,
+    pub delta: i32,
+    pub grid_size: f32,
+}
+
+impl PreviewData {
+    pub(crate) fn new(position: Vec2, size: Vec2) -> Self {
+        Self { position, size }
+    }
 }
 
 impl ResizeHandle {
@@ -144,26 +159,15 @@ impl ResizeHandle {
         room_size: Vec2,
         grid_size: f32,
     ) -> PreviewData {
-        let delta = self.drag_state.preview_delta;
-        let delta_pixels = delta as f32 * grid_size;
+        let (position, size) = resized_position_and_size(
+            room_position,
+            room_size,
+            self.side,
+            self.drag_state.preview_delta,
+            grid_size,
+        );
 
-        let (new_pos, new_size) = match self.side {
-            HandleSide::Top => (
-                vec2(room_position.x, room_position.y - delta_pixels),
-                vec2(room_size.x, room_size.y + delta as f32),
-            ),
-            HandleSide::Bottom => (room_position, vec2(room_size.x, room_size.y + delta as f32)),
-            HandleSide::Left => (
-                vec2(room_position.x - delta_pixels, room_position.y),
-                vec2(room_size.x + delta as f32, room_size.y),
-            ),
-            HandleSide::Right => (room_position, vec2(room_size.x + delta as f32, room_size.y)),
-        };
-
-        PreviewData {
-            position: new_pos,
-            size: new_size * grid_size,
-        }
+        PreviewData::new(position, size)
     }
 
     /// End the drag operation.
@@ -311,32 +315,76 @@ impl ResizeHandle {
 }
 
 /// Validates a resize drag and returns a `ResizeResult`.
+pub(crate) fn resized_room_rect(
+    room_position: Vec2,
+    room_size: Vec2,
+    side: HandleSide,
+    delta: i32,
+    grid_size: f32,
+) -> Rect {
+    let (position, size) = resized_position_and_size(room_position, room_size, side, delta, grid_size);
+
+    Rect::new(position.x, position.y, size.x, size.y)
+}
+
 pub fn validate_resize(
     map: &TileMap,
     exits: &[Exit],
-    side: HandleSide,
-    delta: i32,
+    params: ResizeValidationParams,
     other_bounds: &[(Vec2, Vec2)],
     preview_data: PreviewData,
-    grid_size: f32,
+    interior_zones: &[InteriorZone],
 ) -> ResizeResult {
-    let (new_w, new_h) = compute_new_dims(map, side, delta);
+    let (new_w, new_h) = compute_new_dims(map, params.side, params.delta);
 
-    if !size_valid(map.width, map.height, side, delta) {
+    if !size_valid(map.width, map.height, params.side, params.delta) {
         return ResizeResult::InvalidDimensions;
     }
-    if !exits_valid(map, exits, side, delta, new_w, new_h) {
+    if !exits_valid(map, exits, params.side, params.delta, new_w, new_h) {
         return ResizeResult::StrandedExit;
     }
     if !overlap_valid(
         preview_data.position,
         preview_data.size,
         other_bounds,
-        grid_size,
+        params.grid_size,
     ) {
         return ResizeResult::Overlap;
     }
+    let preview_rect = Rect::new(
+        preview_data.position.x,
+        preview_data.position.y,
+        preview_data.size.x,
+        preview_data.size.y,
+    );
+    if !all_zones_fit_room(interior_zones, preview_rect) {
+        return ResizeResult::InteriorZonesOutOfBounds;
+    }
     ResizeResult::Success
+}
+
+fn resized_position_and_size(
+    room_position: Vec2,
+    room_size: Vec2,
+    side: HandleSide,
+    delta: i32,
+    grid_size: f32,
+) -> (Vec2, Vec2) {
+    let delta_pixels = delta as f32 * grid_size;
+    let (position, size) = match side {
+        HandleSide::Top => (
+            vec2(room_position.x, room_position.y - delta_pixels),
+            vec2(room_size.x, room_size.y + delta as f32),
+        ),
+        HandleSide::Bottom => (room_position, vec2(room_size.x, room_size.y + delta as f32)),
+        HandleSide::Left => (
+            vec2(room_position.x - delta_pixels, room_position.y),
+            vec2(room_size.x + delta as f32, room_size.y),
+        ),
+        HandleSide::Right => (room_position, vec2(room_size.x + delta as f32, room_size.y)),
+    };
+
+    (position, size * grid_size)
 }
 
 fn compute_new_dims(map: &TileMap, side: HandleSide, delta: i32) -> (usize, usize) {

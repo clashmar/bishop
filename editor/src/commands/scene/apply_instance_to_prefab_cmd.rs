@@ -86,7 +86,7 @@ impl EditorCommand for ApplyInstanceToPrefabCmd {
                     .game
                     .ecs
                     .get::<CurrentRoom>(root_entity)
-                    .map(|room| room.0);
+                    .map(|room| room.room_id);
                 let mut ctx = editor.game.ctx_mut();
                 refresh_prefab_instance(&mut ctx, root_entity, &updated_prefab, room_id);
             }

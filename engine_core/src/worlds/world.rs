@@ -194,7 +194,7 @@ impl std::fmt::Display for WorldTransitionMode {
 /// Returns true if `entity` is roomed in `world`; entities without a `CurrentRoom` always count as in-world.
 pub fn entity_in_world(ecs: &crate::ecs::Ecs, world: &World, entity: crate::ecs::Entity) -> bool {
     match ecs.get::<crate::ecs::CurrentRoom>(entity) {
-        Some(room) => world.get_room(room.0).is_some(),
+        Some(room) => world.get_room(room.room_id).is_some(),
         None => true,
     }
 }

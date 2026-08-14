@@ -2,17 +2,21 @@ use crate::assets::sprite_manager::SpriteManager;
 use crate::ecs::Pivot;
 use crate::ecs::ecs::Ecs;
 use crate::ecs::entity::Entity;
-use crate::ecs::{RoomCamera, SpeechBubble, SubPixel, Transform};
+use crate::ecs::{CurrentRoom, RoomCamera, SpeechBubble, SubPixel, Transform};
 use crate::rendering::{
     entity_dimensions,
     entity_visible_in_room,
     interpolate_position,
     spillover_candidate_room_ids,
+    visible_layers_for_state,
     visual_position,
+    RoomVisibilityContext,
+    RoomRenderState,
 };
 use crate::text::*;
 use crate::ui::text::*;
-use crate::worlds::{Room, World};
+#[cfg(test)]
+use crate::worlds::World;
 use bishop::prelude::*;
 use std::collections::{HashMap, HashSet};
 
@@ -34,11 +38,10 @@ pub struct SpeechBubbleRenderData {
 pub fn collect_speech_bubbles(
     ecs: &Ecs,
     sprite_manager: &SpriteManager,
-    world: &World,
-    rendered_room: &Room,
+    room_ctx: &RoomVisibilityContext<'_>,
+    state: RoomRenderState,
     alpha: f32,
     prev_positions: Option<&HashMap<Entity, Vec2>>,
-    grid_size: f32,
 ) -> Vec<SpeechBubbleRenderData> {
     let mut bubbles = Vec::new();
     let mut seen = HashSet::new();
@@ -46,12 +49,20 @@ pub fn collect_speech_bubbles(
     let transform_store = ecs.get_store::<Transform>();
     let sub_pixel_store = ecs.get_store::<SubPixel>();
     let cam_store = ecs.get_store::<RoomCamera>();
+    let visible_layers = visible_layers_for_state(&room_ctx.room.current_variant().layers, state);
 
-    for candidate_room_id in spillover_candidate_room_ids(world, rendered_room) {
+    for candidate_room_id in spillover_candidate_room_ids(room_ctx.world, room_ctx.room) {
         for &entity in ecs.entities_in_room(candidate_room_id) {
             ecs.assert_room_membership(candidate_room_id, entity);
 
             if !seen.insert(entity) {
+                continue;
+            }
+
+            let Some(current_room) = ecs.get::<CurrentRoom>(entity) else {
+                continue;
+            };
+            if !visible_layers.ordered_layers.contains(&current_room.layer) {
                 continue;
             }
 
@@ -71,17 +82,15 @@ pub fn collect_speech_bubbles(
             if !entity_visible_in_room(
                 ecs,
                 sprite_manager,
-                world,
                 entity,
                 candidate_room_id,
                 world_pos,
-                rendered_room,
-                grid_size,
+                room_ctx,
             ) {
                 continue;
             }
 
-            let entity_size = entity_dimensions(ecs, sprite_manager, entity, grid_size);
+            let entity_size = entity_dimensions(ecs, sprite_manager, entity, room_ctx.grid_size);
 
             bubbles.push(SpeechBubbleRenderData {
                 text: bubble.text.clone(),
@@ -256,9 +265,12 @@ fn wrap_text<C: BishopContext>(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::ecs::CurrentRoom;
     use crate::rendering::test_support::make_vertical_spillover_fixture;
+    use crate::tiles::tilemap::TileMap;
+    use crate::worlds::room::{Room, RoomVariant};
     use crate::worlds::test_utils::make_room;
-    use crate::worlds::{Exit, ExitDirection, RoomId, WorldId};
+    use crate::worlds::{BackRoomLayer, Exit, ExitDirection, RoomId, RoomLayer, RoomLayers, WorldId};
 
     #[test]
     fn speech_bubble_projection_uses_camera_viewport_dimensions() {
@@ -282,12 +294,18 @@ mod tests {
             WorldId(0),
             String::new(),
             vec![
-                make_room(Some(1), 0.0, 0.0, 4.0, 4.0),
-                make_room(Some(2), 80.0, 0.0, 4.0, 4.0),
+                Room {
+                    variants: vec![RoomVariant::default()],
+                    ..make_room(Some(1), 0.0, 0.0, 4.0, 4.0)
+                },
+                Room {
+                    variants: vec![RoomVariant::default()],
+                    ..make_room(Some(2), 80.0, 0.0, 4.0, 4.0)
+                },
             ],
             16.0,
         );
-        let rendered_room = world.get_room(room_a).unwrap();
+        let room_ctx = make_room_visibility_context(&world, room_a);
         let mut ecs = Ecs::default();
 
         let in_room = ecs.create_entity()
@@ -305,15 +323,67 @@ mod tests {
         let bubbles = collect_speech_bubbles(
             &ecs,
             &SpriteManager::default(),
-            &world,
-            rendered_room,
+            &room_ctx,
+            RoomRenderState {
+                current_layer: RoomLayer::Front,
+                viewpoint_position: None,
+                show_all_back_bounds: false,
+            },
             1.0,
             None,
-            16.0,
         );
 
         assert_eq!(bubbles.len(), 1);
-        assert_eq!(ecs.get::<crate::ecs::CurrentRoom>(in_room).map(|room| room.0), Some(room_a));
+        assert_eq!(
+            ecs.get::<CurrentRoom>(in_room).map(|room| room.room_id),
+            Some(room_a)
+        );
+    }
+
+    #[test]
+    fn collect_speech_bubbles_ignores_other_layers_when_hidden() {
+        let room = Room {
+            id: RoomId(1),
+            size: Vec2::new(4.0, 4.0),
+            variants: vec![RoomVariant {
+                tilemap: TileMap::new(4, 4),
+                layers: RoomLayers {
+                    back: Some(BackRoomLayer::default()),
+                },
+                ..Default::default()
+            }],
+            ..Default::default()
+        };
+        let world = World::from_rooms(WorldId(0), String::new(), vec![room], 16.0);
+        let room_ctx = make_room_visibility_context(&world, RoomId(1));
+        let mut ecs = Ecs::default();
+
+        ecs.create_entity()
+            .with(Transform::default())
+            .with(SpeechBubble::default())
+            .with_current_room(RoomId(1))
+            .finish();
+
+        ecs.create_entity()
+            .with(Transform::default())
+            .with(SpeechBubble::default())
+            .with_current_room_layer(RoomId(1), RoomLayer::Back)
+            .finish();
+
+        let bubbles = collect_speech_bubbles(
+            &ecs,
+            &SpriteManager::default(),
+            &room_ctx,
+            RoomRenderState {
+                current_layer: RoomLayer::Front,
+                viewpoint_position: None,
+                show_all_back_bounds: false,
+            },
+            1.0,
+            None,
+        );
+
+        assert_eq!(bubbles.len(), 1);
     }
 
     fn make_vertical_speech_fixture(
@@ -326,19 +396,33 @@ mod tests {
         (world, ecs, room_a)
     }
 
+    fn make_room_visibility_context<'a>(
+        world: &'a World,
+        room_id: RoomId,
+    ) -> RoomVisibilityContext<'a> {
+        RoomVisibilityContext {
+            world,
+            room: world.get_room(room_id).unwrap(),
+            grid_size: world.grid_size,
+        }
+    }
+
     #[test]
     fn cross_room_visibility_collect_speech_bubbles_excludes_other_room_entity_at_non_exit_boundary() {
         let (world, ecs, room_a) = make_vertical_speech_fixture(vec2(32.0, 64.0), None);
-        let rendered_room = world.get_room(room_a).unwrap();
+        let room_ctx = make_room_visibility_context(&world, room_a);
 
         let bubbles = collect_speech_bubbles(
             &ecs,
             &SpriteManager::default(),
-            &world,
-            rendered_room,
+            &room_ctx,
+            RoomRenderState {
+                current_layer: RoomLayer::Front,
+                viewpoint_position: None,
+                show_all_back_bounds: false,
+            },
             1.0,
             None,
-            16.0,
         );
 
         assert!(bubbles.is_empty());
@@ -351,19 +435,23 @@ mod tests {
             Some(Exit {
                 position: vec2(1.0, 4.0),
                 direction: ExitDirection::Down,
+                layer: RoomLayer::Front,
                 target_room_id: Some(RoomId(2)),
             }),
         );
-        let rendered_room = world.get_room(room_a).unwrap();
+        let room_ctx = make_room_visibility_context(&world, room_a);
 
         let bubbles = collect_speech_bubbles(
             &ecs,
             &SpriteManager::default(),
-            &world,
-            rendered_room,
+            &room_ctx,
+            RoomRenderState {
+                current_layer: RoomLayer::Front,
+                viewpoint_position: None,
+                show_all_back_bounds: false,
+            },
             1.0,
             None,
-            16.0,
         );
 
         assert_eq!(bubbles.len(), 1);
@@ -372,16 +460,19 @@ mod tests {
     #[test]
     fn cross_room_visibility_collect_speech_bubbles_excludes_other_room_entity_once_fully_outside() {
         let (world, ecs, room_a) = make_vertical_speech_fixture(vec2(32.0, 96.0), None);
-        let rendered_room = world.get_room(room_a).unwrap();
+        let room_ctx = make_room_visibility_context(&world, room_a);
 
         let bubbles = collect_speech_bubbles(
             &ecs,
             &SpriteManager::default(),
-            &world,
-            rendered_room,
+            &room_ctx,
+            RoomRenderState {
+                current_layer: RoomLayer::Front,
+                viewpoint_position: None,
+                show_all_back_bounds: false,
+            },
             1.0,
             None,
-            16.0,
         );
 
         assert!(bubbles.is_empty());

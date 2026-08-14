@@ -614,7 +614,6 @@ mod tests {
                 destination: Some(ExitDestination::World(WorldId(2))),
                 entry: Some("Portal".to_string()),
                 trigger: WorldExitTrigger::OnInteract,
-                ..Default::default()
             })
             .with_current_room(RoomId(9))
             .finish();
@@ -623,8 +622,8 @@ mod tests {
             .create_entity()
             .with(WorldExit {
                 destination: Some(ExitDestination::World(WorldId(3))),
+                entry: None,
                 trigger: WorldExitTrigger::OnInteract,
-                ..Default::default()
             })
             .with_current_room(RoomId(9))
             .finish();
@@ -674,8 +673,8 @@ mod tests {
             .create_entity()
             .with(WorldExit {
                 destination: Some(ExitDestination::World(WorldId(3))),
+                entry: None,
                 trigger: WorldExitTrigger::OnInteract,
-                ..Default::default()
             })
             .with_current_room(RoomId(10))
             .finish();
@@ -734,8 +733,8 @@ mod tests {
             .create_entity()
             .with(WorldExit {
                 destination: Some(ExitDestination::World(WorldId(3))),
+                entry: None,
                 trigger: WorldExitTrigger::OnInteract,
-                ..Default::default()
             })
             .with_current_room(RoomId(9))
             .finish();
@@ -744,8 +743,8 @@ mod tests {
             .create_entity()
             .with(WorldExit {
                 destination: Some(ExitDestination::World(WorldId(4))),
+                entry: None,
                 trigger: WorldExitTrigger::OnInteract,
-                ..Default::default()
             })
             .with_current_room(RoomId(10))
             .finish();

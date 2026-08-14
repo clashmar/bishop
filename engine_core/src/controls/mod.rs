@@ -115,6 +115,10 @@ impl Controls {
         ctx.is_key_pressed(KeyCode::V) && modifier_not_pressed(ctx)
     }
 
+    pub fn z(ctx: &WgpuContext) -> bool {
+        ctx.is_key_pressed(KeyCode::Z) && modifier_not_pressed(ctx)
+    }
+
     pub fn f3(ctx: &WgpuContext) -> bool {
         ctx.is_key_pressed(KeyCode::F3) && modifier_not_pressed(ctx)
     }

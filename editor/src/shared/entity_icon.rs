@@ -148,7 +148,7 @@ mod tests {
     fn sprite_with_valid_asset_returns_sprite_or_animation() {
         let mut ecs = make_ecs();
         let entity = make_entity(&mut ecs);
-        ecs.insert_component(entity, Sprite { sprite: SpriteId(1), ..Default::default() });
+        ecs.insert_component(entity, Sprite { sprite: SpriteId(1) });
         let result = resolve_entity_visual(&ecs, entity);
         assert!(matches!(result, EntityVisual::SpriteOrAnimation));
     }
@@ -232,7 +232,7 @@ mod tests {
     fn sprite_with_camera_returns_sprite_or_animation() {
         let mut ecs = make_ecs();
         let entity = make_entity(&mut ecs);
-        ecs.insert_component(entity, Sprite { sprite: SpriteId(1), ..Default::default() });
+        ecs.insert_component(entity, Sprite { sprite: SpriteId(1) });
         ecs.insert_component(entity, RoomCamera::default());
         let result = resolve_entity_visual(&ecs, entity);
         assert!(matches!(result, EntityVisual::SpriteOrAnimation));
@@ -242,7 +242,7 @@ mod tests {
     fn sprite_with_entry_returns_sprite_or_animation() {
         let mut ecs = make_ecs();
         let entity = make_entity(&mut ecs);
-        ecs.insert_component(entity, Sprite { sprite: SpriteId(1), ..Default::default() });
+        ecs.insert_component(entity, Sprite { sprite: SpriteId(1) });
         ecs.insert_component(entity, WorldEntry::default());
         let result = resolve_entity_visual(&ecs, entity);
         assert!(matches!(result, EntityVisual::SpriteOrAnimation));
@@ -264,7 +264,7 @@ mod tests {
             .create_entity()
             .with(Player)
             .with(Transform::default())
-            .with(Sprite { sprite: SpriteId(1), ..Default::default() })
+            .with(Sprite { sprite: SpriteId(1) })
             .finish();
         let proxy = ecs
             .create_entity()

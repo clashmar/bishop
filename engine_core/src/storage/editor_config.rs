@@ -17,6 +17,7 @@ use std::path::PathBuf;
 use std::sync::RwLock;
 pub static EDITOR_CONFIG: Lazy<RwLock<EditorConfig>> = Lazy::new(|| RwLock::new(load_config()));
 
+#[cfg_attr(not(feature = "editor"), derive(Default))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct EditorConfig {
     pub save_root: Option<PathBuf>,
@@ -36,18 +37,15 @@ pub struct EditorConfig {
     pub panel_positions: BTreeMap<String, PanelPosition>,
 }
 
+#[cfg(feature = "editor")]
 impl Default for EditorConfig {
     fn default() -> Self {
         Self {
             save_root: None,
             theme_preset: None,
-            #[cfg(feature = "editor")]
             playtest_startup_mode: default_startup_mode(),
-            #[cfg(feature = "editor")]
             inspector_visible: default_inspector_visible(),
-            #[cfg(feature = "editor")]
             inspector_module_expanded: BTreeMap::new(),
-            #[cfg(feature = "editor")]
             panel_positions: BTreeMap::new(),
         }
     }

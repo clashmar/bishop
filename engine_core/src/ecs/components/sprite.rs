@@ -35,6 +35,12 @@ impl Sprite {
     pub fn has_valid_asset(&self) -> bool {
         self.sprite.0 != 0
     }
+
+    fn resolved_draw_size(texture_size: Option<(f32, f32)>, grid_size: f32) -> Vec2 {
+        texture_size
+            .map(|(w, h)| vec2(w, h))
+            .unwrap_or(Vec2::splat(grid_size))
+    }
 }
 
 impl Renderable for Sprite {
@@ -54,14 +60,18 @@ impl Renderable for Sprite {
             return false;
         }
 
+        let _ = sprite_manager.get_texture_from_id(ctx, self.sprite);
+        let size = Self::resolved_draw_size(
+            sprite_manager.texture_size(self.sprite),
+            params.grid_size,
+        );
         let tex = sprite_manager.get_texture_from_id(ctx, self.sprite);
-        let size = vec2(tex.width(), tex.height());
         let draw_base = pivot_adjusted_position(params.pos, size, params.pivot);
         ctx.draw_texture_ex(
             tex,
             draw_base.x,
             draw_base.y,
-            Color::WHITE,
+            params.color,
             DrawTextureParams {
                 dest_size: Some(size),
                 ..Default::default()
@@ -83,8 +93,22 @@ mod tests {
 
     #[test]
     fn has_valid_asset_true_when_sprite_id_is_nonzero() {
-        let mut sprite = Sprite::default();
-        sprite.sprite = SpriteId(42);
+        let sprite = Sprite {
+            sprite: SpriteId(42),
+        };
         assert!(sprite.has_valid_asset());
+    }
+
+    #[test]
+    fn resolved_draw_size_uses_grid_size_when_texture_is_missing() {
+        assert_eq!(Sprite::resolved_draw_size(None, 16.0), vec2(16.0, 16.0));
+    }
+
+    #[test]
+    fn resolved_draw_size_uses_texture_size_when_available() {
+        assert_eq!(
+            Sprite::resolved_draw_size(Some((24.0, 12.0)), 16.0),
+            vec2(24.0, 12.0),
+        );
     }
 }

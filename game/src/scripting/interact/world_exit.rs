@@ -7,7 +7,7 @@ use engine_core::ecs::WorldExit;
 use engine_core::worlds::ExitDestination;
 use engine_core::worlds::world::{WorldExitTrigger, WorldTransitionMode};
 
-fn on_interact(entity: Entity, game_instance: &GameInstance) {
+fn on_interact(entity: Entity, game_instance: &mut GameInstance) {
     let ecs = &game_instance.game.ecs;
     let Some(exit) = ecs.get::<WorldExit>(entity) else { return };
     if !matches!(exit.trigger, WorldExitTrigger::OnInteract) { return };

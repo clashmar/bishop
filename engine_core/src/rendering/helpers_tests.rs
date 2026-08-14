@@ -1,7 +1,7 @@
 use super::*;
 use crate::rendering::test_support::make_spillover_entity;
 use crate::worlds::test_utils::make_room;
-use crate::worlds::{Exit, WorldId};
+use crate::worlds::{Exit, RoomLayer, WorldId};
 
 // --- smooth_dt tests ---
 
@@ -179,6 +179,28 @@ fn entity_dimensions_use_player_visuals_for_proxy() {
 }
 
 #[test]
+fn entity_visual_rect_includes_current_frame_offset() {
+    let mut ecs = Ecs::default();
+    let entity = ecs.create_entity()
+        .with(Transform {
+            position: vec2(16.0, 16.0),
+            pivot: Pivot::TopLeft,
+            ..Default::default()
+        })
+        .with(CurrentFrame {
+            frame_size: vec2(8.0, 8.0),
+            offset: vec2(2.0, 3.0),
+            ..Default::default()
+        })
+        .finish();
+
+    assert_eq!(
+        entity_visual_rect(&ecs, &SpriteManager::default(), entity, vec2(16.0, 16.0), 16.0),
+        Rect::new(18.0, 19.0, 8.0, 8.0),
+    );
+}
+
+#[test]
 fn cross_room_visibility_candidate_room_ids_include_current_and_neighbors() {
     let world = World::from_rooms(
         WorldId(0),
@@ -224,6 +246,11 @@ fn cross_room_visibility_requires_exit_cell_for_other_room_entity() {
     let room_a = make_room(Some(1), 0.0, 0.0, 4.0, 4.0);
     let room_b = make_room(Some(2), 0.0, 64.0, 4.0, 4.0);
     let world = World::from_rooms(WorldId(0), String::new(), vec![room_a.clone(), room_b], 16.0);
+    let room_ctx = RoomVisibilityContext {
+        world: &world,
+        room: &room_a,
+        grid_size: 16.0,
+    };
     let mut ecs = Ecs::default();
     let entity = make_spillover_entity(&mut ecs, Vec2::ZERO, None);
     let sprite_manager = SpriteManager::default();
@@ -231,12 +258,10 @@ fn cross_room_visibility_requires_exit_cell_for_other_room_entity() {
     assert!(!entity_visible_in_room(
         &ecs,
         &sprite_manager,
-        &world,
         entity,
         RoomId(2),
         vec2(32.0, 64.0),
-        &room_a,
-        16.0,
+        &room_ctx,
     ));
 }
 
@@ -246,10 +271,16 @@ fn cross_room_visibility_allows_vertical_exit_cell_spillover() {
     room_a.exits.push(Exit {
         position: vec2(1.0, 4.0),
         direction: ExitDirection::Down,
+        layer: RoomLayer::Front,
         target_room_id: Some(RoomId(2)),
     });
     let room_b = make_room(Some(2), 0.0, 64.0, 4.0, 4.0);
     let world = World::from_rooms(WorldId(0), String::new(), vec![room_a.clone(), room_b], 16.0);
+    let room_ctx = RoomVisibilityContext {
+        world: &world,
+        room: &room_a,
+        grid_size: 16.0,
+    };
     let mut ecs = Ecs::default();
     let entity = make_spillover_entity(&mut ecs, Vec2::ZERO, None);
     let sprite_manager = SpriteManager::default();
@@ -257,12 +288,10 @@ fn cross_room_visibility_allows_vertical_exit_cell_spillover() {
     assert!(entity_visible_in_room(
         &ecs,
         &sprite_manager,
-        &world,
         entity,
         RoomId(2),
         vec2(32.0, 64.0),
-        &room_a,
-        16.0,
+        &room_ctx,
     ));
 }
 
@@ -272,10 +301,16 @@ fn cross_room_visibility_rejects_overlap_away_from_exit_cell() {
     room_a.exits.push(Exit {
         position: vec2(3.0, 4.0),
         direction: ExitDirection::Down,
+        layer: RoomLayer::Front,
         target_room_id: Some(RoomId(2)),
     });
     let room_b = make_room(Some(2), 0.0, 64.0, 4.0, 4.0);
     let world = World::from_rooms(WorldId(0), String::new(), vec![room_a.clone(), room_b], 16.0);
+    let room_ctx = RoomVisibilityContext {
+        world: &world,
+        room: &room_a,
+        grid_size: 16.0,
+    };
     let mut ecs = Ecs::default();
     let entity = make_spillover_entity(&mut ecs, Vec2::ZERO, None);
     let sprite_manager = SpriteManager::default();
@@ -283,12 +318,10 @@ fn cross_room_visibility_rejects_overlap_away_from_exit_cell() {
     assert!(!entity_visible_in_room(
         &ecs,
         &sprite_manager,
-        &world,
         entity,
         RoomId(2),
         vec2(8.0, 64.0),
-        &room_a,
-        16.0,
+        &room_ctx,
     ));
 }
 
@@ -298,10 +331,16 @@ fn cross_room_visibility_allows_horizontal_exit_cell_spillover() {
     room_a.exits.push(Exit {
         position: vec2(4.0, 1.0),
         direction: ExitDirection::Right,
+        layer: RoomLayer::Front,
         target_room_id: Some(RoomId(2)),
     });
     let room_b = make_room(Some(2), 64.0, 0.0, 4.0, 4.0);
     let world = World::from_rooms(WorldId(0), String::new(), vec![room_a.clone(), room_b], 16.0);
+    let room_ctx = RoomVisibilityContext {
+        world: &world,
+        room: &room_a,
+        grid_size: 16.0,
+    };
     let mut ecs = Ecs::default();
     let entity = make_spillover_entity(&mut ecs, Vec2::ZERO, None);
     let sprite_manager = SpriteManager::default();
@@ -309,12 +348,10 @@ fn cross_room_visibility_allows_horizontal_exit_cell_spillover() {
     assert!(entity_visible_in_room(
         &ecs,
         &sprite_manager,
-        &world,
         entity,
         RoomId(2),
         vec2(64.0, 32.0),
-        &room_a,
-        16.0,
+        &room_ctx,
     ));
 }
 
@@ -322,6 +359,11 @@ fn cross_room_visibility_allows_horizontal_exit_cell_spillover() {
 fn cross_room_visibility_same_room_entity_does_not_require_exit_cell() {
     let room = make_room(Some(1), 0.0, 0.0, 4.0, 4.0);
     let world = World::from_rooms(WorldId(0), String::new(), vec![room.clone()], 16.0);
+    let room_ctx = RoomVisibilityContext {
+        world: &world,
+        room: &room,
+        grid_size: 16.0,
+    };
     let mut ecs = Ecs::default();
     let entity = make_spillover_entity(&mut ecs, Vec2::ZERO, None);
     let sprite_manager = SpriteManager::default();
@@ -329,11 +371,9 @@ fn cross_room_visibility_same_room_entity_does_not_require_exit_cell() {
     assert!(entity_visible_in_room(
         &ecs,
         &sprite_manager,
-        &world,
         entity,
         RoomId(1),
         vec2(32.0, 32.0),
-        &room,
-        16.0,
+        &room_ctx,
     ));
 }

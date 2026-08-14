@@ -4,7 +4,7 @@ use crate::transitions::room_transition_manager::RoomTransitionManager;
 use bishop::prelude::Vec2;
 use engine_core::ecs::{Active, Collider, CurrentRoom, SubPixel, Transform};
 use engine_core::game::Game;
-use engine_core::worlds::{Room, RoomId, World, WorldId};
+use engine_core::worlds::{Room, RoomId, RoomLayer, World, WorldId};
 use mlua::Lua;
 use std::collections::HashMap;
 
@@ -44,7 +44,7 @@ fn handle_transitions_tracks_spatial_room_change() {
             .game
             .ecs
             .get::<CurrentRoom>(entity)
-            .map(|room| room.0),
+            .map(|room| room.room_id),
         Some(RoomId(2))
     );
     let room_b_entities = game_instance.game.ecs.entities_in_room(RoomId(2));
@@ -95,7 +95,7 @@ fn handle_transitions_ignores_entities_parked_in_inactive_worlds() {
             .game
             .ecs
             .get::<CurrentRoom>(parked)
-            .map(|room| room.0),
+            .map(|room| room.room_id),
         Some(RoomId(3))
     );
 }
@@ -137,7 +137,91 @@ fn handle_transitions_uses_visual_position_instead_of_rounded_transform_position
             .game
             .ecs
             .get::<CurrentRoom>(entity)
-            .map(|room| room.0),
+            .map(|room| room.room_id),
         Some(RoomId(1))
+    );
+}
+
+#[test]
+fn handle_transitions_preserves_the_entity_layer() {
+    let (mut room_a, mut room_b) = make_two_rooms();
+    room_a.exits[0].layer = RoomLayer::Back;
+    room_b.exits[0].layer = RoomLayer::Back;
+
+    let mut world = World::default();
+    world.add_room(room_a);
+    world.add_room(room_b);
+    world.grid_size = 1.0;
+    world.rebuild_room_grid();
+
+    let mut game = Game::default();
+    game.add_world(world);
+    let entity = game
+        .ecs
+        .create_entity()
+        .with(Transform {
+            position: Vec2::new(40.0, 9.0),
+            ..Default::default()
+        })
+        .with(Collider::default())
+        .with(Active::default())
+        .with_current_room_layer(RoomId(1), RoomLayer::Back)
+        .finish();
+
+    let mut game_instance = GameInstance {
+        game,
+        prev_positions: HashMap::new(), traversal_residency_diagnostics: None,
+    };
+
+    RoomTransitionManager::handle_transitions(&Lua::new(), &mut game_instance);
+
+    assert_eq!(
+        game_instance
+            .game
+            .ecs
+            .get::<CurrentRoom>(entity)
+            .map(|room| (room.room_id, room.layer)),
+        Some((RoomId(2), RoomLayer::Back))
+    );
+}
+
+#[test]
+fn handle_transitions_requires_an_exit_on_the_entity_layer() {
+    let (room_a, room_b) = make_two_rooms();
+
+    let mut world = World::default();
+    world.add_room(room_a);
+    world.add_room(room_b);
+    world.grid_size = 1.0;
+    world.rebuild_room_grid();
+
+    let mut game = Game::default();
+    game.add_world(world);
+    let entity = game
+        .ecs
+        .create_entity()
+        .with(Transform {
+            position: Vec2::new(40.0, 9.0),
+            ..Default::default()
+        })
+        .with(Collider::default())
+        .with(Active::default())
+        .with_current_room_layer(RoomId(1), RoomLayer::Back)
+        .finish();
+
+    let mut game_instance = GameInstance {
+        game,
+        prev_positions: HashMap::new(), traversal_residency_diagnostics: None,
+    };
+
+    RoomTransitionManager::handle_transitions(&Lua::new(), &mut game_instance);
+
+    assert_eq!(
+        game_instance
+            .game
+            .ecs
+            .get::<CurrentRoom>(entity)
+            .map(|room| (room.room_id, room.layer)),
+        Some((RoomId(1), RoomLayer::Back))
     );
 }

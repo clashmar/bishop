@@ -1,5 +1,14 @@
 use crate::ecs::component::Component;
-use crate::ecs::components::{Animation, RoomCamera, Sprite, WorldEntry, WorldExit};
+use crate::ecs::components::{
+    Animation,
+    Cover,
+    LayerDoor,
+    RoomCamera,
+    Sprite,
+    TilePlacement,
+    WorldEntry,
+    WorldExit,
+};
 #[cfg(feature = "editor")]
 use crate::ecs::inspector::factory::MODULES;
 use crate::ecs::ComponentStore;
@@ -24,6 +33,11 @@ pub static COMPONENT_CONFLICT_GROUPS: &[&[&str]] = &[
     &[RoomCamera::TYPE_NAME, Sprite::TYPE_NAME, Animation::TYPE_NAME],
     &[RoomCamera::TYPE_NAME, WorldEntry::TYPE_NAME],
     &[RoomCamera::TYPE_NAME, WorldExit::TYPE_NAME],
+    &[LayerDoor::TYPE_NAME, RoomCamera::TYPE_NAME],
+    &[LayerDoor::TYPE_NAME, WorldEntry::TYPE_NAME],
+    &[LayerDoor::TYPE_NAME, WorldExit::TYPE_NAME],
+    &[LayerDoor::TYPE_NAME, TilePlacement::TYPE_NAME],
+    &[LayerDoor::TYPE_NAME, Cover::TYPE_NAME],
 ];
 
 inventory::collect!(ComponentRegistry);

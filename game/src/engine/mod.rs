@@ -15,6 +15,7 @@ pub use game_instance::{GameInstance, PreparedGameInstance};
 
 pub use save_runtime::{RuntimeLoadRequest, SaveRuntime};
 
+use crate::dev_tools::{DevTools, draw::draw_colliders, overlay::draw_dev_tools_overlay};
 use crate::diagnostics::{DiagnosticsOverlay, TimingTraceSample};
 use crate::game_global::{set_menu_active, take_pending_world_transition};
 use crate::physics::physics_system::*;
@@ -26,6 +27,7 @@ use crate::transitions::world_transitions::WorldTransitionManager;
 use bishop::prelude::*;
 use bishop::BishopApp;
 use engine_core::animation::{update_animation_sytem};
+use engine_core::ecs::CurrentRoom;
 use engine_core::audio::{AudioManager};
 use engine_core::camera::CameraManager;
 use engine_core::constants::timing;
@@ -35,6 +37,7 @@ use engine_core::menu::{GameMenuHandler, MenuInputPolicy, MenuManager, MenuSessi
 use engine_core::rendering::{RenderSystem, SmoothedDtState, smooth_dt, snap_dt};
 use engine_core::task::BackgroundService;
 use engine_core::text::update_speech_timers;
+use engine_core::worlds::RoomLayer;
 use mlua::Lua;
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -56,6 +59,8 @@ pub struct Engine {
     pub render_system: RenderSystem,
     /// Runtime diagnostics overlay (playtest only).
     pub diagnostics: DiagnosticsOverlay,
+    /// Dev tools for playtest debugging.
+    pub dev_tools: DevTools,
     /// Menu system for pause and overlay menus.
     pub menu_manager: MenuManager,
     /// Whether the engine is running in playtest mode.
@@ -120,6 +125,10 @@ impl BishopApp for Engine {
         if let Some(sample) = timing_sample {
             self.diagnostics.update(sample);
             self.diagnostics.handle_input(&mut *ctx.borrow_mut());
+        }
+
+        if self.is_playtest && ctx.borrow().is_key_pressed(KeyCode::F1) {
+            self.dev_tools.colliders_visible = !self.dev_tools.colliders_visible;
         }
 
         if self.game_state == GameState::Playing {
@@ -193,6 +202,7 @@ impl Engine {
             camera_manager: cfg.camera_manager,
             render_system,
             diagnostics: DiagnosticsOverlay::new(),
+            dev_tools: DevTools::default(),
             menu_manager,
             is_playtest: cfg.is_playtest,
             quit_to_title_enabled: cfg.quit_to_title_enabled,
@@ -229,10 +239,17 @@ impl Engine {
             .unwrap_or_default();
 
         if let Some(current_room) = world.current_room() {
+            let preferred_layer = ecs
+                .get_player_entity()
+                .and_then(|entity| ecs.get::<CurrentRoom>(entity).copied())
+                .filter(|current_room_membership| current_room_membership.room_id == current_room.id)
+                .map(|current_room_membership| current_room_membership.layer)
+                .unwrap_or(RoomLayer::Front);
             self.camera_manager = CameraManager::new(
                 &mut *ctx_ref,
                 ecs,
                 current_room.id,
+                preferred_layer,
                 player_pos,
                 world.grid_size,
             );
@@ -248,7 +265,7 @@ impl Engine {
             let Some(world) = game_ctx.world.as_deref() else {
                 return;
             };
-            update_physics(game_ctx.sprite_manager, game_ctx.ecs, world, dt);
+            update_physics(game_ctx.ecs, world, dt);
         }
 
         // Resolve room transitions before updating the camera
@@ -341,9 +358,15 @@ impl Engine {
             );
 
             render_screen_space(platform_ctx, game_instance, &render_cam, alpha);
+            drop(game_borrow);
 
             if self.is_playtest {
+                let game_borrow = self.game_instance.borrow();
+                draw_colliders(platform_ctx, &game_borrow, &self.dev_tools, &render_cam);
+                drop(game_borrow);
+
                 self.diagnostics.draw(platform_ctx);
+                draw_dev_tools_overlay(platform_ctx, &self.dev_tools);
             }
         } else {
             ctx.borrow_mut().clear_background(Color::BLACK);

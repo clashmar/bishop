@@ -1,35 +1,32 @@
 use crate::app::EditorCameraController;
-use crate::app::EditorMode;
 use crate::app::SubEditor;
 use crate::canvas::grid;
 use crate::canvas::grid_shader::GridRenderer;
-use crate::commands::room::*;
-use crate::commands::scene::CreateSceneEntityCmd;
 use crate::editor_assets::assets::*;
-use crate::editor_global::*;
 use crate::gui::gui_constants::{self};
 use crate::gui::inspector::shell::Inspector;
 use crate::gui::mode_selector::*;
 use crate::prefab::reconcile_recent_prefab_ids;
-use crate::room::drawing::*;
-use crate::room::selection::DragState;
-use crate::shared::input::{canvas_blocked_by_global_ui, shortcuts_blocked};
+use crate::room::drawing::SceneDrawContext;
+use crate::room::entity_drag::DragState;
+use crate::room::layers::interior_zone_edit::InteriorZoneEditorState;
+use crate::room::layers::layer_state::RoomLayerState;
+use crate::room::scene_mode::SceneModeUpdateContext;
+use crate::room::selection::can_select_entity_in_room_layer;
+use crate::shared::input::{canvas_blocked_by_global_ui};
 use crate::shared::scene_ui::inspector::{CreateRequest, PrefabActionRequest};
-use crate::shared::selection::draw_selection_box;
 use crate::prefab::palette::{PrefabPaletteState, PREFAB_PALETTE_RECENT_CAP};
 use crate::storage::lua_stub_gen::collect_custom_event_tags;
 use crate::tilemap::tilemap_editor::*;
-use crate::world::coord;
 use bishop::prelude::*;
 use engine_core::animation::{update_animation_sytem};
 use engine_core::assets::*;
-use engine_core::camera::get_room_camera_by_id;
-use engine_core::controls::{Controls};
+use engine_core::controls::Controls;
 use engine_core::ecs::*;
-use engine_core::game::{Game};
-use engine_core::rendering::{render_room, RenderSystem};
-use widgets::*;
+use engine_core::game::Game;
+use engine_core::rendering::{RenderSystem};
 use engine_core::worlds::*;
+use widgets::*;
 use once_cell::sync::Lazy;
 use std::collections::HashSet;
 use strum::IntoEnumIterator;
@@ -45,10 +42,11 @@ pub enum RoomEditorMode {
 pub(crate) enum RoomSceneSubMode {
     Scene,
     Stamp,
+    Zones,
 }
 
 pub(crate) static ROOM_SCENE_SUB_MODES: &[RoomSceneSubMode] =
-    &[RoomSceneSubMode::Scene, RoomSceneSubMode::Stamp];
+    &[RoomSceneSubMode::Scene, RoomSceneSubMode::Stamp, RoomSceneSubMode::Zones];
 
 #[derive(Clone, Copy)]
 pub(crate) struct ActivePrefabStampState {
@@ -91,6 +89,7 @@ impl ModeInfo for RoomSceneSubMode {
         match self {
             RoomSceneSubMode::Scene => "Scene",
             RoomSceneSubMode::Stamp => "Stamp",
+            RoomSceneSubMode::Zones => "Zones",
         }
     }
 
@@ -98,6 +97,7 @@ impl ModeInfo for RoomSceneSubMode {
         match self {
             RoomSceneSubMode::Scene => edit_icon(),
             RoomSceneSubMode::Stamp => select_icon(),
+            RoomSceneSubMode::Zones => create_icon(),
         }
     }
 
@@ -111,6 +111,7 @@ pub struct RoomEditor {
     pub mode_selector: ModeSelector<RoomEditorMode>,
     pub tilemap_editor: TileMapEditor,
     pub inspector: Inspector,
+    pub active_layer_state: RoomLayerState,
     pub selected_entities: HashSet<Entity>,
     pub active_prefab_id: Option<PrefabId>,
     pub recent_prefab_ids: Vec<PrefabId>,
@@ -118,6 +119,7 @@ pub struct RoomEditor {
     pub(crate) active_rects: Vec<Rect>,
     pub(crate) show_grid: bool,
     pub(crate) drag_state: DragState,
+    pub(crate) interior_zone_editor: InteriorZoneEditorState,
     pub create_request: Option<CreateRequest>,
     pub prefab_action_request: Option<PrefabActionRequest>,
     pub create_camera_request: Option<f32>,
@@ -125,6 +127,7 @@ pub struct RoomEditor {
     pub request_event_tags_refresh: bool,
     pub request_play: bool,
     pub view_preview: bool,
+    pub(crate) show_interior_zones: bool,
     pub(crate) preview_camera_id: Option<usize>,
     /// Current sub-mode for tilemap editing.
     pub(crate) tilemap_sub_mode: TilemapEditorMode,
@@ -147,6 +150,7 @@ impl RoomEditor {
             },
             tilemap_editor: TileMapEditor::new(),
             inspector,
+            active_layer_state: RoomLayerState::default(),
             selected_entities: HashSet::new(),
             active_prefab_id: None,
             recent_prefab_ids: Vec::new(),
@@ -154,6 +158,7 @@ impl RoomEditor {
             active_rects: Vec::new(),
             show_grid: true,
             drag_state: DragState::default(),
+            interior_zone_editor: InteriorZoneEditorState::default(),
             preview_camera_id: None,
             create_request: None,
             prefab_action_request: None,
@@ -162,6 +167,7 @@ impl RoomEditor {
             request_event_tags_refresh: false,
             request_play: false,
             view_preview: false,
+            show_interior_zones: true,
             tilemap_sub_mode: TilemapEditorMode::Tiles,
             sub_mode_rect: None,
         }
@@ -190,7 +196,7 @@ impl RoomEditor {
             .map(|r| (r.position, r.size))
             .collect();
 
-        let adjacent_exits: Vec<(Vec2, ExitDirection)> = {
+        let adjacent_exits: Vec<RoomFacingExit> = {
             let current_room = current_world.get_room(room_id);
 
             match current_room {
@@ -204,6 +210,15 @@ impl RoomEditor {
             }
         };
 
+        let room_has_back_layer = current_world
+            .get_room(room_id)
+            .is_some_and(|room| room.current_variant().layers.back.is_some());
+        if !room_has_back_layer && self.scene_sub_mode == RoomSceneSubMode::Zones {
+            self.reset_scene_sub_mode();
+        }
+        self.sync_active_layer_for_room(ecs, room_id, room_has_back_layer);
+
+        let world_id = current_world.id;
         let room = current_world
             .rooms_mut()
             .iter_mut()
@@ -229,83 +244,41 @@ impl RoomEditor {
 
         match self.mode {
             RoomEditorMode::Tilemap => {
-                // Sync sub-mode and UI rect to tilemap editor
+                self.inspector.select_tilemap();
                 self.tilemap_editor.mode = self.tilemap_sub_mode;
                 self.tilemap_editor.sub_mode_rect = self.sub_mode_rect;
+                self.tilemap_editor
+                    .set_selected_tile(self.inspector.selected_tile_brush());
                 self.tilemap_editor.sync_adjacent_exits(&adjacent_exits);
                 self.tilemap_editor.update(
                     ctx,
-                    sprite_manager,
+                    self.inspector.is_mouse_over(ctx),
                     camera,
                     room,
-                    &other_bounds,
-                    grid_size,
+                    ecs,
+                    TilemapUpdateContext {
+                        other_bounds: &other_bounds,
+                        grid_size,
+                    },
                 );
             }
             RoomEditorMode::Scene => {
-                let stamp_handled = self
-                    .handle_prefab_stamp(ctx, camera, room.id, grid_size, active_prefab_stamp);
-                let drag_handled = stamp_handled
-                    || self.handle_selection(
-                        ctx,
-                        room.id,
-                        camera,
+                self.update_scene_mode(
+                    ctx,
+                    camera,
+                    SceneModeUpdateContext {
+                        world_id,
+                        room,
                         ecs,
                         sprite_manager,
+                        active_prefab_stamp,
                         grid_size,
-                    );
-
-                if !drag_handled {
-                    self.handle_keyboard_move(ctx, ecs, room.id);
-                }
-
-                // Handle batch delete when multiple entities selected
-                if self.selected_entities.len() > 1
-                    && Controls::delete(ctx)
-                    && !shortcuts_blocked()
-                {
-                    let entities: Vec<Entity> = self.selected_entities.iter().copied().collect();
-                    push_command(Box::new(BatchDeleteEntitiesCmd::new(
-                        entities,
-                        EditorMode::Room(room_id),
-                    )));
-                }
-
-                // Copy multiple selected entities
-                if Controls::copy(ctx)
-                    && self.selected_entities.len() > 1
-                    && !shortcuts_blocked()
-                {
-                    let entities: Vec<Entity> = self.selected_entities.iter().copied().collect();
-                    copy_entities(ecs, &entities);
-                }
-
-                // Create a new entity if create was pressed
-                if let Some(create_request) = self.create_request.take() {
-                    push_command(Box::new(CreateSceneEntityCmd::new_room_entity(
-                        room.id,
-                        room.position,
-                        create_request.parent,
-                    )));
-                }
-
-                // Create a new camera if create_camera_request was emitted
-                if let Some(cam_grid_size) = self.create_camera_request.take() {
-                    push_command(Box::new(CreateSceneEntityCmd::new_room_camera(
-                        room.id,
-                        room.position,
-                        cam_grid_size,
-                    )));
-                }
-
-                // If target was cleared by inspector, sync selection.
-                if !self.inspector.has_target() && self.selected_entities.len() == 1 {
-                    self.clear_selection();
-                }
+                    },
+                );
             }
         }
 
-        self.handle_shortcuts(ctx, camera, room, grid_size, ecs);
+        self.handle_shortcuts(ctx, camera, room, world_id, grid_size, ecs);
 
         current_world.link_all_room_exits();
     }
@@ -327,7 +300,7 @@ impl RoomEditor {
             .filter(|prefab_id| prefab_manager.prefabs.contains_key(prefab_id));
         self.recent_prefab_ids =
             reconcile_recent_prefab_ids(state.recent_prefab_ids, prefab_manager);
-        self.scene_sub_mode = RoomSceneSubMode::Scene;
+        self.set_scene_sub_mode(RoomSceneSubMode::Scene);
     }
 
     pub(crate) fn reconcile_prefab_palette(&mut self, prefab_manager: &PrefabManager) {
@@ -348,7 +321,7 @@ impl RoomEditor {
         self.mode = RoomEditorMode::Scene;
         self.mode_selector.current = RoomEditorMode::Scene;
         self.set_preview_enabled(false);
-        self.scene_sub_mode = RoomSceneSubMode::Stamp;
+        self.set_scene_sub_mode(RoomSceneSubMode::Stamp);
     }
 
     pub(crate) fn record_recent_prefab(&mut self, prefab_id: PrefabId) {
@@ -360,6 +333,7 @@ impl RoomEditor {
     pub(crate) fn reset_scene_sub_mode(&mut self) -> bool {
         let was_active = self.scene_sub_mode != RoomSceneSubMode::Scene;
         self.scene_sub_mode = RoomSceneSubMode::Scene;
+        self.interior_zone_editor.clear();
         was_active
     }
 
@@ -369,6 +343,60 @@ impl RoomEditor {
         }
         self.mode = mode;
         self.mode_selector.current = mode;
+
+        match mode {
+            RoomEditorMode::Tilemap => self.inspector.select_tilemap(),
+            RoomEditorMode::Scene => self.sync_inspector_to_selection(),
+        }
+    }
+
+    pub(crate) fn prune_selection_to_active_layer(&mut self, ecs: &Ecs, room_id: RoomId) {
+        let active_layer = self.active_layer_state.active_layer;
+        let selected_count = self.selected_entities.len();
+        self.selected_entities
+            .retain(|entity| can_select_entity_in_room_layer(ecs, *entity, room_id, active_layer));
+        if self.selected_entities.len() != selected_count {
+            self.sync_inspector_to_selection();
+        }
+    }
+
+    pub(crate) fn set_active_layer(&mut self, ecs: &Ecs, room_id: RoomId, layer: RoomLayer) {
+        if self.active_layer_state.active_layer != layer {
+            self.disable_active_edit_modes();
+            self.active_layer_state.active_layer = layer;
+        }
+        self.tilemap_editor.active_layer = self.active_layer_state.active_layer;
+        self.prune_selection_to_active_layer(ecs, room_id);
+    }
+
+    pub(crate) fn toggle_active_layer(
+        &mut self,
+        ecs: &Ecs,
+        room_id: RoomId,
+        has_back_layer: bool,
+    ) {
+        if !has_back_layer {
+            self.set_active_layer(ecs, room_id, RoomLayer::Front);
+            return;
+        }
+
+        let mut next_state = self.active_layer_state;
+        next_state.toggle();
+        self.set_active_layer(ecs, room_id, next_state.active_layer);
+    }
+
+    pub(crate) fn sync_active_layer_for_room(
+        &mut self,
+        ecs: &Ecs,
+        room_id: RoomId,
+        has_back_layer: bool,
+    ) {
+        if has_back_layer {
+            self.tilemap_editor.active_layer = self.active_layer_state.active_layer;
+            self.prune_selection_to_active_layer(ecs, room_id);
+        } else {
+            self.set_active_layer(ecs, room_id, RoomLayer::Front);
+        }
     }
 
     pub(crate) fn set_preview_enabled(&mut self, enabled: bool) {
@@ -391,6 +419,35 @@ impl RoomEditor {
 
     pub(crate) fn set_scene_sub_mode(&mut self, mode: RoomSceneSubMode) {
         self.scene_sub_mode = mode;
+        if mode == RoomSceneSubMode::Zones {
+            self.show_interior_zones = true;
+            self.disable_active_edit_modes();
+            self.drag_state = DragState::default();
+            self.inspector.select_room();
+        } else {
+            self.interior_zone_editor.clear();
+            self.sync_inspector_to_selection();
+        }
+    }
+
+    pub(crate) fn set_interior_zone_visibility(&mut self, visible: bool) {
+        self.show_interior_zones = visible;
+        if !visible && self.scene_sub_mode == RoomSceneSubMode::Zones {
+            self.set_scene_sub_mode(RoomSceneSubMode::Scene);
+        }
+    }
+
+    pub(crate) fn toggle_interior_zone_visibility(&mut self) {
+        self.set_interior_zone_visibility(!self.show_interior_zones);
+    }
+
+    pub(crate) fn toggle_zone_sub_mode(&mut self) {
+        self.set_mode(RoomEditorMode::Scene);
+        if self.scene_sub_mode == RoomSceneSubMode::Zones {
+            self.set_scene_sub_mode(RoomSceneSubMode::Scene);
+        } else {
+            self.set_scene_sub_mode(RoomSceneSubMode::Zones);
+        }
     }
 
     pub(crate) fn active_prefab_snap_pivot(&self, prefab_manager: &PrefabManager) -> Pivot {
@@ -439,7 +496,7 @@ impl RoomEditor {
                 return;
             };
 
-            // Panel rect for inspector and tilemap editor.
+            // Right-side inspector rect
             let inspector_rect = Rect::new(
                 ctx.screen_width() - gui_constants::inspector::WIDTH,
                 0.0,
@@ -449,6 +506,9 @@ impl RoomEditor {
 
             match self.mode {
                 RoomEditorMode::Tilemap => {
+                    self.inspector.set_rect(inspector_rect);
+                    self.inspector.select_tilemap();
+
                     let Some(room) = game_ctx
                         .world
                         .as_deref_mut()
@@ -457,16 +517,15 @@ impl RoomEditor {
                         return;
                     };
 
-                    let ecs = &mut *game_ctx.ecs;
-                    let asset_registry = &mut *game_ctx.asset_registry;
+                    let ecs = &*game_ctx.ecs;
+                    let tile_registry = &*game_ctx.tile_registry;
                     let sprite_manager = &mut *game_ctx.sprite_manager;
 
-                    self.tilemap_editor.tilemap_panel.set_rect(inspector_rect);
                     self.tilemap_editor.draw(
                         ctx,
                         camera,
                         room,
-                        (asset_registry, sprite_manager),
+                        (tile_registry, sprite_manager),
                         ecs,
                         grid_size,
                     );
@@ -475,107 +534,29 @@ impl RoomEditor {
                     if self.show_grid {
                         grid::draw_grid(ctx, grid_renderer, camera, grid_size);
                     }
+                    if self.show_interior_zones {
+                        self.draw_interior_zones_overlay(ctx, camera, room, grid_size);
+                    }
                 }
                 RoomEditorMode::Scene => {
-                    let room_camera = get_room_camera_by_id(
-                        ctx,
-                        &*game_ctx.ecs,
-                        room_id,
-                        grid_size,
-                        self.preview_camera_id,
-                    );
-
-                    let view_preview = self.view_preview;
-                    let render_cam = if view_preview && room_camera.is_some() {
-                        room_camera.as_ref().map(|c| &c.camera).unwrap_or(camera)
-                    } else {
-                        camera
-                    };
-
                     self.inspector.set_rect(inspector_rect);
-
-                    if view_preview {
-                        render_system.resize_for_camera(render_cam.zoom);
-                        render_system.begin_scene(ctx);
-                    } else {
-                        render_system.resize_to_window(ctx);
-                    }
-
-                    render_room(ctx, &mut game_ctx, render_cam, 0.0, None);
-
-                    if view_preview {
-                        render_system.end_scene(ctx);
-                        render_system.present_game(ctx);
-                    }
-
-                    if !view_preview {
-                        let Some(room) = game_ctx
-                            .world
-                            .as_deref_mut()
-                            .and_then(World::current_room_mut)
-                        else {
-                            return;
-                        };
-
-                        ctx.set_camera(camera);
-
-                        if self.show_grid {
-                            grid::draw_grid(ctx, grid_renderer, camera, grid_size);
-                        }
-
-                        let ecs = &*game_ctx.ecs;
-                        let asset_registry = &mut *game_ctx.asset_registry;
-                        let sprite_manager = &mut *game_ctx.sprite_manager;
-
-                        draw_exit_placeholders(ctx, &room.exits, room.position, grid_size);
-                        draw_entity_placeholders(ctx, ecs, sprite_manager, room_id, grid_size);
-                        draw_entity_range_circles_in_room(ctx, ecs, room_id, grid_size);
-                        if self.scene_sub_mode == RoomSceneSubMode::Stamp
-                            && !self.should_block_canvas(ctx)
-                        {
-                            if let Some(prefab) = active_prefab.as_ref() {
-                                draw_prefab_stamp_ghost(
-                                    ctx,
-                                    camera,
-                                    asset_registry,
-                                    sprite_manager,
-                                    prefab,
-                                    grid_size,
-                                    active_prefab_snap_pivot,
-                                );
-                            }
-                        }
-
-                        for &selected_entity in &self.selected_entities {
-                            if !is_pure_placeholder(ecs, selected_entity) {
-                                highlight_selected_entity(
-                                    ctx,
-                                    ecs,
-                                    selected_entity,
-                                    sprite_manager,
-                                    grid_size,
-                                );
-                            }
-                            self.draw_camera_viewport(ctx, camera, ecs, selected_entity, room_id);
-                            draw_pivot_marker(ctx, ecs, selected_entity);
-                        }
-
-                        if let Some(selected_entity) = self.single_selected_entity() {
-                            draw_collider(ctx, ecs, selected_entity);
-                        }
-
-                        if self.drag_state.box_select_active {
-                            if let Some(start) = self.drag_state.box_select_start {
-                                let mouse_world = coord::mouse_world_pos(ctx, camera);
-                                draw_selection_box(ctx, start, mouse_world, grid_size);
-                            }
-                        }
-                    }
+                    self.draw_scene_mode(
+                        ctx,
+                        camera,
+                        &mut game_ctx,
+                        render_system,
+                        grid_renderer,
+                        SceneDrawContext {
+                            room_id,
+                            active_prefab: active_prefab.as_ref(),
+                            active_prefab_snap_pivot,
+                        },
+                    );
                 }
             }
 
             if !self.view_preview {
-                self.draw_ui(ctx, &mut game_ctx, camera);
+                self.draw_room_ui(ctx, &mut game_ctx, camera);
             }
         }
     }
@@ -592,6 +573,7 @@ impl RoomEditor {
         self.mode = RoomEditorMode::Scene;
         self.mode_selector.current = RoomEditorMode::Scene;
         self.selected_entities.clear();
+        self.active_layer_state = RoomLayerState::default();
         self.create_request = None;
         self.prefab_action_request = None;
         self.create_camera_request = None;
@@ -599,6 +581,7 @@ impl RoomEditor {
         self.view_preview = false;
         self.preview_camera_id = None;
         self.drag_state = DragState::default();
+        self.interior_zone_editor.clear();
         self.tilemap_sub_mode = TilemapEditorMode::Tiles;
         self.sub_mode_rect = None;
     }

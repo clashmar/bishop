@@ -7,7 +7,6 @@ use crate::prefab::palette::{PrefabPaletteState, PREFAB_PALETTE_RECENT_CAP};
 use crate::storage::game_io::save_game;
 use crate::storage::menus::{load_menus, save_menu};
 use crate::storage::prefab_palettes::{load_prefab_palette_state, save_prefab_palette_state};
-use crate::storage::tile_palettes::save_palette;
 use crate::storage::export::{export_game, export_target_path, PendingExport};
 use bishop::prelude::*;
 use engine_core::ecs::*;
@@ -141,18 +140,11 @@ impl Editor {
             return;
         }
 
-        let palette = &self.room_editor.tilemap_editor.tilemap_panel.palette;
-        let palette_saved = if let Err(e) = save_palette(palette, &self.game.name) {
-            omni_error!("Could not save palette: {e}");
-            false
-        } else {
-            true
-        };
         let prefab_palette_saved = self.save_prefab_palette_state();
 
         if let Err(e) = save_game(&self.game) {
             omni_error!("Could not save game: {}.", e)
-        } else if palette_saved && prefab_palette_saved {
+        } else if prefab_palette_saved {
             self.save_menus();
             self.toast = Some(Toast::new("Saved", 2.5));
         }
@@ -228,10 +220,6 @@ impl Editor {
 
         let game_ron = ron::to_string(&self.game).unwrap_or_default();
         game_ron.hash(&mut hasher);
-
-        let palette = &self.room_editor.tilemap_editor.tilemap_panel.palette;
-        let palette_ron = ron::to_string(palette).unwrap_or_default();
-        palette_ron.hash(&mut hasher);
 
         let pps_ron = ron::to_string(&self.room_editor.prefab_palette_state()).unwrap_or_default();
         pps_ron.hash(&mut hasher);

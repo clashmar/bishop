@@ -12,10 +12,10 @@ impl SpriteManager {
         game.sprite_manager
             .rebuild_path_cache_from_registry(&game.asset_registry);
         game.sprite_manager.restore_next_sprite_id();
-        game.sprite_manager.restore_next_tile_def_id();
         game.sprite_manager.runtime_texture_loading = true;
         game.sprite_manager.runtime_file_read_pool = Some(file_read_pool.clone());
         game.sprite_manager.pending_texture_reads.clear();
+        game.sprite_manager.failed_texture_reads.clear();
 
         for animation in game.ecs.get_store_mut::<Animation>().data.values_mut() {
             animation.init_sprite_cache_runtime(&game.sprite_manager);
@@ -25,7 +25,7 @@ impl SpriteManager {
 
     /// Queues a runtime texture read for traversal warming.
     pub fn prewarm_runtime_texture(&mut self, id: SpriteId) {
-        if !self.runtime_texture_loading || id.0 == 0 {
+        if !self.runtime_texture_loading || id.0 == 0 || self.failed_texture_reads.contains(&id) {
             return;
         }
 
@@ -71,16 +71,19 @@ impl SpriteManager {
             match completed.result {
                 Ok(bytes) => match loader.load_texture_from_bytes(&bytes) {
                     Ok(texture) => {
+                        self.failed_texture_reads.remove(&sprite_id);
                         self.textures.insert(sprite_id, texture);
                         if let Some(rel_path) = self.sprite_id_to_path.get(&sprite_id).cloned() {
                             self.path_to_sprite_id.insert(rel_path, sprite_id);
                         }
                     }
                     Err(error) => {
+                        self.failed_texture_reads.insert(sprite_id);
                         omni_error!("Failed to upload texture '{}': {}", path_display, error);
                     }
                 },
                 Err(error) => {
+                    self.failed_texture_reads.insert(sprite_id);
                     omni_error!("Failed to read texture '{}': {}", path_display, error);
                 }
             }

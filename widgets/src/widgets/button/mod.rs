@@ -33,6 +33,7 @@ pub struct Button<'a> {
     text_offset: Vec2,
     suppressed: bool,
     focused: bool,
+    active: bool,
     mouse_position: Option<Vec2>,
     allow_secondary_click: bool,
     interaction_id: Option<ClickTargetId>,
@@ -45,6 +46,15 @@ const BLOCKED_OUTLINE_COLOR: Color = Color::new(0.45, 0.45, 0.45, 0.7);
 const BLOCKED_TEXT_COLOR: Color = Color::new(0.65, 0.65, 0.65, 0.9);
 const PLAIN_BLOCKED_OVERLAY: Color = Color::new(0.2, 0.2, 0.2, 0.25);
 
+fn active_fill_color(button: &Button<'_>, widget_theme: WidgetTheme) -> Color {
+    resolve_with_theme(
+        button.base.overrides.hover,
+        widget_theme.hover,
+        colors::DEFAULT_HOVER_COLOR,
+    )
+    .with_alpha(1.0)
+}
+
 impl<'a> Button<'a> {
     /// Creates a new button with the given rect and label.
     pub fn new(rect: impl Into<Rect>, label: &'a str) -> Self {
@@ -56,6 +66,7 @@ impl<'a> Button<'a> {
             text_offset: Vec2::ZERO,
             suppressed: false,
             focused: false,
+            active: false,
             mouse_position: None,
             allow_secondary_click: false,
             interaction_id: None,
@@ -81,6 +92,7 @@ impl<'a> Button<'a> {
             text_offset: Vec2::ZERO,
             suppressed: false,
             focused: false,
+            active: false,
             mouse_position: None,
             allow_secondary_click: false,
             interaction_id: None,
@@ -147,6 +159,12 @@ impl<'a> Button<'a> {
         self
     }
 
+    /// Sets whether the button should render in its active state.
+    pub fn active(mut self, active: bool) -> Self {
+        self.active = active;
+        self
+    }
+
     /// Sets the padding between the button border and the icon texture. Only applies to icon buttons. Default is 2.0.
     pub fn icon_padding(mut self, padding: f32) -> Self {
         self.icon_padding = padding;
@@ -200,7 +218,7 @@ impl<'a> Button<'a> {
             .mouse_position
             .unwrap_or_else(|| ctx.mouse_position().into());
         let hovered = self.rect.contains(mouse)
-            && ctx.logical_clip_rect().map_or(true, |clip| clip.contains(mouse));
+            && ctx.logical_clip_rect().is_none_or(|clip| clip.contains(mouse));
         let primary_held = hovered && ctx.is_mouse_button_down(MouseButton::Left);
         let secondary_held =
             self.allow_secondary_click && hovered && ctx.is_mouse_button_down(MouseButton::Right);
@@ -222,6 +240,8 @@ impl<'a> Button<'a> {
                         widget_theme.surface,
                         BLOCKED_BACKGROUND_COLOR,
                     )
+                } else if self.active {
+                    active_fill_color(&self, widget_theme)
                 } else if highlight {
                     resolve_with_theme(
                         self.base.overrides.hover,
@@ -272,6 +292,14 @@ impl<'a> Button<'a> {
                             widget_theme.surface,
                             PLAIN_BLOCKED_OVERLAY,
                         ),
+                    );
+                } else if self.active {
+                    ctx.draw_rectangle(
+                        self.rect.x,
+                        self.rect.y,
+                        self.rect.w,
+                        self.rect.h,
+                        active_fill_color(&self, widget_theme),
                     );
                 } else if highlight {
                     ctx.draw_rectangle(

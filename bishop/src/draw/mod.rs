@@ -31,6 +31,17 @@ pub trait Draw {
     /// Draws a circle outline.
     fn draw_circle_lines(&mut self, x: f32, y: f32, radius: f32, thickness: f32, color: Color);
 
+    /// Draws an arc outline.
+    fn draw_arc_lines(
+        &mut self,
+        center: Vec2,
+        radius: f32,
+        start_angle: f32,
+        end_angle: f32,
+        thickness: f32,
+        color: Color,
+    );
+
     /// Draws a filled triangle.
     fn draw_triangle(&mut self, v1: Vec2, v2: Vec2, v3: Vec2, color: Color);
 

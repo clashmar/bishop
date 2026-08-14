@@ -2,7 +2,7 @@ use crate::ecs::{CurrentRoom, WorldEntry, WorldExit};
 use crate::game::Game;
 use crate::logging::omni_error;
 use crate::worlds::scripted_traversal::collect_scripted_traversal_edges;
-use crate::worlds::{ExitDestination, RoomId, WorldId};
+use crate::worlds::{ExitDestination, RoomId, RoomLayer, WorldId};
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 
 /// Classifies a directed room-to-room edge.
@@ -171,6 +171,12 @@ impl TraversalTopology {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct ResolvedWorldExitTarget {
+    room_id: RoomId,
+    layer: RoomLayer,
+}
+
 /// Extracts traversal graphs from authored worlds, world exits, and literal scripted traversal.
 pub fn extract_topology(game: &Game) -> TraversalTopology {
     let room_worlds = game.room_world_map();
@@ -219,7 +225,7 @@ pub fn extract_topology(game: &Game) -> TraversalTopology {
     }
 
     for (&entity, exit) in &game.ecs.get_store::<WorldExit>().data {
-        let Some(CurrentRoom(source_room)) = game.ecs.get::<CurrentRoom>(entity).copied() else {
+        let Some(CurrentRoom { room_id: source_room, .. }) = game.ecs.get::<CurrentRoom>(entity).copied() else {
             omni_error!("Skipping WorldExit entity {:?}: missing CurrentRoom", entity);
             continue;
         };
@@ -244,8 +250,8 @@ pub fn extract_topology(game: &Game) -> TraversalTopology {
         }
 
         match resolve_world_exit_target_room(game, *target_world, exit.entry.as_deref()) {
-            Some(target_room) if target_room != source_room => {
-                room_graph.insert_edge(source_room, target_room, RoomEdgeKind::WorldExit);
+            Some(target) if target.room_id != source_room => {
+                room_graph.insert_edge(source_room, target.room_id, RoomEdgeKind::WorldExit);
             }
             Some(_) => {}
             None => {
@@ -278,7 +284,7 @@ fn resolve_world_exit_target_room(
     game: &Game,
     target_world: WorldId,
     entry_name: Option<&str>,
-) -> Option<RoomId> {
+) -> Option<ResolvedWorldExitTarget> {
     let target_world_ref = game.get_world(target_world)?;
 
     if entry_name.is_none() || entry_name == Some(WorldEntry::START_NAME) {
@@ -286,14 +292,20 @@ fn resolve_world_exit_target_room(
             if !entry.is_start {
                 continue;
             }
-            let Some(CurrentRoom(room_id)) = game.ecs.get::<CurrentRoom>(entity).copied() else {
+            let Some(current_room) = game.ecs.get::<CurrentRoom>(entity).copied() else {
                 continue;
             };
-            if target_world_ref.get_room(room_id).is_some() {
-                return Some(room_id);
+            if target_world_ref.get_room(current_room.room_id).is_some() {
+                return Some(ResolvedWorldExitTarget {
+                    room_id: current_room.room_id,
+                    layer: current_room.layer,
+                });
             }
         }
-        return target_world_ref.rooms().first().map(|room| room.id);
+        return target_world_ref.rooms().first().map(|room| ResolvedWorldExitTarget {
+            room_id: room.id,
+            layer: RoomLayer::Front,
+        });
     }
 
     let sought_name = entry_name.unwrap();
@@ -301,11 +313,14 @@ fn resolve_world_exit_target_room(
         if entry.name != sought_name {
             continue;
         }
-        let Some(CurrentRoom(room_id)) = game.ecs.get::<CurrentRoom>(entity).copied() else {
+        let Some(current_room) = game.ecs.get::<CurrentRoom>(entity).copied() else {
             continue;
         };
-        if target_world_ref.get_room(room_id).is_some() {
-            return Some(room_id);
+        if target_world_ref.get_room(current_room.room_id).is_some() {
+            return Some(ResolvedWorldExitTarget {
+                room_id: current_room.room_id,
+                layer: current_room.layer,
+            });
         }
     }
 
@@ -320,7 +335,8 @@ mod tests {
     use crate::game::Game;
     use crate::storage::path_utils::scripts_folder;
     use crate::storage::test_utils::{TestGameFolder, game_fs_test_lock};
-    use crate::worlds::{Exit, ExitDestination, Room, World, WorldExitTrigger};
+    use crate::worlds::{Exit, ExitDestination, ExitDirection, Room, RoomLayer, World, WorldExitTrigger};
+    use bishop::prelude::Vec2;
     use std::fs;
 
     fn topology_test_game() -> Game {
@@ -384,7 +400,6 @@ mod tests {
                 destination: Some(ExitDestination::World(WorldId(1))),
                 entry: Some("Portal".to_string()),
                 trigger: WorldExitTrigger::OnInteract,
-                ..Default::default()
             })
             .with_current_room(RoomId(2))
             .finish();
@@ -393,8 +408,8 @@ mod tests {
             .create_entity()
             .with(WorldExit {
                 destination: Some(ExitDestination::World(WorldId(2))),
+                entry: None,
                 trigger: WorldExitTrigger::OnInteract,
-                ..Default::default()
             })
             .with_current_room(RoomId(2))
             .finish();
@@ -554,6 +569,61 @@ mod tests {
             .finish();
 
         let result = resolve_world_exit_target_room(&game, WorldId(1), None);
-        assert_eq!(result, Some(RoomId(5)));
+        assert_eq!(
+            result.map(|target| (target.room_id, target.layer)),
+            Some((RoomId(5), RoomLayer::Front))
+        );
+    }
+
+    #[test]
+    fn room_exit_matching_requires_the_same_layer() {
+        let mut room_a = Room {
+            id: RoomId(1),
+            position: Vec2::ZERO,
+            size: Vec2::new(4.0, 4.0),
+            exits: vec![Exit {
+                position: Vec2::new(1.0, 4.0),
+                direction: ExitDirection::Down,
+                layer: RoomLayer::Front,
+                ..Default::default()
+            }],
+            ..Default::default()
+        };
+        let room_b = Room {
+            id: RoomId(2),
+            position: Vec2::new(0.0, 64.0),
+            size: Vec2::new(4.0, 4.0),
+            exits: vec![Exit {
+                position: Vec2::new(1.0, 0.0),
+                direction: ExitDirection::Up,
+                layer: RoomLayer::Back,
+                ..Default::default()
+            }],
+            ..Default::default()
+        };
+
+        room_a.link_room_exits(&[&room_b], 16.0);
+
+        assert_eq!(room_a.exits[0].target_room_id, None);
+    }
+
+    #[test]
+    fn resolve_world_exit_target_room_respects_entry_layer() {
+        let mut game = Game::default();
+        let mut world = World::new(WorldId(1), "Test".to_string(), 16.0);
+        world.add_room(Room { id: RoomId(5), ..Default::default() });
+        game.add_world(world);
+
+        game.ecs
+            .create_entity()
+            .with(WorldEntry {
+                name: "BackDoor".to_string(),
+                ..Default::default()
+            })
+            .with_current_room_layer(RoomId(5), RoomLayer::Back)
+            .finish();
+
+        let result = resolve_world_exit_target_room(&game, WorldId(1), Some("BackDoor"));
+        assert_eq!(result.map(|target| (target.room_id, target.layer)), Some((RoomId(5), RoomLayer::Back)));
     }
 }

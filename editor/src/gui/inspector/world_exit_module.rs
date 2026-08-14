@@ -95,7 +95,7 @@ impl InspectorModule for WorldExitModule {
 
         // Only overlay worlds support Return; determine if entity is in an overlay world
         let entity_world_is_overlay = game_ctx.ecs.get::<CurrentRoom>(entity)
-            .and_then(|r| game_ctx.room_world_map.get(&r.0).copied())
+            .and_then(|room| game_ctx.room_world_map.get(&room.room_id).copied())
             .and_then(|wid| world_directory.iter().find(|w| w.id == wid))
             .is_some_and(|w| w.overlay);
 
@@ -169,7 +169,7 @@ impl InspectorModule for WorldExitModule {
                 let entry_data: Vec<(String, bool)> = game_ctx.ecs.get_store::<WorldEntry>().data.iter()
                     .filter(|(entry_entity, _)| {
                         game_ctx.ecs.get::<CurrentRoom>(**entry_entity)
-                            .and_then(|r| game_ctx.room_world_map.get(&r.0).copied())
+                            .and_then(|room| game_ctx.room_world_map.get(&room.room_id).copied())
                             .is_some_and(|wid| wid == dest_world_id)
                     })
                     .map(|(_, entry)| (entry.name.clone(), entry.is_start))

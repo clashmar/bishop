@@ -1,10 +1,24 @@
-use crate::app::control::camera_controller::*;
-use crate::app::EditorMode;
+use std::collections::HashSet;
+
+use bishop::prelude::*;
+use engine_core::assets::*;
+use engine_core::constants::world as world_constants;
+use engine_core::ecs::*;
+use engine_core::rendering::{
+    draw_collider, outline_thickness, pivot_adjusted_position, resolve_visual_entity,
+    ENTITY_OUTLINE_SCALE,
+};
+use engine_core::theme::with_theme;
+use engine_core::worlds::*;
+
+use crate::app::control::camera_controller::EditorCameraController;
 use crate::editor_assets::assets::{camera_icon, entity_icon, entry_icon, exit_icon, portal_icon};
-use crate::gui::gui_constants::*;
-use crate::gui::menu_bar::*;
-use crate::gui::mode_selector::*;
-use crate::gui::panel_text_color;
+use crate::gui::inspector::collider_module::edit::{compute_handles, is_collider_edit_active_for};
+use crate::gui::inspector::interactable_module::edit::{
+    compute_handles as compute_interactable_handles,
+    is_interactable_edit_active_for,
+};
+use crate::room::bounds_edit::draw_handles;
 use crate::room::prefab_preview::{build_prefab_preview, PrefabPreviewVisual};
 use crate::room::room_editor::*;
 use crate::room::selection::{entity_selection_rect, snap_room_drag_position};
@@ -12,253 +26,20 @@ use crate::shared::entity_icon::{
     draw_camera_icon, draw_glow_placeholder, draw_light_placeholder, resolve_entity_visual,
     EntityVisual, PLACEHOLDER_OPACITY,
 };
-use crate::shared::scene_ui::inspector::{InspectorContext};
-use crate::tilemap::tilemap_editor::TILEMAP_SUB_MODES;
 use crate::world::coord;
-use bishop::prelude::*;
-use engine_core::assets::*;
-use engine_core::constants::world as world_constants;
-use engine_core::ecs::*;
-use engine_core::game::{GameCtxMut, StartupMode};
-use engine_core::rendering::{outline_thickness, pivot_adjusted_position};
-use engine_core::storage::*;
-use engine_core::ui::{measure_text};
-use ::widgets::*;
-use engine_core::worlds::*;
-use engine_core::theme::with_theme;
-use ::widgets::constants::layout;
 
-const MODE_SELECTOR_PADDING: f32 = 8.0;
 const PREFAB_GHOST_OPACITY: f32 = 0.55;
 
-#[derive(Clone, Copy)]
-struct MergedPlayButtonLayout {
-    play_x: f32,
-    play_y: f32,
-    mode_x: f32,
-    mode_y: f32,
-    divider_x: f32,
-    divider_y: f32,
-    divider_h: f32,
-    width: f32,
-}
-
-fn merged_play_button_layout(
-    rect: Rect,
-    play_dims: TextDimensions,
-    mode_dims: TextDimensions,
-) -> MergedPlayButtonLayout {
-    let play_x = rect.x + layout::WIDGET_PADDING;
-    let (_, play_y) = menu_button_text_position(rect, play_dims);
-    let divider_x = play_x + play_dims.width + layout::WIDGET_PADDING;
-    let mode_x = divider_x + layout::WIDGET_PADDING;
-    let mode_y = rect.y + (rect.h - mode_dims.height) / 2.0 + mode_dims.offset_y;
-
-    MergedPlayButtonLayout {
-        play_x,
-        play_y,
-        mode_x,
-        mode_y,
-        divider_x,
-        divider_y: rect.y + 6.0,
-        divider_h: rect.h - 12.0,
-        width: play_dims.width + mode_dims.width + layout::WIDGET_PADDING * 4.0,
-    }
-}
-
-fn parent_mode_icon_x(
-    ctx: &WgpuContext,
-    selector: &ModeSelector<RoomEditorMode>,
-    mode: RoomEditorMode,
-) -> f32 {
-    let icon_size = MENU_PANEL_HEIGHT - 2.0 * MODE_SELECTOR_PADDING;
-    let total_width =
-        selector.options.len() as f32 * (icon_size + MODE_SELECTOR_PADDING) - MODE_SELECTOR_PADDING;
-    let start_x = (ctx.screen_width() - total_width) / 2.0;
-    let mode_index = selector
-        .options
-        .iter()
-        .position(|candidate| *candidate == mode)
-        .unwrap_or(0);
-
-    start_x + mode_index as f32 * (icon_size + MODE_SELECTOR_PADDING)
-}
-
 impl RoomEditor {
-    /// Draw static UI for the scene editor
-    pub fn draw_ui(&mut self, ctx: &mut WgpuContext, game_ctx: &mut GameCtxMut, camera: &Camera2D) {
-        // Reset to static camera
-        ctx.set_default_camera();
-
-        let Some(world) = game_ctx.world.as_deref() else {
-            return;
-        };
-        let grid_size = world.grid_size;
-        let current_room_id = world.current_room_id.unwrap_or_default();
-
-        self.draw_coordinates(ctx, camera, grid_size);
-
-        // Clear sub-mode rect at start of frame
-        self.sub_mode_rect = None;
-
-        match self.mode {
-            RoomEditorMode::Tilemap => {
-                let tilemap_icon_x =
-                    parent_mode_icon_x(ctx, &self.mode_selector, RoomEditorMode::Tilemap);
-                let icon_size = MENU_PANEL_HEIGHT - 2.0 * MODE_SELECTOR_PADDING;
-                let sub_strip_y = MODE_SELECTOR_PADDING + icon_size + 4.0;
-
-                // Draw sub-mode strip background first so tooltips appear on top
-                let bg_rect = draw_sub_mode_strip_background(
-                    ctx,
-                    tilemap_icon_x,
-                    sub_strip_y,
-                    TILEMAP_SUB_MODES.len(),
-                );
-                self.sub_mode_rect = Some(bg_rect);
-
-                // Mode selector
-                let (_mode_rect, changed) = self.mode_selector.draw(ctx);
-                if changed {
-                    self.set_mode(self.mode_selector.current);
-                }
-
-                // Draw sub-mode strip icons
-                let (sub_rect, sub_changed) = draw_sub_mode_strip(
-                    ctx,
-                    tilemap_icon_x,
-                    sub_strip_y,
-                    TILEMAP_SUB_MODES,
-                    &mut self.tilemap_sub_mode,
-                );
-
-                self.sub_mode_rect = Some(sub_rect);
-
-                // Draw tooltips last so they appear on top of everything
-                self.mode_selector.draw_tooltips(ctx);
-
-                if sub_changed {
-                    self.set_tilemap_sub_mode(self.tilemap_sub_mode);
-                }
-
-                // Handle sub-mode keyboard shortcuts
-                for sub_mode in TILEMAP_SUB_MODES.iter() {
-                    if let Some(shortcut_fn) = sub_mode.shortcut() {
-                        if shortcut_fn(ctx) && *sub_mode != self.tilemap_sub_mode {
-                            self.set_tilemap_sub_mode(*sub_mode);
-                        }
-                    }
-                }
-            }
-            RoomEditorMode::Scene => {
-                // Top menu background
-                self.register_rect(draw_top_panel_full(ctx));
-
-                // Draw inspector
-                let inspector_ctx = InspectorContext {
-                    command_mode: EditorMode::Room(current_room_id),
-                    show_linked_prefab_metadata: true,
-                    hide_room_only_components: false,
-                    selected_create_parent: None,
-                    game_name: None,
-                    event_tags: self.event_tags.clone(),
-                };
-                let inspector_output = self.inspector.draw_active_pane(ctx, game_ctx, &inspector_ctx);
-                self.create_request = inspector_output.create_request;
-                self.prefab_action_request = inspector_output.prefab_action;
-                self.create_camera_request = inspector_output.create_camera_request;
-                self.request_event_tags_refresh = inspector_output.refresh_event_tags;
-
-                // Mode selector (menu bar)
-                let (mode_rect, changed) = self.mode_selector.draw(ctx);
-                if changed {
-                    self.set_mode(self.mode_selector.current);
-                }
-
-                let scene_icon_x =
-                    parent_mode_icon_x(ctx, &self.mode_selector, RoomEditorMode::Scene);
-                let icon_size = MENU_PANEL_HEIGHT - 2.0 * MODE_SELECTOR_PADDING;
-                let sub_strip_y = MODE_SELECTOR_PADDING + icon_size + 4.0;
-                let bg_rect = draw_sub_mode_strip_background(
-                    ctx,
-                    scene_icon_x,
-                    sub_strip_y,
-                    ROOM_SCENE_SUB_MODES.len(),
-                );
-                self.sub_mode_rect = Some(bg_rect);
-
-                let (sub_rect, sub_changed) = draw_sub_mode_strip(
-                    ctx,
-                    scene_icon_x,
-                    sub_strip_y,
-                    ROOM_SCENE_SUB_MODES,
-                    &mut self.scene_sub_mode,
-                );
-                self.sub_mode_rect = Some(sub_rect);
-
-                // Play‑test button (menu bar)
-                let play_label = "Play";
-                let startup_mode = get_startup_mode();
-                let play_dims = measure_text(ctx, play_label, layout::HEADER_FONT_SIZE_20);
-                let mode_dims =
-                    measure_text(ctx, &startup_mode.to_string(), layout::DEFAULT_FONT_SIZE_16);
-                let play_width = merged_play_button_layout(
-                    Rect::new(0.0, 0.0, 0.0, BTN_HEIGHT),
-                    play_dims,
-                    mode_dims,
-                )
-                .width;
-                let play_x = mode_rect.x + mode_rect.w + layout::WIDGET_SPACING;
-                let play_rect = Rect::new(play_x, INSET, play_width, BTN_HEIGHT);
-
-                let clicks = Button::new(play_rect, "")
-                    .plain()
-                    .allow_secondary_click()
-                    .show_clicks(ctx, with_theme(Button::map_theme));
-
-                if clicks.primary {
-                    self.request_play = true;
-                }
-
-                if clicks.secondary {
-                    set_startup_mode(startup_mode.toggled());
-                }
-
-                draw_merged_play_button_label(ctx, play_rect, play_dims, mode_dims, startup_mode);
-                self.register_rect(play_rect);
-
-                self.mode_selector.draw_tooltips(ctx);
-
-                if sub_changed {
-                    self.set_scene_sub_mode(self.scene_sub_mode);
-                }
-            }
-        }
-    }
-
-    /// Draw the cursor coordinates in world space.
-    pub fn draw_coordinates(&self, ctx: &mut WgpuContext, camera: &Camera2D, grid_size: f32) {
-        let world_grid = coord::mouse_world_grid(ctx, camera, grid_size);
-
-        let txt = format!("({:.0}, {:.0})", world_grid.x, world_grid.y,);
-
-        let txt_metrics = measure_text(ctx, &txt, layout::DEFAULT_FONT_SIZE_16);
-        let margin = 10.0;
-
-        let x = (ctx.screen_width() - txt_metrics.width) / 2.0;
-        let y = ctx.screen_height() - margin;
-
-        ctx.draw_text(&txt, x, y, layout::DEFAULT_FONT_SIZE_16, Color::BLUE);
-    }
-
     /// Draw viewport rectangles for all cameras in the room when a camera is selected.
-    pub fn draw_camera_viewport(
+    pub fn draw_camera_viewports(
         &self,
         ctx: &mut WgpuContext,
         editor_cam: &Camera2D,
         ecs: &Ecs,
         selected: Entity,
         room_id: RoomId,
+        layer: RoomLayer,
     ) {
         // Only draw viewports if the selected entity is a camera
         if !ecs.has::<RoomCamera>(selected) {
@@ -280,7 +61,7 @@ impl RoomEditor {
         let editor_w = (tr.x - bl.x).abs();
         let editor_h = (tr.y - bl.y).abs();
 
-        for &entity in ecs.entities_in_room(room_id) {
+        for &entity in ecs.entities_in_room_layer(room_id, layer) {
             ecs.assert_room_membership(room_id, entity);
 
             let Some(room_cam) = cam_store.get(entity) else {
@@ -312,40 +93,6 @@ impl RoomEditor {
     }
 }
 
-fn draw_merged_play_button_label(
-    ctx: &mut WgpuContext,
-    rect: Rect,
-    play_dims: TextDimensions,
-    mode_dims: TextDimensions,
-    startup_mode: StartupMode,
-) {
-    let layout = merged_play_button_layout(rect, play_dims, mode_dims);
-
-    let text_color = panel_text_color();
-    ctx.draw_text(
-        "Play",
-        layout.play_x,
-        layout.play_y,
-        layout::HEADER_FONT_SIZE_20,
-        text_color,
-    );
-    ctx.draw_line(
-        layout.divider_x,
-        layout.divider_y,
-        layout.divider_x,
-        layout.divider_y + layout.divider_h,
-        1.0,
-        text_color,
-    );
-    ctx.draw_text(
-        &startup_mode.to_string(),
-        layout.mode_x,
-        layout.mode_y,
-        layout::DEFAULT_FONT_SIZE_16,
-        text_color,
-    );
-}
-
 /// Highlight a selected entity with a colored outline.
 pub fn highlight_selected_entity<C: BishopContext>(
     ctx: &mut C,
@@ -368,7 +115,7 @@ pub fn highlight_selected_entity<C: BishopContext>(
         draw_pos.y,
         size.x,
         size.y,
-        outline_thickness(grid_size) * 0.25,
+        outline_thickness(grid_size) * ENTITY_OUTLINE_SCALE,
         color,
     );
 }
@@ -452,22 +199,28 @@ pub(crate) fn draw_prefab_stamp_ghost(
 }
 
 /// Draw the outline of the collider for an entity if it has one.
-pub fn draw_collider(ctx: &mut WgpuContext, ecs: &Ecs, entity: Entity) {
-    if let Some((width, height)) = ecs
-        .get_store::<Collider>()
-        .get(entity)
-        .filter(|c| c.width > 0.0 && c.height > 0.0)
-        .map(|c| (c.width, c.height))
-    {
-        let transform = match ecs.get_store::<Transform>().get(entity) {
-            Some(t) => t,
-            None => return,
-        };
+pub fn draw_editor_collider(ctx: &mut WgpuContext, ecs: &Ecs, entity: Entity, grid_size: f32) {
+    let visual_entity = resolve_visual_entity(ecs, entity);
+    let Some(collider) = ecs.get_store::<Collider>().get(visual_entity) else {
+        return;
+    };
+    let transform = match ecs.get_store::<Transform>().get(entity) {
+        Some(t) => t,
+        None => return,
+    };
 
-        // Apply pivot offset to collider position
-        let draw_pos =
-            pivot_adjusted_position(transform.position, vec2(width, height), transform.pivot);
-        ctx.draw_rectangle_lines(draw_pos.x, draw_pos.y, width, height, 1.0, Color::PINK);
+    let edit_active = is_collider_edit_active_for(visual_entity);
+    let color = if edit_active {
+        Color::new(0.0, 1.0, 1.0, 0.8)
+    } else {
+        Color::PINK
+    };
+    let thickness = outline_thickness(grid_size) * ENTITY_OUTLINE_SCALE;
+    draw_collider(ctx, transform.position, collider, transform.pivot, color, thickness);
+
+    if edit_active {
+        let handles = compute_handles(transform.position, transform.pivot, collider, grid_size);
+        draw_handles(ctx, &handles);
     }
 }
 
@@ -477,9 +230,10 @@ pub fn draw_entity_placeholders(
     ecs: &Ecs,
     sprite_manager: &mut SpriteManager,
     room_id: RoomId,
+    layer: RoomLayer,
     grid_size: f32,
 ) {
-    for &entity in ecs.entities_in_room(room_id) {
+    for &entity in ecs.entities_in_room_layer(room_id, layer) {
         ecs.assert_room_membership(room_id, entity);
         let Some(transform) = ecs.get_store::<Transform>().get(entity) else {
             continue;
@@ -565,22 +319,47 @@ pub fn is_pure_placeholder(ecs: &Ecs, entity: Entity) -> bool {
     )
 }
 
-/// Draw range circles for an entity.
-pub fn draw_entity_range_circles(ctx: &mut WgpuContext, ecs: &Ecs, entity: Entity, grid_size: f32) {
+/// Draw interaction guides for an entity.
+pub fn draw_entity_interaction_guides(ctx: &mut WgpuContext, ecs: &Ecs, entity: Entity, grid_size: f32) {
     let Some(transform) = ecs.get_store::<Transform>().get(entity) else { return };
-    let thickness = outline_thickness(grid_size) * 0.25;
+    let thickness = outline_thickness(grid_size) * ENTITY_OUTLINE_SCALE;
     let cx = transform.position.x;
     let cy = transform.position.y;
 
     if let Some(interactable) = ecs.get_store::<Interactable>().get(entity) {
-        let violet = Color::new(0.75, 0.25, 1.0, 0.55);
-        ctx.draw_circle_lines(
-            cx,
-            cy,
-            interactable.range,
-            thickness,
-            violet,
-        );
+        let edit_active = is_interactable_edit_active_for(entity);
+        let violet = if edit_active {
+            Color::new(0.85, 0.35, 1.0, 0.85)
+        } else {
+            Color::new(0.75, 0.25, 1.0, 0.55)
+        };
+        match interactable.shape() {
+            InteractableShape::Circle => {
+                let center = interactable.center_at(transform.position);
+                ctx.draw_circle_lines(
+                    center.x,
+                    center.y,
+                    interactable.radius,
+                    thickness,
+                    violet,
+                );
+            }
+            InteractableShape::Rect => {
+                let bounds = interactable.bounds_at(transform.position);
+                ctx.draw_rectangle_lines(
+                    bounds.x,
+                    bounds.y,
+                    bounds.w,
+                    bounds.h,
+                    thickness,
+                    violet,
+                );
+            }
+        }
+        if edit_active {
+            let handles = compute_interactable_handles(transform.position, interactable, grid_size);
+            draw_handles(ctx, &handles);
+        }
     }
 
     let exit_range = ecs
@@ -602,24 +381,35 @@ pub fn draw_entity_range_circles(ctx: &mut WgpuContext, ecs: &Ecs, entity: Entit
     }
 }
 
-/// Draw range circles for each entity in the room.
-pub fn draw_entity_range_circles_in_room(ctx: &mut WgpuContext, ecs: &Ecs, room_id: RoomId, grid_size: f32) {
-    for &entity in ecs.entities_in_room(room_id) {
+/// Draw interaction guides for each unselected entity in the room.
+pub fn draw_entity_interaction_guides_in_room(
+    ctx: &mut WgpuContext,
+    ecs: &Ecs,
+    room_id: RoomId,
+    layer: RoomLayer,
+    grid_size: f32,
+    selected_entities: &HashSet<Entity>,
+) {
+    for &entity in ecs.entities_in_room_layer(room_id, layer) {
         ecs.assert_room_membership(room_id, entity);
-        draw_entity_range_circles(ctx, ecs, entity, grid_size);
+        if selected_entities.contains(&entity) {
+            continue;
+        }
+        draw_entity_interaction_guides(ctx, ecs, entity, grid_size);
     }
 }
 
-/// Draw exit arrows for all exits in the room.
+/// Draw exit arrows for the active authored layer in the room.
 pub fn draw_exit_placeholders(
     ctx: &mut WgpuContext,
     exits: &[Exit],
     room_position: Vec2,
+    active_layer: RoomLayer,
     grid_size: f32,
 ) {
-    for exit in exits {
+    for exit in exits.iter().filter(|exit| exit.layer == active_layer) {
         let position = exit.position * grid_size + room_position;
-        draw_exit_arrow(ctx, position, exit.direction, grid_size);
+        draw_exit_arrow(ctx, position, exit.direction, exit.layer, active_layer, grid_size);
     }
 }
 
@@ -629,6 +419,7 @@ pub fn draw_all_camera_viewports(
     editor_cam: &Camera2D,
     ecs: &Ecs,
     room_id: RoomId,
+    layer: RoomLayer,
 ) {
     let cam_store = ecs.get_store::<RoomCamera>();
     let pos_store = ecs.get_store::<Transform>();
@@ -645,7 +436,7 @@ pub fn draw_all_camera_viewports(
     let editor_w = (tr.x - bl.x).abs();
     let editor_h = (tr.y - bl.y).abs();
 
-    for &entity in ecs.entities_in_room(room_id) {
+    for &entity in ecs.entities_in_room_layer(room_id, layer) {
         ecs.assert_room_membership(room_id, entity);
 
         let Some(room_cam) = cam_store.get(entity) else {
@@ -677,44 +468,71 @@ pub fn draw_all_camera_viewports(
     }
 }
 
-/// Draw a semi-transparent arrow at the given position indicating exit direction.
+/// Draw an exit arrow at the given position.
 pub fn draw_exit_arrow(
     ctx: &mut WgpuContext,
     position: Vec2,
     direction: ExitDirection,
+    layer: RoomLayer,
+    active_layer: RoomLayer,
     grid_size: f32,
 ) {
-    draw_exit_arrow_colored(
+    draw_exit_arrow_styled(
         ctx,
         position,
         direction,
+        exit_arrow_style(layer, active_layer, false),
         grid_size,
-        with_theme(|t| t.accent),
     );
 }
 
-/// Draw an arrow for an adjacent room's exit (pink color to distinguish from current room).
+/// Draw an adjacent room's exit arrow.
 pub fn draw_adjacent_exit_arrow(
     ctx: &mut WgpuContext,
     position: Vec2,
     direction: ExitDirection,
+    layer: RoomLayer,
+    active_layer: RoomLayer,
     grid_size: f32,
 ) {
-    draw_exit_arrow_colored(ctx, position, direction, grid_size, Color::YELLOW);
+    draw_exit_arrow_styled(
+        ctx,
+        position,
+        direction,
+        exit_arrow_style(layer, active_layer, true),
+        grid_size,
+    );
 }
 
-/// Draw an exit arrow with a specified color.
-fn draw_exit_arrow_colored(
+#[derive(Clone, Copy)]
+struct ExitArrowStyle {
+    color: Color,
+}
+
+fn exit_arrow_style(layer: RoomLayer, active_layer: RoomLayer, adjacent: bool) -> ExitArrowStyle {
+    let base_color = match layer {
+        RoomLayer::Front => Color::new(1.0, 0.75, 0.25, 1.0),
+        RoomLayer::Back => Color::new(0.35, 0.82, 1.0, 1.0),
+    };
+    let alpha = if adjacent { 0.85 } else { 1.0 };
+
+    ExitArrowStyle {
+        color: base_color.with_alpha(if layer == active_layer { alpha } else { 0.0 }),
+    }
+}
+
+fn draw_exit_arrow_styled(
     ctx: &mut WgpuContext,
     position: Vec2,
     direction: ExitDirection,
+    style: ExitArrowStyle,
     grid_size: f32,
-    color: Color,
 ) {
-    let x = position.x;
-    let y = position.y;
+    if style.color.a <= 0.0 {
+        return;
+    }
 
-    let arrow_center = vec2(x + grid_size / 2.0, y + grid_size / 2.0);
+    let arrow_center = position + vec2(grid_size / 2.0, grid_size / 2.0);
 
     let offsets = match direction {
         ExitDirection::Up => [vec2(0.0, -1.0), vec2(-1.0, 1.0), vec2(1.0, 1.0)],
@@ -722,11 +540,12 @@ fn draw_exit_arrow_colored(
         ExitDirection::Left => [vec2(-1.0, 0.0), vec2(1.0, -1.0), vec2(1.0, 1.0)],
         ExitDirection::Right => [vec2(1.0, 0.0), vec2(-1.0, -1.0), vec2(-1.0, 1.0)],
     };
+    let arrow_scale = grid_size / 3.0;
 
     ctx.draw_triangle(
-        arrow_center + offsets[0] * grid_size / 3.0,
-        arrow_center + offsets[1] * grid_size / 3.0,
-        arrow_center + offsets[2] * grid_size / 3.0,
-        color,
+        arrow_center + offsets[0] * arrow_scale,
+        arrow_center + offsets[1] * arrow_scale,
+        arrow_center + offsets[2] * arrow_scale,
+        style.color,
     );
 }

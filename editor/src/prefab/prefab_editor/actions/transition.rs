@@ -21,8 +21,9 @@ impl Editor {
             return None;
         };
 
-        let mut prefab_ctx = prefab_stage.ctx_mut();
-        Some(prefab_editor.staged_prefab_state(&mut prefab_ctx))
+        Some(prefab_stage.with_game_ctx_mut(|prefab_ctx| {
+            prefab_editor.staged_prefab_state(prefab_ctx)
+        }))
     }
 
     pub(crate) fn active_prefab_is_clean(&mut self) -> bool {

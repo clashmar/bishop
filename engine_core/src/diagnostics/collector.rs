@@ -122,3 +122,24 @@ impl DiagnosticsCollector {
         self.previous_snapshot.as_ref()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn generate_warnings_when_fps_drops_below_threshold_then_reports_warning() {
+        let collector = DiagnosticsCollector::new();
+        let mut frame = FrameMetrics::default();
+        frame.record_frame(1.0 / 24.0);
+        let snapshot = DiagnosticsSnapshot {
+            frame,
+            ..Default::default()
+        };
+
+        let warnings = collector.generate_warnings(&snapshot);
+
+        assert!(warnings.contains(&DiagnosticWarning::LowFps(24.0)));
+    }
+}
+
