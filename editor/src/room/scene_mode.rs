@@ -11,18 +11,31 @@ use crate::editor_global::push_command;
 use crate::room::room_editor::{ActivePrefabStampState, RoomEditor, RoomSceneSubMode};
 use crate::shared::input::shortcuts_blocked;
 
+pub(crate) struct SceneModeUpdateContext<'a> {
+    pub(crate) world_id: WorldId,
+    pub(crate) room: &'a mut Room,
+    pub(crate) ecs: &'a mut Ecs,
+    pub(crate) sprite_manager: &'a mut SpriteManager,
+    pub(crate) active_prefab_stamp: ActivePrefabStampState,
+    pub(crate) grid_size: f32,
+}
+
 impl RoomEditor {
     pub(crate) fn update_scene_mode(
         &mut self,
         ctx: &mut WgpuContext,
         camera: &mut Camera2D,
-        world_id: WorldId,
-        room: &mut Room,
-        ecs: &mut Ecs,
-        sprite_manager: &mut SpriteManager,
-        active_prefab_stamp: ActivePrefabStampState,
-        grid_size: f32,
+        update_ctx: SceneModeUpdateContext<'_>,
     ) {
+        let SceneModeUpdateContext {
+            world_id,
+            room,
+            ecs,
+            sprite_manager,
+            active_prefab_stamp,
+            grid_size,
+        } = update_ctx;
+
         let zone_handled = self.handle_interior_zones(ctx, camera, world_id, room, grid_size);
         if self.scene_sub_mode != RoomSceneSubMode::Zones {
             let stamp_handled =

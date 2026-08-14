@@ -7,9 +7,11 @@ use crate::gui::gui_constants::{self};
 use crate::gui::inspector::shell::Inspector;
 use crate::gui::mode_selector::*;
 use crate::prefab::reconcile_recent_prefab_ids;
+use crate::room::drawing::SceneDrawContext;
 use crate::room::entity_drag::DragState;
 use crate::room::layers::interior_zone_edit::InteriorZoneEditorState;
 use crate::room::layers::layer_state::RoomLayerState;
+use crate::room::scene_mode::SceneModeUpdateContext;
 use crate::room::selection::can_select_entity_in_room_layer;
 use crate::shared::input::{canvas_blocked_by_global_ui};
 use crate::shared::scene_ui::inspector::{CreateRequest, PrefabActionRequest};
@@ -264,12 +266,14 @@ impl RoomEditor {
                 self.update_scene_mode(
                     ctx,
                     camera,
-                    world_id,
-                    room,
-                    ecs,
-                    sprite_manager,
-                    active_prefab_stamp,
-                    grid_size,
+                    SceneModeUpdateContext {
+                        world_id,
+                        room,
+                        ecs,
+                        sprite_manager,
+                        active_prefab_stamp,
+                        grid_size,
+                    },
                 );
             }
         }
@@ -539,12 +543,14 @@ impl RoomEditor {
                     self.draw_scene_mode(
                         ctx,
                         camera,
-                        room_id,
                         &mut game_ctx,
                         render_system,
                         grid_renderer,
-                        active_prefab.as_ref(),
-                        active_prefab_snap_pivot,
+                        SceneDrawContext {
+                            room_id,
+                            active_prefab: active_prefab.as_ref(),
+                            active_prefab_snap_pivot,
+                        },
                     );
                 }
             }

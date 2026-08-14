@@ -26,17 +26,22 @@ use crate::room::room_editor::{RoomEditor, RoomSceneSubMode};
 use crate::shared::selection::draw_selection_box;
 use crate::world::coord;
 
+#[derive(Clone, Copy)]
+pub(crate) struct SceneDrawContext<'a> {
+    pub(crate) room_id: RoomId,
+    pub(crate) active_prefab: Option<&'a PrefabAsset>,
+    pub(crate) active_prefab_snap_pivot: Pivot,
+}
+
 impl RoomEditor {
     pub(crate) fn draw_scene_mode(
         &mut self,
         ctx: &mut WgpuContext,
         camera: &Camera2D,
-        room_id: RoomId,
         game_ctx: &mut GameCtxMut,
         render_system: &mut RenderSystem,
         grid_renderer: &GridRenderer,
-        active_prefab: Option<&PrefabAsset>,
-        active_prefab_snap_pivot: Pivot,
+        draw_ctx: SceneDrawContext<'_>,
     ) {
         let Some(grid_size) = game_ctx.world.as_deref().map(|world| world.grid_size) else {
             return;
@@ -44,7 +49,7 @@ impl RoomEditor {
         let room_camera = get_room_camera_by_id(
             ctx,
             &*game_ctx.ecs,
-            room_id,
+            draw_ctx.room_id,
             self.active_layer_state.active_layer,
             grid_size,
             self.preview_camera_id,
@@ -86,11 +91,9 @@ impl RoomEditor {
         self.draw_scene_editor_overlays(
             ctx,
             camera,
-            room_id,
             game_ctx,
             grid_renderer,
-            active_prefab,
-            active_prefab_snap_pivot,
+            draw_ctx,
             grid_size,
         );
     }
@@ -99,11 +102,9 @@ impl RoomEditor {
         &mut self,
         ctx: &mut WgpuContext,
         camera: &Camera2D,
-        room_id: RoomId,
         game_ctx: &mut GameCtxMut,
         grid_renderer: &GridRenderer,
-        active_prefab: Option<&PrefabAsset>,
-        active_prefab_snap_pivot: Pivot,
+        draw_ctx: SceneDrawContext<'_>,
         grid_size: f32,
     ) {
         let Some(room) = game_ctx
@@ -136,7 +137,7 @@ impl RoomEditor {
             ctx,
             ecs,
             sprite_manager,
-            room_id,
+            draw_ctx.room_id,
             self.active_layer_state.active_layer,
             grid_size,
         );
@@ -152,7 +153,7 @@ impl RoomEditor {
         draw_entity_interaction_guides_in_room(
             ctx,
             ecs,
-            room_id,
+            draw_ctx.room_id,
             self.active_layer_state.active_layer,
             grid_size,
             interaction_guide_exclusions,
@@ -163,7 +164,7 @@ impl RoomEditor {
         }
         
         if self.scene_sub_mode == RoomSceneSubMode::Stamp && !self.should_block_canvas(ctx) {
-            if let Some(prefab) = active_prefab {
+            if let Some(prefab) = draw_ctx.active_prefab {
                 draw_prefab_stamp_ghost(
                     ctx,
                     camera,
@@ -171,7 +172,7 @@ impl RoomEditor {
                     sprite_manager,
                     prefab,
                     grid_size,
-                    active_prefab_snap_pivot,
+                    draw_ctx.active_prefab_snap_pivot,
                 );
             }
         }
@@ -192,7 +193,7 @@ impl RoomEditor {
                     camera,
                     ecs,
                     selected_entity,
-                    room_id,
+                    draw_ctx.room_id,
                     self.active_layer_state.active_layer,
                 );
                 draw_pivot_marker(ctx, ecs, selected_entity);

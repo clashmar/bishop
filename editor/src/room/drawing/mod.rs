@@ -2,6 +2,8 @@ mod room_ui;
 mod scene_draw;
 mod scene_overlays;
 
+pub(crate) use scene_draw::SceneDrawContext;
+
 pub use scene_overlays::{
     draw_adjacent_exit_arrow,
     draw_all_camera_viewports,
