@@ -8,6 +8,7 @@ use std::collections::HashMap;
 
 use crate::physics::shapes;
 
+use sweep::SweepContext;
 use obstacles::{
     add_back_layer_bound_obstacles,
     add_border_obstacles,
@@ -160,18 +161,16 @@ impl CollisionWorld {
             .copied()
             .unwrap_or(RoomLayer::Front);
         let active_back_zone = self.active_back_zone(collider_aabb);
+        let sweep_ctx = SweepContext {
+            moving_entity,
+            moving_layer,
+            active_back_zone,
+        };
 
         if let ColliderShape::Circle { radius } = collider.shape {
             let center = Vec2::new(collider_pos.x + radius, collider_pos.y + radius);
             return self
-                .sweep_circle(
-                    center,
-                    radius,
-                    desired_delta,
-                    moving_entity,
-                    moving_layer,
-                    active_back_zone,
-                )
+                .sweep_circle(center, radius, desired_delta, sweep_ctx)
                 .finish(desired_delta);
         }
 
@@ -181,15 +180,7 @@ impl CollisionWorld {
                 collider_pos.y + radius + height * 0.5,
             );
             return self
-                .sweep_capsule(
-                    center,
-                    radius,
-                    height,
-                    desired_delta,
-                    moving_entity,
-                    moving_layer,
-                    active_back_zone,
-                )
+                .sweep_capsule(center, radius, height, desired_delta, sweep_ctx)
                 .finish(desired_delta);
         }
 
@@ -207,15 +198,7 @@ impl CollisionWorld {
                     collider_pos.y + height * 0.5,
                 );
                 return self
-                    .sweep_aabb_2d(
-                        center,
-                        width * 0.5,
-                        height * 0.5,
-                        desired_delta,
-                        moving_entity,
-                        moving_layer,
-                        active_back_zone,
-                    )
+                    .sweep_aabb(center, width * 0.5, height * 0.5, desired_delta, sweep_ctx)
                     .finish(desired_delta);
             }
         }
@@ -225,9 +208,7 @@ impl CollisionWorld {
             collider_pos,
             desired_delta.x,
             0,
-            moving_entity,
-            moving_layer,
-            active_back_zone,
+            sweep_ctx,
         );
 
         let pos_after_x = Vec2::new(collider_pos.x + allowed_x, collider_pos.y);
@@ -236,9 +217,7 @@ impl CollisionWorld {
             pos_after_x,
             desired_delta.y,
             1,
-            moving_entity,
-            moving_layer,
-            active_back_zone,
+            sweep_ctx,
         );
 
         SweepResult {

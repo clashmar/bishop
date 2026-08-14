@@ -162,7 +162,7 @@ mod tests {
             .overrides(custom_visuals)
             .show(&mut ctx);
         assert!((result - 2.0).abs() < f32::EPSILON);
-        assert!(ctx.text_colors.iter().any(|c| *c == Color::RED));
+        assert!(ctx.text_colors.contains(&Color::RED));
     }
 }
 

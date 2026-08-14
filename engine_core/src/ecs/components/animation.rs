@@ -113,6 +113,14 @@ impl Animation {
         self.sprite_cache.clear();
     }
 
+    /// Returns cached nonzero sprite ids reachable from this animation.
+    pub fn reachable_sprite_ids(&self) -> impl Iterator<Item = SpriteId> + '_ {
+        self.sprite_cache
+            .values()
+            .copied()
+            .filter(|sprite_id| sprite_id.0 != 0)
+    }
+
     /// Populate `sprite_cache` for the current variant.
     /// Called when the variant folder changes or a new clip is added.
     pub fn refresh_sprite_cache(

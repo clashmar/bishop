@@ -145,7 +145,7 @@ fn refresh_after_traversal_impl(
                         }
                     }
                     if matches!(key, ResidencyKey::Asset(_)) || should_dehydrate_payload {
-                        if let Some(audio_manager) = audio_manager.as_deref_mut() {
+                        if let Some(audio_manager) = &mut audio_manager {
                             let mut driver = HydrationDriver {
                                 game: &mut game_instance.game,
                                 audio_manager,
@@ -194,10 +194,11 @@ fn refresh_after_traversal_impl(
                             && previous_owner_counts.get(&key).copied().unwrap_or(0) == 0
                             && is_primary_scope_for_key(&desired_keys, &scope, key);
 
-                        if let (Some(lua), Some(audio_manager)) = (lua, audio_manager.as_deref_mut()) {
-                            if !matches!(key, ResidencyKey::Asset(_)) && !should_hydrate_payload {
-                                continue;
-                            }
+                        if let Some(lua) = lua {
+                            if let Some(audio_manager) = &mut audio_manager {
+                                if !matches!(key, ResidencyKey::Asset(_)) && !should_hydrate_payload {
+                                    continue;
+                                }
 
                             let result = {
                                 let mut driver = HydrationDriver {
@@ -207,40 +208,41 @@ fn refresh_after_traversal_impl(
                                 driver.hydrate_key_runtime(key, lua)
                             };
 
-                            match result {
-                                Ok(()) => {
-                                    if should_hydrate_payload {
-                                        if let ResidencyKey::Scope(scope) = key {
-                                            let entities =
-                                                scope_entities_for_key(&game_instance.game, scope);
-                                            let game_ctx = game_instance.game.ctx_mut();
-                                            if let Err(error) = ScriptSystem::activate_payload_scripts(
-                                                lua,
-                                                game_ctx.ecs,
-                                                game_ctx.script_manager,
-                                                &entities,
-                                            ) {
-                                                bucket.failures += 1;
-                                                omni_error!(
-                                                    "Traversal script activation failed for {:?}: {}",
-                                                    scope,
-                                                    error
-                                                );
-                                                continue;
+                                match result {
+                                    Ok(()) => {
+                                        if should_hydrate_payload {
+                                            if let ResidencyKey::Scope(scope) = key {
+                                                let entities =
+                                                    scope_entities_for_key(&game_instance.game, scope);
+                                                let game_ctx = game_instance.game.ctx_mut();
+                                                if let Err(error) = ScriptSystem::activate_payload_scripts(
+                                                    lua,
+                                                    game_ctx.ecs,
+                                                    game_ctx.script_manager,
+                                                    &entities,
+                                                ) {
+                                                    bucket.failures += 1;
+                                                    omni_error!(
+                                                        "Traversal script activation failed for {:?}: {}",
+                                                        scope,
+                                                        error
+                                                    );
+                                                    continue;
+                                                }
                                             }
                                         }
+                                        if let ResidencyKey::Asset(asset) = key {
+                                            events.push(TraversalAssetEvent {
+                                                asset,
+                                                hydrated: true,
+                                            });
+                                        }
+                                        increment_key_count(&mut bucket.hydrated, key);
                                     }
-                                    if let ResidencyKey::Asset(asset) = key {
-                                        events.push(TraversalAssetEvent {
-                                            asset,
-                                            hydrated: true,
-                                        });
+                                    Err(error) => {
+                                        bucket.failures += 1;
+                                        log_hydration_error(&scope, key, &error);
                                     }
-                                    increment_key_count(&mut bucket.hydrated, key);
-                                }
-                                Err(error) => {
-                                    bucket.failures += 1;
-                                    log_hydration_error(&scope, key, &error);
                                 }
                             }
                         }
@@ -255,7 +257,7 @@ fn refresh_after_traversal_impl(
         }
     }
 
-    if let Some(audio_manager) = audio_manager.as_deref_mut() {
+    if let Some(audio_manager) = &mut audio_manager {
         reconcile_scoped_audio(&game_instance.game, audio_manager);
     }
 

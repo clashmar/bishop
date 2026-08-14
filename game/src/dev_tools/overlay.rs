@@ -8,7 +8,7 @@ pub fn draw_dev_tools_overlay<C: BishopContext>(ctx: &mut C, dev_tools: &DevTool
     const FONT_SIZE: f32 = 14.0;
     const BG_ALPHA: f32 = 0.7;
 
-    let lines = vec![format!(
+    let lines = [format!(
         "Colliders: {}",
         if dev_tools.colliders_visible { "ON" } else { "OFF" }
     )];

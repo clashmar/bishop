@@ -85,9 +85,11 @@ fn sweep_circle_not_blocked_when_passing_above_obstacle() {
         Vec2::new(-8.0, -17.0),
         8.0,
         Vec2::new(40.0, 0.0),
-        dummy_entity(),
-        RoomLayer::Front,
-        None,
+        SweepContext {
+            moving_entity: dummy_entity(),
+            moving_layer: RoomLayer::Front,
+            active_back_zone: None,
+        },
     );
     assert!(!res.blocked_x);
     assert!(!res.blocked_y);

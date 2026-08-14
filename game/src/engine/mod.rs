@@ -127,10 +127,8 @@ impl BishopApp for Engine {
             self.diagnostics.handle_input(&mut *ctx.borrow_mut());
         }
 
-        if self.is_playtest {
-            if ctx.borrow().is_key_pressed(KeyCode::F1) {
-                self.dev_tools.colliders_visible = !self.dev_tools.colliders_visible;
-            }
+        if self.is_playtest && ctx.borrow().is_key_pressed(KeyCode::F1) {
+            self.dev_tools.colliders_visible = !self.dev_tools.colliders_visible;
         }
 
         if self.game_state == GameState::Playing {
@@ -204,7 +202,7 @@ impl Engine {
             camera_manager: cfg.camera_manager,
             render_system,
             diagnostics: DiagnosticsOverlay::new(),
-            dev_tools: DevTools::new(),
+            dev_tools: DevTools::default(),
             menu_manager,
             is_playtest: cfg.is_playtest,
             quit_to_title_enabled: cfg.quit_to_title_enabled,

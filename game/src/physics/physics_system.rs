@@ -521,7 +521,7 @@ mod tests {
 
         let mut ecs = Ecs::default();
         ecs.create_entity()
-            .with(Player::default())
+            .with(Player)
             .with(Transform::default())
             .with_current_room(RoomId(1))
             .finish();

@@ -41,6 +41,8 @@ pub struct SpriteManager {
     runtime_file_read_pool: Option<FileReadPool>,
     #[serde(skip)]
     pending_texture_reads: HashMap<SpriteId, PathBuf>,
+    #[serde(skip)]
+    failed_texture_reads: HashSet<SpriteId>,
     /// Placeholder texture returned for intentionally unset sprite ids.
     #[serde(skip)]
     empty_texture: Option<Texture2D>,

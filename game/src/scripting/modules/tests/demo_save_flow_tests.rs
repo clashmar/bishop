@@ -344,8 +344,8 @@ fn save_manager_apply_when_restore_target_exists_uses_save_flow_apply_restore_ta
     save_flow.set("bind_runtime_handlers", lua.create_function(|_, ()| Ok(())).unwrap()).unwrap();
     save_flow.set("request_manual", lua.create_function(|_, ()| Ok(())).unwrap()).unwrap();
     save_flow.set("set_active_anchor", lua.create_function(|_, _: mlua::Value| Ok(())).unwrap()).unwrap();
-    save_flow.set("capture_location", lua.create_function(|lua, _: mlua::MultiValue| Ok(lua.create_table()?)).unwrap()).unwrap();
-    save_flow.set("build_save_document", lua.create_function(|lua, _: mlua::MultiValue| Ok(lua.create_table()?)).unwrap()).unwrap();
+    save_flow.set("capture_location", lua.create_function(|lua, _: mlua::MultiValue| lua.create_table()).unwrap()).unwrap();
+    save_flow.set("build_save_document", lua.create_function(|lua, _: mlua::MultiValue| lua.create_table()).unwrap()).unwrap();
     save_flow.set(
         "resolve_restore_target",
         lua.create_function(|lua, _: mlua::Value| {
