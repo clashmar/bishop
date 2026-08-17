@@ -3,7 +3,7 @@
     name: "Main World",
     current_room_id: Some((1)),
     meta: (
-        position: (-129.64679, -183.89914),
+        position: (-179.19025, -258.40372),
         sprite_id: None,
     ),
     tags: [
@@ -11,6 +11,7 @@
     ],
     overlay: false,
     grid_size: 8.0,
+    gravity: 100.0,
     singleton: (53),
     rooms: [
         (

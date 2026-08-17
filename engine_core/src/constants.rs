@@ -12,6 +12,8 @@ pub mod world {
 
     /// Default grid size that the world scales to.
     pub const DEFAULT_GRID_SIZE: f32 = 16.0;
+    /// Default gravity in grid-units per second squared.
+    pub const DEFAULT_WORLD_GRAVITY: f32 = 50.0;
     pub const MINIMUM_GRID_SIZE: f32 = 5.0;
 
     /// Base tile size for editor scaling.

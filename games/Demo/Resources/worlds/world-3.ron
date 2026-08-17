@@ -11,6 +11,7 @@
     ],
     overlay: false,
     grid_size: 16.0,
+    gravity: 10.0,
     singleton: (58),
     rooms: [
         (

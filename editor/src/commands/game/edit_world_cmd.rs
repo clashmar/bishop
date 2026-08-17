@@ -13,9 +13,11 @@ pub struct EditWorldCmd {
     old_name: String,
     old_sprite: Option<SpriteId>,
     old_overlay: bool,
+    old_gravity: f32,
     new_name: Option<String>,
     new_sprite: Option<Option<SpriteId>>,
     new_overlay: Option<bool>,
+    new_gravity: Option<f32>,
 }
 
 impl EditWorldCmd {
@@ -29,9 +31,11 @@ impl EditWorldCmd {
             old_name: String::new(),
             old_sprite: None,
             old_overlay: false,
+            old_gravity: 0.0,
             new_name,
             new_sprite,
             new_overlay: None,
+            new_gravity: None,
         }
     }
 
@@ -41,12 +45,19 @@ impl EditWorldCmd {
         self
     }
 
+    /// Sets the `gravity` value to change.
+    pub fn with_gravity(mut self, gravity: f32) -> Self {
+        self.new_gravity = Some(gravity);
+        self
+    }
+
     fn apply(
         game: &mut Game,
         world_id: WorldId,
         name: Option<&str>,
         sprite: Option<Option<SpriteId>>,
         overlay: Option<bool>,
+        gravity: Option<f32>,
     ) {
         if let Some(world) = game.get_world_mut(world_id) {
             if let Some(name) = name {
@@ -54,6 +65,9 @@ impl EditWorldCmd {
             }
             if let Some(o) = overlay {
                 world.overlay = o;
+            }
+            if let Some(g) = gravity {
+                world.gravity = g;
             }
         }
         if let Some(sprite_opt) = sprite {
@@ -66,6 +80,7 @@ impl EditWorldCmd {
             self.old_name = world.name.clone();
             self.old_sprite = world.meta.sprite_id;
             self.old_overlay = world.overlay;
+            self.old_gravity = world.gravity;
         }
     }
 }
@@ -83,6 +98,7 @@ impl EditorCommand for EditWorldCmd {
                 self.new_name.as_deref(),
                 self.new_sprite,
                 self.new_overlay,
+                self.new_gravity,
             );
         });
     }
@@ -95,6 +111,7 @@ impl EditorCommand for EditWorldCmd {
                 Some(&self.old_name),
                 Some(self.old_sprite),
                 Some(self.old_overlay),
+                Some(self.old_gravity),
             );
         });
     }

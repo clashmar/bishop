@@ -153,10 +153,11 @@
             type_name: "Collider",
             data: {
                 (3): (
-                    shape: Circle(
-                        radius: 7.8043838,
+                    shape: Aabb(
+                        width: 6.0,
+                        height: 16.0,
                     ),
-                    offset: (0.083100796, -0.108174324),
+                    offset: (0.0, 0.0),
                 ),
                 (37): (
                     shape: Circle(
@@ -514,6 +515,10 @@
         ),
         (
             type_name: "Glow",
+            data: {},
+        ),
+        (
+            type_name: "GravityScale",
             data: {},
         ),
         (
@@ -1121,7 +1126,7 @@
             data: {
                 (2): (
                     visible: true,
-                    position: (140.0, 72.000015),
+                    position: (135.49391, 71.14555),
                     pivot: BottomCenter,
                     z: 0,
                 ),
@@ -1175,7 +1180,7 @@
                 ),
                 (63): (
                     visible: true,
-                    position: (244.0, 72.0),
+                    position: (228.0, 72.0),
                     pivot: BottomCenter,
                     z: 0,
                 ),

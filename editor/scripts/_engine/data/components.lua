@@ -57,6 +57,8 @@
 ---@field emission number
 ---@field sprite_id number
 
+---@alias GravityScale number
+
 ---@alias Grounded boolean
 
 ---@class Interactable
@@ -161,6 +163,7 @@
 ---@field FacingDirection "FacingDirection"
 ---@field Global "Global"
 ---@field Glow "Glow"
+---@field GravityScale "GravityScale"
 ---@field Grounded "Grounded"
 ---@field Interactable "Interactable"
 ---@field Kinematic "Kinematic"
@@ -197,6 +200,7 @@ C.Damage = "Damage"
 C.FacingDirection = "FacingDirection"
 C.Global = "Global"
 C.Glow = "Glow"
+C.GravityScale = "GravityScale"
 C.Grounded = "Grounded"
 C.Interactable = "Interactable"
 C.Kinematic = "Kinematic"

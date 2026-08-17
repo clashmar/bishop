@@ -72,6 +72,7 @@ pub fn save_game_to_folder(game: &Game, folder: &Path) -> io::Result<()> {
             tags: world.tags.clone(),
             overlay: world.overlay,
             grid_size: world.grid_size,
+            gravity: world.gravity,
             singleton: world.singleton,
             rooms: room_entries,
         };
@@ -486,5 +487,24 @@ mod tests {
         assert_eq!(room.singleton, room_singleton);
         assert_ne!(world.singleton, Entity::default());
         assert_ne!(room.singleton, Entity::default());
+    }
+
+    #[test]
+    fn split_layout_round_trips_world_gravity() {
+        let folder = TempSplitLayoutDir::new();
+        let mut original = fully_loaded_test_game();
+        original.current_world_mut().unwrap().gravity = 100.0;
+        save_game_to_folder(&original, folder.path()).unwrap();
+
+        let descriptor_ron = fs::read_to_string(
+            folder.path().join(paths::WORLDS_FOLDER).join("world-1.ron"),
+        )
+        .unwrap();
+        let descriptor: WorldDescriptor = ron::from_str(&descriptor_ron).unwrap();
+        assert_eq!(descriptor.gravity, 100.0);
+
+        let loaded = load_game_shell_from_folder(folder.path()).unwrap();
+
+        assert_eq!(loaded.current_world().gravity, 100.0);
     }
 }

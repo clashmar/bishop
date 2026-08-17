@@ -10,7 +10,7 @@
             ),
             layers: (
                 back: Some((
-                    composition_mode: dolls_house,
+                    composition_mode: hidden,
                     zone_scope: all,
                     interior_zones: [
                         (

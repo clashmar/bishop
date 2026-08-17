@@ -17,7 +17,7 @@ use strum_macros::EnumIter;
 pub struct WorldId(pub usize);
 
 #[serde_as]
-#[derive(Clone, Serialize, Deserialize, Default, Debug)]
+#[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct World {
     pub id: WorldId,
     pub name: String,
@@ -30,6 +30,8 @@ pub struct World {
     pub overlay: bool,
     #[serde(default = "default_grid_size")]
     pub grid_size: f32,
+    #[serde(default = "default_world_gravity")]
+    pub gravity: f32,
     #[serde(skip)]
     pub room_grid: RoomGrid,
     #[serde(skip)]
@@ -39,6 +41,29 @@ pub struct World {
 
 fn default_grid_size() -> f32 {
     world::DEFAULT_GRID_SIZE
+}
+
+pub(crate) fn default_world_gravity() -> f32 {
+    world::DEFAULT_WORLD_GRAVITY
+}
+
+impl Default for World {
+    fn default() -> Self {
+        Self {
+            id: WorldId::default(),
+            name: String::new(),
+            rooms: Vec::new(),
+            current_room_id: None,
+            meta: WorldMeta::default(),
+            tags: Vec::new(),
+            overlay: false,
+            grid_size: default_grid_size(),
+            gravity: default_world_gravity(),
+            room_grid: RoomGrid::default(),
+            room_index: HashMap::new(),
+            singleton: Entity::default(),
+        }
+    }
 }
 
 impl World {
@@ -321,5 +346,35 @@ mod tests {
         world.rebuild_room_index();
 
         assert_eq!(world.current_room().map(|room| room.id), Some(RoomId(2)));
+    }
+
+    #[test]
+    fn world_default_sets_gravity_from_world_constants() {
+        let world = World::default();
+
+        assert_eq!(world.gravity, world::DEFAULT_WORLD_GRAVITY);
+    }
+
+    #[test]
+    fn world_deserialization_without_gravity_uses_default() {
+        let world: World = ron::from_str(
+            r#"(
+                id: (1),
+                name: "Gravity Test",
+                rooms: [],
+                current_room_id: None,
+                meta: (
+                    position: (0.0, 0.0),
+                    sprite_id: None,
+                ),
+                tags: [],
+                overlay: false,
+                grid_size: 16.0,
+                singleton: (0),
+            )"#,
+        )
+        .unwrap();
+
+        assert_eq!(world.gravity, world::DEFAULT_WORLD_GRAVITY);
     }
 }

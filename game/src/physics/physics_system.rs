@@ -1,5 +1,4 @@
 use bishop::prelude::*;
-use crate::constants::GRAVITY;
 use crate::physics::collision_world::CollisionWorld;
 use engine_core::ecs::*;
 use engine_core::worlds::*;
@@ -35,6 +34,7 @@ pub fn update_physics(
             continue;
         };
         let collision_world = CollisionWorld::new(ecs, room, world);
+        let gravity = world.gravity * world.grid_size;
 
         for &entity in room_entities {
             let was_grounded = ecs.get::<Grounded>(entity).is_some_and(|grounded| grounded.0);
@@ -51,7 +51,8 @@ pub fn update_physics(
 
             let mut sub_pixel = ecs.get::<SubPixel>(entity).copied().unwrap_or_default();
 
-            vel_cur.y += GRAVITY * dt;
+            let gravity_scale = ecs.get::<GravityScale>(entity).copied().unwrap_or_default().0;
+            vel_cur.y += gravity * gravity_scale * dt;
 
             let delta = Vec2::new(vel_cur.x * dt, vel_cur.y * dt);
 
