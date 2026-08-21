@@ -11,11 +11,27 @@ use crate::physics::shapes;
 use self::sweep_math::select_stronger_push;
 use super::{CollisionWorld, SweepData};
 
+/// Context shared by sweep helpers for one moving body.
 #[derive(Clone, Copy)]
 pub(super) struct SweepContext {
-    pub(super) moving_entity: Entity,
-    pub(super) moving_layer: RoomLayer,
-    pub(super) active_back_zone: Option<InteriorZoneId>,
+    moving_entity: Entity,
+    moving_layer: RoomLayer,
+    active_back_zone: Option<InteriorZoneId>,
+}
+
+impl SweepContext {
+    /// Builds sweep context for one moving body.
+    pub(super) fn new(
+        moving_entity: Entity,
+        moving_layer: RoomLayer,
+        active_back_zone: Option<InteriorZoneId>,
+    ) -> Self {
+        Self {
+            moving_entity,
+            moving_layer,
+            active_back_zone,
+        }
+    }
 }
 
 impl CollisionWorld {
@@ -183,6 +199,7 @@ impl CollisionWorld {
         }
     }
 
+    /// Resolves one-axis movement for non-shape-aware sweep fallback.
     pub(super) fn resolve_axis(
         &self,
         shape: ColliderShape,
@@ -213,6 +230,165 @@ impl CollisionWorld {
         }
 
         (allowed, blocked)
+    }
+}
+
+/// Returns whether two shapes overlap at their current positions.
+pub(super) fn shapes_overlap(
+    moving_shape: ColliderShape,
+    moving_shape_pos: Vec2,
+    obstacle_shape: ColliderShape,
+    obstacle_shape_pos: Vec2,
+    obstacle_aabb: (Vec2, Vec2),
+) -> bool {
+    has_overlap(pair_sweep_data(
+        moving_shape,
+        moving_shape_pos,
+        Vec2::ZERO,
+        obstacle_shape,
+        obstacle_shape_pos,
+        obstacle_aabb,
+    ))
+}
+
+fn has_overlap(data: SweepData) -> bool {
+    data.push_x.abs() > shapes::OVERLAP_EPS
+        || data.push_y.abs() > shapes::OVERLAP_EPS
+        || data.blocked_x
+        || data.blocked_y
+}
+
+fn pair_sweep_data(
+    moving_shape: ColliderShape,
+    moving_shape_pos: Vec2,
+    desired_delta: Vec2,
+    obstacle_shape: ColliderShape,
+    obstacle_shape_pos: Vec2,
+    obstacle_aabb: (Vec2, Vec2),
+) -> SweepData {
+    match moving_shape {
+        ColliderShape::Circle { radius } => {
+            let center = Vec2::new(moving_shape_pos.x + radius, moving_shape_pos.y + radius);
+            match obstacle_shape {
+                ColliderShape::Circle { radius: obs_radius } => {
+                    let obs_center = Vec2::new(
+                        obstacle_shape_pos.x + obs_radius,
+                        obstacle_shape_pos.y + obs_radius,
+                    );
+                    CollisionWorld::sweep_circle_against_circle(
+                        center,
+                        radius,
+                        desired_delta,
+                        obs_center,
+                        obs_radius,
+                    )
+                }
+                _ => CollisionWorld::sweep_circle_against_rect(
+                    center,
+                    radius,
+                    desired_delta,
+                    obstacle_aabb.0,
+                    obstacle_aabb.1,
+                ),
+            }
+        }
+        ColliderShape::Capsule { radius, height } => {
+            let half = height * 0.5;
+            let center = Vec2::new(
+                moving_shape_pos.x + radius,
+                moving_shape_pos.y + radius + half,
+            );
+            let top = pair_sweep_data(
+                ColliderShape::Circle { radius },
+                Vec2::new(center.x - radius, center.y - half - radius),
+                desired_delta,
+                obstacle_shape,
+                obstacle_shape_pos,
+                obstacle_aabb,
+            );
+            let bottom = pair_sweep_data(
+                ColliderShape::Circle { radius },
+                Vec2::new(center.x - radius, center.y + half - radius),
+                desired_delta,
+                obstacle_shape,
+                obstacle_shape_pos,
+                obstacle_aabb,
+            );
+            let body = pair_sweep_data(
+                ColliderShape::Aabb {
+                    width: radius * 2.0,
+                    height,
+                },
+                Vec2::new(center.x - radius, center.y - half),
+                desired_delta,
+                obstacle_shape,
+                obstacle_shape_pos,
+                obstacle_aabb,
+            );
+
+            SweepData {
+                t_x: top.t_x.min(bottom.t_x).min(body.t_x),
+                t_y: top.t_y.min(bottom.t_y).min(body.t_y),
+                push_x: select_stronger_push([top.push_x, bottom.push_x, body.push_x]),
+                push_y: select_stronger_push([top.push_y, bottom.push_y, body.push_y]),
+                blocked_x: top.blocked_x || bottom.blocked_x || body.blocked_x,
+                blocked_y: top.blocked_y || bottom.blocked_y || body.blocked_y,
+            }
+        }
+        ColliderShape::Aabb { width, height } => {
+            let center = Vec2::new(
+                moving_shape_pos.x + width * 0.5,
+                moving_shape_pos.y + height * 0.5,
+            );
+            match obstacle_shape {
+                ColliderShape::Circle { radius: obs_radius } => {
+                    let obs_center = Vec2::new(
+                        obstacle_shape_pos.x + obs_radius,
+                        obstacle_shape_pos.y + obs_radius,
+                    );
+                    CollisionWorld::sweep_aabb_against_circle(
+                        center,
+                        width * 0.5,
+                        height * 0.5,
+                        desired_delta,
+                        obs_center,
+                        obs_radius,
+                    )
+                }
+                _ => CollisionWorld::sweep_aabb_against_rect(
+                    center,
+                    width * 0.5,
+                    height * 0.5,
+                    desired_delta,
+                    obstacle_aabb.0,
+                    obstacle_aabb.1,
+                ),
+            }
+        }
+        ColliderShape::Point => match obstacle_shape {
+            ColliderShape::Circle { radius: obs_radius } => {
+                let obs_center = Vec2::new(
+                    obstacle_shape_pos.x + obs_radius,
+                    obstacle_shape_pos.y + obs_radius,
+                );
+                CollisionWorld::sweep_aabb_against_circle(
+                    moving_shape_pos,
+                    0.0,
+                    0.0,
+                    desired_delta,
+                    obs_center,
+                    obs_radius,
+                )
+            }
+            _ => CollisionWorld::sweep_aabb_against_rect(
+                moving_shape_pos,
+                0.0,
+                0.0,
+                desired_delta,
+                obstacle_aabb.0,
+                obstacle_aabb.1,
+            ),
+        },
     }
 }
 

@@ -6,6 +6,7 @@ use engine_core::ecs::*;
 use engine_core::worlds::*;
 use std::collections::HashMap;
 
+use crate::physics::kinematic::KinematicFrameMotion;
 use crate::physics::shapes;
 
 use sweep::SweepContext;
@@ -46,6 +47,28 @@ impl SweepData {
     }
 }
 
+/// Returns whether two colliders overlap at their current positions.
+pub(crate) fn shapes_overlap(
+    moving_position: Vec2,
+    moving_collider: Collider,
+    moving_pivot: Pivot,
+    obstacle_position: Vec2,
+    obstacle_collider: Collider,
+    obstacle_pivot: Pivot,
+) -> bool {
+    let moving_aabb = shapes::collider_aabb(moving_position, moving_collider, moving_pivot);
+    let obstacle_aabb = shapes::collider_aabb(obstacle_position, obstacle_collider, obstacle_pivot);
+
+    sweep::shapes_overlap(
+        moving_collider.shape,
+        moving_aabb.0,
+        obstacle_collider.shape,
+        obstacle_aabb.0,
+        obstacle_aabb,
+    )
+}
+
+#[derive(Clone)]
 struct SolidObj {
     aabb: (Vec2, Vec2),
     shape: ColliderShape,
@@ -56,6 +79,7 @@ struct SolidObj {
 }
 
 /// Collision world built once per frame per room. Owns its obstacle data.
+#[derive(Clone)]
 pub struct CollisionWorld {
     solids: Vec<SolidObj>,
     entity_layers: HashMap<Entity, RoomLayer>,
@@ -143,6 +167,30 @@ impl CollisionWorld {
         }
     }
 
+    pub(crate) fn with_kinematics(mut self, kinematics: &[KinematicFrameMotion]) -> Self {
+        for motion in kinematics {
+            let end_position = motion.start_position + motion.delta;
+            let aabb = shapes::collider_aabb(end_position, motion.collider, motion.pivot);
+            self.solids.push(SolidObj {
+                aabb,
+                shape: motion.collider.shape,
+                shape_pos: aabb.0,
+                entity: Some(motion.entity),
+                layer: self.entity_layers.get(&motion.entity).copied(),
+                interior_zone: None,
+            });
+        }
+
+        self
+    }
+
+    /// Returns a copy without solids owned by `entity`.
+    pub(crate) fn excluding_entity(&self, entity: Entity) -> Self {
+        let mut filtered = self.clone();
+        filtered.solids.retain(|solid| solid.entity != Some(entity));
+        filtered
+    }
+
     /// Sweep the moving entity's collider from `entity_position` by `desired_delta`,
     /// resolving collisions against all solids in this world.
     pub fn sweep_move(
@@ -161,11 +209,7 @@ impl CollisionWorld {
             .copied()
             .unwrap_or(RoomLayer::Front);
         let active_back_zone = self.active_back_zone(collider_aabb);
-        let sweep_ctx = SweepContext {
-            moving_entity,
-            moving_layer,
-            active_back_zone,
-        };
+        let sweep_ctx = SweepContext::new(moving_entity, moving_layer, active_back_zone);
 
         if let ColliderShape::Circle { radius } = collider.shape {
             let center = Vec2::new(collider_pos.x + radius, collider_pos.y + radius);
@@ -225,16 +269,6 @@ impl CollisionWorld {
             blocked_x,
             blocked_y,
         }
-    }
-
-    /// Returns sensor entities whose AABB overlaps the query collider's AABB.
-    pub fn check_overlaps(
-        &self,
-        _position: Vec2,
-        _collider: Collider,
-        _pivot: Pivot,
-    ) -> Vec<Entity> {
-        Vec::new()
     }
 
     fn solid_affects_layer(

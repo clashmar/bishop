@@ -88,6 +88,33 @@ fn collider_aabb_point_top_left_pivot() {
 }
 
 #[test]
+fn aabb_overlap_returns_penetration_vector() {
+    let overlap = aabb_overlap(
+        (Vec2::new(0.0, 0.0), Vec2::new(8.0, 8.0)),
+        (Vec2::new(6.0, 5.0), Vec2::new(10.0, 12.0)),
+    );
+
+    assert_eq!(overlap, Some(Vec2::new(2.0, 3.0)));
+}
+
+#[test]
+fn aabb_overlap_returns_none_when_rects_only_touch() {
+    let overlap = aabb_overlap(
+        (Vec2::new(0.0, 0.0), Vec2::new(8.0, 8.0)),
+        (Vec2::new(8.0, 3.0), Vec2::new(12.0, 7.0)),
+    );
+
+    assert_eq!(overlap, None);
+}
+
+#[test]
+fn aabb_center_returns_midpoint() {
+    let center = aabb_center((Vec2::new(4.0, 6.0), Vec2::new(12.0, 14.0)));
+
+    assert_eq!(center, Vec2::new(8.0, 10.0));
+}
+
+#[test]
 fn sweep_axis_aabb_x_positive_blocked() {
     let shape = ColliderShape::Aabb {
         width: 8.0,

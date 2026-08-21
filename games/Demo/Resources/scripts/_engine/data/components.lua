@@ -67,8 +67,13 @@
 ---@field radius number
 ---@field rect_size vec2
 
---- Marker component
 ---@class Kinematic
+---@field contact_behavior table
+---@field motion table
+---@field runtime_origin_x number
+---@field runtime_origin_y number
+---@field runtime_has_origin boolean
+---@field runtime_direction table
 
 ---@class LayerDoor
 ---@field usable boolean

@@ -46,18 +46,3 @@ fn collision_world_sweep_move_other_room_entity_does_not_block() {
 
     assert!(!sweep.blocked_x);
 }
-
-
-#[test]
-fn collision_world_check_overlaps_returns_empty_when_no_sensors() {
-    let ecs = Ecs::default();
-    let world = empty_world();
-    let room = world.get_room(RoomId(1)).unwrap();
-    let cw = CollisionWorld::new(&ecs, room, &world);
-    let overlaps = cw.check_overlaps(
-        Vec2::ZERO,
-        Collider::default(),
-        Pivot::TopLeft,
-    );
-    assert!(overlaps.is_empty());
-}
