@@ -99,8 +99,20 @@ pub(crate) fn update_kinematic_bodies(
         let collider = ecs.get::<Collider>(entity).copied().unwrap_or_default();
         let sub_pixel = ecs.get::<SubPixel>(entity).copied().unwrap_or_default();
         let true_pos = true_position(transform.position, sub_pixel);
+
+        if !kinematic.is_runtime_enabled() {
+            if let Some(velocity) = ecs.get_mut::<Velocity>(entity) {
+                *velocity = Velocity::default();
+            }
+            continue;
+        }
+
         let contact_behavior = authored_contact_behavior(kinematic);
-        let delta = desired_kinematic_delta(&mut kinematic, true_pos, dt);
+        let delta = if kinematic.is_runtime_running() {
+            desired_kinematic_delta(&mut kinematic, true_pos, dt)
+        } else {
+            Vec2::ZERO
+        };
         let sweep = collision_world.sweep_move(
             entity,
             true_pos,

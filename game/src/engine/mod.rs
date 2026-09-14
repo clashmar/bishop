@@ -18,6 +18,7 @@ pub use save_runtime::{RuntimeLoadRequest, SaveRuntime};
 use crate::dev_tools::{DevTools, draw::draw_colliders, overlay::draw_dev_tools_overlay};
 use crate::diagnostics::{DiagnosticsOverlay, TimingTraceSample};
 use crate::game_global::{set_menu_active, take_pending_world_transition};
+use crate::physics::events::PhysicsEvents;
 use crate::physics::physics_system::*;
 use crate::scripting::script_system::ScriptSystem;
 use crate::transitions::room_transition_manager::RoomTransitionManager;
@@ -26,13 +27,13 @@ use crate::transitions::world_exit_manager::WorldExitManager;
 use crate::transitions::world_transitions::WorldTransitionManager;
 use bishop::prelude::*;
 use bishop::BishopApp;
-use engine_core::animation::{update_animation_sytem};
+use engine_core::animation::update_animation_sytem;
+use engine_core::audio::AudioManager;
 use engine_core::ecs::CurrentRoom;
-use engine_core::audio::{AudioManager};
 use engine_core::camera::CameraManager;
 use engine_core::constants::timing;
 use engine_core::diagnostics::TraversalResidencyDiagnostics;
-use engine_core::logging::{omni_error};
+use engine_core::logging::omni_error;
 use engine_core::menu::{GameMenuHandler, MenuInputPolicy, MenuManager, MenuSessionAction};
 use engine_core::rendering::{RenderSystem, SmoothedDtState, smooth_dt, snap_dt};
 use engine_core::task::BackgroundService;
@@ -257,16 +258,20 @@ impl Engine {
     }
 
     pub fn fixed_update<C: BishopContext>(&mut self, ctx: &mut C, dt: f32) {
-        let mut game_instance = self.game_instance.borrow_mut();
-        game_instance.store_previous_positions(&mut self.camera_manager);
-
+        let mut physics_events = PhysicsEvents::default();
         {
+            let mut game_instance = self.game_instance.borrow_mut();
+            game_instance.store_previous_positions(&mut self.camera_manager);
+
             let game_ctx = game_instance.game.ctx_mut();
             let Some(world) = game_ctx.world.as_deref() else {
                 return;
             };
-            update_physics(game_ctx.ecs, world, dt);
+            update_physics_with_events(game_ctx.ecs, world, dt, &mut physics_events);
         }
+        emit_retained_physics_events(&self.lua, &self.game_instance, &mut physics_events);
+
+        let mut game_instance = self.game_instance.borrow_mut();
 
         // Resolve room transitions before updating the camera
         if RoomTransitionManager::handle_transitions(&self.lua, &mut game_instance) {
@@ -418,6 +423,15 @@ impl Engine {
             );
         }
     }
+}
+
+fn emit_retained_physics_events(
+    lua: &Lua,
+    game_instance: &Rc<RefCell<GameInstance>>,
+    events: &mut PhysicsEvents,
+) {
+    let game_instance = game_instance.borrow();
+    game_instance.emit_physics_events(lua, events);
 }
 
 fn resolve_requested_session_action(

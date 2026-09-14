@@ -4,7 +4,7 @@ use engine_core::rendering::visual_position;
 use engine_core::tiles::TileMap;
 use engine_core::worlds::*;
 
-use crate::physics::physics_system::update_physics;
+use crate::physics::tests::update_physics;
 use crate::physics::shapes;
 
 const DT: f32 = 1.0 / 60.0;

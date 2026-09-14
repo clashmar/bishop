@@ -6,6 +6,22 @@ pub(crate) enum KinematicContactEvent {
     Crushed { kinematic: Entity, dynamic: Entity },
 }
 
+impl KinematicContactEvent {
+    /// Returns the kinematic entity involved in this contact event.
+    pub(crate) fn kinematic(self) -> Entity {
+        match self {
+            Self::Contact { kinematic, .. } | Self::Crushed { kinematic, .. } => kinematic,
+        }
+    }
+
+    /// Returns the non-kinematic entity involved in this contact event.
+    pub(crate) fn other(self) -> Entity {
+        match self {
+            Self::Contact { dynamic, .. } | Self::Crushed { dynamic, .. } => dynamic,
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum PhysicsEvent {
     KinematicContact(KinematicContactEvent),

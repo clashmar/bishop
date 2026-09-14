@@ -1,58 +1,113 @@
 use bishop::prelude::Vec2;
 use ecs_component::ecs_component;
 use serde::{Deserialize, Serialize};
-use strum_macros::EnumIter;
+use strum_macros::{Display, EnumIter, EnumProperty, EnumString};
+
+use crate::ecs::{Ecs, Entity};
 
 use super::{Active, Collider, Transform, Velocity};
 
 /// Configures how a kinematic body responds when it contacts other bodies.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, EnumIter)]
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    Default,
+    PartialEq,
+    Eq,
+    Serialize,
+    Deserialize,
+    Display,
+    EnumIter,
+    EnumProperty,
+    EnumString,
+)]
 pub enum KinematicContactBehavior {
     #[default]
+    #[strum(props(lua = "stop"))]
     Stop,
+    #[strum(props(lua = "crush"))]
     Crush,
+    #[strum(props(lua = "eject"))]
     Eject,
+    #[strum(props(lua = "reverse"))]
     Reverse,
+    #[strum(props(lua = "trigger"))]
     Trigger,
 }
 
 /// Authored motion mode for a kinematic body.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, EnumIter)]
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    Default,
+    PartialEq,
+    Eq,
+    Serialize,
+    Deserialize,
+    Display,
+    EnumIter,
+    EnumProperty,
+    EnumString,
+)]
 pub enum KinematicMotionMode {
     #[default]
+    #[strum(serialize = "none", to_string = "None", props(lua = "none"))]
     None,
+    #[strum(serialize = "constant", to_string = "Constant", props(lua = "constant"))]
     Constant,
+    #[strum(serialize = "ping_pong", to_string = "Ping-Pong", props(lua = "ping_pong"))]
     PingPong,
 }
 
 /// Primary movement axis for authored kinematic motion.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, EnumIter)]
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    Default,
+    PartialEq,
+    Eq,
+    Serialize,
+    Deserialize,
+    Display,
+    EnumIter,
+    EnumProperty,
+    EnumString,
+)]
 pub enum KinematicAxis {
     #[default]
+    #[strum(serialize = "horizontal", to_string = "Horizontal", props(lua = "horizontal"))]
     Horizontal,
+    #[strum(serialize = "vertical", to_string = "Vertical", props(lua = "vertical"))]
     Vertical,
 }
 
 /// Initial authored direction for a kinematic body.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, EnumIter)]
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    Default,
+    PartialEq,
+    Eq,
+    Serialize,
+    Deserialize,
+    Display,
+    EnumIter,
+    EnumProperty,
+    EnumString,
+)]
 pub enum KinematicDirection {
     #[default]
+    #[strum(serialize = "positive", to_string = "Positive", props(lua = "positive"))]
     Positive,
+    #[strum(serialize = "negative", to_string = "Negative", props(lua = "negative"))]
     Negative,
 }
 
 impl KinematicContactBehavior {
-    /// Returns the UI label for this contact behavior.
-    pub fn label(self) -> &'static str {
-        match self {
-            Self::Stop => "Stop",
-            Self::Crush => "Crush",
-            Self::Eject => "Eject",
-            Self::Reverse => "Reverse",
-            Self::Trigger => "Trigger",
-        }
-    }
-
     /// Returns whether this behavior should act as a solid obstacle.
     pub fn is_solid(self) -> bool {
         !matches!(self, Self::Trigger)
@@ -64,54 +119,7 @@ impl KinematicContactBehavior {
     }
 }
 
-impl std::fmt::Display for KinematicContactBehavior {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(self.label())
-    }
-}
-
-impl KinematicMotionMode {
-    /// Returns the UI label for this kinematic motion mode.
-    pub fn label(self) -> &'static str {
-        match self {
-            Self::None => "None",
-            Self::Constant => "Constant",
-            Self::PingPong => "Ping-Pong",
-        }
-    }
-}
-
-impl std::fmt::Display for KinematicMotionMode {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(self.label())
-    }
-}
-
-impl KinematicAxis {
-    /// Returns the UI label for this kinematic motion axis.
-    pub fn label(self) -> &'static str {
-        match self {
-            Self::Horizontal => "Horizontal",
-            Self::Vertical => "Vertical",
-        }
-    }
-}
-
-impl std::fmt::Display for KinematicAxis {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(self.label())
-    }
-}
-
 impl KinematicDirection {
-    /// Returns the UI label for this authored direction.
-    pub fn label(self) -> &'static str {
-        match self {
-            Self::Positive => "Positive",
-            Self::Negative => "Negative",
-        }
-    }
-
     /// Returns the signed scalar for this authored direction.
     pub fn sign(self) -> f32 {
         match self {
@@ -126,12 +134,6 @@ impl KinematicDirection {
             Self::Positive => Self::Negative,
             Self::Negative => Self::Positive,
         }
-    }
-}
-
-impl std::fmt::Display for KinematicDirection {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(self.label())
     }
 }
 
@@ -159,7 +161,7 @@ impl Default for KinematicMotion {
 }
 
 /// Marks a moving solid body authored in-engine.
-#[ecs_component(deps = [Active, Collider, Transform, Velocity])]
+#[ecs_component(on_insert = on_insert, deps = [Active, Collider, Transform, Velocity])]
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Kinematic {
@@ -173,6 +175,10 @@ pub struct Kinematic {
     runtime_has_origin: bool,
     #[serde(skip)]
     runtime_direction: KinematicDirection,
+    #[serde(skip)]
+    runtime_enabled: bool,
+    #[serde(skip)]
+    runtime_running: bool,
 }
 
 impl Default for Kinematic {
@@ -184,6 +190,8 @@ impl Default for Kinematic {
             runtime_origin_y: 0.0,
             runtime_has_origin: false,
             runtime_direction: KinematicDirection::Positive,
+            runtime_enabled: true,
+            runtime_running: true,
         }
     }
 }
@@ -195,6 +203,8 @@ impl Kinematic {
         self.runtime_origin_y = 0.0;
         self.runtime_has_origin = false;
         self.runtime_direction = self.motion.direction;
+        self.runtime_enabled = true;
+        self.runtime_running = true;
     }
 
     /// Returns the current authored motion origin.
@@ -219,4 +229,37 @@ impl Kinematic {
     pub fn set_runtime_direction(&mut self, direction: KinematicDirection) {
         self.runtime_direction = direction;
     }
+
+    /// Starts runtime movement using the current authored motion.
+    pub fn start_runtime(&mut self) {
+        self.runtime_enabled = true;
+        self.runtime_running = true;
+    }
+
+    /// Stops runtime movement without disabling the kinematic.
+    pub fn stop_runtime(&mut self) {
+        self.runtime_running = false;
+    }
+
+    /// Enables or disables the kinematic for runtime motion and contact handling.
+    pub fn set_runtime_enabled(&mut self, enabled: bool) {
+        self.runtime_enabled = enabled;
+        if !enabled {
+            self.runtime_running = false;
+        }
+    }
+
+    /// Returns whether this kinematic is enabled for runtime simulation.
+    pub fn is_runtime_enabled(&self) -> bool {
+        self.runtime_enabled
+    }
+
+    /// Returns whether this kinematic is actively moving at runtime.
+    pub fn is_runtime_running(&self) -> bool {
+        self.runtime_enabled && self.runtime_running
+    }
+}
+
+fn on_insert(kinematic: &mut Kinematic, _entity: &Entity, _ecs: &mut Ecs) {
+    kinematic.clear_runtime_state();
 }

@@ -94,12 +94,13 @@ impl InspectorModule for KinematicModule {
         let mut y = rect.y + BODY_TOP_PADDING;
 
         draw_label(ctx, "Contact:", rect.x, y);
+        let contact_label = kinematic.contact_behavior.to_string();
         if let Some(contact_behavior) = Dropdown::new(
             self.contact_behavior_id,
             field_rect(ctx, rect, y),
-            kinematic.contact_behavior.label(),
+            &contact_label,
             &contact_behavior_options(kinematic.motion.mode),
-            |value| value.label().to_string(),
+            |value| value.to_string(),
         )
         .suppressed(blocked)
         .show(ctx)
@@ -113,12 +114,13 @@ impl InspectorModule for KinematicModule {
         y += ROW_HEIGHT + FIELD_GAP;
 
         draw_label(ctx, "Motion:", rect.x, y);
+        let mode_label = kinematic.motion.mode.to_string();
         if let Some(mode) = Dropdown::new(
             self.mode_id,
             field_rect(ctx, rect, y),
-            kinematic.motion.mode.label(),
+            &mode_label,
             &motion_mode_options(),
-            |value| value.label().to_string(),
+            |value| value.to_string(),
         )
         .suppressed(blocked)
         .show(ctx)
@@ -141,12 +143,13 @@ impl InspectorModule for KinematicModule {
         y += ROW_HEIGHT + FIELD_GAP;
 
         draw_label(ctx, "Axis:", rect.x, y);
+        let axis_label = kinematic.motion.axis.to_string();
         if let Some(axis) = Dropdown::new(
             self.axis_id,
             field_rect(ctx, rect, y),
-            kinematic.motion.axis.label(),
+            &axis_label,
             &axis_options(),
-            |value| value.label().to_string(),
+            |value| value.to_string(),
         )
         .suppressed(blocked)
         .show(ctx)
@@ -161,12 +164,13 @@ impl InspectorModule for KinematicModule {
         y += ROW_HEIGHT + FIELD_GAP;
 
         draw_label(ctx, "Direction:", rect.x, y);
+        let direction_label = kinematic.motion.direction.to_string();
         if let Some(direction) = Dropdown::new(
             self.direction_id,
             field_rect(ctx, rect, y),
-            kinematic.motion.direction.label(),
+            &direction_label,
             &direction_options(),
-            |value| value.label().to_string(),
+            |value| value.to_string(),
         )
         .suppressed(blocked)
         .show(ctx)

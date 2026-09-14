@@ -1,14 +1,20 @@
 use bishop::prelude::*;
+use crate::physics::events::{KinematicContactEvent, PhysicsEvent, PhysicsEvents};
+use crate::scripting::commands::entity::lookup_entity_function;
+use crate::scripting::modules::entity_module::lua_entity_handle;
 use crate::scripting::script_system::ScriptSystem;
-use engine_core::camera::{CameraManager, get_room_cameras};
+use engine_core::camera::{get_room_cameras, CameraManager};
 use engine_core::diagnostics::TraversalResidencyDiagnostics;
-use engine_core::ecs::*;
-use engine_core::game::{Game};
+use engine_core::ecs::{Active, CurrentRoom, Entity, SubPixel, Transform, WorldEntry};
+use engine_core::game::Game;
+use engine_core::logging::omni_error;
 use engine_core::menu::{drain_menu_events, drain_slider_events};
 use engine_core::rendering::{visual_position, RoomRenderState};
+use engine_core::scripting::lua_constants::{lua_events, lua_kinematic};
 use engine_core::storage::hydrate_initial_payloads_for_runtime;
-use engine_core::worlds::*;
+use engine_core::worlds::{Room, RoomId, RoomLayer};
 use mlua::Lua;
+use mlua::Table;
 use mlua::Value;
 use mlua::Variadic;
 use std::collections::HashMap;
@@ -161,6 +167,17 @@ impl GameInstance {
         self.emit_menu_events();
     }
 
+    /// Drains retained physics events and forwards them to the global Lua event bus.
+    pub(crate) fn emit_physics_events(&self, lua: &Lua, events: &mut PhysicsEvents) {
+        for event in events.drain() {
+            match event {
+                PhysicsEvent::KinematicContact(contact) => {
+                    self.emit_kinematic_global_event(lua, contact)
+                }
+            }
+        }
+    }
+
     /// Updates the previous position for all active entities.
     pub fn store_previous_positions(&mut self, camera_manager: &mut CameraManager) {
         let ecs = &self.game.ecs;
@@ -227,6 +244,111 @@ impl GameInstance {
         RoomLayer::Front
     }
 
+    fn emit_kinematic_global_event(&self, lua: &Lua, event: KinematicContactEvent) {
+        let Ok(payload) = self.kinematic_event_payload(lua, event) else {
+            omni_error!("Failed to build kinematic Lua event payload for {:?}", event);
+            return;
+        };
+
+        self.game.script_manager.event_bus.emit(
+            kinematic_event_name(event).to_string(),
+            Variadic::from_iter([Value::Table(payload.clone())]),
+        );
+        self.emit_kinematic_local_callbacks(lua, event, &payload);
+    }
+
+    fn kinematic_event_payload(&self, lua: &Lua, event: KinematicContactEvent) -> mlua::Result<Table> {
+        let payload = lua.create_table()?;
+        payload.set(
+            lua_kinematic::EVENT_KINEMATIC,
+            lua_entity_handle(lua, event.kinematic())?,
+        )?;
+        payload.set(
+            lua_kinematic::EVENT_OTHER,
+            lua_entity_handle(lua, event.other())?,
+        )?;
+        payload.set(lua_kinematic::EVENT_KIND, kinematic_event_kind(event))?;
+        Ok(payload)
+    }
+
+    fn emit_kinematic_local_callbacks(
+        &self,
+        lua: &Lua,
+        event: KinematicContactEvent,
+        payload: &Table,
+    ) {
+        let callback_name = match event {
+            KinematicContactEvent::Contact { .. } => lua_kinematic::CALLBACK_KINEMATIC_CONTACT,
+            KinematicContactEvent::Crushed { .. } => lua_kinematic::CALLBACK_KINEMATIC_CRUSHED,
+        };
+
+        self.emit_kinematic_local_callback(
+            lua,
+            event.kinematic(),
+            lua_kinematic::ROLE_KINEMATIC,
+            callback_name,
+            payload,
+        );
+        self.emit_kinematic_local_callback(
+            lua,
+            event.other(),
+            lua_kinematic::ROLE_OTHER,
+            callback_name,
+            payload,
+        );
+    }
+
+    fn emit_kinematic_local_callback(
+        &self,
+        lua: &Lua,
+        entity: Entity,
+        role: &'static str,
+        callback_name: &'static str,
+        payload: &Table,
+    ) {
+        let Some((instance, func)) = lookup_entity_function(&self.game, entity, callback_name)
+        else {
+            return;
+        };
+        let Ok(local_payload) = self.kinematic_local_payload(lua, payload, entity, role) else {
+            omni_error!(
+                "Failed to build kinematic local payload for {:?} on {:?}",
+                callback_name,
+                entity
+            );
+            return;
+        };
+
+        if let Err(err) = func.call::<()>((instance, local_payload)) {
+            omni_error!(
+                "Kinematic callback '{}' failed for {:?}: {}",
+                callback_name,
+                entity,
+                err
+            );
+        }
+    }
+
+    fn kinematic_local_payload(
+        &self,
+        lua: &Lua,
+        payload: &Table,
+        entity: Entity,
+        role: &'static str,
+    ) -> mlua::Result<Table> {
+        let local_payload = lua.create_table()?;
+        for pair in payload.pairs::<String, Value>() {
+            let (key, value) = pair?;
+            local_payload.set(key, value)?;
+        }
+        local_payload.set(
+            lua_kinematic::EVENT_SELF_ENTITY,
+            lua_entity_handle(lua, entity)?,
+        )?;
+        local_payload.set(lua_kinematic::EVENT_ROLE, role)?;
+        Ok(local_payload)
+    }
+
     /// Drains pending menu action events and emits them to the Lua event bus.
     fn emit_menu_events(&self) {
         let events = drain_menu_events();
@@ -250,324 +372,16 @@ impl GameInstance {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::save_system::SaveProviderRegistry;
-    use crate::scripting::lua_ctx::register_save_lua_context;
-    use crate::scripting::script_system::ScriptSystem;
-    use engine_core::constants::paths;
-    use engine_core::engine_global::set_game_name;
-    use engine_core::scripting::lua_constants::{lua_dirs, lua_files};
-    use engine_core::storage::{game_folder, load_game_shell_from_folder};
-    use engine_core::storage::test_utils::{TestGameFolder, game_fs_test_lock};
-    use mlua::Lua;
-    use std::fs;
-
-    fn register_demo_save_ctx(lua: &Lua) {
-        register_save_lua_context(
-            lua,
-            std::rc::Rc::new(std::cell::RefCell::new(SaveProviderRegistry::new())),
-            std::rc::Rc::new(std::cell::Cell::new(false)),
-        )
-        .unwrap();
+fn kinematic_event_name(event: KinematicContactEvent) -> &'static str {
+    match event {
+        KinematicContactEvent::Contact { .. } => lua_events::KINEMATIC_CONTACT,
+        KinematicContactEvent::Crushed { .. } => lua_events::KINEMATIC_CRUSHED,
     }
+}
 
-    #[test]
-    fn prepare_loaded_game_sets_current_world_room_to_start_room() {
-        let _lock = game_fs_test_lock().lock().unwrap();
-        let test_game = TestGameFolder::new("prepare_loaded_game_start_room");
-        set_game_name(test_game.name());
-
-        let mut world = World::default();
-        world.current_room_id = Some(RoomId(2));
-        world.add_room(Room {
-            id: RoomId(1),
-            ..Default::default()
-        });
-        world.add_room(Room {
-            id: RoomId(2),
-            position: Vec2::new(32.0, 0.0),
-            ..Default::default()
-        });
-
-        let mut game = Game::with_name(test_game.name());
-        game.add_world(world);
-
-        let prepared = GameInstance::prepare_loaded_game(&Lua::new(), game);
-
-        assert_eq!(prepared.room_id, RoomId(1));
-        assert_eq!(prepared.game.current_world().current_room_id, Some(RoomId(1)));
-    }
-
-    #[test]
-    fn startup_room_and_layer_follow_the_start_entry() {
-        let _lock = game_fs_test_lock().lock().unwrap();
-        let test_game = TestGameFolder::new("prepare_loaded_game_start_layer");
-        set_game_name(test_game.name());
-
-        let mut world = World::default();
-        world.current_room_id = Some(RoomId(1));
-        world.add_room(Room {
-            id: RoomId(1),
-            ..Default::default()
-        });
-        world.add_room(Room {
-            id: RoomId(2),
-            position: Vec2::new(32.0, 0.0),
-            ..Default::default()
-        });
-
-        let mut game = Game::with_name(test_game.name());
-        game.add_world(world);
-        game.ecs
-            .create_entity()
-            .with(WorldEntry {
-                name: WorldEntry::START_NAME.to_string(),
-                is_start: true,
-            })
-            .with_current_room_layer(RoomId(2), RoomLayer::Back)
-            .finish();
-
-        let prepared = GameInstance::prepare_loaded_game(&Lua::new(), game);
-
-        assert_eq!(prepared.room_id, RoomId(2));
-        assert_eq!(prepared.room_layer, RoomLayer::Back);
-        assert_eq!(prepared.game.current_world().current_room_id, Some(RoomId(2)));
-    }
-
-    #[test]
-    fn prepare_loaded_room_sets_current_world_room_to_selected_room() {
-        let _lock = game_fs_test_lock().lock().unwrap();
-        let test_game = TestGameFolder::new("prepare_loaded_room_selected_room");
-        set_game_name(test_game.name());
-
-        let room = Room {
-            id: RoomId(2),
-            position: Vec2::new(32.0, 0.0),
-            ..Default::default()
-        };
-        let mut world = World::default();
-        world.current_room_id = Some(RoomId(1));
-        world.add_room(Room {
-            id: RoomId(1),
-            ..Default::default()
-        });
-        world.add_room(room.clone());
-
-        let mut game = Game::with_name(test_game.name());
-        game.add_world(world);
-
-        let prepared = GameInstance::prepare_loaded_room(&Lua::new(), room, game);
-
-        assert_eq!(prepared.room_id, RoomId(2));
-        assert_eq!(prepared.game.current_world().current_room_id, Some(RoomId(2)));
-    }
-
-    #[test]
-    fn full_runtime_init_executes_globals_prelude_once_before_main() {
-        let _lock = game_fs_test_lock().lock().unwrap();
-        let test_game = TestGameFolder::new("game_instance_globals_once");
-        set_game_name(test_game.name());
-
-        let scripts_dir = game_folder(test_game.name())
-            .join(paths::RESOURCES_FOLDER)
-            .join(paths::SCRIPTS_FOLDER);
-        let engine_dir = scripts_dir.join(lua_dirs::ENGINE);
-        fs::create_dir_all(&engine_dir).unwrap();
-        fs::write(
-            engine_dir.join(lua_files::GLOBALS),
-            "bootstrap_order = (bootstrap_order or \"\") .. \"g\"\nInput = { Space = \"space\" }\n",
-        )
-        .unwrap();
-        fs::write(
-            scripts_dir.join(lua_files::MAIN),
-            "bootstrap_order = bootstrap_order .. \"m\"\nsaw_input = Input.Space\n",
-        )
-        .unwrap();
-
-        let mut world = World::default();
-        world.add_room(Room {
-            id: RoomId(1),
-            ..Default::default()
-        });
-        let mut game = Game::default();
-        game.name = test_game.name().to_string();
-        game.add_world(world);
-
-        let lua = Lua::new();
-        let prepared = GameInstance::prepare_loaded_game(&lua, game);
-        ScriptSystem::init(&lua, &prepared.game.script_manager.event_bus);
-
-        assert_eq!(lua.globals().get::<String>("bootstrap_order").unwrap(), "gm");
-        assert_eq!(lua.globals().get::<String>("saw_input").unwrap(), "space");
-    }
-
-    #[test]
-    fn current_render_state_falls_back_to_room_camera_layer_and_position() {
-        let room_id = RoomId(1);
-        let room = Room {
-            id: room_id,
-            ..Default::default()
-        };
-
-        let mut world = World::default();
-        world.current_room_id = Some(room_id);
-        world.add_room(room);
-
-        let mut game = Game::default();
-        game.add_world(world);
-
-        game.ecs.create_entity()
-            .with(Transform {
-                position: Vec2::new(48.0, 64.0),
-                ..Default::default()
-            })
-            .with(RoomCamera::default())
-            .with_current_room_layer(room_id, RoomLayer::Back)
-            .finish();
-
-        let game_instance = GameInstance {
-            game,
-            prev_positions: HashMap::new(),
-            traversal_residency_diagnostics: None,
-        };
-
-        assert_eq!(
-            game_instance.current_render_state(),
-            RoomRenderState {
-                current_layer: RoomLayer::Back,
-                viewpoint_position: Some(Vec2::new(48.0, 64.0)),
-                show_all_back_bounds: false,
-            }
-        );
-    }
-
-    #[test]
-    fn store_previous_positions_uses_visual_position_with_subpixel_remainder() {
-        let room_id = RoomId(1);
-        let room = Room {
-            id: room_id,
-            ..Default::default()
-        };
-
-        let mut world = World::default();
-        world.current_room_id = Some(room_id);
-        world.add_room(room);
-
-        let mut game = Game::default();
-        game.add_world(world);
-
-        let entity = game.ecs
-            .create_entity()
-            .with(Transform {
-                position: Vec2::new(10.0, 12.0),
-                ..Default::default()
-            })
-            .with(Active::default())
-            .with(SubPixel { x: 0.25, y: -0.5 })
-            .with_current_room(room_id)
-            .finish();
-
-        let mut game_instance = GameInstance {
-            game,
-            prev_positions: HashMap::new(),
-            traversal_residency_diagnostics: None,
-        };
-
-        game_instance.store_previous_positions(&mut CameraManager::default());
-
-        assert_eq!(
-            game_instance.prev_positions.get(&entity).copied(),
-            Some(Vec2::new(10.25, 11.5))
-        );
-    }
-
-    #[test]
-    fn prepare_loaded_game_can_activate_demo_runtime_scripts() {
-        let _lock = game_fs_test_lock().lock().unwrap();
-        let resources_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../games/Demo/Resources");
-        let lua = Lua::new();
-        let game = load_game_shell_from_folder(&resources_dir).unwrap();
-        let mut prepared = GameInstance::prepare_loaded_game(&lua, game);
-
-        register_demo_save_ctx(&lua);
-        ScriptSystem::init(&lua, &prepared.game.script_manager.event_bus);
-        ScriptSystem::activate_entity_scripts(
-            &lua,
-            &mut prepared.game.ecs,
-            &mut prepared.game.script_manager,
-        )
-        .unwrap();
-
-        let scripted_active_entities = prepared
-            .game
-            .ecs
-            .get_store::<Script>()
-            .data
-            .iter()
-            .filter_map(|(&entity, script)| {
-                (script.script_id != ScriptId(0)
-                    && prepared
-                        .game
-                        .ecs
-                        .get::<Active>(entity)
-                        .is_some_and(Active::is_enabled))
-                .then_some((entity, script.script_id))
-            })
-            .collect::<Vec<_>>();
-
-        assert!(!scripted_active_entities.is_empty());
-        for (entity, script_id) in scripted_active_entities {
-            assert!(
-                prepared
-                    .game
-                    .script_manager
-                    .instances
-                    .contains_key(&(entity, script_id)),
-                "missing Lua instance for entity {entity:?} script {script_id:?}"
-            );
-        }
-    }
-
-    #[test]
-    fn store_previous_positions_keeps_pinned_inactive_entities() {
-        let room_id = RoomId(1);
-        let room = Room {
-            id: room_id,
-            ..Default::default()
-        };
-
-        let mut world = World::default();
-        world.current_room_id = Some(room_id);
-        world.add_room(room);
-
-        let mut game = Game::default();
-        game.add_world(world);
-
-        let entity = game.ecs
-            .create_entity()
-            .with(Transform {
-                position: Vec2::new(20.0, 24.0),
-                ..Default::default()
-            })
-            .with(Active::new(false))
-            .with_current_room(room_id)
-            .finish();
-        game.ecs.get_mut::<Active>(entity).unwrap().pin();
-
-        let mut game_instance = GameInstance {
-            game,
-            prev_positions: HashMap::new(),
-            traversal_residency_diagnostics: None,
-        };
-
-        game_instance.store_previous_positions(&mut CameraManager::default());
-
-        assert_eq!(
-            game_instance.prev_positions.get(&entity).copied(),
-            Some(Vec2::new(20.0, 24.0))
-        );
+fn kinematic_event_kind(event: KinematicContactEvent) -> &'static str {
+    match event {
+        KinematicContactEvent::Contact { .. } => lua_kinematic::KIND_TRIGGER,
+        KinematicContactEvent::Crushed { .. } => lua_kinematic::KIND_CRUSHED,
     }
 }

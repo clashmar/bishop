@@ -1,6 +1,6 @@
 (
     id: (3),
-    name: "Second World",
+    name: "Kinematic Lab",
     current_room_id: Some((4)),
     meta: (
         position: (27.867004, -17.166084),
@@ -10,13 +10,13 @@
         Autosave,
     ],
     overlay: false,
-    grid_size: 16.0,
-    gravity: 10.0,
+    grid_size: 8.0,
+    gravity: 100.0,
     singleton: (58),
     rooms: [
         (
             id: (4),
-            name: "untitled",
+            name: "Kinematic Test Room",
             position: (0.0, 0.0),
             size: (16.0, 9.0),
             exits: [],

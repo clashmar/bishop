@@ -1,5 +1,5 @@
 use crate::engine::game_instance::GameInstance;
-use crate::physics::physics_system::update_physics;
+use crate::physics::tests::update_physics;
 use crate::transitions::room_transition_manager::RoomTransitionManager;
 use bishop::prelude::{Vec2, vec2};
 use engine_core::ecs::{

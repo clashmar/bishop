@@ -532,6 +532,28 @@ fn finalize_after_load_on_empty_ecs_is_noop() {
 }
 
 #[test]
+fn finalize_after_load_resets_kinematic_runtime_state_to_authored_defaults() {
+    let mut ecs = Ecs::default();
+    let entity = ecs.create_entity().finish();
+    let loaded: Kinematic = ron::from_str(
+        "(\n    contact_behavior: Stop,\n    motion: (\n        mode: Constant,\n        axis: Horizontal,\n        direction: Negative,\n        speed: 20.0,\n        travel_distance: 12.0,\n    ),\n)",
+    )
+    .unwrap();
+
+    assert!(loaded.is_runtime_enabled());
+    assert!(loaded.is_runtime_running());
+    assert_eq!(loaded.runtime_direction(), KinematicDirection::Positive);
+
+    ecs.get_store_mut::<Kinematic>().insert(entity, loaded);
+    ecs.finalize_after_load();
+
+    let kinematic = ecs.get::<Kinematic>(entity).unwrap();
+    assert!(kinematic.is_runtime_enabled());
+    assert!(kinematic.is_runtime_running());
+    assert_eq!(kinematic.runtime_direction(), KinematicDirection::Negative);
+}
+
+#[test]
 fn post_create_is_wired_in_registry_for_animation() {
     let reg = inventory::iter::<ComponentRegistry>
         .into_iter()

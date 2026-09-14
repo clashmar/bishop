@@ -3,7 +3,7 @@ use engine_core::ecs::*;
 use engine_core::tiles::TileMap;
 use engine_core::worlds::*;
 
-use crate::physics::physics_system::update_physics;
+use crate::physics::tests::update_physics;
 
 const DT: f32 = 1.0 / 60.0;
 const EPSILON: f32 = 0.0001;

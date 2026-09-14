@@ -5,7 +5,7 @@
 ---@class Worlds
 local Worlds = {
     MainWorld = { Id = 1, Name = "Main World" },
-    SecondWorld = { Id = 3, Name = "Second World" },
+    KinematicLab = { Id = 3, Name = "Kinematic Lab" },
     Arcade = { Id = 4, Name = "Arcade" },
 }
 

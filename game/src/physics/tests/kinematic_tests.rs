@@ -6,7 +6,8 @@ use engine_core::worlds::*;
 use crate::physics::collision_world::{shapes_overlap, CollisionWorld};
 use crate::physics::events::{KinematicContactEvent, PhysicsEvent, PhysicsEvents};
 use crate::physics::kinematic::{KinematicFrameMotion, resolve_kinematic_contacts};
-use crate::physics::physics_system::{update_physics, update_physics_with_events};
+use crate::physics::physics_system::update_physics_with_events;
+use crate::physics::tests::update_physics;
 
 const DT: f32 = 1.0 / 60.0;
 const GRID_SIZE: f32 = 16.0;
@@ -566,6 +567,60 @@ fn dynamic_loses_contact_when_supporting_platform_despawns() {
     update_physics(&mut ecs, &world, DT);
 
     assert!(!ecs.get::<Grounded>(rider).unwrap().0);
+}
+
+#[test]
+fn stopped_kinematic_does_not_advance_but_remains_ground_support() {
+    let world = world_with_bottom_border();
+    let mut ecs = Ecs::default();
+    let room_id = RoomId(1);
+    let platform = spawn_kinematic_body(
+        &mut ecs,
+        room_id,
+        Vec2::new(32.0, FLOOR_Y),
+        horizontal_ping_pong(60.0, 64.0, KinematicDirection::Positive),
+    );
+    let rider = spawn_aabb_player(
+        &mut ecs,
+        room_id,
+        Vec2::new(32.0, FLOOR_Y - PLATFORM_HEIGHT),
+    );
+
+    ecs.get_mut::<Kinematic>(platform).unwrap().stop_runtime();
+
+    update_physics(&mut ecs, &world, DT);
+
+    assert_eq!(entity_position(&ecs, platform), Vec2::new(32.0, FLOOR_Y));
+    assert!(ecs.get::<Grounded>(rider).unwrap().0);
+}
+
+#[test]
+fn disabled_trigger_kinematic_does_not_emit_contact_or_block() {
+    let world = world_with_bottom_border();
+    let mut ecs = Ecs::default();
+    let room_id = RoomId(1);
+    let trigger = spawn_kinematic_body_with_behavior(
+        &mut ecs,
+        room_id,
+        Vec2::new(32.0, FLOOR_Y - 8.0),
+        horizontal_constant(0.0),
+        KinematicContactBehavior::Trigger,
+    );
+    let dynamic = spawn_aabb_player(
+        &mut ecs,
+        room_id,
+        Vec2::new(32.0, FLOOR_Y - 8.0),
+    );
+    let mut events = PhysicsEvents::default();
+
+    ecs.get_mut::<Kinematic>(trigger)
+        .unwrap()
+        .set_runtime_enabled(false);
+
+    update_physics_with_events(&mut ecs, &world, DT, &mut events);
+
+    assert!(events.drain().is_empty());
+    assert_eq!(entity_position(&ecs, dynamic), Vec2::new(32.0, FLOOR_Y - 8.0));
 }
 
 #[test]

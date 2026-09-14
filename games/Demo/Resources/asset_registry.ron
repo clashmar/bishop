@@ -60,6 +60,15 @@
         Script((7)): (
             path: "scripts/world_exit_scripted.lua",
         ),
+        Script((8)): (
+            path: "scripts/kinematic_switch.lua",
+        ),
+        Script((9)): (
+            path: "scripts/kinematic_trigger_reactor.lua",
+        ),
+        Script((10)): (
+            path: "scripts/kinematic_crush_reactor.lua",
+        ),
         Prefab((1)): (
             path: "prefabs/Cat.prefab",
         ),

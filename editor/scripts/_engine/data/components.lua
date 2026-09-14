@@ -74,6 +74,8 @@
 ---@field runtime_origin_y number
 ---@field runtime_has_origin boolean
 ---@field runtime_direction table
+---@field runtime_enabled boolean
+---@field runtime_running boolean
 
 ---@class LayerDoor
 ---@field usable boolean

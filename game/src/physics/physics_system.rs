@@ -7,22 +7,30 @@ use crate::physics::kinematic::{
     supporting_kinematic,
     update_kinematic_bodies,
 };
-use engine_core::ecs::*;
-use engine_core::worlds::*;
+use engine_core::ecs::{
+    Active,
+    Collider,
+    CurrentRoom,
+    Ecs,
+    Entity,
+    GravityScale,
+    Grounded,
+    Kinematic,
+    MotionBody,
+    PhysicsBody,
+    Pivot,
+    SubPixel,
+    Transform,
+    Velocity,
+    apply_quantized_delta,
+    quantize_motion,
+    true_position,
+    update_entity_position,
+};
+use engine_core::worlds::{entity_in_world, RoomId, World};
 use std::collections::{HashMap, HashSet};
 
 pub(crate) const SUPPORT_SNAP_DISTANCE: f32 = 0.5;
-
-/// Applies fixed-step movement to `MotionBody`s and full collision physics to `PhysicsBody`s.
-pub(crate) fn update_physics(
-    ecs: &mut Ecs,
-    world: &World,
-    dt: f32,
-) {
-    let mut events = PhysicsEvents::default();
-    update_physics_with_events(ecs, world, dt, &mut events);
-    let _ = events.drain();
-}
 
 /// Applies physics and records generic physics events for later consumers.
 pub(crate) fn update_physics_with_events(
@@ -62,6 +70,7 @@ pub(crate) fn update_physics_with_events(
         }
     }
 
+    let gravity = world.gravity * world.grid_size;
     for room_id in active_room_ids {
         let Some(room) = world.get_room(room_id) else {
             continue;
@@ -74,7 +83,6 @@ pub(crate) fn update_physics_with_events(
             .filter(|motion| motion.contact_behavior.is_solid())
             .collect::<Vec<_>>();
         let dynamic_collision_world = collision_world.with_kinematics(&blocking_kinematics);
-        let gravity = world.gravity * world.grid_size;
 
         let Some(room_entities) = entities_by_room.get(&room_id) else {
             continue;
