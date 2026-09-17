@@ -1,11 +1,11 @@
-use super::{Active, Collider, Grounded, MotionBody, Transform, Velocity};
+use super::{Active, Collider, Grounded, MotionBody, Velocity};
 use crate::inspector_module;
 use ecs_component::ecs_component;
 use reflect_derive::Reflect;
 use serde::{Deserialize, Serialize};
 
 /// Marker for participation in the physics system.
-#[ecs_component(deps = [Active, Collider, Grounded, MotionBody, Transform, Velocity])]
+#[ecs_component(deps = [Active, Collider, Grounded, MotionBody, Velocity])]
 #[derive(Default, Clone, Copy, Serialize, Deserialize, Reflect)]
 pub struct PhysicsBody;
 

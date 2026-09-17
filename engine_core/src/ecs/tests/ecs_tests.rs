@@ -467,6 +467,34 @@ fn on_remove_fires_on_purge_proxies() {
 }
 
 #[test]
+fn set_player_spawn_from_proxy_when_player_has_transform_preserves_z_and_copies_position() {
+    let mut ecs = Ecs::default();
+    let room_id = RoomId(1);
+    let player = ecs
+        .create_entity()
+        .with(Player)
+        .with(Transform {
+            z: 7,
+            ..Default::default()
+        })
+        .finish();
+    ecs.create_entity()
+        .with(PlayerProxy)
+        .with(Transform {
+            position: Vec2::new(28.0, 72.0),
+            ..Default::default()
+        })
+        .with_current_room(room_id)
+        .finish();
+
+    ecs.set_player_spawn_from_proxy(room_id);
+
+    let transform = ecs.get::<Transform>(player).unwrap();
+    assert_eq!(transform.position, Vec2::new(28.0, 72.0));
+    assert_eq!(transform.z, 7);
+}
+
+#[test]
 fn replace_component_updates_store_value() {
     let mut ecs = Ecs::default();
     let entity = ecs.create_entity().with(Transform::default()).finish();

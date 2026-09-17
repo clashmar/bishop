@@ -72,6 +72,9 @@
         Script((11)): (
             path: "scripts/sensor_probe.lua",
         ),
+        Script((12)): (
+            path: "scripts/sensor_analytics.lua",
+        ),
         Prefab((1)): (
             path: "prefabs/Cat.prefab",
         ),

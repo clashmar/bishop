@@ -227,8 +227,7 @@ mod tests {
         PrefabInstanceNode, PrefabInstanceRoot, PrefabOverrides,
     };
     use crate::ecs::{
-        Active, Collider, CurrentRoom, Grounded, MotionBody, PhysicsBody, Sensor, Solid,
-        Transform, Velocity,
+        Active, Collider, CurrentRoom, Grounded, MotionBody, PhysicsBody, Sensor, Solid, Velocity,
     };
 
     const DUMMY_TYPE_NAME: &str = "DummyComponent";
@@ -325,7 +324,6 @@ mod tests {
         assert!(ecs.has::<Collider>(entity));
         assert!(ecs.has::<Grounded>(entity));
         assert!(ecs.has::<MotionBody>(entity));
-        assert!(ecs.has::<Transform>(entity));
         assert!(ecs.has::<Velocity>(entity));
     }
 
@@ -340,7 +338,6 @@ mod tests {
         assert!(reg.deps.contains(&Collider::TYPE_NAME));
         assert!(reg.deps.contains(&Grounded::TYPE_NAME));
         assert!(reg.deps.contains(&MotionBody::TYPE_NAME));
-        assert!(reg.deps.contains(&Transform::TYPE_NAME));
         assert!(reg.deps.contains(&Velocity::TYPE_NAME));
     }
 

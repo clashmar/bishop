@@ -482,6 +482,26 @@ fn pruning_selection_in_active_layer_keeps_existing_entity_inspector() {
 }
 
 #[test]
+fn pruning_selection_keeps_global_entities_without_current_room() {
+    let mut editor = RoomEditor::new();
+    let mut ecs = Ecs::default();
+    let room_id = RoomId(7);
+    let global_entity = ecs
+        .create_entity()
+        .with(Global::default())
+        .with(Name("Global Entity".to_string()))
+        .finish();
+
+    editor.set_selected_entity(Some(global_entity));
+    editor.active_layer_state.active_layer = RoomLayer::Front;
+
+    editor.prune_selection_to_active_layer(&ecs, room_id);
+
+    assert_eq!(editor.single_selected_entity(), Some(global_entity));
+    assert_eq!(editor.inspector.selected_entity(), Some(global_entity));
+}
+
+#[test]
 fn overlapping_entity_selection_same_z_prefers_higher_entity_id() {
     let lower = Entity(4);
     let higher = Entity(9);

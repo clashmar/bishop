@@ -354,7 +354,10 @@ impl RoomEditor {
         let active_layer = self.active_layer_state.active_layer;
         let selected_count = self.selected_entities.len();
         self.selected_entities
-            .retain(|entity| can_select_entity_in_room_layer(ecs, *entity, room_id, active_layer));
+            .retain(|entity| {
+                ecs.has::<Global>(*entity)
+                    || can_select_entity_in_room_layer(ecs, *entity, room_id, active_layer)
+            });
         if self.selected_entities.len() != selected_count {
             self.sync_inspector_to_selection();
         }
