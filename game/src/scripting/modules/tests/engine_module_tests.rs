@@ -5,7 +5,7 @@ use crate::transitions::world_transitions::DestinationSelector;
 use crate::scripting::modules::engine_module::EngineModule;
 use engine_core::ecs::{Entity, Player, Transform};
 use engine_core::game::Game;
-use engine_core::scripting::lua_constants::{lua_engine, lua_fields};
+use engine_core::scripting::lua_constants::{lua_engine, lua_events, lua_fields};
 use engine_core::scripting::modules::lua_module::{LuaApi, LuaApiWriter};
 use engine_core::scripting::LuaModule;
 use engine_core::worlds::{RoomId, RoomLayer, World, WorldId, WorldTransitionMode};
@@ -104,6 +104,27 @@ fn emit_api_when_called_documents_restore_location_payload() {
         "function engine.{}(location) end",
         lua_engine::RESTORE_LOCATION
     )));
+}
+
+#[test]
+fn engine_module_register_when_loaded_exposes_sensor_event_constants() {
+    let (lua, _game_instance, _player) = setup_engine_lua();
+    let globals = lua.globals();
+    let engine: mlua::Table = globals.get(lua_engine::ENGINE).unwrap();
+    let events: mlua::Table = engine.get(lua_events::EVENTS).unwrap();
+
+    assert_eq!(
+        events.get::<String>(lua_events::SENSOR_ENTER_FIELD).unwrap(),
+        lua_events::SENSOR_ENTER
+    );
+    assert_eq!(
+        events.get::<String>(lua_events::SENSOR_STAY_FIELD).unwrap(),
+        lua_events::SENSOR_STAY
+    );
+    assert_eq!(
+        events.get::<String>(lua_events::SENSOR_EXIT_FIELD).unwrap(),
+        lua_events::SENSOR_EXIT
+    );
 }
 
 fn setup_engine_lua() -> (Lua, Rc<RefCell<GameInstance>>, Entity) {

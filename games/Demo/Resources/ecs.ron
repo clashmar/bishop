@@ -13,6 +13,7 @@
                 (332): true,
                 (334): true,
                 (335): true,
+                (336): true,
             },
         ),
         (
@@ -206,6 +207,13 @@
                     shape: Aabb(
                         width: 8.0,
                         height: 8.0,
+                    ),
+                    offset: (0.0, 0.0),
+                ),
+                (336): (
+                    shape: Aabb(
+                        width: 40.0,
+                        height: 40.0,
                     ),
                     offset: (0.0, 0.0),
                 ),
@@ -569,6 +577,10 @@
                     room_id: (4),
                     layer: front,
                 ),
+                (336): (
+                    room_id: (2),
+                    layer: front,
+                ),
             },
         ),
         (
@@ -761,6 +773,7 @@
                 (332): ("Crush Callback Fixture"),
                 (334): ("Crush Wall"),
                 (335): ("Hybrid Trigger Fixture"),
+                (336): ("Entity"),
             },
         ),
         (
@@ -974,6 +987,18 @@
                         fields: {},
                     ),
                 ),
+                (336): (
+                    script_id: (11),
+                    data: (
+                        fields: {},
+                    ),
+                ),
+            },
+        ),
+        (
+            type_name: "Sensor",
+            data: {
+                (336): (),
             },
         ),
         (
@@ -1041,6 +1066,9 @@
                 ),
                 (335): (
                     sprite: (11),
+                ),
+                (336): (
+                    sprite: (13),
                 ),
             },
         ),
@@ -1327,7 +1355,7 @@
                 ),
                 (24): (
                     visible: true,
-                    position: (-32.0, 18.0),
+                    position: (-64.0, 36.0),
                     pivot: CenterLeft,
                     z: 0,
                 ),
@@ -1339,7 +1367,7 @@
                 ),
                 (38): (
                     visible: true,
-                    position: (-42.0, 36.0),
+                    position: (-92.0, 72.0),
                     pivot: BottomCenter,
                     z: 0,
                 ),
@@ -1351,7 +1379,7 @@
                 ),
                 (46): (
                     visible: true,
-                    position: (-22.0, 36.0),
+                    position: (-60.0, 72.0),
                     pivot: BottomCenter,
                     z: 0,
                 ),
@@ -1472,6 +1500,12 @@
                 (335): (
                     visible: true,
                     position: (87.39484, 18.254787),
+                    pivot: BottomCenter,
+                    z: 0,
+                ),
+                (336): (
+                    visible: true,
+                    position: (-28.0, 72.0),
                     pivot: BottomCenter,
                     z: 0,
                 ),

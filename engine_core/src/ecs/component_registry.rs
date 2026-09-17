@@ -4,6 +4,8 @@ use crate::ecs::components::{
     Cover,
     LayerDoor,
     RoomCamera,
+    Sensor,
+    Solid,
     Sprite,
     TilePlacement,
     WorldEntry,
@@ -38,6 +40,7 @@ pub static COMPONENT_CONFLICT_GROUPS: &[&[&str]] = &[
     &[LayerDoor::TYPE_NAME, WorldExit::TYPE_NAME],
     &[LayerDoor::TYPE_NAME, TilePlacement::TYPE_NAME],
     &[LayerDoor::TYPE_NAME, Cover::TYPE_NAME],
+    &[Sensor::TYPE_NAME, Solid::TYPE_NAME],
 ];
 
 inventory::collect!(ComponentRegistry);
@@ -224,7 +227,8 @@ mod tests {
         PrefabInstanceNode, PrefabInstanceRoot, PrefabOverrides,
     };
     use crate::ecs::{
-        Active, Collider, CurrentRoom, Grounded, MotionBody, PhysicsBody, Transform, Velocity,
+        Active, Collider, CurrentRoom, Grounded, MotionBody, PhysicsBody, Sensor, Solid,
+        Transform, Velocity,
     };
 
     const DUMMY_TYPE_NAME: &str = "DummyComponent";
@@ -338,6 +342,50 @@ mod tests {
         assert!(reg.deps.contains(&MotionBody::TYPE_NAME));
         assert!(reg.deps.contains(&Transform::TYPE_NAME));
         assert!(reg.deps.contains(&Velocity::TYPE_NAME));
+    }
+
+    #[test]
+    fn sensor_inserter_when_dependencies_missing_adds_collider() {
+        let mut ecs = Ecs::default();
+        let entity = Entity(7);
+
+        generic_inserter::<Sensor>(&mut ecs, entity, Box::new(Sensor));
+
+        assert!(ecs.has::<Collider>(entity));
+    }
+
+    #[test]
+    fn sensor_registry_when_registered_declares_required_dependencies() {
+        let reg = COMPONENTS
+            .iter()
+            .find(|r| r.type_name == Sensor::TYPE_NAME)
+            .unwrap_or_else(|| panic!("{} must be registered", Sensor::TYPE_NAME));
+
+        assert!(reg.deps.contains(&Collider::TYPE_NAME));
+    }
+
+    #[test]
+    fn sensor_conflicts_when_conflict_groups_checked_conflicts_with_solid() {
+        let group = COMPONENT_CONFLICT_GROUPS
+            .iter()
+            .find(|group| group.contains(&Sensor::TYPE_NAME) && group.contains(&Solid::TYPE_NAME));
+
+        assert!(
+            group.is_some(),
+            "Sensor and Solid must be in a conflict group together"
+        );
+    }
+
+    #[test]
+    fn sensor_removal_block_when_collider_removed_reports_sensor_dependency() {
+        let mut ecs = Ecs::default();
+        let entity = Entity(1);
+        generic_inserter::<Sensor>(&mut ecs, entity, Box::new(Sensor));
+
+        assert_eq!(
+            component_removal_blocked_by(Collider::TYPE_NAME, entity, &ecs),
+            Some(Sensor::TYPE_NAME),
+        );
     }
 
     #[test]

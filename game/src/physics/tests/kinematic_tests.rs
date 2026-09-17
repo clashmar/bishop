@@ -6,11 +6,11 @@ use engine_core::worlds::*;
 use crate::physics::collision_world::{shapes_overlap, CollisionWorld};
 use crate::physics::events::{KinematicContactEvent, PhysicsEvent, PhysicsEvents};
 use crate::physics::kinematic::{KinematicFrameMotion, resolve_kinematic_contacts};
-use crate::physics::physics_system::update_physics_with_events;
+use crate::physics::physics_system::update_physics as update_physics_system;
+use crate::physics::runtime::PhysicsRuntime;
+use crate::physics::tests::physics_fixtures::{horizontal_constant, DT, GRID_SIZE};
 use crate::physics::tests::update_physics;
 
-const DT: f32 = 1.0 / 60.0;
-const GRID_SIZE: f32 = 16.0;
 const ROOM_HEIGHT_TILES: usize = 6;
 const FLOOR_Y: f32 = ROOM_HEIGHT_TILES as f32 * GRID_SIZE;
 const PLATFORM_WIDTH: f32 = 40.0;
@@ -37,20 +37,6 @@ fn world_with_bottom_border() -> World {
     world.current_room_id = Some(room.id);
     world.add_room(room);
     world
-}
-
-fn horizontal_constant(speed: f32) -> KinematicMotion {
-    KinematicMotion {
-        mode: KinematicMotionMode::Constant,
-        axis: KinematicAxis::Horizontal,
-        direction: if speed >= 0.0 {
-            KinematicDirection::Positive
-        } else {
-            KinematicDirection::Negative
-        },
-        speed: speed.abs(),
-        travel_distance: 0.0,
-    }
 }
 
 fn vertical_constant(speed: f32) -> KinematicMotion {
@@ -611,15 +597,15 @@ fn disabled_trigger_kinematic_does_not_emit_contact_or_block() {
         room_id,
         Vec2::new(32.0, FLOOR_Y - 8.0),
     );
-    let mut events = PhysicsEvents::default();
+    let mut runtime = PhysicsRuntime::default();
 
     ecs.get_mut::<Kinematic>(trigger)
         .unwrap()
         .set_runtime_enabled(false);
 
-    update_physics_with_events(&mut ecs, &world, DT, &mut events);
+    update_physics_system(&mut ecs, &world, DT, &mut runtime);
 
-    assert!(events.drain().is_empty());
+    assert!(runtime.events_mut().drain().is_empty());
     assert_eq!(entity_position(&ecs, dynamic), Vec2::new(32.0, FLOOR_Y - 8.0));
 }
 
@@ -807,11 +793,11 @@ fn trigger_policy_emits_contact_without_pushing_dynamic() {
         KinematicContactBehavior::Trigger,
     );
 
-    let mut events = PhysicsEvents::default();
-    update_physics_with_events(&mut ecs, &world, DT, &mut events);
+    let mut runtime = PhysicsRuntime::default();
+    update_physics_system(&mut ecs, &world, DT, &mut runtime);
 
     assert_eq!(entity_position(&ecs, rider).x, 48.0);
-    assert!(events.drain().iter().any(|event| {
+    assert!(runtime.events_mut().drain().iter().any(|event| {
         matches!(
             event,
             PhysicsEvent::KinematicContact(KinematicContactEvent::Contact { kinematic, dynamic })
@@ -838,11 +824,11 @@ fn kinematic_crush_policy_pushes_dynamic_when_not_pinned() {
         KinematicContactBehavior::Crush,
     );
 
-    let mut events = PhysicsEvents::default();
-    update_physics_with_events(&mut ecs, &world, DT, &mut events);
+    let mut runtime = PhysicsRuntime::default();
+    update_physics_system(&mut ecs, &world, DT, &mut runtime);
 
     assert!(entity_position(&ecs, rider).x > 48.0);
-    assert!(!events.drain().iter().any(|event| {
+    assert!(!runtime.events_mut().drain().iter().any(|event| {
         matches!(
             event,
             PhysicsEvent::KinematicContact(KinematicContactEvent::Crushed { kinematic, dynamic })
@@ -929,10 +915,10 @@ fn kinematic_crush_policy_reports_crushed_dynamic() {
         KinematicContactBehavior::Crush,
     );
 
-    let mut events = PhysicsEvents::default();
-    update_physics_with_events(&mut ecs, &world, DT, &mut events);
+    let mut runtime = PhysicsRuntime::default();
+    update_physics_system(&mut ecs, &world, DT, &mut runtime);
 
-    assert!(events.drain().iter().any(|event| {
+    assert!(runtime.events_mut().drain().iter().any(|event| {
         matches!(
             event,
             PhysicsEvent::KinematicContact(KinematicContactEvent::Crushed { kinematic, dynamic })

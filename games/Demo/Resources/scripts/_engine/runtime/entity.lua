@@ -34,6 +34,7 @@ function Entity:despawn() end
 ---@overload fun(self: Entity, component: "PlayerProxy"): PlayerProxy
 ---@overload fun(self: Entity, component: "RoomCamera"): RoomCamera
 ---@overload fun(self: Entity, component: "Script"): Script
+---@overload fun(self: Entity, component: "Sensor"): Sensor
 ---@overload fun(self: Entity, component: "Solid"): Solid
 ---@overload fun(self: Entity, component: "SpeechBubble"): SpeechBubble
 ---@overload fun(self: Entity, component: "Sprite"): Sprite
@@ -149,6 +150,10 @@ function Entity:set_room_camera(v) end
 ---@param self Entity
 ---@param v Script
 function Entity:set_script(v) end
+
+---@param self Entity
+---@param v Sensor
+function Entity:set_sensor(v) end
 
 ---@param self Entity
 ---@param v Solid

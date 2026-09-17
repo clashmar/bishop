@@ -1,6 +1,6 @@
 use bishop::Vec2;
 use crate::engine::GameInstance;
-use crate::physics::events::{KinematicContactEvent, PhysicsEvents};
+use crate::physics::events::{emit_physics_events, KinematicContactEvent, PhysicsEvents, SensorEvent};
 use crate::save_system::SaveProviderRegistry;
 use crate::scripting::lua_ctx::register_save_lua_context;
 use crate::scripting::modules::entity_module::{lua_entity_handle, EntityHandle};
@@ -27,6 +27,7 @@ use engine_core::scripting::lua_constants::{
     lua_files,
     lua_globals,
     lua_kinematic,
+    lua_sensor,
 };
 use engine_core::storage::test_utils::{game_fs_test_lock, TestGameFolder};
 use engine_core::storage::{game_folder, load_game_shell_from_folder};
@@ -269,7 +270,7 @@ fn emit_physics_events_forwards_trigger_and_crush_to_global_bus() {
         dynamic: Entity(22),
     });
 
-    instance.emit_physics_events(&lua, &mut events);
+    emit_physics_events(&lua, &instance.game, &mut events);
 
     assert_eq!(
         capture.borrow().as_slice(),
@@ -304,8 +305,8 @@ fn emit_physics_events_drains_each_event_once() {
         dynamic: Entity(2),
     });
 
-    instance.emit_physics_events(&lua, &mut events);
-    instance.emit_physics_events(&lua, &mut events);
+    emit_physics_events(&lua, &instance.game, &mut events);
+    emit_physics_events(&lua, &instance.game, &mut events);
 
     assert_eq!(capture.borrow().as_slice(), [lua_kinematic::KIND_TRIGGER]);
     assert!(events.drain().is_empty());
@@ -335,7 +336,7 @@ fn emit_physics_events_calls_local_callbacks_on_both_entities() {
     let mut events = PhysicsEvents::default();
     events.push_kinematic_contact(KinematicContactEvent::Contact { kinematic, dynamic: other });
 
-    instance.emit_physics_events(&lua, &mut events);
+    emit_physics_events(&lua, &instance.game, &mut events);
 
     assert_eq!(
         script_field(&instance.game, kinematic, "hit"),
@@ -384,12 +385,93 @@ fn callback_error_does_not_block_other_callback_or_global_listener() {
     let mut events = PhysicsEvents::default();
     events.push_kinematic_contact(KinematicContactEvent::Contact { kinematic, dynamic: other });
 
-    instance.emit_physics_events(&lua, &mut events);
+    emit_physics_events(&lua, &instance.game, &mut events);
 
     assert_eq!(capture.borrow().as_slice(), [lua_kinematic::KIND_TRIGGER]);
     assert_eq!(
         script_field(&instance.game, other, "ok"),
         lua_kinematic::KIND_TRIGGER
+    );
+}
+
+#[test]
+fn emit_physics_events_when_sensor_events_present_forwards_to_global_bus() {
+    let lua = Lua::new();
+    let capture = Rc::new(RefCell::new(Vec::<String>::new()));
+    let instance = test_game_instance();
+    let event_bus = instance.game.script_manager.event_bus.clone();
+
+    for event_name in [
+        lua_events::SENSOR_ENTER,
+        lua_events::SENSOR_STAY,
+        lua_events::SENSOR_EXIT,
+    ] {
+        let capture = capture.clone();
+        event_bus.on(
+            event_name.to_string(),
+            lua.create_function(move |_, event: mlua::Table| {
+                let sensor: AnyUserData = event.get(lua_sensor::EVENT_SENSOR)?;
+                let sensor = sensor.borrow::<EntityHandle>()?;
+                let body: AnyUserData = event.get(lua_sensor::EVENT_BODY)?;
+                let body = body.borrow::<EntityHandle>()?;
+                let kind: String = event.get(lua_sensor::EVENT_KIND)?;
+                capture.borrow_mut().push(format!("{}:{}:{}", *sensor.entity, *body.entity, kind));
+                Ok(())
+            })
+            .unwrap(),
+        );
+    }
+
+    let mut events = PhysicsEvents::default();
+    events.push_sensor(SensorEvent::Enter { body: Entity(22), sensor: Entity(11) });
+    events.push_sensor(SensorEvent::Stay { body: Entity(22), sensor: Entity(11) });
+    events.push_sensor(SensorEvent::Exit { body: Entity(22), sensor: Entity(11) });
+
+    emit_physics_events(&lua, &instance.game, &mut events);
+
+    assert_eq!(
+        capture.borrow().as_slice(),
+        [
+            format!("11:22:{}", lua_sensor::KIND_ENTER),
+            format!("11:22:{}", lua_sensor::KIND_STAY),
+            format!("11:22:{}", lua_sensor::KIND_EXIT),
+        ],
+    );
+}
+
+#[test]
+fn emit_physics_events_when_sensor_event_present_calls_local_callbacks_on_body_and_sensor() {
+    let lua = Lua::new();
+    let mut game = Game::default();
+    let sensor = spawn_scripted_entity(
+        &mut game,
+        &lua,
+        &local_callback_script(
+            lua_sensor::CALLBACK_SENSOR_ENTER,
+            "self.hit = event.role .. ':' .. event.kind .. ':' .. (event.other ~= nil and 'other' or 'missing')",
+        ),
+    );
+    let body = spawn_scripted_entity(
+        &mut game,
+        &lua,
+        &local_callback_script(
+            lua_sensor::CALLBACK_SENSOR_ENTER,
+            "self.hit = event.role .. ':' .. event.kind .. ':' .. (event.other ~= nil and 'other' or 'missing')",
+        ),
+    );
+    let instance = test_game_instance_with(game);
+    let mut events = PhysicsEvents::default();
+    events.push_sensor(SensorEvent::Enter { body, sensor });
+
+    emit_physics_events(&lua, &instance.game, &mut events);
+
+    assert_eq!(
+        script_field(&instance.game, sensor, "hit"),
+        format!("{}:{}:other", lua_sensor::ROLE_SENSOR, lua_sensor::KIND_ENTER)
+    );
+    assert_eq!(
+        script_field(&instance.game, body, "hit"),
+        format!("{}:{}:other", lua_sensor::ROLE_BODY, lua_sensor::KIND_ENTER)
     );
 }
 
@@ -417,7 +499,7 @@ fn emit_physics_events_calls_local_crush_callbacks_on_both_entities() {
     let mut events = PhysicsEvents::default();
     events.push_kinematic_contact(KinematicContactEvent::Crushed { kinematic, dynamic: other });
 
-    instance.emit_physics_events(&lua, &mut events);
+    emit_physics_events(&lua, &instance.game, &mut events);
 
     assert_eq!(
         script_field(&instance.game, kinematic, "hit"),

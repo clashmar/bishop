@@ -78,10 +78,26 @@ struct SolidObj {
     interior_zone: Option<InteriorZoneId>,
 }
 
+#[derive(Clone, Copy)]
+struct ColliderSnapshot {
+    aabb: (Vec2, Vec2),
+    collider: Collider,
+    position: Vec2,
+    pivot: Pivot,
+}
+
+#[derive(Clone)]
+struct SensorObj {
+    shape: ColliderSnapshot,
+    entity: Entity,
+    layer: RoomLayer,
+}
+
 /// Collision world built once per frame per room. Owns its obstacle data.
 #[derive(Clone)]
 pub struct CollisionWorld {
     solids: Vec<SolidObj>,
+    sensors: Vec<SensorObj>,
     entity_layers: HashMap<Entity, RoomLayer>,
     back_interior_zones: Vec<InteriorZone>,
 }
@@ -147,13 +163,14 @@ impl CollisionWorld {
             let Some(transform) = ecs.get::<Transform>(entity) else {
                 continue;
             };
-            let collider = ecs.get::<Collider>(entity).copied().unwrap_or_default();
-            let entity_aabb =
-                shapes::collider_aabb(transform.position, collider, transform.pivot);
+            let snapshot = collider_snapshot(
+                transform,
+                ecs.get::<Collider>(entity).copied().unwrap_or_default(),
+            );
             solids.push(SolidObj {
-                aabb: entity_aabb,
-                shape: collider.shape,
-                shape_pos: entity_aabb.0,
+                aabb: snapshot.aabb,
+                shape: snapshot.collider.shape,
+                shape_pos: snapshot.aabb.0,
                 entity: Some(entity),
                 layer: Some(layer),
                 interior_zone: None,
@@ -162,9 +179,15 @@ impl CollisionWorld {
 
         CollisionWorld {
             solids,
+            sensors: sensor_objects(ecs, &entity_layers),
             entity_layers,
             back_interior_zones,
         }
+    }
+
+    pub(crate) fn with_current_sensors(mut self, ecs: &Ecs) -> Self {
+        self.sensors = sensor_objects(ecs, &self.entity_layers);
+        self
     }
 
     pub(crate) fn with_kinematics(mut self, kinematics: &[KinematicFrameMotion]) -> Self {
@@ -189,6 +212,40 @@ impl CollisionWorld {
         let mut filtered = self.clone();
         filtered.solids.retain(|solid| solid.entity != Some(entity));
         filtered
+    }
+
+    /// Returns sensor entities currently overlapped by the moving collider.
+    pub(crate) fn check_sensor_overlaps(
+        &self,
+        moving_entity: Entity,
+        position: Vec2,
+        collider: Collider,
+        pivot: Pivot,
+    ) -> Vec<Entity> {
+        let moving_aabb = shapes::collider_aabb(position, collider, pivot);
+        let moving_layer = self
+            .entity_layers
+            .get(&moving_entity)
+            .copied()
+            .unwrap_or(RoomLayer::Front);
+
+        self.sensors
+            .iter()
+            .filter(|sensor| sensor.entity != moving_entity)
+            .filter(|sensor| sensor.layer == moving_layer)
+            .filter(|sensor| shapes::aabb_overlap(moving_aabb, sensor.shape.aabb).is_some())
+            .filter(|sensor| {
+                shapes_overlap(
+                    position,
+                    collider,
+                    pivot,
+                    sensor.shape.position,
+                    sensor.shape.collider,
+                    sensor.shape.pivot,
+                )
+            })
+            .map(|sensor| sensor.entity)
+            .collect()
     }
 
     /// Sweep the moving entity's collider from `entity_position` by `desired_delta`,
@@ -313,6 +370,39 @@ impl CollisionWorld {
             .iter()
             .find(|zone| zone.bounds.contains(center))
             .map(|zone| zone.id)
+    }
+}
+
+fn sensor_objects(ecs: &Ecs, entity_layers: &HashMap<Entity, RoomLayer>) -> Vec<SensorObj> {
+    let mut sensors = Vec::new();
+    for (&entity, &layer) in entity_layers {
+        if ecs.get::<TilePlacement>(entity).is_some() {
+            continue;
+        }
+        if ecs.get::<Sensor>(entity).is_none() {
+            continue;
+        }
+        let Some(transform) = ecs.get::<Transform>(entity) else {
+            continue;
+        };
+        let Some(collider) = ecs.get::<Collider>(entity).copied() else {
+            continue;
+        };
+        sensors.push(SensorObj {
+            shape: collider_snapshot(transform, collider),
+            entity,
+            layer,
+        });
+    }
+    sensors
+}
+
+fn collider_snapshot(transform: &Transform, collider: Collider) -> ColliderSnapshot {
+    ColliderSnapshot {
+        aabb: shapes::collider_aabb(transform.position, collider, transform.pivot),
+        collider,
+        position: transform.position,
+        pivot: transform.pivot,
     }
 }
 

@@ -203,6 +203,9 @@ impl LuaModule for EngineModule {
         events_tbl.set(lua_events::WORLD_ENTERED_FIELD, lua_events::WORLD_ENTERED)?;
         events_tbl.set(lua_events::SAVE_SUCCEEDED_FIELD, lua_events::SAVE_SUCCEEDED)?;
         events_tbl.set(lua_events::SAVE_FAILED_FIELD, lua_events::SAVE_FAILED)?;
+        events_tbl.set(lua_events::SENSOR_ENTER_FIELD, lua_events::SENSOR_ENTER)?;
+        events_tbl.set(lua_events::SENSOR_STAY_FIELD, lua_events::SENSOR_STAY)?;
+        events_tbl.set(lua_events::SENSOR_EXIT_FIELD, lua_events::SENSOR_EXIT)?;
 
         let asset_tbl = match engine_tbl.get::<Option<Table>>(lua_engine::ASSET)? {
             Some(table) => table,
@@ -477,6 +480,21 @@ impl LuaApi for EngineModule {
             "engine.events.{} = \"{}\"",
             lua_events::SAVE_FAILED_FIELD,
             lua_events::SAVE_FAILED
+        ));
+        out.line(&format!(
+            "engine.events.{} = \"{}\"",
+            lua_events::SENSOR_ENTER_FIELD,
+            lua_events::SENSOR_ENTER
+        ));
+        out.line(&format!(
+            "engine.events.{} = \"{}\"",
+            lua_events::SENSOR_STAY_FIELD,
+            lua_events::SENSOR_STAY
+        ));
+        out.line(&format!(
+            "engine.events.{} = \"{}\"",
+            lua_events::SENSOR_EXIT_FIELD,
+            lua_events::SENSOR_EXIT
         ));
         out.line("");
 

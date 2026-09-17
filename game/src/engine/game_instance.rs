@@ -1,20 +1,14 @@
 use bishop::prelude::*;
-use crate::physics::events::{KinematicContactEvent, PhysicsEvent, PhysicsEvents};
-use crate::scripting::commands::entity::lookup_entity_function;
-use crate::scripting::modules::entity_module::lua_entity_handle;
 use crate::scripting::script_system::ScriptSystem;
 use engine_core::camera::{get_room_cameras, CameraManager};
 use engine_core::diagnostics::TraversalResidencyDiagnostics;
 use engine_core::ecs::{Active, CurrentRoom, Entity, SubPixel, Transform, WorldEntry};
 use engine_core::game::Game;
-use engine_core::logging::omni_error;
 use engine_core::menu::{drain_menu_events, drain_slider_events};
 use engine_core::rendering::{visual_position, RoomRenderState};
-use engine_core::scripting::lua_constants::{lua_events, lua_kinematic};
 use engine_core::storage::hydrate_initial_payloads_for_runtime;
 use engine_core::worlds::{Room, RoomId, RoomLayer};
 use mlua::Lua;
-use mlua::Table;
 use mlua::Value;
 use mlua::Variadic;
 use std::collections::HashMap;
@@ -167,17 +161,6 @@ impl GameInstance {
         self.emit_menu_events();
     }
 
-    /// Drains retained physics events and forwards them to the global Lua event bus.
-    pub(crate) fn emit_physics_events(&self, lua: &Lua, events: &mut PhysicsEvents) {
-        for event in events.drain() {
-            match event {
-                PhysicsEvent::KinematicContact(contact) => {
-                    self.emit_kinematic_global_event(lua, contact)
-                }
-            }
-        }
-    }
-
     /// Updates the previous position for all active entities.
     pub fn store_previous_positions(&mut self, camera_manager: &mut CameraManager) {
         let ecs = &self.game.ecs;
@@ -244,111 +227,6 @@ impl GameInstance {
         RoomLayer::Front
     }
 
-    fn emit_kinematic_global_event(&self, lua: &Lua, event: KinematicContactEvent) {
-        let Ok(payload) = self.kinematic_event_payload(lua, event) else {
-            omni_error!("Failed to build kinematic Lua event payload for {:?}", event);
-            return;
-        };
-
-        self.game.script_manager.event_bus.emit(
-            kinematic_event_name(event).to_string(),
-            Variadic::from_iter([Value::Table(payload.clone())]),
-        );
-        self.emit_kinematic_local_callbacks(lua, event, &payload);
-    }
-
-    fn kinematic_event_payload(&self, lua: &Lua, event: KinematicContactEvent) -> mlua::Result<Table> {
-        let payload = lua.create_table()?;
-        payload.set(
-            lua_kinematic::EVENT_KINEMATIC,
-            lua_entity_handle(lua, event.kinematic())?,
-        )?;
-        payload.set(
-            lua_kinematic::EVENT_OTHER,
-            lua_entity_handle(lua, event.other())?,
-        )?;
-        payload.set(lua_kinematic::EVENT_KIND, kinematic_event_kind(event))?;
-        Ok(payload)
-    }
-
-    fn emit_kinematic_local_callbacks(
-        &self,
-        lua: &Lua,
-        event: KinematicContactEvent,
-        payload: &Table,
-    ) {
-        let callback_name = match event {
-            KinematicContactEvent::Contact { .. } => lua_kinematic::CALLBACK_KINEMATIC_CONTACT,
-            KinematicContactEvent::Crushed { .. } => lua_kinematic::CALLBACK_KINEMATIC_CRUSHED,
-        };
-
-        self.emit_kinematic_local_callback(
-            lua,
-            event.kinematic(),
-            lua_kinematic::ROLE_KINEMATIC,
-            callback_name,
-            payload,
-        );
-        self.emit_kinematic_local_callback(
-            lua,
-            event.other(),
-            lua_kinematic::ROLE_OTHER,
-            callback_name,
-            payload,
-        );
-    }
-
-    fn emit_kinematic_local_callback(
-        &self,
-        lua: &Lua,
-        entity: Entity,
-        role: &'static str,
-        callback_name: &'static str,
-        payload: &Table,
-    ) {
-        let Some((instance, func)) = lookup_entity_function(&self.game, entity, callback_name)
-        else {
-            return;
-        };
-        let Ok(local_payload) = self.kinematic_local_payload(lua, payload, entity, role) else {
-            omni_error!(
-                "Failed to build kinematic local payload for {:?} on {:?}",
-                callback_name,
-                entity
-            );
-            return;
-        };
-
-        if let Err(err) = func.call::<()>((instance, local_payload)) {
-            omni_error!(
-                "Kinematic callback '{}' failed for {:?}: {}",
-                callback_name,
-                entity,
-                err
-            );
-        }
-    }
-
-    fn kinematic_local_payload(
-        &self,
-        lua: &Lua,
-        payload: &Table,
-        entity: Entity,
-        role: &'static str,
-    ) -> mlua::Result<Table> {
-        let local_payload = lua.create_table()?;
-        for pair in payload.pairs::<String, Value>() {
-            let (key, value) = pair?;
-            local_payload.set(key, value)?;
-        }
-        local_payload.set(
-            lua_kinematic::EVENT_SELF_ENTITY,
-            lua_entity_handle(lua, entity)?,
-        )?;
-        local_payload.set(lua_kinematic::EVENT_ROLE, role)?;
-        Ok(local_payload)
-    }
-
     /// Drains pending menu action events and emits them to the Lua event bus.
     fn emit_menu_events(&self) {
         let events = drain_menu_events();
@@ -369,19 +247,5 @@ impl GameInstance {
                 Variadic::from_iter([Value::Number(value as f64)]),
             );
         }
-    }
-}
-
-fn kinematic_event_name(event: KinematicContactEvent) -> &'static str {
-    match event {
-        KinematicContactEvent::Contact { .. } => lua_events::KINEMATIC_CONTACT,
-        KinematicContactEvent::Crushed { .. } => lua_events::KINEMATIC_CRUSHED,
-    }
-}
-
-fn kinematic_event_kind(event: KinematicContactEvent) -> &'static str {
-    match event {
-        KinematicContactEvent::Contact { .. } => lua_kinematic::KIND_TRIGGER,
-        KinematicContactEvent::Crushed { .. } => lua_kinematic::KIND_CRUSHED,
     }
 }

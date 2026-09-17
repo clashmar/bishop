@@ -113,6 +113,9 @@
 ---@field script_id number
 ---@field data table
 
+--- Marker component
+---@class Sensor
+
 ---@alias Solid boolean
 
 ---@class SpeechBubble
@@ -183,6 +186,7 @@
 ---@field PlayerProxy "PlayerProxy"
 ---@field RoomCamera "RoomCamera"
 ---@field Script "Script"
+---@field Sensor "Sensor"
 ---@field Solid "Solid"
 ---@field SpeechBubble "SpeechBubble"
 ---@field Sprite "Sprite"
@@ -220,6 +224,7 @@ C.Player = "Player"
 C.PlayerProxy = "PlayerProxy"
 C.RoomCamera = "RoomCamera"
 C.Script = "Script"
+C.Sensor = "Sensor"
 C.Solid = "Solid"
 C.SpeechBubble = "SpeechBubble"
 C.Sprite = "Sprite"

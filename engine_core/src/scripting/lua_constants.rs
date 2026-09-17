@@ -173,6 +173,24 @@ pub mod lua_kinematic {
     pub const KIND_CRUSHED: &str = "crushed";
 }
 
+/// Sensor Lua constants.
+pub mod lua_sensor {
+    pub const EVENT_SENSOR: &str = "sensor";
+    pub const EVENT_BODY: &str = "body";
+    pub const EVENT_OTHER: &str = "other";
+    pub const EVENT_SELF_ENTITY: &str = "self_entity";
+    pub const EVENT_ROLE: &str = "role";
+    pub const EVENT_KIND: &str = "kind";
+    pub const CALLBACK_SENSOR_ENTER: &str = "on_sensor_enter";
+    pub const CALLBACK_SENSOR_STAY: &str = "on_sensor_stay";
+    pub const CALLBACK_SENSOR_EXIT: &str = "on_sensor_exit";
+    pub const ROLE_SENSOR: &str = "sensor";
+    pub const ROLE_BODY: &str = "body";
+    pub const KIND_ENTER: &str = "enter";
+    pub const KIND_STAY: &str = "stay";
+    pub const KIND_EXIT: &str = "exit";
+}
+
 /// Lua event names passed to `engine.on` / `engine.emit`.
 pub mod lua_events {
     pub const EVENTS: &str = "events";
@@ -186,6 +204,12 @@ pub mod lua_events {
     pub const SAVE_FAILED: &str = "save:failed";
     pub const KINEMATIC_CONTACT: &str = "kinematic:contact";
     pub const KINEMATIC_CRUSHED: &str = "kinematic:crushed";
+    pub const SENSOR_ENTER_FIELD: &str = "sensor_enter";
+    pub const SENSOR_ENTER: &str = "sensor:enter";
+    pub const SENSOR_STAY_FIELD: &str = "sensor_stay";
+    pub const SENSOR_STAY: &str = "sensor:stay";
+    pub const SENSOR_EXIT_FIELD: &str = "sensor_exit";
+    pub const SENSOR_EXIT: &str = "sensor:exit";
 }
 
 /// Animation Lua method names.
