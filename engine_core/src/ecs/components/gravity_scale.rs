@@ -14,4 +14,4 @@ impl Default for GravityScale {
     }
 }
 
-inspector_module!(GravityScale);
+inspector_module!(GravityScale, removable = true, title = "Gravity Scale");
