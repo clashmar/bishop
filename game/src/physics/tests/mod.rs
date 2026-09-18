@@ -8,6 +8,7 @@ pub(crate) fn update_physics(ecs: &mut Ecs, world: &World, dt: f32) {
     update_physics_system(ecs, world, dt, &mut runtime);
 }
 
+mod collision_tests;
 mod gravity_tests;
 mod kinematic_tests;
 mod physics_body_tests;

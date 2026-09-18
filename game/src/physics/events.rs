@@ -3,13 +3,19 @@ use crate::scripting::modules::entity_module::lua_entity_handle;
 use engine_core::ecs::Entity;
 use engine_core::game::Game;
 use engine_core::logging::omni_error;
-use engine_core::scripting::lua_constants::{lua_events, lua_kinematic, lua_sensor};
+use engine_core::scripting::lua_constants::{
+    lua_collision,
+    lua_events,
+    lua_kinematic,
+    lua_sensor,
+};
 use mlua::{Lua, Table, Value, Variadic};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum PhysicsEvent {
     KinematicContact(KinematicContactEvent),
     Sensor(SensorEvent),
+    Collision(CollisionEvent),
 }
 
 #[derive(Default)]
@@ -26,6 +32,10 @@ impl PhysicsEvents {
         self.queued.push(PhysicsEvent::Sensor(event));
     }
 
+    pub(crate) fn push_collision(&mut self, event: CollisionEvent) {
+        self.queued.push(PhysicsEvent::Collision(event));
+    }
+
     pub(crate) fn drain(&mut self) -> Vec<PhysicsEvent> {
         std::mem::take(&mut self.queued)
     }
@@ -34,23 +44,29 @@ impl PhysicsEvents {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum KinematicContactEvent {
     Contact { kinematic: Entity, dynamic: Entity },
-    Crushed { kinematic: Entity, dynamic: Entity },
 }
 
 impl KinematicContactEvent {
     /// Returns the kinematic entity involved in this contact event.
     pub(crate) fn kinematic(self) -> Entity {
         match self {
-            Self::Contact { kinematic, .. } | Self::Crushed { kinematic, .. } => kinematic,
+            Self::Contact { kinematic, .. } => kinematic,
         }
     }
 
     /// Returns the non-kinematic entity involved in this contact event.
     pub(crate) fn other(self) -> Entity {
         match self {
-            Self::Contact { dynamic, .. } | Self::Crushed { dynamic, .. } => dynamic,
+            Self::Contact { dynamic, .. } => dynamic,
         }
     }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum CollisionEvent {
+    Enter { first: Entity, second: Entity },
+    Exit { first: Entity, second: Entity },
+    Squeeze { kinematic: Entity, dynamic: Entity },
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -94,6 +110,7 @@ pub(crate) fn emit_physics_events(lua: &Lua, game: &Game, events: &mut PhysicsEv
         match event {
             PhysicsEvent::KinematicContact(contact) => emit_kinematic_global_event(lua, game, contact),
             PhysicsEvent::Sensor(sensor) => emit_sensor_global_event(lua, game, sensor),
+            PhysicsEvent::Collision(collision) => emit_collision_global_event(lua, game, collision),
         }
     }
 }
@@ -133,7 +150,6 @@ fn emit_kinematic_local_callbacks(
 ) {
     let callback_name = match event {
         KinematicContactEvent::Contact { .. } => lua_kinematic::CALLBACK_KINEMATIC_CONTACT,
-        KinematicContactEvent::Crushed { .. } => lua_kinematic::CALLBACK_KINEMATIC_CRUSHED,
     };
 
     emit_physics_local_callback(lua, game, LocalPhysicsCallback {
@@ -158,6 +174,90 @@ fn emit_kinematic_local_callbacks(
         other_key: None,
         role_key: lua_kinematic::EVENT_ROLE,
     });
+}
+
+fn emit_collision_global_event(lua: &Lua, game: &Game, event: CollisionEvent) {
+    let Ok(payload) = collision_event_payload(lua, event) else {
+        omni_error!("Failed to build collision Lua event payload for {:?}", event);
+        return;
+    };
+
+    game.script_manager.event_bus.emit(
+        collision_event_name(event).to_string(),
+        Variadic::from_iter([Value::Table(payload.clone())]),
+    );
+    emit_collision_local_callbacks(lua, game, event, &payload);
+}
+
+fn collision_event_payload(lua: &Lua, event: CollisionEvent) -> mlua::Result<Table> {
+    let payload = lua.create_table()?;
+    payload.set(lua_collision::EVENT_KIND, collision_event_kind(event))?;
+    match event {
+        CollisionEvent::Enter { first, second } | CollisionEvent::Exit { first, second } => {
+            payload.set(lua_collision::EVENT_FIRST, lua_entity_handle(lua, first)?)?;
+            payload.set(lua_collision::EVENT_SECOND, lua_entity_handle(lua, second)?)?;
+        }
+        CollisionEvent::Squeeze { kinematic, dynamic } => {
+            payload.set(lua_collision::EVENT_KINEMATIC, lua_entity_handle(lua, kinematic)?)?;
+            payload.set(lua_collision::EVENT_DYNAMIC, lua_entity_handle(lua, dynamic)?)?;
+        }
+    }
+    Ok(payload)
+}
+
+fn emit_collision_local_callbacks(lua: &Lua, game: &Game, event: CollisionEvent, payload: &Table) {
+    match event {
+        CollisionEvent::Enter { first, second } | CollisionEvent::Exit { first, second } => {
+            let callback_name = collision_callback_name(event);
+            emit_physics_local_callback(lua, game, LocalPhysicsCallback {
+                entity: first,
+                other: Some(second),
+                role: lua_collision::ROLE_FIRST,
+                callback_name,
+                payload,
+                event_label: "Collision",
+                self_entity_key: lua_collision::EVENT_SELF_ENTITY,
+                other_key: Some(lua_collision::EVENT_OTHER),
+                role_key: lua_collision::EVENT_ROLE,
+            });
+            emit_physics_local_callback(lua, game, LocalPhysicsCallback {
+                entity: second,
+                other: Some(first),
+                role: lua_collision::ROLE_SECOND,
+                callback_name,
+                payload,
+                event_label: "Collision",
+                self_entity_key: lua_collision::EVENT_SELF_ENTITY,
+                other_key: Some(lua_collision::EVENT_OTHER),
+                role_key: lua_collision::EVENT_ROLE,
+            });
+        }
+        CollisionEvent::Squeeze { kinematic, dynamic } => {
+            let callback_name = collision_callback_name(event);
+            emit_physics_local_callback(lua, game, LocalPhysicsCallback {
+                entity: kinematic,
+                other: Some(dynamic),
+                role: lua_collision::ROLE_KINEMATIC,
+                callback_name,
+                payload,
+                event_label: "Collision",
+                self_entity_key: lua_collision::EVENT_SELF_ENTITY,
+                other_key: Some(lua_collision::EVENT_OTHER),
+                role_key: lua_collision::EVENT_ROLE,
+            });
+            emit_physics_local_callback(lua, game, LocalPhysicsCallback {
+                entity: dynamic,
+                other: Some(kinematic),
+                role: lua_collision::ROLE_DYNAMIC,
+                callback_name,
+                payload,
+                event_label: "Collision",
+                self_entity_key: lua_collision::EVENT_SELF_ENTITY,
+                other_key: Some(lua_collision::EVENT_OTHER),
+                role_key: lua_collision::EVENT_ROLE,
+            });
+        }
+    }
 }
 
 fn emit_sensor_global_event(lua: &Lua, game: &Game, event: SensorEvent) {
@@ -249,14 +349,36 @@ fn physics_local_payload(lua: &Lua, callback: &LocalPhysicsCallback<'_>) -> mlua
 fn kinematic_event_name(event: KinematicContactEvent) -> &'static str {
     match event {
         KinematicContactEvent::Contact { .. } => lua_events::KINEMATIC_CONTACT,
-        KinematicContactEvent::Crushed { .. } => lua_events::KINEMATIC_CRUSHED,
     }
 }
 
 fn kinematic_event_kind(event: KinematicContactEvent) -> &'static str {
     match event {
         KinematicContactEvent::Contact { .. } => lua_kinematic::KIND_TRIGGER,
-        KinematicContactEvent::Crushed { .. } => lua_kinematic::KIND_CRUSHED,
+    }
+}
+
+fn collision_event_name(event: CollisionEvent) -> &'static str {
+    match event {
+        CollisionEvent::Enter { .. } => lua_events::COLLISION_ENTER,
+        CollisionEvent::Exit { .. } => lua_events::COLLISION_EXIT,
+        CollisionEvent::Squeeze { .. } => lua_events::COLLISION_SQUEEZE,
+    }
+}
+
+fn collision_event_kind(event: CollisionEvent) -> &'static str {
+    match event {
+        CollisionEvent::Enter { .. } => lua_collision::KIND_ENTER,
+        CollisionEvent::Exit { .. } => lua_collision::KIND_EXIT,
+        CollisionEvent::Squeeze { .. } => lua_collision::KIND_SQUEEZE,
+    }
+}
+
+fn collision_callback_name(event: CollisionEvent) -> &'static str {
+    match event {
+        CollisionEvent::Enter { .. } => lua_collision::CALLBACK_COLLISION_ENTER,
+        CollisionEvent::Exit { .. } => lua_collision::CALLBACK_COLLISION_EXIT,
+        CollisionEvent::Squeeze { .. } => lua_collision::CALLBACK_COLLISION_SQUEEZE,
     }
 }
 
@@ -281,5 +403,97 @@ fn sensor_callback_name(event: SensorEvent) -> &'static str {
         SensorEvent::Enter { .. } => lua_sensor::CALLBACK_SENSOR_ENTER,
         SensorEvent::Stay { .. } => lua_sensor::CALLBACK_SENSOR_STAY,
         SensorEvent::Exit { .. } => lua_sensor::CALLBACK_SENSOR_EXIT,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn collision_event_name_when_enter_exit_and_squeeze_use_collision_namespace() {
+        let first = Entity(1);
+        let second = Entity(2);
+
+        assert_eq!(
+            collision_event_name(CollisionEvent::Enter { first, second }),
+            lua_events::COLLISION_ENTER
+        );
+        assert_eq!(
+            collision_event_name(CollisionEvent::Exit { first, second }),
+            lua_events::COLLISION_EXIT
+        );
+        assert_eq!(
+            collision_event_name(CollisionEvent::Squeeze {
+                kinematic: first,
+                dynamic: second,
+            }),
+            lua_events::COLLISION_SQUEEZE
+        );
+    }
+
+    #[test]
+    fn collision_callback_name_when_enter_exit_and_squeeze_use_collision_callbacks() {
+        let first = Entity(1);
+        let second = Entity(2);
+
+        assert_eq!(
+            collision_callback_name(CollisionEvent::Enter { first, second }),
+            lua_collision::CALLBACK_COLLISION_ENTER
+        );
+        assert_eq!(
+            collision_callback_name(CollisionEvent::Exit { first, second }),
+            lua_collision::CALLBACK_COLLISION_EXIT
+        );
+        assert_eq!(
+            collision_callback_name(CollisionEvent::Squeeze {
+                kinematic: first,
+                dynamic: second,
+            }),
+            lua_collision::CALLBACK_COLLISION_SQUEEZE
+        );
+    }
+
+    #[test]
+    fn collision_event_payload_when_variants_differ_contains_expected_fields() {
+        let lua = Lua::new();
+        let first = Entity(1);
+        let second = Entity(2);
+        let enter_payload = collision_event_payload(&lua, CollisionEvent::Enter { first, second })
+            .unwrap();
+        let squeeze_payload = collision_event_payload(&lua, CollisionEvent::Squeeze {
+            kinematic: first,
+            dynamic: second,
+        }).unwrap();
+
+        assert_eq!(
+            enter_payload.get::<String>(lua_collision::EVENT_KIND).unwrap(),
+            lua_collision::KIND_ENTER
+        );
+        assert!(enter_payload.get::<mlua::AnyUserData>(lua_collision::EVENT_FIRST).is_ok());
+        assert!(enter_payload.get::<mlua::AnyUserData>(lua_collision::EVENT_SECOND).is_ok());
+        assert!(enter_payload
+            .get::<Option<mlua::AnyUserData>>(lua_collision::EVENT_KINEMATIC)
+            .unwrap()
+            .is_none());
+        assert!(enter_payload
+            .get::<Option<mlua::AnyUserData>>(lua_collision::EVENT_DYNAMIC)
+            .unwrap()
+            .is_none());
+
+        assert_eq!(
+            squeeze_payload.get::<String>(lua_collision::EVENT_KIND).unwrap(),
+            lua_collision::KIND_SQUEEZE
+        );
+        assert!(squeeze_payload.get::<mlua::AnyUserData>(lua_collision::EVENT_KINEMATIC).is_ok());
+        assert!(squeeze_payload.get::<mlua::AnyUserData>(lua_collision::EVENT_DYNAMIC).is_ok());
+        assert!(squeeze_payload
+            .get::<Option<mlua::AnyUserData>>(lua_collision::EVENT_FIRST)
+            .unwrap()
+            .is_none());
+        assert!(squeeze_payload
+            .get::<Option<mlua::AnyUserData>>(lua_collision::EVENT_SECOND)
+            .unwrap()
+            .is_none());
     }
 }

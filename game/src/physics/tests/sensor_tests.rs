@@ -1,70 +1,51 @@
-use bishop::prelude::*;
-use engine_core::ecs::*;
-use engine_core::tiles::TileMap;
-use engine_core::worlds::*;
+use bishop::prelude::Vec2;
+use engine_core::ecs::{
+    Active,
+    Ecs,
+    Entity,
+    Grounded,
+    Kinematic,
+    KinematicMotion,
+    Pivot,
+    Sensor,
+    Transform,
+    Velocity,
+};
 
 use crate::physics::events::{PhysicsEvent, SensorEvent};
 use crate::physics::physics_system::update_physics;
 use crate::physics::runtime::PhysicsRuntime;
-use crate::physics::tests::physics_fixtures::{horizontal_constant, DT, GRID_SIZE};
-
-
-fn test_world() -> World {
-    let room = Room {
-        id: RoomId(1),
-        position: Vec2::ZERO,
-        variants: vec![RoomVariant {
-            tilemap: TileMap::new(10, 10),
-            ..Default::default()
-        }],
-        ..Default::default()
-    };
-    let mut world = World::default();
-    world.grid_size = GRID_SIZE;
-    world.gravity = 0.0;
-    world.current_room_id = Some(room.id);
-    world.add_room(room);
-    world
-}
-
-fn aabb(width: f32, height: f32) -> Collider {
-    Collider {
-        shape: ColliderShape::Aabb { width, height },
-        offset: Vec2::ZERO,
-    }
-}
+use crate::physics::tests::physics_fixtures::{
+    DT,
+    TEST_ROOM_ID,
+    aabb_collider,
+    horizontal_constant,
+    single_room_test_world as test_world,
+    spawn_aabb_physics_body,
+};
 
 fn spawn_sensor(ecs: &mut Ecs, position: Vec2) -> Entity {
     ecs.create_entity()
-        .with_current_room(RoomId(1))
+        .with_current_room(TEST_ROOM_ID)
         .with(Transform {
             position,
             pivot: Pivot::TopLeft,
             ..Default::default()
         })
-        .with(aabb(16.0, 16.0))
+        .with(aabb_collider(16.0, 16.0))
         .with(Sensor)
         .finish()
 }
 
 fn spawn_dynamic_body(ecs: &mut Ecs, position: Vec2, velocity: Vec2) -> Entity {
-    ecs.create_entity()
-        .with_current_room(RoomId(1))
-        .with(Transform {
-            position,
-            pivot: Pivot::TopLeft,
-            ..Default::default()
-        })
-        .with(aabb(8.0, 8.0))
-        .with(Velocity {
-            x: velocity.x,
-            y: velocity.y,
-        })
-        .with(PhysicsBody)
-        .with(Grounded(false))
-        .with(SubPixel::default())
-        .with(Active::default())
-        .finish()
+    spawn_aabb_physics_body(
+        ecs,
+        TEST_ROOM_ID,
+        position,
+        Vec2::new(8.0, 8.0),
+        velocity,
+        false,
+    )
 }
 
 fn sensor_events(runtime: &mut PhysicsRuntime) -> Vec<SensorEvent> {
@@ -111,13 +92,13 @@ fn sensor_events_when_kinematic_enters_stays_and_exits_emit_expected_transitions
     let mut kinematic = Kinematic::default();
     kinematic.motion = horizontal_constant(960.0);
     let body = ecs.create_entity()
-        .with_current_room(RoomId(1))
+        .with_current_room(TEST_ROOM_ID)
         .with(Transform {
             position: Vec2::ZERO,
             pivot: Pivot::TopLeft,
             ..Default::default()
         })
-        .with(aabb(8.0, 8.0))
+        .with(aabb_collider(8.0, 8.0))
         .with(Velocity::default())
         .with(kinematic)
         .with(Active::default())
@@ -148,13 +129,13 @@ fn sensor_events_when_sensor_volume_moves_uses_final_sensor_position() {
     let mut kinematic = Kinematic::default();
     kinematic.motion = horizontal_constant(960.0);
     let sensor = ecs.create_entity()
-        .with_current_room(RoomId(1))
+        .with_current_room(TEST_ROOM_ID)
         .with(Transform {
             position: Vec2::ZERO,
             pivot: Pivot::TopLeft,
             ..Default::default()
         })
-        .with(aabb(8.0, 8.0))
+        .with(aabb_collider(8.0, 8.0))
         .with(Velocity::default())
         .with(kinematic)
         .with(Sensor)

@@ -4,7 +4,7 @@ use engine_core::tiles::TileMap;
 use engine_core::worlds::*;
 
 use crate::physics::collision_world::{shapes_overlap, CollisionWorld};
-use crate::physics::events::{KinematicContactEvent, PhysicsEvent, PhysicsEvents};
+use crate::physics::events::{CollisionEvent, KinematicContactEvent, PhysicsEvent, PhysicsEvents};
 use crate::physics::kinematic::{KinematicFrameMotion, resolve_kinematic_contacts};
 use crate::physics::physics_system::update_physics as update_physics_system;
 use crate::physics::runtime::PhysicsRuntime;
@@ -828,10 +828,10 @@ fn kinematic_crush_policy_pushes_dynamic_when_not_pinned() {
     update_physics_system(&mut ecs, &world, DT, &mut runtime);
 
     assert!(entity_position(&ecs, rider).x > 48.0);
-    assert!(!runtime.events_mut().drain().iter().any(|event| {
+    assert!(runtime.events_mut().drain().iter().any(|event| {
         matches!(
             event,
-            PhysicsEvent::KinematicContact(KinematicContactEvent::Crushed { kinematic, dynamic })
+            PhysicsEvent::Collision(CollisionEvent::Squeeze { kinematic, dynamic })
                 if *kinematic == platform && *dynamic == rider
         )
     }));
@@ -897,7 +897,7 @@ fn kinematic_crush_policy_does_not_shove_airborne_dynamic_on_vertical_contact() 
 }
 
 #[test]
-fn kinematic_crush_policy_reports_crushed_dynamic() {
+fn kinematic_crush_policy_when_dynamic_is_pinned_emits_squeeze() {
     let world = world_with_bottom_border();
     let mut ecs = Ecs::default();
     let room_id = RoomId(1);
@@ -921,7 +921,7 @@ fn kinematic_crush_policy_reports_crushed_dynamic() {
     assert!(runtime.events_mut().drain().iter().any(|event| {
         matches!(
             event,
-            PhysicsEvent::KinematicContact(KinematicContactEvent::Crushed { kinematic, dynamic })
+            PhysicsEvent::Collision(CollisionEvent::Squeeze { kinematic, dynamic })
                 if *kinematic == platform && *dynamic == rider
         )
     }));

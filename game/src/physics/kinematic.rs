@@ -3,7 +3,7 @@ use engine_core::ecs::*;
 use engine_core::worlds::RoomId;
 
 use crate::physics::collision_world::{shapes_overlap, CollisionWorld};
-use crate::physics::events::{KinematicContactEvent, PhysicsEvents};
+use crate::physics::events::{CollisionEvent, KinematicContactEvent, PhysicsEvents};
 use crate::physics::physics_system::SUPPORT_SNAP_DISTANCE;
 use crate::physics::shapes;
 
@@ -32,6 +32,12 @@ struct KinematicContact {
     aabb_overlap: Vec2,
     dynamic_aabb: (Vec2, Vec2),
     kinematic_aabb: (Vec2, Vec2),
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum CrushContactResult {
+    Ignored,
+    Squeezed,
 }
 
 #[derive(Clone, Copy)]
@@ -200,8 +206,8 @@ pub(crate) fn resolve_kinematic_contacts(
                         *motion,
                         contact,
                         crush_collision_world.as_ref().unwrap(),
-                    ) {
-                        events.push_kinematic_contact(KinematicContactEvent::Crushed {
+                    ) == CrushContactResult::Squeezed {
+                        events.push_collision(CollisionEvent::Squeeze {
                             kinematic: motion.entity,
                             dynamic: dynamic.entity,
                         });
@@ -542,15 +548,15 @@ fn resolve_crush_contact(
     motion: KinematicFrameMotion,
     contact: KinematicContact,
     collision_world: &CollisionWorld,
-) -> bool {
+) -> CrushContactResult {
     let Some(axis) = motion_axis(motion) else {
-        return false;
+        return CrushContactResult::Ignored;
     };
     if !contact_is_on_leading_face(contact, motion) {
-        return false;
+        return CrushContactResult::Ignored;
     }
     let Some(kinematic) = current_kinematic_state(ecs, motion) else {
-        return false;
+        return CrushContactResult::Ignored;
     };
 
     let direction = motion_axis_direction(motion, axis);
@@ -567,7 +573,7 @@ fn resolve_crush_contact(
     );
 
     if amount <= shapes::OVERLAP_EPS {
-        return false;
+        return CrushContactResult::Ignored;
     }
 
     let desired_delta = axis_delta(axis, direction * amount);
@@ -582,7 +588,7 @@ fn resolve_crush_contact(
     if axis == KinematicAxis::Vertical
         && !ecs.get::<Grounded>(dynamic.entity).is_some_and(|grounded| grounded.0)
     {
-        return (sweep.allowed_delta - desired_delta).length_squared() > shapes::OVERLAP_EPS.powi(2);
+        return CrushContactResult::Ignored;
     }
 
     if sweep.allowed_delta != Vec2::ZERO {
@@ -595,7 +601,7 @@ fn resolve_crush_contact(
         );
     }
 
-    current_kinematic_contact(ecs, *dynamic, motion).is_some()
+    CrushContactResult::Squeezed
 }
 
 fn eject_dynamic(

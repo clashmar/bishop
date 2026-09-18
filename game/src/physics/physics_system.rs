@@ -1,5 +1,6 @@
 use bishop::prelude::*;
 use crate::physics::collision_world::CollisionWorld;
+use crate::physics::collisions::{CollisionPair, collect_collision_pairs};
 use crate::physics::kinematic::{
     KinematicFrameMotion,
     carry_delta,
@@ -8,7 +9,7 @@ use crate::physics::kinematic::{
     update_kinematic_bodies,
 };
 use crate::physics::runtime::PhysicsRuntime;
-use crate::physics::sensors::{collect_sensor_pairs, SensorPair};
+use crate::physics::sensors::{SensorPair, collect_sensor_pairs};
 use engine_core::ecs::{
     Active,
     Collider,
@@ -41,6 +42,11 @@ struct PhysicsStep {
     dt: f32,
 }
 
+struct CurrentPhysicsPairs<'a> {
+    sensors: &'a mut HashSet<SensorPair>,
+    collisions: &'a mut HashSet<CollisionPair>,
+}
+
 /// Applies physics and records generic physics events for later consumers.
 pub(crate) fn update_physics(
     ecs: &mut Ecs,
@@ -57,6 +63,7 @@ pub(crate) fn update_physics(
         dt,
     };
     let mut current_sensor_pairs = HashSet::new();
+    let mut current_collision_pairs = HashSet::new();
 
     for room_id in active_room_ids {
         simulate_physics_room(
@@ -66,11 +73,15 @@ pub(crate) fn update_physics(
             bodies_by_room.get(&room_id).map(Vec::as_slice),
             step,
             runtime,
-            &mut current_sensor_pairs,
+            CurrentPhysicsPairs {
+                sensors: &mut current_sensor_pairs,
+                collisions: &mut current_collision_pairs,
+            },
         );
     }
 
     runtime.finish_sensor_frame(current_sensor_pairs);
+    runtime.finish_collision_frame(current_collision_pairs);
 }
 
 fn active_physics_bodies_by_room(ecs: &Ecs) -> HashMap<RoomId, Vec<Entity>> {
@@ -114,7 +125,7 @@ fn simulate_physics_room(
     room_entities: Option<&[Entity]>,
     step: PhysicsStep,
     runtime: &mut PhysicsRuntime,
-    current_sensor_pairs: &mut HashSet<SensorPair>,
+    current_pairs: CurrentPhysicsPairs<'_>,
 ) {
     let Some(room) = world.get_room(room_id) else {
         return;
@@ -144,7 +155,8 @@ fn simulate_physics_room(
         runtime.events_mut(),
     );
     let sensor_collision_world = collision_world.with_current_sensors(ecs);
-    collect_sensor_pairs(ecs, room_id, &sensor_collision_world, current_sensor_pairs);
+    collect_sensor_pairs(ecs, room_id, &sensor_collision_world, current_pairs.sensors);
+    collect_collision_pairs(ecs, room, current_pairs.collisions);
 }
 
 fn contact_kinematics(ecs: &Ecs, moved_kinematics: &[KinematicFrameMotion]) -> Vec<KinematicFrameMotion> {

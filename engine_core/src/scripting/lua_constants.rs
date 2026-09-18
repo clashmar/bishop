@@ -166,11 +166,9 @@ pub mod lua_kinematic {
     pub const EVENT_ROLE: &str = "role";
     pub const EVENT_KIND: &str = "kind";
     pub const CALLBACK_KINEMATIC_CONTACT: &str = "on_kinematic_contact";
-    pub const CALLBACK_KINEMATIC_CRUSHED: &str = "on_kinematic_crushed";
     pub const ROLE_KINEMATIC: &str = "kinematic";
     pub const ROLE_OTHER: &str = "other";
     pub const KIND_TRIGGER: &str = "trigger";
-    pub const KIND_CRUSHED: &str = "crushed";
 }
 
 /// Sensor Lua constants.
@@ -191,6 +189,28 @@ pub mod lua_sensor {
     pub const KIND_EXIT: &str = "exit";
 }
 
+/// Collision Lua constants.
+pub mod lua_collision {
+    pub const EVENT_FIRST: &str = "first";
+    pub const EVENT_SECOND: &str = "second";
+    pub const EVENT_KINEMATIC: &str = "kinematic";
+    pub const EVENT_DYNAMIC: &str = "dynamic";
+    pub const EVENT_OTHER: &str = "other";
+    pub const EVENT_SELF_ENTITY: &str = "self_entity";
+    pub const EVENT_ROLE: &str = "role";
+    pub const EVENT_KIND: &str = "kind";
+    pub const CALLBACK_COLLISION_ENTER: &str = "on_collision_enter";
+    pub const CALLBACK_COLLISION_EXIT: &str = "on_collision_exit";
+    pub const CALLBACK_COLLISION_SQUEEZE: &str = "on_collision_squeeze";
+    pub const ROLE_FIRST: &str = "first";
+    pub const ROLE_SECOND: &str = "second";
+    pub const ROLE_KINEMATIC: &str = "kinematic";
+    pub const ROLE_DYNAMIC: &str = "dynamic";
+    pub const KIND_ENTER: &str = "enter";
+    pub const KIND_EXIT: &str = "exit";
+    pub const KIND_SQUEEZE: &str = "squeeze";
+}
+
 /// Lua event names passed to `engine.on` / `engine.emit`.
 pub mod lua_events {
     pub const EVENTS: &str = "events";
@@ -203,7 +223,12 @@ pub mod lua_events {
     pub const SAVE_FAILED_FIELD: &str = "save_failed";
     pub const SAVE_FAILED: &str = "save:failed";
     pub const KINEMATIC_CONTACT: &str = "kinematic:contact";
-    pub const KINEMATIC_CRUSHED: &str = "kinematic:crushed";
+    pub const COLLISION_ENTER_FIELD: &str = "collision_enter";
+    pub const COLLISION_ENTER: &str = "collision:enter";
+    pub const COLLISION_EXIT_FIELD: &str = "collision_exit";
+    pub const COLLISION_EXIT: &str = "collision:exit";
+    pub const COLLISION_SQUEEZE_FIELD: &str = "collision_squeeze";
+    pub const COLLISION_SQUEEZE: &str = "collision:squeeze";
     pub const SENSOR_ENTER_FIELD: &str = "sensor_enter";
     pub const SENSOR_ENTER: &str = "sensor:enter";
     pub const SENSOR_STAY_FIELD: &str = "sensor_stay";

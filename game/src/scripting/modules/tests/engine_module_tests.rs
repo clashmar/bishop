@@ -104,6 +104,21 @@ fn emit_api_when_called_documents_restore_location_payload() {
         "function engine.{}(location) end",
         lua_engine::RESTORE_LOCATION
     )));
+    assert!(out.buf.contains(&format!(
+        "engine.events.{} = \"{}\"",
+        lua_events::COLLISION_ENTER_FIELD,
+        lua_events::COLLISION_ENTER
+    )));
+    assert!(out.buf.contains(&format!(
+        "engine.events.{} = \"{}\"",
+        lua_events::COLLISION_EXIT_FIELD,
+        lua_events::COLLISION_EXIT
+    )));
+    assert!(out.buf.contains(&format!(
+        "engine.events.{} = \"{}\"",
+        lua_events::COLLISION_SQUEEZE_FIELD,
+        lua_events::COLLISION_SQUEEZE
+    )));
 }
 
 #[test]
@@ -124,6 +139,27 @@ fn engine_module_register_when_loaded_exposes_sensor_event_constants() {
     assert_eq!(
         events.get::<String>(lua_events::SENSOR_EXIT_FIELD).unwrap(),
         lua_events::SENSOR_EXIT
+    );
+}
+
+#[test]
+fn engine_module_register_when_loaded_exposes_collision_event_constants() {
+    let (lua, _game_instance, _player) = setup_engine_lua();
+    let globals = lua.globals();
+    let engine: mlua::Table = globals.get(lua_engine::ENGINE).unwrap();
+    let events: mlua::Table = engine.get(lua_events::EVENTS).unwrap();
+
+    assert_eq!(
+        events.get::<String>(lua_events::COLLISION_ENTER_FIELD).unwrap(),
+        lua_events::COLLISION_ENTER
+    );
+    assert_eq!(
+        events.get::<String>(lua_events::COLLISION_EXIT_FIELD).unwrap(),
+        lua_events::COLLISION_EXIT
+    );
+    assert_eq!(
+        events.get::<String>(lua_events::COLLISION_SQUEEZE_FIELD).unwrap(),
+        lua_events::COLLISION_SQUEEZE
     );
 }
 
