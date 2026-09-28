@@ -2,7 +2,24 @@ use crate::assets::sprite_manager::SpriteManager;
 use crate::ecs::component::ComponentStore;
 use crate::ecs::ecs::Ecs;
 use crate::ecs::entity::Entity;
-use crate::ecs::{Collider, ColliderShape, CurrentFrame, Sprite, SpriteId};
+use crate::ecs::{Collider, ColliderData, ColliderFrameKey, ColliderShape, CurrentFrame, Sprite, SpriteId};
+
+
+/// Returns the collider data effective for an entity's current frame.
+pub fn collider_data_for_entity(ecs: &Ecs, entity: Entity) -> Option<ColliderData> {
+    let collider = ecs.get_store::<Collider>().get(entity)?;
+    let Some(current_frame) = ecs.get_store::<CurrentFrame>().get(entity) else {
+        return Some(collider.static_data());
+    };
+
+    Some(collider.effective_data_for_frame(
+        &current_frame.clip_id,
+        ColliderFrameKey {
+            row: current_frame.row,
+            col: current_frame.col,
+        },
+    ))
+}
 
 /// Set the collider for every entity that has a sprite and an unset collider
 pub fn update_colliders_from_sprites(ecs: &mut Ecs, assets: &mut SpriteManager) {
@@ -82,4 +99,57 @@ pub fn collider_from_animation_component(
             },
             ..Default::default()
         })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::animation::ClipId;
+    use bishop::prelude::Vec2;
+
+    #[test]
+    fn collider_data_for_entity_uses_current_frame_when_present() {
+        let mut ecs = Ecs::default();
+        let entity = ecs
+            .create_entity()
+            .with(Collider::default())
+            .finish();
+        let frame = ColliderFrameKey { row: 0, col: 1 };
+        let frame_data = ColliderData {
+            shape: ColliderShape::Circle { radius: 12.0 },
+            offset: Vec2::new(4.0, 5.0),
+        };
+
+        ecs.get_mut::<Collider>(entity)
+            .unwrap()
+            .set_frame_data(ClipId::Run, frame, frame_data);
+        ecs.add_component_to_entity(
+            entity,
+            CurrentFrame {
+                clip_id: ClipId::Run,
+                row: frame.row,
+                col: frame.col,
+                ..Default::default()
+            },
+        );
+
+        assert_eq!(collider_data_for_entity(&ecs, entity), Some(frame_data));
+    }
+
+    #[test]
+    fn collider_data_for_entity_falls_back_to_static_without_current_frame() {
+        let mut ecs = Ecs::default();
+        let collider = Collider {
+            shape: ColliderShape::Aabb {
+                width: 22.0,
+                height: 33.0,
+            },
+            offset: Vec2::new(2.0, 3.0),
+            ..Default::default()
+        };
+        let static_data = collider.static_data();
+        let entity = ecs.create_entity().with(collider).finish();
+
+        assert_eq!(collider_data_for_entity(&ecs, entity), Some(static_data));
+    }
 }

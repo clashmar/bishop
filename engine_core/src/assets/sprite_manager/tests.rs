@@ -1,6 +1,5 @@
 use super::*;
 use super::loading::FallbackTextureKind;
-use crate::assets::asset_registry::AssetKey;
 use crate::assets::AssetRegistry;
 use crate::audio::test_utils::CountingFailingLoader;
 use crate::constants::paths;
@@ -106,7 +105,7 @@ fn prewarm_runtime_read_test_case(
 }
 
 #[test]
-fn get_or_load_registers_new_sprite_path_in_asset_registry() {
+fn get_or_load_does_not_register_missing_sprite_path() {
     let loader = CountingFailingLoader::new();
     let mut registry = AssetRegistry::default();
     let mut sprite_manager = SpriteManager::default();
@@ -117,9 +116,9 @@ fn get_or_load_registers_new_sprite_path_in_asset_registry() {
     assert!(result.is_none());
     assert_eq!(
         registry.key_for_path(PathBuf::from(paths::ASSETS_FOLDER).join(&path)),
-        Some(AssetKey::Sprite(SpriteId(1)))
+        None,
     );
-    assert_eq!(sprite_manager.get_or_none(&path), Some(SpriteId(1)));
+    assert_eq!(sprite_manager.get_or_none(&path), None);
 }
 
 #[test]

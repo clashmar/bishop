@@ -12,8 +12,9 @@ fn collider_aabb_aabb_top_left_pivot_no_offset() {
             height: 12.0,
         },
         offset: Vec2::ZERO,
-    };
-    let (min, max) = collider_aabb(pos, collider, Pivot::TopLeft);
+        ..Default::default()
+};
+    let (min, max) = collider_aabb(pos, &collider, Pivot::TopLeft);
     assert_eq!(min, Vec2::new(10.0, 20.0));
     assert_eq!(max, Vec2::new(18.0, 32.0));
 }
@@ -27,8 +28,9 @@ fn collider_aabb_aabb_center_pivot_no_offset() {
             height: 12.0,
         },
         offset: Vec2::ZERO,
-    };
-    let (min, max) = collider_aabb(pos, collider, Pivot::Center);
+        ..Default::default()
+};
+    let (min, max) = collider_aabb(pos, &collider, Pivot::Center);
     assert_eq!(min, Vec2::new(6.0, 14.0));
     assert_eq!(max, Vec2::new(14.0, 26.0));
 }
@@ -42,8 +44,9 @@ fn collider_aabb_aabb_with_offset() {
             height: 8.0,
         },
         offset: Vec2::new(3.0, -2.0),
-    };
-    let (min, max) = collider_aabb(pos, collider, Pivot::TopLeft);
+        ..Default::default()
+};
+    let (min, max) = collider_aabb(pos, &collider, Pivot::TopLeft);
     assert_eq!(min, Vec2::new(13.0, 18.0));
     assert_eq!(max, Vec2::new(21.0, 26.0));
 }
@@ -54,8 +57,9 @@ fn collider_aabb_circle_top_left_pivot() {
     let collider = Collider {
         shape: ColliderShape::Circle { radius: 5.0 },
         offset: Vec2::ZERO,
-    };
-    let (min, max) = collider_aabb(pos, collider, Pivot::TopLeft);
+        ..Default::default()
+};
+    let (min, max) = collider_aabb(pos, &collider, Pivot::TopLeft);
     assert_eq!(min, Vec2::new(10.0, 20.0));
     assert_eq!(max, Vec2::new(20.0, 30.0));
 }
@@ -69,8 +73,9 @@ fn collider_aabb_capsule_top_left_pivot() {
             height: 10.0,
         },
         offset: Vec2::ZERO,
-    };
-    let (min, max) = collider_aabb(pos, collider, Pivot::TopLeft);
+        ..Default::default()
+};
+    let (min, max) = collider_aabb(pos, &collider, Pivot::TopLeft);
     assert_eq!(min, Vec2::new(10.0, 20.0));
     assert_eq!(max, Vec2::new(18.0, 38.0));
 }
@@ -81,8 +86,9 @@ fn collider_aabb_point_top_left_pivot() {
     let collider = Collider {
         shape: ColliderShape::Point,
         offset: Vec2::ZERO,
-    };
-    let (min, max) = collider_aabb(pos, collider, Pivot::TopLeft);
+        ..Default::default()
+};
+    let (min, max) = collider_aabb(pos, &collider, Pivot::TopLeft);
     assert_eq!(min, Vec2::new(10.0, 20.0));
     assert_eq!(max, Vec2::new(10.0, 20.0));
 }

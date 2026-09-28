@@ -2,12 +2,13 @@ use crate::app::EditorCameraController;
 use crate::app::EditorMode;
 use crate::commands::room::*;
 use crate::editor_global::push_command;
+use crate::gui::inspector::animation_module::frame_edit;
 use crate::gui::mode_selector::ModeInfo;
 use crate::room::room_editor::*;
 use crate::shared::input::shortcuts_blocked;
 use bishop::prelude::*;
 use engine_core::camera::get_next_room_camera;
-use engine_core::controls::{Controls};
+use engine_core::controls::Controls;
 use engine_core::ecs::*;
 use engine_core::worlds::*;
 use strum::IntoEnumIterator;
@@ -23,6 +24,10 @@ impl RoomEditor {
         ecs: &Ecs,
     ) {
         if shortcuts_blocked() {
+            return;
+        }
+
+        if frame_edit::handle_shortcuts(ctx, ecs, self.single_selected_entity()) {
             return;
         }
 

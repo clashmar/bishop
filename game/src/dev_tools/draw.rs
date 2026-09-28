@@ -1,5 +1,6 @@
 use bishop::prelude::*;
 use engine_core::ecs::{Collider, SubPixel, Transform};
+use engine_core::physics::collider_system::collider_data_for_entity;
 use engine_core::rendering::{
     draw_collider,
     outline_thickness,
@@ -30,17 +31,21 @@ pub fn draw_colliders<C: BishopContext>(
     let thickness = outline_thickness(grid_size) * ENTITY_OUTLINE_SCALE;
     let color = Color::PINK;
 
-    for (entity, collider) in collider_store.data.iter() {
-        if let Some(transform) = transform_store.get(*entity) {
-            draw_collider(
-                ctx,
-                visual_position(transform.position, sub_pixel_store.get(*entity)),
-                collider,
-                transform.pivot,
-                color,
-                thickness,
-            );
-        }
+    for entity in collider_store.data.keys() {
+        let Some(transform) = transform_store.get(*entity) else {
+            continue;
+        };
+        let Some(collider_data) = collider_data_for_entity(ecs, *entity) else {
+            continue;
+        };
+        draw_collider(
+            ctx,
+            visual_position(transform.position, sub_pixel_store.get(*entity)),
+            &collider_data,
+            transform.pivot,
+            color,
+            thickness,
+        );
     }
 
     ctx.set_default_camera();

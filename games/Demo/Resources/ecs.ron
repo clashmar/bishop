@@ -169,12 +169,18 @@
                         height: 16.0,
                     ),
                     offset: (0.0, 0.0),
+                    animation: (
+                        clips: {},
+                    ),
                 ),
                 (37): (
                     shape: Circle(
                         radius: 7.4078255,
                     ),
                     offset: (1.3428688, -0.63303757),
+                    animation: (
+                        clips: {},
+                    ),
                 ),
                 (325): (
                     shape: Aabb(
@@ -182,6 +188,9 @@
                         height: 8.0,
                     ),
                     offset: (0.0, 0.0),
+                    animation: (
+                        clips: {},
+                    ),
                 ),
                 (331): (
                     shape: Aabb(
@@ -189,6 +198,9 @@
                         height: 8.0,
                     ),
                     offset: (0.0, 0.0),
+                    animation: (
+                        clips: {},
+                    ),
                 ),
                 (332): (
                     shape: Aabb(
@@ -196,6 +208,9 @@
                         height: 8.0,
                     ),
                     offset: (0.0, 0.0),
+                    animation: (
+                        clips: {},
+                    ),
                 ),
                 (334): (
                     shape: Aabb(
@@ -203,6 +218,9 @@
                         height: 8.0,
                     ),
                     offset: (0.0, 0.0),
+                    animation: (
+                        clips: {},
+                    ),
                 ),
                 (335): (
                     shape: Aabb(
@@ -210,6 +228,9 @@
                         height: 8.0,
                     ),
                     offset: (0.0, 0.0),
+                    animation: (
+                        clips: {},
+                    ),
                 ),
                 (336): (
                     shape: Aabb(
@@ -217,6 +238,9 @@
                         height: 40.0,
                     ),
                     offset: (0.0, 0.0),
+                    animation: (
+                        clips: {},
+                    ),
                 ),
                 (337): (
                     shape: Aabb(
@@ -224,6 +248,9 @@
                         height: 16.0,
                     ),
                     offset: (0.0, 0.0),
+                    animation: (
+                        clips: {},
+                    ),
                 ),
             },
         ),

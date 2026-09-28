@@ -28,6 +28,7 @@
 ---@class Collider
 ---@field shape table
 ---@field offset vec2
+---@field animation table
 
 ---@class Cover
 ---@field hide boolean

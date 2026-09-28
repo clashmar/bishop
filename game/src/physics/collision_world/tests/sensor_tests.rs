@@ -4,6 +4,7 @@ fn aabb(width: f32, height: f32) -> Collider {
     Collider {
         shape: ColliderShape::Aabb { width, height },
         offset: Vec2::ZERO,
+        ..Default::default()
     }
 }
 
@@ -11,6 +12,7 @@ fn circle(radius: f32) -> Collider {
     Collider {
         shape: ColliderShape::Circle { radius },
         offset: Vec2::ZERO,
+        ..Default::default()
     }
 }
 

@@ -1,12 +1,12 @@
 use bishop::prelude::*;
-use crate::ecs::{Collider, ColliderShape, Pivot};
+use crate::ecs::{ColliderData, ColliderShape, Pivot};
 use crate::rendering::pivot_adjusted_position;
 
 /// Draw the outline of a collider at the given entity position.
 pub fn draw_collider<C: BishopContext>(
     ctx: &mut C,
     entity_pos: Vec2,
-    collider: &Collider,
+    collider: &ColliderData,
     pivot: Pivot,
     color: Color,
     thickness: f32,

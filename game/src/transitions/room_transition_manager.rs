@@ -36,11 +36,11 @@ impl RoomTransitionManager {
             let Some(transform) = game_instance.game.ecs.get::<Transform>(entity).copied() else {
                 continue;
             };
-            let Some(collider) = game_instance.game.ecs.get::<Collider>(entity).copied() else {
+            let Some(collider) = game_instance.game.ecs.get::<Collider>(entity).cloned() else {
                 continue;
             };
             let sub_pixel = game_instance.game.ecs.get::<SubPixel>(entity);
-            let pos = room_probe_position(transform, collider, sub_pixel);
+            let pos = room_probe_position(transform, collider.clone(), sub_pixel);
             let bounds = room_probe_bounds(transform, collider, sub_pixel);
             let Some(target_id) = game_instance.game.current_world().room_at(pos) else {
                 continue;

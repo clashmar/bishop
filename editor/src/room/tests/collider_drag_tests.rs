@@ -14,7 +14,7 @@ use super::{
 };
 use crate::gui::inspector::collider_module::edit::{ColliderEditConfig, HandleAction};
 
-fn aabb_rect(collider: Collider, transform: Transform) -> Rect {
+fn aabb_rect(collider: &Collider, transform: Transform) -> Rect {
     let ColliderShape::Aabb { width, height } = collider.shape else {
         panic!("expected AABB collider");
     };
@@ -26,7 +26,7 @@ fn aabb_rect(collider: Collider, transform: Transform) -> Rect {
     Rect::new(top_left.x, top_left.y, width, height)
 }
 
-fn circle_center(collider: Collider, transform: Transform) -> Vec2 {
+fn circle_center(collider: &Collider, transform: Transform) -> Vec2 {
     let ColliderShape::Circle { radius } = collider.shape else {
         panic!("expected circle collider");
     };
@@ -38,7 +38,7 @@ fn circle_center(collider: Collider, transform: Transform) -> Vec2 {
     top_left + Vec2::splat(radius)
 }
 
-fn capsule_rect(collider: Collider, transform: Transform) -> Rect {
+fn capsule_rect(collider: &Collider, transform: Transform) -> Rect {
     let ColliderShape::Capsule { radius, height } = collider.shape else {
         panic!("expected capsule collider");
     };
@@ -63,13 +63,13 @@ fn selected_collider_handle_hit_mouse_over_handle_returns_selected_entity_action
         .with(Collider::default())
         .finish();
     let collider = match ecs.get_store::<Collider>().get(entity) {
-        Some(collider) => *collider,
+        Some(collider) => collider.clone(),
         None => panic!("expected collider on test entity"),
     };
     let handles = crate::gui::inspector::collider_module::edit::compute_handles(
         Vec2::ZERO,
         Pivot::TopLeft,
-        &collider,
+        &collider.static_data(),
         16.0,
     );
     let mouse_world = match handles.last() {
@@ -135,6 +135,64 @@ fn selected_collider_edit_nudge_in_room_returns_updated_offset() {
 }
 
 #[test]
+fn collider_nudge_in_frame_edit_mode_changes_only_selected_frame() {
+    use crate::gui::inspector::animation_module::frame_edit;
+    use engine_core::animation::{ClipDef, ClipId};
+    use engine_core::ecs::{Animation, ColliderFrameKey};
+    use std::collections::HashMap;
+
+    let mut ecs = Ecs::default();
+    let entity = ecs
+        .create_entity()
+        .with(Transform::default())
+        .with_current_room(RoomId(1))
+        .with(Collider::default())
+        .with(Animation {
+            current: Some(ClipId::Run),
+            clips: HashMap::from([(
+                ClipId::Run,
+                ClipDef {
+                    cols: 2,
+                    rows: 1,
+                    ..Default::default()
+                },
+            )]),
+            ..Default::default()
+        })
+        .finish();
+    let animation = ecs.get::<Animation>(entity).unwrap().clone();
+    frame_edit::enter(entity, &animation);
+    frame_edit::step_selected_frame(entity, &animation, 1);
+
+    let result = selected_collider_edit_nudge(
+        Some(entity),
+        &ecs,
+        RoomId(1),
+        RoomLayer::Front,
+        Vec2::new(3.0, 0.0),
+    );
+
+    let (changed_entity, old_collider, new_collider) = result.unwrap();
+    assert_eq!(changed_entity, entity);
+    assert_eq!(old_collider.static_data().offset, Vec2::ZERO);
+    assert_eq!(new_collider.static_data().offset, Vec2::ZERO);
+    assert_eq!(
+        new_collider
+            .effective_data_for_frame(&ClipId::Run, ColliderFrameKey { row: 0, col: 1 })
+            .offset,
+        Vec2::new(3.0, 0.0),
+    );
+    assert_eq!(
+        new_collider
+            .effective_data_for_frame(&ClipId::Run, ColliderFrameKey { row: 0, col: 0 })
+            .offset,
+        Vec2::ZERO,
+    );
+
+    frame_edit::exit(entity);
+}
+
+#[test]
 fn selected_collider_edit_nudge_other_layer_returns_none() {
     let mut ecs = Ecs::default();
     let entity = ecs
@@ -167,7 +225,7 @@ fn collider_move_handle_snap_uses_half_grid_steps() {
         .with(Collider::default())
         .finish();
     let initial = match ecs.get::<Collider>(entity) {
-        Some(collider) => *collider,
+        Some(collider) => collider.clone(),
         None => panic!("expected collider on test entity"),
     };
     let mut drag = ColliderHandleDragState::default();
@@ -203,7 +261,7 @@ fn resized_aabb_collider_top_right_drag_keeps_bottom_left_fixed() {
         pivot: Pivot::TopLeft,
         ..Default::default()
     };
-    let initial_rect = aabb_rect(initial, transform);
+    let initial_rect = aabb_rect(&initial, transform);
 
     let resized = resized_aabb_collider(
         initial,
@@ -214,7 +272,7 @@ fn resized_aabb_collider_top_right_drag_keeps_bottom_left_fixed() {
 
     match resized {
         Some(collider) => {
-            let resized_rect = aabb_rect(collider, transform);
+            let resized_rect = aabb_rect(&collider, transform);
             assert_eq!(resized_rect.x, initial_rect.x);
             assert_eq!(resized_rect.y + resized_rect.h, initial_rect.y + initial_rect.h);
             assert_eq!(resized_rect.w, 14.0);
@@ -237,7 +295,7 @@ fn resized_aabb_collider_top_left_drag_keeps_bottom_right_fixed() {
         pivot: Pivot::TopLeft,
         ..Default::default()
     };
-    let initial_rect = aabb_rect(initial, transform);
+    let initial_rect = aabb_rect(&initial, transform);
 
     let resized = resized_aabb_collider(
         initial,
@@ -248,7 +306,7 @@ fn resized_aabb_collider_top_left_drag_keeps_bottom_right_fixed() {
 
     match resized {
         Some(collider) => {
-            let resized_rect = aabb_rect(collider, transform);
+            let resized_rect = aabb_rect(&collider, transform);
             assert_eq!(resized_rect.x + resized_rect.w, initial_rect.x + initial_rect.w);
             assert_eq!(resized_rect.y + resized_rect.h, initial_rect.y + initial_rect.h);
             assert_eq!(resized_rect.w, 14.0);
@@ -268,7 +326,7 @@ fn resized_circle_collider_with_bottom_center_pivot_keeps_center_fixed() {
         pivot: Pivot::BottomCenter,
         ..Default::default()
     };
-    let initial_center = circle_center(initial, transform);
+    let initial_center = circle_center(&initial, transform);
 
     let resized = resized_circle_collider(
         initial,
@@ -279,7 +337,7 @@ fn resized_circle_collider_with_bottom_center_pivot_keeps_center_fixed() {
 
     match resized {
         Some(collider) => {
-            assert_eq!(circle_center(collider, transform), initial_center);
+            assert_eq!(circle_center(&collider, transform), initial_center);
             assert_eq!(collider.shape, ColliderShape::Circle { radius: 8.0 });
         }
         None => panic!("expected resized circle collider"),
@@ -299,7 +357,7 @@ fn resized_capsule_collider_right_drag_preserves_total_height() {
         pivot: Pivot::TopLeft,
         ..Default::default()
     };
-    let initial_rect = capsule_rect(initial, transform);
+    let initial_rect = capsule_rect(&initial, transform);
 
     let resized = resized_capsule_collider(
         initial,
@@ -310,7 +368,7 @@ fn resized_capsule_collider_right_drag_preserves_total_height() {
 
     match resized {
         Some(collider) => {
-            let resized_rect = capsule_rect(collider, transform);
+            let resized_rect = capsule_rect(&collider, transform);
             assert_eq!(resized_rect.x, initial_rect.x);
             assert_eq!(resized_rect.y, initial_rect.y);
             assert_eq!(resized_rect.h, initial_rect.h);
@@ -334,7 +392,7 @@ fn resized_aabb_collider_top_edge_drag_resizes_height_top_anchored() {
         ..Default::default()
     };
     let transform = Transform { pivot: Pivot::TopLeft, ..Default::default() };
-    let initial_rect = aabb_rect(initial, transform);
+    let initial_rect = aabb_rect(&initial, transform);
 
     let resized = resized_aabb_collider(
         initial,
@@ -345,7 +403,7 @@ fn resized_aabb_collider_top_edge_drag_resizes_height_top_anchored() {
 
     match resized {
         Some(collider) => {
-            let resized_rect = aabb_rect(collider, transform);
+            let resized_rect = aabb_rect(&collider, transform);
             // Bottom edge stays fixed
             assert_eq!(resized_rect.y + resized_rect.h, initial_rect.y + initial_rect.h);
             assert_eq!(resized_rect.w, 10.0); // width unchanged
@@ -362,7 +420,7 @@ fn resized_aabb_collider_left_edge_drag_resizes_width_left_anchored() {
         ..Default::default()
     };
     let transform = Transform { pivot: Pivot::TopLeft, ..Default::default() };
-    let initial_rect = aabb_rect(initial, transform);
+    let initial_rect = aabb_rect(&initial, transform);
 
     let resized = resized_aabb_collider(
         initial,
@@ -373,7 +431,7 @@ fn resized_aabb_collider_left_edge_drag_resizes_width_left_anchored() {
 
     match resized {
         Some(collider) => {
-            let resized_rect = aabb_rect(collider, transform);
+            let resized_rect = aabb_rect(&collider, transform);
             // Right edge stays fixed
             assert_eq!(resized_rect.x + resized_rect.w, initial_rect.x + initial_rect.w);
             assert_eq!(resized_rect.h, 20.0); // height unchanged
@@ -390,7 +448,7 @@ fn resized_aabb_collider_uniform_resize_keeps_center_fixed_and_makes_square() {
         ..Default::default()
     };
     let transform = Transform { pivot: Pivot::TopLeft, ..Default::default() };
-    let initial_rect = aabb_rect(initial, transform);
+    let initial_rect = aabb_rect(&initial, transform);
     let initial_center_x = initial_rect.x + initial_rect.w / 2.0;
     let initial_center_y = initial_rect.y + initial_rect.h / 2.0;
 
@@ -403,7 +461,7 @@ fn resized_aabb_collider_uniform_resize_keeps_center_fixed_and_makes_square() {
 
     match resized {
         Some(collider) => {
-            let resized_rect = aabb_rect(collider, transform);
+            let resized_rect = aabb_rect(&collider, transform);
             let new_center_x = resized_rect.x + resized_rect.w / 2.0;
             let new_center_y = resized_rect.y + resized_rect.h / 2.0;
             // Center stays fixed

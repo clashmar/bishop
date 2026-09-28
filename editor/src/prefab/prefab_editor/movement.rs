@@ -4,6 +4,7 @@ use crate::app::EditorMode;
 use crate::commands::room::{BatchMoveEntitiesCmd, MoveEntityCmd};
 use crate::commands::scene::UpdateComponentCmd;
 use crate::editor_global::push_command;
+use crate::gui::inspector::collider_module::collider_edit_target;
 use crate::gui::inspector::collider_module::edit::{ColliderEditConfig, is_collider_edit_active_for};
 use crate::gui::inspector::interactable_module::edit::is_interactable_edit_active_for;
 use crate::room::collider_drag::{
@@ -354,7 +355,7 @@ impl PrefabEditor {
         false
     }
 
-    fn try_nudge_active_bounds(
+    pub(crate) fn try_nudge_active_bounds(
         &self,
         ecs: &mut Ecs,
         delta: Vec2,
@@ -378,11 +379,12 @@ impl PrefabEditor {
 
         let visual_entity = resolve_visual_entity(ecs, entity);
         if is_collider_edit_active_for(visual_entity) {
-            let old_collider = *ecs.get::<Collider>(visual_entity)?;
-            let mut new_collider = old_collider;
-            new_collider.offset += delta;
+            let old_collider = ecs.get::<Collider>(visual_entity)?.clone();
+            let target = collider_edit_target(visual_entity);
+            let mut new_collider = old_collider.clone();
+            new_collider.mutate_target(target, |data| data.offset += delta);
             if let Some(collider) = ecs.get_store_mut::<Collider>().get_mut(visual_entity) {
-                *collider = new_collider;
+                *collider = new_collider.clone();
             }
             return Some(collider_update_command(
                 visual_entity,

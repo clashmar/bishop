@@ -56,8 +56,8 @@ pub(crate) fn shapes_overlap(
     obstacle_collider: Collider,
     obstacle_pivot: Pivot,
 ) -> bool {
-    let moving_aabb = shapes::collider_aabb(moving_position, moving_collider, moving_pivot);
-    let obstacle_aabb = shapes::collider_aabb(obstacle_position, obstacle_collider, obstacle_pivot);
+    let moving_aabb = shapes::collider_aabb(moving_position, &moving_collider, moving_pivot);
+    let obstacle_aabb = shapes::collider_aabb(obstacle_position, &obstacle_collider, obstacle_pivot);
 
     sweep::shapes_overlap(
         moving_collider.shape,
@@ -78,7 +78,7 @@ struct SolidObj {
     interior_zone: Option<InteriorZoneId>,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 struct ColliderSnapshot {
     aabb: (Vec2, Vec2),
     collider: Collider,
@@ -165,7 +165,7 @@ impl CollisionWorld {
             };
             let snapshot = collider_snapshot(
                 transform,
-                ecs.get::<Collider>(entity).copied().unwrap_or_default(),
+                ecs.get::<Collider>(entity).cloned().unwrap_or_default(),
             );
             solids.push(SolidObj {
                 aabb: snapshot.aabb,
@@ -193,7 +193,7 @@ impl CollisionWorld {
     pub(crate) fn with_kinematics(mut self, kinematics: &[KinematicFrameMotion]) -> Self {
         for motion in kinematics {
             let end_position = motion.start_position + motion.delta;
-            let aabb = shapes::collider_aabb(end_position, motion.collider, motion.pivot);
+            let aabb = shapes::collider_aabb(end_position, &motion.collider, motion.pivot);
             self.solids.push(SolidObj {
                 aabb,
                 shape: motion.collider.shape,
@@ -222,7 +222,7 @@ impl CollisionWorld {
         collider: Collider,
         pivot: Pivot,
     ) -> Vec<Entity> {
-        let moving_aabb = shapes::collider_aabb(position, collider, pivot);
+        let moving_aabb = shapes::collider_aabb(position, &collider, pivot);
         let moving_layer = self
             .entity_layers
             .get(&moving_entity)
@@ -237,10 +237,10 @@ impl CollisionWorld {
             .filter(|sensor| {
                 shapes_overlap(
                     position,
-                    collider,
+                    collider.clone(),
                     pivot,
                     sensor.shape.position,
-                    sensor.shape.collider,
+                    sensor.shape.collider.clone(),
                     sensor.shape.pivot,
                 )
             })
@@ -258,7 +258,7 @@ impl CollisionWorld {
         collider: Collider,
         pivot: Pivot,
     ) -> SweepResult {
-        let collider_aabb = shapes::collider_aabb(entity_position, collider, pivot);
+        let collider_aabb = shapes::collider_aabb(entity_position, &collider, pivot);
         let collider_pos = collider_aabb.0;
         let moving_layer = self
             .entity_layers
@@ -385,7 +385,7 @@ fn sensor_objects(ecs: &Ecs, entity_layers: &HashMap<Entity, RoomLayer>) -> Vec<
         let Some(transform) = ecs.get::<Transform>(entity) else {
             continue;
         };
-        let Some(collider) = ecs.get::<Collider>(entity).copied() else {
+        let Some(collider) = ecs.get::<Collider>(entity).cloned() else {
             continue;
         };
         sensors.push(SensorObj {
@@ -399,7 +399,7 @@ fn sensor_objects(ecs: &Ecs, entity_layers: &HashMap<Entity, RoomLayer>) -> Vec<
 
 fn collider_snapshot(transform: &Transform, collider: Collider) -> ColliderSnapshot {
     ColliderSnapshot {
-        aabb: shapes::collider_aabb(transform.position, collider, transform.pivot),
+        aabb: shapes::collider_aabb(transform.position, &collider, transform.pivot),
         collider,
         position: transform.position,
         pivot: transform.pivot,

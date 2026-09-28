@@ -18,7 +18,7 @@ use engine_core::ecs::{
 use engine_core::worlds::{Room, RoomId};
 use std::collections::HashSet;
 
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 pub(crate) struct CollisionBody {
     pub(crate) entity: Entity,
     pub(crate) position: Vec2,
@@ -83,11 +83,16 @@ pub(crate) fn collision_body_in_room(
     if !ecs.has::<PhysicsBody>(entity) && !ecs.has::<Kinematic>(entity) {
         return None;
     }
+    if let Some(kinematic) = ecs.get::<Kinematic>(entity) {
+        if !kinematic.is_runtime_enabled() {
+            return None;
+        }
+    }
     if ecs.get::<CurrentRoom>(entity)?.room_id != room_id {
         return None;
     }
     let transform = ecs.get::<Transform>(entity).copied()?;
-    let collider = ecs.get::<Collider>(entity).copied().unwrap_or_default();
+    let collider = ecs.get::<Collider>(entity).cloned().unwrap_or_default();
     let position = true_position(
         transform.position,
         ecs.get::<SubPixel>(entity).copied().unwrap_or_default(),
@@ -111,10 +116,10 @@ pub(crate) fn collect_collision_pairs(
         for second in candidates.iter().skip(index + 1) {
             if shapes_overlap(
                 first.position,
-                first.collider,
+                first.collider.clone(),
                 first.pivot,
                 second.position,
-                second.collider,
+                second.collider.clone(),
                 second.pivot,
             ) {
                 pairs.insert(CollisionPair::new(first.entity, second.entity));

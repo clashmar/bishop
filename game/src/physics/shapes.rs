@@ -6,7 +6,7 @@ pub const OVERLAP_EPS: f32 = 0.0001;
 
 /// Returns the world-space axis-aligned bounding box (min, max) for a collider
 /// at a position with a pivot.
-pub fn collider_aabb(position: Vec2, collider: Collider, pivot: Pivot) -> (Vec2, Vec2) {
+pub fn collider_aabb(position: Vec2, collider: &Collider, pivot: Pivot) -> (Vec2, Vec2) {
     let (sw, sh) = collider.shape.size();
     let size = Vec2::new(sw, sh);
     let top_left = pivot_offset(position + collider.offset, size, pivot);

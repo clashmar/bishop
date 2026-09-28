@@ -7,7 +7,7 @@ use crate::physics::events::{CollisionEvent, KinematicContactEvent, PhysicsEvent
 use crate::physics::physics_system::SUPPORT_SNAP_DISTANCE;
 use crate::physics::shapes;
 
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 pub(crate) struct KinematicFrameMotion {
     pub entity: Entity,
     pub start_position: Vec2,
@@ -17,7 +17,7 @@ pub(crate) struct KinematicFrameMotion {
     pub contact_behavior: KinematicContactBehavior,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 struct DynamicSnapshot {
     entity: Entity,
     transform_position: Vec2,
@@ -40,7 +40,7 @@ enum CrushContactResult {
     Squeezed,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 struct ShapeState {
     position: Vec2,
     collider: Collider,
@@ -51,8 +51,9 @@ impl DynamicSnapshot {
     fn from_ecs(ecs: &Ecs, entity: Entity) -> Option<Self> {
         let transform = ecs.get::<Transform>(entity).copied()?;
         let sub_pixel = ecs.get::<SubPixel>(entity).copied().unwrap_or_default();
-        let collider = ecs.get::<Collider>(entity).copied().unwrap_or_default();
+        let collider = ecs.get::<Collider>(entity).cloned().unwrap_or_default();
         let true_position = true_position(transform.position, sub_pixel);
+        let aabb = shapes::collider_aabb(true_position, &collider, transform.pivot);
 
         Some(Self {
             entity,
@@ -60,7 +61,7 @@ impl DynamicSnapshot {
             sub_pixel,
             collider,
             pivot: transform.pivot,
-            aabb: shapes::collider_aabb(true_position, collider, transform.pivot),
+            aabb,
         })
     }
 
@@ -73,7 +74,7 @@ impl DynamicSnapshot {
         self.sub_pixel = sub_pixel;
         self.aabb = shapes::collider_aabb(
             true_position(transform_position, sub_pixel),
-            self.collider,
+            &self.collider,
             self.pivot,
         );
     }
@@ -102,7 +103,7 @@ pub(crate) fn update_kinematic_bodies(
         let Some(mut kinematic) = ecs.get::<Kinematic>(entity).copied() else {
             continue;
         };
-        let collider = ecs.get::<Collider>(entity).copied().unwrap_or_default();
+        let collider = ecs.get::<Collider>(entity).cloned().unwrap_or_default();
         let sub_pixel = ecs.get::<SubPixel>(entity).copied().unwrap_or_default();
         let true_pos = true_position(transform.position, sub_pixel);
 
@@ -123,7 +124,7 @@ pub(crate) fn update_kinematic_bodies(
             entity,
             true_pos,
             delta,
-            collider,
+            collider.clone(),
             transform.pivot,
         );
         apply_quantized_delta(ecs, entity, transform.position, sub_pixel, sweep.allowed_delta);
@@ -155,7 +156,7 @@ pub(crate) fn update_kinematic_bodies(
 }
 
 /// Returns the support carry applied to a grounded rider this frame.
-pub(crate) fn carry_delta(motion: KinematicFrameMotion, downward_delta: f32) -> Vec2 {
+pub(crate) fn carry_delta(motion: &KinematicFrameMotion, downward_delta: f32) -> Vec2 {
     let carry_down = if motion.delta.y > 0.0 && downward_delta >= 0.0 {
         motion.delta.y.min(downward_delta + SUPPORT_SNAP_DISTANCE)
     } else {
@@ -173,9 +174,9 @@ pub(crate) fn supporting_kinematic(
 ) -> Option<KinematicFrameMotion> {
     moved_kinematics
         .iter()
-        .copied()
         .filter(|motion| motion.contact_behavior.is_solid())
-        .find(|motion| supports_body(position, collider, pivot, *motion))
+        .find(|motion| supports_body(position, &collider, pivot, motion))
+        .cloned()
 }
 
 pub(crate) fn resolve_kinematic_contacts(
@@ -191,19 +192,19 @@ pub(crate) fn resolve_kinematic_contacts(
         let crush_collision_world = (motion.contact_behavior == KinematicContactBehavior::Crush)
             .then(|| collision_world.excluding_entity(motion.entity));
         for dynamic in &mut dynamics {
-            let Some(contact) = kinematic_contact(*dynamic, *motion) else {
+            let Some(contact) = kinematic_contact(dynamic, motion) else {
                 continue;
             };
 
             match motion.contact_behavior {
                 KinematicContactBehavior::Stop => {
-                    resolve_stop_contact(ecs, dynamic, *motion, contact)
+                    resolve_stop_contact(ecs, dynamic, motion.clone(), contact)
                 }
                 KinematicContactBehavior::Crush => {
                     if resolve_crush_contact(
                         ecs,
                         dynamic,
-                        *motion,
+                        motion.clone(),
                         contact,
                         crush_collision_world.as_ref().unwrap(),
                     ) == CrushContactResult::Squeezed {
@@ -213,9 +214,9 @@ pub(crate) fn resolve_kinematic_contacts(
                         });
                     }
                 }
-                KinematicContactBehavior::Eject => eject_dynamic(ecs, dynamic, *motion),
+                KinematicContactBehavior::Eject => eject_dynamic(ecs, dynamic, motion.clone()),
                 KinematicContactBehavior::Reverse => {
-                    resolve_reverse_contact(ecs, dynamic, *motion, contact)
+                    resolve_reverse_contact(ecs, dynamic, motion.clone(), contact)
                 }
                 KinematicContactBehavior::Trigger => {
                     events.push_kinematic_contact(KinematicContactEvent::Contact {
@@ -330,12 +331,12 @@ fn axis_value(axis: KinematicAxis, position: Vec2) -> f32 {
 
 fn supports_body(
     position: Vec2,
-    collider: Collider,
+    collider: &Collider,
     pivot: Pivot,
-    motion: KinematicFrameMotion,
+    motion: &KinematicFrameMotion,
 ) -> bool {
     let body_aabb = shapes::collider_aabb(position, collider, pivot);
-    let platform_aabb = shapes::collider_aabb(motion.start_position, motion.collider, motion.pivot);
+    let platform_aabb = shapes::collider_aabb(motion.start_position, &motion.collider, motion.pivot);
     let horizontal_overlap = body_aabb.0.x < platform_aabb.1.x && body_aabb.1.x > platform_aabb.0.x;
     let vertical_gap = platform_aabb.0.y - body_aabb.1.y;
 
@@ -352,23 +353,28 @@ fn dynamic_snapshots(ecs: &Ecs, room_id: RoomId) -> Vec<DynamicSnapshot> {
         .collect()
 }
 
-fn kinematic_contact(dynamic: DynamicSnapshot, motion: KinematicFrameMotion) -> Option<KinematicContact> {
-    build_contact(dynamic, motion.start_position + motion.delta, motion.collider, motion.pivot)
+fn kinematic_contact(dynamic: &DynamicSnapshot, motion: &KinematicFrameMotion) -> Option<KinematicContact> {
+    build_contact(
+        dynamic,
+        motion.start_position + motion.delta,
+        &motion.collider,
+        motion.pivot,
+    )
 }
 
 fn current_kinematic_contact(
     ecs: &Ecs,
-    dynamic: DynamicSnapshot,
-    motion: KinematicFrameMotion,
+    dynamic: &DynamicSnapshot,
+    motion: &KinematicFrameMotion,
 ) -> Option<KinematicContact> {
     let kinematic = current_kinematic_state(ecs, motion)?;
-    build_contact(dynamic, kinematic.position, kinematic.collider, kinematic.pivot)
+    build_contact(dynamic, kinematic.position, &kinematic.collider, kinematic.pivot)
 }
 
 fn build_contact(
-    dynamic: DynamicSnapshot,
+    dynamic: &DynamicSnapshot,
     kinematic_position: Vec2,
-    kinematic_collider: Collider,
+    kinematic_collider: &Collider,
     kinematic_pivot: Pivot,
 ) -> Option<KinematicContact> {
     let dynamic_aabb = dynamic.aabb;
@@ -376,10 +382,10 @@ fn build_contact(
     let aabb_overlap = shapes::aabb_overlap(dynamic_aabb, kinematic_aabb)?;
     if !shapes_overlap(
         kinematic_position,
-        kinematic_collider,
+        kinematic_collider.clone(),
         kinematic_pivot,
         dynamic.true_position(),
-        dynamic.collider,
+        dynamic.collider.clone(),
         dynamic.pivot,
     ) {
         return None;
@@ -392,17 +398,17 @@ fn build_contact(
     })
 }
 
-fn current_kinematic_state(ecs: &Ecs, motion: KinematicFrameMotion) -> Option<ShapeState> {
+fn current_kinematic_state(ecs: &Ecs, motion: &KinematicFrameMotion) -> Option<ShapeState> {
     let transform = ecs.get::<Transform>(motion.entity).copied()?;
     let sub_pixel = ecs.get::<SubPixel>(motion.entity).copied().unwrap_or_default();
     Some(ShapeState {
         position: true_position(transform.position, sub_pixel),
-        collider: motion.collider,
+        collider: motion.collider.clone(),
         pivot: transform.pivot,
     })
 }
 
-fn contact_is_on_leading_face(contact: KinematicContact, motion: KinematicFrameMotion) -> bool {
+fn contact_is_on_leading_face(contact: KinematicContact, motion: &KinematicFrameMotion) -> bool {
     match motion_axis(motion) {
         Some(KinematicAxis::Horizontal) if motion.delta.x > 0.0 => {
             contact.dynamic_aabb.0.x >= contact.kinematic_aabb.0.x
@@ -426,8 +432,8 @@ fn resolve_stop_contact(
     motion: KinematicFrameMotion,
     contact: KinematicContact,
 ) {
-    if contact_is_on_leading_face(contact, motion) {
-        stop_kinematic(ecs, dynamic, motion, contact);
+    if contact_is_on_leading_face(contact, &motion) {
+        stop_kinematic(ecs, dynamic, motion.clone(), contact);
     }
 
     resolve_remaining_stop_overlap(ecs, dynamic, motion);
@@ -439,11 +445,11 @@ fn resolve_reverse_contact(
     motion: KinematicFrameMotion,
     contact: KinematicContact,
 ) {
-    if !contact_is_on_leading_face(contact, motion) {
+    if !contact_is_on_leading_face(contact, &motion) {
         return;
     }
 
-    stop_kinematic(ecs, dynamic, motion, contact);
+    stop_kinematic(ecs, dynamic, motion.clone(), contact);
     if let Some(kinematic) = ecs.get_mut::<Kinematic>(motion.entity) {
         kinematic.set_runtime_direction(kinematic.runtime_direction().reversed());
     }
@@ -456,7 +462,7 @@ fn stop_kinematic(
     motion: KinematicFrameMotion,
     contact: KinematicContact,
 ) {
-    let Some(axis) = motion_axis(motion) else {
+    let Some(axis) = motion_axis(&motion) else {
         return;
     };
     let Some(transform) = ecs.get::<Transform>(motion.entity).copied() else {
@@ -469,12 +475,12 @@ fn stop_kinematic(
     let amount = axis_separation_distance(
         ShapeState {
             position: kinematic_position,
-            collider: motion.collider,
+            collider: motion.collider.clone(),
             pivot: transform.pivot,
         },
         ShapeState {
             position: dynamic.true_position(),
-            collider: dynamic.collider,
+            collider: dynamic.collider.clone(),
             pivot: dynamic.pivot,
         },
         axis,
@@ -508,20 +514,20 @@ fn resolve_remaining_stop_overlap(
     dynamic: &mut DynamicSnapshot,
     motion: KinematicFrameMotion,
 ) {
-    let Some(axis) = motion_axis(motion) else {
+    let Some(axis) = motion_axis(&motion) else {
         return;
     };
-    let Some(contact) = current_kinematic_contact(ecs, *dynamic, motion) else {
+    let Some(contact) = current_kinematic_contact(ecs, dynamic, &motion) else {
         return;
     };
-    let Some(kinematic) = current_kinematic_state(ecs, motion) else {
+    let Some(kinematic) = current_kinematic_state(ecs, &motion) else {
         return;
     };
     let direction = separation_direction(contact.dynamic_aabb, contact.kinematic_aabb, axis);
     let amount = axis_separation_distance(
         ShapeState {
             position: dynamic.true_position(),
-            collider: dynamic.collider,
+            collider: dynamic.collider.clone(),
             pivot: dynamic.pivot,
         },
         kinematic,
@@ -549,21 +555,21 @@ fn resolve_crush_contact(
     contact: KinematicContact,
     collision_world: &CollisionWorld,
 ) -> CrushContactResult {
-    let Some(axis) = motion_axis(motion) else {
+    let Some(axis) = motion_axis(&motion) else {
         return CrushContactResult::Ignored;
     };
-    if !contact_is_on_leading_face(contact, motion) {
+    if !contact_is_on_leading_face(contact, &motion) {
         return CrushContactResult::Ignored;
     }
-    let Some(kinematic) = current_kinematic_state(ecs, motion) else {
+    let Some(kinematic) = current_kinematic_state(ecs, &motion) else {
         return CrushContactResult::Ignored;
     };
 
-    let direction = motion_axis_direction(motion, axis);
+    let direction = motion_axis_direction(&motion, axis);
     let amount = axis_separation_distance(
         ShapeState {
             position: dynamic.true_position(),
-            collider: dynamic.collider,
+            collider: dynamic.collider.clone(),
             pivot: dynamic.pivot,
         },
         kinematic,
@@ -581,7 +587,7 @@ fn resolve_crush_contact(
         dynamic.entity,
         dynamic.true_position(),
         desired_delta,
-        dynamic.collider,
+        dynamic.collider.clone(),
         dynamic.pivot,
     );
 
@@ -609,10 +615,10 @@ fn eject_dynamic(
     dynamic: &mut DynamicSnapshot,
     motion: KinematicFrameMotion,
 ) {
-    let Some(contact) = current_kinematic_contact(ecs, *dynamic, motion) else {
+    let Some(contact) = current_kinematic_contact(ecs, dynamic, &motion) else {
         return;
     };
-    let Some(kinematic) = current_kinematic_state(ecs, motion) else {
+    let Some(kinematic) = current_kinematic_state(ecs, &motion) else {
         return;
     };
     let direction = separation_direction(
@@ -623,7 +629,7 @@ fn eject_dynamic(
     let amount = axis_separation_distance(
         ShapeState {
             position: dynamic.true_position(),
-            collider: dynamic.collider,
+            collider: dynamic.collider.clone(),
             pivot: dynamic.pivot,
         },
         kinematic,
@@ -644,7 +650,7 @@ fn eject_dynamic(
     );
 }
 
-fn motion_axis_direction(motion: KinematicFrameMotion, axis: KinematicAxis) -> f32 {
+fn motion_axis_direction(motion: &KinematicFrameMotion, axis: KinematicAxis) -> f32 {
     if axis_value(axis, motion.delta) >= 0.0 {
         1.0
     } else {
@@ -700,10 +706,10 @@ fn axis_separation_distance(
     }
     if !shapes_overlap(
         moving.position,
-        moving.collider,
+        moving.collider.clone(),
         moving.pivot,
         obstacle.position,
-        obstacle.collider,
+        obstacle.collider.clone(),
         obstacle.pivot,
     ) {
         return 0.0;
@@ -712,10 +718,10 @@ fn axis_separation_distance(
     let max_delta = axis_delta(axis, direction * max_distance);
     if shapes_overlap(
         moving.position + max_delta,
-        moving.collider,
+        moving.collider.clone(),
         moving.pivot,
         obstacle.position,
-        obstacle.collider,
+        obstacle.collider.clone(),
         obstacle.pivot,
     ) {
         return max_distance;
@@ -728,10 +734,10 @@ fn axis_separation_distance(
         let delta = axis_delta(axis, direction * mid);
         if shapes_overlap(
             moving.position + delta,
-            moving.collider,
+            moving.collider.clone(),
             moving.pivot,
             obstacle.position,
-            obstacle.collider,
+            obstacle.collider.clone(),
             obstacle.pivot,
         ) {
             low = mid;
@@ -743,7 +749,7 @@ fn axis_separation_distance(
     high
 }
 
-fn motion_axis(motion: KinematicFrameMotion) -> Option<KinematicAxis> {
+fn motion_axis(motion: &KinematicFrameMotion) -> Option<KinematicAxis> {
     if motion.delta.x != 0.0 {
         Some(KinematicAxis::Horizontal)
     } else if motion.delta.y != 0.0 {

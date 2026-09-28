@@ -85,7 +85,8 @@ fn spawn_player(ecs: &mut Ecs, room_id: RoomId) -> Entity {
                 height: PLAYER_HEIGHT,
             },
             offset: Vec2::ZERO,
-        })
+            ..Default::default()
+})
         .with(PhysicsBody)
         .with(Grounded(true))
         .with(SubPixel::default())
@@ -127,7 +128,8 @@ fn spawn_solid_aabb(
                 height,
             },
             offset,
-        })
+            ..Default::default()
+})
         .with(Solid(true))
         .with_current_room(room_id)
         .finish();
@@ -147,7 +149,8 @@ fn spawn_aabb_player(ecs: &mut Ecs, room_id: RoomId, position: Vec2) -> Entity {
                 height: 8.0,
             },
             offset: Vec2::ZERO,
-        })
+            ..Default::default()
+})
         .with(PhysicsBody)
         .with(Grounded(true))
         .with(SubPixel::default())
@@ -173,7 +176,8 @@ fn spawn_solid_circle(
         .with(Collider {
             shape: ColliderShape::Circle { radius },
             offset,
-        })
+            ..Default::default()
+})
         .with(Solid(true))
         .with_current_room(room_id)
         .finish();
@@ -188,9 +192,9 @@ fn player_position(ecs: &Ecs, player: Entity) -> Vec2 {
 
 fn collider_bottom(ecs: &Ecs, player: Entity) -> f32 {
     let transform = ecs.get::<Transform>(player).copied().unwrap();
-    let collider = ecs.get::<Collider>(player).copied().unwrap_or_default();
+    let collider = ecs.get::<Collider>(player).cloned().unwrap_or_default();
     let position = visual_position(transform.position, ecs.get::<SubPixel>(player));
-    let (_, max) = shapes::collider_aabb(position, collider, transform.pivot);
+    let (_, max) = shapes::collider_aabb(position, &collider, transform.pivot);
     max.y
 }
 
@@ -217,7 +221,8 @@ fn assert_capsule_jump_while_pressing_into_circle_matches_clear(
                 height: PLAYER_HEIGHT,
             },
             offset: Vec2::ZERO,
-        })
+            ..Default::default()
+})
         .with(PhysicsBody)
         .with(Grounded(true))
         .with(SubPixel::default())
@@ -255,7 +260,8 @@ fn assert_capsule_jump_while_pressing_into_circle_matches_clear(
                 height: PLAYER_HEIGHT,
             },
             offset: Vec2::ZERO,
-        })
+            ..Default::default()
+})
         .with(PhysicsBody)
         .with(Grounded(true))
         .with(blocked_sub_pixel)
@@ -403,7 +409,8 @@ fn physics_body_can_walk_right_away_after_being_blocked_from_right_by_same_floor
                 height: PLAYER_HEIGHT,
             },
             offset: Vec2::ZERO,
-        })
+            ..Default::default()
+})
         .with(PhysicsBody)
         .with(Grounded(true))
         .with(SubPixel::default())
@@ -460,7 +467,8 @@ fn physics_body_can_walk_right_away_after_being_blocked_from_right_by_tall_box()
                 height: PLAYER_HEIGHT,
             },
             offset: Vec2::ZERO,
-        })
+            ..Default::default()
+})
         .with(PhysicsBody)
         .with(Grounded(true))
         .with(SubPixel::default())
@@ -598,7 +606,8 @@ fn physics_body_capsule_can_jump_beside_solid_circle() {
                 height: PLAYER_HEIGHT,
             },
             offset: Vec2::ZERO,
-        })
+            ..Default::default()
+})
         .with(PhysicsBody)
         .with(Grounded(true))
         .with(SubPixel::default())
@@ -636,7 +645,8 @@ fn physics_body_capsule_can_jump_beside_solid_circle() {
                 height: PLAYER_HEIGHT,
             },
             offset: Vec2::ZERO,
-        })
+            ..Default::default()
+})
         .with(PhysicsBody)
         .with(Grounded(true))
         .with(blocked_sub_pixel)
@@ -716,7 +726,8 @@ fn physics_body_capsule_stays_on_floor_between_bottom_exits() {
                 height: PLAYER_HEIGHT,
             },
             offset: Vec2::ZERO,
-        })
+            ..Default::default()
+})
         .with(PhysicsBody)
         .with(Grounded(true))
         .with(SubPixel::default())
@@ -756,7 +767,8 @@ fn physics_body_demo_circle_resting_on_flat_floor_keeps_exact_contact_height() {
                 radius: DEMO_PLAYER_CIRCLE_RADIUS,
             },
             offset: Vec2::new(DEMO_PLAYER_CIRCLE_OFFSET_X, DEMO_PLAYER_CIRCLE_OFFSET_Y),
-        })
+            ..Default::default()
+})
         .with(PhysicsBody)
         .with(Grounded(true))
         .with(SubPixel::default())
@@ -792,7 +804,8 @@ fn physics_body_demo_circle_moves_horizontally_on_flat_floor() {
                 radius: DEMO_PLAYER_CIRCLE_RADIUS,
             },
             offset: Vec2::new(DEMO_PLAYER_CIRCLE_OFFSET_X, DEMO_PLAYER_CIRCLE_OFFSET_Y),
-        })
+            ..Default::default()
+})
         .with(PhysicsBody)
         .with(Grounded(true))
         .with(SubPixel::default())
@@ -842,7 +855,8 @@ fn physics_body_demo_circle_moves_left_on_flat_floor() {
                 radius: DEMO_PLAYER_CIRCLE_RADIUS,
             },
             offset: Vec2::new(DEMO_PLAYER_CIRCLE_OFFSET_X, DEMO_PLAYER_CIRCLE_OFFSET_Y),
-        })
+            ..Default::default()
+})
         .with(PhysicsBody)
         .with(Grounded(true))
         .with(SubPixel::default())

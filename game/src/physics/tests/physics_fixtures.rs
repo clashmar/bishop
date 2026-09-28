@@ -47,6 +47,7 @@ pub(crate) fn aabb_collider(width: f32, height: f32) -> Collider {
     Collider {
         shape: ColliderShape::Aabb { width, height },
         offset: Vec2::ZERO,
+        ..Default::default()
     }
 }
 

@@ -5,6 +5,7 @@ use engine_core::worlds::{RoomId, RoomLayer};
 
 use crate::app::EditorMode;
 use crate::commands::scene::{ComponentTransientState, UpdateComponentCmd};
+use crate::gui::inspector::collider_module::collider_edit_target;
 use crate::gui::inspector::collider_module::edit::{
     compute_handles,
     hit_test_handles,
@@ -63,9 +64,11 @@ pub(crate) fn selected_collider_handle_hit(
 ) -> Option<(Entity, HandleAction, Collider)> {
     let entity = selected_entity?;
     let visual_entity = resolve_visual_entity(ecs, entity);
-    let collider = *ecs.get_store::<Collider>().get(visual_entity)?;
+    let collider = ecs.get_store::<Collider>().get(visual_entity)?.clone();
     let transform = ecs.get_store::<Transform>().get(entity)?;
-    let handles = compute_handles(transform.position, transform.pivot, &collider, grid_size);
+    let target = collider_edit_target(visual_entity);
+    let collider_data = collider.effective_data_for_target(&target);
+    let handles = compute_handles(transform.position, transform.pivot, &collider_data, grid_size);
     let index = hit_test_handles(mouse_world, &handles)?;
 
     Some((visual_entity, handles[index].action, collider))
@@ -85,9 +88,10 @@ pub(crate) fn selected_collider_edit_nudge(
     }
 
     let visual_entity = resolve_visual_entity(ecs, entity);
-    let old_collider = *ecs.get_store::<Collider>().get(visual_entity)?;
-    let mut new_collider = old_collider;
-    new_collider.offset += step;
+    let old_collider = ecs.get_store::<Collider>().get(visual_entity)?.clone();
+    let target = collider_edit_target(visual_entity);
+    let mut new_collider = old_collider.clone();
+    new_collider.mutate_target(target, |data| data.offset += step);
     Some((visual_entity, old_collider, new_collider))
 }
 
@@ -101,7 +105,7 @@ pub(crate) fn apply_handle_drag(
     let (Some(entity), Some(transform_entity), Some(initial), Some(action)) = (
         drag.entity,
         drag.transform_entity,
-        drag.initial_collider,
+        drag.initial_collider.clone(),
         drag.action,
     )
     else {
@@ -114,18 +118,19 @@ pub(crate) fn apply_handle_drag(
         ecs.get_store_mut::<Collider>().get_mut(entity),
     ) {
         let snap_step = config.snap_step();
+        let target = collider_edit_target(entity);
+        let mut target_data = initial.effective_data_for_target(&target);
 
-        *collider = initial;
         match action {
             HandleAction::MoveOffset => {
-                let target = initial.offset + delta;
+                let target_offset = target_data.offset + delta;
                 if config.snap_enabled {
-                    let world_x = transform.position.x + target.x;
-                    let world_y = transform.position.y + target.y;
-                    collider.offset.x = round_to_grid(world_x, snap_step) - transform.position.x;
-                    collider.offset.y = round_to_grid(world_y, snap_step) - transform.position.y;
+                    let world_x = transform.position.x + target_offset.x;
+                    let world_y = transform.position.y + target_offset.y;
+                    target_data.offset.x = round_to_grid(world_x, snap_step) - transform.position.x;
+                    target_data.offset.y = round_to_grid(world_y, snap_step) - transform.position.y;
                 } else {
-                    collider.offset = target;
+                    target_data.offset = target_offset;
                 }
             }
             HandleAction::ResizeAabbTopLeft
@@ -136,17 +141,24 @@ pub(crate) fn apply_handle_drag(
             | HandleAction::ResizeBottom
             | HandleAction::ResizeLeft
             | HandleAction::ResizeRight => {
+                let initial_target_collider = target_data.to_collider();
                 let snapped_delta = if config.snap_enabled {
-                    snap_aabb_delta(&initial, &transform, action, delta, snap_step)
+                    snap_aabb_delta(&initial_target_collider, &transform, action, delta, snap_step)
                 } else {
                     delta
                 };
-                if config.shift_held {
-                    if let Some(resized) = resized_aabb_collider_uniform(initial, transform, action, snapped_delta) {
-                        *collider = resized;
-                    }
-                } else if let Some(resized) = resized_aabb_collider(initial, transform, action, snapped_delta) {
-                    *collider = resized;
+                let resized = if config.shift_held {
+                    resized_aabb_collider_uniform(
+                        initial_target_collider,
+                        transform,
+                        action,
+                        snapped_delta,
+                    )
+                } else {
+                    resized_aabb_collider(initial_target_collider, transform, action, snapped_delta)
+                };
+                if let Some(resized) = resized {
+                    target_data = resized.static_data();
                 }
             }
             HandleAction::ResizeCircleRadius => {
@@ -158,27 +170,39 @@ pub(crate) fn apply_handle_drag(
                 } else {
                     mouse_world
                 };
-                if let Some(resized) =
-                    resized_circle_collider(initial, transform, drag.drag_start, snapped_mouse)
-                {
-                    *collider = resized;
+                let initial_target_collider = target_data.to_collider();
+                if let Some(resized) = resized_circle_collider(
+                    initial_target_collider,
+                    transform,
+                    drag.drag_start,
+                    snapped_mouse,
+                ) {
+                    target_data = resized.static_data();
                 }
             }
             HandleAction::ResizeCapsuleRadiusLeft
             | HandleAction::ResizeCapsuleRadiusRight
             | HandleAction::ResizeCapsuleHeightTop
             | HandleAction::ResizeCapsuleHeightBottom => {
+                let initial_target_collider = target_data.to_collider();
                 let snapped_delta = if config.snap_enabled {
-                    snap_capsule_delta(&initial, &transform, action, delta, snap_step)
+                    snap_capsule_delta(&initial_target_collider, &transform, action, delta, snap_step)
                 } else {
                     delta
                 };
-                if let Some(resized) = resized_capsule_collider(initial, transform, action, snapped_delta)
-                {
-                    *collider = resized;
+                if let Some(resized) = resized_capsule_collider(
+                    initial_target_collider,
+                    transform,
+                    action,
+                    snapped_delta,
+                ) {
+                    target_data = resized.static_data();
                 }
             }
         }
+
+        *collider = initial;
+        collider.mutate_target(target, |data| *data = target_data);
     }
 }
 
@@ -187,9 +211,9 @@ pub(crate) fn finished_collider_change(
     ecs: &Ecs,
 ) -> Option<(Entity, Collider, Collider)> {
     let entity = drag.entity?;
-    let old_collider = drag.initial_collider?;
-    let new_collider = *ecs.get_store::<Collider>().get(entity)?;
-    if new_collider.shape == old_collider.shape && new_collider.offset == old_collider.offset {
+    let old_collider = drag.initial_collider.clone()?;
+    let new_collider = ecs.get_store::<Collider>().get(entity)?.clone();
+    if new_collider == old_collider {
         return None;
     }
 
@@ -254,11 +278,13 @@ pub(crate) fn try_start_collider_handle_on_click(
     grid_size: f32,
 ) -> Option<(Entity, HandleAction, Collider)> {
     let visual_entity = resolve_visual_entity(ecs, entity);
-    let collider = ecs.get_store::<Collider>().get(visual_entity)?;
+    let collider = ecs.get_store::<Collider>().get(visual_entity)?.clone();
     let transform = ecs.get_store::<Transform>().get(entity)?;
-    let handles = compute_handles(transform.position, transform.pivot, collider, grid_size);
+    let target = collider_edit_target(visual_entity);
+    let collider_data = collider.effective_data_for_target(&target);
+    let handles = compute_handles(transform.position, transform.pivot, &collider_data, grid_size);
     let index = hit_test_handles(mouse_world, &handles)?;
-    Some((visual_entity, handles[index].action, *collider))
+    Some((visual_entity, handles[index].action, collider))
 }
 
 /// Creates an undo command for a collider change.
@@ -292,7 +318,7 @@ pub(crate) fn apply_collider_edit_nudge(
     let (entity, old_collider, new_collider) =
         selected_collider_edit_nudge(selected_entity, ecs, room_id, layer, step)?;
     if let Some(collider) = ecs.get_store_mut::<Collider>().get_mut(entity) {
-        *collider = new_collider;
+        *collider = new_collider.clone();
     }
     Some(collider_update_command(
         entity,
@@ -388,6 +414,7 @@ pub(crate) fn resized_aabb_collider(
             height: new_height,
         },
         offset: new_offset,
+        ..Default::default()
     })
 }
 
@@ -435,6 +462,7 @@ pub(crate) fn resized_aabb_collider_uniform(
             height: new_size,
         },
         offset: new_offset,
+        ..Default::default()
     })
 }
 
@@ -466,6 +494,7 @@ pub(crate) fn resized_circle_collider(
     Some(Collider {
         shape: ColliderShape::Circle { radius: new_radius },
         offset: new_offset,
+        ..Default::default()
     })
 }
 
@@ -525,6 +554,7 @@ pub(crate) fn resized_capsule_collider(
             height: new_height,
         },
         offset: new_offset,
+        ..Default::default()
     })
 }
 

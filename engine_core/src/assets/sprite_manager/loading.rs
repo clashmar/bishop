@@ -59,6 +59,8 @@ impl SpriteManager {
             _ => SpriteId(self.next_sprite_id),
         };
 
+        let texture = Self::load_texture_from_game(loader, &path)?;
+
         asset_registry
             .register_asset_relative_path(id, &path)
             .map_err(|error| error.to_string())?;
@@ -66,12 +68,10 @@ impl SpriteManager {
         self.path_to_sprite_id.insert(path.clone(), id);
         self.sprite_id_to_path.insert(id, path.clone());
         self.pending_texture_reads.remove(&id);
-
-        self.restore_next_sprite_id();
-
-        let texture = Self::load_texture_from_game(loader, &path)?;
         self.failed_texture_reads.remove(&id);
         self.textures.insert(id, texture);
+
+        self.restore_next_sprite_id();
 
         info!(
             "init_texture: loaded {:?} as {:?}, next_sprite_id now {}",

@@ -162,16 +162,16 @@ fn simulate_physics_room(
 fn contact_kinematics(ecs: &Ecs, moved_kinematics: &[KinematicFrameMotion]) -> Vec<KinematicFrameMotion> {
     moved_kinematics
         .iter()
-        .copied()
         .filter(|motion| !ecs.has::<Sensor>(motion.entity))
+        .cloned()
         .collect()
 }
 
 fn blocking_kinematics(contact_kinematics: &[KinematicFrameMotion]) -> Vec<KinematicFrameMotion> {
     contact_kinematics
         .iter()
-        .copied()
         .filter(|motion| motion.contact_behavior.is_solid())
+        .cloned()
         .collect()
 }
 
@@ -207,14 +207,14 @@ fn move_dynamic_body(
     let Some(mut velocity) = ecs.get::<Velocity>(entity).copied() else {
         return;
     };
-    let collider = ecs.get::<Collider>(entity).copied().unwrap_or_default();
+    let collider = ecs.get::<Collider>(entity).cloned().unwrap_or_default();
     let mut sub_pixel = ecs.get::<SubPixel>(entity).copied().unwrap_or_default();
     let mut position = transform.position;
 
     let support = if was_grounded {
         supporting_kinematic(
             true_position(position, sub_pixel),
-            collider,
+            collider.clone(),
             transform.pivot,
             contact_kinematics,
         )
@@ -222,7 +222,7 @@ fn move_dynamic_body(
         None
     };
 
-    if let Some(motion) = support {
+    if let Some(motion) = &support {
         apply_carrier_velocity(ecs, motion.entity, &mut velocity);
     }
 
@@ -230,7 +230,7 @@ fn move_dynamic_body(
     velocity.y += step.gravity * gravity_scale * step.dt;
 
     let delta = Vec2::new(velocity.x * step.dt, velocity.y * step.dt);
-    if let Some(motion) = support {
+    if let Some(motion) = &support {
         let carry = carry_delta(motion, delta.y.max(0.0));
         let (carried_position, carried_sub_pixel) = quantize_motion(position, sub_pixel, carry);
         position = carried_position;
@@ -241,7 +241,7 @@ fn move_dynamic_body(
         entity,
         true_position(position, sub_pixel),
         delta,
-        collider,
+        collider.clone(),
         transform.pivot,
     );
     let (new_position, mut new_sub_pixel) = quantize_motion(position, sub_pixel, sweep.allowed_delta);
@@ -253,7 +253,7 @@ fn move_dynamic_body(
                 dynamic_collision_world,
                 entity,
                 true_position(new_position, new_sub_pixel),
-                collider,
+                collider.clone(),
                 transform.pivot,
             ));
 

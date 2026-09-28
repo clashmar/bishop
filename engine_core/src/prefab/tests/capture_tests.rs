@@ -135,6 +135,43 @@ fn capture_prefab_excludes_runtime_current_frame_components() {
 }
 
 #[test]
+fn prefab_capture_preserves_sparse_collider_data() {
+    use crate::ecs::{Collider, ColliderData, ColliderFrameKey, ColliderShape};
+
+    let mut game = test_game();
+    let mut collider = Collider::default();
+    let frame = ColliderFrameKey { row: 0, col: 2 };
+    let frame_data = ColliderData {
+        shape: ColliderShape::Aabb {
+            width: 12.0,
+            height: 18.0,
+        },
+        offset: Vec2::new(2.0, 4.0),
+    };
+    collider.set_frame_data(ClipId::Run, frame, frame_data);
+
+    let entity = game.ecs.create_entity().with(collider).finish();
+    let captured = capture_prefab(&mut game.ecs, entity, PrefabId(1), "crate".to_string());
+    let saved_root = captured
+        .nodes
+        .iter()
+        .find(|node| node.node_id == captured.root_node_id)
+        .expect("captured prefab should have a root node");
+    let collider_snapshot = saved_root
+        .components
+        .iter()
+        .find(|component| component.type_name == comp_type_name::<Collider>())
+        .expect("captured prefab should include Collider");
+    let captured_collider: Collider = ron::from_str(&collider_snapshot.ron)
+        .expect("captured Collider RON should deserialize");
+
+    assert_eq!(
+        captured_collider.effective_data_for_frame(&ClipId::Run, frame),
+        frame_data,
+    );
+}
+
+#[test]
 fn capture_prefab_with_existing_preserves_stable_node_ids() {
     let mut game = test_game();
     let prefab = PrefabAsset {

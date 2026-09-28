@@ -90,7 +90,8 @@ fn spawn_kinematic_body_with_behavior(
                 height: PLATFORM_HEIGHT,
             },
             offset: Vec2::ZERO,
-        },
+            ..Default::default()
+},
         motion,
         contact_behavior,
     )
@@ -147,7 +148,8 @@ fn spawn_aabb_player_with_grounded(
                 height: 8.0,
             },
             offset: Vec2::ZERO,
-        },
+            ..Default::default()
+},
         grounded,
     )
 }
@@ -192,7 +194,8 @@ fn spawn_solid_aabb(
         .with(Collider {
             shape: ColliderShape::Aabb { width, height },
             offset: Vec2::ZERO,
-        })
+            ..Default::default()
+})
         .with(Solid(true))
         .with_current_room(room_id)
         .finish();
@@ -210,11 +213,11 @@ fn entity_sub_pixel(ecs: &Ecs, entity: Entity) -> (f32, f32) {
 fn overlaps(ecs: &Ecs, a: Entity, b: Entity) -> bool {
     let a_transform = ecs.get::<Transform>(a).unwrap();
     let a_sub_pixel = ecs.get::<SubPixel>(a).copied().unwrap_or_default();
-    let a_collider = ecs.get::<Collider>(a).copied().unwrap_or_default();
+    let a_collider = ecs.get::<Collider>(a).cloned().unwrap_or_default();
 
     let b_transform = ecs.get::<Transform>(b).unwrap();
     let b_sub_pixel = ecs.get::<SubPixel>(b).copied().unwrap_or_default();
-    let b_collider = ecs.get::<Collider>(b).copied().unwrap_or_default();
+    let b_collider = ecs.get::<Collider>(b).cloned().unwrap_or_default();
 
     shapes_overlap(
         true_position(a_transform.position, a_sub_pixel),
@@ -705,7 +708,7 @@ fn trailing_same_direction_overlap_does_not_stop_kinematic() {
     );
     ecs.get_mut::<Velocity>(player).unwrap().x = 240.0;
 
-    let collider = ecs.get::<Collider>(platform).copied().unwrap();
+    let collider = ecs.get::<Collider>(platform).cloned().unwrap();
     let room = world.get_room(room_id).unwrap();
     let collision_world = CollisionWorld::new(&ecs, room, &world);
     let mut events = PhysicsEvents::default();
@@ -853,7 +856,8 @@ fn kinematic_crush_policy_does_not_shove_airborne_dynamic_on_vertical_contact() 
                 height: 4.0,
             },
             offset: Vec2::ZERO,
-        },
+            ..Default::default()
+},
         false,
     );
     let platform = spawn_kinematic_body_with_collider(
@@ -867,14 +871,15 @@ fn kinematic_crush_policy_does_not_shove_airborne_dynamic_on_vertical_contact() 
                 height: 8.0,
             },
             offset: Vec2::ZERO,
-        },
+            ..Default::default()
+},
         KinematicMotion::default(),
         KinematicContactBehavior::Crush,
     );
     let room = world.get_room(room_id).unwrap();
     let collision_world = CollisionWorld::new(&ecs, room, &world);
     let rider_before = entity_position(&ecs, rider);
-    let collider = ecs.get::<Collider>(platform).copied().unwrap();
+    let collider = ecs.get::<Collider>(platform).cloned().unwrap();
 
     let mut events = PhysicsEvents::default();
     resolve_kinematic_contacts(
@@ -965,7 +970,8 @@ fn kinematic_eject_policy_ignores_circle_aabb_overlap_without_shape_contact() {
                 height: 4.0,
             },
             offset: Vec2::ZERO,
-        },
+            ..Default::default()
+},
         false,
     );
     let platform = spawn_kinematic_body_with_collider(
@@ -976,11 +982,12 @@ fn kinematic_eject_policy_ignores_circle_aabb_overlap_without_shape_contact() {
         Collider {
             shape: ColliderShape::Circle { radius: 8.0 },
             offset: Vec2::ZERO,
-        },
+            ..Default::default()
+},
         KinematicMotion::default(),
         KinematicContactBehavior::Eject,
     );
-    let collider = ecs.get::<Collider>(platform).copied().unwrap();
+    let collider = ecs.get::<Collider>(platform).cloned().unwrap();
     let start = entity_position(&ecs, platform);
     let rider_before = entity_position(&ecs, rider);
     let world = world_with_bottom_border();

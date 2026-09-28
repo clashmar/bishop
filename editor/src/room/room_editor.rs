@@ -4,6 +4,7 @@ use crate::canvas::grid;
 use crate::canvas::grid_shader::GridRenderer;
 use crate::editor_assets::assets::*;
 use crate::gui::gui_constants::{self};
+use crate::gui::inspector::animation_module::frame_edit;
 use crate::gui::inspector::shell::Inspector;
 use crate::gui::mode_selector::*;
 use crate::prefab::reconcile_recent_prefab_ids;
@@ -241,6 +242,13 @@ impl RoomEditor {
             delta_time,
             room.id,
         );
+        
+        frame_edit::apply_pinned_frame(
+            ctx,
+            ecs,
+            asset_registry,
+            sprite_manager,
+        );
 
         match self.mode {
             RoomEditorMode::Tilemap => {
@@ -340,6 +348,9 @@ impl RoomEditor {
     pub(crate) fn set_mode(&mut self, mode: RoomEditorMode) {
         if self.mode != mode {
             self.reset_scene_sub_mode();
+            if mode != RoomEditorMode::Scene {
+                frame_edit::exit_all();
+            }
         }
         self.mode = mode;
         self.mode_selector.current = mode;
@@ -570,6 +581,7 @@ impl RoomEditor {
     }
 
     pub fn reset(&mut self) {
+        frame_edit::exit_all();
         self.inspector.select_room();
         self.tilemap_editor.reset();
         self.reset_scene_sub_mode();

@@ -88,7 +88,8 @@ fn spawn_falling_body_with_gravity_scale(ecs: &mut Ecs, gravity_scale: GravitySc
                 height: 10.0,
             },
             offset: Vec2::ZERO,
-        })
+            ..Default::default()
+})
         .with(PhysicsBody)
         .with(Grounded(false))
         .with(SubPixel::default())

@@ -1,8 +1,12 @@
+use crate::gui::inspector::animation_module::frame_edit;
 use bishop::prelude::*;
 use engine_core::ecs::inspector::factory::ModuleFactoryEntry;
 use engine_core::ecs::inspector::layout::InspectorBodyLayout;
 use engine_core::ecs::inspector::module::CollapsibleComponentModule;
-use engine_core::ecs::{Collider, ColliderShape, CurrentFrame, Ecs, Entity, InspectorModule, Sprite};
+use engine_core::ecs::{
+    Collider, ColliderData, ColliderEditTarget, ColliderShape, CurrentFrame, Ecs, Entity,
+    InspectorModule, Sprite,
+};
 use engine_core::game::GameCtxMut;
 use engine_core::physics::collider_system;
 use engine_core::ui::measure_text;
@@ -88,6 +92,7 @@ impl InspectorModule for ColliderModule {
         entity: Entity,
     ) {
         let edit_mode_active = edit::is_collider_edit_active_for(entity);
+        let target = collider_edit_target(entity);
         let mut y = rect.y + layout_constants::WIDGET_SPACING;
         let full_w = rect.w - 2.0 * layout_constants::WIDGET_PADDING;
 
@@ -130,7 +135,10 @@ impl InspectorModule for ColliderModule {
                 }
             };
             if let Some(collider) = game_ctx.ecs.get_mut::<Collider>(entity) {
-                reset_collider_to_default(collider, &default_collider);
+                let mut reset_collider = collider.effective_data_for_target(&target).to_collider();
+                reset_collider_to_default(&mut reset_collider, &default_collider);
+                let default_data = reset_collider.static_data();
+                collider.mutate_target(target, |data| *data = default_data);
             }
             return;
         }
@@ -139,7 +147,10 @@ impl InspectorModule for ColliderModule {
             Some(collider) => collider,
             None => return,
         };
-        let current_shape_label = collider.shape.ui_label();
+        let mut target_data: ColliderData = collider.effective_data_for_target(&target);
+        let original_target_data = target_data;
+
+        let current_shape_label = target_data.shape.ui_label();
 
         ctx.draw_text(
             "Shape:",
@@ -165,7 +176,7 @@ impl InspectorModule for ColliderModule {
         .suppressed(blocked)
         .show(ctx)
         {
-            collider.shape = collider.shape.convert_to(selected);
+            target_data.shape = target_data.shape.convert_to(selected);
         }
 
         let edit_btn_rect = Rect::new(
@@ -184,7 +195,7 @@ impl InspectorModule for ColliderModule {
 
         y += ROW_H + layout_constants::WIDGET_SPACING;
 
-        match &mut collider.shape {
+        match &mut target_data.shape {
             ColliderShape::Aabb { width, height } => {
                 draw_pair_labels(ctx, "Width:", "Height:", y, rect);
                 let (width_rect, height_rect) = pair_input_rects(y, rect);
@@ -238,14 +249,28 @@ impl InspectorModule for ColliderModule {
             layout_constants::FIELD_TEXT_SIZE_16,
             colors::DEFAULT_TEXT_COLOR,
         );
-        let (new_ox, _) = NumberInput::new(self.offset_x_id, axis_layout.input_a, collider.offset.x)
+        let (new_ox, _) = NumberInput::new(self.offset_x_id, axis_layout.input_a, target_data.offset.x)
             .blocked(blocked)
             .show(ctx);
-        let (new_oy, _) = NumberInput::new(self.offset_y_id, axis_layout.input_b, collider.offset.y)
+        let (new_oy, _) = NumberInput::new(self.offset_y_id, axis_layout.input_b, target_data.offset.y)
             .blocked(blocked)
             .show(ctx);
-        collider.offset.x = new_ox;
-        collider.offset.y = new_oy;
+        target_data.offset.x = new_ox;
+        target_data.offset.y = new_oy;
+        if target_data != original_target_data {
+            collider.mutate_target(target, |data| *data = target_data);
+        }
+    }
+}
+
+pub fn collider_edit_target(entity: Entity) -> ColliderEditTarget {
+    let Some(animation_target) = frame_edit::active_target(entity) else {
+        return ColliderEditTarget::Static;
+    };
+
+    ColliderEditTarget::Frame {
+        clip_id: animation_target.clip_id,
+        frame: animation_target.frame,
     }
 }
 

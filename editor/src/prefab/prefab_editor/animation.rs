@@ -1,5 +1,6 @@
 use super::selection::is_prefab_entity;
 use super::PrefabEditor;
+use crate::gui::inspector::animation_module::frame_edit;
 use bishop::prelude::*;
 use engine_core::animation::{update_entity_animations};
 use engine_core::assets::*;
@@ -23,5 +24,12 @@ impl PrefabEditor {
             .collect();
 
         update_entity_animations(loader, ecs, asset_registry, sprite_manager, dt, &entities);
+        
+        frame_edit::apply_pinned_frame(
+            loader,
+            ecs,
+            asset_registry,
+            sprite_manager,
+        );
     }
 }
