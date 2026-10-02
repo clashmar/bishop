@@ -70,6 +70,8 @@
   "image": "Fidget.png",
   "format": "RGBA8888",
   "size": { "w": 48, "h": 15 },
-  "scale": "1"
+  "scale": "1",
+  "slices": [
+  ]
  }
 }

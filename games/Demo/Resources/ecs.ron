@@ -170,7 +170,53 @@
                     ),
                     offset: (0.0, 0.0),
                     animation: (
-                        clips: {},
+                        clips: {
+                            Jump: (
+                                clip: None,
+                                frames: {
+                                    (
+                                        row: 0,
+                                        col: 0,
+                                    ): (
+                                        shape: Aabb(
+                                            width: 4.0,
+                                            height: 13.0,
+                                        ),
+                                        offset: (0.0, 0.0),
+                                    ),
+                                    (
+                                        row: 0,
+                                        col: 1,
+                                    ): (
+                                        shape: Aabb(
+                                            width: 4.0,
+                                            height: 15.0,
+                                        ),
+                                        offset: (0.0, 0.0),
+                                    ),
+                                    (
+                                        row: 0,
+                                        col: 2,
+                                    ): (
+                                        shape: Aabb(
+                                            width: 4.0,
+                                            height: 16.0,
+                                        ),
+                                        offset: (0.0, 0.0),
+                                    ),
+                                    (
+                                        row: 0,
+                                        col: 3,
+                                    ): (
+                                        shape: Aabb(
+                                            width: 4.0,
+                                            height: 12.0,
+                                        ),
+                                        offset: (0.0, -4.0),
+                                    ),
+                                },
+                            ),
+                        },
                     ),
                 ),
                 (37): (

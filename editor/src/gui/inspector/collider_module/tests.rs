@@ -2,7 +2,12 @@ use bishop::prelude::*;
 use engine_core::ecs::{Collider, ColliderShape, Entity, DEFAULT_COLLIDER_DIMENSION, Pivot};
 use widgets::constants::layout as layout_constants;
 
-use super::{body_layout, collider_edit_target, reset_collider_to_default};
+use super::{
+    body_layout,
+    collider_edit_target,
+    default_collider_for_reset,
+    reset_collider_to_default,
+};
 use super::edit::{compute_handles, HandleAction};
 use crate::world::coord::round_to_grid;
 
@@ -54,11 +59,11 @@ fn layout_body_height_is_positive() {
 }
 
 #[test]
-fn layout_body_height_includes_three_rows() {
+fn layout_body_height_includes_aseprite_slice_import_row() {
     let body = body_layout();
     let expected = layout_constants::WIDGET_SPACING
-        + super::ROW_H * 3.0
-        + layout_constants::WIDGET_SPACING * 2.0
+        + super::ROW_H * 4.0
+        + layout_constants::WIDGET_SPACING * 3.0
         + layout_constants::WIDGET_SPACING;
     let actual = body.height();
     assert!(
@@ -198,6 +203,123 @@ fn reset_collider_preserves_circle_shape_variant() {
     };
     assert_eq!(radius, expected_radius);
     assert_eq!(collider.offset, Vec2::ZERO);
+}
+
+#[test]
+fn collider_aseprite_slice_import_visible_only_for_animation_collider_entities() {
+    use super::sync::should_show_aseprite_slice_import;
+    use engine_core::animation::ClipDef;
+    use engine_core::ecs::{Animation, Ecs};
+    use std::collections::HashMap;
+
+    let mut ecs = Ecs::default();
+    let collider_only = ecs.create_entity().with(Collider::default()).finish();
+    let animation_only = ecs
+        .create_entity()
+        .with(Animation {
+            clips: HashMap::from([(engine_core::animation::ClipId::Run, ClipDef::default())]),
+            ..Default::default()
+        })
+        .finish();
+    let animated_collider = ecs
+        .create_entity()
+        .with(Collider::default())
+        .with(Animation {
+            clips: HashMap::from([(engine_core::animation::ClipId::Run, ClipDef::default())]),
+            ..Default::default()
+        })
+        .finish();
+
+    assert!(!should_show_aseprite_slice_import(&ecs, collider_only));
+    assert!(!should_show_aseprite_slice_import(&ecs, animation_only));
+    assert!(should_show_aseprite_slice_import(&ecs, animated_collider));
+}
+
+#[test]
+fn collider_aseprite_slice_import_label_is_short_and_specific() {
+    use super::sync::aseprite_slice_import_label;
+
+    assert_eq!(aseprite_slice_import_label(), "Import Aseprite Slices");
+}
+
+#[test]
+fn collider_aseprite_import_toast_reports_success_warning_and_failure() {
+    use super::sync::{aseprite_slice_import_toast, AsepriteSliceImportToast};
+
+    assert_eq!(
+        aseprite_slice_import_toast(2, 0, 0),
+        (
+            AsepriteSliceImportToast::Success,
+            "Imported 2 collider slice(s)".to_string(),
+            2.0,
+        ),
+    );
+    assert_eq!(
+        aseprite_slice_import_toast(2, 1, 0),
+        (
+            AsepriteSliceImportToast::Warning,
+            "Imported 2 collider slice(s), 1 warning(s), 0 failure(s)".to_string(),
+            3.0,
+        ),
+    );
+    assert_eq!(
+        aseprite_slice_import_toast(0, 0, 0),
+        (
+            AsepriteSliceImportToast::Warning,
+            "No Aseprite collider slices found".to_string(),
+            3.0,
+        ),
+    );
+    assert_eq!(
+        aseprite_slice_import_toast(0, 0, 1),
+        (
+            AsepriteSliceImportToast::Failure,
+            "Aseprite slice import failed for 1 clip(s)".to_string(),
+            3.0,
+        ),
+    );
+}
+
+#[test]
+fn collider_aseprite_import_applies_sparse_frames_only() {
+    use super::sync::apply_imported_frame_data;
+    use bishop::prelude::Vec2;
+    use engine_core::animation::ClipId;
+    use engine_core::ecs::{ColliderData, ColliderFrameKey};
+    use std::collections::BTreeMap;
+
+    let collider = Collider::default();
+    let frame = ColliderFrameKey { row: 0, col: 1 };
+    let imported_data = ColliderData {
+        shape: ColliderShape::Aabb {
+            width: 14.0,
+            height: 15.0,
+        },
+        offset: Vec2::new(2.0, 3.0),
+    };
+    let imported = BTreeMap::from([(frame, imported_data)]);
+
+    let synced = apply_imported_frame_data(&collider, ClipId::Run, &imported);
+
+    assert_eq!(synced.effective_data_for_frame(&ClipId::Run, frame), imported_data);
+    assert_eq!(
+        synced.effective_data_for_frame(&ClipId::Run, ColliderFrameKey { row: 0, col: 0 }),
+        collider.static_data(),
+    );
+}
+
+#[test]
+fn reset_default_collider_without_visual_components_uses_collider_default() {
+    use engine_core::assets::sprite_manager::SpriteManager;
+    use engine_core::ecs::Ecs;
+
+    let mut ecs = Ecs::default();
+    let entity = ecs.create_entity().with(Collider::default()).finish();
+    let mut sprite_manager = SpriteManager::default();
+
+    let default = default_collider_for_reset(&ecs, &mut sprite_manager, entity);
+
+    assert_eq!(default, Collider::default());
 }
 
 #[test]

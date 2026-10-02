@@ -1,5 +1,6 @@
 use crate::gui::inspector::animation_module::frame_edit;
 use bishop::prelude::*;
+use engine_core::assets::sprite_manager::SpriteManager;
 use engine_core::ecs::inspector::factory::ModuleFactoryEntry;
 use engine_core::ecs::inspector::layout::InspectorBodyLayout;
 use engine_core::ecs::inspector::module::CollapsibleComponentModule;
@@ -19,6 +20,7 @@ use crate::editor_assets::assets::{move_icon, refresh_icon};
 use crate::gui::inspector::interactable_module::edit::clear_interactable_edit;
 
 pub mod edit;
+pub(super) mod sync;
 
 #[cfg(test)]
 mod tests;
@@ -42,6 +44,7 @@ pub struct ColliderModule {
     capsule_height_id: WidgetId,
     offset_x_id: WidgetId,
     offset_y_id: WidgetId,
+    sync_ui: sync::ColliderSyncUi,
     shape_options: Vec<ColliderShape>,
 }
 
@@ -55,6 +58,7 @@ impl Default for ColliderModule {
             capsule_height_id: WidgetId::default(),
             offset_x_id: WidgetId::default(),
             offset_y_id: WidgetId::default(),
+            sync_ui: sync::ColliderSyncUi::default(),
             shape_options: ColliderShape::iter().collect(),
         }
     }
@@ -116,24 +120,11 @@ impl InspectorModule for ColliderModule {
             .suppressed(blocked)
             .show(ctx);
         if reset_clicked {
-            let default_collider = {
-                let current_frame_store = game_ctx.ecs.get_store::<CurrentFrame>();
-                if let Some(col) = collider_system::collider_from_animation_component(
-                    current_frame_store,
-                    entity,
-                    game_ctx.sprite_manager,
-                ) {
-                    col
-                } else if let Some(sprite) = game_ctx.ecs.get_store::<Sprite>().get(entity) {
-                    collider_system::collider_from_sprite(
-                        game_ctx.sprite_manager,
-                        sprite.sprite,
-                    )
-                    .unwrap_or_default()
-                } else {
-                    Collider::default()
-                }
-            };
+            let default_collider = default_collider_for_reset(
+                game_ctx.ecs,
+                game_ctx.sprite_manager,
+                entity,
+            );
             if let Some(collider) = game_ctx.ecs.get_mut::<Collider>(entity) {
                 let mut reset_collider = collider.effective_data_for_target(&target).to_collider();
                 reset_collider_to_default(&mut reset_collider, &default_collider);
@@ -143,9 +134,8 @@ impl InspectorModule for ColliderModule {
             return;
         }
 
-        let collider = match game_ctx.ecs.get_mut::<Collider>(entity) {
-            Some(collider) => collider,
-            None => return,
+        let Some(collider) = game_ctx.ecs.get::<Collider>(entity) else {
+            return;
         };
         let mut target_data: ColliderData = collider.effective_data_for_target(&target);
         let original_target_data = target_data;
@@ -258,8 +248,25 @@ impl InspectorModule for ColliderModule {
         target_data.offset.x = new_ox;
         target_data.offset.y = new_oy;
         if target_data != original_target_data {
-            collider.mutate_target(target, |data| *data = target_data);
+            if let Some(collider) = game_ctx.ecs.get_mut::<Collider>(entity) {
+                collider.mutate_target(target, |data| *data = target_data);
+            }
         }
+
+        y += ROW_H + layout_constants::WIDGET_SPACING;
+        sync::draw_sync_controls(
+            ctx,
+            &mut self.sync_ui,
+            blocked,
+            Rect::new(
+                rect.x + layout_constants::WIDGET_PADDING,
+                y,
+                full_w,
+                ROW_H,
+            ),
+            game_ctx,
+            entity,
+        );
     }
 }
 
@@ -274,6 +281,28 @@ pub fn collider_edit_target(entity: Entity) -> ColliderEditTarget {
     }
 }
 
+pub(super) fn default_collider_for_reset(
+    ecs: &Ecs,
+    sprite_manager: &mut SpriteManager,
+    entity: Entity,
+) -> Collider {
+    let current_frame_store = ecs.get_store::<CurrentFrame>();
+    if let Some(collider) = collider_system::collider_from_animation_component(
+        current_frame_store,
+        entity,
+        sprite_manager,
+    ) {
+        return collider;
+    }
+
+    if let Some(sprite) = ecs.get_store::<Sprite>().get(entity) {
+        return collider_system::collider_from_sprite(sprite_manager, sprite.sprite)
+            .unwrap_or_default();
+    }
+
+    Collider::default()
+}
+
 /// Resets a collider to default dimensions while preserving the current shape variant.
 pub fn reset_collider_to_default(collider: &mut Collider, default_collider: &Collider) {
     let current_shape = collider.shape;
@@ -284,7 +313,7 @@ pub fn reset_collider_to_default(collider: &mut Collider, default_collider: &Col
 fn body_layout() -> InspectorBodyLayout {
     InspectorBodyLayout::new()
         .top_padding(layout_constants::WIDGET_SPACING)
-        .rows(3, layout_constants::WIDGET_SPACING)
+        .rows(4, layout_constants::WIDGET_SPACING)
 }
 
 fn single_input_rect(
