@@ -70,6 +70,8 @@
   "image": "Run.png",
   "format": "RGBA8888",
   "size": { "w": 96, "h": 16 },
-  "scale": "1"
+  "scale": "1",
+  "slices": [
+  ]
  }
 }

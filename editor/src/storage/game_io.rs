@@ -65,6 +65,7 @@ pub fn create_new_game(name: String) -> Game {
         .with(Player)
         .with(Global {})
         .with(PhysicsBody)
+        .with(Transform::default())
         .with(Active::default())
         .with(Name("Player".to_string()));
 

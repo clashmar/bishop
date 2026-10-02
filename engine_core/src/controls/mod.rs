@@ -119,6 +119,14 @@ impl Controls {
         ctx.is_key_pressed(KeyCode::Z) && modifier_not_pressed(ctx)
     }
 
+    pub fn left_bracket(ctx: &WgpuContext) -> bool {
+        ctx.is_key_pressed(KeyCode::LeftBracket) && modifier_not_pressed(ctx)
+    }
+
+    pub fn right_bracket(ctx: &WgpuContext) -> bool {
+        ctx.is_key_pressed(KeyCode::RightBracket) && modifier_not_pressed(ctx)
+    }
+
     pub fn f3(ctx: &WgpuContext) -> bool {
         ctx.is_key_pressed(KeyCode::F3) && modifier_not_pressed(ctx)
     }

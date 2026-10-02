@@ -692,7 +692,8 @@ mod tests {
 
         let instance = GameInstance {
             game,
-            prev_positions: HashMap::new(), traversal_residency_diagnostics: None,
+            prev_positions: HashMap::new(),
+            traversal_residency_diagnostics: None,
         };
         let audio_manager = AudioManager::new::<TestBackend>();
         let mut overlay = DiagnosticsOverlay::new();

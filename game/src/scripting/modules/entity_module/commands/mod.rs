@@ -1,6 +1,7 @@
 mod clear_speech;
 mod despawn;
 mod interact;
+mod kinematic_control;
 mod move_by;
 mod move_to_entry;
 mod move_to_layer;
@@ -23,6 +24,17 @@ mod trigger_world_exit;
 pub(super) use clear_speech::ClearSpeechMethod;
 pub(super) use despawn::DespawnMethod;
 pub(super) use interact::InteractMethod;
+pub(super) use kinematic_control::{
+    ReverseKinematicMethod,
+    SetKinematicAxisMethod,
+    SetKinematicDirectionMethod,
+    SetKinematicEnabledMethod,
+    SetKinematicModeMethod,
+    SetKinematicSpeedMethod,
+    SetKinematicTravelDistanceMethod,
+    StartKinematicMethod,
+    StopKinematicMethod,
+};
 pub(super) use move_by::MoveByMethod;
 pub(super) use move_to_entry::MoveToEntryMethod;
 pub(super) use move_to_layer::MoveToLayerMethod;

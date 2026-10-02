@@ -3,12 +3,13 @@
     name: "Arcade",
     current_room_id: Some((5)),
     meta: (
-        position: (-286.61145, -6.5337086),
+        position: (-391.9486, 29.023247),
         sprite_id: None,
     ),
     tags: [],
     overlay: true,
     grid_size: 16.0,
+    gravity: 50.0,
     singleton: (72),
     rooms: [
         (

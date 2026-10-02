@@ -34,3 +34,4 @@ fn room_with_back_zones(interior_zones: Vec<InteriorZone>) -> Room {
 mod entity_solid_tests;
 mod layer_tests;
 mod overlap_tests;
+mod sensor_tests;

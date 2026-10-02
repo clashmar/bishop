@@ -1,16 +1,17 @@
 use crate::engine::game_instance::GameInstance;
 use crate::game_global::{drain_commands, take_pending_world_transition};
-use crate::transitions::world_transitions::{DestinationSelector, WorldSelector};
 use crate::scripting::commands::lua_command::LuaCommand;
 use crate::scripting::lua_ctx::LuaGameCtx;
-use crate::scripting::modules::entity_module::EntityHandle;
+use crate::scripting::modules::entity_module::{EntityHandle, EntityModule};
+use crate::transitions::world_transitions::{DestinationSelector, WorldSelector};
 use engine_core::audio::command_queue::drain_audio_commands;
 use engine_core::audio::{AudioCommand, AudioPlaybackOwner};
 use engine_core::ecs::*;
 use engine_core::game::Game;
 use engine_core::worlds::*;
 use engine_core::worlds::world::WorldExitTrigger;
-use engine_core::scripting::lua_constants::lua_entity;
+use engine_core::scripting::lua_constants::{lua_entity, lua_kinematic};
+use engine_core::scripting::modules::lua_module::{LuaApi, LuaApiWriter};
 use engine_core::scripting::to_snake_case;
 use mlua::Lua;
 use std::cell::RefCell;
@@ -40,7 +41,7 @@ fn setup_entity_lua() -> (Lua, Rc<RefCell<GameInstance>>, Entity) {
         .finish();
     let game_instance = Rc::new(RefCell::new(GameInstance {
         game,
-        prev_positions: HashMap::new(), 
+        prev_positions: HashMap::new(),
         traversal_residency_diagnostics: None,
     }));
 
@@ -54,6 +55,43 @@ fn setup_entity_lua() -> (Lua, Rc<RefCell<GameInstance>>, Entity) {
     lua.globals().set("entity", entity_handle).unwrap();
 
     (lua, game_instance, entity)
+}
+
+fn horizontal_constant_motion(direction: KinematicDirection, speed: f32) -> KinematicMotion {
+    KinematicMotion {
+        mode: KinematicMotionMode::Constant,
+        axis: KinematicAxis::Horizontal,
+        direction,
+        speed,
+        travel_distance: 0.0,
+    }
+}
+
+fn horizontal_ping_pong_motion(direction: KinematicDirection, speed: f32, travel_distance: f32) -> KinematicMotion {
+    KinematicMotion {
+        mode: KinematicMotionMode::PingPong,
+        axis: KinematicAxis::Horizontal,
+        direction,
+        speed,
+        travel_distance,
+    }
+}
+
+fn attach_kinematic(
+    game_instance: &Rc<RefCell<GameInstance>>,
+    entity: Entity,
+    motion: KinematicMotion,
+) {
+    let mut kinematic = Kinematic::default();
+    kinematic.motion = motion;
+    kinematic.clear_runtime_state();
+
+    let mut game_instance = game_instance.borrow_mut();
+    let ecs = &mut game_instance.game.ecs;
+    ecs.add_component_to_entity(entity, Active::default());
+    ecs.add_component_to_entity(entity, Velocity::default());
+    ecs.add_component_to_entity(entity, Collider::default());
+    ecs.add_component_to_entity(entity, kinematic);
 }
 
 fn assert_private_component_error(err: mlua::Error, type_name: &str) {
@@ -357,7 +395,7 @@ fn trigger_world_exit_transport_targets_the_player() {
 #[test]
 fn trigger_world_exit_without_component_records_nothing() {
     let (lua, _game_instance, _entity) = setup_entity_lua();
-    // entity has NO WorldExit component.
+    // entity has NO WorldExit component
     lua.load(format!("entity:{}()", lua_entity::TRIGGER_WORLD_EXIT))
         .exec()
         .unwrap();
@@ -383,6 +421,139 @@ fn teleport_and_move_by_reject_indexed_vec_tables() {
 
     assert!(lua.load("entity:teleport({ 10, 20 })").exec().is_err());
     assert!(lua.load("entity:move_by({ 3, -2 })").exec().is_err());
+}
+
+#[test]
+fn start_stop_and_tune_kinematic_methods_queue_commands() {
+    let (lua, game_instance, entity) = setup_entity_lua();
+    attach_kinematic(
+        &game_instance,
+        entity,
+        horizontal_ping_pong_motion(KinematicDirection::Positive, 60.0, 64.0),
+    );
+
+    lua.load(format!(
+        "entity:{}(); \
+         entity:{}(); \
+         entity:{}(90.0); \
+         entity:{}('{}'); \
+         entity:{}(96.0)",
+        lua_entity::START_KINEMATIC,
+        lua_entity::STOP_KINEMATIC,
+        lua_entity::SET_KINEMATIC_SPEED,
+        lua_entity::SET_KINEMATIC_DIRECTION,
+        lua_kinematic::DIRECTION_NEGATIVE,
+        lua_entity::SET_KINEMATIC_TRAVEL_DISTANCE,
+    ))
+    .exec()
+    .unwrap();
+
+    assert_eq!(drain_commands().count(), 5);
+}
+
+#[test]
+fn set_enabled_mode_axis_methods_queue_commands_and_running_query_reflects_state() {
+    let (lua, game_instance, entity) = setup_entity_lua();
+    attach_kinematic(
+        &game_instance,
+        entity,
+        horizontal_ping_pong_motion(KinematicDirection::Positive, 60.0, 64.0),
+    );
+
+    let running: bool = lua
+        .load(format!("return entity:{}()", lua_entity::IS_KINEMATIC_RUNNING))
+        .eval()
+        .unwrap();
+    assert!(running);
+
+    lua.load(format!(
+        "entity:{}(false); \
+         entity:{}('{}'); \
+         entity:{}('{}')",
+        lua_entity::SET_KINEMATIC_ENABLED,
+        lua_entity::SET_KINEMATIC_MODE,
+        lua_kinematic::MODE_CONSTANT,
+        lua_entity::SET_KINEMATIC_AXIS,
+        lua_kinematic::AXIS_VERTICAL,
+    ))
+    .exec()
+    .unwrap();
+
+    assert_eq!(drain_commands().count(), 3);
+
+    game_instance
+        .borrow_mut()
+        .game
+        .ecs
+        .get_mut::<Kinematic>(entity)
+        .unwrap()
+        .set_runtime_enabled(false);
+
+    let disabled_running: bool = lua
+        .load(format!("return entity:{}()", lua_entity::IS_KINEMATIC_RUNNING))
+        .eval()
+        .unwrap();
+    assert!(!disabled_running);
+}
+
+#[test]
+fn get_kinematic_state_returns_script_facing_snapshot() {
+    let (lua, game_instance, entity) = setup_entity_lua();
+    attach_kinematic(
+        &game_instance,
+        entity,
+        horizontal_ping_pong_motion(KinematicDirection::Negative, 60.0, 64.0),
+    );
+    game_instance
+        .borrow_mut()
+        .game
+        .ecs
+        .get_mut::<Kinematic>(entity)
+        .unwrap()
+        .stop_runtime();
+
+    let state: mlua::Table = lua
+        .load(format!("return entity:{}()", lua_entity::GET_KINEMATIC_STATE))
+        .eval()
+        .unwrap();
+
+    assert!(state.get::<bool>(lua_kinematic::STATE_ENABLED).unwrap());
+    assert!(!state.get::<bool>(lua_kinematic::STATE_RUNNING).unwrap());
+    assert_eq!(
+        state.get::<String>(lua_kinematic::STATE_MODE).unwrap(),
+        lua_kinematic::MODE_PING_PONG,
+    );
+    assert_eq!(
+        state.get::<String>(lua_kinematic::STATE_DIRECTION).unwrap(),
+        lua_kinematic::DIRECTION_NEGATIVE,
+    );
+    assert_eq!(
+        state.get::<f32>(lua_kinematic::STATE_TRAVEL_DISTANCE).unwrap(),
+        64.0,
+    );
+}
+
+#[test]
+fn reverse_kinematic_errors_for_non_ping_pong_motion() {
+    let (lua, game_instance, entity) = setup_entity_lua();
+    attach_kinematic(
+        &game_instance,
+        entity,
+        horizontal_constant_motion(KinematicDirection::Positive, 60.0),
+    );
+
+    lua.load(format!("entity:{}()", lua_entity::REVERSE_KINEMATIC))
+        .exec()
+        .unwrap_err();
+}
+
+#[test]
+fn start_kinematic_errors_when_entity_has_no_kinematic() {
+    let (lua, _game_instance, _entity) = setup_entity_lua();
+
+    lua.load(format!("entity:{}()", lua_entity::START_KINEMATIC))
+        .exec()
+        .unwrap_err();
 }
 
 fn setup_entity_with_looping_audio(stop_behavior: AudioStopBehavior) -> (Lua, Rc<RefCell<GameInstance>>, Entity) {
@@ -437,4 +608,23 @@ fn entity_stop_sound_with_override_can_force_immediate_stop() {
         AudioCommand::StopLoops { fade_out, .. } => assert_eq!(*fade_out, None),
         other => panic!("unexpected command: expected StopLoops, got {:?}", std::mem::discriminant(other)),
     }
+}
+
+#[test]
+fn emit_api_documents_new_kinematic_entity_methods() {
+    let mut out = LuaApiWriter::default();
+    EntityModule.emit_api(&mut out);
+
+    assert!(out.buf.contains(&format!(
+        "function Entity:{}() end",
+        lua_entity::START_KINEMATIC
+    )));
+    assert!(out.buf.contains(&format!(
+        "function Entity:{}() end",
+        lua_entity::STOP_KINEMATIC
+    )));
+    assert!(out.buf.contains(&format!(
+        "function Entity:{}() end",
+        lua_entity::GET_KINEMATIC_STATE
+    )));
 }

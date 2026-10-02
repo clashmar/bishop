@@ -126,7 +126,7 @@ fn render_speech<C: BishopContext>(
         room: current_room,
         grid_size,
     };
-    
+
     let bubbles = collect_speech_bubbles(
         game_ctx.ecs,
         game_ctx.sprite_manager,

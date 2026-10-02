@@ -28,6 +28,7 @@
 ---@class Collider
 ---@field shape table
 ---@field offset vec2
+---@field animation table
 
 ---@class Cover
 ---@field hide boolean
@@ -57,6 +58,8 @@
 ---@field emission number
 ---@field sprite_id number
 
+---@alias GravityScale number
+
 ---@alias Grounded boolean
 
 ---@class Interactable
@@ -65,8 +68,15 @@
 ---@field radius number
 ---@field rect_size vec2
 
---- Marker component
 ---@class Kinematic
+---@field contact_behavior table
+---@field motion table
+---@field runtime_origin_x number
+---@field runtime_origin_y number
+---@field runtime_has_origin boolean
+---@field runtime_direction table
+---@field runtime_enabled boolean
+---@field runtime_running boolean
 
 ---@class LayerDoor
 ---@field usable boolean
@@ -103,6 +113,9 @@
 ---@class Script
 ---@field script_id number
 ---@field data table
+
+--- Marker component
+---@class Sensor
 
 ---@alias Solid boolean
 
@@ -161,6 +174,7 @@
 ---@field FacingDirection "FacingDirection"
 ---@field Global "Global"
 ---@field Glow "Glow"
+---@field GravityScale "GravityScale"
 ---@field Grounded "Grounded"
 ---@field Interactable "Interactable"
 ---@field Kinematic "Kinematic"
@@ -173,6 +187,7 @@
 ---@field PlayerProxy "PlayerProxy"
 ---@field RoomCamera "RoomCamera"
 ---@field Script "Script"
+---@field Sensor "Sensor"
 ---@field Solid "Solid"
 ---@field SpeechBubble "SpeechBubble"
 ---@field Sprite "Sprite"
@@ -197,6 +212,7 @@ C.Damage = "Damage"
 C.FacingDirection = "FacingDirection"
 C.Global = "Global"
 C.Glow = "Glow"
+C.GravityScale = "GravityScale"
 C.Grounded = "Grounded"
 C.Interactable = "Interactable"
 C.Kinematic = "Kinematic"
@@ -209,6 +225,7 @@ C.Player = "Player"
 C.PlayerProxy = "PlayerProxy"
 C.RoomCamera = "RoomCamera"
 C.Script = "Script"
+C.Sensor = "Sensor"
 C.Solid = "Solid"
 C.SpeechBubble = "SpeechBubble"
 C.Sprite = "Sprite"

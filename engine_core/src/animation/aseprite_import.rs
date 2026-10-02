@@ -179,17 +179,9 @@ pub fn export_aseprite_folder(folder: &Path) -> AseExportResult {
         let png_name = format!("{}.png", stem);
         let json_name = format!("{}.json", stem);
 
+        let source_path = path.to_string_lossy();
         let output = Command::new(&aseprite_path)
-            .args([
-                "-b",
-                path.to_string_lossy().as_ref(),
-                "--sheet",
-                &png_name,
-                "--format",
-                "json-hash",
-                "--data",
-                &json_name,
-            ])
+            .args(aseprite_export_args(&source_path, &png_name, &json_name))
             .current_dir(folder)
             .output();
 
@@ -216,6 +208,20 @@ pub fn export_aseprite_folder(folder: &Path) -> AseExportResult {
     }
 
     AseExportResult::Success
+}
+
+fn aseprite_export_args<'a>(source_path: &'a str, png_name: &'a str, json_name: &'a str) -> [&'a str; 9] {
+    [
+        "-b",
+        source_path,
+        "--sheet",
+        png_name,
+        "--format",
+        "json-hash",
+        "--list-slices",
+        "--data",
+        json_name,
+    ]
 }
 
 /// Find the Aseprite executable, checking common installation paths.
@@ -297,4 +303,30 @@ pub fn import_variant_folder(folder: &Path) -> Result<FolderImportResult, String
 fn filename_to_clip_id(path: &Path) -> ClipId {
     let stem = path.file_stem().and_then(|s| s.to_str()).unwrap_or("");
     clip_id_from_name(stem)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn aseprite_export_args_include_slice_metadata() {
+        let args = aseprite_export_args("Jump.aseprite", "Jump.png", "Jump.json");
+
+        assert!(args.contains(&"--list-slices"));
+        assert_eq!(
+            args,
+            [
+                "-b",
+                "Jump.aseprite",
+                "--sheet",
+                "Jump.png",
+                "--format",
+                "json-hash",
+                "--list-slices",
+                "--data",
+                "Jump.json",
+            ],
+        );
+    }
 }

@@ -1,6 +1,7 @@
 use crate::app::*;
 use crate::commands::scene::DeletePrefabCmd;
 use crate::editor_global::*;
+use crate::gui::inspector::animation_module::frame_edit;
 use crate::gui::inspector::audio_source_module::clear_active_audio_preview;
 use crate::gui::menu_bar::*;
 use crate::gui::modals::{
@@ -188,6 +189,7 @@ impl Editor {
             }
             EditorAction::OpenMenuEditor => {
                 clear_active_audio_preview();
+                frame_edit::exit_all();
                 self.room_editor.reset_scene_sub_mode();
                 self.return_mode = Some(self.mode);
                 self.mode = EditorMode::Menu;

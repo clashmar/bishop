@@ -1,5 +1,5 @@
 use super::*;
-use engine_core::ecs::{Cover, CoverMode};
+use engine_core::ecs::{AudioSource, Cover, CoverMode};
 use engine_core::worlds::{
     BackRoomLayer, InteriorZone, InteriorZoneBounds, InteriorZoneId, InteriorZoneScope,
     LayerCompositionMode,
@@ -63,6 +63,24 @@ fn shipped_demo_game_loads_with_slim_asset_registry_records() {
     let loaded = load_game_by_name("Demo").expect("shipped Demo game should load");
 
     assert!(!loaded.asset_registry.records().is_empty());
+}
+
+#[test]
+fn shipped_demo_world_singletons_have_audio_sources() {
+    let _lock = game_fs_test_lock()
+        .lock()
+        .unwrap_or_else(|poison| poison.into_inner());
+
+    let loaded = load_game_by_name("Demo").expect("shipped Demo game should load");
+
+    for world in loaded.worlds() {
+        assert!(
+            loaded.ecs.has::<AudioSource>(world.singleton),
+            "world '{}' singleton {:?} should have AudioSource",
+            world.name,
+            world.singleton
+        );
+    }
 }
 
 #[test]

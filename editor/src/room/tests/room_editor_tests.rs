@@ -1,4 +1,5 @@
 use super::*;
+use crate::gui::inspector::animation_module::frame_edit;
 use crate::gui::inspector::collider_module::edit::{
     clear_collider_edit,
     collider_edit_entity,
@@ -10,7 +11,17 @@ use crate::gui::inspector::interactable_module::edit::{
     toggle_interactable_edit,
 };
 use crate::room::selection::{selection_render_rect, topmost_entity_from_click_candidates};
+use engine_core::animation::{ClipDef, ClipId};
 use engine_core::worlds::InteriorZoneId;
+use std::collections::HashMap;
+
+fn frame_edit_animation() -> Animation {
+    Animation {
+        current: Some(ClipId::Run),
+        clips: HashMap::from([(ClipId::Run, ClipDef::default())]),
+        ..Default::default()
+    }
+}
 
 fn prefab_manager(ids: &[usize]) -> PrefabManager {
     let mut manager = PrefabManager::default();
@@ -431,6 +442,59 @@ fn selecting_different_room_entity_disables_previous_collider_edit_mode() {
 }
 
 #[test]
+fn clearing_room_selection_exits_animation_frame_edit_mode() {
+    let mut editor = RoomEditor::new();
+    let entity = Entity(7);
+    let animation = frame_edit_animation();
+    editor.set_selected_entity(Some(entity));
+    frame_edit::enter(entity, &animation);
+
+    editor.clear_selection();
+
+    assert!(frame_edit::active_target(entity).is_none());
+}
+
+#[test]
+fn selecting_different_room_entity_exits_animation_frame_edit_mode() {
+    let mut editor = RoomEditor::new();
+    let first = Entity(7);
+    let second = Entity(8);
+    let animation = frame_edit_animation();
+    editor.set_selected_entity(Some(first));
+    frame_edit::enter(first, &animation);
+
+    editor.set_selected_entity(Some(second));
+
+    assert!(frame_edit::active_target(first).is_none());
+}
+
+#[test]
+fn switching_room_editor_mode_exits_animation_frame_edit_mode() {
+    let mut editor = RoomEditor::new();
+    let entity = Entity(7);
+    let animation = frame_edit_animation();
+    editor.set_selected_entity(Some(entity));
+    frame_edit::enter(entity, &animation);
+
+    editor.set_mode(RoomEditorMode::Tilemap);
+
+    assert!(frame_edit::active_target(entity).is_none());
+}
+
+#[test]
+fn resetting_room_editor_exits_animation_frame_edit_mode() {
+    let mut editor = RoomEditor::new();
+    let entity = Entity(7);
+    let animation = frame_edit_animation();
+    editor.set_selected_entity(Some(entity));
+    frame_edit::enter(entity, &animation);
+
+    editor.reset();
+
+    assert!(frame_edit::active_target(entity).is_none());
+}
+
+#[test]
 fn clearing_room_selection_disables_interactable_edit_mode() {
     let mut editor = RoomEditor::new();
     let entity = Entity(7);
@@ -479,6 +543,26 @@ fn pruning_selection_in_active_layer_keeps_existing_entity_inspector() {
     assert_eq!(editor.single_selected_entity(), Some(entity));
     assert_eq!(editor.inspector.selected_entity(), Some(entity));
     assert_eq!(editor.inspector.entity_inspector_addr(), first_addr);
+}
+
+#[test]
+fn pruning_selection_keeps_global_entities_without_current_room() {
+    let mut editor = RoomEditor::new();
+    let mut ecs = Ecs::default();
+    let room_id = RoomId(7);
+    let global_entity = ecs
+        .create_entity()
+        .with(Global::default())
+        .with(Name("Global Entity".to_string()))
+        .finish();
+
+    editor.set_selected_entity(Some(global_entity));
+    editor.active_layer_state.active_layer = RoomLayer::Front;
+
+    editor.prune_selection_to_active_layer(&ecs, room_id);
+
+    assert_eq!(editor.single_selected_entity(), Some(global_entity));
+    assert_eq!(editor.inspector.selected_entity(), Some(global_entity));
 }
 
 #[test]

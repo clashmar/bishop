@@ -6,11 +6,28 @@ pub const OVERLAP_EPS: f32 = 0.0001;
 
 /// Returns the world-space axis-aligned bounding box (min, max) for a collider
 /// at a position with a pivot.
-pub fn collider_aabb(position: Vec2, collider: Collider, pivot: Pivot) -> (Vec2, Vec2) {
+pub fn collider_aabb(position: Vec2, collider: &Collider, pivot: Pivot) -> (Vec2, Vec2) {
     let (sw, sh) = collider.shape.size();
     let size = Vec2::new(sw, sh);
     let top_left = pivot_offset(position + collider.offset, size, pivot);
     (top_left, top_left + size)
+}
+
+/// Returns the overlap size when two AABBs intersect.
+pub(crate) fn aabb_overlap(a: (Vec2, Vec2), b: (Vec2, Vec2)) -> Option<Vec2> {
+    let overlap_x = a.1.x.min(b.1.x) - a.0.x.max(b.0.x);
+    let overlap_y = a.1.y.min(b.1.y) - a.0.y.max(b.0.y);
+
+    if overlap_x > 0.0 && overlap_y > 0.0 {
+        Some(Vec2::new(overlap_x, overlap_y))
+    } else {
+        None
+    }
+}
+
+/// Returns the center point of an axis-aligned bounding box.
+pub(crate) fn aabb_center(aabb: (Vec2, Vec2)) -> Vec2 {
+    (aabb.0 + aabb.1) * 0.5
 }
 
 /// Sweep a shape against a single rect obstacle along one axis.

@@ -1,4 +1,5 @@
 use crate::constants::paths;
+use crate::ecs::{CurrentRoom, Ecs, Global};
 use crate::game::{Game, GameDataManifest};
 use crate::storage::path_utils::{
     resources_folder, room_payload_path, world_descriptor_path,
@@ -11,6 +12,7 @@ use std::path::{Path, PathBuf};
 
 /// Saves a `Game` into the split-layout format under `folder`.
 pub fn save_game_to_folder(game: &Game, folder: &Path) -> io::Result<()> {
+    validate_global_room_membership(&game.ecs)?;
     fs::create_dir_all(folder)?;
 
     // Save the full ECS data so entities round-trip
@@ -72,6 +74,7 @@ pub fn save_game_to_folder(game: &Game, folder: &Path) -> io::Result<()> {
             tags: world.tags.clone(),
             overlay: world.overlay,
             grid_size: world.grid_size,
+            gravity: world.gravity,
             singleton: world.singleton,
             rooms: room_entries,
         };
@@ -121,7 +124,9 @@ pub fn load_game_shell_from_folder(folder: &Path) -> io::Result<Game> {
     let manifest_ron = fs::read_to_string(&manifest_path)?;
     let manifest: GameDataManifest = ron::from_str(&manifest_ron).map_err(io::Error::other)?;
 
-    load_shell_from_split_layout(folder, manifest)
+    let game = load_shell_from_split_layout(folder, manifest)?;
+    validate_global_room_membership(&game.ecs)?;
+    Ok(game)
 }
 
 /// Hydrates every split-layout payload back into a fully materialized `Game`.
@@ -156,6 +161,18 @@ pub fn hydrate_initial_payloads_for_runtime(game: &mut Game) -> Result<(), Strin
 
     hydrate_current_payloads_from_folder(&resources, game)
         .map_err(|error| format!("Failed to hydrate initial payloads: {error}"))
+}
+
+/// Rejects authored data where a global entity is assigned to a room.
+fn validate_global_room_membership(ecs: &Ecs) -> io::Result<()> {
+    for &entity in ecs.get_store::<Global>().data.keys() {
+        if ecs.has::<CurrentRoom>(entity) {
+            return Err(io::Error::other(format!(
+                "global entity {entity:?} must not have a CurrentRoom; placement belongs on a player proxy"
+            )));
+        }
+    }
+    Ok(())
 }
 
 fn load_shell_from_split_layout(folder: &Path, manifest: GameDataManifest) -> io::Result<Game> {
@@ -222,7 +239,7 @@ fn hydrate_room_payload(folder: &Path, room: &mut crate::worlds::Room) -> io::Re
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ecs::{Animation, Entity};
+    use crate::ecs::{Animation, Entity, Global};
     use crate::worlds::{Room, RoomId, WorldId};
     use std::path::PathBuf;
 
@@ -364,6 +381,19 @@ mod tests {
     }
 
     #[test]
+    fn save_game_to_folder_when_global_entity_has_current_room_returns_error() {
+        let folder = TempSplitLayoutDir::new();
+        let mut game = fully_loaded_test_game();
+        game.ecs
+            .create_entity()
+            .with(Global::default())
+            .with_current_room(RoomId(1))
+            .finish();
+
+        assert!(save_game_to_folder(&game, folder.path()).is_err());
+    }
+
+    #[test]
     fn load_game_shell_from_folder_defers_room_payloads() {
         let folder = TempSplitLayoutDir::new();
         let original = fully_loaded_test_game();
@@ -486,5 +516,24 @@ mod tests {
         assert_eq!(room.singleton, room_singleton);
         assert_ne!(world.singleton, Entity::default());
         assert_ne!(room.singleton, Entity::default());
+    }
+
+    #[test]
+    fn split_layout_round_trips_world_gravity() {
+        let folder = TempSplitLayoutDir::new();
+        let mut original = fully_loaded_test_game();
+        original.current_world_mut().unwrap().gravity = 100.0;
+        save_game_to_folder(&original, folder.path()).unwrap();
+
+        let descriptor_ron = fs::read_to_string(
+            folder.path().join(paths::WORLDS_FOLDER).join("world-1.ron"),
+        )
+        .unwrap();
+        let descriptor: WorldDescriptor = ron::from_str(&descriptor_ron).unwrap();
+        assert_eq!(descriptor.gravity, 100.0);
+
+        let loaded = load_game_shell_from_folder(folder.path()).unwrap();
+
+        assert_eq!(loaded.current_world().gravity, 100.0);
     }
 }

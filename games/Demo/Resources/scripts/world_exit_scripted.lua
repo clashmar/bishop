@@ -7,10 +7,10 @@ local WorldExitScripted = {
         end
 
         local current_world = engine.current_world()
-        if current_world.name == Worlds.SecondWorld.Name then
-            player:move_to_entry(Entries.SecondWorld.MainEntry)
+        if current_world.name == Worlds.KinematicLab.Name then
+            player:move_to_entry(Entries.MainWorld.Portal)
         else
-            player:move_to_entry(Entries.SecondWorld.Start)
+            player:move_to_entry(Entries.KinematicLab.Start)
         end
     end,
 }

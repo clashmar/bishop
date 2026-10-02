@@ -131,6 +131,84 @@ pub mod lua_entity {
     pub const REMOVE_FROM_ROOM: &str = "remove_from_room";
     pub const CURRENT_ROOM: &str = "current_room";
     pub const CURRENT_LAYER: &str = "current_layer";
+    pub const START_KINEMATIC: &str = "start_kinematic";
+    pub const STOP_KINEMATIC: &str = "stop_kinematic";
+    pub const REVERSE_KINEMATIC: &str = "reverse_kinematic";
+    pub const SET_KINEMATIC_ENABLED: &str = "set_kinematic_enabled";
+    pub const SET_KINEMATIC_MODE: &str = "set_kinematic_mode";
+    pub const SET_KINEMATIC_AXIS: &str = "set_kinematic_axis";
+    pub const SET_KINEMATIC_DIRECTION: &str = "set_kinematic_direction";
+    pub const SET_KINEMATIC_SPEED: &str = "set_kinematic_speed";
+    pub const SET_KINEMATIC_TRAVEL_DISTANCE: &str = "set_kinematic_travel_distance";
+    pub const IS_KINEMATIC_RUNNING: &str = "is_kinematic_running";
+    pub const GET_KINEMATIC_STATE: &str = "get_kinematic_state";
+}
+
+/// Kinematic Lua constants.
+pub mod lua_kinematic {
+    pub const MODE_NONE: &str = "none";
+    pub const MODE_CONSTANT: &str = "constant";
+    pub const MODE_PING_PONG: &str = "ping_pong";
+    pub const AXIS_HORIZONTAL: &str = "horizontal";
+    pub const AXIS_VERTICAL: &str = "vertical";
+    pub const DIRECTION_POSITIVE: &str = "positive";
+    pub const DIRECTION_NEGATIVE: &str = "negative";
+    pub const STATE_ENABLED: &str = "enabled";
+    pub const STATE_RUNNING: &str = "running";
+    pub const STATE_MODE: &str = "mode";
+    pub const STATE_AXIS: &str = "axis";
+    pub const STATE_DIRECTION: &str = "direction";
+    pub const STATE_SPEED: &str = "speed";
+    pub const STATE_TRAVEL_DISTANCE: &str = "travel_distance";
+    pub const EVENT_KINEMATIC: &str = "kinematic";
+    pub const EVENT_OTHER: &str = "other";
+    pub const EVENT_SELF_ENTITY: &str = "self_entity";
+    pub const EVENT_ROLE: &str = "role";
+    pub const EVENT_KIND: &str = "kind";
+    pub const CALLBACK_KINEMATIC_CONTACT: &str = "on_kinematic_contact";
+    pub const ROLE_KINEMATIC: &str = "kinematic";
+    pub const ROLE_OTHER: &str = "other";
+    pub const KIND_TRIGGER: &str = "trigger";
+}
+
+/// Sensor Lua constants.
+pub mod lua_sensor {
+    pub const EVENT_SENSOR: &str = "sensor";
+    pub const EVENT_BODY: &str = "body";
+    pub const EVENT_OTHER: &str = "other";
+    pub const EVENT_SELF_ENTITY: &str = "self_entity";
+    pub const EVENT_ROLE: &str = "role";
+    pub const EVENT_KIND: &str = "kind";
+    pub const CALLBACK_SENSOR_ENTER: &str = "on_sensor_enter";
+    pub const CALLBACK_SENSOR_STAY: &str = "on_sensor_stay";
+    pub const CALLBACK_SENSOR_EXIT: &str = "on_sensor_exit";
+    pub const ROLE_SENSOR: &str = "sensor";
+    pub const ROLE_BODY: &str = "body";
+    pub const KIND_ENTER: &str = "enter";
+    pub const KIND_STAY: &str = "stay";
+    pub const KIND_EXIT: &str = "exit";
+}
+
+/// Collision Lua constants.
+pub mod lua_collision {
+    pub const EVENT_FIRST: &str = "first";
+    pub const EVENT_SECOND: &str = "second";
+    pub const EVENT_KINEMATIC: &str = "kinematic";
+    pub const EVENT_DYNAMIC: &str = "dynamic";
+    pub const EVENT_OTHER: &str = "other";
+    pub const EVENT_SELF_ENTITY: &str = "self_entity";
+    pub const EVENT_ROLE: &str = "role";
+    pub const EVENT_KIND: &str = "kind";
+    pub const CALLBACK_COLLISION_ENTER: &str = "on_collision_enter";
+    pub const CALLBACK_COLLISION_EXIT: &str = "on_collision_exit";
+    pub const CALLBACK_COLLISION_SQUEEZE: &str = "on_collision_squeeze";
+    pub const ROLE_FIRST: &str = "first";
+    pub const ROLE_SECOND: &str = "second";
+    pub const ROLE_KINEMATIC: &str = "kinematic";
+    pub const ROLE_DYNAMIC: &str = "dynamic";
+    pub const KIND_ENTER: &str = "enter";
+    pub const KIND_EXIT: &str = "exit";
+    pub const KIND_SQUEEZE: &str = "squeeze";
 }
 
 /// Lua event names passed to `engine.on` / `engine.emit`.
@@ -144,6 +222,19 @@ pub mod lua_events {
     pub const SAVE_SUCCEEDED: &str = "save:succeeded";
     pub const SAVE_FAILED_FIELD: &str = "save_failed";
     pub const SAVE_FAILED: &str = "save:failed";
+    pub const KINEMATIC_CONTACT: &str = "kinematic:contact";
+    pub const COLLISION_ENTER_FIELD: &str = "collision_enter";
+    pub const COLLISION_ENTER: &str = "collision:enter";
+    pub const COLLISION_EXIT_FIELD: &str = "collision_exit";
+    pub const COLLISION_EXIT: &str = "collision:exit";
+    pub const COLLISION_SQUEEZE_FIELD: &str = "collision_squeeze";
+    pub const COLLISION_SQUEEZE: &str = "collision:squeeze";
+    pub const SENSOR_ENTER_FIELD: &str = "sensor_enter";
+    pub const SENSOR_ENTER: &str = "sensor:enter";
+    pub const SENSOR_STAY_FIELD: &str = "sensor_stay";
+    pub const SENSOR_STAY: &str = "sensor:stay";
+    pub const SENSOR_EXIT_FIELD: &str = "sensor_exit";
+    pub const SENSOR_EXIT: &str = "sensor:exit";
 }
 
 /// Animation Lua method names.

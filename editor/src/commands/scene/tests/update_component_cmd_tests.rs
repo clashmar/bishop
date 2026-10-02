@@ -1,8 +1,119 @@
+use bishop::prelude::Vec2;
+use engine_core::animation::ClipId;
 use engine_core::ecs::*;
 use engine_core::engine_global::{set_game_name};
 use engine_core::worlds::*;
 use super::*;
 use crate::editor_global::{reset_services, set_editor};
+
+#[test]
+fn collider_timeline_update_component_command_undoes_nested_frame_data() {
+    reset_services();
+
+    let mut editor = Editor::default();
+    editor.game.add_world(Default::default());
+    let entity = editor
+        .game
+        .ecs
+        .create_entity()
+        .with(Collider::default())
+        .finish();
+
+    let old_collider = Collider::default();
+    let mut new_collider = Collider::default();
+    new_collider.set_frame_data(
+        ClipId::Run,
+        ColliderFrameKey { row: 0, col: 1 },
+        ColliderData {
+            shape: ColliderShape::Circle { radius: 9.0 },
+            offset: Vec2::new(4.0, 5.0),
+        },
+    );
+
+    let old_ron = ron::to_string(&old_collider).expect("Collider should serialize");
+    let new_ron = ron::to_string(&new_collider).expect("Collider should serialize");
+    set_editor(editor);
+
+    let mut cmd = UpdateComponentCmd::new(
+        entity,
+        EditorMode::Room(RoomId(1)),
+        Collider::TYPE_NAME,
+        old_ron,
+        new_ron,
+        Default::default(),
+        Default::default(),
+    );
+    cmd.execute();
+
+    with_editor(|editor| {
+        let collider = editor.game.ecs.get::<Collider>(entity).expect("Collider should exist");
+        assert_eq!(
+            collider
+                .effective_data_for_frame(&ClipId::Run, ColliderFrameKey { row: 0, col: 1 })
+                .offset,
+            Vec2::new(4.0, 5.0),
+        );
+    });
+
+    cmd.undo();
+
+    with_editor(|editor| {
+        let collider = editor.game.ecs.get::<Collider>(entity).expect("Collider should exist");
+        assert_eq!(
+            collider.effective_data_for_frame(&ClipId::Run, ColliderFrameKey { row: 0, col: 1 }),
+            collider.static_data(),
+        );
+    });
+}
+
+#[test]
+fn collider_sync_update_component_command_redoes_nested_frame_data() {
+    reset_services();
+
+    let mut editor = Editor::default();
+    editor.game.add_world(Default::default());
+    let entity = editor
+        .game
+        .ecs
+        .create_entity()
+        .with(Collider::default())
+        .finish();
+
+    let old_collider = Collider::default();
+    let mut new_collider = Collider::default();
+    let frame = ColliderFrameKey { row: 0, col: 1 };
+    let frame_data = ColliderData {
+        shape: ColliderShape::Aabb {
+            width: 32.0,
+            height: 48.0,
+        },
+        offset: Vec2::new(4.0, 5.0),
+    };
+    new_collider.set_frame_data(ClipId::Run, frame, frame_data);
+
+    let old_ron = ron::to_string(&old_collider).expect("Collider should serialize");
+    let new_ron = ron::to_string(&new_collider).expect("Collider should serialize");
+    set_editor(editor);
+
+    let mut cmd = UpdateComponentCmd::new(
+        entity,
+        EditorMode::Room(RoomId(1)),
+        Collider::TYPE_NAME,
+        old_ron,
+        new_ron,
+        Default::default(),
+        Default::default(),
+    );
+
+    cmd.execute();
+    cmd.undo();
+    cmd.execute();
+
+    with_editor(|editor| {
+        let collider = editor.game.ecs.get::<Collider>(entity).expect("Collider should exist");
+        assert_eq!(collider.effective_data_for_frame(&ClipId::Run, frame), frame_data);
+    });
+}
 
 #[test]
 fn room_component_updates_move_membership_between_rooms() {

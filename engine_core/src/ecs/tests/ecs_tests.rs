@@ -467,6 +467,34 @@ fn on_remove_fires_on_purge_proxies() {
 }
 
 #[test]
+fn set_player_spawn_from_proxy_when_player_has_transform_preserves_z_and_copies_position() {
+    let mut ecs = Ecs::default();
+    let room_id = RoomId(1);
+    let player = ecs
+        .create_entity()
+        .with(Player)
+        .with(Transform {
+            z: 7,
+            ..Default::default()
+        })
+        .finish();
+    ecs.create_entity()
+        .with(PlayerProxy)
+        .with(Transform {
+            position: Vec2::new(28.0, 72.0),
+            ..Default::default()
+        })
+        .with_current_room(room_id)
+        .finish();
+
+    ecs.set_player_spawn_from_proxy(room_id);
+
+    let transform = ecs.get::<Transform>(player).unwrap();
+    assert_eq!(transform.position, Vec2::new(28.0, 72.0));
+    assert_eq!(transform.z, 7);
+}
+
+#[test]
 fn replace_component_updates_store_value() {
     let mut ecs = Ecs::default();
     let entity = ecs.create_entity().with(Transform::default()).finish();
@@ -529,6 +557,28 @@ fn finalize_after_load_calls_on_insert_for_all_entities() {
 fn finalize_after_load_on_empty_ecs_is_noop() {
     let mut ecs = Ecs::default();
     ecs.finalize_after_load();
+}
+
+#[test]
+fn finalize_after_load_resets_kinematic_runtime_state_to_authored_defaults() {
+    let mut ecs = Ecs::default();
+    let entity = ecs.create_entity().finish();
+    let loaded: Kinematic = ron::from_str(
+        "(\n    contact_behavior: Stop,\n    motion: (\n        mode: Constant,\n        axis: Horizontal,\n        direction: Negative,\n        speed: 20.0,\n        travel_distance: 12.0,\n    ),\n)",
+    )
+    .unwrap();
+
+    assert!(loaded.is_runtime_enabled());
+    assert!(loaded.is_runtime_running());
+    assert_eq!(loaded.runtime_direction(), KinematicDirection::Positive);
+
+    ecs.get_store_mut::<Kinematic>().insert(entity, loaded);
+    ecs.finalize_after_load();
+
+    let kinematic = ecs.get::<Kinematic>(entity).unwrap();
+    assert!(kinematic.is_runtime_enabled());
+    assert!(kinematic.is_runtime_running());
+    assert_eq!(kinematic.runtime_direction(), KinematicDirection::Negative);
 }
 
 #[test]

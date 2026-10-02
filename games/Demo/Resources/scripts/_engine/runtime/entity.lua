@@ -21,6 +21,7 @@ function Entity:despawn() end
 ---@overload fun(self: Entity, component: "FacingDirection"): FacingDirection
 ---@overload fun(self: Entity, component: "Global"): Global
 ---@overload fun(self: Entity, component: "Glow"): Glow
+---@overload fun(self: Entity, component: "GravityScale"): GravityScale
 ---@overload fun(self: Entity, component: "Grounded"): Grounded
 ---@overload fun(self: Entity, component: "Interactable"): Interactable
 ---@overload fun(self: Entity, component: "Kinematic"): Kinematic
@@ -33,6 +34,7 @@ function Entity:despawn() end
 ---@overload fun(self: Entity, component: "PlayerProxy"): PlayerProxy
 ---@overload fun(self: Entity, component: "RoomCamera"): RoomCamera
 ---@overload fun(self: Entity, component: "Script"): Script
+---@overload fun(self: Entity, component: "Sensor"): Sensor
 ---@overload fun(self: Entity, component: "Solid"): Solid
 ---@overload fun(self: Entity, component: "SpeechBubble"): SpeechBubble
 ---@overload fun(self: Entity, component: "Sprite"): Sprite
@@ -98,6 +100,10 @@ function Entity:set_global(v) end
 function Entity:set_glow(v) end
 
 ---@param self Entity
+---@param v GravityScale
+function Entity:set_gravity_scale(v) end
+
+---@param self Entity
 ---@param v Grounded
 function Entity:set_grounded(v) end
 
@@ -144,6 +150,10 @@ function Entity:set_room_camera(v) end
 ---@param self Entity
 ---@param v Script
 function Entity:set_script(v) end
+
+---@param self Entity
+---@param v Sensor
+function Entity:set_sensor(v) end
 
 ---@param self Entity
 ---@param v Solid
@@ -200,6 +210,45 @@ function Entity:has_all(...) end
 ---@vararg any Arguments passed to the entity's interact function
 ---@return nil
 function Entity:interact(...) end
+
+---@return { enabled: boolean, running: boolean, mode: string, axis: string, direction: string, speed: number, travel_distance: number }
+function Entity:get_kinematic_state() end
+
+---@return nil
+function Entity:start_kinematic() end
+
+---@return nil
+function Entity:stop_kinematic() end
+
+---@return nil
+function Entity:reverse_kinematic() end
+
+---@param enabled boolean
+---@return nil
+function Entity:set_kinematic_enabled(enabled) end
+
+---@param mode 'none'|'constant'|'ping_pong'
+---@return nil
+function Entity:set_kinematic_mode(mode) end
+
+---@param axis 'horizontal'|'vertical'
+---@return nil
+function Entity:set_kinematic_axis(axis) end
+
+---@param direction 'positive'|'negative'
+---@return nil
+function Entity:set_kinematic_direction(direction) end
+
+---@param speed number
+---@return nil
+function Entity:set_kinematic_speed(speed) end
+
+---@param distance number
+---@return nil
+function Entity:set_kinematic_travel_distance(distance) end
+
+---@return boolean
+function Entity:is_kinematic_running() end
 
 ---@return Entity|nil
 function Entity:find_best_interactable() end

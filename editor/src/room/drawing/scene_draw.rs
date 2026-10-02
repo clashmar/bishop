@@ -2,7 +2,7 @@ use std::collections::HashSet;
 
 use bishop::prelude::*;
 use engine_core::camera::get_room_camera_by_id;
-use engine_core::ecs::Pivot;
+use engine_core::ecs::{Global, Pivot};
 use engine_core::game::GameCtxMut;
 use engine_core::prefab::PrefabAsset;
 use engine_core::rendering::{render_room, RenderSystem, RoomRenderState};
@@ -179,6 +179,9 @@ impl RoomEditor {
 
         if self.scene_sub_mode != RoomSceneSubMode::Zones {
             for &selected_entity in &self.selected_entities {
+                if ecs.has::<Global>(selected_entity) {
+                    continue;
+                }
                 if !is_pure_placeholder(ecs, selected_entity) {
                     highlight_selected_entity(
                         ctx,
@@ -201,7 +204,9 @@ impl RoomEditor {
             }
 
             if let Some(selected_entity) = self.single_selected_entity() {
-                draw_editor_collider(ctx, ecs, selected_entity, grid_size);
+                if !ecs.has::<Global>(selected_entity) {
+                    draw_editor_collider(ctx, ecs, selected_entity, grid_size);
+                }
             }
 
             if self.drag_state.box_select_active {

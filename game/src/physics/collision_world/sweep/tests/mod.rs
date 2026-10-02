@@ -32,6 +32,7 @@ fn world_with_solid(aabb: (Vec2, Vec2)) -> CollisionWorld {
             layer: None,
             interior_zone: None,
         }],
+        sensors: Vec::new(),
         entity_layers: Default::default(),
         back_interior_zones: Vec::new(),
     }

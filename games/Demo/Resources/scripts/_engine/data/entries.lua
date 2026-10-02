@@ -8,7 +8,7 @@ local Entries = {
         Entry_ = { WorldId = 1, RoomId = 1, Layer = "Front", EntryName = "" },
         Portal = { WorldId = 1, RoomId = 1, Layer = "Front", EntryName = "Portal" },
     },
-    SecondWorld = {
+    KinematicLab = {
         Start = { WorldId = 3, RoomId = 4, Layer = "Front", EntryName = "Start" },
     },
     Arcade = {

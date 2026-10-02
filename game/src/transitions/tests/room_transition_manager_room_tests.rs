@@ -34,7 +34,8 @@ fn handle_transitions_tracks_spatial_room_change() {
 
     let mut game_instance = GameInstance {
         game,
-        prev_positions: HashMap::new(), traversal_residency_diagnostics: None,
+        prev_positions: HashMap::new(),
+        traversal_residency_diagnostics: None,
     };
 
     RoomTransitionManager::handle_transitions(&Lua::new(), &mut game_instance);
@@ -85,7 +86,8 @@ fn handle_transitions_ignores_entities_parked_in_inactive_worlds() {
 
     let mut game_instance = GameInstance {
         game,
-        prev_positions: HashMap::new(), traversal_residency_diagnostics: None,
+        prev_positions: HashMap::new(),
+        traversal_residency_diagnostics: None,
     };
 
     RoomTransitionManager::handle_transitions(&Lua::new(), &mut game_instance);
@@ -127,7 +129,8 @@ fn handle_transitions_uses_visual_position_instead_of_rounded_transform_position
 
     let mut game_instance = GameInstance {
         game,
-        prev_positions: HashMap::new(), traversal_residency_diagnostics: None,
+        prev_positions: HashMap::new(),
+        traversal_residency_diagnostics: None,
     };
 
     RoomTransitionManager::handle_transitions(&Lua::new(), &mut game_instance);
@@ -170,7 +173,8 @@ fn handle_transitions_preserves_the_entity_layer() {
 
     let mut game_instance = GameInstance {
         game,
-        prev_positions: HashMap::new(), traversal_residency_diagnostics: None,
+        prev_positions: HashMap::new(),
+        traversal_residency_diagnostics: None,
     };
 
     RoomTransitionManager::handle_transitions(&Lua::new(), &mut game_instance);
@@ -211,7 +215,8 @@ fn handle_transitions_requires_an_exit_on_the_entity_layer() {
 
     let mut game_instance = GameInstance {
         game,
-        prev_positions: HashMap::new(), traversal_residency_diagnostics: None,
+        prev_positions: HashMap::new(),
+        traversal_residency_diagnostics: None,
     };
 
     RoomTransitionManager::handle_transitions(&Lua::new(), &mut game_instance);

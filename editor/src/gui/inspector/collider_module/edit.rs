@@ -1,5 +1,5 @@
 use bishop::prelude::*;
-use engine_core::ecs::{Collider, ColliderShape, Entity, Pivot};
+use engine_core::ecs::{ColliderData, ColliderShape, Entity, Pivot};
 use engine_core::rendering::pivot_adjusted_position;
 use std::cell::Cell;
 
@@ -57,7 +57,7 @@ pub fn clear_active_collider_edit() {
 pub fn compute_handles(
     transform_position: Vec2,
     pivot: Pivot,
-    collider: &Collider,
+    collider: &ColliderData,
     grid_size: f32,
 ) -> Vec<Handle> {
     let (w, h) = collider.shape.size();

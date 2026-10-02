@@ -23,6 +23,12 @@ engine.events.room_entered = "room:entered"
 engine.events.world_entered = "world:entered"
 engine.events.save_succeeded = "save:succeeded"
 engine.events.save_failed = "save:failed"
+engine.events.collision_enter = "collision:enter"
+engine.events.collision_exit = "collision:exit"
+engine.events.collision_squeeze = "collision:squeeze"
+engine.events.sensor_enter = "sensor:enter"
+engine.events.sensor_stay = "sensor:stay"
+engine.events.sensor_exit = "sensor:exit"
 
 --- Get the player entity's script instance table
 --- @return table|nil -- The player's script instance, or nil if not found

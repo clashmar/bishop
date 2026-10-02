@@ -4,6 +4,7 @@ use bishop::prelude::*;
 use engine_core::assets::*;
 use engine_core::constants::world as world_constants;
 use engine_core::ecs::*;
+use engine_core::physics::collider_system::collider_data_for_entity;
 use engine_core::rendering::{
     draw_collider, outline_thickness, pivot_adjusted_position, resolve_visual_entity,
     ENTITY_OUTLINE_SCALE,
@@ -13,6 +14,7 @@ use engine_core::worlds::*;
 
 use crate::app::control::camera_controller::EditorCameraController;
 use crate::editor_assets::assets::{camera_icon, entity_icon, entry_icon, exit_icon, portal_icon};
+use crate::gui::inspector::collider_module::collider_edit_target;
 use crate::gui::inspector::collider_module::edit::{compute_handles, is_collider_edit_active_for};
 use crate::gui::inspector::interactable_module::edit::{
     compute_handles as compute_interactable_handles,
@@ -204,6 +206,9 @@ pub fn draw_editor_collider(ctx: &mut WgpuContext, ecs: &Ecs, entity: Entity, gr
     let Some(collider) = ecs.get_store::<Collider>().get(visual_entity) else {
         return;
     };
+    let Some(collider_data) = collider_data_for_entity(ecs, visual_entity) else {
+        return;
+    };
     let transform = match ecs.get_store::<Transform>().get(entity) {
         Some(t) => t,
         None => return,
@@ -216,10 +221,12 @@ pub fn draw_editor_collider(ctx: &mut WgpuContext, ecs: &Ecs, entity: Entity, gr
         Color::PINK
     };
     let thickness = outline_thickness(grid_size) * ENTITY_OUTLINE_SCALE;
-    draw_collider(ctx, transform.position, collider, transform.pivot, color, thickness);
+    draw_collider(ctx, transform.position, &collider_data, transform.pivot, color, thickness);
 
     if edit_active {
-        let handles = compute_handles(transform.position, transform.pivot, collider, grid_size);
+        let target = collider_edit_target(visual_entity);
+        let handle_data = collider.effective_data_for_target(&target);
+        let handles = compute_handles(transform.position, transform.pivot, &handle_data, grid_size);
         draw_handles(ctx, &handles);
     }
 }

@@ -113,7 +113,7 @@ fn prefab_collider_handle_click_starts_handle_drag() {
     let handle = crate::gui::inspector::collider_module::edit::compute_handles(
         Vec2::ZERO,
         Pivot::TopLeft,
-        collider,
+        &collider.static_data(),
         PREFAB_EDITOR_GRID_SIZE,
     )
     .last()
@@ -124,6 +124,68 @@ fn prefab_collider_handle_click_starts_handle_drag() {
     assert!(editor.try_begin_active_bounds_drag(&ecs, mouse_world));
     assert!(editor.drag_state.collider_drag.dragging);
     assert!(!editor.drag_state.dragging);
+}
+
+#[test]
+fn prefab_collider_nudge_in_frame_edit_mode_changes_only_selected_frame() {
+    use crate::gui::inspector::animation_module::frame_edit;
+    use engine_core::animation::{ClipDef, ClipId};
+    use engine_core::ecs::{Animation, ColliderFrameKey};
+    use std::collections::HashMap;
+
+    let mut editor = PrefabEditor::new(
+        PrefabId(1),
+        "Prefab".to_string(),
+        StagedPrefabState::Empty,
+        PrefabRoomSyncState {
+            staged_prefab: StagedPrefabState::Empty,
+            linked_instance_snapshots: Vec::new(),
+        },
+    );
+    let mut ecs = Ecs::default();
+    let entity = ecs
+        .create_entity()
+        .with(Transform::default())
+        .with(Collider::default())
+        .with(Animation {
+            current: Some(ClipId::Run),
+            clips: HashMap::from([(
+                ClipId::Run,
+                ClipDef {
+                    cols: 2,
+                    rows: 1,
+                    ..Default::default()
+                },
+            )]),
+            ..Default::default()
+        })
+        .finish();
+    editor.set_selected_entity(Some(entity));
+    clear_collider_edit(entity);
+    assert!(toggle_collider_edit(entity));
+    let animation = ecs.get::<Animation>(entity).unwrap().clone();
+    frame_edit::enter(entity, &animation);
+    frame_edit::step_selected_frame(entity, &animation, 1);
+
+    let command = editor.try_nudge_active_bounds(&mut ecs, Vec2::new(2.0, 0.0));
+
+    assert!(command.is_some());
+    let collider = ecs.get::<Collider>(entity).unwrap();
+    assert_eq!(collider.static_data().offset, Vec2::ZERO);
+    assert_eq!(
+        collider
+            .effective_data_for_frame(&ClipId::Run, ColliderFrameKey { row: 0, col: 1 })
+            .offset,
+        Vec2::new(2.0, 0.0),
+    );
+    assert_eq!(
+        collider
+            .effective_data_for_frame(&ClipId::Run, ColliderFrameKey { row: 0, col: 0 })
+            .offset,
+        Vec2::ZERO,
+    );
+
+    frame_edit::exit(entity);
 }
 
 #[test]

@@ -6,6 +6,7 @@ use engine_core::ecs::*;
 use engine_core::worlds::*;
 use std::collections::HashMap;
 
+use crate::physics::kinematic::KinematicFrameMotion;
 use crate::physics::shapes;
 
 use sweep::SweepContext;
@@ -46,6 +47,28 @@ impl SweepData {
     }
 }
 
+/// Returns whether two colliders overlap at their current positions.
+pub(crate) fn shapes_overlap(
+    moving_position: Vec2,
+    moving_collider: Collider,
+    moving_pivot: Pivot,
+    obstacle_position: Vec2,
+    obstacle_collider: Collider,
+    obstacle_pivot: Pivot,
+) -> bool {
+    let moving_aabb = shapes::collider_aabb(moving_position, &moving_collider, moving_pivot);
+    let obstacle_aabb = shapes::collider_aabb(obstacle_position, &obstacle_collider, obstacle_pivot);
+
+    sweep::shapes_overlap(
+        moving_collider.shape,
+        moving_aabb.0,
+        obstacle_collider.shape,
+        obstacle_aabb.0,
+        obstacle_aabb,
+    )
+}
+
+#[derive(Clone)]
 struct SolidObj {
     aabb: (Vec2, Vec2),
     shape: ColliderShape,
@@ -55,9 +78,26 @@ struct SolidObj {
     interior_zone: Option<InteriorZoneId>,
 }
 
+#[derive(Clone)]
+struct ColliderSnapshot {
+    aabb: (Vec2, Vec2),
+    collider: Collider,
+    position: Vec2,
+    pivot: Pivot,
+}
+
+#[derive(Clone)]
+struct SensorObj {
+    shape: ColliderSnapshot,
+    entity: Entity,
+    layer: RoomLayer,
+}
+
 /// Collision world built once per frame per room. Owns its obstacle data.
+#[derive(Clone)]
 pub struct CollisionWorld {
     solids: Vec<SolidObj>,
+    sensors: Vec<SensorObj>,
     entity_layers: HashMap<Entity, RoomLayer>,
     back_interior_zones: Vec<InteriorZone>,
 }
@@ -123,13 +163,14 @@ impl CollisionWorld {
             let Some(transform) = ecs.get::<Transform>(entity) else {
                 continue;
             };
-            let collider = ecs.get::<Collider>(entity).copied().unwrap_or_default();
-            let entity_aabb =
-                shapes::collider_aabb(transform.position, collider, transform.pivot);
+            let snapshot = collider_snapshot(
+                transform,
+                ecs.get::<Collider>(entity).cloned().unwrap_or_default(),
+            );
             solids.push(SolidObj {
-                aabb: entity_aabb,
-                shape: collider.shape,
-                shape_pos: entity_aabb.0,
+                aabb: snapshot.aabb,
+                shape: snapshot.collider.shape,
+                shape_pos: snapshot.aabb.0,
                 entity: Some(entity),
                 layer: Some(layer),
                 interior_zone: None,
@@ -138,9 +179,73 @@ impl CollisionWorld {
 
         CollisionWorld {
             solids,
+            sensors: sensor_objects(ecs, &entity_layers),
             entity_layers,
             back_interior_zones,
         }
+    }
+
+    pub(crate) fn with_current_sensors(mut self, ecs: &Ecs) -> Self {
+        self.sensors = sensor_objects(ecs, &self.entity_layers);
+        self
+    }
+
+    pub(crate) fn with_kinematics(mut self, kinematics: &[KinematicFrameMotion]) -> Self {
+        for motion in kinematics {
+            let end_position = motion.start_position + motion.delta;
+            let aabb = shapes::collider_aabb(end_position, &motion.collider, motion.pivot);
+            self.solids.push(SolidObj {
+                aabb,
+                shape: motion.collider.shape,
+                shape_pos: aabb.0,
+                entity: Some(motion.entity),
+                layer: self.entity_layers.get(&motion.entity).copied(),
+                interior_zone: None,
+            });
+        }
+
+        self
+    }
+
+    /// Returns a copy without solids owned by `entity`.
+    pub(crate) fn excluding_entity(&self, entity: Entity) -> Self {
+        let mut filtered = self.clone();
+        filtered.solids.retain(|solid| solid.entity != Some(entity));
+        filtered
+    }
+
+    /// Returns sensor entities currently overlapped by the moving collider.
+    pub(crate) fn check_sensor_overlaps(
+        &self,
+        moving_entity: Entity,
+        position: Vec2,
+        collider: Collider,
+        pivot: Pivot,
+    ) -> Vec<Entity> {
+        let moving_aabb = shapes::collider_aabb(position, &collider, pivot);
+        let moving_layer = self
+            .entity_layers
+            .get(&moving_entity)
+            .copied()
+            .unwrap_or(RoomLayer::Front);
+
+        self.sensors
+            .iter()
+            .filter(|sensor| sensor.entity != moving_entity)
+            .filter(|sensor| sensor.layer == moving_layer)
+            .filter(|sensor| shapes::aabb_overlap(moving_aabb, sensor.shape.aabb).is_some())
+            .filter(|sensor| {
+                shapes_overlap(
+                    position,
+                    collider.clone(),
+                    pivot,
+                    sensor.shape.position,
+                    sensor.shape.collider.clone(),
+                    sensor.shape.pivot,
+                )
+            })
+            .map(|sensor| sensor.entity)
+            .collect()
     }
 
     /// Sweep the moving entity's collider from `entity_position` by `desired_delta`,
@@ -153,7 +258,7 @@ impl CollisionWorld {
         collider: Collider,
         pivot: Pivot,
     ) -> SweepResult {
-        let collider_aabb = shapes::collider_aabb(entity_position, collider, pivot);
+        let collider_aabb = shapes::collider_aabb(entity_position, &collider, pivot);
         let collider_pos = collider_aabb.0;
         let moving_layer = self
             .entity_layers
@@ -161,11 +266,7 @@ impl CollisionWorld {
             .copied()
             .unwrap_or(RoomLayer::Front);
         let active_back_zone = self.active_back_zone(collider_aabb);
-        let sweep_ctx = SweepContext {
-            moving_entity,
-            moving_layer,
-            active_back_zone,
-        };
+        let sweep_ctx = SweepContext::new(moving_entity, moving_layer, active_back_zone);
 
         if let ColliderShape::Circle { radius } = collider.shape {
             let center = Vec2::new(collider_pos.x + radius, collider_pos.y + radius);
@@ -227,16 +328,6 @@ impl CollisionWorld {
         }
     }
 
-    /// Returns sensor entities whose AABB overlaps the query collider's AABB.
-    pub fn check_overlaps(
-        &self,
-        _position: Vec2,
-        _collider: Collider,
-        _pivot: Pivot,
-    ) -> Vec<Entity> {
-        Vec::new()
-    }
-
     fn solid_affects_layer(
         &self,
         solid: &SolidObj,
@@ -279,6 +370,39 @@ impl CollisionWorld {
             .iter()
             .find(|zone| zone.bounds.contains(center))
             .map(|zone| zone.id)
+    }
+}
+
+fn sensor_objects(ecs: &Ecs, entity_layers: &HashMap<Entity, RoomLayer>) -> Vec<SensorObj> {
+    let mut sensors = Vec::new();
+    for (&entity, &layer) in entity_layers {
+        if ecs.get::<TilePlacement>(entity).is_some() {
+            continue;
+        }
+        if ecs.get::<Sensor>(entity).is_none() {
+            continue;
+        }
+        let Some(transform) = ecs.get::<Transform>(entity) else {
+            continue;
+        };
+        let Some(collider) = ecs.get::<Collider>(entity).cloned() else {
+            continue;
+        };
+        sensors.push(SensorObj {
+            shape: collider_snapshot(transform, collider),
+            entity,
+            layer,
+        });
+    }
+    sensors
+}
+
+fn collider_snapshot(transform: &Transform, collider: Collider) -> ColliderSnapshot {
+    ColliderSnapshot {
+        aabb: shapes::collider_aabb(transform.position, &collider, transform.pivot),
+        collider,
+        position: transform.position,
+        pivot: transform.pivot,
     }
 }
 
