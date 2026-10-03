@@ -12,6 +12,8 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::{Command, ExitCode};
 
+const WASM_TARGET: &str = "wasm32-unknown-unknown";
+
 fn demo_root(root: &Path) -> PathBuf {
     root.join(paths::GAME_SAVE_ROOT).join(paths::DEMO_GAME)
 }
@@ -54,10 +56,11 @@ fn main() -> ExitCode {
 
     match args[1].as_str() {
         "check-lua" => check_lua(),
+        "check-web" => check_web(),
         "regen-demo-data" => regen_demo_data(),
         other => {
             eprintln!("Unknown subcommand: {other}");
-            eprintln!("Available: check-lua, regen-demo-data");
+            eprintln!("Available: check-lua, check-web, regen-demo-data");
             ExitCode::FAILURE
         }
     }
@@ -90,6 +93,99 @@ fn regen_demo_data() -> ExitCode {
 
     println!("Regenerated Demo worlds.lua and entries.lua.");
     ExitCode::SUCCESS
+}
+
+fn check_web() -> ExitCode {
+    if !wasm_target_installed() {
+        eprintln!("{WASM_TARGET} target is not installed.");
+        eprintln!("Install it with: rustup target add {WASM_TARGET}");
+        return ExitCode::FAILURE;
+    }
+
+    let foundation_ok = run_checked(
+        cargo_command(&[
+            "check",
+            "-p",
+            "bishop",
+            "--target",
+            WASM_TARGET,
+            "--no-default-features",
+            "--locked",
+        ]),
+        "bishop web foundation",
+    );
+
+    let runtime_ok = run_checked(
+        cargo_command(&[
+            "check",
+            "-p",
+            "game",
+            "--lib",
+            "--target",
+            WASM_TARGET,
+            "--no-default-features",
+            "--locked",
+        ]),
+        "game runtime web probe",
+    );
+
+    if !runtime_ok {
+        println!(
+            "game runtime web probe: BLOCKED. This is expected during Chunk 1; use the compiler output above as the blocker inventory."
+        );
+    }
+
+    if foundation_ok {
+        ExitCode::SUCCESS
+    } else {
+        ExitCode::FAILURE
+    }
+}
+
+fn wasm_target_installed() -> bool {
+    let output = Command::new("rustup")
+        .args(["target", "list", "--installed"])
+        .output();
+
+    let output = match output {
+        Ok(output) if output.status.success() => output,
+        Ok(output) => {
+            eprintln!("rustup target list --installed failed with {}", output.status);
+            return false;
+        }
+        Err(error) => {
+            eprintln!("rustup not found: {error}");
+            return false;
+        }
+    };
+
+    String::from_utf8_lossy(&output.stdout)
+        .lines()
+        .any(|line| line.trim() == WASM_TARGET)
+}
+
+fn cargo_command(args: &[&str]) -> Command {
+    let mut command = Command::new("cargo");
+    command.args(args);
+    command
+}
+
+fn run_checked(mut command: Command, label: &str) -> bool {
+    println!("{label}: RUN");
+    match command.status() {
+        Ok(status) if status.success() => {
+            println!("{label}: PASS");
+            true
+        }
+        Ok(status) => {
+            eprintln!("{label}: FAIL ({status})");
+            false
+        }
+        Err(error) => {
+            eprintln!("{label}: NOT FOUND ({error})");
+            false
+        }
+    }
 }
 
 fn check_lua() -> ExitCode {

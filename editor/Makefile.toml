@@ -11,6 +11,13 @@ script = [
     "cargo run -p lua_api_gen",
 ]
 
+# Web
+[tasks.check-game-web]
+script = [
+    "cd ..",
+    "cargo xtask check-web",
+]
+
 # Mac
 [tasks.build-game-mac]
 script = [

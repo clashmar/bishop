@@ -25,6 +25,7 @@ pub fn request_double_click_reset() {
 }
 
 /// Returns true if a double-click reset was requested and clears the flag.
+#[cfg(feature = "wgpu")]
 pub(crate) fn take_double_click_reset_requested() -> bool {
     DOUBLE_CLICK_RESET_REQUESTED.with(|f| {
         let was = *f.borrow();

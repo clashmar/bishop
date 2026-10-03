@@ -52,7 +52,9 @@ pub use time::*;
 pub use types::*;
 pub use window::*;
 
+#[cfg(feature = "wgpu")]
 use std::cell::RefCell;
+#[cfg(feature = "wgpu")]
 use std::rc::Rc;
 
 #[cfg(feature = "wgpu")]
@@ -72,6 +74,7 @@ impl<T: Input + Draw + Text + Camera + Window + Time + RenderOps + TextureLoader
 }
 
 /// Trait for applications that can be run by bishop.
+#[cfg(feature = "wgpu")]
 pub trait BishopApp {
     /// Called once after the backend is ready but before the main loop.
     /// Use for async initialization (loading assets, setting up state, etc.).
@@ -189,6 +192,7 @@ pub mod prelude {
     pub use crate::time::*;
     pub use crate::types::*;
     pub use crate::window::*;
+    #[cfg(feature = "wgpu")]
     pub use crate::BishopApp;
     pub use crate::BishopContext;
     pub use glam::{vec4, Vec2, Vec3};

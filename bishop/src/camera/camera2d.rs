@@ -1,6 +1,6 @@
 //! 2D camera for controlling the viewport.
 
-use crate::{types::Rect, wgpu::BishopRenderTarget};
+use crate::{material::BishopRenderTarget, types::Rect};
 use glam::{vec2, vec3, Mat4, Vec2};
 
 /// 2D camera for controlling the viewport.
