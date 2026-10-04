@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Bishop Web Shell</title>
+  <style>
+    body {
+      background: #111827;
+      color: #f9fafb;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      margin: 2rem;
+    }
+
+    code,
+    pre {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+
+    #status {
+      background: #1f2937;
+      border: 1px solid #374151;
+      border-radius: 0.5rem;
+      padding: 1rem;
+      white-space: pre-wrap;
+    }
+  </style>
+</head>
+<body>
+  <h1>Bishop Web Shell</h1>
+  <p>This page verifies that the Bishop WASM shell can load in a browser.</p>
+  <pre id="status">Bishop web shell page loaded</pre>
+
+  <script>
+    const status = document.getElementById("status");
+
+    function appendStatus(message) {
+      status.textContent += `\n${message}`;
+      console.log(message);
+    }
+
+    window.Module = {
+      print: appendStatus,
+      printErr: (message) => {
+        status.textContent += `\nERROR: ${message}`;
+        console.error(message);
+      },
+      onRuntimeInitialized: () => appendStatus("Bishop Emscripten runtime initialized"),
+    };
+  </script>
+  <script async src="web_shell.js"></script>
+</body>
+</html>

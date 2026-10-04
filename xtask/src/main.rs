@@ -17,6 +17,10 @@ const LUA_WASM_TARGET: &str = "wasm32-unknown-emscripten";
 const LUA_WASM_CXXFLAGS: &str = "CXXFLAGS_wasm32_unknown_emscripten";
 const LUA_WASM_REQUIRED_CXXFLAG: &str = "-fexceptions";
 const LUA_BOOTSTRAP_TEST: &str = "register_runtime_modules_supports_editor_script_load_patterns";
+const WEB_SHELL_PACKAGE: &str = "web_shell";
+const WEB_SHELL_JS: &str = "web_shell.js";
+const WEB_SHELL_WASM: &str = "web_shell.wasm";
+const WEB_SHELL_INDEX: &str = "index.html";
 
 fn demo_root(root: &Path) -> PathBuf {
     root.join(paths::GAME_SAVE_ROOT).join(paths::DEMO_GAME)
@@ -59,13 +63,14 @@ fn main() -> ExitCode {
     }
 
     match args[1].as_str() {
+        "build-web-shell" => build_web_shell(),
         "check-lua" => check_lua(),
         "check-lua-wasm" => check_lua_wasm(),
         "check-web" => check_web(),
         "regen-demo-data" => regen_demo_data(),
         other => {
             eprintln!("Unknown subcommand: {other}");
-            eprintln!("Available: check-lua, check-lua-wasm, check-web, regen-demo-data");
+            eprintln!("Available: build-web-shell, check-lua, check-lua-wasm, check-web, regen-demo-data");
             ExitCode::FAILURE
         }
     }
@@ -158,6 +163,77 @@ fn apply_lua_wasm_env(command: &mut Command) {
     command.env(LUA_WASM_CXXFLAGS, flags);
 }
 
+fn build_web_shell() -> ExitCode {
+    if !wasm_target_installed(WEB_WASM_TARGET) {
+        eprintln!("{WEB_WASM_TARGET} target is not installed.");
+        eprintln!("Install it with: rustup target add {WEB_WASM_TARGET}");
+        return ExitCode::FAILURE;
+    }
+
+    let mut missing_tools = Vec::new();
+    for tool in ["emcc", "em++"] {
+        if !tool_available(tool) {
+            missing_tools.push(tool);
+        }
+    }
+    if !missing_tools.is_empty() {
+        eprintln!("Missing Emscripten tools: {}", missing_tools.join(", "));
+        eprintln!("Install or activate Emscripten so emcc and em++ are on PATH.");
+        return ExitCode::FAILURE;
+    }
+
+    let root = std::env::current_dir().expect("xtask must run from workspace root");
+    let build_ok = run_checked(
+        cargo_command(&[
+            "build",
+            "-p",
+            WEB_SHELL_PACKAGE,
+            "--target",
+            WEB_WASM_TARGET,
+            "--locked",
+        ]),
+        "web shell wasm build",
+    );
+    if !build_ok {
+        return ExitCode::FAILURE;
+    }
+
+    let build_dir = web_shell_build_dir(&root);
+    let stage_dir = web_shell_stage_dir(&root);
+    if let Err(error) = fs::create_dir_all(&stage_dir) {
+        eprintln!("failed to create {}: {error}", stage_dir.display());
+        return ExitCode::FAILURE;
+    }
+
+    let artifacts = [
+        (root.join("web_shell").join(WEB_SHELL_INDEX), stage_dir.join(WEB_SHELL_INDEX)),
+        (build_dir.join(WEB_SHELL_JS), stage_dir.join(WEB_SHELL_JS)),
+        (build_dir.join(WEB_SHELL_WASM), stage_dir.join(WEB_SHELL_WASM)),
+    ];
+
+    for (source, dest) in artifacts {
+        if !source.exists() {
+            eprintln!("expected web shell artifact missing: {}", source.display());
+            return ExitCode::FAILURE;
+        }
+        if let Err(error) = fs::copy(&source, &dest) {
+            eprintln!(
+                "failed to stage {} to {}: {error}",
+                source.display(),
+                dest.display()
+            );
+            return ExitCode::FAILURE;
+        }
+    }
+
+    println!("web shell staged at {}", stage_dir.display());
+    println!("serve it with:");
+    println!("  python3 -m http.server --directory {} 8000", stage_dir.display());
+    println!("then open:");
+    println!("  http://localhost:8000/");
+    ExitCode::SUCCESS
+}
+
 fn check_web() -> ExitCode {
     if !wasm_target_installed(WEB_WASM_TARGET) {
         eprintln!("{WEB_WASM_TARGET} target is not installed.");
@@ -205,6 +281,15 @@ fn check_web() -> ExitCode {
     }
 }
 
+fn tool_available(tool: &str) -> bool {
+    Command::new(tool)
+        .arg("--version")
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .status()
+        .is_ok_and(|status| status.success())
+}
+
 fn wasm_target_installed(target: &str) -> bool {
     let output = Command::new("rustup")
         .args(["target", "list", "--installed"])
@@ -225,6 +310,14 @@ fn wasm_target_installed(target: &str) -> bool {
     String::from_utf8_lossy(&output.stdout)
         .lines()
         .any(|line| line.trim() == target)
+}
+
+fn web_shell_build_dir(root: &Path) -> PathBuf {
+    root.join("target").join(WEB_WASM_TARGET).join("debug")
+}
+
+fn web_shell_stage_dir(root: &Path) -> PathBuf {
+    root.join("target").join("web-shell")
 }
 
 fn cargo_command(args: &[&str]) -> Command {
