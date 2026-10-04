@@ -23,7 +23,7 @@ pub fn register_runtime_modules(lua: &Lua, event_bus: &EventBus) -> LuaResult<()
 pub fn register_engine_module(lua: &Lua) -> LuaResult<()> {
     let engine_mod = lua.create_table()?;
     lua.globals().set(lua_engine::ENGINE, engine_mod.clone())?;
-    lua.register_module(lua_engine::ENGINE, &engine_mod)?;
+    lua.register_module("@engine", &engine_mod)?;
     Ok(())
 }
 

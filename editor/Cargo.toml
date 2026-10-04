@@ -26,7 +26,7 @@ ron = "0.9"
 uuid = { version = "1.18", features = ["serde", "v4"] }
 futures = "0.3"
 serde_with = "3.14.0"
-inventory = "0.1"
+inventory = "0.3"
 strum = "0.26"
 strum_macros = "0.26"
 once_cell = "1"

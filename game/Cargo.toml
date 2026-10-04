@@ -12,12 +12,12 @@ wgpu = ["bishop/wgpu", "engine_core/wgpu", "widgets/wgpu"]
 bishop = { path = "../bishop", default-features = false, features = ["audio-cpal"] }
 engine_core = { path = "../engine_core", default-features = false }
 widgets = { path = "../widgets", default-features = false }
-mlua = { version = "0.11.5", features = ["lua54", "vendored", "serde" ] }
+mlua = { version = "0.11.5", features = ["luau", "serde"] }
 serde = { version = "1.0", features = ["derive"] }
 ron = "0.9"
 uuid = { version = "1.18", features = ["serde", "v4"] }
 log = "0.4"
-inventory = "0.1"
+inventory = "0.3"
 rfd = "0.13"
 strum = "0.26"
 strum_macros = "0.26"

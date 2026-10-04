@@ -61,7 +61,7 @@ pub fn read_script_field(name: &str, value: Value) -> LuaResult<Option<ScriptFie
             Ok(Some(ScriptField::Toml(*ud.borrow::<TomlId>()?)))
         }
         Value::Boolean(b) => Ok(Some(ScriptField::Bool(b))),
-        Value::Integer(i) => Ok(Some(ScriptField::Int(i))),
+        Value::Integer(i) => Ok(Some(ScriptField::Int(i.into()))),
         Value::Number(n) => Ok(Some(ScriptField::Float(n))),
         Value::String(s) => Ok(Some(ScriptField::Text(s.to_str()?.to_string()))),
         Value::Table(table) => read_script_vector_field(name, &table),
