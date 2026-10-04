@@ -206,6 +206,6 @@ pub mod prelude {
     #[cfg(feature = "audio")]
     pub use crate::audio::AudioBackend;
 
-    #[cfg(feature = "audio-cpal")]
+    #[cfg(feature = "audio")]
     pub use crate::audio::PlatformAudioBackend;
 }

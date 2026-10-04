@@ -5,11 +5,12 @@ edition = "2021"
 build = "build.rs"
 
 [features]
-default = ["wgpu"]
+default = ["wgpu", "audio-cpal"]
 wgpu = ["bishop/wgpu", "engine_core/wgpu", "widgets/wgpu"]
+audio-cpal = ["bishop/audio-cpal"]
 
 [dependencies]
-bishop = { path = "../bishop", default-features = false, features = ["audio-cpal"] }
+bishop = { path = "../bishop", default-features = false, features = ["audio"] }
 engine_core = { path = "../engine_core", default-features = false }
 widgets = { path = "../widgets", default-features = false }
 mlua = { version = "0.11.5", features = ["luau", "serde"] }

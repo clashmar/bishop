@@ -178,23 +178,23 @@ fn check_web() -> ExitCode {
         "bishop web foundation",
     );
 
-    let runtime_ok = run_checked(
-        cargo_command(&[
-            "check",
-            "-p",
-            "game",
-            "--lib",
-            "--target",
-            WEB_WASM_TARGET,
-            "--no-default-features",
-            "--locked",
-        ]),
-        "game runtime web probe",
-    );
+    let mut runtime_command = cargo_command(&[
+        "check",
+        "-p",
+        "game",
+        "--lib",
+        "--target",
+        WEB_WASM_TARGET,
+        "--no-default-features",
+        "--locked",
+    ]);
+    apply_lua_wasm_env(&mut runtime_command);
+
+    let runtime_ok = run_checked(runtime_command, "game runtime web probe");
 
     if !runtime_ok {
         println!(
-            "game runtime web probe: BLOCKED. This is expected during Chunk 1; use the compiler output above as the blocker inventory."
+            "game runtime web probe: BLOCKED. This is expected during Chunk 3; use the compiler output above as the blocker inventory."
         );
     }
 

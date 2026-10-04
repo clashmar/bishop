@@ -1,8 +1,12 @@
 #[cfg(feature = "audio-cpal")]
 mod cpal_backend;
+#[cfg(all(feature = "audio", not(feature = "audio-cpal")))]
+mod wasm_backend;
 
 #[cfg(feature = "audio-cpal")]
 pub use cpal_backend::CpalBackend;
+#[cfg(all(feature = "audio", not(feature = "audio-cpal")))]
+pub use wasm_backend::WasmAudioBackend;
 
 /// Platform audio backend. Starts the audio output stream and calls `render_fn`
 /// each buffer to fill samples. Implementors live in bishop; engine_core never
@@ -19,3 +23,8 @@ pub trait AudioBackend: Send + 'static {
 /// Use this in EngineBuilder to avoid hard-coding a backend.
 #[cfg(feature = "audio-cpal")]
 pub type PlatformAudioBackend = CpalBackend;
+
+/// Browser-oriented audio backend for WASM runtime builds.
+/// It stays silent until the browser-audio chunk wires real Web Audio playback.
+#[cfg(all(feature = "audio", not(feature = "audio-cpal")))]
+pub type PlatformAudioBackend = WasmAudioBackend;
