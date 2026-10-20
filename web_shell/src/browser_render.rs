@@ -72,3 +72,42 @@ const RENDER_SCRIPT: &str = r##"
   return 1;
 })()
 "##;
+
+/// Draws the interactive browser scene without covering the asset marker.
+#[cfg(target_os = "emscripten")]
+pub(crate) fn render_interactive_frame(
+    x: f32,
+    y: f32,
+    mx: f32,
+    my: f32,
+    button: i32,
+    frame: u64,
+) -> bool {
+    let script = format!(
+        r##"(function () {{
+  const canvas = document.getElementById('bishop-canvas');
+  const ctx = canvas?.getContext('2d');
+  if (!ctx) return 0;
+
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(0, 0, 640, 300);
+  ctx.clip();
+  ctx.fillStyle = '#0f172a';
+  ctx.fillRect(0, 0, 640, 300);
+  ctx.font = '16px monospace';
+  ctx.fillStyle = '#f8fafc';
+  ctx.fillText('Frames: {frame}', 16, 28);
+  ctx.fillText('Click: {button} (1 left, 2 middle, 3 right)', 16, 53);
+  ctx.fillStyle = ['#fbbf24', '#22d3ee', '#a78bfa', '#fb7185'][{button}];
+  ctx.fillRect({x}, {y}, 20, 20);
+  if ({mx} >= 0 && {mx} < 640 && {my} >= 0 && {my} < 300) {{
+    ctx.strokeStyle = '#f8fafc';
+    ctx.strokeRect({mx} - 4, {my} - 4, 8, 8);
+  }}
+  ctx.restore();
+  return 1;
+}})()"##
+    );
+    crate::emscripten::run_script_int(&script) == 1
+}

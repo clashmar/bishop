@@ -21,6 +21,7 @@ const WEB_SHELL_PACKAGE: &str = "web_shell";
 const WEB_SHELL_JS: &str = "web_shell.js";
 const WEB_SHELL_WASM: &str = "web_shell.wasm";
 const WEB_SHELL_INDEX: &str = "index.html";
+const WEB_SHELL_INPUT: &str = "input.js";
 
 fn demo_root(root: &Path) -> PathBuf {
     root.join(paths::GAME_SAVE_ROOT).join(paths::DEMO_GAME)
@@ -207,6 +208,7 @@ fn build_web_shell() -> ExitCode {
 
     let artifacts = [
         (root.join("web_shell").join(WEB_SHELL_INDEX), stage_dir.join(WEB_SHELL_INDEX)),
+        (root.join("web_shell").join(WEB_SHELL_INPUT), stage_dir.join(WEB_SHELL_INPUT)),
         (build_dir.join(WEB_SHELL_JS), stage_dir.join(WEB_SHELL_JS)),
         (build_dir.join(WEB_SHELL_WASM), stage_dir.join(WEB_SHELL_WASM)),
     ];

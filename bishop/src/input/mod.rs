@@ -3,6 +3,7 @@
 mod gamepad;
 mod keycode;
 mod mouse;
+mod state;
 
 use crate::types::Rect;
 use glam::Vec2;
@@ -12,6 +13,7 @@ use std::cell::RefCell;
 pub use gamepad::*;
 pub use keycode::*;
 pub use mouse::*;
+pub use state::KeyboardMouseState;
 
 thread_local! {
     static DOUBLE_CLICK_RESET_REQUESTED: RefCell<bool> = const { RefCell::new(false) };
@@ -25,7 +27,6 @@ pub fn request_double_click_reset() {
 }
 
 /// Returns true if a double-click reset was requested and clears the flag.
-#[cfg(feature = "wgpu")]
 pub(crate) fn take_double_click_reset_requested() -> bool {
     DOUBLE_CLICK_RESET_REQUESTED.with(|f| {
         let was = *f.borrow();

@@ -37,13 +37,14 @@
 <body>
   <h1>Bishop Web Shell</h1>
   <p>This page verifies that Bishop-owned WASM can drive browser rendering.</p>
+  <p>Click or Tab to focus the canvas. Use arrows or WASD; move and click the mouse inside it.</p>
   <section aria-labelledby="status-heading">
     <h2 id="status-heading">Status</h2>
     <pre id="status">Bishop web shell page loaded</pre>
   </section>
   <section aria-labelledby="canvas-heading">
     <h2 id="canvas-heading">Render Probe</h2>
-    <canvas id="bishop-canvas" width="640" height="360" role="img" aria-label="Bishop browser render probe canvas"></canvas>
+    <canvas id="bishop-canvas" width="640" height="360" tabindex="0" role="application" aria-label="Interactive Bishop browser scene"></canvas>
   </section>
 
   <script>
@@ -65,6 +66,7 @@
       onRuntimeInitialized: () => appendStatus("Bishop Emscripten runtime initialized"),
     };
   </script>
+  <script src="input.js"></script>
   <script async src="web_shell.js"></script>
 </body>
 </html>
