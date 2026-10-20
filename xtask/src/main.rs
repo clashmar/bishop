@@ -212,18 +212,22 @@ fn build_web_shell() -> ExitCode {
     ];
 
     for (source, dest) in artifacts {
-        if !source.exists() {
-            eprintln!("expected web shell artifact missing: {}", source.display());
+        if !stage_file(&source, &dest, "web shell artifact") {
             return ExitCode::FAILURE;
         }
-        if let Err(error) = fs::copy(&source, &dest) {
-            eprintln!(
-                "failed to stage {} to {}: {error}",
-                source.display(),
-                dest.display()
-            );
-            return ExitCode::FAILURE;
-        }
+    }
+
+    let demo_asset_file = Path::new(web_shell::DEMO_TITLE_ASSET_PATH)
+        .file_name()
+        .expect("Demo title browser asset path must have a filename");
+    let demo_asset_source = demo_resources_dir(&root)
+        .join(paths::TEXT_FOLDER)
+        .join(paths::TEXT_LANGUAGE_FOLDER)
+        .join(paths::UI_TEXT_FOLDER)
+        .join(demo_asset_file);
+    let demo_asset_dest = stage_dir.join(web_shell::DEMO_TITLE_ASSET_PATH);
+    if !stage_file(&demo_asset_source, &demo_asset_dest, "web shell demo asset") {
+        return ExitCode::FAILURE;
     }
 
     println!("web shell staged at {}", stage_dir.display());
@@ -318,6 +322,32 @@ fn web_shell_build_dir(root: &Path) -> PathBuf {
 
 fn web_shell_stage_dir(root: &Path) -> PathBuf {
     root.join("target").join("web-shell")
+}
+
+fn stage_file(source: &Path, dest: &Path, label: &str) -> bool {
+    if !source.exists() {
+        eprintln!("expected {label} missing: {}", source.display());
+        return false;
+    }
+
+    let parent = dest
+        .parent()
+        .expect("staged file destination must have a parent");
+    if let Err(error) = fs::create_dir_all(parent) {
+        eprintln!("failed to create {}: {error}", parent.display());
+        return false;
+    }
+
+    if let Err(error) = fs::copy(source, dest) {
+        eprintln!(
+            "failed to stage {} to {}: {error}",
+            source.display(),
+            dest.display()
+        );
+        return false;
+    }
+
+    true
 }
 
 fn cargo_command(args: &[&str]) -> Command {

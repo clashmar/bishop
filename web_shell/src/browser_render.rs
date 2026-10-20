@@ -15,7 +15,7 @@ pub fn run_browser_render_probe() {
 #[cfg(target_os = "emscripten")]
 fn render_fallback_probe() {
     println!("{FALLBACK_STARTED}");
-    match run_script_int(RENDER_SCRIPT) {
+    match crate::emscripten::run_script_int(RENDER_SCRIPT) {
         1 => println!("{FALLBACK_RENDERED}"),
         _ => println!(
             "Bishop browser fallback renderer: blocked: canvas drawing script returned failure"
@@ -26,19 +26,6 @@ fn render_fallback_probe() {
 #[cfg(not(target_os = "emscripten"))]
 fn render_fallback_probe() {
     println!("Bishop browser fallback renderer: skipped outside Emscripten");
-}
-
-#[cfg(target_os = "emscripten")]
-fn run_script_int(script: &str) -> i32 {
-    use std::ffi::CString;
-    use std::os::raw::{c_char, c_int};
-
-    unsafe extern "C" {
-        fn emscripten_run_script_int(script: *const c_char) -> c_int;
-    }
-
-    let script = CString::new(script).expect("render script must not contain nul bytes");
-    unsafe { emscripten_run_script_int(script.as_ptr()) as i32 }
 }
 
 #[cfg(target_os = "emscripten")]

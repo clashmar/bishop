@@ -5,3 +5,4 @@ edition = "2021"
 
 [dependencies]
 engine_core = { path = "../engine_core" }
+web_shell = { path = "../web_shell" }
