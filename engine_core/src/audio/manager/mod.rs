@@ -19,7 +19,7 @@ use super::command_queue::{
 use super::diagnostics::{self, AudioDiagnosticsSnapshot};
 use super::runtime::{self, MusicStopReason, MusicStoppedEvent};
 use crate::task::{BackgroundService, FileReadPool};
-use bishop::audio::AudioBackend;
+use bishop::audio::{AUDIO_SAMPLE_RATE, AudioBackend};
 use oddio::{Cycle, Frames, FramesSignal, Gain, Handle, Mixer, Speed, Stop};
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
@@ -196,10 +196,9 @@ impl AudioManager {
             .control::<Mixer<[f32; 2]>, _>()
             .play(Gain::new(Mixer::<[f32; 2]>::new()));
 
-        const SAMPLE_RATE: u32 = 44_100;
         let keep_alive: Box<dyn Send + 'static> =
             Box::new(B::start(move |frames: &mut [[f32; 2]]| {
-                oddio::run(&root_signal, SAMPLE_RATE, frames);
+                oddio::run(&root_signal, AUDIO_SAMPLE_RATE, frames);
             }));
         // `root_signal` is owned by the backend render closure, so only the subgroup
         // handles need to be retained after graph construction.

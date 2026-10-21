@@ -1,3 +1,5 @@
+#[cfg(any(test, target_os = "emscripten"))]
+mod audio_probe;
 mod browser_asset;
 #[cfg(any(test, target_os = "emscripten"))]
 mod browser_input;

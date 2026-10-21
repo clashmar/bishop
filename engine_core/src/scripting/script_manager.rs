@@ -5,8 +5,9 @@ use crate::ecs::ScriptId;
 use crate::ecs::entity::Entity;
 use crate::hydration::{EvictError, Hydratable};
 use crate::scripting::event_bus::EventBus;
+use crate::scripting::file_modules;
 use crate::scripting::lua_constants::{lua_dirs, lua_entity, lua_fields, lua_files};
-use crate::storage::path_utils::{scripts_folder, themes_folder};
+use crate::storage::path_utils::scripts_folder;
 use crate::*;
 use mlua::Function;
 use mlua::Lua;
@@ -276,7 +277,7 @@ impl ScriptManager {
         lua: &Lua,
     ) {
         Self::init_editor_metadata(asset_registry, script_manager);
-        Self::load_to_package(lua);
+        file_modules::install(lua).expect("Cannot install Lua module loader");
     }
 
     /// Initializes editor script metadata without requiring a Lua context.
@@ -287,6 +288,7 @@ impl ScriptManager {
 
     /// Loads the shared globals prelude if the current game provides one.
     pub fn load_globals_prelude(lua: &Lua) -> LuaResult<()> {
+        file_modules::install(lua)?;
         let globals_path = scripts_folder()
             .join(lua_dirs::ENGINE)
             .join(lua_files::GLOBALS);
@@ -296,23 +298,6 @@ impl ScriptManager {
             Err(error) => return Err(mlua::Error::ExternalError(Arc::new(error))),
         };
         lua.load(&src).exec()
-    }
-
-    /// Load all .lua files to the package.path.
-    pub fn load_to_package(lua: &Lua) {
-        let scripts_dir = scripts_folder().to_string_lossy().replace('\\', "/");
-        let themes_dir = themes_folder().to_string_lossy().replace('\\', "/");
-
-        omni_debug!("package.path loaded from: {} {}", scripts_dir, themes_dir);
-
-        let add_path = format!(
-            r#"
-            local p = package.path
-            package.path = p .. ';{scripts_dir}/?.lua;{scripts_dir}/?/init.lua;{themes_dir}/?.lua'
-            "#,
-        );
-
-        lua.load(&add_path).exec().expect("Cannot set package.path");
     }
 
     /// Calculates the next script id.

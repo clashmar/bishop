@@ -94,7 +94,6 @@ fn load_globals_prelude_bootstraps_globals_for_editor_style_script_loads() {
         .unwrap();
     let lua = Lua::new();
 
-    ScriptManager::load_to_package(&lua);
     ScriptManager::load_globals_prelude(&lua).unwrap();
 
     let table = script_manager.get_table_from_id(&lua, script_id).unwrap();

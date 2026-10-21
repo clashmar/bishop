@@ -160,10 +160,7 @@ mod callbacks {
     #[unsafe(no_mangle)]
     extern "C" fn bishop_mouse_down(button: i32, x: f64, y: f64, time_ms: f64) -> i32 {
         if let Some(button) = button_from_dom(button) {
-            browser_loop::with_input(|input| {
-                input.on_mouse_move(x as f32, y as f32);
-                input.on_mouse_down(button, time_ms / 1000.0, (x as f32, y as f32));
-            });
+            browser_loop::mouse_down(button, x as f32, y as f32, time_ms);
         }
         1
     }

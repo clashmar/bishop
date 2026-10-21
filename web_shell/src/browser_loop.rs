@@ -4,8 +4,11 @@ use std::ptr;
 
 use bishop::input::{KeyCode, KeyboardMouseState, MouseButton};
 
+use crate::audio_probe::AudioProbe;
+
 struct BrowserRuntime {
     input: KeyboardMouseState,
+    audio: AudioProbe,
     active: bool,
     last_ms: Option<f64>,
     x: f32,
@@ -18,6 +21,7 @@ impl BrowserRuntime {
     fn new() -> Self {
         Self {
             input: KeyboardMouseState::new(),
+            audio: AudioProbe::new(),
             active: false,
             last_ms: None,
             x: 300.0,
@@ -41,11 +45,26 @@ pub(crate) fn with_input(f: impl FnOnce(&mut KeyboardMouseState)) {
     });
 }
 
+pub(crate) fn mouse_down(button: MouseButton, x: f32, y: f32, time_ms: f64) {
+    RUNTIME.with(|cell| {
+        let mut runtime = cell.borrow_mut();
+        if !runtime.active {
+            return;
+        }
+        runtime.input.on_mouse_move(x, y);
+        runtime.input.on_mouse_down(button, time_ms / 1000.0, (x, y));
+        if button == MouseButton::Left {
+            runtime.audio.trigger();
+        }
+    });
+}
+
 pub(crate) fn focus_changed(active: bool) {
     RUNTIME.with(|runtime| {
         let mut runtime = runtime.borrow_mut();
         if !active {
             runtime.input.clear_on_focus_loss();
+            runtime.audio.cancel();
             runtime.last_ms = None;
         } else if !runtime.active {
             runtime.last_ms = None;

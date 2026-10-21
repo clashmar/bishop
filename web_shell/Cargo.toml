@@ -4,4 +4,4 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-bishop = { path = "../bishop", default-features = false }
+bishop = { path = "../bishop", default-features = false, features = ["audio"] }

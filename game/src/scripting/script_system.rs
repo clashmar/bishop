@@ -30,8 +30,6 @@ impl ScriptSystem {
             omni_error!("Lua game module registration failed: {e}");
         }
 
-        ScriptManager::load_to_package(lua);
-
         // Run main.lua after all modules are registered
         if let Err(e) = Self::load_main(lua) {
             omni_error!("Main failed: {e}");

@@ -37,7 +37,7 @@
 <body>
   <h1>Bishop Web Shell</h1>
   <p>This page verifies that Bishop-owned WASM can drive browser rendering.</p>
-  <p>Click or Tab to focus the canvas. Use arrows or WASD; move and click the mouse inside it.</p>
+  <p>Click or Tab to focus the canvas. Use arrows or WASD; move and click the mouse inside it. Left-click the focused canvas to hear a short tone.</p>
   <section aria-labelledby="status-heading">
     <h2 id="status-heading">Status</h2>
     <pre id="status">Bishop web shell page loaded</pre>
@@ -67,6 +67,7 @@
     };
   </script>
   <script src="input.js"></script>
+  <script src="audio.js"></script>
   <script async src="web_shell.js"></script>
 </body>
 </html>
