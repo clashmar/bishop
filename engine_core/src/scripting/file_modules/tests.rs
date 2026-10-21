@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::fs;
 use std::sync::MutexGuard;
 
@@ -213,4 +214,38 @@ fn file_require_when_module_is_missing_reports_the_searched_path() {
         .unwrap_err();
     let searched_path = themes_folder().join(format!("{MODULE_NAME}.lua"));
     assert!(error.to_string().contains(&searched_path.display().to_string()));
+}
+
+#[test]
+fn prefetched_require_when_module_exists_uses_the_shared_cache() {
+    const MODULE_NAME: &str = "fixture.rules";
+    const MODULE_FIELD: &str = "step";
+    const RUN_COUNT: &str = "run_count";
+    let lua = Lua::new();
+    let path = format!("scripts/{}.lua", MODULE_NAME.replace('.', "/"));
+    let modules = HashMap::from([(
+        path,
+        format!("{RUN_COUNT} = ({RUN_COUNT} or 0) + 1; return {{ {MODULE_FIELD} = {RUN_COUNT} }}"),
+    )]);
+    super::install_prefetched(&lua, modules).unwrap();
+    let (first, second): (Table, Table) = lua
+        .load(format!("return require('{MODULE_NAME}'), require('{MODULE_NAME}')"))
+        .eval()
+        .unwrap();
+    assert_eq!(first, second);
+    assert_eq!(first.get::<u32>(MODULE_FIELD).unwrap(), 1);
+    assert_eq!(lua.globals().get::<u32>(RUN_COUNT).unwrap(), 1);
+}
+
+#[test]
+fn prefetched_require_when_module_is_missing_names_the_candidate() {
+    const MODULE_NAME: &str = "fixture.missing";
+    let lua = Lua::new();
+    super::install_prefetched(&lua, HashMap::new()).unwrap();
+    let error = lua
+        .load(format!("return require('{MODULE_NAME}')"))
+        .eval::<mlua::Value>()
+        .unwrap_err();
+    let expected_path = format!("scripts/{}.lua", MODULE_NAME.replace('.', "/"));
+    assert!(error.to_string().contains(&expected_path));
 }

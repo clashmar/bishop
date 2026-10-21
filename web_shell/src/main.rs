@@ -1,6 +1,8 @@
 #[cfg(any(test, target_os = "emscripten"))]
 mod audio_probe;
 mod browser_asset;
+#[cfg(target_os = "emscripten")]
+mod browser_fetch;
 #[cfg(any(test, target_os = "emscripten"))]
 mod browser_input;
 #[cfg(target_os = "emscripten")]
@@ -8,6 +10,12 @@ mod browser_loop;
 mod browser_render;
 #[cfg(target_os = "emscripten")]
 mod emscripten;
+#[cfg(all(feature = "playable-fixture", any(test, target_os = "emscripten")))]
+mod fixture_game;
+#[cfg(all(feature = "playable-fixture", any(test, target_os = "emscripten")))]
+mod fixture_loader;
+#[cfg(all(feature = "playable-fixture", target_os = "emscripten"))]
+mod fixture_render;
 
 const SHELL_LOADED: &str = "Bishop web shell loaded";
 
@@ -15,6 +23,8 @@ fn main() {
     println!("{SHELL_LOADED}");
     browser_render::run_browser_render_probe();
     browser_asset::start_browser_asset_probe();
+    #[cfg(all(feature = "playable-fixture", target_os = "emscripten"))]
+    fixture_loader::start();
     #[cfg(target_os = "emscripten")]
     browser_loop::start();
     #[cfg(not(target_os = "emscripten"))]

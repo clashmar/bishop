@@ -1,11 +1,5 @@
 #[cfg(target_os = "emscripten")]
-use std::ffi::CString;
-#[cfg(target_os = "emscripten")]
-use std::os::raw::{c_char, c_int, c_void};
-#[cfg(target_os = "emscripten")]
 use std::path::Path;
-#[cfg(target_os = "emscripten")]
-use std::ptr;
 
 use web_shell::DEMO_TITLE_ASSET_PATH;
 
@@ -22,25 +16,10 @@ pub fn start_browser_asset_probe() {
 
 #[cfg(target_os = "emscripten")]
 fn start_asset_load() {
-    unsafe extern "C" {
-        fn emscripten_async_wget_data(
-            url: *const c_char,
-            userdata: *mut c_void,
-            onload: extern "C" fn(*mut c_void, *mut c_void, c_int),
-            onerror: extern "C" fn(*mut c_void),
-        );
-    }
-
-    let url =
-        CString::new(DEMO_TITLE_ASSET_PATH).expect("asset path must not contain nul bytes");
-    unsafe {
-        emscripten_async_wget_data(
-            url.as_ptr(),
-            ptr::null_mut(),
-            asset_loaded,
-            asset_load_failed,
-        );
-    }
+    crate::browser_fetch::fetch(DEMO_TITLE_ASSET_PATH, |result| match result {
+        Ok(bytes) => asset_loaded(&bytes),
+        Err(error) => asset_load_failed(&error),
+    });
 }
 
 #[cfg(not(target_os = "emscripten"))]
@@ -49,15 +28,7 @@ fn start_asset_load() {
 }
 
 #[cfg(target_os = "emscripten")]
-extern "C" fn asset_loaded(_userdata: *mut c_void, data: *mut c_void, size: c_int) {
-    if data.is_null() || size < 0 {
-        let reason = "callback returned invalid data";
-        println!("Bishop browser asset load failed: {reason}");
-        draw_asset_failure(reason);
-        return;
-    }
-
-    let bytes = unsafe { std::slice::from_raw_parts(data.cast::<u8>(), size as usize) };
+fn asset_loaded(bytes: &[u8]) {
     let text = String::from_utf8_lossy(bytes);
     println!("Bishop browser asset loaded: {} bytes", bytes.len());
 
@@ -75,8 +46,7 @@ extern "C" fn asset_loaded(_userdata: *mut c_void, data: *mut c_void, size: c_in
 }
 
 #[cfg(target_os = "emscripten")]
-extern "C" fn asset_load_failed(_userdata: *mut c_void) {
-    let reason = "fetch failed for staged Demo title asset";
+fn asset_load_failed(reason: &str) {
     println!("Bishop browser asset load failed: {reason}");
     draw_asset_failure(reason);
 }

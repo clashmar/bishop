@@ -16,12 +16,31 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
-          target: wasm32-unknown-unknown
+          target: wasm32-unknown-emscripten
           override: true
+
+      - name: Set up Emscripten
+        uses: mymindstorm/setup-emsdk@v14
+        with:
+          version: '6.0.13'
 
       - name: Install cargo-make
         run: cargo install cargo-make
 
-      - name: Run Web Build Check
+      - name: Run Web Foundation Check
         working-directory: ./editor
+        env:
+          CXXFLAGS_wasm32_unknown_emscripten: -fexceptions
         run: cargo make check-game-web
+
+      - name: Build Playable Web Fixture
+        working-directory: ./editor
+        env:
+          CXXFLAGS_wasm32_unknown_emscripten: -fwasm-exceptions
+        run: cargo make build-game-web
+
+      - name: Upload Browser Fixture
+        uses: actions/upload-artifact@v4
+        with:
+          name: bishop-web-game
+          path: target/web-game/

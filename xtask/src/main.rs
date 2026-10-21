@@ -1,3 +1,5 @@
+mod web_export;
+
 use engine_core::constants::paths;
 use engine_core::scripting::lua_constants::{lua_dirs, lua_files};
 use engine_core::scripting::lua_project::{
@@ -17,13 +19,6 @@ const LUA_WASM_TARGET: &str = "wasm32-unknown-emscripten";
 const LUA_WASM_CXXFLAGS: &str = "CXXFLAGS_wasm32_unknown_emscripten";
 const LUA_WASM_REQUIRED_CXXFLAG: &str = "-fexceptions";
 const LUA_BOOTSTRAP_TEST: &str = "register_runtime_modules_supports_editor_script_load_patterns";
-const WEB_SHELL_PACKAGE: &str = "web_shell";
-const WEB_SHELL_JS: &str = "web_shell.js";
-const WEB_SHELL_WASM: &str = "web_shell.wasm";
-const WEB_SHELL_INDEX: &str = "index.html";
-const WEB_SHELL_INPUT: &str = "input.js";
-const WEB_SHELL_AUDIO: &str = "audio.js";
-
 fn demo_root(root: &Path) -> PathBuf {
     root.join(paths::GAME_SAVE_ROOT).join(paths::DEMO_GAME)
 }
@@ -65,14 +60,15 @@ fn main() -> ExitCode {
     }
 
     match args[1].as_str() {
-        "build-web-shell" => build_web_shell(),
+        "build-web-shell" => web_export::build_web_shell(),
+        "build-web-game" => web_export::build_web_game(),
         "check-lua" => check_lua(),
         "check-lua-wasm" => check_lua_wasm(),
         "check-web" => check_web(),
         "regen-demo-data" => regen_demo_data(),
         other => {
             eprintln!("Unknown subcommand: {other}");
-            eprintln!("Available: build-web-shell, check-lua, check-lua-wasm, check-web, regen-demo-data");
+            eprintln!("Available: build-web-shell, build-web-game, check-lua, check-lua-wasm, check-web, regen-demo-data");
             ExitCode::FAILURE
         }
     }
@@ -165,83 +161,6 @@ fn apply_lua_wasm_env(command: &mut Command) {
     command.env(LUA_WASM_CXXFLAGS, flags);
 }
 
-fn build_web_shell() -> ExitCode {
-    if !wasm_target_installed(WEB_WASM_TARGET) {
-        eprintln!("{WEB_WASM_TARGET} target is not installed.");
-        eprintln!("Install it with: rustup target add {WEB_WASM_TARGET}");
-        return ExitCode::FAILURE;
-    }
-
-    let mut missing_tools = Vec::new();
-    for tool in ["emcc", "em++"] {
-        if !tool_available(tool) {
-            missing_tools.push(tool);
-        }
-    }
-    if !missing_tools.is_empty() {
-        eprintln!("Missing Emscripten tools: {}", missing_tools.join(", "));
-        eprintln!("Install or activate Emscripten so emcc and em++ are on PATH.");
-        return ExitCode::FAILURE;
-    }
-
-    let root = std::env::current_dir().expect("xtask must run from workspace root");
-    let build_ok = run_checked(
-        cargo_command(&[
-            "build",
-            "-p",
-            WEB_SHELL_PACKAGE,
-            "--target",
-            WEB_WASM_TARGET,
-            "--locked",
-        ]),
-        "web shell wasm build",
-    );
-    if !build_ok {
-        return ExitCode::FAILURE;
-    }
-
-    let build_dir = web_shell_build_dir(&root);
-    let stage_dir = web_shell_stage_dir(&root);
-    if let Err(error) = fs::create_dir_all(&stage_dir) {
-        eprintln!("failed to create {}: {error}", stage_dir.display());
-        return ExitCode::FAILURE;
-    }
-
-    let artifacts = [
-        (root.join("web_shell").join(WEB_SHELL_INDEX), stage_dir.join(WEB_SHELL_INDEX)),
-        (root.join("web_shell").join(WEB_SHELL_INPUT), stage_dir.join(WEB_SHELL_INPUT)),
-        (root.join("web_shell").join(WEB_SHELL_AUDIO), stage_dir.join(WEB_SHELL_AUDIO)),
-        (build_dir.join(WEB_SHELL_JS), stage_dir.join(WEB_SHELL_JS)),
-        (build_dir.join(WEB_SHELL_WASM), stage_dir.join(WEB_SHELL_WASM)),
-    ];
-
-    for (source, dest) in artifacts {
-        if !stage_file(&source, &dest, "web shell artifact") {
-            return ExitCode::FAILURE;
-        }
-    }
-
-    let demo_asset_file = Path::new(web_shell::DEMO_TITLE_ASSET_PATH)
-        .file_name()
-        .expect("Demo title browser asset path must have a filename");
-    let demo_asset_source = demo_resources_dir(&root)
-        .join(paths::TEXT_FOLDER)
-        .join(paths::TEXT_LANGUAGE_FOLDER)
-        .join(paths::UI_TEXT_FOLDER)
-        .join(demo_asset_file);
-    let demo_asset_dest = stage_dir.join(web_shell::DEMO_TITLE_ASSET_PATH);
-    if !stage_file(&demo_asset_source, &demo_asset_dest, "web shell demo asset") {
-        return ExitCode::FAILURE;
-    }
-
-    println!("web shell staged at {}", stage_dir.display());
-    println!("serve it with:");
-    println!("  python3 -m http.server --directory {} 8000", stage_dir.display());
-    println!("then open:");
-    println!("  http://localhost:8000/");
-    ExitCode::SUCCESS
-}
-
 fn check_web() -> ExitCode {
     if !wasm_target_installed(WEB_WASM_TARGET) {
         eprintln!("{WEB_WASM_TARGET} target is not installed.");
@@ -318,40 +237,6 @@ fn wasm_target_installed(target: &str) -> bool {
     String::from_utf8_lossy(&output.stdout)
         .lines()
         .any(|line| line.trim() == target)
-}
-
-fn web_shell_build_dir(root: &Path) -> PathBuf {
-    root.join("target").join(WEB_WASM_TARGET).join("debug")
-}
-
-fn web_shell_stage_dir(root: &Path) -> PathBuf {
-    root.join("target").join("web-shell")
-}
-
-fn stage_file(source: &Path, dest: &Path, label: &str) -> bool {
-    if !source.exists() {
-        eprintln!("expected {label} missing: {}", source.display());
-        return false;
-    }
-
-    let parent = dest
-        .parent()
-        .expect("staged file destination must have a parent");
-    if let Err(error) = fs::create_dir_all(parent) {
-        eprintln!("failed to create {}: {error}", parent.display());
-        return false;
-    }
-
-    if let Err(error) = fs::copy(source, dest) {
-        eprintln!(
-            "failed to stage {} to {}: {error}",
-            source.display(),
-            dest.display()
-        );
-        return false;
-    }
-
-    true
 }
 
 fn cargo_command(args: &[&str]) -> Command {
