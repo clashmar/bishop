@@ -2,7 +2,9 @@ use std::cell::RefCell;
 use std::ffi::c_void;
 use std::ptr;
 
-use bishop::input::{KeyCode, KeyboardMouseState, MouseButton};
+use bishop::input::{KeyboardMouseState, MouseButton};
+#[cfg(not(feature = "renderer-proof"))]
+use bishop::input::KeyCode;
 
 use crate::audio_probe::AudioProbe;
 #[cfg(feature = "playable-fixture")]
@@ -13,9 +15,13 @@ struct BrowserRuntime {
     audio: AudioProbe,
     active: bool,
     last_ms: Option<f64>,
+    #[cfg(not(feature = "renderer-proof"))]
     x: f32,
+    #[cfg(not(feature = "renderer-proof"))]
     y: f32,
+    #[cfg(not(feature = "renderer-proof"))]
     frame: u64,
+    #[cfg(not(feature = "renderer-proof"))]
     last_button: i32,
     #[cfg(feature = "playable-fixture")]
     fixture: Option<FixtureGame>,
@@ -30,9 +36,13 @@ impl BrowserRuntime {
             audio: AudioProbe::new(),
             active: false,
             last_ms: None,
+            #[cfg(not(feature = "renderer-proof"))]
             x: 300.0,
+            #[cfg(not(feature = "renderer-proof"))]
             y: 130.0,
+            #[cfg(not(feature = "renderer-proof"))]
             frame: 0,
+            #[cfg(not(feature = "renderer-proof"))]
             last_button: 0,
             #[cfg(feature = "playable-fixture")]
             fixture: None,
@@ -144,18 +154,25 @@ unsafe extern "C" {
         fps: i32,
         simulate_infinite_loop: i32,
     );
+    #[cfg(not(feature = "renderer-proof"))]
     fn emscripten_cancel_main_loop();
 }
 
 pub(crate) fn start() {
     if crate::emscripten::run_script_int("window.bishopInstallInput?.() ? 1 : 0") != 1 {
-        println!("Bishop browser input/frame loop blocked: canvas, 2D context, or event bridge unavailable");
+        println!("Bishop browser input/frame loop blocked: canvas or event bridge unavailable");
         return;
     }
     println!("Bishop browser input/frame loop started");
     unsafe { emscripten_set_main_loop_arg(frame, ptr::null_mut(), 0, 1) };
 }
 
+#[cfg(feature = "renderer-proof")]
+extern "C" fn frame(_unused: *mut c_void) {
+    crate::renderer_proof::frame(unsafe { emscripten_get_now() });
+}
+
+#[cfg(not(feature = "renderer-proof"))]
 extern "C" fn frame(_unused: *mut c_void) {
     let now_ms = unsafe { emscripten_get_now() };
     let drawn = RUNTIME.with(|cell| {

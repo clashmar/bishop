@@ -108,3 +108,27 @@ impl Camera2D {
         self.viewport
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn world_to_screen_with_target_zoom_and_viewport_uses_logical_coordinates() {
+        let camera = Camera2D {
+            target: Vec2::new(10.0, 20.0),
+            zoom: Vec2::splat(0.5),
+            viewport: Some((20, 10, 80, 60)),
+            ..Default::default()
+        };
+
+        assert_eq!(
+            camera.world_to_screen(Vec2::new(10.0, 20.0), 120.0, 90.0),
+            Vec2::new(60.0, 50.0)
+        );
+        assert_eq!(
+            camera.world_to_screen(Vec2::new(11.0, 20.0), 120.0, 90.0),
+            Vec2::new(80.0, 50.0)
+        );
+    }
+}

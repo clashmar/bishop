@@ -7,6 +7,7 @@ build = "build.rs"
 [features]
 default = ["wgpu", "audio-cpal"]
 wgpu = ["bishop/wgpu", "engine_core/wgpu", "widgets/wgpu"]
+browser-web = ["bishop/web-gl"]
 audio-cpal = ["bishop/audio-cpal"]
 
 [dependencies]

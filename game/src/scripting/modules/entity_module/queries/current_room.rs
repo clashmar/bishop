@@ -1,4 +1,5 @@
 use crate::scripting::lua_ctx::LuaGameCtx;
+use crate::scripting::lua_integer::lua_unsigned_id;
 use crate::scripting::modules::entity_module::handle::{ensure_live_entity, EntityHandle};
 use engine_core::ecs::*;
 use engine_core::scripting::{LuaApiWriter, LuaMethod};
@@ -15,9 +16,9 @@ impl LuaMethod<EntityHandle> for CurrentRoomMethod {
             let ecs = &game_instance.game.ecs;
             ensure_live_entity(ecs, this.entity)?;
 
-            Ok(ecs
-                .get::<CurrentRoom>(this.entity)
-                .map(|room| mlua::Value::Integer(room.room_id.0 as i64)))
+            ecs.get::<CurrentRoom>(this.entity)
+                .map(|room| lua_unsigned_id(room.room_id.0 as u64))
+                .transpose()
         });
     }
 

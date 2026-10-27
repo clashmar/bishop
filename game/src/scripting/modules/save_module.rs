@@ -2,6 +2,7 @@ use crate::game_global::push_command;
 use crate::save_system::{LuaSaveProvider, SaveLane};
 use crate::scripting::commands::save_commands::{LoadLatestSaveCmd, SaveToLaneCmd};
 use crate::scripting::lua_ctx::LuaSaveCtx;
+use crate::scripting::lua_integer::lua_signed_integer;
 use engine_core::scripting::{LuaApi, LuaApiWriter, LuaModule};
 use engine_core::register_lua_api;
 use engine_core::register_lua_module;
@@ -204,7 +205,7 @@ fn json_to_lua(lua: &Lua, value: &serde_json::Value) -> mlua::Result<mlua::Value
         serde_json::Value::Bool(b) => Ok(mlua::Value::Boolean(*b)),
         serde_json::Value::Number(n) => {
             if let Some(i) = n.as_i64() {
-                Ok(mlua::Value::Integer(i))
+                lua_signed_integer(i)
             } else if let Some(f) = n.as_f64() {
                 Ok(mlua::Value::Number(f))
             } else {

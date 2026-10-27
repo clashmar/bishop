@@ -1,5 +1,5 @@
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 use std::process::ExitCode;
 
 use engine_core::constants::paths;
@@ -13,6 +13,7 @@ const WEB_SHELL_PACKAGE: &str = "web_shell";
 const WEB_SHELL_JS: &str = "web_shell.js";
 const WEB_SHELL_WASM: &str = "web_shell.wasm";
 const WEB_SHELL_INDEX: &str = "index.html";
+const WEB_RENDERER_INDEX: &str = "renderer-proof.html";
 const WEB_SHELL_INPUT: &str = "input.js";
 const WEB_SHELL_AUDIO: &str = "audio.js";
 const PLAYABLE_CXXFLAG: &str = "-fwasm-exceptions";
@@ -24,6 +25,7 @@ mod tests;
 enum Export {
     Shell,
     Game,
+    Renderer,
 }
 
 pub(super) fn build_web_shell() -> ExitCode {
@@ -32,6 +34,10 @@ pub(super) fn build_web_shell() -> ExitCode {
 
 pub(super) fn build_web_game() -> ExitCode {
     build_web(Export::Game)
+}
+
+pub(super) fn build_web_renderer_proof() -> ExitCode {
+    build_web(Export::Renderer)
 }
 
 fn build_web(variant: Export) -> ExitCode {
@@ -75,12 +81,21 @@ fn build_web(variant: Export) -> ExitCode {
                 "web game wasm build",
             )
         }
+        Export::Renderer => {
+            build_command.args(["--features", "renderer-proof"]);
+            build_command.arg("--target-dir").arg(web_renderer_target_dir(&root));
+            (
+                web_renderer_build_dir(&root),
+                web_renderer_stage_dir(&root),
+                "web renderer proof wasm build",
+            )
+        }
     };
     if !run_checked(build_command, build_label) {
         return ExitCode::FAILURE;
     }
 
-    if variant == Export::Game && stage_dir.exists() {
+    if matches!(variant, Export::Game | Export::Renderer) && stage_dir.exists() {
         if let Err(error) = fs::remove_dir_all(&stage_dir) {
             eprintln!("failed to clear {}: {error}", stage_dir.display());
             return ExitCode::FAILURE;
@@ -91,9 +106,14 @@ fn build_web(variant: Export) -> ExitCode {
         return ExitCode::FAILURE;
     }
 
+    let html_source = if variant == Export::Renderer {
+        WEB_RENDERER_INDEX
+    } else {
+        WEB_SHELL_INDEX
+    };
     let artifacts = [
         (
-            root.join("web_shell").join(WEB_SHELL_INDEX),
+            root.join("web_shell").join(html_source),
             stage_dir.join(WEB_SHELL_INDEX),
         ),
         (
@@ -114,17 +134,19 @@ fn build_web(variant: Export) -> ExitCode {
         }
     }
 
-    let demo_asset_file = Path::new(web_shell::DEMO_TITLE_ASSET_PATH)
-        .file_name()
-        .expect("Demo title browser asset path must have a filename");
-    let demo_asset_source = demo_resources_dir(&root)
-        .join(paths::TEXT_FOLDER)
-        .join(paths::TEXT_LANGUAGE_FOLDER)
-        .join(paths::UI_TEXT_FOLDER)
-        .join(demo_asset_file);
-    let demo_asset_dest = stage_dir.join(web_shell::DEMO_TITLE_ASSET_PATH);
-    if !stage_file(&demo_asset_source, &demo_asset_dest, "web shell demo asset") {
-        return ExitCode::FAILURE;
+    if variant != Export::Renderer {
+        let demo_asset_file = Path::new(web_shell::DEMO_TITLE_ASSET_PATH)
+            .file_name()
+            .expect("Demo title browser asset path must have a filename");
+        let demo_asset_source = demo_resources_dir(&root)
+            .join(paths::TEXT_FOLDER)
+            .join(paths::TEXT_LANGUAGE_FOLDER)
+            .join(paths::UI_TEXT_FOLDER)
+            .join(demo_asset_file);
+        let demo_asset_dest = stage_dir.join(web_shell::DEMO_TITLE_ASSET_PATH);
+        if !stage_file(&demo_asset_source, &demo_asset_dest, "web shell demo asset") {
+            return ExitCode::FAILURE;
+        }
     }
 
     if variant == Export::Game {
@@ -147,9 +169,29 @@ fn build_web(variant: Export) -> ExitCode {
         }
     }
 
+    if variant == Export::Renderer {
+        let renderer_urls = [
+            web_shell::DEMO_RENDERER_SHEET_PATH.to_owned(),
+            web_shell::demo_renderer_atlas_path(),
+        ];
+        for url in renderer_urls {
+            let source = match renderer_source(&root, &url) {
+                Ok(source) => source,
+                Err(error) => {
+                    eprintln!("{error}");
+                    return ExitCode::FAILURE;
+                }
+            };
+            if !stage_file(&source, &stage_dir.join(&url), "web renderer resource") {
+                return ExitCode::FAILURE;
+            }
+        }
+    }
+
     match variant {
         Export::Shell => println!("web shell staged at {}", stage_dir.display()),
         Export::Game => println!("playable web fixture staged at {}", stage_dir.display()),
+        Export::Renderer => println!("Bishop WebGL2 proof staged at {}", stage_dir.display()),
     }
     println!("serve it with:");
     println!("  python3 -m http.server --directory {} 8000", stage_dir.display());
@@ -170,12 +212,37 @@ fn web_game_build_dir(root: &Path) -> PathBuf {
     web_game_target_dir(root).join(WEB_WASM_TARGET).join("debug")
 }
 
+fn web_renderer_target_dir(root: &Path) -> PathBuf {
+    root.join("target").join("web-renderer-build")
+}
+
+fn web_renderer_build_dir(root: &Path) -> PathBuf {
+    web_renderer_target_dir(root).join(WEB_WASM_TARGET).join("debug")
+}
+
+fn web_renderer_stage_dir(root: &Path) -> PathBuf {
+    root.join("target").join("web-renderer-proof")
+}
+
 fn web_shell_stage_dir(root: &Path) -> PathBuf {
     root.join("target").join("web-shell")
 }
 
 fn web_game_stage_dir(root: &Path) -> PathBuf {
     root.join("target").join("web-game")
+}
+
+fn renderer_source(root: &Path, asset_url: &str) -> Result<PathBuf, String> {
+    let relative = asset_url
+        .strip_prefix(web_shell::DEMO_RENDERER_ASSET_ROOT)
+        .ok_or_else(|| format!("renderer URL outside Demo root: {asset_url}"))?;
+    let relative = Path::new(relative);
+    if relative.components().next().is_none()
+        || !relative.components().all(|component| matches!(component, Component::Normal(_)))
+    {
+        return Err(format!("renderer URL is not a safe relative path: {asset_url}"));
+    }
+    Ok(demo_resources_dir(root).join(relative))
 }
 
 fn fixture_source(root: &Path, asset_url: &str) -> Result<PathBuf, String> {

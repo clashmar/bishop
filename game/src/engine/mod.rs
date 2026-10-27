@@ -410,8 +410,8 @@ impl Engine {
             }
             RequestedSessionAction::CloseApp => {
                 let mut ctx_ref = ctx.borrow_mut();
-                ctx_ref.set_close_requested(true);
-                ctx_ref.set_exit_confirmed(true);
+                PlatformControl::set_close_requested(&mut *ctx_ref, true);
+                PlatformControl::set_exit_confirmed(&mut *ctx_ref, true);
             }
         }
 

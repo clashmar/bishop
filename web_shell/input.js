@@ -1,6 +1,6 @@
 window.bishopInstallInput = function () {
   const canvas = document.getElementById("bishop-canvas");
-  if (!canvas || !canvas.getContext("2d") || !window.Module?.ccall) return false;
+  if (!canvas || !window.Module?.ccall) return false;
   if (canvas.dataset.bishopInputInstalled === "true") return true;
   canvas.dataset.bishopInputInstalled = "true";
 

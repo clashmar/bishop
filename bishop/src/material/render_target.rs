@@ -3,15 +3,18 @@
 #[cfg(feature = "wgpu")]
 pub use crate::wgpu::{create_texture_bind_group_layout, BishopRenderTarget};
 
+#[cfg(all(feature = "web-gl", target_os = "emscripten", not(feature = "wgpu")))]
+pub use crate::web::WebRenderTarget as BishopRenderTarget;
+
 /// Render target handle used by camera and render APIs when no concrete backend is enabled.
-#[cfg(not(feature = "wgpu"))]
+#[cfg(not(any(feature = "wgpu", all(feature = "web-gl", target_os = "emscripten"))))]
 #[derive(Debug, Clone)]
 pub struct BishopRenderTarget {
     width: u32,
     height: u32,
 }
 
-#[cfg(not(feature = "wgpu"))]
+#[cfg(not(any(feature = "wgpu", all(feature = "web-gl", target_os = "emscripten"))))]
 impl BishopRenderTarget {
     /// Creates a backend-neutral render target handle.
     pub fn new(width: u32, height: u32) -> Self {

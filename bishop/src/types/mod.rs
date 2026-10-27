@@ -15,6 +15,8 @@ pub struct Texture2D {
     height: u32,
     #[cfg(feature = "wgpu")]
     texture: std::sync::Arc<crate::wgpu::WgpuTexture>,
+    #[cfg(all(feature = "web-gl", target_os = "emscripten"))]
+    texture_web: std::rc::Rc<crate::web::WebTexture>,
 }
 
 impl Texture2D {
@@ -50,6 +52,22 @@ impl Texture2D {
     #[cfg(feature = "wgpu")]
     pub fn inner_arc(&self) -> &std::sync::Arc<crate::wgpu::WgpuTexture> {
         &self.texture
+    }
+
+    /// Creates a texture handle from a WebGL2 texture.
+    #[cfg(all(feature = "web-gl", target_os = "emscripten"))]
+    pub fn from_web(texture: crate::web::WebTexture) -> Self {
+        Self {
+            width: texture.width(),
+            height: texture.height(),
+            texture_web: std::rc::Rc::new(texture),
+        }
+    }
+
+    /// Returns the originating WebGL2 texture.
+    #[cfg(all(feature = "web-gl", target_os = "emscripten"))]
+    pub fn inner_web(&self) -> &crate::web::WebTexture {
+        &self.texture_web
     }
 
     /// Returns the texture width in pixels.

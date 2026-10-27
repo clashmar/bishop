@@ -210,9 +210,11 @@ name = "bishop"
 version = "0.1.0"
 dependencies = [
  "bytemuck",
+ "cc",
  "cpal",
  "fontdue",
  "glam",
+ "glow",
  "image",
  "log",
  "objc2 0.5.2",
@@ -3495,6 +3497,8 @@ dependencies = [
  "engine_core",
  "mlua",
  "ron",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

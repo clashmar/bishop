@@ -1,5 +1,8 @@
 //! Texture loading capability.
 
+#[cfg(any(feature = "wgpu", test, all(feature = "web-gl", target_os = "emscripten")))]
+pub(crate) mod png;
+
 use crate::types::Texture2D;
 
 /// Synchronous texture loading capability provided by the graphics backend.
