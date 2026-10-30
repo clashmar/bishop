@@ -238,6 +238,16 @@ fn prefetched_require_when_module_exists_uses_the_shared_cache() {
 }
 
 #[test]
+fn prefetched_require_when_filesystem_resolver_is_already_installed_rejects_it() {
+    let lua = Lua::new();
+    install(&lua).unwrap();
+
+    let error = super::install_prefetched(&lua, HashMap::new()).unwrap_err();
+
+    assert!(error.to_string().contains("filesystem"), "{error}");
+}
+
+#[test]
 fn prefetched_require_when_module_is_missing_names_the_candidate() {
     const MODULE_NAME: &str = "fixture.missing";
     let lua = Lua::new();

@@ -14,10 +14,15 @@ const WEB_SHELL_JS: &str = "web_shell.js";
 const WEB_SHELL_WASM: &str = "web_shell.wasm";
 const WEB_SHELL_INDEX: &str = "index.html";
 const WEB_RENDERER_INDEX: &str = "renderer-proof.html";
+const WEB_DEMO_INDEX: &str = "demo-checkpoint.html";
 const WEB_SHELL_INPUT: &str = "input.js";
 const WEB_SHELL_AUDIO: &str = "audio.js";
 const PLAYABLE_CXXFLAG: &str = "-fwasm-exceptions";
 
+mod demo_manifest;
+use demo_manifest::stage_demo_resources;
+#[cfg(test)]
+mod demo_manifest_tests;
 #[cfg(test)]
 mod tests;
 
@@ -26,6 +31,7 @@ enum Export {
     Shell,
     Game,
     Renderer,
+    DemoCheckpoint,
 }
 
 pub(super) fn build_web_shell() -> ExitCode {
@@ -38,6 +44,10 @@ pub(super) fn build_web_game() -> ExitCode {
 
 pub(super) fn build_web_renderer_proof() -> ExitCode {
     build_web(Export::Renderer)
+}
+
+pub(super) fn build_web_demo_checkpoint() -> ExitCode {
+    build_web(Export::DemoCheckpoint)
 }
 
 fn build_web(variant: Export) -> ExitCode {
@@ -90,12 +100,22 @@ fn build_web(variant: Export) -> ExitCode {
                 "web renderer proof wasm build",
             )
         }
+        Export::DemoCheckpoint => {
+            build_command.args(["--features", "demo-checkpoint"]);
+            build_command.arg("--target-dir").arg(web_demo_target_dir(&root));
+            build_command.env(LUA_WASM_CXXFLAGS, PLAYABLE_CXXFLAG);
+            (
+                web_demo_build_dir(&root),
+                web_demo_stage_dir(&root),
+                "web Demo checkpoint wasm build",
+            )
+        }
     };
     if !run_checked(build_command, build_label) {
         return ExitCode::FAILURE;
     }
 
-    if matches!(variant, Export::Game | Export::Renderer) && stage_dir.exists() {
+    if matches!(variant, Export::Game | Export::Renderer | Export::DemoCheckpoint) && stage_dir.exists() {
         if let Err(error) = fs::remove_dir_all(&stage_dir) {
             eprintln!("failed to clear {}: {error}", stage_dir.display());
             return ExitCode::FAILURE;
@@ -106,10 +126,10 @@ fn build_web(variant: Export) -> ExitCode {
         return ExitCode::FAILURE;
     }
 
-    let html_source = if variant == Export::Renderer {
-        WEB_RENDERER_INDEX
-    } else {
-        WEB_SHELL_INDEX
+    let html_source = match variant {
+        Export::Renderer => WEB_RENDERER_INDEX,
+        Export::DemoCheckpoint => WEB_DEMO_INDEX,
+        Export::Shell | Export::Game => WEB_SHELL_INDEX,
     };
     let artifacts = [
         (
@@ -134,7 +154,7 @@ fn build_web(variant: Export) -> ExitCode {
         }
     }
 
-    if variant != Export::Renderer {
+    if matches!(variant, Export::Shell | Export::Game) {
         let demo_asset_file = Path::new(web_shell::DEMO_TITLE_ASSET_PATH)
             .file_name()
             .expect("Demo title browser asset path must have a filename");
@@ -188,10 +208,19 @@ fn build_web(variant: Export) -> ExitCode {
         }
     }
 
+    if variant == Export::DemoCheckpoint {
+        let resource_stage = stage_dir.join(web_shell::DEMO_CHECKPOINT_ASSET_ROOT);
+        if let Err(error) = stage_demo_resources(&demo_resources_dir(&root), &resource_stage) {
+            eprintln!("failed to stage Demo resources: {error}");
+            return ExitCode::FAILURE;
+        }
+    }
+
     match variant {
         Export::Shell => println!("web shell staged at {}", stage_dir.display()),
         Export::Game => println!("playable web fixture staged at {}", stage_dir.display()),
         Export::Renderer => println!("Bishop WebGL2 proof staged at {}", stage_dir.display()),
+        Export::DemoCheckpoint => println!("Bishop Demo checkpoint staged at {}", stage_dir.display()),
     }
     println!("serve it with:");
     println!("  python3 -m http.server --directory {} 8000", stage_dir.display());
@@ -210,6 +239,18 @@ fn web_game_target_dir(root: &Path) -> PathBuf {
 
 fn web_game_build_dir(root: &Path) -> PathBuf {
     web_game_target_dir(root).join(WEB_WASM_TARGET).join("debug")
+}
+
+fn web_demo_target_dir(root: &Path) -> PathBuf {
+    root.join("target").join("web-demo-build")
+}
+
+fn web_demo_build_dir(root: &Path) -> PathBuf {
+    web_demo_target_dir(root).join(WEB_WASM_TARGET).join("debug")
+}
+
+fn web_demo_stage_dir(root: &Path) -> PathBuf {
+    root.join("target").join("web-demo-checkpoint")
 }
 
 fn web_renderer_target_dir(root: &Path) -> PathBuf {

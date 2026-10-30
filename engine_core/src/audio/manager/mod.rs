@@ -18,6 +18,7 @@ use super::command_queue::{
 };
 use super::diagnostics::{self, AudioDiagnosticsSnapshot};
 use super::runtime::{self, MusicStopReason, MusicStoppedEvent};
+use crate::storage::ResourceSource;
 use crate::task::{BackgroundService, FileReadPool};
 use bishop::audio::{AUDIO_SAMPLE_RATE, AudioBackend};
 use oddio::{Cycle, Frames, FramesSignal, Gain, Handle, Mixer, Speed, Stop};
@@ -157,6 +158,8 @@ pub struct AudioManager {
     pending_loads: HashMap<String, PathBuf>,
     /// Shared bounded pool for audio file reads.
     file_read_pool: FileReadPool,
+    /// Prefetched authored audio bytes available to a browser session.
+    resource_source: Option<ResourceSource>,
     /// Pending one-shot playback requests waiting on a cold load.
     pending_one_shots: HashMap<String, Vec<PendingOneShot>>,
     /// Pending loop playback requests waiting on a cold load.
@@ -217,6 +220,7 @@ impl AudioManager {
             sound_cache: HashMap::new(),
             pending_loads: HashMap::new(),
             file_read_pool: FileReadPool::new(),
+            resource_source: None,
             pending_one_shots: HashMap::new(),
             pending_loops: HashMap::new(),
             #[cfg(test)]
@@ -233,6 +237,11 @@ impl AudioManager {
             music_volume: 1.0,
             sfx_volume: 1.0,
         }
+    }
+
+    /// Supplies byte-backed resources for synchronous authored WAV decoding.
+    pub fn set_source(&mut self, source: ResourceSource) {
+        self.resource_source = Some(source);
     }
 
     /// Returns a snapshot of cached and referenced audio IDs.

@@ -413,10 +413,10 @@ fn try_build_engine(
                         game,
                         &builder.lua,
                         &mut builder.camera_manager,
-                    )
+                    )?
                 };
 
-                Ok(builder.assemble(game_instance, ctx, false))
+                builder.assemble(game_instance, ctx, false)
             }
             LoadedStartupData::Playtest {
                 startup_asset,
@@ -439,10 +439,10 @@ fn try_build_engine(
                         game,
                         &builder.lua,
                         &mut builder.camera_manager,
-                    )
+                    )?
                 };
 
-                Ok(builder.assemble(game_instance, ctx, true))
+                builder.assemble(game_instance, ctx, true)
             }
         },
         StartupIntent::LoadLatest => {
@@ -480,10 +480,10 @@ fn try_build_engine(
 
             let prepared = match loaded {
                 LoadedStartupData::Game { game, .. } => {
-                    GameInstance::prepare_loaded_game(&builder.lua, game)
+                    GameInstance::prepare_loaded_game(&builder.lua, game)?
                 }
                 LoadedStartupData::Playtest { room, game, .. } => {
-                    GameInstance::prepare_loaded_room(&builder.lua, room, game)
+                    GameInstance::prepare_loaded_room(&builder.lua, room, game)?
                 }
             };
 
@@ -500,7 +500,7 @@ fn try_build_engine(
             let mut engine = builder
                 .entry_mode(entry_mode)
                 .quit_to_title_enabled(quit_to_title_enabled)
-                .into_engine(game_instance, ctx.clone(), save_runtime, is_playtest);
+                .into_engine(game_instance, ctx.clone(), save_runtime, is_playtest)?;
 
             {
                 let mut game_ref = engine.game_instance.borrow_mut();

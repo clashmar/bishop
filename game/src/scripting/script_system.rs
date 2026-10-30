@@ -1,11 +1,14 @@
 use crate::engine::Engine;
 use crate::game_global::drain_commands;
 use crate::scripting::modules::entity_module::lua_entity_handle;
-use engine_core::ecs::*;
+use engine_core::constants::paths;
+use engine_core::ecs::{get_children, Active, Ecs, Entity, Script, ScriptId};
 use engine_core::game::Game;
-use engine_core::logging::{omni_error};
-use engine_core::scripting::{EventBus, LuaModuleRegistry, ScriptManager, register_runtime_modules};
-use engine_core::storage::*;
+use engine_core::logging::omni_error;
+use engine_core::scripting::{
+    EventBus, LuaModuleRegistry, ScriptManager, register_runtime_modules,
+};
+use engine_core::storage::{ResourceSource, scripts_folder};
 use engine_core::scripting::lua_constants::{lua_engine, lua_entity, lua_files, lua_globals};
 use mlua::prelude::LuaResult;
 use mlua::Lua;
@@ -31,18 +34,32 @@ impl ScriptSystem {
         }
 
         // Run main.lua after all modules are registered
-        if let Err(e) = Self::load_main(lua) {
+        if let Err(e) = Self::load_main(lua, None) {
             omni_error!("Main failed: {e}");
         }
 
         // Store the global update function if main.lua set engine.update
-        if let Ok(engine_tbl) = lua.globals().get::<Table>(lua_engine::ENGINE) {
-            if let Ok(update_fn) = engine_tbl.get::<Function>(lua_entity::UPDATE) {
-                if let Err(e) = lua.set_named_registry_value(GLOBAL_UPDATE_KEY, update_fn) {
-                    omni_error!("Failed to store global update: {e}");
-                }
-            }
+        if let Err(error) = Self::register_global_update(lua) {
+            omni_error!("Failed to store global update: {error}");
         }
+    }
+
+    /// Initializes runtime Lua against prefetched authored files, surfacing startup errors.
+    pub fn init_from_source(lua: &Lua, event_bus: &EventBus, source: &ResourceSource) -> LuaResult<()> {
+        register_runtime_modules(lua, event_bus)?;
+        Self::register_game_modules(lua)?;
+        Self::load_main(lua, Some(source))?;
+        Self::register_global_update(lua)
+    }
+
+    fn register_global_update(lua: &Lua) -> LuaResult<()> {
+        let Ok(engine_tbl) = lua.globals().get::<Table>(lua_engine::ENGINE) else {
+            return Ok(());
+        };
+        let Ok(update_fn) = engine_tbl.get::<Function>(lua_entity::UPDATE) else {
+            return Ok(());
+        };
+        lua.set_named_registry_value(GLOBAL_UPDATE_KEY, update_fn)
     }
 
     /// Registers game-specific runtime modules after shared bootstrap has run.
@@ -56,13 +73,21 @@ impl ScriptSystem {
     }
 
     /// Loads and executes main.lua if present.
-    fn load_main(lua: &Lua) -> LuaResult<()> {
-        ScriptManager::load_globals_prelude(lua)?;
+    fn load_main(lua: &Lua, source: Option<&ResourceSource>) -> LuaResult<()> {
+        ScriptManager::load_globals_prelude(lua, source)?;
 
-        let main_path = scripts_folder().join(lua_files::MAIN);
-        let src =
-            fs::read_to_string(main_path).map_err(|e| mlua::Error::ExternalError(Arc::new(e)))?;
-        lua.load(&src).exec()
+        let relative = std::path::Path::new(paths::SCRIPTS_FOLDER).join(lua_files::MAIN);
+        let src = if let Some(source) = source {
+            let bytes = source.read_required(&relative)
+                .map_err(|error| mlua::Error::ExternalError(Arc::new(error)))?;
+            String::from_utf8(bytes).map_err(|error| mlua::Error::RuntimeError(format!(
+                "invalid UTF-8 in {}: {error}", relative.display()
+            )))?
+        } else {
+            fs::read_to_string(scripts_folder().join(lua_files::MAIN))
+                .map_err(|error| mlua::Error::ExternalError(Arc::new(error)))?
+        };
+        lua.load(&src).set_name(relative.display().to_string()).exec()
     }
 
     /// Runs all lua scripts in the game.

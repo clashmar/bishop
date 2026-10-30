@@ -5,6 +5,9 @@ use crate::engine_global::set_game_name;
 use crate::scripting::lua_constants::{lua_dirs, lua_files, lua_globals};
 use crate::scripting::lua_project::engine_require_path;
 use crate::storage::test_utils::{TestGameFolder, game_fs_test_lock};
+use crate::storage::{ResourceEntry, ResourceManifest, ResourceSource};
+use std::collections::HashMap;
+use std::path::Path;
 
 #[test]
 fn get_or_load_registers_new_script_path_in_asset_registry() {
@@ -94,7 +97,7 @@ fn load_globals_prelude_bootstraps_globals_for_editor_style_script_loads() {
         .unwrap();
     let lua = Lua::new();
 
-    ScriptManager::load_globals_prelude(&lua).unwrap();
+    ScriptManager::load_globals_prelude(&lua, None).unwrap();
 
     let table = script_manager.get_table_from_id(&lua, script_id).unwrap();
     let public: Table = table.get(lua_fields::PUBLIC).unwrap();
@@ -338,4 +341,66 @@ fn interact_fns_cleaned_on_evict() {
     manager.evict_script(id);
 
     assert!(!manager.interact_fns.contains_key(&id), "interact_fns entry should be removed after evict");
+}
+
+fn prefetched_lua_files(entries: &[(&Path, &[u8])]) -> ResourceSource {
+    let mut files = HashMap::new();
+    let mut manifest = Vec::new();
+    for (path, bytes) in entries {
+        let key = path.components().map(|component| component.as_os_str().to_str().unwrap())
+            .collect::<Vec<_>>().join("/");
+        files.insert(key.clone(), bytes.to_vec());
+        manifest.push(ResourceEntry { path: key, byte_len: bytes.len() });
+    }
+    manifest.sort_by(|left, right| left.path.cmp(&right.path));
+    ResourceSource::from_prefetched(ResourceManifest { files: manifest }, files).unwrap()
+}
+
+#[test]
+fn entity_script_when_prefetched_loads_table_by_registered_id() {
+    let lua = Lua::new();
+    let mut registry = AssetRegistry::default();
+    let id = ScriptId(1);
+    let relative = Path::new(paths::SCRIPTS_FOLDER).join("player.lua");
+    registry.register_asset_relative_path(id, "player.lua").unwrap();
+    let mut manager = ScriptManager::default();
+    manager.set_source(Some(prefetched_lua_files(&[(&relative, b"return { kind = 'fixture' }")])));
+    ScriptManager::init_editor_metadata(&registry, &mut manager);
+
+    let table = manager.load_script_table(&lua, id).unwrap();
+
+    assert_eq!(table.get::<String>("kind").unwrap(), "fixture");
+}
+
+#[test]
+fn entity_script_when_prefetched_file_is_missing_reports_resource_path() {
+    let lua = Lua::new();
+    let mut registry = AssetRegistry::default();
+    let id = ScriptId(1);
+    let relative = Path::new(paths::SCRIPTS_FOLDER).join("player.lua");
+    registry.register_asset_relative_path(id, "player.lua").unwrap();
+    let mut manager = ScriptManager::default();
+    manager.set_source(Some(prefetched_lua_files(&[])));
+    ScriptManager::init_editor_metadata(&registry, &mut manager);
+
+    let error = manager.load_script_table(&lua, id).err().unwrap();
+
+    assert!(error.to_string().contains(&relative.display().to_string()), "{error}");
+}
+
+#[test]
+fn lua_require_when_prefetched_resolves_a_script_module_before_manager_init() {
+    let main = Path::new(paths::SCRIPTS_FOLDER).join(lua_files::MAIN);
+    let helper = Path::new(paths::SCRIPTS_FOLDER).join("helper.lua");
+    let source = prefetched_lua_files(&[
+        (&main, b"return require('helper')"),
+        (&helper, b"return { kind = 'module' }"),
+    ]);
+    let lua = Lua::new();
+    crate::scripting::file_modules::install_prefetched(&lua, source.prefetched_lua_sources().unwrap()).unwrap();
+    ScriptManager::init_manager(&AssetRegistry::default(), &mut ScriptManager::default(), &lua);
+    let source_code = source.read_required(&main).unwrap();
+    let table: Table = lua.load(&source_code).eval().unwrap();
+
+    assert_eq!(table.get::<String>("kind").unwrap(), "module");
 }

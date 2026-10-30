@@ -11,6 +11,16 @@ pub fn demo_renderer_atlas_path() -> String {
     format!("{}.json", DEMO_RENDERER_SHEET_PATH.trim_end_matches(".png"))
 }
 
+/// URL prefix for staged authored Demo checkpoint resources.
+pub const DEMO_CHECKPOINT_ASSET_ROOT: &str = DEMO_RENDERER_ASSET_ROOT;
+/// Name of the source-derived browser resource manifest.
+pub const DEMO_CHECKPOINT_MANIFEST_FILE: &str = "manifest.ron";
+
+/// Returns the URL of the staged Demo checkpoint resource manifest.
+pub fn demo_checkpoint_manifest_path() -> String {
+    format!("{DEMO_CHECKPOINT_ASSET_ROOT}{DEMO_CHECKPOINT_MANIFEST_FILE}")
+}
+
 /// Browser fixture project directory under `games/`.
 pub const FIXTURE_NAME: &str = "BrowserFixture";
 /// URL prefix for the dedicated playable fixture's resources.

@@ -138,7 +138,8 @@ impl TextManager {
         }
     }
 
-    fn text_path_for_id(&self, asset_registry: &AssetRegistry, text_id: TomlId) -> Option<PathBuf> {
+    /// Resolves a registered text asset to the active language's file path.
+    pub fn text_path_for_id(&self, asset_registry: &AssetRegistry, text_id: TomlId) -> Option<PathBuf> {
         let mut relative = asset_registry.relative_path(text_id)?;
         if let Some(language) = self
             .available_languages

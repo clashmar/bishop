@@ -5,11 +5,11 @@ use crate::game::Game;
 use crate::hydration::coordinator::HydrationCoordinator;
 use crate::hydration::residency_key::{ScopeKey, ResidencyKey};
 use crate::hydration::scope::{HydrationScope, ResourceClass};
-use crate::storage::path_utils::{resources_folder, room_payload_path};
+use crate::storage::path_utils::resources_folder;
+use crate::storage::{ResourceSource, hydrate_room_from_source};
 use crate::worlds::RoomPayload;
 use bishop::prelude::TextureLoader;
 use mlua::Lua;
-use std::fs;
 
 /// Errors surfaced while hydrating claimed resources.
 #[derive(Debug)]
@@ -90,8 +90,13 @@ impl<'a> HydrationDriver<'a> {
     pub fn hydrate_asset_runtime(&mut self, asset: AssetKey, lua: &Lua) -> Result<(), HydrationError> {
         match asset {
             AssetKey::Sprite(id) => {
-                self.game.sprite_manager.prewarm_runtime_texture(id);
-                Ok(())
+                if matches!(self.game.runtime_source.as_ref(), Some(ResourceSource::Prefetched(_))) {
+                    self.game.sprite_manager.validate_prefetched_texture(id)
+                        .map_err(HydrationError::TextureLoad)
+                } else {
+                    self.game.sprite_manager.prewarm_runtime_texture(id);
+                    Ok(())
+                }
             }
             AssetKey::Script(id) => self
                 .game
@@ -184,34 +189,14 @@ impl<'a> HydrationDriver<'a> {
             ScopeKey::Global => Ok(()),
             ScopeKey::World(_) => Ok(()),
             ScopeKey::Room(room_id) => {
-                let room_world_map = self.game.room_world_map();
-                let Some(world_id) = room_world_map.get(&room_id).copied() else {
-                    return Err(HydrationError::PayloadLoad(format!(
-                        "no world owns room payload Room({})",
-                        room_id.0
-                    )));
-                };
-                let payload_path = room_payload_path(&resources_folder(&self.game.name), room_id);
-                let payload_ron = fs::read_to_string(&payload_path)
-                    .map_err(|error| {
-                        HydrationError::PayloadLoad(format!(
-                            "failed to read room payload '{}': {error}",
-                            payload_path.display()
-                        ))
-                    })?;
-                let payload: RoomPayload = ron::from_str(&payload_ron).map_err(|error| {
+                let source = self.game.runtime_source.clone().unwrap_or_else(|| {
+                    ResourceSource::Folder(resources_folder(&self.game.name))
+                });
+                hydrate_room_from_source(&source, self.game, room_id).map_err(|error| {
                     HydrationError::PayloadLoad(format!(
-                        "failed to parse room payload '{}': {error}",
-                        payload_path.display()
+                        "failed to hydrate room payload Room({}): {error}", room_id.0
                     ))
-                })?;
-
-                if let Some(world) = self.game.get_world_mut(world_id)
-                    && let Some(room) = world.get_room_mut(room_id)
-                {
-                    payload.apply(room);
-                }
-                Ok(())
+                })
             }
         }
     }
@@ -242,7 +227,12 @@ mod tests {
     use crate::ecs::{SoundId, SpriteId};
     use crate::engine_global::set_game_name;
     use crate::hydration::Hydratable;
-    use crate::storage::{game_folder, load_game_shell_from_folder, save_game_to_folder};
+    use crate::storage::{
+        ResourceManifest, ResourceSource, game_folder, load_game_shell_from_folder,
+        save_game_to_folder,
+    };
+    use crate::constants::paths;
+    use std::collections::HashMap;
     use crate::storage::test_utils::{game_fs_test_lock, TestGameFolder};
     use crate::task::FileReadPool;
     use crate::worlds::{Room, RoomId, World, WorldId};
@@ -400,6 +390,25 @@ mod tests {
             .unwrap();
 
         assert!(driver.game.sprite_manager.has_pending_texture_read(SpriteId(8)));
+    }
+
+    #[test]
+    fn hydrate_asset_runtime_when_prefetched_sprite_is_missing_reports_path() {
+        let mut game = Game::with_name("prefetched_hydration_fixture");
+        let id = SpriteId(8);
+        let relative = std::path::Path::new(paths::ASSETS_FOLDER).join("sprites/warm.png");
+        game.asset_registry.register_asset_relative_path(id, "sprites/warm.png").unwrap();
+        game.runtime_source = Some(ResourceSource::from_prefetched(
+            ResourceManifest { files: Vec::new() }, HashMap::new(),
+        ).unwrap());
+        crate::assets::SpriteManager::init_runtime_manager(&mut game);
+        let mut audio_manager = AudioManager::new::<TestBackend>();
+        let mut driver = HydrationDriver { game: &mut game, audio_manager: &mut audio_manager };
+
+        let error = driver.hydrate_asset_runtime(AssetKey::Sprite(id), &Lua::new()).unwrap_err();
+
+        let HydrationError::TextureLoad(detail) = error else { panic!("expected missing sprite error") };
+        assert!(detail.contains(&relative.display().to_string()), "{detail}");
     }
 
     #[test]

@@ -4,6 +4,7 @@ use engine_core::engine_global::set_game_name;
 use engine_core::hydration::Hydratable;
 use engine_core::scripting::lua_constants::{lua_dirs, lua_fields, lua_files};
 use engine_core::storage::test_utils::{game_fs_test_lock, TestGameFolder};
+use engine_core::storage::game_folder;
 use engine_core::worlds::*;
 use std::fs;
 
