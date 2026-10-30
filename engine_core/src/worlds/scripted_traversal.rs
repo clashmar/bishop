@@ -3,12 +3,10 @@ use crate::game::Game;
 use crate::logging::omni_error;
 use crate::scripting::helpers::sanitize_lua_identifier;
 use crate::scripting::world_navigation_lua::collect_entry_handles;
-use crate::storage::path_utils::scripts_folder;
 use crate::worlds::RoomId;
 use once_cell::sync::Lazy;
 use regex::Regex;
 use std::collections::{BTreeSet, HashMap, HashSet};
-use std::fs;
 
 static MOVE_TO_ENTRY_PATTERN: Lazy<Regex> = Lazy::new(|| {
     Regex::new(r"\bmove_to_entry\s*\(\s*Entries\.([A-Za-z_][A-Za-z0-9_]*)\.([A-Za-z_][A-Za-z0-9_]*)\s*\)")
@@ -60,13 +58,12 @@ pub fn collect_scripted_traversal_edges(game: &Game) -> Vec<ScriptedTraversalEdg
         let Some(CurrentRoom { room_id: from, .. }) = game.ecs.get::<CurrentRoom>(entity).copied() else {
             continue;
         };
-        let Some(relative_path) = game.script_manager.path_for_id(script.script_id) else {
-            continue;
-        };
-        let path = scripts_folder().join(relative_path);
-        let Ok(source) = fs::read_to_string(&path) else {
-            omni_error!("Skipping scripted traversal extraction for {:?}: could not read {}", entity, path.display());
-            continue;
+        let source = match game.script_manager.read_script_source(script.script_id) {
+            Ok(source) => source,
+            Err(error) => {
+                omni_error!("Skipping scripted traversal extraction for {entity:?}: {error}");
+                continue;
+            }
         };
 
         for edge in extract_scripted_traversal_edges(&source, from, &lookup) {
@@ -123,7 +120,10 @@ mod tests {
     use crate::scripting::world_navigation_lua::{collect_entry_handles, EntryHandle};
     use crate::storage::path_utils::scripts_folder;
     use crate::storage::test_utils::{TestGameFolder, game_fs_test_lock};
+    use crate::storage::{ResourceEntry, ResourceManifest, ResourceSource};
     use crate::worlds::{Room, RoomLayer, World, WorldId};
+    use std::fs;
+    use std::path::Path;
 
     #[test]
     fn scripted_traversal_extractor_when_source_uses_literal_entry_handle_emits_room_edge() {
@@ -223,6 +223,36 @@ mod tests {
                 to: RoomId(9),
             }]
         );
+    }
+
+    #[test]
+    fn scripted_traversal_when_script_is_prefetched_uses_registered_source() {
+        let mut game = Game::with_name("prefetched_traversal_fixture");
+        let mut first = World::new(WorldId(1), "Main World".into(), 16.0);
+        first.add_room(Room { id: RoomId(1), ..Default::default() });
+        let mut second = World::new(WorldId(2), "Second World".into(), 16.0);
+        second.add_room(Room { id: RoomId(9), ..Default::default() });
+        game.add_world(first);
+        game.add_world(second);
+        game.ecs.create_entity().with(WorldEntry {
+            name: WorldEntry::START_NAME.to_string(), ..Default::default()
+        }).with_current_room(RoomId(9)).finish();
+        let script_id = game.script_manager.init_script(&mut game.asset_registry, "portal.lua").unwrap();
+        game.ecs.create_entity().with(Active::default()).with(Script {
+            script_id, ..Default::default()
+        }).with_current_room(RoomId(1)).finish();
+        let relative = Path::new(crate::constants::paths::SCRIPTS_FOLDER).join("portal.lua");
+        let key = relative.components().map(|component| component.as_os_str().to_str().unwrap())
+            .collect::<Vec<_>>().join("/");
+        let bytes = b"return { init = function(self) self.entity:move_to_entry(Entries.SecondWorld.Start) end }";
+        let source = ResourceSource::from_prefetched(ResourceManifest { files: vec![
+            ResourceEntry { path: key.clone(), byte_len: bytes.len() },
+        ] }, HashMap::from([(key, bytes.to_vec())])).unwrap();
+        game.script_manager.set_source(Some(source));
+
+        let edges = collect_scripted_traversal_edges(&game);
+
+        assert_eq!(edges, vec![ScriptedTraversalEdge { from: RoomId(1), to: RoomId(9) }]);
     }
 
     #[test]

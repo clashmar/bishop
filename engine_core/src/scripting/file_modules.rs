@@ -9,7 +9,9 @@ use mlua::{Function, Lua, Value};
 use crate::storage::path_utils::{scripts_folder, themes_folder};
 
 const INIT_FILE: &str = "init.lua";
-const FILE_REQUIRE_INSTALLED: &str = "bishop:file_require_installed";
+const FILE_REQUIRE_SOURCE: &str = "bishop:file_require_source";
+const FILESYSTEM_SOURCE_NAME: &str = "filesystem";
+const PREFETCHED_SOURCE_NAME: &str = "prefetched";
 
 /// Configures game script and theme modules for Lua require.
 pub(crate) fn install(lua: &Lua) -> mlua::Result<()> {
@@ -22,7 +24,16 @@ pub fn install_prefetched(lua: &Lua, files: HashMap<String, String>) -> mlua::Re
 }
 
 fn install_source(lua: &Lua, source: ModuleSource) -> mlua::Result<()> {
-    if lua.named_registry_value::<Option<bool>>(FILE_REQUIRE_INSTALLED)?.unwrap_or(false) {
+    let source_name = match &source {
+        ModuleSource::Filesystem => FILESYSTEM_SOURCE_NAME,
+        ModuleSource::Prefetched(_) => PREFETCHED_SOURCE_NAME,
+    };
+    if let Some(installed) = lua.named_registry_value::<Option<String>>(FILE_REQUIRE_SOURCE)? {
+        if installed == FILESYSTEM_SOURCE_NAME && source_name == PREFETCHED_SOURCE_NAME {
+            return Err(mlua::Error::RuntimeError(
+                "filesystem Lua resolver was installed before prefetched modules".into(),
+            ));
+        }
         return Ok(());
     }
     let original_require: Function = lua.globals().get("require")?;
@@ -63,7 +74,7 @@ fn install_source(lua: &Lua, source: ModuleSource) -> mlua::Result<()> {
         Ok(value)
     })?;
     lua.globals().set("require", require)?;
-    lua.set_named_registry_value(FILE_REQUIRE_INSTALLED, true)
+    lua.set_named_registry_value(FILE_REQUIRE_SOURCE, source_name)
 }
 
 enum ModuleSource {

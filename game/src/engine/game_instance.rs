@@ -38,11 +38,11 @@ impl GameInstance {
         game: Game,
         lua: &Lua,
         camera_manager: &mut CameraManager,
-    ) -> Self {
-        let prepared = Self::prepare_loaded_game(lua, game);
+    ) -> Result<Self, String> {
+        let prepared = Self::prepare_loaded_game(lua, game)?;
         let instance = Self::from_prepared(ctx, prepared, camera_manager);
         ScriptSystem::init(lua, &instance.game.script_manager.event_bus);
-        instance
+        Ok(instance)
     }
 
     pub fn from_loaded_room<C: BishopContext>(
@@ -51,46 +51,51 @@ impl GameInstance {
         game: Game,
         lua: &Lua,
         camera_manager: &mut CameraManager,
-    ) -> Self {
-        let prepared = Self::prepare_loaded_room(lua, room, game);
+    ) -> Result<Self, String> {
+        let prepared = Self::prepare_loaded_room(lua, room, game)?;
         let instance = Self::from_prepared(ctx, prepared, camera_manager);
         ScriptSystem::init(lua, &instance.game.script_manager.event_bus);
-        instance
+        Ok(instance)
     }
 
     /// Loads a game, determines the starting room, and hydrates the startup payloads
     /// without finalizing audio wiring, camera setup, or script initialization.
-    pub fn prepare_loaded_game(lua: &Lua, mut game: Game) -> PreparedGameInstance {
-        game.initialize_runtime(lua);
+    pub fn prepare_loaded_game(lua: &Lua, mut game: Game) -> Result<PreparedGameInstance, String> {
+        let world_id = game.current_world_id.ok_or("no active world in game.ron")?;
+        let world = game.get_world(world_id)
+            .ok_or_else(|| format!("active world {world_id:?} is missing from game.ron"))?;
+        if world.rooms().is_empty() {
+            return Err(format!("active world {world_id:?} has no authored rooms"));
+        }
+        game.initialize_runtime(lua)?;
         let (room_id, room_layer) = Self::start_room_and_layer(&game);
         if let Some(world) = game.current_world_mut() {
             world.current_room_id = Some(room_id);
         }
-        hydrate_initial_payloads_for_runtime(&mut game)
-            .expect("initial payload hydration should succeed during startup");
+        hydrate_initial_payloads_for_runtime(&mut game)?;
         game.ecs.finalize_after_load();
         game.sync_all_tile_placements();
-        PreparedGameInstance {
+        Ok(PreparedGameInstance {
             game,
             room_id,
             room_layer,
-        }
+        })
     }
 
     /// Loads a specific room into a game, without finalizing
     /// audio wiring, camera setup, or script initialization.
-    pub fn prepare_loaded_room(lua: &Lua, room: Room, mut game: Game) -> PreparedGameInstance {
-        game.initialize_runtime(lua);
+    pub fn prepare_loaded_room(lua: &Lua, room: Room, mut game: Game) -> Result<PreparedGameInstance, String> {
+        game.initialize_runtime(lua)?;
         if let Some(world) = game.current_world_mut() {
             world.current_room_id = Some(room.id);
         }
         game.ecs.finalize_after_load();
         game.sync_all_tile_placements();
-        PreparedGameInstance {
+        Ok(PreparedGameInstance {
             room_id: room.id,
             room_layer: RoomLayer::Front,
             game,
-        }
+        })
     }
 
     /// Converts a prepared game into a fully wired GameInstance.

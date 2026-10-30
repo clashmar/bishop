@@ -784,16 +784,11 @@ dependencies = [
  "serde_with",
  "strum",
  "strum_macros",
+ "tempfile",
  "toml 0.8.23",
  "uuid",
  "widgets",
 ]
-
-[[package]]
-name = "env_home"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c7f84e12ccf0a7ddc17a6c41c93326024c42920d7ee630d04950e6926645c0fe"
 
 [[package]]
 name = "equivalent"
@@ -1048,6 +1043,7 @@ dependencies = [
  "serde_json",
  "strum",
  "strum_macros",
+ "tempfile",
  "uuid",
  "widgets",
  "winres",
@@ -1557,15 +1553,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "34080505efa8e45a4b816c349525ebe327ceaa8559756f0356cba97ef3bf7432"
 
 [[package]]
-name = "lua-src"
-version = "548.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bdc4e1aff422ad5f08cffb4719603dcdbc2be2307f4c1510d7aab74b7fa88ca8"
-dependencies = [
- "cc",
-]
-
-[[package]]
 name = "lua_api_gen"
 version = "0.1.0"
 dependencies = [
@@ -1573,16 +1560,6 @@ dependencies = [
  "game",
  "inventory",
  "ron",
-]
-
-[[package]]
-name = "luajit-src"
-version = "210.6.4+e17ee83"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "35a0ceb2a395ffa403a863adcf365e82cc8d8338ac7f5f949b9df5ca3de251e1"
-dependencies = [
- "cc",
- "which",
 ]
 
 [[package]]
@@ -1700,8 +1677,6 @@ checksum = "8c968af21bf6b19fc9ca8e7b85ee16f86e4c9e3d0591de101a5608086bda0ad8"
 dependencies = [
  "cc",
  "cfg-if",
- "lua-src",
- "luajit-src",
  "luau0-src",
  "pkg-config",
 ]
@@ -3495,7 +3470,9 @@ version = "0.1.0"
 dependencies = [
  "bishop",
  "engine_core",
+ "game",
  "mlua",
+ "pollster",
  "ron",
  "serde",
  "serde_json",
@@ -3614,17 +3591,6 @@ dependencies = [
  "js-sys",
  "log",
  "web-sys",
-]
-
-[[package]]
-name = "which"
-version = "8.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d3fabb953106c3c8eea8306e4393700d7657561cb43122571b172bbfb7c7ba1d"
-dependencies = [
- "env_home",
- "rustix 1.0.8",
- "winsafe",
 ]
 
 [[package]]
@@ -4224,12 +4190,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "winsafe"
-version = "0.0.19"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d135d17ab770252ad95e9a872d365cf3090e3be864a34ab46f48555993efc904"
-
-[[package]]
 name = "wit-bindgen"
 version = "0.45.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4303,6 +4263,8 @@ name = "xtask"
 version = "0.1.0"
 dependencies = [
  "engine_core",
+ "ron",
+ "serde",
  "tempfile",
  "web_shell",
 ]

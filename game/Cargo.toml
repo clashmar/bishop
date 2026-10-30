@@ -27,6 +27,7 @@ serde_json = "1.0"
 
 [dev-dependencies]
 engine_core = { path = "../engine_core", default-features = false, features = ["test-utils"] }
+tempfile = "3"
 
 [build-dependencies]
 winres = "0.1.12"

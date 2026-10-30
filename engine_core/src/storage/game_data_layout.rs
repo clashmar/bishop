@@ -1,10 +1,13 @@
 use crate::constants::paths;
-use crate::ecs::{CurrentRoom, Ecs, Global};
+use crate::storage::resource_source::{
+    ResourceSource, hydrate_all_payloads_from_source, hydrate_current_payloads_from_source,
+    load_game_shell_from_source, validate_global_room_membership,
+};
 use crate::game::{Game, GameDataManifest};
 use crate::storage::path_utils::{
     resources_folder, room_payload_path, world_descriptor_path,
 };
-use crate::worlds::{RoomPayload, World, WorldDescriptor};
+use crate::worlds::{RoomPayload, WorldDescriptor};
 use std::collections::HashSet;
 use std::fs;
 use std::io;
@@ -120,34 +123,27 @@ fn remove_stale_split_layout_files(layout_dir: &Path, expected_files: &[PathBuf]
 /// Loads descriptor shells plus shared ECS/registry state from a game folder.
 /// Room payload data remain unloaded until a later hydration step.
 pub fn load_game_shell_from_folder(folder: &Path) -> io::Result<Game> {
-    let manifest_path = folder.join(paths::GAME_RON);
-    let manifest_ron = fs::read_to_string(&manifest_path)?;
-    let manifest: GameDataManifest = ron::from_str(&manifest_ron).map_err(io::Error::other)?;
-
-    let game = load_shell_from_split_layout(folder, manifest)?;
-    validate_global_room_membership(&game.ecs)?;
-    Ok(game)
+    load_game_shell_from_source(&ResourceSource::Folder(folder.to_path_buf()))
 }
 
 /// Hydrates every split-layout payload back into a fully materialized `Game`.
 pub fn load_full_game_from_folder(folder: &Path) -> io::Result<Game> {
     let mut game = load_game_shell_from_folder(folder)?;
-    hydrate_all_payloads_from_folder(folder, &mut game)?;
+    hydrate_all_payloads_from_source(&ResourceSource::Folder(folder.to_path_buf()), &mut game)?;
     game.ecs.finalize_after_load();
     game.sync_all_tile_placements();
     Ok(game)
 }
 
-/// Hydrates the current world's startup-critical payloads after descriptor-shell boot.
-pub fn hydrate_current_payloads_from_folder(folder: &Path, game: &mut Game) -> io::Result<()> {
-    hydrate_current_room_payload(folder, game)?;
-    Ok(())
-}
-
 /// Hydrates the initial payloads needed for runtime after a descriptor-shell boot.
 pub fn hydrate_initial_payloads_for_runtime(game: &mut Game) -> Result<(), String> {
-    let resources = resources_folder(&game.name);
-    if !resources.join(paths::GAME_RON).exists() {
+    let source = game.runtime_source.clone().unwrap_or_else(|| {
+        ResourceSource::Folder(resources_folder(&game.name))
+    });
+    if source.read_optional(Path::new(paths::GAME_RON))
+        .map_err(|error| format!("Failed to check game resources: {error}"))?
+        .is_none()
+    {
         return Ok(());
     }
 
@@ -159,88 +155,15 @@ pub fn hydrate_initial_payloads_for_runtime(game: &mut Game) -> Result<(), Strin
         return Ok(());
     }
 
-    hydrate_current_payloads_from_folder(&resources, game)
+    hydrate_current_payloads_from_source(&source, game)
         .map_err(|error| format!("Failed to hydrate initial payloads: {error}"))
-}
-
-/// Rejects authored data where a global entity is assigned to a room.
-fn validate_global_room_membership(ecs: &Ecs) -> io::Result<()> {
-    for &entity in ecs.get_store::<Global>().data.keys() {
-        if ecs.has::<CurrentRoom>(entity) {
-            return Err(io::Error::other(format!(
-                "global entity {entity:?} must not have a CurrentRoom; placement belongs on a player proxy"
-            )));
-        }
-    }
-    Ok(())
-}
-
-fn load_shell_from_split_layout(folder: &Path, manifest: GameDataManifest) -> io::Result<Game> {
-    let mut game = Game::with_name(manifest.name);
-    game.version = manifest.version;
-    game.current_world_id = manifest.current_world_id;
-
-    for world_id in manifest.world_ids {
-        let descriptor_ron = fs::read_to_string(world_descriptor_path(folder, world_id))?;
-        let descriptor: WorldDescriptor =
-            ron::from_str(&descriptor_ron).map_err(io::Error::other)?;
-        game.add_world(World::from_descriptor(descriptor));
-    }
-
-    game.rebuild_world_index();
-
-    let ecs_path = folder.join(paths::ECS_RON);
-    if ecs_path.exists() {
-        let ecs_ron = fs::read_to_string(&ecs_path)?;
-        game.ecs = ron::from_str(&ecs_ron).map_err(io::Error::other)?;
-    }
-
-    let registry_path = folder.join(paths::ASSET_REGISTRY_RON);
-    if registry_path.exists() {
-        let registry_ron = fs::read_to_string(&registry_path)?;
-        game.asset_registry = ron::from_str(&registry_ron).map_err(io::Error::other)?;
-    }
-
-    let tile_registry_path = folder.join(paths::TILE_REGISTRY_RON);
-    if tile_registry_path.exists() {
-        let tile_registry_ron = fs::read_to_string(&tile_registry_path)?;
-        game.tile_registry = ron::from_str(&tile_registry_ron).map_err(io::Error::other)?;
-    }
-
-    Ok(game)
-}
-
-fn hydrate_all_payloads_from_folder(folder: &Path, game: &mut Game) -> io::Result<()> {
-    for world in game.worlds_mut() {
-        for room in world.rooms_mut() {
-            hydrate_room_payload(folder, room)?;
-        }
-    }
-    Ok(())
-}
-
-fn hydrate_current_room_payload(folder: &Path, game: &mut Game) -> io::Result<()> {
-    let Some(world) = game.current_world_mut() else {
-        return Ok(());
-    };
-    let Some(room) = world.current_room_mut() else {
-        return Ok(());
-    };
-    hydrate_room_payload(folder, room)
-}
-
-fn hydrate_room_payload(folder: &Path, room: &mut crate::worlds::Room) -> io::Result<()> {
-    let payload_ron = fs::read_to_string(room_payload_path(folder, room.id))?;
-    let payload: RoomPayload = ron::from_str(&payload_ron).map_err(io::Error::other)?;
-    payload.apply(room);
-    Ok(())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::ecs::{Animation, Entity, Global};
-    use crate::worlds::{Room, RoomId, WorldId};
+    use crate::worlds::{Room, RoomId, World, WorldId};
     use std::path::PathBuf;
 
     struct TempSplitLayoutDir(PathBuf);
@@ -406,13 +329,13 @@ mod tests {
     }
 
     #[test]
-    fn hydrate_current_payloads_from_folder_restores_current_room_variants() {
+    fn hydrate_current_payloads_from_folder_source_restores_current_room_variants() {
         let folder = TempSplitLayoutDir::new();
         let original = fully_loaded_test_game();
         save_game_to_folder(&original, folder.path()).unwrap();
 
         let mut loaded = load_game_shell_from_folder(folder.path()).unwrap();
-        hydrate_current_payloads_from_folder(folder.path(), &mut loaded).unwrap();
+        hydrate_current_payloads_from_source(&ResourceSource::Folder(folder.path().to_path_buf()), &mut loaded).unwrap();
 
         assert!(!loaded.current_world().current_room().unwrap().variants.is_empty());
     }
