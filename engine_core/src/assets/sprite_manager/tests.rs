@@ -6,7 +6,9 @@ use crate::constants::paths;
 use crate::engine_global::set_game_name;
 use crate::hydration::Hydratable;
 use crate::storage::test_utils::{game_fs_test_lock, TestGameFolder};
+use crate::storage::{ResourceEntry, ResourceManifest, ResourceSource};
 use bishop::prelude::{Texture2D, TextureLoader};
+use std::collections::HashMap;
 use std::fs;
 use std::time::Duration;
 
@@ -353,6 +355,41 @@ fn evict_texture_succeeds_when_ref_count_zero() {
 }
 
 #[test]
+fn runtime_sprite_when_prefetched_uploads_registered_bytes_without_file_pool() {
+    let mut game = Game::with_name("prefetched_sprite_fixture");
+    let id = SpriteId(7);
+    let relative = Path::new(paths::ASSETS_FOLDER).join("sprites/player.png");
+    game.asset_registry.register_asset_relative_path(id, "sprites/player.png").unwrap();
+    game.runtime_source = Some(prefetched_png(&relative, Some(b"png")));
+    SpriteManager::init_runtime_manager(&mut game);
+    let loader = CountingFailingLoader::new();
+
+    let error = game.sprite_manager.ensure_loaded(&loader, id).unwrap_err();
+
+    assert!(error.contains(&relative.display().to_string()), "{error}");
+    assert_eq!(loader.bytes_load_calls.get(), 1);
+    assert_eq!(loader.load_calls.get(), 0);
+    assert!(game.sprite_manager.runtime_file_read_pool.is_none());
+}
+
+#[test]
+fn runtime_sprite_when_prefetched_png_is_missing_fails_before_upload() {
+    let mut game = Game::with_name("prefetched_sprite_fixture");
+    let id = SpriteId(7);
+    let relative = Path::new(paths::ASSETS_FOLDER).join("sprites/player.png");
+    game.asset_registry.register_asset_relative_path(id, "sprites/player.png").unwrap();
+    game.runtime_source = Some(prefetched_png(&relative, None));
+    SpriteManager::init_runtime_manager(&mut game);
+    let loader = CountingFailingLoader::new();
+
+    let error = game.sprite_manager.ensure_loaded(&loader, id).unwrap_err();
+
+    assert!(error.contains(&relative.display().to_string()), "{error}");
+    assert_eq!(loader.bytes_load_calls.get(), 0);
+    assert_eq!(loader.load_calls.get(), 0);
+}
+
+#[test]
 fn ref_count_increments_and_decrements_correctly() {
     let mut sm = SpriteManager::default();
     sm.increment_ref(SpriteId(1));
@@ -361,4 +398,18 @@ fn ref_count_increments_and_decrements_correctly() {
     assert_eq!(sm.ref_count(&SpriteId(1)), 2);
     sm.decrement_ref(SpriteId(1));
     assert_eq!(sm.ref_count(&SpriteId(1)), 1);
+}
+
+fn prefetched_png(path: &Path, bytes: Option<&[u8]>) -> ResourceSource {
+    let key = path.components().map(|component| component.as_os_str().to_str().unwrap())
+        .collect::<Vec<_>>().join("/");
+    let mut files = HashMap::new();
+    let entries = match bytes {
+        Some(bytes) => {
+            files.insert(key.clone(), bytes.to_vec());
+            vec![ResourceEntry { path: key, byte_len: bytes.len() }]
+        }
+        None => Vec::new(),
+    };
+    ResourceSource::from_prefetched(ResourceManifest { files: entries }, files).unwrap()
 }

@@ -2,6 +2,7 @@
 mod capture;
 mod component_sync;
 mod instance;
+mod prefetched;
 
 use crate::assets::{AssetKey, AssetRecord, AssetRegistry};
 use crate::constants::{extensions, paths};
@@ -24,6 +25,7 @@ pub use crate::ecs::components::prefab_instance::{
 #[cfg(feature = "editor")]
 pub use capture::{capture_prefab, capture_prefab_with_existing};
 pub use instance::instantiate_prefab;
+pub use prefetched::load_prefab_manager_from_source;
 #[cfg(feature = "editor")]
 pub use instance::refresh_prefab_instance;
 
@@ -235,6 +237,14 @@ pub fn load_prefab_manager(
     asset_registry: &mut AssetRegistry,
 ) -> io::Result<PrefabManager> {
     let loaded_prefabs = load_prefabs_for_game(game_name)?;
+    build_prefab_manager(game_name, asset_registry, loaded_prefabs)
+}
+
+fn build_prefab_manager(
+    game_name: &str,
+    asset_registry: &mut AssetRegistry,
+    loaded_prefabs: Vec<(PathBuf, PrefabAsset)>,
+) -> io::Result<PrefabManager> {
     let prefabs = loaded_prefabs
         .iter()
         .map(|(_, prefab)| (prefab.id, prefab.clone()))

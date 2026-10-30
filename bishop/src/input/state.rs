@@ -1,10 +1,10 @@
-//! Input state tracking for wgpu backend.
+//! Shared keyboard and mouse input state.
 
 use crate::input::{KeyCode, MouseButton, MouseWheelKind};
 use std::collections::HashSet;
 
 /// Tracks keyboard and mouse input state per-frame.
-pub struct InputState {
+pub struct KeyboardMouseState {
     keys_down: HashSet<KeyCode>,
     keys_pressed: HashSet<KeyCode>,
     keys_released: HashSet<KeyCode>,
@@ -32,7 +32,7 @@ fn mouse_button_index(button: MouseButton) -> usize {
     }
 }
 
-impl InputState {
+impl KeyboardMouseState {
     /// Creates a new input state with all state cleared.
     pub fn new() -> Self {
         Self {
@@ -122,6 +122,15 @@ impl InputState {
         self.char_buffer.push(c);
     }
 
+    /// Clears held and transient input when a platform loses focus.
+    pub fn clear_on_focus_loss(&mut self) {
+        self.keys_down.clear();
+        self.mouse_down.clear();
+        self.end_frame();
+        self.last_click_times = [None; 3];
+        self.last_click_positions = [None; 3];
+    }
+
     /// Returns true if the key is currently held down.
     pub fn is_key_down(&self, key: KeyCode) -> bool {
         self.keys_down.contains(&key)
@@ -204,7 +213,7 @@ impl InputState {
     }
 }
 
-impl Default for InputState {
+impl Default for KeyboardMouseState {
     fn default() -> Self {
         Self::new()
     }
@@ -216,14 +225,14 @@ mod tests {
 
     #[test]
     fn single_click_is_not_double_click() {
-        let mut input = InputState::new();
+        let mut input = KeyboardMouseState::new();
         input.on_mouse_down(MouseButton::Left, 0.0, (0.0, 0.0));
         assert!(!input.is_mouse_button_double_clicked(MouseButton::Left));
     }
 
     #[test]
     fn two_clicks_within_threshold_is_double_click() {
-        let mut input = InputState::new();
+        let mut input = KeyboardMouseState::new();
         input.on_mouse_down(MouseButton::Left, 0.0, (0.0, 0.0));
         input.on_mouse_up(MouseButton::Left);
         input.on_mouse_down(MouseButton::Left, 0.1, (0.0, 0.0));
@@ -232,7 +241,7 @@ mod tests {
 
     #[test]
     fn two_clicks_beyond_threshold_is_not_double_click() {
-        let mut input = InputState::new();
+        let mut input = KeyboardMouseState::new();
         input.on_mouse_down(MouseButton::Left, 0.0, (0.0, 0.0));
         input.on_mouse_up(MouseButton::Left);
         input.on_mouse_down(MouseButton::Left, 1.0, (0.0, 0.0));
@@ -241,7 +250,7 @@ mod tests {
 
     #[test]
     fn two_clicks_at_different_positions_is_not_double_click() {
-        let mut input = InputState::new();
+        let mut input = KeyboardMouseState::new();
         input.on_mouse_down(MouseButton::Left, 0.0, (0.0, 0.0));
         input.on_mouse_up(MouseButton::Left);
         input.on_mouse_down(MouseButton::Left, 0.1, (100.0, 100.0));
@@ -250,7 +259,7 @@ mod tests {
 
     #[test]
     fn double_click_within_tolerance_is_detected() {
-        let mut input = InputState::new();
+        let mut input = KeyboardMouseState::new();
         input.on_mouse_down(MouseButton::Left, 0.0, (0.0, 0.0));
         input.on_mouse_up(MouseButton::Left);
         input.on_mouse_down(MouseButton::Left, 0.1, (3.0, 4.0));
@@ -259,7 +268,7 @@ mod tests {
 
     #[test]
     fn double_click_is_per_button() {
-        let mut input = InputState::new();
+        let mut input = KeyboardMouseState::new();
         input.on_mouse_down(MouseButton::Left, 0.0, (0.0, 0.0));
         input.on_mouse_up(MouseButton::Left);
         input.on_mouse_down(MouseButton::Right, 0.1, (0.0, 0.0));
@@ -269,12 +278,50 @@ mod tests {
 
     #[test]
     fn double_click_cleared_after_end_frame() {
-        let mut input = InputState::new();
+        let mut input = KeyboardMouseState::new();
         input.on_mouse_down(MouseButton::Left, 0.0, (0.0, 0.0));
         input.on_mouse_up(MouseButton::Left);
         input.on_mouse_down(MouseButton::Left, 0.1, (0.0, 0.0));
         assert!(input.is_mouse_button_double_clicked(MouseButton::Left));
         input.end_frame();
         assert!(!input.is_mouse_button_double_clicked(MouseButton::Left));
+    }
+
+    #[test]
+    fn focus_loss_with_held_input_clears_state_without_release_edges() {
+        let mut input = KeyboardMouseState::new();
+        input.on_key_down(KeyCode::A);
+        input.on_mouse_move(10.0, 20.0);
+        input.on_mouse_down(MouseButton::Left, 0.0, (10.0, 20.0));
+        input.on_mouse_up(MouseButton::Left);
+        input.on_mouse_down(MouseButton::Left, 0.1, (10.0, 20.0));
+        input.on_mouse_wheel(1.0, 2.0, MouseWheelKind::Pixel);
+        input.on_char('a');
+        input.clear_on_focus_loss();
+        assert!(!input.is_key_down(KeyCode::A));
+        assert!(!input.is_key_pressed(KeyCode::A));
+        assert!(!input.is_key_released(KeyCode::A));
+        assert!(!input.is_mouse_button_down(MouseButton::Left));
+        assert!(!input.is_mouse_button_pressed(MouseButton::Left));
+        assert!(!input.is_mouse_button_released(MouseButton::Left));
+        assert!(!input.is_mouse_button_double_clicked(MouseButton::Left));
+        assert_eq!(input.mouse_wheel(), (0.0, 0.0));
+        assert_eq!(input.mouse_wheel_kind(), None);
+        assert!(input.chars_pressed().is_empty());
+        assert_eq!(input.mouse_delta_position(), (0.0, 0.0));
+        input.on_mouse_down(MouseButton::Left, 0.2, (10.0, 20.0));
+        assert!(!input.is_mouse_button_double_clicked(MouseButton::Left));
+    }
+
+    #[test]
+    fn repeated_keydown_while_held_has_no_second_pressed_edge() {
+        let mut input = KeyboardMouseState::new();
+        input.on_key_down(KeyCode::A);
+        input.end_frame();
+        input.on_key_down(KeyCode::A);
+        assert!(input.is_key_down(KeyCode::A));
+        assert!(!input.is_key_pressed(KeyCode::A));
+        input.on_key_up(KeyCode::A);
+        assert!(input.is_key_released(KeyCode::A));
     }
 }

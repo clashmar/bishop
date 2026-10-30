@@ -1,3 +1,4 @@
+#[cfg(not(target_os = "emscripten"))]
 use std::fs;
 use std::path::PathBuf;
 use std::sync::{mpsc, Arc, Mutex};
@@ -33,6 +34,7 @@ pub trait BackgroundService {
     fn poll(&mut self, dt: f32);
 }
 
+#[cfg(not(target_os = "emscripten"))]
 #[derive(Clone)]
 struct FileReadJob {
     id: String,
@@ -58,7 +60,10 @@ pub struct FileReadCompleted {
 /// blocking.
 #[derive(Clone)]
 pub struct FileReadPool {
+    #[cfg(not(target_os = "emscripten"))]
     submit_tx: mpsc::SyncSender<FileReadJob>,
+    #[cfg(target_os = "emscripten")]
+    failure_tx: mpsc::Sender<FileReadCompleted>,
     completed_rx: Arc<Mutex<mpsc::Receiver<FileReadCompleted>>>,
     worker_count: usize,
 }
@@ -66,46 +71,57 @@ pub struct FileReadPool {
 impl FileReadPool {
     /// Creates a new bounded file-read pool.
     pub fn new() -> Self {
-        let worker_count = std::thread::available_parallelism()
-            .map(|count| count.get().clamp(2, 4))
-            .unwrap_or(2);
-        let queue_capacity = worker_count * 4;
-        let (submit_tx, submit_rx) = mpsc::sync_channel::<FileReadJob>(queue_capacity);
         let (completed_tx, completed_rx) = mpsc::channel();
-        let submit_rx = Arc::new(Mutex::new(submit_rx));
-
-        for _ in 0..worker_count {
-            let submit_rx = Arc::clone(&submit_rx);
-            let completed_tx = completed_tx.clone();
-            std::thread::spawn(move || {
-                loop {
-                    let job = {
-                        let receiver = submit_rx.lock().unwrap_or_else(|poisoned| {
-                            poisoned.into_inner()
-                        });
-                        receiver.recv()
-                    };
-
-                    let Ok(job) = job else {
-                        break;
-                    };
-
-                    let result = fs::read(&job.path).map_err(|error| {
-                        format!("failed to read {}: {error}", job.path.display())
-                    });
-                    let _ = completed_tx.send(FileReadCompleted {
-                        id: job.id,
-                        path: job.path,
-                        result,
-                    });
-                }
-            });
+        #[cfg(target_os = "emscripten")]
+        {
+            return Self {
+                failure_tx: completed_tx,
+                completed_rx: Arc::new(Mutex::new(completed_rx)),
+                worker_count: 0,
+            };
         }
+        #[cfg(not(target_os = "emscripten"))]
+        {
+            let worker_count = std::thread::available_parallelism()
+                .map(|count| count.get().clamp(2, 4))
+                .unwrap_or(2);
+            let queue_capacity = worker_count * 4;
+            let (submit_tx, submit_rx) = mpsc::sync_channel::<FileReadJob>(queue_capacity);
+            let submit_rx = Arc::new(Mutex::new(submit_rx));
 
-        Self {
-            submit_tx,
-            completed_rx: Arc::new(Mutex::new(completed_rx)),
-            worker_count,
+            for _ in 0..worker_count {
+                let submit_rx = Arc::clone(&submit_rx);
+                let completed_tx = completed_tx.clone();
+                std::thread::spawn(move || {
+                    loop {
+                        let job = {
+                            let receiver = submit_rx.lock().unwrap_or_else(|poisoned| {
+                                poisoned.into_inner()
+                            });
+                            receiver.recv()
+                        };
+
+                        let Ok(job) = job else {
+                            break;
+                        };
+
+                        let result = fs::read(&job.path).map_err(|error| {
+                            format!("failed to read {}: {error}", job.path.display())
+                        });
+                        let _ = completed_tx.send(FileReadCompleted {
+                            id: job.id,
+                            path: job.path,
+                            result,
+                        });
+                    }
+                });
+            }
+
+            Self {
+                submit_tx,
+                completed_rx: Arc::new(Mutex::new(completed_rx)),
+                worker_count,
+            }
         }
     }
 
@@ -116,6 +132,9 @@ impl FileReadPool {
 
     /// Queues a file read for the given `id` and `path`.
     pub fn queue_read(&self, id: String, path: PathBuf) {
+        #[cfg(target_os = "emscripten")]
+        let _ = self.failure_tx.send(unavailable_sound_result(id, path));
+        #[cfg(not(target_os = "emscripten"))]
         let _ = self.submit_tx.send(FileReadJob { id, path });
     }
 
@@ -128,6 +147,15 @@ impl FileReadPool {
     }
 }
 
+#[cfg(any(test, target_os = "emscripten"))]
+fn unavailable_sound_result(id: String, path: PathBuf) -> FileReadCompleted {
+    FileReadCompleted {
+        id,
+        result: Err(format!("browser audio source unavailable: {}", path.display())),
+        path,
+    }
+}
+
 impl Default for FileReadPool {
     fn default() -> Self {
         Self::new()
@@ -136,7 +164,7 @@ impl Default for FileReadPool {
 
 #[cfg(test)]
 mod tests {
-    use super::FileReadPool;
+    use super::{FileReadPool, unavailable_sound_result};
     use std::fs;
     use std::time::Duration;
     use std::time::{SystemTime, UNIX_EPOCH};
@@ -147,6 +175,16 @@ mod tests {
             .unwrap()
             .as_nanos();
         std::env::temp_dir().join(format!("bishop-file-read-pool-{nanos}.bin"))
+    }
+
+    #[test]
+    fn browser_queue_when_audio_file_is_unavailable_returns_path_error() {
+        let path = std::path::PathBuf::from("audio/sfx/missing.wav");
+        let completed = unavailable_sound_result("sfx/missing".into(), path.clone());
+
+        assert_eq!(completed.id, "sfx/missing");
+        assert_eq!(completed.path, path);
+        assert!(completed.result.unwrap_err().contains(&path.display().to_string()));
     }
 
     #[test]

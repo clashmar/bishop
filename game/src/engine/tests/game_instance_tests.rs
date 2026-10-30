@@ -115,7 +115,7 @@ fn prepare_loaded_game_sets_current_world_room_to_start_room() {
     let mut game = Game::with_name(test_game.name());
     game.add_world(world);
 
-    let prepared = GameInstance::prepare_loaded_game(&Lua::new(), game);
+    let prepared = GameInstance::prepare_loaded_game(&Lua::new(), game).unwrap();
 
     assert_eq!(prepared.room_id, RoomId(1));
     assert_eq!(prepared.game.current_world().current_room_id, Some(RoomId(1)));
@@ -150,7 +150,7 @@ fn startup_room_and_layer_follow_the_start_entry() {
         .with_current_room_layer(RoomId(2), RoomLayer::Back)
         .finish();
 
-    let prepared = GameInstance::prepare_loaded_game(&Lua::new(), game);
+    let prepared = GameInstance::prepare_loaded_game(&Lua::new(), game).unwrap();
 
     assert_eq!(prepared.room_id, RoomId(2));
     assert_eq!(prepared.room_layer, RoomLayer::Back);
@@ -179,7 +179,7 @@ fn prepare_loaded_room_sets_current_world_room_to_selected_room() {
     let mut game = Game::with_name(test_game.name());
     game.add_world(world);
 
-    let prepared = GameInstance::prepare_loaded_room(&Lua::new(), room, game);
+    let prepared = GameInstance::prepare_loaded_room(&Lua::new(), room, game).unwrap();
 
     assert_eq!(prepared.room_id, RoomId(2));
     assert_eq!(prepared.game.current_world().current_room_id, Some(RoomId(2)));
@@ -217,7 +217,7 @@ fn full_runtime_init_executes_globals_prelude_once_before_main() {
     game.add_world(world);
 
     let lua = Lua::new();
-    let prepared = GameInstance::prepare_loaded_game(&lua, game);
+    let prepared = GameInstance::prepare_loaded_game(&lua, game).unwrap();
     ScriptSystem::init(&lua, &prepared.game.script_manager.event_bus);
 
     assert_eq!(lua.globals().get::<String>("bootstrap_order").unwrap(), "gm");
@@ -543,7 +543,7 @@ fn prepare_loaded_game_can_activate_demo_runtime_scripts() {
         .join("../games/Demo/Resources");
     let lua = Lua::new();
     let game = load_game_shell_from_folder(&resources_dir).unwrap();
-    let mut prepared = GameInstance::prepare_loaded_game(&lua, game);
+    let mut prepared = GameInstance::prepare_loaded_game(&lua, game).unwrap();
 
     register_demo_save_ctx(&lua);
     ScriptSystem::init(&lua, &prepared.game.script_manager.event_bus);

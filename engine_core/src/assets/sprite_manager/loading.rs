@@ -1,4 +1,5 @@
 use super::*;
+use crate::constants::paths;
 use crate::hydration::{EvictError, Hydratable};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -41,11 +42,11 @@ impl SpriteManager {
 
         // Path already registered - reuse the same id, but reload the texture if it was evicted.
         if let Some(&id) = self.path_to_sprite_id.get(&path) {
-            if let std::collections::hash_map::Entry::Vacant(entry) = self.textures.entry(id) {
+            if !self.textures.contains_key(&id) {
+                let texture = self.load_texture_from_game(loader, &path)?;
                 self.pending_texture_reads.remove(&id);
-                let texture = Self::load_texture_from_game(loader, &path)?;
                 self.failed_texture_reads.remove(&id);
-                entry.insert(texture);
+                self.textures.insert(id, texture);
             }
             return Ok(id);
         }
@@ -59,7 +60,7 @@ impl SpriteManager {
             _ => SpriteId(self.next_sprite_id),
         };
 
-        let texture = Self::load_texture_from_game(loader, &path)?;
+        let texture = self.load_texture_from_game(loader, &path)?;
 
         asset_registry
             .register_asset_relative_path(id, &path)
@@ -88,7 +89,7 @@ impl SpriteManager {
         id: &SpriteId,
         path: &Path,
     ) -> Result<(), String> {
-        let texture = Self::load_texture_from_game(loader, path)?;
+        let texture = self.load_texture_from_game(loader, path)?;
         self.failed_texture_reads.remove(id);
         self.textures.insert(*id, texture);
         self.path_to_sprite_id.insert(path.to_path_buf(), *id);
@@ -99,7 +100,12 @@ impl SpriteManager {
     /// Returns a texture from a `SpriteId`.
     pub fn get_texture_from_id(&mut self, loader: &impl TextureLoader, id: SpriteId) -> &Texture2D {
         if id.0 != 0 && !self.textures.contains_key(&id) && self.sprite_id_to_path.contains_key(&id) {
-            if self.runtime_texture_loading {
+            if self.resource_source.is_some() {
+                if let Err(error) = self.ensure_loaded(loader, id) {
+                    self.failed_texture_reads.insert(id);
+                    omni_error!("{error}");
+                }
+            } else if self.runtime_texture_loading {
                 self.prewarm_runtime_texture(id);
                 self.poll_pending_texture_reads(loader);
             } else {
@@ -251,7 +257,7 @@ impl SpriteManager {
             return Err(format!("Unknown sprite id: {:?}", id));
         };
 
-        let texture = Self::load_texture_from_game(loader, &path)?;
+        let texture = self.load_texture_from_game(loader, &path)?;
         self.failed_texture_reads.remove(&id);
         self.textures.insert(id, texture);
         self.path_to_sprite_id.insert(path, id);
@@ -260,20 +266,24 @@ impl SpriteManager {
     }
 
     /// Loads a texture from the assets folder using the provided loader.
-    fn load_texture_from_game<P: AsRef<Path>>(
+    fn load_texture_from_game(
+        &self,
         loader: &impl TextureLoader,
-        rel_path: P,
+        rel_path: &Path,
     ) -> Result<Texture2D, String> {
-        let full_path = assets_folder().join(rel_path.as_ref());
-        loader
-            .load_texture_from_path(full_path.to_string_lossy().as_ref())
-            .map_err(|e| {
-                format!(
-                    "Failed to load texture '{}': {}",
-                    rel_path.as_ref().display(),
-                    e
-                )
+        if let Some(source) = &self.resource_source {
+            let resource_path = Path::new(paths::ASSETS_FOLDER).join(rel_path);
+            let bytes = source.read_required(&resource_path)
+                .map_err(|error| error.to_string())?;
+            loader.load_texture_from_bytes(&bytes).map_err(|error| {
+                format!("Failed to upload texture '{}': {error}", resource_path.display())
             })
+        } else {
+            let full_path = assets_folder().join(rel_path);
+            loader.load_texture_from_path(full_path.to_string_lossy().as_ref()).map_err(|error| {
+                format!("Failed to load texture '{}': {error}", rel_path.display())
+            })
+        }
     }
 }
 

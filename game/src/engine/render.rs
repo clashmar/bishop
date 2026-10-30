@@ -41,7 +41,7 @@ impl Engine {
             return;
         }
 
-        ctx.borrow_mut().flush_if_needed();
+        ctx.borrow_mut().flush_pending_draws();
         let viewport = gameplay_viewport(ctx.borrow().screen_width(), ctx.borrow().screen_height());
         self.menu_manager.set_viewport(viewport);
         let game_instance = self.game_instance.borrow();

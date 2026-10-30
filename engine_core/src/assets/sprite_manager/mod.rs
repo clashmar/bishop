@@ -9,6 +9,7 @@ use crate::assets::AssetRegistry;
 use crate::ecs::{Animation, SpriteId};
 use crate::game::Game;
 use crate::storage::path_utils::assets_folder;
+use crate::storage::ResourceSource;
 use crate::task::FileReadPool;
 use crate::*;
 use bishop::prelude::*;
@@ -39,6 +40,8 @@ pub struct SpriteManager {
     runtime_texture_loading: bool,
     #[serde(skip)]
     runtime_file_read_pool: Option<FileReadPool>,
+    #[serde(skip)]
+    resource_source: Option<ResourceSource>,
     #[serde(skip)]
     pending_texture_reads: HashMap<SpriteId, PathBuf>,
     #[serde(skip)]

@@ -1,6 +1,8 @@
 //! Drawing primitives and textures.
 
 mod params;
+#[cfg(any(feature = "wgpu", all(feature = "web-gl", target_os = "emscripten"), test))]
+pub(crate) mod texture_geometry;
 
 pub use params::*;
 

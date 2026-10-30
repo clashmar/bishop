@@ -1,3 +1,5 @@
+mod web_export;
+
 use engine_core::constants::paths;
 use engine_core::scripting::lua_constants::{lua_dirs, lua_files};
 use engine_core::scripting::lua_project::{
@@ -12,6 +14,11 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::{Command, ExitCode};
 
+const WEB_WASM_TARGET: &str = "wasm32-unknown-emscripten";
+const LUA_WASM_TARGET: &str = "wasm32-unknown-emscripten";
+const LUA_WASM_CXXFLAGS: &str = "CXXFLAGS_wasm32_unknown_emscripten";
+const LUA_WASM_REQUIRED_CXXFLAG: &str = "-fexceptions";
+const LUA_BOOTSTRAP_TEST: &str = "register_runtime_modules_supports_editor_script_load_patterns";
 fn demo_root(root: &Path) -> PathBuf {
     root.join(paths::GAME_SAVE_ROOT).join(paths::DEMO_GAME)
 }
@@ -53,11 +60,17 @@ fn main() -> ExitCode {
     }
 
     match args[1].as_str() {
+        "build-web-shell" => web_export::build_web_shell(),
+        "build-web-game" => web_export::build_web_game(),
+        "build-web-renderer-proof" => web_export::build_web_renderer_proof(),
+        "build-web-demo-checkpoint" => web_export::build_web_demo_checkpoint(),
         "check-lua" => check_lua(),
+        "check-lua-wasm" => check_lua_wasm(),
+        "check-web" => check_web(),
         "regen-demo-data" => regen_demo_data(),
         other => {
             eprintln!("Unknown subcommand: {other}");
-            eprintln!("Available: check-lua, regen-demo-data");
+            eprintln!("Available: build-web-shell, build-web-game, build-web-renderer-proof, build-web-demo-checkpoint, check-lua, check-lua-wasm, check-web, regen-demo-data");
             ExitCode::FAILURE
         }
     }
@@ -90,6 +103,166 @@ fn regen_demo_data() -> ExitCode {
 
     println!("Regenerated Demo worlds.lua and entries.lua.");
     ExitCode::SUCCESS
+}
+
+fn check_lua_wasm() -> ExitCode {
+    if !wasm_target_installed(LUA_WASM_TARGET) {
+        eprintln!("{LUA_WASM_TARGET} target is not installed.");
+        eprintln!("Install it with: rustup target add {LUA_WASM_TARGET}");
+        return ExitCode::FAILURE;
+    }
+
+    let native_ok = run_checked(
+        cargo_command(&[
+            "test",
+            "-p",
+            "engine_core",
+            "--locked",
+            LUA_BOOTSTRAP_TEST,
+        ]),
+        "shared lua bootstrap native proof",
+    );
+
+    let mut wasm_command = cargo_command(&[
+        "check",
+        "-p",
+        "engine_core",
+        "--target",
+        LUA_WASM_TARGET,
+        "--no-default-features",
+        "--locked",
+    ]);
+    apply_lua_wasm_env(&mut wasm_command);
+
+    let wasm_ok = run_checked(wasm_command, "shared lua wasm compile");
+
+    if !wasm_ok {
+        println!(
+            "shared lua wasm compile: BLOCKED. Use the compiler output above as the Lua WASM blocker inventory."
+        );
+    }
+
+    if native_ok && wasm_ok {
+        ExitCode::SUCCESS
+    } else {
+        ExitCode::FAILURE
+    }
+}
+
+fn apply_lua_wasm_env(command: &mut Command) {
+    let flags = std::env::var(LUA_WASM_CXXFLAGS).unwrap_or_default();
+    if flags.split_whitespace().any(|flag| flag == LUA_WASM_REQUIRED_CXXFLAG) {
+        return;
+    }
+
+    let flags = if flags.is_empty() {
+        LUA_WASM_REQUIRED_CXXFLAG.to_string()
+    } else {
+        format!("{flags} {LUA_WASM_REQUIRED_CXXFLAG}")
+    };
+    command.env(LUA_WASM_CXXFLAGS, flags);
+}
+
+fn check_web() -> ExitCode {
+    if !wasm_target_installed(WEB_WASM_TARGET) {
+        eprintln!("{WEB_WASM_TARGET} target is not installed.");
+        eprintln!("Install it with: rustup target add {WEB_WASM_TARGET}");
+        return ExitCode::FAILURE;
+    }
+
+    let foundation_ok = run_checked(
+        cargo_command(&[
+            "check",
+            "-p",
+            "bishop",
+            "--target",
+            WEB_WASM_TARGET,
+            "--no-default-features",
+            "--locked",
+        ]),
+        "bishop web foundation",
+    );
+
+    let mut runtime_command = cargo_command(&[
+        "check",
+        "-p",
+        "game",
+        "--lib",
+        "--target",
+        WEB_WASM_TARGET,
+        "--no-default-features",
+        "--locked",
+    ]);
+    apply_lua_wasm_env(&mut runtime_command);
+
+    let runtime_ok = run_checked(runtime_command, "game runtime web probe");
+
+    if !runtime_ok {
+        println!(
+            "game runtime web probe: BLOCKED. This is expected during Chunk 3; use the compiler output above as the blocker inventory."
+        );
+    }
+
+    if foundation_ok {
+        ExitCode::SUCCESS
+    } else {
+        ExitCode::FAILURE
+    }
+}
+
+fn tool_available(tool: &str) -> bool {
+    Command::new(tool)
+        .arg("--version")
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .status()
+        .is_ok_and(|status| status.success())
+}
+
+fn wasm_target_installed(target: &str) -> bool {
+    let output = Command::new("rustup")
+        .args(["target", "list", "--installed"])
+        .output();
+
+    let output = match output {
+        Ok(output) if output.status.success() => output,
+        Ok(output) => {
+            eprintln!("rustup target list --installed failed with {}", output.status);
+            return false;
+        }
+        Err(error) => {
+            eprintln!("rustup not found: {error}");
+            return false;
+        }
+    };
+
+    String::from_utf8_lossy(&output.stdout)
+        .lines()
+        .any(|line| line.trim() == target)
+}
+
+fn cargo_command(args: &[&str]) -> Command {
+    let mut command = Command::new("cargo");
+    command.args(args);
+    command
+}
+
+fn run_checked(mut command: Command, label: &str) -> bool {
+    println!("{label}: RUN");
+    match command.status() {
+        Ok(status) if status.success() => {
+            println!("{label}: PASS");
+            true
+        }
+        Ok(status) => {
+            eprintln!("{label}: FAIL ({status})");
+            false
+        }
+        Err(error) => {
+            eprintln!("{label}: NOT FOUND ({error})");
+            false
+        }
+    }
 }
 
 fn check_lua() -> ExitCode {

@@ -3,6 +3,7 @@ use crate::engine_global::*;
 use crate::storage::editor_config::*;
 use crate::*;
 use crate::worlds::{RoomId, WorldId};
+#[cfg(not(target_arch = "wasm32"))]
 use rfd::FileDialog;
 use std::ffi::OsStr;
 use std::fs;
@@ -170,41 +171,55 @@ pub fn absolute_save_root() -> PathBuf {
 
 // Gets the dir that contains the current process.
 pub fn exe_dir() -> Option<PathBuf> {
-    // Path of the running executable
-    let exe = std::env::current_exe().ok()?;
+    #[cfg(any(target_os = "macos", target_os = "windows", target_os = "linux"))]
+    {
+        // Path of the running executable
+        let exe = std::env::current_exe().ok()?;
 
-    // Platform specific layout
-    #[cfg(target_os = "macos")]
-    {
-        // …/.app/Contents/MacOS/<app>
-        exe.parent().map(|p| p.to_path_buf())
+        // Platform specific layout
+        #[cfg(target_os = "macos")]
+        {
+            // …/.app/Contents/MacOS/<app>
+            exe.parent().map(|p| p.to_path_buf())
+        }
+        // Linux is yet to be implemented
+        #[cfg(any(target_os = "windows", target_os = "linux"))]
+        {
+            // …/<app>.exe
+            exe.parent().map(|p| p.to_path_buf())
+        }
     }
-    // Linux is yet to be implemented
-    #[cfg(any(target_os = "windows", target_os = "linux"))]
+    #[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]
     {
-        // …/<app>.exe
-        exe.parent().map(|p| p.to_path_buf())
+        None
     }
 }
 
 // Gets the Resources dir for the current process.
 pub fn resources_dir_from_exe() -> Option<PathBuf> {
-    // Path of the running executable dir
-    let exe_dir = exe_dir()?;
+    #[cfg(any(target_os = "macos", target_os = "windows", target_os = "linux"))]
+    {
+        // Path of the running executable dir
+        let exe_dir = exe_dir()?;
 
-    // Platform specific layout
-    #[cfg(target_os = "macos")]
-    {
-        // …/Bishop.app/Contents/MacOS/
-        exe_dir
-            .parent() // Contents/
-            .map(|p| p.join(paths::RESOURCES_FOLDER)) // Resources/
+        // Platform specific layout
+        #[cfg(target_os = "macos")]
+        {
+            // …/Bishop.app/Contents/MacOS/
+            exe_dir
+                .parent() // Contents/
+                .map(|p| p.join(paths::RESOURCES_FOLDER)) // Resources/
+        }
+        // Linux is yet to be implemented
+        #[cfg(any(target_os = "windows", target_os = "linux"))]
+        {
+            // …/Bishop.exe  or  …/bishop
+            Some(exe_dir.join(paths::RESOURCES_FOLDER))
+        }
     }
-    // Linux is yet to be implemented
-    #[cfg(any(target_os = "windows", target_os = "linux"))]
+    #[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]
     {
-        // …/Bishop.exe  or  …/bishop
-        Some(exe_dir.join(paths::RESOURCES_FOLDER))
+        None
     }
 }
 
@@ -218,10 +233,7 @@ pub fn bundle_assets_folder() -> Option<PathBuf> {
 /// Pick the folder that will become the absolute save root.
 pub fn pick_save_root() -> Option<PathBuf> {
     // Let the user choose a base folder
-    let base_folder = FileDialog::new()
-        .set_title("Select a folder for the editor assets root directory.")
-        .pick_folder()
-        .unwrap_or_else(default_save_root);
+    let base_folder = pick_save_root_base_folder().unwrap_or_else(default_save_root);
 
     // Build the full path
     let save_root = base_folder.join(paths::SAVE_ROOT).join(paths::GAME_SAVE_ROOT);
@@ -252,17 +264,25 @@ pub enum SaveRootResult {
 /// Pick a new absolute save root and move the existing games
 /// folder there if possible.
 pub fn change_save_root() -> SaveRootResult {
-    let picked = rfd::FileDialog::new()
-        .set_title("Select a new folder for the editor assets root directory.")
-        .pick_folder();
-
-    apply_save_root_change(picked)
+    apply_save_root_change(pick_save_root_base_folder())
 }
 
 /// Applies a save-root change from the picker selection.
 ///
 /// Returns `Cancelled` when `picked_folder` is `None` (user dismissed the
 /// dialog) without touching any state.
+#[cfg(not(target_arch = "wasm32"))]
+fn pick_save_root_base_folder() -> Option<PathBuf> {
+    FileDialog::new()
+        .set_title("Select a folder for the editor assets root directory.")
+        .pick_folder()
+}
+
+#[cfg(target_arch = "wasm32")]
+fn pick_save_root_base_folder() -> Option<PathBuf> {
+    None
+}
+
 pub fn apply_save_root_change(picked_folder: Option<PathBuf>) -> SaveRootResult {
     let Some(base_folder) = picked_folder else {
         return SaveRootResult::Cancelled;

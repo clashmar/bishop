@@ -35,3 +35,21 @@ pub fn load_theme(name: &str) -> Option<Theme> {
         lua_table_to_theme(&tbl).ok()
     })
 }
+
+#[cfg(test)]
+mod tests {
+    use super::lua_table_to_theme;
+    use widgets::theme::Theme;
+
+    #[test]
+    fn theme_table_when_evaluated_by_editor_luau_converts_color() {
+        let lua = mlua::Lua::new();
+        let table = lua
+            .load("return { primary = { r = 0.2, g = 0.4, b = 0.6, a = 1.0 } }")
+            .eval::<mlua::Table>()
+            .unwrap();
+        let theme = lua_table_to_theme(&table).unwrap();
+
+        assert_ne!(theme.primary, Theme::default().primary);
+    }
+}
