@@ -266,6 +266,8 @@ impl Editor {
             ..Self::default()
         };
         self.load_prefab_palette_state();
+        self.grid_renderer = Some(GridRenderer::new(ctx));
+        self.register_modal_handlers();
 
         // Render system always needs a resize after switch
         let cur_screen = (ctx.screen_width() as u32, ctx.screen_height() as u32);
