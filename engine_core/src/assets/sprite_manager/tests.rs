@@ -5,9 +5,8 @@ use crate::audio::test_utils::CountingFailingLoader;
 use crate::constants::paths;
 use crate::engine_global::set_game_name;
 use crate::hydration::Hydratable;
-use crate::storage::resource_manifest::canonical_resource_path;
 use crate::storage::test_utils::{game_fs_test_lock, TestGameFolder};
-use crate::storage::{ResourceEntry, ResourceManifest, ResourceSource};
+use crate::storage::{ResourceEntry, ResourceKey, ResourceManifest, ResourceSource};
 use bishop::prelude::{Texture2D, TextureLoader};
 use std::collections::HashMap;
 use std::fs;
@@ -367,7 +366,7 @@ fn runtime_sprite_when_prefetched_uploads_registered_bytes_without_file_pool() {
 
     let error = game.sprite_manager.ensure_loaded(&loader, id).unwrap_err();
 
-    assert!(error.contains(&canonical_resource_path(&relative).unwrap()), "{error}");
+    assert!(error.contains(ResourceKey::from_native(&relative).unwrap().as_str()), "{error}");
     assert_eq!(loader.bytes_load_calls.get(), 1);
     assert_eq!(loader.load_calls.get(), 0);
     assert!(game.sprite_manager.runtime_file_read_pool.is_none());
@@ -385,7 +384,7 @@ fn runtime_sprite_when_prefetched_png_is_missing_fails_before_upload() {
 
     let error = game.sprite_manager.ensure_loaded(&loader, id).unwrap_err();
 
-    assert!(error.contains(&canonical_resource_path(&relative).unwrap()), "{error}");
+    assert!(error.contains(ResourceKey::from_native(&relative).unwrap().as_str()), "{error}");
     assert_eq!(loader.bytes_load_calls.get(), 0);
     assert_eq!(loader.load_calls.get(), 0);
 }
@@ -402,8 +401,7 @@ fn ref_count_increments_and_decrements_correctly() {
 }
 
 fn prefetched_png(path: &Path, bytes: Option<&[u8]>) -> ResourceSource {
-    let key = path.components().map(|component| component.as_os_str().to_str().unwrap())
-        .collect::<Vec<_>>().join("/");
+    let key = ResourceKey::from_native(path).unwrap();
     let mut files = HashMap::new();
     let entries = match bytes {
         Some(bytes) => {

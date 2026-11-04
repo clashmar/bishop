@@ -1,6 +1,9 @@
+use super::asset::browser_entry_mode;
+use crate::engine::EngineEntryMode;
 use crate::scripting::script_system::ScriptSystem;
+use crate::startup::StartupAsset;
 use crate::startup::browser::place_browser_player_at_start;
-use crate::startup::prepare_browser_game;
+use crate::startup::{prepare_browser_game, prepare_browser_game_direct};
 use bishop::prelude::{Texture2D, TextureLoader, Vec2};
 use engine_core::constants::paths;
 use engine_core::ecs::{Active, CurrentRoom, Player, Script, ScriptId, Transform, WorldEntry};
@@ -9,7 +12,7 @@ use engine_core::prefab::{PrefabAsset, PrefabId, PrefabNode};
 use engine_core::scripting::{EventBus, install_prefetched};
 use engine_core::scripting::lua_constants::{lua_dirs, lua_files};
 use engine_core::storage::{
-    ResourceEntry, ResourceManifest, ResourceSource, load_game_shell_from_source,
+    ResourceEntry, ResourceKey, ResourceManifest, ResourceSource, load_game_shell_from_source,
     room_payload_path, save_game_to_folder, world_descriptor_path,
 };
 use engine_core::worlds::{Room, RoomId, RoomLayer, World, WorldId};
@@ -19,21 +22,46 @@ use crate::engine::GameInstance;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-fn resource_key(path: &Path) -> String {
-    path.components().map(|component| component.as_os_str().to_str().unwrap())
-        .collect::<Vec<_>>().join("/")
-}
-
 fn prefetched_scripts(entries: &[(&Path, &[u8])]) -> ResourceSource {
     let mut files = HashMap::new();
     let mut manifest = Vec::new();
     for (path, bytes) in entries {
-        let key = resource_key(path);
+        let key = ResourceKey::from_native(path).unwrap();
         files.insert(key.clone(), bytes.to_vec());
         manifest.push(ResourceEntry { path: key, byte_len: bytes.len() });
     }
     manifest.sort_by(|left, right| left.path.cmp(&right.path));
     ResourceSource::from_prefetched(ResourceManifest { files: manifest }, files).unwrap()
+}
+
+#[test]
+fn browser_startup_when_title_is_authored_uses_trimmed_menu_id() {
+    let startup = StartupAsset {
+        title_menu_id: " authored_title ".into(),
+        ..Default::default()
+    };
+    let contents = ron::to_string(&startup).unwrap();
+    let source = prefetched_scripts(&[(Path::new(paths::STARTUP_RON), contents.as_bytes())]);
+
+    let entry_mode = browser_entry_mode(&source).unwrap();
+
+    assert_eq!(entry_mode, EngineEntryMode::StartMenu { menu_id: "authored_title".into() });
+}
+
+#[test]
+fn browser_startup_when_missing_enters_gameplay() {
+    let source = prefetched_scripts(&[]);
+
+    assert_eq!(browser_entry_mode(&source).unwrap(), EngineEntryMode::Playing);
+}
+
+#[test]
+fn browser_startup_when_malformed_reports_resource_path() {
+    let source = prefetched_scripts(&[(Path::new(paths::STARTUP_RON), b"(title_menu_id: [")]);
+
+    let error = browser_entry_mode(&source).unwrap_err();
+
+    assert!(error.contains(paths::STARTUP_RON), "{error}");
 }
 
 #[test]
@@ -45,7 +73,7 @@ fn browser_script_when_main_is_missing_reports_path_without_silent_success() {
 
     let error = ScriptSystem::init_from_source(&lua, &EventBus::default(), &source).unwrap_err();
 
-    assert!(error.to_string().contains(&resource_key(&main)), "{error}");
+    assert!(error.to_string().contains(ResourceKey::from_native(&main).unwrap().as_str()), "{error}");
 }
 
 #[test]
@@ -86,6 +114,7 @@ fn synthetic_game_source(
     main: Option<&[u8]>,
     entity_script: Option<&[u8]>,
     prefab: Option<Option<&[u8]>>,
+    startup: Option<&[u8]>,
 ) -> (Game, ResourceSource) {
     let folder = tempfile::tempdir().unwrap();
     let root = folder.path();
@@ -119,6 +148,9 @@ fn synthetic_game_source(
     if let Some(bytes) = main {
         files.push((Path::new(paths::SCRIPTS_FOLDER).join(lua_files::MAIN), bytes.to_vec()));
     }
+    if let Some(bytes) = startup {
+        files.push((Path::new(paths::STARTUP_RON).to_path_buf(), bytes.to_vec()));
+    }
     if let Some(bytes) = entity_script {
         files.push((Path::new(paths::SCRIPTS_FOLDER).join("entity.lua"), bytes.to_vec()));
     }
@@ -126,13 +158,13 @@ fn synthetic_game_source(
         files.push((Path::new(paths::PREFABS_FOLDER).join("Fixture.prefab"), bytes.to_vec()));
     }
     let manifest = ResourceManifest { files: files.iter().map(|(path, bytes)| ResourceEntry {
-        path: resource_key(path),
+        path: ResourceKey::from_native(path).unwrap(),
         byte_len: bytes.len(),
     }).collect() };
     let mut manifest = manifest;
     manifest.files.sort_by(|left, right| left.path.cmp(&right.path));
     let contents = files.into_iter().map(|(path, bytes)| {
-        (resource_key(&path), bytes)
+        (ResourceKey::from_native(&path).unwrap(), bytes)
     }).collect();
     let source = ResourceSource::from_prefetched(manifest, contents).unwrap();
     (load_game_shell_from_source(&source).unwrap(), source)
@@ -140,10 +172,32 @@ fn synthetic_game_source(
 
 #[test]
 fn browser_game_when_main_is_missing_reports_startup_failure() {
-    let (game, source) = synthetic_game_source(None, None, None);
+    let (game, source) = synthetic_game_source(None, None, None, None);
     let error = prepare_browser_game(game, source, &FailingTextureLoader).err().unwrap();
     let main = Path::new(paths::SCRIPTS_FOLDER).join(lua_files::MAIN);
-    assert!(error.contains(&resource_key(&main)), "{error}");
+    assert!(error.contains(ResourceKey::from_native(&main).unwrap().as_str()), "{error}");
+}
+
+#[test]
+fn browser_game_when_startup_is_malformed_reports_its_path() {
+    let (game, source) = synthetic_game_source(
+        Some(b"browser_boot = 'main'"), None, None, Some(b"(title_menu_id: ["),
+    );
+
+    let error = prepare_browser_game(game, source, &FailingTextureLoader).err().unwrap();
+
+    assert!(error.contains(paths::STARTUP_RON), "{error}");
+}
+
+#[test]
+fn browser_checkpoint_when_startup_is_malformed_keeps_direct_room_preparation() {
+    let (game, source) = synthetic_game_source(
+        Some(b"browser_boot = 'main'"), None, None, Some(b"(title_menu_id: ["),
+    );
+
+    let prepared = prepare_browser_game_direct(game, source, &FailingTextureLoader).unwrap();
+
+    assert_eq!(prepared.prepared.game.current_world().current_room_id, Some(RoomId(9)));
 }
 
 #[test]
@@ -152,12 +206,14 @@ fn browser_game_when_authored_scripts_are_present_prepares_real_instance() {
         Some(b"browser_boot = 'main'"),
         Some(b"return { init = function(self) end, update = function(self, dt) end }"),
         None,
+        None,
     );
     let prepared = prepare_browser_game(game, source, &FailingTextureLoader).unwrap();
 
     assert_eq!(prepared.builder.lua.globals().get::<String>("browser_boot").unwrap(), "main");
     assert_eq!(prepared.prepared.game.script_manager.instance_count(), 1);
     assert_eq!(prepared.prepared.game.current_world().current_room_id, Some(RoomId(9)));
+    assert_eq!(prepared.prepared.game.text_manager.get_text_root(), Path::new(paths::TEXT_FOLDER));
 }
 
 fn fixture_prefab_bytes() -> Vec<u8> {
@@ -175,7 +231,7 @@ fn fixture_prefab_bytes() -> Vec<u8> {
 #[test]
 fn browser_game_when_prefab_is_prefetched_loads_the_runtime_definition() {
     let bytes = fixture_prefab_bytes();
-    let (game, source) = synthetic_game_source(Some(b"browser_boot = 'main'"), None, Some(Some(&bytes)));
+    let (game, source) = synthetic_game_source(Some(b"browser_boot = 'main'"), None, Some(Some(&bytes)), None);
 
     let prepared = prepare_browser_game(game, source, &FailingTextureLoader).unwrap();
 
@@ -209,10 +265,10 @@ fn browser_start_when_player_is_unroomed_places_them_at_authored_start_entry() {
 
 #[test]
 fn browser_game_when_registered_prefab_is_missing_reports_its_path() {
-    let (game, source) = synthetic_game_source(Some(b"browser_boot = 'main'"), None, Some(None));
+    let (game, source) = synthetic_game_source(Some(b"browser_boot = 'main'"), None, Some(None), None);
 
     let error = prepare_browser_game(game, source, &FailingTextureLoader).err().unwrap();
 
     let expected = Path::new(paths::PREFABS_FOLDER).join("Fixture.prefab");
-    assert!(error.contains(&resource_key(&expected)), "{error}");
+    assert!(error.contains(ResourceKey::from_native(&expected).unwrap().as_str()), "{error}");
 }

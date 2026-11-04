@@ -3,7 +3,7 @@ use crate::constants::paths;
 use crate::ecs::{CurrentRoom, Ecs, Global};
 use crate::game::{Game, GameDataManifest};
 use crate::storage::path_utils::{room_payload_path, world_descriptor_path};
-use crate::storage::resource_manifest::canonical_resource_path;
+use crate::storage::ResourceKey;
 use crate::worlds::{Room, RoomId, RoomPayload, World, WorldDescriptor};
 use serde::de::DeserializeOwned;
 use std::io::{self, ErrorKind};
@@ -89,7 +89,7 @@ fn read_optional_ron<T: DeserializeOwned>(source: &ResourceSource, path: &Path) 
 }
 
 fn parse_ron<T: DeserializeOwned>(bytes: &[u8], path: &Path) -> io::Result<T> {
-    let path = canonical_resource_path(path)?;
+    let path = ResourceKey::from_native(path)?;
     let text = std::str::from_utf8(bytes).map_err(|error| {
         io::Error::new(ErrorKind::InvalidData, format!("invalid UTF-8 in {path}: {error}"))
     })?;

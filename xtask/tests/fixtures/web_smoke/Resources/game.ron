@@ -1,0 +1,8 @@
+(
+    version: 1,
+    name: "WebSmoke",
+    current_world_id: Some((1)),
+    world_ids: [
+        (1),
+    ],
+)

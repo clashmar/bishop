@@ -1,15 +1,16 @@
 use super::ResourceSource;
 use crate::constants::paths;
-use crate::storage::resource_manifest::{ResourceEntry, ResourceManifest};
+use crate::storage::resource_manifest::{ResourceEntry, ResourceKey, ResourceManifest};
 use std::collections::HashMap;
 use std::path::Path;
 
+fn key(path: &str) -> ResourceKey {
+    ResourceKey::from_wire(path).unwrap()
+}
+
 fn one_file(path: &str, length: usize) -> ResourceManifest {
     ResourceManifest {
-        files: vec![ResourceEntry {
-            path: path.to_owned(),
-            byte_len: length,
-        }],
+        files: vec![ResourceEntry { path: key(path), byte_len: length }],
     }
 }
 
@@ -25,7 +26,7 @@ fn source_when_declared_resource_is_missing_reports_its_path() {
 #[test]
 fn source_when_declared_resource_length_differs_rejects_it() {
     let mut files = HashMap::new();
-    files.insert(paths::GAME_RON.to_owned(), vec![1]);
+    files.insert(key(paths::GAME_RON), vec![1]);
 
     let error = ResourceSource::from_prefetched(one_file(paths::GAME_RON, 3), files)
         .err()
@@ -38,8 +39,8 @@ fn source_when_declared_resource_length_differs_rejects_it() {
 #[test]
 fn source_when_undeclared_resource_is_fetched_rejects_it() {
     let mut files = HashMap::new();
-    files.insert(paths::GAME_RON.to_owned(), vec![1]);
-    files.insert(paths::ECS_RON.to_owned(), vec![2]);
+    files.insert(key(paths::GAME_RON), vec![1]);
+    files.insert(key(paths::ECS_RON), vec![2]);
 
     let error = ResourceSource::from_prefetched(one_file(paths::GAME_RON, 1), files)
         .err()
@@ -52,8 +53,8 @@ fn source_when_undeclared_resource_is_fetched_rejects_it() {
 fn manifest_when_entries_are_unsorted_rejects_them() {
     let manifest = ResourceManifest {
         files: vec![
-            ResourceEntry { path: paths::GAME_RON.to_owned(), byte_len: 1 },
-            ResourceEntry { path: paths::ECS_RON.to_owned(), byte_len: 1 },
+            ResourceEntry { path: key(paths::GAME_RON), byte_len: 1 },
+            ResourceEntry { path: key(paths::ECS_RON), byte_len: 1 },
         ],
     };
 
@@ -64,8 +65,8 @@ fn manifest_when_entries_are_unsorted_rejects_them() {
 fn manifest_when_entries_are_duplicated_rejects_them() {
     let manifest = ResourceManifest {
         files: vec![
-            ResourceEntry { path: paths::GAME_RON.to_owned(), byte_len: 1 },
-            ResourceEntry { path: paths::GAME_RON.to_owned(), byte_len: 1 },
+            ResourceEntry { path: key(paths::GAME_RON), byte_len: 1 },
+            ResourceEntry { path: key(paths::GAME_RON), byte_len: 1 },
         ],
     };
 
@@ -75,7 +76,7 @@ fn manifest_when_entries_are_duplicated_rejects_them() {
 #[test]
 fn manifest_when_path_escapes_or_is_noncanonical_rejects_it() {
     for path in ["../game.ron", "/game.ron", "./game.ron", "worlds//game.ron", "worlds\\game.ron"] {
-        let error = one_file(path, 1).validate().unwrap_err();
+        let error = ResourceKey::from_wire(path).unwrap_err();
         assert!(error.to_string().contains(path), "{error}");
     }
 }
@@ -88,8 +89,7 @@ fn prefetched_files_under_when_nested_lists_only_matching_directory_in_order() {
     let mut files = HashMap::new();
     let mut manifest = Vec::new();
     for path in paths {
-        let key = path.components().map(|part| part.as_os_str().to_str().unwrap())
-            .collect::<Vec<_>>().join("/");
+        let key = ResourceKey::from_native(&path).unwrap();
         files.insert(key.clone(), vec![1]);
         manifest.push(ResourceEntry { path: key, byte_len: 1 });
     }
@@ -98,27 +98,27 @@ fn prefetched_files_under_when_nested_lists_only_matching_directory_in_order() {
 
     let found = source.prefetched_files_under(dir).unwrap();
 
-    assert_eq!(found, vec![dir.join("nested/a.prefab"), dir.join("z.prefab")]);
+    assert_eq!(found, vec![ResourceKey::from_native(&dir.join("nested/a.prefab")).unwrap(),
+        ResourceKey::from_native(&dir.join("z.prefab")).unwrap()]);
 }
 
 #[test]
 fn lua_sources_when_prefetched_file_is_invalid_utf8_reports_its_path() {
     let path = Path::new(paths::SCRIPTS_FOLDER).join("bad.lua");
-    let key = path.components().map(|component| component.as_os_str().to_str().unwrap())
-        .collect::<Vec<_>>().join("/");
+    let key = ResourceKey::from_native(&path).unwrap();
     let mut files = HashMap::new();
     files.insert(key.clone(), vec![255]);
-    let source = ResourceSource::from_prefetched(one_file(&key, 1), files).unwrap();
+    let source = ResourceSource::from_prefetched(one_file(key.as_str(), 1), files).unwrap();
 
     let error = source.prefetched_lua_sources().unwrap_err();
 
-    assert!(error.to_string().contains(&key), "{error}");
+    assert!(error.to_string().contains(key.as_str()), "{error}");
 }
 
 #[test]
 fn source_when_prefetched_reads_declared_bytes_and_reports_missing_lookup() {
     let mut files = HashMap::new();
-    files.insert(paths::GAME_RON.to_owned(), vec![1, 2, 3]);
+    files.insert(key(paths::GAME_RON), vec![1, 2, 3]);
     let source = ResourceSource::from_prefetched(one_file(paths::GAME_RON, 3), files).unwrap();
 
     assert_eq!(source.read_required(Path::new(paths::GAME_RON)).unwrap(), vec![1, 2, 3]);

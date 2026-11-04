@@ -22,10 +22,6 @@ use winres_edit::resource_type;
 use winres_edit::Id;
 use winres_edit::Resources;
 
-pub struct PendingExport {
-    pub dest_root: PathBuf,
-}
-
 /// Removes `path` when dropped unless `success()` has been called.
 struct ExportGuard {
     path: PathBuf,
@@ -64,7 +60,8 @@ pub fn export_game(dest_root: &Path, game: &Game) -> io::Result<PathBuf> {
         Ok(bundle_path)
     }
 
-    // TODO Handle Linux
+    #[cfg(not(any(target_os = "windows", target_os = "macos")))]
+    Err(io::Error::new(ErrorKind::Unsupported, "Native export is not supported on this host"))
 }
 
 /// Returns the package/bundle path that exporting will overwrite.

@@ -1,6 +1,7 @@
 // Keep `mod.rs` limited to frame orchestration. Feature-specific methods belong in focused
 // helper modules alongside the subsystem it serves, or in a new engine sub-module.
 mod audio_events;
+mod browser_menu;
 pub mod engine_builder;
 pub mod game_instance;
 mod render;
@@ -191,9 +192,8 @@ impl Engine {
         lua: Lua,
         cfg: EngineRuntimeConfig,
         render_system: RenderSystem,
+        mut menu_manager: MenuManager,
     ) -> Self {
-        let mut menu_manager = MenuManager::new();
-        menu_manager.load_templates_from_disk();
         menu_manager.set_action_handler(GameMenuHandler);
 
         let game_state = apply_entry_mode(&mut menu_manager, cfg.entry_mode);

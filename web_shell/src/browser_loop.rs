@@ -1,32 +1,32 @@
-#[cfg(not(feature = "demo-checkpoint"))]
+#[cfg(not(any(feature = "demo-checkpoint", feature = "player")))]
 use std::cell::RefCell;
 use std::ffi::c_void;
 use std::ptr;
 
 use bishop::input::{KeyboardMouseState, MouseButton};
-#[cfg(not(any(feature = "renderer-proof", feature = "demo-checkpoint")))]
+#[cfg(not(any(feature = "renderer-proof", feature = "demo-checkpoint", feature = "player")))]
 use bishop::input::KeyCode;
 
-#[cfg(not(feature = "demo-checkpoint"))]
+#[cfg(not(any(feature = "demo-checkpoint", feature = "player")))]
 use crate::audio_probe::AudioProbe;
-#[cfg(all(feature = "playable-fixture", not(feature = "demo-checkpoint")))]
+#[cfg(all(feature = "playable-fixture", not(any(feature = "demo-checkpoint", feature = "player"))))]
 use crate::fixture_game::{FixtureGame, fixture_axis};
 
-#[cfg(not(feature = "demo-checkpoint"))]
+#[cfg(not(any(feature = "demo-checkpoint", feature = "player")))]
 struct BrowserRuntime {
     input: KeyboardMouseState,
-    #[cfg(not(feature = "demo-checkpoint"))]
+    #[cfg(not(any(feature = "demo-checkpoint", feature = "player")))]
     audio: AudioProbe,
     active: bool,
-    #[cfg(not(feature = "demo-checkpoint"))]
+    #[cfg(not(any(feature = "demo-checkpoint", feature = "player")))]
     last_ms: Option<f64>,
-    #[cfg(not(any(feature = "renderer-proof", feature = "demo-checkpoint")))]
+    #[cfg(not(any(feature = "renderer-proof", feature = "demo-checkpoint", feature = "player")))]
     x: f32,
-    #[cfg(not(any(feature = "renderer-proof", feature = "demo-checkpoint")))]
+    #[cfg(not(any(feature = "renderer-proof", feature = "demo-checkpoint", feature = "player")))]
     y: f32,
-    #[cfg(not(any(feature = "renderer-proof", feature = "demo-checkpoint")))]
+    #[cfg(not(any(feature = "renderer-proof", feature = "demo-checkpoint", feature = "player")))]
     frame: u64,
-    #[cfg(not(any(feature = "renderer-proof", feature = "demo-checkpoint")))]
+    #[cfg(not(any(feature = "renderer-proof", feature = "demo-checkpoint", feature = "player")))]
     last_button: i32,
     #[cfg(feature = "playable-fixture")]
     fixture: Option<FixtureGame>,
@@ -34,23 +34,23 @@ struct BrowserRuntime {
     playing: bool,
 }
 
-#[cfg(not(feature = "demo-checkpoint"))]
+#[cfg(not(any(feature = "demo-checkpoint", feature = "player")))]
 impl BrowserRuntime {
     fn new() -> Self {
         Self {
             input: KeyboardMouseState::new(),
-            #[cfg(not(feature = "demo-checkpoint"))]
+            #[cfg(not(any(feature = "demo-checkpoint", feature = "player")))]
             audio: AudioProbe::new(),
             active: false,
-            #[cfg(not(feature = "demo-checkpoint"))]
+            #[cfg(not(any(feature = "demo-checkpoint", feature = "player")))]
             last_ms: None,
-            #[cfg(not(any(feature = "renderer-proof", feature = "demo-checkpoint")))]
+            #[cfg(not(any(feature = "renderer-proof", feature = "demo-checkpoint", feature = "player")))]
             x: 300.0,
-            #[cfg(not(any(feature = "renderer-proof", feature = "demo-checkpoint")))]
+            #[cfg(not(any(feature = "renderer-proof", feature = "demo-checkpoint", feature = "player")))]
             y: 130.0,
-            #[cfg(not(any(feature = "renderer-proof", feature = "demo-checkpoint")))]
+            #[cfg(not(any(feature = "renderer-proof", feature = "demo-checkpoint", feature = "player")))]
             frame: 0,
-            #[cfg(not(any(feature = "renderer-proof", feature = "demo-checkpoint")))]
+            #[cfg(not(any(feature = "renderer-proof", feature = "demo-checkpoint", feature = "player")))]
             last_button: 0,
             #[cfg(feature = "playable-fixture")]
             fixture: None,
@@ -60,7 +60,7 @@ impl BrowserRuntime {
     }
 }
 
-#[cfg(not(feature = "demo-checkpoint"))]
+#[cfg(not(any(feature = "demo-checkpoint", feature = "player")))]
 thread_local! {
     static RUNTIME: RefCell<BrowserRuntime> = RefCell::new(BrowserRuntime::new());
 }
@@ -68,7 +68,9 @@ thread_local! {
 pub(crate) fn with_input(f: impl FnOnce(&mut KeyboardMouseState)) {
     #[cfg(feature = "demo-checkpoint")]
     crate::browser_demo::with_input(f);
-    #[cfg(not(feature = "demo-checkpoint"))]
+    #[cfg(feature = "player")]
+    crate::browser_player::with_input(f);
+    #[cfg(not(any(feature = "demo-checkpoint", feature = "player")))]
     RUNTIME.with(|runtime| {
         let mut runtime = runtime.borrow_mut();
         if runtime.active {
@@ -80,7 +82,9 @@ pub(crate) fn with_input(f: impl FnOnce(&mut KeyboardMouseState)) {
 pub(crate) fn mouse_down(button: MouseButton, x: f32, y: f32, time_ms: f64) {
     #[cfg(feature = "demo-checkpoint")]
     crate::browser_demo::mouse_down(button, x, y, time_ms);
-    #[cfg(not(feature = "demo-checkpoint"))]
+    #[cfg(feature = "player")]
+    crate::browser_player::mouse_down(button, x, y, time_ms);
+    #[cfg(not(any(feature = "demo-checkpoint", feature = "player")))]
     RUNTIME.with(|cell| {
         let mut runtime = cell.borrow_mut();
         if !runtime.active {
@@ -94,7 +98,7 @@ pub(crate) fn mouse_down(button: MouseButton, x: f32, y: f32, time_ms: f64) {
                 runtime.playing = true;
                 println!("Bishop fixture started");
             }
-            #[cfg(not(feature = "demo-checkpoint"))]
+            #[cfg(not(any(feature = "demo-checkpoint", feature = "player")))]
             runtime.audio.trigger();
         }
     });
@@ -103,19 +107,21 @@ pub(crate) fn mouse_down(button: MouseButton, x: f32, y: f32, time_ms: f64) {
 pub(crate) fn focus_changed(active: bool) {
     #[cfg(feature = "demo-checkpoint")]
     crate::browser_demo::focus_changed(active);
-    #[cfg(not(feature = "demo-checkpoint"))]
+    #[cfg(feature = "player")]
+    crate::browser_player::focus_changed(active);
+    #[cfg(not(any(feature = "demo-checkpoint", feature = "player")))]
     RUNTIME.with(|runtime| {
         let mut runtime = runtime.borrow_mut();
         if !active {
             runtime.input.clear_on_focus_loss();
-            #[cfg(not(feature = "demo-checkpoint"))]
+            #[cfg(not(any(feature = "demo-checkpoint", feature = "player")))]
             runtime.audio.cancel();
-            #[cfg(not(feature = "demo-checkpoint"))]
+            #[cfg(not(any(feature = "demo-checkpoint", feature = "player")))]
             {
                 runtime.last_ms = None;
             }
         } else if !runtime.active {
-            #[cfg(not(feature = "demo-checkpoint"))]
+            #[cfg(not(any(feature = "demo-checkpoint", feature = "player")))]
             {
                 runtime.last_ms = None;
             }
@@ -124,7 +130,7 @@ pub(crate) fn focus_changed(active: bool) {
     });
 }
 
-#[cfg(all(feature = "playable-fixture", not(feature = "demo-checkpoint")))]
+#[cfg(all(feature = "playable-fixture", not(any(feature = "demo-checkpoint", feature = "player"))))]
 fn load_fixture(runtime: &mut BrowserRuntime) {
     let Some(loaded) = crate::fixture_loader::take_ready() else {
         return;
@@ -138,14 +144,14 @@ fn load_fixture(runtime: &mut BrowserRuntime) {
     }
 }
 
-#[cfg(all(feature = "playable-fixture", not(feature = "demo-checkpoint")))]
+#[cfg(all(feature = "playable-fixture", not(any(feature = "demo-checkpoint", feature = "player"))))]
 fn fixture_script_failed(runtime: &mut BrowserRuntime, error: &str) {
     println!("Bishop fixture script failed: {error}");
     runtime.fixture = None;
     runtime.playing = false;
 }
 
-#[cfg(all(feature = "playable-fixture", not(feature = "demo-checkpoint")))]
+#[cfg(all(feature = "playable-fixture", not(any(feature = "demo-checkpoint", feature = "player"))))]
 fn update_fixture(runtime: &mut BrowserRuntime, dt: f32) {
     if runtime.input.is_key_pressed(KeyCode::R)
         && let Some(game) = runtime.fixture.as_mut()
@@ -180,7 +186,7 @@ unsafe extern "C" {
         fps: i32,
         simulate_infinite_loop: i32,
     );
-    #[cfg(not(any(feature = "renderer-proof", feature = "demo-checkpoint")))]
+    #[cfg(not(any(feature = "renderer-proof", feature = "demo-checkpoint", feature = "player")))]
     fn emscripten_cancel_main_loop();
 }
 
@@ -198,12 +204,17 @@ extern "C" fn frame(_unused: *mut c_void) {
     crate::renderer_proof::frame(unsafe { emscripten_get_now() });
 }
 
-#[cfg(all(not(feature = "renderer-proof"), feature = "demo-checkpoint"))]
+#[cfg(all(not(feature = "renderer-proof"), feature = "demo-checkpoint", not(feature = "player")))]
 extern "C" fn frame(_unused: *mut c_void) {
     crate::browser_demo::frame(unsafe { emscripten_get_now() });
 }
 
-#[cfg(not(any(feature = "renderer-proof", feature = "demo-checkpoint")))]
+#[cfg(all(not(feature = "renderer-proof"), feature = "player"))]
+extern "C" fn frame(_unused: *mut c_void) {
+    crate::browser_player::frame(unsafe { emscripten_get_now() });
+}
+
+#[cfg(not(any(feature = "renderer-proof", feature = "demo-checkpoint", feature = "player")))]
 extern "C" fn frame(_unused: *mut c_void) {
     let now_ms = unsafe { emscripten_get_now() };
     let drawn = RUNTIME.with(|cell| {

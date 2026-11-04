@@ -64,13 +64,15 @@ fn main() -> ExitCode {
         "build-web-game" => web_export::build_web_game(),
         "build-web-renderer-proof" => web_export::build_web_renderer_proof(),
         "build-web-demo-checkpoint" => web_export::build_web_demo_checkpoint(),
+        "build-web-player-runtime" => web_export::build_web_player_runtime(&args[2..]),
+        "export-web-game" => web_export::export_web_game(&args[2..]),
         "check-lua" => check_lua(),
         "check-lua-wasm" => check_lua_wasm(),
         "check-web" => check_web(),
         "regen-demo-data" => regen_demo_data(),
         other => {
             eprintln!("Unknown subcommand: {other}");
-            eprintln!("Available: build-web-shell, build-web-game, build-web-renderer-proof, build-web-demo-checkpoint, check-lua, check-lua-wasm, check-web, regen-demo-data");
+            eprintln!("Available: build-web-shell, build-web-game, build-web-renderer-proof, build-web-demo-checkpoint, build-web-player-runtime, export-web-game, check-lua, check-lua-wasm, check-web, regen-demo-data");
             ExitCode::FAILURE
         }
     }

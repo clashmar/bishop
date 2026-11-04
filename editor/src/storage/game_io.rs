@@ -177,11 +177,10 @@ pub fn save_as(game: &mut Game, new_name: &str) -> io::Result<()> {
 
 /// Find all game folders in `games/`.
 pub fn list_game_folders() -> io::Result<Vec<PathBuf>> {
-    let root = match cfg!(debug_assertions) {
-        true => absolute_save_root(),
-        false => absolute_save_root().join(paths::GAME_SAVE_ROOT),
-    };
+    list_game_folders_from_root(&absolute_save_root())
+}
 
+fn list_game_folders_from_root(root: &Path) -> io::Result<Vec<PathBuf>> {
     let mut folders = Vec::new();
 
     for entry in fs::read_dir(root)? {
@@ -210,4 +209,22 @@ fn is_game_folder(path: &Path) -> bool {
             .join(paths::RESOURCES_FOLDER)
             .join(paths::GAME_RON)
             .exists()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn editor_game_listing_when_root_contains_demo_finds_direct_child() -> io::Result<()> {
+        let root = tempfile::tempdir()?;
+        let demo = root.path().join("Demo");
+        fs::create_dir_all(demo.join(paths::RESOURCES_FOLDER))?;
+        fs::write(demo.join(paths::RESOURCES_FOLDER).join(paths::GAME_RON), b"game")?;
+
+        let folders = list_game_folders_from_root(root.path())?;
+
+        assert_eq!(folders, vec![demo]);
+        Ok(())
+    }
 }

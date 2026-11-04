@@ -1,7 +1,7 @@
 use super::*;
 use crate::constants::paths;
 use crate::hydration::{EvictError, Hydratable};
-use crate::storage::resource_manifest::canonical_resource_path;
+use crate::storage::ResourceKey;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) enum FallbackTextureKind {
@@ -276,7 +276,7 @@ impl SpriteManager {
             let resource_path = Path::new(paths::ASSETS_FOLDER).join(rel_path);
             let bytes = source.read_required(&resource_path)
                 .map_err(|error| error.to_string())?;
-            let resource_path = canonical_resource_path(&resource_path)
+            let resource_path = ResourceKey::from_native(&resource_path)
                 .map_err(|error| error.to_string())?;
             loader.load_texture_from_bytes(&bytes).map_err(|error| {
                 format!("Failed to upload texture '{resource_path}': {error}")

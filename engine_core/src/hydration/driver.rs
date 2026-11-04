@@ -225,7 +225,7 @@ mod tests {
     use super::*;
     use crate::audio::test_utils::{CountingFailingLoader, TestBackend};
     use crate::ecs::{SoundId, SpriteId};
-    use crate::storage::resource_manifest::canonical_resource_path;
+    use crate::storage::ResourceKey;
     use crate::engine_global::set_game_name;
     use crate::hydration::Hydratable;
     use crate::storage::{
@@ -409,7 +409,7 @@ mod tests {
         let error = driver.hydrate_asset_runtime(AssetKey::Sprite(id), &Lua::new()).unwrap_err();
 
         let HydrationError::TextureLoad(detail) = error else { panic!("expected missing sprite error") };
-        assert!(detail.contains(&canonical_resource_path(&relative).unwrap()), "{detail}");
+        assert!(detail.contains(ResourceKey::from_native(&relative).unwrap().as_str()), "{detail}");
     }
 
     #[test]

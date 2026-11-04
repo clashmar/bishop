@@ -12,9 +12,7 @@ pub(crate) use split_layout::{
 };
 
 use crate::constants::{extensions, paths};
-use crate::storage::resource_manifest::{
-    ResourceManifest, canonical_resource_path, checked_manifest_path,
-};
+use crate::storage::resource_manifest::{ResourceKey, ResourceManifest};
 use std::collections::HashMap;
 use std::fs;
 use std::io::{self, ErrorKind};
@@ -27,19 +25,18 @@ pub enum ResourceSource {
     /// Reads resources beneath a native directory.
     Folder(PathBuf),
     /// Reads previously fetched bytes without filesystem access.
-    Prefetched(Arc<HashMap<PathBuf, Vec<u8>>>),
+    Prefetched(Arc<HashMap<ResourceKey, Vec<u8>>>),
 }
 
 impl ResourceSource {
     /// Builds a byte source after validating every declared file and its length.
     pub fn from_prefetched(
         manifest: ResourceManifest,
-        mut files: HashMap<String, Vec<u8>>,
+        mut files: HashMap<ResourceKey, Vec<u8>>,
     ) -> io::Result<Self> {
         manifest.validate()?;
         let mut indexed = HashMap::with_capacity(manifest.files.len());
         for entry in manifest.files {
-            let relative = checked_manifest_path(&entry.path)?;
             let bytes = files.remove(&entry.path).ok_or_else(|| {
                 io::Error::new(ErrorKind::NotFound, format!("required resource missing: {}", entry.path))
             })?;
@@ -49,7 +46,7 @@ impl ResourceSource {
                     format!("resource length mismatch for {}: expected {}, got {}", entry.path, entry.byte_len, bytes.len()),
                 ));
             }
-            indexed.insert(relative, bytes);
+            indexed.insert(entry.path, bytes);
         }
         if let Some(extra) = files.keys().min() {
             return Err(io::Error::new(
@@ -61,13 +58,13 @@ impl ResourceSource {
     }
 
     /// Lists prefetched files below a relative resource directory in path order.
-    pub fn prefetched_files_under(&self, directory: &Path) -> io::Result<Vec<PathBuf>> {
+    pub fn prefetched_files_under(&self, directory: &Path) -> io::Result<Vec<ResourceKey>> {
         checked_lookup(directory)?;
         let Self::Prefetched(files) = self else {
             return Err(io::Error::new(ErrorKind::Unsupported, "resource files are not prefetched"));
         };
         let mut paths: Vec<_> = files.keys()
-            .filter(|path| path.starts_with(directory) && path.as_path() != directory)
+            .filter(|path| path.as_path().starts_with(directory) && path.as_path() != directory)
             .cloned()
             .collect();
         paths.sort();
@@ -80,16 +77,14 @@ impl ResourceSource {
             return Err(io::Error::new(ErrorKind::Unsupported, "Lua modules are not prefetched"));
         };
         let mut modules: Vec<_> = files.iter().filter(|(path, _)| {
-            (path.starts_with(paths::SCRIPTS_FOLDER) || path.starts_with(paths::THEMES_FOLDER))
-                && path.extension().is_some_and(|extension| extension == extensions::LUA)
+            (path.as_path().starts_with(paths::SCRIPTS_FOLDER) || path.as_path().starts_with(paths::THEMES_FOLDER))
+                && path.as_path().extension().is_some_and(|extension| extension == extensions::LUA)
         }).collect();
         modules.sort_by_key(|(path, _)| *path);
 
         let mut sources = HashMap::with_capacity(modules.len());
         for (path, bytes) in modules {
-            let key = path.components().map(|component| component.as_os_str().to_str()
-                .ok_or_else(|| io::Error::new(ErrorKind::InvalidData, format!("non-UTF8 Lua path: {}", path.display()))))
-                .collect::<io::Result<Vec<_>>>()?.join("/");
+            let key = path.as_str().to_owned();
             let source = std::str::from_utf8(bytes).map_err(|error| {
                 io::Error::new(ErrorKind::InvalidData, format!("invalid UTF-8 in {key}: {error}"))
             })?;
@@ -105,7 +100,7 @@ impl ResourceSource {
         }
         let path = match self {
             Self::Folder(folder) => folder.join(relative).display().to_string(),
-            Self::Prefetched(_) => canonical_resource_path(relative)?,
+            Self::Prefetched(_) => ResourceKey::from_native(relative)?.to_string(),
         };
         Err(io::Error::new(
             ErrorKind::NotFound,
@@ -125,7 +120,7 @@ impl ResourceSource {
                     format!("failed to read {}: {error}", folder.join(relative).display()),
                 )),
             },
-            Self::Prefetched(files) => Ok(files.get(relative).cloned()),
+            Self::Prefetched(files) => Ok(files.get(&ResourceKey::from_native(relative)?).cloned()),
         }
     }
 }

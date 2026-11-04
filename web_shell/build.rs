@@ -4,17 +4,21 @@ fn main() {
         println!("cargo:rustc-link-arg=-sEXPORTED_RUNTIME_METHODS=ccall,HEAPF32");
         if std::env::var_os("CARGO_FEATURE_RENDERER_PROOF").is_some()
             || std::env::var_os("CARGO_FEATURE_DEMO_CHECKPOINT").is_some()
+            || std::env::var_os("CARGO_FEATURE_PLAYER").is_some()
         {
             println!("cargo:rustc-link-arg=-sMIN_WEBGL_VERSION=2");
             println!("cargo:rustc-link-arg=-sMAX_WEBGL_VERSION=2");
             println!("cargo:rustc-link-arg=-sFULL_ES3=1");
         }
-        if std::env::var_os("CARGO_FEATURE_DEMO_CHECKPOINT").is_some() {
+        if std::env::var_os("CARGO_FEATURE_DEMO_CHECKPOINT").is_some()
+            || std::env::var_os("CARGO_FEATURE_PLAYER").is_some()
+        {
             // Authored split-game RON hydration exceeds Emscripten's default 64 KiB stack
             println!("cargo:rustc-link-arg=-sSTACK_SIZE=262144");
         }
         if std::env::var_os("CARGO_FEATURE_PLAYABLE_FIXTURE").is_some()
             || std::env::var_os("CARGO_FEATURE_DEMO_CHECKPOINT").is_some()
+            || std::env::var_os("CARGO_FEATURE_PLAYER").is_some()
         {
             println!("cargo:rustc-link-arg=-sDEFAULT_TO_CXX=1");
         }

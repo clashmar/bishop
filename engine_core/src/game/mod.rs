@@ -9,6 +9,7 @@ pub use id_allocator::*;
 pub use startup_mode::*;
 
 use crate::assets::{sprite_manager::SpriteManager, AssetRegistry};
+use crate::constants::paths;
 use crate::ecs::ecs::Ecs;
 #[cfg(feature = "editor")]
 use crate::ecs::{get_root_entities_in_set, SpriteId};
@@ -385,9 +386,8 @@ impl Game {
         ScriptManager::init_manager(&self.asset_registry, &mut self.script_manager, lua);
         self.init_text_manager();
         if let Some(source @ ResourceSource::Prefetched(_)) = self.runtime_source.as_ref() {
-            self.prefab_manager = load_prefab_manager_from_source(
-                &self.name, &mut self.asset_registry, source,
-            ).map_err(|error| format!("failed to load browser prefabs: {error}"))?;
+            self.prefab_manager = load_prefab_manager_from_source(&mut self.asset_registry, source)
+                .map_err(|error| format!("failed to load browser prefabs: {error}"))?;
         } else {
             self.reload_prefab_manager();
         }
@@ -400,8 +400,12 @@ impl Game {
 
     /// Initializes the text manager with the correct path.
     pub fn init_text_manager(&mut self) {
-        let text_root = text_folder();
-        self.text_manager.set_text_root(text_root);
+        if let Some(source @ ResourceSource::Prefetched(_)) = self.runtime_source.as_ref() {
+            self.text_manager.set_prefetched_source(paths::TEXT_FOLDER.into(), source.clone());
+        } else {
+            let text_root = text_folder();
+            self.text_manager.set_text_root(text_root);
+        }
     }
 
     /// Reloads the prefab manager for the current game from disk.

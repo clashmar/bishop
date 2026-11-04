@@ -1,3 +1,4 @@
+use super::browser_menu::menu_manager_from_source;
 use super::game_instance::GameInstance;
 use super::save_runtime::SaveRuntime;
 use super::{Engine, EngineEntryMode, EngineRuntimeConfig};
@@ -5,6 +6,8 @@ use crate::save_system::SaveProviderRegistry;
 use crate::scripting::lua_ctx::{register_runtime_lua_contexts, register_save_lua_context};
 use bishop::prelude::*;
 use engine_core::camera::CameraManager;
+use engine_core::menu::MenuManager;
+use engine_core::storage::ResourceSource;
 use engine_core::rendering::{RenderSystem};
 use mlua::prelude::LuaResult;
 use mlua::Lua;
@@ -68,6 +71,16 @@ impl EngineBuilder {
     ) -> Result<Engine, String> {
         let grid_size = game_instance.borrow().game.current_world().grid_size;
         let render_system = RenderSystem::with_grid_size(grid_size);
+        let menu_manager = {
+            let instance = game_instance.borrow();
+            if let Some(source @ ResourceSource::Prefetched(_)) = instance.game.runtime_source.as_ref() {
+                menu_manager_from_source(source, &self.entry_mode)?
+            } else {
+                let mut menus = MenuManager::new();
+                menus.load_templates_from_disk();
+                menus
+            }
+        };
         register_runtime_lua_contexts(&self.lua, game_instance.clone(), ctx.clone())
             .map_err(|error| format!("register runtime Lua contexts: {error}"))?;
         Ok(Engine::new(
@@ -82,6 +95,7 @@ impl EngineBuilder {
                 entry_mode: self.entry_mode,
             },
             render_system,
+            menu_manager,
         ))
     }
 

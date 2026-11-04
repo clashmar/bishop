@@ -6,14 +6,14 @@ use crate::hydration::{HydrationDriver, ResidencyKey, ScopeKey};
 use mlua::Lua;
 use crate::game::Game;
 use crate::storage::{
-    ResourceEntry, ResourceManifest, ResourceSource, load_game_shell_from_source,
+    ResourceEntry, ResourceKey, ResourceManifest, ResourceSource, load_game_shell_from_source,
     hydrate_current_payloads_from_source, room_payload_path, save_game_to_folder,
     world_descriptor_path,
 };
 use crate::worlds::{Room, RoomId, World, WorldId};
 use std::collections::HashMap;
 use std::fs;
-use std::path::{Component, Path};
+use std::path::Path;
 use tempfile::TempDir;
 
 fn saved_one_room_game(root: &Path) -> (WorldId, RoomId) {
@@ -29,14 +29,11 @@ fn saved_one_room_game(root: &Path) -> (WorldId, RoomId) {
     (world_id, room_id)
 }
 
-fn manifest_key(root: &Path, path: &Path) -> String {
-    path.strip_prefix(root).unwrap().components().map(|component| {
-        let Component::Normal(part) = component else { panic!("generated path escaped root") };
-        part.to_str().unwrap()
-    }).collect::<Vec<_>>().join("/")
+fn manifest_key(root: &Path, path: &Path) -> ResourceKey {
+    ResourceKey::from_native(path.strip_prefix(root).unwrap()).unwrap()
 }
 
-fn split_bytes(root: &Path, world_id: WorldId, room_id: RoomId) -> (ResourceManifest, HashMap<String, Vec<u8>>) {
+fn split_bytes(root: &Path, world_id: WorldId, room_id: RoomId) -> (ResourceManifest, HashMap<ResourceKey, Vec<u8>>) {
     let mut files = HashMap::new();
     let paths = [
         root.join(paths::GAME_RON),
@@ -92,7 +89,7 @@ fn split_layout_when_descriptor_is_missing_reports_its_path() {
     let bytes = ResourceSource::from_prefetched(manifest, files).unwrap();
 
     let error = load_game_shell_from_source(&bytes).err().unwrap();
-    assert!(error.to_string().contains(&key), "{error}");
+    assert!(error.to_string().contains(key.as_str()), "{error}");
 }
 
 #[test]
@@ -126,5 +123,5 @@ fn current_payload_when_ron_is_malformed_reports_its_path() {
     let mut game = load_game_shell_from_source(&bytes).unwrap();
 
     let error = hydrate_current_payloads_from_source(&bytes, &mut game).unwrap_err();
-    assert!(error.to_string().contains(&key), "{error}");
+    assert!(error.to_string().contains(key.as_str()), "{error}");
 }

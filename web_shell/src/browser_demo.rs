@@ -8,14 +8,14 @@ use bishop::BishopApp;
 use bishop::input::{Input, KeyboardMouseState, MouseButton};
 use bishop::prelude::PlatformContext;
 use bishop::web::WebContext;
-use engine_core::storage::{ResourceManifest, ResourceSource, load_game_shell_from_source};
+use engine_core::storage::{ResourceKey, ResourceManifest, ResourceSource, load_game_shell_from_source};
 use game_lib::engine::Engine;
-use game_lib::startup::{assemble_browser_game, prepare_browser_game};
+use game_lib::startup::{assemble_browser_game, prepare_browser_game_direct};
 
 use crate::browser_fetch;
 use web_shell::{DEMO_CHECKPOINT_ASSET_ROOT, demo_checkpoint_manifest_path};
 
-type Downloaded = Result<(ResourceManifest, HashMap<String, Vec<u8>>), String>;
+type Downloaded = Result<(ResourceManifest, HashMap<ResourceKey, Vec<u8>>), String>;
 
 #[derive(Default)]
 struct DemoState {
@@ -49,7 +49,7 @@ pub(crate) fn start() {
     });
 }
 
-fn fetch_next(manifest: Rc<ResourceManifest>, index: usize, files: HashMap<String, Vec<u8>>) {
+fn fetch_next(manifest: Rc<ResourceManifest>, index: usize, files: HashMap<ResourceKey, Vec<u8>>) {
     let Some(entry) = manifest.files.get(index) else {
         set_pending(Ok(((*manifest).clone(), files)));
         return;
@@ -66,9 +66,9 @@ fn fetch_next(manifest: Rc<ResourceManifest>, index: usize, files: HashMap<Strin
     });
 }
 
-fn resource_url(relative: &str) -> String {
+fn resource_url(relative: &ResourceKey) -> String {
     let mut url = String::from(DEMO_CHECKPOINT_ASSET_ROOT);
-    for byte in relative.bytes() {
+    for byte in relative.as_str().bytes() {
         if byte.is_ascii_alphanumeric() || matches!(byte, b'/' | b'-' | b'_' | b'.' | b'~') {
             url.push(char::from(byte));
         } else {
@@ -93,7 +93,7 @@ fn fail(stage: &str, error: &str) {
 
 fn assemble_downloaded(
     manifest: ResourceManifest,
-    files: HashMap<String, Vec<u8>>,
+    files: HashMap<ResourceKey, Vec<u8>>,
 ) -> Result<Engine, String> {
     println!("BISHOP_DEMO_STAGE fetched_files={}", files.len());
     let source = ResourceSource::from_prefetched(manifest, files)
@@ -108,7 +108,7 @@ fn assemble_downloaded(
     let ctx: PlatformContext = Rc::new(RefCell::new(context));
     let prepared = {
         let texture_loader = ctx.borrow();
-        prepare_browser_game(game, source, &*texture_loader)
+        prepare_browser_game_direct(game, source, &*texture_loader)
             .map_err(|error| format!("Demo startup: {error}"))?
     };
     println!("BISHOP_DEMO_STAGE game_prepared");

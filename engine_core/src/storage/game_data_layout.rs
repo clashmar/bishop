@@ -164,29 +164,7 @@ mod tests {
     use super::*;
     use crate::ecs::{Animation, Entity, Global};
     use crate::worlds::{Room, RoomId, World, WorldId};
-    use std::path::PathBuf;
-
-    struct TempSplitLayoutDir(PathBuf);
-
-    impl TempSplitLayoutDir {
-        fn new() -> Self {
-            let unique = std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
-                .as_nanos();
-            Self(std::env::temp_dir().join(format!("bishop_split_layout_{unique}")))
-        }
-
-        fn path(&self) -> &Path {
-            &self.0
-        }
-    }
-
-    impl Drop for TempSplitLayoutDir {
-        fn drop(&mut self) {
-            let _ = fs::remove_dir_all(&self.0);
-        }
-    }
+    use tempfile::TempDir;
 
     fn fully_loaded_test_game() -> Game {
         let mut game = Game::default();
@@ -281,7 +259,7 @@ mod tests {
 
     #[test]
     fn save_game_to_folder_writes_manifest_descriptors_and_payloads() {
-        let folder = TempSplitLayoutDir::new();
+        let folder = TempDir::new().unwrap();
         let game = fully_loaded_test_game();
 
         save_game_to_folder(&game, folder.path()).unwrap();
@@ -305,7 +283,7 @@ mod tests {
 
     #[test]
     fn save_game_to_folder_when_global_entity_has_current_room_returns_error() {
-        let folder = TempSplitLayoutDir::new();
+        let folder = TempDir::new().unwrap();
         let mut game = fully_loaded_test_game();
         game.ecs
             .create_entity()
@@ -318,7 +296,7 @@ mod tests {
 
     #[test]
     fn load_game_shell_from_folder_defers_room_payloads() {
-        let folder = TempSplitLayoutDir::new();
+        let folder = TempDir::new().unwrap();
         let original = fully_loaded_test_game();
         save_game_to_folder(&original, folder.path()).unwrap();
 
@@ -330,7 +308,7 @@ mod tests {
 
     #[test]
     fn hydrate_current_payloads_from_folder_source_restores_current_room_variants() {
-        let folder = TempSplitLayoutDir::new();
+        let folder = TempDir::new().unwrap();
         let original = fully_loaded_test_game();
         save_game_to_folder(&original, folder.path()).unwrap();
 
@@ -342,7 +320,7 @@ mod tests {
 
     #[test]
     fn load_full_game_from_folder_rebuilds_indexes_from_split_layout() {
-        let folder = TempSplitLayoutDir::new();
+        let folder = TempDir::new().unwrap();
         let original = fully_loaded_test_game();
         save_game_to_folder(&original, folder.path()).unwrap();
 
@@ -355,7 +333,7 @@ mod tests {
 
     #[test]
     fn load_game_shell_from_folder_preserves_world_and_room_singletons() {
-        let folder = TempSplitLayoutDir::new();
+        let folder = TempDir::new().unwrap();
         let original = fully_loaded_test_game();
         let room_id = original.current_world().rooms()[0].id;
         let room_singleton = original.current_world().get_room(room_id).unwrap().singleton;
@@ -370,7 +348,7 @@ mod tests {
 
     #[test]
     fn save_game_to_folder_writes_deterministic_ecs_and_sorted_room_payload_entities() {
-        let folder = TempSplitLayoutDir::new();
+        let folder = TempDir::new().unwrap();
         let (game, expected_room_entities) = deterministic_save_test_game();
         let (other_game, _) = deterministic_save_test_game();
 
@@ -394,7 +372,7 @@ mod tests {
 
     #[test]
     fn save_game_to_folder_when_worlds_removed_deletes_stale_world_and_room_files() {
-        let folder = TempSplitLayoutDir::new();
+        let folder = TempDir::new().unwrap();
         let original = fully_loaded_multi_world_test_game();
         save_game_to_folder(&original, folder.path()).unwrap();
 
@@ -410,7 +388,7 @@ mod tests {
 
     #[test]
     fn save_game_to_folder_when_rooms_removed_deletes_stale_room_payload_files() {
-        let folder = TempSplitLayoutDir::new();
+        let folder = TempDir::new().unwrap();
         let original = fully_loaded_two_room_test_game();
         save_game_to_folder(&original, folder.path()).unwrap();
 
@@ -424,7 +402,7 @@ mod tests {
 
     #[test]
     fn load_full_game_from_folder_preserves_current_world_and_room_singletons() {
-        let folder = TempSplitLayoutDir::new();
+        let folder = TempDir::new().unwrap();
         let original = fully_loaded_multi_world_test_game();
         let world_singleton = original.current_world().singleton;
         let room_singleton = original.current_world().current_room().unwrap().singleton;
@@ -443,7 +421,7 @@ mod tests {
 
     #[test]
     fn split_layout_round_trips_world_gravity() {
-        let folder = TempSplitLayoutDir::new();
+        let folder = TempDir::new().unwrap();
         let mut original = fully_loaded_test_game();
         original.current_world_mut().unwrap().gravity = 100.0;
         save_game_to_folder(&original, folder.path()).unwrap();

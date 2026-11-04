@@ -4,9 +4,8 @@ use crate::constants::paths;
 use crate::engine_global::set_game_name;
 use crate::scripting::lua_constants::{lua_dirs, lua_files, lua_globals};
 use crate::scripting::lua_project::engine_require_path;
-use crate::storage::resource_manifest::canonical_resource_path;
 use crate::storage::test_utils::{TestGameFolder, game_fs_test_lock};
-use crate::storage::{ResourceEntry, ResourceManifest, ResourceSource};
+use crate::storage::{ResourceEntry, ResourceKey, ResourceManifest, ResourceSource};
 use std::collections::HashMap;
 use std::path::Path;
 
@@ -348,8 +347,7 @@ fn prefetched_lua_files(entries: &[(&Path, &[u8])]) -> ResourceSource {
     let mut files = HashMap::new();
     let mut manifest = Vec::new();
     for (path, bytes) in entries {
-        let key = path.components().map(|component| component.as_os_str().to_str().unwrap())
-            .collect::<Vec<_>>().join("/");
+        let key = ResourceKey::from_native(path).unwrap();
         files.insert(key.clone(), bytes.to_vec());
         manifest.push(ResourceEntry { path: key, byte_len: bytes.len() });
     }
@@ -386,7 +384,7 @@ fn entity_script_when_prefetched_file_is_missing_reports_resource_path() {
 
     let error = manager.load_script_table(&lua, id).err().unwrap();
 
-    assert!(error.to_string().contains(&canonical_resource_path(&relative).unwrap()), "{error}");
+    assert!(error.to_string().contains(ResourceKey::from_native(&relative).unwrap().as_str()), "{error}");
 }
 
 #[test]

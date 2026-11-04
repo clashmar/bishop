@@ -7,6 +7,7 @@ edition = "2024"
 playable-fixture = ["dep:engine_core", "dep:mlua", "dep:ron"]
 renderer-proof = ["bishop/web-gl", "dep:serde", "dep:serde_json"]
 demo-checkpoint = ["bishop/web-gl", "dep:game_lib", "dep:engine_core", "dep:ron", "dep:serde", "dep:pollster"]
+player = ["bishop/web-gl", "dep:game_lib", "dep:engine_core", "dep:ron", "dep:serde", "dep:pollster"]
 
 [dependencies]
 bishop = { path = "../bishop", default-features = false, features = ["audio"] }

@@ -3,6 +3,7 @@ use std::path::{Component, Path, PathBuf};
 use std::process::ExitCode;
 
 use engine_core::constants::paths;
+use engine_core::storage::web_site_export::{INDEX_TEMPLATE_FILE, stage_web_site};
 
 use super::{
     LUA_WASM_CXXFLAGS, WEB_WASM_TARGET, cargo_command, demo_resources_dir, run_checked,
@@ -15,6 +16,9 @@ const WEB_SHELL_WASM: &str = "web_shell.wasm";
 const WEB_SHELL_INDEX: &str = "index.html";
 const WEB_RENDERER_INDEX: &str = "renderer-proof.html";
 const WEB_DEMO_INDEX: &str = "demo-checkpoint.html";
+const WEB_PLAYER_HTML: &str = "player.html";
+const WEB_PLAYER_CONFIG: &str = "player/config.mjs";
+const WEB_PLAYER_TEMPLATE: &str = "embed-example.html";
 const WEB_SHELL_INPUT: &str = "input.js";
 const WEB_SHELL_AUDIO: &str = "audio.js";
 const PLAYABLE_CXXFLAG: &str = "-fwasm-exceptions";
@@ -32,6 +36,7 @@ enum Export {
     Game,
     Renderer,
     DemoCheckpoint,
+    Player,
 }
 
 pub(super) fn build_web_shell() -> ExitCode {
@@ -48,6 +53,39 @@ pub(super) fn build_web_renderer_proof() -> ExitCode {
 
 pub(super) fn build_web_demo_checkpoint() -> ExitCode {
     build_web(Export::DemoCheckpoint)
+}
+
+pub(super) fn build_web_player_runtime(args: &[String]) -> ExitCode {
+    if !args.is_empty() {
+        eprintln!("Usage: cargo xtask build-web-player-runtime");
+        return ExitCode::FAILURE;
+    }
+    build_web(Export::Player)
+}
+
+pub(super) fn export_web_game(args: &[String]) -> ExitCode {
+    let (resources, destination) = match parse_export_web_game_args(args) {
+        Ok(paths) => paths,
+        Err(error) => { eprintln!("{error}"); return ExitCode::FAILURE; }
+    };
+    let root = std::env::current_dir().expect("xtask must run from workspace root");
+    let runtime = web_player_stage_dir(&root);
+    if !runtime.is_dir() {
+        eprintln!("prebuilt Bishop Player runtime missing at {}; run cargo xtask build-web-player-runtime first", runtime.display());
+        return ExitCode::FAILURE;
+    }
+    match stage_web_site(&resources, &runtime, &destination) {
+        Ok(layout) => {
+            println!("Bishop web game site staged at {} (game: {})", destination.display(), layout.game_dir_name);
+            println!("serve it with: python3 -m http.server --directory {} 8000", destination.display());
+            println!("then open: http://localhost:8000/");
+            ExitCode::SUCCESS
+        }
+        Err(error) => {
+            eprintln!("web game export failed: {error}");
+            ExitCode::FAILURE
+        }
+    }
 }
 
 fn build_web(variant: Export) -> ExitCode {
@@ -110,12 +148,22 @@ fn build_web(variant: Export) -> ExitCode {
                 "web Demo checkpoint wasm build",
             )
         }
+        Export::Player => {
+            build_command.args(["--release", "--features", "player"]);
+            build_command.arg("--target-dir").arg(web_player_target_dir(&root));
+            build_command.env(LUA_WASM_CXXFLAGS, PLAYABLE_CXXFLAG);
+            (
+                web_player_build_dir(&root),
+                web_player_stage_dir(&root),
+                "reusable Bishop Player release wasm build",
+            )
+        }
     };
     if !run_checked(build_command, build_label) {
         return ExitCode::FAILURE;
     }
 
-    if matches!(variant, Export::Game | Export::Renderer | Export::DemoCheckpoint) && stage_dir.exists() {
+    if matches!(variant, Export::Game | Export::Renderer | Export::DemoCheckpoint | Export::Player) && stage_dir.exists() {
         if let Err(error) = fs::remove_dir_all(&stage_dir) {
             eprintln!("failed to clear {}: {error}", stage_dir.display());
             return ExitCode::FAILURE;
@@ -129,12 +177,14 @@ fn build_web(variant: Export) -> ExitCode {
     let html_source = match variant {
         Export::Renderer => WEB_RENDERER_INDEX,
         Export::DemoCheckpoint => WEB_DEMO_INDEX,
+        Export::Player => WEB_PLAYER_HTML,
         Export::Shell | Export::Game => WEB_SHELL_INDEX,
     };
+    let html_destination = if variant == Export::Player { WEB_PLAYER_HTML } else { WEB_SHELL_INDEX };
     let artifacts = [
         (
             root.join("web_shell").join(html_source),
-            stage_dir.join(WEB_SHELL_INDEX),
+            stage_dir.join(html_destination),
         ),
         (
             root.join("web_shell").join(WEB_SHELL_INPUT),
@@ -151,6 +201,17 @@ fn build_web(variant: Export) -> ExitCode {
     for (source, dest) in artifacts {
         if !stage_file(&source, &dest, "web shell artifact") {
             return ExitCode::FAILURE;
+        }
+    }
+
+    if variant == Export::Player {
+        for (source, destination) in [
+            (WEB_PLAYER_CONFIG, WEB_PLAYER_CONFIG),
+            (WEB_PLAYER_TEMPLATE, INDEX_TEMPLATE_FILE),
+        ] {
+            if !stage_file(&root.join("web_shell").join(source), &stage_dir.join(destination), "player runtime file") {
+                return ExitCode::FAILURE;
+            }
         }
     }
 
@@ -221,6 +282,11 @@ fn build_web(variant: Export) -> ExitCode {
         Export::Game => println!("playable web fixture staged at {}", stage_dir.display()),
         Export::Renderer => println!("Bishop WebGL2 proof staged at {}", stage_dir.display()),
         Export::DemoCheckpoint => println!("Bishop Demo checkpoint staged at {}", stage_dir.display()),
+        Export::Player => {
+            println!("reusable Bishop Player runtime staged at {}", stage_dir.display());
+            println!("export a game with: cargo xtask export-web-game --resources games/Demo/Resources --out /tmp/bishop-game-site");
+            return ExitCode::SUCCESS;
+        }
     }
     println!("serve it with:");
     println!("  python3 -m http.server --directory {} 8000", stage_dir.display());
@@ -239,6 +305,37 @@ fn web_game_target_dir(root: &Path) -> PathBuf {
 
 fn web_game_build_dir(root: &Path) -> PathBuf {
     web_game_target_dir(root).join(WEB_WASM_TARGET).join("debug")
+}
+
+fn web_player_target_dir(root: &Path) -> PathBuf {
+    root.join("target").join("web-player-build")
+}
+
+fn web_player_build_dir(root: &Path) -> PathBuf {
+    web_player_target_dir(root).join(WEB_WASM_TARGET).join("release")
+}
+
+fn web_player_stage_dir(root: &Path) -> PathBuf {
+    root.join("target").join("web-player-runtime")
+}
+
+fn parse_export_web_game_args(args: &[String]) -> Result<(PathBuf, PathBuf), String> {
+    const USAGE: &str = "Usage: cargo xtask export-web-game --resources <game/Resources> --out <new-site-dir>";
+    if args.len() != 4 {
+        return Err(USAGE.into());
+    }
+    let (mut resources, mut destination) = (None, None);
+    for pair in args.chunks_exact(2) {
+        if pair[1].is_empty() {
+            return Err(format!("empty path for {}; {USAGE}", pair[0]));
+        }
+        match pair[0].as_str() {
+            "--resources" if resources.is_none() => resources = Some(PathBuf::from(&pair[1])),
+            "--out" if destination.is_none() => destination = Some(PathBuf::from(&pair[1])),
+            _ => return Err(format!("unknown or duplicate web export option: {}; {USAGE}", pair[0])),
+        }
+    }
+    Ok((resources.ok_or(USAGE)?, destination.ok_or(USAGE)?))
 }
 
 fn web_demo_target_dir(root: &Path) -> PathBuf {

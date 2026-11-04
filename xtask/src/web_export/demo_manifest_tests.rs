@@ -1,8 +1,9 @@
-use super::demo_manifest::collect_demo_resources;
+use engine_core::storage::web_game_bundle::{WebGameBundle, WEB_GAME_MANIFEST_FILE};
+use engine_core::storage::web_game_export::{collect_game_resources, stage_web_game_resources};
 use engine_core::constants::paths;
 use engine_core::ecs::{SpriteId, TomlId};
 use engine_core::game::Game;
-use engine_core::storage::{load_full_game_from_folder, room_payload_path, save_game_to_folder, world_descriptor_path};
+use engine_core::storage::{ResourceKey, load_full_game_from_folder, room_payload_path, save_game_to_folder, world_descriptor_path};
 use engine_core::worlds::{Room, RoomId, World, WorldId};
 use std::fs;
 use std::path::Path;
@@ -42,12 +43,12 @@ fn export_when_files_are_created_in_different_order_has_same_manifest() {
     one_room_export_tree(first.path(), false);
     one_room_export_tree(second.path(), true);
 
-    let left = collect_demo_resources(first.path()).unwrap();
-    let right = collect_demo_resources(second.path()).unwrap();
+    let left = collect_game_resources(first.path()).unwrap();
+    let right = collect_game_resources(second.path()).unwrap();
 
     assert_eq!(ron::to_string(&left).unwrap(), ron::to_string(&right).unwrap());
-    assert!(!left.files.iter().any(|entry| entry.path.ends_with(".aseprite")));
-    assert!(left.files.iter().any(|entry| entry.path == paths::GAME_RON));
+    assert!(!left.files.iter().any(|entry| entry.path.as_str().ends_with(".aseprite")));
+    assert!(left.files.iter().any(|entry| entry.path.as_str() == paths::GAME_RON));
 }
 
 #[test]
@@ -57,7 +58,7 @@ fn export_when_declared_world_descriptor_is_missing_reports_path() {
     let descriptor = world_descriptor_path(root.path(), world_id);
     fs::remove_file(&descriptor).unwrap();
 
-    let error = collect_demo_resources(root.path()).unwrap_err();
+    let error = collect_game_resources(root.path()).unwrap_err();
     assert!(error.contains(&descriptor.display().to_string()), "{error}");
 }
 
@@ -68,7 +69,7 @@ fn export_when_declared_room_payload_is_missing_reports_path() {
     let payload = room_payload_path(root.path(), room_id);
     fs::remove_file(&payload).unwrap();
 
-    let error = collect_demo_resources(root.path()).unwrap_err();
+    let error = collect_game_resources(root.path()).unwrap_err();
     assert!(error.contains(&payload.display().to_string()), "{error}");
 }
 
@@ -79,7 +80,19 @@ fn export_when_registered_asset_is_missing_reports_path() {
     let image = root.path().join(paths::ASSETS_FOLDER).join("player.png");
     fs::remove_file(&image).unwrap();
 
-    let error = collect_demo_resources(root.path()).unwrap_err();
+    let error = collect_game_resources(root.path()).unwrap_err();
+    assert!(error.contains(&image.display().to_string()), "{error}");
+}
+
+#[test]
+fn export_when_missing_registered_asset_reports_generic_error() {
+    let root = TempDir::new().unwrap();
+    one_room_export_tree(root.path(), false);
+    let image = root.path().join(paths::ASSETS_FOLDER).join("player.png");
+    fs::remove_file(&image).unwrap();
+
+    let error = collect_game_resources(root.path()).unwrap_err();
+    assert!(error.contains("registered resource missing"), "{error}");
     assert!(error.contains(&image.display().to_string()), "{error}");
 }
 
@@ -89,7 +102,7 @@ fn export_when_game_manifest_is_missing_reports_path() {
     one_room_export_tree(root.path(), false);
     fs::remove_file(root.path().join(paths::GAME_RON)).unwrap();
 
-    let error = collect_demo_resources(root.path()).unwrap_err();
+    let error = collect_game_resources(root.path()).unwrap_err();
     assert!(error.contains(paths::GAME_RON), "{error}");
 }
 
@@ -112,9 +125,9 @@ fn export_when_text_registry_is_language_neutral_stages_language_file() {
     one_room_export_tree(root.path(), false);
     let physical = register_language_neutral_text(root.path());
 
-    let manifest = collect_demo_resources(root.path()).unwrap();
+    let manifest = collect_game_resources(root.path()).unwrap();
     let relative = physical.strip_prefix(root.path()).unwrap();
-    assert!(manifest.files.iter().any(|entry| Path::new(&entry.path) == relative));
+    assert!(manifest.files.iter().any(|entry| entry.path == ResourceKey::from_native(relative).unwrap()));
 }
 
 #[test]
@@ -124,7 +137,7 @@ fn export_when_resolved_text_file_is_missing_reports_physical_path() {
     let physical = register_language_neutral_text(root.path());
     fs::remove_file(&physical).unwrap();
 
-    let error = collect_demo_resources(root.path()).unwrap_err();
+    let error = collect_game_resources(root.path()).unwrap_err();
     assert!(error.contains(&physical.display().to_string()), "{error}");
 }
 
@@ -137,6 +150,56 @@ fn export_when_resource_is_a_symlink_rejects_it() {
     let link = root.path().join(paths::SCRIPTS_FOLDER).join("external.lua");
     std::os::unix::fs::symlink(outside.path(), &link).unwrap();
 
-    let error = collect_demo_resources(root.path()).unwrap_err();
+    let error = collect_game_resources(root.path()).unwrap_err();
     assert!(error.contains(&link.display().to_string()), "{error}");
+}
+
+#[test]
+fn export_when_selected_game_is_staged_writes_versioned_bundle() {
+    let source = TempDir::new().unwrap();
+    let output = TempDir::new().unwrap();
+    one_room_export_tree(source.path(), false);
+    let destination = output.path().join("selected-game");
+
+    stage_web_game_resources(source.path(), &destination).unwrap();
+
+    let bundle: WebGameBundle = ron::from_str(
+        &fs::read_to_string(destination.join(WEB_GAME_MANIFEST_FILE)).unwrap(),
+    ).unwrap();
+    bundle.validate().unwrap();
+    assert_eq!(bundle.resources, collect_game_resources(source.path()).unwrap());
+    for entry in &bundle.resources.files {
+        assert_eq!(
+            fs::read(source.path().join(entry.path.as_path())).unwrap(),
+            fs::read(destination.join(entry.path.as_path())).unwrap(),
+        );
+    }
+}
+
+#[test]
+fn export_when_target_exists_preserves_existing_files() {
+    let source = TempDir::new().unwrap();
+    let output = TempDir::new().unwrap();
+    one_room_export_tree(source.path(), false);
+    let destination = output.path().join("selected-game");
+    fs::create_dir(&destination).unwrap();
+    let sentinel = destination.join("keep.txt");
+    fs::write(&sentinel, "existing export").unwrap();
+
+    let error = stage_web_game_resources(source.path(), &destination).unwrap_err();
+
+    assert!(error.contains(&destination.display().to_string()), "{error}");
+    assert_eq!(fs::read_to_string(sentinel).unwrap(), "existing export");
+}
+
+#[test]
+fn export_when_target_is_inside_resources_rejects_it_without_writing() {
+    let source = TempDir::new().unwrap();
+    one_room_export_tree(source.path(), false);
+    let destination = source.path().join(paths::ASSETS_FOLDER).join("web-export");
+
+    let error = stage_web_game_resources(source.path(), &destination).unwrap_err();
+
+    assert!(error.contains("inside authored Resources"), "{error}");
+    assert!(!destination.exists());
 }

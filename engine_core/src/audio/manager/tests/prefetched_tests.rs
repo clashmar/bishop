@@ -1,7 +1,7 @@
 use super::AudioManager;
 use crate::audio::test_utils::TestBackend;
 use crate::constants::paths;
-use crate::storage::{ResourceEntry, ResourceManifest, ResourceSource};
+use crate::storage::{ResourceEntry, ResourceKey, ResourceManifest, ResourceSource};
 use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
@@ -20,8 +20,7 @@ fn claimed_sound_when_wav_is_prefetched_decodes_without_file_read_pool() {
     writer.finalize().unwrap();
     let bytes = fs::read(file.path()).unwrap();
     let relative = Path::new(paths::AUDIO_FOLDER).join("sfx/probe.wav");
-    let key = relative.components().map(|part| part.as_os_str().to_str().unwrap())
-        .collect::<Vec<_>>().join("/");
+    let key = ResourceKey::from_native(&relative).unwrap();
     let manifest = ResourceManifest { files: vec![ResourceEntry {
         path: key.clone(), byte_len: bytes.len(),
     }] };

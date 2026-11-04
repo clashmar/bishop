@@ -1,6 +1,8 @@
+mod asset;
 #[cfg(test)]
 mod tests;
 
+use self::asset::browser_entry_mode;
 use crate::engine::{Engine, EngineBuilder, EngineEntryMode, GameInstance, PreparedGameInstance};
 use crate::scripting::script_system::ScriptSystem;
 use crate::transitions::world_transitions::{TraversalRequest, WorldSelector, WorldTransitionManager};
@@ -22,15 +24,34 @@ pub struct PreparedBrowserGame {
 
 /// Validates authored resources and prepares the existing game instance for browser play.
 pub fn prepare_browser_game(
+    game: Game,
+    source: ResourceSource,
+    textures: &impl TextureLoader,
+) -> Result<PreparedBrowserGame, String> {
+    let entry_mode = browser_entry_mode(&source)?;
+    prepare_browser_game_with_entry_mode(game, source, textures, entry_mode)
+}
+
+/// Prepares a direct-play developer checkpoint without the authored title flow.
+pub fn prepare_browser_game_direct(
+    game: Game,
+    source: ResourceSource,
+    textures: &impl TextureLoader,
+) -> Result<PreparedBrowserGame, String> {
+    prepare_browser_game_with_entry_mode(game, source, textures, EngineEntryMode::Playing)
+}
+
+fn prepare_browser_game_with_entry_mode(
     mut game: Game,
     source: ResourceSource,
     textures: &impl TextureLoader,
+    entry_mode: EngineEntryMode,
 ) -> Result<PreparedBrowserGame, String> {
     if !matches!(&source, ResourceSource::Prefetched(_)) {
         return Err("browser game requires prefetched authored resources".into());
     }
     game.runtime_source = Some(source.clone());
-    let builder = EngineBuilder::new();
+    let builder = EngineBuilder::new().entry_mode(entry_mode);
     builder.register_save_context()
         .map_err(|error| format!("register save Lua context: {error}"))?;
     install_prefetched(&builder.lua, source.prefetched_lua_sources()
@@ -73,7 +94,7 @@ pub fn assemble_browser_game(
     let save_runtime = crate::engine::SaveRuntime::new(
         builder.save_providers.clone(), builder.pending_quit_to_title.clone(),
     );
-    let mut engine = builder.entry_mode(EngineEntryMode::Playing).quit_to_title_enabled(false)
+    let mut engine = builder.quit_to_title_enabled(false)
         .into_engine(game_instance, ctx, save_runtime, false)?;
     engine.rebuild_camera_from_loaded_state();
     Ok(engine)

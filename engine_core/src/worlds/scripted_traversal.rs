@@ -120,7 +120,7 @@ mod tests {
     use crate::scripting::world_navigation_lua::{collect_entry_handles, EntryHandle};
     use crate::storage::path_utils::scripts_folder;
     use crate::storage::test_utils::{TestGameFolder, game_fs_test_lock};
-    use crate::storage::{ResourceEntry, ResourceManifest, ResourceSource};
+    use crate::storage::{ResourceEntry, ResourceKey, ResourceManifest, ResourceSource};
     use crate::worlds::{Room, RoomLayer, World, WorldId};
     use std::fs;
     use std::path::Path;
@@ -242,8 +242,7 @@ mod tests {
             script_id, ..Default::default()
         }).with_current_room(RoomId(1)).finish();
         let relative = Path::new(crate::constants::paths::SCRIPTS_FOLDER).join("portal.lua");
-        let key = relative.components().map(|component| component.as_os_str().to_str().unwrap())
-            .collect::<Vec<_>>().join("/");
+        let key = ResourceKey::from_native(&relative).unwrap();
         let bytes = b"return { init = function(self) self.entity:move_to_entry(Entries.SecondWorld.Start) end }";
         let source = ResourceSource::from_prefetched(ResourceManifest { files: vec![
             ResourceEntry { path: key.clone(), byte_len: bytes.len() },
