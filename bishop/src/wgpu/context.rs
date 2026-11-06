@@ -13,10 +13,10 @@ use super::render::{
     create_texture_bind_group_layout, BishopRenderTarget, CameraUniforms, FullscreenQuadRenderer,
     PrimitiveRenderer, TextRenderer, TextureRenderer,
 };
-use super::state::{GraphicsState, GraphicsStateError, InputState, TimeState};
+use super::state::{GraphicsState, GraphicsStateError, TimeState};
 use crate::Rect;
 use crate::camera::Camera2D;
-use crate::input::MouseWheelKind;
+use crate::input::{KeyboardMouseState, MouseWheelKind};
 use crate::types::Color;
 use crate::window::CursorIcon;
 
@@ -39,7 +39,7 @@ enum DrawSegment {
 /// Wgpu backend implementation for bishop.
 pub struct WgpuContext {
     pub(crate) graphics: GraphicsState,
-    pub(crate) input: InputState,
+    pub(crate) input: KeyboardMouseState,
     pub(crate) time: TimeState,
     pub(crate) window: Arc<Window>,
     pub(crate) clear_color: Option<Color>,
@@ -82,7 +82,7 @@ impl WgpuContext {
 
         Ok(Self {
             graphics,
-            input: InputState::new(),
+            input: KeyboardMouseState::new(),
             time: TimeState::new(),
             window,
             clear_color: None,

@@ -62,7 +62,7 @@ impl EditorAction {
             EditorAction::NewGame => "New Game".to_string(),
             EditorAction::Save => "Save".to_string(),
             EditorAction::SaveAs => "Save As".to_string(),
-            EditorAction::Export => "Export".to_string(),
+            EditorAction::Export => "Export…".to_string(),
             EditorAction::Undo => "Undo".to_string(),
             EditorAction::Redo => "Redo".to_string(),
             EditorAction::ChangeSaveRoot => "Change Save Root".to_string(),

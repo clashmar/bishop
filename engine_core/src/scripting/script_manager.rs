@@ -1,12 +1,15 @@
 use crate::assets::asset_manager::{AssetManager, IdPathAssetManager};
 use crate::assets::asset_registry::AssetKey;
 use crate::assets::AssetRegistry;
+use crate::constants::paths;
 use crate::ecs::ScriptId;
 use crate::ecs::entity::Entity;
 use crate::hydration::{EvictError, Hydratable};
 use crate::scripting::event_bus::EventBus;
+use crate::scripting::file_modules;
 use crate::scripting::lua_constants::{lua_dirs, lua_entity, lua_fields, lua_files};
-use crate::storage::path_utils::{scripts_folder, themes_folder};
+use crate::storage::path_utils::scripts_folder;
+use crate::storage::ResourceSource;
 use crate::*;
 use mlua::Function;
 use mlua::Lua;
@@ -18,6 +21,7 @@ use serde::Serialize;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::fs;
+use std::io::{self, ErrorKind};
 use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -55,6 +59,8 @@ pub struct ScriptManager {
     pub next_script_id: usize,
     #[serde(skip)]
     coordinator_refs: HashMap<ScriptId, usize>,
+    #[serde(skip)]
+    source: Option<ResourceSource>,
 }
 
 impl ScriptManager {
@@ -71,7 +77,13 @@ impl ScriptManager {
             path_to_script_id: HashMap::new(),
             next_script_id: 1,
             coordinator_refs: HashMap::new(),
+            source: None,
         }
+    }
+
+    /// Sets the source used for registered script reads at runtime.
+    pub fn set_source(&mut self, source: Option<ResourceSource>) {
+        self.source = source;
     }
 
     /// Returns the number of loaded script definitions.
@@ -180,22 +192,31 @@ impl ScriptManager {
         })
     }
 
-    /// Loads and returns a Lua table from disk by id.
+    /// Reads a registered script's authored source from its runtime resource origin.
+    pub fn read_script_source(&self, id: ScriptId) -> io::Result<String> {
+        let relative = self.script_id_to_path.get(&id)
+            .ok_or_else(|| io::Error::new(ErrorKind::NotFound, format!("Unknown script id: {id:?}")))?;
+        if let Some(source) = &self.source {
+            let path = Path::new(paths::SCRIPTS_FOLDER).join(relative);
+            let bytes = source.read_required(&path)?;
+            String::from_utf8(bytes).map_err(|error| {
+                io::Error::new(ErrorKind::InvalidData, format!("invalid UTF-8 in {}: {error}", path.display()))
+            })
+        } else {
+            let path = scripts_folder().join(relative);
+            fs::read_to_string(&path).map_err(|error| {
+                io::Error::new(error.kind(), format!("could not read {}: {error}", path.display()))
+            })
+        }
+    }
+
+    /// Loads and returns a Lua table from the registered source by id.
     pub fn get_table_from_id(&mut self, lua: &Lua, id: ScriptId) -> LuaResult<Table> {
-        let rel_path = self
-            .script_id_to_path
-            .get(&id)
-            .ok_or_else(|| mlua::Error::RuntimeError(format!("Unknown script id: {:?}.", id)))?;
-
-        let abs_path = scripts_folder().join(rel_path);
-
-        let src =
-            fs::read_to_string(abs_path).map_err(|e| mlua::Error::ExternalError(Arc::new(e)))?;
-
-        let path_name = rel_path.display().to_string();
-
-        let table: Table = lua.load(&src).set_name(path_name).eval()?;
-        Ok(table)
+        let src = self.read_script_source(id)
+            .map_err(|error| mlua::Error::ExternalError(Arc::new(error)))?;
+        let path = self.path_for_id(id)
+            .ok_or_else(|| mlua::Error::RuntimeError(format!("Unknown script id: {id:?}")))?;
+        lua.load(&src).set_name(path.display().to_string()).eval()
     }
 
     /// Returns the id for `path`, loading it if necessary.
@@ -276,7 +297,7 @@ impl ScriptManager {
         lua: &Lua,
     ) {
         Self::init_editor_metadata(asset_registry, script_manager);
-        Self::load_to_package(lua);
+        file_modules::install(lua).expect("Cannot install Lua module loader");
     }
 
     /// Initializes editor script metadata without requiring a Lua context.
@@ -286,33 +307,26 @@ impl ScriptManager {
     }
 
     /// Loads the shared globals prelude if the current game provides one.
-    pub fn load_globals_prelude(lua: &Lua) -> LuaResult<()> {
-        let globals_path = scripts_folder()
-            .join(lua_dirs::ENGINE)
-            .join(lua_files::GLOBALS);
-        let src = match fs::read_to_string(globals_path) {
-            Ok(src) => src,
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(()),
-            Err(error) => return Err(mlua::Error::ExternalError(Arc::new(error))),
+    pub fn load_globals_prelude(lua: &Lua, source: Option<&ResourceSource>) -> LuaResult<()> {
+        if !matches!(source, Some(ResourceSource::Prefetched(_))) {
+            file_modules::install(lua)?;
+        }
+        let relative = Path::new(paths::SCRIPTS_FOLDER).join(lua_dirs::ENGINE).join(lua_files::GLOBALS);
+        let src = if let Some(source) = source {
+            let Some(bytes) = source.read_optional(&relative)
+                .map_err(|error| mlua::Error::ExternalError(Arc::new(error)))?
+            else { return Ok(()) };
+            String::from_utf8(bytes).map_err(|error| mlua::Error::RuntimeError(format!(
+                "invalid UTF-8 in {}: {error}", relative.display()
+            )))?
+        } else {
+            match fs::read_to_string(scripts_folder().join(lua_dirs::ENGINE).join(lua_files::GLOBALS)) {
+                Ok(src) => src,
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(()),
+                Err(error) => return Err(mlua::Error::ExternalError(Arc::new(error))),
+            }
         };
-        lua.load(&src).exec()
-    }
-
-    /// Load all .lua files to the package.path.
-    pub fn load_to_package(lua: &Lua) {
-        let scripts_dir = scripts_folder().to_string_lossy().replace('\\', "/");
-        let themes_dir = themes_folder().to_string_lossy().replace('\\', "/");
-
-        omni_debug!("package.path loaded from: {} {}", scripts_dir, themes_dir);
-
-        let add_path = format!(
-            r#"
-            local p = package.path
-            package.path = p .. ';{scripts_dir}/?.lua;{scripts_dir}/?/init.lua;{themes_dir}/?.lua'
-            "#,
-        );
-
-        lua.load(&add_path).exec().expect("Cannot set package.path");
+        lua.load(&src).set_name(relative.display().to_string()).exec()
     }
 
     /// Calculates the next script id.

@@ -1,6 +1,7 @@
 // Keep `mod.rs` limited to frame orchestration. Feature-specific methods belong in focused
 // helper modules alongside the subsystem it serves, or in a new engine sub-module.
 mod audio_events;
+mod browser_menu;
 pub mod engine_builder;
 pub mod game_instance;
 mod render;
@@ -37,6 +38,7 @@ use engine_core::diagnostics::TraversalResidencyDiagnostics;
 use engine_core::logging::omni_error;
 use engine_core::menu::{GameMenuHandler, MenuInputPolicy, MenuManager, MenuSessionAction};
 use engine_core::rendering::{RenderSystem, SmoothedDtState, smooth_dt, snap_dt};
+use engine_core::storage::ResourceSource;
 use engine_core::task::BackgroundService;
 use engine_core::text::update_speech_timers;
 use engine_core::worlds::RoomLayer;
@@ -190,12 +192,17 @@ impl Engine {
         lua: Lua,
         cfg: EngineRuntimeConfig,
         render_system: RenderSystem,
+        mut menu_manager: MenuManager,
     ) -> Self {
-        let mut menu_manager = MenuManager::new();
-        menu_manager.load_templates_from_disk();
         menu_manager.set_action_handler(GameMenuHandler);
 
         let game_state = apply_entry_mode(&mut menu_manager, cfg.entry_mode);
+        let mut audio_manager = AudioManager::new::<PlatformAudioBackend>();
+        if let Some(source @ ResourceSource::Prefetched(_)) =
+            game_instance.borrow().game.runtime_source.as_ref()
+        {
+            audio_manager.set_source(source.clone());
+        }
 
         let mut engine = Self {
             game_instance,
@@ -213,7 +220,7 @@ impl Engine {
             accumulator: 0.0,
             physics_runtime: PhysicsRuntime::default(),
             smoothed_dt: SmoothedDtState::default(),
-            audio_manager: AudioManager::new::<PlatformAudioBackend>(),
+            audio_manager,
         };
 
         {
@@ -410,8 +417,8 @@ impl Engine {
             }
             RequestedSessionAction::CloseApp => {
                 let mut ctx_ref = ctx.borrow_mut();
-                ctx_ref.set_close_requested(true);
-                ctx_ref.set_exit_confirmed(true);
+                PlatformControl::set_close_requested(&mut *ctx_ref, true);
+                PlatformControl::set_exit_confirmed(&mut *ctx_ref, true);
             }
         }
 

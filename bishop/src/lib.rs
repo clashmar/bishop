@@ -31,6 +31,7 @@ pub mod camera;
 pub mod draw;
 pub mod input;
 pub mod material;
+pub mod platform;
 pub mod text;
 pub mod texture;
 pub mod time;
@@ -40,19 +41,31 @@ pub mod window;
 #[cfg(feature = "wgpu")]
 pub mod wgpu;
 
+#[cfg(feature = "web-gl")]
+pub mod web;
+
 #[cfg(feature = "audio")]
 pub mod audio;
 
 pub use camera::*;
 pub use draw::*;
 pub use input::*;
+pub use platform::PlatformControl;
 pub use text::*;
 pub use texture::*;
 pub use time::*;
 pub use types::*;
 pub use window::*;
 
+#[cfg(any(
+    all(feature = "wgpu", not(target_os = "emscripten")),
+    all(feature = "web-gl", target_os = "emscripten", not(feature = "wgpu"))
+))]
 use std::cell::RefCell;
+#[cfg(any(
+    all(feature = "wgpu", not(target_os = "emscripten")),
+    all(feature = "web-gl", target_os = "emscripten", not(feature = "wgpu"))
+))]
 use std::rc::Rc;
 
 #[cfg(feature = "wgpu")]
@@ -72,6 +85,10 @@ impl<T: Input + Draw + Text + Camera + Window + Time + RenderOps + TextureLoader
 }
 
 /// Trait for applications that can be run by bishop.
+#[cfg(any(
+    all(feature = "wgpu", not(target_os = "emscripten")),
+    all(feature = "web-gl", target_os = "emscripten", not(feature = "wgpu"))
+))]
 pub trait BishopApp {
     /// Called once after the backend is ready but before the main loop.
     /// Use for async initialization (loading assets, setting up state, etc.).
@@ -88,7 +105,7 @@ pub trait BishopApp {
 }
 
 /// Error type for the wgpu run function.
-#[cfg(feature = "wgpu")]
+#[cfg(all(feature = "wgpu", not(target_os = "emscripten")))]
 #[derive(Debug)]
 pub enum RunError {
     /// Event loop creation or execution failed.
@@ -99,7 +116,7 @@ pub enum RunError {
     Window(String),
 }
 
-#[cfg(feature = "wgpu")]
+#[cfg(all(feature = "wgpu", not(target_os = "emscripten")))]
 impl std::fmt::Display for RunError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -110,11 +127,11 @@ impl std::fmt::Display for RunError {
     }
 }
 
-#[cfg(feature = "wgpu")]
+#[cfg(all(feature = "wgpu", not(target_os = "emscripten")))]
 impl std::error::Error for RunError {}
 
 /// Runs a BishopApp with the wgpu backend.
-#[cfg(feature = "wgpu")]
+#[cfg(all(feature = "wgpu", not(target_os = "emscripten")))]
 pub fn run_wgpu<A: BishopApp + 'static>(
     config: window::WindowConfig,
     app: A,
@@ -154,7 +171,7 @@ pub fn run_wgpu<A: BishopApp + 'static>(
 ///     run_backend(config, MyApp)
 /// }
 /// ```
-#[cfg(feature = "wgpu")]
+#[cfg(all(feature = "wgpu", not(target_os = "emscripten")))]
 pub fn run_backend<A: BishopApp + 'static>(
     config: window::WindowConfig,
     app: A,
@@ -165,12 +182,17 @@ pub fn run_backend<A: BishopApp + 'static>(
 /// The context type for the active graphics backend.
 ///
 /// This is a type alias that resolves to:
-/// - `Rc<RefCell<WgpuContext>>` when the `wgpu` feature is enabled
+/// - `Rc<RefCell<WgpuContext>>` on native wgpu builds
+/// - `Rc<RefCell<WebContext>>` on Emscripten web-gl builds
 ///
 /// Use this at application entry points (main.rs) to create the context.
 /// For function parameters, prefer `impl BishopContext` for flexibility.
-#[cfg(feature = "wgpu")]
+#[cfg(all(feature = "wgpu", not(target_os = "emscripten")))]
 pub type PlatformContext = Rc<RefCell<wgpu::WgpuContext>>;
+
+/// The Emscripten WebGL2 platform context.
+#[cfg(all(feature = "web-gl", target_os = "emscripten", not(feature = "wgpu")))]
+pub type PlatformContext = Rc<RefCell<web::WebContext>>;
 
 /// Prelude module for convenient glob imports.
 ///
@@ -184,24 +206,29 @@ pub mod prelude {
     pub use crate::draw::*;
     pub use crate::input::*;
     pub use crate::material::*;
+    pub use crate::platform::PlatformControl;
     pub use crate::text::*;
     pub use crate::texture::*;
     pub use crate::time::*;
     pub use crate::types::*;
     pub use crate::window::*;
-    pub use crate::BishopApp;
+    #[cfg(any(
+        all(feature = "wgpu", not(target_os = "emscripten")),
+        all(feature = "web-gl", target_os = "emscripten", not(feature = "wgpu"))
+    ))]
+    pub use crate::{BishopApp, PlatformContext};
     pub use crate::BishopContext;
     pub use glam::{vec4, Vec2, Vec3};
 
     #[cfg(feature = "wgpu")]
     pub use crate::wgpu::WgpuContext;
 
-    #[cfg(feature = "wgpu")]
-    pub use crate::{run_backend, run_wgpu, PlatformContext, RunError};
+    #[cfg(all(feature = "wgpu", not(target_os = "emscripten")))]
+    pub use crate::{run_backend, run_wgpu, RunError};
 
     #[cfg(feature = "audio")]
     pub use crate::audio::AudioBackend;
 
-    #[cfg(feature = "audio-cpal")]
+    #[cfg(feature = "audio")]
     pub use crate::audio::PlatformAudioBackend;
 }

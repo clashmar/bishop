@@ -4,14 +4,15 @@ use engine_core::engine_global::set_game_name;
 use engine_core::hydration::Hydratable;
 use engine_core::scripting::lua_constants::{lua_dirs, lua_fields, lua_files};
 use engine_core::storage::test_utils::{game_fs_test_lock, TestGameFolder};
+use engine_core::storage::game_folder;
 use engine_core::worlds::*;
 use std::fs;
 
 fn install_callback_module(lua: &Lua) {
-    lua.load(
-        r#"
-        callback_hits = 0
-        package.preload["save_manager"] = function()
+    let module: Table = lua
+        .load(
+            r#"
+            callback_hits = 0
             return {
                 on_title_menu_open = function()
                     callback_hits = callback_hits + 1
@@ -22,11 +23,20 @@ fn install_callback_module(lua: &Lua) {
                     end,
                 },
             }
-        end
-        "#,
-    )
-    .exec()
-    .unwrap();
+            "#,
+        )
+        .eval()
+        .unwrap();
+    let require = lua
+        .create_function(move |_, name: String| {
+            if name == "save_manager" {
+                Ok(module.clone())
+            } else {
+                Err(mlua::Error::RuntimeError(format!("unknown test module: {name}")))
+            }
+        })
+        .unwrap();
+    lua.globals().set("require", require).unwrap();
 }
 
 fn game_with_two_worlds() -> Game {

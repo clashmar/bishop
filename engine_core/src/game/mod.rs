@@ -9,6 +9,7 @@ pub use id_allocator::*;
 pub use startup_mode::*;
 
 use crate::assets::{sprite_manager::SpriteManager, AssetRegistry};
+use crate::constants::paths;
 use crate::ecs::ecs::Ecs;
 #[cfg(feature = "editor")]
 use crate::ecs::{get_root_entities_in_set, SpriteId};
@@ -16,8 +17,9 @@ use crate::ecs::{CurrentRoom, Entity};
 use crate::engine_global::set_game_name;
 use crate::hydration::HydrationCoordinator;
 use crate::omni_error;
-use crate::prefab::{load_prefab_manager, PrefabManager};
+use crate::prefab::{load_prefab_manager, load_prefab_manager_from_source, PrefabManager};
 use crate::scripting::script_manager::ScriptManager;
+use crate::storage::ResourceSource;
 use crate::worlds::room::RoomId;
 use crate::worlds::{WorldDirectorySnapshot, world::*};
 use crate::worlds::transition::OverlayFrame;
@@ -74,9 +76,14 @@ pub struct Game {
     /// Prefab manager for the game.
     #[serde(skip)]
     pub prefab_manager: PrefabManager,
+    /// Origin for deferred room hydration; never serialized into authored data.
+    #[serde(skip)]
+    pub runtime_source: Option<ResourceSource>,
     /// Id of the currently active world. `None` means no world is active.
     /// `WorldId(0)` is used as a dummy when no worlds exist.
     pub current_world_id: Option<WorldId>,
+    /// World entered when starting a new game, independent of editor navigation.
+    pub start_world_id: Option<WorldId>,
     /// Top level map of the whole game.
     pub game_map: GameMap,
     #[serde(skip)]
@@ -102,7 +109,9 @@ impl Default for Game {
             script_manager: ScriptManager::default(),
             text_manager: TextManager::default(),
             prefab_manager: PrefabManager::default(),
+            runtime_source: None,
             current_world_id: Some(WorldId(1)),
+            start_world_id: None,
             game_map: GameMap::default(),
             id_allocator: IdAllocator::default(),
             overlay_stack: Vec::new(),
@@ -265,8 +274,18 @@ impl Game {
     pub fn add_world(&mut self, mut world: World) {
         world.rebuild_room_grid();
         self.current_world_id = Some(world.id);
+        self.start_world_id.get_or_insert(world.id);
         self.worlds.push(world);
         self.rebuild_world_index();
+    }
+
+    /// Sets the world entered when starting a new game.
+    pub fn set_start_world(&mut self, id: WorldId) -> Result<(), String> {
+        if self.get_world(id).is_none() {
+            return Err(format!("cannot start in missing world {id:?}"));
+        }
+        self.start_world_id = Some(id);
+        Ok(())
     }
 
     /// Switch the editor to a different world by its id.
@@ -333,6 +352,9 @@ impl Game {
                 .map(|w| w.id)
                 .or_else(|| Some(WorldId::default()));
         }
+        if self.start_world_id == Some(id) {
+            self.start_world_id = self.worlds().first().map(|world| world.id);
+        }
 
         let mut ctx = self.ctx_mut();
         for entity in root_entities {
@@ -360,6 +382,7 @@ impl Game {
         set_game_name(self.name.clone());
         self.asset_registry.init_editor_metadata();
         SpriteManager::init_manager(loader, self);
+        self.script_manager.set_source(self.runtime_source.clone());
         ScriptManager::init_manager(&self.asset_registry, &mut self.script_manager, lua);
         self.init_text_manager();
         self.reload_prefab_manager();
@@ -370,24 +393,35 @@ impl Game {
     }
 
     /// Initializes runtime state for the game without eagerly hydrating all textures.
-    pub fn initialize_runtime(&mut self, lua: &Lua) {
+    pub fn initialize_runtime(&mut self, lua: &Lua) -> Result<(), String> {
         self.id_allocator = IdAllocator::from_game(self);
         set_game_name(self.name.clone());
         self.asset_registry.init_editor_metadata();
         SpriteManager::init_runtime_manager(self);
+        self.script_manager.set_source(self.runtime_source.clone());
         ScriptManager::init_manager(&self.asset_registry, &mut self.script_manager, lua);
         self.init_text_manager();
-        self.reload_prefab_manager();
+        if let Some(source @ ResourceSource::Prefetched(_)) = self.runtime_source.as_ref() {
+            self.prefab_manager = load_prefab_manager_from_source(&mut self.asset_registry, source)
+                .map_err(|error| format!("failed to load browser prefabs: {error}"))?;
+        } else {
+            self.reload_prefab_manager();
+        }
         self.rebuild_world_index();
         for world in self.worlds_mut() {
             world.rebuild_room_grid();
         }
+        Ok(())
     }
 
     /// Initializes the text manager with the correct path.
     pub fn init_text_manager(&mut self) {
-        let text_root = text_folder();
-        self.text_manager.set_text_root(text_root);
+        if let Some(source @ ResourceSource::Prefetched(_)) = self.runtime_source.as_ref() {
+            self.text_manager.set_prefetched_source(paths::TEXT_FOLDER.into(), source.clone());
+        } else {
+            let text_root = text_folder();
+            self.text_manager.set_text_root(text_root);
+        }
     }
 
     /// Reloads the prefab manager for the current game from disk.

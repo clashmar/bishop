@@ -266,6 +266,8 @@ impl Editor {
             ..Self::default()
         };
         self.load_prefab_palette_state();
+        self.grid_renderer = Some(GridRenderer::new(ctx));
+        self.register_modal_handlers();
 
         // Render system always needs a resize after switch
         let cur_screen = (ctx.screen_width() as u32, ctx.screen_height() as u32);
@@ -281,7 +283,7 @@ impl Editor {
             if let Err(error) = register_runtime_modules(lua, &game.script_manager.event_bus) {
                 omni_error!("Lua module registration failed: {error}");
             }
-            if let Err(error) = ScriptManager::load_globals_prelude(lua) {
+            if let Err(error) = ScriptManager::load_globals_prelude(lua, None) {
                 omni_error!("Lua globals prelude failed: {error}");
             }
         });

@@ -6,5 +6,5 @@ edition = "2024"
 [dependencies]
 engine_core = { path = "../engine_core" }
 game = { path = "../game" }
-inventory = "0.1"
+inventory = "0.3"
 ron = "0.9"

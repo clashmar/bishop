@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Bishop Player</title>
+  <style>
+    body { margin: 0; background: #111827; color: #f9fafb; font-family: system-ui, sans-serif; }
+    main { max-width: 960px; margin: auto; padding: 1rem; }
+    #bishop-canvas { display: block; width: 100%; height: auto; image-rendering: pixelated; }
+    #bishop-canvas[hidden] { display: none; }
+    #status { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 8rem; overflow: auto; }
+    button { padding: 0.75rem 1.25rem; font: inherit; }
+  </style>
+</head>
+<body>
+  <main>
+    <button id="play" type="button">Play game</button>
+    <p id="hint">The game downloads only after you press Play. Click the canvas to focus controls and enable sound.</p>
+    <pre id="status" role="status" aria-live="polite">Waiting to play</pre>
+    <canvas id="bishop-canvas" width="960" height="540" tabindex="0" hidden
+            role="application" aria-label="Bishop game canvas"></canvas>
+  </main>
+  <script>
+    const status = document.getElementById('status');
+    const play = document.getElementById('play');
+    window.bishopAppendStatus = message => {
+      status.textContent += `\n${message}`;
+      status.scrollTop = status.scrollHeight;
+      if (message.startsWith('BISHOP_PLAYER_READY')) {
+        play.hidden = true;
+      }
+      console.log(message);
+    };
+    window.Module = {
+      print: window.bishopAppendStatus,
+      printErr: message => {
+        status.textContent += `\nERROR: ${message}`;
+        status.scrollTop = status.scrollHeight;
+        if (message.startsWith('BISHOP_PLAYER_ERROR')) play.textContent = 'Loading failed';
+        console.error(message);
+      },
+      onRuntimeInitialized: () => window.bishopAppendStatus('Bishop runtime initialized'),
+    };
+  </script>
+  <script src="input.js"></script>
+  <script src="audio.js"></script>
+  <script type="module">
+    import { resolveGameUrl } from './player/config.mjs';
+
+    const playButton = document.getElementById('play');
+    const statusOutput = document.getElementById('status');
+    playButton.addEventListener('click', () => {
+      try {
+        const selected = new URL(location.href).searchParams.get('game');
+        window.bishopGameManifestUrl = resolveGameUrl(selected, location.href).href;
+        playButton.disabled = true;
+        playButton.textContent = 'Loading game…';
+        document.getElementById('bishop-canvas').hidden = false;
+        window.bishopAppendStatus(`Loading ${window.bishopGameManifestUrl}`);
+        const loader = document.createElement('script');
+        loader.src = 'web_shell.js';
+        loader.onerror = () => {
+          statusOutput.textContent += '\nERROR: Bishop Player could not load web_shell.js';
+          playButton.textContent = 'Loading failed';
+        };
+        document.body.append(loader);
+      } catch (error) {
+        statusOutput.textContent = `ERROR: ${error.message}`;
+      }
+    });
+  </script>
+</body>
+</html>

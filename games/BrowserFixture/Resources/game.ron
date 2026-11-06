@@ -1,0 +1,7 @@
+(
+    version: 1,
+    name: "BrowserFixture",
+    current_world_id: None,
+    start_world_id: None,
+    world_ids: [],
+)

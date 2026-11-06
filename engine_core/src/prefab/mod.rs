@@ -2,6 +2,7 @@
 mod capture;
 mod component_sync;
 mod instance;
+mod prefetched;
 
 use crate::assets::{AssetKey, AssetRecord, AssetRegistry};
 use crate::constants::{extensions, paths};
@@ -24,6 +25,7 @@ pub use crate::ecs::components::prefab_instance::{
 #[cfg(feature = "editor")]
 pub use capture::{capture_prefab, capture_prefab_with_existing};
 pub use instance::instantiate_prefab;
+pub use prefetched::load_prefab_manager_from_source;
 #[cfg(feature = "editor")]
 pub use instance::refresh_prefab_instance;
 
@@ -235,6 +237,15 @@ pub fn load_prefab_manager(
     asset_registry: &mut AssetRegistry,
 ) -> io::Result<PrefabManager> {
     let loaded_prefabs = load_prefabs_for_game(game_name)?;
+    let prefab_folder = prefab_folder_for_game(game_name);
+    build_prefab_manager(&prefab_folder, asset_registry, loaded_prefabs)
+}
+
+fn build_prefab_manager(
+    prefab_folder: &Path,
+    asset_registry: &mut AssetRegistry,
+    loaded_prefabs: Vec<(PathBuf, PrefabAsset)>,
+) -> io::Result<PrefabManager> {
     let prefabs = loaded_prefabs
         .iter()
         .map(|(_, prefab)| (prefab.id, prefab.clone()))
@@ -247,7 +258,7 @@ pub fn load_prefab_manager(
     manager.rebuild_name_lookup()?;
 
     let mut staged_registry = asset_registry.clone();
-    reconcile_prefab_registry(game_name, &mut staged_registry, &loaded_prefabs)?;
+    reconcile_prefab_registry(prefab_folder, &mut staged_registry, &loaded_prefabs)?;
     *asset_registry = staged_registry;
 
     Ok(manager)
@@ -541,11 +552,10 @@ fn load_prefabs_for_game(game_name: &str) -> io::Result<Vec<(PathBuf, PrefabAsse
 }
 
 fn reconcile_prefab_registry(
-    game_name: &str,
+    prefab_folder: &Path,
     asset_registry: &mut AssetRegistry,
     loaded_prefabs: &[(PathBuf, PrefabAsset)],
 ) -> io::Result<()> {
-    let prefab_folder = prefab_folder_for_game(game_name);
     let loaded_prefab_keys = loaded_prefabs
         .iter()
         .map(|(_, prefab)| AssetKey::Prefab(prefab.id))
@@ -564,7 +574,7 @@ fn reconcile_prefab_registry(
 
     for (path, prefab) in loaded_prefabs {
         let key = AssetKey::Prefab(prefab.id);
-        let relative_path = prefab_relative_path(&prefab_folder, path)?;
+        let relative_path = prefab_relative_path(prefab_folder, path)?;
         let record = AssetRecord::new(PathBuf::from(paths::PREFABS_FOLDER).join(relative_path));
 
         asset_registry.replace_record(key, record)?;

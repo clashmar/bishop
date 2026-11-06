@@ -1,0 +1,26 @@
+(
+    id: (1),
+    name: "Lantern Workshop",
+    current_room_id: Some((1)),
+    meta: (
+        position: (0.0, 0.0),
+        sprite_id: None,
+    ),
+    tags: [],
+    overlay: false,
+    grid_size: 16.0,
+    gravity: 50.0,
+    singleton: (0),
+    rooms: [
+        (
+            id: (1),
+            name: "Lantern Room",
+            position: (0.0, 0.0),
+            size: (16.0, 9.0),
+            exits: [],
+            adjacent_rooms: [],
+            tags: [],
+            singleton: (1),
+        ),
+    ],
+)

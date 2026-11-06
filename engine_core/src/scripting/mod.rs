@@ -1,6 +1,7 @@
 pub mod color_bootstrap;
 pub mod event_bus;
 pub mod event_tags;
+mod file_modules;
 pub mod helpers;
 pub mod lua_constants;
 pub mod lua_project;
@@ -12,6 +13,7 @@ pub mod theme_bootstrap;
 pub mod world_navigation_lua;
 
 pub use event_bus::*;
+pub use file_modules::install_prefetched;
 pub use helpers::*;
 pub use lua_project::*;
 pub use menus_lua::*;

@@ -9,6 +9,8 @@ use std::collections::HashMap;
 use std::fs;
 use widgets::MouseButton;
 
+mod source_loading;
+
 /// Manages menu templates, active menu stack, and navigation.
 pub struct MenuManager {
     /// Registered menu templates by id.
