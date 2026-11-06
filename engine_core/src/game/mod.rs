@@ -82,6 +82,8 @@ pub struct Game {
     /// Id of the currently active world. `None` means no world is active.
     /// `WorldId(0)` is used as a dummy when no worlds exist.
     pub current_world_id: Option<WorldId>,
+    /// World entered when starting a new game, independent of editor navigation.
+    pub start_world_id: Option<WorldId>,
     /// Top level map of the whole game.
     pub game_map: GameMap,
     #[serde(skip)]
@@ -109,6 +111,7 @@ impl Default for Game {
             prefab_manager: PrefabManager::default(),
             runtime_source: None,
             current_world_id: Some(WorldId(1)),
+            start_world_id: None,
             game_map: GameMap::default(),
             id_allocator: IdAllocator::default(),
             overlay_stack: Vec::new(),
@@ -271,8 +274,18 @@ impl Game {
     pub fn add_world(&mut self, mut world: World) {
         world.rebuild_room_grid();
         self.current_world_id = Some(world.id);
+        self.start_world_id.get_or_insert(world.id);
         self.worlds.push(world);
         self.rebuild_world_index();
+    }
+
+    /// Sets the world entered when starting a new game.
+    pub fn set_start_world(&mut self, id: WorldId) -> Result<(), String> {
+        if self.get_world(id).is_none() {
+            return Err(format!("cannot start in missing world {id:?}"));
+        }
+        self.start_world_id = Some(id);
+        Ok(())
     }
 
     /// Switch the editor to a different world by its id.
@@ -338,6 +351,9 @@ impl Game {
                 .first()
                 .map(|w| w.id)
                 .or_else(|| Some(WorldId::default()));
+        }
+        if self.start_world_id == Some(id) {
+            self.start_world_id = self.worlds().first().map(|world| world.id);
         }
 
         let mut ctx = self.ctx_mut();

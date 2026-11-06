@@ -93,6 +93,11 @@ fn export_game_copy(game: &Game) -> io::Result<Game> {
     Ok(game_copy)
 }
 
+fn write_exported_game(game: &Game, target_resources: &Path) -> io::Result<()> {
+    let game_copy = export_game_copy(game)?;
+    save_game_to_folder(&game_copy, target_resources)
+}
+
 #[cfg(windows)]
 fn export_for_windows(dest_root: &Path, game: &Game) -> io::Result<PathBuf> {
     let target_package = export_target_path(dest_root, game);
@@ -122,23 +127,7 @@ fn export_for_windows(dest_root: &Path, game: &Game) -> io::Result<PathBuf> {
     let skip_extensions = &["json", "aseprite", "ase"];
     copy_dir_filtered(&src_resources, &target_resources, skip_extensions)?;
 
-    // Overwrite game.ron purging player proxies
-    let mut game_copy = export_game_copy(game)?;
-
-    // Set player spawn position from proxy before purging
-    let proxy_room = game_copy.ecs.get_store::<PlayerProxy>()
-        .data
-        .keys()
-        .find_map(|&entity| game_copy.ecs.get::<CurrentRoom>(entity).map(|room| room.room_id));
-    if let Some(start_room_id) = proxy_room {
-        game_copy.ecs.set_player_spawn_from_proxy(start_room_id);
-    }
-    game_copy.ecs.purge_proxies();
-
-    let ron_string = ron::to_string(&game_copy).map_err(|e| io::Error::other(e.to_string()))?;
-    fs::write(target_resources.join(paths::GAME_RON), ron_string)?;
-
-    // TODO: Write manifest for game
+    write_exported_game(game, &target_resources)?;
 
     // Tell the guard to keep the folder
     guard.success();
@@ -183,21 +172,7 @@ fn export_for_mac(dest_root: &Path, game: &Game) -> io::Result<PathBuf> {
     let skip_extensions = &["json", "aseprite", "ase"];
     copy_dir_filtered(&src_resources, &target_resources, skip_extensions)?;
 
-    // Overwrite game.ron purging player proxies
-    let mut game_copy = export_game_copy(game)?;
-
-    // Set player spawn position from proxy before purging
-    let proxy_room = game_copy.ecs.get_store::<PlayerProxy>()
-        .data
-        .keys()
-        .find_map(|&entity| game_copy.ecs.get::<CurrentRoom>(entity).map(|room| room.room_id));
-    if let Some(start_room_id) = proxy_room {
-        game_copy.ecs.set_player_spawn_from_proxy(start_room_id);
-    }
-    game_copy.ecs.purge_proxies();
-
-    let ron_string = ron::to_string(&game_copy).map_err(|e| io::Error::other(e.to_string()))?;
-    fs::write(target_resources.join(paths::GAME_RON), ron_string)?;
+    write_exported_game(game, &target_resources)?;
 
     // Copy Icon.icns
     omni_debug!("Copying Icon.icns.");
@@ -316,48 +291,41 @@ mod tests {
     use std::path::Path;
 
     #[test]
-    fn export_game_copy_rebuilds_world_index_for_spawn_handoff() {
+    fn native_export_keeps_start_room_proxy_for_runtime_spawn() {
+        let folder = tempfile::tempdir().unwrap();
         let room_id = RoomId(1);
-        let proxy_position = Vec2::new(28.0, 72.0);
-        let mut game = Game::with_name("Demo");
-
-        let mut world = World::new(WorldId(1), "new".to_string(), 8.0);
-        world.add_room(Room {
-            id: room_id,
-            ..Default::default()
-        });
+        let mut game = Game::with_name("ExportFixture");
+        let mut world = World::new(WorldId(1), "Start".to_string(), 8.0);
+        world.add_room(Room { id: room_id, ..Default::default() });
         game.add_world(world);
+        let mut other_world = World::new(WorldId(2), "Other".to_string(), 8.0);
+        other_world.add_room(Room { id: RoomId(2), ..Default::default() });
+        game.add_world(other_world);
+        let entry_position = Vec2::new(20.0, 16.0);
+        let entry = game.ecs.create_entity()
+            .with(WorldEntry { name: WorldEntry::START_NAME.to_string(), is_start: true })
+            .with(Transform { position: entry_position, ..Default::default() })
+            .with_current_room(room_id).finish();
+        let player_position = Vec2::new(5.0, 6.0);
+        let player = game.ecs.create_entity().with(Player)
+            .with(Transform { position: player_position, ..Default::default() }).finish();
+        let proxy_position = Vec2::new(28.0, 72.0);
+        let proxy = game.ecs.create_entity().with(PlayerProxy)
+            .with(Transform { position: proxy_position, ..Default::default() })
+            .with_current_room(room_id).finish();
 
-        let player = game.ecs.create_entity().with(Player).finish();
-        game.ecs
-            .create_entity()
-            .with(PlayerProxy)
-            .with(Transform {
-                position: proxy_position,
-                ..Default::default()
-            })
-            .with_current_room(room_id)
-            .finish();
+        write_exported_game(&game, folder.path()).unwrap();
+        let loaded = load_full_game_from_folder(folder.path()).unwrap();
 
-        let mut game_copy = export_game_copy(&game).expect("export round-trip should succeed");
-        let proxy_room = game_copy.ecs.get_store::<PlayerProxy>()
-            .data
-            .keys()
-            .find_map(|&entity| game_copy.ecs.get::<CurrentRoom>(entity).map(|room| room.room_id))
-            .expect("world index should be rebuilt after export round-trip");
-
-        game_copy.ecs.set_player_spawn_from_proxy(proxy_room);
-        game_copy.ecs.purge_proxies();
-
-        assert_eq!(
-            game_copy.ecs.get::<Transform>(player).map(|transform| transform.position),
-            Some(proxy_position)
-        );
-        assert_eq!(
-            game_copy.ecs.get::<CurrentRoom>(player).map(|room| room.room_id),
-            Some(room_id)
-        );
-        assert!(game_copy.ecs.get_store::<PlayerProxy>().data.is_empty());
+        assert_eq!(loaded.start_world_id, Some(WorldId(1)));
+        assert_eq!(loaded.current_world_id, Some(WorldId(2)));
+        assert!(loaded.get_world(WorldId(1)).is_some());
+        assert_eq!(loaded.ecs.get_player_proxy(room_id), Some(proxy));
+        assert_eq!(loaded.ecs.get::<Transform>(proxy).map(|transform| transform.position), Some(proxy_position));
+        assert_eq!(loaded.ecs.get::<Transform>(entry).unwrap().position, entry_position);
+        assert!(loaded.ecs.get::<WorldEntry>(entry).unwrap().is_start);
+        assert_eq!(loaded.ecs.get::<Transform>(player).unwrap().position, player_position);
+        assert!(loaded.ecs.get::<CurrentRoom>(player).is_none());
     }
 
     #[cfg(unix)]

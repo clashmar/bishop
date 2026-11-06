@@ -14,6 +14,7 @@ pub struct DeleteWorldCmd {
     deleted_world_index: Option<usize>,
     deleted_world: Option<World>,
     prev_current_world: Option<WorldId>,
+    prev_start_world: Option<WorldId>,
     saved_entities: Option<GroupSnapshot>,
 }
 
@@ -24,6 +25,7 @@ impl DeleteWorldCmd {
             deleted_world_index: None,
             deleted_world: None,
             prev_current_world: game.current_world_id,
+            prev_start_world: game.start_world_id,
             saved_entities: None,
         }
     }
@@ -77,6 +79,7 @@ impl EditorCommand for DeleteWorldCmd {
             }
 
             editor.game.current_world_id = self.prev_current_world;
+            editor.game.start_world_id = self.prev_start_world;
 
             if let Some(saved) = self.saved_entities.take() {
                 let ctx = &mut editor.game.ctx_mut();
@@ -150,6 +153,7 @@ mod tests {
         with_editor(|editor| {
             assert_eq!(editor.game.worlds().len(), 2);
             assert_eq!(editor.game.current_world_id, Some(extra_world_id));
+            assert_eq!(editor.game.start_world_id, Some(extra_world_id));
             assert!(!editor.game.ecs.has::<CurrentRoom>(entity));
             assert!(!editor.game.ecs.has::<Name>(entity));
         });
@@ -162,6 +166,7 @@ mod tests {
             assert_eq!(editor.game.worlds()[1].id, extra_world_id);
             assert_eq!(editor.game.worlds()[2].id, second_extra_world_id);
             assert_eq!(editor.game.current_world_id, Some(world_id));
+            assert_eq!(editor.game.start_world_id, Some(world_id));
             assert!(editor.game.ecs.has::<CurrentRoom>(entity));
             assert!(editor.game.ecs.has::<Name>(entity));
             assert_eq!(

@@ -92,6 +92,7 @@ pub fn save_game_to_folder(game: &Game, folder: &Path) -> io::Result<()> {
         version: game.version,
         name: game.name.clone(),
         current_world_id: game.current_world_id,
+        start_world_id: game.start_world_id,
         world_ids,
     };
     let manifest_ron =
@@ -403,7 +404,9 @@ mod tests {
     #[test]
     fn load_full_game_from_folder_preserves_current_world_and_room_singletons() {
         let folder = TempDir::new().unwrap();
-        let original = fully_loaded_multi_world_test_game();
+        let mut original = fully_loaded_multi_world_test_game();
+        original.select_world(crate::worlds::WorldId(1));
+        original.set_start_world(crate::worlds::WorldId(2)).unwrap();
         let world_singleton = original.current_world().singleton;
         let room_singleton = original.current_world().current_room().unwrap().singleton;
         save_game_to_folder(&original, folder.path()).unwrap();
@@ -412,7 +415,8 @@ mod tests {
         let world = loaded.current_world();
         let room = world.current_room().unwrap();
 
-        assert_eq!(loaded.current_world_id, Some(WorldId(2)));
+        assert_eq!(loaded.current_world_id, Some(WorldId(1)));
+        assert_eq!(loaded.start_world_id, Some(WorldId(2)));
         assert_eq!(world.singleton, world_singleton);
         assert_eq!(room.singleton, room_singleton);
         assert_ne!(world.singleton, Entity::default());

@@ -14,13 +14,14 @@ pub fn load_game_shell_from_source(source: &ResourceSource) -> io::Result<Game> 
     let manifest: GameDataManifest = read_ron(source, Path::new(paths::GAME_RON))?;
     let mut game = Game::with_name(manifest.name);
     game.version = manifest.version;
-    game.current_world_id = manifest.current_world_id;
     game.runtime_source = Some(source.clone());
 
     for world_id in manifest.world_ids {
         let descriptor: WorldDescriptor = read_ron(source, &world_descriptor_path(Path::new(""), world_id))?;
         game.add_world(World::from_descriptor(descriptor));
     }
+    game.current_world_id = manifest.current_world_id;
+    game.start_world_id = manifest.start_world_id;
     game.rebuild_world_index();
 
     if let Some(ecs) = read_optional_ron(source, Path::new(paths::ECS_RON))? {

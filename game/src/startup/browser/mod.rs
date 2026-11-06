@@ -5,16 +5,13 @@ mod tests;
 use self::asset::browser_entry_mode;
 use crate::engine::{Engine, EngineBuilder, EngineEntryMode, GameInstance, PreparedGameInstance};
 use crate::scripting::script_system::ScriptSystem;
-use crate::transitions::world_transitions::{TraversalRequest, WorldSelector, WorldTransitionManager};
 use bishop::prelude::{PlatformContext, TextureLoader};
 use engine_core::assets::AssetKey;
-use engine_core::ecs::{CurrentRoom, Transform};
 use engine_core::game::Game;
 use engine_core::scripting::install_prefetched;
 use engine_core::storage::ResourceSource;
 use std::cell::RefCell;
 use std::rc::Rc;
-use mlua::Lua;
 
 /// Game data and Luau state prepared before a browser GPU context is assembled.
 pub struct PreparedBrowserGame {
@@ -85,11 +82,10 @@ pub fn assemble_browser_game(
     prepared: PreparedBrowserGame,
 ) -> Result<Engine, String> {
     let PreparedBrowserGame { mut builder, prepared } = prepared;
-    let mut instance = {
+    let instance = {
         let mut context = ctx.borrow_mut();
         GameInstance::from_prepared(&mut *context, prepared, &mut builder.camera_manager)
     };
-    place_browser_player_at_start(&builder.lua, &mut instance)?;
     let game_instance = Rc::new(RefCell::new(instance));
     let save_runtime = crate::engine::SaveRuntime::new(
         builder.save_providers.clone(), builder.pending_quit_to_title.clone(),
@@ -98,24 +94,4 @@ pub fn assemble_browser_game(
         .into_engine(game_instance, ctx, save_runtime, false)?;
     engine.rebuild_camera_from_loaded_state();
     Ok(engine)
-}
-
-/// Uses the authored start entry to move a serialized, unroomed player into the room.
-pub(super) fn place_browser_player_at_start(lua: &Lua, instance: &mut GameInstance) -> Result<(), String> {
-    let game = &instance.game;
-    let world = game.current_world();
-    let room_id = world.current_room_id.ok_or("browser start has no active room")?;
-    let world_id = world.id;
-    let player = game.ecs.get_player_entity().ok_or("browser start has no player entity")?;
-    if game.ecs.get::<Transform>(player).is_none() {
-        return Err(format!("browser player {player:?} has no transform"));
-    }
-    if game.ecs.get::<CurrentRoom>(player).is_some_and(|room| room.room_id == room_id) {
-        return Ok(());
-    }
-    let request = TraversalRequest::transport(player, WorldSelector::ById(world_id), None);
-    if !WorldTransitionManager::execute(lua, instance, &request) {
-        return Err(format!("could not place browser player {player:?} at start entry in world {world_id:?}"));
-    }
-    Ok(())
 }

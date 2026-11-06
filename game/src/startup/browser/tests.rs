@@ -2,11 +2,10 @@ use super::asset::browser_entry_mode;
 use crate::engine::EngineEntryMode;
 use crate::scripting::script_system::ScriptSystem;
 use crate::startup::StartupAsset;
-use crate::startup::browser::place_browser_player_at_start;
 use crate::startup::{prepare_browser_game, prepare_browser_game_direct};
 use bishop::prelude::{Texture2D, TextureLoader, Vec2};
 use engine_core::constants::paths;
-use engine_core::ecs::{Active, CurrentRoom, Player, Script, ScriptId, Transform, WorldEntry};
+use engine_core::ecs::{Active, CurrentRoom, Player, PlayerProxy, Script, ScriptId, Transform, WorldEntry};
 use engine_core::game::Game;
 use engine_core::prefab::{PrefabAsset, PrefabId, PrefabNode};
 use engine_core::scripting::{EventBus, install_prefetched};
@@ -18,7 +17,6 @@ use engine_core::storage::{
 use engine_core::worlds::{Room, RoomId, RoomLayer, World, WorldId};
 use mlua::Lua;
 use std::collections::HashMap;
-use crate::engine::GameInstance;
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -240,11 +238,7 @@ fn browser_game_when_prefab_is_prefetched_loads_the_runtime_definition() {
 
 #[test]
 fn browser_start_when_player_is_unroomed_places_them_at_authored_start_entry() {
-    let mut game = Game::with_name("start_entry_fixture");
-    let mut world = World::new(WorldId(7), "synthetic".into(), 16.0);
-    world.add_room(Room::new(&mut game.ecs, RoomId(9), 16.0));
-    world.current_room_id = Some(RoomId(9));
-    game.add_world(world);
+    let (mut game, source) = synthetic_game_source(Some(b"browser_boot = 'main'"), None, None, None);
     let expected = Vec2::new(18.0, 25.0);
     game.ecs.create_entity().with(WorldEntry {
         name: WorldEntry::START_NAME.to_string(), is_start: true,
@@ -252,15 +246,33 @@ fn browser_start_when_player_is_unroomed_places_them_at_authored_start_entry() {
         .with_current_room_layer(RoomId(9), RoomLayer::Back).finish();
     let player = game.ecs.create_entity().with(Player).with(Active::default())
         .with(Transform::default()).finish();
-    let mut instance = GameInstance {
-        game, prev_positions: HashMap::new(), traversal_residency_diagnostics: None,
-    };
+    let prepared = prepare_browser_game(game, source, &FailingTextureLoader).unwrap();
 
-    place_browser_player_at_start(&Lua::new(), &mut instance).unwrap();
-
-    assert_eq!(instance.game.ecs.get::<CurrentRoom>(player).copied(),
+    assert_eq!(prepared.prepared.game.ecs.get::<CurrentRoom>(player).copied(),
         Some(CurrentRoom::new(RoomId(9), RoomLayer::Back)));
-    assert_eq!(instance.game.ecs.get::<Transform>(player).unwrap().position, expected);
+    assert_eq!(prepared.prepared.game.ecs.get::<Transform>(player).unwrap().position, expected);
+}
+
+#[test]
+fn browser_start_when_proxy_is_in_start_room_uses_proxy_position_without_rendering_proxy() {
+    let (mut game, source) = synthetic_game_source(Some(b"browser_boot = 'main'"), None, None, None);
+    game.ecs.create_entity().with(WorldEntry {
+        name: WorldEntry::START_NAME.to_string(), is_start: true,
+    }).with(Transform { position: Vec2::new(18.0, 25.0), ..Default::default() })
+        .with_current_room_layer(RoomId(9), RoomLayer::Back).finish();
+    let proxy_position = Vec2::new(41.0, 59.0);
+    game.ecs.create_entity().with(PlayerProxy)
+        .with(Transform { position: proxy_position, ..Default::default() })
+        .with_current_room(RoomId(9)).finish();
+    let player = game.ecs.create_entity().with(Player).with(Active::default())
+        .with(Transform::default()).finish();
+
+    let prepared = prepare_browser_game(game, source, &FailingTextureLoader).unwrap();
+
+    assert_eq!(prepared.prepared.game.ecs.get::<CurrentRoom>(player).copied(),
+        Some(CurrentRoom::new(RoomId(9), RoomLayer::Back)));
+    assert_eq!(prepared.prepared.game.ecs.get::<Transform>(player).unwrap().position, proxy_position);
+    assert!(prepared.prepared.game.ecs.get_store::<PlayerProxy>().data.is_empty());
 }
 
 #[test]
