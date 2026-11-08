@@ -4,6 +4,7 @@ use crate::commands::editor_command_manager::EditorCommand;
 use crate::editor_global::push_toast;
 use crate::storage::game_io::rename_game;
 use crate::with_editor;
+use engine_core::storage::editor_config;
 
 /// Undo-able command for renaming a game.
 #[derive(Debug)]
@@ -24,6 +25,7 @@ impl EditorCommand for RenameGameCmd {
             |editor| match rename_game(&mut editor.game, &self.new_name) {
                 Ok(()) => {
                     editor.save();
+                    editor_config::set_last_opened_game(&editor.game.name);
                 }
                 Err(err) => {
                     push_toast(format!("Failed to rename game: {err}"), 3.0);
@@ -37,6 +39,7 @@ impl EditorCommand for RenameGameCmd {
             |editor| match rename_game(&mut editor.game, &self.old_name) {
                 Ok(()) => {
                     editor.save();
+                    editor_config::set_last_opened_game(&editor.game.name);
                 }
                 Err(err) => {
                     push_toast(format!("Failed to rename game: {err}"), 3.0);

@@ -27,7 +27,7 @@ use crate::playtest::room_playtest::*;
 use crate::prefab::prefab_editor::{PrefabEditor, PrefabStage};
 use crate::prefab::PrefabSessionState;
 use crate::room::room_editor::{self, RoomEditor};
-use crate::storage::game_io::{create_new_game, load_game_by_name, most_recent_game_name};
+use crate::storage::game_io::{create_new_game, load_game_by_name, startup_game_name};
 use crate::storage::lua_stub_gen::refresh_event_tags_lua;
 use crate::storage::export_dispatch::PendingExport;
 use crate::storage::web_preview::LocalPreview;
@@ -133,7 +133,7 @@ impl Editor {
 
         editor_config::apply_config_theme();
 
-        let game = if let Some(name) = most_recent_game_name() {
+        let game = if let Some(name) = startup_game_name() {
             load_game_by_name(&name)?
         } else if let Some(name) = editor.prompt_new_game(ctx.clone()).await {
             create_new_game(name)
@@ -162,6 +162,7 @@ impl Editor {
 
         editor.update_save_state_hash();
         editor.register_modal_handlers();
+        editor_config::set_last_opened_game(&editor.game.name);
         Ok(editor)
     }
 

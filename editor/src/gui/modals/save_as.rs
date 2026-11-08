@@ -3,6 +3,7 @@ use crate::gui::modals::{open_modal_with_prompt, Modal, ModalHandler, ModalResul
 use crate::gui::prompts::*;
 use crate::storage::game_io::save_as;
 use bishop::prelude::*;
+use engine_core::storage::editor_config;
 use engine_core::ui::{Toast};
 use std::cell::RefCell;
 use std::thread::LocalKey;
@@ -44,7 +45,10 @@ impl ModalHandler for SaveAsModal {
                     return None;
                 }
                 match save_as(&mut editor.game, &name) {
-                    Ok(()) => editor.save(),
+                    Ok(()) => {
+                        editor.save();
+                        editor_config::set_last_opened_game(&editor.game.name);
+                    }
                     Err(err) => {
                         editor.toast = Some(Toast::new(format!("Failed to save game: {err}"), 3.0));
                     }

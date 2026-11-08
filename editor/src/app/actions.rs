@@ -271,7 +271,8 @@ impl Editor {
 
         // Render system always needs a resize after switch
         let cur_screen = (ctx.screen_width() as u32, ctx.screen_height() as u32);
-        self.render_system.resize(cur_screen.0, cur_screen.1)
+        self.render_system.resize(cur_screen.0, cur_screen.1);
+        editor_config::set_last_opened_game(&self.game.name);
     }
 
     // Returns an initialized game for the editor.
