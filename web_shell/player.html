@@ -47,7 +47,9 @@
   <script src="audio.js"></script>
   <script type="module">
     import { resolveGameUrl } from './player/config.mjs';
+    import { browserSaveStore } from './player/save_store.mjs';
 
+    window.bishopSaveStore = browserSaveStore;
     const playButton = document.getElementById('play');
     const statusOutput = document.getElementById('status');
     playButton.addEventListener('click', () => {

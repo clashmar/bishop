@@ -10,6 +10,7 @@ use bishop::prelude::PlatformContext;
 use bishop::web::WebContext;
 use engine_core::storage::{ResourceKey, ResourceManifest, ResourceSource, load_game_shell_from_source};
 use game_lib::engine::Engine;
+use game_lib::save_system::BrowserSaveStore;
 use game_lib::startup::{assemble_browser_game, prepare_browser_game_direct};
 
 use crate::browser_fetch;
@@ -106,9 +107,12 @@ fn assemble_downloaded(
         .map_err(|error| format!("Bishop WebGL2: {error}"))?;
     println!("BISHOP_DEMO_STAGE context_open");
     let ctx: PlatformContext = Rc::new(RefCell::new(context));
+    let save_store = Rc::new(RefCell::new(BrowserSaveStore::unavailable(
+        game.id, "Demo checkpoint has no browser save store",
+    )));
     let prepared = {
         let texture_loader = ctx.borrow();
-        prepare_browser_game_direct(game, source, &*texture_loader)
+        prepare_browser_game_direct(game, source, &*texture_loader, save_store)
             .map_err(|error| format!("Demo startup: {error}"))?
     };
     println!("BISHOP_DEMO_STAGE game_prepared");

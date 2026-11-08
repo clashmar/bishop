@@ -16,6 +16,7 @@ use std::io;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
+use uuid::Uuid;
 
 pub(crate) fn editor_metadata_path(game_name: &str, file_name: &str) -> PathBuf {
     editor_metadata_folder(game_name).join(file_name)
@@ -170,6 +171,7 @@ pub fn save_as(game: &mut Game, new_name: &str) -> io::Result<()> {
     copy_dir_recursive(&old_game_dir, &new_game_dir)?;
 
     game.name = new_name.to_owned();
+    game.id = Uuid::new_v4();
     engine_core::engine_global::set_game_name(new_name);
 
     Ok(())
@@ -214,6 +216,10 @@ fn is_game_folder(path: &Path) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test_utils::{game_fs_test_lock, TestGameFolder};
+    use engine_core::engine_global::set_game_name;
+    use engine_core::storage::{load_full_game_from_folder, save_game_to_folder};
+    use engine_core::worlds::{Room, RoomId, World, WorldId};
 
     #[test]
     fn editor_game_listing_when_root_contains_demo_finds_direct_child() -> io::Result<()> {
@@ -225,6 +231,31 @@ mod tests {
         let folders = list_game_folders_from_root(root.path())?;
 
         assert_eq!(folders, vec![demo]);
+        Ok(())
+    }
+
+    #[test]
+    fn save_as_when_forking_assigns_new_game_id_and_rename_preserves_it() -> io::Result<()> {
+        let _lock = game_fs_test_lock().lock().unwrap_or_else(|poison| poison.into_inner());
+        let original = TestGameFolder::new("save_as_original");
+        let fork = TestGameFolder::new("save_as_fork");
+        let renamed = TestGameFolder::new("save_as_renamed");
+        set_game_name(original.name());
+        let mut game = Game::with_name(original.name());
+        let mut world = World::new(WorldId(1), "Start".to_string(), 16.0);
+        world.add_room(Room::new(&mut game.ecs, RoomId(1), 16.0));
+        game.add_world(world);
+        let original_id = game.id;
+        save_game_to_folder(&game, &original.path().join(paths::RESOURCES_FOLDER))?;
+
+        save_as(&mut game, fork.name())?;
+        assert_ne!(game.id, original_id);
+        let fork_id = game.id;
+        rename_game(&mut game, renamed.name())?;
+        assert_eq!(game.id, fork_id);
+        save_game_to_folder(&game, &renamed.path().join(paths::RESOURCES_FOLDER))?;
+        let reloaded = load_full_game_from_folder(&renamed.path().join(paths::RESOURCES_FOLDER))?;
+        assert_eq!(reloaded.id, fork_id);
         Ok(())
     }
 }

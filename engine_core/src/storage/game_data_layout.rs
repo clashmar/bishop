@@ -90,6 +90,7 @@ pub fn save_game_to_folder(game: &Game, folder: &Path) -> io::Result<()> {
 
     let manifest = GameDataManifest {
         version: game.version,
+        id: game.id,
         name: game.name.clone(),
         current_world_id: game.current_world_id,
         start_world_id: game.start_world_id,

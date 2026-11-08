@@ -20,7 +20,7 @@ fn authored_resources(root: &Path) {
 fn fake_player_runtime(root: &Path) {
     fs::create_dir_all(root.join("player")).unwrap();
     for name in ["player.html", "input.js", "audio.js", "web_shell.js", "web_shell.wasm",
-                 "player/config.mjs"] {
+                 "player/config.mjs", "player/save_store.mjs"] {
         fs::write(root.join(name), format!("runtime asset: {name}")).unwrap();
     }
     fs::write(root.join("index-template.html"),
@@ -45,6 +45,7 @@ fn web_site_stages_one_reusable_player_and_a_separate_named_game() {
                fs::read(source.path().join("game.ron")).unwrap());
     assert!(site.join("games/Other Game/manifest.ron").is_file());
     assert!(site.join("bishop-player/player/config.mjs").is_file());
+    assert!(site.join("bishop-player/player/save_store.mjs").is_file());
     assert!(fs::read_to_string(site.join("index.html")).unwrap()
         .contains("../games/Other%20Game/manifest.ron"));
 }
@@ -77,6 +78,23 @@ fn web_site_requires_prebuilt_runtime_before_creating_output() {
     let error = stage_web_site(source.path(), runtime.path(), &site).unwrap_err();
 
     assert!(error.contains("player.html"), "{error}");
+    assert!(!site.exists());
+}
+
+#[test]
+fn web_site_requires_browser_save_module_before_creating_output() {
+    let source = TempDir::new().unwrap();
+    let runtime = TempDir::new().unwrap();
+    let output = TempDir::new().unwrap();
+    authored_resources(source.path());
+    fake_player_runtime(runtime.path());
+    let module = runtime.path().join("player/save_store.mjs");
+    fs::remove_file(&module).unwrap();
+    let site = output.path().join("site");
+
+    let error = stage_web_site(source.path(), runtime.path(), &site).unwrap_err();
+
+    assert!(error.contains(&module.display().to_string()), "{error}");
     assert!(!site.exists());
 }
 

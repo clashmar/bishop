@@ -1,5 +1,6 @@
 (
     version: 1,
+    id: "5bd64a56-c2fe-470f-84ec-be26445cc777",
     name: "BrowserFixture",
     current_world_id: None,
     start_world_id: None,

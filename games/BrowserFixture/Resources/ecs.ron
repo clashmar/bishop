@@ -1,0 +1,28 @@
+(
+    components: [
+        (
+            type_name: "Animation",
+            data: {},
+        ),
+        (
+            type_name: "AudioSource",
+            data: {},
+        ),
+        (
+            type_name: "CurrentRoom",
+            data: {},
+        ),
+        (
+            type_name: "Global",
+            data: {},
+        ),
+        (
+            type_name: "TilePlacement",
+            data: {},
+        ),
+        (
+            type_name: "WorldEntry",
+            data: {},
+        ),
+    ],
+)

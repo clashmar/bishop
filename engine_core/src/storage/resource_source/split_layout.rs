@@ -13,6 +13,7 @@ use std::path::Path;
 pub fn load_game_shell_from_source(source: &ResourceSource) -> io::Result<Game> {
     let manifest: GameDataManifest = read_ron(source, Path::new(paths::GAME_RON))?;
     let mut game = Game::with_name(manifest.name);
+    game.id = manifest.id;
     game.version = manifest.version;
     game.runtime_source = Some(source.clone());
 

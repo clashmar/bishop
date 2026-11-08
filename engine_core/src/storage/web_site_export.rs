@@ -9,8 +9,14 @@ use std::path::Path;
 pub const PLAYER_DIRECTORY: &str = "bishop-player";
 pub const GAMES_DIRECTORY: &str = "games";
 pub const INDEX_TEMPLATE_FILE: &str = "index-template.html";
-pub const PLAYER_FILES: [&str; 6] = [
-    "player.html", "input.js", "audio.js", "web_shell.js", "web_shell.wasm", "player/config.mjs",
+pub const PLAYER_FILES: [&str; 7] = [
+    "player.html",
+    "input.js",
+    "audio.js",
+    "web_shell.js",
+    "web_shell.wasm",
+    "player/config.mjs",
+    "player/save_store.mjs",
 ];
 
 #[derive(Debug, PartialEq, Eq)]

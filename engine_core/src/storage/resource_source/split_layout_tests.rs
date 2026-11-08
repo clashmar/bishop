@@ -6,18 +6,20 @@ use crate::hydration::{HydrationDriver, ResidencyKey, ScopeKey};
 use mlua::Lua;
 use crate::game::Game;
 use crate::storage::{
-    ResourceEntry, ResourceKey, ResourceManifest, ResourceSource, load_game_shell_from_source,
-    hydrate_current_payloads_from_source, room_payload_path, save_game_to_folder,
-    world_descriptor_path,
+    ResourceEntry, ResourceKey, ResourceManifest, ResourceSource, hydrate_current_payloads_from_source,
+    load_full_game_from_folder, load_game_shell_from_source, room_payload_path,
+    save_game_to_folder, world_descriptor_path,
 };
 use crate::worlds::{Room, RoomId, World, WorldId};
 use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
 use tempfile::TempDir;
+use uuid::Uuid;
 
-fn saved_one_room_game(root: &Path) -> (WorldId, RoomId) {
+fn saved_one_room_game(root: &Path) -> (WorldId, RoomId, Uuid) {
     let mut game = Game::with_name("source_fixture");
+    let id = game.id;
     let (world_id, room_id) = (WorldId(1), RoomId(2));
     let mut world = World::new(world_id, "fixture".into(), 16.0);
     world.current_room_id = Some(room_id);
@@ -26,7 +28,7 @@ fn saved_one_room_game(root: &Path) -> (WorldId, RoomId) {
     game.current_world_id = Some(world_id);
     game.asset_registry.register_asset_relative_path(SpriteId(3), "sprite.png").unwrap();
     save_game_to_folder(&game, root).unwrap();
-    (world_id, room_id)
+    (world_id, room_id, id)
 }
 
 fn manifest_key(root: &Path, path: &Path) -> ResourceKey {
@@ -56,7 +58,7 @@ fn split_bytes(root: &Path, world_id: WorldId, room_id: RoomId) -> (ResourceMani
 #[test]
 fn split_layout_when_loaded_from_bytes_matches_folder_shell_and_payload() {
     let root = TempDir::new().unwrap();
-    let (world_id, room_id) = saved_one_room_game(root.path());
+    let (world_id, room_id, _) = saved_one_room_game(root.path());
     let (manifest, files) = split_bytes(root.path(), world_id, room_id);
     let bytes = ResourceSource::from_prefetched(manifest, files).unwrap();
     let folder = ResourceSource::Folder(root.path().to_path_buf());
@@ -78,9 +80,23 @@ fn split_layout_when_loaded_from_bytes_matches_folder_shell_and_payload() {
 }
 
 #[test]
+fn split_layout_when_reloaded_from_folder_and_prefetched_bytes_preserves_game_id() {
+    let root = TempDir::new().unwrap();
+    let (world_id, room_id, authored_id) = saved_one_room_game(root.path());
+    let (manifest, files) = split_bytes(root.path(), world_id, room_id);
+    let bytes = ResourceSource::from_prefetched(manifest, files).unwrap();
+
+    let from_disk = load_full_game_from_folder(root.path()).unwrap();
+    let from_bytes = load_game_shell_from_source(&bytes).unwrap();
+
+    assert_eq!(from_disk.id, authored_id);
+    assert_eq!(from_bytes.id, authored_id);
+}
+
+#[test]
 fn split_layout_when_descriptor_is_missing_reports_its_path() {
     let root = TempDir::new().unwrap();
-    let (world_id, room_id) = saved_one_room_game(root.path());
+    let (world_id, room_id, _) = saved_one_room_game(root.path());
     let (mut manifest, mut files) = split_bytes(root.path(), world_id, room_id);
     let missing = world_descriptor_path(root.path(), world_id);
     let key = manifest_key(root.path(), &missing);
@@ -95,7 +111,7 @@ fn split_layout_when_descriptor_is_missing_reports_its_path() {
 #[test]
 fn deferred_room_hydration_uses_retained_bytes_without_the_source_folder() {
     let root = TempDir::new().unwrap();
-    let (world_id, room_id) = saved_one_room_game(root.path());
+    let (world_id, room_id, _) = saved_one_room_game(root.path());
     let (manifest, files) = split_bytes(root.path(), world_id, room_id);
     let bytes = ResourceSource::from_prefetched(manifest, files).unwrap();
     let mut game = load_game_shell_from_source(&bytes).unwrap();
@@ -112,7 +128,7 @@ fn deferred_room_hydration_uses_retained_bytes_without_the_source_folder() {
 #[test]
 fn current_payload_when_ron_is_malformed_reports_its_path() {
     let root = TempDir::new().unwrap();
-    let (world_id, room_id) = saved_one_room_game(root.path());
+    let (world_id, room_id, _) = saved_one_room_game(root.path());
     let (mut manifest, mut files) = split_bytes(root.path(), world_id, room_id);
     let payload = room_payload_path(root.path(), room_id);
     let key = manifest_key(root.path(), &payload);

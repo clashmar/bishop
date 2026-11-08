@@ -1,5 +1,6 @@
 (
     version: 1,
+    id: "990acec3-e67e-41ee-9499-644476522481",
     name: "Demo",
     current_world_id: Some((1)),
     start_world_id: Some((1)),

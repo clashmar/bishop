@@ -1,7 +1,7 @@
 use bishop::Vec2;
 use crate::engine::GameInstance;
 use crate::physics::events::{emit_physics_events, KinematicContactEvent, PhysicsEvents, SensorEvent};
-use crate::save_system::SaveProviderRegistry;
+use crate::save_system::{FileSaveStore, SaveProviderRegistry};
 use crate::scripting::lua_ctx::register_save_lua_context;
 use crate::scripting::modules::entity_module::{lua_entity_handle, EntityHandle};
 use crate::scripting::script_system::ScriptSystem;
@@ -42,6 +42,7 @@ fn register_demo_save_ctx(lua: &Lua) {
     register_save_lua_context(
         lua,
         std::rc::Rc::new(std::cell::RefCell::new(SaveProviderRegistry::new())),
+        Rc::new(RefCell::new(FileSaveStore)),
         std::rc::Rc::new(std::cell::Cell::new(false)),
     )
     .unwrap();

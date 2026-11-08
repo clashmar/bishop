@@ -4,6 +4,7 @@ mod browser;
 mod playtest_args;
 mod rebootstrap;
 mod runtime_icon;
+mod save_restore;
 #[cfg(test)]
 mod tests;
 
@@ -12,7 +13,10 @@ pub use asset::{
     StartupAsset, StartupScreenContent, StartupScreenSpec,
 };
 pub use bootstrap::{StartupController, StartupSource};
-pub use browser::{PreparedBrowserGame, prepare_browser_game, prepare_browser_game_direct, assemble_browser_game};
+pub use browser::{
+    PreparedBrowserGame, assemble_browser_game, prepare_browser_game, prepare_browser_game_direct,
+    restore_browser_game,
+};
 pub use playtest_args::PlaytestLaunchArgs;
 pub use rebootstrap::{entry_mode_for_intent, StartupIntent, StartupRequest};
 pub use runtime_icon::{

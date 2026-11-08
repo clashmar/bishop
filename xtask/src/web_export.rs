@@ -18,6 +18,7 @@ const WEB_RENDERER_INDEX: &str = "renderer-proof.html";
 const WEB_DEMO_INDEX: &str = "demo-checkpoint.html";
 const WEB_PLAYER_HTML: &str = "player.html";
 const WEB_PLAYER_CONFIG: &str = "player/config.mjs";
+const WEB_PLAYER_STORE: &str = "player/save_store.mjs";
 const WEB_PLAYER_TEMPLATE: &str = "embed-example.html";
 const WEB_SHELL_INPUT: &str = "input.js";
 const WEB_SHELL_AUDIO: &str = "audio.js";
@@ -207,6 +208,7 @@ fn build_web(variant: Export) -> ExitCode {
     if variant == Export::Player {
         for (source, destination) in [
             (WEB_PLAYER_CONFIG, WEB_PLAYER_CONFIG),
+            (WEB_PLAYER_STORE, WEB_PLAYER_STORE),
             (WEB_PLAYER_TEMPLATE, INDEX_TEMPLATE_FILE),
         ] {
             if !stage_file(&root.join("web_shell").join(source), &stage_dir.join(destination), "player runtime file") {

@@ -2,7 +2,7 @@ use super::browser_menu::menu_manager_from_source;
 use super::game_instance::GameInstance;
 use super::save_runtime::SaveRuntime;
 use super::{Engine, EngineEntryMode, EngineRuntimeConfig};
-use crate::save_system::SaveProviderRegistry;
+use crate::save_system::{FileSaveStore, SaveProviderRegistry, SaveStoreHandle};
 use crate::scripting::lua_ctx::{register_runtime_lua_contexts, register_save_lua_context};
 use bishop::prelude::*;
 use engine_core::camera::CameraManager;
@@ -19,6 +19,8 @@ pub struct EngineBuilder {
     pub lua: Lua,
     pub camera_manager: CameraManager,
     pub save_providers: Rc<RefCell<SaveProviderRegistry<'static>>>,
+    /// Store shared by Lua and runtime save orchestration.
+    pub save_store: SaveStoreHandle,
     pub pending_quit_to_title: Rc<Cell<bool>>,
     quit_to_title_enabled: bool,
     entry_mode: EngineEntryMode,
@@ -37,10 +39,17 @@ impl EngineBuilder {
             lua: Lua::new(),
             camera_manager: CameraManager::default(),
             save_providers: Rc::new(RefCell::new(SaveProviderRegistry::new())),
+            save_store: Rc::new(RefCell::new(FileSaveStore)),
             pending_quit_to_title: Rc::new(Cell::new(false)),
             quit_to_title_enabled: true,
             entry_mode: EngineEntryMode::Playing,
         }
+    }
+
+    /// Replaces the store shared by runtime saves and Lua bootstrap scripts.
+    pub fn save_store(mut self, store: SaveStoreHandle) -> Self {
+        self.save_store = store;
+        self
     }
 
     /// Sets the entry mode for the loaded session.
@@ -56,7 +65,10 @@ impl EngineBuilder {
 
     /// Registers only LuaSaveCtx so bootstrap scripts can register save providers.
     pub fn register_save_context(&self) -> LuaResult<()> {
-        register_save_lua_context(&self.lua, self.save_providers.clone(), self.pending_quit_to_title.clone())
+        register_save_lua_context(
+            &self.lua, self.save_providers.clone(), self.save_store.clone(),
+            self.pending_quit_to_title.clone(),
+        )
     }
 
     /// Final assembly with pre-built runtime pieces.
@@ -106,7 +118,9 @@ impl EngineBuilder {
         ctx: PlatformContext,
         is_playtest: bool,
     ) -> Result<Engine, String> {
-        let save_runtime = SaveRuntime::new(self.save_providers.clone(), self.pending_quit_to_title.clone());
+        let save_runtime = SaveRuntime::new(
+            self.save_providers.clone(), self.pending_quit_to_title.clone(), self.save_store.clone(),
+        );
         let game_instance = Rc::new(RefCell::new(game_instance));
         self.into_engine(game_instance, ctx, save_runtime, is_playtest)
     }

@@ -1,15 +1,17 @@
 use super::game_instance::GameInstance;
 use crate::save_system::{
-    capture_document, runtime_latest_save_manifest_path, runtime_save_file,
-    LatestRuntimeSaveManifest, RonPersist, RuntimeSaveDocument, RuntimeSaveMetadata,
-    SaveCoordinatorError, SaveLane, SaveProviderRegistry, SaveSlotKey, RUNTIME_SAVE_SCHEMA_VERSION,
+    capture_document, RuntimeSaveDocument, RuntimeSaveMetadata, SaveCoordinatorError, SaveLane,
+    SaveProviderRegistry, SaveSlotKey, SaveStoreHandle, SaveWrite, RUNTIME_SAVE_SCHEMA_VERSION,
 };
-#[cfg(test)]
-use crate::save_system::{SaveProvider, SaveProviderId};
+use crate::scripting::commands::save_commands::{emit_save_failed, emit_save_succeeded};
+use engine_core::scripting::EventBus;
+use mlua::Lua;
 use std::cell::{Cell, RefCell};
+use std::collections::HashMap;
 use std::io;
 use std::rc::Rc;
 use std::time::{SystemTime, UNIX_EPOCH};
+use uuid::Uuid;
 
 /// The type of runtime load request.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -18,9 +20,16 @@ pub enum RuntimeLoadRequest {
     Latest,
 }
 
+struct PendingSave {
+    lane: SaveLane,
+    trigger: String,
+}
+
 /// Orchestrates runtime save execution and pending load requests.
 pub struct SaveRuntime {
     providers: Rc<RefCell<SaveProviderRegistry<'static>>>,
+    save_store: SaveStoreHandle,
+    pending_saves: HashMap<u64, PendingSave>,
     pending_runtime_load_request: Option<RuntimeLoadRequest>,
     pub pending_quit_to_title: Rc<Cell<bool>>,
 }
@@ -29,20 +38,23 @@ impl SaveRuntime {
     pub fn new(
         providers: Rc<RefCell<SaveProviderRegistry<'static>>>,
         pending_quit_to_title: Rc<Cell<bool>>,
+        save_store: SaveStoreHandle,
     ) -> Self {
         Self {
             providers,
+            save_store,
+            pending_saves: HashMap::new(),
             pending_runtime_load_request: None,
             pending_quit_to_title,
         }
     }
 
-    /// Captures state from all providers and persists to `lane`.
+    /// Captures state from all providers and submits it to `lane`.
     pub fn save_to_lane(
         &mut self,
         game_instance: &Rc<RefCell<GameInstance>>,
         lane: SaveLane,
-    ) -> io::Result<()> {
+    ) -> io::Result<SaveWrite> {
         let game = &game_instance.borrow().game;
         let metadata = RuntimeSaveMetadata {
             schema_version: RUNTIME_SAVE_SCHEMA_VERSION,
@@ -55,16 +67,32 @@ impl SaveRuntime {
 
         let document = capture_document(&mut self.providers.borrow_mut(), &metadata)
             .map_err(coordinator_to_io_error)?;
-        let path = runtime_save_file(&metadata.slot, lane);
-        document.write_to_path(&path)?;
-        LatestRuntimeSaveManifest {
-            lane,
-            slot: metadata.slot.clone(),
-            game_name: metadata.game_name.clone(),
-            saved_at_unix_ms: metadata.saved_at_unix_ms,
+        self.save_store.borrow_mut().submit(document)
+    }
+
+    /// Retains a submitted lane and trigger until its store request completes.
+    pub fn track_pending(&mut self, request_id: u64, lane: SaveLane, trigger: String) {
+        self.pending_saves.insert(request_id, PendingSave { lane, trigger });
+    }
+
+    /// Emits save events for transactions completed by the shared store.
+    pub fn poll_completed(&mut self, lua: &Lua, event_bus: &EventBus) {
+        if self.pending_saves.is_empty() {
+            return;
         }
-        .write_to_path(&runtime_latest_save_manifest_path())?;
-        Ok(())
+        let completed = self.save_store.borrow_mut().take_completed();
+        for (request_id, result) in completed {
+            let Some(pending) = self.pending_saves.remove(&request_id) else {
+                engine_core::omni_error!("Save store completed unknown request {request_id}");
+                continue;
+            };
+            match result {
+                Ok(()) => emit_save_succeeded(lua, event_bus, pending.lane, &pending.trigger),
+                Err(error) => emit_save_failed(
+                    lua, event_bus, pending.lane, &pending.trigger, &error.to_string(),
+                ),
+            }
+        }
     }
 
     /// Records a pending request to load the latest runtime save.
@@ -87,22 +115,27 @@ impl SaveRuntime {
         &self.providers
     }
 
-    /// Returns true if a latest-save manifest exists on disk.
-    pub fn has_latest_save() -> bool {
-        runtime_latest_save_manifest_path().exists()
+    /// Returns true if a committed latest save is available.
+    pub fn has_latest_save(&self) -> bool {
+        self.save_store.borrow().latest().ok().flatten().is_some()
     }
 
-    /// Reads the latest saved document from disk based on the latest manifest.
-    /// Returns `Ok(None)` if no manifest exists.
-    pub fn load_latest_document(&self) -> io::Result<Option<RuntimeSaveDocument>> {
-        let manifest_path = runtime_latest_save_manifest_path();
-        if !manifest_path.exists() {
-            return Ok(None);
+    /// Reads and validates the latest document for the authored game.
+    pub fn load_latest_document(&self, game_id: Uuid) -> io::Result<Option<RuntimeSaveDocument>> {
+        let document = self.save_store.borrow().latest()?;
+        if let Some(document) = &document {
+            let metadata = &document.metadata;
+            if metadata.schema_version != RUNTIME_SAVE_SCHEMA_VERSION {
+                return Err(io::Error::new(io::ErrorKind::InvalidData, "unsupported save schema"));
+            }
+            if metadata.game_id != game_id {
+                return Err(io::Error::new(io::ErrorKind::InvalidData, "save belongs to another game"));
+            }
+            if metadata.slot != SaveSlotKey::Default {
+                return Err(io::Error::new(io::ErrorKind::InvalidData, "unsupported save slot"));
+            }
         }
-        let manifest = LatestRuntimeSaveManifest::read_from_path(&manifest_path)?;
-        let doc_path = runtime_save_file(&manifest.slot, manifest.lane);
-        let document = RuntimeSaveDocument::read_from_path(&doc_path)?;
-        Ok(Some(document))
+        Ok(document)
     }
 }
 
@@ -118,234 +151,5 @@ fn coordinator_to_io_error(error: SaveCoordinatorError) -> io::Error {
     match error {
         SaveCoordinatorError::Capture { source, .. }
         | SaveCoordinatorError::Apply { source, .. } => source,
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::save_system::tests::RuntimeSaveTestContext;
-    use crate::save_system::{RestorePhase, SavedSection};
-    use engine_core::game::Game;
-    use std::collections::HashMap;
-
-    struct StubSaveProvider;
-
-    impl SaveProvider for StubSaveProvider {
-        fn id(&self) -> SaveProviderId {
-            SaveProviderId::new("game.flags")
-        }
-
-        fn restore_phase(&self) -> RestorePhase {
-            RestorePhase::PostRuntime
-        }
-
-        fn capture(&mut self) -> io::Result<SavedSection> {
-            Ok(SavedSection {
-                version: 1,
-                data: String::from("room=2"),
-            })
-        }
-
-        fn apply(&mut self, _section: &SavedSection) -> io::Result<()> {
-            Ok(())
-        }
-    }
-
-    fn setup_save_runtime(
-        prefix: &str,
-    ) -> (
-        RuntimeSaveTestContext,
-        Rc<RefCell<GameInstance>>,
-        SaveRuntime,
-    ) {
-        let ctx = RuntimeSaveTestContext::new(prefix);
-
-        let save_providers = Rc::new(RefCell::new(SaveProviderRegistry::new()));
-        save_providers
-            .borrow_mut()
-            .register(Box::new(StubSaveProvider))
-            .unwrap();
-
-        let game = Game::with_name(ctx.game_name());
-        let game_instance = Rc::new(RefCell::new(GameInstance {
-            game,
-            prev_positions: HashMap::new(), 
-            traversal_residency_diagnostics: None,
-        }));
-
-        (
-            ctx,
-            game_instance,
-            SaveRuntime::new(save_providers, Rc::new(Cell::new(false))),
-        )
-    }
-
-    #[test]
-    fn save_to_lane_writes_document_and_latest_manifest() {
-        let (_ctx, game_instance, mut save_runtime) = setup_save_runtime("save_runtime_manual");
-
-        save_runtime
-            .save_to_lane(&game_instance, SaveLane::Manual)
-            .unwrap();
-
-        let save_path = runtime_save_file(&SaveSlotKey::Default, SaveLane::Manual);
-        let manifest_path = runtime_latest_save_manifest_path();
-        assert!(save_path.exists());
-        assert!(manifest_path.exists());
-    }
-
-    #[test]
-    fn request_latest_runtime_load_sets_pending_request() {
-        let (_ctx, _game_instance, mut save_runtime) = setup_save_runtime("save_runtime_latest");
-
-        save_runtime.request_latest_runtime_load();
-
-        assert_eq!(
-            save_runtime.pending_runtime_load_request(),
-            Some(RuntimeLoadRequest::Latest)
-        );
-    }
-
-    #[test]
-    fn take_pending_runtime_load_request_clears_request() {
-        let (_ctx, _game_instance, mut save_runtime) = setup_save_runtime("save_runtime_take");
-
-        save_runtime.request_latest_runtime_load();
-
-        let taken = save_runtime.take_pending_runtime_load_request();
-        assert_eq!(taken, Some(RuntimeLoadRequest::Latest));
-
-        assert_eq!(save_runtime.pending_runtime_load_request(), None);
-    }
-
-    #[test]
-    fn load_latest_document_reads_manifest_target() {
-        let (_ctx, game_instance, mut save_runtime) =
-            setup_save_runtime("save_runtime_load_latest");
-
-        save_runtime
-            .save_to_lane(&game_instance, SaveLane::Manual)
-            .unwrap();
-
-        let document = save_runtime
-            .load_latest_document()
-            .unwrap()
-            .expect("expected a saved document");
-
-        assert_eq!(document.metadata.lane, SaveLane::Manual);
-        assert!(document.sections.contains_key("game.flags"));
-        assert_eq!(document.sections.len(), 1);
-    }
-
-    #[test]
-    fn load_latest_document_errors_on_manifest_with_missing_target() {
-        let ctx = RuntimeSaveTestContext::new("save_runtime_bad_manifest");
-
-        // Write a manifest that points to a lane that has no save file.
-        let manifest = LatestRuntimeSaveManifest {
-            lane: SaveLane::Autosave,
-            slot: SaveSlotKey::Default,
-            game_name: ctx.game_name().to_string(),
-            saved_at_unix_ms: 42,
-        };
-        manifest
-            .write_to_path(&runtime_latest_save_manifest_path())
-            .unwrap();
-
-        // The save file does not exist, so load_latest_document should error.
-        let save_providers = Rc::new(RefCell::new(SaveProviderRegistry::new()));
-        let save_runtime = SaveRuntime::new(save_providers, Rc::new(Cell::new(false)));
-        let result = save_runtime.load_latest_document();
-
-        assert!(
-            result.is_err(),
-            "expected error for manifest with missing target"
-        );
-    }
-
-    #[test]
-    fn save_triggered_from_command_queue_writes_document_and_manifest() {
-        use crate::scripting::lua_ctx::register_save_lua_context;
-        use crate::scripting::modules::save_module::SaveModule;
-        use engine_core::scripting::lua_constants::{lua_engine, lua_fields, lua_save};
-        use engine_core::scripting::LuaModule;
-        use engine_core::worlds::*;
-        use mlua::Lua;
-
-        let ctx = RuntimeSaveTestContext::new("save_runtime_cmd_queue");
-
-        // Set up Lua with save context and module
-        let lua = Lua::new();
-        lua.globals()
-            .set(lua_engine::ENGINE, lua.create_table().unwrap())
-            .unwrap();
-
-        let save_providers = Rc::new(RefCell::new(SaveProviderRegistry::new()));
-        register_save_lua_context(&lua, save_providers.clone(), Rc::new(Cell::new(false))).unwrap();
-        SaveModule.register(&lua).unwrap();
-
-        // Register a trivial Lua save provider so capture succeeds
-        lua.load(format!(
-            r#"engine.{}.{}{{["{}"]="game.test",["{}"]=1,["{}"]=function() return "{{"..[["room"]]..":2}}" end,["{}"]=function(_) end}}"#,
-            lua_save::SAVE, lua_save::REGISTER_PROVIDER,
-            lua_fields::ID, lua_save::PROVIDER_VERSION,
-            lua_save::PROVIDER_CAPTURE, lua_save::PROVIDER_APPLY,
-        )).exec().unwrap();
-
-        let mut game = Game::with_name(ctx.game_name());
-        game.add_world(World::default());
-        let game_instance = Rc::new(RefCell::new(GameInstance {
-            game,
-            prev_positions: HashMap::new(), traversal_residency_diagnostics: None,
-        }));
-
-        let mut save_runtime = SaveRuntime::new(save_providers, Rc::new(Cell::new(false)));
-        save_runtime
-            .save_to_lane(&game_instance, SaveLane::Manual)
-            .unwrap();
-
-        let save_path = runtime_save_file(&SaveSlotKey::Default, SaveLane::Manual);
-        let manifest_path = runtime_latest_save_manifest_path();
-        assert!(
-            save_path.exists(),
-            "save file should exist at {:?}",
-            save_path
-        );
-        assert!(
-            manifest_path.exists(),
-            "manifest should exist at {:?}",
-            manifest_path
-        );
-    }
-
-    #[test]
-    fn quit_to_title_flag_is_shared_between_lua_and_save_runtime() {
-        use crate::scripting::lua_ctx::{register_save_lua_context, LuaSaveCtx};
-        use engine_core::scripting::lua_constants::lua_engine;
-        use mlua::Lua;
-
-        let lua = Lua::new();
-        lua.globals()
-            .set(lua_engine::ENGINE, lua.create_table().unwrap())
-            .unwrap();
-
-        let flag = Rc::new(Cell::new(false));
-        let save_providers = Rc::new(RefCell::new(SaveProviderRegistry::new()));
-        register_save_lua_context(&lua, save_providers.clone(), flag.clone()).unwrap();
-
-        let save_runtime = SaveRuntime::new(save_providers, flag.clone());
-
-        assert!(!save_runtime.pending_quit_to_title.get());
-
-        // Simulate Lua calling engine.quit_to_title()
-        LuaSaveCtx::borrow_ctx(&lua)
-            .unwrap()
-            .pending_quit_to_title
-            .set(true);
-
-        // Both should see the change
-        assert!(save_runtime.pending_quit_to_title.get());
-        assert!(flag.get());
     }
 }

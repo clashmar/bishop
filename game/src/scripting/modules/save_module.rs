@@ -116,8 +116,10 @@ impl LuaModule for SaveModule {
         )?;
         save_tbl.set(
             lua_save::HAS_LATEST,
-            lua.create_function(|_, ()| {
-                Ok(crate::engine::SaveRuntime::has_latest_save())
+            lua.create_function(|lua, ()| {
+                let save_ctx = LuaSaveCtx::borrow_ctx(lua)?;
+                let has_latest = save_ctx.save_store.borrow().latest().ok().flatten().is_some();
+                Ok(has_latest)
             })?,
         )?;
         engine_tbl.set(
@@ -189,7 +191,7 @@ impl LuaApi for SaveModule {
             lua_save::SAVE, lua_save::FROM_STRING
         ));
         out.line("");
-        out.line("--- Returns true if a latest save exists on disk.");
+        out.line("--- Returns true if a latest save is available.");
         out.line("---@return boolean");
         out.line(&format!(
             "function engine.{}.{}() end",

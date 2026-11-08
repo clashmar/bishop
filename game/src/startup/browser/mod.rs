@@ -1,9 +1,12 @@
 mod asset;
+mod restore;
 #[cfg(test)]
 mod tests;
 
+pub use self::restore::restore_browser_game;
 use self::asset::browser_entry_mode;
 use crate::engine::{Engine, EngineBuilder, EngineEntryMode, GameInstance, PreparedGameInstance};
+use crate::save_system::SaveStoreHandle;
 use crate::scripting::script_system::ScriptSystem;
 use bishop::prelude::{PlatformContext, TextureLoader};
 use engine_core::assets::AssetKey;
@@ -24,9 +27,10 @@ pub fn prepare_browser_game(
     game: Game,
     source: ResourceSource,
     textures: &impl TextureLoader,
+    save_store: SaveStoreHandle,
 ) -> Result<PreparedBrowserGame, String> {
     let entry_mode = browser_entry_mode(&source)?;
-    prepare_browser_game_with_entry_mode(game, source, textures, entry_mode)
+    prepare_browser_game_with_entry_mode(game, source, textures, entry_mode, save_store)
 }
 
 /// Prepares a direct-play developer checkpoint without the authored title flow.
@@ -34,8 +38,9 @@ pub fn prepare_browser_game_direct(
     game: Game,
     source: ResourceSource,
     textures: &impl TextureLoader,
+    save_store: SaveStoreHandle,
 ) -> Result<PreparedBrowserGame, String> {
-    prepare_browser_game_with_entry_mode(game, source, textures, EngineEntryMode::Playing)
+    prepare_browser_game_with_entry_mode(game, source, textures, EngineEntryMode::Playing, save_store)
 }
 
 fn prepare_browser_game_with_entry_mode(
@@ -43,30 +48,12 @@ fn prepare_browser_game_with_entry_mode(
     source: ResourceSource,
     textures: &impl TextureLoader,
     entry_mode: EngineEntryMode,
+    save_store: SaveStoreHandle,
 ) -> Result<PreparedBrowserGame, String> {
-    if !matches!(&source, ResourceSource::Prefetched(_)) {
-        return Err("browser game requires prefetched authored resources".into());
-    }
     game.runtime_source = Some(source.clone());
-    let builder = EngineBuilder::new().entry_mode(entry_mode);
-    builder.register_save_context()
-        .map_err(|error| format!("register save Lua context: {error}"))?;
-    install_prefetched(&builder.lua, source.prefetched_lua_sources()
-        .map_err(|error| format!("prefetched Lua sources: {error}"))?)
-        .map_err(|error| format!("install Luau modules: {error}"))?;
-
+    let builder = browser_builder(&source, entry_mode, save_store)?;
     let mut prepared = GameInstance::prepare_loaded_game(&builder.lua, game)?;
-    let mut sprite_ids: Vec<_> = prepared.game.asset_registry.records().keys()
-        .filter_map(|asset| match asset {
-            AssetKey::Sprite(id) => Some(*id),
-            _ => None,
-        })
-        .collect();
-    sprite_ids.sort_by_key(|id| id.0);
-    for id in sprite_ids {
-        prepared.game.sprite_manager.ensure_loaded(textures, id)
-            .map_err(|error| format!("startup texture {id:?}: {error}"))?;
-    }
+    load_startup_textures(&mut prepared, textures)?;
 
     ScriptSystem::init_from_source(&builder.lua, &prepared.game.script_manager.event_bus, &source)
         .map_err(|error| format!("startup main.lua: {error}"))?;
@@ -89,9 +76,45 @@ pub fn assemble_browser_game(
     let game_instance = Rc::new(RefCell::new(instance));
     let save_runtime = crate::engine::SaveRuntime::new(
         builder.save_providers.clone(), builder.pending_quit_to_title.clone(),
+        builder.save_store.clone(),
     );
     let mut engine = builder.quit_to_title_enabled(false)
         .into_engine(game_instance, ctx, save_runtime, false)?;
     engine.rebuild_camera_from_loaded_state();
     Ok(engine)
+}
+
+fn browser_builder(
+    source: &ResourceSource,
+    entry_mode: EngineEntryMode,
+    save_store: SaveStoreHandle,
+) -> Result<EngineBuilder, String> {
+    if !matches!(source, ResourceSource::Prefetched(_)) {
+        return Err("browser game requires prefetched authored resources".into());
+    }
+    let builder = EngineBuilder::new().save_store(save_store).entry_mode(entry_mode);
+    builder.register_save_context()
+        .map_err(|error| format!("register save Lua context: {error}"))?;
+    install_prefetched(&builder.lua, source.prefetched_lua_sources()
+        .map_err(|error| format!("prefetched Lua sources: {error}"))?)
+        .map_err(|error| format!("install Luau modules: {error}"))?;
+    Ok(builder)
+}
+
+fn load_startup_textures(
+    prepared: &mut PreparedGameInstance,
+    textures: &impl TextureLoader,
+) -> Result<(), String> {
+    let mut sprite_ids: Vec<_> = prepared.game.asset_registry.records().keys()
+        .filter_map(|asset| match asset {
+            AssetKey::Sprite(id) => Some(*id),
+            _ => None,
+        })
+        .collect();
+    sprite_ids.sort_by_key(|id| id.0);
+    for id in sprite_ids {
+        prepared.game.sprite_manager.ensure_loaded(textures, id)
+            .map_err(|error| format!("startup texture {id:?}: {error}"))?;
+    }
+    Ok(())
 }

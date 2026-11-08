@@ -122,6 +122,8 @@ impl BishopApp for Engine {
         self.menu_manager.set_viewport(gameplay_viewport);
 
         self.update_game_state();
+        let event_bus = self.game_instance.borrow().game.script_manager.event_bus.clone();
+        self.save_runtime.poll_completed(&self.lua, &event_bus);
 
         if self.process_menu_input(&ctx) {
             return;

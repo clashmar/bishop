@@ -124,6 +124,7 @@ impl Drop for StagingGuard {
 mod tests {
     use super::*;
     use engine_core::storage::save_game_to_folder;
+    use engine_core::storage::web_site_export::{INDEX_TEMPLATE_FILE, PLAYER_FILES};
     use engine_core::worlds::{Room, RoomId, World, WorldId};
     use std::fs;
     use tempfile::TempDir;
@@ -136,12 +137,12 @@ mod tests {
         game.add_world(world);
         game.current_world_id = Some(WorldId(2));
         save_game_to_folder(&game, root).unwrap();
-        fs::create_dir_all(runtime.join("player")).unwrap();
-        for name in ["player.html", "input.js", "audio.js", "web_shell.js",
-                     "web_shell.wasm", "player/config.mjs"] {
-            fs::write(runtime.join(name), name).unwrap();
+        for name in PLAYER_FILES {
+            let file = runtime.join(name);
+            fs::create_dir_all(file.parent().unwrap()).unwrap();
+            fs::write(file, name).unwrap();
         }
-        fs::write(runtime.join("index-template.html"), "<iframe src='{{GAME_PATH}}'></iframe>").unwrap();
+        fs::write(runtime.join(INDEX_TEMPLATE_FILE), "<iframe src='{{GAME_PATH}}'></iframe>").unwrap();
         game
     }
 

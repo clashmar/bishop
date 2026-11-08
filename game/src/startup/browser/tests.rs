@@ -1,5 +1,9 @@
 use super::asset::browser_entry_mode;
 use crate::engine::EngineEntryMode;
+use crate::save_system::{
+    FileSaveStore, RuntimeSaveDocument, RuntimeSaveMetadata, SaveLane, SaveSlotKey, SaveStore,
+    SaveStoreHandle, SaveWrite, RUNTIME_SAVE_SCHEMA_VERSION,
+};
 use crate::scripting::script_system::ScriptSystem;
 use crate::startup::StartupAsset;
 use crate::startup::{prepare_browser_game, prepare_browser_game_direct};
@@ -16,9 +20,35 @@ use engine_core::storage::{
 };
 use engine_core::worlds::{Room, RoomId, RoomLayer, World, WorldId};
 use mlua::Lua;
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fs;
+use std::io;
 use std::path::{Path, PathBuf};
+use std::rc::Rc;
+use uuid::Uuid;
+
+struct StaticDocumentStore {
+    document: RuntimeSaveDocument,
+}
+
+impl SaveStore for StaticDocumentStore {
+    fn submit(&mut self, _document: RuntimeSaveDocument) -> io::Result<SaveWrite> {
+        Ok(SaveWrite::Committed)
+    }
+
+    fn take_completed(&mut self) -> Vec<(u64, io::Result<()>)> {
+        Vec::new()
+    }
+
+    fn latest(&self) -> io::Result<Option<RuntimeSaveDocument>> {
+        Ok(Some(self.document.clone()))
+    }
+}
+
+fn test_save_store() -> SaveStoreHandle {
+    Rc::new(RefCell::new(FileSaveStore))
+}
 
 fn prefetched_scripts(entries: &[(&Path, &[u8])]) -> ResourceSource {
     let mut files = HashMap::new();
@@ -171,7 +201,7 @@ fn synthetic_game_source(
 #[test]
 fn browser_game_when_main_is_missing_reports_startup_failure() {
     let (game, source) = synthetic_game_source(None, None, None, None);
-    let error = prepare_browser_game(game, source, &FailingTextureLoader).err().unwrap();
+    let error = prepare_browser_game(game, source, &FailingTextureLoader, test_save_store()).err().unwrap();
     let main = Path::new(paths::SCRIPTS_FOLDER).join(lua_files::MAIN);
     assert!(error.contains(ResourceKey::from_native(&main).unwrap().as_str()), "{error}");
 }
@@ -182,7 +212,7 @@ fn browser_game_when_startup_is_malformed_reports_its_path() {
         Some(b"browser_boot = 'main'"), None, None, Some(b"(title_menu_id: ["),
     );
 
-    let error = prepare_browser_game(game, source, &FailingTextureLoader).err().unwrap();
+    let error = prepare_browser_game(game, source, &FailingTextureLoader, test_save_store()).err().unwrap();
 
     assert!(error.contains(paths::STARTUP_RON), "{error}");
 }
@@ -193,7 +223,7 @@ fn browser_checkpoint_when_startup_is_malformed_keeps_direct_room_preparation() 
         Some(b"browser_boot = 'main'"), None, None, Some(b"(title_menu_id: ["),
     );
 
-    let prepared = prepare_browser_game_direct(game, source, &FailingTextureLoader).unwrap();
+    let prepared = prepare_browser_game_direct(game, source, &FailingTextureLoader, test_save_store()).unwrap();
 
     assert_eq!(prepared.prepared.game.current_world().current_room_id, Some(RoomId(9)));
 }
@@ -206,7 +236,7 @@ fn browser_game_when_authored_scripts_are_present_prepares_real_instance() {
         None,
         None,
     );
-    let prepared = prepare_browser_game(game, source, &FailingTextureLoader).unwrap();
+    let prepared = prepare_browser_game(game, source, &FailingTextureLoader, test_save_store()).unwrap();
 
     assert_eq!(prepared.builder.lua.globals().get::<String>("browser_boot").unwrap(), "main");
     assert_eq!(prepared.prepared.game.script_manager.instance_count(), 1);
@@ -231,7 +261,7 @@ fn browser_game_when_prefab_is_prefetched_loads_the_runtime_definition() {
     let bytes = fixture_prefab_bytes();
     let (game, source) = synthetic_game_source(Some(b"browser_boot = 'main'"), None, Some(Some(&bytes)), None);
 
-    let prepared = prepare_browser_game(game, source, &FailingTextureLoader).unwrap();
+    let prepared = prepare_browser_game(game, source, &FailingTextureLoader, test_save_store()).unwrap();
 
     assert!(prepared.prepared.game.prefab_manager.prefab_named("Fixture").is_some());
 }
@@ -246,7 +276,7 @@ fn browser_start_when_player_is_unroomed_places_them_at_authored_start_entry() {
         .with_current_room_layer(RoomId(9), RoomLayer::Back).finish();
     let player = game.ecs.create_entity().with(Player).with(Active::default())
         .with(Transform::default()).finish();
-    let prepared = prepare_browser_game(game, source, &FailingTextureLoader).unwrap();
+    let prepared = prepare_browser_game(game, source, &FailingTextureLoader, test_save_store()).unwrap();
 
     assert_eq!(prepared.prepared.game.ecs.get::<CurrentRoom>(player).copied(),
         Some(CurrentRoom::new(RoomId(9), RoomLayer::Back)));
@@ -267,7 +297,7 @@ fn browser_start_when_proxy_is_in_start_room_uses_proxy_position_without_renderi
     let player = game.ecs.create_entity().with(Player).with(Active::default())
         .with(Transform::default()).finish();
 
-    let prepared = prepare_browser_game(game, source, &FailingTextureLoader).unwrap();
+    let prepared = prepare_browser_game(game, source, &FailingTextureLoader, test_save_store()).unwrap();
 
     assert_eq!(prepared.prepared.game.ecs.get::<CurrentRoom>(player).copied(),
         Some(CurrentRoom::new(RoomId(9), RoomLayer::Back)));
@@ -279,8 +309,30 @@ fn browser_start_when_proxy_is_in_start_room_uses_proxy_position_without_renderi
 fn browser_game_when_registered_prefab_is_missing_reports_its_path() {
     let (game, source) = synthetic_game_source(Some(b"browser_boot = 'main'"), None, Some(None), None);
 
-    let error = prepare_browser_game(game, source, &FailingTextureLoader).err().unwrap();
+    let error = prepare_browser_game(game, source, &FailingTextureLoader, test_save_store()).err().unwrap();
 
     let expected = Path::new(paths::PREFABS_FOLDER).join("Fixture.prefab");
     assert!(error.contains(ResourceKey::from_native(&expected).unwrap().as_str()), "{error}");
+}
+
+#[test]
+fn browser_restore_when_latest_belongs_to_another_game_rejects_before_preparing() {
+    let (game, source) = synthetic_game_source(Some(b"engine.update = function() end"), None, None, None);
+    let document = RuntimeSaveDocument {
+        metadata: RuntimeSaveMetadata {
+            schema_version: RUNTIME_SAVE_SCHEMA_VERSION,
+            game_id: Uuid::new_v4(),
+            game_name: game.name.clone(),
+            lane: SaveLane::Autosave,
+            slot: SaveSlotKey::Default,
+            saved_at_unix_ms: 0,
+        },
+        sections: HashMap::new(),
+    };
+    let store: SaveStoreHandle = Rc::new(RefCell::new(StaticDocumentStore { document }));
+
+    let error = super::restore::prepare_browser_game_restore(game, source, &FailingTextureLoader, store)
+        .err().unwrap();
+
+    assert!(error.contains("save belongs to another game"), "{error}");
 }
