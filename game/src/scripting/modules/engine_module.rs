@@ -1,9 +1,9 @@
 use crate::game_global::set_pending_world_transition;
 use crate::scripting::lua_ctx::LuaGameCtx;
 use crate::transitions::world_transitions::{EntryHandleData, TraversalRequest, WorldSelector};
-use engine_core::worlds::{RoomId, RoomLayer, WorldId};
-use engine_core::ecs::*;
 use bishop::prelude::Vec2;
+use engine_core::ecs::{CurrentRoom, Global, Name, Player, Script, TomlId};
+use engine_core::worlds::{RoomId, RoomLayer, WorldId};
 use engine_core::register_lua_api;
 use engine_core::register_lua_module;
 use engine_core::scripting::lua_constants::{
@@ -17,6 +17,10 @@ use mlua::MultiValue;
 use mlua::Table;
 use mlua::Value;
 use mlua::Variadic;
+
+mod entity_calls;
+
+use entity_calls::register_entity_calls;
 
 /// Lua module that exposes the engine's global modules to scripts.
 #[derive(Default)]
@@ -261,91 +265,7 @@ impl LuaModule for EngineModule {
         })?;
         engine_tbl.set("player", player_fn)?;
 
-        // global.call(name, method_name, ...)
-        let call_fn = lua.create_function(|lua, args: Variadic<Value>| {
-            // Extract global entity name and method name
-            let mut iter = args.into_iter();
-
-            let name = match iter.next() {
-                Some(Value::String(s)) => s.to_str()?.to_owned(),
-                _ => {
-                    return Err(mlua::Error::RuntimeError(
-                        "First argument must be the global entity name (string)".into(),
-                    ))
-                }
-            };
-
-            let method = match iter.next() {
-                Some(Value::String(s)) => s.to_str()?.to_owned(),
-                _ => {
-                    return Err(mlua::Error::RuntimeError(
-                        "Second argument must be the method name (string)".into(),
-                    ))
-                }
-            };
-
-            // Remaining args go to the method
-            let method_args: Vec<Value> = iter.collect();
-
-            let ctx = LuaGameCtx::borrow_ctx(lua)?;
-            let game_instance = ctx.game_instance.borrow();
-            let ecs = &game_instance.game.ecs;
-            let script_manager = &game_instance.game.script_manager;
-
-            // Find global entity by name
-            let global_entity = {
-                let global_store = ecs.get_store::<Global>();
-                let name_store = ecs.get_store::<Name>();
-
-                global_store
-                    .data
-                    .keys()
-                    .find(|&&entity| name_store.get(entity).map(|n| n.0 == name).unwrap_or(false))
-                    .copied()
-            };
-
-            let entity = global_entity.ok_or_else(|| {
-                mlua::Error::RuntimeError(format!("Global entity '{}' not found", name))
-            })?;
-
-            // Get the script component
-            let script_id = ecs
-                .get_store::<Script>()
-                .get(entity)
-                .map(|s| s.script_id)
-                .ok_or_else(|| {
-                    mlua::Error::RuntimeError(format!("Global entity '{}' has no script", name))
-                })?;
-
-            // Get the script instance
-            let instance = script_manager
-                .instances
-                .get(&(entity, script_id))
-                .ok_or_else(|| {
-                    mlua::Error::RuntimeError(format!(
-                        "Script instance not found for global '{}'",
-                        name
-                    ))
-                })?;
-
-            // Get the method function
-            let func = instance.get::<Function>(method.clone()).map_err(|_| {
-                mlua::Error::RuntimeError(format!(
-                    "Method '{}' not found on global '{}'",
-                    method, name
-                ))
-            })?;
-
-            // Build call args with instance as first argument (self)
-            let handle = Value::Table(instance.clone());
-            let mut call_args = Vec::with_capacity(method_args.len() + 1);
-            call_args.push(handle);
-            call_args.extend(method_args);
-
-            // Execute the call synchronously and return the result
-            func.call::<MultiValue>(MultiValue::from_vec(call_args))
-        })?;
-        engine_tbl.set(lua_engine::CALL, call_fn)?;
+        register_entity_calls(lua, &engine_tbl)?;
 
         // engine.on(event, handler)
         let on_fn = lua.create_function(|lua, (event, handler): (String, Function)| {
@@ -523,12 +443,12 @@ impl LuaApi for EngineModule {
         out.line("");
 
         // engine.call
-        out.line("--- Call a method on a global entity script");
-        out.line("--- @param name string The name of the global entity");
+        out.line("--- Call a named entity script in the active room or among globals");
+        out.line("--- @param name string The name of the entity");
         out.line("--- @param method string The method name to call");
         out.line("--- @param ... any Additional arguments to pass to the method");
         out.line("--- @return any Returns whatever the method returns");
-        out.line("function engine.call(name, method, ...) end");
+        out.line(&format!("function engine.{}(name, method, ...) end", lua_engine::CALL));
         out.line("");
 
         // engine.on

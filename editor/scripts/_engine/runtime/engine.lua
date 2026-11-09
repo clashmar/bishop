@@ -34,8 +34,8 @@ engine.events.sensor_exit = "sensor:exit"
 --- @return table|nil -- The player's script instance, or nil if not found
 function engine.player() end
 
---- Call a method on a global entity script
---- @param name string The name of the global entity
+--- Call a named entity script in the active room or among globals
+--- @param name string The name of the entity
 --- @param method string The method name to call
 --- @param ... any Additional arguments to pass to the method
 --- @return any Returns whatever the method returns
