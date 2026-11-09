@@ -14,7 +14,7 @@ fn install_callback_module(lua: &Lua) {
             r#"
             callback_hits = 0
             return {
-                on_title_menu_open = function()
+                on_menu_open = function()
                     callback_hits = callback_hits + 1
                 end,
                 nested = {
@@ -29,7 +29,7 @@ fn install_callback_module(lua: &Lua) {
         .unwrap();
     let require = lua
         .create_function(move |_, name: String| {
-            if name == "save_manager" {
+            if name == "test_callbacks" {
                 Ok(module.clone())
             } else {
                 Err(mlua::Error::RuntimeError(format!("unknown test module: {name}")))
@@ -183,7 +183,7 @@ fn invoke_menu_callback_calls_exported_function() {
     let lua = Lua::new();
     install_callback_module(&lua);
 
-    invoke_menu_callback(&lua, "save_manager.on_title_menu_open").unwrap();
+    invoke_menu_callback(&lua, "test_callbacks.on_menu_open").unwrap();
 
     assert_eq!(lua.globals().get::<i64>("callback_hits").unwrap(), 1);
 }
@@ -193,7 +193,7 @@ fn invoke_menu_callback_supports_nested_table_paths() {
     let lua = Lua::new();
     install_callback_module(&lua);
 
-    invoke_menu_callback(&lua, "save_manager.nested.on_open").unwrap();
+    invoke_menu_callback(&lua, "test_callbacks.nested.on_open").unwrap();
 
     assert_eq!(lua.globals().get::<i64>("callback_hits").unwrap(), 1);
 }

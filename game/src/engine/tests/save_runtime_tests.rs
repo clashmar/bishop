@@ -413,12 +413,12 @@ fn save_event_waits_for_store_completion() -> mlua::Result<()> {
         return Err(mlua::Error::RuntimeError("manual save did not pend".into()));
     };
     runtime.track_pending(manual_id, SaveLane::Manual, lua_save::MANUAL.to_string());
-    runtime.poll_completed(&lua, &event_bus);
+    assert!(!runtime.poll_completed(&lua, &event_bus));
     assert!(events.borrow().is_empty());
     assert!(runtime.load_latest_document(game_id).map_err(mlua::Error::external)?.is_none());
     assert_eq!(state.borrow().submitted.len(), 1);
     state.borrow_mut().complete(manual_id, Ok(())).map_err(mlua::Error::external)?;
-    runtime.poll_completed(&lua, &event_bus);
+    assert!(runtime.poll_completed(&lua, &event_bus));
     assert_eq!(*events.borrow(), vec![(
         lua_events::SAVE_SUCCEEDED.to_string(), SaveLane::Manual.file_stem().to_string(),
         lua_save::MANUAL.to_string(), None,
@@ -435,7 +435,7 @@ fn save_event_waits_for_store_completion() -> mlua::Result<()> {
     assert_eq!(events.borrow().len(), 1);
     state.borrow_mut().complete(autosave_id, Err(io::Error::other("transaction aborted")))
         .map_err(mlua::Error::external)?;
-    runtime.poll_completed(&lua, &event_bus);
+    assert!(!runtime.poll_completed(&lua, &event_bus));
     assert_eq!(events.borrow().len(), 2);
     {
         let recorded = events.borrow();

@@ -1,5 +1,5 @@
 use super::element_kind::ElementKind;
-use super::menu_element::{MenuElement, MenuElementKind};
+use super::menu_element::{MenuElement, MenuElementKind, MenuEnabledWhen};
 use crate::menu::runtime::RenderEnv;
 use crate::menu::MenuAction;
 use bishop::prelude::*;
@@ -25,6 +25,7 @@ impl ElementKind for PanelElement {
             kind: MenuElementKind::Panel(PanelElement),
             rect: self.default_rect(),
             enabled: true,
+            enabled_when: MenuEnabledWhen::Always,
             visible: true,
             z_order: 0,
             class: None,

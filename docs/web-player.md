@@ -45,7 +45,7 @@ To use the runtime on a different site, copy `bishop-player/` unchanged, copy `g
 
 ## Browser saves
 
-The player stores runtime saves in IndexedDB under the game's stable authored ID from `game.ron`, within the player's browser origin and profile. A save document and its latest pointer commit together; `save:succeeded` fires only after the transaction commits, while a failed write reports `save:failed` and does not replace the previous latest save. An authored title/menu can use `engine.save.has_latest()` and call `engine.save.load_latest()` to rebuild the game and apply its registered save providers. A new iframe or page reload can load the same save; it does not resume automatically.
+The player stores runtime saves in IndexedDB under the game's stable authored ID from `game.ron`, within the player's browser origin and profile. A save document and its latest pointer commit together; `save:succeeded` fires only after the transaction commits, while a failed write reports `save:failed` and does not replace the previous latest save. A menu element can declare `enabled_when: HasLatestSave`; the engine automatically disables it until a committed save exists, independently of its button action. An authored `Custom("load_latest")` action can invoke `engine.save.load_latest()` from a `menu:load_latest` listener without any menu-open callback. A new iframe or page reload can load the same save; it does not resume automatically.
 
 Browser storage can be disabled or denied (including in private browsing or by quota). The game still starts and room traversal continues, but latest is unavailable and save requests report failure. Saves are local to that origin and browser profile; this is not cloud sync or a portable file export.
 

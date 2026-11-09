@@ -71,6 +71,7 @@ async function authorFixture(resources) {
     .replace('name: "EnterWorkshop"', 'name: "LoadGame"')
     .replace('text_key: "EnterWorkshop"', 'text_key: "LoadGame"')
     .replace('action: CloseMenu', 'action: Custom("load_latest")')
+    .replace('enabled: true,', 'enabled: true,\n                            enabled_when: HasLatestSave,')
     .replace('y: 0.1310237', 'y: 0.2310237');
   title = title.replace(newGame, `${newGame}\n                    ${loadGame}`);
   await writeFile(titlePath, title);
@@ -196,6 +197,8 @@ test('browser room-exit autosave restores after reload via Load Latest', async t
   await cdp.command('Runtime.enable');
   await play(cdp);
   assert.match(await status(cdp), /SAVE_FIXTURE_HAS_LATEST false/);
+  await clickCanvas(cdp, 0.5, 0.555);
+  assert.doesNotMatch(await status(cdp), /SAVE_FIXTURE_LOAD_REQUESTED/);
   await clickCanvas(cdp, 0.5, 0.502);
   await until(async () => (await status(cdp)).includes(`SAVE_FIXTURE_ROOM ${startRoomId}`), 'start room')
     .catch(async error => { throw new Error(`${error.message}: ${(await status(cdp)).slice(-2500)}`); });
@@ -207,7 +210,7 @@ test('browser room-exit autosave restores after reload via Load Latest', async t
   await play(cdp);
   assert.match(await status(cdp), /SAVE_FIXTURE_HAS_LATEST true/);
   await clickCanvas(cdp, 0.5, 0.555);
-  await until(async () => (await status(cdp)).includes('SAVE_FIXTURE_LOAD_REQUESTED'), 'Load Latest menu action');
+  await until(async () => (await status(cdp)).includes('SAVE_FIXTURE_LOAD_REQUESTED'), 'custom Load Latest action');
   await until(async () => (await status(cdp)).includes(`SAVE_FIXTURE_RESTORE_APPLY ${savedRoomId}`),
     'Load Latest provider restoration', 10000);
   await until(async () => (await status(cdp)).includes(`SAVE_FIXTURE_ROOM ${savedRoomId}`),
@@ -250,7 +253,7 @@ test('browser room-exit autosave restores after reload via Load Latest', async t
   await play(cdp);
   assert.match(await status(cdp), /SAVE_FIXTURE_HAS_LATEST true/);
   await clickCanvas(cdp, 0.5, 0.555);
-  await until(async () => (await status(cdp)).includes('SAVE_FIXTURE_LOAD_REQUESTED'), 'corrupt save load action');
+  await until(async () => (await status(cdp)).includes('SAVE_FIXTURE_LOAD_REQUESTED'), 'corrupt custom load action');
   await until(async () => (await status(cdp)).includes('BISHOP_PLAYER_LOAD_ERROR'), 'corrupt save error');
   await clickCanvas(cdp, 0.5, 0.502);
   await until(async () => (await status(cdp)).includes(`SAVE_FIXTURE_ROOM ${startRoomId}`),

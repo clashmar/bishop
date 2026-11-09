@@ -149,6 +149,7 @@ fn flat_test_template() -> MenuTemplate {
                 kind: MenuElementKind::Panel(PanelElement),
                 rect: Rect::new(0.0, 0.0, 0.0, 0.0),
                 enabled: true,
+                enabled_when: MenuEnabledWhen::Always,
                 visible: true,
                 z_order: 0,
                 class: None,
@@ -159,6 +160,7 @@ fn flat_test_template() -> MenuTemplate {
                 kind: MenuElementKind::Panel(PanelElement),
                 rect: Rect::new(0.0, 0.0, 0.0, 0.0),
                 enabled: true,
+                enabled_when: MenuEnabledWhen::Always,
                 visible: true,
                 z_order: 0,
                 class: None,
@@ -202,6 +204,7 @@ fn grouped_test_template(on_open: &str) -> MenuTemplate {
             }),
             rect: Rect::new(0.0, 0.0, 1.0, 1.0),
             enabled: true,
+            enabled_when: MenuEnabledWhen::Always,
             visible: true,
             z_order: 0,
             class: None,
@@ -210,6 +213,108 @@ fn grouped_test_template(on_open: &str) -> MenuTemplate {
         mode: MenuMode::FrontEnd,
         on_open: on_open.to_string(),
     }
+}
+
+fn conditioned_test_template(enabled: bool) -> MenuTemplate {
+    let mut template = MenuTemplate::new("save_menu".to_string());
+    let mut button = MenuElement::button(
+        "Load".to_string(),
+        MenuAction::Custom("load_latest".to_string()),
+        Rect::new(0.0, 0.0, 1.0, 1.0),
+    );
+    button.enabled = enabled;
+    button.enabled_when = MenuEnabledWhen::HasLatestSave;
+    template.elements.push(button);
+    template.elements.push(MenuElement::button(
+        "Other".to_string(),
+        MenuAction::Custom("other".to_string()),
+        Rect::new(0.0, 0.0, 1.0, 1.0),
+    ));
+    template
+}
+
+#[test]
+fn conditioned_custom_button_without_save_is_disabled_but_other_actions_remain_enabled() {
+    let mut manager = MenuManager::new();
+    let template = conditioned_test_template(true);
+    manager.register_template(template.clone());
+    manager.open_menu(&template.id);
+
+    let displayed = manager.displayed_template(&template.id).unwrap();
+    assert!(!displayed.buttons()[0].2);
+    assert!(displayed.buttons()[1].2);
+    assert_eq!(displayed.buttons()[0].0.action, MenuAction::Custom("load_latest".to_string()));
+    assert!(manager.get_template(&template.id).unwrap().buttons()[0].2);
+}
+
+#[test]
+fn conditioned_custom_button_after_save_commits_enables_without_changing_authored_state() {
+    let mut manager = MenuManager::new();
+    let template = conditioned_test_template(true);
+    manager.register_template(template.clone());
+    manager.open_menu(&template.id);
+
+    manager.set_latest_save_available(true);
+    assert!(manager.displayed_template(&template.id).unwrap().buttons()[0].2);
+
+    manager.set_latest_save_available(false);
+    assert!(!manager.displayed_template(&template.id).unwrap().buttons()[0].2);
+    assert!(manager.get_template(&template.id).unwrap().buttons()[0].2);
+}
+
+#[test]
+fn conditioned_button_respects_authored_disabled_state_with_save() {
+    let mut manager = MenuManager::new();
+    let template = conditioned_test_template(false);
+    manager.register_template(template.clone());
+    manager.set_latest_save_available(true);
+    manager.open_menu(&template.id);
+
+    assert!(!manager.displayed_template(&template.id).unwrap().buttons()[0].2);
+}
+
+#[test]
+fn authored_custom_button_condition_round_trips_through_ron() {
+    let template = conditioned_test_template(true);
+    let encoded = ron::to_string(&template).unwrap();
+    let decoded: MenuTemplate = ron::from_str(&encoded).unwrap();
+
+    assert_eq!(decoded.elements[0].enabled_when, MenuEnabledWhen::HasLatestSave);
+    assert_eq!(decoded.buttons()[0].0.action, template.buttons()[0].0.action);
+}
+
+#[test]
+fn layout_child_condition_controls_a_custom_button_without_affecting_siblings() {
+    let mut manager = MenuManager::new();
+    let mut template = grouped_test_template("");
+    let MenuElementKind::LayoutGroup(group) = &mut template.elements[0].kind else {
+        panic!("expected layout group");
+    };
+    group.children[1].element.enabled_when = MenuEnabledWhen::HasLatestSave;
+    let MenuElementKind::Button(button) = &mut group.children[1].element.kind else {
+        panic!("expected button");
+    };
+    button.action = MenuAction::Custom("load_latest".to_string());
+    manager.register_template(template.clone());
+    manager.open_menu(&template.id);
+
+    assert!(manager.displayed_template(&template.id).unwrap().buttons()[0].2);
+    assert!(!manager.displayed_template(&template.id).unwrap().buttons()[1].2);
+    manager.set_latest_save_available(true);
+    assert!(manager.displayed_template(&template.id).unwrap().buttons()[1].2);
+}
+
+#[test]
+fn layout_group_condition_disables_its_children_when_no_save_exists() {
+    let mut manager = MenuManager::new();
+    let mut template = grouped_test_template("");
+    template.elements[0].enabled_when = MenuEnabledWhen::HasLatestSave;
+    manager.register_template(template.clone());
+    manager.open_menu(&template.id);
+
+    assert!(manager.displayed_template(&template.id).unwrap().buttons().iter().all(|button| !button.2));
+    manager.set_latest_save_available(true);
+    assert!(manager.displayed_template(&template.id).unwrap().buttons().iter().all(|button| button.2));
 }
 
 #[test]
@@ -262,13 +367,13 @@ fn set_element_visible_toggles_and_returns_true() {
 #[test]
 fn open_menu_queues_non_empty_on_open_callback() {
     let mut mgr = MenuManager::new();
-    mgr.register_template(grouped_test_template("save_manager.on_title_menu_open"));
+    mgr.register_template(grouped_test_template("test_callbacks.on_open"));
 
     mgr.open_menu("title");
 
     assert_eq!(
         mgr.take_pending_on_open().as_deref(),
-        Some("save_manager.on_title_menu_open")
+        Some("test_callbacks.on_open")
     );
 }
 

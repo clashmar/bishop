@@ -75,24 +75,29 @@ impl SaveRuntime {
         self.pending_saves.insert(request_id, PendingSave { lane, trigger });
     }
 
-    /// Emits save events for transactions completed by the shared store.
-    pub fn poll_completed(&mut self, lua: &Lua, event_bus: &EventBus) {
+    /// Emits save events and reports whether a write committed.
+    pub fn poll_completed(&mut self, lua: &Lua, event_bus: &EventBus) -> bool {
         if self.pending_saves.is_empty() {
-            return;
+            return false;
         }
         let completed = self.save_store.borrow_mut().take_completed();
+        let mut committed = false;
         for (request_id, result) in completed {
             let Some(pending) = self.pending_saves.remove(&request_id) else {
                 engine_core::omni_error!("Save store completed unknown request {request_id}");
                 continue;
             };
             match result {
-                Ok(()) => emit_save_succeeded(lua, event_bus, pending.lane, &pending.trigger),
+                Ok(()) => {
+                    committed = true;
+                    emit_save_succeeded(lua, event_bus, pending.lane, &pending.trigger);
+                },
                 Err(error) => emit_save_failed(
                     lua, event_bus, pending.lane, &pending.trigger, &error.to_string(),
                 ),
             }
         }
+        committed
     }
 
     /// Records a pending request to load the latest runtime save.

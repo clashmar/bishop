@@ -9,6 +9,7 @@ use std::collections::HashMap;
 use std::fs;
 use widgets::MouseButton;
 
+mod availability;
 mod source_loading;
 
 /// Manages menu templates, active menu stack, and navigation.
@@ -35,6 +36,8 @@ pub struct MenuManager {
     last_hovered_focus: Option<MenuFocus>,
     /// Terminal session action requested by a built-in quit button.
     pending_session_action: Option<MenuSessionAction>,
+    /// Whether a committed latest save exists for menu availability conditions.
+    latest_save_available: bool,
     /// Pending on_open script name, set by open_menu, consumed by invoke_on_open.
     pending_on_open: Option<String>,
 }
@@ -105,6 +108,7 @@ impl MenuManager {
             slider_repeat: SliderRepeatState::default(),
             last_hovered_focus: None,
             pending_session_action: None,
+            latest_save_available: false,
             pending_on_open: None,
         };
         for template in default_menus() {
@@ -140,8 +144,8 @@ impl MenuManager {
 
     /// Opens a menu by id.
     pub fn open_menu(&mut self, id: &str) {
-        if let Some(template) = self.templates.get(id) {
-            self.focus.reset(template);
+        if let Some(template) = self.displayed_template(id) {
+            self.focus.reset(&template);
             self.slider_repeat.reset();
             self.menu_stack.push(id.to_string());
             self.last_hovered_focus = None;
@@ -292,7 +296,7 @@ impl MenuManager {
         }
 
         if let Some(menu_id) = self.menu_stack.last().cloned()
-            && let Some(template) = self.templates.get(&menu_id).cloned()
+            && let Some(template) = self.displayed_template(&menu_id)
         {
             let focus_before_input = self.focus.clone();
 
@@ -412,10 +416,10 @@ impl MenuManager {
         }
 
         if let Some(menu_id) = self.menu_stack.last()
-            && let Some(template) = self.templates.get(menu_id)
+            && let Some(template) = self.displayed_template(menu_id)
             && let Some(action) = render_active_menu(
                 ctx,
-                template,
+                &template,
                 menu_id,
                 self.viewport,
                 &self.focus,

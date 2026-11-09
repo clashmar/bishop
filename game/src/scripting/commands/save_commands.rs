@@ -25,6 +25,7 @@ impl LuaCommand for SaveToLaneCmd {
             .save_to_lane(&engine.game_instance, self.lane)
         {
             Ok(SaveWrite::Committed) => {
+                engine.menu_manager.set_latest_save_available(true);
                 emit_save_succeeded(&engine.lua, &event_bus, self.lane, &self.trigger);
             }
             Ok(SaveWrite::Pending(id)) => {
