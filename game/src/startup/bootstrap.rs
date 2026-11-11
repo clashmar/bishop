@@ -1,12 +1,13 @@
 use super::{
     load_startup_for_game_name, load_startup_from_resources,
     rebootstrap::{entry_mode_for_intent, StartupIntent, StartupRequest},
-    runtime_icon::playtest_game_name_from_payload as parse_playtest_game_name, StartupAsset,
+    runtime_icon::playtest_game_name_from_payload as parse_playtest_game_name,
+    save_restore::{apply_restore_phase, load_restore_document}, StartupAsset,
     StartupScreenContent, StartupScreenSpec,
 };
 use crate::diagnostics::{StartupTelemetryRecorder, StartupTelemetryStage};
 use crate::engine::{Engine, EngineBuilder, EngineEntryMode, GameInstance, SaveRuntime};
-use crate::save_system::{apply_document_phase, RestorePhase};
+use crate::save_system::RestorePhase;
 use crate::scripting::script_system::ScriptSystem;
 use bishop::prelude::*;
 use engine_core::constants::{paths};
@@ -413,10 +414,10 @@ fn try_build_engine(
                         game,
                         &builder.lua,
                         &mut builder.camera_manager,
-                    )
+                    )?
                 };
 
-                Ok(builder.assemble(game_instance, ctx, false))
+                builder.assemble(game_instance, ctx, false)
             }
             LoadedStartupData::Playtest {
                 startup_asset,
@@ -439,17 +440,17 @@ fn try_build_engine(
                         game,
                         &builder.lua,
                         &mut builder.camera_manager,
-                    )
+                    )?
                 };
 
-                Ok(builder.assemble(game_instance, ctx, true))
+                builder.assemble(game_instance, ctx, true)
             }
         },
         StartupIntent::LoadLatest => {
             let is_playtest = matches!(loaded, LoadedStartupData::Playtest { .. });
-            let game_name = match &loaded {
+            let (game_name, game_id) = match &loaded {
                 LoadedStartupData::Game { game, .. }
-                | LoadedStartupData::Playtest { game, .. } => game.name.clone(),
+                | LoadedStartupData::Playtest { game, .. } => (game.name.clone(), game.id),
             };
             set_engine_mode(if is_playtest {
                 EngineMode::Playtest
@@ -464,26 +465,20 @@ fn try_build_engine(
                     *startup_mode != StartupMode::Skip
                 }
             };
-            let save_runtime = SaveRuntime::new(builder.save_providers.clone(), builder.pending_quit_to_title.clone());
+            let save_runtime = SaveRuntime::new(
+                builder.save_providers.clone(), builder.pending_quit_to_title.clone(),
+                builder.save_store.clone(),
+            );
 
-            let document = save_runtime
-                .load_latest_document()
-                .map_err(|e| format!("Failed to read save document: {e}"))?
-                .ok_or_else(|| "No save data found for explicit load".to_string())?;
-
-            apply_document_phase(
-                &mut builder.save_providers.borrow_mut(),
-                &document,
-                RestorePhase::PreRuntime,
-            )
-            .map_err(|e| format!("Failed to apply PreRuntime restore: {e}"))?;
+            let document = load_restore_document(&save_runtime, game_id)?;
+            apply_restore_phase(&save_runtime, &document, RestorePhase::PreRuntime)?;
 
             let prepared = match loaded {
                 LoadedStartupData::Game { game, .. } => {
-                    GameInstance::prepare_loaded_game(&builder.lua, game)
+                    GameInstance::prepare_loaded_game(&builder.lua, game)?
                 }
                 LoadedStartupData::Playtest { room, game, .. } => {
-                    GameInstance::prepare_loaded_room(&builder.lua, room, game)
+                    GameInstance::prepare_loaded_room(&builder.lua, room, game)?
                 }
             };
 
@@ -500,7 +495,7 @@ fn try_build_engine(
             let mut engine = builder
                 .entry_mode(entry_mode)
                 .quit_to_title_enabled(quit_to_title_enabled)
-                .into_engine(game_instance, ctx.clone(), save_runtime, is_playtest);
+                .into_engine(game_instance, ctx.clone(), save_runtime, is_playtest)?;
 
             {
                 let mut game_ref = engine.game_instance.borrow_mut();
@@ -513,12 +508,7 @@ fn try_build_engine(
                 .map_err(|e| format!("Failed to prime scripts for runtime restore: {e}"))?;
             }
 
-            apply_document_phase(
-                &mut engine.save_runtime.providers().borrow_mut(),
-                &document,
-                RestorePhase::PostRuntime,
-            )
-            .map_err(|e| format!("Failed to apply PostRuntime restore: {e}"))?;
+            apply_restore_phase(&engine.save_runtime, &document, RestorePhase::PostRuntime)?;
 
             ScriptSystem::process_commands(&mut engine);
             engine.rebuild_camera_from_loaded_state();

@@ -12,6 +12,8 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 mod game_instance_tests;
+mod save_runtime_tests;
+mod start_world_tests;
 
 #[test]
 fn start_menu_entry_opens_the_root_menu_and_sets_front_end_policy() {

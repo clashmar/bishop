@@ -1,5 +1,7 @@
 use crate::app::*;
+use crate::gui::modals::export_options::ExportOptionsModal;
 use crate::gui::modals::export_overwrite::{stage_export_overwrite_message, ExportOverwriteModal};
+use crate::gui::modals::export_result::ExportResultModal;
 use crate::gui::modals::unsaved_exit::UnsavedExitModal;
 use crate::gui::modals::ModalHandler;
 use crate::prefab::reconcile_recent_prefab_ids;
@@ -7,11 +9,16 @@ use crate::prefab::palette::{PrefabPaletteState, PREFAB_PALETTE_RECENT_CAP};
 use crate::storage::game_io::save_game;
 use crate::storage::menus::{load_menus, save_menu};
 use crate::storage::prefab_palettes::{load_prefab_palette_state, save_prefab_palette_state};
-use crate::storage::export::{export_game, export_target_path, PendingExport};
+use crate::storage::export_dispatch::{export_game_for_target, export_target_path_for, ExportTarget, PendingExport};
+use crate::storage::web_preview::{open_browser, open_folder, LocalPreview};
 use bishop::prelude::*;
 use engine_core::ecs::*;
 use engine_core::logging::{omni_error};
+use engine_core::menu::MenuTemplate;
+use engine_core::storage::resources_folder_current;
 use engine_core::ui::{Toast};
+use std::path::{Path, PathBuf};
+use std::io;
 
 #[derive(Clone, Copy)]
 enum PrefabPaletteRollbackMode {
@@ -168,47 +175,84 @@ impl Editor {
     }
 
     pub(crate) fn begin_export(&mut self, ctx: &mut WgpuContext) {
-        #[cfg(not(target_arch = "wasm32"))]
-        {
-            use rfd::FileDialog;
+        ExportOptionsModal.open(self, ctx);
+    }
 
-            let Some(dest_root) = FileDialog::new()
-                .set_title("Select destination folder for export:")
-                .pick_folder()
-            else {
-                return;
-            };
+    pub(crate) fn select_export_target(&mut self, ctx: &mut WgpuContext, target: ExportTarget) {
+        use rfd::FileDialog;
 
-            let target_path = export_target_path(&dest_root, &self.game);
-            if target_path.exists() {
-                self.pending_export = Some(PendingExport { dest_root });
-                let target_name = target_path
-                    .file_name()
-                    .and_then(|n| n.to_str())
-                    .unwrap_or("export");
-                let message = format!("Overwrite existing export '{target_name}'?");
-                stage_export_overwrite_message(message);
-                ExportOverwriteModal.open(self, ctx);
-                return;
-            }
-
-            self.finish_export(&dest_root);
+        let Some(dest_root) = FileDialog::new()
+            .set_title("Select destination folder for export:")
+            .pick_folder()
+        else {
+            return;
+        };
+        let target_path = export_target_path_for(&dest_root, &self.game, target);
+        if target_path.exists() {
+            self.pending_export = Some(PendingExport { dest_root, target });
+            let target_name = target_path.file_name().and_then(|n| n.to_str()).unwrap_or("export");
+            stage_export_overwrite_message(format!("Overwrite existing export '{target_name}'?"));
+            ExportOverwriteModal.open(self, ctx);
+            return;
         }
+        self.finish_export(ctx, &dest_root, target, false);
+    }
 
-        #[cfg(target_arch = "wasm32")]
-        {
-            self.toast = Some(Toast::new("Folder picker unavailable in WASM", 2.5));
+    fn save_export_snapshot(&mut self) -> Result<PathBuf, String> {
+        if matches!(self.mode, EditorMode::Prefab(_)) && !self.active_prefab_is_clean() {
+            return Err("Save or discard staged prefab changes before exporting.".to_owned());
+        }
+        persist_export_snapshot(&self.game, &self.menu_editor.templates, save_game, save_menu)?;
+        self.update_save_state_hash();
+        Ok(resources_folder_current())
+    }
+
+    pub(crate) fn finish_export(&mut self, ctx: &WgpuContext, dest_root: &Path, target: ExportTarget, overwrite: bool) {
+        let result = self.save_export_snapshot().and_then(|resources| {
+            let runtime = crate::storage::web_preview::player_runtime_directory();
+            export_game_for_target(dest_root, &resources, &runtime, &self.game, target, overwrite)
+                .map_err(|error| format!("Could not export: {error}"))
+        });
+        match result {
+            Ok(path) => {
+                self.toast = Some(Toast::new(format!("Exported to: {}", path.display()), 2.5));
+                if target == ExportTarget::Web {
+                    self.web_preview = None;
+                    self.last_web_export = Some(path);
+                    ExportResultModal.open(self, ctx);
+                }
+            }
+            Err(error) => {
+                omni_error!("Export failed: {error}");
+                self.toast = Some(Toast::new(format!("Export failed: {error}"), 4.0));
+            }
         }
     }
 
-    pub(crate) fn finish_export(&mut self, dest_root: &std::path::Path) {
-        match export_game(dest_root, &self.game) {
-            Ok(path) => {
-                self.toast = Some(Toast::new(format!("Exported to: {}", path.display()), 2.5));
-            }
-            Err(e) => {
-                omni_error!("Export failed: {e}");
-            }
+    pub(crate) fn open_web_export_preview(&mut self) {
+        let Some(site) = self.last_web_export.as_deref() else { return; };
+        let result = match self.web_preview.as_ref() {
+            Some(preview) => open_browser(&preview.url()),
+            None => LocalPreview::start(site).and_then(|preview| {
+                let opened = open_browser(&preview.url());
+                if opened.is_ok() {
+                    self.web_preview = Some(preview);
+                }
+                opened
+            }),
+        };
+        if let Err(error) = result {
+            self.web_preview = None;
+            omni_error!("Web preview failed: {error}");
+            self.toast = Some(Toast::new(format!("Web preview failed: {error}"), 4.0));
+        }
+    }
+
+    pub(crate) fn open_web_export_folder(&mut self) {
+        let Some(site) = self.last_web_export.as_deref() else { return; };
+        if let Err(error) = open_folder(site) {
+            omni_error!("Could not open export folder: {error}");
+            self.toast = Some(Toast::new(format!("Could not open folder: {error}"), 4.0));
         }
     }
 
@@ -263,9 +307,46 @@ impl Editor {
     }
 }
 
+fn persist_export_snapshot(
+    game: &engine_core::game::Game,
+    templates: &[MenuTemplate],
+    save_game_fn: impl FnOnce(&engine_core::game::Game) -> io::Result<()>,
+    mut save_menu_fn: impl FnMut(&MenuTemplate) -> io::Result<()>,
+) -> Result<(), String> {
+    save_game_fn(game).map_err(|error| format!("Could not save game for export: {error}"))?;
+    for template in templates {
+        save_menu_fn(template).map_err(|error| {
+            format!("Could not save menu '{}' for export: {error}", template.id)
+        })?;
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn failed_menu_snapshot_blocks_export_instead_of_reporting_saved() {
+        use engine_core::menu::MenuTemplate;
+        use std::cell::Cell;
+        use std::io;
+
+        let game = engine_core::game::Game::with_name("Unsaved Game");
+        let templates = vec![MenuTemplate::new("unsaved-title".to_owned())];
+        let game_saved = Cell::new(false);
+        let result = persist_export_snapshot(&game, &templates, |_| {
+            game_saved.set(true);
+            Ok(())
+        }, |_| Err(io::Error::other("readonly menus folder")));
+        assert!(game_saved.get());
+        assert!(result.unwrap_err().contains("unsaved-title"));
+
+        let result = persist_export_snapshot(&game, &templates, |_| {
+            Err(io::Error::other("read-only game"))
+        }, |_| panic!("menus cannot be saved after a game save failure"));
+        assert!(result.unwrap_err().contains("Could not save game"));
+    }
 
     #[test]
     fn editor_state_hash_is_consistent_for_identical_state() {

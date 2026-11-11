@@ -1,6 +1,6 @@
 use crate::engine::GameInstance;
 use crate::game_global::drain_commands;
-use crate::save_system::{SaveLane, SaveProviderRegistry};
+use crate::save_system::{FileSaveStore, SaveLane, SaveProviderRegistry};
 use crate::scripting::lua_ctx::{register_save_lua_context, LuaGameCtx, LuaSaveCtx};
 use crate::scripting::modules::save_module::SaveModule;
 use engine_core::game::Game;
@@ -38,6 +38,7 @@ fn setup_save_lua() -> (Lua, Rc<RefCell<GameInstance>>) {
     .unwrap();
     LuaSaveCtx {
         save_providers,
+        save_store: Rc::new(RefCell::new(FileSaveStore)),
         pending_quit_to_title: Rc::new(Cell::new(false)),
     }
     .set_lua_ctx(&lua)
@@ -326,7 +327,10 @@ fn save_provider_registration_only_requires_save_context() {
         .unwrap();
 
     let save_providers = Rc::new(RefCell::new(SaveProviderRegistry::new()));
-    register_save_lua_context(&lua, save_providers.clone(), Rc::new(Cell::new(false))).unwrap();
+    register_save_lua_context(
+        &lua, save_providers.clone(), Rc::new(RefCell::new(FileSaveStore)),
+        Rc::new(Cell::new(false)),
+    ).unwrap();
 
     SaveModule.register(&lua).unwrap();
 

@@ -1,4 +1,5 @@
 /target
+/editor/bundle_assets/web-player/
 /_runtime_saves/
 /games/_runtime_saves/
 .DS_Store

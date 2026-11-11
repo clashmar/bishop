@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Bishop Demo browser checkpoint</title>
+  <style>
+    body { background: #111827; color: #f9fafb; font-family: system-ui, sans-serif; margin: 2rem; }
+    #status { background: #1f2937; border: 1px solid #374151; padding: 1rem;
+              max-height: 12rem; overflow: auto; white-space: pre-wrap; font-family: ui-monospace, monospace; }
+    #bishop-canvas { display: block; width: 960px; height: auto; max-width: 100%;
+                     border: 1px solid #38bdf8; image-rendering: pixelated; }
+  </style>
+</head>
+<body>
+  <h1>Bishop Demo browser checkpoint</h1>
+  <p>First playable authored room checkpoint (not a hosted or parity-complete release). Click the canvas, move with left/right, and press T for Demo's scripted teleport.</p>
+  <pre id="status">Fetching authored Demo resources</pre>
+  <canvas id="bishop-canvas" width="960" height="540" tabindex="0"
+          role="application" aria-label="Bishop Demo game canvas"></canvas>
+  <script>
+    const status = document.getElementById("status");
+    window.bishopAppendStatus = message => {
+      status.textContent += `\n${message}`;
+      status.scrollTop = status.scrollHeight;
+      console.log(message);
+    };
+    window.Module = {
+      print: window.bishopAppendStatus,
+      printErr: message => {
+        status.textContent += `\nERROR: ${message}`;
+        status.scrollTop = status.scrollHeight;
+        console.error(message);
+      },
+      onRuntimeInitialized: () => window.bishopAppendStatus("Bishop Emscripten runtime initialized"),
+    };
+  </script>
+  <script src="input.js"></script>
+  <script src="audio.js"></script>
+  <script async src="web_shell.js"></script>
+</body>
+</html>

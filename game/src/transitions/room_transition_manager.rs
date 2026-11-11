@@ -1,4 +1,5 @@
 use crate::engine::game_instance::GameInstance;
+use crate::scripting::lua_integer::lua_unsigned_id;
 use bishop::prelude::Vec2;
 use engine_core::ecs::{Collider, CurrentRoom, SubPixel, Transform, pivot_offset};
 use engine_core::rendering::visual_position;
@@ -71,7 +72,15 @@ impl RoomTransitionManager {
                 }
                 let room_tags = collect_transition_tags(game_instance, target_id);
 
-                let mut args = vec![Value::Integer(target_id.0 as i64)];
+                let id = match lua_unsigned_id(target_id.0 as u64) {
+                    Ok(value) => value,
+                    Err(error) => {
+                        log::error!("Room-entered event ID is not representable in Luau: {error}");
+                        player_transitioned = true;
+                        continue;
+                    }
+                };
+                let mut args = vec![id];
                 for tag in room_tags {
                     if let Ok(lua_tag) = lua.create_string(tag.lua_name()) {
                         args.push(Value::String(lua_tag));

@@ -2,7 +2,7 @@ use super::{FIELD_HEIGHT, LABEL_WIDTH, ROW_HEIGHT};
 use crate::menu::MenuEditor;
 use bishop::prelude::*;
 use engine_core::constants::{ui};
-use engine_core::menu::MenuElement;
+use engine_core::menu::{MenuElement, MenuEnabledWhen};
 use widgets::*;
 use engine_core::menu::elements::element_kind::ElementKind;
 
@@ -13,6 +13,8 @@ struct CommonState {
     rect_val: Rect,
     z_order: i32,
     visible: bool,
+    enabled_when: MenuEnabledWhen,
+    focusable: bool,
     type_label: &'static str,
 }
 
@@ -40,6 +42,8 @@ impl MenuEditor {
                 rect_val: element.rect,
                 z_order: element.z_order,
                 visible: element.visible,
+                enabled_when: element.enabled_when,
+                focusable: element.kind.is_focusable(),
                 type_label,
             }
         };
@@ -84,6 +88,38 @@ impl MenuEditor {
             }
         }
         *y += ROW_HEIGHT;
+
+        if state.focusable {
+            // Availability condition
+            if row_visible(*y, ROW_HEIGHT, clip) {
+                ctx.draw_text("Enabled if:", x, *y + 16.0, 12.0, Color::WHITE);
+                let conditions = [MenuEnabledWhen::Always, MenuEnabledWhen::HasLatestSave];
+                let options: Vec<&str> = conditions
+                    .iter()
+                    .map(|condition| condition.ui_label())
+                    .collect();
+                let rect = Rect::new(x + LABEL_WIDTH, *y, _w - LABEL_WIDTH, FIELD_HEIGHT);
+                if let Some(selected) = Dropdown::new(
+                    self.properties_panel.widget_ids.enabled_when_id,
+                    rect,
+                    state.enabled_when.ui_label(),
+                    &options,
+                    |s| s.to_string(),
+                )
+                .suppressed(blocked)
+                .fixed_width()
+                .show(ctx)
+                {
+                    if let Some(condition) = conditions
+                        .into_iter()
+                        .find(|item| item.ui_label() == selected)
+                    {
+                        self.push_element_update(|el| el.enabled_when = condition);
+                    }
+                }
+            }
+            *y += ROW_HEIGHT;
+        }
 
         // Class field
         if row_visible(*y, ROW_HEIGHT, clip) {

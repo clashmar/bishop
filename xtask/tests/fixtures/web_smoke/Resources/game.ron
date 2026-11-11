@@ -1,0 +1,10 @@
+(
+    version: 1,
+    id: "0702e3b8-1740-4965-be9f-ca489ec3c70e",
+    name: "WebSmoke",
+    current_world_id: Some((1)),
+    start_world_id: Some((1)),
+    world_ids: [
+        (1),
+    ],
+)

@@ -1,5 +1,8 @@
 //! Time and frame timing operations.
 
+#[cfg(all(feature = "web-gl", any(test, target_os = "emscripten")))]
+pub(crate) mod web_clock;
+
 /// Trait for frame timing and operations.
 pub trait Time {
     /// Returns the time elapsed since the last frame in seconds.

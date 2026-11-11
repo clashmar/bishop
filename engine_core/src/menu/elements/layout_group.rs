@@ -1,5 +1,5 @@
 use super::element_kind::ElementKind;
-use super::menu_element::{MenuElement, MenuElementKind};
+use super::menu_element::{MenuElement, MenuElementKind, MenuEnabledWhen};
 use crate::menu::*;
 use bishop::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -53,6 +53,7 @@ impl ElementKind for LayoutGroupElement {
             kind: MenuElementKind::LayoutGroup(LayoutGroupElement::default()),
             rect: self.default_rect(),
             enabled: true,
+            enabled_when: MenuEnabledWhen::Always,
             visible: true,
             z_order: 0,
             class: None,

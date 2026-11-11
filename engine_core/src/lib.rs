@@ -3,6 +3,7 @@ pub mod assets;
 pub mod audio;
 pub mod camera;
 pub mod constants;
+#[cfg(feature = "wgpu")]
 pub mod controls;
 pub mod diagnostics;
 pub mod ecs;

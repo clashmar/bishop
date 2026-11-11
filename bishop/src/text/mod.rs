@@ -1,6 +1,11 @@
 //! Text rendering and measurement.
 
 mod dimensions;
+#[cfg(any(
+    all(feature = "web-gl", target_os = "emscripten"),
+    all(test, any(feature = "wgpu", feature = "web-gl"))
+))]
+pub(crate) mod font_metrics;
 mod params;
 
 pub use dimensions::*;

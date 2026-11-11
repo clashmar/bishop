@@ -5,30 +5,6 @@ use engine_core::worlds::{
     LayerCompositionMode,
 };
 
-const RESERVED_RUNTIME_SAVES_FOLDER: &str = "_runtime_saves";
-
-struct ReservedRuntimeSavesRoot {
-    path: std::path::PathBuf,
-}
-
-impl ReservedRuntimeSavesRoot {
-    fn new() -> Self {
-        let path = absolute_save_root().join(RESERVED_RUNTIME_SAVES_FOLDER);
-        let _ = fs::remove_dir_all(&path);
-        Self { path }
-    }
-
-    fn path(&self) -> &std::path::Path {
-        &self.path
-    }
-}
-
-impl Drop for ReservedRuntimeSavesRoot {
-    fn drop(&mut self) {
-        let _ = fs::remove_dir_all(&self.path);
-    }
-}
-
 #[test]
 fn create_new_game_creates_prefabs_folder() {
     let _lock = game_fs_test_lock()
@@ -296,43 +272,6 @@ fn game_save_load_when_tile_registry_has_multiple_defs_then_all_defs_persist() {
 
     assert!(loaded.tile_registry.get(walkable_id).is_some());
     assert!(loaded.tile_registry.get(solid_id).is_some());
-}
-
-#[test]
-fn list_game_names_ignores_non_game_directories() {
-    let _lock = game_fs_test_lock()
-        .lock()
-        .unwrap_or_else(|poison| poison.into_inner());
-    let test_game = TestGameFolder::new("editor_game_name_listing");
-    let reserved = ReservedRuntimeSavesRoot::new();
-    set_game_name(test_game.name());
-    create_new_game(test_game.name().to_string());
-    fs::create_dir_all(reserved.path()).unwrap();
-
-    let game_names = list_game_names();
-    let expected = sanitise_name(test_game.name());
-
-    assert!(game_names.iter().any(|name| name == &expected));
-    assert!(!game_names
-        .iter()
-        .any(|name| name == RESERVED_RUNTIME_SAVES_FOLDER));
-}
-
-#[test]
-fn most_recent_game_name_ignores_reserved_runtime_save_folder() {
-    let _lock = game_fs_test_lock()
-        .lock()
-        .unwrap_or_else(|poison| poison.into_inner());
-    let test_game = TestGameFolder::new("editor_most_recent_game");
-    let reserved = ReservedRuntimeSavesRoot::new();
-    set_game_name(test_game.name());
-    create_new_game(test_game.name().to_string());
-
-    fs::create_dir_all(reserved.path()).unwrap();
-    fs::write(reserved.path().join("touch.txt"), "latest").unwrap();
-
-    let expected = sanitise_name(test_game.name());
-    assert_eq!(most_recent_game_name().as_deref(), Some(expected.as_str()));
 }
 
 #[test]

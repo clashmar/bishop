@@ -1,19 +1,27 @@
 use super::*;
+use crate::constants::paths;
 
 impl SpriteManager {
     /// Initialize game data for runtime startup without hydrating all textures up front.
     pub fn init_runtime_manager(game: &mut Game) {
-        let file_read_pool = FileReadPool::new();
-        Self::init_runtime_manager_with_pool(&file_read_pool, game);
+        if matches!(game.runtime_source.as_ref(), Some(ResourceSource::Prefetched(_))) {
+            Self::initialize_runtime_state(None, game);
+        } else {
+            let file_read_pool = FileReadPool::new();
+            Self::initialize_runtime_state(Some(&file_read_pool), game);
+        }
     }
 
-    /// Initialize runtime data with an explicit file-read pool handle.
-    pub fn init_runtime_manager_with_pool(file_read_pool: &FileReadPool, game: &mut Game) {
+    fn initialize_runtime_state(file_read_pool: Option<&FileReadPool>, game: &mut Game) {
         game.sprite_manager
             .rebuild_path_cache_from_registry(&game.asset_registry);
         game.sprite_manager.restore_next_sprite_id();
         game.sprite_manager.runtime_texture_loading = true;
-        game.sprite_manager.runtime_file_read_pool = Some(file_read_pool.clone());
+        game.sprite_manager.resource_source = match game.runtime_source.as_ref() {
+            Some(source @ ResourceSource::Prefetched(_)) => Some(source.clone()),
+            _ => None,
+        };
+        game.sprite_manager.runtime_file_read_pool = file_read_pool.cloned();
         game.sprite_manager.pending_texture_reads.clear();
         game.sprite_manager.failed_texture_reads.clear();
 
@@ -21,6 +29,21 @@ impl SpriteManager {
             animation.init_sprite_cache_runtime(&game.sprite_manager);
             animation.init_runtime();
         }
+    }
+
+    /// Verifies that a prefetched registered sprite is available before a deferred upload.
+    pub fn validate_prefetched_texture(&self, id: SpriteId) -> Result<(), String> {
+        if id.0 == 0 || self.textures.contains_key(&id) {
+            return Ok(());
+        }
+        let path = self.sprite_id_to_path.get(&id)
+            .ok_or_else(|| format!("Unknown sprite id: {:?}", id))?;
+        let source = self.resource_source.as_ref()
+            .ok_or_else(|| "No prefetched sprite source available".to_string())?;
+        let resource_path = Path::new(paths::ASSETS_FOLDER).join(path);
+        source.read_required(&resource_path)
+            .map(|_| ())
+            .map_err(|error| error.to_string())
     }
 
     /// Queues a runtime texture read for traversal warming.

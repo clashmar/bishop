@@ -27,6 +27,10 @@ mod save_module_tests;
 mod demo_save_flow_tests;
 
 #[cfg(test)]
+#[path = "tests/demo_save_manager_tests.rs"]
+mod demo_save_manager_tests;
+
+#[cfg(test)]
 #[path = "tests/menu_module_tests.rs"]
 mod menu_module_tests;
 

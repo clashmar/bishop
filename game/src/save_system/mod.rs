@@ -1,3 +1,5 @@
+#[cfg(target_os = "emscripten")]
+mod browser_store;
 mod constants;
 mod coordinator;
 mod document;
@@ -7,7 +9,10 @@ mod paths;
 mod persist;
 mod provider;
 mod registry;
+mod store;
 
+#[cfg(target_os = "emscripten")]
+pub use browser_store::*;
 pub use constants::*;
 pub use coordinator::*;
 pub use document::*;
@@ -17,6 +22,7 @@ pub use paths::*;
 pub use persist::*;
 pub use provider::*;
 pub use registry::*;
+pub use store::*;
 
 use engine_core::storage::sanitise_name;
 use serde::{Deserialize, Serialize};

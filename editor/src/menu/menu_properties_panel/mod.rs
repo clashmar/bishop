@@ -21,6 +21,7 @@ pub struct PropertiesWidgetIds {
     pub(crate) font_size_id: WidgetId,
     pub(crate) action_id: WidgetId,
     pub(crate) action_param_id: WidgetId,
+    pub(crate) enabled_when_id: WidgetId,
     pub(crate) z_order_id: WidgetId,
     pub(crate) pos_x_id: WidgetId,
     pub(crate) pos_y_id: WidgetId,

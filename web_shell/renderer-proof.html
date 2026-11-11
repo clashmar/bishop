@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Bishop WebGL2 Authored-Frame Proof</title>
+  <style>
+    body { background: #111827; color: #f9fafb; font-family: system-ui, sans-serif; margin: 2rem; }
+    #status { background: #1f2937; border: 1px solid #374151; padding: 1rem;
+              white-space: pre-wrap; font-family: ui-monospace, monospace; }
+    #bishop-canvas { display: block; width: 480px; height: auto; max-width: 100%;
+                     border: 1px solid #38bdf8; image-rendering: pixelated; }
+  </style>
+</head>
+<body>
+  <h1>Bishop-owned WebGL2 renderer proof</h1>
+  <p>The authored Demo frame and atlas are fetched by Rust; Bishop draws the pixels, text and render target.
+     This page does not run Demo gameplay or a hosted release.</p>
+  <pre id="status">Loading authored Demo PNG and JSON</pre>
+  <canvas id="bishop-canvas" width="240" height="180" tabindex="0"
+          role="img" aria-label="Bishop WebGL2 authored Demo sprite and text"></canvas>
+  <script>
+    const status = document.getElementById("status");
+    function appendStatus(message) {
+      status.textContent += `\n${message}`;
+      console.log(message);
+    }
+    window.bishopAppendStatus = appendStatus;
+    window.Module = {
+      print: appendStatus,
+      printErr: message => { status.textContent += `\nERROR: ${message}`; console.error(message); },
+      onRuntimeInitialized: () => appendStatus("Bishop Emscripten runtime initialized"),
+    };
+  </script>
+  <script src="input.js"></script>
+  <script src="audio.js"></script>
+  <script async src="web_shell.js"></script>
+</body>
+</html>
