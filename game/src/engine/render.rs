@@ -1,6 +1,8 @@
 use crate::engine::*;
 use bishop::prelude::*;
 use engine_core::camera::CameraManager;
+#[cfg(target_os = "emscripten")]
+use engine_core::ecs::{Ecs, RoomCamera};
 use engine_core::constants::window;
 use engine_core::rendering::{RenderSystem, RoomRenderState, RoomVisibilityContext, render_room};
 use engine_core::text::{collect_speech_bubbles, render_speech_bubbles};
@@ -35,6 +37,34 @@ pub(super) fn gameplay_viewport(screen_w: f32, screen_h: f32) -> Rect {
         .unwrap_or(Rect::new(0.0, 0.0, screen_w, screen_h))
 }
 
+#[cfg(any(test, target_os = "emscripten"))]
+fn browser_gameplay_viewport_rect(
+    screen_w: f32,
+    screen_h: f32,
+    camera_zooms: impl Iterator<Item = Vec2>,
+) -> Option<(i32, i32, i32, i32)> {
+    let viewport = gameplay_viewport_rect(screen_w, screen_h)?;
+    let reference = camera_zooms
+        .filter(|zoom| zoom.x.is_finite() && zoom.y.is_finite() && zoom.x > 0.0 && zoom.y > 0.0)
+        .map(|zoom| Vec2::new((2.0 / zoom.x).round(), (2.0 / zoom.y).round()))
+        .reduce(Vec2::max)?;
+    let (reference_w, reference_h) = (reference.x as i32, reference.y as i32);
+    if reference_w <= 0 || reference_h <= 0 {
+        return Some(viewport);
+    }
+    let scale = (viewport.2 / reference_w).min(viewport.3 / reference_h);
+    if scale == 0 {
+        return Some(viewport);
+    }
+    let (width, height) = (reference_w * scale, reference_h * scale);
+    Some((
+        viewport.0 + (viewport.2 - width) / 2,
+        viewport.1 + (viewport.3 - height) / 2,
+        width,
+        height,
+    ))
+}
+
 impl Engine {
     pub(crate) fn render_menus(&mut self, ctx: &PlatformContext) {
         if !self.menu_manager.has_active_menu() {
@@ -63,6 +93,23 @@ pub(super) fn build_render_camera(
         viewport: gameplay_viewport_rect(screen_w, screen_h),
         ..Default::default()
     }
+}
+
+#[cfg(target_os = "emscripten")]
+pub(super) fn build_browser_render_camera(
+    camera_manager: &CameraManager,
+    alpha: f32,
+    screen_w: f32,
+    screen_h: f32,
+    ecs: &Ecs,
+) -> Camera2D {
+    let mut camera = build_render_camera(camera_manager, alpha, screen_w, screen_h);
+    camera.viewport = browser_gameplay_viewport_rect(
+        screen_w,
+        screen_h,
+        ecs.get_store::<RoomCamera>().data.values().map(|room_camera| room_camera.zoom),
+    ).or(camera.viewport);
+    camera
 }
 
 /// Renders the game world for the current frame.
@@ -169,6 +216,38 @@ mod tests {
         assert_eq!(
             gameplay_viewport_rect(1600.0, 1200.0),
             Some((0, 150, 1600, 900))
+        );
+    }
+
+    #[test]
+    fn native_viewport_keeps_full_sixteen_nine_window() {
+        assert_eq!(gameplay_viewport_rect(960.0, 540.0), Some((0, 0, 960, 540)));
+    }
+
+    #[test]
+    fn browser_gameplay_viewport_integer_fits_the_widest_authored_camera() {
+        let camera_zooms = [
+            Vec2::new(2.0 / 128.0, 2.0 / 72.0),
+            Vec2::new(2.0 / 256.0, 2.0 / 144.0),
+        ];
+
+        assert_eq!(
+            browser_gameplay_viewport_rect(960.0, 540.0, camera_zooms.into_iter()),
+            Some((96, 54, 768, 432))
+        );
+        assert_eq!(
+            browser_gameplay_viewport_rect(1024.0, 576.0, camera_zooms.into_iter()),
+            Some((0, 0, 1024, 576))
+        );
+    }
+
+    #[test]
+    fn browser_gameplay_viewport_falls_back_when_no_integer_scale_fits() {
+        let zoom = Vec2::new(2.0 / 256.0, 2.0 / 144.0);
+
+        assert_eq!(
+            browser_gameplay_viewport_rect(192.0, 108.0, [zoom].into_iter()),
+            Some((0, 0, 192, 108))
         );
     }
 }

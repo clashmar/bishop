@@ -5,6 +5,7 @@ int bishop_open_webgl2(const char *selector) {
     EmscriptenWebGLContextAttributes attrs;
     emscripten_webgl_init_context_attributes(&attrs);
     attrs.majorVersion = 2;
+    attrs.antialias = EM_FALSE;
     EMSCRIPTEN_WEBGL_CONTEXT_HANDLE context = emscripten_webgl_create_context(selector, &attrs);
     if (context <= 0) return (int)context;
     if (emscripten_webgl_make_context_current(context) != EMSCRIPTEN_RESULT_SUCCESS) {

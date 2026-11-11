@@ -365,11 +365,20 @@ impl Engine {
         if !self.menu_manager.is_hiding_game() {
             let mut ctx_borrow = ctx.borrow_mut();
             let platform_ctx = &mut *ctx_borrow;
+            #[cfg(not(target_os = "emscripten"))]
             let render_cam = build_render_camera(
                 &self.camera_manager,
                 alpha,
                 platform_ctx.screen_width(),
                 platform_ctx.screen_height(),
+            );
+            #[cfg(target_os = "emscripten")]
+            let render_cam = build_browser_render_camera(
+                &self.camera_manager,
+                alpha,
+                platform_ctx.screen_width(),
+                platform_ctx.screen_height(),
+                &self.game_instance.borrow().game.ecs,
             );
             let mut game_borrow = self.game_instance.borrow_mut();
             let game_instance = &mut *game_borrow;

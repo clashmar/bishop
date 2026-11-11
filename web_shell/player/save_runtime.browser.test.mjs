@@ -158,8 +158,32 @@ async function waitForPlayPage(cdp) {
 
 async function play(cdp) {
   await waitForPlayPage(cdp);
+  await until(async () => cdp.evaluate('Boolean(window.bishopSaveStore)'), 'player module ready', 15000);
   await cdp.evaluate('document.getElementById("play").click()');
   await until(async () => (await status(cdp)).includes('BISHOP_PLAYER_READY'), 'player ready', 60000);
+  assert.equal(
+    await cdp.evaluate('document.getElementById("bishop-canvas").getContext("webgl2").getContextAttributes().antialias'),
+    false,
+    'pixel-art player canvas must not multisample sprite edges',
+  );
+}
+
+async function sampleGameplayEdges(cdp) {
+  await cdp.evaluate('new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))');
+  const screenshot = await cdp.command('Page.captureScreenshot', { format: 'png' });
+  return cdp.evaluate(`(async () => {
+    const image = new Image();
+    image.src = ${JSON.stringify(`data:image/png;base64,${screenshot.data}`)};
+    await image.decode();
+    const scratch = document.createElement('canvas');
+    scratch.width = image.width; scratch.height = image.height;
+    const context = scratch.getContext('2d');
+    context.drawImage(image, 0, 0);
+    const rect = document.getElementById('bishop-canvas').getBoundingClientRect();
+    const y = Math.floor(rect.top + rect.height * 0.75);
+    const pixel = x => Array.from(context.getImageData(Math.floor(x), y, 1, 1).data).slice(0, 3);
+    return { right: pixel(rect.right - 12), inside: pixel(rect.left + rect.width * 0.75) };
+  })()`);
 }
 
 test('browser room-exit autosave restores after reload via Load Latest', async t => {
@@ -202,6 +226,15 @@ test('browser room-exit autosave restores after reload via Load Latest', async t
   await clickCanvas(cdp, 0.5, 0.502);
   await until(async () => (await status(cdp)).includes(`SAVE_FIXTURE_ROOM ${startRoomId}`), 'start room')
     .catch(async error => { throw new Error(`${error.message}: ${(await status(cdp)).slice(-2500)}`); });
+  const canvasSize = await cdp.evaluate(`(() => {
+    const canvas = document.getElementById('bishop-canvas');
+    const rect = canvas.getBoundingClientRect();
+    return { backing: [canvas.width, canvas.height], displayed: [rect.width, rect.height] };
+  })()`);
+  assert.deepEqual(canvasSize, { backing: [1024, 576], displayed: [1024, 576] });
+  const pixels = await sampleGameplayEdges(cdp);
+  assert.ok(pixels.right.every(channel => channel > 100), 'gameplay should reach the right canvas edge');
+  assert.ok(pixels.inside.every(channel => channel > 100), 'gameplay should render inside the viewport');
   await pressT(cdp);
   await until(async () => (await status(cdp)).includes(`SAVE_FIXTURE_ROOM_ENTERED ${savedRoomId}`), 'room exit');
   await until(async () => (await status(cdp)).includes('SAVE_FIXTURE_SUCCEEDED autosave auto'), 'durable autosave');
@@ -209,7 +242,9 @@ test('browser room-exit autosave restores after reload via Load Latest', async t
   await cdp.command('Page.reload', { ignoreCache: true });
   await play(cdp);
   assert.match(await status(cdp), /SAVE_FIXTURE_HAS_LATEST true/);
+  const scrollBeforeClick = await cdp.evaluate('scrollY');
   await clickCanvas(cdp, 0.5, 0.555);
+  assert.equal(await cdp.evaluate('scrollY'), scrollBeforeClick, 'focusing the canvas must not scroll the menu');
   await until(async () => (await status(cdp)).includes('SAVE_FIXTURE_LOAD_REQUESTED'), 'custom Load Latest action');
   await until(async () => (await status(cdp)).includes(`SAVE_FIXTURE_RESTORE_APPLY ${savedRoomId}`),
     'Load Latest provider restoration', 10000);
@@ -272,4 +307,16 @@ test('browser room-exit autosave restores after reload via Load Latest', async t
     'denied-storage room traversal');
   await until(async () => (await status(cdp)).includes('SAVE_FIXTURE_FAILED autosave auto'),
     'denied-storage save failure');
+
+  await cdp.command('Page.navigate', { url: new URL('../index.html', url).href });
+  await until(async () => cdp.evaluate('Boolean(document.getElementById("reveal"))'), 'exported example page');
+  await cdp.evaluate('document.getElementById("reveal").click()');
+  await until(async () => cdp.evaluate('Boolean(document.querySelector("iframe")?.contentDocument?.getElementById("bishop-canvas"))'),
+    'exported player iframe');
+  const exampleSize = await cdp.evaluate(`(() => {
+    const iframe = document.querySelector('iframe');
+    const canvas = iframe.contentDocument.getElementById('bishop-canvas');
+    return { iframe: [iframe.clientWidth, iframe.clientHeight], canvas: [canvas.width, canvas.height] };
+  })()`);
+  assert.deepEqual(exampleSize, { iframe: [1024, 850], canvas: [1024, 576] });
 });

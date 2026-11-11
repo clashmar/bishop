@@ -29,7 +29,7 @@ window.bishopInstallInput = function () {
     call("bishop_key_up", ["string"], [event.code]);
   });
   canvas.addEventListener("mousedown", event => {
-    canvas.focus();
+    canvas.focus({ preventScroll: true });
     if (!active()) return;
     const [x, y] = position(event);
     call("bishop_mouse_down", ["number", "number", "number", "number"],
