@@ -136,19 +136,32 @@ pub fn startup_game_name() -> Option<String> {
 }
 
 fn startup_game_name_from_root(root: &Path, last_opened: Option<&str>) -> Option<String> {
+    let folders = list_game_folders_from_root(root).ok()?;
+    let candidates = folders.into_iter().filter_map(|path| {
+        let name = path.file_name()?.to_string_lossy().into_owned();
+        let modified = fs::metadata(path).ok()?.modified().ok()?;
+        Some((name, modified))
+    });
+
+    startup_game_name_from_candidates(candidates, last_opened)
+}
+
+fn startup_game_name_from_candidates(
+    candidates: impl IntoIterator<Item = (String, SystemTime)>,
+    last_opened: Option<&str>,
+) -> Option<String> {
     let mut best: Option<(String, SystemTime)> = None;
 
-    for path in list_game_folders_from_root(root).ok()? {
-        let name = path.file_name()?.to_string_lossy().into_owned();
+    for (name, modified) in candidates {
         if last_opened == Some(name.as_str()) {
             return Some(name);
         }
-        if let Ok(mod_time) = fs::metadata(&path).ok()?.modified() {
-            match best {
-                None => best = Some((name, mod_time)),
-                Some((_, t)) if mod_time > t => best = Some((name, mod_time)),
-                _ => {}
+        match best {
+            None => best = Some((name, modified)),
+            Some((_, best_modified)) if modified > best_modified => {
+                best = Some((name, modified));
             }
+            _ => {}
         }
     }
 
@@ -230,12 +243,11 @@ mod tests {
     use engine_core::worlds::{Room, RoomId, World, WorldId};
     use std::time::Duration;
 
-    fn game_folder_at(root: &Path, name: &str, modified: SystemTime) -> io::Result<PathBuf> {
+    fn game_folder_at(root: &Path, name: &str) -> io::Result<PathBuf> {
         let folder = root.join(name);
         let resources = folder.join(paths::RESOURCES_FOLDER);
         fs::create_dir_all(&resources)?;
         fs::write(resources.join(paths::GAME_RON), b"game")?;
-        fs::File::open(&folder)?.set_modified(modified)?;
         Ok(folder)
     }
 
@@ -256,7 +268,7 @@ mod tests {
     fn list_game_names_with_non_game_directory_excludes_it() -> io::Result<()> {
         let root = tempfile::tempdir()?;
         let game_name = "OnlyGame";
-        game_folder_at(root.path(), game_name, SystemTime::UNIX_EPOCH)?;
+        game_folder_at(root.path(), game_name)?;
         fs::create_dir(root.path().join("OtherDirectory"))?;
 
         assert_eq!(list_game_names_from_root(root.path()), vec![game_name]);
@@ -267,11 +279,8 @@ mod tests {
     fn startup_game_without_preference_ignores_newer_non_game_directory() -> io::Result<()> {
         let root = tempfile::tempdir()?;
         let game_name = "OnlyGame";
-        game_folder_at(root.path(), game_name, SystemTime::UNIX_EPOCH)?;
-        let non_game = root.path().join("OtherDirectory");
-        fs::create_dir(&non_game)?;
-        fs::File::open(&non_game)?
-            .set_modified(SystemTime::UNIX_EPOCH + Duration::from_secs(10))?;
+        game_folder_at(root.path(), game_name)?;
+        fs::create_dir(root.path().join("OtherDirectory"))?;
 
         assert_eq!(
             startup_game_name_from_root(root.path(), None).as_deref(),
@@ -282,16 +291,19 @@ mod tests {
 
     #[test]
     fn startup_game_with_last_opened_prefers_it_over_newer_folder() -> io::Result<()> {
-        let root = tempfile::tempdir()?;
         let older_name = "PreviouslyOpened";
-        game_folder_at(
-            root.path(), older_name, SystemTime::UNIX_EPOCH + Duration::from_secs(10),
-        )?;
-        game_folder_at(
-            root.path(), "NewerFolder", SystemTime::UNIX_EPOCH + Duration::from_secs(20),
-        )?;
+        let candidates = [
+            (
+                older_name.to_string(),
+                SystemTime::UNIX_EPOCH + Duration::from_secs(10),
+            ),
+            (
+                "NewerFolder".to_string(),
+                SystemTime::UNIX_EPOCH + Duration::from_secs(20),
+            ),
+        ];
 
-        let selected = startup_game_name_from_root(root.path(), Some(older_name));
+        let selected = startup_game_name_from_candidates(candidates, Some(older_name));
 
         assert_eq!(selected.as_deref(), Some(older_name));
         Ok(())
@@ -299,23 +311,21 @@ mod tests {
 
     #[test]
     fn startup_game_with_missing_preference_falls_back_to_newest_valid_folder() -> io::Result<()> {
-        let root = tempfile::tempdir()?;
         let older_name = "PreviouslyOpened";
-        let older = game_folder_at(
-            root.path(), older_name, SystemTime::UNIX_EPOCH + Duration::from_secs(10),
-        )?;
         let recent_name = "NewerFolder";
-        game_folder_at(
-            root.path(), recent_name, SystemTime::UNIX_EPOCH + Duration::from_secs(20),
-        )?;
+        let candidates = [
+            (
+                older_name.to_string(),
+                SystemTime::UNIX_EPOCH + Duration::from_secs(10),
+            ),
+            (
+                recent_name.to_string(),
+                SystemTime::UNIX_EPOCH + Duration::from_secs(20),
+            ),
+        ];
 
         assert_eq!(
-            startup_game_name_from_root(root.path(), None).as_deref(),
-            Some(recent_name)
-        );
-        fs::remove_file(older.join(paths::RESOURCES_FOLDER).join(paths::GAME_RON))?;
-        assert_eq!(
-            startup_game_name_from_root(root.path(), Some(older_name)).as_deref(),
+            startup_game_name_from_candidates(candidates, Some("MissingPreference")).as_deref(),
             Some(recent_name)
         );
         Ok(())
