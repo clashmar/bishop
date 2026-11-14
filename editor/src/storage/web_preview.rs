@@ -157,6 +157,8 @@ fn serve_request(stream: &mut TcpStream, root: &Path) -> io::Result<()> {
     let bytes = fs::read(&file)?;
     let mime = match file.extension().and_then(|extension| extension.to_str()).unwrap_or("") {
         "wasm" => "application/wasm",
+        "ttf" => "font/ttf",
+        "css" => "text/css; charset=utf-8",
         "js" | "mjs" => "text/javascript; charset=utf-8",
         "html" => "text/html; charset=utf-8",
         "json" => "application/json",
@@ -238,6 +240,9 @@ mod tests {
         fs::create_dir(site.path().join("bishop-player"))?;
         fs::write(site.path().join("index.html"), "Bishop preview")?;
         fs::write(site.path().join("bishop-player/web_shell.wasm"), b"wasm-test")?;
+        fs::write(site.path().join("bishop-player/theme.css"), b"body { color: white; }")?;
+        fs::create_dir(site.path().join("bishop-player/fonts"))?;
+        fs::write(site.path().join("bishop-player/fonts/gnf.regular.ttf"), b"font-test")?;
         let preview = LocalPreview::start(site.path())?;
         let port = preview.port();
         assert!(preview.url().starts_with("http://127.0.0.1:"));
@@ -246,6 +251,10 @@ mod tests {
         assert!(root.ends_with("Bishop preview"), "{root}");
         let wasm = request(port, "GET", "/bishop-player/web_shell.wasm")?;
         assert!(wasm.contains("Content-Type: application/wasm"), "{wasm}");
+        let font = request(port, "GET", "/bishop-player/fonts/gnf.regular.ttf")?;
+        assert!(font.contains("Content-Type: font/ttf"), "{font}");
+        let stylesheet = request(port, "GET", "/bishop-player/theme.css")?;
+        assert!(stylesheet.contains("Content-Type: text/css"), "{stylesheet}");
         let head = request(port, "HEAD", "/bishop-player/web_shell.wasm")?;
         assert!(head.contains("Content-Type: application/wasm"), "{head}");
         assert!(!head.ends_with("wasm-test"), "HEAD must not send the body");

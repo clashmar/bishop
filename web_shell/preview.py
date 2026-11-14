@@ -13,6 +13,7 @@ class PlayerHandler(SimpleHTTPRequestHandler):
         ".js": "text/javascript",
         ".mjs": "text/javascript",
         ".wasm": "application/wasm",
+        ".ttf": "font/ttf",
     }
 
     def send_head(self):

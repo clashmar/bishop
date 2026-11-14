@@ -15,17 +15,30 @@ async function statusOutput() {
     get scrollHeight() { return this.textContent.length; },
   };
   const play = { hidden: false };
+  const classes = new Set();
+  const canvas = {
+    classList: {
+      add: name => classes.add(name),
+      remove: name => classes.delete(name),
+      contains: name => classes.has(name),
+    },
+    focus(options) { this.focusOptions = options; },
+    addEventListener(type, listener) {
+      if (type === 'blur') this.onBlur = listener;
+    },
+    blur() { this.onBlur?.(); },
+  };
   const frames = [];
   const printed = [];
   const errors = [];
   const window = {};
   runInNewContext(inlineScript, {
-    document: { getElementById: id => ({ status, play })[id] },
+    document: { getElementById: id => ({ status, play, 'bishop-canvas': canvas })[id] },
     window,
     console: { log: message => printed.push(message), error: message => errors.push(message) },
     requestAnimationFrame: callback => frames.push(callback),
   });
-  return { status, play, frames, printed, errors, window };
+  return { status, play, canvas, frames, printed, errors, window };
 }
 
 test('status output batches bursts and retains only recent messages', async () => {
@@ -47,11 +60,15 @@ test('status output batches bursts and retains only recent messages', async () =
 });
 
 test('player ready hides Play before the next status repaint', async () => {
-  const { status, play, frames, window } = await statusOutput();
+  const { status, play, canvas, frames, window } = await statusOutput();
 
   window.bishopAppendStatus('BISHOP_PLAYER_READY');
 
   assert.equal(play.hidden, true);
+  assert.equal(canvas.focusOptions?.preventScroll, true);
+  assert.equal(canvas.classList.contains('autofocused'), true);
+  canvas.blur();
+  assert.equal(canvas.classList.contains('autofocused'), false);
   assert.equal(status.textContent, 'Waiting to play');
   frames.shift()();
   assert.match(status.textContent, /BISHOP_PLAYER_READY/);

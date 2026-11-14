@@ -1,4 +1,4 @@
-use super::web_site_export::stage_web_site;
+use super::site_export::stage_web_site;
 use crate::game::Game;
 use crate::storage::save_game_to_folder;
 use crate::worlds::{Room, RoomId, World, WorldId};
@@ -19,8 +19,9 @@ fn authored_resources(root: &Path) {
 
 fn fake_player_runtime(root: &Path) {
     fs::create_dir_all(root.join("player")).unwrap();
+    fs::create_dir_all(root.join("fonts")).unwrap();
     for name in ["player.html", "input.js", "audio.js", "web_shell.js", "web_shell.wasm",
-                 "player/config.mjs", "player/save_store.mjs"] {
+                 "player/config.mjs", "player/save_store.mjs", "theme.css", "fonts/gnf.regular.ttf"] {
         fs::write(root.join(name), format!("runtime asset: {name}")).unwrap();
     }
     fs::write(root.join("index-template.html"),
@@ -47,6 +48,10 @@ fn web_site_stages_one_reusable_player_and_a_separate_named_game() {
     assert!(site.join("games/Other Game/manifest.ron").is_file());
     assert!(site.join("bishop-player/player/config.mjs").is_file());
     assert!(site.join("bishop-player/player/save_store.mjs").is_file());
+    assert_eq!(fs::read(site.join("bishop-player/theme.css")).unwrap(),
+               fs::read(runtime.path().join("theme.css")).unwrap());
+    assert_eq!(fs::read(site.join("bishop-player/fonts/gnf.regular.ttf")).unwrap(),
+               fs::read(runtime.path().join("fonts/gnf.regular.ttf")).unwrap());
     assert!(fs::read_to_string(site.join("index.html")).unwrap()
         .contains("../games/Other%20Game/manifest.ron"));
 }
@@ -111,6 +116,40 @@ fn web_site_requires_browser_save_module_before_creating_output() {
     let error = stage_web_site(source.path(), runtime.path(), &site).unwrap_err();
 
     assert!(error.contains(&module.display().to_string()), "{error}");
+    assert!(!site.exists());
+}
+
+#[test]
+fn web_site_requires_theme_before_creating_output() {
+    let source = TempDir::new().unwrap();
+    let runtime = TempDir::new().unwrap();
+    let output = TempDir::new().unwrap();
+    authored_resources(source.path());
+    fake_player_runtime(runtime.path());
+    let theme = runtime.path().join("theme.css");
+    fs::remove_file(&theme).unwrap();
+    let site = output.path().join("site");
+
+    let error = stage_web_site(source.path(), runtime.path(), &site).unwrap_err();
+
+    assert!(error.contains(&theme.display().to_string()), "{error}");
+    assert!(!site.exists());
+}
+
+#[test]
+fn web_site_requires_player_font_before_creating_output() {
+    let source = TempDir::new().unwrap();
+    let runtime = TempDir::new().unwrap();
+    let output = TempDir::new().unwrap();
+    authored_resources(source.path());
+    fake_player_runtime(runtime.path());
+    let font = runtime.path().join("fonts/gnf.regular.ttf");
+    fs::remove_file(&font).unwrap();
+    let site = output.path().join("site");
+
+    let error = stage_web_site(source.path(), runtime.path(), &site).unwrap_err();
+
+    assert!(error.contains(&font.display().to_string()), "{error}");
     assert!(!site.exists());
 }
 

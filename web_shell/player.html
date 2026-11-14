@@ -4,22 +4,31 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Bishop Player</title>
+  <link rel="stylesheet" href="theme.css">
   <style>
-    body { margin: 0; background: #111827; color: #f9fafb; font-family: system-ui, sans-serif; }
-    main { max-width: 1024px; margin: auto; padding: 1rem 0; }
-    #bishop-canvas { display: block; width: 100%; height: auto; image-rendering: pixelated; }
-    #bishop-canvas[hidden] { display: none; }
-    #status { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 8rem; overflow: auto; }
-    button { padding: 0.75rem 1.25rem; font: inherit; }
+    main { max-width: 1024px; margin: auto; padding: 0; }
+    .stage { position: relative; background: var(--shadow); }
+    #bishop-canvas { display: block; width: 100%; height: auto; background: var(--shadow);
+                     image-rendering: pixelated; }
+    #bishop-canvas:focus { outline: none; }
+    #bishop-canvas:focus-visible:not(.autofocused) { outline: 2px solid var(--blue-bright); outline-offset: 3px; }
+    #play { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); }
+    #play:active:not(:disabled) { transform: translate(calc(-50% + 2px), calc(-50% + 2px)); }
+    #play[hidden] { display: none; }
+    #status { margin: 24px 0 0; padding: 16px 18px; border: 1px solid var(--border);
+              border-left: 4px solid #7799c4; background: var(--surface); color: var(--muted);
+              white-space: pre-wrap; overflow-wrap: anywhere; max-height: 8rem; overflow: auto;
+              font: 13px/1.5 ui-monospace, monospace; }
   </style>
 </head>
 <body>
   <main>
-    <button id="play" type="button">Play game</button>
-    <p id="hint">The game downloads only after you press Play. Click the canvas to focus controls and enable sound.</p>
+    <div class="stage">
+      <canvas id="bishop-canvas" width="1024" height="576" tabindex="0"
+              role="application" aria-label="Bishop game canvas"></canvas>
+      <button id="play" type="button">Play Game</button>
+    </div>
     <pre id="status" role="status" aria-live="polite">Waiting to play</pre>
-    <canvas id="bishop-canvas" width="1024" height="576" tabindex="0" hidden
-            role="application" aria-label="Bishop game canvas"></canvas>
   </main>
   <script>
     const status = document.getElementById('status');
@@ -44,7 +53,13 @@
           status.scrollTop = status.scrollHeight;
         });
       }
-      if (message.startsWith('BISHOP_PLAYER_READY')) play.hidden = true;
+      if (message.startsWith('BISHOP_PLAYER_READY')) {
+        play.hidden = true;
+        const canvas = document.getElementById('bishop-canvas');
+        canvas.classList.add('autofocused');
+        canvas.addEventListener('blur', () => canvas.classList.remove('autofocused'), { once: true });
+        canvas.focus({ preventScroll: true });
+      }
       if (isError) console.error(message);
       else console.log(message);
     };
@@ -83,7 +98,6 @@
         window.bishopGameManifestUrl = resolveGameUrl(selected, location.href).href;
         playButton.disabled = true;
         playButton.textContent = 'Loading game…';
-        document.getElementById('bishop-canvas').hidden = false;
         window.bishopAppendStatus(`Loading ${window.bishopGameManifestUrl}`);
         const loader = document.createElement('script');
         loader.src = 'web_shell.js';

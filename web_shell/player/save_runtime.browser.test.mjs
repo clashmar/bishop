@@ -12,7 +12,7 @@ import { chromeBinary, connectCdp, serveStaticSite, until } from './browser_test
 
 const root = resolve(fileURLToPath(new URL('../../', import.meta.url)));
 const fixtureRoot = join(root, 'xtask/tests/fixtures/web_smoke/Resources');
-const fixtureName = 'BrowserSaveFixture';
+const fixtureName = 'Browser & Save Fixture';
 const run = promisify(execFile);
 
 async function authorFixture(resources) {
@@ -210,16 +210,47 @@ test('browser room-exit autosave restores after reload via Load Latest', async t
   await run('cargo', ['xtask', 'export-web-game', '--resources', resources, '--out', site], { cwd: root });
   assert.match(await readFile(join(site, 'games', gameName, 'game.ron'), 'utf8'), new RegExp(gameId));
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
-  const url = `http://127.0.0.1:${server.address().port}/bishop-player/player.html?game=../games/${gameName}/manifest.ron`;
+  const url = new URL(`http://127.0.0.1:${server.address().port}/bishop-player/player.html`);
+  url.searchParams.set('game', `../games/${encodeURIComponent(gameName)}/manifest.ron`);
   chrome = spawn(chromeBinary, [
     '--headless=new', '--no-first-run', '--disable-extensions', '--no-default-browser-check',
     '--remote-allow-origins=*', '--remote-debugging-port=0', `--user-data-dir=${profile}`,
-    '--window-size=1100,850', url,
+    '--window-size=1100,850', url.href,
   ], { stdio: 'ignore' });
   cdp = await connectCdp(profile);
   await cdp.command('Page.enable');
   await cdp.command('Runtime.enable');
+  await waitForPlayPage(cdp);
+  const initialPresentation = await cdp.evaluate(`(() => {
+    const canvas = document.getElementById('bishop-canvas');
+    const play = document.getElementById('play');
+    const stage = canvas.getBoundingClientRect();
+    const button = play.getBoundingClientRect();
+    return { label: play.textContent.trim(), canvasVisible: !canvas.hidden,
+      centerDelta: [Math.round(button.x + button.width / 2 - stage.x - stage.width / 2),
+                    Math.round(button.y + button.height / 2 - stage.y - stage.height / 2)] };
+  })()`);
+  assert.deepEqual(initialPresentation, { label: 'Play Game', canvasVisible: true, centerDelta: [0, 0] });
+  const playerFont = await cdp.evaluate(`document.fonts.load('20px "Bishop Pixel"')
+    .then(faces => faces.length === 1 && faces[0].status === 'loaded')`);
+  assert.equal(playerFont, true, 'player controls should use the bundled pixel font');
   await play(cdp);
+  const canvasChrome = await cdp.evaluate(`(() => {
+    const canvas = document.getElementById('bishop-canvas');
+    return { frame: getComputedStyle(document.querySelector('.stage')).boxShadow,
+      focusOutline: getComputedStyle(canvas).outlineStyle };
+  })()`);
+  assert.deepEqual(canvasChrome, { frame: 'none', focusOutline: 'none' },
+    'playing should not add frames around the game canvas');
+  const refocusOutline = await cdp.evaluate(`(() => {
+    const canvas = document.getElementById('bishop-canvas');
+    canvas.blur();
+    canvas.focus({ preventScroll: true });
+    return getComputedStyle(canvas).outlineStyle;
+  })()`);
+  assert.equal(refocusOutline, 'solid', 'refocusing from the keyboard should still show a focus indicator');
+  assert.equal(await cdp.evaluate('document.getElementById("bishop-canvas").getBoundingClientRect().top'), 0,
+    'gameplay should start at the top of the player iframe');
   assert.match(await status(cdp), /SAVE_FIXTURE_HAS_LATEST false/);
   await clickCanvas(cdp, 0.5, 0.555);
   assert.doesNotMatch(await status(cdp), /SAVE_FIXTURE_LOAD_REQUESTED/);
@@ -232,6 +263,9 @@ test('browser room-exit autosave restores after reload via Load Latest', async t
     return { backing: [canvas.width, canvas.height], displayed: [rect.width, rect.height] };
   })()`);
   assert.deepEqual(canvasSize, { backing: [1024, 576], displayed: [1024, 576] });
+  const logGap = await cdp.evaluate(`document.getElementById('status').getBoundingClientRect().top
+    - document.getElementById('bishop-canvas').getBoundingClientRect().bottom`);
+  assert.ok(logGap >= 20, 'diagnostics should sit below the canvas with clear separation');
   const pixels = await sampleGameplayEdges(cdp);
   assert.ok(pixels.right.every(channel => channel > 100), 'gameplay should reach the right canvas edge');
   assert.ok(pixels.inside.every(channel => channel > 100), 'gameplay should render inside the viewport');
@@ -310,6 +344,13 @@ test('browser room-exit autosave restores after reload via Load Latest', async t
 
   await cdp.command('Page.navigate', { url: new URL('../index.html', url).href });
   await until(async () => cdp.evaluate('Boolean(document.getElementById("reveal"))'), 'exported example page');
+  const hostCopy = await cdp.evaluate(`({ title: document.title,
+    heading: document.querySelector('h1')?.textContent.trim(),
+    action: document.getElementById('reveal').textContent.trim() })`);
+  assert.deepEqual(hostCopy, { title: gameName, heading: gameName, action: 'Load Player' });
+  const hostFont = await cdp.evaluate(`document.fonts.load('20px "Bishop Pixel"')
+    .then(faces => faces.length === 1 && faces[0].status === 'loaded')`);
+  assert.equal(hostFont, true, 'exported host controls should use the bundled pixel font');
   await cdp.evaluate('document.getElementById("reveal").click()');
   await until(async () => cdp.evaluate('Boolean(document.querySelector("iframe")?.contentDocument?.getElementById("bishop-canvas"))'),
     'exported player iframe');
@@ -318,5 +359,10 @@ test('browser room-exit autosave restores after reload via Load Latest', async t
     const canvas = iframe.contentDocument.getElementById('bishop-canvas');
     return { iframe: [iframe.clientWidth, iframe.clientHeight], canvas: [canvas.width, canvas.height] };
   })()`);
-  assert.deepEqual(exampleSize, { iframe: [1024, 850], canvas: [1024, 576] });
+  assert.deepEqual(exampleSize, { iframe: [1024, 770], canvas: [1024, 576] });
+  const frameBorders = await cdp.evaluate(`(() => {
+    const style = getComputedStyle(document.querySelector('iframe'));
+    return [style.borderTopWidth, style.borderBottomWidth];
+  })()`);
+  assert.deepEqual(frameBorders, ['0px', '0px'], 'host iframe should not frame gameplay');
 });

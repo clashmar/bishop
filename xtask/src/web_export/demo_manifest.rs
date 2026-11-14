@@ -1,4 +1,4 @@
-use engine_core::storage::web_game_export::collect_game_resources;
+use engine_core::storage::web::game_export::collect_game_resources;
 use std::fs;
 use std::path::Path;
 

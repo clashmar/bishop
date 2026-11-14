@@ -2,7 +2,7 @@ use std::path::Path;
 
 use engine_core::constants::paths;
 use engine_core::ecs::Sprite;
-use engine_core::storage::{load_full_game_from_folder, web_game_export::collect_game_resources};
+use engine_core::storage::{load_full_game_from_folder, web::game_export::collect_game_resources};
 
 #[test]
 fn second_authored_game_has_its_own_player_world_title_and_script() -> Result<(), String> {

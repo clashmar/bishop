@@ -1,8 +1,8 @@
 //! Compile-free static site assembly shared by the editor and xtask.
 
+use super::game_bundle::WEB_GAME_MANIFEST_FILE;
+use super::game_export::{ensure_export_destination, stage_web_game_resources};
 use crate::storage::load_full_game_from_folder;
-use crate::storage::web_game_bundle::WEB_GAME_MANIFEST_FILE;
-use crate::storage::web_game_export::{ensure_export_destination, stage_web_game_resources};
 use std::fs;
 use std::path::Path;
 
@@ -10,7 +10,9 @@ pub const PLAYER_DIRECTORY: &str = "bishop-player";
 pub const GAMES_DIRECTORY: &str = "games";
 pub const INDEX_TEMPLATE_FILE: &str = "index-template.html";
 pub const PREVIEW_SCRIPT_FILE: &str = "preview.py";
-pub const PLAYER_FILES: [&str; 7] = [
+pub const PLAYER_FONT_FILE: &str = "fonts/gnf.regular.ttf";
+pub const PLAYER_THEME_FILE: &str = "theme.css";
+pub const PLAYER_FILES: [&str; 9] = [
     "player.html",
     "input.js",
     "audio.js",
@@ -18,6 +20,8 @@ pub const PLAYER_FILES: [&str; 7] = [
     "web_shell.wasm",
     "player/config.mjs",
     "player/save_store.mjs",
+    PLAYER_THEME_FILE,
+    PLAYER_FONT_FILE,
 ];
 
 #[derive(Debug, PartialEq, Eq)]

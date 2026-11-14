@@ -11,7 +11,7 @@ use bishop::input::{KeyboardMouseState, MouseButton};
 use bishop::prelude::PlatformContext;
 use bishop::web::WebContext;
 use engine_core::game::Game;
-use engine_core::storage::web_game_bundle::WebGameBundle;
+use engine_core::storage::web::game_bundle::WebGameBundle;
 use engine_core::storage::{ResourceKey, ResourceSource, load_game_shell_from_source};
 use game_lib::engine::{Engine, RuntimeLoadRequest};
 use game_lib::save_system::{BrowserSaveStore, OpenedBrowserStore, SaveStoreHandle};

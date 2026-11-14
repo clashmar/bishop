@@ -5,11 +5,7 @@ pub mod path_utils;
 pub mod resource_manifest;
 pub mod resource_source;
 pub mod system_folder;
-pub mod web_game_export;
-pub mod web_game_bundle;
-pub mod web_site_export;
-#[cfg(test)]
-mod web_site_export_tests;
+pub mod web;
 #[cfg(any(test, feature = "test-utils"))]
 pub mod test_utils;
 

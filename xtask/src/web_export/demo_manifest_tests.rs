@@ -1,5 +1,5 @@
-use engine_core::storage::web_game_bundle::{WebGameBundle, WEB_GAME_MANIFEST_FILE};
-use engine_core::storage::web_game_export::{collect_game_resources, stage_web_game_resources};
+use engine_core::storage::web::game_bundle::{WebGameBundle, WEB_GAME_MANIFEST_FILE};
+use engine_core::storage::web::game_export::{collect_game_resources, stage_web_game_resources};
 use engine_core::constants::paths;
 use engine_core::ecs::{SpriteId, TomlId};
 use engine_core::game::Game;

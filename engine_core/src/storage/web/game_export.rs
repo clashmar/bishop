@@ -1,8 +1,8 @@
+use super::game_bundle::{WebGameBundle, WEB_GAME_BUNDLE_VERSION, WEB_GAME_MANIFEST_FILE};
 use crate::assets::AssetKey;
 use crate::constants::{extensions, paths};
 use crate::storage::resource_manifest::{ResourceEntry, ResourceKey, ResourceManifest};
 use crate::storage::load_full_game_from_folder;
-use crate::storage::web_game_bundle::{WebGameBundle, WEB_GAME_BUNDLE_VERSION, WEB_GAME_MANIFEST_FILE};
 use crate::text::TextManager;
 use std::collections::BTreeMap;
 use std::fs;

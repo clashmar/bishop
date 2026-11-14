@@ -4,23 +4,39 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Bishop game</title>
+  <link rel="stylesheet" href="bishop-player/theme.css">
   <style>
-    body { margin: 0; padding: 2rem 1rem; background: #111827; color: #f9fafb; font-family: system-ui, sans-serif; }
+    body { padding: clamp(24px, 4vw, 48px) 16px 64px; }
     main { max-width: 1024px; margin: auto; }
-    button { font: inherit; padding: 0.75rem 1.25rem; }
-    iframe { display: block; width: 100%; height: 850px; border: 1px solid #374151; }
+    h1 { margin: 0 0 24px; padding-bottom: 18px; border-bottom: 2px solid var(--border);
+         font: 30px/1.25 "Bishop Pixel", ui-monospace, monospace; overflow-wrap: anywhere; }
+    .controls { display: flex; flex-wrap: wrap; gap: 16px; margin-bottom: 28px; }
+    #close { background: var(--surface); border-color: var(--border); }
+    #game-frame:empty { display: none; }
+    iframe { display: block; width: 100%; height: 770px; border: 0;
+             background: var(--background); }
+    @media (max-width: 1056px) {
+      iframe { height: calc(56.25vw + 180px); }
+    }
+    @media (max-width: 800px) {
+      h1 { font-size: 24px; }
+    }
   </style>
 </head>
 <body>
   <main>
-    <h1>Bishop game</h1>
-    <p>This page only loads Bishop Player after you reveal the game. The player downloads the game after you press Play inside it.</p>
-    <button id="reveal" type="button">Reveal game</button>
-    <button id="close" type="button" hidden>Close game</button>
+    <h1 id="game-title"></h1>
+    <div class="controls">
+      <button id="reveal" type="button">Load Player</button>
+      <button id="close" type="button" hidden>Close Player</button>
+    </div>
     <div id="game-frame"></div>
   </main>
   <script>
     const game = '{{GAME_PATH}}';
+    const gameName = decodeURIComponent(game.split('/').at(-2));
+    document.title = gameName;
+    document.getElementById('game-title').textContent = gameName;
     const reveal = document.getElementById('reveal');
     const close = document.getElementById('close');
     const container = document.getElementById('game-frame');
@@ -29,7 +45,7 @@
       url.searchParams.set('game', game);
       const iframe = document.createElement('iframe');
       iframe.src = url.href;
-      iframe.title = 'Bishop game player';
+      iframe.title = `${gameName} player`;
       iframe.allow = 'autoplay; fullscreen';
       container.append(iframe);
       reveal.hidden = true;

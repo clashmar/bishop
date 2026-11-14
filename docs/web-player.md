@@ -29,6 +29,8 @@ index.html                         host-owned click-to-reveal example
 preview.py                         local preview launcher
 bishop-player/                     reusable player.html, config, input/audio JS, JS/WASM
   player.html
+  theme.css
+  fonts/gnf.regular.ttf
   player/config.mjs
   input.js
   audio.js
@@ -40,7 +42,7 @@ games/Demo/                       validated authored Resources plus versioned ma
   ...
 ```
 
-The example host creates an iframe **only on Reveal**, and its player fetches WASM and the game **only on Play**. Both clicks are deliberate; a site's existing button, modal or secret-code trigger can replace the example Reveal behavior. The standalone iframe URL is `http://127.0.0.1:<printed-port>/bishop-player/player.html?game=../games/Demo/manifest.ron`. The `game` URL is resolved against `player.html` and must be same-origin HTTP(S); do not use `file://`.
+The example host creates an iframe **only on Load Player**, and its player fetches WASM and the game **only on Play Game**. Both clicks are deliberate; a site's existing button, modal or secret-code trigger can replace the example Load Player behavior. The standalone iframe URL is `http://127.0.0.1:<printed-port>/bishop-player/player.html?game=../games/Demo/manifest.ron`. The `game` URL is resolved against `player.html` and must be same-origin HTTP(S); do not use `file://`.
 
 To use the runtime on a different site, copy `bishop-player/` unchanged, copy `games/<selected-game>/` separately, and point the iframe's `?game=` parameter to the selected manifest URL relative to `player.html`. Use a fresh iframe for each play session; removing it tears down the browser browsing context. The reusable player is not a `mount()` API or a hot-swap API.
 
@@ -52,6 +54,6 @@ Browser storage can be disabled or denied (including in private browsing or by q
 
 ## Hosting, caching, and limitations
 
-Upload the complete directory to static HTTPS hosting. Serve `.wasm` as `application/wasm` and JavaScript as a JavaScript MIME type. Keep the manifest and all its resource paths under the same origin. For immutable long-lived player caching, publish under a **versioned deployment path** (for example `/releases/<revision>/bishop-player/`) and change iframe URLs with each runtime update. Do not mark unversioned player files or a mutable `games/<game>/manifest.ron` immutable. Cache game data consistently with manifest updates.
+Upload the complete directory to static HTTPS hosting. Serve `.wasm` as `application/wasm`, JavaScript as a JavaScript MIME type, and `.ttf` as `font/ttf`. Keep the manifest and all its resource paths under the same origin. For immutable long-lived player caching, publish under a **versioned deployment path** (for example `/releases/<revision>/bishop-player/`) and change iframe URLs with each runtime update. Do not mark unversioned player files or a mutable `games/<game>/manifest.ron` immutable. Cache game data consistently with manifest updates.
 
-Each v1 game is eagerly prefetched before Engine startup. The manifest declares at most **1,024 files and 32 MiB of game bytes**; requests are bounded to four at a time, and received byte counts must match the declaration. The player’s on-page status retains recent diagnostics; use the browser console for the full log when a game prints frequently. Full Demo parity, hosted release, speaker-verified audio and quit-to-title rebootstrap are **not** established. Click/focus the canvas for controls and a browser audio gesture. Closing the iframe ends that play session.
+Each v1 game is eagerly prefetched before Engine startup. The manifest declares at most **1,024 files and 32 MiB of game bytes**; requests are bounded to four at a time, and received byte counts must match the declaration. The player’s on-page status retains recent diagnostics; use the browser console for the full log when a game prints frequently. Full Demo parity, hosted release, speaker-verified audio and quit-to-title rebootstrap are **not** established. Play Game provides the audio gesture and focuses the canvas when ready; click the canvas to refocus controls if needed. Closing the iframe ends that play session.

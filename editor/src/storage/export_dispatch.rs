@@ -1,6 +1,6 @@
 use crate::storage::export::{export_game, export_target_path};
 use engine_core::game::Game;
-use engine_core::storage::web_site_export::{checked_game_directory, stage_web_site};
+use engine_core::storage::web::site_export::{checked_game_directory, stage_web_site};
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
@@ -127,7 +127,7 @@ impl Drop for StagingGuard {
 mod tests {
     use super::*;
     use engine_core::storage::save_game_to_folder;
-    use engine_core::storage::web_site_export::{INDEX_TEMPLATE_FILE, PLAYER_FILES, PREVIEW_SCRIPT_FILE};
+    use engine_core::storage::web::site_export::{INDEX_TEMPLATE_FILE, PLAYER_FILES, PREVIEW_SCRIPT_FILE};
     use engine_core::worlds::{Room, RoomId, World, WorldId};
     use std::fs;
     use tempfile::TempDir;

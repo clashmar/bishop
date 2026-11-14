@@ -3,7 +3,7 @@ use std::path::{Component, Path, PathBuf};
 use std::process::ExitCode;
 
 use engine_core::constants::paths;
-use engine_core::storage::web_site_export::{INDEX_TEMPLATE_FILE, PREVIEW_SCRIPT_FILE, stage_web_site};
+use engine_core::storage::web::site_export::{INDEX_TEMPLATE_FILE, PLAYER_FONT_FILE, PLAYER_THEME_FILE, PREVIEW_SCRIPT_FILE, stage_web_site};
 
 use super::{
     LUA_WASM_CXXFLAGS, WEB_WASM_TARGET, cargo_command, demo_resources_dir, run_checked,
@@ -208,12 +208,16 @@ fn build_web(variant: Export) -> ExitCode {
         for (source, destination) in [
             (WEB_PLAYER_CONFIG, WEB_PLAYER_CONFIG),
             (WEB_PLAYER_STORE, WEB_PLAYER_STORE),
+            (PLAYER_THEME_FILE, PLAYER_THEME_FILE),
             (WEB_PLAYER_TEMPLATE, INDEX_TEMPLATE_FILE),
             (PREVIEW_SCRIPT_FILE, PREVIEW_SCRIPT_FILE),
         ] {
             if !stage_file(&root.join("web_shell").join(source), &stage_dir.join(destination), "player runtime file") {
                 return ExitCode::FAILURE;
             }
+        }
+        if !stage_file(&root.join("bishop/src/fonts/gnf.regular.ttf"), &stage_dir.join(PLAYER_FONT_FILE), "player font") {
+            return ExitCode::FAILURE;
         }
     }
 

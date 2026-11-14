@@ -8,13 +8,13 @@ const embedExampleHtml = new URL('../embed-example.html', import.meta.url);
 
 test('player defaults to a full-width 1024×576 canvas', async () => {
   const html = await readFile(playerHtml, 'utf8');
-  assert.match(html, /main\s*\{[^}]*max-width:\s*1024px;[^}]*padding:\s*1rem 0;/);
+  assert.match(html, /main\s*\{[^}]*max-width:\s*1024px;[^}]*padding:\s*0;/);
   assert.match(html, /<canvas id="bishop-canvas" width="1024" height="576"/);
 });
 
 test('example iframe leaves room for the canvas and player controls', async () => {
   const html = await readFile(embedExampleHtml, 'utf8');
-  assert.match(html, /iframe\s*\{[^}]*height:\s*850px;/);
+  assert.match(html, /iframe\s*\{[^}]*height:\s*770px;/);
 });
 
 async function installCanvasSizing(canvas) {

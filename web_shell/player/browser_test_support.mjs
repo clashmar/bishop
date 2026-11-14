@@ -17,12 +17,14 @@ export async function until(check, description, timeoutMs = 30000) {
 
 export function serveStaticSite(root) {
   return createServer(async (request, response) => {
-    const path = resolve(root, `.${new URL(request.url, 'http://localhost').pathname}`);
+    const path = resolve(root, `.${decodeURIComponent(new URL(request.url, 'http://localhost').pathname)}`);
     if (!path.startsWith(root + sep)) return response.writeHead(403).end();
     try {
       if (!(await stat(path)).isFile()) throw new Error('not a file');
       response.setHeader('Content-Type', path.endsWith('.wasm') ? 'application/wasm'
-        : /\.(mjs|js)$/.test(path) ? 'text/javascript' : 'text/html');
+        : /\.(mjs|js)$/.test(path) ? 'text/javascript'
+        : path.endsWith('.css') ? 'text/css'
+        : path.endsWith('.ttf') ? 'font/ttf' : 'text/html');
       createReadStream(path).pipe(response);
     } catch { response.writeHead(404).end(); }
   });

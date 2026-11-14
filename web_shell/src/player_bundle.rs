@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use engine_core::storage::{ResourceKey, web_game_bundle::WebGameBundle};
+use engine_core::storage::{ResourceKey, web::game_bundle::WebGameBundle};
 
 const MAX_IN_FLIGHT: usize = 4;
 
@@ -109,7 +109,7 @@ impl DownloadPlan {
 mod tests {
     use super::{DownloadPlan, parse_manifest, resource_url};
     use engine_core::constants::paths;
-    use engine_core::storage::web_game_bundle::{WebGameBundle, WEB_GAME_BUNDLE_VERSION};
+    use engine_core::storage::web::game_bundle::{WebGameBundle, WEB_GAME_BUNDLE_VERSION};
     use engine_core::storage::{ResourceEntry, ResourceKey, ResourceManifest};
 
     fn bundle() -> WebGameBundle {
