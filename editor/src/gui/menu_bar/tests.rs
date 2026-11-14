@@ -48,6 +48,13 @@ fn file_menu_hides_change_save_root_in_debug_builds() {
 }
 
 #[test]
+fn file_menu_when_game_is_open_offers_existing_web_export_preview() {
+    let actions = file_actions_for_mode(game_mode());
+
+    assert!(actions.iter().any(|action| action.ui_label() == "Preview Web Export…"));
+}
+
+#[test]
 fn blank_prefab_mode_hides_save_and_rename_actions() {
     assert!(!EditorAction::Save.is_available_in(EditorMode::Prefab(BLANK_PREFAB_ID)));
     let file_actions = file_actions_for_mode(EditorMode::Prefab(BLANK_PREFAB_ID));

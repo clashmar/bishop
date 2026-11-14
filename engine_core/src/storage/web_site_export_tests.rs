@@ -25,6 +25,7 @@ fn fake_player_runtime(root: &Path) {
     }
     fs::write(root.join("index-template.html"),
         "<button>Reveal</button><script>const game = '{{GAME_PATH}}';</script>").unwrap();
+    fs::write(root.join("preview.py"), "print('preview')").unwrap();
 }
 
 #[test]
@@ -48,6 +49,21 @@ fn web_site_stages_one_reusable_player_and_a_separate_named_game() {
     assert!(site.join("bishop-player/player/save_store.mjs").is_file());
     assert!(fs::read_to_string(site.join("index.html")).unwrap()
         .contains("../games/Other%20Game/manifest.ron"));
+}
+
+#[test]
+fn web_site_places_preview_launcher_at_the_export_root() {
+    let source = TempDir::new().unwrap();
+    let runtime = TempDir::new().unwrap();
+    let output = TempDir::new().unwrap();
+    authored_resources(source.path());
+    fake_player_runtime(runtime.path());
+    let site = output.path().join("site");
+
+    stage_web_site(source.path(), runtime.path(), &site).unwrap();
+
+    assert_eq!(fs::read(site.join("preview.py")).unwrap(),
+               fs::read(runtime.path().join("preview.py")).unwrap());
 }
 
 #[test]

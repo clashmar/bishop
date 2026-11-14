@@ -187,7 +187,13 @@ impl Editor {
         else {
             return;
         };
-        let target_path = export_target_path_for(&dest_root, &self.game, target);
+        let target_path = match export_target_path_for(&dest_root, &self.game, target) {
+            Ok(path) => path,
+            Err(error) => {
+                self.toast = Some(Toast::new(format!("Cannot export: {error}"), 4.0));
+                return;
+            }
+        };
         if target_path.exists() {
             self.pending_export = Some(PendingExport { dest_root, target });
             let target_name = target_path.file_name().and_then(|n| n.to_str()).unwrap_or("export");
@@ -227,6 +233,20 @@ impl Editor {
                 self.toast = Some(Toast::new(format!("Export failed: {error}"), 4.0));
             }
         }
+    }
+
+    pub(crate) fn pick_existing_web_export(&mut self) {
+        use rfd::FileDialog;
+
+        let Some(site) = FileDialog::new()
+            .set_title("Select existing Web export folder:")
+            .pick_folder()
+        else {
+            return;
+        };
+        self.web_preview = None;
+        self.last_web_export = Some(site);
+        self.open_web_export_preview();
     }
 
     pub(crate) fn open_web_export_preview(&mut self) {

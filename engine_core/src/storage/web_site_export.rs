@@ -9,6 +9,7 @@ use std::path::Path;
 pub const PLAYER_DIRECTORY: &str = "bishop-player";
 pub const GAMES_DIRECTORY: &str = "games";
 pub const INDEX_TEMPLATE_FILE: &str = "index-template.html";
+pub const PREVIEW_SCRIPT_FILE: &str = "preview.py";
 pub const PLAYER_FILES: [&str; 7] = [
     "player.html",
     "input.js",
@@ -41,6 +42,7 @@ pub fn stage_web_site(
     }
     let template_path = runtime.join(INDEX_TEMPLATE_FILE);
     require_file(&template_path)?;
+    require_file(&runtime.join(PREVIEW_SCRIPT_FILE))?;
     let template = fs::read_to_string(&template_path)
         .map_err(|error| format!("failed to read {}: {error}", template_path.display()))?;
     if template.matches("{{GAME_PATH}}").count() != 1 {
@@ -70,6 +72,8 @@ pub fn stage_web_site(
         }
         let url = format!("../{GAMES_DIRECTORY}/{}/{WEB_GAME_MANIFEST_FILE}",
             encode_path_segment(&game_dir_name));
+        fs::copy(runtime.join(PREVIEW_SCRIPT_FILE), destination.join(PREVIEW_SCRIPT_FILE))
+            .map_err(|error| format!("failed to copy preview launcher: {error}"))?;
         let index = destination.join("index.html");
         fs::write(&index, template.replace("{{GAME_PATH}}", &url))
             .map_err(|error| format!("failed to write {}: {error}", index.display()))
@@ -83,7 +87,8 @@ pub fn stage_web_site(
     Ok(WebSiteLayout { game_dir_name })
 }
 
-fn checked_game_directory(name: &str) -> Result<String, String> {
+/// Returns a portable directory component for an authored game name.
+pub fn checked_game_directory(name: &str) -> Result<String, String> {
     let name = name.trim();
     if name.is_empty() || name == "." || name == ".." || name.ends_with('.')
         || name.chars().any(|ch| ch.is_control() || "<>:\"/\\|?*".contains(ch))

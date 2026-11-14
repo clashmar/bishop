@@ -3,7 +3,7 @@ use std::path::{Component, Path, PathBuf};
 use std::process::ExitCode;
 
 use engine_core::constants::paths;
-use engine_core::storage::web_site_export::{INDEX_TEMPLATE_FILE, stage_web_site};
+use engine_core::storage::web_site_export::{INDEX_TEMPLATE_FILE, PREVIEW_SCRIPT_FILE, stage_web_site};
 
 use super::{
     LUA_WASM_CXXFLAGS, WEB_WASM_TARGET, cargo_command, demo_resources_dir, run_checked,
@@ -78,8 +78,7 @@ pub(super) fn export_web_game(args: &[String]) -> ExitCode {
     match stage_web_site(&resources, &runtime, &destination) {
         Ok(layout) => {
             println!("Bishop web game site staged at {} (game: {})", destination.display(), layout.game_dir_name);
-            println!("serve it with: python3 -m http.server --directory {} 8000", destination.display());
-            println!("then open: http://localhost:8000/");
+            println!("from the exported folder, preview it with: python3 {PREVIEW_SCRIPT_FILE}");
             ExitCode::SUCCESS
         }
         Err(error) => {
@@ -210,6 +209,7 @@ fn build_web(variant: Export) -> ExitCode {
             (WEB_PLAYER_CONFIG, WEB_PLAYER_CONFIG),
             (WEB_PLAYER_STORE, WEB_PLAYER_STORE),
             (WEB_PLAYER_TEMPLATE, INDEX_TEMPLATE_FILE),
+            (PREVIEW_SCRIPT_FILE, PREVIEW_SCRIPT_FILE),
         ] {
             if !stage_file(&root.join("web_shell").join(source), &stage_dir.join(destination), "player runtime file") {
                 return ExitCode::FAILURE;

@@ -1,6 +1,6 @@
 use crate::storage::export::{export_game, export_target_path};
 use engine_core::game::Game;
-use engine_core::storage::web_site_export::stage_web_site;
+use engine_core::storage::web_site_export::{checked_game_directory, stage_web_site};
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
@@ -41,10 +41,13 @@ pub struct PendingExport {
     pub target: ExportTarget,
 }
 
-pub fn export_target_path_for(dest_root: &Path, game: &Game, target: ExportTarget) -> PathBuf {
+/// Returns the package path replaced by the selected export target.
+pub fn export_target_path_for(dest_root: &Path, game: &Game, target: ExportTarget) -> io::Result<PathBuf> {
     match target {
-        ExportTarget::Web => dest_root.join("Bishop Web Export"),
-        ExportTarget::NativeHost => export_target_path(dest_root, game),
+        ExportTarget::Web => checked_game_directory(&game.name)
+            .map(|name| dest_root.join(format!("{name} Web Export")))
+            .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, error)),
+        ExportTarget::NativeHost => Ok(export_target_path(dest_root, game)),
     }
 }
 
@@ -58,7 +61,7 @@ pub fn export_game_for_target(
     target: ExportTarget,
     overwrite: bool,
 ) -> io::Result<PathBuf> {
-    let destination = export_target_path_for(dest_root, game, target);
+    let destination = export_target_path_for(dest_root, game, target)?;
     let previous = match fs::symlink_metadata(&destination) {
         Ok(metadata) => Some(metadata),
         Err(error) if error.kind() == io::ErrorKind::NotFound => None,
@@ -79,7 +82,7 @@ pub fn export_game_for_target(
     let staging_root = dest_root.join(format!(".bishop-export-{}", uuid::Uuid::new_v4()));
     fs::create_dir(&staging_root)?;
     let _cleanup = StagingGuard(staging_root.clone());
-    let staged_package = export_target_path_for(&staging_root, game, target);
+    let staged_package = export_target_path_for(&staging_root, game, target)?;
     let staged_output = match target {
         ExportTarget::Web => {
             stage_web_site(resources, runtime, &staged_package).map_err(io::Error::other)?;
@@ -124,7 +127,7 @@ impl Drop for StagingGuard {
 mod tests {
     use super::*;
     use engine_core::storage::save_game_to_folder;
-    use engine_core::storage::web_site_export::{INDEX_TEMPLATE_FILE, PLAYER_FILES};
+    use engine_core::storage::web_site_export::{INDEX_TEMPLATE_FILE, PLAYER_FILES, PREVIEW_SCRIPT_FILE};
     use engine_core::worlds::{Room, RoomId, World, WorldId};
     use std::fs;
     use tempfile::TempDir;
@@ -143,6 +146,7 @@ mod tests {
             fs::write(file, name).unwrap();
         }
         fs::write(runtime.join(INDEX_TEMPLATE_FILE), "<iframe src='{{GAME_PATH}}'></iframe>").unwrap();
+        fs::write(runtime.join(PREVIEW_SCRIPT_FILE), "print('preview')").unwrap();
         game
     }
 
@@ -152,8 +156,8 @@ mod tests {
         let runtime = TempDir::new().unwrap();
         let output = TempDir::new().unwrap();
         let game = fixture(resources.path(), runtime.path());
-        let target = export_target_path_for(output.path(), &game, ExportTarget::Web);
-        assert_eq!(target, output.path().join("Bishop Web Export"));
+        let target = export_target_path_for(output.path(), &game, ExportTarget::Web).unwrap();
+        assert_eq!(target, output.path().join("Second Game Web Export"));
 
         let path = export_game_for_target(output.path(), resources.path(), runtime.path(), &game,
                                           ExportTarget::Web, false).unwrap();
@@ -175,7 +179,7 @@ mod tests {
         let runtime = TempDir::new().unwrap();
         let output = TempDir::new().unwrap();
         let game = fixture(resources.path(), runtime.path());
-        let target = export_target_path_for(output.path(), &game, ExportTarget::Web);
+        let target = export_target_path_for(output.path(), &game, ExportTarget::Web).unwrap();
         fs::create_dir(&target).unwrap();
         fs::write(target.join("old.txt"), "previous").unwrap();
         fs::write(output.path().join("unrelated.txt"), "keep").unwrap();
@@ -192,6 +196,20 @@ mod tests {
     }
 
     #[test]
+    fn web_target_rejects_unsafe_name_before_creating_destination() {
+        let resources = TempDir::new().unwrap();
+        let runtime = TempDir::new().unwrap();
+        let output = TempDir::new().unwrap();
+        let mut game = fixture(resources.path(), runtime.path());
+        game.name = "../outside".to_owned();
+
+        let error = export_game_for_target(output.path(), resources.path(), runtime.path(), &game,
+                                           ExportTarget::Web, false).unwrap_err();
+        assert_eq!(error.kind(), io::ErrorKind::InvalidInput);
+        assert_eq!(fs::read_dir(output.path()).unwrap().count(), 0);
+    }
+
+    #[test]
     fn unsupported_native_platforms_are_not_selectable() {
         assert_eq!(supported_native_target(NativePlatform::Mac, NativePlatform::Mac),
                    Some(ExportTarget::NativeHost));
@@ -205,7 +223,7 @@ mod tests {
     fn native_host_retains_previous_target_naming() {
         let game = Game::with_name("My Game");
         let root = Path::new("/tmp/exports");
-        assert_eq!(export_target_path_for(root, &game, ExportTarget::NativeHost),
+        assert_eq!(export_target_path_for(root, &game, ExportTarget::NativeHost).unwrap(),
                    export_target_path(root, &game));
     }
 }

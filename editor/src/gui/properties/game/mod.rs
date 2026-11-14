@@ -60,13 +60,13 @@ impl InspectorContent for GameProperties {
         ctx.draw_text(
             "Start World:",
             rect.x + 10.0,
-            rect.y + 53.0,
+            rect.y + 67.0,
             layout::FIELD_TEXT_SIZE_16,
             colors::DEFAULT_TEXT_COLOR,
         );
         if let Some(selection) = Dropdown::new(
             self.start_world_id,
-            Rect::new(rect.x + 10.0, rect.y + 76.0, rect.w - 20.0, 30.0),
+            Rect::new(rect.x + 10.0, rect.y + 90.0, rect.w - 20.0, 30.0),
             current_label,
             &options,
             |label| label.clone(),
@@ -91,6 +91,6 @@ impl InspectorContent for GameProperties {
         _game_ctx: &mut GameCtxMut,
         _insp_ctx: &InspectorContext,
     ) -> f32 {
-        120.0
+        136.0
     }
 }

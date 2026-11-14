@@ -130,6 +130,7 @@ impl Editor {
             EditorAction::Undo => crate::editor_global::request_undo(),
             EditorAction::Redo => crate::editor_global::request_redo(),
             EditorAction::Export => self.begin_export(ctx),
+            EditorAction::PreviewExistingWebExport => self.pick_existing_web_export(),
             EditorAction::ChangeSaveRoot => match change_save_root() {
                 SaveRootResult::Changed(new_root) => {
                     self.toast = Some(Toast::new(
