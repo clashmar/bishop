@@ -4,6 +4,7 @@ mod policy;
 use crate::app::EditorMode;
 use bishop::prelude::*;
 use engine_core::game::GameCtxMut;
+use engine_core::worlds::WorldId;
 use engine_core::ecs::*;
 
 pub use entity_inspector::EntityInspector;
@@ -85,7 +86,7 @@ pub struct InspectorContext {
     /// Name for the game being edited, when in Game mode.
     pub game_name: Option<String>,
     /// World entered when starting a new game.
-    pub start_world_id: Option<engine_core::worlds::WorldId>,
+    pub start_world_id: Option<WorldId>,
     /// Event tags currently known to the editor.
     pub event_tags: Vec<String>,
     /// Whether the room inspector is currently driving the interior-zone canvas tool.
@@ -117,7 +118,7 @@ pub struct InspectorOutput {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum InspectorHostAction {
     RenameGame(String),
-    SetStartWorld(engine_core::worlds::WorldId),
+    SetStartWorld(WorldId),
     RenameWorld(String),
     /// Requests the world editor to centre its camera on the given entity.
     FocusWorldEditor(Entity),

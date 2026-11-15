@@ -11,6 +11,7 @@ use crate::worlds::world::World;
 use std::collections::HashSet;
 
 mod capture_tests;
+mod demo_prefab_snapshot_tests;
 mod instance_tests;
 
 fn test_game() -> Game {

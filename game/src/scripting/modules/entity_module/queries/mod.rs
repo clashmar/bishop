@@ -1,3 +1,4 @@
+mod children;
 mod current_layer;
 mod current_room;
 mod find_best_interactable;
@@ -9,7 +10,10 @@ mod get_flip_x;
 mod has;
 mod is_clip_finished;
 mod is_speaking;
+mod parent;
+mod root;
 
+pub(super) use children::ChildrenMethod;
 pub(super) use current_layer::CurrentLayerMethod;
 pub(super) use current_room::CurrentRoomMethod;
 pub(super) use find_best_interactable::FindBestInteractableMethod;
@@ -21,3 +25,5 @@ pub(super) use get_flip_x::GetFlipXMethod;
 pub(super) use has::HasMethod;
 pub(super) use is_clip_finished::IsClipFinishedMethod;
 pub(super) use is_speaking::IsSpeakingMethod;
+pub(super) use parent::ParentMethod;
+pub(super) use root::RootMethod;

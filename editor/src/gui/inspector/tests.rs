@@ -7,13 +7,10 @@ use crate::shared::scene_ui::inspector::{
 };
 use bishop::prelude::*;
 use engine_core::ecs::*;
+use engine_core::prefab::create_prefab;
 use engine_core::storage::editor_config;
 use engine_core::worlds::*;
 use ::widgets::InputCommit;
-
-fn create_prefab(prefab_id: PrefabId, name: String) -> PrefabAsset {
-    engine_core::prefab::create_prefab(prefab_id, name)
-}
 
 #[test]
 fn linked_prefab_metadata_is_hidden_in_prefab_mode() {

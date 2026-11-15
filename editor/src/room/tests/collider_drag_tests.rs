@@ -1,5 +1,6 @@
 use bishop::prelude::{vec2, Rect, Vec2};
 use engine_core::ecs::*;
+use engine_core::rendering::pivot_adjusted_position;
 use engine_core::worlds::{RoomId, RoomLayer};
 
 use super::{
@@ -18,7 +19,7 @@ fn aabb_rect(collider: &Collider, transform: Transform) -> Rect {
     let ColliderShape::Aabb { width, height } = collider.shape else {
         panic!("expected AABB collider");
     };
-    let top_left = engine_core::rendering::pivot_adjusted_position(
+    let top_left = pivot_adjusted_position(
         transform.position + collider.offset,
         vec2(width, height),
         transform.pivot,
@@ -30,7 +31,7 @@ fn circle_center(collider: &Collider, transform: Transform) -> Vec2 {
     let ColliderShape::Circle { radius } = collider.shape else {
         panic!("expected circle collider");
     };
-    let top_left = engine_core::rendering::pivot_adjusted_position(
+    let top_left = pivot_adjusted_position(
         transform.position + collider.offset,
         Vec2::splat(radius * 2.0),
         transform.pivot,
@@ -43,7 +44,7 @@ fn capsule_rect(collider: &Collider, transform: Transform) -> Rect {
         panic!("expected capsule collider");
     };
     let size = vec2(radius * 2.0, height + radius * 2.0);
-    let top_left = engine_core::rendering::pivot_adjusted_position(
+    let top_left = pivot_adjusted_position(
         transform.position + collider.offset,
         size,
         transform.pivot,

@@ -4,7 +4,6 @@
             type_name: "Active",
             data: {
                 (3): true,
-                (37): true,
                 (38): true,
                 (75): true,
                 (325): true,
@@ -15,6 +14,8 @@
                 (335): true,
                 (336): true,
                 (337): true,
+                (338): true,
+                (339): true,
             },
         ),
         (
@@ -158,7 +159,13 @@
         ),
         (
             type_name: "Children",
-            data: {},
+            data: {
+                (338): (
+                    entities: [
+                        (339),
+                    ],
+                ),
+            },
         ),
         (
             type_name: "Collider",
@@ -217,15 +224,6 @@
                                 },
                             ),
                         },
-                    ),
-                ),
-                (37): (
-                    shape: Circle(
-                        radius: 7.4078255,
-                    ),
-                    offset: (1.3428688, -0.63303757),
-                    animation: (
-                        clips: {},
                     ),
                 ),
                 (325): (
@@ -298,6 +296,16 @@
                         clips: {},
                     ),
                 ),
+                (338): (
+                    shape: Aabb(
+                        width: 16.0,
+                        height: 16.0,
+                    ),
+                    offset: (0.0, 0.0),
+                    animation: (
+                        clips: {},
+                    ),
+                ),
             },
         ),
         (
@@ -328,10 +336,6 @@
                 ),
                 (24): (
                     room_id: (2),
-                    layer: front,
-                ),
-                (37): (
-                    room_id: (1),
                     layer: front,
                 ),
                 (38): (
@@ -662,6 +666,14 @@
                     room_id: (2),
                     layer: front,
                 ),
+                (338): (
+                    room_id: (1),
+                    layer: front,
+                ),
+                (339): (
+                    room_id: (1),
+                    layer: front,
+                ),
             },
         ),
         (
@@ -691,18 +703,12 @@
             type_name: "Grounded",
             data: {
                 (3): (false),
-                (37): (false),
+                (338): (false),
             },
         ),
         (
             type_name: "Interactable",
             data: {
-                (37): (
-                    use_rect: false,
-                    offset: (0.0, 0.0),
-                    radius: 20.0,
-                    rect_size: (16.0, 16.0),
-                ),
                 (38): (
                     use_rect: false,
                     offset: (0.0, 0.0),
@@ -746,6 +752,12 @@
                     rect_size: (16.0, 32.0),
                 ),
                 (330): (
+                    use_rect: false,
+                    offset: (0.0, 0.0),
+                    radius: 20.0,
+                    rect_size: (16.0, 16.0),
+                ),
+                (338): (
                     use_rect: false,
                     offset: (0.0, 0.0),
                     radius: 20.0,
@@ -819,11 +831,11 @@
             type_name: "MotionBody",
             data: {
                 (3): (),
-                (37): (),
                 (325): (),
                 (331): (),
                 (332): (),
                 (335): (),
+                (338): (),
             },
         ),
         (
@@ -832,7 +844,6 @@
                 (2): ("Player Proxy"),
                 (3): ("Player"),
                 (24): ("Camera 1"),
-                (37): ("Cat"),
                 (38): ("Checkpoint"),
                 (41): ("Camera 1"),
                 (46): ("Entity"),
@@ -856,17 +867,21 @@
                 (335): ("Hybrid Trigger Fixture"),
                 (336): ("Entity"),
                 (337): ("Global Entity"),
+                (338): ("Cat"),
+                (339): ("Cat Awareness Probe"),
             },
         ),
         (
             type_name: "Parent",
-            data: {},
+            data: {
+                (339): ((338)),
+            },
         ),
         (
             type_name: "PhysicsBody",
             data: {
                 (3): (),
-                (37): (),
+                (338): (),
             },
         ),
         (
@@ -886,11 +901,6 @@
         (
             type_name: "PrefabInstanceNode",
             data: {
-                (37): (
-                    prefab_id: (1),
-                    node_id: 1,
-                    root_entity: (37),
-                ),
                 (63): (
                     prefab_id: (4),
                     node_id: 1,
@@ -901,58 +911,35 @@
                     node_id: 1,
                     root_entity: (65),
                 ),
+                (338): (
+                    prefab_id: (1),
+                    node_id: 1,
+                    root_entity: (338),
+                ),
+                (339): (
+                    prefab_id: (1),
+                    node_id: 2,
+                    root_entity: (338),
+                ),
             },
         ),
         (
             type_name: "PrefabInstanceRoot",
             data: {
-                (37): (
-                    prefab_id: (1),
-                ),
                 (63): (
                     prefab_id: (4),
                 ),
                 (65): (
                     prefab_id: (5),
                 ),
+                (338): (
+                    prefab_id: (1),
+                ),
             },
         ),
         (
             type_name: "PrefabOverrides",
             data: {
-                (37): (
-                    modified_components: [
-                        "Collider",
-                        "Interactable",
-                    ],
-                    removed_components: [],
-                    added_components: [
-                        (
-                            type_name: "Active",
-                            ron: "true",
-                        ),
-                        (
-                            type_name: "Grounded",
-                            ron: "(false)",
-                        ),
-                        (
-                            type_name: "MotionBody",
-                            ron: "()",
-                        ),
-                        (
-                            type_name: "PhysicsBody",
-                            ron: "()",
-                        ),
-                        (
-                            type_name: "SubPixel",
-                            ron: "()",
-                        ),
-                        (
-                            type_name: "Velocity",
-                            ron: "(\n    x: 0.0,\n    y: 0.0,\n)",
-                        ),
-                    ],
-                ),
                 (63): (
                     modified_components: [
                         "WorldEntry",
@@ -1009,15 +996,6 @@
                             "name": Text("Player"),
                             "run_speed": Int(180),
                             "speed": Int(100),
-                        },
-                    ),
-                ),
-                (37): (
-                    script_id: (3),
-                    data: (
-                        fields: {
-                            "dialogue": Toml((1)),
-                            "name": Text("NPC"),
                         },
                     ),
                 ),
@@ -1081,6 +1059,26 @@
                         fields: {},
                     ),
                 ),
+                (338): (
+                    script_id: (13),
+                    data: (
+                        fields: {
+                            "flee_speed": Int(44),
+                            "patrol_max_x": Int(112),
+                            "patrol_min_x": Int(48),
+                            "speed": Int(24),
+                        },
+                    ),
+                ),
+                (339): (
+                    script_id: (15),
+                    data: (
+                        fields: {
+                            "last_seen": Vec2((0.0, 0.0)),
+                            "player_visible": Bool(false),
+                        },
+                    ),
+                ),
             },
         ),
         (
@@ -1105,8 +1103,8 @@
         (
             type_name: "Solid",
             data: {
-                (37): (true),
                 (334): (true),
+                (338): (true),
             },
         ),
         (
@@ -1116,9 +1114,6 @@
         (
             type_name: "Sprite",
             data: {
-                (37): (
-                    sprite: (9),
-                ),
                 (38): (
                     sprite: (9),
                 ),
@@ -1158,17 +1153,20 @@
                 (336): (
                     sprite: (13),
                 ),
+                (338): (
+                    sprite: (9),
+                ),
             },
         ),
         (
             type_name: "SubPixel",
             data: {
                 (3): (),
-                (37): (),
                 (325): (),
                 (331): (),
                 (332): (),
                 (335): (),
+                (338): (),
             },
         ),
         (
@@ -1447,12 +1445,6 @@
                     pivot: CenterLeft,
                     z: 0,
                 ),
-                (37): (
-                    visible: true,
-                    position: (172.0, 72.0),
-                    pivot: BottomCenter,
-                    z: 1,
-                ),
                 (38): (
                     visible: true,
                     position: (-92.0, 72.0),
@@ -1497,25 +1489,25 @@
                 ),
                 (70): (
                     visible: true,
-                    position: (64.0, 36.0),
+                    position: (128.0, 72.0),
                     pivot: CenterLeft,
                     z: 0,
                 ),
                 (71): (
                     visible: true,
-                    position: (12.0, 72.0),
+                    position: (24.0, 144.0),
                     pivot: BottomCenter,
                     z: 0,
                 ),
                 (74): (
                     visible: true,
-                    position: (36.0, 72.0),
+                    position: (40.0, 80.0),
                     pivot: BottomCenter,
                     z: 0,
                 ),
                 (75): (
                     visible: true,
-                    position: (84.0, 72.0),
+                    position: (104.0, 144.0),
                     pivot: BottomCenter,
                     z: 0,
                 ),
@@ -1597,16 +1589,24 @@
                     pivot: BottomCenter,
                     z: 0,
                 ),
+                (338): (
+                    visible: true,
+                    position: (148.0, 72.0),
+                    pivot: BottomCenter,
+                    z: 1,
+                ),
+                (339): (
+                    visible: false,
+                    position: (148.0, 72.0),
+                    pivot: BottomCenter,
+                    z: 1,
+                ),
             },
         ),
         (
             type_name: "Velocity",
             data: {
                 (3): (
-                    x: 0.0,
-                    y: 0.0,
-                ),
-                (37): (
                     x: 0.0,
                     y: 0.0,
                 ),
@@ -1623,6 +1623,10 @@
                     y: 0.0,
                 ),
                 (335): (
+                    x: 0.0,
+                    y: 0.0,
+                ),
+                (338): (
                     x: 0.0,
                     y: 0.0,
                 ),

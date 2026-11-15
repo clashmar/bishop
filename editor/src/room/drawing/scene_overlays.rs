@@ -245,6 +245,9 @@ pub fn draw_entity_placeholders(
         let Some(transform) = ecs.get_store::<Transform>().get(entity) else {
             continue;
         };
+        if !should_draw_entity_placeholder(ecs, entity, transform) {
+            continue;
+        }
         let pos = transform.position;
 
         match resolve_entity_visual(ecs, entity) {
@@ -556,3 +559,11 @@ fn draw_exit_arrow_styled(
         style.color,
     );
 }
+
+fn should_draw_entity_placeholder(ecs: &Ecs, entity: Entity, transform: &Transform) -> bool {
+    !ecs.has::<Parent>(entity) && transform.visible
+}
+
+#[cfg(test)]
+#[path = "../tests/scene_overlay_placeholder_tests.rs"]
+mod placeholder_tests;

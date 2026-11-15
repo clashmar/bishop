@@ -7,6 +7,7 @@ local PrefabId = {
     Bullet = "Bullet",
     Camera1 = "Camera 1",
     Cat = "Cat",
+    Dog = "Dog",
     Female = "Female",
     Portal = "Portal",
 }

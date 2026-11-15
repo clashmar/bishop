@@ -7,6 +7,8 @@ pub mod lua_files {
     pub const ENGINE: &str = "engine.lua";
     pub const COMPONENTS: &str = "components.lua";
     pub const ENTITY: &str = "entity.lua";
+    pub const SPATIAL: &str = "spatial.lua";
+    pub const GRID: &str = "grid.lua";
     pub const INPUT: &str = "input.lua";
     pub const DIRECTION: &str = "direction.lua";
     pub const SCRIPT: &str = "script.lua";
@@ -98,6 +100,9 @@ pub mod lua_engine {
     pub const INPUT: &str = "input";
     pub const LOG: &str = "log";
     pub const PREFAB: &str = "prefab";
+    pub const SPATIAL: &str = "spatial";
+    pub const GRID: &str = "grid";
+    pub const GET_TRANSFORM: &str = "get_transform";
     pub const SPAWN: &str = "spawn";
     pub const TOML: &str = "toml";
     pub const THEME: &str = "theme";
@@ -107,6 +112,44 @@ pub mod lua_engine {
     pub const RETURN_FROM_WORLD: &str = "return_from_world";
     pub const RESTORE_LOCATION: &str = "restore_location";
     pub const CURRENT_WORLD: &str = "current_world";
+}
+
+/// Grid Lua method and field names.
+pub mod lua_grid {
+    pub const CELL_AT: &str = "cell_at";
+    pub const IS_BLOCKED: &str = "is_blocked";
+    pub const NEIGHBORS: &str = "neighbors";
+    pub const CAN_STEP: &str = "can_step";
+    pub const NEXT_STEP_TOWARDS: &str = "next_step_towards";
+    pub const FIND_PATH: &str = "find_path";
+    pub const ACTOR: &str = "actor";
+    pub const FROM: &str = "from";
+    pub const TO: &str = "to";
+    pub const MAX_STEPS: &str = "max_steps";
+    pub const X: &str = "x";
+    pub const Y: &str = "y";
+    pub const STATUS: &str = "status";
+    pub const PATH: &str = "path";
+    pub const REASON: &str = "reason";
+    pub const OK: &str = "ok";
+    pub const BLOCKED: &str = "blocked";
+    pub const NO_PATH: &str = "no_path";
+    pub const BUDGET_EXHAUSTED: &str = "budget_exhausted";
+    pub const INVALID_ENDPOINT: &str = "invalid_endpoint";
+}
+
+/// Spatial Lua method and field names.
+pub mod lua_spatial {
+    pub const RAYCAST: &str = "raycast";
+    pub const HAS_LINE_OF_SIGHT: &str = "has_line_of_sight";
+    pub const FROM: &str = "from";
+    pub const TO: &str = "to";
+    pub const IGNORE: &str = "ignore";
+    pub const HIT: &str = "hit";
+    pub const ENTITY: &str = "entity";
+    pub const POINT: &str = "point";
+    pub const NORMAL: &str = "normal";
+    pub const DISTANCE: &str = "distance";
 }
 
 /// Entity Lua method names.
@@ -131,6 +174,9 @@ pub mod lua_entity {
     pub const REMOVE_FROM_ROOM: &str = "remove_from_room";
     pub const CURRENT_ROOM: &str = "current_room";
     pub const CURRENT_LAYER: &str = "current_layer";
+    pub const PARENT: &str = "parent";
+    pub const CHILDREN: &str = "children";
+    pub const ROOT: &str = "root";
     pub const START_KINEMATIC: &str = "start_kinematic";
     pub const STOP_KINEMATIC: &str = "stop_kinematic";
     pub const REVERSE_KINEMATIC: &str = "reverse_kinematic";

@@ -30,6 +30,11 @@ engine.events.sensor_enter = "sensor:enter"
 engine.events.sensor_stay = "sensor:stay"
 engine.events.sensor_exit = "sensor:exit"
 
+--- Get an entity's transform, or nil when the entity or component is absent
+---@param entity Entity|nil
+---@return Transform|nil
+function engine.get_transform(entity) end
+
 --- Get the player entity's script instance table
 --- @return table|nil -- The player's script instance, or nil if not found
 function engine.player() end

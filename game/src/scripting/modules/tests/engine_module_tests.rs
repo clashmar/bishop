@@ -1,6 +1,7 @@
 use crate::engine::GameInstance;
 use crate::game_global::take_pending_world_transition;
 use crate::scripting::lua_ctx::LuaGameCtx;
+use crate::scripting::modules::entity_module::EntityHandle;
 use crate::scripting::modules::engine_module::EngineModule;
 use crate::transitions::world_transitions::DestinationSelector;
 use engine_core::ecs::{Entity, Global, Name, Player, Script, ScriptId, Transform};
@@ -249,6 +250,11 @@ fn emit_api_when_called_documents_restore_location_payload() {
         lua_engine::RESTORE_LOCATION
     )));
     assert!(out.buf.contains(&format!(
+        "function engine.{}(entity) end",
+        lua_engine::GET_TRANSFORM
+    )));
+    assert!(out.buf.contains("---@return Transform|nil"));
+    assert!(out.buf.contains(&format!(
         "engine.events.{} = \"{}\"",
         lua_events::COLLISION_ENTER_FIELD,
         lua_events::COLLISION_ENTER
@@ -263,6 +269,36 @@ fn emit_api_when_called_documents_restore_location_payload() {
         lua_events::COLLISION_SQUEEZE_FIELD,
         lua_events::COLLISION_SQUEEZE
     )));
+}
+
+#[test]
+fn engine_get_transform_returns_transform_or_nil_when_missing() {
+    let (lua, game_instance, player) = setup_engine_lua();
+    let transformless = game_instance.borrow_mut().game.ecs.create_entity().finish();
+    lua.globals()
+        .set("player_entity", EntityHandle { entity: player })
+        .unwrap();
+    lua.globals()
+        .set("transformless_entity", EntityHandle { entity: transformless })
+        .unwrap();
+
+    let transform: Table = lua
+        .load("return engine.get_transform(player_entity)")
+        .eval()
+        .unwrap();
+    let position: Table = transform.get("position").unwrap();
+    assert_eq!(position.get::<f32>(lua_fields::X).unwrap(), 0.0);
+
+    let missing: mlua::Value = lua
+        .load("return engine.get_transform(transformless_entity)")
+        .eval()
+        .unwrap();
+    let absent: mlua::Value = lua
+        .load("return engine.get_transform(nil)")
+        .eval()
+        .unwrap();
+    assert!(matches!(missing, mlua::Value::Nil));
+    assert!(matches!(absent, mlua::Value::Nil));
 }
 
 #[test]

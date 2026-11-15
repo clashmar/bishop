@@ -87,6 +87,8 @@ pub fn engine_relative_path(filename: &str) -> PathBuf {
         | lua_files::SCRIPT
         | lua_files::AUDIO
         | lua_files::SAVE
+        | lua_files::SPATIAL
+        | lua_files::GRID
         | lua_files::TEXT => PathBuf::from(lua_dirs::RUNTIME).join(filename),
         lua_files::MENU | lua_files::THEME | lua_files::COLOR => {
             PathBuf::from(lua_dirs::UI).join(filename)
@@ -116,6 +118,8 @@ pub fn engine_require_path(filename: &str) -> String {
         | lua_files::SCRIPT
         | lua_files::AUDIO
         | lua_files::SAVE
+        | lua_files::SPATIAL
+        | lua_files::GRID
         | lua_files::TEXT => format!("{}.{}.{}", lua_dirs::ENGINE, lua_dirs::RUNTIME, stem),
         lua_files::MENU | lua_files::THEME | lua_files::COLOR => {
             format!("{}.{}.{}", lua_dirs::ENGINE, lua_dirs::UI, stem)

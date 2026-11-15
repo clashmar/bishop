@@ -113,7 +113,7 @@ local Player = {
         end
 
         if engine.input.pressed(Input.K) then
-            local transform = self.entity:get(Components.Transform)
+            local transform = engine.get_transform(self.entity)
             if transform ~= nil then
                 local pos = transform.position
                 local x_offset = state.facing == Direction.Left and -12 or 12
@@ -137,7 +137,7 @@ local Player = {
         end
 
         if engine.input.pressed(Input.T) then
-            local transform = self.entity:get(Components.Transform)
+            local transform = engine.get_transform(self.entity)
             if transform ~= nil then
                 local x_offset = state.facing == Direction.Left and -32 or 32
                 self.entity:teleport({

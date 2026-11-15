@@ -50,10 +50,7 @@ pub fn linked_prefab_display(
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    fn create_prefab(prefab_id: PrefabId, name: String) -> PrefabAsset {
-        engine_core::prefab::create_prefab(prefab_id, name)
-    }
+    use engine_core::prefab::create_prefab;
 
     #[test]
     fn linked_prefab_display_uses_root_metadata_for_roots_and_node_metadata_for_children() {

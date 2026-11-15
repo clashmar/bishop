@@ -154,6 +154,7 @@ fn collect_fallback_visuals(prefab: &PrefabAsset) -> Vec<(Vec2, Vec2, EntityVisu
     prefab
         .nodes
         .iter()
+        .filter(|node| node.node_id == prefab.root_node_id)
         .filter_map(|node| {
             let transform = parse_node_component::<Transform>(node).unwrap_or_default();
             if !transform.visible {
@@ -361,3 +362,7 @@ fn preview_sprite_size(
 #[cfg(test)]
 #[path = "tests/prefab_preview_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "tests/prefab_preview_child_fallback_tests.rs"]
+mod child_fallback_tests;
