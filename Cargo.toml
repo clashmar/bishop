@@ -10,4 +10,5 @@ members = [
     "ecs_component",
     "widgets",
     "xtask",
+    "web_shell",
     ]

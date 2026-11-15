@@ -42,9 +42,14 @@ cd bishop
 2. **Install Rust** – follow the official installer at
    <https://www.rust-lang.org/tools/install>. The installer adds `cargo`,
    `rustc`, and the necessary toolchains.
-3. **Install cargo-make**
+3. **Install cargo-make and browser-runtime tools**
 ```bash
 cargo install cargo-make
+rustup target add wasm32-unknown-unknown wasm32-unknown-emscripten
+```
+Install Emscripten so `em++` is available on `PATH`. On macOS with Homebrew:
+```bash
+brew install emscripten
 ```
 4. **Make the Release**
 ```bash

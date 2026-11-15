@@ -1,0 +1,62 @@
+name: Web Build
+
+on:
+  pull_request:
+    branches: [main, staging]
+
+jobs:
+  build-web:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust Toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          target: wasm32-unknown-emscripten
+          override: true
+
+      - name: Set up Emscripten
+        uses: mymindstorm/setup-emsdk@v14
+        with:
+          version: '6.0.13'
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install GTK development libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends libgtk-3-dev
+
+      - name: Run Web Foundation Check
+        env:
+          CXXFLAGS_wasm32_unknown_emscripten: -fexceptions
+        run: cargo xtask check-web
+
+      - name: Build Web Player
+        run: cargo xtask build-web-player-runtime
+
+      - name: Export Demo and WebSmoke
+        run: |
+          cargo xtask export-web-game --resources games/Demo/Resources --out target/web-ci-demo-site
+          cargo xtask export-web-game --resources xtask/tests/fixtures/web_smoke/Resources --out target/web-ci-smoke-site
+
+      - name: Test Browser Player
+        run: |
+          CHROME_BIN=$(command -v google-chrome || command -v chromium)
+          export CHROME_BIN
+          node --test web_shell/player/*.test.mjs
+
+      - name: Upload Web Exports
+        uses: actions/upload-artifact@v4
+        with:
+          name: bishop-web-exports
+          path: |
+            target/web-ci-demo-site/
+            target/web-ci-smoke-site/

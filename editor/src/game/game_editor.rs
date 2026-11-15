@@ -368,6 +368,7 @@ impl GameEditor {
         self.inspector.set_rect(inspector_rect);
 
         let game_name = game.name.clone();
+        let start_world_id = game.start_world_id;
         let inspector_output = {
             let mut game_ctx = game.ctx_mut();
             self.inspector.draw_game_pane(
@@ -376,6 +377,7 @@ impl GameEditor {
                 &InspectorContext {
                     command_mode: EditorMode::Game(submode),
                     game_name: Some(game_name),
+                    start_world_id,
                     show_linked_prefab_metadata: false,
                     hide_room_only_components: true,
                     selected_create_parent: None,
@@ -386,8 +388,14 @@ impl GameEditor {
             )
         };
 
-        if let Some(InspectorHostAction::RenameGame(name)) = inspector_output.host_action {
-            push_command(Box::new(RenameGameCmd::new(name, game.name.clone())));
+        match inspector_output.host_action {
+            Some(InspectorHostAction::RenameGame(name)) => {
+                push_command(Box::new(RenameGameCmd::new(name, game.name.clone())));
+            }
+            Some(InspectorHostAction::SetStartWorld(id)) => {
+                push_command(Box::new(SetStartWorldCmd::new(id, game.start_world_id)));
+            }
+            _ => {}
         }
     }
 

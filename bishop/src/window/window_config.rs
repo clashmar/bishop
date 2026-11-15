@@ -68,10 +68,12 @@ impl WindowConfig {
         self
     }
 
+    #[cfg(any(feature = "wgpu", test))]
     pub(crate) fn resolve_window_icon(&self) -> Option<&WindowIcon> {
         self.window_icon.as_ref().or(self.app_icon.as_ref())
     }
 
+    #[cfg(any(feature = "wgpu", test))]
     pub(crate) fn resolve_app_icon(&self) -> Option<&WindowIcon> {
         self.app_icon.as_ref().or(self.window_icon.as_ref())
     }

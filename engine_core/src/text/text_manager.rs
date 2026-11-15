@@ -1,18 +1,22 @@
 use crate::assets::{AssetKey, AssetRecord, AssetRegistry};
 use crate::constants::paths;
 use crate::ecs::TomlId;
+use crate::storage::ResourceSource;
 use crate::text::*;
 use rand::Rng;
 use rand::seq::SliceRandom;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fs;
+use std::io;
 use std::path::{Path, PathBuf};
 
 /// Manages text loading, caching, and text selection.
 pub struct TextManager {
     /// Base path for text files.
     text_root: PathBuf,
+    /// Prefetched authored text resources for the browser runtime.
+    source: Option<ResourceSource>,
     /// Current language code.
     current_language: String,
     /// Available languages from manifest.
@@ -31,6 +35,7 @@ impl Default for TextManager {
     fn default() -> Self {
         Self {
             text_root: PathBuf::new(),
+            source: None,
             current_language: "en".to_string(),
             available_languages: vec!["en".to_string()],
             cache: RefCell::new(HashMap::new()),
@@ -55,7 +60,7 @@ impl TextManager {
     /// Loads the manifest file to get available languages.
     fn load_manifest(&mut self) {
         let manifest_path = self.text_root.join(paths::LANGUAGE_MANIFEST);
-        if let Ok(content) = fs::read_to_string(&manifest_path)
+        if let Ok(content) = self.read_text_path(&manifest_path)
             && let Ok(manifest) = toml::from_str::<TextManifest>(&content)
         {
             self.current_language = manifest.default_language;
@@ -138,7 +143,8 @@ impl TextManager {
         }
     }
 
-    fn text_path_for_id(&self, asset_registry: &AssetRegistry, text_id: TomlId) -> Option<PathBuf> {
+    /// Resolves a registered text asset to the active language's file path.
+    pub fn text_path_for_id(&self, asset_registry: &AssetRegistry, text_id: TomlId) -> Option<PathBuf> {
         let mut relative = asset_registry.relative_path(text_id)?;
         if let Some(language) = self
             .available_languages
@@ -160,7 +166,7 @@ impl TextManager {
             return false;
         };
 
-        let content = match fs::read_to_string(&file_path) {
+        let content = match self.read_text_path(&file_path) {
             Ok(c) => c,
             Err(e) => {
                 log::warn!("Failed to load text file '{}': {e}", file_path.display());
@@ -293,6 +299,21 @@ impl TextManager {
         self.ui_cache.borrow_mut().clear();
     }
 
+    /// Uses the authored in-memory files for text and language selection.
+    pub fn set_prefetched_source(&mut self, root: PathBuf, source: ResourceSource) {
+        self.source = Some(source);
+        self.set_text_root(root);
+    }
+
+    fn read_text_path(&self, path: &Path) -> io::Result<String> {
+        if let Some(source) = self.source.as_ref() {
+            let bytes = source.read_required(path)?;
+            String::from_utf8(bytes).map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))
+        } else {
+            fs::read_to_string(path)
+        }
+    }
+
     /// Updates the text root path.
     pub fn set_text_root(&mut self, root: PathBuf) {
         self.text_root = root;
@@ -315,7 +336,7 @@ impl TextManager {
         }
         file_path.set_extension("toml");
 
-        let content = match fs::read_to_string(&file_path) {
+        let content = match self.read_text_path(&file_path) {
             Ok(c) => c,
             Err(e) => {
                 log::warn!("Failed to load UI text file '{}': {e}", file_path.display());

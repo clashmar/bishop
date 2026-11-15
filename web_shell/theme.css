@@ -1,0 +1,59 @@
+@font-face {
+  font-family: "Bishop Pixel";
+  src: url("fonts/gnf.regular.ttf") format("truetype");
+  font-display: swap;
+}
+
+:root {
+  color-scheme: dark;
+  --background: #0d111a;
+  --surface: #192332;
+  --border: #40526b;
+  --text: #e9f0fa;
+  --muted: #aabbd2;
+  --blue: #344e70;
+  --blue-hover: #446a95;
+  --blue-bright: #a8cefa;
+  --shadow: #070a10;
+  font-family: system-ui, sans-serif;
+}
+
+body {
+  margin: 0;
+  background: var(--background);
+  color: var(--text);
+}
+
+button {
+  appearance: none;
+  padding: 0.75rem 1.25rem;
+  border: 2px solid #7799c4;
+  border-radius: 0;
+  background: var(--blue);
+  color: var(--text);
+  box-shadow: 4px 4px 0 var(--shadow);
+  cursor: pointer;
+  font: 20px/1.2 "Bishop Pixel", ui-monospace, monospace;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+button:hover:not(:disabled) {
+  background: var(--blue-hover);
+  border-color: var(--blue-bright);
+}
+
+button:active:not(:disabled) {
+  transform: translate(2px, 2px);
+  box-shadow: 2px 2px 0 var(--shadow);
+}
+
+button:focus-visible {
+  outline: 2px solid var(--blue-bright);
+  outline-offset: 4px;
+}
+
+button:disabled {
+  cursor: wait;
+  opacity: 0.8;
+}

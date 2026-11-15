@@ -33,6 +33,7 @@ pub enum EditorAction {
     Save,
     SaveAs,
     Export,
+    PreviewExistingWebExport,
     ChangeSaveRoot,
     // Edit actions
     Undo,
@@ -62,7 +63,8 @@ impl EditorAction {
             EditorAction::NewGame => "New Game".to_string(),
             EditorAction::Save => "Save".to_string(),
             EditorAction::SaveAs => "Save As".to_string(),
-            EditorAction::Export => "Export".to_string(),
+            EditorAction::Export => "Export…".to_string(),
+            EditorAction::PreviewExistingWebExport => "Preview Web Export…".to_string(),
             EditorAction::Undo => "Undo".to_string(),
             EditorAction::Redo => "Redo".to_string(),
             EditorAction::ChangeSaveRoot => "Change Save Root".to_string(),
@@ -142,6 +144,7 @@ impl EditorAction {
             EditorAction::NewGame
             | EditorAction::Open
             | EditorAction::Export
+            | EditorAction::PreviewExistingWebExport
             | EditorAction::ChangeSaveRoot
             | EditorAction::Undo
             | EditorAction::Redo
@@ -417,6 +420,7 @@ fn file_actions_for_mode(editor_mode: EditorMode) -> Vec<EditorAction> {
         EditorAction::NewGame,
         EditorAction::Open,
         EditorAction::Export,
+        EditorAction::PreviewExistingWebExport,
     ];
 
     if !matches!(editor_mode, EditorMode::Prefab(BLANK_PREFAB_ID)) {

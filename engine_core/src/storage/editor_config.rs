@@ -21,6 +21,9 @@ pub static EDITOR_CONFIG: Lazy<RwLock<EditorConfig>> = Lazy::new(|| RwLock::new(
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct EditorConfig {
     pub save_root: Option<PathBuf>,
+    #[cfg(feature = "editor")]
+    #[serde(default)]
+    pub last_opened_game: Option<String>,
     #[serde(default)]
     pub theme_preset: Option<String>,
     #[cfg(feature = "editor")]
@@ -42,6 +45,7 @@ impl Default for EditorConfig {
     fn default() -> Self {
         Self {
             save_root: None,
+            last_opened_game: None,
             theme_preset: None,
             playtest_startup_mode: default_startup_mode(),
             inspector_visible: default_inspector_visible(),
@@ -83,6 +87,37 @@ pub fn get_save_root() -> Option<PathBuf> {
     } else {
         // Safe unwrap
         EDITOR_CONFIG.read().unwrap().save_root.clone()
+    }
+}
+
+/// Returns the last successfully opened editor game, if recorded.
+#[cfg(feature = "editor")]
+pub fn get_last_opened_game() -> Option<String> {
+    match EDITOR_CONFIG.read() {
+        Ok(cfg) => cfg.last_opened_game.clone(),
+        Err(poison) => {
+            omni_error!("Editor config lock poisoned: {poison}");
+            None
+        }
+    }
+}
+
+/// Records the game currently open in the editor.
+#[cfg(feature = "editor")]
+pub fn set_last_opened_game(name: &str) {
+    let (snapshot, path) = match EDITOR_CONFIG.write() {
+        Ok(mut cfg) => {
+            cfg.last_opened_game = Some(name.to_string());
+            (cfg.clone(), config_path())
+        }
+        Err(poison) => {
+            omni_error!("Editor config lock poisoned: {poison}");
+            return;
+        }
+    };
+
+    if let Err(e) = save_config_to_path(&snapshot, &path) {
+        omni_error!("Error saving last opened game: {e}");
     }
 }
 
@@ -273,6 +308,23 @@ mod tests {
         assert_eq!(config.playtest_startup_mode, StartupMode::Skip);
         assert!(config.inspector_module_expanded.is_empty());
         assert!(config.panel_positions.is_empty());
+    }
+
+    #[test]
+    fn last_opened_game_defaults_to_none_and_round_trips_to_disk() -> Result<(), Box<dyn Error>> {
+        let missing: EditorConfig = from_str("(save_root: None)")?;
+        assert_eq!(missing.last_opened_game, None);
+
+        let path = std::env::temp_dir().join(format!("bishop-last-opened-{}.ron", Uuid::new_v4()));
+        let config = EditorConfig {
+            last_opened_game: Some("OpenedGame".to_string()),
+            ..EditorConfig::default()
+        };
+        save_config_to_path(&config, &path)?;
+        let loaded: EditorConfig = from_str(&fs::read_to_string(&path)?)?;
+        assert_eq!(loaded.last_opened_game, config.last_opened_game);
+        fs::remove_file(path)?;
+        Ok(())
     }
 
     #[test]

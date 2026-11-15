@@ -43,7 +43,7 @@ function engine.save.to_string(value) end
 ---@return table|nil
 function engine.save.from_string(json) end
 
---- Returns true if a latest save exists on disk.
+--- Returns true if a latest save is available.
 ---@return boolean
 function engine.save.has_latest() end
 

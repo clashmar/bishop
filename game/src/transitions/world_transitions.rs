@@ -1,4 +1,5 @@
 use crate::engine::game_instance::GameInstance;
+use crate::scripting::lua_integer::lua_unsigned_id;
 use bishop::prelude::Vec2;
 use engine_core::ecs::*;
 use engine_core::game::Game;
@@ -483,7 +484,14 @@ fn switch_to_overlay(lua: &Lua, game: &mut Game, destination: &Destination) {
 
 fn emit_world_entered(lua: &Lua, game: &Game, world_id: WorldId) {
     let world = game.current_world();
-    let mut args = vec![Value::Integer(world_id.0 as i64)];
+    let id = match lua_unsigned_id(world_id.0 as u64) {
+        Ok(value) => value,
+        Err(error) => {
+            log::error!("World-entered event ID is not representable in Luau: {error}");
+            return;
+        }
+    };
+    let mut args = vec![id];
     if let Ok(name) = lua.create_string(&world.name) {
         args.push(Value::String(name));
     }

@@ -1,5 +1,7 @@
 use super::*;
 use crate::audio::loader::{decode_wav_bytes, wav_path};
+use crate::constants::{extensions, paths};
+use std::path::Path;
 use crate::hydration::{EvictError, Hydratable};
 
 impl AudioManager {
@@ -18,6 +20,18 @@ impl AudioManager {
 
     pub(super) fn queue_sound_load(&mut self, id: &str) {
         if self.sound_cache.contains_key(id) || self.pending_loads.contains_key(id) {
+            return;
+        }
+
+        if let Some(source) = self.resource_source.as_ref() {
+            let path = Path::new(paths::AUDIO_FOLDER).join(id).with_extension(extensions::WAV);
+            let result = source.read_required(&path)
+                .map_err(|error| error.to_string())
+                .and_then(|bytes| decode_wav_bytes(&path, &bytes));
+            match result {
+                Ok(frames) => self.finish_sound_load(id.to_owned(), frames),
+                Err(error) => self.fail_sound_load(id.to_owned(), error),
+            }
             return;
         }
 

@@ -1,18 +1,158 @@
 use crate::engine::GameInstance;
 use crate::game_global::take_pending_world_transition;
 use crate::scripting::lua_ctx::LuaGameCtx;
-use crate::transitions::world_transitions::DestinationSelector;
 use crate::scripting::modules::engine_module::EngineModule;
-use engine_core::ecs::{Entity, Player, Transform};
+use crate::transitions::world_transitions::DestinationSelector;
+use engine_core::ecs::{Entity, Global, Name, Player, Script, ScriptId, Transform};
 use engine_core::game::Game;
 use engine_core::scripting::lua_constants::{lua_engine, lua_events, lua_fields};
 use engine_core::scripting::modules::lua_module::{LuaApi, LuaApiWriter};
 use engine_core::scripting::LuaModule;
 use engine_core::worlds::{RoomId, RoomLayer, World, WorldId, WorldTransitionMode};
-use mlua::Lua;
+use mlua::{Function, Lua, Table};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
+
+#[test]
+fn call_when_name_is_room_local_invokes_only_the_active_room_script() -> mlua::Result<()> {
+    let (lua, game_instance, _player) = setup_engine_lua();
+    let active = named_script(&lua, &game_instance, RoomId(1), TEST_ENTITY_NAME, false)?;
+    let other = named_script(&lua, &game_instance, RoomId(2), TEST_ENTITY_NAME, false)?;
+
+    lua.load(format!(
+        "engine.{}({:?}, {:?}, 4)",
+        lua_engine::CALL,
+        TEST_ENTITY_NAME,
+        SCRIPT_METHOD,
+    ))
+    .exec()?;
+
+    assert_eq!(active.get::<i64>("calls")?, 4);
+    assert_eq!(other.get::<i64>("calls")?, 0);
+    Ok(())
+}
+
+#[test]
+fn call_when_only_global_exists_and_active_room_is_absent_invokes_global() -> mlua::Result<()> {
+    let (lua, game_instance, _player) = setup_engine_lua();
+    let global = named_script(&lua, &game_instance, RoomId(1), TEST_ENTITY_NAME, true)?;
+    {
+        let mut instance = game_instance.borrow_mut();
+        let world = instance.game.current_world_mut().ok_or_else(|| {
+            mlua::Error::RuntimeError("missing active test world".to_string())
+        })?;
+        world.current_room_id = None;
+    }
+
+    lua.load(format!(
+        "engine.{}({:?}, {:?}, 2)",
+        lua_engine::CALL,
+        TEST_ENTITY_NAME,
+        SCRIPT_METHOD,
+    ))
+    .exec()?;
+
+    assert_eq!(global.get::<i64>("calls")?, 2);
+    Ok(())
+}
+
+#[test]
+fn call_when_name_exists_only_in_another_room_reports_not_found() -> mlua::Result<()> {
+    let (lua, game_instance, _player) = setup_engine_lua();
+    let other = named_script(&lua, &game_instance, RoomId(2), TEST_ENTITY_NAME, false)?;
+
+    let error = lua
+        .load(format!(
+            "engine.{}({:?}, {:?}, 4)",
+            lua_engine::CALL,
+            TEST_ENTITY_NAME,
+            SCRIPT_METHOD,
+        ))
+        .exec()
+        .err()
+        .ok_or_else(|| mlua::Error::RuntimeError("expected a missing target".to_string()))?;
+
+    assert!(error.to_string().contains("not found"), "{error}");
+    assert_eq!(other.get::<i64>("calls")?, 0);
+    Ok(())
+}
+
+#[test]
+fn call_when_two_active_room_entities_share_name_reports_ambiguity() -> mlua::Result<()> {
+    let (lua, game_instance, _player) = setup_engine_lua();
+    let first = named_script(&lua, &game_instance, RoomId(1), TEST_ENTITY_NAME, false)?;
+    let second = named_script(&lua, &game_instance, RoomId(1), TEST_ENTITY_NAME, false)?;
+
+    let error = lua
+        .load(format!(
+            "engine.{}({:?}, {:?}, 4)",
+            lua_engine::CALL,
+            TEST_ENTITY_NAME,
+            SCRIPT_METHOD,
+        ))
+        .exec()
+        .err()
+        .ok_or_else(|| mlua::Error::RuntimeError("expected an ambiguous target".to_string()))?;
+
+    assert!(error.to_string().contains("ambiguous"), "{error}");
+    assert_eq!(first.get::<i64>("calls")?, 0);
+    assert_eq!(second.get::<i64>("calls")?, 0);
+    Ok(())
+}
+
+#[test]
+fn call_when_room_and_global_names_overlap_reports_ambiguity() -> mlua::Result<()> {
+    let (lua, game_instance, _player) = setup_engine_lua();
+    let local = named_script(&lua, &game_instance, RoomId(1), TEST_ENTITY_NAME, false)?;
+    let global = named_script(&lua, &game_instance, RoomId(1), TEST_ENTITY_NAME, true)?;
+
+    let error = lua
+        .load(format!(
+            "engine.{}({:?}, {:?}, 4)",
+            lua_engine::CALL,
+            TEST_ENTITY_NAME,
+            SCRIPT_METHOD,
+        ))
+        .exec()
+        .err()
+        .ok_or_else(|| mlua::Error::RuntimeError("expected an ambiguous target".to_string()))?;
+
+    assert!(error.to_string().contains("ambiguous"), "{error}");
+    assert_eq!(local.get::<i64>("calls")?, 0);
+    assert_eq!(global.get::<i64>("calls")?, 0);
+    Ok(())
+}
+
+#[test]
+fn kinematic_switch_interact_with_named_target_calls_without_requesting_a_room() -> mlua::Result<()> {
+    let lua = Lua::new();
+    let engine = lua.create_table()?;
+    let called = lua.create_table()?;
+    let recorded = called.clone();
+    engine.set(
+        lua_engine::CALL,
+        lua.create_function(move |_, (name, method): (String, String)| {
+            recorded.set("name", name)?;
+            recorded.set("method", method)
+        })?,
+    )?;
+    let log = lua.create_table()?;
+    log.set("info", lua.create_function(|_, _: String| Ok(()))?)?;
+    engine.set(lua_engine::LOG, log)?;
+    lua.globals().set(lua_engine::ENGINE, engine)?;
+
+    let switch = super::demo_save_flow_tests::load_demo_script(&lua, SWITCH_SCRIPT);
+    let public: Table = switch.get("public")?;
+    public.set("target_name", TEST_ENTITY_NAME)?;
+    let interact: Function = switch.get("interact")?;
+
+    interact.call::<()>(switch)?;
+
+    assert_eq!(called.get::<String>("name")?, TEST_ENTITY_NAME);
+    assert_eq!(called.get::<String>("method")?, SCRIPT_METHOD);
+    Ok(())
+}
 
 #[test]
 fn overlay_entry_when_called_records_entry_target_request() {
@@ -97,6 +237,10 @@ fn emit_api_when_called_documents_restore_location_payload() {
     let mut out = LuaApiWriter::default();
     EngineModule.emit_api(&mut out);
 
+    assert!(out.buf.contains(&format!(
+        "function engine.{}(name, method, ...) end",
+        lua_engine::CALL
+    )));
     assert!(out.buf.contains(&format!("function engine.{}(entry) end", lua_engine::OVERLAY_ENTRY)));
     assert!(out.buf.contains("---@class RestoreLocation"));
     assert!(out.buf.contains("---@param location RestoreLocation"));
@@ -161,6 +305,45 @@ fn engine_module_register_when_loaded_exposes_collision_event_constants() {
         events.get::<String>(lua_events::COLLISION_SQUEEZE_FIELD).unwrap(),
         lua_events::COLLISION_SQUEEZE
     );
+}
+
+const SCRIPT_METHOD: &str = "toggle";
+const SWITCH_SCRIPT: &str = "kinematic_switch.lua";
+const TEST_ENTITY_NAME: &str = "Moving Platform";
+
+fn named_script(
+    lua: &Lua,
+    game_instance: &Rc<RefCell<GameInstance>>,
+    room: RoomId,
+    name: &str,
+    global: bool,
+) -> mlua::Result<Table> {
+    let script_id = ScriptId(41);
+    let instance: Table = lua
+        .load(format!(
+            "return {{ calls = 0, {} = function(self, amount) self.calls = self.calls + amount end }}",
+            SCRIPT_METHOD,
+        ))
+        .eval()?;
+    let mut game_instance = game_instance.borrow_mut();
+    let game = &mut game_instance.game;
+    let entity = game
+        .ecs
+        .create_entity()
+        .with(Name(name.to_string()))
+        .with(Script {
+            script_id,
+            ..Default::default()
+        })
+        .with_current_room(room)
+        .finish();
+    if global {
+        game.ecs.add_component_to_entity(entity, Global::default());
+    }
+    game.script_manager
+        .instances
+        .insert((entity, script_id), instance.clone());
+    Ok(instance)
 }
 
 fn setup_engine_lua() -> (Lua, Rc<RefCell<GameInstance>>, Entity) {

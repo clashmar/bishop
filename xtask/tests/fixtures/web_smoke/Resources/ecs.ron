@@ -1,0 +1,148 @@
+(
+    components: [
+        (
+            type_name: "Active",
+            data: {
+                (4): true,
+            },
+        ),
+        (
+            type_name: "AudioSource",
+            data: {
+                (1): (
+                    groups: {},
+                ),
+            },
+        ),
+        (
+            type_name: "Collider",
+            data: {
+                (4): (
+                    shape: Aabb(
+                        width: 16.0,
+                        height: 16.0,
+                    ),
+                    offset: (0.0, 0.0),
+                    animation: (
+                        clips: {},
+                    ),
+                ),
+            },
+        ),
+        (
+            type_name: "CurrentRoom",
+            data: {
+                (1): (
+                    room_id: (1),
+                    layer: front,
+                ),
+                (2): (
+                    room_id: (1),
+                    layer: front,
+                ),
+                (3): (
+                    room_id: (1),
+                    layer: front,
+                ),
+            },
+        ),
+        (
+            type_name: "Global",
+            data: {},
+        ),
+        (
+            type_name: "MotionBody",
+            data: {
+                (4): (),
+            },
+        ),
+        (
+            type_name: "Name",
+            data: {
+                (2): ("Camera 1"),
+            },
+        ),
+        (
+            type_name: "Player",
+            data: {
+                (4): (),
+            },
+        ),
+        (
+            type_name: "RoomCamera",
+            data: {
+                (2): (
+                    zoom: (0.0078125, 0.013888889),
+                    room_id: (1),
+                    zoom_mode: Step,
+                    camera_mode: Fixed,
+                ),
+            },
+        ),
+        (
+            type_name: "Singleton",
+            data: {
+                (1): (),
+            },
+        ),
+        (
+            type_name: "Sprite",
+            data: {
+                (4): (
+                    sprite: (1),
+                ),
+            },
+        ),
+        (
+            type_name: "SubPixel",
+            data: {
+                (4): (),
+            },
+        ),
+        (
+            type_name: "TilePlacement",
+            data: {},
+        ),
+        (
+            type_name: "Transform",
+            data: {
+                (2): (
+                    visible: true,
+                    position: (0.0, 0.0),
+                    pivot: CenterLeft,
+                    z: 0,
+                ),
+                (3): (
+                    visible: true,
+                    position: (64.0, 64.0),
+                    pivot: BottomCenter,
+                    z: 0,
+                ),
+                (4): (
+                    visible: true,
+                    position: (0.0, 0.0),
+                    pivot: BottomCenter,
+                    z: 0,
+                ),
+            },
+        ),
+        (
+            type_name: "Velocity",
+            data: {
+                (4): (
+                    x: 0.0,
+                    y: 0.0,
+                ),
+            },
+        ),
+        (
+            type_name: "WorldEntry",
+            data: {
+                (3): (
+                    name: "Start",
+                    is_start: true,
+                ),
+            },
+        ),
+    ],
+)

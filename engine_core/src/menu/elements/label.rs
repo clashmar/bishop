@@ -1,5 +1,5 @@
 use super::element_kind::ElementKind;
-use super::menu_element::{MenuElement, MenuElementKind};
+use super::menu_element::{MenuElement, MenuElementKind, MenuEnabledWhen};
 use crate::menu::layout::HorizontalAlign;
 use crate::menu::runtime::RenderEnv;
 use crate::menu::MenuAction;
@@ -45,6 +45,7 @@ impl ElementKind for LabelElement {
             kind: MenuElementKind::Label(LabelElement::default()),
             rect: self.default_rect(),
             enabled: true,
+            enabled_when: MenuEnabledWhen::Always,
             visible: true,
             z_order: 0,
             class: None,

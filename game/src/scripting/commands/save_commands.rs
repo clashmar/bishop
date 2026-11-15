@@ -1,9 +1,9 @@
 use crate::engine::Engine;
-use crate::engine::SaveRuntime;
-use crate::save_system::SaveLane;
+use crate::save_system::{SaveLane, SaveWrite};
 use crate::scripting::commands::lua_command::LuaCommand;
 use engine_core::scripting::lua_constants::lua_events;
-use mlua::{Value, Variadic};
+use engine_core::scripting::EventBus;
+use mlua::{Lua, Value, Variadic};
 
 /// Queues a save to the specified lane with its trigger label.
 pub struct SaveToLaneCmd {
@@ -24,28 +24,38 @@ impl LuaCommand for SaveToLaneCmd {
             .save_runtime
             .save_to_lane(&engine.game_instance, self.lane)
         {
-            Ok(()) => {
-                if let Some(args) = save_event_args(&engine.lua, self.lane.file_stem(), &self.trigger)
-                {
-                    event_bus.emit(lua_events::SAVE_SUCCEEDED.to_string(), args);
-                }
+            Ok(SaveWrite::Committed) => {
+                engine.menu_manager.set_latest_save_available(true);
+                emit_save_succeeded(&engine.lua, &event_bus, self.lane, &self.trigger);
+            }
+            Ok(SaveWrite::Pending(id)) => {
+                engine.save_runtime.track_pending(id, self.lane, std::mem::take(&mut self.trigger));
             }
             Err(err) => {
-                engine_core::omni_error!("Save to {:?} failed: {}", self.lane, err);
-                if let Some(args) = save_failed_event_args(
-                    &engine.lua,
-                    self.lane.file_stem(),
-                    &self.trigger,
-                    &err.to_string(),
-                ) {
-                    event_bus.emit(lua_events::SAVE_FAILED.to_string(), args);
-                }
+                emit_save_failed(&engine.lua, &event_bus, self.lane, &self.trigger, &err.to_string());
             }
         }
     }
 }
 
-fn save_event_args(lua: &mlua::Lua, lane: &str, trigger: &str) -> Option<Variadic<Value>> {
+/// Emits success after a native write or committed browser transaction.
+pub(crate) fn emit_save_succeeded(lua: &Lua, event_bus: &EventBus, lane: SaveLane, trigger: &str) {
+    if let Some(args) = save_event_args(lua, lane.file_stem(), trigger) {
+        event_bus.emit(lua_events::SAVE_SUCCEEDED.to_string(), args);
+    }
+}
+
+/// Emits a failed save with its lane, trigger and error.
+pub(crate) fn emit_save_failed(
+    lua: &Lua, event_bus: &EventBus, lane: SaveLane, trigger: &str, error: &str,
+) {
+    engine_core::omni_error!("Save to {:?} failed: {}", lane, error);
+    if let Some(args) = save_failed_event_args(lua, lane.file_stem(), trigger, error) {
+        event_bus.emit(lua_events::SAVE_FAILED.to_string(), args);
+    }
+}
+
+fn save_event_args(lua: &Lua, lane: &str, trigger: &str) -> Option<Variadic<Value>> {
     let lane = lua.create_string(lane).ok()?;
     let trigger = lua.create_string(trigger).ok()?;
     Some(Variadic::from_iter([
@@ -55,7 +65,7 @@ fn save_event_args(lua: &mlua::Lua, lane: &str, trigger: &str) -> Option<Variadi
 }
 
 fn save_failed_event_args(
-    lua: &mlua::Lua,
+    lua: &Lua,
     lane: &str,
     trigger: &str,
     error: &str,
@@ -75,7 +85,7 @@ pub struct LoadLatestSaveCmd;
 
 impl LuaCommand for LoadLatestSaveCmd {
     fn execute(&mut self, engine: &mut Engine) {
-        if SaveRuntime::has_latest_save() {
+        if engine.save_runtime.has_latest_save() {
             engine.save_runtime.request_latest_runtime_load();
         }
     }

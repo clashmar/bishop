@@ -1,4 +1,4 @@
-use crate::audio::AudioBackend;
+use crate::audio::{AUDIO_SAMPLE_RATE, AudioBackend};
 use bytemuck::cast_slice_mut;
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use cpal::{SampleFormat, Stream, StreamConfig};
@@ -48,7 +48,7 @@ impl AudioBackend for CpalBackend {
 
         let config = StreamConfig {
             channels: 2,
-            sample_rate: cpal::SampleRate(44100),
+            sample_rate: cpal::SampleRate(AUDIO_SAMPLE_RATE),
             buffer_size: cpal::BufferSize::Default,
         };
 

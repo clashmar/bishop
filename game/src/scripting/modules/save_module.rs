@@ -2,6 +2,7 @@ use crate::game_global::push_command;
 use crate::save_system::{LuaSaveProvider, SaveLane};
 use crate::scripting::commands::save_commands::{LoadLatestSaveCmd, SaveToLaneCmd};
 use crate::scripting::lua_ctx::LuaSaveCtx;
+use crate::scripting::lua_integer::lua_signed_integer;
 use engine_core::scripting::{LuaApi, LuaApiWriter, LuaModule};
 use engine_core::register_lua_api;
 use engine_core::register_lua_module;
@@ -115,8 +116,10 @@ impl LuaModule for SaveModule {
         )?;
         save_tbl.set(
             lua_save::HAS_LATEST,
-            lua.create_function(|_, ()| {
-                Ok(crate::engine::SaveRuntime::has_latest_save())
+            lua.create_function(|lua, ()| {
+                let save_ctx = LuaSaveCtx::borrow_ctx(lua)?;
+                let has_latest = save_ctx.save_store.borrow().latest().ok().flatten().is_some();
+                Ok(has_latest)
             })?,
         )?;
         engine_tbl.set(
@@ -188,7 +191,7 @@ impl LuaApi for SaveModule {
             lua_save::SAVE, lua_save::FROM_STRING
         ));
         out.line("");
-        out.line("--- Returns true if a latest save exists on disk.");
+        out.line("--- Returns true if a latest save is available.");
         out.line("---@return boolean");
         out.line(&format!(
             "function engine.{}.{}() end",
@@ -204,7 +207,7 @@ fn json_to_lua(lua: &Lua, value: &serde_json::Value) -> mlua::Result<mlua::Value
         serde_json::Value::Bool(b) => Ok(mlua::Value::Boolean(*b)),
         serde_json::Value::Number(n) => {
             if let Some(i) = n.as_i64() {
-                Ok(mlua::Value::Integer(i))
+                lua_signed_integer(i)
             } else if let Some(f) = n.as_f64() {
                 Ok(mlua::Value::Number(f))
             } else {

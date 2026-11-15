@@ -1,5 +1,6 @@
 use bishop::prelude::*;
 use crate::scripting::script_system::ScriptSystem;
+use crate::transitions::world_transitions::resolve_world_start;
 use engine_core::camera::{get_room_cameras, CameraManager};
 use engine_core::diagnostics::TraversalResidencyDiagnostics;
 use engine_core::ecs::{Active, CurrentRoom, Entity, SubPixel, Transform, WorldEntry};
@@ -38,11 +39,11 @@ impl GameInstance {
         game: Game,
         lua: &Lua,
         camera_manager: &mut CameraManager,
-    ) -> Self {
-        let prepared = Self::prepare_loaded_game(lua, game);
+    ) -> Result<Self, String> {
+        let prepared = Self::prepare_loaded_game(lua, game)?;
         let instance = Self::from_prepared(ctx, prepared, camera_manager);
         ScriptSystem::init(lua, &instance.game.script_manager.event_bus);
-        instance
+        Ok(instance)
     }
 
     pub fn from_loaded_room<C: BishopContext>(
@@ -51,46 +52,65 @@ impl GameInstance {
         game: Game,
         lua: &Lua,
         camera_manager: &mut CameraManager,
-    ) -> Self {
-        let prepared = Self::prepare_loaded_room(lua, room, game);
+    ) -> Result<Self, String> {
+        let prepared = Self::prepare_loaded_room(lua, room, game)?;
         let instance = Self::from_prepared(ctx, prepared, camera_manager);
         ScriptSystem::init(lua, &instance.game.script_manager.event_bus);
-        instance
+        Ok(instance)
     }
 
     /// Loads a game, determines the starting room, and hydrates the startup payloads
     /// without finalizing audio wiring, camera setup, or script initialization.
-    pub fn prepare_loaded_game(lua: &Lua, mut game: Game) -> PreparedGameInstance {
-        game.initialize_runtime(lua);
-        let (room_id, room_layer) = Self::start_room_and_layer(&game);
+    pub fn prepare_loaded_game(lua: &Lua, mut game: Game) -> Result<PreparedGameInstance, String> {
+        let world_id = game.start_world_id.ok_or("no start world in game.ron")?;
+        let world = game.get_world(world_id)
+            .ok_or_else(|| format!("start world {world_id:?} is missing from game.ron"))?;
+        if world.rooms().is_empty() {
+            return Err(format!("start world {world_id:?} has no authored rooms"));
+        }
+        game.select_world(world_id);
+        game.initialize_runtime(lua)?;
+        let destination = resolve_world_start(&game, game.current_world())
+            .ok_or_else(|| format!("start world {world_id:?} has no starting room"))?;
+        let (room_id, room_layer) = (destination.room_id, destination.layer);
         if let Some(world) = game.current_world_mut() {
             world.current_room_id = Some(room_id);
         }
-        hydrate_initial_payloads_for_runtime(&mut game)
-            .expect("initial payload hydration should succeed during startup");
+        hydrate_initial_payloads_for_runtime(&mut game)?;
         game.ecs.finalize_after_load();
+        let spawn_position = game.ecs.get_player_proxy(room_id)
+            .and_then(|proxy| game.ecs.get::<Transform>(proxy))
+            .map(|transform| transform.position)
+            .unwrap_or(destination.position);
+        if let Some(player) = game.ecs.get_player_entity() {
+            let transform = game.ecs.get_mut::<Transform>(player)
+                .ok_or_else(|| format!("player {player:?} has no transform"))?;
+            transform.position = spawn_position;
+            game.ecs.set_current_room_layer(player, room_id, room_layer);
+        }
+        game.ecs.purge_proxies();
         game.sync_all_tile_placements();
-        PreparedGameInstance {
+        Ok(PreparedGameInstance {
             game,
             room_id,
             room_layer,
-        }
+        })
     }
 
     /// Loads a specific room into a game, without finalizing
     /// audio wiring, camera setup, or script initialization.
-    pub fn prepare_loaded_room(lua: &Lua, room: Room, mut game: Game) -> PreparedGameInstance {
-        game.initialize_runtime(lua);
+    pub fn prepare_loaded_room(lua: &Lua, room: Room, mut game: Game) -> Result<PreparedGameInstance, String> {
+        game.initialize_runtime(lua)?;
         if let Some(world) = game.current_world_mut() {
             world.current_room_id = Some(room.id);
         }
         game.ecs.finalize_after_load();
         game.sync_all_tile_placements();
-        PreparedGameInstance {
+        Ok(PreparedGameInstance {
             room_id: room.id,
             room_layer: RoomLayer::Front,
             game,
-        }
+        })
     }
 
     /// Converts a prepared game into a fully wired GameInstance.
@@ -185,27 +205,6 @@ impl GameInstance {
                     ))
                 }),
         );
-    }
-
-    fn start_room_and_layer(game: &Game) -> (RoomId, RoomLayer) {
-        let world = game.current_world();
-        // Prefer the start WorldEntry's authored room/layer, then fall back to the first room on Front
-        let entries = game.ecs.get_store::<WorldEntry>();
-        for (&entity, entry) in entries.data.iter() {
-            if !entry.is_start {
-                continue;
-            }
-            let Some(current_room) = game.ecs.get::<CurrentRoom>(entity).copied() else {
-                continue;
-            };
-            if world.get_room(current_room.room_id).is_some() {
-                return (current_room.room_id, current_room.layer);
-            }
-        }
-        (
-            world.rooms().first().map(|r| r.id).unwrap_or_default(),
-            RoomLayer::Front,
-        )
     }
 
     fn preferred_room_layer(game: &Game, room_id: RoomId) -> RoomLayer {

@@ -1,5 +1,5 @@
 use crate::engine::game_instance::GameInstance;
-use crate::save_system::SaveProviderRegistry;
+use crate::save_system::{SaveProviderRegistry, SaveStoreHandle};
 use bishop::prelude::*;
 use engine_core::scripting::lua_constants::lua_globals;
 use mlua::prelude::LuaResult;
@@ -62,6 +62,8 @@ pub const LUA_SAVE_CTX: &str = "LUA_SAVE_CTX";
 #[derive(Clone)]
 pub struct LuaSaveCtx {
     pub save_providers: Rc<RefCell<SaveProviderRegistry<'static>>>,
+    /// Store used for latest-save availability in bootstrap scripts.
+    pub save_store: SaveStoreHandle,
     pub pending_quit_to_title: Rc<Cell<bool>>,
 }
 
@@ -84,10 +86,12 @@ impl LuaSaveCtx {
 pub fn register_save_lua_context(
     lua: &Lua,
     save_providers: Rc<RefCell<SaveProviderRegistry<'static>>>,
+    save_store: SaveStoreHandle,
     pending_quit_to_title: Rc<Cell<bool>>,
 ) -> LuaResult<()> {
     LuaSaveCtx {
         save_providers,
+        save_store,
         pending_quit_to_title,
     }
     .set_lua_ctx(lua)?;
@@ -110,9 +114,10 @@ pub fn register_lua_contexts(
     lua: &Lua,
     game_instance: Rc<RefCell<GameInstance>>,
     save_providers: Rc<RefCell<SaveProviderRegistry<'static>>>,
+    save_store: SaveStoreHandle,
     ctx: PlatformContext,
 ) -> LuaResult<()> {
-    register_save_lua_context(lua, save_providers, Rc::new(Cell::new(false)))?;
+    register_save_lua_context(lua, save_providers, save_store, Rc::new(Cell::new(false)))?;
     register_runtime_lua_contexts(lua, game_instance, ctx)?;
     Ok(())
 }

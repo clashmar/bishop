@@ -6,11 +6,13 @@ edition = "2021"
 [features]
 default = ["wgpu", "audio-cpal"]
 wgpu = ["dep:wgpu", "dep:winit", "dep:pollster", "dep:bytemuck", "dep:image", "dep:fontdue"]
+web-gl = ["dep:glow", "dep:image", "dep:fontdue"]
 audio = []
 audio-cpal = ["audio", "dep:cpal", "dep:bytemuck", "dep:log"]
 
 [dependencies]
 wgpu = { version = "24.0", optional = true }
+glow = { version = "0.16", optional = true }
 winit = { version = "0.30", optional = true }
 pollster = { version = "0.4", optional = true }
 bytemuck = { version = "1.16", features = ["derive"], optional = true }
@@ -21,6 +23,9 @@ log = { version = "0.4", optional = true }
 glam = "0.32.0"
 serde = { version = "1.0", features = ["derive"] }
 raw-window-handle = { version = "0.6", features = ["std"] }
+
+[build-dependencies]
+cc = "1.2"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2 = { version = "0.5.2", features = ["relax-sign-encoding"] }

@@ -10,6 +10,7 @@ use crate::camera::{Camera, Camera2D};
 use crate::draw::{Draw, DrawTextureParams};
 use crate::input::{Input, KeyCode, MouseButton};
 use crate::material::RenderOps;
+use crate::platform::PlatformControl;
 use crate::text::{Text, TextDimensions};
 use crate::time::Time;
 use crate::types::{Color, Texture2D, Vec2};
@@ -349,5 +350,19 @@ impl TextureLoader for WgpuContext {
             1,
         );
         Texture2D::from_wgpu(wgpu_texture)
+    }
+}
+
+impl PlatformControl for WgpuContext {
+    fn flush_pending_draws(&mut self) {
+        WgpuContext::flush_if_needed(self);
+    }
+
+    fn set_close_requested(&mut self, requested: bool) {
+        WgpuContext::set_close_requested(self, requested);
+    }
+
+    fn set_exit_confirmed(&mut self, confirmed: bool) {
+        WgpuContext::set_exit_confirmed(self, confirmed);
     }
 }

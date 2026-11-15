@@ -1,7 +1,7 @@
 use engine_core::scripting::menus_lua::generate_menus_lua;
 use engine_core::menu::{
     ButtonElement, LayoutChild, LayoutConfig, LayoutGroupElement, MenuAction, MenuBackground,
-    MenuElement, MenuElementKind, MenuMode, MenuTemplate,
+    MenuElement, MenuElementKind, MenuEnabledWhen, MenuMode, MenuTemplate,
 };
 use engine_core::scripting::lua_constants::lua_ownership;
 use engine_core::ui::widgets::Rect;
@@ -16,6 +16,7 @@ fn button(name: &str) -> MenuElement {
         }),
         rect: Rect::new(0.0, 0.0, 1.0, 1.0),
         enabled: true,
+        enabled_when: MenuEnabledWhen::Always,
         visible: true,
         z_order: 0,
         class: None,
@@ -40,6 +41,7 @@ fn generate_menus_lua_emits_ids_and_nested_named_elements() {
             }),
             rect: Rect::new(0.0, 0.0, 1.0, 1.0),
             enabled: true,
+            enabled_when: MenuEnabledWhen::Always,
             visible: true,
             z_order: 0,
             class: None,

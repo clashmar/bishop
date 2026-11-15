@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Bishop game</title>
+  <link rel="stylesheet" href="bishop-player/theme.css">
+  <style>
+    body { padding: clamp(24px, 4vw, 48px) 16px 64px; }
+    main { max-width: 1024px; margin: auto; }
+    h1 { margin: 0 0 24px; padding-bottom: 18px; border-bottom: 2px solid var(--border);
+         font: 30px/1.25 "Bishop Pixel", ui-monospace, monospace; overflow-wrap: anywhere; }
+    .controls { display: flex; flex-wrap: wrap; gap: 16px; margin-bottom: 28px; }
+    #close { background: var(--surface); border-color: var(--border); }
+    #game-frame:empty { display: none; }
+    iframe { display: block; width: 100%; height: 770px; border: 0;
+             background: var(--background); }
+    @media (max-width: 1056px) {
+      iframe { height: calc(56.25vw + 180px); }
+    }
+    @media (max-width: 800px) {
+      h1 { font-size: 24px; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1 id="game-title"></h1>
+    <div class="controls">
+      <button id="reveal" type="button">Load Player</button>
+      <button id="close" type="button" hidden>Close Player</button>
+    </div>
+    <div id="game-frame"></div>
+  </main>
+  <script>
+    const game = '{{GAME_PATH}}';
+    const gameName = decodeURIComponent(game.split('/').at(-2));
+    document.title = gameName;
+    document.getElementById('game-title').textContent = gameName;
+    const reveal = document.getElementById('reveal');
+    const close = document.getElementById('close');
+    const container = document.getElementById('game-frame');
+    reveal.addEventListener('click', () => {
+      const url = new URL('bishop-player/player.html', location.href);
+      url.searchParams.set('game', game);
+      const iframe = document.createElement('iframe');
+      iframe.src = url.href;
+      iframe.title = `${gameName} player`;
+      iframe.allow = 'autoplay; fullscreen';
+      container.append(iframe);
+      reveal.hidden = true;
+      close.hidden = false;
+    });
+    close.addEventListener('click', () => {
+      container.replaceChildren();
+      close.hidden = true;
+      reveal.hidden = false;
+      reveal.focus();
+    });
+  </script>
+</body>
+</html>

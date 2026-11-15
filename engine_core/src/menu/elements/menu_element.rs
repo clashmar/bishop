@@ -59,6 +59,26 @@ impl ElementKind for MenuElementKind {
     }
 }
 
+/// Condition controlling an authored menu element's enabled state.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub enum MenuEnabledWhen {
+    /// Enabled whenever the authored element is enabled.
+    #[default]
+    Always,
+    /// Enabled only while a committed latest save exists.
+    HasLatestSave,
+}
+
+impl MenuEnabledWhen {
+    /// Returns the label displayed in the menu editor.
+    pub fn ui_label(self) -> &'static str {
+        match self {
+            Self::Always => "Always",
+            Self::HasLatestSave => "Latest Save Exists",
+        }
+    }
+}
+
 /// Menu element variants with positional data.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MenuElement {
@@ -66,6 +86,8 @@ pub struct MenuElement {
     pub kind: MenuElementKind,
     pub rect: Rect,
     pub enabled: bool,
+    #[serde(default)]
+    pub enabled_when: MenuEnabledWhen,
     pub visible: bool,
     pub z_order: i32,
     #[serde(default)]
@@ -82,6 +104,7 @@ impl MenuElement {
             kind,
             rect,
             enabled: true,
+            enabled_when: MenuEnabledWhen::Always,
             visible: true,
             z_order: 0,
             class: None,

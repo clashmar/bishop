@@ -1,5 +1,5 @@
 use super::element_kind::ElementKind;
-use super::menu_element::{MenuElement, MenuElementKind};
+use super::menu_element::{MenuElement, MenuElementKind, MenuEnabledWhen};
 use crate::menu::runtime::RenderEnv;
 use crate::menu::*;
 use bishop::prelude::*;
@@ -68,6 +68,7 @@ impl ElementKind for SliderElement {
             kind: MenuElementKind::Slider(SliderElement::default()),
             rect: self.default_rect(),
             enabled: true,
+            enabled_when: MenuEnabledWhen::Always,
             visible: true,
             z_order: 0,
             class: None,
@@ -99,6 +100,7 @@ impl SliderElement {
             Slider::new(self.widget_id, screen_rect, self.min, self.max, value)
                 .label(&display_text)
                 .focused(is_focused)
+                .blocked(!element.enabled)
                 .apply_selectors(element.class.as_deref(), element.style_id.as_deref())
                 .show(ctx);
         if !matches!(state, SliderState::Unchanged) {

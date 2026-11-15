@@ -84,6 +84,8 @@ pub struct InspectorContext {
     pub selected_create_parent: Option<Entity>,
     /// Name for the game being edited, when in Game mode.
     pub game_name: Option<String>,
+    /// World entered when starting a new game.
+    pub start_world_id: Option<engine_core::worlds::WorldId>,
     /// Event tags currently known to the editor.
     pub event_tags: Vec<String>,
     /// Whether the room inspector is currently driving the interior-zone canvas tool.
@@ -115,6 +117,7 @@ pub struct InspectorOutput {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum InspectorHostAction {
     RenameGame(String),
+    SetStartWorld(engine_core::worlds::WorldId),
     RenameWorld(String),
     /// Requests the world editor to centre its camera on the given entity.
     FocusWorldEditor(Entity),

@@ -1,0 +1,7 @@
+(
+    records: {
+        Sprite((1)): (
+            path: "assets/sprites/smoke.png",
+        ),
+    },
+)

@@ -216,6 +216,7 @@ impl WorldEditor {
                     hide_room_only_components: true,
                     selected_create_parent: None,
                     game_name: None,
+                    start_world_id: None,
                     event_tags: Vec::new(),
                     room_zone_tool_active: false,
                     room_zones_visible: false,

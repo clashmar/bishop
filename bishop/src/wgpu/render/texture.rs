@@ -5,8 +5,9 @@ use wgpu::util::DeviceExt;
 use super::sampler::create_nearest_sampler;
 use super::uniforms::CameraUniforms;
 use super::vertex::TexturedVertex;
+use crate::draw::texture_geometry::sprite_quad;
 use crate::draw::DrawTextureParams;
-use crate::types::Color;
+use crate::types::{Color, Vec2};
 
 const MAX_VERTICES: usize = 65536;
 
@@ -102,9 +103,7 @@ impl WgpuTexture {
         texture_bind_group_layout: &wgpu::BindGroupLayout,
         data: &[u8],
     ) -> Result<Self, image::ImageError> {
-        let img = image::load_from_memory(data)?;
-        let rgba = img.to_rgba8();
-        let (width, height) = rgba.dimensions();
+        let (rgba, width, height) = crate::texture::png::decode_png(data)?;
         Ok(Self::from_rgba(
             device,
             queue,
@@ -324,33 +323,11 @@ impl TextureRenderer {
         color: Color,
         params: DrawTextureParams,
     ) {
-        let tex_w = texture.width() as f32;
-        let tex_h = texture.height() as f32;
-
-        let (src_x, src_y, src_w, src_h) = if let Some(source) = params.source {
-            (source.x, source.y, source.w, source.h)
-        } else {
-            (0.0, 0.0, tex_w, tex_h)
-        };
-
-        let (dest_w, dest_h) = if let Some(dest_size) = params.dest_size {
-            (dest_size.x, dest_size.y)
-        } else {
-            (src_w, src_h)
-        };
-
-        let mut u0 = src_x / tex_w;
-        let mut u1 = (src_x + src_w) / tex_w;
-        let mut v0 = src_y / tex_h;
-        let mut v1 = (src_y + src_h) / tex_h;
-
-        if params.flip_x {
-            std::mem::swap(&mut u0, &mut u1);
-        }
-        if params.flip_y {
-            std::mem::swap(&mut v0, &mut v1);
-        }
-
+        let quad = sprite_quad(
+            Vec2::new(texture.width() as f32, texture.height() as f32),
+            Vec2::new(x, y),
+            &params,
+        );
         let c: [f32; 4] = color.into();
 
         let bind_group_ptr = &texture.bind_group as *const wgpu::BindGroup;
@@ -367,46 +344,11 @@ impl TextureRenderer {
             self.current_texture_bind_group = Some(bind_group_id);
         }
 
-        if params.rotation != 0.0 {
-            let pivot = params
-                .pivot
-                .unwrap_or(glam::Vec2::new(dest_w * 0.5, dest_h * 0.5));
-            let cos_r = params.rotation.cos();
-            let sin_r = params.rotation.sin();
-
-            let corners = [
-                glam::Vec2::new(0.0, 0.0),
-                glam::Vec2::new(dest_w, 0.0),
-                glam::Vec2::new(dest_w, dest_h),
-                glam::Vec2::new(0.0, dest_h),
-            ];
-
-            let mut rotated = [[0.0f32; 2]; 4];
-            for (i, corner) in corners.iter().enumerate() {
-                let dx = corner.x - pivot.x;
-                let dy = corner.y - pivot.y;
-                rotated[i] = [
-                    x + pivot.x + dx * cos_r - dy * sin_r,
-                    y + pivot.y + dx * sin_r + dy * cos_r,
-                ];
-            }
-
-            let v0_vert = TexturedVertex::new(rotated[0], [u0, v0], c);
-            let v1_vert = TexturedVertex::new(rotated[1], [u1, v0], c);
-            let v2_vert = TexturedVertex::new(rotated[2], [u1, v1], c);
-            let v3_vert = TexturedVertex::new(rotated[3], [u0, v1], c);
-
-            self.vertices
-                .extend_from_slice(&[v0_vert, v1_vert, v2_vert, v0_vert, v2_vert, v3_vert]);
-        } else {
-            let v0_vert = TexturedVertex::new([x, y], [u0, v0], c);
-            let v1_vert = TexturedVertex::new([x + dest_w, y], [u1, v0], c);
-            let v2_vert = TexturedVertex::new([x + dest_w, y + dest_h], [u1, v1], c);
-            let v3_vert = TexturedVertex::new([x, y + dest_h], [u0, v1], c);
-
-            self.vertices
-                .extend_from_slice(&[v0_vert, v1_vert, v2_vert, v0_vert, v2_vert, v3_vert]);
-        }
+        let v0 = TexturedVertex::new(quad.positions[0], quad.uv[0], c);
+        let v1 = TexturedVertex::new(quad.positions[1], quad.uv[1], c);
+        let v2 = TexturedVertex::new(quad.positions[2], quad.uv[2], c);
+        let v3 = TexturedVertex::new(quad.positions[3], quad.uv[3], c);
+        self.vertices.extend_from_slice(&[v0, v1, v2, v0, v2, v3]);
 
         if let Some(batch) = self.batches.last_mut() {
             batch.vertex_count += 6;

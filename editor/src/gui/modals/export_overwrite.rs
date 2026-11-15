@@ -38,13 +38,14 @@ impl ModalHandler for ExportOverwriteModal {
     fn handle(
         &mut self,
         editor: &mut Editor,
-        _ctx: &mut WgpuContext,
+        ctx: &mut WgpuContext,
         result: Self::Result,
     ) -> Option<ModalResult> {
+        editor.modal.close();
         match result {
             ConfirmPromptResult::Confirmed => {
                 if let Some(pending_export) = editor.pending_export.take() {
-                    editor.finish_export(&pending_export.dest_root);
+                    editor.finish_export(ctx, &pending_export.dest_root, pending_export.target, true);
                 }
             }
             ConfirmPromptResult::Cancelled => {
@@ -52,7 +53,6 @@ impl ModalHandler for ExportOverwriteModal {
                 editor.toast = Some(Toast::new("Export cancelled.", 2.5));
             }
         }
-        editor.modal.close();
         None
     }
 
