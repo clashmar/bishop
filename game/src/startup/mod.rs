@@ -15,7 +15,7 @@ pub use asset::{
 pub use bootstrap::{StartupController, StartupSource};
 pub use browser::{
     PreparedBrowserGame, assemble_browser_game, prepare_browser_game, prepare_browser_game_direct,
-    restore_browser_game,
+    restart_browser_game, restore_browser_game,
 };
 pub use playtest_args::PlaytestLaunchArgs;
 pub use rebootstrap::{entry_mode_for_intent, StartupIntent, StartupRequest};

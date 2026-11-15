@@ -26,7 +26,14 @@
       report("AudioContext or WASM PCM bridge unavailable");
       return -1;
     }
-    if (active) return -1;
+    if (active) {
+      if (active.context.sampleRate !== sampleRate || active.frameCount !== frameCount) {
+        report("AudioContext configuration changed while playing");
+        return -1;
+      }
+      active.pointers.push(pointer);
+      return 1;
+    }
     let context;
     try {
       context = new Context({ sampleRate });
@@ -40,7 +47,7 @@
       return -1;
     }
 
-    const session = { context, pointer, frameCount, closed: false, timer: null,
+    const session = { context, pointers: [pointer], frameCount, closed: false, timer: null,
                       nextTime: 0, sources: new Set() };
     active = session;
     const tick = () => {
@@ -53,7 +60,7 @@
       let queued = 0;
       while (session.nextTime < context.currentTime + 0.12 && queued < 4) {
         const address = window.Module.ccall("bishop_audio_fill", "number",
-                                           ["number", "number"], [pointer, frameCount]);
+                                           ["number", "number"], [session.pointers.at(-1), frameCount]);
         if (!address) {
           report("Rust PCM callback did not return a buffer");
           stop(session);
@@ -87,6 +94,7 @@
       session.timer = setInterval(tick, 20);
       tick();
     }).catch(error => {
+      if (session.closed) return;
       report(`cannot resume AudioContext: ${error}`);
       stop(session);
     });
@@ -97,6 +105,7 @@
     if (!active || active.closed) return 0;
     const session = active;
     session.context.resume().catch(error => {
+      if (session.closed) return;
       report(`cannot resume AudioContext: ${error}`);
       stop(session);
     });
@@ -104,7 +113,13 @@
   };
 
   window.bishopAudioStop = pointer => {
-    if (active && active.pointer === pointer) stop(active);
+    if (active) {
+      const index = active.pointers.lastIndexOf(pointer);
+      if (index !== -1) {
+        active.pointers.splice(index, 1);
+        if (active.pointers.length === 0) stop(active);
+      }
+    }
     return 1;
   };
 })();

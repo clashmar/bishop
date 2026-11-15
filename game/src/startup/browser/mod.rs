@@ -12,7 +12,7 @@ use bishop::prelude::{PlatformContext, TextureLoader};
 use engine_core::assets::AssetKey;
 use engine_core::game::Game;
 use engine_core::scripting::install_prefetched;
-use engine_core::storage::ResourceSource;
+use engine_core::storage::{ResourceSource, load_game_shell_from_source};
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -78,10 +78,24 @@ pub fn assemble_browser_game(
         builder.save_providers.clone(), builder.pending_quit_to_title.clone(),
         builder.save_store.clone(),
     );
-    let mut engine = builder.quit_to_title_enabled(false)
-        .into_engine(game_instance, ctx, save_runtime, false)?;
+    let mut engine = builder.into_engine(game_instance, ctx, save_runtime, false)?;
     engine.rebuild_camera_from_loaded_state();
     Ok(engine)
+}
+
+/// Restarts a browser game from authored resources at its configured entry.
+pub fn restart_browser_game(
+    source: ResourceSource,
+    ctx: PlatformContext,
+    save_store: SaveStoreHandle,
+) -> Result<Engine, String> {
+    let game = load_game_shell_from_source(&source)
+        .map_err(|error| format!("browser title shell: {error}"))?;
+    let prepared = {
+        let textures = ctx.borrow();
+        prepare_browser_game(game, source, &*textures, save_store)?
+    };
+    assemble_browser_game(ctx, prepared)
 }
 
 fn browser_builder(

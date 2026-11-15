@@ -15,7 +15,7 @@ use engine_core::storage::web::game_bundle::WebGameBundle;
 use engine_core::storage::{ResourceKey, ResourceSource, load_game_shell_from_source};
 use game_lib::engine::{Engine, RuntimeLoadRequest};
 use game_lib::save_system::{BrowserSaveStore, OpenedBrowserStore, SaveStoreHandle};
-use game_lib::startup::{assemble_browser_game, prepare_browser_game, restore_browser_game};
+use game_lib::startup::{assemble_browser_game, prepare_browser_game, restart_browser_game, restore_browser_game};
 
 use crate::browser_fetch;
 use crate::player_bundle::{DownloadPlan, parse_manifest, resource_url};
@@ -30,6 +30,11 @@ struct OpeningGame {
 struct ActiveGame {
     source: ResourceSource,
     save_store: SaveStoreHandle,
+}
+
+enum BrowserSessionRequest {
+    QuitToTitle,
+    Load(RuntimeLoadRequest),
 }
 
 #[derive(Default)]
@@ -279,7 +284,12 @@ pub(crate) fn frame(_now_ms: f64) {
         pollster::block_on(engine.frame(ctx.clone()));
         ctx.borrow_mut().end_frame()?;
         ctx.borrow_mut().input_state().end_frame();
-        let request = engine.save_runtime.take_pending_runtime_load_request();
+        let request = if engine.save_runtime.pending_quit_to_title.replace(false) {
+            Some(BrowserSessionRequest::QuitToTitle)
+        } else {
+            engine.save_runtime.take_pending_runtime_load_request()
+                .map(BrowserSessionRequest::Load)
+        };
         if !state.ready {
             println!("BISHOP_PLAYER_READY");
             state.ready = true;
@@ -287,13 +297,21 @@ pub(crate) fn frame(_now_ms: f64) {
         Ok::<_, String>(request)
     });
     match result {
-        Ok(Some(RuntimeLoadRequest::Latest)) => restore_latest(),
+        Ok(Some(BrowserSessionRequest::QuitToTitle)) => {
+            rebuild_session(restart_browser_game, "TITLE")
+        }
+        Ok(Some(BrowserSessionRequest::Load(RuntimeLoadRequest::Latest))) => {
+            rebuild_session(restore_browser_game, "LOAD")
+        }
         Ok(None) => {}
         Err(error) => fail("frame", &error),
     }
 }
 
-fn restore_latest() {
+fn rebuild_session(
+    build: fn(ResourceSource, PlatformContext, SaveStoreHandle) -> Result<Engine, String>,
+    error_stage: &str,
+) {
     let retained = PLAYER.with(|state| {
         let state = state.borrow();
         let active = state.active.as_ref().ok_or("browser game lost its authored resource source")?;
@@ -301,9 +319,9 @@ fn restore_latest() {
         Ok::<_, &str>((active.source.clone(), active.save_store.clone(), ctx))
     });
     let result = retained.map_err(str::to_owned)
-        .and_then(|(source, store, ctx)| restore_browser_game(source, ctx, store));
+        .and_then(|(source, store, ctx)| build(source, ctx, store));
     match result {
         Ok(engine) => PLAYER.with(|state| state.borrow_mut().engine = Some(engine)),
-        Err(error) => eprintln!("BISHOP_PLAYER_LOAD_ERROR {error}"),
+        Err(error) => eprintln!("BISHOP_PLAYER_{error_stage}_ERROR {error}"),
     }
 }

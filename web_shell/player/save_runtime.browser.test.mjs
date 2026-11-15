@@ -67,6 +67,12 @@ async function authorFixture(resources) {
   let title = await readFile(titlePath, 'utf8');
   const newGame = title.match(/(\/\*\[1\]\*\/ \([\s\S]*?\n\s*managed: true,\n\s*\),)/)?.[1];
   assert.ok(newGame, 'authored title must contain an Enter Workshop button');
+  const pause = title.replace('id: "title"', 'id: "pause"')
+    .replace('name: "EnterWorkshop"', 'name: "QuitTitle"')
+    .replace('text_key: "EnterWorkshop"', 'text_key: "QuitTitle"')
+    .replace('action: CloseMenu', 'action: QuitToMainMenu')
+    .replace('mode: FrontEnd', 'mode: Paused');
+  await writeFile(join(resources, 'menus/pause.ron'), pause);
   const loadGame = newGame.replace('/*[1]*/', '/*[2]*/')
     .replace('name: "EnterWorkshop"', 'name: "LoadGame"')
     .replace('text_key: "EnterWorkshop"', 'text_key: "LoadGame"')
@@ -76,7 +82,7 @@ async function authorFixture(resources) {
   title = title.replace(newGame, `${newGame}\n                    ${loadGame}`);
   await writeFile(titlePath, title);
   await writeFile(join(resources, 'text/en/ui/title.toml'),
-    `${await readFile(join(resources, 'text/en/ui/title.toml'), 'utf8')}LoadGame = "Load Latest"\n`);
+    `${await readFile(join(resources, 'text/en/ui/title.toml'), 'utf8')}LoadGame = "Load Latest"\nQuitTitle = "Quit"\n`);
   await writeFile(join(resources, 'scripts/main.lua'), `
 engine.save.register_provider({
     id = "fixture.room", version = 1,
@@ -120,6 +126,10 @@ engine.update = function(_dt)
     if room == ${startRoomId} and engine.input.pressed("t") then
         player.entity:teleport({x = ${entryX}, y = ${entryY}})
     end
+    if engine.input.pressed("q") then
+        engine.menu.open("pause")
+        engine.log.info("SAVE_FIXTURE_PAUSE_OPENED")
+    end
 end
 `);
   return { gameId, gameName, startRoomId, savedRoomId };
@@ -134,10 +144,11 @@ async function clickCanvas(cdp, x, y) {
   await cdp.command('Input.dispatchMouseEvent', { type: 'mouseReleased', button: 'left', x: px, y: py, clickCount: 1 });
 }
 
-async function pressT(cdp) {
+async function pressKey(cdp, key) {
+  const upper = key.toUpperCase();
   for (const type of ['rawKeyDown', 'keyUp']) {
     await cdp.command('Input.dispatchKeyEvent', {
-      type, key: 't', code: 'KeyT', windowsVirtualKeyCode: 84,
+      type, key, code: `Key${upper}`, windowsVirtualKeyCode: upper.charCodeAt(0),
     });
     if (type === 'rawKeyDown') await new Promise(resolve => setTimeout(resolve, 120));
   }
@@ -186,7 +197,7 @@ async function sampleGameplayEdges(cdp) {
   })()`);
 }
 
-test('browser room-exit autosave restores after reload via Load Latest', async t => {
+test('browser autosave persists through Quit to title and Load Latest after reload', async t => {
   assert.ok(existsSync(chromeBinary), `Chrome not found at ${chromeBinary}`);
   const temporary = await mkdtemp(join(tmpdir(), 'bishop-save-runtime-'));
   const profile = join(temporary, 'chrome');
@@ -269,10 +280,21 @@ test('browser room-exit autosave restores after reload via Load Latest', async t
   const pixels = await sampleGameplayEdges(cdp);
   assert.ok(pixels.right.every(channel => channel > 100), 'gameplay should reach the right canvas edge');
   assert.ok(pixels.inside.every(channel => channel > 100), 'gameplay should render inside the viewport');
-  await pressT(cdp);
+  await pressKey(cdp, 't');
   await until(async () => (await status(cdp)).includes(`SAVE_FIXTURE_ROOM_ENTERED ${savedRoomId}`), 'room exit');
   await until(async () => (await status(cdp)).includes('SAVE_FIXTURE_SUCCEEDED autosave auto'), 'durable autosave');
   assert.match(await status(cdp), new RegExp(`SAVE_FIXTURE_ROOM ${savedRoomId}`));
+  assert.equal(await cdp.evaluate('window.bishopAudioResume()'), 1, 'audio is active before quitting');
+  await pressKey(cdp, 'q');
+  await until(async () => (await status(cdp)).includes('SAVE_FIXTURE_PAUSE_OPENED'), 'authored pause menu');
+  await clickCanvas(cdp, 0.5, 0.527);
+  await until(async () => (await status(cdp)).includes('SAVE_FIXTURE_HAS_LATEST true'),
+    'Quit returns to the authored title with the latest save', 10000);
+  assert.equal(await cdp.evaluate('window.bishopAudioResume()'), 1, 'title restart keeps audio available');
+  const startRoomVisits = (await status(cdp)).split(`SAVE_FIXTURE_ROOM ${startRoomId}`).length;
+  await clickCanvas(cdp, 0.5, 0.502);
+  await until(async () => (await status(cdp)).split(`SAVE_FIXTURE_ROOM ${startRoomId}`).length > startRoomVisits,
+    'New Game begins from the returned title');
   await cdp.command('Page.reload', { ignoreCache: true });
   await play(cdp);
   assert.match(await status(cdp), /SAVE_FIXTURE_HAS_LATEST true/);
@@ -284,6 +306,14 @@ test('browser room-exit autosave restores after reload via Load Latest', async t
     'Load Latest provider restoration', 10000);
   await until(async () => (await status(cdp)).includes(`SAVE_FIXTURE_ROOM ${savedRoomId}`),
     'restored room', 10000);
+  assert.equal(await cdp.evaluate('window.bishopAudioResume()'), 1, 'Load Latest keeps audio available');
+  const titleBoots = (await status(cdp)).split('SAVE_FIXTURE_HAS_LATEST true').length;
+  await pressKey(cdp, 'q');
+  await until(async () => (await status(cdp)).includes('SAVE_FIXTURE_PAUSE_OPENED'), 'restored pause menu');
+  await clickCanvas(cdp, 0.5, 0.527);
+  await until(async () => (await status(cdp)).split('SAVE_FIXTURE_HAS_LATEST true').length > titleBoots,
+    'Quit after Load Latest returns to the authored title', 10000);
+  assert.equal(await cdp.evaluate('window.bishopAudioResume()'), 1, 'Quit after Load Latest keeps audio available');
 
   const committed = await cdp.evaluate(`window.bishopSaveStore.open(${JSON.stringify(gameId)})`);
   assert.match(committed.latest, /data: "\d+"/);
@@ -304,7 +334,7 @@ test('browser room-exit autosave restores after reload via Load Latest', async t
   await clickCanvas(cdp, 0.5, 0.502);
   await until(async () => (await status(cdp)).includes(`SAVE_FIXTURE_ROOM ${startRoomId}`),
     'aborted-write start room');
-  await pressT(cdp);
+  await pressKey(cdp, 't');
   await until(async () => (await status(cdp)).includes(`SAVE_FIXTURE_ROOM ${savedRoomId}`),
     'aborted-write room traversal');
   await until(async () => (await status(cdp)).includes('SAVE_FIXTURE_FAILED autosave auto'),
@@ -336,7 +366,7 @@ test('browser room-exit autosave restores after reload via Load Latest', async t
   assert.match(await status(cdp), /SAVE_FIXTURE_HAS_LATEST false/);
   await clickCanvas(cdp, 0.5, 0.502);
   await until(async () => (await status(cdp)).includes(`SAVE_FIXTURE_ROOM ${startRoomId}`), 'denied-storage start room');
-  await pressT(cdp);
+  await pressKey(cdp, 't');
   await until(async () => (await status(cdp)).includes(`SAVE_FIXTURE_ROOM ${savedRoomId}`),
     'denied-storage room traversal');
   await until(async () => (await status(cdp)).includes('SAVE_FIXTURE_FAILED autosave auto'),

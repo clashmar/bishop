@@ -65,8 +65,7 @@ fn assemble_restored_browser_game(
         builder.save_providers.clone(), builder.pending_quit_to_title.clone(),
         builder.save_store.clone(),
     );
-    let mut engine = builder.quit_to_title_enabled(false)
-        .into_engine(game_instance, ctx, save_runtime, false)?;
+    let mut engine = builder.into_engine(game_instance, ctx, save_runtime, false)?;
     {
         let mut game_ref = engine.game_instance.borrow_mut();
         let game_ctx = game_ref.game.ctx_mut();
