@@ -1,6 +1,5 @@
 use std::path::Path;
 
-use engine_core::constants::paths;
 use engine_core::ecs::Sprite;
 use engine_core::storage::{load_full_game_from_folder, web::game_export::collect_game_resources};
 
@@ -23,56 +22,6 @@ fn second_authored_game_has_its_own_player_world_title_and_script() -> Result<()
         .map_err(|error| error.to_string())?;
     assert!(script.contains("WEB_SMOKE_LANTERN_LIT"));
     Ok(())
-}
-
-#[test]
-fn web_export_fixture_manifest_uses_game_resources() -> Result<(), String> {
-    let root = Path::new("/test/workspace");
-    let url = web_shell::FIXTURE_MANIFEST_PATH;
-    let relative = url
-        .strip_prefix(web_shell::FIXTURE_ASSET_ROOT)
-        .ok_or_else(|| format!("manifest URL outside fixture root: {url}"))?;
-    assert_eq!(
-        super::fixture_source(root, url),
-        Ok(root
-            .join(paths::GAME_SAVE_ROOT)
-            .join(web_shell::FIXTURE_NAME)
-            .join(paths::RESOURCES_FOLDER)
-            .join(relative))
-    );
-    Ok(())
-}
-
-#[test]
-fn web_export_fixture_modules_use_game_scripts() -> Result<(), String> {
-    let root = Path::new("/test/workspace");
-    for name in web_shell::FIXTURE_MODULES {
-        let url = web_shell::fixture_module_path(name);
-        let relative = url
-            .strip_prefix(web_shell::FIXTURE_ASSET_ROOT)
-            .ok_or_else(|| format!("module URL outside fixture root: {url}"))?;
-        assert_eq!(
-            super::fixture_source(root, &url),
-            Ok(root
-                .join(paths::GAME_SAVE_ROOT)
-                .join(web_shell::FIXTURE_NAME)
-                .join(paths::RESOURCES_FOLDER)
-                .join(relative))
-        );
-    }
-    Ok(())
-}
-
-#[test]
-fn web_export_playable_build_uses_an_isolated_target_directory() {
-    let root = Path::new("/test/workspace");
-    assert_eq!(
-        super::web_game_build_dir(root),
-        root.join("target")
-            .join("web-game-build")
-            .join(super::WEB_WASM_TARGET)
-            .join("debug")
-    );
 }
 
 #[test]
@@ -101,12 +50,6 @@ fn web_game_export_requires_explicit_resources_and_output() {
 }
 
 #[test]
-fn web_export_rejects_urls_outside_fixture_root() {
-    let root = Path::new("/test/workspace");
-    assert!(super::fixture_source(root, web_shell::DEMO_TITLE_ASSET_PATH).is_err());
-}
-
-#[test]
 fn web_export_renderer_assets_resolve_inside_demo_resources() -> Result<(), String> {
     let root = Path::new("/test/workspace");
     let png = web_shell::DEMO_RENDERER_SHEET_PATH;
@@ -124,7 +67,7 @@ fn web_export_renderer_assets_resolve_inside_demo_resources() -> Result<(), Stri
 #[test]
 fn web_export_renderer_rejects_outside_urls_and_traversal() {
     let root = Path::new("/test/workspace");
-    assert!(super::renderer_source(root, web_shell::FIXTURE_MANIFEST_PATH).is_err());
+    assert!(super::renderer_source(root, "assets/other/image.png").is_err());
     assert!(super::renderer_source(root, "assets/demo/../other.png").is_err());
 }
 
@@ -134,7 +77,7 @@ fn web_export_renderer_uses_separate_build_and_stage_directories() {
     assert_eq!(super::web_renderer_build_dir(root),
         root.join("target").join("web-renderer-build").join(super::WEB_WASM_TARGET).join("debug"));
     assert_eq!(super::web_renderer_stage_dir(root), root.join("target").join("web-renderer-proof"));
-    assert_ne!(super::web_renderer_stage_dir(root), super::web_game_stage_dir(root));
+    assert_ne!(super::web_renderer_stage_dir(root), super::web_demo_stage_dir(root));
 }
 
 #[test]
@@ -154,7 +97,7 @@ fn web_export_missing_required_source_rejects_stage() -> std::io::Result<()> {
     assert!(!super::stage_file(
         &temp.path().join("missing"),
         &temp.path().join("output"),
-        "web fixture resource"
+        "web runtime file"
     ));
     Ok(())
 }

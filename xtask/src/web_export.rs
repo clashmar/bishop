@@ -34,7 +34,6 @@ mod tests;
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Export {
     Shell,
-    Game,
     Renderer,
     DemoCheckpoint,
     Player,
@@ -42,10 +41,6 @@ enum Export {
 
 pub(super) fn build_web_shell() -> ExitCode {
     build_web(Export::Shell)
-}
-
-pub(super) fn build_web_game() -> ExitCode {
-    build_web(Export::Game)
 }
 
 pub(super) fn build_web_renderer_proof() -> ExitCode {
@@ -117,18 +112,6 @@ fn build_web(variant: Export) -> ExitCode {
             web_shell_stage_dir(&root),
             "web shell wasm build",
         ),
-        Export::Game => {
-            build_command.args(["--features", "playable-fixture"]);
-            build_command.arg("--target-dir").arg(web_game_target_dir(&root));
-            // Luau's C++ objects must use the same Wasm EH ABI as the Rust Emscripten link.
-            // The separate target dir prevents reuse of objects built with -fexceptions.
-            build_command.env(LUA_WASM_CXXFLAGS, PLAYABLE_CXXFLAG);
-            (
-                web_game_build_dir(&root),
-                web_game_stage_dir(&root),
-                "web game wasm build",
-            )
-        }
         Export::Renderer => {
             build_command.args(["--features", "renderer-proof"]);
             build_command.arg("--target-dir").arg(web_renderer_target_dir(&root));
@@ -163,7 +146,7 @@ fn build_web(variant: Export) -> ExitCode {
         return ExitCode::FAILURE;
     }
 
-    if matches!(variant, Export::Game | Export::Renderer | Export::DemoCheckpoint | Export::Player) && stage_dir.exists() {
+    if matches!(variant, Export::Renderer | Export::DemoCheckpoint | Export::Player) && stage_dir.exists() {
         if let Err(error) = fs::remove_dir_all(&stage_dir) {
             eprintln!("failed to clear {}: {error}", stage_dir.display());
             return ExitCode::FAILURE;
@@ -178,7 +161,7 @@ fn build_web(variant: Export) -> ExitCode {
         Export::Renderer => WEB_RENDERER_INDEX,
         Export::DemoCheckpoint => WEB_DEMO_INDEX,
         Export::Player => WEB_PLAYER_HTML,
-        Export::Shell | Export::Game => WEB_SHELL_INDEX,
+        Export::Shell => WEB_SHELL_INDEX,
     };
     let html_destination = if variant == Export::Player { WEB_PLAYER_HTML } else { WEB_SHELL_INDEX };
     let artifacts = [
@@ -221,7 +204,7 @@ fn build_web(variant: Export) -> ExitCode {
         }
     }
 
-    if matches!(variant, Export::Shell | Export::Game) {
+    if variant == Export::Shell {
         let demo_asset_file = Path::new(web_shell::DEMO_TITLE_ASSET_PATH)
             .file_name()
             .expect("Demo title browser asset path must have a filename");
@@ -233,26 +216,6 @@ fn build_web(variant: Export) -> ExitCode {
         let demo_asset_dest = stage_dir.join(web_shell::DEMO_TITLE_ASSET_PATH);
         if !stage_file(&demo_asset_source, &demo_asset_dest, "web shell demo asset") {
             return ExitCode::FAILURE;
-        }
-    }
-
-    if variant == Export::Game {
-        let fixture_urls = std::iter::once(web_shell::FIXTURE_MANIFEST_PATH.to_owned()).chain(
-            web_shell::FIXTURE_MODULES
-                .iter()
-                .map(|name| web_shell::fixture_module_path(name)),
-        );
-        for url in fixture_urls {
-            let source = match fixture_source(&root, &url) {
-                Ok(source) => source,
-                Err(error) => {
-                    eprintln!("{error}");
-                    return ExitCode::FAILURE;
-                }
-            };
-            if !stage_file(&source, &stage_dir.join(&url), "web fixture resource") {
-                return ExitCode::FAILURE;
-            }
         }
     }
 
@@ -285,7 +248,6 @@ fn build_web(variant: Export) -> ExitCode {
 
     match variant {
         Export::Shell => println!("web shell staged at {}", stage_dir.display()),
-        Export::Game => println!("playable web fixture staged at {}", stage_dir.display()),
         Export::Renderer => println!("Bishop WebGL2 proof staged at {}", stage_dir.display()),
         Export::DemoCheckpoint => println!("Bishop Demo checkpoint staged at {}", stage_dir.display()),
         Export::Player => {
@@ -303,14 +265,6 @@ fn build_web(variant: Export) -> ExitCode {
 
 fn web_shell_build_dir(root: &Path) -> PathBuf {
     root.join("target").join(WEB_WASM_TARGET).join("debug")
-}
-
-fn web_game_target_dir(root: &Path) -> PathBuf {
-    root.join("target").join("web-game-build")
-}
-
-fn web_game_build_dir(root: &Path) -> PathBuf {
-    web_game_target_dir(root).join(WEB_WASM_TARGET).join("debug")
 }
 
 fn web_player_target_dir(root: &Path) -> PathBuf {
@@ -372,10 +326,6 @@ fn web_shell_stage_dir(root: &Path) -> PathBuf {
     root.join("target").join("web-shell")
 }
 
-fn web_game_stage_dir(root: &Path) -> PathBuf {
-    root.join("target").join("web-game")
-}
-
 fn renderer_source(root: &Path, asset_url: &str) -> Result<PathBuf, String> {
     let relative = asset_url
         .strip_prefix(web_shell::DEMO_RENDERER_ASSET_ROOT)
@@ -387,22 +337,6 @@ fn renderer_source(root: &Path, asset_url: &str) -> Result<PathBuf, String> {
         return Err(format!("renderer URL is not a safe relative path: {asset_url}"));
     }
     Ok(demo_resources_dir(root).join(relative))
-}
-
-fn fixture_source(root: &Path, asset_url: &str) -> Result<PathBuf, String> {
-    let relative = asset_url
-        .strip_prefix(web_shell::FIXTURE_ASSET_ROOT)
-        .ok_or_else(|| {
-            format!(
-                "fixture URL outside {}: {asset_url}",
-                web_shell::FIXTURE_ASSET_ROOT
-            )
-        })?;
-    Ok(root
-        .join(paths::GAME_SAVE_ROOT)
-        .join(web_shell::FIXTURE_NAME)
-        .join(paths::RESOURCES_FOLDER)
-        .join(relative))
 }
 
 fn stage_file(source: &Path, dest: &Path, label: &str) -> bool {

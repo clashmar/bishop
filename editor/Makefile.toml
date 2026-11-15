@@ -18,12 +18,6 @@ script = [
     "cargo xtask check-web",
 ]
 
-[tasks.build-game-web]
-script = [
-    "cd ..",
-    "cargo xtask build-web-game",
-]
-
 # Mac
 [tasks.build-game-mac]
 script = [

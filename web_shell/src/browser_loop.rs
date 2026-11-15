@@ -9,8 +9,6 @@ use bishop::input::KeyCode;
 
 #[cfg(not(any(feature = "demo-checkpoint", feature = "player")))]
 use crate::audio_probe::AudioProbe;
-#[cfg(all(feature = "playable-fixture", not(any(feature = "demo-checkpoint", feature = "player"))))]
-use crate::fixture_game::{FixtureGame, fixture_axis};
 
 #[cfg(not(any(feature = "demo-checkpoint", feature = "player")))]
 struct BrowserRuntime {
@@ -28,10 +26,6 @@ struct BrowserRuntime {
     frame: u64,
     #[cfg(not(any(feature = "renderer-proof", feature = "demo-checkpoint", feature = "player")))]
     last_button: i32,
-    #[cfg(feature = "playable-fixture")]
-    fixture: Option<FixtureGame>,
-    #[cfg(feature = "playable-fixture")]
-    playing: bool,
 }
 
 #[cfg(not(any(feature = "demo-checkpoint", feature = "player")))]
@@ -52,10 +46,6 @@ impl BrowserRuntime {
             frame: 0,
             #[cfg(not(any(feature = "renderer-proof", feature = "demo-checkpoint", feature = "player")))]
             last_button: 0,
-            #[cfg(feature = "playable-fixture")]
-            fixture: None,
-            #[cfg(feature = "playable-fixture")]
-            playing: false,
         }
     }
 }
@@ -93,11 +83,6 @@ pub(crate) fn mouse_down(button: MouseButton, x: f32, y: f32, time_ms: f64) {
         runtime.input.on_mouse_move(x, y);
         runtime.input.on_mouse_down(button, time_ms / 1000.0, (x, y));
         if button == MouseButton::Left {
-            #[cfg(feature = "playable-fixture")]
-            if runtime.fixture.is_some() && !runtime.playing {
-                runtime.playing = true;
-                println!("Bishop fixture started");
-            }
             #[cfg(not(any(feature = "demo-checkpoint", feature = "player")))]
             runtime.audio.trigger();
         }
@@ -128,54 +113,6 @@ pub(crate) fn focus_changed(active: bool) {
         }
         runtime.active = active;
     });
-}
-
-#[cfg(all(feature = "playable-fixture", not(any(feature = "demo-checkpoint", feature = "player"))))]
-fn load_fixture(runtime: &mut BrowserRuntime) {
-    let Some(loaded) = crate::fixture_loader::take_ready() else {
-        return;
-    };
-    match loaded.and_then(|(manifest, modules)| FixtureGame::new(&manifest, modules)) {
-        Ok(game) => {
-            println!("Bishop fixture ready: {}; left-click to start", game.name());
-            runtime.fixture = Some(game);
-        }
-        Err(error) => println!("Bishop fixture load failed: {error}"),
-    }
-}
-
-#[cfg(all(feature = "playable-fixture", not(any(feature = "demo-checkpoint", feature = "player"))))]
-fn fixture_script_failed(runtime: &mut BrowserRuntime, error: &str) {
-    println!("Bishop fixture script failed: {error}");
-    runtime.fixture = None;
-    runtime.playing = false;
-}
-
-#[cfg(all(feature = "playable-fixture", not(any(feature = "demo-checkpoint", feature = "player"))))]
-fn update_fixture(runtime: &mut BrowserRuntime, dt: f32) {
-    if runtime.input.is_key_pressed(KeyCode::R)
-        && let Some(game) = runtime.fixture.as_mut()
-    {
-        if let Err(error) = game.reset() {
-            fixture_script_failed(runtime, &error);
-            return;
-        }
-        println!("Bishop fixture reset");
-    }
-    if runtime.playing {
-        let (dx, dy) = fixture_axis(&runtime.input);
-        let Some(game) = runtime.fixture.as_mut() else {
-            return;
-        };
-        match game.step(dx, dy, dt) {
-            Ok(true) => {
-                println!("Bishop fixture won");
-                runtime.audio.trigger();
-            }
-            Ok(false) => {}
-            Err(error) => fixture_script_failed(runtime, &error),
-        }
-    }
 }
 
 unsafe extern "C" {
@@ -219,8 +156,6 @@ extern "C" fn frame(_unused: *mut c_void) {
     let now_ms = unsafe { emscripten_get_now() };
     let drawn = RUNTIME.with(|cell| {
         let mut runtime = cell.borrow_mut();
-        #[cfg(feature = "playable-fixture")]
-        load_fixture(&mut runtime);
         if !runtime.active {
             return true;
         }
@@ -245,8 +180,6 @@ extern "C" fn frame(_unused: *mut c_void) {
         }
         runtime.x = runtime.x.clamp(0.0, 620.0);
         runtime.y = runtime.y.clamp(65.0, 275.0);
-        #[cfg(feature = "playable-fixture")]
-        update_fixture(&mut runtime, dt);
 
         if runtime.input.is_mouse_button_pressed(MouseButton::Left) {
             runtime.last_button = 1;
@@ -259,22 +192,9 @@ extern "C" fn frame(_unused: *mut c_void) {
         }
         runtime.frame += 1;
         let (mx, my) = runtime.input.mouse_position();
-        #[cfg(feature = "playable-fixture")]
-        let (x, y) = runtime.fixture.as_ref().map_or((runtime.x, runtime.y), |game| {
-            let state = game.state();
-            (state.x, state.y)
-        });
-        #[cfg(not(feature = "playable-fixture"))]
-        let (x, y) = (runtime.x, runtime.y);
         let drawn = crate::browser_render::render_interactive_frame(
-            x, y, mx, my, runtime.last_button, runtime.frame,
+            runtime.x, runtime.y, mx, my, runtime.last_button, runtime.frame,
         );
-        #[cfg(feature = "playable-fixture")]
-        let drawn = drawn
-            && runtime.fixture.as_ref().is_none_or(|game| {
-                let state = game.state();
-                crate::fixture_render::render(state.goal_x, state.goal_y, state.won)
-            });
         runtime.input.end_frame();
         drawn
     });
