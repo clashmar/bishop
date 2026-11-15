@@ -29,6 +29,11 @@ jobs:
         with:
           node-version: '22'
 
+      - name: Install GTK development libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends libgtk-3-dev
+
       - name: Run Web Foundation Check
         env:
           CXXFLAGS_wasm32_unknown_emscripten: -fexceptions
