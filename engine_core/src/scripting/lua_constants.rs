@@ -117,6 +117,7 @@ pub mod lua_engine {
 /// Grid Lua method and field names.
 pub mod lua_grid {
     pub const CELL_AT: &str = "cell_at";
+    pub const CELL_FOR_ENTITY: &str = "cell_for_entity";
     pub const IS_BLOCKED: &str = "is_blocked";
     pub const NEIGHBORS: &str = "neighbors";
     pub const CAN_STEP: &str = "can_step";

@@ -1,12 +1,11 @@
 local Pathing = {}
 
 local function velocity_from_step(entity, step, speed)
-    local transform = engine.get_transform(entity)
-    if not transform then
+    local current = engine.grid.cell_for_entity(entity)
+    if not current then
         return { x = 0, y = 0 }
     end
 
-    local current = engine.grid.cell_at(transform.position)
     local dx = step.x - current.x
     local dy = step.y - current.y
     return {

@@ -25,20 +25,15 @@ end
 
 local function player_cell()
     local player = engine.player()
-    local transform = engine.get_transform(player and player.entity)
-    if not transform then
-        return nil
-    end
-    return engine.grid.cell_at(transform.position)
+    return engine.grid.cell_for_entity(player and player.entity)
 end
 
 local function blocked_ahead(entity, direction)
-    local transform = engine.get_transform(entity)
-    if not transform then
+    local cell = engine.grid.cell_for_entity(entity)
+    if not cell then
         return false
     end
 
-    local cell = engine.grid.cell_at(transform.position)
     return engine.grid.is_blocked(entity, {
         x = cell.x + direction,
         y = cell.y,
@@ -51,8 +46,12 @@ function Dog.update(self, dt)
     if Awareness.player_visible(self.entity) then
         local target = player_cell()
         if target and transform then
-            local actor_cell = engine.grid.cell_at(transform.position)
-            local follow_target = Pathing.target_on_actor_row(actor_cell, target)
+            local entity_cell = engine.grid.cell_for_entity(self.entity)
+            if not entity_cell then
+                self.entity:set_velocity({ x = 0, y = 0 })
+                return
+            end
+            local follow_target = Pathing.target_on_actor_row(entity_cell, target)
             self.entity:set_velocity(Pathing.next_velocity(self.entity, follow_target, {
                 speed = self.public.follow_speed,
                 max_steps = FOLLOW_PATH_MAX_STEPS,

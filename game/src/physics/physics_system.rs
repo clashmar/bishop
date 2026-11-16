@@ -23,6 +23,7 @@ use engine_core::ecs::{
     PhysicsBody,
     Pivot,
     Sensor,
+    Solid,
     SubPixel,
     Transform,
     Velocity,
@@ -135,7 +136,7 @@ fn simulate_physics_room(
     let moved_kinematics = update_kinematic_bodies(ecs, room_id, &collision_world, step.dt);
     let contact_kinematics = contact_kinematics(ecs, &moved_kinematics);
     let blocking_kinematics = blocking_kinematics(&contact_kinematics);
-    let dynamic_collision_world = collision_world.clone().with_kinematics(&blocking_kinematics);
+    let mut dynamic_collision_world = collision_world.clone().with_kinematics(&blocking_kinematics);
 
     if let Some(room_entities) = room_entities {
         move_dynamic_bodies(
@@ -143,7 +144,7 @@ fn simulate_physics_room(
             room_entities,
             step,
             &contact_kinematics,
-            &dynamic_collision_world,
+            &mut dynamic_collision_world,
         );
     }
 
@@ -180,16 +181,38 @@ fn move_dynamic_bodies(
     room_entities: &[Entity],
     step: PhysicsStep,
     contact_kinematics: &[KinematicFrameMotion],
-    dynamic_collision_world: &CollisionWorld,
+    dynamic_collision_world: &mut CollisionWorld,
 ) {
-    for &entity in room_entities {
-        move_dynamic_body(
-            ecs,
+    let mut ordered_entities = room_entities.to_vec();
+    ordered_entities.sort_by_key(|&entity| {
+        (
+            !ecs.get::<Solid>(entity).is_some_and(|solid| solid.0),
             entity,
-            step,
-            contact_kinematics,
-            dynamic_collision_world,
-        );
+        )
+    });
+
+    for entity in ordered_entities {
+        if ecs.get::<Solid>(entity).is_some_and(|solid| solid.0) {
+            let body_collision_world = dynamic_collision_world
+                .clone()
+                .with_non_solid_physics_bodies(ecs, room_entities, entity);
+            move_dynamic_body(
+                ecs,
+                entity,
+                step,
+                contact_kinematics,
+                &body_collision_world,
+            );
+            dynamic_collision_world.update_solid_entity_position(ecs, entity);
+        } else {
+            move_dynamic_body(
+                ecs,
+                entity,
+                step,
+                contact_kinematics,
+                dynamic_collision_world,
+            );
+        }
     }
 }
 
@@ -244,7 +267,7 @@ fn move_dynamic_body(
         collider.clone(),
         transform.pivot,
     );
-    let (new_position, mut new_sub_pixel) = quantize_motion(position, sub_pixel, sweep.allowed_delta);
+    let (new_position, new_sub_pixel) = quantize_motion(position, sub_pixel, sweep.allowed_delta);
     let was_falling = velocity.y >= 0.0;
     let blocked_y = sweep.blocked_y
         || (was_falling
@@ -259,7 +282,6 @@ fn move_dynamic_body(
 
     if sweep.blocked_x {
         velocity.x = 0.0;
-        new_sub_pixel.x = 0.0;
     }
     if blocked_y {
         velocity.y = 0.0;

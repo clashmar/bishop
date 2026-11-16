@@ -16,6 +16,8 @@
                 (337): true,
                 (338): true,
                 (339): true,
+                (340): true,
+                (341): true,
             },
         ),
         (
@@ -165,6 +167,11 @@
                         (339),
                     ],
                 ),
+                (340): (
+                    entities: [
+                        (341),
+                    ],
+                ),
             },
         ),
         (
@@ -300,6 +307,16 @@
                     shape: Aabb(
                         width: 16.0,
                         height: 16.0,
+                    ),
+                    offset: (0.0, 0.0),
+                    animation: (
+                        clips: {},
+                    ),
+                ),
+                (340): (
+                    shape: Aabb(
+                        width: 8.0,
+                        height: 8.0,
                     ),
                     offset: (0.0, 0.0),
                     animation: (
@@ -674,6 +691,14 @@
                     room_id: (1),
                     layer: front,
                 ),
+                (340): (
+                    room_id: (1),
+                    layer: front,
+                ),
+                (341): (
+                    room_id: (1),
+                    layer: front,
+                ),
             },
         ),
         (
@@ -704,6 +729,7 @@
             data: {
                 (3): (false),
                 (338): (false),
+                (340): (false),
             },
         ),
         (
@@ -836,6 +862,7 @@
                 (332): (),
                 (335): (),
                 (338): (),
+                (340): (),
             },
         ),
         (
@@ -869,12 +896,15 @@
                 (337): ("Global Entity"),
                 (338): ("Cat"),
                 (339): ("Cat Awareness Probe"),
+                (340): ("Dog"),
+                (341): ("Dog Awareness Probe"),
             },
         ),
         (
             type_name: "Parent",
             data: {
                 (339): ((338)),
+                (341): ((340)),
             },
         ),
         (
@@ -882,6 +912,7 @@
             data: {
                 (3): (),
                 (338): (),
+                (340): (),
             },
         ),
         (
@@ -921,6 +952,16 @@
                     node_id: 2,
                     root_entity: (338),
                 ),
+                (340): (
+                    prefab_id: (6),
+                    node_id: 1,
+                    root_entity: (340),
+                ),
+                (341): (
+                    prefab_id: (6),
+                    node_id: 2,
+                    root_entity: (340),
+                ),
             },
         ),
         (
@@ -934,6 +975,9 @@
                 ),
                 (338): (
                     prefab_id: (1),
+                ),
+                (340): (
+                    prefab_id: (6),
                 ),
             },
         ),
@@ -952,6 +996,13 @@
                             ron: "(\n    range: 20.0,\n)",
                         ),
                     ],
+                ),
+                (340): (
+                    modified_components: [
+                        "Script",
+                    ],
+                    removed_components: [],
+                    added_components: [],
                 ),
             },
         ),
@@ -1079,6 +1130,26 @@
                         },
                     ),
                 ),
+                (340): (
+                    script_id: (14),
+                    data: (
+                        fields: {
+                            "follow_speed": Int(48),
+                            "patrol_max_x": Int(224),
+                            "patrol_min_x": Int(144),
+                            "speed": Int(32),
+                        },
+                    ),
+                ),
+                (341): (
+                    script_id: (15),
+                    data: (
+                        fields: {
+                            "last_seen": Vec2((0.0, 0.0)),
+                            "player_visible": Bool(false),
+                        },
+                    ),
+                ),
             },
         ),
         (
@@ -1105,6 +1176,7 @@
             data: {
                 (334): (true),
                 (338): (true),
+                (340): (true),
             },
         ),
         (
@@ -1156,6 +1228,9 @@
                 (338): (
                     sprite: (9),
                 ),
+                (340): (
+                    sprite: (14),
+                ),
             },
         ),
         (
@@ -1167,6 +1242,7 @@
                 (332): (),
                 (335): (),
                 (338): (),
+                (340): (),
             },
         ),
         (
@@ -1429,7 +1505,7 @@
             data: {
                 (2): (
                     visible: true,
-                    position: (68.0, 72.0),
+                    position: (132.0, 72.0),
                     pivot: BottomCenter,
                     z: 2,
                 ),
@@ -1591,13 +1667,25 @@
                 ),
                 (338): (
                     visible: true,
-                    position: (148.0, 72.0),
+                    position: (68.0, 72.0),
                     pivot: BottomCenter,
                     z: 1,
                 ),
                 (339): (
                     visible: false,
-                    position: (148.0, 72.0),
+                    position: (68.0, 72.0),
+                    pivot: BottomCenter,
+                    z: 1,
+                ),
+                (340): (
+                    visible: true,
+                    position: (188.0, 72.0),
+                    pivot: BottomCenter,
+                    z: 1,
+                ),
+                (341): (
+                    visible: false,
+                    position: (188.0, 72.0),
                     pivot: BottomCenter,
                     z: 1,
                 ),
@@ -1627,6 +1715,10 @@
                     y: 0.0,
                 ),
                 (338): (
+                    x: 0.0,
+                    y: 0.0,
+                ),
+                (340): (
                     x: 0.0,
                     y: 0.0,
                 ),

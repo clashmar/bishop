@@ -10,7 +10,7 @@ use engine_core::scripting::modules::lua_module::{LuaApi, LuaApiWriter};
 use engine_core::scripting::LuaModule;
 use engine_core::tiles::TileDefId;
 use engine_core::worlds::{Room, RoomId, RoomLayer, World, WorldId};
-use mlua::{Lua, Table};
+use mlua::{Lua, Table, Value};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -88,6 +88,48 @@ fn grid_module_cell_at_returns_named_cell_table() {
 
     assert_eq!(cell.get::<i32>(lua_grid::X).unwrap(), 1);
     assert_eq!(cell.get::<i32>(lua_grid::Y).unwrap(), 1);
+}
+
+#[test]
+fn grid_module_cell_for_entity_when_argument_is_nil_returns_nil() {
+    let (lua, _game_instance, _entity) = setup_grid_lua(RoomLayer::Front);
+
+    let result: Value = lua
+        .load(format!(
+            "return engine.{}.{}(nil)",
+            lua_engine::GRID,
+            lua_grid::CELL_FOR_ENTITY,
+        ))
+        .eval()
+        .unwrap();
+
+    assert!(matches!(result, Value::Nil));
+}
+
+#[test]
+fn grid_module_cell_for_entity_uses_interior_side_of_bottom_pivot() {
+    let (lua, game_instance, entity) = setup_grid_lua(RoomLayer::Front);
+    if let Some(transform) = game_instance.borrow_mut().game.ecs.get_mut::<Transform>(entity) {
+        transform.position = Vec2::new(0.0, 160.0);
+    }
+
+    let cell: Table = lua
+        .load(format!(
+            "return engine.{}.{}(actor)",
+            lua_engine::GRID,
+            lua_grid::CELL_FOR_ENTITY,
+        ))
+        .eval()
+        .unwrap();
+    assert_eq!(cell.get::<i32>(lua_grid::X).unwrap(), 0);
+    assert_eq!(cell.get::<i32>(lua_grid::Y).unwrap(), 9);
+
+    let next_step: Table = lua
+        .load("return engine.grid.next_step_towards(actor, { x = 2, y = 9 })")
+        .eval()
+        .unwrap();
+    assert_eq!(next_step.get::<i32>(lua_grid::X).unwrap(), 1);
+    assert_eq!(next_step.get::<i32>(lua_grid::Y).unwrap(), 9);
 }
 
 #[test]
@@ -240,6 +282,8 @@ fn grid_module_emit_api_includes_return_annotations() {
     GridModule.emit_api(&mut out);
 
     assert!(out.buf.contains(&format!("function engine.{}.{}(position) end", lua_engine::GRID, lua_grid::CELL_AT)));
+    assert!(out.buf.contains(&format!("function engine.{}.{}(entity) end", lua_engine::GRID, lua_grid::CELL_FOR_ENTITY)));
+    assert!(out.buf.contains("---@param entity Entity?"));
     assert!(out.buf.contains(&format!("function engine.{}.{}(actor, cell) end", lua_engine::GRID, lua_grid::IS_BLOCKED)));
     assert!(out.buf.contains(&format!("function engine.{}.{}(actor, from_cell, to_cell) end", lua_engine::GRID, lua_grid::CAN_STEP)));
     assert!(out.buf.contains(&format!("function engine.{}.{}(options) end", lua_engine::GRID, lua_grid::FIND_PATH)));

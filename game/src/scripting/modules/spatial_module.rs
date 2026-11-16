@@ -91,7 +91,6 @@ impl LuaApi for SpatialModule {
             lua_engine::SPATIAL,
             lua_spatial::HAS_LINE_OF_SIGHT
         ));
-        out.line("");
     }
 }
 

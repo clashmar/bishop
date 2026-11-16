@@ -1,6 +1,6 @@
 use crate::scripting::lua_ctx::LuaGameCtx;
 use crate::scripting::modules::entity_module::EntityHandle;
-use engine_core::ecs::{CurrentRoom, Ecs, Entity, Transform};
+use engine_core::ecs::{CurrentRoom, Ecs, Entity, Pivot, Transform};
 use engine_core::scripting::helpers::parse_named_vec2;
 use engine_core::scripting::lua_constants::{lua_engine, lua_files, lua_grid};
 use engine_core::scripting::{LuaApi, LuaApiWriter, LuaModule};
@@ -33,6 +33,25 @@ impl LuaModule for GridModule {
             grid_cell_to_lua(lua, cell_at(position, grid_size))
         })?;
         grid_tbl.set(lua_grid::CELL_AT, cell_at_fn)?;
+
+        let cell_for_entity_fn = lua.create_function(|lua, entity: Option<AnyUserData>| {
+            let Some(entity) = entity else {
+                return Ok(Value::Nil);
+            };
+            let entity = entity.borrow::<EntityHandle>()?.clone();
+            let ctx = LuaGameCtx::borrow_ctx(lua)?;
+            let game_instance = ctx.game_instance.borrow();
+            let ecs = &game_instance.game.ecs;
+            let Some(transform) = ecs.get::<Transform>(entity.entity) else {
+                return Ok(Value::Nil);
+            };
+            let grid_size = game_instance.game.current_world().grid_size;
+            Ok(Value::Table(grid_cell_to_lua(
+                lua,
+                cell_for_transform(transform, grid_size),
+            )?))
+        })?;
+        grid_tbl.set(lua_grid::CELL_FOR_ENTITY, cell_for_entity_fn)?;
 
         let is_blocked_fn = lua.create_function(|lua, (actor, cell): (AnyUserData, Table)| {
             let actor = actor.borrow::<EntityHandle>()?.clone();
@@ -101,7 +120,7 @@ impl LuaModule for GridModule {
                 room,
                 grid_size,
                 layer,
-                cell_at(transform.position, grid_size),
+                cell_for_transform(transform, grid_size),
                 grid_cell_from_lua(target_cell)?,
                 max_steps,
             );
@@ -160,6 +179,14 @@ impl LuaApi for GridModule {
             lua_grid::CELL_AT
         ));
         out.line("");
+        out.line("---@param entity Entity?");
+        out.line("---@return table|nil");
+        out.line(&format!(
+            "function engine.{}.{}(entity) end",
+            lua_engine::GRID,
+            lua_grid::CELL_FOR_ENTITY
+        ));
+        out.line("");
         out.line("---@param actor Entity");
         out.line("---@param cell table");
         out.line("---@return boolean");
@@ -204,8 +231,25 @@ impl LuaApi for GridModule {
             lua_engine::GRID,
             lua_grid::FIND_PATH
         ));
-        out.line("");
     }
+}
+
+fn cell_for_transform(transform: &Transform, grid_size: f32) -> GridCell {
+    let inset = grid_size * 0.001;
+    let mut position = transform.position;
+    if matches!(
+        transform.pivot,
+        Pivot::BottomLeft | Pivot::BottomCenter | Pivot::BottomRight
+    ) {
+        position.y -= inset;
+    }
+    if matches!(
+        transform.pivot,
+        Pivot::TopRight | Pivot::CenterRight | Pivot::BottomRight
+    ) {
+        position.x -= inset;
+    }
+    cell_at(position, grid_size)
 }
 
 fn room_for_actor<'a>(

@@ -8,6 +8,10 @@ engine.grid = {}
 ---@return table
 function engine.grid.cell_at(position) end
 
+---@param entity Entity?
+---@return table|nil
+function engine.grid.cell_for_entity(entity) end
+
 ---@param actor Entity
 ---@param cell table
 ---@return boolean
