@@ -6,6 +6,8 @@ The reusable browser player runs the existing `game::Engine` on Bishop WebGL2. I
 
 Activate Emscripten (`emcc` and `em++` on `PATH`) and install the Rust `wasm32-unknown-emscripten` target. From the workspace root:
 
+Python 3.9+ is required only to serve an exported site with the standalone `preview.py` helper. On macOS, install it with `brew install python` and verify with `python3 --version`. On Windows, install Python 3.9+ from the [official Windows installer](https://www.python.org/downloads/windows/), include the Python Launcher, and verify with `py -3 --version`. Run `python3 <export-folder>/preview.py` on macOS or `py -3 <export-folder>/preview.py` on Windows. Bishop Editor’s built-in Web Preview does not require an external Python installation.
+
 ```sh
 cargo xtask build-web-player-runtime
 cargo xtask export-web-game --resources games/Demo/Resources --out /tmp/bishop-demo-site
@@ -18,7 +20,7 @@ The launcher opens the browser at its printed `127.0.0.1` URL; press Ctrl-C to s
 
 Before packaging an editor for authors, build the compatible player once with `cargo xtask build-web-player-runtime`. The macOS `cargo make release-editor-mac` flow copies it into the app's bundled resources; the Windows release task copies it next to the editor executable. Editors do **not** invoke Emscripten or Rust during export. For a local development editor you can also set `BISHOP_WEB_PLAYER_RUNTIME_DIR` to the prebuilt `target/web-player-runtime/` directory. A missing runtime produces a visible export error rather than a silent build.
 
-Use **File → Export… → Web (browser player)** and select a parent folder. The editor creates **`<Game> Web Export`** inside it, saving the current game and edited menus before packaging. Overwrite replaces only that folder after staging succeeds; Cancel leaves it unchanged. **Preview** serves the new export on `127.0.0.1` and stops when the result panel or editor closes. To preview a previous export, use **File → Preview Web Export…** and choose its folder, or run `python3 preview.py` (`py preview.py` on Windows) from the export folder.
+Use **File → Export… → Web (browser player)** and select a parent folder. The editor creates **`<Game> Web Export`** inside it, saving the current game and edited menus before packaging. Overwrite replaces only that folder after staging succeeds; Cancel leaves it unchanged. **Preview** serves the new export on `127.0.0.1` and stops when the result panel or editor closes. To preview a previous export, use **File → Preview Web Export…** and choose its folder, or run `python3 preview.py` (`py -3 preview.py` on Windows) from the export folder.
 
 Packaged-editor exports with the current browser-save runtime and native binaries still require rebuilding and verification. Windows packaging and hosted delivery have not been verified.
 

@@ -2,7 +2,7 @@ name: macOS Build
 
 on:
   pull_request:
-    branches: [staging]
+    branches: [main, staging]
 
 jobs:
   build-mac:
@@ -23,6 +23,14 @@ jobs:
           toolchain: stable
           target: ${{ env.MAC_TARGET }}
           override: true
+
+      - name: Set up Emscripten
+        uses: mymindstorm/setup-emsdk@v14
+        with:
+          version: '6.0.13'
+
+      - name: Install WebAssembly target
+        run: rustup target add wasm32-unknown-emscripten
 
       - name: Install cargo-make
         run: cargo install cargo-make
