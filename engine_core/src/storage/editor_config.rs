@@ -60,6 +60,10 @@ impl Default for EditorConfig {
 pub struct PanelPosition {
     pub x: f32,
     pub y: f32,
+    /// Saved panel width, when resizing is enabled.
+    pub width: Option<f32>,
+    /// Saved panel height, when resizing is enabled.
+    pub height: Option<f32>,
 }
 
 #[cfg(feature = "editor")]
@@ -298,6 +302,10 @@ pub fn apply_config_theme() {
 }
 
 #[cfg(all(test, feature = "editor"))]
+#[path = "editor_config_panel_geometry_tests.rs"]
+mod panel_geometry_tests;
+
+#[cfg(all(test, feature = "editor"))]
 mod tests {
     use super::*;
     use uuid::Uuid;
@@ -349,7 +357,12 @@ mod tests {
 
         assert_eq!(
             config.panel_positions.get("Console"),
-            Some(&PanelPosition { x: 120.5, y: 64.0 })
+            Some(&PanelPosition {
+                x: 120.5,
+                y: 64.0,
+                width: None,
+                height: None,
+            })
         );
     }
 
@@ -371,7 +384,15 @@ mod tests {
             .insert("Transform".to_string(), false);
         config
             .panel_positions
-            .insert("Console".to_string(), PanelPosition { x: 42.0, y: 88.0 });
+            .insert(
+                "Console".to_string(),
+                PanelPosition {
+                    x: 42.0,
+                    y: 88.0,
+                    width: None,
+                    height: None,
+                },
+            );
 
         let path =
             std::env::temp_dir().join(format!("bishop-editor-config-{}.ron", Uuid::new_v4()));
@@ -387,7 +408,12 @@ mod tests {
         );
         assert_eq!(
             loaded.panel_positions.get("Console"),
-            Some(&PanelPosition { x: 42.0, y: 88.0 })
+            Some(&PanelPosition {
+                x: 42.0,
+                y: 88.0,
+                width: None,
+                height: None,
+            })
         );
 
         let _ = fs::remove_file(path);

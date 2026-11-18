@@ -2,18 +2,18 @@ use crate::app::EditorMode;
 use crate::game::GameEditorSubmode;
 use crate::commands::scene::CreateSceneEntityCmd;
 use crate::editor_global::push_command;
-use crate::gui::panels::generic_panel::PanelDefinition;
+use crate::gui::panels::generic_panel::{PanelDefinition, PanelResizeLimits};
 use crate::prefab::prefab_editor::selection::is_prefab_entity;
 use crate::room::room_editor::RoomEditor;
 use crate::shared::scene_ui::hierarchy::{
     draw_scene_entity_tree, SceneHierarchyFrame, SceneHierarchyHost, SceneHierarchySelectionAction,
-    SceneUiHost,
+    SceneUiHost, ENTITY_NAME_FONT_SIZE, HIERARCHY_HORIZONTAL_PADDING,
 };
 use crate::Editor;
 use bishop::prelude::*;
 use engine_core::ecs::*;
+use engine_core::ui::measure_text;
 use widgets::*;
-use engine_core::worlds::*;
 use engine_core::theme::with_theme;
 use std::collections::HashSet;
 
@@ -29,24 +29,19 @@ pub struct HierarchyPanel {
     expanded: HashSet<Entity>,
     prefab_seen_roots: HashSet<Entity>,
     prefab_expansion_session: Option<PrefabId>,
+    drag_candidate: Option<(Entity, Vec2)>,
     dragging: Option<Entity>,
-    drag_offset: Vec2,
     scroll_state: ScrollState,
 }
 
 pub(crate) struct RoomHierarchyHost<'a> {
     pub(crate) room_editor: &'a mut RoomEditor,
     pub(crate) mode: EditorMode,
-    pub(crate) prefab_manager: Option<&'a PrefabManager>,
 }
 
 impl SceneUiHost for RoomHierarchyHost<'_> {
     fn command_mode(&self) -> EditorMode {
         self.mode
-    }
-
-    fn prefab_manager(&self) -> Option<&PrefabManager> {
-        self.prefab_manager
     }
 }
 
@@ -76,10 +71,6 @@ impl SceneUiHost for PrefabHierarchyHost<'_> {
     fn command_mode(&self) -> EditorMode {
         self.mode
     }
-
-    fn prefab_manager(&self) -> Option<&PrefabManager> {
-        None
-    }
 }
 
 impl SceneHierarchyHost for PrefabHierarchyHost<'_> {
@@ -105,8 +96,8 @@ impl HierarchyPanel {
             expanded: HashSet::new(),
             prefab_seen_roots: HashSet::new(),
             prefab_expansion_session: None,
+            drag_candidate: None,
             dragging: None,
-            drag_offset: Vec2::ZERO,
             scroll_state: ScrollState::new(),
         }
     }
@@ -123,7 +114,29 @@ impl PanelDefinition for HierarchyPanel {
         Rect::new(20., 60., 260., 400.)
     }
 
+    fn resize_limits(&self) -> Option<PanelResizeLimits> {
+        Some(PanelResizeLimits {
+            min_width: 180.0,
+            min_height: 150.0,
+        })
+    }
+
+    fn has_active_escape_interaction(&self) -> bool {
+        self.drag_candidate.is_some() || self.dragging.is_some()
+    }
+
+    fn cancel_escape_interaction(&mut self) {
+        self.drag_candidate = None;
+        self.dragging = None;
+    }
+
     fn draw(&mut self, ctx: &mut WgpuContext, rect: Rect, editor: &mut Editor, blocked: bool) {
+        advance_entity_drag_candidate(
+            &mut self.drag_candidate,
+            &mut self.dragging,
+            ctx.mouse_position().into(),
+            ctx.is_mouse_button_down(MouseButton::Left),
+        );
         if matches!(editor.mode, EditorMode::Prefab(_)) {
             self.draw_prefab(ctx, rect, editor, blocked);
             return;
@@ -146,10 +159,14 @@ impl PanelDefinition for HierarchyPanel {
         });
 
         let game = &mut editor.game;
-        let room_mode_prefab_manager = room_mode_prefab_manager(cur_room_id, &game.prefab_manager);
         let ecs = &mut game.ecs;
         let room_editor = &mut editor.room_editor;
-        prune_dead_hierarchy_state(ecs, &mut self.expanded, &mut self.dragging);
+        prune_dead_hierarchy_state(
+            ecs,
+            &mut self.expanded,
+            &mut self.dragging,
+            &mut self.drag_candidate,
+        );
 
         let global_entities = {
             let store = ecs.get_store::<Global>();
@@ -206,14 +223,19 @@ impl PanelDefinition for HierarchyPanel {
         let mut room_host = RoomHierarchyHost {
             room_editor,
             mode: EditorMode::Game(GameEditorSubmode::Worlds),
-            prefab_manager: room_mode_prefab_manager,
         };
 
         // Add global button
-        let btn_w = area.usable_width();
+        let content_rect = area.content_rect();
+        let button_width = (content_rect.w - HIERARCHY_HORIZONTAL_PADDING * 2.0).max(0.0);
         if area.is_fully_visible(y, ADD_BUTTON_HEIGHT) {
             let clicked = Button::new(
-                Rect::new(rect.x + 6., y, btn_w, ADD_BUTTON_HEIGHT),
+                Rect::new(
+                    rect.x + HIERARCHY_HORIZONTAL_PADDING,
+                    y,
+                    button_width,
+                    ADD_BUTTON_HEIGHT,
+                ),
                 "+ Global",
             )
             .suppressed(blocked)
@@ -228,10 +250,10 @@ impl PanelDefinition for HierarchyPanel {
         y += ADD_BUTTON_HEIGHT + ROW_SPACING;
 
         // Global header
-        if area.is_visible(y, HEADER_HEIGHT) {
+        if area.is_fully_visible(y, HEADER_HEIGHT) {
             ctx.draw_text(
                 "Global",
-                rect.x + 6.,
+                rect.x + HIERARCHY_HORIZONTAL_PADDING,
                 y + 14.,
                 HEADER_FONT_SIZE,
                 with_theme(|t| t.text_muted),
@@ -247,7 +269,7 @@ impl PanelDefinition for HierarchyPanel {
                 blocked,
                 expanded: &mut self.expanded,
                 dragging: &mut self.dragging,
-                drag_offset: &mut self.drag_offset,
+                drag_candidate: &mut self.drag_candidate,
             };
 
             for entity in global_entities {
@@ -258,10 +280,10 @@ impl PanelDefinition for HierarchyPanel {
         y += ROW_SPACING;
 
         // Room header
-        if area.is_visible(y, HEADER_HEIGHT) {
+        if area.is_fully_visible(y, HEADER_HEIGHT) {
             ctx.draw_text(
                 "Room",
-                rect.x + 6.,
+                rect.x + HIERARCHY_HORIZONTAL_PADDING,
                 y + 14.,
                 HEADER_FONT_SIZE,
                 with_theme(|t| t.text_muted),
@@ -276,7 +298,12 @@ impl PanelDefinition for HierarchyPanel {
                 let spawn_pos = room_pos.unwrap_or_default();
                 if area.is_fully_visible(y, ADD_BUTTON_HEIGHT) {
                     let clicked = Button::new(
-                        Rect::new(rect.x + 6., y, btn_w, ADD_BUTTON_HEIGHT),
+                        Rect::new(
+                            rect.x + HIERARCHY_HORIZONTAL_PADDING,
+                            y,
+                            button_width,
+                            ADD_BUTTON_HEIGHT,
+                        ),
                         "+ Player Proxy",
                     )
                     .suppressed(blocked)
@@ -307,7 +334,7 @@ impl PanelDefinition for HierarchyPanel {
                 blocked,
                 expanded: &mut self.expanded,
                 dragging: &mut self.dragging,
-                drag_offset: &mut self.drag_offset,
+                drag_candidate: &mut self.drag_candidate,
             };
 
             for entity in room_entities {
@@ -316,7 +343,7 @@ impl PanelDefinition for HierarchyPanel {
         }
 
         area.draw_scrollbar(ctx, &self.scroll_state);
-        draw_drag_ghost(ctx, ecs, &mut self.dragging, self.drag_offset);
+        draw_drag_ghost(ctx, ecs, &mut self.dragging);
     }
 }
 
@@ -341,7 +368,12 @@ impl HierarchyPanel {
             self.prefab_seen_roots.clear();
         }
         let ecs = &mut prefab_stage.ecs;
-        prune_dead_hierarchy_state(ecs, &mut self.expanded, &mut self.dragging);
+        prune_dead_hierarchy_state(
+            ecs,
+            &mut self.expanded,
+            &mut self.dragging,
+            &mut self.drag_candidate,
+        );
 
         let prefab_entities = {
             let entities = ecs
@@ -373,10 +405,10 @@ impl HierarchyPanel {
             mode: editor.mode,
         };
 
-        if area.is_visible(y, HEADER_HEIGHT) {
+        if area.is_fully_visible(y, HEADER_HEIGHT) {
             ctx.draw_text(
                 "Prefab",
-                rect.x + 6.,
+                rect.x + HIERARCHY_HORIZONTAL_PADDING,
                 y + 14.,
                 HEADER_FONT_SIZE,
                 with_theme(|t| t.text_muted),
@@ -392,7 +424,7 @@ impl HierarchyPanel {
                 blocked,
                 expanded: &mut self.expanded,
                 dragging: &mut self.dragging,
-                drag_offset: &mut self.drag_offset,
+                drag_candidate: &mut self.drag_candidate,
             };
 
             for entity in prefab_entities {
@@ -401,7 +433,7 @@ impl HierarchyPanel {
         }
 
         area.draw_scrollbar(ctx, &self.scroll_state);
-        draw_drag_ghost(ctx, ecs, &mut self.dragging, self.drag_offset);
+        draw_drag_ghost(ctx, ecs, &mut self.dragging);
     }
 }
 
@@ -429,11 +461,16 @@ pub(crate) fn prune_dead_hierarchy_state(
     ecs: &Ecs,
     expanded: &mut HashSet<Entity>,
     dragging: &mut Option<Entity>,
+    drag_candidate: &mut Option<(Entity, Vec2)>,
 ) {
     expanded.retain(|entity| entity_exists_in_hierarchy(ecs, *entity));
 
     if dragging.is_some_and(|entity| !entity_exists_in_hierarchy(ecs, entity)) {
         *dragging = None;
+    }
+
+    if drag_candidate.is_some_and(|(entity, _)| !entity_exists_in_hierarchy(ecs, entity)) {
+        *drag_candidate = None;
     }
 }
 
@@ -452,40 +489,58 @@ pub(crate) fn sync_prefab_root_expansion(
     }
 }
 
+const ENTITY_DRAG_START_THRESHOLD: f32 = 4.0;
+
+pub(crate) fn advance_entity_drag_candidate(
+    candidate: &mut Option<(Entity, Vec2)>,
+    dragging: &mut Option<Entity>,
+    mouse: Vec2,
+    mouse_down: bool,
+) {
+    if dragging.is_some() {
+        *candidate = None;
+        return;
+    }
+
+    let Some((entity, start)) = *candidate else {
+        return;
+    };
+    let delta = mouse - start;
+    if delta.length_squared() >= ENTITY_DRAG_START_THRESHOLD * ENTITY_DRAG_START_THRESHOLD {
+        *dragging = Some(entity);
+        *candidate = None;
+    } else if !mouse_down {
+        *candidate = None;
+    }
+}
+
 pub(crate) fn clear_drag_on_mouse_release(dragging: &mut Option<Entity>, mouse_released: bool) {
     if mouse_released {
         *dragging = None;
     }
 }
 
-pub(crate) fn room_mode_prefab_manager(
-    cur_room_id: Option<RoomId>,
-    prefab_manager: &PrefabManager,
-) -> Option<&PrefabManager> {
-    cur_room_id.map(|_| prefab_manager)
-}
-
-fn draw_drag_ghost(
-    ctx: &mut WgpuContext,
-    ecs: &Ecs,
-    dragging: &mut Option<Entity>,
-    drag_offset: Vec2,
-) {
+fn draw_drag_ghost(ctx: &mut WgpuContext, ecs: &Ecs, dragging: &mut Option<Entity>) {
     if let Some(dragged) = *dragging {
         let (mx, my) = ctx.mouse_position();
         let name = get_entity_name(ecs, dragged);
+        const DRAG_GHOST_HORIZONTAL_PADDING: f32 = 4.0;
+        let name_width = measure_text(ctx, &name, ENTITY_NAME_FONT_SIZE).width;
+        let ghost_width = name_width + DRAG_GHOST_HORIZONTAL_PADDING * 2.0;
+        let ghost_x = mx - ghost_width * 0.5;
+        let ghost_y = my - ROW_HEIGHT * 0.5;
         ctx.draw_rectangle(
-            mx - drag_offset.x,
-            my - drag_offset.y,
-            150.0,
+            ghost_x,
+            ghost_y,
+            ghost_width,
             ROW_HEIGHT,
             Color::new(0.3, 0.5, 0.7, 1.0).with_alpha(0.5),
         );
         ctx.draw_text(
             &name,
-            mx - drag_offset.x + 4.0,
-            my - drag_offset.y + 16.0,
-            14.0,
+            ghost_x + DRAG_GHOST_HORIZONTAL_PADDING,
+            ghost_y + 16.0,
+            ENTITY_NAME_FONT_SIZE,
             with_theme(|t| t.text),
         );
         clear_drag_on_mouse_release(dragging, ctx.is_mouse_button_released(MouseButton::Left));

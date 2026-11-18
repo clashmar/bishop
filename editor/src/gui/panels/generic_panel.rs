@@ -8,6 +8,15 @@ use ::widgets::{focused_panel, is_context_menu_open, set_focused_panel};
 /// Must be globally unique.
 pub type PanelId = &'static str;
 
+/// Minimum dimensions for panels that support resizing.
+#[derive(Clone, Copy)]
+pub struct PanelResizeLimits {
+    /// Minimum panel width.
+    pub min_width: f32,
+    /// Minimum panel height.
+    pub min_height: f32,
+}
+
 /// Defines the features and content of the panel.
 pub trait PanelDefinition {
     /// Unique title (also used as id).
@@ -16,6 +25,16 @@ pub trait PanelDefinition {
     fn default_rect(&self, ctx: &WgpuContext) -> Rect;
     /// Draws panel contents. When `blocked` is true, the panel should not respond to mouse input.
     fn draw(&mut self, ctx: &mut WgpuContext, rect: Rect, editor: &mut Editor, blocked: bool);
+    /// Returns the panel's resize constraints, if resizing is enabled.
+    fn resize_limits(&self) -> Option<PanelResizeLimits> {
+        None
+    }
+    /// Returns whether the panel owns an active interaction that Escape can cancel.
+    fn has_active_escape_interaction(&self) -> bool {
+        false
+    }
+    /// Cancels the active Escape-owned interaction.
+    fn cancel_escape_interaction(&mut self) {}
     /// Return `true` if the panel rendered its own title content, skipping the default text.
     fn draw_custom_title(
         &mut self,
@@ -38,7 +57,11 @@ pub struct GenericPanel {
     pub in_current_mode: bool,
     pub collapsed: bool,
     pub dragging: bool,
+    pub(crate) resize_limits: Option<PanelResizeLimits>,
     drag_offset: Vec2,
+    pub(crate) resizing: bool,
+    resize_start_mouse: Vec2,
+    resize_start_size: Vec2,
     definition: Box<dyn PanelDefinition>,
     had_focus_last_frame: bool,
 }
@@ -47,6 +70,7 @@ impl GenericPanel {
     pub fn new(definition: impl PanelDefinition + 'static, ctx: &WgpuContext) -> Self {
         let title = definition.title();
         let rect = definition.default_rect(ctx);
+        let resize_limits = definition.resize_limits();
 
         Self {
             title,
@@ -55,10 +79,22 @@ impl GenericPanel {
             in_current_mode: false,
             collapsed: false,
             dragging: false,
+            resize_limits,
             drag_offset: Vec2::ZERO,
+            resizing: false,
+            resize_start_mouse: Vec2::ZERO,
+            resize_start_size: Vec2::ZERO,
             definition: Box::new(definition),
             had_focus_last_frame: false,
         }
+    }
+
+    pub(crate) fn has_active_escape_interaction(&self) -> bool {
+        self.definition.has_active_escape_interaction()
+    }
+
+    pub(crate) fn cancel_escape_interaction(&mut self) {
+        self.definition.cancel_escape_interaction();
     }
 
     /// Explicitly defocus this panel, notifying its definition and clearing global focus.
@@ -81,9 +117,41 @@ impl GenericPanel {
         }
 
         const TITLE_BAR_H: f32 = 28.0;
+        const CONTENT_BORDER_WIDTH: f32 = 2.0;
+        const RESIZE_HANDLE_SIZE: f32 = 21.0;
+        const RESIZE_GRIP_LINE_WIDTH: f32 = 1.5;
 
-        // Process ongoing drag (before snapshot) so drawing uses current position
+        // Process ongoing interactions before the panel rectangle snapshot
         let mouse: Vec2 = ctx.mouse_position().into();
+        if let Some(limits) = self.resize_limits {
+            let available = (
+                (ctx.screen_width() - self.rect.x.max(0.0)).max(0.0),
+                (ctx.screen_height() - self.rect.y.max(MENU_PANEL_HEIGHT)).max(0.0),
+            );
+            let size = clamp_panel_size((self.rect.w, self.rect.h), limits, available);
+            self.rect.w = size.0;
+            self.rect.h = size.1;
+        }
+        if self.resizing {
+            if ctx.is_mouse_button_down(MouseButton::Left) {
+                let size_delta = mouse - self.resize_start_mouse;
+                let requested = (
+                    self.resize_start_size.x + size_delta.x,
+                    self.resize_start_size.y + size_delta.y,
+                );
+                let available = (
+                    (ctx.screen_width() - self.rect.x).max(0.0),
+                    (ctx.screen_height() - self.rect.y).max(0.0),
+                );
+                if let Some(limits) = self.resize_limits {
+                    let size = clamp_panel_size(requested, limits, available);
+                    self.rect.w = size.0;
+                    self.rect.h = size.1;
+                }
+            } else {
+                self.resizing = false;
+            }
+        }
         if self.dragging {
             if ctx.is_mouse_button_down(MouseButton::Left) {
                 let new_pos = mouse - self.drag_offset;
@@ -103,7 +171,11 @@ impl GenericPanel {
         }
 
         let min_y = MENU_PANEL_HEIGHT;
-        let max_y = ctx.screen_height() - TITLE_BAR_H;
+        let max_y = if self.resize_limits.is_some() {
+            ctx.screen_height() - self.rect.h
+        } else {
+            ctx.screen_height() - TITLE_BAR_H
+        };
         if self.rect.y < min_y {
             self.rect.y = min_y;
         } else if self.rect.y > max_y {
@@ -201,15 +273,113 @@ impl GenericPanel {
             content_rect.h,
             with_theme(|t| t.background),
         );
+        let border_inset = CONTENT_BORDER_WIDTH / 2.0;
         ctx.draw_rectangle_lines(
-            content_rect.x,
-            content_rect.y,
-            content_rect.w,
-            content_rect.h,
-            2.,
+            content_rect.x + border_inset,
+            content_rect.y + border_inset,
+            content_rect.w - CONTENT_BORDER_WIDTH,
+            content_rect.h - CONTENT_BORDER_WIDTH,
+            CONTENT_BORDER_WIDTH,
             with_theme(|t| t.border),
         );
 
+        let resize_handle = self.resize_limits.map(|_| {
+            Rect::new(
+                panel_rect.right() - RESIZE_HANDLE_SIZE,
+                panel_rect.bottom() - RESIZE_HANDLE_SIZE,
+                RESIZE_HANDLE_SIZE,
+                RESIZE_HANDLE_SIZE,
+            )
+        });
+        if let Some(handle) = resize_handle {
+            if !blocked
+                && !self.resizing
+                && ctx.is_mouse_button_pressed(MouseButton::Left)
+                && handle.contains(mouse)
+                && !is_click_consumed()
+            {
+                self.resizing = true;
+                self.resize_start_mouse = mouse;
+                self.resize_start_size = vec2(panel_rect.w, panel_rect.h);
+                consume_click();
+            }
+        }
+
         self.definition.draw(ctx, content_rect, editor, blocked);
+
+        if let Some(handle) = resize_handle {
+            let grip_color = with_theme(|theme| theme.border);
+            ctx.draw_line(
+                handle.x + 3.0,
+                handle.bottom() - 1.0,
+                handle.right() - 1.0,
+                handle.y + 3.0,
+                RESIZE_GRIP_LINE_WIDTH,
+                grip_color,
+            );
+            ctx.draw_line(
+                handle.x + 9.0,
+                handle.bottom() - 1.0,
+                handle.right() - 1.0,
+                handle.y + 9.0,
+                RESIZE_GRIP_LINE_WIDTH,
+                grip_color,
+            );
+            ctx.draw_line(
+                handle.x + 15.0,
+                handle.bottom() - 1.0,
+                handle.right() - 1.0,
+                handle.y + 15.0,
+                RESIZE_GRIP_LINE_WIDTH,
+                grip_color,
+            );
+        }
+    }
+}
+
+fn clamp_panel_size(
+    requested: (f32, f32),
+    limits: PanelResizeLimits,
+    available: (f32, f32),
+) -> (f32, f32) {
+    let min_width = limits.min_width.min(available.0);
+    let min_height = limits.min_height.min(available.1);
+    (
+        requested.0.clamp(min_width, available.0),
+        requested.1.clamp(min_height, available.1),
+    )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{clamp_panel_size, PanelResizeLimits};
+
+    const LIMITS: PanelResizeLimits = PanelResizeLimits {
+        min_width: 180.0,
+        min_height: 140.0,
+    };
+
+    #[test]
+    fn panel_size_clamp_below_minimum_uses_policy() {
+        assert_eq!(
+            clamp_panel_size((80.0, 50.0), LIMITS, (900.0, 700.0)),
+            (180.0, 140.0)
+        );
+    }
+
+    #[test]
+    fn panel_size_clamp_within_viewport_preserves_requested_size() {
+        assert_eq!(
+            clamp_panel_size((300.0, 250.0), LIMITS, (900.0, 700.0)),
+            (300.0, 250.0)
+        );
+    }
+
+    #[test]
+    fn panel_size_clamp_above_viewport_uses_viewport_size() {
+        assert_eq!(
+            clamp_panel_size((1200.0, 900.0), LIMITS, (900.0, 700.0)),
+            (900.0, 700.0)
+        );
     }
 }

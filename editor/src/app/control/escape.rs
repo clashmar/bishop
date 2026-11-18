@@ -9,6 +9,7 @@ pub(crate) enum EscapeOwner {
     ContextMenu,
     Dropdown,
     Input,
+    PanelInteraction,
     Editor,
 }
 
@@ -28,6 +29,10 @@ pub(crate) fn escape_available_for_editor() -> bool {
     matches!(escape_owner(), Some(EscapeOwner::Editor))
 }
 
+pub(crate) fn panel_interaction_escape_requested() -> bool {
+    matches!(escape_owner(), Some(EscapeOwner::PanelInteraction))
+}
+
 pub(crate) fn modal_escape_requested() -> bool {
     matches!(escape_owner(), Some(EscapeOwner::Modal))
 }
@@ -37,7 +42,7 @@ pub(crate) fn context_menu_escape_requested() -> bool {
     matches!(escape_owner(), Some(EscapeOwner::ContextMenu))
 }
 
-pub(crate) fn resolve_escape(escape_pressed: bool) {
+pub(crate) fn resolve_escape(escape_pressed: bool, panel_interaction_active: bool) {
     reset_escape_resolution();
     if !escape_pressed {
         return;
@@ -54,6 +59,8 @@ pub(crate) fn resolve_escape(escape_pressed: bool) {
     } else if input_is_focused() {
         clear_all_input_focus();
         EscapeOwner::Input
+    } else if panel_interaction_active {
+        EscapeOwner::PanelInteraction
     } else {
         EscapeOwner::Editor
     };
@@ -67,10 +74,10 @@ mod tests {
     use widgets::{context_menu_state, set_context_menu_open, set_modal_open};
 
     #[test]
-    fn resolve_escape_prioritizes_modal_context_menu_dropdown_input_then_editor() {
+    fn resolve_escape_respects_ui_and_panel_interaction_priority() {
         reset_escape_resolution();
         set_modal_open(true);
-        resolve_escape(true);
+        resolve_escape(true, true);
         assert_eq!(escape_owner(), Some(EscapeOwner::Modal));
 
         reset_escape_resolution();
@@ -84,7 +91,7 @@ mod tests {
             },
         );
         set_context_menu_open(true);
-        resolve_escape(true);
+        resolve_escape(true, true);
         assert_eq!(escape_owner(), Some(EscapeOwner::ContextMenu));
         assert!(!is_context_menu_open());
 
@@ -98,19 +105,33 @@ mod tests {
             },
         );
         update_global_dropdown_flag();
-        resolve_escape(true);
+        resolve_escape(true, true);
         assert_eq!(escape_owner(), Some(EscapeOwner::Dropdown));
 
         reset_escape_resolution();
         clear_all_input_focus();
         INPUT_FOCUSED.with(|focused| *focused.borrow_mut() = true);
-        resolve_escape(true);
+        resolve_escape(true, true);
         assert_eq!(escape_owner(), Some(EscapeOwner::Input));
 
         reset_escape_resolution();
         clear_all_input_focus();
-        resolve_escape(true);
+        resolve_escape(true, false);
         assert_eq!(escape_owner(), Some(EscapeOwner::Editor));
+    }
+
+    #[test]
+    fn active_panel_interaction_owns_editor_escape_before_navigation() {
+        reset_escape_resolution();
+        set_modal_open(false);
+        close_open_context_menus();
+        close_open_dropdowns();
+        clear_all_input_focus();
+
+        resolve_escape(true, true);
+
+        assert_eq!(escape_owner(), Some(EscapeOwner::PanelInteraction));
+        assert!(!escape_available_for_editor());
     }
 
     #[test]
@@ -126,7 +147,7 @@ mod tests {
         );
         update_global_dropdown_flag();
 
-        resolve_escape(true);
+        resolve_escape(true, false);
 
         assert_eq!(escape_owner(), Some(EscapeOwner::Dropdown));
         assert!(!escape_available_for_editor());
@@ -137,7 +158,7 @@ mod tests {
         reset_escape_resolution();
         set_modal_open(true);
 
-        resolve_escape(true);
+        resolve_escape(true, false);
 
         assert!(modal_escape_requested());
         assert!(!escape_available_for_editor());

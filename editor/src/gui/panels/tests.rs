@@ -1,12 +1,12 @@
-use crate::app::Editor;
 use crate::app::EditorMode;
 use crate::gui::panels::hierarchy_panel::{
-    clear_drag_on_mouse_release, layout_entity_tree, prune_dead_hierarchy_state,
-    room_mode_prefab_manager, sync_prefab_root_expansion, PrefabHierarchyHost, RoomHierarchyHost,
+    advance_entity_drag_candidate, clear_drag_on_mouse_release, layout_entity_tree,
+    prune_dead_hierarchy_state, sync_prefab_root_expansion, PrefabHierarchyHost, RoomHierarchyHost,
 };
 use crate::gui::panels::prefab_browser_panel::prefab_browser_entries;
 use crate::room::room_editor::RoomEditor;
 use crate::shared::scene_ui::hierarchy::{SceneHierarchyHost, SceneHierarchySelectionAction};
+use bishop::prelude::Vec2;
 use engine_core::ecs::*;
 use engine_core::worlds::*;
 use engine_core::storage::test_utils::{game_fs_test_lock, TestGameFolder};
@@ -40,11 +40,18 @@ fn prune_dead_hierarchy_state_removes_deleted_entities() {
 
     let mut expanded = HashSet::from([live, dead]);
     let mut dragging = Some(dead);
+    let mut drag_candidate = Some((dead, Vec2::ZERO));
 
-    prune_dead_hierarchy_state(&stage.ecs, &mut expanded, &mut dragging);
+    prune_dead_hierarchy_state(
+        &stage.ecs,
+        &mut expanded,
+        &mut dragging,
+        &mut drag_candidate,
+    );
 
     assert_eq!(expanded, HashSet::from([live]));
     assert_eq!(dragging, None);
+    assert_eq!(drag_candidate, None);
 }
 
 #[test]
@@ -103,6 +110,33 @@ fn sync_prefab_root_expansion_expands_roots_when_they_first_appear() {
 }
 
 #[test]
+fn entity_drag_candidate_becomes_active_only_after_pointer_threshold() {
+    let entity = Entity(7);
+    let mut candidate = Some((entity, Vec2::ZERO));
+    let mut dragging = None;
+
+    advance_entity_drag_candidate(&mut candidate, &mut dragging, Vec2::new(3.0, 0.0), true);
+    assert_eq!(candidate, Some((entity, Vec2::ZERO)));
+    assert_eq!(dragging, None);
+
+    advance_entity_drag_candidate(&mut candidate, &mut dragging, Vec2::new(4.0, 0.0), true);
+    assert_eq!(candidate, None);
+    assert_eq!(dragging, Some(entity));
+}
+
+#[test]
+fn entity_drag_candidate_clears_when_click_released_without_dragging() {
+    let entity = Entity(7);
+    let mut candidate = Some((entity, Vec2::ZERO));
+    let mut dragging = None;
+
+    advance_entity_drag_candidate(&mut candidate, &mut dragging, Vec2::new(1.0, 0.0), false);
+
+    assert_eq!(candidate, None);
+    assert_eq!(dragging, None);
+}
+
+#[test]
 fn clear_drag_on_mouse_release_clears_prefab_drag_on_blank_space_release() {
     let dragged = Entity(7);
     let mut dragging = Some(dragged);
@@ -113,28 +147,12 @@ fn clear_drag_on_mouse_release_clears_prefab_drag_on_blank_space_release() {
 }
 
 #[test]
-fn room_mode_prefab_manager_is_available_for_global_and_room_rows() {
-    let mut editor = Editor {
-        cur_room_id: Some(RoomId(1)),
-        ..Default::default()
-    };
-
-    let prefab_manager =
-        room_mode_prefab_manager(editor.cur_room_id, &editor.game.prefab_manager).unwrap();
-    assert!(std::ptr::eq(prefab_manager, &editor.game.prefab_manager));
-
-    editor.cur_room_id = None;
-    assert!(room_mode_prefab_manager(editor.cur_room_id, &editor.game.prefab_manager).is_none());
-}
-
-#[test]
 fn room_hierarchy_host_toggles_selection_additively() {
     let entity = Entity(7);
     let mut room_editor = RoomEditor::new();
     let mut host = RoomHierarchyHost {
         room_editor: &mut room_editor,
         mode: EditorMode::Room(RoomId(1)),
-        prefab_manager: None,
     };
 
     host.apply_selection_action(entity, SceneHierarchySelectionAction::Replace);

@@ -203,7 +203,13 @@ impl Editor {
             }
         }
 
-        escape::resolve_escape(Controls::escape(ctx));
+        let escape_pressed = Controls::escape(ctx);
+        let panel_interaction_active = escape_pressed
+            && with_panel_manager(|panel_manager| panel_manager.has_active_escape_interaction());
+        escape::resolve_escape(escape_pressed, panel_interaction_active);
+        if escape::panel_interaction_escape_requested() {
+            with_panel_manager(|panel_manager| panel_manager.cancel_active_escape_interaction());
+        }
 
         let ui_blocked = self.current_editor().should_block_canvas(ctx);
 

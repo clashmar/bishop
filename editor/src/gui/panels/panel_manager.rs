@@ -48,12 +48,31 @@ impl PanelManager {
         }
     }
 
+    pub(crate) fn has_active_escape_interaction(&self) -> bool {
+        self.panels
+            .iter()
+            .rev()
+            .any(|(_, panel)| panel.has_active_escape_interaction())
+    }
+
+    pub(crate) fn cancel_active_escape_interaction(&mut self) {
+        if let Some((_, panel)) = self
+            .panels
+            .iter_mut()
+            .rev()
+            .find(|(_, panel)| panel.has_active_escape_interaction())
+        {
+            panel.cancel_escape_interaction();
+        }
+    }
+
     pub fn register(&mut self, panel: GenericPanel, modes: Vec<PanelMode>) {
         let mut panel = panel;
-        if let Some(position) = get_panel_position(panel.title) {
-            panel.rect.x = position.x;
-            panel.rect.y = position.y;
-        }
+        panel.rect = restore_panel_geometry(
+            panel.rect,
+            get_panel_position(panel.title),
+            panel.resize_limits.is_some(),
+        );
 
         self.panel_modes.insert(panel.title, modes);
         self.panels.push((panel.title, panel));
@@ -134,16 +153,16 @@ impl PanelManager {
             let blocked = modal_open
                 || (topmost_panel_at_mouse.is_some() && topmost_panel_at_mouse != Some(*id));
             let was_dragging = panel.dragging;
+            let was_resizing = panel.resizing;
 
             panel.update_and_draw(ctx, editor, blocked);
 
-            if was_dragging && !panel.dragging {
+            if was_resizing && !panel.resizing {
+                set_panel_position(id, panel_position_after_resize(panel.rect));
+            } else if was_dragging && !panel.dragging {
                 set_panel_position(
                     id,
-                    PanelPosition {
-                        x: panel.rect.x,
-                        y: panel.rect.y,
-                    },
+                    panel_position_after_drag(panel.rect, get_panel_position(id)),
                 );
             }
         }
@@ -225,6 +244,47 @@ pub fn is_mouse_over_panel(ctx: &WgpuContext) -> bool {
     })
 }
 
+fn restore_panel_geometry(
+    default_rect: Rect,
+    saved: Option<PanelPosition>,
+    resizable: bool,
+) -> Rect {
+    let Some(saved) = saved else {
+        return default_rect;
+    };
+
+    let mut rect = default_rect;
+    rect.x = saved.x;
+    rect.y = saved.y;
+    if resizable {
+        rect.w = saved.width.unwrap_or(default_rect.w);
+        rect.h = saved.height.unwrap_or(default_rect.h);
+    }
+    rect
+}
+
+fn panel_position_after_drag(rect: Rect, saved: Option<PanelPosition>) -> PanelPosition {
+    let (width, height) = match saved {
+        Some(position) => (position.width, position.height),
+        None => (None, None),
+    };
+    PanelPosition {
+        x: rect.x,
+        y: rect.y,
+        width,
+        height,
+    }
+}
+
+fn panel_position_after_resize(rect: Rect) -> PanelPosition {
+    PanelPosition {
+        x: rect.x,
+        y: rect.y,
+        width: Some(rect.w),
+        height: Some(rect.h),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -241,5 +301,86 @@ mod tests {
     #[test]
     fn room_panels_match_room_editor_mode() {
         assert!(PanelMode::Room.matches(&EditorMode::Room(RoomId(3))));
+    }
+
+    #[test]
+    fn panel_geometry_restoration_uses_default_size_when_saved_size_is_missing() {
+        let default_rect = Rect::new(10.0, 20.0, 260.0, 400.0);
+        let saved = PanelPosition {
+            x: 30.0,
+            y: 40.0,
+            width: None,
+            height: None,
+        };
+
+        let restored = restore_panel_geometry(default_rect, Some(saved), true);
+        assert_eq!(
+            (restored.x, restored.y, restored.w, restored.h),
+            (30.0, 40.0, 260.0, 400.0)
+        );
+    }
+
+    #[test]
+    fn panel_geometry_restoration_uses_saved_size_when_resizable() {
+        let default_rect = Rect::new(10.0, 20.0, 260.0, 400.0);
+        let saved = PanelPosition {
+            x: 30.0,
+            y: 40.0,
+            width: Some(320.0),
+            height: Some(480.0),
+        };
+
+        let restored = restore_panel_geometry(default_rect, Some(saved), true);
+        assert_eq!(
+            (restored.x, restored.y, restored.w, restored.h),
+            (30.0, 40.0, 320.0, 480.0)
+        );
+    }
+
+    #[test]
+    fn panel_geometry_restoration_keeps_default_size_when_fixed() {
+        let default_rect = Rect::new(10.0, 20.0, 260.0, 400.0);
+        let saved = PanelPosition {
+            x: 30.0,
+            y: 40.0,
+            width: Some(320.0),
+            height: Some(480.0),
+        };
+
+        let restored = restore_panel_geometry(default_rect, Some(saved), false);
+        assert_eq!(
+            (restored.x, restored.y, restored.w, restored.h),
+            (30.0, 40.0, 260.0, 400.0)
+        );
+    }
+
+    #[test]
+    fn panel_geometry_after_drag_preserves_saved_size() {
+        let rect = Rect::new(30.0, 40.0, 260.0, 400.0);
+        let saved = PanelPosition {
+            x: 10.0,
+            y: 20.0,
+            width: Some(320.0),
+            height: Some(480.0),
+        };
+
+        let geometry = panel_position_after_drag(rect, Some(saved));
+
+        assert_eq!(
+            (geometry.x, geometry.y, geometry.width, geometry.height),
+            (30.0, 40.0, Some(320.0), Some(480.0))
+        );
+    }
+
+    #[test]
+    fn panel_geometry_after_resize_saves_current_size() {
+        let rect = Rect::new(30.0, 40.0, 320.0, 480.0);
+
+        let geometry = panel_position_after_resize(rect);
+
+        assert_eq!(
+            (geometry.x, geometry.y, geometry.width, geometry.height),
+            (30.0, 40.0, Some(320.0), Some(480.0))
+        );
     }
 }

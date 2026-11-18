@@ -302,7 +302,7 @@ fn thumb_drag_starts_on_press_over_thumb() {
     let mut ctx = WidgetTestContext::new();
     let mut state = ScrollState::new();
     state.scroll_y = -50.0;
-    // Thumb is at ~y=25 for scroll_y=-50 with content_height=300, rect.h=100
+    // Thumb starts near y=18 after the track's vertical inset.
     ctx.mouse_pos = (117.0, 30.0);
     ctx.left_pressed = true;
 
@@ -320,7 +320,7 @@ fn thumb_drag_updates_scroll_y() {
     state.scroll_y = -50.0;
     state.dragging_thumb = true;
     state.thumb_drag_offset = 5.0;
-    // Move mouse down by ~20 pixels from thumb top (~25)
+    // Move the thumb down while preserving the grab offset.
     ctx.mouse_pos = (117.0, 50.0);
     ctx.left_down = true;
 
@@ -343,6 +343,23 @@ fn thumb_drag_ends_on_release() {
 
     assert!(!state.dragging_thumb);
     assert_eq!(state.thumb_drag_offset, 0.0);
+}
+
+#[test]
+fn scrollbar_border_insets_ignore_clicks_at_area_edges() {
+    let rect = Rect::new(0.0, 0.0, 120.0, 100.0);
+
+    for y in [0.0, 99.0] {
+        let mut ctx = WidgetTestContext::new();
+        let mut state = ScrollState::new();
+        ctx.mouse_pos = (117.0, y);
+        ctx.left_pressed = true;
+
+        let _ = ScrollableArea::new(rect, 300.0).begin(&mut ctx, &mut state);
+
+        assert!(!state.dragging_thumb);
+        assert_eq!(state.scroll_y, 0.0);
+    }
 }
 
 #[test]

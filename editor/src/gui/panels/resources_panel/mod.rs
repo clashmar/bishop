@@ -734,14 +734,6 @@ impl PanelDefinition for ResourcesPanel {
 
         self.pending_action = handle_pending_action(self.pending_action.take(), editor, ctx);
 
-        ctx.draw_rectangle_lines(
-            rect.x,
-            rect.y,
-            rect.w,
-            rect.h,
-            2.0,
-            with_theme(|t| t.border),
-        );
     }
 }
 

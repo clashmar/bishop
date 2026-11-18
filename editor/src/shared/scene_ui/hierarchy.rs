@@ -1,22 +1,21 @@
 use crate::app::EditorMode;
 use crate::commands::scene::{RemoveParentCmd, SetParentCmd};
 use crate::editor_global::push_command;
-use crate::shared::scene_ui::prefab_link::linked_prefab_display;
 use bishop::prelude::*;
 use engine_core::ecs::*;
-use engine_core::ui::{measure_text};
 use ::widgets::*;
 use std::collections::HashSet;
 
+pub(crate) const HIERARCHY_HORIZONTAL_PADDING: f32 = 10.0;
+
 const ROW_HEIGHT: f32 = 22.0;
+const ENTITY_NAME_TEXT_OFFSET: f32 = 18.0;
+pub(crate) const ENTITY_NAME_FONT_SIZE: f32 = 14.0;
 
 /// Read-only scene UI state shared by hierarchy hosts.
 pub trait SceneUiHost {
     /// Returns the command mode for hierarchy-triggered commands.
     fn command_mode(&self) -> EditorMode;
-
-    /// Returns the prefab manager used for linked-prefab badges, if any.
-    fn prefab_manager(&self) -> Option<&PrefabManager>;
 }
 
 /// Selection behavior required by the shared hierarchy row renderer.
@@ -49,10 +48,10 @@ pub struct SceneHierarchyFrame<'a> {
     pub blocked: bool,
     /// Expanded tree nodes.
     pub expanded: &'a mut HashSet<Entity>,
+    /// Candidate entity and pointer origin awaiting drag-threshold movement.
+    pub drag_candidate: &'a mut Option<(Entity, Vec2)>,
     /// Currently dragged entity, if any.
     pub dragging: &'a mut Option<Entity>,
-    /// Drag offset captured when the drag started.
-    pub drag_offset: &'a mut Vec2,
 }
 
 /// Draws a scene entity row and its descendants using host-provided selection and policy.
@@ -64,12 +63,13 @@ pub fn draw_scene_entity_tree(
     host: &mut dyn SceneHierarchyHost,
     ecs: &mut Ecs,
 ) {
-    let usable_w = frame.area.usable_width();
+    let content_rect = frame.area.content_rect();
+    let content_w = content_rect.w - HIERARCHY_HORIZONTAL_PADDING * 2.0;
     let indent = depth as f32 * 16.0;
     let row_rect = Rect::new(
-        frame.panel_rect.x + 6.0 + indent,
+        content_rect.x + HIERARCHY_HORIZONTAL_PADDING + indent,
         *y,
-        usable_w - indent,
+        content_w - indent,
         ROW_HEIGHT,
     );
 
@@ -80,6 +80,7 @@ pub fn draw_scene_entity_tree(
         let is_expanded = frame.expanded.contains(&entity);
         let mouse: Vec2 = frame.ctx.mouse_position().into();
         let mouse_over = row_rect.contains(mouse);
+        let entity_name = get_entity_name(ecs, entity);
         let expand_button_rect = Rect::new(row_rect.x, row_rect.y, 14.0, ROW_HEIGHT);
         let expand_button_hovered = has_children && expand_button_rect.contains(mouse);
 
@@ -131,9 +132,9 @@ pub fn draw_scene_entity_tree(
             && !expand_button_hovered
             && frame.ctx.is_mouse_button_pressed(MouseButton::Left)
             && frame.dragging.is_none()
+            && frame.drag_candidate.is_none()
         {
-            *frame.dragging = Some(entity);
-            *frame.drag_offset = mouse - row_rect.top_left();
+            *frame.drag_candidate = Some((entity, mouse));
         }
 
         if !frame.blocked {
@@ -156,48 +157,12 @@ pub fn draw_scene_entity_tree(
         }
 
         frame.ctx.draw_text(
-            &get_entity_name(ecs, entity),
-            row_rect.x + 18.0,
+            &entity_name,
+            row_rect.x + ENTITY_NAME_TEXT_OFFSET,
             row_rect.y + 16.0,
-            14.0,
+            ENTITY_NAME_FONT_SIZE,
             Color::WHITE,
         );
-
-        if let Some(prefab_manager) = host.prefab_manager() {
-            if let Some(prefab_display) = linked_prefab_display(ecs, prefab_manager, entity) {
-                let badge_font_size = 11.0;
-                let badge_padding_x = 6.0;
-                let badge_padding_y = 3.0;
-                let badge_dims = measure_text(frame.ctx, &prefab_display.label, badge_font_size);
-                let badge_w = badge_dims.width + badge_padding_x * 2.0;
-                let badge_h = badge_dims.height + badge_padding_y * 2.0;
-                let badge_x = (row_rect.x + row_rect.w - badge_w).max(row_rect.x + 18.0);
-                let badge_rect = Rect::new(badge_x, row_rect.y + 3.0, badge_w, badge_h);
-
-                frame.ctx.draw_rectangle(
-                    badge_rect.x,
-                    badge_rect.y,
-                    badge_rect.w,
-                    badge_rect.h,
-                    Color::new(0.19, 0.24, 0.36, 0.95),
-                );
-                frame.ctx.draw_rectangle_lines(
-                    badge_rect.x,
-                    badge_rect.y,
-                    badge_rect.w,
-                    badge_rect.h,
-                    1.0,
-                    Color::new(0.48, 0.62, 0.92, 1.0),
-                );
-                frame.ctx.draw_text(
-                    &prefab_display.label,
-                    badge_rect.x + badge_padding_x,
-                    badge_rect.y + badge_dims.offset_y + badge_padding_y,
-                    badge_font_size,
-                    Color::WHITE,
-                );
-            }
-        }
     }
 
     if let Some((child, new_parent)) = pending_set_parent {
