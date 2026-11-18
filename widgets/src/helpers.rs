@@ -1,6 +1,16 @@
 use crate::constants::{colors, layout};
 use crate::*;
 
+/// Checks whether a label contains a query, ignoring case.
+pub fn matches_query(label: &str, query: &str) -> bool {
+    query.is_empty() || matches_query_normalized(label, &query.to_lowercase())
+}
+
+/// Checks whether a label contains a pre-normalized lowercase query.
+pub fn matches_query_normalized(label: &str, query_lowercase: &str) -> bool {
+    label.to_lowercase().contains(query_lowercase)
+}
+
 /// Truncates text to fit within a given pixel width, appending "…" if needed.
 pub fn truncate_to_width<C: BishopContext>(
     ctx: &mut C,

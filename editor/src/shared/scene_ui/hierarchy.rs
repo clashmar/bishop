@@ -48,6 +48,8 @@ pub struct SceneHierarchyFrame<'a> {
     pub blocked: bool,
     /// Expanded tree nodes.
     pub expanded: &'a mut HashSet<Entity>,
+    /// Optional entity set restricting rows during a search.
+    pub visible_entities: Option<&'a HashSet<Entity>>,
     /// Candidate entity and pointer origin awaiting drag-threshold movement.
     pub drag_candidate: &'a mut Option<(Entity, Vec2)>,
     /// Currently dragged entity, if any.
@@ -63,6 +65,13 @@ pub fn draw_scene_entity_tree(
     host: &mut dyn SceneHierarchyHost,
     ecs: &mut Ecs,
 ) {
+    if frame
+        .visible_entities
+        .is_some_and(|visible| !visible.contains(&entity))
+    {
+        return;
+    }
+
     let content_rect = frame.area.content_rect();
     let content_w = content_rect.w - HIERARCHY_HORIZONTAL_PADDING * 2.0;
     let indent = depth as f32 * 16.0;
@@ -82,7 +91,8 @@ pub fn draw_scene_entity_tree(
         let mouse_over = row_rect.contains(mouse);
         let entity_name = get_entity_name(ecs, entity);
         let expand_button_rect = Rect::new(row_rect.x, row_rect.y, 14.0, ROW_HEIGHT);
-        let expand_button_hovered = has_children && expand_button_rect.contains(mouse);
+        let show_expand_button = has_children && frame.visible_entities.is_none();
+        let expand_button_hovered = show_expand_button && expand_button_rect.contains(mouse);
 
         if host.is_selected(entity) {
             frame.ctx.draw_rectangle(
@@ -94,7 +104,7 @@ pub fn draw_scene_entity_tree(
             );
         }
 
-        if has_children {
+        if show_expand_button {
             let symbol = if is_expanded { "-" } else { "+" };
             let clicked = Button::new(expand_button_rect, symbol)
                 .plain()

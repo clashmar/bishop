@@ -233,3 +233,11 @@ fn dropdown_show_when_scroll_offset_exceeds_max_clamps_filterable_offset() {
 
     assert_eq!(dropdown_state::get(id).scroll_offset, 60.0);
 }
+
+#[test]
+fn matches_query_case_insensitive_substring_and_empty_query() {
+    assert!(matches_query("Blue Guardian", "guardian"));
+    assert!(!matches_query("Blue Guardian", "mage"));
+    assert!(matches_query("Blue Guardian", ""));
+    assert!(matches_query_normalized("Blue Guardian", "guardian"));
+}

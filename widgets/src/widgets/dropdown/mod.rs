@@ -500,13 +500,12 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
 
         let prev_filter = get_filter(self.id);
         let filter_lower = prev_filter.to_lowercase();
-
         let filtered: Vec<&T> = if filter_lower.is_empty() {
             self.options.iter().collect()
         } else {
             self.options
                 .iter()
-                .filter(|opt| (self.to_string)(opt).to_lowercase().contains(&filter_lower))
+                .filter(|opt| matches_query_normalized(&(self.to_string)(opt), &filter_lower))
                 .collect()
         };
 

@@ -3,6 +3,7 @@ use crate::game::GameEditorSubmode;
 use crate::commands::scene::CreateSceneEntityCmd;
 use crate::editor_global::push_command;
 use crate::gui::panels::generic_panel::{PanelDefinition, PanelResizeLimits};
+use self::search::{filter_hierarchy, visible_roots, HierarchySearchState};
 use crate::prefab::prefab_editor::selection::is_prefab_entity;
 use crate::room::room_editor::RoomEditor;
 use crate::shared::scene_ui::hierarchy::{
@@ -17,6 +18,8 @@ use widgets::*;
 use engine_core::theme::with_theme;
 use std::collections::HashSet;
 
+pub(crate) mod search;
+
 const ROW_HEIGHT: f32 = 22.0;
 const ROW_SPACING: f32 = 5.0;
 const HEADER_HEIGHT: f32 = 18.0;
@@ -24,11 +27,14 @@ const ADD_BUTTON_HEIGHT: f32 = 26.0;
 const TOP_PADDING: f32 = 8.0;
 const BOTTOM_PADDING: f32 = 8.0;
 const HEADER_FONT_SIZE: f32 = 15.0;
+const SEARCH_FIELD_HEIGHT: f32 = 26.0;
+const SEARCH_WIDGET_ID: WidgetId = WidgetId(0x4849_4552);
 
 pub struct HierarchyPanel {
     expanded: HashSet<Entity>,
     prefab_seen_roots: HashSet<Entity>,
     prefab_expansion_session: Option<PrefabId>,
+    search: HierarchySearchState,
     drag_candidate: Option<(Entity, Vec2)>,
     dragging: Option<Entity>,
     scroll_state: ScrollState,
@@ -96,6 +102,7 @@ impl HierarchyPanel {
             expanded: HashSet::new(),
             prefab_seen_roots: HashSet::new(),
             prefab_expansion_session: None,
+            search: HierarchySearchState::default(),
             drag_candidate: None,
             dragging: None,
             scroll_state: ScrollState::new(),
@@ -137,6 +144,12 @@ impl PanelDefinition for HierarchyPanel {
             ctx.mouse_position().into(),
             ctx.is_mouse_button_down(MouseButton::Left),
         );
+        let search_rect = hierarchy_search_rect(rect);
+        let (query, _) = TextInput::new(SEARCH_WIDGET_ID, search_rect, self.search.query())
+            .blocked(blocked)
+            .show(ctx);
+        self.search.set_query(&query, &mut self.expanded);
+
         if matches!(editor.mode, EditorMode::Prefab(_)) {
             self.draw_prefab(ctx, rect, editor, blocked);
             return;
@@ -186,160 +199,205 @@ impl PanelDefinition for HierarchyPanel {
             Vec::new()
         };
 
+        let visible_entities = self.search.is_active().then(|| {
+            let mut visible = filter_hierarchy(&global_entities, self.search.query(), ecs);
+            visible.extend(filter_hierarchy(&room_entities, self.search.query(), ecs));
+            visible
+        });
+        let visible_global_roots = visible_roots(&global_entities, visible_entities.as_ref());
+        let visible_room_roots = visible_roots(&room_entities, visible_entities.as_ref());
+        let show_global_section = visible_entities.is_none() || !visible_global_roots.is_empty();
+        let show_room_section = visible_entities.is_none() || !visible_room_roots.is_empty();
+        let mut expanded_for_view = self.expanded.clone();
+        if let Some(visible) = &visible_entities {
+            expanded_for_view.extend(visible.iter().copied());
+        }
+
         // Layout pass
         let mut layout_y = 0.0;
-
-        layout_y += TOP_PADDING;
-        layout_y += ADD_BUTTON_HEIGHT + ROW_SPACING;
-        layout_y += HEADER_HEIGHT;
-
-        for entity in &global_entities {
-            layout_entity_tree(*entity, &mut layout_y, &self.expanded, ecs);
+        if visible_entities.is_none() {
+            layout_y += ADD_BUTTON_HEIGHT + ROW_SPACING;
         }
-
-        layout_y += 10.0;
-        layout_y += HEADER_HEIGHT;
-
-        // Account for proxy button if room doesn't have one
-        if let Some(room_id) = cur_room_id {
-            if ecs.get_player_proxy(room_id).is_none() {
-                layout_y += ADD_BUTTON_HEIGHT + ROW_SPACING;
+        if show_global_section {
+            layout_y += HEADER_HEIGHT;
+            for entity in &visible_global_roots {
+                layout_entity_tree(
+                    *entity,
+                    &mut layout_y,
+                    &expanded_for_view,
+                    visible_entities.as_ref(),
+                    ecs,
+                );
             }
         }
-
-        for entity in &room_entities {
-            layout_entity_tree(*entity, &mut layout_y, &self.expanded, ecs);
+        if show_global_section && show_room_section {
+            layout_y += 10.0;
         }
-
+        if show_room_section {
+            layout_y += HEADER_HEIGHT;
+            if visible_entities.is_none() {
+                if let Some(room_id) = cur_room_id {
+                    if ecs.get_player_proxy(room_id).is_none() {
+                        layout_y += ADD_BUTTON_HEIGHT + ROW_SPACING;
+                    }
+                }
+            }
+            for entity in &visible_room_roots {
+                layout_entity_tree(
+                    *entity,
+                    &mut layout_y,
+                    &expanded_for_view,
+                    visible_entities.as_ref(),
+                    ecs,
+                );
+            }
+        }
+        if visible_entities.as_ref().is_some_and(HashSet::is_empty) {
+            layout_y += ROW_HEIGHT;
+        }
         layout_y += BOTTOM_PADDING;
 
         let content_height = layout_y;
-        let area = ScrollableArea::new(rect, content_height)
+        let scroll_rect = hierarchy_scroll_rect(rect);
+        let area = ScrollableArea::new(scroll_rect, content_height)
             .blocked(blocked)
             .begin(ctx, &mut self.scroll_state);
 
         // Draw pass
-        let mut y = rect.y + self.scroll_state.scroll_y + TOP_PADDING;
+        let mut y = scroll_rect.y + self.scroll_state.scroll_y;
         let mut room_host = RoomHierarchyHost {
             room_editor,
             mode: EditorMode::Game(GameEditorSubmode::Worlds),
         };
 
-        // Add global button
         let content_rect = area.content_rect();
         let button_width = (content_rect.w - HIERARCHY_HORIZONTAL_PADDING * 2.0).max(0.0);
-        if area.is_fully_visible(y, ADD_BUTTON_HEIGHT) {
-            let clicked = Button::new(
-                Rect::new(
-                    rect.x + HIERARCHY_HORIZONTAL_PADDING,
-                    y,
-                    button_width,
-                    ADD_BUTTON_HEIGHT,
-                ),
-                "+ Global",
-            )
-            .suppressed(blocked)
-            .show(ctx);
-            if !blocked && clicked {
-                if let Some(room_id) = cur_room_id {
-                    push_command(Box::new(CreateSceneEntityCmd::new_global_entity(room_id)));
+        if visible_entities.is_none() {
+            if area.is_fully_visible(y, ADD_BUTTON_HEIGHT) {
+                let clicked = Button::new(
+                    Rect::new(
+                        rect.x + HIERARCHY_HORIZONTAL_PADDING,
+                        y,
+                        button_width,
+                        ADD_BUTTON_HEIGHT,
+                    ),
+                    "+ Global",
+                )
+                .suppressed(blocked)
+                .show(ctx);
+                if !blocked && clicked {
+                    if let Some(room_id) = cur_room_id {
+                        push_command(Box::new(CreateSceneEntityCmd::new_global_entity(room_id)));
+                    }
                 }
             }
+            y += ADD_BUTTON_HEIGHT + ROW_SPACING;
         }
 
-        y += ADD_BUTTON_HEIGHT + ROW_SPACING;
+        if show_global_section {
+            if area.is_fully_visible(y, HEADER_HEIGHT) {
+                ctx.draw_text(
+                    "Global",
+                    rect.x + HIERARCHY_HORIZONTAL_PADDING,
+                    y + 14.,
+                    HEADER_FONT_SIZE,
+                    with_theme(|t| t.text_muted),
+                );
+            }
+            y += HEADER_HEIGHT;
 
-        // Global header
-        if area.is_fully_visible(y, HEADER_HEIGHT) {
-            ctx.draw_text(
-                "Global",
-                rect.x + HIERARCHY_HORIZONTAL_PADDING,
-                y + 14.,
-                HEADER_FONT_SIZE,
-                with_theme(|t| t.text_muted),
-            );
-        }
-        y += HEADER_HEIGHT;
-
-        {
             let mut global_draw = SceneHierarchyFrame {
                 ctx,
                 panel_rect: rect,
                 area: &area,
                 blocked,
-                expanded: &mut self.expanded,
+                expanded: &mut expanded_for_view,
+                visible_entities: visible_entities.as_ref(),
                 dragging: &mut self.dragging,
                 drag_candidate: &mut self.drag_candidate,
             };
-
-            for entity in global_entities {
+            for entity in visible_global_roots.iter().copied() {
                 draw_scene_entity_tree(entity, 0, &mut y, &mut global_draw, &mut room_host, ecs);
             }
         }
 
-        y += ROW_SPACING;
-
-        // Room header
-        if area.is_fully_visible(y, HEADER_HEIGHT) {
-            ctx.draw_text(
-                "Room",
-                rect.x + HIERARCHY_HORIZONTAL_PADDING,
-                y + 14.,
-                HEADER_FONT_SIZE,
-                with_theme(|t| t.text_muted),
-            );
+        if show_global_section && show_room_section {
+            y += 10.0;
         }
-        y += HEADER_HEIGHT;
+        if show_room_section {
+            if area.is_fully_visible(y, HEADER_HEIGHT) {
+                ctx.draw_text(
+                    "Room",
+                    rect.x + HIERARCHY_HORIZONTAL_PADDING,
+                    y + 14.,
+                    HEADER_FONT_SIZE,
+                    with_theme(|t| t.text_muted),
+                );
+            }
+            y += HEADER_HEIGHT;
 
-        // Add proxy button if the room has none already
-        if let Some(room_id) = cur_room_id {
-            let has_spawn = ecs.get_player_proxy(room_id).is_some();
-            if !has_spawn {
-                let spawn_pos = room_pos.unwrap_or_default();
-                if area.is_fully_visible(y, ADD_BUTTON_HEIGHT) {
-                    let clicked = Button::new(
-                        Rect::new(
-                            rect.x + HIERARCHY_HORIZONTAL_PADDING,
-                            y,
-                            button_width,
-                            ADD_BUTTON_HEIGHT,
-                        ),
-                        "+ Player Proxy",
-                    )
-                    .suppressed(blocked)
-                    .show(ctx);
-                    if !blocked && clicked {
-                        push_command(Box::new(CreateSceneEntityCmd::new_player_proxy(
-                            room_id,
-                            active_room_layer,
-                            spawn_pos,
-                        )));
+            if visible_entities.is_none() {
+                if let Some(room_id) = cur_room_id {
+                    let has_spawn = ecs.get_player_proxy(room_id).is_some();
+                    if !has_spawn {
+                        let spawn_pos = room_pos.unwrap_or_default();
+                        if area.is_fully_visible(y, ADD_BUTTON_HEIGHT) {
+                            let clicked = Button::new(
+                                Rect::new(
+                                    rect.x + HIERARCHY_HORIZONTAL_PADDING,
+                                    y,
+                                    button_width,
+                                    ADD_BUTTON_HEIGHT,
+                                ),
+                                "+ Player Proxy",
+                            )
+                            .suppressed(blocked)
+                            .show(ctx);
+                            if !blocked && clicked {
+                                push_command(Box::new(CreateSceneEntityCmd::new_player_proxy(
+                                    room_id,
+                                    active_room_layer,
+                                    spawn_pos,
+                                )));
+                            }
+                        }
+                        y += ADD_BUTTON_HEIGHT + ROW_SPACING;
                     }
                 }
-                y += ADD_BUTTON_HEIGHT + ROW_SPACING;
             }
-        }
 
-        // Room entities use EditorMode::Room for undo scope
-        let room_mode = cur_room_id
-            .map(EditorMode::Room)
-            .unwrap_or(EditorMode::Game(GameEditorSubmode::Worlds));
-        room_host.mode = room_mode;
-
-        {
+            let room_mode = cur_room_id
+                .map(EditorMode::Room)
+                .unwrap_or(EditorMode::Game(GameEditorSubmode::Worlds));
+            room_host.mode = room_mode;
             let mut room_draw = SceneHierarchyFrame {
                 ctx,
                 panel_rect: rect,
                 area: &area,
                 blocked,
-                expanded: &mut self.expanded,
+                expanded: &mut expanded_for_view,
+                visible_entities: visible_entities.as_ref(),
                 dragging: &mut self.dragging,
                 drag_candidate: &mut self.drag_candidate,
             };
-
-            for entity in room_entities {
+            for entity in visible_room_roots.iter().copied() {
                 draw_scene_entity_tree(entity, 0, &mut y, &mut room_draw, &mut room_host, ecs);
             }
+        }
+
+        if visible_entities.as_ref().is_some_and(HashSet::is_empty)
+            && area.is_fully_visible(y, ROW_HEIGHT)
+        {
+            ctx.draw_text(
+                "No matching entities",
+                rect.x + HIERARCHY_HORIZONTAL_PADDING,
+                y + 16.0,
+                HEADER_FONT_SIZE,
+                with_theme(|t| t.text_muted),
+            );
+        }
+        if visible_entities.is_none() {
+            self.expanded = expanded_for_view;
         }
 
         area.draw_scrollbar(ctx, &self.scroll_state);
@@ -390,46 +448,85 @@ impl HierarchyPanel {
             &mut self.prefab_seen_roots,
         );
 
-        let mut layout_y = TOP_PADDING + HEADER_HEIGHT;
-        for entity in &prefab_entities {
-            layout_entity_tree(*entity, &mut layout_y, &self.expanded, ecs);
+        let visible_entities = self
+            .search
+            .is_active()
+            .then(|| filter_hierarchy(&prefab_entities, self.search.query(), ecs));
+        let visible_prefab_roots = visible_roots(&prefab_entities, visible_entities.as_ref());
+        let show_prefab_section = visible_entities.is_none() || !visible_prefab_roots.is_empty();
+        let mut expanded_for_view = self.expanded.clone();
+        if let Some(visible) = &visible_entities {
+            expanded_for_view.extend(visible.iter().copied());
+        }
+
+        let mut layout_y = 0.0;
+        if show_prefab_section {
+            layout_y += HEADER_HEIGHT;
+            for entity in &visible_prefab_roots {
+                layout_entity_tree(
+                    *entity,
+                    &mut layout_y,
+                    &expanded_for_view,
+                    visible_entities.as_ref(),
+                    ecs,
+                );
+            }
+        }
+        if visible_entities.as_ref().is_some_and(HashSet::is_empty) {
+            layout_y += ROW_HEIGHT;
         }
         layout_y += BOTTOM_PADDING;
 
-        let area = ScrollableArea::new(rect, layout_y)
+        let scroll_rect = hierarchy_scroll_rect(rect);
+        let area = ScrollableArea::new(scroll_rect, layout_y)
             .blocked(blocked)
             .begin(ctx, &mut self.scroll_state);
-        let mut y = rect.y + self.scroll_state.scroll_y + TOP_PADDING;
+        let mut y = scroll_rect.y + self.scroll_state.scroll_y;
         let mut prefab_host = PrefabHierarchyHost {
             prefab_editor,
             mode: editor.mode,
         };
 
-        if area.is_fully_visible(y, HEADER_HEIGHT) {
-            ctx.draw_text(
-                "Prefab",
-                rect.x + HIERARCHY_HORIZONTAL_PADDING,
-                y + 14.,
-                HEADER_FONT_SIZE,
-                with_theme(|t| t.text_muted),
-            );
-        }
-        y += HEADER_HEIGHT;
+        if show_prefab_section {
+            if area.is_fully_visible(y, HEADER_HEIGHT) {
+                ctx.draw_text(
+                    "Prefab",
+                    rect.x + HIERARCHY_HORIZONTAL_PADDING,
+                    y + 14.,
+                    HEADER_FONT_SIZE,
+                    with_theme(|t| t.text_muted),
+                );
+            }
+            y += HEADER_HEIGHT;
 
-        {
             let mut prefab_draw = SceneHierarchyFrame {
                 ctx,
                 panel_rect: rect,
                 area: &area,
                 blocked,
-                expanded: &mut self.expanded,
+                expanded: &mut expanded_for_view,
+                visible_entities: visible_entities.as_ref(),
                 dragging: &mut self.dragging,
                 drag_candidate: &mut self.drag_candidate,
             };
-
-            for entity in prefab_entities {
+            for entity in visible_prefab_roots.iter().copied() {
                 draw_scene_entity_tree(entity, 0, &mut y, &mut prefab_draw, &mut prefab_host, ecs);
             }
+        }
+
+        if visible_entities.as_ref().is_some_and(HashSet::is_empty)
+            && area.is_fully_visible(y, ROW_HEIGHT)
+        {
+            ctx.draw_text(
+                "No matching entities",
+                rect.x + HIERARCHY_HORIZONTAL_PADDING,
+                y + 16.0,
+                HEADER_FONT_SIZE,
+                with_theme(|t| t.text_muted),
+            );
+        }
+        if visible_entities.is_none() {
+            self.expanded = expanded_for_view;
         }
 
         area.draw_scrollbar(ctx, &self.scroll_state);
@@ -437,16 +534,35 @@ impl HierarchyPanel {
     }
 }
 
+fn hierarchy_search_rect(rect: Rect) -> Rect {
+    Rect::new(
+        rect.x + HIERARCHY_HORIZONTAL_PADDING,
+        rect.y + TOP_PADDING,
+        (rect.w - HIERARCHY_HORIZONTAL_PADDING * 2.0).max(0.0),
+        SEARCH_FIELD_HEIGHT,
+    )
+}
+
+fn hierarchy_scroll_rect(rect: Rect) -> Rect {
+    let y = hierarchy_search_rect(rect).bottom() + ROW_SPACING;
+    Rect::new(rect.x, y, rect.w, (rect.bottom() - y).max(0.0))
+}
+
 pub(crate) fn layout_entity_tree(
     entity: Entity,
     y: &mut f32,
     expanded: &HashSet<Entity>,
+    visible_entities: Option<&HashSet<Entity>>,
     ecs: &Ecs,
 ) {
+    if visible_entities.is_some_and(|visible| !visible.contains(&entity)) {
+        return;
+    }
+
     *y += ROW_HEIGHT;
     if expanded.contains(&entity) && has_children(ecs, entity) {
         for child in get_children(ecs, entity) {
-            layout_entity_tree(child, y, expanded, ecs);
+            layout_entity_tree(child, y, expanded, visible_entities, ecs);
         }
     }
 }

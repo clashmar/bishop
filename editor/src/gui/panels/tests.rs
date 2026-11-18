@@ -3,6 +3,7 @@ use crate::gui::panels::hierarchy_panel::{
     advance_entity_drag_candidate, clear_drag_on_mouse_release, layout_entity_tree,
     prune_dead_hierarchy_state, sync_prefab_root_expansion, PrefabHierarchyHost, RoomHierarchyHost,
 };
+use crate::gui::panels::hierarchy_panel::search::{filter_hierarchy, HierarchySearchState};
 use crate::gui::panels::prefab_browser_panel::prefab_browser_entries;
 use crate::room::room_editor::RoomEditor;
 use crate::shared::scene_ui::hierarchy::{SceneHierarchyHost, SceneHierarchySelectionAction};
@@ -11,6 +12,34 @@ use engine_core::ecs::*;
 use engine_core::worlds::*;
 use engine_core::storage::test_utils::{game_fs_test_lock, TestGameFolder};
 use std::collections::HashSet;
+
+fn hierarchy_search_tree() -> (Ecs, Entity, Entity, Entity, Entity) {
+    let mut ecs = Ecs::default();
+    let root = ecs
+        .create_entity()
+        .with(Transform::default())
+        .with(Name("Root".to_string()))
+        .finish();
+    let parent = ecs
+        .create_entity()
+        .with(Transform::default())
+        .with(Name("Guards".to_string()))
+        .finish();
+    let match_entity = ecs
+        .create_entity()
+        .with(Transform::default())
+        .with(Name("Blue Guardian".to_string()))
+        .finish();
+    let unrelated = ecs
+        .create_entity()
+        .with(Transform::default())
+        .with(Name("Mage".to_string()))
+        .finish();
+    set_parent(&mut ecs, parent, root);
+    set_parent(&mut ecs, match_entity, parent);
+    set_parent(&mut ecs, unrelated, root);
+    (ecs, root, parent, match_entity, unrelated)
+}
 
 #[test]
 fn prune_dead_hierarchy_state_removes_deleted_entities() {
@@ -55,6 +84,38 @@ fn prune_dead_hierarchy_state_removes_deleted_entities() {
 }
 
 #[test]
+fn filter_tree_includes_matching_entities_and_ancestors() {
+    let (ecs, root, parent, match_entity, unrelated) = hierarchy_search_tree();
+
+    let filtered = filter_hierarchy(&[root], "guardian", &ecs);
+
+    assert!(filtered.contains(&root));
+    assert!(filtered.contains(&parent));
+    assert!(filtered.contains(&match_entity));
+    assert!(!filtered.contains(&unrelated));
+}
+
+#[test]
+fn filtered_entity_tree_layout_counts_only_visible_rows() {
+    let (ecs, root, _, _, _) = hierarchy_search_tree();
+    let visible = filter_hierarchy(&[root], "guardian", &ecs);
+    let mut y = 0.0;
+
+    layout_entity_tree(root, &mut y, &visible, Some(&visible), &ecs);
+
+    assert_eq!(y, 66.0);
+}
+
+#[test]
+fn filter_tree_returns_empty_when_no_entity_matches() {
+    let (ecs, root, _, _, _) = hierarchy_search_tree();
+
+    let filtered = filter_hierarchy(&[root], "wizard", &ecs);
+
+    assert!(filtered.is_empty());
+}
+
+#[test]
 fn layout_entity_tree_includes_children_when_root_is_expanded() {
     let mut ecs = Ecs::default();
     let root = ecs
@@ -70,12 +131,33 @@ fn layout_entity_tree_includes_children_when_root_is_expanded() {
     set_parent(&mut ecs, child, root);
 
     let mut y = 0.0;
-    layout_entity_tree(root, &mut y, &HashSet::new(), &ecs);
+    layout_entity_tree(root, &mut y, &HashSet::new(), None, &ecs);
     assert_eq!(y, 22.0);
 
     let mut expanded_y = 0.0;
-    layout_entity_tree(root, &mut expanded_y, &HashSet::from([root]), &ecs);
+    layout_entity_tree(root, &mut expanded_y, &HashSet::from([root]), None, &ecs);
     assert_eq!(expanded_y, 44.0);
+}
+
+#[test]
+fn hierarchy_search_restores_expansion_when_query_is_cleared() {
+    let (ecs, root, parent, match_entity, _) = hierarchy_search_tree();
+    let original_expansion = HashSet::from([root]);
+    let selection = HashSet::from([match_entity]);
+    let mut expanded = original_expansion.clone();
+    let mut search = HierarchySearchState::default();
+
+    search.set_query("guardian", &mut expanded);
+    expanded.insert(parent);
+    search.set_query("blue", &mut expanded);
+
+    assert_eq!(search.query(), "blue");
+    search.set_query("", &mut expanded);
+
+    assert_eq!(expanded, original_expansion);
+    assert_eq!(selection, HashSet::from([match_entity]));
+    assert_eq!(get_parent(&ecs, parent), Some(root));
+    assert_eq!(get_parent(&ecs, match_entity), Some(parent));
 }
 
 #[test]
