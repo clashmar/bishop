@@ -2,7 +2,7 @@ name: Windows Build
 
 on:
   pull_request:
-    branches: [staging] 
+    branches: [main, staging]
 
 jobs: 
   build-windows:
@@ -19,9 +19,24 @@ jobs:
           target: x86_64-pc-windows-msvc
           override: true
 
+      - name: Set up Emscripten
+        uses: mymindstorm/setup-emsdk@v14
+        with:
+          version: '6.0.13'
+
+      - name: Install WebAssembly target
+        run: rustup target add wasm32-unknown-emscripten
+
       - name: Install cargo-make
         run: cargo install cargo-make
 
       - name: Run Windows Build
         working-directory: ./editor
-        run: cargo make release-editor-windows
+        env:
+          CC_wasm32_unknown_emscripten: emcc
+          CXX_wasm32_unknown_emscripten: em++
+          AR_wasm32_unknown_emscripten: emar
+          RANLIB_wasm32_unknown_emscripten: emranlib
+        run: |
+          $env:CARGO_TARGET_WASM32_UNKNOWN_EMSCRIPTEN_LINKER = Join-Path $env:EMSDK "upstream\emscripten\emcc.exe"
+          cargo make release-editor-windows

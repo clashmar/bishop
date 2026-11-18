@@ -49,8 +49,9 @@ rustup target add wasm32-unknown-unknown wasm32-unknown-emscripten
 ```
 Install Emscripten so `em++` is available on `PATH`. On macOS with Homebrew:
 ```bash
-brew install emscripten
+brew install emscripten python
 ```
+Python 3.9+ is required only for the standalone `preview.py` helper that serves exported sites; Bishop Editor’s built-in Web Preview does not require external Python. See the [platform-specific preview setup and commands](web-player.md#build-once-export-a-selected-game).
 4. **Make the Release**
 ```bash
 cd editor

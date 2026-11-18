@@ -18,6 +18,12 @@ script = [
     "cargo xtask check-web",
 ]
 
+[tasks.build-web-player-runtime]
+script = [
+    "cd ..",
+    "cargo xtask build-web-player-runtime",
+]
+
 # Mac
 [tasks.build-game-mac]
 script = [
@@ -37,10 +43,11 @@ dependencies = ["build-game-mac"]
 [tasks.copy-web-player-runtime-mac]
 script = [
     "cd ..",
-    "test -f target/web-player-runtime/web_shell.wasm || { echo 'Build the prebuilt player with cargo xtask build-web-player-runtime first'; exit 1; }",
+    "test -f target/web-player-runtime/web_shell.wasm || { echo 'Web Player runtime build did not produce web_shell.wasm'; exit 1; }",
     "mkdir -p editor/bundle_assets/web-player",
     "cp -R target/web-player-runtime/. editor/bundle_assets/web-player/",
 ]
+dependencies = ["build-web-player-runtime"]
 
 [tasks.build-editor-mac]
 command = "cargo"
@@ -83,11 +90,12 @@ dependencies = ["build-game-windows"]
 script = [
     "cd ..",
     "cargo build -p editor --release --target x86_64-pc-windows-msvc",
-    "if not exist target\\web-player-runtime\\web_shell.wasm (echo Prebuild Bishop Player runtime first & exit /b 1)",
+    "if not exist target\\web-player-runtime\\web_shell.wasm (echo Web Player runtime build did not produce web_shell.wasm & exit /b 1)",
     "xcopy /E /I /Y target\\web-player-runtime target\\x86_64-pc-windows-msvc\\release\\web-player",
 ]
 dependencies = [
     "generate-lua-api",
+    "build-web-player-runtime",
     "copy-game-exes-windows",
     "copy-game-exes-unix",
 ]

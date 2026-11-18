@@ -11,6 +11,6 @@ echo "==> Installing Rust WASM targets..."
 rustup target add wasm32-unknown-unknown wasm32-unknown-emscripten
 
 echo "==> Installing build tools..."
-brew install cargo-make emscripten
+brew install cargo-make emscripten python
 
 echo "==> Setup complete!"
