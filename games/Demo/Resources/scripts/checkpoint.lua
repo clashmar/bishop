@@ -7,7 +7,7 @@ local Checkpoint = {
     },
 
     interact = function(self)
-        local transform = self.entity:get(Components.Transform)
+        local transform = engine.get_transform(self.entity)
         local room_id = self.entity:current_room()
         if transform == nil or room_id == nil then
             return

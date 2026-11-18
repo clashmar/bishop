@@ -339,7 +339,7 @@ pub(crate) fn resized_aabb_collider(
     };
 
     let size = vec2(width, height);
-    let top_left = engine_core::rendering::pivot_adjusted_position(
+    let top_left = pivot_adjusted_position(
         transform.position + initial.offset,
         size,
         transform.pivot,
@@ -430,7 +430,7 @@ pub(crate) fn resized_aabb_collider_uniform(
     };
 
     let size = vec2(width, height);
-    let top_left = engine_core::rendering::pivot_adjusted_position(
+    let top_left = pivot_adjusted_position(
         transform.position + initial.offset,
         size,
         transform.pivot,
@@ -477,7 +477,7 @@ pub(crate) fn resized_circle_collider(
     };
 
     let size = Vec2::splat(radius * 2.0);
-    let top_left = engine_core::rendering::pivot_adjusted_position(
+    let top_left = pivot_adjusted_position(
         transform.position + initial.offset,
         size,
         transform.pivot,
@@ -511,7 +511,7 @@ pub(crate) fn resized_capsule_collider(
     let width = radius * 2.0;
     let total_height = height + width;
     let size = vec2(width, total_height);
-    let top_left = engine_core::rendering::pivot_adjusted_position(
+    let top_left = pivot_adjusted_position(
         transform.position + initial.offset,
         size,
         transform.pivot,

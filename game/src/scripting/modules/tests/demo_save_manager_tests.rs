@@ -34,16 +34,12 @@ fn save_manager_capture_when_provider_invoked_uses_save_flow_capture_location() 
     transform_position.set(lua_fields::Y, 34.0)?;
     let transform = lua.create_table()?;
     transform.set(lua_fields::POSITION, transform_position)?;
+    let transform_for_get = transform.clone();
+    engine.set(
+        lua_engine::GET_TRANSFORM,
+        lua.create_function(move |_, _entity: Table| Ok(transform_for_get.clone()))?,
+    )?;
     let entity = lua.create_table()?;
-    entity
-        .set(
-            "get",
-            lua.create_function(move |_, (_entity, _component): (Table, mlua::Value)| {
-                Ok(transform.clone())
-            })
-            ?,
-        )
-        ?;
     entity
         .set(
             "current_room",
@@ -318,16 +314,12 @@ fn checkpoint_interact_when_transform_and_room_present_requests_canonical_locati
     position.set(lua_fields::Y, 24.0)?;
     let transform = lua.create_table()?;
     transform.set(lua_fields::POSITION, position)?;
+    let engine: Table = lua.globals().get(lua_engine::ENGINE)?;
+    engine.set(
+        lua_engine::GET_TRANSFORM,
+        lua.create_function(move |_, _entity: Table| Ok(transform.clone()))?,
+    )?;
     let entity = lua.create_table()?;
-    entity
-        .set(
-            "get",
-            lua.create_function(move |_, (_entity, _component): (Table, mlua::Value)| {
-                Ok(transform.clone())
-            })
-            ?,
-        )
-        ?;
     entity
         .set(
             "current_room",

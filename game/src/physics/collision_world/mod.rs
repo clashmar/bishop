@@ -207,6 +207,60 @@ impl CollisionWorld {
         self
     }
 
+    pub(crate) fn with_non_solid_physics_bodies(
+        mut self,
+        ecs: &Ecs,
+        bodies: &[Entity],
+        moving_entity: Entity,
+    ) -> Self {
+        for &entity in bodies {
+            if entity == moving_entity || ecs.get::<Solid>(entity).is_some_and(|solid| solid.0) {
+                continue;
+            }
+            let Some(transform) = ecs.get::<Transform>(entity) else {
+                continue;
+            };
+
+            let collider = ecs.get::<Collider>(entity).cloned().unwrap_or_default();
+            let sub_pixel = ecs.get::<SubPixel>(entity).copied().unwrap_or_default();
+            let position = true_position(transform.position, sub_pixel);
+            let aabb = shapes::collider_aabb(position, &collider, transform.pivot);
+            self.solids.push(SolidObj {
+                aabb,
+                shape: collider.shape,
+                shape_pos: aabb.0,
+                entity: Some(entity),
+                layer: self.entity_layers.get(&entity).copied(),
+                interior_zone: None,
+            });
+        }
+
+        self
+    }
+
+    pub(crate) fn update_solid_entity_position(&mut self, ecs: &Ecs, entity: Entity) {
+        if ecs.get::<TilePlacement>(entity).is_some() {
+            return;
+        }
+        let Some(transform) = ecs.get::<Transform>(entity) else {
+            return;
+        };
+
+        let collider = ecs.get::<Collider>(entity).cloned().unwrap_or_default();
+        let sub_pixel = ecs.get::<SubPixel>(entity).copied().unwrap_or_default();
+        let position = true_position(transform.position, sub_pixel);
+        let aabb = shapes::collider_aabb(position, &collider, transform.pivot);
+        for solid in self
+            .solids
+            .iter_mut()
+            .filter(|solid| solid.entity == Some(entity))
+        {
+            solid.aabb = aabb;
+            solid.shape = collider.shape;
+            solid.shape_pos = aabb.0;
+        }
+    }
+
     /// Returns a copy without solids owned by `entity`.
     pub(crate) fn excluding_entity(&self, entity: Entity) -> Self {
         let mut filtered = self.clone();

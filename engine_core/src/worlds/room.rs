@@ -1,3 +1,5 @@
+pub mod grid_navigation;
+
 use crate::constants::world;
 use crate::ecs::ecs::Ecs;
 use crate::ecs::{AudioSource, Entity, Name, Pivot, RoomCamera, Singleton, Transform};

@@ -7,6 +7,7 @@ use crate::storage::scaffolding::create_game_folders;
 use crate::storage::sound_presets::*;
 use crate::world::world_creation::create_new_world;
 use engine_core::constants::paths;
+use engine_core::engine_global::set_game_name;
 use engine_core::ecs::*;
 use engine_core::game::{Game, IdAllocator};
 use engine_core::logging::{omni_debug, omni_error, omni_info};
@@ -51,7 +52,7 @@ pub fn write_to_app_dir(filename: &str, embedded: &[u8]) -> io::Result<PathBuf> 
 pub fn create_new_game(name: String) -> Game {
     omni_debug!("Creating new game.");
 
-    engine_core::engine_global::set_game_name(&name);
+    set_game_name(&name);
     set_current_sound_preset_library(SoundPresetLibrary::default());
 
     create_game_folders(&name);
@@ -174,7 +175,7 @@ pub fn rename_game(game: &mut Game, new_name: &str) -> io::Result<()> {
     let new_game_dir = game_folder(new_name);
     fs::rename(&old_game_dir, &new_game_dir)?;
     game.name = new_name.to_owned();
-    engine_core::engine_global::set_game_name(new_name);
+    set_game_name(new_name);
     Ok(())
 }
 
@@ -194,7 +195,7 @@ pub fn save_as(game: &mut Game, new_name: &str) -> io::Result<()> {
 
     game.name = new_name.to_owned();
     game.id = Uuid::new_v4();
-    engine_core::engine_global::set_game_name(new_name);
+    set_game_name(new_name);
 
     Ok(())
 }

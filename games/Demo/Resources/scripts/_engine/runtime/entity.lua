@@ -325,6 +325,18 @@ function Entity:current_layer() end
 ---@return integer|nil
 function Entity:current_room() end
 
+--- Returns this entity's parent.
+---@return Entity|nil
+function Entity:parent() end
+
+--- Returns this entity's children.
+---@return Entity[]
+function Entity:children() end
+
+--- Returns this entity's hierarchy root.
+---@return Entity
+function Entity:root() end
+
 --- Gets the current animation frame indices.
 ---@return {col: integer, row: integer}|nil
 function Entity:get_current_frame() end

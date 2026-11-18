@@ -1,4 +1,5 @@
 use engine_core::constants::paths;
+use engine_core::theme::generate_theme_reference_markdown;
 use engine_core::scripting::lua_constants::{lua_dirs, lua_files, lua_ownership};
 use engine_core::scripting::lua_project::engine_relative_path;
 use engine_core::scripting::menus_lua::generate_menus_lua_from_dir;
@@ -133,7 +134,7 @@ fn write_menu_constants_files(workspace_root: &Path) {
 fn write_theme_reference(workspace_root: &Path) {
     use engine_core::scripting::lua_constants::lua_docs;
 
-    let markdown = engine_core::theme::generate_theme_reference_markdown();
+    let markdown = generate_theme_reference_markdown();
     let path = workspace_root
         .join(lua_docs::DOCS_DIR)
         .join(lua_docs::THEME_REFERENCE);

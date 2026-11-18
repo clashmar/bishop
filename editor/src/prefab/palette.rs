@@ -1,4 +1,4 @@
-use engine_core::prefab::PrefabId;
+use engine_core::prefab::{PrefabId, PrefabManager};
 
 /// Maximum number of recent prefabs persisted for the room palette.
 pub const PREFAB_PALETTE_RECENT_CAP: usize = 10;
@@ -15,7 +15,7 @@ pub struct PrefabPaletteState {
 
 pub(crate) fn reconcile_recent_prefab_ids(
     recent_prefab_ids: Vec<PrefabId>,
-    prefab_manager: &engine_core::prefab::PrefabManager,
+    prefab_manager: &PrefabManager,
 ) -> Vec<PrefabId> {
     recent_prefab_ids
         .into_iter()

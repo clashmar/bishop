@@ -39,6 +39,9 @@
         Sprite((13)): (
             path: "assets/sprites/40x40brown.png",
         ),
+        Sprite((14)): (
+            path: "assets/sprites/8x8brown.png",
+        ),
         Script((1)): (
             path: "scripts/bullet.lua",
         ),
@@ -75,6 +78,15 @@
         Script((12)): (
             path: "scripts/sensor_analytics.lua",
         ),
+        Script((13)): (
+            path: "scripts/cat.lua",
+        ),
+        Script((14)): (
+            path: "scripts/dog.lua",
+        ),
+        Script((15)): (
+            path: "scripts/awareness_probe.lua",
+        ),
         Prefab((1)): (
             path: "prefabs/Cat.prefab",
         ),
@@ -89,6 +101,9 @@
         ),
         Prefab((5)): (
             path: "prefabs/Camera 1.prefab",
+        ),
+        Prefab((6)): (
+            path: "prefabs/Dog.prefab",
         ),
         Sound((1)): (
             path: "audio/sfx/jump.wav",

@@ -1,6 +1,7 @@
 use crate::engine::Engine;
 use crate::scripting::commands::lua_command::LuaCommand;
 use engine_core::ecs::*;
+use engine_core::text::clear_speech;
 
 /// Command to show a speech bubble on an entity.
 pub struct ShowSpeechCmd {
@@ -49,7 +50,7 @@ impl LuaCommand for ClearSpeechCmd {
     fn execute(&mut self, engine: &mut Engine) {
         let mut game_instance = engine.game_instance.borrow_mut();
         let ecs = &mut game_instance.game.ecs;
-        engine_core::text::clear_speech(ecs, self.entity);
+        clear_speech(ecs, self.entity);
     }
 }
 

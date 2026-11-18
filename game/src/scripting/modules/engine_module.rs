@@ -1,8 +1,11 @@
 use crate::game_global::set_pending_world_transition;
 use crate::scripting::lua_ctx::LuaGameCtx;
+use crate::scripting::modules::entity_module::EntityHandle;
 use crate::transitions::world_transitions::{EntryHandleData, TraversalRequest, WorldSelector};
 use bishop::prelude::Vec2;
-use engine_core::ecs::{CurrentRoom, Global, Name, Player, Script, TomlId};
+use engine_core::ecs::{
+    public_lua_component, CurrentRoom, Global, Name, Player, Script, TomlId,
+};
 use engine_core::worlds::{RoomId, RoomLayer, WorldId};
 use engine_core::register_lua_api;
 use engine_core::register_lua_module;
@@ -234,6 +237,29 @@ impl LuaModule for EngineModule {
         })?;
         asset_tbl.set(lua_engine::TOML, toml_fn)?;
 
+        let get_transform_fn = lua.create_function(|lua, entity: Value| {
+            let entity = match entity {
+                Value::Nil => return Ok(Value::Nil),
+                Value::UserData(entity) => entity.borrow::<EntityHandle>()?.entity,
+                _ => {
+                    return Err(mlua::Error::RuntimeError(
+                        "engine.get_transform expects an entity or nil".to_string(),
+                    ));
+                }
+            };
+
+            let ctx = LuaGameCtx::borrow_ctx(lua)?;
+            let game_instance = ctx.game_instance.borrow();
+            let ecs = &game_instance.game.ecs;
+            let reg = public_lua_component("Transform").map_err(mlua::Error::RuntimeError)?;
+            if !(reg.has)(ecs, entity) {
+                return Ok(Value::Nil);
+            }
+            let component = (reg.clone)(ecs, entity);
+            (reg.to_lua)(lua, &*component)
+        })?;
+        engine_tbl.set(lua_engine::GET_TRANSFORM, get_transform_fn)?;
+
         // engine.player() - returns the player entity's script instance table
         let player_fn = lua.create_function(|lua, ()| {
             let ctx = LuaGameCtx::borrow_ctx(lua)?;
@@ -433,6 +459,16 @@ impl LuaApi for EngineModule {
             "engine.events.{} = \"{}\"",
             lua_events::SENSOR_EXIT_FIELD,
             lua_events::SENSOR_EXIT
+        ));
+        out.line("");
+
+        // engine.get_transform
+        out.line("--- Get an entity's transform, or nil when the entity or component is absent");
+        out.line("---@param entity Entity|nil");
+        out.line("---@return Transform|nil");
+        out.line(&format!(
+            "function engine.{}(entity) end",
+            lua_engine::GET_TRANSFORM
         ));
         out.line("");
 
