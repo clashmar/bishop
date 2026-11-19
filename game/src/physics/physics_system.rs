@@ -60,7 +60,7 @@ pub(crate) fn update_physics(
     let bodies_by_room = active_physics_bodies_by_room(ecs);
     let active_room_ids = active_physics_room_ids(ecs, world, &bodies_by_room);
     let step = PhysicsStep {
-        gravity: world.gravity * world.grid_size,
+        gravity: world.physics.gravity * world.grid_size,
         dt,
     };
     let mut current_sensor_pairs = HashSet::new();

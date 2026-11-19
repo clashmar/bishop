@@ -36,7 +36,7 @@ pub(crate) fn single_room_test_world() -> World {
     };
     let mut world = World::default();
     world.grid_size = GRID_SIZE;
-    world.gravity = 0.0;
+    world.physics.gravity = 0.0;
     world.current_room_id = Some(room.id);
     world.add_room(room);
     world

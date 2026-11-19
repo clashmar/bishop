@@ -9,7 +9,9 @@
     tags: [],
     overlay: true,
     grid_size: 16.0,
-    gravity: 50.0,
+    physics: (
+        gravity: 50.0,
+    ),
     singleton: (72),
     rooms: [
         (

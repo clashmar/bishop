@@ -77,7 +77,7 @@ pub fn save_game_to_folder(game: &Game, folder: &Path) -> io::Result<()> {
             tags: world.tags.clone(),
             overlay: world.overlay,
             grid_size: world.grid_size,
-            gravity: world.gravity,
+            physics: world.physics,
             singleton: world.singleton,
             rooms: room_entries,
         };
@@ -425,10 +425,10 @@ mod tests {
     }
 
     #[test]
-    fn split_layout_round_trips_world_gravity() {
+    fn split_layout_round_trips_world_physics() {
         let folder = TempDir::new().unwrap();
         let mut original = fully_loaded_test_game();
-        original.current_world_mut().unwrap().gravity = 100.0;
+        original.current_world_mut().unwrap().physics.gravity = 100.0;
         save_game_to_folder(&original, folder.path()).unwrap();
 
         let descriptor_ron = fs::read_to_string(
@@ -436,10 +436,10 @@ mod tests {
         )
         .unwrap();
         let descriptor: WorldDescriptor = ron::from_str(&descriptor_ron).unwrap();
-        assert_eq!(descriptor.gravity, 100.0);
+        assert_eq!(descriptor.physics.gravity, 100.0);
 
         let loaded = load_game_shell_from_folder(folder.path()).unwrap();
 
-        assert_eq!(loaded.current_world().gravity, 100.0);
+        assert_eq!(loaded.current_world().physics.gravity, 100.0);
     }
 }
