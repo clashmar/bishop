@@ -217,6 +217,15 @@ where
                 ctx.is_key_down(KeyCode::LeftShift) || ctx.is_key_down(KeyCode::RightShift);
             let ctrl_held =
                 ctx.is_key_down(KeyCode::LeftControl) || ctx.is_key_down(KeyCode::RightControl);
+            let alt_held = ctx.is_key_down(KeyCode::LeftAlt) || ctx.is_key_down(KeyCode::RightAlt);
+            let super_held = ctx.is_key_down(KeyCode::LeftSuper)
+                || ctx.is_key_down(KeyCode::RightSuper);
+            let word_modifier_held = if cfg!(target_os = "macos") {
+                alt_held
+            } else {
+                ctrl_held
+            };
+            let line_modifier_held = cfg!(target_os = "macos") && super_held;
 
             if ctrl_held && ctx.is_key_pressed(KeyCode::A) {
                 selection_anchor = Some(0);
@@ -297,6 +306,13 @@ where
                 if selection_anchor.is_some() {
                     cursor_char = delete_selection(&mut text, cursor_char, selection_anchor);
                     selection_anchor = None;
+                } else if line_modifier_held {
+                    text.drain(..cursor_char);
+                    cursor_char = 0;
+                } else if word_modifier_held {
+                    let word_start = prev_word_boundary(&text, cursor_char);
+                    text.drain(word_start..cursor_char);
+                    cursor_char = word_start;
                 } else if cursor_char > 0 {
                     text.remove(cursor_char - 1);
                     cursor_char -= 1;
@@ -314,6 +330,11 @@ where
                 if selection_anchor.is_some() {
                     cursor_char = delete_selection(&mut text, cursor_char, selection_anchor);
                     selection_anchor = None;
+                } else if line_modifier_held {
+                    text.drain(cursor_char..);
+                } else if word_modifier_held {
+                    let word_end = next_word_boundary(&text, cursor_char);
+                    text.drain(cursor_char..word_end);
                 } else if cursor_char < text.len() {
                     text.remove(cursor_char);
                 }
@@ -335,8 +356,10 @@ where
                 } else {
                     selection_anchor = None;
                 }
-                if ctrl_held {
+                if line_modifier_held {
                     cursor_char = 0;
+                } else if word_modifier_held {
+                    cursor_char = prev_word_boundary(&text, cursor_char);
                 } else {
                     cursor_char -= 1;
                 }
@@ -358,8 +381,10 @@ where
                 } else {
                     selection_anchor = None;
                 }
-                if ctrl_held {
+                if line_modifier_held {
                     cursor_char = text.len();
+                } else if word_modifier_held {
+                    cursor_char = next_word_boundary(&text, cursor_char);
                 } else {
                     cursor_char += 1;
                 }
@@ -541,26 +566,4 @@ pub fn number_input_reset(id: WidgetId) {
 }
 
 #[cfg(test)]
-mod theme_tests {
-    use super::*;
-    use crate::theme::Theme;
-
-    #[test]
-    fn number_input_theme_mapper_maps_key_roles() {
-        let theme = Theme {
-            background: Color::GREEN,
-            accent: Color::BLUE,
-            border: Color::new(0.8, 0.8, 0.8, 1.0),
-            text: Color::BLACK,
-            ..Theme::default()
-        };
-        let overrides = NumberInput::<f32>::map_theme(&theme);
-        assert_eq!(overrides.background, Some(Color::GREEN));
-        assert_eq!(overrides.accent, Some(Color::BLUE));
-        assert_eq!(overrides.border, Some(Color::new(0.8, 0.8, 0.8, 1.0)));
-        assert_eq!(overrides.text, Some(Color::BLACK));
-        assert_eq!(overrides.primary, None);
-        assert_eq!(overrides.surface, None);
-        assert_eq!(overrides.hover, None);
-    }
-}
+mod tests;

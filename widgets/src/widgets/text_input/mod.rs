@@ -2,6 +2,8 @@ use crate::clipboard::{clipboard_get_text, clipboard_set_text};
 use crate::constants::{colors, input_repeat, layout};
 use crate::*;
 
+const CLEAR_BUTTON_ID_OFFSET: usize = usize::MAX / 3 + 1;
+
 pub struct TextInput {
     id: WidgetId,
     rect: Rect,
@@ -12,6 +14,7 @@ pub struct TextInput {
     char_filter: Option<fn(char) -> Option<char>>,
     bypass_dropdown: bool,
     defer_visual: bool,
+    clear_button: bool,
     base: WidgetBase,
 }
 
@@ -28,6 +31,7 @@ impl TextInput {
             char_filter: None,
             bypass_dropdown: false,
             defer_visual: false,
+            clear_button: false,
             base: WidgetBase {
                 blocked: false,
                 overrides: WidgetTheme::default(),
@@ -65,6 +69,12 @@ impl TextInput {
     /// Use for TextInputs that are embedded inside a dropdown list.
     pub fn in_dropdown(mut self) -> Self {
         self.bypass_dropdown = true;
+        self
+    }
+
+    /// Shows a clear button while the input contains text.
+    pub fn clear_button(mut self) -> Self {
+        self.clear_button = true;
         self
     }
 
@@ -144,9 +154,16 @@ impl TextInput {
             scroll_offset_x = 0.0;
         }
 
+        let clear_rect = (self.clear_button && !text.is_empty())
+            .then(|| clear_button_rect(self.rect));
+        let text_rect = clear_rect.map_or(self.rect, |clear_rect| {
+            Rect::new(self.rect.x, self.rect.y, clear_rect.x - self.rect.x, self.rect.h)
+        });
+
         if !self.defer_visual {
             let visual = TextInputVisualState {
                 text: &text,
+                text_rect,
                 cursor_char,
                 focused,
                 selection_anchor,
@@ -161,12 +178,30 @@ impl TextInput {
             );
         }
 
+        let clear_clicked = clear_rect.is_some_and(|clear_rect| {
+            Button::new(clear_rect, "×")
+                .plain()
+                .hover_color(Color::new(0.0, 0.0, 0.0, 0.0))
+                .interaction_id(WidgetId(self.id.0.wrapping_add(CLEAR_BUTTON_ID_OFFSET)))
+                .blocked(self.base.blocked)
+                .show(ctx)
+        });
+        if clear_clicked {
+            text.clear();
+            cursor_char = 0;
+            selection_anchor = None;
+            scroll_offset_x = 0.0;
+            dragging = false;
+            confirmed = true;
+        }
+
         let mouse = ctx.mouse_position();
         let mouse_over = ctx.is_mouse_over(self.rect);
 
-        if ctx.is_mouse_button_pressed(MouseButton::Left) 
-        && !is_click_consumed() 
-        && !is_dropdown_open() {
+        if ctx.is_mouse_button_pressed(MouseButton::Left)
+            && !is_click_consumed()
+            && !is_dropdown_open()
+        {
             if !focused && mouse_over {
                 just_gained_focus = true;
             }
@@ -244,24 +279,32 @@ impl TextInput {
             let now = ctx.get_time();
             let shift_held =
                 ctx.is_key_down(KeyCode::LeftShift) || ctx.is_key_down(KeyCode::RightShift);
-            let ctrl_held = ctx.is_key_down(KeyCode::LeftControl)
-                || ctx.is_key_down(KeyCode::RightControl)
-                || ctx.is_key_down(KeyCode::LeftSuper)
+            let control_held =
+                ctx.is_key_down(KeyCode::LeftControl) || ctx.is_key_down(KeyCode::RightControl);
+            let alt_held = ctx.is_key_down(KeyCode::LeftAlt) || ctx.is_key_down(KeyCode::RightAlt);
+            let super_held = ctx.is_key_down(KeyCode::LeftSuper)
                 || ctx.is_key_down(KeyCode::RightSuper);
+            let shortcut_modifier_held = control_held || super_held;
+            let word_modifier_held = if cfg!(target_os = "macos") {
+                alt_held
+            } else {
+                control_held
+            };
+            let line_modifier_held = cfg!(target_os = "macos") && super_held;
 
-            if ctrl_held && ctx.is_key_pressed(KeyCode::A) {
+            if shortcut_modifier_held && ctx.is_key_pressed(KeyCode::A) {
                 selection_anchor = Some(0);
                 cursor_char = text.chars().count();
             }
 
-            if ctrl_held
+            if shortcut_modifier_held
                 && ctx.is_key_pressed(KeyCode::C)
                 && let Some(selected) = get_selected_text(&text, cursor_char, selection_anchor)
             {
                 clipboard_set_text(&selected);
             }
 
-            if ctrl_held
+            if shortcut_modifier_held
                 && ctx.is_key_pressed(KeyCode::V)
                 && let Some(clipboard_text) = clipboard_get_text()
             {
@@ -332,6 +375,16 @@ impl TextInput {
                 if selection_anchor.is_some() {
                     cursor_char = delete_selection(&mut text, cursor_char, selection_anchor);
                     selection_anchor = None;
+                } else if line_modifier_held {
+                    let end = byte_offset(&text, cursor_char);
+                    text.drain(..end);
+                    cursor_char = 0;
+                } else if word_modifier_held {
+                    let word_start = prev_word_boundary(&text, cursor_char);
+                    let start = byte_offset(&text, word_start);
+                    let end = byte_offset(&text, cursor_char);
+                    text.drain(start..end);
+                    cursor_char = word_start;
                 } else if cursor_char > 0 {
                     let start = byte_offset(&text, cursor_char - 1);
                     let end = byte_offset(&text, cursor_char);
@@ -351,6 +404,14 @@ impl TextInput {
                 if selection_anchor.is_some() {
                     cursor_char = delete_selection(&mut text, cursor_char, selection_anchor);
                     selection_anchor = None;
+                } else if line_modifier_held {
+                    let start = byte_offset(&text, cursor_char);
+                    text.drain(start..);
+                } else if word_modifier_held {
+                    let word_end = next_word_boundary(&text, cursor_char);
+                    let start = byte_offset(&text, cursor_char);
+                    let end = byte_offset(&text, word_end);
+                    text.drain(start..end);
                 } else if cursor_char < text.chars().count() {
                     let start = byte_offset(&text, cursor_char);
                     let end = byte_offset(&text, cursor_char + 1);
@@ -374,7 +435,9 @@ impl TextInput {
                 } else {
                     selection_anchor = None;
                 }
-                if ctrl_held {
+                if line_modifier_held {
+                    cursor_char = 0;
+                } else if word_modifier_held {
                     cursor_char = prev_word_boundary(&text, cursor_char);
                 } else {
                     cursor_char -= 1;
@@ -397,7 +460,9 @@ impl TextInput {
                 } else {
                     selection_anchor = None;
                 }
-                if ctrl_held {
+                if line_modifier_held {
+                    cursor_char = text.chars().count();
+                } else if word_modifier_held {
                     cursor_char = next_word_boundary(&text, cursor_char);
                 } else {
                     cursor_char += 1;
@@ -435,7 +500,7 @@ impl TextInput {
             }
 
             for chr in ctx.chars_pressed() {
-                if ctrl_held {
+                if shortcut_modifier_held {
                     continue;
                 }
                 let accepted = if let Some(filter) = self.char_filter {
@@ -480,7 +545,7 @@ impl TextInput {
             &text,
             cursor_char,
             scroll_offset_x,
-            self.rect.w,
+            text_rect.w,
             layout::WIDGET_PADDING,
             layout::DEFAULT_FONT_SIZE_16,
         );
@@ -505,10 +570,10 @@ impl TextInput {
             );
         });
 
-        let commit = if focused {
-            InputCommit::Previewing
-        } else if confirmed {
+        let commit = if confirmed {
             InputCommit::Committed
+        } else if focused {
+            InputCommit::Previewing
         } else {
             InputCommit::Unchanged
         };
@@ -523,8 +588,14 @@ impl TextInput {
     }
 }
 
+fn clear_button_rect(rect: Rect) -> Rect {
+    let size = rect.h.min(rect.w).max(0.0);
+    Rect::new(rect.right() - size, rect.y, size, rect.h)
+}
+
 struct TextInputVisualState<'a> {
     text: &'a str,
+    text_rect: Rect,
     cursor_char: usize,
     focused: bool,
     selection_anchor: Option<usize>,
@@ -564,7 +635,7 @@ fn draw_text_input_visual_with_state<C: BishopContext>(
         resolve_with_theme(overrides.border, widget_theme.border, Color::WHITE),
     );
 
-    let text_area_x = rect.x + layout::WIDGET_PADDING / 2.;
+    let text_area_x = visual.text_rect.x + layout::WIDGET_PADDING / 2.;
 
     if let Some((start, end)) = selection_range(visual.cursor_char, visual.selection_anchor) {
         let start_byte = byte_offset(visual.text, start);
@@ -577,7 +648,7 @@ fn draw_text_input_visual_with_state<C: BishopContext>(
             - visual.scroll_offset_x;
 
         let clipped_start = sel_start_x.max(text_area_x);
-        let clipped_end = sel_end_x.min(rect.x + rect.w - layout::WIDGET_PADDING / 2.);
+        let clipped_end = sel_end_x.min(visual.text_rect.right() - layout::WIDGET_PADDING / 2.);
 
         if clipped_end > clipped_start {
             ctx.draw_rectangle(
@@ -598,7 +669,7 @@ fn draw_text_input_visual_with_state<C: BishopContext>(
     draw_text_clipped(
         ctx,
         display,
-        rect,
+        visual.text_rect,
         visual.scroll_offset_x,
         layout::DEFAULT_FONT_SIZE_16,
         resolve_with_theme(
@@ -612,11 +683,11 @@ fn draw_text_input_visual_with_state<C: BishopContext>(
     if visual.focused && ((now * 2.0) as i32 % 2 == 0) {
         let byte_pos = byte_offset(visual.text, visual.cursor_char);
         let prefix = &visual.text[..byte_pos];
-        let cursor_x = rect.x
+        let cursor_x = visual.text_rect.x
             + layout::WIDGET_PADDING / 2.
             + measure_text_ui(ctx, prefix, layout::DEFAULT_FONT_SIZE_16).width
             - visual.scroll_offset_x;
-        if cursor_x >= rect.x && cursor_x <= rect.x + rect.w {
+        if cursor_x >= visual.text_rect.x && cursor_x <= visual.text_rect.right() {
             ctx.draw_line(
                 cursor_x,
                 rect.y + rect.h * 0.3,
@@ -662,6 +733,7 @@ pub(crate) fn draw_text_input_visual<C: BishopContext>(
 
     let visual = TextInputVisualState {
         text: &text,
+        text_rect: rect,
         cursor_char,
         focused,
         selection_anchor,
@@ -690,26 +762,4 @@ pub fn text_input_reset(id: WidgetId) {
 }
 
 #[cfg(test)]
-mod theme_tests {
-    use super::*;
-    use crate::theme::Theme;
-
-    #[test]
-    fn text_input_theme_mapper_maps_key_roles() {
-        let theme = Theme {
-            background: Color::GREEN,
-            accent: Color::BLUE,
-            border: Color::new(0.8, 0.8, 0.8, 1.0),
-            text: Color::BLACK,
-            ..Theme::default()
-        };
-        let overrides = TextInput::map_theme(&theme);
-        assert_eq!(overrides.background, Some(Color::GREEN));
-        assert_eq!(overrides.accent, Some(Color::BLUE));
-        assert_eq!(overrides.border, Some(Color::new(0.8, 0.8, 0.8, 1.0)));
-        assert_eq!(overrides.text, Some(Color::BLACK));
-        assert_eq!(overrides.primary, None);
-        assert_eq!(overrides.surface, None);
-        assert_eq!(overrides.hover, None);
-    }
-}
+mod tests;

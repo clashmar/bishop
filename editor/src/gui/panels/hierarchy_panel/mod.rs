@@ -146,6 +146,7 @@ impl PanelDefinition for HierarchyPanel {
         );
         let search_rect = hierarchy_search_rect(rect);
         let (query, _) = TextInput::new(SEARCH_WIDGET_ID, search_rect, self.search.query())
+            .clear_button()
             .blocked(blocked)
             .show(ctx);
         self.search.set_query(&query, &mut self.expanded);

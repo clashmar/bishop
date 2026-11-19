@@ -25,6 +25,9 @@ pub struct WidgetTestContext {
     pub right_down: bool,
     pub right_released: bool,
     pub chars: Vec<char>,
+    pub keys_down: Vec<KeyCode>,
+    pub keys_pressed: Vec<KeyCode>,
+    pub keys_released: Vec<KeyCode>,
     pub screen_width: f32,
     pub screen_height: f32,
     pub text_dims: Option<TextDimensions>,
@@ -50,6 +53,9 @@ impl WidgetTestContext {
             right_down: false,
             right_released: false,
             chars: Vec::new(),
+            keys_down: Vec::new(),
+            keys_pressed: Vec::new(),
+            keys_released: Vec::new(),
             screen_width: 800.0,
             screen_height: 600.0,
             text_dims: None,
@@ -69,20 +75,20 @@ impl Default for WidgetTestContext {
 }
 
 impl Input for WidgetTestContext {
-    fn is_key_down(&self, _key: KeyCode) -> bool {
-        false
+    fn is_key_down(&self, key: KeyCode) -> bool {
+        self.keys_down.contains(&key)
     }
 
-    fn is_key_pressed(&self, _key: KeyCode) -> bool {
-        false
+    fn is_key_pressed(&self, key: KeyCode) -> bool {
+        self.keys_pressed.contains(&key)
     }
 
-    fn is_key_released(&self, _key: KeyCode) -> bool {
-        false
+    fn is_key_released(&self, key: KeyCode) -> bool {
+        self.keys_released.contains(&key)
     }
 
     fn any_key_pressed(&self) -> bool {
-        false
+        !self.keys_pressed.is_empty()
     }
 
     fn is_mouse_button_down(&self, button: MouseButton) -> bool {
@@ -326,5 +332,26 @@ impl TextureLoader for WidgetTestContext {
 
     fn empty_texture(&self) -> Texture2D {
         panic!("textures are not used in widget tests")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn widget_test_context_reports_configured_key_events() {
+        let mut context = WidgetTestContext::new();
+        context.keys_down.push(KeyCode::LeftControl);
+        context.keys_pressed.push(KeyCode::A);
+        context.keys_released.push(KeyCode::RightControl);
+
+        assert!(context.is_key_down(KeyCode::LeftControl));
+        assert!(context.is_key_pressed(KeyCode::A));
+        assert!(context.is_key_released(KeyCode::RightControl));
+        assert!(!context.is_key_down(KeyCode::LeftAlt));
+        assert!(!context.is_key_pressed(KeyCode::B));
+        assert!(!context.is_key_released(KeyCode::RightAlt));
+        assert!(context.any_key_pressed());
     }
 }
