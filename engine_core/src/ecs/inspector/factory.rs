@@ -56,10 +56,33 @@ where
     Box::new(CollapsibleComponentModule::new(GenericModule::<T>::new(removable)).with_title(title))
 }
 
+/// Creates a non-collapsible inspector module for a marker component.
+#[cfg(feature = "editor")]
+pub fn make_marker_module<T>(title: &str, removable: bool) -> Box<dyn InspectorModule>
+where
+    T: Component + Reflect + Default + 'static,
+{
+    Box::new(MarkerComponentModule::new(GenericModule::<T>::new(removable)).with_title(title))
+}
+
 /// Public macro for each component that appears in the inspector.
 #[cfg(feature = "editor")]
 #[macro_export]
 macro_rules! inspector_module {
+    ($ty:ty, marker = true, removable = $removable:expr, title = $title:expr) => {
+        inventory::submit! {
+            $crate::ecs::inspector::factory::ModuleFactoryEntry {
+                type_name: <$ty>::TYPE_NAME,
+                title: $title,
+                factory: || $crate::ecs::inspector::factory::make_marker_module::<$ty>(
+                    $title,
+                    $removable,
+                ),
+                allowed_for: None,
+            }
+        }
+    };
+
     ($ty:ty) => {
         inspector_module!($ty, removable = true);
     };
@@ -84,7 +107,44 @@ macro_rules! inspector_module {
 #[cfg(not(feature = "editor"))]
 #[macro_export]
 macro_rules! inspector_module {
+    ($ty:ty, marker = true, removable = $removable:expr, title = $title:expr) => {};
     ($ty:ty) => {};
     ($ty:ty, removable = $removable:expr) => {};
     ($ty:ty, removable = $removable:expr, title = $title:expr) => {};
+}
+
+#[cfg(all(test, feature = "editor"))]
+mod marker_component_tests {
+    use super::MODULES;
+    use crate::ecs::components::{Active, MotionBody, PhysicsBody, Sensor};
+    use crate::ecs::inspector::layout::InspectorBodyLayout;
+    use crate::ecs::inspector::module::InspectorModule;
+
+    fn registered_module(type_name: &str) -> Option<Box<dyn InspectorModule>> {
+        MODULES
+            .iter()
+            .find(|entry| entry.type_name == type_name)
+            .map(|entry| (entry.factory)())
+    }
+
+    #[test]
+    fn marker_component_factories_use_compact_rows() {
+        let empty_body_height = InspectorBodyLayout::new().padding(0.0, 0.0).height();
+
+        for type_name in [
+            Sensor::TYPE_NAME,
+            PhysicsBody::TYPE_NAME,
+            MotionBody::TYPE_NAME,
+        ] {
+            let Some(module) = registered_module(type_name) else {
+                panic!("missing inspector module for {type_name}");
+            };
+            assert_eq!(module.body_layout().height(), empty_body_height);
+        }
+
+        let Some(active) = registered_module(Active::TYPE_NAME) else {
+            panic!("missing inspector module for {}", Active::TYPE_NAME);
+        };
+        assert!(active.body_layout().height() > empty_body_height);
+    }
 }

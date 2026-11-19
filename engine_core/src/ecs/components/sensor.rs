@@ -9,4 +9,4 @@ use serde::{Deserialize, Serialize};
 #[derive(Default, Clone, Copy, Serialize, Deserialize, Reflect)]
 pub struct Sensor;
 
-inspector_module!(Sensor, removable = true, title = "Sensor");
+inspector_module!(Sensor, marker = true, removable = true, title = "Sensor");
