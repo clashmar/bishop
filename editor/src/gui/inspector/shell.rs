@@ -209,11 +209,13 @@ impl Inspector {
         let mouse: Vec2 = ctx.mouse_position().into();
         let strip_hovered = strip.contains(mouse);
 
-        let strip_color = if strip_hovered {
-            Color::new(0.25, 0.25, 0.25, 0.9)
-        } else {
-            Color::new(0.0, 0.0, 0.0, 0.4)
-        };
+        let strip_color = with_theme(|theme| {
+            if strip_hovered {
+                theme.hover
+            } else {
+                theme.panel
+            }
+        });
         ctx.draw_rectangle(strip.x, strip.y, strip.w, strip.h, strip_color);
         ctx.draw_rectangle_lines(strip.x, strip.y, strip.w, strip.h, 2.0, Color::WHITE);
 
