@@ -12,7 +12,7 @@ pub struct CollapsibleHeader {
 
 impl CollapsibleHeader {
     pub const HEADER_HEIGHT: f32 = 24.0;
-    const BUTTON_TEXT_OFFSET: Vec2 = Vec2::new(0.0, -1.0);
+    pub(crate) const BUTTON_TEXT_OFFSET: Vec2 = Vec2::new(0.0, -1.0);
 
     pub fn new(title: &str) -> Self {
         let mut header = Self {

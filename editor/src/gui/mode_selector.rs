@@ -2,7 +2,7 @@ use crate::gui::gui_constants::*;
 use crate::gui::modals::is_modal_open;
 use bishop::prelude::*;
 use engine_core::theme::with_theme;
-use engine_core::ui::text::{measure_text};
+use ::widgets::offer_tooltip;
 use engine_core::ui::widgets::is_context_menu_open;
 
 /// A trait that each editor’s mode enum must implement.
@@ -77,8 +77,7 @@ impl<M: ModeInfo + Copy + PartialEq> ModeSelector<M> {
         (total_rect, changed)
     }
 
-    /// Draws tooltips for hovered mode icons. Call this after other UI elements
-    /// to ensure tooltips appear on top.
+    /// Offers tooltips for hovered mode icons.
     pub fn draw_tooltips(&self, ctx: &mut WgpuContext) {
         const PADDING: f32 = 8.0;
         let icon_size = MENU_PANEL_HEIGHT - 2.0 * PADDING;
@@ -94,50 +93,13 @@ impl<M: ModeInfo + Copy + PartialEq> ModeSelector<M> {
                 && !is_modal_open()
                 && !is_context_menu_open()
             {
-                let tip = mode.label();
-                let tip_size = measure_text(ctx, tip, 16.0);
-
-                let tip_rect = Rect::new(rect.x, rect.y + rect.h + 4.0, tip_size.width + 8.0, 20.0);
-
-                ctx.draw_rectangle(
-                    tip_rect.x,
-                    tip_rect.y,
-                    tip_rect.w,
-                    tip_rect.h,
-                    with_theme(|t| t.overlay.with_alpha(0.8)),
-                );
-
-                ctx.draw_text(
-                    tip,
-                    tip_rect.x + 4.0,
-                    tip_rect.y + 15.0,
-                    16.0,
-                    with_theme(|t| t.text),
-                );
+                offer_tooltip(rect, mode.label());
             }
         }
     }
 }
 
-/// Computes the sub-mode strip layout values.
-fn sub_mode_strip_layout(anchor_x: f32, anchor_y: f32, option_count: usize) -> (Rect, f32, f32) {
-    const PADDING: f32 = 6.0;
-    let icon_size = (MENU_PANEL_HEIGHT - 2.0 * PADDING) * 0.75;
-    let total_width = option_count as f32 * (icon_size + PADDING) - PADDING;
-    let start_x = anchor_x + (MENU_PANEL_HEIGHT - total_width) / 2.0;
-
-    let strip_rect = Rect::new(
-        start_x - PADDING,
-        anchor_y,
-        total_width + PADDING * 2.0,
-        icon_size + PADDING * 2.0,
-    );
-
-    (strip_rect, start_x, icon_size)
-}
-
-/// Draws only the background of the sub-mode strip.
-/// Call this before drawing the mode selector so tooltips appear on top.
+/// Draws the background of the sub-mode strip.
 pub fn draw_sub_mode_strip_background(
     ctx: &mut WgpuContext,
     anchor_x: f32,
@@ -209,30 +171,26 @@ pub fn draw_sub_mode_strip<S: ModeInfo + Copy + PartialEq + 'static>(
             },
         );
 
-        // Tooltip
         if rect.contains(ctx.mouse_position().into()) && !is_modal_open() {
-            let tip = mode.label();
-            let tip_size = measure_text(ctx, tip, 16.0);
-
-            let tip_rect = Rect::new(rect.x, rect.y + rect.h + 4.0, tip_size.width + 8.0, 20.0);
-
-            ctx.draw_rectangle(
-                tip_rect.x,
-                tip_rect.y,
-                tip_rect.w,
-                tip_rect.h,
-                with_theme(|t| t.overlay.with_alpha(0.8)),
-            );
-
-            ctx.draw_text(
-                tip,
-                tip_rect.x + 4.0,
-                tip_rect.y + 15.0,
-                16.0,
-                with_theme(|t| t.text),
-            );
+            offer_tooltip(rect, mode.label());
         }
     }
 
     (strip_rect, changed)
+}
+
+fn sub_mode_strip_layout(anchor_x: f32, anchor_y: f32, option_count: usize) -> (Rect, f32, f32) {
+    const PADDING: f32 = 6.0;
+    let icon_size = (MENU_PANEL_HEIGHT - 2.0 * PADDING) * 0.75;
+    let total_width = option_count as f32 * (icon_size + PADDING) - PADDING;
+    let start_x = anchor_x + (MENU_PANEL_HEIGHT - total_width) / 2.0;
+
+    let strip_rect = Rect::new(
+        start_x - PADDING,
+        anchor_y,
+        total_width + PADDING * 2.0,
+        icon_size + PADDING * 2.0,
+    );
+
+    (strip_rect, start_x, icon_size)
 }

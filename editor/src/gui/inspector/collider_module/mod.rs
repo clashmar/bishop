@@ -408,6 +408,7 @@ inventory::submit! {
     ModuleFactoryEntry {
         type_name: <Collider>::TYPE_NAME,
         title: "Collider",
+        tooltip: "Defines the collision shape used by physics and interaction.",
         factory: || Box::new(
             CollapsibleComponentModule::new(
                 ColliderModule::default()

@@ -31,6 +31,7 @@ pub struct WidgetTestContext {
     pub screen_width: f32,
     pub screen_height: f32,
     pub text_dims: Option<TextDimensions>,
+    time: f64,
     pub rectangle_fills: Vec<Color>,
     pub rectangle_lines: Vec<Color>,
     pub text_colors: Vec<Color>,
@@ -59,12 +60,18 @@ impl WidgetTestContext {
             screen_width: 800.0,
             screen_height: 600.0,
             text_dims: None,
+            time: 0.0,
             rectangle_fills: Vec::new(),
             rectangle_lines: Vec::new(),
             text_colors: Vec::new(),
             rect_calls: Vec::new(),
             draw_text_calls: Vec::new(),
         }
+    }
+
+    /// Sets the current time used by widget tests.
+    pub fn set_time(&mut self, time: f64) {
+        self.time = time;
     }
 }
 
@@ -136,7 +143,7 @@ impl Input for WidgetTestContext {
     }
 
     fn get_time(&self) -> f64 {
-        0.0
+        self.time
     }
 }
 

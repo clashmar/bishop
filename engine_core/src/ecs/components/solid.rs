@@ -13,4 +13,9 @@ impl Default for Solid {
     }
 }
 
-inspector_module!(Solid);
+inspector_module!(
+    Solid,
+    removable = true,
+    title = <Solid>::TYPE_NAME,
+    tooltip = "Determines whether the entity blocks other physics bodies."
+);

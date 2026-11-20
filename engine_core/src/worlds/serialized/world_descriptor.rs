@@ -3,7 +3,8 @@ use crate::ecs::Entity;
 use crate::constants::world;
 use crate::scripting::event_tags::event_tag::EventTag;
 use crate::worlds::room::{Exit, Room, RoomId};
-use crate::worlds::world::{default_world_gravity, World, WorldId, WorldMeta};
+use crate::worlds::world::{World, WorldId, WorldMeta};
+use crate::worlds::WorldPhysics;
 use bishop::prelude::*;
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
@@ -35,8 +36,8 @@ pub struct WorldDescriptor {
     pub tags: Vec<EventTag>,
     pub overlay: bool,
     pub grid_size: f32,
-    #[serde(default = "default_world_gravity")]
-    pub gravity: f32,
+    #[serde(default)]
+    pub physics: WorldPhysics,
     pub singleton: Entity,
     pub rooms: Vec<RoomDirectoryEntry>,
 }
@@ -50,7 +51,7 @@ impl World {
         world.meta = descriptor.meta;
         world.tags = descriptor.tags;
         world.overlay = descriptor.overlay;
-        world.gravity = descriptor.gravity;
+        world.physics = descriptor.physics;
         world.singleton = descriptor.singleton;
         for entry in descriptor.rooms {
             let room = Room {
@@ -85,7 +86,7 @@ mod tests {
             tags: vec![],
             overlay: false,
             grid_size: 16.0,
-            gravity: world::DEFAULT_WORLD_GRAVITY,
+            physics: Default::default(),
             singleton: Entity(9),
             rooms: vec![RoomDirectoryEntry {
                 id: RoomId(7),
@@ -109,7 +110,7 @@ mod tests {
     }
 
     #[test]
-    fn world_descriptor_deserialization_without_gravity_uses_default() {
+    fn world_descriptor_deserialization_without_physics_uses_default() {
         let descriptor: WorldDescriptor = ron::from_str(
             r#"(
                 id: (1),
@@ -125,11 +126,11 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(descriptor.gravity, world::DEFAULT_WORLD_GRAVITY);
+        assert_eq!(descriptor.physics.gravity, world::DEFAULT_WORLD_GRAVITY);
     }
 
     #[test]
-    fn world_from_descriptor_copies_gravity() {
+    fn world_from_descriptor_copies_physics() {
         let descriptor = WorldDescriptor {
             id: WorldId(1),
             name: "Overworld".to_string(),
@@ -138,13 +139,13 @@ mod tests {
             tags: vec![],
             overlay: false,
             grid_size: 16.0,
-            gravity: 25.0,
+            physics: WorldPhysics { gravity: 25.0 },
             singleton: Entity(9),
             rooms: vec![],
         };
 
         let world = World::from_descriptor(descriptor);
 
-        assert_eq!(world.gravity, 25.0);
+        assert_eq!(world.physics.gravity, 25.0);
     }
 }

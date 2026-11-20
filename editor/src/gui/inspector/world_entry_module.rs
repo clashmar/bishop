@@ -165,6 +165,7 @@ inventory::submit! {
     ModuleFactoryEntry {
         type_name: WorldEntry::TYPE_NAME,
         title: TITLE,
+        tooltip: "Marks a named arrival point within a world.",
         factory: || {
             Box::new(
                 CollapsibleComponentModule::new(

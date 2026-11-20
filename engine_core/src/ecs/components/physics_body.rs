@@ -9,4 +9,10 @@ use serde::{Deserialize, Serialize};
 #[derive(Default, Clone, Copy, Serialize, Deserialize, Reflect)]
 pub struct PhysicsBody;
 
-inspector_module!(PhysicsBody, removable = true, title = "Physics Body");
+inspector_module!(
+    PhysicsBody,
+    marker = true,
+    removable = true,
+    title = "Physics Body",
+    tooltip = "Adds physics participation with collision and movement behavior."
+);

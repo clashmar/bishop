@@ -66,7 +66,12 @@ impl Reflect for Active {
     }
 }
 
-inspector_module!(Active);
+inspector_module!(
+    Active,
+    removable = true,
+    title = <Active>::TYPE_NAME,
+    tooltip = "Enables or disables the entity during simulation."
+);
 
 #[cfg(test)]
 mod tests {

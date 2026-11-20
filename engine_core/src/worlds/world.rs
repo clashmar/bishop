@@ -6,6 +6,7 @@ use crate::scripting::event_tags::event_tag::EventTag;
 use crate::tiles::tilemap::TileMap;
 use crate::worlds::room::*;
 use crate::worlds::room_grid::RoomGrid;
+use crate::worlds::WorldPhysics;
 use bishop::prelude::*;
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
@@ -30,8 +31,8 @@ pub struct World {
     pub overlay: bool,
     #[serde(default = "default_grid_size")]
     pub grid_size: f32,
-    #[serde(default = "default_world_gravity")]
-    pub gravity: f32,
+    #[serde(default)]
+    pub physics: WorldPhysics,
     #[serde(skip)]
     pub room_grid: RoomGrid,
     #[serde(skip)]
@@ -41,10 +42,6 @@ pub struct World {
 
 fn default_grid_size() -> f32 {
     world::DEFAULT_GRID_SIZE
-}
-
-pub(crate) fn default_world_gravity() -> f32 {
-    world::DEFAULT_WORLD_GRAVITY
 }
 
 impl Default for World {
@@ -58,7 +55,7 @@ impl Default for World {
             tags: Vec::new(),
             overlay: false,
             grid_size: default_grid_size(),
-            gravity: default_world_gravity(),
+            physics: WorldPhysics::default(),
             room_grid: RoomGrid::default(),
             room_index: HashMap::new(),
             singleton: Entity::default(),
@@ -352,11 +349,11 @@ mod tests {
     fn world_default_sets_gravity_from_world_constants() {
         let world = World::default();
 
-        assert_eq!(world.gravity, world::DEFAULT_WORLD_GRAVITY);
+        assert_eq!(world.physics.gravity, world::DEFAULT_WORLD_GRAVITY);
     }
 
     #[test]
-    fn world_deserialization_without_gravity_uses_default() {
+    fn world_deserialization_without_physics_uses_default() {
         let world: World = ron::from_str(
             r#"(
                 id: (1),
@@ -375,6 +372,6 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(world.gravity, world::DEFAULT_WORLD_GRAVITY);
+        assert_eq!(world.physics.gravity, world::DEFAULT_WORLD_GRAVITY);
     }
 }

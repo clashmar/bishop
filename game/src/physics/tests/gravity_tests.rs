@@ -21,7 +21,7 @@ fn gravity_test_world(grid_size: f32, gravity: f32) -> World {
 
     let mut world = World::default();
     world.grid_size = grid_size;
-    world.gravity = gravity;
+    world.physics.gravity = gravity;
     world.current_room_id = Some(room.id);
     world.add_room(room);
     world

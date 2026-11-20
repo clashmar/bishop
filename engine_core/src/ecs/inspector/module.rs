@@ -1,5 +1,6 @@
 use crate::ecs::ecs::Ecs;
 use crate::ecs::entity::Entity;
+use crate::ecs::inspector::collapsible_header::CollapsibleHeader;
 use crate::ecs::inspector::layout::InspectorBodyLayout;
 use crate::game::GameCtxMut;
 use crate::storage::editor_config::*;
@@ -81,8 +82,6 @@ pub struct CollapsibleComponentModule<T: InspectorModule> {
 }
 
 impl<T: InspectorModule> CollapsibleComponentModule<T> {
-    const HEADER_BUTTON_TEXT_OFFSET: Vec2 = Vec2::new(0.0, -1.0);
-
     pub fn new(inner: T) -> Self {
         let mut module = Self {
             inner,
@@ -119,22 +118,8 @@ impl<T: InspectorModule> CollapsibleComponentModule<T> {
         set_inspector_module_expanded(self.title(), self.expanded);
     }
 
-    /// The clickable area that contains the “‑/＋” button, title and remove button.
-    const HEADER_HEIGHT: f32 = 24.0;
-
     fn collapse_button_rect(rect: Rect) -> Rect {
         Rect::new(rect.x + 4.0, rect.y + 4.0, 16.0, 16.0)
-    }
-
-    fn remove_button_rect(rect: Rect) -> Rect {
-        const BTN_W: f32 = 20.0;
-        const BTN_H: f32 = 20.0;
-        Rect::new(
-            rect.x + rect.w - BTN_W - 4.0,
-            rect.y + (Self::HEADER_HEIGHT - BTN_H) / 2.0,
-            BTN_W,
-            BTN_H,
-        )
     }
 }
 
@@ -163,27 +148,15 @@ impl<T: InspectorModule> InspectorModule for CollapsibleComponentModule<T> {
         game_ctx: &mut GameCtxMut,
         entity: Entity,
     ) {
-        // Background for the header
-        ctx.draw_rectangle(
-            rect.x,
-            rect.y,
-            rect.w,
-            Self::HEADER_HEIGHT,
-            Color::new(0., 0., 0., 0.4),
-        );
-
-        ctx.draw_text(
-            self.title(),
-            rect.x + 28.0,
-            rect.y + 18.0,
-            layout::DEFAULT_FONT_SIZE_16,
-            Color::WHITE,
-        );
+        if draw_component_header(ctx, self.title(), rect, blocked, self.inner.removable()) {
+            self.remove_requested = true;
+            return;
+        }
 
         // Toggle button (‑ when open, ＋ when closed)
         let symbol = if self.expanded { "-" } else { "+" };
         if Button::new(Self::collapse_button_rect(rect), symbol)
-            .text_offset(Self::HEADER_BUTTON_TEXT_OFFSET)
+            .text_offset(CollapsibleHeader::BUTTON_TEXT_OFFSET)
             .suppressed(blocked)
             .show(ctx)
         {
@@ -191,25 +164,14 @@ impl<T: InspectorModule> InspectorModule for CollapsibleComponentModule<T> {
             self.persist_saved_state();
         }
 
-        // Remove component
-        if self.inner.removable()
-            && Button::new(Self::remove_button_rect(rect), "x")
-                .text_offset(Self::HEADER_BUTTON_TEXT_OFFSET)
-                .suppressed(blocked)
-                .show(ctx)
-        {
-            self.remove_requested = true;
-            return; // Don't draw the rest of the module
-        }
-
         // Body, when expanded
         if self.expanded {
             // Give the inner module a little padding inside the panel
             let body_rect = Rect::new(
                 rect.x + 4.0,
-                rect.y + Self::HEADER_HEIGHT + 4.0,
+                rect.y + CollapsibleHeader::HEADER_HEIGHT + 4.0,
                 rect.w - 8.0,
-                rect.h - Self::HEADER_HEIGHT - 8.0,
+                rect.h - CollapsibleHeader::HEADER_HEIGHT - 8.0,
             );
             self.inner.draw(ctx, blocked, body_rect, game_ctx, entity);
         }
@@ -221,13 +183,145 @@ impl<T: InspectorModule> InspectorModule for CollapsibleComponentModule<T> {
 
     fn height(&self) -> f32 {
         if self.expanded {
-            Self::HEADER_HEIGHT + self.inner.body_layout().height()
+            CollapsibleHeader::HEADER_HEIGHT + self.inner.body_layout().height()
         } else {
-            Self::HEADER_HEIGHT
+            CollapsibleHeader::HEADER_HEIGHT
         }
     }
 
     fn title(&self) -> &str {
         self.title()
     }
+}
+
+/// Displays a marker component without an expandable body.
+pub struct MarkerComponentModule<T: InspectorModule> {
+    inner: T,
+    custom_title: Option<String>,
+    remove_requested: bool,
+}
+
+impl<T: InspectorModule> MarkerComponentModule<T> {
+    /// Creates a marker module around an inspector module.
+    pub fn new(inner: T) -> Self {
+        Self {
+            inner,
+            custom_title: None,
+            remove_requested: false,
+        }
+    }
+
+    /// Sets the title shown in the marker row.
+    pub fn with_title(mut self, title: impl Into<String>) -> Self {
+        self.custom_title = Some(title.into());
+        self
+    }
+
+    fn title(&self) -> &str {
+        if let Some(ref title) = self.custom_title {
+            title
+        } else {
+            self.inner.title()
+        }
+    }
+}
+
+impl<T: InspectorModule> InspectorModule for MarkerComponentModule<T> {
+    fn visible(&self, ecs: &Ecs, entity: Entity) -> bool {
+        self.inner.visible(ecs, entity)
+    }
+
+    fn undo_component_type(&self) -> Option<&'static str> {
+        self.inner.undo_component_type()
+    }
+
+    fn take_remove_request(&mut self) -> bool {
+        std::mem::take(&mut self.remove_requested)
+    }
+
+    fn was_input_active(&self) -> bool {
+        self.inner.was_input_active()
+    }
+
+    fn draw(
+        &mut self,
+        ctx: &mut WgpuContext,
+        blocked: bool,
+        rect: Rect,
+        _game_ctx: &mut GameCtxMut,
+        _entity: Entity,
+    ) {
+        if draw_component_header(ctx, self.title(), rect, blocked, self.inner.removable()) {
+            self.remove_requested = true;
+            return;
+        }
+
+        let placeholder_rect = CollapsibleComponentModule::<T>::collapse_button_rect(rect);
+        ctx.draw_rectangle(
+            placeholder_rect.x,
+            placeholder_rect.y,
+            placeholder_rect.w,
+            placeholder_rect.h,
+            Color::WHITE,
+        );
+    }
+
+    fn body_layout(&self) -> InspectorBodyLayout {
+        InspectorBodyLayout::new().padding(0.0, 0.0)
+    }
+
+    fn height(&self) -> f32 {
+        CollapsibleHeader::HEADER_HEIGHT
+    }
+
+    fn title(&self) -> &str {
+        self.title()
+    }
+
+    fn removable(&self) -> bool {
+        self.inner.removable()
+    }
+
+    fn remove(&mut self, game_ctx: &mut GameCtxMut, entity: Entity) {
+        self.inner.remove(game_ctx, entity);
+    }
+}
+
+fn remove_button_rect(rect: Rect) -> Rect {
+    const BUTTON_WIDTH: f32 = 20.0;
+    const BUTTON_HEIGHT: f32 = 20.0;
+    Rect::new(
+        rect.x + rect.w - BUTTON_WIDTH - 4.0,
+        rect.y + (CollapsibleHeader::HEADER_HEIGHT - BUTTON_HEIGHT) / 2.0,
+        BUTTON_WIDTH,
+        BUTTON_HEIGHT,
+    )
+}
+
+fn draw_component_header(
+    ctx: &mut WgpuContext,
+    title: &str,
+    rect: Rect,
+    blocked: bool,
+    removable: bool,
+) -> bool {
+    ctx.draw_rectangle(
+        rect.x,
+        rect.y,
+        rect.w,
+        CollapsibleHeader::HEADER_HEIGHT,
+        Color::new(0.0, 0.0, 0.0, 0.4),
+    );
+    ctx.draw_text(
+        title,
+        rect.x + 28.0,
+        rect.y + 18.0,
+        layout::DEFAULT_FONT_SIZE_16,
+        Color::WHITE,
+    );
+    removable
+        && Button::new(remove_button_rect(rect), "x")
+            .text_offset(CollapsibleHeader::BUTTON_TEXT_OFFSET)
+            .suppressed(blocked)
+            .show(ctx)
 }

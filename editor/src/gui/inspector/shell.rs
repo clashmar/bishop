@@ -420,4 +420,4 @@ fn draw_pane_body<C: InspectorContent>(
     output
 }
 
-const SCROLL_SPEED: f32 = 5.0;
+const SCROLL_SPEED: f32 = 24.0;

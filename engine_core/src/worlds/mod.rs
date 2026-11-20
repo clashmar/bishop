@@ -1,3 +1,4 @@
+pub mod physics;
 pub mod serialized;
 pub mod transition;
 pub mod room;
@@ -10,6 +11,7 @@ pub mod test_utils;
 pub mod topology;
 pub mod world;
 
+pub use physics::*;
 pub use serialized::*;
 pub use transition::*;
 pub use room::*;

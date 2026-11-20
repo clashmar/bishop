@@ -23,7 +23,12 @@ pub struct Light {
     pub brightness: f32,
 }
 
-inspector_module!(Light);
+inspector_module!(
+    Light,
+    removable = true,
+    title = <Light>::TYPE_NAME,
+    tooltip = "Adds a light source with configurable color, radius, and spread."
+);
 
 impl Default for Light {
     fn default() -> Self {

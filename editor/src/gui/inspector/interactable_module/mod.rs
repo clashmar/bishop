@@ -218,6 +218,7 @@ inventory::submit! {
     ModuleFactoryEntry {
         type_name: Interactable::TYPE_NAME,
         title: TITLE,
+        tooltip: "Defines an area the player can interact with.",
         factory: || Box::new(
             CollapsibleComponentModule::new(
                 crate::gui::inspector::interactable_module::InteractableModule::default()

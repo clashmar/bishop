@@ -55,6 +55,7 @@ inventory::submit! {
     ModuleFactoryEntry {
         type_name: <AudioSource>::TYPE_NAME,
         title: TITLE,
+        tooltip: "Provides sound groups that can be played from this entity.",
         factory: || {
             Box::new(
                 CollapsibleComponentModule::new(

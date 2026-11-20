@@ -1,5 +1,6 @@
 pub mod world_audio_source_module;
 pub mod world_navigation_module;
+pub mod world_physics_module;
 pub mod world_script_module;
 pub mod world_settings_module;
 pub mod world_tags_module;
@@ -35,6 +36,7 @@ impl WorldProperties {
             input_id: WidgetId::default(),
             modules: vec![
                 Box::new(CollapsiblePropertyModule::new(world_settings_module::WorldSettingsModule::new())),
+                Box::new(CollapsiblePropertyModule::new(world_physics_module::WorldPhysicsModule::new())),
                 Box::new(CollapsiblePropertyModule::new(world_script_module::WorldScriptModule::new())),
                 Box::new(CollapsiblePropertyModule::new(world_audio_source_module::WorldAudioSourceModule::new())),
                 Box::new(CollapsiblePropertyModule::new(world_tags_module::WorldTagsModule::for_world())),

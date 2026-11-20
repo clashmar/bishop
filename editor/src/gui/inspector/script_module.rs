@@ -47,6 +47,7 @@ inventory::submit! {
     ModuleFactoryEntry {
         type_name: <engine_core::ecs::Script>::TYPE_NAME,
         title: <engine_core::ecs::Script>::TYPE_NAME,
+        tooltip: "Runs a Lua script attached to this entity.",
         factory: || {
             Box::new(
                 CollapsibleComponentModule::new(

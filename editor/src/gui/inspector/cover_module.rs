@@ -186,6 +186,7 @@ inventory::submit! {
     ModuleFactoryEntry {
         type_name: Cover::TYPE_NAME,
         title: TITLE,
+        tooltip: "Hides or fades foreground content based on layer state.",
         factory: || {
             Box::new(
                 CollapsibleComponentModule::new(

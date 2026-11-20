@@ -67,7 +67,7 @@ impl EditWorldCmd {
                 world.overlay = o;
             }
             if let Some(g) = gravity {
-                world.gravity = g;
+                world.physics.gravity = g;
             }
         }
         if let Some(sprite_opt) = sprite {
@@ -80,7 +80,7 @@ impl EditWorldCmd {
             self.old_name = world.name.clone();
             self.old_sprite = world.meta.sprite_id;
             self.old_overlay = world.overlay;
-            self.old_gravity = world.gravity;
+            self.old_gravity = world.physics.gravity;
         }
     }
 }

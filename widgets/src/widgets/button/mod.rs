@@ -38,6 +38,7 @@ pub struct Button<'a> {
     allow_secondary_click: bool,
     interaction_id: Option<ClickTargetId>,
     icon_padding: f32,
+    tooltip: Option<String>,
     base: WidgetBase,
 }
 
@@ -45,15 +46,6 @@ const BLOCKED_BACKGROUND_COLOR: Color = Color::new(0.08, 0.08, 0.08, 0.9);
 const BLOCKED_OUTLINE_COLOR: Color = Color::new(0.45, 0.45, 0.45, 0.7);
 const BLOCKED_TEXT_COLOR: Color = Color::new(0.65, 0.65, 0.65, 0.9);
 const PLAIN_BLOCKED_OVERLAY: Color = Color::new(0.2, 0.2, 0.2, 0.25);
-
-fn active_fill_color(button: &Button<'_>, widget_theme: WidgetTheme) -> Color {
-    resolve_with_theme(
-        button.base.overrides.hover,
-        widget_theme.hover,
-        colors::DEFAULT_HOVER_COLOR,
-    )
-    .with_alpha(1.0)
-}
 
 impl<'a> Button<'a> {
     /// Creates a new button with the given rect and label.
@@ -71,6 +63,7 @@ impl<'a> Button<'a> {
             allow_secondary_click: false,
             interaction_id: None,
             icon_padding: 2.0,
+            tooltip: None,
             base: WidgetBase {
                 blocked: false,
                 overrides: WidgetTheme::default(),
@@ -97,12 +90,19 @@ impl<'a> Button<'a> {
             allow_secondary_click: false,
             interaction_id: None,
             icon_padding: 2.0,
+            tooltip: None,
             base: WidgetBase {
                 blocked: false,
                 overrides: WidgetTheme::default(),
                 ..WidgetBase::default()
             },
         }
+    }
+
+    /// Sets optional tooltip text for the button.
+    pub fn tooltip(mut self, text: impl Into<String>) -> Self {
+        self.tooltip = Some(text.into());
+        self
     }
 
     /// Sets the button to use the plain style (no background).
@@ -378,6 +378,10 @@ impl<'a> Button<'a> {
                 ctx.is_mouse_button_released(MouseButton::Right),
             );
 
+        if let Some(text) = self.tooltip {
+            offer_tooltip(self.rect, text);
+        }
+
         ButtonClicks { primary, secondary }
     }
 
@@ -403,6 +407,15 @@ impl Widget for Button<'_> {
     fn base_mut(&mut self) -> &mut WidgetBase {
         &mut self.base
     }
+}
+
+fn active_fill_color(button: &Button<'_>, widget_theme: WidgetTheme) -> Color {
+    resolve_with_theme(
+        button.base.overrides.hover,
+        widget_theme.hover,
+        colors::DEFAULT_HOVER_COLOR,
+    )
+    .with_alpha(1.0)
 }
 
 #[cfg(test)]

@@ -241,3 +241,166 @@ fn matches_query_case_insensitive_substring_and_empty_query() {
     assert!(matches_query("Blue Guardian", ""));
     assert!(matches_query_normalized("Blue Guardian", "guardian"));
 }
+
+#[test]
+fn dropdown_hovering_tooltip_option_shows_after_delay() {
+    reset_click_consumed();
+
+    let id = WidgetId(101);
+    let rect = Rect::new(10.0, 10.0, 120.0, 30.0);
+    let options = ["Alpha", "Beta"];
+    dropdown_state::set(
+        id,
+        dropdown_state::DropState {
+            open: true,
+            rect: Rect::default(),
+            scroll_offset: 0.0,
+        },
+    );
+
+    let mut ctx = WidgetTestContext::new();
+    ctx.mouse_pos = (20.0, 55.0);
+
+    widgets_frame_start(&mut ctx);
+    Dropdown::new(id, rect, "Pick", &options, |option| option.to_string())
+        .entry_tooltip(|option| (*option == "Alpha").then(|| "Alpha option help".to_string()))
+        .show(&mut ctx);
+    widgets_frame_end(&mut ctx);
+    assert!(!ctx
+        .draw_text_calls
+        .iter()
+        .any(|call| call.text == "Alpha option help"));
+
+    ctx.set_time(0.5);
+    widgets_frame_start(&mut ctx);
+    Dropdown::new(id, rect, "Pick", &options, |option| option.to_string())
+        .entry_tooltip(|option| (*option == "Alpha").then(|| "Alpha option help".to_string()))
+        .show(&mut ctx);
+    widgets_frame_end(&mut ctx);
+
+    assert!(ctx
+        .draw_text_calls
+        .iter()
+        .any(|call| call.text == "Alpha option help"));
+}
+
+#[test]
+fn dropdown_row_without_tooltip_does_not_show_tooltip() {
+    reset_click_consumed();
+
+    let id = WidgetId(102);
+    let rect = Rect::new(10.0, 10.0, 120.0, 30.0);
+    let options = ["Alpha", "Beta"];
+    dropdown_state::set(
+        id,
+        dropdown_state::DropState {
+            open: true,
+            rect: Rect::default(),
+            scroll_offset: 0.0,
+        },
+    );
+
+    let mut ctx = WidgetTestContext::new();
+    ctx.mouse_pos = (20.0, 85.0);
+    ctx.set_time(0.0);
+    widgets_frame_start(&mut ctx);
+    Dropdown::new(id, rect, "Pick", &options, |option| option.to_string())
+        .entry_tooltip(|_| None)
+        .show(&mut ctx);
+    widgets_frame_end(&mut ctx);
+
+    ctx.set_time(0.5);
+    widgets_frame_start(&mut ctx);
+    Dropdown::new(id, rect, "Pick", &options, |option| option.to_string())
+        .entry_tooltip(|_| None)
+        .show(&mut ctx);
+    widgets_frame_end(&mut ctx);
+
+    assert!(!ctx
+        .draw_text_calls
+        .iter()
+        .any(|call| call.text == "Alpha option help" || call.text == "Beta option help"));
+}
+
+#[test]
+fn filterable_dropdown_tooltip_comes_from_filtered_option() {
+    reset_click_consumed();
+
+    let id = WidgetId(103);
+    let rect = Rect::new(10.0, 10.0, 120.0, 30.0);
+    let options = ["Alpha", "Bravo", "Charlie"];
+    dropdown_state::set(
+        id,
+        dropdown_state::DropState {
+            open: true,
+            rect: Rect::default(),
+            scroll_offset: 0.0,
+        },
+    );
+    set_filter(id, "char".to_string());
+
+    let mut ctx = WidgetTestContext::new();
+    ctx.mouse_pos = (20.0, 85.0);
+    ctx.set_time(0.0);
+    widgets_frame_start(&mut ctx);
+    Dropdown::new(id, rect, "Pick", &options, |option| option.to_string())
+        .filterable()
+        .entry_tooltip(|option| Some(format!("{option} option help")))
+        .show(&mut ctx);
+    widgets_frame_end(&mut ctx);
+
+    ctx.set_time(0.5);
+    widgets_frame_start(&mut ctx);
+    Dropdown::new(id, rect, "Pick", &options, |option| option.to_string())
+        .filterable()
+        .entry_tooltip(|option| Some(format!("{option} option help")))
+        .show(&mut ctx);
+    widgets_frame_end(&mut ctx);
+
+    assert!(ctx
+        .draw_text_calls
+        .iter()
+        .any(|call| call.text == "Charlie option help"));
+    assert!(!ctx
+        .draw_text_calls
+        .iter()
+        .any(|call| call.text == "Alpha option help"));
+}
+
+#[test]
+fn dropdown_tooltip_ignores_clipped_part_of_scrolled_row() {
+    reset_click_consumed();
+
+    let id = WidgetId(104);
+    let rect = Rect::new(10.0, 10.0, 120.0, 30.0);
+    let options = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"];
+    dropdown_state::set(
+        id,
+        dropdown_state::DropState {
+            open: true,
+            rect: Rect::default(),
+            scroll_offset: 15.0,
+        },
+    );
+
+    let mut ctx = WidgetTestContext::new();
+    ctx.mouse_pos = (20.0, 35.0);
+    ctx.set_time(0.0);
+    widgets_frame_start(&mut ctx);
+    Dropdown::new(id, rect, "Pick", &options, |option| option.to_string())
+        .entry_tooltip(|_| Some("First option help".to_string()))
+        .show(&mut ctx);
+    widgets_frame_end(&mut ctx);
+
+    ctx.set_time(0.5);
+    widgets_frame_start(&mut ctx);
+    Dropdown::new(id, rect, "Pick", &options, |option| option.to_string())
+        .entry_tooltip(|_| Some("First option help".to_string()))
+        .show(&mut ctx);
+    widgets_frame_end(&mut ctx);
+
+    assert!(!ctx
+        .draw_text_calls
+        .iter()
+        .any(|call| call.text == "First option help"));
+}

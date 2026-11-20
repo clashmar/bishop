@@ -106,6 +106,7 @@ impl PanelDefinition for PrefabPalettePanel {
         let action_row_rect = Rect::new(rect.x + PANEL_PADDING, y, content_w, BTN_HEIGHT);
         let (file_rect, edit_rect) = prefab_palette_action_row_rects(action_row_rect);
         let pick_file = Button::new(file_rect, "File")
+            .tooltip("Import a prefab from disk.")
             .interaction_id(self.file_button_id)
             .suppressed(blocked)
             .show(ctx);

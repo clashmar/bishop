@@ -288,6 +288,7 @@ inventory::submit! {
     ModuleFactoryEntry {
         type_name: Kinematic::TYPE_NAME,
         title: TITLE,
+        tooltip: "Moves the entity using configured kinematic settings.",
         factory: || {
             Box::new(
                 CollapsibleComponentModule::new(
