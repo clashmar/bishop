@@ -74,9 +74,15 @@ impl Engine {
         ctx.borrow_mut().flush_pending_draws();
         let viewport = gameplay_viewport(ctx.borrow().screen_width(), ctx.borrow().screen_height());
         self.menu_manager.set_viewport(viewport);
-        let game_instance = self.game_instance.borrow();
-        self.menu_manager
-            .render(&mut *ctx.borrow_mut(), &game_instance.game.text_manager);
+        let mut game_instance = self.game_instance.borrow_mut();
+        let game = &mut game_instance.game;
+        self.menu_manager.render(
+            &mut *ctx.borrow_mut(),
+            &game.text_manager,
+            &mut game.font_manager,
+            &game.asset_registry,
+            game.runtime_source.as_ref(),
+        );
     }
 }
 

@@ -1,4 +1,39 @@
 use super::*;
+use bishop::text::FontId;
+
+#[test]
+fn label_font_selection_round_trips_with_engine_default_option() {
+    let mut selected = MenuTemplate::new("font_selection".to_string());
+    selected.elements.push(MenuElement::label(
+        "title".to_string(),
+        Rect::new(0.0, 0.0, 1.0, 1.0),
+    ));
+    let MenuElementKind::Label(label) = &mut selected.elements[0].kind else {
+        unreachable!();
+    };
+    label.font = Some(FontId(7));
+
+    let encoded = ron::to_string(&selected).unwrap();
+    let decoded: MenuTemplate = ron::from_str(&encoded).unwrap();
+    let MenuElementKind::Label(decoded_label) = &decoded.elements[0].kind else {
+        unreachable!();
+    };
+    assert_eq!(decoded_label.font, Some(FontId(7)));
+
+    let default_template = MenuTemplate {
+        elements: vec![MenuElement::label(
+            "title".to_string(),
+            Rect::new(0.0, 0.0, 1.0, 1.0),
+        )],
+        ..MenuTemplate::new("default_font".to_string())
+    };
+    let encoded_default = ron::to_string(&default_template).unwrap();
+    let decoded_default: MenuTemplate = ron::from_str(&encoded_default).unwrap();
+    let MenuElementKind::Label(default_label) = &decoded_default.elements[0].kind else {
+        unreachable!();
+    };
+    assert_eq!(default_label.font, None);
+}
 
 #[test]
 fn gameplay_pause_policy_toggles_the_pause_menu_with_pause_key() {

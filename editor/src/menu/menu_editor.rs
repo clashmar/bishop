@@ -135,14 +135,25 @@ impl MenuEditor {
         }
     }
 
-    pub fn draw(&mut self, ctx: &mut WgpuContext, camera: &Camera2D) {
+    pub fn draw(
+        &mut self,
+        ctx: &mut WgpuContext,
+        camera: &Camera2D,
+        game: &mut engine_core::game::Game,
+    ) {
         self.active_rects.clear();
 
         if self.view_preview {
             ctx.set_default_camera();
             ctx.clear_background(Color::BLACK);
             let preview_rect = compute_preview_rect(ctx.screen_width(), ctx.screen_height());
-            self.draw_preview_canvas(ctx, preview_rect);
+            self.draw_preview_canvas(
+                ctx,
+                preview_rect,
+                &mut game.font_manager,
+                &game.asset_registry,
+                game.runtime_source.as_ref(),
+            );
             return;
         }
 
@@ -152,10 +163,17 @@ impl MenuEditor {
         let canvas_rect = compute_canvas_rect(ctx.screen_width(), ctx.screen_height());
 
         // Draw canvas under ui
-        self.draw_canvas(ctx, camera, canvas_rect);
+        self.draw_canvas(
+            ctx,
+            camera,
+            canvas_rect,
+            &mut game.font_manager,
+            &game.asset_registry,
+            game.runtime_source.as_ref(),
+        );
 
         // Draw ui after canvas
-        self.draw_ui(ctx);
+        self.draw_ui(ctx, &game.asset_registry);
     }
 
     /// Returns a reference to the current template.
@@ -564,6 +582,28 @@ mod tests {
         editor.push_input_update(InputCommit::Committed, |el| el.rect.x = 0.5);
 
         assert!(editor.drag_original_element.is_none());
+    }
+
+    #[test]
+    fn font_selection_updates_the_label_and_creates_an_undoable_change() {
+        use bishop::text::FontId;
+
+        crate::editor_global::reset_services();
+        let mut editor = setup();
+        editor.templates[0].elements[0].kind = MenuElementKind::Label(Default::default());
+        let font_id = FontId(17);
+
+        editor.push_element_update(|element| {
+            if let MenuElementKind::Label(label) = &mut element.kind {
+                label.font = Some(font_id);
+            }
+        });
+
+        let MenuElementKind::Label(label) = &editor.templates[0].elements[0].kind else {
+            panic!("expected label element");
+        };
+        assert_eq!(label.font, Some(font_id));
+        assert!(with_command_manager(|manager| manager.pending_len()) > 0);
     }
 
     #[test]

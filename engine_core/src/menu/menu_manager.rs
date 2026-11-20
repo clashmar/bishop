@@ -1,7 +1,10 @@
+use crate::assets::font_manager::FontManager;
+use crate::assets::AssetRegistry;
 use crate::menu::runtime::*;
 use crate::menu::*;
 use crate::omni_error;
 use crate::storage::path_utils::menus_folder;
+use crate::storage::ResourceSource;
 use crate::text::TextManager;
 use bishop::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -410,7 +413,14 @@ impl MenuManager {
     }
 
     /// Renders the active menu if any.
-    pub fn render<C: BishopContext>(&mut self, ctx: &mut C, text_manager: &TextManager) {
+    pub fn render<C: BishopContext>(
+        &mut self,
+        ctx: &mut C,
+        text_manager: &TextManager,
+        font_manager: &mut FontManager,
+        asset_registry: &AssetRegistry,
+        resource_source: Option<&ResourceSource>,
+    ) {
         if !self.has_active_menu() {
             return;
         }
@@ -425,6 +435,9 @@ impl MenuManager {
                 &self.focus,
                 &mut self.slider_values,
                 text_manager,
+                font_manager,
+                asset_registry,
+                resource_source,
             )
         {
             self.handle_action(action);

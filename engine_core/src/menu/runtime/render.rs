@@ -1,4 +1,7 @@
+use crate::assets::font_manager::FontManager;
+use crate::assets::AssetRegistry;
 use crate::menu::*;
+use crate::storage::ResourceSource;
 use crate::text::TextManager;
 use bishop::prelude::*;
 use std::collections::HashMap;
@@ -13,6 +16,9 @@ pub(crate) fn render_active_menu<C: BishopContext>(
     focus: &MenuFocus,
     slider_values: &mut HashMap<String, f32>,
     text_manager: &TextManager,
+    font_manager: &mut FontManager,
+    asset_registry: &AssetRegistry,
+    resource_source: Option<&ResourceSource>,
 ) -> Option<MenuAction> {
     widgets_frame_start(ctx);
     let action = render_menu_elements(
@@ -23,6 +29,9 @@ pub(crate) fn render_active_menu<C: BishopContext>(
         focus,
         slider_values,
         text_manager,
+        font_manager,
+        asset_registry,
+        resource_source,
     );
     widgets_frame_end(ctx);
     action
@@ -37,12 +46,18 @@ pub fn render_menu_elements<C: BishopContext>(
     focus: &MenuFocus,
     slider_values: &mut HashMap<String, f32>,
     text_manager: &TextManager,
+    font_manager: &mut FontManager,
+    asset_registry: &AssetRegistry,
+    resource_source: Option<&ResourceSource>,
 ) -> Option<MenuAction> {
     let text_id = format!("ui/{}", menu_id);
     let mut triggered_action = None;
     let mut env = RenderEnv {
         text_id: &text_id,
         text_manager,
+        font_manager,
+        asset_registry,
+        resource_source,
         canvas_origin: Vec2::new(viewport.x, viewport.y),
         canvas_size: Vec2::new(viewport.w, viewport.h),
         focus,
@@ -69,6 +84,9 @@ pub fn render_menu_elements<C: BishopContext>(
 pub(crate) struct RenderEnv<'a> {
     pub(crate) text_id: &'a str,
     pub(crate) text_manager: &'a TextManager,
+    pub(crate) font_manager: &'a mut FontManager,
+    pub(crate) asset_registry: &'a AssetRegistry,
+    pub(crate) resource_source: Option<&'a ResourceSource>,
     pub(crate) canvas_origin: Vec2,
     pub(crate) canvas_size: Vec2,
     pub(crate) focus: &'a MenuFocus,

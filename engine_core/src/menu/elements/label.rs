@@ -4,6 +4,7 @@ use crate::menu::layout::HorizontalAlign;
 use crate::menu::runtime::RenderEnv;
 use crate::menu::MenuAction;
 use bishop::prelude::*;
+use bishop::text::FontId;
 use serde::{Deserialize, Serialize};
 use widgets::{Label, LabelAlign, Widget};
 
@@ -12,6 +13,9 @@ use widgets::{Label, LabelAlign, Widget};
 pub struct LabelElement {
     pub text_key: String,
     pub font_size: f32,
+    /// Registered game font, or `None` for the embedded default.
+    #[serde(default)]
+    pub font: Option<FontId>,
     #[serde(default)]
     pub alignment: HorizontalAlign,
 }
@@ -25,6 +29,7 @@ impl Default for LabelElement {
         Self {
             text_key: String::new(),
             font_size: 20.0,
+            font: None,
             alignment: HorizontalAlign::default(),
         }
     }
@@ -66,6 +71,14 @@ impl LabelElement {
         let display_text = env
             .text_manager
             .resolve_ui_text(env.text_id, &self.text_key);
+        let font = self.font.and_then(|id| {
+            env.font_manager.ensure_font(
+                ctx,
+                env.asset_registry,
+                env.resource_source,
+                id,
+            )
+        });
         let label_align = match self.alignment {
             HorizontalAlign::Left => LabelAlign::Left,
             HorizontalAlign::Center => LabelAlign::Center,
@@ -73,6 +86,7 @@ impl LabelElement {
         };
         Label::new(screen_rect, display_text)
             .font_size(self.font_size)
+            .font(font)
             .alignment(label_align)
             .apply_selectors(element.class.as_deref(), element.style_id.as_deref())
             .show(ctx);

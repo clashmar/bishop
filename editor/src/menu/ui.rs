@@ -3,6 +3,7 @@ use crate::gui::menu_bar::{draw_top_panel_full, menu_panel_rect};
 use crate::menu::game_theme::{discover_themes, load_theme};
 use crate::menu::MenuEditor;
 use bishop::prelude::*;
+use engine_core::assets::AssetRegistry;
 use ::widgets::constants::layout;
 use ::widgets::truncate_to_width;
 use ::widgets::with_theme;
@@ -10,7 +11,7 @@ use ::widgets::Button;
 
 impl MenuEditor {
     /// Draws the menu editor ui.
-    pub fn draw_ui(&mut self, ctx: &mut WgpuContext) {
+    pub fn draw_ui(&mut self, ctx: &mut WgpuContext, asset_registry: &AssetRegistry) {
         const LEFT_COLUMN_WIDTH: f32 = 200.0;
         const PROPERTIES_WIDTH: f32 = 250.0;
         const SPACING: f32 = 8.0;
@@ -132,7 +133,7 @@ impl MenuEditor {
             with_theme(|theme| theme.border),
         );
 
-        self.draw_properties_panel(ctx, properties_rect, blocked);
+        self.draw_properties_panel(ctx, properties_rect, blocked, asset_registry);
 
         // Draw top menu
         self.register_rect(draw_top_panel_full(ctx));

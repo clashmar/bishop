@@ -4,6 +4,7 @@ pub(crate) mod nav_section;
 
 use crate::menu::MenuEditor;
 use bishop::prelude::*;
+use engine_core::assets::AssetRegistry;
 use engine_core::menu::MenuElementKind;
 use widgets::*;
 
@@ -19,6 +20,7 @@ pub struct PropertiesWidgetIds {
     pub(crate) style_id: WidgetId,
     pub(crate) text_id: WidgetId,
     pub(crate) font_size_id: WidgetId,
+    pub(crate) label_font_id: WidgetId,
     pub(crate) action_id: WidgetId,
     pub(crate) action_param_id: WidgetId,
     pub(crate) enabled_when_id: WidgetId,
@@ -89,7 +91,13 @@ impl Default for MenuPropertiesPanel {
 
 impl MenuEditor {
     /// Renders the properties panel and handles editing.
-    pub fn draw_properties_panel(&mut self, ctx: &mut WgpuContext, rect: Rect, blocked: bool) {
+    pub fn draw_properties_panel(
+        &mut self,
+        ctx: &mut WgpuContext,
+        rect: Rect,
+        blocked: bool,
+        asset_registry: &AssetRegistry,
+    ) {
         self.input_active_this_frame = false;
 
         let content_height = self.properties_panel.last_content_height;
@@ -135,7 +143,15 @@ impl MenuEditor {
 
         match kind {
             MenuElementKind::Label(_) => {
-                self.draw_label_properties(ctx, &mut y, content_x, content_w, blocked, &rect);
+                self.draw_label_properties(
+                    ctx,
+                    &mut y,
+                    content_x,
+                    content_w,
+                    blocked,
+                    &rect,
+                    asset_registry,
+                );
             }
             MenuElementKind::Button(_) => {
                 self.draw_button_properties(ctx, &mut y, content_x, content_w, blocked, &rect);

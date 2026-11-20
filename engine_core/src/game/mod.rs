@@ -8,7 +8,7 @@ pub use game_map::*;
 pub use id_allocator::*;
 pub use startup_mode::*;
 
-use crate::assets::{sprite_manager::SpriteManager, AssetRegistry};
+use crate::assets::{font_manager::FontManager, sprite_manager::SpriteManager, AssetRegistry};
 use crate::constants::paths;
 use crate::ecs::ecs::Ecs;
 #[cfg(feature = "editor")]
@@ -68,6 +68,9 @@ pub struct Game {
     /// Asset manager for the game.
     #[serde(skip)]
     pub sprite_manager: SpriteManager,
+    /// Manager for registered game fonts.
+    #[serde(skip)]
+    pub font_manager: FontManager,
     /// Script manager for the game.
     pub script_manager: ScriptManager,
     /// Text manager for the game.
@@ -106,6 +109,7 @@ impl Default for Game {
             hydration_coordinator: HydrationCoordinator::default(),
             tile_registry: TileRegistry::default(),
             sprite_manager: SpriteManager::default(),
+            font_manager: FontManager::default(),
             script_manager: ScriptManager::default(),
             text_manager: TextManager::default(),
             prefab_manager: PrefabManager::default(),

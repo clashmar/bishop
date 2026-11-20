@@ -1,3 +1,5 @@
+use std::cell::Cell;
+
 use crate::theme::{set_theme, Theme, THEME_TEST_LOCK};
 use bishop::material::BishopRenderTarget;
 use bishop::prelude::*;
@@ -8,6 +10,8 @@ pub struct DrawTextCall {
     pub x: f32,
     pub y: f32,
     pub font_size: f32,
+    pub font: Option<bishop::text::FontId>,
+    pub font_scale: f32,
     pub color: Color,
 }
 
@@ -37,6 +41,8 @@ pub struct WidgetTestContext {
     pub text_colors: Vec<Color>,
     pub rect_calls: Vec<Rect>,
     pub draw_text_calls: Vec<DrawTextCall>,
+    pub measured_font: Cell<Option<bishop::text::FontId>>,
+    pub measured_font_scale: Cell<f32>,
 }
 
 impl WidgetTestContext {
@@ -66,6 +72,8 @@ impl WidgetTestContext {
             text_colors: Vec::new(),
             rect_calls: Vec::new(),
             draw_text_calls: Vec::new(),
+            measured_font: Cell::new(None),
+            measured_font_scale: Cell::new(1.0),
         }
     }
 
@@ -248,6 +256,8 @@ impl Text for WidgetTestContext {
             x,
             y,
             font_size: params.font_size as f32,
+            font: params.font,
+            font_scale: params.font_scale,
             color: params.color,
         });
         self.measure_text(text, params.font_size as f32)
@@ -262,6 +272,15 @@ impl Text for WidgetTestContext {
             height: font_size,
             offset_y: 0.0,
         }
+    }
+
+    fn measure_text_ex(&self, text: &str, params: &TextParams) -> TextDimensions {
+        self.measured_font.set(params.font);
+        self.measured_font_scale.set(params.font_scale);
+        self.measure_text(text, params.font_size as f32).scaled(
+            params.font_scale * params.font_scale_aspect,
+            params.font_scale,
+        )
     }
 
     fn register_font(&mut self, _id: bishop::text::FontId, _ttf_data: &[u8]) -> Result<(), String> {

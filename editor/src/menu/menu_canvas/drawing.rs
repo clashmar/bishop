@@ -3,8 +3,10 @@ use crate::menu::MenuEditor;
 use crate::menu::SnapLine;
 use crate::shared::selection::draw_selection_box;
 use bishop::prelude::*;
+use engine_core::assets::{font_manager::FontManager, AssetRegistry};
 use engine_core::constants::world;
 use engine_core::menu::*;
+use engine_core::storage::ResourceSource;
 use engine_core::text::TextManager;
 use widgets::*;
 use std::collections::HashMap;
@@ -15,11 +17,22 @@ pub(crate) struct MenuCanvasFrame<'a> {
     pub(crate) canvas_size: Vec2,
     pub(crate) world_mouse: Vec2,
     pub(crate) preview: bool,
+    pub(crate) font_manager: &'a mut FontManager,
+    pub(crate) asset_registry: &'a AssetRegistry,
+    pub(crate) resource_source: Option<&'a ResourceSource>,
 }
 
 impl MenuEditor {
     /// Renders the canvas.
-    pub fn draw_canvas(&self, ctx: &mut WgpuContext, camera: &Camera2D, rect: Rect) {
+    pub fn draw_canvas(
+        &self,
+        ctx: &mut WgpuContext,
+        camera: &Camera2D,
+        rect: Rect,
+        font_manager: &mut FontManager,
+        asset_registry: &AssetRegistry,
+        resource_source: Option<&ResourceSource>,
+    ) {
         ctx.draw_rectangle(
             rect.x,
             rect.y,
@@ -97,6 +110,9 @@ impl MenuEditor {
                 canvas_size,
                 world_mouse,
                 preview: false,
+                font_manager,
+                asset_registry,
+                resource_source,
             };
 
             let editor_theme = get_theme();
@@ -166,7 +182,14 @@ impl MenuEditor {
     }
 
     /// Renders the menu fullscreen in preview mode using the runtime's element rendering.
-    pub fn draw_preview_canvas(&self, ctx: &mut WgpuContext, rect: Rect) {
+    pub fn draw_preview_canvas(
+        &self,
+        ctx: &mut WgpuContext,
+        rect: Rect,
+        font_manager: &mut FontManager,
+        asset_registry: &AssetRegistry,
+        resource_source: Option<&ResourceSource>,
+    ) {
         let Some(template) = self.current_template() else {
             return;
         };
@@ -190,6 +213,9 @@ impl MenuEditor {
             &focus,
             &mut slider_values,
             &text_manager,
+            font_manager,
+            asset_registry,
+            resource_source,
         );
 
         if self.game_theme.is_some() {
