@@ -10,6 +10,11 @@ fn dir_visible_hides_hidden_dirs() {
 }
 
 #[test]
+fn file_visible_hides_tile_registry() {
+    assert!(!PathFilter::file_visible(paths::TILE_REGISTRY_RON));
+}
+
+#[test]
 fn file_visible_hides_language_manifest() {
     assert!(!PathFilter::file_visible(paths::LANGUAGE_MANIFEST));
 }

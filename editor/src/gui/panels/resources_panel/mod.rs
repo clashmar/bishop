@@ -11,7 +11,7 @@ use crate::editor_assets::assets::{
     text_icon,
 };
 use crate::editor_global::push_command;
-use crate::gui::panels::generic_panel::PanelDefinition;
+use crate::gui::panels::generic_panel::{PanelDefinition, PanelResizeLimits};
 use crate::shared::selection::{draw_selection_box, rect_from_two_points, rects_intersect};
 use crate::Editor;
 use bishop::prelude::*;
@@ -28,6 +28,7 @@ use ::widgets::*;
 use icon_mapper::{IconMapper, IconType};
 use navigation::Navigation;
 use path_filter::PathFilter;
+use selection::should_start_empty_space_marquee;
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 
@@ -38,6 +39,8 @@ const GRID_PADDING: f32 = 12.0;
 const ICON_SIZE: f32 = 42.0;
 const LABEL_FONT_SIZE: f32 = 12.0;
 const REGISTRATION_BADGE_SIZE: f32 = 8.0;
+const RESOURCES_PANEL_MIN_WIDTH: f32 = 180.0;
+const RESOURCES_PANEL_MIN_HEIGHT: f32 = 150.0;
 
 const DRAG_ACTIVATION_THRESHOLD: f32 = 4.0;
 const GHOST_OFFSET: f32 = 10.0;
@@ -288,6 +291,13 @@ impl PanelDefinition for ResourcesPanel {
         )
     }
 
+    fn resize_limits(&self) -> Option<PanelResizeLimits> {
+        Some(PanelResizeLimits {
+            min_width: RESOURCES_PANEL_MIN_WIDTH,
+            min_height: RESOURCES_PANEL_MIN_HEIGHT,
+        })
+    }
+
     fn draw_custom_title(&mut self, ctx: &mut WgpuContext, title_bar: Rect, blocked: bool) -> bool {
         let start_x = title_bar.x + 30.0;
         let max_width = title_bar.right() - 30.0 - start_x;
@@ -351,12 +361,12 @@ impl PanelDefinition for ResourcesPanel {
 
         ctx.push_clip_rect(content_rect);
 
-        let mut clicked_empty_space = left_clicked
-            && !interaction_blocked
-            && !blocked
-            && content_rect.contains(mouse)
-            && !widgets::is_click_consumed()
-            && !self.drag_state.active;
+        let mut clicked_empty_space = should_start_empty_space_marquee(
+            left_clicked,
+            interaction_blocked,
+            content_rect.contains(mouse),
+            self.drag_state.active,
+        );
         let mut right_clicked_entry = false;
         let shift_held =
             ctx.is_key_down(KeyCode::LeftShift) || ctx.is_key_down(KeyCode::RightShift);

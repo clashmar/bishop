@@ -5,6 +5,15 @@ use bishop::prelude::*;
 use engine_core::assets::*;
 use std::path::PathBuf;
 
+pub(super) fn should_start_empty_space_marquee(
+    left_clicked: bool,
+    interaction_blocked: bool,
+    mouse_inside_content: bool,
+    drag_active: bool,
+) -> bool {
+    left_clicked && !interaction_blocked && mouse_inside_content && !drag_active
+}
+
 impl ResourcesPanel {
     /// Deselects all entries.
     pub(crate) fn clear_selection(&mut self) {

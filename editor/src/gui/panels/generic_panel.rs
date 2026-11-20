@@ -273,16 +273,6 @@ impl GenericPanel {
             content_rect.h,
             with_theme(|t| t.background),
         );
-        let border_inset = CONTENT_BORDER_WIDTH / 2.0;
-        ctx.draw_rectangle_lines(
-            content_rect.x + border_inset,
-            content_rect.y + border_inset,
-            content_rect.w - CONTENT_BORDER_WIDTH,
-            content_rect.h - CONTENT_BORDER_WIDTH,
-            CONTENT_BORDER_WIDTH,
-            with_theme(|t| t.border),
-        );
-
         let resize_handle = self.resize_limits.map(|_| {
             Rect::new(
                 panel_rect.right() - RESIZE_HANDLE_SIZE,
@@ -305,7 +295,18 @@ impl GenericPanel {
             }
         }
 
-        self.definition.draw(ctx, content_rect, editor, blocked);
+        self.definition
+            .draw(ctx, content_rect, editor, blocked || self.resizing);
+
+        let border_inset = CONTENT_BORDER_WIDTH / 2.0;
+        ctx.draw_rectangle_lines(
+            content_rect.x + border_inset,
+            content_rect.y + border_inset,
+            content_rect.w - CONTENT_BORDER_WIDTH,
+            content_rect.h - CONTENT_BORDER_WIDTH,
+            CONTENT_BORDER_WIDTH,
+            with_theme(|t| t.border),
+        );
 
         if let Some(handle) = resize_handle {
             let grip_color = with_theme(|theme| theme.border);

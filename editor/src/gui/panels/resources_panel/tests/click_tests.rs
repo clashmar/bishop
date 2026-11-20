@@ -3,6 +3,7 @@ use super::*;
 
 use super::super::context_menu::EntryKind;
 use std::collections::BTreeSet;
+use widgets::{consume_click, reset_click_consumed};
 
 #[test]
 fn single_click_directory_selects_without_navigation() {
@@ -67,6 +68,25 @@ fn double_click_parent_navigates_up_and_clears_selection() {
     assert!(opened_path.is_none());
     assert!(panel.navigation.is_at_root());
     assert!(panel.selected_indices.is_empty());
+}
+
+#[test]
+fn primary_empty_click_is_not_suppressed_by_global_click_consumption() {
+    reset_click_consumed();
+    consume_click();
+
+    assert!(super::super::selection::should_start_empty_space_marquee(
+        true, false, true, false,
+    ));
+
+    reset_click_consumed();
+}
+
+#[test]
+fn blocked_empty_click_does_not_start_marquee() {
+    assert!(!super::super::selection::should_start_empty_space_marquee(
+        true, true, true, false,
+    ));
 }
 
 #[test]

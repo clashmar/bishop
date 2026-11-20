@@ -17,6 +17,7 @@ pub const HIDDEN_FILENAMES: &[&str] = &[
     paths::LANGUAGE_MANIFEST,
     paths::ASSET_REGISTRY_RON,
     paths::ECS_RON,
+    paths::TILE_REGISTRY_RON,
 ];
 
 pub const HIDDEN_EXTENSIONS: &[&str] = &[extensions::ASEPRITE, extensions::ASE, extensions::JSON];
