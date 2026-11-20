@@ -8,7 +8,12 @@ use std::ops::{Deref, DerefMut};
 #[ecs_component]
 #[derive(Debug, Clone, Serialize, Deserialize, Default, Reflect)]
 pub struct Name(pub String);
-inspector_module!(Name, removable = false);
+inspector_module!(
+    Name,
+    removable = false,
+    title = <Name>::TYPE_NAME,
+    tooltip = "Sets the entity's human-readable name."
+);
 
 impl Deref for Name {
     type Target = String;

@@ -129,17 +129,6 @@ thread_local! {
     static WIDGET_FRAME_GENERATION: RefCell<u64> = const { RefCell::new(0) };
 }
 
-fn armed_click_slot(
-    state: &mut ArmedClickState,
-    button: MouseButton,
-) -> Option<&mut Option<ClickTargetId>> {
-    match button {
-        MouseButton::Left => Some(&mut state.left),
-        MouseButton::Right => Some(&mut state.right),
-        _ => None,
-    }
-}
-
 /// Arms a clickable control for the current mouse gesture.
 pub fn arm_click_target(button: MouseButton, target: ClickTargetId) {
     ARMED_CLICK_STATE.with(|state| {
@@ -200,21 +189,6 @@ pub fn take_deferred_click_target(target: ClickTargetId, ready: bool) -> bool {
 
 pub fn current_widget_frame_generation() -> u64 {
     WIDGET_FRAME_GENERATION.with(|generation| *generation.borrow())
-}
-
-fn advance_widget_frame_generation() {
-    WIDGET_FRAME_GENERATION.with(|generation| {
-        *generation.borrow_mut() += 1;
-    });
-}
-
-fn clear_stale_deferred_click_targets() {
-    let frame = current_widget_frame_generation();
-    DEFERRED_CLICK_TARGETS.with(|targets| {
-        targets
-            .borrow_mut()
-            .retain(|_, queued_frame| *queued_frame >= frame);
-    });
 }
 
 /// Handles the common "press arms, release activates" interaction model.
@@ -303,6 +277,7 @@ pub fn reset_click_consumed() {
 
 /// Called at the start of each frame to update widget state.
 pub fn widgets_frame_start<C: BishopContext>(_ctx: &mut C) {
+    begin_tooltip_frame();
     advance_widget_frame_generation();
     let current_gen = current_widget_frame_generation();
 
@@ -346,6 +321,33 @@ pub fn widgets_frame_end<C: BishopContext>(ctx: &mut C) {
     resolve_pending_tab();
     flush_dropdown_lists(ctx);
     flush_context_menu(ctx);
+    crate::tooltip::flush_tooltips(ctx);
+}
+
+fn armed_click_slot(
+    state: &mut ArmedClickState,
+    button: MouseButton,
+) -> Option<&mut Option<ClickTargetId>> {
+    match button {
+        MouseButton::Left => Some(&mut state.left),
+        MouseButton::Right => Some(&mut state.right),
+        _ => None,
+    }
+}
+
+fn advance_widget_frame_generation() {
+    WIDGET_FRAME_GENERATION.with(|generation| {
+        *generation.borrow_mut() += 1;
+    });
+}
+
+fn clear_stale_deferred_click_targets() {
+    let frame = current_widget_frame_generation();
+    DEFERRED_CLICK_TARGETS.with(|targets| {
+        targets
+            .borrow_mut()
+            .retain(|_, queued_frame| *queued_frame >= frame);
+    });
 }
 
 #[cfg(test)]

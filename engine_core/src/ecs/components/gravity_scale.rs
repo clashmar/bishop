@@ -14,4 +14,9 @@ impl Default for GravityScale {
     }
 }
 
-inspector_module!(GravityScale, removable = true, title = "Gravity Scale");
+inspector_module!(
+    GravityScale,
+    removable = true,
+    title = "Gravity Scale",
+    tooltip = "Scales world gravity applied to this entity."
+);

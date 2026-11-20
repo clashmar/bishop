@@ -28,7 +28,12 @@ impl Default for Sprite {
     }
 }
 
-inspector_module!(Sprite);
+inspector_module!(
+    Sprite,
+    removable = true,
+    title = <Sprite>::TYPE_NAME,
+    tooltip = "Renders a texture for the entity."
+);
 
 impl Sprite {
     /// Returns true if a texture has been assigned to this sprite.

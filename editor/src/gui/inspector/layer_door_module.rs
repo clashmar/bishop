@@ -78,6 +78,7 @@ inventory::submit! {
     ModuleFactoryEntry {
         type_name: LayerDoor::TYPE_NAME,
         title: TITLE,
+        tooltip: "Configures an interactable doorway between layers.",
         factory: || Box::new(
             CollapsibleComponentModule::new(
                 crate::gui::inspector::layer_door_module::LayerDoorModule::default()

@@ -78,6 +78,7 @@ struct ComponentEditState {
 struct AddableComponent {
     type_name: &'static str,
     label: String,
+    tooltip: &'static str,
 }
 
 impl Display for AddableComponent {
@@ -173,6 +174,7 @@ impl EntityInspector {
             result.push(AddableComponent {
                 type_name,
                 label: entry.title.to_string(),
+                tooltip: entry.tooltip,
             });
         }
         result.sort_by(|a, b| a.type_name.cmp(b.type_name));
@@ -319,6 +321,7 @@ impl InspectorContent for EntityInspector {
             &options,
             |component| component.to_string(),
         )
+        .entry_tooltip(|component| Some(component.tooltip.to_string()))
         .filterable()
         .menu_style()
         .button_text_color(panel_text_color())

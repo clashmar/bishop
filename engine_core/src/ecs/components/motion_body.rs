@@ -9,4 +9,10 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, Copy, Serialize, Deserialize, Default, Reflect)]
 pub struct MotionBody;
 
-inspector_module!(MotionBody, marker = true, removable = true, title = "Motion Body");
+inspector_module!(
+    MotionBody,
+    marker = true,
+    removable = true,
+    title = "Motion Body",
+    tooltip = "Enables fixed-step movement for the entity."
+);

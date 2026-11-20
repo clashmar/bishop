@@ -44,35 +44,6 @@ thread_local! {
         RefCell::new(HashMap::new());
 }
 
-fn get_filter(id: WidgetId) -> String {
-    DROPDOWN_FILTER_STATE.with(|s| s.borrow().get(&id).cloned().unwrap_or_default())
-}
-
-fn set_filter(id: WidgetId, filter: String) {
-    DROPDOWN_FILTER_STATE.with(|s| {
-        s.borrow_mut().insert(id, filter);
-    });
-}
-
-fn clear_filter(id: WidgetId) {
-    DROPDOWN_FILTER_STATE.with(|s| {
-        s.borrow_mut().remove(&id);
-    });
-}
-
-fn has_filter_state(id: WidgetId) -> bool {
-    DROPDOWN_FILTER_STATE.with(|s| s.borrow().contains_key(&id))
-}
-
-fn filter_input_id(id: WidgetId) -> WidgetId {
-    WidgetId(id.0.wrapping_add(FILTER_ID_OFFSET))
-}
-
-fn clear_filter_state(id: WidgetId) {
-    set_filter(id, String::new());
-    text_input_reset(filter_input_id(id));
-}
-
 pub fn close_open_dropdowns() {
     dropdown_state::STATE.with(|state| {
         DROPDOWN_FILTER_STATE.with(|filters| {
@@ -90,10 +61,6 @@ pub fn close_open_dropdowns() {
         }
     });
     update_global_dropdown_flag();
-}
-
-fn dropdown_entry_click_target(id: WidgetId, index: usize, salt: u64) -> ClickTargetId {
-    ClickTargetId(((id.0 as u64) << 32) ^ index as u64 ^ salt)
 }
 
 /// Flushes all deferred dropdown list renders.
@@ -143,10 +110,12 @@ pub struct Dropdown<'a, T> {
     list_width: Option<f32>,
     truncate_trigger: bool,
     create_new: Option<CreateNewFn<'a, T>>,
+    entry_tooltip: Option<EntryTooltipFn<'a, T>>,
     base: WidgetBase,
 }
 
 pub(crate) type CreateNewFn<'a, T> = Box<dyn Fn(&str) -> T + 'a>;
+type EntryTooltipFn<'a, T> = Box<dyn Fn(&T) -> Option<String> + 'a>;
 
 impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
     /// Creates a new dropdown with the given parameters.
@@ -174,6 +143,7 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
             list_width: None,
             truncate_trigger: false,
             create_new: None,
+            entry_tooltip: None,
             base: WidgetBase {
                 blocked: false,
                 overrides: WidgetTheme::default(),
@@ -254,6 +224,12 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
     /// Sets a callback to create a new item from filter text that doesn't match any option.
     pub fn create_new(mut self, f: impl Fn(&str) -> T + 'a) -> Self {
         self.create_new = Some(Box::new(f));
+        self
+    }
+
+    /// Resolves optional tooltip text from each option when its row is hovered.
+    pub fn entry_tooltip(mut self, f: impl Fn(&T) -> Option<String> + 'a) -> Self {
+        self.entry_tooltip = Some(Box::new(f));
         self
     }
 
@@ -438,6 +414,12 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
                         result = Some(opt.clone());
                         break;
                     }
+                    if hovered
+                        && let Some(text) = self.tooltip_for_option(opt)
+                        && let Some(visible_rect) = intersect_rect(entry_rect, list_rect)
+                    {
+                        offer_tooltip(visible_rect, &text);
+                    }
                 }
 
                 if list_rect.contains(mouse_vec)
@@ -500,14 +482,14 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
 
         let prev_filter = get_filter(self.id);
         let filter_lower = prev_filter.to_lowercase();
-        let filtered: Vec<&T> = if filter_lower.is_empty() {
-            self.options.iter().collect()
-        } else {
-            self.options
-                .iter()
-                .filter(|opt| matches_query_normalized(&(self.to_string)(opt), &filter_lower))
-                .collect()
-        };
+        let filtered: Vec<&T> = self
+            .options
+            .iter()
+            .filter(|option| {
+                filter_lower.is_empty()
+                    || matches_query_normalized(&(self.to_string)(option), &filter_lower)
+            })
+            .collect();
 
         let visible_rows = MAX_VISIBLE_ROWS.min(filtered.len());
         let row_h = self.rect.h;
@@ -603,12 +585,21 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
                 clear_filter_state(self.id);
                 dropdown_state::set(self.id, *state);
                 update_global_dropdown_flag();
-                result = Some((*opt).clone());
+                result = Some((**opt).clone());
                 break;
+            }
+            if hovered
+                && let Some(text) = self.tooltip_for_option(opt)
+                && let Some(visible_rect) = intersect_rect(entry_rect, entries_rect)
+            {
+                offer_tooltip(visible_rect, &text);
             }
         }
 
-        let labels: Vec<String> = filtered.iter().map(|o| (self.to_string)(o)).collect();
+        let labels: Vec<String> = filtered
+            .iter()
+            .map(|option| (self.to_string)(option))
+            .collect();
         DEFERRED_DROPDOWN_RENDERS.with(|renders| {
             renders.borrow_mut().push(DeferredDropdownRender {
                 list_rect: popup_rect,
@@ -631,6 +622,10 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
         result
     }
 
+    fn tooltip_for_option(&self, option: &T) -> Option<String> {
+        self.entry_tooltip.as_ref().and_then(|tooltip| tooltip(option))
+    }
+
     fn list_x(&self, list_width: f32) -> f32 {
         match self.alignment {
             DropDownAlignment::Left => self.rect.x,
@@ -639,7 +634,108 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
     }
 }
 
-/// Renders the dropdown list (called from deferred queue).
+impl<T> Widget for Dropdown<'_, T> {
+    fn widget_type() -> WidgetType {
+        WidgetType::Dropdown
+    }
+    fn base_mut(&mut self) -> &mut WidgetBase {
+        &mut self.base
+    }
+}
+
+/// Internal module for managing dropdown state.
+pub mod dropdown_state {
+    use crate::{Rect, WidgetId};
+    use std::cell::RefCell;
+    use std::collections::HashMap;
+
+    thread_local! {
+        pub static STATE: RefCell<HashMap<WidgetId, DropState>> =
+            RefCell::new(HashMap::new());
+    }
+
+    /// The state of a dropdown widget.
+    #[derive(Clone, Copy, Default)]
+    pub struct DropState {
+        pub open: bool,
+        pub rect: Rect,
+        pub scroll_offset: f32,
+    }
+
+    /// Gets the state for a dropdown by id.
+    pub fn get(key: WidgetId) -> DropState {
+        STATE.with(|s| *s.borrow().get(&key).unwrap_or(&DropState::default()))
+    }
+
+    /// Sets the state for a dropdown by id.
+    pub fn set(key: WidgetId, value: DropState) {
+        STATE.with(|s| {
+            s.borrow_mut().insert(key, value);
+        });
+    }
+}
+
+/// Updates the global flag indicating whether any dropdown is open.
+pub fn update_global_dropdown_flag() {
+    dropdown_state::STATE.with(|s| {
+        let any = s.borrow().values().any(|st| st.open);
+        DROPDOWN_OPEN.with(|f| *f.borrow_mut() = any);
+    });
+}
+
+/// Returns true if the mouse is over any open dropdown list.
+pub fn is_mouse_over_dropdown_list<C: BishopContext>(ctx: &C) -> bool {
+    dropdown_state::STATE.with(|s| {
+        let mouse_pos = ctx.mouse_position();
+        let mouse_vec = Vec2::new(mouse_pos.0, mouse_pos.1);
+        s.borrow()
+            .values()
+            .any(|st| st.open && st.rect.contains(mouse_vec))
+    })
+}
+
+fn get_filter(id: WidgetId) -> String {
+    DROPDOWN_FILTER_STATE.with(|s| s.borrow().get(&id).cloned().unwrap_or_default())
+}
+
+fn set_filter(id: WidgetId, filter: String) {
+    DROPDOWN_FILTER_STATE.with(|s| {
+        s.borrow_mut().insert(id, filter);
+    });
+}
+
+fn clear_filter(id: WidgetId) {
+    DROPDOWN_FILTER_STATE.with(|s| {
+        s.borrow_mut().remove(&id);
+    });
+}
+
+fn has_filter_state(id: WidgetId) -> bool {
+    DROPDOWN_FILTER_STATE.with(|s| s.borrow().contains_key(&id))
+}
+
+fn filter_input_id(id: WidgetId) -> WidgetId {
+    WidgetId(id.0.wrapping_add(FILTER_ID_OFFSET))
+}
+
+fn clear_filter_state(id: WidgetId) {
+    set_filter(id, String::new());
+    text_input_reset(filter_input_id(id));
+}
+
+fn dropdown_entry_click_target(id: WidgetId, index: usize, salt: u64) -> ClickTargetId {
+    ClickTargetId(((id.0 as u64) << 32) ^ index as u64 ^ salt)
+}
+
+fn intersect_rect(rect: Rect, clip: Rect) -> Option<Rect> {
+    let left = rect.x.max(clip.x);
+    let top = rect.y.max(clip.y);
+    let right = (rect.x + rect.w).min(clip.x + clip.w);
+    let bottom = (rect.y + rect.h).min(clip.y + clip.h);
+
+    (right > left && bottom > top).then(|| Rect::new(left, top, right - left, bottom - top))
+}
+
 fn render_dropdown_list<C: BishopContext>(ctx: &mut C, render: DeferredDropdownRender) {
     let DeferredDropdownRender {
         list_rect,
@@ -755,66 +851,6 @@ fn render_dropdown_list<C: BishopContext>(ctx: &mut C, render: DeferredDropdownR
         2.,
         resolve(overrides.border, colors::DEFAULT_BORDER_COLOR),
     );
-}
-
-impl<T> Widget for Dropdown<'_, T> {
-    fn widget_type() -> WidgetType {
-        WidgetType::Dropdown
-    }
-    fn base_mut(&mut self) -> &mut WidgetBase {
-        &mut self.base
-    }
-}
-
-/// Internal module for managing dropdown state.
-pub mod dropdown_state {
-    use crate::{Rect, WidgetId};
-    use std::cell::RefCell;
-    use std::collections::HashMap;
-
-    thread_local! {
-        pub static STATE: RefCell<HashMap<WidgetId, DropState>> =
-            RefCell::new(HashMap::new());
-    }
-
-    /// The state of a dropdown widget.
-    #[derive(Clone, Copy, Default)]
-    pub struct DropState {
-        pub open: bool,
-        pub rect: Rect,
-        pub scroll_offset: f32,
-    }
-
-    /// Gets the state for a dropdown by id.
-    pub fn get(key: WidgetId) -> DropState {
-        STATE.with(|s| *s.borrow().get(&key).unwrap_or(&DropState::default()))
-    }
-
-    /// Sets the state for a dropdown by id.
-    pub fn set(key: WidgetId, value: DropState) {
-        STATE.with(|s| {
-            s.borrow_mut().insert(key, value);
-        });
-    }
-}
-
-/// Updates the global flag indicating whether any dropdown is open.
-pub fn update_global_dropdown_flag() {
-    dropdown_state::STATE.with(|s| {
-        let any = s.borrow().values().any(|st| st.open);
-        DROPDOWN_OPEN.with(|f| *f.borrow_mut() = any);
-    });
-}
-
-/// Returns true if the mouse is over any open dropdown list.
-pub fn is_mouse_over_dropdown_list<C: BishopContext>(ctx: &C) -> bool {
-    dropdown_state::STATE.with(|s| {
-        let mouse_pos = ctx.mouse_position();
-        let mouse_vec = Vec2::new(mouse_pos.0, mouse_pos.1);
-        s.borrow()
-            .values()
-            .any(|st| st.open && st.rect.contains(mouse_vec))
-    })
 }
 
 #[cfg(test)]

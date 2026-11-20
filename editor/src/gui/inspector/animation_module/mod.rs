@@ -426,6 +426,7 @@ inventory::submit! {
     ModuleFactoryEntry {
         type_name: <Animation>::TYPE_NAME,
         title: <Animation>::TYPE_NAME,
+        tooltip: "Defines animation clips and playback settings for this entity.",
         factory: || {
             Box::new(
                 CollapsibleComponentModule::new(

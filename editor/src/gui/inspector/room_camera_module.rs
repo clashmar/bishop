@@ -309,6 +309,7 @@ inventory::submit! {
     ModuleFactoryEntry {
         type_name: RoomCamera::TYPE_NAME,
         title: ROOM_CAMERA_MODULE_TITLE,
+        tooltip: "Controls how the room camera frames this entity.",
         factory: || {
             Box::new(
                 CollapsibleComponentModule::new(

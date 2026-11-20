@@ -34,7 +34,12 @@ impl Default for Transform {
         }
     }
 }
-inspector_module!(Transform, removable = false);
+inspector_module!(
+    Transform,
+    removable = false,
+    title = <Transform>::TYPE_NAME,
+    tooltip = "Controls the entity's position, visibility, pivot, and draw order."
+);
 
 /// Pivot point for sprite rendering. Defines which point on the sprite
 /// aligns with the entity's Transform position.

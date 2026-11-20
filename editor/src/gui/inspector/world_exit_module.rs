@@ -282,6 +282,7 @@ inventory::submit! {
     ModuleFactoryEntry {
         type_name: WorldExit::TYPE_NAME,
         title: TITLE,
+        tooltip: "Configures a trigger that transitions to another world.",
         factory: || Box::new(
             CollapsibleComponentModule::new(
                 crate::gui::inspector::world_exit_module::WorldExitModule::default()

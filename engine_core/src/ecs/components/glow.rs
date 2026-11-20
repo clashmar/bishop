@@ -21,7 +21,12 @@ pub struct Glow {
     pub sprite_id: SpriteId,
 }
 
-inspector_module!(Glow);
+inspector_module!(
+    Glow,
+    removable = true,
+    title = <Glow>::TYPE_NAME,
+    tooltip = "Adds a colored glow effect to the entity."
+);
 
 impl Default for Glow {
     fn default() -> Self {

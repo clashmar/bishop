@@ -6,8 +6,7 @@ use bishop::prelude::*;
 use engine_core::ecs::inspector::layout::InspectorBodyLayout;
 use engine_core::game::GameCtxMut;
 use engine_core::worlds::world::World;
-use ::widgets::constants::{colors, layout};
-use ::widgets::Checkbox;
+use ::widgets::{constants::{colors, layout}, Checkbox, Label};
 
 const ROW_H: f32 = 30.0;
 const LABEL_Y_OFFSET: f32 = 20.0;
@@ -38,26 +37,25 @@ impl PropertyModule<World> for WorldSettingsModule {
         _insp_ctx: &InspectorContext,
     ) {
         let world_id = world.id;
-        let y = rect.y;
+        let row_y = rect.y + layout::WIDGET_SPACING;
 
         let mut overlay = world.overlay;
         let cb_rect = Rect::new(
             rect.x + layout::WIDGET_PADDING,
-            y + (ROW_H - layout::DEFAULT_CHECKBOX_DIMS) / 2.0,
+            row_y + (ROW_H - layout::DEFAULT_CHECKBOX_DIMS) / 2.0,
             layout::DEFAULT_CHECKBOX_DIMS,
             layout::DEFAULT_CHECKBOX_DIMS,
         );
         if Checkbox::new(cb_rect, &mut overlay).show(ctx) {
             push_command(Box::new(EditWorldCmd::new(world_id, None, None).with_overlay(overlay)));
         }
-        ctx.draw_text(
-            "Overlay",
-            rect.x + layout::WIDGET_PADDING + layout::DEFAULT_CHECKBOX_DIMS + CHECKBOX_LABEL_GAP,
-            y + LABEL_Y_OFFSET,
-            layout::FIELD_TEXT_SIZE_16,
-            colors::DEFAULT_TEXT_COLOR,
-        );
-
+        let label_x =
+            rect.x + layout::WIDGET_PADDING + layout::DEFAULT_CHECKBOX_DIMS + CHECKBOX_LABEL_GAP;
+        Label::at("Overlay", label_x, row_y + LABEL_Y_OFFSET)
+            .font_size(layout::FIELD_TEXT_SIZE_16)
+            .text_color(colors::DEFAULT_TEXT_COLOR)
+            .tooltip("Shows this world as an overlay.")
+            .show(ctx);
     }
 
     fn body_layout(&self) -> InspectorBodyLayout {

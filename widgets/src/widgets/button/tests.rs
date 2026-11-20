@@ -299,6 +299,40 @@ fn deferred_button_activation_does_not_leak_between_targets() {
     widgets_frame_end(&mut idle_ctx);
 }
 
+#[test]
+fn button_tooltip_shows_after_hover_delay() {
+    let rect = Rect::new(10.0, 10.0, 100.0, 30.0);
+    let tooltip = "Button tooltip";
+    let mut ctx = WidgetTestContext::new();
+    ctx.mouse_pos = (20.0, 20.0);
+
+    widgets_frame_start(&mut ctx);
+    Button::new(rect, "Button").tooltip(tooltip).show(&mut ctx);
+    widgets_frame_end(&mut ctx);
+    assert!(!ctx.draw_text_calls.iter().any(|call| call.text == tooltip));
+
+    ctx.set_time(0.5);
+    widgets_frame_start(&mut ctx);
+    Button::new(rect, "Button").tooltip(tooltip).show(&mut ctx);
+    widgets_frame_end(&mut ctx);
+    assert!(ctx.draw_text_calls.iter().any(|call| call.text == tooltip));
+}
+
+#[test]
+fn button_tooltip_does_not_show_when_pointer_is_outside() {
+    let rect = Rect::new(10.0, 10.0, 100.0, 30.0);
+    let tooltip = "Button tooltip";
+    let mut ctx = WidgetTestContext::new();
+    ctx.mouse_pos = (200.0, 200.0);
+    ctx.set_time(1.0);
+
+    widgets_frame_start(&mut ctx);
+    Button::new(rect, "Button").tooltip(tooltip).show(&mut ctx);
+    widgets_frame_end(&mut ctx);
+
+    assert!(!ctx.draw_text_calls.iter().any(|call| call.text == tooltip));
+}
+
 #[cfg(test)]
 mod theme_tests {
     use super::*;

@@ -4,6 +4,7 @@ mod focus;
 mod helpers;
 pub mod state;
 mod tab_registry;
+pub mod tooltip;
 #[cfg(feature = "test-utils")]
 pub mod test_utils;
 pub mod theme;
@@ -16,6 +17,7 @@ pub use helpers::*;
 pub use state::*;
 pub use tab_registry::*;
 pub use theme::*;
+pub use tooltip::*;
 pub use widget_id::*;
 pub use widgets::*;
 
