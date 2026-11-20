@@ -84,6 +84,7 @@ impl FontAtlas {
         let font = fontdue::Font::from_bytes(ttf_data, fontdue::FontSettings::default())
             .map_err(|_| "Failed to parse font")?;
         self.fonts.insert(Some(id), font);
+        self.cache.retain(|key, _| key.font != Some(id));
         Ok(())
     }
 
@@ -492,7 +493,21 @@ impl TextRenderer {
         font_size: f32,
         color: Color,
     ) -> TextDimensions {
-        self.draw_text_with_font(text, x, y, font_size, color, None)
+        self.draw_text_scaled(text, x, y, font_size, color, None, 1.0)
+    }
+
+    /// Draws text using glyphs rasterized at the requested output scale.
+    pub fn draw_text_scaled(
+        &mut self,
+        text: &str,
+        x: f32,
+        y: f32,
+        font_size: f32,
+        color: Color,
+        font_id: Option<FontId>,
+        raster_scale: f32,
+    ) -> TextDimensions {
+        self.draw_text_with_font(text, x, y, font_size, color, font_id, raster_scale)
     }
 
     fn draw_text_with_font(
@@ -503,24 +518,26 @@ impl TextRenderer {
         font_size: f32,
         color: Color,
         font_id: Option<FontId>,
+        raster_scale: f32,
     ) -> TextDimensions {
+        let raster_scale = raster_scale.max(0.01);
         let c: [f32; 4] = color.into();
         let mut cursor_x = x;
         let baseline_y = y;
 
         for ch in text.chars() {
-            if let Some(info) = self.font_atlas.get_glyph(ch, font_size, font_id) {
+            if let Some(info) = self.font_atlas.get_glyph(ch, font_size * raster_scale, font_id) {
                 if info.width > 0 && info.height > 0 {
-                    let gx = cursor_x + info.offset_x;
-                    let gy = baseline_y - info.height as f32 - info.offset_y;
+                    let gx = cursor_x + info.offset_x / raster_scale;
+                    let gy = baseline_y - info.height as f32 / raster_scale - info.offset_y / raster_scale;
 
                     let u0 = info.x as f32 / ATLAS_SIZE as f32;
                     let v0 = info.y as f32 / ATLAS_SIZE as f32;
                     let u1 = (info.x + info.width) as f32 / ATLAS_SIZE as f32;
                     let v1 = (info.y + info.height) as f32 / ATLAS_SIZE as f32;
 
-                    let gw = info.width as f32;
-                    let gh = info.height as f32;
+                    let gw = info.width as f32 / raster_scale;
+                    let gh = info.height as f32 / raster_scale;
 
                     let v0_vert = TexturedVertex::new([gx, gy], [u0, v0], c);
                     let v1_vert = TexturedVertex::new([gx + gw, gy], [u1, v0], c);
@@ -531,7 +548,7 @@ impl TextRenderer {
                         .extend_from_slice(&[v0_vert, v1_vert, v2_vert, v0_vert, v2_vert, v3_vert]);
                 }
 
-                cursor_x += info.advance_width;
+                cursor_x += info.advance_width / raster_scale;
             }
         }
 
@@ -550,8 +567,23 @@ impl TextRenderer {
 
     /// Measures text without drawing it.
     #[allow(dead_code)]
-    pub fn measure_text(&mut self, text: &str, font_size: f32) -> TextDimensions {
+    pub fn measure_text(&self, text: &str, font_size: f32) -> TextDimensions {
         self.font_atlas.measure_text(text, font_size)
+    }
+
+    /// Measures text with the requested game font, falling back to the default.
+    pub fn measure_text_with_font(
+        &self,
+        text: &str,
+        font_size: f32,
+        font_id: Option<FontId>,
+    ) -> TextDimensions {
+        self.font_atlas.measure_text_with_font(text, font_size, font_id)
+    }
+
+    /// Registers font bytes for subsequent text draws.
+    pub fn register_font(&mut self, id: FontId, ttf_data: &[u8]) -> Result<(), &'static str> {
+        self.font_atlas.register_font(id, ttf_data)
     }
 
     /// Draws text with extended parameters including rotation support.
@@ -562,9 +594,22 @@ impl TextRenderer {
         y: f32,
         params: &crate::text::TextParams,
     ) -> TextDimensions {
+        self.draw_text_ex_scaled(text, x, y, params, 1.0)
+    }
+
+    /// Draws text using glyphs rasterized at the requested output scale.
+    pub fn draw_text_ex_scaled(
+        &mut self,
+        text: &str,
+        x: f32,
+        y: f32,
+        params: &crate::text::TextParams,
+        raster_scale: f32,
+    ) -> TextDimensions {
+        let raster_scale = raster_scale.max(0.01);
         let effective_font_size = params.font_size as f32 * params.font_scale;
 
-        if params.rotation == 0.0 {
+        if params.rotation == 0.0 && params.font_scale_aspect == 1.0 {
             return self.draw_text_with_font(
                 text,
                 x,
@@ -572,16 +617,17 @@ impl TextRenderer {
                 effective_font_size,
                 params.color,
                 params.font,
+                raster_scale,
             );
         }
 
         let c: [f32; 4] = params.color.into();
-        let font_scale_x = params.font_scale * params.font_scale_aspect;
-        let font_scale_y = params.font_scale;
+        let font_scale_x = params.font_scale_aspect;
+        let font_scale_y = 1.0;
 
         let dims = self.font_atlas.measure_text_with_font(
             text,
-            params.font_size as f32,
+            effective_font_size,
             params.font,
         );
         let scaled_width = dims.width * font_scale_x;
@@ -600,15 +646,20 @@ impl TextRenderer {
         let mut cursor_x = 0.0f32;
 
         for ch in text.chars() {
-            if let Some(info) = self.font_atlas.get_glyph(ch, params.font_size as f32, params.font) {
+            if let Some(info) = self.font_atlas.get_glyph(
+                ch,
+                effective_font_size * raster_scale,
+                params.font,
+            ) {
                 if info.width > 0 && info.height > 0 {
-                    let local_x = cursor_x * font_scale_x + info.offset_x * font_scale_x;
+                    let local_x = cursor_x * font_scale_x
+                        + info.offset_x / raster_scale * font_scale_x;
                     let local_y = dims.offset_y * font_scale_y
-                        - info.height as f32 * font_scale_y
-                        - info.offset_y * font_scale_y;
+                        - info.height as f32 / raster_scale * font_scale_y
+                        - info.offset_y / raster_scale * font_scale_y;
 
-                    let gw = info.width as f32 * font_scale_x;
-                    let gh = info.height as f32 * font_scale_y;
+                    let gw = info.width as f32 / raster_scale * font_scale_x;
+                    let gh = info.height as f32 / raster_scale * font_scale_y;
 
                     let u0 = info.x as f32 / ATLAS_SIZE as f32;
                     let v0 = info.y as f32 / ATLAS_SIZE as f32;
@@ -641,7 +692,7 @@ impl TextRenderer {
                         .extend_from_slice(&[v0_vert, v1_vert, v2_vert, v0_vert, v2_vert, v3_vert]);
                 }
 
-                cursor_x += info.advance_width;
+                cursor_x += info.advance_width / raster_scale;
             }
         }
 
@@ -686,7 +737,8 @@ impl TextRenderer {
 
 #[cfg(test)]
 mod tests {
-    use super::FontAtlas;
+    use super::{FontAtlas, GNF_FONT_DATA};
+    use crate::text::FontId;
 
     #[test]
     fn glyph_cache_separates_fractional_raster_sizes() {
@@ -696,5 +748,36 @@ mod tests {
         atlas.get_glyph('A', 20.9, None);
 
         assert_eq!(atlas.cache.len(), 2);
+    }
+
+    #[test]
+    fn selected_font_uses_separate_glyph_cache_entries_and_metrics() {
+        let mut atlas = FontAtlas::with_default_font().expect("embedded font should parse");
+        let font_id = FontId(23);
+        atlas
+            .register_font(font_id, GNF_FONT_DATA)
+            .expect("embedded font should register");
+
+        let default = atlas.measure_text_with_font("Bishop", 18.0, None);
+        let selected = atlas.measure_text_with_font("Bishop", 18.0, Some(font_id));
+        atlas.get_glyph('B', 18.0, None);
+        atlas.get_glyph('B', 18.0, Some(font_id));
+
+        assert_eq!(selected.width, default.width);
+        assert_eq!(selected.height, default.height);
+        assert_eq!(selected.offset_y, default.offset_y);
+        assert_eq!(atlas.cache.len(), 2);
+    }
+
+    #[test]
+    fn missing_or_invalid_fonts_fall_back_or_return_parse_errors() {
+        let mut atlas = FontAtlas::with_default_font().expect("embedded font should parse");
+        let default = atlas.measure_text("Bishop", 18.0);
+        let missing = atlas.measure_text_with_font("Bishop", 18.0, Some(FontId(999)));
+
+        assert_eq!(missing.width, default.width);
+        assert_eq!(missing.height, default.height);
+        assert_eq!(missing.offset_y, default.offset_y);
+        assert!(atlas.register_font(FontId(999), b"not a font").is_err());
     }
 }

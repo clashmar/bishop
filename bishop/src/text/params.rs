@@ -8,13 +8,11 @@ use crate::types::Color;
 pub struct TextParams {
     /// Registered game font to use; `None` selects Bishop's embedded default font.
     pub font: Option<FontId>,
-    /// Base size for character height. The size in pixel used during font rasterizing.
+    /// Base character height in logical pixels.
     pub font_size: u16,
-    /// The glyphs sizes actually drawn on the screen will be font_size * font_scale
-    /// However with font_scale too different from 1.0 letters may be blurry
+    /// Scales the requested logical font size before drawing and rasterization.
     pub font_scale: f32,
-    /// Font X axis would be scaled by font_scale * font_scale_aspect
-    /// and Y axis would be scaled by font_scale
+    /// Additional horizontal scale applied after rasterization
     /// Default is 1.0
     pub font_scale_aspect: f32,
     /// Text rotation in radians
@@ -36,6 +34,10 @@ impl Default for TextParams {
     }
 }
 
+pub(crate) fn raster_scale_for_view(display_scale: f32, zoom_x: f32, zoom_y: f32) -> f32 {
+    (display_scale.max(0.01) * zoom_x.abs().max(zoom_y.abs()).max(0.01)).max(0.01)
+}
+
 /// The canonical set of font sizes used for atlas-efficient text rendering.
 pub const FONT_SIZES: &[f32] = &[
     10.0, 12.0, 14.0, 16.0, 18.0, 20.0, 24.0, 28.0, 32.0, 36.0, 48.0, 64.0, 96.0, 128.0,
@@ -49,4 +51,14 @@ pub fn snap_font_size(raw: f32) -> f32 {
         .copied()
         .min_by(|a, b| (a - raw).abs().partial_cmp(&(b - raw).abs()).unwrap_or(std::cmp::Ordering::Equal))
         .unwrap_or(raw)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::raster_scale_for_view;
+
+    #[test]
+    fn raster_scale_includes_display_scale_and_max_camera_zoom() {
+        assert_eq!(raster_scale_for_view(2.0, 1.5, 2.0), 4.0);
+    }
 }

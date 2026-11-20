@@ -263,6 +263,10 @@ impl Text for WidgetTestContext {
             offset_y: 0.0,
         }
     }
+
+    fn register_font(&mut self, _id: bishop::text::FontId, _ttf_data: &[u8]) -> Result<(), String> {
+        Err("WidgetTestContext does not rasterize fonts".to_owned())
+    }
 }
 
 impl Camera for WidgetTestContext {

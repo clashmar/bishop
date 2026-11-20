@@ -10,6 +10,7 @@ mod params;
 
 pub use dimensions::*;
 pub use params::*;
+pub(crate) use params::raster_scale_for_view;
 
 use crate::types::Color;
 use serde::{Deserialize, Serialize};
@@ -37,6 +38,17 @@ pub trait Text {
 
     /// Measures text without drawing it.
     fn measure_text(&self, text: &str, font_size: f32) -> TextDimensions;
+
+    /// Measures text with the same selected font and scale parameters as `draw_text_ex`.
+    fn measure_text_ex(&self, text: &str, params: &TextParams) -> TextDimensions {
+        self.measure_text(text, params.font_size as f32).scaled(
+            params.font_scale * params.font_scale_aspect,
+            params.font_scale,
+        )
+    }
+
+    /// Registers font bytes for use by `TextParams.font`.
+    fn register_font(&mut self, id: FontId, ttf_data: &[u8]) -> Result<(), String>;
 
     /// Draws word-wrapped text within `max_width`, returning the total height used.
     fn draw_text_wrapped(
