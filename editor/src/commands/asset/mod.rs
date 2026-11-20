@@ -1,4 +1,6 @@
 mod batch_delete_cmd;
+mod import_asset_cmd;
+mod register_asset_cmd;
 mod batch_move_cmd;
 mod create_directory_cmd;
 mod delete_asset_cmd;
@@ -10,6 +12,8 @@ mod rename_asset_cmd;
 mod rename_directory_cmd;
 
 pub use batch_delete_cmd::*;
+pub use import_asset_cmd::*;
+pub use register_asset_cmd::*;
 pub use batch_move_cmd::*;
 pub use create_directory_cmd::*;
 pub use delete_asset_cmd::*;

@@ -30,6 +30,18 @@ fn file_icon_no_extension_gets_file() {
 }
 
 #[test]
+fn file_icon_maps_font_extensions_to_generic_file_icon() {
+    assert_eq!(
+        IconMapper::file_icon(&format!("display.{}", extensions::TTF)),
+        IconType::File
+    );
+    assert_eq!(
+        IconMapper::file_icon(&format!("display.{}", extensions::OTF)),
+        IconType::File
+    );
+}
+
+#[test]
 fn file_icon_maps_prefab_extension_to_prefab() {
     let filename = format!("test_file.{}", extensions::PREFAB);
 

@@ -12,6 +12,13 @@ pub use dimensions::*;
 pub use params::*;
 
 use crate::types::Color;
+use serde::{Deserialize, Serialize};
+
+/// Stable identity for a registered game font.
+#[derive(
+    Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Ord, PartialOrd, Serialize, Deserialize,
+)]
+pub struct FontId(pub usize);
 
 /// Text rendering and measurement operations.
 pub trait Text {

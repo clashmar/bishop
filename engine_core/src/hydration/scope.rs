@@ -38,7 +38,7 @@ impl ResourceClass {
             AssetKey::Script(_) => Some(Self::Script),
             AssetKey::Sound(_) => Some(Self::Audio),
             AssetKey::Prefab(_) => Some(Self::Prefab),
-            AssetKey::Toml(_) => None,
+            AssetKey::Toml(_) | AssetKey::Font(_) => None,
         }
     }
 

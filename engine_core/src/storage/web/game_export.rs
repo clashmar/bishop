@@ -8,7 +8,7 @@ use std::collections::BTreeMap;
 use std::fs;
 use std::path::Path;
 
-const RESOURCE_DIRS: [&str; 9] = [
+const RESOURCE_DIRS: [&str; 10] = [
     paths::WORLDS_FOLDER,
     paths::PAYLOADS_FOLDER,
     paths::ASSETS_FOLDER,
@@ -18,6 +18,7 @@ const RESOURCE_DIRS: [&str; 9] = [
     paths::PREFABS_FOLDER,
     paths::THEMES_FOLDER,
     paths::AUDIO_FOLDER,
+    paths::FONTS_FOLDER,
 ];
 const ROOT_FILES: [&str; 4] = [
     paths::GAME_RON,

@@ -1,4 +1,6 @@
 mod batch_delete_cmd_tests;
+mod import_asset_tests;
+mod register_asset_tests;
 mod batch_move_cmd_tests;
 mod create_directory_cmd_tests;
 mod delete_asset_cmd_tests;

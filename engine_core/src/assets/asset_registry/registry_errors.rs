@@ -75,14 +75,19 @@ pub(super) fn clean_relative_path(kind: AssetKind, folder: &Path, path: &Path) -
 
 pub(super) fn wrong_extension(
     kind: AssetKind,
-    extension: &str,
+    extensions: &[&str],
     folder: &Path,
     path: &Path,
 ) -> Error {
+    let extensions = extensions
+        .iter()
+        .map(|extension| format!("'.{extension}'"))
+        .collect::<Vec<_>>()
+        .join(" or ");
     Error::new(
         ErrorKind::InvalidInput,
         format!(
-            "{kind:?} paths must point to '.{extension}' files under '{}': '{}'",
+            "{kind:?} paths must point to {extensions} files under '{}': '{}'",
             folder.display(),
             path.display()
         ),

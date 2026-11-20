@@ -61,6 +61,11 @@ pub fn text_folder() -> PathBuf {
     resources_folder_current().join(paths::TEXT_FOLDER)
 }
 
+/// Path to the fonts folder inside the resources folder (Editor/Game).
+pub fn fonts_folder() -> PathBuf {
+    resources_folder_current().join(paths::FONTS_FOLDER)
+}
+
 /// Returns the path to the menus folder for the current game.
 pub fn menus_folder() -> PathBuf {
     resources_folder_current().join(paths::MENUS_FOLDER)

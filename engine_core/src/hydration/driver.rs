@@ -74,7 +74,7 @@ impl<'a> HydrationDriver<'a> {
                 self.audio_manager.claim_sound(&sound_id);
                 Ok(())
             }
-            AssetKey::Prefab(_) | AssetKey::Toml(_) => Ok(()),
+            AssetKey::Prefab(_) | AssetKey::Toml(_) | AssetKey::Font(_) => Ok(()),
         }
     }
 
@@ -119,7 +119,7 @@ impl<'a> HydrationDriver<'a> {
                 self.audio_manager.claim_sound(&sound_id);
                 Ok(())
             }
-            AssetKey::Prefab(_) | AssetKey::Toml(_) => Ok(()),
+            AssetKey::Prefab(_) | AssetKey::Toml(_) | AssetKey::Font(_) => Ok(()),
         }
     }
 
@@ -147,7 +147,7 @@ impl<'a> HydrationDriver<'a> {
                     self.audio_manager.release_claimed_sound(&sound_id);
                 }
             }
-            AssetKey::Prefab(_) | AssetKey::Toml(_) => {}
+            AssetKey::Prefab(_) | AssetKey::Toml(_) | AssetKey::Font(_) => {}
         }
     }
 

@@ -16,9 +16,9 @@ use crate::shared::selection::{draw_selection_box, rect_from_two_points, rects_i
 use crate::Editor;
 use bishop::prelude::*;
 use context_menu::{
-    draw_context_menu, handle_pending_action, open_resource, pending_action_for,
-    pending_action_for_background, ActiveMenu, EntryKind, PendingResourceAction,
-    ResourceMenuAction, ResourceOpenResult,
+    context_target_for_entry, draw_context_menu, handle_pending_action, open_resource,
+    pending_action_for, pending_action_for_background, ActiveMenu, EntryKind,
+    PendingResourceAction, ResourceMenuAction, ResourceOpenResult,
 };
 use engine_core::constants::world;
 use engine_core::assets::*;
@@ -92,8 +92,10 @@ impl Entry {
     }
 
     #[cfg(test)]
-    fn context_menu_actions(&self) -> &'static [ResourceMenuAction] {
-        context_menu::context_menu_actions_for(self.kind)
+    fn context_menu_actions(&self) -> Vec<ResourceMenuAction> {
+        context_target_for_entry(0, self, Vec2::new(0.0, 0.0))
+            .map(|target| target.actions)
+            .unwrap_or_default()
     }
 }
 
@@ -700,7 +702,16 @@ impl PanelDefinition for ResourcesPanel {
         }
 
         if let Some(ref menu) = self.active_menu {
-            if let Some(selected) = draw_context_menu(self.context_menu_id, menu, ctx, blocked) {
+            let current_dir = self.navigation.current();
+            let resources_root = resources_folder_current();
+            if let Some(selected) = draw_context_menu(
+                self.context_menu_id,
+                menu,
+                &current_dir,
+                &resources_root,
+                ctx,
+                blocked,
+            ) {
                 match menu {
                     ActiveMenu::Entry(ref target) => {
                         if let Some(entry) = self.entries.get(target.entry_index) {
@@ -716,7 +727,11 @@ impl PanelDefinition for ResourcesPanel {
                     }
                     ActiveMenu::Background(_) => {
                         let current_dir = self.navigation.current();
-                        self.pending_action = Some(pending_action_for_background(&current_dir));
+                        self.pending_action = pending_action_for_background(
+                            &current_dir,
+                            &resources_folder_current(),
+                            selected,
+                        );
                     }
                 }
                 self.active_menu = None;

@@ -9,11 +9,12 @@ use engine_core::storage::*;
 use std::fs;
 
 pub fn create_game_folders(name: &str) {
-    let folders: [(std::path::PathBuf, &str); 9] = [
+    let folders: [(std::path::PathBuf, &str); 10] = [
         (resources_folder_current(), paths::RESOURCES_FOLDER),
         (assets_folder(), paths::ASSETS_FOLDER),
         (scripts_folder(), paths::SCRIPTS_FOLDER),
         (text_folder(), paths::TEXT_FOLDER),
+        (fonts_folder(), paths::FONTS_FOLDER),
         (prefabs_folder(), paths::PREFABS_FOLDER),
         (themes_folder(), paths::THEMES_FOLDER),
         (windows_folder(), paths::WINDOWS_FOLDER),
