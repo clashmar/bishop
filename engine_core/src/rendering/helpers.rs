@@ -287,5 +287,5 @@ fn projected_exit_cell_rect(
 }
 
 #[cfg(test)]
-#[path = "helpers_tests.rs"]
+#[path = "tests/helpers_tests.rs"]
 mod helpers_tests;

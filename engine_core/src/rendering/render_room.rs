@@ -325,5 +325,5 @@ fn collect_interpolated_room_layer_maps<'a>(
 // ) -> Vec<(Vec2, Light)> { ... }
 
 #[cfg(test)]
-#[path = "render_room_tests.rs"]
+#[path = "tests/render_room_tests.rs"]
 mod render_room_tests;
