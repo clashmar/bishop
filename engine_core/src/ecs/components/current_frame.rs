@@ -28,7 +28,7 @@ pub struct CurrentFrame {
 
 /// Serializable snapshot form of `CurrentFrame` runtime data.
 #[serde_as]
-#[derive(Clone, Deserialize, Serialize)]
+#[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
 pub struct CurrentFrameSnapshot {
     pub clip_id: ClipId,
     pub col: usize,

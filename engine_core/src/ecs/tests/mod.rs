@@ -21,3 +21,4 @@ fn lifecycle_on_remove(comp: &mut LifecycleMarker, _entity: &Entity, _ecs: &mut 
 }
 
 mod ecs_tests;
+mod particle_emitter_tests;
