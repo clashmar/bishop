@@ -1,12 +1,23 @@
 use super::*;
 use crate::rendering::test_support::make_vertical_spillover_fixture;
-use crate::rendering::{RoomCompositionContext, RoomRenderState};
+use crate::rendering::{RoomCompositionContext, RoomRenderState, RoomVisibilityContext};
 use crate::worlds::room::RoomVariant;
 use crate::worlds::test_utils::make_room;
 use crate::worlds::{
     BackRoomLayer, Exit, ExitDirection, InteriorZone, InteriorZoneBounds, InteriorZoneId,
-    InteriorZoneScope, LayerCompositionMode, RoomLayer, RoomLayers, WorldId,
+    InteriorZoneScope, LayerCompositionMode, RoomLayer, RoomLayers, World, WorldId,
 };
+
+fn room_visibility_context<'a>(world: &'a World, room_id: RoomId) -> RoomVisibilityContext<'a> {
+    let Some(room) = world.get_room(room_id) else {
+        panic!("test fixture is missing room {room_id:?}");
+    };
+    RoomVisibilityContext {
+        world,
+        room,
+        grid_size: 16.0,
+    }
+}
 
 fn render_state(current_layer: RoomLayer) -> RoomRenderState {
     RoomRenderState {
@@ -106,20 +117,22 @@ fn collect_interpolated_room_layer_maps_same_z_orders_lower_entity_id_first() {
 
     let layer_maps = collect_interpolated_room_layer_maps(
         &ecs,
-        &world,
-        world.get_room(room_id).unwrap(),
+        &room_visibility_context(&world, room_id),
         &SpriteManager::default(),
         1.0,
         None,
-        16.0,
+        None,
     );
     let entities = layer_maps
         .for_layer(RoomLayer::Front)
         .get(&3)
         .unwrap()
-        .entities
+        .items
         .iter()
-        .map(|(entity, _)| *entity)
+        .filter_map(|item| match item {
+            LayerDrawItem::Entity { entity, .. } => Some(*entity),
+            LayerDrawItem::Particle { .. } => None,
+        })
         .collect::<Vec<_>>();
 
     assert_eq!(entities, vec![lower, higher]);
@@ -551,19 +564,18 @@ fn collect_interpolated_room_layer_maps_front_skips_entities_outside_the_room_in
 
     let layer_maps = collect_interpolated_room_layer_maps(
         &ecs,
-        &world,
-        world.get_room(room_id).unwrap(),
+        &room_visibility_context(&world, room_id),
         &SpriteManager::default(),
         1.0,
         None,
-        16.0,
+        None,
     );
     let layers = layer_maps.for_layer(RoomLayer::Front);
 
     assert!(layers
         .values()
-        .flat_map(|layer| layer.entities.iter())
-        .any(|(entity, _)| *entity == visible));
+        .flat_map(|layer| &layer.items)
+        .any(|item| matches!(item, LayerDrawItem::Entity { entity, .. } if *entity == visible)));
 }
 
 #[test]
@@ -572,16 +584,15 @@ fn cross_room_visibility_collect_interpolated_room_layer_maps_front_excludes_oth
 
     let layer_maps = collect_interpolated_room_layer_maps(
         &ecs,
-        &world,
-        world.get_room(room_id).unwrap(),
+        &room_visibility_context(&world, room_id),
         &SpriteManager::default(),
         1.0,
         None,
-        16.0,
+        None,
     );
     let layers = layer_maps.for_layer(RoomLayer::Front);
 
-    assert!(!layers.values().flat_map(|layer| layer.entities.iter()).any(|(id, _)| *id == entity));
+    assert!(!layers.values().flat_map(|layer| &layer.items).any(|item| matches!(item, LayerDrawItem::Entity { entity: id, .. } if *id == entity)));
 }
 
 #[test]
@@ -598,16 +609,15 @@ fn cross_room_visibility_collect_interpolated_room_layer_maps_front_includes_oth
 
     let layer_maps = collect_interpolated_room_layer_maps(
         &ecs,
-        &world,
-        world.get_room(room_id).unwrap(),
+        &room_visibility_context(&world, room_id),
         &SpriteManager::default(),
         1.0,
         None,
-        16.0,
+        None,
     );
     let layers = layer_maps.for_layer(RoomLayer::Front);
 
-    assert!(layers.values().flat_map(|layer| layer.entities.iter()).any(|(id, _)| *id == entity));
+    assert!(layers.values().flat_map(|layer| &layer.items).any(|item| matches!(item, LayerDrawItem::Entity { entity: id, .. } if *id == entity)));
 }
 
 #[test]
@@ -616,14 +626,13 @@ fn cross_room_visibility_collect_interpolated_room_layer_maps_front_excludes_oth
 
     let layer_maps = collect_interpolated_room_layer_maps(
         &ecs,
-        &world,
-        world.get_room(room_id).unwrap(),
+        &room_visibility_context(&world, room_id),
         &SpriteManager::default(),
         1.0,
         None,
-        16.0,
+        None,
     );
     let layers = layer_maps.for_layer(RoomLayer::Front);
 
-    assert!(!layers.values().flat_map(|layer| layer.entities.iter()).any(|(id, _)| *id == entity));
+    assert!(!layers.values().flat_map(|layer| &layer.items).any(|item| matches!(item, LayerDrawItem::Entity { entity: id, .. } if *id == entity)));
 }

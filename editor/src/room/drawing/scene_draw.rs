@@ -80,6 +80,7 @@ impl RoomEditor {
             },
             0.0,
             None,
+            None,
         );
 
         if view_preview {

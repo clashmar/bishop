@@ -2,6 +2,7 @@ pub mod collider_draw;
 pub mod helpers;
 pub mod render_room;
 pub mod particles;
+mod particle_draw;
 pub mod room_composition;
 pub mod render_system;
 pub mod render_system_wgpu;

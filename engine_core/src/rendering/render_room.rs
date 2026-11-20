@@ -3,17 +3,38 @@ use crate::assets::*;
 use crate::ecs::components::transform::Pivot;
 use crate::ecs::*;
 use crate::game::*;
-use crate::rendering::*;
+use crate::rendering::helpers::{
+    entity_visible_in_room, entity_visual_rect, interpolate_position, pivot_adjusted_position,
+    resolve_visual_entity, spillover_candidate_room_ids, visual_position,
+    visual_rect_visible_in_room, RoomVisibilityContext,
+};
+use crate::rendering::particle_draw::{draw_particle, particle_visual_bounds};
+use crate::rendering::particles::{Particle, ParticleSystem};
+use crate::rendering::renderable::{EntityDrawParams, Renderable};
+use crate::rendering::room_composition::{RoomCompositionContext, RoomRenderState};
 use crate::tiles::draw_room_tile_placements;
-use crate::worlds::room::Room;
 use crate::worlds::*;
 use bishop::prelude::*;
 use std::collections::{BTreeMap, HashMap, HashSet};
 
 #[derive(Default)]
-pub struct LayerData<'a> {
-    pub entities: Vec<(Entity, Vec2)>,
-    pub glows: Vec<(&'a Glow, Vec2)>,
+struct LayerData<'a> {
+    items: Vec<LayerDrawItem<'a>>,
+    glows: Vec<(&'a Glow, Vec2)>,
+}
+
+enum LayerDrawItem<'a> {
+    Entity { entity: Entity, position: Vec2 },
+    Particle { particle: &'a Particle, bounds: Rect },
+}
+
+impl LayerDrawItem<'_> {
+    fn sort_key(&self) -> (Entity, u8, u64) {
+        match self {
+            Self::Entity { entity, .. } => (*entity, 0, 0),
+            Self::Particle { particle, .. } => (particle.owner, 1, particle.emission_sequence),
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -66,6 +87,7 @@ pub fn render_room<C: BishopContext>(
     state: RoomRenderState,
     alpha: f32,
     prev_positions: Option<&HashMap<Entity, Vec2>>,
+    particles: Option<&ParticleSystem>,
 ) {
     let Some(world) = game_ctx.world.as_deref_mut() else {
         return;
@@ -75,6 +97,11 @@ pub fn render_room<C: BishopContext>(
     };
 
     let grid_size = world.grid_size;
+    let room_visibility = RoomVisibilityContext {
+        world,
+        room: current_room,
+        grid_size,
+    };
     let composition = RoomCompositionContext::resolve(current_room, state, grid_size);
 
     // Set up camera and clear background
@@ -85,12 +112,11 @@ pub fn render_room<C: BishopContext>(
     let visible_layers = visible_layers_for_state(&variant.layers, state);
     let layer_maps = collect_interpolated_room_layer_maps(
         game_ctx.ecs,
-        world,
-        current_room,
+        &room_visibility,
         game_ctx.sprite_manager,
         alpha,
         prev_positions,
-        grid_size,
+        particles,
     );
 
     variant.draw_background(ctx, current_room.position, current_room.size, grid_size);
@@ -104,7 +130,7 @@ pub fn render_room<C: BishopContext>(
             game_ctx.tile_registry,
             game_ctx.sprite_manager,
         );
-        draw_layer_entities(
+        draw_layer_items(
             ctx,
             game_ctx.ecs,
             game_ctx.sprite_manager,
@@ -116,14 +142,14 @@ pub fn render_room<C: BishopContext>(
     }
 
     if composition.should_draw_hidden_back_layer_door_ghosts() {
-        draw_layer_entities(
+        draw_layer_items(
             ctx,
             game_ctx.ecs,
             game_ctx.sprite_manager,
             layer_maps.for_layer(RoomLayer::Front),
             grid_size,
             &composition,
-            |ecs, entity| ecs.has::<LayerDoor>(entity),
+            |ecs, item| matches!(item, LayerDrawItem::Entity { entity, .. } if ecs.has::<LayerDoor>(*entity)),
         );
     }
 
@@ -133,32 +159,36 @@ pub fn render_room<C: BishopContext>(
     // render_system.run_final_pass(ctx);
 }
 
-fn draw_layer_entities<C: BishopContext, F>(
+fn draw_layer_items<C: BishopContext, F>(
     ctx: &mut C,
     ecs: &Ecs,
     sprite_manager: &mut SpriteManager,
     layer_map: &BTreeMap<i32, LayerData<'_>>,
     grid_size: f32,
     composition: &RoomCompositionContext,
-    include_entity: F,
+    include_item: F,
 ) where
-    F: Fn(&Ecs, Entity) -> bool,
+    F: Fn(&Ecs, &LayerDrawItem<'_>) -> bool,
 {
     for layer in layer_map.values() {
-        for &(entity, pos) in &layer.entities {
-            if !include_entity(ecs, entity) {
+        for item in &layer.items {
+            if !include_item(ecs, item) {
                 continue;
             }
-
-            draw_entity(
-                ctx,
-                ecs,
-                sprite_manager,
-                entity,
-                pos,
-                grid_size,
-                composition,
-            );
+            match item {
+                LayerDrawItem::Entity { entity, position } => draw_entity(
+                    ctx,
+                    ecs,
+                    sprite_manager,
+                    *entity,
+                    *position,
+                    grid_size,
+                    composition,
+                ),
+                LayerDrawItem::Particle { particle, bounds } => {
+                    draw_particle(ctx, ecs, sprite_manager, particle, *bounds, composition);
+                }
+            }
         }
 
         // TODO: Re-enable multi-pass rendering
@@ -232,20 +262,17 @@ fn draw_entity<C: BishopContext>(
 
 fn collect_interpolated_room_layer_maps<'a>(
     ecs: &'a Ecs,
-    world: &World,
-    room: &Room,
+    room_ctx: &RoomVisibilityContext<'_>,
     sprite_manager: &SpriteManager,
     alpha: f32,
     prev_positions: Option<&HashMap<Entity, Vec2>>,
-    grid_size: f32,
+    particles: Option<&'a ParticleSystem>,
 ) -> CollectedRoomLayerMaps<'a> {
+    let world = room_ctx.world;
+    let room = room_ctx.room;
+    let grid_size = room_ctx.grid_size;
     let mut maps = CollectedRoomLayerMaps::default();
     let mut seen = HashSet::new();
-    let room_ctx = RoomVisibilityContext {
-        world,
-        room,
-        grid_size,
-    };
 
     let trans_store = ecs.get_store::<Transform>();
     let cam_store = ecs.get_store::<RoomCamera>();
@@ -279,7 +306,7 @@ fn collect_interpolated_room_layer_maps<'a>(
                 entity,
                 candidate_room_id,
                 draw_pos,
-                &room_ctx,
+                room_ctx,
             ) {
                 continue;
             }
@@ -293,7 +320,10 @@ fn collect_interpolated_room_layer_maps<'a>(
                 RoomLayer::Back => &mut maps.back,
             };
             let entry = layer_map.entry(z).or_default();
-            entry.entities.push((entity, draw_pos));
+            entry.items.push(LayerDrawItem::Entity {
+                entity,
+                position: draw_pos,
+            });
 
             if let Some(glow) = glow_store.get(entity) {
                 let glow_size = sprite_manager
@@ -306,11 +336,33 @@ fn collect_interpolated_room_layer_maps<'a>(
         }
     }
 
-    for (&z, layer) in &mut maps.front {
-        layer.entities.sort_by(|(a, _), (b, _)| compare_entity_draw_order(*a, z, *b, z));
+    if let Some(particles) = particles {
+        for particle in particles.particles() {
+            let Some(current_room) = ecs.get::<CurrentRoom>(particle.owner) else {
+                continue;
+            };
+            let Some(transform) = ecs.get::<Transform>(particle.owner) else {
+                continue;
+            };
+            let bounds = particle_visual_bounds(particle);
+            if !visual_rect_visible_in_room(current_room.room_id, bounds, room_ctx) {
+                continue;
+            }
+
+            let layer_map = match current_room.layer {
+                RoomLayer::Front => &mut maps.front,
+                RoomLayer::Back => &mut maps.back,
+            };
+            layer_map
+                .entry(transform.z)
+                .or_default()
+                .items
+                .push(LayerDrawItem::Particle { particle, bounds });
+        }
     }
-    for (&z, layer) in &mut maps.back {
-        layer.entities.sort_by(|(a, _), (b, _)| compare_entity_draw_order(*a, z, *b, z));
+
+    for layer in maps.front.values_mut().chain(maps.back.values_mut()) {
+        layer.items.sort_by_key(LayerDrawItem::sort_key);
     }
 
     maps
@@ -327,3 +379,6 @@ fn collect_interpolated_room_layer_maps<'a>(
 #[cfg(test)]
 #[path = "tests/render_room_tests.rs"]
 mod render_room_tests;
+#[cfg(test)]
+#[path = "tests/particle_render_tests.rs"]
+mod particle_render_tests;

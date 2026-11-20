@@ -37,7 +37,7 @@ use engine_core::constants::timing;
 use engine_core::diagnostics::TraversalResidencyDiagnostics;
 use engine_core::logging::omni_error;
 use engine_core::menu::{GameMenuHandler, MenuInputPolicy, MenuManager, MenuSessionAction};
-use engine_core::rendering::{RenderSystem, SmoothedDtState, smooth_dt, snap_dt};
+use engine_core::rendering::{ParticleSystem, RenderSystem, SmoothedDtState, smooth_dt, snap_dt};
 use engine_core::storage::ResourceSource;
 use engine_core::task::BackgroundService;
 use engine_core::text::update_speech_timers;
@@ -61,6 +61,8 @@ pub struct Engine {
     pub camera_manager: CameraManager,
     /// Rendering system for the game.
     pub render_system: RenderSystem,
+    /// Transient particle runtime owned by this game session.
+    pub(crate) particle_system: ParticleSystem,
     /// Runtime diagnostics overlay (playtest only).
     pub diagnostics: DiagnosticsOverlay,
     /// Dev tools for playtest debugging.
@@ -217,6 +219,7 @@ impl Engine {
             save_runtime: cfg.save_runtime,
             camera_manager: cfg.camera_manager,
             render_system,
+            particle_system: ParticleSystem::new(),
             diagnostics: DiagnosticsOverlay::new(),
             dev_tools: DevTools::default(),
             menu_manager,
@@ -359,6 +362,9 @@ impl Engine {
         if let Err(e) = ScriptSystem::run_scripts(dt, self) {
             omni_error!("Error running scripts: {}", e);
         }
+
+        let game_instance = self.game_instance.borrow();
+        self.particle_system.update(dt, &game_instance.game.ecs);
     }
 
     pub fn render(&mut self, ctx: &PlatformContext, alpha: f32) {
@@ -387,6 +393,7 @@ impl Engine {
                 platform_ctx,
                 game_instance,
                 &mut self.render_system,
+                &self.particle_system,
                 &render_cam,
                 alpha,
             );
@@ -445,6 +452,7 @@ impl Engine {
         };
         let mut game_instance = self.game_instance.borrow_mut();
         if WorldTransitionManager::execute(&self.lua, &mut game_instance, &request) {
+            self.particle_system.clear();
             traversal_residency::refresh_after_traversal_runtime(
                 &self.lua,
                 &mut self.audio_manager,

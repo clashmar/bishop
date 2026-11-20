@@ -179,10 +179,6 @@ pub fn entity_visible_in_room(
         return true;
     }
 
-    let Some(other_room) = room_ctx.world.get_room(entity_room_id) else {
-        return false;
-    };
-
     let entity_rect = entity_visual_rect(
         ecs,
         sprite_manager,
@@ -190,7 +186,23 @@ pub fn entity_visible_in_room(
         visual_pos,
         room_ctx.grid_size,
     );
-    let Some(overlap_rect) = entity_rect.intersection(&room_ctx.room.world_rect(room_ctx.grid_size)) else {
+    visual_rect_visible_in_room(entity_room_id, entity_rect, room_ctx)
+}
+
+/// Checks whether a visual rectangle is visible through the room's exits.
+pub fn visual_rect_visible_in_room(
+    visual_room_id: RoomId,
+    visual_rect: Rect,
+    room_ctx: &RoomVisibilityContext<'_>,
+) -> bool {
+    if visual_room_id == room_ctx.room.id {
+        return true;
+    }
+
+    let Some(other_room) = room_ctx.world.get_room(visual_room_id) else {
+        return false;
+    };
+    let Some(overlap_rect) = visual_rect.intersection(&room_ctx.room.world_rect(room_ctx.grid_size)) else {
         return false;
     };
 

@@ -33,6 +33,8 @@ pub struct Particle {
     pub opacity: f32,
     opacity_start: f32,
     opacity_end: f32,
+    /// Length of line visuals in pixels before applying scale.
+    pub line_length: u32,
     /// Particle tint; renderers multiply `opacity` into its alpha.
     pub color: Color,
     /// Visual captured when the particle was emitted.
@@ -350,6 +352,7 @@ impl ParticleSystem {
                 opacity: config.opacity_start,
                 opacity_start: config.opacity_start,
                 opacity_end: config.opacity_end,
+                line_length: config.line_length,
                 color: config.color,
                 visual: config.visual.clone(),
                 emission_sequence,
