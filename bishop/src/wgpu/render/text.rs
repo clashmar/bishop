@@ -8,7 +8,7 @@ use super::sampler::create_nearest_sampler;
 use super::uniforms::CameraUniforms;
 use super::vertex::TexturedVertex;
 use crate::FONT_SIZES;
-use crate::text::TextDimensions;
+use crate::text::{FontId, TextDimensions};
 use crate::types::Color;
 
 const ATLAS_SIZE: u32 = 2048;
@@ -20,7 +20,8 @@ static GNF_FONT_DATA: &[u8] = include_bytes!("../../fonts/gnf.regular.ttf");
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 struct GlyphKey {
     character: char,
-    font_size_px: u32,
+    font_size_bits: u32,
+    font: Option<FontId>,
 }
 
 /// Information about a cached glyph in the atlas.
@@ -37,7 +38,7 @@ struct GlyphInfo {
 
 /// Font atlas that caches rasterized glyphs on the GPU.
 pub struct FontAtlas {
-    font: fontdue::Font,
+    fonts: HashMap<Option<FontId>, fontdue::Font>,
     atlas_data: Vec<u8>,
     atlas_texture: Option<wgpu::Texture>,
     atlas_view: Option<wgpu::TextureView>,
@@ -59,7 +60,7 @@ impl FontAtlas {
         let atlas_data = vec![0u8; (ATLAS_SIZE * ATLAS_SIZE * 4) as usize];
 
         Ok(Self {
-            font,
+            fonts: HashMap::from([(None, font)]),
             atlas_data,
             atlas_texture: None,
             atlas_view: None,
@@ -76,6 +77,14 @@ impl FontAtlas {
     /// Creates a font atlas with the embedded GNF font.
     pub fn with_default_font() -> Result<Self, &'static str> {
         Self::new(GNF_FONT_DATA)
+    }
+
+    /// Registers a game font for selection by its stable identifier.
+    pub fn register_font(&mut self, id: FontId, ttf_data: &[u8]) -> Result<(), &'static str> {
+        let font = fontdue::Font::from_bytes(ttf_data, fontdue::FontSettings::default())
+            .map_err(|_| "Failed to parse font")?;
+        self.fonts.insert(Some(id), font);
+        Ok(())
     }
 
     /// Initializes GPU resources for the atlas.
@@ -130,18 +139,25 @@ impl FontAtlas {
     }
 
     /// Gets or rasterizes a glyph, returning its info.
-    fn get_glyph(&mut self, character: char, font_size: f32) -> Option<GlyphInfo> {
-        let font_size_px = font_size as u32;
+    fn get_glyph(
+        &mut self,
+        character: char,
+        font_size: f32,
+        font_id: Option<FontId>,
+    ) -> Option<GlyphInfo> {
+        let font_id = font_id.filter(|id| self.fonts.contains_key(&Some(*id)));
         let key = GlyphKey {
             character,
-            font_size_px,
+            font_size_bits: font_size.to_bits(),
+            font: font_id,
         };
 
         if let Some(info) = self.cache.get(&key) {
             return Some(*info);
         }
 
-        let (metrics, bitmap) = self.font.rasterize(character, font_size);
+        let font = self.fonts.get(&font_id).or_else(|| self.fonts.get(&None))?;
+        let (metrics, bitmap) = font.rasterize(character, font_size);
 
         if metrics.width == 0 || metrics.height == 0 {
             let info = GlyphInfo {
@@ -235,16 +251,28 @@ impl FontAtlas {
     }
 
     /// Measures text without drawing it.
-    pub fn measure_text(&mut self, text: &str, font_size: f32) -> TextDimensions {
-        let mut width = 0.0f32;
+    pub fn measure_text(&self, text: &str, font_size: f32) -> TextDimensions {
+        self.measure_text_with_font(text, font_size, None)
+    }
 
-        for ch in text.chars() {
-            if let Some(info) = self.get_glyph(ch, font_size) {
-                width += info.advance_width;
-            }
-        }
-
-        let line_metrics = self.font.horizontal_line_metrics(font_size);
+    /// Measures text using a registered font, falling back to the embedded default.
+    pub fn measure_text_with_font(
+        &self,
+        text: &str,
+        font_size: f32,
+        font_id: Option<FontId>,
+    ) -> TextDimensions {
+        let font_id = font_id.filter(|id| self.fonts.contains_key(&Some(*id)));
+        let font = self
+            .fonts
+            .get(&font_id)
+            .or_else(|| self.fonts.get(&None))
+            .expect("default font is always registered");
+        let width = text
+            .chars()
+            .map(|character| font.metrics(character, font_size).advance_width)
+            .sum();
+        let line_metrics = font.horizontal_line_metrics(font_size);
         let (ascent, descent) = match line_metrics {
             Some(m) => (m.ascent, -m.descent),
             None => (font_size, 0.0),
@@ -258,8 +286,14 @@ impl FontAtlas {
     }
 
     /// Returns the font's global line metrics for the given pixel size.
-    pub fn font_line_metrics(&self, font_size: f32) -> Option<fontdue::LineMetrics> {
-        self.font.horizontal_line_metrics(font_size)
+    pub fn font_line_metrics(
+        &self,
+        font_size: f32,
+        font_id: Option<FontId>,
+    ) -> Option<fontdue::LineMetrics> {
+        let font_id = font_id.filter(|id| self.fonts.contains_key(&Some(*id)));
+        self.fonts.get(&font_id).or_else(|| self.fonts.get(&None))
+            .and_then(|font| font.horizontal_line_metrics(font_size))
     }
 
     /// Pre-caches common characters at multiple sizes.
@@ -269,10 +303,10 @@ impl FontAtlas {
 
         for &size in FONT_SIZES.iter().filter(|&&s| s <= 48.0) {
             for &ch in &chars {
-                self.get_glyph(ch, size);
+                self.get_glyph(ch, size, None);
             }
             for &ch in &extra_chars {
-                self.get_glyph(ch, size);
+                self.get_glyph(ch, size, None);
             }
         }
     }
@@ -458,12 +492,24 @@ impl TextRenderer {
         font_size: f32,
         color: Color,
     ) -> TextDimensions {
+        self.draw_text_with_font(text, x, y, font_size, color, None)
+    }
+
+    fn draw_text_with_font(
+        &mut self,
+        text: &str,
+        x: f32,
+        y: f32,
+        font_size: f32,
+        color: Color,
+        font_id: Option<FontId>,
+    ) -> TextDimensions {
         let c: [f32; 4] = color.into();
         let mut cursor_x = x;
         let baseline_y = y;
 
         for ch in text.chars() {
-            if let Some(info) = self.font_atlas.get_glyph(ch, font_size) {
+            if let Some(info) = self.font_atlas.get_glyph(ch, font_size, font_id) {
                 if info.width > 0 && info.height > 0 {
                     let gx = cursor_x + info.offset_x;
                     let gy = baseline_y - info.height as f32 - info.offset_y;
@@ -489,7 +535,7 @@ impl TextRenderer {
             }
         }
 
-        let line_metrics = self.font_atlas.font_line_metrics(font_size);
+        let line_metrics = self.font_atlas.font_line_metrics(font_size, font_id);
         let (ascent, descent) = match line_metrics {
             Some(m) => (m.ascent, -m.descent),
             None => (font_size, 0.0),
@@ -519,14 +565,25 @@ impl TextRenderer {
         let effective_font_size = params.font_size as f32 * params.font_scale;
 
         if params.rotation == 0.0 {
-            return self.draw_text(text, x, y, effective_font_size, params.color);
+            return self.draw_text_with_font(
+                text,
+                x,
+                y,
+                effective_font_size,
+                params.color,
+                params.font,
+            );
         }
 
         let c: [f32; 4] = params.color.into();
         let font_scale_x = params.font_scale * params.font_scale_aspect;
         let font_scale_y = params.font_scale;
 
-        let dims = self.font_atlas.measure_text(text, params.font_size as f32);
+        let dims = self.font_atlas.measure_text_with_font(
+            text,
+            params.font_size as f32,
+            params.font,
+        );
         let scaled_width = dims.width * font_scale_x;
         let scaled_height = dims.height * font_scale_y;
         let scaled_ascent = dims.offset_y * font_scale_y;
@@ -543,7 +600,7 @@ impl TextRenderer {
         let mut cursor_x = 0.0f32;
 
         for ch in text.chars() {
-            if let Some(info) = self.font_atlas.get_glyph(ch, params.font_size as f32) {
+            if let Some(info) = self.font_atlas.get_glyph(ch, params.font_size as f32, params.font) {
                 if info.width > 0 && info.height > 0 {
                     let local_x = cursor_x * font_scale_x + info.offset_x * font_scale_x;
                     let local_y = dims.offset_y * font_scale_y
@@ -624,5 +681,20 @@ impl TextRenderer {
     /// Issues a draw call for a sub-range of the uploaded vertex buffer.
     pub fn draw_range(&self, render_pass: &mut wgpu::RenderPass<'_>, start: u32, count: u32) {
         render_pass.draw(start..start + count, 0..1);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::FontAtlas;
+
+    #[test]
+    fn glyph_cache_separates_fractional_raster_sizes() {
+        let mut atlas = FontAtlas::with_default_font().expect("embedded font should parse");
+
+        atlas.get_glyph('A', 20.1, None);
+        atlas.get_glyph('A', 20.9, None);
+
+        assert_eq!(atlas.cache.len(), 2);
     }
 }
