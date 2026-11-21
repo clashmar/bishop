@@ -18,7 +18,7 @@ pub struct ParticleEmitter {
 /// Authorable settings used by the particle simulation and editor.
 #[serde_as]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(default)]
+#[serde(default, deny_unknown_fields)]
 pub struct ParticleEmitterConfig {
     /// Determines whether particles emit in bursts or continuously.
     pub mode: ParticleEmissionMode,

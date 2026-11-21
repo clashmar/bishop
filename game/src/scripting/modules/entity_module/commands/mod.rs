@@ -7,6 +7,7 @@ mod move_to_entry;
 mod move_to_layer;
 mod move_to_room;
 mod play_sound;
+mod particle_emitter;
 mod remove_from_room;
 mod reset_clip;
 mod say;
@@ -39,6 +40,12 @@ pub(super) use move_by::MoveByMethod;
 pub(super) use move_to_entry::MoveToEntryMethod;
 pub(super) use move_to_layer::MoveToLayerMethod;
 pub(super) use move_to_room::MoveToRoomMethod;
+pub(super) use particle_emitter::{
+    BurstParticlesMethod,
+    ConfigureParticlesMethod,
+    StartParticlesMethod,
+    StopParticlesMethod,
+};
 pub(super) use play_sound::PlaySoundMethod;
 pub(super) use remove_from_room::RemoveFromRoomMethod;
 pub(super) use reset_clip::ResetClipMethod;

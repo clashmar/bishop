@@ -82,6 +82,10 @@ entity_handle_methods! {
     ClearSpeech => ClearSpeechMethod,
     IsSpeaking => IsSpeakingMethod,
     PlaySound => PlaySoundMethod,
+    ConfigureParticles => ConfigureParticlesMethod,
+    BurstParticles => BurstParticlesMethod,
+    StartParticles => StartParticlesMethod,
+    StopParticles => StopParticlesMethod,
     StopSound => StopSoundMethod,
     SetSoundVolume => SetSoundVolumeMethod,
 }
