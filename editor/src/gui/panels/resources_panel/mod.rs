@@ -15,10 +15,12 @@ use crate::gui::panels::generic_panel::{PanelDefinition, PanelResizeLimits};
 use crate::shared::selection::{draw_selection_box, rect_from_two_points, rects_intersect};
 use crate::Editor;
 use bishop::prelude::*;
+#[cfg(test)]
+use context_menu::context_target_for_entry;
 use context_menu::{
-    context_target_for_entry, draw_context_menu, handle_pending_action, open_resource,
-    pending_action_for, pending_action_for_background, ActiveMenu, EntryKind,
-    PendingResourceAction, ResourceMenuAction, ResourceOpenResult,
+    draw_context_menu, handle_pending_action, open_resource, pending_action_for,
+    pending_action_for_background, ActiveMenu, EntryKind, PendingResourceAction,
+    ResourceMenuAction, ResourceOpenResult,
 };
 use engine_core::constants::world;
 use engine_core::assets::*;
@@ -143,7 +145,11 @@ impl ResourcesPanel {
                     if !PathFilter::dir_visible(&name) {
                         return None;
                     }
-                } else if !PathFilter::file_visible(&name) {
+                } else if !PathFilter::file_visible_in_resource_dir(
+                    &name,
+                    &current,
+                    &resources_folder_current(),
+                ) {
                     return None;
                 }
 

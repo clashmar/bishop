@@ -4,10 +4,13 @@ use crate::editor_global::with_editor;
 use crate::storage::game_io::create_new_game;
 use crate::test_utils::{game_fs_test_lock, EditorServicesGuard, TestGameFolder};
 use crate::Editor;
+use bishop::text::FontId;
 use engine_core::assets::{AssetKey, AssetKind};
 use engine_core::ecs::{ScriptId, SpriteId};
 use engine_core::engine_global::set_game_name;
-use engine_core::storage::path_utils::{assets_folder, resources_folder_current, scripts_folder};
+use engine_core::storage::path_utils::{
+    assets_folder, fonts_folder, resources_folder_current, scripts_folder,
+};
 use std::fs;
 use std::io;
 use std::path::Path;
@@ -87,6 +90,32 @@ fn register_rejects_file_outside_canonical_resource_folder_without_copying() -> 
 
     assert_eq!(fs::read(&existing)?, b"existing-data");
     assert!(with_editor(|editor| editor.game.asset_registry.records().is_empty()));
+    Ok(())
+}
+
+#[test]
+fn register_font_records_the_existing_font_for_editor_selection(
+) -> Result<(), Box<dyn std::error::Error>> {
+    let _lock = game_fs_test_lock()
+        .lock()
+        .unwrap_or_else(|poison| poison.into_inner());
+    let test_game = TestGameFolder::new("register_font");
+    set_game_name(test_game.name());
+    let existing = fonts_folder().join("display.otf");
+    write_existing_file(&existing, b"font-data")?;
+
+    let editor = Editor {
+        game: create_new_game(test_game.name().to_string()),
+        ..Default::default()
+    };
+    let _guard = EditorServicesGuard::install(editor);
+    RegisterAssetCmd::new(AssetKind::Font, &existing).execute();
+
+    assert!(with_editor(|editor| editor
+        .game
+        .asset_registry
+        .record(AssetKey::Font(FontId(1)))
+        .is_some()));
     Ok(())
 }
 

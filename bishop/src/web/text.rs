@@ -5,7 +5,7 @@ use super::draw::WebRenderer;
 use super::gl_context::{GlContext, WebContext};
 use super::texture::upload_rgba;
 use crate::text::font_metrics::measure_text;
-use crate::text::{FontId, Text, TextDimensions, TextParams};
+use crate::text::{snap_font_size, FontId, Text, TextDimensions, TextParams};
 use crate::types::{Color, Texture2D};
 
 struct Glyph {
@@ -71,6 +71,7 @@ impl WebText {
         font_id: Option<FontId>,
         owner: &Rc<GlContext>,
     ) -> Result<&Glyph, String> {
+        let size = snap_font_size(size);
         let font_id = font_id.filter(|id| self.fonts.contains_key(&Some(*id)));
         let key = (font_id, character, size.to_bits());
         match self.glyphs.entry(key) {
@@ -114,10 +115,12 @@ impl WebText {
         raster_scale: f32,
     ) -> Result<TextDimensions, String> {
         let raster_scale = raster_scale.max(0.01);
-        let raster_size = size * params.font_scale * raster_scale;
+        let effective_size = size * params.font_scale;
+        let raster_size = snap_font_size(effective_size * raster_scale);
+        let glyph_scale = effective_size / raster_size;
         let dimensions = self.measure_with_font(text, raster_size, params.font);
-        let sx = params.font_scale_aspect / raster_scale;
-        let sy = 1.0 / raster_scale;
+        let sx = params.font_scale_aspect * glyph_scale;
+        let sy = glyph_scale;
         let width = dimensions.width * sx;
         let height = dimensions.height * sy;
         let ascent = dimensions.offset_y * sy;

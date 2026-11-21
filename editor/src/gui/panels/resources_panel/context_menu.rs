@@ -59,9 +59,13 @@ impl ResourceMenuAction {
 const DIRECTORY_MENU_ACTIONS: &[ResourceMenuAction] = &[
     ResourceMenuAction::Rename,
     ResourceMenuAction::Delete,
+    ResourceMenuAction::Import,
     ResourceMenuAction::Reveal,
 ];
-const SYSTEM_DIRECTORY_MENU_ACTIONS: &[ResourceMenuAction] = &[ResourceMenuAction::Reveal];
+const SYSTEM_DIRECTORY_MENU_ACTIONS: &[ResourceMenuAction] = &[
+    ResourceMenuAction::Import,
+    ResourceMenuAction::Reveal,
+];
 const REGISTERED_FILE_MENU_ACTIONS: &[ResourceMenuAction] = &[
     ResourceMenuAction::Rename,
     ResourceMenuAction::Delete,
@@ -199,6 +203,15 @@ pub(super) fn pending_action_for(
         (ResourceMenuAction::Register, EntryKind::UnregisteredFile) => {
             let kind = registerable_kind(&entry.path)?;
             Some(PendingResourceAction::Register(kind, entry.path.clone()))
+        }
+        (ResourceMenuAction::Import, EntryKind::Directory | EntryKind::SystemDirectory) => {
+            Some(PendingResourceAction::Import {
+                expected_kind: AssetRegistry::kind_for_resource_path(
+                    &entry.path,
+                    resources_folder_current(),
+                ),
+                current_dir: entry.path.clone(),
+            })
         }
         (ResourceMenuAction::Open, _) => Some(PendingResourceAction::Open(entry.path.clone())),
         (ResourceMenuAction::Reveal, _) => Some(PendingResourceAction::Reveal(entry.path.clone())),

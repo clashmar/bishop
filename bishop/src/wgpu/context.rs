@@ -294,10 +294,20 @@ impl WgpuContext {
         } else {
             self.scale_factor
         };
-        let (zoom_x, zoom_y) = self.current_camera.as_ref().map_or((1.0, 1.0), |camera| {
-            (camera.zoom.x, camera.zoom.y)
-        });
-        crate::text::raster_scale_for_view(display_scale, zoom_x, zoom_y)
+        let Some(camera) = &self.current_camera else {
+            return display_scale.max(0.01);
+        };
+        let (viewport_width, viewport_height) = camera
+            .viewport
+            .map(|(_, _, width, height)| (width as f32, height as f32))
+            .unwrap_or_else(|| (self.screen_width(), self.screen_height()));
+        crate::text::raster_scale_for_camera(
+            display_scale,
+            viewport_width,
+            viewport_height,
+            camera.zoom.x,
+            camera.zoom.y,
+        )
     }
 
     /// Returns the current screen height in logical pixels.

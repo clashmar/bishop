@@ -8,7 +8,7 @@ use super::sampler::create_nearest_sampler;
 use super::uniforms::CameraUniforms;
 use super::vertex::TexturedVertex;
 use crate::FONT_SIZES;
-use crate::text::{FontId, TextDimensions};
+use crate::text::{snap_font_size, FontId, TextDimensions};
 use crate::types::Color;
 
 const ATLAS_SIZE: u32 = 2048;
@@ -146,6 +146,7 @@ impl FontAtlas {
         font_size: f32,
         font_id: Option<FontId>,
     ) -> Option<GlyphInfo> {
+        let font_size = snap_font_size(font_size);
         let font_id = font_id.filter(|id| self.fonts.contains_key(&Some(*id)));
         let key = GlyphKey {
             character,
@@ -521,23 +522,27 @@ impl TextRenderer {
         raster_scale: f32,
     ) -> TextDimensions {
         let raster_scale = raster_scale.max(0.01);
+        let raster_font_size = snap_font_size(font_size * raster_scale);
+        let glyph_scale = font_size / raster_font_size;
         let c: [f32; 4] = color.into();
         let mut cursor_x = x;
         let baseline_y = y;
 
         for ch in text.chars() {
-            if let Some(info) = self.font_atlas.get_glyph(ch, font_size * raster_scale, font_id) {
+            if let Some(info) = self.font_atlas.get_glyph(ch, raster_font_size, font_id) {
                 if info.width > 0 && info.height > 0 {
-                    let gx = cursor_x + info.offset_x / raster_scale;
-                    let gy = baseline_y - info.height as f32 / raster_scale - info.offset_y / raster_scale;
+                    let gx = cursor_x + info.offset_x * glyph_scale;
+                    let gy = baseline_y
+                        - info.height as f32 * glyph_scale
+                        - info.offset_y * glyph_scale;
 
                     let u0 = info.x as f32 / ATLAS_SIZE as f32;
                     let v0 = info.y as f32 / ATLAS_SIZE as f32;
                     let u1 = (info.x + info.width) as f32 / ATLAS_SIZE as f32;
                     let v1 = (info.y + info.height) as f32 / ATLAS_SIZE as f32;
 
-                    let gw = info.width as f32 / raster_scale;
-                    let gh = info.height as f32 / raster_scale;
+                    let gw = info.width as f32 * glyph_scale;
+                    let gh = info.height as f32 * glyph_scale;
 
                     let v0_vert = TexturedVertex::new([gx, gy], [u0, v0], c);
                     let v1_vert = TexturedVertex::new([gx + gw, gy], [u1, v0], c);
@@ -548,7 +553,7 @@ impl TextRenderer {
                         .extend_from_slice(&[v0_vert, v1_vert, v2_vert, v0_vert, v2_vert, v3_vert]);
                 }
 
-                cursor_x += info.advance_width / raster_scale;
+                cursor_x += info.advance_width * glyph_scale;
             }
         }
 
@@ -624,6 +629,8 @@ impl TextRenderer {
         let c: [f32; 4] = params.color.into();
         let font_scale_x = params.font_scale_aspect;
         let font_scale_y = 1.0;
+        let raster_font_size = snap_font_size(effective_font_size * raster_scale);
+        let glyph_scale = effective_font_size / raster_font_size;
 
         let dims = self.font_atlas.measure_text_with_font(
             text,
@@ -653,13 +660,13 @@ impl TextRenderer {
             ) {
                 if info.width > 0 && info.height > 0 {
                     let local_x = cursor_x * font_scale_x
-                        + info.offset_x / raster_scale * font_scale_x;
+                        + info.offset_x * glyph_scale * font_scale_x;
                     let local_y = dims.offset_y * font_scale_y
-                        - info.height as f32 / raster_scale * font_scale_y
-                        - info.offset_y / raster_scale * font_scale_y;
+                        - info.height as f32 * glyph_scale * font_scale_y
+                        - info.offset_y * glyph_scale * font_scale_y;
 
-                    let gw = info.width as f32 / raster_scale * font_scale_x;
-                    let gh = info.height as f32 / raster_scale * font_scale_y;
+                    let gw = info.width as f32 * glyph_scale * font_scale_x;
+                    let gh = info.height as f32 * glyph_scale * font_scale_y;
 
                     let u0 = info.x as f32 / ATLAS_SIZE as f32;
                     let v0 = info.y as f32 / ATLAS_SIZE as f32;
@@ -692,7 +699,7 @@ impl TextRenderer {
                         .extend_from_slice(&[v0_vert, v1_vert, v2_vert, v0_vert, v2_vert, v3_vert]);
                 }
 
-                cursor_x += info.advance_width / raster_scale;
+                cursor_x += info.advance_width * glyph_scale;
             }
         }
 
@@ -741,13 +748,16 @@ mod tests {
     use crate::text::FontId;
 
     #[test]
-    fn glyph_cache_separates_fractional_raster_sizes() {
+    fn glyph_cache_reuses_canonical_sizes_for_nearby_zoom_levels() {
         let mut atlas = FontAtlas::with_default_font().expect("embedded font should parse");
 
         atlas.get_glyph('A', 20.1, None);
         atlas.get_glyph('A', 20.9, None);
+        atlas.get_glyph('A', 22.9, None);
 
         assert_eq!(atlas.cache.len(), 2);
+        assert!(atlas.cache.keys().any(|key| key.font_size_bits == 20.0f32.to_bits()));
+        assert!(atlas.cache.keys().any(|key| key.font_size_bits == 24.0f32.to_bits()));
     }
 
     #[test]
@@ -779,5 +789,43 @@ mod tests {
         assert_eq!(missing.height, default.height);
         assert_eq!(missing.offset_y, default.offset_y);
         assert!(atlas.register_font(FontId(999), b"not a font").is_err());
+    }
+
+    #[test]
+    fn zoom_sweep_keeps_common_glyphs_available() {
+        let mut atlas = FontAtlas::with_default_font().expect("embedded font should parse");
+        atlas.precache();
+        let characters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+
+        for step in 0..=300 {
+            let font_size = 12.0 + step as f32 * 0.5;
+            for character in characters.chars() {
+                assert!(
+                    atlas.get_glyph(character, font_size, None).is_some(),
+                    "glyph {character:?} unavailable at raster size {font_size}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn zoom_sweep_keeps_registered_font_glyphs_available() {
+        let mut atlas = FontAtlas::with_default_font().expect("embedded font should parse");
+        atlas.precache();
+        let font_id = FontId(24);
+        atlas
+            .register_font(font_id, GNF_FONT_DATA)
+            .expect("embedded font should register");
+        let characters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+
+        for step in 0..=300 {
+            let font_size = 12.0 + step as f32 * 0.5;
+            for character in characters.chars() {
+                assert!(
+                    atlas.get_glyph(character, font_size, Some(font_id)).is_some(),
+                    "registered glyph {character:?} unavailable at raster size {font_size}"
+                );
+            }
+        }
     }
 }

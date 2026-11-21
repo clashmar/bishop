@@ -13,6 +13,27 @@ fn scan_at_root_has_no_parent_entry() {
 }
 
 #[test]
+fn scan_in_fonts_folder_shows_only_supported_font_files() {
+    let (_test_game, _lock) = setup_test_game("resources_panel_fonts_filter");
+    let fonts_dir = engine_core::storage::path_utils::fonts_folder();
+    std::fs::create_dir_all(&fonts_dir).unwrap();
+    std::fs::write(fonts_dir.join("body.ttf"), b"font").unwrap();
+    std::fs::write(fonts_dir.join("display.otf"), b"font").unwrap();
+    std::fs::write(fonts_dir.join("LICENSE.txt"), b"license").unwrap();
+    std::fs::write(fonts_dir.join("preview.png"), b"image").unwrap();
+
+    let mut panel = ResourcesPanel::new();
+    panel.navigation.push(engine_core::constants::paths::FONTS_FOLDER);
+    panel.scan_current_dir(&AssetRegistry::default());
+
+    let visible_names: Vec<&str> = panel.entries.iter().map(|entry| entry.name.as_str()).collect();
+    assert!(visible_names.contains(&"body.ttf"));
+    assert!(visible_names.contains(&"display.otf"));
+    assert!(!visible_names.contains(&"LICENSE.txt"));
+    assert!(!visible_names.contains(&"preview.png"));
+}
+
+#[test]
 fn scan_in_subdir_has_parent_as_first_entry() {
     let (_test_game, _lock) = setup_test_game("resources_panel_parent_first");
     let mut panel = ResourcesPanel::new();

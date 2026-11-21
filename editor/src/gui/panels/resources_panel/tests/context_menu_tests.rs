@@ -173,7 +173,7 @@ fn resources_root_icon_does_not_offer_register_action() {
 }
 
 #[test]
-fn directory_has_rename_delete_and_reveal_actions() {
+fn directory_has_rename_delete_import_and_reveal_actions() {
     let entry = test_entry("folder", EntryKind::Directory);
 
     assert_eq!(
@@ -181,16 +181,42 @@ fn directory_has_rename_delete_and_reveal_actions() {
         vec![
             ResourceMenuAction::Rename,
             ResourceMenuAction::Delete,
+            ResourceMenuAction::Import,
             ResourceMenuAction::Reveal,
         ]
     );
 }
 
 #[test]
-fn system_directory_has_only_reveal_action() {
-    let entry = test_entry("assets", EntryKind::SystemDirectory);
+fn system_directory_can_import_without_destructive_actions() {
+    let entry = test_entry("fonts", EntryKind::SystemDirectory);
 
-    assert_eq!(entry.context_menu_actions(), vec![ResourceMenuAction::Reveal]);
+    assert_eq!(
+        entry.context_menu_actions(),
+        vec![ResourceMenuAction::Import, ResourceMenuAction::Reveal]
+    );
+}
+
+#[test]
+fn importing_from_canonical_fonts_directory_is_constrained_to_fonts() {
+    let resources_root = engine_core::storage::path_utils::resources_folder_current();
+    let fonts_dir = resources_root.join(engine_core::constants::paths::FONTS_FOLDER);
+    let mut entry = test_entry("fonts", EntryKind::SystemDirectory);
+    entry.path = fonts_dir.clone();
+
+    let action = context_menu::pending_action_for(
+        &entry,
+        ResourceMenuAction::Import,
+        &AssetRegistry::default(),
+    );
+
+    assert!(matches!(
+        action,
+        Some(PendingResourceAction::Import {
+            expected_kind: Some(AssetKind::Font),
+            current_dir: ref path,
+        }) if path == &fonts_dir
+    ));
 }
 
 #[test]

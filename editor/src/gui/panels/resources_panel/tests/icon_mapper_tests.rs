@@ -67,6 +67,17 @@ fn dir_icon_for_system_root_returns_system_folder() {
 }
 
 #[test]
+fn dir_icon_for_fonts_root_returns_system_folder() {
+    let resources = PathBuf::from("/game/Resources");
+    let fonts = resources.join(paths::FONTS_FOLDER);
+
+    assert_eq!(
+        IconMapper::dir_icon_for(&fonts, &resources),
+        IconType::SystemFolder
+    );
+}
+
+#[test]
 fn dir_icon_for_user_folder_returns_folder() {
     let resources = PathBuf::from("/game/Resources");
     let user_dir = resources.join("MyCustomFolder");

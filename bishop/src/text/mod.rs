@@ -10,7 +10,7 @@ mod params;
 
 pub use dimensions::*;
 pub use params::*;
-pub(crate) use params::raster_scale_for_view;
+pub(crate) use params::raster_scale_for_camera;
 
 use crate::types::Color;
 use serde::{Deserialize, Serialize};

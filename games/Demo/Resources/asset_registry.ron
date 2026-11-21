@@ -111,5 +111,11 @@
         Toml((1)): (
             path: "text/dialogue/npcs/npc.toml",
         ),
+        Font((1)): (
+            path: "fonts/IBMPlexSans-Regular.ttf",
+        ),
+        Font((2)): (
+            path: "fonts/IBMPlexSans-Regular.otf",
+        ),
     },
 )

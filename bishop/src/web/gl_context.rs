@@ -225,10 +225,23 @@ impl WebContext {
                 }
             }
         };
-        let (zoom_x, zoom_y) = self.renderer.camera.as_ref().map_or((1.0, 1.0), |camera| {
-            (camera.zoom.x, camera.zoom.y)
-        });
-        crate::text::raster_scale_for_view(display_scale, zoom_x, zoom_y)
+        let Some(camera) = &self.renderer.camera else {
+            return display_scale.max(0.01);
+        };
+        let (viewport_width, viewport_height) = camera
+            .viewport
+            .map(|(_, _, width, height)| (width as f32, height as f32))
+            .unwrap_or_else(|| {
+                let (width, height) = self.renderer.size();
+                (width as f32, height as f32)
+            });
+        crate::text::raster_scale_for_camera(
+            1.0,
+            viewport_width,
+            viewport_height,
+            camera.zoom.x,
+            camera.zoom.y,
+        )
     }
 
     /// Returns whether a close request was also confirmed by the application.

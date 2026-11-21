@@ -1,3 +1,4 @@
+use engine_core::assets::{AssetKind, AssetRegistry};
 use engine_core::constants::{extensions, paths};
 use engine_core::scripting::lua_constants::lua_dirs;
 use std::path::Path;
@@ -44,6 +45,25 @@ impl PathFilter {
                 return false;
             }
         }
+        true
+    }
+
+    /// Returns true when a file is visible in the current resource directory.
+    pub fn file_visible_in_resource_dir(
+        name: &str,
+        current_dir: &Path,
+        resources_root: &Path,
+    ) -> bool {
+        if !Self::file_visible(name) {
+            return false;
+        }
+
+        if AssetRegistry::kind_for_resource_path(current_dir, resources_root)
+            == Some(AssetKind::Font)
+        {
+            return AssetKind::from_path(Path::new(name)) == Some(AssetKind::Font);
+        }
+
         true
     }
 }
