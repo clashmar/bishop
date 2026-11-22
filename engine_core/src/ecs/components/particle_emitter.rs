@@ -4,7 +4,7 @@ use ecs_component::ecs_component;
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
 use strum::IntoEnumIterator;
-use strum_macros::EnumIter;
+use strum_macros::{Display, EnumIter};
 
 /// Shared settings for an entity-owned particle emitter.
 #[ecs_component]
@@ -99,7 +99,7 @@ impl Default for ParticleEmitterConfig {
 }
 
 /// Particle emission timing mode.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Default, Display, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ParticleEmissionMode {
     /// Emit a fixed number of particles when triggered.

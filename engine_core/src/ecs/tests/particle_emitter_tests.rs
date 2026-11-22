@@ -6,6 +6,12 @@ use ron::{
 };
 
 #[test]
+fn emission_mode_display_uses_editor_labels() {
+    assert_eq!(ParticleEmissionMode::Burst.to_string(), "Burst");
+    assert_eq!(ParticleEmissionMode::Continuous.to_string(), "Continuous");
+}
+
+#[test]
 fn validate_accepts_default_config() {
     assert!(ParticleEmitterConfig::default().validate().is_ok());
 }
@@ -18,6 +24,17 @@ fn validate_rejects_zero_lifetime() {
     };
 
     assert!(config.validate().is_err());
+}
+
+#[test]
+fn validate_accepts_upward_velocity_range_from_negative_to_zero() {
+    let config = ParticleEmitterConfig {
+        velocity_min: Vec2::new(0.0, -12.0),
+        velocity_max: Vec2::new(0.0, 0.0),
+        ..ParticleEmitterConfig::default()
+    };
+
+    assert!(config.validate().is_ok());
 }
 
 #[test]

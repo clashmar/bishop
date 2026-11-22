@@ -8,11 +8,14 @@ use std::cell::Cell;
 use std::cell::RefCell;
 use std::rc::Rc;
 
+type DeferredEditorAction = Box<dyn FnOnce(&mut Editor)>;
+
 /// Global services that can be reached from anywhere in the editor.
 pub struct EditorServices {
     pub editor: RefCell<Option<Editor>>, // set once at startup
     pub lua: RefCell<Lua>,
     pub command_manager: RefCell<EditorCommandManager>,
+    pending_editor_actions: RefCell<Vec<DeferredEditorAction>>,
     pub pending_undo: Cell<bool>,
     pub pending_redo: Cell<bool>,
     pub entity_clipboard: RefCell<Option<GroupSnapshot>>,
@@ -25,6 +28,7 @@ impl EditorServices {
             editor: RefCell::new(None),
             lua: RefCell::new(Lua::new()),
             command_manager: RefCell::new(EditorCommandManager::new()),
+            pending_editor_actions: RefCell::new(Vec::new()),
             pending_undo: Cell::new(false),
             pending_redo: Cell::new(false),
             entity_clipboard: RefCell::new(None),
@@ -65,6 +69,7 @@ pub fn take_pending_toast() -> Option<Toast> {
 pub fn reset_services() {
     EDITOR_SERVICES.with(|services| {
         *services.command_manager.borrow_mut() = EditorCommandManager::new();
+        services.pending_editor_actions.borrow_mut().clear();
         services.pending_undo.set(false);
         services.pending_redo.set(false);
         *services.entity_clipboard.borrow_mut() = None;
@@ -99,6 +104,32 @@ where
         let lua = services.lua.borrow();
         f(&lua)
     })
+}
+
+/// Queue a one-off editor action to run after the active editor borrow ends.
+pub fn push_editor_action(action: impl FnOnce(&mut Editor) + 'static) {
+    EDITOR_SERVICES.with(|services| {
+        services
+            .pending_editor_actions
+            .borrow_mut()
+            .push(Box::new(action));
+    });
+}
+
+/// Runs queued one-off actions against the active editor.
+pub fn apply_pending_editor_actions() {
+    let actions = EDITOR_SERVICES.with(|services| {
+        std::mem::take(&mut *services.pending_editor_actions.borrow_mut())
+    });
+    if actions.is_empty() {
+        return;
+    }
+
+    with_editor(|editor| {
+        for action in actions {
+            action(editor);
+        }
+    });
 }
 
 /// Push an `EditorCommand` to the global command queue.
@@ -154,4 +185,39 @@ where
         let cm = services.command_manager.borrow();
         f(&cm)
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        apply_pending_editor_actions, push_editor_action, reset_services, set_editor,
+        with_command_manager, with_editor,
+    };
+    use crate::app::Editor;
+    use std::cell::Cell;
+    use std::rc::Rc;
+
+    #[test]
+    fn deferred_editor_actions_execute_once_without_entering_undo_history() {
+        reset_services();
+        set_editor(Editor::default());
+
+        let executions = Rc::new(Cell::new(0));
+        let action_executions = Rc::clone(&executions);
+        with_editor(|editor| {
+            push_editor_action(move |editor| {
+                action_executions.set(action_executions.get() + 1);
+                editor.room_editor.view_preview = true;
+            });
+            assert!(!editor.room_editor.view_preview);
+        });
+
+        apply_pending_editor_actions();
+        apply_pending_editor_actions();
+
+        assert_eq!(executions.get(), 1);
+        assert!(with_editor(|editor| editor.room_editor.view_preview));
+        assert_eq!(with_command_manager(|manager| manager.undo_stack_len()), 0);
+        reset_services();
+    }
 }

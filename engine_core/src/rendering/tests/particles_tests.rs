@@ -1,6 +1,7 @@
 use super::*;
 use crate::ecs::components::{
-    Collider, ParticleEmitter, ParticleEmissionMode, ParticleEmitterConfig, PhysicsBody, Transform,
+    Collider, ParticleEmitter, ParticleEmissionMode, ParticleEmitterConfig, ParticleVisual,
+    PhysicsBody, Transform,
 };
 use crate::ecs::{Ecs, Entity};
 use crate::worlds::room::RoomId;
@@ -15,6 +16,30 @@ fn create_emitter(ecs: &mut Ecs, config: ParticleEmitterConfig, position: Vec2) 
         })
         .with_current_room(RoomId(1))
         .finish()
+}
+
+#[test]
+fn line_length_is_independent_of_particle_scale() {
+    let config = ParticleEmitterConfig {
+        visual: ParticleVisual::Line,
+        line_length: 20,
+        scale_start: 3.0,
+        scale_end: 3.0,
+        velocity_min: Vec2::new(1.0, 0.0),
+        velocity_max: Vec2::new(1.0, 0.0),
+        burst_count: 1,
+        ..ParticleEmitterConfig::default()
+    };
+    let mut ecs = Ecs::default();
+    let owner = create_emitter(&mut ecs, config, Vec2::ZERO);
+    let mut system = ParticleSystem::with_capacity(1);
+    system.burst(owner, &ecs).unwrap();
+    let particle = system.particles().next().unwrap();
+
+    let bounds = crate::rendering::particle_draw::particle_visual_bounds(particle);
+
+    assert_eq!(bounds.w, 23.0);
+    assert_eq!(bounds.h, 3.0);
 }
 
 #[test]
@@ -38,6 +63,51 @@ fn burst_is_reproducible_for_the_same_seed() {
         system_a.particles().cloned().collect::<Vec<_>>(),
         system_b.particles().cloned().collect::<Vec<_>>()
     );
+}
+
+#[test]
+fn repeated_game_bursts_vary_after_expiry_and_replay_from_the_same_seed() {
+    let config = ParticleEmitterConfig {
+        seed: 29,
+        burst_count: 8,
+        max_particles: 8,
+        area_size: Vec2::new(64.0, 64.0),
+        lifetime_min: 0.1,
+        lifetime_max: 0.25,
+        velocity_min: Vec2::new(-20.0, -30.0),
+        velocity_max: Vec2::new(20.0, 10.0),
+        ..ParticleEmitterConfig::default()
+    };
+    let mut ecs = Ecs::default();
+    let owner = create_emitter(&mut ecs, config.clone(), Vec2::ZERO);
+    let mut system = ParticleSystem::with_capacity(8);
+
+    system.burst(owner, &ecs).unwrap();
+    let first_burst = particle_samples(&system);
+    system.update(1.0, &ecs);
+    assert!(system.is_empty());
+    system.burst(owner, &ecs).unwrap();
+    let second_burst = particle_samples(&system);
+
+    let mut replay_ecs = Ecs::default();
+    let replay_owner = create_emitter(&mut replay_ecs, config, Vec2::ZERO);
+    let mut replay = ParticleSystem::with_capacity(8);
+    replay.burst(replay_owner, &replay_ecs).unwrap();
+    let replay_first_burst = particle_samples(&replay);
+    replay.update(1.0, &replay_ecs);
+    replay.burst(replay_owner, &replay_ecs).unwrap();
+    let replay_second_burst = particle_samples(&replay);
+
+    assert_ne!(first_burst, second_burst);
+    assert_eq!(first_burst, replay_first_burst);
+    assert_eq!(second_burst, replay_second_burst);
+}
+
+fn particle_samples(system: &ParticleSystem) -> Vec<(Vec2, Vec2, f32)> {
+    system
+        .particles()
+        .map(|particle| (particle.position, particle.velocity, particle.lifetime))
+        .collect()
 }
 
 #[test]
@@ -274,4 +344,26 @@ fn start_and_stop_control_continuous_emission_without_catch_up() {
     assert_eq!(system.len(), 1);
     system.update(0.25, &ecs);
     assert_eq!(system.len(), 2);
+}
+
+#[test]
+fn targeted_update_only_emits_for_the_requested_emitter() {
+    let config = ParticleEmitterConfig {
+        mode: ParticleEmissionMode::Continuous,
+        emission_rate: 10.0,
+        lifetime_min: 10.0,
+        lifetime_max: 10.0,
+        ..ParticleEmitterConfig::default()
+    };
+    let mut ecs = Ecs::default();
+    let target = create_emitter(&mut ecs, config.clone(), Vec2::ZERO);
+    let other = create_emitter(&mut ecs, config, Vec2::ZERO);
+    let mut system = ParticleSystem::with_capacity(8);
+
+    system.start(target, &ecs).unwrap();
+    system.update_emitter(0.1, target, &ecs);
+
+    assert_eq!(system.len(), 1);
+    assert!(system.particles().all(|particle| particle.owner == target));
+    assert!(!system.particles().any(|particle| particle.owner == other));
 }

@@ -97,7 +97,7 @@ fn particle_line_end(particle: &Particle) -> Vec2 {
     } else {
         Vec2::new(1.0, 0.0)
     };
-    particle.position + direction * particle.line_length as f32 * particle.scale
+    particle.position + direction * particle.line_length as f32
 }
 
 /// Computes a particle's world-space draw bounds for room visibility and composition.

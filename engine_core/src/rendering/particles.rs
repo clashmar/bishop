@@ -33,7 +33,7 @@ pub struct Particle {
     pub opacity: f32,
     opacity_start: f32,
     opacity_end: f32,
-    /// Length of line visuals in pixels before applying scale.
+    /// Length of line visuals in pixels, independent of thickness scale.
     pub line_length: u32,
     /// Particle tint; renderers multiply `opacity` into its alpha.
     pub color: Color,
@@ -92,6 +92,25 @@ impl ParticleSystem {
         owner: Entity,
         ecs: &Ecs,
     ) -> Result<(), Vec<ParticleConfigIssue>> {
+        self.burst_with_optional_seed(owner, ecs, None)
+    }
+
+    /// Emits a burst using a caller-provided random stream seed.
+    pub fn burst_with_seed(
+        &mut self,
+        owner: Entity,
+        ecs: &Ecs,
+        seed: u64,
+    ) -> Result<(), Vec<ParticleConfigIssue>> {
+        self.burst_with_optional_seed(owner, ecs, Some(seed))
+    }
+
+    fn burst_with_optional_seed(
+        &mut self,
+        owner: Entity,
+        ecs: &Ecs,
+        seed: Option<u64>,
+    ) -> Result<(), Vec<ParticleConfigIssue>> {
         let Some((config, room_id, position)) = emitter_snapshot(owner, ecs) else {
             return Ok(());
         };
@@ -101,6 +120,11 @@ impl ParticleSystem {
         }
 
         self.prepare_emitter(owner, &config, room_id);
+        if let Some(seed) = seed
+            && let Some(state) = self.emitter_states.get_mut(&owner)
+        {
+            state.rng = StdRng::seed_from_u64(seed);
+        }
         if let Some(position) = position {
             self.emit(owner, &config, position, config.burst_count as usize);
         }
@@ -212,7 +236,7 @@ impl ParticleSystem {
         }
 
         if dt > 0.0 {
-            self.advance_particles(dt);
+            self.advance_particles_for(dt, None);
         }
 
         for (owner, config, _, position) in emitters {
@@ -225,6 +249,28 @@ impl ParticleSystem {
             let due = self.accumulate_continuous_emission(owner, dt, config.emission_rate);
             self.emit(owner, &config, position, due);
         }
+    }
+
+    /// Advances one owner's particles without updating other room emitters.
+    pub fn update_emitter(&mut self, dt: f32, owner: Entity, ecs: &Ecs) {
+        let dt = if dt.is_finite() && dt > 0.0 { dt } else { 0.0 };
+        let Some((config, room_id, position)) = emitter_snapshot(owner, ecs) else {
+            self.remove_emitter(owner);
+            return;
+        };
+
+        self.prepare_emitter(owner, &config, room_id);
+        if dt > 0.0 {
+            self.advance_particles_for(dt, Some(owner));
+        }
+        if config.mode != ParticleEmissionMode::Continuous || config.validate().is_err() {
+            return;
+        }
+        let Some(position) = position else {
+            return;
+        };
+        let due = self.accumulate_continuous_emission(owner, dt, config.emission_rate);
+        self.emit(owner, &config, position, due);
     }
 
     /// Removes one owner's particles and transient emission state.
@@ -360,13 +406,16 @@ impl ParticleSystem {
         }
     }
 
-    fn advance_particles(&mut self, dt: f32) {
+    fn advance_particles_for(&mut self, dt: f32, owner: Option<Entity>) {
         let (slots, free_slots, emitter_states) =
             (&mut self.slots, &mut self.free_slots, &mut self.emitter_states);
         for (slot_index, slot) in slots.iter_mut().enumerate() {
             let Some(particle) = slot.as_mut() else {
                 continue;
             };
+            if owner.is_some_and(|owner| particle.owner != owner) {
+                continue;
+            }
             particle.age += dt;
             if particle.age >= particle.lifetime {
                 if let Some(state) = emitter_states.get_mut(&particle.owner) {
