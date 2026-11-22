@@ -219,6 +219,38 @@ fn transport_moves_player_and_switches_active_world() {
 }
 
 #[test]
+fn transport_moves_attached_children_with_player() {
+    let mut instance = two_world_instance();
+    let player = spawn_player(&mut instance.game, RoomId(1));
+    let child = instance
+        .game
+        .ecs
+        .create_entity()
+        .with(Transform {
+            position: Vec2::new(3.0, 4.0),
+            ..Default::default()
+        })
+        .with_current_room_layer(RoomId(1), RoomLayer::Front)
+        .finish();
+    set_parent(&mut instance.game.ecs, child, player);
+
+    assert!(WorldTransitionManager::execute(
+        &Lua::new(),
+        &mut instance,
+        &transport_request(player, ARCADE, None),
+    ));
+
+    assert_eq!(
+        instance.game.ecs.get::<Transform>(child).map(|transform| transform.position),
+        Some(START_POS + Vec2::new(3.0, 4.0))
+    );
+    assert_eq!(
+        instance.game.ecs.get::<CurrentRoom>(child).copied(),
+        Some(CurrentRoom::new(RoomId(2), RoomLayer::Front))
+    );
+}
+
+#[test]
 fn transport_uses_named_entry_room_and_position() {
     let mut instance = two_world_instance();
     let player = spawn_player(&mut instance.game, RoomId(1));

@@ -1,6 +1,9 @@
 use crate::engine::GameInstance;
 use bishop::prelude::Vec2;
-use engine_core::ecs::{CurrentRoom, Entity, Player, PlayerProxy, Transform, WorldEntry};
+use engine_core::ecs::{
+    CurrentRoom, Entity, Player, PlayerProxy, Transform, WorldEntry, get_parent, set_parent,
+    update_entity_position,
+};
 use engine_core::engine_global::set_game_name;
 use engine_core::game::Game;
 use engine_core::storage::test_utils::{game_fs_test_lock, TestGameFolder};
@@ -51,6 +54,66 @@ fn game_startup_without_a_start_entry_uses_first_room_at_origin() {
 }
 
 #[test]
+fn start_world_moves_player_children_with_player() {
+    let (instance, player, child) = assert_start_entry_spawn(None);
+
+    let player_position = instance
+        .game
+        .ecs
+        .get::<Transform>(player)
+        .map(|transform| transform.position);
+    assert_eq!(
+        instance.game.ecs.get::<Transform>(child).map(|transform| transform.position),
+        player_position.map(|position| position + Vec2::new(3.0, 4.0))
+    );
+    assert_eq!(
+        instance.game.ecs.get::<CurrentRoom>(child),
+        instance.game.ecs.get::<CurrentRoom>(player)
+    );
+}
+
+#[test]
+fn game_startup_transfers_proxy_children_to_the_player() {
+    let _lock = game_fs_test_lock().lock().unwrap();
+    let folder = TestGameFolder::new("start_proxy_children_transfer");
+    set_game_name(folder.name());
+    let mut game = Game::with_name(folder.name());
+    let mut world = World::new(WorldId(1), "Start".to_string(), 16.0);
+    world.add_room(Room::new(&mut game.ecs, RoomId(1), 16.0));
+    game.add_world(world);
+    let proxy_position = Vec2::new(68.0, 72.0);
+    let proxy = game.ecs.create_entity()
+        .with(PlayerProxy)
+        .with(Transform { position: proxy_position, ..Default::default() })
+        .with_current_room_layer(RoomId(1), RoomLayer::Front)
+        .finish();
+    let emitter_position = proxy_position + Vec2::new(0.0, 4.0);
+    let emitter = game.ecs.create_entity()
+        .with(Transform { position: emitter_position, ..Default::default() })
+        .with_current_room_layer(RoomId(1), RoomLayer::Front)
+        .finish();
+    set_parent(&mut game.ecs, emitter, proxy);
+    let player = game.ecs.create_entity()
+        .with(Player)
+        .with(Transform::default())
+        .finish();
+
+    let mut prepared = GameInstance::prepare_loaded_game(&Lua::new(), game).unwrap();
+
+    assert_eq!(get_parent(&prepared.game.ecs, emitter), Some(player));
+    assert_eq!(
+        prepared.game.ecs.get::<CurrentRoom>(emitter),
+        prepared.game.ecs.get::<CurrentRoom>(player)
+    );
+    let moved_position = proxy_position + Vec2::new(12.0, -3.0);
+    update_entity_position(&mut prepared.game.ecs, player, moved_position);
+    assert_eq!(
+        prepared.game.ecs.get::<Transform>(emitter).map(|transform| transform.position),
+        Some(moved_position + Vec2::new(0.0, 4.0))
+    );
+}
+
+#[test]
 fn game_startup_places_a_roomed_player_at_the_start_room_proxy() {
     assert_start_entry_spawn(Some(RoomId(1)));
 }
@@ -62,7 +125,7 @@ fn game_startup_places_an_unroomed_player_at_the_start_room_proxy() {
 
 #[test]
 fn restored_location_overrides_the_initial_start_entry_spawn() {
-    let (mut instance, player) = assert_start_entry_spawn(None);
+    let (mut instance, player, child) = assert_start_entry_spawn(None);
     let restored_position = Vec2::new(91.0, 42.0);
     let request = TraversalRequest::restore_location(
         player, WorldId(1), RoomId(1), RoomLayer::Front, restored_position,
@@ -72,9 +135,13 @@ fn restored_location_overrides_the_initial_start_entry_spawn() {
     assert_eq!(instance.game.ecs.get::<Transform>(player).unwrap().position, restored_position);
     assert_eq!(instance.game.ecs.get::<CurrentRoom>(player).copied(),
         Some(CurrentRoom::new(RoomId(1), RoomLayer::Front)));
+    assert_eq!(
+        instance.game.ecs.get::<Transform>(child).map(|transform| transform.position),
+        Some(restored_position + Vec2::new(3.0, 4.0))
+    );
 }
 
-fn assert_start_entry_spawn(initial_room: Option<RoomId>) -> (GameInstance, Entity) {
+fn assert_start_entry_spawn(initial_room: Option<RoomId>) -> (GameInstance, Entity, Entity) {
     let _lock = game_fs_test_lock().lock().unwrap();
     let folder = TestGameFolder::new("start_entry_spawn");
     set_game_name(folder.name());
@@ -100,6 +167,10 @@ fn assert_start_entry_spawn(initial_room: Option<RoomId>) -> (GameInstance, Enti
         .with(Player)
         .with(Transform { position: Vec2::new(5.0, 6.0), ..Default::default() })
         .finish();
+    let child = game.ecs.create_entity()
+        .with(Transform { position: Vec2::new(8.0, 10.0), ..Default::default() })
+        .finish();
+    set_parent(&mut game.ecs, child, player);
     if let Some(room_id) = initial_room {
         game.ecs.set_current_room_layer(player, room_id, RoomLayer::Front);
     }
@@ -115,7 +186,7 @@ fn assert_start_entry_spawn(initial_room: Option<RoomId>) -> (GameInstance, Enti
         game: prepared.game,
         prev_positions: HashMap::new(),
         traversal_residency_diagnostics: None,
-    }, player)
+    }, player, child)
 }
 
 #[test]

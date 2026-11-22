@@ -42,6 +42,10 @@ mod spatial_module_tests;
 mod demo_pathing_tests;
 
 #[cfg(test)]
+#[path = "tests/landing_dust_tests.rs"]
+mod landing_dust_tests;
+
+#[cfg(test)]
 #[path = "tests/demo_patrol_tests.rs"]
 mod demo_patrol_tests;
 

@@ -2,7 +2,7 @@ use crate::ecs::component::{Component, ComponentStore};
 use crate::ecs::component_registry::*;
 use crate::ecs::entity::*;
 use crate::ecs::has_any::HasAny;
-use crate::ecs::{CurrentRoom, Player, PlayerProxy, Transform};
+use crate::ecs::{CurrentRoom, Player, PlayerProxy, Transform, update_entity_position};
 use crate::game::GameCtxMut;
 use crate::tiles::TileDefId;
 use crate::worlds::room::RoomId;
@@ -265,8 +265,8 @@ impl Ecs {
             .copied()
     }
 
-    /// Sets the player's spawn position from the proxy in the given room.
-    /// Call this before purging proxies to preserve the spawn location.
+    /// Sets the player's spawn position and transfers the selected proxy's children.
+    /// Call this before purging proxies to preserve the spawn location and attachments.
     pub fn set_player_spawn_from_proxy(&mut self, room_id: RoomId) {
         let spawn_pos = self
             .get_player_proxy(room_id)
@@ -276,8 +276,8 @@ impl Ecs {
         if let Some(pos) = spawn_pos
             && let Some(player_entity) = self.get_player_entity()
         {
-            if let Some(transform) = self.get_mut::<Transform>(player_entity) {
-                transform.position = pos;
+            if self.get::<Transform>(player_entity).is_some() {
+                update_entity_position(self, player_entity, pos);
             } else {
                 self.add_component_to_entity(
                     player_entity,
@@ -287,7 +287,22 @@ impl Ecs {
                     },
                 );
             }
-            self.add_component_to_entity(player_entity, CurrentRoom::front(room_id));
+            self.transfer_player_proxy_children(room_id);
+            self.set_current_room_layer(player_entity, room_id, RoomLayer::Front);
+        }
+    }
+
+    /// Reparents the selected room proxy's children to the global player entity.
+    /// This preserves authored attachments when proxies are purged for runtime use.
+    pub fn transfer_player_proxy_children(&mut self, room_id: RoomId) {
+        let Some(proxy) = self.get_player_proxy(room_id) else {
+            return;
+        };
+        let Some(player) = self.get_player_entity() else {
+            return;
+        };
+        for child in get_children(self, proxy) {
+            set_parent(self, child, player);
         }
     }
 
