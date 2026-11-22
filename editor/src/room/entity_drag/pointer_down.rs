@@ -33,6 +33,9 @@ pub(crate) fn apply_click_selection(
 
     if !editor.selected_entities.contains(&entity) {
         editor.set_selected_entity(Some(entity));
+    } else {
+        editor.primary_selected_entity = Some(entity);
+        editor.sync_inspector_to_selection();
     }
     true
 }
@@ -116,7 +119,7 @@ pub(crate) fn try_begin_pointer_interaction(
         }
     }
 
-    if let Some(entity) = topmost_entity_from_click_candidates(&candidates) {
+    if let Some(entity) = topmost_entity_from_click_candidates(ecs, &candidates) {
         let should_start_drag = apply_click_selection(editor, entity, shift_held);
         if !should_start_drag {
             return true;

@@ -1,5 +1,6 @@
 use crate::gui::gui_constants::inspector;
 use crate::gui::panels::panel_manager::is_mouse_over_panel;
+use crate::gui::menu_bar::menu_button;
 use crate::gui::properties::game::GameProperties;
 use crate::gui::properties::room::RoomProperties;
 use crate::gui::properties::tilemap::TilemapProperties;
@@ -22,6 +23,7 @@ pub struct Inspector {
     pub room: RoomProperties,
     pub tilemap: TilemapProperties,
     pub entity: Option<EntityInspector>,
+    selection_entities: Vec<Entity>,
 
     active: ActivePane,
     interactive_rects: Vec<Rect>,
@@ -48,6 +50,7 @@ impl Inspector {
             room: RoomProperties::new(),
             tilemap: TilemapProperties::new(),
             entity: None,
+            selection_entities: Vec::new(),
             active: ActivePane::Empty,
             interactive_rects: Vec::new(),
         }
@@ -66,6 +69,11 @@ impl Inspector {
     /// Selects the tilemap pane for the next draw.
     pub fn select_tilemap(&mut self) {
         self.active = ActivePane::Tilemap;
+    }
+
+    /// Sets the entities available for inspector navigation.
+    pub(crate) fn set_selection_entities(&mut self, entities: Vec<Entity>) {
+        self.selection_entities = entities;
     }
 
     /// Selects the entity-inspector pane for the next draw.
@@ -121,6 +129,25 @@ impl Inspector {
     /// Returns the active tile brush, if one is selected.
     pub fn selected_tile_brush(&self) -> Option<TileDefId> {
         self.tilemap.selected_brush_id()
+    }
+
+    /// Moves the inspector target to the next selected entity.
+    pub(crate) fn cycle_selected_entity(&mut self, forward: bool) {
+        let Some(current) = self.selected_entity() else {
+            return;
+        };
+        if self.selection_entities.len() < 2 {
+            return;
+        }
+        let Some(index) = self.selection_entities.iter().position(|entity| *entity == current) else {
+            return;
+        };
+        let next_index = if forward {
+            (index + 1) % self.selection_entities.len()
+        } else {
+            (index + self.selection_entities.len() - 1) % self.selection_entities.len()
+        };
+        self.select_entity(self.selection_entities[next_index]);
     }
 
     /// Returns the entity currently shown in the inspector.
@@ -325,6 +352,21 @@ impl Inspector {
                 (output, self.tilemap.interactive_rects())
             }
             ActivePane::Entity => {
+                let mut cycle_rects = Vec::new();
+                if self.selection_entities.len() > 1 {
+                    let button_y = header_rect.y + inspector::HEADER_BUTTON_Y;
+                    let previous_rect = Rect::new(header_rect.x + 8.0, button_y, 24.0, 24.0);
+                    let next_rect = Rect::new(header_rect.x + 36.0, button_y, 24.0, 24.0);
+                    cycle_rects.extend([previous_rect, next_rect]);
+                    let previous = menu_button(ctx, previous_rect, "<", false, blocked);
+                    let next = menu_button(ctx, next_rect, ">", false, blocked);
+                    if previous {
+                        self.cycle_selected_entity(false);
+                    } else if next {
+                        self.cycle_selected_entity(true);
+                    }
+                }
+                self.interactive_rects.extend(cycle_rects);
                 let output = if let Some(entity) = &mut self.entity {
                     let mut output =
                         entity.draw_header(ctx, header_rect, blocked, game_ctx, insp_ctx);

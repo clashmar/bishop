@@ -10,7 +10,7 @@ use crate::gui::inspector::collider_module::edit::{
 };
 use crate::editor_global::{apply_pending_commands, push_command, request_undo, with_editor};
 use crate::room::room_editor::RoomEditor;
-use crate::room::selection::topmost_entity_from_click_candidates;
+use crate::room::selection::{selected_tree_roots, topmost_entity_from_click_candidates};
 use crate::test_utils::{EditorServicesGuard, TestGameFolder, game_fs_test_lock, make_room_editor};
 use bishop::prelude::{Rect, Vec2, vec2};
 use engine_core::assets::SpriteManager;
@@ -27,20 +27,49 @@ use engine_core::worlds::{RoomId, RoomLayer};
 
 #[test]
 fn topmost_entity_from_click_candidates_prefers_camera_then_highest_z() {
+    let ecs = Ecs::default();
     let camera = Entity(1);
     let non_camera = Entity(2);
     let candidates = vec![(non_camera, 9, false), (camera, 0, true)];
 
-    assert_eq!(topmost_entity_from_click_candidates(&candidates), Some(camera));
+    assert_eq!(topmost_entity_from_click_candidates(&ecs, &candidates), Some(camera));
 }
 
 #[test]
-fn topmost_entity_from_click_candidates_prefers_highest_z_for_non_cameras() {
+fn topmost_entity_from_click_candidates_prefers_root_over_child() {
+    let mut ecs = Ecs::default();
+    let root = ecs.create_entity().finish();
+    let child = ecs
+        .create_entity()
+        .with(Parent(root))
+        .finish();
+    let candidates = vec![(root, 1, false), (child, 7, false)];
+
+    assert_eq!(topmost_entity_from_click_candidates(&ecs, &candidates), Some(root));
+}
+
+#[test]
+fn topmost_entity_from_click_candidates_prefers_highest_z_for_unrelated_entities() {
+    let ecs = Ecs::default();
     let low = Entity(1);
     let high = Entity(2);
     let candidates = vec![(low, 1, false), (high, 7, false)];
 
-    assert_eq!(topmost_entity_from_click_candidates(&candidates), Some(high));
+    assert_eq!(topmost_entity_from_click_candidates(&ecs, &candidates), Some(high));
+}
+
+#[test]
+fn selected_tree_roots_removes_descendants_when_ancestor_is_selected() {
+    let mut ecs = Ecs::default();
+    let root = ecs.create_entity().finish();
+    let child = ecs.create_entity().with(Parent(root)).finish();
+    let unrelated = ecs.create_entity().finish();
+    let selected = [root, child, unrelated].into_iter().collect();
+
+    assert_eq!(
+        selected_tree_roots(&ecs, &selected),
+        [root, unrelated].into_iter().collect(),
+    );
 }
 
 #[test]

@@ -16,10 +16,30 @@ use engine_core::rendering::{
     resolve_visual_entity,
 };
 use engine_core::worlds::*;
+use std::collections::HashSet;
 
 impl RoomEditor {
+    pub(crate) fn sync_primary_from_inspector(&mut self) {
+        if let Some(entity) = self
+            .inspector
+            .selected_entity()
+            .filter(|entity| self.selected_entities.contains(entity))
+        {
+            self.primary_selected_entity = Some(entity);
+        }
+    }
+
     pub(crate) fn sync_inspector_to_selection(&mut self) {
-        if let Some(entity) = self.single_selected_entity() {
+        if !self
+            .primary_selected_entity
+            .is_some_and(|entity| self.selected_entities.contains(&entity))
+        {
+            self.primary_selected_entity = self.selected_entities.iter().copied().min();
+        }
+        let mut selection_entities: Vec<_> = self.selected_entities.iter().copied().collect();
+        selection_entities.sort_unstable();
+        self.inspector.set_selection_entities(selection_entities);
+        if let Some(entity) = self.primary_selected_entity {
             self.inspector.select_entity(entity);
         } else {
             self.inspector.select_room();
@@ -39,6 +59,7 @@ impl RoomEditor {
         }
 
         self.selected_entities.clear();
+        self.primary_selected_entity = entity;
         if let Some(e) = entity {
             self.selected_entities.insert(e);
         }
@@ -50,16 +71,22 @@ impl RoomEditor {
         if self.selected_entities.insert(entity) {
             self.disable_active_edit_modes();
         }
+        self.primary_selected_entity = Some(entity);
         self.sync_inspector_to_selection();
     }
 
     /// Toggles whether an entity is part of the current selection.
     pub fn toggle_entity_selection(&mut self, entity: Entity) {
         self.disable_active_edit_modes();
-        if self.selected_entities.contains(&entity) {
-            self.selected_entities.remove(&entity);
+        if self.selected_entities.remove(&entity) {
+            self.primary_selected_entity = self
+                .selected_entities
+                .iter()
+                .copied()
+                .min();
         } else {
             self.selected_entities.insert(entity);
+            self.primary_selected_entity = Some(entity);
         }
         self.sync_inspector_to_selection();
     }
@@ -70,6 +97,7 @@ impl RoomEditor {
             self.disable_active_edit_modes();
         }
         self.selected_entities.clear();
+        self.primary_selected_entity = None;
         self.sync_inspector_to_selection();
     }
 
@@ -96,6 +124,7 @@ impl RoomEditor {
                 self.selected_entities.insert(*entity);
             }
         }
+        self.primary_selected_entity = self.selected_entities.iter().copied().min();
         self.sync_inspector_to_selection();
     }
 
@@ -196,13 +225,46 @@ pub fn can_select_entity_in_room_layer(
 
 /// Returns the topmost click candidate by camera priority and draw order.
 pub(crate) fn topmost_entity_from_click_candidates(
+    ecs: &Ecs,
     candidates: &[(Entity, i32, bool)],
 ) -> Option<Entity> {
     candidates
         .iter()
         .copied()
+        .filter(|(entity, _, _)| {
+            !candidates.iter().any(|(candidate, _, _)| {
+                candidate != entity && is_ancestor_of(ecs, *candidate, *entity)
+            })
+        })
         .max_by(|a, b| compare_click_candidate_priority(*a, *b))
         .map(|(entity, _, _)| entity)
+}
+
+pub(crate) fn selected_tree_roots(ecs: &Ecs, selected: &HashSet<Entity>) -> HashSet<Entity> {
+    selected
+        .iter()
+        .copied()
+        .filter(|entity| {
+            !selected
+                .iter()
+                .any(|candidate| candidate != entity && is_ancestor_of(ecs, *candidate, *entity))
+        })
+        .collect()
+}
+
+pub(crate) fn is_ancestor_of(ecs: &Ecs, ancestor: Entity, entity: Entity) -> bool {
+    let mut current = entity;
+    let mut visited = HashSet::new();
+    while visited.insert(current) {
+        let Some(parent) = ecs.get::<Parent>(current).map(|parent| parent.0) else {
+            return false;
+        };
+        if parent == ancestor {
+            return true;
+        }
+        current = parent;
+    }
+    false
 }
 
 fn compare_click_candidate_priority(

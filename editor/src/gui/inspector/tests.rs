@@ -182,6 +182,24 @@ fn selecting_same_entity_reuses_existing_entity_inspector() {
 }
 
 #[test]
+fn entity_inspector_cycles_through_selected_entities() {
+    let mut inspector = Inspector::new();
+    let first = Entity(7);
+    let second = Entity(8);
+    inspector.set_selection_entities(vec![first, second]);
+    inspector.select_entity(first);
+
+    inspector.cycle_selected_entity(true);
+    assert_eq!(inspector.selected_entity(), Some(second));
+
+    inspector.cycle_selected_entity(true);
+    assert_eq!(inspector.selected_entity(), Some(first));
+
+    inspector.cycle_selected_entity(false);
+    assert_eq!(inspector.selected_entity(), Some(second));
+}
+
+#[test]
 fn hidden_inspector_only_hit_tests_the_strip() {
     let mut inspector = Inspector::new();
     inspector.set_rect(Rect::new(100.0, 0.0, 325.0, 400.0));

@@ -114,6 +114,7 @@ pub struct RoomEditor {
     pub inspector: Inspector,
     pub active_layer_state: RoomLayerState,
     pub selected_entities: HashSet<Entity>,
+    pub(crate) primary_selected_entity: Option<Entity>,
     pub active_prefab_id: Option<PrefabId>,
     pub recent_prefab_ids: Vec<PrefabId>,
     pub(crate) scene_sub_mode: RoomSceneSubMode,
@@ -153,6 +154,7 @@ impl RoomEditor {
             inspector,
             active_layer_state: RoomLayerState::default(),
             selected_entities: HashSet::new(),
+            primary_selected_entity: None,
             active_prefab_id: None,
             recent_prefab_ids: Vec::new(),
             scene_sub_mode: RoomSceneSubMode::Scene,
@@ -188,6 +190,7 @@ impl RoomEditor {
             sprite_manager,
             active_prefab_stamp,
         } = state;
+        self.sync_primary_from_inspector();
         let grid_size = current_world.grid_size;
 
         let other_bounds: Vec<(Vec2, Vec2)> = current_world

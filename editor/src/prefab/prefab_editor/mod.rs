@@ -191,6 +191,7 @@ impl PrefabEditor {
                 ctx,
                 game_ctx.ecs,
                 selected_entity,
+                true,
                 game_ctx.sprite_manager,
                 PREFAB_EDITOR_GRID_SIZE,
             );

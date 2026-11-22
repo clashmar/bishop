@@ -1,5 +1,5 @@
 use crate::room::room_editor::RoomEditor;
-use crate::room::selection::entity_world_rect;
+use crate::room::selection::{entity_world_rect, selected_tree_roots};
 use crate::shared::selection::{box_selection_drag_started, rect_from_two_points, rects_intersect};
 use crate::world::coord;
 use bishop::prelude::{Camera2D, MouseButton, Rect, Vec2, WgpuContext};
@@ -49,9 +49,9 @@ pub(crate) fn finish_box_selection(
     );
     if !selected.is_empty() {
         editor.disable_active_edit_modes();
-        for entity in selected {
-            editor.selected_entities.insert(entity);
-        }
+        let selected_roots = selected_tree_roots(ecs, &selected);
+        editor.selected_entities.extend(selected_roots.iter().copied());
+        editor.primary_selected_entity = selected_roots.iter().copied().min();
         editor.sync_inspector_to_selection();
     }
     true
