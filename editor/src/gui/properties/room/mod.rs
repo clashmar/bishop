@@ -39,6 +39,13 @@ impl RoomProperties {
             ],
         }
     }
+
+    /// Collapses every collapsible room property module.
+    pub fn collapse_all(&mut self) {
+        for module in &mut self.modules {
+            module.set_expanded(false);
+        }
+    }
 }
 
 impl InspectorContent for RoomProperties {
@@ -170,5 +177,23 @@ impl InspectorContent for RoomProperties {
             h -= layout::WIDGET_SPACING;
         }
         h + 20.0
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn collapse_all_collapses_every_room_module() {
+        let mut properties = RoomProperties::new();
+        assert!(!properties.modules.is_empty());
+
+        properties.collapse_all();
+
+        assert!(properties
+            .modules
+            .iter()
+            .all(|module| module.expansion_state() == Some(false)));
     }
 }

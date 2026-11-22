@@ -32,6 +32,14 @@ pub trait PropertyModule<T> {
         None
     }
 
+    /// Returns the current expansion state for collapsible modules.
+    fn expansion_state(&self) -> Option<bool> {
+        None
+    }
+
+    /// Sets the expansion state for collapsible modules.
+    fn set_expanded(&mut self, _expanded: bool) {}
+
     /// Layout describing expanded body height.
     fn body_layout(&self) -> InspectorBodyLayout;
 

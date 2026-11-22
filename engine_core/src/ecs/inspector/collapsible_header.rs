@@ -27,10 +27,29 @@ impl CollapsibleHeader {
         self.expanded
     }
 
-    /// Set expanded state for testing. Production code should use the
-    /// toggle button in `draw()` to change state with persistence.
+    /// Set expanded state for testing without changing saved user preferences.
     pub fn set_expanded(&mut self, expanded: bool) {
         self.expanded = expanded;
+    }
+
+    /// Set expanded state and persist it using the same key as the header toggle.
+    pub fn set_expanded_and_persist(&mut self, title: &str, expanded: bool) {
+        self.set_expanded_with_persistence(title, expanded, set_inspector_module_expanded);
+    }
+
+    fn set_expanded_with_persistence(
+        &mut self,
+        title: &str,
+        expanded: bool,
+        persist: impl FnOnce(&str, bool),
+    ) {
+        if self.expanded == expanded {
+            return;
+        }
+
+        self.expanded = expanded;
+        let key = self.custom_title.as_deref().unwrap_or(title);
+        persist(key, self.expanded);
     }
 
     pub fn with_title(mut self, title: impl Into<String>) -> Self {
@@ -78,9 +97,7 @@ impl CollapsibleHeader {
             .suppressed(blocked)
             .show(ctx)
         {
-            self.expanded = !self.expanded;
-            let key = self.custom_title.as_deref().unwrap_or(title);
-            set_inspector_module_expanded(key, self.expanded);
+            self.set_expanded_and_persist(title, !self.expanded);
             return true;
         }
 
@@ -92,6 +109,19 @@ impl CollapsibleHeader {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn expanded_state_persistence_uses_the_header_title_key() {
+        let mut header = CollapsibleHeader::new("StoredTitle");
+        let mut saved_state = None;
+
+        header.set_expanded_with_persistence("StoredTitle", false, |title, expanded| {
+            saved_state = Some((title.to_string(), expanded));
+        });
+
+        assert_eq!(saved_state, Some(("StoredTitle".to_string(), false)));
+        assert!(!header.expanded());
+    }
 
     #[test]
     fn header_new_starts_expanded() {

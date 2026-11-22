@@ -134,6 +134,22 @@ impl EntityInspector {
         self.target
     }
 
+    /// Collapses every collapsible entity component module.
+    pub fn collapse_all(&mut self) {
+        for module in &mut self.modules {
+            if module.expansion_state().is_some() {
+                module.set_expanded(false);
+            }
+        }
+    }
+
+    /// Returns whether this inspector has any collapsible modules.
+    pub fn has_collapsible_modules(&self) -> bool {
+        self.modules
+            .iter()
+            .any(|module| module.expansion_state().is_some())
+    }
+
     fn build_addable_components(
         &self,
         ecs: &mut Ecs,
@@ -699,3 +715,7 @@ fn prefab_action_strip_layout(metadata_rect: Rect) -> PrefabActionStripLayout {
         revert_rect,
     }
 }
+
+#[cfg(test)]
+#[path = "entity_inspector_tests.rs"]
+mod tests;

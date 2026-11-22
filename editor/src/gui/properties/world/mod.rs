@@ -49,6 +49,14 @@ impl WorldProperties {
     pub fn show_navigation_icons(&self) -> bool {
         self.navigation.inner().show_icons
     }
+
+    /// Collapses every collapsible world property module.
+    pub fn collapse_all(&mut self) {
+        for module in &mut self.modules {
+            module.set_expanded(false);
+        }
+        self.navigation.set_expanded(false);
+    }
 }
 
 impl InspectorContent for WorldProperties {
@@ -133,5 +141,24 @@ impl InspectorContent for WorldProperties {
         }
         h += self.navigation.height() + layout::WIDGET_SPACING;
         h + 20.0
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn collapse_all_collapses_world_modules_and_navigation() {
+        let mut properties = WorldProperties::new();
+        assert!(!properties.modules.is_empty());
+
+        properties.collapse_all();
+
+        assert!(properties
+            .modules
+            .iter()
+            .all(|module| module.expansion_state() == Some(false)));
+        assert_eq!(properties.navigation.expansion_state(), Some(false));
     }
 }

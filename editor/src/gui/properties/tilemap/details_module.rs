@@ -298,6 +298,14 @@ impl TilemapDetailsModule {
         }
     }
 
+    pub(super) fn collapse_all(&mut self) {
+        for module in &mut self.component_editor.modules {
+            if module.expansion_state().is_some() {
+                module.set_expanded(false);
+            }
+        }
+    }
+
     fn push_update_if_changed(tile_id: TileDefId, before: TileDef, after: TileDef) {
         if before != after {
             push_command(Box::new(UpdateTileDefinitionCmd::new(tile_id, before, after)));
@@ -446,3 +454,7 @@ fn make_temp_game_ctx<'a>(
         prefab_manager: game_ctx.prefab_manager,
     }
 }
+
+#[cfg(test)]
+#[path = "details_module_tests.rs"]
+mod tests;

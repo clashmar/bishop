@@ -31,6 +31,14 @@ pub trait InspectorModule {
         self.body_layout().height()
     }
 
+    /// Returns the current expansion state for collapsible modules.
+    fn expansion_state(&self) -> Option<bool> {
+        None
+    }
+
+    /// Sets the expansion state for collapsible modules.
+    fn set_expanded(&mut self, _expanded: bool) {}
+
     /// Title that appears in the collapsible header. Uses the
     /// Rust type name by default and can be overriden.
     fn title(&self) -> &str {
@@ -118,6 +126,13 @@ impl<T: InspectorModule> CollapsibleComponentModule<T> {
         set_inspector_module_expanded(self.title(), self.expanded);
     }
 
+    fn set_expanded_state(&mut self, expanded: bool) {
+        if self.expanded != expanded {
+            self.expanded = expanded;
+            self.persist_saved_state();
+        }
+    }
+
     fn collapse_button_rect(rect: Rect) -> Rect {
         Rect::new(rect.x + 4.0, rect.y + 4.0, 16.0, 16.0)
     }
@@ -160,8 +175,7 @@ impl<T: InspectorModule> InspectorModule for CollapsibleComponentModule<T> {
             .suppressed(blocked)
             .show(ctx)
         {
-            self.expanded = !self.expanded;
-            self.persist_saved_state();
+            self.set_expanded_state(!self.expanded);
         }
 
         // Body, when expanded
@@ -187,6 +201,14 @@ impl<T: InspectorModule> InspectorModule for CollapsibleComponentModule<T> {
         } else {
             CollapsibleHeader::HEADER_HEIGHT
         }
+    }
+
+    fn expansion_state(&self) -> Option<bool> {
+        Some(self.expanded)
+    }
+
+    fn set_expanded(&mut self, expanded: bool) {
+        self.set_expanded_state(expanded);
     }
 
     fn title(&self) -> &str {

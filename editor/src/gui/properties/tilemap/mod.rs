@@ -85,6 +85,13 @@ impl TilemapProperties {
     pub fn selected_brush_id(&self) -> Option<TileDefId> {
         self.state.brush_tile_id
     }
+
+    /// Collapses tilemap properties and nested component modules.
+    pub fn collapse_all(&mut self) {
+        self.library.set_expanded(false);
+        self.details.set_expanded(false);
+        self.details.inner_mut().collapse_all();
+    }
 }
 
 impl InspectorContent for TilemapProperties {
@@ -156,5 +163,20 @@ impl InspectorContent for TilemapProperties {
         }
 
         height + OUTER_PADDING
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn collapse_all_collapses_library_and_details_modules() {
+        let mut properties = TilemapProperties::new();
+
+        properties.collapse_all();
+
+        assert_eq!(properties.library.expansion_state(), Some(false));
+        assert_eq!(properties.details.expansion_state(), Some(false));
     }
 }

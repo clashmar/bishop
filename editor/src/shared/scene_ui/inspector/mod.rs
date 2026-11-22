@@ -1,5 +1,7 @@
 pub mod entity_inspector;
 mod policy;
+#[cfg(test)]
+pub(crate) mod test_utils;
 
 use crate::app::EditorMode;
 use bishop::prelude::*;
