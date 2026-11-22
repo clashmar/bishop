@@ -1,5 +1,16 @@
 use super::*;
 use crate::test_utils::WidgetTestContext;
+use bishop::text::FontId;
+
+#[test]
+fn button_draws_with_selected_font() {
+    let mut ctx = WidgetTestContext::new();
+    Button::new(Rect::new(0.0, 0.0, 80.0, 30.0), "Play")
+        .font(Some(FontId(17)))
+        .show(&mut ctx);
+
+    assert_eq!(ctx.draw_text_calls[0].font, Some(FontId(17)));
+}
 
 #[test]
 fn primary_click_requires_matching_press_and_release() {

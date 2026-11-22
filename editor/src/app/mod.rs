@@ -458,7 +458,7 @@ impl Editor {
         }
 
         match self.mode {
-            EditorMode::Menu => self.menu_editor.draw(ctx, &self.camera),
+            EditorMode::Menu => self.menu_editor.draw(ctx, &self.camera, &mut self.game),
             EditorMode::Prefab(_) => {
                 if let (Some(prefab_editor), Some(prefab_stage), Some(grid_renderer)) = (
                     self.prefab_editor.as_mut(),

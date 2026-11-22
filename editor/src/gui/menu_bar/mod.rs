@@ -452,7 +452,11 @@ fn view_actions_for_mode(editor_mode: EditorMode) -> Vec<EditorAction> {
 }
 
 fn options_actions_for_mode(editor_mode: EditorMode) -> Vec<EditorAction> {
-    [EditorAction::EditorSettings, EditorAction::WorldSettings, EditorAction::Rename]
+    [
+        EditorAction::EditorSettings,
+        EditorAction::WorldSettings,
+        EditorAction::Rename,
+    ]
         .into_iter()
         .filter(|action| action.is_available_in(editor_mode))
         .collect()

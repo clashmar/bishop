@@ -5,6 +5,7 @@ mod icon_mapper_tests;
 mod navigation_tests;
 mod open_resource_tests;
 mod path_filter_tests;
+mod resizing_tests;
 mod pending_delete_tests;
 mod protected_path_tests;
 mod scan_tests;

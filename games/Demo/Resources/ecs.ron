@@ -1679,13 +1679,13 @@
                 ),
                 (340): (
                     visible: true,
-                    position: (188.0, 72.0),
+                    position: (188.0, 71.999954),
                     pivot: BottomCenter,
                     z: 1,
                 ),
                 (341): (
                     visible: false,
-                    position: (188.0, 72.0),
+                    position: (188.0, 71.99991),
                     pivot: BottomCenter,
                     z: 1,
                 ),

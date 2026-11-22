@@ -1,6 +1,8 @@
 use super::{registry_errors, AssetKey, AssetKind, AssetRecord};
 use crate::assets::AssetManager;
-use crate::constants::paths::{ASSETS_FOLDER, AUDIO_FOLDER, PREFABS_FOLDER, SCRIPTS_FOLDER, TEXT_FOLDER};
+use crate::constants::paths::{
+    ASSETS_FOLDER, AUDIO_FOLDER, FONTS_FOLDER, PREFABS_FOLDER, SCRIPTS_FOLDER, TEXT_FOLDER,
+};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::io::{self};
@@ -188,6 +190,17 @@ impl AssetRegistry {
         })
     }
 
+    /// Infers an asset kind from a path under the Resources directory.
+    pub fn kind_for_resource_path<P: AsRef<Path>, R: AsRef<Path>>(
+        path: P,
+        resources_root: R,
+    ) -> Option<AssetKind> {
+        let relative_path = path.as_ref().strip_prefix(resources_root).ok()?;
+        AssetKind::ALL
+            .into_iter()
+            .find(|kind| relative_path.starts_with(Self::asset_folder(*kind)))
+    }
+
     pub fn asset_folder(kind: AssetKind) -> PathBuf {
         PathBuf::from(match kind {
             AssetKind::Sprite => ASSETS_FOLDER,
@@ -195,6 +208,7 @@ impl AssetRegistry {
             AssetKind::Prefab => PREFABS_FOLDER,
             AssetKind::Sound => AUDIO_FOLDER,
             AssetKind::Toml => TEXT_FOLDER,
+            AssetKind::Font => FONTS_FOLDER,
         })
     }
 
@@ -252,6 +266,7 @@ impl AssetRegistry {
             AssetKey::Prefab(_) => AssetKind::Prefab,
             AssetKey::Sound(_) => AssetKind::Sound,
             AssetKey::Toml(_) => AssetKind::Toml,
+            AssetKey::Font(_) => AssetKind::Font,
         }
     }
 }

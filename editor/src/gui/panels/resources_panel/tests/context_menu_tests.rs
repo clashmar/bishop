@@ -110,7 +110,7 @@ fn registered_file_has_rename_delete_open_and_reveal_actions() {
 
     assert_eq!(
         entry.context_menu_actions(),
-        &[
+        vec![
             ResourceMenuAction::Rename,
             ResourceMenuAction::Delete,
             ResourceMenuAction::Open,
@@ -120,12 +120,17 @@ fn registered_file_has_rename_delete_open_and_reveal_actions() {
 }
 
 #[test]
-fn unregistered_file_has_delete_open_and_reveal_actions() {
-    let entry = test_entry("loose.asset", EntryKind::UnregisteredFile);
+fn unregistered_file_in_canonical_folder_has_register_delete_open_and_reveal_actions() {
+    let file_name = format!("loose.{}", engine_core::constants::extensions::LUA);
+    let mut entry = test_entry(&file_name, EntryKind::UnregisteredFile);
+    entry.path = engine_core::storage::path_utils::resources_folder_current()
+        .join(engine_core::constants::paths::SCRIPTS_FOLDER)
+        .join(&file_name);
 
     assert_eq!(
         entry.context_menu_actions(),
-        &[
+        vec![
+            ResourceMenuAction::Register,
             ResourceMenuAction::Delete,
             ResourceMenuAction::Open,
             ResourceMenuAction::Reveal,
@@ -134,24 +139,84 @@ fn unregistered_file_has_delete_open_and_reveal_actions() {
 }
 
 #[test]
-fn directory_has_rename_delete_and_reveal_actions() {
+fn register_action_infers_font_kind_from_supported_extension() {
+    let font_path = format!("display.{}", engine_core::constants::extensions::OTF);
+    let mut entry = test_entry(&font_path, EntryKind::UnregisteredFile);
+    let expected_path = engine_core::storage::path_utils::fonts_folder().join(&font_path);
+    entry.path = expected_path.clone();
+    let action = context_menu::pending_action_for(
+        &entry,
+        ResourceMenuAction::Register,
+        &AssetRegistry::default(),
+    );
+
+    assert!(matches!(
+        action,
+        Some(PendingResourceAction::Register(AssetKind::Font, ref path))
+            if path == &expected_path
+    ));
+}
+
+#[test]
+fn unsupported_file_does_not_offer_register_action() {
+    let entry = test_entry("unknown.woff", EntryKind::UnregisteredFile);
+    let target = context_target_for_entry(0, &entry, Vec2::new(0.0, 0.0)).unwrap();
+    assert!(!target.actions.contains(&ResourceMenuAction::Register));
+}
+
+#[test]
+fn resources_root_icon_does_not_offer_register_action() {
+    let mut entry = test_entry("Icon.png", EntryKind::UnregisteredFile);
+    entry.path = engine_core::storage::path_utils::resources_folder_current().join("Icon.png");
+    let target = context_target_for_entry(0, &entry, Vec2::new(0.0, 0.0)).unwrap();
+    assert!(!target.actions.contains(&ResourceMenuAction::Register));
+}
+
+#[test]
+fn directory_has_rename_delete_import_and_reveal_actions() {
     let entry = test_entry("folder", EntryKind::Directory);
 
     assert_eq!(
         entry.context_menu_actions(),
-        &[
+        vec![
             ResourceMenuAction::Rename,
             ResourceMenuAction::Delete,
+            ResourceMenuAction::Import,
             ResourceMenuAction::Reveal,
         ]
     );
 }
 
 #[test]
-fn system_directory_has_only_reveal_action() {
-    let entry = test_entry("assets", EntryKind::SystemDirectory);
+fn system_directory_can_import_without_destructive_actions() {
+    let entry = test_entry("fonts", EntryKind::SystemDirectory);
 
-    assert_eq!(entry.context_menu_actions(), &[ResourceMenuAction::Reveal]);
+    assert_eq!(
+        entry.context_menu_actions(),
+        vec![ResourceMenuAction::Import, ResourceMenuAction::Reveal]
+    );
+}
+
+#[test]
+fn importing_from_canonical_fonts_directory_is_constrained_to_fonts() {
+    let resources_root = engine_core::storage::path_utils::resources_folder_current();
+    let fonts_dir = resources_root.join(engine_core::constants::paths::FONTS_FOLDER);
+    let mut entry = test_entry("fonts", EntryKind::SystemDirectory);
+    entry.path = fonts_dir.clone();
+
+    let action = context_menu::pending_action_for(
+        &entry,
+        ResourceMenuAction::Import,
+        &AssetRegistry::default(),
+    );
+
+    assert!(matches!(
+        action,
+        Some(PendingResourceAction::Import {
+            expected_kind: Some(AssetKind::Font),
+            current_dir: ref path,
+        }) if path == &fonts_dir
+    ));
 }
 
 #[test]
@@ -163,10 +228,10 @@ fn system_directory_is_dir_like() {
 }
 
 #[test]
-fn background_menu_has_only_new_folder_action() {
+fn background_menu_has_one_generic_import_action() {
     assert_eq!(
         context_menu::BACKGROUND_MENU_ACTIONS,
-        &[ResourceMenuAction::NewFolder]
+        &[ResourceMenuAction::NewFolder, ResourceMenuAction::Import]
     );
 }
 
@@ -223,9 +288,92 @@ fn active_menu_background_stores_position() {
 
 #[test]
 fn pending_action_for_background_returns_create_directory() {
-    let current_dir = PathBuf::from("/games/Demo/Resources/subdir");
-    let action = context_menu::pending_action_for_background(&current_dir);
-    assert!(matches!(action, PendingResourceAction::CreateDirectory(ref p) if p == &current_dir));
+    let resources_root = engine_core::storage::path_utils::resources_folder_current();
+    let current_dir = resources_root.join("subdir");
+    let action = context_menu::pending_action_for_background(
+        &current_dir,
+        &resources_root,
+        ResourceMenuAction::NewFolder,
+    );
+    assert!(matches!(action, Some(PendingResourceAction::CreateDirectory(ref p)) if p == &current_dir));
+}
+
+#[test]
+fn resources_root_background_menu_hides_import() {
+    let resources_root = engine_core::storage::path_utils::resources_folder_current();
+    assert_eq!(
+        context_menu::background_menu_actions_for(&resources_root, &resources_root),
+        &[ResourceMenuAction::NewFolder]
+    );
+    assert!(context_menu::pending_action_for_background(
+        &resources_root,
+        &resources_root,
+        ResourceMenuAction::Import,
+    )
+    .is_none());
+}
+
+#[test]
+fn import_from_asset_directory_is_constrained_to_sprite_kind() {
+    let resources_root = engine_core::storage::path_utils::resources_folder_current();
+    let current_dir = resources_root.join(engine_core::constants::paths::ASSETS_FOLDER);
+    let action = context_menu::pending_action_for_background(
+        &current_dir,
+        &resources_root,
+        ResourceMenuAction::Import,
+    );
+
+    assert!(matches!(
+        action,
+        Some(PendingResourceAction::Import {
+            expected_kind: Some(AssetKind::Sprite),
+            current_dir: ref path,
+        }) if path == &current_dir
+    ));
+}
+
+#[test]
+fn import_from_audio_subdirectory_is_constrained_to_sound_kind() {
+    let resources_root = engine_core::storage::path_utils::resources_folder_current();
+    let current_dir = resources_root
+        .join(engine_core::constants::paths::AUDIO_FOLDER)
+        .join(engine_core::constants::paths::SFX_FOLDER);
+    let action = context_menu::pending_action_for_background(
+        &current_dir,
+        &resources_root,
+        ResourceMenuAction::Import,
+    );
+
+    assert!(matches!(
+        action,
+        Some(PendingResourceAction::Import {
+            expected_kind: Some(AssetKind::Sound),
+            current_dir: ref path,
+        }) if path == &current_dir
+    ));
+}
+
+#[test]
+fn import_from_user_directory_allows_any_supported_kind() {
+    let resources_root = engine_core::storage::path_utils::resources_folder_current();
+    let current_dir = resources_root.join("MyCustomFolder");
+    assert_eq!(
+        context_menu::background_menu_actions_for(&current_dir, &resources_root),
+        context_menu::BACKGROUND_MENU_ACTIONS
+    );
+    let action = context_menu::pending_action_for_background(
+        &current_dir,
+        &resources_root,
+        ResourceMenuAction::Import,
+    );
+
+    assert!(matches!(
+        action,
+        Some(PendingResourceAction::Import {
+            expected_kind: None,
+            current_dir: ref path,
+        }) if path == &current_dir
+    ));
 }
 
 #[test]

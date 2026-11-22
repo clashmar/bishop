@@ -33,6 +33,7 @@
                             kind: Label((
                                 text_key: "DemoTitle",
                                 font_size: 24.0,
+                                font: None,
                                 alignment: Center,
                             )),
                             rect: (
@@ -42,6 +43,7 @@
                                 h: 0.03,
                             ),
                             enabled: true,
+                            enabled_when: Always,
                             visible: true,
                             z_order: 0,
                             class: None,
@@ -56,6 +58,7 @@
                                 text_key: "NewGame",
                                 action: CloseMenu,
                                 font_size: 20.0,
+                                font: None,
                                 nav_targets: (
                                     up: None,
                                     down: None,
@@ -70,6 +73,7 @@
                                 h: 0.037,
                             ),
                             enabled: true,
+                            enabled_when: Always,
                             visible: true,
                             z_order: 0,
                             class: None,
@@ -84,6 +88,7 @@
                                 text_key: "LoadGame",
                                 action: Custom("load_latest"),
                                 font_size: 20.0,
+                                font: None,
                                 nav_targets: (
                                     up: None,
                                     down: None,
@@ -113,6 +118,7 @@
                                 text_key: "Settings",
                                 action: OpenMenu("settings"),
                                 font_size: 20.0,
+                                font: None,
                                 nav_targets: (
                                     up: None,
                                     down: None,
@@ -127,6 +133,7 @@
                                 h: 0.037,
                             ),
                             enabled: true,
+                            enabled_when: Always,
                             visible: true,
                             z_order: 0,
                             class: None,
@@ -149,6 +156,7 @@
                 h: 0.3,
             ),
             enabled: true,
+            enabled_when: Always,
             visible: true,
             z_order: 0,
             class: None,
@@ -156,4 +164,5 @@
         ),
     ],
     mode: FrontEnd,
+    on_open: "",
 )

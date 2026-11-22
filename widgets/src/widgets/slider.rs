@@ -1,5 +1,6 @@
 use crate::constants::colors;
 use crate::*;
+use bishop::text::{FontId, TextParams};
 use std::cell::RefCell;
 use std::collections::HashMap;
 
@@ -22,6 +23,7 @@ pub struct Slider {
     max: f32,
     value: f32,
     label: Option<String>,
+    font: Option<FontId>,
     focused: bool,
     base: WidgetBase,
 }
@@ -35,6 +37,7 @@ impl Slider {
             max,
             value,
             label: None,
+            font: None,
             focused: false,
             base: WidgetBase {
                 blocked: false,
@@ -47,6 +50,12 @@ impl Slider {
     /// Sets an optional label text displayed to the left of the track.
     pub fn label(mut self, text: impl Into<String>) -> Self {
         self.label = Some(text.into());
+        self
+    }
+
+    /// Selects a registered font for the slider label, or the embedded default.
+    pub fn font(mut self, font: Option<FontId>) -> Self {
+        self.font = font;
         self
     }
 
@@ -106,11 +115,23 @@ impl Slider {
 
             let text_color =
                 resolve_with_theme(self.base.overrides.text, widget_theme.text, Color::WHITE);
-            let label_font_size = 14.0;
-            let text_dims = ctx.measure_text(label_text, label_font_size);
+            let params = TextParams {
+                font: self.font,
+                font_size: 14,
+                ..TextParams::default()
+            };
+            let text_dims = ctx.measure_text_ex(label_text, &params);
             let text_x = lr.x + (lr.w - text_dims.width) * 0.5;
             let text_y = lr.y + (lr.h - text_dims.height) * 0.5 + text_dims.offset_y;
-            draw_text_ui(ctx, label_text, text_x, text_y, label_font_size, text_color);
+            ctx.draw_text_ex(
+                label_text,
+                text_x,
+                text_y,
+                TextParams {
+                    color: text_color,
+                    ..params
+                },
+            );
 
             let divider_color =
                 resolve_with_theme(None, widget_theme.border, colors::DEFAULT_BORDER_COLOR);
@@ -263,5 +284,23 @@ impl Widget for Slider {
     }
     fn base_mut(&mut self) -> &mut WidgetBase {
         &mut self.base
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::test_utils::WidgetTestContext;
+    use bishop::text::FontId;
+
+    #[test]
+    fn slider_label_draws_with_selected_font() {
+        let mut ctx = WidgetTestContext::new();
+        Slider::new(WidgetId(517), Rect::new(0.0, 0.0, 100.0, 24.0), 0.0, 1.0, 0.5)
+            .label("Volume")
+            .font(Some(FontId(17)))
+            .show(&mut ctx);
+
+        assert_eq!(ctx.draw_text_calls[0].font, Some(FontId(17)));
     }
 }

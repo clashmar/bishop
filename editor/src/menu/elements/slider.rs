@@ -1,8 +1,10 @@
 use crate::menu::menu_canvas::drawing::MenuCanvasFrame;
 use crate::menu::menu_properties_panel::common_properties::row_visible;
+use crate::gui::widgets::font_selector::draw_font_dropdown;
 use crate::menu::menu_properties_panel::{FIELD_HEIGHT, LABEL_WIDTH, ROW_HEIGHT};
 use crate::menu::MenuEditor;
 use bishop::prelude::*;
+use engine_core::assets::AssetRegistry;
 use engine_core::menu::{MenuElement, MenuElementKind};
 use widgets::*;
 
@@ -17,6 +19,13 @@ impl MenuEditor {
         let MenuElementKind::Slider(slider) = &element.kind else {
             return;
         };
+        let font = frame.font_manager.ensure_element_font(
+            frame.ctx,
+            frame.asset_registry,
+            frame.resource_source,
+            frame.text_settings,
+            slider.font,
+        );
         Slider::new(
             slider.widget_id,
             element_rect,
@@ -25,6 +34,7 @@ impl MenuEditor {
             slider.default_value,
         )
         .label(&slider.text_key)
+        .font(font)
         .blocked(true)
         .apply_selectors(element.class.as_deref(), element.style_id.as_deref())
         .show(frame.ctx);
@@ -54,8 +64,9 @@ impl MenuEditor {
         w: f32,
         blocked: bool,
         clip: &Rect,
+        asset_registry: &AssetRegistry,
     ) {
-        let (text_key, key, min, max, step, default_value) = {
+        let (text_key, current_font, key, min, max, step, default_value) = {
             let Some(element) = self.selected_element() else {
                 return;
             };
@@ -64,6 +75,7 @@ impl MenuEditor {
             };
             (
                 slider.text_key.clone(),
+                slider.font,
                 slider.key.clone(),
                 slider.min,
                 slider.max,
@@ -88,6 +100,27 @@ impl MenuEditor {
                     s.text_key = new_val;
                 }
             });
+        }
+        *y += ROW_HEIGHT;
+
+        // Font
+        if row_visible(*y, ROW_HEIGHT, clip) {
+            ctx.draw_text("Font:", x, *y + 16.0, 12.0, Color::WHITE);
+            let field_rect = Rect::new(x + LABEL_WIDTH, *y, w - LABEL_WIDTH, FIELD_HEIGHT);
+            if let Some(selected) = draw_font_dropdown(
+                ctx,
+                self.properties_panel.widget_ids.slider_font_id,
+                field_rect,
+                asset_registry,
+                current_font,
+                blocked,
+            ) {
+                self.push_element_update(|element| {
+                    if let MenuElementKind::Slider(slider) = &mut element.kind {
+                        slider.font = selected;
+                    }
+                });
+            }
         }
         *y += ROW_HEIGHT;
 

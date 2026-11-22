@@ -1,9 +1,6 @@
 //! Trait implementations for WgpuContext.
 
-use std::cell::RefCell;
-
 use super::context::WgpuContext;
-use super::render::FontAtlas;
 use super::render::WgpuTexture;
 use crate::Rect;
 use crate::camera::{Camera, Camera2D};
@@ -11,15 +8,11 @@ use crate::draw::{Draw, DrawTextureParams};
 use crate::input::{Input, KeyCode, MouseButton};
 use crate::material::RenderOps;
 use crate::platform::PlatformControl;
-use crate::text::{Text, TextDimensions};
+use crate::text::{FontId, Text, TextDimensions, TextParams};
 use crate::time::Time;
 use crate::types::{Color, Texture2D, Vec2};
 use crate::window::Window;
 use crate::TextureLoader;
-
-thread_local! {
-    static MEASURE_ATLAS: RefCell<Option<FontAtlas>> = const { RefCell::new(None) };
-}
 
 impl Input for WgpuContext {
     fn is_key_down(&self, key: KeyCode) -> bool {
@@ -191,7 +184,15 @@ impl Text for WgpuContext {
         color: Color,
     ) -> TextDimensions {
         let prev = self.text_renderer.vertex_count() as u32;
-        let dims = self.text_renderer.draw_text(text, x, y, font_size, color);
+        let dims = self.text_renderer.draw_text_scaled(
+            text,
+            x,
+            y,
+            font_size,
+            color,
+            None,
+            self.text_raster_scale(),
+        );
         self.record_text_segment(prev);
         dims
     }
@@ -204,20 +205,34 @@ impl Text for WgpuContext {
         params: crate::text::TextParams,
     ) -> TextDimensions {
         let prev = self.text_renderer.vertex_count() as u32;
-        let dims = self.text_renderer.draw_text_ex(text, x, y, &params);
+        let dims = self.text_renderer.draw_text_ex_scaled(
+            text,
+            x,
+            y,
+            &params,
+            self.text_raster_scale(),
+        );
         self.record_text_segment(prev);
         dims
     }
 
     fn measure_text(&self, text: &str, font_size: f32) -> TextDimensions {
-        MEASURE_ATLAS.with(|cell| {
-            let mut atlas_opt = cell.borrow_mut();
-            if atlas_opt.is_none() {
-                *atlas_opt =
-                    Some(FontAtlas::with_default_font().expect("Failed to create font atlas"));
-            }
-            atlas_opt.as_mut().unwrap().measure_text(text, font_size)
-        })
+        self.text_renderer.measure_text_with_font(text, font_size, None)
+    }
+
+    fn measure_text_ex(&self, text: &str, params: &TextParams) -> TextDimensions {
+        self.text_renderer
+            .measure_text_with_font(text, params.font_size as f32, params.font)
+            .scaled(
+                params.font_scale * params.font_scale_aspect,
+                params.font_scale,
+            )
+    }
+
+    fn register_font(&mut self, id: FontId, ttf_data: &[u8]) -> Result<(), String> {
+        self.text_renderer
+            .register_font(id, ttf_data)
+            .map_err(str::to_owned)
     }
 }
 

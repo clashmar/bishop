@@ -15,6 +15,7 @@ fn create_new_game_creates_prefabs_folder() {
     let _game = create_new_game(test_game.name().to_string());
 
     assert!(prefabs_folder().is_dir());
+    assert!(fonts_folder().is_dir());
 }
 
 #[test]

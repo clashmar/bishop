@@ -8,7 +8,7 @@ pub use game_map::*;
 pub use id_allocator::*;
 pub use startup_mode::*;
 
-use crate::assets::{sprite_manager::SpriteManager, AssetRegistry};
+use crate::assets::{font_manager::FontManager, sprite_manager::SpriteManager, AssetRegistry};
 use crate::constants::paths;
 use crate::ecs::ecs::Ecs;
 #[cfg(feature = "editor")]
@@ -25,7 +25,7 @@ use crate::worlds::{WorldDirectorySnapshot, world::*};
 use crate::worlds::transition::OverlayFrame;
 use crate::{
     storage::text_folder,
-    text::TextManager,
+    text::{GameTextSettings, TextManager},
     tiles::{
         TileDefId,
         TileRegistry,
@@ -51,6 +51,8 @@ pub struct Game {
     pub id: Uuid,
     /// Human readable name of the game.
     pub name: String,
+    /// Authored text presentation defaults for the game.
+    pub text_settings: GameTextSettings,
     /// Stores the game ECS.
     pub ecs: Ecs,
     /// All worlds belonging to this game instance.
@@ -68,6 +70,9 @@ pub struct Game {
     /// Asset manager for the game.
     #[serde(skip)]
     pub sprite_manager: SpriteManager,
+    /// Manager for registered game fonts.
+    #[serde(skip)]
+    pub font_manager: FontManager,
     /// Script manager for the game.
     pub script_manager: ScriptManager,
     /// Text manager for the game.
@@ -99,6 +104,7 @@ impl Default for Game {
             version: 1,
             id: Uuid::new_v4(),
             name: String::new(),
+            text_settings: GameTextSettings::default(),
             ecs: Ecs::default(),
             worlds: Vec::new(),
             world_index: HashMap::new(),
@@ -106,6 +112,7 @@ impl Default for Game {
             hydration_coordinator: HydrationCoordinator::default(),
             tile_registry: TileRegistry::default(),
             sprite_manager: SpriteManager::default(),
+            font_manager: FontManager::default(),
             script_manager: ScriptManager::default(),
             text_manager: TextManager::default(),
             prefab_manager: PrefabManager::default(),

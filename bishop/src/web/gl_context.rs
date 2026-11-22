@@ -213,6 +213,37 @@ impl WebContext {
         &mut self.input
     }
 
+    pub(crate) fn text_raster_scale(&self) -> f32 {
+        let display_scale = if self.renderer.active_target.is_some() {
+            1.0
+        } else {
+            match self.owner.canvas_scale() {
+                Ok(scale) => scale,
+                Err(error) => {
+                    self.owner.record_error(error);
+                    1.0
+                }
+            }
+        };
+        let Some(camera) = &self.renderer.camera else {
+            return display_scale.max(0.01);
+        };
+        let (viewport_width, viewport_height) = camera
+            .viewport
+            .map(|(_, _, width, height)| (width as f32, height as f32))
+            .unwrap_or_else(|| {
+                let (width, height) = self.renderer.size();
+                (width as f32, height as f32)
+            });
+        crate::text::raster_scale_for_camera(
+            1.0,
+            viewport_width,
+            viewport_height,
+            camera.zoom.x,
+            camera.zoom.y,
+        )
+    }
+
     /// Returns whether a close request was also confirmed by the application.
     pub fn should_exit(&self) -> bool {
         self.close.should_exit()

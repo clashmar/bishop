@@ -6,6 +6,8 @@ use engine_core::ecs::inspector::layout::InspectorBodyLayout;
 use engine_core::game::GameCtxMut;
 use std::marker::PhantomData;
 
+pub(crate) const COLLAPSIBLE_CONTENT_INSET: f32 = 4.0;
+
 /// Collapsible wrapper for a `PropertyModule<T>`.
 pub struct CollapsiblePropertyModule<T, M: PropertyModule<T>> {
     header: CollapsibleHeader,
@@ -49,10 +51,10 @@ impl<T, M: PropertyModule<T>> PropertyModule<T> for CollapsiblePropertyModule<T,
 
         if self.header.expanded() {
             let body_rect = Rect::new(
-                rect.x + 4.0,
-                rect.y + CollapsibleHeader::HEADER_HEIGHT + 4.0,
-                rect.w - 8.0,
-                rect.h - CollapsibleHeader::HEADER_HEIGHT - 8.0,
+                rect.x + COLLAPSIBLE_CONTENT_INSET,
+                rect.y + CollapsibleHeader::HEADER_HEIGHT + COLLAPSIBLE_CONTENT_INSET,
+                rect.w - COLLAPSIBLE_CONTENT_INSET * 2.0,
+                rect.h - CollapsibleHeader::HEADER_HEIGHT - COLLAPSIBLE_CONTENT_INSET * 2.0,
             );
             self.inner.draw(ctx, body_rect, target, game_ctx, insp_ctx);
         }

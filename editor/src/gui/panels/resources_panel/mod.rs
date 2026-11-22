@@ -11,10 +11,12 @@ use crate::editor_assets::assets::{
     text_icon,
 };
 use crate::editor_global::push_command;
-use crate::gui::panels::generic_panel::PanelDefinition;
+use crate::gui::panels::generic_panel::{PanelDefinition, PanelResizeLimits};
 use crate::shared::selection::{draw_selection_box, rect_from_two_points, rects_intersect};
 use crate::Editor;
 use bishop::prelude::*;
+#[cfg(test)]
+use context_menu::context_target_for_entry;
 use context_menu::{
     draw_context_menu, handle_pending_action, open_resource, pending_action_for,
     pending_action_for_background, ActiveMenu, EntryKind, PendingResourceAction,
@@ -28,6 +30,7 @@ use ::widgets::*;
 use icon_mapper::{IconMapper, IconType};
 use navigation::Navigation;
 use path_filter::PathFilter;
+use selection::should_start_empty_space_marquee;
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 
@@ -38,6 +41,8 @@ const GRID_PADDING: f32 = 12.0;
 const ICON_SIZE: f32 = 42.0;
 const LABEL_FONT_SIZE: f32 = 12.0;
 const REGISTRATION_BADGE_SIZE: f32 = 8.0;
+const RESOURCES_PANEL_MIN_WIDTH: f32 = 180.0;
+const RESOURCES_PANEL_MIN_HEIGHT: f32 = 150.0;
 
 const DRAG_ACTIVATION_THRESHOLD: f32 = 4.0;
 const GHOST_OFFSET: f32 = 10.0;
@@ -89,8 +94,10 @@ impl Entry {
     }
 
     #[cfg(test)]
-    fn context_menu_actions(&self) -> &'static [ResourceMenuAction] {
-        context_menu::context_menu_actions_for(self.kind)
+    fn context_menu_actions(&self) -> Vec<ResourceMenuAction> {
+        context_target_for_entry(0, self, Vec2::new(0.0, 0.0))
+            .map(|target| target.actions)
+            .unwrap_or_default()
     }
 }
 
@@ -138,7 +145,11 @@ impl ResourcesPanel {
                     if !PathFilter::dir_visible(&name) {
                         return None;
                     }
-                } else if !PathFilter::file_visible(&name) {
+                } else if !PathFilter::file_visible_in_resource_dir(
+                    &name,
+                    &current,
+                    &resources_folder_current(),
+                ) {
                     return None;
                 }
 
@@ -288,6 +299,13 @@ impl PanelDefinition for ResourcesPanel {
         )
     }
 
+    fn resize_limits(&self) -> Option<PanelResizeLimits> {
+        Some(PanelResizeLimits {
+            min_width: RESOURCES_PANEL_MIN_WIDTH,
+            min_height: RESOURCES_PANEL_MIN_HEIGHT,
+        })
+    }
+
     fn draw_custom_title(&mut self, ctx: &mut WgpuContext, title_bar: Rect, blocked: bool) -> bool {
         let start_x = title_bar.x + 30.0;
         let max_width = title_bar.right() - 30.0 - start_x;
@@ -351,12 +369,12 @@ impl PanelDefinition for ResourcesPanel {
 
         ctx.push_clip_rect(content_rect);
 
-        let mut clicked_empty_space = left_clicked
-            && !interaction_blocked
-            && !blocked
-            && content_rect.contains(mouse)
-            && !widgets::is_click_consumed()
-            && !self.drag_state.active;
+        let mut clicked_empty_space = should_start_empty_space_marquee(
+            left_clicked,
+            interaction_blocked,
+            content_rect.contains(mouse),
+            self.drag_state.active,
+        );
         let mut right_clicked_entry = false;
         let shift_held =
             ctx.is_key_down(KeyCode::LeftShift) || ctx.is_key_down(KeyCode::RightShift);
@@ -690,7 +708,16 @@ impl PanelDefinition for ResourcesPanel {
         }
 
         if let Some(ref menu) = self.active_menu {
-            if let Some(selected) = draw_context_menu(self.context_menu_id, menu, ctx, blocked) {
+            let current_dir = self.navigation.current();
+            let resources_root = resources_folder_current();
+            if let Some(selected) = draw_context_menu(
+                self.context_menu_id,
+                menu,
+                &current_dir,
+                &resources_root,
+                ctx,
+                blocked,
+            ) {
                 match menu {
                     ActiveMenu::Entry(ref target) => {
                         if let Some(entry) = self.entries.get(target.entry_index) {
@@ -706,7 +733,11 @@ impl PanelDefinition for ResourcesPanel {
                     }
                     ActiveMenu::Background(_) => {
                         let current_dir = self.navigation.current();
-                        self.pending_action = Some(pending_action_for_background(&current_dir));
+                        self.pending_action = pending_action_for_background(
+                            &current_dir,
+                            &resources_folder_current(),
+                            selected,
+                        );
                     }
                 }
                 self.active_menu = None;

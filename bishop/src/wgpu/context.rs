@@ -287,6 +287,29 @@ impl WgpuContext {
         self.graphics.size.0 as f32 / self.scale_factor
     }
 
+    /// Returns the font rasterization scale for the current display and camera.
+    pub(crate) fn text_raster_scale(&self) -> f32 {
+        let display_scale = if self.render_target_dims.is_some() {
+            1.0
+        } else {
+            self.scale_factor
+        };
+        let Some(camera) = &self.current_camera else {
+            return display_scale.max(0.01);
+        };
+        let (viewport_width, viewport_height) = camera
+            .viewport
+            .map(|(_, _, width, height)| (width as f32, height as f32))
+            .unwrap_or_else(|| (self.screen_width(), self.screen_height()));
+        crate::text::raster_scale_for_camera(
+            display_scale,
+            viewport_width,
+            viewport_height,
+            camera.zoom.x,
+            camera.zoom.y,
+        )
+    }
+
     /// Returns the current screen height in logical pixels.
     /// When rendering to a target, returns the target height instead.
     pub fn screen_height(&self) -> f32 {

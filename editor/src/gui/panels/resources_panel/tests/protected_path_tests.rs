@@ -15,6 +15,7 @@ fn is_protected_path_detects_system_roots() {
 fn is_protected_path_exact_match() {
     let root = std::path::Path::new("/games/Demo/Resources");
 
+    assert!(is_protected_path(&root.join(paths::FONTS_FOLDER), root));
     assert!(is_protected_path(&root.join(paths::SCRIPTS_FOLDER), root));
     assert!(is_protected_path(
         &root

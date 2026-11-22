@@ -369,6 +369,7 @@ impl GameEditor {
 
         let game_name = game.name.clone();
         let start_world_id = game.start_world_id;
+        let game_default_font = game.text_settings.default_font;
         let inspector_output = {
             let mut game_ctx = game.ctx_mut();
             self.inspector.draw_game_pane(
@@ -378,6 +379,7 @@ impl GameEditor {
                     command_mode: EditorMode::Game(submode),
                     game_name: Some(game_name),
                     start_world_id,
+                    game_default_font,
                     show_linked_prefab_metadata: false,
                     hide_room_only_components: true,
                     selected_create_parent: None,
@@ -394,6 +396,12 @@ impl GameEditor {
             }
             Some(InspectorHostAction::SetStartWorld(id)) => {
                 push_command(Box::new(SetStartWorldCmd::new(id, game.start_world_id)));
+            }
+            Some(InspectorHostAction::SetGameDefaultFont(font)) => {
+                push_command(Box::new(SetGameDefaultFontCmd::new(
+                    font,
+                    game.text_settings.default_font,
+                )));
             }
             _ => {}
         }

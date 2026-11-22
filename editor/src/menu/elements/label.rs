@@ -1,8 +1,10 @@
 use crate::menu::menu_canvas::drawing::MenuCanvasFrame;
 use crate::menu::menu_properties_panel::common_properties::row_visible;
+use crate::gui::widgets::font_selector::draw_font_dropdown;
 use crate::menu::menu_properties_panel::{FIELD_HEIGHT, LABEL_WIDTH, ROW_HEIGHT};
 use crate::menu::MenuEditor;
 use bishop::prelude::*;
+use engine_core::assets::AssetRegistry;
 use engine_core::menu::{HorizontalAlign, MenuElement, MenuElementKind};
 use widgets::*;
 
@@ -33,6 +35,13 @@ impl MenuEditor {
                 outline_color,
             );
         }
+        let font = frame.font_manager.ensure_element_font(
+            frame.ctx,
+            frame.asset_registry,
+            frame.resource_source,
+            frame.text_settings,
+            label.font,
+        );
         let label_align = match label.alignment {
             HorizontalAlign::Left => LabelAlign::Left,
             HorizontalAlign::Center => LabelAlign::Center,
@@ -40,6 +49,7 @@ impl MenuEditor {
         };
         Label::new(element_rect, &label.text_key)
             .font_size(label.font_size)
+            .font(font)
             .alignment(label_align)
             .apply_selectors(element.class.as_deref(), element.style_id.as_deref())
             .show(frame.ctx);
@@ -53,22 +63,26 @@ impl MenuEditor {
         w: f32,
         blocked: bool,
         clip: &Rect,
+        asset_registry: &AssetRegistry,
     ) {
-        let (current_text_key, current_font_size, current_alignment) = {
+        let (current_text_key, current_font_size, current_font, current_alignment) = {
             let Some(element) = self.selected_element() else {
                 return;
             };
             let MenuElementKind::Label(label) = &element.kind else {
                 return;
             };
-            (label.text_key.clone(), label.font_size, label.alignment)
+            (
+                label.text_key.clone(),
+                label.font_size,
+                label.font,
+                label.alignment,
+            )
         };
 
-        // Text key field
         if row_visible(*y, ROW_HEIGHT, clip) {
             ctx.draw_text("Text Key:", x, *y + 16.0, 12.0, Color::WHITE);
             let field_rect = Rect::new(x + LABEL_WIDTH, *y, w - LABEL_WIDTH, FIELD_HEIGHT);
-
             let (new_text_key, commit) = TextInput::new(
                 self.properties_panel.widget_ids.text_id,
                 field_rect,
@@ -76,7 +90,6 @@ impl MenuEditor {
             )
             .blocked(blocked)
             .show(ctx);
-
             self.push_input_update(commit, |el| {
                 if let MenuElementKind::Label(label) = &mut el.kind {
                     label.text_key = new_text_key;
@@ -85,12 +98,9 @@ impl MenuEditor {
         }
         *y += ROW_HEIGHT;
 
-        // Font size
         if row_visible(*y, ROW_HEIGHT, clip) {
             ctx.draw_text("Font Size:", x, *y + 16.0, 12.0, Color::WHITE);
-
             let field_rect = Rect::new(x + LABEL_WIDTH, *y, 60.0, FIELD_HEIGHT);
-
             let (new_font_size, commit) = NumberInput::new(
                 self.properties_panel.widget_ids.font_size_id,
                 field_rect,
@@ -100,7 +110,6 @@ impl MenuEditor {
             .min(8.0)
             .max(72.0)
             .show(ctx);
-
             self.push_input_update(commit, |el| {
                 if let MenuElementKind::Label(label) = &mut el.kind {
                     label.font_size = new_font_size;
@@ -109,7 +118,26 @@ impl MenuEditor {
         }
         *y += ROW_HEIGHT;
 
-        // Horizontal alignment
+        if row_visible(*y, ROW_HEIGHT, clip) {
+            ctx.draw_text("Font:", x, *y + 16.0, 12.0, Color::WHITE);
+            let dropdown_rect = Rect::new(x + LABEL_WIDTH, *y, w - LABEL_WIDTH, FIELD_HEIGHT);
+            if let Some(selected) = draw_font_dropdown(
+                ctx,
+                self.properties_panel.widget_ids.label_font_id,
+                dropdown_rect,
+                asset_registry,
+                current_font,
+                blocked,
+            ) {
+                self.push_element_update(|element| {
+                    if let MenuElementKind::Label(label) = &mut element.kind {
+                        label.font = selected;
+                    }
+                });
+            }
+        }
+        *y += ROW_HEIGHT;
+
         if row_visible(*y, ROW_HEIGHT, clip) {
             ctx.draw_text("Align:", x, *y + 16.0, 12.0, Color::WHITE);
             let h_options = ["Left", "Center", "Right"];

@@ -71,6 +71,7 @@ pub const SYSTEM_FOLDER_ROOTS: &[&str] = &[
     paths::ASSETS_FOLDER,
     paths::SCRIPTS_FOLDER,
     paths::TEXT_FOLDER,
+    paths::FONTS_FOLDER,
     paths::PREFABS_FOLDER,
     paths::AUDIO_FOLDER,
     paths::MENUS_FOLDER,

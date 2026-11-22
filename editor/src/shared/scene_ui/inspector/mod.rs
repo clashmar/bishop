@@ -3,6 +3,7 @@ mod policy;
 
 use crate::app::EditorMode;
 use bishop::prelude::*;
+use bishop::text::FontId;
 use engine_core::game::GameCtxMut;
 use engine_core::worlds::WorldId;
 use engine_core::ecs::*;
@@ -87,6 +88,8 @@ pub struct InspectorContext {
     pub game_name: Option<String>,
     /// World entered when starting a new game.
     pub start_world_id: Option<WorldId>,
+    /// Default font used by menu text without an element override.
+    pub game_default_font: Option<FontId>,
     /// Event tags currently known to the editor.
     pub event_tags: Vec<String>,
     /// Whether the room inspector is currently driving the interior-zone canvas tool.
@@ -119,6 +122,7 @@ pub struct InspectorOutput {
 pub enum InspectorHostAction {
     RenameGame(String),
     SetStartWorld(WorldId),
+    SetGameDefaultFont(Option<FontId>),
     RenameWorld(String),
     /// Requests the world editor to centre its camera on the given entity.
     FocusWorldEditor(Entity),

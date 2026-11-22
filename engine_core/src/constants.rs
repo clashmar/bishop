@@ -33,6 +33,10 @@ pub mod extensions {
     pub const WAV: &str = "wav";
     /// TOML data files (text, manifests).
     pub const TOML: &str = "toml";
+    /// TrueType font files.
+    pub const TTF: &str = "ttf";
+    /// OpenType font files.
+    pub const OTF: &str = "otf";
     /// RON data files (menus, game state, editor config).
     pub const RON: &str = "ron";
     /// Prefab asset files backed by RON text.
@@ -91,6 +95,9 @@ pub mod paths {
 
     /// Name of the text folder.
     pub const TEXT_FOLDER: &str = "text";
+
+    /// Name of the folder for game font files.
+    pub const FONTS_FOLDER: &str = "fonts";
 
     /// Name of the folder that contains menu templates.
     pub const MENUS_FOLDER: &str = "menus";

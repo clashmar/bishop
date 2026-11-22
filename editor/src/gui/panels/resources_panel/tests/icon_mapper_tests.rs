@@ -30,6 +30,18 @@ fn file_icon_no_extension_gets_file() {
 }
 
 #[test]
+fn file_icon_maps_font_extensions_to_generic_file_icon() {
+    assert_eq!(
+        IconMapper::file_icon(&format!("display.{}", extensions::TTF)),
+        IconType::File
+    );
+    assert_eq!(
+        IconMapper::file_icon(&format!("display.{}", extensions::OTF)),
+        IconType::File
+    );
+}
+
+#[test]
 fn file_icon_maps_prefab_extension_to_prefab() {
     let filename = format!("test_file.{}", extensions::PREFAB);
 
@@ -50,6 +62,17 @@ fn dir_icon_for_system_root_returns_system_folder() {
 
     assert_eq!(
         IconMapper::dir_icon_for(&assets, &resources),
+        IconType::SystemFolder
+    );
+}
+
+#[test]
+fn dir_icon_for_fonts_root_returns_system_folder() {
+    let resources = PathBuf::from("/game/Resources");
+    let fonts = resources.join(paths::FONTS_FOLDER);
+
+    assert_eq!(
+        IconMapper::dir_icon_for(&fonts, &resources),
         IconType::SystemFolder
     );
 }
