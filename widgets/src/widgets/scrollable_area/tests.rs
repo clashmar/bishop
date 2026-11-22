@@ -219,7 +219,11 @@ fn scroll_to_reveal_leaves_fully_visible_item_unchanged() {
     let (area, mut state, _) = active_area(viewport, 300.0);
     state.scroll_y = -40.0;
 
-    let changed = area.scroll_to_reveal(&mut state, Rect::new(20.0, 40.0, 50.0, 20.0));
+    let changed = area.scroll_to_reveal(
+        &mut state,
+        Rect::new(20.0, 40.0, 50.0, 20.0),
+        area.scroll_range(),
+    );
 
     assert!(!changed);
     assert_eq!(state.scroll_y, -40.0);
@@ -231,7 +235,11 @@ fn scroll_to_reveal_aligns_item_clipped_above_to_viewport_top() {
     let (area, mut state, _) = active_area(viewport, 300.0);
     state.scroll_y = -40.0;
 
-    let changed = area.scroll_to_reveal(&mut state, Rect::new(20.0, 10.0, 50.0, 20.0));
+    let changed = area.scroll_to_reveal(
+        &mut state,
+        Rect::new(20.0, 10.0, 50.0, 20.0),
+        area.scroll_range(),
+    );
 
     assert!(changed);
     assert_eq!(state.scroll_y, -30.0);
@@ -243,7 +251,11 @@ fn scroll_to_reveal_moves_only_enough_to_show_item_clipped_below() {
     let (area, mut state, _) = active_area(viewport, 300.0);
     state.scroll_y = -40.0;
 
-    let changed = area.scroll_to_reveal(&mut state, Rect::new(20.0, 110.0, 50.0, 30.0));
+    let changed = area.scroll_to_reveal(
+        &mut state,
+        Rect::new(20.0, 110.0, 50.0, 30.0),
+        area.scroll_range(),
+    );
 
     assert!(changed);
     assert_eq!(state.scroll_y, -60.0);
@@ -255,7 +267,11 @@ fn scroll_to_reveal_aligns_taller_item_to_viewport_top() {
     let (area, mut state, _) = active_area(viewport, 300.0);
     state.scroll_y = -40.0;
 
-    let changed = area.scroll_to_reveal(&mut state, Rect::new(20.0, 5.0, 50.0, 120.0));
+    let changed = area.scroll_to_reveal(
+        &mut state,
+        Rect::new(20.0, 5.0, 50.0, 120.0),
+        area.scroll_range(),
+    );
 
     assert!(changed);
     assert_eq!(state.scroll_y, -25.0);
@@ -267,15 +283,53 @@ fn scroll_to_reveal_clamps_scroll_y_to_scroll_range() {
     let (area, mut state, _) = active_area(viewport, 300.0);
 
     state.scroll_y = -2.0;
-    let changed_at_top = area.scroll_to_reveal(&mut state, Rect::new(20.0, 10.0, 50.0, 20.0));
+    let changed_at_top = area.scroll_to_reveal(
+        &mut state,
+        Rect::new(20.0, 10.0, 50.0, 20.0),
+        area.scroll_range(),
+    );
     assert!(changed_at_top);
     assert_eq!(state.scroll_y, 0.0);
 
     state.scroll_y = -195.0;
-    let changed_at_bottom =
-        area.scroll_to_reveal(&mut state, Rect::new(20.0, 110.0, 50.0, 30.0));
+    let changed_at_bottom = area.scroll_to_reveal(
+        &mut state,
+        Rect::new(20.0, 110.0, 50.0, 30.0),
+        area.scroll_range(),
+    );
     assert!(changed_at_bottom);
     assert_eq!(state.scroll_y, -200.0);
+}
+
+#[test]
+fn scroll_to_reveal_uses_the_post_expansion_scroll_range() {
+    let viewport = Rect::new(10.0, 20.0, 120.0, 100.0);
+    let (area, mut state, _) = active_area(viewport, 100.0);
+
+    let changed = area.scroll_to_reveal(
+        &mut state,
+        Rect::new(20.0, 110.0, 50.0, 30.0),
+        20.0,
+    );
+
+    assert!(changed);
+    assert_eq!(state.scroll_y, -20.0);
+}
+
+#[test]
+fn scroll_to_reveal_disables_auto_scroll_when_offset_changes() {
+    let viewport = Rect::new(10.0, 20.0, 120.0, 100.0);
+    let (area, mut state, _) = active_area(viewport, 300.0);
+    state.auto_scroll = true;
+
+    let changed = area.scroll_to_reveal(
+        &mut state,
+        Rect::new(20.0, 110.0, 50.0, 30.0),
+        area.scroll_range(),
+    );
+
+    assert!(changed);
+    assert!(!state.auto_scroll);
 }
 
 #[test]

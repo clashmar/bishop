@@ -214,7 +214,13 @@ impl RoomEditor {
             room_zone_tool_active: self.scene_sub_mode == RoomSceneSubMode::Zones,
             room_zones_visible: self.show_interior_zones,
         };
+        self.inspector.set_cycle_entities(
+            self.cycle_entities_for_room(&*game_ctx.ecs, current_room_id),
+        );
         let inspector_output = self.inspector.draw_active_pane(ctx, game_ctx, &inspector_ctx);
+        if let Some(cycle_target) = inspector_output.cycle_target {
+            self.apply_inspector_cycle_target(cycle_target, &*game_ctx.ecs, current_room_id);
+        }
         self.create_request = inspector_output.create_request;
         self.prefab_action_request = inspector_output.prefab_action;
         self.create_camera_request = inspector_output.create_camera_request;

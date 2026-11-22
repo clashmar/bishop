@@ -64,6 +64,17 @@ impl InspectorContent for WorldProperties {
         gui_constants::inspector::HEADER_HEIGHT
     }
 
+    fn has_collapsible_modules(&self) -> bool {
+        self.modules
+            .iter()
+            .any(|module| module.expansion_state().is_some())
+            || self.navigation.expansion_state().is_some()
+    }
+
+    fn collapse_all(&mut self) {
+        WorldProperties::collapse_all(self);
+    }
+
     fn draw_modules(
         &mut self,
         ctx: &mut WgpuContext,
@@ -96,7 +107,12 @@ impl InspectorContent for WorldProperties {
             if module.visible(&world_clone, game_ctx) {
                 let h = module.height();
                 let sub_rect = Rect::new(rect.x + 10.0, y, content_w, h);
+                let previous_expansion = module.expansion_state();
                 module.draw(ctx, sub_rect, &mut world_clone, game_ctx, _insp_ctx);
+                if output.expanded_module_rect.is_none() {
+                    output.expanded_module_rect =
+                        module.expansion_reveal_rect(previous_expansion, sub_rect);
+                }
                 if output.host_action.is_none() {
                     output.host_action = module.take_host_action();
                 }
@@ -106,7 +122,13 @@ impl InspectorContent for WorldProperties {
 
         let nav_h = self.navigation.height();
         let nav_rect = Rect::new(rect.x + 10.0, y, content_w, nav_h);
+        let previous_navigation_expansion = self.navigation.expansion_state();
         self.navigation.draw(ctx, nav_rect, &mut world_clone, game_ctx, _insp_ctx);
+        if output.expanded_module_rect.is_none() {
+            output.expanded_module_rect = self
+                .navigation
+                .expansion_reveal_rect(previous_navigation_expansion, nav_rect);
+        }
         if output.host_action.is_none() {
             output.host_action = self.navigation.take_host_action();
         }

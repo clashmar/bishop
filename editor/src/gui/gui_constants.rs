@@ -11,7 +11,10 @@ pub const MENU_PANEL_HEIGHT: f32 = 48.0;
 pub mod inspector {
     pub const HEADER_BUTTON_Y: f32 = super::INSET;
     pub const HEADER_HEIGHT: f32 = super::BTN_HEIGHT + super::INSET * 2.0;
-    pub const CONTENT_TOP_OFFSET: f32 = HEADER_HEIGHT + super::INSET;
+    pub const ACTION_BUTTON_SIZE: f32 = 24.0;
+    pub const ACTION_STRIP_HEIGHT: f32 = ACTION_BUTTON_SIZE;
+    pub const CONTENT_TOP_OFFSET: f32 = HEADER_HEIGHT + ACTION_STRIP_HEIGHT;
+    pub const ACTION_BUTTON_GAP: f32 = 4.0;
     pub const WIDTH: f32 = 350.0;
     pub const EDGE_GAP: f32 = 20.0;
     pub const STRIP_WIDTH: f32 = 14.0;

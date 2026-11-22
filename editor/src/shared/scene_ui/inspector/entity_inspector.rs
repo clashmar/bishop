@@ -242,6 +242,14 @@ impl InspectorContent for EntityInspector {
         gui_constants::inspector::HEADER_HEIGHT
     }
 
+    fn has_collapsible_modules(&self) -> bool {
+        EntityInspector::has_collapsible_modules(self)
+    }
+
+    fn collapse_all(&mut self) {
+        EntityInspector::collapse_all(self);
+    }
+
     fn draw_header(
         &mut self,
         ctx: &mut WgpuContext,
@@ -497,7 +505,12 @@ impl InspectorContent for EntityInspector {
                         None
                     }
                 });
+                let previous_expansion = module.expansion_state();
                 module.draw(ctx, blocked, sub_rect, game_ctx, module_entity);
+                if output.expanded_module_rect.is_none() {
+                    output.expanded_module_rect =
+                        module.expansion_reveal_rect(previous_expansion, sub_rect);
+                }
                 if module.was_input_active() {
                     any_module_editing = true;
                 }

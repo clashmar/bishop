@@ -39,6 +39,15 @@ pub trait InspectorModule {
     /// Sets the expansion state for collapsible modules.
     fn set_expanded(&mut self, _expanded: bool) {}
 
+    /// Returns expanded bounds when this module just opened.
+    fn expansion_reveal_rect(&self, previous_state: Option<bool>, rect: Rect) -> Option<Rect> {
+        if previous_state == Some(false) && self.expansion_state() == Some(true) {
+            Some(Rect::new(rect.x, rect.y, rect.w, self.height()))
+        } else {
+            None
+        }
+    }
+
     /// Title that appears in the collapsible header. Uses the
     /// Rust type name by default and can be overriden.
     fn title(&self) -> &str {

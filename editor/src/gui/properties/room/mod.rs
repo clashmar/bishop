@@ -53,6 +53,16 @@ impl InspectorContent for RoomProperties {
         gui_constants::inspector::HEADER_HEIGHT
     }
 
+    fn has_collapsible_modules(&self) -> bool {
+        self.modules
+            .iter()
+            .any(|module| module.expansion_state().is_some())
+    }
+
+    fn collapse_all(&mut self) {
+        RoomProperties::collapse_all(self);
+    }
+
     fn draw_header(
         &mut self,
         ctx: &mut WgpuContext,
@@ -123,7 +133,12 @@ impl InspectorContent for RoomProperties {
             if module.visible(&edited_room, game_ctx) {
                 let h = module.height();
                 let sub_rect = Rect::new(rect.x + 10.0, y, rect.w - 20.0, h);
+                let previous_expansion = module.expansion_state();
                 module.draw(ctx, sub_rect, &mut edited_room, game_ctx, _insp_ctx);
+                if output.expanded_module_rect.is_none() {
+                    output.expanded_module_rect =
+                        module.expansion_reveal_rect(previous_expansion, sub_rect);
+                }
                 if output.host_action.is_none() {
                     output.host_action = module.take_host_action();
                 }

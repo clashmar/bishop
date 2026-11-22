@@ -95,6 +95,14 @@ impl TilemapProperties {
 }
 
 impl InspectorContent for TilemapProperties {
+    fn has_collapsible_modules(&self) -> bool {
+        self.library.expansion_state().is_some() || self.details.expansion_state().is_some()
+    }
+
+    fn collapse_all(&mut self) {
+        TilemapProperties::collapse_all(self);
+    }
+
     fn draw_modules(
         &mut self,
         ctx: &mut WgpuContext,
@@ -109,19 +117,31 @@ impl InspectorContent for TilemapProperties {
         let content_x = rect.x + OUTER_PADDING;
         let content_w = rect.w - OUTER_PADDING * 2.0;
 
+        let mut output = InspectorOutput::default();
         if self.library.visible(&self.state, game_ctx) {
             let height = self.library.height();
             let module_rect = Rect::new(content_x, y, content_w, height);
+            let previous_expansion = self.library.expansion_state();
             self.library
                 .draw(ctx, module_rect, &mut self.state, game_ctx, insp_ctx);
+            output.expanded_module_rect =
+                self.library.expansion_reveal_rect(previous_expansion, module_rect);
             y += height + layout::WIDGET_SPACING;
         }
 
         if self.details.visible(&self.state, game_ctx) {
             let height = self.details.height();
             let module_rect = Rect::new(content_x, y, content_w, height);
+            let previous_expansion = self.details.expansion_state();
             self.details
                 .draw(ctx, module_rect, &mut self.state, game_ctx, insp_ctx);
+            if output.expanded_module_rect.is_none() {
+                output.expanded_module_rect =
+                    self.details.expansion_reveal_rect(previous_expansion, module_rect);
+            }
+            if output.expanded_module_rect.is_none() {
+                output.expanded_module_rect = self.details.inner_mut().take_expanded_module_rect();
+            }
             y += height + layout::WIDGET_SPACING;
         }
 
@@ -135,7 +155,7 @@ impl InspectorContent for TilemapProperties {
                 .draw(ctx, background_rect, &mut room.current_variant_mut().tilemap, blocked);
         }
 
-        InspectorOutput::default()
+        output
     }
 
     fn total_content_height(

@@ -1,16 +1,37 @@
 use crate::app::EditorMode;
-use crate::gui::inspector::shell::{compose_pane_output, Inspector};
+use crate::gui::inspector::shell::Inspector;
+use crate::gui::properties::PropertyModule;
 use crate::gui::text_input::committed_name_change;
 use crate::shared::scene_ui::inspector::{
     is_scene_component_hidden_in_prefab, linked_prefab_instance_state_for_scene_inspector,
-    InspectorContext, InspectorHostAction, InspectorOutput,
+    InspectorContent, InspectorContext, InspectorHostAction, InspectorOutput,
 };
 use bishop::prelude::*;
 use engine_core::ecs::*;
 use engine_core::prefab::create_prefab;
 use engine_core::storage::editor_config;
 use engine_core::worlds::*;
-use ::widgets::InputCommit;
+use ::widgets::{input_is_focused, request_focus, InputCommit, WidgetId};
+
+fn compose_pane_output<T, FBody, FHeader>(
+    pane: &mut T,
+    visible: bool,
+    draw_body: FBody,
+    draw_header: FHeader,
+) -> InspectorOutput
+where
+    FBody: FnOnce(&mut T) -> InspectorOutput,
+    FHeader: FnOnce(&mut T) -> InspectorOutput,
+{
+    let mut output = draw_header(pane);
+    let body_output = if visible {
+        draw_body(pane)
+    } else {
+        InspectorOutput::default()
+    };
+    output.merge(body_output);
+    output
+}
 
 #[test]
 fn linked_prefab_metadata_is_hidden_in_prefab_mode() {
@@ -186,16 +207,16 @@ fn entity_inspector_cycles_through_selected_entities() {
     let mut inspector = Inspector::new();
     let first = Entity(7);
     let second = Entity(8);
-    inspector.set_selection_entities(vec![first, second]);
+    inspector.set_cycle_entities(vec![first, second]);
     inspector.select_entity(first);
 
-    inspector.cycle_selected_entity(true);
+    assert_eq!(inspector.cycle_selected_entity(true), Some(second));
     assert_eq!(inspector.selected_entity(), Some(second));
 
-    inspector.cycle_selected_entity(true);
+    assert_eq!(inspector.cycle_selected_entity(true), Some(first));
     assert_eq!(inspector.selected_entity(), Some(first));
 
-    inspector.cycle_selected_entity(false);
+    assert_eq!(inspector.cycle_selected_entity(false), Some(second));
     assert_eq!(inspector.selected_entity(), Some(second));
 }
 
@@ -255,4 +276,187 @@ fn collapsed_shell_skips_body_and_still_draws_header() {
     );
 
     assert_eq!(*order.borrow(), vec!["header"]);
+}
+
+#[test]
+fn inspector_output_merge_keeps_first_cycle_target_and_existing_fields() {
+    let first_target = Entity(7);
+    let second_target = Entity(8);
+    let first_bounds = Rect::new(1.0, 2.0, 3.0, 4.0);
+    let second_bounds = Rect::new(5.0, 6.0, 7.0, 8.0);
+    let mut output = InspectorOutput {
+        cycle_target: Some(first_target),
+        expanded_module_rect: Some(first_bounds),
+        open_prefab_picker: true,
+        ..InspectorOutput::default()
+    };
+
+    output.merge(InspectorOutput {
+        cycle_target: Some(second_target),
+        expanded_module_rect: Some(second_bounds),
+        delete_prefab: true,
+        refresh_event_tags: true,
+        ..InspectorOutput::default()
+    });
+
+    assert_eq!(output.cycle_target, Some(first_target));
+    assert_eq!(output.expanded_module_rect, Some(first_bounds));
+    assert!(output.open_prefab_picker);
+    assert!(output.delete_prefab);
+    assert!(output.refresh_event_tags);
+}
+
+fn inspector_context(command_mode: EditorMode) -> InspectorContext {
+    InspectorContext {
+        command_mode,
+        show_linked_prefab_metadata: false,
+        hide_room_only_components: false,
+        selected_create_parent: None,
+        game_name: None,
+        start_world_id: None,
+        game_default_font: None,
+        event_tags: Vec::new(),
+        room_zone_tool_active: false,
+        room_zones_visible: false,
+    }
+}
+
+#[test]
+fn inspector_strip_disables_collapse_without_collapsible_modules() {
+    let mut inspector = Inspector::new();
+    inspector.set_rect(Rect::new(100.0, 0.0, 350.0, 400.0));
+
+    let strip = inspector.action_strip_layout(&inspector_context(EditorMode::Prefab(PrefabId(1))));
+
+    assert!(strip.collapse_disabled);
+    assert!(strip.collapse_rect.w > 0.0);
+    assert!(strip.cycle_previous_rect.is_none());
+    assert!(strip.cycle_next_rect.is_none());
+}
+
+#[test]
+fn inspector_strip_collapse_capability_tracks_pane_modules() {
+    let mut inspector = Inspector::new();
+    inspector.set_rect(Rect::new(100.0, 0.0, 350.0, 400.0));
+    let context = inspector_context(EditorMode::Room(RoomId(1)));
+
+    assert!(!InspectorContent::has_collapsible_modules(&inspector.game));
+    assert!(InspectorContent::has_collapsible_modules(&inspector.world));
+    assert!(InspectorContent::has_collapsible_modules(&inspector.room));
+    assert!(InspectorContent::has_collapsible_modules(&inspector.tilemap));
+
+    inspector.select_room();
+    assert!(!inspector.action_strip_layout(&context).collapse_disabled);
+    inspector.select_tilemap();
+    assert!(!inspector.action_strip_layout(&context).collapse_disabled);
+    inspector.select_entity(Entity(7));
+    assert!(!inspector.action_strip_layout(&context).collapse_disabled);
+}
+
+#[test]
+fn inspector_strip_fills_the_inspector_content_outline_with_a_square_collapse_control() {
+    let mut inspector = Inspector::new();
+    let inspector_rect = Rect::new(100.0, 20.0, 350.0, 400.0);
+    inspector.set_rect(inspector_rect);
+    inspector.select_room();
+
+    let strip = inspector.action_strip_layout(&inspector_context(EditorMode::Room(RoomId(1))));
+
+    assert_eq!(strip.strip_rect.x, inspector_rect.x);
+    assert_eq!(strip.strip_rect.y, inspector.strip_rect().y);
+    assert_eq!(strip.strip_rect.y, inspector.content_frame_rect().y);
+    assert_eq!(
+        inspector.content_frame_rect().h,
+        inspector_rect.h
+            - crate::gui::gui_constants::inspector::CONTENT_TOP_OFFSET
+            - crate::gui::gui_constants::inspector::EDGE_GAP
+    );
+    assert_eq!(
+        strip.strip_rect.w,
+        inspector_rect.w
+            - crate::gui::gui_constants::inspector::EDGE_GAP
+            - crate::gui::gui_constants::inspector::STRIP_WIDTH
+    );
+    assert!(strip.strip_rect.h < crate::gui::gui_constants::BTN_HEIGHT);
+    assert_eq!(strip.collapse_rect.w, strip.collapse_rect.h);
+    assert_eq!(strip.collapse_rect.h, strip.strip_rect.h);
+    assert_eq!(
+        strip.collapse_rect.x + strip.collapse_rect.w,
+        strip.strip_rect.x + strip.strip_rect.w
+            - crate::gui::gui_constants::INSET
+    );
+    assert_eq!(
+        inspector.strip_rect().y,
+        strip.strip_rect.y
+    );
+}
+
+#[test]
+fn inspector_strip_cycle_controls_require_room_entity_candidates() {
+    let mut inspector = Inspector::new();
+    inspector.set_rect(Rect::new(100.0, 0.0, 350.0, 400.0));
+    inspector.set_cycle_entities(vec![Entity(7), Entity(8)]);
+    inspector.select_entity(Entity(7));
+
+    let room_strip = inspector.action_strip_layout(&inspector_context(EditorMode::Room(RoomId(1))));
+    assert!(room_strip.cycle_previous_rect.is_some());
+    assert!(room_strip.cycle_next_rect.is_some());
+    assert_eq!(
+        room_strip.cycle_next_rect.unwrap().x
+            + crate::gui::gui_constants::inspector::ACTION_BUTTON_SIZE
+            + crate::gui::gui_constants::inspector::ACTION_BUTTON_GAP,
+        room_strip.collapse_rect.x
+    );
+    assert!(room_strip.cycle_previous_rect.is_some_and(|previous| {
+        previous.y >= inspector.rect.y + crate::gui::gui_constants::inspector::HEADER_HEIGHT
+            && previous.y + previous.h <= room_strip.strip_rect.y + room_strip.strip_rect.h
+    }));
+
+    let prefab_strip =
+        inspector.action_strip_layout(&inspector_context(EditorMode::Prefab(PrefabId(1))));
+    assert!(prefab_strip.cycle_previous_rect.is_none());
+    assert!(prefab_strip.cycle_next_rect.is_none());
+
+    inspector.select_room();
+    let room_pane_strip =
+        inspector.action_strip_layout(&inspector_context(EditorMode::Room(RoomId(1))));
+    assert!(room_pane_strip.cycle_previous_rect.is_none());
+    assert!(room_pane_strip.cycle_next_rect.is_none());
+
+    inspector.select_entity(Entity(7));
+    inspector.set_cycle_entities(vec![Entity(7)]);
+    let one_candidate_strip =
+        inspector.action_strip_layout(&inspector_context(EditorMode::Room(RoomId(1))));
+    assert!(one_candidate_strip.cycle_previous_rect.is_none());
+    assert!(one_candidate_strip.cycle_next_rect.is_none());
+}
+
+#[test]
+fn inspector_collapse_all_releases_focus_from_hidden_inputs() {
+    let mut inspector = Inspector::new();
+    inspector.select_room();
+    request_focus(WidgetId(0x1A2B), true);
+
+    assert!(input_is_focused());
+    inspector.collapse_active_pane();
+    assert!(!input_is_focused());
+}
+
+#[test]
+fn inspector_collapse_action_only_collapses_active_room_pane() {
+    let mut inspector = Inspector::new();
+    inspector.select_room();
+    for module in &mut inspector.room.modules {
+        module.set_expanded(true);
+    }
+    inspector.world.navigation.set_expanded(true);
+
+    inspector.collapse_active_pane();
+
+    assert!(inspector
+        .room
+        .modules
+        .iter()
+        .all(|module| module.expansion_state() == Some(false)));
+    assert_eq!(inspector.world.navigation.expansion_state(), Some(true));
 }

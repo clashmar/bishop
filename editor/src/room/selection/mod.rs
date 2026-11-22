@@ -38,11 +38,49 @@ impl RoomEditor {
         }
         let mut selection_entities: Vec<_> = self.selected_entities.iter().copied().collect();
         selection_entities.sort_unstable();
-        self.inspector.set_selection_entities(selection_entities);
+        self.inspector.set_cycle_entities(selection_entities);
         if let Some(entity) = self.primary_selected_entity {
             self.inspector.select_entity(entity);
         } else {
             self.inspector.select_room();
+        }
+    }
+
+    pub(crate) fn cycle_entities_for_room(&self, ecs: &Ecs, room_id: RoomId) -> Vec<Entity> {
+        let mut candidates: Vec<_> = if self.selected_entities.len() > 1 {
+            self.selected_entities.iter().copied().collect()
+        } else if self.selected_entities.len() == 1 {
+            ecs.entities_in_room(room_id)
+                .iter()
+                .copied()
+                .filter(|entity| {
+                    ecs.has::<Transform>(*entity) && !ecs.has::<Singleton>(*entity)
+                })
+                .collect()
+        } else {
+            Vec::new()
+        };
+        candidates.sort_unstable();
+        candidates
+    }
+
+    pub(crate) fn apply_inspector_cycle_target(
+        &mut self,
+        target: Entity,
+        ecs: &Ecs,
+        room_id: RoomId,
+    ) {
+        if self.selected_entities.len() > 1 && self.selected_entities.contains(&target) {
+            self.sync_primary_from_inspector();
+        } else {
+            let target_layer = ecs
+                .get::<CurrentRoom>(target)
+                .filter(|current_room| current_room.room_id == room_id)
+                .map(|current_room| current_room.layer);
+            self.set_selected_entity(Some(target));
+            if let Some(target_layer) = target_layer {
+                self.set_active_layer(ecs, room_id, target_layer);
+            }
         }
     }
 
@@ -358,3 +396,6 @@ pub(crate) fn entity_selection_rect(
         ecs.get_store::<CurrentFrame>().get(visual_entity),
     )
 }
+
+#[cfg(test)]
+mod tests;

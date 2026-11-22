@@ -128,6 +128,26 @@ mod tests {
     }
 
     #[test]
+    fn inspector_expansion_reveal_rect_requires_collapsed_to_expanded_transition() {
+        let mut module = CollapsiblePropertyModule::<(), FakeModule>::new(FakeModule(
+            "PropertyExpansionRevealTest",
+        ));
+        let rect = Rect::new(10.0, 20.0, 100.0, 24.0);
+
+        assert_eq!(module.expansion_reveal_rect(Some(true), rect), None);
+        module.header.set_expanded(false);
+        let previous_state = module.expansion_state();
+        assert_eq!(module.expansion_reveal_rect(previous_state, rect), None);
+        module.header.set_expanded(true);
+
+        assert_eq!(
+            module.expansion_reveal_rect(previous_state, rect),
+            Some(Rect::new(rect.x, rect.y, rect.w, module.height()))
+        );
+        assert_eq!(module.expansion_reveal_rect(Some(true), rect), None);
+    }
+
+    #[test]
     fn starts_expanded() {
         let module = CollapsiblePropertyModule::<(), FakeModule>::new(FakeModule("FakeModule"));
         assert!(module.header.expanded());

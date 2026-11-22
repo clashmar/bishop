@@ -1,6 +1,7 @@
 use crate::gui::gui_constants::inspector;
+use crate::gui::inspector::action_strip::{self, ActionStripAction, ActionStripLayout};
+use crate::gui::inspector::scrollable_pane;
 use crate::gui::panels::panel_manager::is_mouse_over_panel;
-use crate::gui::menu_bar::menu_button;
 use crate::gui::properties::game::GameProperties;
 use crate::gui::properties::room::RoomProperties;
 use crate::gui::properties::tilemap::TilemapProperties;
@@ -11,7 +12,7 @@ use engine_core::game::GameCtxMut;
 use engine_core::ecs::*;
 use engine_core::tiles::TileDefId;
 use engine_core::storage::editor_config;
-use widgets::*;
+use widgets::{clear_all_input_focus, with_theme, ScrollState};
 
 /// Shared inspector shell for all editor modes.
 pub struct Inspector {
@@ -23,7 +24,7 @@ pub struct Inspector {
     pub room: RoomProperties,
     pub tilemap: TilemapProperties,
     pub entity: Option<EntityInspector>,
-    selection_entities: Vec<Entity>,
+    cycle_entities: Vec<Entity>,
 
     active: ActivePane,
     interactive_rects: Vec<Rect>,
@@ -50,7 +51,7 @@ impl Inspector {
             room: RoomProperties::new(),
             tilemap: TilemapProperties::new(),
             entity: None,
-            selection_entities: Vec::new(),
+            cycle_entities: Vec::new(),
             active: ActivePane::Empty,
             interactive_rects: Vec::new(),
         }
@@ -72,8 +73,8 @@ impl Inspector {
     }
 
     /// Sets the entities available for inspector navigation.
-    pub(crate) fn set_selection_entities(&mut self, entities: Vec<Entity>) {
-        self.selection_entities = entities;
+    pub(crate) fn set_cycle_entities(&mut self, entities: Vec<Entity>) {
+        self.cycle_entities = entities;
     }
 
     /// Selects the entity-inspector pane for the next draw.
@@ -131,23 +132,21 @@ impl Inspector {
         self.tilemap.selected_brush_id()
     }
 
-    /// Moves the inspector target to the next selected entity.
-    pub(crate) fn cycle_selected_entity(&mut self, forward: bool) {
-        let Some(current) = self.selected_entity() else {
-            return;
-        };
-        if self.selection_entities.len() < 2 {
-            return;
+    /// Moves the inspector target to the next cycle entity and returns it.
+    pub(crate) fn cycle_selected_entity(&mut self, forward: bool) -> Option<Entity> {
+        let current = self.selected_entity()?;
+        if self.cycle_entities.len() < 2 {
+            return None;
         }
-        let Some(index) = self.selection_entities.iter().position(|entity| *entity == current) else {
-            return;
-        };
+        let index = self.cycle_entities.iter().position(|entity| *entity == current)?;
         let next_index = if forward {
-            (index + 1) % self.selection_entities.len()
+            (index + 1) % self.cycle_entities.len()
         } else {
-            (index + self.selection_entities.len() - 1) % self.selection_entities.len()
+            (index + self.cycle_entities.len() - 1) % self.cycle_entities.len()
         };
-        self.select_entity(self.selection_entities[next_index]);
+        let target = self.cycle_entities[next_index];
+        self.select_entity(target);
+        Some(target)
     }
 
     /// Returns the entity currently shown in the inspector.
@@ -184,12 +183,67 @@ impl Inspector {
 
     /// Returns the on-screen rectangle for the toggle strip.
     pub(crate) fn strip_rect(&self) -> Rect {
+        let content_top_offset = self.content_top_offset();
         Rect::new(
             self.rect.x + self.rect.w - inspector::EDGE_GAP - inspector::STRIP_WIDTH,
-            self.rect.y + inspector::CONTENT_TOP_OFFSET,
+            self.rect.y + content_top_offset,
             inspector::STRIP_WIDTH,
-            self.rect.h - inspector::CONTENT_TOP_OFFSET - inspector::EDGE_GAP,
+            self.rect.h - content_top_offset - inspector::EDGE_GAP,
         )
+    }
+
+    fn content_top_offset(&self) -> f32 {
+        inspector::CONTENT_TOP_OFFSET - inspector::HEADER_HEIGHT + self.header_height()
+    }
+
+    pub(super) fn content_frame_rect(&self) -> Rect {
+        let content_top_offset = self.content_top_offset();
+        Rect::new(
+            self.rect.x,
+            self.rect.y + content_top_offset,
+            self.rect.w - inspector::EDGE_GAP - inspector::STRIP_WIDTH,
+            self.rect.h - content_top_offset - inspector::EDGE_GAP,
+        )
+    }
+
+    pub(super) fn action_strip_layout(&self, insp_ctx: &InspectorContext) -> ActionStripLayout {
+        action_strip::layout(
+            self.content_frame_rect(),
+            matches!(self.active, ActivePane::Entity),
+            insp_ctx.command_mode,
+            self.cycle_entities.len(),
+            self.active_has_collapsible_modules(),
+        )
+    }
+
+    fn active_has_collapsible_modules(&self) -> bool {
+        match self.active {
+            ActivePane::Game => InspectorContent::has_collapsible_modules(&self.game),
+            ActivePane::World => InspectorContent::has_collapsible_modules(&self.world),
+            ActivePane::Room => InspectorContent::has_collapsible_modules(&self.room),
+            ActivePane::Tilemap => InspectorContent::has_collapsible_modules(&self.tilemap),
+            ActivePane::Entity => self
+                .entity
+                .as_ref()
+                .is_some_and(InspectorContent::has_collapsible_modules),
+            ActivePane::Empty => false,
+        }
+    }
+
+    pub(crate) fn collapse_active_pane(&mut self) {
+        clear_all_input_focus();
+        match self.active {
+            ActivePane::Game => InspectorContent::collapse_all(&mut self.game),
+            ActivePane::World => InspectorContent::collapse_all(&mut self.world),
+            ActivePane::Room => InspectorContent::collapse_all(&mut self.room),
+            ActivePane::Tilemap => InspectorContent::collapse_all(&mut self.tilemap),
+            ActivePane::Entity => {
+                if let Some(entity) = &mut self.entity {
+                    InspectorContent::collapse_all(entity);
+                }
+            }
+            ActivePane::Empty => {}
+        }
     }
 
     /// Returns the header height for the active pane.
@@ -255,28 +309,45 @@ impl Inspector {
 
         let visible = self.is_visible();
         let blocked = is_mouse_over_panel(ctx);
+        self.interactive_rects.clear();
+        let action_strip = self.action_strip_layout(insp_ctx);
+        let mut strip_interactive_rects = Vec::new();
+        let mut cycle_target = None;
+        if visible {
+            strip_interactive_rects = action_strip.interactive_rects();
+            match action_strip::draw(ctx, action_strip, blocked) {
+                Some(ActionStripAction::CollapseAll) => self.collapse_active_pane(),
+                Some(ActionStripAction::CyclePrevious) => {
+                    cycle_target = self.cycle_selected_entity(false);
+                }
+                Some(ActionStripAction::CycleNext) => {
+                    cycle_target = self.cycle_selected_entity(true);
+                }
+                None => {}
+            }
+        }
         let header_rect = Rect::new(self.rect.x, self.rect.y, self.rect.w, self.header_height());
+        let content_frame_rect = self.content_frame_rect();
         let body_rect = Rect::new(
-            self.rect.x,
-            self.rect.y + inspector::CONTENT_TOP_OFFSET,
-            self.rect.w - inspector::EDGE_GAP - inspector::STRIP_WIDTH,
-            self.rect.h - inspector::CONTENT_TOP_OFFSET - inspector::EDGE_GAP,
+            content_frame_rect.x,
+            content_frame_rect.y + inspector::ACTION_STRIP_HEIGHT,
+            content_frame_rect.w,
+            (content_frame_rect.h - inspector::ACTION_STRIP_HEIGHT).max(0.0),
         );
 
-        self.interactive_rects.clear();
         if let ActivePane::Entity = self.active {
             if let Some(entity) = &mut self.entity {
                 entity.clear_interactive_rects();
             }
         }
 
-        let (output, interactive_rects) = match self.active {
+        let (mut output, mut interactive_rects) = match self.active {
             ActivePane::Game => {
                 let mut output = self
                     .game
                     .draw_header(ctx, header_rect, blocked, game_ctx, insp_ctx);
                 let body_output = if visible {
-                    draw_pane_body(
+                    scrollable_pane::draw(
                         &mut self.game,
                         ctx,
                         blocked,
@@ -296,7 +367,7 @@ impl Inspector {
                     .world
                     .draw_header(ctx, header_rect, blocked, game_ctx, insp_ctx);
                 let body_output = if visible {
-                    draw_pane_body(
+                    scrollable_pane::draw(
                         &mut self.world,
                         ctx,
                         blocked,
@@ -316,7 +387,7 @@ impl Inspector {
                     .room
                     .draw_header(ctx, header_rect, blocked, game_ctx, insp_ctx);
                 let body_output = if visible {
-                    draw_pane_body(
+                    scrollable_pane::draw(
                         &mut self.room,
                         ctx,
                         blocked,
@@ -336,7 +407,7 @@ impl Inspector {
                     .tilemap
                     .draw_header(ctx, header_rect, blocked, game_ctx, insp_ctx);
                 let body_output = if visible {
-                    draw_pane_body(
+                    scrollable_pane::draw(
                         &mut self.tilemap,
                         ctx,
                         blocked,
@@ -352,26 +423,11 @@ impl Inspector {
                 (output, self.tilemap.interactive_rects())
             }
             ActivePane::Entity => {
-                let mut cycle_rects = Vec::new();
-                if self.selection_entities.len() > 1 {
-                    let button_y = header_rect.y + inspector::HEADER_BUTTON_Y;
-                    let previous_rect = Rect::new(header_rect.x + 8.0, button_y, 24.0, 24.0);
-                    let next_rect = Rect::new(header_rect.x + 36.0, button_y, 24.0, 24.0);
-                    cycle_rects.extend([previous_rect, next_rect]);
-                    let previous = menu_button(ctx, previous_rect, "<", false, blocked);
-                    let next = menu_button(ctx, next_rect, ">", false, blocked);
-                    if previous {
-                        self.cycle_selected_entity(false);
-                    } else if next {
-                        self.cycle_selected_entity(true);
-                    }
-                }
-                self.interactive_rects.extend(cycle_rects);
                 let output = if let Some(entity) = &mut self.entity {
                     let mut output =
                         entity.draw_header(ctx, header_rect, blocked, game_ctx, insp_ctx);
                     let body_output = if visible {
-                        draw_pane_body(
+                        scrollable_pane::draw(
                             entity,
                             ctx,
                             blocked,
@@ -397,69 +453,24 @@ impl Inspector {
             ActivePane::Empty => (InspectorOutput::default(), vec![]),
         };
 
+        if let Some(cycle_target) = cycle_target {
+            output.merge(InspectorOutput {
+                cycle_target: Some(cycle_target),
+                ..InspectorOutput::default()
+            });
+        }
+        interactive_rects.extend(strip_interactive_rects);
         self.interactive_rects = interactive_rects;
+        if visible {
+            ctx.draw_rectangle_lines(
+                content_frame_rect.x,
+                content_frame_rect.y,
+                content_frame_rect.w,
+                content_frame_rect.h,
+                2.0,
+                Color::WHITE,
+            );
+        }
         output
     }
 }
-
-#[cfg(test)]
-pub(crate) fn compose_pane_output<T, FBody, FHeader>(
-    pane: &mut T,
-    visible: bool,
-    draw_body: FBody,
-    draw_header: FHeader,
-) -> InspectorOutput
-where
-    FBody: FnOnce(&mut T) -> InspectorOutput,
-    FHeader: FnOnce(&mut T) -> InspectorOutput,
-{
-    let mut output = draw_header(pane);
-    let body_output = if visible {
-        draw_body(pane)
-    } else {
-        InspectorOutput::default()
-    };
-    output.merge(body_output);
-    output
-}
-
-fn draw_pane_body<C: InspectorContent>(
-    pane: &mut C,
-    ctx: &mut WgpuContext,
-    blocked: bool,
-    game_ctx: &mut GameCtxMut,
-    insp_ctx: &InspectorContext,
-    body_rect: Rect,
-    scroll_state: &mut ScrollState,
-) -> InspectorOutput {
-    ctx.draw_rectangle(
-        body_rect.x,
-        body_rect.y,
-        body_rect.w,
-        body_rect.h,
-        Color::new(0., 0., 0., 0.6),
-    );
-
-    let total = pane.total_content_height(game_ctx, insp_ctx);
-    let area = ScrollableArea::new(body_rect, total)
-        .scroll_speed(SCROLL_SPEED)
-        .blocked(is_mouse_over_dropdown_list(ctx))
-        .begin(ctx, scroll_state);
-    let content_rect = area.content_rect();
-    let scrolled_content_rect = Rect::new(
-        content_rect.x,
-        content_rect.y + scroll_state.scroll_y,
-        content_rect.w,
-        content_rect.h,
-    );
-
-    ctx.push_clip_rect(body_rect);
-    let output = pane.draw_modules(ctx, scrolled_content_rect, blocked, game_ctx, insp_ctx);
-    ctx.pop_clip_rect();
-
-    area.draw_scrollbar(ctx, scroll_state);
-    ctx.draw_rectangle_lines(body_rect.x, body_rect.y, body_rect.w, body_rect.h, 2., Color::WHITE);
-    output
-}
-
-const SCROLL_SPEED: f32 = 24.0;

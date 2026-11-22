@@ -31,6 +31,22 @@ fn collapse_all_collapses_each_expandable_entity_module() {
 }
 
 #[test]
+fn inspector_expansion_reveal_rect_requires_collapsed_to_expanded_transition() {
+    let mut module = FakeInspectorModule::new(Some(false));
+    let rect = Rect::new(10.0, 20.0, 100.0, 24.0);
+
+    let previous_state = module.expansion_state();
+    module.set_expanded(true);
+
+    assert_eq!(
+        module.expansion_reveal_rect(previous_state, rect),
+        Some(Rect::new(rect.x, rect.y, rect.w, module.height()))
+    );
+    assert_eq!(module.expansion_reveal_rect(Some(true), rect), None);
+    assert_eq!(module.expansion_reveal_rect(None, rect), None);
+}
+
+#[test]
 fn entity_inspector_without_collapsible_modules_reports_none() {
     let inspector = entity_inspector_with_modules(vec![Box::new(FakeInspectorModule::new(None))]);
 
