@@ -103,6 +103,7 @@ impl BishopApp for EditorApp {
         widgets_frame_end(&mut *ctx_ref);
 
         apply_pending_commands();
+        apply_pending_editor_actions();
     }
 }
 

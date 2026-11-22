@@ -3,7 +3,7 @@ use crate::scripting::script_system::ScriptSystem;
 use crate::transitions::world_transitions::resolve_world_start;
 use engine_core::camera::{get_room_cameras, CameraManager};
 use engine_core::diagnostics::TraversalResidencyDiagnostics;
-use engine_core::ecs::{Active, CurrentRoom, Entity, SubPixel, Transform, WorldEntry};
+use engine_core::ecs::{Active, CurrentRoom, Entity, SubPixel, Transform, WorldEntry, update_entity_position};
 use engine_core::game::Game;
 use engine_core::menu::{drain_menu_events, drain_slider_events};
 use engine_core::rendering::{visual_position, RoomRenderState};
@@ -83,9 +83,11 @@ impl GameInstance {
             .map(|transform| transform.position)
             .unwrap_or(destination.position);
         if let Some(player) = game.ecs.get_player_entity() {
-            let transform = game.ecs.get_mut::<Transform>(player)
-                .ok_or_else(|| format!("player {player:?} has no transform"))?;
-            transform.position = spawn_position;
+            if game.ecs.get::<Transform>(player).is_none() {
+                return Err(format!("player {player:?} has no transform"));
+            }
+            update_entity_position(&mut game.ecs, player, spawn_position);
+            game.ecs.transfer_player_proxy_children(room_id);
             game.ecs.set_current_room_layer(player, room_id, room_layer);
         }
         game.ecs.purge_proxies();

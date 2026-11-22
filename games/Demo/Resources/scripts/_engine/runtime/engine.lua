@@ -130,6 +130,47 @@ function engine.log.error(msg) end
 ---@param msg string
 function engine.log.debug(msg) end
 
+---@class ParticleFrame
+---@field clip_id string
+---@field col integer
+---@field row integer
+---@field offset vec2
+---@field sprite_id integer
+---@field frame_size vec2
+---@field flip_x boolean
+
+---@class ParticleSpriteVisual
+---@field sprite ParticleSpriteVisualData
+
+---@class ParticleSpriteVisualData
+---@field frame ParticleFrame
+
+---@class ParticleEmitterConfig
+---@field mode? 'burst'|'continuous'
+---@field visual? 'pixel'|'line'|ParticleSpriteVisual
+---@field area_size? vec2
+---@field line_length? integer
+---@field lifetime_min? number
+---@field lifetime_max? number
+---@field velocity_min? vec2
+---@field velocity_max? vec2
+---@field scale_start? number
+---@field scale_end? number
+---@field color? Color
+---@field opacity_start? number
+---@field opacity_end? number
+---@field burst_count? integer
+---@field emission_rate? number
+---@field max_particles? integer
+---@field seed? integer
+
+engine.particles = {}
+
+---@param position vec2
+---@param config? ParticleEmitterConfig
+---@return Entity
+function engine.particles.create(position, config) end
+
 engine.prefab = {}
 
 ---@param prefab_name PrefabId

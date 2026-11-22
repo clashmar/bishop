@@ -18,6 +18,7 @@
                 (339): true,
                 (340): true,
                 (341): true,
+                (342): true,
             },
         ),
         (
@@ -162,6 +163,14 @@
         (
             type_name: "Children",
             data: {
+                (2): (
+                    entities: [
+                        (342),
+                    ],
+                ),
+                (3): (
+                    entities: [],
+                ),
                 (338): (
                     entities: [
                         (339),
@@ -699,6 +708,10 @@
                     room_id: (1),
                     layer: front,
                 ),
+                (342): (
+                    room_id: (1),
+                    layer: front,
+                ),
             },
         ),
         (
@@ -898,6 +911,7 @@
                 (339): ("Cat Awareness Probe"),
                 (340): ("Dog"),
                 (341): ("Dog Awareness Probe"),
+                (342): ("Landing Dust Emitter"),
             },
         ),
         (
@@ -905,6 +919,38 @@
             data: {
                 (339): ((338)),
                 (341): ((340)),
+                (342): ((2)),
+            },
+        ),
+        (
+            type_name: "ParticleEmitter",
+            data: {
+                (342): (
+                    config: (
+                        mode: burst,
+                        visual: pixel,
+                        area_size: (8.0, 1.0),
+                        line_length: 4,
+                        lifetime_min: 0.12,
+                        lifetime_max: 0.24,
+                        velocity_min: (-12.0, -16.0),
+                        velocity_max: (12.0, -5.0),
+                        scale_start: 1.0,
+                        scale_end: 0.0,
+                        color: (
+                            r: 0.61960787,
+                            g: 0.56078434,
+                            b: 0.45882353,
+                            a: 1.0,
+                        ),
+                        opacity_start: 0.72,
+                        opacity_end: 0.0,
+                        burst_count: 8,
+                        emission_rate: 10.0,
+                        max_particles: 32,
+                        seed: 342,
+                    ),
+                ),
             },
         ),
         (
@@ -1148,6 +1194,12 @@
                             "last_seen": Vec2((0.0, 0.0)),
                             "player_visible": Bool(false),
                         },
+                    ),
+                ),
+                (342): (
+                    script_id: (16),
+                    data: (
+                        fields: {},
                     ),
                 ),
             },
@@ -1688,6 +1740,12 @@
                     position: (188.0, 71.99991),
                     pivot: BottomCenter,
                     z: 1,
+                ),
+                (342): (
+                    visible: true,
+                    position: (132.0, 72.0),
+                    pivot: BottomCenter,
+                    z: 2,
                 ),
             },
         ),

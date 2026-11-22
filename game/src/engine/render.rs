@@ -4,7 +4,9 @@ use engine_core::camera::CameraManager;
 #[cfg(target_os = "emscripten")]
 use engine_core::ecs::{Ecs, RoomCamera};
 use engine_core::constants::window;
-use engine_core::rendering::{RenderSystem, RoomRenderState, RoomVisibilityContext, render_room};
+use engine_core::rendering::{
+    ParticleSystem, RenderSystem, RoomRenderState, RoomVisibilityContext, render_room,
+};
 use engine_core::text::{collect_speech_bubbles, render_speech_bubbles};
 
 fn gameplay_viewport_rect(screen_w: f32, screen_h: f32) -> Option<(i32, i32, i32, i32)> {
@@ -124,6 +126,7 @@ pub(super) fn render_scene<C: BishopContext>(
     ctx: &mut C,
     game_instance: &mut GameInstance,
     render_system: &mut RenderSystem,
+    particle_system: &ParticleSystem,
     render_cam: &Camera2D,
     alpha: f32,
 ) {
@@ -139,6 +142,7 @@ pub(super) fn render_scene<C: BishopContext>(
         render_state,
         alpha,
         Some(prev_positions),
+        Some(particle_system),
     );
 
     render_system.render_time_ms = render_start.elapsed().as_secs_f32() * 1000.0;

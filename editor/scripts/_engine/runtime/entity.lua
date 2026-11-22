@@ -29,6 +29,7 @@ function Entity:despawn() end
 ---@overload fun(self: Entity, component: "Light"): Light
 ---@overload fun(self: Entity, component: "Name"): Name
 ---@overload fun(self: Entity, component: "Parent"): Parent
+---@overload fun(self: Entity, component: "ParticleEmitter"): ParticleEmitter
 ---@overload fun(self: Entity, component: "PhysicsBody"): PhysicsBody
 ---@overload fun(self: Entity, component: "Player"): Player
 ---@overload fun(self: Entity, component: "PlayerProxy"): PlayerProxy
@@ -130,6 +131,10 @@ function Entity:set_name(v) end
 ---@param self Entity
 ---@param v Parent
 function Entity:set_parent(v) end
+
+---@param self Entity
+---@param v ParticleEmitter
+function Entity:set_particle_emitter(v) end
 
 ---@param self Entity
 ---@param v PhysicsBody
@@ -363,6 +368,23 @@ function Entity:is_speaking() end
 --- If one-shot, plays with the group's pitch and volume variation.
 ---@param group_name SoundGroupId
 function Entity:play_sound(group_name) end
+
+--- Replaces this entity's particle emitter settings.
+---@param config ParticleEmitterConfig
+---@return nil
+function Entity:configure_particles(config) end
+
+--- Emits a burst when this entity uses burst mode.
+---@return nil
+function Entity:burst_particles() end
+
+--- Starts continuous emission when this entity uses continuous mode.
+---@return nil
+function Entity:start_particles() end
+
+--- Stops continuous emission without removing live particles.
+---@return nil
+function Entity:stop_particles() end
 
 --- Stops a looping sound started by this entity's AudioSource.
 --- Accepts an optional table with 'immediate' (bool) or 'fade_out' (number) overrides.

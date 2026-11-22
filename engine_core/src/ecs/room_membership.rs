@@ -1,4 +1,4 @@
-use crate::ecs::entity::Entity;
+use crate::ecs::entity::{Entity, get_children};
 use crate::ecs::{CurrentRoom, Ecs, TilePlacement};
 use crate::tiles::TileDefId;
 use crate::worlds::{RoomId, RoomLayer};
@@ -94,7 +94,7 @@ impl Ecs {
         }
     }
 
-    /// Set the `CurrentRoom` component on an entity to `new_room` on the front layer.
+    /// Set an entity and its descendants to `new_room` on the front layer.
     ///
     /// If the entity was previously in another room it is moved out of that
     /// room's membership set. The entity must already exist.
@@ -102,20 +102,30 @@ impl Ecs {
         self.set_current_room_layer(entity, new_room, RoomLayer::Front);
     }
 
-    /// Set the `CurrentRoom` component on an entity to one room/layer pair.
+    /// Set an entity and its descendants to one room/layer pair.
     pub fn set_current_room_layer(&mut self, entity: Entity, new_room: RoomId, layer: RoomLayer) {
-        if self
-            .get::<CurrentRoom>(entity)
-            .is_some_and(|current| current.room_id == new_room && current.layer == layer)
-        {
-            return;
-        }
+        let mut pending = vec![entity];
+        let mut visited = HashSet::new();
 
-        self.clear_current_room(entity);
-        self.insert_component(entity, CurrentRoom::new(new_room, layer));
+        while let Some(current_entity) = pending.pop() {
+            if !visited.insert(current_entity) {
+                continue;
+            }
+            pending.extend(get_children(self, current_entity));
+
+            if self
+                .get::<CurrentRoom>(current_entity)
+                .is_some_and(|current| current.room_id == new_room && current.layer == layer)
+            {
+                continue;
+            }
+
+            self.clear_current_room(current_entity);
+            self.insert_component(current_entity, CurrentRoom::new(new_room, layer));
+        }
     }
 
-    /// Update only the authored layer for an entity already assigned to a room.
+    /// Update the authored layer for an entity and its descendants.
     pub fn set_entity_layer(&mut self, entity: Entity, layer: RoomLayer) {
         let Some(current_room) = self.get::<CurrentRoom>(entity).copied() else {
             return;

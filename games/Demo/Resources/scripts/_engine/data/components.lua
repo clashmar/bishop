@@ -95,6 +95,9 @@
 
 ---@alias Parent Entity
 
+---@class ParticleEmitter
+---@field config table
+
 --- Marker component
 ---@class PhysicsBody
 
@@ -182,6 +185,7 @@
 ---@field Light "Light"
 ---@field Name "Name"
 ---@field Parent "Parent"
+---@field ParticleEmitter "ParticleEmitter"
 ---@field PhysicsBody "PhysicsBody"
 ---@field Player "Player"
 ---@field PlayerProxy "PlayerProxy"
@@ -220,6 +224,7 @@ C.LayerDoor = "LayerDoor"
 C.Light = "Light"
 C.Name = "Name"
 C.Parent = "Parent"
+C.ParticleEmitter = "ParticleEmitter"
 C.PhysicsBody = "PhysicsBody"
 C.Player = "Player"
 C.PlayerProxy = "PlayerProxy"

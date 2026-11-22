@@ -6,6 +6,7 @@ pub mod grid_module;
 pub mod input_module;
 pub mod logging_module;
 pub mod menu_module;
+pub mod particle_module;
 pub mod prefab_module;
 pub mod save_module;
 pub mod spatial_module;
@@ -41,6 +42,10 @@ mod spatial_module_tests;
 mod demo_pathing_tests;
 
 #[cfg(test)]
+#[path = "tests/landing_dust_tests.rs"]
+mod landing_dust_tests;
+
+#[cfg(test)]
 #[path = "tests/demo_patrol_tests.rs"]
 mod demo_patrol_tests;
 
@@ -59,6 +64,18 @@ mod menu_module_tests;
 #[cfg(test)]
 #[path = "tests/toml_asset_tests.rs"]
 mod toml_asset_tests;
+
+#[cfg(test)]
+#[path = "tests/particle_module_test_support.rs"]
+mod particle_module_test_support;
+
+#[cfg(test)]
+#[path = "tests/particle_module_config_tests.rs"]
+mod particle_module_config_tests;
+
+#[cfg(test)]
+#[path = "tests/particle_module_lifecycle_tests.rs"]
+mod particle_module_lifecycle_tests;
 
 #[cfg(test)]
 #[path = "tests/prefab_module_tests.rs"]

@@ -302,6 +302,27 @@ impl RoomEditor {
         }
     }
 
+    pub(crate) fn preview_particle_emitter(&mut self, owner: Entity, ecs: &Ecs) {
+        if self.single_selected_entity() != Some(owner) {
+            return;
+        }
+
+        match ecs.get::<ParticleEmitter>(owner).map(|emitter| emitter.config.mode) {
+            Some(ParticleEmissionMode::Burst) => {
+                let _ = self.particle_preview.burst(owner, ecs);
+            }
+            Some(ParticleEmissionMode::Continuous)
+                if self.particle_preview.is_emitting(owner) =>
+            {
+                let _ = self.particle_preview.stop(owner, ecs);
+            }
+            Some(ParticleEmissionMode::Continuous) => {
+                let _ = self.particle_preview.start(owner, ecs);
+            }
+            None => {}
+        }
+    }
+
     fn draw_layer_toggle_button(
         &mut self,
         ctx: &mut WgpuContext,

@@ -87,6 +87,9 @@
         Script((15)): (
             path: "scripts/awareness_probe.lua",
         ),
+        Script((16)): (
+            path: "scripts/landing_dust.lua",
+        ),
         Prefab((1)): (
             path: "prefabs/Cat.prefab",
         ),

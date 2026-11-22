@@ -80,6 +80,7 @@ impl RoomEditor {
             },
             0.0,
             None,
+            self.particle_preview.render_system(),
         );
 
         if view_preview {

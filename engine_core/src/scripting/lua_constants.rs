@@ -191,6 +191,52 @@ pub mod lua_entity {
     pub const GET_KINEMATIC_STATE: &str = "get_kinematic_state";
 }
 
+/// Particle emitter Lua names and enum representations.
+pub mod lua_particles {
+    pub const MODULE: &str = "particles";
+    pub const CREATE: &str = "create";
+    pub const ENTITY_CONFIGURE: &str = "configure_particles";
+    pub const ENTITY_BURST: &str = "burst_particles";
+    pub const ENTITY_START: &str = "start_particles";
+    pub const ENTITY_STOP: &str = "stop_particles";
+    pub const POSITION: &str = "position";
+    pub const CONFIG: &str = "config";
+    pub const MODE: &str = "mode";
+    pub const MODE_BURST: &str = "burst";
+    pub const MODE_CONTINUOUS: &str = "continuous";
+    pub const VISUAL: &str = "visual";
+    pub const VISUAL_PIXEL: &str = "pixel";
+    pub const VISUAL_LINE: &str = "line";
+    pub const VISUAL_SPRITE: &str = "sprite";
+    pub const AREA_SIZE: &str = "area_size";
+    pub const LINE_LENGTH: &str = "line_length";
+    pub const LIFETIME_MIN: &str = "lifetime_min";
+    pub const LIFETIME_MAX: &str = "lifetime_max";
+    pub const VELOCITY_MIN: &str = "velocity_min";
+    pub const VELOCITY_MAX: &str = "velocity_max";
+    pub const SCALE_START: &str = "scale_start";
+    pub const SCALE_END: &str = "scale_end";
+    pub const COLOR: &str = "color";
+    pub const OPACITY_START: &str = "opacity_start";
+    pub const OPACITY_END: &str = "opacity_end";
+    pub const BURST_COUNT: &str = "burst_count";
+    pub const EMISSION_RATE: &str = "emission_rate";
+    pub const MAX_PARTICLES: &str = "max_particles";
+    pub const SEED: &str = "seed";
+    pub const FRAME: &str = "frame";
+    pub const CLIP_ID: &str = "clip_id";
+    pub const COL: &str = "col";
+    pub const ROW: &str = "row";
+    pub const OFFSET: &str = "offset";
+    pub const SPRITE_ID: &str = "sprite_id";
+    pub const FRAME_SIZE: &str = "frame_size";
+    pub const FLIP_X: &str = "flip_x";
+    pub const CLASS_FRAME: &str = "ParticleFrame";
+    pub const CLASS_SPRITE_VISUAL: &str = "ParticleSpriteVisual";
+    pub const CLASS_SPRITE_VISUAL_DATA: &str = "ParticleSpriteVisualData";
+    pub const CLASS_CONFIG: &str = "ParticleEmitterConfig";
+}
+
 /// Kinematic Lua constants.
 pub mod lua_kinematic {
     pub const MODE_NONE: &str = "none";

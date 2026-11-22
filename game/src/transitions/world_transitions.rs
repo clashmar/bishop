@@ -460,11 +460,11 @@ pub(crate) fn resolve_world_start(game: &Game, world: &World) -> Option<Destinat
 }
 
 fn transport(lua: &Lua, game: &mut Game, entity: Entity, destination: &Destination) -> bool {
-    let Some(transform) = game.ecs.get_mut::<Transform>(entity) else {
+    if game.ecs.get::<Transform>(entity).is_none() {
         omni_error!("World transport subject {entity:?} has no Transform");
         return false;
-    };
-    transform.position = destination.position;
+    }
+    update_entity_position(&mut game.ecs, entity, destination.position);
     game.ecs
         .set_current_room_layer(entity, destination.room_id, destination.layer);
 

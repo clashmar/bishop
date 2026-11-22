@@ -10,6 +10,7 @@ use crate::gui::mode_selector::*;
 use crate::prefab::reconcile_recent_prefab_ids;
 use crate::room::drawing::SceneDrawContext;
 use crate::room::entity_drag::DragState;
+use crate::room::particle_preview::ParticlePreview;
 use crate::room::layers::interior_zone_edit::InteriorZoneEditorState;
 use crate::room::layers::layer_state::RoomLayerState;
 use crate::room::scene_mode::SceneModeUpdateContext;
@@ -23,6 +24,7 @@ use bishop::prelude::*;
 use engine_core::animation::{update_animation_sytem};
 use engine_core::assets::*;
 use engine_core::controls::Controls;
+use engine_core::ecs::components::ParticleEmitter;
 use engine_core::ecs::*;
 use engine_core::game::Game;
 use engine_core::rendering::{RenderSystem};
@@ -128,6 +130,7 @@ pub struct RoomEditor {
     pub request_event_tags_refresh: bool,
     pub request_play: bool,
     pub view_preview: bool,
+    pub(crate) particle_preview: ParticlePreview,
     pub(crate) show_interior_zones: bool,
     pub(crate) preview_camera_id: Option<usize>,
     /// Current sub-mode for tilemap editing.
@@ -168,6 +171,7 @@ impl RoomEditor {
             request_event_tags_refresh: false,
             request_play: false,
             view_preview: false,
+            particle_preview: ParticlePreview::default(),
             show_interior_zones: true,
             tilemap_sub_mode: TilemapEditorMode::Tiles,
             sub_mode_rect: None,
@@ -233,6 +237,14 @@ impl RoomEditor {
         self.handle_mouse_cursor(ctx);
 
         let delta_time = ctx.get_frame_time();
+        let selected_emitter = if self.view_preview {
+            None
+        } else {
+            self.single_selected_entity()
+                .filter(|entity| ecs.has::<ParticleEmitter>(*entity))
+        };
+        self.particle_preview
+            .update(delta_time, selected_emitter, ecs);
 
         update_animation_sytem(
             ctx,
@@ -595,6 +607,7 @@ impl RoomEditor {
         self.request_play = false;
         self.view_preview = false;
         self.preview_camera_id = None;
+        self.particle_preview.clear();
         self.drag_state = DragState::default();
         self.interior_zone_editor.clear();
         self.tilemap_sub_mode = TilemapEditorMode::Tiles;
