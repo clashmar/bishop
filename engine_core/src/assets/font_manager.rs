@@ -8,6 +8,7 @@ use crate::assets::asset_registry::{AssetKey, AssetRegistry};
 use crate::constants::paths;
 use crate::logging::omni_error;
 use crate::storage::{ResourceSource, fonts_folder};
+use crate::text::GameTextSettings;
 
 #[derive(Default)]
 pub struct FontManager {
@@ -21,6 +22,19 @@ struct FontRegistration {
 }
 
 impl FontManager {
+    /// Loads an element override or game-default font when it is registered.
+    pub fn ensure_element_font<T: Text>(
+        &mut self,
+        ctx: &mut T,
+        registry: &AssetRegistry,
+        source: Option<&ResourceSource>,
+        settings: &GameTextSettings,
+        override_font: Option<FontId>,
+    ) -> Option<FontId> {
+        let font_id = settings.font_for_element(override_font)?;
+        self.ensure_font(ctx, registry, source, font_id)
+    }
+
     /// Loads a registered font into the renderer and returns its selection when available.
     pub fn ensure_font<T: Text>(
         &mut self,

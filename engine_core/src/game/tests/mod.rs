@@ -1,5 +1,6 @@
 mod active_world_tests;
 mod start_world_tests;
+mod text_settings_tests;
 
 use super::*;
 use crate::ecs::Ecs;

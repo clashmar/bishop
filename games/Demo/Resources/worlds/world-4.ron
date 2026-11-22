@@ -3,7 +3,7 @@
     name: "Arcade",
     current_room_id: Some((5)),
     meta: (
-        position: (-391.9486, 29.023247),
+        position: (-398.31396, -113.061844),
         sprite_id: None,
     ),
     tags: [],

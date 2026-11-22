@@ -79,6 +79,7 @@ impl Engine {
         self.menu_manager.render(
             &mut *ctx.borrow_mut(),
             &game.text_manager,
+            &game.text_settings,
             &mut game.font_manager,
             &game.asset_registry,
             game.runtime_source.as_ref(),

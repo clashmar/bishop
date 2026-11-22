@@ -1,12 +1,11 @@
 use crate::menu::menu_canvas::drawing::MenuCanvasFrame;
 use crate::menu::menu_properties_panel::common_properties::row_visible;
+use crate::gui::widgets::font_selector::draw_font_dropdown;
 use crate::menu::menu_properties_panel::{FIELD_HEIGHT, LABEL_WIDTH, ROW_HEIGHT};
 use crate::menu::MenuEditor;
 use bishop::prelude::*;
-use bishop::text::FontId;
-use engine_core::assets::{AssetKey, AssetRegistry};
+use engine_core::assets::AssetRegistry;
 use engine_core::menu::{HorizontalAlign, MenuElement, MenuElementKind};
-use std::fmt::{self, Display, Formatter};
 use widgets::*;
 
 impl MenuEditor {
@@ -36,14 +35,13 @@ impl MenuEditor {
                 outline_color,
             );
         }
-        let font = label.font.and_then(|id| {
-            frame.font_manager.ensure_font(
-                frame.ctx,
-                frame.asset_registry,
-                frame.resource_source,
-                id,
-            )
-        });
+        let font = frame.font_manager.ensure_element_font(
+            frame.ctx,
+            frame.asset_registry,
+            frame.resource_source,
+            frame.text_settings,
+            label.font,
+        );
         let label_align = match label.alignment {
             HorizontalAlign::Left => LabelAlign::Left,
             HorizontalAlign::Center => LabelAlign::Center,
@@ -122,23 +120,18 @@ impl MenuEditor {
 
         if row_visible(*y, ROW_HEIGHT, clip) {
             ctx.draw_text("Font:", x, *y + 16.0, 12.0, Color::WHITE);
-            let (font_options, current_font_option) =
-                label_font_options(asset_registry, current_font);
             let dropdown_rect = Rect::new(x + LABEL_WIDTH, *y, w - LABEL_WIDTH, FIELD_HEIGHT);
-            if let Some(selected) = Dropdown::new(
+            if let Some(selected) = draw_font_dropdown(
+                ctx,
                 self.properties_panel.widget_ids.label_font_id,
                 dropdown_rect,
-                &current_font_option.label,
-                &font_options,
-                |option| option.label.clone(),
-            )
-            .suppressed(blocked)
-            .fixed_width()
-            .show(ctx)
-            {
+                asset_registry,
+                current_font,
+                blocked,
+            ) {
                 self.push_element_update(|element| {
                     if let MenuElementKind::Label(label) = &mut element.kind {
-                        label.font = selected.id;
+                        label.font = selected;
                     }
                 });
             }
@@ -179,97 +172,5 @@ impl MenuEditor {
             }
         }
         *y += ROW_HEIGHT;
-    }
-}
-
-#[derive(Clone, PartialEq)]
-struct LabelFontOption {
-    id: Option<FontId>,
-    label: String,
-}
-
-impl Display for LabelFontOption {
-    fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
-        formatter.write_str(&self.label)
-    }
-}
-
-fn label_font_options(
-    registry: &AssetRegistry,
-    selected: Option<FontId>,
-) -> (Vec<LabelFontOption>, LabelFontOption) {
-    let mut options = vec![LabelFontOption {
-        id: None,
-        label: "Engine Default".to_owned(),
-    }];
-    for (key, record) in registry.records() {
-        if let AssetKey::Font(id) = key {
-            let name = record
-                .path
-                .file_stem()
-                .map(|name| name.to_string_lossy().into_owned())
-                .unwrap_or_else(|| format!("Font {}", id.0));
-            options.push(LabelFontOption {
-                id: Some(*id),
-                label: format!("{name} ({})", id.0),
-            });
-        }
-    }
-    options[1..].sort_by(|left, right| left.label.cmp(&right.label));
-
-    let mut current = selected
-        .and_then(|id| options.iter().find(|option| option.id == Some(id)).cloned());
-    if current.is_none() {
-        if let Some(id) = selected {
-            let missing = LabelFontOption {
-                id: Some(id),
-                label: format!("Missing Font {}", id.0),
-            };
-            options.push(missing.clone());
-            current = Some(missing);
-        }
-    }
-    let current = current.unwrap_or_else(|| options[0].clone());
-    (options, current)
-}
-
-#[cfg(test)]
-mod tests {
-    use std::path::PathBuf;
-
-    use bishop::text::FontId;
-    use engine_core::assets::AssetRegistry;
-    use engine_core::constants::extensions;
-
-    use super::label_font_options;
-
-    #[test]
-    fn font_options_keep_the_engine_default_and_preserve_missing_font_ids() -> Result<(), String> {
-        let id = FontId(99);
-        let (options, selected) = label_font_options(&AssetRegistry::default(), Some(id));
-
-        assert_eq!(options[0].id, None);
-        assert_eq!(options[0].label, "Engine Default");
-        assert_eq!(selected.id, Some(id));
-        assert_eq!(selected.label, "Missing Font 99");
-        Ok(())
-    }
-
-    #[test]
-    fn font_options_use_registered_asset_names_and_ids() -> Result<(), String> {
-        let id = FontId(13);
-        let mut registry = AssetRegistry::default();
-        registry
-            .register_asset_relative_path(
-                id,
-                PathBuf::from(format!("heading.{}", extensions::TTF)),
-            )
-            .map_err(|error| error.to_string())?;
-
-        let (options, selected) = label_font_options(&registry, Some(id));
-        assert_eq!(selected.id, Some(id));
-        assert_eq!(selected.label, "heading (13)");
-        assert!(options.iter().any(|option| option.id == Some(id)));
-        Ok(())
     }
 }

@@ -1,4 +1,5 @@
 /// Menu bar widget helpers.
+pub mod font_selector;
 pub mod menu_widgets;
 /// Script component picker row, field editors, and supporting state.
 pub(crate) mod script_module_core;

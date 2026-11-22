@@ -161,7 +161,7 @@ fn collect_directory(root: &Path, directory: &Path, files: &mut BTreeMap<Resourc
 fn portable_extension(path: &Path) -> bool {
     matches!(path.extension().and_then(|extension| extension.to_str()),
         Some(extensions::PNG | extensions::LUA | extensions::WAV | extensions::TOML
-            | extensions::RON | extensions::PREFAB | extensions::JSON))
+            | extensions::RON | extensions::PREFAB | extensions::JSON | extensions::TTF | extensions::OTF))
 }
 
 fn collect_file(root: &Path, path: &Path, files: &mut BTreeMap<ResourceKey, usize>) -> Result<(), String> {
@@ -198,4 +198,37 @@ fn file_metadata(path: &Path) -> Result<fs::Metadata, String> {
         return Err(format!("not a regular resource: {}", path.display()));
     }
     Ok(metadata)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{collect_game_resources, portable_extension};
+    use crate::constants::{extensions, paths};
+    use crate::game::Game;
+    use crate::storage::save_game_to_folder;
+    use bishop::text::FontId;
+    use std::fs;
+    use std::path::Path;
+    use tempfile::tempdir;
+
+    #[test]
+    fn portable_extension_when_font_file_uses_supported_extension_returns_true() {
+        assert!(portable_extension(Path::new(&format!("body.{}", extensions::TTF))));
+        assert!(portable_extension(Path::new(&format!("display.{}", extensions::OTF))));
+    }
+
+    #[test]
+    fn collect_game_resources_when_registered_font_exists_includes_font_file() {
+        let root = tempdir().unwrap();
+        let mut game = Game::with_name("font_export");
+        game.asset_registry.register_asset_relative_path(FontId(1), "body.ttf").unwrap();
+        save_game_to_folder(&game, root.path()).unwrap();
+        let font = root.path().join(paths::FONTS_FOLDER).join("body.ttf");
+        fs::create_dir_all(font.parent().unwrap()).unwrap();
+        fs::write(&font, b"font bytes").unwrap();
+
+        let manifest = collect_game_resources(root.path()).unwrap();
+
+        assert!(manifest.files.iter().any(|entry| entry.path.as_str() == "fonts/body.ttf"));
+    }
 }

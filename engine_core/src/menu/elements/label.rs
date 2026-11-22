@@ -71,14 +71,13 @@ impl LabelElement {
         let display_text = env
             .text_manager
             .resolve_ui_text(env.text_id, &self.text_key);
-        let font = self.font.and_then(|id| {
-            env.font_manager.ensure_font(
-                ctx,
-                env.asset_registry,
-                env.resource_source,
-                id,
-            )
-        });
+        let font = env.font_manager.ensure_element_font(
+            ctx,
+            env.asset_registry,
+            env.resource_source,
+            env.text_settings,
+            self.font,
+        );
         let label_align = match self.alignment {
             HorizontalAlign::Left => LabelAlign::Left,
             HorizontalAlign::Center => LabelAlign::Center,

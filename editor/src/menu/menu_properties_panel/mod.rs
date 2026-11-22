@@ -21,6 +21,8 @@ pub struct PropertiesWidgetIds {
     pub(crate) text_id: WidgetId,
     pub(crate) font_size_id: WidgetId,
     pub(crate) label_font_id: WidgetId,
+    pub(crate) button_font_id: WidgetId,
+    pub(crate) slider_font_id: WidgetId,
     pub(crate) action_id: WidgetId,
     pub(crate) action_param_id: WidgetId,
     pub(crate) enabled_when_id: WidgetId,
@@ -154,7 +156,15 @@ impl MenuEditor {
                 );
             }
             MenuElementKind::Button(_) => {
-                self.draw_button_properties(ctx, &mut y, content_x, content_w, blocked, &rect);
+                self.draw_button_properties(
+                    ctx,
+                    &mut y,
+                    content_x,
+                    content_w,
+                    blocked,
+                    &rect,
+                    asset_registry,
+                );
             }
             MenuElementKind::Panel(_) => {
                 self.draw_panel_properties(ctx, &mut y, content_x, content_w, blocked, &rect);
@@ -165,7 +175,15 @@ impl MenuEditor {
                 );
             }
             MenuElementKind::Slider(_) => {
-                self.draw_slider_properties(ctx, &mut y, content_x, content_w, blocked, &rect);
+                self.draw_slider_properties(
+                    ctx,
+                    &mut y,
+                    content_x,
+                    content_w,
+                    blocked,
+                    &rect,
+                    asset_registry,
+                );
             }
         }
 

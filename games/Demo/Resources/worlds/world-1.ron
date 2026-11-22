@@ -3,7 +3,7 @@
     name: "Main World",
     current_room_id: Some((1)),
     meta: (
-        position: (-179.19025, -258.40372),
+        position: (-158.52954, -294.83655),
         sprite_id: None,
     ),
     tags: [

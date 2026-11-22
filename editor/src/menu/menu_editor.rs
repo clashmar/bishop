@@ -151,6 +151,7 @@ impl MenuEditor {
                 ctx,
                 preview_rect,
                 &mut game.font_manager,
+                &game.text_settings,
                 &game.asset_registry,
                 game.runtime_source.as_ref(),
             );
@@ -168,6 +169,7 @@ impl MenuEditor {
             camera,
             canvas_rect,
             &mut game.font_manager,
+            &game.text_settings,
             &game.asset_registry,
             game.runtime_source.as_ref(),
         );

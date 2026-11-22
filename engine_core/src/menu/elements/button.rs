@@ -4,6 +4,7 @@ use crate::menu::menu_builder::MenuAction;
 use crate::menu::runtime::RenderEnv;
 use crate::menu::{NavTargets, Navigable};
 use bishop::prelude::*;
+use bishop::text::FontId;
 use serde::{Deserialize, Serialize};
 use widgets::{Button, Widget};
 
@@ -13,6 +14,9 @@ pub struct ButtonElement {
     pub text_key: String,
     pub action: MenuAction,
     pub font_size: f32,
+    /// Optional font override; `None` inherits the game text default.
+    #[serde(default)]
+    pub font: Option<FontId>,
     pub nav_targets: NavTargets,
 }
 
@@ -22,6 +26,7 @@ impl Default for ButtonElement {
             text_key: String::new(),
             action: MenuAction::CloseMenu,
             font_size: 20.0,
+            font: None,
             nav_targets: NavTargets::default(),
         }
     }
@@ -90,7 +95,16 @@ impl ButtonElement {
         let display_text = env
             .text_manager
             .resolve_ui_text(env.text_id, &self.text_key);
+        let font = env.font_manager.ensure_element_font(
+            ctx,
+            env.asset_registry,
+            env.resource_source,
+            env.text_settings,
+            self.font,
+        );
         let widget = Button::new(screen_rect, &display_text)
+            .font(font)
+            .font_size(self.font_size)
             .blocked(!element.enabled)
             .focused(is_focused)
             .apply_selectors(element.class.as_deref(), element.style_id.as_deref());

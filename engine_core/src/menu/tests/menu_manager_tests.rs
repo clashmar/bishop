@@ -36,6 +36,42 @@ fn label_font_selection_round_trips_with_engine_default_option() {
 }
 
 #[test]
+fn button_and_slider_font_overrides_round_trip() {
+    let mut template = MenuTemplate::new("widget_font_overrides".to_string());
+    template.elements.push(MenuElement::button(
+        "play".to_string(),
+        MenuAction::CloseMenu,
+        Rect::new(0.0, 0.0, 1.0, 1.0),
+    ));
+    template.elements.push(MenuElement::slider(
+        "volume".to_string(),
+        "master_volume".to_string(),
+        0.0,
+        1.0,
+        0.1,
+        0.5,
+        Rect::new(0.0, 0.0, 1.0, 1.0),
+    ));
+    if let MenuElementKind::Button(button) = &mut template.elements[0].kind {
+        button.font = Some(FontId(7));
+    }
+    if let MenuElementKind::Slider(slider) = &mut template.elements[1].kind {
+        slider.font = Some(FontId(8));
+    }
+
+    let encoded = ron::to_string(&template).unwrap();
+    let decoded: MenuTemplate = ron::from_str(&encoded).unwrap();
+    let MenuElementKind::Button(button) = &decoded.elements[0].kind else {
+        unreachable!();
+    };
+    let MenuElementKind::Slider(slider) = &decoded.elements[1].kind else {
+        unreachable!();
+    };
+    assert_eq!(button.font, Some(FontId(7)));
+    assert_eq!(slider.font, Some(FontId(8)));
+}
+
+#[test]
 fn gameplay_pause_policy_toggles_the_pause_menu_with_pause_key() {
     let mut manager = MenuManager::new();
     manager.set_input_policy(MenuInputPolicy::GameplayPause {

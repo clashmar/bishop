@@ -1,5 +1,6 @@
 use crate::constants::{colors, layout};
 use crate::*;
+use bishop::text::{FontId, TextParams};
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 
@@ -30,6 +31,7 @@ pub struct Button<'a> {
     content: ButtonContent<'a>,
     style: ButtonStyle,
     font_size: f32,
+    font: Option<FontId>,
     text_offset: Vec2,
     suppressed: bool,
     focused: bool,
@@ -55,6 +57,7 @@ impl<'a> Button<'a> {
             content: ButtonContent::Text(label),
             style: ButtonStyle::Default,
             font_size: layout::FIELD_TEXT_SIZE_16,
+            font: None,
             text_offset: Vec2::ZERO,
             suppressed: false,
             focused: false,
@@ -82,6 +85,7 @@ impl<'a> Button<'a> {
             content: ButtonContent::Icon { texture, id },
             style: ButtonStyle::Default,
             font_size: layout::FIELD_TEXT_SIZE_16,
+            font: None,
             text_offset: Vec2::ZERO,
             suppressed: false,
             focused: false,
@@ -126,6 +130,12 @@ impl<'a> Button<'a> {
     /// Sets an offset for the text position.
     pub fn text_offset(mut self, offset: impl Into<Vec2>) -> Self {
         self.text_offset = offset.into();
+        self
+    }
+
+    /// Selects a registered font for the button label, or the embedded default.
+    pub fn font(mut self, font: Option<FontId>) -> Self {
+        self.font = font;
         self
     }
 
@@ -332,16 +342,27 @@ impl<'a> Button<'a> {
                         colors::DEFAULT_TEXT_COLOR,
                     )
                 };
-                let txt_dims = measure_text_ui(ctx, label, self.font_size);
+                let logical_font_size = self.font_size.max(1.0);
+                let base_font_size = logical_font_size
+                    .round()
+                    .clamp(1.0, u16::MAX as f32);
+                let params = TextParams {
+                    font: self.font,
+                    font_size: base_font_size as u16,
+                    font_scale: logical_font_size / base_font_size,
+                    ..TextParams::default()
+                };
+                let txt_dims = ctx.measure_text_ex(label, &params);
                 let txt_y = self.rect.y + (self.rect.h - txt_dims.height) / 2.0 + txt_dims.offset_y;
                 let txt_x = self.rect.x + (self.rect.w - txt_dims.width) / 2.0;
-                draw_text_ui(
-                    ctx,
+                ctx.draw_text_ex(
                     label,
                     txt_x + self.text_offset.x,
                     txt_y + self.text_offset.y,
-                    self.font_size,
-                    text_color,
+                    TextParams {
+                        color: text_color,
+                        ..params
+                    },
                 );
             }
             ButtonContent::Icon { texture, .. } => {

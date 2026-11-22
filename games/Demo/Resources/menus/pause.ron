@@ -34,6 +34,7 @@
                                 text_key: "Resume",
                                 action: CloseMenu,
                                 font_size: 20.0,
+                                font: None,
                                 nav_targets: (
                                     up: None,
                                     down: None,
@@ -48,6 +49,7 @@
                                 h: 0.037,
                             ),
                             enabled: true,
+                            enabled_when: Always,
                             visible: true,
                             z_order: 0,
                             class: None,
@@ -62,6 +64,7 @@
                                 text_key: "SaveGame",
                                 action: Custom("manual_save"),
                                 font_size: 20.0,
+                                font: None,
                                 nav_targets: (
                                     up: None,
                                     down: None,
@@ -76,6 +79,7 @@
                                 h: 0.037,
                             ),
                             enabled: true,
+                            enabled_when: Always,
                             visible: true,
                             z_order: 0,
                             class: None,
@@ -90,6 +94,7 @@
                                 text_key: "Settings",
                                 action: OpenMenu("settings"),
                                 font_size: 20.0,
+                                font: None,
                                 nav_targets: (
                                     up: None,
                                     down: None,
@@ -104,6 +109,7 @@
                                 h: 0.037,
                             ),
                             enabled: true,
+                            enabled_when: Always,
                             visible: true,
                             z_order: 0,
                             class: None,
@@ -118,6 +124,7 @@
                                 text_key: "QuitTitle",
                                 action: QuitToMainMenu,
                                 font_size: 20.0,
+                                font: None,
                                 nav_targets: (
                                     up: None,
                                     down: None,
@@ -132,6 +139,7 @@
                                 h: 0.037,
                             ),
                             enabled: true,
+                            enabled_when: Always,
                             visible: true,
                             z_order: 0,
                             class: None,
@@ -154,6 +162,7 @@
                 h: 0.3,
             ),
             enabled: true,
+            enabled_when: Always,
             visible: true,
             z_order: 0,
             class: None,
@@ -161,4 +170,5 @@
         ),
     ],
     mode: Paused,
+    on_open: "",
 )

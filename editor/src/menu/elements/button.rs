@@ -1,10 +1,12 @@
 use crate::menu::menu_canvas::drawing::MenuCanvasFrame;
 use crate::menu::menu_properties_panel::common_properties::row_visible;
+use crate::gui::widgets::font_selector::draw_font_dropdown;
 use crate::menu::menu_properties_panel::nav_section::NavSectionStyle;
 use crate::menu::menu_properties_panel::{FIELD_HEIGHT, LABEL_WIDTH, ROW_HEIGHT};
 use crate::menu::MenuEditor;
 use crate::shared::input::canvas_blocked_by_global_ui;
 use bishop::prelude::*;
+use engine_core::assets::AssetRegistry;
 use engine_core::menu::{ButtonElement, MenuAction, MenuElement, MenuElementKind};
 use widgets::*;
 
@@ -20,7 +22,15 @@ impl MenuEditor {
             return;
         };
         let display_text = button.text_key.to_string();
+        let font = frame.font_manager.ensure_element_font(
+            frame.ctx,
+            frame.asset_registry,
+            frame.resource_source,
+            frame.text_settings,
+            button.font,
+        );
         Button::new(element_rect, &display_text)
+            .font(font)
             .font_size(button.font_size)
             .mouse_position(frame.world_mouse)
             .suppressed(canvas_blocked_by_global_ui(frame.ctx))
@@ -46,8 +56,9 @@ impl MenuEditor {
         w: f32,
         blocked: bool,
         clip: &Rect,
+        asset_registry: &AssetRegistry,
     ) {
-        let (current_text_key, current_font_size, current_action) = {
+        let (current_text_key, current_font_size, current_font, current_action) = {
             let Some(element) = self.selected_element() else {
                 return;
             };
@@ -57,6 +68,7 @@ impl MenuEditor {
             (
                 button.text_key.clone(),
                 button.font_size,
+                button.font,
                 button.action.clone(),
             )
         };
@@ -102,6 +114,27 @@ impl MenuEditor {
                     button.font_size = new_font_size;
                 }
             });
+        }
+        *y += ROW_HEIGHT;
+
+        // Font dropdown
+        if row_visible(*y, ROW_HEIGHT, clip) {
+            ctx.draw_text("Font:", x, *y + 16.0, 12.0, Color::WHITE);
+            let dropdown_rect = Rect::new(x + LABEL_WIDTH, *y, w - LABEL_WIDTH, FIELD_HEIGHT);
+            if let Some(selected) = draw_font_dropdown(
+                ctx,
+                self.properties_panel.widget_ids.button_font_id,
+                dropdown_rect,
+                asset_registry,
+                current_font,
+                blocked,
+            ) {
+                self.push_element_update(|element| {
+                    if let MenuElementKind::Button(button) = &mut element.kind {
+                        button.font = selected;
+                    }
+                });
+            }
         }
         *y += ROW_HEIGHT;
 

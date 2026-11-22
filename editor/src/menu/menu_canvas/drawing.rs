@@ -7,7 +7,7 @@ use engine_core::assets::{font_manager::FontManager, AssetRegistry};
 use engine_core::constants::world;
 use engine_core::menu::*;
 use engine_core::storage::ResourceSource;
-use engine_core::text::TextManager;
+use engine_core::text::{GameTextSettings, TextManager};
 use widgets::*;
 use std::collections::HashMap;
 
@@ -18,6 +18,7 @@ pub(crate) struct MenuCanvasFrame<'a> {
     pub(crate) world_mouse: Vec2,
     pub(crate) preview: bool,
     pub(crate) font_manager: &'a mut FontManager,
+    pub(crate) text_settings: &'a GameTextSettings,
     pub(crate) asset_registry: &'a AssetRegistry,
     pub(crate) resource_source: Option<&'a ResourceSource>,
 }
@@ -30,6 +31,7 @@ impl MenuEditor {
         camera: &Camera2D,
         rect: Rect,
         font_manager: &mut FontManager,
+        text_settings: &GameTextSettings,
         asset_registry: &AssetRegistry,
         resource_source: Option<&ResourceSource>,
     ) {
@@ -111,6 +113,7 @@ impl MenuEditor {
                 world_mouse,
                 preview: false,
                 font_manager,
+                text_settings,
                 asset_registry,
                 resource_source,
             };
@@ -187,6 +190,7 @@ impl MenuEditor {
         ctx: &mut WgpuContext,
         rect: Rect,
         font_manager: &mut FontManager,
+        text_settings: &GameTextSettings,
         asset_registry: &AssetRegistry,
         resource_source: Option<&ResourceSource>,
     ) {
@@ -213,6 +217,7 @@ impl MenuEditor {
             &focus,
             &mut slider_values,
             &text_manager,
+            text_settings,
             font_manager,
             asset_registry,
             resource_source,

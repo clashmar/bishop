@@ -2,7 +2,7 @@ use crate::assets::font_manager::FontManager;
 use crate::assets::AssetRegistry;
 use crate::menu::*;
 use crate::storage::ResourceSource;
-use crate::text::TextManager;
+use crate::text::{GameTextSettings, TextManager};
 use bishop::prelude::*;
 use std::collections::HashMap;
 use widgets::{widgets_frame_end, widgets_frame_start};
@@ -16,6 +16,7 @@ pub(crate) fn render_active_menu<C: BishopContext>(
     focus: &MenuFocus,
     slider_values: &mut HashMap<String, f32>,
     text_manager: &TextManager,
+    text_settings: &GameTextSettings,
     font_manager: &mut FontManager,
     asset_registry: &AssetRegistry,
     resource_source: Option<&ResourceSource>,
@@ -29,6 +30,7 @@ pub(crate) fn render_active_menu<C: BishopContext>(
         focus,
         slider_values,
         text_manager,
+        text_settings,
         font_manager,
         asset_registry,
         resource_source,
@@ -46,6 +48,7 @@ pub fn render_menu_elements<C: BishopContext>(
     focus: &MenuFocus,
     slider_values: &mut HashMap<String, f32>,
     text_manager: &TextManager,
+    text_settings: &GameTextSettings,
     font_manager: &mut FontManager,
     asset_registry: &AssetRegistry,
     resource_source: Option<&ResourceSource>,
@@ -55,6 +58,7 @@ pub fn render_menu_elements<C: BishopContext>(
     let mut env = RenderEnv {
         text_id: &text_id,
         text_manager,
+        text_settings,
         font_manager,
         asset_registry,
         resource_source,
@@ -84,6 +88,7 @@ pub fn render_menu_elements<C: BishopContext>(
 pub(crate) struct RenderEnv<'a> {
     pub(crate) text_id: &'a str,
     pub(crate) text_manager: &'a TextManager,
+    pub(crate) text_settings: &'a GameTextSettings,
     pub(crate) font_manager: &'a mut FontManager,
     pub(crate) asset_registry: &'a AssetRegistry,
     pub(crate) resource_source: Option<&'a ResourceSource>,

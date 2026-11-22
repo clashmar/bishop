@@ -25,7 +25,7 @@ use crate::worlds::{WorldDirectorySnapshot, world::*};
 use crate::worlds::transition::OverlayFrame;
 use crate::{
     storage::text_folder,
-    text::TextManager,
+    text::{GameTextSettings, TextManager},
     tiles::{
         TileDefId,
         TileRegistry,
@@ -51,6 +51,8 @@ pub struct Game {
     pub id: Uuid,
     /// Human readable name of the game.
     pub name: String,
+    /// Authored text presentation defaults for the game.
+    pub text_settings: GameTextSettings,
     /// Stores the game ECS.
     pub ecs: Ecs,
     /// All worlds belonging to this game instance.
@@ -102,6 +104,7 @@ impl Default for Game {
             version: 1,
             id: Uuid::new_v4(),
             name: String::new(),
+            text_settings: GameTextSettings::default(),
             ecs: Ecs::default(),
             worlds: Vec::new(),
             world_index: HashMap::new(),

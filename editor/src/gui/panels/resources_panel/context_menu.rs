@@ -1,4 +1,5 @@
-use crate::commands::asset::{DeleteTarget, ImportAssetCmd, RegisterAssetCmd};
+use crate::commands::asset::{DeleteTarget, RegisterAssetCmd};
+use crate::gui::asset_import::import_asset_from_dialog;
 use crate::gui::modals::{
     delete_resource::{DeleteResourceModal, DELETE_RESOURCE_TARGET},
     new_resource_folder::{NewResourceFolderModal, NEW_FOLDER_TARGET},
@@ -6,7 +7,7 @@ use crate::gui::modals::{
     rename_resource_folder::{ResourceFolderRenameModal, RENAME_FOLDER_TARGET},
     ModalHandler,
 };
-use crate::editor_global::{push_command, push_toast};
+use crate::editor_global::push_command;
 use crate::Editor;
 use bishop::prelude::*;
 use engine_core::assets::*;
@@ -286,38 +287,8 @@ pub(super) fn handle_pending_action(
             expected_kind,
             current_dir,
         }) => {
-            let supported_extensions = expected_kind.map_or_else(
-                || {
-                    AssetKind::ALL
-                        .into_iter()
-                        .flat_map(AssetKind::supported_extensions)
-                        .copied()
-                        .collect::<Vec<_>>()
-                },
-                |kind| kind.supported_extensions().to_vec(),
-            );
-            let filter_name = "Supported game assets";
-            if let Some(path) = rfd::FileDialog::new()
-                .add_filter(filter_name, &supported_extensions)
-                .pick_file()
-            {
-                match (expected_kind, AssetKind::from_path(&path)) {
-                    (Some(expected), Some(actual)) if expected != actual => {
-                        push_toast("Selected file does not match this resource folder.", 3.0);
-                    }
-                    (_, Some(kind)) => {
-                        let command = if expected_kind.is_some() {
-                            ImportAssetCmd::new_in_directory(kind, path, current_dir)
-                        } else {
-                            ImportAssetCmd::new(kind, path)
-                        };
-                        push_command(Box::new(command));
-                    }
-                    (_, None) => {
-                        push_toast("Unsupported resource type.", 3.0);
-                    }
-                }
-            }
+            let destination_directory = expected_kind.map(|_| current_dir);
+            import_asset_from_dialog(expected_kind, destination_directory);
             None
         }
         other => other,
