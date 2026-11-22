@@ -234,6 +234,108 @@ fn dropdown_show_when_scroll_offset_exceeds_max_clamps_filterable_offset() {
     assert_eq!(dropdown_state::get(id).scroll_offset, 60.0);
 }
 
+fn show_open_popup(
+    id: WidgetId,
+    trigger: Rect,
+    list_width: f32,
+    screen_width: f32,
+    filterable: bool,
+    right_aligned: bool,
+) -> Rect {
+    reset_click_consumed();
+    let options = ["A", "B"];
+    dropdown_state::set(
+        id,
+        dropdown_state::DropState {
+            open: true,
+            rect: Rect::default(),
+            scroll_offset: 0.0,
+        },
+    );
+
+    let mut ctx = WidgetTestContext::new();
+    ctx.screen_width = screen_width;
+    let mut dropdown = Dropdown::new(id, trigger, "Pick", &options, |option| option.to_string())
+        .list_width(list_width);
+    if right_aligned {
+        dropdown = dropdown.right_aligned();
+    }
+    if filterable {
+        dropdown = dropdown.filterable();
+    }
+    let _ = dropdown.show(&mut ctx);
+
+    dropdown_state::get(id).rect
+}
+
+#[test]
+fn dropdown_popup_that_fits_keeps_its_horizontal_position() {
+    for (id, filterable) in [(WidgetId(110), false), (WidgetId(111), true)] {
+        let popup = show_open_popup(
+            id,
+            Rect::new(30.0, 10.0, 20.0, 30.0),
+            80.0,
+            200.0,
+            filterable,
+            false,
+        );
+
+        assert_eq!(popup.x, 30.0);
+        assert_eq!(popup.w, 80.0);
+    }
+}
+
+#[test]
+fn dropdown_popup_right_overflow_shifts_left() {
+    for (id, filterable) in [(WidgetId(112), false), (WidgetId(113), true)] {
+        let popup = show_open_popup(
+            id,
+            Rect::new(170.0, 10.0, 20.0, 30.0),
+            80.0,
+            200.0,
+            filterable,
+            false,
+        );
+
+        assert_eq!(popup.x, 120.0);
+        assert_eq!(popup.x + popup.w, 200.0);
+    }
+}
+
+#[test]
+fn right_aligned_dropdown_popup_left_overflow_clamps_to_screen() {
+    for (id, filterable) in [(WidgetId(114), false), (WidgetId(115), true)] {
+        let popup = show_open_popup(
+            id,
+            Rect::new(10.0, 10.0, 20.0, 30.0),
+            80.0,
+            200.0,
+            filterable,
+            true,
+        );
+
+        assert_eq!(popup.x, 0.0);
+        assert_eq!(popup.w, 80.0);
+    }
+}
+
+#[test]
+fn oversized_dropdown_popup_pins_to_left_without_resizing() {
+    for (id, filterable) in [(WidgetId(116), false), (WidgetId(117), true)] {
+        let popup = show_open_popup(
+            id,
+            Rect::new(50.0, 10.0, 20.0, 30.0),
+            250.0,
+            200.0,
+            filterable,
+            false,
+        );
+
+        assert_eq!(popup.x, 0.0);
+        assert_eq!(popup.w, 250.0);
+    }
+}
+
 #[test]
 fn matches_query_case_insensitive_substring_and_empty_query() {
     assert!(matches_query("Blue Guardian", "guardian"));
