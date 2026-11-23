@@ -7,6 +7,13 @@ use crate::gui::gui_constants::{self, *};
 use crate::gui::inspector::shell::Inspector;
 use crate::gui::menu_bar::*;
 use crate::game::topology_submode::TopologySubmode;
+use crate::game::world_selection::WorldSelection;
+use crate::game::worlds_submode::{
+    handle_pointer_down,
+    world_bounds,
+    PointerDownAction,
+    WorldsSubmode,
+};
 use crate::gui::modals::edit_world::EditWorldData;
 use crate::gui::modals::is_modal_open;
 use crate::gui::mode_selector::ModeInfo;
@@ -24,7 +31,7 @@ use engine_core::ui::{measure_text};
 use ::widgets::*;
 use engine_core::worlds::*;
 use once_cell::sync::Lazy;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
 use ::widgets::constants::layout;
@@ -75,6 +82,8 @@ pub struct GameEditor {
     requested_submode: Option<GameEditorSubmode>,
     mode_selector: ModeSelector<GameEditorMode>,
     topology_submode: TopologySubmode,
+    pub(super) world_selection: WorldSelection,
+    worlds_submode: WorldsSubmode,
     pub(crate) show_world_arrows: bool,
     active_rects: Vec<Rect>,
     inspector: Inspector,
@@ -100,6 +109,8 @@ impl GameEditor {
                 options: *ALL_MODES,
             },
             topology_submode: TopologySubmode::default(),
+            world_selection: WorldSelection::default(),
+            worlds_submode: WorldsSubmode::default(),
             show_world_arrows: false,
             active_rects: Vec::new(),
             inspector,
@@ -122,28 +133,50 @@ impl GameEditor {
     ) -> Option<WorldId> {
         self.handle_mouse_cursor(ctx, false);
 
+        if self.worlds_submode.is_marquee_active() {
+            let world_mouse = coord::mouse_world_pos(ctx, camera);
+            let mouse_screen = ctx.mouse_position().into();
+            self.worlds_submode.update_marquee(world_mouse);
+            if ctx.is_mouse_button_released(MouseButton::Left) {
+                let bounds = world_bounds(ctx, game);
+                if self.world_selection.primary().is_some() {
+                    let existing_world_ids = bounds.iter().map(|(world_id, _)| *world_id).collect();
+                    self.world_selection.retain_existing_ids(&existing_world_ids);
+                }
+                self.worlds_submode.finish_marquee(
+                    &mut self.world_selection,
+                    world_mouse,
+                    mouse_screen,
+                    &bounds,
+                );
+            }
+        }
+
         match self.mode {
             GameEditorMode::Select => {
                 if ctx.is_mouse_button_pressed(MouseButton::Left) && !self.should_block_canvas(ctx)
                 {
-                    let world_data: Vec<(WorldId, Vec2, Option<SpriteId>)> = game.worlds().iter()
-                        .map(|w| (w.id, w.meta.position, w.meta.sprite_id))
-                        .collect();
-                    for (world_id, position, sprite_id) in world_data {
-                        let texture = match sprite_id {
-                            Some(id) => game.sprite_manager.get_texture_from_id(ctx, id),
-                            None => circle_120px(),
-                        };
-                        let bounds = Rect::new(
-                            position.x,
-                            position.y,
-                            texture.width(),
-                            texture.height(),
-                        );
-                        let world_mouse = coord::mouse_world_pos(ctx, camera);
-                        if bounds.contains(world_mouse) {
-                            return Some(world_id);
+                    let world_mouse = coord::mouse_world_pos(ctx, camera);
+                    let mouse_screen = ctx.mouse_position().into();
+                    let bounds = world_bounds(ctx, game);
+                    if self.world_selection.primary().is_some() {
+                        let existing_world_ids: HashSet<WorldId> =
+                            bounds.iter().map(|(world_id, _)| *world_id).collect();
+                        self.world_selection.retain_existing_ids(&existing_world_ids);
+                    }
+                    let hit_world = bounds
+                        .iter()
+                        .find(|(_, rect)| rect.contains(world_mouse))
+                        .map(|(world_id, _)| *world_id);
+                    let shift_held = ctx.is_key_down(KeyCode::LeftShift)
+                        || ctx.is_key_down(KeyCode::RightShift);
+
+                    match handle_pointer_down(&mut self.world_selection, hit_world, shift_held) {
+                        PointerDownAction::StartMarquee => {
+                            self.worlds_submode.begin_marquee(world_mouse, mouse_screen);
                         }
+                        PointerDownAction::StartDrag(world_id) => return Some(world_id),
+                        PointerDownAction::None => {}
                     }
                 }
             }
@@ -235,6 +268,7 @@ impl GameEditor {
         ctx.set_camera(camera);
         ctx.clear_background(Color::BLACK);
         self.draw_worlds(ctx, camera, game);
+        self.worlds_submode.draw_marquee(ctx, game.current_world().grid_size);
         self.draw_ui(ctx, game, GameEditorSubmode::Worlds);
     }
 

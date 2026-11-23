@@ -4,7 +4,8 @@ use bishop::prelude::*;
 use engine_core::{ecs::SpriteId, game::Game, worlds::{WorldId, extract_topology}};
 use widgets::{center_text_field, draw_input_field_text, with_theme};
 
-use crate::{app::SubEditor, editor_assets::assets::circle_120px, game::game_editor::{GameEditor, GameEditorMode}, gui::gui_constants::SPACING, world::coord};
+use crate::game::worlds_submode::world_rect;
+use crate::{app::SubEditor, editor_assets::assets::circle_120px, game::game_editor::GameEditor, gui::gui_constants::SPACING, world::coord};
 
 const WORLD_ARROW_HEAD_LENGTH: f32 = 12.0;
 const WORLD_ARROW_HEAD_HALF_WIDTH: f32 = 5.0;
@@ -21,7 +22,7 @@ impl GameEditor {
             Self::draw_world_arrows(ctx, game, &world_data);
         }
 
-        for (_world_id, position, sprite_id, name) in world_data {
+        for (world_id, position, sprite_id, name) in world_data {
             let texture = match sprite_id {
                 Some(id) => game.sprite_manager.get_texture_from_id(ctx, id),
                 None => circle_120px(),
@@ -29,21 +30,15 @@ impl GameEditor {
 
             // Hover tint — inline the bounds check
             let world_mouse = coord::mouse_world_pos(ctx, camera);
-            let bounds = Rect::new(
-                position.x,
-                position.y,
-                texture.width(),
-                texture.height(),
-            );
+            let bounds = world_rect(position, vec2(texture.width(), texture.height()));
             let is_hovered = bounds.contains(world_mouse)
                 && !self.should_block_canvas(ctx)
                 && self.dragged_world.is_none();
 
-            let tint = if is_hovered {
-                match self.mode {
-                    GameEditorMode::Delete => with_theme(|t| t.danger),
-                    _ => with_theme(|t| t.primary),
-                }
+            let tint = if self.world_selection.primary() == Some(world_id) {
+                with_theme(|theme| theme.accent)
+            } else if self.world_selection.contains(world_id) || is_hovered {
+                with_theme(|theme| theme.primary)
             } else {
                 Color::WHITE
             };
@@ -82,7 +77,7 @@ impl GameEditor {
                 };
                 (
                     *world_id,
-                    Rect::new(position.x, position.y, texture.width(), texture.height()),
+                    world_rect(*position, vec2(texture.width(), texture.height())),
                 )
             })
             .collect();
