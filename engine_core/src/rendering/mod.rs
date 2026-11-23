@@ -1,5 +1,6 @@
 pub mod collider_draw;
 pub mod helpers;
+pub(crate) mod lighting;
 pub mod render_room;
 pub mod particles;
 mod particle_draw;

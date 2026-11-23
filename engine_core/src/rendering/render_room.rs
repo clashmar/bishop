@@ -8,6 +8,7 @@ use crate::rendering::helpers::{
     resolve_visual_entity, spillover_candidate_room_ids, visual_position,
     visual_rect_visible_in_room, RoomVisibilityContext,
 };
+use crate::rendering::lighting::RoomLayerLighting;
 use crate::rendering::particle_draw::{draw_particle, particle_visual_bounds};
 use crate::rendering::particles::{Particle, ParticleSystem};
 use crate::rendering::renderable::{EntityDrawParams, Renderable};
@@ -17,10 +18,13 @@ use crate::worlds::*;
 use bishop::prelude::*;
 use std::collections::{BTreeMap, HashMap, HashSet};
 
+/// Render data collected for a room layer and depth group.
 #[derive(Default)]
-struct LayerData<'a> {
+pub(crate) struct LayerData<'a> {
     items: Vec<LayerDrawItem<'a>>,
     glows: Vec<(&'a Glow, Vec2)>,
+    /// Lighting data for entities in this layer and depth group.
+    pub(crate) lighting: RoomLayerLighting<'a>,
 }
 
 enum LayerDrawItem<'a> {
@@ -42,14 +46,16 @@ pub struct VisibleRoomLayers {
     pub ordered_layers: Vec<RoomLayer>,
 }
 
+/// Depth-grouped render data collected from the visible room neighborhood.
 #[derive(Default)]
-struct CollectedRoomLayerMaps<'a> {
+pub(crate) struct CollectedRoomLayerMaps<'a> {
     front: BTreeMap<i32, LayerData<'a>>,
     back: BTreeMap<i32, LayerData<'a>>,
 }
 
 impl<'a> CollectedRoomLayerMaps<'a> {
-    fn for_layer(&self, room_layer: RoomLayer) -> &BTreeMap<i32, LayerData<'a>> {
+    /// Returns the depth groups collected for a room layer.
+    pub(crate) fn for_layer(&self, room_layer: RoomLayer) -> &BTreeMap<i32, LayerData<'a>> {
         match room_layer {
             RoomLayer::Front => &self.front,
             RoomLayer::Back => &self.back,
@@ -260,7 +266,8 @@ fn draw_entity<C: BishopContext>(
     }
 }
 
-fn collect_interpolated_room_layer_maps<'a>(
+/// Collects visible room entities, particles, glows, and lights by layer and depth.
+pub(crate) fn collect_interpolated_room_layer_maps<'a>(
     ecs: &'a Ecs,
     room_ctx: &RoomVisibilityContext<'_>,
     sprite_manager: &SpriteManager,
@@ -277,6 +284,7 @@ fn collect_interpolated_room_layer_maps<'a>(
     let trans_store = ecs.get_store::<Transform>();
     let cam_store = ecs.get_store::<RoomCamera>();
     let glow_store = ecs.get_store::<Glow>();
+    let point_light_store = ecs.get_store::<PointLight>();
     let sub_pixel_store = ecs.get_store::<SubPixel>();
 
     for candidate_room_id in spillover_candidate_room_ids(world, room) {
@@ -333,6 +341,9 @@ fn collect_interpolated_room_layer_maps<'a>(
                 let glow_draw_pos = pivot_adjusted_position(draw_pos, glow_size, transform.pivot);
                 entry.glows.push((glow, glow_draw_pos));
             }
+            if let Some(light) = point_light_store.get(entity) {
+                entry.lighting.collect_point_light(entity, light, draw_pos);
+            }
         }
     }
 
@@ -363,18 +374,11 @@ fn collect_interpolated_room_layer_maps<'a>(
 
     for layer in maps.front.values_mut().chain(maps.back.values_mut()) {
         layer.items.sort_by_key(LayerDrawItem::sort_key);
+        layer.lighting.sort();
     }
 
     maps
 }
-
-// TODO: Re-enable for multi-pass rendering
-// fn collect_lights(
-//     ecs: &Ecs,
-//     room: &Room,
-//     alpha: f32,
-//     prev_positions: Option<&HashMap<Entity, Vec2>>,
-// ) -> Vec<(Vec2, Light)> { ... }
 
 #[cfg(test)]
 #[path = "tests/render_room_tests.rs"]
