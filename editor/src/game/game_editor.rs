@@ -19,7 +19,9 @@ use crate::game::worlds_submode::{
 use crate::push_command;
 use crate::shared::input::canvas_blocked_by_global_ui;
 use crate::shared::input::shortcuts_blocked;
-use crate::shared::scene_ui::inspector::{InspectorHostAction, InspectorContext};
+use crate::shared::scene_ui::inspector::{
+    InspectorHostAction, InspectorContext, InspectorWorldCycleDirection,
+};
 use crate::world::coord;
 use crate::world::resolve_world_name;
 use bishop::prelude::*;
@@ -154,7 +156,7 @@ impl GameEditor {
         ctx.clear_background(Color::BLACK);
         self.draw_worlds(ctx, camera, game);
         self.worlds_submode.draw_marquee(ctx, game.current_world().grid_size);
-        self.draw_ui(ctx, game, GameEditorSubmode::Worlds);
+        self.draw_ui(ctx, camera, game, GameEditorSubmode::Worlds);
     }
 
     pub fn draw_topology_view(
@@ -172,7 +174,7 @@ impl GameEditor {
         ctx.set_camera(camera);
         ctx.clear_background(Color::BLACK);
         self.topology_submode.draw(ctx, game, world_id);
-        self.draw_ui(ctx, game, GameEditorSubmode::Topology(world_id));
+        self.draw_ui(ctx, camera, game, GameEditorSubmode::Topology(world_id));
     }
 
     pub(crate) fn take_requested_submode(&mut self) -> Option<GameEditorSubmode> {
@@ -266,7 +268,13 @@ impl GameEditor {
         }
     }
 
-    fn draw_ui(&mut self, ctx: &mut WgpuContext, game: &mut Game, submode: GameEditorSubmode) {
+    fn draw_ui(
+        &mut self,
+        ctx: &mut WgpuContext,
+        camera: &mut Camera2D,
+        game: &mut Game,
+        submode: GameEditorSubmode,
+    ) {
         ctx.set_default_camera();
 
         self.active_rects.clear();
@@ -281,6 +289,8 @@ impl GameEditor {
             ctx.screen_height(),
         );
         self.inspector.set_rect(inspector_rect);
+
+        self.inspector.set_cycle_world_count(game.worlds().len());
 
         let game_name = game.name.clone();
         let start_world_id = game.start_world_id;
@@ -332,6 +342,18 @@ impl GameEditor {
                 )));
             }
             _ => {}
+        }
+
+        if let Some(direction) = inspector_output.world_cycle_direction {
+            let forward = direction == InspectorWorldCycleDirection::Next;
+            if let Some(world_id) = self.world_selection.cycle_primary(game.worlds(), forward) {
+                if let Some((_, bounds)) = world_bounds(ctx, game)
+                    .into_iter()
+                    .find(|(candidate_id, _)| *candidate_id == world_id)
+                {
+                    center_camera_on_world_bounds(camera, bounds);
+                }
+            }
         }
     }
 

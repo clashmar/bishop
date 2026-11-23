@@ -1,10 +1,12 @@
 use crate::app::EditorMode;
+use crate::game::GameEditorSubmode;
 use crate::gui::inspector::shell::Inspector;
 use crate::gui::properties::PropertyModule;
 use crate::gui::text_input::committed_name_change;
 use crate::shared::scene_ui::inspector::{
     is_scene_component_hidden_in_prefab, linked_prefab_instance_state_for_scene_inspector,
     InspectorContent, InspectorContext, InspectorHostAction, InspectorOutput,
+    InspectorWorldCycleDirection,
 };
 use bishop::prelude::*;
 use engine_core::ecs::*;
@@ -429,6 +431,62 @@ fn inspector_strip_cycle_controls_require_room_entity_candidates() {
         inspector.action_strip_layout(&inspector_context(EditorMode::Room(RoomId(1))));
     assert!(one_candidate_strip.cycle_previous_rect.is_none());
     assert!(one_candidate_strip.cycle_next_rect.is_none());
+}
+
+#[test]
+fn inspector_strip_world_cycle_controls_require_multiple_worlds_in_game_worlds_view() {
+    let mut inspector = Inspector::new();
+    inspector.set_rect(Rect::new(100.0, 0.0, 350.0, 400.0));
+    inspector.set_cycle_world_count(2);
+
+    let worlds_view = inspector.action_strip_layout(&inspector_context(EditorMode::Game(
+        GameEditorSubmode::Worlds,
+    )));
+    assert!(worlds_view.cycle_previous_rect.is_some());
+    assert!(worlds_view.cycle_next_rect.is_some());
+
+    let topology_view = inspector.action_strip_layout(&inspector_context(EditorMode::Game(
+        GameEditorSubmode::Topology(WorldId(1)),
+    )));
+    assert!(topology_view.cycle_previous_rect.is_none());
+    assert!(topology_view.cycle_next_rect.is_none());
+
+    let world_editor =
+        inspector.action_strip_layout(&inspector_context(EditorMode::World(WorldId(1))));
+    assert!(world_editor.cycle_previous_rect.is_none());
+    assert!(world_editor.cycle_next_rect.is_none());
+
+    inspector.set_cycle_world_count(1);
+    let single_world = inspector.action_strip_layout(&inspector_context(EditorMode::Game(
+        GameEditorSubmode::Worlds,
+    )));
+    assert!(single_world.cycle_previous_rect.is_none());
+    assert!(single_world.cycle_next_rect.is_none());
+
+    inspector.set_cycle_world_count(0);
+    let no_worlds = inspector.action_strip_layout(&inspector_context(EditorMode::Game(
+        GameEditorSubmode::Worlds,
+    )));
+    assert!(no_worlds.cycle_previous_rect.is_none());
+    assert!(no_worlds.cycle_next_rect.is_none());
+}
+
+#[test]
+fn inspector_output_merge_preserves_first_world_cycle_direction() {
+    let mut output = InspectorOutput {
+        world_cycle_direction: Some(InspectorWorldCycleDirection::Previous),
+        ..InspectorOutput::default()
+    };
+
+    output.merge(InspectorOutput {
+        world_cycle_direction: Some(InspectorWorldCycleDirection::Next),
+        ..InspectorOutput::default()
+    });
+
+    assert_eq!(
+        output.world_cycle_direction,
+        Some(InspectorWorldCycleDirection::Previous)
+    );
 }
 
 #[test]

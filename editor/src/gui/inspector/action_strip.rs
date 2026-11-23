@@ -1,4 +1,5 @@
 use crate::app::EditorMode;
+use crate::game::GameEditorSubmode;
 use crate::gui::gui_constants::{inspector, INSET};
 use crate::gui::menu_bar::menu_button;
 use crate::gui::widgets::menu_widgets::menu_button_with_font_size;
@@ -32,6 +33,7 @@ pub(super) fn layout(
     entity_pane: bool,
     command_mode: EditorMode,
     cycle_entity_count: usize,
+    cycle_world_count: usize,
     has_collapsible_modules: bool,
 ) -> ActionStripLayout {
     let strip_rect = Rect::new(
@@ -47,9 +49,12 @@ pub(super) fn layout(
         inspector::ACTION_BUTTON_SIZE,
         inspector::ACTION_BUTTON_SIZE,
     );
-    let cycle_visible = entity_pane
+    let entity_cycle_visible = entity_pane
         && matches!(command_mode, EditorMode::Room(_))
         && cycle_entity_count > 1;
+    let world_cycle_visible = matches!(command_mode, EditorMode::Game(GameEditorSubmode::Worlds))
+        && cycle_world_count > 1;
+    let cycle_visible = entity_cycle_visible || world_cycle_visible;
     let cycle_next_rect = cycle_visible.then(|| {
         Rect::new(
             collapse_rect.x - inspector::ACTION_BUTTON_GAP - inspector::ACTION_BUTTON_SIZE,

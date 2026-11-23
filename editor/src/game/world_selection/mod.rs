@@ -1,4 +1,4 @@
-use engine_core::worlds::WorldId;
+use engine_core::worlds::{World, WorldId};
 use std::collections::HashSet;
 
 #[derive(Default)]
@@ -20,6 +20,29 @@ impl WorldSelection {
         self.selected.clear();
         self.selected.insert(world_id);
         self.primary = Some(world_id);
+    }
+
+    pub(super) fn cycle_primary(
+        &mut self,
+        world_order: &[World],
+        forward: bool,
+    ) -> Option<WorldId> {
+        if world_order.is_empty() {
+            return None;
+        }
+
+        let current_index = self
+            .primary
+            .and_then(|primary| world_order.iter().position(|world| world.id == primary));
+        let target_index = match current_index {
+            Some(index) if forward => (index + 1) % world_order.len(),
+            Some(index) => (index + world_order.len() - 1) % world_order.len(),
+            None if forward => 0,
+            None => world_order.len() - 1,
+        };
+        let target = world_order[target_index].id;
+        self.select_only(target);
+        Some(target)
     }
 
     pub(super) fn toggle(&mut self, world_id: WorldId) {
@@ -65,7 +88,7 @@ impl WorldSelection {
 #[cfg(test)]
 mod tests {
     use super::WorldSelection;
-    use engine_core::worlds::WorldId;
+    use engine_core::worlds::{World, WorldId};
     use std::collections::HashSet;
 
     #[test]
@@ -136,6 +159,64 @@ mod tests {
 
         assert_eq!(selection.primary(), Some(existing));
         assert!(!selection.contains(removed));
+    }
+
+    #[test]
+    fn world_cycle_next_follows_game_order_and_replaces_selection() {
+        let worlds = world_order();
+        let mut selection = WorldSelection::default();
+        selection.select_only(WorldId(1));
+        selection.toggle(WorldId(2));
+
+        assert_eq!(selection.cycle_primary(&worlds, true), Some(WorldId(3)));
+        assert!(!selection.contains(WorldId(1)));
+        assert!(!selection.contains(WorldId(2)));
+        assert!(selection.contains(WorldId(3)));
+        assert_eq!(selection.primary(), Some(WorldId(3)));
+    }
+
+    #[test]
+    fn world_cycle_previous_wraps_to_last_world() {
+        let worlds = world_order();
+        let mut selection = WorldSelection::default();
+        selection.select_only(WorldId(1));
+
+        assert_eq!(selection.cycle_primary(&worlds, false), Some(WorldId(3)));
+        assert_eq!(selection.primary(), Some(WorldId(3)));
+    }
+
+    #[test]
+    fn world_cycle_next_wraps_to_first_world() {
+        let worlds = world_order();
+        let mut selection = WorldSelection::default();
+        selection.select_only(WorldId(3));
+
+        assert_eq!(selection.cycle_primary(&worlds, true), Some(WorldId(1)));
+    }
+
+    #[test]
+    fn world_cycle_without_selection_chooses_order_boundary() {
+        let worlds = world_order();
+        let mut selection = WorldSelection::default();
+
+        assert_eq!(selection.cycle_primary(&worlds, true), Some(WorldId(1)));
+        assert_eq!(selection.cycle_primary(&worlds, false), Some(WorldId(3)));
+    }
+
+    #[test]
+    fn world_cycle_with_no_worlds_does_nothing() {
+        let mut selection = WorldSelection::default();
+
+        assert_eq!(selection.cycle_primary(&[], true), None);
+        assert_eq!(selection.primary(), None);
+    }
+
+    fn world_order() -> [World; 3] {
+        [
+            World::new(WorldId(1), "First".to_owned(), 16.0),
+            World::new(WorldId(2), "Second".to_owned(), 16.0),
+            World::new(WorldId(3), "Third".to_owned(), 16.0),
+        ]
     }
 
     #[test]
