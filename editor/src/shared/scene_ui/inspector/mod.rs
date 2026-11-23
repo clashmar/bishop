@@ -108,11 +108,20 @@ pub struct InspectorContext {
     pub room_zones_visible: bool,
 }
 
+/// Direction requested by a Game Editor world-cycle control.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum InspectorWorldCycleDirection {
+    Previous,
+    Next,
+}
+
 /// Per-frame output emitted by the shared inspector UI.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct InspectorOutput {
     /// Entity target requested by cycling the inspector selection.
     pub cycle_target: Option<Entity>,
+    /// World selection direction requested by the inspector action strip.
+    pub world_cycle_direction: Option<InspectorWorldCycleDirection>,
     /// Bounds of a module opened during this draw, if any.
     pub expanded_module_rect: Option<Rect>,
     /// Create request triggered by `+ Entity`, if any.
@@ -148,6 +157,9 @@ impl InspectorOutput {
     pub fn merge(&mut self, other: Self) {
         if self.cycle_target.is_none() {
             self.cycle_target = other.cycle_target;
+        }
+        if self.world_cycle_direction.is_none() {
+            self.world_cycle_direction = other.world_cycle_direction;
         }
         if self.expanded_module_rect.is_none() {
             self.expanded_module_rect = other.expanded_module_rect;

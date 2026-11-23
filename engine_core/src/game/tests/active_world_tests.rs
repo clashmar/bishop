@@ -59,6 +59,56 @@ fn world_of_room_returns_owning_world() {
     assert!(game.world_of_room(RoomId(99)).is_none());
 }
 
+#[cfg(feature = "editor")]
+#[test]
+fn ctx_mut_for_world_targets_requested_world_without_changing_current_world() {
+    let mut game = game_with_two_worlds();
+    let current_world_id = game.current_world_id;
+
+    {
+        let game_ctx = game.ctx_mut_for_world(WorldId(2));
+        assert_eq!(
+            game_ctx.world.as_ref().map(|world| world.id),
+            Some(WorldId(2))
+        );
+        assert_eq!(
+            game_ctx
+                .world_directory
+                .iter()
+                .map(|world| world.id)
+                .collect::<Vec<_>>(),
+            vec![WorldId(1), WorldId(2)]
+        );
+        assert_eq!(game_ctx.room_world_map.get(&RoomId(1)), Some(&WorldId(1)));
+        assert_eq!(game_ctx.room_world_map.get(&RoomId(2)), Some(&WorldId(2)));
+    }
+
+    assert_eq!(game.current_world_id, current_world_id);
+}
+
+#[test]
+fn ctx_mut_targets_current_world_and_exposes_game_wide_world_data() {
+    let mut game = game_with_two_worlds();
+    let current_world_id = game.current_world_id;
+
+    let game_ctx = game.ctx_mut();
+
+    assert_eq!(
+        game_ctx.world.as_ref().map(|world| world.id),
+        current_world_id
+    );
+    assert_eq!(
+        game_ctx
+            .world_directory
+            .iter()
+            .map(|world| world.id)
+            .collect::<Vec<_>>(),
+        vec![WorldId(1), WorldId(2)]
+    );
+    assert_eq!(game_ctx.room_world_map.get(&RoomId(1)), Some(&WorldId(1)));
+    assert_eq!(game_ctx.room_world_map.get(&RoomId(2)), Some(&WorldId(2)));
+}
+
 #[test]
 fn world_name_is_available_only_when_unused() {
     const WORLD_A: &str = "Main";

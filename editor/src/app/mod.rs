@@ -16,8 +16,6 @@ use crate::editor_global::{push_throbbing_toast, push_toast};
 use crate::game::game_editor::GameEditor;
 use crate::game::GameEditorSubmode;
 use crate::gui::menu_bar::MenuBar;
-use crate::gui::modals::delete_world::DeleteWorldModal;
-use crate::gui::modals::edit_world::EditWorldModal;
 use crate::gui::modals::{Modal, ModalHandler, ModalRegistry};
 use crate::gui::modals::delete_prefab::DeletePrefabModal;
 use crate::gui::modals::prefab_picker::PrefabPickerModal;
@@ -264,8 +262,12 @@ impl Editor {
                 }
             }
             EditorMode::Game(GameEditorSubmode::Worlds) => {
-                // Returns the id of the world that was clicked on or None
-                if let Some(world_id) = self.game_editor.update_worlds(ctx, &self.camera, &mut self.game) {
+                // Returns a world ID only when the user double-clicks a world.
+                let world_entry_request = self
+                    .game_editor
+                    .update_worlds(ctx, &self.camera, &mut self.game)
+                    .or_else(|| self.game_editor.take_requested_world_entry());
+                if let Some(world_id) = world_entry_request {
                     if let Some(world) = self.game.get_world_mut(world_id) {
                         self.world_editor.init_camera(
                             ctx,
@@ -280,12 +282,6 @@ impl Editor {
 
                 if let Some(submode) = self.game_editor.take_requested_submode() {
                     self.mode = EditorMode::Game(submode);
-                }
-                if self.game_editor.pending_edit_world.is_some() {
-                    EditWorldModal.open(self, ctx);
-                }
-                if self.game_editor.pending_delete_world.is_some() {
-                    DeleteWorldModal.open(self, ctx);
                 }
             }
             EditorMode::Game(GameEditorSubmode::Topology(world_id)) => {

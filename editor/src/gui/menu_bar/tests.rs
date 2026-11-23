@@ -18,6 +18,20 @@ fn hierarchy_panel_action_is_limited_to_room_and_prefab_modes() {
 }
 
 #[test]
+fn world_browser_action_is_limited_to_game_worlds_view() {
+    assert!(EditorAction::ViewWorldBrowserPanel.is_available_in(game_mode()));
+    assert!(!EditorAction::ViewWorldBrowserPanel.is_available_in(EditorMode::Game(
+        GameEditorSubmode::Topology(WorldId(3))
+    )));
+    assert_eq!(EditorAction::ViewWorldBrowserPanel.ui_label(), "Worlds");
+}
+
+#[test]
+fn world_browser_shortcut_uses_w() {
+    assert_eq!(EditorAction::ViewWorldBrowserPanel.shortcut(), Some("W"));
+}
+
+#[test]
 fn prefab_palette_action_is_limited_to_room_mode() {
     assert!(EditorAction::ViewPrefabPalettePanel.is_available_in(EditorMode::Room(RoomId(2))));
     assert!(!EditorAction::ViewPrefabPalettePanel.is_available_in(game_mode()));
@@ -62,6 +76,13 @@ fn blank_prefab_mode_hides_save_and_rename_actions() {
     assert!(!file_actions.contains(&EditorAction::Save));
     assert!(!file_actions.contains(&EditorAction::SaveAs));
     assert!(!EditorAction::Rename.is_available_in(EditorMode::Prefab(BLANK_PREFAB_ID)));
+}
+
+#[test]
+fn game_worlds_view_shows_world_browser_in_view_menu() {
+    let actions = view_actions_for_mode(game_mode());
+
+    assert!(actions.contains(&EditorAction::ViewWorldBrowserPanel));
 }
 
 #[test]

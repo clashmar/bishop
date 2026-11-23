@@ -75,6 +75,7 @@ impl World {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::worlds::world::WorldVisual;
 
     #[test]
     fn world_descriptor_builds_room_shells_without_room_payloads() {
@@ -116,7 +117,7 @@ mod tests {
                 id: (1),
                 name: "Overworld",
                 current_room_id: Some((7)),
-                meta: (position: (0.0, 0.0), sprite_id: None),
+                meta: (position: (0.0, 0.0), visual: Color((0.31, 0.42, 0.53, 1.0))),
                 tags: [],
                 overlay: false,
                 grid_size: 16.0,
@@ -127,6 +128,44 @@ mod tests {
         .unwrap();
 
         assert_eq!(descriptor.physics.gravity, world::DEFAULT_WORLD_GRAVITY);
+    }
+
+    #[test]
+    fn world_visual_color_round_trips_through_descriptor_ron() {
+        let descriptor = descriptor_with_visual(WorldVisual::Color(Color::from_hex("D95763")));
+
+        let serialized = ron::ser::to_string(&descriptor).unwrap();
+        let restored: WorldDescriptor = ron::from_str(&serialized).unwrap();
+
+        assert_eq!(restored.meta.visual, descriptor.meta.visual);
+    }
+
+    #[test]
+    fn world_visual_image_round_trips_through_descriptor_ron() {
+        let descriptor = descriptor_with_visual(WorldVisual::Image(crate::ecs::SpriteId(23)));
+
+        let serialized = ron::ser::to_string(&descriptor).unwrap();
+        let restored: WorldDescriptor = ron::from_str(&serialized).unwrap();
+
+        assert_eq!(restored.meta.visual, descriptor.meta.visual);
+    }
+
+    fn descriptor_with_visual(visual: WorldVisual) -> WorldDescriptor {
+        WorldDescriptor {
+            id: WorldId(1),
+            name: "Visual Test".to_string(),
+            current_room_id: None,
+            meta: WorldMeta {
+                position: Vec2::ZERO,
+                visual,
+            },
+            tags: vec![],
+            overlay: false,
+            grid_size: 16.0,
+            physics: Default::default(),
+            singleton: Entity(9),
+            rooms: vec![],
+        }
     }
 
     #[test]

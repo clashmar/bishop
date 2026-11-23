@@ -1,4 +1,5 @@
 use crate::app::EditorMode;
+use crate::game::GameEditorSubmode;
 use crate::gui::panels::console_panel::ConsolePanel;
 use crate::gui::panels::diagnostics_panel::DiagnosticsPanel;
 use crate::gui::panels::generic_panel::*;
@@ -6,6 +7,7 @@ use crate::gui::panels::hierarchy_panel::HierarchyPanel;
 use crate::gui::panels::prefab_browser_panel::PrefabBrowserPanel;
 use crate::gui::panels::prefab_palette_panel::PrefabPalettePanel;
 use crate::gui::panels::resources_panel::ResourcesPanel;
+use crate::gui::panels::world_browser_panel::WorldBrowserPanel;
 use crate::with_panel_manager;
 use crate::Editor;
 use bishop::prelude::*;
@@ -18,6 +20,7 @@ pub enum PanelMode {
     Prefab,
     World,
     Game,
+    GameWorlds,
     Menu,
 }
 
@@ -26,6 +29,7 @@ impl PanelMode {
         matches!(
             (self, mode),
             (PanelMode::Game, EditorMode::Game(_))
+                | (PanelMode::GameWorlds, EditorMode::Game(GameEditorSubmode::Worlds))
                 | (PanelMode::World, EditorMode::World(_))
                 | (PanelMode::Room, EditorMode::Room(_))
                 | (PanelMode::Prefab, EditorMode::Prefab(_))
@@ -180,6 +184,8 @@ impl PanelManager {
 
     /// Register all standard panels.
     pub fn register_all_panels(&mut self, ctx: &WgpuContext) {
+        self.register_world_browser_panel(ctx);
+
         self.register(
             GenericPanel::new(ConsolePanel::new(), ctx),
             vec![
@@ -224,6 +230,12 @@ impl PanelManager {
         );
 
         self.register_prefab_browser_panel(ctx);
+    }
+
+    fn register_world_browser_panel(&mut self, ctx: &WgpuContext) {
+        let mut panel = GenericPanel::new(WorldBrowserPanel::new(), ctx);
+        panel.visible = true;
+        self.register(panel, vec![PanelMode::GameWorlds]);
     }
 
     fn register_prefab_browser_panel(&mut self, ctx: &WgpuContext) {
@@ -296,6 +308,13 @@ mod tests {
     fn prefab_panels_match_prefab_editor_mode() {
         assert!(PanelMode::Prefab.matches(&EditorMode::Prefab(PrefabId(3))));
         assert!(PanelMode::Prefab.matches(&EditorMode::Prefab(BLANK_PREFAB_ID)));
+    }
+
+    #[test]
+    fn world_browser_panel_matches_only_game_worlds_view() {
+        assert!(PanelMode::GameWorlds.matches(&EditorMode::Game(GameEditorSubmode::Worlds)));
+        assert!(!PanelMode::GameWorlds.matches(&EditorMode::Game(GameEditorSubmode::Topology(WorldId(3)))));
+        assert!(!PanelMode::GameWorlds.matches(&EditorMode::World(WorldId(3))));
     }
 
     #[test]

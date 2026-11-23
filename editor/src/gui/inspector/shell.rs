@@ -1,3 +1,5 @@
+use crate::app::EditorMode;
+use crate::game::GameEditorSubmode;
 use crate::gui::gui_constants::inspector;
 use crate::gui::inspector::action_strip::{self, ActionStripAction, ActionStripLayout};
 use crate::gui::inspector::scrollable_pane;
@@ -5,8 +7,12 @@ use crate::gui::panels::panel_manager::is_mouse_over_panel;
 use crate::gui::properties::game::GameProperties;
 use crate::gui::properties::room::RoomProperties;
 use crate::gui::properties::tilemap::TilemapProperties;
+use crate::gui::properties::world::world_overview_properties::WorldOverviewProperties;
 use crate::gui::properties::world::WorldProperties;
-use crate::shared::scene_ui::inspector::{EntityInspector, InspectorContent, InspectorContext, InspectorOutput};
+use crate::shared::scene_ui::inspector::{
+    EntityInspector, InspectorContent, InspectorContext, InspectorOutput,
+    InspectorWorldCycleDirection,
+};
 use bishop::prelude::*;
 use engine_core::game::GameCtxMut;
 use engine_core::ecs::*;
@@ -21,10 +27,12 @@ pub struct Inspector {
 
     pub game: GameProperties,
     pub world: WorldProperties,
+    pub world_overview: WorldOverviewProperties,
     pub room: RoomProperties,
     pub tilemap: TilemapProperties,
     pub entity: Option<EntityInspector>,
     cycle_entities: Vec<Entity>,
+    cycle_world_count: usize,
 
     active: ActivePane,
     interactive_rects: Vec<Rect>,
@@ -35,6 +43,7 @@ enum ActivePane {
     Empty,
     Game,
     World,
+    WorldOverview,
     Room,
     Tilemap,
     Entity,
@@ -48,10 +57,12 @@ impl Inspector {
             scroll_state: ScrollState::new(),
             game: GameProperties::new(),
             world: WorldProperties::new(),
+            world_overview: WorldOverviewProperties::new(),
             room: RoomProperties::new(),
             tilemap: TilemapProperties::new(),
             entity: None,
             cycle_entities: Vec::new(),
+            cycle_world_count: 0,
             active: ActivePane::Empty,
             interactive_rects: Vec::new(),
         }
@@ -75,6 +86,10 @@ impl Inspector {
     /// Sets the entities available for inspector navigation.
     pub(crate) fn set_cycle_entities(&mut self, entities: Vec<Entity>) {
         self.cycle_entities = entities;
+    }
+
+    pub(crate) fn set_cycle_world_count(&mut self, world_count: usize) {
+        self.cycle_world_count = world_count;
     }
 
     /// Selects the entity-inspector pane for the next draw.
@@ -109,6 +124,17 @@ impl Inspector {
         insp_ctx: &InspectorContext,
     ) -> InspectorOutput {
         self.active = ActivePane::World;
+        self.draw(ctx, game_ctx, insp_ctx)
+    }
+
+    /// Draws the selected-world overview inspector.
+    pub fn draw_world_overview_pane(
+        &mut self,
+        ctx: &mut WgpuContext,
+        game_ctx: &mut GameCtxMut,
+        insp_ctx: &InspectorContext,
+    ) -> InspectorOutput {
+        self.active = ActivePane::WorldOverview;
         self.draw(ctx, game_ctx, insp_ctx)
     }
 
@@ -212,6 +238,7 @@ impl Inspector {
             matches!(self.active, ActivePane::Entity),
             insp_ctx.command_mode,
             self.cycle_entities.len(),
+            self.cycle_world_count,
             self.active_has_collapsible_modules(),
         )
     }
@@ -220,6 +247,9 @@ impl Inspector {
         match self.active {
             ActivePane::Game => InspectorContent::has_collapsible_modules(&self.game),
             ActivePane::World => InspectorContent::has_collapsible_modules(&self.world),
+            ActivePane::WorldOverview => {
+                InspectorContent::has_collapsible_modules(&self.world_overview)
+            }
             ActivePane::Room => InspectorContent::has_collapsible_modules(&self.room),
             ActivePane::Tilemap => InspectorContent::has_collapsible_modules(&self.tilemap),
             ActivePane::Entity => self
@@ -235,6 +265,9 @@ impl Inspector {
         match self.active {
             ActivePane::Game => InspectorContent::collapse_all(&mut self.game),
             ActivePane::World => InspectorContent::collapse_all(&mut self.world),
+            ActivePane::WorldOverview => {
+                InspectorContent::collapse_all(&mut self.world_overview)
+            }
             ActivePane::Room => InspectorContent::collapse_all(&mut self.room),
             ActivePane::Tilemap => InspectorContent::collapse_all(&mut self.tilemap),
             ActivePane::Entity => {
@@ -249,7 +282,7 @@ impl Inspector {
     /// Returns the header height for the active pane.
     fn header_height(&self) -> f32 {
         match self.active {
-            ActivePane::Game | ActivePane::World | ActivePane::Room => {
+            ActivePane::Game | ActivePane::World | ActivePane::WorldOverview | ActivePane::Room => {
                 inspector::HEADER_HEIGHT
             }
             ActivePane::Tilemap => 0.0,
@@ -313,15 +346,30 @@ impl Inspector {
         let action_strip = self.action_strip_layout(insp_ctx);
         let mut strip_interactive_rects = Vec::new();
         let mut cycle_target = None;
+        let mut world_cycle_direction = None;
         if visible {
             strip_interactive_rects = action_strip.interactive_rects();
             match action_strip::draw(ctx, action_strip, blocked) {
                 Some(ActionStripAction::CollapseAll) => self.collapse_active_pane(),
                 Some(ActionStripAction::CyclePrevious) => {
-                    cycle_target = self.cycle_selected_entity(false);
+                    if matches!(
+                        insp_ctx.command_mode,
+                        EditorMode::Game(GameEditorSubmode::Worlds)
+                    ) {
+                        world_cycle_direction = Some(InspectorWorldCycleDirection::Previous);
+                    } else {
+                        cycle_target = self.cycle_selected_entity(false);
+                    }
                 }
                 Some(ActionStripAction::CycleNext) => {
-                    cycle_target = self.cycle_selected_entity(true);
+                    if matches!(
+                        insp_ctx.command_mode,
+                        EditorMode::Game(GameEditorSubmode::Worlds)
+                    ) {
+                        world_cycle_direction = Some(InspectorWorldCycleDirection::Next);
+                    } else {
+                        cycle_target = self.cycle_selected_entity(true);
+                    }
                 }
                 None => {}
             }
@@ -381,6 +429,26 @@ impl Inspector {
                 };
                 output.merge(body_output);
                 (output, self.world.interactive_rects())
+            }
+            ActivePane::WorldOverview => {
+                let mut output = self
+                    .world_overview
+                    .draw_header(ctx, header_rect, blocked, game_ctx, insp_ctx);
+                let body_output = if visible {
+                    scrollable_pane::draw(
+                        &mut self.world_overview,
+                        ctx,
+                        blocked,
+                        game_ctx,
+                        insp_ctx,
+                        body_rect,
+                        &mut self.scroll_state,
+                    )
+                } else {
+                    InspectorOutput::default()
+                };
+                output.merge(body_output);
+                (output, self.world_overview.interactive_rects())
             }
             ActivePane::Room => {
                 let mut output = self
@@ -456,6 +524,12 @@ impl Inspector {
         if let Some(cycle_target) = cycle_target {
             output.merge(InspectorOutput {
                 cycle_target: Some(cycle_target),
+                ..InspectorOutput::default()
+            });
+        }
+        if let Some(direction) = world_cycle_direction {
+            output.merge(InspectorOutput {
+                world_cycle_direction: Some(direction),
                 ..InspectorOutput::default()
             });
         }

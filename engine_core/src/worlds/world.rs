@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use crate::assets::sprite_manager::SpriteManager;
+use rand::Rng;
 use crate::ecs::{Entity, SpriteId};
 use crate::constants::world;
 use crate::scripting::event_tags::event_tag::EventTag;
@@ -160,13 +160,48 @@ impl World {
 }
 
 #[serde_as]
-#[derive(Clone, Serialize, Deserialize, Default, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+pub enum WorldVisual {
+    Image(SpriteId),
+    Color(#[serde_as(as = "FromInto<[f32; 4]>")] Color),
+}
+
+impl Default for WorldVisual {
+    fn default() -> Self {
+        Self::Color(Color::from_hex("4E79A7"))
+    }
+}
+
+impl WorldVisual {
+    /// Chooses a random opaque color.
+    pub fn random_color() -> Color {
+        let mut rng = rand::thread_rng();
+        Color::new(
+            rng.gen_range(0.0..1.0),
+            rng.gen_range(0.0..1.0),
+            rng.gen_range(0.0..1.0),
+            1.0,
+        )
+    }
+}
+
+#[serde_as]
+#[derive(Clone, Serialize, Deserialize, Debug, PartialEq)]
 pub struct WorldMeta {
     /// Position on the game map.
     #[serde_as(as = "FromInto<[f32; 2]>")]
     pub position: Vec2,
-    /// Sprite of the world or None.
-    pub sprite_id: Option<SpriteId>,
+    /// Visual shown for the world in the game overview.
+    pub visual: WorldVisual,
+}
+
+impl Default for WorldMeta {
+    fn default() -> Self {
+        Self {
+            position: Vec2::ZERO,
+            visual: WorldVisual::default(),
+        }
+    }
 }
 
 /// Snapshot of a world's key properties for display in editor panels and dropdowns.
@@ -218,13 +253,6 @@ pub fn entity_in_world(ecs: &crate::ecs::Ecs, world: &World, entity: crate::ecs:
     match ecs.get::<crate::ecs::CurrentRoom>(entity) {
         Some(room) => world.get_room(room.room_id).is_some(),
         None => true,
-    }
-}
-
-impl WorldMeta {
-    /// Sets the sprite.
-    pub fn set_sprite(&mut self, new_id: Option<SpriteId>, sprite_manager: &mut SpriteManager) {
-        sprite_manager.change_sprite_option(&mut self.sprite_id, new_id);
     }
 }
 
@@ -346,6 +374,21 @@ mod tests {
     }
 
     #[test]
+    fn world_meta_default_uses_a_deterministic_opaque_color() {
+        let first_default = WorldMeta::default().visual;
+        let second_default = WorldMeta::default().visual;
+
+        assert_eq!(first_default, second_default);
+        let WorldVisual::Color(color) = first_default else {
+            panic!("default world visual must be a color");
+        };
+        assert_eq!(color.a, 1.0);
+        assert!((0.0..=1.0).contains(&color.r));
+        assert!((0.0..=1.0).contains(&color.g));
+        assert!((0.0..=1.0).contains(&color.b));
+    }
+
+    #[test]
     fn world_default_sets_gravity_from_world_constants() {
         let world = World::default();
 
@@ -362,7 +405,7 @@ mod tests {
                 current_room_id: None,
                 meta: (
                     position: (0.0, 0.0),
-                    sprite_id: None,
+                    visual: Color((0.31, 0.42, 0.53, 1.0)),
                 ),
                 tags: [],
                 overlay: false,

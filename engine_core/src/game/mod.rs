@@ -12,7 +12,7 @@ use crate::assets::{font_manager::FontManager, sprite_manager::SpriteManager, As
 use crate::constants::paths;
 use crate::ecs::ecs::Ecs;
 #[cfg(feature = "editor")]
-use crate::ecs::{get_root_entities_in_set, SpriteId};
+use crate::ecs::get_root_entities_in_set;
 use crate::ecs::{CurrentRoom, Entity};
 use crate::engine_global::set_game_name;
 use crate::hydration::HydrationCoordinator;
@@ -224,18 +224,36 @@ impl Game {
         }
     }
 
-    /// Returns a mutable game context.
+    /// Returns a mutable game context for the current world and game-wide services.
     pub fn ctx_mut<'a>(&'a mut self) -> GameCtxMut<'a> {
         let current_id = self.current_world_id.unwrap_or_default();
-        let world_directory: Vec<WorldDirectorySnapshot> =
-            self.worlds.iter().map(|w| WorldDirectorySnapshot { id: w.id, name: w.name.clone(), overlay: w.overlay }).collect();
-        let room_world_map: HashMap<RoomId, WorldId> = self.worlds
+        self.ctx_mut_for_world_id(current_id)
+    }
+
+    /// Returns a mutable game context for the specified world and game-wide services.
+    #[cfg(feature = "editor")]
+    pub fn ctx_mut_for_world<'a>(&'a mut self, world_id: WorldId) -> GameCtxMut<'a> {
+        self.ctx_mut_for_world_id(world_id)
+    }
+
+    fn ctx_mut_for_world_id<'a>(&'a mut self, world_id: WorldId) -> GameCtxMut<'a> {
+        let world_directory: Vec<WorldDirectorySnapshot> = self
+            .worlds
             .iter()
-            .flat_map(|w| w.rooms().iter().map(move |r| (r.id, w.id)))
+            .map(|world| WorldDirectorySnapshot {
+                id: world.id,
+                name: world.name.clone(),
+                overlay: world.overlay,
+            })
+            .collect();
+        let room_world_map: HashMap<RoomId, WorldId> = self
+            .worlds
+            .iter()
+            .flat_map(|world| world.rooms().iter().map(move |room| (room.id, world.id)))
             .collect();
         let world = self
             .world_index
-            .get(&current_id)
+            .get(&world_id)
             .copied()
             .and_then(|index| self.worlds.get_mut(index));
 
@@ -366,20 +384,6 @@ impl Game {
         let mut ctx = self.ctx_mut();
         for entity in root_entities {
             Ecs::remove_entity(&mut ctx, entity);
-        }
-    }
-
-    /// Set the sprite of a world by its id, using field-level borrow splitting
-    /// to avoid borrow conflicts between `worlds` and `sprite_manager`.
-    #[cfg(feature = "editor")]
-    pub fn set_world_sprite(&mut self, world_id: WorldId, sprite: Option<SpriteId>) {
-        // Field-level access: world_index and worlds vs sprite_manager are separate fields
-        let index = match self.world_index.get(&world_id) {
-            Some(&i) => i,
-            None => return,
-        };
-        if let Some(world) = self.worlds.get_mut(index) {
-            world.meta.set_sprite(sprite, &mut self.sprite_manager);
         }
     }
 
