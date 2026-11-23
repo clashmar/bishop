@@ -12,6 +12,8 @@ mod gl_context;
 #[cfg(target_os = "emscripten")]
 mod impls;
 #[cfg(target_os = "emscripten")]
+mod lighting;
+#[cfg(target_os = "emscripten")]
 mod primitives;
 #[cfg(target_os = "emscripten")]
 mod texture;

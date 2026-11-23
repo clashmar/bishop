@@ -1,66 +1,32 @@
-// NOTE: Multi-pass rendering temporarily disabled while rewiring codebase.
-use crate::assets::*;
-use crate::ecs::components::transform::Pivot;
-use crate::ecs::*;
-use crate::game::*;
-use crate::rendering::helpers::{
-    entity_visible_in_room, entity_visual_rect, interpolate_position, pivot_adjusted_position,
-    resolve_visual_entity, spillover_candidate_room_ids, visual_position,
-    visual_rect_visible_in_room, RoomVisibilityContext,
+use std::collections::HashMap;
+
+use bishop::prelude::{
+    AmbientPassParams, BishopContext, Camera2D, Color, PointLightPassParams, Vec2, Vec3,
 };
-use crate::rendering::lighting::RoomLayerLighting;
-use crate::rendering::particle_draw::{draw_particle, particle_visual_bounds};
-use crate::rendering::particles::{Particle, ParticleSystem};
-use crate::rendering::renderable::{EntityDrawParams, Renderable};
+use crate::assets::SpriteManager;
+use crate::ecs::{Ecs, Entity, LayerDoor, PointLightStyle};
+use crate::game::GameCtxMut;
+use crate::rendering::helpers::RoomVisibilityContext;
+use crate::rendering::lighting::{
+    ambient_multiplier, point_light_affects_layer, point_light_attenuation,
+};
+use crate::rendering::render_system_wgpu::RenderSystem;
 use crate::rendering::room_composition::{RoomCompositionContext, RoomRenderState};
-use crate::tiles::draw_room_tile_placements;
-use crate::worlds::*;
-use bishop::prelude::*;
-use std::collections::{BTreeMap, HashMap, HashSet};
-
-/// Render data collected for a room layer and depth group.
-#[derive(Default)]
-pub(crate) struct LayerData<'a> {
-    items: Vec<LayerDrawItem<'a>>,
-    glows: Vec<(&'a Glow, Vec2)>,
-    /// Lighting data for entities in this layer and depth group.
-    pub(crate) lighting: RoomLayerLighting<'a>,
-}
-
-enum LayerDrawItem<'a> {
-    Entity { entity: Entity, position: Vec2 },
-    Particle { particle: &'a Particle, bounds: Rect },
-}
-
-impl LayerDrawItem<'_> {
-    fn sort_key(&self) -> (Entity, u8, u64) {
-        match self {
-            Self::Entity { entity, .. } => (*entity, 0, 0),
-            Self::Particle { particle, .. } => (particle.owner, 1, particle.emission_sequence),
-        }
-    }
-}
+use crate::rendering::room_layer_draw::{
+    CollectedRoomLayerMaps, LayerDrawItem, collect_interpolated_room_layer_maps,
+    draw_layer_items,
+};
+use crate::rendering::room_layer_rendering::{
+    ContributionLightingPlan, LayerLightingBuffer, RoomLightingContribution, RoutedPointLight,
+    build_room_lighting_plan,
+};
+use crate::tiles::{TileRegistry, draw_room_tile_placements};
+use crate::worlds::{LayerCompositionMode, RoomLayer, RoomLayers, RoomVariant};
+use crate::rendering::particles::ParticleSystem;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct VisibleRoomLayers {
     pub ordered_layers: Vec<RoomLayer>,
-}
-
-/// Depth-grouped render data collected from the visible room neighborhood.
-#[derive(Default)]
-pub(crate) struct CollectedRoomLayerMaps<'a> {
-    front: BTreeMap<i32, LayerData<'a>>,
-    back: BTreeMap<i32, LayerData<'a>>,
-}
-
-impl<'a> CollectedRoomLayerMaps<'a> {
-    /// Returns the depth groups collected for a room layer.
-    pub(crate) fn for_layer(&self, room_layer: RoomLayer) -> &BTreeMap<i32, LayerData<'a>> {
-        match room_layer {
-            RoomLayer::Front => &self.front,
-            RoomLayer::Back => &self.back,
-        }
-    }
 }
 
 pub fn visible_layers_for_state(
@@ -72,10 +38,8 @@ pub fn visible_layers_for_state(
         Some(back) => match (back.composition_mode, state.current_layer) {
             (LayerCompositionMode::Hidden, RoomLayer::Front) => vec![RoomLayer::Front],
             (LayerCompositionMode::Hidden, RoomLayer::Back) => vec![RoomLayer::Back],
-            (LayerCompositionMode::DollsHouse, RoomLayer::Front) => {
-                vec![RoomLayer::Back, RoomLayer::Front]
-            }
-            (LayerCompositionMode::DollsHouse, RoomLayer::Back) => {
+            (LayerCompositionMode::DollsHouse, RoomLayer::Front)
+            | (LayerCompositionMode::DollsHouse, RoomLayer::Back) => {
                 vec![RoomLayer::Back, RoomLayer::Front]
             }
         },
@@ -84,22 +48,22 @@ pub fn visible_layers_for_state(
     VisibleRoomLayers { ordered_layers }
 }
 
-/// Draws everything needed for the given room.
-/// Currently uses simplified single-pass rendering.
+/// Draws the room through isolated background/layer lighting contributions.
 pub fn render_room<C: BishopContext>(
     ctx: &mut C,
+    render_system: &mut RenderSystem,
     game_ctx: &mut GameCtxMut<'_>,
     render_cam: &Camera2D,
     state: RoomRenderState,
     alpha: f32,
     prev_positions: Option<&HashMap<Entity, Vec2>>,
     particles: Option<&ParticleSystem>,
-) {
+) -> bool {
     let Some(world) = game_ctx.world.as_deref_mut() else {
-        return;
+        return false;
     };
     let Some(current_room) = world.current_room() else {
-        return;
+        return false;
     };
 
     let grid_size = world.grid_size;
@@ -109,13 +73,11 @@ pub fn render_room<C: BishopContext>(
         grid_size,
     };
     let composition = RoomCompositionContext::resolve(current_room, state, grid_size);
-
-    // Set up camera and clear background
-    ctx.set_camera(render_cam);
-    ctx.clear_background(Color::BLACK);
-
+    let room_position = current_room.position;
+    let room_size = current_room.size;
     let variant = current_room.current_variant();
     let visible_layers = visible_layers_for_state(&variant.layers, state);
+    let draw_door_ghosts = composition.should_draw_hidden_back_layer_door_ghosts();
     let layer_maps = collect_interpolated_room_layer_maps(
         game_ctx.ecs,
         &room_visibility,
@@ -125,259 +87,274 @@ pub fn render_room<C: BishopContext>(
         particles,
     );
 
-    variant.draw_background(ctx, current_room.position, current_room.size, grid_size);
+    let ambient = room_ambient_params(
+        current_room.darkness,
+        current_room.ambient_color,
+        current_room.exposure,
+    );
 
-    for room_layer in visible_layers.ordered_layers {
-        draw_room_tile_placements(
-            ctx,
-            game_ctx.ecs,
-            room_layer,
-            &composition,
-            game_ctx.tile_registry,
-            game_ctx.sprite_manager,
-        );
-        draw_layer_items(
-            ctx,
-            game_ctx.ecs,
-            game_ctx.sprite_manager,
-            layer_maps.for_layer(room_layer),
-            grid_size,
-            &composition,
-            |_, _| true,
-        );
-    }
+    let routed_lights = prepare_routed_lights(
+        render_cam,
+        render_system.rt_width,
+        render_system.rt_height,
+        &visible_layers.ordered_layers,
+        &layer_maps,
+    );
 
-    if composition.should_draw_hidden_back_layer_door_ghosts() {
-        draw_layer_items(
-            ctx,
-            game_ctx.ecs,
-            game_ctx.sprite_manager,
-            layer_maps.for_layer(RoomLayer::Front),
-            grid_size,
-            &composition,
-            |ecs, item| matches!(item, LayerDrawItem::Entity { entity, .. } if ecs.has::<LayerDoor>(*entity)),
-        );
-    }
+    let plan = build_room_lighting_plan(
+        &visible_layers.ordered_layers,
+        &routed_lights,
+        draw_door_ghosts,
+    );
 
-    // TODO: Re-enable multi-pass rendering
-    // let lights = collect_lights(ecs, room, alpha, prev_positions);
-    // render_system.run_spotlight_pass(ctx, render_cam, lights, room.darkness);
-    // render_system.run_final_pass(ctx);
-}
-
-fn draw_layer_items<C: BishopContext, F>(
-    ctx: &mut C,
-    ecs: &Ecs,
-    sprite_manager: &mut SpriteManager,
-    layer_map: &BTreeMap<i32, LayerData<'_>>,
-    grid_size: f32,
-    composition: &RoomCompositionContext,
-    include_item: F,
-) where
-    F: Fn(&Ecs, &LayerDrawItem<'_>) -> bool,
-{
-    for layer in layer_map.values() {
-        for item in &layer.items {
-            if !include_item(ecs, item) {
-                continue;
-            }
-            match item {
-                LayerDrawItem::Entity { entity, position } => draw_entity(
-                    ctx,
-                    ecs,
-                    sprite_manager,
-                    *entity,
-                    *position,
-                    grid_size,
-                    composition,
-                ),
-                LayerDrawItem::Particle { particle, bounds } => {
-                    draw_particle(ctx, ecs, sprite_manager, particle, *bounds, composition);
-                }
-            }
-        }
-
-        // TODO: Re-enable multi-pass rendering
-        // render_system.run_ambient_pass(ctx, room.darkness);
-        // render_system.run_glow_pass(ctx, render_cam, glows, sprite_manager);
-        // render_system.run_undarkened_pass(ctx);
-        // render_system.run_scene_pass(ctx);
-    }
-}
-
-fn draw_entity<C: BishopContext>(
-    ctx: &mut C,
-    ecs: &Ecs,
-    sprite_manager: &mut SpriteManager,
-    entity: Entity,
-    pos: Vec2,
-    grid_size: f32,
-    composition: &RoomCompositionContext,
-) {
-    let visual_entity = resolve_visual_entity(ecs, entity);
-    let pivot = ecs
-        .get_store::<Transform>()
-        .get(entity)
-        .map(|transform| transform.pivot)
-        .unwrap_or(Pivot::BottomCenter);
-
-    let room_layer = ecs.get::<CurrentRoom>(entity).map(|current_room| current_room.layer);
-
-    let color = if room_layer == Some(RoomLayer::Front) {
-        let visual_bounds = if ecs.has::<Cover>(entity) || ecs.has::<LayerDoor>(entity) {
-            Some(entity_visual_rect(ecs, sprite_manager, entity, pos, grid_size))
-        } else {
-            None
-        };
-
-        let Some(color) = composition
-            .front_layer_composition(ecs, entity, visual_bounds)
-            .tint()
-        else {
-            return;
-        };
-
-        color
-    } else if room_layer == Some(RoomLayer::Back) {
-        let visual_bounds = entity_visual_rect(ecs, sprite_manager, entity, pos, grid_size);
-        if !composition.back_layer_bounds_visible(visual_bounds) {
-            return;
-        }
-        Color::WHITE
-    } else {
-        Color::WHITE
-    };
-
-    let params = EntityDrawParams {
-        pos,
-        pivot,
+    let mut room_draw = RoomSceneDrawContext {
+        ecs: game_ctx.ecs,
+        tile_registry: game_ctx.tile_registry,
+        sprite_manager: game_ctx.sprite_manager,
+        render_cam,
+        composition: &composition,
+        variant,
+        room_position,
+        room_size,
+        layer_maps: &layer_maps,
         grid_size,
-        color,
+        visible_layers: &visible_layers.ordered_layers,
+        includes_door_ghosts: draw_door_ghosts,
     };
 
-    if let Some(cf) = ecs.get_store::<CurrentFrame>().get(visual_entity)
-        && cf.draw(ctx, sprite_manager, &params)
-    {
-        return;
+    if !render_system.prepare_room(ctx, &plan) {
+        draw_unlit_fallback(ctx, render_system, &mut room_draw);
+        return false;
     }
 
-    if let Some(sprite) = ecs.get_store::<Sprite>().get(visual_entity) {
-        sprite.draw(ctx, sprite_manager, &params);
+    let (lit_buffers, lighting_succeeded) =
+        render_room_contributions(ctx, render_system, &mut room_draw, &plan, ambient);
+    if render_system.composite_room(ctx, &plan, &lit_buffers, lighting_succeeded) {
+        true
+    } else {
+        draw_unlit_fallback(ctx, render_system, &mut room_draw);
+        false
     }
 }
 
-/// Collects visible room entities, particles, glows, and lights by layer and depth.
-pub(crate) fn collect_interpolated_room_layer_maps<'a>(
-    ecs: &'a Ecs,
-    room_ctx: &RoomVisibilityContext<'_>,
-    sprite_manager: &SpriteManager,
-    alpha: f32,
-    prev_positions: Option<&HashMap<Entity, Vec2>>,
-    particles: Option<&'a ParticleSystem>,
-) -> CollectedRoomLayerMaps<'a> {
-    let world = room_ctx.world;
-    let room = room_ctx.room;
-    let grid_size = room_ctx.grid_size;
-    let mut maps = CollectedRoomLayerMaps::default();
-    let mut seen = HashSet::new();
-
-    let trans_store = ecs.get_store::<Transform>();
-    let cam_store = ecs.get_store::<RoomCamera>();
-    let glow_store = ecs.get_store::<Glow>();
-    let point_light_store = ecs.get_store::<PointLight>();
-    let sub_pixel_store = ecs.get_store::<SubPixel>();
-
-    for candidate_room_id in spillover_candidate_room_ids(world, room) {
-        for &entity in ecs.entities_in_room(candidate_room_id) {
-            ecs.assert_room_membership(candidate_room_id, entity);
-
-            if !seen.insert(entity) {
-                continue;
+fn prepare_routed_lights(
+    render_cam: &Camera2D,
+    target_width: f32,
+    target_height: f32,
+    visible_layers: &[RoomLayer],
+    layer_maps: &CollectedRoomLayerMaps<'_>,
+) -> Vec<RoutedPointLight> {
+    let mut lights = Vec::new();
+    for &owner_layer in visible_layers {
+        for layer_data in layer_maps.for_layer(owner_layer).values() {
+            for (entity, light, world_position) in &layer_data.lighting.point_lights {
+                let has_visible_target = visible_layers.iter().any(|target_layer| {
+                    point_light_affects_layer(light, owner_layer, *target_layer, visible_layers)
+                });
+                let radius = finite_nonnegative(light.radius, 0.0);
+                let intensity = finite_nonnegative(light.intensity, 0.0);
+                if !world_position.is_finite()
+                    || !has_visible_target
+                    || point_light_attenuation(0.0, radius, light.attenuation) <= 0.0
+                    || intensity <= 0.0
+                {
+                    continue;
+                }
+                let center = render_cam.world_to_screen(*world_position, target_width, target_height);
+                let radius_edge = render_cam.world_to_screen(
+                    *world_position + Vec2::new(radius, 0.0),
+                    target_width,
+                    target_height,
+                );
+                lights.push(RoutedPointLight {
+                    entity: *entity,
+                    owner_layer,
+                    scope: light.layer_scope,
+                    params: PointLightPassParams {
+                        center: [center.x, center.y],
+                        color: [
+                            finite_nonnegative(light.color.x, 0.0),
+                            finite_nonnegative(light.color.y, 0.0),
+                            finite_nonnegative(light.color.z, 0.0),
+                        ],
+                        intensity,
+                        radius: center.distance(radius_edge),
+                        attenuation: finite_nonnegative(light.attenuation, 1.0),
+                        pixelated: light.style == PointLightStyle::Pixel,
+                        pixel_size: light.pixel_size.max(1) as f32,
+                    },
+                });
             }
+        }
+    }
+    lights
+}
 
-            let Some(transform) = trans_store.get(entity) else {
-                continue;
-            };
-            if !transform.visible {
-                continue;
+fn finite_nonnegative(value: f32, fallback: f32) -> f32 {
+    if value.is_finite() {
+        value.max(0.0)
+    } else {
+        fallback
+    }
+}
+
+fn draw_room_layer<C: BishopContext>(
+    ctx: &mut C,
+    ecs: &Ecs,
+    tile_registry: &mut TileRegistry,
+    sprite_manager: &mut SpriteManager,
+    composition: &RoomCompositionContext,
+    layer_maps: &CollectedRoomLayerMaps<'_>,
+    room_layer: RoomLayer,
+    grid_size: f32,
+) {
+    draw_room_tile_placements(ctx, ecs, room_layer, composition, tile_registry, sprite_manager);
+    draw_layer_items(
+        ctx,
+        ecs,
+        sprite_manager,
+        layer_maps.for_layer(room_layer),
+        grid_size,
+        composition,
+        |_, _| true,
+    );
+}
+
+struct RoomSceneDrawContext<'context, 'maps> {
+    ecs: &'context Ecs,
+    tile_registry: &'context mut TileRegistry,
+    sprite_manager: &'context mut SpriteManager,
+    render_cam: &'context Camera2D,
+    composition: &'context RoomCompositionContext,
+    variant: &'context RoomVariant,
+    room_position: Vec2,
+    room_size: Vec2,
+    layer_maps: &'context CollectedRoomLayerMaps<'maps>,
+    grid_size: f32,
+    visible_layers: &'context [RoomLayer],
+    includes_door_ghosts: bool,
+}
+
+impl RoomSceneDrawContext<'_, '_> {
+    fn draw_contribution<C: BishopContext>(
+        &mut self,
+        ctx: &mut C,
+        render_system: &RenderSystem,
+        contribution: RoomLightingContribution,
+    ) {
+        render_system.begin_contribution(ctx, contribution);
+        ctx.set_camera(self.render_cam);
+        match contribution {
+            RoomLightingContribution::Background => self.variant.draw_background(
+                ctx,
+                self.room_position,
+                self.room_size,
+                self.grid_size,
+            ),
+            RoomLightingContribution::Layer(room_layer) => self.draw_layer(ctx, room_layer),
+            RoomLightingContribution::DoorGhosts => self.draw_door_ghosts(ctx),
+        }
+        render_system.end_contribution(ctx);
+    }
+
+    fn draw_unlit<C: BishopContext>(&mut self, ctx: &mut C) {
+        ctx.set_camera(self.render_cam);
+        ctx.clear_background(Color::BLACK);
+        self.variant.draw_background(
+            ctx,
+            self.room_position,
+            self.room_size,
+            self.grid_size,
+        );
+        for &room_layer in self.visible_layers {
+            self.draw_layer(ctx, room_layer);
+        }
+        if self.includes_door_ghosts {
+            self.draw_door_ghosts(ctx);
+        }
+    }
+
+    fn draw_layer<C: BishopContext>(&mut self, ctx: &mut C, room_layer: RoomLayer) {
+        draw_room_layer(
+            ctx,
+            self.ecs,
+            self.tile_registry,
+            self.sprite_manager,
+            self.composition,
+            self.layer_maps,
+            room_layer,
+            self.grid_size,
+        );
+    }
+
+    fn draw_door_ghosts<C: BishopContext>(&mut self, ctx: &mut C) {
+        draw_layer_items(
+            ctx,
+            self.ecs,
+            self.sprite_manager,
+            self.layer_maps.for_layer(RoomLayer::Front),
+            self.grid_size,
+            self.composition,
+            |ecs, item| {
+                matches!(item, LayerDrawItem::Entity { entity, .. } if ecs.has::<LayerDoor>(*entity))
+            },
+        );
+    }
+}
+
+fn render_room_contributions<C: BishopContext>(
+    ctx: &mut C,
+    render_system: &mut RenderSystem,
+    room_draw: &mut RoomSceneDrawContext<'_, '_>,
+    plan: &[ContributionLightingPlan],
+    ambient: AmbientPassParams,
+) -> (HashMap<RoomLightingContribution, LayerLightingBuffer>, bool) {
+    let mut lit_buffers = HashMap::new();
+    let mut lighting_succeeded = true;
+
+    for entry in plan {
+        let contribution = entry.contribution;
+        room_draw.draw_contribution(ctx, render_system, contribution);
+        if !lighting_succeeded || contribution == RoomLightingContribution::DoorGhosts {
+            continue;
+        }
+
+        let point_lights = entry
+            .point_lights
+            .iter()
+            .map(|light| light.params)
+            .collect::<Vec<_>>();
+        match render_system.light_contribution(ctx, contribution, ambient, &point_lights) {
+            Ok(buffer) => {
+                lit_buffers.insert(contribution, buffer);
             }
-            if cam_store.get(entity).is_some() {
-                continue;
-            }
-
-            let current_pos = visual_position(transform.position, sub_pixel_store.get(entity));
-            let draw_pos = interpolate_position(entity, current_pos, alpha, prev_positions);
-
-            if !entity_visible_in_room(
-                ecs,
-                sprite_manager,
-                entity,
-                candidate_room_id,
-                draw_pos,
-                room_ctx,
-            ) {
-                continue;
-            }
-
-            let room_layer = ecs
-                .get::<CurrentRoom>(entity)
-                .map_or(RoomLayer::Front, |current_room| current_room.layer);
-            let z = transform.z;
-            let layer_map = match room_layer {
-                RoomLayer::Front => &mut maps.front,
-                RoomLayer::Back => &mut maps.back,
-            };
-            let entry = layer_map.entry(z).or_default();
-            entry.items.push(LayerDrawItem::Entity {
-                entity,
-                position: draw_pos,
-            });
-
-            if let Some(glow) = glow_store.get(entity) {
-                let glow_size = sprite_manager
-                    .texture_size(glow.sprite_id)
-                    .map(|(w, h)| Vec2::new(w, h))
-                    .unwrap_or(Vec2::new(grid_size, grid_size));
-                let glow_draw_pos = pivot_adjusted_position(draw_pos, glow_size, transform.pivot);
-                entry.glows.push((glow, glow_draw_pos));
-            }
-            if let Some(light) = point_light_store.get(entity) {
-                entry.lighting.collect_point_light(entity, light, draw_pos);
+            Err(error) => {
+                RenderSystem::report_pass_failure(&error);
+                lighting_succeeded = false;
             }
         }
     }
 
-    if let Some(particles) = particles {
-        for particle in particles.particles() {
-            let Some(current_room) = ecs.get::<CurrentRoom>(particle.owner) else {
-                continue;
-            };
-            let Some(transform) = ecs.get::<Transform>(particle.owner) else {
-                continue;
-            };
-            let bounds = particle_visual_bounds(particle);
-            if !visual_rect_visible_in_room(current_room.room_id, bounds, room_ctx) {
-                continue;
-            }
+    (lit_buffers, lighting_succeeded)
+}
 
-            let layer_map = match current_room.layer {
-                RoomLayer::Front => &mut maps.front,
-                RoomLayer::Back => &mut maps.back,
-            };
-            layer_map
-                .entry(transform.z)
-                .or_default()
-                .items
-                .push(LayerDrawItem::Particle { particle, bounds });
-        }
+fn draw_unlit_fallback<C: BishopContext>(
+    ctx: &mut C,
+    render_system: &mut RenderSystem,
+    room_draw: &mut RoomSceneDrawContext<'_, '_>,
+) {
+    render_system.draw_unlit_room_fallback();
+    room_draw.draw_unlit(ctx);
+}
+
+fn room_ambient_params(darkness: f32, color: Color, exposure: f32) -> AmbientPassParams {
+    let ambient_color = Vec3::new(color.r, color.g, color.b);
+    let ambient_rgb = ambient_multiplier(darkness, ambient_color, exposure);
+    AmbientPassParams {
+        color: [ambient_rgb.x, ambient_rgb.y, ambient_rgb.z],
+        exposure: 1.0,
+        darkness: 0.0,
     }
-
-    for layer in maps.front.values_mut().chain(maps.back.values_mut()) {
-        layer.items.sort_by_key(LayerDrawItem::sort_key);
-        layer.lighting.sort();
-    }
-
-    maps
 }
 
 #[cfg(test)]

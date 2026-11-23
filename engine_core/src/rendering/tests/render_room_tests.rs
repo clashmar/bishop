@@ -1,4 +1,6 @@
 use super::*;
+use bishop::{vec2, Rect};
+use crate::ecs::{Cover, Interactable, Pivot, PointLight, PointLightLayerScope, Transform};
 use crate::rendering::lighting::point_light_affects_layer;
 use crate::rendering::test_support::make_vertical_spillover_fixture;
 use crate::rendering::{RoomCompositionContext, RoomRenderState, RoomVisibilityContext};
@@ -6,7 +8,7 @@ use crate::worlds::room::RoomVariant;
 use crate::worlds::test_utils::make_room;
 use crate::worlds::{
     BackRoomLayer, Exit, ExitDirection, InteriorZone, InteriorZoneBounds, InteriorZoneId,
-    InteriorZoneScope, LayerCompositionMode, RoomLayer, RoomLayers, World, WorldId,
+    InteriorZoneScope, LayerCompositionMode, Room, RoomId, RoomLayer, RoomLayers, World, WorldId,
 };
 
 fn room_visibility_context<'a>(world: &'a World, room_id: RoomId) -> RoomVisibilityContext<'a> {

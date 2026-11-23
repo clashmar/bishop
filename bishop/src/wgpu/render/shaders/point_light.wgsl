@@ -1,0 +1,37 @@
+// Applies one smooth or pixel-quantized radial light to a scene layer.
+
+struct PointLightUniforms {
+    center_radius_intensity: vec4<f32>,
+    color: vec4<f32>,
+    settings: vec4<f32>,
+    resolution: vec4<f32>,
+}
+
+@group(1) @binding(0)
+var<uniform> params: PointLightUniforms;
+
+@group(2) @binding(0)
+var t_scene: texture_2d<f32>;
+
+@group(2) @binding(1)
+var s_scene: sampler;
+
+@fragment
+fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
+    let resolution = max(params.resolution.xy, vec2<f32>(1.0));
+    var uv = in.uv;
+    if params.settings.z > 0.5 {
+        let pixel_size = max(params.settings.y, 1.0);
+        let pixel = floor(uv * resolution / pixel_size) * pixel_size + vec2<f32>(pixel_size * 0.5);
+        uv = clamp(pixel / resolution, vec2<f32>(0.0), vec2<f32>(1.0));
+    }
+
+    let base = textureSample(t_scene, s_scene, uv);
+    let sample_position = in.uv * resolution;
+    let distance_to_light = distance(sample_position, params.center_radius_intensity.xy);
+    let radius = params.center_radius_intensity.z;
+    let normalized = clamp(1.0 - distance_to_light / max(radius, 0.0001), 0.0, 1.0);
+    let falloff = pow(normalized, max(params.settings.x, 0.0));
+    let contribution = params.color.rgb * max(params.center_radius_intensity.w, 0.0) * falloff;
+    return vec4<f32>(base.rgb * (vec3<f32>(1.0) + contribution), base.a);
+}

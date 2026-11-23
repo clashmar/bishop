@@ -276,6 +276,28 @@ impl RenderOps for WgpuContext {
         WgpuContext::draw_render_target(self, rt, x, y, w, h);
     }
 
+    fn apply_ambient_pass(
+        &mut self,
+        source: &super::render::BishopRenderTarget,
+        destination: &super::render::BishopRenderTarget,
+        params: crate::material::AmbientPassParams,
+    ) -> Result<(), String> {
+        WgpuContext::apply_ambient_pass(self, source, destination, params)
+    }
+
+    fn apply_point_light_pass(
+        &mut self,
+        source: &super::render::BishopRenderTarget,
+        destination: &super::render::BishopRenderTarget,
+        params: crate::material::PointLightPassParams,
+    ) -> Result<(), String> {
+        WgpuContext::apply_point_light_pass(self, source, destination, params)
+    }
+
+    fn render_target_error(&self, _rt: &super::render::BishopRenderTarget) -> Option<String> {
+        None
+    }
+
     fn create_drawable_render_target(
         &self,
         width: u32,
