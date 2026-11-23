@@ -41,29 +41,12 @@ impl Editor {
     fn shortcut_action(&self, ctx: &WgpuContext) -> Option<EditorAction> {
         let input_focused = input_is_focused();
         let modal_open = is_modal_open();
-        let always_available = [EditorAction::Undo, EditorAction::Redo];
-        let modal_blocked = [
-            EditorAction::Save,
-            EditorAction::SaveAs,
-            EditorAction::ViewInspectorPanel,
-            EditorAction::ViewConsolePanel,
-            EditorAction::ViewDiagnosticsPanel,
-            EditorAction::ViewHierarchyPanel,
-            EditorAction::ViewPrefabBrowserPanel,
-            EditorAction::ViewPrefabPalettePanel,
-            EditorAction::ViewResourcesPanel,
-            EditorAction::ViewWorldArrows,
-        ];
-
-        always_available
-            .into_iter()
-            .chain(modal_blocked)
-            .find(|action| {
-                action.is_available_in(self.mode)
-                    && (!input_focused || !action.blocked_by_focused_input())
-                    && (!modal_open || !action.blocked_by_modal())
-                    && action.shortcut_pressed(ctx)
-            })
+        shortcut_action_candidates().find(|action| {
+            action.is_available_in(self.mode)
+                && (!input_focused || !action.blocked_by_focused_input())
+                && (!modal_open || !action.blocked_by_modal())
+                && action.shortcut_pressed(ctx)
+        })
     }
 
     fn run_action(&mut self, ctx: &mut WgpuContext, action: EditorAction) {
@@ -146,6 +129,11 @@ impl Editor {
             EditorAction::ViewHierarchyPanel => {
                 with_panel_manager(|panel_manager| {
                     panel_manager.toggle(HIERARCHY_PANEL);
+                });
+            }
+            EditorAction::ViewWorldBrowserPanel => {
+                with_panel_manager(|panel_manager| {
+                    panel_manager.toggle(WORLD_BROWSER_PANEL);
                 });
             }
             EditorAction::ViewConsolePanel => {
@@ -297,5 +285,36 @@ impl Editor {
 
     fn toggle_inspector_visibility(&mut self) {
         editor_config::set_inspector_visible(!editor_config::get_inspector_visible());
+    }
+}
+
+fn shortcut_action_candidates() -> impl Iterator<Item = EditorAction> {
+    let always_available = [EditorAction::Undo, EditorAction::Redo];
+    let modal_blocked = [
+        EditorAction::Save,
+        EditorAction::SaveAs,
+        EditorAction::ViewInspectorPanel,
+        EditorAction::ViewConsolePanel,
+        EditorAction::ViewDiagnosticsPanel,
+        EditorAction::ViewHierarchyPanel,
+        EditorAction::ViewWorldBrowserPanel,
+        EditorAction::ViewPrefabBrowserPanel,
+        EditorAction::ViewPrefabPalettePanel,
+        EditorAction::ViewResourcesPanel,
+        EditorAction::ViewWorldArrows,
+    ];
+
+    always_available.into_iter().chain(modal_blocked)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::shortcut_action_candidates;
+    use crate::gui::menu_bar::EditorAction;
+
+    #[test]
+    fn world_browser_shortcut_is_in_dispatch_candidates() {
+        assert!(shortcut_action_candidates()
+            .any(|action| action == EditorAction::ViewWorldBrowserPanel));
     }
 }

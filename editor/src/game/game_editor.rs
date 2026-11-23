@@ -9,6 +9,7 @@ use crate::gui::menu_bar::*;
 use crate::game::topology_submode::TopologySubmode;
 use crate::game::world_selection::WorldSelection;
 use crate::game::worlds_submode::{
+    center_camera_on_world_bounds,
     handle_pointer_down,
     world_bounds,
     world_entry_request,
@@ -44,6 +45,7 @@ pub struct GameEditor {
     active_rects: Vec<Rect>,
     inspector: Inspector,
     pending_camera_init: bool,
+    requested_world_entry: Option<WorldId>,
 }
 
 impl GameEditor {
@@ -57,6 +59,7 @@ impl GameEditor {
             active_rects: Vec::new(),
             inspector: Inspector::new(),
             pending_camera_init: false,
+            requested_world_entry: None,
         }
     }
 
@@ -174,6 +177,36 @@ impl GameEditor {
 
     pub(crate) fn take_requested_submode(&mut self) -> Option<GameEditorSubmode> {
         self.requested_submode.take()
+    }
+
+    pub(crate) fn take_requested_world_entry(&mut self) -> Option<WorldId> {
+        self.requested_world_entry.take()
+    }
+
+    pub(crate) fn request_world_entry_from_browser(&mut self, world_id: WorldId) {
+        self.requested_world_entry = Some(world_id);
+    }
+
+    pub(crate) fn is_world_selected(&self, world_id: WorldId) -> bool {
+        self.world_selection.contains(world_id)
+    }
+
+    pub(crate) fn select_world_from_browser(
+        &mut self,
+        ctx: &mut WgpuContext,
+        camera: &mut Camera2D,
+        game: &mut Game,
+        world_id: WorldId,
+    ) {
+        let Some((_, bounds)) = world_bounds(ctx, game)
+            .into_iter()
+            .find(|(candidate_id, _)| *candidate_id == world_id)
+        else {
+            return;
+        };
+
+        self.world_selection.select_only(world_id);
+        center_camera_on_world_bounds(camera, bounds);
     }
 
     pub(crate) fn toggle_world_arrows(&mut self) {
@@ -510,6 +543,17 @@ mod tests {
             Some(WorldId(1))
         );
         assert_eq!(resolve_topology_world_id(None, None, &[]), None);
+    }
+
+    #[test]
+    fn world_browser_entry_request_is_consumed_once() {
+        let mut editor = GameEditor::new();
+        let world_id = WorldId(2);
+
+        editor.request_world_entry_from_browser(world_id);
+
+        assert_eq!(editor.take_requested_world_entry(), Some(world_id));
+        assert_eq!(editor.take_requested_world_entry(), None);
     }
 
     #[test]

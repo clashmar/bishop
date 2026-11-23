@@ -6,7 +6,7 @@ use crate::shared::selection::{
     rect_from_two_points,
     rects_intersect,
 };
-use bishop::prelude::{Rect, Vec2, WgpuContext};
+use bishop::prelude::{Camera2D, Rect, Vec2, WgpuContext};
 use engine_core::{
     game::Game,
     worlds::{WorldId, WorldVisual},
@@ -142,6 +142,10 @@ pub(super) fn world_entry_request(
 
 pub(super) fn world_rect(position: Vec2, size: Vec2) -> Rect {
     Rect::new(position.x, position.y, size.x, size.y)
+}
+
+pub(super) fn center_camera_on_world_bounds(camera: &mut Camera2D, bounds: Rect) {
+    camera.target = Vec2::new(bounds.x + bounds.w * 0.5, bounds.y + bounds.h * 0.5);
 }
 
 pub(super) fn world_bounds(ctx: &mut WgpuContext, game: &mut Game) -> Vec<(WorldId, Rect)> {

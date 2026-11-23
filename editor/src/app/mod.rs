@@ -263,7 +263,11 @@ impl Editor {
             }
             EditorMode::Game(GameEditorSubmode::Worlds) => {
                 // Returns a world ID only when the user double-clicks a world.
-                if let Some(world_id) = self.game_editor.update_worlds(ctx, &self.camera, &mut self.game) {
+                let world_entry_request = self
+                    .game_editor
+                    .update_worlds(ctx, &self.camera, &mut self.game)
+                    .or_else(|| self.game_editor.take_requested_world_entry());
+                if let Some(world_id) = world_entry_request {
                     if let Some(world) = self.game.get_world_mut(world_id) {
                         self.world_editor.init_camera(
                             ctx,

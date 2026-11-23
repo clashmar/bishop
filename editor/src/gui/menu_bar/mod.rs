@@ -41,6 +41,7 @@ pub enum EditorAction {
     // View actions
     ViewInspectorPanel,
     ViewHierarchyPanel,
+    ViewWorldBrowserPanel,
     ViewConsolePanel,
     ViewDiagnosticsPanel,
     ViewPrefabBrowserPanel,
@@ -69,6 +70,7 @@ impl EditorAction {
             EditorAction::Redo => "Redo".to_string(),
             EditorAction::ChangeSaveRoot => "Change Save Root".to_string(),
             EditorAction::ViewHierarchyPanel => "Hierarchy".to_string(),
+            EditorAction::ViewWorldBrowserPanel => "Worlds".to_string(),
             EditorAction::ViewInspectorPanel => "Inspector".to_string(),
             EditorAction::ViewConsolePanel => "Console".to_string(),
             EditorAction::ViewDiagnosticsPanel => "Diagnostics".to_string(),
@@ -98,6 +100,7 @@ impl EditorAction {
                 EditorAction::Redo => Some("⇧ ^ Z"),
                 EditorAction::ViewInspectorPanel => Some("^ I"),
                 EditorAction::ViewHierarchyPanel => Some("H"),
+                EditorAction::ViewWorldBrowserPanel => Some("W"),
                 EditorAction::ViewConsolePanel => Some("C"),
                 EditorAction::ViewDiagnosticsPanel => Some("F3"),
                 EditorAction::ViewPrefabBrowserPanel => Some("P"),
@@ -118,6 +121,7 @@ impl EditorAction {
                 EditorAction::Redo => Some("⇧ ^ Z"),
                 EditorAction::ViewInspectorPanel => Some("⌘ I"),
                 EditorAction::ViewHierarchyPanel => Some("H"),
+                EditorAction::ViewWorldBrowserPanel => Some("W"),
                 EditorAction::ViewConsolePanel => Some("C"),
                 EditorAction::ViewDiagnosticsPanel => Some("F3"),
                 EditorAction::ViewPrefabBrowserPanel => Some("P"),
@@ -169,6 +173,9 @@ impl EditorAction {
             EditorAction::ViewHierarchyPanel => {
                 matches!(editor_mode, EditorMode::Room(_) | EditorMode::Prefab(_))
             }
+            EditorAction::ViewWorldBrowserPanel => {
+                matches!(editor_mode, EditorMode::Game(GameEditorSubmode::Worlds))
+            }
             EditorAction::ViewPrefabBrowserPanel => matches!(editor_mode, EditorMode::Prefab(_)),
             EditorAction::ViewPrefabPalettePanel => matches!(editor_mode, EditorMode::Room(_)),
             EditorAction::WorldSettings => {
@@ -191,6 +198,7 @@ impl EditorAction {
             EditorAction::Redo => Controls::redo(ctx),
             EditorAction::ViewInspectorPanel => Controls::cmd_i(ctx),
             EditorAction::ViewHierarchyPanel => Controls::h(ctx),
+            EditorAction::ViewWorldBrowserPanel => Controls::w(ctx),
             EditorAction::ViewConsolePanel => Controls::c(ctx),
             EditorAction::ViewDiagnosticsPanel => Controls::f3(ctx),
             EditorAction::ViewPrefabBrowserPanel => Controls::p(ctx),
@@ -206,6 +214,7 @@ impl EditorAction {
             self,
             EditorAction::ViewInspectorPanel
                 | EditorAction::ViewHierarchyPanel
+                | EditorAction::ViewWorldBrowserPanel
                 | EditorAction::ViewConsolePanel
                 | EditorAction::ViewDiagnosticsPanel
                 | EditorAction::ViewResourcesPanel
@@ -441,6 +450,7 @@ fn view_actions_for_mode(editor_mode: EditorMode) -> Vec<EditorAction> {
         EditorAction::ViewConsolePanel,
         EditorAction::ViewDiagnosticsPanel,
         EditorAction::ViewHierarchyPanel,
+        EditorAction::ViewWorldBrowserPanel,
         EditorAction::ViewPrefabBrowserPanel,
         EditorAction::ViewPrefabPalettePanel,
         EditorAction::ViewResourcesPanel,

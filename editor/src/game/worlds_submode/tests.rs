@@ -1,12 +1,13 @@
 use super::{
     PointerDownAction,
     apply_marquee,
+    center_camera_on_world_bounds,
     handle_pointer_down,
     world_entry_request,
     world_rect,
 };
 use crate::game::world_selection::WorldSelection;
-use bishop::prelude::{vec2, Rect};
+use bishop::prelude::{vec2, Camera2D, Rect};
 use engine_core::worlds::WorldId;
 
 #[test]
@@ -15,6 +16,19 @@ fn worlds_submode_world_rect_uses_position_and_sprite_dimensions() {
     let size = vec2(80.0, 60.0);
 
     assert_eq!(world_rect(position, size), Rect::new(12.0, 24.0, 80.0, 60.0));
+}
+
+#[test]
+fn worlds_submode_centering_camera_on_world_bounds_preserves_zoom() {
+    let mut camera = Camera2D {
+        zoom: vec2(2.0, 3.0),
+        ..Camera2D::default()
+    };
+
+    center_camera_on_world_bounds(&mut camera, Rect::new(10.0, 20.0, 80.0, 60.0));
+
+    assert_eq!(camera.target, vec2(50.0, 50.0));
+    assert_eq!(camera.zoom, vec2(2.0, 3.0));
 }
 
 #[test]
