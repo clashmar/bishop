@@ -134,6 +134,22 @@ impl EntityInspector {
         self.target
     }
 
+    /// Collapses every collapsible entity component module.
+    pub fn collapse_all(&mut self) {
+        for module in &mut self.modules {
+            if module.expansion_state().is_some() {
+                module.set_expanded(false);
+            }
+        }
+    }
+
+    /// Returns whether this inspector has any collapsible modules.
+    pub fn has_collapsible_modules(&self) -> bool {
+        self.modules
+            .iter()
+            .any(|module| module.expansion_state().is_some())
+    }
+
     fn build_addable_components(
         &self,
         ecs: &mut Ecs,
@@ -224,6 +240,14 @@ impl EntityInspector {
 impl InspectorContent for EntityInspector {
     fn header_height(&self) -> f32 {
         gui_constants::inspector::HEADER_HEIGHT
+    }
+
+    fn has_collapsible_modules(&self) -> bool {
+        EntityInspector::has_collapsible_modules(self)
+    }
+
+    fn collapse_all(&mut self) {
+        EntityInspector::collapse_all(self);
     }
 
     fn draw_header(
@@ -481,7 +505,12 @@ impl InspectorContent for EntityInspector {
                         None
                     }
                 });
+                let previous_expansion = module.expansion_state();
                 module.draw(ctx, blocked, sub_rect, game_ctx, module_entity);
+                if output.expanded_module_rect.is_none() {
+                    output.expanded_module_rect =
+                        module.expansion_reveal_rect(previous_expansion, sub_rect);
+                }
                 if module.was_input_active() {
                     any_module_editing = true;
                 }
@@ -699,3 +728,7 @@ fn prefab_action_strip_layout(metadata_rect: Rect) -> PrefabActionStripLayout {
         revert_rect,
     }
 }
+
+#[cfg(test)]
+#[path = "entity_inspector_tests.rs"]
+mod tests;

@@ -566,11 +566,26 @@ fn pruning_selection_keeps_global_entities_without_current_room() {
 }
 
 #[test]
+fn multi_selection_keeps_primary_entity_in_inspector() {
+    let mut editor = RoomEditor::new();
+    let primary = Entity(4);
+    let other = Entity(9);
+
+    editor.set_selected_entity(Some(primary));
+    editor.add_to_selection(other);
+
+    assert_eq!(editor.selected_entities.len(), 2);
+    assert_eq!(editor.inspector.selected_entity(), Some(other));
+    assert_eq!(editor.single_selected_entity(), None);
+}
+
+#[test]
 fn overlapping_entity_selection_same_z_prefers_higher_entity_id() {
+    let ecs = Ecs::default();
     let lower = Entity(4);
     let higher = Entity(9);
 
-    let selected = topmost_entity_from_click_candidates(&[
+    let selected = topmost_entity_from_click_candidates(&ecs, &[
         (lower, 3, false),
         (higher, 3, false),
     ]);
@@ -580,10 +595,11 @@ fn overlapping_entity_selection_same_z_prefers_higher_entity_id() {
 
 #[test]
 fn overlapping_entity_selection_camera_wins_over_non_camera() {
+    let ecs = Ecs::default();
     let camera = Entity(4);
     let other = Entity(99);
 
-    let selected = topmost_entity_from_click_candidates(&[
+    let selected = topmost_entity_from_click_candidates(&ecs, &[
         (other, 50, false),
         (camera, -10, true),
     ]);

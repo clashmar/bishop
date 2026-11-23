@@ -188,6 +188,7 @@ impl RoomEditor {
                         ctx,
                         ecs,
                         selected_entity,
+                        self.primary_selected_entity == Some(selected_entity),
                         sprite_manager,
                         grid_size,
                     );

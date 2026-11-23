@@ -365,7 +365,7 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
                 } else {
                     drop_down_y
                 };
-                let list_x = self.list_x(list_width);
+                let list_x = self.clamped_list_x(list_width, ctx.screen_width());
                 let list_rect = Rect::new(list_x, list_y, list_width, list_h);
 
                 state.rect = list_rect;
@@ -506,7 +506,7 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
             drop_down_y
         };
 
-        let popup_x = self.list_x(list_width);
+        let popup_x = self.clamped_list_x(list_width, ctx.screen_width());
         let popup_rect = Rect::new(popup_x, popup_y, list_width, popup_h);
         state.rect = popup_rect;
 
@@ -631,6 +631,11 @@ impl<'a, T: Clone + PartialEq + Display + 'static> Dropdown<'a, T> {
             DropDownAlignment::Left => self.rect.x,
             DropDownAlignment::Right => self.rect.x + self.rect.w - list_width,
         }
+    }
+
+    fn clamped_list_x(&self, list_width: f32, screen_width: f32) -> f32 {
+        let max_x = (screen_width - list_width).max(0.0);
+        self.list_x(list_width).clamp(0.0, max_x)
     }
 }
 

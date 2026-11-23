@@ -30,6 +30,17 @@ const ACTIONS_HEIGHT: f32 = layout::DEFAULT_FIELD_HEIGHT;
 const ACTIONS_GAP: f32 = layout::WIDGET_SPACING;
 const EMPTY_HEIGHT: f32 = layout::DEFAULT_FIELD_HEIGHT;
 
+fn capture_expanded_module_rect(
+    expanded_rect: &mut Option<Rect>,
+    module: &dyn InspectorModule,
+    previous_expansion: Option<bool>,
+    module_rect: Rect,
+) {
+    if expanded_rect.is_none() {
+        *expanded_rect = module.expansion_reveal_rect(previous_expansion, module_rect);
+    }
+}
+
 #[derive(Clone, PartialEq)]
 struct AddableComponent {
     type_name: &'static str,
@@ -94,7 +105,7 @@ impl TileDefinitionComponentEditor {
         tile_id: TileDefId,
         tile_def: &TileDef,
         game_ctx: &mut GameCtxMut,
-    ) {
+    ) -> Option<Rect> {
         self.sync_to_definition(tile_id, tile_def, game_ctx);
 
         let before_frame = self.capture_temp_definition(tile_def.sprite_id);
@@ -119,6 +130,7 @@ impl TileDefinitionComponentEditor {
         }
 
         let mut any_module_editing = false;
+        let mut expanded_module_rect = None;
         let mut pending_removals = Vec::new();
         let mut y = rect.y + ACTIONS_HEIGHT + ACTIONS_GAP;
 
@@ -128,10 +140,17 @@ impl TileDefinitionComponentEditor {
             }
 
             let module_rect = Rect::new(rect.x, y, rect.w, module.height());
+            let previous_expansion = module.expansion_state();
             {
                 let mut temp_ctx = make_temp_game_ctx(&mut self.temp_ecs, game_ctx);
                 module.draw(ctx, false, module_rect, &mut temp_ctx, self.temp_entity);
             }
+            capture_expanded_module_rect(
+                &mut expanded_module_rect,
+                module.as_ref(),
+                previous_expansion,
+                module_rect,
+            );
             if module.was_input_active() {
                 any_module_editing = true;
             }
@@ -177,6 +196,7 @@ impl TileDefinitionComponentEditor {
         }
 
         self.body_height = (y - rect.y - layout::WIDGET_SPACING).max(ACTIONS_HEIGHT);
+        expanded_module_rect
     }
 
     fn sync_to_definition(
@@ -287,6 +307,7 @@ pub struct TilemapDetailsModule {
     sprite_picker_id: WidgetId,
     has_selection: bool,
     component_editor: TileDefinitionComponentEditor,
+    expanded_module_rect: Option<Rect>,
 }
 
 impl TilemapDetailsModule {
@@ -295,7 +316,20 @@ impl TilemapDetailsModule {
             sprite_picker_id: WidgetId::default(),
             has_selection: false,
             component_editor: TileDefinitionComponentEditor::new(),
+            expanded_module_rect: None,
         }
+    }
+
+    pub(super) fn collapse_all(&mut self) {
+        for module in &mut self.component_editor.modules {
+            if module.expansion_state().is_some() {
+                module.set_expanded(false);
+            }
+        }
+    }
+
+    pub(super) fn take_expanded_module_rect(&mut self) -> Option<Rect> {
+        self.expanded_module_rect.take()
     }
 
     fn push_update_if_changed(tile_id: TileDefId, before: TileDef, after: TileDef) {
@@ -314,6 +348,7 @@ impl super::super::PropertyModule<TilemapPaneState> for TilemapDetailsModule {
         game_ctx: &mut GameCtxMut,
         _: &InspectorContext,
     ) {
+        self.expanded_module_rect = None;
         let Some(tile_id) = state.selected_tile_id else {
             self.has_selection = false;
             self.component_editor.clear_selection();
@@ -413,8 +448,9 @@ impl super::super::PropertyModule<TilemapPaneState> for TilemapDetailsModule {
             rect.w,
             rect.h - SPRITE_SECTION_HEIGHT,
         );
-        self.component_editor
-            .draw(ctx, components_rect, tile_id, &before, game_ctx);
+        self.expanded_module_rect =
+            self.component_editor
+                .draw(ctx, components_rect, tile_id, &before, game_ctx);
     }
 
     fn body_layout(&self) -> InspectorBodyLayout {
@@ -446,3 +482,7 @@ fn make_temp_game_ctx<'a>(
         prefab_manager: game_ctx.prefab_manager,
     }
 }
+
+#[cfg(test)]
+#[path = "details_module_tests.rs"]
+mod tests;

@@ -49,11 +49,30 @@ impl WorldProperties {
     pub fn show_navigation_icons(&self) -> bool {
         self.navigation.inner().show_icons
     }
+
+    /// Collapses every collapsible world property module.
+    pub fn collapse_all(&mut self) {
+        for module in &mut self.modules {
+            module.set_expanded(false);
+        }
+        self.navigation.set_expanded(false);
+    }
 }
 
 impl InspectorContent for WorldProperties {
     fn header_height(&self) -> f32 {
         gui_constants::inspector::HEADER_HEIGHT
+    }
+
+    fn has_collapsible_modules(&self) -> bool {
+        self.modules
+            .iter()
+            .any(|module| module.expansion_state().is_some())
+            || self.navigation.expansion_state().is_some()
+    }
+
+    fn collapse_all(&mut self) {
+        WorldProperties::collapse_all(self);
     }
 
     fn draw_modules(
@@ -88,7 +107,12 @@ impl InspectorContent for WorldProperties {
             if module.visible(&world_clone, game_ctx) {
                 let h = module.height();
                 let sub_rect = Rect::new(rect.x + 10.0, y, content_w, h);
+                let previous_expansion = module.expansion_state();
                 module.draw(ctx, sub_rect, &mut world_clone, game_ctx, _insp_ctx);
+                if output.expanded_module_rect.is_none() {
+                    output.expanded_module_rect =
+                        module.expansion_reveal_rect(previous_expansion, sub_rect);
+                }
                 if output.host_action.is_none() {
                     output.host_action = module.take_host_action();
                 }
@@ -98,7 +122,13 @@ impl InspectorContent for WorldProperties {
 
         let nav_h = self.navigation.height();
         let nav_rect = Rect::new(rect.x + 10.0, y, content_w, nav_h);
+        let previous_navigation_expansion = self.navigation.expansion_state();
         self.navigation.draw(ctx, nav_rect, &mut world_clone, game_ctx, _insp_ctx);
+        if output.expanded_module_rect.is_none() {
+            output.expanded_module_rect = self
+                .navigation
+                .expansion_reveal_rect(previous_navigation_expansion, nav_rect);
+        }
         if output.host_action.is_none() {
             output.host_action = self.navigation.take_host_action();
         }
@@ -133,5 +163,24 @@ impl InspectorContent for WorldProperties {
         }
         h += self.navigation.height() + layout::WIDGET_SPACING;
         h + 20.0
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn collapse_all_collapses_world_modules_and_navigation() {
+        let mut properties = WorldProperties::new();
+        assert!(!properties.modules.is_empty());
+
+        properties.collapse_all();
+
+        assert!(properties
+            .modules
+            .iter()
+            .all(|module| module.expansion_state() == Some(false)));
+        assert_eq!(properties.navigation.expansion_state(), Some(false));
     }
 }

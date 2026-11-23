@@ -100,6 +100,7 @@ pub fn highlight_selected_entity<C: BishopContext>(
     ctx: &mut C,
     ecs: &Ecs,
     entity: Entity,
+    is_primary: bool,
     sprite_manager: &mut SpriteManager,
     grid_size: f32,
 ) {
@@ -111,7 +112,13 @@ pub fn highlight_selected_entity<C: BishopContext>(
     let (draw_pos, size) =
         entity_selection_rect(entity, transform.position, ecs, sprite_manager, grid_size);
 
-    let color = with_theme(|t| t.highlight);
+    let color = with_theme(|theme| {
+        if is_primary {
+            theme.highlight
+        } else {
+            theme.accent
+        }
+    });
     ctx.draw_rectangle_lines(
         draw_pos.x,
         draw_pos.y,

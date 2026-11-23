@@ -1,3 +1,5 @@
+mod action_strip;
+mod scrollable_pane;
 pub mod animation_module;
 pub mod audio_source_module;
 pub mod collider_module;

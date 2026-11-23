@@ -318,6 +318,30 @@ const DRAG_EDGE_AUTOSCROLL_BAND: f32 = 24.0;
 const DRAG_EDGE_AUTOSCROLL_MAX_STEP: f32 = DEFAULT_SCROLL_SPEED;
 
 impl ActiveScrollArea {
+    /// Reveals an item within the supplied range and reports whether scrolling changed.
+    /// Moving the viewport disables auto-scroll.
+    pub fn scroll_to_reveal(
+        &self,
+        state: &mut ScrollState,
+        item_rect: Rect,
+        scroll_range: f32,
+    ) -> bool {
+        let target_scroll_y = if item_rect.h > self.rect.h || item_rect.y < self.rect.y {
+            state.scroll_y + self.rect.y - item_rect.y
+        } else if item_rect.y + item_rect.h > self.rect.y + self.rect.h {
+            state.scroll_y - (item_rect.y + item_rect.h - self.rect.y - self.rect.h)
+        } else {
+            state.scroll_y
+        };
+        let target_scroll_y = target_scroll_y.clamp(-scroll_range.max(0.0), 0.0);
+        let changed = target_scroll_y != state.scroll_y;
+        state.scroll_y = target_scroll_y;
+        if changed {
+            state.auto_scroll = false;
+        }
+        changed
+    }
+
     /// Applies edge-band autoscroll when a drag is active and the pointer is
     /// within the top or bottom edge band of the scroll area. Returns `true`
     /// when `state.scroll_y` changed.

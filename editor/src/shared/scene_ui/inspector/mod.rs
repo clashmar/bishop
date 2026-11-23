@@ -1,5 +1,7 @@
 pub mod entity_inspector;
 mod policy;
+#[cfg(test)]
+pub(crate) mod test_utils;
 
 use crate::app::EditorMode;
 use bishop::prelude::*;
@@ -20,6 +22,14 @@ pub trait InspectorContent {
     fn header_height(&self) -> f32 {
         0.0
     }
+
+    /// Returns whether this pane owns collapsible modules.
+    fn has_collapsible_modules(&self) -> bool {
+        false
+    }
+
+    /// Collapses the collapsible modules owned by this pane.
+    fn collapse_all(&mut self) {}
 
     /// Draw fixed header controls above the scrollable area.
     fn draw_header(
@@ -101,6 +111,10 @@ pub struct InspectorContext {
 /// Per-frame output emitted by the shared inspector UI.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct InspectorOutput {
+    /// Entity target requested by cycling the inspector selection.
+    pub cycle_target: Option<Entity>,
+    /// Bounds of a module opened during this draw, if any.
+    pub expanded_module_rect: Option<Rect>,
     /// Create request triggered by `+ Entity`, if any.
     pub create_request: Option<CreateRequest>,
     /// Camera creation request triggered by `+ Camera`, carrying grid size.
@@ -132,6 +146,12 @@ pub enum InspectorHostAction {
 
 impl InspectorOutput {
     pub fn merge(&mut self, other: Self) {
+        if self.cycle_target.is_none() {
+            self.cycle_target = other.cycle_target;
+        }
+        if self.expanded_module_rect.is_none() {
+            self.expanded_module_rect = other.expanded_module_rect;
+        }
         if self.create_request.is_none() {
             self.create_request = other.create_request;
         }

@@ -186,8 +186,32 @@ pub(crate) fn menu_dropdown<T: Clone + PartialEq + Display>(
 }
 
 /// Draws a menu-styled button and returns `true` when clicked.
-pub fn menu_button(ctx: &mut WgpuContext, rect: Rect, label: &str, is_dropdown_open: bool, suppressed: bool) -> bool {
-    let txt_dims = ctx.measure_text(label, layout::HEADER_FONT_SIZE_20);
+pub fn menu_button(
+    ctx: &mut WgpuContext,
+    rect: Rect,
+    label: &str,
+    is_dropdown_open: bool,
+    suppressed: bool,
+) -> bool {
+    menu_button_with_font_size(
+        ctx,
+        rect,
+        label,
+        is_dropdown_open,
+        suppressed,
+        layout::HEADER_FONT_SIZE_20,
+    )
+}
+
+pub(crate) fn menu_button_with_font_size(
+    ctx: &mut WgpuContext,
+    rect: Rect,
+    label: &str,
+    is_dropdown_open: bool,
+    suppressed: bool,
+    font_size: f32,
+) -> bool {
+    let txt_dims = ctx.measure_text(label, font_size);
     let (txt_x, txt_y) = menu_button_text_position(rect, txt_dims);
 
     let mouse = ctx.mouse_position();
@@ -212,7 +236,7 @@ pub fn menu_button(ctx: &mut WgpuContext, rect: Rect, label: &str, is_dropdown_o
         label,
         txt_x,
         txt_y,
-        layout::HEADER_FONT_SIZE_20,
+        font_size,
         panel_text_color(),
     );
 

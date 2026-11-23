@@ -39,11 +39,28 @@ impl RoomProperties {
             ],
         }
     }
+
+    /// Collapses every collapsible room property module.
+    pub fn collapse_all(&mut self) {
+        for module in &mut self.modules {
+            module.set_expanded(false);
+        }
+    }
 }
 
 impl InspectorContent for RoomProperties {
     fn header_height(&self) -> f32 {
         gui_constants::inspector::HEADER_HEIGHT
+    }
+
+    fn has_collapsible_modules(&self) -> bool {
+        self.modules
+            .iter()
+            .any(|module| module.expansion_state().is_some())
+    }
+
+    fn collapse_all(&mut self) {
+        RoomProperties::collapse_all(self);
     }
 
     fn draw_header(
@@ -116,7 +133,12 @@ impl InspectorContent for RoomProperties {
             if module.visible(&edited_room, game_ctx) {
                 let h = module.height();
                 let sub_rect = Rect::new(rect.x + 10.0, y, rect.w - 20.0, h);
+                let previous_expansion = module.expansion_state();
                 module.draw(ctx, sub_rect, &mut edited_room, game_ctx, _insp_ctx);
+                if output.expanded_module_rect.is_none() {
+                    output.expanded_module_rect =
+                        module.expansion_reveal_rect(previous_expansion, sub_rect);
+                }
                 if output.host_action.is_none() {
                     output.host_action = module.take_host_action();
                 }
@@ -170,5 +192,23 @@ impl InspectorContent for RoomProperties {
             h -= layout::WIDGET_SPACING;
         }
         h + 20.0
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn collapse_all_collapses_every_room_module() {
+        let mut properties = RoomProperties::new();
+        assert!(!properties.modules.is_empty());
+
+        properties.collapse_all();
+
+        assert!(properties
+            .modules
+            .iter()
+            .all(|module| module.expansion_state() == Some(false)));
     }
 }
