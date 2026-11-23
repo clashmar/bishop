@@ -272,7 +272,8 @@ impl GameEditor {
         .filter(|world_id| game.get_world(*world_id).is_some());
         let inspector_output = if let Some(world_id) = selected_world_id {
             let mut game_ctx = game.ctx_mut_for_world(world_id);
-            self.inspector.draw_world_pane(ctx, &mut game_ctx, &inspector_context)
+            self.inspector
+                .draw_world_overview_pane(ctx, &mut game_ctx, &inspector_context)
         } else {
             let mut game_ctx = game.ctx_mut();
             self.inspector.draw_game_pane(ctx, &mut game_ctx, &inspector_context)

@@ -5,6 +5,7 @@ use crate::gui::panels::panel_manager::is_mouse_over_panel;
 use crate::gui::properties::game::GameProperties;
 use crate::gui::properties::room::RoomProperties;
 use crate::gui::properties::tilemap::TilemapProperties;
+use crate::gui::properties::world::world_overview_properties::WorldOverviewProperties;
 use crate::gui::properties::world::WorldProperties;
 use crate::shared::scene_ui::inspector::{EntityInspector, InspectorContent, InspectorContext, InspectorOutput};
 use bishop::prelude::*;
@@ -21,6 +22,7 @@ pub struct Inspector {
 
     pub game: GameProperties,
     pub world: WorldProperties,
+    pub world_overview: WorldOverviewProperties,
     pub room: RoomProperties,
     pub tilemap: TilemapProperties,
     pub entity: Option<EntityInspector>,
@@ -35,6 +37,7 @@ enum ActivePane {
     Empty,
     Game,
     World,
+    WorldOverview,
     Room,
     Tilemap,
     Entity,
@@ -48,6 +51,7 @@ impl Inspector {
             scroll_state: ScrollState::new(),
             game: GameProperties::new(),
             world: WorldProperties::new(),
+            world_overview: WorldOverviewProperties::new(),
             room: RoomProperties::new(),
             tilemap: TilemapProperties::new(),
             entity: None,
@@ -109,6 +113,17 @@ impl Inspector {
         insp_ctx: &InspectorContext,
     ) -> InspectorOutput {
         self.active = ActivePane::World;
+        self.draw(ctx, game_ctx, insp_ctx)
+    }
+
+    /// Draws the selected-world overview inspector.
+    pub fn draw_world_overview_pane(
+        &mut self,
+        ctx: &mut WgpuContext,
+        game_ctx: &mut GameCtxMut,
+        insp_ctx: &InspectorContext,
+    ) -> InspectorOutput {
+        self.active = ActivePane::WorldOverview;
         self.draw(ctx, game_ctx, insp_ctx)
     }
 
@@ -220,6 +235,9 @@ impl Inspector {
         match self.active {
             ActivePane::Game => InspectorContent::has_collapsible_modules(&self.game),
             ActivePane::World => InspectorContent::has_collapsible_modules(&self.world),
+            ActivePane::WorldOverview => {
+                InspectorContent::has_collapsible_modules(&self.world_overview)
+            }
             ActivePane::Room => InspectorContent::has_collapsible_modules(&self.room),
             ActivePane::Tilemap => InspectorContent::has_collapsible_modules(&self.tilemap),
             ActivePane::Entity => self
@@ -235,6 +253,9 @@ impl Inspector {
         match self.active {
             ActivePane::Game => InspectorContent::collapse_all(&mut self.game),
             ActivePane::World => InspectorContent::collapse_all(&mut self.world),
+            ActivePane::WorldOverview => {
+                InspectorContent::collapse_all(&mut self.world_overview)
+            }
             ActivePane::Room => InspectorContent::collapse_all(&mut self.room),
             ActivePane::Tilemap => InspectorContent::collapse_all(&mut self.tilemap),
             ActivePane::Entity => {
@@ -249,7 +270,7 @@ impl Inspector {
     /// Returns the header height for the active pane.
     fn header_height(&self) -> f32 {
         match self.active {
-            ActivePane::Game | ActivePane::World | ActivePane::Room => {
+            ActivePane::Game | ActivePane::World | ActivePane::WorldOverview | ActivePane::Room => {
                 inspector::HEADER_HEIGHT
             }
             ActivePane::Tilemap => 0.0,
@@ -381,6 +402,26 @@ impl Inspector {
                 };
                 output.merge(body_output);
                 (output, self.world.interactive_rects())
+            }
+            ActivePane::WorldOverview => {
+                let mut output = self
+                    .world_overview
+                    .draw_header(ctx, header_rect, blocked, game_ctx, insp_ctx);
+                let body_output = if visible {
+                    scrollable_pane::draw(
+                        &mut self.world_overview,
+                        ctx,
+                        blocked,
+                        game_ctx,
+                        insp_ctx,
+                        body_rect,
+                        &mut self.scroll_state,
+                    )
+                } else {
+                    InspectorOutput::default()
+                };
+                output.merge(body_output);
+                (output, self.world_overview.interactive_rects())
             }
             ActivePane::Room => {
                 let mut output = self
