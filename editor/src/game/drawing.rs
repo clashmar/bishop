@@ -1,63 +1,91 @@
 use std::collections::HashMap;
 
 use bishop::prelude::*;
-use engine_core::{ecs::SpriteId, game::Game, worlds::{WorldId, extract_topology}};
+use engine_core::{game::Game, worlds::{WorldId, WorldVisual, extract_topology}};
 use widgets::{center_text_field, draw_input_field_text, with_theme};
 
 use crate::game::worlds_submode::world_rect;
-use crate::{app::SubEditor, editor_assets::assets::circle_120px, game::game_editor::GameEditor, gui::gui_constants::SPACING, world::coord};
+use crate::{app::SubEditor, editor_assets::assets::circle_120px, game::game_editor::GameEditor, world::coord};
 
 const WORLD_ARROW_HEAD_LENGTH: f32 = 12.0;
 const WORLD_ARROW_HEAD_HALF_WIDTH: f32 = 5.0;
 
 impl GameEditor {
     pub(crate) fn draw_worlds(&mut self, ctx: &mut WgpuContext, camera: &Camera2D, game: &mut Game) {
-        let world_data: Vec<(WorldId, Vec2, Option<SpriteId>, String)> = game
+        let world_data: Vec<(WorldId, Vec2, WorldVisual, String)> = game
             .worlds()
             .iter()
-            .map(|w| (w.id, w.meta.position, w.meta.sprite_id, w.name.clone()))
+            .map(|w| (w.id, w.meta.position, w.meta.visual, w.name.clone()))
             .collect();
 
         if self.show_world_arrows {
             Self::draw_world_arrows(ctx, game, &world_data);
         }
 
-        for (world_id, position, sprite_id, name) in world_data {
-            let texture = match sprite_id {
-                Some(id) => game.sprite_manager.get_texture_from_id(ctx, id),
-                None => circle_120px(),
+        for (world_id, position, visual, name) in world_data {
+            let texture = match visual {
+                WorldVisual::Image(id) => game.sprite_manager.get_texture_from_id(ctx, id),
+                WorldVisual::Color(_) => circle_120px(),
             };
 
-            // Hover tint — inline the bounds check
             let world_mouse = coord::mouse_world_pos(ctx, camera);
             let bounds = world_rect(position, vec2(texture.width(), texture.height()));
             let is_hovered = bounds.contains(world_mouse)
                 && !self.should_block_canvas(ctx)
                 && !self.worlds_submode.is_world_drag_active();
 
-            let tint = if self.world_selection.primary() == Some(world_id) {
-                with_theme(|theme| theme.accent)
-            } else if self.world_selection.contains(world_id) || is_hovered {
-                with_theme(|theme| theme.primary)
+            ctx.draw_texture(
+                texture,
+                position.x,
+                position.y,
+                world_visual_fill_tint(visual),
+            );
+
+            let outline = if self.world_selection.primary() == Some(world_id) {
+                Some(with_theme(|theme| (theme.highlight, 3.0)))
+            } else if self.world_selection.contains(world_id) {
+                Some(with_theme(|theme| (theme.accent, 2.0)))
+            } else if is_hovered {
+                Some(with_theme(|theme| (theme.highlight, 1.5)))
             } else {
-                Color::WHITE
+                None
             };
+            if let Some((color, thickness)) = outline {
+                match visual {
+                    WorldVisual::Image(_) => ctx.draw_rectangle_lines(
+                        position.x - 2.0,
+                        position.y - 2.0,
+                        texture.width() + 4.0,
+                        texture.height() + 4.0,
+                        thickness,
+                        color,
+                    ),
+                    WorldVisual::Color(_) => ctx.draw_circle_lines(
+                        position.x + texture.width() / 2.0,
+                        position.y + texture.height() / 2.0,
+                        texture.width().min(texture.height()) / 2.0 + 2.0,
+                        thickness,
+                        color,
+                    ),
+                }
+            }
 
-            // Default is a circle
-            ctx.draw_texture(texture, position.x, position.y, tint);
-
-            // Display name
             const NAME_HEIGHT: f32 = 24.0;
-            let center = position.x + (texture.width() / 2.);
+            let center = position.x + texture.width() / 2.0;
             let (x, width) = center_text_field(ctx, center, &name);
-
             let name_rect = Rect::new(
                 x,
-                position.y - SPACING - NAME_HEIGHT,
+                position.y + (texture.height() - NAME_HEIGHT) / 2.0,
                 width,
                 NAME_HEIGHT,
             );
-
+            ctx.draw_rectangle(
+                name_rect.x,
+                name_rect.y,
+                name_rect.w,
+                name_rect.h,
+                Color::new(0.0, 0.0, 0.0, 0.7),
+            );
             draw_input_field_text(ctx, &name, name_rect);
         }
     }
@@ -65,15 +93,15 @@ impl GameEditor {
     pub(crate) fn draw_world_arrows(
         ctx: &mut WgpuContext,
         game: &mut Game,
-        world_data: &[(WorldId, Vec2, Option<SpriteId>, String)],
+        world_data: &[(WorldId, Vec2, WorldVisual, String)],
     ) {
         let topology = extract_topology(game);
         let bounds: HashMap<WorldId, Rect> = world_data
             .iter()
-            .map(|(world_id, position, sprite_id, _name)| {
-                let texture = match sprite_id {
-                    Some(id) => game.sprite_manager.get_texture_from_id(ctx, *id),
-                    None => circle_120px(),
+            .map(|(world_id, position, visual, _name)| {
+                let texture = match visual {
+                    WorldVisual::Image(id) => game.sprite_manager.get_texture_from_id(ctx, *id),
+                    WorldVisual::Color(_) => circle_120px(),
                 };
                 (
                     *world_id,
@@ -106,6 +134,13 @@ impl GameEditor {
                 );
             }
         }
+    }
+}
+
+fn world_visual_fill_tint(visual: WorldVisual) -> Color {
+    match visual {
+        WorldVisual::Image(_) => Color::WHITE,
+        WorldVisual::Color(color) => color,
     }
 }
 

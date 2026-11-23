@@ -1,7 +1,7 @@
 use engine_core::constants::world as world_constants;
 use engine_core::ecs::{AudioSource, Name, PlayerProxy, Singleton, Transform, WorldEntry};
 use engine_core::game::Game;
-use engine_core::worlds::{Room, World, WorldMeta};
+use engine_core::worlds::{Room, World, WorldMeta, WorldVisual};
 
 /// Create a fresh world with a single default room.
 pub fn create_new_world(game: &mut Game) -> World {
@@ -15,6 +15,7 @@ pub fn create_new_world(game: &mut Game) -> World {
     world.add_room(first_room);
     world.current_room_id = None;
     world.meta = WorldMeta::default();
+    world.meta.visual = WorldVisual::Color(WorldVisual::random_color());
 
     let _spawn_point = game
         .ecs
@@ -49,4 +50,28 @@ pub fn create_new_world(game: &mut Game) -> World {
         .finish();
 
     world
+}
+
+#[cfg(test)]
+mod tests {
+    use super::create_new_world;
+    use engine_core::game::Game;
+    use engine_core::worlds::WorldVisual;
+
+    #[test]
+    fn new_world_visual_uses_a_random_opaque_color() {
+        let mut game = Game::default();
+
+        let world = create_new_world(&mut game);
+
+        match world.meta.visual {
+            WorldVisual::Color(color) => {
+                assert!((0.0..=1.0).contains(&color.r));
+                assert!((0.0..=1.0).contains(&color.g));
+                assert!((0.0..=1.0).contains(&color.b));
+                assert_eq!(color.a, 1.0);
+            }
+            WorldVisual::Image(_) => panic!("new world must begin with a color visual"),
+        }
+    }
 }

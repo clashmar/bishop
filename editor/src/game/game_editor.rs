@@ -23,7 +23,6 @@ use crate::world::coord;
 use crate::world::resolve_world_name;
 use bishop::prelude::*;
 use engine_core::controls::Controls;
-use engine_core::ecs::*;
 use engine_core::game::Game;
 use engine_core::ui::measure_text;
 use engine_core::worlds::*;
@@ -384,14 +383,17 @@ impl GameEditor {
 
 
     fn request_topology_submode(&mut self, ctx: &WgpuContext, game: &mut Game) {
-        if game.get_world(game.current_world_id.unwrap_or_default()).is_none() {
-            if let Some(first_world) = game.worlds().first() {
-                game.current_world_id = Some(first_world.id);
-            }
-        }
-        if let Some(world) = game.current_world_mut() {
+        let Some(world_id) = resolve_topology_world_id(
+            self.world_selection.primary(),
+            game.current_world_id,
+            game.worlds(),
+        ) else {
+            return;
+        };
+        game.current_world_id = Some(world_id);
+        if let Some(world) = game.get_world_mut(world_id) {
             self.center_topology_on_world(ctx, world);
-            self.requested_submode = Some(GameEditorSubmode::Topology(world.id));
+            self.requested_submode = Some(GameEditorSubmode::Topology(world_id));
         }
     }
 
@@ -405,15 +407,15 @@ impl GameEditor {
         let mut max = vec2(f32::NEG_INFINITY, f32::NEG_INFINITY);
 
         // Collect world data first (immutable borrow of worlds only)
-        let world_data: Vec<(Vec2, Option<SpriteId>)> = game.worlds().iter()
-            .map(|w| (w.meta.position, w.meta.sprite_id))
+        let world_data: Vec<(Vec2, WorldVisual)> = game.worlds().iter()
+            .map(|w| (w.meta.position, w.meta.visual))
             .collect();
 
         // Compute bounds (mutable borrow of sprite_manager in the loop)
-        for (position, sprite_id) in world_data {
-            let tex = match sprite_id {
-                Some(id) => game.sprite_manager.get_texture_from_id(loader, id),
-                None => circle_120px(),
+        for (position, visual) in world_data {
+            let tex = match visual {
+                WorldVisual::Image(id) => game.sprite_manager.get_texture_from_id(loader, id),
+                WorldVisual::Color(_) => circle_120px(),
             };
             let w = tex.width();
             let h = tex.height();
@@ -452,9 +454,62 @@ impl SubEditor for GameEditor {
     }
 }
 
+fn resolve_topology_world_id(
+    selected_world_id: Option<WorldId>,
+    current_world_id: Option<WorldId>,
+    worlds: &[World],
+) -> Option<WorldId> {
+    selected_world_id
+        .filter(|id| worlds.iter().any(|world| world.id == *id))
+        .or_else(|| current_world_id.filter(|id| worlds.iter().any(|world| world.id == *id)))
+        .or_else(|| worlds.first().map(|world| world.id))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn topology_test_worlds() -> [World; 2] {
+        [
+            World::new(WorldId(1), "first".to_owned(), 16.0),
+            World::new(WorldId(2), "second".to_owned(), 16.0),
+        ]
+    }
+
+    #[test]
+    fn topology_target_prefers_primary_selection_over_current_world() {
+        let worlds = topology_test_worlds();
+
+        assert_eq!(
+            resolve_topology_world_id(Some(WorldId(2)), Some(WorldId(1)), &worlds),
+            Some(WorldId(2))
+        );
+    }
+
+    #[test]
+    fn topology_target_uses_current_world_when_selection_is_missing_or_stale() {
+        let worlds = topology_test_worlds();
+
+        assert_eq!(
+            resolve_topology_world_id(None, Some(WorldId(2)), &worlds),
+            Some(WorldId(2))
+        );
+        assert_eq!(
+            resolve_topology_world_id(Some(WorldId(3)), Some(WorldId(1)), &worlds),
+            Some(WorldId(1))
+        );
+    }
+
+    #[test]
+    fn topology_target_falls_back_to_first_world_when_current_world_is_invalid() {
+        let worlds = topology_test_worlds();
+
+        assert_eq!(
+            resolve_topology_world_id(None, Some(WorldId(3)), &worlds),
+            Some(WorldId(1))
+        );
+        assert_eq!(resolve_topology_world_id(None, None, &[]), None);
+    }
 
     #[test]
     fn toggle_world_arrows_flips_visibility() {

@@ -12,7 +12,7 @@ use crate::assets::{font_manager::FontManager, sprite_manager::SpriteManager, As
 use crate::constants::paths;
 use crate::ecs::ecs::Ecs;
 #[cfg(feature = "editor")]
-use crate::ecs::{get_root_entities_in_set, SpriteId};
+use crate::ecs::get_root_entities_in_set;
 use crate::ecs::{CurrentRoom, Entity};
 use crate::engine_global::set_game_name;
 use crate::hydration::HydrationCoordinator;
@@ -384,20 +384,6 @@ impl Game {
         let mut ctx = self.ctx_mut();
         for entity in root_entities {
             Ecs::remove_entity(&mut ctx, entity);
-        }
-    }
-
-    /// Set the sprite of a world by its id, using field-level borrow splitting
-    /// to avoid borrow conflicts between `worlds` and `sprite_manager`.
-    #[cfg(feature = "editor")]
-    pub fn set_world_sprite(&mut self, world_id: WorldId, sprite: Option<SpriteId>) {
-        // Field-level access: world_index and worlds vs sprite_manager are separate fields
-        let index = match self.world_index.get(&world_id) {
-            Some(&i) => i,
-            None => return,
-        };
-        if let Some(world) = self.worlds.get_mut(index) {
-            world.meta.set_sprite(sprite, &mut self.sprite_manager);
         }
     }
 

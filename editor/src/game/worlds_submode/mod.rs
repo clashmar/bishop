@@ -8,9 +8,8 @@ use crate::shared::selection::{
 };
 use bishop::prelude::{Rect, Vec2, WgpuContext};
 use engine_core::{
-    ecs::SpriteId,
     game::Game,
-    worlds::WorldId,
+    worlds::{WorldId, WorldVisual},
 };
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -146,18 +145,18 @@ pub(super) fn world_rect(position: Vec2, size: Vec2) -> Rect {
 }
 
 pub(super) fn world_bounds(ctx: &mut WgpuContext, game: &mut Game) -> Vec<(WorldId, Rect)> {
-    let world_data: Vec<(WorldId, Vec2, Option<SpriteId>)> = game
+    let world_data: Vec<(WorldId, Vec2, WorldVisual)> = game
         .worlds()
         .iter()
-        .map(|world| (world.id, world.meta.position, world.meta.sprite_id))
+        .map(|world| (world.id, world.meta.position, world.meta.visual))
         .collect();
 
     world_data
         .into_iter()
-        .map(|(world_id, position, sprite_id)| {
-            let texture = match sprite_id {
-                Some(id) => game.sprite_manager.get_texture_from_id(ctx, id),
-                None => circle_120px(),
+        .map(|(world_id, position, visual)| {
+            let texture = match visual {
+                WorldVisual::Image(id) => game.sprite_manager.get_texture_from_id(ctx, id),
+                WorldVisual::Color(_) => circle_120px(),
             };
             (
                 world_id,

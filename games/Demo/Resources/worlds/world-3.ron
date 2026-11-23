@@ -3,8 +3,8 @@
     name: "Kinematic Lab",
     current_room_id: Some((4)),
     meta: (
-        position: (27.867004, -17.166084),
-        sprite_id: None,
+        position: (-122.0611, -58.28454),
+        visual: Color((0.30588236, 0.4745098, 0.654902, 1.0)),
     ),
     tags: [
         Autosave,

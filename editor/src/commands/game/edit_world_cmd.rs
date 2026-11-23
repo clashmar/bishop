@@ -2,7 +2,6 @@ use crate::app::EditorMode;
 use crate::game::GameEditorSubmode;
 use crate::commands::editor_command_manager::EditorCommand;
 use crate::with_editor;
-use engine_core::ecs::*;
 use engine_core::game::Game;
 use engine_core::worlds::*;
 
@@ -11,11 +10,11 @@ use engine_core::worlds::*;
 pub struct EditWorldCmd {
     world_id: WorldId,
     old_name: String,
-    old_sprite: Option<SpriteId>,
+    old_visual: WorldVisual,
     old_overlay: bool,
     old_gravity: f32,
     new_name: Option<String>,
-    new_sprite: Option<Option<SpriteId>>,
+    new_visual: Option<WorldVisual>,
     new_overlay: Option<bool>,
     new_gravity: Option<f32>,
 }
@@ -24,16 +23,16 @@ impl EditWorldCmd {
     pub fn new(
         world_id: WorldId,
         new_name: Option<String>,
-        new_sprite: Option<Option<SpriteId>>,
+        new_visual: Option<WorldVisual>,
     ) -> Self {
         Self {
             world_id,
             old_name: String::new(),
-            old_sprite: None,
+            old_visual: WorldVisual::default(),
             old_overlay: false,
             old_gravity: 0.0,
             new_name,
-            new_sprite,
+            new_visual,
             new_overlay: None,
             new_gravity: None,
         }
@@ -55,13 +54,16 @@ impl EditWorldCmd {
         game: &mut Game,
         world_id: WorldId,
         name: Option<&str>,
-        sprite: Option<Option<SpriteId>>,
+        visual: Option<WorldVisual>,
         overlay: Option<bool>,
         gravity: Option<f32>,
     ) {
         if let Some(world) = game.get_world_mut(world_id) {
             if let Some(name) = name {
                 world.name = name.to_owned();
+            }
+            if let Some(visual) = visual {
+                world.meta.visual = visual;
             }
             if let Some(o) = overlay {
                 world.overlay = o;
@@ -70,15 +72,12 @@ impl EditWorldCmd {
                 world.physics.gravity = g;
             }
         }
-        if let Some(sprite_opt) = sprite {
-            game.set_world_sprite(world_id, sprite_opt);
-        }
     }
 
     fn capture_original_state(&mut self, game: &Game) {
         if let Some(world) = game.get_world(self.world_id) {
             self.old_name = world.name.clone();
-            self.old_sprite = world.meta.sprite_id;
+            self.old_visual = world.meta.visual;
             self.old_overlay = world.overlay;
             self.old_gravity = world.physics.gravity;
         }
@@ -96,7 +95,7 @@ impl EditorCommand for EditWorldCmd {
                 &mut editor.game,
                 self.world_id,
                 self.new_name.as_deref(),
-                self.new_sprite,
+                self.new_visual,
                 self.new_overlay,
                 self.new_gravity,
             );
@@ -109,7 +108,7 @@ impl EditorCommand for EditWorldCmd {
                 &mut editor.game,
                 self.world_id,
                 Some(&self.old_name),
-                Some(self.old_sprite),
+                Some(self.old_visual),
                 Some(self.old_overlay),
                 Some(self.old_gravity),
             );
@@ -124,35 +123,69 @@ impl EditorCommand for EditWorldCmd {
 #[cfg(test)]
 mod tests {
     use super::EditWorldCmd;
-    use crate::commands::editor_command_manager::EditorCommand;
-    use crate::editor_global::with_editor;
+    use crate::app::EditorMode;
+    use crate::editor_global::{
+        apply_pending_commands,
+        push_command,
+        request_redo,
+        request_undo,
+        with_command_manager,
+        with_editor,
+    };
+    use crate::game::GameEditorSubmode;
     use crate::test_utils::setup_editor;
     use engine_core::ecs::SpriteId;
+    use engine_core::worlds::WorldVisual;
+
+    fn assert_visual_edit_history(initial: WorldVisual, replacement: WorldVisual, test_prefix: &str) {
+        let _context = setup_editor(test_prefix);
+        let world_id = with_editor(|editor| {
+            editor.mode = EditorMode::Game(GameEditorSubmode::Worlds);
+            let world = &mut editor.game.worlds_mut()[0];
+            world.meta.visual = initial;
+            world.id
+        });
+
+        push_command(Box::new(EditWorldCmd::new(
+            world_id,
+            None,
+            Some(replacement),
+        )));
+        apply_pending_commands();
+        with_editor(|editor| {
+            assert_eq!(editor.game.get_world(world_id).unwrap().meta.visual, replacement);
+        });
+        assert_eq!(with_command_manager(|manager| manager.undo_stack_len()), 1);
+
+        request_undo();
+        apply_pending_commands();
+        with_editor(|editor| {
+            assert_eq!(editor.game.get_world(world_id).unwrap().meta.visual, initial);
+        });
+
+        request_redo();
+        apply_pending_commands();
+        with_editor(|editor| {
+            assert_eq!(editor.game.get_world(world_id).unwrap().meta.visual, replacement);
+        });
+        assert_eq!(with_command_manager(|manager| manager.undo_stack_len()), 1);
+    }
 
     #[test]
-    fn edit_world_cmd_changes_and_undoes_world_sprite() {
-        let _context = setup_editor("edit_world_cmd_sprite");
-        let (world_id, original_sprite) = with_editor(|editor| {
-            let world = &editor.game.worlds()[0];
-            (world.id, world.meta.sprite_id)
-        });
-        let new_sprite = SpriteId(987);
-        let mut command = EditWorldCmd::new(world_id, None, Some(Some(new_sprite)));
+    fn world_visual_edit_cmd_redoes_color_to_image_replacement() {
+        assert_visual_edit_history(
+            WorldVisual::Color(bishop::Color::from_hex("123456")),
+            WorldVisual::Image(SpriteId(987)),
+            "edit_world_cmd_color_to_image",
+        );
+    }
 
-        command.execute();
-        with_editor(|editor| {
-            assert_eq!(
-                editor.game.get_world(world_id).and_then(|world| world.meta.sprite_id),
-                Some(new_sprite)
-            );
-        });
-
-        command.undo();
-        with_editor(|editor| {
-            assert_eq!(
-                editor.game.get_world(world_id).and_then(|world| world.meta.sprite_id),
-                original_sprite
-            );
-        });
+    #[test]
+    fn world_visual_edit_cmd_redoes_image_to_color_replacement() {
+        assert_visual_edit_history(
+            WorldVisual::Image(SpriteId(654)),
+            WorldVisual::Color(bishop::Color::from_hex("ABCDEF")),
+            "edit_world_cmd_image_to_color",
+        );
     }
 }
