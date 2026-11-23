@@ -369,7 +369,7 @@ pub(crate) fn entity_selection_rect(
     grid_size: f32,
 ) -> (Vec2, Vec2) {
     let is_placeholder = ecs.has::<RoomCamera>(entity)
-        || (ecs.has::<Light>(entity) && !ecs.has_any::<(Sprite, Animation, CurrentFrame)>(entity));
+        || (ecs.has::<PointLight>(entity) && !ecs.has_any::<(Sprite, Animation, CurrentFrame)>(entity));
     let pivot = ecs
         .get_store::<Transform>()
         .get(entity)

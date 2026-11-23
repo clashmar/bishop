@@ -863,10 +863,6 @@
             },
         ),
         (
-            type_name: "Light",
-            data: {},
-        ),
-        (
             type_name: "MotionBody",
             data: {
                 (3): (),

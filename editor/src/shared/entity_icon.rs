@@ -2,7 +2,7 @@ use crate::editor_assets::assets::camera_icon;
 use bishop::prelude::*;
 use engine_core::assets::SpriteManager;
 use engine_core::ecs::components::{
-    Animation, CurrentFrame, Glow, Light, RoomCamera, Sprite, WorldEntry, WorldExit,
+    Animation, CurrentFrame, Glow, PointLight, RoomCamera, Sprite, WorldEntry, WorldExit,
 };
 use engine_core::ecs::entity::Entity;
 use engine_core::ecs::Ecs;
@@ -50,7 +50,7 @@ pub fn resolve_entity_visual(ecs: &Ecs, entity: Entity) -> EntityVisual {
         (false, false) => {}
     }
 
-    if ecs.has::<Light>(visual_entity) {
+    if ecs.has::<PointLight>(visual_entity) {
         return EntityVisual::LightPlaceholder;
     }
 
@@ -203,10 +203,10 @@ mod tests {
     }
 
     #[test]
-    fn light_without_visual_returns_light_placeholder() {
+    fn point_light_without_visual_returns_point_light_placeholder() {
         let mut ecs = make_ecs();
         let entity = make_entity(&mut ecs);
-        ecs.insert_component(entity, Light::default());
+        ecs.insert_component(entity, PointLight::default());
         let result = resolve_entity_visual(&ecs, entity);
         assert!(matches!(result, EntityVisual::LightPlaceholder));
     }

@@ -4,7 +4,7 @@ use engine_core::assets::*;
 use engine_core::constants::world as world_constants;
 use engine_core::ecs::component::comp_type_name;
 use engine_core::ecs::components::{
-    Animation, CurrentFrame, Glow, Light, RoomCamera, Sprite, WorldEntry, WorldExit,
+    Animation, CurrentFrame, Glow, PointLight, RoomCamera, Sprite, WorldEntry, WorldExit,
 };
 use engine_core::ecs::*;
 use engine_core::rendering::pivot_adjusted_position;
@@ -201,7 +201,7 @@ fn placeholder_entity_visual(node: &PrefabNode) -> EntityVisual {
         (false, false) => {}
     }
 
-    if type_names.contains(&comp_type_name::<Light>()) {
+    if type_names.contains(&comp_type_name::<PointLight>()) {
         return EntityVisual::LightPlaceholder;
     }
 

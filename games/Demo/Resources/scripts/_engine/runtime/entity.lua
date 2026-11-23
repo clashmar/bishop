@@ -26,13 +26,13 @@ function Entity:despawn() end
 ---@overload fun(self: Entity, component: "Interactable"): Interactable
 ---@overload fun(self: Entity, component: "Kinematic"): Kinematic
 ---@overload fun(self: Entity, component: "LayerDoor"): LayerDoor
----@overload fun(self: Entity, component: "Light"): Light
 ---@overload fun(self: Entity, component: "Name"): Name
 ---@overload fun(self: Entity, component: "Parent"): Parent
 ---@overload fun(self: Entity, component: "ParticleEmitter"): ParticleEmitter
 ---@overload fun(self: Entity, component: "PhysicsBody"): PhysicsBody
 ---@overload fun(self: Entity, component: "Player"): Player
 ---@overload fun(self: Entity, component: "PlayerProxy"): PlayerProxy
+---@overload fun(self: Entity, component: "PointLight"): PointLight
 ---@overload fun(self: Entity, component: "RoomCamera"): RoomCamera
 ---@overload fun(self: Entity, component: "Script"): Script
 ---@overload fun(self: Entity, component: "Sensor"): Sensor
@@ -121,10 +121,6 @@ function Entity:set_kinematic(v) end
 function Entity:set_layer_door(v) end
 
 ---@param self Entity
----@param v Light
-function Entity:set_light(v) end
-
----@param self Entity
 ---@param v Name
 function Entity:set_name(v) end
 
@@ -147,6 +143,10 @@ function Entity:set_player(v) end
 ---@param self Entity
 ---@param v PlayerProxy
 function Entity:set_player_proxy(v) end
+
+---@param self Entity
+---@param v PointLight
+function Entity:set_point_light(v) end
 
 ---@param self Entity
 ---@param v RoomCamera
