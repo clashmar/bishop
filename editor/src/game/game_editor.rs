@@ -367,7 +367,11 @@ impl GameEditor {
 
                             // Only push command if world actually moved
                             if (final_pos - start_pos).length_squared() > 0.0 {
-                                push_command(Box::new(MoveWorldCmd::new(id, start_pos, final_pos)));
+                                push_command(Box::new(MoveWorldsCmd::new(vec![(
+                                    id,
+                                    start_pos,
+                                    final_pos,
+                                )])));
                             }
                         }
                     }
