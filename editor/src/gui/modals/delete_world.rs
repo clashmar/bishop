@@ -42,7 +42,7 @@ impl ModalHandler for DeleteWorldModal {
         match result {
             ConfirmPromptResult::Confirmed => {
                 if let Some(world_id) = DELETE_WORLD_TARGET.with(|c| c.borrow_mut().take()) {
-                    push_command(Box::new(DeleteWorldCmd::new(&mut editor.game, world_id)));
+                    push_command(Box::new(DeleteWorldsCmd::new(&editor.game, vec![world_id])));
                 }
             }
             ConfirmPromptResult::Cancelled => {

@@ -1,29 +1,28 @@
 use crate::app::EditorMode;
-use crate::game::GameEditorSubmode;
 use crate::commands::editor_command_manager::EditorCommand;
+use crate::game::GameEditorSubmode;
 use crate::with_editor;
 use engine_core::ecs::*;
-use engine_core::game::{Game};
+use engine_core::game::Game;
 use engine_core::worlds::*;
 use std::collections::HashSet;
 
-/// Undo-able command for deleting a world.
+/// Deletes multiple worlds as one undoable command.
 #[derive(Debug)]
-pub struct DeleteWorldCmd {
-    world_id: WorldId,
-    deleted_world_index: Option<usize>,
-    deleted_world: Option<World>,
+pub struct DeleteWorldsCmd {
+    world_ids: Vec<WorldId>,
+    deleted_worlds: Vec<(usize, World)>,
     prev_current_world: Option<WorldId>,
     prev_start_world: Option<WorldId>,
     saved_entities: Option<GroupSnapshot>,
 }
 
-impl DeleteWorldCmd {
-    pub fn new(game: &mut Game, world_id: WorldId) -> Self {
+impl DeleteWorldsCmd {
+    /// Creates a command for deleting the specified worlds.
+    pub fn new(game: &Game, world_ids: Vec<WorldId>) -> Self {
         Self {
-            world_id,
-            deleted_world_index: None,
-            deleted_world: None,
+            world_ids,
+            deleted_worlds: Vec::new(),
             prev_current_world: game.current_world_id,
             prev_start_world: game.start_world_id,
             saved_entities: None,
@@ -31,50 +30,57 @@ impl DeleteWorldCmd {
     }
 }
 
-impl EditorCommand for DeleteWorldCmd {
+impl EditorCommand for DeleteWorldsCmd {
     fn execute(&mut self) {
         with_editor(|editor| {
-            let game = &mut editor.game;
+            if self.world_ids.is_empty() {
+                return;
+            }
 
-            if let Some((world_index, world)) = game
+            let game = &mut editor.game;
+            let target_ids: HashSet<WorldId> = self.world_ids.iter().copied().collect();
+            self.deleted_worlds = game
                 .worlds()
                 .iter()
                 .enumerate()
-                .find(|(_, w)| w.id == self.world_id)
+                .filter(|(_, world)| target_ids.contains(&world.id))
                 .map(|(index, world)| (index, world.clone()))
-            {
-                self.deleted_world_index = Some(world_index);
-                let room_ids: HashSet<RoomId> = world.rooms().iter().map(|room| room.id).collect();
-                let mut entity_ids: HashSet<Entity> = room_ids
-                    .iter()
-                    .flat_map(|room_id| game.ecs.entities_in_room(*room_id).iter().copied())
-                    .collect();
-                entity_ids.extend(world.rooms().iter().map(|room| room.singleton));
-                entity_ids.insert(world.singleton);
-
-                let root_entities = get_root_entities_in_set(&game.ecs, &entity_ids);
-
-                let mut saved_entities = Vec::new();
-                for entity in root_entities {
-                    saved_entities.extend(capture_subtree(&mut game.ecs, entity));
-                }
-
-                self.deleted_world = Some(world);
-                self.saved_entities = Some(saved_entities);
+                .collect();
+            if self.deleted_worlds.is_empty() {
+                return;
             }
 
-            game.delete_world(self.world_id);
+            let room_ids: HashSet<RoomId> = self
+                .deleted_worlds
+                .iter()
+                .flat_map(|(_, world)| world.rooms().iter().map(|room| room.id))
+                .collect();
+            let mut entity_ids: HashSet<Entity> = room_ids
+                .iter()
+                .flat_map(|room_id| game.ecs.entities_in_room(*room_id).iter().copied())
+                .collect();
+            for (_, world) in &self.deleted_worlds {
+                entity_ids.extend(world.rooms().iter().map(|room| room.singleton));
+                entity_ids.insert(world.singleton);
+            }
+
+            let root_entities = get_root_entities_in_set(&game.ecs, &entity_ids);
+            let mut saved_entities = Vec::new();
+            for entity in root_entities {
+                saved_entities.extend(capture_subtree(&mut game.ecs, entity));
+            }
+            self.saved_entities = Some(saved_entities);
+
+            for (_, world) in self.deleted_worlds.iter().rev() {
+                game.delete_world(world.id);
+            }
             editor.save();
         });
     }
 
     fn undo(&mut self) {
         with_editor(|editor| {
-            if let Some(world) = self.deleted_world.take() {
-                let index = self
-                    .deleted_world_index
-                    .unwrap_or(editor.game.worlds().len())
-                    .min(editor.game.worlds().len());
+            for (index, world) in self.deleted_worlds.drain(..) {
                 editor.game.insert_world(index, world);
             }
 
@@ -99,6 +105,7 @@ impl EditorCommand for DeleteWorldCmd {
 mod tests {
     use super::*;
     use crate::app::Editor;
+    use crate::commands::editor_command_manager::EditorCommandManager;
     use engine_core::engine_global::set_game_name;
     use crate::editor_global::with_editor;
     use crate::storage::game_io::create_new_game;
@@ -106,11 +113,11 @@ mod tests {
     use crate::world::world_creation::create_new_world;
 
     #[test]
-    fn delete_world_cmd_deletes_and_restores_world_entities() {
+    fn delete_worlds_cmd_deletes_and_restores_world_entities() {
         let _lock = game_fs_test_lock()
             .lock()
             .unwrap_or_else(|poison| poison.into_inner());
-        let test_game = TestGameFolder::new("delete_world_cmd");
+        let test_game = TestGameFolder::new("delete_worlds_cmd");
         set_game_name(test_game.name());
 
         let mut game = create_new_game(test_game.name().to_string());
@@ -139,7 +146,7 @@ mod tests {
             .with_current_room(room_id)
             .finish();
 
-        let mut cmd = DeleteWorldCmd::new(&mut game, world_id);
+        let mut cmd = DeleteWorldsCmd::new(&game, vec![world_id]);
 
         let editor = Editor {
             game,
@@ -184,11 +191,11 @@ mod tests {
     }
 
     #[test]
-    fn delete_world_cmd_restores_entity_hierarchy() {
+    fn delete_worlds_cmd_restores_entity_hierarchy() {
         let _lock = game_fs_test_lock()
             .lock()
             .unwrap_or_else(|poison| poison.into_inner());
-        let test_game = TestGameFolder::new("delete_world_cmd_hierarchy");
+        let test_game = TestGameFolder::new("delete_worlds_cmd_hierarchy");
         set_game_name(test_game.name());
 
         let mut game = create_new_game(test_game.name().to_string());
@@ -221,7 +228,7 @@ mod tests {
             .finish();
         set_parent(&mut game.ecs, child, root);
 
-        let mut cmd = DeleteWorldCmd::new(&mut game, world_id);
+        let mut cmd = DeleteWorldsCmd::new(&game, vec![world_id]);
 
         let editor = Editor {
             game,
@@ -279,20 +286,20 @@ mod tests {
     }
 
     #[test]
-    fn delete_world_cmd_removes_and_restores_singletons() {
+    fn delete_worlds_cmd_removes_and_restores_singletons() {
         let _lock = game_fs_test_lock()
             .lock()
             .unwrap_or_else(|poison| poison.into_inner());
-        let test_game = TestGameFolder::new("delete_world_cmd_singletons");
+        let test_game = TestGameFolder::new("delete_worlds_cmd_singletons");
         set_game_name(test_game.name());
 
-        let mut game = create_new_game(test_game.name().to_string());
+        let game = create_new_game(test_game.name().to_string());
         let world_id = game.worlds()[0].id;
         let room_id = game.worlds()[0].rooms()[0].id;
         let room_singleton = game.worlds()[0].rooms()[0].singleton;
         let world_singleton = game.worlds()[0].singleton;
 
-        let mut cmd = DeleteWorldCmd::new(&mut game, world_id);
+        let mut cmd = DeleteWorldsCmd::new(&game, vec![world_id]);
         let editor = Editor {
             game,
             mode: EditorMode::Game(GameEditorSubmode::Worlds),
@@ -317,5 +324,105 @@ mod tests {
             assert!(editor.game.ecs.has::<Singleton>(room_singleton));
             assert!(editor.game.ecs.has::<Singleton>(world_singleton));
         });
+    }
+
+    #[test]
+    fn delete_worlds_cmd_deletes_and_restores_group_as_one_command() {
+        let _lock = game_fs_test_lock()
+            .lock()
+            .unwrap_or_else(|poison| poison.into_inner());
+        let test_game = TestGameFolder::new("delete_worlds_cmd_group");
+        set_game_name(test_game.name());
+
+        let mut game = create_new_game(test_game.name().to_string());
+        let first_world_id = game.worlds()[0].id;
+        let first_room_id = game.worlds()[0].rooms()[0].id;
+
+        let second_world = create_new_world(&mut game);
+        let second_world_id = second_world.id;
+        let second_room_id = second_world.rooms()[0].id;
+        game.add_world(second_world);
+
+        let third_world = create_new_world(&mut game);
+        let third_world_id = third_world.id;
+        game.add_world(third_world);
+        game.select_world(first_world_id);
+
+        let root_name = format!("{}-root", test_game.name());
+        let child_name = format!("{}-child", test_game.name());
+        let root = game
+            .ecs
+            .create_entity()
+            .with(Name(root_name.clone()))
+            .with_current_room(first_room_id)
+            .finish();
+        let child = game
+            .ecs
+            .create_entity()
+            .with(Name(child_name.clone()))
+            .with_current_room(second_room_id)
+            .finish();
+        set_parent(&mut game.ecs, child, root);
+
+        let mut command_manager = EditorCommandManager::new();
+        command_manager.push(Box::new(DeleteWorldsCmd::new(
+            &game,
+            vec![first_world_id, second_world_id],
+        )));
+
+        let editor = Editor {
+            game,
+            mode: EditorMode::Game(GameEditorSubmode::Worlds),
+            ..Default::default()
+        };
+        let _guard = EditorServicesGuard::install(editor);
+
+        command_manager.apply_all();
+
+        with_editor(|editor| {
+            assert_eq!(
+                editor.game.worlds().iter().map(|world| world.id).collect::<Vec<_>>(),
+                vec![third_world_id]
+            );
+            assert_eq!(editor.game.current_world_id, Some(third_world_id));
+            assert_eq!(editor.game.start_world_id, Some(third_world_id));
+            assert!(!editor.game.ecs.has::<Name>(root));
+            assert!(!editor.game.ecs.has::<Name>(child));
+        });
+        assert_eq!(command_manager.undo_stack_len(), 1);
+
+        command_manager.undo();
+
+        with_editor(|editor| {
+            assert_eq!(
+                editor.game.worlds().iter().map(|world| world.id).collect::<Vec<_>>(),
+                vec![first_world_id, second_world_id, third_world_id]
+            );
+            assert_eq!(editor.game.current_world_id, Some(first_world_id));
+            assert_eq!(editor.game.start_world_id, Some(first_world_id));
+            assert_eq!(
+                editor.game.ecs.get::<Name>(root).map(|name| &name.0),
+                Some(&root_name)
+            );
+            assert_eq!(
+                editor.game.ecs.get::<Name>(child).map(|name| &name.0),
+                Some(&child_name)
+            );
+            assert_eq!(editor.game.ecs.get::<Parent>(child).map(|parent| parent.0), Some(root));
+            assert!(editor.game.ecs.entities_in_room(first_room_id).contains(&root));
+            assert!(editor.game.ecs.entities_in_room(second_room_id).contains(&child));
+        });
+
+        command_manager.redo();
+
+        with_editor(|editor| {
+            assert_eq!(
+                editor.game.worlds().iter().map(|world| world.id).collect::<Vec<_>>(),
+                vec![third_world_id]
+            );
+            assert!(!editor.game.ecs.has::<Name>(root));
+            assert!(!editor.game.ecs.has::<Name>(child));
+        });
+        assert_eq!(command_manager.undo_stack_len(), 1);
     }
 }
