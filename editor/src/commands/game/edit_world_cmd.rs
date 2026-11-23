@@ -120,3 +120,39 @@ impl EditorCommand for EditWorldCmd {
         matches!(current_mode, EditorMode::Game(GameEditorSubmode::Worlds) | EditorMode::World(_))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::EditWorldCmd;
+    use crate::commands::editor_command_manager::EditorCommand;
+    use crate::editor_global::with_editor;
+    use crate::test_utils::setup_editor;
+    use engine_core::ecs::SpriteId;
+
+    #[test]
+    fn edit_world_cmd_changes_and_undoes_world_sprite() {
+        let _context = setup_editor("edit_world_cmd_sprite");
+        let (world_id, original_sprite) = with_editor(|editor| {
+            let world = &editor.game.worlds()[0];
+            (world.id, world.meta.sprite_id)
+        });
+        let new_sprite = SpriteId(987);
+        let mut command = EditWorldCmd::new(world_id, None, Some(Some(new_sprite)));
+
+        command.execute();
+        with_editor(|editor| {
+            assert_eq!(
+                editor.game.get_world(world_id).and_then(|world| world.meta.sprite_id),
+                Some(new_sprite)
+            );
+        });
+
+        command.undo();
+        with_editor(|editor| {
+            assert_eq!(
+                editor.game.get_world(world_id).and_then(|world| world.meta.sprite_id),
+                original_sprite
+            );
+        });
+    }
+}

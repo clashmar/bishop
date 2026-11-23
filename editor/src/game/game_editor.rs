@@ -11,13 +11,10 @@ use crate::game::world_selection::WorldSelection;
 use crate::game::worlds_submode::{
     handle_pointer_down,
     world_bounds,
+    world_entry_request,
     PointerDownAction,
     WorldsSubmode,
 };
-use crate::gui::modals::edit_world::EditWorldData;
-use crate::gui::modals::is_modal_open;
-use crate::gui::mode_selector::ModeInfo;
-use crate::gui::mode_selector::ModeSelector;
 use crate::push_command;
 use crate::shared::input::canvas_blocked_by_global_ui;
 use crate::shared::input::shortcuts_blocked;
@@ -25,16 +22,12 @@ use crate::shared::scene_ui::inspector::{InspectorHostAction, InspectorContext};
 use crate::world::coord;
 use crate::world::resolve_world_name;
 use bishop::prelude::*;
-use engine_core::controls::{Controls};
+use engine_core::controls::Controls;
 use engine_core::ecs::*;
 use engine_core::game::Game;
-use engine_core::ui::{measure_text};
-use ::widgets::*;
+use engine_core::ui::measure_text;
 use engine_core::worlds::*;
-use once_cell::sync::Lazy;
-use std::collections::{HashMap, HashSet};
-use strum::IntoEnumIterator;
-use strum_macros::EnumIter;
+use std::collections::HashSet;
 use ::widgets::constants::layout;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -43,85 +36,27 @@ pub enum GameEditorSubmode {
     Topology(WorldId),
 }
 
-#[derive(Copy, Clone, PartialEq, EnumIter)]
-pub enum GameEditorMode {
-    Select,
-    Edit,
-    Move,
-    Delete,
-}
-
-impl ModeInfo for GameEditorMode {
-    fn label(&self) -> &'static str {
-        match self {
-            GameEditorMode::Select => "Select: S",
-            GameEditorMode::Edit => "Edit: E",
-            GameEditorMode::Move => "Move: M",
-            GameEditorMode::Delete => "Delete: D",
-        }
-    }
-    fn icon(&self) -> &'static Texture2D {
-        match self {
-            GameEditorMode::Select => select_icon(),
-            GameEditorMode::Edit => edit_icon(),
-            GameEditorMode::Move => move_icon(),
-            GameEditorMode::Delete => delete_icon(),
-        }
-    }
-    fn shortcut(self) -> Option<fn(&WgpuContext) -> bool> {
-        match self {
-            GameEditorMode::Select => Some(Controls::s),
-            GameEditorMode::Edit => Some(Controls::e),
-            GameEditorMode::Move => Some(Controls::m),
-            GameEditorMode::Delete => Some(Controls::d),
-        }
-    }
-}
-
 pub struct GameEditor {
-    pub(crate) mode: GameEditorMode,
     requested_submode: Option<GameEditorSubmode>,
-    mode_selector: ModeSelector<GameEditorMode>,
     topology_submode: TopologySubmode,
     pub(super) world_selection: WorldSelection,
-    worlds_submode: WorldsSubmode,
+    pub(super) worlds_submode: WorldsSubmode,
     pub(crate) show_world_arrows: bool,
     active_rects: Vec<Rect>,
     inspector: Inspector,
-    pub(crate) dragged_world: Option<WorldId>,
-    dragging: bool,
-    drag_offset: Vec2,
-    drag_start_position: Option<Vec2>,
-    world_widget_ids: HashMap<WorldId, WidgetId>,
-    pub(crate) pending_edit_world: Option<EditWorldData>,
-    pub(crate) pending_delete_world: Option<WorldId>,
     pending_camera_init: bool,
 }
 
 impl GameEditor {
     pub fn new() -> Self {
-        let mode = GameEditorMode::Select;
-        let inspector = Inspector::new();
         Self {
-            mode,
             requested_submode: None,
-            mode_selector: ModeSelector {
-                current: mode,
-                options: *ALL_MODES,
-            },
             topology_submode: TopologySubmode::default(),
             world_selection: WorldSelection::default(),
             worlds_submode: WorldsSubmode::default(),
             show_world_arrows: false,
             active_rects: Vec::new(),
-            inspector,
-            dragged_world: None,
-            dragging: false,
-            drag_offset: Vec2::ZERO,
-            drag_start_position: None,
-            world_widget_ids: HashMap::new(),
-            pending_edit_world: None,
-            pending_delete_world: None,
+            inspector: Inspector::new(),
             pending_camera_init: false,
         }
     }
@@ -141,7 +76,8 @@ impl GameEditor {
             if ctx.is_mouse_button_released(MouseButton::Left) {
                 let bounds = world_bounds(ctx, game);
                 if self.world_selection.primary().is_some() {
-                    let existing_world_ids = bounds.iter().map(|(world_id, _)| *world_id).collect();
+                    let existing_world_ids: HashSet<WorldId> =
+                        bounds.iter().map(|(world_id, _)| *world_id).collect();
                     self.world_selection.retain_existing_ids(&existing_world_ids);
                 }
                 self.worlds_submode.finish_marquee(
@@ -153,103 +89,49 @@ impl GameEditor {
             }
         }
 
-        match self.mode {
-            GameEditorMode::Select => {
-                if ctx.is_mouse_button_pressed(MouseButton::Left) && !self.should_block_canvas(ctx)
-                {
-                    let world_mouse = coord::mouse_world_pos(ctx, camera);
-                    let mouse_screen = ctx.mouse_position().into();
-                    let bounds = world_bounds(ctx, game);
-                    if self.world_selection.primary().is_some() {
-                        let existing_world_ids: HashSet<WorldId> =
-                            bounds.iter().map(|(world_id, _)| *world_id).collect();
-                        self.world_selection.retain_existing_ids(&existing_world_ids);
-                    }
-                    let hit_world = bounds
-                        .iter()
-                        .find(|(_, rect)| rect.contains(world_mouse))
-                        .map(|(world_id, _)| *world_id);
-                    let shift_held = ctx.is_key_down(KeyCode::LeftShift)
-                        || ctx.is_key_down(KeyCode::RightShift);
-
-                    match handle_pointer_down(&mut self.world_selection, hit_world, shift_held) {
-                        PointerDownAction::StartMarquee => {
-                            self.worlds_submode.begin_marquee(world_mouse, mouse_screen);
-                        }
-                        PointerDownAction::StartDrag(world_id) => return Some(world_id),
-                        PointerDownAction::None => {}
-                    }
-                }
+        if ctx.is_mouse_button_pressed(MouseButton::Left) && !self.should_block_canvas(ctx) {
+            let world_mouse = coord::mouse_world_pos(ctx, camera);
+            let mouse_screen = ctx.mouse_position().into();
+            let bounds = world_bounds(ctx, game);
+            if self.world_selection.primary().is_some() {
+                let existing_world_ids: HashSet<WorldId> =
+                    bounds.iter().map(|(world_id, _)| *world_id).collect();
+                self.world_selection.retain_existing_ids(&existing_world_ids);
             }
-            GameEditorMode::Edit => {
-                if ctx.is_mouse_button_pressed(MouseButton::Left)
-                    && !self.should_block_canvas(ctx)
-                    && !is_modal_open()
-                {
-                    let world_data: Vec<(WorldId, Vec2, String, Option<SpriteId>)> = game
+            let hit_world = bounds
+                .iter()
+                .find(|(_, rect)| rect.contains(world_mouse))
+                .map(|(world_id, _)| *world_id);
+            let shift_held = ctx.is_key_down(KeyCode::LeftShift)
+                || ctx.is_key_down(KeyCode::RightShift);
+            let action = handle_pointer_down(&mut self.world_selection, hit_world, shift_held);
+
+            if let Some(world_id) = world_entry_request(
+                action,
+                ctx.is_mouse_button_double_clicked(MouseButton::Left),
+            ) {
+                return Some(world_id);
+            }
+
+            match action {
+                PointerDownAction::StartMarquee => {
+                    self.worlds_submode.begin_marquee(world_mouse, mouse_screen);
+                }
+                PointerDownAction::StartDrag(_) => {
+                    let selected_positions = game
                         .worlds()
                         .iter()
-                        .map(|w| (w.id, w.meta.position, w.name.clone(), w.meta.sprite_id))
+                        .filter(|world| self.world_selection.contains(world.id))
+                        .map(|world| (world.id, world.meta.position))
                         .collect();
-                    for (world_id, position, name, sprite_id) in world_data {
-                        let texture = match sprite_id {
-                            Some(id) => game.sprite_manager.get_texture_from_id(ctx, id),
-                            None => circle_120px(),
-                        };
-                        let bounds = Rect::new(
-                            position.x,
-                            position.y,
-                            texture.width(),
-                            texture.height(),
-                        );
-                        let world_mouse = coord::mouse_world_pos(ctx, camera);
-                        if bounds.contains(world_mouse) {
-                            let current_sprite = sprite_id.unwrap_or(SpriteId(0));
-                            let widget_id = self.widget_id_for_world(world_id);
-
-                            self.pending_edit_world = Some(EditWorldData {
-                                world_id,
-                                current_name: name,
-                                current_sprite,
-                                widget_id,
-                            });
-                            break;
-                        }
-                    }
+                    self.worlds_submode
+                        .begin_world_drag(world_mouse, selected_positions);
                 }
-            }
-            GameEditorMode::Move => {
-                if !self.should_block_canvas(ctx) {
-                    self.handle_drag(ctx, camera, game);
-                }
-            }
-            GameEditorMode::Delete => {
-                if ctx.is_mouse_button_pressed(MouseButton::Left) && !self.should_block_canvas(ctx)
-                {
-                    let world_data: Vec<(WorldId, Vec2, Option<SpriteId>)> = game.worlds().iter()
-                        .map(|w| (w.id, w.meta.position, w.meta.sprite_id))
-                        .collect();
-                    for (world_id, position, sprite_id) in world_data {
-                        let texture = match sprite_id {
-                            Some(id) => game.sprite_manager.get_texture_from_id(ctx, id),
-                            None => circle_120px(),
-                        };
-                        let bounds = Rect::new(
-                            position.x,
-                            position.y,
-                            texture.width(),
-                            texture.height(),
-                        );
-                        let world_mouse = coord::mouse_world_pos(ctx, camera);
-                        if bounds.contains(world_mouse) {
-                            self.pending_delete_world = Some(world_id);
-                            break;
-                        }
-                    }
-                }
+                PointerDownAction::None => {}
             }
         }
 
+        self.update_world_drag(ctx, camera, game);
         self.handle_shortcuts(ctx, game);
 
         None
@@ -316,69 +198,38 @@ impl GameEditor {
         self.topology_submode.center_on_world(ctx, world);
     }
 
-    fn handle_drag(&mut self, ctx: &WgpuContext, camera: &Camera2D, game: &mut Game) {
-        // Start dragging
-        if !self.dragging && ctx.is_mouse_button_pressed(MouseButton::Left) {
-            let world_data: Vec<(WorldId, Vec2, Option<SpriteId>)> = game.worlds().iter()
-                .map(|w| (w.id, w.meta.position, w.meta.sprite_id))
-                .collect();
-            for (world_id, position, sprite_id) in world_data {
-                let texture = match sprite_id {
-                    Some(id) => game.sprite_manager.get_texture_from_id(ctx, id),
-                    None => circle_120px(),
-                };
-                let bounds = Rect::new(
-                    position.x,
-                    position.y,
-                    texture.width(),
-                    texture.height(),
-                );
-                let world_mouse = coord::mouse_world_pos(ctx, camera);
-                if bounds.contains(world_mouse) {
-                    self.dragging = true;
-                    self.dragged_world = Some(world_id);
+    fn update_world_drag(&mut self, ctx: &WgpuContext, camera: &Camera2D, game: &mut Game) {
+        if self.worlds_submode.world_drag_start_positions().is_empty() {
+            return;
+        }
 
-                    let mouse_world = coord::mouse_world_pos(ctx, camera);
-                    let world_pos = position;
-                    self.drag_offset = world_pos - mouse_world;
-                    self.drag_start_position = Some(world_pos);
-                    break;
+        if ctx.is_mouse_button_down(MouseButton::Left)
+            || ctx.is_mouse_button_released(MouseButton::Left)
+        {
+            let mouse_world = coord::mouse_world_pos(ctx, camera);
+            if let Some(delta) = self.worlds_submode.world_drag_delta(mouse_world) {
+                for &(world_id, start_position) in
+                    self.worlds_submode.world_drag_start_positions()
+                {
+                    if let Some(world) = game.get_world_mut(world_id) {
+                        world.meta.position = start_position + delta;
+                    }
                 }
             }
         }
 
-        // While dragging
-        if self.dragging {
-            if let Some(id) = self.dragged_world {
-                if ctx.is_mouse_button_down(MouseButton::Left) {
-                    let mouse_world = coord::mouse_world_pos(ctx, camera);
-
-                    if let Some(world) = game.get_world_mut(id) {
-                        world.meta.position = mouse_world + self.drag_offset;
-                    }
-                }
-
-                // Finish on release
-                if ctx.is_mouse_button_released(MouseButton::Left) {
-                    if let (Some(start_pos), Some(id)) =
-                        (self.drag_start_position.take(), self.dragged_world.take())
-                    {
-                        if let Some(world) = game.get_world(id) {
-                            let final_pos = world.meta.position;
-
-                            // Only push command if world actually moved
-                            if (final_pos - start_pos).length_squared() > 0.0 {
-                                push_command(Box::new(MoveWorldsCmd::new(vec![(
-                                    id,
-                                    start_pos,
-                                    final_pos,
-                                )])));
-                            }
-                        }
-                    }
-
-                    self.dragging = false;
-                }
+        if ctx.is_mouse_button_released(MouseButton::Left) {
+            let start_positions = self.worlds_submode.finish_world_drag();
+            let moves = start_positions
+                .into_iter()
+                .filter_map(|(world_id, start_position)| {
+                    let final_position = game.get_world(world_id)?.meta.position;
+                    ((final_position - start_position).length_squared() > 0.0)
+                        .then_some((world_id, start_position, final_position))
+                })
+                .collect::<Vec<_>>();
+            if !moves.is_empty() {
+                push_command(Box::new(MoveWorldsCmd::new(moves)));
             }
         }
     }
@@ -388,13 +239,6 @@ impl GameEditor {
 
         self.active_rects.clear();
         self.register_rect(draw_top_panel_full(ctx));
-
-        if matches!(submode, GameEditorSubmode::Worlds) {
-            if self.mode_selector.draw(ctx).1 {
-                self.mode = self.mode_selector.current;
-            }
-            self.mode_selector.draw_tooltips(ctx);
-        }
 
         self.draw_menu_buttons(ctx, game, submode);
 
@@ -500,24 +344,23 @@ impl GameEditor {
             return;
         }
 
-        if Controls::t(ctx) {
-            self.request_topology_submode(ctx, game);
+        if Controls::delete(ctx) {
+            let selected_world_ids = game
+                .worlds()
+                .iter()
+                .filter(|world| self.world_selection.contains(world.id))
+                .map(|world| world.id)
+                .collect::<Vec<_>>();
+            if !selected_world_ids.is_empty() {
+                push_command(Box::new(DeleteWorldsCmd::new(game, selected_world_ids)));
+                self.world_selection.clear();
+            }
             return;
         }
 
-        for mode in GameEditorMode::iter() {
-            if let Some(shortcut) = mode.shortcut() {
-                if shortcut(ctx) {
-                    self.mode = mode;
-                    self.mode_selector.current = mode;
-                    break;
-                }
-            }
+        if Controls::t(ctx) {
+            self.request_topology_submode(ctx, game);
         }
-    }
-
-    fn widget_id_for_world(&mut self, world_id: WorldId) -> WidgetId {
-        *self.world_widget_ids.entry(world_id).or_default()
     }
 
     #[inline]
@@ -535,20 +378,7 @@ impl GameEditor {
         if self.should_block_canvas(ctx) {
             ctx.set_cursor_icon(CursorIcon::Default);
         } else {
-            match self.mode {
-                GameEditorMode::Select => {
-                    ctx.set_cursor_icon(CursorIcon::Pointer);
-                }
-                GameEditorMode::Edit => {
-                    ctx.set_cursor_icon(CursorIcon::Crosshair);
-                }
-                GameEditorMode::Move => {
-                    ctx.set_cursor_icon(CursorIcon::Move);
-                }
-                GameEditorMode::Delete => {
-                    ctx.set_cursor_icon(CursorIcon::Crosshair);
-                }
-            }
+            ctx.set_cursor_icon(CursorIcon::Pointer);
         }
     }
 
@@ -621,10 +451,6 @@ impl SubEditor for GameEditor {
             || canvas_blocked_by_global_ui(ctx)
     }
 }
-
-/// A slice of all the modes.
-static ALL_MODES: Lazy<&'static [GameEditorMode]> =
-    Lazy::new(|| Box::leak(Box::new(GameEditorMode::iter().collect::<Vec<_>>())));
 
 #[cfg(test)]
 mod tests {

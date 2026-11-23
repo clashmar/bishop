@@ -1,4 +1,10 @@
-use super::{PointerDownAction, apply_marquee, handle_pointer_down, world_rect};
+use super::{
+    PointerDownAction,
+    apply_marquee,
+    handle_pointer_down,
+    world_entry_request,
+    world_rect,
+};
 use crate::game::world_selection::WorldSelection;
 use bishop::prelude::{vec2, Rect};
 use engine_core::worlds::WorldId;
@@ -20,6 +26,59 @@ fn worlds_submode_plain_click_on_world_selects_and_starts_drag() {
 
     assert_eq!(action, PointerDownAction::StartDrag(world));
     assert_eq!(selection.primary(), Some(world));
+}
+
+#[test]
+fn worlds_submode_world_entry_single_click_selects_without_entering_world() {
+    let mut selection = WorldSelection::default();
+    let world = WorldId(1);
+
+    let action = handle_pointer_down(&mut selection, Some(world), false);
+    let entry_request = world_entry_request(action, false);
+
+    assert_eq!(selection.primary(), Some(world));
+    assert_eq!(entry_request, None);
+}
+
+#[test]
+fn worlds_submode_double_click_selects_and_requests_world_entry() {
+    let mut selection = WorldSelection::default();
+    let world = WorldId(1);
+
+    let action = handle_pointer_down(&mut selection, Some(world), false);
+    let entry_request = world_entry_request(action, true);
+
+    assert_eq!(selection.primary(), Some(world));
+    assert_eq!(entry_request, Some(world));
+}
+
+#[test]
+fn worlds_submode_shift_double_click_does_not_request_world_entry() {
+    let mut selection = WorldSelection::default();
+    let world = WorldId(1);
+
+    let action = handle_pointer_down(&mut selection, Some(world), true);
+    let entry_request = world_entry_request(action, true);
+
+    assert!(selection.contains(world));
+    assert_eq!(entry_request, None);
+}
+
+#[test]
+fn worlds_submode_group_drag_preserves_start_positions_and_clears_on_finish() {
+    let mut submode = super::WorldsSubmode::default();
+    let starts = vec![
+        (WorldId(1), vec2(10.0, 20.0)),
+        (WorldId(2), vec2(50.0, 20.0)),
+    ];
+    submode.begin_world_drag(vec2(5.0, 8.0), starts.clone());
+
+    assert!(submode.is_world_drag_active());
+    assert_eq!(submode.world_drag_delta(vec2(12.0, 15.0)), Some(vec2(7.0, 7.0)));
+    assert_eq!(submode.world_drag_start_positions(), starts);
+    assert_eq!(submode.finish_world_drag(), starts);
+    assert!(!submode.is_world_drag_active());
+    assert_eq!(submode.world_drag_delta(vec2(12.0, 15.0)), None);
 }
 
 #[test]

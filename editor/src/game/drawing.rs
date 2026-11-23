@@ -33,7 +33,7 @@ impl GameEditor {
             let bounds = world_rect(position, vec2(texture.width(), texture.height()));
             let is_hovered = bounds.contains(world_mouse)
                 && !self.should_block_canvas(ctx)
-                && self.dragged_world.is_none();
+                && !self.worlds_submode.is_world_drag_active();
 
             let tint = if self.world_selection.primary() == Some(world_id) {
                 with_theme(|theme| theme.accent)

@@ -4,6 +4,7 @@ pub mod world_physics_module;
 pub mod world_script_module;
 pub mod world_settings_module;
 pub mod world_tags_module;
+pub mod world_visual_module;
 
 use bishop::prelude::*;
 use engine_core::game::GameCtxMut;
@@ -35,6 +36,7 @@ impl WorldProperties {
         Self {
             input_id: WidgetId::default(),
             modules: vec![
+                Box::new(CollapsiblePropertyModule::new(world_visual_module::WorldVisualModule::new())),
                 Box::new(CollapsiblePropertyModule::new(world_settings_module::WorldSettingsModule::new())),
                 Box::new(CollapsiblePropertyModule::new(world_physics_module::WorldPhysicsModule::new())),
                 Box::new(CollapsiblePropertyModule::new(world_script_module::WorldScriptModule::new())),

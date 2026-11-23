@@ -25,6 +25,8 @@ pub(super) struct WorldsSubmode {
     marquee_start_world: Option<Vec2>,
     marquee_start_screen: Option<Vec2>,
     marquee_current_world: Option<Vec2>,
+    world_drag_start_mouse: Option<Vec2>,
+    world_drag_start_positions: Vec<(WorldId, Vec2)>,
 }
 
 impl WorldsSubmode {
@@ -73,6 +75,33 @@ impl WorldsSubmode {
             draw_selection_box(ctx, start, end, grid_size);
         }
     }
+
+    pub(super) fn begin_world_drag(
+        &mut self,
+        mouse_position: Vec2,
+        world_positions: Vec<(WorldId, Vec2)>,
+    ) {
+        self.world_drag_start_mouse = Some(mouse_position);
+        self.world_drag_start_positions = world_positions;
+    }
+
+    pub(super) fn is_world_drag_active(&self) -> bool {
+        self.world_drag_start_mouse.is_some()
+    }
+
+    pub(super) fn world_drag_delta(&self, mouse_position: Vec2) -> Option<Vec2> {
+        self.world_drag_start_mouse
+            .map(|start| mouse_position - start)
+    }
+
+    pub(super) fn world_drag_start_positions(&self) -> &[(WorldId, Vec2)] {
+        &self.world_drag_start_positions
+    }
+
+    pub(super) fn finish_world_drag(&mut self) -> Vec<(WorldId, Vec2)> {
+        self.world_drag_start_mouse = None;
+        std::mem::take(&mut self.world_drag_start_positions)
+    }
 }
 
 pub(super) fn handle_pointer_down(
@@ -99,6 +128,16 @@ pub(super) fn handle_pointer_down(
             }
             PointerDownAction::StartMarquee
         }
+    }
+}
+
+pub(super) fn world_entry_request(
+    action: PointerDownAction,
+    double_clicked: bool,
+) -> Option<WorldId> {
+    match action {
+        PointerDownAction::StartDrag(world_id) if double_clicked => Some(world_id),
+        _ => None,
     }
 }
 
