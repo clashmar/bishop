@@ -1,6 +1,5 @@
+use crate::constants::lighting;
 use crate::ecs::Entity;
-#[cfg(test)]
-use crate::constants::world;
 use crate::scripting::event_tags::event_tag::EventTag;
 use crate::worlds::room::{Exit, Room, RoomId};
 use crate::worlds::world::{World, WorldId, WorldMeta};
@@ -63,7 +62,9 @@ impl World {
                 adjacent_rooms: entry.adjacent_rooms,
                 tags: entry.tags,
                 variants: vec![],
-                darkness: 0.0,
+                darkness: lighting::DEFAULT_ROOM_DARKNESS,
+                ambient_color: lighting::DEFAULT_ROOM_AMBIENT_COLOR,
+                exposure: lighting::DEFAULT_ROOM_EXPOSURE,
                 singleton: entry.singleton,
             };
             world.add_room(room);
@@ -74,6 +75,7 @@ impl World {
 
 #[cfg(test)]
 mod tests {
+    use crate::constants::world;
     use super::*;
 
     #[test]
@@ -107,6 +109,9 @@ mod tests {
         assert_eq!(world.singleton, descriptor.singleton);
         assert_eq!(room.singleton, Entity(7));
         assert!(room.variants.is_empty());
+        assert_eq!(room.darkness, lighting::DEFAULT_ROOM_DARKNESS);
+        assert_eq!(room.ambient_color, lighting::DEFAULT_ROOM_AMBIENT_COLOR);
+        assert_eq!(room.exposure, lighting::DEFAULT_ROOM_EXPOSURE);
     }
 
     #[test]

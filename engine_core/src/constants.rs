@@ -23,6 +23,18 @@ pub mod world {
     pub const DEFAULT_ROOM_POSITION: Vec2 = Vec2::new(0.0, 0.0);
 }
 
+/// Shared lighting defaults.
+pub mod lighting {
+    use bishop::prelude::Color;
+
+    /// Default darkness applied to a newly created room.
+    pub const DEFAULT_ROOM_DARKNESS: f32 = 0.0;
+    /// Default ambient color applied to a newly created room.
+    pub const DEFAULT_ROOM_AMBIENT_COLOR: Color = Color::WHITE;
+    /// Default exposure applied to a newly created room.
+    pub const DEFAULT_ROOM_EXPOSURE: f32 = 1.0;
+}
+
 /// File extension constants for known asset types.
 pub mod extensions {
     /// Asset images (sprites, animations).

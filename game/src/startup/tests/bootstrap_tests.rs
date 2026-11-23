@@ -170,6 +170,8 @@ fn parse_startup_data_uses_startup_mode_from_payload() {
         tags: [],
         variants: [],
         darkness: 0.0,
+        ambient_color: (1.0, 1.0, 1.0, 1.0),
+        exposure: 1.0,
         singleton: (1),
     ),
     game: (
@@ -218,6 +220,8 @@ fn playtest_game_name_reads_name_from_payload() {
         tags: [],
         variants: [],
         darkness: 0.0,
+        ambient_color: (1.0, 1.0, 1.0, 1.0),
+        exposure: 1.0,
         singleton: (1),
     ),
     game: (

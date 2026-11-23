@@ -105,4 +105,6 @@
         (342),
     ],
     darkness: 0.71627605,
+    ambient_color: (1.0, 1.0, 1.0, 1.0),
+    exposure: 1.0,
 )

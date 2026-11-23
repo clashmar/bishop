@@ -1,6 +1,6 @@
 pub mod grid_navigation;
 
-use crate::constants::world;
+use crate::constants::{lighting, world};
 use crate::ecs::ecs::Ecs;
 use crate::ecs::{AudioSource, Entity, Name, Pivot, RoomCamera, Singleton, Transform};
 use crate::scripting::event_tags::event_tag::EventTag;
@@ -30,7 +30,7 @@ impl std::ops::DerefMut for RoomId {
 }
 
 #[serde_as]
-#[derive(Serialize, Deserialize, Clone, Debug, Default)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Room {
     pub id: RoomId,
     pub name: String,
@@ -45,6 +45,11 @@ pub struct Room {
     pub tags: Vec<EventTag>,
     pub variants: Vec<RoomVariant>,
     pub darkness: f32,
+    /// Room ambient color.
+    #[serde_as(as = "FromInto<[f32; 4]>")]
+    pub ambient_color: Color,
+    /// Room exposure multiplier.
+    pub exposure: f32,
     pub singleton: Entity,
 }
 
@@ -54,6 +59,25 @@ pub struct RoomFacingExit {
     pub world_grid_position: Vec2,
     pub direction: ExitDirection,
     pub layer: RoomLayer,
+}
+
+impl Default for Room {
+    fn default() -> Self {
+        Self {
+            id: RoomId::default(),
+            name: String::new(),
+            position: Vec2::ZERO,
+            size: Vec2::ZERO,
+            exits: vec![],
+            adjacent_rooms: vec![],
+            tags: vec![],
+            variants: vec![],
+            darkness: lighting::DEFAULT_ROOM_DARKNESS,
+            ambient_color: lighting::DEFAULT_ROOM_AMBIENT_COLOR,
+            exposure: lighting::DEFAULT_ROOM_EXPOSURE,
+            singleton: Entity::default(),
+        }
+    }
 }
 
 impl Room {
@@ -80,7 +104,9 @@ impl Room {
             adjacent_rooms: vec![],
             tags: vec![],
             variants: vec![first_variant],
-            darkness: 0.,
+            darkness: lighting::DEFAULT_ROOM_DARKNESS,
+            ambient_color: lighting::DEFAULT_ROOM_AMBIENT_COLOR,
+            exposure: lighting::DEFAULT_ROOM_EXPOSURE,
             singleton: Self::create_room_singleton_entity(ecs, room_id),
         };
 
@@ -353,6 +379,8 @@ mod tests {
         let room = Room {
             id: RoomId(1),
             tags: vec![EventTag::Autosave, EventTag::Custom("hazardous".into())],
+            ambient_color: Color::new(0.4, 0.5, 0.6, 1.0),
+            exposure: 2.5,
             singleton: Entity(7),
             ..Default::default()
         };
@@ -362,12 +390,23 @@ mod tests {
             parsed.tags,
             vec![EventTag::Autosave, EventTag::Custom("hazardous".into())]
         );
+        assert_eq!(parsed.ambient_color, room.ambient_color);
+        assert_eq!(parsed.exposure, room.exposure);
     }
 
     #[test]
     fn room_tags_default_to_empty() {
         let room = Room::default();
         assert!(room.tags.is_empty());
+    }
+
+    #[test]
+    fn default_room_uses_neutral_ambient_settings() {
+        let room = Room::default();
+
+        assert_eq!(room.darkness, lighting::DEFAULT_ROOM_DARKNESS);
+        assert_eq!(room.ambient_color, lighting::DEFAULT_ROOM_AMBIENT_COLOR);
+        assert_eq!(room.exposure, lighting::DEFAULT_ROOM_EXPOSURE);
     }
 
     #[test]
@@ -378,6 +417,9 @@ mod tests {
 
         assert!(ecs.has::<Singleton>(singleton));
         assert!(ecs.has::<AudioSource>(singleton));
+        assert_eq!(room.darkness, lighting::DEFAULT_ROOM_DARKNESS);
+        assert_eq!(room.ambient_color, lighting::DEFAULT_ROOM_AMBIENT_COLOR);
+        assert_eq!(room.exposure, lighting::DEFAULT_ROOM_EXPOSURE);
     }
 
     #[test]
@@ -392,6 +434,8 @@ mod tests {
             tags: [],
             variants: [],
             darkness: 0.0,
+            ambient_color: (1.0, 1.0, 1.0, 1.0),
+            exposure: 1.0,
         )"#;
 
         let result: Result<Room, _> = ron::from_str(ron);
