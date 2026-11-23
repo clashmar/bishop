@@ -23,6 +23,7 @@ use crate::shared::input::canvas_blocked_by_global_ui;
 use crate::shared::input::shortcuts_blocked;
 use crate::shared::scene_ui::inspector::{InspectorHostAction, InspectorContext};
 use crate::world::coord;
+use crate::world::resolve_world_name;
 use bishop::prelude::*;
 use engine_core::controls::{Controls};
 use engine_core::ecs::*;
@@ -408,27 +409,39 @@ impl GameEditor {
         let game_name = game.name.clone();
         let start_world_id = game.start_world_id;
         let game_default_font = game.text_settings.default_font;
-        let inspector_output = {
+        let inspector_context = InspectorContext {
+            command_mode: EditorMode::Game(submode),
+            game_name: Some(game_name),
+            start_world_id,
+            game_default_font,
+            show_linked_prefab_metadata: false,
+            hide_room_only_components: true,
+            selected_create_parent: None,
+            event_tags: Vec::new(),
+            room_zone_tool_active: false,
+            room_zones_visible: false,
+        };
+        let selected_world_id = if matches!(submode, GameEditorSubmode::Worlds) {
+            self.world_selection.primary()
+        } else {
+            None
+        }
+        .filter(|world_id| game.get_world(*world_id).is_some());
+        let inspector_output = if let Some(world_id) = selected_world_id {
+            let mut game_ctx = game.ctx_mut_for_world(world_id);
+            self.inspector.draw_world_pane(ctx, &mut game_ctx, &inspector_context)
+        } else {
             let mut game_ctx = game.ctx_mut();
-            self.inspector.draw_game_pane(
-                ctx,
-                &mut game_ctx,
-                &InspectorContext {
-                    command_mode: EditorMode::Game(submode),
-                    game_name: Some(game_name),
-                    start_world_id,
-                    game_default_font,
-                    show_linked_prefab_metadata: false,
-                    hide_room_only_components: true,
-                    selected_create_parent: None,
-                    event_tags: Vec::new(),
-                    room_zone_tool_active: false,
-                    room_zones_visible: false,
-                },
-            )
+            self.inspector.draw_game_pane(ctx, &mut game_ctx, &inspector_context)
         };
 
         match inspector_output.host_action {
+            Some(InspectorHostAction::RenameWorld(name)) => {
+                if let Some(world_id) = selected_world_id {
+                    let unique = resolve_world_name(game, world_id, &name);
+                    push_command(Box::new(EditWorldCmd::new(world_id, Some(unique), None)));
+                }
+            }
             Some(InspectorHostAction::RenameGame(name)) => {
                 push_command(Box::new(RenameGameCmd::new(name, game.name.clone())));
             }

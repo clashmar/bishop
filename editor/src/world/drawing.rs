@@ -1,11 +1,12 @@
 use crate::app::EditorMode;
 use crate::commands::game::EditWorldCmd;
 use crate::editor_assets::assets::{entry_icon, exit_icon, portal_icon, NavIconType};
-use crate::editor_global::{push_command, push_toast};
+use crate::editor_global::push_command;
 use crate::gui::gui_constants;
 use crate::gui::menu_bar::draw_top_panel_full;
 use crate::shared::scene_ui::inspector::{InspectorContext, InspectorHostAction};
 use crate::world::coord::{mouse_world_grid, mouse_world_pos, rect_from_points, snap_to_grid};
+use crate::world::resolve_world_name;
 use crate::world::world_editor::{HOVER_LINE_THICKNESS, LINE_THICKNESS_MULTIPLIER, WorldEditor, WorldEditorMode};
 use bishop::prelude::*;
 use engine_core::ecs::{CurrentRoom, Ecs, Entity, Transform, WorldEntry, WorldExit};
@@ -228,10 +229,7 @@ impl WorldEditor {
         if let Some(host_action) = inspector_output.host_action {
             match host_action {
                 InspectorHostAction::RenameWorld(name) => {
-                    let unique = game.unique_world_name(&name, Some(world_id));
-                    if unique != name {
-                        push_toast(format!("'{}' is already taken, renamed to '{}'", name, unique), 3.0);
-                    }
+                    let unique = resolve_world_name(game, world_id, &name);
                     push_command(Box::new(EditWorldCmd::new(world_id, Some(unique), None)));
                 }
                 InspectorHostAction::FocusWorldEditor(entity) => {

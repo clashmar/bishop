@@ -1,3 +1,4 @@
+use crate::editor_global::push_toast;
 use crate::world::world_editor::WorldEditor;
 use bishop::prelude::*;
 use engine_core::ecs::*;
@@ -134,6 +135,18 @@ impl WorldEditor {
 
         horizontal_touch || vertical_touch
     }
+}
+
+/// Returns a unique world name and reports when it was adjusted.
+pub(crate) fn resolve_world_name(game: &Game, world_id: WorldId, desired: &str) -> String {
+    let unique = game.unique_world_name(desired, Some(world_id));
+    if unique != desired {
+        push_toast(
+            format!("'{}' is already taken, renamed to '{}'", desired, unique),
+            3.0,
+        );
+    }
+    unique
 }
 
 #[cfg(test)]

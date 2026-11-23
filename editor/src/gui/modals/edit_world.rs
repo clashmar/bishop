@@ -1,8 +1,9 @@
 use crate::app::Editor;
 use crate::commands::game::*;
-use crate::editor_global::*;
+use crate::editor_global::push_command;
 use crate::gui::modals::{BoxedWidget, Modal, ModalHandler, ModalResult};
 use crate::gui::prompts::*;
+use crate::world::resolve_world_name;
 use bishop::prelude::*;
 use engine_core::ecs::*;
 use widgets::*;
@@ -68,11 +69,7 @@ impl ModalHandler for EditWorldModal {
         if let Some(ref name) = result.name {
             if let Some(world) = editor.game.get_world(result.id) {
                 if world.name != *name {
-                    let unique = editor.game.unique_world_name(name, Some(result.id));
-                    if &unique != name {
-                        push_toast(format!("'{}' is already taken, renamed to '{}'", name, unique), 3.0);
-                    }
-                    new_name = Some(unique);
+                    new_name = Some(resolve_world_name(&editor.game, result.id, name));
                 }
             }
         }
