@@ -9,6 +9,7 @@ use crate::game::GameCtxMut;
 use crate::rendering::helpers::RoomVisibilityContext;
 use crate::rendering::lighting::{
     ambient_multiplier, point_light_affects_layer, point_light_attenuation,
+    point_light_pixel_size_in_target,
 };
 use crate::rendering::render_system_wgpu::RenderSystem;
 use crate::rendering::room_composition::{RoomCompositionContext, RoomRenderState};
@@ -93,10 +94,13 @@ pub fn render_room<C: BishopContext>(
         current_room.exposure,
     );
 
+    let target_to_display_scale =
+        render_system.viewport_rect(ctx).w / render_system.rt_width.max(1.0);
     let routed_lights = prepare_routed_lights(
         render_cam,
         render_system.rt_width,
         render_system.rt_height,
+        target_to_display_scale,
         &visible_layers.ordered_layers,
         &layer_maps,
     );
@@ -141,6 +145,7 @@ fn prepare_routed_lights(
     render_cam: &Camera2D,
     target_width: f32,
     target_height: f32,
+    target_to_display_scale: f32,
     visible_layers: &[RoomLayer],
     layer_maps: &CollectedRoomLayerMaps<'_>,
 ) -> Vec<RoutedPointLight> {
@@ -181,7 +186,10 @@ fn prepare_routed_lights(
                         radius: center.distance(radius_edge),
                         attenuation: finite_nonnegative(light.attenuation, 1.0),
                         pixelated: light.style == PointLightStyle::Pixel,
-                        pixel_size: light.pixel_size.max(1) as f32,
+                        pixel_size: point_light_pixel_size_in_target(
+                            light.pixel_size,
+                            target_to_display_scale,
+                        ),
                     },
                 });
             }

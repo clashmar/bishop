@@ -311,4 +311,15 @@ mod tests {
             assert_eq!(source.matches("struct VertexOutput {").count(), 1);
         }
     }
+
+    #[test]
+    fn pixel_light_quantizes_falloff_without_quantizing_scene_sampling() {
+        let wgsl = include_str!("shaders/point_light.wgsl");
+        let webgl = include_str!("../../web/lighting.rs");
+
+        assert!(wgsl.contains("let base = textureSample(t_scene, s_scene, in.uv);"));
+        assert!(wgsl.contains("let pixel = floor(sample_position / pixel_size)"));
+        assert!(webgl.contains("vec4 base = texture(u_scene, v_uv);"));
+        assert!(webgl.contains("vec2 pixel = floor(pixel_position / pixel_size)"));
+    }
 }

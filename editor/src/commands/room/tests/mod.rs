@@ -7,6 +7,8 @@ pub(super) use crate::commands::room::{
     SetBackLayerCompositionModeCmd,
     SetBackLayerEnabledCmd,
     SetBackLayerZoneScopeCmd,
+    SetRoomAmbientCmd,
+    RoomAmbientSettings,
     SetTilePlacementCmd,
     UpdateInteriorZonesCmd,
 };
@@ -28,6 +30,7 @@ pub(super) use engine_core::worlds::{
 };
 
 mod alt_drag_copy_cmd_tests;
+mod ambient_cmd_tests;
 mod back_layer_cmd_tests;
 mod paste_cmd_tests;
 mod resize_tilemap_cmd_tests;

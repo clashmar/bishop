@@ -1,23 +1,30 @@
 use crate::ecs::reflect_field::{FieldInfo, Reflect, ReflectField};
-use crate::inspector_module;
 use bishop::prelude::{vec2, vec3, Vec2, Vec3};
 use ecs_component::ecs_component;
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
+use strum_macros::Display;
 
 /// Layers a point light can illuminate.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Default, Display, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum PointLightLayerScope {
     /// Only the layer that owns the light entity.
     #[default]
+    #[strum(to_string = "Owning Layer")]
     OwningLayer,
     /// Every visible layer in the room.
+    #[strum(to_string = "All Visible Layers")]
     AllVisibleLayers,
 }
 
+impl PointLightLayerScope {
+    /// Supported point-light layer scopes.
+    pub const ALL: [Self; 2] = [Self::OwningLayer, Self::AllVisibleLayers];
+}
+
 /// Sampling style used when rendering a point light.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Default, Display, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum PointLightStyle {
     /// Smoothly sample the light falloff.
@@ -25,6 +32,11 @@ pub enum PointLightStyle {
     Smooth,
     /// Quantize the light sampling to a pixel grid.
     Pixel,
+}
+
+impl PointLightStyle {
+    /// Supported point-light sampling styles.
+    pub const ALL: [Self; 2] = [Self::Smooth, Self::Pixel];
 }
 
 /// An entity-relative point light source.
@@ -49,16 +61,9 @@ pub struct PointLight {
     pub layer_scope: PointLightLayerScope,
     /// Light sampling style.
     pub style: PointLightStyle,
-    /// Quantization size for pixel-style sampling.
+    /// Display-space size of the light sampling grid for pixel style.
     pub pixel_size: i32,
 }
-
-inspector_module!(
-    PointLight,
-    removable = true,
-    title = <PointLight>::TYPE_NAME,
-    tooltip = "Adds an entity-relative point light."
-);
 
 impl Reflect for PointLight {
     fn fields(&mut self) -> Vec<FieldInfo<'_>> {

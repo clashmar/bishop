@@ -26,9 +26,9 @@ pub struct PointLightPassParams {
     pub radius: f32,
     /// Radial falloff exponent.
     pub attenuation: f32,
-    /// Quantize sample position to a pixel grid when enabled.
+    /// Quantize light falloff sampling to a pixel grid when enabled.
     pub pixelated: bool,
-    /// Pixel-grid spacing in destination render-target pixels.
+    /// Light-sampling grid spacing in destination render-target pixels.
     pub pixel_size: f32,
 }
 

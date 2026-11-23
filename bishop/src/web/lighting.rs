@@ -48,17 +48,16 @@ uniform float u_pixel_size;
 uniform bool u_pixelated;
 out vec4 out_color;
 void main() {
-    vec2 sample_uv = v_uv;
-    if (u_pixelated) {
-        float pixel_size = max(u_pixel_size, 1.0);
-        vec2 pixel = floor(v_uv * u_resolution / pixel_size) * pixel_size + vec2(pixel_size * 0.5);
-        sample_uv = clamp(pixel / u_resolution, vec2(0.0), vec2(1.0));
-    }
-    vec4 base = texture(u_scene, sample_uv);
+    vec4 base = texture(u_scene, v_uv);
     float radius = max(u_radius, 0.0);
     float falloff = 0.0;
     if (radius > 0.0) {
         vec2 pixel_position = vec2(gl_FragCoord.x, u_resolution.y - gl_FragCoord.y);
+        if (u_pixelated) {
+            float pixel_size = max(u_pixel_size, 1.0);
+            vec2 pixel = floor(pixel_position / pixel_size) * pixel_size + vec2(pixel_size * 0.5);
+            pixel_position = clamp(pixel, vec2(0.5), u_resolution - vec2(0.5));
+        }
         float normalized = clamp(1.0 - distance(pixel_position, u_center) / radius, 0.0, 1.0);
         falloff = pow(normalized, max(u_attenuation, 0.0));
     }

@@ -1,3 +1,4 @@
+pub mod ambient_module;
 pub mod room_audio_source_module;
 pub mod room_layers_module;
 pub mod room_name_module;
@@ -31,6 +32,7 @@ impl RoomProperties {
     pub fn new() -> Self {
         Self {
             modules: vec![
+                Box::new(CollapsiblePropertyModule::new(ambient_module::RoomAmbientModule::new())),
                 Box::new(CollapsiblePropertyModule::new(room_name_module::RoomNameModule::new())),
                 Box::new(CollapsiblePropertyModule::new(room_script_module::RoomScriptModule::new())),
                 Box::new(CollapsiblePropertyModule::new(room_audio_source_module::RoomAudioSourceModule::new())),
@@ -198,6 +200,16 @@ impl InspectorContent for RoomProperties {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn ambient_module_is_part_of_room_properties() {
+        let properties = RoomProperties::new();
+
+        assert!(properties
+            .modules
+            .iter()
+            .any(|module| module.title() == ambient_module::ROOM_AMBIENT_MODULE_TITLE));
+    }
 
     #[test]
     fn collapse_all_collapses_every_room_module() {

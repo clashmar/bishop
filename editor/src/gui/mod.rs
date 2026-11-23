@@ -1,4 +1,5 @@
 pub(crate) mod asset_import;
+pub(crate) mod field_layout;
 pub mod gui_constants;
 pub mod inspector;
 pub mod menu_bar;

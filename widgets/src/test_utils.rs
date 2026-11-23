@@ -346,6 +346,28 @@ impl RenderOps for WidgetTestContext {
     fn draw_render_target(&mut self, _rt: &BishopRenderTarget, _x: f32, _y: f32, _w: f32, _h: f32) {
     }
 
+    fn apply_ambient_pass(
+        &mut self,
+        _source: &BishopRenderTarget,
+        _destination: &BishopRenderTarget,
+        _params: AmbientPassParams,
+    ) -> Result<(), String> {
+        panic!("lighting passes are not used in widget tests")
+    }
+
+    fn apply_point_light_pass(
+        &mut self,
+        _source: &BishopRenderTarget,
+        _destination: &BishopRenderTarget,
+        _params: PointLightPassParams,
+    ) -> Result<(), String> {
+        panic!("lighting passes are not used in widget tests")
+    }
+
+    fn render_target_error(&self, _rt: &BishopRenderTarget) -> Option<String> {
+        panic!("render targets are not used in widget tests")
+    }
+
     fn create_drawable_render_target(&self, _width: u32, _height: u32) -> BishopRenderTarget {
         panic!("render targets are not used in widget tests")
     }
