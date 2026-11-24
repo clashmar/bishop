@@ -282,6 +282,15 @@ impl RenderOps for WebContext {
         WebContext::apply_point_light_pass(self, source, destination, params)
     }
 
+    fn composite_lighting_pass(
+        &mut self,
+        albedo: &WebRenderTarget,
+        illumination: &WebRenderTarget,
+        destination: &WebRenderTarget,
+    ) -> Result<(), String> {
+        WebContext::apply_composite_lighting_pass(self, albedo, illumination, destination)
+    }
+
     fn render_target_error(&self, rt: &WebRenderTarget) -> Option<String> {
         rt.failure().map(str::to_owned)
     }

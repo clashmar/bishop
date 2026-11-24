@@ -788,6 +788,30 @@ impl WgpuContext {
         Ok(())
     }
 
+    pub(crate) fn apply_composite_lighting_pass(
+        &mut self,
+        albedo: &BishopRenderTarget,
+        illumination: &BishopRenderTarget,
+        destination: &BishopRenderTarget,
+    ) -> Result<(), String> {
+        validate_composite_lighting_targets(albedo, illumination, destination)?;
+        self.flush_if_needed();
+        let mut encoder = self.graphics.device.create_command_encoder(
+            &wgpu::CommandEncoderDescriptor { label: Some("room_lighting_composite_pass") },
+        );
+        self.lighting_renderer.composite(
+            &self.graphics.device,
+            &self.graphics.queue,
+            &mut encoder,
+            &self.fullscreen_quad_renderer,
+            albedo,
+            illumination,
+            destination,
+        );
+        self.graphics.queue.submit(std::iter::once(encoder.finish()));
+        Ok(())
+    }
+
     /// Returns the actual window width in logical pixels, ignoring any render target override.
     pub fn window_width(&self) -> f32 {
         self.graphics.size.0 as f32 / self.scale_factor
@@ -837,6 +861,26 @@ fn validate_lighting_targets(
     }
     if source.width() != destination.width() || source.height() != destination.height() {
         return Err("lighting pass source and destination dimensions must match".to_owned());
+    }
+    Ok(())
+}
+
+fn validate_composite_lighting_targets(
+    albedo: &BishopRenderTarget,
+    illumination: &BishopRenderTarget,
+    destination: &BishopRenderTarget,
+) -> Result<(), String> {
+    if std::ptr::eq(albedo.texture(), destination.texture())
+        || std::ptr::eq(illumination.texture(), destination.texture())
+    {
+        return Err("lighting composite destination must differ from both sources".to_owned());
+    }
+    if albedo.width() != illumination.width()
+        || albedo.height() != illumination.height()
+        || albedo.width() != destination.width()
+        || albedo.height() != destination.height()
+    {
+        return Err("lighting composite targets must have matching dimensions".to_owned());
     }
     Ok(())
 }

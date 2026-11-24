@@ -294,6 +294,15 @@ impl RenderOps for WgpuContext {
         WgpuContext::apply_point_light_pass(self, source, destination, params)
     }
 
+    fn composite_lighting_pass(
+        &mut self,
+        albedo: &super::render::BishopRenderTarget,
+        illumination: &super::render::BishopRenderTarget,
+        destination: &super::render::BishopRenderTarget,
+    ) -> Result<(), String> {
+        WgpuContext::apply_composite_lighting_pass(self, albedo, illumination, destination)
+    }
+
     fn render_target_error(&self, _rt: &super::render::BishopRenderTarget) -> Option<String> {
         None
     }

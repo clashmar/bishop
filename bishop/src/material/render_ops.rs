@@ -45,7 +45,7 @@ pub trait RenderOps {
     /// Draws a render target's contents as a textured quad at the given position and size.
     fn draw_render_target(&mut self, rt: &BishopRenderTarget, x: f32, y: f32, w: f32, h: f32);
 
-    /// Applies room ambient lighting from a source into a distinct destination target.
+    /// Initializes encoded room ambient irradiance in a distinct destination target.
     fn apply_ambient_pass(
         &mut self,
         source: &BishopRenderTarget,
@@ -53,12 +53,20 @@ pub trait RenderOps {
         params: AmbientPassParams,
     ) -> Result<(), String>;
 
-    /// Applies one point light from a source into a distinct destination target.
+    /// Applies one point light to a previously encoded illumination target.
     fn apply_point_light_pass(
         &mut self,
         source: &BishopRenderTarget,
         destination: &BishopRenderTarget,
         params: PointLightPassParams,
+    ) -> Result<(), String>;
+
+    /// Combines raw albedo with encoded illumination and tone-maps into a distinct destination.
+    fn composite_lighting_pass(
+        &mut self,
+        albedo: &BishopRenderTarget,
+        illumination: &BishopRenderTarget,
+        destination: &BishopRenderTarget,
     ) -> Result<(), String>;
 
     /// Returns a creation or backend-ownership failure attached to a target.

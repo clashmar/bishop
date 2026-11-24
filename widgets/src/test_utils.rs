@@ -364,6 +364,15 @@ impl RenderOps for WidgetTestContext {
         panic!("lighting passes are not used in widget tests")
     }
 
+    fn composite_lighting_pass(
+        &mut self,
+        _albedo: &BishopRenderTarget,
+        _illumination: &BishopRenderTarget,
+        _destination: &BishopRenderTarget,
+    ) -> Result<(), String> {
+        panic!("lighting passes are not used in widget tests")
+    }
+
     fn render_target_error(&self, _rt: &BishopRenderTarget) -> Option<String> {
         panic!("render targets are not used in widget tests")
     }

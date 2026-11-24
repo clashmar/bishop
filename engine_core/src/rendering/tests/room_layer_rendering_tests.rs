@@ -89,7 +89,7 @@ fn editor_door_ghosts_are_planned_as_an_unlit_top_overlay() {
 
 #[test]
 fn point_light_passes_alternate_distinct_per_layer_buffers() {
-    let mut source = LayerLightingBuffer::Lit;
+    let mut source = LayerLightingBuffer::A;
 
     for _ in 0..8 {
         let destination = alternate_lighting_buffer(source);

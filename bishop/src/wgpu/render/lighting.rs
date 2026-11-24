@@ -91,6 +91,22 @@ impl PassPipeline {
                         ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
                         count: None,
                     },
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 2,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Texture {
+                            sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                            view_dimension: wgpu::TextureViewDimension::D2,
+                            multisampled: false,
+                        },
+                        count: None,
+                    },
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 3,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                        count: None,
+                    },
                 ],
             },
         );
@@ -145,6 +161,7 @@ impl PassPipeline {
         &self,
         device: &wgpu::Device,
         source: &BishopRenderTarget,
+        secondary_source: &BishopRenderTarget,
     ) -> wgpu::BindGroup {
         device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("lighting_pass_source"),
@@ -158,6 +175,14 @@ impl PassPipeline {
                     binding: 1,
                     resource: wgpu::BindingResource::Sampler(source.sampler()),
                 },
+                wgpu::BindGroupEntry {
+                    binding: 2,
+                    resource: wgpu::BindingResource::TextureView(secondary_source.sample_view()),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 3,
+                    resource: wgpu::BindingResource::Sampler(secondary_source.sampler()),
+                },
             ],
         })
     }
@@ -166,6 +191,7 @@ impl PassPipeline {
 pub(crate) struct LightingRenderer {
     ambient: PassPipeline,
     point: PassPipeline,
+    composite: PassPipeline,
 }
 
 impl LightingRenderer {
@@ -191,7 +217,15 @@ impl LightingRenderer {
             "point_light_pass",
             format!("{vertex}\n{}", include_str!("shaders/point_light.wgsl")),
         );
-        Self { ambient, point }
+        let composite = PassPipeline::new(
+            device,
+            format,
+            quad.camera_bind_group_layout(),
+            std::mem::size_of::<AmbientUniforms>() as u64,
+            "room_lighting_composite_pass",
+            format!("{vertex}\n{}", include_str!("shaders/room_lighting_composite.wgsl")),
+        );
+        Self { ambient, point, composite }
     }
 
     pub(crate) fn ambient(
@@ -209,7 +243,7 @@ impl LightingRenderer {
             settings: [params.darkness.clamp(0.0, 1.0), params.exposure.max(0.0), 0.0, 0.0],
         };
         queue.write_buffer(&self.ambient.uniform_buffer, 0, bytemuck::bytes_of(&uniforms));
-        self.draw(device, queue, encoder, quad, &self.ambient, source, destination);
+        self.draw(device, queue, encoder, quad, &self.ambient, source, source, destination);
     }
 
     pub(crate) fn point(
@@ -245,7 +279,29 @@ impl LightingRenderer {
             ],
         };
         queue.write_buffer(&self.point.uniform_buffer, 0, bytemuck::bytes_of(&uniforms));
-        self.draw(device, queue, encoder, quad, &self.point, source, destination);
+        self.draw(device, queue, encoder, quad, &self.point, source, source, destination);
+    }
+
+    pub(crate) fn composite(
+        &self,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        encoder: &mut wgpu::CommandEncoder,
+        quad: &FullscreenQuadRenderer,
+        albedo: &BishopRenderTarget,
+        illumination: &BishopRenderTarget,
+        destination: &BishopRenderTarget,
+    ) {
+        self.draw(
+            device,
+            queue,
+            encoder,
+            quad,
+            &self.composite,
+            albedo,
+            illumination,
+            destination,
+        );
     }
 
     fn draw(
@@ -256,9 +312,10 @@ impl LightingRenderer {
         quad: &FullscreenQuadRenderer,
         pipeline: &PassPipeline,
         source: &BishopRenderTarget,
+        secondary_source: &BishopRenderTarget,
         destination: &BishopRenderTarget,
     ) {
-        let texture_group = pipeline.create_texture_bind_group(device, source);
+        let texture_group = pipeline.create_texture_bind_group(device, source, secondary_source);
         let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("lighting_pass"),
             color_attachments: &[Some(wgpu::RenderPassColorAttachment {
@@ -313,6 +370,7 @@ mod tests {
         for fragment in [
             include_str!("shaders/room_ambient.wgsl"),
             include_str!("shaders/point_light.wgsl"),
+            include_str!("shaders/room_lighting_composite.wgsl"),
         ] {
             let source = format!("{vertex}\n{fragment}");
             assert_eq!(source.matches("struct VertexOutput {").count(), 1);
@@ -324,12 +382,12 @@ mod tests {
         let wgsl = include_str!("shaders/point_light.wgsl");
         let webgl = include_str!("../../web/lighting.rs");
 
-        assert!(wgsl.contains("let base = textureSample(t_scene, s_scene, in.uv);"));
+        assert!(wgsl.contains("let accumulated = textureSample(t_scene, s_scene, in.uv);"));
         assert!(wgsl.contains("var sample_position = in.position.xy;"));
         assert!(!wgsl.contains("in.uv * resolution"));
         assert!(wgsl.contains("let grid_position = sample_position - params.pixel_grid_origin.xy;"));
         assert!(wgsl.contains("let pixel = floor(grid_position / pixel_size)"));
-        assert!(webgl.contains("vec4 base = texture(u_scene, v_uv);"));
+        assert!(webgl.contains("vec4 accumulated = texture(u_scene, v_uv);"));
         assert!(webgl.contains("vec2 grid_position = pixel_position - u_pixel_grid_origin;"));
         assert!(webgl.contains("vec2 pixel = floor(grid_position / pixel_size)"));
     }

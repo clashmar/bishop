@@ -10,7 +10,9 @@ use crate::rendering::room_layer_rendering::{
 
 struct ContributionTargets {
     raw: BishopRenderTarget,
-    lit: BishopRenderTarget,
+    illumination_a: BishopRenderTarget,
+    illumination_b: BishopRenderTarget,
+    composite: BishopRenderTarget,
 }
 
 /// Render system that owns the room contribution targets and final scene compositor.
@@ -23,7 +25,7 @@ pub struct RenderSystem {
     pub render_time_ms: f32,
     /// Final scene render target at virtual resolution.
     scene_rt: Option<BishopRenderTarget>,
-    /// Raw and lit target pairs for background and visible room layers.
+    /// Raw albedo, ping-pong illumination, and final lit targets per contribution.
     contribution_targets: HashMap<RoomLightingContribution, ContributionTargets>,
     /// Final output chosen for presentation.
     output_rt: Option<BishopRenderTarget>,
@@ -85,8 +87,12 @@ impl RenderSystem {
                 |targets| {
                     targets.raw.width() != width
                         || targets.raw.height() != height
-                        || targets.lit.width() != width
-                        || targets.lit.height() != height
+                        || targets.illumination_a.width() != width
+                        || targets.illumination_a.height() != height
+                        || targets.illumination_b.width() != width
+                        || targets.illumination_b.height() != height
+                        || targets.composite.width() != width
+                        || targets.composite.height() != height
                 },
             );
             if needs_create {
@@ -95,13 +101,25 @@ impl RenderSystem {
                     Self::report_fallback(LightingFailure::LayerTargetAllocation, &error);
                     return false;
                 }
-                let lit = ctx.create_drawable_render_target(width, height);
-                if let Some(error) = ctx.render_target_error(&lit) {
+                let illumination_a = ctx.create_drawable_render_target(width, height);
+                if let Some(error) = ctx.render_target_error(&illumination_a) {
                     Self::report_fallback(LightingFailure::LayerTargetAllocation, &error);
                     return false;
                 }
-                self.contribution_targets
-                    .insert(entry.contribution, ContributionTargets { raw, lit });
+                let illumination_b = ctx.create_drawable_render_target(width, height);
+                if let Some(error) = ctx.render_target_error(&illumination_b) {
+                    Self::report_fallback(LightingFailure::LayerTargetAllocation, &error);
+                    return false;
+                }
+                let composite = ctx.create_drawable_render_target(width, height);
+                if let Some(error) = ctx.render_target_error(&composite) {
+                    Self::report_fallback(LightingFailure::LayerTargetAllocation, &error);
+                    return false;
+                }
+                self.contribution_targets.insert(
+                    entry.contribution,
+                    ContributionTargets { raw, illumination_a, illumination_b, composite },
+                );
             }
         }
 
@@ -123,7 +141,7 @@ impl RenderSystem {
         ctx.end_render_to_target();
     }
 
-    /// Lights one isolated contribution, reusing its raw/lit pair as distinct ping-pong buffers.
+    /// Lights one isolated contribution while retaining raw albedo for the final composite.
     pub(crate) fn light_contribution<C: BishopContext>(
         &self,
         ctx: &mut C,
@@ -134,8 +152,8 @@ impl RenderSystem {
         let Some(targets) = self.contribution_targets.get(&contribution) else {
             return Err(format!("missing lighting targets for {contribution:?}"));
         };
-        ctx.apply_ambient_pass(&targets.raw, &targets.lit, ambient)?;
-        let mut source = LayerLightingBuffer::Lit;
+        ctx.apply_ambient_pass(&targets.raw, &targets.illumination_a, ambient)?;
+        let mut source = LayerLightingBuffer::A;
 
         for light in point_lights {
             if light.radius <= 0.0 || light.intensity <= 0.0 {
@@ -143,17 +161,22 @@ impl RenderSystem {
             }
             let destination = alternate_lighting_buffer(source);
             let (source_target, destination_target) = match (source, destination) {
-                (LayerLightingBuffer::Raw, LayerLightingBuffer::Lit) => {
-                    (&targets.raw, &targets.lit)
+                (LayerLightingBuffer::A, LayerLightingBuffer::B) => {
+                    (&targets.illumination_a, &targets.illumination_b)
                 }
-                (LayerLightingBuffer::Lit, LayerLightingBuffer::Raw) => {
-                    (&targets.lit, &targets.raw)
+                (LayerLightingBuffer::B, LayerLightingBuffer::A) => {
+                    (&targets.illumination_b, &targets.illumination_a)
                 }
                 _ => unreachable!("lighting ping-pong buffers must differ"),
             };
             ctx.apply_point_light_pass(source_target, destination_target, *light)?;
             source = destination;
         }
+        let illumination = match source {
+            LayerLightingBuffer::A => &targets.illumination_a,
+            LayerLightingBuffer::B => &targets.illumination_b,
+        };
+        ctx.composite_lighting_pass(&targets.raw, illumination, &targets.composite)?;
 
         Ok(source)
     }
@@ -186,11 +209,11 @@ impl RenderSystem {
                 );
                 return false;
             };
-            let target = if use_lit_results && entry.contribution != RoomLightingContribution::DoorGhosts {
-                match lit_buffers.get(&entry.contribution).copied().unwrap_or(LayerLightingBuffer::Raw) {
-                    LayerLightingBuffer::Raw => &targets.raw,
-                    LayerLightingBuffer::Lit => &targets.lit,
-                }
+            let target = if use_lit_results
+                && entry.contribution != RoomLightingContribution::DoorGhosts
+                && lit_buffers.contains_key(&entry.contribution)
+            {
+                &targets.composite
             } else {
                 &targets.raw
             };

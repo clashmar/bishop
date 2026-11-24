@@ -27,10 +27,14 @@ uniform vec3 u_color;
 uniform float u_exposure;
 uniform float u_darkness;
 out vec4 out_color;
+vec3 encode_radiance(vec3 radiance) {
+    vec3 nonnegative = max(radiance, vec3(0.0));
+    return nonnegative / (vec3(1.0) + nonnegative);
+}
 void main() {
     vec4 base = texture(u_scene, v_uv);
     vec3 ambient = u_color * max(u_exposure, 0.0) * (1.0 - clamp(u_darkness, 0.0, 1.0));
-    out_color = vec4(base.rgb * ambient, base.a);
+    out_color = vec4(encode_radiance(ambient), base.a);
 }
 ";
 
@@ -48,8 +52,16 @@ uniform float u_pixel_size;
 uniform bool u_pixelated;
 uniform vec2 u_pixel_grid_origin;
 out vec4 out_color;
+vec3 decode_radiance(vec3 encoded) {
+    vec3 bounded = min(encoded, vec3(0.999));
+    return bounded / max(vec3(1.0) - bounded, vec3(0.001));
+}
+vec3 encode_radiance(vec3 radiance) {
+    vec3 nonnegative = max(radiance, vec3(0.0));
+    return nonnegative / (vec3(1.0) + nonnegative);
+}
 void main() {
-    vec4 base = texture(u_scene, v_uv);
+    vec4 accumulated = texture(u_scene, v_uv);
     float radius = max(u_radius, 0.0);
     float falloff = 0.0;
     if (radius > 0.0) {
@@ -64,15 +76,42 @@ void main() {
         float normalized = clamp(1.0 - distance(pixel_position, u_center) / radius, 0.0, 1.0);
         falloff = pow(normalized, max(u_attenuation, 0.0));
     }
-    vec3 contribution = u_color * max(u_intensity, 0.0) * falloff;
-    out_color = vec4(base.rgb * (vec3(1.0) + contribution), base.a);
+    vec3 direct_radiance = u_color * max(u_intensity, 0.0) * falloff;
+    out_color = vec4(encode_radiance(decode_radiance(accumulated.rgb) + direct_radiance), accumulated.a);
+}
+";
+
+const COMPOSITE_FRAGMENT_SHADER: &str = "#version 300 es
+precision highp float;
+in vec2 v_uv;
+uniform sampler2D u_scene;
+uniform sampler2D u_illumination;
+uniform vec2 u_resolution;
+uniform vec3 u_color;
+out vec4 out_color;
+vec3 decode_radiance(vec3 encoded) {
+    vec3 bounded = min(encoded, vec3(0.999));
+    return bounded / max(vec3(1.0) - bounded, vec3(0.001));
+}
+vec3 soft_knee_tone_map(vec3 radiance) {
+    vec3 knee = vec3(0.75);
+    vec3 shoulder = max(radiance - knee, vec3(0.0));
+    return min(radiance, knee) + vec3(0.25) * (vec3(1.0) - exp(-shoulder / vec3(0.25)));
+}
+void main() {
+    vec2 uv = (floor(v_uv * u_resolution) + vec2(0.5)) / u_resolution;
+    vec4 albedo = texture(u_scene, uv);
+    vec3 encoded_illumination = texture(u_illumination, uv).rgb;
+    vec3 mapped = soft_knee_tone_map(albedo.rgb * decode_radiance(encoded_illumination));
+    out_color = vec4(mapped * u_color, albedo.a);
 }
 ";
 
 struct PassProgram {
     program: glow::Program,
     scene: glow::UniformLocation,
-    resolution: glow::UniformLocation,
+    illumination: Option<glow::UniformLocation>,
+    resolution: Option<glow::UniformLocation>,
     color: glow::UniformLocation,
     exposure: Option<glow::UniformLocation>,
     darkness: Option<glow::UniformLocation>,
@@ -86,7 +125,12 @@ struct PassProgram {
 }
 
 impl PassProgram {
-    fn new(owner: &GlContext, fragment_source: &str, ambient: bool) -> Result<Self, String> {
+    fn new(
+        owner: &GlContext,
+        fragment_source: &str,
+        ambient: bool,
+        composite: bool,
+    ) -> Result<Self, String> {
         let program = unsafe { link_program(&owner.gl, VERTEX_SHADER, fragment_source)? };
         let gl = &owner.gl;
         let locations = unsafe {
@@ -103,19 +147,22 @@ impl PassProgram {
                 gl.get_uniform_location(program, "u_pixel_size"),
                 gl.get_uniform_location(program, "u_pixelated"),
                 gl.get_uniform_location(program, "u_pixel_grid_origin"),
+                gl.get_uniform_location(program, "u_illumination"),
             )
         };
-        let (Some(scene), Some(resolution), Some(color)) =
-            (locations.0, locations.1, locations.2)
-        else {
+        let (Some(scene), Some(color)) = (locations.0, locations.2) else {
             unsafe { gl.delete_program(program) };
             return Err("WebGL2 lighting shader is missing required uniforms".to_owned());
         };
+        if !ambient && locations.1.is_none() {
+            unsafe { gl.delete_program(program) };
+            return Err("WebGL2 lighting shader is missing resolution uniform".to_owned());
+        }
         if ambient && (locations.3.is_none() || locations.4.is_none()) {
             unsafe { gl.delete_program(program) };
             return Err("WebGL2 ambient shader is missing ambient uniforms".to_owned());
         }
-        if !ambient
+        if !ambient && !composite
             && [locations.5.as_ref(), locations.6.as_ref(), locations.7.as_ref(), locations.8.as_ref(), locations.9.as_ref(), locations.10.as_ref(), locations.11.as_ref()]
                 .into_iter()
                 .any(|location| location.is_none())
@@ -123,10 +170,15 @@ impl PassProgram {
             unsafe { gl.delete_program(program) };
             return Err("WebGL2 point-light shader is missing point uniforms".to_owned());
         }
+        if composite && locations.12.is_none() {
+            unsafe { gl.delete_program(program) };
+            return Err("WebGL2 composite shader is missing illumination uniform".to_owned());
+        }
         Ok(Self {
             program,
             scene,
-            resolution,
+            illumination: locations.12,
+            resolution: locations.1,
             color,
             exposure: locations.3,
             darkness: locations.4,
@@ -147,16 +199,27 @@ pub(crate) struct WebLightingRenderer {
     buffer: glow::Buffer,
     ambient: PassProgram,
     point: PassProgram,
+    composite: PassProgram,
 }
 
 impl WebLightingRenderer {
     pub(crate) fn new(owner: Rc<GlContext>) -> Result<Self, String> {
         owner.make_current()?;
-        let ambient = PassProgram::new(&owner, AMBIENT_FRAGMENT_SHADER, true)?;
-        let point = match PassProgram::new(&owner, POINT_FRAGMENT_SHADER, false) {
+        let ambient = PassProgram::new(&owner, AMBIENT_FRAGMENT_SHADER, true, false)?;
+        let point = match PassProgram::new(&owner, POINT_FRAGMENT_SHADER, false, false) {
             Ok(point) => point,
             Err(error) => {
                 unsafe { owner.gl.delete_program(ambient.program) };
+                return Err(error);
+            }
+        };
+        let composite = match PassProgram::new(&owner, COMPOSITE_FRAGMENT_SHADER, false, true) {
+            Ok(composite) => composite,
+            Err(error) => {
+                unsafe {
+                    owner.gl.delete_program(ambient.program);
+                    owner.gl.delete_program(point.program);
+                }
                 return Err(error);
             }
         };
@@ -166,6 +229,7 @@ impl WebLightingRenderer {
                 unsafe {
                     owner.gl.delete_program(ambient.program);
                     owner.gl.delete_program(point.program);
+                    owner.gl.delete_program(composite.program);
                 }
                 return Err(error);
             }
@@ -176,6 +240,7 @@ impl WebLightingRenderer {
                 unsafe {
                     owner.gl.delete_program(ambient.program);
                     owner.gl.delete_program(point.program);
+                    owner.gl.delete_program(composite.program);
                     owner.gl.delete_vertex_array(vao);
                 }
                 return Err(error);
@@ -191,21 +256,21 @@ impl WebLightingRenderer {
             owner.gl.bind_vertex_array(None);
             owner.gl.bind_buffer(glow::ARRAY_BUFFER, None);
         }
-        Ok(Self { owner, vao, buffer, ambient, point })
+        Ok(Self { owner, vao, buffer, ambient, point, composite })
     }
 
     fn ambient(&self, source: &WebRenderTarget, destination: &WebRenderTarget, params: AmbientPassParams) -> Result<(), String> {
-        self.draw(source, destination, &self.ambient, |gl, uniforms, width, height| unsafe {
+        self.draw(source, None, destination, &self.ambient, |gl, uniforms, width, height| unsafe {
             gl.uniform_3_f32(Some(&uniforms.color), params.color[0], params.color[1], params.color[2]);
             gl.uniform_1_f32(uniforms.exposure.as_ref(), params.exposure.max(0.0));
             gl.uniform_1_f32(uniforms.darkness.as_ref(), params.darkness.clamp(0.0, 1.0));
-            gl.uniform_2_f32(Some(&uniforms.resolution), width as f32, height as f32);
+            gl.uniform_2_f32(uniforms.resolution.as_ref(), width as f32, height as f32);
         })
     }
 
     fn point(&self, source: &WebRenderTarget, destination: &WebRenderTarget, params: PointLightPassParams) -> Result<(), String> {
-        self.draw(source, destination, &self.point, |gl, uniforms, width, height| unsafe {
-            gl.uniform_2_f32(Some(&uniforms.resolution), width as f32, height as f32);
+        self.draw(source, None, destination, &self.point, |gl, uniforms, width, height| unsafe {
+            gl.uniform_2_f32(uniforms.resolution.as_ref(), width as f32, height as f32);
             gl.uniform_3_f32(Some(&uniforms.color), params.color[0], params.color[1], params.color[2]);
             gl.uniform_2_f32(uniforms.center.as_ref(), params.center[0], params.center[1]);
             gl.uniform_1_f32(uniforms.intensity.as_ref(), params.intensity.max(0.0));
@@ -221,21 +286,55 @@ impl WebLightingRenderer {
         })
     }
 
-    fn draw<F>(&self, source: &WebRenderTarget, destination: &WebRenderTarget, pass: &PassProgram, set_uniforms: F) -> Result<(), String>
+    fn composite(
+        &self,
+        albedo: &WebRenderTarget,
+        illumination: &WebRenderTarget,
+        destination: &WebRenderTarget,
+    ) -> Result<(), String> {
+        self.draw(albedo, Some(illumination), destination, &self.composite, |gl, uniforms, width, height| unsafe {
+            gl.uniform_2_f32(uniforms.resolution.as_ref(), width as f32, height as f32);
+            gl.uniform_3_f32(Some(&uniforms.color), 1.0, 1.0, 1.0);
+        })
+    }
+
+    fn draw<F>(
+        &self,
+        source: &WebRenderTarget,
+        secondary_source: Option<&WebRenderTarget>,
+        destination: &WebRenderTarget,
+        pass: &PassProgram,
+        set_uniforms: F,
+    ) -> Result<(), String>
     where
         F: FnOnce(&glow::Context, &PassProgram, u32, u32),
     {
-        if let Some(error) = source.failure().or_else(|| destination.failure()) {
+        if let Some(error) = source
+            .failure()
+            .or_else(|| destination.failure())
+            .or_else(|| secondary_source.and_then(WebRenderTarget::failure))
+        {
             return Err(format!("cannot run WebGL2 lighting pass: {error}"));
         }
-        if !source.belongs_to(&self.owner) || !destination.belongs_to(&self.owner) {
+        if !source.belongs_to(&self.owner) || !destination.belongs_to(&self.owner)
+            || secondary_source.is_some_and(|target| !target.belongs_to(&self.owner))
+        {
             return Err("WebGL2 lighting target belongs to another context".to_owned());
         }
-        if source.texture() == destination.texture() {
+        if source.texture() == destination.texture()
+            || secondary_source.is_some_and(|target| target.texture() == destination.texture())
+        {
             return Err("WebGL2 lighting source and destination must differ".to_owned());
         }
-        if source.width() != destination.width() || source.height() != destination.height() {
+        if source.width() != destination.width() || source.height() != destination.height()
+            || secondary_source.is_some_and(|target| {
+                target.width() != destination.width() || target.height() != destination.height()
+            })
+        {
             return Err("WebGL2 lighting targets must have matching dimensions".to_owned());
+        }
+        if pass.illumination.is_some() != secondary_source.is_some() {
+            return Err("WebGL2 lighting pass source bindings do not match the shader".to_owned());
         }
         let Some(framebuffer) = destination.framebuffer() else {
             return Err("WebGL2 lighting destination has no framebuffer".to_owned());
@@ -243,6 +342,13 @@ impl WebLightingRenderer {
         let Some(texture) = source.texture() else {
             return Err("WebGL2 lighting source has no texture".to_owned());
         };
+        let secondary_texture = secondary_source
+            .map(|target| {
+                target
+                    .texture()
+                    .ok_or_else(|| "WebGL2 lighting secondary source has no texture".to_owned())
+            })
+            .transpose()?;
         self.owner.make_current()?;
         let gl = &self.owner.gl;
         let width = destination.width();
@@ -271,6 +377,14 @@ impl WebLightingRenderer {
             set_uniforms(gl, pass, width, height);
             gl.active_texture(glow::TEXTURE0);
             gl.bind_texture(glow::TEXTURE_2D, Some(texture));
+            if let (Some(location), Some(secondary_texture)) =
+                (&pass.illumination, secondary_texture)
+            {
+                gl.uniform_1_i32(Some(location), 1);
+                gl.active_texture(glow::TEXTURE1);
+                gl.bind_texture(glow::TEXTURE_2D, Some(secondary_texture));
+                gl.active_texture(glow::TEXTURE0);
+            }
             gl.bind_vertex_array(Some(self.vao));
             gl.bind_buffer(glow::ARRAY_BUFFER, Some(self.buffer));
             gl.buffer_data_u8_slice(glow::ARRAY_BUFFER, &bytes, glow::STREAM_DRAW);
@@ -278,6 +392,9 @@ impl WebLightingRenderer {
             let error = gl.get_error();
             gl.bind_vertex_array(None);
             gl.bind_texture(glow::TEXTURE_2D, None);
+            gl.active_texture(glow::TEXTURE1);
+            gl.bind_texture(glow::TEXTURE_2D, None);
+            gl.active_texture(glow::TEXTURE0);
             gl.bind_framebuffer(glow::FRAMEBUFFER, None);
             let canvas_size = match self.owner.canvas_size() {
                 Ok(size) => size,
@@ -300,6 +417,7 @@ impl Drop for WebLightingRenderer {
             unsafe {
                 self.owner.gl.delete_program(self.ambient.program);
                 self.owner.gl.delete_program(self.point.program);
+                self.owner.gl.delete_program(self.composite.program);
                 self.owner.gl.delete_buffer(self.buffer);
                 self.owner.gl.delete_vertex_array(self.vao);
             }
@@ -320,6 +438,18 @@ impl WebContext {
             return Err("WebGL2 lighting pass cannot run inside an active target".to_owned());
         }
         self.lighting_renderer.point(source, destination, params)
+    }
+
+    pub(crate) fn apply_composite_lighting_pass(
+        &mut self,
+        albedo: &WebRenderTarget,
+        illumination: &WebRenderTarget,
+        destination: &WebRenderTarget,
+    ) -> Result<(), String> {
+        if self.renderer.active_target.is_some() {
+            return Err("WebGL2 lighting pass cannot run inside an active target".to_owned());
+        }
+        self.lighting_renderer.composite(albedo, illumination, destination)
     }
 }
 

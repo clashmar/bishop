@@ -4,14 +4,14 @@ use bishop::prelude::PointLightPassParams;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum LayerLightingBuffer {
-    Raw,
-    Lit,
+    A,
+    B,
 }
 
 pub(crate) fn alternate_lighting_buffer(source: LayerLightingBuffer) -> LayerLightingBuffer {
     match source {
-        LayerLightingBuffer::Raw => LayerLightingBuffer::Lit,
-        LayerLightingBuffer::Lit => LayerLightingBuffer::Raw,
+        LayerLightingBuffer::A => LayerLightingBuffer::B,
+        LayerLightingBuffer::B => LayerLightingBuffer::A,
     }
 }
 
