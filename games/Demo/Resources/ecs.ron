@@ -166,6 +166,7 @@
                 (2): (
                     entities: [
                         (342),
+                        (347),
                     ],
                 ),
                 (3): (
@@ -712,6 +713,14 @@
                     room_id: (1),
                     layer: front,
                 ),
+                (344): (
+                    room_id: (1),
+                    layer: back,
+                ),
+                (347): (
+                    room_id: (1),
+                    layer: front,
+                ),
             },
         ),
         (
@@ -908,6 +917,8 @@
                 (340): ("Dog"),
                 (341): ("Dog Awareness Probe"),
                 (342): ("Landing Dust Emitter"),
+                (344): ("Entity"),
+                (347): ("Point Light"),
             },
         ),
         (
@@ -916,6 +927,7 @@
                 (339): ((338)),
                 (341): ((340)),
                 (342): ((2)),
+                (347): ((2)),
             },
         ),
         (
@@ -969,6 +981,31 @@
                 (2): (),
                 (71): (),
                 (329): (),
+            },
+        ),
+        (
+            type_name: "PointLight",
+            data: {
+                (344): (
+                    offset: (0.0, 0.0),
+                    color: (1.0, 1.0, 1.0),
+                    intensity: 20.0,
+                    radius: 20.0,
+                    attenuation: 1.0,
+                    layer_scope: all_visible_layers,
+                    style: smooth,
+                    pixel_size: 1,
+                ),
+                (347): (
+                    offset: (0.0, 0.0),
+                    color: (1.0, 1.0, 1.0),
+                    intensity: 0.2,
+                    radius: 20.0,
+                    attenuation: 2.0,
+                    layer_scope: owning_layer,
+                    style: pixel,
+                    pixel_size: 1,
+                ),
             },
         ),
         (
@@ -1742,6 +1779,18 @@
                     position: (132.0, 72.0),
                     pivot: BottomCenter,
                     z: 2,
+                ),
+                (344): (
+                    visible: true,
+                    position: (100.0, 32.0),
+                    pivot: BottomCenter,
+                    z: 0,
+                ),
+                (347): (
+                    visible: true,
+                    position: (132.0, 64.0),
+                    pivot: BottomCenter,
+                    z: 0,
                 ),
             },
         ),

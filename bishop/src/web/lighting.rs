@@ -102,7 +102,8 @@ void main() {
     vec2 uv = (floor(v_uv * u_resolution) + vec2(0.5)) / u_resolution;
     vec4 albedo = texture(u_scene, uv);
     vec3 encoded_illumination = texture(u_illumination, uv).rgb;
-    vec3 mapped = soft_knee_tone_map(albedo.rgb * decode_radiance(encoded_illumination));
+    vec3 straight_albedo = albedo.rgb / max(albedo.a, 0.000001);
+    vec3 mapped = soft_knee_tone_map(straight_albedo * decode_radiance(encoded_illumination));
     out_color = vec4(mapped * u_color, albedo.a);
 }
 ";
@@ -402,7 +403,12 @@ impl WebLightingRenderer {
             };
             gl.viewport(0, 0, canvas_size.0, canvas_size.1);
             gl.enable(glow::BLEND);
-            gl.blend_func(glow::SRC_ALPHA, glow::ONE_MINUS_SRC_ALPHA);
+            gl.blend_func_separate(
+                glow::SRC_ALPHA,
+                glow::ONE_MINUS_SRC_ALPHA,
+                glow::ONE,
+                glow::ONE_MINUS_SRC_ALPHA,
+            );
             if error != glow::NO_ERROR {
                 return Err(format!("WebGL2 lighting pass failed: GL error {error}"));
             }

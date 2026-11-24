@@ -28,6 +28,8 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let albedo = textureSample(t_albedo, s_albedo, in.uv);
     let encoded_illumination = textureSample(t_illumination, s_illumination, in.uv).rgb;
     let illumination = decode_radiance(encoded_illumination);
-    let mapped = soft_knee_tone_map(albedo.rgb * illumination);
-    return vec4<f32>(mapped, albedo.a);
+    let alpha = albedo.a;
+    let straight_albedo = albedo.rgb / max(alpha, 0.000001);
+    let mapped = soft_knee_tone_map(straight_albedo * illumination);
+    return vec4<f32>(mapped, alpha);
 }
