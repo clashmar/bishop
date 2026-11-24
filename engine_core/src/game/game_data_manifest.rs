@@ -1,3 +1,4 @@
+use crate::input::InputActionMap;
 use crate::worlds::WorldId;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -12,11 +13,14 @@ pub struct GameDataManifest {
     pub current_world_id: Option<WorldId>,
     pub start_world_id: Option<WorldId>,
     pub world_ids: Vec<WorldId>,
+    /// Authored action identifiers and their default bindings.
+    pub input_actions: InputActionMap,
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::input::InputActionMap;
 
     #[test]
     fn game_data_manifest_round_trips_without_inline_worlds() {
@@ -27,6 +31,7 @@ mod tests {
             current_world_id: Some(WorldId(1)),
             start_world_id: Some(WorldId(1)),
             world_ids: vec![WorldId(1)],
+            input_actions: InputActionMap::default(),
         };
 
         let ron = ron::ser::to_string_pretty(&manifest, ron::ser::PrettyConfig::new()).unwrap();
@@ -35,5 +40,6 @@ mod tests {
         assert_eq!(parsed.id, manifest.id);
         assert_eq!(parsed.world_ids, manifest.world_ids);
         assert_eq!(parsed.start_world_id, manifest.start_world_id);
+        assert_eq!(parsed.input_actions, manifest.input_actions);
     }
 }

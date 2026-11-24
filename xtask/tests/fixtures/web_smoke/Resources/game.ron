@@ -4,6 +4,7 @@
     name: "WebSmoke",
     current_world_id: Some((1)),
     start_world_id: Some((1)),
+    input_actions: (actions: {}),
     world_ids: [
         (1),
     ],

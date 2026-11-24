@@ -16,6 +16,7 @@ use crate::ecs::get_root_entities_in_set;
 use crate::ecs::{CurrentRoom, Entity};
 use crate::engine_global::set_game_name;
 use crate::hydration::HydrationCoordinator;
+use crate::input::InputActionMap;
 use crate::omni_error;
 use crate::prefab::{load_prefab_manager, load_prefab_manager_from_source, PrefabManager};
 use crate::scripting::script_manager::ScriptManager;
@@ -53,6 +54,8 @@ pub struct Game {
     pub name: String,
     /// Authored text presentation defaults for the game.
     pub text_settings: GameTextSettings,
+    /// Authored action identifiers and their default input bindings.
+    pub input_actions: InputActionMap,
     /// Stores the game ECS.
     pub ecs: Ecs,
     /// All worlds belonging to this game instance.
@@ -105,6 +108,7 @@ impl Default for Game {
             id: Uuid::new_v4(),
             name: String::new(),
             text_settings: GameTextSettings::default(),
+            input_actions: InputActionMap::default(),
             ecs: Ecs::default(),
             worlds: Vec::new(),
             world_index: HashMap::new(),

@@ -1,5 +1,6 @@
-use crate::menu::*;
-use bishop::prelude::*;
+use crate::input::{InputBinding, InputSource};
+use crate::menu::{MenuElement, MenuElementKind};
+use bishop::{BishopContext, KeyCode};
 use serde::{Deserialize, Serialize};
 
 /// Navigation targets for each direction.
@@ -24,25 +25,43 @@ pub trait Navigable {
 /// Configurable navigation bindings for menu interaction.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MenuNavigation {
-    pub up: InputBinding,
-    pub down: InputBinding,
-    pub left: InputBinding,
-    pub right: InputBinding,
-    pub confirm: InputBinding,
-    pub cancel: InputBinding,
-    pub pause: InputBinding,
+    pub up: Vec<InputBinding>,
+    pub down: Vec<InputBinding>,
+    pub left: Vec<InputBinding>,
+    pub right: Vec<InputBinding>,
+    pub confirm: Vec<InputBinding>,
+    pub cancel: Vec<InputBinding>,
+    pub pause: Vec<InputBinding>,
 }
 
 impl Default for MenuNavigation {
     fn default() -> Self {
         Self {
-            up: InputBinding::keyboard_with_alt(KeyCode::Up, KeyCode::W),
-            down: InputBinding::keyboard_with_alt(KeyCode::Down, KeyCode::S),
-            left: InputBinding::keyboard_with_alt(KeyCode::Left, KeyCode::A),
-            right: InputBinding::keyboard_with_alt(KeyCode::Right, KeyCode::D),
-            confirm: InputBinding::keyboard_with_alt(KeyCode::Enter, KeyCode::Space),
-            cancel: InputBinding::keyboard(KeyCode::Escape),
-            pause: InputBinding::keyboard_with_alt(KeyCode::P, KeyCode::Escape),
+            up: vec![
+                InputBinding::keyboard(KeyCode::Up),
+                InputBinding::keyboard(KeyCode::W),
+            ],
+            down: vec![
+                InputBinding::keyboard(KeyCode::Down),
+                InputBinding::keyboard(KeyCode::S),
+            ],
+            left: vec![
+                InputBinding::keyboard(KeyCode::Left),
+                InputBinding::keyboard(KeyCode::A),
+            ],
+            right: vec![
+                InputBinding::keyboard(KeyCode::Right),
+                InputBinding::keyboard(KeyCode::D),
+            ],
+            confirm: vec![
+                InputBinding::keyboard(KeyCode::Enter),
+                InputBinding::keyboard(KeyCode::Space),
+            ],
+            cancel: vec![InputBinding::keyboard(KeyCode::Escape)],
+            pause: vec![
+                InputBinding::keyboard(KeyCode::P),
+                InputBinding::keyboard(KeyCode::Escape),
+            ],
         }
     }
 }
@@ -50,46 +69,60 @@ impl Default for MenuNavigation {
 impl MenuNavigation {
     /// Checks if up was pressed this frame.
     pub fn up_pressed<C: BishopContext>(&self, ctx: &C) -> bool {
-        self.up.is_pressed(ctx)
+        bindings_pressed(&self.up, ctx)
     }
 
     /// Checks if down was pressed this frame.
     pub fn down_pressed<C: BishopContext>(&self, ctx: &C) -> bool {
-        self.down.is_pressed(ctx)
+        bindings_pressed(&self.down, ctx)
     }
 
     /// Checks if left was pressed this frame.
     pub fn left_pressed<C: BishopContext>(&self, ctx: &C) -> bool {
-        self.left.is_pressed(ctx)
+        bindings_pressed(&self.left, ctx)
     }
 
     /// Checks if left is currently held down.
     pub fn left_down<C: BishopContext>(&self, ctx: &C) -> bool {
-        self.left.is_down(ctx)
+        bindings_down(&self.left, ctx)
     }
 
     /// Checks if right was pressed this frame.
     pub fn right_pressed<C: BishopContext>(&self, ctx: &C) -> bool {
-        self.right.is_pressed(ctx)
+        bindings_pressed(&self.right, ctx)
     }
 
     /// Checks if right is currently held down.
     pub fn right_down<C: BishopContext>(&self, ctx: &C) -> bool {
-        self.right.is_down(ctx)
+        bindings_down(&self.right, ctx)
     }
 
     /// Checks if confirm was pressed this frame.
     pub fn confirm_pressed<C: BishopContext>(&self, ctx: &C) -> bool {
-        self.confirm.is_pressed(ctx)
+        bindings_pressed(&self.confirm, ctx)
     }
 
     /// Checks if cancel was pressed this frame.
     pub fn cancel_pressed<C: BishopContext>(&self, ctx: &C) -> bool {
-        self.cancel.is_pressed(ctx)
+        bindings_pressed(&self.cancel, ctx)
     }
 
     /// Checks if pause was pressed this frame.
     pub fn pause_pressed<C: BishopContext>(&self, ctx: &C) -> bool {
-        self.pause.is_pressed(ctx)
+        bindings_pressed(&self.pause, ctx)
     }
+}
+
+fn bindings_pressed<C: BishopContext>(bindings: &[InputBinding], ctx: &C) -> bool {
+    bindings.iter().any(|binding| match binding.source {
+        InputSource::Key(key) => ctx.is_key_pressed(key),
+        InputSource::GamepadButton(_) | InputSource::GamepadAxis { .. } => false,
+    })
+}
+
+fn bindings_down<C: BishopContext>(bindings: &[InputBinding], ctx: &C) -> bool {
+    bindings.iter().any(|binding| match binding.source {
+        InputSource::Key(key) => ctx.is_key_down(key),
+        InputSource::GamepadButton(_) | InputSource::GamepadAxis { .. } => false,
+    })
 }

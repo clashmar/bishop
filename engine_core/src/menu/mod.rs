@@ -1,5 +1,4 @@
 pub mod elements;
-mod input_binding;
 pub mod layout;
 mod menu_builder;
 mod menu_coordinates;
@@ -12,7 +11,6 @@ pub(crate) mod runtime;
 
 pub use bishop::input::*;
 pub use elements::*;
-pub use input_binding::*;
 pub use layout::*;
 pub use menu_builder::*;
 pub use menu_coordinates::*;

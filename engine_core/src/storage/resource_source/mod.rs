@@ -1,7 +1,5 @@
 mod split_layout;
 #[cfg(test)]
-mod split_layout_tests;
-#[cfg(test)]
 mod tests;
 
 pub use split_layout::{

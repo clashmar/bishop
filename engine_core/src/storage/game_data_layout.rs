@@ -95,6 +95,7 @@ pub fn save_game_to_folder(game: &Game, folder: &Path) -> io::Result<()> {
         current_world_id: game.current_world_id,
         start_world_id: game.start_world_id,
         world_ids,
+        input_actions: game.input_actions.clone(),
     };
     let manifest_ron =
         ron::ser::to_string_pretty(&manifest, ron::ser::PrettyConfig::new())
