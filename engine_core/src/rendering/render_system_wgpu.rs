@@ -1,8 +1,9 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use bishop::prelude::*;
 use crate::omni_error;
 use crate::ecs::*;
+use crate::rendering::room_layer_draw::{GlowSourceDiagnostic, GlowSourceIssueKind};
 use crate::rendering::room_layer_rendering::{
     ContributionLightingPlan, LayerLightingBuffer, LightingFailure, RoomLightingContribution,
     alternate_lighting_buffer, fallback_for_lighting_failure,
@@ -29,6 +30,8 @@ pub struct RenderSystem {
     contribution_targets: HashMap<RoomLightingContribution, ContributionTargets>,
     /// Final output chosen for presentation.
     output_rt: Option<BishopRenderTarget>,
+    /// Source failures already logged, retained to avoid one warning per frame.
+    reported_glow_source_issues: HashSet<GlowSourceDiagnostic>,
 }
 
 impl RenderSystem {
@@ -40,6 +43,7 @@ impl RenderSystem {
             scene_rt: None,
             contribution_targets: HashMap::new(),
             output_rt: None,
+            reported_glow_source_issues: HashSet::new(),
         }
     }
 
@@ -231,6 +235,34 @@ impl RenderSystem {
 
     pub(crate) fn report_pass_failure(detail: &str) {
         Self::report_fallback(LightingFailure::LightingPass, detail);
+    }
+
+    pub(super) fn report_glow_source_diagnostics(
+        &mut self,
+        diagnostics: &[GlowSourceDiagnostic],
+    ) {
+        for diagnostic in diagnostics {
+            if !self.reported_glow_source_issues.insert(*diagnostic) {
+                continue;
+            }
+
+            let detail = match diagnostic.kind {
+                GlowSourceIssueKind::DisplayedVisualUnavailable => {
+                    "no drawable Sprite or CurrentFrame visual is available"
+                }
+                GlowSourceIssueKind::MissingCurrentFrame => {
+                    "the resolved visual has no CurrentFrame for Aseprite slice selection"
+                }
+                GlowSourceIssueKind::MissingSliceBounds => {
+                    "no valid imported glow slice bounds exist for the active clip and frame"
+                }
+            };
+            crate::omni_warn!(
+                "glow_source_unavailable entity={:?}: {}; emission skipped",
+                diagnostic.entity,
+                detail,
+            );
+        }
     }
 
     fn report_fallback(failure: LightingFailure, detail: &str) {

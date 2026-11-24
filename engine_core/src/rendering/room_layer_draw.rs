@@ -3,16 +3,16 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use bishop::prelude::{BishopContext, Color, Rect, Vec2};
 use crate::assets::SpriteManager;
 use crate::ecs::{
-    Cover, CurrentFrame, CurrentRoom, Ecs, Entity, LayerDoor, PointLight, RoomCamera, Sprite,
-    SubPixel, Transform,
+    Animation, Cover, CurrentFrame, CurrentRoom, Ecs, Entity, Glow, GlowSource, LayerDoor,
+    PointLight, RoomCamera, Sprite, SubPixel, Transform,
 };
 use crate::ecs::components::transform::Pivot;
 use crate::rendering::helpers::{
-    entity_visible_in_room, entity_visual_rect, interpolate_position, resolve_visual_entity,
-    spillover_candidate_room_ids, visual_position,
+    entity_visible_in_room, entity_visual_rect, interpolate_position, pivot_adjusted_position,
+    resolve_visual_entity, spillover_candidate_room_ids, visual_position,
     visual_rect_visible_in_room, RoomVisibilityContext,
 };
-use crate::rendering::lighting::RoomLayerLighting;
+use crate::rendering::lighting::{GlowVisual, RoomLayerLighting};
 use crate::rendering::particle_draw::{draw_particle, particle_visual_bounds};
 use crate::rendering::particles::{Particle, ParticleSystem};
 use crate::rendering::renderable::{EntityDrawParams, Renderable};
@@ -40,11 +40,26 @@ impl LayerDrawItem<'_> {
     }
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub(super) enum GlowSourceIssueKind {
+    DisplayedVisualUnavailable,
+    MissingCurrentFrame,
+    MissingSliceBounds,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub(super) struct GlowSourceDiagnostic {
+    pub(super) entity: Entity,
+    pub(super) owner_layer: RoomLayer,
+    pub(super) kind: GlowSourceIssueKind,
+}
+
 /// Depth-grouped render data collected from the visible room neighborhood.
 #[derive(Default)]
 pub(super) struct CollectedRoomLayerMaps<'a> {
     front: BTreeMap<i32, LayerData<'a>>,
     back: BTreeMap<i32, LayerData<'a>>,
+    pub(super) glow_source_diagnostics: Vec<GlowSourceDiagnostic>,
 }
 
 impl<'a> CollectedRoomLayerMaps<'a> {
@@ -151,6 +166,145 @@ fn draw_entity<C: BishopContext>(
     }
 }
 
+fn resolve_glow_visual_source(
+    ecs: &Ecs,
+    sprite_manager: &SpriteManager,
+    entity: Entity,
+    glow: &Glow,
+    position: Vec2,
+    grid_size: f32,
+) -> Option<GlowVisual> {
+    let visual_entity = resolve_visual_entity(ecs, entity);
+    let pivot = ecs
+        .get_store::<Transform>()
+        .get(entity)
+        .map(|transform| transform.pivot)
+        .unwrap_or(Pivot::BottomCenter);
+
+    if let Some(frame) = ecs.get_store::<CurrentFrame>().get(visual_entity)
+        && frame.has_valid_asset()
+    {
+        let frame_size = frame.frame_size;
+        if !frame_size.is_finite() || frame_size.x <= 0.0 || frame_size.y <= 0.0 {
+            return None;
+        }
+
+        let frame_source_x = frame.col as f32 * frame_size.x;
+        let frame_source_y = frame.row as f32 * frame_size.y;
+        let frame_position =
+            pivot_adjusted_position(position, frame_size, pivot) + frame.offset;
+        let (frame_index, slice_bounds) = match glow.source {
+            GlowSource::DisplayedVisual => {
+                let frame_index = ecs
+                    .get_store::<Animation>()
+                    .get(visual_entity)
+                    .and_then(|animation| animation.clips.get(&frame.clip_id))
+                    .and_then(|clip| {
+                        (frame.col < clip.cols && frame.row < clip.rows)
+                            .then(|| frame.row.checked_mul(clip.cols)?.checked_add(frame.col))
+                            .flatten()
+                    });
+                (frame_index, None)
+            }
+            GlowSource::AsepriteSlice => {
+                let clip = ecs
+                    .get_store::<Animation>()
+                    .get(visual_entity)?
+                    .clips
+                    .get(&frame.clip_id)?;
+                if frame.col >= clip.cols || frame.row >= clip.rows {
+                    return None;
+                }
+                let frame_index = frame.row.checked_mul(clip.cols)?.checked_add(frame.col)?;
+                let bounds = glow.slice_bounds_for_frame(&frame.clip_id, frame_index)?;
+                if !valid_slice_bounds(bounds, frame_size) {
+                    return None;
+                }
+                (Some(frame_index), Some(bounds))
+            }
+        };
+
+        let (source_rect, destination, flip_x) = if let Some(bounds) = slice_bounds {
+            let destination_x = if frame.flip_x {
+                frame_size.x - bounds.x - bounds.w
+            } else {
+                bounds.x
+            };
+            (
+                Rect::new(
+                    frame_source_x + bounds.x,
+                    frame_source_y + bounds.y,
+                    bounds.w,
+                    bounds.h,
+                ),
+                Rect::new(
+                    frame_position.x + destination_x,
+                    frame_position.y + bounds.y,
+                    bounds.w,
+                    bounds.h,
+                ),
+                frame.flip_x,
+            )
+        } else {
+            (
+                Rect::new(frame_source_x, frame_source_y, frame_size.x, frame_size.y),
+                Rect::new(frame_position.x, frame_position.y, frame_size.x, frame_size.y),
+                frame.flip_x,
+            )
+        };
+
+        return Some(GlowVisual {
+            sprite_id: frame.sprite_id,
+            source_rect,
+            destination,
+            flip_x,
+            clip_id: Some(frame.clip_id.clone()),
+            frame_index,
+            slice_bounds,
+        });
+    }
+
+    if glow.source == GlowSource::AsepriteSlice {
+        return None;
+    }
+
+    let sprite = ecs.get_store::<Sprite>().get(visual_entity)?;
+    if !sprite.has_valid_asset() {
+        return None;
+    }
+    let (width, height) = sprite_manager
+        .texture_size(sprite.sprite)
+        .unwrap_or((grid_size, grid_size));
+    let size = Vec2::new(width, height);
+    if !size.is_finite() || size.x <= 0.0 || size.y <= 0.0 {
+        return None;
+    }
+    let draw_position = pivot_adjusted_position(position, size, pivot);
+
+    Some(GlowVisual {
+        sprite_id: sprite.sprite,
+        source_rect: Rect::new(0.0, 0.0, size.x, size.y),
+        destination: Rect::new(draw_position.x, draw_position.y, size.x, size.y),
+        flip_x: false,
+        clip_id: None,
+        frame_index: None,
+        slice_bounds: None,
+    })
+}
+
+fn valid_slice_bounds(bounds: crate::animation::AsepriteSliceBounds, frame_size: Vec2) -> bool {
+    bounds.x.is_finite()
+        && bounds.y.is_finite()
+        && bounds.w.is_finite()
+        && bounds.h.is_finite()
+        && bounds.x >= 0.0
+        && bounds.y >= 0.0
+        && bounds.w > 0.0
+        && bounds.h > 0.0
+        && bounds.x + bounds.w <= frame_size.x
+        && bounds.y + bounds.h <= frame_size.y
+}
+
 pub(super) fn collect_interpolated_room_layer_maps<'a>(
     ecs: &'a Ecs,
     room_ctx: &RoomVisibilityContext<'_>,
@@ -167,6 +321,7 @@ pub(super) fn collect_interpolated_room_layer_maps<'a>(
     let trans_store = ecs.get_store::<Transform>();
     let cam_store = ecs.get_store::<RoomCamera>();
     let point_light_store = ecs.get_store::<PointLight>();
+    let glow_store = ecs.get_store::<Glow>();
     let sub_pixel_store = ecs.get_store::<SubPixel>();
 
     for candidate_room_id in spillover_candidate_room_ids(world, room) {
@@ -213,6 +368,37 @@ pub(super) fn collect_interpolated_room_layer_maps<'a>(
             if let Some(light) = point_light_store.get(entity) {
                 entry.lighting.collect_point_light(entity, light, draw_pos);
             }
+            if let Some(glow) = glow_store.get(entity) {
+                if let Some(source) = resolve_glow_visual_source(
+                    ecs,
+                    sprite_manager,
+                    entity,
+                    glow,
+                    draw_pos,
+                    room_ctx.grid_size,
+                ) {
+                    entry.lighting.collect_glow(entity, glow, source);
+                } else {
+                    let kind = match glow.source {
+                        GlowSource::DisplayedVisual => GlowSourceIssueKind::DisplayedVisualUnavailable,
+                        GlowSource::AsepriteSlice
+                            if ecs
+                                .get_store::<CurrentFrame>()
+                                .get(resolve_visual_entity(ecs, entity))
+                                .is_none() =>
+                        {
+                            GlowSourceIssueKind::MissingCurrentFrame
+                        }
+                        GlowSource::AsepriteSlice => GlowSourceIssueKind::MissingSliceBounds,
+                    };
+                    maps.glow_source_diagnostics
+                        .push(GlowSourceDiagnostic {
+                            entity,
+                            owner_layer: room_layer,
+                            kind,
+                        });
+                }
+            }
         }
     }
 
@@ -245,6 +431,8 @@ pub(super) fn collect_interpolated_room_layer_maps<'a>(
         layer.items.sort_by_key(LayerDrawItem::sort_key);
         layer.lighting.sort();
     }
+    maps.glow_source_diagnostics.sort_by_key(|issue| issue.entity);
+    maps.glow_source_diagnostics.dedup();
 
     maps
 }

@@ -1,7 +1,13 @@
 use super::*;
-use bishop::{vec2, Camera2D, Rect};
-use crate::ecs::{Cover, Interactable, Pivot, PointLight, PointLightLayerScope, Transform};
+use bishop::{vec2, vec3, Camera2D, Rect};
+use crate::animation::{AsepriteSliceBounds, ClipDef, ClipId};
+use crate::ecs::{
+    Animation, Cover, CurrentFrame, Glow, GlowSource, Interactable, Pivot, PointLight,
+    PointLightLayerScope, PointLightStyle, Sprite, SpriteId, Transform,
+};
+use std::collections::BTreeMap;
 use crate::rendering::lighting::point_light_affects_layer;
+use crate::rendering::room_layer_draw::{GlowSourceDiagnostic, GlowSourceIssueKind};
 use crate::rendering::test_support::make_vertical_spillover_fixture;
 use crate::rendering::{RoomCompositionContext, RoomRenderState, RoomVisibilityContext};
 use crate::worlds::room::RoomVariant;
@@ -73,6 +79,76 @@ fn front_layer_alpha(
         .front_layer_composition(ecs, entity, Some(bounds))
         .tint()
         .map(|color| color.a)
+}
+
+#[test]
+fn prepare_routed_glows_maps_settings_to_target_pixels() {
+    let room_id = RoomId(1);
+    let world = World::from_rooms(
+        WorldId(0),
+        String::new(),
+        vec![make_room(Some(1), 0.0, 0.0, 4.0, 4.0)],
+        16.0,
+    );
+    let mut glow = Glow::default();
+    glow.color = vec3(0.2, 0.5, 0.9);
+    glow.intensity = 3.5;
+    glow.halo_spread = 4.0;
+    glow.style = PointLightStyle::Pixel;
+    glow.pixel_size = 2;
+    let mut ecs = Ecs::default();
+    ecs.create_entity()
+        .with(Transform {
+            position: vec2(8.0, 16.0),
+            ..Default::default()
+        })
+        .with(Sprite { sprite: SpriteId(17) })
+        .with(glow)
+        .with_current_room_layer(room_id, RoomLayer::Front)
+        .finish();
+
+    let layer_maps = collect_interpolated_room_layer_maps(
+        &ecs,
+        &room_visibility_context(&world, room_id),
+        &SpriteManager::default(),
+        1.0,
+        None,
+        None,
+    );
+    let camera = Camera2D::new(Vec2::ZERO, vec2(0.5, 0.5));
+    let pixel_grid_origin = camera.world_to_screen(Vec2::ZERO, 128.0, 128.0);
+    let scale = target_pixels_per_world_unit(&camera, 128.0, 128.0);
+    let routed = prepare_routed_glows(
+        &camera,
+        128.0,
+        128.0,
+        scale,
+        pixel_grid_origin,
+        &[RoomLayer::Front],
+        &layer_maps,
+    );
+
+    assert_eq!(routed.len(), 1);
+    assert_eq!(
+        routed[0].params,
+        GlowPassParams {
+            color: [0.2, 0.5, 0.9],
+            intensity: 3.5,
+            halo_spread: 128.0,
+            pixelated: true,
+            pixel_size: 64.0,
+            pixel_grid_origin: [64.0, 64.0],
+        },
+    );
+}
+
+#[test]
+fn glow_culling_keeps_offscreen_source_when_halo_reaches_view() {
+    let camera = Camera2D::new(Vec2::ZERO, vec2(0.5, 0.5));
+    let source = Rect::new(-2.5, 0.0, 0.25, 0.25);
+
+    assert!(glow_source_visible_with_halo(&camera, source, 20.0, 128.0, 128.0));
+    assert!(!glow_source_visible_with_halo(&camera, source, 0.0, 128.0, 128.0));
 }
 
 #[test]
@@ -254,6 +330,172 @@ fn collect_interpolated_room_layer_maps_point_lights_are_sorted_by_entity_id() {
         .unwrap_or_default();
 
     assert_eq!(lights, vec![first, second]);
+}
+
+#[test]
+fn collect_interpolated_room_layer_maps_glow_resolves_current_slice_frame_and_flip() {
+    let room_id = RoomId(1);
+    let world = World::from_rooms(
+        WorldId(0),
+        String::new(),
+        vec![make_room(Some(1), 0.0, 0.0, 4.0, 4.0)],
+        16.0,
+    );
+    let bounds = AsepriteSliceBounds {
+        x: 1.0,
+        y: 2.0,
+        w: 3.0,
+        h: 4.0,
+    };
+    let mut glow = Glow::default();
+    glow.source = GlowSource::AsepriteSlice;
+    glow.replace_slice_bounds_for_clip(ClipId::Idle, BTreeMap::from([(3, bounds)]));
+    let mut ecs = Ecs::default();
+    ecs.create_entity()
+        .with(Transform {
+            position: vec2(10.0, 8.0),
+            z: 2,
+            ..Default::default()
+        })
+        .with(Animation {
+            clips: HashMap::from([(
+                ClipId::Idle,
+                ClipDef {
+                    cols: 2,
+                    rows: 2,
+                    frame_size: vec2(8.0, 8.0),
+                    ..Default::default()
+                },
+            )]),
+            ..Default::default()
+        })
+        .with(CurrentFrame {
+            clip_id: ClipId::Idle,
+            col: 1,
+            row: 1,
+            offset: vec2(2.0, -1.0),
+            sprite_id: SpriteId(17),
+            frame_size: vec2(8.0, 8.0),
+            flip_x: true,
+        })
+        .with(glow)
+        .with_current_room_layer(room_id, RoomLayer::Front)
+        .finish();
+
+    let layer_maps = collect_interpolated_room_layer_maps(
+        &ecs,
+        &room_visibility_context(&world, room_id),
+        &SpriteManager::default(),
+        1.0,
+        None,
+        None,
+    );
+    let resolved = layer_maps
+        .for_layer(RoomLayer::Front)
+        .get(&2)
+        .and_then(|layer| layer.lighting.glows.first())
+        .map(|glow| glow.source.clone())
+        .expect("matching imported glow frame should be collected");
+
+    assert_eq!(resolved.clip_id, Some(ClipId::Idle));
+    assert_eq!(resolved.frame_index, Some(3));
+    assert_eq!(resolved.sprite_id, SpriteId(17));
+    assert_eq!(resolved.source_rect, Rect::new(9.0, 10.0, 3.0, 4.0));
+    assert_eq!(resolved.destination, Rect::new(12.0, 1.0, 3.0, 4.0));
+    assert!(resolved.flip_x);
+    assert_eq!(resolved.slice_bounds, Some(bounds));
+}
+
+#[test]
+fn collect_interpolated_room_layer_maps_slice_glow_requires_current_frame_and_matching_slice() {
+    let room_id = RoomId(1);
+    let world = World::from_rooms(
+        WorldId(0),
+        String::new(),
+        vec![make_room(Some(1), 0.0, 0.0, 4.0, 4.0)],
+        16.0,
+    );
+    let mut glow = Glow::default();
+    glow.source = GlowSource::AsepriteSlice;
+    glow.replace_slice_bounds_for_clip(
+        ClipId::Idle,
+        BTreeMap::from([(
+            0,
+            AsepriteSliceBounds {
+                x: 0.0,
+                y: 0.0,
+                w: 8.0,
+                h: 8.0,
+            },
+        )]),
+    );
+    let mut ecs = Ecs::default();
+    let entity = ecs.create_entity()
+        .with(Transform::default())
+        .with(Sprite { sprite: SpriteId(17) })
+        .with(Animation {
+            clips: HashMap::from([(ClipId::Idle, ClipDef::default())]),
+            ..Default::default()
+        })
+        .with(glow)
+        .with_current_room_layer(room_id, RoomLayer::Front)
+        .finish();
+
+    let layer_maps = collect_interpolated_room_layer_maps(
+        &ecs,
+        &room_visibility_context(&world, room_id),
+        &SpriteManager::default(),
+        1.0,
+        None,
+        None,
+    );
+
+    assert!(layer_maps
+        .for_layer(RoomLayer::Front)
+        .values()
+        .all(|layer| layer.lighting.glows.is_empty()));
+    assert_eq!(
+        layer_maps.glow_source_diagnostics,
+        vec![GlowSourceDiagnostic {
+            entity,
+            owner_layer: RoomLayer::Front,
+            kind: GlowSourceIssueKind::MissingCurrentFrame,
+        }],
+    );
+
+    ecs.add_component_to_entity(
+        entity,
+        CurrentFrame {
+            clip_id: ClipId::Idle,
+            col: 1,
+            row: 0,
+            offset: Vec2::ZERO,
+            sprite_id: SpriteId(17),
+            frame_size: vec2(16.0, 16.0),
+            flip_x: false,
+        },
+    );
+    let layer_maps = collect_interpolated_room_layer_maps(
+        &ecs,
+        &room_visibility_context(&world, room_id),
+        &SpriteManager::default(),
+        1.0,
+        None,
+        None,
+    );
+
+    assert!(layer_maps
+        .for_layer(RoomLayer::Front)
+        .values()
+        .all(|layer| layer.lighting.glows.is_empty()));
+    assert_eq!(
+        layer_maps.glow_source_diagnostics,
+        vec![GlowSourceDiagnostic {
+            entity,
+            owner_layer: RoomLayer::Front,
+            kind: GlowSourceIssueKind::MissingSliceBounds,
+        }],
+    );
 }
 
 #[test]
