@@ -1,24 +1,34 @@
 use crate::animation::{AsepriteSliceBounds, ClipId};
 use crate::ecs::reflect_field::{FieldInfo, Reflect, ReflectField};
 use crate::ecs::{PointLightLayerScope, PointLightStyle};
-use crate::inspector_module;
 use bishop::prelude::{Vec3, vec3};
 use ecs_component::ecs_component;
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
 use std::collections::BTreeMap;
+use strum_macros::Display;
 
 type GlowSliceBoundsByClip = BTreeMap<ClipId, BTreeMap<usize, AsepriteSliceBounds>>;
 
+/// Name of the Aseprite slice used to define Glow emission bounds.
+pub const GLOW_SLICE_NAME: &str = "glow";
+
 /// Defines which visual region emits light.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Default, Display, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum GlowSource {
     /// Emit from the complete displayed visual.
     #[default]
+    #[strum(to_string = "Displayed Visual")]
     DisplayedVisual,
     /// Emit only from the imported named slice on the current animation frame.
+    #[strum(to_string = "Aseprite Slice")]
     AsepriteSlice,
+}
+
+impl GlowSource {
+    /// Supported emission sources.
+    pub const ALL: [Self; 2] = [Self::DisplayedVisual, Self::AsepriteSlice];
 }
 
 /// Controls sprite-shaped light emission for an entity.
@@ -45,13 +55,6 @@ pub struct Glow {
     /// Imported slice bounds keyed by animation clip and flat frame index.
     slice_bounds: GlowSliceBoundsByClip,
 }
-
-inspector_module!(
-    Glow,
-    removable = true,
-    title = <Glow>::TYPE_NAME,
-    tooltip = "Adds sprite-shaped light emission to the entity."
-);
 
 impl Reflect for Glow {
     fn fields(&mut self) -> Vec<FieldInfo<'_>> {
