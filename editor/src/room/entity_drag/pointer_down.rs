@@ -9,6 +9,7 @@ use crate::room::interactable_drag::{
 };
 use crate::room::room_editor::RoomEditor;
 use crate::room::selection::{
+    entity_hit_test_position,
     entity_hitbox,
     topmost_entity_from_click_candidates,
 };
@@ -16,7 +17,7 @@ use crate::world::coord;
 use bishop::prelude::{Camera2D, KeyCode, MouseButton, Vec2, WgpuContext};
 use bishop::Input;
 use engine_core::assets::SpriteManager;
-use engine_core::ecs::{Ecs, Entity, RoomCamera, Transform};
+use engine_core::ecs::{Ecs, Entity, RoomCamera};
 use engine_core::rendering::resolve_visual_entity;
 use engine_core::worlds::RoomId;
 
@@ -100,26 +101,38 @@ pub(crate) fn try_begin_pointer_interaction(
     let camera_store = ecs.get_store::<RoomCamera>();
     let mut candidates = Vec::new();
     for &entity in ecs.entities_in_room_layer(room_id, active_layer) {
-        let Some(transform) = ecs.get::<Transform>(entity) else {
+        let Some((position, z)) = entity_hit_test_position(ecs, entity) else {
             continue;
         };
         let hitbox = entity_hitbox(
             ctx,
             entity,
-            transform.position,
+            position,
             camera,
             ecs,
             sprite_manager,
             grid_size,
         );
         if hitbox.contains(mouse_screen) {
-            let z = transform.z;
             let is_camera = camera_store.get(entity).is_some();
             candidates.push((entity, z, is_camera));
         }
     }
 
-    if let Some(entity) = topmost_entity_from_click_candidates(ecs, &candidates) {
+    let clicked_entity = if shift_held {
+        editor.drag_state.click_cycle.reset();
+        topmost_entity_from_click_candidates(ecs, &candidates)
+    } else {
+        editor.drag_state.click_cycle.next_candidate(
+            ecs,
+            &candidates,
+            mouse_screen,
+            room_id,
+            active_layer,
+        )
+    };
+
+    if let Some(entity) = clicked_entity {
         let should_start_drag = apply_click_selection(editor, entity, shift_held);
         if !should_start_drag {
             return true;

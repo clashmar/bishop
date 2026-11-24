@@ -227,9 +227,13 @@ impl RoomEditor {
         self.request_event_tags_refresh = inspector_output.refresh_event_tags;
         if let Some(host_action) = inspector_output.host_action {
             match host_action {
-                InspectorHostAction::ToggleRoomZoneTool => self.toggle_zone_sub_mode(),
+                InspectorHostAction::ToggleRoomZoneTool => {
+                    self.toggle_zone_sub_mode();
+                    self.persist_room_preview_settings();
+                }
                 InspectorHostAction::ToggleRoomZoneVisibility => {
                     self.toggle_interior_zone_visibility();
+                    self.persist_room_preview_settings();
                 }
                 _ => {}
             }

@@ -8,6 +8,173 @@ fn create_room_member(ecs: &mut Ecs, room_id: RoomId, layer: RoomLayer) -> Entit
 }
 
 #[test]
+fn entity_hit_test_position_uses_transform_for_hierarchy_child_without_one() {
+    let room_id = RoomId(10);
+    let mut ecs = Ecs::default();
+    let parent = ecs
+        .create_entity()
+        .with(Transform {
+            position: vec2(12.0, 8.0),
+            ..Default::default()
+        })
+        .finish();
+    let child = ecs
+        .create_entity()
+        .with(Parent(parent))
+        .with_current_room_layer(room_id, RoomLayer::Front)
+        .finish();
+
+    assert!(ecs.entities_in_room_layer(room_id, RoomLayer::Front).contains(&child));
+    let Some((position, z)) = entity_hit_test_position(&ecs, child) else {
+        panic!("hierarchy child should use its nearest transform ancestor");
+    };
+    assert_eq!(position, vec2(12.0, 8.0));
+    assert_eq!(z, 0);
+    assert_eq!(
+        entity_selection_rect(child, position, &ecs, &SpriteManager::default(), 32.0),
+        (position, Vec2::splat(32.0))
+    );
+}
+
+#[test]
+fn click_cycle_when_candidates_overlap_then_first_candidate_is_root() {
+    let mut ecs = Ecs::default();
+    let root = ecs.create_entity().finish();
+    let child = ecs.create_entity().with(Parent(root)).finish();
+    let candidates = [(child, 9, false), (root, 1, false)];
+    let mut cycle = ClickCycle::default();
+
+    assert_eq!(
+        cycle.next_candidate(&ecs, &candidates, Vec2::ZERO, RoomId(1), RoomLayer::Front),
+        Some(root)
+    );
+}
+
+#[test]
+fn click_cycle_when_repeated_at_same_location_then_selects_child_and_wraps() {
+    let mut ecs = Ecs::default();
+    let root = ecs.create_entity().finish();
+    let child = ecs.create_entity().with(Parent(root)).finish();
+    let candidates = [(root, 1, false), (child, 9, false)];
+    let mut cycle = ClickCycle::default();
+
+    assert_eq!(
+        cycle.next_candidate(&ecs, &candidates, Vec2::ZERO, RoomId(1), RoomLayer::Front),
+        Some(root)
+    );
+    assert_eq!(
+        cycle.next_candidate(&ecs, &candidates, Vec2::ZERO, RoomId(1), RoomLayer::Front),
+        Some(child)
+    );
+    assert_eq!(
+        cycle.next_candidate(&ecs, &candidates, Vec2::ZERO, RoomId(1), RoomLayer::Front),
+        Some(root)
+    );
+}
+
+#[test]
+fn click_cycle_when_location_changes_then_restarts_at_first_candidate() {
+    let ecs = Ecs::default();
+    let candidates = [(Entity(1), 1, false), (Entity(2), 2, false)];
+    let mut cycle = ClickCycle::default();
+
+    assert_eq!(
+        cycle.next_candidate(&ecs, &candidates, Vec2::ZERO, RoomId(1), RoomLayer::Front),
+        Some(Entity(2))
+    );
+    assert_eq!(
+        cycle.next_candidate(
+            &ecs,
+            &candidates,
+            Vec2::new(1.0, 0.0),
+            RoomId(1),
+            RoomLayer::Front,
+        ),
+        Some(Entity(2))
+    );
+}
+
+#[test]
+fn click_cycle_when_candidates_change_then_restarts_at_first_candidate() {
+    let ecs = Ecs::default();
+    let candidates = [(Entity(1), 1, false), (Entity(2), 2, false), (Entity(3), 3, false)];
+    let mut cycle = ClickCycle::default();
+
+    cycle.next_candidate(&ecs, &candidates, Vec2::ZERO, RoomId(1), RoomLayer::Front);
+    assert_eq!(
+        cycle.next_candidate(
+            &ecs,
+            &[(Entity(1), 1, false), (Entity(2), 2, false)],
+            Vec2::ZERO,
+            RoomId(1),
+            RoomLayer::Front,
+        ),
+        Some(Entity(2))
+    );
+}
+
+#[test]
+fn click_cycle_when_candidates_disappear_then_restarts_after_empty_click() {
+    let mut ecs = Ecs::default();
+    let root = ecs.create_entity().finish();
+    let child = ecs.create_entity().with(Parent(root)).finish();
+    let candidates = [(root, 1, false), (child, 2, false)];
+    let mut cycle = ClickCycle::default();
+
+    assert_eq!(
+        cycle.next_candidate(&ecs, &candidates, Vec2::ZERO, RoomId(1), RoomLayer::Front),
+        Some(root)
+    );
+    assert_eq!(
+        cycle.next_candidate(&ecs, &[], Vec2::ZERO, RoomId(1), RoomLayer::Front),
+        None
+    );
+    assert_eq!(
+        cycle.next_candidate(&ecs, &candidates, Vec2::ZERO, RoomId(1), RoomLayer::Front),
+        Some(root)
+    );
+}
+
+#[test]
+fn click_cycle_when_priority_order_changes_then_restarts_at_first_candidate() {
+    let ecs = Ecs::default();
+    let candidates = [(Entity(1), 1, false), (Entity(2), 2, false)];
+    let mut cycle = ClickCycle::default();
+
+    assert_eq!(
+        cycle.next_candidate(&ecs, &candidates, Vec2::ZERO, RoomId(1), RoomLayer::Front),
+        Some(Entity(2))
+    );
+    assert_eq!(
+        cycle.next_candidate(
+            &ecs,
+            &[(Entity(1), 3, false), (Entity(2), 2, false)],
+            Vec2::ZERO,
+            RoomId(1),
+            RoomLayer::Front,
+        ),
+        Some(Entity(1))
+    );
+}
+
+#[test]
+fn click_cycle_when_room_or_layer_changes_then_restarts_at_first_candidate() {
+    let ecs = Ecs::default();
+    let candidates = [(Entity(1), 1, false), (Entity(2), 2, false)];
+    let mut cycle = ClickCycle::default();
+
+    cycle.next_candidate(&ecs, &candidates, Vec2::ZERO, RoomId(1), RoomLayer::Front);
+    assert_eq!(
+        cycle.next_candidate(&ecs, &candidates, Vec2::ZERO, RoomId(2), RoomLayer::Front),
+        Some(Entity(2))
+    );
+    assert_eq!(
+        cycle.next_candidate(&ecs, &candidates, Vec2::ZERO, RoomId(2), RoomLayer::Back),
+        Some(Entity(2))
+    );
+}
+
+#[test]
 fn room_cycle_candidates_preserve_sorted_multi_selection() {
     let mut editor = RoomEditor::new();
     let first = Entity(7);

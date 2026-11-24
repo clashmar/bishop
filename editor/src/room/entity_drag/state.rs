@@ -1,5 +1,6 @@
 use crate::room::collider_drag::ColliderHandleDragState;
 use crate::room::interactable_drag::InteractableHandleDragState;
+use crate::room::selection::ClickCycle;
 use bishop::prelude::Vec2;
 use engine_core::ecs::Entity;
 use std::collections::HashSet;
@@ -21,6 +22,8 @@ pub(crate) struct DragState {
     pub box_select_start: Option<Vec2>,
     /// Whether a box selection drag is currently active.
     pub box_select_active: bool,
+    /// Repeated-click selection state.
+    pub click_cycle: ClickCycle,
     /// Collider handle drag state.
     pub collider_drag: ColliderHandleDragState,
     /// Interactable handle drag state.

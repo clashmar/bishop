@@ -1,6 +1,6 @@
 use crate::constants::layout;
 use crate::theme::with_theme;
-use crate::{BishopContext, Rect, Vec2, draw_text_ui, measure_text_ui};
+use crate::{BishopContext, Color, Rect, Vec2, draw_text_ui, measure_text_ui};
 use std::cell::RefCell;
 
 const TOOLTIP_DELAY_SECONDS: f64 = 0.5;
@@ -121,7 +121,7 @@ fn draw_tooltip<C: BishopContext>(ctx: &mut C, candidate: &TooltipCandidate) {
     let height = (lines.len() as f32 * TOOLTIP_LINE_HEIGHT + padding * 2.0).min(viewport.h);
     let panel = position_tooltip(candidate.bounds, width, height, viewport);
 
-    let background = with_theme(|theme| theme.overlay.with_alpha(0.8));
+    let background = Color::BLACK;
     let text_color = with_theme(|theme| theme.text);
     ctx.push_clip_rect(panel);
     ctx.draw_rectangle(panel.x, panel.y, panel.w, panel.h, background);
