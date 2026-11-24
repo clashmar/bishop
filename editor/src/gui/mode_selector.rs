@@ -2,7 +2,7 @@ use crate::gui::gui_constants::*;
 use crate::gui::modals::is_modal_open;
 use bishop::prelude::*;
 use engine_core::theme::with_theme;
-use ::widgets::offer_tooltip;
+use ::widgets::{color_picker_blocks_canvas, is_click_consumed, offer_tooltip};
 use engine_core::ui::widgets::is_context_menu_open;
 
 /// A trait that each editor’s mode enum must implement.
@@ -54,6 +54,8 @@ impl<M: ModeInfo + Copy + PartialEq> ModeSelector<M> {
             // Click handling
             if ctx.is_mouse_button_pressed(MouseButton::Left)
                 && rect.contains(ctx.mouse_position().into())
+                && !is_click_consumed()
+                && !color_picker_blocks_canvas()
                 && !is_modal_open()
                 && !is_context_menu_open()
                 && *mode != self.current
@@ -152,6 +154,8 @@ pub fn draw_sub_mode_strip<S: ModeInfo + Copy + PartialEq + 'static>(
         // Click handling
         if ctx.is_mouse_button_pressed(MouseButton::Left)
             && rect.contains(ctx.mouse_position().into())
+            && !is_click_consumed()
+            && !color_picker_blocks_canvas()
             && !is_modal_open()
             && *mode != *current
         {

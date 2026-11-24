@@ -1,3 +1,4 @@
+use super::color_picker::color_picker_open;
 use crate::constants::{colors, layout};
 use crate::*;
 use bishop::text::{FontId, TextParams};
@@ -238,6 +239,7 @@ impl<'a> Button<'a> {
         let highlight = (hovered || self.focused)
             && !is_dropdown_open()
             && !is_context_menu_open()
+            && !color_picker_open()
             && !interactive_blocked
             && !primary_held
             && !secondary_held;
@@ -380,7 +382,10 @@ impl<'a> Button<'a> {
             }
         }
 
-        let interactive = !interactive_blocked && !is_dropdown_open() && !is_context_menu_open();
+        let interactive = !interactive_blocked
+            && !is_dropdown_open()
+            && !is_context_menu_open()
+            && !color_picker_open();
         let primary = activate_on_release(
             MouseButton::Left,
             interaction_id,

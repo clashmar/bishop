@@ -247,6 +247,7 @@ impl GenericPanel {
             && !self.dragging
             && ctx.is_mouse_button_pressed(MouseButton::Left)
             && title_bar.contains(mouse)
+            && !widgets::color_picker_blocks_canvas()
             && !widgets::is_click_consumed()
         {
             self.dragging = true;
@@ -286,6 +287,7 @@ impl GenericPanel {
                 && !self.resizing
                 && ctx.is_mouse_button_pressed(MouseButton::Left)
                 && handle.contains(mouse)
+                && !color_picker_blocks_canvas()
                 && !is_click_consumed()
             {
                 self.resizing = true;

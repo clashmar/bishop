@@ -339,13 +339,18 @@ impl PanelDefinition for ResourcesPanel {
         let left_clicked = ctx.is_mouse_button_pressed(MouseButton::Left);
         let left_held = ctx.is_mouse_button_down(MouseButton::Left);
         let right_clicked = ctx.is_mouse_button_pressed(MouseButton::Right);
-        if right_clicked && !blocked && widgets::is_context_menu_open() {
+        if right_clicked
+            && !blocked
+            && !widgets::color_picker_blocks_canvas()
+            && widgets::is_context_menu_open()
+        {
             widgets::close_open_context_menus();
             self.active_menu = None;
             self.clear_selection();
         }
 
-        let interaction_blocked = blocked || widgets::is_context_menu_open();
+        let interaction_blocked =
+            blocked || widgets::is_context_menu_open() || widgets::color_picker_blocks_canvas();
 
         let mouse: Vec2 = ctx.mouse_position().into();
         let content_rect = rect;

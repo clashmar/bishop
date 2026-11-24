@@ -1,3 +1,4 @@
+use super::color_picker::color_picker_open;
 use crate::clipboard::{clipboard_get_text, clipboard_set_text};
 use crate::constants::{colors, input_repeat, layout};
 use crate::*;
@@ -13,6 +14,7 @@ pub struct TextInput {
     max_len: Option<usize>,
     char_filter: Option<fn(char) -> Option<char>>,
     bypass_dropdown: bool,
+    bypass_color_picker: bool,
     defer_visual: bool,
     clear_button: bool,
     base: WidgetBase,
@@ -30,6 +32,7 @@ impl TextInput {
             max_len: None,
             char_filter: None,
             bypass_dropdown: false,
+            bypass_color_picker: false,
             defer_visual: false,
             clear_button: false,
             base: WidgetBase {
@@ -69,6 +72,12 @@ impl TextInput {
     /// Use for TextInputs that are embedded inside a dropdown list.
     pub fn in_dropdown(mut self) -> Self {
         self.bypass_dropdown = true;
+        self
+    }
+
+    /// Allows this input to receive pointer and keyboard events while a color picker is open.
+    pub fn in_color_picker(mut self, enabled: bool) -> Self {
+        self.bypass_color_picker = enabled;
         self
     }
 
@@ -201,6 +210,7 @@ impl TextInput {
         if ctx.is_mouse_button_pressed(MouseButton::Left)
             && !is_click_consumed()
             && !is_dropdown_open()
+            && (!color_picker_open() || self.bypass_color_picker)
         {
             if !focused && mouse_over {
                 just_gained_focus = true;
@@ -265,7 +275,11 @@ impl TextInput {
             }
         }
 
-        if (is_dropdown_open() || is_context_menu_open()) && !self.bypass_dropdown {
+        if (is_dropdown_open()
+            || is_context_menu_open()
+            || (color_picker_open() && !self.bypass_color_picker))
+            && !self.bypass_dropdown
+        {
             let commit = if confirmed {
                 InputCommit::Committed
             } else {

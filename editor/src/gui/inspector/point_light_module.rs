@@ -18,7 +18,8 @@ use engine_core::{
     game::GameCtxMut,
 };
 use widgets::{
-    ColorInput, Dropdown, InputCommit, NumberInput, Slider, SliderState, Widget, WidgetId,
+    ColorInput, ColorInputEdit, Dropdown, InputCommit, NumberInput, Slider, SliderState, Widget,
+    WidgetId,
 };
 
 /// Title for the point-light inspector module.
@@ -103,12 +104,33 @@ impl InspectorModule for PointLightModule {
         let mut y = rect.y + TOP_PADDING;
         draw_label(ctx, "Color:", rect, y);
         let current_color = Color::new(light.color.x, light.color.y, light.color.z, 1.0);
-        let (color, color_commit) = ColorInput::new(self.color_id, field_rect(rect, y), current_color)
+        let (color_response, color_commit) = ColorInput::new(
+            self.color_id,
+            field_rect(rect, y),
+            current_color,
+        )
+            .opacity_enabled(false)
             .blocked(blocked)
             .show_with_commit(ctx);
-        if input_active(color_commit) {
-            light.color = Vec3::new(color.r, color.g, color.b);
-            self.was_editing.set(true);
+        match color_response.edit {
+            ColorInputEdit::Preview { .. } | ColorInputEdit::Commit { .. } => {
+                light.color = Vec3::new(
+                    color_response.color.r,
+                    color_response.color.g,
+                    color_response.color.b,
+                );
+                self.was_editing.set(true);
+            }
+            ColorInputEdit::Cancel { initial } => {
+                light.color = Vec3::new(initial.r, initial.g, initial.b);
+                self.was_editing.set(true);
+            }
+            ColorInputEdit::None if input_active(color_commit) => {
+                let color = color_response.color;
+                light.color = Vec3::new(color.r, color.g, color.b);
+                self.was_editing.set(true);
+            }
+            ColorInputEdit::None => {}
         }
         y += FIELD_HEIGHT + FIELD_GAP;
 

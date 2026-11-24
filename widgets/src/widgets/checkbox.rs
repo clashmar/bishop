@@ -1,3 +1,4 @@
+use super::color_picker::color_picker_open;
 use crate::constants::colors;
 use crate::*;
 
@@ -74,11 +75,16 @@ impl<'a> Checkbox<'a> {
             );
         }
 
-        if self.base.blocked || is_dropdown_open() || is_context_menu_open() {
+        if self.base.blocked
+            || is_dropdown_open()
+            || is_context_menu_open()
+            || color_picker_open()
+        {
             return false;
         }
 
         if ctx.is_mouse_button_pressed(MouseButton::Left)
+            && !is_click_consumed()
             && ctx.is_mouse_over(rect)
         {
             *self.value = !*self.value;

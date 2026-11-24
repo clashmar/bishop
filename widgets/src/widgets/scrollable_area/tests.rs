@@ -111,6 +111,29 @@ fn begin_wheel_scroll_blocked_when_mouse_outside_rect() {
 }
 
 #[test]
+fn begin_wheel_scroll_blocked_when_color_picker_is_open() {
+    let picker_id = WidgetId(0xC010_4010);
+    let mut open_picker = WidgetTestContext::new();
+    open_picker.mouse_pos = (20.0, 20.0);
+    open_picker.left_pressed = true;
+    open_picker.left_down = true;
+    ColorInput::new(picker_id, Rect::new(10.0, 10.0, 160.0, 30.0), Color::WHITE)
+        .show(&mut open_picker);
+
+    reset_click_consumed();
+    let rect = Rect::new(0.0, 0.0, 120.0, 100.0);
+    let mut ctx = WidgetTestContext::new();
+    ctx.mouse_pos = (60.0, 60.0);
+    ctx.mouse_wheel_delta = (0.0, -1.0);
+    let mut state = ScrollState::new();
+
+    let _ = ScrollableArea::new(rect, 300.0).begin(&mut ctx, &mut state);
+
+    assert_eq!(state.scroll_y, 0.0);
+    color_input_reset(picker_id);
+}
+
+#[test]
 fn begin_wheel_scroll_blocked_when_area_is_blocked() {
     let rect = Rect::new(0.0, 0.0, 120.0, 100.0);
     let mut ctx = WidgetTestContext::new();

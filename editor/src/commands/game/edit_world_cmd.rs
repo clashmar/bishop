@@ -15,6 +15,7 @@ pub struct EditWorldCmd {
     old_gravity: f32,
     new_name: Option<String>,
     new_visual: Option<WorldVisual>,
+    old_visual_snapshot: Option<WorldVisual>,
     new_overlay: Option<bool>,
     new_gravity: Option<f32>,
 }
@@ -33,9 +34,16 @@ impl EditWorldCmd {
             old_gravity: 0.0,
             new_name,
             new_visual,
+            old_visual_snapshot: None,
             new_overlay: None,
             new_gravity: None,
         }
+    }
+
+    /// Supplies the visual state captured before a live preview.
+    pub fn with_old_visual_snapshot(mut self, visual: WorldVisual) -> Self {
+        self.old_visual_snapshot = Some(visual);
+        self
     }
 
     /// Sets the `overlay` flag to change.
@@ -77,7 +85,7 @@ impl EditWorldCmd {
     fn capture_original_state(&mut self, game: &Game) {
         if let Some(world) = game.get_world(self.world_id) {
             self.old_name = world.name.clone();
-            self.old_visual = world.meta.visual;
+            self.old_visual = self.old_visual_snapshot.unwrap_or(world.meta.visual);
             self.old_overlay = world.overlay;
             self.old_gravity = world.physics.gravity;
         }
@@ -187,5 +195,37 @@ mod tests {
             WorldVisual::Color(bishop::Color::from_hex("ABCDEF")),
             "edit_world_cmd_image_to_color",
         );
+    }
+
+    #[test]
+    fn world_visual_edit_undo_restores_opening_color_after_live_preview() {
+        let _context = setup_editor("world_visual_live_preview_undo");
+        let initial = WorldVisual::Color(bishop::Color::new(0.2, 0.3, 0.4, 0.5));
+        let preview = WorldVisual::Color(bishop::Color::new(0.8, 0.2, 0.1, 0.4));
+        let committed = WorldVisual::Color(bishop::Color::new(0.1, 0.4, 0.9, 0.7));
+        let world_id = with_editor(|editor| {
+            editor.mode = EditorMode::Game(GameEditorSubmode::Worlds);
+            let world = &mut editor.game.worlds_mut()[0];
+            world.meta.visual = initial;
+            world.id
+        });
+        with_editor(|editor| {
+            editor.game.get_world_mut(world_id).unwrap().meta.visual = preview;
+        });
+        push_command(Box::new(
+            EditWorldCmd::new(world_id, None, Some(committed))
+                .with_old_visual_snapshot(initial),
+        ));
+        apply_pending_commands();
+        request_undo();
+        apply_pending_commands();
+        with_editor(|editor| {
+            assert_eq!(editor.game.get_world(world_id).unwrap().meta.visual, initial);
+        });
+        request_redo();
+        apply_pending_commands();
+        with_editor(|editor| {
+            assert_eq!(editor.game.get_world(world_id).unwrap().meta.visual, committed);
+        });
     }
 }

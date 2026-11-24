@@ -18,7 +18,9 @@ use engine_core::game::GameCtxMut;
 use engine_core::ecs::*;
 use engine_core::tiles::TileDefId;
 use engine_core::storage::editor_config;
-use widgets::{clear_all_input_focus, with_theme, ScrollState};
+use widgets::{
+    clear_all_input_focus, color_picker_blocks_canvas, is_click_consumed, with_theme, ScrollState,
+};
 
 /// Shared inspector shell for all editor modes.
 pub struct Inspector {
@@ -334,6 +336,8 @@ impl Inspector {
         ctx.draw_rectangle_lines(strip.x, strip.y, strip.w, strip.h, 2.0, Color::WHITE);
 
         if !is_mouse_over_panel(ctx)
+            && !color_picker_blocks_canvas()
+            && !is_click_consumed()
             && ctx.is_mouse_button_pressed(MouseButton::Left)
             && strip_hovered
         {

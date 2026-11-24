@@ -10,7 +10,7 @@ pub mod world_visual_module;
 
 use bishop::prelude::*;
 use engine_core::game::GameCtxMut;
-use engine_core::worlds::world::World;
+use engine_core::worlds::{world::World, WorldVisual};
 use ::widgets::constants::layout;
 
 use super::collapsible::CollapsiblePropertyModule;
@@ -157,6 +157,7 @@ fn draw_world_modules(
     };
     let original_tags = world.tags.clone();
     let mut world_clone = world.clone();
+    let original_visual = world_clone.meta.visual;
     let content_w = rect.w - 20.0;
     let mut y = rect.y + 10.0;
 
@@ -179,6 +180,10 @@ fn draw_world_modules(
             }
             y += module.height() + layout::WIDGET_SPACING;
         }
+    }
+
+    if let Some(live_world) = game_ctx.world.as_deref_mut() {
+        copy_world_visual_preview(live_world, &world_clone, original_visual);
     }
 
     if original_tags != world_clone.tags {
@@ -208,6 +213,16 @@ fn world_module_content_height(
         }
     }
     height
+}
+
+fn copy_world_visual_preview(
+    live_world: &mut World,
+    edited_world: &World,
+    original_visual: WorldVisual,
+) {
+    if live_world.id == edited_world.id && edited_world.meta.visual != original_visual {
+        live_world.meta.visual = edited_world.meta.visual;
+    }
 }
 
 fn collapse_world_modules(modules: &mut [Box<dyn PropertyModule<World>>]) {
@@ -240,6 +255,34 @@ mod tests {
         assert_eq!(world_editor.modules.len(), 5);
         assert!(!world_editor_titles.contains(&"World Visual".to_owned()));
         assert_eq!(world_editor.navigation.title(), "Navigation");
+    }
+
+    #[test]
+    fn world_visual_preview_copies_color_and_opacity_to_live_world() {
+        let mut live_world = World::default();
+        let initial = WorldVisual::Color(Color::new(0.2, 0.3, 0.4, 0.25));
+        live_world.meta.visual = initial;
+        let mut edited_world = live_world.clone();
+        let preview = WorldVisual::Color(Color::new(0.7, 0.5, 0.1, 0.6));
+        edited_world.meta.visual = preview;
+
+        copy_world_visual_preview(&mut live_world, &edited_world, initial);
+
+        assert_eq!(live_world.meta.visual, preview);
+    }
+
+    #[test]
+    fn world_visual_preview_does_not_copy_unchanged_clone_over_live_change() {
+        let initial = WorldVisual::Color(Color::new(0.2, 0.3, 0.4, 0.25));
+        let mut live_world = World::default();
+        live_world.meta.visual = WorldVisual::Color(Color::new(0.8, 0.1, 0.6, 0.9));
+        let mut unchanged_clone = World::default();
+        unchanged_clone.id = live_world.id;
+        unchanged_clone.meta.visual = initial;
+
+        copy_world_visual_preview(&mut live_world, &unchanged_clone, initial);
+
+        assert_eq!(live_world.meta.visual, WorldVisual::Color(Color::new(0.8, 0.1, 0.6, 0.9)));
     }
 
     #[test]

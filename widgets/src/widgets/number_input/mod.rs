@@ -1,4 +1,5 @@
 use crate::clipboard::*;
+use super::color_picker::color_picker_open;
 use crate::constants::{colors, input_repeat, layout};
 use crate::*;
 use std::fmt::Display;
@@ -159,7 +160,7 @@ where
             resolve_with_theme(self.base.overrides.text, widget_theme.text, colors::DEFAULT_TEXT_COLOR),
         );
 
-        if is_dropdown_open() || is_context_menu_open() {
+        if is_dropdown_open() || is_context_menu_open() || color_picker_open() {
             let commit = if confirmed { InputCommit::Committed } else { InputCommit::Unchanged };
             return (self.current, commit);
         }

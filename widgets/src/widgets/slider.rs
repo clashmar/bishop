@@ -1,3 +1,4 @@
+use super::color_picker::color_picker_open;
 use crate::constants::colors;
 use crate::*;
 use bishop::text::{FontId, TextParams};
@@ -200,7 +201,11 @@ impl Slider {
         );
 
         let handle_col =
-            if was_dragging && !is_dropdown_open() && !is_context_menu_open() && !self.base.blocked
+            if was_dragging
+                && !is_dropdown_open()
+                && !is_context_menu_open()
+                && !color_picker_open()
+                && !self.base.blocked
             {
                 Color::new(
                     resolved_primary.r * 0.8,
@@ -225,7 +230,11 @@ impl Slider {
             ),
         );
 
-        if self.base.blocked || is_dropdown_open() || is_context_menu_open() {
+        if self.base.blocked
+            || is_dropdown_open()
+            || is_context_menu_open()
+            || color_picker_open()
+        {
             return (value, SliderState::Unchanged);
         }
 
@@ -236,7 +245,10 @@ impl Slider {
 
         let mut dragging = was_dragging;
 
-        if ctx.is_mouse_button_pressed(MouseButton::Left) && mouse_over_handle {
+        if ctx.is_mouse_button_pressed(MouseButton::Left)
+            && mouse_over_handle
+            && !is_click_consumed()
+        {
             dragging = true;
             drag_offset = mouse.0 - handle_x;
             initial_value = value;
@@ -261,7 +273,10 @@ impl Slider {
             if (new_value - value).abs() > f32::EPSILON {
                 state = SliderState::Previewing;
             }
-        } else if mouse_over_track && ctx.is_mouse_button_pressed(MouseButton::Left) {
+        } else if mouse_over_track
+            && ctx.is_mouse_button_pressed(MouseButton::Left)
+            && !is_click_consumed()
+        {
             let rel = ((mouse.0 - track_rect.x) / (track_rect.w - handle_sz)).clamp(0.0, 1.0);
             new_value = min + rel * range;
             state = SliderState::Committed {
