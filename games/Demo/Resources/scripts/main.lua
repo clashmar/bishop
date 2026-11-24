@@ -15,7 +15,7 @@ engine.on(engine.events.world_entered, function(id, name)
 end)
 
 engine.update = function(dt)
-    if engine.input.pressed(Input.M) then
+    if engine.input.is_action_pressed(InputAction.Pause) then
         engine.menu.open(Menus.Pause)
     end
 end

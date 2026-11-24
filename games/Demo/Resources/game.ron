@@ -4,7 +4,24 @@
     name: "Demo",
     current_world_id: Some((1)),
     start_world_id: Some((1)),
-    input_actions: (actions: {}),
+    input_actions: (actions: {
+        "move_right": [
+            (source: Key(Right)),
+            (source: GamepadAxis(axis: LeftX, direction: Positive, threshold: 0.5)),
+        ],
+        "move_left": [
+            (source: Key(Left)),
+            (source: GamepadAxis(axis: LeftX, direction: Negative, threshold: 0.5)),
+        ],
+        "run": [(source: Key(LeftShift))],
+        "jump": [
+            (source: Key(Space)),
+            (source: GamepadButton(South)),
+        ],
+        "interact": [(source: Key(I))],
+        "pause": [(source: Key(M))],
+        "back": [(source: Key(Q))],
+    }),
     world_ids: [
         (1),
         (3),

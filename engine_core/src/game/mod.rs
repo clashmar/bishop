@@ -19,6 +19,8 @@ use crate::hydration::HydrationCoordinator;
 use crate::input::InputActionMap;
 use crate::omni_error;
 use crate::prefab::{load_prefab_manager, load_prefab_manager_from_source, PrefabManager};
+use crate::scripting::input_actions_lua::create_input_actions_lua_table;
+use crate::scripting::lua_constants::lua_globals;
 use crate::scripting::script_manager::ScriptManager;
 use crate::storage::ResourceSource;
 use crate::worlds::room::RoomId;
@@ -414,6 +416,11 @@ impl Game {
         self.asset_registry.init_editor_metadata();
         SpriteManager::init_runtime_manager(self);
         self.script_manager.set_source(self.runtime_source.clone());
+        let input_action_table = create_input_actions_lua_table(lua, &self.input_actions)
+            .map_err(|error| format!("failed to initialize input action identifiers: {error}"))?;
+        lua.globals()
+            .set(lua_globals::INPUT_ACTION, input_action_table)
+            .map_err(|error| format!("failed to register input action identifiers: {error}"))?;
         ScriptManager::init_manager(&self.asset_registry, &mut self.script_manager, lua);
         self.init_text_manager();
         if let Some(source @ ResourceSource::Prefetched(_)) = self.runtime_source.as_ref() {

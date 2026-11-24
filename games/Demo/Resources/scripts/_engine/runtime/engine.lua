@@ -105,6 +105,18 @@ function engine.input.pressed(input) end
 ---@return boolean
 function engine.input.released(input) end
 
+---@param action string
+---@return boolean
+function engine.input.is_action_down(action) end
+
+---@param action string
+---@return boolean
+function engine.input.is_action_pressed(action) end
+
+---@param action string
+---@return boolean
+function engine.input.is_action_released(action) end
+
 ---@param name string
 ---@param priority number
 ---@return nil

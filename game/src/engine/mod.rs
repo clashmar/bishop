@@ -38,7 +38,7 @@ use engine_core::diagnostics::TraversalResidencyDiagnostics;
 use engine_core::logging::omni_error;
 use engine_core::menu::{GameMenuHandler, MenuInputPolicy, MenuManager, MenuSessionAction};
 use engine_core::rendering::{ParticleSystem, RenderSystem, SmoothedDtState, smooth_dt, snap_dt};
-use engine_core::storage::ResourceSource;
+use engine_core::storage::{InputSettings, ResourceSource, load_input_settings};
 use engine_core::task::BackgroundService;
 use engine_core::text::update_speech_timers;
 use engine_core::worlds::RoomLayer;
@@ -49,6 +49,8 @@ use std::rc::Rc;
 pub struct Engine {
     /// Currently running instance of the game.
     pub game_instance: Rc<RefCell<GameInstance>>,
+    /// Player overrides applied to the current game's authored actions.
+    pub(crate) input_settings: InputSettings,
     /// Current state of the active game.
     pub game_state: GameState,
     /// Platform context for input/rendering.
@@ -111,6 +113,7 @@ enum RequestedSessionAction {
 
 impl BishopApp for Engine {
     async fn frame(&mut self, ctx: PlatformContext) {
+        crate::input::capture_input_snapshot(&ctx, &self.game_instance, &self.input_settings);
         let raw_dt = ctx.borrow().get_frame_time();
         let smoothed = smooth_dt(&mut self.smoothed_dt, raw_dt, 0.9);
         let dt = snap_dt(smoothed);
@@ -213,6 +216,7 @@ impl Engine {
 
         let mut engine = Self {
             game_instance,
+            input_settings: load_input_settings(),
             game_state,
             ctx,
             lua,

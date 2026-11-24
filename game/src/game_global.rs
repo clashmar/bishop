@@ -60,6 +60,13 @@ pub fn get_input_snapshot() -> InputSnapshot {
     GAME_SERVICES.with(|services| services.input_snapshot.borrow().clone())
 }
 
+/// Replaces the input snapshot captured for the current frame.
+pub fn set_input_snapshot(snapshot: InputSnapshot) {
+    GAME_SERVICES.with(|services| {
+        *services.input_snapshot.borrow_mut() = snapshot;
+    });
+}
+
 /// Sets whether a menu is currently active.
 pub fn set_menu_active(active: bool) {
     GAME_SERVICES.with(|services| {

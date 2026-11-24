@@ -10,7 +10,7 @@ local ArcadeWorld = {
     end,
 
     update = function(self, dt)
-        if engine.input.pressed(Input.Q) then
+        if engine.input.is_action_pressed(InputAction.Back) then
             engine.return_from_world()
         end
     end,

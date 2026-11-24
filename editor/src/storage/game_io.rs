@@ -1,6 +1,7 @@
 use crate::storage::lua_stub_gen::{
     collect_custom_clip_names, collect_prefab_names, refresh_event_tags_lua,
-    refresh_world_navigation_lua, write_animations_lua, write_prefabs_lua, write_sounds_lua,
+    refresh_world_navigation_lua, write_animations_lua, write_input_actions_lua, write_prefabs_lua,
+    write_sounds_lua,
 };
 use crate::storage::menus::save_default_front_end_menus;
 use crate::storage::scaffolding::create_game_folders;
@@ -100,6 +101,7 @@ pub fn save_game(game: &Game) -> io::Result<()> {
     save_sound_preset_library(&game.name, &sound_library)?;
     let sound_names = collect_sound_group_names(&game.ecs, &sound_library);
     write_sounds_lua(&scripts_folder(), &sound_names)?;
+    write_input_actions_lua(&scripts_folder(), &game.input_actions)?;
 
     refresh_event_tags_lua(game)?;
     refresh_world_navigation_lua(game)?;
