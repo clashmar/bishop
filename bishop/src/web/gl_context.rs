@@ -10,6 +10,7 @@ use crate::time::web_clock::WebClock;
 use crate::types::Texture2D;
 use super::draw::WebRenderer;
 use super::text::WebText;
+use super::lighting::WebLightingRenderer;
 
 unsafe extern "C" {
     fn bishop_open_webgl2(selector: *const c_char) -> i32;
@@ -155,6 +156,10 @@ impl GlContext {
     pub(crate) fn render_error(&self) -> Option<String> {
         self.error.borrow().clone()
     }
+
+    pub(crate) fn record_warning(&self, warning: String) {
+        eprintln!("BISHOP_WEBGL_RENDER_WARNING {warning}");
+    }
 }
 
 impl Drop for GlContext {
@@ -171,6 +176,7 @@ pub struct WebContext {
     pub(crate) owner: Rc<GlContext>,
     pub(crate) empty_texture: Texture2D,
     pub(crate) renderer: WebRenderer,
+    pub(crate) lighting_renderer: WebLightingRenderer,
     pub(crate) text: WebText,
     pub(crate) input: KeyboardMouseState,
     pub(crate) clock: WebClock,
@@ -184,12 +190,14 @@ impl WebContext {
         let empty_texture = super::texture::upload_rgba(&owner, &[0, 0, 0, 0], 1, 1)?;
         let white = super::texture::upload_rgba(&owner, &[255, 255, 255, 255], 1, 1)?;
         let renderer = WebRenderer::new(Rc::clone(&owner), white)?;
+        let lighting_renderer = WebLightingRenderer::new(Rc::clone(&owner))?;
         let text = WebText::new()?;
         let clock = WebClock::new(GlContext::now_ms());
         Ok(Self {
             owner,
             empty_texture,
             renderer,
+            lighting_renderer,
             text,
             input: KeyboardMouseState::new(),
             clock,

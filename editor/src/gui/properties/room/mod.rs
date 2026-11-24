@@ -1,3 +1,4 @@
+pub mod ambient_module;
 pub mod room_audio_source_module;
 pub mod room_layers_module;
 pub mod room_name_module;
@@ -31,6 +32,7 @@ impl RoomProperties {
     pub fn new() -> Self {
         Self {
             modules: vec![
+                Box::new(CollapsiblePropertyModule::new(ambient_module::RoomAmbientModule::new())),
                 Box::new(CollapsiblePropertyModule::new(room_name_module::RoomNameModule::new())),
                 Box::new(CollapsiblePropertyModule::new(room_script_module::RoomScriptModule::new())),
                 Box::new(CollapsiblePropertyModule::new(room_audio_source_module::RoomAudioSourceModule::new())),
@@ -154,6 +156,7 @@ impl InspectorContent for RoomProperties {
             .and_then(|world| world.current_room_mut())
         {
             room.name = edited_room.name.clone();
+            copy_ambient_slider_preview(room, &edited_room);
         }
 
         if tags_changed {
@@ -195,9 +198,43 @@ impl InspectorContent for RoomProperties {
     }
 }
 
+fn copy_ambient_slider_preview(room: &mut Room, edited_room: &Room) {
+    room.darkness = edited_room.darkness;
+    room.exposure = edited_room.exposure;
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn ambient_module_is_part_of_room_properties() {
+        let properties = RoomProperties::new();
+
+        assert!(properties
+            .modules
+            .iter()
+            .any(|module| module.title() == ambient_module::ROOM_AMBIENT_MODULE_TITLE));
+    }
+
+    #[test]
+    fn ambient_preview_persists_darkness_and_exposure_from_edited_room() {
+        let mut room = Room {
+            darkness: 0.2,
+            exposure: 0.8,
+            ..Room::default()
+        };
+        let edited_room = Room {
+            darkness: 0.65,
+            exposure: 2.5,
+            ..room.clone()
+        };
+
+        copy_ambient_slider_preview(&mut room, &edited_room);
+
+        assert_eq!(room.darkness, 0.65);
+        assert_eq!(room.exposure, 2.5);
+    }
 
     #[test]
     fn collapse_all_collapses_every_room_module() {

@@ -26,6 +26,11 @@ impl ColorInput {
 
     /// Draws the widget and returns the resolved color.
     pub fn show<C: BishopContext>(self, ctx: &mut C) -> Color {
+        self.show_with_commit(ctx).0
+    }
+
+    /// Draws the widget and returns the resolved color and text commit state.
+    pub fn show_with_commit<C: BishopContext>(self, ctx: &mut C) -> (Color, InputCommit) {
         let class = self.base.class_name.as_deref();
         let id = self.base.style_id.as_deref();
         let widget_theme = resolve_theme_for::<Self>(class, id);
@@ -52,7 +57,7 @@ impl ColorInput {
 
         let hex = self.current.to_hex();
         let text_rect = Rect::new(text_field_x, self.rect.y, text_field_w, self.rect.h);
-        let (hex_text, _focused) = TextInput::new(self.id, text_rect, &hex)
+        let (hex_text, commit) = TextInput::new(self.id, text_rect, &hex)
             .blocked(self.base.blocked)
             .overrides(self.base.overrides)
             .max_len(6)
@@ -60,6 +65,11 @@ impl ColorInput {
             .show(ctx);
 
         let resolved = Color::try_from_hex(&hex_text).unwrap_or(self.current);
+        let commit = if hex_text == hex {
+            InputCommit::Unchanged
+        } else {
+            commit
+        };
 
         let swatch_rect = Rect::new(self.rect.x, self.rect.y, swatch_size, swatch_size);
         ctx.draw_rectangle(
@@ -82,7 +92,7 @@ impl ColorInput {
             ),
         );
 
-        resolved
+        (resolved, commit)
     }
 }
 
@@ -105,5 +115,53 @@ fn hex_char_filter(c: char) -> Option<char> {
         Some(c.to_ascii_uppercase())
     } else {
         None
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::ColorInput;
+    use crate::test_utils::WidgetTestContext;
+    use crate::{
+        Color, InputCommit, Rect, WidgetId, reset_click_consumed, text_input_reset,
+    };
+
+    #[test]
+    fn color_input_returns_text_commit_state() {
+        let mut ctx = WidgetTestContext::new();
+        let color = Color::new(0.2, 0.4, 0.6, 1.0);
+
+        let (resolved, commit) = ColorInput::new(
+            WidgetId::default(),
+            Rect::new(0.0, 0.0, 100.0, 30.0),
+            color,
+        )
+        .show_with_commit(&mut ctx);
+
+        assert_eq!(resolved, color);
+        assert_eq!(commit, InputCommit::Unchanged);
+    }
+
+    #[test]
+    fn color_input_does_not_commit_when_focus_leaves_an_unchanged_value() {
+        const FIELD: Rect = Rect::new(0.0, 0.0, 160.0, 30.0);
+        let id = WidgetId(0xC010_0001);
+        let color = Color::new(0.2, 0.4, 0.6, 1.0);
+        reset_click_consumed();
+
+        let mut press = WidgetTestContext::new();
+        press.mouse_pos = (80.0, 15.0);
+        press.left_pressed = true;
+        press.left_down = true;
+        ColorInput::new(id, FIELD, color).show_with_commit(&mut press);
+
+        reset_click_consumed();
+        let mut blur = WidgetTestContext::new();
+        blur.mouse_pos = (200.0, 40.0);
+        blur.left_pressed = true;
+        let (_, commit) = ColorInput::new(id, FIELD, color).show_with_commit(&mut blur);
+
+        assert_eq!(commit, InputCommit::Unchanged);
+        text_input_reset(id);
     }
 }

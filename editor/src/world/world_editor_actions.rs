@@ -1,6 +1,7 @@
 use crate::editor_global::push_toast;
 use crate::world::world_editor::WorldEditor;
 use bishop::prelude::*;
+use engine_core::constants::lighting;
 use engine_core::ecs::*;
 use engine_core::game::{Game, GameCtxMut};
 use engine_core::tiles::TileMap;
@@ -90,7 +91,9 @@ impl WorldEditor {
             adjacent_rooms: vec![],
             tags: vec![],
             variants: vec![variant],
-            darkness: 0.,
+            darkness: lighting::DEFAULT_ROOM_DARKNESS,
+            ambient_color: lighting::DEFAULT_ROOM_AMBIENT_COLOR,
+            exposure: lighting::DEFAULT_ROOM_EXPOSURE,
             singleton: Room::create_room_singleton_entity(&mut game.ecs, id),
         };
 

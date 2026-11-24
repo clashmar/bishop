@@ -11,7 +11,7 @@ use super::conversions::{
 use super::exec::FrameFuture;
 use super::render::{
     create_texture_bind_group_layout, BishopRenderTarget, CameraUniforms, FullscreenQuadRenderer,
-    PrimitiveRenderer, TextRenderer, TextureRenderer,
+    LightingRenderer, PrimitiveRenderer, TextRenderer, TextureRenderer,
 };
 use super::state::{GraphicsState, GraphicsStateError, TimeState};
 use crate::Rect;
@@ -49,6 +49,7 @@ pub struct WgpuContext {
     pub(crate) current_camera: Option<Camera2D>,
     render_target_bind_group_layout: std::sync::Arc<wgpu::BindGroupLayout>,
     fullscreen_quad_renderer: FullscreenQuadRenderer,
+    lighting_renderer: LightingRenderer,
     fullscreen: bool,
     scale_factor: f32,
     current_surface_texture: Option<wgpu::SurfaceTexture>,
@@ -77,6 +78,11 @@ impl WgpuContext {
         let render_target_bind_group_layout =
             std::sync::Arc::new(create_texture_bind_group_layout(&graphics.device));
         let fullscreen_quad_renderer = FullscreenQuadRenderer::new(&graphics.device);
+        let lighting_renderer = LightingRenderer::new(
+            &graphics.device,
+            graphics.config.format,
+            &fullscreen_quad_renderer,
+        );
         let scale_factor = window.scale_factor() as f32;
         let fullscreen = window.fullscreen().is_some();
 
@@ -92,6 +98,7 @@ impl WgpuContext {
             current_camera: None,
             render_target_bind_group_layout,
             fullscreen_quad_renderer,
+            lighting_renderer,
             fullscreen,
             scale_factor,
             current_surface_texture: None,
@@ -598,7 +605,10 @@ impl WgpuContext {
 
             if let Some(camera) = &self.current_camera {
                 if let Some((x, y, w, h)) = camera.viewport {
-                    let scale = self.scale_factor.max(1.0);
+                    let scale = camera_viewport_scale(
+                        self.scale_factor,
+                        self.render_target_dims.is_some(),
+                    );
                     render_pass.set_viewport(
                         x as f32 * scale,
                         y as f32 * scale,
@@ -730,6 +740,78 @@ impl WgpuContext {
         )
     }
 
+    pub(crate) fn apply_ambient_pass(
+        &mut self,
+        source: &BishopRenderTarget,
+        destination: &BishopRenderTarget,
+        params: crate::material::AmbientPassParams,
+    ) -> Result<(), String> {
+        validate_lighting_targets(source, destination)?;
+        self.flush_if_needed();
+        let mut encoder = self.graphics.device.create_command_encoder(
+            &wgpu::CommandEncoderDescriptor { label: Some("ambient_lighting_pass") },
+        );
+        self.lighting_renderer.ambient(
+            &self.graphics.device,
+            &self.graphics.queue,
+            &mut encoder,
+            &self.fullscreen_quad_renderer,
+            source,
+            destination,
+            params,
+        );
+        self.graphics.queue.submit(std::iter::once(encoder.finish()));
+        Ok(())
+    }
+
+    pub(crate) fn apply_point_light_pass(
+        &mut self,
+        source: &BishopRenderTarget,
+        destination: &BishopRenderTarget,
+        params: crate::material::PointLightPassParams,
+    ) -> Result<(), String> {
+        validate_lighting_targets(source, destination)?;
+        self.flush_if_needed();
+        let mut encoder = self.graphics.device.create_command_encoder(
+            &wgpu::CommandEncoderDescriptor { label: Some("point_light_pass") },
+        );
+        self.lighting_renderer.point(
+            &self.graphics.device,
+            &self.graphics.queue,
+            &mut encoder,
+            &self.fullscreen_quad_renderer,
+            source,
+            destination,
+            params,
+        );
+        self.graphics.queue.submit(std::iter::once(encoder.finish()));
+        Ok(())
+    }
+
+    pub(crate) fn apply_composite_lighting_pass(
+        &mut self,
+        albedo: &BishopRenderTarget,
+        illumination: &BishopRenderTarget,
+        destination: &BishopRenderTarget,
+    ) -> Result<(), String> {
+        validate_composite_lighting_targets(albedo, illumination, destination)?;
+        self.flush_if_needed();
+        let mut encoder = self.graphics.device.create_command_encoder(
+            &wgpu::CommandEncoderDescriptor { label: Some("room_lighting_composite_pass") },
+        );
+        self.lighting_renderer.composite(
+            &self.graphics.device,
+            &self.graphics.queue,
+            &mut encoder,
+            &self.fullscreen_quad_renderer,
+            albedo,
+            illumination,
+            destination,
+        );
+        self.graphics.queue.submit(std::iter::once(encoder.finish()));
+        Ok(())
+    }
+
     /// Returns the actual window width in logical pixels, ignoring any render target override.
     pub fn window_width(&self) -> f32 {
         self.graphics.size.0 as f32 / self.scale_factor
@@ -770,6 +852,47 @@ impl WgpuContext {
     }
 }
 
+fn validate_lighting_targets(
+    source: &BishopRenderTarget,
+    destination: &BishopRenderTarget,
+) -> Result<(), String> {
+    if std::ptr::eq(source.texture(), destination.texture()) {
+        return Err("lighting pass source and destination targets must differ".to_owned());
+    }
+    if source.width() != destination.width() || source.height() != destination.height() {
+        return Err("lighting pass source and destination dimensions must match".to_owned());
+    }
+    Ok(())
+}
+
+fn validate_composite_lighting_targets(
+    albedo: &BishopRenderTarget,
+    illumination: &BishopRenderTarget,
+    destination: &BishopRenderTarget,
+) -> Result<(), String> {
+    if std::ptr::eq(albedo.texture(), destination.texture())
+        || std::ptr::eq(illumination.texture(), destination.texture())
+    {
+        return Err("lighting composite destination must differ from both sources".to_owned());
+    }
+    if albedo.width() != illumination.width()
+        || albedo.height() != illumination.height()
+        || albedo.width() != destination.width()
+        || albedo.height() != destination.height()
+    {
+        return Err("lighting composite targets must have matching dimensions".to_owned());
+    }
+    Ok(())
+}
+
+fn camera_viewport_scale(scale_factor: f32, rendering_to_target: bool) -> f32 {
+    if rendering_to_target {
+        1.0
+    } else {
+        scale_factor.max(1.0)
+    }
+}
+
 fn frame_needs_surface_clear(has_pending_draws: bool, has_cleared_this_frame: bool) -> bool {
     !has_pending_draws && !has_cleared_this_frame
 }
@@ -786,6 +909,17 @@ fn clear_wgpu_color(color: Color) -> wgpu::Color {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn camera_viewport_uses_target_pixels_without_display_scale() {
+        assert_eq!(camera_viewport_scale(2.0, true), 1.0);
+    }
+
+    #[test]
+    fn camera_viewport_uses_display_scale_for_surface_rendering() {
+        assert_eq!(camera_viewport_scale(2.0, false), 2.0);
+        assert_eq!(camera_viewport_scale(0.75, false), 1.0);
+    }
 
     #[test]
     fn untouched_frame_still_requires_a_surface_clear() {

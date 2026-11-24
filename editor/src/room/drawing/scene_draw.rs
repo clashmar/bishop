@@ -64,13 +64,13 @@ impl RoomEditor {
 
         if view_preview {
             render_system.resize_for_camera(render_cam.zoom);
-            render_system.begin_scene(ctx);
         } else {
             render_system.resize_to_window(ctx);
         }
 
-        render_room(
+        let rendered_to_target = render_room(
             ctx,
+            render_system,
             game_ctx,
             render_cam,
             RoomRenderState {
@@ -83,9 +83,10 @@ impl RoomEditor {
             self.particle_preview.render_system(),
         );
 
-        if view_preview {
-            render_system.end_scene(ctx);
+        if rendered_to_target {
             render_system.present_game(ctx);
+        }
+        if view_preview {
             return;
         }
 

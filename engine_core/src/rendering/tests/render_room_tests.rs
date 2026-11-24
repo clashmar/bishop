@@ -1,11 +1,14 @@
 use super::*;
+use bishop::{vec2, Camera2D, Rect};
+use crate::ecs::{Cover, Interactable, Pivot, PointLight, PointLightLayerScope, Transform};
+use crate::rendering::lighting::point_light_affects_layer;
 use crate::rendering::test_support::make_vertical_spillover_fixture;
 use crate::rendering::{RoomCompositionContext, RoomRenderState, RoomVisibilityContext};
 use crate::worlds::room::RoomVariant;
 use crate::worlds::test_utils::make_room;
 use crate::worlds::{
     BackRoomLayer, Exit, ExitDirection, InteriorZone, InteriorZoneBounds, InteriorZoneId,
-    InteriorZoneScope, LayerCompositionMode, RoomLayer, RoomLayers, World, WorldId,
+    InteriorZoneScope, LayerCompositionMode, Room, RoomId, RoomLayer, RoomLayers, World, WorldId,
 };
 
 fn room_visibility_context<'a>(world: &'a World, room_id: RoomId) -> RoomVisibilityContext<'a> {
@@ -73,6 +76,15 @@ fn front_layer_alpha(
 }
 
 #[test]
+fn pixel_light_grid_scales_with_editor_camera_zoom() {
+    let zoomed_out = Camera2D::new(Vec2::ZERO, vec2(0.5, 0.5));
+    let zoomed_in = Camera2D::new(Vec2::ZERO, vec2(2.0, 2.0));
+
+    assert_eq!(target_pixels_per_world_unit(&zoomed_out, 128.0, 128.0), 32.0);
+    assert_eq!(target_pixels_per_world_unit(&zoomed_in, 128.0, 128.0), 128.0);
+}
+
+#[test]
 fn transform_ron_round_trip_preserves_z() {
     let ron = ron::to_string(&Transform {
         visible: true,
@@ -136,6 +148,163 @@ fn collect_interpolated_room_layer_maps_same_z_orders_lower_entity_id_first() {
         .collect::<Vec<_>>();
 
     assert_eq!(entities, vec![lower, higher]);
+}
+
+#[test]
+fn collect_interpolated_room_layer_maps_point_light_uses_interpolated_position_and_own_layer() {
+    let room_id = RoomId(1);
+    let world = World::from_rooms(
+        WorldId(0),
+        String::new(),
+        vec![make_room(Some(1), 0.0, 0.0, 4.0, 4.0)],
+        16.0,
+    );
+    let mut ecs = Ecs::default();
+    let entity = ecs
+        .create_entity()
+        .with(Transform {
+            position: vec2(10.0, 8.0),
+            z: 2,
+            ..Default::default()
+        })
+        .with(PointLight {
+            offset: vec2(3.0, -1.0),
+            layer_scope: PointLightLayerScope::AllVisibleLayers,
+            ..Default::default()
+        })
+        .with_current_room_layer(room_id, RoomLayer::Back)
+        .finish();
+    let prev_positions = HashMap::from([(entity, vec2(2.0, 4.0))]);
+
+    let layer_maps = collect_interpolated_room_layer_maps(
+        &ecs,
+        &room_visibility_context(&world, room_id),
+        &SpriteManager::default(),
+        0.5,
+        Some(&prev_positions),
+        None,
+    );
+
+    let front_light_count = layer_maps
+        .for_layer(RoomLayer::Front)
+        .get(&2)
+        .map_or(0, |layer| layer.lighting.point_lights.len());
+    let back_light = layer_maps
+        .for_layer(RoomLayer::Back)
+        .get(&2)
+        .and_then(|layer| layer.lighting.point_lights.first());
+
+    assert_eq!(front_light_count, 0);
+    assert_eq!(back_light.map(|(entity, _, _)| *entity), Some(entity));
+    assert_eq!(back_light.map(|(_, _, position)| *position), Some(vec2(9.0, 5.0)));
+    assert_eq!(
+        back_light.map(|(_, light, _)| light.layer_scope),
+        Some(PointLightLayerScope::AllVisibleLayers)
+    );
+}
+
+#[test]
+fn collect_interpolated_room_layer_maps_point_lights_are_sorted_by_entity_id() {
+    let room_id = RoomId(1);
+    let world = World::from_rooms(
+        WorldId(0),
+        String::new(),
+        vec![make_room(Some(1), 0.0, 0.0, 4.0, 4.0)],
+        16.0,
+    );
+    let mut ecs = Ecs::default();
+    let first = ecs
+        .create_entity()
+        .with(Transform {
+            z: 2,
+            ..Default::default()
+        })
+        .with(PointLight::default())
+        .finish();
+    let second = ecs
+        .create_entity()
+        .with(Transform {
+            z: 2,
+            ..Default::default()
+        })
+        .with(PointLight::default())
+        .finish();
+    ecs.set_current_room_layer(second, room_id, RoomLayer::Front);
+    ecs.set_current_room_layer(first, room_id, RoomLayer::Front);
+
+    let layer_maps = collect_interpolated_room_layer_maps(
+        &ecs,
+        &room_visibility_context(&world, room_id),
+        &SpriteManager::default(),
+        1.0,
+        None,
+        None,
+    );
+    let lights = layer_maps
+        .for_layer(RoomLayer::Front)
+        .get(&2)
+        .map(|layer| {
+            layer
+                .lighting
+                .point_lights
+                .iter()
+                .map(|(entity, _, _)| *entity)
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+
+    assert_eq!(lights, vec![first, second]);
+}
+
+#[test]
+fn point_light_layer_scope_respects_visible_layers_and_owner_layer() {
+    let owner_layer = RoomLayer::Back;
+    let visible = visible_layers_for_state(
+        &RoomLayers {
+            back: Some(BackRoomLayer {
+                composition_mode: LayerCompositionMode::DollsHouse,
+                ..Default::default()
+            }),
+        },
+        render_state(RoomLayer::Front),
+    );
+    let owning_layer_light = PointLight::default();
+    let all_visible_light = PointLight {
+        layer_scope: PointLightLayerScope::AllVisibleLayers,
+        ..Default::default()
+    };
+
+    assert!(point_light_affects_layer(
+        &owning_layer_light,
+        owner_layer,
+        RoomLayer::Back,
+        &visible.ordered_layers,
+    ));
+    assert!(!point_light_affects_layer(
+        &owning_layer_light,
+        owner_layer,
+        RoomLayer::Front,
+        &visible.ordered_layers,
+    ));
+    assert!(point_light_affects_layer(
+        &all_visible_light,
+        owner_layer,
+        RoomLayer::Front,
+        &visible.ordered_layers,
+    ));
+
+    let hidden_back = visible_layers_for_state(
+        &RoomLayers {
+            back: Some(BackRoomLayer::default()),
+        },
+        render_state(RoomLayer::Front),
+    );
+    assert!(!point_light_affects_layer(
+        &all_visible_light,
+        owner_layer,
+        RoomLayer::Back,
+        &hidden_back.ordered_layers,
+    ));
 }
 
 #[test]

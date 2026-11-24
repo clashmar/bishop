@@ -10,6 +10,7 @@ pub mod layer_door_module;
 pub mod shell;
 pub mod player_module;
 pub mod particle_emitter_module;
+pub mod point_light_module;
 pub mod room_camera_module;
 pub mod script_module;
 pub mod world_entry_module;

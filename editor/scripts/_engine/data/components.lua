@@ -82,15 +82,6 @@
 ---@field usable boolean
 ---@field alpha number
 
----@class Light
----@field pos vec2
----@field color vec3
----@field intensity number
----@field radius number
----@field spread number
----@field alpha number
----@field brightness number
-
 ---@alias Name string
 
 ---@alias Parent Entity
@@ -106,6 +97,16 @@
 
 --- Marker component
 ---@class PlayerProxy
+
+---@class PointLight
+---@field offset vec2
+---@field color vec3
+---@field intensity number
+---@field radius number
+---@field attenuation number
+---@field layer_scope table
+---@field style table
+---@field pixel_size number
 
 ---@class RoomCamera
 ---@field zoom vec2
@@ -182,13 +183,13 @@
 ---@field Interactable "Interactable"
 ---@field Kinematic "Kinematic"
 ---@field LayerDoor "LayerDoor"
----@field Light "Light"
 ---@field Name "Name"
 ---@field Parent "Parent"
 ---@field ParticleEmitter "ParticleEmitter"
 ---@field PhysicsBody "PhysicsBody"
 ---@field Player "Player"
 ---@field PlayerProxy "PlayerProxy"
+---@field PointLight "PointLight"
 ---@field RoomCamera "RoomCamera"
 ---@field Script "Script"
 ---@field Sensor "Sensor"
@@ -221,13 +222,13 @@ C.Grounded = "Grounded"
 C.Interactable = "Interactable"
 C.Kinematic = "Kinematic"
 C.LayerDoor = "LayerDoor"
-C.Light = "Light"
 C.Name = "Name"
 C.Parent = "Parent"
 C.ParticleEmitter = "ParticleEmitter"
 C.PhysicsBody = "PhysicsBody"
 C.Player = "Player"
 C.PlayerProxy = "PlayerProxy"
+C.PointLight = "PointLight"
 C.RoomCamera = "RoomCamera"
 C.Script = "Script"
 C.Sensor = "Sensor"

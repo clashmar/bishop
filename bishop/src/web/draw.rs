@@ -65,7 +65,12 @@ impl WebRenderer {
             gl.bind_vertex_array(None);
             gl.bind_buffer(glow::ARRAY_BUFFER, None);
             gl.enable(glow::BLEND);
-            gl.blend_func(glow::SRC_ALPHA, glow::ONE_MINUS_SRC_ALPHA);
+            gl.blend_func_separate(
+                glow::SRC_ALPHA,
+                glow::ONE_MINUS_SRC_ALPHA,
+                glow::ONE,
+                glow::ONE_MINUS_SRC_ALPHA,
+            );
             let tint = gl.get_uniform_location(owner.program, "u_tint");
             let resolution = gl.get_uniform_location(owner.program, "u_resolution");
             let error = gl.get_error();

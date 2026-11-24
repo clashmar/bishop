@@ -19,7 +19,7 @@ use glow::HasContext;
 #[cfg(target_os = "emscripten")]
 use super::gl_context::{GlContext, WebContext};
 #[cfg(target_os = "emscripten")]
-use crate::material::RenderOps;
+use crate::material::{AmbientPassParams, PointLightPassParams, RenderOps};
 #[cfg(target_os = "emscripten")]
 use crate::types::Color;
 
@@ -264,12 +264,43 @@ impl RenderOps for WebContext {
         self.renderer.draw_quad(quad.positions, quad.uv, texture, Color::WHITE);
     }
 
+    fn apply_ambient_pass(
+        &mut self,
+        source: &WebRenderTarget,
+        destination: &WebRenderTarget,
+        params: AmbientPassParams,
+    ) -> Result<(), String> {
+        WebContext::apply_ambient_pass(self, source, destination, params)
+    }
+
+    fn apply_point_light_pass(
+        &mut self,
+        source: &WebRenderTarget,
+        destination: &WebRenderTarget,
+        params: PointLightPassParams,
+    ) -> Result<(), String> {
+        WebContext::apply_point_light_pass(self, source, destination, params)
+    }
+
+    fn composite_lighting_pass(
+        &mut self,
+        albedo: &WebRenderTarget,
+        illumination: &WebRenderTarget,
+        destination: &WebRenderTarget,
+    ) -> Result<(), String> {
+        WebContext::apply_composite_lighting_pass(self, albedo, illumination, destination)
+    }
+
+    fn render_target_error(&self, rt: &WebRenderTarget) -> Option<String> {
+        rt.failure().map(str::to_owned)
+    }
+
     fn create_drawable_render_target(&self, width: u32, height: u32) -> WebRenderTarget {
         let restore = self.renderer.active_target.as_ref().and_then(WebRenderTarget::framebuffer);
         match WebRenderTarget::new(Rc::clone(&self.owner), width, height, restore) {
             Ok(target) => target,
             Err(error) => {
-                self.owner.record_error(error.clone());
+                self.owner.record_warning(error.clone());
                 WebRenderTarget::failed(width, height, error)
             }
         }

@@ -135,8 +135,10 @@ pub(super) fn render_scene<C: BishopContext>(
     let mut game_ctx = game_instance.game.ctx_mut();
     let prev_positions = &game_instance.prev_positions;
 
-    render_room(
+    render_system.resize_to_window(ctx);
+    let rendered_to_target = render_room(
         ctx,
+        render_system,
         &mut game_ctx,
         render_cam,
         render_state,
@@ -144,6 +146,9 @@ pub(super) fn render_scene<C: BishopContext>(
         Some(prev_positions),
         Some(particle_system),
     );
+    if rendered_to_target {
+        render_system.present_game(ctx);
+    }
 
     render_system.render_time_ms = render_start.elapsed().as_secs_f32() * 1000.0;
     ctx.set_default_camera();

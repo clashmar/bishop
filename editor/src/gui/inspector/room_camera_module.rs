@@ -1,4 +1,5 @@
 use bishop::prelude::*;
+use crate::gui::field_layout::round_to_dp;
 use engine_core::constants::world;
 use engine_core::ecs::*;
 use engine_core::game::GameCtxMut;
@@ -320,20 +321,6 @@ inventory::submit! {
         },
         allowed_for: None,
     }
-}
-
-/// Return `v` rounded to *exactly* `dp` decimal places and stripped of the
-/// floating‑point noise that would otherwise appear as …99999 or …00001.
-#[inline]
-fn round_to_dp(v: f32, dp: u32) -> f32 {
-    let factor = 10_f32.powi(dp as i32);
-
-    let mut r = (v * factor).round() / factor;
-
-    if (r - r.round()).abs() < 1e-6 {
-        r = r.round();
-    }
-    r
 }
 
 /// Returns the optimal pivot for camera placement at a given zoom scalar.

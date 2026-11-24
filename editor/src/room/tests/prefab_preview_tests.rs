@@ -426,12 +426,14 @@ fn placeholder_entity_visual_exit_only_returns_exit_icon() {
 }
 
 #[test]
-fn placeholder_entity_visual_light_returns_light_placeholder() {
+fn point_light_placeholder_is_selected() -> Result<(), ron::Error> {
+    let point_light_ron = ron::to_string(&PointLight::default())?;
     let node = node_with_components(1, vec![
         transform_component(true, (0.0, 0.0), Pivot::BottomCenter, 0),
-        component_snapshot(comp_type_name::<Light>(), "Light()"),
+        component_snapshot(comp_type_name::<PointLight>(), &point_light_ron),
     ]);
     assert!(matches!(placeholder_entity_visual(&node), EntityVisual::LightPlaceholder));
+    Ok(())
 }
 
 #[test]
