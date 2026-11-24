@@ -637,5 +637,5 @@ static ALL_MODES: Lazy<&'static [RoomEditorMode]> =
     Lazy::new(|| Box::leak(Box::new(RoomEditorMode::iter().collect::<Vec<_>>())));
 
 #[cfg(test)]
-#[path = "tests/room_editor_tests.rs"]
+#[path = "tests/mod.rs"]
 mod tests;

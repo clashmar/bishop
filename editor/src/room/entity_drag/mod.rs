@@ -1,12 +1,14 @@
 mod alt_copy;
 mod box_selection;
 mod drag_motion;
+mod keyboard_movement;
 mod pointer_down;
 mod state;
 
 use self::alt_copy::{enter_alt_copy_mode, exit_alt_copy_mode};
 use self::box_selection::finish_box_selection;
 use self::drag_motion::step_active_entity_drag;
+use self::keyboard_movement::{move_selected_entities, room_movement_shortcuts_blocked};
 use self::pointer_down::try_begin_pointer_interaction;
 use self::state::EntityDragCommand;
 pub(crate) use self::state::DragState;
@@ -27,7 +29,6 @@ use crate::room::interactable_drag::{
 };
 use crate::room::room_editor::*;
 use crate::room::selection::*;
-use crate::shared::input::shortcuts_blocked;
 use crate::world::coord;
 use engine_core::rendering::resolve_visual_entity;
 use bishop::prelude::*;
@@ -197,7 +198,7 @@ impl RoomEditor {
     ) {
         if self.drag_state.entity_drag.dragging
             || self.selected_entities.is_empty()
-            || shortcuts_blocked()
+            || room_movement_shortcuts_blocked()
         {
             return;
         }
@@ -235,20 +236,7 @@ impl RoomEditor {
             }
         }
 
-        let mut moves = Vec::new();
-        let active_layer = self.active_layer_state.active_layer;
-
-        for &entity in &self.selected_entities {
-            if !can_select_entity_in_room_layer(ecs, entity, room_id, active_layer) {
-                continue;
-            }
-
-            if let Some(transform) = ecs.get_store_mut::<Transform>().get_mut(entity) {
-                let old = transform.position;
-                transform.position += step;
-                moves.push((entity, old, transform.position));
-            }
-        }
+        let moves = move_selected_entities(ecs, &self.selected_entities, step);
 
         if !moves.is_empty() {
             if moves.len() == 1 {

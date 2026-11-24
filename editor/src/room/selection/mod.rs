@@ -18,6 +18,9 @@ use engine_core::rendering::{
 use engine_core::worlds::*;
 use std::collections::HashSet;
 
+mod click_cycle;
+pub(crate) use click_cycle::ClickCycle;
+
 impl RoomEditor {
     pub(crate) fn sync_primary_from_inspector(&mut self) {
         if let Some(entity) = self
@@ -206,6 +209,18 @@ impl RoomEditor {
 
 /// Returns a `Rect` hitbox for an entity based on its sprite if it has one,
 /// otherwise it returns a hitbox based on the default sprite dimensions.
+pub(crate) fn entity_hit_test_position(ecs: &Ecs, entity: Entity) -> Option<(Vec2, i32)> {
+    let mut current = entity;
+    let mut visited = HashSet::new();
+    while visited.insert(current) {
+        if let Some(transform) = ecs.get::<Transform>(current) {
+            return Some((transform.position, transform.z));
+        }
+        current = ecs.get::<Parent>(current)?.0;
+    }
+    None
+}
+
 pub fn entity_hitbox(
     ctx: &WgpuContext,
     entity: Entity,
