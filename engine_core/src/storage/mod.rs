@@ -1,5 +1,6 @@
 pub mod editor_config;
 pub mod game_data_layout;
+pub mod input_settings;
 pub mod ordered_map;
 pub mod path_utils;
 pub mod resource_manifest;
@@ -11,6 +12,7 @@ pub mod test_utils;
 
 pub use editor_config::*;
 pub use game_data_layout::*;
+pub use input_settings::*;
 pub use ordered_map::*;
 pub use path_utils::*;
 pub use resource_manifest::{ResourceEntry, ResourceKey, ResourceManifest};
