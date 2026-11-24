@@ -28,6 +28,7 @@ use engine_core::ecs::components::ParticleEmitter;
 use engine_core::ecs::*;
 use engine_core::game::Game;
 use engine_core::rendering::{RenderSystem};
+use engine_core::storage::editor_config::{get_room_preview, set_room_preview};
 use engine_core::worlds::*;
 use widgets::*;
 use once_cell::sync::Lazy;
@@ -174,7 +175,7 @@ impl RoomEditor {
             request_play: false,
             view_preview: false,
             particle_preview: ParticlePreview::default(),
-            show_interior_zones: true,
+            show_interior_zones: get_room_preview().interior_zones_visible,
             tilemap_sub_mode: TilemapEditorMode::Tiles,
             sub_mode_rect: None,
         }
@@ -464,6 +465,12 @@ impl RoomEditor {
         if !visible && self.scene_sub_mode == RoomSceneSubMode::Zones {
             self.set_scene_sub_mode(RoomSceneSubMode::Scene);
         }
+    }
+
+    pub(crate) fn persist_room_preview_settings(&self) {
+        let mut settings = get_room_preview();
+        settings.interior_zones_visible = self.show_interior_zones;
+        set_room_preview(settings);
     }
 
     pub(crate) fn toggle_interior_zone_visibility(&mut self) {

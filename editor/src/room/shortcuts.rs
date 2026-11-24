@@ -42,6 +42,7 @@ impl RoomEditor {
 
         if Controls::z(ctx) {
             self.toggle_interior_zone_visibility();
+            self.persist_room_preview_settings();
         }
 
         for mode in RoomEditorMode::iter() {

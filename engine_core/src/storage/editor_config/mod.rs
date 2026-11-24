@@ -15,6 +15,12 @@ use std::fs;
 use std::path::Path;
 use std::path::PathBuf;
 use std::sync::RwLock;
+
+#[cfg(feature = "editor")]
+mod preview;
+#[cfg(feature = "editor")]
+pub use preview::{get_room_preview, set_room_preview, RoomPreviewSettings};
+
 pub static EDITOR_CONFIG: Lazy<RwLock<EditorConfig>> = Lazy::new(|| RwLock::new(load_config()));
 
 #[cfg_attr(not(feature = "editor"), derive(Default))]
@@ -38,6 +44,9 @@ pub struct EditorConfig {
     #[cfg(feature = "editor")]
     #[serde(default)]
     pub panel_positions: BTreeMap<String, PanelPosition>,
+    #[cfg(feature = "editor")]
+    #[serde(default)]
+    pub room_preview: RoomPreviewSettings,
 }
 
 #[cfg(feature = "editor")]
@@ -51,6 +60,7 @@ impl Default for EditorConfig {
             inspector_visible: default_inspector_visible(),
             inspector_module_expanded: BTreeMap::new(),
             panel_positions: BTreeMap::new(),
+            room_preview: RoomPreviewSettings::default(),
         }
     }
 }
@@ -302,8 +312,10 @@ pub fn apply_config_theme() {
 }
 
 #[cfg(all(test, feature = "editor"))]
-#[path = "editor_config_panel_geometry_tests.rs"]
 mod panel_geometry_tests;
+
+#[cfg(all(test, feature = "editor"))]
+mod preview_tests;
 
 #[cfg(all(test, feature = "editor"))]
 mod tests {

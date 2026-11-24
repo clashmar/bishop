@@ -1,5 +1,23 @@
 use super::super::*;
+use engine_core::storage::editor_config::{get_room_preview, EDITOR_CONFIG};
 use engine_core::worlds::InteriorZoneId;
+
+fn set_room_preview_visibility_in_memory(visible: bool) {
+    let Ok(mut config) = EDITOR_CONFIG.write() else {
+        panic!("editor config lock should be available in this test");
+    };
+    config.room_preview.interior_zones_visible = visible;
+}
+
+#[test]
+fn room_editor_when_preview_preference_is_hidden_then_starts_hidden() {
+    let previous_visibility = get_room_preview().interior_zones_visible;
+    set_room_preview_visibility_in_memory(false);
+    let editor = RoomEditor::new();
+    set_room_preview_visibility_in_memory(previous_visibility);
+
+    assert!(!editor.show_interior_zones);
+}
 
 #[test]
 fn entering_zone_sub_mode_selects_room_and_preserves_zone_selection() {
@@ -50,6 +68,7 @@ fn toggling_zone_sub_mode_twice_exits_and_restores_entity_target() {
 #[test]
 fn interior_zone_visibility_toggle_flips_flag() {
     let mut editor = RoomEditor::new();
+    editor.show_interior_zones = true;
 
     editor.toggle_interior_zone_visibility();
     assert!(!editor.show_interior_zones);
