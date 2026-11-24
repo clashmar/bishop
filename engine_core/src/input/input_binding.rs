@@ -1,4 +1,5 @@
 use bishop::{GamepadButton, KeyCode};
+pub use bishop::GamepadAxis;
 use serde::{Deserialize, Serialize};
 
 /// A physical source that can activate an input action.
@@ -17,23 +18,6 @@ pub enum InputSource {
         /// The minimum absolute axis value that activates the binding.
         threshold: f32,
     },
-}
-
-/// A gamepad axis that can be bound to an action.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub enum GamepadAxis {
-    /// The horizontal axis of the left stick.
-    LeftX,
-    /// The vertical axis of the left stick.
-    LeftY,
-    /// The horizontal axis of the right stick.
-    RightX,
-    /// The vertical axis of the right stick.
-    RightY,
-    /// The left trigger axis.
-    LeftTrigger,
-    /// The right trigger axis.
-    RightTrigger,
 }
 
 /// The direction in which a gamepad axis activates an action.

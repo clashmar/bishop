@@ -9,6 +9,8 @@ use super::conversions::{
     convert_cursor_icon, convert_keycode, convert_mouse_button, keycode_to_char,
 };
 use super::exec::FrameFuture;
+#[cfg(any(target_os = "macos", target_os = "windows", target_os = "linux"))]
+use super::gamepad::GamepadPoller;
 use super::render::{
     create_texture_bind_group_layout, BishopRenderTarget, CameraUniforms, FullscreenQuadRenderer,
     LightingRenderer, PrimitiveRenderer, TextRenderer, TextureRenderer,
@@ -17,6 +19,8 @@ use super::state::{GraphicsState, GraphicsStateError, TimeState};
 use crate::Rect;
 use crate::camera::Camera2D;
 use crate::input::{KeyboardMouseState, MouseWheelKind};
+#[cfg(any(target_os = "macos", target_os = "windows", target_os = "linux"))]
+use crate::input::GamepadState;
 use crate::types::Color;
 use crate::window::CursorIcon;
 
@@ -40,6 +44,8 @@ enum DrawSegment {
 pub struct WgpuContext {
     pub(crate) graphics: GraphicsState,
     pub(crate) input: KeyboardMouseState,
+    #[cfg(any(target_os = "macos", target_os = "windows", target_os = "linux"))]
+    gamepad: GamepadPoller,
     pub(crate) time: TimeState,
     pub(crate) window: Arc<Window>,
     pub(crate) clear_color: Option<Color>,
@@ -89,6 +95,8 @@ impl WgpuContext {
         Ok(Self {
             graphics,
             input: KeyboardMouseState::new(),
+            #[cfg(any(target_os = "macos", target_os = "windows", target_os = "linux"))]
+            gamepad: GamepadPoller::new(),
             time: TimeState::new(),
             window,
             clear_color: None,
@@ -171,6 +179,8 @@ impl WgpuContext {
         self.time.begin_frame();
 
         self.input.begin_frame();
+        #[cfg(any(target_os = "macos", target_os = "windows", target_os = "linux"))]
+        self.gamepad.begin_frame();
 
         // Clear state
         self.clear_color = None;
@@ -262,6 +272,12 @@ impl WgpuContext {
     /// Returns the source kind for the most recent mouse wheel event this frame.
     pub fn mouse_wheel_kind(&self) -> Option<MouseWheelKind> {
         self.input.mouse_wheel_kind()
+    }
+
+    /// Returns the current native gamepad state.
+    #[cfg(any(target_os = "macos", target_os = "windows", target_os = "linux"))]
+    pub fn gamepad_state(&self) -> &GamepadState {
+        self.gamepad.state()
     }
 
     /// Returns a reference to the underlying window.

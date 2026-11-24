@@ -1,4 +1,4 @@
-//! Input handling for keyboard and mouse.
+//! Input handling for keyboard, mouse, and gamepads.
 
 mod gamepad;
 mod keycode;
