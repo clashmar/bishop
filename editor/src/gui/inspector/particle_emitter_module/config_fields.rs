@@ -159,7 +159,7 @@ fn draw_preview_control(
     let button_rect = Rect::new(rect.x, *y, rect.w, ROW_HEIGHT);
     if Button::new(button_rect, label)
         .tooltip(tooltip)
-        .blocked(blocked || emitter.config.validate().is_err())
+        .suppressed(blocked || emitter.config.validate().is_err())
         .show(ctx)
     {
         if let Some(owner) = module.issue_entity.get() {

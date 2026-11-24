@@ -151,7 +151,7 @@ fn blocked_buttons_are_dimmed_and_do_not_click() {
 }
 
 #[test]
-fn suppressed_buttons_do_not_click() {
+fn suppressed_buttons_do_not_click_or_show_blocked_visuals() {
     reset_click_consumed();
 
     let button = Rect::new(0.0, 0.0, 80.0, 30.0);
@@ -161,6 +161,37 @@ fn suppressed_buttons_do_not_click() {
     ctx.left_down = true;
 
     assert!(!Button::new(button, "Play").suppressed(true).show(&mut ctx));
+    ctx.left_pressed = false;
+    ctx.left_down = false;
+    ctx.left_released = true;
+    assert!(!Button::new(button, "Play").suppressed(true).show(&mut ctx));
+
+    reset_click_consumed();
+    ctx.left_released = false;
+    ctx.right_pressed = true;
+    ctx.right_down = true;
+
+    assert!(!Button::new(button, "Play")
+        .allow_secondary_click()
+        .suppressed(true)
+        .show(&mut ctx));
+    ctx.right_pressed = false;
+    ctx.right_down = false;
+    ctx.right_released = true;
+    assert!(!Button::new(button, "Play")
+        .allow_secondary_click()
+        .suppressed(true)
+        .show(&mut ctx));
+
+    assert_ne!(
+        ctx.rectangle_fills.last().copied(),
+        Some(BLOCKED_BACKGROUND_COLOR)
+    );
+    assert_ne!(
+        ctx.rectangle_lines.last().copied(),
+        Some(BLOCKED_OUTLINE_COLOR)
+    );
+    assert_ne!(ctx.text_colors.last().copied(), Some(BLOCKED_TEXT_COLOR));
 }
 
 #[test]
