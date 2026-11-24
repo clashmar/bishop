@@ -9,5 +9,9 @@ pub fn shortcuts_blocked() -> bool {
 
 /// Returns true when global UI (dropdowns, modals, context menus, floating panels) is under the mouse.
 pub fn canvas_blocked_by_global_ui(ctx: &WgpuContext) -> bool {
-    is_dropdown_open() || is_modal_open() || is_context_menu_open() || is_mouse_over_panel(ctx)
+    is_dropdown_open()
+        || is_modal_open()
+        || is_context_menu_open()
+        || color_picker_blocks_canvas()
+        || is_mouse_over_panel(ctx)
 }

@@ -1,3 +1,4 @@
+use crate::widgets::color_picker::color_picker_open;
 use crate::*;
 
 const DEFAULT_SCROLL_SPEED: f32 = 24.0;
@@ -88,7 +89,13 @@ impl ScrollableArea {
             state.scroll_y,
         );
 
-        if !self.base.blocked && scroll_range > 0.0 {
+        let picker_open = color_picker_open();
+        if picker_open {
+            state.dragging_thumb = false;
+            state.thumb_drag_offset = 0.0;
+        }
+
+        if !self.base.blocked && !picker_open && scroll_range > 0.0 {
             // Wheel scroll
             if ctx.is_mouse_over(self.rect) {
                 let (_, wheel_y) = ctx.mouse_wheel();

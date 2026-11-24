@@ -395,6 +395,7 @@ impl PanelDefinition for ConsolePanel {
 
         // Handle mouse selection
         if !blocked
+            && !color_picker_blocks_canvas()
             && content_rect.contains(mouse)
             && ctx.is_mouse_button_pressed(MouseButton::Left)
         {

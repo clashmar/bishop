@@ -156,7 +156,7 @@ impl InspectorContent for RoomProperties {
             .and_then(|world| world.current_room_mut())
         {
             room.name = edited_room.name.clone();
-            copy_ambient_slider_preview(room, &edited_room);
+            copy_ambient_preview(room, &edited_room);
         }
 
         if tags_changed {
@@ -198,7 +198,8 @@ impl InspectorContent for RoomProperties {
     }
 }
 
-fn copy_ambient_slider_preview(room: &mut Room, edited_room: &Room) {
+fn copy_ambient_preview(room: &mut Room, edited_room: &Room) {
+    room.ambient_color = edited_room.ambient_color;
     room.darkness = edited_room.darkness;
     room.exposure = edited_room.exposure;
 }
@@ -218,20 +219,23 @@ mod tests {
     }
 
     #[test]
-    fn ambient_preview_persists_darkness_and_exposure_from_edited_room() {
+    fn ambient_preview_persists_color_alpha_darkness_and_exposure() {
         let mut room = Room {
+            ambient_color: Color::new(0.2, 0.3, 0.4, 0.25),
             darkness: 0.2,
             exposure: 0.8,
             ..Room::default()
         };
         let edited_room = Room {
+            ambient_color: Color::new(0.7, 0.5, 0.1, 0.6),
             darkness: 0.65,
             exposure: 2.5,
             ..room.clone()
         };
 
-        copy_ambient_slider_preview(&mut room, &edited_room);
+        copy_ambient_preview(&mut room, &edited_room);
 
+        assert_eq!(room.ambient_color, edited_room.ambient_color);
         assert_eq!(room.darkness, 0.65);
         assert_eq!(room.exposure, 2.5);
     }

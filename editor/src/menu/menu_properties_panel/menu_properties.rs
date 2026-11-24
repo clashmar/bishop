@@ -152,19 +152,28 @@ impl MenuEditor {
                 if row_visible(*y, ROW_HEIGHT, clip) {
                     ctx.draw_text("Color:", x, *y + 16.0, 12.0, Color::WHITE);
                     let field_rect = Rect::new(x + LABEL_WIDTH, *y, w - LABEL_WIDTH, FIELD_HEIGHT);
-                    let new_color = ColorInput::new(
+                    let response = ColorInput::new(
                         self.properties_panel.widget_ids.bg_color_id,
                         field_rect,
                         color,
                     )
                     .blocked(blocked)
                     .show(ctx);
-                    if new_color != color {
-                        if let Some(idx) = self.current_template_index {
+                    let (old_color, new_color, commit) = match response.edit {
+                        ColorInputEdit::Preview { initial } => (initial, response.color, false),
+                        ColorInputEdit::Commit { initial } => (initial, response.color, true),
+                        ColorInputEdit::Cancel { initial } => (initial, initial, false),
+                        ColorInputEdit::None => (color, response.color, response.color != color),
+                    };
+                    if let Some(idx) = self.current_template_index {
+                        if let Some(template) = self.templates.get_mut(idx) {
+                            template.background = MenuBackground::SolidColor(new_color);
+                        }
+                        if commit && old_color != new_color {
                             push_command(Box::new(UpdateTemplateCmd::new(
                                 idx,
                                 TemplateProperty::Background {
-                                    old: MenuBackground::SolidColor(color),
+                                    old: MenuBackground::SolidColor(old_color),
                                     new: MenuBackground::SolidColor(new_color),
                                 },
                             )));

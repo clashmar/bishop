@@ -98,7 +98,7 @@ impl<T, M: PropertyModule<T>> PropertyModule<T> for CollapsiblePropertyModule<T,
 mod tests {
     use super::*;
 
-    struct FakeModule(&'static str);
+    struct FakeModule(String);
     impl PropertyModule<()> for FakeModule {
         fn draw(
             &mut self,
@@ -112,25 +112,26 @@ mod tests {
             InspectorBodyLayout::new().rows(1, 4.0)
         }
         fn title(&self) -> &str {
-            self.0
+            &self.0
         }
     }
 
     #[test]
     fn property_module_expansion_state_tracks_setter() {
-        let mut module = CollapsiblePropertyModule::<(), FakeModule>::new(FakeModule(
-            "PropertyExpansionSetterTest",
-        ));
+        let title = format!("PropertyExpansionSetterTest-{}", std::process::id());
+        let mut module =
+            CollapsiblePropertyModule::<(), FakeModule>::new(FakeModule(title));
 
         assert_eq!(module.expansion_state(), Some(true));
         module.set_expanded(false);
         assert_eq!(module.expansion_state(), Some(false));
+        module.set_expanded(true);
     }
 
     #[test]
     fn inspector_expansion_reveal_rect_requires_collapsed_to_expanded_transition() {
         let mut module = CollapsiblePropertyModule::<(), FakeModule>::new(FakeModule(
-            "PropertyExpansionRevealTest",
+            "PropertyExpansionRevealTest".to_owned(),
         ));
         let rect = Rect::new(10.0, 20.0, 100.0, 24.0);
 
@@ -149,34 +150,44 @@ mod tests {
 
     #[test]
     fn starts_expanded() {
-        let module = CollapsiblePropertyModule::<(), FakeModule>::new(FakeModule("FakeModule"));
+        let module = CollapsiblePropertyModule::<(), FakeModule>::new(FakeModule(
+            "FakeModule".to_owned(),
+        ));
         assert!(module.header.expanded());
     }
 
     #[test]
     fn height_when_expanded_includes_header_and_body() {
-        let module = CollapsiblePropertyModule::<(), FakeModule>::new(FakeModule("FakeModule"));
+        let module = CollapsiblePropertyModule::<(), FakeModule>::new(FakeModule(
+            "FakeModule".to_owned(),
+        ));
         let body = InspectorBodyLayout::new().rows(1, 4.0).height();
         assert_eq!(module.height(), CollapsibleHeader::HEADER_HEIGHT + body);
     }
 
     #[test]
     fn height_when_collapsed_is_header_only() {
-        let mut module = CollapsiblePropertyModule::<(), FakeModule>::new(FakeModule("FakeModule"));
+        let mut module = CollapsiblePropertyModule::<(), FakeModule>::new(FakeModule(
+            "FakeModule".to_owned(),
+        ));
         module.header.set_expanded(false);
         assert_eq!(module.height(), CollapsibleHeader::HEADER_HEIGHT);
     }
 
     #[test]
     fn body_layout_delegates_to_inner() {
-        let module = CollapsiblePropertyModule::<(), FakeModule>::new(FakeModule("FakeModule"));
+        let module = CollapsiblePropertyModule::<(), FakeModule>::new(FakeModule(
+            "FakeModule".to_owned(),
+        ));
         // FakeModule uses .rows(1, 4.0) which has non-zero height
         assert!(module.body_layout().height() > 0.0);
     }
 
     #[test]
     fn title_delegates_to_inner() {
-        let module = CollapsiblePropertyModule::<(), FakeModule>::new(FakeModule("FakeModule"));
+        let module = CollapsiblePropertyModule::<(), FakeModule>::new(FakeModule(
+            "FakeModule".to_owned(),
+        ));
         assert_eq!(module.title(), "FakeModule");
     }
 

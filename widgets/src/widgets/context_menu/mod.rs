@@ -1,3 +1,4 @@
+use super::color_picker::color_picker_open;
 use crate::constants::{colors, layout};
 use crate::*;
 use std::cell::RefCell;
@@ -81,7 +82,8 @@ impl<'a, T: Clone + PartialEq + 'static> ContextMenu<'a, T> {
         }
 
         let mut state = context_menu_state::get(self.id);
-        let interactive = !self.base.blocked && !self.suppressed && !is_modal_open();
+        let interactive =
+            !self.base.blocked && !self.suppressed && !is_modal_open() && !color_picker_open();
         let mouse_pos: Vec2 = ctx.mouse_position().into();
 
         if ctx.is_mouse_button_pressed(MouseButton::Right) && interactive {

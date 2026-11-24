@@ -7,6 +7,7 @@ use engine_core::theme::with_theme;
 use engine_core::worlds::{World, WorldId};
 use widgets::constants::layout;
 use widgets::{
+    color_picker_blocks_canvas,
     matches_query_normalized,
     Button,
     ScrollState,
@@ -71,6 +72,7 @@ impl PanelDefinition for WorldBrowserPanel {
         if !matches!(editor.mode, EditorMode::Game(GameEditorSubmode::Worlds)) {
             return;
         }
+        let blocked = blocked || color_picker_blocks_canvas();
 
         let search_rect = Rect::new(
             rect.x + CONTENT_PADDING,

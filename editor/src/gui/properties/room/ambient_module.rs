@@ -10,7 +10,7 @@ use bishop::prelude::{Rect, WgpuContext};
 use engine_core::ecs::inspector::layout::InspectorBodyLayout;
 use engine_core::game::GameCtxMut;
 use engine_core::worlds::room::Room;
-use widgets::{ColorInput, InputCommit, NumberInput, Slider, SliderState, WidgetId};
+use widgets::{ColorInput, ColorInputEdit, InputCommit, NumberInput, Slider, SliderState, WidgetId};
 
 /// Title for the room ambient property module.
 pub const ROOM_AMBIENT_MODULE_TITLE: &str = "Ambient";
@@ -99,16 +99,34 @@ impl PropertyModule<Room> for RoomAmbientModule {
         y += FIELD_HEIGHT + FIELD_GAP;
 
         draw_label(ctx, "Color:", rect, y);
-        let (mut color, color_commit) = ColorInput::new(
+        let (color_response, color_commit) = ColorInput::new(
             self.color_id,
             field_rect(rect, y),
             room.ambient_color,
         )
         .show_with_commit(ctx);
-        color.a = room.ambient_color.a;
-        if color_commit == InputCommit::Committed {
-            new_settings.color = color;
-            command_needed = true;
+        match color_response.edit {
+            ColorInputEdit::Preview { initial } => {
+                room.ambient_color = color_response.color;
+                command_old_settings.color = initial;
+                new_settings.color = color_response.color;
+            }
+            ColorInputEdit::Commit { initial } => {
+                room.ambient_color = color_response.color;
+                command_old_settings.color = initial;
+                new_settings.color = color_response.color;
+                command_needed = true;
+            }
+            ColorInputEdit::Cancel { initial } => {
+                room.ambient_color = initial;
+                command_old_settings.color = initial;
+                new_settings.color = initial;
+            }
+            ColorInputEdit::None if color_commit == InputCommit::Committed => {
+                new_settings.color = color_response.color;
+                command_needed = true;
+            }
+            ColorInputEdit::None => {}
         }
         y += FIELD_HEIGHT + FIELD_GAP;
 

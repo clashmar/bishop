@@ -10,7 +10,7 @@ use engine_core::game::GameCtxMut;
 use engine_core::storage::assets_folder;
 use engine_core::worlds::{WorldVisual, world::World};
 use ::widgets::constants::layout;
-use ::widgets::{Button, ColorInput, WidgetId};
+use ::widgets::{Button, ColorInput, ColorInputEdit, WidgetId};
 
 const ROW_HEIGHT: f32 = 30.0;
 
@@ -121,12 +121,35 @@ impl PropertyModule<World> for WorldVisualModule {
                     return;
                 };
                 let color_rect = Rect::new(rect.x, first_row, rect.w, ROW_HEIGHT);
-                let mut color =
-                    ColorInput::new(self.picker_id, color_rect, current_color).show(ctx);
-                color.a = current_color.a;
-                let visual = WorldVisual::Color(color);
-                if visual != world.meta.visual {
-                    push_command(Box::new(EditWorldCmd::new(world_id, None, Some(visual))));
+                let response = ColorInput::new(self.picker_id, color_rect, current_color).show(ctx);
+                match response.edit {
+                    ColorInputEdit::Preview { .. } => {
+                        world.meta.visual = WorldVisual::Color(response.color);
+                    }
+                    ColorInputEdit::Commit { initial } => {
+                        let old_visual = WorldVisual::Color(initial);
+                        let new_visual = WorldVisual::Color(response.color);
+                        world.meta.visual = new_visual;
+                        if old_visual != new_visual {
+                            push_command(Box::new(
+                                EditWorldCmd::new(world_id, None, Some(new_visual))
+                                    .with_old_visual_snapshot(old_visual),
+                            ));
+                        }
+                    }
+                    ColorInputEdit::Cancel { initial } => {
+                        world.meta.visual = WorldVisual::Color(initial);
+                    }
+                    ColorInputEdit::None => {
+                        let visual = WorldVisual::Color(response.color);
+                        if visual != world.meta.visual {
+                            push_command(Box::new(EditWorldCmd::new(
+                                world_id,
+                                None,
+                                Some(visual),
+                            )));
+                        }
+                    }
                 }
 
                 let image_rect = Rect::new(rect.x, first_row + ROW_HEIGHT + gap, rect.w, ROW_HEIGHT);

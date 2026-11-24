@@ -83,6 +83,17 @@ fn valid_config_candidate_replaces_emitter_settings() {
 }
 
 #[test]
+fn valid_picker_alpha_candidate_updates_emitter_color() {
+    let mut emitter = ParticleEmitter::default();
+    let mut candidate = emitter.config.clone();
+    candidate.color.a = 0.35;
+
+    apply_config_candidate(&mut emitter, candidate).expect("valid alpha should be applied");
+
+    assert_eq!(emitter.config.color.a, 0.35);
+}
+
+#[test]
 fn invalid_config_candidate_preserves_settings_and_returns_field_feedback() {
     let mut emitter = ParticleEmitter::default();
     let original = emitter.config.clone();

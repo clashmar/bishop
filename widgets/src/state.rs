@@ -276,7 +276,7 @@ pub fn reset_click_consumed() {
 }
 
 /// Called at the start of each frame to update widget state.
-pub fn widgets_frame_start<C: BishopContext>(_ctx: &mut C) {
+pub fn widgets_frame_start<C: BishopContext>(ctx: &mut C) {
     begin_tooltip_frame();
     advance_widget_frame_generation();
     let current_gen = current_widget_frame_generation();
@@ -299,6 +299,7 @@ pub fn widgets_frame_start<C: BishopContext>(_ctx: &mut C) {
 
     tab_registry_clear();
     reset_click_consumed();
+    crate::widgets::handle_color_picker_click_away(ctx);
 }
 
 /// Called at the end of each frame to finalize widget state.
@@ -322,6 +323,7 @@ pub fn widgets_frame_end<C: BishopContext>(ctx: &mut C) {
     flush_dropdown_lists(ctx);
     flush_context_menu(ctx);
     crate::tooltip::flush_tooltips(ctx);
+    crate::widgets::flush_color_picker(ctx);
 }
 
 fn armed_click_slot(

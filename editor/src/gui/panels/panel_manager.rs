@@ -13,7 +13,10 @@ use crate::Editor;
 use bishop::prelude::*;
 use engine_core::storage::editor_config::{get_panel_position, set_panel_position, PanelPosition};
 use std::collections::HashMap;
-use ::widgets::{focused_panel, is_context_menu_open, is_modal_open, set_focused_panel};
+use ::widgets::{
+    color_picker_blocks_canvas, focused_panel, is_click_consumed, is_context_menu_open,
+    is_modal_open, set_focused_panel,
+};
 
 pub enum PanelMode {
     Room,
@@ -102,7 +105,12 @@ impl PanelManager {
 
         // Find which panel was clicked (iterate back-to-front for z-order).
         let mut clicked_panel_id: Option<PanelId> = None;
-        let can_raise_panel = mouse_pressed && !is_context_menu_open() && !modal_open;
+        let color_picker_blocks_canvas = color_picker_blocks_canvas();
+        let can_raise_panel = mouse_pressed
+            && !is_click_consumed()
+            && !color_picker_blocks_canvas
+            && !is_context_menu_open()
+            && !modal_open;
         if can_raise_panel {
             for (id, panel) in self.panels.iter().rev() {
                 if panel.visible

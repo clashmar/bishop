@@ -16,7 +16,9 @@ use engine_core::storage::assets_folder;
 use engine_core::ui::measure_text;
 use strum_macros::Display;
 use widgets::constants::{colors, layout};
-use widgets::{Button, ColorInput, Dropdown, InputCommit, Label, NumberInput, Widget, WidgetId};
+use widgets::{
+    Button, ColorInput, ColorInputEdit, Dropdown, InputCommit, Label, NumberInput, Widget, WidgetId,
+};
 
 use super::{ParticleEmitterModule, apply_config_candidate};
 
@@ -244,17 +246,27 @@ fn draw_color_field(
     y: &mut f32,
 ) {
     draw_label(ctx, TINT_LABEL, rect.x, *y, colors::DEFAULT_TEXT_COLOR);
-    let mut color = ColorInput::new(
+    let response = ColorInput::new(
         module.widget_ids.color,
         field_rect(ctx, rect, *y),
         emitter.config.color,
     )
     .blocked(blocked)
     .show(ctx);
-    color.a = emitter.config.color.a;
-    if color != emitter.config.color {
-        update_config(module, emitter, |config| config.color = color);
-        module.was_editing.set(true);
+    match response.edit {
+        ColorInputEdit::Preview { .. } | ColorInputEdit::Commit { .. } => {
+            update_config(module, emitter, |config| config.color = response.color);
+            module.was_editing.set(true);
+        }
+        ColorInputEdit::Cancel { initial } => {
+            update_config(module, emitter, |config| config.color = initial);
+            module.was_editing.set(true);
+        }
+        ColorInputEdit::None if response.color != emitter.config.color => {
+            update_config(module, emitter, |config| config.color = response.color);
+            module.was_editing.set(true);
+        }
+        ColorInputEdit::None => {}
     }
     *y += ROW_HEIGHT + FIELD_GAP;
 

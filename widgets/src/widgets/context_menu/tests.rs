@@ -62,6 +62,33 @@ fn right_click_opens_menu() {
 }
 
 #[test]
+fn open_color_picker_prevents_context_menu_open() {
+    let picker_id = WidgetId(0xC010_5010);
+    let mut open_picker = WidgetTestContext::new();
+    open_picker.mouse_pos = (20.0, 20.0);
+    open_picker.left_pressed = true;
+    open_picker.left_down = true;
+    ColorInput::new(picker_id, Rect::new(10.0, 10.0, 160.0, 30.0), Color::WHITE)
+        .show(&mut open_picker);
+
+    reset_click_consumed();
+    let menu_id = WidgetId(0xC010_5011);
+    let items = make_items();
+    let mut right_click = WidgetTestContext::new();
+    right_click.mouse_pos = (20.0, 60.0);
+    right_click.right_pressed = true;
+    right_click.right_down = true;
+
+    let _ = ContextMenu::new(menu_id, Vec2::new(20.0, 60.0), &items).show(&mut right_click);
+
+    assert!(!context_menu_state::get(menu_id).open);
+    color_input_reset(picker_id);
+    context_menu_state::STATE.with(|state| {
+        state.borrow_mut().remove(&menu_id);
+    });
+}
+
+#[test]
 fn just_opened_prevents_selection_on_open_frame() {
     reset_click_consumed();
     clear_click_target(MouseButton::Right);
