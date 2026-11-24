@@ -21,6 +21,7 @@ struct PointLightUniforms {
     color: [f32; 4],
     settings: [f32; 4],
     resolution: [f32; 4],
+    pixel_grid_origin: [f32; 4],
 }
 
 struct PassPipeline {
@@ -236,6 +237,12 @@ impl LightingRenderer {
                 0.0,
             ],
             resolution: [destination.width() as f32, destination.height() as f32, 0.0, 0.0],
+            pixel_grid_origin: [
+                params.pixel_grid_origin[0],
+                params.pixel_grid_origin[1],
+                0.0,
+                0.0,
+            ],
         };
         queue.write_buffer(&self.point.uniform_buffer, 0, bytemuck::bytes_of(&uniforms));
         self.draw(device, queue, encoder, quad, &self.point, source, destination);
@@ -313,13 +320,17 @@ mod tests {
     }
 
     #[test]
-    fn pixel_light_quantizes_falloff_without_quantizing_scene_sampling() {
+    fn pixel_light_quantizes_falloff_in_target_pixels_without_quantizing_scene_sampling() {
         let wgsl = include_str!("shaders/point_light.wgsl");
         let webgl = include_str!("../../web/lighting.rs");
 
         assert!(wgsl.contains("let base = textureSample(t_scene, s_scene, in.uv);"));
-        assert!(wgsl.contains("let pixel = floor(sample_position / pixel_size)"));
+        assert!(wgsl.contains("var sample_position = in.position.xy;"));
+        assert!(!wgsl.contains("in.uv * resolution"));
+        assert!(wgsl.contains("let grid_position = sample_position - params.pixel_grid_origin.xy;"));
+        assert!(wgsl.contains("let pixel = floor(grid_position / pixel_size)"));
         assert!(webgl.contains("vec4 base = texture(u_scene, v_uv);"));
-        assert!(webgl.contains("vec2 pixel = floor(pixel_position / pixel_size)"));
+        assert!(webgl.contains("vec2 grid_position = pixel_position - u_pixel_grid_origin;"));
+        assert!(webgl.contains("vec2 pixel = floor(grid_position / pixel_size)"));
     }
 }

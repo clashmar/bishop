@@ -61,7 +61,7 @@ pub struct PointLight {
     pub layer_scope: PointLightLayerScope,
     /// Light sampling style.
     pub style: PointLightStyle,
-    /// Display-space size of the light sampling grid for pixel style.
+    /// World-space size of the light sampling grid for pixel style.
     pub pixel_size: i32,
 }
 

@@ -30,6 +30,8 @@ pub struct PointLightPassParams {
     pub pixelated: bool,
     /// Light-sampling grid spacing in destination render-target pixels.
     pub pixel_size: f32,
+    /// World-origin position in destination render-target pixel coordinates.
+    pub pixel_grid_origin: [f32; 2],
 }
 
 /// Trait for render target operations (offscreen rendering and drawing).

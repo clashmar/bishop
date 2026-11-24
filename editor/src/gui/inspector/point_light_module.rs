@@ -213,7 +213,7 @@ inventory::submit! {
     ModuleFactoryEntry {
         type_name: PointLight::TYPE_NAME,
         title: POINT_LIGHT_MODULE_TITLE,
-        tooltip: "Configures color, intensity, radius, layer scope, and display-space pixel size.",
+        tooltip: "Configures color, intensity, radius, layer scope, and world-space pixel size.",
         factory: || Box::new(
             CollapsibleComponentModule::new(PointLightModule::default())
                 .with_title(POINT_LIGHT_MODULE_TITLE)

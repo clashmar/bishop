@@ -46,6 +46,7 @@ uniform float u_radius;
 uniform float u_attenuation;
 uniform float u_pixel_size;
 uniform bool u_pixelated;
+uniform vec2 u_pixel_grid_origin;
 out vec4 out_color;
 void main() {
     vec4 base = texture(u_scene, v_uv);
@@ -55,7 +56,9 @@ void main() {
         vec2 pixel_position = vec2(gl_FragCoord.x, u_resolution.y - gl_FragCoord.y);
         if (u_pixelated) {
             float pixel_size = max(u_pixel_size, 1.0);
-            vec2 pixel = floor(pixel_position / pixel_size) * pixel_size + vec2(pixel_size * 0.5);
+            vec2 grid_position = pixel_position - u_pixel_grid_origin;
+            vec2 pixel = floor(grid_position / pixel_size) * pixel_size
+                + vec2(pixel_size * 0.5) + u_pixel_grid_origin;
             pixel_position = clamp(pixel, vec2(0.5), u_resolution - vec2(0.5));
         }
         float normalized = clamp(1.0 - distance(pixel_position, u_center) / radius, 0.0, 1.0);
@@ -79,6 +82,7 @@ struct PassProgram {
     attenuation: Option<glow::UniformLocation>,
     pixel_size: Option<glow::UniformLocation>,
     pixelated: Option<glow::UniformLocation>,
+    pixel_grid_origin: Option<glow::UniformLocation>,
 }
 
 impl PassProgram {
@@ -98,6 +102,7 @@ impl PassProgram {
                 gl.get_uniform_location(program, "u_attenuation"),
                 gl.get_uniform_location(program, "u_pixel_size"),
                 gl.get_uniform_location(program, "u_pixelated"),
+                gl.get_uniform_location(program, "u_pixel_grid_origin"),
             )
         };
         let (Some(scene), Some(resolution), Some(color)) =
@@ -111,7 +116,7 @@ impl PassProgram {
             return Err("WebGL2 ambient shader is missing ambient uniforms".to_owned());
         }
         if !ambient
-            && [locations.5.as_ref(), locations.6.as_ref(), locations.7.as_ref(), locations.8.as_ref(), locations.9.as_ref(), locations.10.as_ref()]
+            && [locations.5.as_ref(), locations.6.as_ref(), locations.7.as_ref(), locations.8.as_ref(), locations.9.as_ref(), locations.10.as_ref(), locations.11.as_ref()]
                 .into_iter()
                 .any(|location| location.is_none())
         {
@@ -131,6 +136,7 @@ impl PassProgram {
             attenuation: locations.8,
             pixel_size: locations.9,
             pixelated: locations.10,
+            pixel_grid_origin: locations.11,
         })
     }
 }
@@ -207,6 +213,11 @@ impl WebLightingRenderer {
             gl.uniform_1_f32(uniforms.attenuation.as_ref(), params.attenuation.max(0.0));
             gl.uniform_1_f32(uniforms.pixel_size.as_ref(), params.pixel_size.max(1.0));
             gl.uniform_1_i32(uniforms.pixelated.as_ref(), i32::from(params.pixelated));
+            gl.uniform_2_f32(
+                uniforms.pixel_grid_origin.as_ref(),
+                params.pixel_grid_origin[0],
+                params.pixel_grid_origin[1],
+            );
         })
     }
 

@@ -21,14 +21,14 @@ struct VertexInput {
 }
 
 struct VertexOutput {
-    @builtin(position) clip_position: vec4<f32>,
+    @builtin(position) position: vec4<f32>,
     @location(0) uv: vec2<f32>,
 }
 
 @vertex
 fn vs_main(in: VertexInput) -> VertexOutput {
     var out: VertexOutput;
-    out.clip_position = camera.projection * model.model * vec4<f32>(in.position, 1.0);
+    out.position = camera.projection * model.model * vec4<f32>(in.position, 1.0);
     out.uv = in.tex_coord;
     return out;
 }

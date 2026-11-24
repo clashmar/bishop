@@ -94,13 +94,22 @@ pub fn render_room<C: BishopContext>(
         current_room.exposure,
     );
 
-    let target_to_display_scale =
-        render_system.viewport_rect(ctx).w / render_system.rt_width.max(1.0);
+    let world_to_target_scale = target_pixels_per_world_unit(
+        render_cam,
+        render_system.rt_width,
+        render_system.rt_height,
+    );
+    let pixel_grid_origin = render_cam.world_to_screen(
+        Vec2::ZERO,
+        render_system.rt_width,
+        render_system.rt_height,
+    );
     let routed_lights = prepare_routed_lights(
         render_cam,
         render_system.rt_width,
         render_system.rt_height,
-        target_to_display_scale,
+        world_to_target_scale,
+        pixel_grid_origin,
         &visible_layers.ordered_layers,
         &layer_maps,
     );
@@ -145,7 +154,8 @@ fn prepare_routed_lights(
     render_cam: &Camera2D,
     target_width: f32,
     target_height: f32,
-    target_to_display_scale: f32,
+    world_to_target_scale: f32,
+    pixel_grid_origin: Vec2,
     visible_layers: &[RoomLayer],
     layer_maps: &CollectedRoomLayerMaps<'_>,
 ) -> Vec<RoutedPointLight> {
@@ -188,14 +198,22 @@ fn prepare_routed_lights(
                         pixelated: light.style == PointLightStyle::Pixel,
                         pixel_size: point_light_pixel_size_in_target(
                             light.pixel_size,
-                            target_to_display_scale,
+                            world_to_target_scale,
                         ),
+                        pixel_grid_origin: [pixel_grid_origin.x, pixel_grid_origin.y],
                     },
                 });
             }
         }
     }
     lights
+}
+
+fn target_pixels_per_world_unit(camera: &Camera2D, target_width: f32, target_height: f32) -> f32 {
+    let origin = camera.world_to_screen(Vec2::ZERO, target_width, target_height);
+    let world_x = camera.world_to_screen(Vec2::X, target_width, target_height);
+    let world_y = camera.world_to_screen(Vec2::Y, target_width, target_height);
+    (origin.distance(world_x) * origin.distance(world_y)).sqrt()
 }
 
 fn finite_nonnegative(value: f32, fallback: f32) -> f32 {

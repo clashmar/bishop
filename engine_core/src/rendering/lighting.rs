@@ -21,15 +21,9 @@ fn finite_or(value: f32, fallback: f32) -> f32 {
     if value.is_finite() { value } else { fallback }
 }
 
-/// Returns render-target grid spacing for a display-space pixel size.
-pub(crate) fn point_light_pixel_size_in_target(pixel_size: i32, target_to_display_scale: f32) -> f32 {
-    let pixel_size = pixel_size.max(1) as f32;
-    let scale = finite_or(target_to_display_scale, 1.0);
-    if scale > 0.0 {
-        pixel_size / scale
-    } else {
-        pixel_size
-    }
+/// Returns render-target grid spacing for a world-space pixel size.
+pub(crate) fn point_light_pixel_size_in_target(pixel_size: i32, world_to_target_scale: f32) -> f32 {
+    pixel_size.max(1) as f32 * finite_or(world_to_target_scale, 1.0).max(0.0)
 }
 
 /// Returns normalized radial falloff for a point light.
@@ -160,11 +154,11 @@ mod tests {
     }
 
     #[test]
-    fn pixel_light_grid_keeps_display_size_across_target_scales() {
-        assert_eq!(point_light_pixel_size_in_target(4, 0.5), 8.0);
+    fn pixel_light_grid_scales_with_world_to_target_zoom() {
+        assert_eq!(point_light_pixel_size_in_target(4, 0.5), 2.0);
         assert_eq!(point_light_pixel_size_in_target(4, 1.0), 4.0);
-        assert_eq!(point_light_pixel_size_in_target(4, 2.0), 2.0);
-        assert_eq!(point_light_pixel_size_in_target(4, 0.0), 4.0);
+        assert_eq!(point_light_pixel_size_in_target(4, 2.0), 8.0);
+        assert_eq!(point_light_pixel_size_in_target(4, 0.0), 0.0);
     }
 
     #[test]

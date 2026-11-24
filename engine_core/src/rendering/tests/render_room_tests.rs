@@ -1,5 +1,5 @@
 use super::*;
-use bishop::{vec2, Rect};
+use bishop::{vec2, Camera2D, Rect};
 use crate::ecs::{Cover, Interactable, Pivot, PointLight, PointLightLayerScope, Transform};
 use crate::rendering::lighting::point_light_affects_layer;
 use crate::rendering::test_support::make_vertical_spillover_fixture;
@@ -73,6 +73,15 @@ fn front_layer_alpha(
         .front_layer_composition(ecs, entity, Some(bounds))
         .tint()
         .map(|color| color.a)
+}
+
+#[test]
+fn pixel_light_grid_scales_with_editor_camera_zoom() {
+    let zoomed_out = Camera2D::new(Vec2::ZERO, vec2(0.5, 0.5));
+    let zoomed_in = Camera2D::new(Vec2::ZERO, vec2(2.0, 2.0));
+
+    assert_eq!(target_pixels_per_world_unit(&zoomed_out, 128.0, 128.0), 32.0);
+    assert_eq!(target_pixels_per_world_unit(&zoomed_in, 128.0, 128.0), 128.0);
 }
 
 #[test]

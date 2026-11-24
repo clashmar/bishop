@@ -24,6 +24,7 @@ fn routed_light(entity: Entity, owner_layer: RoomLayer, scope: PointLightLayerSc
             attenuation: 1.0,
             pixelated: false,
             pixel_size: 1.0,
+            pixel_grid_origin: [0.0, 0.0],
         },
     }
 }

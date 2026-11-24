@@ -5,6 +5,7 @@ struct PointLightUniforms {
     color: vec4<f32>,
     settings: vec4<f32>,
     resolution: vec4<f32>,
+    pixel_grid_origin: vec4<f32>,
 }
 
 @group(1) @binding(0)
@@ -20,10 +21,12 @@ var s_scene: sampler;
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let resolution = max(params.resolution.xy, vec2<f32>(1.0));
     let base = textureSample(t_scene, s_scene, in.uv);
-    var sample_position = in.uv * resolution;
+    var sample_position = in.position.xy;
     if params.settings.z > 0.5 {
         let pixel_size = max(params.settings.y, 1.0);
-        let pixel = floor(sample_position / pixel_size) * pixel_size + vec2<f32>(pixel_size * 0.5);
+        let grid_position = sample_position - params.pixel_grid_origin.xy;
+        let pixel = floor(grid_position / pixel_size) * pixel_size
+            + vec2<f32>(pixel_size * 0.5) + params.pixel_grid_origin.xy;
         sample_position = clamp(pixel, vec2<f32>(0.5), resolution - vec2<f32>(0.5));
     }
     let distance_to_light = distance(sample_position, params.center_radius_intensity.xy);
