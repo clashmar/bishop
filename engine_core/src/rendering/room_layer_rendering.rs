@@ -77,25 +77,29 @@ pub(crate) fn build_room_lighting_plan(
     point_lights: &[RoutedPointLight],
     include_door_ghosts: bool,
 ) -> Vec<ContributionLightingPlan> {
+    let mut visible_lights = point_lights
+        .iter()
+        .filter(|light| visible_layers.contains(&light.owner_layer))
+        .copied()
+        .collect::<Vec<_>>();
+    visible_lights.sort_by_key(|light| light.entity);
+
     let mut plan = Vec::with_capacity(visible_layers.len() + 1);
+    // The room background has no Front/Back owner layer, so all visible-room lights illuminate it
     plan.push(ContributionLightingPlan {
         contribution: RoomLightingContribution::Background,
-        point_lights: Vec::new(),
+        point_lights: visible_lights.clone(),
     });
 
     for &target_layer in visible_layers {
-        let mut lights = point_lights
+        let lights = visible_lights
             .iter()
-            .filter(|light| {
-                visible_layers.contains(&light.owner_layer)
-                    && match light.scope {
-                        PointLightLayerScope::OwningLayer => light.owner_layer == target_layer,
-                        PointLightLayerScope::AllVisibleLayers => true,
-                    }
+            .filter(|light| match light.scope {
+                PointLightLayerScope::OwningLayer => light.owner_layer == target_layer,
+                PointLightLayerScope::AllVisibleLayers => true,
             })
             .copied()
             .collect::<Vec<_>>();
-        lights.sort_by_key(|light| light.entity);
         plan.push(ContributionLightingPlan {
             contribution: RoomLightingContribution::Layer(target_layer),
             point_lights: lights,

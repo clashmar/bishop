@@ -46,6 +46,38 @@ fn room_lighting_plan_keeps_background_and_visible_layer_order() {
 }
 
 #[test]
+fn room_lighting_plan_routes_visible_lights_to_flat_background() {
+    let mut ecs = Ecs::default();
+    let back_owning = new_entity(&mut ecs);
+    let back_cross_layer = new_entity(&mut ecs);
+    let front_owning = new_entity(&mut ecs);
+    let lights = [
+        routed_light(back_owning, RoomLayer::Back, PointLightLayerScope::OwningLayer),
+        routed_light(back_cross_layer, RoomLayer::Back, PointLightLayerScope::AllVisibleLayers),
+        routed_light(front_owning, RoomLayer::Front, PointLightLayerScope::OwningLayer),
+    ];
+
+    let plan = build_room_lighting_plan(&[RoomLayer::Back, RoomLayer::Front], &lights, false);
+    assert_eq!(
+        plan[0].point_lights.iter().map(|light| light.entity).collect::<Vec<_>>(),
+        vec![back_owning, back_cross_layer, front_owning],
+        "the unlayered background receives all lights from visible owner layers",
+    );
+
+    let front_only_plan = build_room_lighting_plan(&[RoomLayer::Front], &lights, false);
+    assert_eq!(
+        front_only_plan[0].point_lights.iter().map(|light| light.entity).collect::<Vec<_>>(),
+        vec![front_owning],
+        "lights owned by hidden layers do not illuminate the background",
+    );
+    assert_eq!(
+        front_only_plan[1].point_lights.iter().map(|light| light.entity).collect::<Vec<_>>(),
+        vec![front_owning],
+        "the owning-layer scope remains unchanged for the front layer",
+    );
+}
+
+#[test]
 fn room_lighting_plan_routes_lights_only_to_selected_visible_layers() {
     let mut ecs = Ecs::default();
     let back_only = new_entity(&mut ecs);
