@@ -2,7 +2,8 @@ use std::cell::Cell;
 
 use bishop::prelude::{Color, Rect, Vec3, WgpuContext};
 use crate::gui::field_layout::{
-    BOTTOM_GUTTER, FIELD_GAP, FIELD_HEIGHT, TOP_PADDING, draw_label, field_rect,
+    BOTTOM_GUTTER, FIELD_GAP, FIELD_HEIGHT, LABEL_WIDTH, TOP_PADDING, draw_label, field_rect,
+    field_rect_with_label_width, normalized_slider_value, numeric_slider_rects,
 };
 use engine_core::{
     ecs::{
@@ -16,10 +17,18 @@ use engine_core::{
     },
     game::GameCtxMut,
 };
-use widgets::{ColorInput, Dropdown, InputCommit, NumberInput, Widget, WidgetId};
+use widgets::{
+    ColorInput, Dropdown, InputCommit, NumberInput, Slider, SliderState, Widget, WidgetId,
+};
 
 /// Title for the point-light inspector module.
 pub const POINT_LIGHT_MODULE_TITLE: &str = "Point Light";
+
+const INTENSITY_MAX: f32 = 20.0;
+const RADIUS_MAX: f32 = 256.0;
+const ATTENUATION_MAX: f32 = 10.0;
+const PIXEL_SIZE_MIN: i32 = 1;
+const PIXEL_SIZE_MAX: i32 = 16;
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 struct VisibleControls {
@@ -31,11 +40,15 @@ struct VisibleControls {
 pub struct PointLightModule {
     color_id: WidgetId,
     intensity_id: WidgetId,
+    intensity_slider_id: WidgetId,
     radius_id: WidgetId,
+    radius_slider_id: WidgetId,
     attenuation_id: WidgetId,
+    attenuation_slider_id: WidgetId,
     scope_id: WidgetId,
     style_id: WidgetId,
     pixel_size_id: WidgetId,
+    pixel_size_slider_id: WidgetId,
     controls: Cell<VisibleControls>,
     was_editing: Cell<bool>,
 }
@@ -100,42 +113,55 @@ impl InspectorModule for PointLightModule {
         y += FIELD_HEIGHT + FIELD_GAP;
 
         draw_label(ctx, "Intensity:", rect, y);
-        let (intensity, intensity_commit) = NumberInput::new(
+        let (intensity, intensity_active) = draw_float_slider(
+            ctx,
+            blocked,
+            rect,
+            y,
             self.intensity_id,
-            field_rect(rect, y),
+            self.intensity_slider_id,
             light.intensity,
-        )
-        .min(0.0)
-        .blocked(blocked)
-        .show(ctx);
-        if input_active(intensity_commit) {
-            light.intensity = nonnegative_input(intensity, intensity_commit);
+            INTENSITY_MAX,
+            2,
+        );
+        if intensity_active {
+            light.intensity = intensity;
             self.was_editing.set(true);
         }
         y += FIELD_HEIGHT + FIELD_GAP;
 
         draw_label(ctx, "Radius:", rect, y);
-        let (radius, radius_commit) = NumberInput::new(self.radius_id, field_rect(rect, y), light.radius)
-            .min(0.0)
-            .blocked(blocked)
-            .show(ctx);
-        if input_active(radius_commit) {
-            light.radius = nonnegative_input(radius, radius_commit);
+        let (radius, radius_active) = draw_float_slider(
+            ctx,
+            blocked,
+            rect,
+            y,
+            self.radius_id,
+            self.radius_slider_id,
+            light.radius,
+            RADIUS_MAX,
+            1,
+        );
+        if radius_active {
+            light.radius = radius;
             self.was_editing.set(true);
         }
         y += FIELD_HEIGHT + FIELD_GAP;
 
         draw_label(ctx, "Attenuation:", rect, y);
-        let (attenuation, attenuation_commit) = NumberInput::new(
+        let (attenuation, attenuation_active) = draw_float_slider(
+            ctx,
+            blocked,
+            rect,
+            y,
             self.attenuation_id,
-            field_rect(rect, y),
+            self.attenuation_slider_id,
             light.attenuation,
-        )
-        .min(0.0)
-        .blocked(blocked)
-        .show(ctx);
-        if input_active(attenuation_commit) {
-            light.attenuation = nonnegative_input(attenuation, attenuation_commit);
+            ATTENUATION_MAX,
+            2,
+        );
+        if attenuation_active {
+            light.attenuation = attenuation;
             self.was_editing.set(true);
         }
         y += FIELD_HEIGHT + FIELD_GAP;
@@ -144,7 +170,7 @@ impl InspectorModule for PointLightModule {
         let scope_label = light.layer_scope.to_string();
         if let Some(scope) = Dropdown::new(
             self.scope_id,
-            field_rect(rect, y),
+            field_rect_with_label_width(rect, y, LABEL_WIDTH + 8.0),
             &scope_label,
             &PointLightLayerScope::ALL,
             |scope| scope.to_string(),
@@ -175,16 +201,19 @@ impl InspectorModule for PointLightModule {
 
         if light.style == PointLightStyle::Pixel {
             draw_label(ctx, "Pixel Size:", rect, y);
-            let (pixel_size, pixel_size_commit) = NumberInput::new(
+            let (pixel_size, pixel_size_active) = draw_integer_slider(
+                ctx,
+                blocked,
+                rect,
+                y,
                 self.pixel_size_id,
-                field_rect(rect, y),
+                self.pixel_size_slider_id,
                 light.pixel_size,
-            )
-            .min(1)
-            .blocked(blocked)
-            .show(ctx);
-            if input_active(pixel_size_commit) {
-                light.pixel_size = pixel_size.max(1);
+                PIXEL_SIZE_MIN,
+                PIXEL_SIZE_MAX,
+            );
+            if pixel_size_active {
+                light.pixel_size = pixel_size;
                 self.was_editing.set(true);
             }
         }
@@ -197,16 +226,83 @@ fn visible_controls(style: PointLightStyle) -> VisibleControls {
     }
 }
 
-fn input_active(commit: InputCommit) -> bool {
-    matches!(commit, InputCommit::Previewing | InputCommit::Committed)
+fn draw_float_slider(
+    ctx: &mut WgpuContext,
+    blocked: bool,
+    rect: Rect,
+    y: f32,
+    input_id: WidgetId,
+    slider_id: WidgetId,
+    current: f32,
+    max: f32,
+    decimal_places: u32,
+) -> (f32, bool) {
+    let current = normalized_slider_value(current, 0.0, max, decimal_places);
+    let (input_rect, slider_rect) = numeric_slider_rects(rect, y);
+    let (typed, input_commit) = NumberInput::new(input_id, input_rect, current)
+        .min(0.0)
+        .max(max)
+        .blocked(blocked)
+        .show(ctx);
+    let (slider_value, slider_state) = Slider::new(slider_id, slider_rect, 0.0, max, current)
+        .blocked(blocked)
+        .show(ctx);
+    let input_changed = input_active(input_commit);
+    let slider_changed = !matches!(slider_state, SliderState::Unchanged);
+    let value = if slider_changed {
+        slider_value
+    } else if input_changed {
+        typed
+    } else {
+        current
+    };
+    (
+        normalized_slider_value(value, 0.0, max, decimal_places),
+        input_changed || slider_changed,
+    )
 }
 
-fn nonnegative_input(value: f32, commit: InputCommit) -> f32 {
-    if commit == InputCommit::Committed {
-        value.max(0.0)
+fn draw_integer_slider(
+    ctx: &mut WgpuContext,
+    blocked: bool,
+    rect: Rect,
+    y: f32,
+    input_id: WidgetId,
+    slider_id: WidgetId,
+    current: i32,
+    min: i32,
+    max: i32,
+) -> (i32, bool) {
+    let current = current.clamp(min, max);
+    let (input_rect, slider_rect) = numeric_slider_rects(rect, y);
+    let (typed, input_commit) = NumberInput::new(input_id, input_rect, current)
+        .min(min)
+        .max(max)
+        .blocked(blocked)
+        .show(ctx);
+    let (slider_value, slider_state) = Slider::new(
+        slider_id,
+        slider_rect,
+        min as f32,
+        max as f32,
+        current as f32,
+    )
+    .blocked(blocked)
+    .show(ctx);
+    let input_changed = input_active(input_commit);
+    let slider_changed = !matches!(slider_state, SliderState::Unchanged);
+    let value = if slider_changed {
+        slider_value.round() as i32
+    } else if input_changed {
+        typed
     } else {
-        value
-    }
+        current
+    };
+    (value.clamp(min, max), input_changed || slider_changed)
+}
+
+fn input_active(commit: InputCommit) -> bool {
+    matches!(commit, InputCommit::Previewing | InputCommit::Committed)
 }
 
 inventory::submit! {

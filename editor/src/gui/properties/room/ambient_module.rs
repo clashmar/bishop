@@ -3,23 +3,29 @@ use crate::commands::room::{RoomAmbientSettings, SetRoomAmbientCmd};
 use crate::editor_global::push_command;
 use crate::gui::field_layout::{
     BOTTOM_GUTTER, FIELD_GAP, FIELD_HEIGHT, TOP_PADDING, draw_label, field_rect,
+    normalized_slider_value, numeric_slider_rects,
 };
 use crate::shared::scene_ui::inspector::InspectorContext;
 use bishop::prelude::{Rect, WgpuContext};
 use engine_core::ecs::inspector::layout::InspectorBodyLayout;
 use engine_core::game::GameCtxMut;
 use engine_core::worlds::room::Room;
-use widgets::{ColorInput, InputCommit, NumberInput, WidgetId};
+use widgets::{ColorInput, InputCommit, NumberInput, Slider, SliderState, WidgetId};
 
 /// Title for the room ambient property module.
 pub const ROOM_AMBIENT_MODULE_TITLE: &str = "Ambient";
+
+const DARKNESS_MAX: f32 = 1.0;
+const EXPOSURE_MAX: f32 = 4.0;
 
 /// Authors darkness, ambient color, and exposure for a room.
 #[derive(Default)]
 pub struct RoomAmbientModule {
     darkness_id: WidgetId,
+    darkness_slider_id: WidgetId,
     color_id: WidgetId,
     exposure_id: WidgetId,
+    exposure_slider_id: WidgetId,
 }
 
 impl RoomAmbientModule {
@@ -47,20 +53,48 @@ impl PropertyModule<Room> for RoomAmbientModule {
             color: room.ambient_color,
             exposure: room.exposure,
         };
+        let mut command_old_settings = old_settings;
         let mut new_settings = old_settings;
+        let mut command_needed = false;
         let mut y = rect.y + TOP_PADDING;
 
         draw_label(ctx, "Darkness:", rect, y);
+        let darkness_value = normalized_slider_value(room.darkness, 0.0, DARKNESS_MAX, 2);
+        let (input_rect, slider_rect) = numeric_slider_rects(rect, y);
         let (darkness, darkness_commit) = NumberInput::new(
             self.darkness_id,
-            field_rect(rect, y),
-            room.darkness,
+            input_rect,
+            darkness_value,
         )
         .min(0.0)
-        .max(1.0)
+        .max(DARKNESS_MAX)
+        .show(ctx);
+        let (darkness_slider, darkness_slider_state) = Slider::new(
+            self.darkness_slider_id,
+            slider_rect,
+            0.0,
+            DARKNESS_MAX,
+            darkness_value,
+        )
         .show(ctx);
         if darkness_commit == InputCommit::Committed {
-            new_settings.darkness = normalized_darkness(darkness);
+            new_settings.darkness = normalized_slider_value(darkness, 0.0, DARKNESS_MAX, 2);
+            command_needed = true;
+        }
+        match darkness_slider_state {
+            SliderState::Previewing => {
+                let preview = normalized_slider_value(darkness_slider, 0.0, DARKNESS_MAX, 2);
+                room.darkness = preview;
+                new_settings.darkness = preview;
+            }
+            SliderState::Committed { initial_value } => {
+                command_old_settings.darkness =
+                    normalized_slider_value(initial_value, 0.0, DARKNESS_MAX, 2);
+                new_settings.darkness =
+                    normalized_slider_value(darkness_slider, 0.0, DARKNESS_MAX, 2);
+                command_needed = true;
+            }
+            SliderState::Unchanged => {}
         }
         y += FIELD_HEIGHT + FIELD_GAP;
 
@@ -74,26 +108,54 @@ impl PropertyModule<Room> for RoomAmbientModule {
         color.a = room.ambient_color.a;
         if color_commit == InputCommit::Committed {
             new_settings.color = color;
+            command_needed = true;
         }
         y += FIELD_HEIGHT + FIELD_GAP;
 
         draw_label(ctx, "Exposure:", rect, y);
+        let exposure_value = normalized_slider_value(room.exposure, 0.0, EXPOSURE_MAX, 2);
+        let (input_rect, slider_rect) = numeric_slider_rects(rect, y);
         let (exposure, exposure_commit) = NumberInput::new(
             self.exposure_id,
-            field_rect(rect, y),
-            room.exposure,
+            input_rect,
+            exposure_value,
         )
         .min(0.0)
+        .max(EXPOSURE_MAX)
+        .show(ctx);
+        let (exposure_slider, exposure_slider_state) = Slider::new(
+            self.exposure_slider_id,
+            slider_rect,
+            0.0,
+            EXPOSURE_MAX,
+            exposure_value,
+        )
         .show(ctx);
         if exposure_commit == InputCommit::Committed {
-            new_settings.exposure = normalized_exposure(exposure);
+            new_settings.exposure = normalized_slider_value(exposure, 0.0, EXPOSURE_MAX, 2);
+            command_needed = true;
+        }
+        match exposure_slider_state {
+            SliderState::Previewing => {
+                let preview = normalized_slider_value(exposure_slider, 0.0, EXPOSURE_MAX, 2);
+                room.exposure = preview;
+                new_settings.exposure = preview;
+            }
+            SliderState::Committed { initial_value } => {
+                command_old_settings.exposure =
+                    normalized_slider_value(initial_value, 0.0, EXPOSURE_MAX, 2);
+                new_settings.exposure =
+                    normalized_slider_value(exposure_slider, 0.0, EXPOSURE_MAX, 2);
+                command_needed = true;
+            }
+            SliderState::Unchanged => {}
         }
 
-        if new_settings != old_settings {
+        if command_needed && new_settings != command_old_settings {
             push_command(Box::new(SetRoomAmbientCmd::new(
                 world_id,
                 room.id,
-                old_settings,
+                command_old_settings,
                 new_settings,
             )));
         }
@@ -108,35 +170,5 @@ impl PropertyModule<Room> for RoomAmbientModule {
 
     fn title(&self) -> &str {
         ROOM_AMBIENT_MODULE_TITLE
-    }
-}
-
-fn normalized_darkness(value: f32) -> f32 {
-    if value.is_finite() {
-        value.clamp(0.0, 1.0)
-    } else {
-        0.0
-    }
-}
-
-fn normalized_exposure(value: f32) -> f32 {
-    if value.is_finite() {
-        value.max(0.0)
-    } else {
-        1.0
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::{normalized_darkness, normalized_exposure};
-
-    #[test]
-    fn ambient_values_use_runtime_darkness_and_exposure_bounds() {
-        assert_eq!(normalized_darkness(-0.5), 0.0);
-        assert_eq!(normalized_darkness(1.5), 1.0);
-        assert_eq!(normalized_darkness(f32::NAN), 0.0);
-        assert_eq!(normalized_exposure(-0.5), 0.0);
-        assert_eq!(normalized_exposure(f32::NAN), 1.0);
     }
 }

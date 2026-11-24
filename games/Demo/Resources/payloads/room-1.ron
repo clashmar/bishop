@@ -106,7 +106,7 @@
         (344),
         (347),
     ],
-    darkness: 0.99,
+    darkness: 1.0,
     ambient_color: (1.0, 1.0, 1.0, 1.0),
     exposure: 1.0,
 )
