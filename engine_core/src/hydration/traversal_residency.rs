@@ -1,6 +1,6 @@
 use crate::assets::AssetKey;
 use crate::ecs::{
-    Active, Animation, AudioSource, CurrentFrame, CurrentRoom, Ecs, Entity, Global, Glow, Script,
+    Active, Animation, AudioSource, CurrentFrame, CurrentRoom, Ecs, Entity, Global, Script,
     ScriptId, Sprite,
 };
 use crate::game::Game;
@@ -161,9 +161,6 @@ pub(crate) fn collect_entity_assets(ecs: &Ecs, entity: Entity) -> BTreeSet<Asset
     if let Some(animation) = ecs.get::<Animation>(entity) {
         assets.extend(animation.reachable_sprite_ids().map(AssetKey::Sprite));
     }
-    if let Some(glow) = ecs.get::<Glow>(entity) {
-        assets.insert(AssetKey::Sprite(glow.sprite_id));
-    }
     if let Some(script) = ecs.get::<Script>(entity)
         && script.script_id != ScriptId(0)
     {
@@ -184,7 +181,7 @@ mod tests {
     use crate::animation::{ClipDef, ClipId};
     use crate::assets::AssetKey;
     use crate::ecs::{
-        Active, Animation, AudioGroup, AudioSource, Ecs, Global, Script, ScriptId,
+        Active, Animation, AudioGroup, AudioSource, Ecs, Global, Glow, Script, ScriptId,
         SoundGroupId, SoundId, Sprite, SpriteId, WorldEntry, WorldExit,
     };
     use crate::worlds::{ExitDestination, Room, RoomId, World, WorldExitTrigger, WorldId};
@@ -256,6 +253,14 @@ mod tests {
         assert!(claims.contains(&ResidencyKey::Asset(AssetKey::Sprite(SpriteId(11)))));
         assert!(claims.contains(&ResidencyKey::Asset(AssetKey::Sprite(SpriteId(12)))));
         assert!(!claims.contains(&ResidencyKey::Asset(AssetKey::Sprite(SpriteId(0)))));
+    }
+
+    #[test]
+    fn glow_settings_do_not_claim_sprite_asset() {
+        let mut ecs = Ecs::default();
+        let entity = ecs.create_entity().with(Glow::default()).finish();
+
+        assert!(collect_entity_assets(&ecs, entity).is_empty());
     }
 
     #[test]

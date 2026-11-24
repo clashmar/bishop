@@ -100,7 +100,7 @@ fn draw_prefab_entity<C: BishopContext>(
             draw_light_placeholder(ctx, pos, grid_size);
         }
         EntityVisual::GlowPlaceholder => {
-            draw_glow_placeholder(ctx, sprite_manager, ecs, entity, pos, grid_size);
+            draw_glow_placeholder(ctx, pos, grid_size);
         }
         EntityVisual::GenericPlaceholder => {
             ctx.draw_texture_ex(

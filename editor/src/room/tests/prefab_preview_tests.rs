@@ -440,7 +440,7 @@ fn point_light_placeholder_is_selected() -> Result<(), ron::Error> {
 fn placeholder_entity_visual_glow_returns_glow_placeholder() {
     let node = node_with_components(1, vec![
         transform_component(true, (0.0, 0.0), Pivot::BottomCenter, 0),
-        component_snapshot(comp_type_name::<Glow>(), "Glow(sprite_id: SpriteId(1))"),
+        component_snapshot(comp_type_name::<Glow>(), "Glow()"),
     ]);
     assert!(matches!(placeholder_entity_visual(&node), EntityVisual::GlowPlaceholder));
 }

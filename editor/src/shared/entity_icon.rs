@@ -1,6 +1,5 @@
 use crate::editor_assets::assets::camera_icon;
 use bishop::prelude::*;
-use engine_core::assets::SpriteManager;
 use engine_core::ecs::components::{
     Animation, CurrentFrame, Glow, PointLight, RoomCamera, Sprite, WorldEntry, WorldExit,
 };
@@ -97,22 +96,9 @@ pub(crate) fn draw_light_placeholder<C: BishopContext>(ctx: &mut C, pos: Vec2, g
 /// Draws the glow placeholder shape for an entity without a visual component.
 pub(crate) fn draw_glow_placeholder<C: BishopContext>(
     ctx: &mut C,
-    sprite_manager: &mut SpriteManager,
-    ecs: &Ecs,
-    entity: Entity,
     pos: Vec2,
     grid_size: f32,
 ) {
-    let glow_store = ecs.get_store::<Glow>();
-    let Some(glow) = glow_store.get(entity) else {
-        return;
-    };
-
-    let mut pos = pos;
-    if let Some((w, h)) = sprite_manager.texture_size(glow.sprite_id) {
-        pos += vec2((w / 2.0) - grid_size / 2.0, (h / 2.0) - grid_size / 2.0);
-    }
-
     let body = Rect::new(pos.x, pos.y, grid_size, grid_size);
     let cyan = Color::new(0.0, 0.78, 0.78, PLACEHOLDER_OPACITY);
     let yellow = Color::new(0.94, 0.86, 0.0, PLACEHOLDER_OPACITY);

@@ -3,13 +3,13 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use bishop::prelude::{BishopContext, Color, Rect, Vec2};
 use crate::assets::SpriteManager;
 use crate::ecs::{
-    Cover, CurrentFrame, CurrentRoom, Ecs, Entity, Glow, LayerDoor, PointLight, RoomCamera,
-    Sprite, SubPixel, Transform,
+    Cover, CurrentFrame, CurrentRoom, Ecs, Entity, LayerDoor, PointLight, RoomCamera, Sprite,
+    SubPixel, Transform,
 };
 use crate::ecs::components::transform::Pivot;
 use crate::rendering::helpers::{
-    entity_visible_in_room, entity_visual_rect, interpolate_position, pivot_adjusted_position,
-    resolve_visual_entity, spillover_candidate_room_ids, visual_position,
+    entity_visible_in_room, entity_visual_rect, interpolate_position, resolve_visual_entity,
+    spillover_candidate_room_ids, visual_position,
     visual_rect_visible_in_room, RoomVisibilityContext,
 };
 use crate::rendering::lighting::RoomLayerLighting;
@@ -23,7 +23,6 @@ use crate::worlds::RoomLayer;
 #[derive(Default)]
 pub(super) struct LayerData<'a> {
     pub(super) items: Vec<LayerDrawItem<'a>>,
-    pub(super) glows: Vec<(&'a Glow, Vec2)>,
     pub(super) lighting: RoomLayerLighting<'a>,
 }
 
@@ -162,13 +161,11 @@ pub(super) fn collect_interpolated_room_layer_maps<'a>(
 ) -> CollectedRoomLayerMaps<'a> {
     let world = room_ctx.world;
     let room = room_ctx.room;
-    let grid_size = room_ctx.grid_size;
     let mut maps = CollectedRoomLayerMaps::default();
     let mut seen = HashSet::new();
 
     let trans_store = ecs.get_store::<Transform>();
     let cam_store = ecs.get_store::<RoomCamera>();
-    let glow_store = ecs.get_store::<Glow>();
     let point_light_store = ecs.get_store::<PointLight>();
     let sub_pixel_store = ecs.get_store::<SubPixel>();
 
@@ -213,14 +210,6 @@ pub(super) fn collect_interpolated_room_layer_maps<'a>(
                 position: draw_pos,
             });
 
-            if let Some(glow) = glow_store.get(entity) {
-                let glow_size = sprite_manager
-                    .texture_size(glow.sprite_id)
-                    .map(|(width, height)| Vec2::new(width, height))
-                    .unwrap_or(Vec2::new(grid_size, grid_size));
-                let glow_draw_pos = pivot_adjusted_position(draw_pos, glow_size, transform.pivot);
-                entry.glows.push((glow, glow_draw_pos));
-            }
             if let Some(light) = point_light_store.get(entity) {
                 entry.lighting.collect_point_light(entity, light, draw_pos);
             }
