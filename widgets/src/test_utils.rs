@@ -106,6 +106,10 @@ impl Input for WidgetTestContext {
         !self.keys_pressed.is_empty()
     }
 
+    fn pressed_keys(&self) -> Vec<KeyCode> {
+        self.keys_pressed.clone()
+    }
+
     fn is_mouse_button_down(&self, button: MouseButton) -> bool {
         match button {
             MouseButton::Left => self.left_down,

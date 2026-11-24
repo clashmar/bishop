@@ -2,6 +2,7 @@ pub mod confirm_prompt;
 pub mod constants;
 pub mod editor_settings_prompt;
 pub mod helpers;
+pub mod input_bindings_prompt;
 pub mod prefab_picker_prompt;
 pub mod prefab_prompt;
 pub mod prompt_focus;

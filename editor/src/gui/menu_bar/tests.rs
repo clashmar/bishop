@@ -93,6 +93,14 @@ fn prefab_mode_shows_hierarchy_in_view_menu() {
 }
 
 #[test]
+fn game_options_menu_offers_input_bindings() {
+    let actions = options_actions_for_mode(game_mode());
+
+    assert!(actions.contains(&EditorAction::InputBindings));
+    assert_eq!(EditorAction::InputBindings.ui_label(), "Input Bindings");
+}
+
+#[test]
 fn prefab_mode_shows_editor_settings_in_options_menu() {
     let actions = options_actions_for_mode(EditorMode::Prefab(PrefabId(7)));
 

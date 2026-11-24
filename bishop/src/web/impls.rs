@@ -25,6 +25,10 @@ impl Input for WebContext {
         self.input.any_key_pressed()
     }
 
+    fn pressed_keys(&self) -> Vec<KeyCode> {
+        self.input.pressed_keys()
+    }
+
     fn is_mouse_button_down(&self, button: MouseButton) -> bool {
         self.input.is_mouse_button_down(button)
     }

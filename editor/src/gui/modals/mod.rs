@@ -16,6 +16,7 @@ pub mod empty_prefab_save;
 pub mod export_options;
 pub mod export_overwrite;
 pub mod export_result;
+pub mod input_bindings;
 pub mod new_game;
 pub mod new_resource_folder;
 pub mod prefab_picker;
