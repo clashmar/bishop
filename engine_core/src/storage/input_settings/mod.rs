@@ -1,17 +1,21 @@
 use crate::input::{InputActionId, InputActionMap, InputBinding};
 use crate::logging::omni_error;
+#[cfg(not(target_arch = "wasm32"))]
 use crate::storage::app_dir;
 use ron::ser::PrettyConfig;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
 use std::io;
-use std::path::{Path, PathBuf};
+use std::path::Path;
+#[cfg(not(target_arch = "wasm32"))]
+use std::path::PathBuf;
 use uuid::Uuid;
 
 #[cfg(test)]
 mod tests;
 
+#[cfg(not(target_arch = "wasm32"))]
 const INPUT_SETTINGS_FILE: &str = "input_settings.ron";
 
 /// Player-authored global and per-game action binding overrides.
@@ -41,16 +45,34 @@ impl InputSettings {
     }
 }
 
+/// Loads persistent input overrides on native targets, or empty settings on WebAssembly.
+#[cfg(target_arch = "wasm32")]
+pub fn load_input_settings() -> InputSettings {
+    InputSettings::default()
+}
+
 /// Loads player input overrides, using empty settings if the file is unavailable or invalid.
+#[cfg(not(target_arch = "wasm32"))]
 pub fn load_input_settings() -> InputSettings {
     load_input_settings_from_path(&input_settings_path())
 }
 
 /// Saves player input overrides to the shared application settings file.
+#[cfg(not(target_arch = "wasm32"))]
 pub fn save_input_settings(settings: &InputSettings) -> io::Result<()> {
     save_input_settings_to_path(settings, &input_settings_path())
 }
 
+/// Reports that persistent input settings are unavailable on WebAssembly targets.
+#[cfg(target_arch = "wasm32")]
+pub fn save_input_settings(_settings: &InputSettings) -> io::Result<()> {
+    Err(io::Error::new(
+        io::ErrorKind::Unsupported,
+        "Persistent input settings are unavailable on WebAssembly targets",
+    ))
+}
+
+#[cfg(not(target_arch = "wasm32"))]
 fn input_settings_path() -> PathBuf {
     app_dir().join(INPUT_SETTINGS_FILE)
 }
