@@ -7,7 +7,7 @@ use super::gl_context::{GlContext, WebContext};
 use super::target::WebRenderTarget;
 use crate::material::{AmbientPassParams, PointLightPassParams};
 
-const VERTEX_SHADER: &str = "#version 300 es
+pub(super) const VERTEX_SHADER: &str = "#version 300 es
 layout(location = 0) in vec2 a_position;
 layout(location = 1) in vec2 a_uv;
 uniform vec2 u_resolution;
@@ -310,44 +310,72 @@ impl WebLightingRenderer {
     where
         F: FnOnce(&glow::Context, &PassProgram, u32, u32),
     {
+        self.draw_custom_pass(
+            source,
+            secondary_source,
+            destination,
+            pass.program,
+            "lighting",
+            &pass.scene,
+            pass.illumination.as_ref(),
+            |gl, width, height| set_uniforms(gl, pass, width, height),
+        )
+    }
+
+    pub(super) fn draw_custom_pass<F>(
+        &self,
+        source: &WebRenderTarget,
+        secondary_source: Option<&WebRenderTarget>,
+        destination: &WebRenderTarget,
+        program: glow::Program,
+        pass_name: &str,
+        source_uniform: &glow::UniformLocation,
+        secondary_uniform: Option<&glow::UniformLocation>,
+        set_uniforms: F,
+    ) -> Result<(), String>
+    where
+        F: FnOnce(&glow::Context, u32, u32),
+    {
         if let Some(error) = source
             .failure()
             .or_else(|| destination.failure())
             .or_else(|| secondary_source.and_then(WebRenderTarget::failure))
         {
-            return Err(format!("cannot run WebGL2 lighting pass: {error}"));
+            return Err(format!("cannot run WebGL2 {pass_name} pass: {error}"));
         }
         if !source.belongs_to(&self.owner) || !destination.belongs_to(&self.owner)
             || secondary_source.is_some_and(|target| !target.belongs_to(&self.owner))
         {
-            return Err("WebGL2 lighting target belongs to another context".to_owned());
+            return Err(format!("WebGL2 {pass_name} target belongs to another context"));
         }
         if source.texture() == destination.texture()
-            || secondary_source.is_some_and(|target| target.texture() == destination.texture())
+            || secondary_source.is_some_and(|target| {
+                target.texture() == source.texture() || target.texture() == destination.texture()
+            })
         {
-            return Err("WebGL2 lighting source and destination must differ".to_owned());
+            return Err(format!("WebGL2 {pass_name} targets must be distinct"));
         }
         if source.width() != destination.width() || source.height() != destination.height()
             || secondary_source.is_some_and(|target| {
                 target.width() != destination.width() || target.height() != destination.height()
             })
         {
-            return Err("WebGL2 lighting targets must have matching dimensions".to_owned());
+            return Err(format!("WebGL2 {pass_name} targets must have matching dimensions"));
         }
-        if pass.illumination.is_some() != secondary_source.is_some() {
-            return Err("WebGL2 lighting pass source bindings do not match the shader".to_owned());
+        if secondary_uniform.is_some() != secondary_source.is_some() {
+            return Err(format!("WebGL2 {pass_name} pass source bindings do not match the shader"));
         }
         let Some(framebuffer) = destination.framebuffer() else {
-            return Err("WebGL2 lighting destination has no framebuffer".to_owned());
+            return Err(format!("WebGL2 {pass_name} destination has no framebuffer"));
         };
         let Some(texture) = source.texture() else {
-            return Err("WebGL2 lighting source has no texture".to_owned());
+            return Err(format!("WebGL2 {pass_name} source has no texture"));
         };
         let secondary_texture = secondary_source
             .map(|target| {
                 target
                     .texture()
-                    .ok_or_else(|| "WebGL2 lighting secondary source has no texture".to_owned())
+                    .ok_or_else(|| format!("WebGL2 {pass_name} secondary source has no texture"))
             })
             .transpose()?;
         self.owner.make_current()?;
@@ -373,13 +401,13 @@ impl WebLightingRenderer {
             gl.disable(glow::BLEND);
             gl.clear_color(0.0, 0.0, 0.0, 0.0);
             gl.clear(glow::COLOR_BUFFER_BIT);
-            gl.use_program(Some(pass.program));
-            gl.uniform_1_i32(Some(&pass.scene), 0);
-            set_uniforms(gl, pass, width, height);
+            gl.use_program(Some(program));
+            gl.uniform_1_i32(Some(source_uniform), 0);
+            set_uniforms(gl, width, height);
             gl.active_texture(glow::TEXTURE0);
             gl.bind_texture(glow::TEXTURE_2D, Some(texture));
             if let (Some(location), Some(secondary_texture)) =
-                (&pass.illumination, secondary_texture)
+                (secondary_uniform, secondary_texture)
             {
                 gl.uniform_1_i32(Some(location), 1);
                 gl.active_texture(glow::TEXTURE1);
@@ -410,7 +438,7 @@ impl WebLightingRenderer {
                 glow::ONE_MINUS_SRC_ALPHA,
             );
             if error != glow::NO_ERROR {
-                return Err(format!("WebGL2 lighting pass failed: GL error {error}"));
+                return Err(format!("WebGL2 {pass_name} pass failed: GL error {error}"));
             }
         }
         Ok(())
@@ -459,7 +487,7 @@ impl WebContext {
     }
 }
 
-unsafe fn link_program(gl: &glow::Context, vertex_source: &str, fragment_source: &str) -> Result<glow::Program, String> {
+pub(super) unsafe fn link_program(gl: &glow::Context, vertex_source: &str, fragment_source: &str) -> Result<glow::Program, String> {
     let vertex = unsafe { compile_shader(gl, glow::VERTEX_SHADER, vertex_source)? };
     let fragment = match unsafe { compile_shader(gl, glow::FRAGMENT_SHADER, fragment_source) } {
         Ok(fragment) => fragment,
@@ -492,7 +520,7 @@ unsafe fn link_program(gl: &glow::Context, vertex_source: &str, fragment_source:
     result
 }
 
-unsafe fn compile_shader(gl: &glow::Context, kind: u32, source: &str) -> Result<glow::Shader, String> {
+pub(super) unsafe fn compile_shader(gl: &glow::Context, kind: u32, source: &str) -> Result<glow::Shader, String> {
     let shader = unsafe { gl.create_shader(kind)? };
     unsafe {
         gl.shader_source(shader, source);

@@ -34,6 +34,34 @@ pub struct PointLightPassParams {
     pub pixel_grid_origin: [f32; 2],
 }
 
+/// One sprite-emission input for the fixed emission pass.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct EmissionPassParams {
+    /// Linear RGB emission color.
+    pub color: [f32; 3],
+    /// Emission intensity multiplier.
+    pub intensity: f32,
+    /// Halo sampling spread in destination render-target pixels.
+    pub halo_spread: f32,
+    /// Quantize emission-mask and halo sampling to a pixel grid when enabled.
+    pub pixelated: bool,
+    /// Pixel-grid spacing in destination render-target pixels.
+    pub pixel_size: f32,
+    /// World-origin position in destination render-target pixel coordinates.
+    pub pixel_grid_origin: [f32; 2],
+}
+
+/// Returns whether a pass uses separate source-mask, illumination, and output handles.
+pub fn emission_pass_targets_are_distinct<T>(
+    source_mask: &T,
+    illumination: &T,
+    destination: &T,
+) -> bool {
+    !std::ptr::eq(source_mask, illumination)
+        && !std::ptr::eq(source_mask, destination)
+        && !std::ptr::eq(illumination, destination)
+}
+
 /// Trait for render target operations (offscreen rendering and drawing).
 pub trait RenderOps {
     /// Redirects rendering to an offscreen render target.
@@ -51,6 +79,15 @@ pub trait RenderOps {
         source: &BishopRenderTarget,
         destination: &BishopRenderTarget,
         params: AmbientPassParams,
+    ) -> Result<(), String>;
+
+    /// Adds one sprite-shaped emission source and its halo to encoded illumination.
+    fn apply_emission_pass(
+        &mut self,
+        source_mask: &BishopRenderTarget,
+        illumination: &BishopRenderTarget,
+        destination: &BishopRenderTarget,
+        params: EmissionPassParams,
     ) -> Result<(), String>;
 
     /// Applies one point light to a previously encoded illumination target.

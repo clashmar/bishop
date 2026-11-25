@@ -8,10 +8,11 @@ use crate::ecs::{Ecs, Entity, LayerDoor, PointLightStyle};
 use crate::game::GameCtxMut;
 use crate::rendering::helpers::RoomVisibilityContext;
 use crate::rendering::lighting::{
-    GlowPassParams, ambient_multiplier, light_scope_affects_layer, point_light_affects_layer,
-    point_light_attenuation, point_light_pixel_size_in_target,
+    GlowPassParams, GlowVisual, ambient_multiplier, light_scope_affects_layer,
+    point_light_affects_layer, point_light_attenuation, point_light_pixel_size_in_target,
 };
 use crate::rendering::render_system_wgpu::RenderSystem;
+use crate::rendering::renderable::draw_emission_mask;
 use crate::rendering::room_composition::{RoomCompositionContext, RoomRenderState};
 use crate::rendering::room_layer_draw::{
     CollectedRoomLayerMaps, LayerDrawItem, collect_interpolated_room_layer_maps,
@@ -448,6 +449,22 @@ impl RoomSceneDrawContext<'_, '_> {
         );
     }
 
+    fn draw_emission_source<C: BishopContext>(
+        &mut self,
+        ctx: &mut C,
+        source: &GlowVisual,
+    ) -> bool {
+        ctx.set_camera(self.render_cam);
+        draw_emission_mask(
+            ctx,
+            self.sprite_manager,
+            source.sprite_id,
+            source.source_rect,
+            source.destination,
+            source.flip_x,
+        )
+    }
+
     fn draw_door_ghosts<C: BishopContext>(&mut self, ctx: &mut C) {
         draw_layer_items(
             ctx,
@@ -485,9 +502,48 @@ fn render_room_contributions<C: BishopContext>(
             .iter()
             .map(|light| light.params)
             .collect::<Vec<_>>();
-        match render_system.light_contribution(ctx, contribution, ambient, &point_lights) {
-            Ok(buffer) => {
-                lit_buffers.insert(contribution, buffer);
+        let mut illumination_source = match render_system.light_contribution(
+            ctx,
+            contribution,
+            ambient,
+            &point_lights,
+        ) {
+            Ok(buffer) => buffer,
+            Err(error) => {
+                RenderSystem::report_pass_failure(&error);
+                lighting_succeeded = false;
+                continue;
+            }
+        };
+
+        for glow in &entry.glows {
+            match render_system.draw_emission_source_mask(
+                ctx,
+                contribution,
+                |ctx| room_draw.draw_emission_source(ctx, &glow.source),
+            ) {
+                Some(true) => {}
+                Some(false) => {
+                    render_system.report_emission_source_unavailable(glow.entity);
+                    continue;
+                }
+                None => continue,
+            }
+
+            match render_system.apply_emission_source(
+                ctx,
+                contribution,
+                illumination_source,
+                glow.params.into(),
+            ) {
+                Ok(next_source) => illumination_source = next_source,
+                Err(error) => render_system.report_emission_pass_failure(glow.entity, &error),
+            }
+        }
+
+        match render_system.composite_contribution(ctx, contribution, illumination_source) {
+            Ok(()) => {
+                lit_buffers.insert(contribution, illumination_source);
             }
             Err(error) => {
                 RenderSystem::report_pass_failure(&error);

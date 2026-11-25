@@ -15,7 +15,7 @@ use crate::rendering::helpers::{
 use crate::rendering::lighting::{GlowVisual, RoomLayerLighting};
 use crate::rendering::particle_draw::{draw_particle, particle_visual_bounds};
 use crate::rendering::particles::{Particle, ParticleSystem};
-use crate::rendering::renderable::{EntityDrawParams, Renderable};
+use crate::rendering::renderable::{EntityDrawParams, Renderable, emission_slice_geometry};
 use crate::rendering::room_composition::RoomCompositionContext;
 use crate::worlds::RoomLayer;
 
@@ -225,26 +225,14 @@ fn resolve_glow_visual_source(
         };
 
         let (source_rect, destination, flip_x) = if let Some(bounds) = slice_bounds {
-            let destination_x = if frame.flip_x {
-                frame_size.x - bounds.x - bounds.w
-            } else {
-                bounds.x
-            };
-            (
-                Rect::new(
-                    frame_source_x + bounds.x,
-                    frame_source_y + bounds.y,
-                    bounds.w,
-                    bounds.h,
-                ),
-                Rect::new(
-                    frame_position.x + destination_x,
-                    frame_position.y + bounds.y,
-                    bounds.w,
-                    bounds.h,
-                ),
+            let (source, destination) = emission_slice_geometry(
+                Vec2::new(frame_source_x, frame_source_y),
+                frame_position,
+                frame_size,
+                bounds,
                 frame.flip_x,
-            )
+            );
+            (source, destination, frame.flip_x)
         } else {
             (
                 Rect::new(frame_source_x, frame_source_y, frame_size.x, frame_size.y),
@@ -368,7 +356,12 @@ pub(super) fn collect_interpolated_room_layer_maps<'a>(
             if let Some(light) = point_light_store.get(entity) {
                 entry.lighting.collect_point_light(entity, light, draw_pos);
             }
-            if let Some(glow) = glow_store.get(entity) {
+            let visual_entity = resolve_visual_entity(ecs, entity);
+            let glow_entry = glow_store
+                .get(entity)
+                .map(|glow| (entity, glow))
+                .or_else(|| glow_store.get(visual_entity).map(|glow| (visual_entity, glow)));
+            if let Some((glow_entity, glow)) = glow_entry {
                 if let Some(source) = resolve_glow_visual_source(
                     ecs,
                     sprite_manager,
@@ -377,15 +370,12 @@ pub(super) fn collect_interpolated_room_layer_maps<'a>(
                     draw_pos,
                     room_ctx.grid_size,
                 ) {
-                    entry.lighting.collect_glow(entity, glow, source);
+                    entry.lighting.collect_glow(glow_entity, glow, source);
                 } else {
                     let kind = match glow.source {
                         GlowSource::DisplayedVisual => GlowSourceIssueKind::DisplayedVisualUnavailable,
                         GlowSource::AsepriteSlice
-                            if ecs
-                                .get_store::<CurrentFrame>()
-                                .get(resolve_visual_entity(ecs, entity))
-                                .is_none() =>
+                            if ecs.get_store::<CurrentFrame>().get(visual_entity).is_none() =>
                         {
                             GlowSourceIssueKind::MissingCurrentFrame
                         }
@@ -393,7 +383,7 @@ pub(super) fn collect_interpolated_room_layer_maps<'a>(
                     };
                     maps.glow_source_diagnostics
                         .push(GlowSourceDiagnostic {
-                            entity,
+                            entity: glow_entity,
                             owner_layer: room_layer,
                             kind,
                         });

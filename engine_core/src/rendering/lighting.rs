@@ -1,6 +1,7 @@
 use crate::animation::{AsepriteSliceBounds, ClipId};
 use crate::ecs::{Entity, Glow, PointLight, PointLightLayerScope, SpriteId};
 use crate::worlds::RoomLayer;
+use bishop::material::EmissionPassParams;
 use bishop::prelude::{Rect, Vec2, Vec3};
 
 pub(crate) type CollectedPointLight<'a> = (Entity, &'a PointLight, Vec2);
@@ -51,6 +52,19 @@ impl Default for GlowPassParams {
             pixelated: false,
             pixel_size: 1.0,
             pixel_grid_origin: [0.0, 0.0],
+        }
+    }
+}
+
+impl From<GlowPassParams> for EmissionPassParams {
+    fn from(params: GlowPassParams) -> Self {
+        Self {
+            color: params.color,
+            intensity: params.intensity,
+            halo_spread: params.halo_spread,
+            pixelated: params.pixelated,
+            pixel_size: params.pixel_size,
+            pixel_grid_origin: params.pixel_grid_origin,
         }
     }
 }

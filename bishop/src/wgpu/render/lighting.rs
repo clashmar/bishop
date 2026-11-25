@@ -3,7 +3,7 @@
 use bytemuck::{Pod, Zeroable};
 use super::fullscreen_quad::FullscreenQuadRenderer;
 use super::render_target::BishopRenderTarget;
-use crate::material::{AmbientPassParams, PointLightPassParams};
+use crate::material::{AmbientPassParams, EmissionPassParams, PointLightPassParams};
 
 const FULLSCREEN_QUAD_CAMERA_SIZE: (f32, f32) = (1.0, 1.0);
 
@@ -18,6 +18,15 @@ struct AmbientUniforms {
 #[derive(Clone, Copy, Pod, Zeroable)]
 struct PointLightUniforms {
     center_radius_intensity: [f32; 4],
+    color: [f32; 4],
+    settings: [f32; 4],
+    resolution: [f32; 4],
+    pixel_grid_origin: [f32; 4],
+}
+
+#[repr(C)]
+#[derive(Clone, Copy, Pod, Zeroable)]
+struct EmissionUniforms {
     color: [f32; 4],
     settings: [f32; 4],
     resolution: [f32; 4],
@@ -191,6 +200,7 @@ impl PassPipeline {
 pub(crate) struct LightingRenderer {
     ambient: PassPipeline,
     point: PassPipeline,
+    emission: PassPipeline,
     composite: PassPipeline,
 }
 
@@ -217,6 +227,14 @@ impl LightingRenderer {
             "point_light_pass",
             format!("{vertex}\n{}", include_str!("shaders/point_light.wgsl")),
         );
+        let emission = PassPipeline::new(
+            device,
+            format,
+            quad.camera_bind_group_layout(),
+            std::mem::size_of::<EmissionUniforms>() as u64,
+            "sprite_emission_pass",
+            format!("{vertex}\n{}", include_str!("shaders/emission.wgsl")),
+        );
         let composite = PassPipeline::new(
             device,
             format,
@@ -225,7 +243,7 @@ impl LightingRenderer {
             "room_lighting_composite_pass",
             format!("{vertex}\n{}", include_str!("shaders/room_lighting_composite.wgsl")),
         );
-        Self { ambient, point, composite }
+        Self { ambient, point, emission, composite }
     }
 
     pub(crate) fn ambient(
@@ -280,6 +298,46 @@ impl LightingRenderer {
         };
         queue.write_buffer(&self.point.uniform_buffer, 0, bytemuck::bytes_of(&uniforms));
         self.draw(device, queue, encoder, quad, &self.point, source, source, destination);
+    }
+
+    pub(crate) fn emission(
+        &self,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        encoder: &mut wgpu::CommandEncoder,
+        quad: &FullscreenQuadRenderer,
+        source_mask: &BishopRenderTarget,
+        illumination: &BishopRenderTarget,
+        destination: &BishopRenderTarget,
+        params: EmissionPassParams,
+    ) {
+        let uniforms = EmissionUniforms {
+            color: [params.color[0], params.color[1], params.color[2], 1.0],
+            settings: [
+                params.intensity.max(0.0),
+                params.halo_spread.max(0.0),
+                params.pixel_size.max(1.0),
+                if params.pixelated { 1.0 } else { 0.0 },
+            ],
+            resolution: [destination.width() as f32, destination.height() as f32, 0.0, 0.0],
+            pixel_grid_origin: [
+                params.pixel_grid_origin[0],
+                params.pixel_grid_origin[1],
+                0.0,
+                0.0,
+            ],
+        };
+        queue.write_buffer(&self.emission.uniform_buffer, 0, bytemuck::bytes_of(&uniforms));
+        self.draw(
+            device,
+            queue,
+            encoder,
+            quad,
+            &self.emission,
+            source_mask,
+            illumination,
+            destination,
+        );
     }
 
     pub(crate) fn composite(
@@ -370,11 +428,23 @@ mod tests {
         for fragment in [
             include_str!("shaders/room_ambient.wgsl"),
             include_str!("shaders/point_light.wgsl"),
+            include_str!("shaders/emission.wgsl"),
             include_str!("shaders/room_lighting_composite.wgsl"),
         ] {
             let source = format!("{vertex}\n{fragment}");
             assert_eq!(source.matches("struct VertexOutput {").count(), 1);
         }
+    }
+
+    #[test]
+    fn emission_shader_adds_source_and_normalized_halo_without_resampling_illumination() {
+        let wgsl = include_str!("shaders/emission.wgsl");
+
+        assert!(wgsl.contains("let accumulated = textureSample(t_illumination, s_illumination, in.uv);"));
+        assert!(wgsl.contains("weighted_alpha / 16.0"));
+        assert!(wgsl.contains("(source_alpha + halo_alpha)"));
+        assert!(wgsl.contains("if spread <= 0.0"));
+        assert!(wgsl.contains("quantize_mask_position"));
     }
 
     #[test]
