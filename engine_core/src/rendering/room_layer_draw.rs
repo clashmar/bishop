@@ -252,7 +252,9 @@ fn resolve_glow_visual_source(
         });
     }
 
-    if glow.source == GlowSource::AsepriteSlice {
+    if glow.source == GlowSource::AsepriteSlice
+        && ecs.get_store::<Animation>().get(visual_entity).is_some()
+    {
         return None;
     }
 
@@ -268,6 +270,24 @@ fn resolve_glow_visual_source(
         return None;
     }
     let draw_position = pivot_adjusted_position(position, size, pivot);
+
+    if glow.source == GlowSource::AsepriteSlice {
+        let bounds = glow.static_slice_bounds()?;
+        if !valid_slice_bounds(bounds, size) {
+            return None;
+        }
+        let (source_rect, destination) =
+            emission_slice_geometry(Vec2::ZERO, draw_position, size, bounds, false);
+        return Some(GlowVisual {
+            sprite_id: sprite.sprite,
+            source_rect,
+            destination,
+            flip_x: false,
+            clip_id: None,
+            frame_index: Some(0),
+            slice_bounds: Some(bounds),
+        });
+    }
 
     Some(GlowVisual {
         sprite_id: sprite.sprite,
@@ -375,7 +395,8 @@ pub(super) fn collect_interpolated_room_layer_maps<'a>(
                     let kind = match glow.source {
                         GlowSource::DisplayedVisual => GlowSourceIssueKind::DisplayedVisualUnavailable,
                         GlowSource::AsepriteSlice
-                            if ecs.get_store::<CurrentFrame>().get(visual_entity).is_none() =>
+                            if ecs.get_store::<CurrentFrame>().get(visual_entity).is_none()
+                                && ecs.get_store::<Animation>().get(visual_entity).is_some() =>
                         {
                             GlowSourceIssueKind::MissingCurrentFrame
                         }

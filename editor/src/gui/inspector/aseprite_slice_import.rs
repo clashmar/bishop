@@ -10,6 +10,7 @@ pub(super) fn format_aseprite_slice_import_toast(
     warning_count: usize,
     failure_count: usize,
     imported_item_label: &str,
+    failure_count_label: &str,
     failure_message: &str,
     no_results_message: &str,
 ) -> (AsepriteSliceImportToast, String, f32) {
@@ -34,7 +35,7 @@ pub(super) fn format_aseprite_slice_import_toast(
     if failure_count > 0 {
         return (
             AsepriteSliceImportToast::Failure,
-            format!("{failure_message} for {failure_count} clip(s)"),
+            format!("{failure_message} for {failure_count} {failure_count_label}"),
             3.0,
         );
     }

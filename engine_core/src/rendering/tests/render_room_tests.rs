@@ -436,6 +436,102 @@ fn collect_interpolated_room_layer_maps_emission_resolves_current_slice_frame_an
 }
 
 #[test]
+fn collect_interpolated_room_layer_maps_emission_uses_static_sprite_slice_bounds() {
+    let room_id = RoomId(1);
+    let world = World::from_rooms(
+        WorldId(0),
+        String::new(),
+        vec![make_room(Some(1), 0.0, 0.0, 4.0, 4.0)],
+        16.0,
+    );
+    let bounds = AsepriteSliceBounds {
+        x: 2.0,
+        y: 3.0,
+        w: 5.0,
+        h: 7.0,
+    };
+    let mut glow = Glow::default();
+    glow.source = GlowSource::AsepriteSlice;
+    glow.replace_static_slice_bounds(Some(bounds));
+    let mut ecs = Ecs::default();
+    ecs.create_entity()
+        .with(Transform {
+            position: vec2(10.0, 8.0),
+            z: 2,
+            pivot: Pivot::TopLeft,
+            ..Default::default()
+        })
+        .with(Sprite { sprite: SpriteId(17) })
+        .with(glow)
+        .with_current_room_layer(room_id, RoomLayer::Front)
+        .finish();
+
+    let layer_maps = collect_interpolated_room_layer_maps(
+        &ecs,
+        &room_visibility_context(&world, room_id),
+        &SpriteManager::default(),
+        16.0,
+        None,
+        None,
+    );
+    let resolved = layer_maps
+        .for_layer(RoomLayer::Front)
+        .get(&2)
+        .and_then(|layer| layer.lighting.glows.first())
+        .map(|glow| glow.source.clone())
+        .expect("matching static sprite slice should be collected");
+
+    assert_eq!(resolved.sprite_id, SpriteId(17));
+    assert_eq!(resolved.source_rect, Rect::new(2.0, 3.0, 5.0, 7.0));
+    assert_eq!(resolved.destination, Rect::new(12.0, 11.0, 5.0, 7.0));
+    assert_eq!(resolved.clip_id, None);
+    assert_eq!(resolved.frame_index, Some(0));
+    assert_eq!(resolved.slice_bounds, Some(bounds));
+}
+
+#[test]
+fn collect_interpolated_room_layer_maps_static_slice_without_bounds_does_not_emit_full_sprite() {
+    let room_id = RoomId(1);
+    let world = World::from_rooms(
+        WorldId(0),
+        String::new(),
+        vec![make_room(Some(1), 0.0, 0.0, 4.0, 4.0)],
+        16.0,
+    );
+    let mut glow = Glow::default();
+    glow.source = GlowSource::AsepriteSlice;
+    let mut ecs = Ecs::default();
+    let entity = ecs.create_entity()
+        .with(Transform::default())
+        .with(Sprite { sprite: SpriteId(17) })
+        .with(glow)
+        .with_current_room_layer(room_id, RoomLayer::Front)
+        .finish();
+
+    let layer_maps = collect_interpolated_room_layer_maps(
+        &ecs,
+        &room_visibility_context(&world, room_id),
+        &SpriteManager::default(),
+        16.0,
+        None,
+        None,
+    );
+
+    assert!(layer_maps
+        .for_layer(RoomLayer::Front)
+        .values()
+        .all(|layer| layer.lighting.glows.is_empty()));
+    assert_eq!(
+        layer_maps.glow_source_diagnostics,
+        vec![GlowSourceDiagnostic {
+            entity,
+            owner_layer: RoomLayer::Front,
+            kind: GlowSourceIssueKind::MissingSliceBounds,
+        }],
+    );
+}
+
+#[test]
 fn collect_interpolated_room_layer_maps_emission_uses_animated_player_visual_glow() {
     let room_id = RoomId(1);
     let world = World::from_rooms(
