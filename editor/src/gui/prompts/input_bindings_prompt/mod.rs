@@ -1,4 +1,6 @@
+mod capture;
 mod prompt;
+mod rename;
 mod state;
 
 #[cfg(test)]
@@ -26,6 +28,4 @@ pub(crate) use prompt::InputBindingsPrompt;
 pub(crate) use state::{BindingScope, InputBindingsPromptState};
 
 #[cfg(test)]
-pub(crate) use prompt::{
-    axis_capture_binding, gamepad_button_capture_binding, key_capture_binding,
-};
+use capture::{axis_capture_binding, gamepad_button_capture_binding, key_capture_binding};

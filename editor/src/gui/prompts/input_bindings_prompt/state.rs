@@ -6,7 +6,6 @@ use uuid::Uuid;
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum BindingScope {
     GameDefaults,
-    Global,
     PerGame,
 }
 
@@ -14,13 +13,12 @@ impl BindingScope {
     pub(super) fn label(self) -> &'static str {
         match self {
             Self::GameDefaults => "Game defaults",
-            Self::Global => "Global override",
             Self::PerGame => "This game override",
         }
     }
 
     pub(super) fn from_label(label: &str) -> Option<Self> {
-        [Self::GameDefaults, Self::Global, Self::PerGame]
+        [Self::GameDefaults, Self::PerGame]
             .into_iter()
             .find(|scope| scope.label() == label)
     }
@@ -100,6 +98,48 @@ impl InputBindingsPromptState {
         true
     }
 
+    pub(crate) fn rename_selected_action(&mut self, new_action_id: &str) -> bool {
+        let Some(current_action_id) = self.selected_action.clone() else {
+            return false;
+        };
+
+        let new_action_id = new_action_id.trim();
+        if new_action_id.is_empty() {
+            return false;
+        }
+        let new_action_id = InputActionId::new(new_action_id);
+        if new_action_id == current_action_id {
+            return true;
+        }
+        if self.actions.actions.contains_key(&new_action_id) {
+            return false;
+        }
+
+        let game_key = self.game_id.to_string();
+        if self
+            .settings
+            .per_game_overrides
+            .get(&game_key)
+            .is_some_and(|overrides| overrides.contains_key(&new_action_id))
+        {
+            return false;
+        }
+
+        let Some(bindings) = self.actions.actions.remove(&current_action_id) else {
+            return false;
+        };
+        self.actions.actions.insert(new_action_id.clone(), bindings);
+
+        if let Some(overrides) = self.settings.per_game_overrides.get_mut(&game_key) {
+            if let Some(bindings) = overrides.remove(&current_action_id) {
+                overrides.insert(new_action_id.clone(), bindings);
+            }
+        }
+
+        self.selected_action = Some(new_action_id);
+        true
+    }
+
     pub(crate) fn remove_selected_action(&mut self) -> bool {
         let Some(action_id) = self.selected_action.take() else {
             return false;
@@ -128,13 +168,6 @@ impl InputBindingsPromptState {
                 .actions
                 .get(action_id)
                 .map(Vec::as_slice),
-            BindingScope::Global => Some(
-                self.settings
-                    .global_overrides
-                    .get(action_id)
-                    .map(Vec::as_slice)
-                    .unwrap_or(&[]),
-            ),
             BindingScope::PerGame => Some(
                 self.settings
                     .per_game_overrides
@@ -160,7 +193,6 @@ impl InputBindingsPromptState {
         };
         match self.scope {
             BindingScope::GameDefaults => false,
-            BindingScope::Global => self.settings.global_overrides.contains_key(action_id),
             BindingScope::PerGame => self
                 .settings
                 .per_game_overrides
@@ -177,6 +209,38 @@ impl InputBindingsPromptState {
         if !bindings.contains(&binding) {
             bindings.push(binding);
         }
+    }
+
+    pub(crate) fn replace_binding(&mut self, index: usize, binding: InputBinding) -> bool {
+        let Some(action_id) = self.selected_action.clone() else {
+            return false;
+        };
+
+        let needs_inherited_override =
+            self.scope != BindingScope::GameDefaults && !self.has_explicit_override();
+        let mut bindings = if needs_inherited_override {
+            let Some(bindings) = self.effective_bindings() else {
+                return false;
+            };
+            bindings.to_vec()
+        } else {
+            let Some(bindings) = self.bindings_mut_optional(&action_id) else {
+                return false;
+            };
+            bindings.clone()
+        };
+
+        if index >= bindings.len()
+            || bindings
+                .iter()
+                .enumerate()
+                .any(|(other_index, existing)| other_index != index && *existing == binding)
+        {
+            return false;
+        }
+        bindings[index] = binding;
+        *self.bindings_mut(&action_id) = bindings;
+        true
     }
 
     pub(crate) fn remove_binding(&mut self, index: usize) -> bool {
@@ -199,9 +263,6 @@ impl InputBindingsPromptState {
         };
         match self.scope {
             BindingScope::GameDefaults => {}
-            BindingScope::Global => {
-                self.settings.global_overrides.remove(action_id);
-            }
             BindingScope::PerGame => {
                 let game_key = self.game_id.to_string();
                 if let Some(overrides) = self.settings.per_game_overrides.get_mut(&game_key) {
@@ -229,11 +290,6 @@ impl InputBindingsPromptState {
     fn bindings_mut(&mut self, action_id: &InputActionId) -> &mut Vec<InputBinding> {
         match self.scope {
             BindingScope::GameDefaults => self.actions.actions.entry(action_id.clone()).or_default(),
-            BindingScope::Global => self
-                .settings
-                .global_overrides
-                .entry(action_id.clone())
-                .or_default(),
             BindingScope::PerGame => self
                 .settings
                 .per_game_overrides
@@ -247,7 +303,6 @@ impl InputBindingsPromptState {
     fn bindings_mut_optional(&mut self, action_id: &InputActionId) -> Option<&mut Vec<InputBinding>> {
         match self.scope {
             BindingScope::GameDefaults => self.actions.actions.get_mut(action_id),
-            BindingScope::Global => self.settings.global_overrides.get_mut(action_id),
             BindingScope::PerGame => self
                 .settings
                 .per_game_overrides

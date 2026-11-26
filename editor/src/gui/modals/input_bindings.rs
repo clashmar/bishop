@@ -28,7 +28,7 @@ impl ModalHandler for InputBindingsModal {
     }
 
     fn open(&mut self, editor: &mut Editor, ctx: &WgpuContext) {
-        editor.modal = Modal::new(ctx, 720.0, 520.0);
+        editor.modal = Modal::new(ctx, 720.0, 440.0);
         let mut prompt = InputBindingsPrompt::new(
             editor.modal.rect,
             editor.game.input_actions.clone(),

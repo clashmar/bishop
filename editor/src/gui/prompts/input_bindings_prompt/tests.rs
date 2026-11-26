@@ -12,11 +12,12 @@ const JUMP_ACTION_ID: &str = "jump";
 const NEW_ACTION_ID: &str = "dash";
 
 fn action_map() -> InputActionMap {
+    action_map_with_bindings(vec![InputBinding::keyboard(KeyCode::Space)])
+}
+
+fn action_map_with_bindings(bindings: Vec<InputBinding>) -> InputActionMap {
     InputActionMap {
-        actions: HashMap::from([(
-            InputActionId::new(JUMP_ACTION_ID),
-            vec![InputBinding::keyboard(KeyCode::Space)],
-        )]),
+        actions: HashMap::from([(InputActionId::new(JUMP_ACTION_ID), bindings)]),
     }
 }
 
@@ -26,7 +27,7 @@ fn prompt_state(game_id: Uuid) -> InputBindingsPromptState {
 
 #[test]
 fn binding_scope_labels_round_trip() {
-    for scope in [BindingScope::GameDefaults, BindingScope::Global, BindingScope::PerGame] {
+    for scope in [BindingScope::GameDefaults, BindingScope::PerGame] {
         assert_eq!(BindingScope::from_label(scope.label()), Some(scope));
     }
 }
@@ -40,33 +41,158 @@ fn selection_and_scope_start_on_authored_defaults() {
 }
 
 #[test]
-fn edits_apply_only_to_the_selected_override_scope() {
+fn per_game_edits_do_not_change_another_games_bindings() {
     let game_id = Uuid::new_v4();
-    let mut state = prompt_state(game_id);
     let action_id = InputActionId::new(JUMP_ACTION_ID);
-    let binding = InputBinding::keyboard(KeyCode::Enter);
-
-    state.set_scope(BindingScope::Global);
-    state.add_binding(binding);
-    assert_eq!(state.bindings(), Some(&[binding][..]));
-
+    let mut state = prompt_state(game_id);
     state.set_scope(BindingScope::PerGame);
-    state.add_binding(InputBinding::keyboard(KeyCode::Tab));
-    assert_eq!(state.bindings().unwrap()[0].source, InputSource::Key(KeyCode::Tab));
+    state.add_binding(InputBinding::keyboard(KeyCode::Enter));
 
     let changes = state.finish(true).unwrap();
     let settings = changes.input_settings.unwrap();
-    assert_eq!(settings.global_overrides[&action_id], vec![binding]);
     assert_eq!(
         settings.per_game_overrides[&game_id.to_string()][&action_id],
-        vec![InputBinding::keyboard(KeyCode::Tab)]
+        vec![InputBinding::keyboard(KeyCode::Enter)]
+    );
+    let other_game = InputBindingsPromptState::new(
+        action_map(),
+        settings,
+        Uuid::new_v4(),
+    );
+    assert_eq!(
+        other_game.effective_bindings(),
+        Some(&[InputBinding::keyboard(KeyCode::Space)][..])
+    );
+}
+
+#[test]
+fn renaming_an_action_moves_its_per_game_override() {
+    let game_id = Uuid::new_v4();
+    let action_id = InputActionId::new(JUMP_ACTION_ID);
+    let game_overrides = HashMap::from([(
+        action_id.clone(),
+        vec![InputBinding::keyboard(KeyCode::Enter)],
+    )]);
+    let settings = InputSettings {
+        per_game_overrides: HashMap::from([(game_id.to_string(), game_overrides)]),
+    };
+    let mut state = InputBindingsPromptState::new(
+        action_map_with_bindings(vec![
+            InputBinding::keyboard(KeyCode::Space),
+            InputBinding::keyboard(KeyCode::Tab),
+        ]),
+        settings,
+        game_id,
+    );
+    state.set_scope(BindingScope::PerGame);
+
+    assert!(state.rename_selected_action("confirm"));
+
+    let renamed_id = InputActionId::new("confirm");
+    assert_eq!(state.selected_action(), Some(&renamed_id));
+    assert_eq!(
+        state.action_ids(),
+        vec![renamed_id.clone()]
+    );
+    assert_eq!(
+        state.bindings(),
+        Some(&[InputBinding::keyboard(KeyCode::Enter)][..])
+    );
+
+    let changes = state.finish(true).unwrap();
+    let actions = changes.input_actions.unwrap();
+    assert_eq!(
+        actions.actions[&renamed_id],
+        vec![
+            InputBinding::keyboard(KeyCode::Space),
+            InputBinding::keyboard(KeyCode::Tab),
+        ]
+    );
+    let settings = changes.input_settings.unwrap();
+    assert_eq!(
+        settings.per_game_overrides[&game_id.to_string()][&renamed_id],
+        vec![InputBinding::keyboard(KeyCode::Enter)]
+    );
+}
+
+#[test]
+fn renaming_an_action_rejects_empty_or_duplicate_ids() {
+    let mut state = prompt_state(Uuid::new_v4());
+    assert!(state.add_action("dash"));
+
+    assert!(!state.rename_selected_action("  "));
+    assert!(!state.rename_selected_action(JUMP_ACTION_ID));
+    assert_eq!(state.selected_action(), Some(&InputActionId::new(NEW_ACTION_ID)));
+    assert_eq!(state.action_ids().len(), 2);
+}
+
+#[test]
+fn renaming_an_action_rejects_a_per_game_override_conflict() {
+    let game_id = Uuid::new_v4();
+    let settings = InputSettings {
+        per_game_overrides: HashMap::from([(
+            game_id.to_string(),
+            HashMap::from([(InputActionId::new("confirm"), Vec::new())]),
+        )]),
+    };
+    let mut state = InputBindingsPromptState::new(action_map(), settings, game_id);
+    state.set_scope(BindingScope::PerGame);
+
+    assert!(!state.rename_selected_action("confirm"));
+    assert_eq!(state.selected_action(), Some(&InputActionId::new(JUMP_ACTION_ID)));
+    assert!(state.action_ids().contains(&InputActionId::new(JUMP_ACTION_ID)));
+}
+
+#[test]
+fn replacing_a_binding_updates_only_the_selected_binding() {
+    let game_id = Uuid::new_v4();
+    let actions = action_map_with_bindings(vec![
+        InputBinding::keyboard(KeyCode::Space),
+        InputBinding::keyboard(KeyCode::Tab),
+    ]);
+    let mut state = InputBindingsPromptState::new(actions, InputSettings::default(), game_id);
+
+    assert!(state.replace_binding(0, InputBinding::keyboard(KeyCode::Enter)));
+
+    assert_eq!(
+        state.bindings(),
+        Some(
+            &[
+                InputBinding::keyboard(KeyCode::Enter),
+                InputBinding::keyboard(KeyCode::Tab),
+            ][..]
+        )
+    );
+}
+
+#[test]
+fn replacing_an_inherited_binding_creates_an_override_with_other_bindings_preserved() {
+    let game_id = Uuid::new_v4();
+    let actions = action_map_with_bindings(vec![
+        InputBinding::keyboard(KeyCode::Space),
+        InputBinding::keyboard(KeyCode::Tab),
+    ]);
+    let mut state = InputBindingsPromptState::new(actions, InputSettings::default(), game_id);
+    state.set_scope(BindingScope::PerGame);
+
+    assert!(state.replace_binding(0, InputBinding::keyboard(KeyCode::Enter)));
+
+    assert!(state.has_explicit_override());
+    assert_eq!(
+        state.bindings(),
+        Some(
+            &[
+                InputBinding::keyboard(KeyCode::Enter),
+                InputBinding::keyboard(KeyCode::Tab),
+            ][..]
+        )
     );
 }
 
 #[test]
 fn removing_the_last_override_binding_keeps_an_explicit_empty_override() {
     let mut state = prompt_state(Uuid::new_v4());
-    state.set_scope(BindingScope::Global);
+    state.set_scope(BindingScope::PerGame);
     state.add_binding(InputBinding::keyboard(KeyCode::Enter));
 
     state.remove_binding(0);
@@ -116,7 +242,6 @@ fn removing_an_authored_action_clears_its_per_game_override() {
         ]),
     };
     let settings = InputSettings {
-        global_overrides: HashMap::new(),
         per_game_overrides: HashMap::from([(
             game_id.to_string(),
             HashMap::from([(action_id.clone(), vec![InputBinding::keyboard(KeyCode::Tab)])]),

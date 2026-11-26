@@ -147,16 +147,12 @@ fn negative_axis_activates_negative_direction_and_releases_below_threshold() {
 }
 
 #[test]
-fn missing_actions_are_neutral_and_settings_precedence_is_respected() {
+fn missing_actions_are_neutral_and_per_game_overrides_are_respected() {
     let overridden = InputActionId::new(JUMP_ACTION_ID);
     let absent = InputActionId::new("not_defined");
     let actions = action_map(vec![binding(InputSource::Key(KeyCode::Space))]);
     let game_id = Uuid::new_v4();
     let settings = InputSettings {
-        global_overrides: HashMap::from([(
-            overridden.clone(),
-            vec![binding(InputSource::Key(KeyCode::Enter))],
-        )]),
         per_game_overrides: HashMap::from([(
             game_id.to_string(),
             HashMap::from([(overridden.clone(), Vec::new())]),

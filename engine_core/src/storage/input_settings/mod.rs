@@ -18,17 +18,15 @@ mod tests;
 #[cfg(not(target_arch = "wasm32"))]
 const INPUT_SETTINGS_FILE: &str = "input_settings.ron";
 
-/// Player-authored global and per-game action binding overrides.
+/// Player-authored action binding overrides, scoped to individual games.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 pub struct InputSettings {
-    /// Global action overrides, applied when no game-specific override exists.
-    pub global_overrides: HashMap<InputActionId, Vec<InputBinding>>,
     /// Game-specific overrides keyed by the serialized game identifier.
     pub per_game_overrides: HashMap<String, HashMap<InputActionId, Vec<InputBinding>>>,
 }
 
 impl InputSettings {
-    /// Resolves bindings in per-game, global, then authored-default order.
+    /// Resolves bindings in per-game override, then authored-default order.
     pub fn bindings_for<'a>(
         &'a self,
         game_id: Uuid,
@@ -38,7 +36,6 @@ impl InputSettings {
         self.per_game_overrides
             .get(&game_id.to_string())
             .and_then(|overrides| overrides.get(action_id))
-            .or_else(|| self.global_overrides.get(action_id))
             .or_else(|| authored.actions.get(action_id))
             .map(Vec::as_slice)
             .unwrap_or(&[])
