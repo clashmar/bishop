@@ -6,7 +6,7 @@ use crate::gui::field_layout::{
     draw_integer_slider, draw_label, field_rect, field_rect_with_label_width, input_active,
 };
 use engine_core::ecs::{
-    components::{Glow, GlowSource, PointLightLayerScope, PointLightStyle},
+    components::{Glow, PointLightLayerScope, PointLightStyle},
     inspector::{
         factory::ModuleFactoryEntry,
         layout::InspectorBodyLayout,
@@ -17,8 +17,6 @@ use engine_core::ecs::{
 use engine_core::game::GameCtxMut;
 use widgets::{ColorInput, ColorInputEdit, Dropdown, Widget, WidgetId};
 
-mod sync;
-
 /// Title shown for the Glow component inspector.
 pub const GLOW_MODULE_TITLE: &str = "Glow";
 
@@ -26,18 +24,15 @@ const INTENSITY_MAX: f32 = 20.0;
 const HALO_SPREAD_MAX: f32 = 256.0;
 const PIXEL_SIZE_MIN: i32 = 1;
 const PIXEL_SIZE_MAX: i32 = 16;
-const ROW_H: f32 = FIELD_HEIGHT;
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 struct VisibleControls {
     pixel_size: bool,
-    slice_import: bool,
 }
 
-/// Edits sprite-shaped emission settings and imported Aseprite bounds.
+/// Edits sprite-shaped emission settings.
 #[derive(Default)]
 pub struct GlowModule {
-    source_id: WidgetId,
     color_id: WidgetId,
     intensity_id: WidgetId,
     intensity_slider_id: WidgetId,
@@ -47,7 +42,6 @@ pub struct GlowModule {
     style_id: WidgetId,
     pixel_size_id: WidgetId,
     pixel_size_slider_id: WidgetId,
-    sync_ui: sync::GlowSyncUi,
     controls: Cell<VisibleControls>,
     was_editing: Cell<bool>,
 }
@@ -80,7 +74,7 @@ impl InspectorModule for GlowModule {
 
     fn body_layout(&self) -> InspectorBodyLayout {
         let controls = self.controls.get();
-        let rows = 6 + usize::from(controls.pixel_size) + usize::from(controls.slice_import);
+        let rows = 5 + usize::from(controls.pixel_size);
         InspectorBodyLayout::new()
             .top_padding(TOP_PADDING)
             .rows(rows, FIELD_GAP)
@@ -97,28 +91,11 @@ impl InspectorModule for GlowModule {
     ) {
         self.was_editing.set(false);
         let controls;
-        let import_rect;
         {
             let Some(glow) = game_ctx.ecs.get_mut::<Glow>(entity) else {
                 return;
             };
             let mut y = rect.y + TOP_PADDING;
-
-            draw_label(ctx, "Source:", rect, y);
-            let source_label = glow.source.to_string();
-            if let Some(source) = Dropdown::new(
-                self.source_id,
-                field_rect(rect, y),
-                &source_label,
-                &GlowSource::ALL,
-                |source| source.to_string(),
-            )
-            .suppressed(blocked)
-            .show(ctx)
-            {
-                glow.source = source;
-            }
-            y += FIELD_HEIGHT + FIELD_GAP;
 
             draw_label(ctx, "Color:", rect, y);
             let current_color = Color::new(glow.color.x, glow.color.y, glow.color.z, 1.0);
@@ -234,25 +211,18 @@ impl InspectorModule for GlowModule {
                     glow.pixel_size = pixel_size;
                     self.was_editing.set(true);
                 }
-                y += FIELD_HEIGHT + FIELD_GAP;
             }
 
             glow.normalize_settings();
             controls = visible_controls(glow);
-            import_rect = Rect::new(rect.x, y, rect.w, ROW_H);
         }
         self.controls.set(controls);
-
-        if controls.slice_import {
-            sync::draw_sync_controls(ctx, &mut self.sync_ui, blocked, import_rect, game_ctx, entity);
-        }
     }
 }
 
 fn visible_controls(glow: &Glow) -> VisibleControls {
     VisibleControls {
         pixel_size: glow.style == PointLightStyle::Pixel,
-        slice_import: sync::should_show_aseprite_slice_import(glow),
     }
 }
 
@@ -260,7 +230,7 @@ inventory::submit! {
     ModuleFactoryEntry {
         type_name: Glow::TYPE_NAME,
         title: GLOW_MODULE_TITLE,
-        tooltip: "Configures sprite-shaped emission and imported glow slices.",
+        tooltip: "Configures sprite-shaped emission.",
         factory: || Box::new(
             CollapsibleComponentModule::new(GlowModule::default())
                 .with_title(GLOW_MODULE_TITLE)
@@ -272,18 +242,9 @@ inventory::submit! {
 #[cfg(test)]
 mod tests {
     use super::{GLOW_MODULE_TITLE, GlowModule, visible_controls};
-    use engine_core::ecs::components::{Glow, GlowSource, PointLightStyle};
+    use engine_core::ecs::components::{Glow, PointLightStyle};
     use engine_core::ecs::inspector::factory::MODULES;
     use engine_core::ecs::inspector::module::InspectorModule;
-
-    #[test]
-    fn slice_import_control_is_visible_for_slice_source() {
-        let mut glow = Glow::default();
-        assert!(!visible_controls(&glow).slice_import);
-
-        glow.source = GlowSource::AsepriteSlice;
-        assert!(visible_controls(&glow).slice_import);
-    }
 
     #[test]
     fn pixel_size_control_is_visible_only_for_pixel_style() {

@@ -1,5 +1,4 @@
 use bishop::prelude::*;
-use crate::animation::AsepriteSliceBounds;
 use crate::assets::SpriteManager;
 use crate::ecs::{Pivot, SpriteId};
 
@@ -23,34 +22,6 @@ pub trait Renderable {
         sprite_manager: &mut SpriteManager,
         params: &EntityDrawParams,
     ) -> bool;
-}
-
-pub(crate) fn emission_slice_geometry(
-    frame_source_origin: Vec2,
-    frame_position: Vec2,
-    frame_size: Vec2,
-    bounds: AsepriteSliceBounds,
-    flip_x: bool,
-) -> (Rect, Rect) {
-    let destination_x = if flip_x {
-        frame_size.x - bounds.x - bounds.w
-    } else {
-        bounds.x
-    };
-    (
-        Rect::new(
-            frame_source_origin.x + bounds.x,
-            frame_source_origin.y + bounds.y,
-            bounds.w,
-            bounds.h,
-        ),
-        Rect::new(
-            frame_position.x + destination_x,
-            frame_position.y + bounds.y,
-            bounds.w,
-            bounds.h,
-        ),
-    )
 }
 
 pub(crate) fn draw_emission_mask<C: BishopContext>(

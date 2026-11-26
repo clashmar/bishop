@@ -37,7 +37,6 @@ pub(super) fn aseprite_slice_import_toast(
         warning_count,
         failure_count,
         "collider slice(s)",
-        "clip(s)",
         "Aseprite slice import failed",
         "No Aseprite collider slices found",
     )

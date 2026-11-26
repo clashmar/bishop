@@ -1,4 +1,3 @@
-use crate::animation::{AsepriteSliceBounds, ClipId};
 use crate::ecs::{Entity, Glow, PointLight, PointLightLayerScope, SpriteId};
 use crate::worlds::RoomLayer;
 use bishop::material::EmissionPassParams;
@@ -12,9 +11,6 @@ pub(crate) struct GlowVisual {
     pub(crate) source_rect: Rect,
     pub(crate) destination: Rect,
     pub(crate) flip_x: bool,
-    pub(crate) clip_id: Option<ClipId>,
-    pub(crate) frame_index: Option<usize>,
-    pub(crate) slice_bounds: Option<AsepriteSliceBounds>,
 }
 
 impl Default for GlowVisual {
@@ -24,9 +20,6 @@ impl Default for GlowVisual {
             source_rect: Rect::new(0.0, 0.0, 0.0, 0.0),
             destination: Rect::new(0.0, 0.0, 0.0, 0.0),
             flip_x: false,
-            clip_id: None,
-            frame_index: None,
-            slice_bounds: None,
         }
     }
 }

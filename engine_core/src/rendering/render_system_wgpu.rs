@@ -3,7 +3,7 @@ use std::collections::{HashMap, HashSet};
 use bishop::prelude::*;
 use crate::omni_error;
 use crate::ecs::*;
-use crate::rendering::room_layer_draw::{GlowSourceDiagnostic, GlowSourceIssueKind};
+use crate::rendering::room_layer_draw::GlowSourceDiagnostic;
 use crate::rendering::room_layer_rendering::{
     ContributionLightingPlan, LayerLightingBuffer, LightingFailure, RoomLightingContribution,
     alternate_lighting_buffer, fallback_for_lighting_failure,
@@ -374,17 +374,7 @@ impl RenderSystem {
                 continue;
             }
 
-            let detail = match diagnostic.kind {
-                GlowSourceIssueKind::DisplayedVisualUnavailable => {
-                    "no drawable Sprite or CurrentFrame visual is available"
-                }
-                GlowSourceIssueKind::MissingCurrentFrame => {
-                    "the resolved visual has no CurrentFrame for Aseprite slice selection"
-                }
-                GlowSourceIssueKind::MissingSliceBounds => {
-                    "no valid imported glow slice bounds exist for the active clip and frame"
-                }
-            };
+            let detail = "no drawable Sprite or CurrentFrame visual is available";
             crate::omni_warn!(
                 "glow_source_unavailable entity={:?}: {}; emission skipped",
                 diagnostic.entity,

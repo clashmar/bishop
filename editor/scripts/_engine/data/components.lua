@@ -52,14 +52,12 @@
 ---@class Global
 
 ---@class Glow
----@field source table
 ---@field color vec3
 ---@field intensity number
 ---@field halo_spread number
 ---@field layer_scope table
 ---@field style table
 ---@field pixel_size number
----@field slice_bounds table
 
 ---@alias GravityScale number
 

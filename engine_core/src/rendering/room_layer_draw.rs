@@ -3,7 +3,7 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use bishop::prelude::{BishopContext, Color, Rect, Vec2};
 use crate::assets::SpriteManager;
 use crate::ecs::{
-    Animation, Cover, CurrentFrame, CurrentRoom, Ecs, Entity, Glow, GlowSource, LayerDoor,
+    Cover, CurrentFrame, CurrentRoom, Ecs, Entity, Glow, LayerDoor,
     PointLight, RoomCamera, Sprite, SubPixel, Transform,
 };
 use crate::ecs::components::transform::Pivot;
@@ -15,7 +15,7 @@ use crate::rendering::helpers::{
 use crate::rendering::lighting::{GlowVisual, RoomLayerLighting};
 use crate::rendering::particle_draw::{draw_particle, particle_visual_bounds};
 use crate::rendering::particles::{Particle, ParticleSystem};
-use crate::rendering::renderable::{EntityDrawParams, Renderable, emission_slice_geometry};
+use crate::rendering::renderable::{EntityDrawParams, Renderable};
 use crate::rendering::room_composition::RoomCompositionContext;
 use crate::worlds::RoomLayer;
 
@@ -41,17 +41,9 @@ impl LayerDrawItem<'_> {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub(super) enum GlowSourceIssueKind {
-    DisplayedVisualUnavailable,
-    MissingCurrentFrame,
-    MissingSliceBounds,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub(super) struct GlowSourceDiagnostic {
     pub(super) entity: Entity,
     pub(super) owner_layer: RoomLayer,
-    pub(super) kind: GlowSourceIssueKind,
 }
 
 /// Depth-grouped render data collected from the visible room neighborhood.
@@ -170,7 +162,6 @@ fn resolve_glow_visual_source(
     ecs: &Ecs,
     sprite_manager: &SpriteManager,
     entity: Entity,
-    glow: &Glow,
     position: Vec2,
     grid_size: f32,
 ) -> Option<GlowVisual> {
@@ -189,73 +180,24 @@ fn resolve_glow_visual_source(
             return None;
         }
 
-        let frame_source_x = frame.col as f32 * frame_size.x;
-        let frame_source_y = frame.row as f32 * frame_size.y;
         let frame_position =
             pivot_adjusted_position(position, frame_size, pivot) + frame.offset;
-        let (frame_index, slice_bounds) = match glow.source {
-            GlowSource::DisplayedVisual => {
-                let frame_index = ecs
-                    .get_store::<Animation>()
-                    .get(visual_entity)
-                    .and_then(|animation| animation.clips.get(&frame.clip_id))
-                    .and_then(|clip| {
-                        (frame.col < clip.cols && frame.row < clip.rows)
-                            .then(|| frame.row.checked_mul(clip.cols)?.checked_add(frame.col))
-                            .flatten()
-                    });
-                (frame_index, None)
-            }
-            GlowSource::AsepriteSlice => {
-                let clip = ecs
-                    .get_store::<Animation>()
-                    .get(visual_entity)?
-                    .clips
-                    .get(&frame.clip_id)?;
-                if frame.col >= clip.cols || frame.row >= clip.rows {
-                    return None;
-                }
-                let frame_index = frame.row.checked_mul(clip.cols)?.checked_add(frame.col)?;
-                let bounds = glow.slice_bounds_for_frame(&frame.clip_id, frame_index)?;
-                if !valid_slice_bounds(bounds, frame_size) {
-                    return None;
-                }
-                (Some(frame_index), Some(bounds))
-            }
-        };
-
-        let (source_rect, destination, flip_x) = if let Some(bounds) = slice_bounds {
-            let (source, destination) = emission_slice_geometry(
-                Vec2::new(frame_source_x, frame_source_y),
-                frame_position,
-                frame_size,
-                bounds,
-                frame.flip_x,
-            );
-            (source, destination, frame.flip_x)
-        } else {
-            (
-                Rect::new(frame_source_x, frame_source_y, frame_size.x, frame_size.y),
-                Rect::new(frame_position.x, frame_position.y, frame_size.x, frame_size.y),
-                frame.flip_x,
-            )
-        };
-
         return Some(GlowVisual {
             sprite_id: frame.sprite_id,
-            source_rect,
-            destination,
-            flip_x,
-            clip_id: Some(frame.clip_id.clone()),
-            frame_index,
-            slice_bounds,
+            source_rect: Rect::new(
+                frame.col as f32 * frame_size.x,
+                frame.row as f32 * frame_size.y,
+                frame_size.x,
+                frame_size.y,
+            ),
+            destination: Rect::new(
+                frame_position.x,
+                frame_position.y,
+                frame_size.x,
+                frame_size.y,
+            ),
+            flip_x: frame.flip_x,
         });
-    }
-
-    if glow.source == GlowSource::AsepriteSlice
-        && ecs.get_store::<Animation>().get(visual_entity).is_some()
-    {
-        return None;
     }
 
     let sprite = ecs.get_store::<Sprite>().get(visual_entity)?;
@@ -271,46 +213,12 @@ fn resolve_glow_visual_source(
     }
     let draw_position = pivot_adjusted_position(position, size, pivot);
 
-    if glow.source == GlowSource::AsepriteSlice {
-        let bounds = glow.static_slice_bounds()?;
-        if !valid_slice_bounds(bounds, size) {
-            return None;
-        }
-        let (source_rect, destination) =
-            emission_slice_geometry(Vec2::ZERO, draw_position, size, bounds, false);
-        return Some(GlowVisual {
-            sprite_id: sprite.sprite,
-            source_rect,
-            destination,
-            flip_x: false,
-            clip_id: None,
-            frame_index: Some(0),
-            slice_bounds: Some(bounds),
-        });
-    }
-
     Some(GlowVisual {
         sprite_id: sprite.sprite,
         source_rect: Rect::new(0.0, 0.0, size.x, size.y),
         destination: Rect::new(draw_position.x, draw_position.y, size.x, size.y),
         flip_x: false,
-        clip_id: None,
-        frame_index: None,
-        slice_bounds: None,
     })
-}
-
-fn valid_slice_bounds(bounds: crate::animation::AsepriteSliceBounds, frame_size: Vec2) -> bool {
-    bounds.x.is_finite()
-        && bounds.y.is_finite()
-        && bounds.w.is_finite()
-        && bounds.h.is_finite()
-        && bounds.x >= 0.0
-        && bounds.y >= 0.0
-        && bounds.w > 0.0
-        && bounds.h > 0.0
-        && bounds.x + bounds.w <= frame_size.x
-        && bounds.y + bounds.h <= frame_size.y
 }
 
 pub(super) fn collect_interpolated_room_layer_maps<'a>(
@@ -386,27 +294,15 @@ pub(super) fn collect_interpolated_room_layer_maps<'a>(
                     ecs,
                     sprite_manager,
                     entity,
-                    glow,
                     draw_pos,
                     room_ctx.grid_size,
                 ) {
                     entry.lighting.collect_glow(glow_entity, glow, source);
                 } else {
-                    let kind = match glow.source {
-                        GlowSource::DisplayedVisual => GlowSourceIssueKind::DisplayedVisualUnavailable,
-                        GlowSource::AsepriteSlice
-                            if ecs.get_store::<CurrentFrame>().get(visual_entity).is_none()
-                                && ecs.get_store::<Animation>().get(visual_entity).is_some() =>
-                        {
-                            GlowSourceIssueKind::MissingCurrentFrame
-                        }
-                        GlowSource::AsepriteSlice => GlowSourceIssueKind::MissingSliceBounds,
-                    };
                     maps.glow_source_diagnostics
                         .push(GlowSourceDiagnostic {
                             entity: glow_entity,
                             owner_layer: room_layer,
-                            kind,
                         });
                 }
             }
